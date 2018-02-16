@@ -53,7 +53,7 @@ class MyParser(argparse.ArgumentParser):
         sys.exit(2)
 
 
-INSTALL_DIR = os.getcwd()
+INSTALL_DIR = os.path.join(os.getcwd(), 'usr')
 try:
     parser = MyParser()
     parser.add_argument('--prefix', help='installation path')
