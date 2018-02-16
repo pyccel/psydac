@@ -21,7 +21,7 @@ virtualenv:
 # command before installation
 before_install:
   - sudo apt-get install gfortran
-  - mkdir usr
+  - mkdir -p usr
   - export PREFIX=$PWD/usr
   - mkdir build && cd build
   - cmake -DCMAKE_Fortran_FLAGS="-fPIC" -DCMAKE_INSTALL_PREFIX=$PREFIX  ..

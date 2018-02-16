@@ -6,7 +6,6 @@ import os
 from setuptools import find_packages
 from numpy.distutils.core import setup
 from numpy.distutils.core import Extension
-import argparse
 import spl
 
 NAME    = 'spl'
@@ -36,37 +35,15 @@ packages = find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"])
 # ...
 
 # ...
-install_requires = ['numpy', 'scipy', 'sympy']
+install_requires = ['numpy', 'scipy']
 dependency_links = []
 # ...
 
-
 # ...
-class MyParser(argparse.ArgumentParser):
-    """
-    Custom argument parser for printing help message in case of an error.
-    See http://stackoverflow.com/questions/4042452/display-help-message-with-python-argparse-when-script-is-called-without-any-argu
-    """
-    def error(self, message):
-        sys.stderr.write('error: %s\n' % message)
-        self.print_help()
-        sys.exit(2)
-
-
-INSTALL_DIR = os.path.join(os.getcwd(), 'usr')
-try:
-    parser = MyParser()
-    parser.add_argument('--prefix', help='installation path')
-
-    parser.add_argument('arguments', metavar='N', type=str, nargs='+')
-    args = parser.parse_args()
-
-    if not args.prefix:
-        raise ValueError('--prefix is expected when invoking python setup.py install.')
-    else:
-        INSTALL_DIR = os.path.abspath(args.prefix)
-except:
-    print('> no prefix found. spl fortran lib will installed in usr')
+if 'PREFIX' in os.environ:
+    INSTALL_DIR = os.environ['PREFIX']
+else:
+    INSTALL_DIR = os.path.join(os.getcwd(), 'usr')
 # ...
 
 # ...
