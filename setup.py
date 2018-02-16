@@ -6,6 +6,7 @@ import os
 from setuptools import find_packages
 from numpy.distutils.core import setup
 from numpy.distutils.core import Extension
+import argparse
 import spl
 
 NAME    = 'spl'
@@ -39,15 +40,39 @@ install_requires = ['numpy', 'scipy', 'sympy']
 dependency_links = []
 # ...
 
+
 # ...
-CLAPP_DIR = str(os.environ['CLAPP_DIR'])
-library_dirs = [CLAPP_DIR+"/lib"]
+class MyParser(argparse.ArgumentParser):
+    """
+    Custom argument parser for printing help message in case of an error.
+    See http://stackoverflow.com/questions/4042452/display-help-message-with-python-argparse-when-script-is-called-without-any-argu
+    """
+    def error(self, message):
+        sys.stderr.write('error: %s\n' % message)
+        self.print_help()
+        sys.exit(2)
+
+parser = MyParser()
+parser.add_argument('--prefix', help='installation path')
+
+parser.add_argument('arguments', metavar='N', type=str, nargs='+')
+args = parser.parse_args()
+
+INSTALL_DIR = None
+if not args.prefix:
+    raise ValueError('--prefix is expected when invoking python setup.py install.')
+else:
+    INSTALL_DIR = os.path.abspath(args.prefix)
+# ...
+
+# ...
+library_dirs = [os.path.join(INSTALL_DIR,"lib")]
 libraries = ["spl"]
 libraries = libraries[::-1]  # must reverse the order for linking
 
 include_dirs = []
 for lib in libraries:
-    include_dirs.append(CLAPP_DIR+"/include/"+lib)
+    include_dirs.append(os.path.join(os.path.join(INSTALL_DIR, "/include"), lib))
 # ...
 
 # ... django extension
