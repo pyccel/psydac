@@ -18,8 +18,8 @@ implicit none
   type(spl_t_mapping_2d), target :: mapping_in
   type(spl_t_mapping_3d), target :: mapping_out
   type(spl_t_mapping_cad), target :: cad
-  real(plf_rk), parameter :: r_min = 0.5_plf_rk
-  real(plf_rk), parameter :: r_max = 1.0_plf_rk
+  real(spl_rk), parameter :: r_min = 0.5_plf_rk
+  real(spl_rk), parameter :: r_max = 1.0_plf_rk
 
   ! ... creates a 2d annulus
   call spl_mapping_annulus(mapping_in, r_min, r_max)

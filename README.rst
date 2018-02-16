@@ -24,19 +24,9 @@ Compilers
 Dependencies
 ^^^^^^^^^^^^
 
-* CLAPPIO (mandatory). CLAPPIO_ is a part from the CLAPP_ framework.
-* PLAF (mandatory). PLAF_ is a part from the CLAPP_ framework.
 * LAPACK (optional)
-* PETSC (optional)
-* AGMG (optional)
 * MPI (optional)
 * MPICH2
-
-.. _CLAPP: https://gitlab.mpcdf.mpg.de/groups/clapp
-.. _CLAPPIO: https://gitlab.mpcdf.mpg.de/clapp/clappio
-.. _SPL: https://gitlab.mpcdf.mpg.de/clapp/spl
-.. _PLAF: https://gitlab.mpcdf.mpg.de/clapp/plaf
-
 
 Tested configurations
 ^^^^^^^^^^^^^^^^^^^^^

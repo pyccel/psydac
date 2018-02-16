@@ -72,8 +72,6 @@ if( NOT CLAPP_DIR )
   set( CLAPP_DIR ${CMAKE_INSTALL_PREFIX} )
 endif()
 
-find_package( CLAPPIO REQUIRED HINTS ${CLAPP_DIR}/cmake )
-find_package( PLAF    REQUIRED HINTS ${CLAPP_DIR}/cmake )
 
 IF(MPI_ENABLED)
    INCLUDE(MPIConfig)

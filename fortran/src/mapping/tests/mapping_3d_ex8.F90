@@ -14,21 +14,21 @@ use spl_m_mapping_gallery, only: spl_mapping_annulus
 use spl_m_mapping_cad,     only: spl_t_mapping_cad
 implicit none
   ! local
-  real(plf_rk), dimension(2) :: U
-  real(plf_rk), dimension(1) :: V
-  real(plf_rk), dimension(1) :: W 
-  real(plf_rk), dimension(  3,2,1,1) :: Y
-  real(plf_rk), dimension(3,3,2,1,1) :: dY
-  real(plf_rk), dimension(6,3,2,1,1) :: d2Y
+  real(spl_rk), dimension(2) :: U
+  real(spl_rk), dimension(1) :: V
+  real(spl_rk), dimension(1) :: W 
+  real(spl_rk), dimension(  3,2,1,1) :: Y
+  real(spl_rk), dimension(3,3,2,1,1) :: dY
+  real(spl_rk), dimension(6,3,2,1,1) :: d2Y
   type(spl_t_mapping_2d), target :: annulus
   type(spl_t_mapping_3d), target :: mapping
   type(spl_t_mapping_cad), target :: cad
-  real(plf_rk), parameter :: r_min = 0.5_plf_rk
-  real(plf_rk), parameter :: r_max = 1.0_plf_rk
+  real(spl_rk), parameter :: r_min = 0.5_plf_rk
+  real(spl_rk), parameter :: r_max = 1.0_plf_rk
   integer :: i
   integer :: j 
   integer :: k 
-  real(plf_rk) :: r
+  real(spl_rk) :: r
 
   ! ... creates an annulus
   call spl_mapping_annulus(annulus, r_min, r_max)

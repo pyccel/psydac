@@ -13,23 +13,23 @@ use spl_m_mapping_gallery, only: spl_mapping_trilinear
 implicit none
   ! local
   type(spl_t_mapping_3d), target :: mapping
-  real(plf_rk), dimension(3) :: P_111
-  real(plf_rk), dimension(3) :: P_121
-  real(plf_rk), dimension(3) :: P_211
-  real(plf_rk), dimension(3) :: P_221
-  real(plf_rk), dimension(3) :: P_112
-  real(plf_rk), dimension(3) :: P_122
-  real(plf_rk), dimension(3) :: P_212
-  real(plf_rk), dimension(3) :: P_222
+  real(spl_rk), dimension(3) :: P_111
+  real(spl_rk), dimension(3) :: P_121
+  real(spl_rk), dimension(3) :: P_211
+  real(spl_rk), dimension(3) :: P_221
+  real(spl_rk), dimension(3) :: P_112
+  real(spl_rk), dimension(3) :: P_122
+  real(spl_rk), dimension(3) :: P_212
+  real(spl_rk), dimension(3) :: P_222
   integer, parameter :: p_u = 3 
   integer, parameter :: p_v = 2 
   integer, parameter :: p_w = 2 
   integer, parameter :: n_elements_u = 4 
   integer, parameter :: n_elements_v = 4 
   integer, parameter :: n_elements_w = 4 
-  real(plf_rk), dimension(n_elements_u+p_u) :: us 
-  real(plf_rk), dimension(n_elements_v+p_v) :: vs 
-  real(plf_rk), dimension(n_elements_w+p_w) :: ws 
+  real(spl_rk), dimension(n_elements_u+p_u) :: us 
+  real(spl_rk), dimension(n_elements_v+p_v) :: vs 
+  real(spl_rk), dimension(n_elements_w+p_w) :: ws 
 
   ! ... creates a trilinear map
   P_111 = (/ 0.0_plf_rk, 0.0_plf_rk, 0.0_plf_rk /)

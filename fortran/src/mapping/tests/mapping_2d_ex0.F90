@@ -14,10 +14,10 @@ implicit none
   ! local
   type(spl_t_mapping_2d), target :: mapping_in
   type(spl_t_mapping_2d), target :: mapping_out
-  real(plf_rk), dimension(2) :: P_11
-  real(plf_rk), dimension(2) :: P_12
-  real(plf_rk), dimension(2) :: P_21
-  real(plf_rk), dimension(2) :: P_22
+  real(spl_rk), dimension(2) :: P_11
+  real(spl_rk), dimension(2) :: P_12
+  real(spl_rk), dimension(2) :: P_21
+  real(spl_rk), dimension(2) :: P_22
 
   ! ... creates a bilinear map
   P_11 = (/ -2.0_plf_rk, -2.0_plf_rk /)

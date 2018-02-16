@@ -5,6 +5,8 @@
 module spl_m_global
 use plf_m_global
 implicit none
+
+    integer, parameter    :: spl_rk=kind(1.d0)                 !< Real precision    
     
     ! ... mapping boundary ids 
     integer, parameter  :: spl_mapping_boundary_min      = -1   !< id for min boundary 
@@ -60,7 +62,7 @@ contains
   !> @param[inout] time    a real value  
   subroutine spl_time(time)
   implicit none
-  real(kind=plf_rk), intent(inout) :: time
+  real(kind=spl_rk), intent(inout) :: time
   ! Local
 
   call plf_time(time) 

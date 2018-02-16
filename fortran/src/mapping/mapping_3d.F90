@@ -30,15 +30,15 @@ implicit none
      integer :: n_elements_v   !< number of elements in the v-direction
      integer :: n_elements_w   !< number of elements in the w-direction
 
-     real(plf_rk), dimension(:),       allocatable :: knots_u !< array of knots of size n_u+p_u+1 in the u-direction
-     real(plf_rk), dimension(:),       allocatable :: knots_v !< array of knots of size n_v+p_v+1 in the v-direction
-     real(plf_rk), dimension(:),       allocatable :: knots_w !< array of knots of size n_w+p_w+1 in the w-direction
-     real(plf_rk), dimension(:,:,:,:), allocatable :: control_points !< array of control points 
-     real(plf_rk), dimension(:,:,:),   allocatable :: weights !< array of weights
+     real(spl_rk), dimension(:),       allocatable :: knots_u !< array of knots of size n_u+p_u+1 in the u-direction
+     real(spl_rk), dimension(:),       allocatable :: knots_v !< array of knots of size n_v+p_v+1 in the v-direction
+     real(spl_rk), dimension(:),       allocatable :: knots_w !< array of knots of size n_w+p_w+1 in the w-direction
+     real(spl_rk), dimension(:,:,:,:), allocatable :: control_points !< array of control points 
+     real(spl_rk), dimension(:,:,:),   allocatable :: weights !< array of weights
 
-     real(plf_rk), dimension(:), allocatable :: grid_u !< corresponding grid in the u-direction
-     real(plf_rk), dimension(:), allocatable :: grid_v !< corresponding grid in the v-direction
-     real(plf_rk), dimension(:), allocatable :: grid_w !< corresponding grid in the w-direction
+     real(spl_rk), dimension(:), allocatable :: grid_u !< corresponding grid in the u-direction
+     real(spl_rk), dimension(:), allocatable :: grid_v !< corresponding grid in the v-direction
+     real(spl_rk), dimension(:), allocatable :: grid_w !< corresponding grid in the w-direction
 
      integer, dimension(:), allocatable :: i_spans_u !< knots indices corresponding to the grid in the u-direction  
      integer, dimension(:), allocatable :: i_spans_v !< knots indices corresponding to the grid in the v-direction
@@ -95,11 +95,11 @@ contains
      integer                     , intent(in)    :: p_u 
      integer                     , intent(in)    :: p_v
      integer                     , intent(in)    :: p_w
-     real(plf_rk), dimension (:) , intent(in)    :: knots_u 
-     real(plf_rk), dimension (:) , intent(in)    :: knots_v
-     real(plf_rk), dimension (:) , intent(in)    :: knots_w
-     real(plf_rk), dimension(:,:,:,:), intent(in)    :: control_points
-     real(plf_rk), optional, dimension(:,:,:), intent(in) :: weights 
+     real(spl_rk), dimension (:) , intent(in)    :: knots_u 
+     real(spl_rk), dimension (:) , intent(in)    :: knots_v
+     real(spl_rk), dimension (:) , intent(in)    :: knots_w
+     real(spl_rk), dimension(:,:,:,:), intent(in)    :: control_points
+     real(spl_rk), optional, dimension(:,:,:), intent(in) :: weights 
      ! local
      integer :: knots_size_u 
      integer :: knots_size_v
@@ -218,7 +218,7 @@ contains
   subroutine spl_set_mapping_control_points_3d(self, control_points)
   implicit none
      class(spl_t_mapping_3d)     , intent(inout) :: self
-     real(plf_rk), dimension (:,:,:,:), intent(in)    :: control_points
+     real(spl_rk), dimension (:,:,:,:), intent(in)    :: control_points
      ! local
 
      ! ... control points
@@ -236,7 +236,7 @@ contains
   subroutine spl_set_mapping_weights_3d(self, weights)
   implicit none
      class(spl_t_mapping_3d)     , intent(inout) :: self
-     real(plf_rk), dimension (:,:,:), intent(in)    :: weights
+     real(spl_rk), dimension (:,:,:), intent(in)    :: weights
      ! local
 
      ! ... control points
@@ -298,7 +298,7 @@ contains
      integer :: j 
      integer :: k 
      integer :: axis 
-     real(kind=plf_rk), dimension(:), allocatable :: knots
+     real(kind=spl_rk), dimension(:), allocatable :: knots
 
      ! ...
      l_sides = .TRUE.
@@ -384,7 +384,7 @@ contains
      integer :: i
      integer :: j 
      integer :: k 
-     real(kind=plf_rk), dimension(:), allocatable :: knots
+     real(kind=spl_rk), dimension(:), allocatable :: knots
      integer :: axis 
 
      ! ...
@@ -467,7 +467,7 @@ contains
   use spl_m_bsp, bsp_greville => Greville
   implicit none
     class(spl_t_mapping_3d),    intent(in)    :: self
-    real(plf_rk), dimension(:), intent(inout) :: us
+    real(spl_rk), dimension(:), intent(inout) :: us
     integer,                    intent(in)    :: axis
     ! local
 
@@ -500,7 +500,7 @@ contains
   subroutine spl_insert_knot_mapping_3d(self, t, axis, times, other)
   implicit none
      class(spl_t_mapping_3d)          , intent(inout) :: self
-     real(plf_rk)                     , intent(in)    :: t 
+     real(spl_rk)                     , intent(in)    :: t 
      integer                          , intent(in)    :: axis
      integer                , optional, intent(in)    :: times 
      class(spl_t_mapping_3d), optional, intent(inout) :: other 
@@ -516,8 +516,8 @@ contains
      integer :: n_w
      integer :: d_dim_ini
      integer :: d_dim_new
-     real(plf_rk), dimension(:,:), allocatable :: control_points_crv
-     real(plf_rk), dimension(:,:,:,:), allocatable :: control_points_vol
+     real(spl_rk), dimension(:,:), allocatable :: control_points_crv
+     real(spl_rk), dimension(:,:,:,:), allocatable :: control_points_vol
      type(spl_t_mapping_3d) :: mapping_tmp
      type(spl_t_mapping_1d) :: mapping_crv
      type(spl_t_mapping_3d) :: mapping_vol
@@ -713,10 +713,10 @@ contains
   subroutine spl_evaluate_mapping_3d(self, arr_u, arr_v, arr_w, arr_y)
   implicit none
      class(spl_t_mapping_3d), intent(inout) :: self
-     real(kind=plf_rk), dimension(:), intent(in) :: arr_u
-     real(kind=plf_rk), dimension(:), intent(in) :: arr_v
-     real(kind=plf_rk), dimension(:), intent(in) :: arr_w
-     real(kind=plf_rk), dimension(:,:,:,:), intent(out) :: arr_y
+     real(kind=spl_rk), dimension(:), intent(in) :: arr_u
+     real(kind=spl_rk), dimension(:), intent(in) :: arr_v
+     real(kind=spl_rk), dimension(:), intent(in) :: arr_w
+     real(kind=spl_rk), dimension(:,:,:,:), intent(out) :: arr_y
      ! local
      integer :: ru
      integer :: rv
@@ -755,19 +755,19 @@ contains
   subroutine spl_evaluate_deriv_mapping_3d(self, arr_u, arr_v, arr_w, arr_y, arr_dy, arr_d2y)
   implicit none
     class(spl_t_mapping_3d), intent(inout) :: self
-    real(kind=plf_rk), dimension(:), intent(in) :: arr_u
-    real(kind=plf_rk), dimension(:), intent(in) :: arr_v
-    real(kind=plf_rk), dimension(:), intent(in) :: arr_w
-    real(kind=plf_rk), dimension(:,:,:,:), intent(out) :: arr_y
-    real(kind=plf_rk), optional, dimension(:,:,:,:,:), intent(out) :: arr_dy
-    real(kind=plf_rk), optional, dimension(:,:,:,:,:), intent(out) :: arr_d2y
+    real(kind=spl_rk), dimension(:), intent(in) :: arr_u
+    real(kind=spl_rk), dimension(:), intent(in) :: arr_v
+    real(kind=spl_rk), dimension(:), intent(in) :: arr_w
+    real(kind=spl_rk), dimension(:,:,:,:), intent(out) :: arr_y
+    real(kind=spl_rk), optional, dimension(:,:,:,:,:), intent(out) :: arr_dy
+    real(kind=spl_rk), optional, dimension(:,:,:,:,:), intent(out) :: arr_d2y
     ! local
     integer :: ru
     integer :: rv
     integer :: rw
     integer :: n_deriv 
     integer :: n_total_deriv 
-    real(kind=plf_rk), dimension(:,:,:,:,:), allocatable :: Cw
+    real(kind=spl_rk), dimension(:,:,:,:,:), allocatable :: Cw
 
     ! ...
     n_deriv = 0
@@ -839,17 +839,17 @@ contains
   implicit none
      class(spl_t_mapping_3d), intent(inout) :: self
      integer(kind=4), intent(inout) :: n_elements
-     real   (kind=plf_rk), dimension(:), intent(inout) :: grid
+     real   (kind=spl_rk), dimension(:), intent(inout) :: grid
      integer, dimension(:), optional, intent(inout) :: i_spans
      integer(kind=4), optional, intent(in) :: axis 
      ! local
      integer :: l_axis
      integer :: i_element
      integer :: i_span
-     real(plf_rk) :: x
+     real(spl_rk) :: x
      integer :: n
      integer :: p
-     real(plf_rk), dimension(:), allocatable :: knots 
+     real(spl_rk), dimension(:), allocatable :: knots 
 
      ! ...
      l_axis = 1
@@ -903,12 +903,12 @@ contains
   subroutine spl_to_us_form_mapping_3d(self, arr_us)
   implicit none
      class(spl_t_mapping_3d), intent(inout) :: self
-     real(kind=plf_rk), dimension(:,:,:,:,:), intent(inout) :: arr_us
+     real(kind=spl_rk), dimension(:,:,:,:,:), intent(inout) :: arr_us
      ! local
      type(spl_t_mapping_3d) :: mapping_tmp
-     real(plf_rk), dimension(self % n_u + self % p_u + 1) :: grid_u
-     real(plf_rk), dimension(self % n_v + self % p_v + 1) :: grid_v
-     real(plf_rk), dimension(self % n_w + self % p_w + 1) :: grid_w
+     real(spl_rk), dimension(self % n_u + self % p_u + 1) :: grid_u
+     real(spl_rk), dimension(self % n_v + self % p_v + 1) :: grid_v
+     real(spl_rk), dimension(self % n_w + self % p_w + 1) :: grid_w
      integer, dimension(self % n_u + self % p_u + 1) :: i_spans_u
      integer, dimension(self % n_v + self % p_v + 1) :: i_spans_v
      integer, dimension(self % n_w + self % p_w + 1) :: i_spans_w
@@ -981,14 +981,14 @@ contains
   subroutine spl_to_pp_form_mapping_3d(self, arr_pp)
   implicit none
     class(spl_t_mapping_3d), intent(inout) :: self
-    real(kind=plf_rk), dimension(:,:,:,:,:,:,:), intent(inout) :: arr_pp
+    real(kind=spl_rk), dimension(:,:,:,:,:,:,:), intent(inout) :: arr_pp
     ! local
     integer :: i_dim
     integer :: i_element_w
     integer :: i_element_v
     integer :: i_element_u
     integer :: i_element
-    real(kind=plf_rk), dimension(:,:,:,:,:,:), allocatable :: pp_coeff 
+    real(kind=spl_rk), dimension(:,:,:,:,:,:), allocatable :: pp_coeff 
 
     allocate(pp_coeff(self % p_u + 1, self % p_v + 1, self % p_w + 1, &
       & self % n_elements_u, self % n_elements_v, self % n_elements_w))
@@ -1033,8 +1033,8 @@ contains
      integer :: n_w
      integer :: d_dim_ini
      integer :: d_dim_new
-     real(plf_rk), dimension(:,:), allocatable :: control_points_crv
-     real(plf_rk), dimension(:,:,:,:), allocatable :: control_points_vol
+     real(spl_rk), dimension(:,:), allocatable :: control_points_crv
+     real(spl_rk), dimension(:,:,:,:), allocatable :: control_points_vol
      type(spl_t_mapping_3d) :: mapping_tmp
      type(spl_t_mapping_1d) :: mapping_crv
      type(spl_t_mapping_3d) :: mapping_vol
@@ -1242,7 +1242,7 @@ contains
      integer :: axis
      logical :: l_verbose
      type(spl_t_mapping_3d)          , target :: mapping_tmp
-     real(plf_rk) :: t
+     real(spl_rk) :: t
 
      l_verbose = .False.
      if (present(verbose)) then
@@ -1353,10 +1353,10 @@ contains
     integer :: n_1
     integer :: n_2
     integer :: d_dim 
-    real(plf_rk), dimension (:) , allocatable :: knots_1 
-    real(plf_rk), dimension (:) , allocatable :: knots_2
-    real(plf_rk), dimension(:,:,:), allocatable :: control_points
-    real(plf_rk), dimension(:,:), allocatable :: weights
+    real(spl_rk), dimension (:) , allocatable :: knots_1 
+    real(spl_rk), dimension (:) , allocatable :: knots_2
+    real(spl_rk), dimension(:,:,:), allocatable :: control_points
+    real(spl_rk), dimension(:,:), allocatable :: weights
     
     ! ...
     if ((axis > self % p_dim) .or. (axis <= 0)) then
@@ -1506,19 +1506,19 @@ contains
     integer :: num_pts2
     integer :: num_pts3
     character(len=256) :: label
-    real(kind=plf_rk), dimension(:), allocatable :: knots1
-    real(kind=plf_rk), dimension(:), allocatable :: knots2
-    real(kind=plf_rk), dimension(:), allocatable :: knots3
-    real(kind=plf_rk), dimension(:), allocatable :: control_pts1
-    real(kind=plf_rk), dimension(:), allocatable :: control_pts2
-    real(kind=plf_rk), dimension(:), allocatable :: control_pts3
-    real(kind=plf_rk), dimension(:), allocatable :: control_weights
-    real(kind=plf_rk) :: eta1_min_minimal
-    real(kind=plf_rk) :: eta1_max_minimal
-    real(kind=plf_rk) :: eta2_min_minimal
-    real(kind=plf_rk) :: eta2_max_minimal
-    real(kind=plf_rk) :: eta3_min_minimal
-    real(kind=plf_rk) :: eta3_max_minimal
+    real(kind=spl_rk), dimension(:), allocatable :: knots1
+    real(kind=spl_rk), dimension(:), allocatable :: knots2
+    real(kind=spl_rk), dimension(:), allocatable :: knots3
+    real(kind=spl_rk), dimension(:), allocatable :: control_pts1
+    real(kind=spl_rk), dimension(:), allocatable :: control_pts2
+    real(kind=spl_rk), dimension(:), allocatable :: control_pts3
+    real(kind=spl_rk), dimension(:), allocatable :: control_weights
+    real(kind=spl_rk) :: eta1_min_minimal
+    real(kind=spl_rk) :: eta1_max_minimal
+    real(kind=spl_rk) :: eta2_min_minimal
+    real(kind=spl_rk) :: eta2_max_minimal
+    real(kind=spl_rk) :: eta3_min_minimal
+    real(kind=spl_rk) :: eta3_max_minimal
     integer  :: bc_left
     integer  :: bc_right
     integer  :: bc_bottom
@@ -1653,19 +1653,19 @@ contains
     integer :: num_pts2
     integer :: num_pts3
     integer :: i,j,k, i_current
-    real(plf_rk), dimension(:), allocatable :: knots1
-    real(plf_rk), dimension(:), allocatable :: knots2
-    real(plf_rk), dimension(:), allocatable :: knots3
-    real(plf_rk), dimension(:), allocatable :: weights
-    real(plf_rk), dimension(:,:,:), allocatable :: weights_3d
-    real(plf_rk), dimension(:), allocatable :: control_pts1
-    real(plf_rk), dimension(:), allocatable :: control_pts2
-    real(plf_rk), dimension(:), allocatable :: control_pts3
+    real(spl_rk), dimension(:), allocatable :: knots1
+    real(spl_rk), dimension(:), allocatable :: knots2
+    real(spl_rk), dimension(:), allocatable :: knots3
+    real(spl_rk), dimension(:), allocatable :: weights
+    real(spl_rk), dimension(:,:,:), allocatable :: weights_3d
+    real(spl_rk), dimension(:), allocatable :: control_pts1
+    real(spl_rk), dimension(:), allocatable :: control_pts2
+    real(spl_rk), dimension(:), allocatable :: control_pts3
     integer  :: number_cells1
     integer  :: number_cells2
     integer  :: number_cells3
     integer :: d_dim
-    real(plf_rk), dimension(:,:,:,:), allocatable  :: control_points3d
+    real(spl_rk), dimension(:,:,:,:), allocatable  :: control_points3d
         
     namelist /transf_label/  label
     namelist /d_dimension/   d_dim

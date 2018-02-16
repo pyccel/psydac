@@ -17,8 +17,8 @@ implicit none
   type(spl_t_mapping_1d), target :: mapping_in
   type(spl_t_mapping_2d), target :: mapping_out
   type(spl_t_mapping_cad), target :: cad
-  real(plf_rk), dimension(1) :: P_1
-  real(plf_rk), dimension(1) :: P_2
+  real(spl_rk), dimension(1) :: P_1
+  real(spl_rk), dimension(1) :: P_2
 
   ! ... create a linear map
   P_1 = (/ 0.0_plf_rk /)

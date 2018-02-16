@@ -12,11 +12,11 @@ use spl_m_mapping_2d,      only: spl_t_mapping_2d
 use spl_m_mapping_gallery, only: spl_mapping_bilinear
 implicit none
   type(spl_t_mapping_2d), target :: mapping
-  real(plf_rk), dimension(2) :: P_11
-  real(plf_rk), dimension(2) :: P_12
-  real(plf_rk), dimension(2) :: P_21
-  real(plf_rk), dimension(2) :: P_22
-  real(plf_rk), dimension(:,:,:,:,:), allocatable :: arr_pp
+  real(spl_rk), dimension(2) :: P_11
+  real(spl_rk), dimension(2) :: P_12
+  real(spl_rk), dimension(2) :: P_21
+  real(spl_rk), dimension(2) :: P_22
+  real(spl_rk), dimension(:,:,:,:,:), allocatable :: arr_pp
   integer :: i_element_u 
   integer :: i_element_v
   integer :: i_u

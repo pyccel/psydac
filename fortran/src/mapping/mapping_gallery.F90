@@ -41,8 +41,8 @@ contains
   subroutine spl_mapping_linear(mapping_out, P_1, P_2, degree, n_elements)
   implicit none
      type(spl_t_mapping_1d)          , target, intent(inout) :: mapping_out 
-     real(plf_rk), intent(in), dimension(:) :: P_1 
-     real(plf_rk), intent(in), dimension(:) :: P_2
+     real(spl_rk), intent(in), dimension(:) :: P_1 
+     real(spl_rk), intent(in), dimension(:) :: P_2
      integer, optional, intent(in) :: degree 
      integer, optional, intent(in) :: n_elements 
      ! local
@@ -53,11 +53,11 @@ contains
      integer :: e
      integer :: i 
      integer :: d_dim
-     real(plf_rk), dimension(:), allocatable :: knots_ini   
-     real(plf_rk), dimension(:), allocatable :: knots_ref   
-     real(plf_rk), dimension(:, :), allocatable :: control_points_ini
-     real(plf_rk), dimension(:, :), allocatable :: control_points_ref
-     real(plf_rk) :: t
+     real(spl_rk), dimension(:), allocatable :: knots_ini   
+     real(spl_rk), dimension(:), allocatable :: knots_ref   
+     real(spl_rk), dimension(:, :), allocatable :: control_points_ini
+     real(spl_rk), dimension(:, :), allocatable :: control_points_ref
+     real(spl_rk) :: t
 
      ! ...
      l_degree = 0
@@ -127,9 +127,9 @@ contains
      integer :: n 
      integer :: p 
      integer :: d_dim
-     real(plf_rk), dimension(:), allocatable :: knots_ini   
-     real(plf_rk), dimension(:, :), allocatable :: control_points_ini
-     real(plf_rk), dimension(:), allocatable :: weights_ini
+     real(spl_rk), dimension(:), allocatable :: knots_ini   
+     real(spl_rk), dimension(:, :), allocatable :: control_points_ini
+     real(spl_rk), dimension(:), allocatable :: weights_ini
 
      ! ...
      d_dim = 2
@@ -196,10 +196,10 @@ contains
   subroutine spl_mapping_bilinear(mapping_out, P_11, P_12, P_21, P_22, degrees, n_elements, other)
   implicit none
      type(spl_t_mapping_2d)          , target, intent(inout) :: mapping_out 
-     real(plf_rk), intent(in), dimension(:) :: P_11 
-     real(plf_rk), intent(in), dimension(:) :: P_12
-     real(plf_rk), intent(in), dimension(:) :: P_21 
-     real(plf_rk), intent(in), dimension(:) :: P_22
+     real(spl_rk), intent(in), dimension(:) :: P_11 
+     real(spl_rk), intent(in), dimension(:) :: P_12
+     real(spl_rk), intent(in), dimension(:) :: P_21 
+     real(spl_rk), intent(in), dimension(:) :: P_22
      integer, dimension(2)  , optional, intent(in)    :: degrees 
      integer, dimension(2)  , optional, intent(in)    :: n_elements
      class(spl_t_mapping_2d),  optional, target, intent(in) :: other 
@@ -211,9 +211,9 @@ contains
      integer :: d_dim
      integer, dimension(2) :: l_degrees 
      integer, dimension(2) :: l_n_elements
-     real(plf_rk), dimension(:), allocatable :: knots_ini   
-     real(plf_rk), dimension(:, :, :), allocatable :: control_points_ini
-     real(plf_rk) :: t
+     real(spl_rk), dimension(:), allocatable :: knots_ini   
+     real(spl_rk), dimension(:, :, :), allocatable :: control_points_ini
+     real(spl_rk) :: t
 
      ! ...
      l_degrees = 0
@@ -283,19 +283,19 @@ contains
   subroutine spl_mapping_annulus(mapping_out, r_min, r_max, center)
   implicit none
      type(spl_t_mapping_2d), target, intent(inout) :: mapping_out 
-     real(plf_rk), intent(in) :: r_min
-     real(plf_rk), intent(in) :: r_max
-     real(plf_rk), dimension(:), optional, intent(in) :: center
+     real(spl_rk), intent(in) :: r_min
+     real(spl_rk), intent(in) :: r_max
+     real(spl_rk), dimension(:), optional, intent(in) :: center
      ! local
      integer :: n_u
      integer :: p_u 
      integer :: n_v 
      integer :: p_v 
      integer :: d_dim
-     real(plf_rk), dimension(:), allocatable :: knots_u
-     real(plf_rk), dimension(:), allocatable :: knots_v
-     real(plf_rk), dimension(:,:,:), allocatable :: control_points
-     real(plf_rk), dimension(:,:), allocatable :: weights 
+     real(spl_rk), dimension(:), allocatable :: knots_u
+     real(spl_rk), dimension(:), allocatable :: knots_v
+     real(spl_rk), dimension(:,:,:), allocatable :: control_points
+     real(spl_rk), dimension(:,:), allocatable :: weights 
      type(spl_t_mapping_1d) :: arc 
      type(spl_t_mapping_cad) :: cad
 
@@ -368,10 +368,10 @@ contains
   subroutine spl_mapping_eccentric_annulus(mapping_out, r_min, r_max, center_int, center_ext)
   implicit none
      type(spl_t_mapping_2d), target, intent(inout) :: mapping_out 
-     real(plf_rk), intent(in) :: r_min
-     real(plf_rk), intent(in) :: r_max
-     real(plf_rk), dimension(:), intent(in) :: center_int
-     real(plf_rk), dimension(:), optional, intent(in) :: center_ext
+     real(spl_rk), intent(in) :: r_min
+     real(spl_rk), intent(in) :: r_max
+     real(spl_rk), dimension(:), intent(in) :: center_int
+     real(spl_rk), dimension(:), optional, intent(in) :: center_ext
      ! local
      integer :: i
      integer :: n_u
@@ -379,10 +379,10 @@ contains
      integer :: n_v 
      integer :: p_v 
      integer :: d_dim
-     real(plf_rk), dimension(:), allocatable :: knots_u
-     real(plf_rk), dimension(:), allocatable :: knots_v
-     real(plf_rk), dimension(:,:,:), allocatable :: control_points
-     real(plf_rk), dimension(:,:), allocatable :: weights 
+     real(spl_rk), dimension(:), allocatable :: knots_u
+     real(spl_rk), dimension(:), allocatable :: knots_v
+     real(spl_rk), dimension(:,:,:), allocatable :: control_points
+     real(spl_rk), dimension(:,:), allocatable :: weights 
      type(spl_t_mapping_1d) :: arc 
 
      ! ...
@@ -452,21 +452,21 @@ contains
   subroutine spl_mapping_quart_circle(mapping_out, r_min, r_max, center)
   implicit none
      type(spl_t_mapping_2d), target, intent(inout) :: mapping_out 
-     real(plf_rk), intent(in) :: r_min
-     real(plf_rk), intent(in) :: r_max
-     real(plf_rk), dimension(:), optional, intent(in) :: center
+     real(spl_rk), intent(in) :: r_min
+     real(spl_rk), intent(in) :: r_max
+     real(spl_rk), dimension(:), optional, intent(in) :: center
      ! local
      integer :: n_u 
      integer :: p_u 
      integer :: n_v 
      integer :: p_v 
      integer :: d_dim
-     real(plf_rk), dimension(:), allocatable :: knots_u
-     real(plf_rk), dimension(:), allocatable :: knots_v
-     real(plf_rk), dimension(:,:,:), allocatable :: control_points
-     real(plf_rk), dimension(:,:), allocatable :: weights 
+     real(spl_rk), dimension(:), allocatable :: knots_u
+     real(spl_rk), dimension(:), allocatable :: knots_v
+     real(spl_rk), dimension(:,:,:), allocatable :: control_points
+     real(spl_rk), dimension(:,:), allocatable :: weights 
      type(spl_t_mapping_cad) :: cad
-     real(plf_rk), parameter :: s = 1.0_plf_rk / sqrt(2.0_plf_rk)
+     real(spl_rk), parameter :: s = 1.0_plf_rk / sqrt(2.0_plf_rk)
 
      ! ...
      d_dim = 2 
@@ -539,20 +539,20 @@ contains
   subroutine spl_mapping_circle(mapping_out, radius, center)
   implicit none
      type(spl_t_mapping_2d), target, intent(inout) :: mapping_out 
-     real(plf_rk), optional, intent(in) :: radius
-     real(plf_rk), dimension(:), optional, intent(in) :: center
+     real(spl_rk), optional, intent(in) :: radius
+     real(spl_rk), dimension(:), optional, intent(in) :: center
      ! local
      integer :: n_u 
      integer :: p_u 
      integer :: n_v 
      integer :: p_v 
      integer :: d_dim
-     real(plf_rk), dimension(:), allocatable :: knots_u
-     real(plf_rk), dimension(:), allocatable :: knots_v
-     real(plf_rk), dimension(:,:,:), allocatable :: control_points
-     real(plf_rk), dimension(:,:), allocatable :: weights 
+     real(spl_rk), dimension(:), allocatable :: knots_u
+     real(spl_rk), dimension(:), allocatable :: knots_v
+     real(spl_rk), dimension(:,:,:), allocatable :: control_points
+     real(spl_rk), dimension(:,:), allocatable :: weights 
      type(spl_t_mapping_cad) :: cad
-     real(plf_rk), parameter :: s = 1.0_plf_rk / sqrt(2.0_plf_rk)
+     real(spl_rk), parameter :: s = 1.0_plf_rk / sqrt(2.0_plf_rk)
 
      ! ...
      d_dim = 2 
@@ -635,9 +635,9 @@ contains
   subroutine spl_mapping_ellipse(mapping_out, minor_axis, major_axis, center)
   implicit none
      type(spl_t_mapping_2d), target, intent(inout) :: mapping_out 
-     real(plf_rk), optional, intent(in) :: minor_axis 
-     real(plf_rk), optional, intent(in) :: major_axis 
-     real(plf_rk), dimension(:), optional, intent(in) :: center
+     real(spl_rk), optional, intent(in) :: minor_axis 
+     real(spl_rk), optional, intent(in) :: major_axis 
+     real(spl_rk), dimension(:), optional, intent(in) :: center
      ! local
 
      ! ... first we create a circle of radius 1
@@ -678,29 +678,29 @@ contains
   subroutine spl_mapping_collela(mapping_out, eps, k1, k2, degrees, n_elements, center, a, b)
   implicit none
     type(spl_t_mapping_2d), target,       intent(inout) :: mapping_out 
-    real(plf_rk),                         intent(in)    :: eps
-    real(plf_rk),                         intent(in)    :: k1
-    real(plf_rk),                         intent(in)    :: k2
+    real(spl_rk),                         intent(in)    :: eps
+    real(spl_rk),                         intent(in)    :: k1
+    real(spl_rk),                         intent(in)    :: k2
     integer, dimension(2),                intent(in)    :: degrees 
     integer, dimension(2),                intent(in)    :: n_elements 
-    real(plf_rk), dimension(2), optional, intent(in)    :: center 
-    real(plf_rk), optional,               intent(in)    :: a 
-    real(plf_rk), optional,               intent(in)    :: b 
+    real(spl_rk), dimension(2), optional, intent(in)    :: center 
+    real(spl_rk), optional,               intent(in)    :: a 
+    real(spl_rk), optional,               intent(in)    :: b 
     ! local
     integer :: i
     integer :: j 
-    real(plf_rk) :: u 
-    real(plf_rk) :: v
-    real(plf_rk) :: x 
-    real(plf_rk) :: y
-    real(plf_rk) :: ku 
-    real(plf_rk) :: kv 
-    real(plf_rk), dimension(2) :: P_11
-    real(plf_rk), dimension(2) :: P_12
-    real(plf_rk), dimension(2) :: P_21
-    real(plf_rk), dimension(2) :: P_22
-    real(plf_rk), dimension(:), allocatable :: us 
-    real(plf_rk), dimension(:), allocatable :: vs 
+    real(spl_rk) :: u 
+    real(spl_rk) :: v
+    real(spl_rk) :: x 
+    real(spl_rk) :: y
+    real(spl_rk) :: ku 
+    real(spl_rk) :: kv 
+    real(spl_rk), dimension(2) :: P_11
+    real(spl_rk), dimension(2) :: P_12
+    real(spl_rk), dimension(2) :: P_21
+    real(spl_rk), dimension(2) :: P_22
+    real(spl_rk), dimension(:), allocatable :: us 
+    real(spl_rk), dimension(:), allocatable :: vs 
     type(spl_t_mapping_cad) :: cad
 
     ! ...
@@ -792,14 +792,14 @@ contains
                                   & degrees, n_elements)
   implicit none
      type(spl_t_mapping_3d)          , target, intent(inout) :: mapping_out 
-     real(plf_rk), intent(in), dimension(:) :: P_111 
-     real(plf_rk), intent(in), dimension(:) :: P_121
-     real(plf_rk), intent(in), dimension(:) :: P_211 
-     real(plf_rk), intent(in), dimension(:) :: P_221
-     real(plf_rk), intent(in), dimension(:) :: P_112 
-     real(plf_rk), intent(in), dimension(:) :: P_122
-     real(plf_rk), intent(in), dimension(:) :: P_212 
-     real(plf_rk), intent(in), dimension(:) :: P_222
+     real(spl_rk), intent(in), dimension(:) :: P_111 
+     real(spl_rk), intent(in), dimension(:) :: P_121
+     real(spl_rk), intent(in), dimension(:) :: P_211 
+     real(spl_rk), intent(in), dimension(:) :: P_221
+     real(spl_rk), intent(in), dimension(:) :: P_112 
+     real(spl_rk), intent(in), dimension(:) :: P_122
+     real(spl_rk), intent(in), dimension(:) :: P_212 
+     real(spl_rk), intent(in), dimension(:) :: P_222
      integer, dimension(3)  , optional, intent(in)    :: degrees 
      integer, dimension(3)  , optional, intent(in)    :: n_elements 
      ! local
@@ -810,9 +810,9 @@ contains
      integer :: d_dim
      integer, dimension(3) :: l_degrees 
      integer, dimension(3) :: l_n_elements
-     real(plf_rk), dimension(:), allocatable :: knots_ini   
-     real(plf_rk), dimension(:, :, :, :), allocatable :: control_points_ini
-     real(plf_rk) :: t
+     real(spl_rk), dimension(:), allocatable :: knots_ini   
+     real(spl_rk), dimension(:, :, :, :), allocatable :: control_points_ini
+     real(spl_rk) :: t
 
      ! ...
      l_degrees = 0

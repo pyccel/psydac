@@ -67,7 +67,7 @@ contains
   implicit none
      class(spl_t_mapping_cad),        intent(in)    :: self
      class(spl_t_mapping_abstract),   intent(inout) :: mapping 
-     real(kind=plf_rk), dimension(:), intent(in)    :: displacements
+     real(kind=spl_rk), dimension(:), intent(in)    :: displacements
      ! local
      integer :: i
 
@@ -105,16 +105,16 @@ contains
   implicit none
      class(spl_t_mapping_cad),      intent(in)    :: self
      class(spl_t_mapping_abstract), intent(inout) :: mapping 
-     real(kind=plf_rk),             intent(in)    :: angle
+     real(kind=spl_rk),             intent(in)    :: angle
      integer,                       intent(in)    :: axis
      ! local
      integer :: i_u
      integer :: i_v
      integer :: i_w
-     real(kind=plf_rk) :: sin_a
-     real(kind=plf_rk) :: cos_a
-     real(kind=plf_rk), dimension(:), allocatable :: x
-     real(kind=plf_rk), dimension(:), allocatable :: y
+     real(kind=spl_rk) :: sin_a
+     real(kind=spl_rk) :: cos_a
+     real(kind=spl_rk), dimension(:), allocatable :: x
+     real(kind=spl_rk), dimension(:), allocatable :: y
 
      ! ...
      if ((mapping % d_dim .ne. 2) .and. (mapping % d_dim .ne. 3)) then
@@ -189,14 +189,14 @@ contains
   implicit none
      class(spl_t_mapping_cad),         intent(in) :: self
      class(spl_t_mapping_abstract),    intent(in) :: mapping_in 
-     real(kind=plf_rk), dimension(:),  intent(in) :: displacements
+     real(kind=spl_rk), dimension(:),  intent(in) :: displacements
      class(spl_t_mapping_abstract), intent(inout) :: mapping_out 
      ! local
-     real(plf_rk), dimension(:,:,:,:), allocatable :: control_points 
-     real(plf_rk), dimension(:,:,:), allocatable :: weights 
-     real(plf_rk), dimension(:), allocatable :: knots_u
-     real(plf_rk), dimension(:), allocatable :: knots_v   
-     real(plf_rk), dimension(:), allocatable :: knots_w   
+     real(spl_rk), dimension(:,:,:,:), allocatable :: control_points 
+     real(spl_rk), dimension(:,:,:), allocatable :: weights 
+     real(spl_rk), dimension(:), allocatable :: knots_u
+     real(spl_rk), dimension(:), allocatable :: knots_v   
+     real(spl_rk), dimension(:), allocatable :: knots_w   
      integer :: n_u
      integer :: n_v
      integer :: n_w
@@ -338,10 +338,10 @@ contains
      class(spl_t_mapping_abstract), intent(inout) :: mapping_in 
      class(spl_t_mapping_abstract), intent(inout) :: mapping_out 
      ! local
-     real(plf_rk), dimension(:,:,:), allocatable :: control_points 
-     real(plf_rk), dimension(:,:), allocatable :: weights 
-     real(plf_rk), dimension(:), allocatable :: knots_u
-     real(plf_rk), dimension(:), allocatable :: knots_v   
+     real(spl_rk), dimension(:,:,:), allocatable :: control_points 
+     real(spl_rk), dimension(:,:), allocatable :: weights 
+     real(spl_rk), dimension(:), allocatable :: knots_u
+     real(spl_rk), dimension(:), allocatable :: knots_v   
      integer :: n_u
      integer :: n_v
      integer :: p_u

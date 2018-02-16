@@ -14,12 +14,12 @@ use spl_m_bsp,             only: spl_refinement_matrix_multi_stages
 implicit none
   ! local
   type(spl_t_mapping_1d), target :: mapping
-  real(plf_rk), dimension(1) :: P_1
-  real(plf_rk), dimension(1) :: P_2
+  real(spl_rk), dimension(1) :: P_1
+  real(spl_rk), dimension(1) :: P_2
   integer, parameter :: p_u = 3 
   integer, parameter :: n_f =  4 
-  real(plf_rk), dimension(3) :: ts =(/ 0.13_plf_rk, 0.35_plf_rk, 0.6_plf_rk /) 
-  real(plf_rk), dimension(:,:), allocatable :: mat
+  real(spl_rk), dimension(3) :: ts =(/ 0.13_plf_rk, 0.35_plf_rk, 0.6_plf_rk /) 
+  real(spl_rk), dimension(:,:), allocatable :: mat
   integer :: m
   integer :: j
 

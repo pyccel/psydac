@@ -13,15 +13,15 @@ use spl_m_mapping_gallery, only: spl_mapping_circle
 implicit none
   ! local
   type(spl_t_mapping_2d), target :: mapping
-  real(plf_rk), parameter :: radius = 0.5_plf_rk
-  real(plf_rk), dimension(3) :: U
-  real(plf_rk), dimension(1) :: V
-  real(plf_rk), dimension(2,3,1) :: Y
-  real(plf_rk), dimension(2,2,3,1) :: dY
-  real(plf_rk), dimension(3,2,3,1) :: d2Y
+  real(spl_rk), parameter :: radius = 0.5_plf_rk
+  real(spl_rk), dimension(3) :: U
+  real(spl_rk), dimension(1) :: V
+  real(spl_rk), dimension(2,3,1) :: Y
+  real(spl_rk), dimension(2,2,3,1) :: dY
+  real(spl_rk), dimension(3,2,3,1) :: d2Y
   integer :: i
   integer :: j 
-  real(plf_rk) :: r
+  real(spl_rk) :: r
 
   ! ... creates a circular map
   call spl_mapping_circle(mapping)

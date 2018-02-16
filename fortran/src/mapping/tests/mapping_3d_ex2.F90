@@ -12,14 +12,14 @@ use spl_m_mapping_3d,      only: spl_t_mapping_3d
 use spl_m_mapping_gallery, only: spl_mapping_trilinear
 implicit none
   type(spl_t_mapping_3d), target :: mapping
-  real(plf_rk), dimension(3) :: P_111
-  real(plf_rk), dimension(3) :: P_121
-  real(plf_rk), dimension(3) :: P_211
-  real(plf_rk), dimension(3) :: P_221
-  real(plf_rk), dimension(3) :: P_112
-  real(plf_rk), dimension(3) :: P_122
-  real(plf_rk), dimension(3) :: P_212
-  real(plf_rk), dimension(3) :: P_222
+  real(spl_rk), dimension(3) :: P_111
+  real(spl_rk), dimension(3) :: P_121
+  real(spl_rk), dimension(3) :: P_211
+  real(spl_rk), dimension(3) :: P_221
+  real(spl_rk), dimension(3) :: P_112
+  real(spl_rk), dimension(3) :: P_122
+  real(spl_rk), dimension(3) :: P_212
+  real(spl_rk), dimension(3) :: P_222
 
   ! ... creates a trilinear map
   P_111 = (/ 0.0_plf_rk, 0.0_plf_rk, 0.0_plf_rk /)

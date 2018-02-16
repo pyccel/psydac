@@ -13,12 +13,12 @@ use spl_m_mapping_gallery, only: spl_mapping_arc
 implicit none
   ! local
   type(spl_t_mapping_1d), target :: mapping
-  real(plf_rk), dimension(3) :: U 
-  real(plf_rk), dimension(2,3) :: X
-  real(plf_rk), dimension(2,3) :: dX
-  real(plf_rk), dimension(2,3) :: ddX
+  real(spl_rk), dimension(3) :: U 
+  real(spl_rk), dimension(2,3) :: X
+  real(spl_rk), dimension(2,3) :: dX
+  real(spl_rk), dimension(2,3) :: ddX
   integer :: i
-  real(plf_rk) :: r
+  real(spl_rk) :: r
 
   ! ... creates an arc map
   call spl_mapping_arc(mapping)

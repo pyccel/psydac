@@ -14,8 +14,8 @@ use spl_m_mapping_gallery, only: spl_mapping_linear
 implicit none
   ! local
   type(spl_t_mapping_1d), target :: mapping
-  real(plf_rk), dimension(1) :: P_1
-  real(plf_rk), dimension(1) :: P_2
+  real(spl_rk), dimension(1) :: P_1
+  real(spl_rk), dimension(1) :: P_2
 
   ! ... create a linear map
   P_1 = (/ 10.0_plf_rk /)

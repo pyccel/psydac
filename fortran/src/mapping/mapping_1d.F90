@@ -19,11 +19,11 @@ implicit none
      integer :: p_u           !< spline degree            
      integer :: n_elements_u  !< number of elements
 
-     real(plf_rk), dimension(:)  , allocatable :: knots_u         !< array of knots of size n_u+p_u+1 
-     real(plf_rk), dimension(:,:), allocatable :: control_points  !< array of control points in IR^d
-     real(plf_rk), dimension(:)  , allocatable :: weights         !< array of weights 
+     real(spl_rk), dimension(:)  , allocatable :: knots_u         !< array of knots of size n_u+p_u+1 
+     real(spl_rk), dimension(:,:), allocatable :: control_points  !< array of control points in IR^d
+     real(spl_rk), dimension(:)  , allocatable :: weights         !< array of weights 
 
-     real(plf_rk), dimension(:)  , allocatable :: grid_u          !< corresponding grid 
+     real(spl_rk), dimension(:)  , allocatable :: grid_u          !< corresponding grid 
      integer     , dimension(:)  , allocatable :: i_spans_u       !< knots indices corresponding to the grid
   contains
     procedure :: breaks             => spl_breaks_mapping_1d
@@ -66,9 +66,9 @@ contains
   implicit none
      class(spl_t_mapping_1d)     , intent(inout) :: self
      integer                     , intent(in)    :: p
-     real(plf_rk), dimension (:) , intent(in)    :: knots
-     real(plf_rk), dimension(:,:), intent(in)    :: control_points
-     real(plf_rk), optional, dimension(:), intent(in) :: weights 
+     real(spl_rk), dimension (:) , intent(in)    :: knots
+     real(spl_rk), dimension(:,:), intent(in)    :: control_points
+     real(spl_rk), optional, dimension(:), intent(in) :: weights 
      ! local
      integer :: knots_size
 
@@ -158,7 +158,7 @@ contains
   subroutine spl_set_mapping_control_points_1d(self, control_points)
   implicit none
      class(spl_t_mapping_1d)     , intent(inout) :: self
-     real(plf_rk), dimension (:,:), intent(in)    :: control_points
+     real(spl_rk), dimension (:,:), intent(in)    :: control_points
      ! local
 
      ! ... control points
@@ -176,7 +176,7 @@ contains
   subroutine spl_set_mapping_weights_1d(self, weights)
   implicit none
      class(spl_t_mapping_1d)     , intent(inout) :: self
-     real(plf_rk), dimension (:), intent(in)    :: weights
+     real(spl_rk), dimension (:), intent(in)    :: weights
      ! local
 
      ! ... control points
@@ -283,8 +283,8 @@ contains
   use spl_m_bsp, bsp_evaluate_1d => Evaluate1
   implicit none
      class(spl_t_mapping_1d), intent(inout) :: self
-     real(kind=plf_rk), dimension(:), intent(in) :: arr_u
-     real(kind=plf_rk), dimension(:,:), intent(out) :: arr_y
+     real(kind=spl_rk), dimension(:), intent(in) :: arr_u
+     real(kind=spl_rk), dimension(:,:), intent(out) :: arr_y
      ! local
      integer :: r
 
@@ -312,16 +312,16 @@ contains
   use spl_m_bsp, bsp_evaluate_deriv_1d => EvaluateDeriv1
   implicit none
     class(spl_t_mapping_1d), intent(inout) :: self
-    real(kind=plf_rk), dimension(:), intent(in) :: arr_u
-    real(kind=plf_rk), dimension(:,:), intent(out) :: arr_y
-    real(kind=plf_rk), optional, dimension(:,:), intent(out) :: arr_dy
-    real(kind=plf_rk), optional, dimension(:,:), intent(out) :: arr_d2y
+    real(kind=spl_rk), dimension(:), intent(in) :: arr_u
+    real(kind=spl_rk), dimension(:,:), intent(out) :: arr_y
+    real(kind=spl_rk), optional, dimension(:,:), intent(out) :: arr_dy
+    real(kind=spl_rk), optional, dimension(:,:), intent(out) :: arr_d2y
     ! local
     integer :: r
     integer :: rationalize
     integer :: n_deriv 
     integer :: n_total_deriv 
-    real(kind=plf_rk), dimension(:,:,:), allocatable :: Cw
+    real(kind=spl_rk), dimension(:,:,:), allocatable :: Cw
 
     ! ...
     rationalize = 0
@@ -385,12 +385,12 @@ contains
   implicit none
      class(spl_t_mapping_1d), intent(inout) :: self
      integer(kind=4), intent(inout) :: n_elements
-     real   (kind=plf_rk), dimension(:), intent(inout) :: grid
+     real   (kind=spl_rk), dimension(:), intent(inout) :: grid
      integer, dimension(:), optional, intent(inout) :: i_spans
      ! local
      integer :: i_element
      integer :: i_span
-     real(plf_rk) :: x
+     real(spl_rk) :: x
 
      ! ...
      call FindNonZeroElements( &
@@ -422,11 +422,11 @@ contains
   subroutine spl_to_us_form_mapping_1d(self, arr_us)
   implicit none
      class(spl_t_mapping_1d), intent(inout) :: self
-     real(kind=plf_rk), dimension(:,:,:), intent(inout) :: arr_us
+     real(kind=spl_rk), dimension(:,:,:), intent(inout) :: arr_us
      ! local
      type(spl_t_mapping_1d) :: mapping_tmp
      integer :: n_elements
-     real(plf_rk), dimension(self % n_u + self % p_u + 1) :: grid
+     real(spl_rk), dimension(self % n_u + self % p_u + 1) :: grid
      integer, dimension(self % n_u + self % p_u + 1) :: i_spans
      integer :: i
      integer :: i_element 
@@ -469,7 +469,7 @@ contains
   subroutine spl_to_pp_form_mapping_1d(self, arr_pp)
   implicit none
     class(spl_t_mapping_1d), intent(inout) :: self
-    real(kind=plf_rk), dimension(:,:,:), intent(inout) :: arr_pp
+    real(kind=spl_rk), dimension(:,:,:), intent(inout) :: arr_pp
     ! local
     integer :: i_dim
 
@@ -498,7 +498,7 @@ contains
   use spl_m_bsp, bsp_insert_knot => InsertKnot
   implicit none
      class(spl_t_mapping_1d)          , intent(inout) :: self
-     real(plf_rk)                     , intent(in)    :: t 
+     real(spl_rk)                     , intent(in)    :: t 
      integer                , optional, intent(in)    :: times 
      class(spl_t_mapping_1d), optional, intent(inout) :: other 
      ! local
@@ -506,10 +506,10 @@ contains
      integer :: n_u
      integer :: n_total
      integer :: l_times
-     real(plf_rk), dimension (:) , allocatable :: knots_new
-     real(plf_rk), dimension (:) , allocatable :: knots_ini
-     real(plf_rk), dimension(:,:), allocatable :: control_points_new
-     real(plf_rk), dimension(:,:), allocatable :: control_points_ini
+     real(spl_rk), dimension (:) , allocatable :: knots_new
+     real(spl_rk), dimension (:) , allocatable :: knots_ini
+     real(spl_rk), dimension(:,:), allocatable :: control_points_new
+     real(spl_rk), dimension(:,:), allocatable :: control_points_ini
      type(spl_t_mapping_1d) :: mapping_tmp
 
      l_times = 1
@@ -564,10 +564,10 @@ contains
      integer :: n_total
      integer :: n_internal_knots
      integer :: nh
-     real(plf_rk), dimension (:) , allocatable :: knots_new
-     real(plf_rk), dimension (:) , allocatable :: knots_ini
-     real(plf_rk), dimension(:,:), allocatable :: control_points_new
-     real(plf_rk), dimension(:,:), allocatable :: control_points_ini
+     real(spl_rk), dimension (:) , allocatable :: knots_new
+     real(spl_rk), dimension (:) , allocatable :: knots_ini
+     real(spl_rk), dimension(:,:), allocatable :: control_points_new
+     real(spl_rk), dimension(:,:), allocatable :: control_points_ini
      type(spl_t_mapping_1d) :: mapping_tmp
 
      !> \TODO must check the internal knots 
@@ -622,7 +622,7 @@ contains
      integer :: i
      logical :: l_verbose
      type(spl_t_mapping_1d)          , target :: mapping_tmp
-     real(plf_rk) :: t
+     real(spl_rk) :: t
 
      l_verbose = .False.
      if (present(verbose)) then
@@ -707,8 +707,8 @@ contains
      ! local
      integer :: i
      integer :: i_current
-     real(plf_rk), dimension(self % n_u + self % p_u + 1) :: lpr_grid
-     real(plf_rk) :: min_current
+     real(spl_rk), dimension(self % n_u + self % p_u + 1) :: lpr_grid
+     real(spl_rk) :: min_current
 
      lpr_grid = plf_int_default * 1.0_plf_rk 
 
@@ -735,7 +735,7 @@ contains
   use spl_m_bsp, bsp_greville => Greville
   implicit none
     class(spl_t_mapping_1d),    intent(in)    :: self
-    real(plf_rk), dimension(:), intent(inout) :: us
+    real(spl_rk), dimension(:), intent(inout) :: us
     ! local
 
     ! ...
@@ -791,13 +791,13 @@ contains
     integer :: num_pts1
     integer :: d_dim
     character(len=256) :: label
-    real(kind=plf_rk), dimension(:), allocatable :: knots1
-    real(kind=plf_rk), dimension(:), allocatable :: control_pts1
-    real(kind=plf_rk), dimension(:), allocatable :: control_pts2
-    real(kind=plf_rk), dimension(:), allocatable :: control_pts3
-    real(kind=plf_rk), dimension(:), allocatable :: control_weights
-    real(kind=plf_rk) :: eta1_min_minimal
-    real(kind=plf_rk) :: eta1_max_minimal
+    real(kind=spl_rk), dimension(:), allocatable :: knots1
+    real(kind=spl_rk), dimension(:), allocatable :: control_pts1
+    real(kind=spl_rk), dimension(:), allocatable :: control_pts2
+    real(kind=spl_rk), dimension(:), allocatable :: control_pts3
+    real(kind=spl_rk), dimension(:), allocatable :: control_weights
+    real(kind=spl_rk) :: eta1_min_minimal
+    real(kind=spl_rk) :: eta1_max_minimal
     integer  :: bc_left
     integer  :: bc_right
     integer  :: bc_bottom
@@ -903,14 +903,14 @@ contains
     integer :: spline_deg1
     integer :: num_pts1
     integer :: d_dim
-    real(plf_rk), dimension(:), allocatable :: knots1
-    real(plf_rk), dimension(:), allocatable :: weights
-    real(plf_rk), dimension(:), allocatable :: control_pts1
-    real(plf_rk), dimension(:), allocatable :: control_pts2
-    real(plf_rk), dimension(:), allocatable :: control_pts3
+    real(spl_rk), dimension(:), allocatable :: knots1
+    real(spl_rk), dimension(:), allocatable :: weights
+    real(spl_rk), dimension(:), allocatable :: control_pts1
+    real(spl_rk), dimension(:), allocatable :: control_pts2
+    real(spl_rk), dimension(:), allocatable :: control_pts3
     integer  :: number_cells1
     integer  :: number_cells2
-    real(plf_rk), dimension(:,:), allocatable  :: control_points3d
+    real(spl_rk), dimension(:,:), allocatable  :: control_points3d
         
     namelist /transf_label/  label
     namelist /d_dimension/   d_dim

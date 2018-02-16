@@ -4,7 +4,7 @@ set(files
 	  calculus.F90)
 
 add_library(spl_utilities ${files})
-target_link_libraries(spl_utilities spl_global ${PLAF_LIBRARIES})
+target_link_libraries(spl_utilities spl_global)
 
 
 ##########################################################################

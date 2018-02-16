@@ -12,13 +12,13 @@ use spl_m_mapping_2d,      only: spl_t_mapping_2d
 use spl_m_mapping_gallery, only: spl_mapping_bilinear
 implicit none
   type(spl_t_mapping_2d), target :: mapping
-  real(plf_rk), dimension(2) :: P_11
-  real(plf_rk), dimension(2) :: P_12
-  real(plf_rk), dimension(2) :: P_21
-  real(plf_rk), dimension(2) :: P_22
-  real(plf_rk), dimension(:,:,:,:), allocatable :: arr_us
-  real(plf_rk), dimension(:), allocatable :: grid_u 
-  real(plf_rk), dimension(:), allocatable :: grid_v 
+  real(spl_rk), dimension(2) :: P_11
+  real(spl_rk), dimension(2) :: P_12
+  real(spl_rk), dimension(2) :: P_21
+  real(spl_rk), dimension(2) :: P_22
+  real(spl_rk), dimension(:,:,:,:), allocatable :: arr_us
+  real(spl_rk), dimension(:), allocatable :: grid_u 
+  real(spl_rk), dimension(:), allocatable :: grid_v 
   integer :: n_elements_u 
   integer :: n_elements_v
   integer :: n_elements

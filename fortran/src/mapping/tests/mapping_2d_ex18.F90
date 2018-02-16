@@ -14,9 +14,9 @@ use spl_m_mapping_gallery, only: spl_mapping_eccentric_annulus
 implicit none
   ! local
   type(spl_t_mapping_2d), target :: mapping
-  real(plf_rk), parameter :: r_min = 0.2_plf_rk
-  real(plf_rk), parameter :: r_max = 1.0_plf_rk
-  real(plf_rk), dimension(2) :: C1, C2
+  real(spl_rk), parameter :: r_min = 0.2_plf_rk
+  real(spl_rk), parameter :: r_max = 1.0_plf_rk
+  real(spl_rk), dimension(2) :: C1, C2
   
   
   ! ... new internal center

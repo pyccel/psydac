@@ -38,9 +38,9 @@ contains
   !> @param[inout] r       scalar that corresponds to the cross product r = a x b 
   subroutine spl_compute_cross_product_2d(a, b, r)
   implicit none
-    real(kind=plf_rk), dimension(2), intent(in)    :: a
-    real(kind=plf_rk), dimension(2), intent(in)    :: b 
-    real(kind=plf_rk),               intent(inout) :: r 
+    real(kind=spl_rk), dimension(2), intent(in)    :: a
+    real(kind=spl_rk), dimension(2), intent(in)    :: b 
+    real(kind=spl_rk),               intent(inout) :: r 
 
     r = a(1) * b(2) - a(2) * b(1)
 
@@ -55,9 +55,9 @@ contains
   !> @param[inout] r       array that corresponds to the cross product r = a x b 
   subroutine spl_compute_cross_product_3d(a, b, r)
   implicit none
-    real(kind=plf_rk), dimension(3), intent(in)    :: a
-    real(kind=plf_rk), dimension(3), intent(in)    :: b 
-    real(kind=plf_rk), dimension(3), intent(inout) :: r 
+    real(kind=spl_rk), dimension(3), intent(in)    :: a
+    real(kind=spl_rk), dimension(3), intent(in)    :: b 
+    real(kind=spl_rk), dimension(3), intent(inout) :: r 
 
     r(1) = a(2) * b(3) - a(3) * b(2)
     r(2) = a(3) * b(1) - a(1) * b(3)
@@ -73,8 +73,8 @@ contains
   !> @param[inout] determinants   determinants of the mapping F. array of dim(1:n_points) 
   subroutine spl_compute_determinants_jacobians_1d( arr_x_u, determinants)
   implicit none
-    real(plf_rk), dimension(:,:), intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:)  , intent(inout) :: determinants
+    real(spl_rk), dimension(:,:), intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:)  , intent(inout) :: determinants
     ! local
     integer :: i
     integer :: d_dim
@@ -104,9 +104,9 @@ contains
   !> @param[inout] inv_jacobians  inverse of the jacobian matrix of F. array of dim(2,2,1:n_points) 
   subroutine spl_compute_inv_jacobians_1d( arr_x_u, determinants, inv_jacobians)
   implicit none
-    real(plf_rk), dimension(:,:), intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:)  , intent(in)    :: determinants 
-    real(plf_rk), dimension(:)  , intent(inout) :: inv_jacobians
+    real(spl_rk), dimension(:,:), intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:)  , intent(in)    :: determinants 
+    real(spl_rk), dimension(:)  , intent(inout) :: inv_jacobians
     ! local
     integer :: n_points
 
@@ -129,9 +129,9 @@ contains
   !> @param[inout] inv_hessian   inverse of the hessian matrix of F. array of dim(2,2,1:n_points) 
   subroutine spl_compute_inv_hessian_1d( arr_x_u, arr_x_uu, inv_hessian)
   implicit none
-    real(plf_rk), dimension(:,:), intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_uu
-    real(plf_rk), dimension(:,:)  , intent(inout) :: inv_hessian
+    real(spl_rk), dimension(:,:), intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_uu
+    real(spl_rk), dimension(:,:)  , intent(inout) :: inv_hessian
     ! local
     integer :: n_points
 
@@ -155,9 +155,9 @@ contains
   !> @param[inout] determinants   determinants of the mapping F. array of dim(1:n_points) 
   subroutine spl_compute_determinants_jacobians_2d( arr_x_u, arr_x_v, determinants )
   implicit none
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_v
-    real(plf_rk), dimension(:)    , intent(inout) :: determinants 
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_v
+    real(spl_rk), dimension(:)    , intent(inout) :: determinants 
     ! local
     integer :: n_points
 
@@ -183,10 +183,10 @@ contains
   !> @param[inout] inv_jacobians  inverse of the jacobian matrix of F. array of dim(2,2,1:n_points) 
   subroutine spl_compute_inv_jacobians_2d( arr_x_u, arr_x_v, determinants, inv_jacobians )
   implicit none
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_v
-    real(plf_rk), dimension(:)    , intent(in)    :: determinants 
-    real(plf_rk), dimension(:,:,:), intent(inout) :: inv_jacobians
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_v
+    real(spl_rk), dimension(:)    , intent(in)    :: determinants 
+    real(spl_rk), dimension(:,:,:), intent(inout) :: inv_jacobians
     ! local
     integer :: i_point
     integer :: n_points
@@ -222,18 +222,18 @@ contains
   !> @param[inout] inv_hessian  inverse of the jacobian matrix of F. array of dim(3,5,1:n_points) 
   subroutine spl_compute_inv_hessian_2d( arr_x_u, arr_x_v, arr_x_uu, arr_x_uv, arr_x_vv, inv_hessian )
     implicit none
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_v
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_uu
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_uv
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_vv
-    real(plf_rk), dimension(:,:,:), intent(inout) :: inv_hessian
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_v
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_uu
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_uv
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_vv
+    real(spl_rk), dimension(:,:,:), intent(inout) :: inv_hessian
     ! local
     integer :: i_point
     integer :: n_points
-    real(plf_rk) :: det, det_x, det_y
-    real(plf_rk) :: R_u, R_v, R_uu, R_uv, R_vv
-    real(plf_rk) :: Z_u, Z_v, Z_uu, Z_uv, Z_vv
+    real(spl_rk) :: det, det_x, det_y
+    real(spl_rk) :: R_u, R_v, R_uu, R_uv, R_vv
+    real(spl_rk) :: Z_u, Z_v, Z_uu, Z_uv, Z_vv
 
     n_points = size(arr_x_u,2)
     
@@ -307,26 +307,26 @@ contains
                                        & arr_x_ww, &
                                        & inv_hessian )
     implicit none
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_v
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_w
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_uu
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_uv
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_uw
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_vv
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_vw
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_ww
-    real(plf_rk), dimension(:,:,:), intent(inout) :: inv_hessian
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_v
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_w
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_uu
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_uv
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_uw
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_vv
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_vw
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_ww
+    real(spl_rk), dimension(:,:,:), intent(inout) :: inv_hessian
     ! local
     integer :: i_point
     integer :: n_points
     integer :: i, j, k, l
-    real(plf_rk), dimension(3,3) :: mat_a
-    real(plf_rk), dimension(3,3) :: mat_a_inv
-    real(plf_rk), dimension(6,3) :: mat_b
-    real(plf_rk), dimension(6,6) :: mat_h
-    real(plf_rk), dimension(6,6) :: mat_h_inv
-    real(plf_rk), dimension(6,3) :: mat_c
+    real(spl_rk), dimension(3,3) :: mat_a
+    real(spl_rk), dimension(3,3) :: mat_a_inv
+    real(spl_rk), dimension(6,3) :: mat_b
+    real(spl_rk), dimension(6,6) :: mat_h
+    real(spl_rk), dimension(6,6) :: mat_h_inv
+    real(spl_rk), dimension(6,3) :: mat_c
     
     n_points = size(arr_x_u, 2)
     
@@ -447,10 +447,10 @@ contains
   !> @param[inout] pullback_one_form  inverse of the jacobian matrix of F. array of dim(2,2,1:n_points) 
   subroutine spl_compute_pullback_one_form_2d( arr_x_u, arr_x_v, determinants, pullback_one_form )
   implicit none
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_v
-    real(plf_rk), dimension(:)    , intent(in)    :: determinants 
-    real(plf_rk), dimension(:,:,:), intent(inout) :: pullback_one_form
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_v
+    real(spl_rk), dimension(:)    , intent(in)    :: determinants 
+    real(spl_rk), dimension(:,:,:), intent(inout) :: pullback_one_form
     ! local
     integer :: i_point
     integer :: n_points
@@ -484,10 +484,10 @@ contains
   !> @param[inout] pullback_two_form  inverse of the jacobian matrix of F. array of dim(2,2,1:n_points) 
   subroutine spl_compute_pullback_two_form_2d( arr_x_u, arr_x_v, determinants, pullback_two_form )
   implicit none
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:,:),   intent(in)    :: arr_x_v
-    real(plf_rk), dimension(:)    , intent(in)    :: determinants 
-    real(plf_rk), dimension(:,:,:), intent(inout) :: pullback_two_form
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:,:),   intent(in)    :: arr_x_v
+    real(spl_rk), dimension(:)    , intent(in)    :: determinants 
+    real(spl_rk), dimension(:,:,:), intent(inout) :: pullback_two_form
     ! local
     integer :: i_point
     integer :: n_points
@@ -521,10 +521,10 @@ contains
   !> @param[inout] determinants   determinants of the mapping F. array of dim(1:n_points) 
   subroutine spl_compute_determinants_jacobians_3d( arr_x_u, arr_x_v, arr_x_w, determinants )
   implicit none
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_v
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_w
-    real(plf_rk), dimension(:)    , intent(inout) :: determinants
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_v
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_w
+    real(spl_rk), dimension(:)    , intent(inout) :: determinants
             ! local
     integer :: n_points
 
@@ -558,11 +558,11 @@ contains
   !> @param[inout] inv_jacobians  inverse of the jacobian inv_jacobians of F. array of dim(3,3,1:n_points) 
   subroutine spl_compute_inv_jacobians_3d( arr_x_u, arr_x_v, arr_x_w, determinants, inv_jacobians )
   implicit none
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_v
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_w
-    real(plf_rk), dimension(:)    , intent(in)    :: determinants
-    real(plf_rk), dimension(:,:,:), intent(inout) :: inv_jacobians
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_v
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_w
+    real(spl_rk), dimension(:)    , intent(in)    :: determinants
+    real(spl_rk), dimension(:,:,:), intent(inout) :: inv_jacobians
     ! local
     integer :: i_point
     integer :: n_points
@@ -611,11 +611,11 @@ contains
   !> @param[inout] pullback_one_form  inverse of the jacobian pullback_one_form of F. array of dim(3,3,1:n_points) 
   subroutine spl_compute_pullback_one_form_3d( arr_x_u, arr_x_v, arr_x_w, determinants, pullback_one_form )
   implicit none
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_v
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_w
-    real(plf_rk), dimension(:)    , intent(in)    :: determinants
-    real(plf_rk), dimension(:,:,:), intent(inout) :: pullback_one_form
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_v
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_w
+    real(spl_rk), dimension(:)    , intent(in)    :: determinants
+    real(spl_rk), dimension(:,:,:), intent(inout) :: pullback_one_form
     ! local
     integer :: i_point
     integer :: n_points
@@ -675,11 +675,11 @@ contains
   !> @param[inout] pullback_two_form  inverse of the jacobian pullback_two_form of F. array of dim(3,3,1:n_points) 
   subroutine spl_compute_pullback_two_form_3d( arr_x_u, arr_x_v, arr_x_w, determinants, pullback_two_form )
   implicit none
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_u
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_v
-    real(plf_rk), dimension(:,:)  , intent(in)    :: arr_x_w
-    real(plf_rk), dimension(:)    , intent(in)    :: determinants
-    real(plf_rk), dimension(:,:,:), intent(inout) :: pullback_two_form
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_u
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_v
+    real(spl_rk), dimension(:,:)  , intent(in)    :: arr_x_w
+    real(spl_rk), dimension(:)    , intent(in)    :: determinants
+    real(spl_rk), dimension(:,:,:), intent(inout) :: pullback_two_form
     ! local
     integer :: i_point
     integer :: n_points
@@ -717,13 +717,13 @@ contains
   !> @param[inout] f_physical     f vector field in the physical domain. array of dim(2,1:n_points)
   subroutine spl_map_vector_2d(f_logical, matrix_jac, f_physical)
   implicit none
-    real(plf_rk), dimension(:,:)  , intent(in)    :: f_logical  
-    real(plf_rk), dimension(:,:,:), intent(in)    :: matrix_jac
-    real(plf_rk), dimension(:,:)  , intent(inout) :: f_physical
+    real(spl_rk), dimension(:,:)  , intent(in)    :: f_logical  
+    real(spl_rk), dimension(:,:,:), intent(in)    :: matrix_jac
+    real(spl_rk), dimension(:,:)  , intent(inout) :: f_physical
     ! local
     integer :: i_point
     integer :: n_points
-    real(plf_rk) :: j11, j12, j21, j22
+    real(spl_rk) :: j11, j12, j21, j22
 
     ! ...
     n_points = ubound(f_logical, 2)
@@ -759,15 +759,15 @@ contains
   !> @param[inout] f_physical     f vector field in the physical domain. array of dim(2,1:n_points)
   subroutine spl_map_second_derivate_2d(f_logical, matrix_hes, f_physical)
   implicit none
-    real(plf_rk), dimension(:,:)  , intent(in)    :: f_logical  
-    real(plf_rk), dimension(:,:,:), intent(in)    :: matrix_hes
-    real(plf_rk), dimension(:,:)  , intent(inout) :: f_physical
+    real(spl_rk), dimension(:,:)  , intent(in)    :: f_logical  
+    real(spl_rk), dimension(:,:,:), intent(in)    :: matrix_hes
+    real(spl_rk), dimension(:,:)  , intent(inout) :: f_physical
     ! local
     integer :: i_point
     integer :: n_points
-    real(plf_rk) :: h11, h12, h13, h14, h15
-    real(plf_rk) :: h21, h22, h23, h24, h25
-    real(plf_rk) :: h31, h32, h33, h34, h35
+    real(spl_rk) :: h11, h12, h13, h14, h15
+    real(spl_rk) :: h21, h22, h23, h24, h25
+    real(spl_rk) :: h31, h32, h33, h34, h35
 
     ! ...
     n_points = ubound(f_logical, 2)
@@ -814,21 +814,21 @@ contains
   !> @param[inout] f_physical     f vector field in the physical domain. array of dim(3,1:n_points)
   subroutine spl_map_vector_3d(f_logical, matrix, f_physical)
   implicit none
-    real(plf_rk), dimension(:,:)  , intent(in)    :: f_logical  
-    real(plf_rk), dimension(:,:,:), intent(in)    :: matrix
-    real(plf_rk), dimension(:,:)  , intent(inout) :: f_physical
+    real(spl_rk), dimension(:,:)  , intent(in)    :: f_logical  
+    real(spl_rk), dimension(:,:,:), intent(in)    :: matrix
+    real(spl_rk), dimension(:,:)  , intent(inout) :: f_physical
     ! local
     integer :: i_point
     integer :: n_points
-    real(plf_rk) :: j11
-    real(plf_rk) :: j12
-    real(plf_rk) :: j13
-    real(plf_rk) :: j21
-    real(plf_rk) :: j22
-    real(plf_rk) :: j23
-    real(plf_rk) :: j31
-    real(plf_rk) :: j32
-    real(plf_rk) :: j33
+    real(spl_rk) :: j11
+    real(spl_rk) :: j12
+    real(spl_rk) :: j13
+    real(spl_rk) :: j21
+    real(spl_rk) :: j22
+    real(spl_rk) :: j23
+    real(spl_rk) :: j31
+    real(spl_rk) :: j32
+    real(spl_rk) :: j33
 
     ! ...
     n_points = ubound(f_logical, 2)
@@ -875,9 +875,9 @@ contains
   !> @param[inout] f_physical     f vector field in the physical domain. array of dim(6,1:n_points)
   subroutine spl_map_second_derivate_3d(f_logical, matrix_hes, f_physical)
   implicit none
-    real(plf_rk), dimension(:,:)  , intent(in)    :: f_logical  
-    real(plf_rk), dimension(:,:,:), intent(in)    :: matrix_hes
-    real(plf_rk), dimension(:,:)  , intent(inout) :: f_physical
+    real(spl_rk), dimension(:,:)  , intent(in)    :: f_logical  
+    real(spl_rk), dimension(:,:,:), intent(in)    :: matrix_hes
+    real(spl_rk), dimension(:,:)  , intent(inout) :: f_physical
     ! local
     integer :: i, j
     integer :: i_point

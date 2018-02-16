@@ -13,8 +13,8 @@ use spl_m_mapping_gallery, only: spl_mapping_linear
 implicit none
   type(spl_t_mapping_1d), target :: mapping_in
   type(spl_t_mapping_1d), target :: mapping_out
-  real(plf_rk), dimension(2) :: P_1
-  real(plf_rk), dimension(2) :: P_2
+  real(spl_rk), dimension(2) :: P_1
+  real(spl_rk), dimension(2) :: P_2
 
   ! ... creates a linear map between P_1 and P_2
   P_1 = (/ 0.0_plf_rk, 1.0_plf_rk /)

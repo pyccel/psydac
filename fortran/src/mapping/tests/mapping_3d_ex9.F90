@@ -20,17 +20,17 @@ implicit none
   integer, parameter :: n_u = 3 
   integer, parameter :: n_v = 1
   integer, parameter :: n_w = 1 
-  real(plf_rk), dimension(n_u) :: U
-  real(plf_rk), dimension(n_v) :: V
-  real(plf_rk), dimension(n_w) :: W 
-  real(plf_rk), dimension(  3,n_u,n_v,n_w) :: Y
-  real(plf_rk), dimension(3,3,n_u,n_v,n_w) :: dY
-  real(plf_rk), dimension(6,3,n_u,n_v,n_w) :: d2Y
+  real(spl_rk), dimension(n_u) :: U
+  real(spl_rk), dimension(n_v) :: V
+  real(spl_rk), dimension(n_w) :: W 
+  real(spl_rk), dimension(  3,n_u,n_v,n_w) :: Y
+  real(spl_rk), dimension(3,3,n_u,n_v,n_w) :: dY
+  real(spl_rk), dimension(6,3,n_u,n_v,n_w) :: d2Y
   integer :: n
   integer :: i
   integer :: j 
   integer :: k 
-  real(plf_rk) :: r
+  real(spl_rk) :: r
 
   ! ... creates a circular mapping 
   call spl_mapping_circle(circle, radius=1.0_plf_rk)

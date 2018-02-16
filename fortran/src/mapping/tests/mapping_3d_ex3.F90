@@ -13,18 +13,18 @@ use spl_m_mapping_gallery, only: spl_mapping_trilinear
 implicit none
   ! local
   type(spl_t_mapping_3d), target :: mapping
-  real(plf_rk), dimension(3) :: P_111
-  real(plf_rk), dimension(3) :: P_121
-  real(plf_rk), dimension(3) :: P_211
-  real(plf_rk), dimension(3) :: P_221
-  real(plf_rk), dimension(3) :: P_112
-  real(plf_rk), dimension(3) :: P_122
-  real(plf_rk), dimension(3) :: P_212
-  real(plf_rk), dimension(3) :: P_222
-  real(plf_rk), dimension(3) :: U
-  real(plf_rk), dimension(1) :: V
-  real(plf_rk), dimension(1) :: W 
-  real(plf_rk), dimension(3,1,1,3) :: Y
+  real(spl_rk), dimension(3) :: P_111
+  real(spl_rk), dimension(3) :: P_121
+  real(spl_rk), dimension(3) :: P_211
+  real(spl_rk), dimension(3) :: P_221
+  real(spl_rk), dimension(3) :: P_112
+  real(spl_rk), dimension(3) :: P_122
+  real(spl_rk), dimension(3) :: P_212
+  real(spl_rk), dimension(3) :: P_222
+  real(spl_rk), dimension(3) :: U
+  real(spl_rk), dimension(1) :: V
+  real(spl_rk), dimension(1) :: W 
+  real(spl_rk), dimension(3,1,1,3) :: Y
 
   ! ... creates a trilinear map
   P_111 = (/ 0.0_plf_rk, 0.0_plf_rk, 0.0_plf_rk /)

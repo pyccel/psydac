@@ -13,11 +13,11 @@ use spl_m_mapping_gallery, only: spl_mapping_linear
 implicit none
   ! local
   type(spl_t_mapping_1d), target :: mapping
-  real(plf_rk), dimension(1) :: P_1
-  real(plf_rk), dimension(1) :: P_2
+  real(spl_rk), dimension(1) :: P_1
+  real(spl_rk), dimension(1) :: P_2
   integer, parameter :: p_u = 3 
   integer, parameter :: n_elements_u = 4 
-  real(plf_rk), dimension(n_elements_u+p_u) :: us 
+  real(spl_rk), dimension(n_elements_u+p_u) :: us 
 
   ! ... create a linear map
   P_1 = (/ 0.0_plf_rk /)

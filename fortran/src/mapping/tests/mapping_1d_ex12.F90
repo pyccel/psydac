@@ -14,11 +14,11 @@ use spl_m_bsp,             only: spl_refinement_matrix_one_stage
 implicit none
   ! local
   type(spl_t_mapping_1d), target :: mapping
-  real(plf_rk), dimension(1) :: P_1
-  real(plf_rk), dimension(1) :: P_2
+  real(spl_rk), dimension(1) :: P_1
+  real(spl_rk), dimension(1) :: P_2
   integer, parameter :: p_u = 3 
   integer, parameter :: n_f =  4 
-  real(plf_rk), dimension(:,:), allocatable :: mat
+  real(spl_rk), dimension(:,:), allocatable :: mat
   integer :: i
 
   ! ... create a linear map

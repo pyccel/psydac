@@ -12,9 +12,9 @@ use spl_m_mapping_1d,      only: spl_t_mapping_1d
 use spl_m_mapping_gallery, only: spl_mapping_linear
 implicit none
   type(spl_t_mapping_1d), target :: mapping
-  real(plf_rk), dimension(1) :: P_1
-  real(plf_rk), dimension(1) :: P_2
-  real(plf_rk), dimension(:), allocatable :: grid 
+  real(spl_rk), dimension(1) :: P_1
+  real(spl_rk), dimension(1) :: P_2
+  real(spl_rk), dimension(:), allocatable :: grid 
   integer, dimension(:), allocatable :: i_spans
   integer :: n_elements
 

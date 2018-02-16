@@ -17,7 +17,7 @@ contains
   !> @param[inout] a the array to sort 
   recursive subroutine spl_sort_qsortc(a)
   implicit none
-    real(plf_rk), dimension(:), intent(inout) :: a
+    real(spl_rk), dimension(:), intent(inout) :: a
     integer :: iq
   
     if(size(a) > 1) then
@@ -35,12 +35,12 @@ contains
   !> @param[out] marker the span index 
   subroutine spl_sort_partition(a, marker)
   implicit none
-    real(plf_rk), dimension(:), intent(inout) :: a
+    real(spl_rk), dimension(:), intent(inout) :: a
     integer                   , intent(out)    :: marker
     ! local
     integer :: i, j
-    real(plf_rk) :: temp
-    real(plf_rk) :: x      ! pivot point
+    real(spl_rk) :: temp
+    real(spl_rk) :: x      ! pivot point
   
     x = a(1)
     i= 0

@@ -14,17 +14,17 @@ implicit none
   ! local
   ! ... number of internal knots is = n - p - 1
   type(spl_t_mapping_3d), target :: mapping
-  real(plf_rk), dimension(3) :: P_111
-  real(plf_rk), dimension(3) :: P_121
-  real(plf_rk), dimension(3) :: P_211
-  real(plf_rk), dimension(3) :: P_221
-  real(plf_rk), dimension(3) :: P_112
-  real(plf_rk), dimension(3) :: P_122
-  real(plf_rk), dimension(3) :: P_212
-  real(plf_rk), dimension(3) :: P_222
-  real(plf_rk), dimension(:), allocatable :: grid_u 
-  real(plf_rk), dimension(:), allocatable :: grid_v 
-  real(plf_rk), dimension(:), allocatable :: grid_w 
+  real(spl_rk), dimension(3) :: P_111
+  real(spl_rk), dimension(3) :: P_121
+  real(spl_rk), dimension(3) :: P_211
+  real(spl_rk), dimension(3) :: P_221
+  real(spl_rk), dimension(3) :: P_112
+  real(spl_rk), dimension(3) :: P_122
+  real(spl_rk), dimension(3) :: P_212
+  real(spl_rk), dimension(3) :: P_222
+  real(spl_rk), dimension(:), allocatable :: grid_u 
+  real(spl_rk), dimension(:), allocatable :: grid_v 
+  real(spl_rk), dimension(:), allocatable :: grid_w 
   integer, dimension(:), allocatable :: i_spans_u 
   integer, dimension(:), allocatable :: i_spans_v 
   integer, dimension(:), allocatable :: i_spans_w 

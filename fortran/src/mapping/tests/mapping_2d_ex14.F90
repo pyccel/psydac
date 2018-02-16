@@ -13,16 +13,16 @@ use spl_m_mapping_gallery, only: spl_mapping_bilinear
 implicit none
   ! local
   type(spl_t_mapping_2d), target :: mapping
-  real(plf_rk), dimension(2) :: P_11
-  real(plf_rk), dimension(2) :: P_12
-  real(plf_rk), dimension(2) :: P_21
-  real(plf_rk), dimension(2) :: P_22
+  real(spl_rk), dimension(2) :: P_11
+  real(spl_rk), dimension(2) :: P_12
+  real(spl_rk), dimension(2) :: P_21
+  real(spl_rk), dimension(2) :: P_22
   integer, parameter :: p_u = 3 
   integer, parameter :: p_v = 2 
   integer, parameter :: n_elements_u = 4 
   integer, parameter :: n_elements_v = 4 
-  real(plf_rk), dimension(n_elements_u+p_u) :: us 
-  real(plf_rk), dimension(n_elements_v+p_v) :: vs 
+  real(spl_rk), dimension(n_elements_u+p_u) :: us 
+  real(spl_rk), dimension(n_elements_v+p_v) :: vs 
 
   ! ... create a bilinear map
   P_11 = (/ 0.0_plf_rk, 0.0_plf_rk /)
