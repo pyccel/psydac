@@ -31,5 +31,5 @@ before_install:
 # command to install dependencies
 install:
   - pip install -r requirements.txt
-  - export PREFIX=$TRAVIS_BUILD_DIR/usr && pip install .
+  - pip install . --prefix=$TRAVIS_BUILD_DIR/usr
 
