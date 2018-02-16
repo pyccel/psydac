@@ -42,8 +42,6 @@ dependency_links = []
 # ...
 if 'PREFIX' in os.environ:
     INSTALL_DIR = os.environ['PREFIX']
-elif 'TRAVIS_BUILD_DIR' in os.environ:
-    INSTALL_DIR = os.path.join(os.environ['TRAVIS_BUILD_DIR'], 'usr')
 else:
     INSTALL_DIR = os.path.join(os.getcwd(), 'usr')
 # ...
