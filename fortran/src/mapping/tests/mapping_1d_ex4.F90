@@ -20,8 +20,8 @@ implicit none
   real(spl_rk), dimension(1,3) :: d2Y
 
   ! ... create a linear map
-  P_1 = (/ 0.0_plf_rk /)
-  P_2 = (/ 1.0_plf_rk /)
+  P_1 = (/ 0.0_spl_rk /)
+  P_2 = (/ 1.0_spl_rk /)
 
   call spl_mapping_linear( mapping, &
                          & P_1, P_2, &
@@ -29,7 +29,7 @@ implicit none
   ! ...
 
   ! ... mapping evaluation
-  X = (/ 0.2_plf_rk, 0.4_plf_rk, 0.6_plf_rk /)
+  X = (/ 0.2_spl_rk, 0.4_spl_rk, 0.6_spl_rk /)
   print *, "** X :", X
 
   call mapping % evaluate(X, Y)

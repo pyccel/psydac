@@ -26,14 +26,14 @@ implicit none
   integer :: n_elements
 
   ! ... creates a trilinear map
-  P_111 = (/ 0.0_plf_rk, 0.0_plf_rk, 0.0_plf_rk /)
-  P_211 = (/ 1.0_plf_rk, 0.0_plf_rk, 0.0_plf_rk /)
-  P_121 = (/ 0.0_plf_rk, 1.0_plf_rk, 0.0_plf_rk /)
-  P_221 = (/ 1.0_plf_rk, 1.0_plf_rk, 0.0_plf_rk /)
-  P_112 = (/ 0.0_plf_rk, 0.0_plf_rk, 1.0_plf_rk /)
-  P_212 = (/ 1.0_plf_rk, 0.0_plf_rk, 1.0_plf_rk /)
-  P_122 = (/ 0.0_plf_rk, 1.0_plf_rk, 1.0_plf_rk /)
-  P_222 = (/ 1.0_plf_rk, 1.0_plf_rk, 1.0_plf_rk /)
+  P_111 = (/ 0.0_spl_rk, 0.0_spl_rk, 0.0_spl_rk /)
+  P_211 = (/ 1.0_spl_rk, 0.0_spl_rk, 0.0_spl_rk /)
+  P_121 = (/ 0.0_spl_rk, 1.0_spl_rk, 0.0_spl_rk /)
+  P_221 = (/ 1.0_spl_rk, 1.0_spl_rk, 0.0_spl_rk /)
+  P_112 = (/ 0.0_spl_rk, 0.0_spl_rk, 1.0_spl_rk /)
+  P_212 = (/ 1.0_spl_rk, 0.0_spl_rk, 1.0_spl_rk /)
+  P_122 = (/ 0.0_spl_rk, 1.0_spl_rk, 1.0_spl_rk /)
+  P_222 = (/ 1.0_spl_rk, 1.0_spl_rk, 1.0_spl_rk /)
 
   call spl_mapping_trilinear(mapping, &
     & P_111, P_121, P_211, P_221, &

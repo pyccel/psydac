@@ -127,7 +127,7 @@ contains
      if (present(weights)) then
        call self % set_weights(weights)
      else
-       self % weights = 1.0_plf_rk
+       self % weights = 1.0_spl_rk
      end if
      ! ...
 
@@ -385,8 +385,8 @@ contains
         allocate(mat_x (   other % d_dim, n_points_u, n_points_v))
         allocate(mat_dx(2, other % d_dim, n_points_u, n_points_v))
         
-        mat_x  = 0.0_plf_rk
-        mat_dx = 0.0_plf_rk 
+        mat_x  = 0.0_spl_rk
+        mat_dx = 0.0_spl_rk 
         ! ...
         
         ! ...
@@ -535,7 +535,7 @@ contains
     ru = size(arr_u, 1)
     rv = size(arr_v, 1)
     allocate(Cw(n_total_deriv, self % d_dim, ru, rv))
-    Cw = 0.0_plf_rk
+    Cw = 0.0_spl_rk
 
     call EvaluateDeriv2(n_deriv, n_total_deriv-1 &
       & , self % d_dim &
@@ -614,9 +614,9 @@ contains
 
      ! ...
      if (present(i_spans)) then
-       i_spans = plf_int_default
+       i_spans = spl_int_default
        do i_element=1, n_elements 
-         x = 0.5_plf_rk * (grid(i_element) + grid(i_element+1)) 
+         x = 0.5_spl_rk * (grid(i_element) + grid(i_element+1)) 
       
          call FindSpan(p, n + p, knots, x, i_span)
          i_spans(i_element) = i_span 
@@ -665,7 +665,7 @@ contains
      call self % breaks(n_elements_u, grid_u, i_spans=i_spans_u, axis=1)
      call self % breaks(n_elements_v, grid_v, i_spans=i_spans_v, axis=2)
 
-     arr_us = plf_int_default * 1.0_plf_rk
+     arr_us = spl_int_default * 1.0_spl_rk
      i_element = 0
      do i_element_u = 1, n_elements_u
        span_u = i_spans_u(i_element_u) 
@@ -1163,7 +1163,7 @@ contains
          ! ...
          axis = 1 
          do i = 1, n_elements(axis) - 1
-           t = (i * 1.0_plf_rk / n_elements(axis)) 
+           t = (i * 1.0_spl_rk / n_elements(axis)) 
            call mapping_tmp % insert_knot(t, axis)
          end do
          ! ...
@@ -1171,7 +1171,7 @@ contains
          ! ...
          axis = 2
          do i = 1, n_elements(axis) - 1
-           t = (i * 1.0_plf_rk / n_elements(axis)) 
+           t = (i * 1.0_spl_rk / n_elements(axis)) 
            call mapping_tmp % insert_knot(t, axis)
          end do
          ! ...

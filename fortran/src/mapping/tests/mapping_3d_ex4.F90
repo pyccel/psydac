@@ -30,14 +30,14 @@ implicit none
   integer :: n
 
   ! ... createsa trilinear map
-  P_111 = (/ 0.0_plf_rk, 0.0_plf_rk, 0.0_plf_rk /)
-  P_211 = (/ 1.0_plf_rk, 0.0_plf_rk, 0.0_plf_rk /)
-  P_121 = (/ 0.0_plf_rk, 1.0_plf_rk, 0.0_plf_rk /)
-  P_221 = (/ 1.0_plf_rk, 1.0_plf_rk, 0.0_plf_rk /)
-  P_112 = (/ 0.0_plf_rk, 0.0_plf_rk, 1.0_plf_rk /)
-  P_212 = (/ 1.0_plf_rk, 0.0_plf_rk, 1.0_plf_rk /)
-  P_122 = (/ 0.0_plf_rk, 1.0_plf_rk, 1.0_plf_rk /)
-  P_222 = (/ 1.0_plf_rk, 1.0_plf_rk, 1.0_plf_rk /)
+  P_111 = (/ 0.0_spl_rk, 0.0_spl_rk, 0.0_spl_rk /)
+  P_211 = (/ 1.0_spl_rk, 0.0_spl_rk, 0.0_spl_rk /)
+  P_121 = (/ 0.0_spl_rk, 1.0_spl_rk, 0.0_spl_rk /)
+  P_221 = (/ 1.0_spl_rk, 1.0_spl_rk, 0.0_spl_rk /)
+  P_112 = (/ 0.0_spl_rk, 0.0_spl_rk, 1.0_spl_rk /)
+  P_212 = (/ 1.0_spl_rk, 0.0_spl_rk, 1.0_spl_rk /)
+  P_122 = (/ 0.0_spl_rk, 1.0_spl_rk, 1.0_spl_rk /)
+  P_222 = (/ 1.0_spl_rk, 1.0_spl_rk, 1.0_spl_rk /)
 
   call spl_mapping_trilinear(mapping, &
     & P_111, P_121, P_211, P_221, &
@@ -46,9 +46,9 @@ implicit none
   ! ...
 
   ! ... mapping evaluation
-  U = (/ 0.2_plf_rk, 0.6_plf_rk /)
-  V = (/ 0.1_plf_rk /)
-  w = (/ 0.3_plf_rk /)
+  U = (/ 0.2_spl_rk, 0.6_spl_rk /)
+  V = (/ 0.1_spl_rk /)
+  w = (/ 0.3_spl_rk /)
 
   call mapping % evaluate_deriv(U, V, W, Y, dY, d2Y)
   print *, Y

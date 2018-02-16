@@ -17,9 +17,9 @@ implicit none
   integer, parameter :: p_v = 3 
   integer, parameter :: n_elements_u = 8 
   integer, parameter :: n_elements_v = 8 
-  real(spl_rk), parameter :: eps = 0.1_plf_rk
-  real(spl_rk), parameter :: k1  = 1.0_plf_rk
-  real(spl_rk), parameter :: k2  = 1.0_plf_rk
+  real(spl_rk), parameter :: eps = 0.1_spl_rk
+  real(spl_rk), parameter :: k1  = 1.0_spl_rk
+  real(spl_rk), parameter :: k2  = 1.0_spl_rk
 
   ! ... creates a collela map
   call spl_mapping_collela( mapping, &

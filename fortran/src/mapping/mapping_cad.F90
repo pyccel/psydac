@@ -241,7 +241,7 @@ contains
 
          ! ...
          d = mapping_in % d_dim
-         control_points = 0.0_plf_rk
+         control_points = 0.0_spl_rk
          control_points(1:d,:,1,1) = mapping_in % control_points(1:d,:)
          control_points(1:d,:,2,1) = mapping_in % control_points(1:d,:)
          do d = 1, d_dim
@@ -297,7 +297,7 @@ contains
 
          ! ...
          d = mapping_in % d_dim
-         control_points = 0.0_plf_rk
+         control_points = 0.0_spl_rk
          control_points(1:d,:,:,1) = mapping_in % control_points(1:d,:,:)
          control_points(1:d,:,:,2) = mapping_in % control_points(1:d,:,:)
          do d = 1, d_dim
@@ -387,7 +387,7 @@ contains
          ! ...
 
          ! ...
-         control_points = 0.0_plf_rk
+         control_points = 0.0_spl_rk
          do d = 1, d_dim
            control_points(d,:,:) = transpose(mapping_in % control_points(d,:,:))
          end do

@@ -144,35 +144,35 @@ contains
      ! ...
 
      ! ...
-     knots_ini(1:3) = 0.0_plf_rk 
-     knots_ini(4:5) = 0.25_plf_rk
-     knots_ini(6:7) = 0.5_plf_rk
-     knots_ini(8:9) = 0.75_plf_rk
-     knots_ini(10:) = 1.0_plf_rk 
+     knots_ini(1:3) = 0.0_spl_rk 
+     knots_ini(4:5) = 0.25_spl_rk
+     knots_ini(6:7) = 0.5_spl_rk
+     knots_ini(8:9) = 0.75_spl_rk
+     knots_ini(10:) = 1.0_spl_rk 
      ! ...
 
      ! ... control points
-     control_points_ini(:,1) = (/  0.0_plf_rk, -1.0_plf_rk /) 
-     control_points_ini(:,2) = (/ -1.0_plf_rk, -1.0_plf_rk /) 
-     control_points_ini(:,3) = (/ -1.0_plf_rk,  0.0_plf_rk /) 
-     control_points_ini(:,4) = (/ -1.0_plf_rk,  1.0_plf_rk /) 
-     control_points_ini(:,5) = (/  0.0_plf_rk,  1.0_plf_rk /) 
-     control_points_ini(:,6) = (/  1.0_plf_rk,  1.0_plf_rk /) 
-     control_points_ini(:,7) = (/  1.0_plf_rk,  0.0_plf_rk /) 
-     control_points_ini(:,8) = (/  1.0_plf_rk, -1.0_plf_rk /) 
-     control_points_ini(:,9) = (/  0.0_plf_rk, -1.0_plf_rk /) 
+     control_points_ini(:,1) = (/  0.0_spl_rk, -1.0_spl_rk /) 
+     control_points_ini(:,2) = (/ -1.0_spl_rk, -1.0_spl_rk /) 
+     control_points_ini(:,3) = (/ -1.0_spl_rk,  0.0_spl_rk /) 
+     control_points_ini(:,4) = (/ -1.0_spl_rk,  1.0_spl_rk /) 
+     control_points_ini(:,5) = (/  0.0_spl_rk,  1.0_spl_rk /) 
+     control_points_ini(:,6) = (/  1.0_spl_rk,  1.0_spl_rk /) 
+     control_points_ini(:,7) = (/  1.0_spl_rk,  0.0_spl_rk /) 
+     control_points_ini(:,8) = (/  1.0_spl_rk, -1.0_spl_rk /) 
+     control_points_ini(:,9) = (/  0.0_spl_rk, -1.0_spl_rk /) 
      ! ...                                 
 
      ! ... weights
-     weights_ini(1) = 1.0_plf_rk 
-     weights_ini(2) = 1.0_plf_rk / sqrt(2.0_plf_rk) 
-     weights_ini(3) = 1.0_plf_rk 
-     weights_ini(4) = 1.0_plf_rk / sqrt(2.0_plf_rk) 
-     weights_ini(5) = 1.0_plf_rk 
-     weights_ini(6) = 1.0_plf_rk / sqrt(2.0_plf_rk) 
-     weights_ini(7) = 1.0_plf_rk 
-     weights_ini(8) = 1.0_plf_rk / sqrt(2.0_plf_rk) 
-     weights_ini(9) = 1.0_plf_rk 
+     weights_ini(1) = 1.0_spl_rk 
+     weights_ini(2) = 1.0_spl_rk / sqrt(2.0_spl_rk) 
+     weights_ini(3) = 1.0_spl_rk 
+     weights_ini(4) = 1.0_spl_rk / sqrt(2.0_spl_rk) 
+     weights_ini(5) = 1.0_spl_rk 
+     weights_ini(6) = 1.0_spl_rk / sqrt(2.0_spl_rk) 
+     weights_ini(7) = 1.0_spl_rk 
+     weights_ini(8) = 1.0_spl_rk / sqrt(2.0_spl_rk) 
+     weights_ini(9) = 1.0_spl_rk 
      ! ...                                 
 
      ! ...
@@ -466,7 +466,7 @@ contains
      real(spl_rk), dimension(:,:,:), allocatable :: control_points
      real(spl_rk), dimension(:,:), allocatable :: weights 
      type(spl_t_mapping_cad) :: cad
-     real(spl_rk), parameter :: s = 1.0_plf_rk / sqrt(2.0_plf_rk)
+     real(spl_rk), parameter :: s = 1.0_spl_rk / sqrt(2.0_spl_rk)
 
      ! ...
      d_dim = 2 
@@ -496,22 +496,22 @@ contains
      ! ...
 
      ! ...
-     control_points(:,1,1) = (/ 0.0_plf_rk ,     -r_min /)  
+     control_points(:,1,1) = (/ 0.0_spl_rk ,     -r_min /)  
      control_points(:,2,1) = (/     -r_min ,     -r_min /)
-     control_points(:,3,1) = (/     -r_min , 0.0_plf_rk /)
+     control_points(:,3,1) = (/     -r_min , 0.0_spl_rk /)
                                              
-     control_points(:,1,2) = (/ 0.0_plf_rk ,     -r_max /)
+     control_points(:,1,2) = (/ 0.0_spl_rk ,     -r_max /)
      control_points(:,2,2) = (/     -r_max ,     -r_max /)
-     control_points(:,3,2) = (/     -r_max , 0.0_plf_rk /)
+     control_points(:,3,2) = (/     -r_max , 0.0_spl_rk /)
 
 !     control_points(:,:,:) = s * control_points(:,:,:)   
 
-     weights(1,1) = 1.0_plf_rk  
+     weights(1,1) = 1.0_spl_rk  
      weights(2,1) = s
-     weights(3,1) = 1.0_plf_rk 
-     weights(1,2) = 1.0_plf_rk 
+     weights(3,1) = 1.0_spl_rk 
+     weights(1,2) = 1.0_spl_rk 
      weights(2,2) = s
-     weights(3,2) = 1.0_plf_rk 
+     weights(3,2) = 1.0_spl_rk 
      ! ...
 
      ! ...
@@ -552,7 +552,7 @@ contains
      real(spl_rk), dimension(:,:,:), allocatable :: control_points
      real(spl_rk), dimension(:,:), allocatable :: weights 
      type(spl_t_mapping_cad) :: cad
-     real(spl_rk), parameter :: s = 1.0_plf_rk / sqrt(2.0_plf_rk)
+     real(spl_rk), parameter :: s = 1.0_spl_rk / sqrt(2.0_spl_rk)
 
      ! ...
      d_dim = 2 
@@ -583,24 +583,24 @@ contains
 
      ! ...
      control_points(:,1,1) = (/ -s            ,            -s  /)  
-     control_points(:,2,1) = (/ 0.0_plf_rk    , -2.0_plf_rk*s  /)
+     control_points(:,2,1) = (/ 0.0_spl_rk    , -2.0_spl_rk*s  /)
      control_points(:,3,1) = (/ s             ,            -s  /)
-     control_points(:,1,2) = (/ -2.0_plf_rk*s , 0.0_plf_rk     /)
-     control_points(:,2,2) = (/ 0.0_plf_rk    , 0.0_plf_rk     /)
-     control_points(:,3,2) = (/ 2.0_plf_rk*s  , 0.0_plf_rk     /)
+     control_points(:,1,2) = (/ -2.0_spl_rk*s , 0.0_spl_rk     /)
+     control_points(:,2,2) = (/ 0.0_spl_rk    , 0.0_spl_rk     /)
+     control_points(:,3,2) = (/ 2.0_spl_rk*s  , 0.0_spl_rk     /)
      control_points(:,1,3) = (/ -s            , s              /)
-     control_points(:,2,3) = (/ 0.0_plf_rk    , 2.0_plf_rk*s   /)
+     control_points(:,2,3) = (/ 0.0_spl_rk    , 2.0_spl_rk*s   /)
      control_points(:,3,3) = (/ s             ,            s   /)
 
-     weights(1,1) = 1.0_plf_rk  
+     weights(1,1) = 1.0_spl_rk  
      weights(2,1) = s
-     weights(3,1) = 1.0_plf_rk 
+     weights(3,1) = 1.0_spl_rk 
      weights(1,2) = s
-     weights(2,2) = 1.0_plf_rk 
+     weights(2,2) = 1.0_spl_rk 
      weights(3,2) = s
-     weights(1,3) = 1.0_plf_rk 
+     weights(1,3) = 1.0_spl_rk 
      weights(2,3) = s
-     weights(3,3) = 1.0_plf_rk 
+     weights(3,3) = 1.0_spl_rk 
      ! ...
 
      ! ...
@@ -641,7 +641,7 @@ contains
      ! local
 
      ! ... first we create a circle of radius 1
-     call spl_mapping_circle(mapping_out, 1.0_plf_rk, center) 
+     call spl_mapping_circle(mapping_out, 1.0_spl_rk, center) 
      ! ...
 
      ! ... scale the first component
@@ -704,10 +704,10 @@ contains
     type(spl_t_mapping_cad) :: cad
 
     ! ...
-    P_11 = (/ 0.0_plf_rk, 0.0_plf_rk /)
-    P_21 = (/ 1.0_plf_rk, 0.0_plf_rk /)
-    P_12 = (/ 0.0_plf_rk, 1.0_plf_rk /)
-    P_22 = (/ 1.0_plf_rk, 1.0_plf_rk /)
+    P_11 = (/ 0.0_spl_rk, 0.0_spl_rk /)
+    P_21 = (/ 1.0_spl_rk, 0.0_spl_rk /)
+    P_12 = (/ 0.0_spl_rk, 1.0_spl_rk /)
+    P_22 = (/ 1.0_spl_rk, 1.0_spl_rk /)
     ! ...
 
     ! ...
@@ -730,11 +730,11 @@ contains
       u = us(i)
       v = vs(j)
 
-      ku = 2.0_plf_rk * plf_pi * k1 
-      kv = 2.0_plf_rk * plf_pi * k2 
+      ku = 2.0_spl_rk * spl_pi * k1 
+      kv = 2.0_spl_rk * spl_pi * k2 
 
-      x = 2.0_plf_rk * (u + eps * sin(ku * u) * sin(kv * v)) - 1.0_plf_rk
-      y = 2.0_plf_rk * (v + eps * sin(ku * u) * sin(kv * v)) - 1.0_plf_rk
+      x = 2.0_spl_rk * (u + eps * sin(ku * u) * sin(kv * v)) - 1.0_spl_rk
+      y = 2.0_spl_rk * (v + eps * sin(ku * u) * sin(kv * v)) - 1.0_spl_rk
 
       mapping_out % control_points(1, i, j) = x 
       mapping_out % control_points(2, i, j) = y 
@@ -743,10 +743,10 @@ contains
     ! ...
 
     ! ... make sure the boundary is ok
-    mapping_out % control_points(1, 1, :) = -1.0_plf_rk 
-    mapping_out % control_points(1, mapping_out % n_u, :) = 1.0_plf_rk 
-    mapping_out % control_points(2, :, 1) = -1.0_plf_rk 
-    mapping_out % control_points(2, :, mapping_out % n_u) = 1.0_plf_rk 
+    mapping_out % control_points(1, 1, :) = -1.0_spl_rk 
+    mapping_out % control_points(1, mapping_out % n_u, :) = 1.0_spl_rk 
+    mapping_out % control_points(2, :, 1) = -1.0_spl_rk 
+    mapping_out % control_points(2, :, mapping_out % n_u) = 1.0_spl_rk 
     ! ...
 
     ! ... scale the first component

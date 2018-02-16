@@ -19,8 +19,8 @@ implicit none
   real(spl_rk), dimension(1) :: P_2
 
   ! ... create a linear map
-  P_1 = (/ 0.0_plf_rk /)
-  P_2 = (/ 1.0_plf_rk /)
+  P_1 = (/ 0.0_spl_rk /)
+  P_2 = (/ 1.0_spl_rk /)
 
   call spl_mapping_linear(mapping, P_1, P_2)
   ! ...
@@ -32,7 +32,7 @@ implicit none
 
   ! ... mapping translation
   call cad % create()
-  call cad % translate(mapping, (/ 0.5_plf_rk /))
+  call cad % translate(mapping, (/ 0.5_spl_rk /))
   ! ...
 
   ! ... prints info 

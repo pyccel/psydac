@@ -17,8 +17,8 @@ implicit none
   real(spl_rk), dimension(2) :: P_2
 
   ! ... creates a linear map between P_1 and P_2
-  P_1 = (/ 0.0_plf_rk, 1.0_plf_rk /)
-  P_2 = (/ 1.0_plf_rk, 2.0_plf_rk /)
+  P_1 = (/ 0.0_spl_rk, 1.0_spl_rk /)
+  P_2 = (/ 1.0_spl_rk, 2.0_spl_rk /)
 
   call spl_mapping_linear( mapping_in, &
                          & P_1, P_2, &

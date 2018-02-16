@@ -24,14 +24,14 @@ implicit none
   real(spl_rk), dimension(3) :: P_222
 
   ! ... creates a trilinear map
-  P_111 = (/ -2.0_plf_rk, -2.0_plf_rk, -2.0_plf_rk /)
-  P_211 = (/  2.0_plf_rk, -2.0_plf_rk, -2.0_plf_rk /)
-  P_121 = (/ -2.0_plf_rk,  2.0_plf_rk, -2.0_plf_rk /)
-  P_221 = (/  2.0_plf_rk,  2.0_plf_rk, -2.0_plf_rk /)
-  P_112 = (/ -2.0_plf_rk, -2.0_plf_rk,  2.0_plf_rk /)
-  P_212 = (/  2.0_plf_rk, -2.0_plf_rk,  2.0_plf_rk /)
-  P_122 = (/ -2.0_plf_rk,  2.0_plf_rk,  2.0_plf_rk /)
-  P_222 = (/  2.0_plf_rk,  2.0_plf_rk,  2.0_plf_rk /)
+  P_111 = (/ -2.0_spl_rk, -2.0_spl_rk, -2.0_spl_rk /)
+  P_211 = (/  2.0_spl_rk, -2.0_spl_rk, -2.0_spl_rk /)
+  P_121 = (/ -2.0_spl_rk,  2.0_spl_rk, -2.0_spl_rk /)
+  P_221 = (/  2.0_spl_rk,  2.0_spl_rk, -2.0_spl_rk /)
+  P_112 = (/ -2.0_spl_rk, -2.0_spl_rk,  2.0_spl_rk /)
+  P_212 = (/  2.0_spl_rk, -2.0_spl_rk,  2.0_spl_rk /)
+  P_122 = (/ -2.0_spl_rk,  2.0_spl_rk,  2.0_spl_rk /)
+  P_222 = (/  2.0_spl_rk,  2.0_spl_rk,  2.0_spl_rk /)
 
   call spl_mapping_trilinear(mapping_in, &
     & P_111, P_121, P_211, P_221, &

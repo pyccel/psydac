@@ -33,20 +33,20 @@ implicit none
   real(spl_rk) :: r
 
   ! ... creates a circular mapping 
-  call spl_mapping_circle(circle, radius=1.0_plf_rk)
+  call spl_mapping_circle(circle, radius=1.0_spl_rk)
   call circle % export('circle.nml')
   ! ... 
 
   ! ... extrude the 2d map into a 3d map
   call cad % create()
-  call cad % extrude(circle, (/ 0.0_plf_rk, 0.0_plf_rk, 1.0_plf_rk /), mapping)
+  call cad % extrude(circle, (/ 0.0_spl_rk, 0.0_spl_rk, 1.0_spl_rk /), mapping)
   call mapping % export('mapping.nml')
   ! ... 
 
   ! ... mapping evaluation
-  U = (/ 0.2_plf_rk, 0.4_plf_rk, 0.6_plf_rk /)
-  V = (/ 0.0_plf_rk /)
-  w = (/ 0.0_plf_rk /)
+  U = (/ 0.2_spl_rk, 0.4_spl_rk, 0.6_spl_rk /)
+  V = (/ 0.0_spl_rk /)
+  w = (/ 0.0_spl_rk /)
 
   call mapping % evaluate_deriv(U, V, W, Y, dY, d2Y)
   ! ...

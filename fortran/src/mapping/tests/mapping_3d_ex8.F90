@@ -23,8 +23,8 @@ implicit none
   type(spl_t_mapping_2d), target :: annulus
   type(spl_t_mapping_3d), target :: mapping
   type(spl_t_mapping_cad), target :: cad
-  real(spl_rk), parameter :: r_min = 0.5_plf_rk
-  real(spl_rk), parameter :: r_max = 1.0_plf_rk
+  real(spl_rk), parameter :: r_min = 0.5_spl_rk
+  real(spl_rk), parameter :: r_max = 1.0_spl_rk
   integer :: i
   integer :: j 
   integer :: k 
@@ -36,13 +36,13 @@ implicit none
 
   ! ... extrude the annulus to get a cylinder
   call cad % create()
-  call cad % extrude(annulus, (/ 0.0_plf_rk, 0.0_plf_rk, 1.0_plf_rk /), mapping)
+  call cad % extrude(annulus, (/ 0.0_spl_rk, 0.0_spl_rk, 1.0_spl_rk /), mapping)
   ! ...
 
   ! ... evaluation on the cylinder
-  U = (/ 0.2_plf_rk, 0.6_plf_rk /)
-  V = (/ 0.0_plf_rk /)
-  w = (/ 0.3_plf_rk /)
+  U = (/ 0.2_spl_rk, 0.6_spl_rk /)
+  V = (/ 0.0_spl_rk /)
+  w = (/ 0.3_spl_rk /)
 
   call mapping % evaluate_deriv(U, V, W, Y, dY, d2Y)
 

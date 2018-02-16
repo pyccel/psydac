@@ -25,10 +25,10 @@ implicit none
   real(spl_rk), dimension(n_elements_v+p_v) :: vs 
 
   ! ... create a bilinear map
-  P_11 = (/ 0.0_plf_rk, 0.0_plf_rk /)
-  P_21 = (/ 1.0_plf_rk, 0.0_plf_rk /)
-  P_12 = (/ 0.0_plf_rk, 1.0_plf_rk /)
-  P_22 = (/ 1.0_plf_rk, 1.0_plf_rk /)
+  P_11 = (/ 0.0_spl_rk, 0.0_spl_rk /)
+  P_21 = (/ 1.0_spl_rk, 0.0_spl_rk /)
+  P_12 = (/ 0.0_spl_rk, 1.0_spl_rk /)
+  P_22 = (/ 1.0_spl_rk, 1.0_spl_rk /)
 
   call spl_mapping_bilinear( mapping, &
                            & P_11, P_12, P_21, P_22, &

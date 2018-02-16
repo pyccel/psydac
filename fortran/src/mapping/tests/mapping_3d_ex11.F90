@@ -18,8 +18,8 @@ implicit none
   type(spl_t_mapping_2d), target :: mapping_in
   type(spl_t_mapping_3d), target :: mapping_out
   type(spl_t_mapping_cad), target :: cad
-  real(spl_rk), parameter :: r_min = 0.5_plf_rk
-  real(spl_rk), parameter :: r_max = 1.0_plf_rk
+  real(spl_rk), parameter :: r_min = 0.5_spl_rk
+  real(spl_rk), parameter :: r_max = 1.0_spl_rk
 
   ! ... creates a 2d annulus
   call spl_mapping_annulus(mapping_in, r_min, r_max)
@@ -27,7 +27,7 @@ implicit none
 
   ! ... extrude the annulus to get a cylinder
   call cad % create()
-  call cad % extrude(mapping_in, (/ 0.0_plf_rk, 0.0_plf_rk, 1.0_plf_rk /), mapping_out)
+  call cad % extrude(mapping_in, (/ 0.0_spl_rk, 0.0_spl_rk, 1.0_spl_rk /), mapping_out)
   ! ...
 
   ! ... prints info for the cylinder map

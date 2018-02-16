@@ -21,10 +21,10 @@ implicit none
   real(spl_rk), dimension(2) :: P_22
 
   ! ... creates a bilinear map
-  P_11 = (/ 0.0_plf_rk, 0.0_plf_rk /)
-  P_21 = (/ 1.0_plf_rk, 0.0_plf_rk /)
-  P_12 = (/ 0.0_plf_rk, 1.0_plf_rk /)
-  P_22 = (/ 1.0_plf_rk, 1.0_plf_rk /)
+  P_11 = (/ 0.0_spl_rk, 0.0_spl_rk /)
+  P_21 = (/ 1.0_spl_rk, 0.0_spl_rk /)
+  P_12 = (/ 0.0_spl_rk, 1.0_spl_rk /)
+  P_22 = (/ 1.0_spl_rk, 1.0_spl_rk /)
 
   call spl_mapping_bilinear(mapping, P_11, P_12, P_21, P_22)
   ! ...
@@ -36,7 +36,7 @@ implicit none
 
   ! ... mapping translation
   call cad % create()
-  call cad % translate(mapping, (/ 0.5_plf_rk, -0.5_plf_rk /))
+  call cad % translate(mapping, (/ 0.5_spl_rk, -0.5_spl_rk /))
   ! ...
 
   ! ... prints info after translation

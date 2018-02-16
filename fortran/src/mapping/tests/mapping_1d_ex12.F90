@@ -22,8 +22,8 @@ implicit none
   integer :: i
 
   ! ... create a linear map
-  P_1 = (/ 0.0_plf_rk /)
-  P_2 = (/ 1.0_plf_rk /)
+  P_1 = (/ 0.0_spl_rk /)
+  P_2 = (/ 1.0_spl_rk /)
 
   call spl_mapping_linear( mapping, &
                          & P_1, P_2, &
@@ -37,7 +37,7 @@ implicit none
 
   ! ...
   allocate(mat(mapping % n_u + 1, mapping % n_u))
-  call spl_refinement_matrix_one_stage( 0.13_plf_rk, &
+  call spl_refinement_matrix_one_stage( 0.13_spl_rk, &
                                       & mapping % n_u, &
                                       & mapping % p_u, &
                                       & mapping % knots_u, &

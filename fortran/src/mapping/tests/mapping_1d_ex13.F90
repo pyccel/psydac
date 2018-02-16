@@ -18,14 +18,14 @@ implicit none
   real(spl_rk), dimension(1) :: P_2
   integer, parameter :: p_u = 3 
   integer, parameter :: n_f =  4 
-  real(spl_rk), dimension(3) :: ts =(/ 0.13_plf_rk, 0.35_plf_rk, 0.6_plf_rk /) 
+  real(spl_rk), dimension(3) :: ts =(/ 0.13_spl_rk, 0.35_spl_rk, 0.6_spl_rk /) 
   real(spl_rk), dimension(:,:), allocatable :: mat
   integer :: m
   integer :: j
 
   ! ... create a linear map
-  P_1 = (/ 0.0_plf_rk /)
-  P_2 = (/ 1.0_plf_rk /)
+  P_1 = (/ 0.0_spl_rk /)
+  P_2 = (/ 1.0_spl_rk /)
 
   call spl_mapping_linear( mapping, &
                          & P_1, P_2, &

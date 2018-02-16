@@ -3,11 +3,12 @@
 !> @details
 !> Global constants for SPL 
 module spl_m_global
-use plf_m_global
 implicit none
 
     integer, parameter    :: spl_rk=kind(1.d0)                 !< Real precision    
-    
+    integer, parameter    :: spl_int_default=-10000000         !< default integer value
+    real(kind=spl_rk)   :: spl_pi=3.1415926535897931            !< Pi definition
+
     ! ... mapping boundary ids 
     integer, parameter  :: spl_mapping_boundary_min      = -1   !< id for min boundary 
     integer, parameter  :: spl_mapping_boundary_max      = 1    !< id for max boundary 

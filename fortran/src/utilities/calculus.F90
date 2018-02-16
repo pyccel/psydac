@@ -3,7 +3,6 @@
 module spl_m_calculus
 
 use spl_m_global
-use plf_m_utilities, only: plf_direct_inverse
 
 implicit none
 
@@ -86,7 +85,7 @@ contains
     ! ...
 
     ! ...
-    determinants(1:n_points) = 0.0_plf_rk
+    determinants(1:n_points) = 0.0_spl_rk
     do i = 1, d_dim
         determinants(1:n_points)= determinants(1:n_points) + arr_x_u(i,1:n_points)**2
     end do
@@ -115,7 +114,7 @@ contains
     ! ...
 
     ! ...
-    inv_jacobians(1:n_points)= 1.0_plf_rk / determinants(1:n_points)
+    inv_jacobians(1:n_points)= 1.0_spl_rk / determinants(1:n_points)
     ! ...
 
   end subroutine spl_compute_inv_jacobians_1d
@@ -140,8 +139,8 @@ contains
     ! ...
 
     ! ...
-    inv_hessian(1,:n_points)= 1.0_plf_rk / arr_x_uu(1,1:n_points)
-    inv_hessian(2,:n_points)= 1.0_plf_rk / (arr_x_u(1,1:n_points)**2)
+    inv_hessian(1,:n_points)= 1.0_spl_rk / arr_x_uu(1,1:n_points)
+    inv_hessian(2,:n_points)= 1.0_spl_rk / (arr_x_u(1,1:n_points)**2)
     ! ...
 
   end subroutine spl_compute_inv_hessian_1d
@@ -332,10 +331,10 @@ contains
     
     do i_point = 1, n_points
       ! ...
-      mat_h     = 0.0_plf_rk
-      mat_h_inv = 0.0_plf_rk
-      mat_a     = 0.0_plf_rk
-      mat_a_inv = 0.0_plf_rk
+      mat_h     = 0.0_spl_rk
+      mat_h_inv = 0.0_spl_rk
+      mat_a     = 0.0_spl_rk
+      mat_a_inv = 0.0_spl_rk
       ! ...
       
       ! ... in terms of: dx, dy, dz (indexed by j) 
@@ -358,10 +357,10 @@ contains
       ! ... in terms of: dxx, dxy, dxz, dyy, dyz, dzz 
       ! duu 
       mat_h(1, 1) = arr_x_u(1, i_point)**2
-      mat_h(1, 2) = 2.0_plf_rk*arr_x_u(1, i_point)*arr_x_u(2, i_point)
-      mat_h(1, 3) = 2.0_plf_rk*arr_x_u(1, i_point)*arr_x_u(3, i_point)
+      mat_h(1, 2) = 2.0_spl_rk*arr_x_u(1, i_point)*arr_x_u(2, i_point)
+      mat_h(1, 3) = 2.0_spl_rk*arr_x_u(1, i_point)*arr_x_u(3, i_point)
       mat_h(1, 4) = arr_x_u(2, i_point)**2
-      mat_h(1, 5) = 2.0_plf_rk*arr_x_u(2, i_point)*arr_x_u(3, i_point)
+      mat_h(1, 5) = 2.0_spl_rk*arr_x_u(2, i_point)*arr_x_u(3, i_point)
       mat_h(1, 6) = arr_x_u(3, i_point)**2
       
       ! duv 
@@ -382,10 +381,10 @@ contains
       
       ! dvv 
       mat_h(4, 1) = arr_x_v(1, i_point)**2
-      mat_h(4, 2) = 2.0_plf_rk*arr_x_v(1, i_point)*arr_x_v(2, i_point)
-      mat_h(4, 3) = 2.0_plf_rk*arr_x_v(1, i_point)*arr_x_v(3, i_point)
+      mat_h(4, 2) = 2.0_spl_rk*arr_x_v(1, i_point)*arr_x_v(2, i_point)
+      mat_h(4, 3) = 2.0_spl_rk*arr_x_v(1, i_point)*arr_x_v(3, i_point)
       mat_h(4, 4) = arr_x_v(2, i_point)**2
-      mat_h(4, 5) = 2.0_plf_rk*arr_x_v(2, i_point)*arr_x_v(3, i_point)
+      mat_h(4, 5) = 2.0_spl_rk*arr_x_v(2, i_point)*arr_x_v(3, i_point)
       mat_h(4, 6) = arr_x_v(3, i_point)**2
 
       ! dvw 
@@ -398,18 +397,18 @@ contains
 
       ! dww 
       mat_h(6, 1) = arr_x_w(1, i_point)**2
-      mat_h(6, 2) = 2.0_plf_rk*arr_x_w(1, i_point)*arr_x_w(2, i_point)
-      mat_h(6, 3) = 2.0_plf_rk*arr_x_w(1, i_point)*arr_x_w(3, i_point)
+      mat_h(6, 2) = 2.0_spl_rk*arr_x_w(1, i_point)*arr_x_w(2, i_point)
+      mat_h(6, 3) = 2.0_spl_rk*arr_x_w(1, i_point)*arr_x_w(3, i_point)
       mat_h(6, 4) = arr_x_w(2, i_point)**2
-      mat_h(6, 5) = 2.0_plf_rk*arr_x_w(2, i_point)*arr_x_w(3, i_point)
+      mat_h(6, 5) = 2.0_spl_rk*arr_x_w(2, i_point)*arr_x_w(3, i_point)
       mat_h(6, 6) = arr_x_w(3, i_point)**2
       !... 
       
       !... invert H and A and compute C =  H-1*B*A-1 
-      call  plf_direct_inverse(mat_a, mat_a_inv, 3)
-      call  plf_direct_inverse(mat_h, mat_h_inv, 6)
+      call  spl_direct_inverse(mat_a, mat_a_inv, 3)
+      call  spl_direct_inverse(mat_h, mat_h_inv, 6)
       
-      mat_c = 0.0_plf_rk
+      mat_c = 0.0_spl_rk
       do i = 1, 6
       do j = 1, 3
           do k =1, 6
@@ -887,7 +886,7 @@ contains
     n_points = ubound(f_logical, 2)
     ! ...
     
-    f_physical = 0.0_plf_rk
+    f_physical = 0.0_spl_rk
     ! ...
     do i_point = 1, n_points
         do i= 1, 6
@@ -900,4 +899,92 @@ contains
     
   end subroutine spl_map_second_derivate_3d
   ! ..........................................................      
+  
+  ! ..................................................
+  !> @brief  invert a square matrix using LU factorization 
+  !>
+  !> @param[in]     n       number of rows/columns
+  !> @param[in]     a       matrix to invert 
+  !> @param[inout]  c       inverse matrix 
+  subroutine spl_direct_inverse(a,c,n)
+  !============================================================
+  ! Inverse matrix
+  ! Method: Based on Doolittle LU factorization for Ax=b
+  ! Alex G. December 2009
+  !-----------------------------------------------------------
+  ! input ...
+  ! a(n,n) - array of coefficients for matrix A
+  ! n      - dimension
+  ! output ...
+  ! c(n,n) - inverse matrix of A
+  ! comments ...
+  ! the original matrix a(n,n) will be destroyed 
+  ! during the calculation
+  !===========================================================
+  implicit none 
+    integer n
+    real(spl_rk) ::  a(n,n), c(n,n)
+    real(spl_rk) ::  L(n,n), U(n,n), b(n), d(n), x(n)
+    real(spl_rk) ::  coeff
+    integer :: i, j, k
+
+    ! step 0: initialization for matrices L and U and b
+    ! Fortran 90/95 aloows such operations on matrices
+    L=0.0
+    U=0.0
+    b=0.0
+
+    ! step 1: forward elimination
+    do k=1, n-1
+       do i=k+1,n
+          coeff=a(i,k)/a(k,k)
+          L(i,k) = coeff
+          do j=k+1,n
+             a(i,j) = a(i,j)-coeff*a(k,j)
+          end do
+       end do
+    end do
+
+    ! Step 2: prepare L and U matrices 
+    ! L matrix is a matrix of the elimination coefficient
+    ! + the diagonal elements are 1.0
+    do i=1,n
+      L(i,i) = 1.0
+    end do
+    ! U matrix is the upper triangular part of A
+    do j=1,n
+      do i=1,j
+        U(i,j) = a(i,j)
+      end do
+    end do
+
+    ! Step 3: compute columns of the inverse matrix C
+    do k=1,n
+      b(k)=1.0
+      d(1) = b(1)
+    ! Step 3a: Solve Ld=b using the forward substitution
+      do i=2,n
+        d(i)=b(i)
+        do j=1,i-1
+          d(i) = d(i) - L(i,j)*d(j)
+        end do
+      end do
+    ! Step 3b: Solve Ux=d using the back substitution
+      x(n)=d(n)/U(n,n)
+      do i = n-1,1,-1
+        x(i) = d(i)
+        do j=n,i+1,-1
+          x(i)=x(i)-U(i,j)*x(j)
+        end do
+        x(i) = x(i)/u(i,i)
+      end do
+    ! Step 3c: fill the solutions x(n) into column k of C
+      do i=1,n
+        c(i,k) = x(i)
+      end do
+      b(k)=0.0
+    end do
+  end subroutine spl_direct_inverse
+  ! ..................................................
+
 end module spl_m_calculus

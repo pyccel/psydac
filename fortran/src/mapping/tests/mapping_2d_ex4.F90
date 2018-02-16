@@ -24,10 +24,10 @@ implicit none
   real(spl_rk), dimension(3,2,3,1) :: d2Y
 
   ! ... creates a bilinear map
-  P_11 = (/ 0.0_plf_rk, 0.0_plf_rk /)
-  P_21 = (/ 1.0_plf_rk, 0.0_plf_rk /)
-  P_12 = (/ 0.0_plf_rk, 1.0_plf_rk /)
-  P_22 = (/ 1.0_plf_rk, 1.0_plf_rk /)
+  P_11 = (/ 0.0_spl_rk, 0.0_spl_rk /)
+  P_21 = (/ 1.0_spl_rk, 0.0_spl_rk /)
+  P_12 = (/ 0.0_spl_rk, 1.0_spl_rk /)
+  P_22 = (/ 1.0_spl_rk, 1.0_spl_rk /)
 
   call spl_mapping_bilinear( mapping, &
                            & P_11, P_12, P_21, P_22, &
@@ -35,8 +35,8 @@ implicit none
   ! ...
 
   ! ... mapping evaluation and its derivatives
-  U = (/ 0.2_plf_rk, 0.4_plf_rk, 0.6_plf_rk /)
-  V = (/ 0.2_plf_rk /)
+  U = (/ 0.2_spl_rk, 0.4_spl_rk, 0.6_spl_rk /)
+  V = (/ 0.2_spl_rk /)
 
   call mapping % evaluate_deriv(U, V, Y, dY, d2Y)
   print *, Y

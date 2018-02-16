@@ -98,7 +98,7 @@ contains
      if (present(weights)) then
        call self % set_weights(weights)
      else
-       self % weights = 1.0_plf_rk
+       self % weights = 1.0_spl_rk
      end if
      ! ...
 
@@ -349,7 +349,7 @@ contains
     ! ...
     r = size(arr_u, 1)
     allocate(Cw(n_total_deriv, self % d_dim, r))
-    Cw = 0.0_plf_rk
+    Cw = 0.0_spl_rk
 
     call bsp_evaluate_deriv_1d(n_deriv, n_total_deriv-1 &
       & , self % d_dim &
@@ -400,9 +400,9 @@ contains
 
      ! ...
      if (present(i_spans)) then
-       i_spans = plf_int_default
+       i_spans = spl_int_default
        do i_element=1, n_elements 
-         x = 0.5_plf_rk * (grid(i_element) + grid(i_element+1)) 
+         x = 0.5_spl_rk * (grid(i_element) + grid(i_element+1)) 
       
          call FindSpan(self % p_u, self % n_u + self % p_u, self % knots_u, x, i_span)
          i_spans(i_element) = i_span 
@@ -445,7 +445,7 @@ contains
      call self % breaks(n_elements, grid, i_spans=i_spans)
 
      p = self % p_u
-     arr_us = plf_int_default * 1.0_plf_rk
+     arr_us = spl_int_default * 1.0_spl_rk
      do i_element = 1, n_elements
        span = i_spans(i_element) 
        do j = 1, p+1
@@ -667,7 +667,7 @@ contains
          ! ...
 
          do i = 1, n_elements - 1
-           t = (i * 1.0_plf_rk / n_elements) 
+           t = (i * 1.0_spl_rk / n_elements) 
            call mapping_tmp % insert_knot(t)
          end do
 
@@ -710,7 +710,7 @@ contains
      real(spl_rk), dimension(self % n_u + self % p_u + 1) :: lpr_grid
      real(spl_rk) :: min_current
 
-     lpr_grid = plf_int_default * 1.0_plf_rk 
+     lpr_grid = spl_int_default * 1.0_spl_rk 
 
      i_current = 1
      lpr_grid(i_current) = minval(self % knots_u)

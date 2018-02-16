@@ -141,7 +141,7 @@ contains
      if (present(weights)) then
        call self % set_weights(weights)
      else
-       self % weights = 1.0_plf_rk
+       self % weights = 1.0_spl_rk
      end if
      ! ...
 
@@ -797,7 +797,7 @@ contains
     rv = size(arr_v, 1)
     rw = size(arr_w, 1)
     allocate(Cw(n_total_deriv, self % d_dim, ru, rv, rw))
-    Cw = 0.0_plf_rk
+    Cw = 0.0_spl_rk
 
     call EvaluateDeriv3(n_deriv, n_total_deriv-1 &
       & , self % d_dim &
@@ -882,9 +882,9 @@ contains
 
      ! ...
      if (present(i_spans)) then
-       i_spans = plf_int_default
+       i_spans = spl_int_default
        do i_element=1, n_elements 
-         x = 0.5_plf_rk * (grid(i_element) + grid(i_element+1)) 
+         x = 0.5_spl_rk * (grid(i_element) + grid(i_element+1)) 
       
          call FindSpan(p, n + p, knots, x, i_span)
          i_spans(i_element) = i_span 
@@ -941,7 +941,7 @@ contains
      call self % breaks(n_elements_v, grid_v, i_spans=i_spans_v, axis=2)
      call self % breaks(n_elements_w, grid_w, i_spans=i_spans_w, axis=3)
 
-     arr_us = plf_int_default * 1.0_plf_rk
+     arr_us = spl_int_default * 1.0_spl_rk
      i_element = 0
      do i_element_u = 1, n_elements_u
        span_u = i_spans_u(i_element_u) 
@@ -1291,7 +1291,7 @@ contains
          ! ...
          axis = 1 
          do i = 1, n_elements(axis) - 1
-           t = (i * 1.0_plf_rk / n_elements(axis)) 
+           t = (i * 1.0_spl_rk / n_elements(axis)) 
            call mapping_tmp % insert_knot(t, axis)
          end do
          ! ...
@@ -1299,7 +1299,7 @@ contains
          ! ...
          axis = 2
          do i = 1, n_elements(axis) - 1
-           t = (i * 1.0_plf_rk / n_elements(axis)) 
+           t = (i * 1.0_spl_rk / n_elements(axis)) 
            call mapping_tmp % insert_knot(t, axis)
          end do
          ! ...
@@ -1307,7 +1307,7 @@ contains
          ! ...
          axis = 3 
          do i = 1, n_elements(axis) - 1
-           t = (i * 1.0_plf_rk / n_elements(axis)) 
+           t = (i * 1.0_spl_rk / n_elements(axis)) 
            call mapping_tmp % insert_knot(t, axis)
          end do
          ! ...

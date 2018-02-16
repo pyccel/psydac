@@ -14,14 +14,14 @@ use spl_m_mapping_gallery, only: spl_mapping_eccentric_annulus
 implicit none
   ! local
   type(spl_t_mapping_2d), target :: mapping
-  real(spl_rk), parameter :: r_min = 0.2_plf_rk
-  real(spl_rk), parameter :: r_max = 1.0_plf_rk
+  real(spl_rk), parameter :: r_min = 0.2_spl_rk
+  real(spl_rk), parameter :: r_max = 1.0_spl_rk
   real(spl_rk), dimension(2) :: C1, C2
   
   
   ! ... new internal center
-  C1 = (/10.0_plf_rk, 0.0_plf_rk /)
-  C2 = (/10.5_plf_rk, 0.0_plf_rk /)
+  C1 = (/10.0_spl_rk, 0.0_spl_rk /)
+  C2 = (/10.5_spl_rk, 0.0_spl_rk /)
 
   ! ... creates an annulus map
   call spl_mapping_eccentric_annulus(mapping, r_min, r_max, C1, C2)

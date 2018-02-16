@@ -19,8 +19,8 @@ implicit none
   integer :: n_elements
 
   ! ... create a linear map
-  P_1 = (/ 0.0_plf_rk /)
-  P_2 = (/ 1.0_plf_rk /)
+  P_1 = (/ 0.0_spl_rk /)
+  P_2 = (/ 1.0_spl_rk /)
 
   call spl_mapping_linear( mapping, &
                          & P_1, P_2, &

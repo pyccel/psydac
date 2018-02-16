@@ -14,8 +14,8 @@ use spl_m_mapping_gallery, only: spl_mapping_annulus
 implicit none
   ! local
   type(spl_t_mapping_2d), target :: mapping
-  real(spl_rk), parameter :: r_min = 0.5_plf_rk
-  real(spl_rk), parameter :: r_max = 1.0_plf_rk
+  real(spl_rk), parameter :: r_min = 0.5_spl_rk
+  real(spl_rk), parameter :: r_max = 1.0_spl_rk
   real(spl_rk), dimension(3) :: U
   real(spl_rk), dimension(1) :: V
   real(spl_rk), dimension(2,3,1) :: Y
@@ -34,8 +34,8 @@ implicit none
   ! ...
 
   ! ... mapping evaluation
-  U = (/ 0.2_plf_rk, 0.4_plf_rk, 0.6_plf_rk /)
-  V = (/ 0.5_plf_rk /)
+  U = (/ 0.2_spl_rk, 0.4_spl_rk, 0.6_spl_rk /)
+  V = (/ 0.5_spl_rk /)
 
   call mapping % evaluate(U, V, Y)
   call mapping % evaluate_deriv(U, V, Y, dY, d2Y)
