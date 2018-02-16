@@ -52,17 +52,21 @@ class MyParser(argparse.ArgumentParser):
         self.print_help()
         sys.exit(2)
 
-parser = MyParser()
-parser.add_argument('--prefix', help='installation path')
 
-parser.add_argument('arguments', metavar='N', type=str, nargs='+')
-args = parser.parse_args()
+INSTALL_DIR = os.getcwd()
+try:
+    parser = MyParser()
+    parser.add_argument('--prefix', help='installation path')
 
-INSTALL_DIR = None
-if not args.prefix:
-    raise ValueError('--prefix is expected when invoking python setup.py install.')
-else:
-    INSTALL_DIR = os.path.abspath(args.prefix)
+    parser.add_argument('arguments', metavar='N', type=str, nargs='+')
+    args = parser.parse_args()
+
+    if not args.prefix:
+        raise ValueError('--prefix is expected when invoking python setup.py install.')
+    else:
+        INSTALL_DIR = os.path.abspath(args.prefix)
+except:
+    print('> no prefix found. spl fortran lib will installed in usr')
 # ...
 
 # ...
