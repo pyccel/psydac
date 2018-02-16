@@ -54,7 +54,7 @@ libraries = libraries[::-1]  # must reverse the order for linking
 
 include_dirs = []
 for lib in libraries:
-    include_dirs.append(os.path.join(os.path.join(INSTALL_DIR, "/include"), lib))
+    include_dirs.append(os.path.join(os.path.join(INSTALL_DIR, "include"), lib))
 # ...
 
 # ... django extension
