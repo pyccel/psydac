@@ -1,5 +1,7 @@
-SPL
-===
+Welcome to SPL
+==============
+
+|docs|
 
 **SPL** is a Python/Fortran 2003 library for B-Splines/NURBS and Computer Aided Design Algorithms. 
 
@@ -107,3 +109,10 @@ Finnaly, the pdf documentation will be available in the following directory::
 
 **Remark:** full SPL documentation is available in the SPL_ repository
     
+
+.. |docs| image:: https://readthedocs.org/projects/spl/badge/?version=latest
+    :alt: Documentation Status
+    :scale: 100%
+    :target: http://spl.readthedocs.io/en/latest/?badge=latest
+
+
