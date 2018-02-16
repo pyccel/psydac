@@ -33,3 +33,7 @@ install:
   - pip install -r requirements.txt
   - export PREFIX=$TRAVIS_BUILD_DIR/usr && pip install . 
 
+# command to run tests
+script:
+#  - pytest # or py.test for Python versions 3.5 and below
+  - pytest tests/test_1.py
