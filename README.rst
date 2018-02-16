@@ -1,10 +1,36 @@
 SPL
 ===
 
-**SPL** is a Fortran 2003/2008 library for B-Splines/NURBS and Computer Aided Design Algorithms. 
+**SPL** is a Python/Fortran 2003 library for B-Splines/NURBS and Computer Aided Design Algorithms. 
 
-Getting Started
-***************
+Install
+*******
+
+In your terminal, define your installation path (where you want to put the fortran/python libraries/packages) and run::
+
+  export PREFIX=__ADD_YOUR_INSTALLATION_PATH__
+  mkdir build && cd build
+  cmake -DCMAKE_INSTALL_PREFIX=$PREFIX  ..
+  make && make install
+  make test
+  cd ..
+
+For Python users
+^^^^^^^^^^^^^^^^
+
+If you intend to use the *Python* package, do not forget to use the **-fPIC** flag. 
+In the build directory, run::
+
+  cmake -DCMAKE_Fortran_FLAGS="-fPIC" -DCMAKE_INSTALL_PREFIX=$PREFIX  ..
+  make && make install
+  cd ..
+
+then::
+
+  python setup.py install --prefix=$PREFIX
+
+More information
+^^^^^^^^^^^^^^^^
 
 First, make sure you have
 
@@ -13,7 +39,7 @@ First, make sure you have
 * **Fortran** 2003 Compiler (gfortran version 4.7 or higher, or appropriate ifort)
 
 Compilers
-^^^^^^^^^
+_________
 
 **SPL** was tested with the following compilers
 
@@ -22,51 +48,11 @@ Compilers
 * pgi
 
 Dependencies
-^^^^^^^^^^^^
+____________
 
 * LAPACK (optional)
 * MPI (optional)
 * MPICH2
-
-Tested configurations
-^^^^^^^^^^^^^^^^^^^^^
-
-TODO
-
-.. note:: Don't forget to put your ssh public key in your gitlab account
-
-Getting the library
-^^^^^^^^^^^^^^^^^^^
-
-In your terminal, run the following commands::
-
-  git clone  git@gitlab.mpcdf.mpg.de:clapp/spl.git
-  cd spl 
-
-Compiling SPL
-^^^^^^^^^^^^^
-
-In your terminal, run::
-
-  mkdir build && cd build
-  cmake ..
-  make
-  make test
-
-If you intend to use the *Python* package, do not forget to use the **-fPIC** flag::
-
-  cmake  -DCMAKE_Fortran_FLAGS="-fPIC" ..
-
-If you want to install **SPL**, you will need to define the prefix during the configuration step of **ccmake** or using the flag **CMAKE_INSTALL_PREFIX** for the **cmake** command line. Then run::
-
-  make install
-
-If the prefix is not specified then **cmake** will first look for the variable **CLAPP_DIR**, if not found, then the path **../usr** will be used as **default** path.
-
-Now, you only need to export the variable **CLAPP_DIR** if it's not already defined. You can also add it to your *bashrc/bach_profile* file::
-
-  export CLAPP_DIR=PATH_TO_SPL_SRC/usr
-
 
 Building documentation
 ^^^^^^^^^^^^^^^^^^^^^^
