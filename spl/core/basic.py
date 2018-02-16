@@ -33,11 +33,11 @@ class common_obj(object):
         Creates the Fortran module
         """
         try:
-            from clapp.core.django import m_django_core as _core
+            from spl.core.django import m_django_core as _core
             self._core = _core
             self.initialize()
         except:
-            raise ValueError("Error while importing pyfem. CLAPP will stop immediatly")
+            raise ValueError("Error while importing SPL. SPL will stop immediatly")
 
     def initialize(self):
         """
@@ -130,7 +130,7 @@ class common_obj(object):
 
 class Basic(object):
     """
-    Class representing the Parent of all classes within clapp, and coming from
+    Class representing the Parent of all classes within spl, and coming from
     Fortran.
     """
     def __init__(self, *args, **kwargs):

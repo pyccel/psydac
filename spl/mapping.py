@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 import numpy as np
 
-from clapp.core.basic  import Basic
+from spl.core.basic  import Basic
 
 class Mapping(Basic):
     """
@@ -23,12 +23,12 @@ class Mapping(Basic):
         geoemtry : caid.cad_geometry.cad_geometry
               a **caid** geometry.
 
-        other : clapp.spl.mapping.Mapping
+        other : spl.mapping.Mapping
             another mapping for compostion
 
         """
 
-        # ... first we create the clapp object
+        # ... first we create the spl object
         Basic.__init__(self)
         # ...
 
@@ -328,50 +328,6 @@ class Mapping(Basic):
         verbose : bool
              If true, the **Fortran** assembler will print some info.
         """
-
-        if space is  None:
-            if discretization_params is not None:
-                _context = Context(dirname="input", \
-                              discretization_params=discretization)
-                _trial_space = Space(context=context, type_space="h1")
-                _test_space  = Space(context=context, type_space="h1")
-                _ddm_params  = _context.ddm_params
-            else:
-                raise ValueError("> compute_aerea: expecting more parmeters")
-        else:
-            _trial_space = space
-            _test_space  = space
-            _ddm_params  = space.context.ddm_params
-        # ...
-
-        from clapp.fema.assembler      import Assembler
-        from clapp.plaf.vector         import Vector
-        from clapp.disco.field         import Field
-
-        # ...
-        norms = Vector(n_size=1, n_blocks=1)
-        phi   = Field(_trial_space, name="phi")
-        x = np.ones(phi.n_size)
-        phi.set(x)
-        # ...
-
-        # ...
-        assembler = Assembler(spaces =  [_test_space, _trial_space], \
-                              fields = [phi], \
-                              mapping = self, \
-                              norms=norms, \
-                              ddm_parameters = _ddm_params, \
-                              enable_sqrt_norms = False, \
-                              verbose = verbose)
-        # ...
-
-        # ...
-        assembler.set_fields_evaluation()
-        assembler.set_norms_evaluation()
-        assembler.assemble()
-
-        x = norms.get()
-        return x
-        # ...
+        raise NotImplemented('update without using clapp')
 
 

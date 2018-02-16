@@ -1,8 +1,7 @@
 # -*- coding: UTF-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
-import f90nml
-from clapp.spl.mapping import Mapping
+from spl.mapping import Mapping
 
 def test1():
     # TODO we can avoid giving p_dim, if we read first the nml file from python,
@@ -47,6 +46,6 @@ def test4():
     print("test4: passed")
 
 #test1()
-#test2()
-#test3()
-test4()
+test2()
+test3()
+#test4()
