@@ -42,13 +42,6 @@ In your terminal, run the following commands::
 
   git clone  git@gitlab.mpcdf.mpg.de:clapp/spl.git
   cd spl 
-  # checkout the stable branch
-  git checkout stable
-
-You can also go to the devel branch, if you are willing to have access to our last developments::
-
-  # checkout the devel branch
-  git checkout devel
 
 Compiling SPL
 ^^^^^^^^^^^^^
@@ -59,6 +52,10 @@ In your terminal, run::
   cmake ..
   make
   make test
+
+If you intend to use the *Python* package, do not forget to use the **-fPIC** flag::
+
+  cmake  -DCMAKE_Fortran_FLAGS="-fPIC" ..
 
 If you want to install **SPL**, you will need to define the prefix during the configuration step of **ccmake** or using the flag **CMAKE_INSTALL_PREFIX** for the **cmake** command line. Then run::
 
