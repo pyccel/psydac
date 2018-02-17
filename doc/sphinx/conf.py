@@ -20,6 +20,8 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+# ARA:  sphinx-apidoc -o source/ ../../spl
+
 
 # -- General configuration ------------------------------------------------
 
@@ -58,7 +60,7 @@ author = u'A. Ratnani, J. Lakhlili'
 # built documents.
 #
 # The short X.Y version.
-version = u'0'
+version = u'0.9'
 # The full version, including alpha/beta/rc tags.
 release = u'1'
 
@@ -99,17 +101,16 @@ html_theme = 'alabaster'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-# Custom sidebar templates, must be a dictionary that maps document names
-# to template names.
-#
-# This is required for the alabaster theme
-# refs: http://alabaster.readthedocs.io/en/latest/installation.html#sidebars
-html_sidebars = {
-    '**': [
-        'relations.html',  # needs 'show_related': True theme option to display
-        'searchbox.html',
-    ]
-}
+# specify the side bar
+#html_sidebars = { '**': ['globaltoc.html', 'relations.html', 'sourcelink.html'], }
+html_sidebars = { '**': ['localtoc.html', 'relations.html', 'searchbox.html'], }
+
+
+# -- Options for Tikz -----------------------------------------------------
+tikz_proc_suite     = 'GhostScript'
+tikz_transparent    = True
+#tikz_latex_preamble = ‹string›
+#tikz_tikzlibraries  = 'positioning,shapes,shadows,arrows'
 
 
 # -- Options for HTMLHelp output ------------------------------------------
