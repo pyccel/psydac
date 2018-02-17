@@ -14,7 +14,6 @@ In your terminal, define your installation path (where you want to put the fortr
   mkdir build && cd build
   cmake -DCMAKE_INSTALL_PREFIX=$PREFIX  ..
   make && make install
-  make test
   cd ..
 
 For Python users
@@ -30,6 +29,8 @@ In the build directory, run::
 then::
 
   python setup.py install --prefix=$PREFIX
+
+Note that in **setup.py** we check if **PREFIX** is an environment variable, if not we assume that **spl** has been installed in **__PATH_TO_SPL_PROJECT__/usr**.
 
 More information
 ^^^^^^^^^^^^^^^^
