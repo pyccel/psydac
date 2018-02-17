@@ -82,14 +82,17 @@ You should also download the rtd sphinx theme, using for example::
 Then, you can build the Html SPL documentation with::
   
   cd PATH-TO-SPL-DIR/doc/sphinx
-  
-  python initialize.py
 
   make html
 
 Finnaly, the html documentation will be available in the following directory::
 
   PATH-TO-SPL-DIR/doc/sphinx/_build/html
+
+Whenever needed, pleases use **sphinx-apidoc** in order to update **rtd** website::
+
+  cd doc/sphinx
+  sphinx-apidoc -o source/ ../../spl
 
 Latex
 _____
