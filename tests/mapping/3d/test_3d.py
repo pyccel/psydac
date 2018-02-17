@@ -10,4 +10,8 @@ def test_cube():
     filename = os.path.join(data_dir, 'cube.nml')
     mapping = Mapping(filename=filename, p_dim=3)
 
+    u = v = w = np.linspace(0., 1., 5)
+    y = mapping.evaluate(u, v, w)
+    print(y)
+
 test_cube()
