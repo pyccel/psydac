@@ -6,6 +6,8 @@ build
 *build*
 *egg*
 *dist*
+usr
+*cache*
 
 doc/_build
 

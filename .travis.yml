@@ -36,4 +36,5 @@ install:
 # command to run tests
 script:
 #  - pytest # or py.test for Python versions 3.5 and below
-  - pytest tests/test_1.py
+#  - pytest tests/caid
+  - pytest tests/mapping
