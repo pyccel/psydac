@@ -20,7 +20,7 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-# ARA:  sphinx-apidoc -o source/ ../../spl
+# ARA:  sphinx-apidoc -o api-python/ ../../spl
 
 
 # -- General configuration ------------------------------------------------

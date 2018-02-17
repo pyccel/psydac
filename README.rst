@@ -92,7 +92,12 @@ Finnaly, the html documentation will be available in the following directory::
 Whenever needed, pleases use **sphinx-apidoc** in order to update **rtd** website::
 
   cd doc/sphinx
-  sphinx-apidoc -o source/ ../../spl
+  sphinx-apidoc -o api-python/ ../../spl
+
+To update the *Fortran* api, you will need to use *Doxygen*::
+
+  cd doc/doxygen
+  doxygen Doxyfile
 
 Latex
 _____

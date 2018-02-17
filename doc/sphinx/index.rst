@@ -17,7 +17,7 @@ Welcome to spl's documentation!
    basic
    advanced
 
-   source/modules
+   api
 
 Indices and tables
 ==================

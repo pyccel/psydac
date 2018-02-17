@@ -9,6 +9,8 @@ build
 usr
 *cache*
 
-doc/_build
+doc/sphinx/_build
+doc/doxygen/html
+doc/doxygen/latex
 
 tests/spl/*.nml
