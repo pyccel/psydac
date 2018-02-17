@@ -6,9 +6,9 @@ from spl.mapping import Mapping
 def test1():
     # TODO we can avoid giving p_dim, if we read first the nml file from python,
     # set internaly p_dim and then use it to branch with the fortran core
-    mapping = Mapping(filename="mapping.nml", p_dim=1)
-    print(("mapping.id : ", mapping.id))
-    print (mapping)
+    mapping = Mapping(filename="line.nml", p_dim=1)
+    print("mapping.id : ", mapping.id)
+    print(mapping)
     mapping.export("mapping_out.nml")
 
     print("test1: passed")
