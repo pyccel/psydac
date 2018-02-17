@@ -40,11 +40,11 @@ dependency_links = []
 # ...
 
 # ...
-INSTALL_DIR = '/home/travis/build/ratnania/spl/usr'
-#if 'PREFIX' in os.environ:
-#    INSTALL_DIR = os.environ['PREFIX']
-#else:
-#    INSTALL_DIR = os.path.join(os.getcwd(), 'usr')
+#INSTALL_DIR = '/home/travis/build/ratnania/spl/usr'
+if 'PREFIX' in os.environ:
+    INSTALL_DIR = os.environ['PREFIX']
+else:
+    INSTALL_DIR = os.path.join(os.getcwd(), 'usr')
 # ...
 
 # ...
