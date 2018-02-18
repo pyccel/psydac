@@ -14,8 +14,8 @@ Welcome to spl's documentation!
 
    tutorial
    dive/index
-   basic
-   advanced
+
+   splines/index
 
    api
 

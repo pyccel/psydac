@@ -1,20 +1,11 @@
-.. role:: envvar(literal)
-.. role:: command(literal)
-.. role:: file(literal)
-.. role:: ref(title-reference)
-.. _basic:
+B-Splines and NURBS
+*******************
 
-B-Spline: Introduction and Basic Algorithms 
-===========================================
-
-We start this section by recalling some basic properies about B-splines curves and surfaces. We also recall some fundamental algorithms (knot insertion and degree elevation). Later, those algorithms will be used to develop a two grids solver for the Monge-Amp\`ere equation.  
+We start this section by recalling some basic properies about B-splines curves and surfaces. We also recall some fundamental algorithms (knot insertion and degree elevation). 
 
 For a basic introduction to the subject, we refer to the books :cite:`piegl` and :cite:`Farin_Book2002`.  
 
 A B-Splines family, :math:`(N_i)_{ 1 \leqslant i \leqslant n}` of order :math:`k`, can be generated using a non-decreasing sequence **of knots** :math:`T=(t_i)_{1\leqslant i \leqslant n + k}`.
-
-Introduction
-************
 
 B-Splines series
 ^^^^^^^^^^^^^^^^
@@ -39,7 +30,7 @@ We note some important properties of a B-splines basis:
 
 * Compact support; the support of :math:`N_j^k` is contained in :math:`\left[ t_j, t_{j+k} \right]` ,
 
-* If :math:`x \in~ ] t_j,t_{j+1} [`, then only the \textit{B-splines} :math:`\{ N_{j-k+1}^k,\cdots,N_{j}^k \}` are non vanishing at :math:`x`,
+* If :math:`x \in~ ] t_j,t_{j+1} [`, then only the *B-splines* :math:`\{ N_{j-k+1}^k,\cdots,N_{j}^k \}` are non vanishing at :math:`x`,
 
 * Positivity: :math:`\forall j \in \{1,\cdots,n \}~~N_j(x) >0, ~~\forall x \in ] t_j, t_{j+k} [`,
 
@@ -66,11 +57,11 @@ The following are examples of such knots vectors
   \\
   T_2 &= \{-0.2, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 0.8 \}
 
-.. image:: include/splines/bsplines_t1_p2.png
+.. image:: ../include/splines/bsplines_t1_p2.png
    :width: 8cm
    :height: 8cm
 
-.. image:: include/splines/bsplines_t2_p2.png
+.. image:: ../include/splines/bsplines_t2_p2.png
    :width: 8cm
    :height: 8cm
 
@@ -82,11 +73,11 @@ The following are examples of such knots vectors
   \\
   T_4 &= \{-0.2, -0.2, 0.4, 0.6, 0.8, 0.8 \}
 
-.. image:: include/splines/bsplines_t3_p2.png
+.. image:: ../include/splines/bsplines_t3_p2.png
    :width: 8cm
    :height: 8cm
 
-.. image:: include/splines/bsplines_t4_p2.png
+.. image:: ../include/splines/bsplines_t4_p2.png
    :width: 8cm
    :height: 8cm
 
@@ -100,11 +91,11 @@ The following are examples of such knots vectors
   \\
   T_6 &= \{-0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0 \}
 
-.. image:: include/splines/bsplines_t5_p2.png
+.. image:: ../include/splines/bsplines_t5_p2.png
    :width: 8cm
    :height: 8cm
 
-.. image:: include/splines/bsplines_t6_p2.png
+.. image:: ../include/splines/bsplines_t6_p2.png
    :width: 8cm
    :height: 8cm
 
@@ -116,11 +107,11 @@ The following are examples of such knots vectors
   \\
   T_8 &= \{-0.2, 0.2, 0.4, 0.6, 1.0, 2.0, 2.5 \}
 
-.. image:: include/splines/bsplines_t7_p2.png
+.. image:: ../include/splines/bsplines_t7_p2.png
    :width: 8cm
    :height: 8cm
 
-.. image:: include/splines/bsplines_t8_p2.png
+.. image:: ../include/splines/bsplines_t8_p2.png
    :width: 8cm
    :height: 8cm
 
@@ -137,11 +128,11 @@ The B-spline curve in :math:`\mathbb{R}^d` associated to knots vector :math:`T=(
 In (Fig. \ref{figBSplineCurve}), we give an example of a quadratic B-Spline curve, and its corresponding knot vector and control points.
 
 
-.. image:: include/splines/courbe_bsplines.png
+.. image:: ../include/splines/courbe_bsplines.png
    :width: 8cm
    :height: 8cm
 
-.. image:: include/splines/basis_fct_p2_N5.png
+.. image:: ../include/splines/basis_fct_p2_N5.png
    :width: 8cm
    :height: 8cm
 
@@ -254,8 +245,7 @@ where
 The *B-splines* :math:`\{ {N_{i}^{2}}^{\ast},~~1 \leq i \leq 4\}` are associated to the knot vector :math:`T^{\ast}=\{00~\frac{2}{5}~\frac{3}{5}~11 \}`. 
 
 
-Fundamental geometric operations
-********************************
+.. rubric:: Fundamental geometric operations
 
 By inserting new knots into the knot vector, we add new control points without changing the shape of the B-Spline curve. This can be done using the DeBoor algorithm :cite:`DeBoor_Book2001`. We can also elevate the degree of the B-Spline family and keep unchanged the curve :cite:`qi`. In (Fig. \ref{refinement_curve_B_Spline}), we apply these algorithms on a quadratic B-Spline curve and we show the position of the new control points.  
 
@@ -289,26 +279,26 @@ We can elevate the order of the basis, without changing the curve. Several algor
 
 A quadratic B-spline curve and its control points. The knot vector is :math:`T = \{ 000, \frac{1}{4}, \frac{1}{2}, \frac{3}{4}, 1 1 1 \}`.
 
-.. image:: include/splines/curve.png 
+.. image:: ../include/splines/curve.png 
    :width: 8cm
    :height: 8cm
 
 The curve after a h-refinement by inserting the knots :math:`\{ 0.15, 0.35\}` while the degree is kept equal to :math:`2`.
 
-.. image:: include/splines/curve_p0_n9.png 
+.. image:: ../include/splines/curve_p0_n9.png 
    :width: 8cm
    :height: 8cm
 
 The curve after a p-refinement, the degree was raised by :math:`1` (using cubic B-splines).
 
-.. image:: include/splines/curve_p2_n0.png 
+.. image:: ../include/splines/curve_p2_n0.png 
    :width: 8cm
    :height: 8cm
 
 The curve after duplicating the multiplicity of the internal knots :math:`\{ \frac{1}{4}, \frac{1}{2}, \frac{3}{4} \}`, 
 this leads to a B\'ezier description. We can then, split the curve into :math:`4` pieces (sub-domains), each one will corresponds to a quadratic B\'ezier curve.
 
-.. image:: include/splines/curve_p0_n3_bezier.png 
+.. image:: ../include/splines/curve_p0_n3_bezier.png 
    :width: 8cm
    :height: 8cm
 
@@ -326,6 +316,9 @@ Scaling
 .. todo:: not yet available
 
 
-.. Local Variables:
-.. mode: rst
-.. End:
+
+.. rubric:: References
+
+.. bibliography:: refs_spline.bib
+   :cited:
+

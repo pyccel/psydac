@@ -10,6 +10,8 @@ usr
 *cache*
 
 doc/sphinx/_build
+doc/sphinx/api-python/modules.rst
+
 doc/doxygen/html
 doc/doxygen/latex
 
