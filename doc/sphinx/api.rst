@@ -8,7 +8,7 @@ Fortran API
 
 .. raw:: html
 
-  <a href="_static/doxygen/index.html" target="_blank">Doxygen</a>
+  <a href="_static/html_doxygen/index.html" target="_blank">Doxygen</a>
 
 Python API
 **********

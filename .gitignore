@@ -12,7 +12,7 @@ usr
 doc/sphinx/_build
 doc/sphinx/api-python/modules.rst
 
-doc/doxygen/html
+doc/doxygen/html*
 doc/doxygen/latex
 
 tests/spl/*.nml

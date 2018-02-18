@@ -84,9 +84,11 @@ todo_include_todos = True
 
 # -- Doxygen ----------------------------------------------
 import subprocess
-subprocess.call('cd ../doxygen ; doxygen Doxyfile ; '
-                'cp -R html ../sphinx/_static/doxygen', shell=True)
+subprocess.call('cd ../doxygen ; doxygen Doxyfile', shell=True)
+#subprocess.call('cd ../doxygen ; doxygen Doxyfile ; '
+#                'cp -R html ../sphinx/_static/doxygen', shell=True)
 #html_extra_path = ['../doxygen/html']
+#html_static_path = ['../doxygen/html']
 
 # -- Options for HTML output ----------------------------------------------
 
@@ -104,7 +106,7 @@ html_theme = 'alabaster'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ['_static', '../doxygen/']
 
 # specify the side bar
 #html_sidebars = { '**': ['globaltoc.html', 'relations.html', 'sourcelink.html'], }
