@@ -24,7 +24,7 @@ before_install:
   - mkdir -p usr
   - export PREFIX=$TRAVIS_BUILD_DIR/usr
   - mkdir build && cd build
-  - cmake -DCMAKE_Fortran_FLAGS="-fPIC" -DCMAKE_INSTALL_PREFIX=$PREFIX  ..
+  - cmake -DCMAKE_Fortran_FLAGS="-fPIC" -DBUILD_TESTING=ON -DCMAKE_INSTALL_PREFIX=$PREFIX  ..
   - make && make install
   - cd ..
 
