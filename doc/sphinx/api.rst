@@ -1,13 +1,17 @@
+API
+===
+
+You will find here both the *Fortran* **doxygen** documentation as well as the *Python-API*.
+
 Fortran API
-===========
+***********
 
-.. toctree::
-   :maxdepth: 4
+.. raw:: html
 
-   api-fortran/spl
+  <a href="_static/doxygen/index.html" target="_blank">Doxygen</a>
 
 Python API
-==========
+**********
 
 .. toctree::
    :maxdepth: 4

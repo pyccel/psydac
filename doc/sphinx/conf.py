@@ -82,6 +82,11 @@ pygments_style = 'sphinx'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
+# -- Doxygen ----------------------------------------------
+import subprocess
+subprocess.call('cd ../doxygen ; doxygen Doxyfile ; '
+                'cp -R html ../sphinx/_static/doxygen', shell=True)
+#html_extra_path = ['../doxygen/html']
 
 # -- Options for HTML output ----------------------------------------------
 
