@@ -25,8 +25,8 @@ contains
   subroutine test_1()
   use spl_m_bsp,       only: spl_collocation_matrix
   use spl_m_bsp,       only: spl_compute_greville
-  use plf_m_utilities, only: plf_print_matrix
-  use plf_m_utilities, only: plf_print_array
+  use spl_m_utilities, only: spl_print_matrix
+  use spl_m_utilities, only: spl_print_array
   implicit none
     integer, parameter :: n = 6 
     integer, parameter :: p = 2
@@ -38,10 +38,10 @@ contains
     knots = (/0.0, 0.0, 0.0, 0.25, 0.5, 0.75, 1.0, 1.0, 1.0/)
 
     call spl_compute_greville(n, p, knots, arr_x) 
-    call plf_print_array( "Greville points", n_points, arr_x )
+    call spl_print_array( "Greville points", n_points, arr_x )
 
     call spl_collocation_matrix(n, p, knots, arr_x, mat) 
-    call plf_print_matrix( "collocation matrix", n_points, n, mat, n ) 
+    call spl_print_matrix( "collocation matrix", n_points, n, mat, n ) 
 
   end subroutine test_1
   ! ............................................
@@ -51,8 +51,8 @@ contains
   use spl_m_bsp,       only: spl_collocation_periodic_matrix
   use spl_m_bsp,       only: spl_compute_greville
   use spl_m_bsp,       only: spl_symetrize_knots
-  use plf_m_utilities, only: plf_print_matrix
-  use plf_m_utilities, only: plf_print_array
+  use spl_m_utilities, only: spl_print_matrix
+  use spl_m_utilities, only: spl_print_array
   implicit none
     integer, parameter :: n = 7 
     integer, parameter :: p = 2
@@ -68,16 +68,16 @@ contains
     ! ...
     call spl_compute_greville(n-nu, p, knots(1:n+p+1-nu), arr_x) 
     call spl_symetrize_knots(nu-1, n, p, knots) 
-    call plf_print_array( "knots", n+p+1, knots )
+    call spl_print_array( "knots", n+p+1, knots )
     ! ...
 
     ! ...
-    call plf_print_array( "arr_x", n, arr_x )
+    call spl_print_array( "arr_x", n, arr_x )
     ! ...
 
     ! ...
     call spl_collocation_periodic_matrix(nu-1, n, p, knots, arr_x(2:n-1), mat) 
-    call plf_print_matrix( "periodic collocation matrix", n_points, n-nu, mat, n-nu ) 
+    call spl_print_matrix( "periodic collocation matrix", n_points, n-nu, mat, n-nu ) 
 
     deallocate(mat)
     ! ...
@@ -89,8 +89,8 @@ contains
   subroutine test_3()
   use spl_m_bsp,       only: spl_collocation_periodic_matrix
   use spl_m_bsp,       only: spl_symetrize_knots
-  use plf_m_utilities, only: plf_print_matrix
-  use plf_m_utilities, only: plf_print_array
+  use spl_m_utilities, only: spl_print_matrix
+  use spl_m_utilities, only: spl_print_array
   implicit none
     integer, parameter :: n = 8 
     integer, parameter :: p = 3
@@ -105,19 +105,19 @@ contains
 
     ! ...
     call spl_symetrize_knots(nu-1, n, p, knots) 
-    call plf_print_array( "knots", n+p+1, knots )
+    call spl_print_array( "knots", n+p+1, knots )
     ! ...
 
     ! ...
     do i=1, n_points
       arr_x(i) = knots(p+1) + (i-1)*(knots(n+1) - knots(p+1))/(n_points) 
     end do
-    call plf_print_array( "arr_x", n_points, arr_x )
+    call spl_print_array( "arr_x", n_points, arr_x )
     ! ...
 
     ! ...
     call spl_collocation_periodic_matrix(nu-1, n, p, knots, arr_x, mat) 
-    call plf_print_matrix( "periodic collocation matrix", n_points, n-nu, mat, n-nu ) 
+    call spl_print_matrix( "periodic collocation matrix", n_points, n-nu, mat, n-nu ) 
 
     deallocate(mat)
     ! ...
@@ -129,8 +129,8 @@ contains
   subroutine test_4()
   use spl_m_bsp,       only: spl_collocation_periodic_matrix
   use spl_m_bsp,       only: spl_symetrize_knots
-  use plf_m_utilities, only: plf_print_matrix
-  use plf_m_utilities, only: plf_print_array
+  use spl_m_utilities, only: spl_print_matrix
+  use spl_m_utilities, only: spl_print_array
   implicit none
     integer, parameter :: n = 10 
     integer, parameter :: p = 5 
@@ -145,7 +145,7 @@ contains
 
     ! ...
     call spl_symetrize_knots(nu-1, n, p, knots) 
-    call plf_print_array( "knots", n+p+1, knots )
+    call spl_print_array( "knots", n+p+1, knots )
     ! ...
 
     allocate(mat(n, n))
@@ -153,12 +153,12 @@ contains
     do i=1, n_points
       arr_x(i) = knots(p+1) + (i-1)*(knots(n+1) - knots(p+1))/(n_points+1) 
     end do
-    call plf_print_array( "arr_x", n_points, arr_x )
+    call spl_print_array( "arr_x", n_points, arr_x )
     ! ...
 
     ! ...
     call spl_collocation_periodic_matrix(nu-1, n, p, knots, arr_x, mat) 
-    call plf_print_matrix( "periodic collocation matrix", n_points, n-nu, mat, n-nu ) 
+    call spl_print_matrix( "periodic collocation matrix", n_points, n-nu, mat, n-nu ) 
 
     deallocate(mat)
     ! ...

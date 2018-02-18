@@ -19,7 +19,7 @@ add_test(NAME bsplines_ex3 COMMAND bspline_ex3)
 # ...
 # ... ex4
 ADD_EXECUTABLE(bspline_ex4 ex4.F90)
-TARGET_LINK_LIBRARIES(bspline_ex4 spl_bspline ${PLAF_LIBRARIES})
+TARGET_LINK_LIBRARIES(bspline_ex4 spl_bspline spl_utilities)
 add_test(NAME bsplines_ex4 COMMAND bspline_ex4)
 # ...
 ##########################################################################

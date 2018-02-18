@@ -27,48 +27,5 @@ implicit none
     integer, parameter  :: spl_mapping_format_nml        = 0    !< Mapping in nml format 
     ! ...
 
-contains
-
-  ! .............................................
-  !> @brief     initialization of SPL
-  !>
-  !> @param[inout] i_err    error code id, given by PLAF 
-  subroutine spl_initialize(i_err)
-  implicit none
-  integer, intent(inout) :: i_err
-  ! Local
-
-  call plf_initialize(i_err)
-
-  end subroutine spl_initialize
-  ! .............................................
-
-  ! .............................................
-  !> @brief     finalization of SPL
-  !>
-  !> @param[inout] i_err    error code id, given by PLAF 
-  subroutine spl_finalize(i_err)
-  implicit none
-  integer, intent(inout) :: i_err
-  ! Local
-
-  call plf_finalize(i_err)
-
-  end subroutine spl_finalize
-  ! .............................................
-
-  ! .............................................
-  !> @brief     compute CPU time 
-  !>
-  !> @param[inout] time    a real value  
-  subroutine spl_time(time)
-  implicit none
-  real(kind=spl_rk), intent(inout) :: time
-  ! Local
-
-  call plf_time(time) 
-
-  end subroutine spl_time
-  ! .............................................
 
 end module spl_m_global
