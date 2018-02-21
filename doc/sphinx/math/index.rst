@@ -1,16 +1,16 @@
 .. role:: envvar(literal)
 .. role:: command(literal)
 .. role:: file(literal)
-.. _math_utilities:
+.. _feec:
 
-Mathematical background 
-=======================
+.. toctree::
+   :maxdepth: 1
+   :caption: Contents:
 
-
-.. include:: splines.rst
-
-.. include:: glt.rst
-
+   splines
+   glt 
+   feec
+   derham
 
 .. Local Variables:
 .. mode: rst

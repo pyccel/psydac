@@ -114,8 +114,8 @@ html_sidebars = { '**': ['localtoc.html', 'relations.html', 'searchbox.html'], }
 
 
 # -- Options for Tikz -----------------------------------------------------
-tikz_proc_suite     = 'GhostScript'
-tikz_transparent    = True
+#tikz_proc_suite     = 'GhostScript'
+#tikz_transparent    = True
 #tikz_latex_preamble = ‹string›
 #tikz_tikzlibraries  = 'positioning,shapes,shadows,arrows'
 
@@ -154,8 +154,59 @@ latex_documents = [
      u'A. Ratnani, J. Lakhlili', 'manual'),
 ]
 
+# The name of an image file (relative to this directory) to place at the top of
+# the title page.
+#latex_logo = None
 
-# -- Options for manual page output ---------------------------------------
+# For "manual" documents, if this is true, then toplevel headings are parts,
+# not chapters.
+#latex_use_parts = False
+
+# If true, show page references after internal links.
+#latex_show_pagerefs = False
+
+# If true, show URL addresses after external links.
+#latex_show_urls = False
+
+# Documents to append as an appendix to all manuals.
+#latex_appendices = []
+
+# If false, no module index is generated.
+#latex_domain_indices = True
+
+latex_engine='pdflatex'
+
+latex_additional_files = ['latex_macros.sty']
+latex_elements = {
+    'printmodindex': '',
+    'printindex': '',
+    'preamble' : r'\usepackage{amsmath} \usepackage{amssymb} \usepackage{latex_macros}',
+    'docclass':'report',
+    }
+
+#####################################################
+# add LaTeX macros
+
+f = file('latex_macros.sty')
+
+try:
+    imgmath_latex_preamble  # check whether this is already defined
+except NameError:
+    imgmath_latex_preamble = ""
+
+for macro in f:
+    # used when building html version
+    imgmath_latex_preamble += macro + '\n'
+
+#####################################################
+
+# -- Options for Tikz ----------------------------------------------------------
+tikz_proc_suite     = 'GhostScript'
+tikz_transparent    = True
+#tikz_latex_preamble = ‹string›
+#tikz_tikzlibraries  = 'positioning,shapes,shadows,arrows'
+
+# -- Options for manual page output --------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
