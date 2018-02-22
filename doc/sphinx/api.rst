@@ -13,7 +13,7 @@ Fortran API
 Python API
 **********
 
-.. toctree::
-   :maxdepth: 4
-
-   api-python/spl
+.. .. toctree::
+..    :maxdepth: 4
+.. 
+..    api-python/spl
