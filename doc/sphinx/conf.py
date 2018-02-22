@@ -84,7 +84,7 @@ todo_include_todos = True
 
 # -- Doxygen ----------------------------------------------
 import subprocess
-subprocess.call('cd ../doxygen ; doxygen Doxyfile ; cd ../sphinx', shell=True)
+#subprocess.call('cd ../doxygen ; doxygen Doxyfile ; cd ../sphinx', shell=True)
 #subprocess.call('cd ../doxygen ; doxygen Doxyfile ; '
 #                'cp -R html ../sphinx/_static/doxygen', shell=True)
 
