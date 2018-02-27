@@ -4,7 +4,7 @@ import numpy as np
 
 class Stencil(object):
     """
-    Class that represents a stencil.
+    Class that represents a stencil matrix.
     """
 
     def __init__(self, starts, ends, pads):
@@ -51,20 +51,20 @@ class Stencil(object):
     def __getitem__(self, *args):
         indx = list(*args)
 
-        for i, p in enumerate(zip(self.pads, indx)):
-            if isinstance(p[1], slice):
+        for i, z in enumerate(zip(self.pads, indx)):
+            if isinstance(z[1], slice):
                 s1 = None
                 s2 = None
-                s3 = p[1].step
+                s3 = z[1].step
 
-                if p[1].start is not None:
-                    s1 = p[1].start + p[0]
-                if p[1].stop is not None:
-                    s2 = p[1].stop  + p[0]
+                if z[1].start is not None:
+                    s1 = z[1].start + z[0]
+                if z[1].stop is not None:
+                    s2 = z[1].stop  + z[0]
 
                 indx[i] = slice(s1, s2, s3)
             else:
-                indx[i] = p[0] + p[1]
+                indx[i] = z[0] + z[1]
 
         return self._data[tuple(indx)]
 
@@ -74,20 +74,20 @@ class Stencil(object):
         indx = args[:-1]
         indx = list(*indx)
 
-        for i, p in enumerate(zip(self.pads, indx)):
-            if isinstance(p[1], slice):
+        for i, z in enumerate(zip(self.pads, indx)):
+            if isinstance(z[1], slice):
                 s1 = None
                 s2 = None
                 s3 = p[1].step
 
-                if p[1].start is not None:
-                    s1 = p[1].start + p[0]
-                if p[1].stop is not None:
-                    s2 = p[1].stop  + p[0]
+                if z[1].start is not None:
+                    s1 = z[1].start + z[0]
+                if z[1].stop is not None:
+                    s2 = z[1].stop  + z[0]
 
                 indx[i] = slice(s1, s2, s3)
             else:
-                indx[i] = p[0] + p[1]
+                indx[i] = z[0] + z[1]
 
         self._data[tuple(indx)] = item
 
@@ -143,21 +143,3 @@ class Stencil(object):
         return mat
     # ...
 
-#####################################################
-if __name__ == '__main__':
-    nx = ny = 3
-    px = py = 1
-
-    x = Stencil([0, 0], [nx, ny], [px, py])
-
-    print '>>> shape: ', x._data.shape
-
-    for ix in range(nx+1):
-        for iy in range(ny+1):
-            x[ 1,  0, ix, iy] = 1.
-            x[-1,  0, ix, iy] = -1.
-            x[ 0, -1, ix, iy] = -1.
-            x[ 0,  1, ix, iy] = 1.
-            x[ 0,  0, ix, iy] = 4.
-
-    print x.tocoo().toarray()
