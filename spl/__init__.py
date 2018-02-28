@@ -2,6 +2,5 @@
 __version__ = "0.1"
 
 from .mapping     import *
-from .utilities   import *
 from .quadratures import *
 from .linalg      import *

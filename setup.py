@@ -57,9 +57,9 @@ for lib in libraries:
 # ...
 
 # ... django extension
-django_ext = Extension('spl.core.django',
-                       sources=['spl/core/django.pyf',
-                                'spl/core/django.F90'],
+django_ext = Extension('spl.core.bsp',
+                       sources=['spl/core/bsp.pyf',
+                                'spl/core/bsp.F90'],
                        f2py_options=['--quiet'],
 #                       define_macros=[
 #                                     #('F2PY_REPORT_ATEXIT', 0),
