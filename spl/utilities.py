@@ -3,6 +3,8 @@
 
 import numpy as np
 
+# TODO JLA: move to core
+
 __all__ = ["collocation_cardinal_splines", "collocation_matrix_spline"]
 
 # ...

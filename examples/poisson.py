@@ -5,6 +5,8 @@ from spl.linalg.stencil import Stencil
 from spl.linalg.vector  import Vector
 from spl.core.django    import m_django_core as bsp_core
 
+# TODO JLA: modify m_django_core and call new fucntions
+
 # ...
 n_elements_1 = 4
 n_elements_2 = 4
@@ -78,10 +80,10 @@ basis_1  = np.zeros((p1+1, d1+1, k1, n_elements_1), float)
 basis_2  = np.zeros((p2+1, d2+1, k2, n_elements_2), float)
 
 # call to bsp_core.utilities
-basis_1 = bsp_core.utilities_eval_on_grid_bsp_core.utilitiesines_ders(n1, p1, d1, knots1, points_1)
+basis_1 = bsp_core.utilities_eval_on_grid_splines_ders(n1, p1, d1, knots1, points_1)
 
 # call to bsp_core.utilities
-basis_2 = bsp_core.utilities_eval_on_grid_bsp_core.utilitiesines_ders(n2, p2, d2, knots2, points_2)
+basis_2 = bsp_core.utilities_eval_on_grid_splines_ders(n2, p2, d2, knots2, points_2)
 # ...
 
 # ...
