@@ -1,12 +1,12 @@
 # -*- coding: UTF-8 -*-
-from spl.linalg import Stencil
+from spl.stencil import Matrix
 
 # ...
 def test_1():
     nx = ny = 3
     px = py = 1
 
-    x = Stencil([0, 0], [nx, ny], [px, py])
+    x = Matrix([0, 0], [nx, ny], [px, py])
 
     print '>>> shape: ', x._data.shape
 

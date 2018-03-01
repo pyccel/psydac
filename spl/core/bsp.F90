@@ -11,16 +11,15 @@
 
 module utils
 
-implicit none
-
-  private
+  implicit none
+  
   public :: collocation_matrix,         &
           & eval_on_grid_splines_ders,  &
           & compute_spans,              &
           & construct_grid_from_knots,  &
           & construct_quadrature_grid,  &
           & make_open_knots,            &
-          & compute_origins_element,    &
+          & compute_origins_element
 
 contains
 

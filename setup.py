@@ -6,10 +6,10 @@ import os
 from setuptools import find_packages
 from numpy.distutils.core import setup
 from numpy.distutils.core import Extension
-import spl
+#import spl
 
 NAME    = 'spl'
-VERSION = spl.__version__
+VERSION = '0.6'#spl.__version__
 AUTHOR  = 'Ahmed Ratnani'
 EMAIL   = 'ratnaniahmed@gmail.com'
 URL     = 'http://www.ahmed.ratnani.org/'
@@ -56,21 +56,20 @@ for lib in libraries:
     include_dirs.append(os.path.join(os.path.join(INSTALL_DIR, "include"), lib))
 # ...
 
-# ... django extension
-django_ext = Extension('spl.core.bsp',
-                       sources=['spl/core/bsp.pyf',
-                                'spl/core/bsp.F90'],
-                       f2py_options=['--quiet'],
-#                       define_macros=[
-#                                     #('F2PY_REPORT_ATEXIT', 0),
-#                                     ('F2PY_REPORT_ON_ARRAY_COPY', 0)],
-                       include_dirs=include_dirs,
-                       library_dirs=library_dirs,
-                       libraries=libraries)
+# ... bspline extension
+bspline_ext = Extension(name    = 'spl.core.bsp',      \
+                        sources = ['spl/core/bsp.pyf', \
+                                   'spl/core/bsp.F90'],\
+                        f2py_options = ['--quiet'],    \
+                        include_dirs = include_dirs,   \
+                        library_dirs = library_dirs,   \
+                        libraries    = libraries,      )
 
-ext_modules  = [django_ext]
+
+ext_modules  = [bspline_ext]
 # ...
 
+# ...
 def setup_package():
     setup(packages=packages, \
           ext_modules=ext_modules, \
@@ -79,6 +78,7 @@ def setup_package():
           zip_safe=True, \
           dependency_links=dependency_links, \
           **setup_args)
-
+# ....
+# ..................................................................................
 if __name__ == "__main__":
     setup_package()
