@@ -1,13 +1,8 @@
 # coding: utf-8
 import numpy as np
-from spl.quadratures    import gauss_legendre
-from spl.linalg.vector  import Vector
-from spl.linalg.stencil import Stencil
-from spl.core.bsp.utils import make_open_knots
-from spl.core.bsp.utils import construct_grid_from_knots
-from spl.core.bsp.utils import construct_quadrature_grid
-from spl.core.bsp.utils import eval_on_grid_splines_ders
-from spl.core.bsp.utils import compute_spans
+from spl.quadratures import gauss_legendre
+from spl.stencil     import Matrix, Vector
+from spl.core.bsp    import bsp_utils as bu
 
 # ...
 n_elements_1 = 4
@@ -44,10 +39,10 @@ knots1 = np.zeros(m1, float)
 knots2 = np.zeros(m2, float)
 
 # call to bsp_core.utilities
-knots1 = make_open_knots(n1, p1)
+knots1 = bu.make_open_knots(n1, p1)
 
 # call to bsp_core.utilities
-knots2 = make_open_knots(n2, p2)
+knots2 = bu.make_open_knots(n2, p2)
 # ...
 
 # ... TODO fix args of np.zeros
@@ -58,10 +53,10 @@ grid_1 = np.zeros(m1, float)
 grid_2 = np.zeros(m2, float)
 
 # call to bsp_core.utilities
-grid_1 = construct_grid_from_knots(p1, n1, knots1)
+grid_1 = bu.construct_grid_from_knots(p1, n1, knots1)
 
 # call to bsp_core.utilities
-grid_2 = construct_grid_from_knots(p2, n2, knots2)
+grid_2 = bu.construct_grid_from_knots(p2, n2, knots2)
 # ...
 
 # ... construct the quadrature points grid
@@ -72,11 +67,11 @@ weights_2 = np.zeros((k2, n_elements_2), float)
 
 # call to bsp_core.utilities
 l1 = len(u1)
-[points_1, weights_1] = construct_quadrature_grid(n_elements_1, l1, u1, w1, grid_1)
+[points_1, weights_1] = bu.construct_quadrature_grid(n_elements_1, l1, u1, w1, grid_1)
 
 # call to bsp_core.utilities
 l2 = len(u2)
-[points_2, weights_2] = construct_quadrature_grid(n_elements_2, l2, u2, w2, grid_2)
+[points_2, weights_2] = bu.construct_quadrature_grid(n_elements_2, l2, u2, w2, grid_2)
 # ...
 
 # ...
@@ -84,18 +79,18 @@ basis_1  = np.zeros((p1+1, d1+1, k1, n_elements_1), float)
 basis_2  = np.zeros((p2+1, d2+1, k2, n_elements_2), float)
 
 # call to bsp_core.utilities
-basis_1 = eval_on_grid_splines_ders(p1, n1, l1, d1, knots1, points_1)
+basis_1 = bu.eval_on_grid_splines_ders(p1, n1, l1, d1, knots1, points_1)
 
 # call to bsp_core.utilities
-basis_2 = eval_on_grid_splines_ders(p2, n1, l2, d2, knots2, points_2)
+basis_2 = bu.eval_on_grid_splines_ders(p2, n1, l2, d2, knots2, points_2)
 # ...
 
 # ...
 spans_1 = np.zeros(n_elements_1, int)
 spans_2 = np.zeros(n_elements_2, int)
 
-spans_1 = compute_spans(p1, n1, knots1)
-spans_2 = compute_spans(p2, n2, knots2)
+spans_1 = bu.compute_spans(p1, n1, knots1)
+spans_2 = bu.compute_spans(p2, n2, knots2)
 # ...
 
 # ...
@@ -109,9 +104,9 @@ pad_2   = p2
 # ...
 
 # ...
-mass      = Stencil((start_1, start_2), (end_1, end_2), (pad_1, pad_2))
-stiffness = Stencil((start_1, start_2), (end_1, end_2), (pad_1, pad_2))
-rhs       = Vector((start_1-pad_1, start_2-pad_2), (end_1+pad_1, end_2+pad_2))
+mass      = Matrix((start_1, start_2), (end_1, end_2), (pad_1, pad_2))
+stiffness = Matrix((start_1, start_2), (end_1, end_2), (pad_1, pad_2))
+rhs       = Vector((start_1, start_2), (end_1, end_2), (pad_1, pad_2))
 # ...
 
 # ... TODO use construct matrix
@@ -284,9 +279,9 @@ def crl(mat, b, x0, maxit, tol):
 # ...
 
 # ...
-x0 = Vector((start_1-pad_1, start_2-pad_2), (end_1+pad_1, end_2+pad_2))
-xn = Vector((start_1-pad_1, start_2-pad_2), (end_1+pad_1, end_2+pad_2))
-y  = Vector((start_1-pad_1, start_2-pad_2), (end_1+pad_1, end_2+pad_2))
+x0 = Vector((start_1, start_2), (end_1, end_2), (pad_1, pad_2))
+xn = Vector((start_1, start_2), (end_1, end_2), (pad_1, pad_2))
+y  = Vector((start_1, start_2), (end_1, end_2), (pad_1, pad_2))
 # ...
 
 # ...

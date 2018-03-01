@@ -5,11 +5,11 @@
 !> interfaced module with python
 
 
-!... TODO: add mapping module
+!... TODO: add bsp_mapping module
 !... TODO: add more utils functions
 
 
-module utils
+module bsp_utils
 
   implicit none
   
@@ -146,4 +146,4 @@ contains
   ! ................................................
 
 
-end module utils
+end module bsp_utils

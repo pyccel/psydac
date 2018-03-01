@@ -175,7 +175,7 @@ class Vector(object):
         self._pads   = pads
 
         sizes = [e-s+2*p+1 for s,e,p in zip(self.starts, self.ends, self.pads)]
-        print '>>> V size: ', sizes
+
         self._data = np.zeros(sizes)
 
     @property
@@ -239,10 +239,17 @@ class Vector(object):
         return str(self._data)
 
     # ...
+    def copy(self):
+        """
+        retun a copy of the vector (empty ?)
+        """
+        pass
+    # ...
+
+    # ...
     def toarray(self):
         """
         Convert the stencil data to sparce matrix in the array form
         """
-        # TODO
         pass
     # ...

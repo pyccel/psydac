@@ -6,10 +6,10 @@ import os
 from setuptools import find_packages
 from numpy.distutils.core import setup
 from numpy.distutils.core import Extension
-#import spl
+import spl
 
 NAME    = 'spl'
-VERSION = '0.6'#spl.__version__
+VERSION = spl.__version__
 AUTHOR  = 'Ahmed Ratnani'
 EMAIL   = 'ratnaniahmed@gmail.com'
 URL     = 'http://www.ahmed.ratnani.org/'
