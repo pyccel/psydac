@@ -176,7 +176,7 @@ for ie1 in range(0, n_elements_1):
 # ... define matrix-Vector product
 #$ header procedure mv(float [:,:,:,:], float [:,:], float [:,:])
 def mv(mat, x, y):
-    y = 0.0
+    y[:, :] = 0.0
     for i1 in range(start_1, end_1+1):
         for i2 in range(start_2, end_2+1):
             for k1 in range(-p1, p1+1):
@@ -204,11 +204,11 @@ def vdot(xl, xr):
 
 #$ header procedure cgl(float [:,:,:,:], float [:,:], float [:,:], int, float)
 def cgl(mat, b, x0, maxit, tol):
-    xk = np.zeros_like(x0)
-    mx = np.zeros_like(x0)
-    p  = np.zeros_like(x0)
-    q  = np.zeros_like(x0)
-    r  = np.zeros_like(x0)
+    xk = x0.zeros_like()
+    mx = x0.zeros_like()
+    p  = x0.zeros_like()
+    q  = x0.zeros_like()
+    r  = x0.zeros_like()
 
     xk = x0
 
@@ -242,12 +242,12 @@ def cgl(mat, b, x0, maxit, tol):
 
 #$ header procedure crl(float [:,:,:,:], float [:,:], float [:,:], int, float)
 def crl(mat, b, x0, maxit, tol):
-    xk = np.zeros_like(x0)
-    mx = np.zeros_like(x0)
-    p  = np.zeros_like(x0)
-    q  = np.zeros_like(x0)
-    r  = np.zeros_like(x0)
-    s  = np.zeros_like(x0)
+    xk = x0.zeros_like()
+    mx = x0.zeros_like()
+    p  = x0.zeros_like()
+    q  = x0.zeros_like()
+    r  = x0.zeros_like()
+    s  = x0.zeros_like()
 
     xk = x0
 
@@ -288,7 +288,7 @@ y  = Vector((start_1, start_2), (end_1, end_2), (pad_1, pad_2))
 n_maxiter = 100
 tol = 1.0e-7
 
-xn = 0.0
+xn[:, :] = 0.0
 cgl(mass, rhs, xn, n_maxiter, tol)
 
 # TODO crl is converging slowly. must be investigated

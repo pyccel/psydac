@@ -234,22 +234,55 @@ class Vector(object):
 
         self._data[tuple(indx)] = item
 
+    def __add__(self, other):
+
+        # verifier que self et other ont le meme sahpe
+        # puis retourner res = la somme
+        res = self.zeros_like()
+
+        res[:, :] = self[:, :] + other[:, :]
+
+        return res
+
+    def __mul__(self, other):
+        # other is integer or float
+        res = self.zeros_like()
+        res._data = other* self._data
+
+        return res
+
+    def __sub__(self, other):
+        res = self.zeros_like()
+
+        res._data = self._data - other._data
+        return res
 
     def __str__(self):
         return str(self._data)
 
     # ...
-    def copy(self):
+    def copy(self, ):
         """
-        retun a copy of the vector (empty ?)
+        Return a Vector copy of the given Vector.
         """
-        pass
+
+        res = Vector(self.starts, self.ends, self.pads)
+
+        res[:, :] = self[:, :]
+
+        return res
     # ...
 
+
     # ...
-    def toarray(self):
+    def zeros_like(self):
         """
-        Convert the stencil data to sparce matrix in the array form
+        Return a Vector of zeros with the same shape a given Vector.
         """
-        pass
+
+        res = Vector(self.starts, self.ends, self.pads)
+        res[:, :] = 0.
+
+        return res
     # ...
+
