@@ -46,16 +46,40 @@ def test_2():
     y = Vector([0, 0], [n1, n2], [p1, p2])
 
     x[:, :] = 42.
-    y[:, :] = 12.
+    y[:, :] = 10.
 
-    z = x + y
+    # a = x + y
+    z = x.copy()
+    z.add(y)
     print '>>> z = ', z
 
-    w = x- y
-    print '>>> w = ', w
+    # s = x- y
+    s = x.copy()
+    s.sub(y)
+    print '>>> s = ', s
 
-    u = 2.*x
-    print u
+    # u =2*x
+    u = x.copy()
+    u.mul(2.)
+    print '>>> u = ', u
 # ....
+
+# ...
+def test_3():
+    n1 = n2 = 2
+    p1 = p2 = 1
+
+    x = Vector([0, 0], [n1, n2], [p1, p2])
+    y = Vector([0, 0], [n1, n2], [p1, p2])
+
+    x[:, :] = 2.
+    y[:, :] = 5.
+
+    # z = x*y
+    z = x.dot(y)
+    print '>>> z = ', z
+# ....
+
 #test_1()
-test_2()
+#test_2()
+test_3()

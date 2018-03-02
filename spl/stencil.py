@@ -94,6 +94,35 @@ class Matrix(object):
 
     def __str__(self):
         return str(self._data)
+    # ...
+
+    # ...
+    def dot(self, other):
+
+        if not isinstance(other, Vector):
+            raise TypeError("other must be a Vector")
+
+        # TODO check shapes
+
+        [s1, s2] = self.starts
+        [e1, e2] = self.ends
+        [p1, p2] = self.pads
+
+        # ...
+        #res[:, :] = 0.0
+        res = other.zeros_like()
+
+        for i1 in range(s1, e1+1):
+            for i2 in range(s2, e2+1):
+                for k1 in range(-p1, p1+1):
+                    for k2 in range(-p2, p2+1):
+                        j1 = k1+i1
+                        j2 = k2+i2
+                        res[i1,i2] = res[i1,i2] + self[k1,k2,i1,i2] * other[j1,j2]
+        # ...
+
+        return res
+    # ...
 
     # ...
     def tocoo(self):
@@ -233,46 +262,12 @@ class Vector(object):
                 indx[i] = z[2] -  z[0] + z[1]
 
         self._data[tuple(indx)] = item
+    # ...
 
-    def __add__(self, other):
-
-        # verifier que self et other ont le meme sahpe
-        # puis retourner res = la somme
-        res = self.zeros_like()
-
-        res[:, :] = self[:, :] + other[:, :]
-
-        return res
-
-    def __mul__(self, other):
-        # other is integer or float
-        res = self.zeros_like()
-        res._data = other* self._data
-
-        return res
-
-    def __sub__(self, other):
-        res = self.zeros_like()
-
-        res._data = self._data - other._data
-        return res
-
+    # ...
     def __str__(self):
         return str(self._data)
-
     # ...
-    def copy(self, ):
-        """
-        Return a Vector copy of the given Vector.
-        """
-
-        res = Vector(self.starts, self.ends, self.pads)
-
-        res[:, :] = self[:, :]
-
-        return res
-    # ...
-
 
     # ...
     def zeros_like(self):
@@ -286,3 +281,100 @@ class Vector(object):
         return res
     # ...
 
+    # ...
+    def add(self, other):
+
+        # ...
+        if isinstance(other, int):
+            self[:, :] = self[:, :] + other
+
+        elif isinstance(other, float):
+            self[:, :] = self[:, :] + other
+
+        elif isinstance(other, Vector):
+            # ... TODO check shapes
+            self[:, :] = self[:, :] + other[:, :]
+
+        else:
+            raise TypeError("other must be int, float or Vecor")
+        # ...
+    # ...
+
+    # ...
+    def sub(self, other):
+
+        # ...
+        if isinstance(other, int):
+            self[:, :] = self[:, :] - other
+
+        elif isinstance(other, float):
+            self[:, :] = self[:, :] - other
+
+        elif isinstance(other, Vector):
+            # ... TODO check shapes
+            self[:, :] = self[:, :] - other[:, :]
+
+        else:
+            raise TypeError("other must be int, float or Vecor")
+        # ...
+    # ...
+
+    # ...
+    def mul(self, other):
+
+        # ...
+        if isinstance(other, int):
+            self[:, :] = other * self[:, :]
+
+        elif isinstance(other, float):
+            self[:, :] = other * self[:, :]
+        else:
+            raise TypeError("other must be int, float")
+        # ...
+    # ...
+
+    # ...
+    def dot(self, other):
+
+        if not isinstance(other, Vector):
+            raise TypeError("other must be a Vecor")
+
+        # TODO check shapes
+
+        [s1, s2] = self.starts
+        [e1, e2] = self.ends
+        [p1, p2] = self.pads
+
+        # ...
+        res = 0.0
+        for i1 in range(s1, e1+1):
+            for i2 in range(s2, e2+1):
+                for k1 in range(-p1, p1+1):
+                    for k2 in range(-p2, p2+1):
+                        res += self[k1,i1] * other[k2,i2]
+        # ...
+
+        return res
+    # ...
+
+    # ...
+    def copy(self):
+        """
+        Return a Vector copy of the given Vector.
+        """
+
+        res = Vector(self.starts, self.ends, self.pads)
+
+        res[:, :] = self[:, :]
+
+        return res
+    # ...
+
+    # ...
+    def toarray(self):
+        """
+        Return a numpy ndarray corresponding to the given Vector.
+        """
+
+        return self._data
+    # ...
