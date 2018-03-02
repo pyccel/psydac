@@ -244,9 +244,12 @@ if __name__ == '__main__':
     tol = 1.0e-7
     # ...
 
+    # ... solve the system
     xn[:, :] = 0.0
     cgl(mass, rhs, xn, n_maxiter, tol)
+    # ...
 
+    # ... check
     x0 = mass.dot(xn)
 
     e = x0.copy()
@@ -254,6 +257,4 @@ if __name__ == '__main__':
 
     print ('> residual error = ', max(abs(e.toarray())))
     # ...
-
-
 
