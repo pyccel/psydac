@@ -109,7 +109,6 @@ class Matrix(object):
         [p1, p2] = self.pads
 
         # ...
-        #res[:, :] = 0.0
         res = other.zeros_like()
 
         for i1 in range(s1, e1+1):
@@ -296,7 +295,7 @@ class Vector(object):
             self[:, :] = self[:, :] + other[:, :]
 
         else:
-            raise TypeError("other must be int, float or Vecor")
+            raise TypeError("passed type must be int, float or Vector.")
         # ...
     # ...
 
@@ -315,7 +314,7 @@ class Vector(object):
             self[:, :] = self[:, :] - other[:, :]
 
         else:
-            raise TypeError("other must be int, float or Vecor")
+            raise TypeError("passed type must be int, float or Vector")
         # ...
     # ...
 
@@ -329,7 +328,7 @@ class Vector(object):
         elif isinstance(other, float):
             self[:, :] = other * self[:, :]
         else:
-            raise TypeError("other must be int, float")
+            raise TypeError("passed must be int, float")
         # ...
     # ...
 
@@ -337,7 +336,7 @@ class Vector(object):
     def dot(self, other):
 
         if not isinstance(other, Vector):
-            raise TypeError("other must be a Vecor")
+            raise TypeError("passed type must be a Vector")
 
         # TODO check shapes
 
@@ -376,5 +375,23 @@ class Vector(object):
         Return a numpy ndarray corresponding to the given Vector.
         """
 
-        return self._data
+        [s1, s2] = self.starts
+        [e1, e2] = self.ends
+        [p1, p2] = self.pads
+        n1 = e1 - s1 + 1
+        n2 = e2 - s2 + 1
+        res = np.zeros(n1*n2)
+
+        # ...
+        for i1 in range(s1, e1+1):
+            for i2 in range(s2, e2+1):
+                for k1 in range(-p1, p1+1):
+                    for k2 in range(-p2, p2+1):
+                        j1 = (k1 + i1)%n1
+                        j2 = (k2 + i2)%n2
+                        icol = j1 + n1*j2
+                        res[icol] = self[j1,j2]
+        # ...
+
+        return res
     # ...

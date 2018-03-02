@@ -20,7 +20,8 @@ def test_1():
                     x[j1,j2] = j1+j2
 
     print '>>> x = ', x
-
+    a = x.toarray()
+    print '>>> a = ', a
     y = x.zeros_like()
 
     print '>>> y shape: ', y._data.shape
@@ -78,6 +79,8 @@ def test_3():
     # z = x*y
     z = x.dot(y)
     print '>>> z = ', z
+# ....
+'>>> z = ', z
 # ....
 
 #test_1()

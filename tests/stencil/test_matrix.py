@@ -26,25 +26,31 @@ def test_2():
     nx = ny = 2
     px = py = 1
 
-    mat = Matrix([0, 0], [nx, ny], [px, py])
-    vec = Vector([0, 0], [nx, ny], [px, py])
+    M = Matrix([0, 0], [nx, ny], [px, py])
+    x = Vector([0, 0], [nx, ny], [px, py])
 
-    print '>>> shape: ', mat._data.shape,  vec._data.shape
+    print '>>> M shape: ', M._data.shape,  x._data.shape
 
     for ix in range(nx+1):
         for iy in range(ny+1):
-            mat[ 1,  0, ix, iy] = 1.
-            mat[-1,  0, ix, iy] = -1.
-            mat[ 0, -1, ix, iy] = -1.
-            mat[ 0,  1, ix, iy] = 1.
-            mat[ 0,  0, ix, iy] = 2.
+            M[ 1,  0, ix, iy] = 1.
+            M[-1,  0, ix, iy] = -1.
+            M[ 0, -1, ix, iy] = -1.
+            M[ 0,  1, ix, iy] = 1.
+            M[ 0,  0, ix, iy] = 2.
 
-    print mat.tocoo().toarray()
+    print M.tocoo().toarray()
 
-    vec[:, :] = 1.
-    y = mat.dot(vec)
+    x[:, :] = 1.
 
-    print '>>> y = ', y
+    print '>>> x shape = ', x._data.shape
+    print x
+
+    y = M.dot(x)
+
+    print '>>> y = '
+    a = y.toarray()
+    print a
 # ....
 
 #test_1()
