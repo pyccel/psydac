@@ -18,6 +18,10 @@ def assembly_matrices(starts, ends, pads, spans, basis, weights):
     [weights_1, weights_2] = weights
     # ...
 
+    # ... quadrature points number
+    k1 = len(weights_1)
+    k2 = len(weights_2)
+
     # ... data structure
     mass      = Matrix((s1, s2), (e1, e2), (p1, p2))
     stiffness = Matrix((s1, s2), (e1, e2), (p1, p2))
@@ -153,11 +157,14 @@ def cgl(mat, b, x0, maxit, tol):
         aq.mul(alpha)
         r.sub(aq)
 
-        norm_err = np.sqrt(r.dot(r))
-        print (i_iter, norm_err )
-        if norm_err < tol:
-            x0 = xk.copy()
-            break
+        # ... TODO check why r.dot r can be < 0
+        if r.dot(r) >= 0.:
+            norm_err = np.sqrt(r.dot(r))
+            print (i_iter, norm_err )
+
+            if norm_err < tol:
+                x0 = xk.copy()
+                break
 
         rdrold = rdr
         rdr = r.dot(r)
@@ -171,6 +178,8 @@ def cgl(mat, b, x0, maxit, tol):
 
     x0 = xk.copy()
     # ...
+
+    return x0
 # ....
 
 ####################################################################################
@@ -178,8 +187,8 @@ if __name__ == '__main__':
     from spl.core.bsp    import bsp_utils as bu
 
     # ... numbers of elements and degres
-    ne1 = 4 ;  ne2 = 4
-    p1  = 3 ;  p2  = 3
+    ne1 = 32 ;  ne2 = 32
+    p1  = 2 ;  p2  = 2
     # ...
 
     # ... number of control points
@@ -246,7 +255,7 @@ if __name__ == '__main__':
 
     # ... solve the system
     xn[:, :] = 0.0
-    cgl(mass, rhs, xn, n_maxiter, tol)
+    xn = cgl(mass, rhs, xn, n_maxiter, tol)
     # ...
 
     # ... check
