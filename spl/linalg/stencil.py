@@ -10,29 +10,16 @@ class Matrix(object):
 
     def __init__(self, starts, ends, pads):
 
-        dim = 1
-        if (isinstance(starts, (list, tuple)) and isinstance(ends, (list, tuple))
-            and  isinstance(pads, (list, tuple))):
-            dim = len(starts)
-            assert(len(ends) == dim)
-            assert(len(pads) == dim)
+        assert( len(starts) == len(ends) == len(pads) )
 
-        if not isinstance(starts, (list, tuple)):
-            starts = list(starts)
+        self._starts = tuple(starts)
+        self._ends   = tuple(ends)
+        self._pads   = tuple(pads)
+        self._ndim   = len(starts)
 
-        if not isinstance(ends, (list, tuple)):
-            ends = list(ends)
-
-        if not isinstance(pads, (list, tuple)):
-            pads = list(pads)
-
-        self._starts = starts
-        self._ends   = ends
-        self._pads   = pads
-
-        sizes = [e-s+1 for s,e in zip(self.starts, self.ends)]
+        sizes = [e-s+1 for s,e in zip(starts, ends)]
         pads  = [2*p+1 for p in pads]
-        shape = pads + sizes
+        shape =  sizes + pads
 
         self._data = np.zeros(shape)
 
@@ -48,49 +35,65 @@ class Matrix(object):
     def pads(self):
         return self._pads
 
-    # ... TODO shift also the nx and ny index using (end - start)
-    def __getitem__(self, *args):
-        indx = list(*args)
+    @property
+    def ndim(self):
+        return self._ndim
 
-        for i, z in enumerate(zip(self.pads, indx)):
-            if isinstance(z[1], slice):
-                s1 = None
-                s2 = None
-                s3 = z[1].step
+    # ...
+    def __getitem__(self, key):
+        nd = self._ndim
+        ii = key[:nd]
+        kk = key[nd:]
 
-                if z[1].start is not None:
-                    s1 = z[1].start + z[0]
-                if z[1].stop is not None:
-                    s2 = z[1].stop  + z[0]
+        index = []
 
-                indx[i] = slice(s1, s2, s3)
+        for (i,s) in zip(ii, self._starts):
+            if isinstance(i, slice):
+                start = None if i.start is None else s + i.start
+                stop  = None if i.stop  is None else s + i.stop
+                l = slice(start, stop, i.step)
             else:
-                indx[i] = z[0] + z[1]
+                l = s + i
+            index.append(l)
 
-        return self._data[tuple(indx)]
-
-    # ... TODO shift also the nx and ny index using (end - start)
-    def __setitem__(self, *args):
-        item = args[-1]
-        indx = args[:-1]
-        indx = list(*indx)
-
-        for i, z in enumerate(zip(self.pads, indx)):
-            if isinstance(z[1], slice):
-                s1 = None
-                s2 = None
-                s3 = p[1].step
-
-                if z[1].start is not None:
-                    s1 = z[1].start + z[0]
-                if z[1].stop is not None:
-                    s2 = z[1].stop  + z[0]
-
-                indx[i] = slice(s1, s2, s3)
+        for (k,p) in zip(kk, self._pads):
+            if isinstance(k, slice):
+                start = None if k.start is None else p + k.start
+                stop  = None if k.stop  is None else p + k.stop
+                l = slice(start, stop, k.step)
             else:
-                indx[i] = z[0] + z[1]
+                l = p + k
+            index.append(l)
 
-        self._data[tuple(indx)] = item
+        return self._data[tuple(index)]
+
+    # ...
+    def __setitem__(self, key, value):
+        nd = self._ndim
+        ii = key[:nd]
+        kk = key[nd:]
+
+        index = []
+
+        for (i,s) in zip(ii, self._starts):
+            if isinstance( i, slice ):
+                start = None if i.start is None else s+i.start
+                stop  = None if i.stop  is None else s+i.stop
+                l = slice(start, stop, i.step)
+            else:
+                l = s + i
+            index.append(l)
+
+        for (k,p) in zip(kk, self._pads):
+            if isinstance(k, slice):
+                start = None if k.start is None else p+k.start
+                stop  = None if k.stop  is None else p+k.stop
+                l = slice(start, stop, k.step)
+            else:
+                l = p + k
+            index.append(l)
+
+        self._data[tuple(index)] = value
 
     def __str__(self):
         return str(self._data)
@@ -117,7 +120,7 @@ class Matrix(object):
                     for k2 in range(-p2, p2+1):
                         j1 = k1+i1
                         j2 = k2+i2
-                        res[i1,i2] = res[i1,i2] + self[k1,k2,i1,i2] * other[j1,j2]
+                        res[i1,i2] = res[i1,i2] + self[i1,i2,k1,k2] * other[j1,j2]
         # ...
 
         return res
@@ -159,7 +162,7 @@ class Matrix(object):
 
                         rows.append(irow)
                         cols.append(icol)
-                        vals.append(self[k1, k2, i1, i2])
+                        vals.append(self[i1, i2, k1, k2])
         # ...
 
         rows = np.array(rows)
@@ -182,28 +185,18 @@ class Vector(object):
 
     def __init__(self, starts, ends, pads):
 
-        dim = 1
-        if (isinstance(starts, (list, tuple)) and isinstance(ends, (list, tuple))
-            and  isinstance(pads, (list, tuple))):
-            dim = len(starts)
-            assert(len(ends) == dim)
-            assert(len(pads) == dim)
+        assert( len(starts) == len(ends) == len(pads) )
 
-        if not isinstance(starts, (list, tuple)):
-            starts = list(starts)
-
-        if not isinstance(ends, (list, tuple)):
-            ends = list(ends)
-
-        if not isinstance(pads, (list, tuple)):
-            pads = list(pads)
+        self._starts = tuple(starts)
+        self._ends   = tuple(ends)
+        self._pads   = tuple(pads)
+        self._ndim   = len(starts)
 
         self._starts = starts
         self._ends   = ends
         self._pads   = pads
 
-        sizes = [e-s+2*p+1 for s,e,p in zip(self.starts, self.ends, self.pads)]
-
+        sizes = [e-s+2*p+1 for s,e,p in zip(starts, ends, pads)]
         self._data = np.zeros(sizes)
 
     @property
@@ -219,48 +212,37 @@ class Vector(object):
         return self._pads
 
     # ...
-    def __getitem__(self, *args):
-        indx = list(*args)
+    def __getitem__(self, key):
+        index = []
 
-        for i, z in enumerate(zip(self.starts, self.pads, indx)):
-            if isinstance(z[2], slice):
-                s1 = None
-                s2 = None
-                s3 = z[2].step
-
-                if z[2].start is not None:
-                    s1 = z[2].start - z[0] + z[1]
-                if z[2].stop is not None:
-                    s2 = z[2].stop  - z[0] + z[1]
-
-                indx[i] = slice(s1, s2, s3)
+        for (i,s,p) in zip(key, self._starts, self._pads):
+            if isinstance(i, slice):
+                start = None if i.start is None else i.start + s - p
+                stop  = None if i.stop  is None else i.stop  + s - p
+                l = slice(start, stop, i.step)
             else:
-                indx[i] = z[2] -  z[0] +z[1]
+                l = i + s - p
 
-        return self._data[tuple(indx)]
+            index.append(l)
+
+        return self._data[tuple(index)]
+    # ...
 
     # ...
-    def __setitem__(self, *args):
-        item = args[-1]
-        indx = args[:-1]
-        indx = list(*indx)
+    def __setitem__(self, key, value):
+        index = []
 
-        for i, z in enumerate(zip(self.starts, self.pads, indx)):
-            if isinstance(z[2], slice):
-                s1 = None
-                s2 = None
-                s3 = z[2].step
-
-                if z[2].start is not None:
-                    s1 = z[2].start - z[0] + z[1]
-                if z[2].stop is not None:
-                    s2 = z[2].stop  - z[0] + z[1]
-
-                indx[i] = slice(s1, s2, s3)
+        for (i,s,p) in zip(key, self._starts, self._pads):
+            if isinstance(i, slice):
+                start = None if i.start is None else i.start + s - p
+                stop  = None if i.stop  is None else i.stop  + s - p
+                l = slice(start, stop, i.step)
             else:
-                indx[i] = z[2] -  z[0] + z[1]
+                l = i + s - p
 
-        self._data[tuple(indx)] = item
+            index.append(l)
+
+        self._data[tuple(index)] = value
     # ...
 
     # ...

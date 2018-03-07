@@ -1,7 +1,9 @@
 # coding: utf-8
 import numpy as np
-from spl.quadratures import gauss_legendre
-from spl.stencil     import Matrix, Vector
+from spl.utilities.quadratures import gauss_legendre
+from spl.linalg.stencil     import Matrix, Vector
+from spl.linalg.solvers     import cgl
+
 
 # ... assembly of mass and stiffness matrices using stencil forms
 def assembly_matrices(starts, ends, pads, spans, basis, weights):
@@ -60,8 +62,8 @@ def assembly_matrices(starts, ends, pads, spans, basis, weights):
                                     v_m += bi_0 * bj_0 * wvol
                                     v_s += (bi_x * bj_x + bi_y * bj_y) * wvol
 
-                            mass[j1 - i1, j2 - i2, i1, i2] += v_m
-                            stiffness[j1 - i1, j2 - i2, i1, i2]  += v_s
+                            mass[i1, i2, j1 - i1, j2 - i2] += v_m
+                            stiffness[i1, i2, j1 - i1, j2 - i2]  += v_s
     # ...
 
     # ...
@@ -118,76 +120,15 @@ def assembly_rhs(starts, ends, pads, spans, basis, weights, points):
     # ...
     return rhs
     # ...
-
 # ...
 
-# ... Solver: CGL performs maxit CG iterations on the linear system Ax = b
-#     starting from x = x0
-def cgl(mat, b, x0, maxit, tol):
-    xk = x0.zeros_like()
-    mx = x0.zeros_like()
-    p  = x0.zeros_like()
-    q  = x0.zeros_like()
-    r  = x0.zeros_like()
-
-    # xk = x0
-    xk = x0.copy()
-    mx = mat.dot(x0)
-
-    # r = b - mx
-    r = b.copy()
-    b.sub(mx)
-
-    # p = r
-    p = r.copy()
-
-    rdr = r.dot(r)
-
-    for i_iter in range(1, maxit+1):
-        q = mat.dot(p)
-        alpha = rdr / p.dot(q)
-
-        # xk = xk + alpha * p
-        ap = p.copy()
-        ap.mul(alpha)
-        xk.add(ap)
-
-        # r  = r - alpha * q
-        aq = q.copy()
-        aq.mul(alpha)
-        r.sub(aq)
-
-        # ... TODO check why r.dot r can be < 0
-        if r.dot(r) >= 0.:
-            norm_err = np.sqrt(r.dot(r))
-            print (i_iter, norm_err )
-
-            if norm_err < tol:
-                x0 = xk.copy()
-                break
-
-        rdrold = rdr
-        rdr = r.dot(r)
-        beta = rdr / rdrold
-
-        #p = r + beta * p
-        bp = p.copy()
-        bp.mul(beta)
-        p  = r.copy()
-        p.add(bp)
-
-    x0 = xk.copy()
-    # ...
-
-    return x0
-# ....
 
 ####################################################################################
 if __name__ == '__main__':
     from spl.core.bsp    import bsp_utils as bu
 
     # ... numbers of elements and degres
-    ne1 = 32 ;  ne2 = 32
+    ne1 = 8 ;  ne2 = 8
     p1  = 2 ;  p2  = 2
     # ...
 
@@ -266,4 +207,19 @@ if __name__ == '__main__':
 
     print ('> residual error = ', max(abs(e.toarray())))
     # ...
+
+    Mc = mass.tocoo()
+    print '>>> shape and nnz: ', np.shape(Mc), Mc.nnz
+
+    # ... plot and print mass matrix
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as colors
+    plt.matshow(Mc.todense(), norm=colors.LogNorm())
+    plt.title('Mass matrix')
+    plt.show()
+
+    from scipy.sparse import csr_matrix
+    from scipy.io import mmwrite
+    S = csr_matrix(Mc)
+    mmwrite('matrix_spl', S )
 

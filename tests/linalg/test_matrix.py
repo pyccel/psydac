@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-from spl.stencil import Matrix, Vector
+from spl.linalg.stencil import Matrix, Vector
 
 # ...
 def test_1():
@@ -9,14 +9,11 @@ def test_1():
     x = Matrix([0, 0], [nx, ny], [px, py])
 
     print '>>> shape: ', x._data.shape
-
-    for ix in range(nx+1):
-        for iy in range(ny+1):
-            x[ 1,  0, ix, iy] = 1.
-            x[-1,  0, ix, iy] = -1.
-            x[ 0, -1, ix, iy] = -1.
-            x[ 0,  1, ix, iy] = 1.
-            x[ 0,  0, ix, iy] = 4.
+    x[:, :, 0, 0] = 4.
+    x[:, :, 1, 0] = 1.
+    x[:, :, -1, 0] = -1.
+    x[:, :, 0, 1] = 2.
+    x[:, :, 0, -1] = -2.
 
     print x.tocoo().toarray()
 # ....
@@ -33,11 +30,11 @@ def test_2():
 
     for ix in range(nx+1):
         for iy in range(ny+1):
-            M[ 1,  0, ix, iy] = 1.
-            M[-1,  0, ix, iy] = -1.
-            M[ 0, -1, ix, iy] = -1.
-            M[ 0,  1, ix, iy] = 1.
-            M[ 0,  0, ix, iy] = 2.
+            x[ix, iy, 1, 0] = 1.
+            x[ix, iy,-1, 0] = -1.
+            x[ix, iy, 0,-1] = -1.
+            x[ix, iy, 0, 1] = 1.
+            x[ix, iy, 0, 0] = 4.
 
     print M.tocoo().toarray()
 
@@ -53,5 +50,5 @@ def test_2():
     print a
 # ....
 
-#test_1()
+test_1()
 test_2()

@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-from spl.stencil import Vector
+from spl.linalg.stencil import Vector
 import numpy as np
 
 # ...
@@ -80,9 +80,7 @@ def test_3():
     z = x.dot(y)
     print '>>> z = ', z
 # ....
-'>>> z = ', z
-# ....
 
-#test_1()
-#test_2()
+test_1()
+test_2()
 test_3()
