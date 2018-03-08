@@ -15,7 +15,7 @@ def test_1():
     M[:, :, 0, 1] = 2.
     M[:, :, 0,-1] = -2.
 
-    print M.tocoo().toarray()
+    print (M.tocoo().toarray())
 # ....
 
 # ...
@@ -36,7 +36,7 @@ def test_2():
             M[ix, iy, 0, 1] = 1.
             M[ix, iy, 0, 0] = 4.
 
-    print M.tocoo().toarray()
+    print (M.tocoo().toarray())
 
     x[:, :] = 1.
 
@@ -47,7 +47,7 @@ def test_2():
     y = M.dot(x)
 
     print (">>> y (M dot ones) = ")
-    print y
+    print (y)
     print (">>> y to array = ", y.toarray())
 # ....
 

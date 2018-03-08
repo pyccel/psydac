@@ -9,7 +9,7 @@ def test_1():
 
     x = Vector([0, 0], [n1, n2], [p1, p2])
 
-    print '>>> x shape: ', x._data.shape
+    print ('>>> x shape: ', x._data.shape)
 
     for i1 in range(0, n1+1):
         for i2 in range(0, n2+1):
@@ -20,17 +20,17 @@ def test_1():
                     x[j1,j2] = j1+j2
 
     print (">>> x = ")
-    print  x
+    print (x)
     print (">>> x.toarry() = ",  x.toarray())
 
     y = x.zeros_like()
 
     print (">>> y = x.zeros_lik:")
-    print y
+    print (y)
 
     z = x.copy()
     print (">>> z = x.copy() = ")
-    print z
+    print (z)
 
 # ....
 
@@ -49,19 +49,19 @@ def test_2():
     a = x.copy()
     a.add(y)
     print (">>> x+y = ")
-    print a
+    print (a)
 
     # b = x- y
     b = x.copy()
     b.sub(y)
     print (">>> x-y = ")
-    print b
+    print (b)
 
     # c =2*x
     c = x.copy()
     c.mul(2.)
     print (">>> 2*x = ")
-    print c
+    print (c)
 # ....
 
 # ...
@@ -78,7 +78,7 @@ def test_3():
     # z = x*y
     z = x.dot(y)
     print (">>> x=2, y=5, x dot y = ")
-    print z
+    print (z)
 # ....
 
 test_1()
