@@ -8,29 +8,19 @@ Welcome to SPL
 Install
 *******
 
-In your terminal, define your installation path (where you want to put the fortran/python libraries/packages) and run::
+We first install the Fortran library/headers using *cmake* (by default the installation path
+is **$PWD/../usr**)::
 
-  export PREFIX=__ADD_YOUR_INSTALLATION_PATH__
   mkdir build && cd build
-  cmake -DCMAKE_INSTALL_PREFIX=$PREFIX  ..
+  cmake -DCMAKE_Fortran_FLAGS="-fPIC" ..
   make && make install
   cd ..
 
-For Python users
-^^^^^^^^^^^^^^^^
+For the *Python* package, you can install it using *pip*::
 
-If you intend to use the *Python* package, do not forget to use the **-fPIC** flag. 
-In the build directory, run::
+  sudo -H FORTRAN_INSTALL_DIR=$PWD/../usr pip install .
 
-  cmake -DCMAKE_Fortran_FLAGS="-fPIC" -DCMAKE_INSTALL_PREFIX=$PREFIX  ..
-  make && make install
-  cd ..
-
-then::
-
-  python setup.py install --prefix=$PREFIX
-
-Note that in **setup.py** we check if **PREFIX** is an environment variable, if not we assume that **spl** has been installed in **__PATH_TO_SPL_PROJECT__/usr**.
+For Python3 users, use *pip3* instead of *pip*.
 
 More information
 ^^^^^^^^^^^^^^^^

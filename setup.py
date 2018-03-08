@@ -40,20 +40,24 @@ dependency_links = []
 # ...
 
 # ...
-if 'PREFIX' in os.environ:
-    INSTALL_DIR = os.environ['PREFIX']
+if 'FORTRAN_INSTALL_DIR' in os.environ:
+    FORTRAN_INSTALL_DIR = os.environ['FORTRAN_INSTALL_DIR']
 else:
-    INSTALL_DIR = os.path.join(os.getcwd(), 'usr')
+    FORTRAN_INSTALL_DIR = os.path.join(
+        os.path.dirname(__file__),
+        os.path.abspath( os.path.pardir ),
+        'usr'
+    )
 # ...
 
 # ...
-library_dirs = [os.path.join(INSTALL_DIR,"lib")]
+library_dirs = [os.path.join(FORTRAN_INSTALL_DIR,"lib")]
 libraries = ["spl"]
 libraries = libraries[::-1]  # must reverse the order for linking
 
 include_dirs = []
 for lib in libraries:
-    include_dirs.append(os.path.join(os.path.join(INSTALL_DIR, "include"), lib))
+    include_dirs.append(os.path.join(os.path.join(FORTRAN_INSTALL_DIR, "include"), lib))
 # ...
 
 # ... bspline extension

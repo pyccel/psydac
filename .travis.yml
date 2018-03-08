@@ -22,9 +22,9 @@ virtualenv:
 before_install:
   - sudo apt-get install gfortran
   - mkdir -p usr
-  - export PREFIX=$TRAVIS_BUILD_DIR/usr
+  - export FORTRAN_INSTALL_DIR=$TRAVIS_BUILD_DIR/usr
   - mkdir build && cd build
-  - cmake -DCMAKE_Fortran_FLAGS="-fPIC" -DBUILD_TESTING=ON -DCMAKE_INSTALL_PREFIX=$PREFIX  ..
+  - cmake -DCMAKE_Fortran_FLAGS="-fPIC" -DBUILD_TESTING=ON -DCMAKE_INSTALL_PREFIX=$FORTRAN_INSTALL_DIR  ..
   - make && make install
   - cd ..
 
