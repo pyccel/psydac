@@ -30,7 +30,7 @@ def gauss_legendre(ordergl,tol=10e-14):
 
     A = zeros(m)
     x = zeros(m)
-    nRoots = (m + 1)/2          # Number of non-neg. roots
+    nRoots = (m + 1)// 2          # Number of non-neg. roots
     for i in range(nRoots):
         t = cos(pi*(i + 0.75)/(m + 0.5))  # Approx. root
         for j in range(30):
