@@ -9,6 +9,8 @@ build
 usr
 *cache*
 
+*.swp
+
 doc/sphinx/_build
 doc/sphinx/api-python/modules.rst
 
