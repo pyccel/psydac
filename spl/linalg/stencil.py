@@ -197,6 +197,7 @@ class Vector(object):
         self._pads   = pads
 
         sizes = [e-s+2*p+1 for s,e,p in zip(starts, ends, pads)]
+        print ("sizes :", sizes)
         self._data = np.zeros(sizes)
 
     @property
@@ -217,11 +218,11 @@ class Vector(object):
 
         for (i,s,p) in zip(key, self._starts, self._pads):
             if isinstance(i, slice):
-                start = None if i.start is None else i.start + s - p
-                stop  = None if i.stop  is None else i.stop  + s - p
+                start = None if i.start is None else i.start - s + p
+                stop  = None if i.stop  is None else i.stop  - s + p
                 l = slice(start, stop, i.step)
             else:
-                l = i + s - p
+                l = i - s + p
 
             index.append(l)
 
@@ -234,11 +235,11 @@ class Vector(object):
 
         for (i,s,p) in zip(key, self._starts, self._pads):
             if isinstance(i, slice):
-                start = None if i.start is None else i.start + s - p
-                stop  = None if i.stop  is None else i.stop  + s - p
+                start = None if i.start is None else i.start - s + p
+                stop  = None if i.stop  is None else i.stop  - s + p
                 l = slice(start, stop, i.step)
             else:
-                l = i + s - p
+                l = i - s + p
 
             index.append(l)
 
@@ -332,7 +333,9 @@ class Vector(object):
             for i2 in range(s2, e2+1):
                 for k1 in range(-p1, p1+1):
                     for k2 in range(-p2, p2+1):
-                        res += self[k1,i1] * v[k2,i2]
+                        j1 = k1+i1
+                        j2 = k2+i2
+                        res += self[i1,k1] * v[i2,k2]
         # ...
 
         return res
