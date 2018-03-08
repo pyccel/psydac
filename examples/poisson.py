@@ -209,7 +209,7 @@ if __name__ == '__main__':
     # ...
 
     Mc = mass.tocoo()
-    print '>>> shape and nnz: ', np.shape(Mc), Mc.nnz
+    print ('>>> shape and nnz: ', np.shape(Mc), Mc.nnz)
 
     # ... plot and print mass matrix
     import matplotlib.pyplot as plt
