@@ -46,7 +46,8 @@ def test_2():
 
     y = M.dot(x)
 
-    print (">>> y (M dot ones) = ", y)
+    print (">>> y (M dot ones) = ")
+    print y
     print (">>> y to array = ", y.toarray())
 # ....
 
