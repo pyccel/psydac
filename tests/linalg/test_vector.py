@@ -19,23 +19,19 @@ def test_1():
                     j2 = k2+i2
                     x[j1,j2] = j1+j2
 
-    print '>>> x = ', x
-    a = x.toarray()
-    print '>>> a = ', a
+    print (">>> x = ")
+    print  x
+    print (">>> x.toarry() = ",  x.toarray())
+
     y = x.zeros_like()
 
-    print '>>> y shape: ', y._data.shape
+    print (">>> y = x.zeros_lik:")
+    print y
 
-    print '>>> y = ', y
-
-    y = x
-
-    print '>>> y after = ', y
     z = x.copy()
+    print (">>> z = x.copy() = ")
+    print z
 
-    print '>>> z shape: ', z._data.shape
-
-    print '>>> z = ', z
 # ....
 
 # ...
@@ -50,19 +46,22 @@ def test_2():
     y[:, :] = 10.
 
     # a = x + y
-    z = x.copy()
-    z.add(y)
-    print '>>> z = ', z
+    a = x.copy()
+    a.add(y)
+    print (">>> x+y = ")
+    print a
 
-    # s = x- y
-    s = x.copy()
-    s.sub(y)
-    print '>>> s = ', s
+    # b = x- y
+    b = x.copy()
+    b.sub(y)
+    print (">>> x-y = ")
+    print b
 
-    # u =2*x
-    u = x.copy()
-    u.mul(2.)
-    print '>>> u = ', u
+    # c =2*x
+    c = x.copy()
+    c.mul(2.)
+    print (">>> 2*x = ")
+    print c
 # ....
 
 # ...
@@ -78,7 +77,8 @@ def test_3():
 
     # z = x*y
     z = x.dot(y)
-    print '>>> z = ', z
+    print (">>> x=2, y=5, x dot y = ")
+    print z
 # ....
 
 test_1()

@@ -100,10 +100,10 @@ class Matrix(object):
     # ...
 
     # ...
-    def dot(self, other):
+    def dot(self, v):
 
-        if not isinstance(other, Vector):
-            raise TypeError("other must be a Vector")
+        if not isinstance(v, Vector):
+            raise TypeError("v must be a Vector")
 
         # TODO check shapes
 
@@ -112,7 +112,7 @@ class Matrix(object):
         [p1, p2] = self.pads
 
         # ...
-        res = other.zeros_like()
+        res = v.zeros_like()
 
         for i1 in range(s1, e1+1):
             for i2 in range(s2, e2+1):
@@ -120,7 +120,7 @@ class Matrix(object):
                     for k2 in range(-p2, p2+1):
                         j1 = k1+i1
                         j2 = k2+i2
-                        res[i1,i2] = res[i1,i2] + self[i1,i2,k1,k2] * other[j1,j2]
+                        res[i1,i2] = res[i1,i2] + self[i1,i2,k1,k2] * v[j1,j2]
         # ...
 
         return res
@@ -263,18 +263,18 @@ class Vector(object):
     # ...
 
     # ...
-    def add(self, other):
+    def add(self, v):
 
         # ...
-        if isinstance(other, int):
-            self[:, :] = self[:, :] + other
+        if isinstance(v, int):
+            self[:, :] = self[:, :] + v
 
-        elif isinstance(other, float):
-            self[:, :] = self[:, :] + other
+        elif isinstance(v, float):
+            self[:, :] = self[:, :] + v
 
-        elif isinstance(other, Vector):
+        elif isinstance(v, Vector):
             # ... TODO check shapes
-            self[:, :] = self[:, :] + other[:, :]
+            self[:, :] = self[:, :] + v[:, :]
 
         else:
             raise TypeError("passed type must be int, float or Vector.")
@@ -282,18 +282,18 @@ class Vector(object):
     # ...
 
     # ...
-    def sub(self, other):
+    def sub(self, v):
 
         # ...
-        if isinstance(other, int):
-            self[:, :] = self[:, :] - other
+        if isinstance(v, int):
+            self[:, :] = self[:, :] - v
 
-        elif isinstance(other, float):
-            self[:, :] = self[:, :] - other
+        elif isinstance(v, float):
+            self[:, :] = self[:, :] - v
 
-        elif isinstance(other, Vector):
+        elif isinstance(v, Vector):
             # ... TODO check shapes
-            self[:, :] = self[:, :] - other[:, :]
+            self[:, :] = self[:, :] - v[:, :]
 
         else:
             raise TypeError("passed type must be int, float or Vector")
@@ -301,23 +301,23 @@ class Vector(object):
     # ...
 
     # ...
-    def mul(self, other):
+    def mul(self, v):
 
         # ...
-        if isinstance(other, int):
-            self[:, :] = other * self[:, :]
+        if isinstance(v, int):
+            self[:, :] = v * self[:, :]
 
-        elif isinstance(other, float):
-            self[:, :] = other * self[:, :]
+        elif isinstance(v, float):
+            self[:, :] = v * self[:, :]
         else:
             raise TypeError("passed must be int, float")
         # ...
     # ...
 
     # ...
-    def dot(self, other):
+    def dot(self, v):
 
-        if not isinstance(other, Vector):
+        if not isinstance(v, Vector):
             raise TypeError("passed type must be a Vector")
 
         # TODO check shapes
@@ -332,7 +332,7 @@ class Vector(object):
             for i2 in range(s2, e2+1):
                 for k1 in range(-p1, p1+1):
                     for k2 in range(-p2, p2+1):
-                        res += self[k1,i1] * other[k2,i2]
+                        res += self[k1,i1] * v[k2,i2]
         # ...
 
         return res
