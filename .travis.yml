@@ -38,4 +38,4 @@ script:
 #  - pytest # or py.test for Python versions 3.5 and below
 #  - pytest tests/caid
   - cd build ; make test ; cd ..
-  - pytest tests/mapping
+  - pytest tests/linalg
