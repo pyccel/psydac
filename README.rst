@@ -120,10 +120,10 @@ Finnaly, the pdf documentation will be available in the following directory::
     
 
 
-.. |build-status| image:: https://travis-ci.org/ratnania/spl.svg?branch=master
+.. |build-status| image:: https://travis-ci.org/pyccel/spl.svg?branch=master
     :alt: build status
     :scale: 100%
-    :target: https://travis-ci.org/ratnania/spl
+    :target: https://travis-ci.org/pyccel/spl
 
 .. |docs| image:: https://readthedocs.org/projects/spl/badge/?version=latest
     :alt: Documentation Status
