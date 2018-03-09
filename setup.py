@@ -10,11 +10,11 @@ import spl
 
 NAME    = 'spl'
 VERSION = spl.__version__
-AUTHOR  = 'Ahmed Ratnani'
-EMAIL   = 'ratnaniahmed@gmail.com'
+AUTHOR  = 'Ahmed Ratnani, Jalal Lakhlili, Yaman Güçlü'
+EMAIL   = 'ahr@ipp.mpg.de, ljala@ipp.mpg.de, yaman.guclu@ipp.mpg.de'
 URL     = 'http://www.ahmed.ratnani.org/'
 DESCR   = 'Python package for BSplines/NURBS.'
-KEYWORDS = ['FEM', 'IGA', 'bsplines']
+KEYWORDS = ['FEM', 'IGA', 'BSplines', 'CAD']
 LICENSE = "LICENSE.txt"
 
 setup_args = dict(
