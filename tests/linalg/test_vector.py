@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-from spl.linalg.stencil import Vector
+from spl.linalg.stencil import Vector, VectorSpace
 import numpy as np
 
 # ...
@@ -7,7 +7,9 @@ def test_1():
     n1 = n2 = 3
     p1 = p2 = 1
 
-    x = Vector([0, 0], [n1, n2], [p1, p2])
+    V = VectorSpace([0, 0], [n1, n2], [p1, p2])
+
+    x = Vector( V )
 
     print ('>>> x shape: ', x._data.shape)
 
@@ -21,12 +23,7 @@ def test_1():
 
     print (">>> x = ")
     print (x)
-    print (">>> x.toarry() = ",  x.toarray())
-
-    y = x.zeros_like()
-
-    print (">>> y = x.zeros_lik:")
-    print (y)
+    print (">>> x.toarray() = ",  x.toarray())
 
     z = x.copy()
     print (">>> z = x.copy() = ")
@@ -39,27 +36,23 @@ def test_2():
     n1 = n2 = 2
     p1 = p2 = 1
 
-    x = Vector([0, 0], [n1, n2], [p1, p2])
-    y = Vector([0, 0], [n1, n2], [p1, p2])
+    V = VectorSpace([0, 0], [n1, n2], [p1, p2])
+
+    x = Vector( V )
+    y = Vector( V )
 
     x[:, :] = 42.
     y[:, :] = 10.
 
-    # a = x + y
-    a = x.copy()
-    a.add(y)
+    a = x + y
     print (">>> x+y = ")
     print (a)
 
-    # b = x- y
-    b = x.copy()
-    b.sub(y)
+    b = x - y
     print (">>> x-y = ")
     print (b)
 
-    # c =2*x
-    c = x.copy()
-    c.mul(2.)
+    c = 2 * x
     print (">>> 2*x = ")
     print (c)
 # ....
@@ -69,15 +62,17 @@ def test_3():
     n1 = n2 = 2
     p1 = p2 = 1
 
-    x = Vector([0, 0], [n1, n2], [p1, p2])
-    y = Vector([0, 0], [n1, n2], [p1, p2])
+    V = VectorSpace([0, 0], [n1, n2], [p1, p2])
+
+    x = Vector( V )
+    y = Vector( V )
 
     x[:, :] = 2.
     y[:, :] = 5.
 
     # z = x*y
     z = x.dot(y)
-    print (">>> x=2, y=5, x dot y = ")
+    print (">>> x=2, y=5, dot(x,y) = ")
     print (z)
 # ....
 
