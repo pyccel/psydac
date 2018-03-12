@@ -1,4 +1,6 @@
 # coding: utf-8
+#
+# Copyright 2018 Yaman Güçlü
 
 from .basic import (VectorSpace as VectorSpaceBase,
                     Vector      as VectorBase,
@@ -7,7 +9,7 @@ from .basic import (VectorSpace as VectorSpaceBase,
 #===============================================================================
 class VectorSpace( VectorSpaceBase ):
     """
-    Vector space for stencil format.
+    Vector space for n-dimensional stencil format.
 
     Parameters
     ----------
@@ -62,19 +64,34 @@ class VectorSpace( VectorSpaceBase ):
     def pads( self ):
         return self._pads
 
+    # ...
+    @property
+    def dtype( self ):
+        return self._dtype
+
+    # ...
+    @property
+    def ndim( self ):
+        return self._ndim
+
 #===============================================================================
 class Vector( VectorBase ):
     """
-    Stencil vector.
+    Vector in n-dimensional stencil format.
+
+    Parameters
+    ----------
+    V : spl.linalg.stencil.VectorSpace
+        Space to which the new vector belongs.
 
     """
     def __init__( self, V ):
+        from numpy import zeros
 
         assert( isinstance( V, VectorSpace ) )
 
-        import numpy as np
         sizes = [e-s+2*p+1 for s,e,p in zip(V.starts, V.ends, V.pads)]
-        self._data  = np.zeros(sizes)
+        self._data  = zeros(sizes)
         self._space = V
 
     #--------------------------------------
@@ -86,14 +103,13 @@ class Vector( VectorBase ):
 
     #...
     def dot( self, v ):
+        from numpy import dot
 
         assert( isinstance( v, Vector ) )
         assert( v._space is self._space )
 
-        import numpy as np
-
         index = tuple( slice(p,-p) for p in self.pads )
-        return np.dot( self._data[index].flat, v._data[index].flat )
+        return dot( self._data[index].flat, v._data[index].flat )
 
     #...
     def copy( self ):
@@ -111,6 +127,7 @@ class Vector( VectorBase ):
     def __rmul__( self, a ):
         w = Vector( self._space )
         w._data = a * self._data
+
         return w
 
     #...
@@ -209,186 +226,200 @@ class Vector( VectorBase ):
         return tuple(index)
 
 #===============================================================================
-class Matrix(object):
+class Matrix( LinearOperator ):
     """
-    Class that represents a stencil matrix.
+    Matrix in n-dimensional stencil format.
+
+    This is a linear operator that maps elements of stencil vector space V to
+    elements of stencil vector space W.
+
+    For now we only accept V==W.
+
+    Parameters
+    ----------
+    V : spl.linalg.stencil.VectorSpace
+        Domain of the new linear operator.
+
+    W : spl.linalg.stencil.VectorSpace
+        Codomain of the new linear operator.
+
     """
+    def __init__( self, V, W ):
 
-    def __init__(self, starts, ends, pads):
+        from numpy import zeros
 
-        assert( len(starts) == len(ends) == len(pads) )
+        assert( isinstance( V, VectorSpace ) )
+        assert( isinstance( W, VectorSpace ) )
+        assert( V is W )
 
-        self._starts = tuple(starts)
-        self._ends   = tuple(ends)
-        self._pads   = tuple(pads)
-        self._ndim   = len(starts)
+        dims        = [e-s+1 for s,e in zip(V.starts, V.ends)]
+        diags       = [2*p+1 for p in V.pads]
+        self._data  = zeros( dims+diags )
+        self._space = V
 
-        sizes = [e-s+1 for s,e in zip(starts, ends)]
-        pads  = [2*p+1 for p in pads]
-        shape =  sizes + pads
+        self._dims  = dims
+        self._ndim  = len( dims )
 
-        import numpy as np
-        self._data = np.zeros(shape)
-
+    #--------------------------------------
+    # Abstract interface
+    #--------------------------------------
     @property
-    def starts(self):
-        return self._starts
+    def domain( self ):
+        return self._space
 
+    # ...
     @property
-    def ends(self):
-        return self._ends
+    def codomain( self ):
+        return self._space
 
-    @property
-    def pads(self):
-        return self._pads
+    # ...
+    def dot( self, v, out=None ):
 
+        from numpy import ndindex, dot
+
+        assert( isinstance( v, Vector ) )
+        assert( v.space is self.domain )
+
+        if out is not None:
+            assert( isinstance( out, Vector ) )
+            assert( out.space is self.codomain )
+        else:
+            out = Vector( self.codomain )
+
+        ss = self.starts
+        pp = self.pads
+        kk = [slice(None)] * self._ndim
+
+        for xx in ndindex( *self._dims ):
+
+            ii    = tuple( s+x for s,x in zip(ss,xx) )
+            jj    = tuple( slice(i-p,i+p+1) for i,p in zip(ii,pp) )
+            ii_kk = tuple( list(ii) + kk )
+
+            out[ii] = dot( self[ii_kk].flat, v[jj].flat )
+
+        return out
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
     @property
-    def ndim(self):
-        return self._ndim
+    def starts( self ):
+        return self._space.starts
+
+    # ...
+    @property
+    def ends( self ):
+        return self._space.ends
+
+    # ...
+    @property
+    def pads( self ):
+        return self._space.pads
 
     # ...
     def __getitem__(self, key):
-        nd = self._ndim
-        ii = key[:nd]
-        kk = key[nd:]
-
-        index = []
-
-        for (i,s) in zip(ii, self._starts):
-            if isinstance(i, slice):
-                start = None if i.start is None else s + i.start
-                stop  = None if i.stop  is None else s + i.stop
-                l = slice(start, stop, i.step)
-            else:
-                l = s + i
-            index.append(l)
-
-        for (k,p) in zip(kk, self._pads):
-            if isinstance(k, slice):
-                start = None if k.start is None else p + k.start
-                stop  = None if k.stop  is None else p + k.stop
-                l = slice(start, stop, k.step)
-            else:
-                l = p + k
-            index.append(l)
-
-        return self._data[tuple(index)]
+        index = self._getindex( key )
+        return self._data[index]
 
     # ...
     def __setitem__(self, key, value):
+        index = self._getindex( key )
+        self._data[index] = value
+
+    #...
+    def tocoo( self ):
+
+        from numpy        import ndenumerate, ravel_multi_index, prod
+        from scipy.sparse import coo_matrix
+
+        # Shortcuts
+        nn = self._dims
+        nd = self._ndim
+
+        ss = self.starts
+        pp = self.pads
+
+        # COO storage
+        rows = []
+        cols = []
+        data = []
+
+        for (index,value) in ndenumerate( self._data ):
+
+            # index = [i1-s1, i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
+
+            xx = index[:nd]  # x=i-s
+            ll = index[nd:]  # l=p+k
+
+            ii = [s+x for s,x in zip(ss,xx)]
+            jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
+
+            I = ravel_multi_index( ii, dims=nn, order='C' )
+            J = ravel_multi_index( jj, dims=nn, order='C' )
+
+            rows.append( I )
+            cols.append( J )
+            data.append( value )
+
+        M = coo_matrix(
+                (data,(rows,cols)),
+                shape = [prod(nn)]*2,
+                dtype = self._space.dtype
+        )
+
+        M.eliminate_zeros()
+
+        return M
+
+    #...
+    def tocsr( self ):
+        return self.tocoo().tocsr()
+
+    #...
+    def toarray( self ):
+        return self.tocoo().toarray()
+
+    #...
+    def max( self ):
+        return self._data.max()
+
+    #...
+    def copy( self ):
+        M = Matrix( self.domain, self.codomain )
+        M._data[:] = self._data[:]
+        return M
+
+    #--------------------------------------
+    # Private methods
+    #--------------------------------------
+    def _getindex( self, key ):
+
         nd = self._ndim
         ii = key[:nd]
         kk = key[nd:]
 
         index = []
 
-        for (i,s) in zip(ii, self._starts):
-            if isinstance( i, slice ):
-                start = None if i.start is None else s+i.start
-                stop  = None if i.stop  is None else s+i.stop
-                l = slice(start, stop, i.step)
-            else:
-                l = s + i
-            index.append(l)
+        for i,s in zip( ii, self.starts ):
+            x = self._shift_index( i,s )
+            index.append( x )
 
-        for (k,p) in zip(kk, self._pads):
-            if isinstance(k, slice):
-                start = None if k.start is None else p+k.start
-                stop  = None if k.stop  is None else p+k.stop
-                l = slice(start, stop, k.step)
-            else:
-                l = p + k
-            index.append(l)
+        for k,p in zip( kk, self.pads ):
+            l = self._shift_index( k,p )
+            index.append( l )
 
-        self._data[tuple(index)] = value
-
-    def __str__(self):
-        return str(self._data)
-    # ...
+        return tuple(index)
 
     # ...
-    def dot(self, v):
-
-        if not isinstance(v, Vector):
-            raise TypeError("v must be a Vector")
-
-        import numpy as np
-
-        # TODO check shapes
-
-        [s1, s2] = self.starts
-        [e1, e2] = self.ends
-        [p1, p2] = self.pads
-
-        # ...
-        res  = v.copy()
-        res *= 0.0
-
-        for i1 in range(s1, e1+1):
-            for i2 in range(s2, e2+1):
-                    res[i1,i2] = np.dot(
-                            self[i1,i2,:,:].flat,
-                            v[i1-p1:i1+p1+1,i2-p2:i2+p2+1].flat
-                            )
-
-#                for k1 in range(-p1, p1+1):
-#                    for k2 in range(-p2, p2+1):
-#                        j1 = k1+i1
-#                        j2 = k2+i2
-#                        res[i1,i2] = res[i1,i2] + self[i1,i2,k1,k2] * v[j1,j2]
-        # ...
-
-        return res
-    # ...
-
-    # ...
-    def tocoo(self):
-        """
-        Convert the stencil data to sparce matrix in the COOrdinate form
-        """
-
-        from scipy.sparse import coo_matrix
-
-        s1 = self.starts[0]
-        e1 = self.ends[0]
-
-        s2 = self.starts[0]
-        e2 = self.ends[1]
-
-        p1 = self.pads[0]
-        p2 = self.pads[1]
-
-        n1 = e1 - s1 + 1
-        n2 = e2 - s2 + 1
-
-        rows = []
-        cols = []
-        vals = []
-
-        # ...
-        for i1 in range(s1, e1+1):
-            for i2 in range(s2, e2+1):
-                for k1 in range(-p1, p1+1):
-                    for k2 in range(-p2, p2+1):
-                        j1 = (k1 + i1)%n1
-                        j2 = (k2 + i2)%n2
-                        irow = i1 + n1*i2
-                        icol = j1 + n1*j2
-
-                        rows.append(irow)
-                        cols.append(icol)
-                        vals.append(self[i1, i2, k1, k2])
-        # ...
-
-#        rows = np.array(rows)
-#        cols = np.array(cols)
-#        vals = np.array(vals)
-        mat  = coo_matrix((vals, (rows, cols)), shape=(n1*n2, n1*n2))
-
-        mat.eliminate_zeros()
-
-        return mat
-    # ...
+    @staticmethod
+    def _shift_index( index, shift ):
+        if isinstance( index, slice ):
+            start = None if index.start is None else index.start + shift
+            stop  = None if index.stop  is None else index.stop  + shift
+            return slice(start, stop, index.step)
+        else:
+            return index + shift
 
 #===============================================================================
 del VectorSpaceBase, VectorBase, LinearOperator

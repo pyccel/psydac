@@ -6,7 +6,8 @@ def test_1():
     nx = ny = 3
     px = py = 1
 
-    M = Matrix([0, 0], [nx, ny], [px, py])
+    V = VectorSpace( [0,0], [nx,ny], [px,py] )
+    M = Matrix( V, V )
 
     print (">>> M shape: ", M._data.shape)
     M[:, :, 0, 0] = 4.
@@ -16,7 +17,7 @@ def test_1():
     M[:, :, 0,-1] = -2.
 
     print (">>> M = ")
-    print (M.tocoo().toarray())
+    print (M.toarray())
 # ....
 
 # ...
@@ -26,16 +27,15 @@ def test_2():
 
     V = VectorSpace([0, 0], [nx, ny], [px, py])
     x = Vector( V )
-
-    M = Matrix([0, 0], [nx, ny], [px, py])
+    M = Matrix( V, V )
 
     for ix in range(nx+1):
         for iy in range(ny+1):
-            M[ix, iy, 1, 0] = 1.
+            M[ix, iy, 0, 0] =  4.
+            M[ix, iy, 1, 0] =  1.
             M[ix, iy,-1, 0] = -1.
-            M[ix, iy, 0,-1] = -1.
-            M[ix, iy, 0, 1] = 1.
-            M[ix, iy, 0, 0] = 4.
+            M[ix, iy, 0, 1] =  2.
+            M[ix, iy, 0,-1] = -2.
 
     x[:,:] = 1.
 
@@ -43,7 +43,7 @@ def test_2():
 
     print (">>> M shape = ", M._data.shape)
     print (">>> M = ")
-    print ( M.tocoo().toarray() )
+    print ( M.toarray() )
 
     print (">>> x shape = ", x._data.shape)
     print (">>> x = ", x.toarray() )
