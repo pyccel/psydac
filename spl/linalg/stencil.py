@@ -92,8 +92,8 @@ class Vector( VectorBase ):
 
         import numpy as np
 
-        # TODO: verify this
-        return np.dot( self._data.flat, v._data.flat )
+        index = tuple( slice(p,-p) for p in self.pads )
+        return np.dot( self._data[index].flat, v._data[index].flat )
 
     #...
     def copy( self ):
