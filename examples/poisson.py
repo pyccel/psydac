@@ -1,17 +1,18 @@
 # coding: utf-8
 import numpy as np
 from spl.utilities.quadratures import gauss_legendre
-from spl.linalg.stencil     import Matrix, Vector
-from spl.linalg.solvers     import cgl
+from spl.linalg.stencil     import VectorSpace, Vector, Matrix
+from spl.linalg.solvers     import cg
 
 
 # ... assembly of mass and stiffness matrices using stencil forms
-def assembly_matrices(starts, ends, pads, spans, basis, weights):
+def assembly_matrices(V, spans, basis, weights):
 
     # ... sizes
-    [s1, s2] = starts
-    [e1, e2] = ends
-    [p1, p2] = pads
+
+    [s1, s2] = V.starts
+    [e1, e2] = V.ends
+    [p1, p2] = V.pads
     # ...
 
     # ... seetings
@@ -25,8 +26,8 @@ def assembly_matrices(starts, ends, pads, spans, basis, weights):
     k2 = len(weights_2)
 
     # ... data structure
-    mass      = Matrix((s1, s2), (e1, e2), (p1, p2))
-    stiffness = Matrix((s1, s2), (e1, e2), (p1, p2))
+    mass      = Matrix(V, V)
+    stiffness = Matrix(V, V)
     # ...
 
     # ... build matrices
@@ -72,12 +73,12 @@ def assembly_matrices(starts, ends, pads, spans, basis, weights):
 # ...
 
 # ... example of assembly of the rhs: f(x1,x2) = x1*(1-x2)*x2*(1-x2)
-def assembly_rhs(starts, ends, pads, spans, basis, weights, points):
+def assembly_rhs(V, spans, basis, weights, points):
 
     # ... sizes
-    [s1, s2] = starts
-    [e1, e2] = ends
-    [p1, p2] = pads
+    [s1, s2] = V.starts
+    [e1, e2] = V.ends
+    [p1, p2] = V.pads
     # ...
 
     # ... seetings
@@ -88,7 +89,7 @@ def assembly_rhs(starts, ends, pads, spans, basis, weights, points):
     # ...
 
     # ... data structure
-    rhs = Vector((s1, s2), (e1, e2), (p1, p2))
+    rhs = Vector(V)
     # ...
 
     # ... build rhs
@@ -173,53 +174,34 @@ if __name__ == '__main__':
     e2 = n2-1
     # ...
 
+    # ... VectorSpace
+    V = VectorSpace((s1, s2), (e1, e2), (p1, p2))
+
     # ... builds matrices and rhs
-    mass, stiffness = assembly_matrices([s1, s2], [e1, e2], [p1, p2], \
+    mass, stiffness = assembly_matrices(V, \
                                         [spans_1, spans_2], [basis_1, basis_2],\
                                         [weights_1, weights_2])
 
-    rhs  = assembly_rhs([s1, s2], [e1, e2], [p1, p2], \
+    rhs  = assembly_rhs(V, \
                         [spans_1, spans_2], [basis_1, basis_2],\
                         [weights_1, weights_2], [points_1, points_2])
     # ...
 
-    # ...
-    x0 = Vector((s1, s2), (e1, e2), (p1, p2))
-    xn = Vector((s1, s2), (e1, e2), (p1, p2))
-    y  = Vector((s1, s2), (e1, e2), (p1, p2))
-    # ...
-
-    # ...
-    n_maxiter = 100
-    tol = 1.0e-7
-    # ...
-
     # ... solve the system
-    xn[:, :] = 0.0
-    xn = cgl(mass, rhs, xn, n_maxiter, tol)
+    x, info = cg( mass, rhs, tol=1e-12, verbose=True )
     # ...
 
     # ... check
-    x0 = mass.dot(xn)
-
-    e = x0.copy()
-    e.sub(rhs)
-
-    print ('> residual error = ', max(abs(e.toarray())))
+    print ('> info: ',info)
     # ...
-
-    Mc = mass.tocoo()
-    print ('>>> shape and nnz: ', np.shape(Mc), Mc.nnz)
-
-    # ... plot and print mass matrix
-    import matplotlib.pyplot as plt
-    import matplotlib.colors as colors
-    plt.matshow(Mc.todense(), norm=colors.LogNorm())
-    plt.title('Mass matrix')
-    plt.show()
-
-    from scipy.sparse import csr_matrix
-    from scipy.io import mmwrite
-    S = csr_matrix(Mc)
-    mmwrite('matrix_spl', S )
+#
+#    Mc = mass.tocoo()
+#    print ('>>> shape and nnz: ', np.shape(Mc), Mc.nnz)
+#
+#    # ... plot and print mass matrix
+#    import matplotlib.pyplot as plt
+#    import matplotlib.colors as colors
+#    plt.matshow(Mc.todense(), norm=colors.LogNorm())
+#    plt.title('Mass matrix')
+#    plt.show()
 
