@@ -20,6 +20,7 @@ virtualenv:
 
 # command before installation
 before_install:
+  - sudo apt-get install python3
   - sudo apt-get install gfortran
   - mkdir -p usr
   - export FORTRAN_INSTALL_DIR=$TRAVIS_BUILD_DIR/usr
