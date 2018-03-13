@@ -13,6 +13,14 @@ class VectorSpace( metaclass=ABCMeta ):
     Generic vector space V.
 
     """
+    @property
+    @abstractmethod
+    def dimension( self ):
+        """
+        The dimension of a vector space V is the cardinality
+        (i.e. the number of vectors) of a basis of V over its base field.
+
+        """
 
 #===============================================================================
 class Vector( metaclass=ABCMeta ):
@@ -22,7 +30,7 @@ class Vector( metaclass=ABCMeta ):
     """
     @property
     def shape( self ):
-        return (self.space,)
+        return (self.space.dimension, )
 
     #-------------------------------------
     # Deferred methods
@@ -78,7 +86,7 @@ class LinearOperator( metaclass=ABCMeta ):
     """
     @property
     def shape( self ):
-        return (self.domain, self.codomain)
+        return (self.domain.dimension, self.codomain.dimension)
 
     #-------------------------------------
     # Deferred methods

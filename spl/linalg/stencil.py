@@ -35,6 +35,7 @@ class VectorSpace( VectorSpaceBase ):
 
     # ...
     def _init_serial( self, starts, ends, pads, dtype=float ):
+        from numpy import prod
 
         assert( len(starts) == len(ends) == len(pads) )
 
@@ -44,10 +45,17 @@ class VectorSpace( VectorSpaceBase ):
         self._dtype  = dtype
         self._ndim   = len(starts)
 
+        self._dimension = prod( [e-s+1 for s,e in zip(starts,ends)] )
+
     # ...
     def _init_parallel( self, cart, dtype=float ):
 
         raise NotImplementedError( "Parallel version not yet available." )
+
+    # ...
+    @property
+    def dimension( self ):
+        return self._dimension
 
     # ...
     @property
