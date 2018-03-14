@@ -30,8 +30,8 @@ before_install:
 
 # command to install dependencies
 install:
-  - pip install -r requirements.txt
-  - pip install . 
+  - pip3 install -r requirements.txt
+  - pip3 install . 
 
 # command to run tests
 script:
