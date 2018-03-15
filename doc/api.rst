@@ -16,4 +16,4 @@ Python API
 .. toctree::
    :maxdepth: 4
 
-   api-python/spl
+   api-python/modules

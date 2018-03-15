@@ -11,11 +11,8 @@ usr
 
 *.swp
 
-doc/sphinx/_static
-doc/sphinx/_build
-doc/sphinx/api-python/modules.rst
-
-doc/doxygen/html*
-doc/doxygen/latex
+doc/_static
+doc/_build
+doc/api-python
 
 tests/spl/*.nml

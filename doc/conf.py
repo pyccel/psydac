@@ -20,8 +20,6 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-# ARA:  sphinx-apidoc -o api-python/ ../../spl
-
 
 # -- General configuration ------------------------------------------------
 
@@ -52,8 +50,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'spl'
-copyright = u'2018, A. Ratnani, J. Lakhlili'
-author = u'A. Ratnani, J. Lakhlili'
+copyright = u'2018, A. Ratnani, J. Lakhlili, Y. Guclu'
+author = u'A. Ratnani, J. Lakhlili, Y. Guclu'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -82,12 +80,10 @@ pygments_style = 'sphinx'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
-# -- Doxygen ----------------------------------------------
+# -- Doxygen + autodoc ----------------------------------------------
 import subprocess
-subprocess.call('doxygen Doxyfile ', shell=True)
-
-#subprocess.call('cd ../doxygen ; doxygen Doxyfile ; '
-#                'cp -R html ../sphinx/_static/doxygen', shell=True)
+subprocess.call('rm -rf source; sphinx-apidoc -o api-python/ ../spl', shell=True)
+#subprocess.call('doxygen Doxyfile ', shell=True)
 
 # -- Options for HTML output ----------------------------------------------
 
@@ -105,7 +101,7 @@ html_theme = 'alabaster'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static', '../doxygen/']
+#html_static_path = ['_static', '../doxygen/']
 
 # specify the side bar
 #html_sidebars = { '**': ['globaltoc.html', 'relations.html', 'sourcelink.html'], }
