@@ -1,7 +1,7 @@
 Welcome to SPL
 ==============
 
-|build-status| |docs|
+|build-master| |build-devel| |docs|
 
 **SPL** is a Python/Fortran 2003 library for B-Splines/NURBS and Computer Aided Design Algorithms. 
 
@@ -50,7 +50,12 @@ For Python3 users, use *pip3* instead of *pip*.
 .. * pgi
 
 
-.. |build-status| image:: https://travis-ci.org/pyccel/spl.svg?branch=master
+.. |build-master| image:: https://travis-ci.org/pyccel/spl.svg?branch=master
+    :alt: build status
+    :scale: 100%
+    :target: https://travis-ci.org/pyccel/spl
+    
+.. |build-devel| image:: https://travis-ci.org/pyccel/spl.svg?branch=devel
     :alt: build status
     :scale: 100%
     :target: https://travis-ci.org/pyccel/spl
