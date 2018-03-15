@@ -82,8 +82,8 @@ todo_include_todos = True
 
 # -- Doxygen + autodoc ----------------------------------------------
 import subprocess
-subprocess.call('rm -rf source; sphinx-apidoc -o api-python/ ../spl', shell=True)
-#subprocess.call('doxygen Doxyfile ', shell=True)
+subprocess.call('rm -rf api-python; sphinx-apidoc -o api-python/ ../spl', shell=True)
+subprocess.call('doxygen Doxyfile ', shell=True)
 
 # -- Options for HTML output ----------------------------------------------
 
