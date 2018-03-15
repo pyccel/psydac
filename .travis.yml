@@ -4,7 +4,7 @@ language: python
 # which python versions to test
 python:
 #  - "2.6"
-  - "2.7"
+#  - "2.7"
 #  - "3.2"
 #  - "3.3"
 #  - "3.4"
@@ -30,8 +30,8 @@ before_install:
 
 # command to install dependencies
 install:
-  - pip install -r requirements.txt
-  - pip install . 
+  - pip3 install -r requirements.txt
+  - pip3 install . 
 
 # command to run tests
 script:

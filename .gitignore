@@ -11,6 +11,7 @@ usr
 
 *.swp
 
+doc/sphinx/_static
 doc/sphinx/_build
 doc/sphinx/api-python/modules.rst
 
