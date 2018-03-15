@@ -1,2 +1,4 @@
-sphinxcontrib-tikz==0.4.4
 sphinxcontrib-bibtex==0.3.6
+numpy
+scipy
+matplotlib
