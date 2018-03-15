@@ -84,7 +84,8 @@ todo_include_todos = True
 
 # -- Doxygen ----------------------------------------------
 import subprocess
-#subprocess.call('cd ../doxygen ; doxygen Doxyfile ; cd ../sphinx', shell=True)
+subprocess.call('doxygen Doxyfile ', shell=True)
+
 #subprocess.call('cd ../doxygen ; doxygen Doxyfile ; '
 #                'cp -R html ../sphinx/_static/doxygen', shell=True)
 
@@ -185,7 +186,7 @@ latex_elements = {
 #####################################################
 # add LaTeX macros
 
-f = file('latex_macros.sty')
+f = open('latex_macros.sty', 'r')
 
 try:
     imgmath_latex_preamble  # check whether this is already defined
