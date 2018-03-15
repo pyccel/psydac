@@ -2,4 +2,3 @@
 
 from .quadratures import *
 from .core        import *
-from .gallery     import *

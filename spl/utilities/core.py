@@ -15,7 +15,7 @@ def make_open_knots(p, n):
 
     Examples
 
-    >>> from spl.utilities.gallery import make_open_knots
+    >>> from spl.utilities.core import make_open_knots
 
     >>> T = make_open_knots(3, 8)
     >>> T
@@ -41,8 +41,8 @@ def construct_grid_from_knots(p, n, T):
 
     Examples
 
-    >>> from spl.utilities.gallery import make_open_knots
-    >>> from spl.utilities.gallery import construct_grid_from_knots
+    >>> from spl.utilities.core import make_open_knots
+    >>> from spl.utilities.core import construct_grid_from_knots
 
     >>> p = 3 ; n = 8
     >>> T = make_open_knots(p, n)
@@ -76,9 +76,9 @@ def construct_quadrature_grid(ne, k, u, w, grid):
 
     Examples
 
-    >>> from spl.utilities.gallery import make_open_knots
-    >>> from spl.utilities.gallery import construct_grid_from_knots
-    >>> from spl.utilities.gallery import construct_quadrature_grid
+    >>> from spl.utilities.core import make_open_knots
+    >>> from spl.utilities.core import construct_grid_from_knots
+    >>> from spl.utilities.core import construct_quadrature_grid
     >>> from spl.utilities.quadratures import gauss_legendre
 
     >>> p = 3 ; n = 8
@@ -118,10 +118,10 @@ def eval_on_grid_splines_ders(p, n, k, d, T, points):
 
     Examples
 
-    >>> from spl.utilities.gallery import make_open_knots
-    >>> from spl.utilities.gallery import construct_grid_from_knots
-    >>> from spl.utilities.gallery import construct_quadrature_grid
-    >>> from spl.utilities.gallery import eval_on_grid_splines_ders
+    >>> from spl.utilities.core import make_open_knots
+    >>> from spl.utilities.core import construct_grid_from_knots
+    >>> from spl.utilities.core import construct_quadrature_grid
+    >>> from spl.utilities.core import eval_on_grid_splines_ders
     >>> from spl.utilities.quadratures import gauss_legendre
 
     >>> p = 3 ; n = 8
@@ -155,8 +155,8 @@ def compute_spans(p, n, T):
 
     Examples
 
-    >>> from spl.utilities.gallery import make_open_knots
-    >>> from spl.utilities.gallery import compute_spans
+    >>> from spl.utilities.core import make_open_knots
+    >>> from spl.utilities.core import compute_spans
 
     >>> p = 3 ; n = 8
     >>> T = make_open_knots(p, n)
@@ -168,8 +168,40 @@ def compute_spans(p, n, T):
     spans = _core.compute_spans(p, n, T)
     return spans
 
+def collocation_matrix(p, n, m, knots, u):
+    """Returns the collocation matrix representing the evaluation of all
+    B-Splines over the sites array u.
+
+    p: int
+        spline degree
+
+    n: int
+        number of splines functions i.e. `control points`
+
+    T: list, np.array
+        knot vector
+
+    u: list, np.array
+        sites over which we evaluate the B-Splines
+
+    Examples
+
+    >>> from spl.utilities.core import make_open_knots
+    >>> from spl.utilities.core import collocation_matrix
+
+    >>> p = 3 ; n = 8
+    >>> T = make_open_knots(p, n)
+    >>> m = 7 ; u = np.linspace(0., 1., m)
+    >>> mat = collocation_matrix(p, n, m, T, u)
+    >>> mat.shape
+    (7, 8)
+
+    """
+    from spl.core.bsp  import bsp_utils as _core
+    mat = _core.collocation_matrix(p, n, m, knots, u)
+    return mat
+
 
 ####################################################################################
 #if __name__ == '__main__':
-#
-#    test_open_knots()
+
