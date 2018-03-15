@@ -51,12 +51,12 @@ For Python3 users, use *pip3* instead of *pip*.
 
 
 .. |build-master| image:: https://travis-ci.org/pyccel/spl.svg?branch=master
-    :alt: build status
+    :alt: build-master status
     :scale: 100%
     :target: https://travis-ci.org/pyccel/spl
     
 .. |build-devel| image:: https://travis-ci.org/pyccel/spl.svg?branch=devel
-    :alt: build status
+    :alt: build-devel status
     :scale: 100%
     :target: https://travis-ci.org/pyccel/spl
 
