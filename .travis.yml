@@ -39,4 +39,4 @@ script:
 #  - pytest tests/caid
   - cd build ; make test ; cd ..
   - pytest tests/linalg
-  - pytest tests/utilities
+  - pytest tests/test_core.py
