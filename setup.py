@@ -61,12 +61,12 @@ for lib in libraries:
 # ...
 
 # ... bspline extension
-bspline_ext = Extension(name    = 'spl.core.bsp',      \
-                        sources = ['spl/core/bsp.pyf', \
-                                   'spl/core/bsp.F90'],\
-                        f2py_options = ['--quiet'],    \
-                        include_dirs = include_dirs,   \
-                        library_dirs = library_dirs,   \
+bspline_ext = Extension(name    = 'spl.core.bsp',
+                        sources = ['spl/core/bsp.pyf',
+                                   'spl/core/bsp.F90'],
+                        f2py_options = ['--quiet'],
+                        include_dirs = include_dirs,
+                        library_dirs = library_dirs,
                         libraries    = libraries,      )
 
 
@@ -75,12 +75,12 @@ ext_modules  = [bspline_ext]
 
 # ...
 def setup_package():
-    setup(packages=packages, \
-          ext_modules=ext_modules, \
-          install_requires=install_requires, \
-          include_package_data=True, \
-          zip_safe=True, \
-          dependency_links=dependency_links, \
+    setup(packages=packages,
+          ext_modules=ext_modules,
+          install_requires=install_requires,
+          include_package_data=True,
+          zip_safe=True,
+          dependency_links=dependency_links,
           **setup_args)
 # ....
 # ..................................................................................
