@@ -14,9 +14,9 @@ from spl.utilities import gauss_legendre
 
 def test_open_knots():
     # ...
-    ne = 8       # number of elements
-    p  = 2       # spline degree
-    n = ne + p   # number of control points
+    n_elements = 8
+    p = 2                    # spline degree
+    n = n_elements + p - 1   # number of control points
     # ...
 
     T = make_open_knots(p, n)
@@ -28,15 +28,24 @@ def test_open_knots():
     d = 1                     # number of derivatives
     basis = eval_on_grid_splines_ders(p, n, k, d, T, points)
 
+
 def test_collocation():
-    p = 3 ; n = 8
+    # ...
+    n_elements = 8
+    p = 2                    # spline degree
+    n = n_elements + p - 1   # number of control points
+    # ...
 
     T = make_open_knots(p, n)
     m = 7 ; u = np.linspace(0., 1., m)
     mat = collocation_matrix(p, n, m, T, u)
 
 def test_histopolation():
-    p = 3 ; n = 8
+    # ...
+    n_elements = 8
+    p = 2                    # spline degree
+    n = n_elements + p - 1   # number of control points
+    # ...
 
     T        = make_open_knots(p, n)
     greville = compute_greville(p, n, T)
