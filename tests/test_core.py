@@ -7,6 +7,7 @@ from spl.core import construct_grid_from_knots
 from spl.core import construct_quadrature_grid
 from spl.core import eval_on_grid_splines_ders
 from spl.core import collocation_matrix
+from spl.core import histopolation_matrix
 from spl.core import compute_greville
 
 from spl.utilities import gauss_legendre
@@ -29,6 +30,7 @@ def test_open_knots():
 
 def test_collocation():
     p = 3 ; n = 8
+
     T = make_open_knots(p, n)
     m = 7 ; u = np.linspace(0., 1., m)
     mat = collocation_matrix(p, n, m, T, u)
@@ -37,13 +39,13 @@ def test_histopolation():
     p = 3 ; n = 8
 
     T        = make_open_knots(p, n)
-    breaks   = construct_grid_from_knots(p, n, T)
     greville = compute_greville(p, n, T)
+    D        = histopolation_matrix(p, n, T, greville)
 
+    _print = lambda x: "%.4f" % x
 
-    m = len(greville)
-    mat = collocation_matrix(p, n, m, T, greville)
-    print (mat)
+    for i in range(0, D.shape[0]):
+        print ([_print(x) for x in D[i, :]])
 
 
 ####################################################################################

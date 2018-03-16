@@ -168,6 +168,35 @@ def compute_spans(p, n, T):
     spans = _core.compute_spans(p, n, T)
     return spans
 
+def compute_greville(p, n, knots):
+    """Returns the Greville abscissae associated to a given knot vector.
+
+    p: int
+        spline degree
+
+    n: int
+        number of splines functions i.e. `control points`
+
+    T: list, np.array
+        knot vector
+
+    Examples
+
+    >>> from spl.core.interface import make_open_knots
+    >>> from spl.core.interface import compute_greville
+
+    >>> p = 3 ; n = 8
+    >>> T = make_open_knots(p, n)
+    >>> greville = compute_greville(p, n, T)
+    >>> greville
+    array([0.        , 0.06666667, 0.2       , 0.4       , 0.6       ,
+           0.8       , 0.93333333, 1.        ])
+
+    """
+    from spl.core.bsp  import bsp_utils as _core
+    x = _core.compute_greville(p, n, knots)
+    return x
+
 def collocation_matrix(p, n, m, knots, u):
     """Returns the collocation matrix representing the evaluation of all
     B-Splines over the sites array u.
@@ -201,8 +230,10 @@ def collocation_matrix(p, n, m, knots, u):
     mat = _core.collocation_matrix(p, n, m, knots, u)
     return mat
 
-def compute_greville(p, n, knots):
-    """Returns the Greville abscissae associated to a given knot vector.
+
+# TODO must be implemented in Fortran
+def histopolation_matrix(p, n, T, greville):
+    """Returns the histpolation matrix.
 
     p: int
         spline degree
@@ -213,23 +244,46 @@ def compute_greville(p, n, knots):
     T: list, np.array
         knot vector
 
+    greville: list, np.array
+        greville abscissae
+
     Examples
 
     >>> from spl.core.interface import make_open_knots
     >>> from spl.core.interface import compute_greville
+    >>> from spl.core.interface import histopolation_matrix
 
     >>> p = 3 ; n = 8
-    >>> T = make_open_knots(p, n)
+    >>> T        = make_open_knots(p, n)
     >>> greville = compute_greville(p, n, T)
-    >>> greville
-    array([0.        , 0.06666667, 0.2       , 0.4       , 0.6       ,
-           0.8       , 0.93333333, 1.        ])
+    >>> D        = histopolation_matrix(p, n, T, greville)
+
+    >>> _print = lambda x: "%.4f" % x
+    >>> for i in range(0, D.shape[0]):
+    >>>     print ([_print(x) for x in D[i, :]])
+    ['0.7037', '0.1389', '0.0062', '-0.0000', '-0.0000', '-0.0000', '-0.0000']
+    ['0.2963', '0.6111', '0.1605', '0.0000', '0.0000', '0.0000', '0.0000']
+    ['0.0000', '0.2500', '0.6667', '0.1667', '-0.0000', '-0.0000', '-0.0000']
+    ['0.0000', '0.0000', '0.1667', '0.6667', '0.1667', '0.0000', '0.0000']
+    ['0.0000', '0.0000', '0.0000', '0.1667', '0.6667', '0.2500', '0.0000']
+    ['0.0000', '0.0000', '0.0000', '0.0000', '0.1605', '0.6111', '0.2963']
+    ['0.0000', '0.0000', '0.0000', '0.0000', '0.0062', '0.1389', '0.7037']
 
     """
-    from spl.core.bsp  import bsp_utils as _core
-    x = _core.compute_greville(p, n, knots)
-    return x
+    ng = len(greville)
 
+    # basis[i,j] := Nj(xi)
+    basis = collocation_matrix(p, n, ng, T, greville)
+
+    D = np.zeros((ng-1, n-1))
+    for i in range(0, ng-1):
+        for j in range(1, n):
+            s = 0.
+            for k in range(0, j):
+                s += basis[i,k] - basis[i+1,k]
+            D[i, j-1] = s
+
+    return D
 
 ####################################################################################
 #if __name__ == '__main__':
