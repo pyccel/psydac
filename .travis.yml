@@ -40,3 +40,4 @@ script:
   - cd build ; make test ; cd ..
   - pytest tests/linalg
   - pytest tests/test_core.py
+  - pytest tests/test_integration.py
