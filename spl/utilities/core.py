@@ -201,6 +201,35 @@ def collocation_matrix(p, n, m, knots, u):
     mat = _core.collocation_matrix(p, n, m, knots, u)
     return mat
 
+def compute_greville(p, n, knots):
+    """Returns the Greville abscissae associated to a given knot vector.
+
+    p: int
+        spline degree
+
+    n: int
+        number of splines functions i.e. `control points`
+
+    T: list, np.array
+        knot vector
+
+    Examples
+
+    >>> from spl.utilities.core import make_open_knots
+    >>> from spl.utilities.core import compute_greville
+
+    >>> p = 3 ; n = 8
+    >>> T = make_open_knots(p, n)
+    >>> greville = compute_greville(p, n, T)
+    >>> greville
+    array([0.        , 0.06666667, 0.2       , 0.4       , 0.6       ,
+           0.8       , 0.93333333, 1.        ])
+
+    """
+    from spl.core.bsp  import bsp_utils as _core
+    x = _core.compute_greville(p, n, knots)
+    return x
+
 
 ####################################################################################
 #if __name__ == '__main__':

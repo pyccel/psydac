@@ -2728,14 +2728,14 @@ contains
   ! .......................................................
   !> @brief     returns the Greville abscissae 
   !>
-  !> @param[in]    n     number of control points
   !> @param[in]    p     spline degree 
+  !> @param[in]    n     number of control points
   !> @param[in]    knots Knot vector 
   !> @param[out]   arr_x Greville abscissae 
-  subroutine spl_compute_greville(n, p, knots, arr_x)
+  subroutine spl_compute_greville(p, n, knots, arr_x)
     implicit none
-    integer(kind=4), intent(in)  :: n 
     integer(kind=4), intent(in)  :: p
+    integer(kind=4), intent(in)  :: n 
     real   (kind=8), dimension(:), intent(in)  :: knots
     real   (kind=8), dimension(:), intent(out) :: arr_x 
     integer(kind=4) :: i

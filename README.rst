@@ -37,6 +37,23 @@ For the *Python* package, you can install it using *pip*::
 
 For Python3 users, use *pip3* instead of *pip*.
 
+For developpers only
+********************
+
+Whenever you change the fortran code (inside **fortran/src**), you need to recompile the fortran library, using::
+
+  cd build && make clean && make install && cd ..
+
+then use **pip3** as previously to install the python package.
+
+.. note:: for some reasons, you may need to clean your installation using::
+
+    sudo rm -rf /usr/local/lib/python3.5/dist-packages/spl*
+
+  then run the install command::
+
+    sudo -H FORTRAN_INSTALL_DIR=$PWD/../usr pip3 install .
+
 .. More information
 .. ^^^^^^^^^^^^^^^^
 .. 

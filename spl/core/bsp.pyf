@@ -18,6 +18,15 @@ python module bsp
       ! ................................................
 
       ! ................................................
+      subroutine compute_greville(p, n, knots, arr_x) 
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          real(kind=8) dimension(n+p+1), intent(in), depend(n, p) :: knots
+          real(kind=8) dimension(n), intent(out), depend(n) :: arr_x
+      end subroutine compute_greville
+      ! ................................................
+
+      ! ................................................
       subroutine eval_on_grid_splines_ders(p, n, k, d, knots, points, basis)
           integer(kind=4) intent(in) :: p 
           integer(kind=4) intent(in) :: n 

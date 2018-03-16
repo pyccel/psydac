@@ -14,6 +14,7 @@ module bsp_utils
   implicit none
   
   public :: collocation_matrix,         &
+          & compute_greville,           &
           & eval_on_grid_splines_ders,  &
           & compute_spans,              &
           & construct_grid_from_knots,  &
@@ -39,6 +40,22 @@ contains
     ! ...
 
   end subroutine collocation_matrix 
+  ! .......................................................
+
+  ! .......................................................
+  subroutine compute_greville(p, n, knots, arr_x)
+    use spl_m_bsp, only: spl_compute_greville
+    implicit none
+    integer(kind=4),            intent(in)  :: p
+    integer(kind=4),            intent(in)  :: n 
+    real(8), dimension(n+p+1),  intent(in)  :: knots
+    real(8), dimension(n),      intent(out) :: arr_x 
+
+    ! ...
+    call spl_compute_greville(p, n, knots, arr_x)
+    ! ...
+
+  end subroutine compute_greville
   ! .......................................................
 
   ! ................................................
