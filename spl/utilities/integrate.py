@@ -37,11 +37,6 @@ def integrate(points, weights, f):
     [0.00242954 0.01724976 0.02891156 0.03474247 0.03474247 0.02891156
      0.01724976 0.00242954]
     """
-    from spl.core.interface import make_open_knots
-    from spl.core.interface import construct_grid_from_knots
-    from spl.core.interface import construct_quadrature_grid
-    from spl.core.interface import compute_greville
-    from spl.utilities.quadratures import gauss_legendre
 
     ne = points.shape[1]
     f_int = np.zeros(ne)
@@ -142,3 +137,70 @@ class Interpolation(object):
         """evaluates the function over sites."""
         return np.array([f(x) for x in self._sites])
 
+
+class Contribution(object):
+
+    def __init__(self, p, n, T, sites=None):
+        """Returns the 1d rhs for the function f."""
+        from spl.core.interface import construct_grid_from_knots
+        from spl.core.interface import construct_quadrature_grid
+        from spl.core.interface import eval_on_grid_splines_ders
+        from spl.core.interface import compute_spans
+        from spl.utilities.quadratures import gauss_legendre
+
+        # constructs the grid from the knot vector
+        grid = construct_grid_from_knots(p, n, T)
+
+        ne = len(grid) - 1        # number of elements
+        spans = compute_spans(p, n, T)
+
+        u, w = gauss_legendre(p)  # gauss-legendre quadrature rule
+        k = len(u)
+        points, weights = construct_quadrature_grid(ne, k, u, w, grid)
+
+        d = 1                     # number of derivatives
+        basis = eval_on_grid_splines_ders(p, n, k, d, T, points)
+
+        self._grid = grid
+        self._p = p
+        self._n = n
+        self._T = T
+        self._points = points
+        self._weights = weights
+        self._spans = spans
+        self._basis = basis
+
+    def __call__(self, f):
+        """Returns the contribution of the function f over the FEM basis."""
+        ne = len(self._grid) - 1        # number of elements
+        k  = self._points.shape[0]
+        p = self._p
+        n = self._n
+        spans = self._spans
+        basis = self._basis
+        points = self._points
+        weights = self._weights
+
+        # ...
+        rhs = np.zeros(n)
+        # ...
+
+        # ... build matrix
+        for ie in range(0, ne):
+            i_span = spans[ie]
+            for il in range(0, p+1):
+                i = i_span - p  - 1 + il
+
+                v_rhs = 0.0
+                for g in range(0, k):
+                    bi_0 = basis[il, 0, g, ie]
+
+                    wvol = weights[g, ie]
+                    x    = points[g, ie]
+
+                    v_rhs += bi_0 * f(x) * wvol
+
+                rhs[i] += v_rhs
+        # ...
+
+        return rhs

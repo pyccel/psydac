@@ -3,6 +3,8 @@
 from scipy import kron
 from scipy.linalg import block_diag
 
+# TODO: - docstrings + examples
+
 # ...
 def build_kron_matrix(p, n, T, kind):
     """."""
