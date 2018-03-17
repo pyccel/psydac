@@ -4,7 +4,7 @@ import numpy as np
 
 def integrate(points, weights, f):
     """Integrates the function f over the quadrature grid
-    defined by (points,weights).
+    defined by (points,weights) in 1d.
 
     points: np.array
         a multi-dimensional array describing the quadrature points mapped onto
@@ -44,6 +44,39 @@ def integrate(points, weights, f):
         X = points[:, ie]
         W = weights[:, ie]
         f_int[ie] = np.sum(w*f(x) for (x,w) in zip(X,W))
+
+    return f_int
+
+def integrate_2d(points, weights, f):
+    """Integrates the function f over the quadrature grid
+    defined by (points,weights) in 2d.
+
+    points: list, tuple
+        list of quadrature points, as they should be passed for `integrate`
+
+    weights: list, tuple
+        list of quadrature weights, as they should be passed for `integrate`
+
+    Examples
+
+    """
+    points_0, points_1 = points
+    weights_0, weights_1 = weights
+
+    ne_0 = points_0.shape[1]
+    ne_1 = points_1.shape[1]
+
+    f_int = np.zeros((ne_0, ne_1))
+    for ie_0 in range(0, ne_0):
+        X0 = points_0[:, ie_0]
+        W0 = weights_0[:, ie_0]
+        for ie_1 in range(0, ne_1):
+            X1 = points_1[:, ie_1]
+            W1 = weights_1[:, ie_1]
+
+            for x0, w0 in zip(X0, W0):
+                for x1, w1 in zip(X1, W1):
+                    f_int[ie_0, ie_1] += w0 * w1 * f(x0, x1)
 
     return f_int
 
@@ -132,6 +165,10 @@ class Interpolation(object):
         self._p = p
         self._n = n
         self._T = T
+
+    @property
+    def sites(self):
+        return self._sites
 
     def __call__(self, f):
         """evaluates the function over sites."""

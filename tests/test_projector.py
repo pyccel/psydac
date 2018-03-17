@@ -1,6 +1,8 @@
 # -*- coding: UTF-8 -*-
 
 import numpy as np
+from numpy import sin, cos, pi
+from numpy import bmat
 
 from spl.core import make_open_knots
 from spl.core import construct_grid_from_knots
@@ -16,59 +18,14 @@ from spl.utilities import Interpolation
 from spl.utilities import Contribution
 
 from spl.feec import build_matrices_2d_H1
+from spl.feec import mass_matrix
+from spl.feec import Interpolation2D
 
 from scipy.linalg import inv
 from scipy import kron
 from scipy.linalg import block_diag
 from scipy.interpolate import splev
 
-
-def mass_matrix(p, n, T):
-    """Returns the 1d mass matrix."""
-    from spl.core.interface import construct_grid_from_knots
-    from spl.core.interface import construct_quadrature_grid
-    from spl.core.interface import eval_on_grid_splines_ders
-    from spl.core.interface import compute_spans
-    from spl.utilities.quadratures import gauss_legendre
-
-    # constructs the grid from the knot vector
-    grid = construct_grid_from_knots(p, n, T)
-
-    ne = len(grid) - 1        # number of elements
-    spans = compute_spans(p, n, T)
-
-    u, w = gauss_legendre(p)  # gauss-legendre quadrature rule
-    k = len(u)
-    points, weights = construct_quadrature_grid(ne, k, u, w, grid)
-
-    d = 1                     # number of derivatives
-    basis = eval_on_grid_splines_ders(p, n, k, d, T, points)
-
-    # ...
-    mass = np.zeros((n,n))
-    # ...
-
-    # ... build matrix
-    for ie in range(0, ne):
-        i_span = spans[ie]
-        for il in range(0, p+1):
-            for jl in range(0, p+1):
-                i = i_span - p  - 1 + il
-                j = i_span - p  - 1 + jl
-
-                v_m = 0.0
-                for g in range(0, k):
-                    bi_0 = basis[il, 0, g, ie]
-                    bj_0 = basis[jl, 0, g, ie]
-
-                    wvol = weights[g, ie]
-
-                    v_m += bi_0 * bj_0 * wvol
-
-                mass[i, j] += v_m
-    # ...
-
-    return mass
 
 def test_projectors_1d(verbose=False):
     # ...
@@ -142,9 +99,51 @@ def test_projectors_2d(verbose=False):
 
     M0, M1, M2 = build_matrices_2d_H1(p, n, T)
 
+    # ...
+    interpolate = Interpolation2D(p, n, T)
+
+    interpolate_H1 = lambda f: interpolate('H1', f)
+    interpolate_Hcurl = lambda f: interpolate('Hcurl', f)
+    interpolate_L2 = lambda f: interpolate('L2', f)
+    # ...
+
+    # ... H1
+    f = lambda x,y: sin(2.*pi*x) * sin(2.*pi*y)
+    F = interpolate_H1(f)
+    # ...
+
+    # ... Hcurl
+    g0 = lambda x,y: cos(2.*pi*x) * sin(2.*pi*y)
+    g1 = lambda x,y: sin(2.*pi*x) * cos(2.*pi*y)
+    g  = lambda x,y: [g0(x,y), g1(x,y)]
+
+    G = interpolate_Hcurl(g)
+    # ...
+
+    # ... L2
+    h = lambda x,y: cos(2.*pi*x) * cos(2.*pi*y)
+    H = interpolate_L2(h)
+    # ...
+
+    # ...
+    if verbose:
+        print ('==== testing projection in 2d ====')
+        print ('> M0.shape  := {}'.format(M0.shape))
+        print ('> M1.shape  := {}'.format(M1.shape))
+        print ('> M2.shape  := {}'.format(M2.shape))
+
+        print ('> F.shape  := {}'.format(F.shape))
+        print ('> G.shapes := {0} | {1}'.format(G[0].shape, G[1].shape))
+        print ('> H.shape  := {}'.format(H.shape))
+    # ...
+
+
+
+
 
 ####################################################################################
 if __name__ == '__main__':
 
     test_projectors_1d(verbose=True)
+    print('')
     test_projectors_2d(verbose=True)
