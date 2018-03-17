@@ -197,7 +197,8 @@ def compute_greville(p, n, knots):
     x = _core.compute_greville(p, n, knots)
     return x
 
-def collocation_matrix(p, n, m, knots, u):
+# TODO remove `m` from the fortran code => use pyf file
+def collocation_matrix(p, n, T, u):
     """Returns the collocation matrix representing the evaluation of all
     B-Splines over the sites array u.
 
@@ -220,14 +221,15 @@ def collocation_matrix(p, n, m, knots, u):
 
     >>> p = 3 ; n = 8
     >>> T = make_open_knots(p, n)
-    >>> m = 7 ; u = np.linspace(0., 1., m)
-    >>> mat = collocation_matrix(p, n, m, T, u)
+    >>> u = np.linspace(0., 1., 7)
+    >>> mat = collocation_matrix(p, n, T, u)
     >>> mat.shape
     (7, 8)
 
     """
     from spl.core.bsp  import bsp_utils as _core
-    mat = _core.collocation_matrix(p, n, m, knots, u)
+    m = len(u)
+    mat = _core.collocation_matrix(p, n, m, T, u)
     return mat
 
 
@@ -273,7 +275,7 @@ def histopolation_matrix(p, n, T, greville):
     ng = len(greville)
 
     # basis[i,j] := Nj(xi)
-    basis = collocation_matrix(p, n, ng, T, greville)
+    basis = collocation_matrix(p, n, T, greville)
 
     D = np.zeros((ng-1, n-1))
     for i in range(0, ng-1):

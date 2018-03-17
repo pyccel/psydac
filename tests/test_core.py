@@ -38,7 +38,7 @@ def test_collocation():
 
     T = make_open_knots(p, n)
     m = 7 ; u = np.linspace(0., 1., m)
-    mat = collocation_matrix(p, n, m, T, u)
+    mat = collocation_matrix(p, n, T, u)
 
 def test_histopolation():
     # ...

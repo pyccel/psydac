@@ -14,21 +14,23 @@ from spl.utilities import gauss_legendre
 from spl.utilities import Integral
 from spl.utilities import Interpolation
 
-from scipy.linalg import inv
+from spl.feec import build_matrices_2d_H1
 
-def test_projectors_1d():
+from scipy.linalg import inv
+from scipy import kron
+from scipy.linalg import block_diag
+
+def test_projectors_1d(verbose=False):
     # ...
-    n_elements = 8
-    p = 3                    # spline degree
+    n_elements = 4
+    p = 2                    # spline degree
     n = n_elements + p - 1   # number of control points
     # ...
 
     T    = make_open_knots(p, n)
     grid = compute_greville(p, n, T)
 
-    m = len(grid)
-
-    M = collocation_matrix(p, n, m, T, grid)
+    M = collocation_matrix(p, n, T, grid)
     H = histopolation_matrix(p, n, T, grid)
 
     histoplate = Integral(p, n, T, kind='greville')
@@ -47,7 +49,6 @@ def test_projectors_1d():
 
     integrate = Integral(p, n, T)
     err_0 = np.sqrt(np.sum(integrate(diff)))
-    print ('> l2 error of `f_0` = {}'.format(err_0))
     # ...
 
     # ...
@@ -61,10 +62,29 @@ def test_projectors_1d():
 
     integrate = Integral(p, n, T)
     err_1 = np.sqrt(np.sum(integrate(diff)))
-    print ('> l2 error of `f_1` = {}'.format(err_1))
     # ...
+
+    # ...
+    if verbose:
+        print ('==== testing projection in 1d ====')
+        print ('> l2 error of `f_0` = {}'.format(err_0))
+        print ('> l2 error of `f_1` = {}'.format(err_1))
+    # ...
+
+def test_projectors_2d(verbose=False):
+    # ...
+    n_elements = (8, 4)
+    p = (2, 2)                                      # spline degree
+    n = [_n+_p-1 for (_n,_p) in zip(n_elements, p)] # number of control points
+    # ...
+
+    T = [make_open_knots(_p, _n) for (_n,_p) in zip(n, p)]
+
+    M0, M1, M2 = build_matrices_2d_H1(p, n, T)
+
 
 ####################################################################################
 if __name__ == '__main__':
 
-    test_projectors_1d()
+    test_projectors_1d(verbose=True)
+    test_projectors_2d(verbose=True)
