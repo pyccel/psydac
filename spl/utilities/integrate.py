@@ -241,3 +241,51 @@ class Contribution(object):
         # ...
 
         return rhs
+
+
+class Integral2D(object):
+    """.
+
+    p: list
+        spline degrees
+
+    n: list
+        number of splines functions for each direction
+
+    T: list
+        knot vectors for each direction
+
+    k: list
+        quadrature order for each direction. if not given it will be p+1
+    """
+
+    def __init__(self, p, n, T, k=None):
+
+        from spl.utilities import Integral
+
+        if not isinstance(p, (tuple, list)) or not isinstance(n, (tuple, list)):
+            raise TypeError('Wrong type for n and/or p. must be tuple or list')
+
+        Hs = []
+        for i in range(0, len(p)):
+            _k = None
+            if not(k is None):
+                _k = k[i]
+
+            _integration   = Integral(p[i], n[i], T[i], kind='natural', k=_k)
+
+            Hs.append(_integration)
+
+        self._integrate   = Hs
+
+        self._p = p
+        self._n = n
+        self._T = T
+
+    def __call__(self, f):
+        """Computes the integral of the function f over each element of the grid."""
+
+        points = (self._integrate[0]._points, self._integrate[1]._points)
+        weights = (self._integrate[0]._weights, self._integrate[1]._weights)
+
+        return integrate_2d(points, weights, f)
