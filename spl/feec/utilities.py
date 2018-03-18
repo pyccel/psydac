@@ -2,9 +2,12 @@
 
 from scipy import kron
 from scipy.sparse import csr_matrix
+from scipy.sparse import diags
 from scipy.linalg import block_diag
+from scipy.sparse import identity
 
 from numpy import zeros
+from numpy import array
 
 # TODO: - docstrings + examples
 
@@ -193,3 +196,158 @@ class Interpolation2D(object):
 
         else:
             raise NotImplementedError('Only H1, Hcurl and L2 are available')
+
+
+def scaling_matrix(p, n, T, kind=None):
+    """Returns the scaling matrix for M-splines.
+    It is a diagonal matrix whose elements are (p+1)/(T[i+p+1]-T[i])
+
+
+    """
+    if isinstance(p, int):
+        x = zeros(n)
+        for i in range(0, n):
+            x[i] = (p+1)/(T[i+p+1]-T[i])
+        return diags(x)
+
+    assert(isinstance(p, (list, tuple)))
+
+    if kind is None:
+        Ms = []
+        for i in range(0, len(p)):
+            M = scaling_matrix(p[i], n[i], T[i])
+            # we must convert it to dense, otherwise we get a scipy
+            Ms.append(M.todense())
+        return kron(*Ms)
+
+    elif kind == 'Hcurl':
+        p0 = p[0] ; n0 = n[0] ; T0 = T[0]
+        p1 = p[1] ; n1 = n[1] ; T1 = T[1]
+
+        I0 = identity(n0)
+        I1 = identity(n1)
+        S0 = scaling_matrix(p0-1, n0-1, T0[1:-1])
+        S1 = scaling_matrix(p1-1, n1-1, T1[1:-1])
+
+        I0 = I0.todense()
+        I1 = I1.todense()
+        S0 = S0.todense()
+        S1 = S1.todense()
+
+        M0 = kron(S0, I1)
+        M1 = kron(I0, S1)
+        return block_diag(M0, M1)
+
+    elif kind == 'L2':
+        pp = list(p)
+        nn = list(n)
+        TT = list(T)
+        for i in range(0, len(p)):
+            pp[i] -= 1
+            nn[i] -= 1
+            TT[i] = TT[i][1:-1]
+        return scaling_matrix(pp, nn, TT)
+
+    raise NotImplementedError('TODO')
+
+
+def mass_matrix_H1(p, n, T):
+    """Returns the 2D/3D mass matrix over H1."""
+
+    assert(isinstance(p, (list, tuple)))
+
+    Ms = []
+    for i in range(0, len(p)):
+        M = mass_matrix(p[i], n[i], T[i])
+        M = csr_matrix(M)
+        # we must convert it to dense, otherwise we get a scipy
+        Ms.append(M.todense())
+    M = kron(*Ms)
+    return csr_matrix(M)
+
+def mass_matrix_L2(p, n, T):
+    """Returns the 2D/3D mass matrix over L2."""
+
+    assert(isinstance(p, (list, tuple)))
+
+    pp = list(p)
+    nn = list(n)
+    TT = list(T)
+    for i in range(0, len(p)):
+        pp[i] -= 1
+        nn[i] -= 1
+        TT[i] = TT[i][1:-1]
+
+    M = mass_matrix_H1(pp, nn, TT)
+    return csr_matrix(M)
+
+def mass_matrix_Hcurl(p, n, T):
+    """Returns the 2D mass matrix over Hcurl."""
+    pp = list(p) ; pp[0] -= 1
+    nn = list(n) ; nn[0] -= 1
+    TT = list(T) ; TT[0] = TT[0][1:-1]
+    M0 = mass_matrix_H1(pp, nn, TT)
+
+    pp = list(p) ; pp[1] -= 1
+    nn = list(n) ; nn[1] -= 1
+    TT = list(T) ; TT[1] = TT[1][1:-1]
+    M1 = mass_matrix_H1(pp, nn, TT)
+
+    M = block_diag(M0.todense(), M1.todense())
+    return csr_matrix(M)
+
+def build_mass_matrices(p, n, T):
+    """Returns all mass matrices over the sequence H1 -> Hcurl -> L2."""
+    M0 = mass_matrix_H1(p, n, T)
+    M1 = mass_matrix_Hcurl(p, n, T)
+    M2 = mass_matrix_L2(p, n, T)
+    return M0, M1, M2
+
+
+def _tck_H1_1D(p, n, T, c):
+    return (T, c, p)
+
+def _tck_L2_1D(p, n, T, c):
+    pp = p-1
+    nn = n-1
+    TT = T[1:-1]
+    return (TT, c, pp)
+
+def _tck_H1_2D(p, n, T, c):
+    return (T[0], T[1], c, p[0], p[1])
+
+def _tck_Hcurl_2D(p, n, T, c):
+    """."""
+    pp = list(p) ; pp[0] -= 1
+    nn = list(n) ; nn[0] -= 1
+    TT = list(T) ; TT[0] = TT[0][1:-1]
+    N = array(nn).prod()
+    c0 = c[:N]
+    tck0 = (TT[0], TT[1], c0, pp[0], pp[1])
+
+    pp = list(p) ; pp[1] -= 1
+    nn = list(n) ; nn[1] -= 1
+    TT = list(T) ; TT[1] = TT[1][1:-1]
+    c1 = c[N:]
+    tck1 = (TT[0], TT[1], c1, pp[0], pp[1])
+
+    return tck0, tck1
+
+def _tck_L2_2D(p, n, T, c):
+    return (T[0][1:-1], T[1][1:-1], c, p[0]-1, p[1]-1)
+
+def get_tck(kind, p, n, T, c):
+    """Returns the tck for a given space kind."""
+    if isinstance(p, int):
+        assert(kind in ['H1', 'L2'])
+        func = eval('_tck_{}_1D'.format(kind))
+
+    if isinstance(p, (list, tuple)):
+        assert(kind in ['H1', 'Hcurl', 'Hdiv', 'L2'])
+        if len(p) == 2:
+            func = eval('_tck_{}_2D'.format(kind))
+        else:
+            raise NotImplementedError('Only 2D is available')
+
+    return func(p, n, T, c)
+
