@@ -79,10 +79,8 @@ def scaling_matrix(p, n, T, kind=None):
         Ms = []
         for i in range(0, len(p)):
             M = scaling_matrix(p[i], n[i], T[i])
-            Ms.append(M)
-        # TODO must be improved
-        # we must convert it to dense, otherwise we get a scipy
-        Ms = [M.todense() for M in Ms]
+            # we must convert it to dense, otherwise we get a scipy
+            Ms.append(M.todense())
         return kron(*Ms)
 
     elif kind == 'Hcurl':
@@ -192,6 +190,59 @@ class Curl(object):
         return self._matrix.dot(x)
 
 
+def mass_matrix_H1(p, n, T):
+    """Returns the 2D/3D mass matrix over H1."""
+
+    assert(isinstance(p, (list, tuple)))
+
+    Ms = []
+    for i in range(0, len(p)):
+        M = mass_matrix(p[i], n[i], T[i])
+        M = csr_matrix(M)
+        # we must convert it to dense, otherwise we get a scipy
+        Ms.append(M.todense())
+    M = kron(*Ms)
+    return csr_matrix(M)
+
+def mass_matrix_L2(p, n, T):
+    """Returns the 2D/3D mass matrix over L2."""
+
+    assert(isinstance(p, (list, tuple)))
+
+    pp = list(p)
+    nn = list(n)
+    TT = list(T)
+    for i in range(0, len(p)):
+        pp[i] -= 1
+        nn[i] -= 1
+        TT[i] = TT[i][1:-1]
+
+    M = mass_matrix_H1(pp, nn, TT)
+    return csr_matrix(M)
+
+def mass_matrix_Hcurl(p, n, T):
+    """Returns the 2D mass matrix over Hcurl."""
+    pp = list(p) ; pp[0] -= 1
+    nn = list(n) ; nn[0] -= 1
+    TT = list(T) ; TT[0] = TT[0][1:-1]
+    M0 = mass_matrix_H1(pp, nn, TT)
+
+    pp = list(p) ; pp[1] -= 1
+    nn = list(n) ; nn[1] -= 1
+    TT = list(T) ; TT[1] = TT[1][1:-1]
+    M1 = mass_matrix_H1(pp, nn, TT)
+
+    M = block_diag(M0.todense(), M1.todense())
+    return csr_matrix(M)
+
+def build_mass_matrices(p, n, T):
+    """Returns all mass matrices over the sequence H1 -> Hcurl -> L2."""
+    M0 = mass_matrix_H1(p, n, T)
+    M1 = mass_matrix_Hcurl(p, n, T)
+    M2 = mass_matrix_L2(p, n, T)
+    return M0, M1, M2
+
+
 def test_projectors_1d(verbose=False):
     # ...
     n_elements = 4
@@ -268,6 +319,8 @@ def test_projectors_2d(verbose=False):
     T = [make_open_knots(_p, _n) for (_n,_p) in zip(n, p)]
 
     M0, M1, M2 = build_matrices_2d_H1(p, n, T)
+    mass_0, mass_1, mass_2 = build_mass_matrices(p, n, T)
+
     grad = Grad(p, n, T)
     curl = Curl(p, n, T)
 
@@ -358,6 +411,10 @@ def test_projectors_2d(verbose=False):
         print ('> M0.shape  := {}'.format(M0.shape))
         print ('> M1.shape  := {}'.format(M1.shape))
         print ('> M2.shape  := {}'.format(M2.shape))
+        print()
+        print ('> mass_0.shape  := {}'.format(mass_0.shape))
+        print ('> mass_1.shape  := {}'.format(mass_1.shape))
+        print ('> mass_2.shape  := {}'.format(mass_2.shape))
         print()
         print ('> grad.shape  := {}'.format(grad.shape))
         print ('> curl.shape  := {}'.format(curl.shape))
