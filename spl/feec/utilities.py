@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from scipy import kron
+from scipy.sparse import csr_matrix
 from scipy.linalg import block_diag
 
 from numpy import zeros
@@ -36,8 +37,9 @@ def build_kron_matrix(p, n, T, kind):
 
         func = eval('{}_matrix'.format(_kind))
         M = func(_p, _n, _T, _grid)
+        M = csr_matrix(M)
 
-        Ms.append(M)
+        Ms.append(M.todense()) # kron expects dense matrices
 
     return kron(*Ms)
 # ...

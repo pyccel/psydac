@@ -2,7 +2,7 @@
 
 import numpy as np
 from numpy import sin, cos, pi
-from numpy import bmat
+from numpy import bmat, block
 
 from spl.core import make_open_knots
 from spl.core import construct_grid_from_knots
@@ -89,15 +89,15 @@ def scaling_matrix(p, n, T, kind=None):
         p0 = p[0] ; n0 = n[0] ; T0 = T[0]
         p1 = p[1] ; n1 = n[1] ; T1 = T[1]
 
-        S0 = scaling_matrix(p0-1, n0-1, T0[1:-1])
-        S1 = scaling_matrix(p1-1, n1-1, T1[1:-1])
         I0 = identity(n0)
         I1 = identity(n1)
+        S0 = scaling_matrix(p0-1, n0-1, T0[1:-1])
+        S1 = scaling_matrix(p1-1, n1-1, T1[1:-1])
 
-        S0 = S0.todense()
-        S1 = S1.todense()
         I0 = I0.todense()
         I1 = I1.todense()
+        S0 = S0.todense()
+        S1 = S1.todense()
 
         M0 = kron(S0, I1)
         M1 = kron(I0, S1)
@@ -115,6 +115,81 @@ def scaling_matrix(p, n, T, kind=None):
 
     raise NotImplementedError('TODO')
 
+def d_matrix(n):
+    """creates a 1d incidence matrix.
+    The final matrix will have a shape of (n,n-1)
+
+    n: int
+        number of nodes
+    """
+    M = np.zeros((n,n))
+    for i in range(0, n):
+        M[i,i] = 1.
+        if i>0:
+            M[i,i-1] = -1.
+    return csr_matrix(M[1:n,:])
+
+class Grad(object):
+    def __init__(self, p, n, T):
+        self._p = p
+        self._n = n
+        self._T = T
+
+        n0 = n[0]
+        n1 = n[1]
+
+        I0 = identity(n0)
+        I1 = identity(n1)
+        D0 = d_matrix(n0)
+        D1 = d_matrix(n1)
+
+        I0 = I0.todense()
+        I1 = I1.todense()
+        D0 = D0.todense()
+        D1 = D1.todense()
+
+        A = kron(D0, I1)
+        B = kron(I0, D1)
+        self._matrix = np.concatenate((A, B), axis=0)
+        self._matrix = csr_matrix(self._matrix)
+
+    @property
+    def shape(self):
+        return self._matrix.shape
+
+    def __cal__(self, x):
+        return self._matrix.dot(x)
+
+class Curl(object):
+    def __init__(self, p, n, T):
+        self._p = p
+        self._n = n
+        self._T = T
+
+        n0 = n[0]
+        n1 = n[1]
+
+        I0 = identity(n0-1)
+        I1 = identity(n1-1)
+        D0 = d_matrix(n0)
+        D1 = d_matrix(n1)
+
+        I0 = I0.todense()
+        I1 = I1.todense()
+        D0 = D0.todense()
+        D1 = D1.todense()
+
+        A = kron(D0, I1)
+        B = kron(I0, D1)
+        self._matrix = block([-B, A])
+        self._matrix = csr_matrix(self._matrix)
+
+    @property
+    def shape(self):
+        return self._matrix.shape
+
+    def __cal__(self, x):
+        return self._matrix.dot(x)
 
 
 def test_projectors_1d(verbose=False):
@@ -193,6 +268,8 @@ def test_projectors_2d(verbose=False):
     T = [make_open_knots(_p, _n) for (_n,_p) in zip(n, p)]
 
     M0, M1, M2 = build_matrices_2d_H1(p, n, T)
+    grad = Grad(p, n, T)
+    curl = Curl(p, n, T)
 
     # ...
     interpolate = Interpolation2D(p, n, T)
@@ -278,14 +355,17 @@ def test_projectors_2d(verbose=False):
     # ...
     if verbose:
         print ('==== testing projection in 2d ====')
-#        print ('> M0.shape  := {}'.format(M0.shape))
-#        print ('> M1.shape  := {}'.format(M1.shape))
-#        print ('> M2.shape  := {}'.format(M2.shape))
-#        print()
-#        print ('> F.shape  := {}'.format(F.shape))
-#        print ('> G.shapes := {0} | {1}'.format(G[0].shape, G[1].shape))
-#        print ('> H.shape  := {}'.format(H.shape))
-#        print()
+        print ('> M0.shape  := {}'.format(M0.shape))
+        print ('> M1.shape  := {}'.format(M1.shape))
+        print ('> M2.shape  := {}'.format(M2.shape))
+        print()
+        print ('> grad.shape  := {}'.format(grad.shape))
+        print ('> curl.shape  := {}'.format(curl.shape))
+        print()
+        print ('> F.shape  := {}'.format(F.shape))
+        print ('> G.shapes := {0} | {1}'.format(G[0].shape, G[1].shape))
+        print ('> H.shape  := {}'.format(H.shape))
+        print()
         print ('> l2 error of `f_0` = {}'.format(err_0))
         print ('> l2 error of `g_1` = {}'.format(err_1))
         print ('> l2 error of `h_2` = {}'.format(err_2))
@@ -295,6 +375,12 @@ def test_projectors_2d(verbose=False):
 ####################################################################################
 if __name__ == '__main__':
 
-    test_projectors_1d(verbose=True)
-    print('')
+#    D = d_matrix(6)
+#    _print = lambda x: "%.4f" % x
+#    for i in range(0, D.shape[0]):
+#        print ("\t".join([_print(x) for x in D[i, :]]))
+
+
+#    test_projectors_1d(verbose=True)
+#    print('')
     test_projectors_2d(verbose=True)
