@@ -27,7 +27,7 @@ from scipy.linalg import block_diag
 from scipy.interpolate import splev
 from scipy.interpolate import bisplev
 from scipy.sparse import diags
-
+from scipy.sparse import identity
 from scipy.sparse import csr_matrix, csc_matrix
 from scipy.sparse.linalg import splu
 
@@ -86,14 +86,22 @@ def scaling_matrix(p, n, T, kind=None):
         return kron(*Ms)
 
     elif kind == 'Hcurl':
-        Ms = []
-        for i in range(0, len(p)):
-            pp = list(p) ; pp[i] -= 1
-            nn = list(n) ; nn[i] -= 1
-            TT = list(T) ; TT[i] = TT[i][1:-1]
-            M = scaling_matrix(pp, nn, TT)
-            Ms.append(M)
-        return block_diag(*Ms)
+        p0 = p[0] ; n0 = n[0] ; T0 = T[0]
+        p1 = p[1] ; n1 = n[1] ; T1 = T[1]
+
+        S0 = scaling_matrix(p0-1, n0-1, T0[1:-1])
+        S1 = scaling_matrix(p1-1, n1-1, T1[1:-1])
+        I0 = identity(n0)
+        I1 = identity(n1)
+
+        S0 = S0.todense()
+        S1 = S1.todense()
+        I0 = I0.todense()
+        I1 = I1.todense()
+
+        M0 = kron(S0, I1)
+        M1 = kron(I0, S1)
+        return block_diag(M0, M1)
 
     elif kind == 'L2':
         pp = list(p)
@@ -202,8 +210,6 @@ def test_projectors_2d(verbose=False):
     # ... Hcurl
     g0 = lambda x,y: (1.-2.*x)*y*(1.-y)
     g1 = lambda x,y: x*(1.-x)*(1.-2.*y)
-#    g0 = lambda x,y: np.ones_like(x)
-#    g1 = lambda x,y: np.zeros_like(x)
     g  = lambda x,y: [g0(x,y), g1(x,y)]
 
     G = interpolate_Hcurl(g)
@@ -258,6 +264,7 @@ def test_projectors_2d(verbose=False):
     # ... compute error on Hcurl
     g_1 = solve(M1, to_array_Hcurl(G))
     S = scaling_matrix(p, n, T, kind='Hcurl')
+
     g_1  = S.dot(g_1)
     tck0, tck1 = tck_Hcurl(p, n, T, g_1)
     gh_0 = lambda x,y: bisplev(x, y, tck0)
@@ -268,48 +275,26 @@ def test_projectors_2d(verbose=False):
     err_1 = np.sqrt(np.sum(integrate(diff)))
     # ...
 
-#    # ...
-#    import matplotlib.pyplot as plt
-#
-#    u = np.linspace(0., 1., 200)
-#    v = np.linspace(0., 1., 400)
-#
-#    z = gh_0(u, v)
-#    plt.contourf(u, v, z.transpose())
-#    plt.colorbar()
-#    plt.savefig('gh_0.png')
-#    plt.clf()
-#
-#    U,V = np.meshgrid(u, v)
-#    plt.contourf(u, v, g0(U, V))
-#    plt.colorbar()
-#    plt.savefig('g0.png')
-#    # ...
-
     # ...
     if verbose:
         print ('==== testing projection in 2d ====')
-        print ('> M0.shape  := {}'.format(M0.shape))
-        print ('> M1.shape  := {}'.format(M1.shape))
-        print ('> M2.shape  := {}'.format(M2.shape))
-        print()
-        print ('> F.shape  := {}'.format(F.shape))
-        print ('> G.shapes := {0} | {1}'.format(G[0].shape, G[1].shape))
-        print ('> H.shape  := {}'.format(H.shape))
-        print()
+#        print ('> M0.shape  := {}'.format(M0.shape))
+#        print ('> M1.shape  := {}'.format(M1.shape))
+#        print ('> M2.shape  := {}'.format(M2.shape))
+#        print()
+#        print ('> F.shape  := {}'.format(F.shape))
+#        print ('> G.shapes := {0} | {1}'.format(G[0].shape, G[1].shape))
+#        print ('> H.shape  := {}'.format(H.shape))
+#        print()
         print ('> l2 error of `f_0` = {}'.format(err_0))
         print ('> l2 error of `g_1` = {}'.format(err_1))
         print ('> l2 error of `h_2` = {}'.format(err_2))
-
     # ...
-
-
-
 
 
 ####################################################################################
 if __name__ == '__main__':
 
-#    test_projectors_1d(verbose=True)
-#    print('')
+    test_projectors_1d(verbose=True)
+    print('')
     test_projectors_2d(verbose=True)
