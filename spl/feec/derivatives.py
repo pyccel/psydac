@@ -23,7 +23,24 @@ def d_matrix(n):
             M[i,i-1] = -1.
     return csr_matrix(M[1:n,:])
 
-class Grad(object):
+
+class Grad_1D(object):
+    def __init__(self, p, n, T):
+        self._p = p
+        self._n = n
+        self._T = T
+
+        self._matrix = d_matrix(n)
+
+    @property
+    def shape(self):
+        return self._matrix.shape
+
+    def __cal__(self, x):
+        return self._matrix.dot(x)
+
+
+class Grad_2D(object):
     def __init__(self, p, n, T):
         self._p = p
         self._n = n
@@ -54,7 +71,7 @@ class Grad(object):
     def __cal__(self, x):
         return self._matrix.dot(x)
 
-class Curl(object):
+class Curl_2D(object):
     def __init__(self, p, n, T):
         self._p = p
         self._n = n
@@ -85,3 +102,20 @@ class Curl(object):
     def __cal__(self, x):
         return self._matrix.dot(x)
 
+
+# user friendly function that returns all discrete derivatives
+def discrete_derivatives(p, n, T):
+    """."""
+    # 1d case
+    if isinstance(p, int):
+        return Grad_1D(p, n, T)
+
+    if not isinstance(p, (list, tuple)):
+        raise TypeError('Expecting p to be int or list/tuple')
+
+    if len(p) == 2:
+        # TODO improve
+        # we only treat the sequence H1 -> Hcurl -> L2
+        return Grad_2D(p, n, T), Curl_2D(p, n, T)
+
+    raise NotImplementedError('only 1d and 2D are available')

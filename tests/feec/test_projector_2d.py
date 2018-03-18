@@ -8,11 +8,11 @@ from spl.core import compute_greville
 
 from spl.utilities import Integral2D
 
-from spl.feec import build_matrices_2d_H1
-from spl.feec import build_mass_matrices
+from spl.feec import interpolation_matrices
+from spl.feec import mass_matrices
 from spl.feec import Interpolation2D
 from spl.feec import scaling_matrix
-from spl.feec import Grad, Curl
+from spl.feec import discrete_derivatives
 from spl.feec import get_tck
 
 from scipy.interpolate import bisplev
@@ -37,11 +37,9 @@ def test_projectors_2d(verbose=False):
 
     T = [make_open_knots(_p, _n) for (_n,_p) in zip(n, p)]
 
-    M0, M1, M2 = build_matrices_2d_H1(p, n, T)
-    mass_0, mass_1, mass_2 = build_mass_matrices(p, n, T)
-
-    grad = Grad(p, n, T)
-    curl = Curl(p, n, T)
+    M0, M1, M2 = interpolation_matrices(p, n, T)
+    mass_0, mass_1, mass_2 = mass_matrices(p, n, T)
+    grad, curl = discrete_derivatives(p, n, T)
 
     # ...
     interpolate = Interpolation2D(p, n, T)

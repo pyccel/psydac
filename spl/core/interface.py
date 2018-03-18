@@ -287,6 +287,68 @@ def histopolation_matrix(p, n, T, greville):
 
     return D
 
+
+# TODO move to Fortran
+def mass_matrix(p, n, T):
+    """Returns the 1d mass matrix.
+
+    Examples
+
+    >>> from spl.core.interface import make_open_knots
+    >>> from spl.core.interface import mass_matrix
+
+    >>> p = 3; n = 4
+    >>> T = make_open_knots(p, n)
+    >>> mass_matrix(p, n, T)
+    array([[0.14285714, 0.07142857, 0.02857143, 0.00714286],
+           [0.07142857, 0.08571429, 0.06428571, 0.02857143],
+           [0.02857143, 0.06428571, 0.08571429, 0.07142857],
+           [0.00714286, 0.02857143, 0.07142857, 0.14285714]])
+
+    """
+    from spl.utilities.quadratures import gauss_legendre
+
+    # constructs the grid from the knot vector
+    grid = construct_grid_from_knots(p, n, T)
+
+    ne = len(grid) - 1        # number of elements
+    spans = compute_spans(p, n, T)
+
+    u, w = gauss_legendre(p)  # gauss-legendre quadrature rule
+    k = len(u)
+    points, weights = construct_quadrature_grid(ne, k, u, w, grid)
+
+    d = 1                     # number of derivatives
+    basis = eval_on_grid_splines_ders(p, n, k, d, T, points)
+
+    # ...
+    mass = np.zeros((n,n))
+    # ...
+
+    # ... build matrix
+    for ie in range(0, ne):
+        i_span = spans[ie]
+        for il in range(0, p+1):
+            for jl in range(0, p+1):
+                i = i_span - p  - 1 + il
+                j = i_span - p  - 1 + jl
+
+                v_m = 0.0
+                for g in range(0, k):
+                    bi_0 = basis[il, 0, g, ie]
+                    bj_0 = basis[jl, 0, g, ie]
+
+                    wvol = weights[g, ie]
+
+                    v_m += bi_0 * bj_0 * wvol
+
+                mass[i, j] += v_m
+    # ...
+
+    return mass
+
+
+
 ####################################################################################
 #if __name__ == '__main__':
 

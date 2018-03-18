@@ -11,6 +11,83 @@ from numpy import array
 
 # TODO: - docstrings + examples
 
+def _mass_matrix_H1(p, n, T):
+    """Returns the 2D/3D mass matrix over H1."""
+
+    from spl.core.interface import mass_matrix
+
+    assert(isinstance(p, (list, tuple)))
+
+    Ms = []
+    for i in range(0, len(p)):
+        M = mass_matrix(p[i], n[i], T[i])
+        M = csr_matrix(M)
+        # we must convert it to dense, otherwise we get a scipy
+        Ms.append(M.todense())
+    M = kron(*Ms)
+    return csr_matrix(M)
+
+def _mass_matrix_L2(p, n, T):
+    """Returns the 2D/3D mass matrix over L2."""
+
+    assert(isinstance(p, (list, tuple)))
+
+    pp = list(p)
+    nn = list(n)
+    TT = list(T)
+    for i in range(0, len(p)):
+        pp[i] -= 1
+        nn[i] -= 1
+        TT[i] = TT[i][1:-1]
+
+    M = _mass_matrix_H1(pp, nn, TT)
+    return csr_matrix(M)
+
+def _mass_matrix_Hcurl_2D(p, n, T):
+    """Returns the 2D mass matrix over Hcurl."""
+    pp = list(p) ; pp[0] -= 1
+    nn = list(n) ; nn[0] -= 1
+    TT = list(T) ; TT[0] = TT[0][1:-1]
+    M0 = _mass_matrix_H1(pp, nn, TT)
+
+    pp = list(p) ; pp[1] -= 1
+    nn = list(n) ; nn[1] -= 1
+    TT = list(T) ; TT[1] = TT[1][1:-1]
+    M1 = _mass_matrix_H1(pp, nn, TT)
+
+    M = block_diag(M0.todense(), M1.todense())
+    return csr_matrix(M)
+
+
+# This is a user-friendly function.
+def mass_matrices(p, n, T):
+    """Returns all mass matrices.
+    """
+    # 1d case
+    if isinstance(p, int):
+        from spl.core.interface import mass_matrix
+
+        M0 = mass_matrix(p, n, T)
+
+        pp = p-1 ; nn = n-1 ; TT = T[1:-1]
+        M1 = mass_matrix(p, n, T)
+
+        return M0, M1
+
+    if not isinstance(p, (list, tuple)):
+        raise TypeError('Expecting p to be int or list/tuple')
+
+    if len(p) == 2:
+        # TODO improve
+        # we only treat the sequence H1 -> Hcurl -> L2
+        M0 = _mass_matrix_H1(p, n, T)
+        M1 = _mass_matrix_Hcurl_2D(p, n, T)
+        M2 = _mass_matrix_L2(p, n, T)
+        return M0, M1, M2
+
+    raise NotImplementedError('only 1d and 2D are available')
+
+
 # ...
 def build_kron_matrix(p, n, T, kind):
     """."""
@@ -48,7 +125,7 @@ def build_kron_matrix(p, n, T, kind):
 # ...
 
 
-def build_matrices_2d_H1(p, n, T):
+def _interpolation_matrices_2d(p, n, T):
     """."""
 
     # H1
@@ -65,52 +142,31 @@ def build_matrices_2d_H1(p, n, T):
     return M0, M1, M2
 
 
-def mass_matrix(p, n, T):
-    """Returns the 1d mass matrix."""
-    from spl.core.interface import construct_grid_from_knots
-    from spl.core.interface import construct_quadrature_grid
-    from spl.core.interface import eval_on_grid_splines_ders
-    from spl.core.interface import compute_spans
-    from spl.utilities.quadratures import gauss_legendre
+def interpolation_matrices(p, n, T):
+    """Returns all interpolation matrices.
+    This is a user-friendly function.
+    """
+    # 1d case
+    if isinstance(p, int):
+        from spl.core import compute_greville
+        from spl.core import collocation_matrix
+        from spl.core import histopolation_matrix
 
-    # constructs the grid from the knot vector
-    grid = construct_grid_from_knots(p, n, T)
+        grid = compute_greville(p, n, T)
 
-    ne = len(grid) - 1        # number of elements
-    spans = compute_spans(p, n, T)
+        M = collocation_matrix(p, n, T, grid)
+        H = histopolation_matrix(p, n, T, grid)
 
-    u, w = gauss_legendre(p)  # gauss-legendre quadrature rule
-    k = len(u)
-    points, weights = construct_quadrature_grid(ne, k, u, w, grid)
+        return M, H
 
-    d = 1                     # number of derivatives
-    basis = eval_on_grid_splines_ders(p, n, k, d, T, points)
+    if not isinstance(p, (list, tuple)):
+        raise TypeError('Expecting p to be int or list/tuple')
 
-    # ...
-    mass = zeros((n,n))
-    # ...
+    if len(p) == 2:
+        return _interpolation_matrices_2d(p, n, T)
 
-    # ... build matrix
-    for ie in range(0, ne):
-        i_span = spans[ie]
-        for il in range(0, p+1):
-            for jl in range(0, p+1):
-                i = i_span - p  - 1 + il
-                j = i_span - p  - 1 + jl
+    raise NotImplementedError('only 1d and 2D are available')
 
-                v_m = 0.0
-                for g in range(0, k):
-                    bi_0 = basis[il, 0, g, ie]
-                    bj_0 = basis[jl, 0, g, ie]
-
-                    wvol = weights[g, ie]
-
-                    v_m += bi_0 * bj_0 * wvol
-
-                mass[i, j] += v_m
-    # ...
-
-    return mass
 
 
 class Interpolation2D(object):
@@ -205,10 +261,15 @@ def scaling_matrix(p, n, T, kind=None):
 
     """
     if isinstance(p, int):
-        x = zeros(n)
-        for i in range(0, n):
-            x[i] = (p+1)/(T[i+p+1]-T[i])
-        return diags(x)
+        if kind is None:
+            x = zeros(n)
+            for i in range(0, n):
+                x[i] = (p+1)/(T[i+p+1]-T[i])
+            return diags(x)
+        elif kind == 'L2':
+            return scaling_matrix(p-1, n-1, T[1:-1])
+        else:
+            raise ValueError('Unexpected kind of scaling matrix for 1D')
 
     assert(isinstance(p, (list, tuple)))
 
@@ -250,58 +311,6 @@ def scaling_matrix(p, n, T, kind=None):
 
     raise NotImplementedError('TODO')
 
-
-def mass_matrix_H1(p, n, T):
-    """Returns the 2D/3D mass matrix over H1."""
-
-    assert(isinstance(p, (list, tuple)))
-
-    Ms = []
-    for i in range(0, len(p)):
-        M = mass_matrix(p[i], n[i], T[i])
-        M = csr_matrix(M)
-        # we must convert it to dense, otherwise we get a scipy
-        Ms.append(M.todense())
-    M = kron(*Ms)
-    return csr_matrix(M)
-
-def mass_matrix_L2(p, n, T):
-    """Returns the 2D/3D mass matrix over L2."""
-
-    assert(isinstance(p, (list, tuple)))
-
-    pp = list(p)
-    nn = list(n)
-    TT = list(T)
-    for i in range(0, len(p)):
-        pp[i] -= 1
-        nn[i] -= 1
-        TT[i] = TT[i][1:-1]
-
-    M = mass_matrix_H1(pp, nn, TT)
-    return csr_matrix(M)
-
-def mass_matrix_Hcurl(p, n, T):
-    """Returns the 2D mass matrix over Hcurl."""
-    pp = list(p) ; pp[0] -= 1
-    nn = list(n) ; nn[0] -= 1
-    TT = list(T) ; TT[0] = TT[0][1:-1]
-    M0 = mass_matrix_H1(pp, nn, TT)
-
-    pp = list(p) ; pp[1] -= 1
-    nn = list(n) ; nn[1] -= 1
-    TT = list(T) ; TT[1] = TT[1][1:-1]
-    M1 = mass_matrix_H1(pp, nn, TT)
-
-    M = block_diag(M0.todense(), M1.todense())
-    return csr_matrix(M)
-
-def build_mass_matrices(p, n, T):
-    """Returns all mass matrices over the sequence H1 -> Hcurl -> L2."""
-    M0 = mass_matrix_H1(p, n, T)
-    M1 = mass_matrix_Hcurl(p, n, T)
-    M2 = mass_matrix_L2(p, n, T)
-    return M0, M1, M2
 
 
 def _tck_H1_1D(p, n, T, c):

@@ -4,17 +4,15 @@ import numpy as np
 from numpy import sin, cos, pi
 
 from spl.core import make_open_knots
-from spl.core import collocation_matrix
-from spl.core import histopolation_matrix
-from spl.core import compute_greville
 
 from spl.utilities import Integral
 from spl.utilities import Interpolation
 from spl.utilities import Contribution
 
-from spl.feec import mass_matrix
+from spl.feec import interpolation_matrices
+from spl.feec import mass_matrices
 from spl.feec import scaling_matrix
-from spl.feec import d_matrix
+from spl.feec import discrete_derivatives
 from spl.feec import get_tck
 
 from scipy.interpolate import splev
@@ -36,12 +34,11 @@ def test_projectors_1d(verbose=False):
     n = n_elements + p - 1   # number of control points
     # ...
 
-    T    = make_open_knots(p, n)
-    grid = compute_greville(p, n, T)
+    T = make_open_knots(p, n)
 
-    M = collocation_matrix(p, n, T, grid)
-    H = histopolation_matrix(p, n, T, grid)
-    mass = mass_matrix(p, n, T)
+    I0, I1 = interpolation_matrices(p, n, T)
+    mass_0, mass_1 = mass_matrices(p, n, T)
+    grad = discrete_derivatives(p, n, T)
 
     histopolation = Integral(p, n, T, kind='greville')
     interpolation = Interpolation(p, n, T)
@@ -49,9 +46,9 @@ def test_projectors_1d(verbose=False):
 
     f = lambda u: u*(1.-u)
 
-    f_0 = solve(M, interpolation(f))
-    f_1 = solve(H, histopolation(f))
-    f_l2 = solve(mass, contribution(f))
+    f_0 = solve(I0, interpolation(f))
+    f_1 = solve(I1, histopolation(f))
+    f_l2 = solve(mass_1, contribution(f))
 
     # ... compute error on H1 for interpolation
     tck = get_tck('H1', p, n, T, f_0)
@@ -64,10 +61,7 @@ def test_projectors_1d(verbose=False):
 
     # ... compute error on L2
     # scale fh_1 coefficients
-    pp = p-1
-    nn = n-1
-    TT = T[1:-1]
-    S = scaling_matrix(pp, nn, TT)
+    S = scaling_matrix(p, n, T, kind='L2')
     f_1  = S.dot(f_1)
     tck = get_tck('L2', p, n, T, f_1)
     fh_1 = lambda x: splev(x, tck)
