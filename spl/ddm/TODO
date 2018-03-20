@@ -1,9 +1,11 @@
 TODO
 ====
-* remove "steps" attribute? (only 2D for now, and maybe useless)
-* decide which class attributes should be exposed
+* remove "steps" attribute? (only 2D for now, and maybe useless) => to remove
+* decide which class attributes should be exposed => all privates, add when need it
 * use properties to access class attributes
-* change name: MPICart2D -> MPICart (?)
-* remove contiguous buffers from type
+* change name: MPICart2D => DistributedCartesianGrid
+* remove contiguous buffers from type => to separate test/example
 * move "communicate" function to separate test/example
 * move "reduce" function to separate test/example
+
+
