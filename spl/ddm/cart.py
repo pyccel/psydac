@@ -1,3 +1,9 @@
+#---------------------------------------------------------------------------
+# TODO: use non-blocking ISEND + IRECV instead of blocking SENDRECV
+# TODO: increase MPI bandwidth by factor of 2 by using same MPI channel
+#       in both directions (here with dest=source)
+#---------------------------------------------------------------------------
+
 import numpy as np
 from itertools import product
 from mpi4py    import MPI
@@ -75,43 +81,6 @@ class Cart():
                 continue
             self._sendrecv_info[shift] = self._compute_sendrecv_info( shift )
 
-        # Buffers for communicating with neighbors
-        self._send_buffers = {}
-        self._recv_buffers = {}
-        zero_shift = tuple( [0]*self._ndims )
-        for shift in product( [-1,0,1], repeat=self._ndims ):
-
-            if shift == zero_shift:
-                continue
-
-            info = self.get_sendrecv_info( shift )
-            self._send_buffers[shift] = np.zeros( info['buf_shape'] )
-            self._recv_buffers[shift] = np.zeros( info['buf_shape'] )
-
-        # DEBUG >>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        if self._rank == 0:
-            print( "", flush=True )
-
-        zero_shift = tuple( [0]*self._ndims )
-        for k in range( self._size ):
-            if self._rank == k:
-                print( "="*40 )
-                print( "RANK = {}".format( self._rank ) )
-                print( "="*40 )
-                for shift in product( [-1,0,1], repeat=self._ndims ):
-                    if shift == zero_shift:
-                        continue
-                    print( "sendrecv_info: shift = {}".format( shift ) )
-                    print( self.get_sendrecv_info( shift ) )
-                    print( "" )
-                print( "", flush=True )
-
-            self._comm.Barrier()
-
-        if self._rank == 0:
-            print( "", flush=True )
-        # <<<<<<<<<<<<<<<<<<<<<<<<<< END DEBUG
-
     #---------------------------------------------------------------------------
     @property
     def starts( self ):
@@ -128,6 +97,14 @@ class Cart():
     @property
     def coords( self ):
         return self._coords
+
+    @property
+    def shape( self ):
+        return self._shape
+
+    @property
+    def comm_cart( self ):
+        return self._comm_cart
 
     #---------------------------------------------------------------------------
     def coords_exist( self, coords ):
@@ -199,52 +176,3 @@ class Cart():
 
         # Destroy Cartesian communicator
         self._comm_cart.Free()
-
-    #---------------------------------------------------------------------------
-    def communicate(self, u):
-
-        assert( self._shape == u.shape )
-
-        tag    = 1435
-        status = MPI.Status()
-
-        # ... Communication
-        zero_shift = tuple( [0]*self._ndims )
-        for shift in product( [-1,0,1], repeat=self._ndims ):
-
-            if shift == zero_shift:
-                continue
-
-            info = self.get_sendrecv_info( shift )
-
-            sendbuf = self._send_buffers[shift]
-            recvbuf = self._recv_buffers[shift]
-
-            # Copy data from u to contiguous send buffer
-            sendbuf[...] = u[info['indx_send']]
-
-            # Send and receive data
-            self._comm_cart.Sendrecv(
-                sendbuf = sendbuf,
-                dest    = info['rank_dest'],
-                sendtag = tag,
-                recvbuf = recvbuf,
-                source  = info['rank_source'],
-                recvtag = tag,
-                status  = status,
-            )
-
-            # Copy data from contiguous receive buffer to u
-            u[info['indx_recv']] = recvbuf[...]
-
-        # TODO: use non-blocking ISEND + IRECV instead of blocking SENDRECV
-
-        # TODO: increase MPI bandwidth by factor of 2 by using same MPI channel
-        #       in both directions (here with dest=source)
-
-    #---------------------------------------------------------------------------
-    def reduce(self, x):
-
-        global_x = self._comm_cart.allreduce( x, op=MPI.SUM )
-
-        print(global_x, x)

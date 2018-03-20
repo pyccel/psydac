@@ -1,7 +1,8 @@
 import numpy as np
 import h5py
-from mpi4py import MPI
-from cart   import Cart
+from mpi4py    import MPI
+from itertools import product
+from cart      import Cart
 
 #===============================================================================
 # INPUT PARAMETERS
@@ -45,6 +46,60 @@ tol     = 1e-8
 maxiter = 10000
 
 #===============================================================================
+# FUNCTIONS
+#===============================================================================
+
+def create_buffers( mesh ):
+
+    send_buffers = {}
+    recv_buffers = {}
+
+    for shift in product( [-1,0,1], repeat=2 ):
+        if shift == (0,0):
+            continue
+
+        # Allocate contiguous buffers
+        info = mesh.get_sendrecv_info( shift )
+        send_buffers[shift] = np.zeros( info['buf_shape'] )
+        recv_buffers[shift] = np.zeros( info['buf_shape'] )
+
+    return send_buffers, recv_buffers
+
+#-------------------------------------------------------------------------------
+def update_ghost_regions( mesh, send_buffers, recv_buffers, u ):
+
+    assert( mesh.shape == u.shape )
+
+    tag    = 1435
+    status = MPI.Status()
+
+    for shift in product( [-1,0,1], repeat=2 ):
+        if shift == (0,0):
+            continue
+
+        # Get reference to contiguous buffers
+        info = mesh.get_sendrecv_info( shift )
+        sendbuf = send_buffers[shift]
+        recvbuf = recv_buffers[shift]
+
+        # Copy data from u to contiguous send buffer
+        sendbuf[...] = u[info['indx_send']]
+
+        # Send and receive data
+        mesh.comm_cart.Sendrecv(
+            sendbuf = sendbuf,
+            dest    = info['rank_dest'],
+            sendtag = tag,
+            recvbuf = recvbuf,
+            source  = info['rank_source'],
+            recvtag = tag,
+            status  = status,
+        )
+
+        # Copy data from contiguous receive buffer to u
+        u[info['indx_recv']] = recvbuf[...]
+
+#===============================================================================
 # PARALLEL OBJECTS
 #===============================================================================
 
@@ -68,11 +123,14 @@ x2 = np.arange( s2-p2, e2+p2+1 ) * hy
 l1 = len( x1 )
 l2 = len( x2 )
 
-# Create local arrays
+# Local arrays
 u     = np.zeros( (l1,l2) )  # satisfies BCs
 u_new = np.zeros( (l1,l2) )  # satisfies BCs
 u_ex  = phi( *np.meshgrid( x1, x2, indexing='ij' ) )
 f     = rho( *np.meshgrid( x1, x2, indexing='ij' ) )
+
+# Contiguous buffers for MPI communication
+send_buffers, recv_buffers = create_buffers( mesh )
 
 #===============================================================================
 # DEBUG
@@ -113,7 +171,7 @@ while not converged and n < maxiter:
     u_new = u_old
 
     # Exchange data
-    mesh.communicate( u )
+    update_ghost_regions( mesh, send_buffers, recv_buffers, u )
 
     # Jacobi iteration
     for i1 in range(p1,l1-p1):
