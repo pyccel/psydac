@@ -67,6 +67,14 @@ class Cart():
             remain_dims     = [i==j for j in range( self._ndims )]
             self._subcomm[i] = self._comm_cart.Sub( remain_dims )
 
+        # Compute/store information for communicating with neighbors
+        self._sendrecv_info = {}
+        zero_shift = tuple( [0]*self._ndims )
+        for shift in product( [-1,0,1], repeat=self._ndims ):
+            if shift == zero_shift:
+                continue
+            self._sendrecv_info[shift] = self._compute_sendrecv_info( shift )
+
         # Buffers for communicating with neighbors
         self._send_buffers = {}
         self._recv_buffers = {}
@@ -128,6 +136,12 @@ class Cart():
 
     #---------------------------------------------------------------------------
     def get_sendrecv_info( self, shift ):
+
+        return self._sendrecv_info[shift]
+
+    #---------------------------------------------------------------------------
+    def _compute_sendrecv_info( self, shift ):
+
         assert( len( shift ) == self._ndims )
 
         # Compute coordinates of destination and source
@@ -173,7 +187,7 @@ class Cart():
                 'indx_recv'  : tuple( indx_recv ),
                 'buf_shape'  : tuple( buf_shape ) }
 
-        # Return dictionary
+        # return dictionary
         return info
 
     #---------------------------------------------------------------------------
