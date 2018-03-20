@@ -1,7 +1,7 @@
 import numpy as np
 import h5py
-from mpi4py   import MPI
-from mpi_cart import MPICart2D
+from mpi4py import MPI
+from cart   import Cart
 
 #===============================================================================
 # INPUT PARAMETERS
@@ -51,8 +51,9 @@ maxiter = 10000
 # MPI Communicator
 comm = MPI.COMM_WORLD
 
-# New communicator with 2D Cartesian topology
-mesh = MPICart2D( npts, pads, periods, reorder, comm )
+# New distributed 2D Cartesian mesh
+# (built around MPI communicator with 2D Cartesian topology)
+mesh = Cart( npts, pads, periods, reorder, comm )
 
 # Local mesh information
 s1,s2 = mesh.starts

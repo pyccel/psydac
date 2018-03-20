@@ -1,6 +1,5 @@
 TODO
 ====
-* change name: MPICart2D => DistributedCartesianGrid
 * remove contiguous buffers from type => to separate test/example
 * move "communicate" function to separate test/example
 * move "reduce" function to separate test/example

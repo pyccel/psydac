@@ -3,7 +3,7 @@ from itertools import product
 from mpi4py    import MPI
 
 #===============================================================================
-class MPICart2D():
+class Cart():
 
     def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD ):
 
