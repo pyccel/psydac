@@ -14,7 +14,6 @@ class MPICart2D():
         # ...
 
         # ...
-        self.steps   = [1,1]
         self.pads    = pads
         self.periods = periods
         self.reorder = reorder
@@ -48,7 +47,7 @@ class MPICart2D():
         self.ends   = tuple( ((c+1)*n)//d-1 for n,d,c in zip( npts, self.dims, self.coords ) )
 
         # List of 1D global indices (without ghost regions)
-        self.grids = tuple( range(s,e+1,h) for s,e,h in zip( self.starts, self.ends, self.steps ) )
+        self.grids = tuple( range(s,e+1) for s,e in zip( self.starts, self.ends ) )
 
         # N-dimensional global indices (without ghost regions)
         self.indices = product( *self.grids )
@@ -57,7 +56,7 @@ class MPICart2D():
         self.shape = tuple( e-s+1+2*p for s,e,p in zip( self.starts, self.ends, self.pads ) )
 
         # Extended grids with ghost regions
-        self.extended_grids = tuple( range(s-p,e+p+1,h) for s,e,p,h in zip( self.starts, self.ends, self.pads, self.steps ) )
+        self.extended_grids = tuple( range(s-p,e+p+1) for s,e,p in zip( self.starts, self.ends, self.pads ) )
 
         # N-dimensional global indices with ghost regions
         self.extended_indices = product( *self.extended_grids )
