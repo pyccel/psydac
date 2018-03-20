@@ -1,0 +1,9 @@
+TODO
+====
+* remove "steps" attribute? (only 2D for now, and maybe useless)
+* decide which class attributes should be exposed
+* use properties to access class attributes
+* change name: MPICart2D -> MPICart (?)
+* remove contiguous buffers from type
+* move "communicate" function to separate test/example
+* move "reduce" function to separate test/example
