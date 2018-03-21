@@ -1,3 +1,4 @@
 TODO
 ====
-* write unit tests for Cart 2D/3D
+* only communicate along Cartesian directions by passing buffers of increasing size
+* increase bandwidth by factor of 2 (on some hardware) by using send=source in SendRecv
