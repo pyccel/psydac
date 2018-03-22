@@ -137,32 +137,36 @@ class Cart():
             rank_source = MPI.PROC_NULL
 
         # Compute information for exchanging ghost cell data
-        indx_recv = []
-        indx_send = []
-        buf_shape = []
+        buf_shape   = []
+        send_starts = []
+        recv_starts = []
         for s,e,p,h in zip( self._starts, self._ends, self._pads, shift ):
+
             if h == 0:
-                slice_recv = slice( p, -p )
-                slice_send = slice( p, -p )
-                length     = e-s+1
+                buf_length = e-s+1
+                recv_start = p
+                send_start = p
+
             elif h == 1:
-                slice_recv = slice(    0,  p )
-                slice_send = slice( -2*p, -p )
-                length     = p
+                buf_length = p
+                recv_start = 0
+                send_start = e-s+1
+
             elif h == -1:
-                slice_recv = slice( -p, None )
-                slice_send = slice(  p, 2*p  )
-                length     = p
-            indx_recv.append( slice_recv )
-            indx_send.append( slice_send )
-            buf_shape.append( length )
+                buf_length = p
+                recv_start = e-s+1+p
+                send_start = p
+
+            buf_shape  .append( buf_length )
+            send_starts.append( send_start )
+            recv_starts.append( recv_start )
 
         # Store all information into dictionary
         info = {'rank_dest'  : rank_dest,
                 'rank_source': rank_source,
-                'indx_send'  : tuple( indx_send ),
-                'indx_recv'  : tuple( indx_recv ),
-                'buf_shape'  : tuple( buf_shape ) }
+                'buf_shape'  : tuple(  buf_shape  ),
+                'send_starts': tuple( send_starts ),
+                'recv_starts': tuple( recv_starts )}
 
         # return dictionary
         return info

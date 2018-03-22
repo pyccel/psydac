@@ -29,19 +29,29 @@ rank = comm.Get_rank()
 cart = Cart( npts=[n1+1], pads=[p1], periods=[period1], reorder=False, comm=comm )
 
 # Local 1D array (extended domain)
-u = np.zeros( cart.shape, dtype=int )
+u = np.zeros( cart.shape, dtype=int ) # NOTE: 64-bit INTEGER!
 
 # Global indices of first and last elements of array
 s1, = cart.starts
 e1, = cart.ends
 
-# Contiguous buffers for data exchange
-send_buffers = {}
-recv_buffers = {}
+# Create MPI subarray datatypes for accessing non-contiguous data
+send_types = {}
+recv_types = {}
 for shift in [(-1,),(1,)]:
     info = cart.get_sendrecv_info( shift )
-    send_buffers[shift] = np.zeros( info['buf_shape'], dtype=u.dtype )
-    recv_buffers[shift] = np.zeros( info['buf_shape'], dtype=u.dtype )
+
+    send_types[shift] = MPI.INT64_T.Create_subarray(
+        sizes    = u.shape,
+        subsizes = info[ 'buf_shape' ],
+        starts   = info['send_starts'],
+    ).Commit()
+
+    recv_types[shift] = MPI.INT64_T.Create_subarray(
+        sizes    = u.shape,
+        subsizes = info[ 'buf_shape' ],
+        starts   = info['recv_starts'],
+    ).Commit()
 
 # Print some info
 if rank == 0:
@@ -65,30 +75,19 @@ u[p1:-p1] = [i1 for i1 in range(s1,e1+1)]
 status = MPI.Status()
 
 # Exchange ghost cell information
-for shift in [(-1,),(1,)]:
+for shift in [(-1,),(+1,)]:
 
     # Get communication info for given shift
     info = cart.get_sendrecv_info( shift )
 
-    # Get reference to contiguous buffers
-    sendbuf = send_buffers[shift]
-    recvbuf = recv_buffers[shift]
-
-    # Copy data from u to contiguous send buffer
-    sendbuf[:] = u[info['indx_send']]
-
     # Send and receive data
     cart.comm_cart.Sendrecv(
-        sendbuf = sendbuf,
+        sendbuf = [u, 1, send_types[shift]],
         dest    = info['rank_dest'],
-        sendtag = 0,
-        recvbuf = recvbuf,
+        recvbuf = [u, 1, recv_types[shift]],
         source  = info['rank_source'],
         status  = status,
     )
-
-    # Copy data from contiguous receive buffer to u
-    u[info['indx_recv']] = recvbuf[:]
 
 #===============================================================================
 # CHECK RESULTS

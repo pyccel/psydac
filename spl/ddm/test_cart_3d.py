@@ -43,22 +43,35 @@ cart = Cart(
 
 # Local 3D array with 3D vector data (extended domain)
 shape = list( cart.shape ) + [3]
-u = np.zeros( shape, dtype=int )
+u = np.zeros( shape, dtype=int ) # NOTE: 64-bit INTEGER!
 
 # Global indices of first and last elements of array
 s1,s2,s3 = cart.starts
 e1,e2,e3 = cart.ends
 
-# Contiguous buffers for data exchange
-send_buffers = {}
-recv_buffers = {}
+# Create MPI subarray datatypes for accessing non-contiguous data
+send_types = {}
+recv_types = {}
 for shift in product( [-1,0,1], repeat=3 ):
     if shift == (0,0,0):
         continue
     info = cart.get_sendrecv_info( shift )
-    shape = list( info['buf_shape'] ) + [3]
-    send_buffers[shift] = np.zeros( shape, dtype=u.dtype )
-    recv_buffers[shift] = np.zeros( shape, dtype=u.dtype )
+
+    buf_shape   = list( info[ 'buf_shape' ] ) + [3]
+    send_starts = list( info['send_starts'] ) + [0]
+    recv_starts = list( info['recv_starts'] ) + [0]
+
+    send_types[shift] = MPI.INT64_T.Create_subarray(
+        sizes    = u.shape,
+        subsizes = buf_shape,
+        starts   = send_starts,
+    ).Commit()
+
+    recv_types[shift] = MPI.INT64_T.Create_subarray(
+        sizes    = u.shape,
+        subsizes = buf_shape,
+        starts   = recv_starts,
+    ).Commit()
 
 # Print some info
 if rank == 0:
@@ -93,27 +106,14 @@ for shift in product( [-1,0,1], repeat=3 ):
     # Get communication info for given shift
     info = cart.get_sendrecv_info( shift )
 
-    # Get reference to contiguous buffers
-    sendbuf = send_buffers[shift]
-    recvbuf = recv_buffers[shift]
-
-    # Copy data from u to contiguous send buffer
-    indx1, indx2, indx3 = info['indx_send']
-    sendbuf[...] = u[indx1,indx2,indx3,:]
-
     # Send and receive data
     cart.comm_cart.Sendrecv(
-        sendbuf = sendbuf,
+        sendbuf = [u, 1, send_types[shift]],
         dest    = info['rank_dest'],
-        sendtag = 0,
-        recvbuf = recvbuf,
+        recvbuf = [u, 1, recv_types[shift]],
         source  = info['rank_source'],
         status  = status,
     )
-
-    # Copy data from contiguous receive buffer to u
-    indx1, indx2,indx3 = info['indx_recv']
-    u[indx1,indx2,indx3,:] = recvbuf[...]
 
 #===============================================================================
 # CHECK RESULTS
