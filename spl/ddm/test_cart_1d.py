@@ -40,8 +40,8 @@ send_buffers = {}
 recv_buffers = {}
 for shift in [(-1,),(1,)]:
     info = cart.get_sendrecv_info( shift )
-    send_buffers[shift] = np.zeros( info['buf_shape'] )
-    recv_buffers[shift] = np.zeros( info['buf_shape'] )
+    send_buffers[shift] = np.zeros( info['buf_shape'], dtype=u.dtype )
+    recv_buffers[shift] = np.zeros( info['buf_shape'], dtype=u.dtype )
 
 # Print some info
 if rank == 0:

@@ -57,8 +57,8 @@ for shift in product( [-1,0,1], repeat=3 ):
         continue
     info = cart.get_sendrecv_info( shift )
     shape = list( info['buf_shape'] ) + [3]
-    send_buffers[shift] = np.zeros( shape )
-    recv_buffers[shift] = np.zeros( shape )
+    send_buffers[shift] = np.zeros( shape, dtype=u.dtype )
+    recv_buffers[shift] = np.zeros( shape, dtype=u.dtype )
 
 # Print some info
 if rank == 0:
