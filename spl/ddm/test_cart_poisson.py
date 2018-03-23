@@ -49,55 +49,60 @@ maxiter = 10000
 # FUNCTIONS
 #===============================================================================
 
-def create_buffers( mesh ):
+# Create MPI subarray datatypes for accessing non-contiguous data
+def create_buffer_types( mesh ):
 
-    send_buffers = {}
-    recv_buffers = {}
+    send_types = {}
+    recv_types = {}
+    for direction in range(2):
+        for disp in [-1,1]:
+            info = mesh.get_shift_info( direction, disp )
 
-    for shift in product( [-1,0,1], repeat=2 ):
-        if shift == (0,0):
-            continue
+            send_types[direction,disp] = MPI.DOUBLE.Create_subarray(
+                sizes    = u.shape,
+                subsizes = info[ 'buf_shape' ],
+                starts   = info['send_starts'],
+            ).Commit()
 
-        # Allocate contiguous buffers
-        info = mesh.get_sendrecv_info( shift )
-        send_buffers[shift] = np.zeros( info['buf_shape'] )
-        recv_buffers[shift] = np.zeros( info['buf_shape'] )
+            recv_types[direction,disp] = MPI.DOUBLE.Create_subarray(
+                sizes    = u.shape,
+                subsizes = info[ 'buf_shape' ],
+                starts   = info['recv_starts'],
+            ).Commit()
 
-    return send_buffers, recv_buffers
+    return send_types, recv_types
 
 #-------------------------------------------------------------------------------
-def update_ghost_regions( mesh, send_buffers, recv_buffers, u ):
+def update_ghost_regions( mesh, send_types, recv_types, u ):
 
     assert( mesh.shape == u.shape )
 
-    tag    = 1435
-    status = MPI.Status()
+    # Choose non-negative invertible function tag(disp) >= 0
+    # NOTE: different values of disp must return different tags!
+    tag = lambda disp: 42+disp
 
-    for shift in product( [-1,0,1], repeat=2 ):
-        if shift == (0,0):
-            continue
+    # Cycle over dimensions
+    for direction in range(2):
 
-        # Get reference to contiguous buffers
-        info = mesh.get_sendrecv_info( shift )
-        sendbuf = send_buffers[shift]
-        recvbuf = recv_buffers[shift]
+        # Requests' handles
+        requests = []
 
-        # Copy data from u to contiguous send buffer
-        sendbuf[...] = u[info['indx_send']]
+        # Start receiving data (MPI_IRECV)
+        for disp in [-1,1]:
+            info     = mesh.get_shift_info( direction, disp )
+            recv_buf = (u, 1, recv_types[direction,disp])
+            recv_req = mesh.comm_cart.Irecv( recv_buf, info['rank_source'], tag(disp) )
+            requests.append( recv_req )
 
-        # Send and receive data
-        mesh.comm_cart.Sendrecv(
-            sendbuf = sendbuf,
-            dest    = info['rank_dest'],
-            sendtag = tag,
-            recvbuf = recvbuf,
-            source  = info['rank_source'],
-            recvtag = tag,
-            status  = status,
-        )
+        # Start sending data (MPI_ISEND)
+        for disp in [-1,1]:
+            info     = mesh.get_shift_info( direction, disp )
+            send_buf = (u, 1, send_types[direction,disp])
+            send_req = mesh.comm_cart.Isend( send_buf, info['rank_dest'], tag(disp) )
+            requests.append( send_req )
 
-        # Copy data from contiguous receive buffer to u
-        u[info['indx_recv']] = recvbuf[...]
+        # Wait for end of data exchange (MPI_WAITALL)
+        MPI.Request.Waitall( requests )
 
 #===============================================================================
 # PARALLEL OBJECTS
@@ -129,8 +134,8 @@ u_new = np.zeros( (l1,l2) )  # satisfies BCs
 u_ex  = phi( *np.meshgrid( x1, x2, indexing='ij' ) )
 f     = rho( *np.meshgrid( x1, x2, indexing='ij' ) )
 
-# Contiguous buffers for MPI communication
-send_buffers, recv_buffers = create_buffers( mesh )
+# Non-contiguous subarrays for MPI communication
+send_types, recv_types = create_buffer_types( mesh )
 
 #===============================================================================
 # DEBUG
@@ -171,7 +176,7 @@ while not converged and n < maxiter:
     u_new = u_old
 
     # Exchange data
-    update_ghost_regions( mesh, send_buffers, recv_buffers, u )
+    update_ghost_regions( mesh, send_types, recv_types, u )
 
     # Jacobi iteration
     for i1 in range(p1,l1-p1):
