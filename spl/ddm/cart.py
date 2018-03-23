@@ -161,9 +161,13 @@ class Cart():
             send_starts.append( send_start )
             recv_starts.append( recv_start )
 
+        # Compute unique identifier for messages traveling along 'shift'
+        tag = sum( (h%3)*(3**n) for h,n in zip(shift,range(self._ndims)) )
+
         # Store all information into dictionary
         info = {'rank_dest'  : rank_dest,
                 'rank_source': rank_source,
+                'tag'        : tag,
                 'buf_shape'  : tuple(  buf_shape  ),
                 'send_starts': tuple( send_starts ),
                 'recv_starts': tuple( recv_starts )}

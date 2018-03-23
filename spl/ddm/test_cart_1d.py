@@ -72,22 +72,25 @@ for k in range(size):
 # Fill in true domain with u[i]=i
 u[p1:-p1] = [i1 for i1 in range(s1,e1+1)]
 
-status = MPI.Status()
+# Requests' handles
+requests = []
 
-# Exchange ghost cell information
+# Start receiving data (MPI_IRECV)
 for shift in [(-1,),(+1,)]:
+    info     = cart.get_sendrecv_info( shift )
+    recv_buf = (u, 1, recv_types[shift])
+    recv_req = cart.comm_cart.Irecv( recv_buf, info['rank_source'], info['tag'] )
+    requests.append( recv_req )
 
-    # Get communication info for given shift
-    info = cart.get_sendrecv_info( shift )
+# Start sending data (MPI_ISEND)
+for shift in [(-1,),(+1,)]:
+    info     = cart.get_sendrecv_info( shift )
+    send_buf = (u, 1, send_types[shift])
+    send_req = cart.comm_cart.Isend( send_buf, info['rank_dest'], info['tag'] )
+    requests.append( send_req )
 
-    # Send and receive data
-    cart.comm_cart.Sendrecv(
-        sendbuf = [u, 1, send_types[shift]],
-        dest    = info['rank_dest'],
-        recvbuf = [u, 1, recv_types[shift]],
-        source  = info['rank_source'],
-        status  = status,
-    )
+# Wait for end of data exchange (MPI_WAITALL)
+MPI.Request.Waitall( requests )
 
 #===============================================================================
 # CHECK RESULTS
