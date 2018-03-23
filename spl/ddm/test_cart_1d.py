@@ -38,16 +38,16 @@ e1, = cart.ends
 # Create MPI subarray datatypes for accessing non-contiguous data
 send_types = {}
 recv_types = {}
-for shift in [(-1,),(1,)]:
-    info = cart.get_sendrecv_info( shift )
+for disp in [-1,1]:
+    info = cart.get_shift_info( 0, disp )
 
-    send_types[shift] = MPI.INT64_T.Create_subarray(
+    send_types[disp] = MPI.INT64_T.Create_subarray(
         sizes    = u.shape,
         subsizes = info[ 'buf_shape' ],
         starts   = info['send_starts'],
     ).Commit()
 
-    recv_types[shift] = MPI.INT64_T.Create_subarray(
+    recv_types[disp] = MPI.INT64_T.Create_subarray(
         sizes    = u.shape,
         subsizes = info[ 'buf_shape' ],
         starts   = info['recv_starts'],
@@ -72,21 +72,25 @@ for k in range(size):
 # Fill in true domain with u[i]=i
 u[p1:-p1] = [i1 for i1 in range(s1,e1+1)]
 
+# Choose non-negative invertible function tag(disp) >= 0
+# NOTE: different values of disp must return different tags!
+tag = lambda disp: 42+disp
+
 # Requests' handles
 requests = []
 
 # Start receiving data (MPI_IRECV)
-for shift in [(-1,),(+1,)]:
-    info     = cart.get_sendrecv_info( shift )
-    recv_buf = (u, 1, recv_types[shift])
-    recv_req = cart.comm_cart.Irecv( recv_buf, info['rank_source'], info['tag'] )
+for disp in [-1,+1]:
+    info     = cart.get_shift_info( 0, disp )
+    recv_buf = (u, 1, recv_types[disp])
+    recv_req = cart.comm_cart.Irecv( recv_buf, info['rank_source'], tag(disp) )
     requests.append( recv_req )
 
 # Start sending data (MPI_ISEND)
-for shift in [(-1,),(+1,)]:
-    info     = cart.get_sendrecv_info( shift )
-    send_buf = (u, 1, send_types[shift])
-    send_req = cart.comm_cart.Isend( send_buf, info['rank_dest'], info['tag'] )
+for disp in [-1,+1]:
+    info     = cart.get_shift_info( 0, disp )
+    send_buf = (u, 1, send_types[disp])
+    send_req = cart.comm_cart.Isend( send_buf, info['rank_dest'], tag(disp) )
     requests.append( send_req )
 
 # Wait for end of data exchange (MPI_WAITALL)

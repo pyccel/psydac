@@ -52,26 +52,25 @@ e1,e2,e3 = cart.ends
 # Create MPI subarray datatypes for accessing non-contiguous data
 send_types = {}
 recv_types = {}
-for shift in product( [-1,0,1], repeat=3 ):
-    if shift == (0,0,0):
-        continue
-    info = cart.get_sendrecv_info( shift )
+for direction in range(3):
+    for disp in [-1,1]:
+        info = cart.get_shift_info( direction, disp )
 
-    buf_shape   = list( info[ 'buf_shape' ] ) + [3]
-    send_starts = list( info['send_starts'] ) + [0]
-    recv_starts = list( info['recv_starts'] ) + [0]
+        buf_shape   = list( info[ 'buf_shape' ] ) + [3]
+        send_starts = list( info['send_starts'] ) + [0]
+        recv_starts = list( info['recv_starts'] ) + [0]
 
-    send_types[shift] = MPI.INT64_T.Create_subarray(
-        sizes    = u.shape,
-        subsizes = buf_shape,
-        starts   = send_starts,
-    ).Commit()
+        send_types[direction,disp] = MPI.INT64_T.Create_subarray(
+            sizes    = u.shape,
+            subsizes = buf_shape,
+            starts   = send_starts,
+        ).Commit()
 
-    recv_types[shift] = MPI.INT64_T.Create_subarray(
-        sizes    = u.shape,
-        subsizes = buf_shape,
-        starts   = recv_starts,
-    ).Commit()
+        recv_types[direction,disp] = MPI.INT64_T.Create_subarray(
+            sizes    = u.shape,
+            subsizes = buf_shape,
+            starts   = recv_starts,
+        ).Commit()
 
 # Print some info
 if rank == 0:
@@ -96,27 +95,32 @@ u[p1:-p1,p2:-p2,p3:-p3,:] = [[[(i1,i2,i3) for i3 in range(s3,e3+1)] \
                                           for i2 in range(s2,e2+1)] \
                                           for i1 in range(s1,e1+1)]
 
-# Requests' handles
-requests = []
+# Choose non-negative invertible function tag(disp) >= 0
+# NOTE: different values of disp must return different tags!
+tag = lambda disp: 42+disp
 
-# Start receiving data (MPI_IRECV)
-for shift in product( [-1,0,1], repeat=3 ):
-    if shift == (0,0,0): continue
-    info     = cart.get_sendrecv_info( shift )
-    recv_buf = (u, 1, recv_types[shift])
-    recv_req = cart.comm_cart.Irecv( recv_buf, info['rank_source'], info['tag'] )
-    requests.append( recv_req )
+# Cycle over dimensions
+for direction in range(3):
 
-# Start sending data (MPI_ISEND)
-for shift in product( [-1,0,1], repeat=3 ):
-    if shift == (0,0,0): continue
-    info     = cart.get_sendrecv_info( shift )
-    send_buf = (u, 1, send_types[shift])
-    send_req = cart.comm_cart.Isend( send_buf, info['rank_dest'], info['tag'] )
-    requests.append( send_req )
+    # Requests' handles
+    requests = []
 
-# Wait for end of data exchange (MPI_WAITALL)
-MPI.Request.Waitall( requests )
+    # Start receiving data (MPI_IRECV)
+    for disp in [-1,1]:
+        info     = cart.get_shift_info( direction, disp )
+        recv_buf = (u, 1, recv_types[direction,disp])
+        recv_req = cart.comm_cart.Irecv( recv_buf, info['rank_source'], tag(disp) )
+        requests.append( recv_req )
+
+    # Start sending data (MPI_ISEND)
+    for disp in [-1,1]:
+        info     = cart.get_shift_info( direction, disp )
+        send_buf = (u, 1, send_types[direction,disp])
+        send_req = cart.comm_cart.Isend( send_buf, info['rank_dest'], tag(disp) )
+        requests.append( send_req )
+
+    # Wait for end of data exchange (MPI_WAITALL)
+    MPI.Request.Waitall( requests )
 
 #===============================================================================
 # CHECK RESULTS

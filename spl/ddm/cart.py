@@ -1,9 +1,3 @@
-#---------------------------------------------------------------------------
-# TODO: use non-blocking ISEND + IRECV instead of blocking SENDRECV
-# TODO: increase MPI bandwidth by factor of 2 by using same MPI channel
-#       in both directions (here with dest=source)
-#---------------------------------------------------------------------------
-
 import numpy as np
 from itertools import product
 from mpi4py    import MPI
@@ -73,13 +67,20 @@ class Cart():
             remain_dims     = [i==j for j in range( self._ndims )]
             self._subcomm[i] = self._comm_cart.Sub( remain_dims )
 
+#        # Compute/store information for communicating with neighbors
+#        self._sendrecv_info = {}
+#        zero_shift = tuple( [0]*self._ndims )
+#        for shift in product( [-1,0,1], repeat=self._ndims ):
+#            if shift == zero_shift:
+#                continue
+#            self._sendrecv_info[shift] = self._compute_sendrecv_info( shift )
+
         # Compute/store information for communicating with neighbors
-        self._sendrecv_info = {}
-        zero_shift = tuple( [0]*self._ndims )
-        for shift in product( [-1,0,1], repeat=self._ndims ):
-            if shift == zero_shift:
-                continue
-            self._sendrecv_info[shift] = self._compute_sendrecv_info( shift )
+        self._shift_info = {}
+        for dimension in range( self._ndims ):
+            for disp in [-1,1]:
+                self._shift_info[ dimension, disp ] = \
+                        self._compute_shift_info( dimension, disp )
 
     #---------------------------------------------------------------------------
     @property
@@ -111,68 +112,110 @@ class Cart():
 
         return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._dims ) )
 
+#    #---------------------------------------------------------------------------
+#    def get_sendrecv_info( self, shift ):
+#
+#        return self._sendrecv_info[shift]
+#
+#    #---------------------------------------------------------------------------
+#    def _compute_sendrecv_info( self, shift ):
+#
+#        assert( len( shift ) == self._ndims )
+#
+#        # Compute coordinates of destination and source
+#        coords_dest   = [c+h for c,h in zip( self._coords, shift )]
+#        coords_source = [c-h for c,h in zip( self._coords, shift )]
+#
+#        # Convert coordinates to rank, taking care of non-periodic dimensions
+#        if self.coords_exist( coords_dest ):
+#            rank_dest = self._comm_cart.Get_cart_rank( coords_dest )
+#        else:
+#            rank_dest = MPI.PROC_NULL
+#
+#        if self.coords_exist( coords_source ):
+#            rank_source = self._comm_cart.Get_cart_rank( coords_source )
+#        else:
+#            rank_source = MPI.PROC_NULL
+#
+#        # Compute information for exchanging ghost cell data
+#        buf_shape   = []
+#        send_starts = []
+#        recv_starts = []
+#        for s,e,p,h in zip( self._starts, self._ends, self._pads, shift ):
+#
+#            if h == 0:
+#                buf_length = e-s+1
+#                recv_start = p
+#                send_start = p
+#
+#            elif h == 1:
+#                buf_length = p
+#                recv_start = 0
+#                send_start = e-s+1
+#
+#            elif h == -1:
+#                buf_length = p
+#                recv_start = e-s+1+p
+#                send_start = p
+#
+#            buf_shape  .append( buf_length )
+#            send_starts.append( send_start )
+#            recv_starts.append( recv_start )
+#
+#        # Compute unique identifier for messages traveling along 'shift'
+#        tag = sum( (h%3)*(3**n) for h,n in zip(shift,range(self._ndims)) )
+#
+#        # Store all information into dictionary
+#        info = {'rank_dest'  : rank_dest,
+#                'rank_source': rank_source,
+#                'tag'        : tag,
+#                'buf_shape'  : tuple(  buf_shape  ),
+#                'send_starts': tuple( send_starts ),
+#                'recv_starts': tuple( recv_starts )}
+#
+#        # return dictionary
+#        return info
+
     #---------------------------------------------------------------------------
-    def get_sendrecv_info( self, shift ):
+    def get_shift_info( self, direction, disp ):
 
-        return self._sendrecv_info[shift]
+        return self._shift_info[ direction, disp ]
 
     #---------------------------------------------------------------------------
-    def _compute_sendrecv_info( self, shift ):
+    def _compute_shift_info( self, direction, disp ):
 
-        assert( len( shift ) == self._ndims )
+        assert( 0 <= direction < self._ndims )
+        assert( isinstance( disp, int ) )
 
-        # Compute coordinates of destination and source
-        coords_dest   = [c+h for c,h in zip( self._coords, shift )]
-        coords_source = [c-h for c,h in zip( self._coords, shift )]
+        # Process ranks for data shifting with MPI_SENDRECV
+        (rank_source, rank_dest) = self.comm_cart.Shift( direction, disp )
 
-        # Convert coordinates to rank, taking care of non-periodic dimensions
-        if self.coords_exist( coords_dest ):
-            rank_dest = self._comm_cart.Get_cart_rank( coords_dest )
-        else:
-            rank_dest = MPI.PROC_NULL
+        # Mesh info info along given direction
+        s = self._starts[direction]
+        e = self._ends  [direction]
+        p = self._pads  [direction]
 
-        if self.coords_exist( coords_source ):
-            rank_source = self._comm_cart.Get_cart_rank( coords_source )
-        else:
-            rank_source = MPI.PROC_NULL
+        # Shape of send/recv subarrays
+        buf_shape = np.array( self._shape )
+        buf_shape[direction] = p
 
-        # Compute information for exchanging ghost cell data
-        buf_shape   = []
-        send_starts = []
-        recv_starts = []
-        for s,e,p,h in zip( self._starts, self._ends, self._pads, shift ):
-
-            if h == 0:
-                buf_length = e-s+1
-                recv_start = p
-                send_start = p
-
-            elif h == 1:
-                buf_length = p
-                recv_start = 0
-                send_start = e-s+1
-
-            elif h == -1:
-                buf_length = p
-                recv_start = e-s+1+p
-                send_start = p
-
-            buf_shape  .append( buf_length )
-            send_starts.append( send_start )
-            recv_starts.append( recv_start )
-
-        # Compute unique identifier for messages traveling along 'shift'
-        tag = sum( (h%3)*(3**n) for h,n in zip(shift,range(self._ndims)) )
+        # Start location of send/recv subarrays
+        send_starts = np.zeros( self._ndims, dtype=int )
+        recv_starts = np.zeros( self._ndims, dtype=int )
+        if disp > 0:
+            recv_starts[direction] = 0
+            send_starts[direction] = e-s+1
+        elif disp < 0:
+            recv_starts[direction] = e-s+1+p
+            send_starts[direction] = p
 
         # Store all information into dictionary
         info = {'rank_dest'  : rank_dest,
                 'rank_source': rank_source,
-                'tag'        : tag,
                 'buf_shape'  : tuple(  buf_shape  ),
                 'send_starts': tuple( send_starts ),
                 'recv_starts': tuple( recv_starts )}
 
-        # return dictionary
         return info
 
     #---------------------------------------------------------------------------
