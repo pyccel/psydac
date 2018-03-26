@@ -21,16 +21,19 @@ virtualenv:
 # command before installation
 before_install:
   - sudo apt-get install gfortran
+  - sudo apt-get install openmpi-bin libopenmpi-dev
+  - ompi_info
   - mkdir -p usr
   - export FORTRAN_INSTALL_DIR=$TRAVIS_BUILD_DIR/usr
   - mkdir build && cd build
   - cmake -DCMAKE_Fortran_FLAGS="-fPIC" -DBUILD_TESTING=ON -DCMAKE_INSTALL_PREFIX=$FORTRAN_INSTALL_DIR  ..
   - make && make install
   - cd ..
-
 # command to install dependencies
-install:
   - pip3 install -r requirements.txt
+
+# command to install project
+install:
   - pip3 install . 
 
 # command to run tests
@@ -38,6 +41,7 @@ script:
 #  - pytest # or py.test for Python versions 3.5 and below
 #  - pytest tests/caid
   - cd build ; make test ; cd ..
+  - pytest tests/ddm
   - pytest tests/linalg
   - pytest tests/test_core.py
   - pytest tests/test_integration.py
