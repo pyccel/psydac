@@ -6,8 +6,8 @@
 def run_cart_1d( verbose=False ):
 
     import numpy as np
-    from mpi4py import MPI
-    from cart   import Cart
+    from mpi4py       import MPI
+    from spl.ddm.cart import Cart
 
     #---------------------------------------------------------------------------
     # INPUT PARAMETERS
