@@ -23,11 +23,10 @@ cache: pip
 
 # command before installation: install all dependencies and run CMAKE config
 before_install:
-  - sudo apt-get update
   - sudo apt-get install gfortran
   - sudo apt-get install openmpi-bin libopenmpi-dev
   - ompi_info
-  - pip3 install --upgrade -r requirements.txt
+  - pip3 install -r requirements.txt
   - mkdir -p usr
   - export FORTRAN_INSTALL_DIR=$TRAVIS_BUILD_DIR/usr
   - mkdir build && cd build
