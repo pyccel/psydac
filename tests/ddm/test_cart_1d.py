@@ -35,7 +35,7 @@ def run_cart_1d( verbose=False ):
     cart = Cart( npts=[n1+1], pads=[p1], periods=[period1], reorder=False, comm=comm )
 
     # Local 1D array (extended domain)
-    u = np.zeros( cart.shape, dtype=int ) # NOTE: 64-bit INTEGER!
+    u = np.zeros( cart.shape, dtype='i' ) # NOTE: 32-bit C INTEGER!
 
     # Global indices of first and last elements of array
     s1, = cart.starts
@@ -47,13 +47,13 @@ def run_cart_1d( verbose=False ):
     for disp in [-1,1]:
         info = cart.get_shift_info( 0, disp )
 
-        send_types[disp] = MPI.INT64_T.Create_subarray(
+        send_types[disp] = MPI.INT.Create_subarray(
             sizes    = u.shape,
             subsizes = info[ 'buf_shape' ],
             starts   = info['send_starts'],
         ).Commit()
 
-        recv_types[disp] = MPI.INT64_T.Create_subarray(
+        recv_types[disp] = MPI.INT.Create_subarray(
             sizes    = u.shape,
             subsizes = info[ 'buf_shape' ],
             starts   = info['recv_starts'],
@@ -77,7 +77,7 @@ def run_cart_1d( verbose=False ):
     # TEST
     #---------------------------------------------------------------------------
 
-    # Fill in true domain with u[i]=i
+    # Fill in true domain with u[i1_loc]=i1_glob
     u[p1:-p1] = [i1 for i1 in range(s1,e1+1)]
 
     # Choose non-negative invertible function tag(disp) >= 0

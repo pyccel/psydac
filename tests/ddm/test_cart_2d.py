@@ -45,7 +45,7 @@ def run_cart_2d( verbose=False ):
 
     # Local 2D array with 2D vector data (extended domain)
     shape = list( cart.shape ) + [2]
-    u = np.zeros( shape, dtype=int ) # NOTE: 64-bit INTEGER!
+    u = np.zeros( shape, dtype='i' ) # NOTE: 32-bit C INTEGER!
 
     # Global indices of first and last elements of array
     s1,s2 = cart.starts
@@ -62,13 +62,13 @@ def run_cart_2d( verbose=False ):
             send_starts = list( info['send_starts'] ) + [0]
             recv_starts = list( info['recv_starts'] ) + [0]
 
-            send_types[direction,disp] = MPI.INT64_T.Create_subarray(
+            send_types[direction,disp] = MPI.INT.Create_subarray(
                 sizes    = u.shape,
                 subsizes = buf_shape,
                 starts   = send_starts,
             ).Commit()
 
-            recv_types[direction,disp] = MPI.INT64_T.Create_subarray(
+            recv_types[direction,disp] = MPI.INT.Create_subarray(
                 sizes    = u.shape,
                 subsizes = buf_shape,
                 starts   = recv_starts,
