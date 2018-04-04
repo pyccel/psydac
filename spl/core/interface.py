@@ -27,7 +27,7 @@ def make_open_knots(p, n):
     return T
 
 def make_periodic_knots(p, n):
-    """Returns an open knots sequence for n splines and degree p.
+    """Returns a periodic knots sequence for n splines and degree p.
 
     p: int
         spline degree
@@ -37,11 +37,11 @@ def make_periodic_knots(p, n):
 
     Examples
 
-    >>> from spl.core.interface import make_open_knots
+    >>> from spl.core.interface import make_periodic_knots
 
     >>> T = make_periodic_knots(3, 8)
     >>> T
-    array([0. , 0. , 0. , 0. , 0.2, 0.4, 0.6, 0.8, 1. , 1. , 1. , 1. ])
+    array([-0.6 , -0.4 , -0.2 , 0. , 0.2, 0.4, 0.6, 0.8, 1. , 1.2 , 1.4 , 1.6 ])
 
     """
     from spl.core.bsp  import bsp_utils as _core
