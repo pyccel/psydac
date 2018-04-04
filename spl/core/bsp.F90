@@ -20,6 +20,7 @@ module bsp_utils
           & construct_grid_from_knots,  &
           & construct_quadrature_grid,  &
           & make_open_knots,            &
+          & make_periodic_knots,        &
           & compute_origins_element
 
 contains
@@ -146,6 +147,23 @@ contains
   end subroutine make_open_knots 
   ! ................................................  
   
+  ! ................................................
+  subroutine make_periodic_knots(p, n, knots)
+  use spl_m_bsp, only: spl_make_open_knots, &
+                     & spl_symetrize_knots
+  implicit none
+    integer,                    intent(in)  :: p
+    integer,                    intent(in)  :: n
+  real(8), dimension(n+p+1),   intent(out)  :: knots
+
+    ! ...
+    call spl_make_open_knots(n, p, knots)
+    call spl_symetrize_knots(p-1, n, p, knots) 
+    ! ...
+    
+  end subroutine make_periodic_knots 
+  ! ................................................ 
+
   ! ................................................
   subroutine compute_origins_element(p, n, knots, origins_element)
   use spl_m_bsp, only: spl_compute_origins_element

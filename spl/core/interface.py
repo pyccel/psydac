@@ -26,6 +26,28 @@ def make_open_knots(p, n):
     T = _core.make_open_knots(p, n)
     return T
 
+def make_periodic_knots(p, n):
+    """Returns an open knots sequence for n splines and degree p.
+
+    p: int
+        spline degree
+
+    n: int
+        number of splines functions i.e. `control points`
+
+    Examples
+
+    >>> from spl.core.interface import make_open_knots
+
+    >>> T = make_periodic_knots(3, 8)
+    >>> T
+    array([0. , 0. , 0. , 0. , 0.2, 0.4, 0.6, 0.8, 1. , 1. , 1. , 1. ])
+
+    """
+    from spl.core.bsp  import bsp_utils as _core
+    T = _core.make_periodic_knots(p, n)
+    return T
+
 def construct_grid_from_knots(p, n, T):
     """Returns the grid associated to a knot vector. It consists of the breaks
     of the knot vector, where every knot has a unique occurence.
