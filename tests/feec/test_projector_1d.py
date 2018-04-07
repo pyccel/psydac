@@ -64,6 +64,9 @@ def test_projectors_1d(verbose=False):
     S = scaling_matrix(p, n, T, kind='L2')
     f_1  = S.dot(f_1)
     tck = get_tck('L2', p, n, T, f_1)
+    # print('NB: Using Histopolation:')
+    # print('         n = '+repr(n))
+    # print('         len(tck[1]) = '+repr(len(tck[1])))
     fh_1 = lambda x: splev(x, tck)
     diff = lambda x: (f(x) - fh_1(x))**2
 

@@ -18,14 +18,14 @@ import matplotlib.pyplot as plt
 
 def test_conga_ddm_1d(verbose=False):
     # ...
-    N_cells_sub = 12         # nb cells on each subdomain
+    N_cells_sub = 48         # nb cells on each subdomain
     p = 3                    # spline degree
     m = 2                    # degree of the preserved moments
     # ...
 
     if verbose:
         print("building the conga-ddm object")
-    cddm = SimpleCongaDDM(p, m, N_cells_sub, watch_your_steps=False, n_checks=7, use_macro_elem_duals=False)
+    cddm = SimpleCongaDDM(p, m, N_cells_sub, watch_your_steps=False, n_checks=7, use_macro_elem_duals=True)
 
     # check: plot a reg spline and dual:
     visual_check = False
@@ -48,11 +48,16 @@ def test_conga_ddm_1d(verbose=False):
         if verbose:
             print("done")
 
-    f = lambda u: u  #  u*(1.-u)
+    f = lambda u: u*(1.-u)
     if verbose:
         print("approx some function")
-    cddm.l2_project_on_sub_domain(f, sub='left')
-    # cddm.l2_project_on_sub_domain(f, sub='right')
+    L2_proj = True
+    if L2_proj:
+        cddm.l2_project_on_sub_domain(f, sub='left')
+        cddm.l2_project_on_sub_domain(f, sub='right')
+    else:
+        cddm.histopolation_on_sub_domain(f, sub='left')
+        # cddm.histopolation_on_sub_domain(f, sub='right')
     if verbose:
         print("smooth projection")
     cddm.smooth_projection()

@@ -19,9 +19,15 @@ from spl.core.interface import make_open_knots
 from spl.core.interface import construct_grid_from_knots
 from spl.core.interface import construct_quadrature_grid
 from spl.utilities.quadratures import gauss_legendre
+
+from spl.utilities import Integral
+from spl.utilities import Interpolation
 from spl.utilities import Contribution
+
+from spl.feec import interpolation_matrices
 from spl.feec import get_tck
 from spl.feec import mass_matrices
+from spl.feec import scaling_matrix
 
 
 # import os.path
@@ -641,20 +647,50 @@ class SimpleCongaDDM:
         L2 projection (??) derived from test_projector_1d by ARA
         """
         if sub == 'left':
-            n_sub = self._n_left
-            T_sub = self._T_left
+            n = self._n_left
+            T = self._T_left
         else:
             assert sub == 'right'
-            n_sub = self._n_right
-            T_sub = self._T_right
+            n = self._n_right
+            T = self._T_right
+        p = self._p
         print("L2 proj on subdomain "+sub)
-        print("n_sub = "+repr(n_sub))
-        print("T_sub = "+repr(T_sub))
-        mass_0, mass_1 = mass_matrices(self._p, n_sub, T_sub)   # works with a knot vector that is not open ??
-        contribution = Contribution(self._p, n_sub, T_sub)
+        print("n = "+repr(n))
+        print("T = "+repr(T))
+        mass_0, mass_1 = mass_matrices(p, n, T)   # works with a knot vector that is not open ??
+        contribution = Contribution(p, n, T)
         f_l2 = solve(mass_1, contribution(f))
-        tck = get_tck('L2', self._p, n_sub, T_sub, f_l2)    # H1, L2 ??
-        assert len(tck[1]) == n_sub
+        tck = get_tck('L2', p, n, T, f_l2)    # H1, L2 ??
+        assert len(tck[1]) == n
+        if sub == 'left':
+            self.coefs_left = tck[1]
+        else:
+            assert sub == 'right'
+            self.coefs_right = tck[1]
+
+    def histopolation_on_sub_domain(self, f, sub='left'):
+        """
+        histopolation (??) derived from test_projector_1d by ARA
+        """
+        if sub == 'left':
+            n = self._n_left
+            T = self._T_left
+        else:
+            assert sub == 'right'
+            n = self._n_right
+            T = self._T_right
+        p = self._p
+        print("Histopolation on subdomain "+sub)
+        print("n = "+repr(n))
+        print("T = "+repr(T))
+        I0, I1 = interpolation_matrices(p, n, T)
+        histopolation = Integral(p, n, T, kind='greville')
+        f_1 = solve(I1, histopolation(f))
+        # scale fh_1 coefficients
+        S = scaling_matrix(p, n, T, kind='L2')
+        f_1 = S.dot(f_1)
+        tck = get_tck('L2', p, n, T, f_1)
+        assert len(tck[1]) == n    # assert FAILS --- todo: understand why
         if sub == 'left':
             self.coefs_left = tck[1]
         else:
