@@ -76,7 +76,15 @@ python module bsp
           real(kind=8) dimension(n+p+1), intent(out), depend(n, p) :: knots
       end subroutine make_open_knots
       ! ................................................
-
+      
+      ! ................................................
+      subroutine make_periodic_knots(p, n, knots) 
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          real(kind=8) dimension(n+p+1), intent(out), depend(n, p) :: knots
+      end subroutine make_periodic_knots
+      ! ................................................
+      
       ! ................................................
       subroutine compute_origins_element(p, n, knots, origins_element) 
           integer(kind=4) intent(in) :: p 
