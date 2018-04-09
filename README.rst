@@ -46,12 +46,11 @@ Whenever you change the fortran code (inside **fortran/src**), you need to recom
 
 then use **pip3** as previously to install the python package.
 
-.. note:: even if only change the python source, you need to reinstall it to take the modifications into account.
+.. note:: even if you only change the python source, you need to reinstall it to take the modifications into account.
 
-  This can be done with pip3 with an upgrade option:
+  This can be done with pip3 with an upgrade option::
 
     sudo -H FORTRAN_INSTALL_DIR=$PWD/../usr pip3 install --upgrade .
-
 
 .. note:: for some reasons, you may need to clean your installation using::
 
