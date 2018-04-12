@@ -45,9 +45,9 @@ class SplineSpace( SpaceBase ):
             if dirichlet[1]: defect += 1
             self._nbasis = len(knots) - degree - 1 - defect
 
-        starts = [0]            # [0, 0]
-        ends = [self.dimension] # [n1, n2]
-        pads = [degree]         # [p1, p2]
+        starts = [0]
+        ends = [self.dimension]
+        pads = [degree]
         self._vector_space = VectorSpace(starts, ends, pads)
 
     @property
@@ -136,32 +136,5 @@ class Spline( FieldBase ):
         return self._space
 
     @property
-    def vector( self ):
+    def coeffs( self ):
         return self._vector
-
-
-
-def test_1d():
-    knots = [0., 0., 0., 1., 1., 1.]
-    p = 2
-    V = SplineSpace(knots, p)
-    print (V)
-    F = Spline(V)
-
-def test_2d():
-    knots_1 = [0., 0., 0., 1., 1., 1.]
-    knots_2 = [0., 0., 0., 0.5, 1., 1., 1.]
-    p_1 = 2
-    p_2 = 2
-    V1 = SplineSpace(knots_1, p_1)
-    V2 = SplineSpace(knots_2, p_2)
-
-    from spl.linalg.tensor import TensorSpace
-    V = TensorSpace(V1, V2)
-    print (V)
-
-
-###############################################
-if __name__ == '__main__':
-#    test_1d()
-    test_2d()

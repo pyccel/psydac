@@ -2,6 +2,8 @@
 
 from spl.linalg.basic import VectorSpace
 
+# TODO shall we keep it?
+
 
 #===============================================================================
 class TensorSpace( VectorSpace ):
@@ -28,13 +30,3 @@ class TensorSpace( VectorSpace ):
         for d in dims:
             dim *= d
         return dim
-
-    def __str__(self):
-        """Pretty printing"""
-        txt  = '\n'
-        txt += '> Dimension  :: {dim}\n'.format(dim=self.dimension)
-
-        dims = ', '.join(str(V.dimension) for V in self.spaces)
-        txt += '> Dimensions :: ({dims})\n'.format(dims=dims)
-        return txt
-

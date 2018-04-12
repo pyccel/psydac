@@ -38,5 +38,5 @@ class FieldBase( metaclass=ABCMeta ):
 
     @property
     @abstractmethod
-    def vector( self ):
+    def coeffs( self ):
         pass
