@@ -47,4 +47,5 @@ script:
   - pytest tests/linalg
   - pytest tests/test_core.py
   - pytest tests/test_integration.py
+  - pytest tests/fem/
   - pytest tests/feec/
