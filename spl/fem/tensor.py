@@ -5,29 +5,26 @@ We assume here that a tensor space is the product of fem spaces whom basis are
 of compact support
 """
 
-from spl.linalg.stencil import VectorSpace
-from spl.fem.basic      import SpaceBase
+from spl.linalg.stencil import VectorSpace as StencilVectorSpace
+from spl.fem.basic      import FemSpace
 
 
 #===============================================================================
-class TensorSpace( SpaceBase ):
+class TensorSpace( FemSpace ):
     """
     Generic Finite Element space V.
 
     """
 
-    def __init__(self, V1, V2, V3=None):
+    def __init__( self, *args, **kwargs ):
         """."""
-        if V3:
-            self._spaces = (V1, V2, V3)
-        else:
-            self._spaces = (V1, V2)
+        self._spaces = tuple(args)
 
         # serial case
         starts = [0 for V in self.spaces]
-        ends = [V.dimension for V in self.spaces]
+        ends = [V.nbasis for V in self.spaces]
         pads = [V.degree for V in self.spaces]
-        self._vector_space = VectorSpace(starts, ends, pads)
+        self._vector_space = StencilVectorSpace(starts, ends, pads)
 
         # TODO parallel case
 
@@ -41,19 +38,23 @@ class TensorSpace( SpaceBase ):
         return self._spaces
 
     @property
-    def dimension(self):
-        dims = [V.dimension for V in self.spaces]
+    def nbasis(self):
+        dims = [V.nbasis for V in self.spaces]
         dim = 1
         for d in dims:
             dim *= d
         return dim
 
+    @property
+    def degree(self):
+        return [V.degree for V in self.spaces]
+
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
-        txt += '> Dimension  :: {dim}\n'.format(dim=self.dimension)
+        txt += '> total nbasis  :: {dim}\n'.format(dim=self.nbasis)
 
-        dims = ', '.join(str(V.dimension) for V in self.spaces)
-        txt += '> Dimensions :: ({dims})\n'.format(dims=dims)
+        dims = ', '.join(str(V.nbasis) for V in self.spaces)
+        txt += '> nbasis :: ({dims})\n'.format(dims=dims)
         return txt
 

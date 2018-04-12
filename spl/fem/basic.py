@@ -12,7 +12,7 @@ from spl.linalg.basic import (VectorSpace, Vector)
 
 
 #===============================================================================
-class SpaceBase( metaclass=ABCMeta ):
+class FemSpace( metaclass=ABCMeta ):
     """
     Generic Finite Element space V.
 
@@ -22,8 +22,19 @@ class SpaceBase( metaclass=ABCMeta ):
     def vector_space( self ):
         pass
 
+    @property
+    @abstractmethod
+    def nbasis( self ):
+        pass
+
+    @property
+    @abstractmethod
+    def degree( self ):
+        pass
+
+
 #===============================================================================
-class FieldBase( metaclass=ABCMeta ):
+class FemField( metaclass=ABCMeta ):
     """
     Element of a finite element space V.
 

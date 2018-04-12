@@ -2,12 +2,13 @@
 
 from numpy import unique
 
-from spl.linalg.stencil import (Vector, VectorSpace)
-from spl.fem.basic import (SpaceBase, FieldBase)
+from spl.linalg.stencil import VectorSpace as StencilVectorSpace
+from spl.linalg.stencil import Vector as StencilVector
+from spl.fem.basic import FemSpace, FemField
 
 
 #===============================================================================
-class SplineSpace( SpaceBase ):
+class SplineSpace( FemSpace ):
     """
     a 1D Splines Finite Element space
 
@@ -46,9 +47,9 @@ class SplineSpace( SpaceBase ):
             self._nbasis = len(knots) - degree - 1 - defect
 
         starts = [0]
-        ends = [self.dimension]
+        ends = [self.nbasis]
         pads = [degree]
-        self._vector_space = VectorSpace(starts, ends, pads)
+        self._vector_space = StencilVectorSpace(starts, ends, pads)
 
     @property
     def vector_space(self):
@@ -68,7 +69,7 @@ class SplineSpace( SpaceBase ):
         return self._ncells
 
     @property
-    def dimension( self ):
+    def nbasis( self ):
         """
         """
         return self._nbasis
@@ -117,19 +118,19 @@ class SplineSpace( SpaceBase ):
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
-        txt += '> Dimension :: {dim}\n'.format(dim=self.dimension)
-        txt += '> Degree    :: {degree}'.format(degree=self.degree)
+        txt += '> nbasis :: {dim}\n'.format(dim=self.nbasis)
+        txt += '> degree :: {degree}'.format(degree=self.degree)
         return txt
 
 #===============================================================================
-class Spline( FieldBase ):
+class Spline( FemField ):
     """
     A field spline is an element of the SplineSpace.
 
     """
     def __init__(self, space):
         self._space = space
-        self._vector = Vector( space.vector_space )
+        self._coeffs = StencilVector( space.vector_space )
 
     @property
     def space( self ):
@@ -137,4 +138,4 @@ class Spline( FieldBase ):
 
     @property
     def coeffs( self ):
-        return self._vector
+        return self._coeffs
