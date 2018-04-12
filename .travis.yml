@@ -44,6 +44,7 @@ script:
 #  - pytest tests/caid
   - cd build ; make test ; cd ..
   - python3 tests/mpi_tester.py tests/ddm
+  - python3 tests/mpi_tester.py tests/linalg -k parallel
   - pytest tests/linalg
   - pytest tests/test_core.py
   - pytest tests/test_integration.py

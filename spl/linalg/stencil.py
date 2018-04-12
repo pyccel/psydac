@@ -6,6 +6,8 @@ from .basic import (VectorSpace as VectorSpaceBase,
                     Vector      as VectorBase,
                     LinearOperator)
 
+from ..ddm.cart import Cart
+
 #===============================================================================
 class VectorSpace( VectorSpaceBase ):
     """
@@ -38,7 +40,9 @@ class VectorSpace( VectorSpaceBase ):
         from numpy import prod
 
         assert( len(starts) == len(ends) == len(pads) )
+        self._parallel = False
 
+        # Sequential attributes
         self._starts = tuple(starts)
         self._ends   = tuple(ends)
         self._pads   = tuple(pads)
@@ -49,8 +53,38 @@ class VectorSpace( VectorSpaceBase ):
 
     # ...
     def _init_parallel( self, cart, dtype=float ):
+        from numpy import prod
 
-        raise NotImplementedError( "Parallel version not yet available." )
+        assert isinstance( cart, Cart )
+        self._parallel = True
+
+        # Sequential attributes
+        self._starts = cart.starts
+        self._ends   = cart.ends
+        self._pads   = cart.pads
+        self._dtype  = dtype
+        self._ndim   = len(cart.starts)
+
+        self._dimension = prod( [e-s+1 for s,e in zip(cart.starts,cart.ends)] )
+
+        # Parallel attributes
+        mpi_type = self.find_mpi_type( dtype )
+        send_types, recv_types = self.create_buffer_types( cart, mpi_type )
+
+        self._cart       = cart
+        self._mpi_type   = mpi_type
+        self._send_types = send_types
+        self._recv_types = recv_types
+
+    # ...
+    @property
+    def parallel( self ):
+        return self._parallel
+
+    # ...
+    @property
+    def cart( self ):
+        return self._cart if self._parallel else None
 
     # ...
     @property
@@ -81,6 +115,90 @@ class VectorSpace( VectorSpaceBase ):
     @property
     def ndim( self ):
         return self._ndim
+
+    #---------------------------------------------------------------------------
+    # PARALLEL FACILITIES
+    #---------------------------------------------------------------------------
+
+    @staticmethod
+    def find_mpi_type( dtype ):
+        from mpi4py import MPI
+
+        if dtype == float:
+            mpi_type = MPI.DOUBLE
+        elif dtype == 'i':
+            mpi_type = MPI.INT
+        else:
+            raise ValueError( 'dtype not understood' )
+
+        return mpi_type
+
+    # ...
+    @staticmethod
+    def create_buffer_types( cart, mpi_type ):
+        """ Create MPI subarray datatypes for accessing non-contiguous data.
+        """
+        data_shape = cart.shape
+        send_types = {}
+        recv_types = {}
+
+        for direction in range( len(data_shape) ):
+            for disp in [-1, 1]:
+                info = cart.get_shift_info( direction, disp )
+
+                buf_shape   = info[ 'buf_shape' ]
+                send_starts = info['send_starts']
+                recv_starts = info['recv_starts']
+
+                send_types[direction,disp] = mpi_type.Create_subarray(
+                    sizes    = data_shape ,
+                    subsizes =  buf_shape ,
+                    starts   = send_starts,
+                ).Commit()
+
+                recv_types[direction,disp] = mpi_type.Create_subarray(
+                    sizes    = data_shape ,
+                    subsizes =  buf_shape ,
+                    starts   = recv_starts,
+                ).Commit()
+
+        return send_types, recv_types
+
+    # ...
+    @staticmethod
+    def update_ghost_regions( cart, send_types, recv_types, u ):
+
+        assert( cart.shape == u.shape )
+
+        # Choose non-negative invertible function tag(disp) >= 0
+        # NOTE: different values of disp must return different tags!
+        tag = lambda disp: 42+disp
+
+        # Number of dimensions
+        ndim = len( cart.shape )
+
+        # Cycle over dimensions
+        for direction in range(ndim):
+
+            # Requests' handles
+            requests = []
+
+            # Start receiving data (MPI_IRECV)
+            for disp in [-1,1]:
+                info     = cart.get_shift_info( direction, disp )
+                recv_buf = (u, 1, recv_types[direction,disp])
+                recv_req = cart.comm_cart.Irecv( recv_buf, info['rank_source'], tag(disp) )
+                requests.append( recv_req )
+
+            # Start sending data (MPI_ISEND)
+            for disp in [-1,1]:
+                info     = cart.get_shift_info( direction, disp )
+                send_buf = (u, 1, send_types[direction,disp])
+                send_req = cart.comm_cart.Isend( send_buf, info['rank_dest'], tag(disp) )
+                requests.append( send_req )
+
+            # Wait for end of data exchange (MPI_WAITALL)
+            MPI.Request.Waitall( requests )
 
 #===============================================================================
 class Vector( VectorBase ):
@@ -117,7 +235,13 @@ class Vector( VectorBase ):
         assert( v._space is self._space )
 
         index = tuple( slice(p,-p) for p in self.pads )
-        return dot( self._data[index].flat, v._data[index].flat )
+        res   = dot( self._data[index].flat, v._data[index].flat )
+
+        if self._space.parallel:
+            from mpi4py import MPI
+            res = self._space.cart.comm_cart.allreduce( res, op=MPI.SUM )
+
+        return res
 
     #...
     def copy( self ):
