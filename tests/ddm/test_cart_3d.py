@@ -148,6 +148,9 @@ def run_cart_3d( verbose=False ):
 #===============================================================================
 # RUN TEST WITH PYTEST
 #===============================================================================
+import pytest
+
+@pytest.mark.parallel
 def test_cart_3d():
 
     namespace = run_cart_3d()

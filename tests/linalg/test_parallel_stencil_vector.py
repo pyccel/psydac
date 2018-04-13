@@ -13,6 +13,7 @@ from spl.ddm.cart       import Cart
 @pytest.mark.parametrize( 'n2', [2,12,25] )
 @pytest.mark.parametrize( 'p1', [1,3,4] )
 @pytest.mark.parametrize( 'p2', [1,3,4] )
+@pytest.mark.parallel
 
 def test_vector_parallel_dot( n1, n2, p1, p2 ):
 

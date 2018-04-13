@@ -86,6 +86,7 @@ def test_3():
     print(z)
 # ....
 
-test_1()
-test_2()
-test_3()
+if __name__ is "__main__":
+    test_1()
+    test_2()
+    test_3()

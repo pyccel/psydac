@@ -139,6 +139,9 @@ def run_cart_2d( verbose=False ):
 #===============================================================================
 # RUN TEST WITH PYTEST
 #===============================================================================
+import pytest
+
+@pytest.mark.parallel
 def test_cart_2d():
 
     namespace = run_cart_2d()
