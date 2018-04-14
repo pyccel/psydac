@@ -215,6 +215,49 @@ def assembly_v2(V, kernel):
     # ...
 # ...
 
+# ... pure python assembly
+def assembly_v3(V, kernel):
+
+    # ... sizes
+    [s1, s2] = V.vector_space.starts
+    [e1, e2] = V.vector_space.ends
+    [p1, p2] = V.vector_space.pads
+    # ...
+
+    # ... seetings
+    [k1, k2] = [W.quad_order for W in V.spaces]
+    [spans_1, spans_2] = [W.spans for W in V.spaces]
+    [basis_1, basis_2] = [W.basis for W in V.spaces]
+    [weights_1, weights_2] = [W.weights for W in V.spaces]
+    [points_1, points_2] = [W.points for W in V.spaces]
+    # ...
+
+    # ... data structure
+    M = Matrix(V.vector_space, V.vector_space)
+    # ...
+
+    # ... element matrix
+    mat = np.zeros((p1+1, p2+1, 2*p1+1, 2*p2+1), order='F')
+    # ...
+
+    # ... build matrices
+    for ie1 in range(s1, e1+1-p1):
+        for ie2 in range(s2, e2+1-p2):
+            i_span_1 = spans_1[ie1]
+            i_span_2 = spans_2[ie2]
+
+            bs1 = basis_1[:, :, :, ie1]
+            bs2 = basis_2[:, :, :, ie2]
+            w1 = weights_1[:, ie1]
+            w2 = weights_2[:, ie2]
+            kernel(p1, p2, k1, k2, bs1, bs2, w1, w2, mat)
+
+            s1 = i_span_1 - p1 - 1
+            s2 = i_span_2 - p2 - 1
+            M._data[s1:s1+p1+1,s2:s2+p2+1,:,:] += mat[:,:,:,:]
+    # ...
+# ...
+
 
 ####################################################################################
 if __name__ == '__main__':
@@ -225,7 +268,7 @@ if __name__ == '__main__':
 
     # ... numbers of elements and degres
     p1  = 5 ; p2  = 5
-    ne1 = 64 ;  ne2 = 64
+    ne1 = 64 ; ne2 = 64
     n1 = p1 + ne1 ;  n2 = p2 + ne2
     # ...
 
@@ -240,29 +283,37 @@ if __name__ == '__main__':
 
     V = TensorSpace(V1, V2)
 
-    # ... pure python assembly
-    tb = time.time()
-    assembly_v0(V)
-    te = time.time()
-    print('> elapsed time v0 : {} [pure Python]'.format(te-tb))
-    # ...
+#    # ... pure python assembly
+#    tb = time.time()
+#    assembly_v0(V)
+#    te = time.time()
+#    print('> elapsed time v0 : {} [pure Python]'.format(te-tb))
+#    # ...
 
     # ... assembly using Pyccel
     if WITH_PYCCEL:
 
-        # ... using pyccel version 1
-        kernel = epyccel(kernel_v1, header_v1)
-        tb = time.time()
-        assembly_v1(V, kernel)
-        te = time.time()
-        print('> elapsed time v1 : {} [using Pyccel]'.format(te-tb))
-        # ...
+#        # ... using pyccel version 1
+#        kernel = epyccel(kernel_v1, header_v1)
+#        tb = time.time()
+#        assembly_v1(V, kernel)
+#        te = time.time()
+#        print('> elapsed time v1 : {} [using Pyccel]'.format(te-tb))
+#        # ...
+#
+#        # ... using pyccel version 2
+#        kernel = epyccel(kernel_v2, header_v2)
+#        tb = time.time()
+#        assembly_v2(V, kernel)
+#        te = time.time()
+#        print('> elapsed time v2 : {} [using Pyccel]'.format(te-tb))
+#        # ...
 
-        # ... using pyccel version 2
+        # ... using pyccel version 3
         kernel = epyccel(kernel_v2, header_v2)
         tb = time.time()
-        assembly_v2(V, kernel)
+        assembly_v3(V, kernel)
         te = time.time()
-        print('> elapsed time v2 : {} [using Pyccel]'.format(te-tb))
+        print('> elapsed time v3 : {} [using Pyccel]'.format(te-tb))
         # ...
     # ...

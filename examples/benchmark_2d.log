@@ -1,0 +1,62 @@
+
+> Grid   :: [4,4]
+> Degree :: [3,3]
+> elapsed time v0 : 0.2473609447479248 [pure Python]
+> elapsed time v1 : 0.08480715751647949 [using Pyccel]
+> elapsed time v2 : 0.07058334350585938 [using Pyccel]
+ratnania examples  (devel-fem) $ python3 benchmark_2d.py 
+> Grid   :: [8,8]
+> Degree :: [3,3]
+> elapsed time v0 : 0.9695918560028076 [pure Python]
+> elapsed time v1 : 0.3306591510772705 [using Pyccel]
+> elapsed time v2 : 0.2781035900115967 [using Pyccel]
+ratnania examples  (devel-fem) $ python3 benchmark_2d.py 
+> Grid   :: [16,16]
+> Degree :: [3,3]
+> elapsed time v0 : 3.944425344467163 [pure Python]
+> elapsed time v1 : 1.3249049186706543 [using Pyccel]
+> elapsed time v2 : 1.0810813903808594 [using Pyccel]
+ratnania examples  (devel-fem) $ python3 benchmark_2d.py 
+> Grid   :: [32,32]
+> Degree :: [3,3]
+> elapsed time v0 : 15.70307731628418 [pure Python]
+> elapsed time v1 : 5.604785442352295 [using Pyccel]
+> elapsed time v2 : 4.512860298156738 [using Pyccel]
+ratnania examples  (devel-fem) $ python3 benchmark_2d.py 
+> Grid   :: [64,64]
+> Degree :: [3,3]
+> elapsed time v0 : 71.64419054985046 [pure Python]
+> elapsed time v1 : 24.403584718704224 [using Pyccel]
+> elapsed time v2 : 20.299668312072754 [using Pyccel]
+
+
+
+> Grid   :: [4,4]
+> Degree :: [5,5]
+> elapsed time v0 : 2.3164727687835693 [pure Python]
+> elapsed time v1 : 0.42615342140197754 [using Pyccel]
+> elapsed time v2 : 0.3506968021392822 [using Pyccel]
+ratnania examples  (devel-fem) $ python3 benchmark_2d.py 
+> Grid   :: [8,8]
+> Degree :: [5,5]
+> elapsed time v0 : 9.305911540985107 [pure Python]
+> elapsed time v1 : 1.7299156188964844 [using Pyccel]
+> elapsed time v2 : 1.4246370792388916 [using Pyccel]
+ratnania examples  (devel-fem) $ python3 benchmark_2d.py 
+> Grid   :: [16,16]
+> Degree :: [5,5]
+> elapsed time v0 : 36.778664350509644 [pure Python]
+> elapsed time v1 : 6.599685192108154 [using Pyccel]
+> elapsed time v2 : 5.489662408828735 [using Pyccel]
+ratnania examples  (devel-fem) $ python3 benchmark_2d.py 
+> Grid   :: [32,32]
+> Degree :: [5,5]
+> elapsed time v0 : 149.65136981010437 [pure Python]
+> elapsed time v1 : 27.60155200958252 [using Pyccel]
+> elapsed time v2 : 22.638423442840576 [using Pyccel]
+ratnania examples  (devel-fem) $ python3 benchmark_2d.py 
+> Grid   :: [64,64]
+> Degree :: [5,5]
+> elapsed time v0 : 639.7573249340057 [pure Python]
+> elapsed time v1 : 111.19513320922852 [using Pyccel]
+> elapsed time v2 : 90.13889789581299 [using Pyccel]
