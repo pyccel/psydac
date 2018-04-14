@@ -6,28 +6,25 @@ from spl.linalg.solvers     import cg
 
 
 # ... assembly of mass and stiffness matrices using stencil forms
-def assembly_matrices(V, spans, basis, weights):
+def assembly_matrices(V):
 
     # ... sizes
-
-    [s1, s2] = V.starts
-    [e1, e2] = V.ends
-    [p1, p2] = V.pads
+    [s1, s2] = V.vector_space.starts
+    [e1, e2] = V.vector_space.ends
+    [p1, p2] = V.vector_space.pads
     # ...
 
     # ... seetings
-    [spans_1, spans_2] = spans
-    [basis_1, basis_2] = basis
-    [weights_1, weights_2] = weights
+    [k1, k2] = [W.quad_order for W in V.spaces]
+    [spans_1, spans_2] = [W.spans for W in V.spaces]
+    [basis_1, basis_2] = [W.basis for W in V.spaces]
+    [weights_1, weights_2] = [W.weights for W in V.spaces]
+    [points_1, points_2] = [W.points for W in V.spaces]
     # ...
 
-    # ... quadrature points number
-    k1 = len(weights_1)
-    k2 = len(weights_2)
-
     # ... data structure
-    mass      = Matrix(V, V)
-    stiffness = Matrix(V, V)
+    mass      = Matrix(V.vector_space, V.vector_space)
+    stiffness = Matrix(V.vector_space, V.vector_space)
     # ...
 
     # ... build matrices
@@ -73,23 +70,24 @@ def assembly_matrices(V, spans, basis, weights):
 # ...
 
 # ... example of assembly of the rhs: f(x1,x2) = x1*(1-x2)*x2*(1-x2)
-def assembly_rhs(V, spans, basis, weights, points):
+def assembly_rhs(V):
 
     # ... sizes
-    [s1, s2] = V.starts
-    [e1, e2] = V.ends
-    [p1, p2] = V.pads
+    [s1, s2] = V.vector_space.starts
+    [e1, e2] = V.vector_space.ends
+    [p1, p2] = V.vector_space.pads
     # ...
 
     # ... seetings
-    [spans_1, spans_2] = spans
-    [basis_1, basis_2] = basis
-    [weights_1, weights_2] = weights
-    [points_1, points_2] = points
+    [k1, k2] = [W.quad_order for W in V.spaces]
+    [spans_1, spans_2] = [W.spans for W in V.spaces]
+    [basis_1, basis_2] = [W.basis for W in V.spaces]
+    [weights_1, weights_2] = [W.weights for W in V.spaces]
+    [points_1, points_2] = [W.points for W in V.spaces]
     # ...
 
     # ... data structure
-    rhs = Vector(V)
+    rhs = Vector(V.vector_space)
     # ...
 
     # ... build rhs
@@ -126,65 +124,28 @@ def assembly_rhs(V, spans, basis, weights, points):
 
 ####################################################################################
 if __name__ == '__main__':
-    from spl.core.bsp    import bsp_utils as bu
+
+    from spl.core.interface import make_open_knots
+    from spl.fem.splines import SplineSpace
+    from spl.fem.tensor  import TensorSpace
 
     # ... numbers of elements and degres
     ne1 = 8 ;  ne2 = 8
     p1  = 2 ;  p2  = 2
     # ...
 
-    # ... number of control points
-    n1 = ne1 + p1
-    n2 = ne2 + p2
+    knots_1 = make_open_knots(p1, ne1)
+    knots_2 = make_open_knots(p2, ne2)
 
-    # ... number of derivatives
-    d1 = 1
-    d2 = 1
+    V1 = SplineSpace(knots_1, p1)
+    V2 = SplineSpace(knots_2, p2)
 
-    # ... knot vectors
-    T1 = bu.make_open_knots(p1, n1)
-    T2 = bu.make_open_knots(p2, n2)
-    # ...
-
-    # ...
-    u1, w1 = gauss_legendre(p1)
-    u2, w2 = gauss_legendre(p2)
-
-    k1 = len(u1)
-    k2 = len(u2)
-
-    # ... construct the quadrature points grid
-    grid_1 = bu.construct_grid_from_knots(p1, n1, T1)
-    grid_2 = bu.construct_grid_from_knots(p2, n2, T2)
-
-    points_1, weights_1 = bu.construct_quadrature_grid(ne1, k1, u1, w1, grid_1)
-    points_2, weights_2 = bu.construct_quadrature_grid(ne2, k2, u2, w2, grid_2)
-
-    basis_1 = bu.eval_on_grid_splines_ders(p1, n1, k1, d1, T1, points_1)
-    basis_2 = bu.eval_on_grid_splines_ders(p2, n2, k2, d2, T2, points_2)
-
-    spans_1 = bu.compute_spans(p1, n1, T1)
-    spans_2 = bu.compute_spans(p2, n2, T2)
-
-    # ... starts and ends
-    s1 = 0
-    e1 = n1-1
-
-    s2 = 0
-    e2 = n2-1
-    # ...
-
-    # ... VectorSpace
-    V = VectorSpace((s1, s2), (e1, e2), (p1, p2))
+    V = TensorSpace(V1, V2)
 
     # ... builds matrices and rhs
-    mass, stiffness = assembly_matrices(V, \
-                                        [spans_1, spans_2], [basis_1, basis_2],\
-                                        [weights_1, weights_2])
+    mass, stiffness = assembly_matrices(V)
 
-    rhs  = assembly_rhs(V, \
-                        [spans_1, spans_2], [basis_1, basis_2],\
-                        [weights_1, weights_2], [points_1, points_2])
+    rhs  = assembly_rhs(V)
     # ...
 
     # ... solve the system
@@ -194,14 +155,3 @@ if __name__ == '__main__':
     # ... check
     print ('> info: ',info)
     # ...
-#
-#    Mc = mass.tocoo()
-#    print ('>>> shape and nnz: ', np.shape(Mc), Mc.nnz)
-#
-#    # ... plot and print mass matrix
-#    import matplotlib.pyplot as plt
-#    import matplotlib.colors as colors
-#    plt.matshow(Mc.todense(), norm=colors.LogNorm())
-#    plt.title('Mass matrix')
-#    plt.show()
-

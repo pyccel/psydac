@@ -105,8 +105,8 @@ if __name__ == '__main__':
     from spl.core.interface import make_open_knots
     from spl.fem.splines import SplineSpace
 
-    p   = 3
     ne1 = 8
+    p   = 3
     knots = make_open_knots(p, ne1)
 
     V = SplineSpace(knots, p)
