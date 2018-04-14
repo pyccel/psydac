@@ -47,7 +47,7 @@ class SplineSpace( FemSpace ):
             self._nbasis = len(knots) - degree - 1 - defect
 
         starts = [0]
-        ends = [self.nbasis]
+        ends = [self.nbasis-1]
         pads = [degree]
         self._vector_space = StencilVectorSpace(starts, ends, pads)
 

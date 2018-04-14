@@ -22,7 +22,8 @@ class TensorSpace( FemSpace ):
 
         # serial case
         starts = [0 for V in self.spaces]
-        ends = [V.nbasis for V in self.spaces]
+        ends = [V.nbasis-1 for V in self.spaces]
+        # remove -1 in the parallel case
         pads = [V.degree for V in self.spaces]
         self._vector_space = StencilVectorSpace(starts, ends, pads)
 
