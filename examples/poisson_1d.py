@@ -4,6 +4,8 @@ from spl.utilities.quadratures import gauss_legendre
 from spl.linalg.stencil     import VectorSpace, Vector, Matrix
 from spl.linalg.solvers     import cg
 
+# TODO make_open_knots: ne is not the number of elements!!
+
 
 # ... assembly of mass and stiffness matrices using stencil forms
 def assembly_matrices(V):

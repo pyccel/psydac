@@ -53,7 +53,7 @@ def assembly_v0(V):
 # ...
 
 # ...
-header_v1 = '#$ header procedure kernel_v1(int, double [:,:], double [:,:], double [:]) results(double)'
+header_v1 = '#$ header procedure kernel_v1(int, double [:,:], double [:,:], double [:])'
 def kernel_v1(k1, bi, bj, w):
     v = 0.0
     for g1 in range(0, k1):
@@ -105,7 +105,7 @@ def assembly_v1(V, kernel):
 # ...
 
 # ...
-header_v2 = '#$ header procedure kernel_v2(int, int, double [:,:,:], double [:], double [:,:]) results(double [:,:])'
+header_v2 = '#$ header procedure kernel_v2(int, int, double [:,:,:], double [:], double [:,:])'
 def kernel_v2(p1, k1, basis, w, mat):
     mat = 0.
     for il_1 in range(0, p1+1):
