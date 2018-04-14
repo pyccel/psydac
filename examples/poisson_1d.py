@@ -6,20 +6,22 @@ from spl.linalg.solvers     import cg
 
 
 # ... assembly of mass and stiffness matrices using stencil forms
-def assembly_matrices(V, spans_1, basis_1, weights_1):
+def assembly_matrices(V):
 
     # ... sizes
-    [s1] = V.starts
-    [e1] = V.ends
-    [p1] = V.pads
+    [s1] = V.vector_space.starts
+    [e1] = V.vector_space.ends
+    [p1] = V.vector_space.pads
+
+    k1 = V.quad_order
+    spans_1 = V.spans
+    basis_1 = V.basis
+    weights_1 = V.weights
     # ...
 
-    # ... quadrature points number
-    k1 = len(weights_1)
-
     # ... data structure
-    mass      = Matrix(V, V)
-    stiffness = Matrix(V, V)
+    mass      = Matrix(V.vector_space, V.vector_space)
+    stiffness = Matrix(V.vector_space, V.vector_space)
     # ...
 
     # ... build matrices
@@ -54,16 +56,22 @@ def assembly_matrices(V, spans_1, basis_1, weights_1):
 # ...
 
 # ... example of assembly of the rhs: f(x1,x2) = x1*(1-x2)*x2*(1-x2)
-def assembly_rhs(V, spans_1, basis_1, weights_1, points_1):
+def assembly_rhs(V):
 
     # ... sizes
-    [s1] = V.starts
-    [e1] = V.ends
-    [p1] = V.pads
+    [s1] = V.vector_space.starts
+    [e1] = V.vector_space.ends
+    [p1] = V.vector_space.pads
+
+    k1 = V.quad_order
+    spans_1 = V.spans
+    basis_1 = V.basis
+    points_1 = V.points
+    weights_1 = V.weights
     # ...
 
     # ... data structure
-    rhs = Vector(V)
+    rhs = Vector(V.vector_space)
     # ...
 
     # ... build rhs
@@ -93,49 +101,20 @@ def assembly_rhs(V, spans_1, basis_1, weights_1, points_1):
 
 ####################################################################################
 if __name__ == '__main__':
-    from spl.core.bsp    import bsp_utils as bu
 
-    # ... numbers of elements and degres
+    from spl.core.interface import make_open_knots
+    from spl.fem.splines import SplineSpace
+
+    p   = 3
     ne1 = 8
-    p1  = 2
-    # ...
+    knots = make_open_knots(p, ne1)
 
-    # ... number of control points
-    n1 = ne1 + p1
-
-    # ... number of derivatives
-    d1 = 1
-
-    # ... knot vectors
-    T1 = bu.make_open_knots(p1, n1)
-    # ...
-
-    # ...
-    u1, w1 = gauss_legendre(p1)
-
-    k1 = len(u1)
-
-    # ... construct the quadrature points grid
-    grid_1 = bu.construct_grid_from_knots(p1, n1, T1)
-
-    points_1, weights_1 = bu.construct_quadrature_grid(ne1, k1, u1, w1, grid_1)
-
-    basis_1 = bu.eval_on_grid_splines_ders(p1, n1, k1, d1, T1, points_1)
-
-    spans_1 = bu.compute_spans(p1, n1, T1)
-
-    # ... starts and ends
-    s1 = 0
-    e1 = n1-1
-    # ...
-
-    # ... VectorSpace
-    V = VectorSpace([s1], [e1], [p1])
+    V = SplineSpace(knots, p)
 
     # ... builds matrices and rhs
-    mass, stiffness = assembly_matrices(V, spans_1, basis_1, weights_1)
+    mass, stiffness = assembly_matrices(V)
 
-    rhs  = assembly_rhs(V, spans_1, basis_1, weights_1, points_1)
+    rhs  = assembly_rhs(V)
     # ...
 
     # ... solve the system
