@@ -49,11 +49,13 @@ class VectorSpace( VectorSpaceBase ):
         self._dtype  = dtype
         self._ndim   = len(starts)
 
-        self._dimension = prod( [e-s+1 for s,e in zip(starts,ends)] )
+        # Global dimensions of vector space
+        self._npts   = tuple( e-s+1 for s,e in zip(starts,ends) )
 
     # ...
     def _init_parallel( self, cart, dtype=float ):
-        from numpy import prod
+        from numpy  import prod
+        from mpi4py import MPI
 
         assert isinstance( cart, Cart )
         self._parallel = True
@@ -65,7 +67,8 @@ class VectorSpace( VectorSpaceBase ):
         self._dtype  = dtype
         self._ndim   = len(cart.starts)
 
-        self._dimension = prod( [e-s+1 for s,e in zip(cart.starts,cart.ends)] )
+        # Global dimensions of vector space
+        self._npts   = cart.npts
 
         # Parallel attributes
         mpi_type = self._find_mpi_type( dtype )
@@ -76,7 +79,20 @@ class VectorSpace( VectorSpaceBase ):
         self._send_types = send_types
         self._recv_types = recv_types
 
-    # ...
+    #--------------------------------------
+    # Abstract interface
+    #--------------------------------------
+    @property
+    def dimension( self ):
+        """ The dimension of a vector space V is the cardinality
+            (i.e. the number of vectors) of a basis of V over its base field.
+        """
+        from numpy import prod
+        return prod( self._npts )
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
     @property
     def parallel( self ):
         return self._parallel
@@ -88,8 +104,8 @@ class VectorSpace( VectorSpaceBase ):
 
     # ...
     @property
-    def dimension( self ):
-        return self._dimension
+    def npts( self ):
+        return self._npts
 
     # ...
     @property
@@ -119,7 +135,6 @@ class VectorSpace( VectorSpaceBase ):
     #---------------------------------------------------------------------------
     # PARALLEL FACILITIES
     #---------------------------------------------------------------------------
-
     @staticmethod
     def _find_mpi_type( dtype ):
         from mpi4py import MPI
