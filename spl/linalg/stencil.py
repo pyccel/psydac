@@ -461,6 +461,9 @@ class Matrix( LinearOperator ):
 
             out[ii] = dot( self[ii_kk].flat, v[jj].flat )
 
+        # Necessary if vector space is distributed across processes
+        out.update_ghost_regions()
+
         return out
 
     #--------------------------------------
