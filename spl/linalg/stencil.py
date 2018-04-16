@@ -68,8 +68,8 @@ class VectorSpace( VectorSpaceBase ):
         self._dimension = prod( [e-s+1 for s,e in zip(cart.starts,cart.ends)] )
 
         # Parallel attributes
-        mpi_type = self.find_mpi_type( dtype )
-        send_types, recv_types = self.create_buffer_types( cart, mpi_type )
+        mpi_type = self._find_mpi_type( dtype )
+        send_types, recv_types = self._create_buffer_types( cart, mpi_type )
 
         self._cart       = cart
         self._mpi_type   = mpi_type
@@ -121,7 +121,7 @@ class VectorSpace( VectorSpaceBase ):
     #---------------------------------------------------------------------------
 
     @staticmethod
-    def find_mpi_type( dtype ):
+    def _find_mpi_type( dtype ):
         from mpi4py import MPI
 
         if dtype == float:
@@ -135,7 +135,7 @@ class VectorSpace( VectorSpaceBase ):
 
     # ...
     @staticmethod
-    def create_buffer_types( cart, mpi_type ):
+    def _create_buffer_types( cart, mpi_type ):
         """ Create MPI subarray datatypes for accessing non-contiguous data.
         """
         data_shape = cart.shape
@@ -165,40 +165,12 @@ class VectorSpace( VectorSpaceBase ):
         return send_types, recv_types
 
     # ...
-    @staticmethod
-    def update_ghost_regions( cart, send_types, recv_types, u ):
+    def get_send_type( self, direction, disp ):
+        return self._send_types[direction,disp] if self._parallel else None
 
-        assert( cart.shape == u.shape )
-
-        # Choose non-negative invertible function tag(disp) >= 0
-        # NOTE: different values of disp must return different tags!
-        tag = lambda disp: 42+disp
-
-        # Number of dimensions
-        ndim = len( cart.shape )
-
-        # Cycle over dimensions
-        for direction in range(ndim):
-
-            # Requests' handles
-            requests = []
-
-            # Start receiving data (MPI_IRECV)
-            for disp in [-1,1]:
-                info     = cart.get_shift_info( direction, disp )
-                recv_buf = (u, 1, recv_types[direction,disp])
-                recv_req = cart.comm_cart.Irecv( recv_buf, info['rank_source'], tag(disp) )
-                requests.append( recv_req )
-
-            # Start sending data (MPI_ISEND)
-            for disp in [-1,1]:
-                info     = cart.get_shift_info( direction, disp )
-                send_buf = (u, 1, send_types[direction,disp])
-                send_req = cart.comm_cart.Isend( send_buf, info['rank_dest'], tag(disp) )
-                requests.append( send_req )
-
-            # Wait for end of data exchange (MPI_WAITALL)
-            MPI.Request.Waitall( requests )
+    # ...
+    def get_recv_type( self, direction, disp ):
+        return self._recv_types[direction,disp] if self._parallel else None
 
 #===============================================================================
 class Vector( VectorBase ):
@@ -336,6 +308,50 @@ class Vector( VectorBase ):
     def __setitem__(self, key, value):
         index = self._getindex( key )
         self._data[index] = value
+
+    # ...
+    # TODO: maybe change name to 'exchange'
+    def update_ghost_regions( self ):
+
+        if not self._space.parallel:
+            return
+
+        from mpi4py import MPI
+
+        u         = self._data
+        space     = self._space
+        cart      = space.cart
+        comm_cart = cart.comm_cart
+        ndim      = len( cart.shape )
+
+        # Choose non-negative invertible function tag(disp) >= 0
+        # NOTE: different values of disp must return different tags!
+        tag = lambda disp: 42+disp
+
+        # Cycle over dimensions
+        for direction in range(ndim):
+
+            # Requests' handles
+            requests = []
+
+            # Start receiving data (MPI_IRECV)
+            for disp in [-1,1]:
+                info     = cart.get_shift_info( direction, disp )
+                recv_typ = space.get_recv_type( direction, disp )
+                recv_buf = (u, 1, recv_typ)
+                recv_req = comm_cart.Irecv( recv_buf, info['rank_source'], tag(disp) )
+                requests.append( recv_req )
+
+            # Start sending data (MPI_ISEND)
+            for disp in [-1,1]:
+                info     = cart.get_shift_info( direction, disp )
+                send_typ = space.get_send_type( direction, disp )
+                send_buf = (u, 1, send_typ)
+                send_req = comm_cart.Isend( send_buf, info['rank_dest'], tag(disp) )
+                requests.append( send_req )
+
+            # Wait for end of data exchange (MPI_WAITALL)
+            MPI.Request.Waitall( requests )
 
     #--------------------------------------
     # Private methods
