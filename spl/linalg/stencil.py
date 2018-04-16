@@ -534,7 +534,7 @@ class Matrix( LinearOperator ):
         index = []
 
         for i,s in zip( ii, self.starts ):
-            x = self._shift_index( i,s )
+            x = self._shift_index( i,-s )
             index.append( x )
 
         for k,p in zip( kk, self.pads ):
