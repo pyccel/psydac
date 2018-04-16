@@ -90,7 +90,9 @@ def assembly_rhs(V):
                 x1    = points_1[g1, ie1]
                 wvol  = weights_1[g1, ie1]
 
-                v += bi_0 * x1 * (1.0 - x1) * wvol
+#                v += bi_0 * x1 * (1.0 - x1) * wvol
+                v += bi_0 * 2. * wvol
+
 
             rhs[i1] += v
     # ...
@@ -107,9 +109,14 @@ if __name__ == '__main__':
     from spl.core.interface import make_open_knots
     from spl.fem.splines import SplineSpace
 
-    ne1 = 8
-    p   = 3
-    knots = make_open_knots(p, ne1)
+    p  = 3
+    ne = 32
+    n  = p + ne
+
+    print('> Grid   :: {ne}'.format(ne=ne))
+    print('> Degree :: {p}'.format(p=p))
+
+    knots = make_open_knots(p, n)
 
     V = SplineSpace(knots, p)
 
@@ -119,8 +126,13 @@ if __name__ == '__main__':
     rhs  = assembly_rhs(V)
     # ...
 
+    # ... apply homogeneous dirichlet boundary conditions
+    rhs[0] = 0.
+    rhs[V.nbasis-1] = 0.
+    # ...
+
     # ... solve the system
-    x, info = cg( mass, rhs, tol=1e-12, verbose=True )
+    x, info = cg( stiffness, rhs, tol=1e-9, maxiter=1000, verbose=False )
     # ...
 
     # ... check

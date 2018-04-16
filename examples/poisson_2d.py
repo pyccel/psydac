@@ -111,7 +111,8 @@ def assembly_rhs(V):
                             x2    = points_2[g2, ie2]
                             wvol  = weights_1[g1, ie1] * weights_2[g2, ie2]
 
-                            v += bi_0 * x1 * (1.0 - x1) * x2 * (1.0 - x2) * wvol
+#                            v += bi_0 * x1 * (1.0 - x1) * x2 * (1.0 - x2) * wvol
+                            v += bi_0 * 2. * (x1 * (1.0 - x1) + x2 * (1.0 - x2)) * wvol
 
                     rhs[i1, i2] += v
     # ...
@@ -130,12 +131,16 @@ if __name__ == '__main__':
     from spl.fem.tensor  import TensorSpace
 
     # ... numbers of elements and degres
-    ne1 = 8 ;  ne2 = 8
-    p1  = 2 ;  p2  = 2
+    p1  = 2 ; p2  = 2
+    ne1 = 8 ; ne2 = 8
+    n1 = p1 + ne1 ;  n2 = p2 + ne2
     # ...
 
-    knots_1 = make_open_knots(p1, ne1)
-    knots_2 = make_open_knots(p2, ne2)
+    print('> Grid   :: [{ne1},{ne2}]'.format(ne1=ne1, ne2=ne2))
+    print('> Degree :: [{p1},{p2}]'.format(p1=p1, p2=p2))
+
+    knots_1 = make_open_knots(p1, n1)
+    knots_2 = make_open_knots(p2, n2)
 
     V1 = SplineSpace(knots_1, p1)
     V2 = SplineSpace(knots_2, p2)
@@ -148,8 +153,23 @@ if __name__ == '__main__':
     rhs  = assembly_rhs(V)
     # ...
 
+    # ... apply homogeneous dirichlet boundary conditions
+    # left  bc at x=0.
+    for j in range(0, V2.nbasis):
+        rhs[0, j] = 0.
+    # right bc at x=1.
+    for j in range(0, V2.nbasis):
+        rhs[V1.nbasis-1, j] = 0.
+    # lower bc at y=0.
+    for i in range(0, V1.nbasis):
+        rhs[i, 0] = 0.
+    # upper bc at y=1.
+    for i in range(0, V1.nbasis):
+        rhs[i, V2.nbasis-1] = 0.
+    # ...
+
     # ... solve the system
-    x, info = cg( mass, rhs, tol=1e-12, verbose=True )
+    x, info = cg( stiffness, rhs, tol=1e-9, maxiter=1000, verbose=False )
     # ...
 
     # ... check
