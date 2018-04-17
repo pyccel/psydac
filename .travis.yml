@@ -44,10 +44,7 @@ script:
 #  - pytest tests/caid
   - cd build ; make test ; cd ..
 # Serial tests
-  - pytest spl/core
-  - pytest spl/feec
-  - pytest spl/linalg -m "not parallel"
-  - pytest spl/utilities
+  - pytest spl --ignore="spl/mapping" -m "not parallel"
 # Parallel tests
-  - python3 mpi_tester.py spl/ddm/tests -m "parallel"
+  - python3 mpi_tester.py spl/ddm -m "parallel"
   - python3 mpi_tester.py spl/linalg -m "parallel"
