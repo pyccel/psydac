@@ -43,8 +43,11 @@ script:
 #  - pytest # or py.test for Python versions 3.5 and below
 #  - pytest tests/caid
   - cd build ; make test ; cd ..
-  - python3 tests/mpi_tester.py tests/ddm
-  - pytest tests/linalg
+# Serial tests
   - pytest tests/test_core.py
   - pytest tests/test_integration.py
   - pytest tests/feec/
+  - pytest tests/linalg -m "not parallel"
+# Parallel tests
+  - python3 tests/mpi_tester.py tests/ddm -m "parallel"
+  - python3 tests/mpi_tester.py tests/linalg -m "parallel"

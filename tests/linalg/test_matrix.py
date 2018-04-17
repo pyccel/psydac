@@ -51,5 +51,6 @@ def test_2():
     print (">>> y (M dot ones) = ", y.toarray() )
 # ....
 
-test_1()
-test_2()
+if __name__ is "__main__":
+    test_1()
+    test_2()

@@ -7,20 +7,27 @@ class Cart():
 
     def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD ):
 
-        assert( len( npts ) == len( pads ) == len( periods ) )
+        # Check input arguments
+        # TODO: check that arguments are identical across all processes
+        assert len( npts ) == len( pads ) == len( periods )
+        assert all( n >=1 for n in npts )
+        assert all( p >=0 for p in pads )
+        assert all( isinstance( period, bool ) for period in periods )
+        assert isinstance( reorder, bool )
+        assert isinstance( comm, MPI.Comm )
+
+        # Store input arguments
+        self._npts    = tuple( npts    )
+        self._pads    = tuple( pads    )
+        self._periods = tuple( periods )
+        self._reorder = reorder
+        self._comm    = comm
 
         # ...
         self._ndims = len( npts )
         # ...
 
         # ...
-        self._pads    = pads
-        self._periods = periods
-        self._reorder = reorder
-        # ...
-
-        # ...
-        self._comm = comm
         self._size = comm.Get_size()
         self._rank = comm.Get_rank()
         # ...
@@ -67,14 +74,6 @@ class Cart():
             remain_dims     = [i==j for j in range( self._ndims )]
             self._subcomm[i] = self._comm_cart.Sub( remain_dims )
 
-#        # Compute/store information for communicating with neighbors
-#        self._sendrecv_info = {}
-#        zero_shift = tuple( [0]*self._ndims )
-#        for shift in product( [-1,0,1], repeat=self._ndims ):
-#            if shift == zero_shift:
-#                continue
-#            self._sendrecv_info[shift] = self._compute_sendrecv_info( shift )
-
         # Compute/store information for communicating with neighbors
         self._shift_info = {}
         for dimension in range( self._ndims ):
@@ -82,6 +81,31 @@ class Cart():
                 self._shift_info[ dimension, disp ] = \
                         self._compute_shift_info( dimension, disp )
 
+    #---------------------------------------------------------------------------
+    # Global properties (same for each process)
+    #---------------------------------------------------------------------------
+    @property
+    def npts( self ):
+        return self._npts
+
+    @property
+    def pads( self ):
+        return self._pads
+
+    @property
+    def periods( self ):
+        return self._periods
+
+    @property
+    def reorder( self ):
+        return self._reorder
+
+    @property
+    def comm_cart( self ):
+        return self._comm_cart
+
+    #---------------------------------------------------------------------------
+    # Local properties
     #---------------------------------------------------------------------------
     @property
     def starts( self ):
@@ -92,10 +116,6 @@ class Cart():
         return self._ends
 
     @property
-    def pads( self ):
-        return self._pads
-
-    @property
     def coords( self ):
         return self._coords
 
@@ -103,78 +123,10 @@ class Cart():
     def shape( self ):
         return self._shape
 
-    @property
-    def comm_cart( self ):
-        return self._comm_cart
-
     #---------------------------------------------------------------------------
     def coords_exist( self, coords ):
 
         return all( P or (0 <= c < d) for P,c,d in zip( self._periods, coords, self._dims ) )
-
-#    #---------------------------------------------------------------------------
-#    def get_sendrecv_info( self, shift ):
-#
-#        return self._sendrecv_info[shift]
-#
-#    #---------------------------------------------------------------------------
-#    def _compute_sendrecv_info( self, shift ):
-#
-#        assert( len( shift ) == self._ndims )
-#
-#        # Compute coordinates of destination and source
-#        coords_dest   = [c+h for c,h in zip( self._coords, shift )]
-#        coords_source = [c-h for c,h in zip( self._coords, shift )]
-#
-#        # Convert coordinates to rank, taking care of non-periodic dimensions
-#        if self.coords_exist( coords_dest ):
-#            rank_dest = self._comm_cart.Get_cart_rank( coords_dest )
-#        else:
-#            rank_dest = MPI.PROC_NULL
-#
-#        if self.coords_exist( coords_source ):
-#            rank_source = self._comm_cart.Get_cart_rank( coords_source )
-#        else:
-#            rank_source = MPI.PROC_NULL
-#
-#        # Compute information for exchanging ghost cell data
-#        buf_shape   = []
-#        send_starts = []
-#        recv_starts = []
-#        for s,e,p,h in zip( self._starts, self._ends, self._pads, shift ):
-#
-#            if h == 0:
-#                buf_length = e-s+1
-#                recv_start = p
-#                send_start = p
-#
-#            elif h == 1:
-#                buf_length = p
-#                recv_start = 0
-#                send_start = e-s+1
-#
-#            elif h == -1:
-#                buf_length = p
-#                recv_start = e-s+1+p
-#                send_start = p
-#
-#            buf_shape  .append( buf_length )
-#            send_starts.append( send_start )
-#            recv_starts.append( recv_start )
-#
-#        # Compute unique identifier for messages traveling along 'shift'
-#        tag = sum( (h%3)*(3**n) for h,n in zip(shift,range(self._ndims)) )
-#
-#        # Store all information into dictionary
-#        info = {'rank_dest'  : rank_dest,
-#                'rank_source': rank_source,
-#                'tag'        : tag,
-#                'buf_shape'  : tuple(  buf_shape  ),
-#                'send_starts': tuple( send_starts ),
-#                'recv_starts': tuple( recv_starts )}
-#
-#        # return dictionary
-#        return info
 
     #---------------------------------------------------------------------------
     def get_shift_info( self, direction, disp ):
