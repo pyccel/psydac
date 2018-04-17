@@ -22,7 +22,7 @@ def test_stencil_1d_parallel_matrix_vector_dot( n1 ):
     cart = Cart( npts    = [n1,],
                  pads    = [p1,],
                  periods = [True ,],
-                 reorder = [False,],
+                 reorder = False,
                  comm    = comm )
 
     V = StencilVectorSpace( cart )
@@ -38,4 +38,4 @@ def test_stencil_1d_parallel_matrix_vector_dot( n1 ):
 
     assert isinstance( b, StencilVector )
     assert b.space is x.space
-    assert all( b[:] == 2.0 )
+    assert all( b.toarray() == 2.0 )

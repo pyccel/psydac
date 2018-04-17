@@ -24,7 +24,7 @@ def test_vector_parallel_dot( n1, n2, p1, p2 ):
     cart = Cart( npts    = [n1,n2],
                  pads    = [p1,p2],
                  periods = [True ,False],
-                 reorder = [False,False],
+                 reorder = False,
                  comm    = comm )
 
     V = VectorSpace( cart )
