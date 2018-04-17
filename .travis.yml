@@ -47,7 +47,7 @@ script:
   - pytest tests/test_core.py
   - pytest tests/test_integration.py
   - pytest tests/feec/
-  - pytest tests/linalg -m "not parallel"
+  - pytest spl/linalg -m "not parallel"
 # Parallel tests
-  - python3 tests/mpi_tester.py tests/ddm -m "parallel"
-  - python3 tests/mpi_tester.py tests/linalg -m "parallel"
+  - python3 mpi_tester.py spl/ddm/tests -m "parallel"
+  - python3 mpi_tester.py spl/linalg -m "parallel"
