@@ -44,10 +44,10 @@ script:
 #  - pytest tests/caid
   - cd build ; make test ; cd ..
 # Serial tests
-  - pytest tests/test_core.py
-  - pytest tests/test_integration.py
-  - pytest tests/feec/
+  - pytest spl/core
+  - pytest spl/feec
   - pytest spl/linalg -m "not parallel"
+  - pytest spl/utilities
 # Parallel tests
   - python3 mpi_tester.py spl/ddm/tests -m "parallel"
   - python3 mpi_tester.py spl/linalg -m "parallel"
