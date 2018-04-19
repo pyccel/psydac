@@ -31,7 +31,8 @@ setup_args = dict(
 )
 
 # ...
-packages = find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"])
+packages = find_packages()
+#packages = find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"])
 # ...
 
 # ...

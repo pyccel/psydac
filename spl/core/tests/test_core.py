@@ -2,15 +2,15 @@
 
 import numpy as np
 
-from spl.core import make_open_knots
-from spl.core import construct_grid_from_knots
-from spl.core import construct_quadrature_grid
-from spl.core import eval_on_grid_splines_ders
-from spl.core import collocation_matrix
-from spl.core import histopolation_matrix
-from spl.core import compute_greville
+from spl.core.interface import make_open_knots
+from spl.core.interface import construct_grid_from_knots
+from spl.core.interface import construct_quadrature_grid
+from spl.core.interface import eval_on_grid_splines_ders
+from spl.core.interface import collocation_matrix
+from spl.core.interface import histopolation_matrix
+from spl.core.interface import compute_greville
 
-from spl.utilities import gauss_legendre
+from spl.utilities.quadratures import gauss_legendre
 
 def test_open_knots():
     # ...
