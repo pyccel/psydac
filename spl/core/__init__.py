@@ -1,4 +1,7 @@
-# -*- coding: UTF-8 -*-
-
-from .basic     import *
-from .interface import *
+try:
+    from spl.core import bsp
+    from spl.core import interface
+except ImportError:
+    pass
+else:
+    __all__ = ['bsp','interface']

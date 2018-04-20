@@ -3,6 +3,20 @@
 import numpy as np
 
 from spl.utilities.quadratures import gauss_legendre
+from spl.core.bsp import bsp_utils as _core
+
+__all__ = [
+    'make_open_knots',
+    'make_periodic_knots',
+    'construct_grid_from_knots',
+    'construct_quadrature_grid',
+    'eval_on_grid_splines_ders',
+    'compute_spans',
+    'compute_greville',
+    'collocation_matrix',
+    'histopolation_matrix',
+    'mass_matrix'
+]
 
 def make_open_knots(p, n):
     """Returns an open knots sequence for n splines and degree p.
@@ -22,7 +36,6 @@ def make_open_knots(p, n):
     array([0. , 0. , 0. , 0. , 0.2, 0.4, 0.6, 0.8, 1. , 1. , 1. , 1. ])
 
     """
-    from spl.core.bsp  import bsp_utils as _core
     T = _core.make_open_knots(p, n)
     return T
 
@@ -44,7 +57,6 @@ def make_periodic_knots(p, n):
     array([-0.6 , -0.4 , -0.2 , 0. , 0.2, 0.4, 0.6, 0.8, 1. , 1.2 , 1.4 , 1.6 ])
 
     """
-    from spl.core.bsp  import bsp_utils as _core
     T = _core.make_periodic_knots(p, n)
     return T
 
@@ -73,7 +85,6 @@ def construct_grid_from_knots(p, n, T):
     array([0. , 0.2, 0.4, 0.6, 0.8, 1. ])
 
     """
-    from spl.core.bsp  import bsp_utils as _core
     grid = _core.construct_grid_from_knots(p, n, T)
     return grid
 
@@ -112,7 +123,6 @@ def construct_quadrature_grid(ne, k, u, w, grid):
     >>> points, weights = construct_quadrature_grid(ne, k, u, w, grid)
 
     """
-    from spl.core.bsp  import bsp_utils as _core
     points, weights = _core.construct_quadrature_grid(ne, k, u, w, grid)
     return points, weights
 
@@ -157,7 +167,6 @@ def eval_on_grid_splines_ders(p, n, k, d, T, points):
     >>> basis = eval_on_grid_splines_ders(p, n, k, d, T, points)
 
     """
-    from spl.core.bsp  import bsp_utils as _core
     basis = _core.eval_on_grid_splines_ders(p, n, k, d, T, points)
     return basis
 
@@ -186,7 +195,6 @@ def compute_spans(p, n, T):
     >>> spans
     array([4, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0], dtype=int32)
     """
-    from spl.core.bsp  import bsp_utils as _core
     spans = _core.compute_spans(p, n, T)
     return spans
 
@@ -215,7 +223,6 @@ def compute_greville(p, n, knots):
            0.8       , 0.93333333, 1.        ])
 
     """
-    from spl.core.bsp  import bsp_utils as _core
     x = _core.compute_greville(p, n, knots)
     return x
 
@@ -249,7 +256,6 @@ def collocation_matrix(p, n, T, u):
     (7, 8)
 
     """
-    from spl.core.bsp  import bsp_utils as _core
     m = len(u)
     mat = _core.collocation_matrix(p, n, m, T, u)
     return mat
@@ -328,8 +334,6 @@ def mass_matrix(p, n, T):
            [0.00714286, 0.02857143, 0.07142857, 0.14285714]])
 
     """
-    from spl.utilities.quadratures import gauss_legendre
-
     # constructs the grid from the knot vector
     grid = construct_grid_from_knots(p, n, T)
 

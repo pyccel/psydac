@@ -3,20 +3,9 @@ language: python
 
 # which python versions to test
 python:
-#  - "2.6"
-#  - "2.7"
-#  - "3.2"
-#  - "3.3"
   - "3.4"
-#  - "3.5"
-#  - "3.5-dev" # 3.5 development branch
-#  - "3.6"
-#  - "3.6-dev" # 3.6 development branch
-#  - "3.7-dev" # 3.7 development branch
-#  - "nightly"
-
-virtualenv:
-    system_site_packages: true
+  - "3.5"
+  - "3.6"
 
 # Cache directory $HOME/.cache/pip
 cache: pip
@@ -26,7 +15,9 @@ before_install:
   - sudo apt-get install gfortran
   - sudo apt-get install openmpi-bin libopenmpi-dev
   - ompi_info
-  - pip3 install -r requirements.txt
+  - python -m pip install --upgrade pip
+  - python -m pip install -r requirements.txt
+  - python -m pip uninstall -y spl
   - mkdir -p usr
   - export FORTRAN_INSTALL_DIR=$TRAVIS_BUILD_DIR/usr
   - mkdir build && cd build
@@ -36,15 +27,25 @@ before_install:
 # command to install project
 install:
   - cd build && make && make install && cd ..
-  - pip3 install --upgrade .
+  - python -m pip install .
+
+before_script:
+  - mkdir pytest
+  - cp mpi_tester.py pytest
 
 # command to run tests
 script:
-#  - pytest # or py.test for Python versions 3.5 and below
-#  - pytest tests/caid
   - cd build ; make test ; cd ..
+  - cd pytest
 # Serial tests
-  - pytest spl --ignore="spl/mapping" -m "not parallel"
+  - python -m pytest --pyargs spl.core
+  - python -m pytest --pyargs spl.feec
+  - python -m pytest --pyargs spl.utilities
+  - python -m pytest --pyargs spl.linalg -m "not parallel"
 # Parallel tests
-  - python3 mpi_tester.py spl/ddm -m "parallel"
-  - python3 mpi_tester.py spl/linalg -m "parallel"
+  - python mpi_tester.py --pyargs spl.ddm
+  - python mpi_tester.py --pyargs spl.linalg -m "parallel"
+  - cd -
+
+after_script:
+  - rm -rf pytest

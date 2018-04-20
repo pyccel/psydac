@@ -91,9 +91,9 @@ def mass_matrices(p, n, T):
 # ...
 def build_kron_matrix(p, n, T, kind):
     """."""
-    from spl.core import collocation_matrix
-    from spl.core import histopolation_matrix
-    from spl.core import compute_greville
+    from spl.core.interface import collocation_matrix
+    from spl.core.interface import histopolation_matrix
+    from spl.core.interface import compute_greville
 
     if not isinstance(p, (tuple, list)) or not isinstance(n, (tuple, list)):
         raise TypeError('Wrong type for n and/or p. must be tuple or list')
@@ -148,9 +148,9 @@ def interpolation_matrices(p, n, T):
     """
     # 1d case
     if isinstance(p, int):
-        from spl.core import compute_greville
-        from spl.core import collocation_matrix
-        from spl.core import histopolation_matrix
+        from spl.core.interface import compute_greville
+        from spl.core.interface import collocation_matrix
+        from spl.core.interface import histopolation_matrix
 
         grid = compute_greville(p, n, T)
 
@@ -187,8 +187,8 @@ class Interpolation2D(object):
 
     def __init__(self, p, n, T, k=None):
 
-        from spl.utilities import Integral
-        from spl.utilities import Interpolation
+        from spl.utilities.integrate import Integral
+        from spl.utilities.integrate import Interpolation
 
         if not isinstance(p, (tuple, list)) or not isinstance(n, (tuple, list)):
             raise TypeError('Wrong type for n and/or p. must be tuple or list')
@@ -243,7 +243,7 @@ class Interpolation2D(object):
             return F0, F1
 
         elif kind == 'L2':
-            from spl.utilities import integrate_2d
+            from spl.utilities.integrate import integrate_2d
 
             points = (self._integrate[0]._points, self._integrate[1]._points)
             weights = (self._integrate[0]._weights, self._integrate[1]._weights)

@@ -2,13 +2,13 @@
 
 import numpy as np
 
-from spl.core import make_open_knots
-from spl.core import construct_quadrature_grid
-from spl.core import compute_greville
+from spl.core.interface import make_open_knots
+from spl.core.interface import construct_quadrature_grid
+from spl.core.interface import compute_greville
 
-from spl.utilities import gauss_legendre
-from spl.utilities import integrate
-from spl.utilities import Integral
+from spl.utilities.quadratures import gauss_legendre
+from spl.utilities.integrate   import integrate
+from spl.utilities.integrate   import Integral
 
 def test_integrate():
     # ...

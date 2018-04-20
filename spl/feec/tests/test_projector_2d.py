@@ -3,17 +3,17 @@
 import numpy as np
 from numpy import sin, cos, pi
 
-from spl.core import make_open_knots
-from spl.core import compute_greville
+from spl.core.interface import make_open_knots
+from spl.core.interface import compute_greville
 
-from spl.utilities import Integral2D
+from spl.utilities.integrate import Integral2D
 
-from spl.feec import interpolation_matrices
-from spl.feec import mass_matrices
-from spl.feec import Interpolation2D
-from spl.feec import scaling_matrix
-from spl.feec import discrete_derivatives
-from spl.feec import get_tck
+from spl.feec.utilities   import interpolation_matrices
+from spl.feec.utilities   import mass_matrices
+from spl.feec.utilities   import Interpolation2D
+from spl.feec.utilities   import scaling_matrix
+from spl.feec.utilities   import get_tck
+from spl.feec.derivatives import discrete_derivatives
 
 from scipy.interpolate import bisplev
 from scipy.sparse import csr_matrix, csc_matrix
