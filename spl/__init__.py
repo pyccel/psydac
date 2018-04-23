@@ -6,3 +6,4 @@ from .linalg    import *
 #from .mapping   import *
 from .utilities import *
 from .feec      import *
+from .fem       import *

@@ -67,7 +67,7 @@ def cgl(mat, b, x0, maxit, tol):
 #
 # Copyright 2018 Yaman Güçlü
 #
-def cg( A, b, x0=None, tol=1e-5, verbose=False ):
+def cg( A, b, x0=None, tol=1e-5, maxiter=1000, verbose=False ):
     """
     Conjugate gradient algorithm for solving linear system Ax=b.
     Implementation from [1], page 137.
@@ -90,6 +90,9 @@ def cg( A, b, x0=None, tol=1e-5, verbose=False ):
 
     tol : float
         Absolute tolerance for L2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations
 
     verbose : bool
         If True, L2-norm of residual r is printed at each iteration.
@@ -133,7 +136,7 @@ def cg( A, b, x0=None, tol=1e-5, verbose=False ):
         template = "| {:7d} | {:19.2e} |"
 
     # Iterate to convergence
-    for m in range( 1, n+1 ):
+    for m in range( 1, maxiter+1 ):
 
         if am < tol_sqr:
             m -= 1

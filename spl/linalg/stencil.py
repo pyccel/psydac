@@ -303,7 +303,13 @@ class Vector( VectorBase ):
 
     # ...
     def __str__(self):
-        return str(self._data)
+        txt  = '\n'
+        txt += '> starts  :: {starts}\n'.format(starts=self.starts)
+        txt += '> ends    :: {ends}\n'.format(ends=self.ends)
+        txt += '> pads    :: {pads}\n'.format(pads=self.pads)
+        txt += '> data    :: {data}\n'.format(data=self._data)
+
+        return txt
 
     # ...
     def toarray(self):
