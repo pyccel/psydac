@@ -2,11 +2,10 @@
 #
 # Copyright 2018 Yaman Güçlü
 
-from .basic import (VectorSpace as VectorSpaceBase,
-                    Vector      as VectorBase,
-                    LinearOperator)
-
-from ..ddm.cart import Cart
+from spl.linalg.basic import (VectorSpace as VectorSpaceBase,
+                              Vector      as VectorBase,
+                              LinearOperator)
+from spl.ddm.cart import Cart
 
 #===============================================================================
 class VectorSpace( VectorSpaceBase ):

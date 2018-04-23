@@ -1,3 +1,3 @@
-# -*- coding: UTF-8 -*-
+__all__ = ['mapping']
 
-from .mapping     import *
+from spl.mapping import mapping

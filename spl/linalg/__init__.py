@@ -1,6 +1,5 @@
-# -*- coding: UTF-8 -*-
+__all__ = ['basic','solvers','stencil']
 
-from .basic   import *
-from .stencil import *
-from .block   import *
-from .solvers import *
+from spl.linalg import basic
+from spl.linalg import solvers
+from spl.linalg import stencil

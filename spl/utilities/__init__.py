@@ -1,4 +1,4 @@
-# -*- coding: UTF-8 -*-
+__all__ = ['integrate','quadratures']
 
-from .quadratures import *
-from .integrate   import *
+from spl.utilities import integrate
+from spl.utilities import quadratures
