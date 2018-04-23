@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 
-from .basic   import *
-from .splines import *
-from .tensor  import *
+from spl.fem import basic
+from spl.fem import splines
+from spl.fem import tensor
 
