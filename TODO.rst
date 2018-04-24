@@ -1,12 +1,6 @@
 TODO
 ====
 
-* Change class names in 'spl.linalg.stencil':
-
-  . VectorSpace >> StencilVectorSpace
-  . Vector      >> StencilVector
-  . Matrix      >> StencilMatrix 
-
 * In directory 'spl/linalg/tests':
 
   . merge 'test_matrix.py' into 'test_stencil_matrix.py'
