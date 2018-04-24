@@ -1,8 +1,6 @@
 TODO
 ====
 
-* Clean up 'spl.core'
-
 * Change class names in 'spl.linalg.stencil':
 
   . VectorSpace >> StencilVectorSpace
