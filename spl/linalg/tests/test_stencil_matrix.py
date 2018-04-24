@@ -3,9 +3,7 @@
 import pytest
 import numpy as np
 
-from spl.linalg.stencil import VectorSpace as StencilVectorSpace
-from spl.linalg.stencil import Vector      as StencilVector
-from spl.linalg.stencil import Matrix      as StencilMatrix
+from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from spl.ddm.cart       import Cart
 
 #===============================================================================

@@ -5,7 +5,7 @@ from mpi4py import MPI
 import pytest
 import numpy as np
 
-from spl.linalg.stencil import VectorSpace, Vector
+from spl.linalg.stencil import StencilVectorSpace, StencilVector
 from spl.ddm.cart       import Cart
 
 #===============================================================================
@@ -27,9 +27,9 @@ def test_vector_parallel_dot( n1, n2, p1, p2 ):
                  reorder = False,
                  comm    = comm )
 
-    V = VectorSpace( cart )
-    x = Vector( V )
-    y = Vector( V )
+    V = StencilVectorSpace( cart )
+    x = StencilVector( V )
+    y = StencilVector( V )
 
 
     x[:,:] = xval

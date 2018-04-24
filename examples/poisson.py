@@ -1,9 +1,9 @@
 # coding: utf-8
 import numpy as np
-from spl.utilities.quadratures import gauss_legendre
-from spl.linalg.stencil     import VectorSpace, Vector, Matrix
-from spl.linalg.solvers     import cg
 
+from spl.utilities.quadratures import gauss_legendre
+from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from spl.linalg.solvers import cg
 
 # ... assembly of mass and stiffness matrices using stencil forms
 def assembly_matrices(V, spans, basis, weights):
@@ -26,8 +26,8 @@ def assembly_matrices(V, spans, basis, weights):
     k2 = len(weights_2)
 
     # ... data structure
-    mass      = Matrix(V, V)
-    stiffness = Matrix(V, V)
+    mass      = StencilMatrix(V, V)
+    stiffness = StencilMatrix(V, V)
     # ...
 
     # ... build matrices
@@ -89,7 +89,7 @@ def assembly_rhs(V, spans, basis, weights, points):
     # ...
 
     # ... data structure
-    rhs = Vector(V)
+    rhs = StencilVector(V)
     # ...
 
     # ... build rhs
@@ -175,7 +175,7 @@ if __name__ == '__main__':
     # ...
 
     # ... VectorSpace
-    V = VectorSpace((s1, s2), (e1, e2), (p1, p2))
+    V = StencilVectorSpace((s1, s2), (e1, e2), (p1, p2))
 
     # ... builds matrices and rhs
     mass, stiffness = assembly_matrices(V, \

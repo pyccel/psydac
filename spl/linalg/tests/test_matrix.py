@@ -1,13 +1,13 @@
 # -*- coding: UTF-8 -*-
-from spl.linalg.stencil import Matrix, Vector, VectorSpace
+from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 
 # ...
 def test_1():
     nx = ny = 3
     px = py = 1
 
-    V = VectorSpace( [0,0], [nx,ny], [px,py] )
-    M = Matrix( V, V )
+    V = StencilVectorSpace( [0,0], [nx,ny], [px,py] )
+    M = StencilMatrix( V, V )
 
     print (">>> M shape: ", M._data.shape)
     M[:, :, 0, 0] = 4.
@@ -25,9 +25,9 @@ def test_2():
     nx = ny = 2
     px = py = 1
 
-    V = VectorSpace([0, 0], [nx, ny], [px, py])
-    x = Vector( V )
-    M = Matrix( V, V )
+    V = StencilVectorSpace([0, 0], [nx, ny], [px, py])
+    x = StencilVector( V )
+    M = StencilMatrix( V, V )
 
     for ix in range(nx+1):
         for iy in range(ny+1):

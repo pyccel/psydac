@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 from __future__ import print_function
-from spl.linalg.stencil import Vector, VectorSpace
+from spl.linalg.stencil import StencilVector, StencilVectorSpace
 import numpy as np
 
 # ...
@@ -9,9 +9,9 @@ def test_1():
 
     n1 = n2 = 3
     p1 = p2 = 1
-    V = VectorSpace([0, 0], [n1, n2], [p1, p2])
+    V = StencilVectorSpace([0, 0], [n1, n2], [p1, p2])
 
-    x = Vector( V )
+    x = StencilVector( V )
     for i1 in range(0, n1+1):
         for i2 in range(0, n2+1):
             for k1 in range(-p1, p1+1):
@@ -36,10 +36,10 @@ def test_2():
 
     n1 = n2 = 2
     p1 = p2 = 1
-    V = VectorSpace([0, 0], [n1, n2], [p1, p2])
+    V = StencilVectorSpace([0, 0], [n1, n2], [p1, p2])
 
-    x = Vector( V )
-    y = Vector( V )
+    x = StencilVector( V )
+    y = StencilVector( V )
 
     x[:,:] = 42.
     y[:,:] = 10.
@@ -68,10 +68,10 @@ def test_3():
 
     n1 = n2 = 2
     p1 = p2 = 1
-    V = VectorSpace([0, 0], [n1, n2], [p1, p2])
+    V = StencilVectorSpace([0, 0], [n1, n2], [p1, p2])
 
-    x = Vector( V )
-    y = Vector( V )
+    x = StencilVector( V )
+    y = StencilVector( V )
 
     x[:, :] = 2.
     y[:, :] = 5.

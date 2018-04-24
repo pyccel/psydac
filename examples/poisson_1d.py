@@ -1,11 +1,11 @@
 # coding: utf-8
 import numpy as np
+
 from spl.utilities.quadratures import gauss_legendre
-from spl.linalg.stencil     import VectorSpace, Vector, Matrix
-from spl.linalg.solvers     import cg
+from spl.linalg.stencil        import StencilVector, StencilMatrix
+from spl.linalg.solvers        import cg
 
 # TODO make_open_knots: ne is not the number of elements!!
-
 
 # ... assembly of mass and stiffness matrices using stencil forms
 def assembly_matrices(V):
@@ -22,8 +22,8 @@ def assembly_matrices(V):
     # ...
 
     # ... data structure
-    mass      = Matrix(V.vector_space, V.vector_space)
-    stiffness = Matrix(V.vector_space, V.vector_space)
+    mass      = StencilMatrix( V.vector_space, V.vector_space )
+    stiffness = StencilMatrix( V.vector_space, V.vector_space )
     # ...
 
     # ... build matrices
@@ -73,7 +73,7 @@ def assembly_rhs(V):
     # ...
 
     # ... data structure
-    rhs = Vector(V.vector_space)
+    rhs = StencilVector( V.vector_space )
     # ...
 
     # ... build rhs

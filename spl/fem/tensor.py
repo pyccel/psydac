@@ -5,7 +5,7 @@ We assume here that a tensor space is the product of fem spaces whom basis are
 of compact support
 """
 
-from spl.linalg.stencil import VectorSpace as StencilVectorSpace
+from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace
 
 

@@ -2,9 +2,8 @@
 
 from numpy import unique
 
-from spl.linalg.stencil import VectorSpace as StencilVectorSpace
-from spl.linalg.stencil import Vector as StencilVector
-from spl.fem.basic import FemSpace, FemField
+from spl.linalg.stencil import StencilVectorSpace, StencilVector
+from spl.fem.basic      import FemSpace, FemField
 
 
 #===============================================================================
