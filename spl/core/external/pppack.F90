@@ -9,13 +9,13 @@
 !> BSP     : specific implementations for 1D,2D,3D
 !> Externaly, the user should call BSP
 
-module spl_m_pppack
+module pppack
 implicit none
 contains
-include "interv.f90"
-include "bsplpp.f90"
-include "bsplvb.f90"
-include "ppvalu.f90"
+include "interv.F90"
+include "bsplpp.F90"
+include "bsplvb.F90"
+include "ppvalu.F90"
         
 
 ! .......................................................
@@ -28,4 +28,4 @@ include "ppvalu.f90"
 !> @param[in] grid the corresponding grid
 ! .......................................................
 
-end module spl_m_pppack
+end module pppack

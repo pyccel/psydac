@@ -2,8 +2,8 @@
 ! Note: the context of this file is case sensitive.
 
 python module bsp 
+
   interface
-    
     module bsp_utils
 
       ! ................................................
@@ -95,8 +95,8 @@ python module bsp
       ! ................................................
 
     end module bsp_utils
-
   end interface 
+
 end python module bsp
 
 !

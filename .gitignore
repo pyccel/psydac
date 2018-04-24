@@ -16,4 +16,7 @@ doc/_static
 doc/_build
 doc/api-python
 
-tests/spl/*.nml
+
+spl/core/bsp-f2py*
+spl/core/bspmodule.c
+spl/core/*.so

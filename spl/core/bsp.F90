@@ -1,12 +1,9 @@
 ! -*- coding: UTF-8 -*-
+
 !> @brief 
-!> Module for 
+!> Module for basic BSplines functions
 !> @details
-!> interfaced module with python
-
-
-!... TODO: add bsp_mapping module
-!... TODO: add more utils functions
+!> specific implementations for f2py interface
 
 
 module bsp_utils
@@ -27,7 +24,7 @@ contains
 
   ! .......................................................
   subroutine collocation_matrix(p, n, m, knots, u, mat)
-    use spl_m_bsp, only: spl_collocation_matrix
+    use bsp_ext, only: spl_collocation_matrix
     implicit none
     integer,                    intent(in)  :: p
     integer,                    intent(in)  :: n
@@ -45,7 +42,7 @@ contains
 
   ! .......................................................
   subroutine compute_greville(p, n, knots, arr_x)
-    use spl_m_bsp, only: spl_compute_greville
+    use bsp_ext, only: spl_compute_greville
     implicit none
     integer(kind=4),            intent(in)  :: p
     integer(kind=4),            intent(in)  :: n 
@@ -61,7 +58,7 @@ contains
 
   ! ................................................
   subroutine eval_on_grid_splines_ders(p, n, k, d, knots, points, basis)
-  use spl_m_bsp, only: spl_eval_on_grid_splines_ders
+  use bsp_ext, only: spl_eval_on_grid_splines_ders
   implicit none
     integer,                    intent(in)  :: p
     integer,                    intent(in)  :: n
@@ -80,7 +77,7 @@ contains
 
   ! ................................................
   subroutine compute_spans(p, n, knots, elements_spans)
-  use spl_m_bsp, only: spl_compute_spans
+  use bsp_ext, only: spl_compute_spans
   implicit none
     integer,                        intent(in)  :: p
     integer,                        intent(in)  :: n
@@ -96,7 +93,7 @@ contains
 
   ! ................................................
   subroutine construct_grid_from_knots(p, n, knots, grid)
-  use spl_m_bsp, only: spl_construct_grid_from_knots
+  use bsp_ext, only: spl_construct_grid_from_knots
   implicit none
     integer,                               intent(in)  :: p
     integer,                               intent(in)  :: n
@@ -115,7 +112,7 @@ contains
   
   ! ................................................
   subroutine construct_quadrature_grid(n_elements, k, u, w, grid, points, weights)
-  use spl_m_bsp, only: spl_construct_quadrature_grid
+  use bsp_ext, only: spl_construct_quadrature_grid
   implicit none
     integer,                               intent(in)  :: n_elements
     integer,                               intent(in)  :: k
@@ -134,7 +131,7 @@ contains
 
   ! ................................................
   subroutine make_open_knots(p, n, knots)
-  use spl_m_bsp, only: spl_make_open_knots
+  use bsp_ext, only: spl_make_open_knots
   implicit none
     integer,                    intent(in)  :: p
     integer,                    intent(in)  :: n
@@ -149,7 +146,7 @@ contains
   
   ! ................................................
   subroutine make_periodic_knots(p, n, knots)
-  use spl_m_bsp, only: spl_make_open_knots, &
+  use bsp_ext, only: spl_make_open_knots, &
                      & spl_symetrize_knots
   implicit none
     integer,                    intent(in)  :: p
@@ -166,7 +163,7 @@ contains
 
   ! ................................................
   subroutine compute_origins_element(p, n, knots, origins_element)
-  use spl_m_bsp, only: spl_compute_origins_element
+  use bsp_ext, only: spl_compute_origins_element
   implicit none
     integer,                   intent(in)  :: p
     integer,                   intent(in)  :: n
@@ -179,6 +176,5 @@ contains
     
   end subroutine compute_origins_element 
   ! ................................................
-
 
 end module bsp_utils

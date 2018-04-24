@@ -40,38 +40,19 @@ install_requires = ['numpy', 'scipy']
 dependency_links = []
 # ...
 
-# ...
-if 'FORTRAN_INSTALL_DIR' in os.environ:
-    FORTRAN_INSTALL_DIR = os.environ['FORTRAN_INSTALL_DIR']
-else:
-    FORTRAN_INSTALL_DIR = os.path.join(
-        os.path.dirname(__file__),
-        os.path.abspath( os.path.pardir ),
-        'usr'
-    )
-# ...
-
-# ...
-library_dirs = [os.path.join(FORTRAN_INSTALL_DIR,"lib")]
-libraries = ["spl"]
-libraries = libraries[::-1]  # must reverse the order for linking
-
-include_dirs = []
-for lib in libraries:
-    include_dirs.append(os.path.join(os.path.join(FORTRAN_INSTALL_DIR, "include"), lib))
-# ...
 
 # ... bspline extension
-bspline_ext = Extension(name    = 'spl.core.bsp',
-                        sources = ['spl/core/bsp.pyf',
-                                   'spl/core/bsp.F90'],
-                        f2py_options = ['--quiet'],
-                        include_dirs = include_dirs,
-                        library_dirs = library_dirs,
-                        libraries    = libraries,      )
+bsp_ext = Extension(name    = 'spl.core.bsp',
+                        sources = ['spl/core/external/bspline.F90',
+                                   'spl/core/external/pppack.F90',
+                                   'spl/core/bsp_ext.F90',
+                                   'spl/core/bsp.F90',
+                                   'spl/core/bsp.pyf',
+                                   ],
+                        f2py_options = ['--quiet'],)
 
 
-ext_modules  = [bspline_ext]
+ext_modules  = [bsp_ext]
 # ...
 
 # ...
