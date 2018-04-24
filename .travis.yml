@@ -18,15 +18,9 @@ before_install:
   - python -m pip install --upgrade pip
   - python -m pip install -r requirements.txt
   - python -m pip uninstall -y spl
-  - mkdir -p usr
-  - export FORTRAN_INSTALL_DIR=$TRAVIS_BUILD_DIR/usr
-  - mkdir build && cd build
-  - cmake -DCMAKE_Fortran_FLAGS="-fPIC" -DBUILD_TESTING=ON -DCMAKE_INSTALL_PREFIX=$FORTRAN_INSTALL_DIR  ..
-  - cd ..
 
 # command to install project
 install:
-  - cd build && make && make install && cd ..
   - python -m pip install .
 
 before_script:
@@ -35,7 +29,6 @@ before_script:
 
 # command to run tests
 script:
-  - cd build ; make test ; cd ..
   - cd pytest
 # Serial tests
   - python -m pytest --pyargs spl.core
