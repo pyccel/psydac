@@ -9,7 +9,6 @@ TODO
 
 * In directory 'spl/linalg/tests':
 
-  . merge 'test_vector.py' and 'test_parallel_stencil_vector.py' into 'test_stencil_vector.py'
   . add assert statements to 'test_matrix.py'
   . merge 'test_matrix.py' into 'test_stencil_matrix.py'
   . add extensive unit tests to 'test_stencil_matrix.py'
