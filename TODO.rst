@@ -7,8 +7,6 @@ TODO
   . Vector      >> StencilVector
   . Matrix      >> StencilMatrix 
 
-* Remove 'cgl' function from 'spl.linalg.solvers'
-
 * In directory 'spl/linalg/tests':
 
   . add test function to 'test_cg.py', with assert statement
