@@ -9,7 +9,6 @@ TODO
 
 * In directory 'spl/linalg/tests':
 
-  . add test function to 'test_cg.py', with assert statement
   . merge 'test_vector.py' and 'test_parallel_stencil_vector.py' into 'test_stencil_vector.py'
   . add assert statements to 'test_matrix.py'
   . merge 'test_matrix.py' into 'test_stencil_matrix.py'
