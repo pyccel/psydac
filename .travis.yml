@@ -30,15 +30,8 @@ before_script:
 # command to run tests
 script:
   - cd pytest
-# Serial tests
-  - python -m pytest --pyargs spl.core
-  - python -m pytest --pyargs spl.feec
-  - python -m pytest --pyargs spl.utilities
-  - python -m pytest --pyargs spl.fem
-  - python -m pytest --pyargs spl.linalg -m "not parallel"
-# Parallel tests
-  - python mpi_tester.py --pyargs spl.ddm
-  - python mpi_tester.py --pyargs spl.linalg -m "parallel"
+  - python -m pytest --pyargs spl -m "not parallel"
+  - python mpi_tester.py --pyargs spl -m "parallel"
   - cd -
 
 after_script:
