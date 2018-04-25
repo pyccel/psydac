@@ -8,20 +8,18 @@ from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 #===============================================================================
 # SERIAL TESTS
 #===============================================================================
-@pytest.mark.parametrize( 's1', [0,1] )
-@pytest.mark.parametrize( 's2', [0,1] )
-@pytest.mark.parametrize( 'e1', [7,15] )
-@pytest.mark.parametrize( 'e2', [8,12] )
+@pytest.mark.parametrize( 'n1', [7,15] )
+@pytest.mark.parametrize( 'n2', [8,12] )
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'p2', [1,2,3] )
 
-def test_stencil_matrix_2d_serial_shape( s1,s2, e1,e2, p1,p2 ):
+def test_stencil_matrix_2d_serial_shape( n1, n2, p1, p2 ):
 
-    V = StencilVectorSpace( [s1,s2], [e1,e2], [p1,p2] )
+    V = StencilVectorSpace( [n1,n2], [p1,p2] )
     M = StencilMatrix( V, V )
 
-    assert M._data.shape == (1+e1-s1, 1+e2-s2, 1+2*p1, 1+2*p2)
-    assert M.shape == ((1+e1-s1)*(1+e2-s2),(1+e1-s1)*(1+e2-s2))
+    assert M._data.shape == (n1, n2, 1+2*p1, 1+2*p2)
+    assert M.shape == (n1*n2, n1*n2)
 
 #===============================================================================
 @pytest.mark.parametrize( 'n1', [7,15] )
@@ -29,7 +27,7 @@ def test_stencil_matrix_2d_serial_shape( s1,s2, e1,e2, p1,p2 ):
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'p2', [1,2,3] )
 
-def test_stencil_matrix_2d_serial_toarray( n1,n2, p1,p2 ):
+def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2 ):
 
     # Select non-zero values based on diagonal index
     nonzero_values = dict()
@@ -38,7 +36,7 @@ def test_stencil_matrix_2d_serial_toarray( n1,n2, p1,p2 ):
             nonzero_values[k1,k2] = 10*k1 + k2
 
     # Create vector space and stencil matrix
-    V = StencilVectorSpace( [0,0], [n1,n2], [p1,p2] )
+    V = StencilVectorSpace( [n1,n2], [p1,p2] )
     M = StencilMatrix( V, V )
 
     # Fill in stencil matrix values
@@ -51,14 +49,14 @@ def test_stencil_matrix_2d_serial_toarray( n1,n2, p1,p2 ):
 
     # Construct exact matrix by hand
     A = np.zeros( M.shape )
-    for i1 in range(1+n1):
-        for i2 in range(1+n2):
+    for i1 in range(n1):
+        for i2 in range(n2):
             for k1 in range(-p1,p1+1):
                 for k2 in range(-p2,p2+1):
-                    j1 = (i1+k1) % (1+n1)
-                    j2 = (i2+k2) % (1+n2)
-                    i  = i1*(n2+1) + i2
-                    j  = j1*(n2+1) + j2
+                    j1 = (i1+k1) % n1
+                    j2 = (i2+k2) % n2
+                    i  = i1*(n2) + i2
+                    j  = j1*(n2) + j2
                     A[i,j] = nonzero_values[k1,k2]
 
     # Check shape and data in 2D array
@@ -71,7 +69,7 @@ def test_stencil_matrix_2d_serial_toarray( n1,n2, p1,p2 ):
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'p2', [1,2,3] )
 
-def test_stencil_matrix_2d_serial_dot( n1,n2, p1,p2 ):
+def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2 ):
 
     # Select non-zero values based on diagonal index
     nonzero_values = dict()
@@ -80,7 +78,7 @@ def test_stencil_matrix_2d_serial_dot( n1,n2, p1,p2 ):
             nonzero_values[k1,k2] = 10*k1 + k2
 
     # Create vector space, stencil matrix, and stencil vector
-    V = StencilVectorSpace( [0,0], [n1,n2], [p1,p2] )
+    V = StencilVectorSpace( [n1,n2], [p1,p2] )
     M = StencilMatrix( V, V )
     x = StencilVector( V )
 

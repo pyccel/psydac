@@ -21,11 +21,9 @@ class TensorSpace( FemSpace ):
         self._spaces = tuple(args)
 
         # serial case
-        starts = [0 for V in self.spaces]
-        ends = [V.nbasis-1 for V in self.spaces]
-        # remove -1 in the parallel case
+        npts = [V.nbasis for V in self.spaces]
         pads = [V.degree for V in self.spaces]
-        self._vector_space = StencilVectorSpace(starts, ends, pads)
+        self._vector_space = StencilVectorSpace( npts, pads )
 
         # TODO parallel case
 
