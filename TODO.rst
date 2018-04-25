@@ -3,7 +3,6 @@ TODO
 
 * In directory 'spl/linalg/tests':
 
-  . merge 'test_matrix.py' into 'test_stencil_matrix.py'
   . add extensive unit tests to 'test_stencil_matrix.py'
 
 * Update method 'tocoo()' of class 'spl.linalg.StencilMatrix' (parallel version)
