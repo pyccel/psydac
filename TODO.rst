@@ -1,6 +1,11 @@
 TODO
 ====
 
+* 'StencilVector' class in 'spl.linalg.stencil':
+
+  . in serial version, always set start index to 0 => change init()
+  . in parallel version, toarray() accepts 'ghost' flag => if True, include ghost regions
+
 * In directory 'spl/linalg/tests':
 
   . add extensive unit tests to 'test_stencil_matrix.py'
