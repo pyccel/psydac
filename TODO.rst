@@ -1,20 +1,13 @@
 TODO
 ====
 
-* Change class names in 'spl.linalg.stencil':
+* 'StencilVector' class in 'spl.linalg.stencil':
 
-  . VectorSpace >> StencilVectorSpace
-  . Vector      >> StencilVector
-  . Matrix      >> StencilMatrix 
-
-* Remove 'cgl' function from 'spl.linalg.solvers'
+  . in parallel version, toarray() accepts 'ghost' flag => if True, include ghost regions
 
 * In directory 'spl/linalg/tests':
 
-  . add test function to 'test_cg.py', with assert statement
-  . merge 'test_vector.py' and 'test_parallel_stencil_vector.py' into 'test_stencil_vector.py'
-  . add assert statements to 'test_matrix.py'
-  . merge 'test_matrix.py' into 'test_stencil_matrix.py'
+  . add extensive unit tests to 'test_stencil_vector.py'
   . add extensive unit tests to 'test_stencil_matrix.py'
 
 * Update method 'tocoo()' of class 'spl.linalg.StencilMatrix' (parallel version)

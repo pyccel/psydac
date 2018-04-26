@@ -2,29 +2,34 @@
 #
 # Copyright 2018 Yaman Güçlü
 
-from spl.linalg.basic import (VectorSpace as VectorSpaceBase,
-                              Vector      as VectorBase,
-                              LinearOperator)
-from spl.ddm.cart import Cart
+from spl.linalg.basic import VectorSpace, Vector, LinearOperator
+from spl.ddm.cart     import Cart
+
+__all__ = ['StencilVectorSpace','StencilVector','StencilMatrix']
 
 #===============================================================================
-class VectorSpace( VectorSpaceBase ):
+class StencilVectorSpace( VectorSpace ):
     """
-    Vector space for n-dimensional stencil format.
+    Vector space for n-dimensional stencil format. Two different initializations
+    are possible:
+
+    - serial  : StencilVectorSpace( npts, pads, dtype=float )
+    - parallel: StencilVectorSpace( cart, dtype=float )
 
     Parameters
     ----------
-    starts : tuple-like
-        Start index along each direction.
-
-    ends : tuple-like
-        End index along each direction.
+    npts : tuple-like
+        Number of entries along each direction
+        (= global dimensions of vector space).
 
     pads : tuple-like
         Padding p along each direction (number of diagonals is 2*p+1).
 
-    cart : <not defined>
-        MPI Cartesian topology (not used for now).
+    dtype : type
+        Type of scalar entries.
+
+    cart : spl.ddm.cart.Cart
+        MPI Cartesian topology.
 
     """
     def __init__( self, *args, **kwargs ):
@@ -35,26 +40,23 @@ class VectorSpace( VectorSpaceBase ):
             self._init_serial  ( *args, **kwargs )
 
     # ...
-    def _init_serial( self, starts, ends, pads, dtype=float ):
-        from numpy import prod
+    def _init_serial( self, npts, pads, dtype=float ):
 
-        assert( len(starts) == len(ends) == len(pads) )
+        assert len(npts) == len(pads)
         self._parallel = False
 
         # Sequential attributes
-        self._starts = tuple(starts)
-        self._ends   = tuple(ends)
-        self._pads   = tuple(pads)
+        self._starts = tuple( 0   for n in npts )
+        self._ends   = tuple( n-1 for n in npts )
+        self._pads   = tuple( pads )
         self._dtype  = dtype
-        self._ndim   = len(starts)
+        self._ndim   = len( npts )
 
         # Global dimensions of vector space
-        self._npts   = tuple( e-s+1 for s,e in zip(starts,ends) )
+        self._npts   = tuple( npts )
 
     # ...
     def _init_parallel( self, cart, dtype=float ):
-        from numpy  import prod
-        from mpi4py import MPI
 
         assert isinstance( cart, Cart )
         self._parallel = True
@@ -187,23 +189,23 @@ class VectorSpace( VectorSpaceBase ):
         return self._recv_types[direction,disp] if self._parallel else None
 
 #===============================================================================
-class Vector( VectorBase ):
+class StencilVector( Vector ):
     """
     Vector in n-dimensional stencil format.
 
     Parameters
     ----------
-    V : spl.linalg.stencil.VectorSpace
+    V : spl.linalg.stencil.StencilVectorSpace
         Space to which the new vector belongs.
 
     """
     def __init__( self, V ):
         from numpy import zeros
 
-        assert( isinstance( V, VectorSpace ) )
+        assert isinstance( V, StencilVectorSpace )
 
         sizes = [e-s+2*p+1 for s,e,p in zip(V.starts, V.ends, V.pads)]
-        self._data  = zeros(sizes)
+        self._data  = zeros( sizes, dtype=V.dtype )
         self._space = V
 
     #--------------------------------------
@@ -217,8 +219,8 @@ class Vector( VectorBase ):
     def dot( self, v ):
         from numpy import dot
 
-        assert( isinstance( v, Vector ) )
-        assert( v._space is self._space )
+        assert isinstance( v, StencilVector )
+        assert v._space is self._space
 
         index = tuple( slice(p,-p) for p in self.pads )
         res   = dot( self._data[index].flat, v._data[index].flat )
@@ -231,36 +233,36 @@ class Vector( VectorBase ):
 
     #...
     def copy( self ):
-        w = Vector( self._space )
+        w = StencilVector( self._space )
         w._data[:] = self._data[:]
         return w
 
     #...
     def __mul__( self, a ):
-        w = Vector( self._space )
+        w = StencilVector( self._space )
         w._data = self._data * a
         return w
 
     #...
     def __rmul__( self, a ):
-        w = Vector( self._space )
+        w = StencilVector( self._space )
         w._data = a * self._data
 
         return w
 
     #...
     def __add__( self, v ):
-        assert( isinstance( v, Vector ) )
-        assert( v._space is self._space )
-        w = Vector( self._space )
+        assert isinstance( v, StencilVector )
+        assert v._space is self._space
+        w = StencilVector( self._space )
         w._data = self._data + v._data
         return w
 
     #...
     def __sub__( self, v ):
-        assert( isinstance( v, Vector ) )
-        assert( v._space is self._space )
-        w = Vector( self._space )
+        assert isinstance( v, StencilVector )
+        assert v._space is self._space
+        w = StencilVector( self._space )
         w._data = self._data - v._data
         return w
 
@@ -271,15 +273,15 @@ class Vector( VectorBase ):
 
     #...
     def __iadd__( self, v ):
-        assert( isinstance( v, Vector ) )
-        assert( v._space is self._space )
+        assert isinstance( v, StencilVector )
+        assert v._space is self._space
         self._data += v._data
         return self
 
     #...
     def __isub__( self, v ):
-        assert( isinstance( v, Vector ) )
-        assert( v._space is self._space )
+        assert isinstance( v, StencilVector )
+        assert v._space is self._space
         self._data -= v._data
         return self
 
@@ -313,7 +315,8 @@ class Vector( VectorBase ):
     # ...
     def toarray(self):
         """
-        Return a numpy 1D array corresponding to the given Vector, without pads.
+        Return a numpy 1D array corresponding to the given StencilVector,
+        without pads.
 
         """
         index = tuple( slice(p,-p) for p in self.pads )
@@ -394,7 +397,7 @@ class Vector( VectorBase ):
         return tuple(index)
 
 #===============================================================================
-class Matrix( LinearOperator ):
+class StencilMatrix( LinearOperator ):
     """
     Matrix in n-dimensional stencil format.
 
@@ -405,10 +408,10 @@ class Matrix( LinearOperator ):
 
     Parameters
     ----------
-    V : spl.linalg.stencil.VectorSpace
+    V : spl.linalg.stencil.StencilVectorSpace
         Domain of the new linear operator.
 
-    W : spl.linalg.stencil.VectorSpace
+    W : spl.linalg.stencil.StencilVectorSpace
         Codomain of the new linear operator.
 
     """
@@ -416,9 +419,9 @@ class Matrix( LinearOperator ):
 
         from numpy import zeros
 
-        assert( isinstance( V, VectorSpace ) )
-        assert( isinstance( W, VectorSpace ) )
-        assert( V is W )
+        assert isinstance( V, StencilVectorSpace )
+        assert isinstance( W, StencilVectorSpace )
+        assert V is W
 
         dims        = [e-s+1 for s,e in zip(V.starts, V.ends)]
         diags       = [2*p+1 for p in V.pads]
@@ -445,14 +448,14 @@ class Matrix( LinearOperator ):
 
         from numpy import ndindex, dot
 
-        assert( isinstance( v, Vector ) )
-        assert( v.space is self.domain )
+        assert isinstance( v, StencilVector )
+        assert v.space is self.domain
 
         if out is not None:
-            assert( isinstance( out, Vector ) )
-            assert( out.space is self.codomain )
+            assert isinstance( out, StencilVector )
+            assert out.space is self.codomain
         else:
-            out = Vector( self.codomain )
+            out = StencilVector( self.codomain )
 
         ss = self.starts
         pp = self.pads
@@ -593,4 +596,4 @@ class Matrix( LinearOperator ):
             return index + shift
 
 #===============================================================================
-del VectorSpaceBase, VectorBase, LinearOperator
+del VectorSpace, Vector, LinearOperator

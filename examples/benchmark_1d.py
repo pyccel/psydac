@@ -1,7 +1,8 @@
 # coding: utf-8
 import numpy as np
-from spl.linalg.stencil     import VectorSpace, Vector, Matrix
 import time
+
+from spl.linalg.stencil import StencilMatrix
 try:
     from pyccel.epyccel import epyccel
     WITH_PYCCEL = True
@@ -25,7 +26,7 @@ def assembly_v0(V):
     # ...
 
     # ... data structure
-    M = Matrix(V.vector_space, V.vector_space)
+    M = StencilMatrix(V.vector_space, V.vector_space)
     # ...
 
     # ... build matrices
@@ -84,7 +85,7 @@ def assembly_v1(V, kernel):
     # ...
 
     # ... data structure
-    M = Matrix(V.vector_space, V.vector_space)
+    M = StencilMatrix( V.vector_space, V.vector_space )
     # ...
 
     # ... build matrices
@@ -140,7 +141,7 @@ def assembly_v2(V, kernel):
     # ...
 
     # ... data structure
-    M = Matrix(V.vector_space, V.vector_space)
+    M = StencilMatrix(V.vector_space, V.vector_space)
     # ...
 
     # ... element matrix

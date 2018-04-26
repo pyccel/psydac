@@ -2,9 +2,8 @@
 
 from numpy import unique
 
-from spl.linalg.stencil import VectorSpace as StencilVectorSpace
-from spl.linalg.stencil import Vector as StencilVector
-from spl.fem.basic import FemSpace, FemField
+from spl.linalg.stencil import StencilVectorSpace, StencilVector
+from spl.fem.basic      import FemSpace, FemField
 
 
 #===============================================================================
@@ -53,11 +52,7 @@ class SplineSpace( FemSpace ):
             if dirichlet[1]: defect += 1
             self._nbasis = len(knots) - degree - 1 - defect
 
-        starts = [0]
-        ends = [self.nbasis-1]
-        pads = [degree]
-        self._vector_space = StencilVectorSpace(starts, ends, pads)
-
+        self._vector_space = StencilVectorSpace( [self.nbasis], [self.degree] )
         self._initialize()
 
     @property
