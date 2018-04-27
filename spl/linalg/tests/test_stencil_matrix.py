@@ -137,7 +137,7 @@ def test_stencil_matrix_1d_parallel_dot( n1 ):
 
     assert isinstance( b, StencilVector )
     assert b.space is x.space
-    assert all( b.toarray() == 2.0 )
+    assert all( b.toarray()[cart.starts[0]:cart.ends[0]+1] == 2.0 )
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
