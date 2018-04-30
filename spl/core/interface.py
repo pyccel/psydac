@@ -1,5 +1,7 @@
 # -*- coding: UTF-8 -*-
 
+# TODO parameterized tests using pytest
+
 import numpy as np
 
 from spl.utilities.quadratures import gauss_legendre
@@ -8,6 +10,7 @@ from spl.core.bsp import bsp_utils as _core
 __all__ = [
     'make_open_knots',
     'make_periodic_knots',
+    'make_knots',
     'construct_grid_from_knots',
     'construct_quadrature_grid',
     'eval_on_grid_splines_ders',
@@ -58,6 +61,59 @@ def make_periodic_knots(p, n):
 
     """
     T = _core.make_periodic_knots(p, n)
+    return T
+
+#===============================================================================
+# TODO - shall we write it in Fortran?
+#      - add docstrings example
+def make_knots( breaks, degree, periodic ):
+    """
+    Create spline knots from breakpoints, with appropriate boundary conditions.
+    Let p be spline degree. If domain is periodic, knot sequence is extended
+    by periodicity so that first p basis functions are identical to last p.
+    Otherwise, knot sequence is clamped (i.e. endpoints are repeated p times).
+
+    Parameters
+    ----------
+    breaks : array_like
+        Coordinates of breakpoints (= cell edges); given in increasing order and
+        with no duplicates.
+
+    degree : int
+        Spline degree (= polynomial degree within each interval).
+
+    periodic : bool
+        True if domain is periodic, False otherwise.
+
+    Result
+    ------
+    T : numpy.ndarray (1D)
+        Coordinates of spline knots.
+
+    """
+    # Type checking
+    assert isinstance( degree  , int  )
+    assert isinstance( periodic, bool )
+
+    # Consistency checks
+    assert len(breaks) > 1
+    assert all( np.diff(breaks) > 0 )
+    assert degree > 0
+    if periodic:
+        assert len(breaks) > degree
+
+    p = degree
+    T = np.zeros( len(breaks)+2*p )
+    T[p:-p] = breaks
+
+    if periodic:
+        period = breaks[-1]-breaks[0]
+        T[0:p] = [xi-period for xi in breaks[-p-1:-1 ]]
+        T[-p:] = [xi+period for xi in breaks[   1:p+1]]
+    else:
+        T[0:p] = breaks[ 0]
+        T[-p:] = breaks[-1]
+
     return T
 
 def construct_grid_from_knots(p, n, T):

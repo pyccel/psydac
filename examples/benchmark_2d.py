@@ -279,8 +279,8 @@ if __name__ == '__main__':
     knots_1 = make_open_knots(p1, n1)
     knots_2 = make_open_knots(p2, n2)
 
-    V1 = SplineSpace(knots_1, p1)
-    V2 = SplineSpace(knots_2, p2)
+    V1 = SplineSpace(p1, knots=knots_1)
+    V2 = SplineSpace(p2, knots=knots_2)
 
     V = TensorSpace(V1, V2)
 

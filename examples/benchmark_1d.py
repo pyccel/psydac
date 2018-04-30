@@ -174,7 +174,7 @@ if __name__ == '__main__':
     p   = 7
     knots = make_open_knots(p, ne1)
 
-    V = SplineSpace(knots, p)
+    V = SplineSpace(p, knots=knots)
 
     # ... pure python assembly
     tb = time.time()

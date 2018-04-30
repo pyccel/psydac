@@ -126,24 +126,23 @@ def assembly_rhs(V):
 ####################################################################################
 if __name__ == '__main__':
 
-    from spl.core.interface import make_open_knots
+    from numpy import linspace
     from spl.fem.splines import SplineSpace
     from spl.fem.tensor  import TensorSpace
 
     # ... numbers of elements and degres
     p1  = 2 ; p2  = 2
     ne1 = 8 ; ne2 = 8
-    n1 = p1 + ne1 ;  n2 = p2 + ne2
     # ...
 
     print('> Grid   :: [{ne1},{ne2}]'.format(ne1=ne1, ne2=ne2))
     print('> Degree :: [{p1},{p2}]'.format(p1=p1, p2=p2))
 
-    knots_1 = make_open_knots(p1, n1)
-    knots_2 = make_open_knots(p2, n2)
+    grid_1 = linspace(0., 1., ne1+1)
+    grid_2 = linspace(0., 1., ne2+1)
 
-    V1 = SplineSpace(knots_1, p1)
-    V2 = SplineSpace(knots_2, p2)
+    V1 = SplineSpace(p1, grid=grid_1)
+    V2 = SplineSpace(p2, grid=grid_2)
 
     V = TensorSpace(V1, V2)
 
