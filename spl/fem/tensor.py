@@ -54,6 +54,10 @@ class TensorSpace( FemSpace ):
     def degree(self):
         return [V.degree for V in self.spaces]
 
+    @property
+    def ncells(self):
+        return [V.ncells for V in self.spaces]
+
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'

@@ -38,6 +38,11 @@ class FemSpace( metaclass=ABCMeta ):
         """Parametric dimension."""
         pass
 
+    @property
+    @abstractmethod
+    def ncells( self ):
+        pass
+
 
 #===============================================================================
 class FemField( metaclass=ABCMeta ):
