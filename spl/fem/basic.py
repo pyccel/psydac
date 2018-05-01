@@ -32,6 +32,12 @@ class FemSpace( metaclass=ABCMeta ):
     def degree( self ):
         pass
 
+    @property
+    @abstractmethod
+    def pdim( self ):
+        """Parametric dimension."""
+        pass
+
 
 #===============================================================================
 class FemField( metaclass=ABCMeta ):

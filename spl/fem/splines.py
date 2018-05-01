@@ -69,6 +69,12 @@ class SplineSpace( FemSpace ):
         self._initialize()
 
     @property
+    def pdim( self ):
+        """ Parametric dimension.
+        """
+        return 1
+
+    @property
     def vector_space(self):
         """Returns the topological associated vector space."""
         return self._vector_space
@@ -205,6 +211,7 @@ class SplineSpace( FemSpace ):
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
+        txt += '> pdim   :: {pdim}\n'.format(pdim=self.pdim)
         txt += '> nbasis :: {dim}\n'.format(dim=self.nbasis)
         txt += '> degree :: {degree}'.format(degree=self.degree)
         return txt

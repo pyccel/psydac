@@ -28,6 +28,12 @@ class TensorSpace( FemSpace ):
         # TODO parallel case
 
     @property
+    def pdim( self ):
+        """ Parametric dimension.
+        """
+        return sum([V.pdim for V in self.spaces])
+
+    @property
     def vector_space(self):
         """Returns the topological associated vector space."""
         return self._vector_space
@@ -51,6 +57,7 @@ class TensorSpace( FemSpace ):
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
+        txt += '> pdim   :: {pdim}\n'.format(pdim=self.pdim)
         txt += '> total nbasis  :: {dim}\n'.format(dim=self.nbasis)
 
         dims = ', '.join(str(V.nbasis) for V in self.spaces)
