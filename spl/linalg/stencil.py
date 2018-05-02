@@ -510,7 +510,7 @@ class StencilMatrix( LinearOperator ):
 
         dims        = [e-s+1 for s,e in zip(V.starts, V.ends)]
         diags       = [2*p+1 for p in V.pads]
-        self._data  = zeros( dims+diags )
+        self._data  = zeros( dims+diags, dtype=V.dtype )
         self._space = V
 
         self._dims  = dims
