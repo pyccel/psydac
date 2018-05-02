@@ -107,37 +107,76 @@ def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2 ):
 #===============================================================================
 # PARALLEL TESTS
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [4,10,35] )
+@pytest.mark.parametrize( 'n1', [10,32] )
+@pytest.mark.parametrize( 'p1', [1,2,3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_1d_parallel_dot( n1 ):
+def test_stencil_matrix_1d_parallel_dot( n1, p1, P1 ):
 
+    from random       import random
     from mpi4py       import MPI
     from spl.ddm.cart import Cart
-
-    p1 = 1
 
     comm = MPI.COMM_WORLD
     cart = Cart( npts    = [n1,],
                  pads    = [p1,],
-                 periods = [True ,],
+                 periods = [P1,],
                  reorder = False,
                  comm    = comm )
 
     V = StencilVectorSpace( cart )
+    M = StencilMatrix( V, V )
     x = StencilVector( V )
-    A = StencilMatrix( V, V )
 
-    x[:] = 1.0
-    A[:,-1] = -1.0
-    A[:, 0] =  5.0
-    A[:,+1] = -2.0
+    # Fill in stencil matrix values (periodic!)
+    for k1 in range(-p1,p1+1):
+        M[:,k1] = k1
 
-    b = A.dot( x )
+    # If dimension 1 is not periodic, set periodic corners of matrix to zero
+    # TODO: this should be ensured by StencilMatrix object!
+    if not P1:
 
-    assert isinstance( b, StencilVector )
-    assert b.space is x.space
-    assert all( b.toarray()[cart.starts[0]:cart.ends[0]+1] == 2.0 )
+        # Top-right corner
+        i1_min = max( 0,  M.starts[0] )
+        i1_max = min( p1-1, M.ends[0] )
+        for i1 in range( i1_min, i1_max+1 ):
+            for k1 in range(-p1,-i1):
+                M[i1,k1] = 0.0
+
+        # Bottom-left corner
+        i1_min = max( n1-p1, M.starts[0] )
+        i1_max = min( n1-1 , M.ends  [0] )
+        for i1 in range( i1_min, i1_max+1 ):
+            for k1 in range(n1-i1-1,p1+1):
+                M[i1,k1] = 0.0
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(x.starts[0],x.ends[0]+1):
+        x[i1] = 2.0*random() - 1.0
+    x.update_ghost_regions()
+
+    # Compute matrix-vector product
+    y = M.dot( x )
+
+    assert isinstance( y, StencilVector )
+    assert y.space is x.space
+
+    # Convert stencil objects to Scipy sparse matrix and 1D Numpy arrays
+    Ms = M.tocsr()
+    xa = x.toarray( with_pads=True )
+    ya = y.toarray()
+
+#    print( Ms.toarray(), flush=True )
+#    print( xa, flush=True )
+#    print( x._data, flush=True )
+#    print( ya, flush=True )
+
+    # Exact result using Scipy sparse dot product
+    ya_exact = Ms.dot( xa )
+
+    # Check data in 1D array
+    assert np.allclose( ya, ya_exact, rtol=1e-14, atol=1e-14 )
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY

@@ -593,7 +593,7 @@ class StencilMatrix( LinearOperator ):
         from scipy.sparse import coo_matrix
 
         # Shortcuts
-        nn = self._dims
+        nn = self._space.npts
         nd = self._ndim
 
         ss = self.starts
