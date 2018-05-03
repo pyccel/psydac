@@ -32,6 +32,10 @@ class FemSpace( metaclass=ABCMeta ):
     def degree( self ):
         pass
 
+    @property
+    @abstractmethod
+    def periodic( self ):
+        pass
 
 #===============================================================================
 class FemField( metaclass=ABCMeta ):

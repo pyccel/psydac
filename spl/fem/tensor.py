@@ -48,6 +48,10 @@ class TensorSpace( FemSpace ):
     def degree(self):
         return [V.degree for V in self.spaces]
 
+    @property
+    def periodic(self):
+        return [V.periodic for V in self.spaces]
+
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
