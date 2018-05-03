@@ -40,17 +40,18 @@ class StencilVectorSpace( VectorSpace ):
             self._init_serial  ( *args, **kwargs )
 
     # ...
-    def _init_serial( self, npts, pads, dtype=float ):
+    def _init_serial( self, npts, pads, periods, dtype=float ):
 
-        assert len(npts) == len(pads)
+        assert len(npts) == len(pads) == len(periods)
         self._parallel = False
 
         # Sequential attributes
-        self._starts = tuple( 0   for n in npts )
-        self._ends   = tuple( n-1 for n in npts )
-        self._pads   = tuple( pads )
-        self._dtype  = dtype
-        self._ndim   = len( npts )
+        self._starts  = tuple( 0   for n in npts )
+        self._ends    = tuple( n-1 for n in npts )
+        self._pads    = tuple( pads )
+        self._periods = tuple( periods )
+        self._dtype   = dtype
+        self._ndim    = len( npts )
 
         # Global dimensions of vector space
         self._npts   = tuple( npts )
@@ -62,11 +63,12 @@ class StencilVectorSpace( VectorSpace ):
         self._parallel = True
 
         # Sequential attributes
-        self._starts = cart.starts
-        self._ends   = cart.ends
-        self._pads   = cart.pads
-        self._dtype  = dtype
-        self._ndim   = len(cart.starts)
+        self._starts  = cart.starts
+        self._ends    = cart.ends
+        self._pads    = cart.pads
+        self._periods = cart.periods
+        self._dtype   = dtype
+        self._ndim    = len(cart.starts)
 
         # Global dimensions of vector space
         self._npts   = cart.npts
@@ -122,6 +124,11 @@ class StencilVectorSpace( VectorSpace ):
     @property
     def pads( self ):
         return self._pads
+
+    # ...
+    @property
+    def periods( self ):
+        return self._periods
 
     # ...
     @property

@@ -52,7 +52,7 @@ class SplineSpace( FemSpace ):
             if dirichlet[1]: defect += 1
             self._nbasis = len(knots) - degree - 1 - defect
 
-        self._vector_space = StencilVectorSpace( [self.nbasis], [self.degree] )
+        self._vector_space = StencilVectorSpace( [self.nbasis], [self.degree], [periodic] )
         self._initialize()
 
     @property

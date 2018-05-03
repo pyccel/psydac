@@ -13,9 +13,9 @@ from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'p2', [1,2,3] )
 
-def test_stencil_matrix_2d_serial_shape( n1, n2, p1, p2 ):
+def test_stencil_matrix_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
 
-    V = StencilVectorSpace( [n1,n2], [p1,p2] )
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P1] )
     M = StencilMatrix( V, V )
 
     assert M._data.shape == (n1, n2, 1+2*p1, 1+2*p2)
@@ -27,7 +27,7 @@ def test_stencil_matrix_2d_serial_shape( n1, n2, p1, p2 ):
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'p2', [1,2,3] )
 
-def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2 ):
+def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=True, P2=False ):
 
     # Select non-zero values based on diagonal index
     nonzero_values = dict()
@@ -36,7 +36,7 @@ def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2 ):
             nonzero_values[k1,k2] = 10*k1 + k2
 
     # Create vector space and stencil matrix
-    V = StencilVectorSpace( [n1,n2], [p1,p2] )
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
     M = StencilMatrix( V, V )
 
     # Fill in stencil matrix values
@@ -68,8 +68,10 @@ def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2 ):
 @pytest.mark.parametrize( 'n2', [8,12] )
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'p2', [1,2,3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2 ):
+def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2, P1, P2 ):
 
     # Select non-zero values based on diagonal index
     nonzero_values = dict()
@@ -78,7 +80,7 @@ def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2 ):
             nonzero_values[k1,k2] = 10*k1 + k2
 
     # Create vector space, stencil matrix, and stencil vector
-    V = StencilVectorSpace( [n1,n2], [p1,p2] )
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
     M = StencilMatrix( V, V )
     x = StencilVector( V )
 

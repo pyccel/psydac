@@ -13,10 +13,10 @@ from spl.linalg.stencil import StencilVectorSpace, StencilVector
 @pytest.mark.parametrize( 'p1', [1,2] )
 @pytest.mark.parametrize( 'p2', [1,2] )
 
-def test_stencil_vector_2d_serial_init( n1, n2, p1, p2 ):
+def test_stencil_vector_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
 
 
-    V = StencilVectorSpace( [n1,n2], [p1,p2] )
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
     x = StencilVector( V )
 
     assert x.space is V
@@ -28,10 +28,10 @@ def test_stencil_vector_2d_serial_init( n1, n2, p1, p2 ):
 @pytest.mark.parametrize( 'p1', [1,2] )
 @pytest.mark.parametrize( 'p2', [1,2] )
 
-def test_stencil_vector_2d_serial_copy( n1, n2, p1, p2 ):
+def test_stencil_vector_2d_serial_copy( n1, n2, p1, p2, P1=True, P2=False ):
 
 
-    V = StencilVectorSpace( [n1,n2], [p1,p2] )
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
     x = StencilVector( V )
 
     for i1 in range(n1):
@@ -51,9 +51,9 @@ def test_stencil_vector_2d_serial_copy( n1, n2, p1, p2 ):
 @pytest.mark.parametrize( 'p1', [1,2] )
 @pytest.mark.parametrize( 'p2', [1,2] )
 
-def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2 ):
+def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=True, P2=False ):
 
-    V = StencilVectorSpace( [n1,n2], [p1,p2] )
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
     x = StencilVector( V )
 
     for i1 in range(n1):
@@ -77,10 +77,10 @@ def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2 ):
 @pytest.mark.parametrize( 'p1', [1,2] )
 @pytest.mark.parametrize( 'p2', [1,2] )
 
-def test_stencil_vector_2d_serial_math( n1, n2, p1, p2 ):
+def test_stencil_vector_2d_serial_math( n1, n2, p1, p2, P1=True, P2=False ):
 
 
-    V = StencilVectorSpace( [n1,n2], [p1,p2] )
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
     x = StencilVector( V )
     y = StencilVector( V )
 
@@ -115,10 +115,10 @@ def test_stencil_vector_2d_serial_math( n1, n2, p1, p2 ):
 @pytest.mark.parametrize( 'p1', [1,2] )
 @pytest.mark.parametrize( 'p2', [1,2] )
 
-def test_stencil_vector_2d_serial_dot( n1, n2, p1, p2 ):
+def test_stencil_vector_2d_serial_dot( n1, n2, p1, p2, P1=True, P2=False ):
 
 
-    V = StencilVectorSpace( [n1,n2], [p1,p2] )
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
     x = StencilVector( V )
     y = StencilVector( V )
 
@@ -144,7 +144,7 @@ def test_stencil_vector_2d_serial_dot( n1, n2, p1, p2 ):
 @pytest.mark.parametrize( 'p2', [1,3,4] )
 @pytest.mark.parallel
 
-def test_stencil_vector_2d_parallel_init( n1, n2, p1, p2 ):
+def test_stencil_vector_2d_parallel_init( n1, n2, p1, p2, P1=True, P2=False ):
 
     from mpi4py       import MPI
     from spl.ddm.cart import Cart
@@ -152,7 +152,7 @@ def test_stencil_vector_2d_parallel_init( n1, n2, p1, p2 ):
     comm = MPI.COMM_WORLD
     cart = Cart( npts    = [n1,n2],
                  pads    = [p1,p2],
-                 periods = [True, False],
+                 periods = [P1,P2],
                  reorder = False,
                  comm    = comm )
 
@@ -169,9 +169,11 @@ def test_stencil_vector_2d_parallel_init( n1, n2, p1, p2 ):
 @pytest.mark.parametrize( 'n2', [12,25] )
 @pytest.mark.parametrize( 'p1', [1,3,4] )
 @pytest.mark.parametrize( 'p2', [1,3,4] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parallel
 
-def test_stencil_vector_2d_parallel_toarray( n1, n2, p1, p2 ):
+def test_stencil_vector_2d_parallel_toarray( n1, n2, p1, p2, P1, P2 ):
 
     from mpi4py       import MPI
     from spl.ddm.cart import Cart
@@ -182,7 +184,7 @@ def test_stencil_vector_2d_parallel_toarray( n1, n2, p1, p2 ):
     comm = MPI.COMM_WORLD
     cart = Cart( npts    = [n1,n2],
                  pads    = [p1,p2],
-                 periods = [True, False],
+                 periods = [P1,P2],
                  reorder = False,
                  comm    = comm )
 
@@ -228,9 +230,11 @@ def test_stencil_vector_2d_parallel_toarray( n1, n2, p1, p2 ):
 @pytest.mark.parametrize( 'n2', [2,12,25] )
 @pytest.mark.parametrize( 'p1', [1,3,4] )
 @pytest.mark.parametrize( 'p2', [1,3,4] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parallel
 
-def test_stencil_vector_2d_parallel_dot( n1, n2, p1, p2 ):
+def test_stencil_vector_2d_parallel_dot( n1, n2, p1, p2, P1, P2 ):
 
     from mpi4py       import MPI
     from spl.ddm.cart import Cart
@@ -238,7 +242,7 @@ def test_stencil_vector_2d_parallel_dot( n1, n2, p1, p2 ):
     comm = MPI.COMM_WORLD
     cart = Cart( npts    = [n1,n2],
                  pads    = [p1,p2],
-                 periods = [True ,False],
+                 periods = [P1,P2],
                  reorder = False,
                  comm    = comm )
 

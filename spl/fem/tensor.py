@@ -23,7 +23,8 @@ class TensorSpace( FemSpace ):
         # serial case
         npts = [V.nbasis for V in self.spaces]
         pads = [V.degree for V in self.spaces]
-        self._vector_space = StencilVectorSpace( npts, pads )
+        periods = [V.periodic for V in self.spaces]
+        self._vector_space = StencilVectorSpace( npts, pads, periods )
 
         # TODO parallel case
 
