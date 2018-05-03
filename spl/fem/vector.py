@@ -71,6 +71,22 @@ class VectorFemSpace( FemSpace ):
     def ncells(self):
         return self._ncells
 
+    @property
+    def is_block(self):
+        """Returns True if all components are identical spaces."""
+        # TODO - improve this tests. for the moment, we only check the degree,
+        #      - shall we check the bc too?
+
+        degree = [V.degree for V in self.spaces]
+        if self.pdim == 1:
+            return len(unique(degree)) == 1
+        else:
+            ns = asarray(degree[0])
+            for ms in degree[1:]:
+                if not( allclose(ns, asarray(ms)) ): return False
+            return True
+
+
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
