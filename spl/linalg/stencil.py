@@ -427,9 +427,55 @@ class StencilVector( Vector ):
     # ...
     # TODO: maybe change name to 'exchange'
     def update_ghost_regions( self ):
+        """
+        Update ghost regions before performing non-local access to vector
+        elements (e.g. in matrix-vector product).
 
-        if not self._space.parallel:
-            return
+        """
+        if self._space.parallel:
+            # PARALLEL CASE: fill in ghost regions with data from neighbors
+            self._update_ghost_regions_parallel()
+        else:
+            # SERIAL CASE: fill in ghost regions along periodic directions
+            self._update_ghost_regions_serial()
+
+    # ...
+    def _update_ghost_regions_serial( self ):
+
+        ndim = self._space.ndim
+
+        for direction in range(ndim):
+
+            periodic = self._space.periods[direction]
+
+            if periodic:
+
+                p = self.pads[direction]
+
+                # Copy data from left to right
+                idx_from = tuple(
+                    (slice(p,2*p) if d == direction else slice(None))
+                    for d in range( ndim )
+                )
+                idx_to = tuple(
+                    (slice(-p,None) if d == direction else slice(None))
+                    for d in range( ndim )
+                )
+                self._data[idx_to] = self._data[idx_from]
+
+                # Copy data from right to left
+                idx_from = tuple(
+                    (slice(-2*p,-p) if d == direction else slice(None))
+                    for d in range( ndim )
+                )
+                idx_to = tuple(
+                    (slice(None,p) if d == direction else slice(None))
+                    for d in range( ndim )
+                )
+                self._data[idx_to] = self._data[idx_from]
+
+    # ...
+    def _update_ghost_regions_parallel( self ):
 
         from mpi4py import MPI
 

@@ -20,6 +20,8 @@ def test_stencil_vector_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
     x = StencilVector( V )
 
     assert x.space is V
+    assert x.starts == (0,0)
+    assert x.ends   == (n1-1,n2-1)
     assert x._data.shape == (n1+2*p1, n2+2*p2)
 
 #===============================================================================

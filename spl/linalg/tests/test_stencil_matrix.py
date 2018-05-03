@@ -2,6 +2,7 @@
 
 import pytest
 import numpy as np
+from random import random
 
 from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 
@@ -64,8 +65,48 @@ def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=True, P2=False ):
     assert np.all( Ma == A )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [7,15] )
-@pytest.mark.parametrize( 'n2', [8,12] )
+@pytest.mark.parametrize( 'n1', [10,32] )
+@pytest.mark.parametrize( 'p1', [1,2,3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+
+def test_stencil_matrix_1d_serial_dot( n1, p1, P1 ):
+
+    # Create vector space, stencil matrix, and stencil vector
+    V = StencilVectorSpace( [n1,], [p1,], [P1,] )
+    M = StencilMatrix( V, V )
+    x = StencilVector( V )
+
+    # Fill in stencil matrix values based on diagonal index
+    for i1 in range(n1):
+        k1_min = -p1 if P1 else max(-p1,    -i1)
+        k1_max =  p1 if P1 else min( p1,n1-1-i1)
+        M[i1,k1_min:k1_max+1] = range(k1_min,k1_max+1)
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        x[i1] = 2.0*random() - 1.0
+    x.update_ghost_regions()
+
+    # Compute matrix-vector product
+    y = M.dot(x)
+
+    assert isinstance( y, StencilVector )
+    assert y.space is x.space
+
+    # Convert stencil objects to Scipy sparse matrix and 1D Numpy arrays
+    Ms = M.tocsr()
+    xa = x.toarray()
+    ya = y.toarray()
+
+    # Exact result using Scipy sparse dot product
+    ya_exact = Ms.dot( xa )
+
+    # Check data in 1D array
+    assert np.allclose( ya, ya_exact, rtol=1e-14, atol=1e-14 )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [5,15] )
+@pytest.mark.parametrize( 'n2', [5,12] )
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'p2', [1,2,3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
@@ -84,13 +125,22 @@ def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2, P1, P2 ):
     M = StencilMatrix( V, V )
     x = StencilVector( V )
 
-    # Fill in stencil matrix values
-    for k1 in range(-p1,p1+1):
-        for k2 in range(-p2,p2+1):
-            M[:,:,k1,k2] = nonzero_values[k1,k2]
+    # Fill in stencil matrix values based on diagonal index
+    for i1 in range(n1):
+        k1_min = -p1 if P1 else max(-p1,    -i1)
+        k1_max =  p1 if P1 else min( p1,n1-1-i1)
+        for i2 in range(n2):
+            k2_min = -p2 if P2 else max(-p2,    -i2)
+            k2_max =  p2 if P2 else min( p2,n2-1-i2)
+            for k1 in range(k1_min,k1_max+1):
+                for k2 in range(k2_min,k2_max+1):
+                    M[i1,i2,k1,k2] = nonzero_values[k1,k2]
 
-    # Fill in vector values
-    x[:,:] = 1.
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x[i1,i2] = 2.0*random() - 1.0
+    x.update_ghost_regions()
 
     # Compute matrix-vector product
     y = M.dot(x)
@@ -104,7 +154,7 @@ def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2, P1, P2 ):
     ya_exact = np.dot( Ma, xa )
 
     # Check data in 1D array
-    assert np.all( ya == ya_exact )
+    assert np.allclose( ya, ya_exact, rtol=1e-13, atol=1e-13 )
 
 #===============================================================================
 # PARALLEL TESTS
@@ -116,7 +166,6 @@ def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2, P1, P2 ):
 
 def test_stencil_matrix_1d_parallel_dot( n1, p1, P1 ):
 
-    from random       import random
     from mpi4py       import MPI
     from spl.ddm.cart import Cart
 
