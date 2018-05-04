@@ -104,6 +104,10 @@ class Cart():
     def comm_cart( self ):
         return self._comm_cart
 
+    @property
+    def nprocs( self ):
+        return self._dims
+
     #---------------------------------------------------------------------------
     # Local properties
     #---------------------------------------------------------------------------

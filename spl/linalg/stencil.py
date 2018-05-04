@@ -40,17 +40,18 @@ class StencilVectorSpace( VectorSpace ):
             self._init_serial  ( *args, **kwargs )
 
     # ...
-    def _init_serial( self, npts, pads, dtype=float ):
+    def _init_serial( self, npts, pads, periods, dtype=float ):
 
-        assert len(npts) == len(pads)
+        assert len(npts) == len(pads) == len(periods)
         self._parallel = False
 
         # Sequential attributes
-        self._starts = tuple( 0   for n in npts )
-        self._ends   = tuple( n-1 for n in npts )
-        self._pads   = tuple( pads )
-        self._dtype  = dtype
-        self._ndim   = len( npts )
+        self._starts  = tuple( 0   for n in npts )
+        self._ends    = tuple( n-1 for n in npts )
+        self._pads    = tuple( pads )
+        self._periods = tuple( periods )
+        self._dtype   = dtype
+        self._ndim    = len( npts )
 
         # Global dimensions of vector space
         self._npts   = tuple( npts )
@@ -62,11 +63,12 @@ class StencilVectorSpace( VectorSpace ):
         self._parallel = True
 
         # Sequential attributes
-        self._starts = cart.starts
-        self._ends   = cart.ends
-        self._pads   = cart.pads
-        self._dtype  = dtype
-        self._ndim   = len(cart.starts)
+        self._starts  = cart.starts
+        self._ends    = cart.ends
+        self._pads    = cart.pads
+        self._periods = cart.periods
+        self._dtype   = dtype
+        self._ndim    = len(cart.starts)
 
         # Global dimensions of vector space
         self._npts   = cart.npts
@@ -122,6 +124,11 @@ class StencilVectorSpace( VectorSpace ):
     @property
     def pads( self ):
         return self._pads
+
+    # ...
+    @property
+    def periods( self ):
+        return self._periods
 
     # ...
     @property
@@ -313,14 +320,99 @@ class StencilVector( Vector ):
         return txt
 
     # ...
-    def toarray(self):
+    def toarray( self, *, with_pads=False ):
         """
         Return a numpy 1D array corresponding to the given StencilVector,
-        without pads.
+        with or without pads.
+
+        Parameters
+        ----------
+        with_pads : bool
+            If True, include pads in output array.
+
+        Returns
+        -------
+        array : numpy.ndarray
+            A copy of the data array collapsed into one dimension.
 
         """
+        # In parallel case, call different functions based on 'with_pads' flag
+        if self.space.parallel:
+            if with_pads:
+                return self._toarray_parallel_with_pads()
+            else:
+                return self._toarray_parallel_no_pads()
+
+        # In serial case, ignore 'with_pads' flag
         index = tuple( slice(p,-p) for p in self.pads )
         return self._data[index].flatten()
+
+    # ...
+    def _toarray_parallel_no_pads( self ):
+        from numpy import zeros
+        a         = zeros( self.space.npts )
+        idx_from  = tuple( slice(p,-p) for p in self.pads )
+        idx_to    = tuple( slice(s,e+1) for s,e in zip(self.starts,self.ends) )
+        a[idx_to] = self._data[idx_from]
+        return a.reshape(-1)
+
+    # ...
+    def _toarray_parallel_with_pads( self ):
+        from numpy import zeros
+
+        # Step 0: create extended n-dimensional array with zero values
+        shape = tuple( n+2*p for n,p in zip( self.space.npts, self.pads ) )
+        a = zeros( shape )
+
+        # Step 1: write extended data chunk (local to process) onto array
+        idx = tuple( slice(s,e+2*p+1) for s,e,p in
+            zip( self.starts, self.ends, self.pads ) )
+        a[idx] = self._data
+
+        # Step 2: if necessary, apply periodic boundary conditions to array
+        ndim = self.space.ndim
+
+        for direction in range( ndim ):
+
+            periodic = self.space.cart.periods[direction]
+            coord    = self.space.cart.coords [direction]
+            nproc    = self.space.cart.nprocs [direction]
+
+            if periodic:
+
+                p = self.pads[direction]
+
+                # Left-most process: copy data from left to right
+                if coord == 0:
+                    idx_from = tuple(
+                        (slice(None,p) if d == direction else slice(None))
+                        for d in range( ndim )
+                    )
+                    idx_to = tuple(
+                        (slice(-2*p,-p) if d == direction else slice(None))
+                        for d in range( ndim )
+                    )
+                    a[idx_to] = a[idx_from]
+
+                # Right-most process: copy data from right to left
+                if coord == nproc-1:
+                    idx_from = tuple(
+                        (slice(-p,None) if d == direction else slice(None))
+                        for d in range( ndim )
+                    )
+                    idx_to = tuple(
+                        (slice(p,2*p) if d == direction else slice(None))
+                        for d in range( ndim )
+                    )
+                    a[idx_to] = a[idx_from]
+
+        # Step 3: remove ghost regions from global array
+        idx = tuple( slice(p,-p) for p in self.pads )
+        out = a[idx]
+
+        # Step 4: return flattened array
+#        return out.flatten()
+        return out.reshape(-1)
 
     # ...
     def __getitem__(self, key):
@@ -335,9 +427,55 @@ class StencilVector( Vector ):
     # ...
     # TODO: maybe change name to 'exchange'
     def update_ghost_regions( self ):
+        """
+        Update ghost regions before performing non-local access to vector
+        elements (e.g. in matrix-vector product).
 
-        if not self._space.parallel:
-            return
+        """
+        if self._space.parallel:
+            # PARALLEL CASE: fill in ghost regions with data from neighbors
+            self._update_ghost_regions_parallel()
+        else:
+            # SERIAL CASE: fill in ghost regions along periodic directions
+            self._update_ghost_regions_serial()
+
+    # ...
+    def _update_ghost_regions_serial( self ):
+
+        ndim = self._space.ndim
+
+        for direction in range(ndim):
+
+            periodic = self._space.periods[direction]
+
+            if periodic:
+
+                p = self.pads[direction]
+
+                # Copy data from left to right
+                idx_from = tuple(
+                    (slice(p,2*p) if d == direction else slice(None))
+                    for d in range( ndim )
+                )
+                idx_to = tuple(
+                    (slice(-p,None) if d == direction else slice(None))
+                    for d in range( ndim )
+                )
+                self._data[idx_to] = self._data[idx_from]
+
+                # Copy data from right to left
+                idx_from = tuple(
+                    (slice(-2*p,-p) if d == direction else slice(None))
+                    for d in range( ndim )
+                )
+                idx_to = tuple(
+                    (slice(None,p) if d == direction else slice(None))
+                    for d in range( ndim )
+                )
+                self._data[idx_to] = self._data[idx_from]
+
+    # ...
+    def _update_ghost_regions_parallel( self ):
 
         from mpi4py import MPI
 
@@ -425,7 +563,7 @@ class StencilMatrix( LinearOperator ):
 
         dims        = [e-s+1 for s,e in zip(V.starts, V.ends)]
         diags       = [2*p+1 for p in V.pads]
-        self._data  = zeros( dims+diags )
+        self._data  = zeros( dims+diags, dtype=V.dtype )
         self._space = V
 
         self._dims  = dims
@@ -508,7 +646,7 @@ class StencilMatrix( LinearOperator ):
         from scipy.sparse import coo_matrix
 
         # Shortcuts
-        nn = self._dims
+        nn = self._space.npts
         nd = self._ndim
 
         ss = self.starts
