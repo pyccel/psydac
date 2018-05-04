@@ -22,9 +22,9 @@ Requirements
 
     sudo -H pip3 install -r requirements.txt
 
-Install
-*******
-run::
+Installing library
+******************
+- **Standard mode**::
 
     python3 -m pip install
 
@@ -35,7 +35,7 @@ run::
 Uninstall
 *********
 
-- **run**::
+- **Whichever the used mode**::
 
     python3 -m pip uninstall spl
     
