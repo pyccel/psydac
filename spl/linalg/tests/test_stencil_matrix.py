@@ -159,7 +159,7 @@ def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2, P1, P2 ):
 #===============================================================================
 # PARALLEL TESTS
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [10,32] )
+@pytest.mark.parametrize( 'n1', [20,67] )
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parallel

@@ -167,8 +167,8 @@ def test_stencil_vector_2d_parallel_init( n1, n2, p1, p2, P1=True, P2=False ):
     assert np.all( x[:,:] == 0.0 )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [10,23] )
-@pytest.mark.parametrize( 'n2', [12,25] )
+@pytest.mark.parametrize( 'n1', [20,67] )
+@pytest.mark.parametrize( 'n2', [23,65] )
 @pytest.mark.parametrize( 'p1', [1,3,4] )
 @pytest.mark.parametrize( 'p2', [1,3,4] )
 @pytest.mark.parametrize( 'P1', [True, False] )
