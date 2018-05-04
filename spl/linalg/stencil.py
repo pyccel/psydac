@@ -426,56 +426,69 @@ class StencilVector( Vector ):
 
     # ...
     # TODO: maybe change name to 'exchange'
-    def update_ghost_regions( self ):
+    def update_ghost_regions( self, *, direction=None ):
         """
         Update ghost regions before performing non-local access to vector
         elements (e.g. in matrix-vector product).
 
+        Parameters
+        ----------
+        direction : int
+            Single direction along which to operate (if not specified, all of them).
+
         """
-        if self._space.parallel:
+        ndim     = self._space.ndim
+        parallel = self._space.parallel
+
+        if parallel:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
-            self._update_ghost_regions_parallel()
+           update_ghost_regions = self._update_ghost_regions_parallel
         else:
-            # SERIAL CASE: fill in ghost regions along periodic directions
-            self._update_ghost_regions_serial()
+            # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
+            update_ghost_regions = self._update_ghost_regions_serial
+
+        if direction is not None:
+            assert isinstance( direction, int )
+            assert 0 <= direction < ndim
+            update_ghost_regions( direction )
+        else:
+            for direction in range(ndim):
+                update_ghost_regions( direction )
 
     # ...
-    def _update_ghost_regions_serial( self ):
+    def _update_ghost_regions_serial( self, direction: int ):
 
-        ndim = self._space.ndim
+        ndim     = self._space.ndim
+        periodic = self._space.periods[direction]
+        p        = self._space.pads   [direction]
 
-        for direction in range(ndim):
+        idx_front = [slice(None)]*direction
+        idx_back  = [slice(None)]*(ndim-direction-1)
 
-            periodic = self._space.periods[direction]
+        if periodic:
 
-            if periodic:
+            # Copy data from left to right
+            idx_from = tuple( idx_front + [slice( p, 2*p)] + idx_back )
+            idx_to   = tuple( idx_front + [slice(-p,None)] + idx_back )
+            self._data[idx_to] = self._data[idx_from]
 
-                p = self.pads[direction]
+            # Copy data from right to left
+            idx_from = tuple( idx_front + [slice(-2*p,-p)] + idx_back )
+            idx_to   = tuple( idx_front + [slice(None, p)] + idx_back )
+            self._data[idx_to] = self._data[idx_from]
 
-                # Copy data from left to right
-                idx_from = tuple(
-                    (slice(p,2*p) if d == direction else slice(None))
-                    for d in range( ndim )
-                )
-                idx_to = tuple(
-                    (slice(-p,None) if d == direction else slice(None))
-                    for d in range( ndim )
-                )
-                self._data[idx_to] = self._data[idx_from]
+        else:
 
-                # Copy data from right to left
-                idx_from = tuple(
-                    (slice(-2*p,-p) if d == direction else slice(None))
-                    for d in range( ndim )
-                )
-                idx_to = tuple(
-                    (slice(None,p) if d == direction else slice(None))
-                    for d in range( ndim )
-                )
-                self._data[idx_to] = self._data[idx_from]
+            # Set left ghost region to zero
+            idx_ghost = tuple( idx_front + [slice(None, p)] + idx_back )
+            self._data[idx_ghost] = 0
+
+            # Set right ghost region to zero
+            idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
+            self._data[idx_ghost] = 0
 
     # ...
-    def _update_ghost_regions_parallel( self ):
+    def _update_ghost_regions_parallel( self, direction: int ):
 
         from mpi4py import MPI
 
@@ -483,36 +496,34 @@ class StencilVector( Vector ):
         space     = self._space
         cart      = space.cart
         comm_cart = cart.comm_cart
-        ndim      = len( cart.shape )
 
         # Choose non-negative invertible function tag(disp) >= 0
-        # NOTE: different values of disp must return different tags!
+        # NOTES:
+        #   . different values of disp must return different tags!
+        #   . tag at receiver must match message tag at sender
         tag = lambda disp: 42+disp
 
-        # Cycle over dimensions
-        for direction in range(ndim):
+        # Requests' handles
+        requests = []
 
-            # Requests' handles
-            requests = []
+        # Start receiving data (MPI_IRECV)
+        for disp in [-1,1]:
+            info     = cart.get_shift_info( direction, disp )
+            recv_typ = space.get_recv_type( direction, disp )
+            recv_buf = (u, 1, recv_typ)
+            recv_req = comm_cart.Irecv( recv_buf, info['rank_source'], tag(disp) )
+            requests.append( recv_req )
 
-            # Start receiving data (MPI_IRECV)
-            for disp in [-1,1]:
-                info     = cart.get_shift_info( direction, disp )
-                recv_typ = space.get_recv_type( direction, disp )
-                recv_buf = (u, 1, recv_typ)
-                recv_req = comm_cart.Irecv( recv_buf, info['rank_source'], tag(disp) )
-                requests.append( recv_req )
+        # Start sending data (MPI_ISEND)
+        for disp in [-1,1]:
+            info     = cart.get_shift_info( direction, disp )
+            send_typ = space.get_send_type( direction, disp )
+            send_buf = (u, 1, send_typ)
+            send_req = comm_cart.Isend( send_buf, info['rank_dest'], tag(disp) )
+            requests.append( send_req )
 
-            # Start sending data (MPI_ISEND)
-            for disp in [-1,1]:
-                info     = cart.get_shift_info( direction, disp )
-                send_typ = space.get_send_type( direction, disp )
-                send_buf = (u, 1, send_typ)
-                send_req = comm_cart.Isend( send_buf, info['rank_dest'], tag(disp) )
-                requests.append( send_req )
-
-            # Wait for end of data exchange (MPI_WAITALL)
-            MPI.Request.Waitall( requests )
+        # Wait for end of data exchange (MPI_WAITALL)
+        MPI.Request.Waitall( requests )
 
     #--------------------------------------
     # Private methods
