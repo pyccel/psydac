@@ -11,6 +11,7 @@ usr
 
 *.swp
 *.log
+*.h5
 
 doc/_static
 doc/_build

@@ -14,6 +14,7 @@ __all__ = [
     'compute_spans',
     'compute_greville',
     'collocation_matrix',
+    'collocation_cardinal_splines',
     'histopolation_matrix',
     'mass_matrix'
 ]
@@ -259,6 +260,31 @@ def collocation_matrix(p, n, T, u):
     m = len(u)
     mat = _core.collocation_matrix(p, n, m, T, u)
     return mat
+
+# ...
+def collocation_cardinal_splines(p, n):
+    """Returns the collocation matrix with cardinal B-Splines.
+
+    p: int
+        spline degree
+
+    n: int
+        number of splines functions i.e. `control points`
+
+
+    Examples
+
+    >>> from spl.core.interface import collocation_matrix
+
+    >>> p = 3 ; n = 8
+    >>> mat = collocation_cardinal_splines(p, n)
+    >>> mat.shape
+    (8, 8)
+
+    """
+    mat = _core.collocation_cardinal_splines(p, n)
+    return mat
+# ...
 
 
 # TODO must be implemented in Fortran

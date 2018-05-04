@@ -24,7 +24,7 @@ Requirements
 
 Install
 *******
-  run::
+run::
 
     python3 -m pip install
 
@@ -34,8 +34,9 @@ Install
     
 Uninstall
 *********
-  run::
-  
+
+- **run**::
+
     python3 -m pip uninstall spl
     
 .. |build-devel| image:: https://travis-ci.org/pyccel/spl.svg?branch=devel

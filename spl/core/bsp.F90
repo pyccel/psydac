@@ -10,35 +10,18 @@ module bsp_utils
 
   implicit none
   
-  public :: collocation_matrix,         &
-          & compute_greville,           &
+  public :: compute_greville,           &
           & eval_on_grid_splines_ders,  &
           & compute_spans,              &
           & construct_grid_from_knots,  &
           & construct_quadrature_grid,  &
           & make_open_knots,            &
           & make_periodic_knots,        &
-          & compute_origins_element
+          & compute_origins_element,    &
+          & collocation_matrix,         &
+          & collocation_cardinal_splines
 
 contains
-
-  ! .......................................................
-  subroutine collocation_matrix(p, n, m, knots, u, mat)
-    use bsp_ext, only: spl_collocation_matrix
-    implicit none
-    integer,                    intent(in)  :: p
-    integer,                    intent(in)  :: n
-    integer,                    intent(in)  :: m
-    real(8), dimension(n+p+1),  intent(in)  :: knots
-    real(8), dimension(m),      intent(in)  :: u
-    real(8), dimension(m, n),   intent(out) :: mat
-
-    ! ...
-    call spl_collocation_matrix(n, p, knots, u, mat)
-    ! ...
-
-  end subroutine collocation_matrix 
-  ! .......................................................
 
   ! .......................................................
   subroutine compute_greville(p, n, knots, arr_x)
@@ -175,6 +158,39 @@ contains
     ! ...
     
   end subroutine compute_origins_element 
+  ! ................................................  
+  
+  ! .......................................................
+  subroutine collocation_matrix(p, n, m, knots, u, mat)
+    use bsp_ext, only: spl_collocation_matrix
+    implicit none
+    integer,                    intent(in)  :: p
+    integer,                    intent(in)  :: n
+    integer,                    intent(in)  :: m
+    real(8), dimension(n+p+1),  intent(in)  :: knots
+    real(8), dimension(m),      intent(in)  :: u
+    real(8), dimension(m, n),   intent(out) :: mat
+
+    ! ...
+    call spl_collocation_matrix(n, p, knots, u, mat)
+    ! ...
+
+  end subroutine collocation_matrix 
+  ! .......................................................
+
+  ! ................................................
+  subroutine collocation_cardinal_splines(p, n, mat)
+  use bsp_ext, only: spl_compute_symbol_stiffness
+  implicit none
+    integer,                               intent(in)  :: p
+    integer,                               intent(in)  :: n
+    real(8), dimension(n, n), intent(out) :: mat 
+
+    ! ...
+    call spl_compute_symbol_stiffness(p, n, mat)
+    ! ...
+    
+  end subroutine collocation_cardinal_splines 
   ! ................................................
 
 end module bsp_utils
