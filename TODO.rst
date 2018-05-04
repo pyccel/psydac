@@ -6,8 +6,6 @@ TODO
   . add extensive unit tests to 'test_stencil_vector.py'
   . add extensive unit tests to 'test_stencil_matrix.py'
 
-* Update method 'tocoo()' of class 'spl.linalg.StencilMatrix' (parallel version)
-
 * Add GMRES solver to 'spl.linalg.solvers'
 
 * Add unit tests for Cart subcommunicators in 'spl.ddm.cart'
