@@ -10,11 +10,11 @@ Requirements
 
 - **Python3**::
 
-  sudo apt-get install python3 python3-dev
+    sudo apt-get install python3 python3-dev
 
 - **pip3**::
 
-  sudo apt-get install python-pip3
+    sudo apt-get install python-pip3
 
 - **Fortran** compiler
 
@@ -24,10 +24,19 @@ Requirements
 
 Install
 *******
+  run::
 
-run::
+    python3 -m pip install
 
-  sudo python3 setup.py install
+- **Development mode**::
+
+    python3 -m pip install --user -e .
+    
+Uninstall
+*********
+  run::
+  
+    python3 -m pip uninstall spl
     
 .. |build-devel| image:: https://travis-ci.org/pyccel/spl.svg?branch=devel
     :alt: devel status
@@ -38,3 +47,6 @@ run::
     :alt: Documentation Status
     :scale: 100%
     :target: http://spl.readthedocs.io/en/latest/?badge=latest
+
+  
+
