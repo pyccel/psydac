@@ -16,9 +16,7 @@ Requirements
 
     sudo apt-get install python-pip3
 
-- **Fortran** compiler
-
-- all *Python* dependencies can be installed using::
+- All *Python* dependencies can be installed using::
 
     sudo -H pip3 install -r requirements.txt
 
@@ -35,7 +33,7 @@ Installing library
 Uninstall
 *********
 
-- **Whichever the used mode**::
+- **Whichever the install mode**::
 
     python3 -m pip uninstall spl
     
