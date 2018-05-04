@@ -1,11 +1,6 @@
 TODO
 ====
 
-* In directory 'spl/linalg/tests':
-
-  . add extensive unit tests to 'test_stencil_vector.py'
-  . add extensive unit tests to 'test_stencil_matrix.py'
-
 * Add GMRES solver to 'spl.linalg.solvers'
 
 * Add unit tests for Cart subcommunicators in 'spl.ddm.cart'
