@@ -28,7 +28,7 @@ def test_stencil_matrix_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'p2', [1,2,3] )
 
-def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=True, P2=False ):
+def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=False, P2=True ):
 
     # Select non-zero values based on diagonal index
     nonzero_values = dict()
@@ -45,6 +45,9 @@ def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=True, P2=False ):
         for k2 in range(-p2,p2+1):
             M[:,:,k1,k2] = nonzero_values[k1,k2]
 
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
     # Convert stencil matrix to 2D array
     Ma = M.toarray()
 
@@ -58,7 +61,8 @@ def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=True, P2=False ):
                     j2 = (i2+k2) % n2
                     i  = i1*(n2) + i2
                     j  = j1*(n2) + j2
-                    A[i,j] = nonzero_values[k1,k2]
+                    if (P1 or 0 <= i1+k1 < n1) and (P2 or 0 <= i2+k2 < n2):
+                        A[i,j] = nonzero_values[k1,k2]
 
     # Check shape and data in 2D array
     assert Ma.shape == M.shape
@@ -76,11 +80,12 @@ def test_stencil_matrix_1d_serial_dot( n1, p1, P1 ):
     M = StencilMatrix( V, V )
     x = StencilVector( V )
 
-    # Fill in stencil matrix values based on diagonal index
-    for i1 in range(n1):
-        k1_min = -p1 if P1 else max(-p1,    -i1)
-        k1_max =  p1 if P1 else min( p1,n1-1-i1)
-        M[i1,k1_min:k1_max+1] = range(k1_min,k1_max+1)
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    for k1 in range(-p1,p1+1):
+        M[:,k1] = k1
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
@@ -114,27 +119,18 @@ def test_stencil_matrix_1d_serial_dot( n1, p1, P1 ):
 
 def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2, P1, P2 ):
 
-    # Select non-zero values based on diagonal index
-    nonzero_values = dict()
-    for k1 in range(-p1,p1+1):
-        for k2 in range(-p2,p2+1):
-            nonzero_values[k1,k2] = 10*k1 + k2
-
     # Create vector space, stencil matrix, and stencil vector
     V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
     M = StencilMatrix( V, V )
     x = StencilVector( V )
 
-    # Fill in stencil matrix values based on diagonal index
-    for i1 in range(n1):
-        k1_min = -p1 if P1 else max(-p1,    -i1)
-        k1_max =  p1 if P1 else min( p1,n1-1-i1)
-        for i2 in range(n2):
-            k2_min = -p2 if P2 else max(-p2,    -i2)
-            k2_max =  p2 if P2 else min( p2,n2-1-i2)
-            for k1 in range(k1_min,k1_max+1):
-                for k2 in range(k2_min,k2_max+1):
-                    M[i1,i2,k1,k2] = nonzero_values[k1,k2]
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            M[:,:,k1,k2] = 10*k1+k2
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
@@ -181,18 +177,15 @@ def test_stencil_matrix_1d_parallel_dot( n1, p1, P1, reorder ):
     M = StencilMatrix( V, V )
     x = StencilVector( V )
 
-    # Fill in stencil matrix values (periodic!)
-    for k1 in range(-p1,p1+1):
-        M[:,k1] = k1
-
-    # If dimension 1 is not periodic, set periodic corners of matrix to zero
-    # TODO: this should be ensured by StencilMatrix object!
     s1, = V.starts
     e1, = V.ends
 
-    if not P1:
-        for i1 in range( max(    0,s1), min(p1,e1+1) ):  M[i1,    -p1:-i1 ] = 0.0
-        for i1 in range( max(n1-p1,s1), min(n1,e1+1) ):  M[i1,n1-i1-1:p1+1] = 0.0
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    for k1 in range(-p1,p1+1):
+        M[:,k1] = k1
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(x.starts[0],x.ends[0]+1):
@@ -243,23 +236,16 @@ def test_stencil_matrix_2d_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
     M = StencilMatrix( V, V )
     x = StencilVector( V )
 
+    s1,s2 = V.starts
+    e1,e2 = V.ends
+
     # Fill in stencil matrix values based on diagonal index (periodic!)
     for k1 in range(-p1,p1+1):
         for k2 in range(-p2,p2+1):
             M[:,:,k1,k2] = 10*k1+k2
 
-    # If any dimension is not periodic, set corresponding periodic corners of matrix to zero
-    # TODO: this should be ensured by StencilMatrix object!
-    s1,s2 = V.starts
-    e1,e2 = V.ends
-
-    if not P1:
-        for i1 in range( max(    0,s1), min(p1,e1+1) ):  M[i1,:,    -p1:-i1 ,:] = 0.0
-        for i1 in range( max(n1-p1,s1), min(n1,e1+1) ):  M[i1,:,n1-i1-1:p1+1,:] = 0.0
-
-    if not P2:
-        for i2 in range( max(    0,s2), min(p2,e2+1) ):  M[:,i2,:,    -p2:-i2 ] = 0.0
-        for i2 in range( max(n2-p2,s2), min(n2,e2+1) ):  M[:,i2,:,n2-i2-1:p2+1] = 0.0
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(s1,e1+1):

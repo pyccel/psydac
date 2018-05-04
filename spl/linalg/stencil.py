@@ -713,6 +713,45 @@ class StencilMatrix( LinearOperator ):
         M._data[:] = self._data[:]
         return M
 
+    #...
+    def remove_spurious_entries( self ):
+        """
+        If any dimension is NOT periodic, make sure that the corresponding
+        periodic corners are set to zero.
+
+        """
+        # TODO: access 'self._data' directly for increased efficiency
+        # TODO: add unit tests
+
+        ndim  = self._space.ndim
+
+        for direction in range(ndim):
+
+            periodic = self._space.periods[direction]
+
+            if not periodic:
+
+                n = self._space.npts[direction]
+
+                s = self.starts[direction]
+                e = self.ends  [direction]
+                p = self.pads  [direction]
+
+                idx_front = [slice(None)]*direction
+                idx_back  = [slice(None)]*(ndim-direction-1)
+
+                # Top-right corner
+                for i in range( max(0,s), min(p,e+1) ):
+                    index = tuple( idx_front + [i]            + idx_back +
+                                   idx_front + [slice(-p,-i)] + idx_back )
+                    self[index] = 0
+
+                # Bottom-left corner
+                for i in range( max(n-p,s), min(n,e+1) ):
+                    index = tuple( idx_front + [i]              + idx_back +
+                                   idx_front + [slice(n-i,p+1)] + idx_back )
+                    self[index] = 0
+
     #--------------------------------------
     # Private methods
     #--------------------------------------
