@@ -2,6 +2,8 @@ import numpy as np
 from itertools import product
 from mpi4py    import MPI
 
+from spl.ddm.partition import mpi_compute_dims
+
 #===============================================================================
 class Cart():
 
@@ -34,7 +36,9 @@ class Cart():
 
         # ...
         # Know the number of processes along each direction
-        self._dims = MPI.Compute_dims( self._size, self._ndims )
+#        self._dims = MPI.Compute_dims( self._size, self._ndims )
+        mpi_dims, block_shape = mpi_compute_dims( self._size, npts, pads )
+        self._dims = mpi_dims
         # ...
 
         # ...

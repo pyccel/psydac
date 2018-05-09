@@ -140,8 +140,8 @@ def test_stencil_vector_2d_serial_dot( n1, n2, p1, p2, P1=True, P2=False ):
 #===============================================================================
 # PARALLEL TESTS
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [2,10,23] )
-@pytest.mark.parametrize( 'n2', [2,12,25] )
+@pytest.mark.parametrize( 'n1', [8,23] )
+@pytest.mark.parametrize( 'n2', [8,25] )
 @pytest.mark.parametrize( 'p1', [1,3,4] )
 @pytest.mark.parametrize( 'p2', [1,3,4] )
 @pytest.mark.parallel
@@ -228,8 +228,8 @@ def test_stencil_vector_2d_parallel_toarray( n1, n2, p1, p2, P1, P2 ):
     # TODO: test that ghost regions have been properly copied to 'xe' array
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [2,10,23] )
-@pytest.mark.parametrize( 'n2', [2,12,25] )
+@pytest.mark.parametrize( 'n1', [8,23] )
+@pytest.mark.parametrize( 'n2', [8,25] )
 @pytest.mark.parametrize( 'p1', [1,3,4] )
 @pytest.mark.parametrize( 'p2', [1,3,4] )
 @pytest.mark.parametrize( 'P1', [True, False] )
