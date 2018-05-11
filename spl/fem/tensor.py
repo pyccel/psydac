@@ -20,12 +20,15 @@ class TensorFemSpace( FemSpace ):
         """."""
         self._spaces = tuple(args)
 
+        # TODO add keyword in kwargs to test serial/parallel cases
         # serial case
         npts = [V.nbasis for V in self.spaces]
         pads = [V.degree for V in self.spaces]
         self._vector_space = StencilVectorSpace( npts, pads )
 
         # TODO parallel case
+        # pass in arg or contruct  spl.ddm.Cart ?
+
 
     @property
     def pdim( self ):
