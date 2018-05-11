@@ -2,7 +2,7 @@
 
 from spl.fem.splines import SplineSpace
 from spl.fem.splines import Spline
-from spl.fem.tensor  import TensorSpace
+from spl.fem.tensor  import TensorFemSpace
 from spl.fem.vector  import VectorFemSpace
 
 from numpy import linspace
@@ -46,7 +46,7 @@ def test_2d_1():
     V1 = SplineSpace(p_1, knots=knots_1)
     V2 = SplineSpace(p_2, knots=knots_2)
 
-    V = TensorSpace(V1, V2)
+    V = TensorFemSpace(V1, V2)
     print (V)
     F = Spline(V)
 
@@ -60,7 +60,7 @@ def test_2d_2():
     V1 = SplineSpace(p_1, grid=grid_1)
     V2 = SplineSpace(p_2, grid=grid_2)
 
-    V = TensorSpace(V1, V2)
+    V = TensorFemSpace(V1, V2)
     print (V)
     F = Spline(V)
 
@@ -75,14 +75,14 @@ def test_2d_3():
     V1 = SplineSpace(p-1, grid=grid_1)
     V2 = SplineSpace(p, grid=grid_2)
 
-    Vx = TensorSpace(V1, V2)
+    Vx = TensorFemSpace(V1, V2)
     # ...
 
     # ... second component
     V1 = SplineSpace(p, grid=grid_1)
     V2 = SplineSpace(p-1, grid=grid_2)
 
-    Vy = TensorSpace(V1, V2)
+    Vy = TensorFemSpace(V1, V2)
     # ...
 
     V = VectorFemSpace(Vx, Vy)
@@ -101,7 +101,7 @@ def test_3d_1():
     V2 = SplineSpace(p_2, knots=knots_2)
     V3 = SplineSpace(p_3, knots=knots_3)
 
-    V = TensorSpace(V1, V2, V3)
+    V = TensorFemSpace(V1, V2, V3)
     print (V)
     F = Spline(V)
 
@@ -118,7 +118,7 @@ def test_3d_2():
     V2 = SplineSpace(p_2, grid=grid_2)
     V3 = SplineSpace(p_3, grid=grid_3)
 
-    V = TensorSpace(V1, V2, V3)
+    V = TensorFemSpace(V1, V2, V3)
     print (V)
     F = Spline(V)
 
@@ -135,7 +135,7 @@ def test_3d_3():
     V2 = SplineSpace(p, grid=grid_2)
     V3 = SplineSpace(p, grid=grid_3)
 
-    Vx = TensorSpace(V1, V2, V3)
+    Vx = TensorFemSpace(V1, V2, V3)
     # ...
 
     # ... second component
@@ -143,7 +143,7 @@ def test_3d_3():
     V2 = SplineSpace(p-1, grid=grid_2)
     V3 = SplineSpace(p, grid=grid_3)
 
-    Vy = TensorSpace(V1, V2, V3)
+    Vy = TensorFemSpace(V1, V2, V3)
     # ...
 
     # ... third component
@@ -151,7 +151,7 @@ def test_3d_3():
     V2 = SplineSpace(p, grid=grid_2)
     V3 = SplineSpace(p-1, grid=grid_3)
 
-    Vz = TensorSpace(V1, V2, V3)
+    Vz = TensorFemSpace(V1, V2, V3)
     # ...
 
     V = VectorFemSpace(Vx, Vy, Vz)

@@ -128,7 +128,7 @@ if __name__ == '__main__':
 
     from numpy import linspace
     from spl.fem.splines import SplineSpace
-    from spl.fem.tensor  import TensorSpace
+    from spl.fem.tensor  import TensorFemSpace
 
     # ... numbers of elements and degres
     p1  = 2 ; p2  = 2
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     V1 = SplineSpace(p1, grid=grid_1)
     V2 = SplineSpace(p2, grid=grid_2)
 
-    V = TensorSpace(V1, V2)
+    V = TensorFemSpace(V1, V2)
 
     # ... builds matrices and rhs
     mass, stiffness = assembly_matrices(V)

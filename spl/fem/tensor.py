@@ -10,7 +10,7 @@ from spl.fem.basic      import FemSpace
 
 
 #===============================================================================
-class TensorSpace( FemSpace ):
+class TensorFemSpace( FemSpace ):
     """
     Generic Finite Element space V.
 
