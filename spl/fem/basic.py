@@ -37,6 +37,17 @@ class FemSpace( metaclass=ABCMeta ):
     def periodic( self ):
         pass
 
+    @property
+    @abstractmethod
+    def pdim( self ):
+        """Parametric dimension."""
+        pass
+
+    @property
+    @abstractmethod
+    def ncells( self ):
+        pass
+
 #===============================================================================
 class FemField( metaclass=ABCMeta ):
     """

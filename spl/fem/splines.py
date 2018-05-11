@@ -13,11 +13,14 @@ class SplineSpace( FemSpace ):
 
     Parameters
     ----------
+    degree : int
+        Polynomial degree.
+
     knots : array_like
         Coordinates of knots (clamped or extended by periodicity).
 
-    degree : int
-        Polynomial degree.
+    grid: array_like
+        Coorinates of the grid. Used to construct the knots sequence, if not given.
 
     periodic : bool
         True if domain is periodic, False otherwise.
@@ -29,14 +32,24 @@ class SplineSpace( FemSpace ):
         Default: (False, False)
 
     """
-    def __init__( self, knots, degree, periodic=False, dirichlet=(False, False),
+    def __init__( self, degree, knots=None, grid=None,
+                  periodic=False, dirichlet=(False, False),
                   quad_order=None, nderiv=1):
 
-        self._knots    = knots
-        self._degree   = degree
+        self._degree = degree
         self._periodic = periodic
         self._dirichlet = dirichlet
-        self._ncells   = len(self.breaks) - 1
+
+        if not( knots is None ) and not( grid is None ):
+            raise ValueError( 'Cannot provide both grid and knots.' )
+
+        if knots is None:
+            # create knots from grid and bc
+            from spl.core.interface import make_knots
+            knots = make_knots( grid, degree, periodic )
+
+        self._knots = knots
+        self._ncells = len(self.breaks) - 1
         self._nderiv = nderiv
 
         if quad_order is None:
@@ -54,6 +67,12 @@ class SplineSpace( FemSpace ):
 
         self._vector_space = StencilVectorSpace( [self.nbasis], [self.degree], [periodic] )
         self._initialize()
+
+    @property
+    def pdim( self ):
+        """ Parametric dimension.
+        """
+        return 1
 
     @property
     def vector_space(self):
@@ -192,6 +211,7 @@ class SplineSpace( FemSpace ):
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
+        txt += '> pdim   :: {pdim}\n'.format(pdim=self.pdim)
         txt += '> nbasis :: {dim}\n'.format(dim=self.nbasis)
         txt += '> degree :: {degree}'.format(degree=self.degree)
         return txt
@@ -213,12 +233,3 @@ class Spline( FemField ):
     @property
     def coeffs( self ):
         return self._coeffs
-
-########################################
-if __name__ == '__main__':
-
-    from spl.core.interface import make_open_knots
-    p = 3 ; n_elements = 8
-    knots = make_open_knots(p, n_elements)
-    V = SplineSpace(knots, p)
-    print(V.basis.shape)

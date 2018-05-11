@@ -10,7 +10,7 @@ from spl.fem.basic      import FemSpace
 
 
 #===============================================================================
-class TensorSpace( FemSpace ):
+class TensorFemSpace( FemSpace ):
     """
     Generic Finite Element space V.
 
@@ -20,13 +20,21 @@ class TensorSpace( FemSpace ):
         """."""
         self._spaces = tuple(args)
 
+        # TODO add keyword in kwargs to test serial/parallel cases
         # serial case
         npts = [V.nbasis for V in self.spaces]
         pads = [V.degree for V in self.spaces]
         periods = [V.periodic for V in self.spaces]
         self._vector_space = StencilVectorSpace( npts, pads, periods )
-
         # TODO parallel case
+        # pass in arg or contruct  spl.ddm.Cart ?
+
+
+    @property
+    def pdim( self ):
+        """ Parametric dimension.
+        """
+        return sum([V.pdim for V in self.spaces])
 
     @property
     def vector_space(self):
@@ -53,9 +61,14 @@ class TensorSpace( FemSpace ):
     def periodic(self):
         return [V.periodic for V in self.spaces]
 
+    @property
+    def ncells(self):
+        return [V.ncells for V in self.spaces]
+
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
+        txt += '> pdim   :: {pdim}\n'.format(pdim=self.pdim)
         txt += '> total nbasis  :: {dim}\n'.format(dim=self.nbasis)
 
         dims = ', '.join(str(V.nbasis) for V in self.spaces)

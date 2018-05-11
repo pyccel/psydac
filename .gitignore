@@ -1,6 +1,7 @@
 *.pyc
 *.pyo
 .ipynb_checkpoints/
+*.so
 
 build
 *build*

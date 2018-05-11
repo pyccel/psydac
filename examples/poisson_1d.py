@@ -5,8 +5,6 @@ from spl.utilities.quadratures import gauss_legendre
 from spl.linalg.stencil        import StencilVector, StencilMatrix
 from spl.linalg.solvers        import cg
 
-# TODO make_open_knots: ne is not the number of elements!!
-
 # ... assembly of mass and stiffness matrices using stencil forms
 def assembly_matrices(V):
 
@@ -106,19 +104,17 @@ def assembly_rhs(V):
 ####################################################################################
 if __name__ == '__main__':
 
-    from spl.core.interface import make_open_knots
+    from numpy import linspace
     from spl.fem.splines import SplineSpace
 
     p  = 3
     ne = 32
-    n  = p + ne
 
     print('> Grid   :: {ne}'.format(ne=ne))
     print('> Degree :: {p}'.format(p=p))
 
-    knots = make_open_knots(p, n)
-
-    V = SplineSpace(knots, p)
+    grid = linspace(0., 1., ne+1)
+    V = SplineSpace(p, grid=grid)
 
     # ... builds matrices and rhs
     mass, stiffness = assembly_matrices(V)
