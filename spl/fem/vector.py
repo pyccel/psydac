@@ -28,6 +28,7 @@ class VectorFemSpace( FemSpace ):
 
         # ... make sure that all spaces have the same number of cells
         ncells = [V.ncells for V in self.spaces]
+
         if self.pdim == 1:
             assert( len(unique(ncells)) == 1 )
         else:
@@ -66,6 +67,10 @@ class VectorFemSpace( FemSpace ):
     @property
     def degree(self):
         return [V.degree for V in self.spaces]
+
+    @property
+    def periodic(self):
+        return [V.periodic for V in self.spaces]
 
     @property
     def ncells(self):
