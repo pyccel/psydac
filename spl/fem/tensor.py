@@ -5,9 +5,10 @@ We assume here that a tensor space is the product of fem spaces whom basis are
 of compact support
 """
 
+from mpi4py             import MPI
 from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace
-
+from spl.ddm.cart       import Cart
 
 #===============================================================================
 class TensorFemSpace( FemSpace ):
@@ -20,14 +21,31 @@ class TensorFemSpace( FemSpace ):
         """."""
         self._spaces = tuple(args)
 
-        # TODO add keyword in kwargs to test serial/parallel cases
-        # serial case
         npts = [V.nbasis for V in self.spaces]
         pads = [V.degree for V in self.spaces]
         periods = [V.periodic for V in self.spaces]
-        self._vector_space = StencilVectorSpace( npts, pads, periods )
-        # TODO parallel case
-        # pass in arg or contruct  spl.ddm.Cart ?
+
+        if kwargs is not None:
+            # parallel case
+            for key, value in kwargs.items():
+                if key == 'comm':
+                    # TODO add reorder as param ?
+                    assert isinstance(value, MPI.Comm)
+                    cart = Cart(npts    = npts,
+                                pads    = pads,
+                                periods = periods,
+                                reorder = False,
+                                comm    = value)
+
+                    self._vector_space = StencilVectorSpace(cart)
+
+                else:
+                    # ... TODO add case if cart in given as argument
+                    print('not yet impented')
+
+        else:
+            # serial case
+            self._vector_space = StencilVectorSpace(npts, pads, periods)
 
 
     @property
