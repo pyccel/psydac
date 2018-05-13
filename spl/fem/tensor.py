@@ -25,7 +25,11 @@ class TensorFemSpace( FemSpace ):
         pads = [V.degree for V in self.spaces]
         periods = [V.periodic for V in self.spaces]
 
-        if kwargs is not None:
+        if kwargs == {}:
+            # serial case
+            self._vector_space = StencilVectorSpace(npts, pads, periods)
+
+        else:
             # parallel case
             for key, value in kwargs.items():
                 if key == 'comm':
@@ -41,11 +45,7 @@ class TensorFemSpace( FemSpace ):
 
                 else:
                     # ... TODO add case if cart in given as argument
-                    print('not yet impented')
-
-        else:
-            # serial case
-            self._vector_space = StencilVectorSpace(npts, pads, periods)
+                    print('Not yet implemented.')
 
 
     @property
