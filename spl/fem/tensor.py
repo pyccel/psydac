@@ -25,28 +25,22 @@ class TensorFemSpace( FemSpace ):
         pads = [V.degree for V in self.spaces]
         periods = [V.periodic for V in self.spaces]
 
-        if kwargs == {}:
-            # serial case
-            self._vector_space = StencilVectorSpace(npts, pads, periods)
+        if 'comm' in kwargs:
+            # parallel case
+            comm = kwargs['comm']
+            assert isinstance(comm, MPI.Comm)
+
+            cart = Cart(npts = npts,
+                        pads    = pads,
+                        periods = periods,
+                        reorder = True,
+                        comm    = comm)
+
+            self._vector_space = StencilVectorSpace(cart)
 
         else:
-            # parallel case
-            for key, value in kwargs.items():
-                if key == 'comm':
-                    # TODO add reorder as param ?
-                    assert isinstance(value, MPI.Comm)
-                    cart = Cart(npts    = npts,
-                                pads    = pads,
-                                periods = periods,
-                                reorder = False,
-                                comm    = value)
-
-                    self._vector_space = StencilVectorSpace(cart)
-
-                else:
-                    # ... TODO add case if cart in given as argument
-                    print('Not yet implemented.')
-
+            # serial case
+            self._vector_space = StencilVectorSpace(npts, pads, periods)
 
     @property
     def pdim( self ):
