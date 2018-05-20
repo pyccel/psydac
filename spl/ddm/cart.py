@@ -131,6 +131,10 @@ class Cart():
     def shape( self ):
         return self._shape
 
+    @property
+    def subcomm( self ):
+        return self._subcomm
+
     #---------------------------------------------------------------------------
     def coords_exist( self, coords ):
 
