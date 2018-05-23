@@ -4,6 +4,7 @@
 
 import numpy as np
 import sympy as sym
+from abc import ABCMeta
 
 from spl.mapping.basic import Mapping
 
@@ -68,36 +69,91 @@ class SymbolicMapping:
         return len( self._map )
 
 #==============================================================================
-class AnalyticalMapping( Mapping ):
+class AnalyticalMappingMeta( ABCMeta ):
 
-    def __init__( self, eta_symbols, expressions, **params ):
+    #--------------------------------------------------------------------------
+    # Overwrite class creation for any subclass of 'AnalyticalMapping'
+    #--------------------------------------------------------------------------
+    def __new__( meta, name, bases, dct ):
 
-        # Independent variables and mapping expressions
-        eta_symbols = sym.sympify( tuple( eta_symbols ) )
-        expressions = sym.sympify( tuple( expressions ) )
+        if name != 'AnalyticalMapping':
 
-        # Symbolic representation of coordinate transformation
-        symbolic = SymbolicMapping( eta_symbols, expressions )
+            assert bases == (AnalyticalMapping,)
+
+            for key in ['eta_symbols', 'expressions', 'default_params']:
+                if key not in dct.keys():
+                    raise TypeError( "Missing attribute '{}' ".format( key ) +
+                        "when subclassing 'AnalyticalMapping'." )
+
+            eta_symbols = sym.sympify( tuple( dct['eta_symbols'] ) )
+            expressions = sym.sympify( tuple( dct['expressions'] ) )
+            symbolic    = SymbolicMapping( eta_symbols, expressions )
+            defaults    = dct['default_params']
+
+            del dct['eta_symbols']
+            del dct['expressions']
+            del dct['default_params']
+
+            cls = super().__new__( meta, name, bases, dct )
+            cls._symbolic       = symbolic
+            cls._default_params = defaults
+
+        else:
+
+            cls = super().__new__( meta, name, bases, dct )
+
+        return cls
+
+    #--------------------------------------------------------------------------
+    # Add class properties to any subclass of 'AnalyticMapping'
+    #--------------------------------------------------------------------------
+    @property
+    def symbolic( cls ):
+        return cls._symbolic
+
+    # ...
+    @property
+    def default_params( cls ):
+        return cls._default_params
+
+    #--------------------------------------------------------------------------
+    # Forbid instantiation of 'AnalyticMapping' base class
+    #--------------------------------------------------------------------------
+    def __call__( cls, *args, **kwargs ):
+
+        if cls.__name__ == 'AnalyticalMapping':
+            raise TypeError("Can't instantiate helper class 'AnalyticalMapping'")
+        else:
+            return super().__call__( *args, **kwargs )
+
+#==============================================================================
+class AnalyticalMapping( Mapping, metaclass=AnalyticalMappingMeta ):
+
+    def __init__( self, **kwargs ):
+
+        # Extract information from class
+        cls         = type( self )
+        eta_symbols = tuple( cls.symbolic.eta )
+        params      = cls.default_params.copy(); params.update( kwargs )
 
         # Callable function: __call__
-        expr = sym.simplify( symbolic.map.subs( params ) )
+        expr = sym.simplify( cls.symbolic.map.subs( params ) )
         self._func_eval = sym.lambdify( [eta_symbols], expr, 'numpy' )
 
         # Callable function: jac_mat
-        expr = sym.simplify( symbolic.jac_mat.subs( params ) )
+        expr = sym.simplify( cls.symbolic.jac_mat.subs( params ) )
         self._func_jac_mat = sym.lambdify( [eta_symbols], expr, 'numpy' )
     
         # Callable function: metric
-        expr = sym.simplify( symbolic.metric.subs( params ) )
+        expr = sym.simplify( cls.symbolic.metric.subs( params ) )
         self._func_metric = sym.lambdify( [eta_symbols], expr, 'numpy' )
 
         # Callable function: metric_det
-        expr = sym.simplify( symbolic.metric_det.subs( params ) )
+        expr = sym.simplify( cls.symbolic.metric_det.subs( params ) )
         self._func_metric_det = sym.lambdify( [eta_symbols], expr, 'numpy' )
 
-        # Store symbolic information
-        self._symbolic = symbolic
-        self._params   = params
+        # Store mapping parameters
+        self._params = params
 
     #--------------------------------------------------------------------------
     # Abstract interface
@@ -116,19 +172,15 @@ class AnalyticalMapping( Mapping ):
 
     @property
     def ndim_param( self ):
-        return self._symbolic.ndim_param
+        return self.symbolic.ndim_param
 
     @property
     def ndim_phys( self ):
-        return self._symbolic.ndim_phys
+        return self.symbolic.ndim_phys
 
     #--------------------------------------------------------------------------
     # Symbolic information
     #--------------------------------------------------------------------------
-    @property
-    def symbolic( self ):
-        return self._symbolic
-
     @property
     def params( self ):
         return self._params
