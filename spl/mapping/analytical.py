@@ -22,8 +22,8 @@ class SymbolicMapping:
 
         import sympy as sym
 
-        self._eta = eta_symbols
-        self._map = map_expressions
+        self._eta = sym.Array( eta_symbols     )
+        self._map = sym.Array( map_expressions )
 
     #--------------------------------------------------------------------------
     def compute_derivatives( self, max_order=1 ):
@@ -39,26 +39,32 @@ class SymbolicMapping:
     #--------------------------------------------------------------------------
     @property
     def eta( self ):
-        return sym.Array( self._eta )
+        return self._eta
 
     @property
     def map( self ):
-        return sym.Array( self._map )
+        return self._map
 
     @property
     def jac_mat( self ):
 #        return self._derivs_tensors[1].tomatrix().T
-        return sym.Matrix( self._map ).jacobian( self._eta )
+        if not hasattr( self, '_jac_mat' ):
+            self._jac_mat = sym.Matrix( self._map ).jacobian( self._eta )
+        return self._jac_mat
 
     @property
     def metric( self ):
         jm = self.jac_mat
-        return sym.simplify( jm.T * jm )
+        if not hasattr( self, '_metric' ):
+            self._metric = sym.simplify( jm.T * jm )
+        return self._metric
 
     @property
     def metric_det( self ):
         metric = self.metric
-        return metric.det().simplify()
+        if not hasattr( self, '_metric_det' ):
+            self._metric_det = metric.det().simplify()
+        return self._metric_det
 
     @property
     def ndim_param( self ):
