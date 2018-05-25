@@ -9,6 +9,11 @@ TODO
 
 * Create object of type 'spl.fem.splines.SplineSpace' with Cart
 
+* Implement methods '__call__' and 'gradient' in Spline class
+
+* Create 'SplineMapping' class in module 'spl.mapping.discrete'
+
+
 Core
 ****
 
