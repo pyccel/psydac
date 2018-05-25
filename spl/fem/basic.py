@@ -93,9 +93,26 @@ class FemField( metaclass=ABCMeta ):
     @property
     @abstractmethod
     def space( self ):
-        pass
+        """Finite element space to which this field belongs."""
 
     @property
     @abstractmethod
     def coeffs( self ):
-        pass
+        """
+        Coefficients that uniquely identify this field as a linear combination of
+        the elements of the basis of a Finite element space.
+
+        Coefficients are stored into one element of the vector space in
+        'self.space.vector_space', which is topologically associated to
+        the finite element space.
+
+        """
+
+    @abstractmethod
+    def __call__( self, eta ):
+        """Evaluate field at location identified by logical coordinates eta."""
+
+
+    @abstractmethod
+    def gradient( self, eta ):
+        """Evaluate gradient of field at location identified by logical coordinates eta."""

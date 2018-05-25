@@ -244,6 +244,9 @@ class Spline( FemField ):
         self._space = space
         self._coeffs = StencilVector( space.vector_space )
 
+    #--------------------------------------------------------------------------
+    # Abstract interface
+    #--------------------------------------------------------------------------
     @property
     def space( self ):
         return self._space
@@ -251,3 +254,14 @@ class Spline( FemField ):
     @property
     def coeffs( self ):
         return self._coeffs
+
+    def __call__( self ):
+        raise NotImplementedError( 'Spline.__call__( eta )' )
+#        from spl.core.interface import eval_on_grid_splines_ders
+#        p = self._degree
+#        n = self._nbasis
+#        k
+
+    def gradient( self ):
+        raise NotImplementedError( 'Spline.gradient( eta )' )
+
