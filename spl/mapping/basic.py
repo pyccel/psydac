@@ -35,14 +35,14 @@ class Mapping( metaclass=ABCMeta ):
 
     @property
     @abstractmethod
-    def ndim_param( self ):
-        """ Number of parametric dimensions in mapping
+    def ldim( self ):
+        """ Number of logical/parametric dimensions in mapping
             (= number of eta components).
         """
 
     @property
     @abstractmethod
-    def ndim_phys( self ):
+    def pdim( self ):
         """ Number of physical dimensions in mapping
             (= number of x components).
         """

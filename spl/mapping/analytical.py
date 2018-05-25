@@ -67,11 +67,11 @@ class SymbolicMapping:
         return self._metric_det
 
     @property
-    def ndim_param( self ):
+    def ldim( self ):
         return len( self._eta )
 
     @property
-    def ndim_phys( self ):
+    def pdim( self ):
         return len( self._map )
 
 #==============================================================================
@@ -177,12 +177,12 @@ class AnalyticalMapping( Mapping, metaclass=AnalyticalMappingMeta ):
         return self._func_metric_det( eta )
 
     @property
-    def ndim_param( self ):
-        return self.symbolic.ndim_param
+    def ldim( self ):
+        return type( self ).symbolic.ldim
 
     @property
-    def ndim_phys( self ):
-        return self.symbolic.ndim_phys
+    def pdim( self ):
+        return type( self ).symbolic.pdim
 
     #--------------------------------------------------------------------------
     # Symbolic information
@@ -206,8 +206,8 @@ class AnalyticalMapping( Mapping, metaclass=AnalyticalMappingMeta ):
 #         assert jm.shape[0] == x0.shape[0]
 #         assert jm.shape[1] >= x0.shape[0]
 # 
-#         # Number of physical and parametric dimensions
-#         ndim_phys, ndim_param = jm.shape
+#         # Number of physical and logical dimensions
+#         pdim, ldim = jm.shape
 # 
 #         # Components of metric tensor and matrix determinant
 #         metric     = np.dot( jm.T, jm )
@@ -216,8 +216,8 @@ class AnalyticalMapping( Mapping, metaclass=AnalyticalMappingMeta ):
 #         # Store data in object
 #         self._x0         = x0
 #         self._jm         = jm
-#         self._ndim_param = ndim_param
-#         self._ndim_phys  = ndim_phys
+#         self._ldim       = ldim
+#         self._pdim       = pdim
 #         self._metric     = metric
 #         self._metric_det = metric_det
 # 
@@ -239,10 +239,10 @@ class AnalyticalMapping( Mapping, metaclass=AnalyticalMappingMeta ):
 # 
 #     # ...
 #     @property
-#     def ndim_param( self ):
-#         return self._ndim_param
+#     def ldim( self ):
+#         return self._ldim
 # 
 #     # ...
 #     @property
-#     def ndim_phys( self ):
-#         return self._ndim_phys
+#     def pdim( self ):
+#         return self._pdim
