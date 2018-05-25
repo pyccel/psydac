@@ -42,11 +42,22 @@ class TensorFemSpace( FemSpace ):
             # serial case
             self._vector_space = StencilVectorSpace(npts, pads, periods)
 
+    #--------------------------------------------------------------------------
+    # Abstract interface
+    #--------------------------------------------------------------------------
     @property
-    def pdim( self ):
+    def ldim( self ):
         """ Parametric dimension.
         """
-        return sum([V.pdim for V in self.spaces])
+        return sum([V.ldim for V in self.spaces])
+
+    @property
+    def periodic(self):
+        return [V.periodic for V in self.spaces]
+
+    @property
+    def mapping(self):
+        return None
 
     @property
     def vector_space(self):
@@ -54,8 +65,8 @@ class TensorFemSpace( FemSpace ):
         return self._vector_space
 
     @property
-    def spaces( self ):
-        return self._spaces
+    def is_scalar(self):
+        return True
 
     @property
     def nbasis(self):
@@ -70,17 +81,20 @@ class TensorFemSpace( FemSpace ):
         return [V.degree for V in self.spaces]
 
     @property
-    def periodic(self):
-        return [V.periodic for V in self.spaces]
-
-    @property
     def ncells(self):
         return [V.ncells for V in self.spaces]
+
+    #--------------------------------------------------------------------------
+    # Other properties and methods
+    #--------------------------------------------------------------------------
+    @property
+    def spaces( self ):
+        return self._spaces
 
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
-        txt += '> pdim   :: {pdim}\n'.format(pdim=self.pdim)
+        txt += '> ldim   :: {ldim}\n'.format(ldim=self.ldim)
         txt += '> total nbasis  :: {dim}\n'.format(dim=self.nbasis)
 
         dims = ', '.join(str(V.nbasis) for V in self.spaces)

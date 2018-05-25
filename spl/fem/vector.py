@@ -20,16 +20,16 @@ class VectorFemSpace( FemSpace ):
         self._spaces = tuple(args)
 
         # ... make sure that all spaces have the same parametric dimension
-        pdims = [V.pdim for V in self.spaces]
-        assert (len(unique(pdims)) == 1)
+        ldims = [V.ldim for V in self.spaces]
+        assert (len(unique(ldims)) == 1)
 
-        self._pdim = pdims[0]
+        self._ldim = ldims[0]
         # ...
 
         # ... make sure that all spaces have the same number of cells
         ncells = [V.ncells for V in self.spaces]
 
-        if self.pdim == 1:
+        if self.ldim == 1:
             assert( len(unique(ncells)) == 1 )
         else:
             ns = asarray(ncells[0])
@@ -44,11 +44,22 @@ class VectorFemSpace( FemSpace ):
 
         # TODO parallel case
 
+    #--------------------------------------------------------------------------
+    # Abstract interface
+    #--------------------------------------------------------------------------
     @property
-    def pdim( self ):
+    def ldim( self ):
         """ Parametric dimension.
         """
-        return self._pdim
+        return self._ldim
+
+    @property
+    def periodic(self):
+        return [V.periodic for V in self.spaces]
+
+    @property
+    def mapping(self):
+        return None
 
     @property
     def vector_space(self):
@@ -56,12 +67,13 @@ class VectorFemSpace( FemSpace ):
         return self._vector_space
 
     @property
-    def spaces( self ):
-        return self._spaces
+    def is_scalar(self):
+        return len( self.spaces ) == 1
 
     @property
     def nbasis(self):
         dims = [V.nbasis for V in self.spaces]
+        # TODO: check if we should compute the product, or return a tuple
         return sum(dims)
 
     @property
@@ -69,12 +81,15 @@ class VectorFemSpace( FemSpace ):
         return [V.degree for V in self.spaces]
 
     @property
-    def periodic(self):
-        return [V.periodic for V in self.spaces]
-
-    @property
     def ncells(self):
         return self._ncells
+
+    #--------------------------------------------------------------------------
+    # Other properties and methods
+    #--------------------------------------------------------------------------
+    @property
+    def spaces( self ):
+        return self._spaces
 
     @property
     def is_block(self):
@@ -91,11 +106,10 @@ class VectorFemSpace( FemSpace ):
                 if not( allclose(ns, asarray(ms)) ): return False
             return True
 
-
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
-        txt += '> pdim   :: {pdim}\n'.format(pdim=self.pdim)
+        txt += '> ldim   :: {ldim}\n'.format(ldim=self.ldim)
         txt += '> total nbasis  :: {dim}\n'.format(dim=self.nbasis)
 
         dims = ', '.join(str(V.nbasis) for V in self.spaces)

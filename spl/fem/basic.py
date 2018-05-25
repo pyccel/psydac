@@ -16,37 +16,70 @@ class FemSpace( metaclass=ABCMeta ):
     """
     Generic Finite Element space V.
 
+    A unique basis is associated to a FemSpace, i.e. FemSpace = Span( basis )
+
     """
     @property
     @abstractmethod
-    def vector_space( self ):
-        pass
+    def ldim( self ):
+        """
+        Number of dimensions in logical space,
+        i.e. number of scalar logical coordinates.
 
-    @property
-    @abstractmethod
-    def nbasis( self ):
-        pass
-
-    @property
-    @abstractmethod
-    def degree( self ):
-        pass
+        """
 
     @property
     @abstractmethod
     def periodic( self ):
-        pass
+        """
+        Tuple of booleans: along each logical dimension,
+        say if domain is periodic.
+
+        """
 
     @property
     @abstractmethod
-    def pdim( self ):
-        """Parametric dimension."""
-        pass
+    def mapping( self ):
+        """
+        Mapping from logical coordinates 'eta' to physical coordinates 'x'.
+        If None, we assume identity mapping (hence x=eta).
 
+        """
+
+    @property
+    @abstractmethod
+    def vector_space( self ):
+        """Topologically associated vector space."""
+
+# NOTE: why not giving the number of field components?
+    @property
+    @abstractmethod
+    def is_scalar( self ):
+        """Elements of space are scalar fields? [True|False]."""
+
+# NOTE: why does 'nbasis' have different behavior for tensor product spaces?
+    @property
+    @abstractmethod
+    def nbasis( self ):
+        """
+        Number of linearly independent elements in basis.
+        For a tensor product space this is a tuple of integers.
+
+        """
+
+# NOTE: why is 'degree' part of abstract interface?
+#       What if one were to use a global basis like Fourier?
+    @property
+    @abstractmethod
+    def degree( self ):
+        """Tuple of integers: polynomial degree along each logical dimension."""
+
+# NOTE: why is 'ncells' part of abstract interface?
+#       What if one were to use a global basis like Fourier?
     @property
     @abstractmethod
     def ncells( self ):
-        pass
+        """Tuple of integers: number of grid cells along each logical dimension."""
 
 #===============================================================================
 class FemField( metaclass=ABCMeta ):

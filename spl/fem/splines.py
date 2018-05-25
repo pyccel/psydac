@@ -68,16 +68,43 @@ class SplineSpace( FemSpace ):
         self._vector_space = StencilVectorSpace( [self.nbasis], [self.degree], [periodic] )
         self._initialize()
 
+    #--------------------------------------------------------------------------
+    # Abstract interface
+    #--------------------------------------------------------------------------
     @property
-    def pdim( self ):
+    def ldim( self ):
         """ Parametric dimension.
         """
         return 1
 
     @property
+    def periodic( self ):
+        """ True if domain is periodic, False otherwise.
+        """
+        return self._periodic
+
+    @property
+    def mapping( self ):
+        """ Assume identity mapping for now.
+        """
+        return None
+
+    @property
     def vector_space(self):
         """Returns the topological associated vector space."""
         return self._vector_space
+
+    @property
+    def is_scalar( self ):
+        """ Only scalar field is implemented for now.
+        """
+        return True
+
+    @property
+    def nbasis( self ):
+        """
+        """
+        return self._nbasis
 
     @property
     def degree( self ):
@@ -91,18 +118,9 @@ class SplineSpace( FemSpace ):
         """
         return self._ncells
 
-    @property
-    def nbasis( self ):
-        """
-        """
-        return self._nbasis
-
-    @property
-    def periodic( self ):
-        """ True if domain is periodic, False otherwise.
-        """
-        return self._periodic
-
+    #--------------------------------------------------------------------------
+    # Other properties
+    #--------------------------------------------------------------------------
     @property
     def dirichlet( self ):
         """ True if using homogeneous dirichlet boundary conditions, False otherwise.
@@ -170,7 +188,7 @@ class SplineSpace( FemSpace ):
 
     def _initialize(self):
         """Initializes the Spline space. Here we prepare some data that may be
-        usefull for assembling finite element matrices"""
+        useful for assembling finite element matrices"""
 
         from spl.core.interface import construct_grid_from_knots
         from spl.core.interface import construct_quadrature_grid
@@ -211,9 +229,9 @@ class SplineSpace( FemSpace ):
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
-        txt += '> pdim   :: {pdim}\n'.format(pdim=self.pdim)
-        txt += '> nbasis :: {dim}\n'.format(dim=self.nbasis)
-        txt += '> degree :: {degree}'.format(degree=self.degree)
+        txt += '> ldim   :: {ldim}\n'.format( ldim=self.ldim )
+        txt += '> nbasis :: {dim} \n'.format( dim=self.nbasis )
+        txt += '> degree :: {degree}'.format( degree=self.degree )
         return txt
 
 #===============================================================================
