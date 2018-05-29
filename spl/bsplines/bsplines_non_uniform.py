@@ -1,3 +1,5 @@
+#coding: utf-8
+
 """
 References
 ----------
@@ -6,7 +8,7 @@ References
 """
 import numpy as np
 
-__all__ = ['find_span', 'basis_funs']
+__all__ = ['find_span', 'basis_funs', 'basis_funs_1st_der']
 
 #==============================================================================
 def find_span( knots, degree, x ):
@@ -95,3 +97,53 @@ def basis_funs( knots, degree, x, span ):
         values[j+1] = saved
 
     return values
+
+#==============================================================================
+def basis_funs_1st_der( knots, degree, x, span ):
+    """
+    Compute the first derivative of the non-vanishing B-splines at location x,
+    given the knot sequence, polynomial degree and knot span.
+
+    See function 's_bsplines_non_uniform__eval_deriv' in Selalib's source file
+    'src/splines/sll_m_bsplines_non_uniform.F90'.
+
+    Parameters
+    ----------
+    knots : array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    x : float
+        Evaluation point.
+
+    span : int
+        Knot span index.
+
+    Results
+    -------
+    ders : numpy.ndarray
+        Derivatives of p+1 non-vanishing B-Splines at location x.
+
+    """
+    # Compute nonzero basis functions and knot differences for splines
+    # up to degree deg-1
+    values = basis_funs( knots, degree-1, x, span )
+
+    # Compute derivatives at x using formula based on difference of splines of 
+    # degree deg-1
+    # -------
+    # j = 0
+    ders  = np.empty( degree+1, dtype=float )
+    saved = degree * values[0] / (knots[span+1]-knots[span+1-degree])
+    ders[0] = -saved
+    # j = 1,...,degree-1
+    for j in range(1,degree):
+        temp    = saved
+        saved   = degree * values[j] / (knots[span+j+1]-knots[span+j+1-degree])
+        ders[j] = temp - saved
+    # j = degree
+    ders[degree] = saved
+
+    return ders
