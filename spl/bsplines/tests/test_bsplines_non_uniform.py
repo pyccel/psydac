@@ -3,8 +3,10 @@
 import pytest
 import numpy as np
 
-from spl.bsplines.bsplines_non_uniform import (find_span, basis_funs,
-        basis_funs_1st_der)
+from spl.bsplines.bsplines_non_uniform import ( find_span,
+        basis_funs,
+        basis_funs_1st_der,
+        basis_funs_all_ders )
 
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
@@ -55,6 +57,41 @@ def test_basis_funs_1st_der( lims, nc, p, tol=1e-14 ):
         ders = basis_funs_1st_der( knots, p, x, span )
         assert len( ders ) == p+1
         assert abs( sum( ders ) ) < tol
+
+#==============================================================================
+@pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
+@pytest.mark.parametrize( 'nc', (10, 18, 33) )
+@pytest.mark.parametrize( 'p' , (1,2,3,7,10) )
+
+def test_basis_funs_all_ders( lims, nc, p, tol=1e-14 ):
+
+    # Maximum derivative required
+    n = p
+
+    grid, dx = np.linspace( *lims, num=nc+1, retstep=True )
+    knots = np.r_[ [grid[0]]*p, grid, [grid[-1]]*p ]
+
+    xx = np.linspace( *lims, num=101 )
+    for x in xx:
+        span = find_span( knots, p, x )
+        ders = basis_funs_all_ders( knots, p, x, span, n )
+
+        # Test output array
+        assert ders.shape == (1+n,1+p)
+        assert ders.dtype == np.dtype( float )
+
+        # Test 0th derivative
+        der0 = basis_funs( knots, p, x, span )
+        assert np.allclose( ders[0,:], der0, rtol=1e-15, atol=1e-15 )
+        assert np.all( ders[0,:] >= 0.0 )
+
+        # Test 1st derivative
+        der1 = basis_funs_1st_der( knots, p, x, span )
+        assert np.allclose( ders[1,:], der1, rtol=1e-15, atol=1e-15/dx )
+
+        # Test 2nd to n-th derivatives
+        for i in range(2,n+1):
+            assert abs( ders[i,:].sum() ) < tol * abs( ders[i,:] ).max()
 
 #==============================================================================
 # SCRIPT FUNCTIONALITY: PLOT BASIS FUNCTIONS
