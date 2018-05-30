@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 
-from spl.bsplines.bsplines_non_uniform import ( find_span,
+from spl.core.bsplines_non_uniform import ( find_span,
         basis_funs,
         basis_funs_1st_der,
         basis_funs_all_ders )
