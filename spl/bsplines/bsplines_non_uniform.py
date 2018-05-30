@@ -1,9 +1,18 @@
-#coding: utf-8
+# coding: utf-8
+#
+# Copyright 2018 Yaman Güçlü
 
 """
+Basic module that provides the means for evaluating the B-Splines basis
+functions and their derivatives. In order to simplify automatic Fortran code
+generation with Pyccel, no object-oriented features are employed.
+
 References
 ----------
-[1] The NURBS Book
+[1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
+    Springer-Verlag Berlin Heidelberg GmbH, 1997.
+
+[2] SELALIB, Semi-Lagrangian Library. http://selalib.gforge.inria.fr
 
 """
 import numpy as np
