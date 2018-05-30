@@ -66,7 +66,7 @@ def test_basis_funs_1st_der( lims, nc, p, tol=1e-14 ):
 def test_basis_funs_all_ders( lims, nc, p, tol=1e-14 ):
 
     # Maximum derivative required
-    n = p
+    n = p+2
 
     grid, dx = np.linspace( *lims, num=nc+1, retstep=True )
     knots = np.r_[ [grid[0]]*p, grid, [grid[-1]]*p ]
@@ -91,7 +91,10 @@ def test_basis_funs_all_ders( lims, nc, p, tol=1e-14 ):
 
         # Test 2nd to n-th derivatives
         for i in range(2,n+1):
-            assert abs( ders[i,:].sum() ) < tol * abs( ders[i,:] ).max()
+            assert abs( ders[i,:].sum() ) <= tol * abs( ders[i,:] ).max()
+
+        # Test that all derivatives of degree > p are zero
+        assert np.all( ders[p+1:,:] == 0.0 )
 
 #==============================================================================
 # SCRIPT FUNCTIONALITY: PLOT BASIS FUNCTIONS

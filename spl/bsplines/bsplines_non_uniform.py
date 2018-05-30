@@ -197,7 +197,11 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
     right = np.empty( degree )
     ndu   = np.empty( (degree+1, degree+1) )
     a     = np.empty( (       2, degree+1) )
-    ders  = np.empty( (     n+1, degree+1) ) # output array
+    ders  = np.zeros( (     n+1, degree+1) ) # output array
+
+    # Number of derivatives that need to be effectively computed
+    # Derivatives higher than degree are = 0.
+    ne = min( n, degree )
 
     # Compute nonzero basis functions and knot differences for splines
     # up to degree, which are needed to compute derivatives.
@@ -222,7 +226,7 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
         s1 = 0
         s2 = 1
         a[0,0] = 1.0
-        for k in range(1,n+1):
+        for k in range(1,ne+1):
             d  = 0.0
             rk = r-k
             pk = degree-k
@@ -243,7 +247,7 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
 
     # Multiply derivatives by correct factors
     r = degree
-    for k in range(1,n+1):
+    for k in range(1,ne+1):
         ders[k,:] = ders[k,:] * r
         r = r * (degree-k)
 
