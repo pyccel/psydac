@@ -19,7 +19,8 @@ __all__ = [
     'collocation_matrix',
     'collocation_cardinal_splines',
     'histopolation_matrix',
-    'mass_matrix'
+    'mass_matrix',
+    'matrix_multi_stages'
 ]
 
 def make_open_knots(p, n):
@@ -455,7 +456,51 @@ def mass_matrix(p, n, T):
 
     return mass
 
+# ...
+def matrix_multi_stages(ts, n, p, knots):
 
+    """
+    return the refinement matrix corresponding to the insertion of a given list of knots
+
+    ts: list, np.array
+        knots to be inserted
+
+    p: int
+        spline degree
+
+    n: int
+        number of splines functions i.e. `control points`
+
+    knots: list, np.array
+        knot vector
+
+    Examples
+
+    >>> from spl.core.interface import matrix_multi_stages
+
+    >>> ts = [0.1, 0.2, 0.4, 0.5, 0.7, 0.8]
+    >>> tc = [0,0, 0.3, 0.6, 1, 1]
+    >>> nc = 4 ; pc = 1
+
+    >>> matrix_multi_stages(ts, nc, pc, tc)
+    array([[1.        , 0.        , 0.        , 0.        ],
+           [0.66666667, 0.33333333, 0.        , 0.        ],
+           [0.33333333, 0.66666667, 0.        , 0.        ],
+           [0.        , 1.        , 0.        , 0.        ],
+           [0.        , 0.66666667, 0.33333333, 0.        ],
+           [0.        , 0.33333333, 0.66666667, 0.        ],
+           [0.        , 0.        , 1.        , 0.        ],
+           [0.        , 0.        , 0.75      , 0.25      ],
+           [0.        , 0.        , 0.5       , 0.5       ],
+           [0.        , 0.        , 0.        , 1.        ]])
+
+    """
+
+    m = len(ts)
+    mat = _core.matrix_multi_stages(m, ts, n, p, knots)
+    return mat
+
+# ...
 
 ####################################################################################
 #if __name__ == '__main__':

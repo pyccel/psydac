@@ -19,7 +19,8 @@ module bsp_utils
           & make_periodic_knots,        &
           & compute_origins_element,    &
           & collocation_matrix,         &
-          & collocation_cardinal_splines
+          & collocation_cardinal_splines, &
+          & matrix_multi_stages
 
 contains
 
@@ -191,6 +192,24 @@ contains
     ! ...
     
   end subroutine collocation_cardinal_splines 
+  ! ................................................
+
+  ! ................................................
+  subroutine matrix_multi_stages(m, ts, n, p, knots, mat)
+  use bsp_ext, only: spl_refinement_matrix_multi_stages
+  implicit none
+    integer,                    intent(in)  :: m
+    real(8), dimension(m),      intent(in)  :: ts
+    integer,                    intent(in)  :: n
+    integer,                    intent(in)  :: p
+    real(8), dimension(n+p+1),  intent(in)  :: knots
+    real(8), dimension(n+m, n), intent(out) :: mat 
+
+    ! ...
+    call spl_refinement_matrix_multi_stages(ts, n, p, knots, mat)
+    ! ...
+    
+  end subroutine matrix_multi_stages 
   ! ................................................
 
 end module bsp_utils
