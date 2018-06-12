@@ -2,8 +2,9 @@
 
 from numpy import unique
 
-from spl.linalg.stencil import StencilVectorSpace, StencilVector
+from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace, FemField
+from spl.core.bsplines_non_uniform import find_span, basis_funs
 
 
 #===============================================================================
@@ -34,10 +35,10 @@ class SplineSpace( FemSpace ):
     """
     def __init__( self, degree, knots=None, grid=None,
                   periodic=False, dirichlet=(False, False),
-                  quad_order=None, nderiv=1):
+                  quad_order=None, nderiv=1 ):
 
-        self._degree = degree
-        self._periodic = periodic
+        self._degree    = degree
+        self._periodic  = periodic
         self._dirichlet = dirichlet
 
         if not( knots is None ) and not( grid is None ):
@@ -48,7 +49,7 @@ class SplineSpace( FemSpace ):
             from spl.core.interface import make_knots
             knots = make_knots( grid, degree, periodic )
 
-        self._knots = knots
+        self._knots  = knots
         self._ncells = len(self.breaks) - 1
         self._nderiv = nderiv
 
@@ -66,10 +67,11 @@ class SplineSpace( FemSpace ):
             self._nbasis = len(knots) - degree - 1 - defect
 
         self._vector_space = StencilVectorSpace( [self.nbasis], [self.degree], [periodic] )
+        self._fields = {}
         self._initialize()
 
     #--------------------------------------------------------------------------
-    # Abstract interface
+    # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
     @property
     def ldim( self ):
@@ -90,10 +92,41 @@ class SplineSpace( FemSpace ):
         return None
 
     @property
-    def vector_space(self):
+    def vector_space( self ):
         """Returns the topological associated vector space."""
         return self._vector_space
 
+    @property
+    def fields( self ):
+        """Dictionary containing all FemField objects associated to this space."""
+        return self._fields
+
+    #--------------------------------------------------------------------------
+    # Abstract interface: evaluation methods
+    #--------------------------------------------------------------------------
+    def eval_field( self, field, *eta ):
+
+        assert isinstance( field, FemField )
+        assert field.space is self
+        assert len( eta ) == 1
+
+        span  =  find_span( self.knots, self.degree, eta[0] )
+        basis = basis_funs( self.knots, self.degree, eta[0], span )
+
+        return np.dot( field.coeffs[span-degree:span+1], basis )
+
+    # ...
+    def eval_field_gradient( self, field, *eta ):
+
+        assert isinstance( field, FemField )
+        assert field.space is self
+        assert len( eta ) == 1
+
+        raise NotImplementedError()
+
+    #--------------------------------------------------------------------------
+    # Other properties
+    #--------------------------------------------------------------------------
     @property
     def is_scalar( self ):
         """ Only scalar field is implemented for now.
@@ -118,9 +151,6 @@ class SplineSpace( FemSpace ):
         """
         return self._ncells
 
-    #--------------------------------------------------------------------------
-    # Other properties
-    #--------------------------------------------------------------------------
     @property
     def dirichlet( self ):
         """ True if using homogeneous dirichlet boundary conditions, False otherwise.
@@ -235,33 +265,33 @@ class SplineSpace( FemSpace ):
         return txt
 
 #===============================================================================
-class Spline( FemField ):
-    """
-    A field spline is an element of the SplineSpace.
 
-    """
-    def __init__(self, space):
-        self._space = space
-        self._coeffs = StencilVector( space.vector_space )
-
-    #--------------------------------------------------------------------------
-    # Abstract interface
-    #--------------------------------------------------------------------------
-    @property
-    def space( self ):
-        return self._space
-
-    @property
-    def coeffs( self ):
-        return self._coeffs
-
-    def __call__( self ):
-        raise NotImplementedError( 'Spline.__call__( eta )' )
-#        from spl.core.interface import eval_on_grid_splines_ders
-#        p = self._degree
-#        n = self._nbasis
-#        k
-
-    def gradient( self ):
-        raise NotImplementedError( 'Spline.gradient( eta )' )
-
+#------
+# TODO: remove this class and make FemField a concrete class!
+#------
+# 
+# class Spline( FemField ):
+#     """
+#     A field spline is an element of the SplineSpace.
+# 
+#     """
+#     def __init__(self, space):
+#         self._space = space
+#         self._coeffs = StencilVector( space.vector_space )
+# 
+#     #--------------------------------------------------------------------------
+#     # Abstract interface
+#     #--------------------------------------------------------------------------
+#     @property
+#     def space( self ):
+#         return self._space
+# 
+#     @property
+#     def coeffs( self ):
+#         return self._coeffs
+# 
+#     def __call__( self, *eta ):
+#         return self.space.eval_field( self, *eta )
+# 
+#     def gradient( self, *eta ):
+#         return self.space.eval_field_gradient( self, *eta )

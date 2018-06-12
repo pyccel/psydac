@@ -2,8 +2,8 @@
 
 import pytest
 
+from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
-from spl.fem.splines import Spline
 from spl.fem.tensor  import TensorFemSpace
 from spl.fem.vector  import VectorFemSpace
 
@@ -36,7 +36,7 @@ def test_2d_1():
             print('', flush=True)
         comm.Barrier()
 
-    F = Spline(V)
+    F = FemField(V,'F')
 
 
 ###############################################

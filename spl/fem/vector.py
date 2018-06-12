@@ -3,7 +3,7 @@
 # TODO: - have a block version for VectorSpace when all component spaces are the same
 
 from spl.linalg.stencil import StencilVectorSpace
-from spl.fem.basic      import FemSpace
+from spl.fem.basic      import FemSpace, FemField
 
 from numpy import unique, asarray, allclose
 
@@ -44,8 +44,11 @@ class VectorFemSpace( FemSpace ):
 
         # TODO parallel case
 
+        # Dictionary with all FemFields objects belonging to this space
+        self._fields = {}
+
     #--------------------------------------------------------------------------
-    # Abstract interface
+    # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
     @property
     def ldim( self ):
@@ -67,6 +70,34 @@ class VectorFemSpace( FemSpace ):
         return self._vector_space
 
     @property
+    def fields( self ):
+        """Dictionary containing all FemField objects associated to this space."""
+        return self._fields
+
+    #--------------------------------------------------------------------------
+    # Abstract interface: evaluation methods
+    #--------------------------------------------------------------------------
+    def eval_field( self, field, *eta ):
+
+        assert isinstance( field, FemField )
+        assert field.space is self
+        assert len( eta ) == self._ldim
+
+        raise NotImplementedError( "VectorFemSpace not yet operational" )
+
+    # ...
+    def eval_field_gradient( self, field, *eta ):
+
+        assert isinstance( field, FemField )
+        assert field.space is self
+        assert len( eta ) == self._ldim
+
+        raise NotImplementedError( "VectorFemSpace not yet operational" )
+
+    #--------------------------------------------------------------------------
+    # Other properties and methods
+    #--------------------------------------------------------------------------
+    @property
     def is_scalar(self):
         return len( self.spaces ) == 1
 
@@ -84,9 +115,6 @@ class VectorFemSpace( FemSpace ):
     def ncells(self):
         return self._ncells
 
-    #--------------------------------------------------------------------------
-    # Other properties and methods
-    #--------------------------------------------------------------------------
     @property
     def spaces( self ):
         return self._spaces
