@@ -93,6 +93,19 @@ class StencilVectorSpace( VectorSpace ):
         from numpy import prod
         return prod( self._npts )
 
+    # ...
+    def zeros( self ):
+        """
+        Get a copy of the null element of the StencilVectorSpace V.
+
+        Returns
+        -------
+        null : StencilVector
+            A new vector object with all components equal to zero.
+
+        """
+        return StencilVector( self )
+
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
