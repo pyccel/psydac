@@ -6,7 +6,8 @@ import numpy as np
 from spl.core.bsplines import ( find_span,
         basis_funs,
         basis_funs_1st_der,
-        basis_funs_all_ders )
+        basis_funs_all_ders,
+        collocation_matrix )
 
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
@@ -95,6 +96,47 @@ def test_basis_funs_all_ders( lims, nc, p, tol=1e-14 ):
 
         # Test that all derivatives of degree > p are zero
         assert np.all( ders[p+1:,:] == 0.0 )
+
+#==============================================================================
+@pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
+@pytest.mark.parametrize( 'nc', (10, 18, 33) )
+@pytest.mark.parametrize( 'p' , (1,2,3,7,10) )
+
+# TODO: construct knots from grid
+# TODO: evaluate on Greville points
+# TODO: improve checks
+def test_collocation_matrix_non_periodic( lims, nc, p, tol=1e-14 ):
+
+    grid, dx = np.linspace( *lims, num=nc+1, retstep=True )
+    knots = np.r_[ [grid[0]]*p, grid, [grid[-1]]*p ]
+
+    mat = collocation_matrix( knots, p, grid, periodic=False )
+
+    for row in mat:
+        assert all( row >= 0.0 )
+        assert len( row.nonzero()[0] ) in [1,p,p+1]
+        assert abs( sum( row ) - 1.0 ) < tol
+
+#==============================================================================
+@pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
+@pytest.mark.parametrize( 'nc', (10, 18, 33) )
+@pytest.mark.parametrize( 'p' , (1,2,3,7,8) )
+
+# TODO: construct knots from grid
+# TODO: evaluate on Greville points
+# TODO: improve checks
+def test_collocation_matrix_periodic( lims, nc, p, tol=1e-14 ):
+
+    grid, dx = np.linspace( *lims, num=nc+1, retstep=True )
+    period = lims[1]-lims[0]
+    knots  = np.r_[ grid[-p-1:-1]-period, grid, grid[1:1+p]+period ]
+
+    mat = collocation_matrix( knots, p, grid[:-1], periodic=True )
+
+    for row in mat:
+        assert all( row >= 0.0 )
+        assert len( row.nonzero()[0] ) in [p,p+1]
+        assert abs( sum( row ) - 1.0 ) < tol
 
 #==============================================================================
 # SCRIPT FUNCTIONALITY: PLOT BASIS FUNCTIONS

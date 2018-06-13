@@ -17,7 +17,11 @@ References
 """
 import numpy as np
 
-__all__ = ['find_span', 'basis_funs', 'basis_funs_1st_der', 'basis_funs_all_ders']
+__all__ = ['find_span',
+           'basis_funs',
+           'basis_funs_1st_der',
+           'basis_funs_all_ders',
+           'collocation_matrix']
 
 #==============================================================================
 def find_span( knots, degree, x ):
@@ -261,3 +265,66 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
         r = r * (degree-k)
 
     return ders
+
+#==============================================================================
+def collocation_matrix( knots, degree, xgrid, periodic=False ):
+    """
+    Compute the collocation matrix $C_ij = B_j(x_i)$, which contains the
+    values of each B-spline basis function $B_j$ at all locations $x_i$.
+
+    If the domain is periodic, the index j is shifted by an offset=p//2,
+    i.e. $C_ij = B_{j+p//2}(x_i)$, in order to neglect the first p basis
+    functions that are repeated by periodicity at the end of the domain.
+
+    Parameters
+    ----------
+    knots : 1D array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    xgrid : 1D array_like
+        Evaluation points.
+
+    periodic : bool
+        True if domain is periodic, False otherwise.
+
+    Returns
+    -------
+    mat : 2D numpy.ndarray
+        Collocation matrix: values of all basis functions on each point in xgrid.
+
+    """
+    # Number of basis functions (in periodic case remove degree repeated elements)
+    nb = len(knots)-degree-1
+    if periodic:
+        nb -= degree
+
+    # Number of evaluation points
+    nx = len(xgrid)
+
+    # Collocation matrix as 2D Numpy array (dense storage)
+    mat = np.zeros( (nx,nb) )
+
+    # Fill in non-zero matrix values, with different numbering of basis
+    # functions between periodic and non-periodic cases
+    if periodic:
+
+        offset = degree // 2
+        for i,x in enumerate(xgrid):
+            span  =  find_span( knots, degree, x )
+            basis = basis_funs( knots, degree, x, span )
+            jmin  = span - degree - offset
+            for s,val in enumerate(basis):
+                j = (jmin+s) % nb
+                mat[i,j] = val
+
+    else:
+
+        for i,x in enumerate(xgrid):
+            span  =  find_span( knots, degree, x )
+            basis = basis_funs( knots, degree, x, span )
+            mat[i,span-degree:span+1] = basis
+
+    return mat
