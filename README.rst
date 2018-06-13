@@ -22,9 +22,10 @@ Requirements
 
 Installing library
 ******************
+
 - **Standard mode**::
 
-    python3 -m pip install
+    python3 -m pip install .
 
 - **Development mode**::
 
