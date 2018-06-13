@@ -1,6 +1,6 @@
-from spl.core import bsplines_non_uniform
+from spl.core import bsplines
 
-__all__ = ['bsplines_non_uniform']
+__all__ = ['bsplines']
 
 try:
     from spl.core import bsp

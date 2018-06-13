@@ -4,7 +4,7 @@ from numpy import unique
 
 from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace, FemField
-from spl.core.bsplines_non_uniform import find_span, basis_funs
+from spl.core.bsplines  import find_span, basis_funs
 
 
 #===============================================================================
