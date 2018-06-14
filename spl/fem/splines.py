@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from numpy import unique
+import numpy as np
 
 from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace, FemField
@@ -168,7 +168,7 @@ class SplineSpace( FemSpace ):
         """ List of breakpoints.
         """
         if not self.periodic:
-            return unique(self.knots)
+            return np.unique(self.knots)
         else:
             p = self._degree
             return self._knots[p:-p]
@@ -214,7 +214,18 @@ class SplineSpace( FemSpace ):
     def greville( self ):
         """ Coordinates of all Greville points.
         """
-        raise NotImplementedError('TODO')
+        p = self._degree
+        n = self._nbasis
+        T = self._knots
+        s = 1+p//2 if self._periodic else 1
+        x = np.array( [np.sum(T[i:i+p])/p for i in range(s,s+n)] )
+
+        if self._periodic:
+            a,b = self.domain
+            x = np.around( x, decimals=15 )
+            x = (x-a) % (b-a) + a
+
+        return np.around( x, decimals=15 )
 
     def _initialize(self):
         """Initializes the Spline space. Here we prepare some data that may be
