@@ -13,10 +13,10 @@ def assembly_matrices(V):
     [e1] = V.vector_space.ends
     [p1] = V.vector_space.pads
 
-    k1 = V.quad_order
-    spans_1 = V.spans
-    basis_1 = V.basis
-    weights_1 = V.weights
+    k1        = V.quad_order
+    spans_1   = V.spans
+    basis_1   = V.quad_basis
+    weights_1 = V.quad_weights
     # ...
 
     # ... data structure
@@ -63,11 +63,11 @@ def assembly_rhs(V):
     [e1] = V.vector_space.ends
     [p1] = V.vector_space.pads
 
-    k1 = V.quad_order
-    spans_1 = V.spans
-    basis_1 = V.basis
-    points_1 = V.points
-    weights_1 = V.weights
+    k1        = V.quad_order
+    spans_1   = V.spans
+    basis_1   = V.quad_basis
+    points_1  = V.quad_points
+    weights_1 = V.quad_weights
     # ...
 
     # ... data structure

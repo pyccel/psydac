@@ -15,11 +15,11 @@ def assembly_matrices(V):
     # ...
 
     # ... seetings
-    [k1, k2] = [W.quad_order for W in V.spaces]
-    [spans_1, spans_2] = [W.spans for W in V.spaces]
-    [basis_1, basis_2] = [W.basis for W in V.spaces]
-    [weights_1, weights_2] = [W.weights for W in V.spaces]
-    [points_1, points_2] = [W.points for W in V.spaces]
+    [       k1,        k2] = [W.quad_order   for W in V.spaces]
+    [  spans_1,   spans_2] = [W.spans        for W in V.spaces]
+    [  basis_1,   basis_2] = [W.quad_basis   for W in V.spaces]
+    [ points_1,  points_2] = [W.quad_points  for W in V.spaces]
+    [weights_1, weights_2] = [W.quad_weights for W in V.spaces]
     # ...
 
     # ... data structure
@@ -79,11 +79,11 @@ def assembly_rhs(V):
     # ...
 
     # ... seetings
-    [k1, k2] = [W.quad_order for W in V.spaces]
-    [spans_1, spans_2] = [W.spans for W in V.spaces]
-    [basis_1, basis_2] = [W.basis for W in V.spaces]
-    [weights_1, weights_2] = [W.weights for W in V.spaces]
-    [points_1, points_2] = [W.points for W in V.spaces]
+    [       k1,        k2] = [W.quad_order   for W in V.spaces]
+    [  spans_1,   spans_2] = [W.spans        for W in V.spaces]
+    [  basis_1,   basis_2] = [W.quad_basis   for W in V.spaces]
+    [ points_1,  points_2] = [W.quad_points  for W in V.spaces]
+    [weights_1, weights_2] = [W.quad_weights for W in V.spaces]
     # ...
 
     # ... data structure

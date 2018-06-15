@@ -32,6 +32,14 @@ class SplineSpace( FemSpace ):
         otherwise. Must be specified for each bound
         Default: (False, False)
 
+    quad_order : int
+        Order of Gaussian quadrature.
+        Default: degree+1
+
+    nderiv : int
+        Number of derivatives to be pre-computed at quadrature points.
+        Default: 1
+
     """
     def __init__( self, degree, knots=None, grid=None,
                   periodic=False, dirichlet=(False, False),
@@ -49,6 +57,8 @@ class SplineSpace( FemSpace ):
             from spl.core.interface import make_knots
             knots = make_knots( grid, degree, periodic )
 
+        # TODO: verify that user-provided knots make sense in periodic case
+
         self._knots  = knots
         self._ncells = len(self.breaks) - 1
         self._nderiv = nderiv
@@ -59,6 +69,7 @@ class SplineSpace( FemSpace ):
             self._quad_order = quad_order
 
         if periodic:
+            # FIXME: this is wrong in case of repeated internal knots
             self._nbasis = self.ncells
         else:
             defect = 0
@@ -167,11 +178,8 @@ class SplineSpace( FemSpace ):
     def breaks( self ):
         """ List of breakpoints.
         """
-        if not self.periodic:
-            return np.unique(self.knots)
-        else:
-            p = self._degree
-            return self._knots[p:-p]
+        p = self._degree
+        return np.unique( self._knots[p:-p] )
 
     @property
     def domain( self ):
@@ -181,19 +189,9 @@ class SplineSpace( FemSpace ):
         return breaks[0], breaks[-1]
 
     @property
-    def quad_order(self):
-        """Returns the quadrature order."""
-        return self._quad_order
-
-    @property
     def nderiv(self):
         """Returns number of derivatives."""
         return self._nderiv
-
-    @property
-    def basis(self):
-        """Returns B-Splines and their derivatives on the quadrature grid."""
-        return self._basis
 
     @property
     def spans(self):
@@ -201,14 +199,24 @@ class SplineSpace( FemSpace ):
         return self._spans
 
     @property
-    def points(self):
-        """Returns the quadrature points over the whole domain."""
-        return self._points
+    def quad_order(self):
+        """Returns the quadrature order."""
+        return self._quad_order
 
     @property
-    def weights(self):
+    def quad_points(self):
+        """Returns the quadrature points over the whole domain."""
+        return self._quad_points
+
+    @property
+    def quad_weights(self):
         """Returns the quadrature weights over the whole domain."""
-        return self._weights
+        return self._quad_weights
+
+    @property
+    def quad_basis(self):
+        """Returns B-Splines and their derivatives on the quadrature grid."""
+        return self._quad_basis
 
     @property
     def greville( self ):
@@ -216,45 +224,43 @@ class SplineSpace( FemSpace ):
         """
         return greville( self._knots, self._degree, self._periodic )
 
+    #--------------------------------------------------------------------------
+    # Other methods
+    #--------------------------------------------------------------------------
     def _initialize(self):
         """Initializes the Spline space. Here we prepare some data that may be
         useful for assembling finite element matrices"""
 
-        from spl.core.interface import construct_grid_from_knots
         from spl.core.interface import construct_quadrature_grid
         from spl.core.interface import compute_spans
         from spl.core.interface import eval_on_grid_splines_ders
         from spl.utilities.quadratures import gauss_legendre
 
-        T = self.knots
-        p = self.degree
-        ne = self.ncells
-        k = self.quad_order
-        d = self.nderiv
-
-        # ... total number of control points
+        # TODO: fix periodic case
         if self.periodic:
             raise NotImplementedError('periodic bc not yet available')
-        else:
-            n = len(T) - p - 1
-        # ...
 
-        # constructs the grid from the knot vector
-        grid = construct_grid_from_knots(p, n, T)
+        T    = self.knots   # knots sequence
+        p    = self.degree  # spline degree
+        n    = self.nbasis  # total number of control points
+        grid = self.breaks  # breakpoints
+        ne   = self.ncells  # number of cells in domain (ne=len(grid)-1)
+        k    = self.quad_order
+        d    = self.nderiv
 
         # compute spans
         spans = compute_spans(p, n, T)
 
         # gauss-legendre quadrature rule
         u, w = gauss_legendre(p)
-        points, weights = construct_quadrature_grid(ne, k, u, w, grid)
+        points, weights = construct_quadrature_grid( ne, k, u, w, self.breaks )
 
         basis = eval_on_grid_splines_ders(p, n, k, d, T, points)
 
-        self._basis = basis
-        self._spans = spans
-        self._points = points
-        self._weights = weights
+        self._spans        = spans
+        self._quad_basis   = basis
+        self._quad_points  = points
+        self._quad_weights = weights
 
     def __str__(self):
         """Pretty printing"""
@@ -263,35 +269,3 @@ class SplineSpace( FemSpace ):
         txt += '> nbasis :: {dim} \n'.format( dim=self.nbasis )
         txt += '> degree :: {degree}'.format( degree=self.degree )
         return txt
-
-#===============================================================================
-
-#------
-# TODO: remove this class and make FemField a concrete class!
-#------
-# 
-# class Spline( FemField ):
-#     """
-#     A field spline is an element of the SplineSpace.
-# 
-#     """
-#     def __init__(self, space):
-#         self._space = space
-#         self._coeffs = StencilVector( space.vector_space )
-# 
-#     #--------------------------------------------------------------------------
-#     # Abstract interface
-#     #--------------------------------------------------------------------------
-#     @property
-#     def space( self ):
-#         return self._space
-# 
-#     @property
-#     def coeffs( self ):
-#         return self._coeffs
-# 
-#     def __call__( self, *eta ):
-#         return self.space.eval_field( self, *eta )
-# 
-#     def gradient( self, *eta ):
-#         return self.space.eval_field_gradient( self, *eta )
