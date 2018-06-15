@@ -4,7 +4,7 @@ import numpy as np
 
 from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace, FemField
-from spl.core.bsplines  import find_span, basis_funs
+from spl.core.bsplines  import find_span, basis_funs, greville
 
 
 #===============================================================================
@@ -214,18 +214,7 @@ class SplineSpace( FemSpace ):
     def greville( self ):
         """ Coordinates of all Greville points.
         """
-        p = self._degree
-        n = self._nbasis
-        T = self._knots
-        s = 1+p//2 if self._periodic else 1
-        x = np.array( [np.sum(T[i:i+p])/p for i in range(s,s+n)] )
-
-        if self._periodic:
-            a,b = self.domain
-            x = np.around( x, decimals=15 )
-            x = (x-a) % (b-a) + a
-
-        return np.around( x, decimals=15 )
+        return greville( self._knots, self._degree, self._periodic )
 
     def _initialize(self):
         """Initializes the Spline space. Here we prepare some data that may be

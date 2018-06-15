@@ -21,7 +21,8 @@ __all__ = ['find_span',
            'basis_funs',
            'basis_funs_1st_der',
            'basis_funs_all_ders',
-           'collocation_matrix']
+           'collocation_matrix',
+           'greville']
 
 #==============================================================================
 def find_span( knots, degree, x ):
@@ -267,7 +268,7 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
     return ders
 
 #==============================================================================
-def collocation_matrix( knots, degree, xgrid, periodic=False ):
+def collocation_matrix( knots, degree, xgrid, periodic ):
     """
     Compute the collocation matrix $C_ij = B_j(x_i)$, which contains the
     values of each B-spline basis function $B_j$ at all locations $x_i$.
@@ -328,3 +329,41 @@ def collocation_matrix( knots, degree, xgrid, periodic=False ):
             mat[i,span-degree:span+1] = basis
 
     return mat
+
+#==============================================================================
+def greville( knots, degree, periodic ):
+    """
+    Compute coordinates of all Greville points.
+
+    Parameters
+    ----------
+    knots : 1D array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    periodic : bool
+        True if domain is periodic, False otherwise.
+
+    Returns
+    -------
+    xg : numpy.ndarray (1D)
+        Abscissas of all Greville points.
+
+    """
+    T = knots
+    p = degree
+    s = 1+p//2       if periodic else 1
+    n = len(T)-2*p-1 if periodic else len(T)-p-1
+
+    # Compute greville abscissas as average of p consecutive knot values
+    xg = np.around( [sum(T[i:i+p])/p for i in range(s,s+n)], decimals=15 )
+
+    # If needed apply periodic boundary conditions
+    if periodic:
+        a  = knots[ p]
+        b  = knots[-p]
+        xg = np.around( (xg-a)%(b-a)+a, decimals=15 )
+
+    return xg
