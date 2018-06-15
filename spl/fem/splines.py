@@ -6,6 +6,7 @@ from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace, FemField
 from spl.core.bsplines  import (find_span, basis_funs, breakpoints, greville,
                                elements_spans, make_knots)
+from spl.utilities.quadratures import gauss_legendre
 
 #===============================================================================
 class SplineSpace( FemSpace ):
@@ -68,8 +69,7 @@ class SplineSpace( FemSpace ):
             self._quad_order = quad_order
 
         if periodic:
-            # FIXME: this is wrong in case of repeated internal knots
-            self._nbasis = self.ncells
+            self._nbasis = len(knots) - 2*degree - 1
         else:
             defect = 0
             if dirichlet[0]: defect += 1
@@ -231,11 +231,6 @@ class SplineSpace( FemSpace ):
 
         from spl.core.interface import construct_quadrature_grid
         from spl.core.interface import eval_on_grid_splines_ders
-        from spl.utilities.quadratures import gauss_legendre
-
-        # TODO: fix periodic case
-        if self.periodic:
-            raise NotImplementedError('periodic bc not yet available')
 
         T    = self.knots   # knots sequence
         p    = self.degree  # spline degree
