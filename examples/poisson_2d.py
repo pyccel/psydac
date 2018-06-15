@@ -37,11 +37,11 @@ def assembly_matrices(V):
                     for il_2 in range(0, p2+1):
                         for jl_2 in range(0, p2+1):
 
-                            i1 = i_span_1 - p1  - 1 + il_1
-                            j1 = i_span_1 - p1  - 1 + jl_1
+                            i1 = i_span_1 - p1 + il_1
+                            j1 = i_span_1 - p1 + jl_1
 
-                            i2 = i_span_2 - p2  - 1 + il_2
-                            j2 = i_span_2 - p2  - 1 + jl_2
+                            i2 = i_span_2 - p2 + il_2
+                            j2 = i_span_2 - p2 + jl_2
 
                             v_m = 0.0
                             v_s = 0.0
@@ -97,8 +97,8 @@ def assembly_rhs(V):
             i_span_2 = spans_2[ie2]
             for il_1 in range(0, p1+1):
                 for il_2 in range(0, p2+1):
-                    i1 = i_span_1 - p1  - 1 + il_1
-                    i2 = i_span_2 - p2  - 1 + il_2
+                    i1 = i_span_1 - p1 + il_1
+                    i2 = i_span_2 - p2 + il_2
 
                     v = 0.0
                     for g1 in range(0, k1):

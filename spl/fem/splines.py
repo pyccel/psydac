@@ -5,7 +5,7 @@ import numpy as np
 from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace, FemField
 from spl.core.bsplines  import (find_span, basis_funs, breakpoints, greville,
-                               make_knots)
+                               elements_spans, make_knots)
 
 #===============================================================================
 class SplineSpace( FemSpace ):
@@ -230,7 +230,6 @@ class SplineSpace( FemSpace ):
         useful for assembling finite element matrices"""
 
         from spl.core.interface import construct_quadrature_grid
-        from spl.core.interface import compute_spans
         from spl.core.interface import eval_on_grid_splines_ders
         from spl.utilities.quadratures import gauss_legendre
 
@@ -247,7 +246,7 @@ class SplineSpace( FemSpace ):
         d    = self.nderiv
 
         # compute spans
-        spans = compute_spans(p, n, T)
+        spans = elements_spans( T, p )
 
         # gauss-legendre quadrature rule
         u, w = gauss_legendre(p)

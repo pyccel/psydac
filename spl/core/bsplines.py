@@ -392,6 +392,61 @@ def greville( knots, degree, periodic ):
     return xg
 
 #===============================================================================
+def elements_spans( knots, degree ):
+    """
+    Compute the index of the last non-vanishing spline on each grid element
+    (cell). The length of the returned array is the number of cells.
+
+    Parameters
+    ----------
+    knots : 1D array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    Returns
+    -------
+    spans : numpy.ndarray (1D)
+        Index of last non-vanishing spline on each grid element.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from spl.core.bsplines import make_knots, elements_spans
+
+    >>> p = 3 ; n = 8
+    >>> grid  = np.arange( n-p+1 )
+    >>> knots = make_knots( breaks=grid, degree=p, periodic=False )
+    >>> spans = elements_spans( knots=knots, degree=p )
+    >>> spans
+    array([3, 4, 5, 6, 7])
+
+    Notes
+    -----
+    1) Numbering of basis functions starts from 0, not 1;
+    2) This function could be written in two lines:
+
+       breaks = breakpoints( knots, degree )
+       spans  = np.searchsorted( knots, breaks[:-1], side='right' ) - 1
+
+    """
+    breaks = breakpoints( knots, degree )
+    nk     = len(knots)
+    ne     = len(breaks)-1
+    spans  = np.zeros( ne, dtype=int )
+
+    ie = 0
+    for ik in range( degree, nk-degree ):
+        if knots[ik] != knots[ik+1]:
+            spans[ie] = ik
+            ie += 1
+        if ie == ne:
+            break
+
+    return spans
+
+#===============================================================================
 def make_knots( breaks, degree, periodic ):
     """
     Create spline knots from breakpoints, with appropriate boundary conditions.
