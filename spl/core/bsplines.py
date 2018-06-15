@@ -22,6 +22,7 @@ __all__ = ['find_span',
            'basis_funs_1st_der',
            'basis_funs_all_ders',
            'collocation_matrix',
+           'breakpoints',
            'greville',
            'make_knots']
 
@@ -332,6 +333,27 @@ def collocation_matrix( knots, degree, xgrid, periodic ):
     return mat
 
 #==============================================================================
+def breakpoints( knots, degree ):
+    """
+    Determine breakpoints' coordinates.
+
+    Parameters
+    ----------
+    knots : 1D array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    Returns
+    -------
+    breaks : numpy.ndarray (1D)
+        Abscissas of all breakpoints.
+
+    """
+    return np.unique( knots[degree:-degree] )
+
+#==============================================================================
 def greville( knots, degree, periodic ):
     """
     Compute coordinates of all Greville points.
@@ -363,8 +385,8 @@ def greville( knots, degree, periodic ):
 
     # If needed apply periodic boundary conditions
     if periodic:
-        a  = knots[ p]
-        b  = knots[-p]
+        a  = T[ p]
+        b  = T[-p]
         xg = np.around( (xg-a)%(b-a)+a, decimals=15 )
 
     return xg

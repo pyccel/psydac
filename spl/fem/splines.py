@@ -4,8 +4,8 @@ import numpy as np
 
 from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace, FemField
-from spl.core.bsplines  import find_span, basis_funs, greville, make_knots
-
+from spl.core.bsplines  import (find_span, basis_funs, breakpoints, greville,
+                               make_knots)
 
 #===============================================================================
 class SplineSpace( FemSpace ):
@@ -177,8 +177,7 @@ class SplineSpace( FemSpace ):
     def breaks( self ):
         """ List of breakpoints.
         """
-        p = self._degree
-        return np.unique( self._knots[p:-p] )
+        return breakpoints( self._knots, self._degree )
 
     @property
     def domain( self ):
