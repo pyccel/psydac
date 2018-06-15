@@ -22,7 +22,8 @@ __all__ = ['find_span',
            'basis_funs_1st_der',
            'basis_funs_all_ders',
            'collocation_matrix',
-           'greville']
+           'greville',
+           'make_knots']
 
 #==============================================================================
 def find_span( knots, degree, x ):
@@ -367,3 +368,55 @@ def greville( knots, degree, periodic ):
         xg = np.around( (xg-a)%(b-a)+a, decimals=15 )
 
     return xg
+
+#===============================================================================
+def make_knots( breaks, degree, periodic ):
+    """
+    Create spline knots from breakpoints, with appropriate boundary conditions.
+    Let p be spline degree. If domain is periodic, knot sequence is extended
+    by periodicity so that first p basis functions are identical to last p.
+    Otherwise, knot sequence is clamped (i.e. endpoints are repeated p times).
+
+    Parameters
+    ----------
+    breaks : array_like
+        Coordinates of breakpoints (= cell edges); given in increasing order and
+        with no duplicates.
+
+    degree : int
+        Spline degree (= polynomial degree within each interval).
+
+    periodic : bool
+        True if domain is periodic, False otherwise.
+
+    Result
+    ------
+    T : numpy.ndarray (1D)
+        Coordinates of spline knots.
+
+    """
+    # Type checking
+    assert isinstance( degree  , int  )
+    assert isinstance( periodic, bool )
+
+    # Consistency checks
+    assert len(breaks) > 1
+    assert all( np.diff(breaks) > 0 )
+    assert degree > 0
+    if periodic:
+        assert len(breaks) > degree
+
+    p = degree
+    T = np.zeros( len(breaks)+2*p )
+    T[p:-p] = breaks
+
+    if periodic:
+        period = breaks[-1]-breaks[0]
+        T[0:p] = [xi-period for xi in breaks[-p-1:-1 ]]
+        T[-p:] = [xi+period for xi in breaks[   1:p+1]]
+    else:
+        T[0:p] = breaks[ 0]
+        T[-p:] = breaks[-1]
+
+    return T
+

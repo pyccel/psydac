@@ -4,7 +4,7 @@ import numpy as np
 
 from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace, FemField
-from spl.core.bsplines  import find_span, basis_funs, greville
+from spl.core.bsplines  import find_span, basis_funs, greville, make_knots
 
 
 #===============================================================================
@@ -54,7 +54,6 @@ class SplineSpace( FemSpace ):
 
         if knots is None:
             # create knots from grid and bc
-            from spl.core.interface import make_knots
             knots = make_knots( grid, degree, periodic )
 
         # TODO: verify that user-provided knots make sense in periodic case
