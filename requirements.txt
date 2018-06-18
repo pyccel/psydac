@@ -1,4 +1,7 @@
-numpy
+numpy>=1.13
 scipy
 matplotlib
 mpi4py
+h5py
+sympy
+pytest

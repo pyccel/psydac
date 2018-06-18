@@ -104,10 +104,10 @@ class Integral(object):
     """
 
     def __init__(self, p, n, T, kind='natural', k=None):
-        from spl.core import construct_grid_from_knots
-        from spl.core import compute_greville
-        from spl.core import construct_quadrature_grid
-        from spl.utilities import gauss_legendre
+        from spl.core.interface        import construct_grid_from_knots
+        from spl.core.interface        import compute_greville
+        from spl.core.interface        import construct_quadrature_grid
+        from spl.utilities.quadratures import gauss_legendre
 
         assert(kind in ['natural', 'greville'])
 
@@ -156,7 +156,7 @@ class Interpolation(object):
     """
 
     def __init__(self, p, n, T, sites=None):
-        from spl.core import compute_greville
+        from spl.core.interface import compute_greville
 
         if sites is None:
             sites = compute_greville(p, n, T)
@@ -179,10 +179,10 @@ class Contribution(object):
 
     def __init__(self, p, n, T, sites=None):
         """Returns the 1d rhs for the function f."""
-        from spl.core.interface import construct_grid_from_knots
-        from spl.core.interface import construct_quadrature_grid
-        from spl.core.interface import eval_on_grid_splines_ders
-        from spl.core.interface import compute_spans
+        from spl.core.interface        import construct_grid_from_knots
+        from spl.core.interface        import construct_quadrature_grid
+        from spl.core.interface        import eval_on_grid_splines_ders
+        from spl.core.interface        import compute_spans
         from spl.utilities.quadratures import gauss_legendre
 
         # constructs the grid from the knot vector
@@ -260,8 +260,6 @@ class Integral2D(object):
     """
 
     def __init__(self, p, n, T, k=None):
-
-        from spl.utilities import Integral
 
         if not isinstance(p, (tuple, list)) or not isinstance(n, (tuple, list)):
             raise TypeError('Wrong type for n and/or p. must be tuple or list')

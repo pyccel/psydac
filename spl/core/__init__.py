@@ -1,4 +1,11 @@
-# -*- coding: UTF-8 -*-
+from spl.core import bsplines
 
-from .basic     import *
-from .interface import *
+__all__ = ['bsplines']
+
+try:
+    from spl.core import bsp
+    from spl.core import interface
+except ImportError:
+    pass
+else:
+    __all__.extend( ['bsp','interface'] )

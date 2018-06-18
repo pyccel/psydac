@@ -2,7 +2,8 @@ import numpy as np
 import h5py
 from mpi4py    import MPI
 from itertools import product
-from cart      import Cart
+
+from spl.ddm.cart import Cart
 
 #===============================================================================
 # INPUT PARAMETERS

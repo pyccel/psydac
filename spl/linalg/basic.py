@@ -22,6 +22,18 @@ class VectorSpace( metaclass=ABCMeta ):
 
         """
 
+    @abstractmethod
+    def zeros( self ):
+        """
+        Get a copy of the null element of the vector space V.
+
+        Returns
+        -------
+        null : Vector
+            A new vector object with all components equal to zero.
+
+        """
+
 #===============================================================================
 class Vector( metaclass=ABCMeta ):
     """

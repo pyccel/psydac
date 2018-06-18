@@ -1,4 +1,4 @@
-# -*- coding: UTF-8 -*-
+__all__ = ['utilities','derivatives']
 
-from .utilities import *
-from .derivatives import *
+from spl.feec import derivatives
+from spl.feec import utilities

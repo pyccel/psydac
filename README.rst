@@ -8,65 +8,35 @@ Welcome to SPL
 Requirements
 ************
 
-- **Python3**
+- **Python3**::
 
-- **pip3**
+    sudo apt-get install python3 python3-dev
 
-- **cmake** (version 2.8 or higher)
+- **pip3**::
 
-- **Fortran** 2003 Compiler (gfortran version 4.7 or higher, or appropriate ifort)
+    sudo apt-get install python-pip3
 
-- all *Python* dependencies can be installed using::
+- All *Python* dependencies can be installed using::
 
     sudo -H pip3 install -r requirements.txt
 
+Installing library
+******************
 
-Install
-*******
+- **Standard mode**::
 
-We first install the Fortran library/headers using *cmake* (by default the installation path
-is **$PWD/../usr**)::
+    python3 -m pip install .
 
-  mkdir build && cd build
-  cmake -DCMAKE_Fortran_FLAGS="-fPIC" ..
-  make && make install && cd ..
+- **Development mode**::
 
-For the *Python* package, you can install it using *pip*::
+    python3 -m pip install --user -e .
+    
+Uninstall
+*********
 
-  sudo -H FORTRAN_INSTALL_DIR=$PWD/../usr pip3 install .
+- **Whichever the install mode**::
 
-For Python3 users, use *pip3* instead of *pip*.
-
-For developpers only
-********************
-
-Whenever you change the fortran code (inside **fortran/src**), you need to recompile the fortran library, using::
-
-  cd build && make clean && make install && cd ..
-
-then use **pip3** as previously to install the python package.
-
-.. note:: for some reasons, you may need to clean your installation using::
-
-    sudo rm -rf /usr/local/lib/python3.5/dist-packages/spl*
-
-  then run the install command::
-
-    sudo -H FORTRAN_INSTALL_DIR=$PWD/../usr pip3 install .
-
-.. More information
-.. ^^^^^^^^^^^^^^^^
-.. 
-.. Compilers
-.. _________
-.. 
-.. **SPL** was tested with the following compilers
-.. 
-.. * gcc: 4.7, 4.8.4, 4.8.5, 4.9.3, 5.4
-.. * intel: 15.0.4, 16.0.3. mpiifort 4.1.3, 5.0, 5.1
-.. * pgi
-
-
+    python3 -m pip uninstall spl
     
 .. |build-devel| image:: https://travis-ci.org/pyccel/spl.svg?branch=devel
     :alt: devel status
@@ -78,4 +48,5 @@ then use **pip3** as previously to install the python package.
     :scale: 100%
     :target: http://spl.readthedocs.io/en/latest/?badge=latest
 
+  
 

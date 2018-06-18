@@ -1,73 +1,8 @@
 # coding: utf-8
-
-import numpy as np
-
-# ... Solver: CGL performs maxit CG iterations on the linear system Ax = b
-#     starting from x = x0
-def cgl(mat, b, x0, maxit, tol):
-    xk = x0.zeros_like()
-    mx = x0.zeros_like()
-    p  = x0.zeros_like()
-    q  = x0.zeros_like()
-    r  = x0.zeros_like()
-
-    # xk = x0
-    xk = x0.copy()
-    mx = mat.dot(x0)
-
-    # r = b - mx
-    r = b.copy()
-    b.sub(mx)
-
-    # p = r
-    p = r.copy()
-
-    rdr = r.dot(r)
-
-    for i_iter in range(1, maxit+1):
-        q = mat.dot(p)
-        alpha = rdr / p.dot(q)
-
-        # xk = xk + alpha * p
-        ap = p.copy()
-        ap.mul(alpha)
-        xk.add(ap)
-
-        # r  = r - alpha * q
-        aq = q.copy()
-        aq.mul(alpha)
-        r.sub(aq)
-
-        # ...
-        if r.dot(r) >= 0.:
-            norm_err = np.sqrt(r.dot(r))
-            print (i_iter, norm_err )
-
-            if norm_err < tol:
-                x0 = xk.copy()
-                break
-
-        rdrold = rdr
-        rdr = r.dot(r)
-        beta = rdr / rdrold
-
-        #p = r + beta * p
-        bp = p.copy()
-        bp.mul(beta)
-        p  = r.copy()
-        p.add(bp)
-
-    x0 = xk.copy()
-    # ...
-
-    return x0
-# ....
-
-#===============================================================================
 #
 # Copyright 2018 Yaman Güçlü
-#
-def cg( A, b, x0=None, tol=1e-5, verbose=False ):
+
+def cg( A, b, x0=None, tol=1e-5, maxiter=1000, verbose=False ):
     """
     Conjugate gradient algorithm for solving linear system Ax=b.
     Implementation from [1], page 137.
@@ -90,6 +25,9 @@ def cg( A, b, x0=None, tol=1e-5, verbose=False ):
 
     tol : float
         Absolute tolerance for L2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations.
 
     verbose : bool
         If True, L2-norm of residual r is printed at each iteration.
@@ -133,7 +71,7 @@ def cg( A, b, x0=None, tol=1e-5, verbose=False ):
         template = "| {:7d} | {:19.2e} |"
 
     # Iterate to convergence
-    for m in range( 1, n+1 ):
+    for m in range( 1, maxiter+1 ):
 
         if am < tol_sqr:
             m -= 1
@@ -158,5 +96,3 @@ def cg( A, b, x0=None, tol=1e-5, verbose=False ):
 
     return x, info
 
-#===============================================================================
-del np

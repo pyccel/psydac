@@ -1,48 +1,20 @@
 TODO
 ====
 
-Pre-RELEASE
-***********
+* Add GMRES solver to 'spl.linalg.solvers'
 
-general
-^^^^^^^
+* Add unit tests for Cart subcommunicators in 'spl.ddm.cart'
 
-- make sure that every class has the method print_info                     
-- setup: remove SPL_DIR, ... and clean make_project.sh
-- bug linear_operator_diagonal when n_block_rows <> n_block_cols. the bug is in the dot operation
-- dot kron does not work if n_blocks > 1
-- resets pointers to null whenver they are used in SPL
-+ make -j2  
-- add make doc
-- update README.md for every project SPL, SPL, and all our libraries 
-- have 1 argument per line, when defining a function/subroutine
-- check that pointers to classes are always initialized with null()
-+ make free deferred in all objects 
-+ add spl_t_abstract as the abstract class that all other objects extend
-- use is_allocated in all objects
-- use  GCC_COMPILING when needed
-- recompile plaf with agmg
+* Create parallel 'KroneckerLinearOperator' in 'spl.linalg.kronecker' using Cart subcommunicators
 
-Documentation
-^^^^^^^^^^^^^
+* Create object of type 'spl.fem.splines.SplineSpace' with Cart
 
-- doxygen    (ahmed)
-- slides     (ahmed)
+* Implement methods '__call__' and 'gradient' in Spline class
 
-inputs
-^^^^^^^^^^^^^^^
-- inputs folder for tests parameters   
-
-REALSE
-******
-
-general
-^^^^^^^
-
-Documentation
-^^^^^^^^^^^^^
-
-- user guide (ahmed)
+* Create 'SplineMapping' class in module 'spl.mapping.discrete'
 
 
+Core
+****
 
+* interface to *spl_eval_splines_ders*

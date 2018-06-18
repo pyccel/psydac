@@ -2,20 +2,9 @@
 ! Note: the context of this file is case sensitive.
 
 python module bsp 
-  interface
-    
-    module bsp_utils
 
-      ! ................................................
-      subroutine collocation_matrix(p, n, m, knots, u, mat) 
-          integer(kind=4) intent(in) :: p 
-          integer(kind=4) intent(in) :: n 
-          integer(kind=4) intent(in) :: m 
-          real(kind=8) dimension(n+p+1), intent(in), depend(n, p) :: knots
-          real(kind=8) dimension(m), intent(in), depend(m) :: u
-          real(kind=8) dimension(m, n), intent(out), depend(m, n) :: mat
-      end subroutine collocation_matrix
-      ! ................................................
+  interface
+    module bsp_utils
 
       ! ................................................
       subroutine compute_greville(p, n, knots, arr_x) 
@@ -94,9 +83,39 @@ python module bsp
       end subroutine compute_origins_element
       ! ................................................
 
-    end module bsp_utils
+      ! ................................................
+      subroutine collocation_matrix(p, n, m, knots, u, mat) 
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          integer(kind=4) intent(in) :: m 
+          real(kind=8) dimension(n+p+1), intent(in), depend(n, p) :: knots
+          real(kind=8) dimension(m), intent(in), depend(m) :: u
+          real(kind=8) dimension(m, n), intent(out), depend(m, n) :: mat
+      end subroutine collocation_matrix
+      ! ................................................
 
+      ! ................................................
+      subroutine collocation_cardinal_splines(p, n, mat)
+          integer(kind=4) intent(in) :: p 
+          integer(kind=4) intent(in) :: n 
+          real(kind=8) dimension(n, n),intent(out),depend(n, n) :: mat
+      end subroutine collocation_cardinal_splines
+      ! ................................................
+      
+      ! ................................................
+      subroutine matrix_multi_stages(m, ts, n, p, knots, mat)
+          integer(kind=4) intent(in) :: m 
+          real(kind=8) dimension(m), intent(in), depend(m) :: ts
+          integer(kind=4) intent(in) :: n 
+          integer(kind=4) intent(in) :: p 
+          real(kind=8) dimension(n+p+1),  intent(in),  depend(n, p) :: knots
+          real(kind=8) dimension(n+m, n), intent(out), depend(m, n) :: mat
+      end subroutine matrix_multi_stages
+      ! ................................................
+
+    end module bsp_utils
   end interface 
+
 end python module bsp
 
 !
