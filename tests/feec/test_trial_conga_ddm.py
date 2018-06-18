@@ -3,7 +3,7 @@
 import numpy as np
 
 from spl.core import make_open_knots
-from spl.conga import SimpleCongaDDM
+from spl.conga import TrialCongaDDM
 
 # import os.path
 # import spl.core as core
@@ -25,7 +25,7 @@ def test_conga_ddm_1d(verbose=False):
 
     if verbose:
         print("building the conga-ddm object")
-    cddm = SimpleCongaDDM(p, m, N_cells_sub, watch_your_steps=False, n_checks=7, use_macro_elem_duals=True)
+    cddm = SimpleCongaDDM(p, m, N_cells_sub, watch_my_steps=False, n_checks=7, use_macro_elem_duals=True)
 
     # check: plot a reg spline and dual:
     visual_check = False

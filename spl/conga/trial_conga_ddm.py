@@ -7,6 +7,7 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.interpolate import BSpline
 from scipy.interpolate import splev
+from scipy.special import comb
 from scipy.special.orthogonal import p_roots
 from scipy.sparse import csr_matrix, csc_matrix
 from scipy.sparse.linalg import splu
@@ -44,14 +45,12 @@ def solve(M, x):
     return M_op.solve(x)
 # ...
 
-
-class SimpleCongaDDM:
+class trialCongaDDM:
     """
-    class for a simple Conga method with 2 domains in 1D: [0, 0.5] and [0.5, 1]
+    trial class for a Conga method with 2 subdomains in 1D: [0, 0.5] and [0.5, 1]
 
-
-    Here the discontinous space consists of two spline spaces, one for each domain.
-    The smooth space is a std spline space on the whole domain, with a grid that is the union of the two grids.
+    The smooth space is a std spline space on the whole domain, with open knots.
+    The discontinous space consists of two smooth spline spaces, one for each subdomain.
     """
 
     def __init__(self,
@@ -85,9 +84,9 @@ class SimpleCongaDDM:
             raise ValueError('Wrong value for N_cells_sub, must be a multiple (>1) of m+p+1')
 
         self._p = p
-        self._N_cells = 2 * N_cells_sub
         self._N_cells_left = N_cells_sub
         self._N_cells_right = N_cells_sub
+        self._N_cells = self._N_cells_left + self._N_cells_right
 
         self._x_min = 0
         self._x_max = 1
@@ -103,49 +102,10 @@ class SimpleCongaDDM:
         # number of discontinuous (pw spline) functions:
         self._n_disc = self._n_left + self._n_right
 
-        # self._T_smooth = self._x_min + (self._x_max - self._x_min) * make_open_knots(p, self._n_smooth)
-        self._T_smooth, h_check = np.linspace(
-            self._x_min - self._h*self._p,
-            self._x_max + self._h*self._p,
-            num=self._N_cells + 2*self._p+1,
-            endpoint=True, retstep=True)
-        if not np.allclose(h_check, self._h):
-            print("error : "+repr(h_check)+" "+repr(self._h))
-            assert np.allclose(h_check, self._h)
-
-        # knot vector for the left spline space:
-        self._T_left, h_check = np.linspace(
-            self._x_min - self._h*self._p,
-            self._x_sep + self._h*self._p,
-            num=self._N_cells_left + 2*self._p+1,
-            endpoint=True, retstep=True)
-        if not np.allclose(h_check, self._h):
-            print("error : "+repr(h_check)+" "+repr(self._h))
-            assert np.allclose(h_check, self._h)
-
-        # knot vector for the right spline space:
-        self._T_right, h_check = np.linspace(
-            self._x_sep - self._h*self._p,
-            self._x_max + self._h*self._p,
-            num=self._N_cells_right + 2*self._p+1,
-            endpoint=True, retstep=True)
-        if not np.allclose(h_check, self._h):
-            print("error : "+repr(h_check)+" "+repr(self._h))
-            assert np.allclose(h_check, self._h)
-
-        # self._T_left = self._x_min + (self._x_sep - self._x_min) * make_open_knots(p, self._n_left)  # regular open vector
-        #
-        # here I am changing the left knot vector on its right end to get truncated regular splines on the sub-domain boundary
-        # but we should study the other option: defining the discontinuous space as a sum of disjoint open splines
-        # assert abs(self._T_left[self._n_left] - self._x_sep) < 1e-10
-        # for i in range(1, self._p+1):
-        #     self._T_left[self._n_left+i] = self._x_sep + i*self._h
-
-        # self._T_right = self._x_sep + (self._x_max - self._x_sep) * make_open_knots(p, self._n_right)
-        # I am also changing the right knot vector on its left end -- same remark as above
-        # assert abs(self._T_right[self._p] - self._x_sep) < 1e-10
-        # for i in range(self._p):
-        #     self._T_right[i] = self._x_sep + (i-self._p)*self._h
+        # open knot vectors for the three smooth spaces
+        self._T_smooth = self._x_min + (self._x_max - self._x_min) * make_open_knots(self._p, self._n_smooth)
+        self._T_left = self._x_min + (self._x_sep - self._x_min) * make_open_knots(self._p, self._n_left)
+        self._T_right = self._x_sep + (self._x_max - self._x_sep) * make_open_knots(self._p, self._n_right)
 
         self.grid = construct_grid_from_knots(p, self._n_smooth, self._T_smooth)
         assert len(self.grid) == self._N_cells + 1
@@ -154,18 +114,59 @@ class SimpleCongaDDM:
         self.coefs_smooth = np.zeros(self._n_smooth, dtype=np.double)
         self.coefs_left = np.zeros(self._n_left, dtype=np.double)
         self.coefs_right = np.zeros(self._n_right, dtype=np.double)
-        # self.coefs_disc = np.zeros(self._n_disc, dtype=np.double)
 
+        # flag
         self._use_macro_elem_duals = use_macro_elem_duals
 
         # Duality products
         self.duality_prods = np.zeros((self._n_smooth, self._n_smooth, self._N_cells), dtype=np.double)
 
-        # -- construction of the dual functions --
-        self._alpha = np.zeros(self._p+1)
-        for i in range(self._p+1):
-            self._alpha[i] = _my_gauss_quad(lambda x: self._q_pieces(i, x), 0, 1, n=self._p)
-        # self._alpha[0] = 1.
+        # -- construction of the P dual basis ---
+
+        # change-of-basis matrices for each I_k
+        self._tilde_phi_coefs = [np.zeros((self._p + 1, self._p + 1)) for k in range(self._N_cells)]
+
+        temp_matrix = np.zeros((self._p + 1, self._p + 1))
+        for k in range(self._N_cells):
+            temp_matrix[:,:] = 0
+            for a in range(self._p + 1):
+                bern_ak = lambda x: self._bersntein(a, k, x)
+                for b in range(a, self._p + 1):
+                    j = k + b
+                    phi_jk = lambda x: self._phi(j, x)  # should be phi_pieces(j,k,x) but we only evaluate it on I_k
+                    temp_matrix[a, b] = _my_L2_prod(bern_ak, phi_jk, xmin=self._T_smooth[k+p], xmax=self._T_smooth[k+p+1])
+                for b in range(a):
+                    # b < a, so the b-th row is computed already
+                    temp_matrix[a, b] = temp_matrix[b, a]
+            self._tilde_phi_coefs[k] = np.linalg.inv(temp_matrix)
+
+        # alpha coefficients
+        self._alpha = np.zeros((self._n_smooth, self._N_cells))
+        int_phi = np.zeros(self._n_smooth)
+        for i in range(self._n_smooth):
+            for a in range(self._p+1):
+                int_phi[i] += _my_gauss_quad(
+                    lambda x: self._phi(i, x),
+                    self._T_smooth[i+a],
+                    self._T_smooth[i+a+1],
+                    n=self._p
+                )
+        for k in range(self._N_cells):
+            for a in range(self._p+1):
+                i = k + a
+                assert i < self._n_smooth
+                self._alpha[i,k] = _my_gauss_quad(
+                    lambda x: self._phi_pieces(i, k, x),
+                    self._T_smooth[k+p],
+                    self._T_smooth[k+p+1],
+                    n=self._p
+                )/int_phi[i]
+
+        # STOP STOP
+        print("object built")
+        pass
+        print("WTF")
+        exit()
 
         self._pre_I_left_B_products = None
         self._pre_I_right_B_products = None
@@ -513,6 +514,86 @@ class SimpleCongaDDM:
         else:
             return 0
 
+    def _bersntein(self, a, k, x):
+        """
+        NEW
+        a-th Bernstein polynomial of degree p on the interval I_k = [t_{k+p},t_{k+p+1}]
+        """
+        p = self._p
+
+        assert a in range(p+1)
+        t0 = self._T_smooth[k+p]
+        t1 = self._T_smooth[k+p+1]
+        if t0 <= x < t1:
+            t = (x-t0)/(t1-t0)
+            return comb(p, a) * t**a * (1 - t)**(p - a)
+        else:
+            return 0
+
+    def _phi(self, i, x):
+        """
+        NEW
+        the B-spline phi_i = B_i^p
+        """
+        assert i in range(self._n_smooth)
+        p = self._p
+        val = 0
+        if self._T_smooth[i] <= x < self._T_smooth[i+p+1]:
+            t = self._T_smooth[i:i+p+2]
+            b = BSpline.basis_element(t)
+            val = b(x)
+        return val
+
+    def _phi_pieces(self, i, k, x):
+        """
+        NEW
+        polynomial pieces of the B-splines on the smooth space (\varphi_{i,k} in my notes)
+        defined as the restriction of the B-spline phi_i = B_i^p on the interval I_k = [t_{k+p},t_{k+p+1}]
+        Note:
+            since phi_i is supported on [t_i,t_{i+p+1}], this piece is zero unless k <= i <= k+p
+            moreover for i = k, .. k+p they span a basis of P_p(I_k)
+        """
+        assert i in range(self._n_smooth)
+        p = self._p
+        val = 0
+        if 0 <= k < self._N_cells and k <= i <= k+p and self._T_smooth[k+p] <= x < self._T_smooth[k+p+1]:
+            val = self._phi(i, x)
+        return val
+
+    def _tilde_phi_pieces(self, i, k, x):
+        """
+        NEW
+        local duals to the _phi_pieces, computed using Bernstein basis polynomials
+        """
+        assert i in range(self._n_smooth)
+        p = self._p
+        val = 0
+        if 0 <= k < self._N_cells and k <= i <= k+p and self._T_smooth[k+p] <= x < self._T_smooth[k+p+1]:
+            a = i - k
+            for b in range(p+1):
+                val += self._tilde_phi_coefs[k][a,b] * self._bersntein(b,k,x)
+        return val
+
+    def _tilde_phi(self, i, x, type='P'):
+        """
+        NEW
+        duals to the _phi B-splines
+        """
+        assert i in range(self._n_smooth)
+        p = self._p
+        val = 0
+        if type == 'P':
+            # then this dual function has the same support as phi_i
+            if self._T_smooth[i] <= x < self._T_smooth[i+p+1]:
+                # x is in one cell I_k = [t_{k+p},t_{k+p+1}] with i <= k+p <= i+p
+                for a in range(p+1):
+                    k = i - a
+                    if 0 <= k < self._N_cells and self._T_smooth[k+p] <= x < self._T_smooth[k+p+1]:
+                        val = self._alpha[i,k] * self._tilde_phi_pieces(i,k,x)
+        else:
+            raise ValueError("dual type unknown: "+repr(type))
+        return val
+
     def _r_pieces(self, i, x):
         # note: this one is restricted to [0,1], unlike in the prospline code
         assert i in range(self._p+1)
@@ -690,7 +771,7 @@ class SimpleCongaDDM:
         S = scaling_matrix(p, n, T, kind='L2')
         f_1 = S.dot(f_1)
         tck = get_tck('L2', p, n, T, f_1)
-        assert len(tck[1]) == n    # assert FAILS --- todo: understand why
+        assert len(tck[1]) == n    # assert FAILS ?
         if sub == 'left':
             self.coefs_left = tck[1]
         else:
