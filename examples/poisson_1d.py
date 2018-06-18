@@ -123,6 +123,8 @@ if __name__ == '__main__':
     # ...
 
     # ... apply homogeneous dirichlet boundary conditions
+    stiffness[ 0,:] = 0.
+    stiffness[-1,:] = 0.
     rhs[0] = 0.
     rhs[V.nbasis-1] = 0.
     # ...
