@@ -89,7 +89,8 @@ def assembly_rhs(V):
                 wvol  = weights_1[ie1, g1]
 
 #                v += bi_0 * x1 * (1.0 - x1) * wvol
-                v += bi_0 * 2. * wvol
+#                v += bi_0 * 2. * wvol
+                v += bi_0 * np.sin( 2*np.pi*x1 )*(2*np.pi)**2 * wvol
 
 
             rhs[i1] += v
@@ -105,7 +106,10 @@ def assembly_rhs(V):
 if __name__ == '__main__':
 
     from numpy import linspace
+    import matplotlib.pyplot as plt
+
     from spl.fem.splines import SplineSpace
+    from spl.fem.basic   import FemField
 
     p  = 3
     ne = 32
@@ -136,3 +140,18 @@ if __name__ == '__main__':
     # ... check
     print ('> info: ',info)
     # ...
+
+    # Create potential field
+    phi = FemField( V, 'phi' )
+    phi.coeffs[:] = x[:]
+
+    # Plot solution on refined grid
+    y      = np.linspace( grid[0], grid[-1], 101 )
+    phi_y  = np.array( [phi(yj) for yj in y] )
+    fig,ax = plt.subplots( 1, 1 )
+    ax.plot( y, phi_y )
+    ax.set_xlabel( 'x' )
+    ax.set_ylabel( 'y' )
+    ax.grid()
+    fig.show()
+    plt.show()
