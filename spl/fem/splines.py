@@ -123,7 +123,7 @@ class SplineSpace( FemSpace ):
         span  =  find_span( self.knots, self.degree, eta[0] )
         basis = basis_funs( self.knots, self.degree, eta[0], span )
 
-        return np.dot( field.coeffs[span-degree:span+1], basis )
+        return np.dot( field.coeffs[span-self.degree:span+1], basis )
 
     # ...
     def eval_field_gradient( self, field, *eta ):
