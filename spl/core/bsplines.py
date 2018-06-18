@@ -24,7 +24,9 @@ __all__ = ['find_span',
            'collocation_matrix',
            'breakpoints',
            'greville',
-           'make_knots']
+           'elements_spans',
+           'make_knots',
+           'quadrature_grid']
 
 #==============================================================================
 def find_span( knots, degree, x ):
@@ -497,3 +499,70 @@ def make_knots( breaks, degree, periodic ):
 
     return T
 
+#==============================================================================
+def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):
+    """
+    Compute the quadrature points and weights for performing integrals over
+    each element (interval) of the 1D domain, given a certain Gaussian
+    quadrature rule.
+
+    An n-point Gaussian quadrature rule for the canonical interval $[-1,+1]$
+    and trivial weighting function $\omega(x)=1$ is defined by the n abscissas
+    $x_i$ and n weights $w_i$ that satisfy the following identity for
+    polynomial functions $f(x)$ of degree $2n-1$ or less:
+
+    $\int_{-1}^{+1} f(x) dx = \sum_{i=0}^{n-1} w_i f(x_i)$.
+
+    Parameters
+    ----------
+    breaks : 1D array_like
+        Coordinates of spline breakpoints.
+
+    quad_rule_x : 1D array_like
+        Coordinates of quadrature points on canonical interval [-1,1].
+
+    quad_rule_w : 1D array_like
+        Weights assigned to quadrature points on canonical interval [-1,1].
+
+    Returns
+    -------
+    quad_x : 2D numpy.ndarray
+        Abscissas of quadrature points on each element (interval) of the 1D
+        domain. See notes below.
+
+    quad_w : 2D numpy.ndarray
+        Weights assigned to the quadrature points on each element (interval)
+        of the 1D domain. See notes below.
+
+    Notes
+    -----
+    Contents of 2D output arrays 'quad_x' and 'quad_w' are accessed with two
+    indices (ie,iq) where:
+      . ie is the global element index;
+      . iq is the local index of a quadrature point within the element.
+
+    """
+    # Check that input arrays have correct size
+    assert len(breaks)      >= 2
+    assert len(quad_rule_x) == len(quad_rule_w)
+
+    # Check that provided quadrature rule is defined on interval [-1,1]
+    assert min(quad_rule_x) >= -1
+    assert max(quad_rule_x) <= +1
+
+    quad_rule_x = np.asarray( quad_rule_x )
+    quad_rule_w = np.asarray( quad_rule_w )
+
+    ne     = len(breaks)-1
+    nq     = len(quad_rule_x)
+    quad_x = np.zeros( (ne,nq) )
+    quad_w = np.zeros( (ne,nq) )
+
+    # Compute location and weight of quadrature points from basic rule
+    for ie,(a,b) in enumerate(zip(breaks[:-1],breaks[1:])):
+        c0 = 0.5*(a+b)
+        c1 = 0.5*(b-a)
+        quad_x[ie,:] = c1*quad_rule_x[:] + c0
+        quad_w[ie,:] = c1*quad_rule_w[:]
+
+    return quad_x, quad_w
