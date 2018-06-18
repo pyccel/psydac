@@ -35,11 +35,11 @@ def assembly_matrices(V):
                 v_m = 0.0
                 v_s = 0.0
                 for g1 in range(0, k1):
-                    bi_0 = basis_1[il_1, 0, g1, ie1]
-                    bi_x = basis_1[il_1, 1, g1, ie1]
+                    bi_0 = basis_1[ie1, il_1, 0, g1]
+                    bi_x = basis_1[ie1, il_1, 1, g1]
 
-                    bj_0 = basis_1[jl_1, 0, g1, ie1]
-                    bj_x = basis_1[jl_1, 1, g1, ie1]
+                    bj_0 = basis_1[ie1, jl_1, 0, g1]
+                    bj_x = basis_1[ie1, jl_1, 1, g1]
 
                     wvol = weights_1[ie1, g1]
 
@@ -82,8 +82,8 @@ def assembly_rhs(V):
 
             v = 0.0
             for g1 in range(0, k1):
-                bi_0 = basis_1[il_1, 0, g1, ie1]
-                bi_x = basis_1[il_1, 1, g1, ie1]
+                bi_0 = basis_1[ie1, il_1, 0, g1]
+                bi_x = basis_1[ie1, il_1, 1, g1]
 
                 x1    =  points_1[ie1, g1]
                 wvol  = weights_1[ie1, g1]

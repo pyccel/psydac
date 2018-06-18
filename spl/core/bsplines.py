@@ -26,7 +26,8 @@ __all__ = ['find_span',
            'greville',
            'elements_spans',
            'make_knots',
-           'quadrature_grid']
+           'quadrature_grid',
+           'basis_ders_on_quad_grid']
 
 #==============================================================================
 def find_span( knots, degree, x ):
@@ -566,3 +567,50 @@ def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):
         quad_w[ie,:] = c1*quad_rule_w[:]
 
     return quad_x, quad_w
+
+#==============================================================================
+def basis_ders_on_quad_grid( knots, degree, quad_grid, nders ):
+    """
+    Evaluate B-Splines and their derivatives on the quadrature grid.
+
+    Parameters
+    ----------
+    knots : array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    quad_grid: 2D numpy.ndarray (ne,nq)
+        Coordinates of quadrature points of each element in 1D domain,
+        given by quadrature_grid() function.
+
+    nders : int
+        Maximum derivative of interest.
+
+    Returns
+    -------
+    basis: 4D numpy.ndarray
+        Values of B-Splines and their derivatives at quadrature points in
+        each element of 1D domain. Indices are
+        . ie: global element         (0 <= ie <  ne    )
+        . il: local basis function   (0 <= il <= degree)
+        . id: derivative             (0 <= id <= nders )
+        . iq: local quadrature point (0 <= iq <  nq    )
+
+    """
+    # TODO: add example to docstring
+    # TODO: check if it is safe to compute span only once for each element
+
+    ne,nq = quad_grid.shape
+    basis = np.zeros( (ne,degree+1,nders+1,nq) )
+
+    for ie in range(ne):
+        xx = quad_grid[ie,:]
+        for iq,xq in enumerate(xx):
+            span = find_span( knots, degree, xq )
+            ders = basis_funs_all_ders( knots, degree, xq, span, nders )
+            basis[ie,:,:,iq] = ders.transpose()
+
+    return basis
+
