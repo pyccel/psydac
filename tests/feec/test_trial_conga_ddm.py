@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from spl.core import make_open_knots
-from spl.conga import TrialCongaDDM
+# from spl.core.interface import make_open_knots
+from spl.conga.trial_conga_ddm import trialCongaDDM
 
 # import os.path
 # import spl.core as core
@@ -18,14 +18,14 @@ import matplotlib.pyplot as plt
 
 def test_conga_ddm_1d(verbose=False):
     # ...
-    N_cells_sub = 48         # nb cells on each subdomain
+    N_cells_sub = 6         # nb cells on each subdomain
     p = 3                    # spline degree
-    m = 2                    # degree of the preserved moments
+    m = 2                   # degree of the preserved moments
     # ...
 
     if verbose:
         print("building the conga-ddm object")
-    cddm = SimpleCongaDDM(p, m, N_cells_sub, watch_my_steps=False, n_checks=7, use_macro_elem_duals=True)
+    cddm = trialCongaDDM(p, m, N_cells_sub, watch_my_steps=False, n_checks=7, use_macro_elem_duals=True)
 
     # check: plot a reg spline and dual:
     visual_check = False
@@ -48,9 +48,19 @@ def test_conga_ddm_1d(verbose=False):
         if verbose:
             print("done")
 
-    f = lambda u: u*(1.-u)
+    f = lambda u: u*(1-u)
     if verbose:
-        print("approx some function")
+        print("approx some function: proj_P:")
+    cddm.local_smooth_proj(f, type='P')
+    cddm.plot_spline(filename="proj_P_f.png", f_ref= f, spline_type="continuous")
+
+    if verbose:
+        print("approx some function: proj_M:")
+    cddm.local_smooth_proj(f, type='M')
+    cddm.plot_spline(filename="proj_M_f.png", f_ref= f, spline_type="continuous")
+    print("done")
+    exit()
+
     L2_proj = True
     if L2_proj:
         cddm.l2_project_on_sub_domain(f, sub='left')

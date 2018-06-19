@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from spl.core import make_open_knots
+from spl.core.interface import make_open_knots
 from spl.conga import SimpleCongaDDM
 
 # import os.path
