@@ -183,13 +183,34 @@ class trialCongaDDM:
                     for b in range(m + 1):
                         j = self._global_index_of_macro_element_dof(ell,b)
                         phi_jk = lambda x: self._phi(j, x)
-                        temp_matrix[a, b] = _my_L2_prod(
-                            bern_a_ell,
-                            phi_jk,
-                            xmin=self._T_smooth[ell*M + p],
-                            xmax=self._T_smooth[(ell+1)*M + p]
-                        )
+                        for k in range(ell*M, (ell+1)*M):
+                            temp_matrix[a, b] += quadrature(
+                                lambda x: bern_a_ell(x) * phi_jk(x),
+                                self._T_smooth[k + p],
+                                self._T_smooth[k+1 + p],
+                                maxiter=2*m,
+                                vec_func=False,
+                            )[0]
                 self._tilde_phi_M_aux_coefs[ell] = np.linalg.inv(temp_matrix)
+
+            if 0:
+                print("check -- MM ")
+                grid = construct_grid_from_knots(self._p, self._n_smooth, self._T_smooth)
+                ell = 0
+                coef_check = np.zeros((m+1,m+1))
+                for a in range(m + 1):
+                    i = self._global_index_of_macro_element_dof(ell, a)
+                    for b in range(m + 1):
+                        j = self._global_index_of_macro_element_dof(ell,b)
+                        coef_check[a,b] = _my_L2_prod(
+                            lambda x:self._tilde_phi_M_aux(i, x),
+                            lambda x:self._phi(j, x),
+                            sing_points=grid,
+                        )
+                print(coef_check)
+                print('check done -- 847876474')
+                exit()
+
 
             # correction coefs for the macro element dual functions
             for ell in range(self._N_macro_cells):
@@ -441,16 +462,16 @@ class trialCongaDDM:
     def dof_index_is_macro_element(self, i):
         return not self.dof_index_is_macro_vertex(i)
 
-    def macro_element_index_of_dof(self, i):
-        assert not self.dof_index_is_macro_vertex(i)
-        ell = i // self._M_p
-        assert self._p <= i - ell * self._M_p < self._p + self._m + 1
-        return ell
-
     def macro_vertex_index_of_dof(self, i):
         assert self.dof_index_is_macro_vertex(i)
         ell = i // self._M_p
         assert 0 <= i - ell * self._M_p < self._p
+        return ell
+
+    def macro_element_index_of_dof(self, i):
+        assert self.dof_index_is_macro_element(i)
+        ell = i // self._M_p
+        assert self._p <= i - ell * self._M_p < self._p + self._m + 1
         return ell
 
     def dof_indices_of_macro_vertex(self, ell):
@@ -712,26 +733,6 @@ class trialCongaDDM:
                     val = self._alpha[i,k] * self._tilde_phi_P_pieces(i,k,x)
         return val
 
-    def _tilde_phi_M(self, i, x):
-        """
-        NEW
-        """
-        # here we assume that the M dual basis is of MP type
-        if self.dof_index_is_macro_vertex(i):
-            val = self._tilde_phi_P(i,x)
-        else:
-            val = self._tilde_phi_M_aux(i,x)
-            ell = self.macro_element_index_of_dof(i)
-            a = self._local_index_of_macro_element_dof(i, ell)
-            for b in range(self._p):
-                # corrections with left macro-vertex duals
-                j = self._global_index_of_macro_vertex_dof(ell, b)
-                val += self._left_correction_products_tilde_phi_M_aux[ell][a,b] * self._tilde_phi_M(j,x)
-                # corrections with right macro-vertex duals
-                j = self._global_index_of_macro_vertex_dof(ell+1, b)
-                val += self._right_correction_products_tilde_phi_M_aux[ell][a,b] * self._tilde_phi_M(j,x)
-        return val
-
     def _tilde_phi_M_aux(self, i, x):
         """
         NEW
@@ -751,6 +752,27 @@ class trialCongaDDM:
             for b in range(m+1):
                 val += self._tilde_phi_M_aux_coefs[ell][a,b] * self._bernstein_M(b,ell,x)
         return val
+
+    def _tilde_phi_M(self, i, x):
+        """
+        NEW
+        """
+        # here we assume that the M dual basis is of MP type
+        if self.dof_index_is_macro_vertex(i):
+            val = self._tilde_phi_P(i,x)
+        else:
+            val = self._tilde_phi_M_aux(i,x)
+            ell = self.macro_element_index_of_dof(i)
+            a = self._local_index_of_macro_element_dof(i, ell)
+            for b in range(self._p):
+                # corrections with left macro-vertex duals
+                j = self._global_index_of_macro_vertex_dof(ell, b)
+                val -= self._left_correction_products_tilde_phi_M_aux[ell][a,b] * self._tilde_phi_M(j,x)
+                # corrections with right macro-vertex duals
+                j = self._global_index_of_macro_vertex_dof(ell+1, b)
+                val -= self._right_correction_products_tilde_phi_M_aux[ell][a,b] * self._tilde_phi_M(j,x)
+        return val
+
 
     def _tilde_phi(self, i, x, type='P'):
         """
@@ -898,7 +920,7 @@ class trialCongaDDM:
     #                     pi_ij += self.duality_prods[i+delta, j, k+delta]
     #                 self.coefs_smooth[j] += pi_ij * self.coefs_right[i]
 
-    def local_smooth_proj(self, f, type='P'):
+    def local_smooth_proj(self, f, type='P', check=False):
         """
         NEW
         """
@@ -910,27 +932,17 @@ class trialCongaDDM:
                 sing_points=grid,
             )
 
-        # print("check -- ")
-        # coef_check = np.zeros((self._n_smooth,self._n_smooth))
-        # for i in range(self._n_smooth):
-        #     for j in range(self._n_smooth):
-        #         coef_check[i,j] = _my_L2_prod(
-        #             lambda x:self._phi(i, x),
-        #             lambda x:self._tilde_phi(j,x),
-        #             sing_points=grid,
-        #         )
-        # print(coef_check)
-
-        print("check -- M ")
-        coef_check = np.zeros((self._n_smooth,self._n_smooth))
-        for i in range(self._n_smooth):
-            for j in range(self._n_smooth):
-                coef_check[i,j] = _my_L2_prod(
-                    lambda x:self._phi(i, x),
-                    lambda x:self._tilde_phi(j,x, type='M'),
-                    sing_points=grid,
-                )
-        print(coef_check)
+        if check:
+            print("check -- "+repr(type)+" duals:  <tilde phi_i, phi_j>")
+            coef_check = np.zeros((self._n_smooth,self._n_smooth))
+            for i in range(self._n_smooth):
+                for j in range(self._n_smooth):
+                    coef_check[i,j] = _my_L2_prod(
+                        lambda x:self._tilde_phi(i,x, type=type),
+                        lambda x:self._phi(j, x),
+                        sing_points=grid,
+                    )
+            print(coef_check)
 
                 # ,
                 # sing_points=self._T_smooth)

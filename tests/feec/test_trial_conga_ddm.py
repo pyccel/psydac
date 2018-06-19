@@ -51,12 +51,12 @@ def test_conga_ddm_1d(verbose=False):
     f = lambda u: u*(1-u)
     if verbose:
         print("approx some function: proj_P:")
-    cddm.local_smooth_proj(f, type='P')
+    cddm.local_smooth_proj(f, type='P')  #, check=True)
     cddm.plot_spline(filename="proj_P_f.png", f_ref= f, spline_type="continuous")
 
     if verbose:
         print("approx some function: proj_M:")
-    cddm.local_smooth_proj(f, type='M')
+    cddm.local_smooth_proj(f, type='M', check=True)
     cddm.plot_spline(filename="proj_M_f.png", f_ref= f, spline_type="continuous")
     print("done")
     exit()
