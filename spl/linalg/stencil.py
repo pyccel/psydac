@@ -2,6 +2,10 @@
 #
 # Copyright 2018 Yaman Güçlü
 
+import numpy as np
+from scipy.sparse import coo_matrix
+from mpi4py import MPI
+
 from spl.linalg.basic import VectorSpace, Vector, LinearOperator
 from spl.ddm.cart     import Cart
 
@@ -90,8 +94,7 @@ class StencilVectorSpace( VectorSpace ):
         """ The dimension of a vector space V is the cardinality
             (i.e. the number of vectors) of a basis of V over its base field.
         """
-        from numpy import prod
-        return prod( self._npts )
+        return np.prod( self._npts )
 
     # ...
     def zeros( self ):
@@ -158,8 +161,6 @@ class StencilVectorSpace( VectorSpace ):
     #---------------------------------------------------------------------------
     @staticmethod
     def _find_mpi_type( dtype ):
-        import numpy as np
-        from mpi4py import MPI
         nt = np.dtype( dtype )
         mpi_type = MPI._typedict[nt.char]
         return mpi_type
@@ -215,12 +216,11 @@ class StencilVector( Vector ):
 
     """
     def __init__( self, V ):
-        from numpy import zeros
 
         assert isinstance( V, StencilVectorSpace )
 
         sizes = [e-s+2*p+1 for s,e,p in zip(V.starts, V.ends, V.pads)]
-        self._data  = zeros( sizes, dtype=V.dtype )
+        self._data  = np.zeros( sizes, dtype=V.dtype )
         self._space = V
 
     #--------------------------------------
@@ -232,16 +232,14 @@ class StencilVector( Vector ):
 
     #...
     def dot( self, v ):
-        from numpy import dot
 
         assert isinstance( v, StencilVector )
         assert v._space is self._space
 
         index = tuple( slice(p,-p) for p in self.pads )
-        res   = dot( self._data[index].flat, v._data[index].flat )
+        res   = np.dot( self._data[index].flat, v._data[index].flat )
 
         if self._space.parallel:
-            from mpi4py import MPI
             res = self._space.cart.comm_cart.allreduce( res, op=MPI.SUM )
 
         return res
@@ -357,8 +355,7 @@ class StencilVector( Vector ):
 
     # ...
     def _toarray_parallel_no_pads( self ):
-        from numpy import zeros
-        a         = zeros( self.space.npts )
+        a         = np.zeros( self.space.npts )
         idx_from  = tuple( slice(p,-p) for p in self.pads )
         idx_to    = tuple( slice(s,e+1) for s,e in zip(self.starts,self.ends) )
         a[idx_to] = self._data[idx_from]
@@ -366,11 +363,10 @@ class StencilVector( Vector ):
 
     # ...
     def _toarray_parallel_with_pads( self ):
-        from numpy import zeros
 
         # Step 0: create extended n-dimensional array with zero values
         shape = tuple( n+2*p for n,p in zip( self.space.npts, self.pads ) )
-        a = zeros( shape )
+        a = np.zeros( shape )
 
         # Step 1: write extended data chunk (local to process) onto array
         idx = tuple( slice(s,e+2*p+1) for s,e,p in
@@ -498,8 +494,6 @@ class StencilVector( Vector ):
     # ...
     def _update_ghost_regions_parallel( self, direction: int ):
 
-        from mpi4py import MPI
-
         u         = self._data
         space     = self._space
         cart      = space.cart
@@ -574,15 +568,13 @@ class StencilMatrix( LinearOperator ):
     """
     def __init__( self, V, W ):
 
-        from numpy import zeros
-
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
         assert V is W
 
         dims        = [e-s+1 for s,e in zip(V.starts, V.ends)]
         diags       = [2*p+1 for p in V.pads]
-        self._data  = zeros( dims+diags, dtype=V.dtype )
+        self._data  = np.zeros( dims+diags, dtype=V.dtype )
         self._space = V
 
         self._dims  = dims
@@ -603,7 +595,8 @@ class StencilMatrix( LinearOperator ):
     # ...
     def dot( self, v, out=None ):
 
-        from numpy import ndindex, dot
+        ndindex = np.ndindex
+        dot     = np.dot
 
         assert isinstance( v, StencilVector )
         assert v.space is self.domain
@@ -661,9 +654,6 @@ class StencilMatrix( LinearOperator ):
     #...
     def tocoo( self ):
 
-        from numpy        import ndenumerate, ravel_multi_index, prod
-        from scipy.sparse import coo_matrix
-
         # Shortcuts
         nn = self._space.npts
         nd = self._ndim
@@ -676,7 +666,7 @@ class StencilMatrix( LinearOperator ):
         cols = []
         data = []
 
-        for (index,value) in ndenumerate( self._data ):
+        for (index,value) in np.ndenumerate( self._data ):
 
             # index = [i1-s1, i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
 
@@ -686,8 +676,8 @@ class StencilMatrix( LinearOperator ):
             ii = [s+x for s,x in zip(ss,xx)]
             jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
 
-            I = ravel_multi_index( ii, dims=nn, order='C' )
-            J = ravel_multi_index( jj, dims=nn, order='C' )
+            I = np.ravel_multi_index( ii, dims=nn, order='C' )
+            J = np.ravel_multi_index( jj, dims=nn, order='C' )
 
             rows.append( I )
             cols.append( J )
@@ -695,7 +685,7 @@ class StencilMatrix( LinearOperator ):
 
         M = coo_matrix(
                 (data,(rows,cols)),
-                shape = [prod(nn)]*2,
+                shape = [np.prod(nn)]*2,
                 dtype = self._space.dtype
         )
 
