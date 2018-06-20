@@ -47,15 +47,15 @@ def assembly_matrices(V):
                             v_s = 0.0
                             for g1 in range(0, k1):
                                 for g2 in range(0, k2):
-                                    bi_0 = basis_1[il_1, 0, g1, ie1] * basis_2[il_2, 0, g2, ie2]
-                                    bi_x = basis_1[il_1, 1, g1, ie1] * basis_2[il_2, 0, g2, ie2]
-                                    bi_y = basis_1[il_1, 0, g1, ie1] * basis_2[il_2, 1, g2, ie2]
+                                    bi_0 = basis_1[ie1, il_1, 0, g1] * basis_2[ie2, il_2, 0, g2]
+                                    bi_x = basis_1[ie1, il_1, 1, g1] * basis_2[ie2, il_2, 0, g2]
+                                    bi_y = basis_1[ie1, il_1, 0, g1] * basis_2[ie2, il_2, 1, g2]
 
-                                    bj_0 = basis_1[jl_1, 0, g1, ie1] * basis_2[jl_2, 0, g2, ie2]
-                                    bj_x = basis_1[jl_1, 1, g1, ie1] * basis_2[jl_2, 0, g2, ie2]
-                                    bj_y = basis_1[jl_1, 0, g1, ie1] * basis_2[jl_2, 1, g2, ie2]
+                                    bj_0 = basis_1[ie1, jl_1, 0, g1] * basis_2[ie2, jl_2, 0, g2]
+                                    bj_x = basis_1[ie1, jl_1, 1, g1] * basis_2[ie2, jl_2, 0, g2]
+                                    bj_y = basis_1[ie1, jl_1, 0, g1] * basis_2[ie2, jl_2, 1, g2]
 
-                                    wvol = weights_1[g1, ie1] * weights_2[g2, ie2]
+                                    wvol = weights_1[ie1, g1] * weights_2[ie2, g2]
 
                                     v_m += bi_0 * bj_0 * wvol
                                     v_s += (bi_x * bj_x + bi_y * bj_y) * wvol
@@ -103,13 +103,13 @@ def assembly_rhs(V):
                     v = 0.0
                     for g1 in range(0, k1):
                         for g2 in range(0, k2):
-                            bi_0 = basis_1[il_1, 0, g1, ie1] * basis_2[il_2, 0, g2, ie2]
-                            bi_x = basis_1[il_1, 1, g1, ie1] * basis_2[il_2, 0, g2, ie2]
-                            bi_y = basis_1[il_1, 0, g1, ie1] * basis_2[il_2, 1, g2, ie2]
+                            bi_0 = basis_1[ie1, il_1, 0, g1] * basis_2[ie2, il_2, 0, g2]
+                            bi_x = basis_1[ie1, il_1, 1, g1] * basis_2[ie2, il_2, 0, g2]
+                            bi_y = basis_1[ie1, il_1, 0, g1] * basis_2[ie2, il_2, 1, g2]
 
-                            x1    = points_1[g1, ie1]
-                            x2    = points_2[g2, ie2]
-                            wvol  = weights_1[g1, ie1] * weights_2[g2, ie2]
+                            x1    = points_1 [ie1, g1]
+                            x2    = points_2 [ie2, g2]
+                            wvol  = weights_1[ie1, g1] * weights_2[ie2, g2]
 
 #                            v += bi_0 * x1 * (1.0 - x1) * x2 * (1.0 - x2) * wvol
                             v += bi_0 * 2. * (x1 * (1.0 - x1) + x2 * (1.0 - x2)) * wvol
@@ -154,17 +154,17 @@ if __name__ == '__main__':
 
     # ... apply homogeneous dirichlet boundary conditions
     # left  bc at x=0.
-    for j in range(0, V2.nbasis):
-        rhs[0, j] = 0.
+    stiffness[0,:,:,:] = 0.
+    rhs      [0,:]     = 0.
     # right bc at x=1.
-    for j in range(0, V2.nbasis):
-        rhs[V1.nbasis-1, j] = 0.
+    stiffness[V1.nbasis-1,:,:,:] = 0.
+    rhs      [V1.nbasis-1,:]     = 0.
     # lower bc at y=0.
-    for i in range(0, V1.nbasis):
-        rhs[i, 0] = 0.
+    stiffness[:,0,:,:] = 0.
+    rhs      [:,0]     = 0.
     # upper bc at y=1.
-    for i in range(0, V1.nbasis):
-        rhs[i, V2.nbasis-1] = 0.
+    stiffness[:,V2.nbasis-1,:,:] = 0.
+    rhs      [:,V2.nbasis-1]     = 0.
     # ...
 
     # ... solve the system
