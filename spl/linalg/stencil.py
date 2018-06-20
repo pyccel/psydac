@@ -158,15 +158,10 @@ class StencilVectorSpace( VectorSpace ):
     #---------------------------------------------------------------------------
     @staticmethod
     def _find_mpi_type( dtype ):
+        import numpy as np
         from mpi4py import MPI
-
-        if dtype == float:
-            mpi_type = MPI.DOUBLE
-        elif dtype == 'i':
-            mpi_type = MPI.INT
-        else:
-            raise ValueError( 'dtype not understood' )
-
+        nt = np.dtype( dtype )
+        mpi_type = MPI._typedict[nt.char]
         return mpi_type
 
     # ...
