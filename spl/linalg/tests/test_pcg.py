@@ -58,7 +58,7 @@ def test_pcg(n, p):
     b = A.dot(xe)
 
     # Solve linear system using PCG
-    x, info = pcg( A, b)
+    x, info = pcg( A, b, tol=1e-12)
 
     # Verify correctness of calculation: L2-norm of error
     err = x-xe
