@@ -102,7 +102,7 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
 # ...
 
 # ...
-def pcg(A, b, pc='weighted_jacobi', x0=None, tol=1e-6, maxiter=100,
+def pcg(A, b, pc='weighted_jacobi', x0=None, tol=1e-6, maxiter=1000,
         verbose=True):
     """
     Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
@@ -216,7 +216,7 @@ def pcg(A, b, pc='weighted_jacobi', x0=None, tol=1e-6, maxiter=100,
 # ...
 
 # ...
-def weighted_jacobi(A, b, x0=None, omega= 2./3, tol=1e-6, maxiter=100, verbose=False):
+def weighted_jacobi(A, b, x0=None, omega= 2./3, tol=1e-5, maxiter=10, verbose=False):
     """
 
     Preconditioning  improves the rate of convergence, which implies that fewer iterations are needed to reach a given error tolerance.

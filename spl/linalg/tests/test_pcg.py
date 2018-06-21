@@ -41,7 +41,7 @@ def test_pcg(n, p):
     xe[s:e+1] = np.random.random(e+1-s)
 
     # Tolerance for success: L2-norm of error in solution
-    tol = 1e-8
+    tol = 1e-6
 
     #---------------------------------------------------------------------------
     # TEST
