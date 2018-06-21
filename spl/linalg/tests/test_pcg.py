@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 
 #===============================================================================
-@pytest.mark.parametrize( 'n', [8, 16, 32] )
-@pytest.mark.parametrize( 'p', [1, 2,  3] )
+@pytest.mark.parametrize( 'n', [8, 16] )
+@pytest.mark.parametrize( 'p', [2, 3] )
 
 def test_pcg(n, p):
     """
@@ -41,7 +41,7 @@ def test_pcg(n, p):
     xe[s:e+1] = np.random.random(e+1-s)
 
     # Tolerance for success: L2-norm of error in solution
-    tol = 1e-6
+    tol = 1e-5
 
     #---------------------------------------------------------------------------
     # TEST
