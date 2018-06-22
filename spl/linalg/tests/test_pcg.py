@@ -4,7 +4,6 @@ import pytest
 #===============================================================================
 @pytest.mark.parametrize( 'n', [8, 16] )
 @pytest.mark.parametrize( 'p', [2, 3] )
-
 def test_pcg(n, p):
     """
     Test preconditioned Conjugate Gradient algorithm on tridiagonal linear system.
@@ -39,7 +38,7 @@ def test_pcg(n, p):
     xe[s:e+1] = np.random.random(e+1-s)
 
     # Tolerance for success: L2-norm of error in solution
-    tol = 1e-5
+    tol = 1e-10
 
     #---------------------------------------------------------------------------
     # TEST
@@ -56,11 +55,15 @@ def test_pcg(n, p):
     b = A.dot(xe)
 
     # Solve linear system using PCG
-    x, info = pcg( A, b, tol=1e-12 )
+    x1, info1 = pcg( A, b, pc= "jacobi", tol=1e-12 )
+    x2, info2 = pcg( A, b, pc= "weighted_jacobi", tol=1e-12 )
 
     # Verify correctness of calculation: L2-norm of error
-    err = x-xe
-    err_norm = np.linalg.norm(err.toarray())
+    err1 = x1-xe
+    err_norm1 = np.linalg.norm(err1.toarray())
+
+    err2 = x2-xe
+    err_norm2 = np.linalg.norm(err2.toarray())
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -69,14 +72,17 @@ def test_pcg(n, p):
     print()
     print( 'A  =', A.toarray(), sep='\n' )
     print( 'b  =', b.toarray())
-    print( 'x  =', x.toarray())
+    print( 'x1 =', x1.toarray())
+    print( 'x2 =', x2.toarray())
     print( 'xe =', xe.toarray())
-    print( 'info =', info )
+    print( 'info1 (Jac)  =', info1 )
+    print( 'info2 (w-Jac)=', info2 )
     print()
 
     print( "-"*40 )
-    print( "L2-norm of error in solution = {:.2e}".format(err_norm))
-    if err_norm < tol:
+    print( "L2-norm of error in (PCG + Jacobi) solution = {:.2e}".format(err_norm1))
+    print( "L2-norm of error in solution (PCG + weighted Jacobi) solution = {:.2e}".format(err_norm2))
+    if err_norm1 < tol and err_norm2 < tol:
         print( "PASSED" )
     else:
         print( "FAIL" )
@@ -85,4 +91,5 @@ def test_pcg(n, p):
     #---------------------------------------------------------------------------
     # PYTEST
     #---------------------------------------------------------------------------
-    assert err_norm < tol
+    assert err_norm1 < tol and err_norm2 < tol
+
