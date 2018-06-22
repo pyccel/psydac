@@ -26,15 +26,13 @@ def test_pcg(n, p):
     e = V.ends[0]
     s = V.starts[0]
 
-    # Build a tridiagonal matrix: must be symmetric and positive definite
-    # Here tridiagonal matrix with values [-1,+2,-1] on diagonals
+    # Build banded matrix with 2p+1 diagonals: must be symmetric and positive definite
+    # Here we assign value 2*p on main diagonal and -1 on other diagonals
     A = StencilMatrix(V, V)
-    for i in range(s, e+1):
-        for k in range(-p, p+1):
-            A[i, k] = -1.
-        A[i, 0] = 2.
+    A[:,-p:0  ] = -1
+    A[:, 0:1  ] = 2*p
+    A[:, 1:p+1] = -1
     A.remove_spurious_entries()
-
 
     # Build exact solution
     xe = StencilVector(V)
@@ -50,7 +48,7 @@ def test_pcg(n, p):
     # Title
     print()
     print("="*80)
-    print("SERIAL TEST: solve linear system A*x = b using preconditionned conjugate gradient")
+    print("SERIAL TEST: solve linear system A*x = b using preconditioned conjugate gradient")
     print("="*80)
     print()
 
@@ -58,7 +56,7 @@ def test_pcg(n, p):
     b = A.dot(xe)
 
     # Solve linear system using PCG
-    x, info = pcg( A, b, tol=1e-12)
+    x, info = pcg( A, b, tol=1e-12 )
 
     # Verify correctness of calculation: L2-norm of error
     err = x-xe
