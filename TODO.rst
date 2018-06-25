@@ -9,7 +9,11 @@ TODO
 
 * Create object of type 'spl.fem.splines.SplineSpace' with Cart
 
-* Implement methods '__call__' and 'gradient' in Spline class
+* Extend functionality of 'SplineSpace' class:
+  . add (private?) methods 'init_fem' and 'init_collocation'
+  . call methods above when required
+  . add method 'compute_interpolant( self, values, field )'
+  . implement 'eval_field_gradient' method
 
 * Create 'SplineMapping' class in module 'spl.mapping.discrete'
 
