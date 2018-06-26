@@ -16,7 +16,7 @@ from scipy.special import comb
 from scipy.special import factorial
 from scipy.integrate import quadrature
 # from scipy.special.orthogonal import p_roots
-from scipy.sparse import csr_matrix, csc_matrix
+from scipy.sparse import csr_matrix, csc_matrix, coo_matrix
 from scipy.sparse.linalg import splu
 
 import matplotlib
@@ -539,6 +539,50 @@ class LocalProjectionClass:
             raise ValueError("dual kind unknown: "+repr(kind))
         return val
 
+    def get_mass_matrix(self):
+        """
+        return the standard mass matrix on the smooth spline space
+        """
+        p = self._p
+        n_contributions = self._N_cells*(p+1)*(p+1)
+        row = np.zeros((n_contributions), dtype = int)
+        col = np.zeros((n_contributions), dtype = int)
+        data = np.zeros((n_contributions), dtype = float)
+        l = 0
+        for k in range(self._N_cells):
+            for i in range(k, k+p+1):
+                for j in range(k, k+p+1):
+                    row[l] = i
+                    col[l] = j
+                    data[l] = quadrature(
+                        lambda x: self._phi(i, x)*self._phi(j, x),
+                        self._T_smooth[k+p],
+                        self._T_smooth[k+p+1],
+                        maxiter=2*self._p,
+                        vec_func=False,
+                    )[0]
+                    l += 1
+        sparse_matrix = coo_matrix((data, (row, col)), shape=(self._n_smooth, self._n_smooth))
+        return sparse_matrix
+
+    def get_moments(self, f):
+        """
+        return the moments of f against spline basis functions
+        """
+        p = self._p
+        moments = np.zeros(self._n_smooth)
+        l = 0
+        for k in range(self._N_cells):
+            for i in range(k, k+p+1):
+                moments[i] += quad(
+                    lambda x: self._phi(i, x)*f(x),
+                    self._T_smooth[k+p],
+                    self._T_smooth[k+p+1],
+                    # maxiter=2*self._p,
+                    # vec_func=False,
+                )[0]
+        return moments
+
     def local_smooth_proj(self, f, kind='P', localize_quadratures=True, check=False):
         """
         project on smooth spline space using local dual functionals
@@ -593,34 +637,14 @@ class LocalProjectionClass:
                     )
             print(coef_check)
 
-                # ,
-                # sing_points=self._T_smooth)
-
-    def l2_project_on_sub_domain(self, f, sub='left'):
+    def l2_proj(self, f, sub='left'):
         """
-        L2 projection (??) derived from test_projector_1d by ARA
+        L2 projection
         """
-        if sub == 'left':
-            n = self._n_left
-            T = self._T_left
-        else:
-            assert sub == 'right'
-            n = self._n_right
-            T = self._T_right
-        p = self._p
-        print("L2 proj on subdomain "+sub)
-        print("n = "+repr(n))
-        print("T = "+repr(T))
-        mass_0, mass_1 = mass_matrices(p, n, T)   # works with a knot vector that is not open ??
-        contribution = Contribution(p, n, T)
-        f_l2 = solve(mass_1, contribution(f))
-        tck = get_tck('L2', p, n, T, f_l2)    # H1, L2 ??
-        assert len(tck[1]) == n
-        if sub == 'left':
-            self.coefs_left = tck[1]
-        else:
-            assert sub == 'right'
-            self.coefs_right = tck[1]
+        print("L2 proj")
+        mass = self.get_mass_matrix()
+        f_moments = self.get_moments(f)
+        self.coefs_smooth[:] = solve(mass, f_moments)
 
     def histopolation_on_sub_domain(self, f, sub='left'):
         """
