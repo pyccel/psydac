@@ -137,6 +137,7 @@ class LocalProjectionClass:
         self._right_correction_products_tilde_phi_M_aux = [np.zeros((self._m+1, self._p)) for ell in range(self._N_macro_cells)]
 
         # -- construction of the P dual basis ---
+        print("building the P dual basis")
 
         # change-of-basis matrices for each I_k
         temp_matrix = np.zeros((self._p + 1, self._p + 1))
@@ -181,6 +182,7 @@ class LocalProjectionClass:
             m = self._m
 
             # change-of-basis coefs for the macro element dual functions
+            print("building the M dual basis")
             temp_matrix = np.zeros((m + 1, m + 1))
             for ell in range(self._N_macro_cells):
                 temp_matrix[:,:] = 0
@@ -194,7 +196,7 @@ class LocalProjectionClass:
                                 lambda x: bern_a_ell(x) * phi_jk(x),
                                 self._T_smooth[k + p],
                                 self._T_smooth[k+1 + p],
-                                maxiter=2*m,
+                                maxiter=m+p+1,
                                 vec_func=False,
                             )[0]
                 self._tilde_phi_M_aux_coefs[ell] = np.linalg.inv(temp_matrix)
@@ -219,6 +221,7 @@ class LocalProjectionClass:
 
 
             # correction coefs for the macro element dual functions
+            print("computing correction coefs for the M dual basis")
             for ell in range(self._N_macro_cells):
                 for a in range(m + 1):
                     i = self._global_index_of_macro_element_dof(ell, a)
@@ -583,6 +586,18 @@ class LocalProjectionClass:
                 )[0]
         return moments
 
+    def smooth_proj(self, f, kind='P', localize_quadratures=True, check=False):
+        if kind=='L2':
+            self.l2_proj(f)
+        else:
+            print(" -- PROJ -- kind=", kind)
+            self.local_smooth_proj(
+                f,
+                kind=kind,
+                localize_quadratures=localize_quadratures,
+                check=check
+            )
+
     def local_smooth_proj(self, f, kind='P', localize_quadratures=True, check=False):
         """
         project on smooth spline space using local dual functionals
@@ -637,7 +652,7 @@ class LocalProjectionClass:
                     )
             print(coef_check)
 
-    def l2_proj(self, f, sub='left'):
+    def l2_proj(self, f):
         """
         L2 projection
         """
