@@ -187,13 +187,13 @@ class LocalProjectionClass:
             for ell in range(self._N_macro_cells):
                 temp_matrix[:,:] = 0
                 for a in range(m + 1):
-                    bern_a_ell = lambda x: self._bernstein_M(a, ell, x)
+                    bern_a_ell = lambda x: self._bernstein_M(a, ell, x) # local degree m
                     for b in range(m + 1):
                         j = self._global_index_of_macro_element_dof(ell,b)
-                        phi_jk = lambda x: self._phi(j, x)
+                        phi_j = lambda x: self._phi(j, x)  # local degree p
                         for k in range(ell*M, (ell+1)*M):
                             temp_matrix[a, b] += quadrature(
-                                lambda x: bern_a_ell(x) * phi_jk(x),
+                                lambda x: bern_a_ell(x) * phi_j(x),
                                 self._T_smooth[k + p],
                                 self._T_smooth[k+1 + p],
                                 maxiter=m+p+1,
@@ -228,25 +228,42 @@ class LocalProjectionClass:
                     tilde_phi_M_aux_i = lambda x: self._tilde_phi_M_aux(i, x)
                     for b in range(p):
 
-                        # left macro-vertex:
-                        j = self._global_index_of_macro_vertex_dof(ell, b)
-                        phi_j =  lambda x: self._phi(j, x)
-                        self._left_correction_products_tilde_phi_M_aux[ell][a,b] = _my_L2_prod(
-                            tilde_phi_M_aux_i,
-                            phi_j,
-                            xmin=self._T_smooth[ell*M + p],
-                            xmax=self._T_smooth[(ell+1)*M + p]
-                        )
-
-                        # right macro-vertex:
-                        j = self._global_index_of_macro_vertex_dof(ell+1, b)
-                        phi_j =  lambda x: self._phi(j, x)
-                        self._right_correction_products_tilde_phi_M_aux[ell][a,b] = _my_L2_prod(
-                            tilde_phi_M_aux_i,
-                            phi_j,
-                            xmin=self._T_smooth[ell*M + p],
-                            xmax=self._T_smooth[(ell+1)*M + p]
-                        )
+                        # correction terms to enforce duality with duals of left and right macro-vertices:
+                        j_left = self._global_index_of_macro_vertex_dof(ell, b)
+                        j_right = self._global_index_of_macro_vertex_dof(ell+1, b)
+                        phi_j_left =  lambda x: self._phi(j_left, x)
+                        phi_j_right =  lambda x: self._phi(j_right, x)
+                        temp_val_left = 0
+                        temp_val_right = 0
+                        for k in range(ell*M, (ell+1)*M):
+                            temp_val_left += quadrature(
+                                lambda x: tilde_phi_M_aux_i(x) * phi_j_left(x),
+                                self._T_smooth[k + p],
+                                self._T_smooth[k+1 + p],
+                                maxiter=m+p+1,
+                                vec_func=False,
+                            )[0]
+                            temp_val_right += quadrature(
+                                lambda x: tilde_phi_M_aux_i(x) * phi_j_right(x),
+                                self._T_smooth[k + p],
+                                self._T_smooth[k+1 + p],
+                                maxiter=m+p+1,
+                                vec_func=False,
+                            )[0]
+                        self._left_correction_products_tilde_phi_M_aux[ell][a,b] = temp_val_left
+                        self._right_correction_products_tilde_phi_M_aux[ell][a,b] = temp_val_right
+                        # self._left_correction_products_tilde_phi_M_aux[ell][a,b] = _my_L2_prod(
+                        #     tilde_phi_M_aux_i,
+                        #     phi_j_left,
+                        #     xmin=self._T_smooth[ell*M + p],
+                        #     xmax=self._T_smooth[(ell+1)*M + p]
+                        # )
+                        # self._right_correction_products_tilde_phi_M_aux[ell][a,b] = _my_L2_prod(
+                        #     tilde_phi_M_aux_i,
+                        #     phi_j_right,
+                        #     xmin=self._T_smooth[ell*M + p],
+                        #     xmax=self._T_smooth[(ell+1)*M + p]
+                        # )
 
         print("Ok, construction done, n_dofs (smooth space) = ", self._n_smooth)
 
@@ -561,7 +578,7 @@ class LocalProjectionClass:
                         lambda x: self._phi(i, x)*self._phi(j, x),
                         self._T_smooth[k+p],
                         self._T_smooth[k+p+1],
-                        maxiter=2*self._p,
+                        maxiter=2*self._p+1,
                         vec_func=False,
                     )[0]
                     l += 1
@@ -656,8 +673,9 @@ class LocalProjectionClass:
         """
         L2 projection
         """
-        print("L2 proj")
+        print("L2 proj -- get mass matrix")
         mass = self.get_mass_matrix()
+        print("L2 proj -- get f moments")
         f_moments = self.get_moments(f)
         self.coefs_smooth[:] = solve(mass, f_moments)
 
