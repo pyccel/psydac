@@ -843,7 +843,7 @@ class LocalProjectionClass:
         print("L2 proj on tilde V -- get mass matrix")
         mass = self.get_tilde_mass_matrix()
         print("L2 proj on tilde V -- get f moments")
-        f_moments = self.get_tilde moments(f)
+        f_moments = self.get_tilde_moments(f)
         self.tilde_coefs[:] = solve(mass, f_moments)
 
     def histopolation_on_sub_domain(self, f, sub='left'):
