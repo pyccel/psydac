@@ -109,19 +109,24 @@ class LocalProjectionClass:
 
         # spline coefs
         self.coefs = np.zeros(self._n, dtype=np.double)
-        self.tilde_coefs = np.zeros((self._N_subdomains, self._sub_n), dtype=np.double)
+        self.tilde_coefs = np.zeros(self._tilde_n, dtype=np.double)
 
-        # open knot vectors
-        self._Xi = self._x_min + (self._x_max - self._x_min) * make_open_knots(self._p, self._n)
-        self._tilde_x_min = [ self._x_min + s*self._H for s in range(self._N_subdomains)]
-        self._tilde_x_max = [ self._x_min + (s+1)*self._H for s in range(self._N_subdomains)]
-        Xi_sub = make_open_knots(self._p, self._sub_n)
-        self._tilde_Xi = [self._tilde_x_min[s] + self._H * Xi_sub for s in range(self._N_subdomains)]
-        print("self._tilde_Xi[0] : ", self._tilde_Xi[0])
-        print("self._tilde_Xi[1] : ", self._tilde_Xi[1])
-        
-        self.grid = construct_grid_from_knots(p, self._n, self._Xi)
+        # open knot vector and grid for V_h
+        self._xi = self._x_min + (self._x_max - self._x_min) * make_open_knots(self._p, self._n)
+        self.grid = construct_grid_from_knots(p, self._n, self._xi)
         assert len(self.grid) == self._N_cells + 1
+
+        # open knot vectors and grid for tilde_V
+        # tilde_grid:  boundaries of the subdomains I_s
+        self._tilde_grid = [self.grid[s*self._N_cells_sub] for s in range(self._N_subdomains+1)]
+        # tilde_xi[s] = knots for the subdomain tilde I_s
+        xi_sub = make_open_knots(self._p, self._sub_n)
+        self._tilde_xi = [
+            self._tilde_grid[s] + (self._tilde_grid[s+1]-self._tilde_grid[s]) * xi_sub for s in range(self._N_subdomains)
+        ]
+
+        # macro-grid
+        self._macro_grid = [self.grid[ell*self._M_p] for ell in range(self._N_macro_cells+1)]  # boundaries of macro-elements
 
         # flag
         self._use_macro_elem_duals = use_macro_elem_duals
@@ -147,7 +152,7 @@ class LocalProjectionClass:
                 for b in range(self._p + 1):
                     j = k + b
                     phi_jk = lambda x: self._phi(j, x)  # could be phi_pieces(j,k,x) but we only evaluate it on I_k so its the same
-                    temp_matrix[a, b] = _my_L2_prod(bern_ak, phi_jk, xmin=self._Xi[k+p], xmax=self._Xi[k+p+1])
+                    temp_matrix[a, b] = _my_L2_prod(bern_ak, phi_jk, xmin=self._xi[k+p], xmax=self._xi[k+p+1])
             self._psi_P_coefs[k] = np.linalg.inv(temp_matrix)
 
         # alpha coefficients
@@ -157,8 +162,8 @@ class LocalProjectionClass:
             for a in range(self._p+1):
                 int_phi[i] += quadrature(
                     lambda x: self._phi(i, x),
-                    self._Xi[i+a],
-                    self._Xi[i+a+1],
+                    self._xi[i+a],
+                    self._xi[i+a+1],
                     maxiter=self._p+1,
                     vec_func=False,
                 )[0]
@@ -170,8 +175,8 @@ class LocalProjectionClass:
                 assert i < self._n
                 self._alpha[i,k] = quadrature(
                     lambda x: self._phi(i, x),
-                    self._Xi[k+p],
-                    self._Xi[k+p+1],
+                    self._xi[k+p],
+                    self._xi[k+p+1],
                     maxiter=self._p+1,
                     vec_func=False,
                 )[0]/int_phi[i]
@@ -193,8 +198,8 @@ class LocalProjectionClass:
                         for k in range(ell*M, (ell+1)*M):
                             temp_matrix[a, b] += quadrature(
                                 lambda x: bern_a_ell(x) * phi_j(x),
-                                self._Xi[k + p],
-                                self._Xi[k+1 + p],
+                                self._xi[k + p],
+                                self._xi[k+1 + p],
                                 maxiter=m+p+1,
                                 vec_func=False,
                             )[0]
@@ -202,7 +207,7 @@ class LocalProjectionClass:
 
             if 0:
                 print("check -- MM ")
-                grid = construct_grid_from_knots(self._p, self._n, self._Xi)
+                grid = construct_grid_from_knots(self._p, self._n, self._xi)
                 ell = 0
                 coef_check = np.zeros((m+1,m+1))
                 for a in range(m + 1):
@@ -237,15 +242,15 @@ class LocalProjectionClass:
                         for k in range(ell*M, (ell+1)*M):
                             temp_val_left += quadrature(
                                 lambda x: psi_M_aux_i(x) * phi_j_left(x),
-                                self._Xi[k + p],
-                                self._Xi[k+1 + p],
+                                self._xi[k + p],
+                                self._xi[k+1 + p],
                                 maxiter=m+p+1,
                                 vec_func=False,
                             )[0]
                             temp_val_right += quadrature(
                                 lambda x: psi_M_aux_i(x) * phi_j_right(x),
-                                self._Xi[k + p],
-                                self._Xi[k+1 + p],
+                                self._xi[k + p],
+                                self._xi[k+1 + p],
                                 maxiter=m+p+1,
                                 vec_func=False,
                             )[0]
@@ -254,14 +259,14 @@ class LocalProjectionClass:
                         # self._left_correction_products_psi_M_aux[ell][a,b] = _my_L2_prod(
                         #     psi_M_aux_i,
                         #     phi_j_left,
-                        #     xmin=self._Xi[ell*M + p],
-                        #     xmax=self._Xi[(ell+1)*M + p]
+                        #     xmin=self._xi[ell*M + p],
+                        #     xmax=self._xi[(ell+1)*M + p]
                         # )
                         # self._right_correction_products_psi_M_aux[ell][a,b] = _my_L2_prod(
                         #     psi_M_aux_i,
                         #     phi_j_right,
-                        #     xmin=self._Xi[ell*M + p],
-                        #     xmax=self._Xi[(ell+1)*M + p]
+                        #     xmin=self._xi[ell*M + p],
+                        #     xmax=self._xi[(ell+1)*M + p]
                         # )
 
         print("Ok, construction done, n_dofs (smooth space) = ", self._n)
@@ -330,8 +335,8 @@ class LocalProjectionClass:
         """
         p = self._p
         assert a in range(p+1)
-        t0 = self._Xi[k+p]
-        t1 = self._Xi[k+p+1]
+        t0 = self._xi[k+p]
+        t1 = self._xi[k+p+1]
         if t0 <= x <= t1:
             t = (x-t0)/(t1-t0)
             return comb(p, a) * t**a * (1 - t)**(p - a)
@@ -346,8 +351,8 @@ class LocalProjectionClass:
         p = self._p
         m = self._m
         assert a in range(m+1)
-        t0 = self._Xi[ell*self._M_p+p]    # todo: would be clearer with grid[ell*self._M_p] ...
-        t1 = self._Xi[(ell+1)*self._M_p+p]
+        t0 = self._xi[ell*self._M_p+p]    # todo: would be clearer with grid[ell*self._M_p] ...
+        t1 = self._xi[(ell+1)*self._M_p+p]
         if t0 <= x <= t1:
             t = (x-t0)/(t1-t0)
             return comb(m, a) * t**a * (1 - t)**(m - a)
@@ -362,8 +367,8 @@ class LocalProjectionClass:
         assert i in range(self._n)
         p = self._p
         val = 0
-        if self._Xi[i] <= x < self._Xi[i+p+1]:
-            t = self._Xi[i:i+p+2]
+        if self._xi[i] <= x < self._xi[i+p+1]:
+            t = self._xi[i:i+p+2]
             b = BSpline.basis_element(t)
             val = b(x)
         return val
@@ -379,7 +384,7 @@ class LocalProjectionClass:
         assert i in range(self._n)
         p = self._p
         val = 0
-        if 0 <= k < self._N_cells and k <= i <= k+p and self._Xi[k+p] <= x < self._Xi[k+p+1]:
+        if 0 <= k < self._N_cells and k <= i <= k+p and self._xi[k+p] <= x < self._xi[k+p+1]:
             val = self._phi(i, x)
         return val
 
@@ -400,8 +405,8 @@ class LocalProjectionClass:
         assert 0 <= i < self._sub_n
         p = self._p
         val = 0
-        if self._tilde_Xi[s][i] <= x < self._tilde_Xi[s][i+p+1]:
-            t = self._tilde_Xi[s][i:i+p+2]
+        if self._tilde_xi[s][i] <= x < self._tilde_xi[s][i+p+1]:
+            t = self._tilde_xi[s][i:i+p+2]
             b = BSpline.basis_element(t)
             val = b(x)
         return val
@@ -413,7 +418,7 @@ class LocalProjectionClass:
         assert i in range(self._n)
         p = self._p
         val = 0
-        if 0 <= k < self._N_cells and k <= i <= k+p and self._Xi[k+p] <= x < self._Xi[k+p+1]:
+        if 0 <= k < self._N_cells and k <= i <= k+p and self._xi[k+p] <= x < self._xi[k+p+1]:
             a = i - k
             for b in range(p+1):
                 val += self._psi_P_coefs[k][a,b] * self._bernstein_P(b,k,x)
@@ -425,11 +430,11 @@ class LocalProjectionClass:
         """
         p = self._p
         val = 0
-        if self._Xi[i] <= x < self._Xi[i+p+1]:
+        if self._xi[i] <= x < self._xi[i+p+1]:
             # x is in one cell I_k = [t_{k+p},t_{k+p+1}] with i <= k+p <= i+p
             for a in range(p+1):
                 k = i - a
-                if 0 <= k < self._N_cells and self._Xi[k+p] <= x < self._Xi[k+p+1]:
+                if 0 <= k < self._N_cells and self._xi[k+p] <= x < self._xi[k+p+1]:
                     val = self._alpha[i,k] * self._psi_P_pieces(i,k,x)
         return val
 
@@ -486,8 +491,8 @@ class LocalProjectionClass:
         """
         assert 1 <= r <= self._p+1
         assert 0 <= i < self._n
-        dz = z - self._Xi[i]
-        dx = self._Xi[i+self._p+1] - self._Xi[i]
+        dz = z - self._xi[i]
+        dx = self._xi[i+self._p+1] - self._xi[i]
 
         if 0 <= dz < dx:
             return (2/dx)**r * self.der_perfect_spline((2*dz-dx)/dx, r-1)
@@ -500,8 +505,8 @@ class LocalProjectionClass:
         """
         p = self._p
         val = 0
-        dx = [x-self._Xi[i+a+1] for a in range(p)]
-        if self._Xi[i] <= x < self._Xi[i+p+1]:
+        dx = [x-self._xi[i+a+1] for a in range(p)]
+        if self._xi[i] <= x < self._xi[i+p+1]:
             if p == 1:
                 val = (
                     self.der_transition_function(i, x, 2)*dx[0]
@@ -538,7 +543,7 @@ class LocalProjectionClass:
         m = self._m
         ell = self.macro_element_index_of_dof(i)
         val = 0
-        if self._Xi[ell*M + p] <= x < self._Xi[(ell+1)*M + p]:
+        if self._xi[ell*M + p] <= x < self._xi[(ell+1)*M + p]:
             a = self._local_index_of_macro_element_dof(i, ell)
             for b in range(m+1):
                 val += self._psi_M_aux_coefs[ell][a,b] * self._bernstein_M(b,ell,x)
@@ -599,8 +604,8 @@ class LocalProjectionClass:
                     col[l] = j
                     data[l] = quadrature(
                         lambda x: self._phi(i, x)*self._phi(j, x),
-                        self._Xi[k+p],
-                        self._Xi[k+p+1],
+                        self._xi[k+p],
+                        self._xi[k+p+1],
                         maxiter=2*self._p+1,
                         vec_func=False,
                     )[0]
@@ -631,8 +636,8 @@ class LocalProjectionClass:
                         col[l] = self.index_tilde_dof(s,j)
                         data[l] = quadrature(
                             lambda x: self._tilde_phi(x, s=s, i=i)*self._tilde_phi(x,s=s,i=j),
-                            self._Xi[k+p],
-                            self._Xi[k+p+1],
+                            self._tilde_xi[s][k+p],
+                            self._tilde_xi[s][k+p+1],
                             maxiter=2*self._p+1,
                             vec_func=False,
                         )[0]
@@ -640,7 +645,13 @@ class LocalProjectionClass:
         sparse_matrix = coo_matrix((data, (row, col)), shape=(self._tilde_n, self._tilde_n))
         return sparse_matrix
 
-    def smooth_proj_on_tilde_V(self, kind='P'):
+    def grid_node_index(self, i):
+        """
+        return the index of the grid node coinciding with the knot i
+        """
+        return min(max(0, i-self._p), self._N_cells)
+
+    def get_smooth_proj_on_tilde_V(self, kind='P'):
         """
         return the operator matrix for the smoothing operator tilde V -> V
         entries are P_{i,g} = sigma_i(P tilde_phi_g)
@@ -672,9 +683,11 @@ class LocalProjectionClass:
             max_quad_order = 50  # default value (DeBoor duals are also of local degree <= p but pol pieces do not match)
         for i in range(self._n):
             i0 = self.i_first_knot_supp_psi(i, kind=kind)
-            s0 = (i0 - p) // self._N_cells_sub  # subdomain s0 contains (xi_i0, xi_{i0+1})
+            k0 = self.grid_node_index(i0)
+            s0 = k0 // self._N_cells_sub  # subdomain s0 contains (zeta_k0, zeta_{k0+1})
             i1 = self.i_last_knot_supp_psi(i, kind=kind)
-            s1 = (i1-1 - p) // self._N_cells_sub  # subdomain s1 contains (xi_{i1-1}, xi_i1)
+            k1 = self.grid_node_index(i1)
+            s1 = (k1-1) // self._N_cells_sub  # subdomain s1 contains (zeta_{k1-1}, zeta_k1)
             assert s0 <= s1 <= s0+1
             for s in range(s0, s1+1):
                 # then loop on the cells of each subdomain, and on each local spline that intersect this cell
@@ -686,14 +699,14 @@ class LocalProjectionClass:
                         data.append(
                             quadrature(
                                 lambda x: self._psi(i, x)*self._tilde_phi(x, s=s, i=j),
-                                self._tilde_Xi[k+p],
-                                self._tilde_Xi[k+p+1],
+                                self._tilde_xi[s][k+p],
+                                self._tilde_xi[s][k+p+1],
                                 maxiter=max_quad_order,
                                 vec_func=False,
                             )[0]
                         )
 
-        sparse_matrix = coo_matrix((data, (row, col)), shape=(self._tilde_n, self._tilde_n))
+        sparse_matrix = coo_matrix((data, (row, col)), shape=(self._n, self._tilde_n))
         return sparse_matrix
 
     def get_moments(self, f):
@@ -706,8 +719,8 @@ class LocalProjectionClass:
             for i in range(k, k+p+1):
                 moments[i] += quad(
                     lambda x: self._phi(i, x)*f(x),
-                    self._Xi[k+p],
-                    self._Xi[k+p+1],
+                    self._xi[k+p],
+                    self._xi[k+p+1],
                     # maxiter=2*self._p,
                     # vec_func=False,
                 )[0]
@@ -725,8 +738,8 @@ class LocalProjectionClass:
                     g = self.index_tilde_dof(s,i)
                     moments[g] += quad(
                         lambda x: self._tilde_phi(x, s=s, i=i)*f(x),
-                        self._tilde_Xi[k+p],
-                        self._tilde__Xi[k+p+1],
+                        self._tilde_xi[s][k+p],
+                        self._tilde_xi[s][k+p+1],
                     )[0]
         return moments
 
@@ -774,30 +787,30 @@ class LocalProjectionClass:
         """
         project on smooth spline space using local dual functionals
         """
-        grid = construct_grid_from_knots(self._p, self._n, self._Xi)
+        grid = construct_grid_from_knots(self._p, self._n, self._xi)
         for i in range(self._n):
             if localize_quadratures:
-                x_min = self._Xi[self.i_first_knot_supp_psi(i, kind=kind)]
-                x_max = self._Xi[self.i_last_knot_supp_psi(i, kind=kind)]
+                x_min = self._xi[self.i_first_knot_supp_psi(i, kind=kind)]
+                x_max = self._xi[self.i_last_knot_supp_psi(i, kind=kind)]
                 # if kind in ['P','D'] or self.dof_index_is_macro_vertex(i):
-                #     x_min = self._Xi[i]
-                #     x_max = self._Xi[i+self._p+1]
+                #     x_min = self._xi[i]
+                #     x_max = self._xi[i+self._p+1]
                 # else:
                 #     ell = self.macro_element_index_of_dof(i)
                 #     # support of the dual functions is (contained in) the union of those of
                 #     # the dual functions associated with the left and right macro-vertices
-                #     x_min = self._Xi[ell*self._M_p]
-                #     x_max = self._Xi[(ell+1)*self._M_p + 2*self._p]
+                #     x_min = self._xi[ell*self._M_p]
+                #     x_max = self._xi[(ell+1)*self._M_p + 2*self._p]
             else:
                 x_min = self._x_min
                 x_max = self._x_max
             if kind in ['D']:
-                x_min_i = self._Xi[i]
-                x_max_i = self._Xi[i+self._p+1]
+                x_min_i = self._xi[i]
+                x_max_i = self._xi[i+self._p+1]
                 sing_points = list(map(lambda x: x_min_i + (x+1)/2*(x_max_i-x_min_i), self._sing_points_perfect_spline()))
                 # the case of MD duals is more involved
             else:
-                sing_points = self._Xi
+                sing_points = self._xi
 
             valid_points = []
             for s in sing_points:
@@ -846,6 +859,14 @@ class LocalProjectionClass:
         f_moments = self.get_tilde_moments(f)
         self.tilde_coefs[:] = solve(mass, f_moments)
 
+    def set_coefs(self, c):
+        assert len(c) == self._n
+        self.coefs[:] = c
+
+    def set_tilde_coefs(self, c):
+        assert len(c) == self._tilde_n
+        self.tilde_coefs[:] = c
+
     def histopolation_on_sub_domain(self, f, sub='left'):
         """
         histopolation (??) derived from test_projector_1d by ARA
@@ -876,14 +897,16 @@ class LocalProjectionClass:
             self.coefs_right = tck[1]
 
     def eval_discontinuous_spline(self, x):
-        if x <= self._x_sep:
-            tck = [self._T_left, self.coefs_left, self._p]
-        else:
-            tck = [self._T_right, self.coefs_right, self._p]
-        return splev(x, tck)
+        # print("not implemented yet -- use grids ??")
+        for s in range(self._N_subdomains):
+            if self._tilde_grid[s] <= x <= self._tilde_grid[s+1]:
+                g_min = self.index_tilde_dof(s,0)
+                g_max = self.index_tilde_dof(s,self._sub_n-1)
+                tck = [self._tilde_xi[s], self.tilde_coefs[g_min:g_max+1], self._p]
+                return splev(x, tck)
 
     def eval_continuous_spline_splev(self, x):
-        tck = [self._Xi, self.coefs, self._p]
+        tck = [self._xi, self.coefs, self._p]
         return splev(x, tck)
 
     def eval_continuous_spline(self, x):
