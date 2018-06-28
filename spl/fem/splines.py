@@ -1,12 +1,16 @@
 # coding: utf-8
 
 import numpy as np
+from scipy.linalg        import solve_banded
+from scipy.sparse        import csc_matrix, csr_matrix, dia_matrix
+from scipy.sparse.linalg import splu
 
 from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace, FemField
 from spl.core.bsplines  import (
         find_span,
         basis_funs,
+        collocation_matrix,
         breakpoints,
         greville,
         elements_spans,
@@ -15,6 +19,8 @@ from spl.core.bsplines  import (
         basis_ders_on_quad_grid
         )
 from spl.utilities.quadratures import gauss_legendre
+
+__all__ = ['SplineSpace']
 
 #===============================================================================
 class SplineSpace( FemSpace ):
@@ -51,8 +57,7 @@ class SplineSpace( FemSpace ):
 
     """
     def __init__( self, degree, knots=None, grid=None,
-                  periodic=False, dirichlet=(False, False),
-                  quad_order=None, nderiv=1 ):
+                  periodic=False, dirichlet=(False, False) ):
 
         self._degree    = degree
         self._periodic  = periodic
@@ -69,12 +74,6 @@ class SplineSpace( FemSpace ):
 
         self._knots  = knots
         self._ncells = len(self.breaks) - 1
-        self._nderiv = nderiv
-
-        if quad_order is None:
-            self._quad_order = degree + 1
-        else:
-            self._quad_order = quad_order
 
         if periodic:
             self._nbasis = len(knots) - 2*degree - 1
@@ -86,7 +85,88 @@ class SplineSpace( FemSpace ):
 
         self._vector_space = StencilVectorSpace( [self.nbasis], [self.degree], [periodic] )
         self._fields = {}
-        self._initialize()
+
+        self._spans        = None
+        self._quad_order   = None
+        self._quad_basis   = None
+        self._quad_points  = None
+        self._quad_weights = None
+
+        # Store flag: object NOT YET prepared for interpolation
+        self._collocation_ready = False
+
+    # ...
+    def init_fem( self, quad_order=None, nderiv=1 ):
+        """
+        Prepare some data that is useful for assembling finite element matrices.
+
+        Parameters
+        ----------
+        quad_order : int
+            Order of Gaussian quadrature (default: spline degree).
+
+        nderiv : int
+            Number of derivatives to be precomputed at the Gauss points (default: 1).
+
+        """
+        T    = self.knots       # knots sequence
+        p    = self.degree      # spline degree
+        n    = self.nbasis      # total number of control points
+        grid = self.breaks      # breakpoints
+        ne   = self.ncells      # number of cells in domain (ne=len(grid)-1)
+        k    = quad_order or p  # polynomial order for which the mass matrix is exact
+
+        # compute spans
+        spans = elements_spans( T, p )
+
+        # gauss-legendre quadrature rule
+        u, w = gauss_legendre( k )
+        points, weights = quadrature_grid( self.breaks, u, w )
+
+        basis = basis_ders_on_quad_grid( T, p, points, nderiv )
+
+        self._spans        = spans
+        self._quad_order   = len( u )
+        self._quad_basis   = basis
+        self._quad_points  = points
+        self._quad_weights = weights
+
+    # ...
+    def init_collocation( self ):
+        """
+        Compute the 1D interpolation matrix and factorize it, in preparation
+        for the calculation of a spline interpolant given the values at the
+        Greville points.
+
+        """
+        imat = collocation_matrix(
+            self.knots,
+            self.degree,
+            self.greville,
+            self.periodic
+        )
+
+        if self.periodic:
+            # Convert to CSC format and compute sparse LU decomposition
+            self._splu = splu( csc_matrix( imat ) )
+
+        else:
+            # Convert to LAPACK banded format
+            dmat = dia_matrix( imat )
+            l = abs( dmat.offsets.min() )
+            u =      dmat.offsets.max()
+            cmat = csr_matrix( dmat )
+            bmat = np.zeros( (1+u+l, cmat.shape[1]) )
+
+            for i,j in zip( *cmat.nonzero() ):
+                bmat[u+i-j,j] = cmat[i,j]
+
+            self._u    = u
+            self._l    = l
+            self._bmat = bmat
+
+        # Store flag
+        self._collocation_ready = True
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -195,11 +275,6 @@ class SplineSpace( FemSpace ):
         return breaks[0], breaks[-1]
 
     @property
-    def nderiv(self):
-        """Returns number of derivatives."""
-        return self._nderiv
-
-    @property
     def spans(self):
         """Returns the last non-vanishing spline for each element."""
         return self._spans
@@ -233,32 +308,45 @@ class SplineSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Other methods
     #--------------------------------------------------------------------------
-    def _initialize(self):
-        """Initializes the Spline space. Here we prepare some data that may be
-        useful for assembling finite element matrices"""
+    def compute_interpolant( self, values, field ):
+        """
+        Compute field (i.e. update its spline coefficients) such that it
+        interpolates a certain function $f(x)$ at the Greville points.
 
-        T    = self.knots   # knots sequence
-        p    = self.degree  # spline degree
-        n    = self.nbasis  # total number of control points
-        grid = self.breaks  # breakpoints
-        ne   = self.ncells  # number of cells in domain (ne=len(grid)-1)
-        k    = self.quad_order
-        d    = self.nderiv
+        Parameters
+        ----------
+        values : array_like (nbasis,)
+            Function values $f(x_i)$ at the 'nbasis' Greville points $x_i$,
+            to be interpolated.
 
-        # compute spans
-        spans = elements_spans( T, p )
+        field : FemField
+            Input/output argument: spline that has to interpolate the given
+            values.
 
-        # gauss-legendre quadrature rule
-        u, w = gauss_legendre(p)
-        points, weights = quadrature_grid( self.breaks, u, w )
+        """
+        assert len( values ) == self.nbasis
+        assert isinstance( field, FemField )
+        assert field.space is self
 
-        basis = basis_ders_on_quad_grid( T, p, points, d )
+        if not self._collocation_ready:
+            self.init_collocation()
 
-        self._spans        = spans
-        self._quad_basis   = basis
-        self._quad_points  = points
-        self._quad_weights = weights
+        n = self.nbasis
+        c = field.coeffs
 
+        if self.periodic:
+            p = self.degree
+            o = self.degree // 2
+            c[o:n+o] = self._splu.solve( values )
+            c[:o]      = c[n:n+o]
+            c[n+o:n+p] = c[o:p]
+
+        else:
+            c[0:n] = solve_banded( (self._l,self._u), self._bmat, values )
+
+        c.update_ghost_regions()
+
+    # ...
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
