@@ -52,7 +52,7 @@ def solve(M, x):
     return M_op.solve(x)
 # ...
 
-class LocalProjectionClass:
+class SplineProjectionOperators:
     """
     trial class for local spline projection operators,
     uses a smooth spline space
@@ -62,6 +62,7 @@ class LocalProjectionClass:
     def __init__(self,
                  p,
                  m,
+                 N_cells=None,
                  N_cells_sub=None,
                  N_subdomains=1,
                  watch_my_steps=False,
@@ -75,21 +76,37 @@ class LocalProjectionClass:
         m: int
             degree of the moments preserved by the smoothing operator
 
+        N_cells: int
+            total number of cells, if only one domain is being used
+
         N_cells_sub: int
-            number of cells on each subdomain, must be a multiple of m+p+1 the macro-elements size
+            number of cells on each subdomain if several subdomains are used
+            (must be a multiple of m+p+1 the macro-elements size, and large enough (see below))
 
         N_subdomains: int
             number of subdomains
         """
-        if not (isinstance(p, int) and isinstance(m, int) and isinstance(N_cells_sub, int) and isinstance(N_subdomains, int)):
-            raise TypeError('Wrong type for p, m, N_cells_sub and/or N_subdomains: must be int')
+        if not (isinstance(p, int) and isinstance(m, int) and isinstance(N_subdomains, int)):
+            raise TypeError('Wrong type for p, m and/or N_subdomains: must be int')
 
         # degree of the moments preserved by the smoothing operator
         self._m = m
         self._p = p
+
         self._N_subdomains = N_subdomains
-        self._N_cells_sub = N_cells_sub
-        self._N_cells = N_subdomains * N_cells_sub
+
+        if N_cells is None:
+            assert isinstance(N_cells_sub, int)
+            self._N_cells = N_subdomains * N_cells_sub
+            self._N_cells_sub = N_cells_sub
+
+        else:
+            assert isinstance(N_cells, int)
+            assert N_subdomains == 1
+            assert N_cells_sub is None
+            self._N_cells = N_cells
+            self._N_cells_sub = N_cells
+
         self._x_min = 0
         self._x_max = 1
         self._h = (self._x_max-self._x_min)*(1./self._N_cells)
@@ -659,6 +676,7 @@ class LocalProjectionClass:
         return min(max(0, i-self._p), self._N_cells)
 
     def get_smooth_proj_on_tilde_V(self, kind='P'):
+        # todo: rename 'from_tilde_V', and set the matrix as class member initialized at None.
         """
         return the operator matrix for the smoothing operator tilde V -> V
         entries are P_{i,g} = sigma_i(P tilde_phi_g)
@@ -772,17 +790,42 @@ class LocalProjectionClass:
                     )[0]
         return moments
 
-    def smooth_proj(self, f, kind='P', localize_quadratures=True, check=False):
-        if kind=='L2':
-            self.l2_proj(f)
+    def proj(self, f, kind='P', space_kind=None, localize_quadratures=True, check=False):
+        """
+        computes an approximation to f in:
+            - V the smooth spline space if space_kind == 'V'
+            - or tilde V the discontinuous spline space if space_kind == 'tV'
+
+        :return: None, set the approximating coefficients in the proper array (self.coefs or self.tilde_coefs)
+        """
+        assert is_valid(space_kind=space_kind, proj_kind=kind)
+        if space_kind == 'V':
+            if kind=='L2':
+                self.l2_proj_V(f)
+            elif kind[0:4] == 'tL2+':
+                smooth_proj_kind = kind[4:]
+                self.l2_proj_tilde_V(f)
+                # todo: rather call with P = self.smooth_proj
+                P = self.get_smooth_proj_on_tilde_V(kind=smooth_proj_kind)
+                c = P.dot(self.tilde_coefs)
+                self.set_coefs(c)
+            else:
+                print(" -- projection in V, kind=", kind)
+                self.local_smooth_proj(
+                    f,
+                    kind=kind,
+                    localize_quadratures=localize_quadratures,
+                    check=check
+                )
+        elif space_kind == 'tV':
+            if kind=='L2':
+                self.l2_proj_tilde_V(f)
+            else:
+                print(" -- approx P_star in tilde V, kind=", kind)
+                self.P_star_tilde_V(f, kind=kind)
         else:
-            print(" -- PROJ -- kind=", kind)
-            self.local_smooth_proj(
-                f,
-                kind=kind,
-                localize_quadratures=localize_quadratures,
-                check=check
-            )
+            raise ValueError("unknown value for space_kind:", space_kind)
+
 
     def i_first_knot_supp_psi(self, i, kind=None):
         """
@@ -872,6 +915,7 @@ class LocalProjectionClass:
         """
         approximate on tilde spline space using the adjoint P operator with specified kind
         """
+        assert kind in ['M', 'D', 'P']
         tilde_mass = self.get_tilde_mass_matrix()
         f_moments = self.get_moments(f)
         P_matrix = self.get_smooth_proj_on_tilde_V(kind=kind)
@@ -961,8 +1005,8 @@ class LocalProjectionClass:
 
     def plot_spline(
             self,
-            filename,
-            spline_kind='continuous',
+            filename=None,
+            space_kind='V',
             N_points=100,
             ltype='-',
             f_ref=None,
@@ -970,19 +1014,21 @@ class LocalProjectionClass:
             title=None,
             legend_loc='lower left',
             iqnorm=0.5,
-            save_plot=True
     ):
         """
-        plot a spline
+        plot a spline in the specified space
         Plot also some f_ref if given, and return the evaluated difference in some Lq
         :param iqnorm: 1/q to measure ||spline - f_ref||_{Lq}
         """
         vis_grid, vis_h = np.linspace(self._x_min, self._x_max, N_points, endpoint=False, retstep=True)
-        if spline_kind == 'continuous':
+        if space_kind == 'V':
+            spline_kind = "continuous"
             vals = [self.eval_continuous_spline_splev(xi) for xi in vis_grid]
         else:
-            assert spline_kind == 'discontinuous'
+            assert space_kind == 'tV'
+            spline_kind = 'discontinuous'
             vals = [self.eval_discontinuous_spline(xi) for xi in vis_grid]
+        save_plot = (filename is not None)
         if save_plot:
             fig = plt.figure()
             plt.clf()
@@ -1040,3 +1086,17 @@ def trunc_pow(z, q):
         return 1
     else:
         return z**q
+
+def is_valid(space_kind=None, proj_kind=None):
+    """
+    determines whether this projector kind is valid for the specified space kind.
+    :return: bool
+    """
+    assert space_kind in ['V','tV']
+    # basic projector kinds
+    if proj_kind in ['L2', 'D', 'M', 'P']:
+        return True
+    # additional kinds
+    if space_kind == 'V' and proj_kind in ['tL2+D', 'tL2+M', 'tL2+P']:
+        return True
+    return False
