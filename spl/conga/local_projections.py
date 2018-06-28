@@ -86,7 +86,6 @@ class LocalProjectionClass:
 
         # degree of the moments preserved by the smoothing operator
         self._m = m
-
         self._p = p
         self._N_subdomains = N_subdomains
         self._N_cells_sub = N_cells_sub
@@ -101,6 +100,14 @@ class LocalProjectionClass:
         if use_macro_elem_duals and (not np.mod(N_cells_sub, self._M_p) == 0):
             raise ValueError('Wrong value for N_cells_sub, must be a multiple of m+p+1 for a macro-element dual basis')
         self._N_macro_cells = self._N_cells // self._M_p
+
+        # constraint on N_cells_sub to guarantee that a dual basis function psi_i is supported in at most 2 subdomains
+        if use_macro_elem_duals:
+            if self._N_cells_sub < 2*p + self._M_p :
+                raise ValueError('N_cells_sub is too small, must be >= 2*p + M_p = 3*p + m + 1, here ', 3*p+m+1)
+        else:
+            if self._N_cells_sub < p + 1:
+                raise ValueError('N_cells_sub is too small, must be >= p + 1, here ', p+1)
 
         # number of spline basis functions:
         self._n = self._N_cells + p  # nb of basis functions phi_i in the smooth space V_h
@@ -696,17 +703,39 @@ class LocalProjectionClass:
                         g = self.index_tilde_dof(s,j)
                         row.append( i )
                         col.append( g )
-                        data.append(
-                            quadrature(
-                                lambda x: self._psi(i, x)*self._tilde_phi(x, s=s, i=j),
+                        if kind == 'D':
+                            val = quad(
+                                lambda x: self._psi(i, x, kind=kind)*self._tilde_phi(x, s=s, i=j),
+                                self._tilde_xi[s][k+p],
+                                self._tilde_xi[s][k+p+1],
+                            )[0]
+                        else:
+                            val = quadrature(
+                                lambda x: self._psi(i, x, kind=kind)*self._tilde_phi(x, s=s, i=j),
                                 self._tilde_xi[s][k+p],
                                 self._tilde_xi[s][k+p+1],
                                 maxiter=max_quad_order,
                                 vec_func=False,
                             )[0]
-                        )
+                        data.append( val )
 
         sparse_matrix = coo_matrix((data, (row, col)), shape=(self._n, self._tilde_n))
+
+        # check:
+        # if(kind == 'D'):
+        #     print("CHECK FOR LAST SUBDOMAIN:")
+        #     P = sparse_matrix.todense()
+        #     s = self._N_subdomains-1
+        #     for j in range(self._sub_n):
+        #         g = self.index_tilde_dof(s,j)
+        #         if j < p:
+        #             print("tilde phi_g not in V_h, (P_{i,g})_i = ...")
+        #         else:
+        #             print("tilde phi_g IS in V_h, (P_{i,g})_i = ...")
+        #         for i in range(self._n):
+        #             print("P_{",i,",g} = ", P[i,g])
+        #     exit()
+
         return sparse_matrix
 
     def get_moments(self, f):
@@ -838,6 +867,21 @@ class LocalProjectionClass:
                         sing_points=grid,
                     )
             print(coef_check)
+
+    def P_star_tilde_V(self, f, kind='P'):
+        """
+        approximate on tilde spline space using the adjoint P operator with specified kind
+        """
+        tilde_mass = self.get_tilde_mass_matrix()
+        f_moments = self.get_moments(f)
+        P_matrix = self.get_smooth_proj_on_tilde_V(kind=kind)
+        # print("f_moments ", f_moments.shape)
+        # print("P_matrix ", P_matrix.shape)
+        # print("tilde_mass ", tilde_mass.shape)
+        # print("tilde_coefs ", self.tilde_coefs.shape)
+        # exit()
+        tilde_smoothed_f_moments = (P_matrix.transpose()).dot(f_moments)
+        self.tilde_coefs[:] = solve(tilde_mass, tilde_smoothed_f_moments)
 
     def l2_proj_V(self, f):
         """
