@@ -14,7 +14,7 @@ Requirements
 
 - **pip3**::
 
-    sudo apt-get install python-pip3
+    sudo apt-get install python3-pip
 
 - All *Python* dependencies can be installed using::
 
@@ -47,6 +47,3 @@ Uninstall
     :alt: Documentation Status
     :scale: 100%
     :target: http://spl.readthedocs.io/en/latest/?badge=latest
-
-  
-
