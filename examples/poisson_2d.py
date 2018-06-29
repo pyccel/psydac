@@ -5,154 +5,291 @@ from spl.utilities.quadratures import gauss_legendre
 from spl.linalg.stencil        import StencilVector, StencilMatrix
 from spl.linalg.solvers        import cg
 
-# ... assembly of mass and stiffness matrices using stencil forms
-def assembly_matrices(V):
+#==============================================================================
+class Poisson2D:
+    """
+    Exact solution to the 1D Poisson equation, to be employed for the method
+    of manufactured solutions.
 
-    # ... sizes
+    :code
+    $(\partial^2_{xx} + \partial^2_{yy}) \phi(x,y) = -\rho(x,y)$
+
+    """
+    def __init__( self ):
+        from sympy import symbols, sin, cos, pi, lambdify
+        x,y = symbols('x y')
+        phi_e = sin( 2*pi*x ) * cos( 2*pi*y )
+        rho_e = -phi_e.diff(x,2)-phi_e.diff(y,2)
+        self._phi = lambdify( [x,y], phi_e )
+        self._rho = lambdify( [x,y], rho_e )
+
+    def phi( self, x, y ):
+        return self._phi( x, y )
+
+    def rho( self, x, y ):
+        return self._rho( x, y )
+
+    @property
+    def domain( self ):
+        return ((0,1), (0,1))
+
+    @property
+    def periodic( self ):
+        return (False, False)
+
+#==============================================================================
+def kernel( p1, p2, k1, k2, bs1, bs2, w1, w2, mat_m, mat_s ):
+    """
+    Kernel for computing the mass/stiffness element matrices.
+
+    Parameters
+    ----------
+    p1 : int
+        Spline degree along x1 direction.
+
+    p2 : int
+        Spline degree along x2 direction.
+
+    k1 : int
+        Number of quadrature points along x1 (same in each element).
+
+    k2 : int
+        Number of quadrature points along x2 (same in each element).
+
+    bs1 : 3D array_like (p1+1, nderiv, k1)
+        Values (and derivatives) of non-zero basis functions along x1
+        at each quadrature point.
+
+    bs2 : 3D array_like (p1+1, nderiv, k1)
+        Values (and derivatives) of non-zero basis functions along x2
+        at each quadrature point.
+
+    w1 : 1D array_like (k1,)
+        Quadrature weights at each quadrature point.
+
+    w2 : 1D array_like (k1,)
+        Quadrature weights at each quadrature point.
+
+    mat_m : 2D array_like (p1+1, p2+1, 2*p1+1, 2*p2+1)
+        Element mass matrix (in/out argument).
+
+    mat_s : 2D array_like (p1+1, p2+1, 2*p1+1, 2*p2+1)
+        Element stiffness matrix (in/out argument).
+
+    """
+    # Reset element matrices
+    mat_m[:,:,:,:] = 0.
+    mat_s[:,:,:,:] = 0.
+
+    # Cycle over non-zero test functions in element
+    for il_1 in range(p1+1):
+        for il_2 in range(p2+1):
+
+            # Cycle over non-zero trial functions in element
+            for jl_1 in range(p1+1):
+                for jl_2 in range(p2+1):
+
+                    # Reset integrals over element
+                    v_m = 0.0
+                    v_s = 0.0
+
+                    # Cycle over quadrature points
+                    for g1 in range(k1):
+                        for g2 in range(k2):
+
+                            # Get test function's value and derivatives
+                            bi_0 = bs1[il_1, 0, g1] * bs2[il_2, 0, g2]
+                            bi_x = bs1[il_1, 1, g1] * bs2[il_2, 0, g2]
+                            bi_y = bs1[il_1, 0, g1] * bs2[il_2, 1, g2]
+
+                            # Get trial function's value and derivatives
+                            bj_0 = bs1[jl_1, 0, g1] * bs2[jl_2, 0, g2]
+                            bj_x = bs1[jl_1, 1, g1] * bs2[jl_2, 0, g2]
+                            bj_y = bs1[jl_1, 0, g1] * bs2[jl_2, 1, g2]
+
+                            # Get quadrature weight
+                            wvol = w1[g1] * w2[g2]
+
+                            # Add contribution to integrals
+                            v_m += bi_0 * bj_0 * wvol
+                            v_s += (bi_x * bj_x + bi_y * bj_y) * wvol
+
+                    # Update element matrices
+                    mat_m[il_1, il_2, p1+jl_1-il_1, p2+jl_2-il_2 ] = v_m
+                    mat_s[il_1, il_2, p1+jl_1-il_1, p2+jl_2-il_2 ] = v_s
+
+#==============================================================================
+def assemble_matrices( V, kernel ):
+    """
+    Assemble mass and stiffness matrices using 2D stencil format.
+
+    Parameters
+    ----------
+    V : TensorFemSpace
+        Finite element space where the Galerkin method is applied.
+
+    kernel : callable
+        Function that performs the assembly process on small element matrices.
+
+    Returns
+    -------
+    mass : StencilMatrix
+        Mass matrix in 2D stencil format.
+
+    stiffness : StencilMatrix
+        Stiffness matrix in 2D stencil format.
+
+    """
+    # Sizes
     [s1, s2] = V.vector_space.starts
     [e1, e2] = V.vector_space.ends
     [p1, p2] = V.vector_space.pads
-    # ...
 
-    # ... seetings
+    # Quadrature data
     [       k1,        k2] = [W.quad_order   for W in V.spaces]
     [  spans_1,   spans_2] = [W.spans        for W in V.spaces]
     [  basis_1,   basis_2] = [W.quad_basis   for W in V.spaces]
     [ points_1,  points_2] = [W.quad_points  for W in V.spaces]
     [weights_1, weights_2] = [W.quad_weights for W in V.spaces]
-    # ...
 
-    # ... data structure
+    # Create global matrices
     mass      = StencilMatrix( V.vector_space, V.vector_space )
     stiffness = StencilMatrix( V.vector_space, V.vector_space )
-    # ...
 
-    # ... build matrices
+    # Create element matrices
+    mat_m = np.zeros( (p1+1, p2+1, 2*p1+1, 2*p2+1) ) # mass
+    mat_s = np.zeros( (p1+1, p2+1, 2*p1+1, 2*p2+1) ) # stiffness
+
+    # Build global matrices: cycle over elements
     for ie1 in range(s1, e1+1-p1):
         for ie2 in range(s2, e2+1-p2):
-            i_span_1 = spans_1[ie1]
-            i_span_2 = spans_2[ie2]
-            for il_1 in range(0, p1+1):
-                for jl_1 in range(0, p1+1):
-                    for il_2 in range(0, p2+1):
-                        for jl_2 in range(0, p2+1):
 
-                            i1 = i_span_1 - p1 + il_1
-                            j1 = i_span_1 - p1 + jl_1
+            # Get spline index, B-splines' values and quadrature weights
+            is1 =   spans_1[ie1]
+            bs1 =   basis_1[ie1,:,:,:]
+            w1  = weights_1[ie1,:]
 
-                            i2 = i_span_2 - p2 + il_2
-                            j2 = i_span_2 - p2 + jl_2
+            is2 =   spans_2[ie2]
+            bs2 =   basis_2[ie2,:,:,:]
+            w2  = weights_2[ie2,:]
 
-                            v_m = 0.0
-                            v_s = 0.0
-                            for g1 in range(0, k1):
-                                for g2 in range(0, k2):
-                                    bi_0 = basis_1[ie1, il_1, 0, g1] * basis_2[ie2, il_2, 0, g2]
-                                    bi_x = basis_1[ie1, il_1, 1, g1] * basis_2[ie2, il_2, 0, g2]
-                                    bi_y = basis_1[ie1, il_1, 0, g1] * basis_2[ie2, il_2, 1, g2]
+            # Compute element matrices
+            kernel( p1, p2, k1, k2, bs1, bs2, w1, w2, mat_m, mat_s )
 
-                                    bj_0 = basis_1[ie1, jl_1, 0, g1] * basis_2[ie2, jl_2, 0, g2]
-                                    bj_x = basis_1[ie1, jl_1, 1, g1] * basis_2[ie2, jl_2, 0, g2]
-                                    bj_y = basis_1[ie1, jl_1, 0, g1] * basis_2[ie2, jl_2, 1, g2]
+            # Update global matrices
+            mass     [is1-p1:is1+1, is2-p2:is2+1, :, :] += mat_m[:,:,:,:]
+            stiffness[is1-p1:is1+1, is2-p2:is2+1, :, :] += mat_s[:,:,:,:]
 
-                                    wvol = weights_1[ie1, g1] * weights_2[ie2, g2]
-
-                                    v_m += bi_0 * bj_0 * wvol
-                                    v_s += (bi_x * bj_x + bi_y * bj_y) * wvol
-
-                            mass[i1, i2, j1 - i1, j2 - i2] += v_m
-                            stiffness[i1, i2, j1 - i1, j2 - i2]  += v_s
-    # ...
-
-    # ...
     return mass , stiffness
-    # ...
-# ...
 
-# ... example of assembly of the rhs: f(x1,x2) = x1*(1-x2)*x2*(1-x2)
-def assembly_rhs(V):
+#==============================================================================
+def assemble_rhs( V, f ):
+    """
+    Assemble right-hand-side vector.
 
-    # ... sizes
+    Parameters
+    ----------
+    V : TensorFemSpace
+        Finite element space where the Galerkin method is applied.
+
+    f : callable
+        Right-hand side function rho(x,y) (charge density).
+
+    Returns
+    -------
+    rhs : StencilVector
+        Vector b of coefficients, in linear system Ax=b.
+
+    """
+    # Sizes
     [s1, s2] = V.vector_space.starts
     [e1, e2] = V.vector_space.ends
     [p1, p2] = V.vector_space.pads
-    # ...
 
-    # ... seetings
+    # Quadrature data
     [       k1,        k2] = [W.quad_order   for W in V.spaces]
     [  spans_1,   spans_2] = [W.spans        for W in V.spaces]
     [  basis_1,   basis_2] = [W.quad_basis   for W in V.spaces]
     [ points_1,  points_2] = [W.quad_points  for W in V.spaces]
     [weights_1, weights_2] = [W.quad_weights for W in V.spaces]
-    # ...
 
-    # ... data structure
+    # Data structure
     rhs = StencilVector( V.vector_space )
-    # ...
 
-    # ... build rhs
+    # Build RHS
     for ie1 in range(s1, e1+1-p1):
         for ie2 in range(s2, e2+1-p2):
-            i_span_1 = spans_1[ie1]
-            i_span_2 = spans_2[ie2]
+
+            # Get spline index, B-splines' values and quadrature weights
+            is1 =   spans_1[ie1]
+            bs1 =   basis_1[ie1,:,:,:]
+            w1  = weights_1[ie1,:]
+            x1  =  points_1[ie1,:]
+
+            is2 =   spans_2[ie2]
+            bs2 =   basis_2[ie2,:,:,:]
+            w2  = weights_2[ie2,:]
+            x2  =  points_2[ie2,:]
+
+            # Evaluate function at all quadrature points
+            f_quad = f( *np.meshgrid( x1, x2 ) )
+
             for il_1 in range(0, p1+1):
                 for il_2 in range(0, p2+1):
-                    i1 = i_span_1 - p1 + il_1
-                    i2 = i_span_2 - p2 + il_2
 
                     v = 0.0
                     for g1 in range(0, k1):
                         for g2 in range(0, k2):
-                            bi_0 = basis_1[ie1, il_1, 0, g1] * basis_2[ie2, il_2, 0, g2]
-                            bi_x = basis_1[ie1, il_1, 1, g1] * basis_2[ie2, il_2, 0, g2]
-                            bi_y = basis_1[ie1, il_1, 0, g1] * basis_2[ie2, il_2, 1, g2]
+                            bi_0 = bs1[il_1, 0, g1] * bs2[il_2, 0, g2]
+                            bi_x = bs1[il_1, 1, g1] * bs2[il_2, 0, g2]
+                            bi_y = bs1[il_1, 0, g1] * bs2[il_2, 1, g2]
+                            wvol = w1[g1] * w2[g2]
+                            v   += bi_0 * f_quad[g1,g2] * wvol
 
-                            x1    = points_1 [ie1, g1]
-                            x2    = points_2 [ie2, g2]
-                            wvol  = weights_1[ie1, g1] * weights_2[ie2, g2]
-
-#                            v += bi_0 * x1 * (1.0 - x1) * x2 * (1.0 - x2) * wvol
-                            v += bi_0 * 2. * (x1 * (1.0 - x1) + x2 * (1.0 - x2)) * wvol
+                    i1 = is1 - p1 + il_1
+                    i2 = is2 - p2 + il_2
 
                     rhs[i1, i2] += v
-    # ...
 
-    # ...
     return rhs
-    # ...
-# ...
-
 
 ####################################################################################
 if __name__ == '__main__':
 
-    from numpy import linspace
+    import matplotlib.pyplot as plt
+    from time import time
+
     from spl.fem.splines import SplineSpace
     from spl.fem.tensor  import TensorFemSpace
+    from spl.fem.basic   import FemField
 
-    # ... numbers of elements and degres
-    p1  = 2 ; p2  = 2
-    ne1 = 8 ; ne2 = 8
-    # ...
+    # Input data: degree, number of elements
+    p1  = 3  ; p2  = 3
+    ne1 = 16 ; ne2 = 16
 
-    print('> Grid   :: [{ne1},{ne2}]'.format(ne1=ne1, ne2=ne2))
-    print('> Degree :: [{p1},{p2}]'.format(p1=p1, p2=p2))
+    # Method of manufactured solution
+    model = Poisson2D()
 
-    grid_1 = linspace(0., 1., ne1+1)
-    grid_2 = linspace(0., 1., ne2+1)
+    # Create uniform grid
+    grid_1 = np.linspace( *model.domain[0], num=ne1+1 )
+    grid_2 = np.linspace( *model.domain[1], num=ne2+1 )
 
-    V1 = SplineSpace(p1, grid=grid_1)
-    V2 = SplineSpace(p2, grid=grid_2)
+    # Create 1D finite element spaces and precompute quadrature data
+    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
+    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
 
-    V = TensorFemSpace(V1, V2)
+    # Create 2D tensor product finite element space
+    V = TensorFemSpace( V1, V2 )
 
-    # ... builds matrices and rhs
-    mass, stiffness = assembly_matrices(V)
+    # Build mass and stiffness matrices
+    t0 = time()
+    mass, stiffness = assemble_matrices( V, kernel )
+    t1 = time()
 
-    rhs  = assembly_rhs(V)
-    # ...
+    # Build right-hand side vector
+    rhs  = assemble_rhs( V, model.rho )
 
-    # ... apply homogeneous dirichlet boundary conditions
+    # Apply homogeneous dirichlet boundary conditions
     # left  bc at x=0.
     stiffness[0,:,:,:] = 0.
     rhs      [0,:]     = 0.
@@ -167,10 +304,26 @@ if __name__ == '__main__':
     rhs      [:,V2.nbasis-1]     = 0.
     # ...
 
-    # ... solve the system
+    # Solve linear system
     x, info = cg( stiffness, rhs, tol=1e-9, maxiter=1000, verbose=False )
-    # ...
 
-    # ... check
-    print ('> info: ',info)
-    # ...
+    # Create potential field
+    phi = FemField( V, 'phi' )
+    phi.coeffs[:] = x[:]
+    phi.coeffs.update_ghost_regions()
+
+    # Compute L2 norm of error
+# TODO
+#    e2 = error_l2( V, phi, model.phi )
+
+    # Print some information to terminal
+    print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne1, ne2=ne2) )
+    print( '> Degree        :: [{p1},{p2}]'  .format( p1=p1, p2=p2 ) )
+    print( '> CG info       :: ',info )
+#    print( '> L2 error      :: {:.2e}'.format( e2 ) )
+    print( '> Assembly time :: {:.2e}'.format( t1-t0 ) )
+
+    # Plot solution on refined grid
+# TODO
+#    xx = np.linspace( *model.domain[0], num=101 )
+#    yy = np.linspace( *model.domain[0], num=101 )
