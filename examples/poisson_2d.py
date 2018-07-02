@@ -232,7 +232,7 @@ def assemble_rhs( V, f ):
             x2  =  points_2[ie2,:]
 
             # Evaluate function at all quadrature points
-            f_quad = f( *np.meshgrid( x1, x2 ) )
+            f_quad = f( *np.meshgrid( x1, x2, indexing='ij' ) )
 
             for il_1 in range(0, p1+1):
                 for il_2 in range(0, p2+1):
