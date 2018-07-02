@@ -253,6 +253,54 @@ def assemble_rhs( V, f ):
 
     return rhs
 
+#===================================================================================
+def error_l2( V, phi, phi_ex ):
+    """
+    Compute L2 norm of error using Gaussian quadrature.
+
+    Parameters
+    ----------
+    phi : FemField
+        Numerical solution; 2D tensor-product spline that can be evaluated at any
+        location (x1,x2) in domain.
+
+    phi_ex : callable
+        Exact solution; scalar function of location (x1,x2).
+
+    Returns
+    -------
+    norm : float
+        L2 norm of error.
+
+    """
+    # Sizes
+    [s1, s2] = V.vector_space.starts
+    [e1, e2] = V.vector_space.ends
+    [p1, p2] = V.vector_space.pads
+
+    # Quadrature data
+    [ points_1,  points_2] = [W.quad_points  for W in V.spaces]
+    [weights_1, weights_2] = [W.quad_weights for W in V.spaces]
+
+    norm_sqr = 0.0
+
+    for ie1 in range(s1, e1+1-p1):
+        for ie2 in range(s2, e2+1-p2):
+
+            x1 =  points_1[ie1,:]
+            w1 = weights_1[ie1,:]
+
+            x2 =  points_2[ie2,:]
+            w2 = weights_2[ie2,:]
+
+            norm_sqr += sum( (phi(x,y)-phi_ex(x,y))**2 * (v1*v2)
+                    for x,v1 in zip(x1,w1)
+                    for y,v2 in zip(x2,w2) )
+
+    norm = np.sqrt( norm_sqr )
+
+    return norm
+
 ####################################################################################
 if __name__ == '__main__':
 
@@ -262,6 +310,8 @@ if __name__ == '__main__':
     from spl.fem.splines import SplineSpace
     from spl.fem.tensor  import TensorFemSpace
     from spl.fem.basic   import FemField
+
+    timing = {}
 
     # Input data: degree, number of elements
     p1  = 3  ; p2  = 3
@@ -285,6 +335,7 @@ if __name__ == '__main__':
     t0 = time()
     mass, stiffness = assemble_matrices( V, kernel )
     t1 = time()
+    timing['assembly'] = t1-t0
 
     # Build right-hand side vector
     rhs  = assemble_rhs( V, model.rho )
@@ -302,10 +353,12 @@ if __name__ == '__main__':
     # upper bc at y=1.
     stiffness[:,V2.nbasis-1,:,:] = 0.
     rhs      [:,V2.nbasis-1]     = 0.
-    # ...
 
     # Solve linear system
+    t0 = time()
     x, info = cg( stiffness, rhs, tol=1e-9, maxiter=1000, verbose=False )
+    t1 = time()
+    timing['solution'] = t1-t0
 
     # Create potential field
     phi = FemField( V, 'phi' )
@@ -313,17 +366,40 @@ if __name__ == '__main__':
     phi.coeffs.update_ghost_regions()
 
     # Compute L2 norm of error
-# TODO
-#    e2 = error_l2( V, phi, model.phi )
+    t0 = time()
+    e2 = error_l2( V, phi, model.phi )
+    t1 = time()
+    timing['diagnostics'] = t1-t0
 
     # Print some information to terminal
     print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne1, ne2=ne2) )
     print( '> Degree        :: [{p1},{p2}]'  .format( p1=p1, p2=p2 ) )
     print( '> CG info       :: ',info )
-#    print( '> L2 error      :: {:.2e}'.format( e2 ) )
-    print( '> Assembly time :: {:.2e}'.format( t1-t0 ) )
+    print( '> L2 error      :: {:.2e}'.format( e2 ) )
+    print( '' )
+    print( '> Assembly time :: {:.2e}'.format( timing['assembly'] ) )
+    print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
+    print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
 
     # Plot solution on refined grid
-# TODO
-#    xx = np.linspace( *model.domain[0], num=101 )
-#    yy = np.linspace( *model.domain[0], num=101 )
+    xx = np.linspace( *model.domain[0], num=101 )
+    yy = np.linspace( *model.domain[1], num=101 )
+    zz = np.array( [[phi( xi,yi ) for yi in yy] for xi in xx] )
+    fig, ax = plt.subplots( 1, 1 )
+    im = ax.contourf( xx, yy, zz.transpose(), 40, cmap='jet' )
+    fig.colorbar( im )
+    ax.set_xlabel( r'$x$', rotation='horizontal' )
+    ax.set_ylabel( r'$y$', rotation='horizontal' )
+    ax.set_title ( r'$\phi(x,y)$' )
+    ax.grid()
+
+    # Show figure and keep it open if necessary
+    fig.tight_layout()
+    fig.show()
+
+    import __main__ as main
+    if hasattr( main, '__file__' ):
+        try:
+           __IPYTHON__
+        except NameError:
+            plt.show()
