@@ -3,14 +3,16 @@
 """
 We assume here that a tensor space is the product of fem spaces whom basis are
 of compact support
-"""
 
-from mpi4py             import MPI
+"""
+from mpi4py import MPI
+import numpy as np
 
 from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace, FemField
 from spl.fem.splines    import SplineSpace
 from spl.ddm.cart       import Cart
+from spl.core.bsplines  import find_span, basis_funs
 
 #===============================================================================
 class TensorFemSpace( FemSpace ):
