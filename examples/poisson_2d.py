@@ -241,8 +241,6 @@ def assemble_rhs( V, f ):
                     for g1 in range(0, k1):
                         for g2 in range(0, k2):
                             bi_0 = bs1[il_1, 0, g1] * bs2[il_2, 0, g2]
-                            bi_x = bs1[il_1, 1, g1] * bs2[il_2, 0, g2]
-                            bi_y = bs1[il_1, 0, g1] * bs2[il_2, 1, g2]
                             wvol = w1[g1] * w2[g2]
                             v   += bi_0 * f_quad[g1,g2] * wvol
 
@@ -254,23 +252,23 @@ def assemble_rhs( V, f ):
     return rhs
 
 #===================================================================================
-def error_l2( V, phi, phi_ex ):
+def integral( V, f ):
     """
-    Compute L2 norm of error using Gaussian quadrature.
+    Compute integral over domain of $f(x1,x2)$ using Gaussian quadrature.
 
     Parameters
     ----------
-    phi : FemField
-        Numerical solution; 2D tensor-product spline that can be evaluated at any
-        location (x1,x2) in domain.
+    V : TensorFemSpace
+        Finite element space that defines the quadrature rule.
+        (normally the quadrature is exact for any element of this space).
 
-    phi_ex : callable
-        Exact solution; scalar function of location (x1,x2).
+    f : callable
+        Scalar function of location $(x1,x2)$.
 
     Returns
     -------
-    norm : float
-        L2 norm of error.
+    c : float
+        Integral of $f$ over domain.
 
     """
     # Sizes
@@ -279,11 +277,11 @@ def error_l2( V, phi, phi_ex ):
     [p1, p2] = V.vector_space.pads
 
     # Quadrature data
+    [       k1,        k2] = [W.quad_order   for W in V.spaces]
     [ points_1,  points_2] = [W.quad_points  for W in V.spaces]
     [weights_1, weights_2] = [W.quad_weights for W in V.spaces]
 
-    norm_sqr = 0.0
-
+    c = 0.0
     for ie1 in range(s1, e1+1-p1):
         for ie2 in range(s2, e2+1-p2):
 
@@ -293,11 +291,40 @@ def error_l2( V, phi, phi_ex ):
             x2 =  points_2[ie2,:]
             w2 = weights_2[ie2,:]
 
-            norm_sqr += sum( (phi(x,y)-phi_ex(x,y))**2 * (v1*v2)
-                    for x,v1 in zip(x1,w1)
-                    for y,v2 in zip(x2,w2) )
+            for g1 in range(k1):
+                for g2 in range(k2):
+                    c += f( x1[g1], x2[g2] ) * w1[g1] * w2[g2]
 
-    norm = np.sqrt( norm_sqr )
+    return c
+
+#===================================================================================
+def error_norm( V, phi, phi_ex, order=2 ):
+    """
+    Compute Lp norm of error using Gaussian quadrature.
+
+    Parameters
+    ----------
+    V : TensorFemSpace
+        Finite element space to which the numerical solution belongs.
+
+    phi : FemField
+        Numerical solution; 2D Spline that can be evaluated at location $(x1,x2)$.
+
+    phi_ex : callable
+        Exact solution; scalar function of location $(x1,x2)$.
+
+    order : int
+        Order of the norm (default: 2).
+
+    Returns
+    -------
+    norm : float
+        Lp norm of error.
+
+    """
+    f = lambda x,y: abs(phi(x,y)-phi_ex(x,y))**order
+
+    norm = integral( V, f )**(1/order)
 
     return norm
 
@@ -338,7 +365,7 @@ if __name__ == '__main__':
     timing['assembly'] = t1-t0
 
     # Build right-hand side vector
-    rhs  = assemble_rhs( V, model.rho )
+    rhs = assemble_rhs( V, model.rho )
 
     # Apply homogeneous dirichlet boundary conditions
     # left  bc at x=0.
@@ -367,7 +394,7 @@ if __name__ == '__main__':
 
     # Compute L2 norm of error
     t0 = time()
-    e2 = error_l2( V, phi, model.phi )
+    e2 = error_norm( V, phi, model.phi, order=2 )
     t1 = time()
     timing['diagnostics'] = t1-t0
 

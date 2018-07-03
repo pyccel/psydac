@@ -210,42 +210,74 @@ def assemble_rhs( V, f ):
     return rhs
 
 #===================================================================================
-def error_l2( V, phi, phi_ex ):
+def integral( V, f ):
     """
-    Compute L2 norm of error using Gaussian quadrature.
+    Compute integral over domain of $f(x)$ using Gaussian quadrature.
 
     Parameters
     ----------
-    phi : FemField
-        Numerical solution; 1D Spline that can be evaluated at location x.
+    V : SplineSpace
+        Finite element space that defines the quadrature rule.
+        (normally the quadrature is exact for any element of this space).
 
-    phi_ex : callable
-        Exact solution; scalar function of location x.
+    f : callable
+        Scalar function of location $x$.
 
     Returns
     -------
-    norm : float
-        L2 norm of error.
+    c : float
+        Integral of $f$ over domain.
 
     """
-    # ... sizes
+    # Sizes
     [s1] = V.vector_space.starts
     [e1] = V.vector_space.ends
     [p1] = V.vector_space.pads
 
+    # Quadrature data
+    k1        = V.quad_order
     points_1  = V.quad_points
     weights_1 = V.quad_weights
 
-    norm_sqr = 0.0
-
+    c = 0.0
     for ie1 in range(s1, e1+1-p1):
 
-        x1   =  points_1[ie1,:]
-        wvol = weights_1[ie1,:]
+        x1 =  points_1[ie1,:]
+        w1 = weights_1[ie1,:]
 
-        norm_sqr += sum( (phi(x)-phi_ex(x))**2 * v for x,v in zip(x1,wvol) )
+        for g1 in range(k1):
+            c+= f( x1[g1] ) * w1[g1]
 
-    norm = np.sqrt( norm_sqr )
+    return c
+
+#===================================================================================
+def error_norm( V, phi, phi_ex, order=2 ):
+    """
+    Compute Lp norm of error using Gaussian quadrature.
+
+    Parameters
+    ----------
+    V : SplineSpace
+        Finite element space to which the numerical solution belongs.
+
+    phi : FemField
+        Numerical solution; 1D Spline that can be evaluated at location $x$.
+
+    phi_ex : callable
+        Exact solution; scalar function of location $x$.
+
+    order : int
+        Order of the norm (default: 2).
+
+    Returns
+    -------
+    norm : float
+        Lp norm of error.
+
+    """
+    f = lambda x: abs(phi(x)-phi_ex(x))**order
+
+    norm = integral( V, f )**(1/order)
 
     return norm
 
@@ -257,6 +289,8 @@ if __name__ == '__main__':
 
     from spl.fem.splines import SplineSpace
     from spl.fem.basic   import FemField
+
+    timing = {}
 
     # Input data: degree, number of elements
     p  = 3
@@ -276,9 +310,10 @@ if __name__ == '__main__':
     t0 = time()
     mass, stiffness = assemble_matrices( V, kernel )
     t1 = time()
+    timing['assembly'] = t1-t0
 
     # Build right-hand side vector
-    rhs  = assemble_rhs( V, model.rho )
+    rhs = assemble_rhs( V, model.rho )
 
     # Apply homogeneous dirichlet boundary conditions
     stiffness[ 0,:] = 0.
@@ -287,7 +322,10 @@ if __name__ == '__main__':
     rhs[V.nbasis-1] = 0.
 
     # Solve linear system
+    t0 = time()
     x, info = cg( stiffness, rhs, tol=1e-9, maxiter=1000, verbose=False )
+    t1 = time()
+    timing['solution'] = t1-t0
 
     # Create potential field
     phi = FemField( V, 'phi' )
@@ -295,14 +333,20 @@ if __name__ == '__main__':
     phi.coeffs.update_ghost_regions()
 
     # Compute L2 norm of error
-    e2 = error_l2( V, phi, model.phi )
+    t0 = time()
+    e2 = error_norm( V, phi, model.phi, order=2 )
+    t1 = time()
+    timing['diagnostics'] = t1-t0
 
     # Print some information to terminal
     print( '> Grid          :: {ne}'.format(ne=ne) )
     print( '> Degree        :: {p}'.format(p=p) )
     print( '> CG info       :: ',info )
     print( '> L2 error      :: {:.2e}'.format( e2 ) )
-    print( '> Assembly time :: {:.2e}'.format( t1-t0 ) )
+    print( '' )
+    print( '> Assembly time :: {:.2e}'.format( timing['assembly'] ) )
+    print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
+    print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
 
     # Plot solution on refined grid
     y      = np.linspace( grid[0], grid[-1], 101 )
