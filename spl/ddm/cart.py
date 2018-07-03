@@ -85,6 +85,15 @@ class Cart():
                 self._shift_info[ dimension, disp ] = \
                         self._compute_shift_info( dimension, disp )
 
+        # Store arrays with all the starts and ends along each direction
+        self._global_starts = [None]*self._ndims
+        self._global_ends   = [None]*self._ndims
+        for dimension in range( self._ndims ):
+            n =     npts[dimension]
+            d = mpi_dims[dimension]
+            self._global_starts[dimension] = np.array( [( c   *n)//d   for c in range( d )] )
+            self._global_ends  [dimension] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
+
     #---------------------------------------------------------------------------
     # Global properties (same for each process)
     #---------------------------------------------------------------------------
@@ -111,6 +120,14 @@ class Cart():
     @property
     def nprocs( self ):
         return self._dims
+
+    @property
+    def global_starts( self ):
+        return self._global_starts
+
+    @property
+    def global_ends( self ):
+        return self._global_ends
 
     #---------------------------------------------------------------------------
     # Local properties
