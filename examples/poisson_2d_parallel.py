@@ -47,25 +47,24 @@ def compute_basis_support( V ):
     region over which the coefficients of all non-zero basis functions are
     available and hence a field can be evaluated.
 
+    This function takes into account:
+        1. periodic boundary conditions
+        2. repeated internal knots
+
     """
-    # TODO: 1) take into account periodic boundary conditions
-    # TODO: 2) take into account repeated internal knots
+    starts  = V.vector_space.starts
+    ends    = V.vector_space.ends
+    nbasis  = V.vector_space.npts
 
-    v = V.vector_space
+    degrees = V.degree
+    ncells  = V.ncells
+    spans   = [W.spans for W in V.spaces]
 
-    if v.parallel: 
-        coords = v.cart.coords
-        nprocs = v.cart.nprocs
-    else:
-        coords = tuple( [0]*v.ndim )
-        nprocs = tuple( [1]*v.ndim )
+    supports = [[k for k in range( nc )
+        if any( s <= i%nb <= e for i in range( span[k]-p, span[k]+1 ) )]
+        for (s,e,p,nb,nc,span) in zip( starts, ends, degrees, nbasis, ncells, spans )]
 
-    iterator = lambda: zip( v.starts, v.ends, v.pads, coords, nprocs ) 
-
-    element_starts = [(s   if c == 0    else s-p) for s,e,p,c,np in iterator()]
-    element_ends   = [(e-p if c == np-1 else e  ) for s,e,p,c,np in iterator()]
-
-    return element_starts, element_ends
+    return tuple( tuple( np.unique( sup ) ) for sup in supports )
 
 #==============================================================================
 def compute_domain_decomposition( V ):
@@ -135,10 +134,10 @@ def assemble_matrices( V, kernel=None, debug=False ):
     stiffness = StencilMatrix( V.vector_space, V.vector_space )
 
     # Element range
-    (sk1,sk2), (ek1,ek2) = compute_basis_support( V )
+    support1, support2 = compute_basis_support( V )
 
     # Build global matrices: cycle over elements
-    for k1 in range(sk1, ek1+1):
+    for k1 in support1:
 
         # Get spline index, B-splines' values and quadrature weights
         is1 =   spans_1[k1]
@@ -149,7 +148,7 @@ def assemble_matrices( V, kernel=None, debug=False ):
         sl1 = max(  0, s1-is1+p1 )
         el1 = min( p1, e1-is1+p1 )
 
-        for k2 in range(sk2, ek2+1):
+        for k2 in support2:
 
             # Get spline index, B-splines' values and quadrature weights
             is2 =   spans_2[k2]
@@ -249,11 +248,11 @@ def assemble_rhs( V, f ):
     rhs = StencilVector( V.vector_space )
 
     # Element range
-    (sk1,sk2), (ek1,ek2) = compute_basis_support( V )
+    support1, support2 = compute_basis_support( V )
 
     # Build RHS
-    for k1 in range(sk1, ek1+1):
-        for k2 in range(sk2, ek2+1):
+    for k1 in support1:
+        for k2 in support2:
 
             # Get spline index, B-splines' values and quadrature weights
             is1 =   spans_1[k1]
