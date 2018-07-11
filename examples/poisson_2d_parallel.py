@@ -124,7 +124,7 @@ def assemble_matrices( V, kernel=None, debug=False ):
     [p1, p2] = V.vector_space.pads
 
     # Quadrature data
-    [       k1,        k2] = [W.quad_order   for W in V.spaces]
+    [      nq1,       nq2] = [W.quad_order   for W in V.spaces]
     [  spans_1,   spans_2] = [W.spans        for W in V.spaces]
     [  basis_1,   basis_2] = [W.quad_basis   for W in V.spaces]
     [ points_1,  points_2] = [W.quad_points  for W in V.spaces]
@@ -135,78 +135,78 @@ def assemble_matrices( V, kernel=None, debug=False ):
     stiffness = StencilMatrix( V.vector_space, V.vector_space )
 
     # Element range
-    (se1,se2), (ee1,ee2) = compute_basis_support( V )
+    (sk1,sk2), (ek1,ek2) = compute_basis_support( V )
 
     # Build global matrices: cycle over elements
-    for ie1 in range(se1, ee1+1):
+    for k1 in range(sk1, ek1+1):
 
         # Get spline index, B-splines' values and quadrature weights
-        is1 =   spans_1[ie1]
-        bs1 =   basis_1[ie1,:,:,:]
-        w1  = weights_1[ie1,:]
+        is1 =   spans_1[k1]
+        bs1 =   basis_1[k1,:,:,:]
+        w1  = weights_1[k1,:]
 
         # Get local start/end index of basis functions
-        ks1 = max(  0, s1-is1+p1 )
-        ke1 = min( p1, e1-is1+p1 )
+        sl1 = max(  0, s1-is1+p1 )
+        el1 = min( p1, e1-is1+p1 )
 
-        for ie2 in range(se2, ee2+1):
+        for k2 in range(sk2, ek2+1):
 
             # Get spline index, B-splines' values and quadrature weights
-            is2 =   spans_2[ie2]
-            bs2 =   basis_2[ie2,:,:,:]
-            w2  = weights_2[ie2,:]
+            is2 =   spans_2[k2]
+            bs2 =   basis_2[k2,:,:,:]
+            w2  = weights_2[k2,:]
 
             # Get local start/end index of basis functions
-            ks2 = max(  0, s2-is2+p2 )
-            ke2 = min( p2, e2-is2+p2 )
+            sl2 = max(  0, s2-is2+p2 )
+            el2 = min( p2, e2-is2+p2 )
 
             # Reset element matrices
-            mat_m = np.zeros( (ke1-ks1+1, ke2-ks2+1, 2*p1+1, 2*p2+1) ) # mass
-            mat_s = np.zeros( (ke1-ks1+1, ke2-ks2+1, 2*p1+1, 2*p2+1) ) # stiffness
+            mat_m = np.zeros( (el1-sl1+1, el2-sl2+1, 2*p1+1, 2*p2+1) ) # mass
+            mat_s = np.zeros( (el1-sl1+1, el2-sl2+1, 2*p1+1, 2*p2+1) ) # stiffness
 
             # Cycle over non-zero test functions in element
-            for il_1 in range(ks1, ke1+1):
-                for il_2 in range(ks2, ke2+1):
+            for il1 in range( sl1, el1+1 ):
+                for il2 in range( sl2, el2+1 ):
 
                     # Cycle over non-zero trial functions in element
-                    for jl_1 in range(p1+1):
-                        for jl_2 in range(p2+1):
+                    for jl1 in range( p1+1 ):
+                        for jl2 in range( p2+1 ):
 
                             # Reset integrals over element
                             v_m = 0.0
                             v_s = 0.0
 
                             # Cycle over quadrature points
-                            for g1 in range(k1):
-                                for g2 in range(k2):
+                            for q1 in range( nq1 ):
+                                for q2 in range( nq2 ):
 
                                     # Get test function's value and derivatives
-                                    bi_0 = bs1[il_1, 0, g1] * bs2[il_2, 0, g2]
-                                    bi_x = bs1[il_1, 1, g1] * bs2[il_2, 0, g2]
-                                    bi_y = bs1[il_1, 0, g1] * bs2[il_2, 1, g2]
+                                    bi_0 = bs1[il1, 0, q1] * bs2[il2, 0, q2]
+                                    bi_x = bs1[il1, 1, q1] * bs2[il2, 0, q2]
+                                    bi_y = bs1[il1, 0, q1] * bs2[il2, 1, q2]
 
                                     # Get trial function's value and derivatives
-                                    bj_0 = bs1[jl_1, 0, g1] * bs2[jl_2, 0, g2]
-                                    bj_x = bs1[jl_1, 1, g1] * bs2[jl_2, 0, g2]
-                                    bj_y = bs1[jl_1, 0, g1] * bs2[jl_2, 1, g2]
+                                    bj_0 = bs1[jl1, 0, q1] * bs2[jl2, 0, q2]
+                                    bj_x = bs1[jl1, 1, q1] * bs2[jl2, 0, q2]
+                                    bj_y = bs1[jl1, 0, q1] * bs2[jl2, 1, q2]
 
                                     # Get quadrature weight
-                                    wvol = w1[g1] * w2[g2]
+                                    wvol = w1[q1] * w2[q2]
 
                                     # Add contribution to integrals
                                     v_m += bi_0 * bj_0 * wvol
                                     v_s += (bi_x * bj_x + bi_y * bj_y) * wvol
 
                             # Update element matrices
-                            mat_m[il_1-ks1, il_2-ks2, p1+jl_1-il_1, p2+jl_2-il_2] = v_m
-                            mat_s[il_1-ks1, il_2-ks2, p1+jl_1-il_1, p2+jl_2-il_2] = v_s
+                            mat_m[il1-sl1, il2-sl2, p1+jl1-il1, p2+jl2-il2] = v_m
+                            mat_s[il1-sl1, il2-sl2, p1+jl1-il1, p2+jl2-il2] = v_s
 
             # Update global matrices (NOTE: COMPACT VERSION)
-            idx1 = slice( is1-p1+ks1, is1-p1+ke1+1 )
-            idx2 = slice( is2-p2+ks2, is2-p2+ke2+1 )
+            i1_slice = slice( is1-p1+sl1, is1-p1+el1+1 )
+            i2_slice = slice( is2-p2+sl2, is2-p2+el2+1 )
 
-            mass     [idx1,idx2,:,:] += mat_m[:,:,:,:]
-            stiffness[idx1,idx2,:,:] += mat_s[:,:,:,:]
+            mass     [i1_slice, i2_slice, :, :] += mat_m[:,:,:,:]
+            stiffness[i1_slice, i2_slice, :, :] += mat_s[:,:,:,:]
 
     # Make sure that periodic corners are zero in non-periodic case
     mass     .remove_spurious_entries()
@@ -239,7 +239,7 @@ def assemble_rhs( V, f ):
     [p1, p2] = V.vector_space.pads
 
     # Quadrature data
-    [       k1,        k2] = [W.quad_order   for W in V.spaces]
+    [      nq1,       nq2] = [W.quad_order   for W in V.spaces]
     [  spans_1,   spans_2] = [W.spans        for W in V.spaces]
     [  basis_1,   basis_2] = [W.quad_basis   for W in V.spaces]
     [ points_1,  points_2] = [W.quad_points  for W in V.spaces]
@@ -249,38 +249,38 @@ def assemble_rhs( V, f ):
     rhs = StencilVector( V.vector_space )
 
     # Element range
-    (se1,se2), (ee1,ee2) = compute_basis_support( V )
+    (sk1,sk2), (ek1,ek2) = compute_basis_support( V )
 
     # Build RHS
-    for ie1 in range(se1, ee1+1):
-        for ie2 in range(se2, ee2+1):
+    for k1 in range(sk1, ek1+1):
+        for k2 in range(sk2, ek2+1):
 
             # Get spline index, B-splines' values and quadrature weights
-            is1 =   spans_1[ie1]
-            bs1 =   basis_1[ie1,:,:,:]
-            w1  = weights_1[ie1,:]
-            x1  =  points_1[ie1,:]
+            is1 =   spans_1[k1]
+            bs1 =   basis_1[k1,:,:,:]
+            w1  = weights_1[k1,:]
+            x1  =  points_1[k1,:]
 
-            is2 =   spans_2[ie2]
-            bs2 =   basis_2[ie2,:,:,:]
-            w2  = weights_2[ie2,:]
-            x2  =  points_2[ie2,:]
+            is2 =   spans_2[k2]
+            bs2 =   basis_2[k2,:,:,:]
+            w2  = weights_2[k2,:]
+            x2  =  points_2[k2,:]
 
             # Evaluate function at all quadrature points
             f_quad = f( *np.meshgrid( x1, x2, indexing='ij' ) )
 
-            for il_1 in range(0, p1+1):
-                for il_2 in range(0, p2+1):
+            for il1 in range( p1+1 ):
+                for il2 in range( p2+1 ):
 
                     v = 0.0
-                    for g1 in range(0, k1):
-                        for g2 in range(0, k2):
-                            bi_0 = bs1[il_1, 0, g1] * bs2[il_2, 0, g2]
-                            wvol = w1[g1] * w2[g2]
-                            v   += bi_0 * f_quad[g1,g2] * wvol
+                    for q1 in range( nq1 ):
+                        for q2 in range( nq2 ):
+                            bi_0 = bs1[il1, 0, q1] * bs2[il2, 0, q2]
+                            wvol = w1[q1] * w2[q2]
+                            v   += bi_0 * f_quad[q1,q2] * wvol
 
-                    i1 = is1 - p1 + il_1
-                    i2 = is2 - p2 + il_2
+                    i1 = is1 - p1 + il1
+                    i2 = is2 - p2 + il2
 
                     rhs[i1, i2] += v
 
@@ -315,26 +315,26 @@ def integral( V, f ):
     [p1, p2] = V.vector_space.pads
 
     # Quadrature data
-    [       k1,        k2] = [W.quad_order   for W in V.spaces]
+    [      nq1,       nq2] = [W.quad_order   for W in V.spaces]
     [ points_1,  points_2] = [W.quad_points  for W in V.spaces]
     [weights_1, weights_2] = [W.quad_weights for W in V.spaces]
 
     # Element range
-    (se1,se2), (ee1,ee2) = compute_domain_decomposition( V )
+    (sk1,sk2), (ek1,ek2) = compute_domain_decomposition( V )
 
     c = 0.0
-    for ie1 in range(se1, ee1+1):
-        for ie2 in range(se2, ee2+1):
+    for k1 in range(sk1, ek1+1):
+        for k2 in range(sk2, ek2+1):
 
-            x1 =  points_1[ie1,:]
-            w1 = weights_1[ie1,:]
+            x1 =  points_1[k1,:]
+            w1 = weights_1[k1,:]
 
-            x2 =  points_2[ie2,:]
-            w2 = weights_2[ie2,:]
+            x2 =  points_2[k2,:]
+            w2 = weights_2[k2,:]
 
-            for g1 in range(k1):
-                for g2 in range(k2):
-                    c += f( x1[g1], x2[g2] ) * w1[g1] * w2[g2]
+            for q1 in range( nq1 ):
+                for q2 in range( nq2 ):
+                    c += f( x1[q1], x2[q2] ) * w1[q1] * w2[q2]
 
     # All reduce (MPI_SUM)
     mpi_comm = V.vector_space.cart._comm
@@ -393,15 +393,15 @@ if __name__ == '__main__':
 
     # Input data: degree, number of elements
     p1  = 3 ; p2  = 3
-    ne1 = 16; ne2 = 16
+    nk1 = 16; nk2 = 16
 
     # Method of manufactured solution
     model = Poisson2D()
     per1, per2 = model.periodic
 
     # Create uniform grid
-    grid_1 = np.linspace( *model.domain[0], num=ne1+1 )
-    grid_2 = np.linspace( *model.domain[1], num=ne2+1 )
+    grid_1 = np.linspace( *model.domain[0], num=nk1+1 )
+    grid_2 = np.linspace( *model.domain[1], num=nk2+1 )
 
     # Create 1D finite element spaces and precompute quadrature data
     V1 = SplineSpace( p1, grid=grid_1, periodic=per1 ); V1.init_fem()
@@ -465,7 +465,7 @@ if __name__ == '__main__':
             print( '--------------------------------------------------' )
             print( ' RANK = {}'.format( mpi_rank ) )
             print( '--------------------------------------------------' )
-            print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne1, ne2=ne2) )
+            print( '> Grid          :: [{nk1},{nk2}]'.format( nk1=nk1, nk2=nk2) )
             print( '> Degree        :: [{p1},{p2}]'  .format( p1=p1, p2=p2 ) )
             print( '> CG info       :: ',info )
             print( '> L2 error      :: {:.2e}'.format( err2 ) )
