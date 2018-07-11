@@ -1,5 +1,5 @@
 numpy>=1.13
-scipy
+scipy>=0.18
 matplotlib
 mpi4py
 h5py
