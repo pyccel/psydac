@@ -52,6 +52,29 @@ class TensorFemSpace( FemSpace ):
             # serial case
             self._vector_space = StencilVectorSpace(npts, pads, periods)
 
+        # Shortcut
+        v = self._vector_space
+
+        # Compute support of basis functions local to process
+        degrees  = [V.degree for V in self.spaces]
+        ncells   = [V.ncells for V in self.spaces]
+        spans    = [V.spans  for V in self.spaces]
+        supports = [[k for k in range( nc )
+            if any( s <= i%nb <= e for i in range( span[k]-p, span[k]+1 ) )]
+            for (s,e,p,nb,nc,span) in zip( v.starts, v.ends, degrees, npts, ncells, spans )]
+
+        self._supports = tuple( tuple( np.unique( sup ) ) for sup in supports )
+
+        # Determine portion of logical domain local to process
+        coords = v.cart.coords if v.parallel else tuple( [0]*v.ndim )
+        nprocs = v.cart.nprocs if v.parallel else tuple( [1]*v.ndim )
+
+        iterator = lambda: zip( v.starts, v.ends, v.pads, coords, nprocs )
+
+        self._element_starts = [(s   if c == 0    else s-p+1) for s,e,p,c,np in iterator()]
+        self._element_ends   = [(e-p if c == np-1 else e-p+1) for s,e,p,c,np in iterator()]
+
+        # Create (empty) dictionary that will contain all fields in this space
         self._fields = {}
 
     #--------------------------------------------------------------------------
@@ -145,6 +168,7 @@ class TensorFemSpace( FemSpace ):
     def is_scalar(self):
         return True
 
+    #TODO: return tuple instead of product?
     @property
     def nbasis(self):
         dims = [V.nbasis for V in self.spaces]
@@ -165,6 +189,45 @@ class TensorFemSpace( FemSpace ):
     def spaces( self ):
         return self._spaces
 
+    @property
+    def local_support( self ):
+        """
+        Support of all the basis functions local to the process, in the form
+        of ldim tuples with the element indices along each direction.
+
+        Thanks to the presence of ghost values, this is also equivalent to the
+        region over which the coefficients of all non-zero basis functions are
+        available and hence a field can be evaluated.
+
+        Returns
+        -------
+        element_supports : tuple of (tuple of int)
+            Along each dimension, the basis support is a tuple of element indices.
+
+        """
+        return self._supports
+
+    @property
+    def local_domain( self ):
+        """
+        Logical domain local to the process, assuming the global domain is
+        decomposed across processes without any overlapping.
+
+        This information is fundamental for avoiding double-counting when computing
+        integrals over the global domain.
+
+        Returns
+        -------
+        element_starts : tuple of int
+            Start element index along each direction.
+
+        element_ends : tuple of int
+            End element index along each direction.
+
+        """
+        return self._element_starts, self._element_ends
+
+    @property
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'

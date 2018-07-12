@@ -121,64 +121,7 @@ def kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, mat_m, mat_s ):
                     mat_s[il1, il2, p1+jl1-il1, p2+jl2-il2 ] = v_s
 
 #==============================================================================
-def compute_basis_support( V ):
-    """
-    Compute the support of all the basis functions local to the process.
-
-    Thanks to the presence of ghost values, this is also equivalent to the
-    region over which the coefficients of all non-zero basis functions are
-    available and hence a field can be evaluated.
-
-    This function takes into account:
-        1. periodic boundary conditions
-        2. repeated internal knots
-
-    """
-    starts  = V.vector_space.starts
-    ends    = V.vector_space.ends
-    nbasis  = V.vector_space.npts
-
-    degrees = V.degree
-    ncells  = V.ncells
-    spans   = [W.spans for W in V.spaces]
-
-    supports = [[k for k in range( nc )
-        if any( s <= i%nb <= e for i in range( span[k]-p, span[k]+1 ) )]
-        for (s,e,p,nb,nc,span) in zip( starts, ends, degrees, nbasis, ncells, spans )]
-
-    return tuple( tuple( np.unique( sup ) ) for sup in supports )
-
-#==============================================================================
-def compute_domain_decomposition( V ):
-    """
-    Determine logical domain local to the process, assuming the global domain
-    is decomposed across processes without any overlapping.
-
-    This information is fundamental for avoiding double-counting when computing
-    integrals over the global domain.
-
-    """
-    # TODO: 1) take into account periodic boundary conditions
-    # TODO: 2) take into account repeated internal knots
-
-    v = V.vector_space
-
-    if v.parallel: 
-        coords = v.cart.coords
-        nprocs = v.cart.nprocs
-    else:
-        coords = tuple( [0]*v.ndim )
-        nprocs = tuple( [1]*v.ndim )
-
-    iterator = lambda: zip( v.starts, v.ends, v.pads, coords, nprocs ) 
-
-    element_starts = [(s   if c == 0    else s-p+1) for s,e,p,c,np in iterator()]
-    element_ends   = [(e-p if c == np-1 else e-p+1) for s,e,p,c,np in iterator()]
-    
-    return element_starts, element_ends
-
-#==============================================================================
-def assemble_matrices( V, kernel, debug=False ):
+def assemble_matrices( V, kernel ):
     """
     Assemble mass and stiffness matrices using 2D stencil format.
 
@@ -221,7 +164,7 @@ def assemble_matrices( V, kernel, debug=False ):
     mat_s = np.zeros( (p1+1, p2+1, 2*p1+1, 2*p2+1) ) # stiffness
 
     # Element range
-    support1, support2 = compute_basis_support( V )
+    support1, support2 = V.local_support
 
     # Cycle over elements
     for k1 in support1:
@@ -295,7 +238,7 @@ def assemble_rhs( V, f ):
     rhs = StencilVector( V.vector_space )
 
     # Element range
-    support1, support2 = compute_basis_support( V )
+    support1, support2 = V.local_support
 
     # Build RHS
     for k1 in support1:
@@ -367,7 +310,7 @@ def integral( V, f ):
     [weights_1, weights_2] = [W.quad_weights for W in V.spaces]
 
     # Element range
-    (sk1,sk2), (ek1,ek2) = compute_domain_decomposition( V )
+    (sk1,sk2), (ek1,ek2) = V.local_domain
 
     c = 0.0
     for k1 in range(sk1, ek1+1):
@@ -461,7 +404,7 @@ if __name__ == '__main__':
 
     # Build mass and stiffness matrices
     t0 = time()
-    mass, stiffness = assemble_matrices( V, kernel, debug=False )
+    mass, stiffness = assemble_matrices( V, kernel )
     t1 = time()
     timing['assembly'] = t1-t0
 
