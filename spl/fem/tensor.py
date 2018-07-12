@@ -227,7 +227,7 @@ class TensorFemSpace( FemSpace ):
         """
         return self._element_starts, self._element_ends
 
-    @property
+    # ...
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
