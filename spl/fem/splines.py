@@ -86,7 +86,7 @@ class SplineSpace( FemSpace ):
         self._vector_space = StencilVectorSpace( [self.nbasis], [self.degree], [periodic] )
         self._fields = {}
 
-        self._spans        = None
+        self._spans        = elements_spans( knots, degree )
         self._quad_order   = None
         self._quad_basis   = None
         self._quad_points  = None
@@ -116,16 +116,11 @@ class SplineSpace( FemSpace ):
         ne   = self.ncells      # number of cells in domain (ne=len(grid)-1)
         k    = quad_order or p  # polynomial order for which the mass matrix is exact
 
-        # compute spans
-        spans = elements_spans( T, p )
-
         # gauss-legendre quadrature rule
         u, w = gauss_legendre( k )
         points, weights = quadrature_grid( self.breaks, u, w )
-
         basis = basis_ders_on_quad_grid( T, p, points, nderiv )
 
-        self._spans        = spans
         self._quad_order   = len( u )
         self._quad_basis   = basis
         self._quad_points  = points
