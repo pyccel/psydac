@@ -333,7 +333,7 @@ class SplineSpace( FemSpace ):
             p = self.degree
             o = self.degree // 2
             c[o:n+o] = self._splu.solve( values )
-            c[:o]      = c[n:n+o]
+            c[0:o]     = c[n:n+o]
             c[n+o:n+p] = c[o:p]
 
         else:
