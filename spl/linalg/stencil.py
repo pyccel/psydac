@@ -17,17 +17,20 @@ class StencilVectorSpace( VectorSpace ):
     Vector space for n-dimensional stencil format. Two different initializations
     are possible:
 
-    - serial  : StencilVectorSpace( npts, pads, dtype=float )
+    - serial  : StencilVectorSpace( npts, pads, periods, dtype=float )
     - parallel: StencilVectorSpace( cart, dtype=float )
 
     Parameters
     ----------
-    npts : tuple-like
+    npts : tuple-like (int)
         Number of entries along each direction
         (= global dimensions of vector space).
 
-    pads : tuple-like
+    pads : tuple-like (int)
         Padding p along each direction (number of diagonals is 2*p+1).
+
+    periods : tuple-like (bool)
+        Periodicity along each direction.
 
     dtype : type
         Type of scalar entries.
@@ -707,7 +710,7 @@ class StencilMatrix( LinearOperator ):
 
     #...
     def copy( self ):
-        M = Matrix( self.domain, self.codomain )
+        M = StencilMatrix( self.domain, self.codomain )
         M._data[:] = self._data[:]
         return M
 
