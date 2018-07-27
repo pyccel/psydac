@@ -14,7 +14,7 @@ def test_pcg(n, p):
         Dimension of linear system (number of rows = number of columns).
 
     """
-    from spl.linalg.solvers import pcg
+    from spl.linalg.iterative_solvers import pcg
     from spl.linalg.stencil import StencilVectorSpace, StencilMatrix, StencilVector
     #---------------------------------------------------------------------------
     # PARAMETERS

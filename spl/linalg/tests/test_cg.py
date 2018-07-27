@@ -14,7 +14,7 @@ def test_cg_tridiagonal( n ):
         Dimension of linear system (number of rows = number of columns).
 
     """
-    from spl.linalg.solvers import cg
+    from spl.linalg.iterative_solvers import cg
 
     #---------------------------------------------------------------------------
     # PARAMETERS

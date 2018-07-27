@@ -1,9 +1,9 @@
 # coding: utf-8
 import numpy as np
 
-from spl.utilities.quadratures import gauss_legendre
-from spl.linalg.stencil        import StencilVector, StencilMatrix
-from spl.linalg.solvers        import cg
+from spl.utilities.quadratures      import gauss_legendre
+from spl.linalg.stencil             import StencilVector, StencilMatrix
+from spl.linalg.iterative_solvers   import cg
 
 #==============================================================================
 class Poisson1D:
