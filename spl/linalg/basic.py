@@ -1,11 +1,11 @@
 # coding: utf-8
 #
-# Copyright 2018 Yaman Güçlü
+# Copyright 2018 Yaman Güçlü, Jalal Lakhlili
 
 from abc   import ABCMeta, abstractmethod
 from numpy import ndarray
 
-__all__ = ['VectorSpace', 'Vector', 'LinearOperator']
+__all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'LinearSolver']
 
 #===============================================================================
 class VectorSpace( metaclass=ABCMeta ):
@@ -118,6 +118,29 @@ class LinearOperator( metaclass=ABCMeta ):
         pass
 
 LinearOperator.register( ndarray )
+
+#===============================================================================
+class LinearSolver( metaclass=ABCMeta ):
+    """
+    Solver for square linear system Ax=b, where x and b belong to (normed)
+    vector space V.
+
+    """
+    @property
+    def shape( self ):
+        return (self.space.dimension, self.space.dimension)
+
+    #-------------------------------------
+    # Deferred methods
+    #-------------------------------------
+    @property
+    @abstractmethod
+    def space( self ):
+        pass
+
+    @abstractmethod
+    def solve( self, rhs, out=None ):
+        pass
 
 #===============================================================================
 del ABCMeta, abstractmethod, ndarray
