@@ -1,13 +1,13 @@
 # coding: utf-8
+# Copyright 2018 Ahmed Ratnani, Yaman Güçlü
 
 import numpy as np
-from scipy.linalg        import solve_banded
-from scipy.sparse        import csc_matrix, csr_matrix, dia_matrix
-from scipy.sparse.linalg import splu
+from scipy.sparse import csc_matrix, csr_matrix, dia_matrix
 
-from spl.linalg.stencil import StencilVectorSpace
-from spl.fem.basic      import FemSpace, FemField
-from spl.core.bsplines  import (
+from spl.linalg.stencil        import StencilVectorSpace
+from spl.linalg.direct_solvers import BandedSolver, SparseSolver
+from spl.fem.basic             import FemSpace, FemField
+from spl.core.bsplines         import (
         find_span,
         basis_funs,
         collocation_matrix,
@@ -143,8 +143,7 @@ class SplineSpace( FemSpace ):
 
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
-            self._splu = splu( csc_matrix( imat ) )
-
+            self._interpolator = SparseSolver( csc_matrix( imat ) )
         else:
             # Convert to LAPACK banded format
             dmat = dia_matrix( imat )
@@ -152,13 +151,9 @@ class SplineSpace( FemSpace ):
             u =      dmat.offsets.max()
             cmat = csr_matrix( dmat )
             bmat = np.zeros( (1+u+l, cmat.shape[1]) )
-
             for i,j in zip( *cmat.nonzero() ):
                 bmat[u+i-j,j] = cmat[i,j]
-
-            self._u    = u
-            self._l    = l
-            self._bmat = bmat
+            self._interpolator = BandedSolver( u, l, bmat )
 
         # Store flag
         self._collocation_ready = True
@@ -332,12 +327,11 @@ class SplineSpace( FemSpace ):
         if self.periodic:
             p = self.degree
             o = self.degree // 2
-            c[o:n+o] = self._splu.solve( values )
+            c[o:n+o]   = self._interpolator.solve( values )
             c[0:o]     = c[n:n+o]
             c[n+o:n+p] = c[o:p]
-
         else:
-            c[0:n] = solve_banded( (self._l,self._u), self._bmat, values )
+            c[0:n] = self._interpolator.solve( values )
 
         c.update_ghost_regions()
 
