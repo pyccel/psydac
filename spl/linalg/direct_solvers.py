@@ -1,11 +1,15 @@
 # coding: utf-8
+# Copyright 2018 Jalal Lakhlili, Yaman Güçlü
+
 from abc                 import abstractmethod
 from numpy               import ndarray
+from scipy.linalg        import solve_banded
+from scipy.sparse        import spmatrix
 from scipy.sparse.linalg import splu
-from spl.linalg.basic    import LinearSolver
+
+from spl.linalg.basic import LinearSolver
 
 __all__ = ['DirectSolver','BandedSolver', 'SparseSolver']
-
 
 #===============================================================================
 class DirectSolver( LinearSolver ):
@@ -42,7 +46,6 @@ class BandedSolver ( DirectSolver ):
     bmat : nd-array
         Banded matrix.
 
-
     """
     def __init__( self, u, l, bmat ):
 
@@ -66,13 +69,14 @@ class BandedSolver ( DirectSolver ):
 
         assert rhs.shape[0] == self._bmat.shape[1]
 
-        if out is not None:
+        if out is None:
             out = solve_banded( (self._l, self._u), self._bmat, rhs )
 
         else :
             assert out.shape == rhs.shape
-
             out[:] = solve_banded( (self._l, self._u), self._bmat, rhs )
+
+        return out
 
 #===============================================================================
 class SparseSolver ( DirectSolver ):
@@ -85,14 +89,12 @@ class SparseSolver ( DirectSolver ):
         Generic sparse matrix.
 
     """
-
     def __init__( self, spmat ):
 
-        assert isinstance(spmat, scipy.sparse.spmatrix)
+        assert isinstance( spmat, spmatrix )
 
         self._space = ndarray
-
-        self._splu = splu(spmat.tocsc())
+        self._splu  = splu( spmat.tocsc() )
 
     #--------------------------------------
     # Abstract interface
@@ -104,14 +106,15 @@ class SparseSolver ( DirectSolver ):
     #...
     def solve( self, rhs, out=None ):
 
-        assert rhs.shape[0] == self._bmat.shape[1]
+        assert rhs.shape[0] == self._splu.shape[1]
 
-        if out is not None:
+        if out is None:
             out = self._splu.solve( rhs )
 
-        else :
+        else:
             assert out.shape == rhs.shape
-
             out[:] = self._splu.solve( rhs )
+
+        return out
 
 #===============================================================================
