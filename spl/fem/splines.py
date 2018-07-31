@@ -324,15 +324,7 @@ class SplineSpace( FemSpace ):
         n = self.nbasis
         c = field.coeffs
 
-        if self.periodic:
-            p = self.degree
-            o = self.degree // 2
-            c[o:n+o]   = self._interpolator.solve( values )
-            c[0:o]     = c[n:n+o]
-            c[n+o:n+p] = c[o:p]
-        else:
-            c[0:n] = self._interpolator.solve( values )
-
+        c[0:n] = self._interpolator.solve( values )
         c.update_ghost_regions()
 
     # ...
