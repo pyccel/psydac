@@ -278,10 +278,6 @@ def collocation_matrix( knots, degree, xgrid, periodic ):
     Compute the collocation matrix $C_ij = B_j(x_i)$, which contains the
     values of each B-spline basis function $B_j$ at all locations $x_i$.
 
-    If the domain is periodic, the index j is shifted by an offset=p//2,
-    i.e. $C_ij = B_{j+p//2}(x_i)$, in order to neglect the first p basis
-    functions that are repeated by periodicity at the end of the domain.
-
     Parameters
     ----------
     knots : 1D array_like
@@ -313,25 +309,17 @@ def collocation_matrix( knots, degree, xgrid, periodic ):
     # Collocation matrix as 2D Numpy array (dense storage)
     mat = np.zeros( (nx,nb) )
 
-    # Fill in non-zero matrix values, with different numbering of basis
-    # functions between periodic and non-periodic cases
+    # Indexing of basis functions (periodic or not) for a given span
     if periodic:
-
-        offset = degree // 2
-        for i,x in enumerate(xgrid):
-            span  =  find_span( knots, degree, x )
-            basis = basis_funs( knots, degree, x, span )
-            jmin  = span - degree - offset
-            for s,val in enumerate(basis):
-                j = (jmin+s) % nb
-                mat[i,j] = val
-
+        js = lambda span: [(span-degree+s) % nb for s in range( degree+1 )]
     else:
+        js = lambda span: slice( span-degree, span+1 )
 
-        for i,x in enumerate(xgrid):
-            span  =  find_span( knots, degree, x )
-            basis = basis_funs( knots, degree, x, span )
-            mat[i,span-degree:span+1] = basis
+    # Fill in non-zero matrix values
+    for i,x in enumerate( xgrid ):
+        span  =  find_span( knots, degree, x )
+        basis = basis_funs( knots, degree, x, span )
+        mat[i,js(span)] = basis
 
     return mat
 
