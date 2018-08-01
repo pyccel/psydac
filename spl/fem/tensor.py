@@ -9,6 +9,7 @@ from mpi4py import MPI
 import numpy as np
 
 from spl.linalg.stencil import StencilVectorSpace
+from spl.linalg.kron    import kronecker_solve_2d_par
 from spl.fem.basic      import FemSpace, FemField
 from spl.fem.splines    import SplineSpace
 from spl.ddm.cart       import Cart
@@ -76,6 +77,9 @@ class TensorFemSpace( FemSpace ):
 
         # Create (empty) dictionary that will contain all fields in this space
         self._fields = {}
+
+        # Store flag: object NOT YET prepared for interpolation
+        self._collocation_ready = False
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -226,6 +230,52 @@ class TensorFemSpace( FemSpace ):
 
         """
         return self._element_starts, self._element_ends
+
+    # ...
+    def init_collocation( self ):
+        for space in self.spaces:
+            # TODO: check if OK to access private attribute...
+            if not space._collocation_ready:
+                space.init_collocation()
+
+    # ...
+    def compute_interpolant( self, values, field ):
+        """
+        Compute field (i.e. update its spline coefficients) such that it
+        interpolates a certain function $f(x1,x2,..)$ at the Greville points.
+
+        Parameters
+        ----------
+        values : StencilVector
+            Function values $f(x_i)$ at the n-dimensional tensor grid of
+            Greville points $x_i$, to be interpolated.
+
+        field : FemField
+            Input/output argument: tensor spline that has to interpolate the given
+            values.
+
+        """
+        assert values.space is self.vector_space
+        assert isinstance( field, FemField )
+        assert field.space is self
+
+        if not self._collocation_ready:
+            self.init_collocation()
+
+        # TODO: check if OK to access private attribute...
+        solvers = [V._interpolator for V in self.spaces]
+
+        # TODO: should also work in 3D
+        if not self.ldim == 2:
+            raise NotImplementedError( "Kronecker solver only works on 2D domains." )
+
+        # TODO: should also work in serial case
+        if not self.vector_space.parallel:
+            raise NotImplementedError( "Kronecker solver only works in parallel." )
+
+        kronecker_solve_2d_par( *solvers, rhs=values, out=field.coeffs )
+
+        field.coeffs.update_ghost_regions()
 
     # ...
     def __str__(self):
