@@ -1,4 +1,5 @@
 #coding = utf-8
+import numpy as np
 
 from spl.linalg.basic   import LinearOperator
 from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
