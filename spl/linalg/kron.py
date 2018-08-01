@@ -1,7 +1,7 @@
 #coding = utf-8
 import numpy as np
 
-from spl.linalg.basic   import LinearOperator
+from spl.linalg.basic   import LinearOperator, LinearSolver
 from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 
 __all__ = ['KroneckerStencilMatrix_2D', 'kronecker_solve_2d_par']
@@ -114,22 +114,25 @@ class KroneckerStencilMatrix_2D( LinearOperator ):
         return M
 
 #==============================================================================
-def kronecker_solve_2d_par( solve1, solve2, rhs, out=None ):
+def kronecker_solve_2d_par( A1, A2, rhs, out=None ):
     """
     Solve linear system Ax=b with A=kron(A2,A1).
 
     Parameters
     ----------
-    solve1 : callable
-        Solve linear system A1 x1 = b1: x1=solve1(b1).
+    A1 : LinearSolver
+        Solve linear system A1 x1 = b1: x1=A1.solve(b1).
 
-    solve2 : callable
-        Solve linear system A2 x2 = b2: x2=solve2(b2).
+    A2 : LinearSolver
+        Solve linear system A2 x2 = b2: x2=A2.solve(b2).
 
     rhs : StencilVector 2D
         Right hand side vector of linear system Ax=b.
 
     """
+    assert isinstance( A1 , LinearSolver  )
+    assert isinstance( A2 , LinearSolver  )
+    assert isinstance( rhs, StencilVector )
 
     if out is not None:
         assert isinstance( out, StencilVector )
@@ -161,12 +164,12 @@ def kronecker_solve_2d_par( solve1, solve2, rhs, out=None ):
     for i2 in range(e2-s2+1):
         Y_loc = rhs[s1:e1+1, s2+i2].copy()
         subcomm_1.Allgatherv( Y_loc, Y_glob_1 )
-        Ytmp_glob_1[:,i2] = solve1( Y_glob_1 )
+        Ytmp_glob_1[:,i2] = A1.solve( Y_glob_1 )
 
     for i1 in range(e1-s1+1):
         Ytmp_loc = Ytmp_glob_1[s1+i1, 0:e2+1-s2].copy()
         subcomm_2.Allgatherv( Ytmp_loc, Ytmp_glob_2 )
-        X_glob_2[i1,:] = solve2( Ytmp_glob_2 )
+        X_glob_2[i1,:] = A2.solve( Ytmp_glob_2 )
 
     out[s1:e1+1,s2:e2+1] = X_glob_2[:, s2:e2+1]
 
