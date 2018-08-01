@@ -142,7 +142,6 @@ def kronecker_solve_2d_par( A1, A2, rhs, out=None ):
 
     # ...
     V = rhs.space
-    X = StencilVector( V )
 
     s1, s2 = V.starts
     e1, e2 = V.ends
@@ -150,6 +149,15 @@ def kronecker_solve_2d_par( A1, A2, rhs, out=None ):
 
     subcomm_1 = V.cart.subcomm[0]
     subcomm_2 = V.cart.subcomm[1]
+
+    disps1 = V.cart.global_starts[0]
+    disps2 = V.cart.global_starts[1]
+
+    sizes1 = V.cart.global_ends[0] - V.cart.global_starts[0] + 1
+    sizes2 = V.cart.global_ends[1] - V.cart.global_starts[1] + 1
+
+    # TODO: make MPI type available through property
+    mpi_type = V._mpi_type
     # ...
 
     # ...
@@ -163,12 +171,12 @@ def kronecker_solve_2d_par( A1, A2, rhs, out=None ):
 
     for i2 in range(e2-s2+1):
         Y_loc = rhs[s1:e1+1, s2+i2].copy()
-        subcomm_1.Allgatherv( Y_loc, Y_glob_1 )
+        subcomm_1.Allgatherv( Y_loc, [Y_glob_1, sizes1, disps1, mpi_type] )
         Ytmp_glob_1[:,i2] = A1.solve( Y_glob_1 )
 
     for i1 in range(e1-s1+1):
         Ytmp_loc = Ytmp_glob_1[s1+i1, 0:e2+1-s2].copy()
-        subcomm_2.Allgatherv( Ytmp_loc, Ytmp_glob_2 )
+        subcomm_2.Allgatherv( Ytmp_loc, [Ytmp_glob_2, sizes2, disps2, mpi_type] )
         X_glob_2[i1,:] = A2.solve( Ytmp_glob_2 )
 
     out[s1:e1+1,s2:e2+1] = X_glob_2[:, s2:e2+1]
