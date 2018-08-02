@@ -76,6 +76,63 @@ def test_SplineInterpolation1D_cosine( ncells, degree, periodic ):
 
     assert max_norm_err < err_bound
 
+#===================================================================================
+# TODO: move function to TensorFemSpace method
+# TODO: generalize to any number of dimensions
+#---------------------------------------------
+def integral( V, f ):
+    """
+    Compute integral over domain of $f(x1,x2)$ using Gaussian quadrature.
+
+    Parameters
+    ----------
+    V : TensorFemSpace
+        Finite element space that defines the quadrature rule.
+        (normally the quadrature is exact for any element of this space).
+
+    f : callable
+        Scalar function of location $(x1,x2)$.
+
+    Returns
+    -------
+    c : float
+        Integral of $f$ over domain.
+
+    """
+    # Sizes
+    [s1, s2] = V.vector_space.starts
+    [e1, e2] = V.vector_space.ends
+    [p1, p2] = V.vector_space.pads
+
+    # Quadrature data
+    [      nq1,       nq2] = [W.quad_order   for W in V.spaces]
+    [ points_1,  points_2] = [W.quad_points  for W in V.spaces]
+    [weights_1, weights_2] = [W.quad_weights for W in V.spaces]
+
+    # Element range
+    (sk1,sk2), (ek1,ek2) = V.local_domain
+
+    c = 0.0
+    for k1 in range(sk1, ek1+1):
+        for k2 in range(sk2, ek2+1):
+
+            x1 =  points_1[k1,:]
+            w1 = weights_1[k1,:]
+
+            x2 =  points_2[k2,:]
+            w2 = weights_2[k2,:]
+
+            for q1 in range( nq1 ):
+                for q2 in range( nq2 ):
+                    c += f( x1[q1], x2[q2] ) * w1[q1] * w2[q2]
+
+    # All reduce (MPI_SUM)
+    # TODO: verify that it is OK to access private attribute
+    mpi_comm = V.vector_space.cart._comm
+    c = mpi_comm.allreduce( c )
+
+    return c
+
 #===============================================================================
 @pytest.mark.parallel
 @pytest.mark.parametrize( "nc1", [5,10,23] )
@@ -83,7 +140,7 @@ def test_SplineInterpolation1D_cosine( ncells, degree, periodic ):
 @pytest.mark.parametrize( "deg1", range(1,5) )
 @pytest.mark.parametrize( "deg2", range(1,5) )
 
-def test_SplineInterpolation2D_exact( nc1, nc2, deg1, deg2 ):
+def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
 
     domain1   = [-1.0, 0.8]
     periodic1 = False
@@ -125,11 +182,13 @@ def test_SplineInterpolation2D_exact( nc1, nc2, deg1, deg2 ):
     # Compute 2D spline interpolant
     tensor_space.compute_interpolant( ug, tensor_field )
 
-    # TODO: Evaluate field on fine grid local to process, and check max error
+    # Prepare FEM usage of splines (quadrature, etc.)
+    for space in tensor_space.spaces: space.init_fem()
 
-#    x1t = np.linspace( *domain1, num=100 )
-#    x2t = np.linspace( *domain2, num=100 )
-#    err = tensor_field.eval( x1t, x2t ) - f( *np.meshgrid( x1t, x2t, indexing='ij' ) )
-#
-#    max_norm_err = np.max( abs( err ) )
-#    assert max_norm_err < 2.0e-14
+    # Compute L2 norm of error
+    integrand = lambda *x: (tensor_field(*x) - f(*x))**2
+    l2_error  = np.sqrt( integral( tensor_space, integrand ) )
+    print( 'l2_error = {:.2e}'.format( l2_error ) )
+
+    # Verify that error is only caused by finite precision arithmetic
+    assert l2_error < 1.0e-14
