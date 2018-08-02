@@ -7,9 +7,9 @@ from scipy.linalg        import solve_banded
 from scipy.sparse        import spmatrix
 from scipy.sparse.linalg import splu
 
-from spl.linalg.basic import LinearSolver
+from spl.linalg.basic    import LinearSolver
 
-__all__ = ['DirectSolver','BandedSolver', 'SparseSolver']
+__all__ = ['DirectSolver', 'BandedSolver', 'SparseSolver']
 
 #===============================================================================
 class DirectSolver( LinearSolver ):
@@ -118,3 +118,5 @@ class SparseSolver ( DirectSolver ):
         return out
 
 #===============================================================================
+
+
