@@ -181,4 +181,8 @@ def kronecker_solve_2d_par( A1, A2, rhs, out=None ):
 
     out[s1:e1+1,s2:e2+1] = X_glob_2[:, s2:e2+1]
 
+    # ...
+    out.update_ghost_regions()
+    # ...
+
     return out

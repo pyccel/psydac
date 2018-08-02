@@ -275,8 +275,6 @@ class TensorFemSpace( FemSpace ):
 
         kronecker_solve_2d_par( *solvers, rhs=values, out=field.coeffs )
 
-        field.coeffs.update_ghost_regions()
-
     # ...
     def __str__(self):
         """Pretty printing"""
