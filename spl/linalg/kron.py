@@ -161,25 +161,24 @@ def kronecker_solve_2d_par( A1, A2, rhs, out=None ):
     # ...
 
     # ...
-    Y_glob_1 = np.zeros((n1))
+    # 2D slices
+    X = rhs[s1:e1+1,s2:e2+1]
+    Y = out[s1:e1+1,s2:e2+1]
 
-    Ytmp_glob_1 = np.zeros((n1, e2-s2+1))
-    Ytmp_glob_2 = np.zeros((n2))
-
-    X_glob_2 = np.zeros((e1-s1+1, n2))
+    # 1D global arrays
+    X_glob_1 = np.zeros( n1 )
+    Y_glob_2 = np.zeros( n2 )
     # ...
 
     for i2 in range(e2-s2+1):
-        Y_loc = rhs[s1:e1+1, s2+i2].copy()
-        subcomm_1.Allgatherv( Y_loc, [Y_glob_1, sizes1, disps1, mpi_type] )
-        Ytmp_glob_1[:,i2] = A1.solve( Y_glob_1 )
+        X_loc = X[:,i2].copy()  # need 1D contiguous copy
+        subcomm_1.Allgatherv( X_loc, [X_glob_1, sizes1, disps1, mpi_type] )
+        Y[:,i2] = A1.solve( X_glob_1 )[s1:e1+1]
 
     for i1 in range(e1-s1+1):
-        Ytmp_loc = Ytmp_glob_1[s1+i1, 0:e2+1-s2].copy()
-        subcomm_2.Allgatherv( Ytmp_loc, [Ytmp_glob_2, sizes2, disps2, mpi_type] )
-        X_glob_2[i1,:] = A2.solve( Ytmp_glob_2 )
-
-    out[s1:e1+1,s2:e2+1] = X_glob_2[:, s2:e2+1]
+        Y_loc = Y[i1,:]  # 1D contiguous slice
+        subcomm_2.Allgatherv( Y_loc, [Y_glob_2, sizes2, disps2, mpi_type] )
+        Y[i1,:] = A2.solve( Y_glob_2 )[s2:e2+1]
 
     # ...
     out.update_ghost_regions()
