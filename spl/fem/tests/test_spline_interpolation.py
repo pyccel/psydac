@@ -134,6 +134,8 @@ def integral( V, f ):
     return c
 
 #===============================================================================
+@pytest.mark.xfail
+
 @pytest.mark.parallel
 @pytest.mark.parametrize( "nc1", [5,10,23] )
 @pytest.mark.parametrize( "nc2", [5,10,23] )
