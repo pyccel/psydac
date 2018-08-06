@@ -19,7 +19,7 @@ class Poisson2D:
         from sympy import symbols, sin, cos, pi, lambdify
         x,y = symbols('x y')
 #        phi_e = sin( 2*pi*x ) * sin( 2*pi*y )
-        phi_e = cos( 2*pi*x ) * sin( pi*y )
+        phi_e = cos( 2*pi*(x+0.1) ) * sin( pi*y ) * y
         rho_e = -phi_e.diff(x,2)-phi_e.diff(y,2)
         self._phi = lambdify( [x,y], phi_e )
         self._rho = lambdify( [x,y], rho_e )
