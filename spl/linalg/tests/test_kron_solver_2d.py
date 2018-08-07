@@ -1,15 +1,15 @@
 # -*- coding: UTF-8 -*-
 
 import pytest
-import numpy as np
-from mpi4py             import MPI
-from spl.ddm.cart       import Cart
 import time
-from scipy.sparse import csc_matrix, kron
-from scipy.sparse.linalg import splu
-from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from spl.linalg.kron    import KroneckerStencilMatrix_2D, kronecker_solve_2d_par
-from spl.linalg.direct_solvers import SparseSolver
+import numpy as np
+from mpi4py                     import MPI
+from spl.ddm.cart               import Cart
+from scipy.sparse               import csc_matrix, kron
+from scipy.sparse.linalg        import splu
+from spl.linalg.stencil         import StencilVectorSpace, StencilVector, StencilMatrix
+from spl.linalg.kron            import kronecker_solve_2d_par
+from spl.linalg.direct_solvers  import SparseSolver
 
 # ... return X, solution of (A1 kron A2)X = Y
 def kron_solve_seq_ref(A1, A2, Y):
@@ -31,13 +31,13 @@ def kron_solve_seq_ref(A1, A2, Y):
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'p2', [1,2,3] )
 @pytest.mark.parallel
-def test_kron_solver_2d_par( n1, n2, p1, p2, P1=True, P2=False ):
+def test_kron_solver_2d_par( n1, n2, p1, p2, P1=False, P2=False ):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # ... 2D MPI cart
-    cart = Cart(npts = [n1, n2], pads = [p1, p2], periods = [False, False],\
+    cart = Cart(npts = [n1, n2], pads = [p1, p2], periods = [P1, P2],\
                 reorder = True, comm = comm)
 
     # ...
@@ -59,8 +59,8 @@ def test_kron_solver_2d_par( n1, n2, p1, p2, P1=True, P2=False ):
     mpi_type = V._mpi_type
     # ...
 
-    V1 = StencilVectorSpace([n1], [p1], [False])
-    V2 = StencilVectorSpace([n2], [p2], [False])
+    V1 = StencilVectorSpace([n1], [p1], [P1])
+    V2 = StencilVectorSpace([n2], [p2], [P2])
 
     # ... Matrices and Direct solvers
     A1 = StencilMatrix(V1, V1)
