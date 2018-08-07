@@ -212,6 +212,29 @@ class SplineSpace( FemSpace ):
 
         raise NotImplementedError()
 
+    # ...
+    # Identity mapping assumed for now
+    # TODO: take into account Jacobian determinant of mapping
+    def integral( self, f ):
+
+        assert hasattr( f, '__call__' )
+
+        if self.quad_basis is None: self.init_fem()
+
+        nk      = self.ncells
+        nq      = self.quad_order
+        points  = self.quad_points
+        weights = self.quad_weights
+
+        c = 0.0
+        for k in range( nk ):
+            x =  points[k,:]
+            w = weights[k,:]
+            for q in range( nq ):
+                c += f( x[q] ) * w[q]
+
+        return c
+
     #--------------------------------------------------------------------------
     # Other properties
     #--------------------------------------------------------------------------

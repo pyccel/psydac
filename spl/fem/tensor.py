@@ -7,6 +7,7 @@ of compact support
 """
 from mpi4py import MPI
 import numpy as np
+import itertools
 
 from spl.linalg.stencil import StencilVectorSpace
 from spl.linalg.kron    import kronecker_solve_2d_par
@@ -165,6 +166,50 @@ class TensorFemSpace( FemSpace ):
 
         raise NotImplementedError()
 
+    # ...
+    def integral( self, f ):
+
+        assert hasattr( f, '__call__' )
+
+        # Compute quadrature data
+        self.init_fem()
+
+        # Extract and store quadrature data
+        nq      = [V.quad_order   for V in self.spaces]
+        points  = [V.quad_points  for V in self.spaces]
+        weights = [V.quad_weights for V in self.spaces]
+
+        # Get element range
+        sk, ek  = self.local_domain
+
+        # Prepare multi-dimensional iterators
+        k_range = itertools.product( *[range(sk_i,ek_i+1) for sk_i,ek_i in zip(sk,ek)] )
+        q_range = itertools.product( *[range(nq_i)        for nq_i      in nq        ] )
+
+        # Shortcut: Numpy product
+        np_prod = np.prod
+
+        # Perform Gaussian quadrature in multiple dimensions
+        c = 0.0
+        for k in k_range:
+
+            x = [ points_i[k_i,:] for  points_i,k_i in zip( points,k)]
+            w = [weights_i[k_i,:] for weights_i,k_i in zip(weights,k)]
+
+            for q in q_range:
+
+                y  = [x_i[q_i] for x_i,q_i in zip(x,q)]
+                v  = [w_i[q_i] for w_i,q_i in zip(w,q)]
+                c += f(*y) * np_prod( v )
+
+        # All reduce (MPI_SUM)
+        # TODO: verify that it is OK to access private attribute
+        if self.vector_space.parallel:
+            mpi_comm = self.vector_space.cart._comm
+            c = mpi_comm.allreduce( c )
+
+        return c
+
     #--------------------------------------------------------------------------
     # Other properties and methods
     #--------------------------------------------------------------------------
@@ -232,11 +277,17 @@ class TensorFemSpace( FemSpace ):
         return self._element_starts, self._element_ends
 
     # ...
+    def init_fem( self ):
+        for V in self.spaces:
+            if V.quad_basis is None:
+                V.init_fem()
+
+    # ...
     def init_collocation( self ):
-        for space in self.spaces:
+        for V in self.spaces:
             # TODO: check if OK to access private attribute...
-            if not space._collocation_ready:
-                space.init_collocation()
+            if not V._collocation_ready:
+                V.init_collocation()
 
     # ...
     def compute_interpolant( self, values, field ):

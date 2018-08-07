@@ -209,78 +209,6 @@ def assemble_rhs( V, f ):
 
     return rhs
 
-#===================================================================================
-def integral( V, f ):
-    """
-    Compute integral over domain of $f(x)$ using Gaussian quadrature.
-
-    Parameters
-    ----------
-    V : SplineSpace
-        Finite element space that defines the quadrature rule.
-        (normally the quadrature is exact for any element of this space).
-
-    f : callable
-        Scalar function of location $x$.
-
-    Returns
-    -------
-    c : float
-        Integral of $f$ over domain.
-
-    """
-    # Sizes
-    [s1] = V.vector_space.starts
-    [e1] = V.vector_space.ends
-    [p1] = V.vector_space.pads
-
-    # Quadrature data
-    k1        = V.quad_order
-    points_1  = V.quad_points
-    weights_1 = V.quad_weights
-
-    c = 0.0
-    for ie1 in range(s1, e1+1-p1):
-
-        x1 =  points_1[ie1,:]
-        w1 = weights_1[ie1,:]
-
-        for g1 in range(k1):
-            c+= f( x1[g1] ) * w1[g1]
-
-    return c
-
-#===================================================================================
-def error_norm( V, phi, phi_ex, order=2 ):
-    """
-    Compute Lp norm of error using Gaussian quadrature.
-
-    Parameters
-    ----------
-    V : SplineSpace
-        Finite element space to which the numerical solution belongs.
-
-    phi : FemField
-        Numerical solution; 1D Spline that can be evaluated at location $x$.
-
-    phi_ex : callable
-        Exact solution; scalar function of location $x$.
-
-    order : int
-        Order of the norm (default: 2).
-
-    Returns
-    -------
-    norm : float
-        Lp norm of error.
-
-    """
-    f = lambda x: abs(phi(x)-phi_ex(x))**order
-
-    norm = integral( V, f )**(1/order)
-
-    return norm
-
 ####################################################################################
 if __name__ == '__main__':
 
@@ -334,7 +262,7 @@ if __name__ == '__main__':
 
     # Compute L2 norm of error
     t0 = time()
-    e2 = error_norm( V, phi, model.phi, order=2 )
+    e2 = np.sqrt( V.integral( lambda x: (phi(x)-model.phi(x))**2 ) )
     t1 = time()
     timing['diagnostics'] = t1-t0
 
