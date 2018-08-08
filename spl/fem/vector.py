@@ -94,6 +94,13 @@ class VectorFemSpace( FemSpace ):
 
         raise NotImplementedError( "VectorFemSpace not yet operational" )
 
+    # ...
+    def integral( self, f ):
+
+        assert hasattr( f, '__call__' )
+
+        raise NotImplementedError( "VectorFemSpace not yet operational" )
+
     #--------------------------------------------------------------------------
     # Other properties and methods
     #--------------------------------------------------------------------------
