@@ -182,24 +182,25 @@ class TensorFemSpace( FemSpace ):
         # Get element range
         sk, ek  = self.local_domain
 
-        # Prepare multi-dimensional iterators
-        k_range = itertools.product( *[range(sk_i,ek_i+1) for sk_i,ek_i in zip(sk,ek)] )
-        q_range = itertools.product( *[range(nq_i)        for nq_i      in nq        ] )
+        # Iterator over multi-index k (equivalent to nested loops over each dimension)
+        multi_range = lambda starts, ends: \
+                itertools.product( *[range(s,e+1) for s,e in zip(starts,ends)] )
 
-        # Shortcut: Numpy product
+        # Shortcut: Numpy product of all elements in a list
         np_prod = np.prod
 
         # Perform Gaussian quadrature in multiple dimensions
         c = 0.0
-        for k in k_range:
+        for k in multi_range( sk, ek ):
 
             x = [ points_i[k_i,:] for  points_i,k_i in zip( points,k)]
             w = [weights_i[k_i,:] for weights_i,k_i in zip(weights,k)]
 
-            for q in q_range:
+            for q in np.ndindex( *nq ):
 
                 y  = [x_i[q_i] for x_i,q_i in zip(x,q)]
                 v  = [w_i[q_i] for w_i,q_i in zip(w,q)]
+
                 c += f(*y) * np_prod( v )
 
         # All reduce (MPI_SUM)
