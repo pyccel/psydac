@@ -61,7 +61,7 @@ def test_SplineInterpolation1D_cosine( ncells, degree, periodic ):
 
     f = AnalyticalProfile1D_Cos()
 
-    grid  = random_grid( f.domain, ncells, 0.5 )
+    grid, dx = np.linspace( *f.domain, num=ncells+1, retstep=True )
     space = SplineSpace( degree=degree, grid=grid, periodic=periodic )
     field = FemField( space, 'f' )
 
@@ -73,7 +73,7 @@ def test_SplineInterpolation1D_cosine( ncells, degree, periodic ):
     err = np.array( [field( x ) - f.eval( x ) for x in xt] )
 
     max_norm_err = np.max( abs( err ) )
-    err_bound    = spline_1d_error_bound( f, np.diff( grid ).max(), degree )
+    err_bound    = spline_1d_error_bound( f, dx, degree )
 
     assert max_norm_err < err_bound
 
