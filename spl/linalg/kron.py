@@ -190,7 +190,7 @@ def kronecker_solve_2d_par( A1, A2, rhs, out=None ):
 #==============================================================================
 def kronecker_solve_3d_par( A1, A2, A3, rhs, out=None ):
     """
-    Solve linear system Ax=b with A=kron(A2,A1).
+    Solve linear system Ax=b with A=kron(A3,A2,A1).
 
     Parameters
     ----------
@@ -242,7 +242,7 @@ def kronecker_solve_3d_par( A1, A2, A3, rhs, out=None ):
     # ...
 
     # ...
-    # 2D slices
+    # 3D slices
     X = rhs[s1:e1+1, s2:e2+1, s3:e3+1]
     Y = out[s1:e1+1, s2:e2+1, s3:e3+1]
 
@@ -260,7 +260,7 @@ def kronecker_solve_3d_par( A1, A2, A3, rhs, out=None ):
 
     for i3 in range(e3-s3+1):
         for i1 in range(e1-s1+1):
-            Y_loc = Y[i1, :, i3].copy() # 1D contiguous slice
+            Y_loc = Y[i1, :, i3].copy()  # need 1D contiguous copy
             subcomm_2.Allgatherv( Y_loc, [Y_glob_2, sizes2, disps2, mpi_type] )
             Y[i1, :, i3] = A2.solve( Y_glob_2 )[s2:e2+1]
 
@@ -269,6 +269,7 @@ def kronecker_solve_3d_par( A1, A2, A3, rhs, out=None ):
             Y_loc = Y[i1, i2, :]  # 1D contiguous slice
             subcomm_3.Allgatherv( Y_loc, [Y_glob_3, sizes3, disps3, mpi_type] )
             Y[i1, i2, :] = A3.solve( Y_glob_3 )[s3:e3+1]
+
     # ...
     out.update_ghost_regions()
     # ...
