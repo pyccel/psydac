@@ -10,7 +10,7 @@ import numpy as np
 import itertools
 
 from spl.linalg.stencil import StencilVectorSpace
-from spl.linalg.kron    import kronecker_solve_2d_par
+from spl.linalg.kron    import kronecker_solve
 from spl.fem.basic      import FemSpace, FemField
 from spl.fem.splines    import SplineSpace
 from spl.ddm.cart       import Cart
@@ -314,18 +314,12 @@ class TensorFemSpace( FemSpace ):
         if not self._collocation_ready:
             self.init_collocation()
 
-        # TODO: check if OK to access private attribute...
-        solvers = [V._interpolator for V in self.spaces]
-
-        # TODO: should also work in 3D
-        if not self.ldim == 2:
-            raise NotImplementedError( "Kronecker solver only works on 2D domains." )
-
-        # TODO: should also work in serial case
-        if not self.vector_space.parallel:
-            raise NotImplementedError( "Kronecker solver only works in parallel." )
-
-        kronecker_solve_2d_par( *solvers, rhs=values, out=field.coeffs )
+        # TODO: check if OK to access private attribute '_interpolator' in self.spaces[i]
+        kronecker_solve(
+            solvers = [V._interpolator for V in self.spaces],
+            rhs     = values,
+            out     = field.coeffs,
+        )
 
     # ...
     def __str__(self):
