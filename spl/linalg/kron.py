@@ -4,8 +4,10 @@ import numpy as np
 from spl.linalg.basic   import LinearOperator, LinearSolver
 from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 
-__all__ = ['KroneckerStencilMatrix_2D', \
-           'kronecker_solve_2d_par', 'kronecker_solve_3d_par']
+__all__ = ['KroneckerStencilMatrix_2D',
+           'kronecker_solve_2d_par',
+           'kronecker_solve_3d_par',
+           'kronecker_solve']
 
 #==============================================================================
 class KroneckerStencilMatrix_2D( LinearOperator ):
@@ -276,3 +278,54 @@ def kronecker_solve_3d_par( A1, A2, A3, rhs, out=None ):
 
     return out
 
+#==============================================================================
+def kronecker_solve( solvers, rhs, out=None ):
+    """
+    Solve linear system Ax=b with A=kron( A_n, A_{n-1}, ..., A_2, A_1 ), given
+    $n$ separate linear solvers $L_n$ for the 1D problems $A_n x_n = b_n$:
+
+    x_n = L_n.solve( b_n )
+
+    Parameters
+    ----------
+    solvers : list( LinearSolver )
+        List of linear solvers along each direction: [L_1, L_2, ..., L_n].
+
+    rhs : StencilVector
+        Right hand side vector of linear system Ax=b.
+
+    """
+    assert hasattr( solvers, '__iter__' )
+    for solver in solvers:
+        assert isinstance( solver, LinearSolver  )
+
+    assert isinstance( rhs, StencilVector )
+    assert rhs.space.ndim == len( solvers )
+
+    if out is not None:
+        assert isinstance( out, StencilVector )
+        assert out.space is rhs.space
+    else:
+        out = StencilVector( rhs.space )
+
+    space = rhs.space
+
+    # 1D case
+    # TODO: should also work in parallel
+    if space.ndim == 1:
+        if space.parallel:
+            raise NotImplementedError( "1D Kronecker solver only works in serial." )
+        else:
+            solver[0].solve( rhs, out )
+
+    # 2D/3D cases
+    # TODO: should also work in serial
+    # TODO: should work in any number of dimensions
+    else:
+        if not space.parallel:
+            raise NotImplementedError( "Multi-dimensional Kronecker solver only works in parallel." )
+
+        if   space.ndim == 2: kronecker_solve_2d_par( *solvers, rhs=rhs, out=out )
+        elif space.ndim == 3: kronecker_solve_3d_par( *solvers, rhs=rhs, out=out )
+        else:
+            raise NotImplementedError( "Kronecker solver does not work in more than 3 dimensions." )
