@@ -145,14 +145,14 @@ class SplineSpace( FemSpace ):
             # Convert to CSC format and compute sparse LU decomposition
             self._interpolator = SparseSolver( csc_matrix( imat ) )
         else:
-            # Convert to LAPACK banded format
+            # Convert to LAPACK banded format (see DGBTRF function)
             dmat = dia_matrix( imat )
             l = abs( dmat.offsets.min() )
             u =      dmat.offsets.max()
             cmat = csr_matrix( dmat )
-            bmat = np.zeros( (1+u+l, cmat.shape[1]) )
+            bmat = np.zeros( (1+u+2*l, cmat.shape[1]) )
             for i,j in zip( *cmat.nonzero() ):
-                bmat[u+i-j,j] = cmat[i,j]
+                bmat[u+l+i-j,j] = cmat[i,j]
             self._interpolator = BandedSolver( u, l, bmat )
 
         # Store flag
