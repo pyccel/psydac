@@ -4,7 +4,7 @@
 
 from spl.mapping.analytical import AnalyticalMapping
 
-__all__ = ['Annulus', 'Sphere', 'Target', 'Czarny']
+__all__ = ['Annulus', 'Sphere', 'Target', 'Czarny', 'TwistedTarget', 'Torus']
 
 #==============================================================================
 class Annulus( AnalyticalMapping ):
@@ -44,3 +44,25 @@ class Czarny( AnalyticalMapping ):
                         '(2 - sqrt( 1 + eps*(eps + 2*s*cos(t)) ))']
 
     default_params = dict( y0=0, b=1.4, eps=0.3 )
+
+#==============================================================================
+class TwistedTarget( AnalyticalMapping ):
+
+    eta_symbols = ['s','t']
+    expressions = ['x0 + (1-k)*s*cos(t) - D*s**2',
+                   'y0 + (1+k)*s*sin(t)'         ,
+                   'z0 + c*s**2*sin(2*t)' ]
+
+    # With c=0 and z0=0 surface 3D reduces to Target geometry
+    # With k=0 and D=0 Target geometry reduces to a circle
+    default_params = dict( x0=0, y0=0, z0=0, k=0.3, D=0.2, c=0.5 )
+
+#==============================================================================
+class Torus( AnalyticalMapping ):
+
+    eta_symbols = ['t','p']
+    expressions = ['(R0+a*cos(t))*cos(p)',
+                   '(R0+a*cos(t))*sin(p)',
+                       'a*sin(t)' ]
+
+    default_params = dict( R0=5.0, a=1.0 )
