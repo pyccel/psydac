@@ -3,7 +3,7 @@ Welcome to SPL
 
 |build-devel| |docs|
 
-**SPL** is a Python/Fortran 2003 library for B-Splines/NURBS and Computer Aided Design Algorithms. 
+**SPL** is a Python 3 library for isogeometric analysis. 
 
 Requirements
 ************
