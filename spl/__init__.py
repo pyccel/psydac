@@ -1,8 +1,9 @@
 # -*- coding: UTF-8 -*-
 __version__ = "0.1"
-__all__     = ['core','ddm','feec', 'fem', 'linalg', 'mapping', 'utilities']
+__all__     = ['cad', 'core', 'ddm', 'feec', 'fem',
+               'linalg', 'mapping', 'utilities']
 
-
+from spl import cad
 from spl import core
 from spl import ddm
 from spl import feec
