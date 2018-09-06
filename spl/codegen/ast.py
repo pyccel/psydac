@@ -1,6 +1,6 @@
 from sympy import Basic
-from sympy import symbols, Symbol, IndexedBase, Matrix
-from sympy import Mul, Add
+from sympy import symbols, Symbol, IndexedBase, Matrix, Function
+from sympy import Mul, Add, Tuple
 
 from pyccel.ast.core import For
 from pyccel.ast.core import Assign
@@ -213,16 +213,16 @@ class Kernel(Basic):
             ln   = 1
 
         wvol          = symbols('wvol')
-        basis_trial   = symbols('trial_bs0:%d'%dim_trial, cls=IndexedBase)
-        basis_test    = symbols('test_bs0:%d'%dim_test, cls=IndexedBase)
-        weighted_vols = symbols('w0:%d'%dim, cls=IndexedBase)
-        positions     = symbols('u0:%d'%dim, cls=IndexedBase)
-        test_pads     = symbols('test_p1:%d'%(dim_test+1))
-        trial_pads    = symbols('trial_p1:%d'%(dim_test+1))
+        basis_trial   = symbols('trial_bs1:%d'%(dim+1), cls=IndexedBase)
+        basis_test    = symbols('test_bs1:%d'%(dim+1), cls=IndexedBase)
+        weighted_vols = symbols('w1:%d'%(dim+1), cls=IndexedBase)
+        positions     = symbols('u1:%d'%(dim+1), cls=IndexedBase)
+        test_pads     = symbols('test_p1:%d'%(dim+1))
+        trial_pads    = symbols('trial_p1:%d'%(dim+1))
         indices_qds   = symbols('g1:%d'%(dim+1))
         qds_dim       = symbols('k1:%d'%(dim+1))
-        indices_test  = symbols('il1:%d'%(dim_test+1))
-        indices_trial = symbols('jl1:%d'%(dim_trial+1))
+        indices_test  = symbols('il1:%d'%(dim+1))
+        indices_trial = symbols('jl1:%d'%(dim+1))
         fields        = symbols(fields_str)
         fields_val    = symbols(tuple(f+'_values' for f in fields_str),cls=IndexedBase)
         fields_coeff  = symbols(tuple('coeff_'+str(f) for f in field_atoms),cls=IndexedBase)
@@ -352,20 +352,18 @@ class Assembly(Basic):
     @property
     def expr(self):
         form = self.weak_form
-
         dim = form.ldim
-        fields = form.fields
-        mapping = form.mapping
+        n_rows = 1
+        n_cols = 1
 
-        is_bilinear_form = isinstance(form, BilinearForm)
-        is_linear_form = isinstance(form, LinearForm)
-        is_function_form = isinstance(form, FunctionForm)
-        is_logical = mapping is None
+        kernel = Kernel(form).expr
 
         starts         = symbols('s1:%d'%(dim+1))
         ends           = symbols('e1:%d'%(dim+1))
         test_pads      = symbols('test_p1:%d'%(dim+1))
         trial_pads     = symbols('trial_p1:%d'%(dim+1))
+        test_degrees   = symbols('test_p1:%d'%(dim+1))
+        trial_degrees  = symbols('trial_p1:%d'%(dim+1))
         points         = symbols('points_1:%d'%(dim+1), cls=IndexedBase)
         weights        = symbols('weights_1:%d'%(dim+1), cls=IndexedBase)
         trial_basis    = symbols('trial_basis1:%d'%(dim+1), cls=IndexedBase)
@@ -376,8 +374,15 @@ class Assembly(Basic):
         weights_in_elm = symbols('w1:%d'%(dim+1), cls=IndexedBase)
         spans_in_elm   = symbols('test_spans_1:%d'%(dim+1), cls=IndexedBase)
         trial_basis_in_elm = symbols('trial_bs1:%d'%(dim+1), cls=IndexedBase)
-        test_basis_in_elm  = symbols('test_bs1:%d'%(dim+1), cls=IndexedBase)
+        test_basis_in_elm = symbols('test_bs1:%d'%(dim+1), cls=IndexedBase)
 
+        # ... element matrices
+        element_matrices = {}
+        for i in range(0, n_rows):
+            for j in range(0, n_cols):
+                mat = IndexedBase('mat_{i}{j}'.format(i=i,j=j))
+                element_matrices[i,j] = mat
+        # ...
 
         # sympy does not like ':'
         _slice = Slice(None,None)
@@ -392,9 +397,30 @@ class Assembly(Basic):
         body += [Assign(trial_basis_in_elm[i], trial_basis[i][indices_elm[i],_slice,_slice,_slice]) for i in range(dim)]
         body += [Assign(test_basis_in_elm[i], test_basis[i][indices_elm[i],_slice,_slice,_slice]) for i in range(dim)]
 
+        # kernel call
+        args = kernel.arguments
+        body += [Function(str(kernel.name))(*args)]
+
         # ... loop over elements
         for i in range(dim-1,-1,-1):
             body = [For(indices_elm[i], ranges_elm[i], body)]
+        # ...
+
+        # ... prelude
+        prelude = []
+
+        for i in range(0, n_rows):
+            for j in range(0, n_cols):
+                mat = element_matrices[i,j]
+                orders  = [p+1 for p in test_degrees]
+                spads   = [2*p+1 for p in test_pads]
+
+                stmt = Assign(mat, Zeros((*orders, *spads)))
+                prelude += [stmt]
+        # ...
+
+        # ...
+        body = prelude + body
         # ...
 
         func_args = []

@@ -54,6 +54,12 @@ def test_assembly_bilinear_2d_scalar_1():
     code = pycode(assembly.expr)
     code = sanitize(code)
 
+    from spl.codegen.ast import Kernel
+
+    print('***********')
+    print(sanitize(pycode(Kernel(a, name='assembly').expr)))
+    print('***********')
+
     print('-----------')
     print(code)
     print('-----------')
