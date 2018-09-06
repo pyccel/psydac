@@ -11,3 +11,4 @@ from spl import fem
 from spl import linalg
 from spl import mapping
 from spl import utilities
+from spl import codegen
