@@ -14,6 +14,7 @@ from pyccel.ast import Zeros
 from pyccel.ast import Import
 from pyccel.ast import DottedName
 from pyccel.ast import Nil
+from pyccel.ast import Len
 from pyccel.ast import If, Is, Return
 from pyccel.ast import Comment, NewLine
 from pyccel.parser.parser import _atomic
@@ -117,7 +118,6 @@ class Kernel(Basic):
 
         obj = Basic.__new__(cls, weak_form)
         obj._name = name
-        obj._definitions = {}
 
         obj._n_rows = 1
         obj._n_cols = 1
@@ -179,10 +179,6 @@ class Kernel(Basic):
     @property
     def is_function(self):
         return isinstance(self._args[0], FunctionForm)
-
-    @property
-    def definitions(self):
-        return self._definitions
 
     @property
     def n_rows(self):
@@ -251,13 +247,6 @@ class Kernel(Basic):
         fields_coeff  = symbols(tuple('coeff_'+str(f) for f in field_atoms),cls=IndexedBase)
         # ...
 
-        # ... update kernel definitions. a dict containting data that will be
-        #     used in the assembly
-        self._definitions['fields'] = fields
-        self._definitions['fields_val'] = fields_val
-        self._definitions['fields_coeff'] = fields_coeff
-        # ...
-
         # ranges
         ranges_qdr   = [Range(qds_dim[i]) for i in range(dim)]
         ranges_test  = [Range(test_pads[i]) for i in range(dim_test)]
@@ -294,8 +283,8 @@ class Kernel(Basic):
             body = [For(indices_qds[i],ranges_qdr[i],body)]
 
         # initialization of intermediate vars
-        inits = [Assign(v[i],0.0) for i in range(ln)]
-        body = inits + body
+        init_vars = [Assign(v[i],0.0) for i in range(ln)]
+        body = init_vars + body
         # ...
 
         if dim_trial:
@@ -318,9 +307,13 @@ class Kernel(Basic):
 
         # ...
         # initialization of the matrix
-        inits = [mats[i][[Slice(None,None)]*(dim_test+dim_trial)] for i in range(ln)]
-        inits = [Assign(e, 0.0) for e in inits]
-        body =  inits + body
+        init_mats = [mats[i][[Slice(None,None)]*(dim_test+dim_trial)] for i in range(ln)]
+        init_mats = [Assign(e, 0.0) for e in init_mats]
+        body =  init_mats + body
+
+        # compute length of logical points
+        len_quads = [Assign(k, Len(u)) for k,u in zip(qds_dim, positions)]
+        body = len_quads + body
 
         # calculate field values
         allocate = [Assign(f, Zeros(qds_dim)) for f in fields_val]
@@ -345,7 +338,7 @@ class Kernel(Basic):
         body = allocate + f_body + body
 
         # function args
-        func_args = (test_pads + trial_pads + qds_dim + basis_test + basis_trial
+        func_args = (test_pads + trial_pads + basis_test + basis_trial
                      + positions + weighted_vols + mats + conts + fields_coeff)
 
         return FunctionDef(self.name, list(func_args), [], body)
@@ -503,7 +496,6 @@ class Assembly(Basic):
 
         func_args = (starts + ends +
                      test_degrees + trial_degrees +
-                     quad_orders +
                      spans +
                      points + weights +
                      test_basis + trial_basis +
