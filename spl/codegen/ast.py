@@ -8,6 +8,7 @@ from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Slice
 from pyccel.ast.core import Range
 from pyccel.ast.core import FunctionDef
+from pyccel.ast.core import FunctionCall
 from pyccel.ast.core import Import
 from pyccel.ast import Zeros
 from pyccel.ast import Import
@@ -442,7 +443,7 @@ class Assembly(Basic):
 
         # kernel call
         args = kernel.arguments
-        body += [Function(str(kernel.name))(*args)]
+        body += [FunctionCall(kernel, args)]
 
         # ... update global matrices
         lslices = [Slice(None,None)]*2*dim
@@ -582,7 +583,7 @@ class Interface(Basic):
             if_cond = Is(M, Nil())
             args = [DottedName(test_space, 'vector_space'),
                     DottedName(trial_space, 'vector_space')]
-            if_body = [Assign(M, Function('StencilMatrix')(*args))]
+            if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
 
             stmt = If((if_cond, if_body))
             body += [stmt]
@@ -596,7 +597,7 @@ class Interface(Basic):
         mat_data       = tuple(mat_data)
         args = args + mat_data
 
-        body += [Function(str(assembly.name))(*args)]
+        body += [FunctionCall(assembly, args)]
         # ...
 
         # ... results
