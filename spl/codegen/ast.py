@@ -1,4 +1,4 @@
-from sympy import Basic
+from sympy import Basic as sp_Basic
 from sympy import symbols, Symbol, IndexedBase, Indexed, Matrix, Function
 from sympy import Mul, Add, Tuple
 
@@ -105,19 +105,30 @@ def is_field(expr):
 
     return False
 
-class Kernel(Basic):
+class Basic(sp_Basic):
 
-    def __new__(cls, weak_form, name=None):
+    def __new__(cls, weak_form, name=None, prefix=None):
+
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError(' instance not a weak formulation')
 
         if name is None:
-            form = weak_form.__class__.__name__
-            ID = abs(hash(weak_form))
-            name = 'kernel_{form}_{ID}'.format(form=form, ID=ID)
+            if prefix is None:
+                raise ValueError('prefix must be given')
 
-        obj = Basic.__new__(cls, weak_form)
+            ID = abs(hash(weak_form))
+            name = '{prefix}_{ID}'.format(ID=ID, prefix=prefix)
+
+        obj = sp_Basic.__new__(cls, weak_form)
         obj._name = name
+
+        return obj
+
+class Kernel(sp_Basic):
+
+    def __new__(cls, weak_form, name=None):
+
+        obj = Basic.__new__(cls, weak_form, name=name, prefix='kernel')
 
         obj._n_rows = 1
         obj._n_cols = 1
@@ -131,54 +142,11 @@ class Kernel(Basic):
 
     @property
     def weak_form(self):
-        return self._args[0].expr
-
-    @property
-    def test_function(self):
-        return self._args[0].test_functions[0]
-
-    @property
-    def trial_function(self):
-        return self._args[0].trial_functions[0]
+        return self._args[0]
 
     @property
     def name(self):
         return self._name
-
-    @property
-    def fields(self):
-        return self._args[0].fields
-
-    @property
-    def dim(self):
-        return self._args[0].ldim
-
-    @property
-    def mapping(self):
-        return self._args[0].mapping
-
-    @property
-    def coordinates(self):
-        cor = self._args[0].coordinates
-        if self.dim==1:
-            cor = [cor]
-        return cor
-
-    @property
-    def mapping(self):
-        return self._args[0].mapping
-
-    @property
-    def is_lineair(self):
-        return isinstance(self._args[0], LinearForm)
-
-    @property
-    def is_bilinear(self):
-        return isinstance(self._args[0], BilinearForm)
-
-    @property
-    def is_function(self):
-        return isinstance(self._args[0], FunctionForm)
 
     @property
     def n_rows(self):
@@ -188,25 +156,67 @@ class Kernel(Basic):
     def n_cols(self):
         return self._n_cols
 
-    def _initialize(self):
-        cls = (_partial_derivatives,
-              VectorTestFunction,
-              TestFunction)
+    @property
+    def constants(self):
+        return self._constants
 
-        if self.is_bilinear:
-            dim_trial = self.dim
+    @property
+    def fields_coeffs(self):
+        return self._fields_coeffs
+
+    @property
+    def mapping_coeffs(self):
+        return self._mapping_coeffs
+
+    @property
+    def basic_args(self):
+        return self._basic_args
+
+    def build_arguments(self, data):
+
+        other = data
+
+        if self.constants:
+            other = other + self.constants
+
+        if self.fields_coeffs:
+            other = other + self.fields_coeffs
+
+        if self.mapping_coeffs:
+            other = other + (self.mapping_coeffs,)
+
+        return self.basic_args + other
+
+    def _initialize(self):
+
+        is_linear   = isinstance(self.weak_form, LinearForm)
+        is_bilinear = isinstance(self.weak_form, BilinearForm)
+        is_function = isinstance(self.weak_form, FunctionForm)
+
+        weak_form = self.weak_form.expr
+        expr = atomize(weak_form)
+
+        dim      = self.weak_form.ldim
+        dim_test = dim
+
+        if is_bilinear:
+            dim_trial = dim
         else:
             dim_trial = 0
 
-        weak_form = self.weak_form
+        # ... coordinates
+        coordinates = self.weak_form.coordinates
+        if dim == 1:
+            coordinates = [coordinates]
+        # ...
 
-        expr = atomize(weak_form)
-        dim_test = self.dim
-        dim      = self.dim
-        coordinates = self.coordinates
-        conts  = tuple(expr.atoms(Constant))
+        # ...
+        constants = tuple(expr.atoms(Constant))
+        self._constants = constants
+        # ...
 
-        atoms  = _atomic(expr, cls=cls)
+        atoms_types = (_partial_derivatives, VectorTestFunction, TestFunction)
+        atoms  = _atomic(expr, cls=atoms_types)
 
         atomic_expr_field = [atom for atom in atoms if is_field(atom)]
         atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_field ]
@@ -214,7 +224,7 @@ class Kernel(Basic):
         fields_str    = tuple(map(pycode, atomic_expr_field))
         field_atoms   = tuple(expr.atoms(Field))
 
-        test_function = self.test_function
+        test_function = self.weak_form.test_functions[0]
 
         # creation of symbolic vars
         if isinstance(expr, Matrix):
@@ -244,7 +254,21 @@ class Kernel(Basic):
         indices_trial = symbols('jl1:%d'%(dim+1))
         fields        = symbols(fields_str)
         fields_val    = symbols(tuple(f+'_values' for f in fields_str),cls=IndexedBase)
-        fields_coeff  = symbols(tuple('coeff_'+str(f) for f in field_atoms),cls=IndexedBase)
+        fields_coeffs = symbols(tuple('coeff_'+str(f) for f in field_atoms),cls=IndexedBase)
+
+        # TODO
+        mapping_coeffs = None
+        # ...
+
+        # ...
+        self._basic_args = (test_pads + trial_pads +
+                            basis_test + basis_trial +
+                            positions + weighted_vols)
+        # ...
+
+        # ...
+        self._fields_coeffs = fields_coeffs
+        self._mapping_coeffs = mapping_coeffs
         # ...
 
         # ranges
@@ -321,10 +345,6 @@ class Kernel(Basic):
                        for e in compute_atoms_expr_field(atom,
                        indices_qds, indices_test,basis_test,
                        test_function)]
-#        f_body   = [e  for atom in field_atoms
-#                       for e in compute_atoms_expr_field(atom,
-#                       indices_qds, indices_test,basis_test,
-#                       test_function)]
 
         if f_body:
             # put the body in for loops of quadrature points
@@ -338,26 +358,17 @@ class Kernel(Basic):
         body = allocate + f_body + body
 
         # function args
-        func_args = (test_pads + trial_pads + basis_test + basis_trial
-                     + positions + weighted_vols + mats + conts + fields_coeff)
+        func_args = self.build_arguments(mats)
 
         return FunctionDef(self.name, list(func_args), [], body)
 
-class Assembly(Basic):
+class Assembly(sp_Basic):
 
     def __new__(cls, weak_form, name=None):
-        if not isinstance(weak_form, FunctionalForms):
-            raise TypeError(' instance not a weak formulation')
 
-        if name is None:
-            form = weak_form.__class__.__name__
-            ID = abs(hash(weak_form))
-            name = 'assembly_{form}_{ID}'.format(form=form, ID=ID)
+        obj = Basic.__new__(cls, weak_form, name=name, prefix='assembly')
 
-        obj = Basic.__new__(cls, weak_form)
-        obj._name = name
         obj._kernel = Kernel(weak_form)
-        obj._global_matrices = None
         obj._func = obj._initialize()
         return obj
 
@@ -380,6 +391,25 @@ class Assembly(Basic):
     @property
     def global_matrices(self):
         return self._global_matrices
+
+    @property
+    def basic_args(self):
+        return self._basic_args
+
+    def build_arguments(self, data):
+
+        other = data
+
+        if self.kernel.constants:
+            other = other + self.kernel.constants
+
+        if self.kernel.fields_coeffs:
+            other = other + self.kernel.fields_coeffs
+
+        if self.kernel.mapping_coeffs:
+            other = other + (self.kernel.mapping_coeffs,)
+
+        return self.basic_args + other
 
     def _initialize(self):
         kernel = self.kernel
@@ -410,6 +440,14 @@ class Assembly(Basic):
 
         # TODO remove later and replace by Len inside Kernel
         quad_orders    = symbols('k1:%d'%(dim+1))
+        # ...
+
+        # ...
+        self._basic_args = (starts + ends +
+                            test_degrees + trial_degrees +
+                            spans +
+                            points + weights +
+                            test_basis + trial_basis)
         # ...
 
         # ... element matrices
@@ -493,30 +531,19 @@ class Assembly(Basic):
                 mats.append(M)
         mats = tuple(mats)
         self._global_matrices = mats
-
-        func_args = (starts + ends +
-                     test_degrees + trial_degrees +
-                     spans +
-                     points + weights +
-                     test_basis + trial_basis +
-                     mats)
         # ...
+
+        # function args
+        func_args = self.build_arguments(mats)
 
         return FunctionDef(self.name, list(func_args), [], body)
 
-class Interface(Basic):
+class Interface(sp_Basic):
 
     def __new__(cls, weak_form, name=None):
-        if not isinstance(weak_form, FunctionalForms):
-            raise TypeError(' instance not a weak formulation')
 
-        if name is None:
-            form = weak_form.__class__.__name__
-            ID = abs(hash(weak_form))
-            name = 'interface_{form}_{ID}'.format(form=form, ID=ID)
+        obj = Basic.__new__(cls, weak_form, name=name, prefix='interface')
 
-        obj = Basic.__new__(cls, weak_form)
-        obj._name = name
         obj._assembly = Assembly(weak_form)
         obj._func = obj._initialize()
         return obj
@@ -592,13 +619,10 @@ class Interface(Basic):
             body += [stmt]
         # ...
 
-        # call to assembly
-        # TODO
-        args = assembly.func.arguments[:-1]
-
+        # ... call to assembly
         mat_data       = [DottedName(M, '_data') for M in global_matrices]
         mat_data       = tuple(mat_data)
-        args = args + mat_data
+        args = assembly.build_arguments(mat_data)
 
         body += [FunctionCall(assembly.func, args)]
         # ...
