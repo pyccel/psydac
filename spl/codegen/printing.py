@@ -11,6 +11,9 @@ from sympde.printing.pycode import PythonCodePrinter as SympdePythonCodePrinter
 
 class PythonCodePrinter(SympdePythonCodePrinter):
 
+    def _print_EvalField(self, expr):
+        return self._print(expr.func)
+
     def _print_Kernel(self, expr):
         return self._print(expr.func)
 

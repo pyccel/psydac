@@ -88,8 +88,8 @@ def compute_atoms_expr_field(atom, indices_qds,
         else:
             args.append(basis[i][idxs[i],0,indices_qds[i]])
 
-    body = [Assign(atom, Mul(*args))]
-    args = [IndexedBase(field_name)[idxs],atom]
+    body = [Assign(test_function, Mul(*args))]
+    args = [IndexedBase(field_name)[idxs], test_function]
     val_name = pycode(atom) + '_values'
     val  = IndexedBase(val_name)[indices_qds]
     body.append(AugAssign(val,'+',Mul(*args)))
@@ -104,6 +104,84 @@ def is_field(expr):
         return True
 
     return False
+
+class EvalField(sp_Basic):
+
+    def __new__(cls, space, fields, name=None):
+
+        if name is None:
+            ID = abs(hash(space))
+            name = 'eval_field_{ID}'.format(ID=ID)
+
+        if not isinstance(fields, (tuple, list, Tuple)):
+            raise TypeError('> Expecting an iterable')
+
+        obj = sp_Basic.__new__(cls, space, fields)
+        obj._name = name
+        obj._func = obj._initialize()
+
+        return obj
+
+    @property
+    def space(self):
+        return self._args[0]
+
+    @property
+    def fields(self):
+        return self._args[1]
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def func(self):
+        return self._func
+
+    def _initialize(self):
+        space = self.space
+        dim = space.ldim
+
+        # TODO we should not call pycode here!
+        fields_str = [pycode(f) for f in self.fields]
+
+        # TODO compute properly
+        field_atoms = self.fields
+
+        # ... declarations
+        degrees       = symbols('p1:%d'%(dim+1))
+        orders        = symbols('k1:%d'%(dim+1))
+        basis         = symbols('basis1:%d'%(dim+1), cls=IndexedBase)
+        indices_basis = symbols('jl1:%d'%(dim+1))
+        indices_quad  = symbols('g1:%d'%(dim+1))
+        fields_val    = symbols(tuple(f+'_values' for f in fields_str),cls=IndexedBase)
+        fields_coeffs = symbols(tuple('coeff_'+str(f) for f in field_atoms),cls=IndexedBase)
+        # ...
+
+        # ... ranges
+        ranges_basis = [Range(degrees[i]+1) for i in range(dim)]
+        ranges_quad  = [Range(orders[i]) for i in range(dim)]
+        # ...
+
+        # ...
+        body = []
+        for atom in self.fields:
+            stmt = compute_atoms_expr_field(atom, indices_quad,
+                                            indices_basis, basis, Symbol('Nj'))
+            body += stmt
+        # ...
+
+        # put the body in tests for loops
+        for i in range(dim-1,-1,-1):
+            body = [For(indices_basis[i], ranges_basis[i],body)]
+
+        # put the body in for loops of quadrature points
+        for i in range(dim-1,-1,-1):
+            body = [For(indices_quad[i], ranges_quad[i],body)]
+
+        func_args = (degrees + orders + basis + fields_coeffs + fields_val)
+
+        return FunctionDef(self.name, list(func_args), [], body)
 
 class Basic(sp_Basic):
 
@@ -124,6 +202,10 @@ class Basic(sp_Basic):
 
         return obj
 
+    @property
+    def name(self):
+        return self._name
+
 class Kernel(sp_Basic):
 
     def __new__(cls, weak_form, name=None):
@@ -143,10 +225,6 @@ class Kernel(sp_Basic):
     @property
     def weak_form(self):
         return self._args[0]
-
-    @property
-    def name(self):
-        return self._name
 
     @property
     def n_rows(self):
@@ -341,21 +419,7 @@ class Kernel(sp_Basic):
 
         # calculate field values
         allocate = [Assign(f, Zeros(qds_dim)) for f in fields_val]
-        f_body   = [e  for atom in atomic_expr_field
-                       for e in compute_atoms_expr_field(atom,
-                       indices_qds, indices_test,basis_test,
-                       test_function)]
-
-        if f_body:
-            # put the body in for loops of quadrature points
-            for i in range(dim-1,-1,-1):
-                f_body = [For(indices_qds[i],ranges_qdr[i],f_body)]
-
-            # put the body in tests for loops
-            for i in range(dim-1,-1,-1):
-                f_body = [For(indices_test[i],ranges_test[i],f_body)]
-
-        body = allocate + f_body + body
+        body = allocate + body
 
         # function args
         func_args = self.build_arguments(mats)
@@ -379,10 +443,6 @@ class Assembly(sp_Basic):
     @property
     def weak_form(self):
         return self._args[0]
-
-    @property
-    def name(self):
-        return self._name
 
     @property
     def kernel(self):
@@ -555,10 +615,6 @@ class Interface(sp_Basic):
     @property
     def weak_form(self):
         return self._args[0]
-
-    @property
-    def name(self):
-        return self._name
 
     @property
     def assembly(self):
