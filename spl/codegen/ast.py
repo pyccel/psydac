@@ -8,6 +8,7 @@ from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Slice
 from pyccel.ast.core import Range
 from pyccel.ast.core import FunctionDef
+from pyccel.ast.core import Import
 from pyccel.ast import Zeros
 from pyccel.ast import Import
 from pyccel.parser.parser import _atomic
@@ -112,6 +113,10 @@ class Kernel(Basic):
         obj = Basic.__new__(cls, weak_form)
         obj._name = name
         obj._definitions = {}
+
+        obj._n_rows = 1
+        obj._n_cols = 1
+
         return obj
 
     @property
@@ -170,6 +175,14 @@ class Kernel(Basic):
         return self._definitions
 
     @property
+    def n_rows(self):
+        return self._n_rows
+
+    @property
+    def n_cols(self):
+        return self._n_cols
+
+    @property
     def expr(self):
         cls = (_partial_derivatives,
               VectorTestFunction,
@@ -207,8 +220,8 @@ class Kernel(Basic):
             ln   = len(expr)
 
         else:
-            mats = (IndexedBase('mat'),)
-            v    = [symbols('v')]
+            mats = (IndexedBase('mat_00'),)
+            v    = [symbols('v_00')]
             expr = [expr]
             ln   = 1
 
@@ -353,28 +366,34 @@ class Assembly(Basic):
     def expr(self):
         form = self.weak_form
         dim = form.ldim
-        n_rows = 1
-        n_cols = 1
 
-        kernel = Kernel(form).expr
+        kernel = Kernel(form)
+        n_rows = kernel.n_rows
+        n_cols = kernel.n_cols
 
-        starts         = symbols('s1:%d'%(dim+1))
-        ends           = symbols('e1:%d'%(dim+1))
-        test_pads      = symbols('test_p1:%d'%(dim+1))
-        trial_pads     = symbols('trial_p1:%d'%(dim+1))
-        test_degrees   = symbols('test_p1:%d'%(dim+1))
-        trial_degrees  = symbols('trial_p1:%d'%(dim+1))
-        points         = symbols('points_1:%d'%(dim+1), cls=IndexedBase)
-        weights        = symbols('weights_1:%d'%(dim+1), cls=IndexedBase)
-        trial_basis    = symbols('trial_basis1:%d'%(dim+1), cls=IndexedBase)
-        test_basis     = symbols('test_basis1:%d'%(dim+1), cls=IndexedBase)
-        indices_elm    = symbols('ie1:%d'%(dim+1))
-        indices_span   = symbols('is1:%d'%(dim+1))
-        points_in_elm  = symbols('u1:%d'%(dim+1), cls=IndexedBase)
-        weights_in_elm = symbols('w1:%d'%(dim+1), cls=IndexedBase)
-        spans_in_elm   = symbols('test_spans_1:%d'%(dim+1), cls=IndexedBase)
+        kernel = kernel.expr
+
+        starts             = symbols('s1:%d'%(dim+1))
+        ends               = symbols('e1:%d'%(dim+1))
+        test_pads          = symbols('test_p1:%d'%(dim+1))
+        trial_pads         = symbols('trial_p1:%d'%(dim+1))
+        test_degrees       = symbols('test_p1:%d'%(dim+1))
+        trial_degrees      = symbols('trial_p1:%d'%(dim+1))
+        points             = symbols('points_1:%d'%(dim+1), cls=IndexedBase)
+        weights            = symbols('weights_1:%d'%(dim+1), cls=IndexedBase)
+        trial_basis        = symbols('trial_basis_1:%d'%(dim+1), cls=IndexedBase)
+        test_basis         = symbols('test_basis_1:%d'%(dim+1), cls=IndexedBase)
+        indices_elm        = symbols('ie1:%d'%(dim+1))
+        indices_span       = symbols('is1:%d'%(dim+1))
+        points_in_elm      = symbols('u1:%d'%(dim+1), cls=IndexedBase)
+        weights_in_elm     = symbols('w1:%d'%(dim+1), cls=IndexedBase)
+        spans              = symbols('test_spans_1:%d'%(dim+1), cls=IndexedBase)
         trial_basis_in_elm = symbols('trial_bs1:%d'%(dim+1), cls=IndexedBase)
-        test_basis_in_elm = symbols('test_bs1:%d'%(dim+1), cls=IndexedBase)
+        test_basis_in_elm  = symbols('test_bs1:%d'%(dim+1), cls=IndexedBase)
+
+        # TODO remove later and replace by Len inside Kernel
+        quad_orders    = symbols('k1:%d'%(dim+1))
+
 
         # ... element matrices
         element_matrices = {}
@@ -384,6 +403,14 @@ class Assembly(Basic):
                 element_matrices[i,j] = mat
         # ...
 
+        # ... global matrices
+        global_matrices = {}
+        for i in range(0, n_rows):
+            for j in range(0, n_cols):
+                mat = IndexedBase('M_{i}{j}'.format(i=i,j=j))
+                global_matrices[i,j] = mat
+        # ...
+
         # sympy does not like ':'
         _slice = Slice(None,None)
 
@@ -391,7 +418,7 @@ class Assembly(Basic):
         ranges_elm  = [Range(starts[i], ends[i]-test_pads[i]+1) for i in range(dim)]
 
         # assignments
-        body  = [Assign(indices_span[i], spans_in_elm[i][indices_elm[i]]) for i in range(dim)]
+        body  = [Assign(indices_span[i], spans[i][indices_elm[i]]) for i in range(dim)]
         body += [Assign(points_in_elm[i], points[i][indices_elm[i],_slice]) for i in range(dim)]
         body += [Assign(weights_in_elm[i], weights[i][indices_elm[i],_slice]) for i in range(dim)]
         body += [Assign(trial_basis_in_elm[i], trial_basis[i][indices_elm[i],_slice,_slice,_slice]) for i in range(dim)]
@@ -401,6 +428,20 @@ class Assembly(Basic):
         args = kernel.arguments
         body += [Function(str(kernel.name))(*args)]
 
+        # ... update global matrices
+        lslices = [Slice(None,None)]*2*dim
+        gslices = [Slice(i-p,i+1) for i,p in zip(indices_span, test_degrees)]
+        gslices += [Slice(None,None)]*dim # for assignement
+
+        for i in range(0, n_rows):
+            for j in range(0, n_cols):
+                M = global_matrices[i,j]
+                mat = element_matrices[i,j]
+
+                stmt = AugAssign(M[gslices], '+', mat[lslices])
+                body += [stmt]
+        # ...
+
         # ... loop over elements
         for i in range(dim-1,-1,-1):
             body = [For(indices_elm[i], ranges_elm[i], body)]
@@ -409,11 +450,15 @@ class Assembly(Basic):
         # ... prelude
         prelude = []
 
+        # import zeros from numpy
+        stmt = Import('zeros', 'numpy')
+        prelude += [stmt]
+
+        orders  = [p+1 for p in test_degrees]
+        spads   = [2*p+1 for p in test_pads]
         for i in range(0, n_rows):
             for j in range(0, n_cols):
                 mat = element_matrices[i,j]
-                orders  = [p+1 for p in test_degrees]
-                spads   = [2*p+1 for p in test_pads]
 
                 stmt = Assign(mat, Zeros((*orders, *spads)))
                 prelude += [stmt]
@@ -423,5 +468,21 @@ class Assembly(Basic):
         body = prelude + body
         # ...
 
-        func_args = []
+        # ...
+        mats = []
+        for i in range(0, n_rows):
+            for j in range(0, n_cols):
+                M = global_matrices[i,j]
+                mats.append(M)
+        mats = tuple(mats)
+
+        func_args = (starts + ends +
+                     test_degrees + trial_degrees +
+                     quad_orders +
+                     spans +
+                     points + weights +
+                     test_basis + trial_basis +
+                     mats)
+        # ...
+
         return FunctionDef(self.name, list(func_args), [], body)
