@@ -121,8 +121,13 @@ class Kernel(Basic):
 
         obj._n_rows = 1
         obj._n_cols = 1
+        obj._func = obj._initialize()
 
         return obj
+
+    @property
+    def func(self):
+        return self._func
 
     @property
     def weak_form(self):
@@ -187,8 +192,7 @@ class Kernel(Basic):
     def n_cols(self):
         return self._n_cols
 
-    @property
-    def expr(self):
+    def _initialize(self):
         cls = (_partial_derivatives,
               VectorTestFunction,
               TestFunction)
@@ -361,7 +365,12 @@ class Assembly(Basic):
         obj._name = name
         obj._kernel = Kernel(weak_form)
         obj._global_matrices = None
+        obj._func = obj._initialize()
         return obj
+
+    @property
+    def func(self):
+        return self._func
 
     @property
     def weak_form(self):
@@ -379,15 +388,13 @@ class Assembly(Basic):
     def global_matrices(self):
         return self._global_matrices
 
-    @property
-    def expr(self):
+    def _initialize(self):
         kernel = self.kernel
         form   = self.weak_form
         dim    = form.ldim
 
         n_rows = kernel.n_rows
         n_cols = kernel.n_cols
-        kernel = kernel.expr
 
         # ... declarations
         starts             = symbols('s1:%d'%(dim+1))
@@ -442,8 +449,8 @@ class Assembly(Basic):
         body += [Assign(test_basis_in_elm[i], test_basis[i][indices_elm[i],_slice,_slice,_slice]) for i in range(dim)]
 
         # kernel call
-        args = kernel.arguments
-        body += [FunctionCall(kernel, args)]
+        args = kernel.func.arguments
+        body += [FunctionCall(kernel.func, args)]
 
         # ... update global matrices
         lslices = [Slice(None,None)]*2*dim
@@ -519,7 +526,12 @@ class Interface(Basic):
         obj = Basic.__new__(cls, weak_form)
         obj._name = name
         obj._assembly = Assembly(weak_form)
+        obj._func = obj._initialize()
         return obj
+
+    @property
+    def func(self):
+        return self._func
 
     @property
     def weak_form(self):
@@ -533,11 +545,10 @@ class Interface(Basic):
     def assembly(self):
         return self._assembly
 
-    @property
-    def expr(self):
+    def _initialize(self):
         form = self.weak_form
-        assembly = self.assembly.expr
-        global_matrices = self.assembly.global_matrices
+        assembly = self.assembly
+        global_matrices = assembly.global_matrices
 
         dim = form.ldim
 
@@ -591,13 +602,13 @@ class Interface(Basic):
 
         # call to assembly
         # TODO
-        args = assembly.arguments[:-1]
+        args = assembly.func.arguments[:-1]
 
         mat_data       = [DottedName(M, '_data') for M in global_matrices]
         mat_data       = tuple(mat_data)
         args = args + mat_data
 
-        body += [FunctionCall(assembly, args)]
+        body += [FunctionCall(assembly.func, args)]
         # ...
 
         # ... results

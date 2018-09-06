@@ -21,9 +21,9 @@ from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, FunctionForm
 from sympde.core import Mapping
-from sympde.printing.pycode import pycode
 
 from spl.codegen.ast import Interface
+from spl.codegen.printing import pycode
 
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
@@ -51,15 +51,15 @@ def test_interface_bilinear_2d_scalar_1():
     a = BilinearForm((v,u), expr)
 
     interface = Interface(a, name='interface')
-    code = pycode(interface.expr)
+    code = pycode(interface)
     code = sanitize(code)
 
     from spl.codegen.ast import Kernel
     from spl.codegen.ast import Assembly
 
     print('***********')
-    print(sanitize(pycode(interface.assembly.kernel.expr)))
-    print(sanitize(pycode(interface.assembly.expr)))
+    print(sanitize(pycode(interface.assembly.kernel)))
+    print(sanitize(pycode(interface.assembly)))
     print('***********')
 
     print('-----------')

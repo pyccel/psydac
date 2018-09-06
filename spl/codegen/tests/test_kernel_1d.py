@@ -21,9 +21,9 @@ from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, FunctionForm
 from sympde.core import Mapping
-from sympde.printing.pycode import pycode
 
 from spl.codegen.ast import Kernel
+from spl.codegen.printing import pycode
 
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
@@ -31,36 +31,36 @@ sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()
 #              expected kernels
 # ...............................................
 expected_bilinear_1d_scalar_1 = """
-def kernel(test_p1, trial_p1, k1, test_bs0, trial_bs0, u0, w0, mat):
-    mat[ : ,  : ] = 0.0
+def kernel(test_p1, trial_p1, k1, test_bs1, trial_bs1, u1, w1, mat_00):
+    mat_00[ : ,  : ] = 0.0
     for il1 in range(0, test_p1, 1):
         for jl1 in range(0, trial_p1, 1):
-            v = 0.0
+            v_00 = 0.0
             for g1 in range(0, k1, 1):
-                x = u0[g1]
-                u_x = trial_bs0[jl1, 1, g1]
-                v_x = test_bs0[il1, 1, g1]
-                wvol = w0[g1]
-                v += wvol*u_x*v_x
-            mat[il1, -il1 + jl1 + trial_p1] = v
+                x = u1[g1]
+                u_x = trial_bs1[jl1, 1, g1]
+                v_x = test_bs1[il1, 1, g1]
+                wvol = w1[g1]
+                v_00 += wvol*u_x*v_x
+            mat_00[il1, -il1 + jl1 + trial_p1] = v_00
 """
 expected_bilinear_1d_scalar_1 = sanitize(expected_bilinear_1d_scalar_1)
 
 expected_bilinear_1d_scalar_2 = """
-def kernel(test_p1, trial_p1, k1, test_bs0, trial_bs0, u0, w0, mat, c):
-    mat[ : ,  : ] = 0.0
+def kernel(test_p1, trial_p1, k1, test_bs1, trial_bs1, u1, w1, mat_00, c):
+    mat_00[ : ,  : ] = 0.0
     for il1 in range(0, test_p1, 1):
         for jl1 in range(0, trial_p1, 1):
-            v = 0.0
+            v_00 = 0.0
             for g1 in range(0, k1, 1):
-                x = u0[g1]
-                u_x = trial_bs0[jl1, 1, g1]
-                v_x = test_bs0[il1, 1, g1]
-                u = trial_bs0[jl1, 0, g1]
-                v = test_bs0[il1, 0, g1]
-                wvol = w0[g1]
-                v += wvol*(c*u*v + u_x*v_x)
-            mat[il1, -il1 + jl1 + trial_p1] = v
+                x = u1[g1]
+                u_x = trial_bs1[jl1, 1, g1]
+                v_x = test_bs1[il1, 1, g1]
+                u = trial_bs1[jl1, 0, g1]
+                v = test_bs1[il1, 0, g1]
+                wvol = w1[g1]
+                v_00 += wvol*(c*u*v + u_x*v_x)
+            mat_00[il1, -il1 + jl1 + trial_p1] = v_00
 """
 expected_bilinear_1d_scalar_2 = sanitize(expected_bilinear_1d_scalar_2)
 
@@ -81,7 +81,7 @@ def test_kernel_bilinear_1d_scalar_1():
     a = BilinearForm((v,u), expr)
 
     kernel = Kernel(a, name='kernel')
-    code = pycode(kernel.expr)
+    code = pycode(kernel)
     code = sanitize(code)
 
     assert(str(code) == expected_bilinear_1d_scalar_1)
@@ -103,13 +103,8 @@ def test_kernel_bilinear_1d_scalar_2():
     a = BilinearForm((v,u), expr)
 
     kernel = Kernel(a, name='kernel')
-    code = pycode(kernel.expr)
+    code = pycode(kernel)
     code = sanitize(code)
-
-#    print('----------')
-#    print(code)
-#    print('----------')
-#    print(expected_bilinear_1d_scalar_2)
 
     assert(str(code) == expected_bilinear_1d_scalar_2)
 
@@ -131,7 +126,7 @@ def test_kernel_bilinear_1d_scalar_2():
 #    a = BilinearForm((v,u), expr)
 #
 #    kernel = Kernel(a, name='kernel')
-#    code = pycode(kernel.expr)
+#    code = pycode(kernel)
 #    code = sanitize(code)
 #
 ##    print('----------')

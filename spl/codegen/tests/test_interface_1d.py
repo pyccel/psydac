@@ -21,9 +21,9 @@ from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, FunctionForm
 from sympde.core import Mapping
-from sympde.printing.pycode import pycode
 
 from spl.codegen.ast import Assembly
+from spl.codegen.printing import pycode
 
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
@@ -51,7 +51,7 @@ def test_assembly_bilinear_1d_scalar_1():
     a = BilinearForm((v,u), expr)
 
     assembly = Assembly(a, name='assembly')
-    code = pycode(assembly.expr)
+    code = pycode(assembly)
     code = sanitize(code)
 
     print('-----------')
