@@ -31,7 +31,8 @@ sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()
 #              expected kernels
 # ...............................................
 expected_bilinear_1d_scalar_1 = """
-def kernel(test_p1, trial_p1, k1, test_bs1, trial_bs1, u1, w1, mat_00):
+def kernel(test_p1, trial_p1, test_bs1, trial_bs1, u1, w1, mat_00):
+    k1 = len(u1)
     mat_00[ : ,  : ] = 0.0
     for il1 in range(0, test_p1, 1):
         for jl1 in range(0, trial_p1, 1):
@@ -47,7 +48,8 @@ def kernel(test_p1, trial_p1, k1, test_bs1, trial_bs1, u1, w1, mat_00):
 expected_bilinear_1d_scalar_1 = sanitize(expected_bilinear_1d_scalar_1)
 
 expected_bilinear_1d_scalar_2 = """
-def kernel(test_p1, trial_p1, k1, test_bs1, trial_bs1, u1, w1, mat_00, c):
+def kernel(test_p1, trial_p1, test_bs1, trial_bs1, u1, w1, mat_00, c):
+    k1 = len(u1)
     mat_00[ : ,  : ] = 0.0
     for il1 in range(0, test_p1, 1):
         for jl1 in range(0, trial_p1, 1):

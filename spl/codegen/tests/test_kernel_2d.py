@@ -31,7 +31,9 @@ sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()
 #              expected kernels
 # ...............................................
 expected_bilinear_2d_scalar_1 = """
-def kernel(test_p1, test_p2, trial_p1, trial_p2, k1, k2, test_bs1, test_bs2, trial_bs1, trial_bs2, u1, u2, w1, w2, mat_00):
+def kernel(test_p1, test_p2, trial_p1, trial_p2, test_bs1, test_bs2, trial_bs1, trial_bs2, u1, u2, w1, w2, mat_00):
+    k1 = len(u1)
+    k2 = len(u2)
     mat_00[ : ,  : ,  : ,  : ] = 0.0
     for il1 in range(0, test_p1, 1):
         for il2 in range(0, test_p2, 1):
@@ -53,7 +55,9 @@ def kernel(test_p1, test_p2, trial_p1, trial_p2, k1, k2, test_bs1, test_bs2, tri
 expected_bilinear_2d_scalar_1 = sanitize(expected_bilinear_2d_scalar_1)
 
 expected_bilinear_2d_scalar_2 = """
-def kernel(test_p1, test_p2, trial_p1, trial_p2, k1, k2, test_bs1, test_bs2, trial_bs1, trial_bs2, u1, u2, w1, w2, mat_00, c):
+def kernel(test_p1, test_p2, trial_p1, trial_p2, test_bs1, test_bs2, trial_bs1, trial_bs2, u1, u2, w1, w2, mat_00, c):
+    k1 = len(u1)
+    k2 = len(u2)
     mat_00[ : ,  : ,  : ,  : ] = 0.0
     for il1 in range(0, test_p1, 1):
         for il2 in range(0, test_p2, 1):
