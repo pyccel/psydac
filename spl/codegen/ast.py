@@ -24,8 +24,8 @@ from sympde.printing.pycode import pycode
 
 FunctionalForms = (BilinearForm, LinearForm, FunctionForm)
 
-def compute_atoms_expr(atom,indexes_qds,indexes_test,
-                      indexes_trial, basis_trial,
+def compute_atoms_expr(atom,indices_qds,indices_test,
+                      indices_trial, basis_trial,
                       basis_test,cords,test_function):
 
     cls = (_partial_derivatives,
@@ -44,21 +44,21 @@ def compute_atoms_expr(atom,indexes_qds,indexes_test,
 
     if test:
         basis  = basis_test
-        idxs   = indexes_test
+        idxs   = indices_test
     else:
         basis  = basis_trial
-        idxs   = indexes_trial
+        idxs   = indices_trial
 
     args = []
-    dim  = len(indexes_test)
+    dim  = len(indices_test)
     for i in range(dim):
         if direction == i+1:
-            args.append(basis[i][idxs[i],1,indexes_qds[i]])
+            args.append(basis[i][idxs[i],1,indices_qds[i]])
         else:
-            args.append(basis[i][idxs[i],0,indexes_qds[i]])
+            args.append(basis[i][idxs[i],0,indices_qds[i]])
     return Assign(atom, Mul(*args))
 
-def compute_atoms_expr_field(atom, indexes_qds,
+def compute_atoms_expr_field(atom, indices_qds,
                             idxs, basis,
                             test_function):
 
@@ -77,14 +77,14 @@ def compute_atoms_expr_field(atom, indexes_qds,
     dim  = len(idxs)
     for i in range(dim):
         if direction == i+1:
-            args.append(basis[i][idxs[i],1,indexes_qds[i]])
+            args.append(basis[i][idxs[i],1,indices_qds[i]])
         else:
-            args.append(basis[i][idxs[i],0,indexes_qds[i]])
+            args.append(basis[i][idxs[i],0,indices_qds[i]])
 
     body = [Assign(atom, Mul(*args))]
     args = [IndexedBase(field_name)[idxs],atom]
     val_name = pycode(atom) + '_values'
-    val  = IndexedBase(val_name)[indexes_qds]
+    val  = IndexedBase(val_name)[indices_qds]
     body.append(AugAssign(val,'+',Mul(*args)))
     return body
 
@@ -107,10 +107,11 @@ class Kernel(Basic):
         if name is None:
             form = weak_form.__class__.__name__
             ID = abs(hash(weak_form))
-            name = '{form}_{ID}'.format(form=form, ID=ID)
+            name = 'kernel_{form}_{ID}'.format(form=form, ID=ID)
 
         obj = Basic.__new__(cls, weak_form)
         obj._name = name
+        obj._definitions = {}
         return obj
 
     @property
@@ -165,6 +166,10 @@ class Kernel(Basic):
         return isinstance(self._args[0], FunctionForm)
 
     @property
+    def definitions(self):
+        return self._definitions
+
+    @property
     def expr(self):
         cls = (_partial_derivatives,
               VectorTestFunction,
@@ -214,13 +219,20 @@ class Kernel(Basic):
         positions     = symbols('u0:%d'%dim, cls=IndexedBase)
         test_pads     = symbols('test_p1:%d'%(dim_test+1))
         trial_pads    = symbols('trial_p1:%d'%(dim_test+1))
-        indexes_qds   = symbols('g1:%d'%(dim+1))
+        indices_qds   = symbols('g1:%d'%(dim+1))
         qds_dim       = symbols('k1:%d'%(dim+1))
-        indexes_test  = symbols('il1:%d'%(dim_test+1))
-        indexes_trial = symbols('jl1:%d'%(dim_trial+1))
+        indices_test  = symbols('il1:%d'%(dim_test+1))
+        indices_trial = symbols('jl1:%d'%(dim_trial+1))
         fields        = symbols(fields_str)
         fields_val    = symbols(tuple(f+'_values' for f in fields_str),cls=IndexedBase)
-        fields_coeff   = symbols(tuple('coeff_'+str(f) for f in field_atoms),cls=IndexedBase)
+        fields_coeff  = symbols(tuple('coeff_'+str(f) for f in field_atoms),cls=IndexedBase)
+
+        # ... update kernel definitions. a dict containting data that will be
+        #     used in the assembly
+        self._definitions['fields'] = fields
+        self._definitions['fields_val'] = fields_val
+        self._definitions['fields_coeff'] = fields_coeff
+        # ...
 
         # ranges
         ranges_qdr   = [Range(qds_dim[i]) for i in range(dim)]
@@ -229,22 +241,22 @@ class Kernel(Basic):
         # ...
 
         # body of kernel
-        body   = [Assign(coordinates[i],positions[i][indexes_qds[i]])\
+        body   = [Assign(coordinates[i],positions[i][indices_qds[i]])\
                  for i in range(dim)]
-        body  += [compute_atoms_expr(atom,indexes_qds,
-                                      indexes_test,
-                                      indexes_trial,
+        body  += [compute_atoms_expr(atom,indices_qds,
+                                      indices_test,
+                                      indices_trial,
                                       basis_trial,
                                       basis_test,
                                       coordinates,
                                       test_function) for atom in atomic_expr]
 
-        weighted_vol = [weighted_vols[i][indexes_qds[i]] for i in range(dim)]
+        weighted_vol = [weighted_vols[i][indices_qds[i]] for i in range(dim)]
         weighted_vol = Mul(*weighted_vol)
         # ...
         # add fields
         for i in range(len(fields_val)):
-            body.append(Assign(fields[i],fields_val[i][indexes_qds]))
+            body.append(Assign(fields[i],fields_val[i][indices_qds]))
 
         body.append(Assign(wvol,weighted_vol))
 
@@ -255,7 +267,7 @@ class Kernel(Basic):
         # ...
         # put the body in for loops of quadrature points
         for i in range(dim-1,-1,-1):
-            body = [For(indexes_qds[i],ranges_qdr[i],body)]
+            body = [For(indices_qds[i],ranges_qdr[i],body)]
 
         # initialization of intermediate vars
         inits = [Assign(v[i],0.0) for i in range(ln)]
@@ -263,10 +275,10 @@ class Kernel(Basic):
         # ...
 
         if dim_trial:
-            trial_idxs = tuple([indexes_trial[i]+trial_pads[i]-indexes_test[i] for i in range(dim)])
-            idxs = indexes_test + trial_idxs
+            trial_idxs = tuple([indices_trial[i]+trial_pads[i]-indices_test[i] for i in range(dim)])
+            idxs = indices_test + trial_idxs
         else:
-            idxs = indexes_test
+            idxs = indices_test
 
         for i in range(ln):
             body.append(Assign(mats[i][idxs],v[i]))
@@ -274,10 +286,10 @@ class Kernel(Basic):
         # ...
         # put the body in tests and trials for loops
         for i in range(dim_trial-1,-1,-1):
-            body = [For(indexes_trial[i],ranges_trial[i],body)]
+            body = [For(indices_trial[i],ranges_trial[i],body)]
 
         for i in range(dim_test-1,-1,-1):
-            body = [For(indexes_test[i],ranges_test[i],body)]
+            body = [For(indices_test[i],ranges_test[i],body)]
         # ...
 
         # ...
@@ -290,21 +302,21 @@ class Kernel(Basic):
         allocate = [Assign(f, Zeros(qds_dim)) for f in fields_val]
         f_body   = [e  for atom in atomic_expr_field
                        for e in compute_atoms_expr_field(atom,
-                       indexes_qds, indexes_test,basis_test,
+                       indices_qds, indices_test,basis_test,
                        test_function)]
 #        f_body   = [e  for atom in field_atoms
 #                       for e in compute_atoms_expr_field(atom,
-#                       indexes_qds, indexes_test,basis_test,
+#                       indices_qds, indices_test,basis_test,
 #                       test_function)]
 
         if f_body:
             # put the body in for loops of quadrature points
             for i in range(dim-1,-1,-1):
-                f_body = [For(indexes_qds[i],ranges_qdr[i],f_body)]
+                f_body = [For(indices_qds[i],ranges_qdr[i],f_body)]
 
             # put the body in tests for loops
             for i in range(dim-1,-1,-1):
-                f_body = [For(indexes_test[i],ranges_test[i],f_body)]
+                f_body = [For(indices_test[i],ranges_test[i],f_body)]
 
         body = allocate + f_body + body
 
@@ -312,4 +324,78 @@ class Kernel(Basic):
         func_args = (test_pads + trial_pads + qds_dim + basis_test + basis_trial
                      + positions + weighted_vols + mats + conts + fields_coeff)
 
+        return FunctionDef(self.name, list(func_args), [], body)
+
+class Assembly(Basic):
+
+    def __new__(cls, weak_form, name=None):
+        if not isinstance(weak_form, FunctionalForms):
+            raise TypeError(' instance not a weak formulation')
+
+        if name is None:
+            form = weak_form.__class__.__name__
+            ID = abs(hash(weak_form))
+            name = 'assembly_{form}_{ID}'.format(form=form, ID=ID)
+
+        obj = Basic.__new__(cls, weak_form)
+        obj._name = name
+        return obj
+
+    @property
+    def weak_form(self):
+        return self._args[0]
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def expr(self):
+        form = self.weak_form
+
+        dim = form.ldim
+        fields = form.fields
+        mapping = form.mapping
+
+        is_bilinear_form = isinstance(form, BilinearForm)
+        is_linear_form = isinstance(form, LinearForm)
+        is_function_form = isinstance(form, FunctionForm)
+        is_logical = mapping is None
+
+        starts         = symbols('s1:%d'%(dim+1))
+        ends           = symbols('e1:%d'%(dim+1))
+        test_pads      = symbols('test_p1:%d'%(dim+1))
+        trial_pads     = symbols('trial_p1:%d'%(dim+1))
+        points         = symbols('points_1:%d'%(dim+1), cls=IndexedBase)
+        weights        = symbols('weights_1:%d'%(dim+1), cls=IndexedBase)
+        trial_basis    = symbols('trial_basis1:%d'%(dim+1), cls=IndexedBase)
+        test_basis     = symbols('test_basis1:%d'%(dim+1), cls=IndexedBase)
+        indices_elm    = symbols('ie1:%d'%(dim+1))
+        indices_span   = symbols('is1:%d'%(dim+1))
+        points_in_elm  = symbols('u1:%d'%(dim+1), cls=IndexedBase)
+        weights_in_elm = symbols('w1:%d'%(dim+1), cls=IndexedBase)
+        spans_in_elm   = symbols('test_spans_1:%d'%(dim+1), cls=IndexedBase)
+        trial_basis_in_elm = symbols('trial_bs1:%d'%(dim+1), cls=IndexedBase)
+        test_basis_in_elm  = symbols('test_bs1:%d'%(dim+1), cls=IndexedBase)
+
+
+        # sympy does not like ':'
+        _slice = Slice(None,None)
+
+        # ranges
+        ranges_elm  = [Range(starts[i], ends[i]-test_pads[i]+1) for i in range(dim)]
+
+        # assignments
+        body  = [Assign(indices_span[i], spans_in_elm[i][indices_elm[i]]) for i in range(dim)]
+        body += [Assign(points_in_elm[i], points[i][indices_elm[i],_slice]) for i in range(dim)]
+        body += [Assign(weights_in_elm[i], weights[i][indices_elm[i],_slice]) for i in range(dim)]
+        body += [Assign(trial_basis_in_elm[i], trial_basis[i][indices_elm[i],_slice,_slice,_slice]) for i in range(dim)]
+        body += [Assign(test_basis_in_elm[i], test_basis[i][indices_elm[i],_slice,_slice,_slice]) for i in range(dim)]
+
+        # ... loop over elements
+        for i in range(dim-1,-1,-1):
+            body = [For(indices_elm[i], ranges_elm[i], body)]
+        # ...
+
+        func_args = []
         return FunctionDef(self.name, list(func_args), [], body)
