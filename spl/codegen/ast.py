@@ -564,6 +564,22 @@ class Interface(sp_Basic):
     def assembly(self):
         return self._assembly
 
+    @property
+    def basic_args(self):
+        return self._basic_args
+
+    def build_arguments(self, data):
+        # data must be at the end, since they are optional
+
+        other = ()
+
+        if self.assembly.kernel.constants:
+            other = other + self.assembly.kernel.constants
+
+        other = other + data
+
+        return self.basic_args + other
+
     def _initialize(self):
         form = self.weak_form
         assembly = self.assembly
@@ -588,6 +604,10 @@ class Interface(sp_Basic):
         quad_orders    = symbols('k1:%d'%(dim+1))
         # ...
 
+        # ...
+        self._basic_args = spaces
+        # ...
+
         # ... getting data from fem space
         body = []
 
@@ -606,8 +626,8 @@ class Interface(sp_Basic):
         # ...
 
         # ...
-        body += [NewLine()]
-        body += [Comment('Create stencil matrices if not given')]
+#        body += [NewLine()]
+#        body += [Comment('Create stencil matrices if not given')]
         body += [Import('StencilMatrix', 'spl.linalg.stencil')]
         for M in global_matrices:
             if_cond = Is(M, Nil())
@@ -628,15 +648,18 @@ class Interface(sp_Basic):
         # ...
 
         # ... results
-        body += [Return(global_matrices)]
+        if len(global_matrices) == 1:
+            body += [Return(global_matrices[0])]
+
+        else:
+            body += [Return(global_matrices)]
         # ...
 
         # ... arguments
         mats = [Assign(M, Nil()) for M in global_matrices]
         mats = tuple(mats)
 
-#        func_args = (spaces + global_matrices)
-        func_args = (spaces + mats)
+        func_args = self.build_arguments(mats)
         # ...
 
         return FunctionDef(self.name, list(func_args), [], body)
