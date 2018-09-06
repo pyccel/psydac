@@ -30,18 +30,18 @@ sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()
 # ...............................................
 #              expected assembly
 # ...............................................
-expected_bilinear_2d_scalar_1 = """
+expected_bilinear_1d_scalar_1 = """
 """
-expected_bilinear_2d_scalar_1 = sanitize(expected_bilinear_2d_scalar_1)
+expected_bilinear_1d_scalar_1 = sanitize(expected_bilinear_1d_scalar_1)
 
 # ...............................................
 
 
-def test_assembly_bilinear_2d_scalar_1():
-    print('============ test_assembly_bilinear_2d_scalar_1 =============')
+def test_assembly_bilinear_1d_scalar_1():
+    print('============ test_assembly_bilinear_1d_scalar_1 =============')
 
-    U = FunctionSpace('U', ldim=2)
-    V = FunctionSpace('V', ldim=2)
+    U = FunctionSpace('U', ldim=1)
+    V = FunctionSpace('V', ldim=1)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -54,19 +54,13 @@ def test_assembly_bilinear_2d_scalar_1():
     code = pycode(assembly.expr)
     code = sanitize(code)
 
-    from spl.codegen.ast import Kernel
-
-    print('***********')
-    print(sanitize(pycode(assembly.kernel.expr)))
-    print('***********')
-
     print('-----------')
     print(code)
     print('-----------')
 
-#    assert(str(code) == expected_bilinear_2d_scalar_1)
+#    assert(str(code) == expected_bilinear_1d_scalar_1)
 
 #................................
 if __name__ == '__main__':
 
-    test_assembly_bilinear_2d_scalar_1()
+    test_assembly_bilinear_1d_scalar_1()

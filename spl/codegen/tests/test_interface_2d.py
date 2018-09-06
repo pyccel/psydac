@@ -1,6 +1,6 @@
 # coding: utf-8
 
-# TODO: - remove empty lines at the end of the assembly
+# TODO: - remove empty lines at the end of the interface
 
 import os
 
@@ -23,12 +23,12 @@ from sympde.core import BilinearForm, LinearForm, FunctionForm
 from sympde.core import Mapping
 from sympde.printing.pycode import pycode
 
-from spl.codegen.ast import Assembly
+from spl.codegen.ast import Interface
 
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
 # ...............................................
-#              expected assembly
+#              expected interface
 # ...............................................
 expected_bilinear_2d_scalar_1 = """
 """
@@ -37,8 +37,8 @@ expected_bilinear_2d_scalar_1 = sanitize(expected_bilinear_2d_scalar_1)
 # ...............................................
 
 
-def test_assembly_bilinear_2d_scalar_1():
-    print('============ test_assembly_bilinear_2d_scalar_1 =============')
+def test_interface_bilinear_2d_scalar_1():
+    print('============ test_interface_bilinear_2d_scalar_1 =============')
 
     U = FunctionSpace('U', ldim=2)
     V = FunctionSpace('V', ldim=2)
@@ -50,14 +50,16 @@ def test_assembly_bilinear_2d_scalar_1():
 
     a = BilinearForm((v,u), expr)
 
-    assembly = Assembly(a, name='assembly')
-    code = pycode(assembly.expr)
+    interface = Interface(a, name='interface')
+    code = pycode(interface.expr)
     code = sanitize(code)
 
     from spl.codegen.ast import Kernel
+    from spl.codegen.ast import Assembly
 
     print('***********')
-    print(sanitize(pycode(assembly.kernel.expr)))
+    print(sanitize(pycode(interface.assembly.kernel.expr)))
+    print(sanitize(pycode(interface.assembly.expr)))
     print('***********')
 
     print('-----------')
@@ -69,4 +71,4 @@ def test_assembly_bilinear_2d_scalar_1():
 #................................
 if __name__ == '__main__':
 
-    test_assembly_bilinear_2d_scalar_1()
+    test_interface_bilinear_2d_scalar_1()

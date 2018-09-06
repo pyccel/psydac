@@ -1,5 +1,5 @@
 from sympy import Basic
-from sympy import symbols, Symbol, IndexedBase, Matrix, Function
+from sympy import symbols, Symbol, IndexedBase, Indexed, Matrix, Function
 from sympy import Mul, Add, Tuple
 
 from pyccel.ast.core import For
@@ -11,6 +11,10 @@ from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import Import
 from pyccel.ast import Zeros
 from pyccel.ast import Import
+from pyccel.ast import DottedName
+from pyccel.ast import Nil
+from pyccel.ast import If, Is, Return
+from pyccel.ast import Comment, NewLine
 from pyccel.parser.parser import _atomic
 
 from sympde.core import Constant
@@ -225,6 +229,7 @@ class Kernel(Basic):
             expr = [expr]
             ln   = 1
 
+        # ... declarations
         wvol          = symbols('wvol')
         basis_trial   = symbols('trial_bs1:%d'%(dim+1), cls=IndexedBase)
         basis_test    = symbols('test_bs1:%d'%(dim+1), cls=IndexedBase)
@@ -239,6 +244,7 @@ class Kernel(Basic):
         fields        = symbols(fields_str)
         fields_val    = symbols(tuple(f+'_values' for f in fields_str),cls=IndexedBase)
         fields_coeff  = symbols(tuple('coeff_'+str(f) for f in field_atoms),cls=IndexedBase)
+        # ...
 
         # ... update kernel definitions. a dict containting data that will be
         #     used in the assembly
@@ -352,6 +358,8 @@ class Assembly(Basic):
 
         obj = Basic.__new__(cls, weak_form)
         obj._name = name
+        obj._kernel = Kernel(weak_form)
+        obj._global_matrices = None
         return obj
 
     @property
@@ -363,16 +371,24 @@ class Assembly(Basic):
         return self._name
 
     @property
-    def expr(self):
-        form = self.weak_form
-        dim = form.ldim
+    def kernel(self):
+        return self._kernel
 
-        kernel = Kernel(form)
+    @property
+    def global_matrices(self):
+        return self._global_matrices
+
+    @property
+    def expr(self):
+        kernel = self.kernel
+        form   = self.weak_form
+        dim    = form.ldim
+
         n_rows = kernel.n_rows
         n_cols = kernel.n_cols
-
         kernel = kernel.expr
 
+        # ... declarations
         starts             = symbols('s1:%d'%(dim+1))
         ends               = symbols('e1:%d'%(dim+1))
         test_pads          = symbols('test_p1:%d'%(dim+1))
@@ -393,7 +409,7 @@ class Assembly(Basic):
 
         # TODO remove later and replace by Len inside Kernel
         quad_orders    = symbols('k1:%d'%(dim+1))
-
+        # ...
 
         # ... element matrices
         element_matrices = {}
@@ -430,7 +446,7 @@ class Assembly(Basic):
 
         # ... update global matrices
         lslices = [Slice(None,None)]*2*dim
-        gslices = [Slice(i-p,i+1) for i,p in zip(indices_span, test_degrees)]
+        gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
         gslices += [Slice(None,None)]*dim # for assignement
 
         for i in range(0, n_rows):
@@ -475,6 +491,7 @@ class Assembly(Basic):
                 M = global_matrices[i,j]
                 mats.append(M)
         mats = tuple(mats)
+        self._global_matrices = mats
 
         func_args = (starts + ends +
                      test_degrees + trial_degrees +
@@ -483,6 +500,115 @@ class Assembly(Basic):
                      points + weights +
                      test_basis + trial_basis +
                      mats)
+        # ...
+
+        return FunctionDef(self.name, list(func_args), [], body)
+
+class Interface(Basic):
+
+    def __new__(cls, weak_form, name=None):
+        if not isinstance(weak_form, FunctionalForms):
+            raise TypeError(' instance not a weak formulation')
+
+        if name is None:
+            form = weak_form.__class__.__name__
+            ID = abs(hash(weak_form))
+            name = 'interface_{form}_{ID}'.format(form=form, ID=ID)
+
+        obj = Basic.__new__(cls, weak_form)
+        obj._name = name
+        obj._assembly = Assembly(weak_form)
+        return obj
+
+    @property
+    def weak_form(self):
+        return self._args[0]
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def assembly(self):
+        return self._assembly
+
+    @property
+    def expr(self):
+        form = self.weak_form
+        assembly = self.assembly.expr
+        global_matrices = self.assembly.global_matrices
+
+        dim = form.ldim
+
+        # ... declarations
+        test_space = Symbol('W')
+        trial_space = Symbol('V')
+        spaces = (test_space, trial_space)
+
+        starts         = symbols('s1:%d'%(dim+1))
+        ends           = symbols('e1:%d'%(dim+1))
+        test_degrees   = symbols('test_p1:%d'%(dim+1))
+        trial_degrees  = symbols('trial_p1:%d'%(dim+1))
+        points         = symbols('points_1:%d'%(dim+1), cls=IndexedBase)
+        weights        = symbols('weights_1:%d'%(dim+1), cls=IndexedBase)
+        trial_basis    = symbols('trial_basis_1:%d'%(dim+1), cls=IndexedBase)
+        test_basis     = symbols('test_basis_1:%d'%(dim+1), cls=IndexedBase)
+        spans          = symbols('test_spans_1:%d'%(dim+1), cls=IndexedBase)
+        quad_orders    = symbols('k1:%d'%(dim+1))
+        # ...
+
+        # ... getting data from fem space
+        body = []
+
+        body += [Assign(starts, DottedName(test_space, 'vector_space', 'starts'))]
+        body += [Assign(ends, DottedName(test_space, 'vector_space', 'ends'))]
+        body += [Assign(test_degrees, DottedName(test_space, 'vector_space', 'pads'))]
+        body += [Assign(trial_degrees, DottedName(trial_space, 'vector_space', 'pads'))]
+
+        body += [Assign(spans, DottedName(test_space, 'spans'))]
+        body += [Assign(quad_orders, DottedName(test_space, 'quad_order'))]
+        body += [Assign(points, DottedName(test_space, 'quad_points'))]
+        body += [Assign(weights, DottedName(test_space, 'quad_weights'))]
+
+        body += [Assign(test_basis, DottedName(test_space, 'quad_basis'))]
+        body += [Assign(trial_basis, DottedName(trial_space, 'quad_basis'))]
+        # ...
+
+        # ...
+        body += [NewLine()]
+        body += [Comment('Create stencil matrices if not given')]
+        body += [Import('StencilMatrix', 'spl.linalg.stencil')]
+        for M in global_matrices:
+            if_cond = Is(M, Nil())
+            args = [DottedName(test_space, 'vector_space'),
+                    DottedName(trial_space, 'vector_space')]
+            if_body = [Assign(M, Function('StencilMatrix')(*args))]
+
+            stmt = If((if_cond, if_body))
+            body += [stmt]
+        # ...
+
+        # call to assembly
+        # TODO
+        args = assembly.arguments[:-1]
+
+        mat_data       = [DottedName(M, '_data') for M in global_matrices]
+        mat_data       = tuple(mat_data)
+        args = args + mat_data
+
+        body += [Function(str(assembly.name))(*args)]
+        # ...
+
+        # ... results
+        body += [Return(global_matrices)]
+        # ...
+
+        # ... arguments
+        mats = [Assign(M, Nil()) for M in global_matrices]
+        mats = tuple(mats)
+
+#        func_args = (spaces + global_matrices)
+        func_args = (spaces + mats)
         # ...
 
         return FunctionDef(self.name, list(func_args), [], body)

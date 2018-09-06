@@ -277,6 +277,28 @@ class TensorFemSpace( FemSpace ):
         """
         return self._element_starts, self._element_ends
 
+    # ... the following properties are needed to make code generation easier
+    @property
+    def quad_order(self):
+        return [W.quad_order for W in self.spaces]
+
+    @property
+    def quad_points(self):
+        return [W.quad_points for W in self.spaces]
+
+    @property
+    def quad_weights(self):
+        return [W.quad_weights for W in self.spaces]
+
+    @property
+    def quad_basis(self):
+        return [W.quad_basis for W in self.spaces]
+
+    @property
+    def spans(self):
+        return [W.spans for W in self.spaces]
+    # ...
+
     # ...
     def init_fem( self ):
         for V in self.spaces:
