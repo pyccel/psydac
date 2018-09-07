@@ -17,21 +17,17 @@ class BasicForm(object):
         self._interface = Interface(expr)
         self._dependencies = self.interface.dependencies
 
-        self._interface_code = None
-        self._dependencies_code = None
-
         # generate python code as strings for dependencies
-        self._generate_code()
+        self._dependencies_code = self._generate_code()
 
         # save dependencies code
-        self._save_code()
+        self._dependencies_fname = self._save_code()
 
-        # ... generate code for Python interface
-        self._generate_interface_code()
-        # ...
+        # generate code for Python interface
+        self._interface_code = self._generate_interface_code()
 
         # compile code
-        self._compile(namespace)
+        self._func = self._compile(namespace)
 
     @property
     def expr(self):
@@ -63,24 +59,26 @@ class BasicForm(object):
         module_name = module_name.replace('/', '.')
         return module_name
 
+    @property
+    def func(self):
+        return self._func
+
     def _generate_code(self):
         # ... generate code that can be pyccelized
         code = ''
         for dep in self.dependencies:
             code = '{code}\n{dep}'.format(code=code, dep=pycode(dep))
-        self._dependencies_code = code
         # ...
+        return code
 
     def _save_code(self):
         folder = 'tmp'
 
-        # ... save dependencies
         code = self.dependencies_code
         ID = abs(hash(self))
         name = 'dependencies_{}'.format(ID)
         fname = write_code(name, code, ext='py', folder=folder)
-        self._dependencies_fname = fname
-        # ...
+        return fname
 
     def _generate_interface_code(self):
         imports = []
@@ -100,8 +98,7 @@ class BasicForm(object):
 
         code = pycode(self.interface)
 
-        self._interface_code = '{imports}\n{code}'.format(imports=imports,
-                                                          code=code)
+        return  '{imports}\n{code}'.format(imports=imports, code=code)
 
     def _compile(self, namespace):
         # ...
@@ -115,16 +112,29 @@ class BasicForm(object):
 
         exec(code, namespace)
         interface = namespace[name]
-        print(interface)
         # ...
+
+        return interface
 
 class BilinearForm(BasicForm):
 
-    def __init__(self, expr):
+    def __init__(self, expr, *args, **kwargs):
         if not isinstance(expr, sym_BilinearForm):
             raise TypeError('> Expecting a symbolic BilinearForm')
 
         BasicForm.__init__(self, expr)
+
+        if not args:
+            raise ValueError('> fem spaces must be given as a list/tuple')
+
+        self._spaces = args[0]
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+    def assemble(self, *args, **kwargs):
+        return self.func(*self.spaces, *args, **kwargs)
 
 class LinearForm(BasicForm):
 
@@ -143,18 +153,15 @@ class FunctionForm(BasicForm):
         BasicForm.__init__(self, expr)
 
 def discretize_BilinearForm(expr, *args, **kwargs):
-#    print('> Enter discretize_BilinearForm')
-    form = BilinearForm(expr)
+    form = BilinearForm(expr, *args, **kwargs)
     return form
 
 def discretize_LinearForm(expr, *args, **kwargs):
-#    print('> Enter discretize_LinearForm')
-    form = LinearForm(expr)
+    form = LinearForm(expr, *args, **kwargs)
     return form
 
 def discretize_FunctionForm(expr, *args, **kwargs):
-#    print('> Enter discretize_FunctionForm')
-    form = FunctionForm(expr)
+    form = FunctionForm(expr, *args, **kwargs)
     return form
 
 def discretize(expr, *args, **kwargs):

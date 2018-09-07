@@ -18,6 +18,7 @@ from pyccel.ast import DottedName
 from pyccel.ast import Nil
 from pyccel.ast import Len
 from pyccel.ast import If, Is, Return
+from pyccel.ast import String, Print, Shape
 from pyccel.ast import Comment, NewLine
 from pyccel.parser.parser import _atomic
 
@@ -126,7 +127,7 @@ def is_field(expr):
 
 class SplBasic(Basic):
 
-    def __new__(cls, arg, name=None, prefix=None):
+    def __new__(cls, arg, name=None, prefix=None, debug=False, detailed=False):
 
         if name is None:
             if prefix is None:
@@ -138,6 +139,8 @@ class SplBasic(Basic):
         obj = Basic.__new__(cls)
         obj._name = name
         obj._dependencies = []
+        obj._debug = debug
+        obj._detailed = detailed
 
         return obj
 
@@ -156,6 +159,14 @@ class SplBasic(Basic):
     @property
     def dependencies(self):
         return self._dependencies
+
+    @property
+    def debug(self):
+        return self._debug
+
+    @property
+    def detailed(self):
+        return self._detailed
 
 class EvalField(SplBasic):
 
@@ -407,8 +418,8 @@ class Kernel(SplBasic):
 
         # ranges
         ranges_qdr   = [Range(qds_dim[i]) for i in range(dim)]
-        ranges_test  = [Range(test_pads[i]) for i in range(dim_test)]
-        ranges_trial = [Range(trial_pads[i]) for i in range(dim_trial)]
+        ranges_test  = [Range(test_degrees[i]+1) for i in range(dim_test)]
+        ranges_trial = [Range(trial_degrees[i]+1) for i in range(dim_trial)]
         # ...
 
         # body of kernel
@@ -598,6 +609,10 @@ class Assembly(SplBasic):
 
         # assignments
         body  = [Assign(indices_span[i], spans[i][indices_elm[i]]) for i in range(dim)]
+        if self.debug and self.detailed:
+            msg = lambda x: (String('> span {} = '.format(x)), x)
+            body += [Print(msg(indices_span[i])) for i in range(dim)]
+
         body += [Assign(points_in_elm[i], points[i][indices_elm[i],_slice]) for i in range(dim)]
         body += [Assign(weights_in_elm[i], weights[i][indices_elm[i],_slice]) for i in range(dim)]
         body += [Assign(trial_basis_in_elm[i], trial_basis[i][indices_elm[i],_slice,_slice,_slice]) for i in range(dim)]
@@ -609,7 +624,7 @@ class Assembly(SplBasic):
 
         # ... update global matrices
         lslices = [Slice(None,None)]*2*dim
-        gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
+        gslices = [Slice(i-p,i+1) for i,p in zip(indices_span, test_degrees)]
         gslices += [Slice(None,None)]*dim # for assignement
 
         for i in range(0, n_rows):
@@ -641,6 +656,17 @@ class Assembly(SplBasic):
 
                 stmt = Assign(mat, Zeros((*orders, *spads)))
                 prelude += [stmt]
+
+                if self.debug:
+                    prelude += [Print((String('> shape {} = '.format(mat)), *orders, *spads))]
+        # ...
+
+        # ...
+        if self.debug:
+            for i in range(0, n_rows):
+                for j in range(0, n_cols):
+                    M = global_matrices[i,j]
+                    prelude += [Print((String('> shape {} = '.format(M)), Shape(M)))]
         # ...
 
         # ...
