@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from sympy import Basic as sp_Basic
+from sympy import Basic
 from sympy import symbols, Symbol, IndexedBase, Indexed, Matrix, Function
 from sympy import Mul, Add, Tuple
 
@@ -124,32 +124,21 @@ def is_field(expr):
 
     return False
 
-class EvalField(sp_Basic):
+class SplBasic(Basic):
 
-    def __new__(cls, space, fields, name=None):
+    def __new__(cls, arg, name=None, prefix=None):
 
         if name is None:
-            ID = abs(hash(space))
-            name = 'eval_field_{ID}'.format(ID=ID)
+            if prefix is None:
+                raise ValueError('prefix must be given')
 
-        if not isinstance(fields, (tuple, list, Tuple)):
-            raise TypeError('> Expecting an iterable')
+            ID = abs(hash(arg))
+            name = '{prefix}_{ID}'.format(ID=ID, prefix=prefix)
 
-        fields = Tuple(*fields)
-
-        obj = sp_Basic.__new__(cls, space, fields)
+        obj = Basic.__new__(cls)
         obj._name = name
-        obj._func = obj._initialize()
 
         return obj
-
-    @property
-    def space(self):
-        return self._args[0]
-
-    @property
-    def fields(self):
-        return self._args[1]
 
     @property
     def name(self):
@@ -162,6 +151,29 @@ class EvalField(sp_Basic):
     @property
     def basic_args(self):
         return self._basic_args
+
+class EvalField(SplBasic):
+
+    def __new__(cls, space, fields, name=None):
+
+        if not isinstance(fields, (tuple, list, Tuple)):
+            raise TypeError('> Expecting an iterable')
+
+        obj = SplBasic.__new__(cls, space, name=name, prefix='eval_field')
+
+        obj._space = space
+        obj._fields = Tuple(*fields)
+        obj._func = obj._initialize()
+
+        return obj
+
+    @property
+    def space(self):
+        return self._space
+
+    @property
+    def fields(self):
+        return self._fields
 
     def build_arguments(self, data):
 
@@ -230,35 +242,16 @@ class EvalField(sp_Basic):
 
         return FunctionDef(self.name, list(func_args), [], body)
 
-class Basic(sp_Basic):
-
-    def __new__(cls, weak_form, name=None, prefix=None):
-
-        if not isinstance(weak_form, FunctionalForms):
-            raise TypeError(' instance not a weak formulation')
-
-        if name is None:
-            if prefix is None:
-                raise ValueError('prefix must be given')
-
-            ID = abs(hash(weak_form))
-            name = '{prefix}_{ID}'.format(ID=ID, prefix=prefix)
-
-        obj = sp_Basic.__new__(cls, weak_form)
-        obj._name = name
-
-        return obj
-
-    @property
-    def name(self):
-        return self._name
-
-class Kernel(Basic):
+class Kernel(SplBasic):
 
     def __new__(cls, weak_form, name=None):
 
-        obj = Basic.__new__(cls, weak_form, name=name, prefix='kernel')
+        if not isinstance(weak_form, FunctionalForms):
+            raise TypeError('> Expecting a weak formulation')
 
+        obj = SplBasic.__new__(cls, weak_form, name=name, prefix='kernel')
+
+        obj._weak_form = weak_form
         obj._n_rows = 1
         obj._n_cols = 1
         obj._func = obj._initialize()
@@ -266,12 +259,8 @@ class Kernel(Basic):
         return obj
 
     @property
-    def func(self):
-        return self._func
-
-    @property
     def weak_form(self):
-        return self._args[0]
+        return self._weak_form
 
     @property
     def n_rows(self):
@@ -296,10 +285,6 @@ class Kernel(Basic):
     @property
     def eval_fields(self):
         return self._eval_fields
-
-    @property
-    def basic_args(self):
-        return self._basic_args
 
     def build_arguments(self, data):
 
@@ -494,23 +479,23 @@ class Kernel(Basic):
 
         return FunctionDef(self.name, list(func_args), [], body)
 
-class Assembly(Basic):
+class Assembly(SplBasic):
 
     def __new__(cls, weak_form, name=None):
 
-        obj = Basic.__new__(cls, weak_form, name=name, prefix='assembly')
+        if not isinstance(weak_form, FunctionalForms):
+            raise TypeError('> Expecting a weak formulation')
 
+        obj = SplBasic.__new__(cls, weak_form, name=name, prefix='assembly')
+
+        obj._weak_form = weak_form
         obj._kernel = Kernel(weak_form)
         obj._func = obj._initialize()
         return obj
 
     @property
-    def func(self):
-        return self._func
-
-    @property
     def weak_form(self):
-        return self._args[0]
+        return self._weak_form
 
     @property
     def kernel(self):
@@ -519,10 +504,6 @@ class Assembly(Basic):
     @property
     def global_matrices(self):
         return self._global_matrices
-
-    @property
-    def basic_args(self):
-        return self._basic_args
 
     def build_arguments(self, data):
 
@@ -666,31 +647,27 @@ class Assembly(Basic):
 
         return FunctionDef(self.name, list(func_args), [], body)
 
-class Interface(Basic):
+class Interface(SplBasic):
 
     def __new__(cls, weak_form, name=None):
 
-        obj = Basic.__new__(cls, weak_form, name=name, prefix='interface')
+        if not isinstance(weak_form, FunctionalForms):
+            raise TypeError('> Expecting a weak formulation')
 
+        obj = SplBasic.__new__(cls, weak_form, name=name, prefix='interface')
+
+        obj._weak_form = weak_form
         obj._assembly = Assembly(weak_form)
         obj._func = obj._initialize()
         return obj
 
     @property
-    def func(self):
-        return self._func
-
-    @property
     def weak_form(self):
-        return self._args[0]
+        return self._weak_form
 
     @property
     def assembly(self):
         return self._assembly
-
-    @property
-    def basic_args(self):
-        return self._basic_args
 
     def build_arguments(self, data):
         # data must be at the end, since they are optional

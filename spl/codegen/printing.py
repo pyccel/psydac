@@ -11,16 +11,7 @@ from sympde.printing.pycode import PythonCodePrinter as SympdePythonCodePrinter
 
 class PythonCodePrinter(SympdePythonCodePrinter):
 
-    def _print_EvalField(self, expr):
-        return self._print(expr.func)
-
-    def _print_Kernel(self, expr):
-        return self._print(expr.func)
-
-    def _print_Assembly(self, expr):
-        return self._print(expr.func)
-
-    def _print_Interface(self, expr):
+    def _print_SplBasic(self, expr):
         return self._print(expr.func)
 
 
