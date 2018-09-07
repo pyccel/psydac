@@ -108,10 +108,33 @@ def test_interface_bilinear_3d_scalar_4():
     code = pycode(interface)
     print(code)
 
+def test_interface_bilinear_3d_block_1():
+    print('============ test_interface_bilinear_3d_block_1 =============')
+
+    U = FunctionSpace('U', ldim=3, is_block=True, shape=3)
+    V = FunctionSpace('V', ldim=3, is_block=True, shape=3)
+
+    v = VectorTestFunction(V, name='v')
+    u = VectorTestFunction(U, name='u')
+
+    expr = div(v) * div(u) + dot(curl(v), curl(u))
+
+    a = BilinearForm((v,u), expr)
+
+    interface = Interface(a, name='interface')
+    code = pycode(interface)
+    print(code)
+
 #................................
 if __name__ == '__main__':
 
-    test_interface_bilinear_3d_scalar_1()
-    test_interface_bilinear_3d_scalar_2()
-    test_interface_bilinear_3d_scalar_3()
-    test_interface_bilinear_3d_scalar_4()
+#    # ... scalar case
+#    test_interface_bilinear_3d_scalar_1()
+#    test_interface_bilinear_3d_scalar_2()
+#    test_interface_bilinear_3d_scalar_3()
+#    test_interface_bilinear_3d_scalar_4()
+#    # ...
+
+    # ... block case
+    test_interface_bilinear_3d_block_1()
+    # ...

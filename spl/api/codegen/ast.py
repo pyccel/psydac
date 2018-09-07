@@ -352,6 +352,7 @@ class Kernel(SplBasic):
         else:
             expr = evaluate(self.weak_form)
 
+            # ... TODO move this to sympde/evaluate
             assert(len(self.weak_form.test_spaces) == 1)
             assert(len(self.weak_form.trial_spaces) == 1)
 
@@ -368,6 +369,7 @@ class Kernel(SplBasic):
             uu = TestFunction(U, name=u.name*2)
 
             expr = inv_normalize(expr, {v: vv, u: uu})
+            # ...
         # ...
 
         dim      = self.weak_form.ldim
