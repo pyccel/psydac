@@ -22,8 +22,8 @@ from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, FunctionForm
 from sympde.core import Mapping
 
-from spl.codegen.ast import Interface
-from spl.codegen.printing import pycode
+from spl.api.codegen.ast import Interface
+from spl.api.codegen.printing import pycode
 
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
@@ -54,8 +54,8 @@ def test_interface_bilinear_2d_scalar_1():
     code = pycode(interface)
     code = sanitize(code)
 
-    from spl.codegen.ast import Kernel
-    from spl.codegen.ast import Assembly
+    from spl.api.codegen.ast import Kernel
+    from spl.api.codegen.ast import Assembly
 
 #    print('***********')
 #    print(sanitize(pycode(interface.assembly.kernel)))
@@ -87,8 +87,8 @@ def test_interface_bilinear_2d_scalar_2():
     code = pycode(interface)
     code = sanitize(code)
 
-    from spl.codegen.ast import Kernel
-    from spl.codegen.ast import Assembly
+    from spl.api.codegen.ast import Kernel
+    from spl.api.codegen.ast import Assembly
 
 #    print('***********')
 #    print(sanitize(pycode(interface.assembly.kernel)))
@@ -120,8 +120,8 @@ def test_interface_bilinear_2d_scalar_3():
     code = pycode(interface)
     code = sanitize(code)
 
-    from spl.codegen.ast import Kernel
-    from spl.codegen.ast import Assembly
+    from spl.api.codegen.ast import Kernel
+    from spl.api.codegen.ast import Assembly
 
 #    print('***********')
 #    print(sanitize(pycode(interface.assembly.kernel)))
@@ -154,8 +154,8 @@ def test_interface_bilinear_2d_scalar_4():
     code = pycode(interface)
     code = sanitize(code)
 
-    from spl.codegen.ast import Kernel
-    from spl.codegen.ast import Assembly
+    from spl.api.codegen.ast import Kernel
+    from spl.api.codegen.ast import Assembly
 
     print('***********')
 #    print(sanitize(pycode(interface.assembly.kernel)))

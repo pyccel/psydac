@@ -3,9 +3,9 @@ from sympde.core import BilinearForm as sym_BilinearForm
 from sympde.core import LinearForm as sym_LinearForm
 from sympde.core import FunctionForm as sym_FunctionForm
 
-from spl.codegen.ast import Interface
-from spl.codegen.printing import pycode
-from spl.codegen.utils import write_code
+from spl.api.codegen.ast import Interface
+from spl.api.codegen.printing import pycode
+from spl.api.codegen.utils import write_code
 
 import os
 import importlib

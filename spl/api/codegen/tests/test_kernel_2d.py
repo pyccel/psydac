@@ -22,8 +22,8 @@ from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, FunctionForm
 from sympde.core import Mapping
 
-from spl.codegen.ast import Kernel
-from spl.codegen.printing import pycode
+from spl.api.codegen.ast import Kernel
+from spl.api.codegen.printing import pycode
 
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 

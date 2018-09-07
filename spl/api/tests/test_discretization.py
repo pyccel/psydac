@@ -13,7 +13,7 @@ from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
 from spl.fem.tensor  import TensorFemSpace
 from spl.fem.vector  import VectorFemSpace
-from spl.fem.discretization import discretize
+from spl.api.discretization import discretize
 
 from numpy import linspace, zeros
 

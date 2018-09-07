@@ -22,8 +22,8 @@ from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, FunctionForm
 from sympde.core import Mapping
 
-from spl.codegen.ast import Assembly
-from spl.codegen.printing import pycode
+from spl.api.codegen.ast import Assembly
+from spl.api.codegen.printing import pycode
 
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
@@ -54,7 +54,7 @@ def test_assembly_bilinear_2d_scalar_1():
     code = pycode(assembly)
     code = sanitize(code)
 
-    from spl.codegen.ast import Kernel
+    from spl.api.codegen.ast import Kernel
 
     print('-----------')
     print(code)
@@ -81,7 +81,7 @@ def test_assembly_bilinear_2d_scalar_2():
     code = pycode(assembly)
     code = sanitize(code)
 
-    from spl.codegen.ast import Kernel
+    from spl.api.codegen.ast import Kernel
 
     print('-----------')
     print(code)
@@ -108,7 +108,7 @@ def test_assembly_bilinear_2d_scalar_3():
     code = pycode(assembly)
     code = sanitize(code)
 
-    from spl.codegen.ast import Kernel
+    from spl.api.codegen.ast import Kernel
 
     print('-----------')
     print(code)
@@ -136,7 +136,7 @@ def test_assembly_bilinear_2d_scalar_4():
     code = pycode(assembly)
     code = sanitize(code)
 
-    from spl.codegen.ast import Kernel
+    from spl.api.codegen.ast import Kernel
 
     print('-----------')
     print(code)
