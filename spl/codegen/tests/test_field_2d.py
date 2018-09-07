@@ -43,7 +43,6 @@ def test_field_2d_1():
 
     F = Field('F', space=V)
 
-#    eval_field = EvalField(V, [F, dx(F), dy(F)], name='eval_field')
     eval_field = EvalField(V, [F], name='eval_field')
     code = pycode(eval_field)
     code = sanitize(code)
@@ -54,7 +53,25 @@ def test_field_2d_1():
 
 #    assert(str(code) == expected_2d_1)
 
+def test_field_2d_2():
+    print('============ test_field_2d_2 =============')
+
+    V = FunctionSpace('V', ldim=2)
+
+    F = Field('F', space=V)
+
+    eval_field = EvalField(V, [F, dx(F), dy(F), dx(dx(F))], name='eval_field')
+    code = pycode(eval_field)
+    code = sanitize(code)
+
+    print('-----------')
+    print(code)
+    print('-----------')
+
+#    assert(str(code) == expected_2d_2)
+
 #................................
 if __name__ == '__main__':
 
     test_field_2d_1()
+    test_field_2d_2()

@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 from sympy import Basic as sp_Basic
 from sympy import symbols, Symbol, IndexedBase, Indexed, Matrix, Function
 from sympy import Mul, Add, Tuple
@@ -27,7 +29,8 @@ from sympde.core.derivatives import _partial_derivatives
 from sympde.core.space import TestFunction
 from sympde.core.space import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, FunctionForm
-from sympde.printing.pycode import pycode
+from sympde.printing.pycode import pycode  # TODO remove from here
+from sympde.core.derivatives import print_expression
 
 FunctionalForms = (BilinearForm, LinearForm, FunctionForm)
 
@@ -74,26 +77,42 @@ def compute_atoms_expr_field(atom, indices_qds,
 
     field = list(atom.atoms(Field))[0]
     field_name = 'coeff_'+str(field.name)
+
+    # ...
     if isinstance(atom, _partial_derivatives):
         direction = atom.grad_index + 1
 
     else:
         direction = 0
+    # ...
 
+    # ...
+    test_function = atom.subs(field, test_function)
+    name = print_expression(test_function)
+    test_function = Symbol(name)
+    # ...
+
+    # ...
     args = []
     dim  = len(idxs)
     for i in range(dim):
         if direction == i+1:
             args.append(basis[i][idxs[i],1,indices_qds[i]])
+
         else:
             args.append(basis[i][idxs[i],0,indices_qds[i]])
 
-    body = [Assign(test_function, Mul(*args))]
+    init = Assign(test_function, Mul(*args))
+    # ...
+
+    # ...
     args = [IndexedBase(field_name)[idxs], test_function]
-    val_name = pycode(atom) + '_values'
+    val_name = print_expression(atom) + '_values'
     val  = IndexedBase(val_name)[indices_qds]
-    body.append(AugAssign(val,'+',Mul(*args)))
-    return body
+    update = AugAssign(val,'+',Mul(*args))
+    # ...
+
+    return init, update
 
 def is_field(expr):
 
@@ -115,6 +134,8 @@ class EvalField(sp_Basic):
 
         if not isinstance(fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
+
+        fields = Tuple(*fields)
 
         obj = sp_Basic.__new__(cls, space, fields)
         obj._name = name
@@ -142,11 +163,8 @@ class EvalField(sp_Basic):
         space = self.space
         dim = space.ldim
 
-        # TODO we should not call pycode here!
-        fields_str = [pycode(f) for f in self.fields]
-
-        # TODO compute properly
-        field_atoms = self.fields
+        field_atoms = self.fields.atoms(Field)
+        fields_str = [print_expression(f) for f in self.fields]
 
         # ... declarations
         degrees       = symbols('p1:%d'%(dim+1))
@@ -164,11 +182,21 @@ class EvalField(sp_Basic):
         # ...
 
         # ...
+        Nj = TestFunction(space, name='Nj')
         body = []
+        init_basis = OrderedDict()
+        updates = []
         for atom in self.fields:
-            stmt = compute_atoms_expr_field(atom, indices_quad,
-                                            indices_basis, basis, Symbol('Nj'))
-            body += stmt
+            init, update = compute_atoms_expr_field(atom, indices_quad, indices_basis,
+                                                    basis, Nj)
+
+            updates.append(update)
+
+            basis_name = str(init.lhs)
+            init_basis[basis_name] = init
+
+        body += list(init_basis.values())
+        body += updates
         # ...
 
         # put the body in tests for loops
@@ -178,6 +206,11 @@ class EvalField(sp_Basic):
         # put the body in for loops of quadrature points
         for i in range(dim-1,-1,-1):
             body = [For(indices_quad[i], ranges_quad[i],body)]
+
+        # initialization of the matrix
+        init_vals = [f[[Slice(None,None)]*dim] for f in fields_val]
+        init_vals = [Assign(e, 0.0) for e in init_vals]
+        body =  init_vals + body
 
         func_args = (degrees + orders + basis + fields_coeffs + fields_val)
 
