@@ -30,10 +30,6 @@ sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()
 # ...............................................
 #              expected assembly
 # ...............................................
-expected_bilinear_1d_scalar_1 = """
-"""
-expected_bilinear_1d_scalar_1 = sanitize(expected_bilinear_1d_scalar_1)
-
 # ...............................................
 
 
@@ -52,15 +48,70 @@ def test_assembly_bilinear_1d_scalar_1():
 
     assembly = Assembly(a, name='assembly')
     code = pycode(assembly)
-    code = sanitize(code)
-
-    print('-----------')
     print(code)
-    print('-----------')
 
-#    assert(str(code) == expected_bilinear_1d_scalar_1)
+def test_assembly_bilinear_1d_scalar_2():
+    print('============ test_assembly_bilinear_1d_scalar_2 =============')
+
+    U = FunctionSpace('U', ldim=1)
+    V = FunctionSpace('V', ldim=1)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    c = Constant('c', real=True, label='mass stabilization')
+
+    expr = dot(grad(v), grad(u)) + c*v*u
+
+    a = BilinearForm((v,u), expr)
+
+    assembly = Assembly(a, name='assembly')
+    code = pycode(assembly)
+    print(code)
+
+def test_assembly_bilinear_1d_scalar_3():
+    print('============ test_assembly_bilinear_1d_scalar_3 =============')
+
+    U = FunctionSpace('U', ldim=1)
+    V = FunctionSpace('V', ldim=1)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    F = Field('F', space=V)
+
+    expr = dot(grad(v), grad(u)) + F*v*u
+
+    a = BilinearForm((v,u), expr)
+
+    assembly = Assembly(a, name='assembly')
+    code = pycode(assembly)
+    print(code)
+
+def test_assembly_bilinear_1d_scalar_4():
+    print('============ test_assembly_bilinear_1d_scalar_4 =============')
+
+    U = FunctionSpace('U', ldim=1)
+    V = FunctionSpace('V', ldim=1)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    F = Field('F', space=V)
+    G = Field('G', space=V)
+
+    expr = dot(grad(G*v), grad(u)) + F*v*u
+
+    a = BilinearForm((v,u), expr)
+
+    assembly = Assembly(a, name='assembly')
+    code = pycode(assembly)
+    print(code)
 
 #................................
 if __name__ == '__main__':
 
     test_assembly_bilinear_1d_scalar_1()
+    test_assembly_bilinear_1d_scalar_2()
+    test_assembly_bilinear_1d_scalar_3()
+    test_assembly_bilinear_1d_scalar_4()

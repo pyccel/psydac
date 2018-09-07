@@ -30,10 +30,6 @@ sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()
 # ...............................................
 #              expected assembly
 # ...............................................
-expected_bilinear_2d_scalar_1 = """
-"""
-expected_bilinear_2d_scalar_1 = sanitize(expected_bilinear_2d_scalar_1)
-
 # ...............................................
 
 
@@ -52,15 +48,7 @@ def test_assembly_bilinear_2d_scalar_1():
 
     assembly = Assembly(a, name='assembly')
     code = pycode(assembly)
-    code = sanitize(code)
-
-    from spl.api.codegen.ast import Kernel
-
-    print('-----------')
     print(code)
-    print('-----------')
-
-#    assert(str(code) == expected_bilinear_2d_scalar_1)
 
 def test_assembly_bilinear_2d_scalar_2():
     print('============ test_assembly_bilinear_2d_scalar_2 =============')
@@ -79,15 +67,7 @@ def test_assembly_bilinear_2d_scalar_2():
 
     assembly = Assembly(a, name='assembly')
     code = pycode(assembly)
-    code = sanitize(code)
-
-    from spl.api.codegen.ast import Kernel
-
-    print('-----------')
     print(code)
-    print('-----------')
-
-#    assert(str(code) == expected_bilinear_2d_scalar_2)
 
 def test_assembly_bilinear_2d_scalar_3():
     print('============ test_assembly_bilinear_2d_scalar_3 =============')
@@ -106,15 +86,7 @@ def test_assembly_bilinear_2d_scalar_3():
 
     assembly = Assembly(a, name='assembly')
     code = pycode(assembly)
-    code = sanitize(code)
-
-    from spl.api.codegen.ast import Kernel
-
-    print('-----------')
     print(code)
-    print('-----------')
-
-#    assert(str(code) == expected_bilinear_2d_scalar_3)
 
 def test_assembly_bilinear_2d_scalar_4():
     print('============ test_assembly_bilinear_2d_scalar_4 =============')
@@ -134,20 +106,12 @@ def test_assembly_bilinear_2d_scalar_4():
 
     assembly = Assembly(a, name='assembly')
     code = pycode(assembly)
-    code = sanitize(code)
-
-    from spl.api.codegen.ast import Kernel
-
-    print('-----------')
     print(code)
-    print('-----------')
-
-#    assert(str(code) == expected_bilinear_2d_scalar_4)
 
 #................................
 if __name__ == '__main__':
 
-#    test_assembly_bilinear_2d_scalar_1()
-#    test_assembly_bilinear_2d_scalar_2()
-#    test_assembly_bilinear_2d_scalar_3()
+    test_assembly_bilinear_2d_scalar_1()
+    test_assembly_bilinear_2d_scalar_2()
+    test_assembly_bilinear_2d_scalar_3()
     test_assembly_bilinear_2d_scalar_4()

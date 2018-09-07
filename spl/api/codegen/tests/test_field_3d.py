@@ -33,10 +33,10 @@ sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()
 # ...............................................
 
 
-def test_eval_field_2d_1():
-    print('============ test_eval_field_2d_1 =============')
+def test_eval_field_3d_1():
+    print('============ test_eval_field_3d_1 =============')
 
-    V = FunctionSpace('V', ldim=2)
+    V = FunctionSpace('V', ldim=3)
 
     F = Field('F', space=V)
 
@@ -44,19 +44,19 @@ def test_eval_field_2d_1():
     code = pycode(eval_field)
     print(code)
 
-def test_eval_field_2d_2():
-    print('============ test_eval_field_2d_2 =============')
+def test_eval_field_3d_2():
+    print('============ test_eval_field_3d_2 =============')
 
-    V = FunctionSpace('V', ldim=2)
+    V = FunctionSpace('V', ldim=3)
 
     F = Field('F', space=V)
 
-    eval_field = EvalField(V, [F, dx(F), dy(F), dx(dx(F))], name='eval_field')
+    eval_field = EvalField(V, [F, dx(F), dy(F), dz(F), dx(dx(F))], name='eval_field')
     code = pycode(eval_field)
     print(code)
 
 #................................
 if __name__ == '__main__':
 
-    test_eval_field_2d_1()
-    test_eval_field_2d_2()
+    test_eval_field_3d_1()
+    test_eval_field_3d_2()

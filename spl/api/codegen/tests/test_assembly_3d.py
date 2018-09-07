@@ -1,6 +1,6 @@
 # coding: utf-8
 
-# TODO: - remove empty lines at the end of the kernel
+# TODO: - remove empty lines at the end of the assembly
 
 import os
 
@@ -22,22 +22,22 @@ from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, FunctionForm
 from sympde.core import Mapping
 
-from spl.api.codegen.ast import Kernel
+from spl.api.codegen.ast import Assembly
 from spl.api.codegen.printing import pycode
 
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
 # ...............................................
-#              expected kernels
+#              expected assembly
 # ...............................................
 # ...............................................
 
 
-def test_kernel_bilinear_1d_scalar_1():
-    print('============ test_kernel_bilinear_1d_scalar_1 =============')
+def test_assembly_bilinear_3d_scalar_1():
+    print('============ test_assembly_bilinear_3d_scalar_1 =============')
 
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    U = FunctionSpace('U', ldim=3)
+    V = FunctionSpace('V', ldim=3)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -46,15 +46,15 @@ def test_kernel_bilinear_1d_scalar_1():
 
     a = BilinearForm((v,u), expr)
 
-    kernel = Kernel(a, name='kernel')
-    code = pycode(kernel)
+    assembly = Assembly(a, name='assembly')
+    code = pycode(assembly)
     print(code)
 
-def test_kernel_bilinear_1d_scalar_2():
-    print('============ test_kernel_bilinear_1d_scalar_2 =============')
+def test_assembly_bilinear_3d_scalar_2():
+    print('============ test_assembly_bilinear_3d_scalar_2 =============')
 
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    U = FunctionSpace('U', ldim=3)
+    V = FunctionSpace('V', ldim=3)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -65,15 +65,15 @@ def test_kernel_bilinear_1d_scalar_2():
 
     a = BilinearForm((v,u), expr)
 
-    kernel = Kernel(a, name='kernel')
-    code = pycode(kernel)
+    assembly = Assembly(a, name='assembly')
+    code = pycode(assembly)
     print(code)
 
-def test_kernel_bilinear_1d_scalar_3():
-    print('============ test_kernel_bilinear_1d_scalar_3 =============')
+def test_assembly_bilinear_3d_scalar_3():
+    print('============ test_assembly_bilinear_3d_scalar_3 =============')
 
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    U = FunctionSpace('U', ldim=3)
+    V = FunctionSpace('V', ldim=3)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -84,15 +84,15 @@ def test_kernel_bilinear_1d_scalar_3():
 
     a = BilinearForm((v,u), expr)
 
-    kernel = Kernel(a, name='kernel')
-    code = pycode(kernel)
+    assembly = Assembly(a, name='assembly')
+    code = pycode(assembly)
     print(code)
 
-def test_kernel_bilinear_1d_scalar_4():
-    print('============ test_kernel_bilinear_1d_scalar_4 =============')
+def test_assembly_bilinear_3d_scalar_4():
+    print('============ test_assembly_bilinear_3d_scalar_4 =============')
 
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    U = FunctionSpace('U', ldim=3)
+    V = FunctionSpace('V', ldim=3)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -104,14 +104,14 @@ def test_kernel_bilinear_1d_scalar_4():
 
     a = BilinearForm((v,u), expr)
 
-    kernel = Kernel(a, name='kernel')
-    code = pycode(kernel)
+    assembly = Assembly(a, name='assembly')
+    code = pycode(assembly)
     print(code)
 
 #................................
 if __name__ == '__main__':
 
-    test_kernel_bilinear_1d_scalar_1()
-    test_kernel_bilinear_1d_scalar_2()
-    test_kernel_bilinear_1d_scalar_3()
-    test_kernel_bilinear_1d_scalar_4()
+    test_assembly_bilinear_3d_scalar_1()
+    test_assembly_bilinear_3d_scalar_2()
+    test_assembly_bilinear_3d_scalar_3()
+    test_assembly_bilinear_3d_scalar_4()

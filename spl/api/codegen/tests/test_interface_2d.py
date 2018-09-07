@@ -30,10 +30,6 @@ sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()
 # ...............................................
 #              expected interface
 # ...............................................
-expected_bilinear_2d_scalar_1 = """
-"""
-expected_bilinear_2d_scalar_1 = sanitize(expected_bilinear_2d_scalar_1)
-
 # ...............................................
 
 
@@ -52,21 +48,7 @@ def test_interface_bilinear_2d_scalar_1():
 
     interface = Interface(a, name='interface')
     code = pycode(interface)
-    code = sanitize(code)
-
-    from spl.api.codegen.ast import Kernel
-    from spl.api.codegen.ast import Assembly
-
-#    print('***********')
-#    print(sanitize(pycode(interface.assembly.kernel)))
-#    print(sanitize(pycode(interface.assembly)))
-#    print('***********')
-
-    print('-----------')
     print(code)
-    print('-----------')
-
-#    assert(str(code) == expected_bilinear_2d_scalar_1)
 
 def test_interface_bilinear_2d_scalar_2():
     print('============ test_interface_bilinear_2d_scalar_2 =============')
@@ -85,21 +67,7 @@ def test_interface_bilinear_2d_scalar_2():
 
     interface = Interface(a, name='interface')
     code = pycode(interface)
-    code = sanitize(code)
-
-    from spl.api.codegen.ast import Kernel
-    from spl.api.codegen.ast import Assembly
-
-#    print('***********')
-#    print(sanitize(pycode(interface.assembly.kernel)))
-#    print(sanitize(pycode(interface.assembly)))
-#    print('***********')
-
-    print('-----------')
     print(code)
-    print('-----------')
-
-#    assert(str(code) == expected_bilinear_2d_scalar_2)
 
 def test_interface_bilinear_2d_scalar_3():
     print('============ test_interface_bilinear_2d_scalar_3 =============')
@@ -118,21 +86,7 @@ def test_interface_bilinear_2d_scalar_3():
 
     interface = Interface(a, name='interface')
     code = pycode(interface)
-    code = sanitize(code)
-
-    from spl.api.codegen.ast import Kernel
-    from spl.api.codegen.ast import Assembly
-
-#    print('***********')
-#    print(sanitize(pycode(interface.assembly.kernel)))
-#    print(sanitize(pycode(interface.assembly)))
-#    print('***********')
-
-    print('-----------')
     print(code)
-    print('-----------')
-
-#    assert(str(code) == expected_bilinear_2d_scalar_3)
 
 def test_interface_bilinear_2d_scalar_4():
     print('============ test_interface_bilinear_2d_scalar_4 =============')
@@ -152,26 +106,12 @@ def test_interface_bilinear_2d_scalar_4():
 
     interface = Interface(a, name='interface')
     code = pycode(interface)
-    code = sanitize(code)
-
-    from spl.api.codegen.ast import Kernel
-    from spl.api.codegen.ast import Assembly
-
-    print('***********')
-#    print(sanitize(pycode(interface.assembly.kernel)))
-    print(sanitize(pycode(interface.assembly)))
-    print('***********')
-
-    print('-----------')
     print(code)
-    print('-----------')
-
-#    assert(str(code) == expected_bilinear_2d_scalar_4)
 
 #................................
 if __name__ == '__main__':
 
-#    test_interface_bilinear_2d_scalar_1()
-#    test_interface_bilinear_2d_scalar_2()
-#    test_interface_bilinear_2d_scalar_3()
+    test_interface_bilinear_2d_scalar_1()
+    test_interface_bilinear_2d_scalar_2()
+    test_interface_bilinear_2d_scalar_3()
     test_interface_bilinear_2d_scalar_4()
