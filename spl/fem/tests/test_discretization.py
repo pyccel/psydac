@@ -151,6 +151,6 @@ def test_discretization_2d_3():
 ###############################################
 if __name__ == '__main__':
 
-#    test_discretization_2d_1()
-#    test_discretization_2d_2()
+    test_discretization_2d_1()
+    test_discretization_2d_2()
     test_discretization_2d_3()

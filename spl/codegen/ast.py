@@ -308,10 +308,11 @@ class Kernel(SplBasic):
 
     def build_arguments(self, data):
 
-        if self.fields_coeffs:
-            other = self.fields_coeffs
+        other = data
 
-        other = other + data
+        # fields are placed before data
+        if self.fields_coeffs:
+            other = self.fields_coeffs + other
 
         if self.constants:
             other = other + self.constants
