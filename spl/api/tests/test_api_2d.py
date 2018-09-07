@@ -16,8 +16,8 @@ from spl.api.discretization import discretize
 
 from numpy import linspace, zeros
 
-def test_api_2d_1():
-    print('============ test_api_2d_1 =============')
+def test_api_2d_scalar_1():
+    print('============ test_api_2d_scalar_1 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=2)
@@ -53,8 +53,8 @@ def test_api_2d_1():
     M = ah.assemble()
     # ...
 
-def test_api_2d_2():
-    print('============ test_api_2d_2 =============')
+def test_api_2d_scalar_2():
+    print('============ test_api_2d_scalar_2 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=2)
@@ -92,8 +92,8 @@ def test_api_2d_2():
     M = ah.assemble(0.5)
     # ...
 
-def test_api_2d_3():
-    print('============ test_api_2d_3 =============')
+def test_api_2d_scalar_3():
+    print('============ test_api_2d_scalar_3 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=2)
@@ -136,8 +136,8 @@ def test_api_2d_3():
     M = ah.assemble(phi)
     # ...
 
-def test_api_2d_4():
-    print('============ test_api_2d_4 =============')
+def test_api_2d_scalar_4():
+    print('============ test_api_2d_scalar_4 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=2)
@@ -184,11 +184,54 @@ def test_api_2d_4():
     M = ah.assemble(phi, psi)
     # ...
 
+def test_api_2d_block_1():
+    print('============ test_api_2d_block_1 =============')
+
+    # ... abstract model
+    U = FunctionSpace('U', ldim=2, is_block=True, shape=2)
+    V = FunctionSpace('V', ldim=2, is_block=True, shape=2)
+
+    v = VectorTestFunction(V, name='v')
+    u = VectorTestFunction(U, name='u')
+
+    expr = div(v) * div(u) + rot(v) * rot(u)
+
+    a = BilinearForm((v,u), expr)
+    # ...
+
+    # ... discrete spaces
+    # Input data: degree, number of elements
+    p1  = 3 ; p2  = 3
+    ne1 = 4 ; ne2 = 4
+
+    # Create uniform grid
+    grid_1 = linspace( 0., 1., num=ne1+1 )
+    grid_2 = linspace( 0., 1., num=ne2+1 )
+
+    # Create 1D finite element spaces and precompute quadrature data
+    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
+    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
+
+    # Create 2D tensor product finite element space
+    V = TensorFemSpace( V1, V2 )
+    # ...
+
+    # ...
+    ah = discretize(a, [V, V])
+    M = ah.assemble()
+    # ...
+
 
 ###############################################
 if __name__ == '__main__':
 
-    test_api_2d_1()
-    test_api_2d_2()
-    test_api_2d_3()
-    test_api_2d_4()
+#    # ... scalar case
+#    test_api_2d_scalar_1()
+#    test_api_2d_scalar_2()
+#    test_api_2d_scalar_3()
+#    test_api_2d_scalar_4()
+#    # ...
+
+    # ... block case
+    test_api_2d_block_1()
+    # ...

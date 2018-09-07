@@ -108,10 +108,33 @@ def test_kernel_bilinear_2d_scalar_4():
     code = pycode(kernel)
     print(code)
 
+def test_kernel_bilinear_2d_block_1():
+    print('============ test_kernel_bilinear_2d_block_1 =============')
+
+    U = FunctionSpace('U', ldim=2, is_block=True, shape=2)
+    V = FunctionSpace('V', ldim=2, is_block=True, shape=2)
+
+    v = VectorTestFunction(V, name='v')
+    u = VectorTestFunction(U, name='u')
+
+    expr = div(v) * div(u) + rot(v) * rot(u)
+
+    a = BilinearForm((v,u), expr)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    print(code)
+
 #................................
 if __name__ == '__main__':
 
-    test_kernel_bilinear_2d_scalar_1()
-    test_kernel_bilinear_2d_scalar_2()
-    test_kernel_bilinear_2d_scalar_3()
-    test_kernel_bilinear_2d_scalar_4()
+#    # ... scalar case
+#    test_kernel_bilinear_2d_scalar_1()
+#    test_kernel_bilinear_2d_scalar_2()
+#    test_kernel_bilinear_2d_scalar_3()
+#    test_kernel_bilinear_2d_scalar_4()
+#    # ...
+
+    # ... block case
+    test_kernel_bilinear_2d_block_1()
+    # ...

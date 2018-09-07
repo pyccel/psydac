@@ -24,9 +24,10 @@ from pyccel.parser.parser import _atomic
 
 from sympde.core import Constant
 from sympde.core import Field
-from sympde.core import atomize
+from sympde.core import atomize, matricize, evaluate, inv_normalize
 from sympde.core import BilinearForm, LinearForm, FunctionForm, BasicForm
 from sympde.core.derivatives import _partial_derivatives
+from sympde.core.space import FunctionSpace
 from sympde.core.space import TestFunction
 from sympde.core.space import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, FunctionForm
@@ -268,8 +269,6 @@ class Kernel(SplBasic):
         obj = SplBasic.__new__(cls, weak_form, name=name, prefix='kernel')
 
         obj._weak_form = weak_form
-        obj._n_rows = 1
-        obj._n_cols = 1
         obj._func = obj._initialize()
 
         return obj
@@ -329,7 +328,47 @@ class Kernel(SplBasic):
         is_function = isinstance(self.weak_form, FunctionForm)
 
         weak_form = self.weak_form.expr
-        expr = atomize(weak_form)
+
+        # ...
+        n_rows = 1 ; n_cols = 1
+        if is_bilinear:
+            n_rows = self.weak_form.test_spaces[0].shape
+            n_cols = self.weak_form.trial_spaces[0].shape
+
+        if is_linear:
+            raise NotImplementedError('TODO')
+
+        if is_function:
+            raise NotImplementedError('TODO')
+
+        self._n_rows = n_rows
+        self._n_cols = n_cols
+        # ...
+
+        # ...
+        if n_rows * n_cols == 1:
+            expr = atomize(weak_form)
+
+        else:
+            expr = evaluate(self.weak_form)
+
+            assert(len(self.weak_form.test_spaces) == 1)
+            assert(len(self.weak_form.trial_spaces) == 1)
+
+            V = self.weak_form.test_spaces[0]
+            U = self.weak_form.trial_spaces[0]
+
+            v = self.weak_form.test_functions[0]
+            u = self.weak_form.trial_functions[0]
+
+            V = FunctionSpace(V.name, ldim=V.ldim, coordinates=[i.name for i in V.coordinates])
+            U = FunctionSpace(U.name, ldim=U.ldim, coordinates=[i.name for i in U.coordinates])
+
+            vv = TestFunction(V, name=v.name*2)
+            uu = TestFunction(U, name=u.name*2)
+
+            expr = inv_normalize(expr, {v: vv, u: uu})
+        # ...
 
         dim      = self.weak_form.ldim
         dim_test = dim
@@ -377,8 +416,8 @@ class Kernel(SplBasic):
         # creation of symbolic vars
         if isinstance(expr, Matrix):
             sh   = expr.shape
-            mats = symbols('mat0:{}(0:{})'.format(sh[0], sh[1]),cls=IndexedBase)
-            v    = symbols('v0:{}(0:{})'.format(sh[0], sh[1]),cls=IndexedBase)
+            mats = symbols('mat_0:{}(0:{})'.format(sh[0], sh[1]),cls=IndexedBase)
+            v    = symbols('v_0:{}(0:{})'.format(sh[0], sh[1]),cls=IndexedBase)
             expr = expr[:]
             ln   = len(expr)
 
