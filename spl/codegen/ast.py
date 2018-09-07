@@ -291,6 +291,10 @@ class Kernel(SplBasic):
         return self._constants
 
     @property
+    def fields(self):
+        return self._fields
+
+    @property
     def fields_coeffs(self):
         return self._fields_coeffs
 
@@ -304,13 +308,13 @@ class Kernel(SplBasic):
 
     def build_arguments(self, data):
 
-        other = data
+        if self.fields_coeffs:
+            other = self.fields_coeffs
+
+        other = other + data
 
         if self.constants:
             other = other + self.constants
-
-        if self.fields_coeffs:
-            other = other + self.fields_coeffs
 
         if self.mapping_coeffs:
             other = other + (self.mapping_coeffs,)
@@ -412,6 +416,7 @@ class Kernel(SplBasic):
         # ...
 
         # ...
+        self._fields = fields
         self._fields_coeffs = fields_coeffs
         self._mapping_coeffs = mapping_coeffs
         # ...
@@ -487,8 +492,10 @@ class Kernel(SplBasic):
             body = [FunctionCall(eval_field.func, args)] + body
 
         # calculate field values
-        allocate = [Assign(f, Zeros(qds_dim)) for f in fields_val]
-        body = allocate + body
+        if fields_val:
+            prelude  = [Import('zeros', 'numpy')]
+            allocate = [Assign(f, Zeros(qds_dim)) for f in fields_val]
+            body = prelude + allocate + body
 
         # compute length of logical points
         len_quads = [Assign(k, Len(u)) for k,u in zip(qds_dim, positions)]
@@ -538,9 +545,6 @@ class Assembly(SplBasic):
         if self.kernel.constants:
             other = other + self.kernel.constants
 
-        if self.kernel.fields_coeffs:
-            other = other + self.kernel.fields_coeffs
-
         if self.kernel.mapping_coeffs:
             other = other + (self.kernel.mapping_coeffs,)
 
@@ -549,6 +553,9 @@ class Assembly(SplBasic):
     def _initialize(self):
         kernel = self.kernel
         form   = self.weak_form
+        fields = kernel.fields
+        fields_coeffs = kernel.fields_coeffs
+
         dim    = form.ldim
 
         n_rows = kernel.n_rows
@@ -684,7 +691,7 @@ class Assembly(SplBasic):
         # ...
 
         # function args
-        func_args = self.build_arguments(mats)
+        func_args = self.build_arguments(fields_coeffs + mats)
 
         return FunctionDef(self.name, list(func_args), [], body)
 
@@ -732,6 +739,7 @@ class Interface(SplBasic):
         form = self.weak_form
         assembly = self.assembly
         global_matrices = assembly.global_matrices
+        fields = assembly.kernel.fields
 
         dim = form.ldim
 
@@ -790,7 +798,11 @@ class Interface(SplBasic):
         # ... call to assembly
         mat_data       = [DottedName(M, '_data') for M in global_matrices]
         mat_data       = tuple(mat_data)
-        args = assembly.build_arguments(mat_data)
+
+        field_data     = [DottedName(F, '_coeffs', '_data') for F in fields]
+        field_data     = tuple(field_data)
+
+        args = assembly.build_arguments(field_data + mat_data)
 
         body += [FunctionCall(assembly.func, args)]
         # ...
@@ -807,7 +819,7 @@ class Interface(SplBasic):
         mats = [Assign(M, Nil()) for M in global_matrices]
         mats = tuple(mats)
 
-        func_args = self.build_arguments(mats)
+        func_args = self.build_arguments(fields + mats)
         # ...
 
         return FunctionDef(self.name, list(func_args), [], body)
