@@ -159,6 +159,16 @@ class EvalField(sp_Basic):
     def func(self):
         return self._func
 
+    @property
+    def basic_args(self):
+        return self._basic_args
+
+    def build_arguments(self, data):
+
+        other = data
+
+        return self.basic_args + other
+
     def _initialize(self):
         space = self.space
         dim = space.ldim
@@ -179,6 +189,10 @@ class EvalField(sp_Basic):
         # ... ranges
         ranges_basis = [Range(degrees[i]+1) for i in range(dim)]
         ranges_quad  = [Range(orders[i]) for i in range(dim)]
+        # ...
+
+        # ... basic arguments
+        self._basic_args = (orders)
         # ...
 
         # ...
@@ -212,7 +226,7 @@ class EvalField(sp_Basic):
         init_vals = [Assign(e, 0.0) for e in init_vals]
         body =  init_vals + body
 
-        func_args = (degrees + orders + basis + fields_coeffs + fields_val)
+        func_args = self.build_arguments(degrees + basis + fields_coeffs + fields_val)
 
         return FunctionDef(self.name, list(func_args), [], body)
 
@@ -372,6 +386,8 @@ class Kernel(Basic):
         positions     = symbols('u1:%d'%(dim+1), cls=IndexedBase)
         test_pads     = symbols('test_p1:%d'%(dim+1))
         trial_pads    = symbols('trial_p1:%d'%(dim+1))
+        test_degrees  = symbols('test_p1:%d'%(dim+1))
+        trial_degrees = symbols('trial_p1:%d'%(dim+1))
         indices_qds   = symbols('g1:%d'%(dim+1))
         qds_dim       = symbols('k1:%d'%(dim+1))
         indices_test  = symbols('il1:%d'%(dim+1))
@@ -461,7 +477,8 @@ class Kernel(Basic):
 
         # call eval field
         for eval_field in self.eval_fields:
-            args = eval_field.func.arguments
+            args = test_degrees + basis_test + fields_coeffs + fields_val
+            args = eval_field.build_arguments(args)
             body = [FunctionCall(eval_field.func, args)] + body
 
         # calculate field values
