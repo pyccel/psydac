@@ -25,6 +25,9 @@ class PythonCodePrinter(SympdePythonCodePrinter):
 
         return '{code}\n{func}'.format(code=code, func=self._print(expr.func))
 
+    def _print_Interface(self, expr):
+        return self._print(expr.func)
+
 
 def pycode(expr, **settings):
     """ Converts an expr to a string of Python code

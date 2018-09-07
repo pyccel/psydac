@@ -347,9 +347,10 @@ class Kernel(SplBasic):
         # ... create EvalField
         # TODO must use groupby on space and create different EvalField
         self._eval_fields = []
-        space = self.weak_form.test_spaces[0]
-        eval_field = EvalField(space, atomic_expr_field)
-        self._eval_fields.append(eval_field)
+        if atomic_expr_field:
+            space = self.weak_form.test_spaces[0]
+            eval_field = EvalField(space, atomic_expr_field)
+            self._eval_fields.append(eval_field)
 
         # update dependencies
         self._dependencies += self.eval_fields
@@ -674,6 +675,9 @@ class Interface(SplBasic):
 
         assembly = Assembly(weak_form)
         obj._assembly = assembly
+
+        # update dependencies
+        obj._dependencies += [assembly]
 
         obj._func = obj._initialize()
         return obj

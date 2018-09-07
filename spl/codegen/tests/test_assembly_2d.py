@@ -119,6 +119,6 @@ def test_assembly_bilinear_2d_scalar_3():
 #................................
 if __name__ == '__main__':
 
-#    test_assembly_bilinear_2d_scalar_1()
+    test_assembly_bilinear_2d_scalar_1()
 #    test_assembly_bilinear_2d_scalar_2()
-    test_assembly_bilinear_2d_scalar_3()
+#    test_assembly_bilinear_2d_scalar_3()
