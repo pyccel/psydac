@@ -112,6 +112,6 @@ def test_interface_bilinear_1d_scalar_4():
 if __name__ == '__main__':
 
     test_interface_bilinear_1d_scalar_1()
-    test_interface_bilinear_1d_scalar_2()
-    test_interface_bilinear_1d_scalar_3()
-    test_interface_bilinear_1d_scalar_4()
+#    test_interface_bilinear_1d_scalar_2()
+#    test_interface_bilinear_1d_scalar_3()
+#    test_interface_bilinear_1d_scalar_4()

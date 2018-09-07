@@ -764,6 +764,16 @@ class Interface(SplBasic):
         # ...
 
         # ...
+        if dim == 1:
+            points        = points[0]
+            weights       = weights[0]
+            trial_basis   = trial_basis[0]
+            test_basis    = test_basis[0]
+            spans         = spans[0]
+            quad_orders   = quad_orders[0]
+        # ...
+
+        # ...
         self._basic_args = spaces
         # ...
 
