@@ -12,13 +12,12 @@ from sympde.core import BilinearForm, LinearForm, FunctionForm
 from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
 from spl.fem.tensor  import TensorFemSpace
-from spl.fem.vector  import VectorFemSpace
 from spl.api.discretization import discretize
 
 from numpy import linspace, zeros
 
-def test_discretization_2d_1():
-    print('============ test_discretization_2d_1 =============')
+def test_api_2d_1():
+    print('============ test_api_2d_1 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=2)
@@ -33,9 +32,6 @@ def test_discretization_2d_1():
     # ...
 
     # ... discrete spaces
-    from spl.fem.splines import SplineSpace
-    from spl.fem.tensor  import TensorFemSpace
-
     # Input data: degree, number of elements
     p1  = 3 ; p2  = 3
     ne1 = 4 ; ne2 = 4
@@ -57,8 +53,8 @@ def test_discretization_2d_1():
     M = ah.assemble()
     # ...
 
-def test_discretization_2d_2():
-    print('============ test_discretization_2d_2 =============')
+def test_api_2d_2():
+    print('============ test_api_2d_2 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=2)
@@ -75,9 +71,6 @@ def test_discretization_2d_2():
     # ...
 
     # ... discrete spaces
-    from spl.fem.splines import SplineSpace
-    from spl.fem.tensor  import TensorFemSpace
-
     # Input data: degree, number of elements
     p1  = 3 ; p2  = 3
     ne1 = 4 ; ne2 = 4
@@ -99,8 +92,8 @@ def test_discretization_2d_2():
     M = ah.assemble(0.5)
     # ...
 
-def test_discretization_2d_3():
-    print('============ test_discretization_2d_3 =============')
+def test_api_2d_3():
+    print('============ test_api_2d_3 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=2)
@@ -117,10 +110,6 @@ def test_discretization_2d_3():
     # ...
 
     # ... discrete spaces
-    from spl.fem.splines import SplineSpace
-    from spl.fem.tensor  import TensorFemSpace
-    from spl.fem.basic   import FemField
-
     # Input data: degree, number of elements
     p1  = 3 ; p2  = 3
     ne1 = 4 ; ne2 = 4
@@ -147,8 +136,8 @@ def test_discretization_2d_3():
     M = ah.assemble(phi)
     # ...
 
-def test_discretization_2d_4():
-    print('============ test_discretization_2d_4 =============')
+def test_api_2d_4():
+    print('============ test_api_2d_4 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=2)
@@ -166,10 +155,6 @@ def test_discretization_2d_4():
     # ...
 
     # ... discrete spaces
-    from spl.fem.splines import SplineSpace
-    from spl.fem.tensor  import TensorFemSpace
-    from spl.fem.basic   import FemField
-
     # Input data: degree, number of elements
     p1  = 3 ; p2  = 3
     ne1 = 4 ; ne2 = 4
@@ -203,7 +188,7 @@ def test_discretization_2d_4():
 ###############################################
 if __name__ == '__main__':
 
-#    test_discretization_2d_1()
-#    test_discretization_2d_2()
-#    test_discretization_2d_3()
-    test_discretization_2d_4()
+    test_api_2d_1()
+    test_api_2d_2()
+    test_api_2d_3()
+    test_api_2d_4()
