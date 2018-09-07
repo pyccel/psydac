@@ -108,10 +108,46 @@ def test_kernel_bilinear_1d_scalar_4():
     code = pycode(kernel)
     print(code)
 
+def test_kernel_bilinear_1d_block_1():
+    print('============ test_kernel_bilinear_1d_block_1 =============')
+    # 1d wave problem
+    # TODO debug matricize
+
+    U = FunctionSpace('U', ldim=1)
+    V = FunctionSpace('V', ldim=1)
+
+    # trial functions
+    u = TestFunction(U, name='u')
+    f = TestFunction(V, name='f')
+
+    # test functions
+    v = TestFunction(U, name='v')
+    w = TestFunction(V, name='w')
+
+    rho = Constant('rho', real=True, label='mass density')
+    dt = Constant('dt', real=True, label='time step')
+
+    mass = BilinearForm((v,u), v*u)
+    adv  = BilinearForm((v,u), dx(v)*u)
+
+#    expr = rho*mass(v,u) + dt*adv(v, f) + dt*adv(w,u) + mass(w,f)
+    expr = mass(v,u) + mass(w,f)
+    a = BilinearForm(((v,w), (u,f)), expr)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    print(code)
+
 #................................
 if __name__ == '__main__':
 
-    test_kernel_bilinear_1d_scalar_1()
-    test_kernel_bilinear_1d_scalar_2()
-    test_kernel_bilinear_1d_scalar_3()
-    test_kernel_bilinear_1d_scalar_4()
+#    # ... scalar case
+#    test_kernel_bilinear_1d_scalar_1()
+#    test_kernel_bilinear_1d_scalar_2()
+#    test_kernel_bilinear_1d_scalar_3()
+#    test_kernel_bilinear_1d_scalar_4()
+#    # ...
+
+    # ... block case
+    test_kernel_bilinear_1d_block_1()
+    # ...

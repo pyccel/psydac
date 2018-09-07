@@ -362,8 +362,14 @@ class Kernel(SplBasic):
             v = self.weak_form.test_functions[0]
             u = self.weak_form.trial_functions[0]
 
-            V = FunctionSpace(V.name, ldim=V.ldim, coordinates=[i.name for i in V.coordinates])
-            U = FunctionSpace(U.name, ldim=U.ldim, coordinates=[i.name for i in U.coordinates])
+            coordinates = V.coordinates
+            if not isinstance(coordinates, (tuple, list, Tuple)):
+                coordinates = [coordinates]
+
+            coordinates = [i.name for i in coordinates]
+
+            V = FunctionSpace(V.name, ldim=V.ldim, coordinates=coordinates)
+            U = FunctionSpace(U.name, ldim=U.ldim, coordinates=coordinates)
 
             vv = TestFunction(V, name=v.name*2)
             uu = TestFunction(U, name=u.name*2)

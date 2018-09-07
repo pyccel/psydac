@@ -15,8 +15,8 @@ from spl.api.discretization import discretize
 
 from numpy import linspace, zeros
 
-def test_api_1d_1():
-    print('============ test_api_1d_1 =============')
+def test_api_1d_scalar_1():
+    print('============ test_api_1d_scalar_1 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=1)
@@ -48,8 +48,8 @@ def test_api_1d_1():
     M = ah.assemble()
     # ...
 
-def test_api_1d_2():
-    print('============ test_api_1d_2 =============')
+def test_api_1d_scalar_2():
+    print('============ test_api_1d_scalar_2 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=1)
@@ -83,8 +83,8 @@ def test_api_1d_2():
     M = ah.assemble(0.5)
     # ...
 
-def test_api_1d_3():
-    print('============ test_api_1d_3 =============')
+def test_api_1d_scalar_3():
+    print('============ test_api_1d_scalar_3 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=1)
@@ -123,8 +123,8 @@ def test_api_1d_3():
     M = ah.assemble(phi)
     # ...
 
-def test_api_1d_4():
-    print('============ test_api_1d_4 =============')
+def test_api_1d_scalar_4():
+    print('============ test_api_1d_scalar_4 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=1)
@@ -167,11 +167,64 @@ def test_api_1d_4():
     M = ah.assemble(phi, psi)
     # ...
 
+def test_api_1d_block_1():
+    print('============ test_api_1d_block_1 =============')
+
+    # ... abstract model
+    # 1d wave problem
+    # TODO debug matricize
+
+    U = FunctionSpace('U', ldim=1)
+    V = FunctionSpace('V', ldim=1)
+
+    # trial functions
+    u = TestFunction(U, name='u')
+    f = TestFunction(V, name='f')
+
+    # test functions
+    v = TestFunction(U, name='v')
+    w = TestFunction(V, name='w')
+
+    rho = Constant('rho', real=True, label='mass density')
+    dt = Constant('dt', real=True, label='time step')
+
+    mass = BilinearForm((v,u), v*u)
+    adv  = BilinearForm((v,u), dx(v)*u)
+
+#    expr = rho*mass(v,u) + dt*adv(v, f) + dt*adv(w,u) + mass(w,f)
+    expr = mass(v,u) + mass(w,f)
+    a = BilinearForm(((v,w), (u,f)), expr)
+    # ...
+
+    # ... discrete spaces
+    # Input data: degree, number of elements
+    p  = 3
+    ne = 2**4
+
+    # Create uniform grid
+    grid = linspace( 0., 1., num=ne+1 )
+
+    # Create finite element space and precompute quadrature data
+    V = SplineSpace( p, grid=grid )
+    V.init_fem()
+    # ...
+
+    # ...
+    ah = discretize(a, [V, V])
+    M = ah.assemble()
+    # ...
+
 
 ###############################################
 if __name__ == '__main__':
 
-    test_api_1d_1()
-    test_api_1d_2()
-    test_api_1d_3()
-    test_api_1d_4()
+#    # ... scalar case
+#    test_api_1d_scalar_1()
+#    test_api_1d_scalar_2()
+#    test_api_1d_scalar_3()
+#    test_api_1d_scalar_4()
+#    # ...
+
+    # ... block case
+    test_api_1d_block_1()
+    # ...
