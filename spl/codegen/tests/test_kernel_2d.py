@@ -131,8 +131,41 @@ def test_kernel_bilinear_2d_scalar_2():
 
     assert(str(code) == expected_bilinear_2d_scalar_2)
 
+def test_kernel_bilinear_2d_scalar_3():
+    print('============ test_kernel_bilinear_2d_scalar_3 =============')
+
+    U = FunctionSpace('U', ldim=2)
+    V = FunctionSpace('V', ldim=2)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    F = Field('F', space=V)
+    G = Field('G', space=V)
+
+    expr = dot(grad(G*v), grad(u)) + F*v*u
+
+    a = BilinearForm((v,u), expr)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    code = sanitize(code)
+
+    print('***********')
+    for eval_field in kernel.eval_fields:
+        print(sanitize(pycode(eval_field)))
+    print('***********')
+
+
+    print('-----------')
+    print(code)
+    print('-----------')
+
+#    assert(str(code) == expected_bilinear_2d_scalar_3)
+
 #................................
 if __name__ == '__main__':
 
-    test_kernel_bilinear_2d_scalar_1()
-    test_kernel_bilinear_2d_scalar_2()
+#    test_kernel_bilinear_2d_scalar_1()
+#    test_kernel_bilinear_2d_scalar_2()
+    test_kernel_bilinear_2d_scalar_3()

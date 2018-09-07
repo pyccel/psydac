@@ -239,7 +239,7 @@ class Basic(sp_Basic):
     def name(self):
         return self._name
 
-class Kernel(sp_Basic):
+class Kernel(Basic):
 
     def __new__(cls, weak_form, name=None):
 
@@ -278,6 +278,10 @@ class Kernel(sp_Basic):
     @property
     def mapping_coeffs(self):
         return self._mapping_coeffs
+
+    @property
+    def eval_fields(self):
+        return self._eval_fields
 
     @property
     def basic_args(self):
@@ -326,7 +330,8 @@ class Kernel(sp_Basic):
         self._constants = constants
         # ...
 
-        atoms_types = (_partial_derivatives, VectorTestFunction, TestFunction)
+        atoms_types = (_partial_derivatives, VectorTestFunction, TestFunction,
+                       Field)
         atoms  = _atomic(expr, cls=atoms_types)
 
         atomic_expr_field = [atom for atom in atoms if is_field(atom)]
@@ -334,6 +339,14 @@ class Kernel(sp_Basic):
 
         fields_str    = tuple(map(pycode, atomic_expr_field))
         field_atoms   = tuple(expr.atoms(Field))
+
+        # ... create EvalField
+        # TODO must use groupby on space and create different EvalField
+        self._eval_fields = []
+        space = self.weak_form.test_spaces[0]
+        eval_field = EvalField(space, atomic_expr_field)
+        self._eval_fields.append(eval_field)
+        # ...
 
         test_function = self.weak_form.test_functions[0]
 
@@ -446,20 +459,25 @@ class Kernel(sp_Basic):
         init_mats = [Assign(e, 0.0) for e in init_mats]
         body =  init_mats + body
 
-        # compute length of logical points
-        len_quads = [Assign(k, Len(u)) for k,u in zip(qds_dim, positions)]
-        body = len_quads + body
+        # call eval field
+        for eval_field in self.eval_fields:
+            args = eval_field.func.arguments
+            body = [FunctionCall(eval_field.func, args)] + body
 
         # calculate field values
         allocate = [Assign(f, Zeros(qds_dim)) for f in fields_val]
         body = allocate + body
+
+        # compute length of logical points
+        len_quads = [Assign(k, Len(u)) for k,u in zip(qds_dim, positions)]
+        body = len_quads + body
 
         # function args
         func_args = self.build_arguments(mats)
 
         return FunctionDef(self.name, list(func_args), [], body)
 
-class Assembly(sp_Basic):
+class Assembly(Basic):
 
     def __new__(cls, weak_form, name=None):
 
@@ -631,7 +649,7 @@ class Assembly(sp_Basic):
 
         return FunctionDef(self.name, list(func_args), [], body)
 
-class Interface(sp_Basic):
+class Interface(Basic):
 
     def __new__(cls, weak_form, name=None):
 
