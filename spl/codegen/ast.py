@@ -357,7 +357,7 @@ class Kernel(SplBasic):
         atomic_expr_field = [atom for atom in atoms if is_field(atom)]
         atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_field ]
 
-        fields_str    = tuple(map(pycode, atomic_expr_field))
+        fields_str    = sorted(tuple(map(pycode, atomic_expr_field)))
         field_atoms   = tuple(expr.atoms(Field))
 
         # ... create EvalField
@@ -740,7 +740,9 @@ class Interface(SplBasic):
         form = self.weak_form
         assembly = self.assembly
         global_matrices = assembly.global_matrices
-        fields = assembly.kernel.fields
+        fields = tuple(form.expr.atoms(Field))
+        fields = sorted(fields, key=lambda x: str(x.name))
+        fields = tuple(fields)
 
         dim = form.ldim
 

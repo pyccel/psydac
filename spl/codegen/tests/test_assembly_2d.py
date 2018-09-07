@@ -116,9 +116,38 @@ def test_assembly_bilinear_2d_scalar_3():
 
 #    assert(str(code) == expected_bilinear_2d_scalar_3)
 
+def test_assembly_bilinear_2d_scalar_4():
+    print('============ test_assembly_bilinear_2d_scalar_4 =============')
+
+    U = FunctionSpace('U', ldim=2)
+    V = FunctionSpace('V', ldim=2)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    F = Field('F', space=V)
+    G = Field('G', space=V)
+
+    expr = dot(grad(G*v), grad(u)) + F*v*u
+
+    a = BilinearForm((v,u), expr)
+
+    assembly = Assembly(a, name='assembly')
+    code = pycode(assembly)
+    code = sanitize(code)
+
+    from spl.codegen.ast import Kernel
+
+    print('-----------')
+    print(code)
+    print('-----------')
+
+#    assert(str(code) == expected_bilinear_2d_scalar_4)
+
 #................................
 if __name__ == '__main__':
 
-    test_assembly_bilinear_2d_scalar_1()
+#    test_assembly_bilinear_2d_scalar_1()
 #    test_assembly_bilinear_2d_scalar_2()
 #    test_assembly_bilinear_2d_scalar_3()
+    test_assembly_bilinear_2d_scalar_4()

@@ -147,10 +147,63 @@ def test_discretization_2d_3():
     M = ah.assemble(phi)
     # ...
 
+def test_discretization_2d_4():
+    print('============ test_discretization_2d_4 =============')
+
+    # ... abstract model
+    U = FunctionSpace('U', ldim=2)
+    V = FunctionSpace('V', ldim=2)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    F = Field('F', space=V)
+    G = Field('G', space=V)
+
+    expr = dot(grad(G*v), grad(u)) + F*v*u
+
+    a = BilinearForm((v,u), expr)
+    # ...
+
+    # ... discrete spaces
+    from spl.fem.splines import SplineSpace
+    from spl.fem.tensor  import TensorFemSpace
+    from spl.fem.basic   import FemField
+
+    # Input data: degree, number of elements
+    p1  = 3 ; p2  = 3
+    ne1 = 4 ; ne2 = 4
+
+    # Create uniform grid
+    grid_1 = linspace( 0., 1., num=ne1+1 )
+    grid_2 = linspace( 0., 1., num=ne2+1 )
+
+    # Create 1D finite element spaces and precompute quadrature data
+    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
+    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
+
+    # Create 2D tensor product finite element space
+    V = TensorFemSpace( V1, V2 )
+    # ...
+
+    # ...
+    ah = discretize(a, [V, V])
+
+    # Define a field
+    phi = FemField( V, 'phi' )
+    phi._coeffs[:,:] = 1.
+
+    psi = FemField( V, 'psi' )
+    psi._coeffs[:,:] = 1.
+
+    M = ah.assemble(phi, psi)
+    # ...
+
 
 ###############################################
 if __name__ == '__main__':
 
-    test_discretization_2d_1()
-    test_discretization_2d_2()
-    test_discretization_2d_3()
+#    test_discretization_2d_1()
+#    test_discretization_2d_2()
+#    test_discretization_2d_3()
+    test_discretization_2d_4()

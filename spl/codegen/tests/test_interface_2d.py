@@ -134,9 +134,44 @@ def test_interface_bilinear_2d_scalar_3():
 
 #    assert(str(code) == expected_bilinear_2d_scalar_3)
 
+def test_interface_bilinear_2d_scalar_4():
+    print('============ test_interface_bilinear_2d_scalar_4 =============')
+
+    U = FunctionSpace('U', ldim=2)
+    V = FunctionSpace('V', ldim=2)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    F = Field('F', space=V)
+    G = Field('G', space=V)
+
+    expr = dot(grad(G*v), grad(u)) + F*v*u
+
+    a = BilinearForm((v,u), expr)
+
+    interface = Interface(a, name='interface')
+    code = pycode(interface)
+    code = sanitize(code)
+
+    from spl.codegen.ast import Kernel
+    from spl.codegen.ast import Assembly
+
+    print('***********')
+#    print(sanitize(pycode(interface.assembly.kernel)))
+    print(sanitize(pycode(interface.assembly)))
+    print('***********')
+
+    print('-----------')
+    print(code)
+    print('-----------')
+
+#    assert(str(code) == expected_bilinear_2d_scalar_4)
+
 #................................
 if __name__ == '__main__':
 
 #    test_interface_bilinear_2d_scalar_1()
 #    test_interface_bilinear_2d_scalar_2()
-    test_interface_bilinear_2d_scalar_3()
+#    test_interface_bilinear_2d_scalar_3()
+    test_interface_bilinear_2d_scalar_4()
