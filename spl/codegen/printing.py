@@ -11,8 +11,19 @@ from sympde.printing.pycode import PythonCodePrinter as SympdePythonCodePrinter
 
 class PythonCodePrinter(SympdePythonCodePrinter):
 
+    def __init__(self, settings=None):
+        self._enable_dependencies = settings.pop('enable_dependencies', True)
+
+        SympdePythonCodePrinter.__init__(self, settings=settings)
+
     def _print_SplBasic(self, expr):
-        return self._print(expr.func)
+        code = ''
+        if self._enable_dependencies and expr.dependencies:
+            for dep in expr.dependencies:
+                code = '{code}\n{dep}'.format(code=code,
+                                              dep=self._print(dep))
+
+        return '{code}\n{func}'.format(code=code, func=self._print(expr.func))
 
 
 def pycode(expr, **settings):
@@ -24,6 +35,8 @@ def pycode(expr, **settings):
     fully_qualified_modules : bool
         Whether or not to write out full module names of functions
         (``math.sin`` vs. ``sin``). default: ``True``.
+    enable_dependencies: bool
+        Whether or not to print dependencies too (EvalField, Kernel, etc)
     Examples
     ========
     >>> from sympy import tan, Symbol

@@ -141,21 +141,14 @@ def test_kernel_bilinear_2d_scalar_3():
     u = TestFunction(U, name='u')
 
     F = Field('F', space=V)
-    G = Field('G', space=V)
 
-    expr = dot(grad(G*v), grad(u)) + F*v*u
+    expr = dot(grad(v), grad(u)) + F*v*u
 
     a = BilinearForm((v,u), expr)
 
     kernel = Kernel(a, name='kernel')
     code = pycode(kernel)
     code = sanitize(code)
-
-    print('***********')
-    for eval_field in kernel.eval_fields:
-        print(sanitize(pycode(eval_field)))
-    print('***********')
-
 
     print('-----------')
     print(code)

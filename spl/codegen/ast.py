@@ -137,6 +137,7 @@ class SplBasic(Basic):
 
         obj = Basic.__new__(cls)
         obj._name = name
+        obj._dependencies = []
 
         return obj
 
@@ -151,6 +152,10 @@ class SplBasic(Basic):
     @property
     def basic_args(self):
         return self._basic_args
+
+    @property
+    def dependencies(self):
+        return self._dependencies
 
 class EvalField(SplBasic):
 
@@ -345,6 +350,9 @@ class Kernel(SplBasic):
         space = self.weak_form.test_spaces[0]
         eval_field = EvalField(space, atomic_expr_field)
         self._eval_fields.append(eval_field)
+
+        # update dependencies
+        self._dependencies += self.eval_fields
         # ...
 
         test_function = self.weak_form.test_functions[0]
@@ -489,7 +497,13 @@ class Assembly(SplBasic):
         obj = SplBasic.__new__(cls, weak_form, name=name, prefix='assembly')
 
         obj._weak_form = weak_form
-        obj._kernel = Kernel(weak_form)
+
+        kernel = Kernel(weak_form)
+        obj._kernel = kernel
+
+        # update dependencies
+        obj._dependencies += [kernel]
+
         obj._func = obj._initialize()
         return obj
 
@@ -657,7 +671,10 @@ class Interface(SplBasic):
         obj = SplBasic.__new__(cls, weak_form, name=name, prefix='interface')
 
         obj._weak_form = weak_form
-        obj._assembly = Assembly(weak_form)
+
+        assembly = Assembly(weak_form)
+        obj._assembly = assembly
+
         obj._func = obj._initialize()
         return obj
 
