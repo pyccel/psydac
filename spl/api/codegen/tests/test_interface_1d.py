@@ -110,9 +110,7 @@ def test_interface_bilinear_1d_scalar_4():
 
 def test_interface_bilinear_1d_block_1():
     print('============ test_interface_bilinear_1d_block_1 =============')
-
     # 1d wave problem
-    # TODO debug matricize
 
     U = FunctionSpace('U', ldim=1)
     V = FunctionSpace('V', ldim=1)
@@ -131,8 +129,7 @@ def test_interface_bilinear_1d_block_1():
     mass = BilinearForm((v,u), v*u)
     adv  = BilinearForm((v,u), dx(v)*u)
 
-#    expr = rho*mass(v,u) + dt*adv(v, f) + dt*adv(w,u) + mass(w,f)
-    expr = mass(v,u) + mass(w,f)
+    expr = rho*mass(v,u) + dt*adv(v, f) + dt*adv(w,u) + mass(w,f)
     a = BilinearForm(((v,w), (u,f)), expr)
 
     interface = Interface(a, name='interface')

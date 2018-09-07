@@ -172,7 +172,6 @@ def test_api_1d_block_1():
 
     # ... abstract model
     # 1d wave problem
-    # TODO debug matricize
 
     U = FunctionSpace('U', ldim=1)
     V = FunctionSpace('V', ldim=1)
@@ -191,8 +190,7 @@ def test_api_1d_block_1():
     mass = BilinearForm((v,u), v*u)
     adv  = BilinearForm((v,u), dx(v)*u)
 
-#    expr = rho*mass(v,u) + dt*adv(v, f) + dt*adv(w,u) + mass(w,f)
-    expr = mass(v,u) + mass(w,f)
+    expr = rho*mass(v,u) + dt*adv(v, f) + dt*adv(w,u) + mass(w,f)
     a = BilinearForm(((v,w), (u,f)), expr)
     # ...
 
@@ -211,7 +209,7 @@ def test_api_1d_block_1():
 
     # ...
     ah = discretize(a, [V, V])
-    M = ah.assemble()
+    M = ah.assemble(0.1, 0.4)
     # ...
 
 

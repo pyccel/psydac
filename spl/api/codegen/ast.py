@@ -350,7 +350,12 @@ class Kernel(SplBasic):
             expr = atomize(weak_form)
 
         else:
-            expr = evaluate(self.weak_form)
+            # ...
+            v = self.weak_form.test_functions[0]
+            u = self.weak_form.trial_functions[0]
+            # TODO check that new names do not exist in expr
+            expr = evaluate(self.weak_form, basis={v: 'Bi', u: 'Bj'})
+            # ...
 
             # ... TODO move this to sympde/evaluate
             assert(len(self.weak_form.test_spaces) == 1)
@@ -371,10 +376,11 @@ class Kernel(SplBasic):
             V = FunctionSpace(V.name, ldim=V.ldim, coordinates=coordinates)
             U = FunctionSpace(U.name, ldim=U.ldim, coordinates=coordinates)
 
-            vv = TestFunction(V, name=v.name*2)
-            uu = TestFunction(U, name=u.name*2)
+            # TODO check that new names do not exist in expr
+            vv = TestFunction(V, name='Ni')
+            uu = TestFunction(U, name='Nj')
 
-            expr = inv_normalize(expr, {v: vv, u: uu})
+            expr = inv_normalize(expr, {'Bi': vv, 'Bj': uu})
             # ...
         # ...
 
