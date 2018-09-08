@@ -88,12 +88,11 @@ def compute_atoms_expr(atom,indices_qds,indices_test,
 
         a = get_atom_derivatives(atom)
 
-        # ... gradient case
-        #     all indices are 0 except one
         M = mapping
         dim = M.rdim
         ops = _partial_derivatives[:dim]
 
+        # ... gradient
         lgrad_B = [d(a) for d in ops]
         grad_B = Covariant(mapping, lgrad_B)
         rhs = grad_B[direction-1]
@@ -109,6 +108,7 @@ def compute_atoms_expr(atom,indices_qds,indices_test,
             new = print_expression(e, logical=True)
             new = Symbol(new)
             rhs = rhs.subs(e, new)
+        # ...
 
         map_stmts += [Assign(Symbol(name), rhs)]
         # ...
@@ -537,7 +537,11 @@ class Kernel(SplBasic):
 
     @property
     def mapping_coeffs(self):
-        return self._mapping_coeffs
+        return self.eval_mapping.mapping_coeffs
+
+    @property
+    def mapping_values(self):
+        return self.eval_mapping.mapping_values
 
     @property
     def eval_fields(self):
@@ -555,11 +559,14 @@ class Kernel(SplBasic):
         if self.fields_coeffs:
             other = self.fields_coeffs + other
 
-        if self.constants:
-            other = other + self.constants
+        if self.mapping_values:
+            other = self.mapping_values + other
 
         if self.mapping_coeffs:
-            other = other + (self.mapping_coeffs,)
+            other = self.mapping_coeffs + other
+
+        if self.constants:
+            other = other + self.constants
 
         return self.basic_args + other
 
@@ -732,13 +739,13 @@ class Kernel(SplBasic):
             _print = lambda i: print_expression(i, mapping_name=False)
 
             mapping_elements = [_print(i) for i in _eval.elements]
-            mapping_elements = symbols(mapping_elements)
+            mapping_elements = symbols(tuple(mapping_elements))
 
             mapping_coeffs = [_print(i) for i in _eval.mapping_coeffs]
-            mapping_coeffs = symbols(mapping_coeffs, cls=IndexedBase)
+            mapping_coeffs = symbols(tuple(mapping_coeffs), cls=IndexedBase)
 
             mapping_values = [_print(i) for i in _eval.mapping_values]
-            mapping_values = symbols(mapping_values, cls=IndexedBase)
+            mapping_values = symbols(tuple(mapping_values), cls=IndexedBase)
         # ...
 
         # ...
@@ -779,7 +786,22 @@ class Kernel(SplBasic):
             body += [Assign(lhs, rhs[indices_qds]) for lhs, rhs in zip(mapping_elements,
                                                           mapping_values)]
 
-            body += list(init_map.values())
+            # ... inv jacobian
+            jac = mapping.det_jacobian
+            rdim = mapping.rdim
+            ops = _partial_derivatives[:rdim]
+            elements = [d(mapping[i]) for d in ops for i in range(0, rdim)]
+            for e in elements:
+                new = print_expression(e, mapping_name=False)
+                new = Symbol(new)
+                jac = jac.subs(e, new)
+
+            inv_jac = Symbol('inv_jac')
+            body += [Assign(inv_jac, 1/jac)]
+            # ...
+
+            for stmt in list(init_map.values()):
+                body += [stmt.subs(1/jac, inv_jac)]
 
         else:
             body += [Assign(coordinates[i],positions[i][indices_qds[i]])
@@ -847,6 +869,12 @@ class Kernel(SplBasic):
             prelude  = [Import('zeros', 'numpy')]
             allocate = [Assign(f, Zeros(qds_dim)) for f in fields_val]
             body = prelude + allocate + body
+
+        # call eval mapping
+        if self.eval_mapping:
+            args = (test_degrees + basis_test + mapping_coeffs + mapping_values)
+            args = eval_mapping.build_arguments(args)
+            body = [FunctionCall(eval_mapping.func, args)] + body
 
         # compute length of logical points
         len_quads = [Assign(k, Len(u)) for k,u in zip(qds_dim, positions)]
