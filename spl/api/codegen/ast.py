@@ -935,7 +935,7 @@ class Assembly(SplBasic):
             other = other + self.kernel.constants
 
         if self.kernel.mapping_coeffs:
-            other = other + (self.kernel.mapping_coeffs,)
+            other = self.kernel.mapping_coeffs + other
 
         return self.basic_args + other
 
@@ -1044,6 +1044,7 @@ class Assembly(SplBasic):
         stmt = Import('zeros', 'numpy')
         prelude += [stmt]
 
+        # allocate element matrices
         orders  = [p+1 for p in test_degrees]
         spads   = [2*p+1 for p in test_pads]
         for i in range(0, n_rows):
@@ -1055,6 +1056,16 @@ class Assembly(SplBasic):
 
                 if self.debug:
                     prelude += [Print((String('> shape {} = '.format(mat)), *orders, *spads))]
+
+        # allocate mapping values
+        if self.kernel.mapping_values:
+            for i, k in enumerate(quad_orders):
+                stmt = Assign(k, Shape(points[i], 1))
+                prelude += [stmt]
+
+            for v in self.kernel.mapping_values:
+                stmt = Assign(v, Zeros(quad_orders))
+                prelude += [stmt]
         # ...
 
         # ...
