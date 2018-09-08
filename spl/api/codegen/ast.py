@@ -101,7 +101,7 @@ def compute_atoms_expr(atom,indices_qds,indices_test,
         # update expression
         elements = [d(M[i]) for d in ops for i in range(0, dim)]
         for e in elements:
-            new = print_expression(e)
+            new = print_expression(e, mapping_name=False)
             new = Symbol(new)
             rhs = rhs.subs(e, new)
 
@@ -114,7 +114,7 @@ def compute_atoms_expr(atom,indices_qds,indices_test,
         # ...
     # ...
 
-    return [assign] + map_stmts
+    return assign, map_stmts
 
 def compute_atoms_expr_field(atom, indices_qds,
                             idxs, basis,
@@ -166,8 +166,10 @@ def compute_atoms_expr_mapping(atom, indices_qds,
                                idxs, basis,
                                test_function):
 
-    field = get_atom_derivatives(atom)
-    field_name = 'coeff_' + print_expression(field)
+    _print = lambda i: print_expression(i, mapping_name=False)
+
+    element = get_atom_derivatives(atom)
+    element_name = 'coeff_' + _print(element)
 
     # ...
     if isinstance(atom, _partial_derivatives):
@@ -178,7 +180,7 @@ def compute_atoms_expr_mapping(atom, indices_qds,
     # ...
 
     # ...
-    test_function = atom.subs(field, test_function)
+    test_function = atom.subs(element, test_function)
     name = print_expression(test_function, logical=True)
     test_function = Symbol(name)
     # ...
@@ -197,8 +199,8 @@ def compute_atoms_expr_mapping(atom, indices_qds,
     # ...
 
     # ...
-    args = [IndexedBase(field_name)[idxs], test_function]
-    val_name = print_expression(atom) + '_values'
+    args = [IndexedBase(element_name)[idxs], test_function]
+    val_name = _print(atom) + '_values'
     val  = IndexedBase(val_name)[indices_qds]
     update = AugAssign(val,'+',Mul(*args))
     # ...
@@ -329,8 +331,8 @@ class EvalMapping(SplBasic):
         return self._mapping_coeffs
 
     @property
-    def mapping_val(self):
-        return self._mapping_val
+    def mapping_values(self):
+        return self._mapping_values
 
     def build_arguments(self, data):
 
@@ -342,8 +344,9 @@ class EvalMapping(SplBasic):
         space = self.space
         dim = space.ldim
 
-        mapping_atoms = [print_expression(f) for f in self.components]
-        mapping_str = [print_expression(f) for f in self.elements]
+        _print = lambda i: print_expression(i, mapping_name=False)
+        mapping_atoms = [_print(f) for f in self.components]
+        mapping_str = [_print(f) for f in self.elements]
 
         # ... declarations
         degrees       = symbols('p1:%d'%(dim+1))
@@ -351,7 +354,7 @@ class EvalMapping(SplBasic):
         basis         = symbols('basis1:%d'%(dim+1), cls=IndexedBase)
         indices_basis = symbols('jl1:%d'%(dim+1))
         indices_quad  = symbols('g1:%d'%(dim+1))
-        mapping_val    = symbols(tuple(f+'_values' for f in mapping_str),cls=IndexedBase)
+        mapping_values = symbols(tuple(f+'_values' for f in mapping_str),cls=IndexedBase)
         mapping_coeffs = symbols(tuple('coeff_'+f for f in mapping_atoms),cls=IndexedBase)
         # ...
 
@@ -366,7 +369,7 @@ class EvalMapping(SplBasic):
 
         # ...
         self._mapping_coeffs = mapping_coeffs
-        self._mapping_val    = mapping_val
+        self._mapping_values    = mapping_values
         # ...
 
         # ...
@@ -396,11 +399,11 @@ class EvalMapping(SplBasic):
             body = [For(indices_quad[i], ranges_quad[i],body)]
 
         # initialization of the matrix
-        init_vals = [f[[Slice(None,None)]*dim] for f in mapping_val]
+        init_vals = [f[[Slice(None,None)]*dim] for f in mapping_values]
         init_vals = [Assign(e, 0.0) for e in init_vals]
         body =  init_vals + body
 
-        func_args = self.build_arguments(degrees + basis + mapping_coeffs + mapping_val)
+        func_args = self.build_arguments(degrees + basis + mapping_coeffs + mapping_values)
 
         return FunctionDef(self.name, list(func_args), [], body)
 
@@ -541,8 +544,8 @@ class Kernel(SplBasic):
         return self._eval_fields
 
     @property
-    def eval_mappings(self):
-        return self._eval_mappings
+    def eval_mapping(self):
+        return self._eval_mapping
 
     def build_arguments(self, data):
 
@@ -666,17 +669,17 @@ class Kernel(SplBasic):
 
         # ... mapping
         mapping = self.weak_form.mapping
-        self._eval_mappings = []
+        self._eval_mapping = None
         if mapping:
             # TODO compute nderiv from weak form
             nderiv = 1
 
             space = self.weak_form.test_spaces[0]
             eval_mapping = EvalMapping(space, mapping, nderiv=nderiv)
-            self._eval_mappings.append(eval_mapping)
+            self._eval_mapping = eval_mapping
 
         # update dependencies
-        self._dependencies += self.eval_mappings
+        self._dependencies += [self.eval_mapping]
         # ...
 
         test_function = self.weak_form.test_functions[0]
@@ -712,15 +715,30 @@ class Kernel(SplBasic):
         fields        = symbols(fields_str)
         fields_val    = symbols(tuple(f+'_values' for f in fields_str),cls=IndexedBase)
         fields_coeffs = symbols(tuple('coeff_'+str(f) for f in field_atoms),cls=IndexedBase)
-
-        # TODO
-        mapping_coeffs = None
         # ...
 
         # ...
         self._basic_args = (test_pads + trial_pads +
                             basis_test + basis_trial +
                             positions + weighted_vols)
+        # ...
+
+        # ...
+        mapping_elements = []
+        mapping_coeffs = []
+        mapping_values = []
+        if mapping:
+            _eval = self.eval_mapping
+            _print = lambda i: print_expression(i, mapping_name=False)
+
+            mapping_elements = [_print(i) for i in _eval.elements]
+            mapping_elements = symbols(mapping_elements)
+
+            mapping_coeffs = [_print(i) for i in _eval.mapping_coeffs]
+            mapping_coeffs = symbols(mapping_coeffs, cls=IndexedBase)
+
+            mapping_values = [_print(i) for i in _eval.mapping_values]
+            mapping_values = symbols(mapping_values, cls=IndexedBase)
         # ...
 
         # ...
@@ -736,20 +754,43 @@ class Kernel(SplBasic):
         # ...
 
         # body of kernel
-        body   = [Assign(coordinates[i],positions[i][indices_qds[i]])
-                  for i in range(dim)]
+        body = []
 
+        init_basis = OrderedDict()
+        init_map   = OrderedDict()
         for atom in atomic_expr:
-            body  += compute_atoms_expr(atom,indices_qds,
-                                         indices_test,
-                                         indices_trial,
-                                         basis_trial,
-                                         basis_test,
-                                         coordinates,
-                                         test_function, mapping)
+            init, map_stmts = compute_atoms_expr(atom,
+                                                 indices_qds,
+                                                 indices_test,
+                                                 indices_trial,
+                                                 basis_trial,
+                                                 basis_test,
+                                                 coordinates,
+                                                 test_function,
+                                                 mapping)
 
+            init_basis[str(init.lhs)] = init
+            for stmt in map_stmts:
+                init_map[str(stmt.lhs)] = stmt
+
+        body += list(init_basis.values())
+
+        if mapping:
+            body += [Assign(lhs, rhs[indices_qds]) for lhs, rhs in zip(mapping_elements,
+                                                          mapping_values)]
+
+            body += list(init_map.values())
+
+        else:
+            body += [Assign(coordinates[i],positions[i][indices_qds[i]])
+                     for i in range(dim)]
+        # ...
+
+        # ...
         weighted_vol = [weighted_vols[i][indices_qds[i]] for i in range(dim)]
         weighted_vol = Mul(*weighted_vol)
+        # ...
+
         # ...
         # add fields
         for i in range(len(fields_val)):
