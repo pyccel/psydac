@@ -30,7 +30,7 @@ def main( mapping='Target', degree=(2,2), ncells=(2,5), **kwargs ):
     tensor_space = TensorFemSpace( V1, V2, comm=MPI.COMM_WORLD )
 
     # Create spline mapping by interpolating analytical one
-    map_discrete = SplineMapping( tensor_space=tensor_space, mapping=map_analytic )
+    map_discrete = SplineMapping.from_mapping( tensor_space, map_analytic )
 
     # Display analytical and spline mapping on refined grid, then plot error
     N = 20
