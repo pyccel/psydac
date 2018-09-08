@@ -23,6 +23,7 @@ from pyccel.ast import Comment, NewLine
 from pyccel.parser.parser import _atomic
 
 from sympde.core import Constant
+from sympde.core import Mapping
 from sympde.core import Field
 from sympde.core import atomize, matricize, evaluate, inv_normalize
 from sympde.core import BilinearForm, LinearForm, FunctionForm, BasicForm
@@ -116,6 +117,49 @@ def compute_atoms_expr_field(atom, indices_qds,
 
     return init, update
 
+def compute_atoms_expr_mapping(atom, indices_qds,
+                               idxs, basis,
+                               test_function):
+
+    field = list(atom.atoms(Mapping))[0]
+    field_name = 'coeff_'+str(field.name)
+
+    # ...
+    if isinstance(atom, _partial_derivatives):
+        direction = atom.grad_index + 1
+
+    else:
+        direction = 0
+    # ...
+
+    # ...
+    test_function = atom.subs(field, test_function)
+    name = print_expression(test_function)
+    test_function = Symbol(name)
+    # ...
+
+    # ...
+    args = []
+    dim  = len(idxs)
+    for i in range(dim):
+        if direction == i+1:
+            args.append(basis[i][idxs[i],1,indices_qds[i]])
+
+        else:
+            args.append(basis[i][idxs[i],0,indices_qds[i]])
+
+    init = Assign(test_function, Mul(*args))
+    # ...
+
+    # ...
+    args = [IndexedBase(field_name)[idxs], test_function]
+    val_name = print_expression(atom) + '_values'
+    val  = IndexedBase(val_name)[indices_qds]
+    update = AugAssign(val,'+',Mul(*args))
+    # ...
+
+    return init, update
+
 def is_field(expr):
 
     if isinstance(expr, _partial_derivatives):
@@ -168,6 +212,132 @@ class SplBasic(Basic):
     @property
     def detailed(self):
         return self._detailed
+
+class EvalMapping(SplBasic):
+
+    def __new__(cls, space, mapping, name=None, nderiv=1):
+
+        if not isinstance(mapping, Mapping):
+            raise TypeError('> Expecting a Mapping object')
+
+        obj = SplBasic.__new__(cls, space, name=name, prefix='eval_field')
+
+        obj._space = space
+        obj._mapping = mapping
+
+        dim = mapping.rdim
+
+        # ...
+        lcoords = ['x1', 'x2', 'x3'][:dim]
+        obj._lcoords = symbols(lcoords)
+        # ...
+
+        # ...
+        ops = _partial_derivatives[:dim]
+        M = mapping
+
+        components = [M[i] for i in range(0, dim)]
+        elements = list(components)
+#        elements = symbols([print_expression(m) for m in components])
+#        elements = list(elements)
+        if nderiv > 0:
+            elements += [d(M[i]) for d in ops for i in range(0, dim)]
+
+        obj._elements = tuple(elements)
+
+        obj._components = tuple(components)
+        # ...
+
+        obj._func = obj._initialize()
+
+        return obj
+
+    @property
+    def space(self):
+        return self._space
+
+    @property
+    def mapping(self):
+        return self._mapping
+
+    @property
+    def lcoords(self):
+        return self._lcoords
+
+    @property
+    def elements(self):
+        return self._elements
+
+    @property
+    def components(self):
+        return self._components
+
+    def build_arguments(self, data):
+
+        other = data
+
+        return self.basic_args + other
+
+    def _initialize(self):
+        space = self.space
+        dim = space.ldim
+
+        mapping_atoms = [print_expression(f) for f in self.components]
+        mapping_str = [print_expression(f) for f in self.elements]
+
+        # ... declarations
+        degrees       = symbols('p1:%d'%(dim+1))
+        orders        = symbols('k1:%d'%(dim+1))
+        basis         = symbols('basis1:%d'%(dim+1), cls=IndexedBase)
+        indices_basis = symbols('jl1:%d'%(dim+1))
+        indices_quad  = symbols('g1:%d'%(dim+1))
+        mapping_val    = symbols(tuple(f+'_values' for f in mapping_str),cls=IndexedBase)
+        mapping_coeffs = symbols(tuple('coeff_'+f for f in mapping_atoms),cls=IndexedBase)
+        # ...
+
+        # ... ranges
+        ranges_basis = [Range(degrees[i]+1) for i in range(dim)]
+        ranges_quad  = [Range(orders[i]) for i in range(dim)]
+        # ...
+
+        # ... basic arguments
+        self._basic_args = (orders)
+        # ...
+
+        # ...
+        Nj = TestFunction(space, name='Nj')
+        body = []
+        init_basis = OrderedDict()
+        updates = []
+        for atom in self.elements:
+            init, update = compute_atoms_expr_mapping(atom, indices_quad,
+                                                      indices_basis, basis, Nj)
+
+            updates.append(update)
+
+            basis_name = str(init.lhs)
+            init_basis[basis_name] = init
+
+        body += list(init_basis.values())
+        body += updates
+        # ...
+
+        # put the body in tests for loops
+        for i in range(dim-1,-1,-1):
+            body = [For(indices_basis[i], ranges_basis[i],body)]
+
+        # put the body in for loops of quadrature points
+        for i in range(dim-1,-1,-1):
+            body = [For(indices_quad[i], ranges_quad[i],body)]
+
+        # initialization of the matrix
+        init_vals = [f[[Slice(None,None)]*dim] for f in mapping_val]
+        init_vals = [Assign(e, 0.0) for e in init_vals]
+        body =  init_vals + body
+
+        func_args = self.build_arguments(degrees + basis + mapping_coeffs + mapping_val)
+
+        return FunctionDef(self.name, list(func_args), [], body)
 
 class EvalField(SplBasic):
 
