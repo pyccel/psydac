@@ -216,12 +216,12 @@ def test_api_1d_block_1():
 ###############################################
 if __name__ == '__main__':
 
-#    # ... scalar case
-#    test_api_1d_scalar_1()
-#    test_api_1d_scalar_2()
-#    test_api_1d_scalar_3()
-#    test_api_1d_scalar_4()
-#    # ...
+    # ... scalar case
+    test_api_1d_scalar_1()
+    test_api_1d_scalar_2()
+    test_api_1d_scalar_3()
+    test_api_1d_scalar_4()
+    # ...
 
     # ... block case
     test_api_1d_block_1()
