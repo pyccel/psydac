@@ -22,10 +22,12 @@ from pyccel.ast import String, Print, Shape
 from pyccel.ast import Comment, NewLine
 from pyccel.parser.parser import _atomic
 
+from sympde.core import grad
 from sympde.core import Constant
 from sympde.core import Mapping
 from sympde.core import Field
 from sympde.core import atomize, matricize, evaluate, inv_normalize
+from sympde.core import Covariant, Contravariant
 from sympde.core import BilinearForm, LinearForm, FunctionForm, BasicForm
 from sympde.core.derivatives import _partial_derivatives
 from sympde.core.space import FunctionSpace
@@ -35,12 +37,13 @@ from sympde.core import BilinearForm, LinearForm, FunctionForm
 from sympde.printing.pycode import pycode  # TODO remove from here
 from sympde.core.derivatives import print_expression
 from sympde.core.derivatives import get_atom_derivatives
+from sympde.core.derivatives import get_index_derivatives
 
 FunctionalForms = (BilinearForm, LinearForm, FunctionForm)
 
 def compute_atoms_expr(atom,indices_qds,indices_test,
                       indices_trial, basis_trial,
-                      basis_test,cords,test_function):
+                      basis_test,cords,test_function, mapping):
 
     cls = (_partial_derivatives,
            VectorTestFunction,
@@ -68,9 +71,50 @@ def compute_atoms_expr(atom,indices_qds,indices_test,
     for i in range(dim):
         if direction == i+1:
             args.append(basis[i][idxs[i],1,indices_qds[i]])
+
         else:
             args.append(basis[i][idxs[i],0,indices_qds[i]])
-    return Assign(atom, Mul(*args))
+
+    # ... assign basis on quad point
+    logical = not( mapping is None )
+    name = print_expression(atom, logical=logical)
+    assign = Assign(Symbol(name), Mul(*args))
+    # ...
+
+    # ... map basis function
+    map_stmts = []
+    if mapping:
+        name = print_expression(atom)
+
+        a = get_atom_derivatives(atom)
+
+        # ... gradient case
+        #     all indices are 0 except one
+        M = mapping
+        dim = M.rdim
+        ops = _partial_derivatives[:dim]
+
+        lgrad_B = [d(a) for d in ops]
+        grad_B = Covariant(mapping, lgrad_B)
+        rhs = grad_B[direction-1]
+
+        # update expression
+        elements = [d(M[i]) for d in ops for i in range(0, dim)]
+        for e in elements:
+            new = print_expression(e)
+            new = Symbol(new)
+            rhs = rhs.subs(e, new)
+
+        for e in lgrad_B:
+            new = print_expression(e, logical=True)
+            new = Symbol(new)
+            rhs = rhs.subs(e, new)
+
+        map_stmts += [Assign(Symbol(name), rhs)]
+        # ...
+    # ...
+
+    return [assign] + map_stmts
 
 def compute_atoms_expr_field(atom, indices_qds,
                             idxs, basis,
@@ -221,7 +265,7 @@ class EvalMapping(SplBasic):
         if not isinstance(mapping, Mapping):
             raise TypeError('> Expecting a Mapping object')
 
-        obj = SplBasic.__new__(cls, space, name=name, prefix='eval_field')
+        obj = SplBasic.__new__(cls, mapping, name=name, prefix='eval_mapping')
 
         obj._space = space
         obj._mapping = mapping
@@ -496,6 +540,10 @@ class Kernel(SplBasic):
     def eval_fields(self):
         return self._eval_fields
 
+    @property
+    def eval_mappings(self):
+        return self._eval_mappings
+
     def build_arguments(self, data):
 
         other = data
@@ -616,6 +664,21 @@ class Kernel(SplBasic):
         self._dependencies += self.eval_fields
         # ...
 
+        # ... mapping
+        mapping = self.weak_form.mapping
+        self._eval_mappings = []
+        if mapping:
+            # TODO compute nderiv from weak form
+            nderiv = 1
+
+            space = self.weak_form.test_spaces[0]
+            eval_mapping = EvalMapping(space, mapping, nderiv=nderiv)
+            self._eval_mappings.append(eval_mapping)
+
+        # update dependencies
+        self._dependencies += self.eval_mappings
+        # ...
+
         test_function = self.weak_form.test_functions[0]
 
         # creation of symbolic vars
@@ -673,15 +736,17 @@ class Kernel(SplBasic):
         # ...
 
         # body of kernel
-        body   = [Assign(coordinates[i],positions[i][indices_qds[i]])\
-                 for i in range(dim)]
-        body  += [compute_atoms_expr(atom,indices_qds,
-                                      indices_test,
-                                      indices_trial,
-                                      basis_trial,
-                                      basis_test,
-                                      coordinates,
-                                      test_function) for atom in atomic_expr]
+        body   = [Assign(coordinates[i],positions[i][indices_qds[i]])
+                  for i in range(dim)]
+
+        for atom in atomic_expr:
+            body  += compute_atoms_expr(atom,indices_qds,
+                                         indices_test,
+                                         indices_trial,
+                                         basis_trial,
+                                         basis_test,
+                                         coordinates,
+                                         test_function, mapping)
 
         weighted_vol = [weighted_vols[i][indices_qds[i]] for i in range(dim)]
         weighted_vol = Mul(*weighted_vol)
