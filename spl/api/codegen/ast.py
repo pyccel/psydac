@@ -34,6 +34,7 @@ from sympde.core.space import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, FunctionForm
 from sympde.printing.pycode import pycode  # TODO remove from here
 from sympde.core.derivatives import print_expression
+from sympde.core.derivatives import get_atom_derivatives
 
 FunctionalForms = (BilinearForm, LinearForm, FunctionForm)
 
@@ -121,8 +122,8 @@ def compute_atoms_expr_mapping(atom, indices_qds,
                                idxs, basis,
                                test_function):
 
-    field = list(atom.atoms(Mapping))[0]
-    field_name = 'coeff_'+str(field.name)
+    field = get_atom_derivatives(atom)
+    field_name = 'coeff_' + print_expression(field)
 
     # ...
     if isinstance(atom, _partial_derivatives):
@@ -134,7 +135,7 @@ def compute_atoms_expr_mapping(atom, indices_qds,
 
     # ...
     test_function = atom.subs(field, test_function)
-    name = print_expression(test_function)
+    name = print_expression(test_function, logical=True)
     test_function = Symbol(name)
     # ...
 
@@ -238,10 +239,17 @@ class EvalMapping(SplBasic):
 
         components = [M[i] for i in range(0, dim)]
         elements = list(components)
-#        elements = symbols([print_expression(m) for m in components])
-#        elements = list(elements)
+
         if nderiv > 0:
             elements += [d(M[i]) for d in ops for i in range(0, dim)]
+
+        if nderiv > 1:
+            elements += [d1(d2(M[i])) for e,d1 in enumerate(ops)
+                                      for d2 in ops[:e+1]
+                                      for i in range(0, dim)]
+
+        if nderiv > 2:
+            raise NotImplementedError('TODO')
 
         obj._elements = tuple(elements)
 
@@ -271,6 +279,14 @@ class EvalMapping(SplBasic):
     @property
     def components(self):
         return self._components
+
+    @property
+    def mapping_coeffs(self):
+        return self._mapping_coeffs
+
+    @property
+    def mapping_val(self):
+        return self._mapping_val
 
     def build_arguments(self, data):
 
@@ -302,6 +318,11 @@ class EvalMapping(SplBasic):
 
         # ... basic arguments
         self._basic_args = (orders)
+        # ...
+
+        # ...
+        self._mapping_coeffs = mapping_coeffs
+        self._mapping_val    = mapping_val
         # ...
 
         # ...

@@ -33,23 +33,23 @@ sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()
 # ...............................................
 
 
-def test_eval_mapping_2d_1():
-    print('============ test_eval_mapping_2d_1 =============')
+def test_eval_mapping_3d_1():
+    print('============ test_eval_mapping_3d_1 =============')
 
-    V = FunctionSpace('V', ldim=2)
+    V = FunctionSpace('V', ldim=3)
 
-    M = Mapping('M', rdim=2)
+    M = Mapping('M', rdim=3)
 
     eval_mapping = EvalMapping(V, M, name='eval_mapping')
     code = pycode(eval_mapping)
     print(code)
 
-def test_eval_mapping_2d_2():
-    print('============ test_eval_mapping_2d_2 =============')
+def test_eval_mapping_3d_2():
+    print('============ test_eval_mapping_3d_2 =============')
 
-    V = FunctionSpace('V', ldim=2)
+    V = FunctionSpace('V', ldim=3)
 
-    M = Mapping('M', rdim=2)
+    M = Mapping('M', rdim=3)
 
     eval_mapping = EvalMapping(V, M, name='eval_mapping', nderiv=2)
     code = pycode(eval_mapping)
@@ -58,5 +58,5 @@ def test_eval_mapping_2d_2():
 #................................
 if __name__ == '__main__':
 
-    test_eval_mapping_2d_1()
-    test_eval_mapping_2d_2()
+    test_eval_mapping_3d_1()
+    test_eval_mapping_3d_2()
