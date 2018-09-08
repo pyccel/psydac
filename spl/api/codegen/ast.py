@@ -83,7 +83,7 @@ def compute_atoms_expr(atom,indices_qds,indices_test,
 
     # ... map basis function
     map_stmts = []
-    if mapping:
+    if mapping and  isinstance(atom, _partial_derivatives):
         name = print_expression(atom)
 
         a = get_atom_derivatives(atom)
@@ -386,6 +386,7 @@ class EvalMapping(SplBasic):
             basis_name = str(init.lhs)
             init_basis[basis_name] = init
 
+        init_basis = OrderedDict(sorted(init_basis.items()))
         body += list(init_basis.values())
         body += updates
         # ...
@@ -476,6 +477,7 @@ class EvalField(SplBasic):
             basis_name = str(init.lhs)
             init_basis[basis_name] = init
 
+        init_basis = OrderedDict(sorted(init_basis.items()))
         body += list(init_basis.values())
         body += updates
         # ...
@@ -537,10 +539,16 @@ class Kernel(SplBasic):
 
     @property
     def mapping_coeffs(self):
+        if not self.eval_mapping:
+            return ()
+
         return self.eval_mapping.mapping_coeffs
 
     @property
     def mapping_values(self):
+        if not self.eval_mapping:
+            return ()
+
         return self.eval_mapping.mapping_values
 
     @property
@@ -780,6 +788,7 @@ class Kernel(SplBasic):
             for stmt in map_stmts:
                 init_map[str(stmt.lhs)] = stmt
 
+        init_basis = OrderedDict(sorted(init_basis.items()))
         body += list(init_basis.values())
 
         if mapping:
@@ -800,6 +809,7 @@ class Kernel(SplBasic):
             body += [Assign(inv_jac, 1/jac)]
             # ...
 
+            init_map = OrderedDict(sorted(init_map.items()))
             for stmt in list(init_map.values()):
                 body += [stmt.subs(1/jac, inv_jac)]
 

@@ -119,13 +119,12 @@ def test_kernel_bilinear_2d_scalar_5():
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
 
-    expr = dot(grad(v), grad(u)) #+ dx(v) * u
+    expr = dot(grad(v), grad(u)) + dx(v) * u
 
     a = BilinearForm((v,u), expr, mapping=M)
 
     kernel = Kernel(a, name='kernel')
     code = pycode(kernel)
-#    print(code)
     print(sanitize(code))
 
 def test_kernel_bilinear_2d_block_1():
