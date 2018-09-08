@@ -108,6 +108,25 @@ def test_interface_bilinear_2d_scalar_4():
     code = pycode(interface)
     print(code)
 
+def test_interface_bilinear_2d_scalar_5():
+    print('============ test_interface_bilinear_2d_scalar_5 =============')
+
+    M = Mapping('M', rdim=2)
+
+    U = FunctionSpace('U', ldim=2)
+    V = FunctionSpace('V', ldim=2)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+
+    a = BilinearForm((v,u), expr, mapping=M)
+
+    interface = Interface(a, name='interface')
+    code = pycode(interface)
+    print(code)
+
 def test_interface_bilinear_2d_block_1():
     print('============ test_interface_bilinear_2d_block_1 =============')
 
@@ -133,8 +152,9 @@ if __name__ == '__main__':
 #    test_interface_bilinear_2d_scalar_2()
 #    test_interface_bilinear_2d_scalar_3()
 #    test_interface_bilinear_2d_scalar_4()
+    test_interface_bilinear_2d_scalar_5()
 #    # ...
 
-    # ... block case
-    test_interface_bilinear_2d_block_1()
-    # ...
+#    # ... block case
+#    test_interface_bilinear_2d_block_1()
+#    # ...

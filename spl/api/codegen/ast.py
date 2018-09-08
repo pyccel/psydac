@@ -1160,6 +1160,10 @@ class Interface(SplBasic):
         test_basis     = symbols('test_basis_1:%d'%(dim+1), cls=IndexedBase)
         spans          = symbols('test_spans_1:%d'%(dim+1), cls=IndexedBase)
         quad_orders    = symbols('k1:%d'%(dim+1))
+
+        mapping = ()
+        if form.mapping:
+            mapping = Symbol('mapping')
         # ...
 
         # ...
@@ -1191,6 +1195,13 @@ class Interface(SplBasic):
 
         body += [Assign(test_basis, DottedName(test_space, 'quad_basis'))]
         body += [Assign(trial_basis, DottedName(trial_space, 'quad_basis'))]
+        # ...
+
+        # ...
+        if mapping:
+            for i, coeff in enumerate(assembly.kernel.mapping_coeffs):
+                component = IndexedBase(DottedName(mapping, '_fields'))[i]
+                body += [Assign(coeff, DottedName(component, '_coeffs', '_data'))]
         # ...
 
         # ...
@@ -1231,7 +1242,10 @@ class Interface(SplBasic):
         mats = [Assign(M, Nil()) for M in global_matrices]
         mats = tuple(mats)
 
-        func_args = self.build_arguments(fields + mats)
+        if mapping:
+            mapping = (mapping,)
+
+        func_args = self.build_arguments(fields + mapping + mats)
         # ...
 
         return FunctionDef(self.name, list(func_args), [], body)
