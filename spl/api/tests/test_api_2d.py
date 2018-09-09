@@ -346,8 +346,8 @@ def test_api_function_2d_scalar_1():
 
     # ... discrete spaces
     # Input data: degree, number of elements
-    p1  = 3 ; p2  = 3
-    ne1 = 8 ; ne2 = 8
+    p1  = 2 ; p2  = 2
+    ne1 = 10 ; ne2 = 20
 
     # Create uniform grid
     grid_1 = linspace( 0., 1., num=ne1+1 )

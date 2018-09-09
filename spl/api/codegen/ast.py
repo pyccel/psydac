@@ -869,7 +869,7 @@ class Kernel(SplBasic):
 
         elif is_function:
             for i in range(ln):
-                body.append(AugAssign(mats[i][0],'+',v[i]))
+                body.append(Assign(mats[i][0],v[i]))
 
         # ...
         # put the body in tests and trials for loops
@@ -1338,10 +1338,19 @@ class Interface(SplBasic):
 
         # ... results
         if len(global_matrices) == 1:
-            body += [Return(global_matrices[0])]
+            M = global_matrices[0]
+            if is_bilinear or is_linear:
+                body += [Return(M)]
+
+            elif is_function:
+                body += [Return(M[0])]
 
         else:
-            body += [Return(global_matrices)]
+            if is_bilinear or is_linear:
+                body += [Return(global_matrices)]
+
+            elif is_function:
+                body += [Return(M[0] for M in global_matrices)]
         # ...
 
         # ... arguments

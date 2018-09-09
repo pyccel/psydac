@@ -155,7 +155,7 @@ def basis_funs_1st_der( knots, degree, x, span ):
     # up to degree deg-1
     values = basis_funs( knots, degree-1, x, span )
 
-    # Compute derivatives at x using formula based on difference of splines of 
+    # Compute derivatives at x using formula based on difference of splines of
     # degree deg-1
     # -------
     # j = 0
