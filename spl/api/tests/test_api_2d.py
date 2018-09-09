@@ -258,13 +258,13 @@ def test_api_2d_block_1():
 if __name__ == '__main__':
 
     # ... scalar case
-#    test_api_2d_scalar_1()
-#    test_api_2d_scalar_2()
-#    test_api_2d_scalar_3()
-#    test_api_2d_scalar_4()
+    test_api_2d_scalar_1()
+    test_api_2d_scalar_2()
+    test_api_2d_scalar_3()
+    test_api_2d_scalar_4()
     test_api_2d_scalar_5()
     # ...
 
-#    # ... block case
-#    test_api_2d_block_1()
-#    # ...
+    # ... block case
+    test_api_2d_block_1()
+    # ...

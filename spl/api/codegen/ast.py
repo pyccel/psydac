@@ -563,15 +563,8 @@ class Kernel(SplBasic):
 
         other = data
 
-#        # fields are placed before data
-#        if self.fields_coeffs:
-#            other = self.fields_coeffs + other
-
         if self.mapping_values:
             other = self.mapping_values + other
-
-#        if self.mapping_coeffs:
-#            other = self.mapping_coeffs + other
 
         if self.constants:
             other = other + self.constants
@@ -593,7 +586,7 @@ class Kernel(SplBasic):
             n_cols = self.weak_form.trial_spaces[0].shape
 
         if is_linear:
-            raise NotImplementedError('TODO')
+            n_rows = self.weak_form.test_spaces[0].shape
 
         if is_function:
             raise NotImplementedError('TODO')
@@ -733,9 +726,15 @@ class Kernel(SplBasic):
         # ...
 
         # ...
-        self._basic_args = (test_pads + trial_pads +
-                            basis_test + basis_trial +
-                            positions + weighted_vols)
+        if is_bilinear:
+            self._basic_args = (test_pads + trial_pads +
+                                basis_test + basis_trial +
+                                positions + weighted_vols)
+
+        if is_linear:
+            self._basic_args = (test_pads +
+                                basis_test +
+                                positions + weighted_vols)
         # ...
 
         # ...
@@ -945,6 +944,10 @@ class Assembly(SplBasic):
         fields = kernel.fields
         fields_coeffs = kernel.fields_coeffs
 
+        is_linear   = isinstance(self.weak_form, LinearForm)
+        is_bilinear = isinstance(self.weak_form, BilinearForm)
+        is_function = isinstance(self.weak_form, FunctionForm)
+
         dim    = form.ldim
 
         n_rows = kernel.n_rows
@@ -974,11 +977,19 @@ class Assembly(SplBasic):
         # ...
 
         # ...
-        self._basic_args = (starts + ends +
-                            test_degrees + trial_degrees +
-                            spans +
-                            points + weights +
-                            test_basis + trial_basis)
+        if is_bilinear:
+            self._basic_args = (starts + ends +
+                                test_degrees + trial_degrees +
+                                spans +
+                                points + weights +
+                                test_basis + trial_basis)
+
+        if is_linear:
+            self._basic_args = (starts + ends +
+                                test_degrees +
+                                spans +
+                                points + weights +
+                                test_basis)
         # ...
 
         # ... element matrices
@@ -1014,8 +1025,7 @@ class Assembly(SplBasic):
         body += [Assign(trial_basis_in_elm[i], trial_basis[i][indices_elm[i],_slice,_slice,_slice]) for i in range(dim)]
         body += [Assign(test_basis_in_elm[i], test_basis[i][indices_elm[i],_slice,_slice,_slice]) for i in range(dim)]
 
-        # kernel call
-#        args = kernel.func.arguments
+        # ... kernel call
         mats = []
         for i in range(0, n_rows):
             for j in range(0, n_cols):
@@ -1028,11 +1038,19 @@ class Assembly(SplBasic):
 
         args = kernel.build_arguments(f_coeffs + m_coeffs + mats)
         body += [FunctionCall(kernel.func, args)]
+        # ...
 
         # ... update global matrices
-        lslices = [Slice(None,None)]*2*dim
-        gslices = [Slice(i-p,i+1) for i,p in zip(indices_span, test_degrees)]
-        gslices += [Slice(None,None)]*dim # for assignement
+        lslices = [Slice(None,None)]*dim
+        if is_bilinear:
+            lslices += [Slice(None,None)]*dim # for assignement
+
+        if is_bilinear:
+            gslices = [Slice(i-p,i+1) for i,p in zip(indices_span, test_degrees)]
+            gslices += [Slice(None,None)]*dim # for assignement
+
+        if is_linear:
+            gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
 
         for i in range(0, n_rows):
             for j in range(0, n_cols):
@@ -1062,7 +1080,12 @@ class Assembly(SplBasic):
             for j in range(0, n_cols):
                 mat = element_matrices[i,j]
 
-                stmt = Assign(mat, Zeros((*orders, *spads)))
+                if is_bilinear:
+                    stmt = Assign(mat, Zeros((*orders, *spads)))
+
+                if is_linear:
+                    stmt = Assign(mat, Zeros((*orders,)))
+
                 prelude += [stmt]
 
                 if self.debug:
@@ -1154,12 +1177,20 @@ class Interface(SplBasic):
         fields = sorted(fields, key=lambda x: str(x.name))
         fields = tuple(fields)
 
+        is_linear   = isinstance(self.weak_form, LinearForm)
+        is_bilinear = isinstance(self.weak_form, BilinearForm)
+        is_function = isinstance(self.weak_form, FunctionForm)
+
         dim = form.ldim
 
         # ... declarations
         test_space = Symbol('W')
         trial_space = Symbol('V')
-        spaces = (test_space, trial_space)
+        if is_bilinear:
+            spaces = (test_space, trial_space)
+
+        if is_linear:
+            spaces = (test_space, )
 
         starts         = symbols('s1:%d'%(dim+1))
         ends           = symbols('e1:%d'%(dim+1))
@@ -1197,7 +1228,8 @@ class Interface(SplBasic):
         body += [Assign(starts, DottedName(test_space, 'vector_space', 'starts'))]
         body += [Assign(ends, DottedName(test_space, 'vector_space', 'ends'))]
         body += [Assign(test_degrees, DottedName(test_space, 'vector_space', 'pads'))]
-        body += [Assign(trial_degrees, DottedName(trial_space, 'vector_space', 'pads'))]
+        if is_bilinear:
+            body += [Assign(trial_degrees, DottedName(trial_space, 'vector_space', 'pads'))]
 
         body += [Assign(spans, DottedName(test_space, 'spans'))]
         body += [Assign(quad_orders, DottedName(test_space, 'quad_order'))]
@@ -1205,7 +1237,8 @@ class Interface(SplBasic):
         body += [Assign(weights, DottedName(test_space, 'quad_weights'))]
 
         body += [Assign(test_basis, DottedName(test_space, 'quad_basis'))]
-        body += [Assign(trial_basis, DottedName(trial_space, 'quad_basis'))]
+        if is_bilinear:
+            body += [Assign(trial_basis, DottedName(trial_space, 'quad_basis'))]
         # ...
 
         # ...
@@ -1216,12 +1249,22 @@ class Interface(SplBasic):
         # ...
 
         # ...
-        body += [Import('StencilMatrix', 'spl.linalg.stencil')]
+        if is_bilinear:
+            body += [Import('StencilMatrix', 'spl.linalg.stencil')]
+
+        if is_linear:
+            body += [Import('StencilVector', 'spl.linalg.stencil')]
+
         for M in global_matrices:
             if_cond = Is(M, Nil())
-            args = [DottedName(test_space, 'vector_space'),
-                    DottedName(trial_space, 'vector_space')]
-            if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
+            if is_bilinear:
+                args = [DottedName(test_space, 'vector_space'),
+                        DottedName(trial_space, 'vector_space')]
+                if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
+
+            if is_linear:
+                args = [DottedName(test_space, 'vector_space')]
+                if_body = [Assign(M, FunctionCall('StencilVector', args))]
 
             stmt = If((if_cond, if_body))
             body += [stmt]

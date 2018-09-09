@@ -144,6 +144,21 @@ def test_kernel_bilinear_2d_block_1():
     code = pycode(kernel)
     print(code)
 
+def test_kernel_linear_2d_scalar_1():
+    print('============ test_kernel_linear_2d_scalar_1 =============')
+
+    V = FunctionSpace('V', ldim=2)
+
+    v = TestFunction(V, name='v')
+
+    expr = v + dx(v) + dy(v)
+
+    a = LinearForm(v, expr)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    print(code)
+
 #................................
 if __name__ == '__main__':
 
@@ -152,7 +167,9 @@ if __name__ == '__main__':
 #    test_kernel_bilinear_2d_scalar_2()
 #    test_kernel_bilinear_2d_scalar_3()
 #    test_kernel_bilinear_2d_scalar_4()
-    test_kernel_bilinear_2d_scalar_5()
+#    test_kernel_bilinear_2d_scalar_5()
+
+    test_kernel_linear_2d_scalar_1()
     # ...
 
 #    # ... block case

@@ -144,6 +144,21 @@ def test_interface_bilinear_2d_block_1():
     code = pycode(interface)
     print(code)
 
+def test_interface_linear_2d_scalar_1():
+    print('============ test_interface_linear_2d_scalar_1 =============')
+
+    V = FunctionSpace('V', ldim=2)
+
+    v = TestFunction(V, name='v')
+
+    expr = v + dx(v) + dy(v)
+
+    a = LinearForm(v, expr)
+
+    interface = Interface(a, name='interface')
+    code = pycode(interface)
+    print(code)
+
 #................................
 if __name__ == '__main__':
 
@@ -152,7 +167,9 @@ if __name__ == '__main__':
 #    test_interface_bilinear_2d_scalar_2()
 #    test_interface_bilinear_2d_scalar_3()
 #    test_interface_bilinear_2d_scalar_4()
-    test_interface_bilinear_2d_scalar_5()
+#    test_interface_bilinear_2d_scalar_5()
+
+    test_interface_linear_2d_scalar_1()
 #    # ...
 
 #    # ... block case
