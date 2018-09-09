@@ -289,8 +289,8 @@ if __name__ == '__main__':
     test_assembly_function_3d_scalar_2(mapping=False)
     test_assembly_function_3d_scalar_3(mapping=False)
 
-#    # with mapping
-#    test_assembly_function_3d_scalar_1(mapping=True)
-#    test_assembly_function_3d_scalar_2(mapping=True)
-#    test_assembly_function_3d_scalar_3(mapping=True)
-#    # .................................
+    # with mapping
+    test_assembly_function_3d_scalar_1(mapping=True)
+    test_assembly_function_3d_scalar_2(mapping=True)
+    test_assembly_function_3d_scalar_3(mapping=True)
+    # .................................

@@ -289,8 +289,8 @@ if __name__ == '__main__':
     test_interface_function_2d_scalar_2(mapping=False)
     test_interface_function_2d_scalar_3(mapping=False)
 
-#    # with mapping
-#    test_interface_function_2d_scalar_1(mapping=True)
-#    test_interface_function_2d_scalar_2(mapping=True)
-#    test_interface_function_2d_scalar_3(mapping=True)
-#    # .................................
+    # with mapping
+    test_interface_function_2d_scalar_1(mapping=True)
+    test_interface_function_2d_scalar_2(mapping=True)
+    test_interface_function_2d_scalar_3(mapping=True)
+    # .................................

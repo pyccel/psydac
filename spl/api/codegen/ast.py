@@ -692,7 +692,12 @@ class Kernel(SplBasic):
             # TODO compute nderiv from weak form
             nderiv = 1
 
-            space = self.weak_form.test_spaces[0]
+            if is_bilinear or is_linear:
+                space = self.weak_form.test_spaces[0]
+
+            elif is_function:
+                space = self.weak_form.space
+
             eval_mapping = EvalMapping(space, mapping, nderiv=nderiv)
             self._eval_mapping = eval_mapping
 
