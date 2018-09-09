@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from itertools import groupby
 
 from sympy import Basic
 from sympy import symbols, Symbol, IndexedBase, Indexed, Matrix, Function
@@ -589,9 +590,6 @@ class Kernel(SplBasic):
         if is_linear:
             n_rows = self.weak_form.test_spaces[0].shape
 
-        if is_function:
-            raise NotImplementedError('TODO')
-
         self._n_rows = n_rows
         self._n_cols = n_cols
         # ...
@@ -661,16 +659,27 @@ class Kernel(SplBasic):
         atomic_expr_field = [atom for atom in atoms if is_field(atom)]
         atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_field ]
 
+        # TODO use print_expression
         fields_str    = sorted(tuple(map(pycode, atomic_expr_field)))
         field_atoms   = tuple(expr.atoms(Field))
 
         # ... create EvalField
-        # TODO must use groupby on space and create different EvalField
         self._eval_fields = []
         if atomic_expr_field:
-            space = self.weak_form.test_spaces[0]
-            eval_field = EvalField(space, atomic_expr_field)
-            self._eval_fields.append(eval_field)
+            keyfunc = lambda F: F.space.name
+            data = sorted(field_atoms, key=keyfunc)
+            for space_str, group in groupby(data, keyfunc):
+                g_names = set([f.name for f in group])
+                fields_expressions = []
+                for e in atomic_expr_field:
+                    fs = e.atoms(Field)
+                    f_names = set([f.name for f in fs])
+                    if f_names & g_names:
+                        fields_expressions += [e]
+                        space = list(fs)[0].space
+
+                eval_field = EvalField(space, fields_expressions)
+                self._eval_fields.append(eval_field)
 
         # update dependencies
         self._dependencies += self.eval_fields
