@@ -151,6 +151,23 @@ def test_assembly_linear_2d_scalar_1():
 
     v = TestFunction(V, name='v')
 
+    x,y = V.coordinates
+
+    expr = cos(2*pi*x)*cos(4*pi*y)*v
+
+    a = LinearForm(v, expr)
+
+    assembly = Assembly(a, name='assembly')
+    code = pycode(assembly)
+    print(code)
+
+def test_assembly_linear_2d_scalar_2():
+    print('============ test_assembly_linear_2d_scalar_2 =============')
+
+    V = FunctionSpace('V', ldim=2)
+
+    v = TestFunction(V, name='v')
+
     expr = v + dx(v) + dy(v)
 
     a = LinearForm(v, expr)
@@ -170,6 +187,7 @@ if __name__ == '__main__':
 #    test_assembly_bilinear_2d_scalar_5()
 
     test_assembly_linear_2d_scalar_1()
+#    test_assembly_linear_2d_scalar_2()
 #    # ...
 
 #    # ... block case

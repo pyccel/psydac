@@ -151,6 +151,23 @@ def test_kernel_linear_2d_scalar_1():
 
     v = TestFunction(V, name='v')
 
+    x,y = V.coordinates
+
+    expr = cos(2*pi*x)*cos(4*pi*y)*v
+
+    a = LinearForm(v, expr)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    print(code)
+
+def test_kernel_linear_2d_scalar_2():
+    print('============ test_kernel_linear_2d_scalar_2 =============')
+
+    V = FunctionSpace('V', ldim=2)
+
+    v = TestFunction(V, name='v')
+
     expr = v + dx(v) + dy(v)
 
     a = LinearForm(v, expr)
@@ -170,6 +187,7 @@ if __name__ == '__main__':
 #    test_kernel_bilinear_2d_scalar_5()
 
     test_kernel_linear_2d_scalar_1()
+#    test_kernel_linear_2d_scalar_2()
     # ...
 
 #    # ... block case

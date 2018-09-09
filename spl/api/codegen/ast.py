@@ -38,6 +38,7 @@ from sympde.printing.pycode import pycode  # TODO remove from here
 from sympde.core.derivatives import print_expression
 from sympde.core.derivatives import get_atom_derivatives
 from sympde.core.derivatives import get_index_derivatives
+from sympde.core.math import math_atoms_as_str
 
 FunctionalForms = (BilinearForm, LinearForm, FunctionForm)
 
@@ -888,6 +889,13 @@ class Kernel(SplBasic):
         # compute length of logical points
         len_quads = [Assign(k, Len(u)) for k,u in zip(qds_dim, positions)]
         body = len_quads + body
+
+        # get math functions and constants
+        math_elements = math_atoms_as_str(weak_form)
+        math_imports = []
+        for e in math_elements:
+            math_imports += [Import(e, 'numpy')]
+        body = math_imports + body
 
         # function args
         func_args = self.build_arguments(fields_coeffs + mapping_coeffs + mats)
