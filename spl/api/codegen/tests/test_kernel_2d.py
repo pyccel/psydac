@@ -11,6 +11,7 @@ from sympy import IndexedBase
 from sympy import Matrix
 from sympy import Function
 from sympy import pi, cos, sin
+from sympy import S
 
 from sympde.core import dx, dy, dz
 from sympde.core import Constant
@@ -184,9 +185,10 @@ def test_kernel_function_2d_scalar_1():
 
     F = Field('F', space=V)
 
-    expr = F-cos(2*pi*x)*cos(3*pi*y) + dx(F) + dy(F)
+#    expr = F-cos(2*pi*x)*cos(3*pi*y) + dx(F) + dy(F)
+    expr = S.One
 
-    a = FunctionForm(expr)
+    a = FunctionForm(expr, space=V)
 
     kernel = Kernel(a, name='kernel')
     code = pycode(kernel)

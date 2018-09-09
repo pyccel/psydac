@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from sympy import pi, cos, sin
+from sympy import S
 
 from sympde.core import dx, dy, dz
 from sympde.core import Mapping
@@ -336,15 +337,17 @@ def test_api_function_2d_scalar_1():
 
     F = Field('F', space=V)
 
-    expr = F #-cos(2*pi*x)*cos(3*pi*y) + dx(F) + dy(F)
+#    expr = -cos(2*pi*x)*cos(3*pi*y) + dx(F) + dy(F)
+#    expr = F
+    expr = S.One
 
-    a = FunctionForm(expr)
+    a = FunctionForm(expr, space=V)
     # ...
 
     # ... discrete spaces
     # Input data: degree, number of elements
     p1  = 3 ; p2  = 3
-    ne1 = 4 ; ne2 = 4
+    ne1 = 8 ; ne2 = 8
 
     # Create uniform grid
     grid_1 = linspace( 0., 1., num=ne1+1 )
@@ -365,8 +368,9 @@ def test_api_function_2d_scalar_1():
     phi = FemField( V, 'phi' )
     phi._coeffs[:,:] = 1.
 
-    integral = ah.assemble(phi)
-#    print(integral)
+#    integral = ah.assemble(phi)
+    integral = ah.assemble()
+    print(integral)
     # ...
 
 
@@ -374,18 +378,18 @@ def test_api_function_2d_scalar_1():
 if __name__ == '__main__':
 
     # ... scalar case
-    test_api_bilinear_2d_scalar_1()
-    test_api_bilinear_2d_scalar_2()
-    test_api_bilinear_2d_scalar_3()
-    test_api_bilinear_2d_scalar_4()
-    test_api_bilinear_2d_scalar_5()
-
-    test_api_linear_2d_scalar_1()
-    test_api_linear_2d_scalar_2()
+#    test_api_bilinear_2d_scalar_1()
+#    test_api_bilinear_2d_scalar_2()
+#    test_api_bilinear_2d_scalar_3()
+#    test_api_bilinear_2d_scalar_4()
+#    test_api_bilinear_2d_scalar_5()
+#
+#    test_api_linear_2d_scalar_1()
+#    test_api_linear_2d_scalar_2()
 
     test_api_function_2d_scalar_1()
     # ...
 
-    # ... block case
-    test_api_bilinear_2d_block_1()
-    # ...
+#    # ... block case
+#    test_api_bilinear_2d_block_1()
+#    # ...

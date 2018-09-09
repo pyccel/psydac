@@ -873,11 +873,16 @@ class Kernel(SplBasic):
 
         # ...
         # put the body in tests and trials for loops
-        for i in range(dim_trial-1,-1,-1):
-            body = [For(indices_trial[i],ranges_trial[i],body)]
+        if is_bilinear:
+            for i in range(dim_test-1,-1,-1):
+                body = [For(indices_test[i],ranges_test[i],body)]
 
-        for i in range(dim_test-1,-1,-1):
-            body = [For(indices_test[i],ranges_test[i],body)]
+            for i in range(dim_trial-1,-1,-1):
+                body = [For(indices_trial[i],ranges_trial[i],body)]
+
+        if is_linear:
+            for i in range(dim_test-1,-1,-1):
+                body = [For(indices_test[i],ranges_test[i],body)]
         # ...
 
         # ...
