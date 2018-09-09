@@ -327,6 +327,48 @@ def test_api_linear_2d_scalar_2():
     rhs = ah.assemble()
     # ...
 
+def test_api_function_2d_scalar_1():
+    print('============ test_api_function_2d_scalar_1 =============')
+
+    # ... abstract model
+    V = FunctionSpace('V', ldim=2)
+    x,y = V.coordinates
+
+    F = Field('F', space=V)
+
+    expr = F #-cos(2*pi*x)*cos(3*pi*y) + dx(F) + dy(F)
+
+    a = FunctionForm(expr)
+    # ...
+
+    # ... discrete spaces
+    # Input data: degree, number of elements
+    p1  = 3 ; p2  = 3
+    ne1 = 4 ; ne2 = 4
+
+    # Create uniform grid
+    grid_1 = linspace( 0., 1., num=ne1+1 )
+    grid_2 = linspace( 0., 1., num=ne2+1 )
+
+    # Create 1D finite element spaces and precompute quadrature data
+    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
+    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
+
+    # Create 2D tensor product finite element space
+    V = TensorFemSpace( V1, V2 )
+    # ...
+
+    # ...
+    ah = discretize(a, V)
+
+    # Define a field
+    phi = FemField( V, 'phi' )
+    phi._coeffs[:,:] = 1.
+
+    integral = ah.assemble(phi)
+#    print(integral)
+    # ...
+
 
 ###############################################
 if __name__ == '__main__':
@@ -340,6 +382,8 @@ if __name__ == '__main__':
 
     test_api_linear_2d_scalar_1()
     test_api_linear_2d_scalar_2()
+
+    test_api_function_2d_scalar_1()
     # ...
 
     # ... block case

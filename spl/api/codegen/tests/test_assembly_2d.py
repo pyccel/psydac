@@ -176,6 +176,22 @@ def test_assembly_linear_2d_scalar_2():
     code = pycode(assembly)
     print(code)
 
+def test_assembly_function_2d_scalar_1():
+    print('============ test_assembly_function_2d_scalar_1 =============')
+
+    V = FunctionSpace('V', ldim=2)
+    x,y = V.coordinates
+
+    F = Field('F', space=V)
+
+    expr = F-cos(2*pi*x)*cos(3*pi*y) + dx(F) + dy(F)
+
+    a = FunctionForm(expr)
+
+    assembly = Assembly(a, name='assembly')
+    code = pycode(assembly)
+    print(code)
+
 #................................
 if __name__ == '__main__':
 
@@ -186,9 +202,11 @@ if __name__ == '__main__':
 #    test_assembly_bilinear_2d_scalar_4()
 #    test_assembly_bilinear_2d_scalar_5()
 
-    test_assembly_linear_2d_scalar_1()
+#    test_assembly_linear_2d_scalar_1()
 #    test_assembly_linear_2d_scalar_2()
-#    # ...
+
+    test_assembly_function_2d_scalar_1()
+    # ...
 
 #    # ... block case
 #    test_assembly_bilinear_2d_block_1()

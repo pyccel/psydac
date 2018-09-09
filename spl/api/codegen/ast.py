@@ -863,8 +863,13 @@ class Kernel(SplBasic):
         else:
             idxs = indices_test
 
-        for i in range(ln):
-            body.append(Assign(mats[i][idxs],v[i]))
+        if is_bilinear or is_linear:
+            for i in range(ln):
+                body.append(Assign(mats[i][idxs],v[i]))
+
+        elif is_function:
+            for i in range(ln):
+                body.append(AugAssign(mats[i][0],'+',v[i]))
 
         # ...
         # put the body in tests and trials for loops
@@ -877,9 +882,11 @@ class Kernel(SplBasic):
 
         # ...
         # initialization of the matrix
-        init_mats = [mats[i][[Slice(None,None)]*(dim_test+dim_trial)] for i in range(ln)]
-        init_mats = [Assign(e, 0.0) for e in init_mats]
-        body =  init_mats + body
+        if is_bilinear or is_linear:
+            init_mats = [mats[i][[Slice(None,None)]*(dim_test+dim_trial)] for i in range(ln)]
+
+            init_mats = [Assign(e, 0.0) for e in init_mats]
+            body =  init_mats + body
 
         # call eval field
         for eval_field in self.eval_fields:
@@ -1005,7 +1012,7 @@ class Assembly(SplBasic):
                                 points + weights +
                                 test_basis + trial_basis)
 
-        if is_linear:
+        if is_linear or is_function:
             self._basic_args = (starts + ends +
                                 test_degrees +
                                 spans +
@@ -1076,6 +1083,10 @@ class Assembly(SplBasic):
         if is_linear:
             gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
 
+        if is_function:
+            lslices = 0
+            gslices = 0
+
         for i in range(0, n_rows):
             for j in range(0, n_cols):
                 M = global_matrices[i,j]
@@ -1109,6 +1120,9 @@ class Assembly(SplBasic):
 
                 if is_linear:
                     stmt = Assign(mat, Zeros((*orders,)))
+
+                if is_function:
+                    stmt = Assign(mat, Zeros(1))
 
                 prelude += [stmt]
 
@@ -1213,7 +1227,7 @@ class Interface(SplBasic):
         if is_bilinear:
             spaces = (test_space, trial_space)
 
-        if is_linear:
+        if is_linear or is_function:
             spaces = (test_space,)
 
         starts         = symbols('s1:%d'%(dim+1))
@@ -1273,29 +1287,40 @@ class Interface(SplBasic):
         # ...
 
         # ...
-        if is_bilinear:
-            body += [Import('StencilMatrix', 'spl.linalg.stencil')]
-
-        if is_linear:
-            body += [Import('StencilVector', 'spl.linalg.stencil')]
-
-        for M in global_matrices:
-            if_cond = Is(M, Nil())
+        if not is_function:
             if is_bilinear:
-                args = [DottedName(test_space, 'vector_space'),
-                        DottedName(trial_space, 'vector_space')]
-                if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
+                body += [Import('StencilMatrix', 'spl.linalg.stencil')]
 
             if is_linear:
-                args = [DottedName(test_space, 'vector_space')]
-                if_body = [Assign(M, FunctionCall('StencilVector', args))]
+                body += [Import('StencilVector', 'spl.linalg.stencil')]
 
-            stmt = If((if_cond, if_body))
-            body += [stmt]
+            for M in global_matrices:
+                if_cond = Is(M, Nil())
+                if is_bilinear:
+                    args = [DottedName(test_space, 'vector_space'),
+                            DottedName(trial_space, 'vector_space')]
+                    if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
+
+                if is_linear:
+                    args = [DottedName(test_space, 'vector_space')]
+                    if_body = [Assign(M, FunctionCall('StencilVector', args))]
+
+                stmt = If((if_cond, if_body))
+                body += [stmt]
+
+        else:
+            body += [Import('zeros', 'numpy')]
+            for M in global_matrices:
+                body += [Assign(M, Zeros(1))]
         # ...
 
         # ... call to assembly
-        mat_data       = [DottedName(M, '_data') for M in global_matrices]
+        if is_bilinear or is_linear:
+            mat_data = [DottedName(M, '_data') for M in global_matrices]
+
+        elif is_function:
+            mat_data = [M for M in global_matrices]
+
         mat_data       = tuple(mat_data)
 
         field_data     = [DottedName(F, '_coeffs', '_data') for F in fields]
@@ -1315,8 +1340,12 @@ class Interface(SplBasic):
         # ...
 
         # ... arguments
-        mats = [Assign(M, Nil()) for M in global_matrices]
-        mats = tuple(mats)
+        if is_bilinear or is_linear:
+            mats = [Assign(M, Nil()) for M in global_matrices]
+            mats = tuple(mats)
+
+        elif is_function:
+            mats = ()
 
         if mapping:
             mapping = (mapping,)
