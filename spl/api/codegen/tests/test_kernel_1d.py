@@ -1,7 +1,5 @@
 # coding: utf-8
 
-# TODO: - remove empty lines at the end of the kernel
-
 import os
 
 from sympy import Symbol
@@ -11,6 +9,7 @@ from sympy import IndexedBase
 from sympy import Matrix
 from sympy import Function
 from sympy import pi, cos, sin
+from sympy import S
 
 from sympde.core import dx, dy, dz
 from sympde.core import Constant
@@ -27,34 +26,34 @@ from spl.api.codegen.printing import pycode
 
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
-# ...............................................
-#              expected kernels
-# ...............................................
-# ...............................................
+DEBUG = False
+DIM = 1
 
-
-def test_kernel_bilinear_1d_scalar_1():
+def test_kernel_bilinear_1d_scalar_1(mapping=False):
     print('============ test_kernel_bilinear_1d_scalar_1 =============')
 
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    if mapping: mapping = Mapping('M', rdim=DIM)
+
+    U = FunctionSpace('U', ldim=DIM)
+    V = FunctionSpace('V', ldim=DIM)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
 
     expr = dot(grad(v), grad(u))
-
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v,u), expr, mapping=mapping)
 
     kernel = Kernel(a, name='kernel')
     code = pycode(kernel)
-    print(code)
+    if DEBUG: print(code)
 
-def test_kernel_bilinear_1d_scalar_2():
+def test_kernel_bilinear_1d_scalar_2(mapping=False):
     print('============ test_kernel_bilinear_1d_scalar_2 =============')
 
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    if mapping: mapping = Mapping('M', rdim=DIM)
+
+    U = FunctionSpace('U', ldim=DIM)
+    V = FunctionSpace('V', ldim=DIM)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -62,18 +61,19 @@ def test_kernel_bilinear_1d_scalar_2():
     c = Constant('c', real=True, label='mass stabilization')
 
     expr = dot(grad(v), grad(u)) + c*v*u
-
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v,u), expr, mapping=mapping)
 
     kernel = Kernel(a, name='kernel')
     code = pycode(kernel)
-    print(code)
+    if DEBUG: print(code)
 
-def test_kernel_bilinear_1d_scalar_3():
+def test_kernel_bilinear_1d_scalar_3(mapping=False):
     print('============ test_kernel_bilinear_1d_scalar_3 =============')
 
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    if mapping: mapping = Mapping('M', rdim=DIM)
+
+    U = FunctionSpace('U', ldim=DIM)
+    V = FunctionSpace('V', ldim=DIM)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -81,18 +81,19 @@ def test_kernel_bilinear_1d_scalar_3():
     F = Field('F', space=V)
 
     expr = dot(grad(v), grad(u)) + F*v*u
-
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v,u), expr, mapping=mapping)
 
     kernel = Kernel(a, name='kernel')
     code = pycode(kernel)
-    print(code)
+    if DEBUG: print(code)
 
-def test_kernel_bilinear_1d_scalar_4():
+def test_kernel_bilinear_1d_scalar_4(mapping=False):
     print('============ test_kernel_bilinear_1d_scalar_4 =============')
 
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    if mapping: mapping = Mapping('M', rdim=DIM)
+
+    U = FunctionSpace('U', ldim=DIM)
+    V = FunctionSpace('V', ldim=DIM)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -101,19 +102,21 @@ def test_kernel_bilinear_1d_scalar_4():
     G = Field('G', space=V)
 
     expr = dot(grad(G*v), grad(u)) + F*v*u
-
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v,u), expr, mapping=mapping)
 
     kernel = Kernel(a, name='kernel')
     code = pycode(kernel)
-    print(code)
+    if DEBUG: print(code)
 
-def test_kernel_bilinear_1d_block_1():
+def test_kernel_bilinear_1d_block_1(mapping=False):
     print('============ test_kernel_bilinear_1d_block_1 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM)
+
     # 1d wave problem
 
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    U = FunctionSpace('U', ldim=DIM)
+    V = FunctionSpace('V', ldim=DIM)
 
     # trial functions
     u = TestFunction(U, name='u')
@@ -126,26 +129,181 @@ def test_kernel_bilinear_1d_block_1():
     rho = Constant('rho', real=True, label='mass density')
     dt = Constant('dt', real=True, label='time step')
 
-    mass = BilinearForm((v,u), v*u)
-    adv  = BilinearForm((v,u), dx(v)*u)
+    mass = BilinearForm((v,u), v*u, mapping=mapping)
+    adv  = BilinearForm((v,u), dx(v)*u, mapping=mapping)
 
     expr = rho*mass(v,u) + dt*adv(v, f) + dt*adv(w,u) + mass(w,f)
-    a = BilinearForm(((v,w), (u,f)), expr)
+    a = BilinearForm(((v,w), (u,f)), expr, mapping=mapping)
 
     kernel = Kernel(a, name='kernel')
     code = pycode(kernel)
-    print(code)
+    if DEBUG: print(code)
+
+def test_kernel_linear_1d_scalar_1(mapping=False):
+    print('============ test_kernel_linear_1d_scalar_1 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM)
+
+    V = FunctionSpace('V', ldim=DIM)
+    x = V.coordinates
+
+    v = TestFunction(V, name='v')
+
+    expr = cos(2*pi*x)*v
+    a = LinearForm(v, expr, mapping=mapping)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    if DEBUG: print(code)
+
+def test_kernel_linear_1d_scalar_2(mapping=False):
+    print('============ test_kernel_linear_1d_scalar_2 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM)
+
+    V = FunctionSpace('V', ldim=DIM)
+    x = V.coordinates
+
+    v = TestFunction(V, name='v')
+
+    c = Constant('c', real=True, label='mass stabilization')
+
+    expr = c*cos(2*pi*x)*v
+    a = LinearForm(v, expr, mapping=mapping)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    if DEBUG: print(code)
+
+def test_kernel_linear_1d_scalar_3(mapping=False):
+    print('============ test_kernel_linear_1d_scalar_3 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM)
+
+    V = FunctionSpace('V', ldim=DIM)
+    x = V.coordinates
+
+    v = TestFunction(V, name='v')
+
+    F = Field('F', space=V)
+
+    expr = F*v
+    a = LinearForm(v, expr, mapping=mapping)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    if DEBUG: print(code)
+
+def test_kernel_linear_1d_scalar_4(mapping=False):
+    print('============ test_kernel_linear_1d_scalar_4 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM)
+
+    V = FunctionSpace('V', ldim=DIM)
+    x = V.coordinates
+
+    v = TestFunction(V, name='v')
+
+    F = Field('F', space=V)
+
+    expr = dx(F)*v
+    a = LinearForm(v, expr, mapping=mapping)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    if DEBUG: print(code)
+
+def test_kernel_function_1d_scalar_1(mapping=False):
+    print('============ test_kernel_function_1d_scalar_1 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM)
+
+    V = FunctionSpace('V', ldim=DIM)
+    x = V.coordinates
+
+    expr = S.One
+    a = FunctionForm(expr, space=V, mapping=mapping)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    if DEBUG: print(code)
+
+def test_kernel_function_1d_scalar_2(mapping=False):
+    print('============ test_kernel_function_1d_scalar_2 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM)
+
+    V = FunctionSpace('V', ldim=DIM)
+    x = V.coordinates
+
+    F = Field('F', space=V)
+
+    expr = F-cos(2*pi*x)
+    a = FunctionForm(expr, space=V, mapping=mapping)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    if DEBUG: print(code)
+
+def test_kernel_function_1d_scalar_3(mapping=False):
+    print('============ test_kernel_function_1d_scalar_3 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM)
+
+    V = FunctionSpace('V', ldim=DIM)
+    x = V.coordinates
+
+    F = Field('F', space=V)
+
+    error = F-cos(2*pi*x)
+    expr = dot(grad(error), grad(error))
+    a = FunctionForm(expr, space=V, mapping=mapping)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    if DEBUG: print(code)
 
 #................................
 if __name__ == '__main__':
 
-#    # ... scalar case
-#    test_kernel_bilinear_1d_scalar_1()
-#    test_kernel_bilinear_1d_scalar_2()
-#    test_kernel_bilinear_1d_scalar_3()
-#    test_kernel_bilinear_1d_scalar_4()
-#    # ...
+    # .................................
+    # without mapping
+    test_kernel_bilinear_1d_scalar_1(mapping=False)
+    test_kernel_bilinear_1d_scalar_2(mapping=False)
+    test_kernel_bilinear_1d_scalar_3(mapping=False)
+    test_kernel_bilinear_1d_scalar_4(mapping=False)
+    test_kernel_bilinear_1d_block_1(mapping=False)
 
-    # ... block case
-    test_kernel_bilinear_1d_block_1()
-    # ...
+#    # with mapping
+#    test_kernel_bilinear_1d_scalar_1(mapping=True)
+#    test_kernel_bilinear_1d_scalar_2(mapping=True)
+#    test_kernel_bilinear_1d_scalar_3(mapping=True)
+#    test_kernel_bilinear_1d_scalar_4(mapping=True)
+#    test_kernel_bilinear_1d_block_1(mapping=True)
+    # .................................
+
+    # .................................
+    # without mapping
+    test_kernel_linear_1d_scalar_1(mapping=False)
+    test_kernel_linear_1d_scalar_2(mapping=False)
+    test_kernel_linear_1d_scalar_3(mapping=False)
+    test_kernel_linear_1d_scalar_4(mapping=False)
+
+#    # with mapping
+#    test_kernel_linear_1d_scalar_1(mapping=True)
+#    test_kernel_linear_1d_scalar_2(mapping=True)
+#    test_kernel_linear_1d_scalar_3(mapping=True)
+#    test_kernel_linear_1d_scalar_4(mapping=True)
+   # .................................
+
+    # .................................
+    # without mapping
+    test_kernel_function_1d_scalar_1(mapping=False)
+    test_kernel_function_1d_scalar_2(mapping=False)
+    test_kernel_function_1d_scalar_3(mapping=False)
+
+#    # with mapping
+#    test_kernel_function_1d_scalar_1(mapping=True)
+#    test_kernel_function_1d_scalar_2(mapping=True)
+#    test_kernel_function_1d_scalar_3(mapping=True)
+#    # .................................
