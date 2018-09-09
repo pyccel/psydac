@@ -107,6 +107,48 @@ class SplineMapping( Mapping ):
         return cls( *fields )
 
     #--------------------------------------------------------------------------
+    # Option [3]: initialize from caid.cad_geometry
+    #--------------------------------------------------------------------------
+    @classmethod
+    def from_caid( cls, geo ):
+        # TODO should be used only in serial runs
+        from caid.cad_geometry import cad_geometry
+        from spl.fem.splines import SplineSpace
+        from spl.fem.tensor  import TensorFemSpace
+
+        assert isinstance( geo, cad_geometry )
+        assert len(geo) == 1
+
+        nrb = geo[0]
+        dim = len(nrb.degree)
+
+        spaces = [SplineSpace( p, knots=t ) for p,t in zip(nrb.degree, nrb.knots)]
+        if dim == 1:
+            V = spaces[0]
+
+        else:
+            V = TensorFemSpace( *spaces )
+
+        # Create one separate scalar field for each physical dimension
+        # TODO: use one unique field belonging to VectorFemSpace
+        name   = random_string( 8 )
+        fields = [FemField( V, 'mapping_{name}_x{d}'.format( name=name, d=d ) )
+                  for d in range( dim )]
+
+        # Get spline coefficients for each coordinate X_i
+        idx_to = tuple( slice( 0, e ) for e in nrb.shape )
+        for i,field in enumerate( fields ):
+            idx_from = tuple(list(idx_to)+[i])
+            field.coeffs[idx_to] = nrb.points[idx_from]
+
+        # Create SplineMapping object
+        return cls( *fields )
+
+    @property
+    def space(self):
+        return self._space
+
+    #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
     def __call__( self, eta ):
