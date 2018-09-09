@@ -204,35 +204,17 @@ def test_api_2d_scalar_5():
     a = BilinearForm((v,u), expr, mapping=M)
     # ...
 
-    from mpi4py import MPI
-    from spl.mapping.analytical_gallery import Annulus
-
-    # ... discrete spaces
-    # Input data: degree, number of elements
-    p1  = 2 ; p2  = 2
-    ne1 = 2 ; ne2 = 5
-
-    # Create uniform grid
-    grid_1 = linspace( 0., 1., num=ne1+1 )
-    grid_2 = linspace( 0., 1., num=ne2+1 )
-
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
-    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
-
-    # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2, comm=MPI.COMM_WORLD )
     # ...
-
-    map_analytic = Annulus(degree=(p1,p2), ncells=(ne1,ne2), rmin=0.5)
-
-    # Create spline mapping by interpolating analytical one
-    mapping = SplineMapping.from_mapping( V, map_analytic )
+    from caid.cad_geometry import square
+    geo = square(n=[3,3], p=[2,2])
+    mapping = SplineMapping.from_caid( geo )
+    V = mapping.space ; V.init_fem()
+    # ...
 
     # ...
     ah = discretize(a, [V, V], mapping)
     M = ah.assemble()
-    # ...
+#    # ...
 
 def test_api_2d_block_1():
     print('============ test_api_2d_block_1 =============')
@@ -276,13 +258,13 @@ def test_api_2d_block_1():
 if __name__ == '__main__':
 
     # ... scalar case
-    test_api_2d_scalar_1()
-    test_api_2d_scalar_2()
-    test_api_2d_scalar_3()
-    test_api_2d_scalar_4()
+#    test_api_2d_scalar_1()
+#    test_api_2d_scalar_2()
+#    test_api_2d_scalar_3()
+#    test_api_2d_scalar_4()
     test_api_2d_scalar_5()
     # ...
 
-    # ... block case
-    test_api_2d_block_1()
-    # ...
+#    # ... block case
+#    test_api_2d_block_1()
+#    # ...
