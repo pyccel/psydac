@@ -563,15 +563,15 @@ class Kernel(SplBasic):
 
         other = data
 
-        # fields are placed before data
-        if self.fields_coeffs:
-            other = self.fields_coeffs + other
+#        # fields are placed before data
+#        if self.fields_coeffs:
+#            other = self.fields_coeffs + other
 
         if self.mapping_values:
             other = self.mapping_values + other
 
-        if self.mapping_coeffs:
-            other = self.mapping_coeffs + other
+#        if self.mapping_coeffs:
+#            other = self.mapping_coeffs + other
 
         if self.constants:
             other = other + self.constants
@@ -693,8 +693,8 @@ class Kernel(SplBasic):
             eval_mapping = EvalMapping(space, mapping, nderiv=nderiv)
             self._eval_mapping = eval_mapping
 
-        # update dependencies
-        self._dependencies += [self.eval_mapping]
+            # update dependencies
+            self._dependencies += [self.eval_mapping]
         # ...
 
         test_function = self.weak_form.test_functions[0]
@@ -739,9 +739,9 @@ class Kernel(SplBasic):
         # ...
 
         # ...
-        mapping_elements = []
-        mapping_coeffs = []
-        mapping_values = []
+        mapping_elements = ()
+        mapping_coeffs = ()
+        mapping_values = ()
         if mapping:
             _eval = self.eval_mapping
             _print = lambda i: print_expression(i, mapping_name=False)
@@ -891,7 +891,7 @@ class Kernel(SplBasic):
         body = len_quads + body
 
         # function args
-        func_args = self.build_arguments(mats)
+        func_args = self.build_arguments(fields_coeffs + mapping_coeffs + mats)
 
         return FunctionDef(self.name, list(func_args), [], body)
 
@@ -1015,7 +1015,18 @@ class Assembly(SplBasic):
         body += [Assign(test_basis_in_elm[i], test_basis[i][indices_elm[i],_slice,_slice,_slice]) for i in range(dim)]
 
         # kernel call
-        args = kernel.func.arguments
+#        args = kernel.func.arguments
+        mats = []
+        for i in range(0, n_rows):
+            for j in range(0, n_cols):
+                mats.append(element_matrices[i,j])
+        mats = tuple(mats)
+
+        gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
+        f_coeffs = tuple([f[gslices] for f in fields_coeffs])
+        m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
+
+        args = kernel.build_arguments(f_coeffs + m_coeffs + mats)
         body += [FunctionCall(kernel.func, args)]
 
         # ... update global matrices
@@ -1205,8 +1216,6 @@ class Interface(SplBasic):
         # ...
 
         # ...
-#        body += [NewLine()]
-#        body += [Comment('Create stencil matrices if not given')]
         body += [Import('StencilMatrix', 'spl.linalg.stencil')]
         for M in global_matrices:
             if_cond = Is(M, Nil())

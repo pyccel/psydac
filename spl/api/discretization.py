@@ -14,6 +14,7 @@ class BasicForm(object):
 
     def __init__(self, expr, namespace=globals()):
         self._expr = expr
+        self._mapping = None
         self._interface = Interface(expr)
         self._dependencies = self.interface.dependencies
 
@@ -32,6 +33,10 @@ class BasicForm(object):
     @property
     def expr(self):
         return self._expr
+
+    @property
+    def mapping(self):
+        return self._mapping
 
     @property
     def interface(self):
@@ -129,12 +134,22 @@ class BilinearForm(BasicForm):
 
         self._spaces = args[0]
 
+        if len(args) > 1:
+            self._mapping = args[1]
+
     @property
     def spaces(self):
         return self._spaces
 
     def assemble(self, *args, **kwargs):
-        return self.func(*self.spaces, *args, **kwargs)
+        newargs = tuple(self.spaces)
+
+        if self.mapping:
+            newargs = newargs + (self.mapping,)
+
+        newargs = newargs + tuple(args)
+
+        return self.func(*newargs, **kwargs)
 
 class LinearForm(BasicForm):
 
