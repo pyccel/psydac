@@ -700,7 +700,11 @@ class Kernel(SplBasic):
             self._dependencies += [self.eval_mapping]
         # ...
 
-        test_function = self.weak_form.test_functions[0]
+        if is_bilinear or is_linear:
+            test_function = self.weak_form.test_functions[0]
+
+        elif is_function:
+            test_function = TestFunction(self.weak_form.space, name='Nj')
 
         # creation of symbolic vars
         if isinstance(expr, Matrix):
@@ -741,7 +745,7 @@ class Kernel(SplBasic):
                                 basis_test + basis_trial +
                                 positions + weighted_vols)
 
-        if is_linear:
+        if is_linear or is_function:
             self._basic_args = (test_pads +
                                 basis_test +
                                 positions + weighted_vols)

@@ -176,6 +176,22 @@ def test_kernel_linear_2d_scalar_2():
     code = pycode(kernel)
     print(code)
 
+def test_kernel_function_2d_scalar_1():
+    print('============ test_kernel_function_2d_scalar_1 =============')
+
+    V = FunctionSpace('V', ldim=2)
+    x,y = V.coordinates
+
+    F = Field('F', space=V)
+
+    expr = F-cos(2*pi*x)*cos(3*pi*y) + dx(F) + dy(F)
+
+    a = FunctionForm(expr)
+
+    kernel = Kernel(a, name='kernel')
+    code = pycode(kernel)
+    print(code)
+
 #................................
 if __name__ == '__main__':
 
@@ -186,8 +202,10 @@ if __name__ == '__main__':
 #    test_kernel_bilinear_2d_scalar_4()
 #    test_kernel_bilinear_2d_scalar_5()
 
-    test_kernel_linear_2d_scalar_1()
+#    test_kernel_linear_2d_scalar_1()
 #    test_kernel_linear_2d_scalar_2()
+
+    test_kernel_function_2d_scalar_1()
     # ...
 
 #    # ... block case
