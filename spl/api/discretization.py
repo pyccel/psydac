@@ -153,15 +153,34 @@ class BilinearForm(BasicForm):
 
 class LinearForm(BasicForm):
 
-    def __init__(self, expr):
+    def __init__(self, expr, *args, **kwargs):
         if not isinstance(expr, sym_LinearForm):
             raise TypeError('> Expecting a symbolic LinearForm')
 
         BasicForm.__init__(self, expr)
 
+        self._space = args[0]
+
+        if len(args) > 1:
+            self._mapping = args[1]
+
+    @property
+    def space(self):
+        return self._space
+
+    def assemble(self, *args, **kwargs):
+        newargs = (self.space,)
+
+        if self.mapping:
+            newargs = newargs + (self.mapping,)
+
+        newargs = newargs + tuple(args)
+
+        return self.func(*newargs, **kwargs)
+
 class FunctionForm(BasicForm):
 
-    def __init__(self, expr):
+    def __init__(self, expr, *args, **kwargs):
         if not isinstance(expr, sym_FunctionForm):
             raise TypeError('> Expecting a symbolic FunctionForm')
 

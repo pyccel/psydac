@@ -15,8 +15,8 @@ from spl.api.discretization import discretize
 
 from numpy import linspace, zeros
 
-def test_api_1d_scalar_1():
-    print('============ test_api_1d_scalar_1 =============')
+def test_api_bilinear_1d_scalar_1():
+    print('============ test_api_bilinear_1d_scalar_1 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=1)
@@ -48,8 +48,8 @@ def test_api_1d_scalar_1():
     M = ah.assemble()
     # ...
 
-def test_api_1d_scalar_2():
-    print('============ test_api_1d_scalar_2 =============')
+def test_api_bilinear_1d_scalar_2():
+    print('============ test_api_bilinear_1d_scalar_2 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=1)
@@ -83,8 +83,8 @@ def test_api_1d_scalar_2():
     M = ah.assemble(0.5)
     # ...
 
-def test_api_1d_scalar_3():
-    print('============ test_api_1d_scalar_3 =============')
+def test_api_bilinear_1d_scalar_3():
+    print('============ test_api_bilinear_1d_scalar_3 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=1)
@@ -123,8 +123,8 @@ def test_api_1d_scalar_3():
     M = ah.assemble(phi)
     # ...
 
-def test_api_1d_scalar_4():
-    print('============ test_api_1d_scalar_4 =============')
+def test_api_bilinear_1d_scalar_4():
+    print('============ test_api_bilinear_1d_scalar_4 =============')
 
     # ... abstract model
     U = FunctionSpace('U', ldim=1)
@@ -167,8 +167,8 @@ def test_api_1d_scalar_4():
     M = ah.assemble(phi, psi)
     # ...
 
-def test_api_1d_block_1():
-    print('============ test_api_1d_block_1 =============')
+def test_api_bilinear_1d_block_1():
+    print('============ test_api_bilinear_1d_block_1 =============')
 
     # ... abstract model
     # 1d wave problem
@@ -217,12 +217,12 @@ def test_api_1d_block_1():
 if __name__ == '__main__':
 
     # ... scalar case
-    test_api_1d_scalar_1()
-    test_api_1d_scalar_2()
-    test_api_1d_scalar_3()
-    test_api_1d_scalar_4()
+    test_api_bilinear_1d_scalar_1()
+    test_api_bilinear_1d_scalar_2()
+    test_api_bilinear_1d_scalar_3()
+    test_api_bilinear_1d_scalar_4()
     # ...
 
     # ... block case
-    test_api_1d_block_1()
+    test_api_bilinear_1d_block_1()
     # ...

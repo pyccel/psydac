@@ -1022,8 +1022,11 @@ class Assembly(SplBasic):
 
         body += [Assign(points_in_elm[i], points[i][indices_elm[i],_slice]) for i in range(dim)]
         body += [Assign(weights_in_elm[i], weights[i][indices_elm[i],_slice]) for i in range(dim)]
-        body += [Assign(trial_basis_in_elm[i], trial_basis[i][indices_elm[i],_slice,_slice,_slice]) for i in range(dim)]
-        body += [Assign(test_basis_in_elm[i], test_basis[i][indices_elm[i],_slice,_slice,_slice]) for i in range(dim)]
+        body += [Assign(test_basis_in_elm[i], test_basis[i][indices_elm[i],_slice,_slice,_slice])
+                 for i in range(dim)]
+        if is_bilinear:
+            body += [Assign(trial_basis_in_elm[i], trial_basis[i][indices_elm[i],_slice,_slice,_slice])
+                     for i in range(dim)]
 
         # ... kernel call
         mats = []
@@ -1190,7 +1193,7 @@ class Interface(SplBasic):
             spaces = (test_space, trial_space)
 
         if is_linear:
-            spaces = (test_space, )
+            spaces = (test_space,)
 
         starts         = symbols('s1:%d'%(dim+1))
         ends           = symbols('e1:%d'%(dim+1))
