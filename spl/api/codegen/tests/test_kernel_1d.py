@@ -274,12 +274,12 @@ if __name__ == '__main__':
     test_kernel_bilinear_1d_scalar_4(mapping=False)
     test_kernel_bilinear_1d_block_1(mapping=False)
 
-#    # with mapping
-#    test_kernel_bilinear_1d_scalar_1(mapping=True)
-#    test_kernel_bilinear_1d_scalar_2(mapping=True)
-#    test_kernel_bilinear_1d_scalar_3(mapping=True)
-#    test_kernel_bilinear_1d_scalar_4(mapping=True)
-#    test_kernel_bilinear_1d_block_1(mapping=True)
+    # with mapping
+    test_kernel_bilinear_1d_scalar_1(mapping=True)
+    test_kernel_bilinear_1d_scalar_2(mapping=True)
+    test_kernel_bilinear_1d_scalar_3(mapping=True)
+    test_kernel_bilinear_1d_scalar_4(mapping=True)
+    test_kernel_bilinear_1d_block_1(mapping=True)
     # .................................
 
     # .................................
@@ -289,11 +289,11 @@ if __name__ == '__main__':
     test_kernel_linear_1d_scalar_3(mapping=False)
     test_kernel_linear_1d_scalar_4(mapping=False)
 
-#    # with mapping
-#    test_kernel_linear_1d_scalar_1(mapping=True)
-#    test_kernel_linear_1d_scalar_2(mapping=True)
-#    test_kernel_linear_1d_scalar_3(mapping=True)
-#    test_kernel_linear_1d_scalar_4(mapping=True)
+    # with mapping
+    test_kernel_linear_1d_scalar_1(mapping=True)
+    test_kernel_linear_1d_scalar_2(mapping=True)
+    test_kernel_linear_1d_scalar_3(mapping=True)
+    test_kernel_linear_1d_scalar_4(mapping=True)
    # .................................
 
     # .................................
@@ -302,8 +302,8 @@ if __name__ == '__main__':
     test_kernel_function_1d_scalar_2(mapping=False)
     test_kernel_function_1d_scalar_3(mapping=False)
 
-#    # with mapping
-#    test_kernel_function_1d_scalar_1(mapping=True)
-#    test_kernel_function_1d_scalar_2(mapping=True)
-#    test_kernel_function_1d_scalar_3(mapping=True)
-#    # .................................
+    # with mapping
+    test_kernel_function_1d_scalar_1(mapping=True)
+    test_kernel_function_1d_scalar_2(mapping=True)
+    test_kernel_function_1d_scalar_3(mapping=True)
+    # .................................
