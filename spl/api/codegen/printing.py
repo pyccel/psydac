@@ -1,7 +1,7 @@
 from sympy.core import Symbol
 from sympy import Tuple
 
-from sympde.core.expr import BilinearForm, LinearForm, FunctionForm
+from sympde.core.expr import BilinearForm, LinearForm, Integral
 from sympde.core.generic import Dot, Inner, Cross
 from sympde.core.generic import Grad, Rot, Curl, Div
 from sympde.core.geometry import Line, Square, Cube

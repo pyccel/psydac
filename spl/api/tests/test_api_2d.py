@@ -11,7 +11,7 @@ from sympde.core import grad, dot, inner, cross, rot, curl, div
 from sympde.core import FunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
-from sympde.core import BilinearForm, LinearForm, FunctionForm
+from sympde.core import BilinearForm, LinearForm, Integral
 from sympde.gallery import Poisson, Stokes
 
 from spl.fem.basic   import FemField
@@ -272,7 +272,7 @@ def test_api_function_2d_scalar_1():
 #    expr = F
     expr = S.One
 
-    a = FunctionForm(expr, space=V)
+    a = Integral(expr, space=V)
     # ...
 
     # ... discrete spaces
@@ -339,13 +339,14 @@ if __name__ == '__main__':
 #
 #    test_api_linear_2d_scalar_1()
 #    test_api_linear_2d_scalar_2()
-#
+
+    # TODO fix bug: when all tests are uncommented, this one crashes
 #    test_api_function_2d_scalar_1()
-#    # ...
-#
-#    # ... block case
+    # ...
+
+    # ... block case
 #    test_api_bilinear_2d_block_1()
-#    # ...
+    # ...
 
     # ...
     test_api_model_2d_poisson()

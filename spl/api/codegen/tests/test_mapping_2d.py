@@ -19,7 +19,7 @@ from sympde.core import grad, dot, inner, cross, rot, curl, div
 from sympde.core import FunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
-from sympde.core import BilinearForm, LinearForm, FunctionForm
+from sympde.core import BilinearForm, LinearForm, Integral
 from sympde.core import Mapping
 
 from spl.api.codegen.ast import EvalMapping

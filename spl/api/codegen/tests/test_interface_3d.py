@@ -18,7 +18,7 @@ from sympde.core import grad, dot, inner, cross, rot, curl, div
 from sympde.core import FunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
-from sympde.core import BilinearForm, LinearForm, FunctionForm
+from sympde.core import BilinearForm, LinearForm, Integral
 from sympde.core import Mapping
 
 from spl.api.codegen.ast import Interface
@@ -209,7 +209,7 @@ def test_interface_function_3d_scalar_1(mapping=False):
     x,y,z = V.coordinates
 
     expr = S.One
-    a = FunctionForm(expr, space=V, mapping=mapping)
+    a = Integral(expr, space=V, mapping=mapping)
 
     interface = Interface(a, name='interface')
     code = pycode(interface)
@@ -226,7 +226,7 @@ def test_interface_function_3d_scalar_2(mapping=False):
     F = Field('F', space=V)
 
     expr = F-cos(2*pi*x)*cos(3*pi*y)*cos(4*pi*z)
-    a = FunctionForm(expr, space=V, mapping=mapping)
+    a = Integral(expr, space=V, mapping=mapping)
 
     interface = Interface(a, name='interface')
     code = pycode(interface)
@@ -244,7 +244,7 @@ def test_interface_function_3d_scalar_3(mapping=False):
 
     error = F-cos(2*pi*x)*cos(3*pi*y)*cos(4*pi*z)
     expr = dot(grad(error), grad(error))
-    a = FunctionForm(expr, space=V, mapping=mapping)
+    a = Integral(expr, space=V, mapping=mapping)
 
     interface = Interface(a, name='interface')
     code = pycode(interface)

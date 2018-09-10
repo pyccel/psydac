@@ -29,19 +29,18 @@ from sympde.core import Mapping
 from sympde.core import Field
 from sympde.core import atomize, matricize, evaluate, inv_normalize
 from sympde.core import Covariant, Contravariant
-from sympde.core import BilinearForm, LinearForm, FunctionForm, BasicForm
+from sympde.core import BilinearForm, LinearForm, Integral, BasicForm
 from sympde.core.derivatives import _partial_derivatives
 from sympde.core.space import FunctionSpace
 from sympde.core.space import TestFunction
 from sympde.core.space import VectorTestFunction
-from sympde.core import BilinearForm, LinearForm, FunctionForm
 from sympde.printing.pycode import pycode  # TODO remove from here
 from sympde.core.derivatives import print_expression
 from sympde.core.derivatives import get_atom_derivatives
 from sympde.core.derivatives import get_index_derivatives
 from sympde.core.math import math_atoms_as_str
 
-FunctionalForms = (BilinearForm, LinearForm, FunctionForm)
+FunctionalForms = (BilinearForm, LinearForm, Integral)
 
 def compute_atoms_expr(atom,indices_qds,indices_test,
                       indices_trial, basis_trial,
@@ -577,7 +576,7 @@ class Kernel(SplBasic):
 
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
-        is_function = isinstance(self.weak_form, FunctionForm)
+        is_function = isinstance(self.weak_form, Integral)
 
         weak_form = self.weak_form.expr
 
@@ -984,7 +983,7 @@ class Assembly(SplBasic):
 
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
-        is_function = isinstance(self.weak_form, FunctionForm)
+        is_function = isinstance(self.weak_form, Integral)
 
         dim    = form.ldim
 
@@ -1227,7 +1226,7 @@ class Interface(SplBasic):
 
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
-        is_function = isinstance(self.weak_form, FunctionForm)
+        is_function = isinstance(self.weak_form, Integral)
 
         dim = form.ldim
 

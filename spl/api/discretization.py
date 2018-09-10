@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 from sympde.core import BilinearForm as sym_BilinearForm
 from sympde.core import LinearForm as sym_LinearForm
-from sympde.core import FunctionForm as sym_FunctionForm
+from sympde.core import Integral as sym_Integral
 from sympde.core import Model as sym_Model
 
 from spl.api.codegen.ast import Interface
@@ -14,7 +14,7 @@ from spl.api.codegen.utils import write_code
 import os
 import importlib
 
-class BasicForm(object):
+class BasicDiscreteForm(object):
 
     def __init__(self, expr, namespace=globals(), to_compile=True, module_name=None):
         self._expr = expr
@@ -134,13 +134,13 @@ class BasicForm(object):
 
         self._func = interface
 
-class BilinearForm(BasicForm):
+class BilinearDiscreteForm(BasicDiscreteForm):
 
     def __init__(self, expr, *args, **kwargs):
         if not isinstance(expr, sym_BilinearForm):
             raise TypeError('> Expecting a symbolic BilinearForm')
 
-        BasicForm.__init__(self, expr, **kwargs)
+        BasicDiscreteForm.__init__(self, expr, **kwargs)
 
         if not args:
             raise ValueError('> fem spaces must be given as a list/tuple')
@@ -164,13 +164,13 @@ class BilinearForm(BasicForm):
 
         return self.func(*newargs, **kwargs)
 
-class LinearForm(BasicForm):
+class LinearDiscreteForm(BasicDiscreteForm):
 
     def __init__(self, expr, *args, **kwargs):
         if not isinstance(expr, sym_LinearForm):
             raise TypeError('> Expecting a symbolic LinearForm')
 
-        BasicForm.__init__(self, expr, **kwargs)
+        BasicDiscreteForm.__init__(self, expr, **kwargs)
 
         self._space = args[0]
 
@@ -191,13 +191,13 @@ class LinearForm(BasicForm):
 
         return self.func(*newargs, **kwargs)
 
-class FunctionForm(BasicForm):
+class DiscreteIntegral(BasicDiscreteForm):
 
     def __init__(self, expr, *args, **kwargs):
-        if not isinstance(expr, sym_FunctionForm):
-            raise TypeError('> Expecting a symbolic FunctionForm')
+        if not isinstance(expr, sym_Integral):
+            raise TypeError('> Expecting a symbolic Integral')
 
-        BasicForm.__init__(self, expr, **kwargs)
+        BasicDiscreteForm.__init__(self, expr, **kwargs)
 
         self._space = args[0]
 
@@ -218,7 +218,7 @@ class FunctionForm(BasicForm):
 
         return self.func(*newargs, **kwargs)
 
-class Model(BasicForm):
+class Model(BasicDiscreteForm):
 
     def __init__(self, expr, *args, **kwargs):
         if not isinstance(expr, sym_Model):
@@ -242,15 +242,15 @@ class Model(BasicForm):
         for name, a in list(expr.forms.items()):
             if isinstance(a, sym_BilinearForm):
                 spaces = (test_space, trial_space)
-                ah = BilinearForm(a, spaces, to_compile=False,
+                ah = BilinearDiscreteForm(a, spaces, to_compile=False,
                                   module_name=module_name)
 
             elif isinstance(a, sym_LinearForm):
-                ah = LinearForm(a, test_space, to_compile=False,
+                ah = LinearDiscreteForm(a, test_space, to_compile=False,
                                 module_name=module_name)
 
-            elif isinstance(a, sym_FunctionForm):
-                ah = FunctionForm(a, test_space, to_compile=False,
+            elif isinstance(a, sym_Integral):
+                ah = DiscreteIntegral(a, test_space, to_compile=False,
                                   module_name=module_name)
 
             d_forms[name] = ah
@@ -298,13 +298,13 @@ class Model(BasicForm):
 def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BilinearForm):
-        return BilinearForm(a, *args, **kwargs)
+        return BilinearDiscreteForm(a, *args, **kwargs)
 
     elif isinstance(a, sym_LinearForm):
-        return LinearForm(a, *args, **kwargs)
+        return LinearDiscreteForm(a, *args, **kwargs)
 
-    elif isinstance(a, sym_FunctionForm):
-        return FunctionForm(a, *args, **kwargs)
+    elif isinstance(a, sym_Integral):
+        return DiscreteIntegral(a, *args, **kwargs)
 
     elif isinstance(a, sym_Model):
         return Model(a, *args, **kwargs)
