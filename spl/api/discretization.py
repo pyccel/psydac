@@ -1,4 +1,7 @@
 # coding: utf-8
+
+from collections import OrderedDict
+
 from sympde.core import BilinearForm as sym_BilinearForm
 from sympde.core import LinearForm as sym_LinearForm
 from sympde.core import FunctionForm as sym_FunctionForm
@@ -235,8 +238,8 @@ class Model(BasicForm):
         # ... create discrete forms
         test_space = self.spaces[0]
         trial_space = self.spaces[1]
-        forms = []
-        for a in expr.forms:
+        d_forms = {}
+        for name, a in list(expr.forms.items()):
             if isinstance(a, sym_BilinearForm):
                 spaces = (test_space, trial_space)
                 ah = BilinearForm(a, spaces, to_compile=False,
@@ -250,12 +253,15 @@ class Model(BasicForm):
                 ah = FunctionForm(a, test_space, to_compile=False,
                                   module_name=module_name)
 
-            forms.append(ah)
+            d_forms[name] = ah
+
+        d_forms = OrderedDict(sorted(d_forms.items()))
+        self._forms = d_forms
         # ...
 
         # ... save all dependencies codes in one single string
         code = ''
-        for ah in forms:
+        for name, ah in list(self.forms.items()):
             code = '{code}\n{ah}'.format(code=code, ah=ah.dependencies_code)
         self._dependencies_code = code
         # ...
@@ -269,13 +275,17 @@ class Model(BasicForm):
         namespace = kwargs.pop('namespace', globals())
         module_name = self.dependencies_modname
         code = ''
-        for ah in forms:
+        for name, ah in list(self.forms.items()):
             # generate code for Python interface
             ah._generate_interface_code(module_name=module_name)
 
             # compile code
             ah._compile(namespace, module_name=module_name)
         # ...
+
+    @property
+    def forms(self):
+        return self._forms
 
     @property
     def spaces(self):

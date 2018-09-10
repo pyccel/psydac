@@ -12,7 +12,7 @@ from sympde.core import FunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, FunctionForm
-from sympde.gallery import Poisson
+from sympde.gallery import Poisson, Stokes
 
 from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
@@ -304,8 +304,27 @@ def test_api_model_2d_poisson():
 
     # ...
     model_h = discretize(model, [Vh, Vh])
-#    ah = model.a
-#    M = ah.assemble()
+    ah = model_h.forms['a']
+    M = ah.assemble()
+    # ...
+
+def test_api_model_2d_stokes():
+    print('============ test_api_model_2d_stokes =============')
+
+    # ... abstract model
+    model = Stokes(dim=2)
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    # ...
+    model_h = discretize(model, [Vh, Vh])
+    a1h = model_h.forms['a1']
+    a2h = model_h.forms['a2']
+    M1 = a1h.assemble()
+    M2 = a2h.assemble()
     # ...
 
 ###############################################
@@ -330,4 +349,5 @@ if __name__ == '__main__':
 
     # ...
     test_api_model_2d_poisson()
+    test_api_model_2d_stokes()
     # ...
