@@ -12,6 +12,7 @@ from sympde.core import FunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, FunctionForm
+from sympde.gallery import Poisson
 
 from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
@@ -21,6 +22,27 @@ from spl.api.discretization import discretize
 from spl.mapping.discrete import SplineMapping
 
 from numpy import linspace, zeros
+
+def create_discrete_space():
+    # ... discrete spaces
+    # Input data: degree, number of elements
+    p1  = 2 ; p2  = 2
+    ne1 = 4 ; ne2 = 4
+
+    # Create uniform grid
+    grid_1 = linspace( 0., 1., num=ne1+1 )
+    grid_2 = linspace( 0., 1., num=ne2+1 )
+
+    # Create 1D finite element spaces and precompute quadrature data
+    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
+    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
+
+    # Create 2D tensor product finite element space
+    V = TensorFemSpace( V1, V2 )
+    # ...
+
+    return V
+
 
 def test_api_bilinear_2d_scalar_1():
     print('============ test_api_bilinear_2d_scalar_1 =============')
@@ -38,24 +60,11 @@ def test_api_bilinear_2d_scalar_1():
     # ...
 
     # ... discrete spaces
-    # Input data: degree, number of elements
-    p1  = 3 ; p2  = 3
-    ne1 = 4 ; ne2 = 4
-
-    # Create uniform grid
-    grid_1 = linspace( 0., 1., num=ne1+1 )
-    grid_2 = linspace( 0., 1., num=ne2+1 )
-
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
-    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
-
-    # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2 )
+    Vh = create_discrete_space()
     # ...
 
     # ...
-    ah = discretize(a, [V, V])
+    ah = discretize(a, [Vh, Vh])
     M = ah.assemble()
     # ...
 
@@ -77,24 +86,11 @@ def test_api_bilinear_2d_scalar_2():
     # ...
 
     # ... discrete spaces
-    # Input data: degree, number of elements
-    p1  = 3 ; p2  = 3
-    ne1 = 4 ; ne2 = 4
-
-    # Create uniform grid
-    grid_1 = linspace( 0., 1., num=ne1+1 )
-    grid_2 = linspace( 0., 1., num=ne2+1 )
-
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
-    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
-
-    # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2 )
+    Vh = create_discrete_space()
     # ...
 
     # ...
-    ah = discretize(a, [V, V])
+    ah = discretize(a, [Vh, Vh])
     M = ah.assemble(0.5)
     # ...
 
@@ -116,27 +112,14 @@ def test_api_bilinear_2d_scalar_3():
     # ...
 
     # ... discrete spaces
-    # Input data: degree, number of elements
-    p1  = 3 ; p2  = 3
-    ne1 = 4 ; ne2 = 4
-
-    # Create uniform grid
-    grid_1 = linspace( 0., 1., num=ne1+1 )
-    grid_2 = linspace( 0., 1., num=ne2+1 )
-
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
-    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
-
-    # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2 )
+    Vh = create_discrete_space()
     # ...
 
     # ...
-    ah = discretize(a, [V, V])
+    ah = discretize(a, [Vh, Vh])
 
     # Define a field
-    phi = FemField( V, 'phi' )
+    phi = FemField( Vh, 'phi' )
     phi._coeffs[:,:] = 1.
 
     M = ah.assemble(phi)
@@ -161,30 +144,17 @@ def test_api_bilinear_2d_scalar_4():
     # ...
 
     # ... discrete spaces
-    # Input data: degree, number of elements
-    p1  = 3 ; p2  = 3
-    ne1 = 4 ; ne2 = 4
-
-    # Create uniform grid
-    grid_1 = linspace( 0., 1., num=ne1+1 )
-    grid_2 = linspace( 0., 1., num=ne2+1 )
-
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
-    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
-
-    # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2 )
+    Vh = create_discrete_space()
     # ...
 
     # ...
-    ah = discretize(a, [V, V])
+    ah = discretize(a, [Vh, Vh])
 
     # Define a field
-    phi = FemField( V, 'phi' )
+    phi = FemField( Vh, 'phi' )
     phi._coeffs[:,:] = 1.
 
-    psi = FemField( V, 'psi' )
+    psi = FemField( Vh, 'psi' )
     psi._coeffs[:,:] = 1.
 
     M = ah.assemble(phi, psi)
@@ -235,24 +205,11 @@ def test_api_bilinear_2d_block_1():
     # ...
 
     # ... discrete spaces
-    # Input data: degree, number of elements
-    p1  = 3 ; p2  = 3
-    ne1 = 4 ; ne2 = 4
-
-    # Create uniform grid
-    grid_1 = linspace( 0., 1., num=ne1+1 )
-    grid_2 = linspace( 0., 1., num=ne2+1 )
-
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
-    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
-
-    # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2 )
+    Vh = create_discrete_space()
     # ...
 
     # ...
-    ah = discretize(a, [V, V])
+    ah = discretize(a, [Vh, Vh])
     M = ah.assemble()
     # ...
 
@@ -272,24 +229,11 @@ def test_api_linear_2d_scalar_1():
     # ...
 
     # ... discrete spaces
-    # Input data: degree, number of elements
-    p1  = 3 ; p2  = 3
-    ne1 = 4 ; ne2 = 4
-
-    # Create uniform grid
-    grid_1 = linspace( 0., 1., num=ne1+1 )
-    grid_2 = linspace( 0., 1., num=ne2+1 )
-
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
-    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
-
-    # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2 )
+    Vh = create_discrete_space()
     # ...
 
     # ...
-    ah = discretize(a, V)
+    ah = discretize(a, Vh)
     rhs = ah.assemble()
     # ...
 
@@ -307,24 +251,11 @@ def test_api_linear_2d_scalar_2():
     # ...
 
     # ... discrete spaces
-    # Input data: degree, number of elements
-    p1  = 3 ; p2  = 3
-    ne1 = 4 ; ne2 = 4
-
-    # Create uniform grid
-    grid_1 = linspace( 0., 1., num=ne1+1 )
-    grid_2 = linspace( 0., 1., num=ne2+1 )
-
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
-    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
-
-    # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2 )
+    Vh = create_discrete_space()
     # ...
 
     # ...
-    ah = discretize(a, V)
+    ah = discretize(a, Vh)
     rhs = ah.assemble()
     # ...
 
@@ -345,27 +276,14 @@ def test_api_function_2d_scalar_1():
     # ...
 
     # ... discrete spaces
-    # Input data: degree, number of elements
-    p1  = 2 ; p2  = 2
-    ne1 = 10 ; ne2 = 20
-
-    # Create uniform grid
-    grid_1 = linspace( 0., 1., num=ne1+1 )
-    grid_2 = linspace( 0., 1., num=ne2+1 )
-
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
-    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
-
-    # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2 )
+    Vh = create_discrete_space()
     # ...
 
     # ...
-    ah = discretize(a, V)
+    ah = discretize(a, Vh)
 
     # Define a field
-    phi = FemField( V, 'phi' )
+    phi = FemField( Vh, 'phi' )
     phi._coeffs[:,:] = 1.
 
 #    integral = ah.assemble(phi)
@@ -373,11 +291,27 @@ def test_api_function_2d_scalar_1():
     print(integral)
     # ...
 
+def test_api_model_2d_poisson():
+    print('============ test_api_model_2d_poisson =============')
+
+    # ... abstract model
+    model = Poisson(dim=2)
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    # ...
+    model_h = discretize(model, [Vh, Vh])
+#    ah = model.a
+#    M = ah.assemble()
+    # ...
 
 ###############################################
 if __name__ == '__main__':
 
-    # ... scalar case
+#    # ... scalar case
 #    test_api_bilinear_2d_scalar_1()
 #    test_api_bilinear_2d_scalar_2()
 #    test_api_bilinear_2d_scalar_3()
@@ -386,10 +320,14 @@ if __name__ == '__main__':
 #
 #    test_api_linear_2d_scalar_1()
 #    test_api_linear_2d_scalar_2()
-
-    test_api_function_2d_scalar_1()
-    # ...
-
+#
+#    test_api_function_2d_scalar_1()
+#    # ...
+#
 #    # ... block case
 #    test_api_bilinear_2d_block_1()
 #    # ...
+
+    # ...
+    test_api_model_2d_poisson()
+    # ...
