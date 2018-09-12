@@ -20,6 +20,7 @@ from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
 from sympde.core import Mapping
+from sympde.core import Domain
 
 from spl.api.codegen.ast import Interface
 from spl.api.codegen.printing import pycode
@@ -29,13 +30,15 @@ sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()
 DEBUG = False
 DIM = 1
 
+domain = Domain('\Omega', dim=DIM)
+
 def test_interface_bilinear_1d_scalar_1(mapping=False):
     print('============ test_interface_bilinear_1d_scalar_1 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    U = FunctionSpace('U', ldim=DIM)
-    V = FunctionSpace('V', ldim=DIM)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -50,10 +53,10 @@ def test_interface_bilinear_1d_scalar_1(mapping=False):
 def test_interface_bilinear_1d_scalar_2(mapping=False):
     print('============ test_interface_bilinear_1d_scalar_2 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    U = FunctionSpace('U', ldim=DIM)
-    V = FunctionSpace('V', ldim=DIM)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -70,10 +73,10 @@ def test_interface_bilinear_1d_scalar_2(mapping=False):
 def test_interface_bilinear_1d_scalar_3(mapping=False):
     print('============ test_interface_bilinear_1d_scalar_3 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    U = FunctionSpace('U', ldim=DIM)
-    V = FunctionSpace('V', ldim=DIM)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -90,10 +93,10 @@ def test_interface_bilinear_1d_scalar_3(mapping=False):
 def test_interface_bilinear_1d_scalar_4(mapping=False):
     print('============ test_interface_bilinear_1d_scalar_4 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    U = FunctionSpace('U', ldim=DIM)
-    V = FunctionSpace('V', ldim=DIM)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -111,12 +114,12 @@ def test_interface_bilinear_1d_scalar_4(mapping=False):
 def test_interface_bilinear_1d_block_1(mapping=False):
     print('============ test_interface_bilinear_1d_block_1 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     # 1d wave problem
 
-    U = FunctionSpace('U', ldim=DIM)
-    V = FunctionSpace('V', ldim=DIM)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     # trial functions
     u = TestFunction(U, name='u')
@@ -129,11 +132,11 @@ def test_interface_bilinear_1d_block_1(mapping=False):
     rho = Constant('rho', real=True, label='mass density')
     dt = Constant('dt', real=True, label='time step')
 
-    mass = BilinearForm((v,u), v*u, mapping=mapping)
-    adv  = BilinearForm((v,u), dx(v)*u, mapping=mapping)
+    mass = BilinearForm((v,u), v*u, mapping=mapping, name='m')
+    adv  = BilinearForm((v,u), dx(v)*u, mapping=mapping, name='adv')
 
     expr = rho*mass(v,u) + dt*adv(v, f) + dt*adv(w,u) + mass(w,f)
-    a = BilinearForm(((v,w), (u,f)), expr, mapping=mapping)
+    a = BilinearForm(((v,w), (u,f)), expr, mapping=mapping, name='a')
 
     interface = Interface(a, name='interface')
     code = pycode(interface)
@@ -142,9 +145,9 @@ def test_interface_bilinear_1d_block_1(mapping=False):
 def test_interface_linear_1d_scalar_1(mapping=False):
     print('============ test_interface_linear_1d_scalar_1 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x = V.coordinates
 
     v = TestFunction(V, name='v')
@@ -159,9 +162,9 @@ def test_interface_linear_1d_scalar_1(mapping=False):
 def test_interface_linear_1d_scalar_2(mapping=False):
     print('============ test_interface_linear_1d_scalar_2 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x = V.coordinates
 
     v = TestFunction(V, name='v')
@@ -178,9 +181,9 @@ def test_interface_linear_1d_scalar_2(mapping=False):
 def test_interface_linear_1d_scalar_3(mapping=False):
     print('============ test_interface_linear_1d_scalar_3 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x = V.coordinates
 
     v = TestFunction(V, name='v')
@@ -197,9 +200,9 @@ def test_interface_linear_1d_scalar_3(mapping=False):
 def test_interface_linear_1d_scalar_4(mapping=False):
     print('============ test_interface_linear_1d_scalar_4 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x = V.coordinates
 
     v = TestFunction(V, name='v')
@@ -216,9 +219,9 @@ def test_interface_linear_1d_scalar_4(mapping=False):
 def test_interface_function_1d_scalar_1(mapping=False):
     print('============ test_interface_function_1d_scalar_1 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x = V.coordinates
 
     expr = S.One
@@ -231,9 +234,9 @@ def test_interface_function_1d_scalar_1(mapping=False):
 def test_interface_function_1d_scalar_2(mapping=False):
     print('============ test_interface_function_1d_scalar_2 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x = V.coordinates
 
     F = Field('F', space=V)
@@ -248,9 +251,9 @@ def test_interface_function_1d_scalar_2(mapping=False):
 def test_interface_function_1d_scalar_3(mapping=False):
     print('============ test_interface_function_1d_scalar_3 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x = V.coordinates
 
     F = Field('F', space=V)
@@ -294,16 +297,16 @@ if __name__ == '__main__':
     test_interface_linear_1d_scalar_2(mapping=True)
     test_interface_linear_1d_scalar_3(mapping=True)
     test_interface_linear_1d_scalar_4(mapping=True)
-   # .................................
-
     # .................................
-    # without mapping
-    test_interface_function_1d_scalar_1(mapping=False)
-    test_interface_function_1d_scalar_2(mapping=False)
-    test_interface_function_1d_scalar_3(mapping=False)
 
-    # with mapping
-    test_interface_function_1d_scalar_1(mapping=True)
-    test_interface_function_1d_scalar_2(mapping=True)
-    test_interface_function_1d_scalar_3(mapping=True)
-    # .................................
+#    # .................................
+#    # without mapping
+#    test_interface_function_1d_scalar_1(mapping=False)
+#    test_interface_function_1d_scalar_2(mapping=False)
+#    test_interface_function_1d_scalar_3(mapping=False)
+#
+#    # with mapping
+#    test_interface_function_1d_scalar_1(mapping=True)
+#    test_interface_function_1d_scalar_2(mapping=True)
+#    test_interface_function_1d_scalar_3(mapping=True)
+#    # .................................

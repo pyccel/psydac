@@ -7,6 +7,7 @@ from sympde.core import grad, dot, inner, cross, rot, curl, div
 from sympde.core import FunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
+from sympde.core import Domain
 from sympde.core import BilinearForm, LinearForm, Integral
 
 from spl.fem.basic   import FemField
@@ -16,12 +17,14 @@ from spl.api.discretization import discretize
 
 from numpy import linspace, zeros
 
+domain = Domain('\Omega', dim=3)
+
 def test_api_bilinear_3d_scalar_1():
     print('============ test_api_bilinear_3d_scalar_1 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=3)
-    V = FunctionSpace('V', ldim=3)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -59,8 +62,8 @@ def test_api_bilinear_3d_scalar_2():
     print('============ test_api_bilinear_3d_scalar_2 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=3)
-    V = FunctionSpace('V', ldim=3)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -100,8 +103,8 @@ def test_api_bilinear_3d_scalar_3():
     print('============ test_api_bilinear_3d_scalar_3 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=3)
-    V = FunctionSpace('V', ldim=3)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -146,8 +149,8 @@ def test_api_bilinear_3d_scalar_4():
     print('============ test_api_bilinear_3d_scalar_4 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=3)
-    V = FunctionSpace('V', ldim=3)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -196,8 +199,8 @@ def test_api_bilinear_3d_block_1():
     print('============ test_api_bilinear_3d_block_1 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=3, is_block=True, shape=3)
-    V = FunctionSpace('V', ldim=3, is_block=True, shape=3)
+    U = FunctionSpace('U', domain, is_block=True, shape=3)
+    V = FunctionSpace('V', domain, is_block=True, shape=3)
 
     v = VectorTestFunction(V, name='v')
     u = VectorTestFunction(U, name='u')

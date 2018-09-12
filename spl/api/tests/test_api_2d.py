@@ -12,6 +12,7 @@ from sympde.core import FunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
+from sympde.core import Domain
 from sympde.gallery import Poisson, Stokes
 
 from spl.fem.basic   import FemField
@@ -22,6 +23,8 @@ from spl.api.discretization import discretize
 from spl.mapping.discrete import SplineMapping
 
 from numpy import linspace, zeros
+
+domain = Domain('\Omega', dim=2)
 
 def create_discrete_space():
     # ... discrete spaces
@@ -48,8 +51,8 @@ def test_api_bilinear_2d_scalar_1():
     print('============ test_api_bilinear_2d_scalar_1 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=2)
-    V = FunctionSpace('V', ldim=2)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -72,8 +75,8 @@ def test_api_bilinear_2d_scalar_2():
     print('============ test_api_bilinear_2d_scalar_2 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=2)
-    V = FunctionSpace('V', ldim=2)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -98,8 +101,8 @@ def test_api_bilinear_2d_scalar_3():
     print('============ test_api_bilinear_2d_scalar_3 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=2)
-    V = FunctionSpace('V', ldim=2)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -129,8 +132,8 @@ def test_api_bilinear_2d_scalar_4():
     print('============ test_api_bilinear_2d_scalar_4 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=2)
-    V = FunctionSpace('V', ldim=2)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -164,10 +167,10 @@ def test_api_bilinear_2d_scalar_5():
     print('============ test_api_bilinear_2d_scalar_5 =============')
 
     # ... abstract model
-    M = Mapping('M', rdim=2)
+    M = Mapping('M', rdim=2, domain=domain)
 
-    U = FunctionSpace('U', ldim=2)
-    V = FunctionSpace('V', ldim=2)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -193,8 +196,8 @@ def test_api_bilinear_2d_block_1():
     print('============ test_api_bilinear_2d_block_1 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=2, is_block=True, shape=2)
-    V = FunctionSpace('V', ldim=2, is_block=True, shape=2)
+    U = FunctionSpace('U', domain, is_block=True, shape=2)
+    V = FunctionSpace('V', domain, is_block=True, shape=2)
 
     v = VectorTestFunction(V, name='v')
     u = VectorTestFunction(U, name='u')
@@ -217,7 +220,7 @@ def test_api_linear_2d_scalar_1():
     print('============ test_api_linear_2d_scalar_1 =============')
 
     # ... abstract model
-    V = FunctionSpace('V', ldim=2)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
 
@@ -241,7 +244,7 @@ def test_api_linear_2d_scalar_2():
     print('============ test_api_linear_2d_scalar_2 =============')
 
     # ... abstract model
-    V = FunctionSpace('V', ldim=2)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
 
@@ -263,7 +266,7 @@ def test_api_function_2d_scalar_1():
     print('============ test_api_function_2d_scalar_1 =============')
 
     # ... abstract model
-    V = FunctionSpace('V', ldim=2)
+    V = FunctionSpace('V', domain)
     x,y = V.coordinates
 
     F = Field('F', space=V)
@@ -295,7 +298,7 @@ def test_api_model_2d_poisson():
     print('============ test_api_model_2d_poisson =============')
 
     # ... abstract model
-    model = Poisson(dim=2)
+    model = Poisson(domain=domain)
     # ...
 
     # ... discrete spaces
@@ -312,7 +315,7 @@ def test_api_model_2d_stokes():
     print('============ test_api_model_2d_stokes =============')
 
     # ... abstract model
-    model = Stokes(dim=2)
+    model = Stokes(domain=domain)
     # ...
 
     # ... discrete spaces
@@ -339,23 +342,23 @@ def test_api_model_2d_stokes():
 ###############################################
 if __name__ == '__main__':
 
-#    # ... scalar case
-#    test_api_bilinear_2d_scalar_1()
-#    test_api_bilinear_2d_scalar_2()
-#    test_api_bilinear_2d_scalar_3()
-#    test_api_bilinear_2d_scalar_4()
-#    test_api_bilinear_2d_scalar_5()
-#
-#    test_api_linear_2d_scalar_1()
-#    test_api_linear_2d_scalar_2()
-#
-#    # TODO fix bug: when all tests are uncommented, this one crashes
-##    test_api_function_2d_scalar_1()
-#    # ...
-#
-#    # ... block case
-##    test_api_bilinear_2d_block_1()
-#    # ...
+    # ... scalar case
+    test_api_bilinear_2d_scalar_1()
+    test_api_bilinear_2d_scalar_2()
+    test_api_bilinear_2d_scalar_3()
+    test_api_bilinear_2d_scalar_4()
+    test_api_bilinear_2d_scalar_5()
+
+    test_api_linear_2d_scalar_1()
+    test_api_linear_2d_scalar_2()
+
+    # TODO fix bug: when all tests are uncommented, this one crashes
+#    test_api_function_2d_scalar_1()
+    # ...
+
+    # ... block case
+#    test_api_bilinear_2d_block_1()
+    # ...
 
     # ...
     test_api_model_2d_poisson()

@@ -8,6 +8,7 @@ from sympde.core import FunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
+from sympde.core import Domain
 
 from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
@@ -15,12 +16,14 @@ from spl.api.discretization import discretize
 
 from numpy import linspace, zeros
 
+domain = Domain('\Omega', dim=1)
+
 def test_api_bilinear_1d_scalar_1():
     print('============ test_api_bilinear_1d_scalar_1 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -52,8 +55,8 @@ def test_api_bilinear_1d_scalar_2():
     print('============ test_api_bilinear_1d_scalar_2 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -87,8 +90,8 @@ def test_api_bilinear_1d_scalar_3():
     print('============ test_api_bilinear_1d_scalar_3 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -127,8 +130,8 @@ def test_api_bilinear_1d_scalar_4():
     print('============ test_api_bilinear_1d_scalar_4 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -173,8 +176,8 @@ def test_api_bilinear_1d_block_1():
     # ... abstract model
     # 1d wave problem
 
-    U = FunctionSpace('U', ldim=1)
-    V = FunctionSpace('V', ldim=1)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     # trial functions
     u = TestFunction(U, name='u')
@@ -187,11 +190,11 @@ def test_api_bilinear_1d_block_1():
     rho = Constant('rho', real=True, label='mass density')
     dt = Constant('dt', real=True, label='time step')
 
-    mass = BilinearForm((v,u), v*u)
-    adv  = BilinearForm((v,u), dx(v)*u)
+    mass = BilinearForm((v,u), v*u, name='m')
+    adv  = BilinearForm((v,u), dx(v)*u, name='adv')
 
     expr = rho*mass(v,u) + dt*adv(v, f) + dt*adv(w,u) + mass(w,f)
-    a = BilinearForm(((v,w), (u,f)), expr)
+    a = BilinearForm(((v,w), (u,f)), expr, name='a')
     # ...
 
     # ... discrete spaces

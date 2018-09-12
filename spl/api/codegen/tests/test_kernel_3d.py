@@ -20,6 +20,7 @@ from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
 from sympde.core import Mapping
+from sympde.core import Domain
 
 from spl.api.codegen.ast import Kernel
 from spl.api.codegen.printing import pycode
@@ -29,13 +30,15 @@ sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()
 DEBUG = False
 DIM = 3
 
+domain = Domain('\Omega', dim=DIM)
+
 def test_kernel_bilinear_3d_scalar_1(mapping=False):
     print('============ test_kernel_bilinear_3d_scalar_1 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    U = FunctionSpace('U', ldim=DIM)
-    V = FunctionSpace('V', ldim=DIM)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -50,10 +53,10 @@ def test_kernel_bilinear_3d_scalar_1(mapping=False):
 def test_kernel_bilinear_3d_scalar_2(mapping=False):
     print('============ test_kernel_bilinear_3d_scalar_2 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    U = FunctionSpace('U', ldim=DIM)
-    V = FunctionSpace('V', ldim=DIM)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -70,10 +73,10 @@ def test_kernel_bilinear_3d_scalar_2(mapping=False):
 def test_kernel_bilinear_3d_scalar_3(mapping=False):
     print('============ test_kernel_bilinear_3d_scalar_3 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    U = FunctionSpace('U', ldim=DIM)
-    V = FunctionSpace('V', ldim=DIM)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -90,10 +93,10 @@ def test_kernel_bilinear_3d_scalar_3(mapping=False):
 def test_kernel_bilinear_3d_scalar_4(mapping=False):
     print('============ test_kernel_bilinear_3d_scalar_4 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    U = FunctionSpace('U', ldim=DIM)
-    V = FunctionSpace('V', ldim=DIM)
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
@@ -111,10 +114,10 @@ def test_kernel_bilinear_3d_scalar_4(mapping=False):
 def test_kernel_bilinear_3d_block_1(mapping=False):
     print('============ test_kernel_bilinear_3d_block_1 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    U = FunctionSpace('U', ldim=DIM, is_block=True, shape=DIM)
-    V = FunctionSpace('V', ldim=DIM, is_block=True, shape=DIM)
+    U = FunctionSpace('U', domain, is_block=True, shape=DIM)
+    V = FunctionSpace('V', domain, is_block=True, shape=DIM)
 
     v = VectorTestFunction(V, name='v')
     u = VectorTestFunction(U, name='u')
@@ -129,9 +132,9 @@ def test_kernel_bilinear_3d_block_1(mapping=False):
 def test_kernel_linear_3d_scalar_1(mapping=False):
     print('============ test_kernel_linear_3d_scalar_1 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x,y,z = V.coordinates
 
     v = TestFunction(V, name='v')
@@ -146,9 +149,9 @@ def test_kernel_linear_3d_scalar_1(mapping=False):
 def test_kernel_linear_3d_scalar_2(mapping=False):
     print('============ test_kernel_linear_3d_scalar_2 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x,y,z = V.coordinates
 
     v = TestFunction(V, name='v')
@@ -165,9 +168,9 @@ def test_kernel_linear_3d_scalar_2(mapping=False):
 def test_kernel_linear_3d_scalar_3(mapping=False):
     print('============ test_kernel_linear_3d_scalar_3 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x,y,z = V.coordinates
 
     v = TestFunction(V, name='v')
@@ -184,9 +187,9 @@ def test_kernel_linear_3d_scalar_3(mapping=False):
 def test_kernel_linear_3d_scalar_4(mapping=False):
     print('============ test_kernel_linear_3d_scalar_4 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x,y,z = V.coordinates
 
     v = TestFunction(V, name='v')
@@ -203,9 +206,9 @@ def test_kernel_linear_3d_scalar_4(mapping=False):
 def test_kernel_function_3d_scalar_1(mapping=False):
     print('============ test_kernel_function_3d_scalar_1 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x,y,z = V.coordinates
 
     expr = S.One
@@ -218,9 +221,9 @@ def test_kernel_function_3d_scalar_1(mapping=False):
 def test_kernel_function_3d_scalar_2(mapping=False):
     print('============ test_kernel_function_3d_scalar_2 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x,y,z = V.coordinates
 
     F = Field('F', space=V)
@@ -235,9 +238,9 @@ def test_kernel_function_3d_scalar_2(mapping=False):
 def test_kernel_function_3d_scalar_3(mapping=False):
     print('============ test_kernel_function_3d_scalar_3 =============')
 
-    if mapping: mapping = Mapping('M', rdim=DIM)
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    V = FunctionSpace('V', ldim=DIM)
+    V = FunctionSpace('V', domain)
     x,y,z = V.coordinates
 
     F = Field('F', space=V)
@@ -261,12 +264,12 @@ if __name__ == '__main__':
     test_kernel_bilinear_3d_scalar_4(mapping=False)
     test_kernel_bilinear_3d_block_1(mapping=False)
 
-    # with mapping
-    test_kernel_bilinear_3d_scalar_1(mapping=True)
-    test_kernel_bilinear_3d_scalar_2(mapping=True)
-    test_kernel_bilinear_3d_scalar_3(mapping=True)
-    test_kernel_bilinear_3d_scalar_4(mapping=True)
-    test_kernel_bilinear_3d_block_1(mapping=True)
+#    # with mapping
+#    test_kernel_bilinear_3d_scalar_1(mapping=True)
+#    test_kernel_bilinear_3d_scalar_2(mapping=True)
+#    test_kernel_bilinear_3d_scalar_3(mapping=True)
+#    test_kernel_bilinear_3d_scalar_4(mapping=True)
+#    test_kernel_bilinear_3d_block_1(mapping=True)
     # .................................
 
     # .................................
@@ -276,21 +279,21 @@ if __name__ == '__main__':
     test_kernel_linear_3d_scalar_3(mapping=False)
     test_kernel_linear_3d_scalar_4(mapping=False)
 
-    # with mapping
-    test_kernel_linear_3d_scalar_1(mapping=True)
-    test_kernel_linear_3d_scalar_2(mapping=True)
-    test_kernel_linear_3d_scalar_3(mapping=True)
-    test_kernel_linear_3d_scalar_4(mapping=True)
-   # .................................
-
+#    # with mapping
+#    test_kernel_linear_3d_scalar_1(mapping=True)
+#    test_kernel_linear_3d_scalar_2(mapping=True)
+#    test_kernel_linear_3d_scalar_3(mapping=True)
+#    test_kernel_linear_3d_scalar_4(mapping=True)
     # .................................
-    # without mapping
-    test_kernel_function_3d_scalar_1(mapping=False)
-    test_kernel_function_3d_scalar_2(mapping=False)
-    test_kernel_function_3d_scalar_3(mapping=False)
 
-    # with mapping
-    test_kernel_function_3d_scalar_1(mapping=True)
-    test_kernel_function_3d_scalar_2(mapping=True)
-    test_kernel_function_3d_scalar_3(mapping=True)
-    # .................................
+#    # .................................
+#    # without mapping
+#    test_kernel_function_3d_scalar_1(mapping=False)
+#    test_kernel_function_3d_scalar_2(mapping=False)
+#    test_kernel_function_3d_scalar_3(mapping=False)
+#
+#    # with mapping
+#    test_kernel_function_3d_scalar_1(mapping=True)
+#    test_kernel_function_3d_scalar_2(mapping=True)
+#    test_kernel_function_3d_scalar_3(mapping=True)
+#    # .................................
