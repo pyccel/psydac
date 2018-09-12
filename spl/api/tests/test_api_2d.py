@@ -22,7 +22,7 @@ from spl.api.discretization import discretize
 
 from spl.mapping.discrete import SplineMapping
 
-from numpy import linspace, zeros
+from numpy import linspace, zeros, allclose
 
 domain = Domain('\Omega', dim=2)
 
@@ -271,11 +271,10 @@ def test_api_function_2d_scalar_1():
 
     F = Field('F', space=V)
 
-#    expr = -cos(2*pi*x)*cos(3*pi*y) + dx(F) + dy(F)
-#    expr = F
+    # TODO bug: when expr = 1, there are no free_symbols
     expr = S.One
 
-    a = Integral(expr, space=V)
+    a = Integral(expr, domain, coordinates=[x,y])
     # ...
 
     # ... discrete spaces
@@ -284,14 +283,8 @@ def test_api_function_2d_scalar_1():
 
     # ...
     ah = discretize(a, Vh)
-
-    # Define a field
-    phi = FemField( Vh, 'phi' )
-    phi._coeffs[:,:] = 1.
-
-#    integral = ah.assemble(phi)
     integral = ah.assemble()
-    print(integral)
+    assert(allclose(integral, 1))
     # ...
 
 def test_api_model_2d_poisson():
@@ -342,22 +335,18 @@ def test_api_model_2d_stokes():
 ###############################################
 if __name__ == '__main__':
 
-    # ... scalar case
+    # ...
     test_api_bilinear_2d_scalar_1()
     test_api_bilinear_2d_scalar_2()
     test_api_bilinear_2d_scalar_3()
     test_api_bilinear_2d_scalar_4()
     test_api_bilinear_2d_scalar_5()
+    test_api_bilinear_2d_block_1()
 
     test_api_linear_2d_scalar_1()
     test_api_linear_2d_scalar_2()
 
-    # TODO fix bug: when all tests are uncommented, this one crashes
-#    test_api_function_2d_scalar_1()
-    # ...
-
-    # ... block case
-#    test_api_bilinear_2d_block_1()
+    test_api_function_2d_scalar_1()
     # ...
 
     # ...
