@@ -2,8 +2,9 @@ from collections import OrderedDict
 from itertools import groupby
 
 from sympy import Basic
-from sympy import symbols, Symbol, IndexedBase, Indexed, Matrix, Function
+from sympy import symbols, Symbol, IndexedBase, Indexed, Function
 from sympy import Mul, Add, Tuple
+from sympy import Matrix, ImmutableDenseMatrix
 
 from pyccel.ast.core import For
 from pyccel.ast.core import Assign
@@ -27,7 +28,7 @@ from sympde.core import grad
 from sympde.core import Constant
 from sympde.core import Mapping
 from sympde.core import Field
-from sympde.core import atomize, matricize, evaluate, inv_normalize
+from sympde.core import atomize, evaluate
 from sympde.core import Covariant, Contravariant
 from sympde.core import BilinearForm, LinearForm, Integral, BasicForm
 from sympde.core.derivatives import _partial_derivatives
@@ -581,55 +582,22 @@ class Kernel(SplBasic):
         weak_form = self.weak_form.expr
 
         # ...
+        expr = evaluate(self.weak_form)
+        # ...
+
+        # ...
         n_rows = 1 ; n_cols = 1
         if is_bilinear:
-            n_rows = self.weak_form.test_spaces[0].shape
-            n_cols = self.weak_form.trial_spaces[0].shape
+            if isinstance(expr, (Matrix, ImmutableDenseMatrix)):
+                n_rows = expr.shape[0]
+                n_cols = expr.shape[1]
 
         if is_linear:
-            n_rows = self.weak_form.test_spaces[0].shape
+            if isinstance(expr, (Matrix, ImmutableDenseMatrix)):
+                n_rows = expr.shape[0]
 
         self._n_rows = n_rows
         self._n_cols = n_cols
-        # ...
-
-        # ...
-        if n_rows * n_cols == 1:
-            expr = atomize(weak_form)
-
-        else:
-            # ...
-            v = self.weak_form.test_functions[0]
-            u = self.weak_form.trial_functions[0]
-            # TODO check that new names do not exist in expr
-            expr = evaluate(self.weak_form, basis={v: 'Bi', u: 'Bj'})
-            # ...
-
-            # ... TODO move this to sympde/evaluate
-            assert(len(self.weak_form.test_spaces) == 1)
-            assert(len(self.weak_form.trial_spaces) == 1)
-
-            V = self.weak_form.test_spaces[0]
-            U = self.weak_form.trial_spaces[0]
-
-            v = self.weak_form.test_functions[0]
-            u = self.weak_form.trial_functions[0]
-
-            coordinates = V.coordinates
-            if not isinstance(coordinates, (tuple, list, Tuple)):
-                coordinates = [coordinates]
-
-            coordinates = [i.name for i in coordinates]
-
-            V = FunctionSpace(V.name, ldim=V.ldim, coordinates=coordinates)
-            U = FunctionSpace(U.name, ldim=U.ldim, coordinates=coordinates)
-
-            # TODO check that new names do not exist in expr
-            vv = TestFunction(V, name='Ni')
-            uu = TestFunction(U, name='Nj')
-
-            expr = inv_normalize(expr, {'Bi': vv, 'Bj': uu})
-            # ...
         # ...
 
         dim      = self.weak_form.ldim

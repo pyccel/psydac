@@ -27,6 +27,7 @@ from spl.api.codegen.printing import pycode
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
 DEBUG = False
+DEBUG = True
 DIM = 2
 
 def test_assembly_bilinear_2d_scalar_1(mapping=False):
@@ -283,14 +284,14 @@ if __name__ == '__main__':
     test_assembly_linear_2d_scalar_4(mapping=True)
    # .................................
 
-    # .................................
-    # without mapping
-    test_assembly_function_2d_scalar_1(mapping=False)
-    test_assembly_function_2d_scalar_2(mapping=False)
-    test_assembly_function_2d_scalar_3(mapping=False)
-
-    # with mapping
-    test_assembly_function_2d_scalar_1(mapping=True)
-    test_assembly_function_2d_scalar_2(mapping=True)
-    test_assembly_function_2d_scalar_3(mapping=True)
-    # .................................
+#    # .................................
+#    # without mapping
+#    test_assembly_function_2d_scalar_1(mapping=False)
+#    test_assembly_function_2d_scalar_2(mapping=False)
+#    test_assembly_function_2d_scalar_3(mapping=False)
+#
+#    # with mapping
+#    test_assembly_function_2d_scalar_1(mapping=True)
+#    test_assembly_function_2d_scalar_2(mapping=True)
+#    test_assembly_function_2d_scalar_3(mapping=True)
+#    # .................................

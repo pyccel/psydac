@@ -281,16 +281,16 @@ if __name__ == '__main__':
     test_interface_linear_2d_scalar_2(mapping=True)
     test_interface_linear_2d_scalar_3(mapping=True)
     test_interface_linear_2d_scalar_4(mapping=True)
-   # .................................
-
     # .................................
-    # without mapping
-    test_interface_function_2d_scalar_1(mapping=False)
-    test_interface_function_2d_scalar_2(mapping=False)
-    test_interface_function_2d_scalar_3(mapping=False)
 
-    # with mapping
-    test_interface_function_2d_scalar_1(mapping=True)
-    test_interface_function_2d_scalar_2(mapping=True)
-    test_interface_function_2d_scalar_3(mapping=True)
-    # .................................
+#    # .................................
+#    # without mapping
+#    test_interface_function_2d_scalar_1(mapping=False)
+#    test_interface_function_2d_scalar_2(mapping=False)
+#    test_interface_function_2d_scalar_3(mapping=False)
+#
+#    # with mapping
+#    test_interface_function_2d_scalar_1(mapping=True)
+#    test_interface_function_2d_scalar_2(mapping=True)
+#    test_interface_function_2d_scalar_3(mapping=True)
+#    # .................................
