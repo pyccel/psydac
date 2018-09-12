@@ -27,7 +27,6 @@ from spl.api.codegen.printing import pycode
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
 DEBUG = False
-DEBUG = True
 DIM = 2
 
 def test_assembly_bilinear_2d_scalar_1(mapping=False):

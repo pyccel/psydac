@@ -2,9 +2,12 @@
 
 from collections import OrderedDict
 
+from pyccel.ast import Nil
+
 from sympde.core import BilinearForm as sym_BilinearForm
 from sympde.core import LinearForm as sym_LinearForm
 from sympde.core import Integral as sym_Integral
+from sympde.core import Equation as sym_Equation
 from sympde.core import Model as sym_Model
 
 from spl.api.codegen.ast import Interface
@@ -14,7 +17,7 @@ from spl.api.codegen.utils import write_code
 import os
 import importlib
 
-class BasicDiscreteForm(object):
+class BasicDiscrete(object):
 
     def __init__(self, expr, namespace=globals(), to_compile=True, module_name=None):
         self._expr = expr
@@ -134,13 +137,13 @@ class BasicDiscreteForm(object):
 
         self._func = interface
 
-class BilinearDiscreteForm(BasicDiscreteForm):
+class DiscreteBilinearForm(BasicDiscrete):
 
     def __init__(self, expr, *args, **kwargs):
         if not isinstance(expr, sym_BilinearForm):
             raise TypeError('> Expecting a symbolic BilinearForm')
 
-        BasicDiscreteForm.__init__(self, expr, **kwargs)
+        BasicDiscrete.__init__(self, expr, **kwargs)
 
         if not args:
             raise ValueError('> fem spaces must be given as a list/tuple')
@@ -164,13 +167,13 @@ class BilinearDiscreteForm(BasicDiscreteForm):
 
         return self.func(*newargs, **kwargs)
 
-class LinearDiscreteForm(BasicDiscreteForm):
+class DiscreteLinearForm(BasicDiscrete):
 
     def __init__(self, expr, *args, **kwargs):
         if not isinstance(expr, sym_LinearForm):
             raise TypeError('> Expecting a symbolic LinearForm')
 
-        BasicDiscreteForm.__init__(self, expr, **kwargs)
+        BasicDiscrete.__init__(self, expr, **kwargs)
 
         self._space = args[0]
 
@@ -191,13 +194,13 @@ class LinearDiscreteForm(BasicDiscreteForm):
 
         return self.func(*newargs, **kwargs)
 
-class DiscreteIntegral(BasicDiscreteForm):
+class DiscreteIntegral(BasicDiscrete):
 
     def __init__(self, expr, *args, **kwargs):
         if not isinstance(expr, sym_Integral):
             raise TypeError('> Expecting a symbolic Integral')
 
-        BasicDiscreteForm.__init__(self, expr, **kwargs)
+        BasicDiscrete.__init__(self, expr, **kwargs)
 
         self._space = args[0]
 
@@ -218,7 +221,28 @@ class DiscreteIntegral(BasicDiscreteForm):
 
         return self.func(*newargs, **kwargs)
 
-class Model(BasicDiscreteForm):
+class DiscreteEquation(BasicDiscrete):
+
+    def __init__(self, expr, *args, **kwargs):
+        if not isinstance(expr, sym_Equation):
+            raise TypeError('> Expecting a symbolic Equation')
+
+        self._expr = expr
+        self._lhs = kwargs.pop('lhs', None)
+        self._rhs = kwargs.pop('rhs', None)
+
+    @property
+    def lhs(self):
+        return self._lhs
+
+    @property
+    def rhs(self):
+        return self._rhs
+
+    def solve(self, *args, **kwargs):
+        raise NotImplementedError('TODO')
+
+class Model(BasicDiscrete):
 
     def __init__(self, expr, *args, **kwargs):
         if not isinstance(expr, sym_Model):
@@ -227,6 +251,7 @@ class Model(BasicDiscreteForm):
         if not args:
             raise ValueError('> fem spaces must be given as a list/tuple')
 
+        self._expr = expr
         self._spaces = args[0]
 
         if len(args) > 1:
@@ -242,11 +267,11 @@ class Model(BasicDiscreteForm):
         for name, a in list(expr.forms.items()):
             if isinstance(a, sym_BilinearForm):
                 spaces = (test_space, trial_space)
-                ah = BilinearDiscreteForm(a, spaces, to_compile=False,
+                ah = DiscreteBilinearForm(a, spaces, to_compile=False,
                                   module_name=module_name)
 
             elif isinstance(a, sym_LinearForm):
-                ah = LinearDiscreteForm(a, test_space, to_compile=False,
+                ah = DiscreteLinearForm(a, test_space, to_compile=False,
                                 module_name=module_name)
 
             elif isinstance(a, sym_Integral):
@@ -257,6 +282,28 @@ class Model(BasicDiscreteForm):
 
         d_forms = OrderedDict(sorted(d_forms.items()))
         self._forms = d_forms
+        # ...
+
+        # ...
+        if expr.equation:
+            # ...
+            lhs_h = None
+            lhs = expr.equation.lhs
+            if not isinstance(lhs, Nil):
+                if lhs.name in list(d_forms.keys()):
+                    lhs_h = d_forms[lhs.name]
+            # ...
+
+            # ...
+            rhs_h = None
+            rhs = expr.equation.rhs
+            if not isinstance(rhs, Nil):
+                if rhs.name in list(d_forms.keys()):
+                    rhs_h = d_forms[rhs.name]
+            # ...
+
+            equation = DiscreteEquation(expr.equation, lhs=lhs_h, rhs=rhs_h)
+            self._equation = equation
         # ...
 
         # ... save all dependencies codes in one single string
@@ -288,24 +335,34 @@ class Model(BasicDiscreteForm):
         return self._forms
 
     @property
+    def equation(self):
+        return self._equation
+
+    @property
     def spaces(self):
         return self._spaces
 
     def assemble(self, *args, **kwargs):
-        raise NotImplementedError('TODO')
+        lhs = self.equation.lhs
+        if lhs:
+            lhs.assemble(*args, **kwargs)
+
+        rhs = self.equation.rhs
+        if rhs:
+            raise NotImplementedError('TODO')
+
 
 
 def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BilinearForm):
-        return BilinearDiscreteForm(a, *args, **kwargs)
+        return DiscreteBilinearForm(a, *args, **kwargs)
 
     elif isinstance(a, sym_LinearForm):
-        return LinearDiscreteForm(a, *args, **kwargs)
+        return DiscreteLinearForm(a, *args, **kwargs)
 
     elif isinstance(a, sym_Integral):
         return DiscreteIntegral(a, *args, **kwargs)
 
     elif isinstance(a, sym_Model):
         return Model(a, *args, **kwargs)
-

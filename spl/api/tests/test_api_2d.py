@@ -321,10 +321,19 @@ def test_api_model_2d_stokes():
 
     # ...
     model_h = discretize(model, [Vh, Vh])
-    a1h = model_h.forms['a1']
-    a2h = model_h.forms['a2']
-    M1 = a1h.assemble()
-    M2 = a2h.assemble()
+    ah = model_h.forms['a']
+    bh = model_h.forms['b']
+    M1 = ah.assemble()
+    M2 = bh.assemble()
+
+    # we can assemble the full model either by calling directly the discrete
+    # bilinear form
+    Ah = model_h.forms['A']
+    M = Ah.assemble()
+
+    # or through the equation attribut, which is independent from the model
+    lhs_h = model_h.equation.lhs
+    M = lhs_h.assemble()
     # ...
 
 ###############################################
@@ -339,14 +348,14 @@ if __name__ == '__main__':
 #
 #    test_api_linear_2d_scalar_1()
 #    test_api_linear_2d_scalar_2()
-
-    # TODO fix bug: when all tests are uncommented, this one crashes
-#    test_api_function_2d_scalar_1()
-    # ...
-
-    # ... block case
-#    test_api_bilinear_2d_block_1()
-    # ...
+#
+#    # TODO fix bug: when all tests are uncommented, this one crashes
+##    test_api_function_2d_scalar_1()
+#    # ...
+#
+#    # ... block case
+##    test_api_bilinear_2d_block_1()
+#    # ...
 
     # ...
     test_api_model_2d_poisson()
