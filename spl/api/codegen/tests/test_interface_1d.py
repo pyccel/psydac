@@ -225,7 +225,7 @@ def test_interface_function_1d_scalar_1(mapping=False):
     x = V.coordinates
 
     expr = S.One
-    a = Integral(expr, space=V, mapping=mapping)
+    a = Integral(expr, domain, coordinates=[x], mapping=mapping)
 
     interface = Interface(a, name='interface')
     code = pycode(interface)
@@ -242,7 +242,7 @@ def test_interface_function_1d_scalar_2(mapping=False):
     F = Field('F', space=V)
 
     expr = F-cos(2*pi*x)
-    a = Integral(expr, space=V, mapping=mapping)
+    a = Integral(expr, domain, coordinates=[x], mapping=mapping)
 
     interface = Interface(a, name='interface')
     code = pycode(interface)
@@ -260,7 +260,7 @@ def test_interface_function_1d_scalar_3(mapping=False):
 
     error = F-cos(2*pi*x)
     expr = dot(grad(error), grad(error))
-    a = Integral(expr, space=V, mapping=mapping)
+    a = Integral(expr, domain, coordinates=[x], mapping=mapping)
 
     interface = Interface(a, name='interface')
     code = pycode(interface)
@@ -299,14 +299,14 @@ if __name__ == '__main__':
     test_interface_linear_1d_scalar_4(mapping=True)
     # .................................
 
-#    # .................................
-#    # without mapping
-#    test_interface_function_1d_scalar_1(mapping=False)
-#    test_interface_function_1d_scalar_2(mapping=False)
-#    test_interface_function_1d_scalar_3(mapping=False)
-#
-#    # with mapping
-#    test_interface_function_1d_scalar_1(mapping=True)
-#    test_interface_function_1d_scalar_2(mapping=True)
-#    test_interface_function_1d_scalar_3(mapping=True)
-#    # .................................
+    # .................................
+    # without mapping
+    test_interface_function_1d_scalar_1(mapping=False)
+    test_interface_function_1d_scalar_2(mapping=False)
+    test_interface_function_1d_scalar_3(mapping=False)
+
+    # with mapping
+    test_interface_function_1d_scalar_1(mapping=True)
+    test_interface_function_1d_scalar_2(mapping=True)
+    test_interface_function_1d_scalar_3(mapping=True)
+    # .................................

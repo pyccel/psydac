@@ -212,7 +212,7 @@ def test_kernel_function_3d_scalar_1(mapping=False):
     x,y,z = V.coordinates
 
     expr = S.One
-    a = Integral(expr, space=V, mapping=mapping)
+    a = Integral(expr, domain, coordinates=[x,y,z], mapping=mapping)
 
     kernel = Kernel(a, name='kernel')
     code = pycode(kernel)
@@ -229,7 +229,7 @@ def test_kernel_function_3d_scalar_2(mapping=False):
     F = Field('F', space=V)
 
     expr = F-cos(2*pi*x)*cos(3*pi*y)*cos(4*pi*z)
-    a = Integral(expr, space=V, mapping=mapping)
+    a = Integral(expr, domain, coordinates=[x,y,z], mapping=mapping)
 
     kernel = Kernel(a, name='kernel')
     code = pycode(kernel)
@@ -247,7 +247,7 @@ def test_kernel_function_3d_scalar_3(mapping=False):
 
     error = F-cos(2*pi*x)*cos(3*pi*y)*cos(4*pi*z)
     expr = dot(grad(error), grad(error))
-    a = Integral(expr, space=V, mapping=mapping)
+    a = Integral(expr, domain, coordinates=[x,y,z], mapping=mapping)
 
     kernel = Kernel(a, name='kernel')
     code = pycode(kernel)
@@ -286,14 +286,14 @@ if __name__ == '__main__':
     test_kernel_linear_3d_scalar_4(mapping=True)
     # .................................
 
-#    # .................................
-#    # without mapping
-#    test_kernel_function_3d_scalar_1(mapping=False)
-#    test_kernel_function_3d_scalar_2(mapping=False)
-#    test_kernel_function_3d_scalar_3(mapping=False)
-#
-#    # with mapping
-#    test_kernel_function_3d_scalar_1(mapping=True)
-#    test_kernel_function_3d_scalar_2(mapping=True)
-#    test_kernel_function_3d_scalar_3(mapping=True)
-#    # .................................
+    # .................................
+    # without mapping
+    test_kernel_function_3d_scalar_1(mapping=False)
+    test_kernel_function_3d_scalar_2(mapping=False)
+    test_kernel_function_3d_scalar_3(mapping=False)
+
+    # with mapping
+    test_kernel_function_3d_scalar_1(mapping=True)
+    test_kernel_function_3d_scalar_2(mapping=True)
+    test_kernel_function_3d_scalar_3(mapping=True)
+    # .................................
