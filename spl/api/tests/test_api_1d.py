@@ -9,6 +9,7 @@ from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
 from sympde.core import Domain
+from sympde.gallery import Poisson, Wave
 
 from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
@@ -215,6 +216,69 @@ def test_api_bilinear_1d_block_1():
     M = ah.assemble(0.1, 0.4)
     # ...
 
+def test_api_model_1d_poisson():
+    print('============ test_api_model_1d_poisson =============')
+
+    # ... abstract model
+    model = Poisson(domain=domain)
+    # ...
+
+    # ... discrete spaces
+    # Input data: degree, number of elements
+    p  = 3
+    ne = 2**4
+
+    # Create uniform grid
+    grid = linspace( 0., 1., num=ne+1 )
+
+    # Create finite element space and precompute quadrature data
+    Vh = SplineSpace( p, grid=grid )
+    Vh.init_fem()
+    # ...
+
+    # ...
+    model_h = discretize(model, [Vh, Vh])
+    ah = model_h.forms['a']
+    M = ah.assemble()
+    # ...
+
+def test_api_model_1d_wave():
+    print('============ test_api_model_1d_wave =============')
+
+    # ... abstract model
+    model = Wave(domain=domain)
+    # ...
+
+    # ... discrete spaces
+    # Input data: degree, number of elements
+    p  = 3
+    ne = 2**4
+
+    # Create uniform grid
+    grid = linspace( 0., 1., num=ne+1 )
+
+    # Create finite element space and precompute quadrature data
+    Vh = SplineSpace( p, grid=grid )
+    Vh.init_fem()
+    # ...
+
+    # ...
+    model_h = discretize(model, [Vh, Vh])
+    ah = model_h.forms['a']
+    bh = model_h.forms['b']
+    M1 = ah.assemble()
+    M2 = bh.assemble()
+
+    # we can assemble the full model either by calling directly the discrete
+    # bilinear form
+    Ah = model_h.forms['A']
+    M = Ah.assemble(dt=0.5, rho=0.2)
+
+    # or through the equation attribut, which is independent from the model
+    lhs_h = model_h.equation.lhs
+    M = lhs_h.assemble(dt=0.5, rho=0.2)
+    # ...
+
 
 ###############################################
 if __name__ == '__main__':
@@ -229,3 +293,9 @@ if __name__ == '__main__':
     # ... block case
     test_api_bilinear_1d_block_1()
     # ...
+
+    # ...
+    test_api_model_1d_poisson()
+    test_api_model_1d_wave()
+    # ...
+
