@@ -21,6 +21,7 @@ from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
 from sympde.core import Mapping
 from sympde.core import Domain
+from sympde.core import Boundary, trace_0, trace_1
 from sympde.core import evaluate
 
 from spl.api.codegen.ast import Kernel
@@ -125,6 +126,39 @@ def test_interface_bilinear_2d_scalar_4(mapping=False):
     interface = Interface(assembly, name='interface')
     code = pycode(interface)
     if DEBUG: print(code)
+
+def test_interface_bilinear_2d_scalar_5(mapping=False):
+    print('============ test_interface_bilinear_2d_scalar_5 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
+
+    B1 = Boundary(r'\Gamma_1', domain)
+
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a_0 = BilinearForm((v,u), expr, mapping=mapping, name='a_0')
+
+    expr = v*trace_1(grad(u), B1)
+    a_bnd = BilinearForm((v, u), expr, mapping=mapping, name='a_bnd')
+
+    expr = a_0(v,u) + a_bnd(v,u)
+    a = BilinearForm((v,u), expr, mapping=mapping, name='a')
+
+    kernel_expr = evaluate(a)
+    kernel_bnd = Kernel(a, kernel_expr, target=B1, name='kernel_bnd')
+    kernel_int = Kernel(a, kernel_expr, target=domain, name='kernel_int')
+    assembly_bnd = Assembly(kernel_bnd, name='assembly_bnd')
+    assembly_int = Assembly(kernel_int, name='assembly_int')
+    interface_bnd = Interface(assembly_bnd, name='interface_bnd')
+    interface_int = Interface(assembly_int, name='interface_int')
+    for interface in [interface_int, interface_bnd]:
+        code = pycode(interface)
+        if DEBUG: print(code)
 
 def test_interface_bilinear_2d_block_1(mapping=False):
     print('============ test_interface_bilinear_2d_block_1 =============')
@@ -295,44 +329,48 @@ def test_interface_function_2d_scalar_3(mapping=False):
 #................................
 if __name__ == '__main__':
 
-    # .................................
-    # without mapping
-    test_interface_bilinear_2d_scalar_1(mapping=False)
-    test_interface_bilinear_2d_scalar_2(mapping=False)
-    test_interface_bilinear_2d_scalar_3(mapping=False)
-    test_interface_bilinear_2d_scalar_4(mapping=False)
-    test_interface_bilinear_2d_block_1(mapping=False)
+    test_interface_bilinear_2d_scalar_5(mapping=False)
 
-    # with mapping
-    test_interface_bilinear_2d_scalar_1(mapping=True)
-    test_interface_bilinear_2d_scalar_2(mapping=True)
-    test_interface_bilinear_2d_scalar_3(mapping=True)
-    test_interface_bilinear_2d_scalar_4(mapping=True)
-    test_interface_bilinear_2d_block_1(mapping=True)
-    # .................................
-
-    # .................................
-    # without mapping
-    test_interface_linear_2d_scalar_1(mapping=False)
-    test_interface_linear_2d_scalar_2(mapping=False)
-    test_interface_linear_2d_scalar_3(mapping=False)
-    test_interface_linear_2d_scalar_4(mapping=False)
-
-    # with mapping
-    test_interface_linear_2d_scalar_1(mapping=True)
-    test_interface_linear_2d_scalar_2(mapping=True)
-    test_interface_linear_2d_scalar_3(mapping=True)
-    test_interface_linear_2d_scalar_4(mapping=True)
-    # .................................
-
-    # .................................
-    # without mapping
-    test_interface_function_2d_scalar_1(mapping=False)
-    test_interface_function_2d_scalar_2(mapping=False)
-    test_interface_function_2d_scalar_3(mapping=False)
-
-    # with mapping
-    test_interface_function_2d_scalar_1(mapping=True)
-    test_interface_function_2d_scalar_2(mapping=True)
-    test_interface_function_2d_scalar_3(mapping=True)
-    # .................................
+#    # .................................
+#    # without mapping
+#    test_interface_bilinear_2d_scalar_1(mapping=False)
+#    test_interface_bilinear_2d_scalar_2(mapping=False)
+#    test_interface_bilinear_2d_scalar_3(mapping=False)
+#    test_interface_bilinear_2d_scalar_4(mapping=False)
+#    test_interface_bilinear_2d_scalar_5(mapping=False)
+#    test_interface_bilinear_2d_block_1(mapping=False)
+#
+#    # with mapping
+#    test_interface_bilinear_2d_scalar_1(mapping=True)
+#    test_interface_bilinear_2d_scalar_2(mapping=True)
+#    test_interface_bilinear_2d_scalar_3(mapping=True)
+#    test_interface_bilinear_2d_scalar_4(mapping=True)
+#    test_interface_bilinear_2d_scalar_5(mapping=True)
+#    test_interface_bilinear_2d_block_1(mapping=True)
+#    # .................................
+#
+#    # .................................
+#    # without mapping
+#    test_interface_linear_2d_scalar_1(mapping=False)
+#    test_interface_linear_2d_scalar_2(mapping=False)
+#    test_interface_linear_2d_scalar_3(mapping=False)
+#    test_interface_linear_2d_scalar_4(mapping=False)
+#
+#    # with mapping
+#    test_interface_linear_2d_scalar_1(mapping=True)
+#    test_interface_linear_2d_scalar_2(mapping=True)
+#    test_interface_linear_2d_scalar_3(mapping=True)
+#    test_interface_linear_2d_scalar_4(mapping=True)
+#    # .................................
+#
+#    # .................................
+#    # without mapping
+#    test_interface_function_2d_scalar_1(mapping=False)
+#    test_interface_function_2d_scalar_2(mapping=False)
+#    test_interface_function_2d_scalar_3(mapping=False)
+#
+#    # with mapping
+#    test_interface_function_2d_scalar_1(mapping=True)
+#    test_interface_function_2d_scalar_2(mapping=True)
+#    test_interface_function_2d_scalar_3(mapping=True)
+#    # .................................
