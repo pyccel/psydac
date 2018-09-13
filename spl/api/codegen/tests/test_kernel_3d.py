@@ -21,6 +21,7 @@ from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
 from sympde.core import Mapping
 from sympde.core import Domain
+from sympde.core import evaluate
 
 from spl.api.codegen.ast import Kernel
 from spl.api.codegen.printing import pycode
@@ -46,7 +47,8 @@ def test_kernel_bilinear_3d_scalar_1(mapping=False):
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -66,7 +68,8 @@ def test_kernel_bilinear_3d_scalar_2(mapping=False):
     expr = dot(grad(v), grad(u)) + c*v*u
     a = BilinearForm((v,u), expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -86,7 +89,8 @@ def test_kernel_bilinear_3d_scalar_3(mapping=False):
     expr = dot(grad(v), grad(u)) + F*v*u
     a = BilinearForm((v,u), expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -107,7 +111,8 @@ def test_kernel_bilinear_3d_scalar_4(mapping=False):
     expr = dot(grad(G*v), grad(u)) + F*v*u
     a = BilinearForm((v,u), expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -125,7 +130,8 @@ def test_kernel_bilinear_3d_block_1(mapping=False):
     expr = div(v) * div(u) + dot(curl(v), curl(u))
     a = BilinearForm((v,u), expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -142,7 +148,8 @@ def test_kernel_linear_3d_scalar_1(mapping=False):
     expr = cos(2*pi*x)*cos(4*pi*y)*cos(4*pi*z)*v
     a = LinearForm(v, expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -161,7 +168,8 @@ def test_kernel_linear_3d_scalar_2(mapping=False):
     expr = c*cos(2*pi*x)*cos(4*pi*y)*cos(4*pi*z)*v
     a = LinearForm(v, expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -180,7 +188,8 @@ def test_kernel_linear_3d_scalar_3(mapping=False):
     expr = F*v
     a = LinearForm(v, expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -199,7 +208,8 @@ def test_kernel_linear_3d_scalar_4(mapping=False):
     expr = dx(F)*v
     a = LinearForm(v, expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -214,7 +224,8 @@ def test_kernel_function_3d_scalar_1(mapping=False):
     expr = S.One
     a = Integral(expr, domain, coordinates=[x,y,z], mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -231,7 +242,8 @@ def test_kernel_function_3d_scalar_2(mapping=False):
     expr = F-cos(2*pi*x)*cos(3*pi*y)*cos(4*pi*z)
     a = Integral(expr, domain, coordinates=[x,y,z], mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -249,7 +261,8 @@ def test_kernel_function_3d_scalar_3(mapping=False):
     expr = dot(grad(error), grad(error))
     a = Integral(expr, domain, coordinates=[x,y,z], mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 

@@ -28,7 +28,6 @@ from sympde.core import grad
 from sympde.core import Constant
 from sympde.core import Mapping
 from sympde.core import Field
-from sympde.core import atomize, evaluate
 from sympde.core import Covariant, Contravariant
 from sympde.core import BilinearForm, LinearForm, Integral, BasicForm
 from sympde.core.derivatives import _partial_derivatives
@@ -504,15 +503,31 @@ class EvalField(SplBasic):
 # target is used when there are multiple expression (domain/boundaries)
 class Kernel(SplBasic):
 
-    def __new__(cls, weak_form, target=None, name=None):
+    def __new__(cls, weak_form, kernel_expr, target=None, name=None):
 
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
 
         obj = SplBasic.__new__(cls, weak_form, name=name, prefix='kernel')
 
+        # ...
+        # get the target expr if there are multiple expressions (domain/boundary)
+        if target is None:
+            if len(kernel_expr) > 1:
+                msg = '> weak form has multiple expression, but no target was given'
+                raise ValueError(msg)
+
+            kernel_expr = kernel_expr[0].expr
+
+        else:
+            kernel_expr = [i.expr for i in kernel_expr if i.target is target]
+            kernel_expr = kernel_expr[0]
+        # ...
+
         obj._weak_form = weak_form
+        obj._kernel_expr = kernel_expr
         obj._target = target
+
         obj._func = obj._initialize()
 
         return obj
@@ -520,6 +535,10 @@ class Kernel(SplBasic):
     @property
     def weak_form(self):
         return self._weak_form
+
+    @property
+    def kernel_expr(self):
+        return self._kernel_expr
 
     @property
     def target(self):
@@ -585,19 +604,7 @@ class Kernel(SplBasic):
         is_bilinear = isinstance(self.weak_form, BilinearForm)
         is_function = isinstance(self.weak_form, Integral)
 
-        # ...
-        expr = evaluate(self.weak_form)
-        # get the target expr if there are multiple expressions (domain/boundary)
-        if self.target is None:
-            if len(expr) > 1:
-                raise ValueError('> weak form has multiple expression, but no target was given')
-
-            expr = expr[0].expr
-
-        else:
-            expr = [i.expr for i in expr if i.target is self.target]
-            expr = expr[0]
-        # ...
+        expr = self.kernel_expr
 
         # ...
         n_rows = 1 ; n_cols = 1

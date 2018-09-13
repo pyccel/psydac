@@ -22,6 +22,7 @@ from sympde.core import BilinearForm, LinearForm, Integral
 from sympde.core import Mapping
 from sympde.core import Domain
 from sympde.core import Boundary, trace_0, trace_1
+from sympde.core import evaluate
 
 from spl.api.codegen.ast import Kernel
 from spl.api.codegen.printing import pycode
@@ -29,7 +30,7 @@ from spl.api.codegen.printing import pycode
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
 DEBUG = False
-DEBUG = True
+#DEBUG = True
 DIM = 2
 
 domain = Domain('\Omega', dim=DIM)
@@ -48,7 +49,8 @@ def test_kernel_bilinear_2d_scalar_1(mapping=False):
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -68,7 +70,8 @@ def test_kernel_bilinear_2d_scalar_2(mapping=False):
     expr = dot(grad(v), grad(u)) + c*v*u
     a = BilinearForm((v,u), expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -88,7 +91,8 @@ def test_kernel_bilinear_2d_scalar_3(mapping=False):
     expr = dot(grad(v), grad(u)) + F*v*u
     a = BilinearForm((v,u), expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -109,7 +113,8 @@ def test_kernel_bilinear_2d_scalar_4(mapping=False):
     expr = dot(grad(G*v), grad(u)) + F*v*u
     a = BilinearForm((v,u), expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -135,8 +140,10 @@ def test_kernel_bilinear_2d_scalar_5(mapping=False):
     expr = a_0(v,u) + a_bnd(v,u)
     a = BilinearForm((v,u), expr, mapping=mapping, name='a')
 
-    kernel_bnd = Kernel(a, target=B1, name='kernel_bnd')
-    kernel_int = Kernel(a, target=domain, name='kernel_int')
+    kernel_expr = evaluate(a)
+
+    kernel_bnd = Kernel(a, kernel_expr, target=B1, name='kernel_bnd')
+    kernel_int = Kernel(a, kernel_expr, target=domain, name='kernel_int')
     for kernel in [kernel_int, kernel_bnd]:
         code = pycode(kernel)
         if DEBUG: print(code)
@@ -155,7 +162,8 @@ def test_kernel_bilinear_2d_block_1(mapping=False):
     expr = div(v) * div(u) + rot(v) * rot(u)
     a = BilinearForm((v,u), expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -172,7 +180,8 @@ def test_kernel_linear_2d_scalar_1(mapping=False):
     expr = cos(2*pi*x)*cos(4*pi*y)*v
     a = LinearForm(v, expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -191,7 +200,8 @@ def test_kernel_linear_2d_scalar_2(mapping=False):
     expr = c*cos(2*pi*x)*cos(4*pi*y)*v
     a = LinearForm(v, expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -210,7 +220,8 @@ def test_kernel_linear_2d_scalar_3(mapping=False):
     expr = F*v
     a = LinearForm(v, expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -229,7 +240,8 @@ def test_kernel_linear_2d_scalar_4(mapping=False):
     expr = dx(F)*v
     a = LinearForm(v, expr, mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -244,7 +256,8 @@ def test_kernel_function_2d_scalar_1(mapping=False):
     expr = S.One
     a = Integral(expr, domain, coordinates=[x,y], mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -261,7 +274,8 @@ def test_kernel_function_2d_scalar_2(mapping=False):
     expr = F-cos(2*pi*x)*cos(3*pi*y)
     a = Integral(expr, domain, coordinates=[x,y], mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
@@ -279,56 +293,57 @@ def test_kernel_function_2d_scalar_3(mapping=False):
     expr = dot(grad(error), grad(error))
     a = Integral(expr, domain, coordinates=[x,y], mapping=mapping)
 
-    kernel = Kernel(a, name='kernel')
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
     code = pycode(kernel)
     if DEBUG: print(code)
 
 #................................
 if __name__ == '__main__':
 
-    test_kernel_bilinear_2d_scalar_5(mapping=False)
-
-
-#    # .................................
-#    # without mapping
-#    test_kernel_bilinear_2d_scalar_1(mapping=False)
-#    test_kernel_bilinear_2d_scalar_2(mapping=False)
-#    test_kernel_bilinear_2d_scalar_3(mapping=False)
-#    test_kernel_bilinear_2d_scalar_4(mapping=False)
 #    test_kernel_bilinear_2d_scalar_5(mapping=False)
-#    test_kernel_bilinear_2d_block_1(mapping=False)
-#
-#    # with mapping
-#    test_kernel_bilinear_2d_scalar_1(mapping=True)
-#    test_kernel_bilinear_2d_scalar_2(mapping=True)
-#    test_kernel_bilinear_2d_scalar_3(mapping=True)
-#    test_kernel_bilinear_2d_scalar_4(mapping=True)
+
+
+    # .................................
+    # without mapping
+    test_kernel_bilinear_2d_scalar_1(mapping=False)
+    test_kernel_bilinear_2d_scalar_2(mapping=False)
+    test_kernel_bilinear_2d_scalar_3(mapping=False)
+    test_kernel_bilinear_2d_scalar_4(mapping=False)
+#    test_kernel_bilinear_2d_scalar_5(mapping=False)
+    test_kernel_bilinear_2d_block_1(mapping=False)
+
+    # with mapping
+    test_kernel_bilinear_2d_scalar_1(mapping=True)
+    test_kernel_bilinear_2d_scalar_2(mapping=True)
+    test_kernel_bilinear_2d_scalar_3(mapping=True)
+    test_kernel_bilinear_2d_scalar_4(mapping=True)
 #    test_kernel_bilinear_2d_scalar_5(mapping=True)
-#    test_kernel_bilinear_2d_block_1(mapping=True)
-#    # .................................
-#
-#    # .................................
-#    # without mapping
-#    test_kernel_linear_2d_scalar_1(mapping=False)
-#    test_kernel_linear_2d_scalar_2(mapping=False)
-#    test_kernel_linear_2d_scalar_3(mapping=False)
-#    test_kernel_linear_2d_scalar_4(mapping=False)
-#
-#    # with mapping
-#    test_kernel_linear_2d_scalar_1(mapping=True)
-#    test_kernel_linear_2d_scalar_2(mapping=True)
-#    test_kernel_linear_2d_scalar_3(mapping=True)
-#    test_kernel_linear_2d_scalar_4(mapping=True)
-#    # .................................
-#
-#    # .................................
-#    # without mapping
-#    test_kernel_function_2d_scalar_1(mapping=False)
-#    test_kernel_function_2d_scalar_2(mapping=False)
-#    test_kernel_function_2d_scalar_3(mapping=False)
-#
-#    # with mapping
-#    test_kernel_function_2d_scalar_1(mapping=True)
-#    test_kernel_function_2d_scalar_2(mapping=True)
-#    test_kernel_function_2d_scalar_3(mapping=True)
-#    # .................................
+    test_kernel_bilinear_2d_block_1(mapping=True)
+    # .................................
+
+    # .................................
+    # without mapping
+    test_kernel_linear_2d_scalar_1(mapping=False)
+    test_kernel_linear_2d_scalar_2(mapping=False)
+    test_kernel_linear_2d_scalar_3(mapping=False)
+    test_kernel_linear_2d_scalar_4(mapping=False)
+
+    # with mapping
+    test_kernel_linear_2d_scalar_1(mapping=True)
+    test_kernel_linear_2d_scalar_2(mapping=True)
+    test_kernel_linear_2d_scalar_3(mapping=True)
+    test_kernel_linear_2d_scalar_4(mapping=True)
+    # .................................
+
+    # .................................
+    # without mapping
+    test_kernel_function_2d_scalar_1(mapping=False)
+    test_kernel_function_2d_scalar_2(mapping=False)
+    test_kernel_function_2d_scalar_3(mapping=False)
+
+    # with mapping
+    test_kernel_function_2d_scalar_1(mapping=True)
+    test_kernel_function_2d_scalar_2(mapping=True)
+    test_kernel_function_2d_scalar_3(mapping=True)
+    # .................................
