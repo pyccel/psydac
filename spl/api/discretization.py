@@ -9,7 +9,10 @@ from sympde.core import LinearForm as sym_LinearForm
 from sympde.core import Integral as sym_Integral
 from sympde.core import Equation as sym_Equation
 from sympde.core import Model as sym_Model
+from sympde.core import evaluate
 
+from spl.api.codegen.ast import Kernel
+from spl.api.codegen.ast import Assembly
 from spl.api.codegen.ast import Interface
 from spl.api.codegen.printing import pycode
 from spl.api.codegen.utils import write_code
@@ -19,11 +22,21 @@ import importlib
 
 class BasicDiscrete(object):
 
-    def __init__(self, expr, namespace=globals(), to_compile=True, module_name=None):
-        self._expr = expr
+    def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
+                 module_name=None, target=None):
+
+        # ... TODO must map target from a string
+        kernel = Kernel(a, kernel_expr, target=target)
+        assembly = Assembly(kernel)
+        interface = Interface(assembly)
+        # ...
+
+        # ...
+        self._expr = a
         self._mapping = None
-        self._interface = Interface(expr)
+        self._interface = interface
         self._dependencies = self.interface.dependencies
+        # ...
 
         # generate python code as strings for dependencies
         self._dependencies_code = self._generate_code()
@@ -139,11 +152,11 @@ class BasicDiscrete(object):
 
 class DiscreteBilinearForm(BasicDiscrete):
 
-    def __init__(self, expr, *args, **kwargs):
+    def __init__(self, expr, kernel_expr, *args, **kwargs):
         if not isinstance(expr, sym_BilinearForm):
             raise TypeError('> Expecting a symbolic BilinearForm')
 
-        BasicDiscrete.__init__(self, expr, **kwargs)
+        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         if not args:
             raise ValueError('> fem spaces must be given as a list/tuple')
@@ -169,11 +182,11 @@ class DiscreteBilinearForm(BasicDiscrete):
 
 class DiscreteLinearForm(BasicDiscrete):
 
-    def __init__(self, expr, *args, **kwargs):
+    def __init__(self, expr, kernel_expr, *args, **kwargs):
         if not isinstance(expr, sym_LinearForm):
             raise TypeError('> Expecting a symbolic LinearForm')
 
-        BasicDiscrete.__init__(self, expr, **kwargs)
+        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         self._space = args[0]
 
@@ -196,11 +209,11 @@ class DiscreteLinearForm(BasicDiscrete):
 
 class DiscreteIntegral(BasicDiscrete):
 
-    def __init__(self, expr, *args, **kwargs):
+    def __init__(self, expr, kernel_expr, *args, **kwargs):
         if not isinstance(expr, sym_Integral):
             raise TypeError('> Expecting a symbolic Integral')
 
-        BasicDiscrete.__init__(self, expr, **kwargs)
+        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         self._space = args[0]
 
@@ -356,13 +369,16 @@ class Model(BasicDiscrete):
 def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BilinearForm):
-        return DiscreteBilinearForm(a, *args, **kwargs)
+        kernel_expr = evaluate(a)
+        return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_LinearForm):
-        return DiscreteLinearForm(a, *args, **kwargs)
+        kernel_expr = evaluate(a)
+        return DiscreteLinearForm(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_Integral):
-        return DiscreteIntegral(a, *args, **kwargs)
+        kernel_expr = evaluate(a)
+        return DiscreteIntegral(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_Model):
         return Model(a, *args, **kwargs)
