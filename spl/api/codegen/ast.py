@@ -922,16 +922,13 @@ class Kernel(SplBasic):
 
 class Assembly(SplBasic):
 
-    def __new__(cls, weak_form, name=None):
+    def __new__(cls, kernel, name=None):
 
-        if not isinstance(weak_form, FunctionalForms):
-            raise TypeError('> Expecting a weak formulation')
+        if not isinstance(kernel, Kernel):
+            raise TypeError('> Expecting a kernel')
 
-        obj = SplBasic.__new__(cls, weak_form, name=name, prefix='assembly')
+        obj = SplBasic.__new__(cls, kernel, name=name, prefix='assembly')
 
-        obj._weak_form = weak_form
-
-        kernel = Kernel(weak_form)
         obj._kernel = kernel
 
         # update dependencies
@@ -942,7 +939,7 @@ class Assembly(SplBasic):
 
     @property
     def weak_form(self):
-        return self._weak_form
+        return self.kernel.weak_form
 
     @property
     def kernel(self):
@@ -1167,16 +1164,13 @@ class Assembly(SplBasic):
 
 class Interface(SplBasic):
 
-    def __new__(cls, weak_form, name=None):
+    def __new__(cls, assembly, name=None):
 
-        if not isinstance(weak_form, FunctionalForms):
-            raise TypeError('> Expecting a weak formulation')
+        if not isinstance(assembly, Assembly):
+            raise TypeError('> Expecting an Assembly')
 
-        obj = SplBasic.__new__(cls, weak_form, name=name, prefix='interface')
+        obj = SplBasic.__new__(cls, assembly, name=name, prefix='interface')
 
-        obj._weak_form = weak_form
-
-        assembly = Assembly(weak_form)
         obj._assembly = assembly
 
         # update dependencies
@@ -1187,7 +1181,7 @@ class Interface(SplBasic):
 
     @property
     def weak_form(self):
-        return self._weak_form
+        return self.assembly.weak_form
 
     @property
     def assembly(self):
