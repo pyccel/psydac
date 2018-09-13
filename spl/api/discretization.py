@@ -370,14 +370,26 @@ def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BilinearForm):
         kernel_expr = evaluate(a)
+        if len(kernel_expr) > 1:
+            msg = '> weak form has multiple expression. Use the Model concept instead'
+            raise ValueError(msg)
+
         return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_LinearForm):
         kernel_expr = evaluate(a)
+        if len(kernel_expr) > 1:
+            msg = '> weak form has multiple expression. Use the Model concept instead'
+            raise ValueError(msg)
+
         return DiscreteLinearForm(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_Integral):
         kernel_expr = evaluate(a)
+        if len(kernel_expr) > 1:
+            msg = '> weak form has multiple expression. Use the Model concept instead'
+            raise ValueError(msg)
+
         return DiscreteIntegral(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_Model):
