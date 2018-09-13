@@ -595,7 +595,7 @@ class Kernel(SplBasic):
             expr = expr[0].expr
 
         else:
-            expr = [i.expr for i in expr if expr.target is self.target]
+            expr = [i.expr for i in expr if i.target is self.target]
             expr = expr[0]
         # ...
 
