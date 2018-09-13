@@ -501,9 +501,10 @@ class EvalField(SplBasic):
 
         return FunctionDef(self.name, list(func_args), [], body)
 
+# target is used when there are multiple expression (domain/boundaries)
 class Kernel(SplBasic):
 
-    def __new__(cls, weak_form, name=None):
+    def __new__(cls, weak_form, target=None, name=None):
 
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
@@ -511,6 +512,7 @@ class Kernel(SplBasic):
         obj = SplBasic.__new__(cls, weak_form, name=name, prefix='kernel')
 
         obj._weak_form = weak_form
+        obj._target = target
         obj._func = obj._initialize()
 
         return obj
@@ -518,6 +520,10 @@ class Kernel(SplBasic):
     @property
     def weak_form(self):
         return self._weak_form
+
+    @property
+    def target(self):
+        return self._target
 
     @property
     def n_rows(self):
@@ -579,10 +585,18 @@ class Kernel(SplBasic):
         is_bilinear = isinstance(self.weak_form, BilinearForm)
         is_function = isinstance(self.weak_form, Integral)
 
-        weak_form = self.weak_form.expr
-
         # ...
         expr = evaluate(self.weak_form)
+        # get the target expr if there are multiple expressions (domain/boundary)
+        if self.target is None:
+            if len(expr) > 1:
+                raise ValueError('> weak form has multiple expression, but no target was given')
+
+            expr = expr[0].expr
+
+        else:
+            expr = [i.expr for i in expr if expr.target is self.target]
+            expr = expr[0]
         # ...
 
         # ...
@@ -888,7 +902,7 @@ class Kernel(SplBasic):
         body = len_quads + body
 
         # get math functions and constants
-        math_elements = math_atoms_as_str(weak_form)
+        math_elements = math_atoms_as_str(self.weak_form.expr)
         math_imports = []
         for e in math_elements:
             math_imports += [Import(e, 'numpy')]
