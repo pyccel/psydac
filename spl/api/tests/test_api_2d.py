@@ -291,7 +291,7 @@ def test_api_model_2d_poisson():
     print('============ test_api_model_2d_poisson =============')
 
     # ... abstract model
-    model = Poisson(domain=domain)
+    model = Poisson(domain)
     # ...
 
     # ... discrete spaces
@@ -308,7 +308,7 @@ def test_api_model_2d_stokes():
     print('============ test_api_model_2d_stokes =============')
 
     # ... abstract model
-    model = Stokes(domain=domain)
+    model = Stokes(domain)
     # ...
 
     # ... discrete spaces

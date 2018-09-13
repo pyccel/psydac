@@ -220,7 +220,7 @@ def test_api_model_1d_poisson():
     print('============ test_api_model_1d_poisson =============')
 
     # ... abstract model
-    model = Poisson(domain=domain)
+    model = Poisson(domain)
     # ...
 
     # ... discrete spaces
@@ -246,7 +246,7 @@ def test_api_model_1d_wave():
     print('============ test_api_model_1d_wave =============')
 
     # ... abstract model
-    model = Wave(domain=domain)
+    model = Wave(domain)
     # ...
 
     # ... discrete spaces
