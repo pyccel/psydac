@@ -2,6 +2,7 @@ from collections import OrderedDict
 from itertools import groupby
 import string
 import random
+import numpy as np
 
 from sympy import Basic
 from sympy import symbols, Symbol, IndexedBase, Indexed, Function
@@ -51,8 +52,34 @@ def random_string( n ):
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
-def compute_boundary_vector(vector, discrete_boundary):
-    return Comment('TODO')
+def compute_normal_vector(vector, discrete_boundary, mapping):
+    dim = len(vector)
+    pdim = dim - len(discrete_boundary)
+    if len(discrete_boundary) > 1: raise NotImplementedError('TODO')
+
+    face = discrete_boundary[0]
+    axis = face[0] ; ext = face[1]
+
+    body = []
+
+    if not mapping:
+        values = np.zeros(dim)
+        if dim == 1:
+            NotImplementedError('TODO')
+
+        else:
+            values[axis] = ext
+
+        for i in range(0, dim):
+            body += [Assign(vector[i], values[i])]
+
+    else:
+        NotImplementedError('TODO')
+
+    return body
+
+def compute_tangent_vector(vector, discrete_boundary, mapping):
+    raise NotImplementedError('TODO')
 
 
 def filter_loops(indices, ranges, body, discrete_boundary):
@@ -906,11 +933,29 @@ class Kernel(SplBasic):
         # ... normal/tangent vectors
         if isinstance(self.target, Boundary):
             vectors = self.kernel_expr.atoms(BoundaryVector)
+            normal_vec = symbols('normal_1:%d'%(dim+1))
+            tangent_vec = symbols('tangent_1:%d'%(dim+1))
+
             for vector in vectors:
-                stmt = compute_boundary_vector(vector, self.discrete_boundary)
-                print(stmt)
-                body += [stmt]
-        import sys; sys.exit(0)
+                if isinstance(vector, NormalVector):
+                    # replace n[i] by its scalar components
+                    for i in range(0, dim):
+                        expr = [e.subs(vector[i], normal_vec[i]) for e in expr]
+
+                    stmts = compute_normal_vector(normal_vec,
+                                                  self.discrete_boundary,
+                                                  mapping)
+
+                elif isinstance(vector, TangentVector):
+                    # replace t[i] by its scalar components
+                    for i in range(0, dim):
+                        expr = [e.subs(vector[i], tangent_vec[i]) for e in expr]
+
+                    stmts = compute_tangent_vector(tangent_vec,
+                                                   self.discrete_boundary,
+                                                   mapping)
+
+                body += stmts
         # ...
 
         # ...

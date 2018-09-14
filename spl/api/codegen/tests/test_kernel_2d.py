@@ -144,8 +144,9 @@ def test_kernel_bilinear_2d_scalar_5(mapping=False):
     kernel_bnd = Kernel(a, kernel_expr, target=B1, discrete_boundary=(1, -1), name='kernel_bnd')
 #    kernel_int = Kernel(a, kernel_expr, target=domain, name='kernel_int')
 #    for kernel in [kernel_int, kernel_bnd]:
-#        code = pycode(kernel)
-#        if DEBUG: print(code)
+    for kernel in [kernel_bnd]:
+        code = pycode(kernel)
+        if DEBUG: print(code)
 
 def test_kernel_bilinear_2d_block_1(mapping=False):
     print('============ test_kernel_bilinear_2d_block_1 =============')
