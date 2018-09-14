@@ -20,6 +20,7 @@ from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
 from spl.fem.tensor  import TensorFemSpace
 from spl.api.discretization import discretize
+from spl.api.discretization import DiscreteBoundary
 
 from spl.mapping.discrete import SplineMapping
 
@@ -169,6 +170,7 @@ def test_api_bilinear_2d_scalar_5():
 
     # ... abstract model
     B1 = Boundary(r'\Gamma_1', domain)
+    B2 = Boundary(r'\Gamma_2', domain)
 
     U = FunctionSpace('U', domain)
     V = FunctionSpace('V', domain)
@@ -180,21 +182,35 @@ def test_api_bilinear_2d_scalar_5():
     a_0 = BilinearForm((v,u), expr, name='a_0')
 
     expr = v*trace_1(grad(u), B1)
-    expr = v*trace_0(u, B1)
-    a_bnd = BilinearForm((v, u), expr, name='a_bnd')
+    a_B1 = BilinearForm((v, u), expr, name='a_B1')
+
+    expr = v*trace_0(u, B2)
+    a_B2 = BilinearForm((v, u), expr, name='a_B2')
+
+    expr = a_0(v,u) + a_B1(v,u) + a_B2(v,u)
+    a = BilinearForm((v,u), expr, name='a')
     # ...
 
     # ... discrete spaces
     Vh = create_discrete_space()
     # ...
 
-    # ...
-    ah_0 = discretize(a_0, [Vh, Vh])
-    axis = 0 ; e = -1
-    ah_bnd = discretize(a_bnd, [Vh, Vh], boundary=(axis, e))
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
 
-    M = ah_0.assemble()
-    M = ah_bnd.assemble()
+#    # ...
+#    ah_0 = discretize(a_0, [Vh, Vh])
+#
+#    ah_B1 = discretize(a_B1, [Vh, Vh], boundary=B1)
+#    ah_B2 = discretize(a_B2, [Vh, Vh], boundary=B2)
+#
+#    M = ah_0.assemble()
+#    M = ah_B1.assemble()
+#    M = ah_B2.assemble()
+#    # ...
+
+    # ...
+    ah = discretize(a, [Vh, Vh], boundary=[B1, B2])
     # ...
 
 def test_api_bilinear_2d_scalar_1_mapping():

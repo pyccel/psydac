@@ -10,6 +10,7 @@ from sympde.core import LinearForm as sym_LinearForm
 from sympde.core import Integral as sym_Integral
 from sympde.core import Equation as sym_Equation
 from sympde.core import Model as sym_Model
+from sympde.core import Boundary as sym_Boundary
 from sympde.core import evaluate
 
 from spl.api.codegen.ast import Kernel
@@ -20,31 +21,70 @@ from spl.api.codegen.utils import write_code
 
 import os
 import importlib
+import string
+import random
 
 SPL_DEFAULT_FOLDER = '__pycache__/spl'
 
+def random_string( n ):
+    chars    = string.ascii_uppercase + string.ascii_lowercase + string.digits
+    selector = random.SystemRandom()
+    return ''.join( selector.choice( chars ) for _ in range( n ) )
+
+
+class DiscreteBoundary(object):
+    def __init__(self, expr, axis=None, ext=None):
+        if not isinstance(expr, sym_Boundary):
+            raise TypeError('> Expecting a Boundary object')
+
+        if not(axis) and not(ext):
+            msg = '> for the moment, both axis and ext must be given'
+            raise NotImplementedError(msg)
+
+        self._expr = expr
+        self._axis = axis
+        self._ext = ext
+
+    @property
+    def expr(self):
+        return self._expr
+
+    @property
+    def axis(self):
+        return self._axis
+
+    @property
+    def ext(self):
+        return self._ext
 
 class BasicDiscrete(object):
 
     def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
-                 module_name=None, boundary=None):
+                 module_name=None, boundary=None, target=None):
+
+        # ...
+        if not target:
+            if len(kernel_expr) > 1:
+                raise ValueError('> Expecting only one kernel')
+
+            target = kernel_expr[0].target
+        # ...
 
         # ...
         if boundary:
-            if not isinstance(boundary, (tuple, list)):
-                raise TypeError('> Expecting a tuple or list for boundary')
+            if not isinstance(boundary, (tuple, list, DiscreteBoundary)):
+                raise TypeError('> Expecting a tuple, list or DiscreteBoundary')
 
-            boundary = list(boundary)
-            if not isinstance(boundary[0], (tuple, list)):
+            if isinstance(boundary, DiscreteBoundary):
+                if not( boundary.expr is target ):
+                    raise ValueError('> Unconsistent boundary with symbolic model')
+
+                boundary = [boundary.axis, boundary.ext]
                 boundary = [boundary]
-            # boundary is now a list of lists
-        # ...
 
-        # ...
-        if len(kernel_expr) > 1:
-            raise ValueError('> Expecting only one kernel')
-
-        target = kernel_expr[0].target
+            # boundary is now a list of boundaries
+            # TODO shall we keep it this way? since this is the simplest
+            # interface to be able to compute Integral on a curve in 3d
         # ...
 
         # ...
@@ -271,6 +311,94 @@ class DiscreteIntegral(BasicDiscrete):
 
         return self.func(*newargs, **kwargs)
 
+
+class DiscreteSumForm(BasicDiscrete):
+
+    def __init__(self, a, kernel_expr, *args, **kwargs):
+        if not isinstance(a, (sym_BilinearForm, sym_LinearForm, sym_Integral)):
+            raise TypeError('> Expecting a symbolic BilinearForm, LinearFormn Integral')
+
+        self._expr = a
+
+        # create a module name if not given
+        tag = random_string( 8 )
+        module_name = kwargs.pop('module_name', 'dependencies_{}'.format(tag))
+
+        # ...
+        forms = []
+        boundaries = kwargs.pop('boundary', [])
+        if isinstance(boundaries, DiscreteBoundary): boundaries = [boundaries]
+
+        kwargs['to_compile'] = False
+        kwargs['module_name'] = module_name
+        for e in kernel_expr:
+            kwargs['target'] = e.target
+            if isinstance(e.target, sym_Boundary):
+                boundary = [i for i in boundaries if i.expr is e.target]
+                if boundary: kwargs['boundary'] = boundary[0]
+
+            if isinstance(a, sym_BilinearForm):
+                ah = DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
+
+            elif isinstance(a, sym_LinearForm):
+                ah = DiscreteLinearForm(a, kernel_expr, *args, **kwargs)
+
+            elif isinstance(a, sym_Integral):
+                ah = DiscreteIntegral(a, kernel_expr, *args, **kwargs)
+
+            forms.append(ah)
+            kwargs['boundary'] = None
+
+        self._forms = forms
+        # ...
+
+        # ... save all dependencies codes in one single string
+        code = ''
+        for ah in self.forms:
+            code = '{code}\n{ah}'.format(code=code, ah=ah.dependencies_code)
+        self._dependencies_code = code
+        # ...
+
+        # ...
+        # save dependencies code
+        self._save_code(module_name=module_name)
+        # ...
+
+        # ...
+        namespace = kwargs.pop('namespace', globals())
+        module_name = self.dependencies_modname
+        code = ''
+        for ah in self.forms:
+            # generate code for Python interface
+            ah._generate_interface_code(module_name=module_name)
+
+            # compile code
+            ah._compile(namespace, module_name=module_name)
+        # ...
+
+    @property
+    def forms(self):
+        return self._forms
+
+    @property
+    def equation(self):
+        return self._equation
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+    def assemble(self, *args, **kwargs):
+        lhs = self.equation.lhs
+        if lhs:
+            lhs.assemble(*args, **kwargs)
+
+        rhs = self.equation.rhs
+        if rhs:
+            raise NotImplementedError('TODO')
+
+
+
 class DiscreteEquation(BasicDiscrete):
 
     def __init__(self, expr, *args, **kwargs):
@@ -308,7 +436,8 @@ class Model(BasicDiscrete):
             self._mapping = args[1]
 
         # create a module name if not given
-        module_name = kwargs.pop('module_name', 'dependencies_{}'.format(abs(hash(self))))
+        tag = random_string( 8 )
+        module_name = kwargs.pop('module_name', 'dependencies_{}'.format(tag))
 
         # ... create discrete forms
         test_space = self.spaces[0]
@@ -319,16 +448,19 @@ class Model(BasicDiscrete):
             kernel_expr = evaluate(a)
             if isinstance(a, sym_BilinearForm):
                 spaces = (test_space, trial_space)
-                ah = DiscreteBilinearForm(a, kernel_expr, spaces, to_compile=False,
-                                  module_name=module_name)
+                ah = DiscreteBilinearForm(a, kernel_expr, spaces,
+                                          to_compile=False,
+                                          module_name=module_name)
 
             elif isinstance(a, sym_LinearForm):
-                ah = DiscreteLinearForm(a, kernel_expr, test_space, to_compile=False,
-                                module_name=module_name)
+                ah = DiscreteLinearForm(a, kernel_expr, test_space,
+                                        to_compile=False,
+                                        module_name=module_name)
 
             elif isinstance(a, sym_Integral):
-                ah = DiscreteIntegral(a, kernel_expr, test_space, to_compile=False,
-                                  module_name=module_name)
+                ah = DiscreteIntegral(a, kernel_expr, test_space,
+                                      to_compile=False,
+                                      module_name=module_name)
 
             d_forms[name] = ah
 
@@ -410,10 +542,7 @@ def discretize(a, *args, **kwargs):
     if isinstance(a, sym_BasicForm):
         kernel_expr = evaluate(a)
         if len(kernel_expr) > 1:
-            # TODO this should be improved later. for the moment spl is not at
-            # the same level as sympde
-            msg = '> weak form has multiple expression. Use the Model concept instead'
-            raise ValueError(msg)
+            return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 
     if isinstance(a, sym_BilinearForm):
         return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
