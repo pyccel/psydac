@@ -27,7 +27,7 @@ SPL_DEFAULT_FOLDER = '__pycache__/spl'
 class BasicDiscrete(object):
 
     def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
-                 module_name=None, target=None, boundary=None):
+                 module_name=None, boundary=None):
 
         # ...
         if boundary:
@@ -40,8 +40,16 @@ class BasicDiscrete(object):
             # boundary is now a list of lists
         # ...
 
-        # ... TODO must map target from a string
-        kernel = Kernel(a, kernel_expr, target=target)
+        # ...
+        if len(kernel_expr) > 1:
+            raise ValueError('> Expecting only one kernel')
+
+        target = kernel_expr[0].target
+        # ...
+
+        # ...
+        kernel = Kernel(a, kernel_expr, target=target,
+                        discrete_boundary=boundary)
         assembly = Assembly(kernel)
         interface = Interface(assembly)
         # ...
@@ -135,13 +143,7 @@ class BasicDiscrete(object):
 
         code = self.dependencies_code
         if module_name is None:
-            if self.target is None:
-                ID = self.tag
-
-            else:
-                raise NotImplementedError('TODO')
-
-            module_name = 'dependencies_{}'.format(ID)
+            module_name = 'dependencies_{}'.format(self.tag)
         self._dependencies_fname = write_code(module_name, code, ext='py', folder=folder)
 
     def _generate_interface_code(self, module_name=None):

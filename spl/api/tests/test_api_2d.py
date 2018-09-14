@@ -179,7 +179,7 @@ def test_api_bilinear_2d_scalar_5():
     expr = dot(grad(v), grad(u))
     a_0 = BilinearForm((v,u), expr, name='a_0')
 
-#    expr = v*trace_1(grad(u), B1)
+    expr = v*trace_1(grad(u), B1)
     expr = v*trace_0(u, B1)
     a_bnd = BilinearForm((v, u), expr, name='a_bnd')
     # ...
@@ -369,22 +369,22 @@ def test_api_model_2d_stokes():
 ###############################################
 if __name__ == '__main__':
 
-    # ...
-    test_api_bilinear_2d_scalar_1()
-    test_api_bilinear_2d_scalar_2()
-    test_api_bilinear_2d_scalar_3()
-    test_api_bilinear_2d_scalar_4()
-#    test_api_bilinear_2d_scalar_5()
-    test_api_bilinear_2d_block_1()
-
-    test_api_bilinear_2d_scalar_1_mapping()
-
-    test_api_linear_2d_scalar_1()
-    test_api_linear_2d_scalar_2()
-
-    test_api_function_2d_scalar_1()
-    # ...
+#    # ...
+#    test_api_bilinear_2d_scalar_1()
+#    test_api_bilinear_2d_scalar_2()
+#    test_api_bilinear_2d_scalar_3()
+#    test_api_bilinear_2d_scalar_4()
+    test_api_bilinear_2d_scalar_5()
+#    test_api_bilinear_2d_block_1()
 #
+#    test_api_bilinear_2d_scalar_1_mapping()
+#
+#    test_api_linear_2d_scalar_1()
+#    test_api_linear_2d_scalar_2()
+#
+#    test_api_function_2d_scalar_1()
+#    # ...
+
 #    # ...
 #    test_api_model_2d_poisson()
 #    test_api_model_2d_stokes()
