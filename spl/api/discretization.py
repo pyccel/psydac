@@ -21,6 +21,9 @@ from spl.api.codegen.utils import write_code
 import os
 import importlib
 
+SPL_DEFAULT_FOLDER = '__pycache__/spl'
+
+
 class BasicDiscrete(object):
 
     def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
@@ -112,7 +115,7 @@ class BasicDiscrete(object):
         return code
 
     def _save_code(self, module_name=None):
-        folder = 'tmp'
+        folder = SPL_DEFAULT_FOLDER
 
         code = self.dependencies_code
         if module_name is None:
