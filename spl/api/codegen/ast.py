@@ -483,8 +483,7 @@ class EvalMapping(SplBasic):
             body = [For(indices_basis[i], ranges_basis[i],body)]
 
         # put the body in for loops of quadrature points
-        for i in range(dim-1,-1,-1):
-            body = [For(indices_quad[i], ranges_quad[i],body)]
+        body = filter_loops(indices_quad, ranges_quad, body, self.discrete_boundary)
 
         # initialization of the matrix
         init_vals = [f[[Slice(None,None)]*dim] for f in mapping_values]
@@ -575,10 +574,7 @@ class EvalField(SplBasic):
             body = [For(indices_basis[i], ranges_basis[i],body)]
 
         # put the body in for loops of quadrature points
-#        for i in range(dim-1,-1,-1):
-#            body = [For(indices_quad[i], ranges_quad[i],body)]
         body = filter_loops(indices_quad, ranges_quad, body, self.discrete_boundary)
-
 
         # initialization of the matrix
         init_vals = [f[[Slice(None,None)]*dim] for f in fields_val]
