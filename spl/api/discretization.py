@@ -4,6 +4,7 @@ from collections import OrderedDict
 
 from pyccel.ast import Nil
 
+from sympde.core import BasicForm as sym_BasicForm
 from sympde.core import BilinearForm as sym_BilinearForm
 from sympde.core import LinearForm as sym_LinearForm
 from sympde.core import Integral as sym_Integral
@@ -33,6 +34,8 @@ class BasicDiscrete(object):
 
         # ...
         self._expr = a
+        self._kernel_expr = kernel_expr
+        self._target = target
         self._mapping = None
         self._interface = interface
         self._dependencies = self.interface.dependencies
@@ -57,6 +60,14 @@ class BasicDiscrete(object):
     @property
     def expr(self):
         return self._expr
+
+    @property
+    def kernel_expr(self):
+        return self._kernel_expr
+
+    @property
+    def target(self):
+        return self._target
 
     @property
     def mapping(self):
@@ -105,7 +116,12 @@ class BasicDiscrete(object):
 
         code = self.dependencies_code
         if module_name is None:
-            ID = abs(hash(self))
+            if self.target is None:
+                ID = abs(hash(self.kernel_expr[0]))
+
+            else:
+                raise NotImplementedError('TODO')
+
             module_name = 'dependencies_{}'.format(ID)
         self._dependencies_fname = write_code(module_name, code, ext='py', folder=folder)
 
@@ -277,18 +293,20 @@ class Model(BasicDiscrete):
         test_space = self.spaces[0]
         trial_space = self.spaces[1]
         d_forms = {}
+        # TODO treat equation forms
         for name, a in list(expr.forms.items()):
+            kernel_expr = evaluate(a)
             if isinstance(a, sym_BilinearForm):
                 spaces = (test_space, trial_space)
-                ah = DiscreteBilinearForm(a, spaces, to_compile=False,
+                ah = DiscreteBilinearForm(a, kernel_expr, spaces, to_compile=False,
                                   module_name=module_name)
 
             elif isinstance(a, sym_LinearForm):
-                ah = DiscreteLinearForm(a, test_space, to_compile=False,
+                ah = DiscreteLinearForm(a, kernel_expr, test_space, to_compile=False,
                                 module_name=module_name)
 
             elif isinstance(a, sym_Integral):
-                ah = DiscreteIntegral(a, test_space, to_compile=False,
+                ah = DiscreteIntegral(a, kernel_expr, test_space, to_compile=False,
                                   module_name=module_name)
 
             d_forms[name] = ah
@@ -368,28 +386,21 @@ class Model(BasicDiscrete):
 
 def discretize(a, *args, **kwargs):
 
-    if isinstance(a, sym_BilinearForm):
+    if isinstance(a, sym_BasicForm):
         kernel_expr = evaluate(a)
         if len(kernel_expr) > 1:
+            # TODO this should be improved later. for the moment spl is not at
+            # the same level as sympde
             msg = '> weak form has multiple expression. Use the Model concept instead'
             raise ValueError(msg)
 
+    if isinstance(a, sym_BilinearForm):
         return DiscreteBilinearForm(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_LinearForm):
-        kernel_expr = evaluate(a)
-        if len(kernel_expr) > 1:
-            msg = '> weak form has multiple expression. Use the Model concept instead'
-            raise ValueError(msg)
-
         return DiscreteLinearForm(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_Integral):
-        kernel_expr = evaluate(a)
-        if len(kernel_expr) > 1:
-            msg = '> weak form has multiple expression. Use the Model concept instead'
-            raise ValueError(msg)
-
         return DiscreteIntegral(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_Model):

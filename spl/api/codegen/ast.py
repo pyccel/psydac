@@ -1,5 +1,7 @@
 from collections import OrderedDict
 from itertools import groupby
+import string
+import random
 
 from sympy import Basic
 from sympy import symbols, Symbol, IndexedBase, Indexed, Function
@@ -41,6 +43,12 @@ from sympde.core.derivatives import get_index_derivatives
 from sympde.core.math import math_atoms_as_str
 
 FunctionalForms = (BilinearForm, LinearForm, Integral)
+
+def random_string( n ):
+    chars    = string.ascii_uppercase + string.ascii_lowercase + string.digits
+    selector = random.SystemRandom()
+    return ''.join( selector.choice( chars ) for _ in range( n ) )
+
 
 def compute_atoms_expr(atom,indices_qds,indices_test,
                       indices_trial, basis_trial,
@@ -220,17 +228,17 @@ def is_field(expr):
 
 class SplBasic(Basic):
 
-    def __new__(cls, arg, name=None, prefix=None, debug=False, detailed=False):
+    def __new__(cls, tag, name=None, prefix=None, debug=False, detailed=False):
 
         if name is None:
             if prefix is None:
                 raise ValueError('prefix must be given')
 
-            ID = abs(hash(arg))
-            name = '{prefix}_{ID}'.format(ID=ID, prefix=prefix)
+            name = '{prefix}_{tag}'.format(tag=tag, prefix=prefix)
 
         obj = Basic.__new__(cls)
         obj._name = name
+        obj._tag = tag
         obj._dependencies = []
         obj._debug = debug
         obj._detailed = detailed
@@ -240,6 +248,10 @@ class SplBasic(Basic):
     @property
     def name(self):
         return self._name
+
+    @property
+    def tag(self):
+        return self._tag
 
     @property
     def func(self):
@@ -508,8 +520,6 @@ class Kernel(SplBasic):
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
 
-        obj = SplBasic.__new__(cls, weak_form, name=name, prefix='kernel')
-
         # ...
         # get the target expr if there are multiple expressions (domain/boundary)
         if target is None:
@@ -523,6 +533,9 @@ class Kernel(SplBasic):
             kernel_expr = [i.expr for i in kernel_expr if i.target is target]
             kernel_expr = kernel_expr[0]
         # ...
+
+        tag = random_string( 8 )
+        obj = SplBasic.__new__(cls, tag, name=name, prefix='kernel')
 
         obj._weak_form = weak_form
         obj._kernel_expr = kernel_expr
@@ -927,7 +940,7 @@ class Assembly(SplBasic):
         if not isinstance(kernel, Kernel):
             raise TypeError('> Expecting a kernel')
 
-        obj = SplBasic.__new__(cls, kernel, name=name, prefix='assembly')
+        obj = SplBasic.__new__(cls, kernel.tag, name=name, prefix='assembly')
 
         obj._kernel = kernel
 
@@ -1169,7 +1182,7 @@ class Interface(SplBasic):
         if not isinstance(assembly, Assembly):
             raise TypeError('> Expecting an Assembly')
 
-        obj = SplBasic.__new__(cls, assembly, name=name, prefix='interface')
+        obj = SplBasic.__new__(cls, assembly.tag, name=name, prefix='interface')
 
         obj._assembly = assembly
 

@@ -13,6 +13,7 @@ from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
 from sympde.core import Domain
+from sympde.core import Boundary, trace_0, trace_1
 from sympde.gallery import Poisson, Stokes
 
 from spl.fem.basic   import FemField
@@ -165,6 +166,37 @@ def test_api_bilinear_2d_scalar_4():
 
 def test_api_bilinear_2d_scalar_5():
     print('============ test_api_bilinear_2d_scalar_5 =============')
+
+    # ... abstract model
+    B1 = Boundary(r'\Gamma_1', domain)
+
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a_0 = BilinearForm((v,u), expr, name='a_0')
+
+    expr = v*trace_1(grad(u), B1)
+    a_bnd = BilinearForm((v, u), expr, name='a_bnd')
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    # ...
+    ah_0 = discretize(a_0, [Vh, Vh])
+    ah_bnd = discretize(a_bnd, [Vh, Vh])
+
+    M = ah_0.assemble()
+#    M = ah_bnd.assemble()
+    # ...
+
+def test_api_bilinear_2d_scalar_1_mapping():
+    print('============ test_api_bilinear_2d_scalar_1_mapping =============')
 
     # ... abstract model
     M = Mapping('M', rdim=2, domain=domain)
@@ -322,33 +354,35 @@ def test_api_model_2d_stokes():
     M1 = ah.assemble()
     M2 = bh.assemble()
 
-    # we can assemble the full model either by calling directly the discrete
-    # bilinear form
-    Ah = model_h.forms['A']
-    M = Ah.assemble()
-
-    # or through the equation attribut, which is independent from the model
-    lhs_h = model_h.equation.lhs
-    M = lhs_h.assemble()
-    # ...
+#    # we can assemble the full model either by calling directly the discrete
+#    # bilinear form
+#    Ah = model_h.forms['A']
+#    M = Ah.assemble()
+#
+#    # or through the equation attribut, which is independent from the model
+#    lhs_h = model_h.equation.lhs
+#    M = lhs_h.assemble()
+#    # ...
 
 ###############################################
 if __name__ == '__main__':
 
-    # ...
-    test_api_bilinear_2d_scalar_1()
-    test_api_bilinear_2d_scalar_2()
-    test_api_bilinear_2d_scalar_3()
-    test_api_bilinear_2d_scalar_4()
+#    # ...
+#    test_api_bilinear_2d_scalar_1()
+#    test_api_bilinear_2d_scalar_2()
+#    test_api_bilinear_2d_scalar_3()
+#    test_api_bilinear_2d_scalar_4()
     test_api_bilinear_2d_scalar_5()
-    test_api_bilinear_2d_block_1()
-
-    test_api_linear_2d_scalar_1()
-    test_api_linear_2d_scalar_2()
-
-    test_api_function_2d_scalar_1()
-    # ...
-
+#    test_api_bilinear_2d_block_1()
+#
+#    test_api_bilinear_2d_scalar_1_mapping()
+#
+#    test_api_linear_2d_scalar_1()
+#    test_api_linear_2d_scalar_2()
+#
+#    test_api_function_2d_scalar_1()
+#    # ...
+#
 #    # ...
 #    test_api_model_2d_poisson()
 #    test_api_model_2d_stokes()
