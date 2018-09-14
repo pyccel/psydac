@@ -295,6 +295,7 @@ def is_field(expr):
     return False
 
 class SplBasic(Basic):
+    _discrete_boundary = None
 
     def __new__(cls, tag, name=None, prefix=None, debug=False, detailed=False):
 
@@ -341,9 +342,13 @@ class SplBasic(Basic):
     def detailed(self):
         return self._detailed
 
+    @property
+    def discrete_boundary(self):
+        return self._discrete_boundary
+
 class EvalMapping(SplBasic):
 
-    def __new__(cls, space, mapping, name=None, nderiv=1):
+    def __new__(cls, space, mapping, discrete_boundary=None, name=None, nderiv=1):
 
         if not isinstance(mapping, Mapping):
             raise TypeError('> Expecting a Mapping object')
@@ -352,6 +357,7 @@ class EvalMapping(SplBasic):
 
         obj._space = space
         obj._mapping = mapping
+        obj._discrete_boundary = discrete_boundary
 
         dim = mapping.rdim
 
@@ -491,7 +497,7 @@ class EvalMapping(SplBasic):
 
 class EvalField(SplBasic):
 
-    def __new__(cls, space, fields, name=None):
+    def __new__(cls, space, fields, discrete_boundary=None, name=None):
 
         if not isinstance(fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
@@ -500,6 +506,7 @@ class EvalField(SplBasic):
 
         obj._space = space
         obj._fields = Tuple(*fields)
+        obj._discrete_boundary = discrete_boundary
         obj._func = obj._initialize()
 
         return obj
@@ -568,8 +575,10 @@ class EvalField(SplBasic):
             body = [For(indices_basis[i], ranges_basis[i],body)]
 
         # put the body in for loops of quadrature points
-        for i in range(dim-1,-1,-1):
-            body = [For(indices_quad[i], ranges_quad[i],body)]
+#        for i in range(dim-1,-1,-1):
+#            body = [For(indices_quad[i], ranges_quad[i],body)]
+        body = filter_loops(indices_quad, ranges_quad, body, self.discrete_boundary)
+
 
         # initialization of the matrix
         init_vals = [f[[Slice(None,None)]*dim] for f in fields_val]
@@ -646,10 +655,6 @@ class Kernel(SplBasic):
     @property
     def target(self):
         return self._target
-
-    @property
-    def discrete_boundary(self):
-        return self._discrete_boundary
 
     @property
     def n_rows(self):
@@ -773,7 +778,8 @@ class Kernel(SplBasic):
                         fields_expressions += [e]
                         space = list(fs)[0].space
 
-                eval_field = EvalField(space, fields_expressions)
+                eval_field = EvalField(space, fields_expressions,
+                                       discrete_boundary=self.discrete_boundary)
                 self._eval_fields.append(eval_field)
 
         # update dependencies
@@ -793,7 +799,9 @@ class Kernel(SplBasic):
             elif is_function:
                 space = self.weak_form.space
 
-            eval_mapping = EvalMapping(space, mapping, nderiv=nderiv)
+            eval_mapping = EvalMapping(space, mapping,
+                                       discrete_boundary=self.discrete_boundary,
+                                       nderiv=nderiv)
             self._eval_mapping = eval_mapping
 
             # update dependencies

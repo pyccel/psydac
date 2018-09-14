@@ -131,10 +131,13 @@ def test_kernel_bilinear_2d_scalar_5(mapping=False):
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
 
+    F = Field('F', V)
+
     expr = dot(grad(v), grad(u))
     a_0 = BilinearForm((v,u), expr, mapping=mapping, name='a_0')
 
-    expr = v*trace_1(grad(u), B1)
+#    expr = v*trace_1(grad(u), B1)
+    expr = F*v*trace_1(grad(u), B1)
     a_bnd = BilinearForm((v, u), expr, mapping=mapping, name='a_bnd')
 
     expr = a_0(v,u) + a_bnd(v,u)
