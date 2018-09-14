@@ -30,7 +30,7 @@ from sympde.core import grad
 from sympde.core import Constant
 from sympde.core import Mapping
 from sympde.core import Field
-from sympde.core import Boundary
+from sympde.core import Boundary, BoundaryVector, NormalVector, TangentVector
 from sympde.core import Covariant, Contravariant
 from sympde.core import BilinearForm, LinearForm, Integral, BasicForm
 from sympde.core.derivatives import _partial_derivatives
@@ -50,6 +50,9 @@ def random_string( n ):
     chars    = string.ascii_uppercase + string.ascii_lowercase + string.digits
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
+
+def compute_boundary_vector(vector, discrete_boundary):
+    return Comment('TODO')
 
 
 def filter_loops(indices, ranges, body, discrete_boundary):
@@ -898,6 +901,16 @@ class Kernel(SplBasic):
         else:
             body += [Assign(coordinates[i],positions[i][indices_qds[i]])
                      for i in range(dim)]
+        # ...
+
+        # ... normal/tangent vectors
+        if isinstance(self.target, Boundary):
+            vectors = self.kernel_expr.atoms(BoundaryVector)
+            for vector in vectors:
+                stmt = compute_boundary_vector(vector, self.discrete_boundary)
+                print(stmt)
+                body += [stmt]
+        import sys; sys.exit(0)
         # ...
 
         # ...
