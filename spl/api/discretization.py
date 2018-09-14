@@ -27,7 +27,18 @@ SPL_DEFAULT_FOLDER = '__pycache__/spl'
 class BasicDiscrete(object):
 
     def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
-                 module_name=None, target=None):
+                 module_name=None, target=None, boundary=None):
+
+        # ...
+        if boundary:
+            if not isinstance(boundary, (tuple, list)):
+                raise TypeError('> Expecting a tuple or list for boundary')
+
+            boundary = list(boundary)
+            if not isinstance(boundary[0], (tuple, list)):
+                boundary = [boundary]
+            # boundary is now a list of lists
+        # ...
 
         # ... TODO must map target from a string
         kernel = Kernel(a, kernel_expr, target=target)
@@ -39,6 +50,7 @@ class BasicDiscrete(object):
         self._expr = a
         self._kernel_expr = kernel_expr
         self._target = target
+        self._tag = kernel.tag
         self._mapping = None
         self._interface = interface
         self._dependencies = self.interface.dependencies
@@ -71,6 +83,10 @@ class BasicDiscrete(object):
     @property
     def target(self):
         return self._target
+
+    @property
+    def tag(self):
+        return self._tag
 
     @property
     def mapping(self):
@@ -120,7 +136,7 @@ class BasicDiscrete(object):
         code = self.dependencies_code
         if module_name is None:
             if self.target is None:
-                ID = abs(hash(self.kernel_expr[0]))
+                ID = self.tag
 
             else:
                 raise NotImplementedError('TODO')

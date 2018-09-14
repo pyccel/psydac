@@ -30,12 +30,14 @@ from sympde.core import grad
 from sympde.core import Constant
 from sympde.core import Mapping
 from sympde.core import Field
+from sympde.core import Boundary
 from sympde.core import Covariant, Contravariant
 from sympde.core import BilinearForm, LinearForm, Integral, BasicForm
 from sympde.core.derivatives import _partial_derivatives
 from sympde.core.space import FunctionSpace
 from sympde.core.space import TestFunction
 from sympde.core.space import VectorTestFunction
+from sympde.core.space import Trace
 from sympde.printing.pycode import pycode  # TODO remove from here
 from sympde.core.derivatives import print_expression
 from sympde.core.derivatives import get_atom_derivatives
@@ -49,6 +51,42 @@ def random_string( n ):
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
+
+def filter_loops(indices, ranges, body, discrete_boundary):
+
+    quad_mask = []
+    quad_ext = []
+    if discrete_boundary:
+        # TODO improve using namedtuple or a specific class ? to avoid the 0 index
+        #      => make it easier to understand
+        quad_mask = [i[0] for i in discrete_boundary]
+        quad_ext  = [i[1] for i in discrete_boundary]
+
+        # discrete_boundary gives the perpendicular indices, then we need to
+        # remove them from directions
+
+    dim = len(indices)
+    for i in range(dim-1,-1,-1):
+        rx = ranges[i]
+        x = indices[i]
+        start = rx.start
+        end   = rx.stop
+
+        if i in quad_mask:
+            i_index = quad_mask.index(i)
+            ext = quad_ext[i_index]
+            if ext == -1:
+                end = start + 1
+
+            elif ext == 1:
+                start = end - 1
+            else:
+                raise ValueError('> Wrong value for ext. It should be -1 or 1')
+
+        rx = Range(start, end)
+        body = [For(x, rx, body)]
+
+    return body
 
 def compute_atoms_expr(atom,indices_qds,indices_test,
                       indices_trial, basis_trial,
@@ -515,23 +553,44 @@ class EvalField(SplBasic):
 # target is used when there are multiple expression (domain/boundaries)
 class Kernel(SplBasic):
 
-    def __new__(cls, weak_form, kernel_expr, target=None, name=None):
+    def __new__(cls, weak_form, kernel_expr, target=None, discrete_boundary=None, name=None):
 
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
 
         # ...
         # get the target expr if there are multiple expressions (domain/boundary)
+        on_boundary = False
         if target is None:
             if len(kernel_expr) > 1:
                 msg = '> weak form has multiple expression, but no target was given'
                 raise ValueError(msg)
 
-            kernel_expr = kernel_expr[0].expr
+            e = kernel_expr[0]
+            on_boundary = isinstance(e.target, Boundary)
+            kernel_expr = e.expr
 
         else:
-            kernel_expr = [i.expr for i in kernel_expr if i.target is target]
-            kernel_expr = kernel_expr[0]
+            ls = [i for i in kernel_expr if i.target is target]
+            e = ls[0]
+            on_boundary = isinstance(e.target, Boundary)
+            kernel_expr = e.expr
+        # ...
+
+        # ...
+        if discrete_boundary:
+            if not isinstance(discrete_boundary, (tuple, list)):
+                raise TypeError('> Expecting a tuple or list for discrete_boundary')
+
+            discrete_boundary = list(discrete_boundary)
+            if not isinstance(discrete_boundary[0], (tuple, list)):
+                discrete_boundary = [discrete_boundary]
+            # discrete_boundary is now a list of lists
+        # ...
+
+        # ... discrete_boundary must be given if there are Trace nodes
+        if on_boundary and not discrete_boundary:
+            raise ValueError('> discrete_bounary must be provided for a boundary Kernel')
         # ...
 
         tag = random_string( 8 )
@@ -540,6 +599,7 @@ class Kernel(SplBasic):
         obj._weak_form = weak_form
         obj._kernel_expr = kernel_expr
         obj._target = target
+        obj._discrete_boundary = discrete_boundary
 
         obj._func = obj._initialize()
 
@@ -556,6 +616,10 @@ class Kernel(SplBasic):
     @property
     def target(self):
         return self._target
+
+    @property
+    def discrete_boundary(self):
+        return self._discrete_boundary
 
     @property
     def n_rows(self):
@@ -782,7 +846,6 @@ class Kernel(SplBasic):
         # ...
 
         # ranges
-        ranges_qdr   = [Range(qds_dim[i]) for i in range(dim)]
         ranges_test  = [Range(test_degrees[i]+1) for i in range(dim_test)]
         ranges_trial = [Range(trial_degrees[i]+1) for i in range(dim_trial)]
         # ...
@@ -855,8 +918,8 @@ class Kernel(SplBasic):
 
         # ...
         # put the body in for loops of quadrature points
-        for i in range(dim-1,-1,-1):
-            body = [For(indices_qds[i],ranges_qdr[i],body)]
+        ranges_qdr = [Range(qds_dim[i]) for i in range(dim)]
+        body = filter_loops(indices_qds, ranges_qdr, body, self.discrete_boundary)
 
         # initialization of intermediate vars
         init_vars = [Assign(v[i],0.0) for i in range(ln)]
@@ -1047,9 +1110,6 @@ class Assembly(SplBasic):
         # sympy does not like ':'
         _slice = Slice(None,None)
 
-        # ranges
-        ranges_elm  = [Range(starts[i], ends[i]-test_pads[i]+1) for i in range(dim)]
-
         # assignments
         body  = [Assign(indices_span[i], spans[i][indices_elm[i]]) for i in range(dim)]
         if self.debug and self.detailed:
@@ -1105,8 +1165,8 @@ class Assembly(SplBasic):
         # ...
 
         # ... loop over elements
-        for i in range(dim-1,-1,-1):
-            body = [For(indices_elm[i], ranges_elm[i], body)]
+        ranges_elm  = [Range(starts[i], ends[i]+1) for i in range(dim)]
+        body = filter_loops(indices_elm, ranges_elm, body, self.kernel.discrete_boundary)
         # ...
 
         # ... prelude
@@ -1268,11 +1328,17 @@ class Interface(SplBasic):
         # ... getting data from fem space
         body = []
 
-        body += [Assign(starts, DottedName(test_space, 'vector_space', 'starts'))]
-        body += [Assign(ends, DottedName(test_space, 'vector_space', 'ends'))]
+        # TODO use supports here with starts / ends
         body += [Assign(test_degrees, DottedName(test_space, 'vector_space', 'pads'))]
         if is_bilinear:
             body += [Assign(trial_degrees, DottedName(trial_space, 'vector_space', 'pads'))]
+
+        body += [Comment(' TODO must use suppoerts with starts/ends')]
+        body += [Assign(starts, DottedName(test_space, 'vector_space', 'starts'))]
+        body += [Assign(ends, DottedName(test_space, 'vector_space', 'ends'))]
+        for i in range(0, dim):
+            body += [Assign(ends[i], ends[i]-test_degrees[i])]
+
 
         body += [Assign(spans, DottedName(test_space, 'spans'))]
         body += [Assign(quad_orders, DottedName(test_space, 'quad_order'))]

@@ -140,7 +140,7 @@ def test_kernel_bilinear_1d_scalar_5(mapping=False):
     a = BilinearForm((v,u), expr, mapping=mapping, name='a')
 
     kernel_expr = evaluate(a)
-    kernel_bnd = Kernel(a, kernel_expr, target=B1, name='kernel_bnd')
+    kernel_bnd = Kernel(a, kernel_expr, target=B1, discrete_boundary=(1, -1), name='kernel_bnd')
     kernel_int = Kernel(a, kernel_expr, target=domain, name='kernel_int')
     for kernel in [kernel_int, kernel_bnd]:
         code = pycode(kernel)
