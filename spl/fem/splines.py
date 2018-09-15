@@ -19,6 +19,7 @@ from spl.core.bsplines         import (
         basis_ders_on_quad_grid
         )
 from spl.utilities.quadratures import gauss_legendre
+from spl.utilities.quadratures import quadrature_inter
 
 __all__ = ['SplineSpace']
 
@@ -117,11 +118,19 @@ class SplineSpace( FemSpace ):
         k    = quad_order or p  # polynomial order for which the mass matrix is exact
 
         # gauss-legendre quadrature rule
-        u, w = gauss_legendre( k )
-        points, weights = quadrature_grid( self.breaks, u, w )
+        if self.periodic:
+            u, w = gauss_legendre( k )
+            points, weights = quadrature_grid( self.breaks, u, w )
+
+        else:
+            # it seems that legendre gives better results than this formula with
+            # radau
+            # TODO check if it is a precision problem
+            points, weights = quadrature_inter( self.breaks, k )
+
         basis = basis_ders_on_quad_grid( T, p, points, nderiv )
 
-        self._quad_order   = len( u )
+        self._quad_order   = k + 1
         self._quad_basis   = basis
         self._quad_points  = points
         self._quad_weights = weights
