@@ -25,16 +25,19 @@ from spl.api.discretization import DiscreteBoundary
 from spl.mapping.discrete import SplineMapping
 
 from numpy import linspace, zeros, allclose
+from utils import assert_identical_coo
+
+DEBUG = False
 
 domain = Domain('\Omega', dim=2)
 
 def create_discrete_space():
     # ... discrete spaces
     # Input data: degree, number of elements
-    p1  = 1 ; p2  = 1
-#    p1  = 2 ; p2  = 2
-    ne1 = 1 ; ne2 = 1
-#    ne1 = 4 ; ne2 = 4
+#    p1  = 1 ; p2  = 1
+    p1  = 2 ; p2  = 2
+#    ne1 = 1 ; ne2 = 1
+    ne1 = 4 ; ne2 = 4
 
     # Create uniform grid
     grid_1 = linspace( 0., 1., num=ne1+1 )
@@ -208,25 +211,22 @@ def test_api_bilinear_2d_scalar_5():
     ah_B1 = discretize(a_B1, [Vh, Vh], boundary=B1)
     ah_B2 = discretize(a_B2, [Vh, Vh], boundary=B2)
 
-    M = ah_0.assemble(alpha=0.5)
-    print('>>>> ah_0')
-    print(M.tocoo())
+    M_0 = ah_0.assemble(alpha=0.5)
+    M_B1 = ah_B1.assemble()
+    M_B2 = ah_B2.assemble()
 
-    M = ah_B1.assemble()
-    print('>>>> ah_B1')
-    print(M.tocoo())
-
-    M = ah_B2.assemble()
-    print('>>>> ah_B2')
-    print(M.tocoo())
+    M_expected = M_0.tocoo() + M_B1.tocoo() + M_B2.tocoo()
     # ...
 
     # ...
     ah = discretize(a, [Vh, Vh], boundary=[B1, B2])
     M = ah.assemble(alpha=0.5)
-    print('>>>> ah')
-    print(M.tocoo())
     # ...
+
+    # ...
+    assert_identical_coo(M.tocoo(), M_expected)
+    # ...
+
 
 def test_api_bilinear_2d_scalar_1_mapping():
     print('============ test_api_bilinear_2d_scalar_1_mapping =============')
