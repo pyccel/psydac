@@ -233,6 +233,11 @@ class BasicDiscrete(object):
 
     def _check_arguments(self, **kwargs):
 
+        # TODO do we need a method from Interface to map the dictionary of arguments
+        # that are passed for the call (in the same spirit of build_arguments)
+        # the idea is to be sure of their order, since they can be passed to
+        # Fortran
+
         _kwargs = {}
 
         # ... mandatory arguments
