@@ -1,3 +1,7 @@
+# TODO - in pycode, when printing a For loop, we should check if end == start + 1
+#        in which case, we shall replace the For statement by its body and subs
+#        the iteration index by its value (start)
+
 from collections import OrderedDict
 from itertools import groupby
 import string
@@ -8,6 +12,7 @@ from sympy import Basic
 from sympy import symbols, Symbol, IndexedBase, Indexed, Function
 from sympy import Mul, Add, Tuple
 from sympy import Matrix, ImmutableDenseMatrix
+from sympy import S as sympy_S
 
 from pyccel.ast.core import For
 from pyccel.ast.core import Assign
@@ -118,7 +123,25 @@ def filter_loops(indices, ranges, body, discrete_boundary, boundary_basis=False)
 
     return body
 
-def compute_atoms_expr(atom,indices_qds,indices_test,
+def filter_product(indices, args, discrete_boundary):
+
+    mask = []
+    ext = []
+    if discrete_boundary:
+        # TODO improve using namedtuple or a specific class ? to avoid the 0 index
+        #      => make it easier to understand
+        mask = [i[0] for i in discrete_boundary]
+        ext  = [i[1] for i in discrete_boundary]
+
+        # discrete_boundary gives the perpendicular indices, then we need to
+        # remove them from directions
+
+    dim = len(indices)
+    args = [args[i][indices[i]] for i in range(dim) if not(i in mask)]
+
+    return Mul(*args)
+
+def compute_atoms_expr(atom,indices_quad,indices_test,
                       indices_trial, basis_trial,
                       basis_test,cords,test_function, mapping):
 
@@ -147,10 +170,10 @@ def compute_atoms_expr(atom,indices_qds,indices_test,
     dim  = len(indices_test)
     for i in range(dim):
         if direction == i+1:
-            args.append(basis[i][idxs[i],1,indices_qds[i]])
+            args.append(basis[i][idxs[i],1,indices_quad[i]])
 
         else:
-            args.append(basis[i][idxs[i],0,indices_qds[i]])
+            args.append(basis[i][idxs[i],0,indices_quad[i]])
 
     # ... assign basis on quad point
     logical = not( mapping is None )
@@ -193,7 +216,7 @@ def compute_atoms_expr(atom,indices_qds,indices_test,
 
     return assign, map_stmts
 
-def compute_atoms_expr_field(atom, indices_qds,
+def compute_atoms_expr_field(atom, indices_quad,
                             idxs, basis,
                             test_function):
 
@@ -222,10 +245,10 @@ def compute_atoms_expr_field(atom, indices_qds,
     dim  = len(idxs)
     for i in range(dim):
         if direction == i+1:
-            args.append(basis[i][idxs[i],1,indices_qds[i]])
+            args.append(basis[i][idxs[i],1,indices_quad[i]])
 
         else:
-            args.append(basis[i][idxs[i],0,indices_qds[i]])
+            args.append(basis[i][idxs[i],0,indices_quad[i]])
 
     init = Assign(test_function, Mul(*args))
     # ...
@@ -233,13 +256,13 @@ def compute_atoms_expr_field(atom, indices_qds,
     # ...
     args = [IndexedBase(field_name)[idxs], test_function]
     val_name = print_expression(atom) + '_values'
-    val  = IndexedBase(val_name)[indices_qds]
+    val  = IndexedBase(val_name)[indices_quad]
     update = AugAssign(val,'+',Mul(*args))
     # ...
 
     return init, update
 
-def compute_atoms_expr_mapping(atom, indices_qds,
+def compute_atoms_expr_mapping(atom, indices_quad,
                                idxs, basis,
                                test_function):
 
@@ -267,10 +290,10 @@ def compute_atoms_expr_mapping(atom, indices_qds,
     dim  = len(idxs)
     for i in range(dim):
         if direction == i+1:
-            args.append(basis[i][idxs[i],1,indices_qds[i]])
+            args.append(basis[i][idxs[i],1,indices_quad[i]])
 
         else:
-            args.append(basis[i][idxs[i],0,indices_qds[i]])
+            args.append(basis[i][idxs[i],0,indices_quad[i]])
 
     init = Assign(test_function, Mul(*args))
     # ...
@@ -278,7 +301,7 @@ def compute_atoms_expr_mapping(atom, indices_qds,
     # ...
     args = [IndexedBase(element_name)[idxs], test_function]
     val_name = _print(atom) + '_values'
-    val  = IndexedBase(val_name)[indices_qds]
+    val  = IndexedBase(val_name)[indices_quad]
     update = AugAssign(val,'+',Mul(*args))
     # ...
 
@@ -863,7 +886,7 @@ class Kernel(SplBasic):
         trial_pads    = symbols('trial_p1:%d'%(dim+1))
         test_degrees  = symbols('test_p1:%d'%(dim+1))
         trial_degrees = symbols('trial_p1:%d'%(dim+1))
-        indices_qds   = symbols('g1:%d'%(dim+1))
+        indices_quad   = symbols('g1:%d'%(dim+1))
         qds_dim       = symbols('k1:%d'%(dim+1))
         indices_test  = symbols('il1:%d'%(dim+1))
         indices_trial = symbols('jl1:%d'%(dim+1))
@@ -921,7 +944,7 @@ class Kernel(SplBasic):
         init_map   = OrderedDict()
         for atom in atomic_expr:
             init, map_stmts = compute_atoms_expr(atom,
-                                                 indices_qds,
+                                                 indices_quad,
                                                  indices_test,
                                                  indices_trial,
                                                  basis_trial,
@@ -938,7 +961,7 @@ class Kernel(SplBasic):
         body += list(init_basis.values())
 
         if mapping:
-            body += [Assign(lhs, rhs[indices_qds]) for lhs, rhs in zip(mapping_elements,
+            body += [Assign(lhs, rhs[indices_quad]) for lhs, rhs in zip(mapping_elements,
                                                           mapping_values)]
 
             # ... inv jacobian
@@ -960,7 +983,7 @@ class Kernel(SplBasic):
                 body += [stmt.subs(1/jac, inv_jac)]
 
         else:
-            body += [Assign(coordinates[i],positions[i][indices_qds[i]])
+            body += [Assign(coordinates[i],positions[i][indices_quad[i]])
                      for i in range(dim)]
         # ...
 
@@ -993,14 +1016,13 @@ class Kernel(SplBasic):
         # ...
 
         # ...
-        weighted_vol = [weighted_vols[i][indices_qds[i]] for i in range(dim)]
-        weighted_vol = Mul(*weighted_vol)
+        weighted_vol = filter_product(indices_quad, weighted_vols, self.discrete_boundary)
         # ...
 
         # ...
         # add fields
         for i in range(len(fields_val)):
-            body.append(Assign(fields[i],fields_val[i][indices_qds]))
+            body.append(Assign(fields[i],fields_val[i][indices_quad]))
 
         body.append(Assign(wvol,weighted_vol))
 
@@ -1010,7 +1032,7 @@ class Kernel(SplBasic):
 
         # ...
         # put the body in for loops of quadrature points
-        body = filter_loops(indices_qds, ranges_quad, body,
+        body = filter_loops(indices_quad, ranges_quad, body,
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
 
