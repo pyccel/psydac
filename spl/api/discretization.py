@@ -1,6 +1,7 @@
 # coding: utf-8
 
 from collections import OrderedDict
+from collections import namedtuple
 
 from pyccel.ast import Nil
 
@@ -19,6 +20,7 @@ from spl.api.codegen.ast import Interface
 from spl.api.codegen.printing import pycode
 from spl.api.codegen.utils import write_code
 from spl.linalg.stencil import StencilVector, StencilMatrix
+from spl.linalg.iterative_solvers import cg
 
 import os
 import importlib
@@ -31,6 +33,30 @@ def random_string( n ):
     chars    = string.ascii_uppercase + string.ascii_lowercase + string.digits
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
+
+LinearSystem = namedtuple('LinearSystem', ['lhs', 'rhs'])
+
+
+_default_solver = {'solver':'cg', 'tol':1e-9, 'maxiter':1000, 'verbose':False}
+
+def driver_solve(L, **kwargs):
+    if not isinstance(L, LinearSystem):
+        raise TypeError('> Expecting a LinearSystem object')
+
+    M = L.lhs
+    rhs = L.rhs
+
+    name = kwargs.pop('solver')
+    return_info = kwargs.pop('info', False)
+
+    if name == 'cg':
+        x, info = cg( M, rhs, **kwargs )
+        if return_info:
+            return x, info
+        else:
+            return x
+    else:
+        raise NotImplementedError('Only cg solver is available')
 
 
 class DiscreteBoundary(object):
@@ -449,8 +475,17 @@ class DiscreteEquation(BasicDiscrete):
             raise TypeError('> Expecting a symbolic Equation')
 
         self._expr = expr
-        self._lhs = kwargs.pop('lhs', None)
-        self._rhs = kwargs.pop('rhs', None)
+        # since lhs and rhs are calls, we need to take their expr
+
+        test_trial = args[0]
+        self._lhs = discretize(expr.lhs.expr, test_trial, *args[1:], **kwargs)
+
+        test_spaces = test_trial[0] # take the test space from (test, trial)
+        self._rhs = discretize(expr.rhs.expr, test_spaces, *args[1:], **kwargs)
+
+    @property
+    def expr(self):
+        return self._expr
 
     @property
     def lhs(self):
@@ -460,8 +495,15 @@ class DiscreteEquation(BasicDiscrete):
     def rhs(self):
         return self._rhs
 
-    def solve(self, *args, **kwargs):
-        raise NotImplementedError('TODO')
+    def assemble(self, **kwargs):
+        M = self.lhs.assemble(**kwargs)
+        V = self.rhs.assemble(**kwargs)
+        return LinearSystem(M, V)
+
+    def solve(self, **kwargs):
+        settings = kwargs.pop('settings', _default_solver)
+        L = self.assemble(**kwargs)
+        return driver_solve(L, **settings)
 
 class Model(BasicDiscrete):
 
@@ -595,6 +637,9 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, sym_Integral):
         return DiscreteIntegral(a, kernel_expr, *args, **kwargs)
+
+    elif isinstance(a, sym_Equation):
+        return DiscreteEquation(a, *args, **kwargs)
 
     elif isinstance(a, sym_Model):
         return Model(a, *args, **kwargs)

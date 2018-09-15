@@ -12,6 +12,7 @@ from sympde.core import FunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
+from sympde.core import Equation
 from sympde.core import Domain
 from sympde.core import Boundary, trace_0, trace_1
 from sympde.gallery import Poisson, Stokes
@@ -350,6 +351,35 @@ def test_api_function_2d_scalar_1():
     assert(allclose(integral, 1))
     # ...
 
+def test_api_equation_2d_1():
+    print('============ test_api_equation_2d_1 =============')
+
+    # ... abstract model
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    x,y = V.coordinates
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    expr = cos(2*pi*x)*cos(4*pi*y)*v
+    l = LinearForm(v, expr)
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    # ...
+    equation = Equation(a(v,u), l(v))
+    equation_h = discretize(equation, [Vh, Vh])
+    x = equation_h.solve()
+    # ...
+
 def test_api_model_2d_poisson():
     print('============ test_api_model_2d_poisson =============')
 
@@ -403,7 +433,7 @@ if __name__ == '__main__':
 #    test_api_bilinear_2d_scalar_2()
 #    test_api_bilinear_2d_scalar_3()
 #    test_api_bilinear_2d_scalar_4()
-    test_api_bilinear_2d_scalar_5()
+#    test_api_bilinear_2d_scalar_5()
 #    test_api_bilinear_2d_block_1()
 #
 #    test_api_bilinear_2d_scalar_1_mapping()
@@ -418,3 +448,5 @@ if __name__ == '__main__':
 #    test_api_model_2d_poisson()
 #    test_api_model_2d_stokes()
 #    # ...
+
+    test_api_equation_2d_1()
