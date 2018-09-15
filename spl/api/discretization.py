@@ -417,22 +417,20 @@ class DiscreteSumForm(BasicDiscrete):
         if isinstance(M, (StencilVector, StencilMatrix)):
             M = [M]
 
-        for f in self.forms[1:]:
-            n = len(f.interface.inout_arguments)
+        for form in self.forms[1:]:
+            n = len(form.interface.inout_arguments)
             # add arguments
             for i in range(0, n):
-                key = str(f.interface.inout_arguments[i])
+                key = str(form.interface.inout_arguments[i])
                 kwargs[key] = M[i]
 
-#            print('> before = ', M[0]._data.flatten())
             M = form.assemble(**kwargs)
             if isinstance(M, (StencilVector, StencilMatrix)):
                 M = [M]
-#            print('> after  = ', M[0]._data.flatten())
 
             # remove arguments
             for i in range(0, n):
-                key = str(f.interface.inout_arguments[i])
+                key = str(form.interface.inout_arguments[i])
                 kwargs.pop(key)
 
         if len(M) == 1: M = M[0]
