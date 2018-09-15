@@ -21,8 +21,8 @@ from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
 from spl.fem.tensor  import TensorFemSpace
 from spl.api.discretization import discretize
-from spl.api.discretization import DiscreteBoundary
-from spl.api.discretization import DiscreteDirichletBC
+from spl.api.boundary_condition import DiscreteBoundary
+from spl.api.boundary_condition import DiscreteDirichletBC
 
 from spl.mapping.discrete import SplineMapping
 

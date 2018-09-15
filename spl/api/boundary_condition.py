@@ -1,6 +1,56 @@
+# coding: utf-8
+
+# TODO remove V from apply_dirichlet_bc functions => get info from vector/matrix
+
+from sympde.core import Boundary as sym_Boundary
+
 from spl.linalg.stencil import StencilVector, StencilMatrix
 
-def apply_homogeneous_dirichlet_bc_1d(V, *args):
+class DiscreteBoundary(object):
+    def __init__(self, expr, axis=None, ext=None):
+        if not isinstance(expr, sym_Boundary):
+            raise TypeError('> Expecting a Boundary object')
+
+        if not(axis) and not(ext):
+            msg = '> for the moment, both axis and ext must be given'
+            raise NotImplementedError(msg)
+
+        self._expr = expr
+        self._axis = axis
+        self._ext = ext
+
+    @property
+    def expr(self):
+        return self._expr
+
+    @property
+    def axis(self):
+        return self._axis
+
+    @property
+    def ext(self):
+        return self._ext
+
+class DiscreteBoundaryCondition(object):
+
+    def __init__(self, boundary, value=None):
+        self._boundary = boundary
+        self._value = value
+
+    @property
+    def boundary(self):
+        return self._boundary
+
+    @property
+    def value(self):
+        return self._value
+
+class DiscreteDirichletBC(DiscreteBoundaryCondition):
+    pass
+
+
+# TODO set bc
+def apply_homogeneous_dirichlet_bc_1d(V, bc, *args):
     """ Apply homogeneous dirichlet boundary conditions in 1D """
 
     # assumes a 1D spline space
@@ -8,15 +58,23 @@ def apply_homogeneous_dirichlet_bc_1d(V, *args):
 
     for a in args:
         if isinstance(a, StencilVector):
-            a[0] = 0.
-            a[V.nbasis-1] = 0.
+            if bc.boundary.ext == -1:
+                a[0] = 0.
+
+            if bc.boundary.ext == 1:
+                a[V.nbasis-1] = 0.
+
         elif isinstance(a, StencilMatrix):
-            a[ 0,:] = 0.
-            a[-1,:] = 0.
+            if bc.boundary.ext == -1:
+                a[ 0,:] = 0.
+
+            if bc.boundary.ext == 1:
+                a[-1,:] = 0.
+
         else:
             TypeError('> Expecting StencilVector or StencilMatrix')
 
-def apply_homogeneous_dirichlet_bc_2d(V, *args):
+def apply_homogeneous_dirichlet_bc_2d(V, bc, *args):
     """ Apply homogeneous dirichlet boundary conditions in 2D """
 
     # assumes a 2D Tensor space
@@ -24,54 +82,60 @@ def apply_homogeneous_dirichlet_bc_2d(V, *args):
 
     V1,V2 = V.spaces
 
-    s1, s2 = V.vector_space.starts
-    e1, e2 = V.vector_space.ends
-
     for a in args:
-        if not V1.periodic:
+        if isinstance(a, StencilVector):
+            s1, s2 = a.space.starts
+            e1, e2 = a.space.ends
+
+        elif isinstance(a, StencilMatrix):
+            s1, s2 = a.domain.starts
+            e1, e2 = a.domain.ends
+
+        if bc.boundary.axis == 0:
             if isinstance(a, StencilVector):
-                # left  bc at x=0.
-                if s1 == 0:
+                # left  bc.boundary.at x=0.
+                if s1 == 0 and bc.boundary.ext == -1:
                     a[0,:] = 0.
 
-                # right bc at x=1.
-                if e1 == V1.nbasis-1:
+                # right bc.boundary.at x=1.
+                if e1 == V1.nbasis-1 and bc.boundary.ext == 1:
                     a [e1,:] = 0.
 
             elif isinstance(a, StencilMatrix):
-                # left  bc at x=0.
-                if s1 == 0:
+                # left  bc.boundary.at x=0.
+                if s1 == 0 and bc.boundary.ext == -1:
                     a[0,:,:,:] = 0.
 
-                # right bc at x=1.
-                if e1 == V1.nbasis-1:
+                # right bc.boundary.at x=1.
+                if e1 == V1.nbasis-1 and bc.boundary.ext == 1:
                     a[e1,:,:,:] = 0.
 
             else:
                 TypeError('> Expecting StencilVector or StencilMatrix')
 
-        if not V2.periodic:
+        if bc.boundary.axis == 1:
             if isinstance(a, StencilVector):
-                # lower bc at y=0.
-                if s2 == 0:
+                # lower bc.boundary.at y=0.
+                if s2 == 0 and bc.boundary.ext == -1:
                     a [:,0] = 0.
 
-                # upper bc at y=1.
-                if e2 == V2.nbasis-1:
+                # upper bc.boundary.at y=1.
+                if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
                     a [:,e2] = 0.
 
             elif isinstance(a, StencilMatrix):
-                # lower bc at y=0.
-                if s2 == 0:
+                # lower bc.boundary.at y=0.
+                if s2 == 0 and bc.boundary.ext == -1:
                     a[:,0,:,:] = 0.
-                # upper bc at y=1.
-                if e2 == V2.nbasis-1:
+                # upper bc.boundary.at y=1.
+                if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
                     a[:,e2,:,:] = 0.
 
             else:
                 TypeError('> Expecting StencilVector or StencilMatrix')
 
-def apply_homogeneous_dirichlet_bc_3d(V, *args):
+# TODO set bc
+def apply_homogeneous_dirichlet_bc_3d(V, bc, *args):
     """ Apply homogeneous dirichlet boundary conditions in 3D """
 
     # assumes a 3D Tensor space
@@ -79,81 +143,88 @@ def apply_homogeneous_dirichlet_bc_3d(V, *args):
 
     V1,V2,V3 = V.spaces
 
-    s1, s2, s3 = V.vector_space.starts
-    e1, e2, e3 = V.vector_space.ends
-
     for a in args:
-        if not V1.periodic:
+        if isinstance(a, StencilVector):
+            s1, s2, s3 = a.space.starts
+            e1, e2, e3 = a.space.ends
+
+        elif isinstance(a, StencilMatrix):
+            s1, s2, s3 = a.domain.starts
+            e1, e2, e3 = a.domain.ends
+
+        if bc.boundary.axis == 0:
             if isinstance(a, StencilVector):
                 # left  bc at x=0.
-                if s1 == 0:
+                if s1 == 0 and bc.boundary.ext == -1:
                     a[0,:,:] = 0.
 
                 # right bc at x=1.
-                if e1 == V1.nbasis-1:
+                if e1 == V1.nbasis-1 and bc.boundary.ext == 1:
                     a [e1,:,:] = 0.
 
             elif isinstance(a, StencilMatrix):
                 # left  bc at x=0.
-                if s1 == 0:
+                if s1 == 0 and bc.boundary.ext == -1:
                     a[0,:,:,:,:,:] = 0.
 
                 # right bc at x=1.
-                if e1 == V1.nbasis-1:
+                if e1 == V1.nbasis-1 and bc.boundary.ext == 1:
                     a[e1,:,:,:,:,:] = 0.
 
             else:
                 TypeError('> Expecting StencilVector or StencilMatrix')
 
-        if not V2.periodic:
+        if bc.boundary.axis == 1:
             if isinstance(a, StencilVector):
                 # lower bc at y=0.
-                if s2 == 0:
+                if s2 == 0 and bc.boundary.ext == -1:
                     a [:,0,:] = 0.
 
                 # upper bc at y=1.
-                if e2 == V2.nbasis-1:
+                if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
                     a [:,e2,:] = 0.
 
             elif isinstance(a, StencilMatrix):
                 # lower bc at y=0.
-                if s2 == 0:
+                if s2 == 0 and bc.boundary.ext == -1:
                     a[:,0,:,:,:,:] = 0.
+
                 # upper bc at y=1.
-                if e2 == V2.nbasis-1:
+                if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
                     a[:,e2,:,:,:,:] = 0.
 
             else:
                 TypeError('> Expecting StencilVector or StencilMatrix')
 
-        if not V3.periodic:
+        if bc.boundary.axis == 2:
             if isinstance(a, StencilVector):
                 # lower bc at z=0.
-                if s3 == 0:
+                if s3 == 0 and bc.boundary.ext == -1:
                     a [:,:,0] = 0.
 
                 # upper bc at z=1.
-                if e3 == V3.nbasis-1:
+                if e3 == V3.nbasis-1 and bc.boundary.ext == 1:
                     a [:,:,e3] = 0.
 
             elif isinstance(a, StencilMatrix):
                 # lower bc at z=0.
-                if s3 == 0:
+                if s3 == 0 and bc.boundary.ext == -1:
                     a[:,:,0,:,:,:] = 0.
+
                 # upper bc at z=1.
-                if e3 == V3.nbasis-1:
+                if e3 == V3.nbasis-1 and bc.boundary.ext == 1:
                     a[:,:,e3,:,:,:] = 0.
 
             else:
                 TypeError('> Expecting StencilVector or StencilMatrix')
 
 
-def apply_homogeneous_dirichlet_bc(V, *args):
+def apply_homogeneous_dirichlet_bc(V, bc, *args):
     if V.ldim == 1:
-        apply_homogeneous_dirichlet_bc_1d(V, *args)
+        apply_homogeneous_dirichlet_bc_1d(V, bc, *args)
 
     elif V.ldim == 2:
-        apply_homogeneous_dirichlet_bc_2d(V, *args)
+        apply_homogeneous_dirichlet_bc_2d(V, bc, *args)
 
     elif V.ldim == 3:
-        apply_homogeneous_dirichlet_bc_3d(V, *args)
+        apply_homogeneous_dirichlet_bc_3d(V, bc, *args)

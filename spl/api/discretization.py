@@ -19,6 +19,8 @@ from spl.api.codegen.ast import Assembly
 from spl.api.codegen.ast import Interface
 from spl.api.codegen.printing import pycode
 from spl.api.codegen.utils import write_code
+from spl.api.boundary_condition import DiscreteBoundary
+from spl.api.boundary_condition import DiscreteBoundaryCondition, DiscreteDirichletBC
 from spl.api.boundary_condition import apply_homogeneous_dirichlet_bc
 from spl.linalg.stencil import StencilVector, StencilMatrix
 from spl.linalg.iterative_solvers import cg
@@ -58,49 +60,6 @@ def driver_solve(L, **kwargs):
             return x
     else:
         raise NotImplementedError('Only cg solver is available')
-
-
-class DiscreteBoundary(object):
-    def __init__(self, expr, axis=None, ext=None):
-        if not isinstance(expr, sym_Boundary):
-            raise TypeError('> Expecting a Boundary object')
-
-        if not(axis) and not(ext):
-            msg = '> for the moment, both axis and ext must be given'
-            raise NotImplementedError(msg)
-
-        self._expr = expr
-        self._axis = axis
-        self._ext = ext
-
-    @property
-    def expr(self):
-        return self._expr
-
-    @property
-    def axis(self):
-        return self._axis
-
-    @property
-    def ext(self):
-        return self._ext
-
-class DiscreteBoundaryCondition(object):
-
-    def __init__(self, boundary, value=None):
-        self._boundary = boundary
-        self._value = value
-
-    @property
-    def boundary(self):
-        return self._boundary
-
-    @property
-    def value(self):
-        return self._value
-
-class DiscreteDirichletBC(DiscreteBoundaryCondition):
-    pass
 
 
 class BasicDiscrete(object):
@@ -560,13 +519,15 @@ class DiscreteEquation(BasicDiscrete):
 
         if assemble_lhs:
             M = self.lhs.assemble(**kwargs)
-            apply_homogeneous_dirichlet_bc(self.test_space, M)
+            for bc in self.bc:
+                apply_homogeneous_dirichlet_bc(self.test_space, bc, M)
         else:
             M = self.linear_system.lhs
 
         if assemble_rhs:
             rhs = self.rhs.assemble(**kwargs)
-            apply_homogeneous_dirichlet_bc(self.test_space, rhs)
+            for bc in self.bc:
+                apply_homogeneous_dirichlet_bc(self.test_space, bc, rhs)
 
         else:
             rhs = self.linear_system.rhs
