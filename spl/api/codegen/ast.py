@@ -82,7 +82,7 @@ def compute_tangent_vector(vector, discrete_boundary, mapping):
     raise NotImplementedError('TODO')
 
 
-def filter_loops(indices, ranges, body, discrete_boundary):
+def filter_loops(indices, ranges, body, discrete_boundary, boundary_basis=False):
 
     quad_mask = []
     quad_ext = []
@@ -348,7 +348,7 @@ class SplBasic(Basic):
 
 class EvalMapping(SplBasic):
 
-    def __new__(cls, space, mapping, discrete_boundary=None, name=None, nderiv=1):
+    def __new__(cls, space, mapping, discrete_boundary=None, name=None, boundary_basis=None, nderiv=1):
 
         if not isinstance(mapping, Mapping):
             raise TypeError('> Expecting a Mapping object')
@@ -358,6 +358,7 @@ class EvalMapping(SplBasic):
         obj._space = space
         obj._mapping = mapping
         obj._discrete_boundary = discrete_boundary
+        obj._boundary_basis = boundary_basis
 
         dim = mapping.rdim
 
@@ -400,6 +401,10 @@ class EvalMapping(SplBasic):
     @property
     def mapping(self):
         return self._mapping
+
+    @property
+    def boundary_basis(self):
+        return self._boundary_basis
 
     @property
     def lcoords(self):
@@ -479,11 +484,14 @@ class EvalMapping(SplBasic):
         # ...
 
         # put the body in tests for loops
-        for i in range(dim-1,-1,-1):
-            body = [For(indices_basis[i], ranges_basis[i],body)]
+        body = filter_loops(indices_basis, ranges_basis, body,
+                            self.discrete_boundary,
+                            boundary_basis=self.boundary_basis)
 
         # put the body in for loops of quadrature points
-        body = filter_loops(indices_quad, ranges_quad, body, self.discrete_boundary)
+        body = filter_loops(indices_quad, ranges_quad, body,
+                            self.discrete_boundary,
+                            boundary_basis=self.boundary_basis)
 
         # initialization of the matrix
         init_vals = [f[[Slice(None,None)]*dim] for f in mapping_values]
@@ -496,7 +504,7 @@ class EvalMapping(SplBasic):
 
 class EvalField(SplBasic):
 
-    def __new__(cls, space, fields, discrete_boundary=None, name=None):
+    def __new__(cls, space, fields, discrete_boundary=None, name=None, boundary_basis=None):
 
         if not isinstance(fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
@@ -506,6 +514,7 @@ class EvalField(SplBasic):
         obj._space = space
         obj._fields = Tuple(*fields)
         obj._discrete_boundary = discrete_boundary
+        obj._boundary_basis = boundary_basis
         obj._func = obj._initialize()
 
         return obj
@@ -517,6 +526,10 @@ class EvalField(SplBasic):
     @property
     def fields(self):
         return self._fields
+
+    @property
+    def boundary_basis(self):
+        return self._boundary_basis
 
     def build_arguments(self, data):
 
@@ -570,11 +583,14 @@ class EvalField(SplBasic):
         # ...
 
         # put the body in tests for loops
-        for i in range(dim-1,-1,-1):
-            body = [For(indices_basis[i], ranges_basis[i],body)]
+        body = filter_loops(indices_basis, ranges_basis, body,
+                            self.discrete_boundary,
+                            boundary_basis=self.boundary_basis)
 
         # put the body in for loops of quadrature points
-        body = filter_loops(indices_quad, ranges_quad, body, self.discrete_boundary)
+        body = filter_loops(indices_quad, ranges_quad, body,
+                            self.discrete_boundary,
+                            boundary_basis=self.boundary_basis)
 
         # initialization of the matrix
         init_vals = [f[[Slice(None,None)]*dim] for f in fields_val]
@@ -588,7 +604,8 @@ class EvalField(SplBasic):
 # target is used when there are multiple expression (domain/boundaries)
 class Kernel(SplBasic):
 
-    def __new__(cls, weak_form, kernel_expr, target=None, discrete_boundary=None, name=None):
+    def __new__(cls, weak_form, kernel_expr, target=None,
+                discrete_boundary=None, name=None, boundary_basis=None):
 
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
@@ -628,6 +645,11 @@ class Kernel(SplBasic):
             raise ValueError('> discrete_bounary must be provided for a boundary Kernel')
         # ...
 
+        # ... default value for boundary_basis is True if on boundary
+        if on_boundary and (boundary_basis is None):
+            boundary_basis = True
+        # ...
+
         tag = random_string( 8 )
         obj = SplBasic.__new__(cls, tag, name=name, prefix='kernel')
 
@@ -635,6 +657,7 @@ class Kernel(SplBasic):
         obj._kernel_expr = kernel_expr
         obj._target = target
         obj._discrete_boundary = discrete_boundary
+        obj._boundary_basis = boundary_basis
 
         obj._func = obj._initialize()
 
@@ -651,6 +674,10 @@ class Kernel(SplBasic):
     @property
     def target(self):
         return self._target
+
+    @property
+    def boundary_basis(self):
+        return self._boundary_basis
 
     @property
     def n_rows(self):
@@ -775,7 +802,8 @@ class Kernel(SplBasic):
                         space = list(fs)[0].space
 
                 eval_field = EvalField(space, fields_expressions,
-                                       discrete_boundary=self.discrete_boundary)
+                                       discrete_boundary=self.discrete_boundary,
+                                       boundary_basis=self.boundary_basis)
                 self._eval_fields.append(eval_field)
 
         # update dependencies
@@ -797,6 +825,7 @@ class Kernel(SplBasic):
 
             eval_mapping = EvalMapping(space, mapping,
                                        discrete_boundary=self.discrete_boundary,
+                                       boundary_basis=self.boundary_basis,
                                        nderiv=nderiv)
             self._eval_mapping = eval_mapping
 
@@ -882,6 +911,7 @@ class Kernel(SplBasic):
         # ranges
         ranges_test  = [Range(test_degrees[i]+1) for i in range(dim_test)]
         ranges_trial = [Range(trial_degrees[i]+1) for i in range(dim_trial)]
+        ranges_quad  = [Range(qds_dim[i]) for i in range(dim)]
         # ...
 
         # body of kernel
@@ -980,8 +1010,9 @@ class Kernel(SplBasic):
 
         # ...
         # put the body in for loops of quadrature points
-        ranges_qdr = [Range(qds_dim[i]) for i in range(dim)]
-        body = filter_loops(indices_qds, ranges_qdr, body, self.discrete_boundary)
+        body = filter_loops(indices_qds, ranges_quad, body,
+                            self.discrete_boundary,
+                            boundary_basis=self.boundary_basis)
 
         # initialization of intermediate vars
         init_vars = [Assign(v[i],0.0) for i in range(ln)]
@@ -1005,15 +1036,18 @@ class Kernel(SplBasic):
         # ...
         # put the body in tests and trials for loops
         if is_bilinear:
-            for i in range(dim_test-1,-1,-1):
-                body = [For(indices_test[i],ranges_test[i],body)]
+            body = filter_loops(indices_test, ranges_test, body,
+                                self.discrete_boundary,
+                                boundary_basis=self.boundary_basis)
 
-            for i in range(dim_trial-1,-1,-1):
-                body = [For(indices_trial[i],ranges_trial[i],body)]
+            body = filter_loops(indices_trial, ranges_trial, body,
+                                self.discrete_boundary,
+                                boundary_basis=self.boundary_basis)
 
         if is_linear:
-            for i in range(dim_test-1,-1,-1):
-                body = [For(indices_test[i],ranges_test[i],body)]
+            body = filter_loops(indices_test, ranges_test, body,
+                                self.discrete_boundary,
+                                boundary_basis=self.boundary_basis)
         # ...
 
         # ...
@@ -1228,7 +1262,8 @@ class Assembly(SplBasic):
 
         # ... loop over elements
         ranges_elm  = [Range(starts[i], ends[i]+1) for i in range(dim)]
-        body = filter_loops(indices_elm, ranges_elm, body, self.kernel.discrete_boundary)
+        body = filter_loops(indices_elm, ranges_elm, body,
+                            self.kernel.discrete_boundary, boundary_basis=False)
         # ...
 
         # ... prelude

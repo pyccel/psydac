@@ -61,7 +61,8 @@ class DiscreteBoundary(object):
 class BasicDiscrete(object):
 
     def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
-                 module_name=None, boundary=None, target=None):
+                 module_name=None, boundary=None, target=None,
+                 boundary_basis=None):
 
         # ...
         if not target:
@@ -82,6 +83,7 @@ class BasicDiscrete(object):
 
                 boundary = [boundary.axis, boundary.ext]
                 boundary = [boundary]
+                boundary_basis = True # TODO set it to False for Nitch method
 
             # boundary is now a list of boundaries
             # TODO shall we keep it this way? since this is the simplest
@@ -90,7 +92,8 @@ class BasicDiscrete(object):
 
         # ...
         kernel = Kernel(a, kernel_expr, target=target,
-                        discrete_boundary=boundary)
+                        discrete_boundary=boundary,
+                        boundary_basis=boundary_basis)
         assembly = Assembly(kernel)
         interface = Interface(assembly)
         # ...
