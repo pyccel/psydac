@@ -19,6 +19,7 @@ from spl.api.codegen.ast import Assembly
 from spl.api.codegen.ast import Interface
 from spl.api.codegen.printing import pycode
 from spl.api.codegen.utils import write_code
+from spl.api.boundary_condition import apply_homogeneous_dirichlet_bc
 from spl.linalg.stencil import StencilVector, StencilMatrix
 from spl.linalg.iterative_solvers import cg
 
@@ -480,10 +481,14 @@ class DiscreteEquation(BasicDiscrete):
         test_trial = args[0]
         self._lhs = discretize(expr.lhs.expr, test_trial, *args[1:], **kwargs)
 
-        test_spaces = test_trial[0] # take the test space from (test, trial)
-        self._rhs = discretize(expr.rhs.expr, test_spaces, *args[1:], **kwargs)
+        test_space = test_trial[0]
+        trial_space = test_trial[1]
+
+        self._rhs = discretize(expr.rhs.expr, test_space, *args[1:], **kwargs)
 
         self._linear_system = None
+        self._trial_space = trial_space
+        self._test_space = test_space
 
     @property
     def expr(self):
@@ -498,6 +503,14 @@ class DiscreteEquation(BasicDiscrete):
         return self._rhs
 
     @property
+    def test_space(self):
+        return self._test_space
+
+    @property
+    def trial_space(self):
+        return self._trial_space
+
+    @property
     def linear_system(self):
         return self._linear_system
 
@@ -507,15 +520,18 @@ class DiscreteEquation(BasicDiscrete):
 
         if assemble_lhs:
             M = self.lhs.assemble(**kwargs)
+            apply_homogeneous_dirichlet_bc(self.test_space, M)
         else:
             M = self.linear_system.lhs
 
         if assemble_rhs:
-            V = self.rhs.assemble(**kwargs)
-        else:
-            V = self.linear_system.rhs
+            rhs = self.rhs.assemble(**kwargs)
+            apply_homogeneous_dirichlet_bc(self.test_space, rhs)
 
-        self._linear_system = LinearSystem(M, V)
+        else:
+            rhs = self.linear_system.rhs
+
+        self._linear_system = LinearSystem(M, rhs)
 
     def solve(self, **kwargs):
         settings = kwargs.pop('settings', _default_solver)

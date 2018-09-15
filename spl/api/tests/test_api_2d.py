@@ -360,14 +360,21 @@ def test_api_equation_2d_1():
 
     x,y = V.coordinates
 
+    F = Field('F', V)
+
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
 
-    expr = cos(2*pi*x)*cos(4*pi*y)*v
+    expr = 2*pi**2*sin(pi*x)*sin(pi*y)*v
     l = LinearForm(v, expr)
+
+    error = F-sin(pi*x)*sin(pi*y)
+    l2norm = Integral(error**2, domain, coordinates=[x,y])
+
+    equation = Equation(a(v,u), l(v))
     # ...
 
     # ... discrete spaces
@@ -375,10 +382,25 @@ def test_api_equation_2d_1():
     # ...
 
     # ...
-    equation = Equation(a(v,u), l(v))
     equation_h = discretize(equation, [Vh, Vh])
+    l2norm_h = discretize(l2norm, Vh)
+    # ...
+
+    # ... solve the discrete equation
     x = equation_h.solve()
     # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute the l2 norm
+    error = l2norm_h.assemble(F=phi)
+    print('> L2 norm  = ', error)
+    # ...
+
+
 
 def test_api_model_2d_poisson():
     print('============ test_api_model_2d_poisson =============')
