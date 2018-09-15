@@ -42,7 +42,8 @@ def create_discrete_space():
     p1  = 2 ; p2  = 2
 #    ne1 = 1 ; ne2 = 1
 #    ne1 = 4 ; ne2 = 4
-    ne1 = 32 ; ne2 = 32
+    ne1 = 8 ; ne2 = 8
+#    ne1 = 32 ; ne2 = 32
 
     # Create uniform grid
     grid_1 = linspace( 0., 1., num=ne1+1 )
@@ -427,7 +428,6 @@ def test_api_equation_2d_2():
     V = FunctionSpace('V', domain)
 
     B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
-    C_B2 = ComplementBoundary(B2)
 
     x,y = V.coordinates
 
@@ -453,7 +453,7 @@ def test_api_equation_2d_2():
     error = F-solution
     l2norm = Integral(error**2, domain, coordinates=[x,y])
 
-    bc = [DirichletBC(C_B2)]
+    bc = [DirichletBC(-B2)]
     equation = Equation(a(v,u), l(v), bc=bc)
     # ...
 
@@ -464,8 +464,79 @@ def test_api_equation_2d_2():
     # ... dsicretize the equation using Dirichlet bc
     B2 = DiscreteBoundary(B2, axis=0, ext= 1)
 
-    bc = [DiscreteDirichletBC(DiscreteComplementBoundary(B2))]
+    bc = [DiscreteDirichletBC(-B2)]
     equation_h = discretize(equation, [Vh, Vh], boundary=B2, bc=bc)
+    # ...
+
+    # ... discretize the l2 norm
+    l2norm_h = discretize(l2norm, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute the l2 norm
+    error = l2norm_h.assemble(F=phi)
+    print('> L2 norm  = ', error)
+    # ...
+
+def test_api_equation_2d_3():
+    print('============ test_api_equation_2d_3 =============')
+
+    # ... abstract model
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B1 = Boundary(r'\Gamma_1', domain) # Neumann bc will be applied on B2
+    B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
+
+    x,y = V.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    solution = sin(0.5*pi*x)*sin(0.5*pi*y)
+
+    expr = (1./2.)*pi**2*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B1)
+    l_B1 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B2)
+    l_B2 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B1(v) + l_B2(v)
+    l = LinearForm(v, expr)
+
+    error = F-solution
+    l2norm = Integral(error**2, domain, coordinates=[x,y])
+
+    bc = [DirichletBC(-(B1+B2))]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=1, ext= 1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+
+    bc = [DiscreteDirichletBC(-(B1+B2))]
+    equation_h = discretize(equation, [Vh, Vh], boundary=[B1,B2], bc=bc)
     # ...
 
     # ... discretize the l2 norm
@@ -536,13 +607,13 @@ def test_api_model_2d_stokes():
 ###############################################
 if __name__ == '__main__':
 
-#    # ...
-#    test_api_bilinear_2d_scalar_1()
-#    test_api_bilinear_2d_scalar_2()
-#    test_api_bilinear_2d_scalar_3()
-#    test_api_bilinear_2d_scalar_4()
-#    test_api_bilinear_2d_scalar_5()
-#    test_api_bilinear_2d_block_1()
+    # ...
+    test_api_bilinear_2d_scalar_1()
+    test_api_bilinear_2d_scalar_2()
+    test_api_bilinear_2d_scalar_3()
+    test_api_bilinear_2d_scalar_4()
+    test_api_bilinear_2d_scalar_5()
+    test_api_bilinear_2d_block_1()
 #
 #    test_api_bilinear_2d_scalar_1_mapping()
 #
@@ -557,5 +628,6 @@ if __name__ == '__main__':
 #    test_api_model_2d_stokes()
 #    # ...
 
-#    test_api_equation_2d_1()
+    test_api_equation_2d_1()
     test_api_equation_2d_2()
+    test_api_equation_2d_3()

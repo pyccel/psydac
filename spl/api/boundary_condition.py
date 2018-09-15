@@ -35,15 +35,58 @@ class DiscreteBoundary(object):
     def ext(self):
         return self._ext
 
-class DiscreteComplementBoundary(DiscreteBoundary):
+    # TODO how to improve? use TotalBoundary?
+    def __neg__(self):
+        return DiscreteComplementBoundary(self)
 
-    def __init__(self, boundaries):
+    def __add__(self, other):
+        if isinstance(other, DiscreteComplementBoundary):
+            raise TypeError('> Cannot add complement of boundary')
+
+        return DiscreteUnionBoundary(self, other)
+
+class DiscreteUnionBoundary(DiscreteBoundary):
+
+    def __init__(self, *boundaries):
         # ...
         if isinstance(boundaries, DiscreteBoundary):
             boundaries = [boundaries]
 
-        elif not isinstance(boundaries, (list, tuple, Tuple)):
+        elif not isinstance(boundaries, (list, tuple)):
             raise TypeError('> Wrong type for boundaries')
+        # ...
+
+        self._boundaries = boundaries
+
+        dim = boundaries[0].expr.domain.dim
+
+        bnd_axis_ext = [(i.axis, i.ext) for i in boundaries]
+
+        self._axis = [i[0] for i in bnd_axis_ext]
+        self._ext  = [i[1] for i in bnd_axis_ext]
+
+    @property
+    def boundaries(self):
+        return self._boundaries
+
+class DiscreteComplementBoundary(DiscreteBoundary):
+
+    def __init__(self, *boundaries):
+        # ...
+        if isinstance(boundaries, DiscreteBoundary):
+            boundaries = [boundaries]
+
+        elif not isinstance(boundaries, (list, tuple)):
+            raise TypeError('> Wrong type for boundaries')
+        # ...
+
+        # ...
+        new = []
+        for bnd in boundaries:
+            if isinstance(bnd, DiscreteUnionBoundary):
+                new += bnd.boundaries
+        if new:
+            boundaries = new
         # ...
 
         self._boundaries = boundaries
