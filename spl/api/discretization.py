@@ -20,6 +20,7 @@ from spl.api.codegen.ast import Interface
 from spl.api.codegen.printing import pycode
 from spl.api.codegen.utils import write_code
 from spl.api.boundary_condition import DiscreteBoundary
+from spl.api.boundary_condition import DiscreteComplementBoundary
 from spl.api.boundary_condition import DiscreteBoundaryCondition, DiscreteDirichletBC
 from spl.api.boundary_condition import apply_homogeneous_dirichlet_bc
 from spl.linalg.stencil import StencilVector, StencilMatrix
@@ -471,6 +472,23 @@ class DiscreteEquation(BasicDiscrete):
 
             else:
                 raise TypeError('> Wrong type for bc')
+
+            newbc = []
+            for b in bc:
+                bnd = b.boundary
+                if isinstance(bnd, DiscreteComplementBoundary):
+                    domain = bnd.boundaries[0].expr.domain
+                    for axis, ext in zip(bnd.axis, bnd.ext):
+                        name = random_string( 3 )
+                        B = sym_Boundary(name, domain)
+                        B = DiscreteBoundary(B, axis=axis, ext=ext)
+                        other = b.duplicate(B)
+                        newbc.append(other)
+
+                else:
+                    newbc.append(b)
+
+            bc = newbc
         # ...
 
         self._expr = expr

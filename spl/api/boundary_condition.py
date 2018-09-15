@@ -7,6 +7,10 @@ from sympde.core import Boundary as sym_Boundary
 from spl.linalg.stencil import StencilVector, StencilMatrix
 
 class DiscreteBoundary(object):
+    _expr = None
+    _axis = None
+    _ext  = None
+
     def __init__(self, expr, axis=None, ext=None):
         if not isinstance(expr, sym_Boundary):
             raise TypeError('> Expecting a Boundary object')
@@ -31,6 +35,33 @@ class DiscreteBoundary(object):
     def ext(self):
         return self._ext
 
+class DiscreteComplementBoundary(DiscreteBoundary):
+
+    def __init__(self, boundaries):
+        # ...
+        if isinstance(boundaries, DiscreteBoundary):
+            boundaries = [boundaries]
+
+        elif not isinstance(boundaries, (list, tuple, Tuple)):
+            raise TypeError('> Wrong type for boundaries')
+        # ...
+
+        self._boundaries = boundaries
+
+        dim = boundaries[0].expr.domain.dim
+
+        all_axis_ext = [(axis, ext) for axis in range(0, dim) for ext in [-1, 1]]
+        bnd_axis_ext = [(i.axis, i.ext) for i in boundaries]
+        cmp_axis_ext = set(all_axis_ext) - set(bnd_axis_ext)
+
+        self._axis = [i[0] for i in cmp_axis_ext]
+        self._ext  = [i[1] for i in cmp_axis_ext]
+
+    @property
+    def boundaries(self):
+        return self._boundaries
+
+
 class DiscreteBoundaryCondition(object):
 
     def __init__(self, boundary, value=None):
@@ -45,8 +76,13 @@ class DiscreteBoundaryCondition(object):
     def value(self):
         return self._value
 
+    def duplicate(self, B):
+        return DiscreteBoundaryCondition(B, self.value)
+
 class DiscreteDirichletBC(DiscreteBoundaryCondition):
-    pass
+
+    def duplicate(self, B):
+        return DiscreteDirichletBC(B)
 
 
 # TODO set bc

@@ -15,6 +15,7 @@ from sympde.core import BilinearForm, LinearForm, Integral
 from sympde.core import Equation, DirichletBC
 from sympde.core import Domain
 from sympde.core import Boundary, trace_0, trace_1
+from sympde.core import ComplementBoundary
 from sympde.gallery import Poisson, Stokes
 
 from spl.fem.basic   import FemField
@@ -22,6 +23,7 @@ from spl.fem.splines import SplineSpace
 from spl.fem.tensor  import TensorFemSpace
 from spl.api.discretization import discretize
 from spl.api.boundary_condition import DiscreteBoundary
+from spl.api.boundary_condition import DiscreteComplementBoundary
 from spl.api.boundary_condition import DiscreteDirichletBC
 
 from spl.mapping.discrete import SplineMapping
@@ -424,10 +426,8 @@ def test_api_equation_2d_2():
     U = FunctionSpace('U', domain)
     V = FunctionSpace('V', domain)
 
-    B1 = Boundary(r'\Gamma_1', domain)
     B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
-    B3 = Boundary(r'\Gamma_3', domain)
-    B4 = Boundary(r'\Gamma_4', domain)
+    C_B2 = ComplementBoundary(B2)
 
     x,y = V.coordinates
 
@@ -453,7 +453,7 @@ def test_api_equation_2d_2():
     error = F-solution
     l2norm = Integral(error**2, domain, coordinates=[x,y])
 
-    bc = [DirichletBC(i) for i in [B1, B3, B4]]
+    bc = [DirichletBC(C_B2)]
     equation = Equation(a(v,u), l(v), bc=bc)
     # ...
 
@@ -462,12 +462,9 @@ def test_api_equation_2d_2():
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
     B2 = DiscreteBoundary(B2, axis=0, ext= 1)
-    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
-    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
 
-    bc = [DiscreteDirichletBC(i) for i in [B1, B3, B4]]
+    bc = [DiscreteDirichletBC(DiscreteComplementBoundary(B2))]
     equation_h = discretize(equation, [Vh, Vh], boundary=B2, bc=bc)
     # ...
 
