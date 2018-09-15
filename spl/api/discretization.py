@@ -85,6 +85,24 @@ class DiscreteBoundary(object):
     def ext(self):
         return self._ext
 
+class DiscreteBoundaryCondition(object):
+
+    def __init__(self, boundary, value=None):
+        self._boundary = boundary
+        self._value = value
+
+    @property
+    def boundary(self):
+        return self._boundary
+
+    @property
+    def value(self):
+        return self._value
+
+class DiscreteDirichletBC(DiscreteBoundaryCondition):
+    pass
+
+
 class BasicDiscrete(object):
 
     def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
@@ -475,6 +493,23 @@ class DiscreteEquation(BasicDiscrete):
         if not isinstance(expr, sym_Equation):
             raise TypeError('> Expecting a symbolic Equation')
 
+        # ...
+        bc = kwargs.pop('bc', None)
+
+        if bc:
+            if isinstance(bc, DiscreteBoundaryCondition):
+                bc = [bc]
+
+            elif isinstance(bc, (list, tuple)):
+                for i in bc:
+                    if not isinstance(i, DiscreteBoundaryCondition):
+                        msg = '> Expecting a list of DiscreteBoundaryCondition'
+                        raise TypeError(msg)
+
+            else:
+                raise TypeError('> Wrong type for bc')
+        # ...
+
         self._expr = expr
         # since lhs and rhs are calls, we need to take their expr
 
@@ -486,6 +521,7 @@ class DiscreteEquation(BasicDiscrete):
 
         self._rhs = discretize(expr.rhs.expr, test_space, *args[1:], **kwargs)
 
+        self._bc = bc
         self._linear_system = None
         self._trial_space = trial_space
         self._test_space = test_space
@@ -509,6 +545,10 @@ class DiscreteEquation(BasicDiscrete):
     @property
     def trial_space(self):
         return self._trial_space
+
+    @property
+    def bc(self):
+        return self._bc
 
     @property
     def linear_system(self):

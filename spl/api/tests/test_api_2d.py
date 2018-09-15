@@ -12,7 +12,7 @@ from sympde.core import FunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
-from sympde.core import Equation
+from sympde.core import Equation, DirichletBC
 from sympde.core import Domain
 from sympde.core import Boundary, trace_0, trace_1
 from sympde.gallery import Poisson, Stokes
@@ -22,6 +22,7 @@ from spl.fem.splines import SplineSpace
 from spl.fem.tensor  import TensorFemSpace
 from spl.api.discretization import discretize
 from spl.api.discretization import DiscreteBoundary
+from spl.api.discretization import DiscreteDirichletBC
 
 from spl.mapping.discrete import SplineMapping
 
@@ -358,6 +359,11 @@ def test_api_equation_2d_1():
     U = FunctionSpace('U', domain)
     V = FunctionSpace('V', domain)
 
+    B1 = Boundary(r'\Gamma_1', domain)
+    B2 = Boundary(r'\Gamma_2', domain)
+    B3 = Boundary(r'\Gamma_3', domain)
+    B4 = Boundary(r'\Gamma_4', domain)
+
     x,y = V.coordinates
 
     F = Field('F', V)
@@ -374,15 +380,25 @@ def test_api_equation_2d_1():
     error = F-sin(pi*x)*sin(pi*y)
     l2norm = Integral(error**2, domain, coordinates=[x,y])
 
-    equation = Equation(a(v,u), l(v))
+    bc = [DirichletBC(i) for i in [B1, B2, B3, B4]]
+    equation = Equation(a(v,u), l(v), bc=bc)
     # ...
 
     # ... discrete spaces
     Vh = create_discrete_space()
     # ...
 
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+
+    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
+    equation_h = discretize(equation, [Vh, Vh], bc=bc)
     # ...
-    equation_h = discretize(equation, [Vh, Vh])
+
+    # ... discretize the l2 norm
     l2norm_h = discretize(l2norm, Vh)
     # ...
 
