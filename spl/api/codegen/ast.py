@@ -1103,7 +1103,7 @@ class Kernel(SplBasic):
         body = len_quads + body
 
         # get math functions and constants
-        math_elements = math_atoms_as_str(self.weak_form.expr)
+        math_elements = math_atoms_as_str(self.kernel_expr)
         math_imports = []
         for e in math_elements:
             math_imports += [Import(e, 'numpy')]

@@ -39,7 +39,8 @@ def create_discrete_space():
 #    p1  = 1 ; p2  = 1
     p1  = 2 ; p2  = 2
 #    ne1 = 1 ; ne2 = 1
-    ne1 = 4 ; ne2 = 4
+#    ne1 = 4 ; ne2 = 4
+    ne1 = 32 ; ne2 = 32
 
     # Create uniform grid
     grid_1 = linspace( 0., 1., num=ne1+1 )
@@ -416,6 +417,78 @@ def test_api_equation_2d_1():
     print('> L2 norm  = ', error)
     # ...
 
+def test_api_equation_2d_2():
+    print('============ test_api_equation_2d_2 =============')
+
+    # ... abstract model
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B1 = Boundary(r'\Gamma_1', domain)
+    B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
+    B3 = Boundary(r'\Gamma_3', domain)
+    B4 = Boundary(r'\Gamma_4', domain)
+
+    x,y = V.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    solution = sin(0.5*pi*x)*sin(pi*y)
+
+    expr = (5./4.)*pi**2*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B2)
+    l_B2 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B2(v)
+    l = LinearForm(v, expr)
+
+    error = F-solution
+    l2norm = Integral(error**2, domain, coordinates=[x,y])
+
+    bc = [DirichletBC(i) for i in [B1, B3, B4]]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+
+    bc = [DiscreteDirichletBC(i) for i in [B1, B3, B4]]
+    equation_h = discretize(equation, [Vh, Vh], boundary=B2, bc=bc)
+    # ...
+
+    # ... discretize the l2 norm
+    l2norm_h = discretize(l2norm, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute the l2 norm
+    error = l2norm_h.assemble(F=phi)
+    print('> L2 norm  = ', error)
+    # ...
+
 
 
 def test_api_model_2d_poisson():
@@ -487,4 +560,5 @@ if __name__ == '__main__':
 #    test_api_model_2d_stokes()
 #    # ...
 
-    test_api_equation_2d_1()
+#    test_api_equation_2d_1()
+    test_api_equation_2d_2()

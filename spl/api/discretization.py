@@ -83,6 +83,9 @@ class BasicDiscrete(object):
 
             if isinstance(boundary, DiscreteBoundary):
                 if not( boundary.expr is target ):
+#                    print(boundary.expr)
+#                    print(target)
+#                    import sys; sys.exit(0)
                     raise ValueError('> Unconsistent boundary with symbolic model')
 
                 boundary = [boundary.axis, boundary.ext]
@@ -367,7 +370,8 @@ class DiscreteSumForm(BasicDiscrete):
         # ...
         forms = []
         boundaries = kwargs.pop('boundary', [])
-        if isinstance(boundaries, DiscreteBoundary): boundaries = [boundaries]
+        if isinstance(boundaries, DiscreteBoundary):
+            boundaries = [boundaries]
 
         kwargs['to_compile'] = False
         kwargs['module_name'] = module_name
@@ -472,13 +476,39 @@ class DiscreteEquation(BasicDiscrete):
         self._expr = expr
         # since lhs and rhs are calls, we need to take their expr
 
+        # ...
         test_trial = args[0]
-        self._lhs = discretize(expr.lhs.expr, test_trial, *args[1:], **kwargs)
-
         test_space = test_trial[0]
         trial_space = test_trial[1]
+        # ...
+
+        # ...
+        boundaries = kwargs.pop('boundary', [])
+        if isinstance(boundaries, DiscreteBoundary):
+            boundaries = [boundaries]
+
+        boundaries_lhs = expr.lhs.expr.atoms(sym_Boundary)
+        boundaries_lhs = [i for i in boundaries if i.expr in boundaries_lhs]
+
+        boundaries_rhs = expr.rhs.expr.atoms(sym_Boundary)
+        boundaries_rhs = [i for i in boundaries if i.expr in boundaries_rhs]
+        # ...
+
+        # ...
+        kwargs['boundary'] = None
+        if boundaries_lhs:
+            kwargs['boundary'] = boundaries_lhs
+
+        self._lhs = discretize(expr.lhs.expr, test_trial, *args[1:], **kwargs)
+        # ...
+
+        # ...
+        kwargs['boundary'] = None
+        if boundaries_rhs:
+            kwargs['boundary'] = boundaries_rhs
 
         self._rhs = discretize(expr.rhs.expr, test_space, *args[1:], **kwargs)
+        # ...
 
         self._bc = bc
         self._linear_system = None
