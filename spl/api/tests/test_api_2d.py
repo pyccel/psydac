@@ -31,8 +31,10 @@ domain = Domain('\Omega', dim=2)
 def create_discrete_space():
     # ... discrete spaces
     # Input data: degree, number of elements
-    p1  = 2 ; p2  = 2
-    ne1 = 4 ; ne2 = 4
+    p1  = 1 ; p2  = 1
+#    p1  = 2 ; p2  = 2
+    ne1 = 1 ; ne2 = 1
+#    ne1 = 4 ; ne2 = 4
 
     # Create uniform grid
     grid_1 = linspace( 0., 1., num=ne1+1 )
@@ -96,7 +98,7 @@ def test_api_bilinear_2d_scalar_2():
 
     # ...
     ah = discretize(a, [Vh, Vh])
-    M = ah.assemble(0.5)
+    M = ah.assemble(c=0.5)
     # ...
 
 def test_api_bilinear_2d_scalar_3():
@@ -127,7 +129,7 @@ def test_api_bilinear_2d_scalar_3():
     phi = FemField( Vh, 'phi' )
     phi._coeffs[:,:] = 1.
 
-    M = ah.assemble(phi)
+    M = ah.assemble(F=phi)
     # ...
 
 def test_api_bilinear_2d_scalar_4():
@@ -162,7 +164,7 @@ def test_api_bilinear_2d_scalar_4():
     psi = FemField( Vh, 'psi' )
     psi._coeffs[:,:] = 1.
 
-    M = ah.assemble(phi, psi)
+    M = ah.assemble(F=phi, G=psi)
     # ...
 
 def test_api_bilinear_2d_scalar_5():
@@ -178,7 +180,9 @@ def test_api_bilinear_2d_scalar_5():
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
 
-    expr = dot(grad(v), grad(u))
+    alpha = Constant('alpha')
+
+    expr = dot(grad(v), grad(u)) + alpha*v*u
     a_0 = BilinearForm((v,u), expr, name='a_0')
 
     expr = v*trace_1(grad(u), B1)
@@ -198,19 +202,30 @@ def test_api_bilinear_2d_scalar_5():
     B1 = DiscreteBoundary(B1, axis=0, ext=-1)
     B2 = DiscreteBoundary(B2, axis=0, ext= 1)
 
-#    # ...
-#    ah_0 = discretize(a_0, [Vh, Vh])
-#
-#    ah_B1 = discretize(a_B1, [Vh, Vh], boundary=B1)
-#    ah_B2 = discretize(a_B2, [Vh, Vh], boundary=B2)
-#
-#    M = ah_0.assemble()
-#    M = ah_B1.assemble()
-#    M = ah_B2.assemble()
-#    # ...
+    # ...
+    ah_0 = discretize(a_0, [Vh, Vh])
+
+    ah_B1 = discretize(a_B1, [Vh, Vh], boundary=B1)
+    ah_B2 = discretize(a_B2, [Vh, Vh], boundary=B2)
+
+    M = ah_0.assemble(alpha=0.5)
+    print('>>>> ah_0')
+    print(M.tocoo())
+
+    M = ah_B1.assemble()
+    print('>>>> ah_B1')
+    print(M.tocoo())
+
+    M = ah_B2.assemble()
+    print('>>>> ah_B2')
+    print(M.tocoo())
+    # ...
 
     # ...
     ah = discretize(a, [Vh, Vh], boundary=[B1, B2])
+    M = ah.assemble(alpha=0.5)
+    print('>>>> ah')
+    print(M.tocoo())
     # ...
 
 def test_api_bilinear_2d_scalar_1_mapping():
@@ -318,8 +333,6 @@ def test_api_function_2d_scalar_1():
     # ... abstract model
     V = FunctionSpace('V', domain)
     x,y = V.coordinates
-
-    F = Field('F', space=V)
 
     # TODO bug: when expr = 1, there are no free_symbols
     expr = S.One

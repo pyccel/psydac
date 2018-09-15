@@ -84,7 +84,7 @@ def test_api_bilinear_1d_scalar_2():
 
     # ...
     ah = discretize(a, [V, V])
-    M = ah.assemble(0.5)
+    M = ah.assemble(c=0.5)
     # ...
 
 def test_api_bilinear_1d_scalar_3():
@@ -124,7 +124,7 @@ def test_api_bilinear_1d_scalar_3():
     phi = FemField( V, 'phi' )
     phi._coeffs[:,:] = 1.
 
-    M = ah.assemble(phi)
+    M = ah.assemble(F=phi)
     # ...
 
 def test_api_bilinear_1d_scalar_4():
@@ -168,7 +168,7 @@ def test_api_bilinear_1d_scalar_4():
     psi = FemField( V, 'psi' )
     psi._coeffs[:,:] = 1.
 
-    M = ah.assemble(phi, psi)
+    M = ah.assemble(F=phi, G=psi)
     # ...
 
 def test_api_bilinear_1d_block_1():
@@ -213,7 +213,7 @@ def test_api_bilinear_1d_block_1():
 
     # ...
     ah = discretize(a, [V, V])
-    M = ah.assemble(0.1, 0.4)
+    M = ah.assemble(rho=0.1, dt=0.4)
     # ...
 
 def test_api_model_1d_poisson():

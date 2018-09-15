@@ -1334,6 +1334,14 @@ class Interface(SplBasic):
 
         return self.basic_args + other
 
+    @property
+    def in_arguments(self):
+        return self._in_arguments
+
+    @property
+    def inout_arguments(self):
+        return self._inout_arguments
+
     def _initialize(self):
         form = self.weak_form
         assembly = self.assembly
@@ -1445,6 +1453,11 @@ class Interface(SplBasic):
             body += [Import('zeros', 'numpy')]
             for M in global_matrices:
                 body += [Assign(M, Zeros(1))]
+        # ...
+
+        # ...
+        self._inout_arguments = list(global_matrices)
+        self._in_arguments = list(self.assembly.kernel.constants) + list(fields)
         # ...
 
         # ... call to assembly

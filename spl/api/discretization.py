@@ -18,6 +18,7 @@ from spl.api.codegen.ast import Assembly
 from spl.api.codegen.ast import Interface
 from spl.api.codegen.printing import pycode
 from spl.api.codegen.utils import write_code
+from spl.linalg.stencil import StencilVector, StencilMatrix
 
 import os
 import importlib
@@ -227,6 +228,33 @@ class BasicDiscrete(object):
 
         self._func = interface
 
+    def _check_arguments(self, **kwargs):
+
+        _kwargs = {}
+
+        # ... mandatory arguments
+        sym_args = self.interface.in_arguments
+        keys = [str(a) for a in sym_args]
+        for key in keys:
+            try:
+                _kwargs[key] = kwargs[key]
+            except:
+                raise KeyError('Unconsistent argument with interface')
+        # ...
+
+        # ... optional (inout) arguments
+        sym_args = self.interface.inout_arguments
+        keys = [str(a) for a in sym_args]
+        for key in keys:
+            try:
+                _kwargs[key] = kwargs[key]
+            except:
+                pass
+        # ...
+
+        return _kwargs
+
+
 class DiscreteBilinearForm(BasicDiscrete):
 
     def __init__(self, expr, kernel_expr, *args, **kwargs):
@@ -247,13 +275,13 @@ class DiscreteBilinearForm(BasicDiscrete):
     def spaces(self):
         return self._spaces
 
-    def assemble(self, *args, **kwargs):
+    def assemble(self, **kwargs):
         newargs = tuple(self.spaces)
 
         if self.mapping:
             newargs = newargs + (self.mapping,)
 
-        newargs = newargs + tuple(args)
+        kwargs = self._check_arguments(**kwargs)
 
         return self.func(*newargs, **kwargs)
 
@@ -274,13 +302,13 @@ class DiscreteLinearForm(BasicDiscrete):
     def space(self):
         return self._space
 
-    def assemble(self, *args, **kwargs):
+    def assemble(self, **kwargs):
         newargs = (self.space,)
 
         if self.mapping:
             newargs = newargs + (self.mapping,)
 
-        newargs = newargs + tuple(args)
+        kwargs = self._check_arguments(**kwargs)
 
         return self.func(*newargs, **kwargs)
 
@@ -301,13 +329,13 @@ class DiscreteIntegral(BasicDiscrete):
     def space(self):
         return self._space
 
-    def assemble(self, *args, **kwargs):
+    def assemble(self, **kwargs):
         newargs = (self.space,)
 
         if self.mapping:
             newargs = newargs + (self.mapping,)
 
-        newargs = newargs + tuple(args)
+        kwargs = self._check_arguments(**kwargs)
 
         return self.func(*newargs, **kwargs)
 
@@ -380,24 +408,33 @@ class DiscreteSumForm(BasicDiscrete):
     def forms(self):
         return self._forms
 
-    @property
-    def equation(self):
-        return self._equation
+    def assemble(self, **kwargs):
+        form = self.forms[0]
+        M = form.assemble(**kwargs)
+        if isinstance(M, (StencilVector, StencilMatrix)):
+            M = [M]
 
-    @property
-    def spaces(self):
-        return self._spaces
+        for f in self.forms[1:]:
+            n = len(f.interface.inout_arguments)
+            # add arguments
+            for i in range(0, n):
+                key = str(f.interface.inout_arguments[i])
+                kwargs[key] = M[i]
 
-    def assemble(self, *args, **kwargs):
-        lhs = self.equation.lhs
-        if lhs:
-            lhs.assemble(*args, **kwargs)
+#            print('> before = ', M[0]._data.flatten())
+            M = form.assemble(**kwargs)
+            if isinstance(M, (StencilVector, StencilMatrix)):
+                M = [M]
+#            print('> after  = ', M[0]._data.flatten())
 
-        rhs = self.equation.rhs
-        if rhs:
-            raise NotImplementedError('TODO')
+            # remove arguments
+            for i in range(0, n):
+                key = str(f.interface.inout_arguments[i])
+                kwargs.pop(key)
 
+        if len(M) == 1: M = M[0]
 
+        return M
 
 class DiscreteEquation(BasicDiscrete):
 
@@ -526,10 +563,10 @@ class Model(BasicDiscrete):
     def spaces(self):
         return self._spaces
 
-    def assemble(self, *args, **kwargs):
+    def assemble(self, **kwargs):
         lhs = self.equation.lhs
         if lhs:
-            lhs.assemble(*args, **kwargs)
+            lhs.assemble(**kwargs)
 
         rhs = self.equation.rhs
         if rhs:
