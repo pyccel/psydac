@@ -483,6 +483,8 @@ class DiscreteEquation(BasicDiscrete):
         test_spaces = test_trial[0] # take the test space from (test, trial)
         self._rhs = discretize(expr.rhs.expr, test_spaces, *args[1:], **kwargs)
 
+        self._linear_system = None
+
     @property
     def expr(self):
         return self._expr
@@ -495,15 +497,41 @@ class DiscreteEquation(BasicDiscrete):
     def rhs(self):
         return self._rhs
 
+    @property
+    def linear_system(self):
+        return self._linear_system
+
     def assemble(self, **kwargs):
-        M = self.lhs.assemble(**kwargs)
-        V = self.rhs.assemble(**kwargs)
-        return LinearSystem(M, V)
+        assemble_lhs = kwargs.pop('assemble_lhs', True)
+        assemble_rhs = kwargs.pop('assemble_rhs', True)
+
+        if assemble_lhs:
+            M = self.lhs.assemble(**kwargs)
+        else:
+            M = self.linear_system.lhs
+
+        if assemble_rhs:
+            V = self.rhs.assemble(**kwargs)
+        else:
+            V = self.linear_system.rhs
+
+        self._linear_system = LinearSystem(M, V)
 
     def solve(self, **kwargs):
         settings = kwargs.pop('settings', _default_solver)
-        L = self.assemble(**kwargs)
-        return driver_solve(L, **settings)
+
+        rhs = kwargs.pop('rhs', None)
+        if rhs:
+            kwargs['assemble_rhs'] = False
+
+        self.assemble(**kwargs)
+
+        if rhs:
+            L = self.linear_system
+            L = LinearSystem(L.lhs, rhs)
+            self._linear_system = L
+
+        return driver_solve(self.linear_system, **settings)
 
 class Model(BasicDiscrete):
 
