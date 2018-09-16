@@ -19,6 +19,7 @@ from sympde.core import Boundary, trace_0, trace_1
 from sympde.core import ComplementBoundary
 from sympde.gallery import Poisson, Stokes
 
+from spl.fem.context import fem_context
 from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
 from spl.fem.tensor  import TensorFemSpace
@@ -239,7 +240,7 @@ def test_api_bilinear_2d_scalar_1_mapping():
     print('============ test_api_bilinear_2d_scalar_1_mapping =============')
 
     # ... abstract model
-    M = Mapping('M', rdim=2, domain=domain)
+    mapping = Mapping('M', rdim=2, domain=domain)
 
     U = FunctionSpace('U', domain)
     V = FunctionSpace('V', domain)
@@ -249,19 +250,16 @@ def test_api_bilinear_2d_scalar_1_mapping():
 
     expr = dot(grad(v), grad(u))
 
-    a = BilinearForm((v,u), expr, mapping=M)
+    a = BilinearForm((v,u), expr, mapping=mapping)
     # ...
 
     # ...
-    from caid.cad_geometry import square
-    geo = square(n=[3,3], p=[2,2])
-    mapping = SplineMapping.from_caid( geo )
-    V = mapping.space ; V.init_fem()
+    Vh, mapping = fem_context('square.h5')
     # ...
 
-    # ...
-    ah = discretize(a, [V, V], mapping)
-    M = ah.assemble()
+#    # ...
+#    ah = discretize(a, [V, V], mapping)
+#    M = ah.assemble()
 #    # ...
 
 def test_api_bilinear_2d_block_1():
@@ -631,7 +629,7 @@ if __name__ == '__main__':
 #    test_api_bilinear_2d_scalar_5()
 #    test_api_bilinear_2d_block_1()
 
-#    test_api_bilinear_2d_scalar_1_mapping()
+    test_api_bilinear_2d_scalar_1_mapping()
 #
 #    test_api_linear_2d_scalar_1()
 #    test_api_linear_2d_scalar_2()
@@ -644,6 +642,6 @@ if __name__ == '__main__':
 #    test_api_model_2d_stokes()
 #    # ...
 
-    test_api_equation_2d_1()
-    test_api_equation_2d_2()
-    test_api_equation_2d_3()
+#    test_api_equation_2d_1()
+#    test_api_equation_2d_2()
+#    test_api_equation_2d_3()
