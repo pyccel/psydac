@@ -5,3 +5,4 @@ mpi4py
 h5py
 sympy
 pytest
+pyyaml
