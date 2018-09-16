@@ -12,6 +12,7 @@ from sympy import Basic
 from sympy import symbols, Symbol, IndexedBase, Indexed, Function
 from sympy import Mul, Add, Tuple
 from sympy import Matrix, ImmutableDenseMatrix
+from sympy import sqrt as sympy_sqrt
 from sympy import S as sympy_S
 
 from pyccel.ast.core import For
@@ -68,18 +69,58 @@ def compute_normal_vector(vector, discrete_boundary, mapping):
     body = []
 
     if not mapping:
+
         values = np.zeros(dim)
-        if dim == 1:
-            NotImplementedError('TODO')
-
-        else:
-            values[axis] = ext
-
-        for i in range(0, dim):
-            body += [Assign(vector[i], values[i])]
+        values[axis] = ext
 
     else:
-        NotImplementedError('TODO')
+        M = mapping
+        inv_jac = Symbol('inv_jac')
+
+        # ... construct jacobian on manifold
+        lines = []
+        n_row,n_col = M.jacobian.shape
+        range_row = [i for i in range(0,n_row) if not(i == axis)]
+        range_col = range(0,n_col)
+        for i_row in range_row:
+            line = []
+            for i_col in range_col:
+                line.append(M.jacobian[i_row, i_col])
+
+            lines.append(line)
+
+        J = Matrix(lines)
+        # ...
+
+        # ...
+        ops = _partial_derivatives[:dim]
+        elements = [d(M[i]) for d in ops for i in range(0, dim)]
+        for e in elements:
+            new = print_expression(e, mapping_name=False)
+            new = Symbol(new)
+            J = J.subs(e, new)
+        # ...
+
+        if dim == 1:
+            raise NotImplementedError('TODO')
+
+        elif dim == 2:
+            J = J[0,:]
+            # TODO shall we use sympy_sqrt here? is there any difference in
+            # Fortran between sqrt and Pow(, 1/2)?
+            j = (sum(J[i]**2 for i in range(0, dim)))**(1/2)
+
+            values = [inv_jac*J[1], -inv_jac*J[0]]
+
+        elif dim == 3:
+            raise NotImplementedError('TODO')
+
+        values = [ext*i for i in values]
+
+        body += [Assign(inv_jac, 1/j)]
+
+    for i in range(0, dim):
+        body += [Assign(vector[i], values[i])]
 
     return body
 
@@ -971,29 +1012,6 @@ class Kernel(SplBasic):
             body += [Assign(lhs, rhs[indices_quad]) for lhs, rhs in zip(mapping_elements,
                                                           mapping_values)]
 
-            # ... inv jacobian
-            jac = mapping.det_jacobian
-            rdim = mapping.rdim
-            ops = _partial_derivatives[:rdim]
-            elements = [d(mapping[i]) for d in ops for i in range(0, rdim)]
-            for e in elements:
-                new = print_expression(e, mapping_name=False)
-                new = Symbol(new)
-                jac = jac.subs(e, new)
-
-            inv_jac = Symbol('inv_jac')
-            body += [Assign(inv_jac, 1/jac)]
-            # ...
-
-            init_map = OrderedDict(sorted(init_map.items()))
-            for stmt in list(init_map.values()):
-                body += [stmt.subs(1/jac, inv_jac)]
-
-        else:
-            body += [Assign(coordinates[i],positions[i][indices_quad[i]])
-                     for i in range(dim)]
-        # ...
-
         # ... normal/tangent vectors
         if isinstance(self.target, Boundary):
             vectors = self.kernel_expr.atoms(BoundaryVector)
@@ -1020,6 +1038,35 @@ class Kernel(SplBasic):
                                                    mapping)
 
                 body += stmts
+        # ...
+
+
+        if mapping:
+            # ... inv jacobian
+            jac = mapping.det_jacobian
+            rdim = mapping.rdim
+            ops = _partial_derivatives[:rdim]
+            elements = [d(mapping[i]) for d in ops for i in range(0, rdim)]
+            for e in elements:
+                new = print_expression(e, mapping_name=False)
+                new = Symbol(new)
+                jac = jac.subs(e, new)
+            # ...
+
+            inv_jac = Symbol('inv_jac')
+            body += [Assign(inv_jac, 1/jac)]
+
+            # TODO do we use the same inv_jac?
+#            if not isinstance(self.target, Boundary):
+#                body += [Assign(inv_jac, 1/jac)]
+
+            init_map = OrderedDict(sorted(init_map.items()))
+            for stmt in list(init_map.values()):
+                body += [stmt.subs(1/jac, inv_jac)]
+
+        else:
+            body += [Assign(coordinates[i],positions[i][indices_quad[i]])
+                     for i in range(dim)]
         # ...
 
         # ...

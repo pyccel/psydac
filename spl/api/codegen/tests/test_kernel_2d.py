@@ -131,20 +131,21 @@ def test_kernel_bilinear_2d_scalar_5(mapping=False):
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
 
-    F = Field('F', V)
+#    F = Field('F', V)
 
     expr = dot(grad(v), grad(u))
     a_0 = BilinearForm((v,u), expr, mapping=mapping, name='a_0')
 
-#    expr = v*trace_1(grad(u), B1)
-    expr = F*v*trace_1(grad(u), B1)
+    expr = v*trace_1(grad(u), B1)
+#    expr = F*v*trace_1(grad(u), B1)
     a_bnd = BilinearForm((v, u), expr, mapping=mapping, name='a_bnd')
 
     expr = a_0(v,u) + a_bnd(v,u)
     a = BilinearForm((v,u), expr, mapping=mapping, name='a')
 
     kernel_expr = evaluate(a)
-    kernel_bnd = Kernel(a, kernel_expr, target=B1, discrete_boundary=(1, -1), name='kernel_bnd')
+    kernel_bnd = Kernel(a, kernel_expr, target=B1, discrete_boundary=(0, -1), name='kernel_bnd')
+#    kernel_bnd = Kernel(a, kernel_expr, target=B1, discrete_boundary=(1, -1), name='kernel_bnd')
 #    kernel_int = Kernel(a, kernel_expr, target=domain, name='kernel_int')
 #    for kernel in [kernel_int, kernel_bnd]:
     for kernel in [kernel_bnd]:
@@ -304,7 +305,7 @@ def test_kernel_function_2d_scalar_3(mapping=False):
 #................................
 if __name__ == '__main__':
 
-    test_kernel_bilinear_2d_scalar_5(mapping=False)
+    test_kernel_bilinear_2d_scalar_5(mapping=True)
 
 
 #    # .................................
