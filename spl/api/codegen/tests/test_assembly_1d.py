@@ -192,7 +192,7 @@ def test_assembly_linear_1d_scalar_1(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x = V.coordinates
+    x = domain.coordinates
 
     v = TestFunction(V, name='v')
 
@@ -211,7 +211,7 @@ def test_assembly_linear_1d_scalar_2(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x = V.coordinates
+    x = domain.coordinates
 
     v = TestFunction(V, name='v')
 
@@ -232,7 +232,7 @@ def test_assembly_linear_1d_scalar_3(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x = V.coordinates
+    x = domain.coordinates
 
     v = TestFunction(V, name='v')
 
@@ -253,7 +253,7 @@ def test_assembly_linear_1d_scalar_4(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x = V.coordinates
+    x = domain.coordinates
 
     v = TestFunction(V, name='v')
 
@@ -274,10 +274,10 @@ def test_assembly_function_1d_scalar_1(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x = V.coordinates
+    x = domain.coordinates
 
     expr = S.One
-    a = Integral(expr, domain, coordinates=[x], mapping=mapping)
+    a = Integral(expr, domain, mapping=mapping)
 
     kernel_expr = evaluate(a)
     kernel = Kernel(a, kernel_expr, name='kernel')
@@ -291,12 +291,12 @@ def test_assembly_function_1d_scalar_2(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x = V.coordinates
+    x = domain.coordinates
 
     F = Field('F', space=V)
 
     expr = F-cos(2*pi*x)
-    a = Integral(expr, domain, coordinates=[x], mapping=mapping)
+    a = Integral(expr, domain, mapping=mapping)
 
     kernel_expr = evaluate(a)
     kernel = Kernel(a, kernel_expr, name='kernel')
@@ -310,13 +310,13 @@ def test_assembly_function_1d_scalar_3(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x = V.coordinates
+    x = domain.coordinates
 
     F = Field('F', space=V)
 
     error = F-cos(2*pi*x)
     expr = dot(grad(error), grad(error))
-    a = Integral(expr, domain, coordinates=[x], mapping=mapping)
+    a = Integral(expr, domain, mapping=mapping)
 
     kernel_expr = evaluate(a)
     kernel = Kernel(a, kernel_expr, name='kernel')

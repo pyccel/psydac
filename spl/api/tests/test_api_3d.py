@@ -4,7 +4,7 @@ from sympde.core import dx, dy, dz
 from sympde.core import Constant
 from sympde.core import Field
 from sympde.core import grad, dot, inner, cross, rot, curl, div
-from sympde.core import FunctionSpace
+from sympde.core import FunctionSpace, VectorFunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import Domain
@@ -199,8 +199,8 @@ def test_api_bilinear_3d_block_1():
     print('============ test_api_bilinear_3d_block_1 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', domain, is_block=True, shape=3)
-    V = FunctionSpace('V', domain, is_block=True, shape=3)
+    U = VectorFunctionSpace('U', domain)
+    V = VectorFunctionSpace('V', domain)
 
     v = VectorTestFunction(V, name='v')
     u = VectorTestFunction(U, name='u')

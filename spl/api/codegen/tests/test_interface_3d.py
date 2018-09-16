@@ -15,7 +15,7 @@ from sympde.core import dx, dy, dz
 from sympde.core import Constant
 from sympde.core import Field
 from sympde.core import grad, dot, inner, cross, rot, curl, div
-from sympde.core import FunctionSpace
+from sympde.core import FunctionSpace, VectorFunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
@@ -165,8 +165,8 @@ def test_interface_bilinear_3d_block_1(mapping=False):
 
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
-    U = FunctionSpace('U', domain, is_block=True, shape=DIM)
-    V = FunctionSpace('V', domain, is_block=True, shape=DIM)
+    U = VectorFunctionSpace('U', domain)
+    V = VectorFunctionSpace('V', domain)
 
     v = VectorTestFunction(V, name='v')
     u = VectorTestFunction(U, name='u')
@@ -187,7 +187,7 @@ def test_interface_linear_3d_scalar_1(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x,y,z = V.coordinates
+    x,y,z = domain.coordinates
 
     v = TestFunction(V, name='v')
 
@@ -207,7 +207,7 @@ def test_interface_linear_3d_scalar_2(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x,y,z = V.coordinates
+    x,y,z = domain.coordinates
 
     v = TestFunction(V, name='v')
 
@@ -229,7 +229,7 @@ def test_interface_linear_3d_scalar_3(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x,y,z = V.coordinates
+    x,y,z = domain.coordinates
 
     v = TestFunction(V, name='v')
 
@@ -251,7 +251,7 @@ def test_interface_linear_3d_scalar_4(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x,y,z = V.coordinates
+    x,y,z = domain.coordinates
 
     v = TestFunction(V, name='v')
 
@@ -273,10 +273,10 @@ def test_interface_function_3d_scalar_1(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x,y,z = V.coordinates
+    x,y,z = domain.coordinates
 
     expr = S.One
-    a = Integral(expr, domain, coordinates=[x,y,z], mapping=mapping)
+    a = Integral(expr, domain, mapping=mapping)
 
     kernel_expr = evaluate(a)
     kernel = Kernel(a, kernel_expr, name='kernel')
@@ -291,12 +291,12 @@ def test_interface_function_3d_scalar_2(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x,y,z = V.coordinates
+    x,y,z = domain.coordinates
 
     F = Field('F', space=V)
 
     expr = F-cos(2*pi*x)*cos(3*pi*y)*cos(4*pi*z)
-    a = Integral(expr, domain, coordinates=[x,y,z], mapping=mapping)
+    a = Integral(expr, domain, mapping=mapping)
 
     kernel_expr = evaluate(a)
     kernel = Kernel(a, kernel_expr, name='kernel')
@@ -311,13 +311,13 @@ def test_interface_function_3d_scalar_3(mapping=False):
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
     V = FunctionSpace('V', domain)
-    x,y,z = V.coordinates
+    x,y,z = domain.coordinates
 
     F = Field('F', space=V)
 
     error = F-cos(2*pi*x)*cos(3*pi*y)*cos(4*pi*z)
     expr = dot(grad(error), grad(error))
-    a = Integral(expr, domain, coordinates=[x,y,z], mapping=mapping)
+    a = Integral(expr, domain, mapping=mapping)
 
     kernel_expr = evaluate(a)
     kernel = Kernel(a, kernel_expr, name='kernel')
