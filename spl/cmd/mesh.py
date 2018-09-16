@@ -30,7 +30,7 @@ def export_caid_geometry(name, ncells, degree, filename):
     from caid.cad_geometry import cube
 
     constructor = eval(name)
-    geo = constructor(n=[i+1 for i in ncells], p=degree)
+    geo = constructor(n=[i-1 for i in ncells], p=degree)
     # ...
 
     extension = os.path.splitext(filename)[1]
