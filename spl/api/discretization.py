@@ -1,5 +1,8 @@
 # coding: utf-8
 
+# TODO: - init_fem is called whenever we call discretize. we should check that
+#         nderiv has not been changed. shall we add quad_order too?
+
 from collections import OrderedDict
 from collections import namedtuple
 
@@ -286,6 +289,10 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         self._spaces = args[0]
 
+        # initialize fem space basis/quad
+        for V in self.spaces:
+            V.init_fem(nderiv=self.interface.max_nderiv)
+
         if len(args) > 1:
             self._mapping = args[1]
 
@@ -313,6 +320,9 @@ class DiscreteLinearForm(BasicDiscrete):
 
         self._space = args[0]
 
+        # initialize fem space basis/quad
+        self.space.init_fem(nderiv=self.interface.max_nderiv)
+
         if len(args) > 1:
             self._mapping = args[1]
 
@@ -339,6 +349,9 @@ class DiscreteIntegral(BasicDiscrete):
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         self._space = args[0]
+
+        # initialize fem space basis/quad
+        self.space.init_fem(nderiv=self.interface.max_nderiv)
 
         if len(args) > 1:
             self._mapping = args[1]

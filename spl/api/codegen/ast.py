@@ -711,6 +711,10 @@ class Kernel(SplBasic):
         return self._n_cols
 
     @property
+    def max_nderiv(self):
+        return self._max_nderiv
+
+    @property
     def constants(self):
         return self._constants
 
@@ -833,12 +837,15 @@ class Kernel(SplBasic):
         self._dependencies += self.eval_fields
         # ...
 
+        # ... TODO compute nderiv from weak form
+        nderiv = 1
+        self._max_nderiv = nderiv
+        # ...
+
         # ... mapping
         mapping = self.weak_form.mapping
         self._eval_mapping = None
         if mapping:
-            # TODO compute nderiv from weak form
-            nderiv = 1
 
             if is_bilinear or is_linear:
                 space = self.weak_form.test_spaces[0]
@@ -1378,6 +1385,10 @@ class Interface(SplBasic):
     @property
     def assembly(self):
         return self._assembly
+
+    @property
+    def max_nderiv(self):
+        return self.assembly.kernel.max_nderiv
 
     def build_arguments(self, data):
         # data must be at the end, since they are optional

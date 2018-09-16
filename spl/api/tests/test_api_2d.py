@@ -8,7 +8,7 @@ from sympde.core import Mapping
 from sympde.core import Constant
 from sympde.core import Field
 from sympde.core import grad, dot, inner, cross, rot, curl, div
-from sympde.core import FunctionSpace
+from sympde.core import FunctionSpace, VectorFunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
@@ -259,7 +259,6 @@ def test_api_bilinear_2d_scalar_1_mapping():
 
     # ...
     ah = discretize(a, [Vh, Vh], mapping)
-    Vh.init_fem()
     M = ah.assemble()
     # ...
 
@@ -267,8 +266,8 @@ def test_api_bilinear_2d_block_1():
     print('============ test_api_bilinear_2d_block_1 =============')
 
     # ... abstract model
-    U = FunctionSpace('U', domain, is_block=True, shape=2)
-    V = FunctionSpace('V', domain, is_block=True, shape=2)
+    U = VectorFunctionSpace('U', domain)
+    V = VectorFunctionSpace('V', domain)
 
     v = VectorTestFunction(V, name='v')
     u = VectorTestFunction(U, name='u')
@@ -631,7 +630,7 @@ if __name__ == '__main__':
 #    test_api_bilinear_2d_block_1()
 
     test_api_bilinear_2d_scalar_1_mapping()
-#
+
 #    test_api_linear_2d_scalar_1()
 #    test_api_linear_2d_scalar_2()
 #
