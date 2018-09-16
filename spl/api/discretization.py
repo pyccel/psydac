@@ -12,6 +12,7 @@ from sympde.core import Integral as sym_Integral
 from sympde.core import Equation as sym_Equation
 from sympde.core import Model as sym_Model
 from sympde.core import Boundary as sym_Boundary
+from sympde.core import Norm as sym_Norm
 from sympde.core import evaluate
 
 from spl.api.codegen.ast import Kernel
@@ -30,6 +31,7 @@ import os
 import importlib
 import string
 import random
+import math
 
 SPL_DEFAULT_FOLDER = '__pycache__/spl'
 
@@ -353,7 +355,17 @@ class DiscreteIntegral(BasicDiscrete):
 
         kwargs = self._check_arguments(**kwargs)
 
-        return self.func(*newargs, **kwargs)
+        v = self.func(*newargs, **kwargs)
+
+        # case of a norm
+        if isinstance(self.expr, sym_Norm):
+            if self.expr.exponent == 2:
+                v = math.sqrt(v)
+
+            else:
+                raise NotImplementedError('TODO')
+
+        return v
 
 
 class DiscreteSumForm(BasicDiscrete):

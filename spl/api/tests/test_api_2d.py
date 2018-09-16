@@ -12,6 +12,7 @@ from sympde.core import FunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
+from sympde.core import Norm
 from sympde.core import Equation, DirichletBC
 from sympde.core import Domain
 from sympde.core import Boundary, trace_0, trace_1
@@ -382,7 +383,8 @@ def test_api_equation_2d_1():
     l = LinearForm(v, expr)
 
     error = F-sin(pi*x)*sin(pi*y)
-    l2norm = Integral(error**2, domain, coordinates=[x,y])
+    l2norm = Norm(error, domain, kind='l2', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
 
     bc = [DirichletBC(i) for i in [B1, B2, B3, B4]]
     equation = Equation(a(v,u), l(v), bc=bc)
@@ -402,8 +404,9 @@ def test_api_equation_2d_1():
     equation_h = discretize(equation, [Vh, Vh], bc=bc)
     # ...
 
-    # ... discretize the l2 norm
+    # ... discretize norms
     l2norm_h = discretize(l2norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -415,9 +418,12 @@ def test_api_equation_2d_1():
     phi.coeffs[:,:] = x[:,:]
     # ...
 
-    # ... compute the l2 norm
+    # ... compute norms
     error = l2norm_h.assemble(F=phi)
-    print('> L2 norm  = ', error)
+    print('> L2 norm      = ', error)
+
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
     # ...
 
 def test_api_equation_2d_2():
@@ -451,7 +457,8 @@ def test_api_equation_2d_2():
     l = LinearForm(v, expr)
 
     error = F-solution
-    l2norm = Integral(error**2, domain, coordinates=[x,y])
+    l2norm = Norm(error, domain, kind='l2', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
 
     bc = [DirichletBC(-B2)]
     equation = Equation(a(v,u), l(v), bc=bc)
@@ -468,8 +475,9 @@ def test_api_equation_2d_2():
     equation_h = discretize(equation, [Vh, Vh], boundary=B2, bc=bc)
     # ...
 
-    # ... discretize the l2 norm
+    # ... discretize norms
     l2norm_h = discretize(l2norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -481,9 +489,12 @@ def test_api_equation_2d_2():
     phi.coeffs[:,:] = x[:,:]
     # ...
 
-    # ... compute the l2 norm
+    # ... compute norms
     error = l2norm_h.assemble(F=phi)
-    print('> L2 norm  = ', error)
+    print('> L2 norm      = ', error)
+
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
     # ...
 
 def test_api_equation_2d_3():
@@ -521,7 +532,8 @@ def test_api_equation_2d_3():
     l = LinearForm(v, expr)
 
     error = F-solution
-    l2norm = Integral(error**2, domain, coordinates=[x,y])
+    l2norm = Norm(error, domain, kind='l2', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
 
     bc = [DirichletBC(-(B1+B2))]
     equation = Equation(a(v,u), l(v), bc=bc)
@@ -539,8 +551,9 @@ def test_api_equation_2d_3():
     equation_h = discretize(equation, [Vh, Vh], boundary=[B1,B2], bc=bc)
     # ...
 
-    # ... discretize the l2 norm
+    # ... discretize norms
     l2norm_h = discretize(l2norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -552,9 +565,12 @@ def test_api_equation_2d_3():
     phi.coeffs[:,:] = x[:,:]
     # ...
 
-    # ... compute the l2 norm
+    # ... compute norms
     error = l2norm_h.assemble(F=phi)
-    print('> L2 norm  = ', error)
+    print('> L2 norm      = ', error)
+
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
     # ...
 
 
@@ -608,13 +624,13 @@ def test_api_model_2d_stokes():
 if __name__ == '__main__':
 
     # ...
-    test_api_bilinear_2d_scalar_1()
-    test_api_bilinear_2d_scalar_2()
-    test_api_bilinear_2d_scalar_3()
-    test_api_bilinear_2d_scalar_4()
-    test_api_bilinear_2d_scalar_5()
-    test_api_bilinear_2d_block_1()
-#
+#    test_api_bilinear_2d_scalar_1()
+#    test_api_bilinear_2d_scalar_2()
+#    test_api_bilinear_2d_scalar_3()
+#    test_api_bilinear_2d_scalar_4()
+#    test_api_bilinear_2d_scalar_5()
+#    test_api_bilinear_2d_block_1()
+
 #    test_api_bilinear_2d_scalar_1_mapping()
 #
 #    test_api_linear_2d_scalar_1()
