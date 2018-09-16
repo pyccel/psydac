@@ -17,6 +17,8 @@ TODO
 
 * Create 'SplineMapping' class in module 'spl.mapping.discrete'
 
+* add a section in documentation about hdf5 installation (serial/parallel) + h5-tools (install+usage)
+
 
 Core
 ****
