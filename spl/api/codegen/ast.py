@@ -1392,15 +1392,7 @@ class Interface(SplBasic):
 
     def build_arguments(self, data):
         # data must be at the end, since they are optional
-
-        other = ()
-
-        if self.assembly.kernel.constants:
-            other = other + self.assembly.kernel.constants
-
-        other = other + data
-
-        return self.basic_args + other
+        return self.basic_args + data
 
     @property
     def in_arguments(self):
@@ -1573,7 +1565,14 @@ class Interface(SplBasic):
         if mapping:
             mapping = (mapping,)
 
-        func_args = self.build_arguments(fields + mapping + mats)
+        if self.assembly.kernel.constants:
+            constants = self.assembly.kernel.constants
+            args = mapping + constants + fields + mats
+
+        else:
+            args = mapping + fields + mats
+
+        func_args = self.build_arguments(args)
         # ...
 
         return FunctionDef(self.name, list(func_args), [], body)

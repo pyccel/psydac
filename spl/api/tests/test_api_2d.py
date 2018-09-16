@@ -245,22 +245,68 @@ def test_api_bilinear_2d_scalar_1_mapping():
     U = FunctionSpace('U', domain)
     V = FunctionSpace('V', domain)
 
+    B1 = Boundary(r'\Gamma_1', domain)
+    B2 = Boundary(r'\Gamma_2', domain)
+    B3 = Boundary(r'\Gamma_3', domain)
+    B4 = Boundary(r'\Gamma_4', domain)
+
+    x,y = V.coordinates
+
+    F = Field('F', V)
+
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
 
     expr = dot(grad(v), grad(u))
-
     a = BilinearForm((v,u), expr, mapping=mapping)
-    # ...
 
+    expr = 2*pi**2*sin(pi*x)*sin(pi*y)*v
+    l = LinearForm(v, expr, mapping=mapping)
+
+    error = F-sin(pi*x)*sin(pi*y)
+    l2norm = Norm(error, domain, kind='l2', name='u', mapping=mapping)
+    h1norm = Norm(error, domain, kind='h1', name='u', mapping=mapping)
+
+    bc = [DirichletBC(i) for i in [B1, B2, B3, B4]]
+    equation = Equation(a(v,u), l(v), bc=bc)
     # ...
+
+    # ... discrete spaces
     Vh, mapping = fem_context('square.h5')
     # ...
 
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+
+    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
+    equation_h = discretize(equation, [Vh, Vh], mapping, bc=bc)
     # ...
-    ah = discretize(a, [Vh, Vh], mapping)
-    M = ah.assemble()
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh, mapping)
+    h1norm_h = discretize(h1norm, Vh, mapping)
     # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute norms
+    error = l2norm_h.assemble(F=phi)
+    print('> L2 norm      = ', error)
+
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
+    # ...
+
 
 def test_api_bilinear_2d_block_1():
     print('============ test_api_bilinear_2d_block_1 =============')
