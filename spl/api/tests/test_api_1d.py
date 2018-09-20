@@ -1,300 +1,209 @@
 # -*- coding: UTF-8 -*-
 
+from sympy import pi, cos, sin
+from sympy import S
+
 from sympde.core import dx, dy, dz
+from sympde.core import Mapping
 from sympde.core import Constant
 from sympde.core import Field
 from sympde.core import grad, dot, inner, cross, rot, curl, div
-from sympde.core import FunctionSpace
+from sympde.core import FunctionSpace, VectorFunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import BilinearForm, LinearForm, Integral
+from sympde.core import Norm
+from sympde.core import Equation, DirichletBC
 from sympde.core import Domain
-from sympde.gallery import Poisson, Wave
+from sympde.core import Boundary, trace_0, trace_1
+from sympde.core import ComplementBoundary
+from sympde.gallery import Poisson, Stokes
 
+from spl.fem.context import fem_context
 from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
+from spl.fem.tensor  import TensorFemSpace
 from spl.api.discretization import discretize
+from spl.api.boundary_condition import DiscreteBoundary
+from spl.api.boundary_condition import DiscreteComplementBoundary
+from spl.api.boundary_condition import DiscreteDirichletBC
 
-from numpy import linspace, zeros
+from spl.mapping.discrete import SplineMapping
+
+from numpy import linspace, zeros, allclose
+from utils import assert_identical_coo
+
+DEBUG = False
 
 domain = Domain('\Omega', dim=1)
 
-def test_api_bilinear_1d_scalar_1():
-    print('============ test_api_bilinear_1d_scalar_1 =============')
+def create_discrete_space():
+    # ... discrete spaces
+    # Input data: degree, number of elements
+    p  = 3
+    ne = 2**4
+
+    # Create uniform grid
+    grid = linspace( 0., 1., num=ne+1 )
+
+    # Create finite element space and precompute quadrature data
+    V = SplineSpace( p, grid=grid )
+    V.init_fem()
+    # ...
+
+    return V
+
+def test_api_poisson_1d_dir_1():
+    print('============ test_api_poisson_1d_dir_1 =============')
 
     # ... abstract model
     U = FunctionSpace('U', domain)
     V = FunctionSpace('V', domain)
+
+    B1 = Boundary(r'\Gamma_1', domain)
+    B2 = Boundary(r'\Gamma_2', domain)
+
+    x = domain.coordinates
+
+    F = Field('F', V)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
 
     expr = dot(grad(v), grad(u))
-
     a = BilinearForm((v,u), expr)
-    # ...
+
+    expr = pi**2*sin(pi*x)*v
+    l = LinearForm(v, expr)
+
+    error = F-sin(pi*x)
+    l2norm = Norm(error, domain, kind='l2', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
+
+    bc = [DirichletBC(i) for i in [B1, B2]]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
 
     # ... discrete spaces
-    # Input data: degree, number of elements
-    p  = 3
-    ne = 2**4
+    Vh = create_discrete_space()
+    # ...
 
-    # Create uniform grid
-    grid = linspace( 0., 1., num=ne+1 )
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
 
-    # Create finite element space and precompute quadrature data
-    V = SplineSpace( p, grid=grid )
-    V.init_fem()
+    bc = [DiscreteDirichletBC(i) for i in [B1, B2]]
+    equation_h = discretize(equation, [Vh, Vh], bc=bc)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
     # ...
 
     # ...
-    ah = discretize(a, [V, V])
-    M = ah.assemble()
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:] = x[:]
     # ...
 
-def test_api_bilinear_1d_scalar_2():
-    print('============ test_api_bilinear_1d_scalar_2 =============')
+    # ... compute norms
+    error = l2norm_h.assemble(F=phi)
+    print('> L2 norm      = ', error)
+
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
+    # ...
+
+def test_api_poisson_1d_dirneu_1():
+    print('============ test_api_poisson_1d_dirneu_1 =============')
 
     # ... abstract model
     U = FunctionSpace('U', domain)
     V = FunctionSpace('V', domain)
+
+    B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
+
+    x = domain.coordinates
+
+    F = Field('F', V)
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
 
-    c = Constant('c', real=True, label='mass stabilization')
-
-    expr = dot(grad(v), grad(u)) + c*v*u
-
+    expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
-    # ...
+
+    solution = sin(0.5*pi*x)
+
+    expr = (1./4.)*pi**2*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B2)
+    l_B2 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B2(v)
+    l = LinearForm(v, expr)
+
+    error = F-solution
+    l2norm = Norm(error, domain, kind='l2', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
+
+    bc = [DirichletBC(-B2)]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
 
     # ... discrete spaces
-    # Input data: degree, number of elements
-    p  = 3
-    ne = 2**4
+    Vh = create_discrete_space()
+    # ...
 
-    # Create uniform grid
-    grid = linspace( 0., 1., num=ne+1 )
+    # ... dsicretize the equation using Dirichlet bc
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
 
-    # Create finite element space and precompute quadrature data
-    V = SplineSpace( p, grid=grid )
-    V.init_fem()
+    bc = [DiscreteDirichletBC(-B2)]
+    equation_h = discretize(equation, [Vh, Vh], boundary=B2, bc=bc)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
     # ...
 
     # ...
-    ah = discretize(a, [V, V])
-    M = ah.assemble(c=0.5)
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:] = x[:]
     # ...
 
-def test_api_bilinear_1d_scalar_3():
-    print('============ test_api_bilinear_1d_scalar_3 =============')
+    # ... compute norms
+    error = l2norm_h.assemble(F=phi)
+    print('> L2 norm      = ', error)
 
-    # ... abstract model
-    U = FunctionSpace('U', domain)
-    V = FunctionSpace('V', domain)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(U, name='u')
-
-    F = Field('F', space=V)
-
-    expr = dot(grad(v), grad(u)) + F*v*u
-
-    a = BilinearForm((v,u), expr)
-    # ...
-
-    # ... discrete spaces
-    # Input data: degree, number of elements
-    p  = 3
-    ne = 2**4
-
-    # Create uniform grid
-    grid = linspace( 0., 1., num=ne+1 )
-
-    # Create finite element space and precompute quadrature data
-    V = SplineSpace( p, grid=grid )
-    V.init_fem()
-    # ...
-
-    # ...
-    ah = discretize(a, [V, V])
-
-    # Define a field
-    phi = FemField( V, 'phi' )
-    phi._coeffs[:,:] = 1.
-
-    M = ah.assemble(F=phi)
-    # ...
-
-def test_api_bilinear_1d_scalar_4():
-    print('============ test_api_bilinear_1d_scalar_4 =============')
-
-    # ... abstract model
-    U = FunctionSpace('U', domain)
-    V = FunctionSpace('V', domain)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(U, name='u')
-
-    F = Field('F', space=V)
-    G = Field('G', space=V)
-
-    expr = dot(grad(G*v), grad(u)) + F*v*u
-
-    a = BilinearForm((v,u), expr)
-    # ...
-
-    # ... discrete spaces
-    # Input data: degree, number of elements
-    p  = 3
-    ne = 2**4
-
-    # Create uniform grid
-    grid = linspace( 0., 1., num=ne+1 )
-
-    # Create finite element space and precompute quadrature data
-    V = SplineSpace( p, grid=grid )
-    V.init_fem()
-    # ...
-
-    # ...
-    ah = discretize(a, [V, V])
-
-    # Define a field
-    phi = FemField( V, 'phi' )
-    phi._coeffs[:,:] = 1.
-
-    psi = FemField( V, 'psi' )
-    psi._coeffs[:,:] = 1.
-
-    M = ah.assemble(F=phi, G=psi)
-    # ...
-
-def test_api_bilinear_1d_block_1():
-    print('============ test_api_bilinear_1d_block_1 =============')
-
-    # ... abstract model
-    # 1d wave problem
-
-    U = FunctionSpace('U', domain)
-    V = FunctionSpace('V', domain)
-
-    # trial functions
-    u = TestFunction(U, name='u')
-    f = TestFunction(V, name='f')
-
-    # test functions
-    v = TestFunction(U, name='v')
-    w = TestFunction(V, name='w')
-
-    rho = Constant('rho', real=True, label='mass density')
-    dt = Constant('dt', real=True, label='time step')
-
-    mass = BilinearForm((v,u), v*u, name='m')
-    adv  = BilinearForm((v,u), dx(v)*u, name='adv')
-
-    expr = rho*mass(v,u) + dt*adv(v, f) + dt*adv(w,u) + mass(w,f)
-    a = BilinearForm(((v,w), (u,f)), expr, name='a')
-    # ...
-
-    # ... discrete spaces
-    # Input data: degree, number of elements
-    p  = 3
-    ne = 2**4
-
-    # Create uniform grid
-    grid = linspace( 0., 1., num=ne+1 )
-
-    # Create finite element space and precompute quadrature data
-    V = SplineSpace( p, grid=grid )
-    V.init_fem()
-    # ...
-
-    # ...
-    ah = discretize(a, [V, V])
-    M = ah.assemble(rho=0.1, dt=0.4)
-    # ...
-
-def test_api_model_1d_poisson():
-    print('============ test_api_model_1d_poisson =============')
-
-    # ... abstract model
-    model = Poisson(domain)
-    # ...
-
-    # ... discrete spaces
-    # Input data: degree, number of elements
-    p  = 3
-    ne = 2**4
-
-    # Create uniform grid
-    grid = linspace( 0., 1., num=ne+1 )
-
-    # Create finite element space and precompute quadrature data
-    Vh = SplineSpace( p, grid=grid )
-    Vh.init_fem()
-    # ...
-
-    # ...
-    model_h = discretize(model, [Vh, Vh])
-    ah = model_h.forms['a']
-    M = ah.assemble()
-    # ...
-
-def test_api_model_1d_wave():
-    print('============ test_api_model_1d_wave =============')
-
-    # ... abstract model
-    model = Wave(domain)
-    # ...
-
-    # ... discrete spaces
-    # Input data: degree, number of elements
-    p  = 3
-    ne = 2**4
-
-    # Create uniform grid
-    grid = linspace( 0., 1., num=ne+1 )
-
-    # Create finite element space and precompute quadrature data
-    Vh = SplineSpace( p, grid=grid )
-    Vh.init_fem()
-    # ...
-
-    # ...
-    model_h = discretize(model, [Vh, Vh])
-    ah = model_h.forms['a']
-    bh = model_h.forms['b']
-    M1 = ah.assemble()
-    M2 = bh.assemble()
-
-    # we can assemble the full model either by calling directly the discrete
-    # bilinear form
-    Ah = model_h.forms['A']
-    M = Ah.assemble(dt=0.5, rho=0.2)
-
-    # or through the equation attribut, which is independent from the model
-    lhs_h = model_h.equation.lhs
-    M = lhs_h.assemble(dt=0.5, rho=0.2)
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
     # ...
 
 
 ###############################################
 if __name__ == '__main__':
 
-    # ... scalar case
-    test_api_bilinear_1d_scalar_1()
-    test_api_bilinear_1d_scalar_2()
-    test_api_bilinear_1d_scalar_3()
-    test_api_bilinear_1d_scalar_4()
-    # ...
+    # ... examples without mapping
+    test_api_poisson_1d_dir_1()
+    test_api_poisson_1d_dirneu_1()
+#    test_api_poisson_1d_dirneu_2()
+#    # ...
+#
+#    # ... examples with identity mapping
+#    test_api_poisson_1d_dir_1_mapping()
+#
+##    # TODO this test works when runned alone, but not after the other tests!!!
+##    # is it a problem of sympy namespace?
+##    test_api_poisson_1d_dirneu_1_mapping()
+##    # ...
 
-    # ... block case
-    test_api_bilinear_1d_block_1()
-    # ...
-
-#    # ...
-#    test_api_model_1d_poisson()
-#    test_api_model_1d_wave()
-#    # ...
