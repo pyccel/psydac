@@ -62,124 +62,8 @@ def create_discrete_space():
     return V
 
 
-def test_api_bilinear_2d_scalar_1():
-    print('============ test_api_bilinear_2d_scalar_1 =============')
-
-    # ... abstract model
-    U = FunctionSpace('U', domain)
-    V = FunctionSpace('V', domain)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(U, name='u')
-
-    expr = dot(grad(v), grad(u))
-
-    a = BilinearForm((v,u), expr)
-    # ...
-
-    # ... discrete spaces
-    Vh = create_discrete_space()
-    # ...
-
-    # ...
-    ah = discretize(a, [Vh, Vh])
-    M = ah.assemble()
-    # ...
-
-def test_api_bilinear_2d_scalar_2():
-    print('============ test_api_bilinear_2d_scalar_2 =============')
-
-    # ... abstract model
-    U = FunctionSpace('U', domain)
-    V = FunctionSpace('V', domain)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(U, name='u')
-
-    c = Constant('c', real=True, label='mass stabilization')
-
-    expr = dot(grad(v), grad(u)) + c*v*u
-
-    a = BilinearForm((v,u), expr)
-    # ...
-
-    # ... discrete spaces
-    Vh = create_discrete_space()
-    # ...
-
-    # ...
-    ah = discretize(a, [Vh, Vh])
-    M = ah.assemble(c=0.5)
-    # ...
-
-def test_api_bilinear_2d_scalar_3():
-    print('============ test_api_bilinear_2d_scalar_3 =============')
-
-    # ... abstract model
-    U = FunctionSpace('U', domain)
-    V = FunctionSpace('V', domain)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(U, name='u')
-
-    F = Field('F', space=V)
-
-    expr = dot(grad(v), grad(u)) + F*v*u
-
-    a = BilinearForm((v,u), expr)
-    # ...
-
-    # ... discrete spaces
-    Vh = create_discrete_space()
-    # ...
-
-    # ...
-    ah = discretize(a, [Vh, Vh])
-
-    # Define a field
-    phi = FemField( Vh, 'phi' )
-    phi._coeffs[:,:] = 1.
-
-    M = ah.assemble(F=phi)
-    # ...
-
-def test_api_bilinear_2d_scalar_4():
-    print('============ test_api_bilinear_2d_scalar_4 =============')
-
-    # ... abstract model
-    U = FunctionSpace('U', domain)
-    V = FunctionSpace('V', domain)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(U, name='u')
-
-    F = Field('F', space=V)
-    G = Field('G', space=V)
-
-    expr = dot(grad(G*v), grad(u)) + F*v*u
-
-    a = BilinearForm((v,u), expr)
-    # ...
-
-    # ... discrete spaces
-    Vh = create_discrete_space()
-    # ...
-
-    # ...
-    ah = discretize(a, [Vh, Vh])
-
-    # Define a field
-    phi = FemField( Vh, 'phi' )
-    phi._coeffs[:,:] = 1.
-
-    psi = FemField( Vh, 'psi' )
-    psi._coeffs[:,:] = 1.
-
-    M = ah.assemble(F=phi, G=psi)
-    # ...
-
-def test_api_bilinear_2d_scalar_5():
-    print('============ test_api_bilinear_2d_scalar_5 =============')
+def test_api_bilinear_2d_sumform():
+    print('============ test_api_bilinear_2d_sumform =============')
 
     # ... abstract model
     B1 = Boundary(r'\Gamma_1', domain)
@@ -236,8 +120,8 @@ def test_api_bilinear_2d_scalar_5():
     # ...
 
 
-def test_api_equation_2d_1_mapping():
-    print('============ test_api_equation_2d_1_mapping =============')
+def test_api_poisson_2d_dir_1_mapping():
+    print('============ test_api_poisson_2d_dir_1_mapping =============')
 
     # ... abstract model
     mapping = Mapping('M', rdim=2, domain=domain)
@@ -307,8 +191,8 @@ def test_api_equation_2d_1_mapping():
     print('> H1 seminorm  = ', error)
     # ...
 
-def test_api_equation_2d_2_mapping():
-    print('============ test_api_equation_2d_2_mapping =============')
+def test_api_poisson_2d_dirneu_1_mapping():
+    print('============ test_api_poisson_2d_dirneu_1_mapping ============')
 
     # ... abstract model
     mapping = Mapping('M', rdim=2, domain=domain)
@@ -381,101 +265,8 @@ def test_api_equation_2d_2_mapping():
     # ...
 
 
-def test_api_bilinear_2d_block_1():
-    print('============ test_api_bilinear_2d_block_1 =============')
-
-    # ... abstract model
-    U = VectorFunctionSpace('U', domain)
-    V = VectorFunctionSpace('V', domain)
-
-    v = VectorTestFunction(V, name='v')
-    u = VectorTestFunction(U, name='u')
-
-    expr = div(v) * div(u) + rot(v) * rot(u)
-
-    a = BilinearForm((v,u), expr)
-    # ...
-
-    # ... discrete spaces
-    Vh = create_discrete_space()
-    # ...
-
-    # ...
-    ah = discretize(a, [Vh, Vh])
-    M = ah.assemble()
-    # ...
-
-def test_api_linear_2d_scalar_1():
-    print('============ test_api_linear_2d_scalar_1 =============')
-
-    # ... abstract model
-    V = FunctionSpace('V', domain)
-
-    v = TestFunction(V, name='v')
-
-    x,y = V.coordinates
-
-    expr = cos(2*pi*x)*cos(4*pi*y)*v
-
-    a = LinearForm(v, expr)
-    # ...
-
-    # ... discrete spaces
-    Vh = create_discrete_space()
-    # ...
-
-    # ...
-    ah = discretize(a, Vh)
-    rhs = ah.assemble()
-    # ...
-
-def test_api_linear_2d_scalar_2():
-    print('============ test_api_linear_2d_scalar_2 =============')
-
-    # ... abstract model
-    V = FunctionSpace('V', domain)
-
-    v = TestFunction(V, name='v')
-
-    expr = v + dx(v) + dy(v)
-
-    a = LinearForm(v, expr)
-    # ...
-
-    # ... discrete spaces
-    Vh = create_discrete_space()
-    # ...
-
-    # ...
-    ah = discretize(a, Vh)
-    rhs = ah.assemble()
-    # ...
-
-def test_api_function_2d_scalar_1():
-    print('============ test_api_function_2d_scalar_1 =============')
-
-    # ... abstract model
-    V = FunctionSpace('V', domain)
-    x,y = V.coordinates
-
-    # TODO bug: when expr = 1, there are no free_symbols
-    expr = S.One
-
-    a = Integral(expr, domain, coordinates=[x,y])
-    # ...
-
-    # ... discrete spaces
-    Vh = create_discrete_space()
-    # ...
-
-    # ...
-    ah = discretize(a, Vh)
-    integral = ah.assemble()
-    assert(allclose(integral, 1))
-    # ...
-
-def test_api_equation_2d_1():
-    print('============ test_api_equation_2d_1 =============')
+def test_api_poisson_2d_dir_1():
+    print('============ test_api_poisson_2d_dir_1 =============')
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -543,8 +334,8 @@ def test_api_equation_2d_1():
     print('> H1 seminorm  = ', error)
     # ...
 
-def test_api_equation_2d_2():
-    print('============ test_api_equation_2d_2 =============')
+def test_api_poisson_2d_dirneu_1():
+    print('============ test_api_poisson_2d_dirneu_1 =============')
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -614,8 +405,8 @@ def test_api_equation_2d_2():
     print('> H1 seminorm  = ', error)
     # ...
 
-def test_api_equation_2d_3():
-    print('============ test_api_equation_2d_3 =============')
+def test_api_poisson_2d_dirneu_2():
+    print('============ test_api_poisson_2d_dirneu_2 =============')
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -690,78 +481,23 @@ def test_api_equation_2d_3():
     print('> H1 seminorm  = ', error)
     # ...
 
-
-
-def test_api_model_2d_poisson():
-    print('============ test_api_model_2d_poisson =============')
-
-    # ... abstract model
-    model = Poisson(domain)
-    # ...
-
-    # ... discrete spaces
-    Vh = create_discrete_space()
-    # ...
-
-    # ...
-    model_h = discretize(model, [Vh, Vh])
-    ah = model_h.forms['a']
-    M = ah.assemble()
-    # ...
-
-def test_api_model_2d_stokes():
-    print('============ test_api_model_2d_stokes =============')
-
-    # ... abstract model
-    model = Stokes(domain)
-    # ...
-
-    # ... discrete spaces
-    Vh = create_discrete_space()
-    # ...
-
-    # ...
-    model_h = discretize(model, [Vh, Vh])
-    ah = model_h.forms['a']
-    bh = model_h.forms['b']
-    M1 = ah.assemble()
-    M2 = bh.assemble()
-
-#    # we can assemble the full model either by calling directly the discrete
-#    # bilinear form
-#    Ah = model_h.forms['A']
-#    M = Ah.assemble()
-#
-#    # or through the equation attribut, which is independent from the model
-#    lhs_h = model_h.equation.lhs
-#    M = lhs_h.assemble()
-#    # ...
-
 ###############################################
 if __name__ == '__main__':
 
     # ...
-#    test_api_bilinear_2d_scalar_1()
-#    test_api_bilinear_2d_scalar_2()
-#    test_api_bilinear_2d_scalar_3()
-#    test_api_bilinear_2d_scalar_4()
-#    test_api_bilinear_2d_scalar_5()
-#    test_api_bilinear_2d_block_1()
+    test_api_bilinear_2d_sumform()
+    # ...
 
-#    test_api_linear_2d_scalar_1()
-#    test_api_linear_2d_scalar_2()
-#
-#    test_api_function_2d_scalar_1()
-#    # ...
+    # ... examples without mapping
+    test_api_poisson_2d_dir_1()
+    test_api_poisson_2d_dirneu_1()
+    test_api_poisson_2d_dirneu_2()
+    # ...
 
-#    # ...
-#    test_api_model_2d_poisson()
-#    test_api_model_2d_stokes()
-#    # ...
+    # ... examples with identity mapping
+    test_api_poisson_2d_dir_1_mapping()
 
-#    test_api_equation_2d_1()
-#    test_api_equation_2d_2()
-#    test_api_equation_2d_3()
-
-    test_api_equation_2d_1_mapping()
-    test_api_equation_2d_2_mapping()
+#    # TODO this test works when runned alone, but not after the other tests!!!
+#    # is it a problem of sympy namespace?
+#    test_api_poisson_2d_dirneu_1_mapping()
+#    # ...
