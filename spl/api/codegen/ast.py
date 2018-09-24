@@ -41,6 +41,7 @@ from sympde.core import Boundary, BoundaryVector, NormalVector, TangentVector
 from sympde.core import Covariant, Contravariant
 from sympde.core import BilinearForm, LinearForm, Integral, BasicForm
 from sympde.core.derivatives import _partial_derivatives
+from sympde.core.derivatives import get_max_partial_derivatives
 from sympde.core.space import FunctionSpace
 from sympde.core.space import TestFunction
 from sympde.core.space import VectorTestFunction
@@ -190,14 +191,17 @@ def compute_atoms_expr(atom,indices_quad,indices_test,
            VectorTestFunction,
            TestFunction)
 
+    dim  = len(indices_test)
+
     if not isinstance(atom, cls):
         raise TypeError('atom must be of type {}'.format(str(cls)))
 
+    orders = [0 for i in range(0, dim)]
+    p_indices = get_index_derivatives(atom)
     if isinstance(atom, _partial_derivatives):
-        direction = atom.grad_index + 1
+        orders[atom.grad_index] = p_indices[atom.coordinate]
         test      = test_function in atom.atoms(TestFunction)
     else:
-        direction = 0
         test      = atom == test_function
 
     if test:
@@ -208,13 +212,8 @@ def compute_atoms_expr(atom,indices_quad,indices_test,
         idxs   = indices_trial
 
     args = []
-    dim  = len(indices_test)
     for i in range(dim):
-        if direction == i+1:
-            args.append(basis[i][idxs[i],1,indices_quad[i]])
-
-        else:
-            args.append(basis[i][idxs[i],0,indices_quad[i]])
+        args.append(basis[i][idxs[i],orders[i],indices_quad[i]])
 
     # ... assign basis on quad point
     logical = not( mapping is None )
@@ -236,7 +235,7 @@ def compute_atoms_expr(atom,indices_quad,indices_test,
         # ... gradient
         lgrad_B = [d(a) for d in ops]
         grad_B = Covariant(mapping, lgrad_B)
-        rhs = grad_B[direction-1]
+        rhs = grad_B[atom.grad_index]
 
         # update expression
         elements = [d(M[i]) for d in ops for i in range(0, dim)]
@@ -878,8 +877,18 @@ class Kernel(SplBasic):
         self._dependencies += self.eval_fields
         # ...
 
-        # ... TODO compute nderiv from weak form
+        # ...
         nderiv = 1
+        if isinstance(self.kernel_expr, Matrix):
+            n_rows, n_cols = self.kernel_expr.shape
+            for i_row in range(0, n_rows):
+                for i_col in range(0, n_cols):
+                    d = get_max_partial_derivatives(self.kernel_expr[i_row,i_col])
+                    nderiv = max(nderiv, max(d.values()))
+        else:
+            d = get_max_partial_derivatives(self.kernel_expr)
+            nderiv = max(nderiv, max(d.values()))
+
         self._max_nderiv = nderiv
         # ...
 

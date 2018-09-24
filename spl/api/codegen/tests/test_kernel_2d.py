@@ -15,6 +15,7 @@ from sympde.core import dx, dy, dz
 from sympde.core import Constant
 from sympde.core import Field
 from sympde.core import grad, dot, inner, cross, rot, curl, div
+from sympde.core import laplace
 from sympde.core import FunctionSpace, VectorFunctionSpace
 from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
@@ -151,6 +152,25 @@ def test_kernel_bilinear_2d_scalar_5(mapping=False):
     for kernel in [kernel_bnd]:
         code = pycode(kernel)
         if DEBUG: print(code)
+
+def test_kernel_bilinear_2d_scalar_6(mapping=False):
+    print('============ test_kernel_bilinear_2d_scalar_6 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
+
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = laplace(v)*laplace(u)
+    a = BilinearForm((v,u), expr, mapping=mapping)
+
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
+    code = pycode(kernel)
+    if DEBUG: print(code)
 
 def test_kernel_bilinear_2d_block_1(mapping=False):
     print('============ test_kernel_bilinear_2d_block_1 =============')
@@ -305,7 +325,7 @@ def test_kernel_function_2d_scalar_3(mapping=False):
 #................................
 if __name__ == '__main__':
 
-    test_kernel_bilinear_2d_scalar_5(mapping=True)
+    test_kernel_bilinear_2d_scalar_6(mapping=False)
 
 
 #    # .................................
@@ -315,6 +335,7 @@ if __name__ == '__main__':
 #    test_kernel_bilinear_2d_scalar_3(mapping=False)
 #    test_kernel_bilinear_2d_scalar_4(mapping=False)
 #    test_kernel_bilinear_2d_scalar_5(mapping=False)
+#    test_kernel_bilinear_2d_scalar_6(mapping=False)
 #    test_kernel_bilinear_2d_block_1(mapping=False)
 #
 #    # with mapping
@@ -323,6 +344,7 @@ if __name__ == '__main__':
 #    test_kernel_bilinear_2d_scalar_3(mapping=True)
 #    test_kernel_bilinear_2d_scalar_4(mapping=True)
 ##    test_kernel_bilinear_2d_scalar_5(mapping=True)
+#    test_kernel_bilinear_2d_scalar_6(mapping=True)
 #    test_kernel_bilinear_2d_block_1(mapping=True)
 #    # .................................
 #
