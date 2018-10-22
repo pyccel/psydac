@@ -6,16 +6,14 @@ from spl.linalg.basic   import VectorSpace, Vector, LinearOperator
 __all__ = [ 'ProductSpace', 'BlockVector', 'BlockLinearOperator']
 
 #===============================================================================
-class ProductSpace(VectorSpace ):
+class ProductSpace(VectorSpace):
     """
     Product Vector Space V of two Vector Spaces or more.
-
 
     Parameters
     ----------
     list_spaces : list
         A list of Vector Spaces (spl.linalg.basic.VectorSpace)
-
     """
 
     def __init__( self,  *args ):
@@ -25,7 +23,7 @@ class ProductSpace(VectorSpace ):
             if V is not None:
                 assert isinstance( V, VectorSpace )
 
-        self._dim   = len(self._list_spaces)
+        self._block_dim   = len(self._list_spaces)
 
     #--------------------------------------
     # Abstract interface
@@ -35,9 +33,12 @@ class ProductSpace(VectorSpace ):
         """
         The dimension of a product space V= [V1, V2, ...] is the cardinality
         (i.e. the number of vectors) of a basis of V over its base field.
-
         """
-        return sum(self._list_spaces[:].dimension())
+        dim = 0
+        for i in range(self._block_dim):
+            dim += self._list_spaces[i].dimension
+
+        return dim
 
     def zeros( self ):
         """
@@ -47,9 +48,7 @@ class ProductSpace(VectorSpace ):
         -------
         null : ProductVector
             A new vector object with all components equal to zero.
-
         """
-
         return ProductSpace(self._list_spaces)
 
     #--------------------------------------
@@ -60,17 +59,25 @@ class ProductSpace(VectorSpace ):
         return self._list_spaces
 
     @property
-    def dim( self ):
-        return self._dim
+    def block_dim( self ):
+        return self._block_dim
 
     #...
-    def __eq__( self, block_space ):
-        assert self._dim == block_space.dim
+    def __eq__( self, other ):
+        assert self._block_dim == other.block_dim
         res = True
-        for i in range(self._dim):
-            res = res and  self._block_list[i] == block_space._list[i]
-
+        for i in range(self._block_dim):
+            res = res and self._list_spaces[i] == other._list_spaces[i]
         return res
+
+    #...
+    def __ne__( self, other ):
+        assert self._block_dim == other.block_dim
+        res = False
+        for i in range(self._block_dim):
+            res = res or self._list_spaces[i] == other._list_spaces[i]
+        return res
+
 
 #===============================================================================
 class BlockVector( Vector ):
@@ -304,7 +311,28 @@ class BlockLinearOperator(LinearOperator):
     # ...
     def dot( self, v, out=None ):
         assert isinstance( v, BlockVector )
+        assert v._n_blocks == self._n_block_cols
+
+        if out is not None:
+            assert isinstance( out, BlockVector )
+            assert out._n_blocks == self._n_block_rows
+        else:
+            out = BlockVector(self._n_block_rows)
         pass
+
+        for ij, Lij in self._block_dict.items():
+            i = ij[0]
+            assert v.space._list_spaces[i] == Lij.codomain
+
+            j = ij[1]
+            if out.space._list_spaces[j] is None:
+                out.space._list_spaces[j] = Lij.domain
+                out._block_list[i] = Lij.dot(v._block_list[j])
+            else:
+                assert out.space._list_spaces[j] == Lij.domain
+                out._block_list[i] += Lij.dot(v._block_list[j])
+
+        return out
 
     # ...
     def __getitem__(self, key):
