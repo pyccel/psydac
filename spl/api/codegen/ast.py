@@ -1661,8 +1661,8 @@ class Kron(SplBasic):
         
     @property
     def _initialize_dot(self):
-       if self.dim !=2:
-           raise NotImplementedError('TODO')
+        if self.dim !=2:
+            raise NotImplementedError('TODO')
 
 
         dim       = self.dim
@@ -1700,19 +1700,17 @@ class Kron(SplBasic):
             for_body = For(ranges[i], indices[i], for_body)
  
         body += for_body
-        lhs      = X_tmp[indices[0]-starts[0],indices[1] -starts[1] + pads[1]]
-        result   = X[indices[0]+pads[0]-starts[0], indices[1]-start[1]+dummy_idx]*matrices[1][indices[1],dummy_idx]
-        rhs      = FunctionalSum([Range(2*pads[1]+1)], result, lhs, [dummy_idx])
-        for_body = [rhs] 
- 
+        lhs      = Out[indices[0]-starts[0] + pads[0],indices[1] -starts[1] + pads[1]]
+        result   = X_tmp[indices[0]-starts[0]+dummy_idx, indices[1]-start[1]+pads[1]]*matrices[0][indices[1],dummy_idx]
+        rhs      = FunctionalSum([Range(2*pads[0]+1)], result, lhs, [dummy_idx])
+        for_body = [rhs]
+        for i in range(dim,-1,-1):
+            for_body = For(ranges[i], indices[i], for_body)
         
-        
 
- 
-
-
-       body.append(Return([Out]))
-       return FunctionDef('dot',list(func_args) , [],body)
+        body += for_body
+        body.append(Return([Out]))
+        return FunctionDef('dot',list(func_args) , [],body)
 
 
 
