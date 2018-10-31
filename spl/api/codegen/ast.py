@@ -23,8 +23,8 @@ from pyccel.ast.core import Range
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
 from pyccel.ast.core import Import
+from pyccel.ast import FunctionalSum
 from pyccel.ast import Zeros
-from pyccel.ast import Import
 from pyccel.ast import DottedName
 from pyccel.ast import Nil
 from pyccel.ast import Len
@@ -39,7 +39,7 @@ from sympde.core import Mapping
 from sympde.core import Field
 from sympde.core import Boundary, BoundaryVector, NormalVector, TangentVector
 from sympde.core import Covariant, Contravariant
-from sympde.core import BilinearForm, LinearForm, Integral, BasicForm
+from sympde.core import BilinearForm, LinearForm, Integral, BasicForm, TensorProduct
 from sympde.core.derivatives import _partial_derivatives
 from sympde.core.derivatives import get_max_partial_derivatives
 from sympde.core.space import FunctionSpace
@@ -943,7 +943,7 @@ class Kernel(SplBasic):
         trial_pads    = symbols('trial_p1:%d'%(dim+1))
         test_degrees  = symbols('test_p1:%d'%(dim+1))
         trial_degrees = symbols('trial_p1:%d'%(dim+1))
-        indices_quad   = symbols('g1:%d'%(dim+1))
+        indices_quad  = symbols('g1:%d'%(dim+1))
         qds_dim       = symbols('k1:%d'%(dim+1))
         indices_test  = symbols('il1:%d'%(dim+1))
         indices_trial = symbols('jl1:%d'%(dim+1))
@@ -966,8 +966,8 @@ class Kernel(SplBasic):
 
         # ...
         mapping_elements = ()
-        mapping_coeffs = ()
-        mapping_values = ()
+        mapping_coeffs   = ()
+        mapping_values   = ()
         if mapping:
             _eval = self.eval_mapping
             _print = lambda i: print_expression(i, mapping_name=False)
@@ -1632,3 +1632,92 @@ class Interface(SplBasic):
         # ...
 
         return FunctionDef(self.name, list(func_args), [], body)
+
+
+class Kron(SplBasic):
+    """."""
+
+    def __new__(cls, expr):
+        if isinstance(expr, Add):
+            args = expr.args
+        else: 
+            args = [expr]
+
+        for arg in args:
+            if not isinstance(arg, TensorProduct):
+                raise TypeError('args must be of type TensorProduct')
+        return SplBasic.__new__(cls, expr)
+
+    @property
+    def expr(self):
+        return self._args[0]
+
+    @property
+    def dim(self):
+        if isinstance(self.expr, Add):
+            return self.expr.args[0].dim
+        else:
+            return self.expr.dim
+        
+    @property
+    def _initialize_dot(self):
+       if self.dim !=2:
+           raise NotImplementedError('TODO')
+
+
+        dim       = self.dim
+        starts    = symbols('s1:%d'%(dim+1))
+        ends      = symbols('e1:%d'%(dim+1))
+        pads      = symbols('p1:%d'%(dim+1))
+        indices   = symbols('i1:%d'%(dim+1))
+        dummy_idx = symbols('k')
+        matrices  = symbols('A1:%d'%(dim+1), cls=IndexedBase)
+        X         = symbols('X', cls=IndexedBase)
+        X_tmp     = symbols('X_tmp', cls=IndexedBase)
+        Out       = symbols('Out', cls=IndexedBase)
+        args      = symbols('starts ends pads', cls=IndexedBase)
+        
+
+        func_args = (args + (X, X_tmp, Out) + matrices)
+
+        body = []
+        for i in range(dim):
+            body.append(Assign(starts[i], args[0][i]))
+
+        for i in range(dim):
+            body.append(Assign(ends[0],args[1][i]))
+
+        for i in range(dim):
+            body.append(Assign(pads, args[2][i]))
+
+        #ranges ...
+        ranges   = [Range(start[i], ends[i]+1) for i in range(dim)]
+        lhs      = X_tmp[indices[0]-starts[0],indices[1] -starts[1] + pads[1]]
+        result   = X[indices[0]+pads[0]-starts[0], indices[1]-start[1]+dummy_idx]*matrices[1][indices[1],dummy_idx]
+        rhs      = FunctionalSum([Range(2*pads[1]+1)], result, lhs, [dummy_idx])
+        for_body = [rhs] 
+        for i in range(dim,-1,-1):
+            for_body = For(ranges[i], indices[i], for_body)
+ 
+        body += for_body
+        lhs      = X_tmp[indices[0]-starts[0],indices[1] -starts[1] + pads[1]]
+        result   = X[indices[0]+pads[0]-starts[0], indices[1]-start[1]+dummy_idx]*matrices[1][indices[1],dummy_idx]
+        rhs      = FunctionalSum([Range(2*pads[1]+1)], result, lhs, [dummy_idx])
+        for_body = [rhs] 
+ 
+        
+        
+
+ 
+
+
+       body.append(Return([Out]))
+       return FunctionDef('dot',list(func_args) , [],body)
+
+
+
+
+
+
+
+
