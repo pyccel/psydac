@@ -1594,19 +1594,44 @@ class Interface(SplBasic):
         # ...
 
         # ... results
-        if len(global_matrices) == 1:
-            M = global_matrices[0]
-            if is_bilinear or is_linear:
+        if is_bilinear or is_linear:
+            if len(global_matrices) > 1:
+                L = Symbol('L')
+                if is_bilinear:
+                    body += [Import('BlockLinearOperator', 'spl.linalg.block')]
+
+                    # TODO this is a duplicated code => use a function to define
+                    # global_matrices
+                    n_rows = self.assembly.kernel.n_rows
+                    n_cols = self.assembly.kernel.n_cols
+
+                    d = {}
+                    for i in range(0, n_rows):
+                        for j in range(0, n_cols):
+                            mat = IndexedBase('M_{i}{j}'.format(i=i,j=j))
+                            d[(i,j)] = mat
+
+                    D = Symbol('d')
+                    d = OrderedDict(sorted(d.items()))
+                    body += [Assign(D, d)]
+                    body += [Assign(L, FunctionCall('BlockLinearOperator', [D]))]
+
+                elif is_linear:
+                    body += [Import('BlockVector', 'spl.linalg.block')]
+                    body += [Assign(L, FunctionCall('BlockVector', [global_matrices]))]
+
+                body += [Return(L)]
+
+            else:
+                M = global_matrices[0]
                 body += [Return(M)]
 
-            elif is_function:
+        elif is_function:
+            if len(global_matrices) == 1:
+                M = global_matrices[0]
                 body += [Return(M[0])]
 
-        else:
-            if is_bilinear or is_linear:
-                body += [Return(global_matrices)]
-
-            elif is_function:
+            else:
                 body += [Return(M[0] for M in global_matrices)]
         # ...
 
