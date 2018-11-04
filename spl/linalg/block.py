@@ -1,7 +1,10 @@
 # coding: utf-8
 from collections        import OrderedDict
+from numpy              import zeros
+from scipy.sparse       import coo_matrix
 
 from spl.linalg.basic   import VectorSpace, Vector, LinearOperator
+from spl.linalg.stencil import StencilMatrix
 
 __all__ = [ 'ProductSpace', 'BlockVector', 'BlockLinearOperator']
 
@@ -309,6 +312,16 @@ class BlockLinearOperator(LinearOperator):
         return self._block_dict
 
     # ...
+    @property
+    def n_block_rows( self ):
+        return self._n_block_rows
+
+    # ...
+    @property
+    def n_block_cols( self ):
+        return self._n_block_cols
+
+    # ...
     def dot( self, v, out=None ):
         assert isinstance( v, BlockVector )
         assert v._n_blocks == self._n_block_cols
@@ -376,3 +389,102 @@ class BlockLinearOperator(LinearOperator):
             raise TypeError('Unexpected argument.')
 
 #===============================================================================
+
+# TODO - add documentation + tests
+#      - allow numpy and sparse scipy matrices
+class BlockMatrix( BlockLinearOperator ):
+    """
+
+    """
+    def __init__(self, *args):
+        BlockLinearOperator.__init__(self, *args)
+
+        for i_row in range(0, self.n_block_rows):
+            for i_col in range(0, self.n_block_cols):
+                M = self[i_row, i_col]
+                if not isinstance(M, StencilMatrix):
+                    raise TypeError('> Expecting a StencilMatrix')
+
+    def tocoo(self):
+        # ...
+        n_block_rows = self.n_block_rows
+        n_block_cols = self.n_block_cols
+
+        matrices = {}
+        for k,M in list(self.block_dict.items()):
+            if isinstance( M, StencilMatrix ):
+                matrices[k] = M.tocoo()
+
+            else:
+                raise NotImplementedError('TODO')
+        # ...
+
+        # ... compute the global nnz
+        nnz = 0
+        for i in range(0, n_block_rows):
+            for j in range(0, n_block_cols):
+                nnz += matrices[i,j].nnz
+        # ...
+
+        # ... compute number of rows and cols per block
+        n_rows = zeros(n_block_rows, dtype=int)
+        n_cols = zeros(n_block_cols, dtype=int)
+
+        for i in range(0, n_block_rows):
+            n = 0
+            for j in range(0, n_block_cols):
+                if not(matrices[i,j] is None):
+                    n = matrices[i,j].shape[0]
+                    break
+            if n == 0:
+                raise ValueError('at least one block must be non empty per row')
+            n_rows[i] = n
+
+        for j in range(0, n_block_cols):
+            n = 0
+            for i in range(0, n_block_rows):
+                if not(matrices[i,j] is None):
+                    n = matrices[i,j].shape[1]
+                    break
+            if n == 0:
+                raise ValueError('at least one block must be non empty per col')
+            n_cols[j] = n
+        # ...
+
+        # ...
+        data = zeros(nnz)
+        rows = zeros(nnz, dtype=int)
+        cols = zeros(nnz, dtype=int)
+        # ...
+
+        # ...
+        n = 0
+        for ir in range(0, n_block_rows):
+            for ic in range(0, n_block_cols):
+                if not(matrices[ir,ic] is None):
+                    A = matrices[ir,ic]
+
+                    n += A.nnz
+
+                    shift_row = 0
+                    if ir > 0:
+                        shift_row = sum(n_rows[:ir])
+
+                    shift_col = 0
+                    if ic > 0:
+                        shift_col = sum(n_cols[:ic])
+
+                    rows[n-A.nnz:n] = A.row[:] + shift_row
+                    cols[n-A.nnz:n] = A.col[:] + shift_col
+                    data[n-A.nnz:n] = A.data
+        # ...
+
+        # ...
+        nr = n_rows.sum()
+        nc = n_cols.sum()
+
+        coo = coo_matrix((data, (rows, cols)), shape=(nr, nc))
+        coo.eliminate_zeros()
+        # ...
+
+        return coo

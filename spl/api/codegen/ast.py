@@ -1606,7 +1606,7 @@ class Interface(SplBasic):
             if len(global_matrices) > 1:
                 L = Symbol('L')
                 if is_bilinear:
-                    body += [Import('BlockLinearOperator', 'spl.linalg.block')]
+                    body += [Import('BlockMatrix', 'spl.linalg.block')]
 
                     # TODO this is a duplicated code => use a function to define
                     # global_matrices
@@ -1622,7 +1622,7 @@ class Interface(SplBasic):
                     D = Symbol('d')
                     d = OrderedDict(sorted(d.items()))
                     body += [Assign(D, d)]
-                    body += [Assign(L, FunctionCall('BlockLinearOperator', [D]))]
+                    body += [Assign(L, FunctionCall('BlockMatrix', [D]))]
 
                 elif is_linear:
                     body += [Import('BlockVector', 'spl.linalg.block')]
