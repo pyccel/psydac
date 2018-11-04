@@ -204,9 +204,20 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
     p_indices = get_index_derivatives(atom)
     if isinstance(atom, _partial_derivatives):
         orders[atom.grad_index] = p_indices[atom.coordinate]
-        test      = test_function in atom.atoms(TestFunction)
+        if isinstance( test_function, TestFunction ):
+            test      = test_function in atom.atoms(TestFunction)
+
+        elif isinstance( test_function, VectorTestFunction ):
+            test      = test_function in atom.atoms(VectorTestFunction)
+
+        else:
+            raise TypeError('> Expecting TestFunction or VectorTestFunction')
     else:
-        test      = atom == test_function
+        if isinstance( test_function, TestFunction ):
+            test      = atom == test_function
+
+        elif isinstance( test_function, VectorTestFunction ):
+            test      = atom.base == test_function
 
     if test or is_linear:
         basis  = basis_test

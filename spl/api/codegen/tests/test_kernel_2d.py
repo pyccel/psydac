@@ -31,7 +31,7 @@ from spl.api.codegen.printing import pycode
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
 DEBUG = False
-DEBUG = True
+#DEBUG = True
 DIM = 2
 
 domain = Domain('\Omega', dim=DIM)
@@ -343,6 +343,7 @@ def test_kernel_function_2d_scalar_3(mapping=False):
 #................................
 if __name__ == '__main__':
 
+#    test_kernel_bilinear_2d_block_1(mapping=False)
 
     # .................................
     # without mapping
