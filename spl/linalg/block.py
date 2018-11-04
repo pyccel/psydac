@@ -94,7 +94,7 @@ class BlockVector( Vector ):
     """
     def __init__( self,  *args ):
         # ... Data are given via a list of Vectors
-        if  isinstance(args[0], list):
+        if  isinstance(args[0], (list, tuple)):
             self._block_list = args[0]
             self._n_blocks = len(self._block_list)
 
