@@ -45,6 +45,7 @@ from sympde.core.derivatives import get_max_partial_derivatives
 from sympde.core.space import FunctionSpace
 from sympde.core.space import TestFunction
 from sympde.core.space import VectorTestFunction
+from sympde.core.space import IndexedTestTrial
 from sympde.core.space import Trace
 from sympde.printing.pycode import pycode  # TODO remove from here
 from sympde.core.derivatives import print_expression
@@ -183,13 +184,16 @@ def filter_product(indices, args, discrete_boundary):
 
     return Mul(*args)
 
-def compute_atoms_expr(atom,indices_quad,indices_test,
-                      indices_trial, basis_trial,
-                      basis_test,cords,test_function, mapping):
+def compute_atoms_expr(atom, indices_quad, indices_test,
+                       indices_trial, basis_trial,
+                       basis_test, cords, test_function,
+                       is_linear,
+                       mapping):
 
     cls = (_partial_derivatives,
            VectorTestFunction,
-           TestFunction)
+           TestFunction,
+           IndexedTestTrial)
 
     dim  = len(indices_test)
 
@@ -204,7 +208,7 @@ def compute_atoms_expr(atom,indices_quad,indices_test,
     else:
         test      = atom == test_function
 
-    if test:
+    if test or is_linear:
         basis  = basis_test
         idxs   = indices_test
     else:
@@ -842,7 +846,10 @@ class Kernel(SplBasic):
         self._constants = constants
         # ...
 
-        atoms_types = (_partial_derivatives, VectorTestFunction, TestFunction,
+        atoms_types = (_partial_derivatives,
+                       VectorTestFunction,
+                       TestFunction,
+                       IndexedTestTrial,
                        Field)
         atoms  = _atomic(expr, cls=atoms_types)
 
@@ -1008,6 +1015,7 @@ class Kernel(SplBasic):
                                                  basis_test,
                                                  coordinates,
                                                  test_function,
+                                                 is_linear,
                                                  mapping)
 
             init_basis[str(init.lhs)] = init
