@@ -77,9 +77,6 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
     y1 = M1.dot(x1) + M2.dot(x2)
     y2 = M3.dot(x1)
 
-    print('>>> REF:', y1.toarray())
-    print('>>> BLO:', Y.blocks[0].toarray())
-
     # Check data in 1D array
     assert np.allclose( Y1.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Y1.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
