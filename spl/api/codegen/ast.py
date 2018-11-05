@@ -202,6 +202,9 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
 
     orders = [0 for i in range(0, dim)]
     p_indices = get_index_derivatives(atom)
+#    print('> atom = ', atom)
+#    print('> test_function = ', test_function)
+    test = False
     if isinstance(atom, _partial_derivatives):
         orders[atom.grad_index] = p_indices[atom.coordinate]
         if isinstance( test_function, TestFunction ):
@@ -213,11 +216,13 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
         else:
             raise TypeError('> Expecting TestFunction or VectorTestFunction')
     else:
-        if isinstance( test_function, TestFunction ):
+        if (isinstance( atom, TestFunction ) and
+            isinstance( test_function, TestFunction )):
             test      = atom == test_function
 
-        elif isinstance( test_function, VectorTestFunction ):
-            test      = atom.base == test_function
+        elif (isinstance( atom, VectorTestFunction ) and
+              isinstance( test_function, VectorTestFunction )):
+            test      = atom.base == test_function.base
 
     if test or is_linear:
         basis  = basis_test
