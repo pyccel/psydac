@@ -88,9 +88,9 @@ class BlockVector( Vector ):
         if blocks:
             self.set_blocks( blocks )
         else:
-            # Each block is a 'None' block for now, but in the future we would
-            # like to use 'empty' vectors with the correct type (and space).
-            self._blocks = [None for Vi in V.spaces]
+            # TODO: Each block is a 'zeros' vector of the correct space for now,
+            # but in the future we would like 'empty' vectors of the same space.
+            self._blocks = [Vi.zeros() for Vi in V.spaces]
 
     #--------------------------------------
     # Abstract interface
@@ -259,75 +259,40 @@ class BlockLinearOperator(LinearOperator):
             (optional).
         """
 
-        assert isinstance(blocks, dict)
-        self._blocks = OrderedDict(blocks)
-
         # Verify that blocks belong to correct spaces and store them
-        for ij, Lij in self._blocks.items():
-            # ... Check spaces
-            if isinstance(Lij, LinearOperator):
-                i = ij[0]
-                j = ij[1]
+        assert isinstance( blocks, dict )
+        for (i,j), Lij in blocks.items():
+            assert isinstance( Lij, LinearOperator )
+            assert Lij.domain   is self.domain  [j]
+            assert Lij.codomain is self.codomain[i]
 
-                if self.domain._spaces[j] is None:
-                    self.domain._spaces[j] = Lij.domain
-                else:
-                    assert self.domain._spaces[j] == Lij.domain
-
-                if self.codomain._spaces[i] is None:
-                    self.codomain._spaces[i] = Lij.codomain
-                else:
-                    assert self.codomain._spaces[i] == Lij.codomain
-            else:
-                raise TypeError('Unexpected type.')
+        self._blocks = OrderedDict( blocks )
 
     # ...
     def dot( self, v, out=None ):
         assert isinstance( v, BlockVector )
-        assert v.space == self._codomain
+        assert v.space is self._codomain
+        assert all( v.blocks )
 
         if out is not None:
             assert isinstance( out, BlockVector )
-            assert out.space == self._domain
+            assert out.space is self._domain
+            out *= 0.0
         else:
-            out = BlockVector(self._domain)
-        pass
+            out = BlockVector( self._domain )
 
-        for ij, Lij in self._blocks.items():
-            i = ij[0]
-            assert v.space._spaces[i] == Lij.codomain
-
-            j = ij[1]
-            if out.space._spaces[j] is None:
-                out.space._spaces[j] = Lij.domain
-            else:
-                assert out.space._spaces[j] == Lij.domain
-
-            if out._blocks[i] == None:
-                out._blocks[i] = Lij.dot(v._blocks[j])
-            else:
-                out._blocks[i] += Lij.dot(v._blocks[j])
+        for (i,j), Lij in self._blocks.items():
+            out[i] += Lij.dot( v[j] )
 
         return out
 
     # ...
     def __getitem__(self, key):
-        if isinstance( key, tuple ):
-            assert len(key) == 2
-        else:
-            raise TypeError('A tuple is expected.')
-
-        i = key[0]
-        j = key[1]
-        assert 0 <= i < self.n_block_rows
-        assert 0 <= j < self.n_block_cols
-
-        return self._blocks[i, j]
+        return self._blocks[key]
 
     # ...
     def __setitem__(self, key, value):
 
-
         if isinstance( key, tuple ):
             assert len(key) == 2
         else:
@@ -338,19 +303,10 @@ class BlockLinearOperator(LinearOperator):
         assert 0 <= i < self.n_block_rows
         assert 0 <= j < self.n_block_cols
 
-        if isinstance(value, LinearOperator):
-            if self.domain._spaces[i] is None:
-                self.domain._spaces[i] = value.domain
-            else:
-                assert self.domain._spaces[i] == value.domain
+        assert isinstance( value, LinearOperator )
+        assert value.domain   is self.domain  [j]
+        assert value.codomain is self.codomain[i]
 
-            if self.codomain._spaces[i] is None:
-                self.codomain._spaces[i] = value.codomain
-            else:
-                assert self.codomain._spaces[i] == value.codomain
-
-            self._blocks[i,j] = value
-        else:
-            raise TypeError('Unexpected argument.')
+        self._blocks[i,j] = value
 
 #===============================================================================

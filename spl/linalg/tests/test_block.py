@@ -48,9 +48,9 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
     L2.set_blocks(dict_blocks)
 
     L3 = BlockLinearOperator( W, W )
-    L3[(0,0)] = M1
-    L3[(0,1)] = M2
-    L3[(1,0)] = M3
+    L3[0,0] = M1
+    L3[0,1] = M2
+    L3[1,0] = M3
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
