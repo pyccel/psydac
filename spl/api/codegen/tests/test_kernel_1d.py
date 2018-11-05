@@ -29,7 +29,8 @@ from spl.api.codegen.printing import pycode
 
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
-DEBUG = False
+#DEBUG = False
+DEBUG = True
 DIM = 1
 
 domain = Domain('\Omega', dim=DIM)
@@ -145,6 +146,25 @@ def test_kernel_bilinear_1d_scalar_5(mapping=False):
     for kernel in [kernel_int, kernel_bnd]:
         code = pycode(kernel)
         if DEBUG: print(code)
+
+def test_kernel_bilinear_1d_scalar_6(mapping=False):
+    print('============ test_kernel_bilinear_1d_scalar_6 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
+
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dx(dx(v))*dx(dx(u))
+    a = BilinearForm((v,u), expr, mapping=mapping)
+
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
+    code = pycode(kernel)
+    if DEBUG: print(code)
 
 def test_kernel_bilinear_1d_block_1(mapping=False):
     print('============ test_kernel_bilinear_1d_block_1 =============')
@@ -312,48 +332,50 @@ def test_kernel_function_1d_scalar_3(mapping=False):
 #................................
 if __name__ == '__main__':
 
-#    test_kernel_bilinear_1d_scalar_5(mapping=False)
+    test_kernel_bilinear_1d_scalar_6(mapping=False)
 
-    # .................................
-    # without mapping
-    test_kernel_bilinear_1d_scalar_1(mapping=False)
-    test_kernel_bilinear_1d_scalar_2(mapping=False)
-    test_kernel_bilinear_1d_scalar_3(mapping=False)
-    test_kernel_bilinear_1d_scalar_4(mapping=False)
-#    test_kernel_bilinear_1d_scalar_5(mapping=False)
-    test_kernel_bilinear_1d_block_1(mapping=False)
-
-    # with mapping
-    test_kernel_bilinear_1d_scalar_1(mapping=True)
-    test_kernel_bilinear_1d_scalar_2(mapping=True)
-    test_kernel_bilinear_1d_scalar_3(mapping=True)
-    test_kernel_bilinear_1d_scalar_4(mapping=True)
-#    test_kernel_bilinear_1d_scalar_5(mapping=True)
-    test_kernel_bilinear_1d_block_1(mapping=True)
-    # .................................
-
-    # .................................
-    # without mapping
-    test_kernel_linear_1d_scalar_1(mapping=False)
-    test_kernel_linear_1d_scalar_2(mapping=False)
-    test_kernel_linear_1d_scalar_3(mapping=False)
-    test_kernel_linear_1d_scalar_4(mapping=False)
-
-    # with mapping
-    test_kernel_linear_1d_scalar_1(mapping=True)
-    test_kernel_linear_1d_scalar_2(mapping=True)
-    test_kernel_linear_1d_scalar_3(mapping=True)
-    test_kernel_linear_1d_scalar_4(mapping=True)
-    # .................................
-
-    # .................................
-    # without mapping
-    test_kernel_function_1d_scalar_1(mapping=False)
-    test_kernel_function_1d_scalar_2(mapping=False)
-    test_kernel_function_1d_scalar_3(mapping=False)
-
-    # with mapping
-    test_kernel_function_1d_scalar_1(mapping=True)
-    test_kernel_function_1d_scalar_2(mapping=True)
-    test_kernel_function_1d_scalar_3(mapping=True)
-    # .................................
+#    # .................................
+#    # without mapping
+#    test_kernel_bilinear_1d_scalar_1(mapping=False)
+#    test_kernel_bilinear_1d_scalar_2(mapping=False)
+#    test_kernel_bilinear_1d_scalar_3(mapping=False)
+#    test_kernel_bilinear_1d_scalar_4(mapping=False)
+##    test_kernel_bilinear_1d_scalar_5(mapping=False)
+#    test_kernel_bilinear_1d_scalar_6(mapping=False)
+#    test_kernel_bilinear_1d_block_1(mapping=False)
+#
+#    # with mapping
+#    test_kernel_bilinear_1d_scalar_1(mapping=True)
+#    test_kernel_bilinear_1d_scalar_2(mapping=True)
+#    test_kernel_bilinear_1d_scalar_3(mapping=True)
+#    test_kernel_bilinear_1d_scalar_4(mapping=True)
+##    test_kernel_bilinear_1d_scalar_5(mapping=True)
+##    test_kernel_bilinear_1d_scalar_6(mapping=True)
+#    test_kernel_bilinear_1d_block_1(mapping=True)
+#    # .................................
+#
+#    # .................................
+#    # without mapping
+#    test_kernel_linear_1d_scalar_1(mapping=False)
+#    test_kernel_linear_1d_scalar_2(mapping=False)
+#    test_kernel_linear_1d_scalar_3(mapping=False)
+#    test_kernel_linear_1d_scalar_4(mapping=False)
+#
+#    # with mapping
+#    test_kernel_linear_1d_scalar_1(mapping=True)
+#    test_kernel_linear_1d_scalar_2(mapping=True)
+#    test_kernel_linear_1d_scalar_3(mapping=True)
+#    test_kernel_linear_1d_scalar_4(mapping=True)
+#    # .................................
+#
+#    # .................................
+#    # without mapping
+#    test_kernel_function_1d_scalar_1(mapping=False)
+#    test_kernel_function_1d_scalar_2(mapping=False)
+#    test_kernel_function_1d_scalar_3(mapping=False)
+#
+#    # with mapping
+#    test_kernel_function_1d_scalar_1(mapping=True)
+#    test_kernel_function_1d_scalar_2(mapping=True)
+#    test_kernel_function_1d_scalar_3(mapping=True)
+#    # .................................
