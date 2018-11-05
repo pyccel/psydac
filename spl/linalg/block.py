@@ -1,29 +1,30 @@
 # coding: utf-8
+#
+# Copyright 2018 Jalal Lakhlili, Yaman Güçlü
+
 from collections        import OrderedDict
 
 from spl.linalg.basic   import VectorSpace, Vector, LinearOperator
 
-__all__ = [ 'ProductSpace', 'BlockVector', 'BlockLinearOperator']
+__all__ = ['ProductSpace', 'BlockVector', 'BlockLinearOperator']
 
 #===============================================================================
-class ProductSpace(VectorSpace):
+class ProductSpace( VectorSpace ):
     """
-    Product Vector Space V of two Vector Spaces or more.
+    Product Vector Space V of two Vector Spaces (V1,V2) or more.
 
     Parameters
     ----------
-    list_spaces : list
-        A list of Vector Spaces (spl.linalg.basic.VectorSpace)
+    *spaces : spl.linalg.basic.VectorSpace
+        A list of Vector Spaces.
+
     """
+    def __init__( self,  *spaces ):
 
-    def __init__( self,  *args ):
-        assert isinstance(args[0], list)
-        self._list_spaces  = args[0]
-        for V in self._list_spaces:
-            if V is not None:
-                assert isinstance( V, VectorSpace )
+        assert all( isinstance( Vi, VectorSpace ) for Vi in spaces )
 
-        self._block_dim   = len(self._list_spaces)
+        # We store the spaces in a Tuple because they will not be changed
+        self._spaces = tuple( spaces )
 
     #--------------------------------------
     # Abstract interface
@@ -31,85 +32,65 @@ class ProductSpace(VectorSpace):
     @property
     def dimension( self ):
         """
-        The dimension of a product space V= [V1, V2, ...] is the cardinality
+        The dimension of a product space V = (V1, V2, ...] is the cardinality
         (i.e. the number of vectors) of a basis of V over its base field.
+
         """
-        dim = 0
-        for i in range(self._block_dim):
-            dim += self._list_spaces[i].dimension
+        return sum( Vi.dimension for Vi in self._spaces )
 
-        return dim
-
+    # ...
     def zeros( self ):
         """
-        Get a copy of the null element of the product space [V1, V2, ...]
+        Get a copy of the null element of the product space V = [V1, V2, ...]
 
         Returns
         -------
-        null : ProductVector
+        null : BlockVector
             A new vector object with all components equal to zero.
+
         """
-        return ProductSpace(self._list_spaces)
+        return BlockVector( self, [Vi.zeros() for Vi in self._spaces] )
 
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
     @property
-    def list_spaces( self ):
-        return self._list_spaces
+    def spaces( self ):
+        return self._spaces
 
     @property
-    def block_dim( self ):
-        return self._block_dim
+    def n_blocks( self ):
+        return len( self._spaces )
 
-    #...
-    def __eq__( self, other ):
-        assert self._block_dim == other.block_dim
-        res = True
-        for i in range(self._block_dim):
-            res = res and self._list_spaces[i] == other._list_spaces[i]
-        return res
-
-    #...
-    def __ne__( self, other ):
-        assert self._block_dim == other.block_dim
-        res = False
-        for i in range(self._block_dim):
-            res = res or self._list_spaces[i] == other._list_spaces[i]
-        return res
-
+    def __getitem__( self, key ):
+        return self._spaces[key]
 
 #===============================================================================
 class BlockVector( Vector ):
     """
-    Block of Vectors
+    Block of Vectors, which is an element of a ProductSpace.
 
     Parameters
     ----------
-    list_vectors : list
-        List of Vectors.
+    V : spl.linalg.block.ProductSpace
+        Space to which the new vector belongs.
 
-    n_block : integer
-        Number of blocks.
+    blocks : list or tuple (spl.linalg.basic.Vector)
+        List of Vector objects, belonging to the correct spaces (optional).
+
     """
-    def __init__( self,  *args ):
-        # ... Data are given via a list of Vectors
-        if  isinstance(args[0], list):
-            self._block_list = args[0]
-            self._n_blocks = len(self._block_list)
+    def __init__( self,  V, blocks=None ):
 
-            l_spaces = []
-            for i in range(self._n_blocks):
-                l_spaces = l_spaces + [self._block_list[i].space]
-            self._space = ProductSpace(l_spaces)
-        # ...
-        elif isinstance(args[0], int):
-            self._n_blocks = args[0]
-            self._block_list = [None]*self._n_blocks
-            self._space = ProductSpace([None]*self._n_blocks)
+        assert isinstance( V, ProductSpace )
+        self._space = V
 
+        # We store the blocks in a List so that we can change them later.
+        if blocks:
+            self.set_blocks( blocks )
         else:
-            raise TypeError('Unexpected argument.')
+            # Each block is a 'None' block for now, but in the future we would
+            # like to use 'empty' vectors with the correct type (and space).
+            self._blocks = [None for Vi in V.spaces]
 
     #--------------------------------------
     # Abstract interface
@@ -118,104 +99,95 @@ class BlockVector( Vector ):
     def space( self ):
         return self._space
 
-    # ...
-    @property
-    def block_list( self ):
-        return self._block_list
-
-    # ...
-    @property
-    def n_blocks( self ):
-        return self._n_blocks
-
     #...
     def dot( self, v ):
+
         assert isinstance( v, BlockVector )
-        assert v._n_blocks == self._n_blocks
+        assert v._space is self._space
 
-        res = 0.
-        for i in range(self._n_blocks):
-            assert v._space.list_spaces[i] is self._space.list_spaces[i]
-            res = res + self._block_list[i].dot(v._block_list[i])
-
-        return res
+        return sum( b1.dot( b2 ) for b1,b2 in zip( self._blocks, v._blocks ) )
 
     #...
     def copy( self ):
-        w = BlockVector( self._block_list )
-        return w
+        return BlockVector( self._space, [b.copy() for b in self._blocks] )
 
     #...
     def __mul__( self, a ):
-        w_block_list = [None]*self._n_blocks
-        for i in range(self._n_blocks):
-            w_block_list[i] = self._block_list[i]*a
-
-        w = BlockVector( w_block_list )
-        return w
+        return BlockVector( self._space, [b*a for b in self._blocks] )
 
     #...
     def __rmul__( self, a ):
-        w_block_list = [None]*self._n_blocks
-        for i in range(self._n_blocks):
-            w_block_list[i] =  a*self._block_list[i]
-
-        w = BlockVector( w_block_list )
-        return w
+        return BlockVector( self._space, [a*b for b in self._blocks] )
 
     #...
     def __add__( self, v ):
         assert isinstance( v, BlockVector )
-        assert v._n_blocks == self._n_blocks
-
-        w_block_list = [None]*self._n_blocks
-        for i in range(self._n_blocks):
-            assert v._space.list_spaces[i] is self._space.list_spaces[i]
-            w_block_list[i] = self._block_list[i] + v._block_list[i]
-
-        w = BlockVector(w_block_list)
-        return w
+        assert v._space is self._space
+        return BlockVector( self._space, [b1+b2 for b1,b2 in zip( self._blocks, v._blocks )] )
 
     #...
     def __sub__( self, v ):
         assert isinstance( v, BlockVector )
-        assert v._n_blocks == self._n_blocks
-
-        w_block_list = [None]*self._n_blocks
-        for i in range(self._n_blocks):
-            assert v._space.list_spaces[i] is self._space.list_spaces[i]
-            w_block_list[i] = self._block_list[i] - v._block_list[i]
-
-        w = BlockVector(w_block_list)
-        return w
+        assert v._space is self._space
+        return BlockVector( self._space, [b1-b2 for b1,b2 in zip( self._blocks, v._blocks )] )
 
     #...
     def __imul__( self, a ):
-        self._data *= a
-        for i in range(self._n_blocks):
-            self._block_list[i] *= a
-
+        for b in self._blocks:
+            b *= a
         return self
 
     #...
     def __iadd__( self, v ):
         assert isinstance( v, BlockVector )
-        assert v._n_blocks == self._n_blocks
-        for i in range(self._n_blocks):
-            assert v._space.list_spaces[i] is self._space.list_spaces[i]
-            self._block_list[i] += v.block_list[i]
-
+        assert v._space is self._space
+        for b1,b2 in zip( self._blocks, v._blocks ):
+            b1 += b2
         return self
 
     #...
     def __isub__( self, v ):
         assert isinstance( v, BlockVector )
-        assert v._n_blocks == self._n_blocks
-        for i in range(self._n_blocks):
-            assert v._space.list_spaces[i] is self._space.list_spaces[i]
-            self._block_list[i] -= v.block_list[i]
-
+        assert v._space is self._space
+        for b1,b2 in zip( self._blocks, v._blocks ):
+            b1 -= b2
         return self
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+    def __getitem__( self, key ):
+        return self._blocks[key]
+
+    # ...
+    def __setitem__( self, key, value ):
+        assert value.space == self.space[key]
+        self._blocks[key] = value
+
+    # ...
+    @property
+    def n_blocks( self ):
+        return len( self._blocks )
+
+    # ...
+    @property
+    def blocks( self ):
+        return tuple( self._blocks )
+
+    # ...
+    @property
+    def set_blocks( self, blocks ):
+        """
+        Parameters
+        ----------
+        blocks : list or tuple (spl.linalg.basic.Vector)
+        List of Vector objects, belonging to the correct spaces.
+        """
+
+        assert isinstance( blocks, (list, tuple) )
+        # Verify that vectors belong to correct spaces and store them
+        assert all( (Vi is b.space) for Vi,b in zip( V.spaces, blocks ) )
+        self._blocks = list( blocks )
 
 #===============================================================================
 class BlockLinearOperator(LinearOperator):
@@ -224,72 +196,30 @@ class BlockLinearOperator(LinearOperator):
 
     Parameters
     ----------
-    block_dict : collection.OrderedDict
+    V1 : spl.linalg.block.ProductSpace
+        Domain of the new linear operator.
+
+    V2 : spl.linalg.block.ProductSpace
+        Codomain of the new linear operator.
+
+    block : dict
         key   = tuple (i, j), i and j are two integers >= 0.
-        value = corresponding LinearOperator Lij.
-
-    n_block_rows : integer
-        Number of row blocks.
-
-    n_block_cols : integer
-        Number of column blocks.
-
+        value = corresponding LinearOperator Lij (belonging to the correct spaces).
+        (optional).
     """
 
-    def __init__(self, *args):
+    def __init__(self, V1, V2, blocks=None):
+        assert isinstance( V1, ProductSpace )
+        assert isinstance( V2, ProductSpace )
 
-        # ... Data are given via a dictionary
-        if len(args) == 1:
+        self._domain   = V1
+        self._codomain = V2
 
-            assert isinstance(args[0], dict)
-            self._block_dict = OrderedDict(args[0])
-
-            # TODO assert keys are integers >=0.
-            row_min = min(self._block_dict.keys(), key=lambda k: k[0])[0]
-            row_max = max(self._block_dict.keys(), key=lambda k: k[0])[0]
-            col_min = min(self._block_dict.keys(), key=lambda k: k[1])[1]
-            col_max = max(self._block_dict.keys(), key=lambda k: k[1])[1]
-
-            self._n_block_rows = row_max - row_min + 1
-            self._n_block_cols = col_max - col_min + 1
-
-            self._domain   = ProductSpace([None] * self._n_block_cols)
-            self._codomain = ProductSpace([None] * self._n_block_rows)
-
-            for ij, Lij in self._block_dict.items():
-                # ... Check spaces
-                if isinstance(Lij, LinearOperator):
-                    i = ij[0]
-                    j = ij[1]
-
-                    if self.domain._list_spaces[j] is None:
-                        self.domain._list_spaces[j] = Lij.domain
-                    else:
-                        assert self.domain._list_spaces[j] == Lij.domain
-
-                    if self.codomain._list_spaces[i] is None:
-                        self.codomain._list_spaces[i] = Lij.codomain
-                    else:
-                        assert self.codomain._list_spaces[i] == Lij.codomain
-                else:
-                    raise TypeError('Unexpected type.')
-
-        # ...  Data structure is initialised by the given block rows and cols
-        elif len(args) == 2:
-            n_block_rows = args[0]
-            n_block_cols = args[1]
-
-            assert n_block_rows > 0 and  n_block_rows > 0
-
-            self._n_block_rows  = n_block_rows
-            self._n_block_cols  = n_block_cols
-            self._domain   = ProductSpace([None] * n_block_cols)
-            self._codomain = ProductSpace([None] * n_block_rows)
-
-            self._block_dict = OrderedDict({})
+        # We store the blocks in a OrderedDict  (that we can change them later).
+        if blocks:
+            self.set_blocks(blocks)
         else:
-            raise TypeError('Unexpected argument.')
-
+            self._blocks = OrderedDict({})
 
     #--------------------------------------
     # Abstract interface
@@ -305,32 +235,78 @@ class BlockLinearOperator(LinearOperator):
 
     # ...
     @property
-    def block_dict( self ):
-        return self._block_dict
+    def blocks( self ):
+        return self._blocks
+
+    # ...
+    @property
+    def n_block_rows( self ):
+        return self._codomain.n_blocks
+
+    # ...
+    @property
+    def n_block_cols( self ):
+        return self._domain.n_blocks
+
+    # ...
+    def set_blocks(self, blocks):
+        """
+        Parameters
+        ----------
+        block : dict
+            key   = tuple (i, j), i and j are two integers >= 0.
+            value = corresponding LinearOperator Lij (belonging to the correct spaces).
+            (optional).
+        """
+
+        assert isinstance(blocks, dict)
+        self._blocks = OrderedDict(blocks)
+
+        # Verify that blocks belong to correct spaces and store them
+        for ij, Lij in self._blocks.items():
+            # ... Check spaces
+            if isinstance(Lij, LinearOperator):
+                i = ij[0]
+                j = ij[1]
+
+                if self.domain._spaces[j] is None:
+                    self.domain._spaces[j] = Lij.domain
+                else:
+                    assert self.domain._spaces[j] == Lij.domain
+
+                if self.codomain._spaces[i] is None:
+                    self.codomain._spaces[i] = Lij.codomain
+                else:
+                    assert self.codomain._spaces[i] == Lij.codomain
+            else:
+                raise TypeError('Unexpected type.')
 
     # ...
     def dot( self, v, out=None ):
         assert isinstance( v, BlockVector )
-        assert v._n_blocks == self._n_block_cols
+        assert v.space == self._codomain
 
         if out is not None:
             assert isinstance( out, BlockVector )
-            assert out._n_blocks == self._n_block_rows
+            assert out.space == self._domain
         else:
-            out = BlockVector(self._n_block_rows)
+            out = BlockVector(self._domain)
         pass
 
-        for ij, Lij in self._block_dict.items():
+        for ij, Lij in self._blocks.items():
             i = ij[0]
-            assert v.space._list_spaces[i] == Lij.codomain
+            assert v.space._spaces[i] == Lij.codomain
 
             j = ij[1]
-            if out.space._list_spaces[j] is None:
-                out.space._list_spaces[j] = Lij.domain
-                out._block_list[i] = Lij.dot(v._block_list[j])
+            if out.space._spaces[j] is None:
+                out.space._spaces[j] = Lij.domain
             else:
-                assert out.space._list_spaces[j] == Lij.domain
-                out._block_list[i] += Lij.dot(v._block_list[j])
+                assert out.space._spaces[j] == Lij.domain
+
+            if out._blocks[i] == None:
+                out._blocks[i] = Lij.dot(v._blocks[j])
+            else:
+                out._blocks[i] += Lij.dot(v._blocks[j])
 
         return out
 
@@ -343,13 +319,15 @@ class BlockLinearOperator(LinearOperator):
 
         i = key[0]
         j = key[1]
-        assert 0 <= i < self._n_block_rows
-        assert 0 <= j < self._n_block_cols
+        assert 0 <= i < self.n_block_rows
+        assert 0 <= j < self.n_block_cols
 
-        return self._block_dict[i, j]
+        return self._blocks[i, j]
 
     # ...
     def __setitem__(self, key, value):
+
+
         if isinstance( key, tuple ):
             assert len(key) == 2
         else:
@@ -357,21 +335,21 @@ class BlockLinearOperator(LinearOperator):
 
         i = key[0]
         j = key[1]
-        assert 0 <= i < self._n_block_rows
-        assert 0 <= j < self._n_block_cols
+        assert 0 <= i < self.n_block_rows
+        assert 0 <= j < self.n_block_cols
 
         if isinstance(value, LinearOperator):
-            if self.domain._list_spaces[i] is None:
-                self.domain._list_spaces[i] = value.domain
+            if self.domain._spaces[i] is None:
+                self.domain._spaces[i] = value.domain
             else:
-                assert self.domain._list_spaces[i] == value.domain
+                assert self.domain._spaces[i] == value.domain
 
-            if self.codomain._list_spaces[i] is None:
-                self.codomain._list_spaces[i] = value.codomain
+            if self.codomain._spaces[i] is None:
+                self.codomain._spaces[i] = value.codomain
             else:
-                assert self.codomain._list_spaces[i] == value.codomain
+                assert self.codomain._spaces[i] == value.codomain
 
-            self._block_dict[i,j] = value
+            self._blocks[i,j] = value
         else:
             raise TypeError('Unexpected argument.')
 
