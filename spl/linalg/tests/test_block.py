@@ -148,10 +148,10 @@ def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
     # Create and Fill Block objects
     W = ProductSpace(V, V)
     L = BlockLinearOperator( W, W )
-    L[(0,0)] = M1
-    L[(0,1)] = M2
-    L[(1,0)] = M3
-    L[(1,1)] = M4
+    L[0,0] = M1
+    L[0,1] = M2
+    L[1,0] = M3
+    L[1,1] = M4
 
     X = BlockVector(W)
     X[0] = x1
