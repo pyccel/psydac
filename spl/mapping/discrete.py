@@ -112,9 +112,8 @@ class SplineMapping( Mapping ):
     def __call__( self, eta ):
         return [map_Xd( *eta ) for map_Xd in self._fields]
 
-    # TODO: jac_mat
     def jac_mat( self, eta ):
-        pass
+        return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
 
     # TODO: metric
     def metric( self, eta ):
