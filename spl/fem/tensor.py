@@ -14,7 +14,7 @@ from spl.linalg.kron    import kronecker_solve
 from spl.fem.basic      import FemSpace, FemField
 from spl.fem.splines    import SplineSpace
 from spl.ddm.cart       import Cart
-from spl.core.bsplines  import find_span, basis_funs
+from spl.core.bsplines  import find_span, basis_funs, basis_funs_1st_der
 
 #===============================================================================
 class TensorFemSpace( FemSpace ):
@@ -164,7 +164,36 @@ class TensorFemSpace( FemSpace ):
         assert field.space is self
         assert len( eta ) == self.ldim
 
-        raise NotImplementedError()
+        bases_0 = []
+        bases_1 = []
+        index   = []
+
+        for (x, space) in zip( eta, self.spaces ):
+
+            knots   = space.knots
+            degree  = space.degree
+            span    =  find_span( knots, degree, x )
+            basis_0 = basis_funs( knots, degree, x, span )
+            basis_1 = basis_funs_1st_der( knots, degree, x, span )
+
+            bases_0.append( basis_0 )
+            bases_1.append( basis_1 )
+            index.append( slice( span-degree, span+1 ) )
+
+        # Get contiguous copy of the spline coefficients required for evaluation
+        index  = tuple( index )
+        coeffs = field.coeffs[index].copy()
+
+        # Evaluate each component of the gradient using algorithm described in "Option 1" above
+        grad = []
+        for d in range( self.ldim ):
+            bases = [(bases_1[d] if i==d else bases_0[i]) for i in range( self.ldim )]
+            res   = coeffs
+            for basis in bases[::-1]:
+                res = np.dot( res, basis )
+            grad.append( res )
+
+        return grad
 
     # ...
     def integral( self, f ):
