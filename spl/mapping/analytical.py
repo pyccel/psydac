@@ -8,7 +8,7 @@ from abc import ABCMeta
 
 from spl.mapping.basic import Mapping
 
-__all__ = ['SymbolicMapping','AnalyticalMapping']
+__all__ = ['IdentityMapping','SymbolicMapping','AnalyticalMapping']
 
 #==============================================================================
 class SymbolicMapping:
@@ -190,6 +190,36 @@ class AnalyticalMapping( Mapping, metaclass=AnalyticalMappingMeta ):
     @property
     def params( self ):
         return self._params
+
+#==============================================================================
+class IdentityMapping( Mapping ):
+
+    def __init__( self, ndim ):
+
+        self._ndim = int( ndim )
+
+    #--------------------------------------------------------------------------
+    # Abstract interface
+    #--------------------------------------------------------------------------
+    def __call__( self, eta ):
+        return eta
+
+    def jac_mat( self, eta ):
+        return np.eye( self._ndim )
+
+    def metric( self, eta ):
+        return np.eye( self._ndim )
+
+    def metric_det( self, eta ):
+        return 1.0
+
+    @property
+    def ldim( self ):
+        return self._ndim
+
+    @property
+    def pdim( self ):
+        return self._ndim
 
 #==============================================================================
 # class AffineMap( Mapping ):
