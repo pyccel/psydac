@@ -115,13 +115,12 @@ class SplineMapping( Mapping ):
     def jac_mat( self, eta ):
         return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
 
-    # TODO: metric
     def metric( self, eta ):
-        pass
+        J = self.jac_mat( eta )
+        return np.dot( J.T, J )
 
-    # TODO: metric_det
     def metric_det( self, eta ):
-        pass
+        return np.linalg.det( self.metric( eta ) )
 
     @property
     def ldim( self ):
