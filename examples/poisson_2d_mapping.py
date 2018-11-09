@@ -10,10 +10,43 @@ from spl.linalg.iterative_solvers   import cg
 from spl.fem.splines                import SplineSpace
 from spl.fem.tensor                 import TensorFemSpace
 from spl.fem.basic                  import FemField
-from spl.mapping.analytical_gallery import Annulus
-from spl.mapping.analytical         import IdentityMapping
+from spl.mapping.analytical         import AnalyticalMapping, IdentityMapping
+from spl.mapping.analytical_gallery import Annulus, Target
 from spl.mapping.discrete           import SplineMapping
 from spl.utilities.utils            import refine_array_1d
+
+#==============================================================================
+class Laplacian:
+
+    def __init__( self, mapping ):
+
+        assert isinstance( mapping, AnalyticalMapping )
+
+        sym = type(mapping).symbolic
+
+        self._eta        = sym.eta
+        self._metric     = sym.metric    .subs( mapping.params )
+        self._metric_det = sym.metric_det.subs( mapping.params )
+
+    # ...
+    def __call__( self, phi ):
+
+        from sympy import sqrt, Matrix
+
+        u      = self._eta
+        G      = self._metric
+        sqrt_g = sqrt( self._metric_det )
+
+        # Store column vector of partial derivatives of phi w.r.t. uj
+        dphi_du = Matrix( [phi.diff( uj ) for uj in u] )
+
+        # Compute gradient of phi in tangent basis: A = G^(-1) dphi_du
+        A = G.LUsolve( dphi_du )
+
+        # Compute Laplacian of phi using formula for divergence of vector A
+        lapl = sum( (sqrt_g*Ai).diff( ui ) for ui,Ai in zip( u,A ) ) / sqrt_g
+
+        return lapl
 
 #==============================================================================
 class Poisson2D:
@@ -100,6 +133,27 @@ class Poisson2D:
         # Callable functions
         phi = lambdify( [S,T], phi_e )
         rho = lambdify( [S,T], rho_e )
+
+        return Poisson2D( domain, periodic, mapping, phi, rho )
+
+    @staticmethod
+    def new_target():
+
+        domain   = ((0,1),(0,2*np.pi))
+        periodic = (False, True)
+        mapping  = Target()
+
+        from sympy import cos, lambdify
+
+        # Manufactured solution in logical coordinates
+        lapl  = Laplacian( mapping )
+        s,t   = type( mapping ).symbolic.eta
+        phi_e = 4 * s**2 * (1-s**2) * cos(t)
+        rho_e = -lapl( phi_e )
+
+        # Callable functions
+        phi = lambdify( [s,t], phi_e )
+        rho = lambdify( [s,t], rho_e )
 
         return Poisson2D( domain, periodic, mapping, phi, rho )
 
@@ -417,6 +471,8 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
         model = Poisson2D.new_square( mx=1, my=1 )
     elif test_case == 'annulus':
         model = Poisson2D.new_annulus( rmin=0.1, rmax=1.0 )
+    elif test_case == 'target':
+        model = Poisson2D.new_target()
     else:
         raise ValueError( "Only available test-cases are 'square' and 'annulus'" )
 
@@ -528,6 +584,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     ax.set_title ( r'$\phi_{ex}(x,y)$' )
     ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
     ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+    ax.set_aspect('equal')
     fig.tight_layout()
     fig.show()
 
@@ -540,6 +597,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     ax.set_title ( r'$\phi(x,y)$' )
     ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
     ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+    ax.set_aspect('equal')
     fig.tight_layout()
     fig.show()
 
@@ -552,6 +610,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     ax.set_title ( r'$\phi(x,y) - \phi_{ex}(x,y)$' )
     ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
     ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+    ax.set_aspect('equal')
     fig.tight_layout()
     fig.show()
 
@@ -569,7 +628,7 @@ def parse_input_arguments():
 
     parser.add_argument( '-t',
         type    = str,
-        choices =('square', 'annulus'),
+        choices =('square', 'annulus', 'target'),
         default = 'square',
         dest    = 'test_case',
         help    = 'Test case'
