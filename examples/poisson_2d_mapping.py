@@ -139,12 +139,18 @@ class Poisson2D:
         periodic = (False, True)
         mapping  = Target()
 
-        from sympy import cos, lambdify
+        from sympy import symbols, sin, cos, pi, lambdify
 
-        # Manufactured solution in logical coordinates
         lapl  = Laplacian( mapping )
         s,t   = type( mapping ).symbolic.eta
-        phi_e = 4 * s**2 * (1-s**2) * cos(t)
+        x,y   = (Xd.subs( mapping.params ) for Xd in type( mapping ).symbolic.map)
+
+        # Manufactured solution in logical coordinates
+        k     = mapping.params['k']
+        D     = mapping.params['D']
+        kx    = 2*pi/(1-k+D)
+        ky    = 2*pi/(1+k)
+        phi_e = (1-s**8) * sin( kx*x ) * sin( ky*y )
         rho_e = -lapl( phi_e )
 
         # Callable functions
