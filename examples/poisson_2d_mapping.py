@@ -11,7 +11,7 @@ from spl.fem.splines                import SplineSpace
 from spl.fem.tensor                 import TensorFemSpace
 from spl.fem.basic                  import FemField
 from spl.mapping.analytical         import AnalyticalMapping, IdentityMapping
-from spl.mapping.analytical_gallery import Annulus, Target
+from spl.mapping.analytical_gallery import Annulus, Target, Czarny
 from spl.mapping.discrete           import SplineMapping
 from spl.utilities.utils            import refine_array_1d
 
@@ -132,6 +132,7 @@ class Poisson2D:
 
         return Poisson2D( domain, periodic, mapping, phi, rho )
 
+    # ...
     @staticmethod
     def new_target():
 
@@ -151,6 +152,30 @@ class Poisson2D:
         kx    = 2*pi/(1-k+D)
         ky    = 2*pi/(1+k)
         phi_e = (1-s**8) * sin( kx*x ) * sin( ky*y )
+        rho_e = -lapl( phi_e )
+
+        # Callable functions
+        phi = lambdify( [s,t], phi_e )
+        rho = lambdify( [s,t], rho_e )
+
+        return Poisson2D( domain, periodic, mapping, phi, rho )
+
+    # ...
+    @staticmethod
+    def new_czarny():
+
+        domain   = ((0,1),(0,2*np.pi))
+        periodic = (False, True)
+        mapping  = Czarny()
+
+        from sympy import symbols, sin, cos, pi, lambdify
+
+        lapl  = Laplacian( mapping )
+        s,t   = type( mapping ).symbolic.eta
+        x,y   = (Xd.subs( mapping.params ) for Xd in type( mapping ).symbolic.map)
+
+        # Manufactured solution in logical coordinates
+        phi_e = s**2 * (1-s**2) * sin( 2*t+0.3 )
         rho_e = -lapl( phi_e )
 
         # Callable functions
@@ -475,8 +500,11 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
         model = Poisson2D.new_annulus( rmin=0.1, rmax=1.0 )
     elif test_case == 'target':
         model = Poisson2D.new_target()
+    elif test_case == 'czarny':
+        model = Poisson2D.new_czarny()
     else:
-        raise ValueError( "Only available test-cases are 'square' and 'annulus'" )
+        raise ValueError( "Only available test-cases are 'square', "
+                          "'annulus', 'target' and 'czarny'" )
 
     # Number of elements and spline degree
     ne1, ne2 = ncells
@@ -630,7 +658,7 @@ def parse_input_arguments():
 
     parser.add_argument( '-t',
         type    = str,
-        choices =('square', 'annulus', 'target'),
+        choices =('square', 'annulus', 'target', 'czarny'),
         default = 'square',
         dest    = 'test_case',
         help    = 'Test case'
