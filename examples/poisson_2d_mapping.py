@@ -110,29 +110,25 @@ class Poisson2D:
         periodic = (False, True)
         mapping  = Annulus()
 
-        from sympy import symbols, sin, cos, pi, sqrt, lambdify
+        from sympy import symbols, sin, cos, pi, lambdify
 
-        # Manufactured solutions in physical coordinates
-        x,y   = symbols('x y', real=True )
-        r     = sqrt( x**2 + y**2 )
+        lapl  = Laplacian( mapping )
+        r,t   = Annulus.symbolic.eta
+        x,y   = (Xd.subs( mapping.params ) for Xd in Annulus.symbolic.map)
+
+        # Manufactured solutions in logical coordinates
         parab = (r-rmin) * (rmax-r) * 4 / (rmax-rmin)**2
         phi_e = parab * sin( 2*pi*x ) * sin( 2*pi*y )
-        rho_e = -phi_e.diff(x,2)-phi_e.diff(y,2)
+        rho_e = -lapl( phi_e )
 
-        # Change to logical coordinates
-        s,t   = Annulus.symbolic.eta
-        X,Y   = (Xd.subs( mapping.params ) for Xd in Annulus.symbolic.map)
-        phi_e = phi_e.subs( {x:X, y:Y} )
-        rho_e = rho_e.subs( {x:X, y:Y} )
-
-        # For further simplifications, assume that (s,t) are positive and real
-        S,T   = symbols( 's t', real=True, positive=True )
-        phi_e = phi_e.subs( {s:S, t:T} ).simplify()
-        rho_e = rho_e.subs( {s:S, t:T} ).simplify()
+        # For further simplifications, assume that (r,t) are positive and real
+        R,T   = symbols( 'R T', real=True, positive=True )
+        phi_e = phi_e.subs( {r:R, t:T} ).simplify()
+        rho_e = rho_e.subs( {r:R, t:T} ).simplify()
 
         # Callable functions
-        phi = lambdify( [S,T], phi_e )
-        rho = lambdify( [S,T], rho_e )
+        phi = lambdify( [R,T], phi_e )
+        rho = lambdify( [R,T], rho_e )
 
         return Poisson2D( domain, periodic, mapping, phi, rho )
 
