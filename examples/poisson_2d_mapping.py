@@ -70,9 +70,7 @@ class Poisson2D:
         - The angular coordinate theta belongs to the interval [0,2*pi).
 
         : code
-        $\phi(x,y) = (r-rmin)^2 (rmax-r)^2 \sin( mx*pi*x ) \sin( my*pi*y )$
-
-        with $mx$ and $my$ user-defined integer numbers.
+        $\phi(x,y) = 4(r-rmin)(rmax-r)/(rmax-rmin)^2 \sin(2\pi x) \sin(2\pi y)$.
 
         """
         domain   = ((rmin,rmax),(0,2*np.pi))
@@ -84,8 +82,8 @@ class Poisson2D:
         # Manufactured solutions in physical coordinates
         x,y   = symbols('x y', real=True )
         r     = sqrt( x**2 + y**2 )
-#        phi_e = (r-rmin)**2 * (rmax-r)**2 * sin( 2*pi*x ) * sin( 2*pi*y )
-        phi_e = (rmax-r**2) * cos( 2*pi*x ) * sin( 2*pi*y )
+        parab = (r-rmin) * (rmax-r) * 4 / (rmax-rmin)**2
+        phi_e = parab * sin( 2*pi*x ) * sin( 2*pi*y )
         rho_e = -phi_e.diff(x,2)-phi_e.diff(y,2)
 
         # Change to logical coordinates
@@ -102,50 +100,6 @@ class Poisson2D:
         # Callable functions
         phi = lambdify( [S,T], phi_e )
         rho = lambdify( [S,T], rho_e )
-
-        return Poisson2D( domain, periodic, mapping, phi, rho )
-
-    # ...
-    def new_annulus_separable( rmin=0.5, rmax=1.0 ):
-
-        domain   = ((rmin,rmax),(0,2*np.pi))
-        periodic = (False, True)
-        mapping  = Annulus()
-
-        from sympy import symbols, sin, cos, pi, sqrt, lambdify
-
-        r,t   = symbols( 'r t', real=True, positive=True )
-        R     = 4 * (r-rmin) * (rmax-r) / (rmax-rmin)**2
-        T     = cos( t )
-        phi_e = R * T
-        rho_e = -(R.diff(r,r)+R.diff(r)/r)*T -(R/r**2)*T.diff(t,t)
-
-        # Simplify expressions
-        phi_e = phi_e.simplify()
-        rho_e = rho_e.simplify()
-
-        # Callable functions
-        phi = lambdify( [r,t], phi_e )
-        rho = lambdify( [r,t], rho_e )
-
-        return Poisson2D( domain, periodic, mapping, phi, rho )
-
-    # ...
-    def new_circle_separable():
-
-        domain   = ((0,1),(0,2*np.pi))
-        periodic = (False, True)
-        mapping  = Annulus()
-
-        from sympy import symbols, sin, cos, pi, sqrt, lambdify
-
-        r,t   = symbols( 'r t', real=True, positive=True )
-        phi_e = r**2 * (1-r**2)
-        rho_e = 16*r**2 - 4
-
-        # Callable functions
-        phi = lambdify( [r,t], phi_e )
-        rho = lambdify( [r,t], rho_e )
 
         return Poisson2D( domain, periodic, mapping, phi, rho )
 
@@ -453,20 +407,24 @@ def assemble_rhs( V, mapping, f ):
     return rhs
 
 ####################################################################################
-if __name__ == '__main__':
+
+def main( *, test_case, ncells, degree, use_spline_mapping ):
 
     timing = {}
 
-    # Input data: degree, number of elements
-    p1  = 3  ; p2  = 3
-    ne1 = 8 ; ne2 = 16
-
     # Method of manufactured solution
-#    model = Poisson2D.new_square( mx=1, my=1 )
-#    model = Poisson2D.new_annulus( rmin=0.05, rmax=1 )
-#    model = Poisson2D.new_annulus_separable( rmin=0.3, rmax=1.2 )
-    model = Poisson2D.new_circle_separable()
+    if test_case == 'square':
+        model = Poisson2D.new_square( mx=1, my=1 )
+    elif test_case == 'annulus':
+        model = Poisson2D.new_annulus( rmin=0.1, rmax=1.0 )
+    else:
+        raise ValueError( "Only available test-cases are 'square' and 'annulus'" )
 
+    # Number of elements and spline degree
+    ne1, ne2 = ncells
+    p1 , p2  = degree
+
+    # Is solution periodic?
     per1, per2 = model.periodic
 
     # Create uniform grid
@@ -483,18 +441,21 @@ if __name__ == '__main__':
 
     # Analytical and spline mappings
     map_analytic = model.mapping
-#    map_discrete = SplineMapping.from_mapping( V, map_analytic )
+
+    if use_spline_mapping:
+        map_discrete = SplineMapping.from_mapping( V, map_analytic )
+        mapping = map_discrete
+    else:
+        mapping = map_analytic
 
     # Build mass and stiffness matrices
     t0 = time()
-#    mass, stiffness = assemble_matrices( V, map_discrete, kernel )
-    mass, stiffness = assemble_matrices( V, map_analytic, kernel )
+    mass, stiffness = assemble_matrices( V, mapping, kernel )
     t1 = time()
     timing['assembly'] = t1-t0
 
     # Build right-hand side vector
-#    rhs = assemble_rhs( V, map_discrete, model.rho )
-    rhs = assemble_rhs( V, map_analytic, model.rho )
+    rhs = assemble_rhs( V, mapping, model.rho )
 
     # Apply homogeneous dirichlet boundary conditions
     if not V1.periodic:
@@ -526,9 +487,8 @@ if __name__ == '__main__':
 
     # Compute L2 norm of error
     t0 = time()
-#    jac_det   = lambda *x: np.sqrt( map_discrete.metric_det( x ) )
-    jac_det   = lambda *x: np.sqrt( map_analytic.metric_det( x ) )
-    integrand = lambda *x: (phi(*x)-model.phi(*x))**2 * jac_det(*x)
+    sqrt_g    = lambda *x: np.sqrt( mapping.metric_det( x ) )
+    integrand = lambda *x: (phi(*x)-model.phi(*x))**2 * sqrt_g(*x)
     e2 = np.sqrt( V.integral( integrand ) )
     t1 = time()
     timing['diagnostics'] = t1-t0
@@ -595,10 +555,64 @@ if __name__ == '__main__':
     fig.tight_layout()
     fig.show()
 
-    # Keep figures open if necessary
-    import __main__ as main
-    if hasattr( main, '__file__' ):
+#==============================================================================
+# Parser
+#==============================================================================
+def parse_input_arguments():
+
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+        description     = "Solve Poisson's equation on a 2D domain."
+    )
+
+    parser.add_argument( '-t',
+        type    = str,
+        choices =('square', 'annulus'),
+        default = 'square',
+        dest    = 'test_case',
+        help    = 'Test case'
+    )
+
+    parser.add_argument( '-d',
+        type    = int,
+        nargs   = 2,
+        default = [2,2],
+        metavar = ('P1','P2'),
+        dest    = 'degree',
+        help    = 'Spline degree along each dimension'
+    )
+
+    parser.add_argument( '-n',
+        type    = int,
+        nargs   = 2,
+        default = [10,10],
+        metavar = ('N1','N2'),
+        dest    = 'ncells',
+        help    = 'Number of grid cells (elements) along each dimension'
+    )
+
+    parser.add_argument( '-s',
+        action  = 'store_true',
+        dest    = 'use_spline_mapping',
+        help    = 'Use spline mapping in finite element calculations'
+    )
+
+    return parser.parse_args()
+
+#==============================================================================
+# Script functionality
+#==============================================================================
+if __name__ == '__main__':
+
+    args = parse_input_arguments()
+    namespace = main( **vars( args ) )
+
+    import __main__
+    if hasattr( __main__, '__file__' ):
         try:
            __IPYTHON__
         except NameError:
+            import matplotlib.pyplot as plt
             plt.show()
