@@ -255,11 +255,11 @@ def kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s ):
                             # Convert basis functions' derivatives:
                             #  - from logical coordinates (x1,x2)
                             #  - to Cartesian coordinates (x,y)
-                            bi_x = inv_jac_det * ( y_x2*bi_x1 - x_x2*bi_x2)
-                            bi_y = inv_jac_det * (-y_x1*bi_x1 + x_x1*bi_x2)
+                            bi_x = inv_jac_det * ( y_x2*bi_x1 - y_x1*bi_x2)
+                            bi_y = inv_jac_det * (-x_x2*bi_x1 + x_x1*bi_x2)
 
-                            bj_x = inv_jac_det * ( y_x2*bj_x1 - x_x2*bj_x2)
-                            bj_y = inv_jac_det * (-y_x1*bj_x1 + x_x1*bj_x2)
+                            bj_x = inv_jac_det * ( y_x2*bj_x1 - y_x1*bj_x2)
+                            bj_y = inv_jac_det * (-x_x2*bj_x1 + x_x1*bj_x2)
 
                             # Get volume associated to quadrature point
                             wvol = w1[q1] * w2[q2] * abs( jac_det )
