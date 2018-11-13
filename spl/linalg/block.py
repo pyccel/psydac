@@ -5,8 +5,9 @@
 from collections        import OrderedDict
 
 from spl.linalg.basic   import VectorSpace, Vector, LinearOperator
+from spl.linalg.stencil import StencilMatrix
 
-__all__ = ['ProductSpace', 'BlockVector', 'BlockLinearOperator']
+__all__ = ['ProductSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix']
 
 #===============================================================================
 class ProductSpace( VectorSpace ):
@@ -309,4 +310,135 @@ class BlockLinearOperator(LinearOperator):
 
         self._blocks[i,j] = value
 
+#===============================================================================
+
+#===============================================================================
+# TODO  allow numpy and sparse scipy matrices
+class BlockMatrix( BlockLinearOperator ):
+    """
+    Linear operator that can be written as blocks of Stencil Matrices.
+
+    Parameters
+    ----------
+    V1 : spl.linalg.block.ProductSpace
+        Domain of the new linear operator.
+
+    V2 : spl.linalg.block.ProductSpace
+        Codomain of the new linear operator.
+
+    block : dict
+        key   = tuple (i, j), i and j are two integers >= 0.
+        value = corresponding StencilMatrix Mij (belonging to the correct spaces).
+        (optional).
+    """
+
+    def __init__(self, V1, V2, blocks=None):
+        if blocks:
+            for M in blocks.values():
+                if not isinstance(M, StencilMatrix):
+                    raise typeerror('>>> Expecting a StencilMatrix')
+
+        BlockLinearOperator.__init__(self, V1, V2, blocks)
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+
+    # ...
+    def __setitem__( self, key, value ):
+
+        if isinstance(value, StencilMatrix):
+            assert value.domain   is self.domain.spaces[key[1]]
+            assert value.codomain is self.codomain.spaces[key[0]]
+            self._blocks[key] = value
+        else:
+            raise typeerror('>>> Expecting a StencilMatrix')
+
+    #  ...
+    def tocoo(self):
+        from numpy import zeros
+        from scipy.sparse import coo_matrix
+
+        # ...
+        n_block_rows = self.n_block_rows
+        n_block_cols = self.n_block_cols
+
+        matrices = {}
+        for k, M in list(self.blocks.items()):
+            if isinstance( M, StencilMatrix ):
+                matrices[k] = M.tocoo()
+            else:
+                raise NotImplementedError('TODO')
+        # ...
+
+        # ... compute the global nnz
+        nnz = 0
+        for i in range(0, n_block_rows):
+            for j in range(0, n_block_cols):
+                nnz += matrices[i,j].nnz
+        # ...
+
+        # ... compute number of rows and cols per block
+        n_rows = zeros(n_block_rows, dtype=int)
+        n_cols = zeros(n_block_cols, dtype=int)
+
+        for i in range(0, n_block_rows):
+            n = 0
+            for j in range(0, n_block_cols):
+                if not(matrices[i,j] is None):
+                    n = matrices[i,j].shape[0]
+                    break
+            if n == 0:
+                raise ValueError('At least one block must be non empty per row')
+            n_rows[i] = n
+
+        for j in range(0, n_block_cols):
+            n = 0
+            for i in range(0, n_block_rows):
+                if not(matrices[i,j] is None):
+                    n = matrices[i,j].shape[1]
+                    break
+            if n == 0:
+                raise ValueError('At least one block must be non empty per col')
+            n_cols[j] = n
+        # ...
+
+        # ...
+        data = zeros(nnz)
+        rows = zeros(nnz, dtype=int)
+        cols = zeros(nnz, dtype=int)
+        # ...
+
+        # ...
+        n = 0
+        for ir in range(0, n_block_rows):
+            for ic in range(0, n_block_cols):
+                if not(matrices[ir,ic] is None):
+                    A = matrices[ir,ic]
+
+                    n += A.nnz
+
+                    shift_row = 0
+                    if ir > 0:
+                        shift_row = sum(n_rows[:ir])
+
+                    shift_col = 0
+                    if ic > 0:
+                        shift_col = sum(n_cols[:ic])
+
+                    rows[n-A.nnz:n] = A.row[:] + shift_row
+                    cols[n-A.nnz:n] = A.col[:] + shift_col
+                    data[n-A.nnz:n] = A.data
+        # ...
+
+        # ...
+        nr = n_rows.sum()
+        nc = n_cols.sum()
+
+        coo = coo_matrix((data, (rows, cols)), shape=(nr, nc))
+        coo.eliminate_zeros()
+        # ...
+
+        return coo
+    # ...
 #===============================================================================
