@@ -16,17 +16,30 @@ def main( mapping='Target', degree=(2,2), ncells=(2,5), **kwargs ):
     from spl.fem.splines                import SplineSpace
     from spl.fem.tensor                 import TensorFemSpace
     from spl.mapping.discrete           import SplineMapping
+    from spl.mapping.analytical         import IdentityMapping
     from spl.mapping.analytical_gallery import Annulus, Target, Czarny
     from spl.utilities.utils            import refine_array_1d
 
     # Input parameters
-    map_analytic = locals()[mapping]( **kwargs )
-    p1 , p2      = degree
-    nc1, nc2     = ncells
+    if mapping == 'Identity':
+        map_analytic = IdentityMapping( ndim=2 )
+        lims1   = (0, 1)
+        lims2   = (0, 1)
+        period1 = False
+        period2 = False
+    else:
+        map_analytic = locals()[mapping]( **kwargs )
+        lims1 = (0, 1)
+        lims2 = (0, 2*np.pi)
+        period1 = False
+        period2 = True
+
+    p1 , p2  = degree
+    nc1, nc2 = ncells
 
     # Create tensor spline space, distributed
-    V1 = SplineSpace( grid=np.linspace( 0, 1,       nc1+1 ), degree=p1, periodic=False )
-    V2 = SplineSpace( grid=np.linspace( 0, 2*np.pi, nc2+1 ), degree=p2, periodic=True  )
+    V1 = SplineSpace( grid=np.linspace( *lims1, num=nc1+1 ), degree=p1, periodic=period1 )
+    V2 = SplineSpace( grid=np.linspace( *lims2, num=nc2+1 ), degree=p2, periodic=period2 )
     tensor_space = TensorFemSpace( V1, V2, comm=MPI.COMM_WORLD )
 
     # Create spline mapping by interpolating analytical one
@@ -76,7 +89,7 @@ def parse_input_arguments():
 
     parser.add_argument( '-m',
         type    = str,
-        choices =('Annulus', 'Target', 'Czarny'),
+        choices =('Identity', 'Annulus', 'Target', 'Czarny'),
         default = 'Annulus',
         dest    = 'mapping',
         help    = 'Analytical mapping'
