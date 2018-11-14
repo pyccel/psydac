@@ -1,3 +1,3 @@
-from spl.api.codegen.ast      import *
-from spl.api.codegen.printing import *
-from spl.api.codegen.utils    import *
+from spl.api.codegen import ast
+from spl.api.codegen import printing
+from spl.api.codegen import utils
