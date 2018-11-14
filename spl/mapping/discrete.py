@@ -39,6 +39,12 @@ class SplineMapping( Mapping ):
         self._ldim = components[0].space.ldim
         self._pdim = len( components )
 
+        # Create helper object for accessing control points with slicing syntax
+        # as if they were stored in a single multi-dimensional array C with
+        # indices [i1, ..., i_n, d] where (i1, ..., i_n) are indices of logical
+        # coordinates, and d is index of physical component of interest.
+        self._control_points = SplineMapping.ControlPoints( self )
+
     #--------------------------------------------------------------------------
     # Option [1]: initialize from TensorFemSpace and pre-existing mapping
     #--------------------------------------------------------------------------
@@ -130,3 +136,58 @@ class SplineMapping( Mapping ):
     def pdim( self ):
         return self._pdim
 
+    #--------------------------------------------------------------------------
+    # Other properties/methods
+    #--------------------------------------------------------------------------
+
+    @property
+    def space( self ):
+        return self._space
+
+    @property
+    def fields( self ):
+        return self._fields
+
+    @property
+    def control_points( self ):
+        return self._control_points
+
+    #==========================================================================
+    class ControlPoints:
+        """ Convenience object to access control points.
+
+        """
+        # TODO: should not allow access to ghost regions
+
+        def __init__( self, mapping ):
+            assert isinstance( mapping, SplineMapping )
+            self._mapping = mapping
+
+        # ...
+        @property
+        def mapping( self ):
+            return self._mapping
+
+        # ...
+        def __getitem__( self, key ):
+
+            m = self._mapping
+
+            if key is Ellipsis:
+                key = tuple( slice( None ) for i in range( m.ldim+1 ) )
+            elif isinstance( key, tuple ):
+                assert len( key ) == m.ldim+1
+            else:
+                raise ValueError( key )
+
+            pnt_idx = key[:-1]
+            dim_idx = key[-1]
+
+            if isinstance( dim_idx, slice ):
+                dim_idx = range( *dim_idx.indices( m.pdim ) )
+                coeffs = np.array( [m.fields[d].coeffs[pnt_idx] for d in dim_idx] )
+                coords = np.moveaxis( coeffs, 0, -1 )
+            else:
+                coords = np.array( m.fields[dim_idx].coeffs[pnt_idx] )
+
+            return coords
