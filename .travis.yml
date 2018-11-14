@@ -18,6 +18,14 @@ before_install:
   - python -m pip install --upgrade pip
   - python -m pip install -r requirements.txt
   - python -m pip uninstall -y spl
+  - python -m pip uninstall -y sympde
+  - python -m pip uninstall -y pyccel
+  - wget https://raw.githubusercontent.com/pyccel/pyccel/devel/requirements.txt -O requirements_pyccel.txt
+  - python -m pip install -r requirements_pyccel.txt
+  - python -m pip install git+https://github.com/pyccel/pyccel@devel 
+  - wget https://raw.githubusercontent.com/pyccel/sympde/devel/requirements.txt -O requirements_sympde.txt
+  - python -m pip install -r requirements_pyccel.txt
+  - python -m pip install git+https://github.com/pyccel/sympde@devel
 
 # command to install project
 install:
