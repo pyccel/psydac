@@ -8,6 +8,8 @@ from spl.linalg.basic   import VectorSpace, Vector, LinearOperator
 from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from spl.polar .dense   import DenseVectorSpace, DenseVector, DenseLinearOperator
 
+__all__ = ['LinearOperator_StencilToDense', 'LinearOperator_DenseToStencil']
+
 #==============================================================================
 class LinearOperator_StencilToDense( LinearOperator ):
 
@@ -61,6 +63,7 @@ class LinearOperator_StencilToDense( LinearOperator ):
         # TODO: do we care about having a 'dot_incr' option?
 
         V = self._domain
+        W = self._codomain
 
         s1, s2 = V.starts
         e1, e2 = V.ends
@@ -119,6 +122,7 @@ class LinearOperator_DenseToStencil( LinearOperator ):
         else:
             out = self._codomain.zeros()
 
+        V = self._domain
         W = self._codomain
 
         s1, s2 = W.starts
