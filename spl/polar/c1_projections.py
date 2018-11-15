@@ -199,7 +199,7 @@ class C1Projector:
         
         # Nullify all elements with j1 in {0,1}
         for j1 in [0,1]:
-            for i1 in range( 2, i1+p1+1 ):
+            for i1 in range( 2, j1+p1+1 ):
                 Dp[i1,:,j1-i1,:] = 0.0
 
 #        for i1 in range( 2, 2+p1 ):
@@ -239,6 +239,8 @@ class C1Projector:
         onto the tensor-product spline space.
 
         """
+        # TODO: make this work in parallel
+
         assert isinstance( b, StencilVector )
         assert b.space == self.space_S
 
@@ -252,9 +254,13 @@ class C1Projector:
                 for i2 in range( s2, e2+1 ):
                     bp0[u] += L[u,i1,i2] * b[i1,i2]
 
+        bp1 = b.copy()
+        if s1 == 0 and e1 >= 2:
+            bp1[0:2,:] = 0.0
+
         bp    = BlockVector( self._P )
         bp[0] = DenseVector( self._D, bp0 )
-        bp[1] = b.copy()
+        bp[1] = bp1
 
         return bp
 
@@ -264,19 +270,23 @@ class C1Projector:
         Compute v = E * v'
 
         """
+        # TODO: make this work in parallel
+
         assert isinstance( vp, BlockVector )
-        assert vp.space == self._space_P
+        assert vp.space == self.space_P
 
         L = self._L
 
-        s1, s2 = b.starts
-        e1, e2 = b.ends
-
         v = vp[1].copy()
+        s1, s2 = v.starts
+        e1, e2 = v.ends
+
+        vp0 = vp[0].toarray()
+
         for i1 in [0,1]:
             for i2 in range( s2, e2+1 ):
                 for u in [0,1,2]:
-                    v[i1,i2] = np.dot( L[:,i1,i2] * vp[0][:] )
+                    v[i1,i2] = np.dot( L[:,i1,i2], vp0 )
 
         v.update_ghost_regions()
 
