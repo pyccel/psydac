@@ -43,6 +43,7 @@ def random_string( n ):
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
+
 LinearSystem = namedtuple('LinearSystem', ['lhs', 'rhs'])
 
 
@@ -235,7 +236,98 @@ class BasicDiscrete(object):
         # ...
 
         # ...
+        if True:
+#        if False:
+            from pyccel.epyccel import epyccel, compile_fortran
+            from pyccel.codegen.utilities import execute_pyccel
+
+            folder = SPL_DEFAULT_FOLDER
+
+            basedir = os.getcwd()
+            os.chdir(folder)
+            curdir = os.getcwd()
+
+            # ... convert python to fortran using pyccel
+            openmp = False
+            compiler = 'gfortran'
+
+            fname = os.path.basename(self.dependencies_fname)
+
+            execute_pyccel(fname,
+                           compiler=compiler,
+                           fflags='-fPIC -O2 -c',
+                           debug=False,
+                           verbose=False,
+                           accelerator=None,
+                           include=[],
+                           libdir=[],
+                           modules=[],
+                           libs=[],
+                           binary=None,
+                           output='')
+            # ...
+
+            # ...
+            fname = os.path.basename(fname).split('.')[0]
+            fname = '{}.o'.format(fname)
+            libname = '{}'.format(self.tag).lower() # because of f2py
+
+            cmd = 'ar -r lib{libname}.a {fname}'.format(fname=fname, libname=libname)
+            os.system(cmd)
+            print(cmd)
+            # ...
+
+            # ... construct a f2py interface for the assembly
+            from pyccel.ast.utilities import build_types_decorator
+            from pyccel.ast.core import FunctionDef
+            from pyccel.ast.core import FunctionCall
+            from pyccel.ast.core import Assign
+
+            assembly = self.interface.assembly
+            module_name = module_name.split('.')[-1]
+
+            func = assembly.func
+            args = func.arguments
+
+            body = assembly.init_stmts
+            body += [FunctionCall(func, args)]
+
+            func_name = 'f2py_{}'.format(assembly.name)
+            decorators = {'types': build_types_decorator(args)}
+            func = FunctionDef(func_name, list(args), [], body,
+                               decorators=decorators)
+            code = pycode(func)
+            imports = 'from {mod} import {func}'.format(mod=module_name,
+                                                        func=assembly.name)
+            code = '{imports}\n{code}'.format(imports=imports, code=code)
+
+            module_name = 'f2py_dependencies_{}'.format(self.tag)
+            fname = write_code(module_name, code, ext='py', folder='')
+
+            fname = execute_pyccel(fname, output='', convert_only=True)
+
+            f = open(fname)
+            code = f.readlines()
+            f.close()
+
+            name = '__f2py__dependencies_{}'.format(self.tag)
+
+            extra_args = ' -L{} '.format(curdir)
+
+            output, cmd = compile_fortran( code, name,
+                                           extra_args= extra_args,
+                                           libs      = [libname],
+                                           compiler  = compiler,
+                                           mpi       = False,
+                                           openmp    = openmp)
+            # ...
+
+            os.chdir(basedir)
+        # ...
+
+        # ...
         code = self.interface_code
+        print(code)
         name = self.interface.name
 
         exec(code, namespace)

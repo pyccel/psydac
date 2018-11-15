@@ -1298,6 +1298,10 @@ class Assembly(SplBasic):
     def global_matrices(self):
         return self._global_matrices
 
+    @property
+    def init_stmts(self):
+        return self._init_stmts
+
     def build_arguments(self, data):
 
         other = data
@@ -1530,6 +1534,28 @@ class Assembly(SplBasic):
                 mats.append(M)
         mats = tuple(mats)
         self._global_matrices = mats
+        # ...
+
+        # ... the following statements are needed for f2py interface to avoid
+        # the intent problem
+        #     TODO must be fixed in pyccel by computing intent from FunctionDef
+        if is_bilinear:
+            gslices = [Slice(None,None)]*2*dim
+
+        if is_linear:
+            gslices = [Slice(None,None)]*dim
+
+        if is_function:
+            gslices = 0
+
+        init_stmts = []
+        for i in range(0, n_rows):
+            for j in range(0, n_cols):
+                M = global_matrices[i,j]
+                stmt = AugAssign(M[gslices], '+', 0.)
+                init_stmts += [stmt]
+
+        self._init_stmts = init_stmts
         # ...
 
         # function args
