@@ -58,13 +58,14 @@ class Poisson2D:
     $(\partial^2_{xx} + \partial^2_{yy}) \phi(x,y) = -\rho(x,y)$
 
     """
-    def __init__( self, domain, periodic, mapping, phi, rho ):
+    def __init__( self, domain, periodic, mapping, phi, rho, O_point=False ):
 
         self._domain   = domain
         self._periodic = periodic
         self._mapping  = mapping
         self._phi      = phi
         self._rho      = rho
+        self._O_point  = O_point
 
     # ...
     @staticmethod
@@ -130,7 +131,7 @@ class Poisson2D:
         phi = lambdify( [R,T], phi_e )
         rho = lambdify( [R,T], rho_e )
 
-        return Poisson2D( domain, periodic, mapping, phi, rho )
+        return Poisson2D( domain, periodic, mapping, phi, rho, O_point=(rmin==0) )
 
     # ...
     @staticmethod
@@ -151,14 +152,14 @@ class Poisson2D:
         D     = mapping.params['D']
         kx    = 2*pi/(1-k+D)
         ky    = 2*pi/(1+k)
-        phi_e = (1-s**8) * sin( kx*x ) * sin( ky*y )
+        phi_e = (1-s**8) * sin( kx*(x-0.5) ) * cos( ky*y )
         rho_e = -lapl( phi_e )
 
         # Callable functions
         phi = lambdify( [s,t], phi_e )
         rho = lambdify( [s,t], rho_e )
 
-        return Poisson2D( domain, periodic, mapping, phi, rho )
+        return Poisson2D( domain, periodic, mapping, phi, rho, O_point=True )
 
     # ...
     @staticmethod
@@ -175,14 +176,14 @@ class Poisson2D:
         x,y   = (Xd.subs( mapping.params ) for Xd in type( mapping ).symbolic.map)
 
         # Manufactured solution in logical coordinates
-        phi_e = s**2 * (1-s**2) * sin( 2*t+0.3 )
+        phi_e = (1-s**8) * sin( pi*x ) * cos( pi*y )
         rho_e = -lapl( phi_e )
 
         # Callable functions
         phi = lambdify( [s,t], phi_e )
         rho = lambdify( [s,t], rho_e )
 
-        return Poisson2D( domain, periodic, mapping, phi, rho )
+        return Poisson2D( domain, periodic, mapping, phi, rho, O_point=True )
 
     # ...
     @property
@@ -204,6 +205,10 @@ class Poisson2D:
     @property
     def rho( self ):
         return self._rho
+
+    @property
+    def O_point( self ):
+        return self._O_point
 
 #==============================================================================
 def kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s ):
@@ -522,8 +527,8 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     V2 = SplineSpace( p2, grid=grid_2, periodic=per2 ); V2.init_fem()
 
     # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2 )
-#    V = TensorFemSpace( V1, V2, comm=MPI.COMM_WORLD )
+#    V = TensorFemSpace( V1, V2 )
+    V = TensorFemSpace( V1, V2, comm=MPI.COMM_WORLD )
 
     # Analytical and spline mappings
     map_analytic = model.mapping
@@ -536,33 +541,34 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
 
     # Build mass and stiffness matrices
     t0 = time()
-    mass, stiffness = assemble_matrices( V, mapping, kernel )
+    M, S = assemble_matrices( V, mapping, kernel )
     t1 = time()
     timing['assembly'] = t1-t0
 
     # Build right-hand side vector
-    rhs = assemble_rhs( V, mapping, model.rho )
+    b = assemble_rhs( V, mapping, model.rho )
 
     # Apply homogeneous dirichlet boundary conditions
     if not V1.periodic:
-        # left  bc at x=0.
-        stiffness[0,:,:,:] = 0.
-        rhs      [0,:]     = 0.
+        if not model.O_point:
+            # left  bc at x=0.
+            S[0,:,:,:] = 0.
+            b[0,:]     = 0.
         # right bc at x=1.
-        stiffness[V1.nbasis-1,:,:,:] = 0.
-        rhs      [V1.nbasis-1,:]     = 0.
+        S[V1.nbasis-1,:,:,:] = 0.
+        b[V1.nbasis-1,:]     = 0.
 
     if not V2.periodic:
         # lower bc at y=0.
-        stiffness[:,0,:,:] = 0.
-        rhs      [:,0]     = 0.
+        S[:,0,:,:] = 0.
+        b[:,0]     = 0.
         # upper bc at y=1.
-        stiffness[:,V2.nbasis-1,:,:] = 0.
-        rhs      [:,V2.nbasis-1]     = 0.
+        S[:,V2.nbasis-1,:,:] = 0.
+        b[:,V2.nbasis-1]     = 0.
 
     # Solve linear system
     t0 = time()
-    x, info = cg( stiffness, rhs, tol=1e-9, maxiter=1000, verbose=False )
+    x, info = cg( S, b, tol=1e-9, maxiter=1000, verbose=False )
     t1 = time()
     timing['solution'] = t1-t0
 
@@ -643,6 +649,8 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     ax.set_aspect('equal')
     fig.tight_layout()
     fig.show()
+
+    return locals()
 
 #==============================================================================
 # Parser
