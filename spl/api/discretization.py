@@ -189,7 +189,7 @@ class BasicDiscrete(object):
 
     def _generate_code(self):
         # ... generate code that can be pyccelized
-        code = ''
+        code = 'from pyccel.decorators import types'
         for dep in self.dependencies:
             code = '{code}\n{dep}'.format(code=code, dep=pycode(dep))
         # ...

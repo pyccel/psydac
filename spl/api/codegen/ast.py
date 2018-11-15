@@ -876,6 +876,7 @@ class Kernel(SplBasic):
         # we need this, since Constant is an extension of Symbol and the type is
         # given as for sympy Symbol
         for c in constants:
+            dtype = 'real'
             if c.is_integer:
                 dtype = 'int'
 
@@ -886,6 +887,7 @@ class Kernel(SplBasic):
                 dtype = 'complex'
 
             self._constants.append(Variable(dtype, str(c.name)))
+
         self._constants = tuple(self._constants)
         # ...
 
@@ -976,6 +978,9 @@ class Kernel(SplBasic):
         elif is_linear:
             rank = dim
 
+        elif is_function:
+            rank = 1
+
         if isinstance(expr, Matrix):
             sh   = expr.shape
 
@@ -985,11 +990,7 @@ class Kernel(SplBasic):
                 for i_col in range(0, sh[1]):
                     mats.append('mat_{}{}'.format(i_row, i_col))
 
-            if not is_function:
-                mats = indexed_variables(mats, dtype='real', rank=rank)
-
-            else:
-                mats = variables(mats, 'real')
+            mats = indexed_variables(mats, dtype='real', rank=rank)
             # ...
 
             # ...
@@ -1005,11 +1006,7 @@ class Kernel(SplBasic):
             ln   = len(expr)
 
         else:
-            if not is_function:
-                mats = (IndexedVariable('mat_00', dtype='real', rank=rank),)
-
-            else:
-                mats = (Variable('real', 'mat_00'),)
+            mats = (IndexedVariable('mat_00', dtype='real', rank=rank),)
 
             v    = (Variable('real', 'v_00'),)
             expr = [expr]
@@ -1209,7 +1206,7 @@ class Kernel(SplBasic):
 
         elif is_function:
             for i in range(ln):
-                body.append(Assign(mats[i],v[i]))
+                body.append(Assign(mats[i][0],v[i]))
 
         # ...
         # put the body in tests and trials for loops
@@ -1330,7 +1327,7 @@ class Assembly(SplBasic):
 
         # ... declarations
         starts        = variables([ 's{}'.format(i) for i in range(1, dim+1)], 'int')
-        ends          = variables([ 's{}'.format(i) for i in range(1, dim+1)], 'int')
+        ends          = variables([ 'e{}'.format(i) for i in range(1, dim+1)], 'int')
 
         indices_elm   = variables([ 'ie{}'.format(i) for i in range(1, dim+1)], 'int')
         indices_span  = variables([ 'is{}'.format(i) for i in range(1, dim+1)], 'int')
@@ -1367,25 +1364,39 @@ class Assembly(SplBasic):
 
         # ...
         if is_bilinear:
-            self._basic_args = (starts + ends +
+            self._basic_args = (starts + ends + quad_orders +
                                 test_degrees + trial_degrees +
                                 spans +
                                 points + weights +
                                 test_basis + trial_basis)
 
         if is_linear or is_function:
-            self._basic_args = (starts + ends +
+            self._basic_args = (starts + ends + quad_orders +
                                 test_degrees +
                                 spans +
                                 points + weights +
                                 test_basis)
         # ...
 
+        # ...
+        if is_bilinear:
+            rank = 2*dim
+
+        elif is_linear:
+            rank = dim
+
+        elif is_function:
+            rank = 1
+        # ...
+
         # ... element matrices
         element_matrices = {}
         for i in range(0, n_rows):
             for j in range(0, n_cols):
-                mat = IndexedBase('mat_{i}{j}'.format(i=i,j=j))
+                mat = 'mat_{i}{j}'.format(i=i,j=j)
+
+                mat = IndexedVariable(mat, dtype='real', rank=rank)
+
                 element_matrices[i,j] = mat
         # ...
 
@@ -1393,7 +1404,10 @@ class Assembly(SplBasic):
         global_matrices = {}
         for i in range(0, n_rows):
             for j in range(0, n_cols):
-                mat = IndexedBase('M_{i}{j}'.format(i=i,j=j))
+                mat = 'M_{i}{j}'.format(i=i,j=j)
+
+                mat = IndexedVariable(mat, dtype='real', rank=rank)
+
                 global_matrices[i,j] = mat
         # ...
 
@@ -1451,6 +1465,7 @@ class Assembly(SplBasic):
                 mat = element_matrices[i,j]
 
                 stmt = AugAssign(M[gslices], '+', mat[lslices])
+
                 body += [stmt]
         # ...
 
@@ -1481,7 +1496,7 @@ class Assembly(SplBasic):
                     stmt = Assign(mat, Zeros((*orders,)))
 
                 if is_function:
-                    stmt = Assign(mat, Zeros(1))
+                    stmt = Assign(mat, Zeros((1,)))
 
                 prelude += [stmt]
 
@@ -1490,10 +1505,6 @@ class Assembly(SplBasic):
 
         # allocate mapping values
         if self.kernel.mapping_values:
-            for i, k in enumerate(quad_orders):
-                stmt = Assign(k, Shape(points[i], 1))
-                prelude += [stmt]
-
             for v in self.kernel.mapping_values:
                 stmt = Assign(v, Zeros(quad_orders))
                 prelude += [stmt]

@@ -196,14 +196,4 @@ if __name__ == '__main__':
     # ... examples without mapping
     test_api_poisson_1d_dir_1()
     test_api_poisson_1d_dirneu_1()
-#    test_api_poisson_1d_dirneu_2()
-#    # ...
-#
-#    # ... examples with identity mapping
-#    test_api_poisson_1d_dir_1_mapping()
-#
-##    # TODO this test works when runned alone, but not after the other tests!!!
-##    # is it a problem of sympy namespace?
-##    test_api_poisson_1d_dirneu_1_mapping()
-##    # ...
-
+    # ...

@@ -37,7 +37,8 @@ DIM = 2
 domain = Domain('\Omega', dim=DIM)
 
 def test_assembly_bilinear_2d_scalar_1(mapping=False):
-    print('============ test_assembly_bilinear_2d_scalar_1 =============')
+#    print('============ test_assembly_bilinear_2d_scalar_1 =============')
+    print('from pyccel.decorators import types')
 
     if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
 
@@ -334,8 +335,8 @@ def test_assembly_function_2d_scalar_3(mapping=False):
 #................................
 if __name__ == '__main__':
 
-    # .................................
-    # without mapping
+   # .................................
+   # without mapping
     test_assembly_bilinear_2d_scalar_1(mapping=False)
     test_assembly_bilinear_2d_scalar_2(mapping=False)
     test_assembly_bilinear_2d_scalar_3(mapping=False)

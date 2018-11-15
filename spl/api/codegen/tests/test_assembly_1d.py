@@ -31,6 +31,7 @@ from spl.api.codegen.printing import pycode
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
 DEBUG = False
+#DEBUG = True
 DIM = 1
 
 domain = Domain('\Omega', dim=DIM)

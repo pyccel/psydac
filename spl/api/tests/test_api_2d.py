@@ -42,7 +42,7 @@ def create_discrete_space():
     # ... discrete spaces
     # Input data: degree, number of elements
     p1  = 2 ; p2  = 2
-    ne1 = 8 ; ne2 = 8
+    ne1 = 2**4 ; ne2 = 2**4
 
     # Create uniform grid
     grid_1 = linspace( 0., 1., num=ne1+1 )
@@ -143,7 +143,7 @@ def test_api_poisson_2d_dir_1():
     expr = 2*pi**2*sin(pi*x)*sin(pi*y)*v
     l = LinearForm(v, expr)
 
-    error = F-sin(pi*x)*sin(pi*y)
+    error = F -sin(pi*x)*sin(pi*y)
     l2norm = Norm(error, domain, kind='l2', name='u')
     h1norm = Norm(error, domain, kind='h1', name='u')
 
@@ -627,19 +627,19 @@ if __name__ == '__main__':
 #    # ...
 #    test_api_bilinear_2d_sumform()
 #    # ...
-#
-#    # ... examples without mapping
-#    test_api_poisson_2d_dir_1()
-#    test_api_poisson_2d_dirneu_1()
-#    test_api_poisson_2d_dirneu_2()
-#
-#    test_api_laplace_2d_dir_1()
+
+    # ... examples without mapping
+    test_api_poisson_2d_dir_1()
+    test_api_poisson_2d_dirneu_1()
+    test_api_poisson_2d_dirneu_2()
+
+    test_api_laplace_2d_dir_1()
 
     test_api_vector_laplace_2d_dir_1()
     # ...
 
     # ... examples with identity mapping
-#    test_api_poisson_2d_dir_1_mapping()
+    test_api_poisson_2d_dir_1_mapping()
 
 #    # TODO this test works when runned alone, but not after the other tests!!!
 #    # is it a problem of sympy namespace?
