@@ -135,6 +135,41 @@ class Poisson2D:
 
     # ...
     @staticmethod
+    def new_circle():
+        """
+        Solve Poisson's equation on a unit circle centered at (x,y)=(0,0),
+        with logical coordinates (r,theta):
+
+        - The radial coordinate r belongs to the interval [0,1];
+        - The angular coordinate theta belongs to the interval [0,2*pi).
+
+        : code
+        $\phi(x,y) = 1-r**2$.
+
+        """
+        domain   = ((0,1),(0,2*np.pi))
+        periodic = (False, True)
+        mapping  = Annulus()
+
+        from sympy import lambdify
+
+        lapl  = Laplacian( mapping )
+        r,t   = type( mapping ).symbolic.eta
+
+        # Manufactured solutions in logical coordinates
+        phi_e = 1-r**2
+        rho_e = -lapl( phi_e )
+
+        # Callable functions
+        phi = lambdify( [r,t], phi_e )
+        rho = lambdify( [r,t], rho_e )
+
+        rho = np.vectorize( rho )
+
+        return Poisson2D( domain, periodic, mapping, phi, rho, O_point=True )
+
+    # ...
+    @staticmethod
     def new_target():
 
         domain   = ((0,1),(0,2*np.pi))
@@ -504,7 +539,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     elif test_case == 'annulus':
         model = Poisson2D.new_annulus( rmin=0.1, rmax=1.0 )
     elif test_case == 'circle':
-        model = Poisson2D.new_annulus( rmin=0, rmax=1 )
+        model = Poisson2D.new_circle()
     elif test_case == 'target':
         model = Poisson2D.new_target()
     elif test_case == 'czarny':
