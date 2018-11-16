@@ -86,7 +86,10 @@ class BlockVector( Vector ):
 
         # We store the blocks in a List so that we can change them later.
         if blocks:
-            self.set_blocks( blocks )
+            # Verify that vectors belong to correct spaces and store them
+            assert isinstance( blocks, (list, tuple) )
+            assert all( (Vi is b.space) for Vi,b in zip( V.spaces, blocks ) )
+            self._blocks = list( blocks )
         else:
             # TODO: Each block is a 'zeros' vector of the correct space for now,
             # but in the future we would like 'empty' vectors of the same space.
@@ -173,21 +176,6 @@ class BlockVector( Vector ):
     @property
     def blocks( self ):
         return tuple( self._blocks )
-
-    # ...
-    @property
-    def set_blocks( self, blocks ):
-        """
-        Parameters
-        ----------
-        blocks : list or tuple (spl.linalg.basic.Vector)
-        List of Vector objects, belonging to the correct spaces.
-        """
-
-        assert isinstance( blocks, (list, tuple) )
-        # Verify that vectors belong to correct spaces and store them
-        assert all( (Vi is b.space) for Vi,b in zip( V.spaces, blocks ) )
-        self._blocks = list( blocks )
 
 #===============================================================================
 class BlockLinearOperator(LinearOperator):
