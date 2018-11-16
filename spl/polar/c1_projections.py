@@ -36,12 +36,6 @@ class C1Projector:
 
         assert isinstance( S, StencilVectorSpace )
 
-        n1, n2 = S.npts
-
-        self._n  = 3 + (n1-2) * n2
-        self._n1 = n1
-        self._n2 = n2
-
         # Store matrix L with 3 indices
         lamb = self.compute_lambda( mapping )
         self._L = np.array( lamb )
@@ -56,8 +50,7 @@ class C1Projector:
         self._P = P
 
     # ...
-    @staticmethod
-    def compute_lambda( mapping ):
+    def compute_lambda( self, mapping ):
 
         s1, s2 = mapping.space.vector_space.starts
         e1, e2 = mapping.space.vector_space.ends
@@ -86,6 +79,11 @@ class C1Projector:
         lambda_1  = ONE_THIRD*(1.0 -    ((x-x0) - SQRT3*(y-y0))/tau)
         lambda_2  = ONE_THIRD*(1.0 -    ((x-x0) + SQRT3*(y-y0))/tau)
         lamb = (lambda_0, lambda_1, lambda_2)
+
+        # STORE INFO
+        self._tau = tau
+        self._vrtx = vrtx
+        self._lamb = lamb
 
         return lamb
 
@@ -257,6 +255,7 @@ class C1Projector:
         bp1 = b.copy()
         if s1 == 0 and e1 >= 2:
             bp1[0:2,:] = 0.0
+        bp1.update_ghost_regions()
 
         bp    = BlockVector( self._P )
         bp[0] = DenseVector( self._D, bp0 )
