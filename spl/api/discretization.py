@@ -3,6 +3,8 @@
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add quad_order too?
 
+# TODO: avoid using os.system and use subprocess.call
+
 from collections import OrderedDict
 from collections import namedtuple
 
@@ -27,6 +29,7 @@ from spl.api.boundary_condition import DiscreteBoundary
 from spl.api.boundary_condition import DiscreteComplementBoundary
 from spl.api.boundary_condition import DiscreteBoundaryCondition, DiscreteDirichletBC
 from spl.api.boundary_condition import apply_homogeneous_dirichlet_bc
+from spl.api.settings import SPL_BACKEND_PYTHON, SPL_DEFAULT_FOLDER
 from spl.linalg.stencil import StencilVector, StencilMatrix
 from spl.linalg.iterative_solvers import cg
 
@@ -35,8 +38,6 @@ import importlib
 import string
 import random
 import math
-
-SPL_DEFAULT_FOLDER = '__pycache__/spl'
 
 def random_string( n ):
     # we remove uppercase letters because of f2py
@@ -74,7 +75,7 @@ class BasicDiscrete(object):
 
     def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
                  module_name=None, boundary=None, target=None,
-                 boundary_basis=None, backend=None):
+                 boundary_basis=None, backend=SPL_BACKEND_PYTHON):
 
         # ...
         if not target:
@@ -136,8 +137,7 @@ class BasicDiscrete(object):
             # save dependencies code
             self._save_code(module_name=module_name)
 
-            # TODO improve depending on backend
-            if self.backend:
+            if self.backend['name'] == 'pyccel':
                 self._compile_pyccel(namespace)
 
             # generate code for Python interface
@@ -229,7 +229,7 @@ class BasicDiscrete(object):
             module_name = self.dependencies_modname
 
         # ...
-        if self.backend:
+        if self.backend['name'] == 'pyccel':
             imports += [self.interface_base_import_code]
 
             pattern = '{dep} = {module}.f2py_{dep}'
@@ -254,7 +254,7 @@ class BasicDiscrete(object):
 
         self._interface_code = '{imports}\n{code}'.format(imports=imports, code=code)
 
-    def _compile_pyccel(self, namespace):
+    def _compile_pyccel(self, namespace, verbose=False):
 
         module_name = self.dependencies_modname
 
@@ -286,7 +286,9 @@ class BasicDiscrete(object):
                                       libs=[],
                                       binary=None,
                                       output='' )
-        print(cmd)
+
+        if verbose:
+            print(cmd)
         # ...
 
         # ...
@@ -294,9 +296,11 @@ class BasicDiscrete(object):
         fname = '{}.o'.format(fname)
         libname = '{}'.format(self.tag).lower() # because of f2py
 
-        cmd = 'ar -r lib{libname}.a {fname}'.format(fname=fname, libname=libname)
+        cmd = 'ar -r lib{libname}.a {fname} '.format(fname=fname, libname=libname)
         os.system(cmd)
-        print(cmd)
+
+        if verbose:
+            print(cmd)
         # ...
 
         # ... construct a f2py interface for the assembly
@@ -356,7 +360,9 @@ class BasicDiscrete(object):
                                        mpi       = False,
                                        openmp    = openmp)
         # ...
-        print(cmd)
+
+        if verbose:
+            print(cmd)
 
         os.chdir(basedir)
 

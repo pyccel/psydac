@@ -1752,7 +1752,7 @@ class Interface(SplBasic):
         args = assembly.build_arguments(field_data + mat_data)
 
         # make numpy arrays as fortran contiguous
-        if self.backend:
+        if self.backend['name'] == 'pyccel':
             _args = []
             for x in args:
                 if isinstance(x, IndexedVariable) and x.rank > 1:
