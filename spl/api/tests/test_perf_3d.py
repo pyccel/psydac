@@ -1,5 +1,9 @@
 # -*- coding: UTF-8 -*-
 
+from sympy import pi, cos, sin
+from sympy import S
+from sympy import Tuple
+
 from sympde.core import dx, dy, dz
 from sympde.core import Constant
 from sympde.core import Field
@@ -52,12 +56,16 @@ def test_api_poisson_3d():
     U = FunctionSpace('U', domain)
     V = FunctionSpace('V', domain)
 
+    x,y,z = domain.coordinates
+
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
 
     expr = dot(grad(v), grad(u))
-
     a = BilinearForm((v,u), expr)
+
+    expr = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)*v
+    l = LinearForm(v, expr)
     # ...
 
     # ... discrete spaces
@@ -69,13 +77,27 @@ def test_api_poisson_3d():
     tb = time.time()
     M_f90 = ah.assemble()
     te = time.time()
-    print('> [pyccel] elapsed time = ', te-tb)
+    print('> [pyccel] elapsed time (matrix) = ', te-tb)
 
     ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYTHON)
     tb = time.time()
     M_py = ah.assemble()
     te = time.time()
-    print('> [python] elapsed time = ', te-tb)
+    print('> [python] elapsed time (matrix) = ', te-tb)
+    # ...
+
+    # ...
+    lh = discretize(l, Vh, backend=SPL_BACKEND_PYCCEL)
+    tb = time.time()
+    L_f90 = lh.assemble()
+    te = time.time()
+    print('> [pyccel] elapsed time (rhs) = ', te-tb)
+
+    lh = discretize(l, Vh, backend=SPL_BACKEND_PYTHON)
+    tb = time.time()
+    L_py = lh.assemble()
+    te = time.time()
+    print('> [python] elapsed time (rhs) = ', te-tb)
     # ...
 
 

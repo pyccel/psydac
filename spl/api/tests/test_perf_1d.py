@@ -91,13 +91,27 @@ def test_api_poisson_1d():
     tb = time.time()
     M_f90 = ah.assemble()
     te = time.time()
-    print('> [pyccel] elapsed time = ', te-tb)
+    print('> [pyccel] elapsed time (matrix) = ', te-tb)
 
     ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYTHON)
     tb = time.time()
     M_py = ah.assemble()
     te = time.time()
-    print('> [python] elapsed time = ', te-tb)
+    print('> [python] elapsed time (matrix) = ', te-tb)
+    # ...
+
+    # ...
+    lh = discretize(l, Vh, backend=SPL_BACKEND_PYCCEL)
+    tb = time.time()
+    L_f90 = lh.assemble()
+    te = time.time()
+    print('> [pyccel] elapsed time (rhs) = ', te-tb)
+
+    lh = discretize(l, Vh, backend=SPL_BACKEND_PYTHON)
+    tb = time.time()
+    L_py = lh.assemble()
+    te = time.time()
+    print('> [python] elapsed time (rhs) = ', te-tb)
     # ...
 
 
