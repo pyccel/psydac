@@ -661,6 +661,12 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     fig.tight_layout()
     fig.show()
 
+    if use_spline_mapping:
+        # Recompute physical coordinates of logical grid using spline mapping
+        pcoords = np.array( [[map_discrete( [e1,e2] ) for e2 in eta2] for e1 in eta1] )
+        xx = pcoords[:,:,0]
+        yy = pcoords[:,:,1]
+
     # Plot numerical solution
     fig, ax = plt.subplots( 1, 1 )
     im = ax.contourf( xx, yy, num, 40, cmap='jet' )
