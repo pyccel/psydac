@@ -13,6 +13,7 @@ from sympde.core import TestFunction
 from sympde.core import VectorTestFunction
 from sympde.core import Domain
 from sympde.core import BilinearForm, LinearForm, Integral
+from sympde.core import Norm
 
 from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
@@ -58,6 +59,8 @@ def test_api_poisson_3d():
 
     x,y,z = domain.coordinates
 
+    F = Field('F', V)
+
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')
 
@@ -66,38 +69,60 @@ def test_api_poisson_3d():
 
     expr = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)*v
     l = LinearForm(v, expr)
+
+    error = F -sin(pi*x)*sin(pi*y)*sin(pi*z)
+    l2norm = Norm(error, domain, kind='l2', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
     # ...
 
     # ... discrete spaces
     Vh = create_discrete_space(ne=(2**3, 2**3, 2**3))
     # ...
 
-    # ...
-    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYCCEL)
-    tb = time.time()
-    M_f90 = ah.assemble()
-    te = time.time()
-    print('> [pyccel] elapsed time (matrix) = ', te-tb)
+#    # ...
+#    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYCCEL)
+#    tb = time.time()
+#    M_f90 = ah.assemble()
+#    te = time.time()
+#    print('> [pyccel] elapsed time (matrix) = ', te-tb)
+#
+#    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYTHON)
+#    tb = time.time()
+#    M_py = ah.assemble()
+#    te = time.time()
+#    print('> [python] elapsed time (matrix) = ', te-tb)
+#    # ...
+#
+#    # ...
+#    lh = discretize(l, Vh, backend=SPL_BACKEND_PYCCEL)
+#    tb = time.time()
+#    L_f90 = lh.assemble()
+#    te = time.time()
+#    print('> [pyccel] elapsed time (rhs) = ', te-tb)
+#
+#    lh = discretize(l, Vh, backend=SPL_BACKEND_PYTHON)
+#    tb = time.time()
+#    L_py = lh.assemble()
+#    te = time.time()
+#    print('> [python] elapsed time (rhs) = ', te-tb)
+#    # ...
 
-    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYTHON)
-    tb = time.time()
-    M_py = ah.assemble()
-    te = time.time()
-    print('> [python] elapsed time (matrix) = ', te-tb)
+    # ... coeff of phi are 0
+    phi = FemField( Vh, 'phi' )
     # ...
 
     # ...
-    lh = discretize(l, Vh, backend=SPL_BACKEND_PYCCEL)
+    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYCCEL)
     tb = time.time()
-    L_f90 = lh.assemble()
+    L_f90 = l2norm_h.assemble(F=phi)
     te = time.time()
-    print('> [pyccel] elapsed time (rhs) = ', te-tb)
+    print('> [pyccel] elapsed time (L2 norm) = ', te-tb)
 
-    lh = discretize(l, Vh, backend=SPL_BACKEND_PYTHON)
+    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYTHON)
     tb = time.time()
-    L_py = lh.assemble()
+    L_py = l2norm_h.assemble(F=phi)
     te = time.time()
-    print('> [python] elapsed time (rhs) = ', te-tb)
+    print('> [python] elapsed time (L2 norm) = ', te-tb)
     # ...
 
 

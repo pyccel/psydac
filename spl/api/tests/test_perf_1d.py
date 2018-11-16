@@ -31,7 +31,7 @@ from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL
 
 from spl.mapping.discrete import SplineMapping
 
-from numpy import linspace, zeros, allclose
+from numpy import linspace, zeros, allclose, ones
 from utils import assert_identical_coo
 
 import time
@@ -112,6 +112,24 @@ def test_api_poisson_1d():
     L_py = lh.assemble()
     te = time.time()
     print('> [python] elapsed time (rhs) = ', te-tb)
+    # ...
+
+    # ... coeff of phi are 0
+    phi = FemField( Vh, 'phi' )
+    # ...
+
+    # ...
+    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYCCEL)
+    tb = time.time()
+    L_f90 = l2norm_h.assemble(F=phi)
+    te = time.time()
+    print('> [pyccel] elapsed time (L2 norm) = ', te-tb)
+
+    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYTHON)
+    tb = time.time()
+    L_py = l2norm_h.assemble(F=phi)
+    te = time.time()
+    print('> [python] elapsed time (L2 norm) = ', te-tb)
     # ...
 
 
