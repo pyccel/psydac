@@ -1620,6 +1620,8 @@ class Interface(SplBasic):
 
         dim = form.ldim
 
+        f_arrays = []
+
         # ... declarations
         test_space = Symbol('W')
         trial_space = Symbol('V')
@@ -1643,6 +1645,13 @@ class Interface(SplBasic):
         mapping = ()
         if form.mapping:
             mapping = Symbol('mapping')
+        # ...
+
+        # ...
+        f_arrays += list(points) + list(weights) + list(trial_basis)
+
+        if is_bilinear:
+            f_arrays += list(test_basis)
         # ...
 
         # ...
@@ -1688,7 +1697,10 @@ class Interface(SplBasic):
         if mapping:
             for i, coeff in enumerate(assembly.kernel.mapping_coeffs):
                 component = IndexedBase(DottedName(mapping, '_fields'))[i]
-                body += [Assign(coeff, DottedName(component, '_coeffs', '_data'))]
+                c_var = DottedName(component, '_coeffs', '_data')
+                body += [Assign(coeff, c_var)]
+
+                f_arrays += [c_var]
         # ...
 
         # ...
@@ -1717,6 +1729,21 @@ class Interface(SplBasic):
             body += [Import('zeros', 'numpy')]
             for M in global_matrices:
                 body += [Assign(M, Zeros(1))]
+        # ...
+
+        # ... make numpy arrays as fortran contiguous
+        #     TODO must be done only when using pyccel
+        if is_bilinear or is_linear:
+            for M in global_matrices:
+                mat_data = DottedName(M, '_data')
+                # TODO 1d case for Vector should be avoided
+                f_arrays += [mat_data]
+
+        body += [Import('asfortranarray', 'numpy')]
+        # TODO add mapping and fields
+        for x in f_arrays:
+            call = FunctionCall('asfortranarray', [x])
+            body += [Assign(x, call)]
         # ...
 
         # ...

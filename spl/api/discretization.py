@@ -274,18 +274,19 @@ class BasicDiscrete(object):
 
         fname = os.path.basename(self.dependencies_fname)
 
-        execute_pyccel(fname,
-                       compiler=compiler,
-                       fflags='-fPIC -O2 -c',
-                       debug=False,
-                       verbose=False,
-                       accelerator=None,
-                       include=[],
-                       libdir=[],
-                       modules=[],
-                       libs=[],
-                       binary=None,
-                       output='')
+        output, cmd = execute_pyccel( fname,
+                                      compiler=compiler,
+                                      fflags='-fPIC -O2 -c',
+                                      debug=False,
+                                      verbose=False,
+                                      accelerator=None,
+                                      include=[],
+                                      libdir=[],
+                                      modules=[],
+                                      libs=[],
+                                      binary=None,
+                                      output='' )
+        print(cmd)
         # ...
 
         # ...
@@ -316,14 +317,24 @@ class BasicDiscrete(object):
         body = assembly.init_stmts
         body += [FunctionCall(func, args)]
 
+        # ...
+        def construct_header(func_name, args):
+            args = build_types_decorator(args)
+            args = ','.join("{}".format(i) for i in args)
+            pattern = '#$ header procedure static {name}({args})'
+            return pattern.format(name=func_name, args=args)
+        # ...
+
         func_name = 'f2py_{}'.format(assembly.name)
-        decorators = {'types': build_types_decorator(args)}
-        func = FunctionDef(func_name, list(args), [], body,
-                           decorators=decorators)
+        header = construct_header(func_name, args)
+        func = FunctionDef(func_name, list(args), [], body)
         code = pycode(func)
         imports = 'from {mod} import {func}'.format(mod=module_name,
                                                     func=assembly.name)
-        code = '{imports}\n{code}'.format(imports=imports, code=code)
+
+        code = '{imports}\n{header}\n{code}'.format(imports=imports,
+                                                    header=header,
+                                                    code=code)
 
         module_name = 'f2py_dependencies_{}'.format(tag)
         fname = write_code(module_name, code, ext='py', folder='')
@@ -334,7 +345,7 @@ class BasicDiscrete(object):
         code = f.readlines()
         f.close()
 
-        name = 'pyccel__dependencies_{}'.format(self.tag)
+        name = 'f2py_dependencies_{}'.format(self.tag)
 
         extra_args = ' -L{} '.format(curdir)
 
@@ -345,6 +356,7 @@ class BasicDiscrete(object):
                                        mpi       = False,
                                        openmp    = openmp)
         # ...
+        print(cmd)
 
         os.chdir(basedir)
 
@@ -359,7 +371,6 @@ class BasicDiscrete(object):
                                                                module_name=module_name)
         self._interface_base_import_code = import_mod
         self._dependencies_modname = module_name
-        print('>>> ', self.dependencies_modname)
         # ...
 
     def _compile(self, namespace, module_name=None):
@@ -369,7 +380,6 @@ class BasicDiscrete(object):
 
         # ...
         code = self.interface_code
-        print(code)
         name = self.interface.name
 
         exec(code, namespace)
@@ -443,6 +453,54 @@ class DiscreteBilinearForm(BasicDiscrete):
         kwargs = self._check_arguments(**kwargs)
 
         return self.func(*newargs, **kwargs)
+
+
+#    def assemble(self, **kwargs):
+#
+#        # ...
+#        from __pycache__.spl.pyccel__dependencies_00xf92yk import f2py_dependencies_00xf92yk
+#        assembly_00xf92yk = f2py_dependencies_00xf92yk.f2py_assembly_00xf92yk
+#        def interface_00xf92yk(W, V, M_00 = None):
+#            (test_p1,) = W.vector_space.pads
+#            (trial_p1,) = V.vector_space.pads
+#            #  TODO must use suppoerts with starts/ends
+#            (s1,) = W.vector_space.starts
+#            (e1,) = W.vector_space.ends
+#            e1 = e1 - test_p1
+#            test_spans_1 = W.spans
+#            k1 = W.quad_order
+#            points_1 = W.quad_points
+#            weights_1 = W.quad_weights
+#            test_basis_1 = W.quad_basis
+#            trial_basis_1 = V.quad_basis
+#            from spl.linalg.stencil import StencilMatrix
+#            if (M_00 is None):
+#                M_00 = StencilMatrix(W.vector_space,V.vector_space)
+#
+#            # ...
+#            from numpy import asfortranarray
+#
+#            points_1      = asfortranarray(points_1     )
+#            weights_1     = asfortranarray(weights_1    )
+#            test_basis_1  = asfortranarray(test_basis_1 )
+#            trial_basis_1 = asfortranarray(trial_basis_1)
+#            M_00._data    = asfortranarray(M_00._data   )
+#
+#            print(s1,e1,k1,test_p1,trial_p1)
+#            print('test_spans_1  = ', test_spans_1.shape)
+#            print('points_1      = ', points_1.shape)
+#            print('weights_1     = ', weights_1.shape)
+#            print('test_basis_1  = ', test_basis_1.shape)
+#            print('trial_basis_1 = ', trial_basis_1.shape)
+#            print('M_00          = ', M_00._data.shape)
+#            # ...
+#
+#            assembly_00xf92yk(s1,e1,k1,test_p1,trial_p1,test_spans_1,points_1,weights_1,test_basis_1,trial_basis_1,M_00._data)
+#            return M_00
+#        # ...
+#
+#        W, V = tuple(self.spaces)
+#        return interface_00xf92yk(W, V)
 
 class DiscreteLinearForm(BasicDiscrete):
 
