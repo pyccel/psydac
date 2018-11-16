@@ -17,7 +17,7 @@ from spl.polar.c1_projections import C1Projector
 def test_c1_projections( degrees, ncells, verbose=False ):
 
     if verbose:
-        np.set_printoptions( precision=3, linewidth=200 )
+        np.set_printoptions( precision=2, linewidth=200 )
 
     #--------------------------------------------
     # Setup
@@ -67,8 +67,24 @@ def test_c1_projections( degrees, ncells, verbose=False ):
     A[:, :, 0, 0] =  4
     A[:, :, 0,-1] = -1
     A[:, :, 0,+1] = -1
-    A[:, :,-1, 0] = -1
-    A[:, :,+1, 0] = -1
+    A[:, :,-1, 0] = -2
+    A[:, :,+1, 0] = -2
+
+    # Add (symmetric) random perturbation to matrix
+    s1, s2 = A.starts
+    e1, e2 = A.ends
+    n1, n2 = A.domain.npts
+    perturbation = 0.1 * np.random.random( (e1-s1+1, e2-s2+1, p1, p2) )
+    for i1 in range(s1,e1+1):
+        for i2 in range(s2,e2+1):
+            for k1 in range(1,p1):
+                for k2 in range(1,p2):
+                    j1 = (i1+k1)%n1
+                    j2 = (i2+k2)%n2
+                    eps = perturbation[i1,i2,k1,k2]
+                    A[i1,i2, k1, k2] += eps
+                    A[j1,j2,-k1,-k2] += eps
+
     A.remove_spurious_entries()
 
     if verbose:
