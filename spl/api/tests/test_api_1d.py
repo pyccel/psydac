@@ -37,11 +37,9 @@ DEBUG = False
 
 domain = Domain('\Omega', dim=1)
 
-def create_discrete_space():
+def create_discrete_space(p=2, ne=2):
     # ... discrete spaces
     # Input data: degree, number of elements
-    p  = 3
-    ne = 2**4
 
     # Create uniform grid
     grid = linspace( 0., 1., num=ne+1 )

@@ -38,11 +38,11 @@ DEBUG = False
 
 domain = Domain('\Omega', dim=2)
 
-def create_discrete_space():
+def create_discrete_space(p=(2,2), ne=(2,2)):
     # ... discrete spaces
     # Input data: degree, number of elements
-    p1  = 2 ; p2  = 2
-    ne1 = 2**4 ; ne2 = 2**4
+    p1,p2 = p
+    ne1,ne2 = ne
 
     # Create uniform grid
     grid_1 = linspace( 0., 1., num=ne1+1 )
@@ -624,9 +624,9 @@ def test_api_vector_laplace_2d_dir_1():
 ###############################################
 if __name__ == '__main__':
 
-#    # ...
-#    test_api_bilinear_2d_sumform()
-#    # ...
+    # ...
+    test_api_bilinear_2d_sumform()
+    # ...
 
     # ... examples without mapping
     test_api_poisson_2d_dir_1()

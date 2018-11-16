@@ -37,7 +37,7 @@ import os
 import importlib
 import string
 import random
-import math
+import numpy as np
 
 def random_string( n ):
     # we remove uppercase letters because of f2py
@@ -466,54 +466,6 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         return self.func(*newargs, **kwargs)
 
-
-#    def assemble(self, **kwargs):
-#
-#        # ...
-#        from __pycache__.spl.pyccel__dependencies_00xf92yk import f2py_dependencies_00xf92yk
-#        assembly_00xf92yk = f2py_dependencies_00xf92yk.f2py_assembly_00xf92yk
-#        def interface_00xf92yk(W, V, M_00 = None):
-#            (test_p1,) = W.vector_space.pads
-#            (trial_p1,) = V.vector_space.pads
-#            #  TODO must use suppoerts with starts/ends
-#            (s1,) = W.vector_space.starts
-#            (e1,) = W.vector_space.ends
-#            e1 = e1 - test_p1
-#            test_spans_1 = W.spans
-#            k1 = W.quad_order
-#            points_1 = W.quad_points
-#            weights_1 = W.quad_weights
-#            test_basis_1 = W.quad_basis
-#            trial_basis_1 = V.quad_basis
-#            from spl.linalg.stencil import StencilMatrix
-#            if (M_00 is None):
-#                M_00 = StencilMatrix(W.vector_space,V.vector_space)
-#
-#            # ...
-#            from numpy import asfortranarray
-#
-#            points_1      = asfortranarray(points_1     )
-#            weights_1     = asfortranarray(weights_1    )
-#            test_basis_1  = asfortranarray(test_basis_1 )
-#            trial_basis_1 = asfortranarray(trial_basis_1)
-#            M_00._data    = asfortranarray(M_00._data   )
-#
-#            print(s1,e1,k1,test_p1,trial_p1)
-#            print('test_spans_1  = ', test_spans_1.shape)
-#            print('points_1      = ', points_1.shape)
-#            print('weights_1     = ', weights_1.shape)
-#            print('test_basis_1  = ', test_basis_1.shape)
-#            print('trial_basis_1 = ', trial_basis_1.shape)
-#            print('M_00          = ', M_00._data.shape)
-#            # ...
-#
-#            assembly_00xf92yk(s1,e1,k1,test_p1,trial_p1,test_spans_1,points_1,weights_1,test_basis_1,trial_basis_1,M_00._data)
-#            return M_00
-#        # ...
-#
-#        W, V = tuple(self.spaces)
-#        return interface_00xf92yk(W, V)
-
 class DiscreteLinearForm(BasicDiscrete):
 
     def __init__(self, expr, kernel_expr, *args, **kwargs):
@@ -577,7 +529,7 @@ class DiscreteIntegral(BasicDiscrete):
         # case of a norm
         if isinstance(self.expr, sym_Norm):
             if self.expr.exponent == 2:
-                v = math.sqrt(v)
+                v = np.sqrt(v)
 
             else:
                 raise NotImplementedError('TODO')
