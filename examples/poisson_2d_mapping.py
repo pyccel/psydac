@@ -503,13 +503,15 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
         model = Poisson2D.new_square( mx=1, my=1 )
     elif test_case == 'annulus':
         model = Poisson2D.new_annulus( rmin=0.1, rmax=1.0 )
+    elif test_case == 'circle':
+        model = Poisson2D.new_annulus( rmin=0, rmax=1 )
     elif test_case == 'target':
         model = Poisson2D.new_target()
     elif test_case == 'czarny':
         model = Poisson2D.new_czarny()
     else:
-        raise ValueError( "Only available test-cases are 'square', "
-                          "'annulus', 'target' and 'czarny'" )
+        raise ValueError( "Only available test-cases are 'square', 'annulus', "
+                          "'circle', 'target' and 'czarny'" )
 
     # Number of elements and spline degree
     ne1, ne2 = ncells
@@ -666,7 +668,7 @@ def parse_input_arguments():
 
     parser.add_argument( '-t',
         type    = str,
-        choices =('square', 'annulus', 'target', 'czarny'),
+        choices =('square', 'annulus', 'circle', 'target', 'czarny'),
         default = 'square',
         dest    = 'test_case',
         help    = 'Test case'
