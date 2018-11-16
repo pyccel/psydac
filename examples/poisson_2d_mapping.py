@@ -15,6 +15,8 @@ from spl.mapping.analytical_gallery import Annulus, Target, Czarny
 from spl.mapping.discrete           import SplineMapping
 from spl.utilities.utils            import refine_array_1d
 
+from spl.polar.c1_projections       import C1Projector
+
 #==============================================================================
 class Laplacian:
 
@@ -529,7 +531,7 @@ def assemble_rhs( V, mapping, f ):
 
 ####################################################################################
 
-def main( *, test_case, ncells, degree, use_spline_mapping ):
+def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction ):
 
     timing = {}
 
@@ -547,6 +549,18 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     else:
         raise ValueError( "Only available test-cases are 'square', 'annulus', "
                           "'circle', 'target' and 'czarny'" )
+
+    if c1_correction and (not model.O_point):
+        print( "WARNING: cannot use C1 correction in geometry without polar singularity!" )
+        print( "WARNING: setting 'c1_correction' flag to False..." )
+        print()
+        c1_correction = False
+
+    if c1_correction and (not use_spline_mapping):
+        print( "WARNING: cannot use C1 correction without spline mapping!" )
+        print( "WARNING: setting 'c1_correction' flag to False..." )
+        print()
+        c1_correction = False
 
     # Number of elements and spline degree
     ne1, ne2 = ncells
@@ -576,16 +590,25 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     else:
         mapping = map_analytic
 
-    # Build mass and stiffness matrices
+    # Build mass and stiffness matrices, and right-hand side vector
     t0 = time()
     M, S = assemble_matrices( V, mapping, kernel )
+    b  = assemble_rhs( V, mapping, model.rho )
     t1 = time()
     timing['assembly'] = t1-t0
 
-    # Build right-hand side vector
-    b = assemble_rhs( V, mapping, model.rho )
+    # If required by user, create C1 projector and then restrict
+    # stiffness/mass matrices and right-hand-side vector to C1 space
+    if c1_correction:
+        t0 = time()
+        proj = C1Projector( mapping )
+        Sp   = proj.change_matrix_basis( S )
+        Mp   = proj.change_matrix_basis( M )
+        bp   = proj.change_rhs_basis( b )
+        t1 = time()
+        timing['projection'] = t1-t0
 
-    # Apply homogeneous dirichlet boundary conditions
+    # Apply homogeneous Dirichlet boundary conditions where appropriate
     if not V1.periodic:
         if not model.O_point:
             # left  bc at x=0.
@@ -603,10 +626,21 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
         S[:,V2.nbasis-1,:,:] = 0.
         b[:,V2.nbasis-1]     = 0.
 
+    if c1_correction:
+        # only bc is at s=1
+        Sp[1,1][V1.nbasis-1,:,:,:] = 0.
+        bp[1]  [V1.nbasis-1,:]     = 0.
+
     # Solve linear system
-    t0 = time()
-    x, info = cg( S, b, tol=1e-9, maxiter=1000, verbose=False )
-    t1 = time()
+    if c1_correction:
+        t0 = time()
+        xp, info = cg( Sp, bp, tol=1e-7, maxiter=100, verbose=True )
+        x = proj.convert_to_tensor_basis( xp )
+        t1 = time()
+    else:
+        t0 = time()
+        x, info = cg( S, b, tol=1e-7, maxiter=100, verbose=True )
+        t1 = time()
     timing['solution'] = t1-t0
 
     # Create potential field
@@ -629,6 +663,10 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     print( '> L2 error      :: {:.2e}'.format( e2 ) )
     print( '' )
     print( '> Assembly time :: {:.2e}'.format( timing['assembly'] ) )
+
+    if c1_correction:
+        print( '> Project. time :: {:.2e}'.format( timing['projection'] ) )
+
     print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
     print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
 
@@ -737,6 +775,12 @@ def parse_input_arguments():
         action  = 'store_true',
         dest    = 'use_spline_mapping',
         help    = 'Use spline mapping in finite element calculations'
+    )
+
+    parser.add_argument( '-c',
+        action  = 'store_true',
+        dest    = 'c1_correction',
+        help    = 'Apply C1 correction at polar singularity (O point)'
     )
 
     return parser.parse_args()
