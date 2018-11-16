@@ -1341,7 +1341,6 @@ class Assembly(SplBasic):
         test_degrees  = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
         trial_degrees = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
 
-        # TODO remove later and replace by Len inside Kernel
         quad_orders   = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
 
         trial_basis   = indexed_variables(['trial_basis_{}'.format(i) for i in range(1, dim+1)],
@@ -1620,8 +1619,6 @@ class Interface(SplBasic):
 
         dim = form.ldim
 
-        f_arrays = []
-
         # ... declarations
         test_space = Symbol('W')
         trial_space = Symbol('V')
@@ -1631,27 +1628,28 @@ class Interface(SplBasic):
         if is_linear or is_function:
             spaces = (test_space,)
 
-        starts         = symbols('s1:%d'%(dim+1))
-        ends           = symbols('e1:%d'%(dim+1))
-        test_degrees   = symbols('test_p1:%d'%(dim+1))
-        trial_degrees  = symbols('trial_p1:%d'%(dim+1))
-        points         = symbols('points_1:%d'%(dim+1), cls=IndexedBase)
-        weights        = symbols('weights_1:%d'%(dim+1), cls=IndexedBase)
-        trial_basis    = symbols('trial_basis_1:%d'%(dim+1), cls=IndexedBase)
-        test_basis     = symbols('test_basis_1:%d'%(dim+1), cls=IndexedBase)
-        spans          = symbols('test_spans_1:%d'%(dim+1), cls=IndexedBase)
-        quad_orders    = symbols('k1:%d'%(dim+1))
+        starts        = variables([ 's{}'.format(i) for i in range(1, dim+1)], 'int')
+        ends          = variables([ 'e{}'.format(i) for i in range(1, dim+1)], 'int')
+        test_degrees  = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
+        trial_degrees = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
+
+        points   = indexed_variables(['points_{}'.format(i) for i in range(1, dim+1)],
+                                     dtype='real', rank=2)
+        weights  = indexed_variables(['weights_{}'.format(i) for i in range(1, dim+1)],
+                                     dtype='real', rank=2)
+
+        trial_basis   = indexed_variables(['trial_basis_{}'.format(i) for i in range(1, dim+1)],
+                                          dtype='real', rank=4)
+        test_basis    = indexed_variables(['test_basis_{}'.format(i) for i in range(1, dim+1)],
+                                          dtype='real', rank=4)
+
+        spans    = indexed_variables(['test_spans_{}'.format(i) for i in range(1, dim+1)],
+                                     dtype='int', rank=1)
+        quad_orders   = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
 
         mapping = ()
         if form.mapping:
             mapping = Symbol('mapping')
-        # ...
-
-        # ...
-        f_arrays += list(points) + list(weights) + list(trial_basis)
-
-        if is_bilinear:
-            f_arrays += list(test_basis)
         # ...
 
         # ...
@@ -1699,8 +1697,6 @@ class Interface(SplBasic):
                 component = IndexedBase(DottedName(mapping, '_fields'))[i]
                 c_var = DottedName(component, '_coeffs', '_data')
                 body += [Assign(coeff, c_var)]
-
-                f_arrays += [c_var]
         # ...
 
         # ...
@@ -1731,21 +1727,6 @@ class Interface(SplBasic):
                 body += [Assign(M, Zeros(1))]
         # ...
 
-        # ... make numpy arrays as fortran contiguous
-        #     TODO must be done only when using pyccel
-        if is_bilinear or is_linear:
-            for M in global_matrices:
-                mat_data = DottedName(M, '_data')
-                # TODO 1d case for Vector should be avoided
-                f_arrays += [mat_data]
-
-        body += [Import('asfortranarray', 'numpy')]
-        # TODO add mapping and fields
-        for x in f_arrays:
-            call = FunctionCall('asfortranarray', [x])
-            body += [Assign(x, call)]
-        # ...
-
         # ...
         self._inout_arguments = list(global_matrices)
         self._in_arguments = list(self.assembly.kernel.constants) + list(fields)
@@ -1764,6 +1745,15 @@ class Interface(SplBasic):
         field_data     = tuple(field_data)
 
         args = assembly.build_arguments(field_data + mat_data)
+
+        # make numpy arrays as fortran contiguous
+        body += [Import('asfortranarray', 'numpy')]
+        f_arrays = [x for x in args if (isinstance(x, IndexedVariable) and
+                                        x.rank > 1) or isinstance(x, DottedName)]
+        for x in f_arrays:
+            call = FunctionCall('asfortranarray', [x])
+            body += [Assign(x, call)]
+        #
 
         body += [FunctionCall(assembly.func, args)]
         # ...

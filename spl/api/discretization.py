@@ -378,8 +378,14 @@ class BasicDiscrete(object):
         if module_name is None:
             module_name = self.dependencies_modname
 
-        # ...
+        # ... TODO move to save
         code = self.interface_code
+        fname = 'interface_{}'.format(self.tag)
+        folder = SPL_DEFAULT_FOLDER
+        fname = write_code(fname, code, ext='py', folder=folder)
+        # ...
+
+        # ...
         name = self.interface.name
 
         exec(code, namespace)
