@@ -1566,7 +1566,7 @@ class Assembly(SplBasic):
 
 class Interface(SplBasic):
 
-    def __new__(cls, assembly, name=None):
+    def __new__(cls, assembly, name=None, backend=None):
 
         if not isinstance(assembly, Assembly):
             raise TypeError('> Expecting an Assembly')
@@ -1574,6 +1574,7 @@ class Interface(SplBasic):
         obj = SplBasic.__new__(cls, assembly.tag, name=name, prefix='interface')
 
         obj._assembly = assembly
+        obj._backend = backend
 
         # update dependencies
         obj._dependencies += [assembly]
@@ -1588,6 +1589,10 @@ class Interface(SplBasic):
     @property
     def assembly(self):
         return self._assembly
+
+    @property
+    def backend(self):
+        return self._backend
 
     @property
     def max_nderiv(self):
@@ -1747,12 +1752,21 @@ class Interface(SplBasic):
         args = assembly.build_arguments(field_data + mat_data)
 
         # make numpy arrays as fortran contiguous
-        body += [Import('asfortranarray', 'numpy')]
-        f_arrays = [x for x in args if (isinstance(x, IndexedVariable) and
-                                        x.rank > 1) or isinstance(x, DottedName)]
-        for x in f_arrays:
-            call = FunctionCall('asfortranarray', [x])
-            body += [Assign(x, call)]
+        if self.backend:
+            _args = []
+            for x in args:
+                if isinstance(x, IndexedVariable) and x.rank > 1:
+                    n = x.name
+                    _args.append(FunctionCall('{}.transpose'.format(n), []))
+
+                elif isinstance(x, DottedName):
+                    n = '.'.join(str(i) for i in x.name)
+                    _args.append(FunctionCall('{}.transpose'.format(n), []))
+
+                else:
+                    _args.append(x)
+
+            args = _args
         #
 
         body += [FunctionCall(assembly.func, args)]

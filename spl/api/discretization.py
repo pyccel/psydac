@@ -110,7 +110,7 @@ class BasicDiscrete(object):
                         discrete_boundary=boundary,
                         boundary_basis=boundary_basis)
         assembly = Assembly(kernel)
-        interface = Interface(assembly)
+        interface = Interface(assembly, backend=backend)
         # ...
 
         # ...
@@ -319,7 +319,7 @@ class BasicDiscrete(object):
 
         # ...
         def construct_header(func_name, args):
-            args = build_types_decorator(args)
+            args = build_types_decorator(args, order='F')
             args = ','.join("{}".format(i) for i in args)
             pattern = '#$ header procedure static {name}({args})'
             return pattern.format(name=func_name, args=args)
