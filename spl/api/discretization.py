@@ -308,7 +308,6 @@ class BasicDiscrete(object):
         from pyccel.ast.utilities import build_types_decorator
         from pyccel.ast.core import FunctionDef
         from pyccel.ast.core import FunctionCall
-        from pyccel.ast.core import Assign
 
         tag = self.tag
 
@@ -318,8 +317,7 @@ class BasicDiscrete(object):
         func = assembly.func
         args = func.arguments
 
-        body = assembly.init_stmts
-        body += [FunctionCall(func, args)]
+        body = [FunctionCall(func, args)]
 
         # ...
         def construct_header(func_name, args):
