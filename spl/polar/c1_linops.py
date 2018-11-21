@@ -135,4 +135,8 @@ class LinearOperator_DenseToStencil( LinearOperator ):
 
         out[2:2+p1,s2:e2+1] = np.dot( B_ds, x )
 
+        # TODO: block-matrix should update ghost regions to reduce communication
+        # TODO: here it would be enough to flag the ghost regions as outdated
+        out.update_ghost_regions()
+
         return out
