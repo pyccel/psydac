@@ -172,3 +172,9 @@ class DenseLinearOperator( LinearOperator ):
 
         return out
 
+    #-------------------------------------
+    # Other properties/methods
+    #-------------------------------------
+    def toarray( self ):
+        return self._data.copy()
+
