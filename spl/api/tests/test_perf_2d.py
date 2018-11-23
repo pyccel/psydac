@@ -171,6 +171,101 @@ def test_api_poisson_2d():
     print_timing([matrix_timing, rhs_timing, l2norm_timing])
     # ...
 
+def test_api_vector_poisson_2d():
+    print('============ test_api_vector_poisson_2d =============')
+
+    # ... abstract model
+    U = VectorFunctionSpace('U', domain)
+    V = VectorFunctionSpace('V', domain)
+
+    x,y = domain.coordinates
+
+#    F = Field('F', V)
+
+    v = VectorTestFunction(V, name='v')
+    u = VectorTestFunction(U, name='u')
+
+    expr = inner(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    f = Tuple(2*pi**2*sin(pi*x)*sin(pi*y), 2*pi**2*sin(pi*x)*sin(pi*y))
+
+    expr = dot(f, v)
+    l = LinearForm(v, expr)
+
+#    error = F -sin(pi*x)*sin(pi*y)
+#    l2norm = Norm(error, domain, kind='l2', name='u')
+#    h1norm = Norm(error, domain, kind='h1', name='u')
+    # ...
+
+    # ... discrete spaces
+#    Vh = create_discrete_space(p=(3,3), ne=(2**8,2**8))
+    Vh = create_discrete_space(p=(2,2), ne=(2**3,2**3))
+    # ...
+
+    # ...
+    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYCCEL)
+    tb = time.time()
+    M_f90 = ah.assemble()
+    te = time.time()
+    print('> [pyccel] elapsed time (matrix) = ', te-tb)
+    t_f90 = te-tb
+
+    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYTHON)
+    tb = time.time()
+    M_py = ah.assemble()
+    te = time.time()
+    print('> [python] elapsed time (matrix) = ', te-tb)
+    t_py = te-tb
+
+    matrix_timing = Timing('matrix', t_py, t_f90)
+    # ...
+
+    # ...
+    lh = discretize(l, Vh, backend=SPL_BACKEND_PYCCEL)
+    tb = time.time()
+    L_f90 = lh.assemble()
+    te = time.time()
+    print('> [pyccel] elapsed time (rhs) = ', te-tb)
+    t_f90 = te-tb
+
+    lh = discretize(l, Vh, backend=SPL_BACKEND_PYTHON)
+    tb = time.time()
+    L_py = lh.assemble()
+    te = time.time()
+    print('> [python] elapsed time (rhs) = ', te-tb)
+    t_py = te-tb
+
+    rhs_timing = Timing('rhs', t_py, t_f90)
+    # ...
+#
+#    # ... coeff of phi are 0
+#    phi = FemField( Vh, 'phi' )
+#    # ...
+#
+#    # ...
+#    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYCCEL)
+#    tb = time.time()
+#    L_f90 = l2norm_h.assemble(F=phi)
+#    te = time.time()
+#    t_f90 = te-tb
+#    print('> [pyccel] elapsed time (L2 norm) = ', te-tb)
+#
+#    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYTHON)
+#    tb = time.time()
+#    L_py = l2norm_h.assemble(F=phi)
+#    te = time.time()
+#    print('> [python] elapsed time (L2 norm) = ', te-tb)
+#    t_py = te-tb
+#
+#    l2norm_timing = Timing('l2norm', t_py, t_f90)
+#    # ...
+
+    # ...
+    print_timing([matrix_timing, rhs_timing])
+#    print_timing([matrix_timing, rhs_timing, l2norm_timing])
+    # ...
+
 def test_api_stokes_2d():
     print('============ test_api_stokes_2d =============')
 
@@ -221,6 +316,7 @@ def test_api_stokes_2d():
 if __name__ == '__main__':
 
     # ... examples without mapping
-    test_api_poisson_2d()
-    test_api_stokes_2d()
+#    test_api_poisson_2d()
+    test_api_vector_poisson_2d()
+#    test_api_stokes_2d()
     # ...

@@ -1746,8 +1746,9 @@ class Interface(SplBasic):
         # ... results
         if is_bilinear or is_linear:
             if len(global_matrices) > 1:
-                L = Symbol('L')
                 if is_bilinear:
+                    L = Symbol('L')
+
                     body += [Import('ProductSpace', 'spl.linalg.block')]
                     body += [Import('BlockMatrix', 'spl.linalg.block')]
 
@@ -1781,18 +1782,23 @@ class Interface(SplBasic):
                     body += [Assign(L, FunctionCall('BlockMatrix', [V_row, V_col, D]))]
 
                 elif is_linear:
+                    L = IndexedBase('L')
+
                     body += [Import('ProductSpace', 'spl.linalg.block')]
                     body += [Import('BlockVector', 'spl.linalg.block')]
 
                     # ... create product space
-                    # TODO use n_rows or n_cols?
+                    n_rows = self.assembly.kernel.n_rows
+
                     V_row = Symbol('V_row')
                     row_spaces = [DottedName(test_space, 'vector_space') for i in range(0, n_rows)]
                     body += [Assign(V_row, FunctionCall('ProductSpace',
                                                         row_spaces))]
                     # ...
 
-                    body += [Assign(L, FunctionCall('BlockVector', [V_row, global_matrices]))]
+                    body += [Assign(L, FunctionCall('BlockVector', [V_row]))]
+                    for i,m in enumerate(global_matrices):
+                        body += [Assign(L[i], m)]
 
                 body += [Return(L)]
 
