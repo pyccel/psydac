@@ -1571,6 +1571,8 @@ class Assembly(SplBasic):
         form   = self.weak_form
         fields = kernel.fields
         fields_coeffs = kernel.fields_coeffs
+        vector_fields = kernel.vector_fields
+        vector_fields_coeffs = kernel.vector_fields_coeffs
 
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
@@ -1692,9 +1694,10 @@ class Assembly(SplBasic):
 
         gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
         f_coeffs = tuple([f[gslices] for f in fields_coeffs])
+        vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
         m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
 
-        args = kernel.build_arguments(f_coeffs + m_coeffs + mats)
+        args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + mats)
         body += [FunctionCall(kernel.func, args)]
         # ...
 
@@ -1788,7 +1791,7 @@ class Assembly(SplBasic):
         # ...
 
         # function args
-        func_args = self.build_arguments(fields_coeffs + mats)
+        func_args = self.build_arguments(fields_coeffs + vector_fields_coeffs + mats)
 
         decorators = {'types': build_types_decorator(func_args),
                       'external_call': []}

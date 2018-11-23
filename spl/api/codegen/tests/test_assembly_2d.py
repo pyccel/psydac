@@ -14,6 +14,7 @@ from sympy import S
 from sympde.core import dx, dy, dz
 from sympde.core import Constant
 from sympde.core import Field
+from sympde.core import VectorField
 from sympde.core import grad, dot, inner, cross, rot, curl, div
 from sympde.core import FunctionSpace, VectorFunctionSpace
 from sympde.core import TestFunction
@@ -30,8 +31,8 @@ from spl.api.codegen.printing import pycode
 
 sanitize = lambda txt: os.linesep.join([s for s in txt.splitlines() if s.strip()])
 
-DEBUG = False
-#DEBUG = True
+#DEBUG = False
+DEBUG = True
 DIM = 2
 
 domain = Domain('\Omega', dim=DIM)
@@ -276,6 +277,26 @@ def test_assembly_linear_2d_block_1(mapping=False):
     code = pycode(assembly)
     if DEBUG: print(code)
 
+def test_assembly_linear_2d_block_2(mapping=False):
+    print('============ test_assembly_linear_2d_block_2 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
+
+    V = VectorFunctionSpace('V', domain)
+
+    v = VectorTestFunction(V, name='v')
+
+    F = VectorField(V, name='F')
+
+    expr = dot(F, v)
+    a = LinearForm(v, expr, mapping=mapping)
+
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
+    assembly = Assembly(kernel, name='assembly')
+    code = pycode(assembly)
+    if DEBUG: print(code)
+
 def test_assembly_function_2d_scalar_1(mapping=False):
     print('============ test_assembly_function_2d_scalar_1 =============')
 
@@ -335,48 +356,51 @@ def test_assembly_function_2d_scalar_3(mapping=False):
 #................................
 if __name__ == '__main__':
 
-   # .................................
-   # without mapping
-    test_assembly_bilinear_2d_scalar_1(mapping=False)
-    test_assembly_bilinear_2d_scalar_2(mapping=False)
-    test_assembly_bilinear_2d_scalar_3(mapping=False)
-    test_assembly_bilinear_2d_scalar_4(mapping=False)
-    test_assembly_bilinear_2d_scalar_5(mapping=False)
-    test_assembly_bilinear_2d_block_1(mapping=False)
+    test_assembly_linear_2d_block_2(mapping=False)
 
-    # with mapping
-    test_assembly_bilinear_2d_scalar_1(mapping=True)
-    test_assembly_bilinear_2d_scalar_2(mapping=True)
-    test_assembly_bilinear_2d_scalar_3(mapping=True)
-    test_assembly_bilinear_2d_scalar_4(mapping=True)
-#    test_assembly_bilinear_2d_scalar_5(mapping=True)
-    test_assembly_bilinear_2d_block_1(mapping=True)
-    test_assembly_linear_2d_block_1(mapping=True)
-    # .................................
-
-    # .................................
-    # without mapping
-    test_assembly_linear_2d_scalar_1(mapping=False)
-    test_assembly_linear_2d_scalar_2(mapping=False)
-    test_assembly_linear_2d_scalar_3(mapping=False)
-    test_assembly_linear_2d_scalar_4(mapping=False)
-
-    # with mapping
-    test_assembly_linear_2d_scalar_1(mapping=True)
-    test_assembly_linear_2d_scalar_2(mapping=True)
-    test_assembly_linear_2d_scalar_3(mapping=True)
-    test_assembly_linear_2d_scalar_4(mapping=True)
-    test_assembly_linear_2d_block_1(mapping=True)
-    # .................................
-
-    # .................................
-    # without mapping
-    test_assembly_function_2d_scalar_1(mapping=False)
-    test_assembly_function_2d_scalar_2(mapping=False)
-    test_assembly_function_2d_scalar_3(mapping=False)
-
-    # with mapping
-    test_assembly_function_2d_scalar_1(mapping=True)
-    test_assembly_function_2d_scalar_2(mapping=True)
-    test_assembly_function_2d_scalar_3(mapping=True)
-    # .................................
+#   # .................................
+#   # without mapping
+#    test_assembly_bilinear_2d_scalar_1(mapping=False)
+#    test_assembly_bilinear_2d_scalar_2(mapping=False)
+#    test_assembly_bilinear_2d_scalar_3(mapping=False)
+#    test_assembly_bilinear_2d_scalar_4(mapping=False)
+#    test_assembly_bilinear_2d_scalar_5(mapping=False)
+#    test_assembly_bilinear_2d_block_1(mapping=False)
+#
+#    # with mapping
+#    test_assembly_bilinear_2d_scalar_1(mapping=True)
+#    test_assembly_bilinear_2d_scalar_2(mapping=True)
+#    test_assembly_bilinear_2d_scalar_3(mapping=True)
+#    test_assembly_bilinear_2d_scalar_4(mapping=True)
+##    test_assembly_bilinear_2d_scalar_5(mapping=True)
+#    test_assembly_bilinear_2d_block_1(mapping=True)
+#    test_assembly_linear_2d_block_1(mapping=True)
+#    # .................................
+#
+#    # .................................
+#    # without mapping
+#    test_assembly_linear_2d_scalar_1(mapping=False)
+#    test_assembly_linear_2d_scalar_2(mapping=False)
+#    test_assembly_linear_2d_scalar_3(mapping=False)
+#    test_assembly_linear_2d_scalar_4(mapping=False)
+#    test_assembly_linear_2d_block_1(mapping=False)
+#
+#    # with mapping
+#    test_assembly_linear_2d_scalar_1(mapping=True)
+#    test_assembly_linear_2d_scalar_2(mapping=True)
+#    test_assembly_linear_2d_scalar_3(mapping=True)
+#    test_assembly_linear_2d_scalar_4(mapping=True)
+#    test_assembly_linear_2d_block_1(mapping=True)
+#    # .................................
+#
+#    # .................................
+#    # without mapping
+#    test_assembly_function_2d_scalar_1(mapping=False)
+#    test_assembly_function_2d_scalar_2(mapping=False)
+#    test_assembly_function_2d_scalar_3(mapping=False)
+#
+#    # with mapping
+#    test_assembly_function_2d_scalar_1(mapping=True)
+#    test_assembly_function_2d_scalar_2(mapping=True)
+#    test_assembly_function_2d_scalar_3(mapping=True)
+#    # .................................
