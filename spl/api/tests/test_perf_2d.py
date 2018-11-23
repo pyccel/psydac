@@ -127,8 +127,6 @@ def test_api_poisson_2d():
     matrix_timing = Timing('matrix', t_py, t_f90)
     # ...
 
-    import sys; sys.exit(0)
-
     # ...
     lh = discretize(l, Vh, backend=SPL_BACKEND_PYCCEL)
     tb = time.time()
@@ -191,7 +189,8 @@ def test_api_stokes_2d():
     # ...
 
     # ... discrete spaces
-    Vh = create_discrete_space(p=(3,3), ne=(2**8,2**8))
+#    Vh = create_discrete_space(p=(3,3), ne=(2**8,2**8))
+    Vh = create_discrete_space(p=(2,2), ne=(2**3,2**3))
     # ...
 
     # ...
@@ -223,5 +222,5 @@ if __name__ == '__main__':
 
     # ... examples without mapping
     test_api_poisson_2d()
-#    test_api_stokes_2d()
+    test_api_stokes_2d()
     # ...

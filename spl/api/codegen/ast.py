@@ -14,6 +14,7 @@ from sympy import Mul, Add, Tuple
 from sympy import Matrix, ImmutableDenseMatrix
 from sympy import sqrt as sympy_sqrt
 from sympy import S as sympy_S
+from sympy import Integer, Float
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
@@ -62,6 +63,12 @@ def random_string( n ):
     chars    = string.ascii_lowercase + string.digits
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
+
+def _convert_int_to_float(expr):
+    integers = expr.atoms(Integer)
+    sub = zip(integers, map(Float, integers) )
+    expr = expr.subs(sub)
+    return expr
 
 def compute_normal_vector(vector, discrete_boundary, mapping):
     dim = len(vector)
@@ -1005,12 +1012,16 @@ class Kernel(SplBasic):
             expr = expr[:]
             ln   = len(expr)
 
+            expr = [_convert_int_to_float(e) for e in expr]
+
         else:
             mats = (IndexedVariable('mat_00', dtype='real', rank=rank),)
 
             v    = (Variable('real', 'v_00'),)
-            expr = [expr]
             ln   = 1
+
+            expr = _convert_int_to_float(expr)
+            expr = [expr]
 
         # ... declarations
         fields        = symbols(fields_str)
@@ -1180,7 +1191,10 @@ class Kernel(SplBasic):
         body.append(Assign(wvol,weighted_vol))
 
         for i in range(ln):
-            body.append(AugAssign(v[i],'+',Mul(expr[i],wvol)))
+            e = Mul(expr[i],wvol) # because expr[i] can be 0
+            e = _convert_int_to_float(e)
+
+            body.append(AugAssign(v[i],'+', e))
         # ...
 
         # ...
@@ -1726,24 +1740,6 @@ class Interface(SplBasic):
 
         args = assembly.build_arguments(field_data + mat_data)
 
-        # make numpy arrays as fortran contiguous
-        if self.backend['name'] == 'pyccel':
-            _args = []
-            for x in args:
-                if isinstance(x, IndexedVariable) and x.rank > 1:
-                    n = x.name
-                    _args.append(FunctionCall('{}.transpose'.format(n), []))
-
-                elif isinstance(x, DottedName):
-                    n = '.'.join(str(i) for i in x.name)
-                    _args.append(FunctionCall('{}.transpose'.format(n), []))
-
-                else:
-                    _args.append(x)
-
-            args = _args
-        #
-
         body += [FunctionCall(assembly.func, args)]
         # ...
 
@@ -1752,6 +1748,7 @@ class Interface(SplBasic):
             if len(global_matrices) > 1:
                 L = Symbol('L')
                 if is_bilinear:
+                    body += [Import('ProductSpace', 'spl.linalg.block')]
                     body += [Import('BlockMatrix', 'spl.linalg.block')]
 
                     # TODO this is a duplicated code => use a function to define
@@ -1768,11 +1765,34 @@ class Interface(SplBasic):
                     D = Symbol('d')
                     d = OrderedDict(sorted(d.items()))
                     body += [Assign(D, d)]
-                    body += [Assign(L, FunctionCall('BlockMatrix', [D]))]
+
+                    # ... create product space
+                    V_row = Symbol('V_row')
+                    row_spaces = [DottedName(test_space, 'vector_space') for i in range(0, n_rows)]
+                    body += [Assign(V_row, FunctionCall('ProductSpace',
+                                                        row_spaces))]
+
+                    V_col = Symbol('V_col')
+                    col_spaces = [DottedName(trial_space, 'vector_space') for i in range(0, n_cols)]
+                    body += [Assign(V_col, FunctionCall('ProductSpace',
+                                                        col_spaces))]
+                    # ...
+
+                    body += [Assign(L, FunctionCall('BlockMatrix', [V_row, V_col, D]))]
 
                 elif is_linear:
+                    body += [Import('ProductSpace', 'spl.linalg.block')]
                     body += [Import('BlockVector', 'spl.linalg.block')]
-                    body += [Assign(L, FunctionCall('BlockVector', [global_matrices]))]
+
+                    # ... create product space
+                    # TODO use n_rows or n_cols?
+                    V_row = Symbol('V_row')
+                    row_spaces = [DottedName(test_space, 'vector_space') for i in range(0, n_rows)]
+                    body += [Assign(V_row, FunctionCall('ProductSpace',
+                                                        row_spaces))]
+                    # ...
+
+                    body += [Assign(L, FunctionCall('BlockVector', [V_row, global_matrices]))]
 
                 body += [Return(L)]
 
