@@ -41,6 +41,7 @@ from sympde.core import grad
 from sympde.core import Constant
 from sympde.core import Mapping
 from sympde.core import Field
+from sympde.core import VectorField, IndexedVectorField
 from sympde.core import Boundary, BoundaryVector, NormalVector, TangentVector
 from sympde.core import Covariant, Contravariant
 from sympde.core import BilinearForm, LinearForm, Integral, BasicForm
@@ -332,6 +333,54 @@ def compute_atoms_expr_field(atom, indices_quad,
 
     return init, update
 
+def compute_atoms_expr_vector_field(atom, indices_quad,
+                            idxs, basis,
+                            test_function):
+
+    if not is_vector_field(atom):
+        raise TypeError('atom must be a vector field expr')
+
+
+    vector_field = atom
+    vector_field_name = 'coeff_' + print_expression(vector_field)
+
+    # ...
+    if isinstance(atom, _partial_derivatives):
+        direction = atom.grad_index + 1
+
+    else:
+        direction = 0
+    # ...
+
+    # ...
+    base = list(atom.atoms(VectorField))[0]
+    test_function = atom.subs(base, test_function)
+    name = print_expression(test_function)
+    test_function = Symbol(name)
+    # ...
+
+    # ...
+    args = []
+    dim  = len(idxs)
+    for i in range(dim):
+        if direction == i+1:
+            args.append(basis[i][idxs[i],1,indices_quad[i]])
+
+        else:
+            args.append(basis[i][idxs[i],0,indices_quad[i]])
+
+    init = Assign(test_function, Mul(*args))
+    # ...
+
+    # ...
+    args = [IndexedBase(vector_field_name)[idxs], test_function]
+    val_name = print_expression(atom) + '_values'
+    val  = IndexedBase(val_name)[indices_quad]
+    update = AugAssign(val,'+',Mul(*args))
+    # ...
+
+    return init, update
+
 def compute_atoms_expr_mapping(atom, indices_quad,
                                idxs, basis,
                                test_function):
@@ -383,6 +432,16 @@ def is_field(expr):
         return is_field(expr.args[0])
 
     elif isinstance(expr, Field):
+        return True
+
+    return False
+
+def is_vector_field(expr):
+
+    if isinstance(expr, _partial_derivatives):
+        return is_vector_field(expr.args[0])
+
+    elif isinstance(expr, (VectorField, IndexedVectorField)):
         return True
 
     return False
@@ -704,6 +763,112 @@ class EvalField(SplBasic):
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators)
 
+
+class EvalVectorField(SplBasic):
+
+    def __new__(cls, space, vector_fields, discrete_boundary=None, name=None, boundary_basis=None):
+
+        if not isinstance(vector_fields, (tuple, list, Tuple)):
+            raise TypeError('> Expecting an iterable')
+
+        obj = SplBasic.__new__(cls, space, name=name, prefix='eval_vector_field')
+
+        obj._space = space
+        obj._vector_fields = Tuple(*vector_fields)
+        obj._discrete_boundary = discrete_boundary
+        obj._boundary_basis = boundary_basis
+        obj._func = obj._initialize()
+
+        return obj
+
+    @property
+    def space(self):
+        return self._space
+
+    @property
+    def vector_fields(self):
+        return self._vector_fields
+
+    @property
+    def boundary_basis(self):
+        return self._boundary_basis
+
+    def build_arguments(self, data):
+
+        other = data
+
+        return self.basic_args + other
+
+    def _initialize(self):
+        space = self.space
+        dim = space.ldim
+
+        vector_field_atoms = self.vector_fields.atoms(VectorField)
+        vector_fields_str = [print_expression(f) for f in self.vector_fields]
+
+        # ... declarations
+        degrees       = variables([ 'p{}'.format(i) for i in range(1, dim+1)], 'int')
+        orders        = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
+        indices_basis = variables([ 'jl{}'.format(i) for i in range(1, dim+1)], 'int')
+        indices_quad  = variables([ 'g{}'.format(i) for i in range(1, dim+1)], 'int')
+        basis         = indexed_variables(['basis{}'.format(i) for i in range(1, dim+1)],
+                                          dtype='real', rank=3)
+        vector_fields_coeffs = indexed_variables(['coeff_{}'.format(f) for f in vector_field_atoms],
+                                          dtype='real', rank=dim)
+        vector_fields_val    = indexed_variables(['{}_values'.format(f) for f in vector_fields_str],
+                                          dtype='real', rank=dim)
+        # ...
+
+        # ... ranges
+        ranges_basis = [Range(degrees[i]+1) for i in range(dim)]
+        ranges_quad  = [Range(orders[i]) for i in range(dim)]
+        # ...
+
+        # ... basic arguments
+        self._basic_args = (orders)
+        # ...
+
+        # ...
+        Nj = VectorField(space, name='Nj')
+        body = []
+        init_basis = OrderedDict()
+        updates = []
+        for atom in self.vector_fields:
+            init, update = compute_atoms_expr_vector_field(atom, indices_quad, indices_basis,
+                                                           basis, Nj)
+
+            updates.append(update)
+
+            basis_name = str(init.lhs)
+            init_basis[basis_name] = init
+
+        init_basis = OrderedDict(sorted(init_basis.items()))
+        body += list(init_basis.values())
+        body += updates
+        # ...
+
+        # put the body in tests for loops
+        body = filter_loops(indices_basis, ranges_basis, body,
+                            self.discrete_boundary,
+                            boundary_basis=self.boundary_basis)
+
+        # put the body in for loops of quadrature points
+        body = filter_loops(indices_quad, ranges_quad, body,
+                            self.discrete_boundary,
+                            boundary_basis=self.boundary_basis)
+
+        # initialization of the matrix
+        init_vals = [f[[Slice(None,None)]*dim] for f in vector_fields_val]
+        init_vals = [Assign(e, 0.0) for e in init_vals]
+        body =  init_vals + body
+
+        func_args = self.build_arguments(degrees + basis + vector_fields_coeffs + vector_fields_val)
+
+        decorators = {'types': build_types_decorator(func_args)}
+        return FunctionDef(self.name, list(func_args), [], body,
+                           decorators=decorators)
+
+
 # target is used when there are multiple expression (domain/boundaries)
 class Kernel(SplBasic):
 
@@ -807,6 +972,14 @@ class Kernel(SplBasic):
         return self._fields_coeffs
 
     @property
+    def vector_fields(self):
+        return self._vector_fields
+
+    @property
+    def vector_fields_coeffs(self):
+        return self._vector_fields_coeffs
+
+    @property
     def mapping_coeffs(self):
         if not self.eval_mapping:
             return ()
@@ -823,6 +996,10 @@ class Kernel(SplBasic):
     @property
     def eval_fields(self):
         return self._eval_fields
+
+    @property
+    def eval_vector_fields(self):
+        return self._eval_vector_fields
 
     @property
     def eval_mapping(self):
@@ -898,13 +1075,18 @@ class Kernel(SplBasic):
         self._constants = tuple(self._constants)
         # ...
 
+        # ...
         atoms_types = (_partial_derivatives,
                        VectorTestFunction,
                        TestFunction,
                        IndexedTestTrial,
-                       Field)
-        atoms  = _atomic(expr, cls=atoms_types)
+                       Field,
+                       VectorField, IndexedVectorField)
 
+        atoms  = _atomic(expr, cls=atoms_types)
+        # ...
+
+        # ...
         atomic_expr_field = [atom for atom in atoms if is_field(atom)]
         atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_field ]
 
@@ -934,6 +1116,38 @@ class Kernel(SplBasic):
 
         # update dependencies
         self._dependencies += self.eval_fields
+        # ...
+
+        # ...
+        atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
+        atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_vector_field ]
+
+        # TODO use print_expression
+        vector_fields_str    = sorted(tuple(map(pycode, atomic_expr_vector_field)))
+        vector_field_atoms   = tuple(expr.atoms(VectorField))
+
+        # ... create EvalVectorField
+        self._eval_vector_fields = []
+        if atomic_expr_vector_field:
+            keyfunc = lambda F: F.space.name
+            data = sorted(vector_field_atoms, key=keyfunc)
+            for space_str, group in groupby(data, keyfunc):
+                g_names = set([f.name for f in group])
+                vector_fields_expressions = []
+                for e in atomic_expr_vector_field:
+                    fs = e.atoms(VectorField)
+                    f_names = set([f.name for f in fs])
+                    if f_names & g_names:
+                        vector_fields_expressions += [e]
+                        space = list(fs)[0].space
+
+                eval_vector_field = EvalVectorField(space, vector_fields_expressions,
+                                       discrete_boundary=self.discrete_boundary,
+                                       boundary_basis=self.boundary_basis)
+                self._eval_vector_fields.append(eval_vector_field)
+
+        # update dependencies
+        self._dependencies += self.eval_vector_fields
         # ...
 
         # ...
@@ -1031,6 +1245,13 @@ class Kernel(SplBasic):
         fields_val    = indexed_variables(['{}_values'.format(f) for f in fields_str],
                                           dtype='real', rank=dim)
 
+        vector_fields        = symbols(vector_fields_str)
+
+        vector_fields_coeffs = indexed_variables(['coeff_{}'.format(f) for f in vector_field_atoms],
+                                          dtype='real', rank=dim)
+        vector_fields_val    = indexed_variables(['{}_values'.format(f) for f in vector_fields_str],
+                                          dtype='real', rank=dim)
+
         test_degrees  = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
         trial_degrees = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
         test_pads     = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
@@ -1085,6 +1306,8 @@ class Kernel(SplBasic):
         # ...
         self._fields = fields
         self._fields_coeffs = fields_coeffs
+        self._vector_fields = vector_fields
+        self._vector_fields_coeffs = vector_fields_coeffs
         self._mapping_coeffs = mapping_coeffs
         # ...
 
@@ -1188,6 +1411,10 @@ class Kernel(SplBasic):
         for i in range(len(fields_val)):
             body.append(Assign(fields[i],fields_val[i][indices_quad]))
 
+        # add vector_fields
+        for i in range(len(vector_fields_val)):
+            body.append(Assign(vector_fields[i],vector_fields_val[i][indices_quad]))
+
         body.append(Assign(wvol,weighted_vol))
 
         for i in range(ln):
@@ -1259,6 +1486,18 @@ class Kernel(SplBasic):
             allocate = [Assign(f, Zeros(qds_dim)) for f in fields_val]
             body = prelude + allocate + body
 
+        # call eval vector_field
+        for eval_vector_field in self.eval_vector_fields:
+            args = test_degrees + basis_test + vector_fields_coeffs + vector_fields_val
+            args = eval_vector_field.build_arguments(args)
+            body = [FunctionCall(eval_vector_field.func, args)] + body
+
+        # calculate vector_field values
+        if vector_fields_val:
+            prelude  = [Import('zeros', 'numpy')]
+            allocate = [Assign(f, Zeros(qds_dim)) for f in vector_fields_val]
+            body = prelude + allocate + body
+
         # call eval mapping
         if self.eval_mapping:
             args = (test_degrees + basis_test + mapping_coeffs + mapping_values)
@@ -1277,7 +1516,7 @@ class Kernel(SplBasic):
         body = math_imports + body
 
         # function args
-        func_args = self.build_arguments(fields_coeffs + mapping_coeffs + mats)
+        func_args = self.build_arguments(fields_coeffs + vector_fields_coeffs + mapping_coeffs + mats)
 
         decorators = {'types': build_types_decorator(func_args)}
         return FunctionDef(self.name, list(func_args), [], body,
