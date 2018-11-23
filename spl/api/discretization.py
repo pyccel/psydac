@@ -24,7 +24,6 @@ from spl.api.codegen.ast import Kernel
 from spl.api.codegen.ast import Assembly
 from spl.api.codegen.ast import Interface
 from spl.api.codegen.printing import pycode
-from spl.api.codegen.utils import write_code
 from spl.api.boundary_condition import DiscreteBoundary
 from spl.api.boundary_condition import DiscreteComplementBoundary
 from spl.api.boundary_condition import DiscreteBoundaryCondition, DiscreteDirichletBC
@@ -33,22 +32,56 @@ from spl.api.settings import SPL_BACKEND_PYTHON, SPL_DEFAULT_FOLDER
 from spl.linalg.stencil import StencilVector, StencilMatrix
 from spl.linalg.iterative_solvers import cg
 
+import sys
 import os
 import importlib
 import string
 import random
 import numpy as np
 
+
+#==============================================================================
+def mkdir_p(folder):
+    if os.path.isdir(folder):
+        return
+    os.makedirs(folder)
+
+#==============================================================================
 def random_string( n ):
     # we remove uppercase letters because of f2py
     chars    = string.ascii_lowercase + string.digits
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
+#==============================================================================
 
+def write_code(filename, code, folder=None):
+    if not folder:
+        folder = os.getcwd()
+
+    folder = os.path.abspath(folder)
+    if not os.path.isdir(folder):
+        raise ValueError('{} folder does not exist'.format(folder))
+
+    filename = os.path.basename( filename )
+    filename = os.path.join(folder, filename)
+
+    # TODO check if init exists
+    # add __init__.py for imports
+    cmd = 'touch {}/__init__.py'.format(folder)
+    os.system(cmd)
+
+    f = open(filename, 'w')
+    for line in code:
+        f.write(line)
+    f.close()
+
+    return filename
+
+#==============================================================================
 LinearSystem = namedtuple('LinearSystem', ['lhs', 'rhs'])
 
-
+#==============================================================================
 _default_solver = {'solver':'cg', 'tol':1e-9, 'maxiter':1000, 'verbose':False}
 
 def driver_solve(L, **kwargs):
@@ -70,12 +103,12 @@ def driver_solve(L, **kwargs):
     else:
         raise NotImplementedError('Only cg solver is available')
 
-
+#==============================================================================
 class BasicDiscrete(object):
 
     def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
                  module_name=None, boundary=None, target=None,
-                 boundary_basis=None, backend=SPL_BACKEND_PYTHON):
+                 boundary_basis=None, backend=SPL_BACKEND_PYTHON, folder=None):
 
         # ...
         if not target:
@@ -123,6 +156,7 @@ class BasicDiscrete(object):
         self._interface = interface
         self._dependencies = self.interface.dependencies
         self._backend = backend
+        self._folder = self._initiliaze_folder(folder)
         # ...
 
         # generate python code as strings for dependencies
@@ -202,6 +236,23 @@ class BasicDiscrete(object):
     def backend(self):
         return self._backend
 
+    @property
+    def folder(self):
+        return self._folder
+
+    def _initiliaze_folder(self, folder=None):
+        # ...
+        if folder is None:
+            basedir = os.getcwd()
+            folder = SPL_DEFAULT_FOLDER
+            folder = os.path.join( basedir, folder )
+
+        folder = os.path.abspath( folder )
+        mkdir_p(folder)
+        # ...
+
+        return folder
+
     def _generate_code(self):
         # ... generate code that can be pyccelized
         code = 'from pyccel.decorators import types'
@@ -211,14 +262,16 @@ class BasicDiscrete(object):
         return code
 
     def _save_code(self, module_name=None):
-        folder = SPL_DEFAULT_FOLDER
-
+        # ...
         code = self.dependencies_code
         if module_name is None:
             module_name = 'dependencies_{}'.format(self.tag)
-        self._dependencies_fname = write_code(module_name, code, ext='py', folder=folder)
 
-        module_name = os.path.splitext(self.dependencies_fname)[0]
+        self._dependencies_fname = '{}.py'.format(module_name)
+        write_code(self.dependencies_fname, code, folder = self.folder)
+        # ...
+
+        # TODO check this? since we are using relative paths now
         self._dependencies_modname = module_name.replace('/', '.')
 
     def _generate_interface_code(self, module_name=None):
@@ -263,6 +316,7 @@ class BasicDiscrete(object):
         from pyccel.codegen.utilities import execute_pyccel
 
         folder = SPL_DEFAULT_FOLDER
+        mkdir_p(folder)
 
         basedir = os.getcwd()
         os.chdir(folder)
@@ -273,23 +327,9 @@ class BasicDiscrete(object):
         compiler = 'gfortran'
 
         fname = os.path.basename(self.dependencies_fname)
-
-        output, cmd = execute_pyccel( fname,
-                                      compiler=compiler,
-                                      fflags='-fPIC -O2 -c',
-                                      debug=False,
-                                      verbose=False,
-                                      accelerator=None,
-                                      include=[],
-                                      libdir=[],
-                                      modules=[],
-                                      libs=[],
-                                      binary=None,
-                                      output='' )
-
-        if verbose:
-            print(cmd)
+        package = epyccel(fname, compiler = compiler)
         # ...
+        import sys; sys.exit(0)
 
         # ...
         fname = os.path.basename(fname).split('.')[0]
@@ -339,7 +379,7 @@ class BasicDiscrete(object):
                                                     code=code)
 
         module_name = 'f2py_dependencies_{}'.format(tag)
-        fname = write_code(module_name, code, ext='py', folder='')
+        fname = write_code(module_name, code, folder = self.folder)
 
         fname = execute_pyccel(fname, output='', convert_only=True)
 
@@ -384,19 +424,18 @@ class BasicDiscrete(object):
 
         # ... TODO move to save
         code = self.interface_code
-        fname = 'interface_{}'.format(self.tag)
-        folder = SPL_DEFAULT_FOLDER
-        fname = write_code(fname, code, ext='py', folder=folder)
+        interface_module_name = 'interface_{}'.format(self.tag)
+        fname = '{}.py'.format(interface_module_name)
+        fname = write_code(fname, code, folder = self.folder)
         # ...
 
         # ...
-        name = self.interface.name
-
-        exec(code, namespace)
-        interface = namespace[name]
+        sys.path.append(self.folder)
+        package = importlib.import_module( interface_module_name )
+        sys.path.remove(self.folder)
         # ...
 
-        self._func = interface
+        self._func = getattr(package, self.interface.name)
 
     def _check_arguments(self, **kwargs):
 
