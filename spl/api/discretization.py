@@ -47,6 +47,11 @@ def mkdir_p(folder):
     os.makedirs(folder)
 
 #==============================================================================
+def touch(path):
+    with open(path, 'a'):
+        os.utime(path, None)
+
+#==============================================================================
 def random_string( n ):
     # we remove uppercase letters because of f2py
     chars    = string.ascii_lowercase + string.digits
@@ -156,7 +161,7 @@ class BasicDiscrete(object):
         self._interface = interface
         self._dependencies = self.interface.dependencies
         self._backend = backend
-        self._folder = self._initiliaze_folder(folder)
+        self._folder = self._initialize_folder(folder)
         # ...
 
         # generate python code as strings for dependencies
@@ -240,12 +245,21 @@ class BasicDiscrete(object):
     def folder(self):
         return self._folder
 
-    def _initiliaze_folder(self, folder=None):
+    def _initialize_folder(self, folder=None):
         # ...
         if folder is None:
             basedir = os.getcwd()
             folder = SPL_DEFAULT_FOLDER
             folder = os.path.join( basedir, folder )
+
+            # ... add __init__ to all directories to be able to
+            touch(os.path.join('__pycache__', '__init__.py'))
+            for root, dirs, files in os.walk(folder):
+                touch(os.path.join(root, '__init__.py'))
+            # ...
+
+        else:
+            raise NotImplementedError('user output folder not yet available')
 
         folder = os.path.abspath( folder )
         mkdir_p(folder)
@@ -312,24 +326,34 @@ class BasicDiscrete(object):
         module_name = self.dependencies_modname
 
         # ...
-        from pyccel.epyccel import epyccel, compile_fortran
+        from pyccel.epyccel import epyccel, compile_f2py
         from pyccel.codegen.utilities import execute_pyccel
-
-        folder = SPL_DEFAULT_FOLDER
-        mkdir_p(folder)
-
-        basedir = os.getcwd()
-        os.chdir(folder)
-        curdir = os.getcwd()
 
         # ... convert python to fortran using pyccel
         openmp = False
+        accelerator = None
         compiler = 'gfortran'
+        fflags = ' -O3 -fPIC '
+        # ...
+
+        # ...
+        basedir = os.getcwd()
+        os.chdir(self.folder)
+        curdir = os.getcwd()
+        # ...
 
         fname = os.path.basename(self.dependencies_fname)
-        package = epyccel(fname, compiler = compiler)
+
+        # ... convert python to fortran using pyccel
+        #     we get the ast after annotation, since we will create the f2py
+        #     interface from it
+        output, cmd, ast = execute_pyccel( fname,
+                                           compiler    = compiler,
+                                           fflags      = fflags,
+                                           verbose     = verbose,
+                                           accelerator = accelerator,
+                                           return_ast  = True)
         # ...
-        import sys; sys.exit(0)
 
         # ...
         fname = os.path.basename(fname).split('.')[0]
@@ -348,67 +372,87 @@ class BasicDiscrete(object):
         from pyccel.ast.utilities import build_types_decorator
         from pyccel.ast.core import FunctionDef
         from pyccel.ast.core import FunctionCall
+        from pyccel.ast.core import Variable, IndexedVariable
+        from pyccel.ast.core import Import
+        from pyccel.ast.core import Module
+        from pyccel.ast.f2py import as_static_function
+        from pyccel.codegen.printing.fcode  import fcode
+        from pyccel.epyccel import get_function_from_ast
 
         tag = self.tag
 
         assembly = self.interface.assembly
         module_name = module_name.split('.')[-1]
 
-        func = assembly.func
+        # ... TODO move this to pyccel utilities
+        def sanitize_arguments(args):
+            _args = []
+            for a in args:
+                if isinstance( a, Variable ):
+                    _args.append(a)
+
+                elif isinstance( a, IndexedVariable ):
+                    a_new = Variable( a.dtype, str(a.name),
+                                      shape       = a.shape,
+                                      rank        = a.rank,
+                                      order       = a.order,
+                                      precision   = a.precision)
+
+                    _args.append(a_new)
+
+                else:
+                    raise NotImplementedError('TODO for {}'.format(type(a)))
+
+            return _args
+        # ...
+
+        func = get_function_from_ast(ast, assembly.name)
+
         args = func.arguments
+        args = sanitize_arguments(args)
 
         body = [FunctionCall(func, args)]
 
-        # ...
-        def construct_header(func_name, args):
-            args = build_types_decorator(args, order='F')
-            args = ','.join("{}".format(i) for i in args)
-            pattern = '#$ header procedure static {name}({args})'
-            return pattern.format(name=func_name, args=args)
-        # ...
+        func = FunctionDef(assembly.name, list(args), [], body,
+                           arguments_inout = func.arguments_inout)
+        static_func = as_static_function(func)
 
-        func_name = 'f2py_{}'.format(assembly.name)
-        header = construct_header(func_name, args)
-        func = FunctionDef(func_name, list(args), [], body)
-        code = pycode(func)
-        imports = 'from {mod} import {func}'.format(mod=module_name,
-                                                    func=assembly.name)
-
-        code = '{imports}\n{header}\n{code}'.format(imports=imports,
-                                                    header=header,
-                                                    code=code)
+        imports = [Import(func.name, module_name.lower())]
 
         module_name = 'f2py_dependencies_{}'.format(tag)
-        fname = write_code(module_name, code, folder = self.folder)
+        f2py_module_name = 'f2py_dependencies_{}'.format(tag)
+        f2py_module = Module( f2py_module_name,
+                              variables = [],
+                              funcs = [static_func],
+                              interfaces = [],
+                              classes = [],
+                              imports = imports )
 
-        fname = execute_pyccel(fname, output='', convert_only=True)
+        code = fcode(f2py_module)
+        fname = '{}.f90'.format(f2py_module_name)
+        write_code(fname, code)
 
-        f = open(fname)
-        code = f.readlines()
-        f.close()
+        extra_args = ''
 
-        name = 'f2py_dependencies_{}'.format(self.tag)
-
-        extra_args = ' -L{} '.format(curdir)
-
-        output, cmd = compile_fortran( code, name,
-                                       extra_args= extra_args,
-                                       libs      = [libname],
-                                       compiler  = compiler,
-                                       mpi       = False,
-                                       openmp    = openmp)
+        output, cmd = compile_f2py( fname,
+                                    extra_args= extra_args,
+                                    libs      = [libname],
+                                    libdirs   = [curdir],
+                                    compiler  = compiler,
+                                    mpi       = False,
+                                    openmp    = openmp)
         # ...
 
         if verbose:
             print(cmd)
 
-        os.chdir(basedir)
-
         # ...
         # update module name for dependencies
         # needed for interface when importing assembly
         # name.name is needed for f2py
-        name = os.path.join(folder, name)
+        # we take the relative path of self.folder (which is absolute)
+        folder = os.path.relpath(self.folder, basedir)
+        name = os.path.join(folder, module_name)
         name = name.replace('/', '.')
 
         import_mod = 'from {name} import {module_name}'.format(name=name,
@@ -416,6 +460,8 @@ class BasicDiscrete(object):
         self._interface_base_import_code = import_mod
         self._dependencies_modname = module_name
         # ...
+
+        os.chdir(basedir)
 
     def _compile(self, namespace, module_name=None):
 
