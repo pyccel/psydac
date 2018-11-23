@@ -40,17 +40,9 @@ API
 
 - normal vector in 3d
 
-- block matrix and vector when the abstract space is VectorFunctionSpace
-
 - periodic bc in codegen
 
-- compute the max nderiv from the kernel expression
-
-- second order derivatives are not printed for the moment
-
 - init_fem is called everytime wa call discretize: maybe we should first do some checks (nderiv is ok norder etc)
-
-- pyccel is not called for the moment: need to construct the types when we return the FunctionDef: this can be done by returning the associated decorator using pyccel (+ from pyccel.decorators import types)
 
 - hessian not yet implemented in sympde and api
 
