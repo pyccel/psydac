@@ -1534,7 +1534,8 @@ class Assembly(SplBasic):
         # function args
         func_args = self.build_arguments(fields_coeffs + mats)
 
-        decorators = {'types': build_types_decorator(func_args)}
+        decorators = {'types': build_types_decorator(func_args),
+                      'external_call': []}
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators)
 

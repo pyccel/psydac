@@ -32,6 +32,7 @@ from spl.api.settings import SPL_BACKEND_PYTHON, SPL_DEFAULT_FOLDER
 from spl.linalg.stencil import StencilVector, StencilMatrix
 from spl.linalg.iterative_solvers import cg
 
+import inspect
 import sys
 import os
 import importlib
@@ -270,6 +271,7 @@ class BasicDiscrete(object):
     def _generate_code(self):
         # ... generate code that can be pyccelized
         code = 'from pyccel.decorators import types'
+        code = '{code}\nfrom pyccel.decorators import external_call'.format( code = code )
         for dep in self.dependencies:
             code = '{code}\n{dep}'.format(code=code, dep=pycode(dep))
         # ...
@@ -299,12 +301,6 @@ class BasicDiscrete(object):
         if self.backend['name'] == 'pyccel':
             imports += [self.interface_base_import_code]
 
-            pattern = '{dep} = {module}.f2py_{dep}'
-
-            for dep in self.dependencies:
-                txt = pattern.format(module=module_name, dep=dep.name)
-                imports.append(txt)
-
         else:
             # ... generate imports from dependencies module
             pattern = 'from {module} import {dep}'
@@ -326,14 +322,13 @@ class BasicDiscrete(object):
         module_name = self.dependencies_modname
 
         # ...
-        from pyccel.epyccel import epyccel, compile_f2py
-        from pyccel.codegen.utilities import execute_pyccel
+        from pyccel.epyccel import epyccel
 
         # ... convert python to fortran using pyccel
-        openmp = False
-        accelerator = None
-        compiler = 'gfortran'
-        fflags = ' -O3 -fPIC '
+        compiler       = self.backend['compiler']
+        fflags         = self.backend['flags']
+        accelerator    = self.backend['accelerator']
+        _PYCCEL_FOLDER = self.backend['folder']
         # ...
 
         # ...
@@ -342,109 +337,23 @@ class BasicDiscrete(object):
         curdir = os.getcwd()
         # ...
 
-        fname = os.path.basename(self.dependencies_fname)
-
-        # ... convert python to fortran using pyccel
-        #     we get the ast after annotation, since we will create the f2py
-        #     interface from it
-        output, cmd, ast = execute_pyccel( fname,
-                                           compiler    = compiler,
-                                           fflags      = fflags,
-                                           verbose     = verbose,
-                                           accelerator = accelerator,
-                                           return_ast  = True)
+        # ...
+        sys.path.append(self.folder)
+        package = importlib.import_module( module_name )
+        f2py_module = epyccel( package,
+                               compiler    = compiler,
+                               fflags      = fflags,
+                               accelerator = accelerator,
+                               folder      = _PYCCEL_FOLDER )
+        sys.path.remove(self.folder)
         # ...
 
+        # ... get list of all functions inside the f2py module
+        functions = []
+        for name, obj in inspect.getmembers(f2py_module):
+            if callable(obj) and not( name.startswith( 'f2py_' ) ):
+                functions.append(name)
         # ...
-        fname = os.path.basename(fname).split('.')[0]
-        fname = '{}.o'.format(fname)
-        libname = '{}'.format(self.tag).lower() # because of f2py
-
-        cmd = 'ar -r lib{libname}.a {fname} '.format(fname=fname, libname=libname)
-        os.system(cmd)
-
-        if verbose:
-            print(cmd)
-        # ...
-
-        # ... construct a f2py interface for the assembly
-        # be careful: because of f2py we must use lower case
-        from pyccel.ast.utilities import build_types_decorator
-        from pyccel.ast.core import FunctionDef
-        from pyccel.ast.core import FunctionCall
-        from pyccel.ast.core import Variable, IndexedVariable
-        from pyccel.ast.core import Import
-        from pyccel.ast.core import Module
-        from pyccel.ast.f2py import as_static_function
-        from pyccel.codegen.printing.fcode  import fcode
-        from pyccel.epyccel import get_function_from_ast
-
-        tag = self.tag
-
-        assembly = self.interface.assembly
-        module_name = module_name.split('.')[-1]
-
-        # ... TODO move this to pyccel utilities
-        def sanitize_arguments(args):
-            _args = []
-            for a in args:
-                if isinstance( a, Variable ):
-                    _args.append(a)
-
-                elif isinstance( a, IndexedVariable ):
-                    a_new = Variable( a.dtype, str(a.name),
-                                      shape       = a.shape,
-                                      rank        = a.rank,
-                                      order       = a.order,
-                                      precision   = a.precision)
-
-                    _args.append(a_new)
-
-                else:
-                    raise NotImplementedError('TODO for {}'.format(type(a)))
-
-            return _args
-        # ...
-
-        func = get_function_from_ast(ast, assembly.name)
-
-        args = func.arguments
-        args = sanitize_arguments(args)
-
-        body = [FunctionCall(func, args)]
-
-        func = FunctionDef(assembly.name, list(args), [], body,
-                           arguments_inout = func.arguments_inout)
-        static_func = as_static_function(func)
-
-        imports = [Import(func.name, module_name.lower())]
-
-        module_name = 'f2py_dependencies_{}'.format(tag)
-        f2py_module_name = 'f2py_dependencies_{}'.format(tag)
-        f2py_module = Module( f2py_module_name,
-                              variables = [],
-                              funcs = [static_func],
-                              interfaces = [],
-                              classes = [],
-                              imports = imports )
-
-        code = fcode(f2py_module)
-        fname = '{}.f90'.format(f2py_module_name)
-        write_code(fname, code)
-
-        extra_args = ''
-
-        output, cmd = compile_f2py( fname,
-                                    extra_args= extra_args,
-                                    libs      = [libname],
-                                    libdirs   = [curdir],
-                                    compiler  = compiler,
-                                    mpi       = False,
-                                    openmp    = openmp)
-        # ...
-
-        if verbose:
-            print(cmd)
 
         # ...
         # update module name for dependencies
@@ -452,13 +361,17 @@ class BasicDiscrete(object):
         # name.name is needed for f2py
         # we take the relative path of self.folder (which is absolute)
         folder = os.path.relpath(self.folder, basedir)
-        name = os.path.join(folder, module_name)
+        folder = os.path.join(folder, _PYCCEL_FOLDER)
+        name = os.path.join(folder, f2py_module.__name__)
         name = name.replace('/', '.')
+        imports = []
+        for f in functions:
+            pattern = 'from {name} import {f}'
+            stmt = pattern.format( name = name, f = f )
+            imports.append(stmt)
+        imports = '\n'.join(i for i in imports)
 
-        import_mod = 'from {name} import {module_name}'.format(name=name,
-                                                               module_name=module_name)
-        self._interface_base_import_code = import_mod
-        self._dependencies_modname = module_name
+        self._interface_base_import_code = imports
         # ...
 
         os.chdir(basedir)

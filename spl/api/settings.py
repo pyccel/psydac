@@ -8,7 +8,9 @@ SPL_DEFAULT_FOLDER = '__pycache__/spl'
 SPL_BACKEND_PYTHON = {'name':     'python'}
 SPL_BACKEND_PYCCEL = {'name':     'pyccel',
                       'compiler': 'gfortran',
-                      'flags':    '-O3'}
+                      'flags':    '-O3',
+                      'accelerator': None,
+                      'folder': 'pyccel'}
 
 SPL_BACKEND = SPL_BACKEND_PYTHON
 # ...
