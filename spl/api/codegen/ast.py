@@ -1852,6 +1852,10 @@ class Interface(SplBasic):
         fields = sorted(fields, key=lambda x: str(x.name))
         fields = tuple(fields)
 
+        vector_fields = tuple(form.expr.atoms(VectorField))
+        vector_fields = sorted(vector_fields, key=lambda x: str(x.name))
+        vector_fields = tuple(vector_fields)
+
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
         is_function = isinstance(self.weak_form, Integral)
@@ -1968,7 +1972,7 @@ class Interface(SplBasic):
 
         # ...
         self._inout_arguments = list(global_matrices)
-        self._in_arguments = list(self.assembly.kernel.constants) + list(fields)
+        self._in_arguments = list(self.assembly.kernel.constants) + list(fields) + list(vector_fields)
         # ...
 
         # ... call to assembly
@@ -1983,7 +1987,12 @@ class Interface(SplBasic):
         field_data     = [DottedName(F, '_coeffs', '_data') for F in fields]
         field_data     = tuple(field_data)
 
-        args = assembly.build_arguments(field_data + mat_data)
+        vector_field_data     = [DottedName(F, '_components[{}]'.format(i),
+                                            '_coeffs', '_data') for F in
+                                 vector_fields for i in range(0, dim)]
+        vector_field_data     = tuple(vector_field_data)
+
+        args = assembly.build_arguments(field_data + vector_field_data + mat_data)
 
         body += [FunctionCall(assembly.func, args)]
         # ...
@@ -2073,10 +2082,10 @@ class Interface(SplBasic):
 
         if self.assembly.kernel.constants:
             constants = self.assembly.kernel.constants
-            args = mapping + constants + fields + mats
+            args = mapping + constants + fields + vector_fields + mats
 
         else:
-            args = mapping + fields + mats
+            args = mapping + fields + vector_fields + mats
 
         func_args = self.build_arguments(args)
         # ...
