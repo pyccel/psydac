@@ -342,7 +342,7 @@ def compute_atoms_expr_vector_field(atom, indices_quad,
 
 
     vector_field = atom
-    vector_field_name = 'coeff_' + print_expression(vector_field)
+    vector_field_name = 'coeff_' + print_expression(get_atom_derivatives(atom))
 
     # ...
     if isinstance(atom, _partial_derivatives):
@@ -804,6 +804,7 @@ class EvalVectorField(SplBasic):
         dim = space.ldim
 
         vector_field_atoms = self.vector_fields.atoms(VectorField)
+        vector_field_atoms = [f[i] for f in vector_field_atoms for i in range(0, dim)]
         vector_fields_str = [print_expression(f) for f in self.vector_fields]
 
         # ... declarations
@@ -813,8 +814,8 @@ class EvalVectorField(SplBasic):
         indices_quad  = variables([ 'g{}'.format(i) for i in range(1, dim+1)], 'int')
         basis         = indexed_variables(['basis{}'.format(i) for i in range(1, dim+1)],
                                           dtype='real', rank=3)
-        vector_fields_coeffs = indexed_variables(['coeff_{}'.format(f) for f in vector_field_atoms],
-                                          dtype='real', rank=dim)
+        coeffs = ['coeff_{}'.format(print_expression(f)) for f in vector_field_atoms]
+        vector_fields_coeffs = indexed_variables(coeffs, dtype='real', rank=dim)
         vector_fields_val    = indexed_variables(['{}_values'.format(f) for f in vector_fields_str],
                                           dtype='real', rank=dim)
         # ...
@@ -1123,7 +1124,7 @@ class Kernel(SplBasic):
         atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_vector_field ]
 
         # TODO use print_expression
-        vector_fields_str    = sorted(tuple(map(pycode, atomic_expr_vector_field)))
+        vector_fields_str    = sorted(tuple(print_expression(i) for i in  atomic_expr_vector_field))
         vector_field_atoms   = tuple(expr.atoms(VectorField))
 
         # ... create EvalVectorField
@@ -1247,8 +1248,10 @@ class Kernel(SplBasic):
 
         vector_fields        = symbols(vector_fields_str)
 
-        vector_fields_coeffs = indexed_variables(['coeff_{}'.format(f) for f in vector_field_atoms],
-                                          dtype='real', rank=dim)
+        vector_field_atoms = [f[i] for f in vector_field_atoms for i in range(0, dim)]
+        coeffs = ['coeff_{}'.format(print_expression(f)) for f in vector_field_atoms]
+        vector_fields_coeffs = indexed_variables(coeffs, dtype='real', rank=dim)
+
         vector_fields_val    = indexed_variables(['{}_values'.format(f) for f in vector_fields_str],
                                           dtype='real', rank=dim)
 
