@@ -254,6 +254,19 @@ class ProductFemSpace( FemSpace ):
     def n_components( self ):
         return len(self.spaces)
 
+    # ...
+    def init_fem( self, **kwargs ):
+        for V in self.spaces:
+            if V.quad_basis is None:
+                V.init_fem( **kwargs )
+
+    # ...
+    def init_collocation( self ):
+        for V in self.spaces:
+            # TODO: check if OK to access private attribute...
+            if not V._collocation_ready:
+                V.init_collocation()
+
 # TODO still experimental
 #===============================================================================
 class VectorFemField:

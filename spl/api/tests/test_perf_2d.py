@@ -8,6 +8,7 @@ from sympde.core import dx, dy, dz
 from sympde.core import Mapping
 from sympde.core import Constant
 from sympde.core import Field
+from sympde.core import VectorField
 from sympde.core import grad, dot, inner, cross, rot, curl, div
 from sympde.core import FunctionSpace, VectorFunctionSpace
 from sympde.core import TestFunction
@@ -24,6 +25,7 @@ from spl.fem.context import fem_context
 from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
 from spl.fem.tensor  import TensorFemSpace
+from spl.fem.vector  import ProductFemSpace, VectorFemField
 from spl.api.discretization import discretize
 from spl.api.boundary_condition import DiscreteBoundary
 from spl.api.boundary_condition import DiscreteComplementBoundary
@@ -180,7 +182,7 @@ def test_api_vector_poisson_2d():
 
     x,y = domain.coordinates
 
-#    F = Field('F', V)
+    F = VectorField(V, name='F')
 
     v = VectorTestFunction(V, name='v')
     u = VectorTestFunction(U, name='u')
@@ -193,9 +195,9 @@ def test_api_vector_poisson_2d():
     expr = dot(f, v)
     l = LinearForm(v, expr)
 
-#    error = F -sin(pi*x)*sin(pi*y)
-#    l2norm = Norm(error, domain, kind='l2', name='u')
-#    h1norm = Norm(error, domain, kind='h1', name='u')
+    # TODO improve
+    error = F[0] -sin(pi*x)*sin(pi*y) + F[1] -sin(pi*x)*sin(pi*y)
+    l2norm = Norm(error, domain, kind='l2', name='u')
     # ...
 
     # ... discrete spaces
@@ -238,32 +240,31 @@ def test_api_vector_poisson_2d():
 
     rhs_timing = Timing('rhs', t_py, t_f90)
     # ...
-#
-#    # ... coeff of phi are 0
-#    phi = FemField( Vh, 'phi' )
-#    # ...
-#
-#    # ...
-#    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYCCEL)
-#    tb = time.time()
-#    L_f90 = l2norm_h.assemble(F=phi)
-#    te = time.time()
-#    t_f90 = te-tb
-#    print('> [pyccel] elapsed time (L2 norm) = ', te-tb)
-#
-#    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYTHON)
-#    tb = time.time()
-#    L_py = l2norm_h.assemble(F=phi)
-#    te = time.time()
-#    print('> [python] elapsed time (L2 norm) = ', te-tb)
-#    t_py = te-tb
-#
-#    l2norm_timing = Timing('l2norm', t_py, t_f90)
-#    # ...
+
+    # ... coeff of phi are 0
+    phi = VectorFemField( ProductFemSpace(Vh, Vh), 'phi' )
+    # ...
 
     # ...
-    print_timing([matrix_timing, rhs_timing])
-#    print_timing([matrix_timing, rhs_timing, l2norm_timing])
+    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYCCEL)
+    tb = time.time()
+    L_f90 = l2norm_h.assemble(F=phi)
+    te = time.time()
+    t_f90 = te-tb
+    print('> [pyccel] elapsed time (L2 norm) = ', te-tb)
+
+    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYTHON)
+    tb = time.time()
+    L_py = l2norm_h.assemble(F=phi)
+    te = time.time()
+    print('> [python] elapsed time (L2 norm) = ', te-tb)
+    t_py = te-tb
+
+    l2norm_timing = Timing('l2norm', t_py, t_f90)
+    # ...
+
+    # ...
+    print_timing([matrix_timing, rhs_timing, l2norm_timing])
     # ...
 
 def test_api_stokes_2d():

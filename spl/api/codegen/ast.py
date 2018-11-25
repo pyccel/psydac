@@ -1987,8 +1987,8 @@ class Interface(SplBasic):
         field_data     = [DottedName(F, '_coeffs', '_data') for F in fields]
         field_data     = tuple(field_data)
 
-        vector_field_data     = [DottedName(F, '_components[{}]'.format(i),
-                                            '_coeffs', '_data') for F in
+        vector_field_data     = [DottedName(F, '_coeffs[{}]'.format(i),
+                                            '_data') for F in
                                  vector_fields for i in range(0, dim)]
         vector_field_data     = tuple(vector_field_data)
 
