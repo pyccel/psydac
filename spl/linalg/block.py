@@ -50,7 +50,7 @@ class ProductSpace( VectorSpace ):
             A new vector object with all components equal to zero.
 
         """
-        return BlockVector( self, [Vi.zeros() for Vi in self._spaces] )
+        return BlockVector( self, blocks=[Vi.zeros() for Vi in self._spaces] )
 
     #--------------------------------------
     # Other properties/methods
@@ -176,7 +176,6 @@ class BlockVector( Vector ):
         return tuple( self._blocks )
 
     # ...
-    @property
     def set_blocks( self, blocks ):
         """
         Parameters
@@ -186,6 +185,7 @@ class BlockVector( Vector ):
         """
 
         assert isinstance( blocks, (list, tuple) )
+        V = self.space
         # Verify that vectors belong to correct spaces and store them
         assert all( (Vi is b.space) for Vi,b in zip( V.spaces, blocks ) )
         self._blocks = list( blocks )
