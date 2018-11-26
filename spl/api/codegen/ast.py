@@ -211,6 +211,8 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
     dim  = len(indices_test)
 
     if not isinstance(atom, cls):
+#        print(atom, type(atom))
+#        import sys; sys.exit(0)
         raise TypeError('atom must be of type {}'.format(str(cls)))
 
     orders = [0 for i in range(0, dim)]
@@ -1097,8 +1099,12 @@ class Kernel(SplBasic):
         # ...
 
         # ...
-        atomic_expr_field = [atom for atom in atoms if is_field(atom)]
-        atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_field ]
+        atomic_expr_field        = [atom for atom in atoms if is_field(atom)]
+        atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
+
+        atomic_expr       = [atom for atom in atoms if not( atom in atomic_expr_field ) and
+                                                       not( atom in atomic_expr_vector_field)]
+        # ...
 
         # TODO use print_expression
         fields_str    = sorted(tuple(map(pycode, atomic_expr_field)))
@@ -1129,10 +1135,6 @@ class Kernel(SplBasic):
         # ...
 
         # ...
-        atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
-        atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_vector_field ]
-
-        # TODO use print_expression
         vector_fields_str    = sorted(tuple(print_expression(i) for i in  atomic_expr_vector_field))
         vector_field_atoms   = tuple(expr.atoms(VectorField))
 

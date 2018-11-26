@@ -699,22 +699,19 @@ if __name__ == '__main__':
 
 #    # ...
 #    test_api_bilinear_2d_sumform()
-#    # ...
-#
-#    # ... examples without mapping
-#    test_api_poisson_2d_dir_1()
 #    test_api_poisson_2d_dirneu_1()
 #    test_api_poisson_2d_dirneu_2()
+#    # ...
 #
-#    test_api_laplace_2d_dir_1()
-
+    # ...
+    test_api_poisson_2d_dir_1()
+    test_api_laplace_2d_dir_1()
     test_api_vector_l2_projection_2d_dir_1()
     test_api_vector_laplace_2d_dir_1()
+    test_api_poisson_2d_dir_1_mapping()
     # ...
 
-#    # ... examples with identity mapping
-#    test_api_poisson_2d_dir_1_mapping()
-#
+    # ...
 ##    # TODO this test works when runned alone, but not after the other tests!!!
 ##    # is it a problem of sympy namespace?
 ##    test_api_poisson_2d_dirneu_1_mapping()
