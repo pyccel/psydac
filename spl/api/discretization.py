@@ -563,6 +563,12 @@ class DiscreteSumForm(BasicDiscrete):
 
         self._expr = a
 
+        backend = kwargs.get('backend', None)
+        self._backend = backend
+
+        folder = kwargs.get('folder', None)
+        self._folder = self._initialize_folder(folder)
+
         # create a module name if not given
         tag = random_string( 8 )
         module_name = kwargs.pop('module_name', 'dependencies_{}'.format(tag))

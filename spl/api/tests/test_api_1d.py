@@ -37,7 +37,7 @@ DEBUG = False
 
 domain = Domain('\Omega', dim=1)
 
-def create_discrete_space(p=2, ne=2):
+def create_discrete_space(p=2, ne=2**8):
     # ... discrete spaces
     # Input data: degree, number of elements
 
