@@ -318,7 +318,7 @@ def test_api_stokes_2d():
 if __name__ == '__main__':
 
     # ... examples without mapping
-#    test_api_poisson_2d()
+    test_api_poisson_2d()
     test_api_vector_poisson_2d()
 #    test_api_stokes_2d()
     # ...

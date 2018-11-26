@@ -67,12 +67,6 @@ def random_string( n ):
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
-def _convert_int_to_float(expr):
-#    integers = expr.atoms(Integer)
-#    sub = zip(integers, map(Float, integers) )
-#    expr = expr.subs(sub)
-    return expr
-
 def compute_normal_vector(vector, discrete_boundary, mapping):
     dim = len(vector)
     pdim = dim - len(discrete_boundary)
@@ -972,6 +966,10 @@ class Kernel(SplBasic):
         return self._max_nderiv
 
     @property
+    def zero_terms(self):
+        return self._zero_terms
+
+    @property
     def constants(self):
         return self._constants
 
@@ -1238,16 +1236,18 @@ class Kernel(SplBasic):
             expr = expr[:]
             ln   = len(expr)
 
-            expr = [_convert_int_to_float(e) for e in expr]
-
         else:
             mats = (IndexedVariable('mat_00', dtype='real', rank=rank),)
 
             v    = (Variable('real', 'v_00'),)
             ln   = 1
 
-            expr = _convert_int_to_float(expr)
             expr = [expr]
+
+        # ... looking for 0 terms
+        zero_terms = [i for i,e in enumerate(expr) if e == 0]
+        self._zero_terms = zero_terms
+        # ...
 
         # ... declarations
         fields        = symbols(fields_str)
@@ -1432,10 +1432,10 @@ class Kernel(SplBasic):
         body.append(Assign(wvol,weighted_vol))
 
         for i in range(ln):
-            e = Mul(expr[i],wvol) # because expr[i] can be 0
-            e = _convert_int_to_float(e)
+            if not( i in zero_terms ):
+                e = Mul(expr[i],wvol)
 
-            body.append(AugAssign(v[i],'+', e))
+                body.append(AugAssign(v[i],'+', e))
         # ...
 
         # ...
@@ -1445,7 +1445,7 @@ class Kernel(SplBasic):
                             boundary_basis=self.boundary_basis)
 
         # initialization of intermediate vars
-        init_vars = [Assign(v[i],0.0) for i in range(ln)]
+        init_vars = [Assign(v[i],0.0) for i in range(ln) if not( i in zero_terms )]
         body = init_vars + body
         # ...
 
@@ -1457,11 +1457,13 @@ class Kernel(SplBasic):
 
         if is_bilinear or is_linear:
             for i in range(ln):
-                body.append(Assign(mats[i][idxs],v[i]))
+                if not( i in zero_terms ):
+                    body.append(Assign(mats[i][idxs],v[i]))
 
         elif is_function:
             for i in range(ln):
-                body.append(Assign(mats[i][0],v[i]))
+                if not( i in zero_terms ):
+                    body.append(Assign(mats[i][0],v[i]))
 
         # ...
         # put the body in tests and trials for loops
@@ -1483,7 +1485,7 @@ class Kernel(SplBasic):
         # ...
         # initialization of the matrix
         if is_bilinear or is_linear:
-            init_mats = [mats[i][[Slice(None,None)]*(dim_test+dim_trial)] for i in range(ln)]
+            init_mats = [mats[i][[Slice(None,None)]*(dim_test+dim_trial)] for i in range(ln) if not( i in zero_terms )]
 
             init_mats = [Assign(e, 0.0) for e in init_mats]
             body =  init_mats + body
@@ -1530,6 +1532,7 @@ class Kernel(SplBasic):
         body = math_imports + body
 
         # function args
+        mats = tuple([M for i,M in enumerate(mats) if not( i in zero_terms )])
         func_args = self.build_arguments(fields_coeffs + vector_fields_coeffs + mapping_coeffs + mats)
 
         decorators = {'types': build_types_decorator(func_args)}
@@ -1584,6 +1587,7 @@ class Assembly(SplBasic):
         fields_coeffs = kernel.fields_coeffs
         vector_fields = kernel.vector_fields
         vector_fields_coeffs = kernel.vector_fields_coeffs
+        zero_terms = kernel.zero_terms
 
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
@@ -1659,24 +1663,32 @@ class Assembly(SplBasic):
 
         # ... element matrices
         element_matrices = {}
+        ind = 0
         for i in range(0, n_rows):
             for j in range(0, n_cols):
-                mat = 'mat_{i}{j}'.format(i=i,j=j)
+                if not( ind in zero_terms ):
+                    mat = 'mat_{i}{j}'.format(i=i,j=j)
 
-                mat = IndexedVariable(mat, dtype='real', rank=rank)
+                    mat = IndexedVariable(mat, dtype='real', rank=rank)
 
-                element_matrices[i,j] = mat
+                    element_matrices[i,j] = mat
+
+                ind += 1
         # ...
 
         # ... global matrices
+        ind = 0
         global_matrices = {}
         for i in range(0, n_rows):
             for j in range(0, n_cols):
-                mat = 'M_{i}{j}'.format(i=i,j=j)
+                if not( ind in zero_terms ):
+                    mat = 'M_{i}{j}'.format(i=i,j=j)
 
-                mat = IndexedVariable(mat, dtype='real', rank=rank)
+                    mat = IndexedVariable(mat, dtype='real', rank=rank)
 
-                global_matrices[i,j] = mat
+                    global_matrices[i,j] = mat
+
+                ind += 1
         # ...
 
         # sympy does not like ':'
@@ -1697,10 +1709,15 @@ class Assembly(SplBasic):
                      for i in range(dim)]
 
         # ... kernel call
+        ind = 0
         mats = []
         for i in range(0, n_rows):
             for j in range(0, n_cols):
-                mats.append(element_matrices[i,j])
+                if not( ind in zero_terms ):
+                    mats.append(element_matrices[i,j])
+
+                ind += 1
+
         mats = tuple(mats)
 
         gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
@@ -1728,14 +1745,13 @@ class Assembly(SplBasic):
             lslices = 0
             gslices = 0
 
-        for i in range(0, n_rows):
-            for j in range(0, n_cols):
-                M = global_matrices[i,j]
-                mat = element_matrices[i,j]
+        for ij, M in global_matrices.items():
+            i,j = ij
+            mat = element_matrices[i,j]
 
-                stmt = AugAssign(M[gslices], '+', mat[lslices])
+            stmt = AugAssign(M[gslices], '+', mat[lslices])
 
-                body += [stmt]
+            body += [stmt]
         # ...
 
         # ... loop over elements
@@ -1754,23 +1770,27 @@ class Assembly(SplBasic):
         # allocate element matrices
         orders  = [p+1 for p in test_degrees]
         spads   = [2*p+1 for p in test_pads]
+        ind = 0
         for i in range(0, n_rows):
             for j in range(0, n_cols):
-                mat = element_matrices[i,j]
+                if not( ind in zero_terms ):
+                    mat = element_matrices[i,j]
 
-                if is_bilinear:
-                    stmt = Assign(mat, Zeros((*orders, *spads)))
+                    if is_bilinear:
+                        stmt = Assign(mat, Zeros((*orders, *spads)))
 
-                if is_linear:
-                    stmt = Assign(mat, Zeros((*orders,)))
+                    if is_linear:
+                        stmt = Assign(mat, Zeros((*orders,)))
 
-                if is_function:
-                    stmt = Assign(mat, Zeros((1,)))
+                    if is_function:
+                        stmt = Assign(mat, Zeros((1,)))
 
-                prelude += [stmt]
+                    prelude += [stmt]
 
-                if self.debug:
-                    prelude += [Print((String('> shape {} = '.format(mat)), *orders, *spads))]
+                    if self.debug:
+                        prelude += [Print((String('> shape {} = '.format(mat)), *orders, *spads))]
+
+                ind += 1
 
         # allocate mapping values
         if self.kernel.mapping_values:
@@ -1781,10 +1801,9 @@ class Assembly(SplBasic):
 
         # ...
         if self.debug:
-            for i in range(0, n_rows):
-                for j in range(0, n_cols):
-                    M = global_matrices[i,j]
-                    prelude += [Print((String('> shape {} = '.format(M)), Shape(M)))]
+            for ij, M in global_matrices.items():
+                i,j = ij
+                prelude += [Print((String('> shape {} = '.format(M)), Shape(M)))]
         # ...
 
         # ...
@@ -1793,10 +1812,10 @@ class Assembly(SplBasic):
 
         # ...
         mats = []
-        for i in range(0, n_rows):
-            for j in range(0, n_cols):
-                M = global_matrices[i,j]
-                mats.append(M)
+        for ij, M in global_matrices.items():
+            i,j = ij
+            mats.append(M)
+
         mats = tuple(mats)
         self._global_matrices = mats
         # ...
@@ -1868,6 +1887,7 @@ class Interface(SplBasic):
         fields = tuple(form.expr.atoms(Field))
         fields = sorted(fields, key=lambda x: str(x.name))
         fields = tuple(fields)
+        zero_terms = assembly.kernel.zero_terms
 
         vector_fields = tuple(form.expr.atoms(VectorField))
         vector_fields = sorted(vector_fields, key=lambda x: str(x.name))
@@ -2037,7 +2057,7 @@ class Interface(SplBasic):
         # ...
 
         # ...
-        self._inout_arguments = list(global_matrices)
+        self._inout_arguments = [M for M in global_matrices]
         self._in_arguments = list(self.assembly.kernel.constants) + list(fields) + list(vector_fields)
         # ...
 
@@ -2076,11 +2096,15 @@ class Interface(SplBasic):
                     n_rows = self.assembly.kernel.n_rows
                     n_cols = self.assembly.kernel.n_cols
 
+                    ind = 0
                     d = {}
                     for i in range(0, n_rows):
                         for j in range(0, n_cols):
-                            mat = IndexedBase('M_{i}{j}'.format(i=i,j=j))
-                            d[(i,j)] = mat
+                            if not( ind in zero_terms ):
+                                mat = IndexedBase('M_{i}{j}'.format(i=i,j=j))
+                                d[(i,j)] = mat
+
+                            ind += 1
 
                     D = Symbol('d')
                     d = OrderedDict(sorted(d.items()))
@@ -2118,7 +2142,7 @@ class Interface(SplBasic):
                 body += [Return(M[0])]
 
             else:
-                body += [Return(M[0] for M in global_matrices)]
+                body += [Return(M[0]) for M in global_matrices]
         # ...
 
         # ... arguments
