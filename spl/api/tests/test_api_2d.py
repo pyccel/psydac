@@ -8,6 +8,7 @@ from sympde.core import dx, dy, dz
 from sympde.core import Mapping
 from sympde.core import Constant
 from sympde.core import Field
+from sympde.core import VectorField
 from sympde.core import grad, dot, inner, cross, rot, curl, div
 from sympde.core import FunctionSpace, VectorFunctionSpace
 from sympde.core import TestFunction
@@ -24,6 +25,7 @@ from spl.fem.context import fem_context
 from spl.fem.basic   import FemField
 from spl.fem.splines import SplineSpace
 from spl.fem.tensor  import TensorFemSpace
+from spl.fem.vector  import ProductFemSpace, VectorFemField
 from spl.api.discretization import discretize
 from spl.api.boundary_condition import DiscreteBoundary
 from spl.api.boundary_condition import DiscreteComplementBoundary
@@ -556,19 +558,20 @@ def test_api_vector_laplace_2d_dir_1():
     U = VectorFunctionSpace('U', domain)
     V = VectorFunctionSpace('V', domain)
 
-    B1 = Boundary(r'\Gamma_1', domain)
-    B2 = Boundary(r'\Gamma_2', domain)
-    B3 = Boundary(r'\Gamma_3', domain)
-    B4 = Boundary(r'\Gamma_4', domain)
+#    B1 = Boundary(r'\Gamma_1', domain)
+#    B2 = Boundary(r'\Gamma_2', domain)
+#    B3 = Boundary(r'\Gamma_3', domain)
+#    B4 = Boundary(r'\Gamma_4', domain)
 
     x,y = domain.coordinates
 
-#    F = Field('F', V)
+    F = VectorField(V, name='F')
 
     v = VectorTestFunction(V, name='v')
     u = VectorTestFunction(U, name='u')
 
-    expr = inner(grad(v), grad(u))
+#    expr = inner(grad(v), grad(u))
+    expr = dot(v, u)
     a = BilinearForm((v,u), expr)
 
     f1 = 2*pi**2*sin(pi*x)*sin(pi*y)
@@ -577,46 +580,56 @@ def test_api_vector_laplace_2d_dir_1():
     expr = dot(f, v)
     l = LinearForm(v, expr)
 
-#    error = F-sin(pi*x)*sin(pi*y)
-#    l2norm = Norm(error, domain, kind='l2', name='u')
+    # TODO improve
+    error = F[0] -sin(pi*x)*sin(pi*y) + F[1] -sin(pi*x)*sin(pi*y)
+    l2norm = Norm(error, domain, kind='l2', name='u')
 #    h1norm = Norm(error, domain, kind='h1', name='u')
 
-    bc = [DirichletBC(i) for i in [B1, B2, B3, B4]]
-    equation = Equation(a(v,u), l(v), bc=bc)
+#    bc = [DirichletBC(i) for i in [B1, B2, B3, B4]]
+#    equation = Equation(a(v,u), l(v), bc=bc)
+    equation = Equation(a(v,u), l(v))
     # ...
 
     # ... discrete spaces
     Vh = create_discrete_space()
+    Vh = ProductFemSpace(Vh, Vh)
     # ...
 
-    # ... dsicretize the equation using Dirichlet bc
-    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
-    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
-    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
-    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
-
-    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
-    equation_h = discretize(equation, [Vh, Vh], bc=bc)
+#    # ... dsicretize the equation using Dirichlet bc
+#    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+#    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+#    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+#    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+#
+#    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
+#    equation_h = discretize(equation, [Vh, Vh], bc=bc)
+    equation_h = discretize(equation, [Vh, Vh])
     # ...
 
-#    # ... discretize norms
-#    l2norm_h = discretize(l2norm, Vh)
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh)
 #    h1norm_h = discretize(h1norm, Vh)
-#    # ...
+    # ...
 
     # ... solve the discrete equation
     x = equation_h.solve()
+    L = equation_h.linear_system
+    print(L.rhs[0].toarray())
+    print(L.rhs[1].toarray())
+    print(L.lhs[0,0].tocoo())
+    print(L.lhs[1,1].tocoo())
     # ...
 
-#    # ...
-#    phi = FemField( Vh, 'phi' )
-#    phi.coeffs[:,:] = x[:,:]
-#    # ...
-#
-#    # ... compute norms
-#    error = l2norm_h.assemble(F=phi)
-#    print('> L2 norm      = ', error)
-#
+    # ...
+    phi = VectorFemField( Vh, 'phi' )
+    phi.coeffs[0][:,:] = x[0][:,:]
+    phi.coeffs[1][:,:] = x[1][:,:]
+    # ...
+
+    # ... compute norms
+    error = l2norm_h.assemble(F=phi)
+    print('> L2 norm      = ', error)
+
 #    error = h1norm_h.assemble(F=phi)
 #    print('> H1 seminorm  = ', error)
 #    # ...
@@ -624,24 +637,24 @@ def test_api_vector_laplace_2d_dir_1():
 ###############################################
 if __name__ == '__main__':
 
-    # ...
-    test_api_bilinear_2d_sumform()
-    # ...
-
-    # ... examples without mapping
-    test_api_poisson_2d_dir_1()
-    test_api_poisson_2d_dirneu_1()
-    test_api_poisson_2d_dirneu_2()
-
-    test_api_laplace_2d_dir_1()
+#    # ...
+#    test_api_bilinear_2d_sumform()
+#    # ...
+#
+#    # ... examples without mapping
+#    test_api_poisson_2d_dir_1()
+#    test_api_poisson_2d_dirneu_1()
+#    test_api_poisson_2d_dirneu_2()
+#
+#    test_api_laplace_2d_dir_1()
 
     test_api_vector_laplace_2d_dir_1()
     # ...
 
-    # ... examples with identity mapping
-    test_api_poisson_2d_dir_1_mapping()
-
-#    # TODO this test works when runned alone, but not after the other tests!!!
-#    # is it a problem of sympy namespace?
-#    test_api_poisson_2d_dirneu_1_mapping()
-#    # ...
+#    # ... examples with identity mapping
+#    test_api_poisson_2d_dir_1_mapping()
+#
+##    # TODO this test works when runned alone, but not after the other tests!!!
+##    # is it a problem of sympy namespace?
+##    test_api_poisson_2d_dirneu_1_mapping()
+##    # ...

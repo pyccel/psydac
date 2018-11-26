@@ -58,6 +58,8 @@ from sympde.core.derivatives import get_atom_derivatives
 from sympde.core.derivatives import get_index_derivatives
 from sympde.core.math import math_atoms_as_str
 
+from spl.fem.vector import ProductFemSpace
+
 FunctionalForms = (BilinearForm, LinearForm, Integral)
 
 def random_string( n ):
@@ -1800,7 +1802,8 @@ class Assembly(SplBasic):
 
 class Interface(SplBasic):
 
-    def __new__(cls, assembly, name=None, backend=None):
+    def __new__(cls, assembly, name=None, backend=None,
+                discrete_space=None):
 
         if not isinstance(assembly, Assembly):
             raise TypeError('> Expecting an Assembly')
@@ -1809,6 +1812,7 @@ class Interface(SplBasic):
 
         obj._assembly = assembly
         obj._backend = backend
+        obj._discrete_space = discrete_space
 
         # update dependencies
         obj._dependencies += [assembly]
@@ -1827,6 +1831,10 @@ class Interface(SplBasic):
     @property
     def backend(self):
         return self._backend
+
+    @property
+    def discrete_space(self):
+        return self._discrete_space
 
     @property
     def max_nderiv(self):
@@ -1867,9 +1875,42 @@ class Interface(SplBasic):
         trial_space = Symbol('V')
         if is_bilinear:
             spaces = (test_space, trial_space)
+            test_vector_space = DottedName(test_space, 'vector_space')
+            trial_vector_space = DottedName(trial_space, 'vector_space')
+            Wh = self.discrete_space[0]
+            Vh = self.discrete_space[1]
+
+            # ... TODO improve
+            if isinstance(Wh, ProductFemSpace):
+                v = Wh.spaces[0]
+                if not all([w.vector_space is v.vector_space for w in Wh.spaces[1:]]):
+                    raise NotImplementedError('vector spaces must be the same')
+
+                test_vector_space = DottedName(test_vector_space, 'spaces[0]')
+            # ...
+
+            # ... TODO improve
+            if isinstance(Vh, ProductFemSpace):
+                v = Vh.spaces[0]
+                if not all([w.vector_space is v.vector_space for w in Vh.spaces[1:]]):
+                    raise NotImplementedError('vector spaces must be the same')
+
+                trial_vector_space = DottedName(trial_vector_space, 'spaces[0]')
+            # ...
 
         if is_linear or is_function:
+            test_vector_space = DottedName(test_space, 'vector_space')
             spaces = (test_space,)
+            Wh = self.discrete_space
+
+            # ... TODO improve
+            if isinstance(Wh, ProductFemSpace):
+                v = Wh.spaces[0]
+                if not all([w.vector_space is v.vector_space for w in Wh.spaces[1:]]):
+                    raise NotImplementedError('vector spaces must be the same')
+
+                test_vector_space = DottedName(test_vector_space, 'spaces[0]')
+            # ...
 
         starts        = variables([ 's{}'.format(i) for i in range(1, dim+1)], 'int')
         ends          = variables([ 'e{}'.format(i) for i in range(1, dim+1)], 'int')
@@ -1913,25 +1954,42 @@ class Interface(SplBasic):
         body = []
 
         # TODO use supports here with starts / ends
-        body += [Assign(test_degrees, DottedName(test_space, 'vector_space', 'pads'))]
+        body += [Assign(test_degrees, DottedName(test_vector_space, 'pads'))]
         if is_bilinear:
-            body += [Assign(trial_degrees, DottedName(trial_space, 'vector_space', 'pads'))]
+            body += [Assign(trial_degrees, DottedName(trial_vector_space, 'pads'))]
 
         body += [Comment(' TODO must use suppoerts with starts/ends')]
-        body += [Assign(starts, DottedName(test_space, 'vector_space', 'starts'))]
-        body += [Assign(ends, DottedName(test_space, 'vector_space', 'ends'))]
+        body += [Assign(starts, DottedName(test_vector_space, 'starts'))]
+        body += [Assign(ends, DottedName(test_vector_space, 'ends'))]
         for i in range(0, dim):
             body += [Assign(ends[i], ends[i]-test_degrees[i])]
 
 
-        body += [Assign(spans, DottedName(test_space, 'spans'))]
-        body += [Assign(quad_orders, DottedName(test_space, 'quad_order'))]
-        body += [Assign(points, DottedName(test_space, 'quad_points'))]
-        body += [Assign(weights, DottedName(test_space, 'quad_weights'))]
+        # ... TODO improve
+        if isinstance(Wh, ProductFemSpace):
+            body += [Assign(spans, DottedName(test_space, 'spaces[0]', 'spans'))]
+            body += [Assign(quad_orders, DottedName(test_space, 'spaces[0]', 'quad_order'))]
+            body += [Assign(points, DottedName(test_space, 'spaces[0]', 'quad_points'))]
+            body += [Assign(weights, DottedName(test_space, 'spaces[0]', 'quad_weights'))]
 
-        body += [Assign(test_basis, DottedName(test_space, 'quad_basis'))]
+            body += [Assign(test_basis, DottedName(test_space, 'spaces[0]', 'quad_basis'))]
+
+        else:
+            body += [Assign(spans, DottedName(test_space, 'spans'))]
+            body += [Assign(quad_orders, DottedName(test_space, 'quad_order'))]
+            body += [Assign(points, DottedName(test_space, 'quad_points'))]
+            body += [Assign(weights, DottedName(test_space, 'quad_weights'))]
+
+            body += [Assign(test_basis, DottedName(test_space, 'quad_basis'))]
+
         if is_bilinear:
-            body += [Assign(trial_basis, DottedName(trial_space, 'quad_basis'))]
+            if isinstance(Vh, ProductFemSpace):
+                body += [Assign(trial_basis, DottedName(trial_space, 'spaces[0]', 'quad_basis'))]
+
+            else:
+                body += [Assign(trial_basis, DottedName(trial_space, 'quad_basis'))]
+        # ...
+
         # ...
 
         # ...
@@ -1953,12 +2011,11 @@ class Interface(SplBasic):
             for M in global_matrices:
                 if_cond = Is(M, Nil())
                 if is_bilinear:
-                    args = [DottedName(test_space, 'vector_space'),
-                            DottedName(trial_space, 'vector_space')]
+                    args = [test_vector_space, trial_vector_space]
                     if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
 
                 if is_linear:
-                    args = [DottedName(test_space, 'vector_space')]
+                    args = [test_vector_space]
                     if_body = [Assign(M, FunctionCall('StencilVector', args))]
 
                 stmt = If((if_cond, if_body))
@@ -2003,7 +2060,6 @@ class Interface(SplBasic):
                 if is_bilinear:
                     L = Symbol('L')
 
-                    body += [Import('ProductSpace', 'spl.linalg.block')]
                     body += [Import('BlockMatrix', 'spl.linalg.block')]
 
                     # TODO this is a duplicated code => use a function to define
@@ -2022,35 +2078,22 @@ class Interface(SplBasic):
                     body += [Assign(D, d)]
 
                     # ... create product space
-                    V_row = Symbol('V_row')
-                    row_spaces = [DottedName(test_space, 'vector_space') for i in range(0, n_rows)]
-                    body += [Assign(V_row, FunctionCall('ProductSpace',
-                                                        row_spaces))]
-
-                    V_col = Symbol('V_col')
-                    col_spaces = [DottedName(trial_space, 'vector_space') for i in range(0, n_cols)]
-                    body += [Assign(V_col, FunctionCall('ProductSpace',
-                                                        col_spaces))]
+                    test_vector_space = DottedName(test_space, 'vector_space')
+                    trial_vector_space = DottedName(trial_space, 'vector_space')
                     # ...
 
-                    body += [Assign(L, FunctionCall('BlockMatrix', [V_row, V_col, D]))]
+                    body += [Assign(L, FunctionCall('BlockMatrix', [test_vector_space, trial_vector_space, D]))]
 
                 elif is_linear:
                     L = IndexedBase('L')
 
-                    body += [Import('ProductSpace', 'spl.linalg.block')]
                     body += [Import('BlockVector', 'spl.linalg.block')]
 
                     # ... create product space
-                    n_rows = self.assembly.kernel.n_rows
-
-                    V_row = Symbol('V_row')
-                    row_spaces = [DottedName(test_space, 'vector_space') for i in range(0, n_rows)]
-                    body += [Assign(V_row, FunctionCall('ProductSpace',
-                                                        row_spaces))]
+                    test_vector_space = DottedName(test_space, 'vector_space')
                     # ...
 
-                    body += [Assign(L, FunctionCall('BlockVector', [V_row]))]
+                    body += [Assign(L, FunctionCall('BlockVector', [test_vector_space]))]
                     for i,m in enumerate(global_matrices):
                         body += [Assign(L[i], m)]
 

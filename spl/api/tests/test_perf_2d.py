@@ -203,6 +203,7 @@ def test_api_vector_poisson_2d():
     # ... discrete spaces
 #    Vh = create_discrete_space(p=(3,3), ne=(2**8,2**8))
     Vh = create_discrete_space(p=(2,2), ne=(2**3,2**3))
+    Vh = ProductFemSpace(Vh, Vh)
     # ...
 
     # ...
@@ -242,7 +243,7 @@ def test_api_vector_poisson_2d():
     # ...
 
     # ... coeff of phi are 0
-    phi = VectorFemField( ProductFemSpace(Vh, Vh), 'phi' )
+    phi = VectorFemField( Vh, 'phi' )
     # ...
 
     # ...

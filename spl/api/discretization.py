@@ -114,7 +114,8 @@ class BasicDiscrete(object):
 
     def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
                  module_name=None, boundary=None, target=None,
-                 boundary_basis=None, backend=SPL_BACKEND_PYTHON, folder=None):
+                 boundary_basis=None, backend=SPL_BACKEND_PYTHON, folder=None,
+                 discrete_space=None):
 
         # ...
         if not target:
@@ -150,7 +151,8 @@ class BasicDiscrete(object):
                         discrete_boundary=boundary,
                         boundary_basis=boundary_basis)
         assembly = Assembly(kernel)
-        interface = Interface(assembly, backend=backend)
+        interface = Interface(assembly, backend=backend,
+                              discrete_space=discrete_space)
         # ...
 
         # ...
@@ -434,12 +436,13 @@ class DiscreteBilinearForm(BasicDiscrete):
         if not isinstance(expr, sym_BilinearForm):
             raise TypeError('> Expecting a symbolic BilinearForm')
 
-        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
-
         if not args:
             raise ValueError('> fem spaces must be given as a list/tuple')
 
         self._spaces = args[0]
+
+        kwargs['discrete_space'] = self.spaces
+        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # initialize fem space basis/quad
         for V in self.spaces:
@@ -468,9 +471,10 @@ class DiscreteLinearForm(BasicDiscrete):
         if not isinstance(expr, sym_LinearForm):
             raise TypeError('> Expecting a symbolic LinearForm')
 
-        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
-
         self._space = args[0]
+
+        kwargs['discrete_space'] = self.space
+        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # initialize fem space basis/quad
         self.space.init_fem(nderiv=self.interface.max_nderiv)
@@ -498,9 +502,10 @@ class DiscreteIntegral(BasicDiscrete):
         if not isinstance(expr, sym_Integral):
             raise TypeError('> Expecting a symbolic Integral')
 
-        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
-
         self._space = args[0]
+
+        kwargs['discrete_space'] = self.space
+        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # initialize fem space basis/quad
         self.space.init_fem(nderiv=self.interface.max_nderiv)
@@ -744,15 +749,17 @@ class DiscreteEquation(BasicDiscrete):
 
         if assemble_lhs:
             M = self.lhs.assemble(**kwargs)
-            for bc in self.bc:
-                apply_homogeneous_dirichlet_bc(self.test_space, bc, M)
+            if self.bc:
+                for bc in self.bc:
+                    apply_homogeneous_dirichlet_bc(self.test_space, bc, M)
         else:
             M = self.linear_system.lhs
 
         if assemble_rhs:
             rhs = self.rhs.assemble(**kwargs)
-            for bc in self.bc:
-                apply_homogeneous_dirichlet_bc(self.test_space, bc, rhs)
+            if self.bc:
+                for bc in self.bc:
+                    apply_homogeneous_dirichlet_bc(self.test_space, bc, rhs)
 
         else:
             rhs = self.linear_system.rhs
