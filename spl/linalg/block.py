@@ -3,9 +3,10 @@
 # Copyright 2018 Jalal Lakhlili, Yaman Güçlü
 
 from collections        import OrderedDict
+import numpy as np
 
 from spl.linalg.basic   import VectorSpace, Vector, LinearOperator
-from spl.linalg.stencil import StencilMatrix
+from spl.linalg.stencil import StencilMatrix, StencilVector
 
 __all__ = ['ProductSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix']
 
@@ -189,6 +190,25 @@ class BlockVector( Vector ):
         # Verify that vectors belong to correct spaces and store them
         assert all( (Vi is b.space) for Vi,b in zip( V.spaces, blocks ) )
         self._blocks = list( blocks )
+
+    # ...
+    def toarray(self):
+        args = []
+        for a in self.blocks:
+            if isinstance(a, BlockVector):
+                args += [a.toarray()]
+
+            elif isinstance(a, StencilVector):
+                args += [a.toarray()]
+
+            elif isinstance(a, np.ndarray):
+                args += [a]
+
+            else:
+                raise TypeError('Expecting a StencilVector, BlockVector or numpy.ndarray')
+
+        return np.concatenate(args)
+
 
 #===============================================================================
 class BlockLinearOperator(LinearOperator):

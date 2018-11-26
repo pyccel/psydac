@@ -465,6 +465,12 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         return self.func(*newargs, **kwargs)
 
+#        import sys
+#        sys.path.append(self.folder)
+#        from interface_mw7je54z import  interface_mw7je54z
+#        sys.path.remove(self.folder)
+#        return  interface_mw7je54z(*newargs, **kwargs)
+
 class DiscreteLinearForm(BasicDiscrete):
 
     def __init__(self, expr, kernel_expr, *args, **kwargs):

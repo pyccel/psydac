@@ -574,8 +574,10 @@ def test_api_vector_laplace_2d_dir_1():
     expr = dot(v, u)
     a = BilinearForm((v,u), expr)
 
-    f1 = 2*pi**2*sin(pi*x)*sin(pi*y)
-    f2 = 2*pi**2*sin(pi*x)*sin(pi*y)
+#    f1 = 2*pi**2*sin(pi*x)*sin(pi*y)
+#    f2 = 2*pi**2*sin(pi*x)*sin(pi*y)
+    f1 = sin(pi*x)*sin(pi*y)
+    f2 = sin(pi*x)*sin(pi*y)
     f = Tuple(f1, f2)
     expr = dot(f, v)
     l = LinearForm(v, expr)
@@ -590,8 +592,46 @@ def test_api_vector_laplace_2d_dir_1():
     equation = Equation(a(v,u), l(v))
     # ...
 
+#    # ...
+#    # TODO to remove
+#    W = FunctionSpace('W', domain)
+#    vv1 = TestFunction(W, name='vv1')
+#    uu1 = TestFunction(W, name='uu1')
+#    a1 = BilinearForm((vv1,uu1), uu1*vv1)
+#    l1 = LinearForm(vv1, 2*pi**2*sin(pi*x)*sin(pi*y)*vv1)
+#
+#    import numpy as np
+#    from scipy.io import mmwrite
+#
+#    a1h = discretize(a1, [Vh, Vh])
+#    l1h = discretize(l1, Vh)
+#    L1 = l1h.assemble().toarray()
+#    A1 = a1h.assemble().tocoo()
+#
+#    np.savetxt('l1.txt', L1)
+#    mmwrite('a1h.mtx', A1)
+#
+#    #
+#    Vh = ProductFemSpace(Vh, Vh)
+#    ah = discretize(a, [Vh, Vh])
+#    lh = discretize(l, Vh)
+#
+#    L = lh.assemble().toarray()
+#    A = ah.assemble().tocoo()
+#    np.savetxt('l.txt', L)
+#    mmwrite('ah.mtx', A)
+#
+#    from spl.linalg.iterative_solvers import cg
+#    _default_solver = {'tol':1e-9, 'maxiter':1000, 'verbose':False}
+#
+#    x, info = cg( A, L, **_default_solver )
+#    print(x)
+#
+#    import sys; sys.exit(0)
+#    # ...
+
     # ... discrete spaces
-    Vh = create_discrete_space()
+    Vh = create_discrete_space(ne=(2**4, 2**4))
     Vh = ProductFemSpace(Vh, Vh)
     # ...
 
@@ -614,10 +654,6 @@ def test_api_vector_laplace_2d_dir_1():
     # ... solve the discrete equation
     x = equation_h.solve()
     L = equation_h.linear_system
-    print(L.rhs[0].toarray())
-    print(L.rhs[1].toarray())
-    print(L.lhs[0,0].tocoo())
-    print(L.lhs[1,1].tocoo())
     # ...
 
     # ...

@@ -237,6 +237,13 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
               isinstance( test_function, VectorTestFunction )):
             test      = atom.base == test_function.base
 
+        elif (isinstance( atom, IndexedTestTrial ) and
+              isinstance( test_function, VectorTestFunction )):
+            test      = atom.base == test_function
+
+        else:
+            raise TypeError('> Wrong type')
+
     if test or is_linear:
         basis  = basis_test
         idxs   = indices_test
