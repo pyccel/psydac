@@ -3,6 +3,7 @@
 from sympy import pi, cos, sin
 from sympy import S
 from sympy import Tuple
+from sympy import Matrix
 
 from sympde.core import dx, dy, dz
 from sympde.core import Mapping
@@ -579,10 +580,10 @@ def test_api_vector_laplace_2d_dir_1():
     expr = dot(f, v)
     l = LinearForm(v, expr)
 
-    # TODO improve
-    error = F[0] -sin(pi*x)*sin(pi*y) + F[1] -sin(pi*x)*sin(pi*y)
+    f = Tuple(sin(pi*x)*sin(pi*y), sin(pi*x)*sin(pi*y))
+    error = Matrix([F[0]-f[0], F[1]-f[1]])
     l2norm = Norm(error, domain, kind='l2', name='u')
-#    h1norm = Norm(error, domain, kind='h1', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
 
     bc = [DirichletBC(i) for i in [B1, B2, B3, B4]]
     equation = Equation(a(v,u), l(v), bc=bc)
@@ -590,7 +591,6 @@ def test_api_vector_laplace_2d_dir_1():
 
     # ... discrete spaces
     Vh = create_discrete_space(ne=(2**4, 2**4))
-#    Vh = create_discrete_space()
     Vh = ProductFemSpace(Vh, Vh)
     # ...
 
@@ -606,7 +606,7 @@ def test_api_vector_laplace_2d_dir_1():
 
     # ... discretize norms
     l2norm_h = discretize(l2norm, Vh)
-#    h1norm_h = discretize(h1norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -624,9 +624,10 @@ def test_api_vector_laplace_2d_dir_1():
     error = l2norm_h.assemble(F=phi)
     print('> L2 norm      = ', error)
 
-#    error = h1norm_h.assemble(F=phi)
-#    print('> H1 seminorm  = ', error)
-#    # ...
+    # TODO not working yet => check formulae
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
+    # ...
 
 def test_api_vector_l2_projection_2d_dir_1():
     print('============ test_api_vector_l2_projection_2d_dir_1 =============')
@@ -651,13 +652,11 @@ def test_api_vector_l2_projection_2d_dir_1():
     expr = dot(f, v)
     l = LinearForm(v, expr)
 
-    # TODO improve
-    error = F[0] -sin(pi*x)*sin(pi*y) + F[1] -sin(pi*x)*sin(pi*y)
+    f = Tuple(sin(pi*x)*sin(pi*y), sin(pi*x)*sin(pi*y))
+    error = Matrix([F[0]-f[0], F[1]-f[1]])
     l2norm = Norm(error, domain, kind='l2', name='u')
-#    h1norm = Norm(error, domain, kind='h1', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
 
-#    bc = [DirichletBC(i) for i in [B1, B2, B3, B4]]
-#    equation = Equation(a(v,u), l(v), bc=bc)
     equation = Equation(a(v,u), l(v))
     # ...
 
@@ -672,7 +671,7 @@ def test_api_vector_l2_projection_2d_dir_1():
 
     # ... discretize norms
     l2norm_h = discretize(l2norm, Vh)
-#    h1norm_h = discretize(h1norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -690,9 +689,10 @@ def test_api_vector_l2_projection_2d_dir_1():
     error = l2norm_h.assemble(F=phi)
     print('> L2 norm      = ', error)
 
-#    error = h1norm_h.assemble(F=phi)
-#    print('> H1 seminorm  = ', error)
-#    # ...
+    # TODO not working yet => check formulae
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
+    # ...
 
 ###############################################
 if __name__ == '__main__':
@@ -708,7 +708,7 @@ if __name__ == '__main__':
 #
 #    test_api_laplace_2d_dir_1()
 
-#    test_api_vector_l2_projection_2d_dir_1()
+    test_api_vector_l2_projection_2d_dir_1()
     test_api_vector_laplace_2d_dir_1()
     # ...
 

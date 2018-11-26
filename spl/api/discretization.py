@@ -534,6 +534,14 @@ class DiscreteIntegral(BasicDiscrete):
 
         v = self.func(*newargs, **kwargs)
 
+#        # ... TODO remove => this is for debug only
+#        import sys
+#        sys.path.append(self.folder)
+#        from interface_59qfjz03 import  interface_59qfjz03
+#        sys.path.remove(self.folder)
+#        v = interface_59qfjz03(*newargs, **kwargs)
+#        # ...
+
         # case of a norm
         if isinstance(self.expr, sym_Norm):
             if self.expr.exponent == 2:
@@ -543,6 +551,8 @@ class DiscreteIntegral(BasicDiscrete):
                 raise NotImplementedError('TODO')
 
         return v
+
+
 
 
 class DiscreteSumForm(BasicDiscrete):
