@@ -393,19 +393,19 @@ class BlockMatrix( BlockLinearOperator ):
 
         # ... compute the global nnz
         nnz = 0
-        for i in range(0, n_block_rows):
-            for j in range(0, n_block_cols):
-                nnz += matrices[i,j].nnz
+        for k, M in list(self.blocks.items()):
+            nnz += matrices[k].nnz
         # ...
 
         # ... compute number of rows and cols per block
+        keys = list(matrices.keys())
         n_rows = zeros(n_block_rows, dtype=int)
         n_cols = zeros(n_block_cols, dtype=int)
 
         for i in range(0, n_block_rows):
             n = 0
             for j in range(0, n_block_cols):
-                if not(matrices[i,j] is None):
+                if (i,j) in keys:
                     n = matrices[i,j].shape[0]
                     break
             if n == 0:
@@ -415,7 +415,7 @@ class BlockMatrix( BlockLinearOperator ):
         for j in range(0, n_block_cols):
             n = 0
             for i in range(0, n_block_rows):
-                if not(matrices[i,j] is None):
+                if (i,j) in keys:
                     n = matrices[i,j].shape[1]
                     break
             if n == 0:
@@ -433,7 +433,7 @@ class BlockMatrix( BlockLinearOperator ):
         n = 0
         for ir in range(0, n_block_rows):
             for ic in range(0, n_block_cols):
-                if not(matrices[ir,ic] is None):
+                if (ir,ic) in keys:
                     A = matrices[ir,ic]
 
                     n += A.nnz

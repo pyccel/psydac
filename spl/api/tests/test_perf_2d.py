@@ -288,6 +288,9 @@ def test_api_stokes_2d():
     # ... discrete spaces
 #    Vh = create_discrete_space(p=(3,3), ne=(2**8,2**8))
     Vh = create_discrete_space(p=(2,2), ne=(2**3,2**3))
+
+    # TODO improve this?
+    Vh = ProductFemSpace(Vh, Vh, Vh)
     # ...
 
     # ...
@@ -320,5 +323,5 @@ if __name__ == '__main__':
     # ... examples without mapping
     test_api_poisson_2d()
     test_api_vector_poisson_2d()
-#    test_api_stokes_2d()
+    test_api_stokes_2d()
     # ...

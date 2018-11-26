@@ -635,6 +635,7 @@ def test_api_vector_laplace_2d_dir_1():
     # ...
 
     # ... discrete spaces
+#    Vh = create_discrete_space(ne=(2**6, 2**6))
     Vh = create_discrete_space(ne=(2**4, 2**4))
     Vh = ProductFemSpace(Vh, Vh)
     # ...
@@ -651,12 +652,12 @@ def test_api_vector_laplace_2d_dir_1():
 
     # ... discretize norms
     l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
+#    h1norm_h = discretize(h1norm, Vh)
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
-    L = equation_h.linear_system
+    x = equation_h.solve(settings={'solver':'cg', 'tol':1e-13, 'maxiter':1000,
+                                   'verbose':True})
     # ...
 
     # ...
@@ -669,9 +670,9 @@ def test_api_vector_laplace_2d_dir_1():
     error = l2norm_h.assemble(F=phi)
     print('> L2 norm      = ', error)
 
-    # TODO not working yet => check formulae
-    error = h1norm_h.assemble(F=phi)
-    print('> H1 seminorm  = ', error)
+#    # TODO not working yet => check formulae
+#    error = h1norm_h.assemble(F=phi)
+#    print('> H1 seminorm  = ', error)
     # ...
 
 def test_api_vector_l2_projection_2d_dir_1():
@@ -707,6 +708,7 @@ def test_api_vector_l2_projection_2d_dir_1():
 
     # ... discrete spaces
     Vh = create_discrete_space(ne=(2**4, 2**4))
+#    Vh = create_discrete_space(ne=(2**3, 2**3))
     Vh = ProductFemSpace(Vh, Vh)
     # ...
 
@@ -721,7 +723,6 @@ def test_api_vector_l2_projection_2d_dir_1():
 
     # ... solve the discrete equation
     x = equation_h.solve()
-    L = equation_h.linear_system
     # ...
 
     # ...
@@ -734,9 +735,170 @@ def test_api_vector_l2_projection_2d_dir_1():
     error = l2norm_h.assemble(F=phi)
     print('> L2 norm      = ', error)
 
-    # TODO not working yet => check formulae
-    error = h1norm_h.assemble(F=phi)
-    print('> H1 seminorm  = ', error)
+#    # TODO not working yet => check formulae
+#    error = h1norm_h.assemble(F=phi)
+#    print('> H1 seminorm  = ', error)
+    # ...
+
+def test_api_vector_2d_1():
+    print('============ test_api_vector_2d_1 =============')
+
+    # ... abstract model
+    U = VectorFunctionSpace('U', domain)
+    V = VectorFunctionSpace('V', domain)
+
+    x,y = domain.coordinates
+
+    F = VectorField(V, name='F')
+
+    v = VectorTestFunction(V, name='v')
+    u = VectorTestFunction(U, name='u')
+
+    expr = dot(v, u)
+    a = BilinearForm((v,u), expr)
+
+    f1 = sin(pi*x)*sin(pi*y)
+    f2 = sin(pi*x)*sin(pi*y)
+    f = Tuple(f1, f2)
+    expr = dot(f, v)
+    l = LinearForm(v, expr)
+    # ...
+
+    # ... discrete spaces
+    ne = (2**2, 2**2)
+    Vh = create_discrete_space(ne=ne)
+    Vh = ProductFemSpace(Vh, Vh)
+    # ...
+
+    # ...
+    ah = discretize(a, [Vh, Vh])
+    lh = discretize(l, Vh)
+    # ...
+
+    # ... abstract model
+    UU1 = FunctionSpace('UU1', domain)
+    VV1 = FunctionSpace('VV1', domain)
+
+    vv1 = TestFunction(VV1, name='vv1')
+    uu1 = TestFunction(UU1, name='uu1')
+
+    expr = vv1*uu1
+    a1 = BilinearForm((vv1,uu1), expr, name='a1')
+
+    expr = sin(pi*x)*sin(pi*y)*vv1
+    l1 = LinearForm(vv1, expr, name='l1')
+    # ...
+
+    # ... discrete spaces
+    Wh = create_discrete_space(ne=ne)
+    # ...
+
+    # ...
+    a1h = discretize(a1, [Wh, Wh])
+    l1h = discretize(l1, Wh)
+    # ...
+
+    # ...
+    A = ah.assemble()
+    L = lh.assemble()
+
+    A1 = a1h.assemble()
+    L1 = l1h.assemble()
+    # ...
+
+    # ...
+    from scipy.io import mmwrite
+    import numpy as np
+
+    mmwrite('A.mtx', A.tocoo())
+    np.savetxt('L.txt', L.toarray())
+
+    mmwrite('A1.mtx', A1.tocoo())
+    np.savetxt('L1.txt', L1.toarray())
+    # ...
+
+def test_api_vector_2d_2():
+    print('============ test_api_vector_2d_2 =============')
+
+    # ... abstract model
+    U = VectorFunctionSpace('U', domain)
+    V = VectorFunctionSpace('V', domain)
+
+    x,y = domain.coordinates
+
+    F = VectorField(V, name='F')
+
+    v = VectorTestFunction(V, name='v')
+    u = VectorTestFunction(U, name='u')
+
+    expr = inner(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    f1 = 2*pi**2*sin(pi*x)*sin(pi*y)
+    f2 = 2*pi**2*sin(pi*x)*sin(pi*y)
+    f = Tuple(f1, f2)
+    expr = dot(f, v)
+    l = LinearForm(v, expr)
+    # ...
+
+    # ... discrete spaces
+    ne = (2**2, 2**2)
+    Vh = create_discrete_space(ne=ne)
+    Vh = ProductFemSpace(Vh, Vh)
+    # ...
+
+    # ...
+    ah = discretize(a, [Vh, Vh])
+    lh = discretize(l, Vh)
+    # ...
+
+    # ... abstract model
+    UU1 = FunctionSpace('UU1', domain)
+    VV1 = FunctionSpace('VV1', domain)
+
+    vv1 = TestFunction(VV1, name='vv1')
+    uu1 = TestFunction(UU1, name='uu1')
+
+    expr = dot(grad(vv1), grad(uu1))
+    a1 = BilinearForm((vv1,uu1), expr, name='a1')
+
+    expr = 2*pi**2*sin(pi*x)*sin(pi*y)*vv1
+    l1 = LinearForm(vv1, expr, name='l1')
+    # ...
+
+    # ... discrete spaces
+    Wh = create_discrete_space(ne=ne)
+    # ...
+
+    # ...
+    a1h = discretize(a1, [Wh, Wh])
+    l1h = discretize(l1, Wh)
+    # ...
+
+    # ...
+    A = ah.assemble()
+    L = lh.assemble()
+
+    A1 = a1h.assemble()
+    L1 = l1h.assemble()
+    # ...
+
+    # ...
+    from scipy.io import mmwrite
+    import numpy as np
+
+    mmwrite('A.mtx', A.tocoo())
+    np.savetxt('L.txt', L.toarray())
+
+    mmwrite('A1.mtx', A1.tocoo())
+    np.savetxt('L1.txt', L1.toarray())
+
+    np.allclose( L1.toarray(), L[0].toarray() )
+    np.allclose( L1.toarray(), L[1].toarray() )
+
+    n = len(L1.toarray())
+    np.allclose( L1.toarray(), L.toarray()[:n] )
+    np.allclose( L1.toarray(), L.toarray()[n:] )
     # ...
 
 ###############################################
@@ -755,9 +917,11 @@ if __name__ == '__main__':
     test_api_vector_l2_projection_2d_dir_1()
     test_api_vector_laplace_2d_dir_1()
     test_api_poisson_2d_dir_1_mapping()
+    test_api_vector_2d_2()
     # ...
 
     # ...
+##    test_api_vector_2d_1()
 ##    # TODO this test works when runned alone, but not after the other tests!!!
 ##    # is it a problem of sympy namespace?
 ##    test_api_poisson_2d_dirneu_1_mapping()

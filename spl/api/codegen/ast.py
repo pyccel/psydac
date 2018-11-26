@@ -211,34 +211,39 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
 
     orders = [0 for i in range(0, dim)]
     p_indices = get_index_derivatives(atom)
+
 #    print('> atom = ', atom)
 #    print('> test_function = ', test_function)
-    test = False
-    if isinstance(atom, _partial_derivatives):
-        orders[atom.grad_index] = p_indices[atom.coordinate]
-        if isinstance( test_function, TestFunction ):
-            test      = test_function in atom.atoms(TestFunction)
 
-        elif isinstance( test_function, VectorTestFunction ):
-            test      = test_function in atom.atoms(VectorTestFunction)
+    # ...
+    def _get_name(atom):
+        atom_name = None
+        if isinstance( atom, TestFunction ):
+            atom_name = str(atom.name)
 
-        else:
-            raise TypeError('> Expecting TestFunction or VectorTestFunction')
-    else:
-        if (isinstance( atom, TestFunction ) and
-            isinstance( test_function, TestFunction )):
-            test      = atom == test_function
+        elif isinstance( atom, VectorTestFunction ):
+            atom_name = str(atom.name)
 
-        elif (isinstance( atom, VectorTestFunction ) and
-              isinstance( test_function, VectorTestFunction )):
-            test      = atom.base == test_function.base
-
-        elif (isinstance( atom, IndexedTestTrial ) and
-              isinstance( test_function, VectorTestFunction )):
-            test      = atom.base == test_function
+        elif isinstance( atom, IndexedTestTrial ):
+            atom_name = str(atom.base.name)
 
         else:
             raise TypeError('> Wrong type')
+
+        return atom_name
+    # ...
+
+    if isinstance(atom, _partial_derivatives):
+        a = get_atom_derivatives(atom)
+        atom_name = _get_name(a)
+
+        orders[atom.grad_index] = p_indices[atom.coordinate]
+
+    else:
+        atom_name = _get_name(atom)
+
+    test_name = _get_name(test_function)
+    test = atom_name == test_name
 
     if test or is_linear:
         basis  = basis_test

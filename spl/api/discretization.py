@@ -537,9 +537,9 @@ class DiscreteIntegral(BasicDiscrete):
 #        # ... TODO remove => this is for debug only
 #        import sys
 #        sys.path.append(self.folder)
-#        from interface_59qfjz03 import  interface_59qfjz03
+#        from interface_pt3xujb5 import  interface_pt3xujb5
 #        sys.path.remove(self.folder)
-#        v = interface_59qfjz03(*newargs, **kwargs)
+#        v = interface_pt3xujb5(*newargs, **kwargs)
 #        # ...
 
         # case of a norm

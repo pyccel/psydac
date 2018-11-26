@@ -206,6 +206,7 @@ def apply_homogeneous_dirichlet_bc_2d_StencilMatrix(V, bc, a):
         # lower bc.boundary.at y=0.
         if s2 == 0 and bc.boundary.ext == -1:
             a[:,0,:,:] = 0.
+
         # upper bc.boundary.at y=1.
         if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
             a[:,e2,:,:] = 0.
@@ -215,15 +216,11 @@ def apply_homogeneous_dirichlet_bc_2d_StencilMatrix(V, bc, a):
 def apply_homogeneous_dirichlet_bc_2d_BlockMatrix(V, bc, a):
     """ Apply homogeneous dirichlet boundary conditions in 2D """
 
-    n_block_rows = a.n_block_rows
-    n_block_cols = a.n_block_cols
-
-    for i_row in range(0, n_block_rows):
-        for i_col in range(0, n_block_cols):
-            M = a[i_row, i_col]
-            # TODO must use col space too
-            W = V.spaces[i_row]
-            apply_homogeneous_dirichlet_bc(W, bc, M)
+    for ij, M in a.blocks.items():
+        i_row, i_col = ij
+        # TODO must use col space too
+        W = V.spaces[i_row]
+        apply_homogeneous_dirichlet_bc(W, bc, M)
 
 
 # V is a ProductFemSpace here
