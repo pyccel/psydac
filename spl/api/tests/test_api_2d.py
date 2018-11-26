@@ -62,8 +62,8 @@ def create_discrete_space(p=(2,2), ne=(2,2)):
     return V
 
 
-def test_api_bilinear_2d_sumform():
-    print('============ test_api_bilinear_2d_sumform =============')
+def test_api_bilinear_2d_sumform_1():
+    print('============ test_api_bilinear_2d_sumform_1 =============')
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -100,6 +100,63 @@ def test_api_bilinear_2d_sumform():
 
     # ...
     ah = discretize(a, [Vh, Vh])
+    M = ah.assemble(alpha=0.5)
+    # ...
+
+    # ...
+    assert_identical_coo(M.tocoo(), M_expected)
+    # ...
+
+def test_api_bilinear_2d_sumform_2():
+    print('============ test_api_bilinear_2d_sumform_2 =============')
+
+    # ... abstract model
+    B1 = Boundary(r'\Gamma_1', domain)
+    B2 = Boundary(r'\Gamma_2', domain)
+
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    alpha = Constant('alpha')
+
+    expr = dot(grad(v), grad(u)) + alpha*v*u
+    a_0 = BilinearForm((v,u), expr, name='a_0')
+
+    expr = v*trace_1(grad(u), B1)
+    a_B1 = BilinearForm((v, u), expr, name='a_B1')
+
+    expr = v*trace_0(u, B2)
+    a_B2 = BilinearForm((v, u), expr, name='a_B2')
+
+    expr = a_0(v,u) + a_B1(v,u) + a_B2(v,u)
+    a = BilinearForm((v,u), expr, name='a')
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+
+    # ...
+    ah_0 = discretize(a_0, [Vh, Vh])
+
+    ah_B1 = discretize(a_B1, [Vh, Vh], boundary=B1)
+    ah_B2 = discretize(a_B2, [Vh, Vh], boundary=B2)
+
+    M_0 = ah_0.assemble(alpha=0.5)
+    M_B1 = ah_B1.assemble()
+    M_B2 = ah_B2.assemble()
+
+    M_expected = M_0.tocoo() + M_B1.tocoo() + M_B2.tocoo()
+    # ...
+
+    # ...
+    ah = discretize(a, [Vh, Vh], boundary=[B1, B2])
     M = ah.assemble(alpha=0.5)
     # ...
 
@@ -685,19 +742,20 @@ def test_api_vector_l2_projection_2d_dir_1():
 ###############################################
 if __name__ == '__main__':
 
-#    # ...
-    test_api_bilinear_2d_sumform()
-#    test_api_poisson_2d_dirneu_1()
-#    test_api_poisson_2d_dirneu_2()
-#    # ...
+    # ...
+    test_api_bilinear_2d_sumform_1()
+    test_api_bilinear_2d_sumform_2()
+    test_api_poisson_2d_dirneu_1()
+    test_api_poisson_2d_dirneu_2()
+    # ...
 
-#    # ...
-#    test_api_poisson_2d_dir_1()
-#    test_api_laplace_2d_dir_1()
-#    test_api_vector_l2_projection_2d_dir_1()
-#    test_api_vector_laplace_2d_dir_1()
-#    test_api_poisson_2d_dir_1_mapping()
-#    # ...
+    # ...
+    test_api_poisson_2d_dir_1()
+    test_api_laplace_2d_dir_1()
+    test_api_vector_l2_projection_2d_dir_1()
+    test_api_vector_laplace_2d_dir_1()
+    test_api_poisson_2d_dir_1_mapping()
+    # ...
 
     # ...
 ##    # TODO this test works when runned alone, but not after the other tests!!!

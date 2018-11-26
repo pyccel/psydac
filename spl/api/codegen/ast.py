@@ -68,9 +68,9 @@ def random_string( n ):
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
 def _convert_int_to_float(expr):
-    integers = expr.atoms(Integer)
-    sub = zip(integers, map(Float, integers) )
-    expr = expr.subs(sub)
+#    integers = expr.atoms(Integer)
+#    sub = zip(integers, map(Float, integers) )
+#    expr = expr.subs(sub)
     return expr
 
 def compute_normal_vector(vector, discrete_boundary, mapping):
