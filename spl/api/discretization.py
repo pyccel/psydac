@@ -465,6 +465,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         return self.func(*newargs, **kwargs)
 
+        # TODO remove => this is for debug only
 #        import sys
 #        sys.path.append(self.folder)
 #        from interface_mw7je54z import  interface_mw7je54z
@@ -757,6 +758,8 @@ class DiscreteEquation(BasicDiscrete):
             M = self.lhs.assemble(**kwargs)
             if self.bc:
                 for bc in self.bc:
+#                    print('ICI')
+#                    print(type(M))
                     apply_homogeneous_dirichlet_bc(self.test_space, bc, M)
         else:
             M = self.linear_system.lhs

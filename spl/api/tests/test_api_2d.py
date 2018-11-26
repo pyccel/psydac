@@ -558,10 +558,10 @@ def test_api_vector_laplace_2d_dir_1():
     U = VectorFunctionSpace('U', domain)
     V = VectorFunctionSpace('V', domain)
 
-#    B1 = Boundary(r'\Gamma_1', domain)
-#    B2 = Boundary(r'\Gamma_2', domain)
-#    B3 = Boundary(r'\Gamma_3', domain)
-#    B4 = Boundary(r'\Gamma_4', domain)
+    B1 = Boundary(r'\Gamma_1', domain)
+    B2 = Boundary(r'\Gamma_2', domain)
+    B3 = Boundary(r'\Gamma_3', domain)
+    B4 = Boundary(r'\Gamma_4', domain)
 
     x,y = domain.coordinates
 
@@ -570,12 +570,81 @@ def test_api_vector_laplace_2d_dir_1():
     v = VectorTestFunction(V, name='v')
     u = VectorTestFunction(U, name='u')
 
-#    expr = inner(grad(v), grad(u))
+    expr = inner(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    f1 = 2*pi**2*sin(pi*x)*sin(pi*y)
+    f2 = 2*pi**2*sin(pi*x)*sin(pi*y)
+    f = Tuple(f1, f2)
+    expr = dot(f, v)
+    l = LinearForm(v, expr)
+
+    # TODO improve
+    error = F[0] -sin(pi*x)*sin(pi*y) + F[1] -sin(pi*x)*sin(pi*y)
+    l2norm = Norm(error, domain, kind='l2', name='u')
+#    h1norm = Norm(error, domain, kind='h1', name='u')
+
+    bc = [DirichletBC(i) for i in [B1, B2, B3, B4]]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space(ne=(2**4, 2**4))
+#    Vh = create_discrete_space()
+    Vh = ProductFemSpace(Vh, Vh)
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+
+    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
+    equation_h = discretize(equation, [Vh, Vh], bc=bc)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh)
+#    h1norm_h = discretize(h1norm, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    L = equation_h.linear_system
+    # ...
+
+    # ...
+    phi = VectorFemField( Vh, 'phi' )
+    phi.coeffs[0][:,:] = x[0][:,:]
+    phi.coeffs[1][:,:] = x[1][:,:]
+    # ...
+
+    # ... compute norms
+    error = l2norm_h.assemble(F=phi)
+    print('> L2 norm      = ', error)
+
+#    error = h1norm_h.assemble(F=phi)
+#    print('> H1 seminorm  = ', error)
+#    # ...
+
+def test_api_vector_l2_projection_2d_dir_1():
+    print('============ test_api_vector_l2_projection_2d_dir_1 =============')
+
+    # ... abstract model
+    U = VectorFunctionSpace('U', domain)
+    V = VectorFunctionSpace('V', domain)
+
+    x,y = domain.coordinates
+
+    F = VectorField(V, name='F')
+
+    v = VectorTestFunction(V, name='v')
+    u = VectorTestFunction(U, name='u')
+
     expr = dot(v, u)
     a = BilinearForm((v,u), expr)
 
-#    f1 = 2*pi**2*sin(pi*x)*sin(pi*y)
-#    f2 = 2*pi**2*sin(pi*x)*sin(pi*y)
     f1 = sin(pi*x)*sin(pi*y)
     f2 = sin(pi*x)*sin(pi*y)
     f = Tuple(f1, f2)
@@ -592,57 +661,12 @@ def test_api_vector_laplace_2d_dir_1():
     equation = Equation(a(v,u), l(v))
     # ...
 
-#    # ...
-#    # TODO to remove
-#    W = FunctionSpace('W', domain)
-#    vv1 = TestFunction(W, name='vv1')
-#    uu1 = TestFunction(W, name='uu1')
-#    a1 = BilinearForm((vv1,uu1), uu1*vv1)
-#    l1 = LinearForm(vv1, 2*pi**2*sin(pi*x)*sin(pi*y)*vv1)
-#
-#    import numpy as np
-#    from scipy.io import mmwrite
-#
-#    a1h = discretize(a1, [Vh, Vh])
-#    l1h = discretize(l1, Vh)
-#    L1 = l1h.assemble().toarray()
-#    A1 = a1h.assemble().tocoo()
-#
-#    np.savetxt('l1.txt', L1)
-#    mmwrite('a1h.mtx', A1)
-#
-#    #
-#    Vh = ProductFemSpace(Vh, Vh)
-#    ah = discretize(a, [Vh, Vh])
-#    lh = discretize(l, Vh)
-#
-#    L = lh.assemble().toarray()
-#    A = ah.assemble().tocoo()
-#    np.savetxt('l.txt', L)
-#    mmwrite('ah.mtx', A)
-#
-#    from spl.linalg.iterative_solvers import cg
-#    _default_solver = {'tol':1e-9, 'maxiter':1000, 'verbose':False}
-#
-#    x, info = cg( A, L, **_default_solver )
-#    print(x)
-#
-#    import sys; sys.exit(0)
-#    # ...
-
     # ... discrete spaces
     Vh = create_discrete_space(ne=(2**4, 2**4))
     Vh = ProductFemSpace(Vh, Vh)
     # ...
 
-#    # ... dsicretize the equation using Dirichlet bc
-#    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
-#    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
-#    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
-#    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
-#
-#    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
-#    equation_h = discretize(equation, [Vh, Vh], bc=bc)
+    # ... dsicretize the equation using Dirichlet bc
     equation_h = discretize(equation, [Vh, Vh])
     # ...
 
@@ -684,6 +708,7 @@ if __name__ == '__main__':
 #
 #    test_api_laplace_2d_dir_1()
 
+#    test_api_vector_l2_projection_2d_dir_1()
     test_api_vector_laplace_2d_dir_1()
     # ...
 
