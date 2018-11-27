@@ -16,7 +16,9 @@ from spl.linalg.block   import ProductSpace, BlockVector, BlockLinearOperator, B
 @pytest.mark.parametrize( 'p2', [1,2,3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
+
 def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
+
     # Create vector spaces, stencil matrices, and stencil vectors
     V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
     M1 = StencilMatrix( V, V )
@@ -36,16 +38,17 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
     M3.remove_spurious_entries()
 
     W = ProductSpace(V, V)
+
     # Construct a BlockLinearOperator object containing M1, M2, M, using 3 ways
     #     |M1  M2|
     # L = |      |
     #     |M3  0 |
+
     dict_blocks = {(0,0):M1, (0,1):M2, (1,0):M3}
+    list_blocks = [[M1, M2], [M3, None]]
 
-    L1 = BlockLinearOperator(W, W, blocks=dict_blocks)
-
-    L2 = BlockLinearOperator(W, W)
-    L2.set_blocks(dict_blocks)
+    L1 = BlockLinearOperator( W, W, blocks=dict_blocks )
+    L2 = BlockLinearOperator( W, W, blocks=list_blocks )
 
     L3 = BlockLinearOperator( W, W )
     L3[0,0] = M1
@@ -94,7 +97,9 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'p2', [1,2,3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
+
 def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
+
     # Create vector spaces, stencil matrices, and stencil vectors
     V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
     M1 = StencilMatrix( V, V )
@@ -117,27 +122,34 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
     M4.remove_spurious_entries()
 
     W = ProductSpace(V, V)
-    # Construct a BlockMatrix object containing M1, M2, M3 and M4, using 2 ways
+    # Construct a BlockMatrix object containing M1, M2, M3 and M4, using 3 ways
     #     |M1  M2|
     # L = |      |
     #     |M3  M4|
     dict_blocks = {(0,0):M1, (0,1):M2, (1,0):M3, (1,1):M4}
+    list_blocks = ((M1,M2),(M3,M4))
 
-    L1 = BlockMatrix(W, W, blocks=dict_blocks)
+    L1 = BlockMatrix( W, W, blocks=dict_blocks )
+    L2 = BlockMatrix( W, W, blocks=list_blocks )
 
-    L2 = BlockMatrix(W, W)
-    L2[0,0] = M1
-    L2[0,1] = M2
-    L2[1,0] = M3
-    L2[1,1] = M4
+    L3 = BlockMatrix( W, W )
+    L3[0,0] = M1
+    L3[0,1] = M2
+    L3[1,0] = M3
+    L3[1,1] = M4
 
-    # Convert L1 and L2 to COO form
+    # Convert L1, L2 and L3 to COO form
     coo1 = L1.tocoo()
     coo2 = L2.tocoo()
+    coo3 = L3.tocoo()
 
-    assert np.all(coo1.col  == coo2.col)
-    assert np.all(coo1.row  == coo2.row)
-    assert np.all(coo1.data == coo2.data)
+    assert np.array_equal( coo1.col , coo2.col  )
+    assert np.array_equal( coo1.row , coo2.row  )
+    assert np.array_equal( coo1.data, coo2.data )
+
+    assert np.array_equal( coo1.col , coo3.col  )
+    assert np.array_equal( coo1.row , coo3.row  )
+    assert np.array_equal( coo1.data, coo3.data )
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):

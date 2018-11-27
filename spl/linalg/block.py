@@ -2,7 +2,9 @@
 #
 # Copyright 2018 Jalal Lakhlili, Yaman Güçlü
 
+import numpy as np
 from collections        import OrderedDict
+from scipy.sparse       import coo_matrix, bmat
 
 from spl.linalg.basic   import VectorSpace, Vector, LinearOperator
 from spl.linalg.stencil import StencilMatrix
@@ -87,7 +89,10 @@ class BlockVector( Vector ):
 
         # We store the blocks in a List so that we can change them later.
         if blocks:
-            self.set_blocks( blocks )
+            # Verify that vectors belong to correct spaces and store them
+            assert isinstance( blocks, (list, tuple) )
+            assert all( (Vi is bi.space) for Vi,bi in zip( V.spaces, blocks ) )
+            self._blocks = list( blocks )
         else:
             # TODO: Each block is a 'zeros' vector of the correct space for now,
             # but in the future we would like 'empty' vectors of the same space.
@@ -175,23 +180,8 @@ class BlockVector( Vector ):
     def blocks( self ):
         return tuple( self._blocks )
 
-    # ...
-    @property
-    def set_blocks( self, blocks ):
-        """
-        Parameters
-        ----------
-        blocks : list or tuple (spl.linalg.basic.Vector)
-        List of Vector objects, belonging to the correct spaces.
-        """
-
-        assert isinstance( blocks, (list, tuple) )
-        # Verify that vectors belong to correct spaces and store them
-        assert all( (Vi is b.space) for Vi,b in zip( V.spaces, blocks ) )
-        self._blocks = list( blocks )
-
 #===============================================================================
-class BlockLinearOperator(LinearOperator):
+class BlockLinearOperator( LinearOperator ):
     """
     Linear operator that can be written as blocks of other Linear Operators.
 
@@ -203,24 +193,40 @@ class BlockLinearOperator(LinearOperator):
     V2 : spl.linalg.block.ProductSpace
         Codomain of the new linear operator.
 
-    block : dict
-        key   = tuple (i, j), i and j are two integers >= 0.
-        value = corresponding LinearOperator Lij (belonging to the correct spaces).
-        (optional).
-    """
+    blocks : dict | (list of lists) | (tuple of tuples)
+        LinearOperator objects (optional).
 
-    def __init__(self, V1, V2, blocks=None):
+        a) 'blocks' can be dictionary with
+            . key   = tuple (i, j), where i and j are two integers >= 0
+            . value = corresponding LinearOperator Lij
+
+        b) 'blocks' can be list of lists (or tuple of tuples) where blocks[i][j]
+            is the LinearOperator Lij (if None, we assume null operator)
+
+    """
+    def __init__( self, V1, V2, blocks=None ):
+
         assert isinstance( V1, ProductSpace )
         assert isinstance( V2, ProductSpace )
 
         self._domain   = V1
         self._codomain = V2
+        self._blocks   = OrderedDict()
 
-        # We store the blocks in a OrderedDict  (that we can change them later).
+        # Store blocks in OrderedDict (hence they can be manually changed later)
         if blocks:
-            self.set_blocks(blocks)
-        else:
-            self._blocks = OrderedDict({})
+
+            if isinstance( blocks, dict ):
+                for (i,j), Lij in blocks.items():
+                    self[i,j] = Lij
+
+            elif isinstance( blocks, (list, tuple) ):
+                blocks = np.array( blocks, dtype=object )
+                for (i,j), Lij in np.ndenumerate( blocks ):
+                    self[i,j] = Lij
+
+            else:
+                raise ValueError( "Blocks can only be given as dict or 2D list/tuple." )
 
     #--------------------------------------
     # Abstract interface
@@ -235,42 +241,8 @@ class BlockLinearOperator(LinearOperator):
         return self._codomain
 
     # ...
-    @property
-    def blocks( self ):
-        return self._blocks
-
-    # ...
-    @property
-    def n_block_rows( self ):
-        return self._codomain.n_blocks
-
-    # ...
-    @property
-    def n_block_cols( self ):
-        return self._domain.n_blocks
-
-    # ...
-    def set_blocks(self, blocks):
-        """
-        Parameters
-        ----------
-        block : dict
-            key   = tuple (i, j), i and j are two integers >= 0.
-            value = corresponding LinearOperator Lij (belonging to the correct spaces).
-            (optional).
-        """
-
-        # Verify that blocks belong to correct spaces and store them
-        assert isinstance( blocks, dict )
-        for (i,j), Lij in blocks.items():
-            assert isinstance( Lij, LinearOperator )
-            assert Lij.domain   is self.domain  [j]
-            assert Lij.codomain is self.codomain[i]
-
-        self._blocks = OrderedDict( blocks )
-
-    # ...
     def dot( self, v, out=None ):
+
         assert isinstance( v, BlockVector )
         assert v.space is self._codomain
         assert all( v.blocks )
@@ -287,22 +259,51 @@ class BlockLinearOperator(LinearOperator):
 
         return out
 
-    # ...
-    def __getitem__(self, key):
-        return self._blocks[key]
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+    @property
+    def blocks( self ):
+        """ Immutable 2D view (tuple of tuples) of the linear operator,
+            including the empty blocks as 'None' objects.
+        """
+        return tuple(
+               tuple( self._blocks.get( (i,j), None ) for j in range( self.n_block_cols ) )
+                                                      for i in range( self.n_block_rows ) )
 
     # ...
-    def __setitem__(self, key, value):
+    @property
+    def n_block_rows( self ):
+        return self._codomain.n_blocks
 
-        if isinstance( key, tuple ):
-            assert len(key) == 2
-        else:
-            raise TypeError('A tuple is expected.')
+    # ...
+    @property
+    def n_block_cols( self ):
+        return self._domain.n_blocks
 
-        i = key[0]
-        j = key[1]
-        assert 0 <= i < self.n_block_rows
-        assert 0 <= j < self.n_block_cols
+    # ...
+    def __getitem__( self, key ):
+
+        assert isinstance( key, tuple )
+        assert len( key ) == 2
+        assert 0 <= key[0] < self.n_block_rows
+        assert 0 <= key[1] < self.n_block_cols
+
+        return self._blocks.get( key, None )
+
+    # ...
+    def __setitem__( self, key, value ):
+
+        assert isinstance( key, tuple )
+        assert len( key ) == 2
+        assert 0 <= key[0] < self.n_block_rows
+        assert 0 <= key[1] < self.n_block_cols
+
+        if value is None:
+            self._blocks.pop( key, None )
+            return
+
+        i,j = key
 
         assert isinstance( value, LinearOperator )
         assert value.domain   is self.domain  [j]
@@ -311,12 +312,10 @@ class BlockLinearOperator(LinearOperator):
         self._blocks[i,j] = value
 
 #===============================================================================
-
-#===============================================================================
-# TODO  allow numpy and sparse scipy matrices
 class BlockMatrix( BlockLinearOperator ):
     """
-    Linear operator that can be written as blocks of Stencil Matrices.
+    Linear operator that can be written as blocks of other Linear Operators,
+    with the additional capability to be converted to COO sparse matrix format.
 
     Parameters
     ----------
@@ -326,119 +325,47 @@ class BlockMatrix( BlockLinearOperator ):
     V2 : spl.linalg.block.ProductSpace
         Codomain of the new linear operator.
 
-    block : dict
-        key   = tuple (i, j), i and j are two integers >= 0.
-        value = corresponding StencilMatrix Mij (belonging to the correct spaces).
-        (optional).
+    blocks : dict | (list of lists) | (tuple of tuples)
+        LinearOperator objects with 'tocoo()' method (optional).
+
+        a) 'blocks' can be dictionary with
+            . key   = tuple (i, j), where i and j are two integers >= 0
+            . value = corresponding LinearOperator Lij
+
+        b) 'blocks' can be list of lists (or tuple of tuples) where blocks[i][j]
+            is the LinearOperator Lij (if None, we assume null operator)
+
     """
-
-    def __init__(self, V1, V2, blocks=None):
-        if blocks:
-            for M in blocks.values():
-                if not isinstance(M, StencilMatrix):
-                    raise typeerror('>>> Expecting a StencilMatrix')
-
-        BlockLinearOperator.__init__(self, V1, V2, blocks)
-
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
-
-    # ...
     def __setitem__( self, key, value ):
 
-        if isinstance(value, StencilMatrix):
-            assert value.domain   is self.domain.spaces[key[1]]
-            assert value.codomain is self.codomain.spaces[key[0]]
-            self._blocks[key] = value
-        else:
-            raise typeerror('>>> Expecting a StencilMatrix')
+        i,j = key
 
-    #  ...
-    def tocoo(self):
-        from numpy import zeros
-        from scipy.sparse import coo_matrix
+        if value is None:
+            pass
 
-        # ...
-        n_block_rows = self.n_block_rows
-        n_block_cols = self.n_block_cols
+        elif not hasattr( value, 'tocoo' ):
+            msg = "Block ({},{}) does not have 'tocoo()' method.".format( i,j )
+            raise TypeError( msg )
 
-        matrices = {}
-        for k, M in list(self.blocks.items()):
-            if isinstance( M, StencilMatrix ):
-                matrices[k] = M.tocoo()
-            else:
-                raise NotImplementedError('TODO')
-        # ...
+        super().__setitem__( key, value )
 
-        # ... compute the global nnz
-        nnz = 0
-        for i in range(0, n_block_rows):
-            for j in range(0, n_block_cols):
-                nnz += matrices[i,j].nnz
-        # ...
+    # ...
+    def tocoo( self ):
 
-        # ... compute number of rows and cols per block
-        n_rows = zeros(n_block_rows, dtype=int)
-        n_cols = zeros(n_block_cols, dtype=int)
+        # Convert all blocks to COO format
+        blocks_coo = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
+        for (i,j), Mij in self._blocks.items():
+            blocks_coo[i][j] = Mij.tocoo()
 
-        for i in range(0, n_block_rows):
-            n = 0
-            for j in range(0, n_block_cols):
-                if not(matrices[i,j] is None):
-                    n = matrices[i,j].shape[0]
-                    break
-            if n == 0:
-                raise ValueError('At least one block must be non empty per row')
-            n_rows[i] = n
-
-        for j in range(0, n_block_cols):
-            n = 0
-            for i in range(0, n_block_rows):
-                if not(matrices[i,j] is None):
-                    n = matrices[i,j].shape[1]
-                    break
-            if n == 0:
-                raise ValueError('At least one block must be non empty per col')
-            n_cols[j] = n
-        # ...
-
-        # ...
-        data = zeros(nnz)
-        rows = zeros(nnz, dtype=int)
-        cols = zeros(nnz, dtype=int)
-        # ...
-
-        # ...
-        n = 0
-        for ir in range(0, n_block_rows):
-            for ic in range(0, n_block_cols):
-                if not(matrices[ir,ic] is None):
-                    A = matrices[ir,ic]
-
-                    n += A.nnz
-
-                    shift_row = 0
-                    if ir > 0:
-                        shift_row = sum(n_rows[:ir])
-
-                    shift_col = 0
-                    if ic > 0:
-                        shift_col = sum(n_cols[:ic])
-
-                    rows[n-A.nnz:n] = A.row[:] + shift_row
-                    cols[n-A.nnz:n] = A.col[:] + shift_col
-                    data[n-A.nnz:n] = A.data
-        # ...
-
-        # ...
-        nr = n_rows.sum()
-        nc = n_cols.sum()
-
-        coo = coo_matrix((data, (rows, cols)), shape=(nr, nc))
+        # Create COO matrix from blocks in COO format
+        coo = bmat( blocks_coo, format='coo' )
         coo.eliminate_zeros()
-        # ...
+
+        # Sanity check
+        assert coo.shape[0] == self.codomain.dimension
+        assert coo.shape[1] == self.  domain.dimension
 
         return coo
-    # ...
-#===============================================================================
