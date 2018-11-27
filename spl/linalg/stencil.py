@@ -226,6 +226,9 @@ class StencilVector( Vector ):
         self._data  = np.zeros( sizes, dtype=V.dtype )
         self._space = V
 
+        # TODO: distinguish between different directions
+        self._sync  = True
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -251,19 +254,21 @@ class StencilVector( Vector ):
     def copy( self ):
         w = StencilVector( self._space )
         w._data[:] = self._data[:]
+        w._sync    = self._sync
         return w
 
     #...
     def __mul__( self, a ):
         w = StencilVector( self._space )
         w._data = self._data * a
+        w._sync = self._sync
         return w
 
     #...
     def __rmul__( self, a ):
         w = StencilVector( self._space )
         w._data = a * self._data
-
+        w._sync = self._sync
         return w
 
     #...
@@ -271,7 +276,8 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         w = StencilVector( self._space )
-        w._data = self._data + v._data
+        w._data = self._data  +  v._data
+        w._sync = self._sync and v._sync
         return w
 
     #...
@@ -279,7 +285,8 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         w = StencilVector( self._space )
-        w._data = self._data - v._data
+        w._data = self._data  -  v._data
+        w._sync = self._sync and v._sync
         return w
 
     #...
@@ -292,6 +299,7 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         self._data += v._data
+        self._sync  = v._sync and self._sync
         return self
 
     #...
@@ -299,6 +307,7 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
         self._data -= v._data
+        self._sync  = v._sync and self._sync
         return self
 
     #--------------------------------------
@@ -321,11 +330,11 @@ class StencilVector( Vector ):
     # ...
     def __str__(self):
         txt  = '\n'
-        txt += '> starts  :: {starts}\n'.format(starts=self.starts)
-        txt += '> ends    :: {ends}\n'.format(ends=self.ends)
-        txt += '> pads    :: {pads}\n'.format(pads=self.pads)
-        txt += '> data    :: {data}\n'.format(data=self._data)
-
+        txt += '> starts  :: {starts}\n'.format( starts= self.starts )
+        txt += '> ends    :: {ends}\n'  .format( ends  = self.ends   )
+        txt += '> pads    :: {pads}\n'  .format( pads  = self.pads   )
+        txt += '> data    :: {data}\n'  .format( data  = self._data  )
+        txt += '> sync    :: {sync}\n'  .format( sync  = self._sync  )
         return txt
 
     # ...
@@ -430,6 +439,17 @@ class StencilVector( Vector ):
     def __setitem__(self, key, value):
         index = self._getindex( key )
         self._data[index] = value
+        self._sync = False
+
+    # ...
+    @property
+    def ghost_regions_in_sync( self ):
+        return self._sync
+
+#    @ghost_regions_in_sync.setter
+#    def ghost_regions_in_sync( self, value ):
+#        assert isinstance( value, bool )
+#        self._sync = value
 
     # ...
     # TODO: maybe change name to 'exchange'
@@ -461,6 +481,9 @@ class StencilVector( Vector ):
         else:
             for direction in range(ndim):
                 update_ghost_regions( direction )
+
+        # Flag ghost regions as up-to-date
+        self._sync = True
 
     # ...
     def _update_ghost_regions_serial( self, direction: int ):
@@ -604,6 +627,10 @@ class StencilMatrix( LinearOperator ):
         assert isinstance( v, StencilVector )
         assert v.space is self.domain
 
+        # Necessary if vector space is distributed across processes
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
+
         if out is not None:
             assert isinstance( out, StencilVector )
             assert out.space is self.codomain
@@ -621,9 +648,6 @@ class StencilMatrix( LinearOperator ):
             ii_kk = tuple( list(ii) + kk )
 
             out[ii] = dot( self[ii_kk].flat, v[jj].flat )
-
-        # Necessary if vector space is distributed across processes
-        out.update_ghost_regions()
 
         return out
 
