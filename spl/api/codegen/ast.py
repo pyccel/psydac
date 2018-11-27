@@ -10,7 +10,7 @@ import numpy as np
 
 from sympy import Basic
 from sympy import symbols, Symbol, IndexedBase, Indexed, Function
-from sympy import Mul, Add, Tuple
+from sympy import Mul, Add, Tuple, Min, Max
 from sympy import Matrix, ImmutableDenseMatrix
 from sympy import sqrt as sympy_sqrt
 from sympy import S as sympy_S
@@ -1604,51 +1604,64 @@ class Assembly(SplBasic):
         n_cols = kernel.n_cols
 
         # ... declarations
-        starts        = variables([ 's{}'.format(i) for i in range(1, dim+1)], 'int')
-        ends          = variables([ 'e{}'.format(i) for i in range(1, dim+1)], 'int')
-
-        indices_elm   = variables([ 'ie{}'.format(i) for i in range(1, dim+1)], 'int')
-        indices_span  = variables([ 'is{}'.format(i) for i in range(1, dim+1)], 'int')
-
+        starts        = variables([ 's{}'.format(i)      for i in range(1, dim+1)], 'int')
+        ends          = variables([ 'e{}'.format(i)      for i in range(1, dim+1)], 'int')
+        indices_elm   = variables([ 'ie{}'.format(i)     for i in range(1, dim+1)], 'int')
+        indices_span  = variables([ 'is{}'.format(i)     for i in range(1, dim+1)], 'int')
         test_pads     = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
         trial_pads    = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
         test_degrees  = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
         trial_degrees = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
+        quad_orders   = variables([ 'k{}'.format(i)      for i in range(1, dim+1)], 'int')
 
-        quad_orders   = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
+        trial_basis   = ['trial_basis_{}'.format(i) for i in range(1, dim+1)]
+        trial_basis   = indexed_variables(trial_basis, dtype='real', rank=4)
 
-        trial_basis   = indexed_variables(['trial_basis_{}'.format(i) for i in range(1, dim+1)],
-                                          dtype='real', rank=4)
-        test_basis    = indexed_variables(['test_basis_{}'.format(i) for i in range(1, dim+1)],
-                                          dtype='real', rank=4)
-        trial_basis_in_elm = indexed_variables(['trial_bs{}'.format(i) for i in range(1, dim+1)],
-                                               dtype='real', rank=3)
-        test_basis_in_elm  = indexed_variables(['test_bs{}'.format(i) for i in range(1, dim+1)],
-                                               dtype='real', rank=3)
+        test_basis    = ['test_basis_{}'.format(i) for i in range(1, dim+1)]
+        test_basis    = indexed_variables(test_basis, dtype='real', rank=4)
 
-        points_in_elm  = indexed_variables(['u{}'.format(i) for i in range(1, dim+1)],
-                                           dtype='real', rank=1)
-        weights_in_elm = indexed_variables(['w{}'.format(i) for i in range(1, dim+1)],
-                                           dtype='real', rank=1)
-        points   = indexed_variables(['points_{}'.format(i) for i in range(1, dim+1)],
-                                     dtype='real', rank=2)
-        weights  = indexed_variables(['weights_{}'.format(i) for i in range(1, dim+1)],
-                                     dtype='real', rank=2)
+        trial_basis_in_elm = ['trial_bs{}'.format(i) for i in range(1, dim+1)]
+        trial_basis_in_elm = indexed_variables(trial_basis_in_elm, dtype='real', rank=3)
 
-        spans    = indexed_variables(['test_spans_{}'.format(i) for i in range(1, dim+1)],
-                                     dtype='int', rank=1)
+        test_basis_in_elm  = ['test_bs{}'.format(i) for i in range(1, dim+1)]
+        test_basis_in_elm  = indexed_variables(test_basis_in_elm, dtype='real', rank=3)
+
+        points_in_elm  = ['u{}'.format(i) for i in range(1, dim+1)]
+        points_in_elm  = indexed_variables(points_in_elm, dtype='real', rank=1)
+
+        weights_in_elm = ['w{}'.format(i) for i in range(1, dim+1)]
+        weights_in_elm = indexed_variables(weights_in_elm, dtype='real', rank=1)
+
+        points   = ['points_{}'.format(i) for i in range(1, dim+1)]
+        points   = indexed_variables(points, dtype='real', rank=2)
+
+        weights  = ['weights_{}'.format(i) for i in range(1, dim+1)]
+        weights  = indexed_variables(weights, dtype='real', rank=2)
+
+        spans    = ['test_spans_{}'.format(i) for i in range(1, dim+1)]
+        spans    = indexed_variables(spans, dtype='int', rank=1)
+
+        local_support  = [ 'support_{}'.format(i) for i in range(1, dim+1)]
+        local_support  = indexed_variables(local_support, dtype='int', rank=1)
+
+        support_starts = variables([ 'support_s{}'.format(i) for i in range(1, dim+1)], 'int')
+        support_ends   = variables([ 'support_e{}'.format(i) for i in range(1, dim+1)], 'int')
         # ...
 
         # ...
         if is_bilinear:
-            self._basic_args = (starts + ends + quad_orders +
+            self._basic_args = (support_starts + support_ends +
+                                starts + ends +
+                                quad_orders +
                                 test_degrees + trial_degrees +
                                 spans +
                                 points + weights +
                                 test_basis + trial_basis)
 
         if is_linear or is_function:
-            self._basic_args = (starts + ends + quad_orders +
+            self._basic_args = (support_starts + support_ends +
+                                starts + ends +
+                                quad_orders +
                                 test_degrees +
                                 spans +
                                 points + weights +
@@ -1760,7 +1773,7 @@ class Assembly(SplBasic):
         # ...
 
         # ... loop over elements
-        ranges_elm  = [Range(starts[i], ends[i]+1) for i in range(dim)]
+        ranges_elm  = [Range(support_starts[i], support_ends[i]+1) for i in range(dim)]
         body = filter_loops(indices_elm, ranges_elm, body,
                             self.kernel.discrete_boundary, boundary_basis=False)
         # ...
@@ -1946,24 +1959,33 @@ class Interface(SplBasic):
                 test_vector_space = DottedName(test_vector_space, 'spaces[0]')
             # ...
 
-        starts        = variables([ 's{}'.format(i) for i in range(1, dim+1)], 'int')
-        ends          = variables([ 'e{}'.format(i) for i in range(1, dim+1)], 'int')
-        test_degrees  = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
-        trial_degrees = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
+        starts         = variables([ 's{}'.format(i)      for i in range(1, dim+1)], 'int')
+        ends           = variables([ 'e{}'.format(i)      for i in range(1, dim+1)], 'int')
+        test_degrees   = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
+        trial_degrees  = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
 
-        points   = indexed_variables(['points_{}'.format(i) for i in range(1, dim+1)],
-                                     dtype='real', rank=2)
-        weights  = indexed_variables(['weights_{}'.format(i) for i in range(1, dim+1)],
-                                     dtype='real', rank=2)
+        points         = ['points_{}'.format(i) for i in range(1, dim+1)]
+        points         = indexed_variables(points,  dtype='real', rank=2)
 
-        trial_basis   = indexed_variables(['trial_basis_{}'.format(i) for i in range(1, dim+1)],
-                                          dtype='real', rank=4)
-        test_basis    = indexed_variables(['test_basis_{}'.format(i) for i in range(1, dim+1)],
-                                          dtype='real', rank=4)
+        weights        = ['weights_{}'.format(i) for i in range(1, dim+1)]
+        weights        = indexed_variables(weights, dtype='real', rank=2)
 
-        spans    = indexed_variables(['test_spans_{}'.format(i) for i in range(1, dim+1)],
-                                     dtype='int', rank=1)
-        quad_orders   = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
+        trial_basis    = ['trial_basis_{}'.format(i) for i in range(1, dim+1)]
+        trial_basis    = indexed_variables(trial_basis, dtype='real', rank=4)
+
+        test_basis     = ['test_basis_{}'.format(i) for i in range(1, dim+1)]
+        test_basis     = indexed_variables(test_basis, dtype='real', rank=4)
+
+        spans          = ['test_spans_{}'.format(i) for i in range(1, dim+1)]
+        spans          = indexed_variables(spans, dtype='int', rank=1)
+
+        quad_orders    = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
+
+        local_support  = [ 'support_{}'.format(i) for i in range(1, dim+1)]
+        local_support  = indexed_variables(local_support, dtype='int', rank=1)
+
+        support_starts = variables([ 'support_s{}'.format(i) for i in range(1, dim+1)], 'int')
+        support_ends   = variables([ 'support_e{}'.format(i) for i in range(1, dim+1)], 'int')
 
         mapping = ()
         if form.mapping:
@@ -1987,34 +2009,46 @@ class Interface(SplBasic):
         # ... getting data from fem space
         body = []
 
-        # TODO use supports here with starts / ends
         body += [Assign(test_degrees, DottedName(test_vector_space, 'pads'))]
         if is_bilinear:
             body += [Assign(trial_degrees, DottedName(trial_vector_space, 'pads'))]
 
-        body += [Comment(' TODO must use suppoerts with starts/ends')]
         body += [Assign(starts, DottedName(test_vector_space, 'starts'))]
-        body += [Assign(ends, DottedName(test_vector_space, 'ends'))]
-        for i in range(0, dim):
-            body += [Assign(ends[i], ends[i]-test_degrees[i])]
+        body += [Assign(ends,   DottedName(test_vector_space, 'ends'))]
+
+        # TODO remove: not needed anymore
+#        for i in range(0, dim):
+#            body += [Assign(ends[i], ends[i]-test_degrees[i])]
 
 
         # ... TODO improve
         if isinstance(Wh, ProductFemSpace):
-            body += [Assign(spans, DottedName(test_space, 'spaces[0]', 'spans'))]
-            body += [Assign(quad_orders, DottedName(test_space, 'spaces[0]', 'quad_order'))]
-            body += [Assign(points, DottedName(test_space, 'spaces[0]', 'quad_points'))]
-            body += [Assign(weights, DottedName(test_space, 'spaces[0]', 'quad_weights'))]
+            body += [Assign(spans,          DottedName(test_space, 'spaces[0]', 'spans'))]
+            body += [Assign(quad_orders,    DottedName(test_space, 'spaces[0]', 'quad_order'))]
+            body += [Assign(points,         DottedName(test_space, 'spaces[0]', 'quad_points'))]
+            body += [Assign(weights,        DottedName(test_space, 'spaces[0]', 'quad_weights'))]
+            body += [Assign(test_basis,     DottedName(test_space, 'spaces[0]', 'quad_basis'))]
+            body += [Assign(local_support,  DottedName(test_space, 'spaces[0]', 'local_support'))]
 
-            body += [Assign(test_basis, DottedName(test_space, 'spaces[0]', 'quad_basis'))]
+            for i,x in enumerate(support_starts):
+                body += [Assign(x, FunctionCall('min', [local_support[i]]))]
+
+            for i,x in enumerate(support_ends):
+                body += [Assign(x, FunctionCall('max', [local_support[i]]))]
 
         else:
-            body += [Assign(spans, DottedName(test_space, 'spans'))]
-            body += [Assign(quad_orders, DottedName(test_space, 'quad_order'))]
-            body += [Assign(points, DottedName(test_space, 'quad_points'))]
-            body += [Assign(weights, DottedName(test_space, 'quad_weights'))]
+            body += [Assign(spans,          DottedName(test_space, 'spans'))]
+            body += [Assign(quad_orders,    DottedName(test_space, 'quad_order'))]
+            body += [Assign(points,         DottedName(test_space, 'quad_points'))]
+            body += [Assign(weights,        DottedName(test_space, 'quad_weights'))]
+            body += [Assign(test_basis,     DottedName(test_space, 'quad_basis'))]
+            body += [Assign(local_support,  DottedName(test_space, 'local_support'))]
 
-            body += [Assign(test_basis, DottedName(test_space, 'quad_basis'))]
+            for i,x in enumerate(support_starts):
+                body += [Assign(x, FunctionCall('min', [local_support[i]]))]
+
+            for i,x in enumerate(support_ends):
+                body += [Assign(x, FunctionCall('max', [local_support[i]]))]
 
         if is_bilinear:
             if isinstance(Vh, ProductFemSpace):
@@ -2022,8 +2056,6 @@ class Interface(SplBasic):
 
             else:
                 body += [Assign(trial_basis, DottedName(trial_space, 'quad_basis'))]
-        # ...
-
         # ...
 
         # ...
