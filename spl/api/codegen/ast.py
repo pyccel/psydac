@@ -15,6 +15,9 @@ from sympy import Matrix, ImmutableDenseMatrix
 from sympy import sqrt as sympy_sqrt
 from sympy import S as sympy_S
 from sympy import Integer, Float
+from sympy.core.relational    import Le, Ge
+from sympy.logic.boolalg      import And
+from sympy import Mod
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
@@ -1604,15 +1607,17 @@ class Assembly(SplBasic):
         n_cols = kernel.n_cols
 
         # ... declarations
-        starts        = variables([ 's{}'.format(i)      for i in range(1, dim+1)], 'int')
-        ends          = variables([ 'e{}'.format(i)      for i in range(1, dim+1)], 'int')
-        indices_elm   = variables([ 'ie{}'.format(i)     for i in range(1, dim+1)], 'int')
-        indices_span  = variables([ 'is{}'.format(i)     for i in range(1, dim+1)], 'int')
-        test_pads     = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
-        trial_pads    = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
-        test_degrees  = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
-        trial_degrees = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
-        quad_orders   = variables([ 'k{}'.format(i)      for i in range(1, dim+1)], 'int')
+        starts        = variables([ 's{}'.format(i)        for i in range(1, dim+1)], 'int')
+        ends          = variables([ 'e{}'.format(i)        for i in range(1, dim+1)], 'int')
+        indices_elm   = variables([ 'ie{}'.format(i)       for i in range(1, dim+1)], 'int')
+        indices_span  = variables([ 'is{}'.format(i)       for i in range(1, dim+1)], 'int')
+        test_pads     = variables([ 'test_p{}'.format(i)   for i in range(1, dim+1)], 'int')
+        trial_pads    = variables(['trial_p{}'.format(i)   for i in range(1, dim+1)], 'int')
+        test_degrees  = variables([ 'test_p{}'.format(i)   for i in range(1, dim+1)], 'int')
+        trial_degrees = variables(['trial_p{}'.format(i)   for i in range(1, dim+1)], 'int')
+        quad_orders   = variables([ 'k{}'.format(i)        for i in range(1, dim+1)], 'int')
+        indices_il    = variables([ 'il{}'.format(i)       for i in range(1, dim+1)], 'int')
+        indices_i     = variables([ 'i{}'.format(i)        for i in range(1, dim+1)], 'int')
 
         trial_basis   = ['trial_basis_{}'.format(i) for i in range(1, dim+1)]
         trial_basis   = indexed_variables(trial_basis, dtype='real', rank=4)
@@ -1747,29 +1752,71 @@ class Assembly(SplBasic):
         body += [FunctionCall(kernel.func, args)]
         # ...
 
-        # ... update global matrices
-        lslices = [Slice(None,None)]*dim
+#        # ... update global matrices
+#        lslices = [Slice(None,None)]*dim
+#        if is_bilinear:
+#            lslices += [Slice(None,None)]*dim # for assignement
+#
+#        if is_bilinear:
+#
+#            gslices = [Slice(i-p,i+1) for i,p in zip(indices_span, test_degrees)]
+#
+#            gslices += [Slice(None,None)]*dim # for assignement
+#
+#        if is_linear:
+#            gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
+#
+#        if is_function:
+#            lslices = 0
+#            gslices = 0
+#
+#        for ij, M in global_matrices.items():
+#            i,j = ij
+#            mat = element_matrices[i,j]
+#
+#            stmt = AugAssign(M[gslices], '+', mat[lslices])
+#
+#            body += [stmt]
+#        # ...
+
+        # ...
         if is_bilinear:
-            lslices += [Slice(None,None)]*dim # for assignement
+            lslices = list(indices_il)
+            gslices = [i-s for i,s in zip(indices_i, starts)]
 
-        if is_bilinear:
-            gslices = [Slice(i-p,i+1) for i,p in zip(indices_span, test_degrees)]
-            gslices += [Slice(None,None)]*dim # for assignement
+        elif is_linear:
+            lslices = list(indices_il)
+            gslices = [i+p-s for i,s,p in zip(indices_i, starts, test_degrees)]
 
-        if is_linear:
-            gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
-
-        if is_function:
+        elif is_function:
             lslices = 0
             gslices = 0
 
+        if is_bilinear:
+            lslices = lslices + [Slice(None,None)]*dim
+            gslices = gslices + [Slice(None,None)]*dim
+
+        # TODO add modulo for periodic case
+        stmts = []
+        for i,il,p,span in zip(indices_i, indices_il, test_degrees, indices_span):
+            stmts += [Assign(i, span-p+il)]
+
+        _args = [And(Ge(i, s), Le(i, e)) for i, s, e in zip(indices_i, starts, ends)]
+        if_cond = And(*_args)
+        if_body = []
         for ij, M in global_matrices.items():
             i,j = ij
             mat = element_matrices[i,j]
 
-            stmt = AugAssign(M[gslices], '+', mat[lslices])
+            if_body += [AugAssign(M[gslices], '+', mat[lslices])]
 
-            body += [stmt]
+        stmts += [If((if_cond, if_body))]
+
+        ranges = [Range(0, test_degrees[i]+1) for i in range(dim)]
+        for x,rx in list(zip(indices_il, ranges))[::-1]:
+            stmts = [For(x, rx, stmts)]
+
+        body += stmts
         # ...
 
         # ... loop over elements
