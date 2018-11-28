@@ -147,12 +147,19 @@ class BasicDiscrete(object):
         # ...
 
         # ...
-        kernel = Kernel(a, kernel_expr, target=target,
-                        discrete_boundary=boundary,
-                        boundary_basis=boundary_basis)
-        assembly = Assembly(kernel)
-        interface = Interface(assembly, backend=backend,
-                              discrete_space=discrete_space)
+        kernel = Kernel( a, kernel_expr,
+                         target            = target,
+                         discrete_boundary = boundary,
+                         boundary_basis    = boundary_basis )
+
+        assembly = Assembly( kernel,
+                             discrete_space = discrete_space,
+                             comm           = comm )
+
+        interface = Interface( assembly,
+                               backend        = backend,
+                               discrete_space = discrete_space,
+                               comm           = comm )
         # ...
 
         # ...
@@ -506,14 +513,8 @@ class DiscreteLinearForm(BasicDiscrete):
 
         kwargs = self._check_arguments(**kwargs)
 
-#        return self.func(*newargs, **kwargs)
+        return self.func(*newargs, **kwargs)
 
-        x = self.func(*newargs, **kwargs)
-
-        # IMPORTANT: ghost regions must be up-to-date
-#        x._sync = False
-        x.update_ghost_regions()
-        return x
 
 class DiscreteIntegral(BasicDiscrete):
 

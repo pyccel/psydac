@@ -1549,7 +1549,7 @@ class Kernel(SplBasic):
 
 class Assembly(SplBasic):
 
-    def __new__(cls, kernel, name=None):
+    def __new__(cls, kernel, name=None, discrete_space=None, comm=None):
 
         if not isinstance(kernel, Kernel):
             raise TypeError('> Expecting a kernel')
@@ -1557,6 +1557,8 @@ class Assembly(SplBasic):
         obj = SplBasic.__new__(cls, kernel.tag, name=name, prefix='assembly')
 
         obj._kernel = kernel
+        obj._discrete_space = discrete_space
+        obj._comm = comm
 
         # update dependencies
         obj._dependencies += [kernel]
@@ -1571,6 +1573,14 @@ class Assembly(SplBasic):
     @property
     def kernel(self):
         return self._kernel
+
+    @property
+    def discrete_space(self):
+        return self._discrete_space
+
+    @property
+    def comm(self):
+        return self._comm
 
     @property
     def global_matrices(self):
@@ -1754,72 +1764,71 @@ class Assembly(SplBasic):
         body += [FunctionCall(kernel.func, args)]
         # ...
 
-#        # ... update global matrices
-#        lslices = [Slice(None,None)]*dim
-#        if is_bilinear:
-#            lslices += [Slice(None,None)]*dim # for assignement
-#
-#        if is_bilinear:
-#
-#            gslices = [Slice(i-p,i+1) for i,p in zip(indices_span, test_degrees)]
-#
-#            gslices += [Slice(None,None)]*dim # for assignement
-#
-#        if is_linear:
-#            gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
-#
-#        if is_function:
-#            lslices = 0
-#            gslices = 0
-#
-#        for ij, M in global_matrices.items():
-#            i,j = ij
-#            mat = element_matrices[i,j]
-#
-#            stmt = AugAssign(M[gslices], '+', mat[lslices])
-#
-#            body += [stmt]
-#        # ...
+        # ... update global matrices
+        if self.comm is None:
+            lslices = [Slice(None,None)]*dim
+            if is_bilinear:
+                lslices += [Slice(None,None)]*dim # for assignement
 
-        # ...
-        if is_bilinear:
-            lslices = list(indices_il)
-            gslices = [i-s for i,s in zip(indices_i, starts)]
+            if is_bilinear:
 
-        elif is_linear:
-            lslices = list(indices_il)
-            gslices = [i+p-s for i,s,p in zip(indices_i, starts, test_degrees)]
+                gslices = [Slice(i-p,i+1) for i,p in zip(indices_span, test_degrees)]
 
-        elif is_function:
-            lslices = 0
-            gslices = 0
+                gslices += [Slice(None,None)]*dim # for assignement
 
-        if is_bilinear:
-            lslices = lslices + [Slice(None,None)]*dim
-            gslices = gslices + [Slice(None,None)]*dim
+            if is_linear:
+                gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
 
-        # TODO add modulo for periodic case
-        stmts = []
-        for i,il,p,span in zip(indices_i, indices_il, test_degrees, indices_span):
-            stmts += [Assign(i, span-p+il)]
+            if is_function:
+                lslices = 0
+                gslices = 0
 
-        _args = [And(Ge(i, s), Le(i, e)) for i, s, e in zip(indices_i, starts, ends)]
-        if_cond = And(*_args)
-        if_body = []
-        for ij, M in global_matrices.items():
-            i,j = ij
-            mat = element_matrices[i,j]
+            for ij, M in global_matrices.items():
+                i,j = ij
+                mat = element_matrices[i,j]
 
-            if_body += [AugAssign(M[gslices], '+', mat[lslices])]
+                stmt = AugAssign(M[gslices], '+', mat[lslices])
 
-        stmts += [If((if_cond, if_body))]
+                body += [stmt]
 
-        ranges = [Range(0, test_degrees[i]+1) for i in range(dim)]
-        for x,rx in list(zip(indices_il, ranges))[::-1]:
-            stmts = [For(x, rx, stmts)]
+        else:
+            if is_bilinear:
+                lslices = list(indices_il)
+                gslices = [i-s for i,s in zip(indices_i, starts)]
 
-        body += stmts
-        # ...
+            elif is_linear:
+                lslices = list(indices_il)
+                gslices = [i+p-s for i,s,p in zip(indices_i, starts, test_degrees)]
+
+            elif is_function:
+                lslices = 0
+                gslices = 0
+
+            if is_bilinear:
+                lslices = lslices + [Slice(None,None)]*dim
+                gslices = gslices + [Slice(None,None)]*dim
+
+            # TODO add modulo for periodic case
+            stmts = []
+            for i,il,p,span in zip(indices_i, indices_il, test_degrees, indices_span):
+                stmts += [Assign(i, span-p+il)]
+
+            _args = [And(Ge(i, s), Le(i, e)) for i, s, e in zip(indices_i, starts, ends)]
+            if_cond = And(*_args)
+            if_body = []
+            for ij, M in global_matrices.items():
+                i,j = ij
+                mat = element_matrices[i,j]
+
+                if_body += [AugAssign(M[gslices], '+', mat[lslices])]
+
+            stmts += [If((if_cond, if_body))]
+
+            ranges = [Range(0, test_degrees[i]+1) for i in range(dim)]
+            for x,rx in list(zip(indices_il, ranges))[::-1]:
+                stmts = [For(x, rx, stmts)]
+
+            body += stmts
 
         # ... loop over elements
         ranges_elm  = [Range(support_starts[i], support_ends[i]+1) for i in range(dim)]
@@ -1898,7 +1907,7 @@ class Assembly(SplBasic):
 class Interface(SplBasic):
 
     def __new__(cls, assembly, name=None, backend=None,
-                discrete_space=None):
+                discrete_space=None, comm=None):
 
         if not isinstance(assembly, Assembly):
             raise TypeError('> Expecting an Assembly')
@@ -1908,6 +1917,7 @@ class Interface(SplBasic):
         obj._assembly = assembly
         obj._backend = backend
         obj._discrete_space = discrete_space
+        obj._comm = comm
 
         # update dependencies
         obj._dependencies += [assembly]
@@ -1930,6 +1940,10 @@ class Interface(SplBasic):
     @property
     def discrete_space(self):
         return self._discrete_space
+
+    @property
+    def comm(self):
+        return self._comm
 
     @property
     def max_nderiv(self):
@@ -2167,6 +2181,15 @@ class Interface(SplBasic):
         args = assembly.build_arguments(field_data + vector_field_data + mat_data)
 
         body += [FunctionCall(assembly.func, args)]
+        # ...
+
+        # ... IMPORTANT: ghost regions must be up-to-date
+        if not( self.comm is None ):
+            if is_linear:
+                for M in global_matrices:
+                    f_name = '{}.update_ghost_regions'.format(str(M.name))
+                    stmt = FunctionCall(f_name, [])
+                    body += [stmt]
         # ...
 
         # ... results
