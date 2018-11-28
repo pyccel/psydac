@@ -61,7 +61,10 @@ from sympde.core.derivatives import get_atom_derivatives
 from sympde.core.derivatives import get_index_derivatives
 from sympde.core.math import math_atoms_as_str
 
-from spl.fem.vector import ProductFemSpace
+from spl.fem.splines import SplineSpace
+from spl.fem.tensor  import TensorFemSpace
+from spl.fem.vector  import ProductFemSpace
+
 
 FunctionalForms = (BilinearForm, LinearForm, Integral)
 
@@ -1549,15 +1552,39 @@ class Kernel(SplBasic):
 
 class Assembly(SplBasic):
 
-    def __new__(cls, kernel, name=None, discrete_space=None, comm=None):
+    def __new__(cls, kernel, name=None, discrete_space=None, periodic=None, comm=None):
 
         if not isinstance(kernel, Kernel):
             raise TypeError('> Expecting a kernel')
 
         obj = SplBasic.__new__(cls, kernel.tag, name=name, prefix='assembly')
 
+        # ... get periodicity of the space
+        dim    = kernel.weak_form.ldim
+        periodic = [False for i in range(0, dim)]
+        if not( discrete_space is None ):
+            if isinstance(discrete_space, (tuple, list)):
+                space = discrete_space[0]
+
+            else:
+                space = discrete_space
+
+            if isinstance(space, SplineSpace):
+                periodic = [space.periodic]
+
+            elif isinstance(space, TensorFemSpace):
+                periodic = space.periodic
+
+            elif isinstance(space, ProductFemSpace):
+                periodic = space.spaces[0].periodic
+
+            else:
+                raise NotImplementedError('Only Spline, Tensor and Product spaces are available')
+        # ...
+
         obj._kernel = kernel
         obj._discrete_space = discrete_space
+        obj._periodic = periodic
         obj._comm = comm
 
         # update dependencies
@@ -1577,6 +1604,10 @@ class Assembly(SplBasic):
     @property
     def discrete_space(self):
         return self._discrete_space
+
+    @property
+    def periodic(self):
+        return self._periodic
 
     @property
     def comm(self):
@@ -1628,6 +1659,7 @@ class Assembly(SplBasic):
         quad_orders   = variables([ 'k{}'.format(i)        for i in range(1, dim+1)], 'int')
         indices_il    = variables([ 'il{}'.format(i)       for i in range(1, dim+1)], 'int')
         indices_i     = variables([ 'i{}'.format(i)        for i in range(1, dim+1)], 'int')
+        npts          = variables([ 'n{}'.format(i)        for i in range(1, dim+1)], 'int')
 
         trial_basis   = ['trial_basis_{}'.format(i) for i in range(1, dim+1)]
         trial_basis   = indexed_variables(trial_basis, dtype='real', rank=4)
@@ -1667,6 +1699,7 @@ class Assembly(SplBasic):
         if is_bilinear:
             self._basic_args = (support_starts + support_ends +
                                 starts + ends +
+                                npts +
                                 quad_orders +
                                 test_degrees + trial_degrees +
                                 spans +
@@ -1676,6 +1709,7 @@ class Assembly(SplBasic):
         if is_linear or is_function:
             self._basic_args = (support_starts + support_ends +
                                 starts + ends +
+                                npts +
                                 quad_orders +
                                 test_degrees +
                                 spans +
@@ -1765,7 +1799,7 @@ class Assembly(SplBasic):
         # ...
 
         # ... update global matrices
-        if self.comm is None:
+        if ( self.comm is None ) and not( all(self.periodic) ):
             lslices = [Slice(None,None)]*dim
             if is_bilinear:
                 lslices += [Slice(None,None)]*dim # for assignement
@@ -1810,8 +1844,18 @@ class Assembly(SplBasic):
 
             # TODO add modulo for periodic case
             stmts = []
-            for i,il,p,span in zip(indices_i, indices_il, test_degrees, indices_span):
-                stmts += [Assign(i, span-p+il)]
+            for i,il,p,span,n,per in zip( indices_i,
+                                          indices_il,
+                                          test_degrees,
+                                          indices_span,
+                                          npts,
+                                          self.periodic ):
+
+                if not per:
+                    stmts += [Assign(i, span-p+il)]
+
+                else:
+                    stmts += [Assign(i, Mod(span-p+il, n))]
 
             _args = [And(Ge(i, s), Le(i, e)) for i, s, e in zip(indices_i, starts, ends)]
             if_cond = And(*_args)
@@ -1829,6 +1873,7 @@ class Assembly(SplBasic):
                 stmts = [For(x, rx, stmts)]
 
             body += stmts
+        # ...
 
         # ... loop over elements
         ranges_elm  = [Range(support_starts[i], support_ends[i]+1) for i in range(dim)]
@@ -2024,6 +2069,7 @@ class Interface(SplBasic):
 
         starts         = variables([ 's{}'.format(i)      for i in range(1, dim+1)], 'int')
         ends           = variables([ 'e{}'.format(i)      for i in range(1, dim+1)], 'int')
+        npts           = variables([ 'n{}'.format(i)      for i in range(1, dim+1)], 'int')
         test_degrees   = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
         trial_degrees  = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
 
@@ -2078,11 +2124,7 @@ class Interface(SplBasic):
 
         body += [Assign(starts, DottedName(test_vector_space, 'starts'))]
         body += [Assign(ends,   DottedName(test_vector_space, 'ends'))]
-
-        # TODO remove: not needed anymore
-#        for i in range(0, dim):
-#            body += [Assign(ends[i], ends[i]-test_degrees[i])]
-
+        body += [Assign(npts,   DottedName(test_vector_space, 'npts'))]
 
         # ... TODO improve
         if isinstance(Wh, ProductFemSpace):
