@@ -115,7 +115,7 @@ class BasicDiscrete(object):
     def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
                  module_name=None, boundary=None, target=None,
                  boundary_basis=None, backend=SPL_BACKEND_PYTHON, folder=None,
-                 discrete_space=None):
+                 discrete_space=None, comm=None):
 
         # ...
         if not target:
@@ -165,6 +165,7 @@ class BasicDiscrete(object):
         self._dependencies = self.interface.dependencies
         self._backend = backend
         self._folder = self._initialize_folder(folder)
+        self._comm = comm
         # ...
 
         # generate python code as strings for dependencies
@@ -243,6 +244,10 @@ class BasicDiscrete(object):
     @property
     def backend(self):
         return self._backend
+
+    @property
+    def comm(self):
+        return self._comm
 
     @property
     def folder(self):
@@ -501,7 +506,14 @@ class DiscreteLinearForm(BasicDiscrete):
 
         kwargs = self._check_arguments(**kwargs)
 
-        return self.func(*newargs, **kwargs)
+#        return self.func(*newargs, **kwargs)
+
+        x = self.func(*newargs, **kwargs)
+
+        # IMPORTANT: ghost regions must be up-to-date
+#        x._sync = False
+        x.update_ghost_regions()
+        return x
 
 class DiscreteIntegral(BasicDiscrete):
 
@@ -544,6 +556,9 @@ class DiscreteIntegral(BasicDiscrete):
 
         # case of a norm
         if isinstance(self.expr, sym_Norm):
+            if not( self.comm is None ):
+                v = self.comm.allreduce(sendobj=v)
+
             if self.expr.exponent == 2:
                 v = np.sqrt(v)
 
@@ -551,8 +566,6 @@ class DiscreteIntegral(BasicDiscrete):
                 raise NotImplementedError('TODO')
 
         return v
-
-
 
 
 class DiscreteSumForm(BasicDiscrete):

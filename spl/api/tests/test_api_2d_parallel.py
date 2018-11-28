@@ -44,6 +44,7 @@ DEBUG = False
 domain = Domain('\Omega', dim=2)
 
 def create_discrete_space(p=(2,2), ne=(2**3,2**3), comm=MPI.COMM_WORLD):
+#def create_discrete_space(p=(3,3), ne=(2**4,2**4), comm=MPI.COMM_WORLD):
     # ... discrete spaces
     # Input data: degree, number of elements
     p1,p2 = p
@@ -106,37 +107,42 @@ def test_api_poisson_2d_dir_1():
     Vh = create_discrete_space(comm=mpi_comm)
     # ...
 
-#    # ... dsicretize the equation using Dirichlet bc
-#    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
-#    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
-#    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
-#    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+
+    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
+    equation_h = discretize(equation, [Vh, Vh], bc=bc, comm=mpi_comm)
+
+#    ah = discretize(a, [Vh, Vh])
+#    A = ah.assemble()
 #
-#    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
-#    equation_h = discretize(equation, [Vh, Vh], bc=bc)
-
-    ah = discretize(a, [Vh, Vh])
-    A = ah.assemble()
-
-    lh = discretize(l, Vh)
-    L = lh.assemble()
-
-    from scipy.io import mmwrite
-    import numpy as np
-
-    mmwrite('A.mtx', A.tocoo())
-    np.savetxt('L.txt', L.toarray())
-
-    import sys; sys.exit(0)
+#    lh = discretize(l, Vh)
+#    L = lh.assemble()
+#
+#    from scipy.io import mmwrite
+#    import numpy as np
+#
+#    mmwrite('A.mtx', A.tocoo())
+#    np.savetxt('L.txt', L.toarray())
+#
+#    import sys; sys.exit(0)
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
+    l2norm_h = discretize(l2norm, Vh, comm=mpi_comm)
+    h1norm_h = discretize(h1norm, Vh, comm=mpi_comm)
     # ...
 
     # ... solve the discrete equation
     x = equation_h.solve()
+#    import numpy as np
+#
+#    np.savetxt('x_{}.txt'.format(mpi_rank), x.toarray())
+#
+#    import sys; sys.exit(0)
     # ...
 
     # ...

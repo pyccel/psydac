@@ -1743,7 +1743,9 @@ class Assembly(SplBasic):
 
         mats = tuple(mats)
 
-        gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
+        gslices = [Slice(i-s,i+p+1-s) for i,p,s in zip(indices_span,
+                                                       test_degrees,
+                                                       starts)]
         f_coeffs = tuple([f[gslices] for f in fields_coeffs])
         vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
         m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
