@@ -115,7 +115,7 @@ class BasicDiscrete(object):
     def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
                  module_name=None, boundary=None, target=None,
                  boundary_basis=None, backend=SPL_BACKEND_PYTHON, folder=None,
-                 discrete_space=None, comm=None):
+                 discrete_space=None, comm=None, root=None):
 
         # ...
         if not target:
@@ -147,43 +147,101 @@ class BasicDiscrete(object):
         # ...
 
         # ...
-        kernel = Kernel( a, kernel_expr,
-                         target            = target,
-                         discrete_boundary = boundary,
-                         boundary_basis    = boundary_basis )
+        def _create_ast():
+            kernel = Kernel( a, kernel_expr,
+                             target            = target,
+                             discrete_boundary = boundary,
+                             boundary_basis    = boundary_basis )
 
-        assembly = Assembly( kernel,
-                             discrete_space = discrete_space,
-                             comm           = comm )
+            assembly = Assembly( kernel,
+                                 discrete_space = discrete_space,
+                                 comm           = comm )
 
-        interface = Interface( assembly,
-                               backend        = backend,
-                               discrete_space = discrete_space,
-                               comm           = comm )
+            interface = Interface( assembly,
+                                   backend        = backend,
+                                   discrete_space = discrete_space,
+                                   comm           = comm )
+
+            return kernel, assembly, interface
+        # ...
+
+        # ...
+        if not( comm is None) and ( root is None ):
+            root = 0
+        # ...
+
+        # ...
+        if not( comm is None):
+            from mpi4py import MPI
+
+            assert isinstance( comm, MPI.Comm  )
+            assert isinstance( root, int        )
+
+            if comm.rank == root:
+                kernel, assembly, interface = _create_ast()
+                tag = kernel.tag
+                max_nderiv = interface.max_nderiv
+                interface_name = interface.name
+                in_arguments = [str(a) for a in interface.in_arguments]
+                inout_arguments = [str(a) for a in interface.inout_arguments]
+
+            else:
+                kernel = None
+                assembly = None
+                interface = None
+                tag = None
+                max_nderiv = None
+                interface_name = None
+                in_arguments = None
+                inout_arguments = None
+
+            tag = comm.bcast( tag, root=root )
+            max_nderiv = comm.bcast( max_nderiv, root=root )
+            interface_name = comm.bcast( interface_name, root=root )
+            in_arguments = comm.bcast( in_arguments, root=root )
+            inout_arguments = comm.bcast( inout_arguments, root=root )
+
+        else:
+            kernel, assembly, interface = _create_ast()
+            tag = kernel.tag
+            max_nderiv = interface.max_nderiv
+            interface_name = interface.name
+            in_arguments = [str(a) for a in interface.in_arguments]
+            inout_arguments = [str(a) for a in interface.inout_arguments]
         # ...
 
         # ...
         self._expr = a
         self._kernel_expr = kernel_expr
         self._target = target
-        self._tag = kernel.tag
+        self._tag = tag
         self._mapping = None
         self._interface = interface
-        self._dependencies = self.interface.dependencies
+        self._in_arguments = in_arguments
+        self._inout_arguments = inout_arguments
         self._backend = backend
         self._folder = self._initialize_folder(folder)
         self._comm = comm
-        # ...
+        self._root = root
+        self._max_nderiv = max_nderiv
 
-        # generate python code as strings for dependencies
-        self._dependencies_code = self._generate_code()
-
+        self._dependencies = None
+        self._dependencies_code = None
         self._dependencies_fname = None
         self._dependencies_modname = None
+
+        self._interface_name = interface_name
         self._interface_code = None
         self._interface_base_import_code = None
         self._func = None
-        if to_compile:
+        # ...
+
+        # generate python code as strings for dependencies
+        if not( interface is None ):
+            self._dependencies = interface.dependencies
+            self._dependencies_code = self._generate_code()
+
+        if not( interface is None ) and to_compile:
             # save dependencies code
             self._save_code(module_name=module_name)
 
@@ -195,6 +253,12 @@ class BasicDiscrete(object):
 
             # compile code
             self._compile(namespace)
+
+        if not( comm is None):
+            comm.Barrier()
+            if comm.rank != root:
+                interface_module_name = 'interface_{}'.format(tag)
+                self._set_func(interface_module_name, interface_name)
 
     @property
     def expr(self):
@@ -213,6 +277,14 @@ class BasicDiscrete(object):
         return self._tag
 
     @property
+    def in_arguments(self):
+        return self._in_arguments
+
+    @property
+    def inout_arguments(self):
+        return self._inout_arguments
+
+    @property
     def mapping(self):
         return self._mapping
 
@@ -223,6 +295,10 @@ class BasicDiscrete(object):
     @property
     def dependencies(self):
         return self._dependencies
+
+    @property
+    def interface_name(self):
+        return self._interface_name
 
     @property
     def interface_code(self):
@@ -257,8 +333,16 @@ class BasicDiscrete(object):
         return self._comm
 
     @property
+    def root(self):
+        return self._root
+
+    @property
     def folder(self):
         return self._folder
+
+    @property
+    def max_nderiv(self):
+        return self._max_nderiv
 
     def _initialize_folder(self, folder=None):
         # ...
@@ -402,13 +486,16 @@ class BasicDiscrete(object):
         fname = write_code(fname, code, folder = self.folder)
         # ...
 
+        self._set_func(interface_module_name, self.interface.name)
+
+    def _set_func(self, interface_module_name, interface_name):
         # ...
         sys.path.append(self.folder)
         package = importlib.import_module( interface_module_name )
         sys.path.remove(self.folder)
         # ...
 
-        self._func = getattr(package, self.interface.name)
+        self._func = getattr(package, interface_name)
 
     def _check_arguments(self, **kwargs):
 
@@ -420,9 +507,7 @@ class BasicDiscrete(object):
         _kwargs = {}
 
         # ... mandatory arguments
-        sym_args = self.interface.in_arguments
-        keys = [str(a) for a in sym_args]
-        for key in keys:
+        for key in self.in_arguments:
             try:
                 _kwargs[key] = kwargs[key]
             except:
@@ -430,9 +515,7 @@ class BasicDiscrete(object):
         # ...
 
         # ... optional (inout) arguments
-        sym_args = self.interface.inout_arguments
-        keys = [str(a) for a in sym_args]
-        for key in keys:
+        for key in self.inout_arguments:
             try:
                 _kwargs[key] = kwargs[key]
             except:
@@ -458,7 +541,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         # initialize fem space basis/quad
         for V in self.spaces:
-            V.init_fem(nderiv=self.interface.max_nderiv)
+            V.init_fem(nderiv=self.max_nderiv)
 
         if len(args) > 1:
             self._mapping = args[1]
@@ -496,7 +579,7 @@ class DiscreteLinearForm(BasicDiscrete):
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # initialize fem space basis/quad
-        self.space.init_fem(nderiv=self.interface.max_nderiv)
+        self.space.init_fem(nderiv=self.max_nderiv)
 
         if len(args) > 1:
             self._mapping = args[1]
@@ -528,7 +611,7 @@ class DiscreteIntegral(BasicDiscrete):
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # initialize fem space basis/quad
-        self.space.init_fem(nderiv=self.interface.max_nderiv)
+        self.space.init_fem(nderiv=self.max_nderiv)
 
         if len(args) > 1:
             self._mapping = args[1]
