@@ -43,8 +43,8 @@ DEBUG = False
 
 domain = Domain('\Omega', dim=2)
 
-#def create_discrete_space(p=(2,2), ne=(2**3,2**3), periodic=[False, False], comm=MPI.COMM_WORLD):
-def create_discrete_space(p=(3,3), ne=(2**4,2**4), periodic=[False, False], comm=MPI.COMM_WORLD):
+def create_discrete_space(p=(2,2), ne=(2**3,2**3), periodic=[False, False], comm=MPI.COMM_WORLD):
+#def create_discrete_space(p=(3,3), ne=(2**4,2**4), periodic=[False, False], comm=MPI.COMM_WORLD):
     # ... discrete spaces
     # Input data: degree, number of elements
     p1,p2 = p
@@ -183,6 +183,7 @@ def test_api_laplace_2d_periodic_1():
 
     # ... discretize norms
     l2norm_h = discretize(l2norm, Vh, comm=mpi_comm)
+#    import sys; sys.exit(0)
     h1norm_h = discretize(h1norm, Vh, comm=mpi_comm)
     # ...
 
@@ -207,5 +208,5 @@ def test_api_laplace_2d_periodic_1():
 ###############################################
 if __name__ == '__main__':
 
-#    test_api_poisson_2d_dir_1()
-    test_api_laplace_2d_periodic_1()
+    test_api_poisson_2d_dir_1()
+#    test_api_laplace_2d_periodic_1()
