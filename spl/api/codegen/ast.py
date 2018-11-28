@@ -993,6 +993,10 @@ class Kernel(SplBasic):
         return self._fields_coeffs
 
     @property
+    def fields_tmp_coeffs(self):
+        return self._fields_tmp_coeffs
+
+    @property
     def vector_fields(self):
         return self._vector_fields
 
@@ -1268,6 +1272,9 @@ class Kernel(SplBasic):
         fields_val    = indexed_variables(['{}_values'.format(f) for f in fields_str],
                                           dtype='real', rank=dim)
 
+        fields_tmp_coeffs = indexed_variables(['tmp_coeff_{}'.format(f) for f in field_atoms],
+                                              dtype='real', rank=dim)
+
         vector_fields        = symbols(vector_fields_str)
 
         vector_field_atoms = [f[i] for f in vector_field_atoms for i in range(0, dim)]
@@ -1331,6 +1338,7 @@ class Kernel(SplBasic):
         # ...
         self._fields = fields
         self._fields_coeffs = fields_coeffs
+        self._fields_tmp_coeffs = fields_tmp_coeffs
         self._vector_fields = vector_fields
         self._vector_fields_coeffs = vector_fields_coeffs
         self._mapping_coeffs = mapping_coeffs
@@ -1634,6 +1642,7 @@ class Assembly(SplBasic):
         form   = self.weak_form
         fields = kernel.fields
         fields_coeffs = kernel.fields_coeffs
+        fields_tmp_coeffs = kernel.fields_tmp_coeffs
         vector_fields = kernel.vector_fields
         vector_fields_coeffs = kernel.vector_fields_coeffs
         zero_terms = kernel.zero_terms
@@ -1788,13 +1797,54 @@ class Assembly(SplBasic):
 
         mats = tuple(mats)
 
-#        gslices = [Slice(i-s,i+p+1-s) for i,p,s in zip(indices_span,
-        gslices = [Slice(i,i+p+1) for i,p,s in zip(indices_span,
-                                                       test_degrees,
-                                                       starts)]
-        f_coeffs = tuple([f[gslices] for f in fields_coeffs])
-        vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
-        m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
+        if not( self.comm is None ) and any(self.periodic) :
+            # ...
+            stmts = []
+            for i,il,p,span,n,per in zip( indices_i,
+                                          indices_il,
+                                          test_degrees,
+                                          indices_span,
+                                          npts,
+                                          self.periodic ):
+
+                if not per:
+                    stmts += [Assign(i, span-p+il)]
+
+                else:
+                    stmts += [Assign(i, Mod(span-p+il, n))]
+
+#            _indices_i = [i for i,s,p in zip(indices_i, starts, test_degrees)]
+            _indices_i = [i-s+p for i,s,p in zip(indices_i, starts, test_degrees)]
+            for x,tmp_x in zip(fields_coeffs, fields_tmp_coeffs):
+#                stmts += [Print([_indices_i, '    ', indices_i, starts])]
+                stmts += [Assign(tmp_x[indices_il], x[_indices_i])]
+
+            ranges = [Range(0, test_degrees[i]+1) for i in range(dim)]
+            for x,rx in list(zip(indices_il, ranges))[::-1]:
+                stmts = [For(x, rx, stmts)]
+
+            body += stmts
+            # ...
+
+            # ...
+            f_coeffs = tuple(fields_tmp_coeffs)
+            # ...
+
+            # ... TODO add tmp for vector fields and mapping
+            gslices = [Slice(i-s,i+p+1-s) for i,p,s in zip(indices_span,
+                                                           test_degrees,
+                                                           starts)]
+            vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
+            m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
+            # ...
+
+        else:
+            gslices = [Slice(i-s,i+p+1-s) for i,p,s in zip(indices_span,
+                                                           test_degrees,
+                                                           starts)]
+            f_coeffs = tuple([f[gslices] for f in fields_coeffs])
+            vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
+            m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
 
         args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + mats)
         body += [FunctionCall(kernel.func, args)]
@@ -1844,7 +1894,6 @@ class Assembly(SplBasic):
                 lslices = lslices + [Slice(None,None)]*dim
                 gslices = gslices + [Slice(None,None)]*dim
 
-            # TODO add modulo for periodic case
             stmts = []
             for i,il,p,span,n,per in zip( indices_i,
                                           indices_il,
@@ -1928,6 +1977,13 @@ class Assembly(SplBasic):
                 prelude += [stmt]
 
         # TODO allocate field values
+        # ...
+
+        # ...
+        if not( self.comm is None ) and any(self.periodic) :
+            for v in self.kernel.fields_tmp_coeffs:
+                stmt = Assign(v, Zeros(orders))
+                prelude += [stmt]
         # ...
 
         # ...

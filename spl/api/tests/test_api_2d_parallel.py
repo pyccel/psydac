@@ -44,8 +44,8 @@ DEBUG = False
 domain = Domain('\Omega', dim=2)
 
 #def create_discrete_space(p=(2,2), ne=(2**3,2**3), periodic=[False, False], comm=MPI.COMM_WORLD):
-def create_discrete_space(p=(2,2), ne=(2**4,2**4), periodic=[False, False], comm=MPI.COMM_WORLD):
-#def create_discrete_space(p=(3,3), ne=(2**4,2**4), periodic=[False, False], comm=MPI.COMM_WORLD):
+#def create_discrete_space(p=(2,2), ne=(2**4,2**1), periodic=[False, False], comm=MPI.COMM_WORLD):
+def create_discrete_space(p=(3,3), ne=(2**4,2**4), periodic=[False, False], comm=MPI.COMM_WORLD):
     # ... discrete spaces
     # Input data: degree, number of elements
     p1,p2 = p
@@ -62,7 +62,7 @@ def create_discrete_space(p=(2,2), ne=(2**4,2**4), periodic=[False, False], comm
 
     # Create 2D tensor product finite element space
     V = TensorFemSpace( V1, V2, comm=comm )
-    print(V.local_support)
+#    print(V.local_support)
     # ...
 
     return V
@@ -143,6 +143,7 @@ def test_api_poisson_2d_dir_1():
     print('> H1 seminorm  = ', error)
     # ...
 
+# TODO not working yet
 def test_api_laplace_2d_periodic_1():
     print('============ test_api_laplace_2d_1 =============')
 
@@ -209,5 +210,5 @@ def test_api_laplace_2d_periodic_1():
 ###############################################
 if __name__ == '__main__':
 
-#    test_api_poisson_2d_dir_1()
-    test_api_laplace_2d_periodic_1()
+    test_api_poisson_2d_dir_1()
+#    test_api_laplace_2d_periodic_1()
