@@ -1691,13 +1691,14 @@ class Assembly(SplBasic):
         local_support  = [ 'support_{}'.format(i) for i in range(1, dim+1)]
         local_support  = indexed_variables(local_support, dtype='int', rank=1)
 
-        support_starts = variables([ 'support_s{}'.format(i) for i in range(1, dim+1)], 'int')
-        support_ends   = variables([ 'support_e{}'.format(i) for i in range(1, dim+1)], 'int')
+        support_length = variables([ 'support_length{}'.format(i) for i in range(1, dim+1)], 'int')
+
+        indices_support = variables([ 'i_support{}'.format(i) for i in range(1, dim+1)], 'int')
         # ...
 
         # ...
         if is_bilinear:
-            self._basic_args = (support_starts + support_ends +
+            self._basic_args = (local_support +
                                 starts + ends +
                                 npts +
                                 quad_orders +
@@ -1707,7 +1708,7 @@ class Assembly(SplBasic):
                                 test_basis + trial_basis)
 
         if is_linear or is_function:
-            self._basic_args = (support_starts + support_ends +
+            self._basic_args = (local_support +
                                 starts + ends +
                                 npts +
                                 quad_orders +
@@ -1787,7 +1788,8 @@ class Assembly(SplBasic):
 
         mats = tuple(mats)
 
-        gslices = [Slice(i-s,i+p+1-s) for i,p,s in zip(indices_span,
+#        gslices = [Slice(i-s,i+p+1-s) for i,p,s in zip(indices_span,
+        gslices = [Slice(i,i+p+1) for i,p,s in zip(indices_span,
                                                        test_degrees,
                                                        starts)]
         f_coeffs = tuple([f[gslices] for f in fields_coeffs])
@@ -1876,8 +1878,14 @@ class Assembly(SplBasic):
         # ...
 
         # ... loop over elements
-        ranges_elm  = [Range(support_starts[i], support_ends[i]+1) for i in range(dim)]
-        body = filter_loops(indices_elm, ranges_elm, body,
+        init_elm = [Assign(k, support[i]) for k,i,support in zip(indices_elm,
+                                                             indices_support,
+                                                             local_support)]
+
+        body = init_elm + body
+
+        ranges_elm  = [Range(0, support_length[i]) for i in range(dim)]
+        body = filter_loops(indices_support, ranges_elm, body,
                             self.kernel.discrete_boundary, boundary_basis=False)
         # ...
 
@@ -1920,6 +1928,12 @@ class Assembly(SplBasic):
                 prelude += [stmt]
 
         # TODO allocate field values
+        # ...
+
+        # ...
+        len_support = [Assign(k, Len(u)) for k,u in zip(support_length,
+                                                        local_support)]
+        body = len_support + body
         # ...
 
         # ...
@@ -2095,8 +2109,7 @@ class Interface(SplBasic):
         local_support  = [ 'support_{}'.format(i) for i in range(1, dim+1)]
         local_support  = indexed_variables(local_support, dtype='int', rank=1)
 
-        support_starts = variables([ 'support_s{}'.format(i) for i in range(1, dim+1)], 'int')
-        support_ends   = variables([ 'support_e{}'.format(i) for i in range(1, dim+1)], 'int')
+        support_length = variables([ 'support_length{}'.format(i) for i in range(1, dim+1)], 'int')
 
         mapping = ()
         if form.mapping:
@@ -2137,12 +2150,6 @@ class Interface(SplBasic):
             body += [Assign(test_basis,     DottedName(test_space, 'spaces[0]', 'quad_basis'))]
             body += [Assign(local_support,  DottedName(test_space, 'spaces[0]', 'local_support'))]
 
-            for i,x in enumerate(support_starts):
-                body += [Assign(x, FunctionCall('min', [local_support[i]]))]
-
-            for i,x in enumerate(support_ends):
-                body += [Assign(x, FunctionCall('max', [local_support[i]]))]
-
         else:
             body += [Assign(spans,          DottedName(test_space, 'spans'))]
             body += [Assign(quad_orders,    DottedName(test_space, 'quad_order'))]
@@ -2150,12 +2157,6 @@ class Interface(SplBasic):
             body += [Assign(weights,        DottedName(test_space, 'quad_weights'))]
             body += [Assign(test_basis,     DottedName(test_space, 'quad_basis'))]
             body += [Assign(local_support,  DottedName(test_space, 'local_support'))]
-
-            for i,x in enumerate(support_starts):
-                body += [Assign(x, FunctionCall('min', [local_support[i]]))]
-
-            for i,x in enumerate(support_ends):
-                body += [Assign(x, FunctionCall('max', [local_support[i]]))]
 
         if is_bilinear:
             if isinstance(Vh, ProductFemSpace):
