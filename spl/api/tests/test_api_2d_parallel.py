@@ -31,6 +31,7 @@ from spl.api.discretization import discretize
 from spl.api.boundary_condition import DiscreteBoundary
 from spl.api.boundary_condition import DiscreteComplementBoundary
 from spl.api.boundary_condition import DiscreteDirichletBC
+from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL
 
 from spl.mapping.discrete import SplineMapping
 
@@ -43,9 +44,8 @@ DEBUG = False
 
 domain = Domain('\Omega', dim=2)
 
-#def create_discrete_space(p=(2,2), ne=(2**3,2**3), periodic=[False, False], comm=MPI.COMM_WORLD):
-#def create_discrete_space(p=(2,2), ne=(2**4,2**1), periodic=[False, False], comm=MPI.COMM_WORLD):
 def create_discrete_space(p=(3,3), ne=(2**4,2**4), periodic=[False, False], comm=MPI.COMM_WORLD):
+#def create_discrete_space(p=(3,3), ne=(2**8,2**8), periodic=[False, False], comm=MPI.COMM_WORLD):
     # ... discrete spaces
     # Input data: degree, number of elements
     p1,p2 = p
@@ -68,8 +68,7 @@ def create_discrete_space(p=(3,3), ne=(2**4,2**4), periodic=[False, False], comm
     return V
 
 
-def test_api_poisson_2d_dir_1():
-    print('============ test_api_poisson_2d_dir_1 =============')
+def test_perf_poisson_2d_dir_1(backend=SPL_BACKEND_PYTHON):
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -110,11 +109,6 @@ def test_api_poisson_2d_dir_1():
     Vh = create_discrete_space(comm=mpi_comm)
     # ...
 
-    from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL
-
-#    backend = SPL_BACKEND_PYTHON
-    backend = SPL_BACKEND_PYCCEL
-
     # ... dsicretize the equation using Dirichlet bc
     B1 = DiscreteBoundary(B1, axis=0, ext=-1)
     B2 = DiscreteBoundary(B2, axis=0, ext= 1)
@@ -142,15 +136,16 @@ def test_api_poisson_2d_dir_1():
 
     # ... compute norms
     error = l2norm_h.assemble(F=phi)
-    print('> L2 norm      = ', error)
+    if mpi_rank == 0:
+        print('> L2 norm      = ', error)
 
     error = h1norm_h.assemble(F=phi)
-    print('> H1 seminorm  = ', error)
+    if mpi_rank == 0:
+        print('> H1 seminorm  = ', error)
     # ...
 
 # TODO not working yet
-def test_api_laplace_2d_periodic_1():
-    print('============ test_api_laplace_2d_1 =============')
+def test_perf_laplace_2d_periodic_1(backend=SPL_BACKEND_PYTHON):
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -186,12 +181,12 @@ def test_api_laplace_2d_periodic_1():
     # ...
 
     # ... discretize the equation
-    equation_h = discretize(equation, [Vh, Vh], comm=mpi_comm)
+    equation_h = discretize(equation, [Vh, Vh], backend=backend)
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh, comm=mpi_comm)
-    h1norm_h = discretize(h1norm, Vh, comm=mpi_comm)
+    l2norm_h = discretize(l2norm, Vh, backend=backend)
+    h1norm_h = discretize(h1norm, Vh, backend=backend)
     # ...
 
     # ... solve the discrete equation
@@ -206,14 +201,16 @@ def test_api_laplace_2d_periodic_1():
 
     # ... compute norms
     error = l2norm_h.assemble(F=phi)
-    print('> L2 norm      = ', error)
+    if mpi_rank == 0:
+        print('> L2 norm      = ', error)
 
     error = h1norm_h.assemble(F=phi)
-    print('> H1 seminorm  = ', error)
+    if mpi_rank == 0:
+        print('> H1 seminorm  = ', error)
     # ...
 
 ###############################################
 if __name__ == '__main__':
 
-    test_api_poisson_2d_dir_1()
-#    test_api_laplace_2d_periodic_1()
+    test_perf_poisson_2d_dir_1()
+#    test_perf_laplace_2d_periodic_1()
