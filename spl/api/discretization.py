@@ -31,6 +31,9 @@ from spl.api.boundary_condition import apply_homogeneous_dirichlet_bc
 from spl.api.settings import SPL_BACKEND_PYTHON, SPL_DEFAULT_FOLDER
 from spl.linalg.stencil import StencilVector, StencilMatrix
 from spl.linalg.iterative_solvers import cg
+from spl.fem.splines import SplineSpace
+from spl.fem.tensor  import TensorFemSpace
+from spl.fem.vector  import ProductFemSpace
 
 import inspect
 import sys
@@ -548,7 +551,19 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         self._spaces = args[0]
 
+        # ... TODO improve later
+        comm = None
+        Vh = self.spaces[0]
+        if isinstance(Vh, ProductFemSpace):
+            Vh = Vh.spaces[0]
+
+        if isinstance(Vh, TensorFemSpace):
+            if Vh.vector_space.parallel:
+                comm = Vh.vector_space.cart._comm
+        # ...
+
         kwargs['discrete_space'] = self.spaces
+        kwargs['comm'] = comm
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # initialize fem space basis/quad
@@ -587,7 +602,19 @@ class DiscreteLinearForm(BasicDiscrete):
 
         self._space = args[0]
 
+        # ... TODO improve later
+        comm = None
+        Vh = self.space
+        if isinstance(Vh, ProductFemSpace):
+            Vh = Vh.spaces[0]
+
+        if isinstance(Vh, TensorFemSpace):
+            if Vh.vector_space.parallel:
+                comm = Vh.vector_space.cart._comm
+        # ...
+
         kwargs['discrete_space'] = self.space
+        kwargs['comm'] = comm
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # initialize fem space basis/quad
@@ -619,7 +646,19 @@ class DiscreteIntegral(BasicDiscrete):
 
         self._space = args[0]
 
+        # ... TODO improve later
+        comm = None
+        Vh = self.space
+        if isinstance(Vh, ProductFemSpace):
+            Vh = Vh.spaces[0]
+
+        if isinstance(Vh, TensorFemSpace):
+            if Vh.vector_space.parallel:
+                comm = Vh.vector_space.cart._comm
+        # ...
+
         kwargs['discrete_space'] = self.space
+        kwargs['comm'] = comm
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # initialize fem space basis/quad

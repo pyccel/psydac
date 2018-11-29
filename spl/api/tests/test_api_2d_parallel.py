@@ -115,10 +115,6 @@ def test_api_poisson_2d_dir_1():
 #    backend = SPL_BACKEND_PYTHON
     backend = SPL_BACKEND_PYCCEL
 
-#    ah = discretize(a, [Vh, Vh], comm=mpi_comm, backend=backend)
-#    lh = discretize(l, Vh, comm=mpi_comm, backend=backend)
-#    import sys; sys.exit(0)
-
     # ... dsicretize the equation using Dirichlet bc
     B1 = DiscreteBoundary(B1, axis=0, ext=-1)
     B2 = DiscreteBoundary(B2, axis=0, ext= 1)
@@ -126,12 +122,12 @@ def test_api_poisson_2d_dir_1():
     B4 = DiscreteBoundary(B4, axis=1, ext= 1)
 
     bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
-    equation_h = discretize(equation, [Vh, Vh], bc=bc, comm=mpi_comm, backend=backend)
+    equation_h = discretize(equation, [Vh, Vh], bc=bc, backend=backend)
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh, comm=mpi_comm, backend=backend)
-    h1norm_h = discretize(h1norm, Vh, comm=mpi_comm, backend=backend)
+    l2norm_h = discretize(l2norm, Vh, backend=backend)
+    h1norm_h = discretize(h1norm, Vh, backend=backend)
     # ...
 
     # ... solve the discrete equation
