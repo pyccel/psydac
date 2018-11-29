@@ -73,6 +73,7 @@ def random_string( n ):
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
+
 def compute_normal_vector(vector, discrete_boundary, mapping):
     dim = len(vector)
     pdim = dim - len(discrete_boundary)

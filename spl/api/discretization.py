@@ -74,8 +74,8 @@ def write_code(filename, code, folder=None):
 
     # TODO check if init exists
     # add __init__.py for imports
-    cmd = 'touch {}/__init__.py'.format(folder)
-    os.system(cmd)
+    init_fname = os.path.join(folder, '__init__.py')
+    touch(init_fname)
 
     f = open(filename, 'w')
     for line in code:
@@ -147,17 +147,20 @@ class BasicDiscrete(object):
         # ...
 
         # ...
-        def _create_ast():
+        def _create_ast(tag):
             kernel = Kernel( a, kernel_expr,
+                             name              = 'kernel_{}'.format(tag),
                              target            = target,
                              discrete_boundary = boundary,
                              boundary_basis    = boundary_basis )
 
             assembly = Assembly( kernel,
+                                 name           = 'assembly_{}'.format(tag),
                                  discrete_space = discrete_space,
                                  comm           = comm )
 
             interface = Interface( assembly,
+                                   name           = 'interface_{}'.format(tag),
                                    backend        = backend,
                                    discrete_space = discrete_space,
                                    comm           = comm )
@@ -166,22 +169,19 @@ class BasicDiscrete(object):
         # ...
 
         # ...
-        if not( comm is None) and ( root is None ):
-            root = 0
-        # ...
-
-        # ...
         if not( comm is None):
             from mpi4py import MPI
 
-            assert isinstance( comm, MPI.Comm  )
-            assert isinstance( root, int        )
+            if root is None:
+                root = 0
+
+            assert isinstance( comm, MPI.Comm )
+            assert isinstance( root, int      )
 
             if comm.rank == root:
-                kernel, assembly, interface = _create_ast()
-                tag = kernel.tag
+                tag = random_string( 8 )
+                kernel, assembly, interface = _create_ast( tag )
                 max_nderiv = interface.max_nderiv
-                interface_name = interface.name
                 in_arguments = [str(a) for a in interface.in_arguments]
                 inout_arguments = [str(a) for a in interface.inout_arguments]
 
@@ -191,19 +191,18 @@ class BasicDiscrete(object):
                 interface = None
                 tag = None
                 max_nderiv = None
-                interface_name = None
                 in_arguments = None
                 inout_arguments = None
 
+            comm.Barrier()
             tag = comm.bcast( tag, root=root )
             max_nderiv = comm.bcast( max_nderiv, root=root )
-            interface_name = comm.bcast( interface_name, root=root )
             in_arguments = comm.bcast( in_arguments, root=root )
             inout_arguments = comm.bcast( inout_arguments, root=root )
 
         else:
-            kernel, assembly, interface = _create_ast()
-            tag = kernel.tag
+            tag = random_string( 8 )
+            kernel, assembly, interface = _create_ast( tag )
             max_nderiv = interface.max_nderiv
             interface_name = interface.name
             in_arguments = [str(a) for a in interface.in_arguments]
@@ -230,6 +229,7 @@ class BasicDiscrete(object):
         self._dependencies_fname = None
         self._dependencies_modname = None
 
+        interface_name = 'interface_{}'.format(tag)
         self._interface_name = interface_name
         self._interface_code = None
         self._interface_base_import_code = None
@@ -257,8 +257,18 @@ class BasicDiscrete(object):
         if not( comm is None):
             comm.Barrier()
             if comm.rank != root:
-                interface_module_name = 'interface_{}'.format(tag)
+                if self.backend['name'] == 'pyccel':
+                    _folder = os.path.join(self.folder, self.backend['folder'])
+                    sys.path.append(_folder)
+
+                interface_module_name = interface_name
                 self._set_func(interface_module_name, interface_name)
+
+                if self.backend['name'] == 'pyccel':
+                    _folder = os.path.join(self.folder, self.backend['folder'])
+                    sys.path.remove(_folder)
+
+            comm.Barrier()
 
     @property
     def expr(self):
@@ -442,6 +452,8 @@ class BasicDiscrete(object):
                                compiler    = compiler,
                                fflags      = fflags,
                                accelerator = accelerator,
+                               comm        = self.comm,
+                               bcast       = False,
                                folder      = _PYCCEL_FOLDER )
         sys.path.remove(self.folder)
         # ...
@@ -486,7 +498,7 @@ class BasicDiscrete(object):
         fname = write_code(fname, code, folder = self.folder)
         # ...
 
-        self._set_func(interface_module_name, self.interface.name)
+        self._set_func(interface_module_name, self.interface_name)
 
     def _set_func(self, interface_module_name, interface_name):
         # ...
