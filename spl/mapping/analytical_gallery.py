@@ -4,7 +4,8 @@
 
 from spl.mapping.analytical import AnalyticalMapping
 
-__all__ = ['Annulus', 'Sphere', 'Target', 'Czarny', 'TwistedTarget', 'Torus']
+__all__ = ['Annulus', 'Sphere', 'Target', 'Czarny', 'TwistedTarget', 'Torus',
+           'Collela']
 
 #==============================================================================
 class Annulus( AnalyticalMapping ):
@@ -66,3 +67,12 @@ class Torus( AnalyticalMapping ):
                        'a*sin(t)' ]
 
     default_params = dict( R0=5.0, a=1.0 )
+
+#==============================================================================
+class Collela( AnalyticalMapping ):
+
+    eta_symbols = ['s','t']
+    expressions = ['2.*(s + eps*sin(2.*pi*k1*s)*sin(2.*pi*k2*t)) - 1.',
+                   '2.*(t + eps*sin(2.*pi*k1*s)*sin(2.*pi*k2*t)) - 1.']
+
+    default_params = dict( k1=1.0, k2=1.0, eps=0.1 )
