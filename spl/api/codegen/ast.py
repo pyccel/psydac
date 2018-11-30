@@ -17,7 +17,7 @@ from sympy import S as sympy_S
 from sympy import Integer, Float
 from sympy.core.relational    import Le, Ge
 from sympy.logic.boolalg      import And
-from sympy import Mod
+from sympy import Mod, Abs
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
@@ -133,7 +133,8 @@ def compute_normal_vector(vector, discrete_boundary, mapping):
 
         values = [ext*i for i in values]
 
-        body += [Assign(inv_jac, 1/j)]
+        body += [Assign(jac, j)]
+        body += [Assign(inv_jac, 1./j)]
 
     for i in range(0, dim):
         body += [Assign(vector[i], values[i])]
@@ -1421,7 +1422,10 @@ class Kernel(SplBasic):
             # ...
 
             inv_jac = Symbol('inv_jac')
-            body += [Assign(inv_jac, 1/jac)]
+            det_jac = Symbol('det_jac')
+
+            body += [Assign(det_jac, jac)]
+            body += [Assign(inv_jac, 1./jac)]
 
             # TODO do we use the same inv_jac?
 #            if not isinstance(self.target, Boundary):
@@ -1448,6 +1452,10 @@ class Kernel(SplBasic):
         # add vector_fields
         for i in range(len(vector_fields_val)):
             body.append(Assign(vector_fields[i],vector_fields_val[i][indices_quad]))
+
+        # TODO use positive mapping all the time? Abs?
+        if mapping:
+            weighted_vol = weighted_vol * Abs(det_jac)
 
         body.append(Assign(wvol,weighted_vol))
 

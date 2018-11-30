@@ -41,8 +41,8 @@ DEBUG = False
 
 domain = Domain('\Omega', dim=2)
 
-#def create_discrete_space(p=(2,2), ne=(2,2)):
-def create_discrete_space(p=(2,2), ne=(2**4,2**4)):
+def create_discrete_space(p=(2,2), ne=(2**3,2**3)):
+#def create_discrete_space(p=(2,2), ne=(2**4,2**4)):
     # ... discrete spaces
     # Input data: degree, number of elements
     p1,p2 = p
@@ -902,24 +902,100 @@ def test_api_vector_2d_2():
     np.allclose( L1.toarray(), L.toarray()[n:] )
     # ...
 
+def test_api_poisson_2d_dir_analytical_collela():
+    print('============ test_api_poisson_2d_dir_analytical_collela =============')
+
+    # ... abstract model
+    mapping = Mapping('M', rdim=2, domain=domain)
+
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B1 = Boundary(r'\Gamma_1', domain)
+    B2 = Boundary(r'\Gamma_2', domain)
+    B3 = Boundary(r'\Gamma_3', domain)
+    B4 = Boundary(r'\Gamma_4', domain)
+
+    x,y = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr, mapping=mapping)
+
+    expr = 2*pi**2*sin(pi*x)*sin(pi*y)*v
+    l = LinearForm(v, expr, mapping=mapping)
+
+    error = F-sin(pi*x)*sin(pi*y)
+    l2norm = Norm(error, domain, kind='l2', name='u', mapping=mapping)
+    h1norm = Norm(error, domain, kind='h1', name='u', mapping=mapping)
+
+    bc = [DirichletBC(i) for i in [B1, B2, B3, B4]]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh, mapping = fem_context('collela.h5')
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+
+    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
+    equation_h = discretize(equation, [Vh, Vh], mapping, bc=bc)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh, mapping)
+    h1norm_h = discretize(h1norm, Vh, mapping)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute norms
+    error = l2norm_h.assemble(F=phi)
+    print('> L2 norm      = ', error)
+
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
+    # ...
+
 ###############################################
 if __name__ == '__main__':
 
-    # ...
-    test_api_bilinear_2d_sumform_1()
-    test_api_bilinear_2d_sumform_2()
-    test_api_poisson_2d_dirneu_1()
-    test_api_poisson_2d_dirneu_2()
+#    # ... without mapping
+#    test_api_bilinear_2d_sumform_1()
+#    test_api_bilinear_2d_sumform_2()
+#    test_api_poisson_2d_dirneu_1()
+#    test_api_poisson_2d_dirneu_2()
+#
+#    test_api_poisson_2d_dir_1()
+#    test_api_laplace_2d_dir_1()
+#    test_api_vector_l2_projection_2d_dir_1()
+#    test_api_vector_laplace_2d_dir_1()
+#    test_api_vector_2d_2()
+#    # ...
+
+    # ... with mapping
+#    test_api_poisson_2d_dir_1_mapping()
     # ...
 
-    # ...
-    test_api_poisson_2d_dir_1()
-    test_api_laplace_2d_dir_1()
-    test_api_vector_l2_projection_2d_dir_1()
-    test_api_vector_laplace_2d_dir_1()
-    test_api_poisson_2d_dir_1_mapping()
-    test_api_vector_2d_2()
-    # ...
+    # ... with analytical collela mapping
+    test_api_poisson_2d_dir_analytical_collela()
+    # ...
 
     # ...
 ##    test_api_vector_2d_1()

@@ -68,7 +68,7 @@ def create_discrete_space(p=(3,3), ne=(2**4,2**4), periodic=[False, False], comm
     return V
 
 
-def test_perf_poisson_2d_dir_1(backend=SPL_BACKEND_PYTHON):
+def test_api_poisson_2d_dir_1(backend=SPL_BACKEND_PYTHON):
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -144,8 +144,86 @@ def test_perf_poisson_2d_dir_1(backend=SPL_BACKEND_PYTHON):
         print('> H1 seminorm  = ', error)
     # ...
 
+def test_api_poisson_2d_dir_collela(backend=SPL_BACKEND_PYTHON):
+
+    # ... abstract model
+    mapping = Mapping('M', rdim=2, domain=domain)
+
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B1 = Boundary(r'\Gamma_1', domain)
+    B2 = Boundary(r'\Gamma_2', domain)
+    B3 = Boundary(r'\Gamma_3', domain)
+    B4 = Boundary(r'\Gamma_4', domain)
+
+    x,y = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr, mapping=mapping)
+
+    expr = 2*pi**2*sin(pi*x)*sin(pi*y)*v
+    l = LinearForm(v, expr, mapping=mapping)
+
+    error = F -sin(pi*x)*sin(pi*y)
+    l2norm = Norm(error, domain, kind='l2', name='u', mapping=mapping)
+    h1norm = Norm(error, domain, kind='h1', name='u', mapping=mapping)
+
+    bc = [DirichletBC(i) for i in [B1, B2, B3, B4]]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # Communicator, size, rank
+    mpi_comm = MPI.COMM_WORLD
+    mpi_size = mpi_comm.Get_size()
+    mpi_rank = mpi_comm.Get_rank()
+
+    # ... discrete spaces
+    Vh, mapping = fem_context('collela.h5', comm=mpi_comm)
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+
+    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
+    equation_h = discretize(equation, [Vh, Vh], mapping, bc=bc, backend=backend)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh, mapping, backend=backend)
+    h1norm_h = discretize(h1norm, Vh, mapping, backend=backend)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    phi.coeffs.update_ghost_regions()
+    # ...
+
+    # ... compute norms
+    error = l2norm_h.assemble(F=phi)
+    if mpi_rank == 0:
+        print('> L2 norm      = ', error)
+
+    error = h1norm_h.assemble(F=phi)
+    if mpi_rank == 0:
+        print('> H1 seminorm  = ', error)
+    # ...
+
 # TODO not working yet
-def test_perf_laplace_2d_periodic_1(backend=SPL_BACKEND_PYTHON):
+def test_api_laplace_2d_periodic_1(backend=SPL_BACKEND_PYTHON):
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -212,5 +290,7 @@ def test_perf_laplace_2d_periodic_1(backend=SPL_BACKEND_PYTHON):
 ###############################################
 if __name__ == '__main__':
 
-    test_perf_poisson_2d_dir_1()
-#    test_perf_laplace_2d_periodic_1()
+#    test_api_poisson_2d_dir_1()
+#    test_api_laplace_2d_periodic_1()
+    test_api_poisson_2d_dir_collela()
+
