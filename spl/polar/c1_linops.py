@@ -3,6 +3,8 @@
 # Copyright 2018 Yaman Güçlü
 
 import numpy as np
+from itertools    import repeat
+from scipy.sparse import coo_matrix
 
 from spl.linalg.basic   import VectorSpace, Vector, LinearOperator
 from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
@@ -82,6 +84,32 @@ class LinearOperator_StencilToDense( LinearOperator ):
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
+    def tocoo( self ):
+
+        # Extract relevant information from vector spaces
+        n0     = self.codomain.dimension
+        n1, n2 = self.domain.npts
+        p1, p2 = self.domain.pads
+        s1, s2 = self.domain.starts
+        e1, e2 = self.domain.ends
+
+        # Compute 1D arrays 'data', 'rows', 'cols': data[i] = mat[rows[i],cols[i]]
+        data  = []  # non-zero matrix entries
+        rows  = []  # corresponding row indices i
+        cols  = []  # corresponding column indices j
+        for i in range( n0 ):
+            for j1 in range( p1 ):
+                data += self._data[i,j1,:].flat
+                rows += repeat( i, e2-s2+1 )
+                cols += range( j1*n2+s2, j1*n2+e2+1 )
+
+        # Create Scipy sparse matrix in COO format
+        coo = coo_matrix( (data,(rows,cols)), shape=(n0,n1*n2), dtype=self.codomain.dtype )
+        coo.eliminate_zeros()
+
+        return coo
+
+    # ...
     def toarray( self ):
 
         n0     = self.codomain.dimension
@@ -101,11 +129,6 @@ class LinearOperator_StencilToDense( LinearOperator ):
                 a[i,j_start:j_stop] = d[i,j1,:]
 
         return a
-
-    # ...
-    def tocsr( self ):
-        # TODO!!!!
-        pass
 
 #==============================================================================
 class LinearOperator_DenseToStencil( LinearOperator ):
@@ -174,6 +197,32 @@ class LinearOperator_DenseToStencil( LinearOperator ):
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
+    def tocoo( self ):
+
+        # Extract relevant information from vector spaces
+        n0     = self.domain.dimension
+        n1, n2 = self.codomain.npts
+        p1, p2 = self.codomain.pads
+        s1, s2 = self.codomain.starts
+        e1, e2 = self.codomain.ends
+
+        # Compute 1D arrays 'data', 'rows', 'cols': data[i] = mat[rows[i],cols[i]]
+        data  = []  # non-zero matrix entries
+        rows  = []  # corresponding row indices i
+        cols  = []  # corresponding column indices j
+        for i1 in range( p1 ):
+            for i2 in range( s2, e2+1 ):
+                data += self._data[i1,i2,:].flat
+                rows += repeat( i1*n2+i2, n0 )
+                cols += range( n0 )
+
+        # Create Scipy sparse matrix in COO format
+        coo = coo_matrix( (data,(rows,cols)), shape=(n1*n2,n0), dtype=self.codomain.dtype )
+        coo.eliminate_zeros()
+
+        return coo
+
+    # ...
     def toarray( self ):
 
         n0     = self.domain.dimension
@@ -192,8 +241,3 @@ class LinearOperator_DenseToStencil( LinearOperator ):
                 a[i,:] = d[i1,i2,:]
 
         return a
-
-    # ...
-    def tocsr( self ):
-        # TODO!!!
-        pass

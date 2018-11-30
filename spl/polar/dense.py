@@ -3,6 +3,7 @@
 # Copyright 2018 Yaman Güçlü
 
 import numpy as np
+from scipy.sparse import coo_matrix
 
 from spl.linalg.basic import VectorSpace, Vector, LinearOperator
 
@@ -175,6 +176,9 @@ class DenseLinearOperator( LinearOperator ):
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
+    def tocoo( self ):
+        return coo_matrix( self._data )
+
+    # ...
     def toarray( self ):
         return self._data.copy()
-
