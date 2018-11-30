@@ -18,9 +18,6 @@ class LinearOperator_StencilToDense( LinearOperator ):
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W,   DenseVectorSpace )
 
-        self._domain   = V
-        self._codomain = W
-
         # V space must be 2D for now (TODO: extend to higher dimensions)
         # W space must have 3 components for now (TODO: change to arbitrary n)
         # Only works in serial (TODO: extend to MPI setting)
@@ -32,7 +29,11 @@ class LinearOperator_StencilToDense( LinearOperator ):
 
         data = np.asarray( data )
         assert data.shape == (n0, p1, e2-s2+1)
-        self._data = data
+
+        # Store information in object
+        self._domain   = V
+        self._codomain = W
+        self._data     = data
 
     #--------------------------------------
     # Abstract interface
@@ -74,7 +75,7 @@ class LinearOperator_StencilToDense( LinearOperator ):
         y    =  out._data
 
         for i in range( n0 ):
-            y[i] = np.dot( B_sd[i,:,:].flat, v[2:2+p1,s2:e2+1].flat )
+            y[i] = np.dot( B_sd[i,:,:].flat, v[0:p1,s2:e2+1].flat )
     
         return out
 
@@ -90,8 +91,8 @@ class LinearOperator_StencilToDense( LinearOperator ):
         s1, s2 = self.domain.starts
         e1, e2 = self.domain.ends
 
-        a = np.zeros( (n0, (n1-2)*n2), dtype=self.codomain.dtype )
-        d = self._data
+        a  = np.zeros( (n0,n1*n2), dtype=self.codomain.dtype )
+        d  = self._data
 
         for i in range( n0 ):
             for j1 in range( p1 ):
@@ -114,8 +115,9 @@ class LinearOperator_DenseToStencil( LinearOperator ):
         assert isinstance( V,   DenseVectorSpace )
         assert isinstance( W, StencilVectorSpace )
 
-        self._domain   = V
-        self._codomain = W
+        # V space must have 3 components for now (TODO: change to arbitrary n)
+        # W space must be 2D for now (TODO: extend to higher dimensions)
+        # Only works in serial (TODO: extend to MPI setting)
 
         s1, s2 = W.starts
         e1, e2 = W.ends
@@ -124,7 +126,11 @@ class LinearOperator_DenseToStencil( LinearOperator ):
 
         data = np.asarray( data )
         assert data.shape == (p1, e2-s2+1, n0)
-        self._data = data
+
+        # Store information in object
+        self._domain   = V
+        self._codomain = W
+        self._data     = data
 
     #--------------------------------------
     # Abstract interface
@@ -161,11 +167,7 @@ class LinearOperator_DenseToStencil( LinearOperator ):
         B_ds = self._data
         x    =    v._data
 
-        out[2:2+p1,s2:e2+1] = np.dot( B_ds, x )
-
-        # TODO: block-matrix should update ghost regions to reduce communication
-        # TODO: here it would be enough to flag the ghost regions as outdated
-        out.update_ghost_regions()
+        out[0:p1,s2:e2+1] = np.dot( B_ds, x )
 
         return out
 
@@ -181,8 +183,8 @@ class LinearOperator_DenseToStencil( LinearOperator ):
         s1, s2 = self.codomain.starts
         e1, e2 = self.codomain.ends
 
-        a = np.zeros( ((n1-2)*n2,n0), dtype=self.codomain.dtype )
-        d = self._data
+        a  = np.zeros( (n1*n2,n0), dtype=self.codomain.dtype )
+        d  = self._data
 
         for i1 in range( p1 ):
             for i2 in range( s2, e2+1 ):

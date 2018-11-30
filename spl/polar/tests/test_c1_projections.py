@@ -123,11 +123,11 @@ def test_c1_projections( degrees, ncells, verbose=False ):
     if verbose:
         print( "(E^T A E) b' :" )
         print( Ap_bp[0].toarray() )
-        print( Ap_bp[1].toarray().reshape( b.space.npts ) )
+        print( Ap_bp[1].toarray().reshape( Ap_bp[1].space.npts ) )
         print()
         print( "E^T (A (E b')) :" )
         print( Et_A_E_bp[0].toarray() )
-        print( Et_A_E_bp[1].toarray().reshape( b.space.npts ) )
+        print( Et_A_E_bp[1].toarray().reshape( Et_A_E_bp[1].space.npts ) )
         print()
 
     # Verity that two results are identical

@@ -628,8 +628,9 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction ):
 
     if c1_correction:
         # only bc is at s=1
-        Sp[1,1][V1.nbasis-1,:,:,:] = 0.
-        bp[1]  [V1.nbasis-1,:]     = 0.
+        last = bp[1].space.npts[0]-1
+        Sp[1,1][last,:,:,:] = 0.
+        bp[1]  [last,:]     = 0.
 
     # Solve linear system
     if c1_correction:

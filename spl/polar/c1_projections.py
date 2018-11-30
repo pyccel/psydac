@@ -5,13 +5,12 @@
 import numpy as np
 
 from spl.mapping.discrete import SplineMapping
-
-from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from spl.linalg.block   import ProductSpace, BlockVector, BlockLinearOperator
-from spl.polar .dense   import DenseVectorSpace, DenseVector, DenseLinearOperator
-
-from spl.polar.c1_linops import LinearOperator_StencilToDense
-from spl.polar.c1_linops import LinearOperator_DenseToStencil
+from spl.linalg.stencil   import StencilVectorSpace, StencilVector, StencilMatrix
+from spl.linalg.block     import ProductSpace, BlockVector, BlockLinearOperator
+from spl.polar .dense     import DenseVectorSpace, DenseVector, DenseLinearOperator
+from spl.polar.c1_spaces  import new_c1_vector_space
+from spl.polar.c1_linops  import LinearOperator_StencilToDense
+from spl.polar.c1_linops  import LinearOperator_DenseToStencil
 
 #===============================================================================
 class C1Projector:
@@ -40,14 +39,9 @@ class C1Projector:
         lamb = self.compute_lambda( mapping )
         self._L = np.array( lamb )
 
-        # Additional spaces
-        D = DenseVectorSpace( 3 )
-        P = ProductSpace( D, S )
-
-        # Store spaces
-        self._D = D
+        # Vector spaces
         self._S = S
-        self._P = P
+        self._P = new_c1_vector_space( S, radial_dim=0 )
 
     # ...
     def compute_lambda( self, mapping ):
@@ -96,17 +90,12 @@ class C1Projector:
 
     # ...
     @property
-    def space_D( self ):
-        return self._D
-
-    # ...
-    @property
-    def space_S( self ):
+    def tensor_space( self ):
         return self._S
 
     # ...
     @property
-    def space_P( self ):
+    def c1_space( self ):
         return self._P
 
     #---------------------------------------------------------------------------
@@ -117,15 +106,16 @@ class C1Projector:
         """
 
         assert isinstance( G, StencilMatrix )
-        assert G.domain   == self.space_S
-        assert G.codomain == self.space_S
+        assert G.domain   == self.tensor_space
+        assert G.codomain == self.tensor_space
+
+        L = self._L
+        P = self.c1_space
 
         n1, n2 = G.domain.npts
         s1, s2 = G.starts
         e1, e2 = G.ends
         p1, p2 = G.pads
-
-        L = self._L
 
         #****************************************
         # Compute A' = L^T A L
@@ -152,6 +142,9 @@ class C1Projector:
             for v in range( 3 ):
                 Ap[u,v] = np.dot( L[u,:,:].flat, AL[v,:,:].flat )
 
+        # Create linear operator
+        Ap = DenseLinearOperator( P[0], P[0], Ap )
+
         #****************************************
         # Compute B' = L^T B
         #****************************************
@@ -167,6 +160,9 @@ class C1Projector:
                             j2 = (i2+k2) % n2
 
                             Bp[u,j1-2,j2] += L[u,i1,i2] * G[i1,i2,j1-i1,k2]
+
+        # Create linear operator
+        Bp = LinearOperator_StencilToDense( P[1], P[0], Bp )
 
         #****************************************
         # Compute C' = C L
@@ -187,46 +183,31 @@ class C1Projector:
 
                     Cp[i1-2,i2,v] = temp
 
+        # Create linear operator
+        Cp = LinearOperator_DenseToStencil( P[0], P[1], Cp )
+
         #****************************************
         # Store D' = D
         #****************************************
-        Dp = G.copy()
 
-        # Nullify all elements with i1 in {0,1}
-        Dp[0:2,:,:,:] = 0.0
-        
-        # Nullify all elements with j1 in {0,1}
-        for j1 in [0,1]:
-            for i1 in range( 2, j1+p1+1 ):
-                Dp[i1,:,j1-i1,:] = 0.0
+        # Create linear operator
+        Dp = StencilMatrix( P[1], P[1] )
 
-#        for i1 in range( 2, 2+p1 ):
-#            Dp[i1,:,max(-i1,-p1):2-i1,:] = 0.0
-
-#        for i1 in range( 2, 2+p1 ):
-#            for j1 in [0,1]:
-#                if abs( j1-i1 ) <= p1:
-#                    Dp[i1,:,j1-i1,:] = 0.0
+        # Copy all data from G, but skip values for i1 = 0, 1
+        Dp[0:,:,:,:] = G[2:,:,:,:]
 
         #****************************************
         # Consistency checks
         #****************************************
 
         # Is it true that C'=(B')^T ?
-        assert np.allclose( Cp, np.moveaxis( Bp, 0, -1 ), rtol=1e-14, atol=1e-14 )
+        assert np.allclose( Cp._data, np.moveaxis( Bp._data, 0, -1 ), rtol=1e-14, atol=1e-14 )
 
         #****************************************
-        # Block linear operator
+        # Block linear operator G' = E^T G E
         #****************************************
 
-        Gp = BlockLinearOperator( self.space_P, self.space_P )
-
-        Gp[0,0] = DenseLinearOperator          ( self.space_D, self.space_D, Ap )
-        Gp[0,1] = LinearOperator_StencilToDense( self.space_S, self.space_D, Bp )
-        Gp[1,0] = LinearOperator_DenseToStencil( self.space_D, self.space_S, Cp )
-        Gp[1,1] = Dp
-
-        return Gp
+        return BlockLinearOperator( P, P, blocks = [[Ap, Bp], [Cp, Dp]] )
 
     #---------------------------------------------------------------------------
     def change_rhs_basis( self, b ):
@@ -240,9 +221,11 @@ class C1Projector:
         # TODO: make this work in parallel
 
         assert isinstance( b, StencilVector )
-        assert b.space == self.space_S
+        assert b.space == self.tensor_space
 
         L = self._L
+        P = self.c1_space
+
         s1, s2 = b.starts
         e1, e2 = b.ends
 
@@ -252,16 +235,11 @@ class C1Projector:
                 for i2 in range( s2, e2+1 ):
                     bp0[u] += L[u,i1,i2] * b[i1,i2]
 
-        bp1 = b.copy()
-        if s1 == 0 and e1 >= 2:
-            bp1[0:2,:] = 0.0
-        bp1.update_ghost_regions()
+        bp0 =   DenseVector( P[0], bp0 )
+        bp1 = StencilVector( P[1] )
+        bp1[0:,:,:,:] = b[2:,:,:,:]
 
-        bp    = BlockVector( self._P )
-        bp[0] = DenseVector( self._D, bp0 )
-        bp[1] = bp1
-
-        return bp
+        return BlockVector( P, blocks = [bp0, bp1] )
 
     #---------------------------------------------------------------------------
     def convert_to_tensor_basis( self, vp ):
@@ -272,22 +250,21 @@ class C1Projector:
         # TODO: make this work in parallel
 
         assert isinstance( vp, BlockVector )
-        assert vp.space == self.space_P
+        assert vp.space == self.c1_space
 
         L = self._L
 
-        v = vp[1].copy()
+        v = StencilVector( self.tensor_space )
+        v[2:,:] = vp[1][0:,:]
+
         s1, s2 = v.starts
         e1, e2 = v.ends
 
         vp0 = vp[0].toarray()
-
         for i1 in [0,1]:
             for i2 in range( s2, e2+1 ):
                 for u in [0,1,2]:
                     v[i1,i2] = np.dot( L[:,i1,i2], vp0 )
-
-        v.update_ghost_regions()
 
         return v
 
