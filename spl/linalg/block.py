@@ -180,6 +180,10 @@ class BlockVector( Vector ):
     def blocks( self ):
         return tuple( self._blocks )
 
+    # ...
+    def toarray( self ):
+        return np.concatenate( [bi.toarray() for bi in self._blocks] )
+
 #===============================================================================
 class BlockLinearOperator( LinearOperator ):
     """
