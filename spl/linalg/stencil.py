@@ -41,7 +41,7 @@ class StencilVectorSpace( VectorSpace ):
     """
     def __init__( self, *args, **kwargs ):
 
-        if len(args) == 1 or hasattr( kwargs, 'cart' ):
+        if len(args) == 1 or ('cart' in kwargs):
             self._init_parallel( *args, **kwargs )
         else:
             self._init_serial  ( *args, **kwargs )

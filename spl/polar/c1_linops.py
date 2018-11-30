@@ -86,7 +86,7 @@ class LinearOperator_StencilToDense( LinearOperator ):
         n0     = self.codomain.dimension
 
         n1, n2 = self.domain.npts
-        p1, p1 = self.domain.pads
+        p1, p2 = self.domain.pads
         s1, s2 = self.domain.starts
         e1, e2 = self.domain.ends
 
@@ -177,7 +177,7 @@ class LinearOperator_DenseToStencil( LinearOperator ):
         n0     = self.domain.dimension
 
         n1, n2 = self.codomain.npts
-        p1, p1 = self.codomain.pads
+        p1, p2 = self.codomain.pads
         s1, s2 = self.codomain.starts
         e1, e2 = self.codomain.ends
 
