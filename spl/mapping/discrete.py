@@ -92,7 +92,7 @@ class SplineMapping( Mapping ):
         # TODO: use one unique field belonging to VectorFemSpace
         name   = random_string( 8 )
         fields = [FemField( tensor_space, 'mapping_{name}_x{d}'.format( name=name, d=d ) )
-                  for d in range( control_points.shape[2] )]
+                  for d in range( control_points.shape[-1] )]
 
         # Get spline coefficients for each coordinate X_i
         starts = tensor_space.vector_space.starts
