@@ -52,8 +52,8 @@ def export_analytical_mapping(mapping, ncells, degree, filename, **kwargs):
     from spl.mapping.analytical_gallery import Annulus, Target, Czarny, Collela
 
     dim = len(ncells)
-    if not( dim == 2 ):
-        raise NotImplementedError('only 2d is available')
+    if not( dim in [2,3] ):
+        raise NotImplementedError('only 2d, 3d are available')
 
     mapping = mapping.lower()
 
@@ -61,7 +61,7 @@ def export_analytical_mapping(mapping, ncells, degree, filename, **kwargs):
     if dim == 2:
         # Input parameters
         if mapping == 'identity':
-            map_analytic = IdentityMapping( ndim=2 )
+            map_analytic = IdentityMapping( ndim=dim )
             lims1   = (0, 1)
             lims2   = (0, 1)
             period1 = False
@@ -92,6 +92,29 @@ def export_analytical_mapping(mapping, ncells, degree, filename, **kwargs):
 
         # Create spline mapping by interpolating analytical one
         map_discrete = SplineMapping.from_mapping( space, map_analytic )
+
+    elif dim == 3:
+        # Input parameters
+        if mapping == 'identity':
+            map_analytic = IdentityMapping( ndim=dim )
+            lims1   = (0, 1)
+            lims2   = (0, 1)
+            lims3   = (0, 1)
+            period1 = False
+            period2 = False
+            period3 = False
+
+        p1 , p2 , p3  = degree
+        nc1, nc2, nc3 = ncells
+
+        # Create tensor spline space, distributed
+        V1 = SplineSpace( grid=np.linspace( *lims1, num=nc1+1 ), degree=p1, periodic=period1 )
+        V2 = SplineSpace( grid=np.linspace( *lims2, num=nc2+1 ), degree=p2, periodic=period2 )
+        V3 = SplineSpace( grid=np.linspace( *lims3, num=nc3+1 ), degree=p3, periodic=period3 )
+        space = TensorFemSpace( V1, V2, V3, comm=MPI.COMM_WORLD )
+
+        # Create spline mapping by interpolating analytical one
+        map_discrete = SplineMapping.from_mapping( space, map_analytic )
     # ...
 
     # ... TODO remove this later, once we have export h5
@@ -100,19 +123,33 @@ def export_analytical_mapping(mapping, ncells, degree, filename, **kwargs):
     shape  = [V.nbasis for V in space.spaces] + [3]
     points = np.zeros(shape)
     for i,c in enumerate(coeffs):
-        points[:,:,i] = c.reshape([V.nbasis for V in space.spaces])
+        points[...,i] = c.reshape([V.nbasis for V in space.spaces])
 
     from caid.cad_geometry import cad_geometry
     from caid.cad_geometry import cad_nurbs
 
     nrb = cad_nurbs(knots, points)
-    nrb.orientation = [-1,1,1,-1]
+    # ...
+    rdim = 3
+    if dim == 2:
+        nrb.orientation = [-1,1,1,-1] # not used
+        external_faces = [[0,0],[0,1],[0,2],[0,3]]
+
+    elif dim == 3:
+        nrb.orientation = [-1,1,1,-1,1,-1] # not used
+        external_faces = [[0,0],[0,1],[0,2],[0,3],[0,4],[0,5]]
+    # ...
+
+    # ...
     geo = cad_geometry()
+    geo._r_dim = rdim
     geo.append(nrb)
+
     # TODO must be done automaticaly
     geo._internal_faces = []
-    geo._external_faces = [[0,0],[0,1],[0,2],[0,3]]
+    geo._external_faces = external_faces
     geo._connectivity   = []
+    # ...
 
     extension = os.path.splitext(filename)[1]
     if not extension == '.h5':
