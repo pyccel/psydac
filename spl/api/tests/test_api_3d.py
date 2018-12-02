@@ -175,6 +175,7 @@ def test_api_poisson_3d_dir_1_mapping(backend=SPL_BACKEND_PYTHON):
 
     # ... discrete spaces
     Vh, mapping = fem_context('identity_3d.h5')
+#    Vh, mapping = fem_context('collela_3d.h5')
     # ...
 
     # ... dsicretize the equation using Dirichlet bc

@@ -50,6 +50,7 @@ def export_analytical_mapping(mapping, ncells, degree, filename, **kwargs):
     from spl.mapping.discrete           import SplineMapping
     from spl.mapping.analytical         import IdentityMapping
     from spl.mapping.analytical_gallery import Annulus, Target, Czarny, Collela
+    from spl.mapping.analytical_gallery import Collela3D
 
     dim = len(ncells)
     if not( dim in [2,3] ):
@@ -97,6 +98,15 @@ def export_analytical_mapping(mapping, ncells, degree, filename, **kwargs):
         # Input parameters
         if mapping == 'identity':
             map_analytic = IdentityMapping( ndim=dim )
+            lims1   = (0, 1)
+            lims2   = (0, 1)
+            lims3   = (0, 1)
+            period1 = False
+            period2 = False
+            period3 = False
+
+        elif mapping == 'collela':
+            map_analytic = Collela3D( **kwargs )
             lims1   = (0, 1)
             lims2   = (0, 1)
             lims3   = (0, 1)
