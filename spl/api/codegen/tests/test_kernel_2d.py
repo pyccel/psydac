@@ -270,6 +270,26 @@ def test_kernel_linear_2d_scalar_4(mapping=False):
     code = pycode(kernel)
     if DEBUG: print(code)
 
+def test_kernel_linear_2d_scalar_5(mapping=False):
+    print('============ test_kernel_linear_2d_scalar_5 =============')
+
+    if mapping: mapping = Mapping('M', rdim=DIM, domain=domain)
+
+    V = FunctionSpace('V', domain)
+    x,y = domain.coordinates
+
+    v = TestFunction(V, name='v')
+
+    F = Field('F', space=V)
+
+    expr = dot(grad(F), grad(v))
+    a = LinearForm(v, expr, mapping=mapping)
+
+    kernel_expr = evaluate(a)
+    kernel = Kernel(a, kernel_expr, name='kernel')
+    code = pycode(kernel)
+    if DEBUG: print(code)
+
 def test_kernel_linear_2d_block_1(mapping=False):
     print('============ test_kernel_linear_2d_block_1 =============')
 
@@ -367,51 +387,54 @@ if __name__ == '__main__':
 #    test_kernel_function_2d_scalar_2(mapping=False)
 #    test_kernel_function_2d_scalar_3(mapping=False)
 
-    # .................................
-    # without mapping
-    test_kernel_bilinear_2d_scalar_1(mapping=False)
-    test_kernel_bilinear_2d_scalar_2(mapping=False)
-    test_kernel_bilinear_2d_scalar_3(mapping=False)
-    test_kernel_bilinear_2d_scalar_4(mapping=False)
-    test_kernel_bilinear_2d_scalar_5(mapping=False)
-    test_kernel_bilinear_2d_scalar_6(mapping=False)
-    test_kernel_bilinear_2d_block_1(mapping=False)
+    test_kernel_linear_2d_scalar_5(mapping=True)
 
-    # with mapping
-    test_kernel_bilinear_2d_scalar_1(mapping=True)
-    test_kernel_bilinear_2d_scalar_2(mapping=True)
-    test_kernel_bilinear_2d_scalar_3(mapping=True)
-    test_kernel_bilinear_2d_scalar_4(mapping=True)
-#    test_kernel_bilinear_2d_scalar_5(mapping=True)
-    test_kernel_bilinear_2d_scalar_6(mapping=True)
-    test_kernel_bilinear_2d_block_1(mapping=True)
-    # .................................
 
-    # .................................
-    # without mapping
-    test_kernel_linear_2d_scalar_1(mapping=False)
-    test_kernel_linear_2d_scalar_2(mapping=False)
-    test_kernel_linear_2d_scalar_3(mapping=False)
-    test_kernel_linear_2d_scalar_4(mapping=False)
-    test_kernel_linear_2d_block_1(mapping=False)
-    test_kernel_linear_2d_block_2(mapping=False)
-
-    # with mapping
-    test_kernel_linear_2d_scalar_1(mapping=True)
-    test_kernel_linear_2d_scalar_2(mapping=True)
-    test_kernel_linear_2d_scalar_3(mapping=True)
-    test_kernel_linear_2d_block_1(mapping=True)
+#    # .................................
+#    # without mapping
+#    test_kernel_bilinear_2d_scalar_1(mapping=False)
+#    test_kernel_bilinear_2d_scalar_2(mapping=False)
+#    test_kernel_bilinear_2d_scalar_3(mapping=False)
+#    test_kernel_bilinear_2d_scalar_4(mapping=False)
+#    test_kernel_bilinear_2d_scalar_5(mapping=False)
+#    test_kernel_bilinear_2d_scalar_6(mapping=False)
+#    test_kernel_bilinear_2d_block_1(mapping=False)
+#
+#    # with mapping
+#    test_kernel_bilinear_2d_scalar_1(mapping=True)
+#    test_kernel_bilinear_2d_scalar_2(mapping=True)
+#    test_kernel_bilinear_2d_scalar_3(mapping=True)
+#    test_kernel_bilinear_2d_scalar_4(mapping=True)
+##    test_kernel_bilinear_2d_scalar_5(mapping=True)
+#    test_kernel_bilinear_2d_scalar_6(mapping=True)
+#    test_kernel_bilinear_2d_block_1(mapping=True)
+#    # .................................
+#
+#    # .................................
+#    # without mapping
+#    test_kernel_linear_2d_scalar_1(mapping=False)
+#    test_kernel_linear_2d_scalar_2(mapping=False)
+#    test_kernel_linear_2d_scalar_3(mapping=False)
+#    test_kernel_linear_2d_scalar_4(mapping=False)
+#    test_kernel_linear_2d_block_1(mapping=False)
 #    test_kernel_linear_2d_block_2(mapping=False)
-    # .................................
-
-    # .................................
-    # without mapping
-    test_kernel_function_2d_scalar_1(mapping=False)
-    test_kernel_function_2d_scalar_2(mapping=False)
-    test_kernel_function_2d_scalar_3(mapping=False)
-
-    # with mapping
-    test_kernel_function_2d_scalar_1(mapping=True)
-    test_kernel_function_2d_scalar_2(mapping=True)
-    test_kernel_function_2d_scalar_3(mapping=True)
-    # .................................
+#
+#    # with mapping
+#    test_kernel_linear_2d_scalar_1(mapping=True)
+#    test_kernel_linear_2d_scalar_2(mapping=True)
+#    test_kernel_linear_2d_scalar_3(mapping=True)
+#    test_kernel_linear_2d_block_1(mapping=True)
+##    test_kernel_linear_2d_block_2(mapping=False)
+#    # .................................
+#
+#    # .................................
+#    # without mapping
+#    test_kernel_function_2d_scalar_1(mapping=False)
+#    test_kernel_function_2d_scalar_2(mapping=False)
+#    test_kernel_function_2d_scalar_3(mapping=False)
+#
+#    # with mapping
+#    test_kernel_function_2d_scalar_1(mapping=True)
+#    test_kernel_function_2d_scalar_2(mapping=True)
+#    test_kernel_function_2d_scalar_3(mapping=True)
+#    # .................................

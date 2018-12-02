@@ -307,7 +307,7 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
 
 def compute_atoms_expr_field(atom, indices_quad,
                             idxs, basis,
-                            test_function):
+                            test_function, mapping):
 
     if not is_field(atom):
         raise TypeError('atom must be a field expr')
@@ -344,12 +344,46 @@ def compute_atoms_expr_field(atom, indices_quad,
 
     # ...
     args = [IndexedBase(field_name)[idxs], test_function]
+
     val_name = print_expression(atom) + '_values'
     val  = IndexedBase(val_name)[indices_quad]
     update = AugAssign(val,'+',Mul(*args))
     # ...
 
-    return init, update
+    # ... map basis function
+    map_stmts = []
+    if mapping and  isinstance(atom, _partial_derivatives):
+        name = print_expression(atom)
+
+        a = get_atom_derivatives(atom)
+
+        M = mapping
+        dim = M.rdim
+        ops = _partial_derivatives[:dim]
+
+        # ... gradient
+        lgrad_B = [d(a) for d in ops]
+        grad_B = Covariant(mapping, lgrad_B)
+        rhs = grad_B[atom.grad_index]
+
+        # update expression
+        elements = [d(M[i]) for d in ops for i in range(0, dim)]
+        for e in elements:
+            new = print_expression(e, mapping_name=False)
+            new = Symbol(new)
+            rhs = rhs.subs(e, new)
+
+        for e in lgrad_B:
+            new = print_expression(e, logical=True)
+            new = Symbol(new)
+            rhs = rhs.subs(e, new)
+        # ...
+
+        map_stmts += [Assign(Symbol(name), rhs)]
+        # ...
+    # ...
+
+    return init, update, map_stmts
 
 def compute_atoms_expr_vector_field(atom, indices_quad,
                             idxs, basis,
@@ -679,7 +713,8 @@ class EvalMapping(SplBasic):
 
 class EvalField(SplBasic):
 
-    def __new__(cls, space, fields, discrete_boundary=None, name=None, boundary_basis=None):
+    def __new__(cls, space, fields, discrete_boundary=None, name=None,
+                boundary_basis=None, mapping=None):
 
         if not isinstance(fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
@@ -687,6 +722,7 @@ class EvalField(SplBasic):
         obj = SplBasic.__new__(cls, space, name=name, prefix='eval_field')
 
         obj._space = space
+        obj._mapping = mapping
         obj._fields = Tuple(*fields)
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis = boundary_basis
@@ -699,8 +735,16 @@ class EvalField(SplBasic):
         return self._space
 
     @property
+    def mapping(self):
+        return self._mapping
+
+    @property
     def fields(self):
         return self._fields
+
+    @property
+    def map_stmts(self):
+        return self._map_stmts
 
     @property
     def boundary_basis(self):
@@ -715,6 +759,7 @@ class EvalField(SplBasic):
     def _initialize(self):
         space = self.space
         dim = space.ldim
+        mapping = self.mapping
 
         field_atoms = self.fields.atoms(Field)
         fields_str = [print_expression(f) for f in self.fields]
@@ -745,19 +790,24 @@ class EvalField(SplBasic):
         Nj = TestFunction(space, name='Nj')
         body = []
         init_basis = OrderedDict()
+        init_map   = OrderedDict()
         updates = []
         for atom in self.fields:
-            init, update = compute_atoms_expr_field(atom, indices_quad, indices_basis,
-                                                    basis, Nj)
+            init, update, map_stmts = compute_atoms_expr_field(atom, indices_quad, indices_basis,
+                                                               basis, Nj,
+                                                               mapping=mapping)
 
             updates.append(update)
 
             basis_name = str(init.lhs)
             init_basis[basis_name] = init
+            for stmt in map_stmts:
+                init_map[str(stmt.lhs)] = stmt
 
         init_basis = OrderedDict(sorted(init_basis.items()))
         body += list(init_basis.values())
         body += updates
+        self._map_stmts = init_map
         # ...
 
         # put the body in tests for loops
@@ -1051,6 +1101,7 @@ class Kernel(SplBasic):
         is_function = isinstance(self.weak_form, Integral)
 
         expr = self.kernel_expr
+        mapping = self.weak_form.mapping
 
         # ...
         n_rows = 1 ; n_cols = 1
@@ -1123,10 +1174,13 @@ class Kernel(SplBasic):
 
         # TODO use print_expression
         fields_str    = sorted(tuple(map(pycode, atomic_expr_field)))
+        fields_logical_str = sorted([print_expression(f, logical=True) for f in
+                                     atomic_expr_field])
         field_atoms   = tuple(expr.atoms(Field))
 
         # ... create EvalField
         self._eval_fields = []
+        self._map_stmts_fields = OrderedDict()
         if atomic_expr_field:
             keyfunc = lambda F: F.space.name
             data = sorted(field_atoms, key=keyfunc)
@@ -1142,8 +1196,12 @@ class Kernel(SplBasic):
 
                 eval_field = EvalField(space, fields_expressions,
                                        discrete_boundary=self.discrete_boundary,
-                                       boundary_basis=self.boundary_basis)
+                                       boundary_basis=self.boundary_basis,
+                                       mapping=mapping)
+
                 self._eval_fields.append(eval_field)
+                for k,v in eval_field.map_stmts.items():
+                    self._map_stmts_fields[k] = v
 
         # update dependencies
         self._dependencies += self.eval_fields
@@ -1268,6 +1326,7 @@ class Kernel(SplBasic):
 
         # ... declarations
         fields        = symbols(fields_str)
+        fields_logical = symbols(fields_logical_str)
 
         fields_coeffs = indexed_variables(['coeff_{}'.format(f) for f in field_atoms],
                                           dtype='real', rank=dim)
@@ -1339,6 +1398,7 @@ class Kernel(SplBasic):
 
         # ...
         self._fields = fields
+        self._fields_logical = fields_logical
         self._fields_coeffs = fields_coeffs
         self._fields_tmp_coeffs = fields_tmp_coeffs
         self._vector_fields = vector_fields
@@ -1446,8 +1506,16 @@ class Kernel(SplBasic):
 
         # ...
         # add fields
-        for i in range(len(fields_val)):
-            body.append(Assign(fields[i],fields_val[i][indices_quad]))
+        if not mapping:
+            for i in range(len(fields_val)):
+                body.append(Assign(fields[i],fields_val[i][indices_quad]))
+
+        else:
+            for i in range(len(fields_val)):
+                body.append(Assign(fields_logical[i],fields_val[i][indices_quad]))
+
+            for k,stmt in self._map_stmts_fields.items():
+                body += [stmt.subs(1/jac, inv_jac)]
 
         # add vector_fields
         for i in range(len(vector_fields_val)):
