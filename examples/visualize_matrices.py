@@ -10,28 +10,11 @@ In [2]: run -i visualize_matrices.py
 
 """
 
+from matplotlib import colors
+
 globals().update( namespace )
 
 #===============================================================================
-
-n2 = V2.nbasis
-
-def mat_block_to_array( mat ):
-    return np.block(
-            [[ mat[0,0].toarray(), mat[0,1].toarray()              ],
-             [ mat[1,0].toarray(), mat[1,1].toarray()[2*n2:,2*n2:] ]] )
-
-def vec_block_to_array( vec ):
-    return np.block( [ vec[0].toarray(), vec[1].toarray()[2*n2:] ] )
-
-# Convert to Numpy arrays
-Sp_array = mat_block_to_array( Sp )
-Mp_array = mat_block_to_array( Mp )
-bp_array = vec_block_to_array( bp )
-
-#===============================================================================
-
-from matplotlib import colors
 
 #----------------
 # Plot M
@@ -45,7 +28,7 @@ fig.show()
 
 #----------------
 # Plot M'
-mat = Mp_array
+mat = Mp.toarray()
 #----------------
 fig,ax = plt.subplots(1,1)
 ax.set_title( "C^1 mass matrix M' (projection of M)" )
@@ -66,7 +49,7 @@ fig.show()
 
 #----------------
 # Plot S'
-mat = Sp_array
+mat = Sp.toarray()
 #----------------
 fig,ax = plt.subplots(1,1)
 ax.set_title( "C^1 stiffness matrix S' (projection of S)" )
