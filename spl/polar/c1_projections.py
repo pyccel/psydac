@@ -6,7 +6,7 @@ import numpy as np
 
 from spl.mapping.discrete import SplineMapping
 from spl.linalg.stencil   import StencilVectorSpace, StencilVector, StencilMatrix
-from spl.linalg.block     import ProductSpace, BlockVector, BlockLinearOperator
+from spl.linalg.block     import ProductSpace, BlockVector, BlockMatrix
 from spl.polar .dense     import DenseVectorSpace, DenseVector, DenseLinearOperator
 from spl.polar.c1_spaces  import new_c1_vector_space
 from spl.polar.c1_linops  import LinearOperator_StencilToDense
@@ -196,6 +196,9 @@ class C1Projector:
         # Copy all data from G, but skip values for i1 = 0, 1
         Dp[0:,:,:,:] = G[2:,:,:,:]
 
+        # Remove values with negative j1 which may have polluted ghost region
+        Dp.remove_spurious_entries()
+
         #****************************************
         # Consistency checks
         #****************************************
@@ -207,7 +210,7 @@ class C1Projector:
         # Block linear operator G' = E^T G E
         #****************************************
 
-        return BlockLinearOperator( P, P, blocks = [[Ap, Bp], [Cp, Dp]] )
+        return BlockMatrix( P, P, blocks = [[Ap, Bp], [Cp, Dp]] )
 
     #---------------------------------------------------------------------------
     def change_rhs_basis( self, b ):
