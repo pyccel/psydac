@@ -358,7 +358,8 @@ class BlockMatrix( BlockLinearOperator ):
 
     # ...
     def tocoo( self ):
-
+        """ Convert to Scipy's COO format.
+        """
         # Convert all blocks to COO format
         blocks_coo = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
         for (i,j), Mij in self._blocks.items():
@@ -373,3 +374,9 @@ class BlockMatrix( BlockLinearOperator ):
         assert coo.shape[1] == self.  domain.dimension
 
         return coo
+
+    # ...
+    def toarray( self ):
+        """ Convert to 2D Numpy array.
+        """
+        return self.tocoo().toarray()
