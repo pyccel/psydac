@@ -2374,7 +2374,7 @@ class Interface(SplBasic):
         if is_bilinear or is_linear:
             if len(global_matrices) > 1:
                 if is_bilinear:
-                    L = Symbol('L')
+                    L = IndexedBase('L')
 
                     body += [Import('BlockMatrix', 'spl.linalg.block')]
 
@@ -2393,16 +2393,17 @@ class Interface(SplBasic):
 
                             ind += 1
 
-                    D = Symbol('d')
-                    d = OrderedDict(sorted(d.items()))
-                    body += [Assign(D, d)]
 
                     # ... create product space
                     test_vector_space = DottedName(test_space, 'vector_space')
                     trial_vector_space = DottedName(trial_space, 'vector_space')
                     # ...
 
-                    body += [Assign(L, FunctionCall('BlockMatrix', [test_vector_space, trial_vector_space, D]))]
+                    body += [Assign(L, FunctionCall('BlockMatrix', [test_vector_space, trial_vector_space]))]
+                    d = OrderedDict(sorted(d.items()))
+                    for k,v in d.items():
+                        body += [Assign(L[k], v)]
+
 
                 elif is_linear:
                     L = IndexedBase('L')

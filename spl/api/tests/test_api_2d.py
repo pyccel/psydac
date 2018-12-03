@@ -985,7 +985,7 @@ if __name__ == '__main__':
 #    test_api_poisson_2d_dir_1()
 #    test_api_laplace_2d_dir_1()
 #    test_api_vector_l2_projection_2d_dir_1()
-#    test_api_vector_laplace_2d_dir_1()
+    test_api_vector_laplace_2d_dir_1()
 #    test_api_vector_2d_2()
 #    # ...
 
@@ -994,7 +994,7 @@ if __name__ == '__main__':
     # ...
 
     # ... with analytical collela mapping
-    test_api_poisson_2d_dir_analytical_collela()
+#    test_api_poisson_2d_dir_analytical_collela()
     # ...
 
     # ...

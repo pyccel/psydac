@@ -216,7 +216,7 @@ def apply_homogeneous_dirichlet_bc_2d_StencilMatrix(V, bc, a):
 def apply_homogeneous_dirichlet_bc_2d_BlockMatrix(V, bc, a):
     """ Apply homogeneous dirichlet boundary conditions in 2D """
 
-    for ij, M in a.blocks.items():
+    for ij, M in a._blocks.items():
         i_row, i_col = ij
         # TODO must use col space too
         W = V.spaces[i_row]
