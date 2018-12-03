@@ -98,6 +98,10 @@ class Cart():
     # Global properties (same for each process)
     #---------------------------------------------------------------------------
     @property
+    def ndim( self ):
+        return self._ndims
+
+    @property
     def npts( self ):
         return self._npts
 
@@ -112,6 +116,10 @@ class Cart():
     @property
     def reorder( self ):
         return self._reorder
+
+    @property
+    def comm( self ):
+        return self._comm
 
     @property
     def comm_cart( self ):

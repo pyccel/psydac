@@ -15,6 +15,8 @@ from spl.mapping.analytical_gallery import Annulus, Target, Czarny
 from spl.mapping.discrete           import SplineMapping
 from spl.utilities.utils            import refine_array_1d
 
+from spl.polar.c1_projections       import C1Projector
+
 #==============================================================================
 class Laplacian:
 
@@ -58,13 +60,14 @@ class Poisson2D:
     $(\partial^2_{xx} + \partial^2_{yy}) \phi(x,y) = -\rho(x,y)$
 
     """
-    def __init__( self, domain, periodic, mapping, phi, rho ):
+    def __init__( self, domain, periodic, mapping, phi, rho, O_point=False ):
 
         self._domain   = domain
         self._periodic = periodic
         self._mapping  = mapping
         self._phi      = phi
         self._rho      = rho
+        self._O_point  = O_point
 
     # ...
     @staticmethod
@@ -130,7 +133,42 @@ class Poisson2D:
         phi = lambdify( [R,T], phi_e )
         rho = lambdify( [R,T], rho_e )
 
-        return Poisson2D( domain, periodic, mapping, phi, rho )
+        return Poisson2D( domain, periodic, mapping, phi, rho, O_point=(rmin==0) )
+
+    # ...
+    @staticmethod
+    def new_circle():
+        """
+        Solve Poisson's equation on a unit circle centered at (x,y)=(0,0),
+        with logical coordinates (r,theta):
+
+        - The radial coordinate r belongs to the interval [0,1];
+        - The angular coordinate theta belongs to the interval [0,2*pi).
+
+        : code
+        $\phi(x,y) = 1-r**2$.
+
+        """
+        domain   = ((0,1),(0,2*np.pi))
+        periodic = (False, True)
+        mapping  = Annulus()
+
+        from sympy import lambdify
+
+        lapl  = Laplacian( mapping )
+        r,t   = type( mapping ).symbolic.eta
+
+        # Manufactured solutions in logical coordinates
+        phi_e = 1-r**2
+        rho_e = -lapl( phi_e )
+
+        # Callable functions
+        phi = lambdify( [r,t], phi_e )
+        rho = lambdify( [r,t], rho_e )
+
+        rho = np.vectorize( rho )
+
+        return Poisson2D( domain, periodic, mapping, phi, rho, O_point=True )
 
     # ...
     @staticmethod
@@ -151,14 +189,14 @@ class Poisson2D:
         D     = mapping.params['D']
         kx    = 2*pi/(1-k+D)
         ky    = 2*pi/(1+k)
-        phi_e = (1-s**8) * sin( kx*x ) * sin( ky*y )
+        phi_e = (1-s**8) * sin( kx*(x-0.5) ) * cos( ky*y )
         rho_e = -lapl( phi_e )
 
         # Callable functions
         phi = lambdify( [s,t], phi_e )
         rho = lambdify( [s,t], rho_e )
 
-        return Poisson2D( domain, periodic, mapping, phi, rho )
+        return Poisson2D( domain, periodic, mapping, phi, rho, O_point=True )
 
     # ...
     @staticmethod
@@ -175,14 +213,14 @@ class Poisson2D:
         x,y   = (Xd.subs( mapping.params ) for Xd in type( mapping ).symbolic.map)
 
         # Manufactured solution in logical coordinates
-        phi_e = s**2 * (1-s**2) * sin( 2*t+0.3 )
+        phi_e = (1-s**8) * sin( pi*x ) * cos( pi*y )
         rho_e = -lapl( phi_e )
 
         # Callable functions
         phi = lambdify( [s,t], phi_e )
         rho = lambdify( [s,t], rho_e )
 
-        return Poisson2D( domain, periodic, mapping, phi, rho )
+        return Poisson2D( domain, periodic, mapping, phi, rho, O_point=True )
 
     # ...
     @property
@@ -204,6 +242,10 @@ class Poisson2D:
     @property
     def rho( self ):
         return self._rho
+
+    @property
+    def O_point( self ):
+        return self._O_point
 
 #==============================================================================
 def kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s ):
@@ -489,7 +531,7 @@ def assemble_rhs( V, mapping, f ):
 
 ####################################################################################
 
-def main( *, test_case, ncells, degree, use_spline_mapping ):
+def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction ):
 
     timing = {}
 
@@ -498,13 +540,27 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
         model = Poisson2D.new_square( mx=1, my=1 )
     elif test_case == 'annulus':
         model = Poisson2D.new_annulus( rmin=0.1, rmax=1.0 )
+    elif test_case == 'circle':
+        model = Poisson2D.new_circle()
     elif test_case == 'target':
         model = Poisson2D.new_target()
     elif test_case == 'czarny':
         model = Poisson2D.new_czarny()
     else:
-        raise ValueError( "Only available test-cases are 'square', "
-                          "'annulus', 'target' and 'czarny'" )
+        raise ValueError( "Only available test-cases are 'square', 'annulus', "
+                          "'circle', 'target' and 'czarny'" )
+
+    if c1_correction and (not model.O_point):
+        print( "WARNING: cannot use C1 correction in geometry without polar singularity!" )
+        print( "WARNING: setting 'c1_correction' flag to False..." )
+        print()
+        c1_correction = False
+
+    if c1_correction and (not use_spline_mapping):
+        print( "WARNING: cannot use C1 correction without spline mapping!" )
+        print( "WARNING: setting 'c1_correction' flag to False..." )
+        print()
+        c1_correction = False
 
     # Number of elements and spline degree
     ne1, ne2 = ncells
@@ -522,8 +578,8 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     V2 = SplineSpace( p2, grid=grid_2, periodic=per2 ); V2.init_fem()
 
     # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2 )
-#    V = TensorFemSpace( V1, V2, comm=MPI.COMM_WORLD )
+#    V = TensorFemSpace( V1, V2 )
+    V = TensorFemSpace( V1, V2, comm=MPI.COMM_WORLD )
 
     # Analytical and spline mappings
     map_analytic = model.mapping
@@ -534,36 +590,58 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     else:
         mapping = map_analytic
 
-    # Build mass and stiffness matrices
+    # Build mass and stiffness matrices, and right-hand side vector
     t0 = time()
-    mass, stiffness = assemble_matrices( V, mapping, kernel )
+    M, S = assemble_matrices( V, mapping, kernel )
+    b  = assemble_rhs( V, mapping, model.rho )
     t1 = time()
     timing['assembly'] = t1-t0
 
-    # Build right-hand side vector
-    rhs = assemble_rhs( V, mapping, model.rho )
+    # If required by user, create C1 projector and then restrict
+    # stiffness/mass matrices and right-hand-side vector to C1 space
+    if c1_correction:
+        t0 = time()
+        proj = C1Projector( mapping )
+        Sp   = proj.change_matrix_basis( S )
+        Mp   = proj.change_matrix_basis( M )
+        bp   = proj.change_rhs_basis( b )
+        t1 = time()
+        timing['projection'] = t1-t0
 
-    # Apply homogeneous dirichlet boundary conditions
+    # Apply homogeneous Dirichlet boundary conditions where appropriate
     if not V1.periodic:
-        # left  bc at x=0.
-        stiffness[0,:,:,:] = 0.
-        rhs      [0,:]     = 0.
+        if not model.O_point:
+            # left  bc at x=0.
+            S[0,:,:,:] = 0.
+            b[0,:]     = 0.
         # right bc at x=1.
-        stiffness[V1.nbasis-1,:,:,:] = 0.
-        rhs      [V1.nbasis-1,:]     = 0.
+        S[V1.nbasis-1,:,:,:] = 0.
+        b[V1.nbasis-1,:]     = 0.
 
     if not V2.periodic:
         # lower bc at y=0.
-        stiffness[:,0,:,:] = 0.
-        rhs      [:,0]     = 0.
+        S[:,0,:,:] = 0.
+        b[:,0]     = 0.
         # upper bc at y=1.
-        stiffness[:,V2.nbasis-1,:,:] = 0.
-        rhs      [:,V2.nbasis-1]     = 0.
+        S[:,V2.nbasis-1,:,:] = 0.
+        b[:,V2.nbasis-1]     = 0.
+
+    if c1_correction:
+        # only bc is at s=1
+        last = bp[1].space.npts[0]-1
+        Sp[1,1][last,:,:,:] = 0.
+        bp[1]  [last,:]     = 0.
 
     # Solve linear system
-    t0 = time()
-    x, info = cg( stiffness, rhs, tol=1e-9, maxiter=1000, verbose=False )
-    t1 = time()
+    if c1_correction:
+        t0 = time()
+        xp, info = cg( Sp, bp, tol=1e-7, maxiter=100, verbose=True )
+        x = proj.convert_to_tensor_basis( xp )
+        t1 = time()
+    else:
+        t0 = time()
+        x, info = cg( S, b, tol=1e-7, maxiter=100, verbose=True )
+        t1 = time()
     timing['solution'] = t1-t0
 
     # Create potential field
@@ -586,6 +664,10 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     print( '> L2 error      :: {:.2e}'.format( e2 ) )
     print( '' )
     print( '> Assembly time :: {:.2e}'.format( timing['assembly'] ) )
+
+    if c1_correction:
+        print( '> Project. time :: {:.2e}'.format( timing['projection'] ) )
+
     print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
     print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
 
@@ -618,6 +700,12 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     fig.tight_layout()
     fig.show()
 
+    if use_spline_mapping:
+        # Recompute physical coordinates of logical grid using spline mapping
+        pcoords = np.array( [[map_discrete( [e1,e2] ) for e2 in eta2] for e1 in eta1] )
+        xx = pcoords[:,:,0]
+        yy = pcoords[:,:,1]
+
     # Plot numerical solution
     fig, ax = plt.subplots( 1, 1 )
     im = ax.contourf( xx, yy, num, 40, cmap='jet' )
@@ -644,6 +732,8 @@ def main( *, test_case, ncells, degree, use_spline_mapping ):
     fig.tight_layout()
     fig.show()
 
+    return locals()
+
 #==============================================================================
 # Parser
 #==============================================================================
@@ -658,7 +748,7 @@ def parse_input_arguments():
 
     parser.add_argument( '-t',
         type    = str,
-        choices =('square', 'annulus', 'target', 'czarny'),
+        choices =('square', 'annulus', 'circle', 'target', 'czarny'),
         default = 'square',
         dest    = 'test_case',
         help    = 'Test case'
@@ -686,6 +776,12 @@ def parse_input_arguments():
         action  = 'store_true',
         dest    = 'use_spline_mapping',
         help    = 'Use spline mapping in finite element calculations'
+    )
+
+    parser.add_argument( '-c',
+        action  = 'store_true',
+        dest    = 'c1_correction',
+        help    = 'Apply C1 correction at polar singularity (O point)'
     )
 
     return parser.parse_args()
