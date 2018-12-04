@@ -387,7 +387,7 @@ def compute_atoms_expr_field(atom, indices_quad,
 
 def compute_atoms_expr_vector_field(atom, indices_quad,
                             idxs, basis,
-                            test_function):
+                            test_function, mapping):
 
     if not is_vector_field(atom):
         raise TypeError('atom must be a vector field expr')
@@ -431,7 +431,40 @@ def compute_atoms_expr_vector_field(atom, indices_quad,
     update = AugAssign(val,'+',Mul(*args))
     # ...
 
-    return init, update
+    # ... map basis function
+    map_stmts = []
+    if mapping and  isinstance(atom, _partial_derivatives):
+        name = print_expression(atom)
+
+        a = get_atom_derivatives(atom)
+
+        M = mapping
+        dim = M.rdim
+        ops = _partial_derivatives[:dim]
+
+        # ... gradient
+        lgrad_B = [d(a) for d in ops]
+        grad_B = Covariant(mapping, lgrad_B)
+        rhs = grad_B[atom.grad_index]
+
+        # update expression
+        elements = [d(M[i]) for d in ops for i in range(0, dim)]
+        for e in elements:
+            new = print_expression(e, mapping_name=False)
+            new = Symbol(new)
+            rhs = rhs.subs(e, new)
+
+        for e in lgrad_B:
+            new = print_expression(e, logical=True)
+            new = Symbol(new)
+            rhs = rhs.subs(e, new)
+        # ...
+
+        map_stmts += [Assign(Symbol(name), rhs)]
+        # ...
+    # ...
+
+    return init, update, map_stmts
 
 def compute_atoms_expr_mapping(atom, indices_quad,
                                idxs, basis,
@@ -835,7 +868,8 @@ class EvalField(SplBasic):
 
 class EvalVectorField(SplBasic):
 
-    def __new__(cls, space, vector_fields, discrete_boundary=None, name=None, boundary_basis=None):
+    def __new__(cls, space, vector_fields, discrete_boundary=None, name=None,
+                boundary_basis=None, mapping=None):
 
         if not isinstance(vector_fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
@@ -843,6 +877,7 @@ class EvalVectorField(SplBasic):
         obj = SplBasic.__new__(cls, space, name=name, prefix='eval_vector_field')
 
         obj._space = space
+        obj._mapping = mapping
         obj._vector_fields = Tuple(*vector_fields)
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis = boundary_basis
@@ -855,8 +890,16 @@ class EvalVectorField(SplBasic):
         return self._space
 
     @property
+    def mapping(self):
+        return self._mapping
+
+    @property
     def vector_fields(self):
         return self._vector_fields
+
+    @property
+    def map_stmts(self):
+        return self._map_stmts
 
     @property
     def boundary_basis(self):
@@ -871,6 +914,7 @@ class EvalVectorField(SplBasic):
     def _initialize(self):
         space = self.space
         dim = space.ldim
+        mapping = self.mapping
 
         vector_field_atoms = self.vector_fields.atoms(VectorField)
         vector_field_atoms = [f[i] for f in vector_field_atoms for i in range(0, dim)]
@@ -902,19 +946,24 @@ class EvalVectorField(SplBasic):
         Nj = VectorField(space, name='Nj')
         body = []
         init_basis = OrderedDict()
+        init_map   = OrderedDict()
         updates = []
         for atom in self.vector_fields:
-            init, update = compute_atoms_expr_vector_field(atom, indices_quad, indices_basis,
-                                                           basis, Nj)
+            init, update, map_stmts = compute_atoms_expr_vector_field(atom, indices_quad, indices_basis,
+                                                                      basis, Nj,
+                                                                      mapping=mapping)
 
             updates.append(update)
 
             basis_name = str(init.lhs)
             init_basis[basis_name] = init
+            for stmt in map_stmts:
+                init_map[str(stmt.lhs)] = stmt
 
         init_basis = OrderedDict(sorted(init_basis.items()))
         body += list(init_basis.values())
         body += updates
+        self._map_stmts = init_map
         # ...
 
         # put the body in tests for loops
@@ -1210,6 +1259,8 @@ class Kernel(SplBasic):
 
         # ...
         vector_fields_str    = sorted(tuple(print_expression(i) for i in  atomic_expr_vector_field))
+        vector_fields_logical_str = sorted([print_expression(f, logical=True) for f in
+                                     atomic_expr_vector_field])
         vector_field_atoms   = tuple(expr.atoms(VectorField))
 
         # ... create EvalVectorField
@@ -1228,9 +1279,12 @@ class Kernel(SplBasic):
                         space = list(fs)[0].space
 
                 eval_vector_field = EvalVectorField(space, vector_fields_expressions,
-                                       discrete_boundary=self.discrete_boundary,
-                                       boundary_basis=self.boundary_basis)
+                                                    discrete_boundary=self.discrete_boundary,
+                                                    boundary_basis=self.boundary_basis,
+                                                    mapping=mapping)
                 self._eval_vector_fields.append(eval_vector_field)
+                for k,v in eval_vector_field.map_stmts.items():
+                    self._map_stmts_fields[k] = v
 
         # update dependencies
         self._dependencies += self.eval_vector_fields
@@ -1338,6 +1392,7 @@ class Kernel(SplBasic):
                                               dtype='real', rank=dim)
 
         vector_fields        = symbols(vector_fields_str)
+        vector_fields_logical = symbols(vector_fields_logical_str)
 
         vector_field_atoms = [f[i] for f in vector_field_atoms for i in range(0, dim)]
         coeffs = ['coeff_{}'.format(print_expression(f)) for f in vector_field_atoms]
@@ -1403,6 +1458,7 @@ class Kernel(SplBasic):
         self._fields_coeffs = fields_coeffs
         self._fields_tmp_coeffs = fields_tmp_coeffs
         self._vector_fields = vector_fields
+        self._vector_fields_logical = vector_fields_logical
         self._vector_fields_coeffs = vector_fields_coeffs
         self._mapping_coeffs = mapping_coeffs
         # ...
@@ -1506,21 +1562,37 @@ class Kernel(SplBasic):
         # ...
 
         # ...
-        # add fields
+        # add fields and vector fields
         if not mapping:
+            # ... fields
             for i in range(len(fields_val)):
                 body.append(Assign(fields[i],fields_val[i][indices_quad]))
+            # ...
+
+            # ... vector_fields
+            for i in range(len(vector_fields_val)):
+                body.append(Assign(vector_fields[i],vector_fields_val[i][indices_quad]))
+            # ...
 
         else:
+            # ... fields
             for i in range(len(fields_val)):
                 body.append(Assign(fields_logical[i],fields_val[i][indices_quad]))
+            # ...
 
+            # ... vector_fields
+#            if vector_fields_val:
+#                print(vector_fields_logical)
+#                print(vector_fields_val)
+#                import sys; sys.exit(0)
+            for i in range(len(vector_fields_val)):
+                body.append(Assign(vector_fields_logical[i],vector_fields_val[i][indices_quad]))
+            # ...
+
+            # ... substitute expression of inv_jac
             for k,stmt in self._map_stmts_fields.items():
                 body += [stmt.subs(1/jac, inv_jac)]
-
-        # add vector_fields
-        for i in range(len(vector_fields_val)):
-            body.append(Assign(vector_fields[i],vector_fields_val[i][indices_quad]))
+            # ...
 
         # TODO use positive mapping all the time? Abs?
         if mapping:
