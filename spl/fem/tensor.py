@@ -137,11 +137,20 @@ class TensorFemSpace( FemSpace ):
         bases = []
         index = []
 
-        for (x, space) in zip( eta, self.spaces ):
+        for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
 
             knots  = space.knots
             degree = space.degree
             span   =  find_span( knots, degree, x )
+            #-------------------------------------------------#
+            # Fix span for boundaries between subdomains      #
+            #-------------------------------------------------#
+            # TODO: Use local knot sequence instead of global #
+            #       one to get correct span in all situations #
+            #-------------------------------------------------#
+            if x == xlim[1] and x != knots[-1-degree]:
+                span -= 1
+            #-------------------------------------------------#
             basis  = basis_funs( knots, degree, x, span )
 
             bases.append( basis )
@@ -184,11 +193,20 @@ class TensorFemSpace( FemSpace ):
         bases_1 = []
         index   = []
 
-        for (x, space) in zip( eta, self.spaces ):
+        for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
 
             knots   = space.knots
             degree  = space.degree
             span    =  find_span( knots, degree, x )
+            #-------------------------------------------------#
+            # Fix span for boundaries between subdomains      #
+            #-------------------------------------------------#
+            # TODO: Use local knot sequence instead of global #
+            #       one to get correct span in all situations #
+            #-------------------------------------------------#
+            if x == xlim[1] and x != knots[-1-degree]:
+                span -= 1
+            #-------------------------------------------------#
             basis_0 = basis_funs( knots, degree, x, span )
             basis_1 = basis_funs_1st_der( knots, degree, x, span )
 
