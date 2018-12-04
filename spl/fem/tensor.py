@@ -71,10 +71,26 @@ class TensorFemSpace( FemSpace ):
         coords = v.cart.coords if v.parallel else tuple( [0]*v.ndim )
         nprocs = v.cart.nprocs if v.parallel else tuple( [1]*v.ndim )
 
-        iterator = lambda: zip( v.starts, v.ends, v.pads, coords, nprocs )
+#        iterator = lambda: zip( v.starts, v.ends, v.pads, coords, nprocs )
+#
+#        self._element_starts = [(s   if c == 0    else s-p+1) for s,e,p,c,np in iterator()]
+#        self._element_ends   = [(e-p if c == np-1 else e-p+1) for s,e,p,c,np in iterator()]
 
-        self._element_starts = [(s   if c == 0    else s-p+1) for s,e,p,c,np in iterator()]
-        self._element_ends   = [(e-p if c == np-1 else e-p+1) for s,e,p,c,np in iterator()]
+        self._element_starts = []
+        self._element_ends   = []
+        for (s,e,p,period,c,npr) in zip( v.starts, v.ends, v.pads, v.periods, coords, nprocs ):
+            if period:
+                start = s
+                end   = e
+            else:
+                start = s   if c == 0     else s-p+1
+                end   = e-p if c == npr-1 else e-p+1
+            self._element_starts.append( start )
+            self._element_ends  .append( end   )
+
+        # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
+        self._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
+                           for s,e,space in zip( *self.local_domain, self.spaces ) )
 
         # Create (empty) dictionary that will contain all fields in this space
         self._fields = {}
@@ -305,6 +321,19 @@ class TensorFemSpace( FemSpace ):
 
         """
         return self._element_starts, self._element_ends
+
+    @property
+    def eta_lims( self ):
+        """
+        Eta limits of domain local to the process (for field evaluation).
+
+        Returns
+        -------
+        eta_limits: tuple of (2-tuple of float)
+            Along each dimension i, limits are given as (eta^i_{min}, eta^i_{max}).
+
+        """
+        return self._eta_limits
 
     # ...
     def init_fem( self ):
