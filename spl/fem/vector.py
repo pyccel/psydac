@@ -257,8 +257,7 @@ class ProductFemSpace( FemSpace ):
     # ...
     def init_fem( self, **kwargs ):
         for V in self.spaces:
-            if V.quad_basis is None:
-                V.init_fem( **kwargs )
+            V.init_fem( **kwargs )
 
     # ...
     def init_collocation( self ):
