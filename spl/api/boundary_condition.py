@@ -212,28 +212,6 @@ def apply_homogeneous_dirichlet_bc_2d_StencilMatrix(V, bc, a):
             a[:,e2,:,:] = 0.
 
 
-# V is a ProductFemSpace here
-def apply_homogeneous_dirichlet_bc_2d_BlockMatrix(V, bc, a):
-    """ Apply homogeneous dirichlet boundary conditions in 2D """
-
-    for ij, M in a._blocks.items():
-        i_row, i_col = ij
-        # TODO must use col space too
-        W = V.spaces[i_row]
-        apply_homogeneous_dirichlet_bc(W, bc, M)
-
-
-# V is a ProductFemSpace here
-def apply_homogeneous_dirichlet_bc_2d_BlockVector(V, bc, a):
-    """ Apply homogeneous dirichlet boundary conditions in 2D """
-
-    n_blocks = a.n_blocks
-    for i in range(0, n_blocks):
-        M = a[i]
-        # TODO must use col space too
-        W = V.spaces[i]
-        apply_homogeneous_dirichlet_bc(W, bc, M)
-
 
 def apply_homogeneous_dirichlet_bc_3d_StencilVector(V, bc, a):
     """ Apply homogeneous dirichlet boundary conditions in 3D """
@@ -312,6 +290,29 @@ def apply_homogeneous_dirichlet_bc_3d_StencilMatrix(V, bc, a):
             a[:,:,e3,:,:,:] = 0.
 
 
+# V is a ProductFemSpace here
+def apply_homogeneous_dirichlet_bc_BlockMatrix(V, bc, a):
+    """ Apply homogeneous dirichlet boundary conditions in nD """
+
+    for ij, M in a._blocks.items():
+        i_row, i_col = ij
+        # TODO must use col space too
+        W = V.spaces[i_row]
+        apply_homogeneous_dirichlet_bc(W, bc, M)
+
+
+# V is a ProductFemSpace here
+def apply_homogeneous_dirichlet_bc_BlockVector(V, bc, a):
+    """ Apply homogeneous dirichlet boundary conditions in nD """
+
+    n_blocks = a.n_blocks
+    for i in range(0, n_blocks):
+        M = a[i]
+        # TODO must use col space too
+        W = V.spaces[i]
+        apply_homogeneous_dirichlet_bc(W, bc, M)
+
+
 # TODO must pass two spaces for a matrix
 def apply_homogeneous_dirichlet_bc(V, bc, *args):
 
@@ -326,7 +327,13 @@ def apply_homogeneous_dirichlet_bc(V, bc, *args):
 
         cls = classes[0]
 
-        pattern = 'apply_homogeneous_dirichlet_bc_{dim}d_{name}'
-        apply_bc = pattern.format( dim = V.ldim, name = cls.__name__ )
+        if not isinstance(a, (BlockMatrix, BlockVector)):
+            pattern = 'apply_homogeneous_dirichlet_bc_{dim}d_{name}'
+            apply_bc = pattern.format( dim = V.ldim, name = cls.__name__ )
+
+        else:
+            pattern = 'apply_homogeneous_dirichlet_bc_{name}'
+            apply_bc = pattern.format( name = cls.__name__ )
+
         apply_bc = eval(apply_bc)
         apply_bc(V, bc, a)
