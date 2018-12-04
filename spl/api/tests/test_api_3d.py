@@ -259,8 +259,8 @@ def test_api_vector_laplace_3d_dir_1():
 
     # ... discrete spaces
 #    Vh = create_discrete_space(p=(2,2,2), ne=(2**1,2**1,2**1))
-#    Vh = create_discrete_space(p=(2,2,2), ne=(2**2,2**2,2**2))
-    Vh = create_discrete_space(p=(2,2,2), ne=(2**3,2**3,2**3))
+    Vh = create_discrete_space(p=(2,2,2), ne=(2**2,2**2,2**2))
+#    Vh = create_discrete_space(p=(2,2,2), ne=(2**3,2**3,2**3))
     Vh = ProductFemSpace(Vh, Vh, Vh)
     # ...
 
@@ -278,7 +278,7 @@ def test_api_vector_laplace_3d_dir_1():
 
     # ... discretize norms
     l2norm_h = discretize(l2norm, Vh)
-#    h1norm_h = discretize(h1norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -297,9 +297,8 @@ def test_api_vector_laplace_3d_dir_1():
     error = l2norm_h.assemble(F=phi)
     print('> L2 norm      = ', error)
 
-#    # TODO not working yet => check formulae
-#    error = h1norm_h.assemble(F=phi)
-#    print('> H1 seminorm  = ', error)
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
     # ...
 
 

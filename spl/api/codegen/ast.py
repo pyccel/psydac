@@ -643,6 +643,7 @@ class EvalMapping(SplBasic):
         _print = lambda i: print_expression(i, mapping_name=False)
         mapping_atoms = [_print(f) for f in self.components]
         mapping_str = [_print(f) for f in self.elements]
+#        mapping_str = sorted([_print(f) for f in self.elements])
 
         # ... declarations
         degrees        = variables([ 'p{}'.format(i) for i in range(1, dim+1)], 'int')
@@ -762,7 +763,7 @@ class EvalField(SplBasic):
         mapping = self.mapping
 
         field_atoms = self.fields.atoms(Field)
-        fields_str = [print_expression(f) for f in self.fields]
+        fields_str = sorted([print_expression(f) for f in self.fields])
 
         # ... declarations
         degrees       = variables([ 'p{}'.format(i) for i in range(1, dim+1)], 'int')
@@ -873,7 +874,7 @@ class EvalVectorField(SplBasic):
 
         vector_field_atoms = self.vector_fields.atoms(VectorField)
         vector_field_atoms = [f[i] for f in vector_field_atoms for i in range(0, dim)]
-        vector_fields_str = [print_expression(f) for f in self.vector_fields]
+        vector_fields_str = sorted([print_expression(f) for f in self.vector_fields])
 
         # ... declarations
         degrees       = variables([ 'p{}'.format(i) for i in range(1, dim+1)], 'int')

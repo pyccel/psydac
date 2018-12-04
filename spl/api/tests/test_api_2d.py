@@ -420,7 +420,7 @@ def test_api_poisson_2d_dir_1_mapping():
     # ...
 
     # ... discrete spaces
-    Vh, mapping = fem_context('square.h5')
+    Vh, mapping = fem_context('identity_2d.h5')
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
@@ -626,7 +626,9 @@ def test_api_vector_laplace_2d_dir_1():
     expr = dot(f, v)
     l = LinearForm(v, expr)
 
-    f = Tuple(sin(pi*x)*sin(pi*y), sin(pi*x)*sin(pi*y))
+    f1 = sin(pi*x)*sin(pi*y)
+    f2 = sin(pi*x)*sin(pi*y)
+    f = Tuple(f1, f2)
     error = Matrix([F[0]-f[0], F[1]-f[1]])
     l2norm = Norm(error, domain, kind='l2', name='u')
     h1norm = Norm(error, domain, kind='h1', name='u')
@@ -653,7 +655,7 @@ def test_api_vector_laplace_2d_dir_1():
 
     # ... discretize norms
     l2norm_h = discretize(l2norm, Vh)
-#    h1norm_h = discretize(h1norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -671,9 +673,8 @@ def test_api_vector_laplace_2d_dir_1():
     error = l2norm_h.assemble(F=phi)
     print('> L2 norm      = ', error)
 
-#    # TODO not working yet => check formulae
-#    error = h1norm_h.assemble(F=phi)
-#    print('> H1 seminorm  = ', error)
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
     # ...
 
 def test_api_vector_l2_projection_2d_dir_1():
@@ -736,9 +737,8 @@ def test_api_vector_l2_projection_2d_dir_1():
     error = l2norm_h.assemble(F=phi)
     print('> L2 norm      = ', error)
 
-#    # TODO not working yet => check formulae
-#    error = h1norm_h.assemble(F=phi)
-#    print('> H1 seminorm  = ', error)
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
     # ...
 
 def test_api_vector_2d_1():
@@ -938,7 +938,7 @@ def test_api_poisson_2d_dir_analytical_collela():
     # ...
 
     # ... discrete spaces
-    Vh, mapping = fem_context('collela.h5')
+    Vh, mapping = fem_context('collela_2d.h5')
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
@@ -976,26 +976,29 @@ def test_api_poisson_2d_dir_analytical_collela():
 ###############################################
 if __name__ == '__main__':
 
-#    # ... without mapping
-#    test_api_bilinear_2d_sumform_1()
-#    test_api_bilinear_2d_sumform_2()
-#    test_api_poisson_2d_dirneu_1()
-#    test_api_poisson_2d_dirneu_2()
-#
-#    test_api_poisson_2d_dir_1()
-#    test_api_laplace_2d_dir_1()
-#    test_api_vector_l2_projection_2d_dir_1()
+
+    # ... without mapping
+    test_api_poisson_2d_dir_1()
+    test_api_laplace_2d_dir_1()
+    test_api_vector_l2_projection_2d_dir_1()
     test_api_vector_laplace_2d_dir_1()
-#    test_api_vector_2d_2()
-#    # ...
+    test_api_vector_2d_2()
+    # ...
 
     # ... with mapping
-#    test_api_poisson_2d_dir_1_mapping()
+    test_api_poisson_2d_dir_1_mapping()
     # ...
 
     # ... with analytical collela mapping
-#    test_api_poisson_2d_dir_analytical_collela()
+    test_api_poisson_2d_dir_analytical_collela()
     # ...
+
+##    # ... without mapping
+##    # TODO not working
+##    test_api_bilinear_2d_sumform_1()
+##    test_api_poisson_2d_dirneu_1()
+##    test_api_poisson_2d_dirneu_2()
+##    test_api_bilinear_2d_sumform_2()
 
     # ...
 ##    test_api_vector_2d_1()
