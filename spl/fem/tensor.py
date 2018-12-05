@@ -153,8 +153,12 @@ class TensorFemSpace( FemSpace ):
             #-------------------------------------------------#
             basis  = basis_funs( knots, degree, x, span )
 
+            # Determine local span
+            wrap_x   = space.periodic and x > xlim[1]
+            loc_span = span - space.nbasis if wrap_x else span
+
             bases.append( basis )
-            index.append( slice( span-degree, span+1 ) )
+            index.append( slice( loc_span-degree, loc_span+1 ) )
 
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
@@ -210,9 +214,13 @@ class TensorFemSpace( FemSpace ):
             basis_0 = basis_funs( knots, degree, x, span )
             basis_1 = basis_funs_1st_der( knots, degree, x, span )
 
+            # Determine local span
+            wrap_x   = space.periodic and x > xlim[1]
+            loc_span = span - space.nbasis if wrap_x else span
+
             bases_0.append( basis_0 )
             bases_1.append( basis_1 )
-            index.append( slice( span-degree, span+1 ) )
+            index.append( slice( loc_span-degree, loc_span+1 ) )
 
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
