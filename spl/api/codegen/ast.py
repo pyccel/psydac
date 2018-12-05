@@ -82,6 +82,7 @@ def compute_normal_vector(vector, discrete_boundary, mapping):
     face = discrete_boundary[0]
     axis = face[0] ; ext = face[1]
 
+    map_stmts = []
     body = []
 
     if not mapping:
@@ -92,6 +93,7 @@ def compute_normal_vector(vector, discrete_boundary, mapping):
     else:
         M = mapping
         inv_jac = Symbol('inv_jac')
+        det_jac = Symbol('det_jac')
 
         # ... construct jacobian on manifold
         lines = []
@@ -101,7 +103,7 @@ def compute_normal_vector(vector, discrete_boundary, mapping):
         for i_row in range_row:
             line = []
             for i_col in range_col:
-                line.append(M.jacobian[i_row, i_col])
+                line.append(M.jacobian[i_col, i_row])
 
             lines.append(line)
 
@@ -133,13 +135,13 @@ def compute_normal_vector(vector, discrete_boundary, mapping):
 
         values = [ext*i for i in values]
 
-        body += [Assign(jac, j)]
-        body += [Assign(inv_jac, 1./j)]
+        map_stmts += [Assign(det_jac, j)]
+        map_stmts += [Assign(inv_jac, 1./j)]
 
     for i in range(0, dim):
         body += [Assign(vector[i], values[i])]
 
-    return body
+    return map_stmts, body
 
 def compute_tangent_vector(vector, discrete_boundary, mapping):
     raise NotImplementedError('TODO')
@@ -1498,6 +1500,7 @@ class Kernel(SplBasic):
                                                           mapping_values)]
 
         # ... normal/tangent vectors
+        init_map_bnd   = OrderedDict()
         if isinstance(self.target, Boundary):
             vectors = self.kernel_expr.atoms(BoundaryVector)
             normal_vec = symbols('normal_1:%d'%(dim+1))
@@ -1509,7 +1512,7 @@ class Kernel(SplBasic):
                     for i in range(0, dim):
                         expr = [e.subs(vector[i], normal_vec[i]) for e in expr]
 
-                    stmts = compute_normal_vector(normal_vec,
+                    map_stmts, stmts = compute_normal_vector(normal_vec,
                                                   self.discrete_boundary,
                                                   mapping)
 
@@ -1518,39 +1521,48 @@ class Kernel(SplBasic):
                     for i in range(0, dim):
                         expr = [e.subs(vector[i], tangent_vec[i]) for e in expr]
 
-                    stmts = compute_tangent_vector(tangent_vec,
+                    map_stmts, stmts = compute_tangent_vector(tangent_vec,
                                                    self.discrete_boundary,
                                                    mapping)
+
+                for stmt in map_stmts:
+                    init_map_bnd[str(stmt.lhs)] = stmt
+
+                init_map_bnd = OrderedDict(sorted(init_map_bnd.items()))
+                for stmt in list(init_map_bnd.values()):
+                    body += [stmt]
 
                 body += stmts
         # ...
 
 
         if mapping:
-            # ... inv jacobian
-            jac = mapping.det_jacobian
-            rdim = mapping.rdim
-            ops = _partial_derivatives[:rdim]
-            elements = [d(mapping[i]) for d in ops for i in range(0, rdim)]
-            for e in elements:
-                new = print_expression(e, mapping_name=False)
-                new = Symbol(new)
-                jac = jac.subs(e, new)
-            # ...
-
             inv_jac = Symbol('inv_jac')
             det_jac = Symbol('det_jac')
 
-            body += [Assign(det_jac, jac)]
-            body += [Assign(inv_jac, 1./jac)]
+            if not  isinstance(self.target, Boundary):
 
-            # TODO do we use the same inv_jac?
-#            if not isinstance(self.target, Boundary):
-#                body += [Assign(inv_jac, 1/jac)]
+                # ... inv jacobian
+                jac = mapping.det_jacobian
+                rdim = mapping.rdim
+                ops = _partial_derivatives[:rdim]
+                elements = [d(mapping[i]) for d in ops for i in range(0, rdim)]
+                for e in elements:
+                    new = print_expression(e, mapping_name=False)
+                    new = Symbol(new)
+                    jac = jac.subs(e, new)
+                # ...
 
-            init_map = OrderedDict(sorted(init_map.items()))
-            for stmt in list(init_map.values()):
-                body += [stmt.subs(1/jac, inv_jac)]
+                body += [Assign(det_jac, jac)]
+                body += [Assign(inv_jac, 1./jac)]
+
+                # TODO do we use the same inv_jac?
+    #            if not isinstance(self.target, Boundary):
+    #                body += [Assign(inv_jac, 1/jac)]
+
+                init_map = OrderedDict(sorted(init_map.items()))
+                for stmt in list(init_map.values()):
+                    body += [stmt.subs(1/jac, inv_jac)]
 
         else:
             body += [Assign(coordinates[i],positions[i][indices_quad[i]])
