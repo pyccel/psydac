@@ -1,5 +1,8 @@
 # -*- coding: UTF-8 -*-
 
+# TODO not working
+#  AttributeError: 'SplineSpace' object has no attribute 'local_support'
+
 from sympy import pi, cos, sin
 from sympy import S
 
@@ -31,7 +34,6 @@ from spl.api.boundary_condition import DiscreteDirichletBC
 from spl.mapping.discrete import SplineMapping
 
 from numpy import linspace, zeros, allclose
-from utils import assert_identical_coo
 
 DEBUG = False
 
@@ -51,8 +53,8 @@ def create_discrete_space(p=2, ne=2**8):
 
     return V
 
-def test_api_poisson_1d_dir_1():
-    print('============ test_api_poisson_1d_dir_1 =============')
+def poisson_1d_dir_1():
+    print('============ poisson_1d_dir_1 =============')
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -116,8 +118,8 @@ def test_api_poisson_1d_dir_1():
     print('> H1 seminorm  = ', error)
     # ...
 
-def test_api_poisson_1d_dirneu_1():
-    print('============ test_api_poisson_1d_dirneu_1 =============')
+def poisson_1d_dirneu_1():
+    print('============ poisson_1d_dirneu_1 =============')
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -192,6 +194,6 @@ def test_api_poisson_1d_dirneu_1():
 if __name__ == '__main__':
 
     # ... examples without mapping
-    test_api_poisson_1d_dir_1()
-    test_api_poisson_1d_dirneu_1()
+    poisson_1d_dir_1()
+    poisson_1d_dirneu_1()
     # ...
