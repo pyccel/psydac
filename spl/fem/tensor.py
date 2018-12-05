@@ -90,7 +90,7 @@ class TensorFemSpace( FemSpace ):
 
         # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
         self._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
-                           for s,e,space in zip( *self.local_domain, self.spaces ) )
+           for s,e,space in zip( self._element_starts, self._element_ends, self.spaces ) )
 
         # Create (empty) dictionary that will contain all fields in this space
         self._fields = {}
