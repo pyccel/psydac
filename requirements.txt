@@ -6,3 +6,4 @@ h5py
 sympy
 pytest
 pyyaml
+yamlloader
