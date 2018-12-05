@@ -129,3 +129,8 @@ def test_api_poisson_3d_dir_1_mapping():
 def teardown_module():
     from sympy import cache
     cache.clear_cache()
+
+def teardown_function():
+    from sympy import cache
+    cache.clear_cache()
+

@@ -489,3 +489,8 @@ def test_api_bilinear_2d_sumform_2():
 def teardown_module():
     from sympy import cache
     cache.clear_cache()
+
+def teardown_function():
+    from sympy import cache
+    cache.clear_cache()
+

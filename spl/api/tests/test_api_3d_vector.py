@@ -157,3 +157,8 @@ def test_api_vector_laplace_3d_dir_1():
 def teardown_module():
     from sympy import cache
     cache.clear_cache()
+
+def teardown_function():
+    from sympy import cache
+    cache.clear_cache()
+
