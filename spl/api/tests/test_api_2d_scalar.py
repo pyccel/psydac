@@ -23,10 +23,35 @@ from spl.api.boundary_condition import DiscreteBoundary
 from spl.api.boundary_condition import DiscreteComplementBoundary
 from spl.api.boundary_condition import DiscreteDirichletBC
 
-from numpy import linspace
+from numpy import linspace, allclose
 
 domain = Domain('\Omega', dim=2)
 
+
+#==============================================================================
+def assert_identical_coo(A, B):
+
+    if isinstance(A, (list, tuple)) and isinstance(B, (list, tuple)):
+        assert len(A) == len(B)
+
+        for a,b in zip(A, B): assert_identical_coo(a, b)
+
+    elif not(isinstance(A, (list, tuple))) and not(isinstance(B, (list, tuple))):
+        A = A.tocoo()
+        B = B.tocoo()
+
+        assert(A.shape == B.shape)
+        assert(A.nnz == B.nnz)
+
+        assert(allclose(A.row,  B.row))
+        assert(allclose(A.col,  B.col))
+        assert(allclose(A.data, B.data))
+
+    else:
+        raise TypeError('Wrong types for entries')
+
+
+#==============================================================================
 def create_discrete_space(p=(2,2), ne=(2**3,2**3)):
     # ... discrete spaces
     # Input data: degree, number of elements
@@ -49,6 +74,7 @@ def create_discrete_space(p=(2,2), ne=(2**3,2**3)):
 
 
 
+#==============================================================================
 def test_api_poisson_2d_dir_1():
 
     # ... abstract model
@@ -122,6 +148,7 @@ def test_api_poisson_2d_dir_1():
 
 
 
+#==============================================================================
 def test_api_laplace_2d_dir_1():
 
     # ... abstract model
@@ -192,6 +219,266 @@ def test_api_laplace_2d_dir_1():
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    # ...
+
+
+#==============================================================================
+def test_api_poisson_2d_dirneu_1():
+
+    # ... abstract model
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
+
+    x,y = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    solution = sin(0.5*pi*x)*sin(pi*y)
+
+    expr = (5./4.)*pi**2*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B2)
+    l_B2 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B2(v)
+    l = LinearForm(v, expr)
+
+    error = F-solution
+    l2norm = Norm(error, domain, kind='l2', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
+
+    bc = [DirichletBC(-B2)]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+
+    bc = [DiscreteDirichletBC(-B2)]
+    equation_h = discretize(equation, [Vh, Vh], boundary=B2, bc=bc)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+
+    expected_l2_error =  0.0001755319490060421
+    expected_h1_error =  0.009298116787699227
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    # ...
+
+
+#==============================================================================
+def test_api_poisson_2d_dirneu_2():
+
+    # ... abstract model
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B1 = Boundary(r'\Gamma_1', domain) # Neumann bc will be applied on B2
+    B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
+
+    x,y = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    solution = sin(0.5*pi*x)*sin(0.5*pi*y)
+
+    expr = (1./2.)*pi**2*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B1)
+    l_B1 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B2)
+    l_B2 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B1(v) + l_B2(v)
+    l = LinearForm(v, expr)
+
+    error = F-solution
+    l2norm = Norm(error, domain, kind='l2', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
+
+    bc = [DirichletBC(-(B1+B2))]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=1, ext= 1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    #
+
+    bc = [DiscreteDirichletBC(-(B1+B2))]
+    equation_h = discretize(equation, [Vh, Vh], boundary=[B1,B2], bc=bc)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+
+    expected_l2_error =  2.7971100793185878e-05
+    expected_h1_error =  0.0016032816329282472
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    # ...
+
+
+#==============================================================================
+def test_api_bilinear_2d_sumform_1():
+
+    # ... abstract model
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    alpha = Constant('alpha')
+
+    expr = dot(grad(v), grad(u))
+    a_0 = BilinearForm((v,u), expr, name='a_0')
+
+    expr = alpha*v*u
+    a_1 = BilinearForm((v,u), expr, name='a_1')
+
+    expr = a_0(v,u) + a_1(v,u)
+    a = BilinearForm((v,u), expr, name='a')
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    # ...
+    ah_0 = discretize(a_0, [Vh, Vh])
+    ah_1 = discretize(a_1, [Vh, Vh])
+
+    M_0 = ah_0.assemble()
+    M_1 = ah_1.assemble(alpha=0.5)
+
+    M_expected = M_0.tocoo() + M_1.tocoo()
+    # ...
+
+    # ...
+    ah = discretize(a, [Vh, Vh])
+    M = ah.assemble(alpha=0.5)
+    # ...
+
+    # ...
+    assert_identical_coo(M.tocoo(), M_expected)
+    # ...
+
+
+#==============================================================================
+def test_api_bilinear_2d_sumform_2():
+
+    # ... abstract model
+    B1 = Boundary(r'\Gamma_1', domain)
+    B2 = Boundary(r'\Gamma_2', domain)
+
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    alpha = Constant('alpha')
+
+    expr = dot(grad(v), grad(u)) + alpha*v*u
+    a_0 = BilinearForm((v,u), expr, name='a_0')
+
+    expr = v*trace_1(grad(u), B1)
+    a_B1 = BilinearForm((v, u), expr, name='a_B1')
+
+    expr = v*trace_0(u, B2)
+    a_B2 = BilinearForm((v, u), expr, name='a_B2')
+
+    expr = a_0(v,u) + a_B1(v,u) + a_B2(v,u)
+    a = BilinearForm((v,u), expr, name='a')
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+
+    # ...
+    ah_0 = discretize(a_0, [Vh, Vh])
+
+    ah_B1 = discretize(a_B1, [Vh, Vh], boundary=B1)
+    ah_B2 = discretize(a_B2, [Vh, Vh], boundary=B2)
+
+    M_0 = ah_0.assemble(alpha=0.5)
+    M_B1 = ah_B1.assemble()
+    M_B2 = ah_B2.assemble()
+
+    M_expected = M_0.tocoo() + M_B1.tocoo() + M_B2.tocoo()
+    # ...
+
+    # ...
+    ah = discretize(a, [Vh, Vh], boundary=[B1, B2])
+    M = ah.assemble(alpha=0.5)
+    # ...
+
+    # ...
+    assert_identical_coo(M.tocoo(), M_expected)
     # ...
 
 

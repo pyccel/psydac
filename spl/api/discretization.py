@@ -115,8 +115,8 @@ def driver_solve(L, **kwargs):
 #==============================================================================
 class BasicDiscrete(object):
 
-    def __init__(self, a, kernel_expr, namespace=globals(), to_compile=True,
-                 module_name=None, boundary=None, target=None,
+    def __init__(self, a, kernel_expr, namespace=globals(),
+                 boundary=None, target=None,
                  boundary_basis=None, backend=SPL_BACKEND_PYTHON, folder=None,
                  discrete_space=None, comm=None, root=None):
 
@@ -244,9 +244,9 @@ class BasicDiscrete(object):
             self._dependencies = interface.dependencies
             self._dependencies_code = self._generate_code()
 
-        if not( interface is None ) and to_compile:
+        if not( interface is None ):
             # save dependencies code
-            self._save_code(module_name=module_name)
+            self._save_code()
 
             if self.backend['name'] == 'pyccel':
                 self._compile_pyccel(namespace)
@@ -388,11 +388,10 @@ class BasicDiscrete(object):
         # ...
         return code
 
-    def _save_code(self, module_name=None):
+    def _save_code(self):
         # ...
         code = self.dependencies_code
-        if module_name is None:
-            module_name = 'dependencies_{}'.format(self.tag)
+        module_name = 'dependencies_{}'.format(self.tag)
 
         self._dependencies_fname = '{}.py'.format(module_name)
         write_code(self.dependencies_fname, code, folder = self.folder)
@@ -401,12 +400,11 @@ class BasicDiscrete(object):
         # TODO check this? since we are using relative paths now
         self._dependencies_modname = module_name.replace('/', '.')
 
-    def _generate_interface_code(self, module_name=None):
+    def _generate_interface_code(self):
         imports = []
         prefix = ''
 
-        if module_name is None:
-            module_name = self.dependencies_modname
+        module_name = self.dependencies_modname
 
         # ...
         if self.backend['name'] == 'pyccel':
@@ -489,10 +487,9 @@ class BasicDiscrete(object):
 
         os.chdir(basedir)
 
-    def _compile(self, namespace, module_name=None):
+    def _compile(self, namespace):
 
-        if module_name is None:
-            module_name = self.dependencies_modname
+        module_name = self.dependencies_modname
 
         # ... TODO move to save
         code = self.interface_code
@@ -719,7 +716,6 @@ class DiscreteSumForm(BasicDiscrete):
 
         # create a module name if not given
         tag = random_string( 8 )
-        module_name = kwargs.pop('module_name', 'dependencies_{}'.format(tag))
 
         # ...
         forms = []
@@ -727,8 +723,6 @@ class DiscreteSumForm(BasicDiscrete):
         if isinstance(boundaries, DiscreteBoundary):
             boundaries = [boundaries]
 
-        kwargs['to_compile'] = False
-        kwargs['module_name'] = module_name
         for e in kernel_expr:
             kwargs['target'] = e.target
             if isinstance(e.target, sym_Boundary):
@@ -748,30 +742,6 @@ class DiscreteSumForm(BasicDiscrete):
             kwargs['boundary'] = None
 
         self._forms = forms
-        # ...
-
-        # ... save all dependencies codes in one single string
-        code = ''
-        for ah in self.forms:
-            code = '{code}\n{ah}'.format(code=code, ah=ah.dependencies_code)
-        self._dependencies_code = code
-        # ...
-
-        # ...
-        # save dependencies code
-        self._save_code(module_name=module_name)
-        # ...
-
-        # ...
-        namespace = kwargs.pop('namespace', globals())
-        module_name = self.dependencies_modname
-        code = ''
-        for ah in self.forms:
-            # generate code for Python interface
-            ah._generate_interface_code(module_name=module_name)
-
-            # compile code
-            ah._compile(namespace, module_name=module_name)
         # ...
 
     @property
@@ -972,7 +942,6 @@ class Model(BasicDiscrete):
 
         # create a module name if not given
         tag = random_string( 8 )
-        module_name = kwargs.pop('module_name', 'dependencies_{}'.format(tag))
 
         # ... create discrete forms
         test_space = self.spaces[0]
@@ -983,19 +952,13 @@ class Model(BasicDiscrete):
             kernel_expr = evaluate(a)
             if isinstance(a, sym_BilinearForm):
                 spaces = (test_space, trial_space)
-                ah = DiscreteBilinearForm(a, kernel_expr, spaces,
-                                          to_compile=False,
-                                          module_name=module_name)
+                ah = DiscreteBilinearForm(a, kernel_expr, spaces)
 
             elif isinstance(a, sym_LinearForm):
-                ah = DiscreteLinearForm(a, kernel_expr, test_space,
-                                        to_compile=False,
-                                        module_name=module_name)
+                ah = DiscreteLinearForm(a, kernel_expr, test_space)
 
             elif isinstance(a, sym_Integral):
-                ah = DiscreteIntegral(a, kernel_expr, test_space,
-                                      to_compile=False,
-                                      module_name=module_name)
+                ah = DiscreteIntegral(a, kernel_expr, test_space)
 
             d_forms[name] = ah
 
@@ -1034,19 +997,18 @@ class Model(BasicDiscrete):
 
         # ...
         # save dependencies code
-        self._save_code(module_name=module_name)
+        self._save_code()
         # ...
 
         # ...
         namespace = kwargs.pop('namespace', globals())
-        module_name = self.dependencies_modname
         code = ''
         for name, ah in list(self.forms.items()):
             # generate code for Python interface
-            ah._generate_interface_code(module_name=module_name)
+            ah._generate_interface_code()
 
             # compile code
-            ah._compile(namespace, module_name=module_name)
+            ah._compile(namespace)
         # ...
 
     @property
