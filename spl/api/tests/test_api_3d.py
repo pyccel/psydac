@@ -214,7 +214,7 @@ def test_api_poisson_3d_dir_1_mapping(backend=SPL_BACKEND_PYTHON):
     # ...
 
 
-def test_api_vector_laplace_3d_dir_1():
+def test_api_vector_laplace_3d_dir_1(backend=SPL_BACKEND_PYTHON):
     print('============ test_api_vector_laplace_3d_dir_1 =============')
 
     # ... abstract model
@@ -273,17 +273,105 @@ def test_api_vector_laplace_3d_dir_1():
     B6 = DiscreteBoundary(B6, axis=2, ext= 1)
 
     bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4, B5, B6]]
-    equation_h = discretize(equation, [Vh, Vh], bc=bc)
+    equation_h = discretize(equation, [Vh, Vh], bc=bc, backend=backend)
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
+    l2norm_h = discretize(l2norm, Vh, backend=backend)
+    h1norm_h = discretize(h1norm, Vh, backend=backend)
     # ...
 
     # ... solve the discrete equation
     x = equation_h.solve(settings={'solver':'cg', 'tol':1e-13, 'maxiter':1000,
-                                   'verbose':True})
+                                   'verbose':False})
+    # ...
+
+    # ...
+    phi = VectorFemField( Vh, 'phi' )
+    phi.coeffs[0][:,:,:] = x[0][:,:,:]
+    phi.coeffs[1][:,:,:] = x[1][:,:,:]
+    phi.coeffs[2][:,:,:] = x[2][:,:,:]
+    # ...
+
+    # ... compute norms
+    error = l2norm_h.assemble(F=phi)
+    print('> L2 norm      = ', error)
+
+    error = h1norm_h.assemble(F=phi)
+    print('> H1 seminorm  = ', error)
+    # ...
+
+
+def test_api_vector_laplace_3d_dir_analytical_collela(backend=SPL_BACKEND_PYTHON):
+    print('============ test_api_vector_laplace_3d_dir_analytical_collela =============')
+
+    # ... abstract model
+    mapping = Mapping('M', rdim=3, domain=domain)
+
+    U = VectorFunctionSpace('U', domain)
+    V = VectorFunctionSpace('V', domain)
+
+    B1 = Boundary(r'\Gamma_1', domain)
+    B2 = Boundary(r'\Gamma_2', domain)
+    B3 = Boundary(r'\Gamma_3', domain)
+    B4 = Boundary(r'\Gamma_4', domain)
+    B5 = Boundary(r'\Gamma_5', domain)
+    B6 = Boundary(r'\Gamma_6', domain)
+
+    x,y,z = domain.coordinates
+
+    F = VectorField(V, name='F')
+
+    v = VectorTestFunction(V, name='v')
+    u = VectorTestFunction(U, name='u')
+
+    expr = inner(grad(v), grad(u))
+    a = BilinearForm((v,u), expr, mapping=mapping)
+
+    f1 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f2 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f3 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f = Tuple(f1, f2, f3)
+    expr = dot(f, v)
+    l = LinearForm(v, expr, mapping=mapping)
+
+    f1 = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f2 = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f3 = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f = Tuple(f1, f2, f3)
+    error = Matrix([F[0]-f[0], F[1]-f[1], F[2]-f[2]])
+    l2norm = Norm(error, domain, kind='l2', name='u', mapping=mapping)
+    h1norm = Norm(error, domain, kind='h1', name='u', mapping=mapping)
+
+    bc = [DirichletBC(i) for i in [B1, B2, B3, B4, B5, B6]]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh, mapping = fem_context('collela_3d.h5')
+    Vh = ProductFemSpace(Vh, Vh, Vh)
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+    B5 = DiscreteBoundary(B5, axis=2, ext=-1)
+    B6 = DiscreteBoundary(B6, axis=2, ext= 1)
+
+    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4, B5, B6]]
+    equation_h = discretize(equation, [Vh, Vh], mapping, bc=bc, backend=backend)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh, mapping, backend=backend)
+    h1norm_h = discretize(h1norm, Vh, mapping, backend=backend)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve(settings={'solver':'cg', 'tol':1e-13, 'maxiter':1000,
+                                   'verbose':False})
     # ...
 
     # ...
@@ -307,9 +395,10 @@ if __name__ == '__main__':
 
     # ... without mapping
 #    test_api_poisson_3d_dir_1(backend=SPL_BACKEND_PYCCEL)
-    test_api_vector_laplace_3d_dir_1()
+#    test_api_vector_laplace_3d_dir_1(backend=SPL_BACKEND_PYCCEL)
     # ...
 
     # ... with mapping
 #    test_api_poisson_3d_dir_1_mapping(backend=SPL_BACKEND_PYCCEL)
+    test_api_vector_laplace_3d_dir_analytical_collela(backend=SPL_BACKEND_PYCCEL)
     # ...

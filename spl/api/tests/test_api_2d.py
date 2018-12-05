@@ -660,7 +660,7 @@ def test_api_vector_laplace_2d_dir_1():
 
     # ... solve the discrete equation
     x = equation_h.solve(settings={'solver':'cg', 'tol':1e-13, 'maxiter':1000,
-                                   'verbose':True})
+                                   'verbose':False})
     # ...
 
     # ...
