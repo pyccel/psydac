@@ -8,6 +8,7 @@ of compact support
 from mpi4py import MPI
 import numpy as np
 import itertools
+import h5py
 
 from spl.linalg.stencil import StencilVectorSpace
 from spl.linalg.kron    import kronecker_solve
@@ -404,6 +405,80 @@ class TensorFemSpace( FemSpace ):
             rhs     = values,
             out     = field.coeffs,
         )
+
+    # ...
+    def export_fields( self, filename, **fields ):
+        """ Write spline coefficients of given fields to HDF5 file.
+        """
+        assert isinstance( filename, str )
+        assert all( field.space is self for field in fields.values() )
+
+        V    = self.vector_space
+        comm = V.cart.comm
+
+        # Multi-dimensional index range local to process
+        index = tuple( slice( s, e+1 ) for s,e in zip( V.starts, V.ends ) )
+
+        # Create HDF5 file (in parallel mode if MPI communicator size > 1)
+        kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
+        h5 = h5py.File( filename, mode='w', **kwargs )
+
+        # Add field coefficients as named datasets
+        for name,field in fields.items():
+            dset = h5.create_dataset( name, shape=V.npts, dtype=V.dtype )
+            dset[index] = field.coeffs[index]
+
+        # Close HDF5 file
+        h5.close()
+
+    # ...
+    def import_fields( self, filename, *field_names ):
+        """
+        Load fields from HDF5 file containing spline coefficients.
+
+        Parameters
+        ----------
+        filename : str
+            Name of HDF5 input file.
+
+        field_names : list of str
+            Names of the datasets with the required spline coefficients.
+
+        Results
+        -------
+        fields : list of FemSpace objects
+            Distributed fields, given in the same order of the names.
+
+        """
+        assert isinstance( filename, str )
+        assert all( isinstance( name, str ) for name in field_names )
+
+        V    = self.vector_space
+        comm = V.cart.comm
+
+        # Multi-dimensional index range local to process
+        index = tuple( slice( s, e+1 ) for s,e in zip( V.starts, V.ends ) )
+
+        # Open HDF5 file (in parallel mode if MPI communicator size > 1)
+        kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
+        h5 = h5py.File( filename, mode='r', **kwargs )
+
+        # Create fields and load their coefficients from HDF5 datasets
+        fields = []
+        for name in field_names:
+            dset = h5[name]
+            if dset.shape != V.npts:
+                h5.close()
+                raise TypeError( 'Dataset not compatible with spline space.' )
+            field = FemField( self, name )
+            field.coeffs[index] = dset[index]
+            field.coeffs.update_ghost_regions()
+            fields.append( field )
+
+        # Close HDF5 file
+        h5.close()
+
+        return fields
 
     # ...
     def __str__(self):
