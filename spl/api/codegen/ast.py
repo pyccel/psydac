@@ -133,6 +133,7 @@ def compute_normal_vector(vector, discrete_boundary, mapping):
         elif dim == 3:
             raise NotImplementedError('TODO')
 
+        # change the orientation
         values = [ext*i for i in values]
 
         map_stmts += [Assign(det_jac, j)]
