@@ -481,6 +481,78 @@ class TensorFemSpace( FemSpace ):
         return fields
 
     # ...
+    def plot_2d_decomposition( self, mapping=None, refine=10 ):
+
+        import matplotlib.pyplot as plt
+        from matplotlib.patches  import Polygon, Patch
+        from spl.utilities.utils import refine_array_1d
+
+        if mapping is None:
+            mapping = lambda eta: eta
+        else:
+            assert mapping.ldim == self.ldim == 2
+            assert mapping.pdim == self.ldim == 2
+
+        assert refine >= 1
+        N = int( refine )
+        V1, V2 = self.spaces
+
+        mpi_comm = self.vector_space.cart.comm
+        mpi_rank = mpi_comm.rank
+
+        # Local grid, refined
+        [sk1,sk2], [ek1,ek2] = self.local_domain
+        eta1 = refine_array_1d( V1.breaks[sk1:ek1+2], N )
+        eta2 = refine_array_1d( V2.breaks[sk2:ek2+2], N )
+        pcoords = np.array( [[mapping( [e1,e2] ) for e2 in eta2] for e1 in eta1] )
+
+        # Local domain as Matplotlib polygonal patch
+        AB = pcoords[   :,    0, :] # eta2 = min
+        BC = pcoords[  -1,    :, :] # eta1 = max
+        CD = pcoords[::-1,   -1, :] # eta2 = max (points must be reversed)
+        DA = pcoords[   0, ::-1, :] # eta1 = min (points must be reversed)
+        xy = np.concatenate( [AB, BC, CD, DA], axis=0 )
+        poly = Polygon( xy, edgecolor='None' )
+
+        # Gather polygons on master process
+        polys = mpi_comm.gather( poly )
+
+        #-------------------------------
+        # Non-master processes stop here
+        if mpi_rank != 0:
+            return
+        #-------------------------------
+
+        # Global grid, refined
+        eta1    = refine_array_1d( V1.breaks, N )
+        eta2    = refine_array_1d( V2.breaks, N )
+        pcoords = np.array( [[mapping( [e1,e2] ) for e2 in eta2] for e1 in eta1] )
+        xx      = pcoords[:,:,0]
+        yy      = pcoords[:,:,1]
+
+        # Plot decomposed domain
+        fig, ax = plt.subplots( 1, 1 )
+        colors  = itertools.cycle( plt.rcParams['axes.prop_cycle'].by_key()['color'] )
+        handles = []
+        for i, (poly, color) in enumerate( zip( polys, colors ) ):
+            # Add patch
+            poly.set_facecolor( color )
+            ax.add_patch( poly )
+            # Create legend entry
+            handle = Patch( color=color, label='Rank {}'.format(i) )
+            handles.append( handle )
+
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_title ( 'Domain decomposition' )
+        ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
+        ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+        ax.set_aspect('equal')
+        ax.legend( handles=handles )
+        fig.tight_layout()
+        fig.show()
+
+    # ...
     def __str__(self):
         """Pretty printing"""
         txt  = '\n'
