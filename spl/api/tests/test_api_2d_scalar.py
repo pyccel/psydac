@@ -482,7 +482,7 @@ def test_api_bilinear_2d_sumform_2():
     # ...
 
 #==============================================================================
-def test_api_poisson_2d_dirneu_3():
+def test_api_poisson_2d_dirneu_13():
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -561,7 +561,7 @@ def test_api_poisson_2d_dirneu_3():
     # ...
 
 #==============================================================================
-def test_api_poisson_2d_dirneu_4():
+def test_api_poisson_2d_dirneu_123():
 
     # ... abstract model
     U = FunctionSpace('U', domain)
