@@ -633,6 +633,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visua
         timing['projection'] = t1-t0
 
     # Apply homogeneous Dirichlet boundary conditions where appropriate
+    # NOTE: this does not effect ghost regions
     if not V1.periodic:
         # left  bc at x=0.
         if not model.O_point and s1 == 0:

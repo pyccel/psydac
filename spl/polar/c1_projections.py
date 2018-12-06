@@ -242,6 +242,8 @@ class C1Projector:
         bp1 = StencilVector( P[1] )
         bp1[0:,:,:,:] = b[2:,:,:,:]
 
+        bp1.update_ghost_regions()
+
         return BlockVector( P, blocks = [bp0, bp1] )
 
     #---------------------------------------------------------------------------
@@ -268,6 +270,8 @@ class C1Projector:
             for i2 in range( s2, e2+1 ):
                 for u in [0,1,2]:
                     v[i1,i2] = np.dot( L[:,i1,i2], vp0 )
+
+        v.update_ghost_regions()
 
         return v
 
