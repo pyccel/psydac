@@ -36,7 +36,6 @@ from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL
 from spl.mapping.discrete import SplineMapping
 
 from numpy import linspace, zeros, allclose
-from utils import assert_identical_coo
 
 domain = Domain('\Omega', dim=3)
 
