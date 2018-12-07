@@ -223,7 +223,7 @@ def test_api_laplace_2d_dir_1():
 
 
 #==============================================================================
-def test_api_poisson_2d_dirneu_1():
+def test_api_poisson_2d_dirneu_2():
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -298,14 +298,14 @@ def test_api_poisson_2d_dirneu_1():
 
 
 #==============================================================================
-def test_api_poisson_2d_dirneu_2():
+def test_api_poisson_2d_dirneu_24():
 
     # ... abstract model
     U = FunctionSpace('U', domain)
     V = FunctionSpace('V', domain)
 
-    B1 = Boundary(r'\Gamma_1', domain) # Neumann bc will be applied on B2
     B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
+    B4 = Boundary(r'\Gamma_4', domain) # Neumann bc will be applied on B4
 
     x,y = domain.coordinates
 
@@ -322,20 +322,20 @@ def test_api_poisson_2d_dirneu_2():
     expr = (1./2.)*pi**2*solution*v
     l0 = LinearForm(v, expr)
 
-    expr = v*trace_1(grad(solution), B1)
-    l_B1 = LinearForm(v, expr)
-
     expr = v*trace_1(grad(solution), B2)
     l_B2 = LinearForm(v, expr)
 
-    expr = l0(v) + l_B1(v) + l_B2(v)
+    expr = v*trace_1(grad(solution), B4)
+    l_B4 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B2(v) + l_B4(v)
     l = LinearForm(v, expr)
 
     error = F-solution
     l2norm = Norm(error, domain, kind='l2', name='u')
     h1norm = Norm(error, domain, kind='h1', name='u')
 
-    bc = [DirichletBC(-(B1+B2))]
+    bc = [DirichletBC(-(B2+B4))]
     equation = Equation(a(v,u), l(v), bc=bc)
     # ...
 
@@ -344,12 +344,11 @@ def test_api_poisson_2d_dirneu_2():
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    B1 = DiscreteBoundary(B1, axis=1, ext= 1)
     B2 = DiscreteBoundary(B2, axis=0, ext= 1)
-    #
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
 
-    bc = [DiscreteDirichletBC(-(B1+B2))]
-    equation_h = discretize(equation, [Vh, Vh], boundary=[B1,B2], bc=bc)
+    bc = [DiscreteDirichletBC(-(B2+B4))]
+    equation_h = discretize(equation, [Vh, Vh], boundary=[B2,B4], bc=bc)
     # ...
 
     # ... discretize norms
