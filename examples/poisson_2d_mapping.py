@@ -1,6 +1,7 @@
 # coding: utf-8
 from mpi4py import MPI
 from time   import time, sleep
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -726,6 +727,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visua
     t1 = time()
     timing['export'] += t1-t0
 
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # Print some information to terminal
     for i in range( mpi_size ):
         if i == mpi_rank:
@@ -748,6 +750,17 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visua
         mpi_comm.Barrier()
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # VISUALIZATION
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    ##########
+    N = 10
+    ##########
+
+    # Plot domain decomposition (master only)
+    V.plot_2d_decomposition( model.mapping, refine=N )
+
+    # Perform other visualization using master or all processes
     if visualize_serial:
 
         # Non-master processes stop here
@@ -764,13 +777,6 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visua
         # Import solution vector into new serial field
         phi, = V.import_fields( 'fields.h5', 'phi' )
 
-    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-    # Visualize results
-    ##########
-    N = 10
-    ##########
-
     # Compute numerical solution (and error) on refined logical grid
     [sk1,sk2], [ek1,ek2] = V.local_domain
 
@@ -785,18 +791,28 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visua
     xx = pcoords[:,:,0]
     yy = pcoords[:,:,1]
 
+    # Create figure with 3 subplots:
+    #  1. exact solution on exact domain
+    #  2. numerical solution on mapped domain (analytical or spline)
+    #  3. numerical error    on mapped domain (analytical or spline)
+    fig, axes = plt.subplots( 1, 3, figsize=(12.8, 4.8) )
+
+    def add_colorbar( im, ax ):
+        divider = make_axes_locatable( ax )
+        cax = divider.append_axes( "right", size=0.2, pad=0.2 )
+        cbar = ax.get_figure().colorbar( im, cax=cax )
+        return cbar
+
     # Plot exact solution
-    fig, ax = plt.subplots( 1, 1 )
+    ax = axes[0]
     im = ax.contourf( xx, yy, ex, 40, cmap='jet' )
-    fig.colorbar( im )
+    add_colorbar( im, ax )
     ax.set_xlabel( r'$x$', rotation='horizontal' )
     ax.set_ylabel( r'$y$', rotation='horizontal' )
     ax.set_title ( r'$\phi_{ex}(x,y)$' )
     ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
     ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
     ax.set_aspect('equal')
-    fig.tight_layout()
-    fig.show()
 
     if use_spline_mapping:
         # Recompute physical coordinates of logical grid using spline mapping
@@ -805,29 +821,28 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visua
         yy = pcoords[:,:,1]
 
     # Plot numerical solution
-    fig, ax = plt.subplots( 1, 1 )
+    ax = axes[1]
     im = ax.contourf( xx, yy, num, 40, cmap='jet' )
-    fig.colorbar( im )
+    add_colorbar( im, ax )
     ax.set_xlabel( r'$x$', rotation='horizontal' )
     ax.set_ylabel( r'$y$', rotation='horizontal' )
     ax.set_title ( r'$\phi(x,y)$' )
     ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
     ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
     ax.set_aspect('equal')
-    fig.tight_layout()
-    fig.show()
 
     # Plot numerical error
-    fig, ax = plt.subplots( 1, 1 )
+    ax = axes[2]
     im = ax.contourf( xx, yy, err, 40, cmap='jet' )
-    fig.colorbar( im )
+    add_colorbar( im, ax )
     ax.set_xlabel( r'$x$', rotation='horizontal' )
     ax.set_ylabel( r'$y$', rotation='horizontal' )
     ax.set_title ( r'$\phi(x,y) - \phi_{ex}(x,y)$' )
     ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
     ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
     ax.set_aspect('equal')
-    fig.tight_layout()
+
+    # Show figure
     fig.show()
 
     return locals()
