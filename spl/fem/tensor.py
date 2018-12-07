@@ -548,7 +548,7 @@ class TensorFemSpace( FemSpace ):
         ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
         ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
         ax.set_aspect('equal')
-        ax.legend( handles=handles )
+        ax.legend( handles=handles, bbox_to_anchor=(1.05, 1), loc=2 )
         fig.tight_layout()
         fig.show()
 
