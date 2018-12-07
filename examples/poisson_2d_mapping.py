@@ -596,6 +596,41 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visua
     s1, s2 = V.vector_space.starts
     e1, e2 = V.vector_space.ends
 
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Print decomposition information to terminal
+    if mpi_rank == 0:
+        print( '--------------------------------------------------' )
+        print( ' CARTESIAN DECOMPOSITION' )
+        print( '--------------------------------------------------' )
+        int_array_to_str = lambda array: ','.join( '{:3d}'.format(i) for i in array )
+        int_tuples_to_str = lambda tuples:  ',  '.join(
+                '[{:d}, {:d}]'.format(a,b) for a,b in tuples )
+
+        cart = V.vector_space.cart
+
+        block_sizes_i1     = [e1-s1+1 for s1,e1 in zip( cart.global_starts[0], cart.global_ends[0] )]
+        block_sizes_i2     = [e2-s2+1 for s2,e2 in zip( cart.global_starts[1], cart.global_ends[1] )]
+
+        block_intervals_i1 = [(s1,e1) for s1,e1 in zip( cart.global_starts[0], cart.global_ends[0] )]
+        block_intervals_i2 = [(s2,e2) for s2,e2 in zip( cart.global_starts[1], cart.global_ends[1] )]
+
+        print( '> No. of points along eta1 :: {:d}'.format( cart.npts[0] ) )
+        print( '> No. of points along eta2 :: {:d}'.format( cart.npts[1] ) )
+        print( '' )
+        print( '> No. of blocks along eta1 :: {:d}'.format( cart.nprocs[0] ) )
+        print( '> No. of blocks along eta2 :: {:d}'.format( cart.nprocs[1] ) )
+        print( '' )
+        print( '> Block sizes along eta1 :: ' + int_array_to_str( block_sizes_i1 ) )
+        print( '> Block sizes along eta2 :: ' + int_array_to_str( block_sizes_i2 ) )
+        print( '' )
+        print( '> Intervals along eta1   :: ' + int_tuples_to_str( block_intervals_i1 ) )
+        print( '> Intervals along eta2   :: ' + int_tuples_to_str( block_intervals_i2 ) )
+        print( '', flush=True )
+        sleep( 0.001 )
+
+    mpi_comm.Barrier()
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
     # DEBUG
     support1, support2 = V.local_support
     lims1, lims2 = V.eta_lims
