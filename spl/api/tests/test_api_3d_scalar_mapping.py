@@ -123,6 +123,82 @@ def test_api_poisson_3d_dir_1_mapping():
 
 
 #==============================================================================
+def test_api_poisson_3d_dirneu_identity_2():
+
+    # ... abstract model
+    mapping = Mapping('M', rdim=3, domain=domain)
+
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B2 = Boundary(r'\Gamma_2', domain) # neumann  bc will be applied on B2
+
+    x,y,z = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr, mapping=mapping)
+
+    solution = sin(0.5*pi*x)*sin(pi*y)*sin(pi*z)
+
+    expr = (9./4.)*pi**2*solution*v
+    l0 = LinearForm(v, expr, mapping=mapping)
+
+    expr = v*trace_1(grad(solution), B2)
+    l_B2 = LinearForm(v, expr, mapping=mapping)
+
+    expr = l0(v) + l_B2(v)
+    l = LinearForm(v, expr, mapping=mapping)
+
+    error = F - solution
+    l2norm = Norm(error, domain, kind='l2', name='u', mapping=mapping)
+    h1norm = Norm(error, domain, kind='h1', name='u', mapping=mapping)
+
+    bc = [DirichletBC(-B2)]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh, mapping = fem_context(os.path.join(mesh_dir, 'identity_3d.h5'))
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+
+    bc = [DiscreteDirichletBC(-B2)]
+    equation_h = discretize(equation, [Vh, Vh], mapping, boundary=B2, bc=bc)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh, mapping)
+    h1norm_h = discretize(h1norm, Vh, mapping)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:,:] = x[:,:,:]
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+
+    expected_l2_error =  0.008983202018626653
+    expected_h1_error =  0.2088812076627555
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    # ...
+
+#==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
 

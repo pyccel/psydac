@@ -41,6 +41,7 @@ from pyccel.ast.utilities import build_types_decorator
 from pyccel.ast.utilities import variables, indexed_variables
 
 from sympde.core import grad
+from sympde.core import Cross_3d
 from sympde.core import Constant
 from sympde.core import Mapping
 from sympde.core import Field
@@ -131,7 +132,14 @@ def compute_normal_vector(vector, discrete_boundary, mapping):
             values = [inv_jac*J[1], -inv_jac*J[0]]
 
         elif dim == 3:
-            raise NotImplementedError('TODO')
+
+            x_s = J[0,:]
+            x_t = J[1,:]
+
+            values = Cross_3d(x_s, x_t)
+            j = (sum(J[i]**2 for i in range(0, dim)))**(1/2)
+            values = [inv_jac*v for v in values]
+
 
         # change the orientation
         values = [ext*i for i in values]
@@ -141,6 +149,10 @@ def compute_normal_vector(vector, discrete_boundary, mapping):
 
     for i in range(0, dim):
         body += [Assign(vector[i], values[i])]
+
+#    print(map_stmts)
+#    print(body)
+#    import sys; sys.exit(0)
 
     return map_stmts, body
 
