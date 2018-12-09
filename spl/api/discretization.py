@@ -20,6 +20,8 @@ from sympde.core import Boundary as sym_Boundary
 from sympde.core import Norm as sym_Norm
 from sympde.core import evaluate
 
+from spl.api.grid  import QuadratureGrid
+from spl.api.basis import BasisValues
 from spl.api.codegen.ast import Kernel
 from spl.api.codegen.ast import Assembly
 from spl.api.codegen.ast import Interface
@@ -563,9 +565,26 @@ class DiscreteBilinearForm(BasicDiscrete):
         kwargs['comm'] = comm
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
+        # TODO to be removed
         # initialize fem space basis/quad
         for V in self.spaces:
             V.init_fem(nderiv=self.max_nderiv)
+
+        # ...
+        test_space  = self.spaces[0]
+        trial_space = self.spaces[1]
+
+        quad_order = kwargs.pop('quad_order', None)
+
+        # TODO must check that spaces lead to the same QuadratureGrid
+        self._grid = QuadratureGrid( test_space, quad_order = quad_order )
+
+        self._test_basis = BasisValues( test_space, self.grid,
+                                        nderiv = self.max_nderiv )
+
+        self._trial_basis = BasisValues( trial_space, self.grid,
+                                         nderiv = self.max_nderiv )
+        # ...
 
         if len(args) > 1:
             self._mapping = args[1]
@@ -574,8 +593,20 @@ class DiscreteBilinearForm(BasicDiscrete):
     def spaces(self):
         return self._spaces
 
+    @property
+    def grid(self):
+        return self._grid
+
+    @property
+    def test_basis(self):
+        return self._test_basis
+
+    @property
+    def trial_basis(self):
+        return self._trial_basis
+
     def assemble(self, **kwargs):
-        newargs = tuple(self.spaces)
+        newargs = tuple(self.spaces) + (self.grid, self.test_basis, self.trial_basis)
 
         if self.mapping:
             newargs = newargs + (self.mapping,)
@@ -614,8 +645,17 @@ class DiscreteLinearForm(BasicDiscrete):
         kwargs['comm'] = comm
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
+        # TODO to be removed
         # initialize fem space basis/quad
         self.space.init_fem(nderiv=self.max_nderiv)
+
+        # ...
+        quad_order = kwargs.pop('quad_order', None)
+
+        self._grid = QuadratureGrid( self.space, quad_order = quad_order )
+        self._test_basis = BasisValues( self.space, self.grid,
+                                        nderiv = self.max_nderiv )
+        # ...
 
         if len(args) > 1:
             self._mapping = args[1]
@@ -624,8 +664,16 @@ class DiscreteLinearForm(BasicDiscrete):
     def space(self):
         return self._space
 
+    @property
+    def grid(self):
+        return self._grid
+
+    @property
+    def test_basis(self):
+        return self._test_basis
+
     def assemble(self, **kwargs):
-        newargs = (self.space,)
+        newargs = (self.space, self.grid, self.test_basis)
 
         if self.mapping:
             newargs = newargs + (self.mapping,)
@@ -658,8 +706,17 @@ class DiscreteIntegral(BasicDiscrete):
         kwargs['comm'] = comm
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
+        # TODO to be removed
         # initialize fem space basis/quad
         self.space.init_fem(nderiv=self.max_nderiv)
+
+        # ...
+        quad_order = kwargs.pop('quad_order', None)
+
+        self._grid = QuadratureGrid( self.space, quad_order = quad_order )
+        self._test_basis = BasisValues( self.space, self.grid,
+                                        nderiv = self.max_nderiv )
+        # ...
 
         if len(args) > 1:
             self._mapping = args[1]
@@ -668,8 +725,16 @@ class DiscreteIntegral(BasicDiscrete):
     def space(self):
         return self._space
 
+    @property
+    def grid(self):
+        return self._grid
+
+    @property
+    def test_basis(self):
+        return self._test_basis
+
     def assemble(self, **kwargs):
-        newargs = (self.space,)
+        newargs = (self.space, self.grid, self.test_basis)
 
         if self.mapping:
             newargs = newargs + (self.mapping,)

@@ -111,8 +111,8 @@ def test_api_poisson_2d_dir_identity():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.0007392601979546976
-    expected_h1_error =  0.0392048927719021
+    expected_l2_error =  0.0006542603581247817
+    expected_h1_error =  0.039070712161073926
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -186,8 +186,8 @@ def test_api_poisson_2d_dir_collela():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.09389860248700975
-    expected_h1_error =  1.2524517961158756
+    expected_l2_error =  0.09098801047984553
+    expected_h1_error =  1.2367524458055985
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -1140,3 +1140,9 @@ def teardown_module():
 def teardown_function():
     from sympy import cache
     cache.clear_cache()
+
+###############################################
+if __name__ == '__main__':
+    test_api_poisson_2d_dir_identity()
+    test_api_poisson_2d_dir_collela()
+

@@ -131,8 +131,8 @@ def test_api_poisson_3d_dir_1():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.002108675850460567
-    expected_h1_error =  0.049398529195520964
+    expected_l2_error =  0.0017546148822053188
+    expected_h1_error =  0.048189500102744275
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -565,4 +565,8 @@ def teardown_module():
 def teardown_function():
     from sympy import cache
     cache.clear_cache()
+
+################################################
+#if __name__ == '__main__':
+#    pass
 

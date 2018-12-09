@@ -2275,6 +2275,16 @@ class Interface(SplBasic):
         # ... declarations
         test_space = Symbol('W')
         trial_space = Symbol('V')
+        grid = Symbol('grid')
+        test_basis_values = Symbol('test_basis_values')
+        trial_basis_values = Symbol('trial_basis_values')
+
+        if is_bilinear:
+            basis_values = (test_basis_values, trial_basis_values)
+
+        else:
+            basis_values = (test_basis_values,)
+
         if is_bilinear:
             spaces = (test_space, trial_space)
             test_vector_space = DottedName(test_space, 'vector_space')
@@ -2358,12 +2368,27 @@ class Interface(SplBasic):
         # ...
 
         # ...
-        self._basic_args = spaces
+        self._basic_args = spaces + (grid,) + basis_values
+        # ...
+
+        # ... interface body
+        body = []
+        # ...
+
+        # ... grid data
+        body += [Assign(points,  DottedName(grid, 'points'))]
+        body += [Assign(weights, DottedName(grid, 'weights'))]
+        body += [Assign(quad_orders, DottedName(grid, 'quad_order'))]
+        # ...
+
+        # ... basis values
+        body += [Assign(test_basis, DottedName(test_basis_values, 'basis'))]
+
+        if is_bilinear:
+            body += [Assign(trial_basis, DottedName(trial_basis_values, 'basis'))]
         # ...
 
         # ... getting data from fem space
-        body = []
-
         body += [Assign(test_degrees, DottedName(test_vector_space, 'pads'))]
         if is_bilinear:
             body += [Assign(trial_degrees, DottedName(trial_vector_space, 'pads'))]
@@ -2375,26 +2400,11 @@ class Interface(SplBasic):
         # ... TODO improve
         if isinstance(Wh, ProductFemSpace):
             body += [Assign(spans,          DottedName(test_space, 'spaces[0]', 'spans'))]
-            body += [Assign(quad_orders,    DottedName(test_space, 'spaces[0]', 'quad_order'))]
-            body += [Assign(points,         DottedName(test_space, 'spaces[0]', 'quad_points'))]
-            body += [Assign(weights,        DottedName(test_space, 'spaces[0]', 'quad_weights'))]
-            body += [Assign(test_basis,     DottedName(test_space, 'spaces[0]', 'quad_basis'))]
             body += [Assign(local_support,  DottedName(test_space, 'spaces[0]', 'local_support'))]
 
         else:
             body += [Assign(spans,          DottedName(test_space, 'spans'))]
-            body += [Assign(quad_orders,    DottedName(test_space, 'quad_order'))]
-            body += [Assign(points,         DottedName(test_space, 'quad_points'))]
-            body += [Assign(weights,        DottedName(test_space, 'quad_weights'))]
-            body += [Assign(test_basis,     DottedName(test_space, 'quad_basis'))]
             body += [Assign(local_support,  DottedName(test_space, 'local_support'))]
-
-        if is_bilinear:
-            if isinstance(Vh, ProductFemSpace):
-                body += [Assign(trial_basis, DottedName(trial_space, 'spaces[0]', 'quad_basis'))]
-
-            else:
-                body += [Assign(trial_basis, DottedName(trial_space, 'quad_basis'))]
         # ...
 
         # ...

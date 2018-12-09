@@ -139,8 +139,8 @@ def test_api_poisson_2d_dir_1():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.0002464200659843996
-    expected_h1_error =  0.013068297590632992
+    expected_l2_error =  0.00021808678604760232
+    expected_h1_error =  0.013023570720360362
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -214,8 +214,8 @@ def test_api_laplace_2d_dir_1():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.0002464068884663996
-    expected_h1_error =  0.013068297990908681
+    expected_l2_error =  0.00021807346201014048
+    expected_h1_error =  0.013023570746135917
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -744,3 +744,7 @@ def teardown_function():
     from sympy import cache
     cache.clear_cache()
 
+
+##############################################
+#if __name__ == '__main__':
+#    pass
