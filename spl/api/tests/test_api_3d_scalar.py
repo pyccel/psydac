@@ -205,8 +205,8 @@ def test_api_poisson_3d_dirneu_2():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.001728818034546334
-    expected_h1_error =  0.04019920715758322
+    expected_l2_error =  0.0014388350122198999
+    expected_h1_error =  0.03929404299152041
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -284,8 +284,8 @@ def test_api_poisson_3d_dirneu_24():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.0012337403844063061
-    expected_h1_error =  0.02851614699719242
+    expected_l2_error =  0.0010275451113330345
+    expected_h1_error =  0.027938446826372445
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -363,8 +363,8 @@ def test_api_poisson_3d_dirneu_13():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.0012337403844096479
-    expected_h1_error =  0.02851614699719198
+    expected_l2_error =  0.0010275451113309177
+    expected_h1_error =  0.027938446826372313
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -453,8 +453,8 @@ def test_api_poisson_3d_dirneu_123():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.00157526092839009
-    expected_h1_error =  0.036161474176686616
+    expected_l2_error =  0.0013124098938818625
+    expected_h1_error =  0.035441679549891296
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -546,8 +546,8 @@ def test_api_poisson_3d_dirneu_1235():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.00022247133675088577
-    expected_h1_error =  0.005879990849648782
+    expected_l2_error =  0.00019677816055503394
+    expected_h1_error =  0.0058786142515821265
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -567,6 +567,6 @@ def teardown_function():
     cache.clear_cache()
 
 ################################################
-#if __name__ == '__main__':
-#    pass
+if __name__ == '__main__':
+    test_api_poisson_3d_dirneu_1235()
 

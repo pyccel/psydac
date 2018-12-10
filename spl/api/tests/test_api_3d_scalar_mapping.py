@@ -191,8 +191,8 @@ def test_api_poisson_3d_dirneu_identity_2():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.008983202018626653
-    expected_h1_error =  0.2088812076627555
+    expected_l2_error =  0.007476406034615364
+    expected_h1_error =  0.20417783668832656
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -272,8 +272,8 @@ def test_api_poisson_3d_dirneu_identity_24():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.006410703087383972
-    expected_h1_error =  0.14817424630570938
+    expected_l2_error =  0.005339281019682795
+    expected_h1_error =  0.14517242816351233
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -353,8 +353,8 @@ def test_api_poisson_3d_dirneu_identity_13():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.006410703087458861
-    expected_h1_error =  0.14817424630571568
+    expected_l2_error =  0.005339281019684631
+    expected_h1_error =  0.14517242816351372
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -445,8 +445,8 @@ def test_api_poisson_3d_dirneu_identity_123():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.008185295889445504
-    expected_h1_error =  0.18790053165182205
+    expected_l2_error =  0.00681948184967118
+    expected_h1_error =  0.18416036905795535
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -540,8 +540,8 @@ def test_api_poisson_3d_dirneu_identity_1235():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.0011559949768118187
-    expected_h1_error =  0.03055332869880016
+    expected_l2_error =  0.0010224893148868808
+    expected_h1_error =  0.030546175685500224
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -568,9 +568,10 @@ def test_api_poisson_3d_dirneu_collela_2():
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr, mapping=mapping)
 
-    solution = sin(0.5*pi*x)*sin(pi*y)*sin(pi*z)
+    solution = sin(0.25*pi*(x+1.))*sin(pi*y)*sin(pi*z)
 
-    expr = (9./4.)*pi**2*solution*v
+    expr = (33./16.)*pi**2*solution*v
+
     l0 = LinearForm(v, expr, mapping=mapping)
 
     expr = v*trace_1(grad(solution), B2)
@@ -616,8 +617,8 @@ def test_api_poisson_3d_dirneu_collela_2():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.34144365665460336
-    expected_h1_error =  3.410346277732442
+    expected_l2_error =  0.31651011929794615
+    expected_h1_error =  3.315168073716373
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -697,8 +698,8 @@ def test_api_poisson_3d_dirneu_collela_24():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.21548822804777543
-    expected_h1_error =  2.070588664986804
+    expected_l2_error =  0.19713579709344806
+    expected_h1_error =  1.9973824048200948
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -778,8 +779,8 @@ def test_api_poisson_3d_dirneu_collela_13():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.2152737657837205
-    expected_h1_error =  2.0706245424306795
+    expected_l2_error =  0.1967707543568222
+    expected_h1_error =  1.997279767542349
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -870,8 +871,8 @@ def test_api_poisson_3d_dirneu_collela_123():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.7094635247320015
-    expected_h1_error =  5.99554178588137
+    expected_l2_error =  0.6216671144774677
+    expected_h1_error =  5.854903143947668
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -965,8 +966,8 @@ def test_api_poisson_3d_dirneu_collela_1235():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.7615640847723227
-    expected_h1_error =  5.217550482925127
+    expected_l2_error =  0.6863456565612966
+    expected_h1_error =  5.177931817581279
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -989,4 +990,5 @@ def teardown_function():
 
 ###############################################
 if __name__ == '__main__':
-    test_api_poisson_3d_dir_collela()
+    test_api_poisson_3d_dirneu_collela_2()
+    print('')
