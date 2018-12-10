@@ -1,20 +1,13 @@
 # coding: utf-8
 
+import numpy as np
 
-from spl.utilities.quadratures import gauss_legendre
-from spl.core.bsplines         import ( find_span,
-                                        basis_funs,
-                                        collocation_matrix,
-                                        breakpoints,
-                                        greville,
-                                        elements_spans,
-                                        make_knots,
-                                        quadrature_grid,
-                                        basis_ders_on_quad_grid )
-
-from spl.fem.splines           import SplineSpace
-from spl.fem.tensor            import TensorFemSpace
-from spl.fem.vector            import ProductFemSpace
+from spl.utilities.quadratures  import gauss_legendre
+from spl.core.bsplines          import quadrature_grid
+from spl.fem.splines            import SplineSpace
+from spl.fem.tensor             import TensorFemSpace
+from spl.fem.vector             import ProductFemSpace
+from spl.api.boundary_condition import DiscreteBoundary
 
 #==============================================================================
 def _compute_quadrature_SplineSpace( V, quad_order=None ):
@@ -119,6 +112,9 @@ class QuadratureGrid():
         pw = compute_quadrature( V, quad_order=quad_order )
         points, weights = zip(*pw)
 
+        points  = list(points)
+        weights = list(weights)
+
         self._points  = points
         self._weights = weights
 
@@ -133,6 +129,43 @@ class QuadratureGrid():
     @property
     def quad_order(self):
         return [w.shape[1] for w in self.weights]
+
+#==============================================================================
+class BoundaryQuadratureGrid(QuadratureGrid):
+    def __init__( self, V, axis, ext, quad_order=None ):
+        if isinstance(V, ProductFemSpace):
+            raise NotImplementedError('')
+
+        pw = compute_quadrature( V, quad_order=quad_order )
+        points, weights = zip(*pw)
+
+        points  = list(points)
+        weights = list(weights)
+
+        # ...
+        if V.ldim == 1:
+            assert( isinstance( V, SplineSpace ) )
+
+            bounds = {}
+            bounds[-1] = V.domain[0]
+            bounds[1]  = V.domain[1]
+
+            points[axis] = np.asarray([[bounds[ext]]])
+            weights[axis] = np.asarray([[1.]])
+
+        elif V.ldim in [2, 3]:
+            assert( isinstance( V, TensorFemSpace ) )
+
+            bounds = {}
+            bounds[-1] = V.spaces[axis].domain[0]
+            bounds[1]  = V.spaces[axis].domain[1]
+
+            points[axis] = np.asarray([[bounds[ext]]])
+            weights[axis] = np.asarray([[1.]])
+        # ...
+
+        self._points  = points
+        self._weights = weights
 
 
 ################################################
@@ -160,17 +193,26 @@ if __name__ == '__main__':
     V = TensorFemSpace( V1, V2 )
     # ...
 
-    # ...
-    print('=== 1D case ===')
-    qd_1d = QuadratureGrid(V1, quad_order=5)
-
-    print('> points  = ', qd_1d.points)
-    print('> weights = ', qd_1d.weights)
-    # ...
+#    # ...
+#    print('=== 1D case ===')
+#    qd_1d = QuadratureGrid(V1)
+#
+#    print('> points  = ', qd_1d.points)
+#    print('> weights = ', qd_1d.weights)
+#    # ...
 
     # ...
     print('=== 2D case ===')
-    qd_2d = QuadratureGrid(V, quad_order=5)
+    qd_2d = QuadratureGrid(V)
+
+    for x,w in zip(qd_2d.points, qd_2d.weights):
+        print('> points  = ', x)
+        print('> weights = ', w)
+    # ...
+
+    # ...
+    print('=== 2D case boundary ===')
+    qd_2d = BoundaryQuadratureGrid(V, axis=1, ext=-1)
 
     for x,w in zip(qd_2d.points, qd_2d.weights):
         print('> points  = ', x)

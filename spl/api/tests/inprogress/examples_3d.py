@@ -69,7 +69,7 @@ def create_discrete_space(p=(2,2,2), ne=(2**2,2**2,2**2)):
 
 
 #==============================================================================
-def test_api_poisson_3d_dirneu_identity_2():
+def test_api_poisson_3d_dirneu_collela_123():
 
     # ... abstract model
     mapping = Mapping('M', rdim=3, domain=domain)
@@ -77,7 +77,12 @@ def test_api_poisson_3d_dirneu_identity_2():
     U = FunctionSpace('U', domain)
     V = FunctionSpace('V', domain)
 
-    B2 = Boundary(r'\Gamma_2', domain) # neumann  bc will be applied on B2
+    B1 = Boundary(r'\Gamma_1', domain) # Neumann bc will be applied on B1
+    B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
+    B3 = Boundary(r'\Gamma_3', domain) # Neumann bc will be applied on B3
+    B4 = Boundary(r'\Gamma_4', domain)
+    B5 = Boundary(r'\Gamma_5', domain)
+    B6 = Boundary(r'\Gamma_6', domain)
 
     x,y,z = domain.coordinates
 
@@ -89,34 +94,46 @@ def test_api_poisson_3d_dirneu_identity_2():
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr, mapping=mapping)
 
-    solution = sin(0.5*pi*x)*sin(pi*y)*sin(pi*z)
+    solution = cos(pi*x)*sin(0.25*pi*(1.-y))*sin(pi*z)
 
-    expr = (9./4.)*pi**2*solution*v
-    l0 = LinearForm(v, expr, mapping=mapping)
+    expr = (33./16.)*pi**2*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B1)
+    l_B1 = LinearForm(v, expr)
 
     expr = v*trace_1(grad(solution), B2)
-    l_B2 = LinearForm(v, expr, mapping=mapping)
+    l_B2 = LinearForm(v, expr)
 
-    expr = l0(v) + l_B2(v)
+    expr = v*trace_1(grad(solution), B3)
+    l_B3 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B1(v) + l_B2(v) + l_B3(v)
     l = LinearForm(v, expr, mapping=mapping)
 
     error = F - solution
     l2norm = Norm(error, domain, kind='l2', name='u', mapping=mapping)
     h1norm = Norm(error, domain, kind='h1', name='u', mapping=mapping)
 
-    bc = [DirichletBC(-B2)]
+    bc = [DirichletBC(B) for B in [B4,B5,B6]]
     equation = Equation(a(v,u), l(v), bc=bc)
     # ...
 
     # ... discrete spaces
-    Vh, mapping = fem_context(os.path.join(mesh_dir, 'identity_3d.h5'))
+#    Vh, mapping = fem_context(os.path.join(mesh_dir, 'collela_3d.h5'))
+    Vh, mapping = fem_context('collela_3d.h5')
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
     B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+    B5 = DiscreteBoundary(B5, axis=2, ext=-1)
+    B6 = DiscreteBoundary(B6, axis=2, ext= 1)
 
-    bc = [DiscreteDirichletBC(-B2)]
-    equation_h = discretize(equation, [Vh, Vh], mapping, boundary=B2, bc=bc)
+    bc = [DiscreteDirichletBC(B) for B in [B4,B5,B6]]
+    equation_h = discretize(equation, [Vh, Vh], mapping, boundary=[B1,B2,B3], bc=bc)
     # ...
 
     # ... discretize norms
@@ -136,18 +153,112 @@ def test_api_poisson_3d_dirneu_identity_2():
     # ... compute norms
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
+
     print('> l2_error = ', l2_error)
     print('> h1_error = ', h1_error)
 
-#    expected_l2_error =  0.002108675850460567
-#    expected_h1_error =  0.049398529195520964
+#    expected_l2_error =  0.008983202018626653
+#    expected_h1_error =  0.2088812076627555
 #
 #    assert( abs(l2_error - expected_l2_error) < 1.e-7)
 #    assert( abs(h1_error - expected_h1_error) < 1.e-7)
     # ...
 
 
+#==============================================================================
+def test_api_poisson_3d_dirneu_collela_1235():
+
+    # ... abstract model
+    mapping = Mapping('M', rdim=3, domain=domain)
+
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B1 = Boundary(r'\Gamma_1', domain) # Neumann bc will be applied on B1
+    B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
+    B3 = Boundary(r'\Gamma_3', domain) # Neumann bc will be applied on B3
+    B4 = Boundary(r'\Gamma_4', domain)
+    B5 = Boundary(r'\Gamma_5', domain) # Neumann bc will be applied on B5
+    B6 = Boundary(r'\Gamma_6', domain)
+
+    x,y,z = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr, mapping=mapping)
+
+    solution = cos(pi*x)*sin(0.25*pi*(1.-y))*sin(0.25*pi*(1.-z))
+
+    expr = (9./8.)*pi**2*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B1)
+    l_B1 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B2)
+    l_B2 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B3)
+    l_B3 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B5)
+    l_B5 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B1(v) + l_B2(v) + l_B3(v) + l_B5(v)
+    l = LinearForm(v, expr, mapping=mapping)
+
+    error = F - solution
+    l2norm = Norm(error, domain, kind='l2', name='u', mapping=mapping)
+    h1norm = Norm(error, domain, kind='h1', name='u', mapping=mapping)
+
+    bc = [DirichletBC(B) for B in [B4,B6]]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh, mapping = fem_context('collela_3d.h5')
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+    B5 = DiscreteBoundary(B5, axis=2, ext=-1)
+    B6 = DiscreteBoundary(B6, axis=2, ext= 1)
+
+    bc = [DiscreteDirichletBC(B) for B in [B4,B6]]
+    equation_h = discretize(equation, [Vh, Vh], mapping, boundary=[B1,B2,B3,B5], bc=bc)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh, mapping)
+    h1norm_h = discretize(h1norm, Vh, mapping)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:,:] = x[:,:,:]
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+
+    print('> l2_error = ', l2_error)
+    print('> h1_error = ', h1_error)
+    # ...
+
+
 ###############################################
 if __name__ == '__main__':
 
-    test_api_poisson_3d_dirneu_identity_2()
+    test_api_poisson_3d_dirneu_collela_1235()

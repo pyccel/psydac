@@ -2,16 +2,7 @@
 
 
 from spl.utilities.quadratures import gauss_legendre
-from spl.core.bsplines         import ( find_span,
-                                        basis_funs,
-                                        collocation_matrix,
-                                        breakpoints,
-                                        greville,
-                                        elements_spans,
-                                        make_knots,
-                                        quadrature_grid,
-                                        basis_ders_on_quad_grid )
-
+from spl.core.bsplines         import basis_ders_on_quad_grid
 from spl.fem.splines           import SplineSpace
 from spl.fem.tensor            import TensorFemSpace
 from spl.fem.vector            import ProductFemSpace

@@ -20,7 +20,7 @@ from sympde.core import Boundary as sym_Boundary
 from sympde.core import Norm as sym_Norm
 from sympde.core import evaluate
 
-from spl.api.grid  import QuadratureGrid
+from spl.api.grid  import QuadratureGrid, BoundaryQuadratureGrid
 from spl.api.basis import BasisValues
 from spl.api.codegen.ast import Kernel
 from spl.api.codegen.ast import Assembly
@@ -573,12 +573,27 @@ class DiscreteBilinearForm(BasicDiscrete):
         # ...
         test_space  = self.spaces[0]
         trial_space = self.spaces[1]
+        # ...
 
+        # ...
         quad_order = kwargs.pop('quad_order', None)
+        boundary   = kwargs.pop('boundary',   None)
+        # ...
 
+        # ...
         # TODO must check that spaces lead to the same QuadratureGrid
-        self._grid = QuadratureGrid( test_space, quad_order = quad_order )
+        if boundary is None:
+            self._grid = QuadratureGrid( test_space, quad_order = quad_order )
 
+        else:
+
+            self._grid = BoundaryQuadratureGrid( test_space,
+                                                 boundary.axis,
+                                                 boundary.ext,
+                                                 quad_order = quad_order )
+        # ...
+
+        # ...
         self._test_basis = BasisValues( test_space, self.grid,
                                         nderiv = self.max_nderiv )
 
@@ -651,8 +666,22 @@ class DiscreteLinearForm(BasicDiscrete):
 
         # ...
         quad_order = kwargs.pop('quad_order', None)
+        boundary   = kwargs.pop('boundary',   None)
+        # ...
 
-        self._grid = QuadratureGrid( self.space, quad_order = quad_order )
+        # ...
+        if boundary is None:
+            self._grid = QuadratureGrid( self.space, quad_order = quad_order )
+
+        else:
+
+            self._grid = BoundaryQuadratureGrid( self.space,
+                                                 boundary.axis,
+                                                 boundary.ext,
+                                                 quad_order = quad_order )
+        # ...
+
+        # ...
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv )
         # ...
@@ -712,8 +741,22 @@ class DiscreteIntegral(BasicDiscrete):
 
         # ...
         quad_order = kwargs.pop('quad_order', None)
+        boundary   = kwargs.pop('boundary',   None)
+        # ...
 
-        self._grid = QuadratureGrid( self.space, quad_order = quad_order )
+        # ...
+        if boundary is None:
+            self._grid = QuadratureGrid( self.space, quad_order = quad_order )
+
+        else:
+
+            self._grid = BoundaryQuadratureGrid( self.space,
+                                                 boundary.axis,
+                                                 boundary.ext,
+                                                 quad_order = quad_order )
+        # ...
+
+        # ...
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv )
         # ...
