@@ -223,6 +223,80 @@ def test_api_laplace_2d_dir_1():
 
 
 #==============================================================================
+def test_api_poisson_2d_dirneu_1():
+
+    # ... abstract model
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B1 = Boundary(r'\Gamma_1', domain) # Neumann bc will be applied on B1
+
+    x,y = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    solution = sin(0.5*pi*(1.-x))*sin(pi*y)
+
+    expr = (5./4.)*pi**2*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B1)
+    l_B1 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B1(v)
+    l = LinearForm(v, expr)
+
+    error = F-solution
+    l2norm = Norm(error, domain, kind='l2', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
+
+    bc = [DirichletBC(-B1)]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+
+    bc = [DiscreteDirichletBC(-B1)]
+    equation_h = discretize(equation, [Vh, Vh], boundary=B1, bc=bc)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+
+    expected_l2_error =  0.00015546057796452772
+    expected_h1_error =  0.00926930278452745
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    # ...
+
+#==============================================================================
 def test_api_poisson_2d_dirneu_2():
 
     # ... abstract model
@@ -289,8 +363,156 @@ def test_api_poisson_2d_dirneu_2():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.0001755319490060421
-    expected_h1_error =  0.009298116787699227
+    expected_l2_error =  0.0001554605779481901
+    expected_h1_error =  0.009269302784527256
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    # ...
+
+#==============================================================================
+def test_api_poisson_2d_dirneu_3():
+
+    # ... abstract model
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B3 = Boundary(r'\Gamma_3', domain) # Neumann bc will be applied on B3
+
+    x,y = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    solution = sin(pi*x)*sin(0.5*pi*(1.-y))
+
+    expr = (5./4.)*pi**2*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B3)
+    l_B3 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B3(v)
+    l = LinearForm(v, expr)
+
+    error = F-solution
+    l2norm = Norm(error, domain, kind='l2', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
+
+    bc = [DirichletBC(-B3)]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+
+    bc = [DiscreteDirichletBC(-B3)]
+    equation_h = discretize(equation, [Vh, Vh], boundary=B3, bc=bc)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+
+    expected_l2_error =  0.0001554605779681901
+    expected_h1_error =  0.009269302784528678
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    # ...
+
+#==============================================================================
+def test_api_poisson_2d_dirneu_4():
+
+    # ... abstract model
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B4 = Boundary(r'\Gamma_4', domain) # Neumann bc will be applied on B4
+
+    x,y = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    solution = sin(pi*x)*sin(0.5*pi*y)
+
+    expr = (5./4.)*pi**2*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B4)
+    l_B4 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B4(v)
+    l = LinearForm(v, expr)
+
+    error = F-solution
+    l2norm = Norm(error, domain, kind='l2', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
+
+    bc = [DirichletBC(-B4)]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh = create_discrete_space()
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+
+    bc = [DiscreteDirichletBC(-B4)]
+    equation_h = discretize(equation, [Vh, Vh], boundary=B4, bc=bc)
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+
+    expected_l2_error =  0.00015546057796339546
+    expected_h1_error =  0.009269302784526841
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -340,7 +562,7 @@ def test_api_poisson_2d_dirneu_24():
     # ...
 
     # ... discrete spaces
-    Vh = create_discrete_space()
+    Vh = create_discrete_space(ne=(2**3,2**3))
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
@@ -369,8 +591,8 @@ def test_api_poisson_2d_dirneu_24():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  2.7971100793185878e-05
-    expected_h1_error =  0.0016032816329282472
+    expected_l2_error =  2.611989253883369e-05
+    expected_h1_error =  0.0016032430287973409
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -552,8 +774,8 @@ def test_api_poisson_2d_dirneu_13():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  2.7971100909686694e-05
-    expected_h1_error =  0.0016032816329212534
+    expected_l2_error =  2.6119892736036942e-05
+    expected_h1_error =  0.0016032430287934746
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -638,8 +860,8 @@ def test_api_poisson_2d_dirneu_123():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  2.5366751560417237e-05
-    expected_h1_error =  0.001452350212346307
+    expected_l2_error =  2.3687570918077593e-05
+    expected_h1_error =  0.0014523656754457381
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -725,8 +947,8 @@ def test_api_poisson_2d_neu_1():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  2.7510665198168697e-06
-    expected_h1_error =  0.00015490443857562876
+    expected_l2_error =  2.5196152343755257e-06
+    expected_h1_error =  0.00015443613147528876
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -743,8 +965,3 @@ def teardown_module():
 def teardown_function():
     from sympy import cache
     cache.clear_cache()
-
-
-##############################################
-#if __name__ == '__main__':
-#    pass

@@ -336,12 +336,12 @@ def init_loop_support(indices_support, indices_elm, local_support,
     # sympy does not like ':'
     _slice = Slice(None,None)
 
-    stmts += [Assign(points_in_elm[axis], points[i][0,_slice])]
-    stmts += [Assign(weights_in_elm[axis], weights[i][0,_slice])]
-    stmts += [Assign(test_basis_in_elm[axis], test_basis[i][0,_slice,_slice,_slice])]
+    stmts += [Assign(points_in_elm[axis], points[axis][0,_slice])]
+    stmts += [Assign(weights_in_elm[axis], weights[axis][0,_slice])]
+    stmts += [Assign(test_basis_in_elm[axis], test_basis[axis][0,_slice,_slice,_slice])]
 
     if is_bilinear:
-        stmts += [Assign(trial_basis_in_elm[axis], trial_basis[i][0,_slice,_slice,_slice])]
+        stmts += [Assign(trial_basis_in_elm[axis], trial_basis[axis][0,_slice,_slice,_slice])]
     # ...
 
     return stmts
@@ -2372,9 +2372,7 @@ class Assembly(SplBasic):
         # ...
 
         # ...
-        len_support = [Assign(k, Len(u))
-                       for k,u,i in zip(support_length, local_support, range(dim))
-                       if not(i in axis_bnd)]
+        len_support = [Assign(k, Len(u)) for k,u in zip(support_length, local_support)]
         body = len_support + body
         # ...
 
