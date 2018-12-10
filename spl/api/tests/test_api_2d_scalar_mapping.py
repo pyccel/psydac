@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 
-from sympy import pi, cos, sin
+from sympy import pi, cos, sin, exp
 from sympy import S
 from sympy import Tuple
 from sympy import Matrix
@@ -1124,6 +1124,185 @@ def test_api_poisson_2d_dirneu_identity_123():
 
     expected_l2_error =  7.106271222962881e-05
     expected_h1_error =  0.004357097026355032
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    # ...
+
+
+#==============================================================================
+def test_api_poisson_2d_neu_identity():
+
+    # ... abstract model
+    mapping = Mapping('M', rdim=2, domain=domain)
+
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B1 = Boundary(r'\Gamma_1', domain) # Neumann bc will be applied on B1
+    B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
+    B3 = Boundary(r'\Gamma_3', domain) # Neumann bc will be applied on B3
+    B4 = Boundary(r'\Gamma_4', domain) # Neumann bc will be applied on B4
+
+    x,y = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u)) + v*u
+    a = BilinearForm((v,u), expr, mapping=mapping)
+
+    solution = cos(pi*x)*cos(pi*y)
+
+    expr = (2.*pi**2 + 1.)*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B1)
+    l_B1 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B2)
+    l_B2 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B3)
+    l_B3 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B4)
+    l_B4 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B1(v) + l_B2(v) + l_B3(v) + l_B4(v)
+    l = LinearForm(v, expr, mapping=mapping)
+
+    error = F-solution
+    l2norm = Norm(error, domain, kind='l2', name='u', mapping=mapping)
+    h1norm = Norm(error, domain, kind='h1', name='u', mapping=mapping)
+
+    equation = Equation(a(v,u), l(v))
+    # ...
+
+    # ... discrete spaces
+    Vh, mapping = fem_context(os.path.join(mesh_dir, 'identity_2d.h5'))
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+
+    equation_h = discretize(equation, [Vh, Vh], mapping, boundary=[B1,B2,B3,B4])
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh, mapping)
+    h1norm_h = discretize(h1norm, Vh, mapping)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+
+    expected_l2_error =  0.0006518539616462576
+    expected_h1_error =  0.038954558964370896
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    # ...
+
+#==============================================================================
+def test_api_poisson_2d_neu_collela():
+
+    # ... abstract model
+    mapping = Mapping('M', rdim=2, domain=domain)
+
+    U = FunctionSpace('U', domain)
+    V = FunctionSpace('V', domain)
+
+    B1 = Boundary(r'\Gamma_1', domain) # Neumann bc will be applied on B1
+    B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
+    B3 = Boundary(r'\Gamma_3', domain) # Neumann bc will be applied on B3
+    B4 = Boundary(r'\Gamma_4', domain) # Neumann bc will be applied on B4
+
+    x,y = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(U, name='u')
+
+    expr = dot(grad(v), grad(u)) + v*u
+    a = BilinearForm((v,u), expr, mapping=mapping)
+
+    solution = cos(pi*x)*cos(pi*y)
+
+    expr = (2.*pi**2 + 1.)*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B1)
+    l_B1 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B2)
+    l_B2 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B3)
+    l_B3 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B4)
+    l_B4 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B1(v) + l_B2(v) + l_B3(v) + l_B4(v)
+    l = LinearForm(v, expr, mapping=mapping)
+
+    error = F-solution
+    l2norm = Norm(error, domain, kind='l2', name='u', mapping=mapping)
+    h1norm = Norm(error, domain, kind='h1', name='u', mapping=mapping)
+
+    equation = Equation(a(v,u), l(v))
+    # ...
+
+    # ... discrete spaces
+    Vh, mapping = fem_context(os.path.join(mesh_dir, 'collela_2d.h5'))
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
+    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
+
+    equation_h = discretize(equation, [Vh, Vh], mapping, boundary=[B1,B2,B3,B4])
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh, mapping)
+    h1norm_h = discretize(h1norm, Vh, mapping)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+
+    expected_l2_error =  0.08881000572443457
+    expected_h1_error =  1.2203240282935726
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
