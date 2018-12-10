@@ -69,12 +69,14 @@ from spl.fem.vector  import ProductFemSpace
 
 FunctionalForms = (BilinearForm, LinearForm, Integral)
 
+#==============================================================================
 def random_string( n ):
     chars    = string.ascii_lowercase + string.digits
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
 
+#==============================================================================
 def compute_normal_vector(vector, discrete_boundary, mapping):
     dim = len(vector)
     pdim = dim - len(discrete_boundary)
@@ -156,10 +158,13 @@ def compute_normal_vector(vector, discrete_boundary, mapping):
 
     return map_stmts, body
 
+#==============================================================================
 def compute_tangent_vector(vector, discrete_boundary, mapping):
     raise NotImplementedError('TODO')
 
 
+#==============================================================================
+# TODO remove it later
 def filter_loops(indices, ranges, body, discrete_boundary, boundary_basis=False):
 
     quad_mask = []
@@ -196,6 +201,152 @@ def filter_loops(indices, ranges, body, discrete_boundary, boundary_basis=False)
 
     return body
 
+
+#==============================================================================
+def select_loops(indices, ranges, body, discrete_boundary, boundary_basis=False):
+
+    quad_mask = []
+    quad_ext = []
+    if discrete_boundary:
+        # TODO improve using namedtuple or a specific class ? to avoid the 0 index
+        #      => make it easier to understand
+        quad_mask = [i[0] for i in discrete_boundary]
+        quad_ext  = [i[1] for i in discrete_boundary]
+
+        # discrete_boundary gives the perpendicular indices, then we need to
+        # remove them from directions
+
+    dim = len(indices)
+    dims = [i for i in range(dim-1,-1,-1) if not( i in quad_mask )]
+    for i in dims:
+        rx = ranges[i]
+        x = indices[i]
+        start = rx.start
+        end   = rx.stop
+
+        rx = Range(start, end)
+        body = [For(x, rx, body)]
+
+    return body
+
+#==============================================================================
+def init_loop_quadrature(indices, ranges, discrete_boundary):
+    stmts = []
+    if not discrete_boundary:
+        return stmts
+
+    # TODO improve using namedtuple or a specific class ? to avoid the 0 index
+    #      => make it easier to understand
+    quad_mask = [i[0] for i in discrete_boundary]
+    quad_ext  = [i[1] for i in discrete_boundary]
+
+    dim = len(indices)
+    for i in range(dim-1,-1,-1):
+        rx = ranges[i]
+        x = indices[i]
+
+        if i in quad_mask:
+            i_index = quad_mask.index(i)
+            ext = quad_ext[i_index]
+
+            stmts += [Assign(x, 0)]
+
+    return stmts
+
+#==============================================================================
+def init_loop_basis(indices, ranges, discrete_boundary):
+    stmts = []
+    if not discrete_boundary:
+        return stmts
+
+    # TODO improve using namedtuple or a specific class ? to avoid the 0 index
+    #      => make it easier to understand
+    quad_mask = [i[0] for i in discrete_boundary]
+    quad_ext  = [i[1] for i in discrete_boundary]
+
+    dim = len(indices)
+    for i in range(dim-1,-1,-1):
+        rx = ranges[i]
+        x = indices[i]
+
+        if i in quad_mask:
+            i_index = quad_mask.index(i)
+            ext = quad_ext[i_index]
+
+            if ext == -1:
+                value = rx.start
+
+            elif ext == 1:
+                value = rx.stop - 1
+
+            stmts += [Assign(x, value)]
+
+    return stmts
+
+#==============================================================================
+def init_loop_support(indices_support, indices_elm, local_support,
+                      indices_span, spans, ranges,
+                      points_in_elm, points,
+                      weights_in_elm, weights,
+                      test_basis_in_elm, test_basis,
+                      trial_basis_in_elm, trial_basis,
+                      is_bilinear, discrete_boundary):
+    stmts = []
+    if not discrete_boundary:
+        return stmts
+
+    # TODO improve using namedtuple or a specific class ? to avoid the 0 index
+    #      => make it easier to understand
+    quad_mask = [i[0] for i in discrete_boundary]
+    quad_ext  = [i[1] for i in discrete_boundary]
+
+    dim = len(indices_support)
+    for i in range(dim-1,-1,-1):
+        rx = ranges[i]
+        x = indices_support[i]
+
+        if i in quad_mask:
+            i_index = quad_mask.index(i)
+            ext = quad_ext[i_index]
+
+            if ext == -1:
+                value = rx.start
+
+            elif ext == 1:
+                value = rx.stop - 1
+
+            stmts += [Assign(x, value)]
+
+    axis = quad_mask[0]
+
+    # ... assign element index
+    support = local_support[axis]
+    i_support = indices_support[axis]
+    ie = indices_elm[axis]
+    stmts += [Assign(ie, support[i_support])]
+    # ...
+
+    # ... assign span index
+    i_span = indices_span[axis]
+    stmts += [Assign(i_span, spans[axis][ie])]
+    # ...
+
+    # ... assign points, weights and basis
+    # ie is substitute by 0
+    # sympy does not like ':'
+    _slice = Slice(None,None)
+
+    stmts += [Assign(points_in_elm[axis], points[i][0,_slice])]
+    stmts += [Assign(weights_in_elm[axis], weights[i][0,_slice])]
+    stmts += [Assign(test_basis_in_elm[axis], test_basis[i][0,_slice,_slice,_slice])]
+
+    if is_bilinear:
+        stmts += [Assign(trial_basis_in_elm[axis], trial_basis[i][0,_slice,_slice,_slice])]
+    # ...
+
+    return stmts
+
+#==============================================================================
 def filter_product(indices, args, discrete_boundary):
 
     mask = []
@@ -214,6 +365,8 @@ def filter_product(indices, args, discrete_boundary):
 
     return Mul(*args)
 
+
+#==============================================================================
 def compute_atoms_expr(atom, indices_quad, indices_test,
                        indices_trial, basis_trial,
                        basis_test, cords, test_function,
@@ -320,6 +473,8 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
 
     return assign, map_stmts
 
+
+#==============================================================================
 def compute_atoms_expr_field(atom, indices_quad,
                             idxs, basis,
                             test_function, mapping):
@@ -400,6 +555,8 @@ def compute_atoms_expr_field(atom, indices_quad,
 
     return init, update, map_stmts
 
+
+#==============================================================================
 def compute_atoms_expr_vector_field(atom, indices_quad,
                             idxs, basis,
                             test_function, mapping):
@@ -481,6 +638,8 @@ def compute_atoms_expr_vector_field(atom, indices_quad,
 
     return init, update, map_stmts
 
+
+#==============================================================================
 def compute_atoms_expr_mapping(atom, indices_quad,
                                idxs, basis,
                                test_function):
@@ -526,6 +685,7 @@ def compute_atoms_expr_mapping(atom, indices_quad,
 
     return init, update
 
+#==============================================================================
 def is_field(expr):
 
     if isinstance(expr, _partial_derivatives):
@@ -536,6 +696,7 @@ def is_field(expr):
 
     return False
 
+#==============================================================================
 def is_vector_field(expr):
 
     if isinstance(expr, _partial_derivatives):
@@ -546,6 +707,8 @@ def is_vector_field(expr):
 
     return False
 
+
+#==============================================================================
 class SplBasic(Basic):
     _discrete_boundary = None
 
@@ -598,6 +761,8 @@ class SplBasic(Basic):
     def discrete_boundary(self):
         return self._discrete_boundary
 
+
+#==============================================================================
 class EvalMapping(SplBasic):
 
     def __new__(cls, space, mapping, discrete_boundary=None, name=None, boundary_basis=None, nderiv=1):
@@ -760,6 +925,8 @@ class EvalMapping(SplBasic):
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators)
 
+
+#==============================================================================
 class EvalField(SplBasic):
 
     def __new__(cls, space, fields, discrete_boundary=None, name=None,
@@ -881,6 +1048,7 @@ class EvalField(SplBasic):
                            decorators=decorators)
 
 
+#==============================================================================
 class EvalVectorField(SplBasic):
 
     def __new__(cls, space, vector_fields, discrete_boundary=None, name=None,
@@ -1003,6 +1171,7 @@ class EvalVectorField(SplBasic):
                            decorators=decorators)
 
 
+#==============================================================================
 # target is used when there are multiple expression (domain/boundaries)
 class Kernel(SplBasic):
 
@@ -1632,11 +1801,18 @@ class Kernel(SplBasic):
                 body.append(AugAssign(v[i],'+', e))
         # ...
 
+        # ... stmts for initializtion: only when boundary is present
+        init_stmts = []
+        # ...
+
         # ...
         # put the body in for loops of quadrature points
-        body = filter_loops(indices_quad, ranges_quad, body,
-                            self.discrete_boundary,
-                            boundary_basis=self.boundary_basis)
+        init_stmts += init_loop_quadrature( indices_quad, ranges_quad,
+                                            self.discrete_boundary )
+
+        body = select_loops( indices_quad, ranges_quad, body,
+                             self.discrete_boundary,
+                             boundary_basis=self.boundary_basis)
 
         # initialization of intermediate vars
         init_vars = [Assign(v[i],0.0) for i in range(ln) if not( i in zero_terms )]
@@ -1662,18 +1838,27 @@ class Kernel(SplBasic):
         # ...
         # put the body in tests and trials for loops
         if is_bilinear:
-            body = filter_loops(indices_test, ranges_test, body,
+            init_stmts += init_loop_basis( indices_test,  ranges_test,  self.discrete_boundary )
+            init_stmts += init_loop_basis( indices_trial, ranges_trial, self.discrete_boundary )
+
+            body = select_loops(indices_test, ranges_test, body,
                                 self.discrete_boundary,
                                 boundary_basis=self.boundary_basis)
 
-            body = filter_loops(indices_trial, ranges_trial, body,
+            body = select_loops(indices_trial, ranges_trial, body,
                                 self.discrete_boundary,
                                 boundary_basis=self.boundary_basis)
 
         if is_linear:
-            body = filter_loops(indices_test, ranges_test, body,
+            init_stmts += init_loop_basis( indices_test, ranges_test, self.discrete_boundary )
+
+            body = select_loops(indices_test, ranges_test, body,
                                 self.discrete_boundary,
                                 boundary_basis=self.boundary_basis)
+        # ...
+
+        # ... add init stmts
+        body = init_stmts + body
         # ...
 
         # ...
@@ -1733,6 +1918,7 @@ class Kernel(SplBasic):
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators)
 
+#==============================================================================
 class Assembly(SplBasic):
 
     def __new__(cls, kernel, name=None, discrete_space=None, periodic=None, comm=None):
@@ -1769,6 +1955,7 @@ class Assembly(SplBasic):
         obj._discrete_space = discrete_space
         obj._periodic = periodic
         obj._comm = comm
+        obj._discrete_boundary = kernel.discrete_boundary
 
         # update dependencies
         obj._dependencies += [kernel]
@@ -1830,6 +2017,11 @@ class Assembly(SplBasic):
 
         n_rows = kernel.n_rows
         n_cols = kernel.n_cols
+
+        axis_bnd = []
+        if self.discrete_boundary:
+            axis_bnd = [i[0] for i in self.discrete_boundary]
+
 
         # ... declarations
         starts        = variables([ 's{}'.format(i)        for i in range(1, dim+1)], 'int')
@@ -1947,18 +2139,24 @@ class Assembly(SplBasic):
         _slice = Slice(None,None)
 
         # assignments
-        body  = [Assign(indices_span[i], spans[i][indices_elm[i]]) for i in range(dim)]
+        body  = [Assign(indices_span[i], spans[i][indices_elm[i]])
+                 for i in range(dim) if not(i in axis_bnd)]
         if self.debug and self.detailed:
             msg = lambda x: (String('> span {} = '.format(x)), x)
             body += [Print(msg(indices_span[i])) for i in range(dim)]
 
-        body += [Assign(points_in_elm[i], points[i][indices_elm[i],_slice]) for i in range(dim)]
-        body += [Assign(weights_in_elm[i], weights[i][indices_elm[i],_slice]) for i in range(dim)]
+        body += [Assign(points_in_elm[i], points[i][indices_elm[i],_slice])
+                 for i in range(dim) if not(i in axis_bnd) ]
+
+        body += [Assign(weights_in_elm[i], weights[i][indices_elm[i],_slice])
+                 for i in range(dim) if not(i in axis_bnd) ]
+
         body += [Assign(test_basis_in_elm[i], test_basis[i][indices_elm[i],_slice,_slice,_slice])
-                 for i in range(dim)]
+                 for i in range(dim) if not(i in axis_bnd) ]
+
         if is_bilinear:
             body += [Assign(trial_basis_in_elm[i], trial_basis[i][indices_elm[i],_slice,_slice,_slice])
-                     for i in range(dim)]
+                     for i in range(dim) if not(i in axis_bnd) ]
 
         # ... kernel call
         ind = 0
@@ -2102,15 +2300,27 @@ class Assembly(SplBasic):
         # ...
 
         # ... loop over elements
-        init_elm = [Assign(k, support[i]) for k,i,support in zip(indices_elm,
-                                                             indices_support,
-                                                             local_support)]
+        init_elm = [Assign(k, support[i])
+                    for k,i,support,axis in zip(indices_elm, indices_support, local_support, range(dim))
+                    if not(axis in axis_bnd)]
 
         body = init_elm + body
 
         ranges_elm  = [Range(0, support_length[i]) for i in range(dim)]
-        body = filter_loops(indices_support, ranges_elm, body,
+
+        # TODO call init_loops
+        init_stmts = init_loop_support( indices_support, indices_elm, local_support,
+                                       indices_span, spans, ranges_elm,
+                                       points_in_elm, points,
+                                       weights_in_elm, weights,
+                                       test_basis_in_elm, test_basis,
+                                       trial_basis_in_elm, trial_basis,
+                                       is_bilinear, self.discrete_boundary )
+
+        body = select_loops(indices_support, ranges_elm, body,
                             self.kernel.discrete_boundary, boundary_basis=False)
+
+        body = init_stmts + body
         # ...
 
         # ... prelude
@@ -2162,8 +2372,9 @@ class Assembly(SplBasic):
         # ...
 
         # ...
-        len_support = [Assign(k, Len(u)) for k,u in zip(support_length,
-                                                        local_support)]
+        len_support = [Assign(k, Len(u))
+                       for k,u,i in zip(support_length, local_support, range(dim))
+                       if not(i in axis_bnd)]
         body = len_support + body
         # ...
 
@@ -2196,6 +2407,8 @@ class Assembly(SplBasic):
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators)
 
+
+#==============================================================================
 class Interface(SplBasic):
 
     def __new__(cls, assembly, name=None, backend=None,
