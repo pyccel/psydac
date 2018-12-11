@@ -362,6 +362,12 @@ class TensorFemSpace( FemSpace ):
         """
         return self._eta_limits
 
+    # ... the following property is needed to make code generation easier. TODO: WILL BE REMOVED LATER
+    @property
+    def spans(self):
+        return [W.spans for W in self.spaces]
+    # ...
+
     # ...
     def init_fem( self, **kwargs ):
         for V in self.spaces:
