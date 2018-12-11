@@ -46,6 +46,7 @@ mesh_dir = os.path.join(base_dir, 'mesh')
 
 domain = Domain('\Omega', dim=2)
 
+#==============================================================================
 def create_discrete_space(p=(3,3), ne=(2**4,2**4), periodic=[False, False], comm=MPI.COMM_WORLD):
     # ... discrete spaces
     # Input data: degree, number of elements
@@ -68,6 +69,7 @@ def create_discrete_space(p=(3,3), ne=(2**4,2**4), periodic=[False, False], comm
 
     return V
 
+#==============================================================================
 @pytest.mark.parallel
 def test_api_poisson_2d_dir_collela():
 
@@ -141,8 +143,8 @@ def test_api_poisson_2d_dir_collela():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.09389860248700987
-    expected_h1_error =  1.2524517961158783
+    expected_l2_error =  0.09098801047984524
+    expected_h1_error =  1.236752445805597
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -160,4 +162,3 @@ def teardown_module():
 def teardown_function():
     from sympy import cache
     cache.clear_cache()
-
