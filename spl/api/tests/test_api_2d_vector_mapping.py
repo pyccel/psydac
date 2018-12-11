@@ -44,7 +44,7 @@ mesh_dir = os.path.join(base_dir, 'mesh')
 domain = Domain('\Omega', dim=2)
 
 
-def test_api_vector_laplace_2d_dir_analytical_collela():
+def test_api_vector_laplace_2d_dir_collela():
 
     # ... abstract model
     mapping = Mapping('M', rdim=2, domain=domain)
@@ -97,10 +97,6 @@ def test_api_vector_laplace_2d_dir_analytical_collela():
 
     bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
     equation_h = discretize(equation, [Vh, Vh], mapping, bc=bc)
-
-#    ah = discretize(a, [Vh, Vh], mapping)
-#    ah.assemble()
-#    import sys; sys.exit(0)
     # ...
 
     # ... discretize norms
@@ -123,8 +119,8 @@ def test_api_vector_laplace_2d_dir_analytical_collela():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.13279267709969952
-    expected_h1_error =  1.7712343162848103
+    expected_l2_error =  0.12867647840792776
+    expected_h1_error =  1.7490320821568779
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -143,3 +139,4 @@ def teardown_function():
     from sympy import cache
     cache.clear_cache()
 
+test_api_vector_laplace_2d_dir_collela()

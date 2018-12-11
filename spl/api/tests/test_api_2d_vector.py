@@ -33,6 +33,7 @@ from numpy import linspace, zeros, allclose
 
 domain = Domain('\Omega', dim=2)
 
+#==============================================================================
 def create_discrete_space(p=(2,2), ne=(2**3,2**3)):
     # ... discrete spaces
     # Input data: degree, number of elements
@@ -54,6 +55,7 @@ def create_discrete_space(p=(2,2), ne=(2**3,2**3)):
     return V
 
 
+#==============================================================================
 def test_api_vector_2d_2():
 
     # ... abstract model
@@ -128,6 +130,7 @@ def test_api_vector_2d_2():
     # ...
 
 
+#==============================================================================
 def test_api_vector_laplace_2d_dir_1():
 
     # ... abstract model
@@ -201,13 +204,14 @@ def test_api_vector_laplace_2d_dir_1():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.0003484905993571711
-    expected_h1_error =  0.01848136368981003
+    expected_l2_error =  0.00030842129060800865
+    expected_h1_error =  0.018418110343256442
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
     # ...
 
+#==============================================================================
 def test_api_vector_l2_projection_2d_dir_1():
 
     # ... abstract model
@@ -266,8 +270,8 @@ def test_api_vector_l2_projection_2d_dir_1():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.0003289714098362605
-    expected_h1_error =  0.018695563450364158
+    expected_l2_error =  0.0002633178958282846
+    expected_h1_error =  0.019128598362967996
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -285,4 +289,3 @@ def teardown_module():
 def teardown_function():
     from sympy import cache
     cache.clear_cache()
-

@@ -80,7 +80,7 @@ def _compute_quadrature_ProductFemSpace( V, quad_order=None ):
         assert( len(quad_order) == V.ldim )
     # ...
 
-    return [compute_quadrature( W, quad_order=quad_order ) for W in V.spaces]
+    return compute_quadrature( V.spaces[0], quad_order=quad_order )
 
 #==============================================================================
 def compute_quadrature( V, quad_order=None ):

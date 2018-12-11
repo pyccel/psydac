@@ -142,8 +142,8 @@ def test_api_vector_laplace_3d_dir_1():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.0036523337096899043
-    expected_h1_error =  0.08556076238581743
+    expected_l2_error =  0.0030390821236931788
+    expected_h1_error =  0.08346666256929804
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -161,4 +161,3 @@ def teardown_module():
 def teardown_function():
     from sympy import cache
     cache.clear_cache()
-

@@ -30,12 +30,20 @@ def _eval_basis_TensorFemSpace( V, points, nderiv ):
             for (W, x, n) in zip(V.spaces, points, nderiv)]
 
 #==============================================================================
-# TODO must take the max of degrees if quad_order is not present and
+# TODO another version when component spaces are not the same
 # spaces.degrees are different
 def _eval_basis_ProductFemSpace( V, points, nderiv ):
     """
     """
-    raise NotImplementedError()
+    # ...
+    W0 = V.spaces[0]
+    for W in V.spaces:
+        if not( W is W0 ):
+            msg = 'we assume all component spaces to be the same for the moment'
+            raise NotImplementedError(msg)
+    # ...
+
+    return eval_basis( V.spaces[0], points, nderiv )
 
 #==============================================================================
 def eval_basis( V, points, nderiv ):
