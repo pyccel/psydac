@@ -8,6 +8,7 @@ of compact support
 from mpi4py import MPI
 import numpy as np
 import itertools
+import h5py
 
 from spl.linalg.stencil import StencilVectorSpace
 from spl.linalg.kron    import kronecker_solve
@@ -71,10 +72,26 @@ class TensorFemSpace( FemSpace ):
         coords = v.cart.coords if v.parallel else tuple( [0]*v.ndim )
         nprocs = v.cart.nprocs if v.parallel else tuple( [1]*v.ndim )
 
-        iterator = lambda: zip( v.starts, v.ends, v.pads, coords, nprocs )
+#        iterator = lambda: zip( v.starts, v.ends, v.pads, coords, nprocs )
+#
+#        self._element_starts = [(s   if c == 0    else s-p+1) for s,e,p,c,np in iterator()]
+#        self._element_ends   = [(e-p if c == np-1 else e-p+1) for s,e,p,c,np in iterator()]
 
-        self._element_starts = [(s   if c == 0    else s-p+1) for s,e,p,c,np in iterator()]
-        self._element_ends   = [(e-p if c == np-1 else e-p+1) for s,e,p,c,np in iterator()]
+        self._element_starts = []
+        self._element_ends   = []
+        for (s,e,p,period,c,npr) in zip( v.starts, v.ends, v.pads, v.periods, coords, nprocs ):
+            if period:
+                start = s
+                end   = e
+            else:
+                start = s   if c == 0     else s-p+1
+                end   = e-p if c == npr-1 else e-p+1
+            self._element_starts.append( start )
+            self._element_ends  .append( end   )
+
+        # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
+        self._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
+           for s,e,space in zip( self._element_starts, self._element_ends, self.spaces ) )
 
         # Create (empty) dictionary that will contain all fields in this space
         self._fields = {}
@@ -121,15 +138,28 @@ class TensorFemSpace( FemSpace ):
         bases = []
         index = []
 
-        for (x, space) in zip( eta, self.spaces ):
+        for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
 
             knots  = space.knots
             degree = space.degree
             span   =  find_span( knots, degree, x )
+            #-------------------------------------------------#
+            # Fix span for boundaries between subdomains      #
+            #-------------------------------------------------#
+            # TODO: Use local knot sequence instead of global #
+            #       one to get correct span in all situations #
+            #-------------------------------------------------#
+            if x == xlim[1] and x != knots[-1-degree]:
+                span -= 1
+            #-------------------------------------------------#
             basis  = basis_funs( knots, degree, x, span )
 
+            # Determine local span
+            wrap_x   = space.periodic and x > xlim[1]
+            loc_span = span - space.nbasis if wrap_x else span
+
             bases.append( basis )
-            index.append( slice( span-degree, span+1 ) )
+            index.append( slice( loc_span-degree, loc_span+1 ) )
 
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
@@ -168,17 +198,30 @@ class TensorFemSpace( FemSpace ):
         bases_1 = []
         index   = []
 
-        for (x, space) in zip( eta, self.spaces ):
+        for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
 
             knots   = space.knots
             degree  = space.degree
             span    =  find_span( knots, degree, x )
+            #-------------------------------------------------#
+            # Fix span for boundaries between subdomains      #
+            #-------------------------------------------------#
+            # TODO: Use local knot sequence instead of global #
+            #       one to get correct span in all situations #
+            #-------------------------------------------------#
+            if x == xlim[1] and x != knots[-1-degree]:
+                span -= 1
+            #-------------------------------------------------#
             basis_0 = basis_funs( knots, degree, x, span )
             basis_1 = basis_funs_1st_der( knots, degree, x, span )
 
+            # Determine local span
+            wrap_x   = space.periodic and x > xlim[1]
+            loc_span = span - space.nbasis if wrap_x else span
+
             bases_0.append( basis_0 )
             bases_1.append( basis_1 )
-            index.append( slice( span-degree, span+1 ) )
+            index.append( slice( loc_span-degree, loc_span+1 ) )
 
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
@@ -306,27 +349,18 @@ class TensorFemSpace( FemSpace ):
         """
         return self._element_starts, self._element_ends
 
-    # ... the following properties are needed to make code generation easier
     @property
-    def quad_order(self):
-        return [W.quad_order for W in self.spaces]
+    def eta_lims( self ):
+        """
+        Eta limits of domain local to the process (for field evaluation).
 
-    @property
-    def quad_points(self):
-        return [W.quad_points for W in self.spaces]
+        Returns
+        -------
+        eta_limits: tuple of (2-tuple of float)
+            Along each dimension i, limits are given as (eta^i_{min}, eta^i_{max}).
 
-    @property
-    def quad_weights(self):
-        return [W.quad_weights for W in self.spaces]
-
-    @property
-    def quad_basis(self):
-        return [W.quad_basis for W in self.spaces]
-
-    @property
-    def spans(self):
-        return [W.spans for W in self.spaces]
-    # ...
+        """
+        return self._eta_limits
 
     # ...
     def init_fem( self, **kwargs ):
@@ -371,6 +405,152 @@ class TensorFemSpace( FemSpace ):
             rhs     = values,
             out     = field.coeffs,
         )
+
+    # ...
+    def export_fields( self, filename, **fields ):
+        """ Write spline coefficients of given fields to HDF5 file.
+        """
+        assert isinstance( filename, str )
+        assert all( field.space is self for field in fields.values() )
+
+        V    = self.vector_space
+        comm = V.cart.comm
+
+        # Multi-dimensional index range local to process
+        index = tuple( slice( s, e+1 ) for s,e in zip( V.starts, V.ends ) )
+
+        # Create HDF5 file (in parallel mode if MPI communicator size > 1)
+        kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
+        h5 = h5py.File( filename, mode='w', **kwargs )
+
+        # Add field coefficients as named datasets
+        for name,field in fields.items():
+            dset = h5.create_dataset( name, shape=V.npts, dtype=V.dtype )
+            dset[index] = field.coeffs[index]
+
+        # Close HDF5 file
+        h5.close()
+
+    # ...
+    def import_fields( self, filename, *field_names ):
+        """
+        Load fields from HDF5 file containing spline coefficients.
+
+        Parameters
+        ----------
+        filename : str
+            Name of HDF5 input file.
+
+        field_names : list of str
+            Names of the datasets with the required spline coefficients.
+
+        Results
+        -------
+        fields : list of FemSpace objects
+            Distributed fields, given in the same order of the names.
+
+        """
+        assert isinstance( filename, str )
+        assert all( isinstance( name, str ) for name in field_names )
+
+        V    = self.vector_space
+        comm = V.cart.comm
+
+        # Multi-dimensional index range local to process
+        index = tuple( slice( s, e+1 ) for s,e in zip( V.starts, V.ends ) )
+
+        # Open HDF5 file (in parallel mode if MPI communicator size > 1)
+        kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
+        h5 = h5py.File( filename, mode='r', **kwargs )
+
+        # Create fields and load their coefficients from HDF5 datasets
+        fields = []
+        for name in field_names:
+            dset = h5[name]
+            if dset.shape != V.npts:
+                h5.close()
+                raise TypeError( 'Dataset not compatible with spline space.' )
+            field = FemField( self, name )
+            field.coeffs[index] = dset[index]
+            field.coeffs.update_ghost_regions()
+            fields.append( field )
+
+        # Close HDF5 file
+        h5.close()
+
+        return fields
+
+    # ...
+    def plot_2d_decomposition( self, mapping=None, refine=10 ):
+
+        import matplotlib.pyplot as plt
+        from matplotlib.patches  import Polygon, Patch
+        from spl.utilities.utils import refine_array_1d
+
+        if mapping is None:
+            mapping = lambda eta: eta
+        else:
+            assert mapping.ldim == self.ldim == 2
+            assert mapping.pdim == self.ldim == 2
+
+        assert refine >= 1
+        N = int( refine )
+        V1, V2 = self.spaces
+
+        mpi_comm = self.vector_space.cart.comm
+        mpi_rank = mpi_comm.rank
+
+        # Local grid, refined
+        [sk1,sk2], [ek1,ek2] = self.local_domain
+        eta1 = refine_array_1d( V1.breaks[sk1:ek1+2], N )
+        eta2 = refine_array_1d( V2.breaks[sk2:ek2+2], N )
+        pcoords = np.array( [[mapping( [e1,e2] ) for e2 in eta2] for e1 in eta1] )
+
+        # Local domain as Matplotlib polygonal patch
+        AB = pcoords[   :,    0, :] # eta2 = min
+        BC = pcoords[  -1,    :, :] # eta1 = max
+        CD = pcoords[::-1,   -1, :] # eta2 = max (points must be reversed)
+        DA = pcoords[   0, ::-1, :] # eta1 = min (points must be reversed)
+        xy = np.concatenate( [AB, BC, CD, DA], axis=0 )
+        poly = Polygon( xy, edgecolor='None' )
+
+        # Gather polygons on master process
+        polys = mpi_comm.gather( poly )
+
+        #-------------------------------
+        # Non-master processes stop here
+        if mpi_rank != 0:
+            return
+        #-------------------------------
+
+        # Global grid, refined
+        eta1    = refine_array_1d( V1.breaks, N )
+        eta2    = refine_array_1d( V2.breaks, N )
+        pcoords = np.array( [[mapping( [e1,e2] ) for e2 in eta2] for e1 in eta1] )
+        xx      = pcoords[:,:,0]
+        yy      = pcoords[:,:,1]
+
+        # Plot decomposed domain
+        fig, ax = plt.subplots( 1, 1 )
+        colors  = itertools.cycle( plt.rcParams['axes.prop_cycle'].by_key()['color'] )
+        handles = []
+        for i, (poly, color) in enumerate( zip( polys, colors ) ):
+            # Add patch
+            poly.set_facecolor( color )
+            ax.add_patch( poly )
+            # Create legend entry
+            handle = Patch( color=color, label='Rank {}'.format(i) )
+            handles.append( handle )
+
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_title ( 'Domain decomposition' )
+        ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
+        ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+        ax.set_aspect('equal')
+        ax.legend( handles=handles, bbox_to_anchor=(1.05, 1), loc=2 )
+        fig.tight_layout()
+        fig.show()
 
     # ...
     def __str__(self):

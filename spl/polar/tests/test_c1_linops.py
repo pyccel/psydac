@@ -52,6 +52,7 @@ def test_c1_linops( n0, npts, pads, verbose=False ):
     u = DenseVector( U, np.arange( n0, dtype=float ) )
     v = StencilVector( V )
     v[s1:e1+1,s2:e2+1] = np.random.random( (e1-s1+1, e2-s2+1) )
+    v.update_ghost_regions()
     w = BlockVector( W, [u,v] )
 
     # Check individual dot products

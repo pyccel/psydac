@@ -439,17 +439,18 @@ class StencilVector( Vector ):
     def __setitem__(self, key, value):
         index = self._getindex( key )
         self._data[index] = value
-        self._sync = False
 
     # ...
     @property
     def ghost_regions_in_sync( self ):
         return self._sync
 
-#    @ghost_regions_in_sync.setter
-#    def ghost_regions_in_sync( self, value ):
-#        assert isinstance( value, bool )
-#        self._sync = value
+    # ...
+    # NOTE: this property must be set collectively
+    @ghost_regions_in_sync.setter
+    def ghost_regions_in_sync( self, value ):
+        assert isinstance( value, bool )
+        self._sync = value
 
     # ...
     # TODO: maybe change name to 'exchange'
@@ -648,6 +649,9 @@ class StencilMatrix( LinearOperator ):
             ii_kk = tuple( list(ii) + kk )
 
             out[ii] = dot( self[ii_kk].flat, v[jj].flat )
+
+        # IMPORTANT: flag that ghost regions are not up-to-date
+        out.ghost_regions_in_sync = False
 
         return out
 

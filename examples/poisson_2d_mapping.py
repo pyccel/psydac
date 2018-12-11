@@ -1,6 +1,7 @@
 # coding: utf-8
 from mpi4py import MPI
-from time   import time
+from time   import time, sleep
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,6 +11,7 @@ from spl.linalg.iterative_solvers   import cg
 from spl.fem.splines                import SplineSpace
 from spl.fem.tensor                 import TensorFemSpace
 from spl.fem.basic                  import FemField
+from spl.fem.context                import fem_context
 from spl.mapping.analytical         import AnalyticalMapping, IdentityMapping
 from spl.mapping.analytical_gallery import Annulus, Target, Czarny
 from spl.mapping.discrete           import SplineMapping
@@ -522,7 +524,10 @@ def assemble_rhs( V, mapping, f ):
                     i1 = (is1-p1+il1) % n1
                     i2 = (is2-p2+il2) % n2
 
-                    rhs[i1, i2] += v
+                    # If basis belongs to process,
+                    # update one element of the rhs vector
+                    if s1<=i1<=e1 and s2<=i2<=e2:
+                        rhs[i1, i2] += v
 
     # IMPORTANT: ghost regions must be up-to-date
     rhs.update_ghost_regions()
@@ -531,9 +536,14 @@ def assemble_rhs( V, mapping, f ):
 
 ####################################################################################
 
-def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction ):
+def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visualize_serial ):
 
     timing = {}
+    timing['assembly'   ] = 0.0
+    timing['projection' ] = 0.0
+    timing['solution'   ] = 0.0
+    timing['diagnostics'] = 0.0
+    timing['export'     ] = 0.0
 
     # Method of manufactured solution
     if test_case == 'square':
@@ -562,6 +572,11 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction ):
         print()
         c1_correction = False
 
+    # Communicator, size, rank
+    mpi_comm = MPI.COMM_WORLD
+    mpi_size = mpi_comm.Get_size()
+    mpi_rank = mpi_comm.Get_rank()
+
     # Number of elements and spline degree
     ne1, ne2 = ncells
     p1 , p2  = degree
@@ -578,8 +593,48 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction ):
     V2 = SplineSpace( p2, grid=grid_2, periodic=per2 ); V2.init_fem()
 
     # Create 2D tensor product finite element space
-#    V = TensorFemSpace( V1, V2 )
-    V = TensorFemSpace( V1, V2, comm=MPI.COMM_WORLD )
+    V = TensorFemSpace( V1, V2, comm=mpi_comm )
+    s1, s2 = V.vector_space.starts
+    e1, e2 = V.vector_space.ends
+
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # Print decomposition information to terminal
+    if mpi_rank == 0:
+        print( '--------------------------------------------------' )
+        print( ' CARTESIAN DECOMPOSITION' )
+        print( '--------------------------------------------------' )
+        int_array_to_str = lambda array: ','.join( '{:3d}'.format(i) for i in array )
+        int_tuples_to_str = lambda tuples:  ',  '.join(
+                '[{:d}, {:d}]'.format(a,b) for a,b in tuples )
+
+        cart = V.vector_space.cart
+
+        block_sizes_i1     = [e1-s1+1 for s1,e1 in zip( cart.global_starts[0], cart.global_ends[0] )]
+        block_sizes_i2     = [e2-s2+1 for s2,e2 in zip( cart.global_starts[1], cart.global_ends[1] )]
+
+        block_intervals_i1 = [(s1,e1) for s1,e1 in zip( cart.global_starts[0], cart.global_ends[0] )]
+        block_intervals_i2 = [(s2,e2) for s2,e2 in zip( cart.global_starts[1], cart.global_ends[1] )]
+
+        print( '> No. of points along eta1 :: {:d}'.format( cart.npts[0] ) )
+        print( '> No. of points along eta2 :: {:d}'.format( cart.npts[1] ) )
+        print( '' )
+        print( '> No. of blocks along eta1 :: {:d}'.format( cart.nprocs[0] ) )
+        print( '> No. of blocks along eta2 :: {:d}'.format( cart.nprocs[1] ) )
+        print( '' )
+        print( '> Block sizes along eta1 :: ' + int_array_to_str( block_sizes_i1 ) )
+        print( '> Block sizes along eta2 :: ' + int_array_to_str( block_sizes_i2 ) )
+        print( '' )
+        print( '> Intervals along eta1   :: ' + int_tuples_to_str( block_intervals_i1 ) )
+        print( '> Intervals along eta2   :: ' + int_tuples_to_str( block_intervals_i2 ) )
+        print( '', flush=True )
+        sleep( 0.001 )
+
+    mpi_comm.Barrier()
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    # DEBUG
+    support1, support2 = V.local_support
+    lims1, lims2 = V.eta_lims
 
     # Analytical and spline mappings
     map_analytic = model.mapping
@@ -587,6 +642,11 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction ):
     if use_spline_mapping:
         map_discrete = SplineMapping.from_mapping( V, map_analytic )
         mapping = map_discrete
+        # Write discrete geometry to HDF5 file
+        t0 = time()
+        mapping.export( 'geo.h5' )
+        t1 = time()
+        timing['export'] += t1-t0
     else:
         mapping = map_analytic
 
@@ -609,24 +669,28 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction ):
         timing['projection'] = t1-t0
 
     # Apply homogeneous Dirichlet boundary conditions where appropriate
+    # NOTE: this does not effect ghost regions
     if not V1.periodic:
-        if not model.O_point:
-            # left  bc at x=0.
-            S[0,:,:,:] = 0.
-            b[0,:]     = 0.
+        # left  bc at x=0.
+        if not model.O_point and s1 == 0:
+            S[s1,:,:,:] = 0.
+            b[s1,:]     = 0.
         # right bc at x=1.
-        S[V1.nbasis-1,:,:,:] = 0.
-        b[V1.nbasis-1,:]     = 0.
+        if e1 == V1.nbasis-1:
+            S[e1,:,:,:] = 0.
+            b[e1,:]     = 0.
 
     if not V2.periodic:
         # lower bc at y=0.
-        S[:,0,:,:] = 0.
-        b[:,0]     = 0.
+        if s2 == 0:
+            S[:,s2,:,:] = 0.
+            b[:,s2]     = 0.
         # upper bc at y=1.
-        S[:,V2.nbasis-1,:,:] = 0.
-        b[:,V2.nbasis-1]     = 0.
+        if e2 == V2.nbasis-1:
+            S[:,e2,:,:] = 0.
+            b[:,e2]     = 0.
 
-    if c1_correction:
+    if c1_correction and e1 == V1.nbasis-1:
         # only bc is at s=1
         last = bp[1].space.npts[0]-1
         Sp[1,1][last,:,:,:] = 0.
@@ -635,12 +699,12 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction ):
     # Solve linear system
     if c1_correction:
         t0 = time()
-        xp, info = cg( Sp, bp, tol=1e-7, maxiter=100, verbose=True )
+        xp, info = cg( Sp, bp, tol=1e-7, maxiter=100, verbose=False )
         x = proj.convert_to_tensor_basis( xp )
         t1 = time()
     else:
         t0 = time()
-        x, info = cg( S, b, tol=1e-7, maxiter=100, verbose=True )
+        x, info = cg( S, b, tol=1e-7, maxiter=100, verbose=False )
         t1 = time()
     timing['solution'] = t1-t0
 
@@ -653,31 +717,71 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction ):
     t0 = time()
     sqrt_g    = lambda *x: np.sqrt( mapping.metric_det( x ) )
     integrand = lambda *x: (phi(*x)-model.phi(*x))**2 * sqrt_g(*x)
-    e2 = np.sqrt( V.integral( integrand ) )
+    err2 = np.sqrt( V.integral( integrand ) )
     t1 = time()
     timing['diagnostics'] = t1-t0
 
+    # Write solution to HDF5 file
+    t0 = time()
+    V.export_fields( 'fields.h5', phi=phi )
+    t1 = time()
+    timing['export'] += t1-t0
+
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # Print some information to terminal
-    print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne1, ne2=ne2) )
-    print( '> Degree        :: [{p1},{p2}]'  .format( p1=p1, p2=p2 ) )
-    print( '> CG info       :: ',info )
-    print( '> L2 error      :: {:.2e}'.format( e2 ) )
-    print( '' )
-    print( '> Assembly time :: {:.2e}'.format( timing['assembly'] ) )
+    for i in range( mpi_size ):
+        if i == mpi_rank:
+            print( '--------------------------------------------------' )
+            print( ' RANK = {}'.format( mpi_rank ) )
+            print( '--------------------------------------------------' )
+            print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne1, ne2=ne2) )
+            print( '> Degree        :: [{p1},{p2}]'  .format( p1=p1, p2=p2 ) )
+            print( '> CG info       :: ',info )
+            print( '> L2 error      :: {:.2e}'.format( err2 ) )
+            print( '' )
+            print( '> Assembly time :: {:.2e}'.format( timing['assembly'] ) )
+            if c1_correction:
+                print( '> Project. time :: {:.2e}'.format( timing['projection'] ) )
+            print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
+            print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
+            print( '> Export   time :: {:.2e}'.format( timing['export'] ) )
+            print( '', flush=True )
+            sleep( 0.001 )
+        mpi_comm.Barrier()
 
-    if c1_correction:
-        print( '> Project. time :: {:.2e}'.format( timing['projection'] ) )
-
-    print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
-    print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # VISUALIZATION
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     ##########
     N = 10
     ##########
 
+    # Plot domain decomposition (master only)
+    V.plot_2d_decomposition( model.mapping, refine=N )
+
+    # Perform other visualization using master or all processes
+    if visualize_serial:
+
+        # Non-master processes stop here
+        if mpi_rank != 0:
+            return
+
+        # Create new serial FEM space and mapping (if needed)
+        if use_spline_mapping:
+            V, map_discrete = fem_context( 'geo.h5', comm=MPI.COMM_SELF )
+            mapping = map_discrete
+        else:
+            V = TensorFemSpace( V1, V2, comm=MPI.COMM_SELF )
+
+        # Import solution vector into new serial field
+        phi, = V.import_fields( 'fields.h5', 'phi' )
+
     # Compute numerical solution (and error) on refined logical grid
-    eta1 = refine_array_1d( V1.breaks, N )
-    eta2 = refine_array_1d( V2.breaks, N )
+    [sk1,sk2], [ek1,ek2] = V.local_domain
+
+    eta1 = refine_array_1d( V1.breaks[sk1:ek1+2], N )
+    eta2 = refine_array_1d( V2.breaks[sk2:ek2+2], N )
     num = np.array( [[      phi( e1,e2 ) for e2 in eta2] for e1 in eta1] )
     ex  = np.array( [[model.phi( e1,e2 ) for e2 in eta2] for e1 in eta1] )
     err = num - ex
@@ -687,18 +791,28 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction ):
     xx = pcoords[:,:,0]
     yy = pcoords[:,:,1]
 
+    # Create figure with 3 subplots:
+    #  1. exact solution on exact domain
+    #  2. numerical solution on mapped domain (analytical or spline)
+    #  3. numerical error    on mapped domain (analytical or spline)
+    fig, axes = plt.subplots( 1, 3, figsize=(12.8, 4.8) )
+
+    def add_colorbar( im, ax ):
+        divider = make_axes_locatable( ax )
+        cax = divider.append_axes( "right", size=0.2, pad=0.2 )
+        cbar = ax.get_figure().colorbar( im, cax=cax )
+        return cbar
+
     # Plot exact solution
-    fig, ax = plt.subplots( 1, 1 )
+    ax = axes[0]
     im = ax.contourf( xx, yy, ex, 40, cmap='jet' )
-    fig.colorbar( im )
+    add_colorbar( im, ax )
     ax.set_xlabel( r'$x$', rotation='horizontal' )
     ax.set_ylabel( r'$y$', rotation='horizontal' )
     ax.set_title ( r'$\phi_{ex}(x,y)$' )
     ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
     ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
     ax.set_aspect('equal')
-    fig.tight_layout()
-    fig.show()
 
     if use_spline_mapping:
         # Recompute physical coordinates of logical grid using spline mapping
@@ -707,29 +821,28 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction ):
         yy = pcoords[:,:,1]
 
     # Plot numerical solution
-    fig, ax = plt.subplots( 1, 1 )
+    ax = axes[1]
     im = ax.contourf( xx, yy, num, 40, cmap='jet' )
-    fig.colorbar( im )
+    add_colorbar( im, ax )
     ax.set_xlabel( r'$x$', rotation='horizontal' )
     ax.set_ylabel( r'$y$', rotation='horizontal' )
     ax.set_title ( r'$\phi(x,y)$' )
     ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
     ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
     ax.set_aspect('equal')
-    fig.tight_layout()
-    fig.show()
 
     # Plot numerical error
-    fig, ax = plt.subplots( 1, 1 )
+    ax = axes[2]
     im = ax.contourf( xx, yy, err, 40, cmap='jet' )
-    fig.colorbar( im )
+    add_colorbar( im, ax )
     ax.set_xlabel( r'$x$', rotation='horizontal' )
     ax.set_ylabel( r'$y$', rotation='horizontal' )
     ax.set_title ( r'$\phi(x,y) - \phi_{ex}(x,y)$' )
     ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
     ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
     ax.set_aspect('equal')
-    fig.tight_layout()
+
+    # Show figure
     fig.show()
 
     return locals()
@@ -782,6 +895,12 @@ def parse_input_arguments():
         action  = 'store_true',
         dest    = 'c1_correction',
         help    = 'Apply C1 correction at polar singularity (O point)'
+    )
+
+    parser.add_argument( '--distribute_visualization',
+        action  = 'store_false',
+        dest    = 'visualize_serial',
+        help    = 'Create separate plots for each subdomain'
     )
 
     return parser.parse_args()

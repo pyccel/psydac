@@ -192,6 +192,9 @@ class LinearOperator_DenseToStencil( LinearOperator ):
 
         out[0:p1,s2:e2+1] = np.dot( B_ds, x )
 
+        # IMPORTANT: flag that ghost regions are not up-to-date
+        out.ghost_regions_in_sync = False
+
         return out
 
     #-------------------------------------
