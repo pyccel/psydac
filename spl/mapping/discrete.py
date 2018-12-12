@@ -26,7 +26,7 @@ def random_string( n ):
 #==============================================================================
 class SplineMapping( Mapping ):
 
-    def __init__( self, *components ):
+    def __init__( self, *components, name=None ):
 
         # Sanity checks
         assert len( components ) >= 1
@@ -47,6 +47,15 @@ class SplineMapping( Mapping ):
         # indices [i1, ..., i_n, d] where (i1, ..., i_n) are indices of logical
         # coordinates, and d is index of physical component of interest.
         self._control_points = SplineMapping.ControlPoints( self )
+
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name
+
+    def set_name(self, name):
+        self._name = name
 
     #--------------------------------------------------------------------------
     # Option [1]: initialize from TensorFemSpace and pre-existing mapping
