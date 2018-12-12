@@ -43,7 +43,7 @@ def test_c1_linops( n0, npts, pads, verbose=False ):
     C = LinearOperator_DenseToStencil( U, V, Ca )
 
     D = StencilMatrix( V, V )
-    D[:,:,:,:] = np.random.random( (e1-s1+1, e2-s2+1, 2*p1+1, 2*p2+1) )
+    D[s1:e1+1, s2:e2+1, :, :] = np.random.random( (e1-s1+1, e2-s2+1, 2*p1+1, 2*p2+1) )
     D.remove_spurious_entries()
 
     M  = BlockMatrix( W, W, blocks=[[A,B],[C,D]] )

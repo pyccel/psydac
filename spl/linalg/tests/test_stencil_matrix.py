@@ -19,7 +19,7 @@ def test_stencil_matrix_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
     V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P1] )
     M = StencilMatrix( V, V )
 
-    assert M._data.shape == (n1, n2, 1+2*p1, 1+2*p2)
+    assert M._data.shape == (n1+2*p1, n2+2*p2, 1+2*p1, 1+2*p2)
     assert M.shape == (n1*n2, n1*n2)
 
 #===============================================================================

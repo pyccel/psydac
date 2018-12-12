@@ -599,12 +599,10 @@ class StencilMatrix( LinearOperator ):
         assert isinstance( W, StencilVectorSpace )
         assert V is W
 
-        dims        = [e-s+1 for s,e in zip(V.starts, V.ends)]
+        dims        = [e-s+2*p+1 for s,e,p in zip(V.starts, V.ends, V.pads)]
         diags       = [2*p+1 for p in V.pads]
         self._data  = np.zeros( dims+diags, dtype=V.dtype )
         self._space = V
-
-        self._dims  = dims
         self._ndim  = len( dims )
 
     #--------------------------------------
@@ -622,9 +620,6 @@ class StencilMatrix( LinearOperator ):
     # ...
     def dot( self, v, out=None ):
 
-        ndindex = np.ndindex
-        dot     = np.dot
-
         assert isinstance( v, StencilVector )
         assert v.space is self.domain
 
@@ -638,11 +633,20 @@ class StencilMatrix( LinearOperator ):
         else:
             out = StencilVector( self.codomain )
 
+        # Shortcuts
         ss = self.starts
+        ee = self.ends
         pp = self.pads
+
+        dot = np.dot
+
+        # Index for k=i-j
         kk = [slice(None)] * self._ndim
 
-        for xx in ndindex( *self._dims ):
+        # Number of rows in matrix (along each dimension)
+        nrows = [e-s+1 for s,e in zip(ss,ee)]
+
+        for xx in np.ndindex( *nrows ):
 
             ii    = tuple( s+x for s,x in zip(ss,xx) )
             jj    = tuple( slice(i-p,i+p+1) for i,p in zip(ii,pp) )
@@ -692,12 +696,17 @@ class StencilMatrix( LinearOperator ):
         ss = self.starts
         pp = self.pads
 
+        ravel_multi_index = np.ravel_multi_index
+
         # COO storage
         rows = []
         cols = []
         data = []
 
-        for (index,value) in np.ndenumerate( self._data ):
+        # Range of data owned by local process (no ghost regions)
+        local = tuple( [slice(p,-p) for p in pp] + [slice(None)] * nd )
+
+        for (index,value) in np.ndenumerate( self._data[local] ):
 
             # index = [i1-s1, i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
 
@@ -707,8 +716,8 @@ class StencilMatrix( LinearOperator ):
             ii = [s+x for s,x in zip(ss,xx)]
             jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
 
-            I = np.ravel_multi_index( ii, dims=nn, order='C' )
-            J = np.ravel_multi_index( jj, dims=nn, order='C' )
+            I = ravel_multi_index( ii, dims=nn, order='C' )
+            J = ravel_multi_index( jj, dims=nn, order='C' )
 
             rows.append( I )
             cols.append( J )
@@ -792,12 +801,12 @@ class StencilMatrix( LinearOperator ):
 
         index = []
 
-        for i,s in zip( ii, self.starts ):
-            x = self._shift_index( i,-s )
+        for i,s,p in zip( ii, self.starts, self.pads ):
+            x = self._shift_index( i, p-s )
             index.append( x )
 
         for k,p in zip( kk, self.pads ):
-            l = self._shift_index( k,p )
+            l = self._shift_index( k, p )
             index.append( l )
 
         return tuple(index)
