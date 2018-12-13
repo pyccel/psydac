@@ -14,6 +14,7 @@ from spl.linalg.stencil import StencilVectorSpace
 from spl.linalg.kron    import kronecker_solve
 from spl.fem.basic      import FemSpace, FemField
 from spl.fem.splines    import SplineSpace
+from spl.fem.grid       import FemAssemblyGrid
 from spl.ddm.cart       import Cart
 from spl.core.bsplines  import find_span, basis_funs, basis_funs_1st_der
 
@@ -367,6 +368,14 @@ class TensorFemSpace( FemSpace ):
         for V in self.spaces:
             if V.quad_basis is None:
                 V.init_fem()
+
+        # NEW
+        spaces = self.spaces
+        starts = self.vector_space.starts
+        ends   = self.vector_space.ends
+
+        self.quad_grids = tuple( FemAssemblyGrid( V,s,e )
+                                 for V,s,e in zip( spaces, starts, ends ) )
 
     # ...
     def init_collocation( self ):
