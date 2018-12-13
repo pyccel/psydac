@@ -15,6 +15,8 @@ import h5py
 import yaml
 import yamlloader
 import os
+import string
+import random
 from mpi4py import MPI
 
 from spl.fem.splines      import SplineSpace
@@ -22,6 +24,13 @@ from spl.fem.tensor       import TensorFemSpace
 from spl.mapping.discrete import SplineMapping
 
 _patches_types = (SplineMapping,)
+
+#==============================================================================
+def random_string( n ):
+    chars    = string.ascii_uppercase + string.ascii_lowercase + string.digits
+    selector = random.SystemRandom()
+    return ''.join( selector.choice( chars ) for _ in range( n ) )
+
 
 #==============================================================================
 class Edge(object):
@@ -35,6 +44,7 @@ class Edge(object):
 
 #==============================================================================
 class Topology(abc.Mapping):
+    _boundaries = None
 
     def __init__(self, data=None, filename=None):
         if data is None:
@@ -48,13 +58,23 @@ class Topology(abc.Mapping):
         if not( filename is None ):
             self.read(filename)
 
+    @property
+    def boundaries(self):
+        if self._boundaries is None:
+            self._boundaries = self.find_boundaries()
+
+        return self._boundaries
+
+    def set_boundaries(self, boundaries):
+        self._boundaries = boundaries
+
     def read(self, filename):
         raise NotImplementedError('TODO')
 
     def export(self, filename):
         raise NotImplementedError('TODO')
 
-    def get_boundaries(self):
+    def find_boundaries(self):
         # TODO treate periodicity of every patch
         # we first inverse the graph, by having patches as keys
         d = {}
@@ -90,7 +110,7 @@ class Topology(abc.Mapping):
         # ...
 
         # ...
-        boundaries = [bnd.todict() for bnd in self.get_boundaries()]
+        boundaries = [bnd.todict() for bnd in self.boundaries]
         # ...
 
         return {'connectivity': connectivity,
@@ -122,14 +142,21 @@ class Topology(abc.Mapping):
 #==============================================================================
 class DiscreteBoundary(object):
 
-    def __init__(self, patch, axis, ext):
+    def __init__(self, patch, axis, ext, name=None):
         assert( isinstance( axis, int ) and axis in [0,1,2] )
         assert( isinstance( ext,  int ) and ext  in [-1,1] )
         assert( isinstance( patch, _patches_types ) )
 
-        self._axis = axis
-        self._ext  = ext
+        if name is None:
+            name = 'bnd_{}'.format(random_string( 4 ))
+
+        else:
+            assert( isinstance( name, str ) )
+
+        self._axis  = axis
+        self._ext   = ext
         self._patch = patch
+        self._name  = name
 
     @property
     def axis(self):
@@ -143,27 +170,34 @@ class DiscreteBoundary(object):
     def patch(self):
         return self._patch
 
+    @property
+    def name(self):
+        return self._name
+
     def todict(self):
-        axis = self.axis
-        ext  = self.ext
+        axis  = self.axis
+        ext   = self.ext
         patch = self.patch
-        return OrderedDict( [('axis' , axis ),
-                             ('ext'  , ext  ),
-                             ('patch', patch.name )] )
+        name  = self.name
+        return OrderedDict( [('axis' , axis       ),
+                             ('ext'  , ext        ),
+                             ('patch', patch.name ),
+                             ('name' , name       ) ] )
 
     def __eq__(self, other):
         cond = ( (self.patch is other.patch) and
                  (self.axis == other.axis)   and
-                 (self.ext == other.ext) )
+                 (self.ext  == other.ext)    and
+                 (self.name == other.name) )
         return cond
 
 
 #==============================================================================
 class Geometry( object ):
-    _patches    = []
-    _topology   = None
-    _ldim       = None
-    _pdim       = None
+    _patches  = []
+    _topology = None
+    _ldim     = None
+    _pdim     = None
 
     def __init__( self, filename=None, comm=MPI.COMM_WORLD,
                   patches=None, topology=None ):
@@ -177,15 +211,14 @@ class Geometry( object ):
             assert( not( topology is None ))
             assert( isinstance( topology, Topology ) )
 
-            self._patches = patches
-            self._ldim = patches[0].ldim
-            self._pdim = patches[0].pdim
+            self._patches  = patches
+            self._ldim     = patches[0].ldim
+            self._pdim     = patches[0].pdim
             self._topology = topology
 
         else:
             raise ValueError('Wrong input')
         # ...
-
 
     @property
     def ldim(self):
@@ -202,6 +235,10 @@ class Geometry( object ):
     @property
     def topology(self):
         return self._topology
+
+    @property
+    def boundaries(self):
+        return self.topology.boundaries
 
     @property
     def n_patches(self):
@@ -269,6 +306,8 @@ class Geometry( object ):
 
         # ... read the topology
         topology = Topology()
+
+        # connectivity
         for k,v in yml['topology']['connectivity'].items():
             edge = Edge(k)
             bnds = []
@@ -276,10 +315,23 @@ class Geometry( object ):
                 patch = d_patches[desc['patch']]
                 axis  = desc['axis']
                 ext   = desc['ext']
-                bnd = DiscreteBoundary(patch, axis=axis, ext=ext)
+                name  = desc['name']
+                bnd   = DiscreteBoundary(patch, axis=axis, ext=ext, name=name)
                 bnds.append(bnd)
 
             topology[edge] = bnds
+
+        # boundaries
+        bnds = []
+        for desc in yml['topology']['boundaries']:
+            patch = d_patches[desc['patch']]
+            axis  = desc['axis']
+            ext   = desc['ext']
+            name  = desc['name']
+            bnd   = DiscreteBoundary(patch, axis=axis, ext=ext, name=name)
+            bnds.append(bnd)
+
+        topology.set_boundaries(bnds)
         # ...
 
         # ... close the h5 file
@@ -287,10 +339,10 @@ class Geometry( object ):
         # ...
 
         # ...
-        self._ldim     = ldim
-        self._pdim     = pdim
-        self._patches  = patches
-        self._topology = topology
+        self._ldim       = ldim
+        self._pdim       = pdim
+        self._patches    = patches
+        self._topology   = topology
         # ...
 
     def export( self, filename ):
@@ -396,7 +448,8 @@ if __name__ == '__main__':
 #    newgeo = Geometry(patches=[P0, P1], topology=topo)
 #    newgeo.export('square_mp_new.h5')
 
-    geo = Geometry('square_mp_new.h5')
-    geo.export('square_mp_newnew.h5')
+    geo = Geometry('square_mp_0.h5')
+    print(geo.boundaries)
+    geo.export('square_mp_1.h5')
 
 
