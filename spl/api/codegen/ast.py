@@ -43,24 +43,24 @@ from pyccel.ast.utilities import variables, indexed_variables
 from sympde.core import grad
 from sympde.core import Cross_3d
 from sympde.core import Constant
-from sympde.core import Mapping
-from sympde.core import Field
-from sympde.core import VectorField, IndexedVectorField
-from sympde.core import Boundary, BoundaryVector, NormalVector, TangentVector
-from sympde.core import Covariant, Contravariant
-from sympde.core import BilinearForm, LinearForm, Integral, BasicForm
-from sympde.core.derivatives import _partial_derivatives
-from sympde.core.derivatives import get_max_partial_derivatives
-from sympde.core.space import FunctionSpace
-from sympde.core.space import TestFunction
-from sympde.core.space import VectorTestFunction
-from sympde.core.space import IndexedTestTrial
-from sympde.core.space import Trace
-from sympde.printing.pycode import pycode  # TODO remove from here
-from sympde.core.derivatives import print_expression
-from sympde.core.derivatives import get_atom_derivatives
-from sympde.core.derivatives import get_index_derivatives
 from sympde.core.math import math_atoms_as_str
+from sympde.topology import Mapping
+from sympde.topology import Field
+from sympde.topology import VectorField, IndexedVectorField
+from sympde.topology import Boundary, BoundaryVector, NormalVector, TangentVector
+from sympde.topology import Covariant, Contravariant
+from sympde.topology.derivatives import _partial_derivatives
+from sympde.topology.derivatives import get_max_partial_derivatives
+from sympde.topology.space import FunctionSpace
+from sympde.topology.space import TestFunction
+from sympde.topology.space import VectorTestFunction
+from sympde.topology.space import IndexedTestTrial
+from sympde.topology.space import Trace
+from sympde.topology.derivatives import print_expression
+from sympde.topology.derivatives import get_atom_derivatives
+from sympde.topology.derivatives import get_index_derivatives
+from sympde.expr import BilinearForm, LinearForm, Integral, BasicForm
+from sympde.printing.pycode import pycode  # TODO remove from here
 
 from spl.fem.splines import SplineSpace
 from spl.fem.tensor  import TensorFemSpace

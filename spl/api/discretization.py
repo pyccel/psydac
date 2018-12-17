@@ -10,15 +10,15 @@ from collections import namedtuple
 
 from pyccel.ast import Nil
 
-from sympde.core import BasicForm as sym_BasicForm
-from sympde.core import BilinearForm as sym_BilinearForm
-from sympde.core import LinearForm as sym_LinearForm
-from sympde.core import Integral as sym_Integral
-from sympde.core import Equation as sym_Equation
-from sympde.core import Model as sym_Model
-from sympde.core import Boundary as sym_Boundary
-from sympde.core import Norm as sym_Norm
-from sympde.core import evaluate
+from sympde.expr import BasicForm as sym_BasicForm
+from sympde.expr import BilinearForm as sym_BilinearForm
+from sympde.expr import LinearForm as sym_LinearForm
+from sympde.expr import Integral as sym_Integral
+from sympde.expr import Equation as sym_Equation
+from sympde.expr import Model as sym_Model
+from sympde.expr import Boundary as sym_Boundary
+from sympde.expr import Norm as sym_Norm
+from sympde.expr import evaluate
 
 from spl.api.grid  import QuadratureGrid, BoundaryQuadratureGrid
 from spl.api.basis import BasisValues

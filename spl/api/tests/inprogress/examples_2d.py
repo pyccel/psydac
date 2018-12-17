@@ -89,13 +89,16 @@ def assert_identical_coo(A, B):
 
 
 #==============================================================================
-def test_api_poisson_2d_dirneu_2():
+def test_api_poisson_2d_dir_1():
 
     # ... abstract model
     U = FunctionSpace('U', domain)
     V = FunctionSpace('V', domain)
 
-    B2 = Boundary(r'\Gamma_2', domain) # Neumann bc will be applied on B2
+    B1 = Boundary(r'\Gamma_1', domain)
+    B2 = Boundary(r'\Gamma_2', domain)
+    B3 = Boundary(r'\Gamma_3', domain)
+    B4 = Boundary(r'\Gamma_4', domain)
 
     x,y = domain.coordinates
 
@@ -107,22 +110,14 @@ def test_api_poisson_2d_dirneu_2():
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
 
-    solution = sin(0.5*pi*x)*sin(pi*y)
-
-    expr = (5./4.)*pi**2*solution*v
-    l0 = LinearForm(v, expr)
-
-    expr = v*trace_1(grad(solution), B2)
-    l_B2 = LinearForm(v, expr)
-
-    expr = l0(v) + l_B2(v)
+    expr = 2*pi**2*sin(pi*x)*sin(pi*y)*v
     l = LinearForm(v, expr)
 
-    error = F-solution
+    error = F - sin(pi*x)*sin(pi*y)
     l2norm = Norm(error, domain, kind='l2', name='u')
     h1norm = Norm(error, domain, kind='h1', name='u')
 
-    bc = [DirichletBC(-B2)]
+    bc = [DirichletBC(i) for i in [B1, B2, B3, B4]]
     equation = Equation(a(v,u), l(v), bc=bc)
     # ...
 
@@ -130,17 +125,14 @@ def test_api_poisson_2d_dirneu_2():
     Vh = create_discrete_space()
     # ...
 
-    # TODO remove
-    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
-    l_B2h = discretize(l_B2, Vh, boundary=B2)
-    import sys; sys.exit(0)
-    #
-
     # ... dsicretize the equation using Dirichlet bc
+    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
     B2 = DiscreteBoundary(B2, axis=0, ext= 1)
+    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
+    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
 
-    bc = [DiscreteDirichletBC(-B2)]
-    equation_h = discretize(equation, [Vh, Vh], boundary=B2, bc=bc)
+    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4]]
+    equation_h = discretize(equation, [Vh, Vh], bc=bc)
     # ...
 
     # ... discretize norms
@@ -161,16 +153,13 @@ def test_api_poisson_2d_dirneu_2():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    print('> l2_error = ', l2_error)
-    print('> h1_error = ', h1_error)
+    expected_l2_error =  0.00021808678604760232
+    expected_h1_error =  0.013023570720360362
 
-#    expected_l2_error =  0.0001755319490060421
-#    expected_h1_error =  0.009298116787699227
-#
-#    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-#    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
     # ...
 
 ###############################################
 if __name__ == '__main__':
-    test_api_poisson_2d_dirneu_2()
+    test_api_poisson_2d_dir_1()

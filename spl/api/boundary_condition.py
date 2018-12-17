@@ -2,7 +2,7 @@
 
 # TODO remove V from apply_dirichlet_bc functions => get info from vector/matrix
 
-from sympde.core import Boundary as sym_Boundary
+from sympde.topology import Boundary as sym_Boundary
 
 from spl.linalg.stencil import StencilVector, StencilMatrix
 from spl.linalg.block   import BlockVector, BlockMatrix
