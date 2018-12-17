@@ -18,7 +18,10 @@ from sympde.expr import Equation as sym_Equation
 from sympde.expr import Model as sym_Model
 from sympde.expr import Boundary as sym_Boundary
 from sympde.expr import Norm as sym_Norm
+from sympde.expr import DirichletBC
 from sympde.expr import evaluate
+from sympde.topology import BasicFunctionSpace
+from sympde.topology import FunctionSpace, VectorFunctionSpace
 
 from spl.api.grid  import QuadratureGrid, BoundaryQuadratureGrid
 from spl.api.basis import BasisValues
@@ -889,20 +892,10 @@ class DiscreteEquation(BasicDiscrete):
             raise TypeError('> Expecting a symbolic Equation')
 
         # ...
-        bc = kwargs.pop('bc', None)
+        bc = expr.bc
 
         if bc:
-            if isinstance(bc, DiscreteBoundaryCondition):
-                bc = [bc]
-
-            elif isinstance(bc, (list, tuple)):
-                for i in bc:
-                    if not isinstance(i, DiscreteBoundaryCondition):
-                        msg = '> Expecting a list of DiscreteBoundaryCondition'
-                        raise TypeError(msg)
-
-            else:
-                raise TypeError('> Wrong type for bc')
+            bc = [DiscreteDirichletBC(i.boundary) for i in bc]
 
             newbc = []
             for b in bc:
@@ -1141,6 +1134,35 @@ class Model(BasicDiscrete):
             raise NotImplementedError('TODO')
 
 
+# TODO multi patch
+# TODO bounds and knots
+# TODO MPI
+def discretize_space(V, *args, **kwargs):
+    degree = kwargs.pop('degree', None)
+    ncells = kwargs.pop('ncells', None)
+
+    if ( degree is None ) or ( ncells is None ):
+        raise NotImplementedError('TODO')
+
+    # 1d case
+    if V.ldim == 1:
+        raise NotImplementedError('TODO')
+    # 2d case
+    elif V.ldim in [2,3]:
+        assert(isinstance( degree, (list, tuple) ))
+        assert( len(degree) == V.ldim )
+
+        # Create uniform grid
+        grids = [np.linspace( 0., 1., num=ne+1 ) for ne in ncells]
+
+        # Create 1D finite element spaces and precompute quadrature data
+        spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
+
+        Vh = TensorFemSpace( *spaces )
+
+        return Vh
+
+
 
 def discretize(a, *args, **kwargs):
 
@@ -1163,3 +1185,6 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, sym_Model):
         return Model(a, *args, **kwargs)
+
+    elif isinstance(a, BasicFunctionSpace):
+        return discretize_space(a, *args, **kwargs)
