@@ -177,7 +177,7 @@ def test_api_poisson_2d_dirneu_1():
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh], boundary=[B1])
+    equation_h = discretize(equation, [Vh, Vh])
     # ...
 
     # ... discretize norms

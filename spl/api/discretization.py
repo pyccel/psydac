@@ -141,7 +141,7 @@ class BasicDiscrete(object):
 
             if isinstance(boundary, Boundary):
                 if not( boundary is target ):
-#                    print(boundary.expr)
+#                    print(boundary)
 #                    print(target)
 #                    import sys; sys.exit(0)
                     raise ValueError('> Unconsistent boundary with symbolic model')
@@ -567,6 +567,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         kwargs['discrete_space'] = self.spaces
         kwargs['comm'] = comm
+
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # TODO to be removed
@@ -662,6 +663,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         kwargs['discrete_space'] = self.space
         kwargs['comm'] = comm
+
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # TODO to be removed
@@ -926,13 +928,11 @@ class DiscreteEquation(BasicDiscrete):
         # ...
 
         # ...
-        boundaries = kwargs.pop('boundary', [])
-
         boundaries_lhs = expr.lhs.expr.atoms(sym_Boundary)
-        boundaries_lhs = [i for i in boundaries if i in boundaries_lhs]
+        boundaries_lhs = list(boundaries_lhs)
 
         boundaries_rhs = expr.rhs.expr.atoms(sym_Boundary)
-        boundaries_rhs = [i for i in boundaries if i in boundaries_rhs]
+        boundaries_rhs = list(boundaries_rhs)
         # ...
 
         # ...
