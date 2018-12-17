@@ -20,6 +20,7 @@ from sympde.expr import Boundary as sym_Boundary
 from sympde.expr import Norm as sym_Norm
 from sympde.expr import DirichletBC
 from sympde.expr import evaluate
+from sympde.topology import Boundary
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import FunctionSpace, VectorFunctionSpace
 
@@ -135,11 +136,11 @@ class BasicDiscrete(object):
 
         # ...
         if boundary:
-            if not isinstance(boundary, (tuple, list, DiscreteBoundary)):
-                raise TypeError('> Expecting a tuple, list or DiscreteBoundary')
+            if not isinstance(boundary, (tuple, list, Boundary)):
+                raise TypeError('> Expecting a tuple, list or Boundary')
 
-            if isinstance(boundary, DiscreteBoundary):
-                if not( boundary.expr is target ):
+            if isinstance(boundary, Boundary):
+                if not( boundary is target ):
 #                    print(boundary.expr)
 #                    print(target)
 #                    import sys; sys.exit(0)
@@ -837,7 +838,7 @@ class DiscreteSumForm(BasicDiscrete):
         for e in kernel_expr:
             kwargs['target'] = e.target
             if isinstance(e.target, sym_Boundary):
-                boundary = [i for i in boundaries if i.expr is e.target]
+                boundary = [i for i in boundaries if i is e.target]
                 if boundary: kwargs['boundary'] = boundary[0]
 
             if isinstance(a, sym_BilinearForm):
@@ -926,14 +927,12 @@ class DiscreteEquation(BasicDiscrete):
 
         # ...
         boundaries = kwargs.pop('boundary', [])
-        if isinstance(boundaries, DiscreteBoundary):
-            boundaries = [boundaries]
 
         boundaries_lhs = expr.lhs.expr.atoms(sym_Boundary)
-        boundaries_lhs = [i for i in boundaries if i.expr in boundaries_lhs]
+        boundaries_lhs = [i for i in boundaries if i in boundaries_lhs]
 
         boundaries_rhs = expr.rhs.expr.atoms(sym_Boundary)
-        boundaries_rhs = [i for i in boundaries if i.expr in boundaries_rhs]
+        boundaries_rhs = [i for i in boundaries if i in boundaries_rhs]
         # ...
 
         # ...

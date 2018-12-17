@@ -43,7 +43,7 @@ class Square(Geometry):
 
         dim = 2
         boundaries = []
-        i = 0
+        i = 1
         for axis in range(dim):
             for ext in [-1, 1]:
                 Gamma = DiscreteBoundary(domain, axis=axis, ext=ext)
@@ -68,7 +68,7 @@ class Cube(Geometry):
 
         dim = 3
         boundaries = []
-        i = 0
+        i = 1
         for axis in range(dim):
             for ext in [-1, 1]:
                 Gamma = DiscreteBoundary(domain, axis=axis, ext=ext)

@@ -133,6 +133,81 @@ def test_api_poisson_2d_dir_1():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
     # ...
 
+#==============================================================================
+def test_api_poisson_2d_dirneu_1():
+
+    # ... abstract model
+    domain = Square()
+
+    V = FunctionSpace('V', domain)
+
+    B1 = domain.get_boundary('Gamma_1')
+
+    x,y = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(V, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    solution = sin(0.5*pi*(1.-x))*sin(pi*y)
+
+    expr = (5./4.)*pi**2*solution*v
+    l0 = LinearForm(v, expr)
+
+    expr = v*trace_1(grad(solution), B1)
+    l_B1 = LinearForm(v, expr)
+
+    expr = l0(v) + l_B1(v)
+    l = LinearForm(v, expr)
+
+    error = F-solution
+    l2norm = Norm(error, domain, kind='l2', name='u')
+    h1norm = Norm(error, domain, kind='h1', name='u')
+
+    bc = DirichletBC(domain.boundary.complement(B1))
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... discrete spaces
+    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    equation_h = discretize(equation, [Vh, Vh], boundary=[B1])
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, Vh)
+    h1norm_h = discretize(h1norm, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+
+    expected_l2_error =  0.00015546057796452772
+    expected_h1_error =  0.00926930278452745
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    # ...
+
+
+
 ###############################################
 if __name__ == '__main__':
     test_api_poisson_2d_dir_1()
+    test_api_poisson_2d_dirneu_1()
