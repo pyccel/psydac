@@ -22,182 +22,15 @@ from mpi4py import MPI
 from spl.fem.splines      import SplineSpace
 from spl.fem.tensor       import TensorFemSpace
 from spl.mapping.discrete import SplineMapping
-
-_patches_types = (SplineMapping,)
-
-#==============================================================================
-def random_string( n ):
-    chars    = string.ascii_uppercase + string.ascii_lowercase + string.digits
-    selector = random.SystemRandom()
-    return ''.join( selector.choice( chars ) for _ in range( n ) )
+from spl.cad.basic        import BasicDiscreteDomain
+from spl.cad.basic        import DiscreteBoundary
+from spl.cad.basic        import Edge, Topology
 
 
 #==============================================================================
-class Edge(object):
-    def __init__(self, name):
-        self._name = name
-
-    @property
-    def name(self):
-        return self._name
-
-
-#==============================================================================
-class Topology(abc.Mapping):
-    _boundaries = None
-
-    def __init__(self, data=None, filename=None):
-        if data is None:
-            data = {}
-
-        else:
-            assert( isinstance( data, (dict, OrderedDict)) )
-
-        self._data = data
-
-        if not( filename is None ):
-            self.read(filename)
-
-    @property
-    def boundaries(self):
-        if self._boundaries is None:
-            self._boundaries = self.find_boundaries()
-
-        return self._boundaries
-
-    def set_boundaries(self, boundaries):
-        self._boundaries = boundaries
-
-    def read(self, filename):
-        raise NotImplementedError('TODO')
-
-    def export(self, filename):
-        raise NotImplementedError('TODO')
-
-    def find_boundaries(self):
-        # TODO treate periodicity of every patch
-        # we first inverse the graph, by having patches as keys
-        d = {}
-        data = OrderedDict(sorted(self._data.items()))
-        for edge, pair in data.items():
-            p_left  = pair[0].patch
-            p_right = pair[1].patch
-            for face in pair:
-                if not( face.patch in d.keys() ):
-                    d[face.patch] = []
-
-                d[face.patch].append(face)
-
-        boundaries = []
-        for patch in d.keys():
-            ldim = patch.ldim
-            for axis in range(ldim):
-                for ext in [-1, 1]:
-                    bnd = DiscreteBoundary(patch=patch, axis=axis, ext=ext)
-                    if not bnd in d[patch]:
-                        boundaries.append(bnd)
-
-        return boundaries
-
-    def todict(self):
-        # ... create the connectivity
-        connectivity = {}
-        data = OrderedDict(sorted(self._data.items()))
-        for edge, pair in data.items():
-            connectivity[edge.name] = [bnd.todict() for bnd in pair]
-
-        connectivity = OrderedDict(sorted(connectivity.items()))
-        # ...
-
-        # ...
-        boundaries = [bnd.todict() for bnd in self.boundaries]
-        # ...
-
-        return {'connectivity': connectivity,
-                'boundaries': boundaries}
-
-
-    def __setitem__(self, key, value):
-        assert( isinstance( key, Edge ) )
-        assert( isinstance( value, (tuple, list)  ) )
-        assert( len(value) in [1, 2] )
-        assert( all( [isinstance( P, DiscreteBoundary ) for P in value ] ) )
-
-        self._data[key] = value
-
-    # ==========================================
-    #  abstract methods
-    # ==========================================
-    def __getitem__(self, key):
-        return self._data[key]
-
-    def __iter__(self):
-        return iter(self._data)
-
-    def __len__(self):
-        return len(self._data)
-    # ==========================================
-
-
-#==============================================================================
-class DiscreteBoundary(object):
-
-    def __init__(self, patch, axis, ext, name=None):
-        assert( isinstance( axis, int ) and axis in [0,1,2] )
-        assert( isinstance( ext,  int ) and ext  in [-1,1] )
-        assert( isinstance( patch, _patches_types ) )
-
-        if name is None:
-            name = 'bnd_{}'.format(random_string( 4 ))
-
-        else:
-            assert( isinstance( name, str ) )
-
-        self._axis  = axis
-        self._ext   = ext
-        self._patch = patch
-        self._name  = name
-
-    @property
-    def axis(self):
-        return self._axis
-
-    @property
-    def ext(self):
-        return self._ext
-
-    @property
-    def patch(self):
-        return self._patch
-
-    @property
-    def name(self):
-        return self._name
-
-    def todict(self):
-        axis  = self.axis
-        ext   = self.ext
-        patch = self.patch
-        name  = self.name
-        return OrderedDict( [('axis' , axis       ),
-                             ('ext'  , ext        ),
-                             ('patch', patch.name ),
-                             ('name' , name       ) ] )
-
-    def __eq__(self, other):
-        cond = ( (self.patch is other.patch) and
-                 (self.axis == other.axis)   and
-                 (self.ext  == other.ext)    and
-                 (self.name == other.name) )
-        return cond
-
-
-#==============================================================================
-class Geometry( object ):
+class Geometry( BasicDiscreteDomain ):
     _patches  = []
     _topology = None
-    _ldim     = None
-    _pdim     = None
 
     def __init__( self, filename=None, comm=MPI.COMM_WORLD,
                   patches=None, topology=None ):
@@ -219,14 +52,6 @@ class Geometry( object ):
         else:
             raise ValueError('Wrong input')
         # ...
-
-    @property
-    def ldim(self):
-        return self._ldim
-
-    @property
-    def pdim(self):
-        return self._pdim
 
     @property
     def patches(self):
