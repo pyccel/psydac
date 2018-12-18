@@ -36,10 +36,12 @@ class FemAssemblyGrid:
         Index of last 1D basis local to process.
 
     quad_order : int
-        Polynomial order for which mass matrix is exact (assuming identity map).
+        Polynomial order for which mass matrix is exact, assuming identity map
+        (default: spline degree).
 
     nderiv : int
-        Number of basis functions' derivatives to be computed and stored.
+        Number of basis functions' derivatives to be precomputed at the Gauss
+        points (default: 1).
 
     """
     def __init__( self, space, start, end, *, quad_order=None, nderiv=1 ):
@@ -53,15 +55,31 @@ class FemAssemblyGrid:
 
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )
+
+        #-------------------------------------------
+        # GLOBAL GRID
+        #-------------------------------------------
+
+        # Lists of quadrature coordinates and weights on each element
         glob_points, glob_weights = quadrature_grid( grid, u, w )
+
+        # List of basis function values on each element
         glob_basis = basis_ders_on_quad_grid( T, p, glob_points, nderiv )
+
+        # List of spans on each element
+        # (Span is global index of last non-vanishing basis function)
         glob_spans = elements_spans( T, p )
+
+        #-------------------------------------------
+        # LOCAL GRID, EXTENDED (WITH GHOST REGIONS)
+        #-------------------------------------------
 
         # Lists of local quadrature points and weights, basis functions values
         spans   = []
         basis   = []
         points  = []
         weights = []
+        indices = []
         ne      = 0
 
         # a) Periodic case only, left-most process in 1D domain
@@ -73,6 +91,7 @@ class FemAssemblyGrid:
                     basis  .append( glob_basis  [k] )
                     points .append( glob_points [k] )
                     weights.append( glob_weights[k] )
+                    indices.append( k )
                     ne += 1
 
         # b) All cases
@@ -83,15 +102,37 @@ class FemAssemblyGrid:
                 basis  .append( glob_basis  [k] )
                 points .append( glob_points [k] )
                 weights.append( glob_weights[k] )
+                indices.append( k )
                 ne += 1
 
-        # STORE
+        #-------------------------------------------
+        # LOCAL GRID, PROPER (WITHOUT GHOST REGIONS)
+        #-------------------------------------------
+
+        # Local indices of first/last elements in proper domain
+        if space.periodic:
+            local_element_start = spans.index( p + start )
+            local_element_end   = spans.index( p + end   )
+        else:
+            local_element_start = spans.index( p   if start == 0   else 1 + start )
+            local_element_end   = spans.index( end if end   == n-1 else 1 + end   )
+
+        #-------------------------------------------
+        # DATA STORAGE IN OBJECT
+        #-------------------------------------------
+
+        # Quadrature data on extended distributed domain
         self._num_elements = ne
         self._num_quad_pts = len( u )
         self._spans   = np.array( spans   )
         self._basis   = np.array( basis   )
         self._points  = np.array( points  )
         self._weights = np.array( weights )
+        self._indices = np.array( indices )
+
+        # Local index of start/end elements of domain partitioning
+        self._local_element_start = local_element_start
+        self._local_element_end   = local_element_end
 
     # ...
     @property
@@ -134,3 +175,24 @@ class FemAssemblyGrid:
         """ Weight assigned to each quadrature point.
         """
         return self._weights
+
+    # ...
+    @property
+    def indices( self ):
+        """ Global index of each element used in assembly process.
+        """
+        return self._indices
+
+    # ...
+    @property
+    def local_element_start( self ):
+        """ Local index of first element owned by process.
+        """
+        return self._local_element_start
+
+    # ...
+    @property
+    def local_element_end( self ):
+        """ Local index of last element owned by process.
+        """
+        return self._local_element_end

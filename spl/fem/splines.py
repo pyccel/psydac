@@ -14,9 +14,7 @@ from spl.core.bsplines         import (
         breakpoints,
         greville,
         elements_spans,
-        make_knots,
-        quadrature_grid,
-        basis_ders_on_quad_grid
+        make_knots
         )
 from spl.utilities.quadratures import gauss_legendre
 
@@ -86,45 +84,8 @@ class SplineSpace( FemSpace ):
         self._vector_space = StencilVectorSpace( [self.nbasis], [self.degree], [periodic] )
         self._fields = {}
 
-        self._spans        = elements_spans( knots, degree )
-        self._quad_order   = None
-        self._quad_basis   = None
-        self._quad_points  = None
-        self._quad_weights = None
-
         # Store flag: object NOT YET prepared for interpolation
         self._collocation_ready = False
-
-    # ...
-    def init_fem( self, quad_order=None, nderiv=1 ):
-        """
-        Prepare some data that is useful for assembling finite element matrices.
-
-        Parameters
-        ----------
-        quad_order : int
-            Order of Gaussian quadrature (default: spline degree).
-
-        nderiv : int
-            Number of derivatives to be precomputed at the Gauss points (default: 1).
-
-        """
-        T    = self.knots       # knots sequence
-        p    = self.degree      # spline degree
-        n    = self.nbasis      # total number of control points
-        grid = self.breaks      # breakpoints
-        ne   = self.ncells      # number of cells in domain (ne=len(grid)-1)
-        k    = quad_order or p  # polynomial order for which the mass matrix is exact
-
-        # gauss-legendre quadrature rule
-        u, w = gauss_legendre( k )
-        points, weights = quadrature_grid( self.breaks, u, w )
-        basis = basis_ders_on_quad_grid( T, p, points, nderiv )
-
-        self._quad_order   = len( u )
-        self._quad_basis   = basis
-        self._quad_points  = points
-        self._quad_weights = weights
 
     # ...
     def init_collocation( self ):
@@ -212,29 +173,6 @@ class SplineSpace( FemSpace ):
 
         raise NotImplementedError()
 
-    # ...
-    # Identity mapping assumed for now
-    # TODO: take into account Jacobian determinant of mapping
-    def integral( self, f ):
-
-        assert hasattr( f, '__call__' )
-
-        if self.quad_basis is None: self.init_fem()
-
-        nk      = self.ncells
-        nq      = self.quad_order
-        points  = self.quad_points
-        weights = self.quad_weights
-
-        c = 0.0
-        for k in range( nk ):
-            x =  points[k,:]
-            w = weights[k,:]
-            for q in range( nq ):
-                c += f( x[q] ) * w[q]
-
-        return c
-
     #--------------------------------------------------------------------------
     # Other properties
     #--------------------------------------------------------------------------
@@ -286,31 +224,6 @@ class SplineSpace( FemSpace ):
         """
         breaks = self.breaks
         return breaks[0], breaks[-1]
-
-    @property
-    def spans(self):
-        """Returns the last non-vanishing spline for each element."""
-        return self._spans
-
-    @property
-    def quad_order(self):
-        """Returns the quadrature order."""
-        return self._quad_order
-
-    @property
-    def quad_points(self):
-        """Returns the quadrature points over the whole domain."""
-        return self._quad_points
-
-    @property
-    def quad_weights(self):
-        """Returns the quadrature weights over the whole domain."""
-        return self._quad_weights
-
-    @property
-    def quad_basis(self):
-        """Returns B-Splines and their derivatives on the quadrature grid."""
-        return self._quad_basis
 
     @property
     def greville( self ):

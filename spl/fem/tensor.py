@@ -59,36 +59,13 @@ class TensorFemSpace( FemSpace ):
         # Shortcut
         v = self._vector_space
 
-        # Compute support of basis functions local to process
-        degrees  = [V.degree for V in self.spaces]
-        ncells   = [V.ncells for V in self.spaces]
-        spans    = [V.spans  for V in self.spaces]
-        supports = [[k for k in range( nc )
-            if any( s <= i%nb <= e for i in range( span[k]-p, span[k]+1 ) )]
-            for (s,e,p,nb,nc,span) in zip( v.starts, v.ends, degrees, npts, ncells, spans )]
-
-        self._supports = tuple( tuple( np.unique( sup ) ) for sup in supports )
+        # Compute extended 1D quadrature grids (local to process) along each direction
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e )
+                                  for V,s,e in zip( self.spaces, v.starts, v.ends ) )
 
         # Determine portion of logical domain local to process
-        coords = v.cart.coords if v.parallel else tuple( [0]*v.ndim )
-        nprocs = v.cart.nprocs if v.parallel else tuple( [1]*v.ndim )
-
-#        iterator = lambda: zip( v.starts, v.ends, v.pads, coords, nprocs )
-#
-#        self._element_starts = [(s   if c == 0    else s-p+1) for s,e,p,c,np in iterator()]
-#        self._element_ends   = [(e-p if c == np-1 else e-p+1) for s,e,p,c,np in iterator()]
-
-        self._element_starts = []
-        self._element_ends   = []
-        for (s,e,p,period,c,npr) in zip( v.starts, v.ends, v.pads, v.periods, coords, nprocs ):
-            if period:
-                start = s
-                end   = e
-            else:
-                start = s   if c == 0     else s-p+1
-                end   = e-p if c == npr-1 else e-p+1
-            self._element_starts.append( start )
-            self._element_ends  .append( end   )
+        self._element_starts = tuple( g.indices[g.local_element_start] for g in self.quad_grids )
+        self._element_ends   = tuple( g.indices[g.local_element_end  ] for g in self.quad_grids )
 
         # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
         self._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
@@ -244,16 +221,14 @@ class TensorFemSpace( FemSpace ):
 
         assert hasattr( f, '__call__' )
 
-        # Compute quadrature data
-        self.init_fem()
-
         # Extract and store quadrature data
-        nq      = [V.quad_order   for V in self.spaces]
-        points  = [V.quad_points  for V in self.spaces]
-        weights = [V.quad_weights for V in self.spaces]
+        nq      = [g.num_quad_pts for g in self.quad_grids]
+        points  = [g.points       for g in self.quad_grids]
+        weights = [g.weights      for g in self.quad_grids]
 
-        # Get element range
-        sk, ek  = self.local_domain
+        # Get local element range
+        sk = [g.local_element_start for g in self.quad_grids]
+        ek = [g.local_element_end   for g in self.quad_grids]
 
         # Iterator over multi-index k (equivalent to nested loops over each dimension)
         multi_range = lambda starts, ends: \
@@ -277,9 +252,8 @@ class TensorFemSpace( FemSpace ):
                 c += f(*y) * np_prod( v )
 
         # All reduce (MPI_SUM)
-        # TODO: verify that it is OK to access private attribute
         if self.vector_space.parallel:
-            mpi_comm = self.vector_space.cart._comm
+            mpi_comm = self.vector_space.cart.comm
             c = mpi_comm.allreduce( c )
 
         return c
@@ -313,22 +287,15 @@ class TensorFemSpace( FemSpace ):
         return self._spaces
 
     @property
-    def local_support( self ):
+    def quad_grids( self ):
         """
-        Support of all the basis functions local to the process, in the form
-        of ldim tuples with the element indices along each direction.
-
-        Thanks to the presence of ghost values, this is also equivalent to the
-        region over which the coefficients of all non-zero basis functions are
-        available and hence a field can be evaluated.
-
-        Returns
-        -------
-        element_supports : tuple of (tuple of int)
-            Along each dimension, the basis support is a tuple of element indices.
+        List of 'FemAssemblyGrid' objects (one for each direction)
+        containing all 1D information local to process that is necessary
+        for the correct assembly of the l.h.s. matrix and r.h.s. vector
+        in a finite element method.
 
         """
-        return self._supports
+        return self._quad_grids
 
     @property
     def local_domain( self ):
@@ -362,20 +329,6 @@ class TensorFemSpace( FemSpace ):
 
         """
         return self._eta_limits
-
-    # ...
-    def init_fem( self ):
-        for V in self.spaces:
-            if V.quad_basis is None:
-                V.init_fem()
-
-        # NEW
-        spaces = self.spaces
-        starts = self.vector_space.starts
-        ends   = self.vector_space.ends
-
-        self.quad_grids = tuple( FemAssemblyGrid( V,s,e )
-                                 for V,s,e in zip( spaces, starts, ends ) )
 
     # ...
     def init_collocation( self ):

@@ -102,29 +102,30 @@ class FemSpace( metaclass=ABCMeta ):
 
         """
 
-    @abstractmethod
-    def integral( self, f ):
-        """
-        Compute integral of scalar callable function $f(\eta)$ over logical domain
-        $\Omega$, with Jacobian determinant of mapping $J(\eta)$ as weighting function:
-
-        I = \integral_{\Omega} f(\eta) |J(\eta)| d\eta.
-
-        Parameters
-        ----------
-        f : callable
-            Integrand scalar function $f(\eta)$ over logical domain.
-
-        Returns
-        -------
-        value : float
-            Integral of $f(\eta) J(\eta)$ over logical domain.
-
-        """
-
 #---------------------------------------
 # OLD STUFF
 #---------------------------------------
+
+#    @abstractmethod
+#    def integral( self, f ):
+#        """
+#        Compute integral of scalar callable function $f(\eta)$ over logical domain
+#        $\Omega$, with Jacobian determinant of mapping $J(\eta)$ as weighting function:
+#
+#        I = \integral_{\Omega} f(\eta) |J(\eta)| d\eta.
+#
+#        Parameters
+#        ----------
+#        f : callable
+#            Integrand scalar function $f(\eta)$ over logical domain.
+#
+#        Returns
+#        -------
+#        value : float
+#            Integral of $f(\eta) J(\eta)$ over logical domain.
+#
+#        """
+#
 #
 #  # NOTE: why not giving the number of field components?
 #      @property

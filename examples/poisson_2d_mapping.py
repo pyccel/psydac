@@ -576,10 +576,8 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visua
     V1 = SplineSpace( p1, grid=grid_1, periodic=per1 )
     V2 = SplineSpace( p2, grid=grid_2, periodic=per2 )
 
-    # Create 2D tensor product finite element space and precompute
-    # quadrature data
+    # Create 2D tensor product finite element space
     V = TensorFemSpace( V1, V2, comm=mpi_comm )
-    V.init_fem()
 
     s1, s2 = V.vector_space.starts
     e1, e2 = V.vector_space.ends
