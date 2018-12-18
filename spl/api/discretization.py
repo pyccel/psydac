@@ -899,23 +899,6 @@ class DiscreteEquation(BasicDiscrete):
 
         if bc:
             bc = [DiscreteDirichletBC(i.boundary) for i in bc]
-
-            newbc = []
-            for b in bc:
-                bnd = b.boundary
-                if isinstance(bnd, DiscreteComplementBoundary):
-                    domain = bnd.boundaries[0].expr.domain
-                    for axis, ext in zip(bnd.axis, bnd.ext):
-                        name = random_string( 3 )
-                        B = sym_Boundary(name, domain)
-                        B = DiscreteBoundary(B, axis=axis, ext=ext)
-                        other = b.duplicate(B)
-                        newbc.append(other)
-
-                else:
-                    newbc.append(b)
-
-            bc = newbc
         # ...
 
         self._expr = expr
