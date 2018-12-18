@@ -139,9 +139,9 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
     L3[1,1] = M4
 
     # Convert L1, L2 and L3 to COO form
-    coo1 = L1.tocoo()
-    coo2 = L2.tocoo()
-    coo3 = L3.tocoo()
+    coo1 = L1.tosparse().tocoo()
+    coo2 = L2.tosparse().tocoo()
+    coo3 = L3.tosparse().tocoo()
 
     assert np.array_equal( coo1.col , coo2.col  )
     assert np.array_equal( coo1.row , coo2.row  )

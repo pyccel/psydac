@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from spl.polar.dense    import DenseVectorSpace, DenseVector, DenseLinearOperator
+from spl.polar.dense    import DenseVectorSpace, DenseVector, DenseMatrix
 from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from spl.linalg.block   import ProductSpace, BlockVector, BlockMatrix
 
@@ -38,7 +38,7 @@ def test_c1_linops( n0, npts, pads, verbose=False ):
     Ca = Ba.transpose( 1,2,0 ).copy()
 
     # Linear operators
-    A = DenseLinearOperator( U, U, Aa )
+    A = DenseMatrix( U, U, Aa )
     B = LinearOperator_StencilToDense( V, U, Ba )
     C = LinearOperator_DenseToStencil( U, V, Ca )
 
@@ -65,7 +65,7 @@ def test_c1_linops( n0, npts, pads, verbose=False ):
     assert np.allclose( x[1].toarray(), x1.toarray(), **tols )
 
     # Convert to arrays and compare result to numpy dot
-    Ma = M.tocoo().toarray()
+    Ma = M.toarray()
     wa = w.toarray()
     xa = x.toarray()
 

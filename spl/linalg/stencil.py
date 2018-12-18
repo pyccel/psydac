@@ -6,7 +6,7 @@ import numpy as np
 from scipy.sparse import coo_matrix
 from mpi4py import MPI
 
-from spl.linalg.basic import VectorSpace, Vector, LinearOperator
+from spl.linalg.basic import VectorSpace, Vector, Matrix
 from spl.ddm.cart     import Cart
 
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix']
@@ -575,7 +575,7 @@ class StencilVector( Vector ):
         return tuple(index)
 
 #===============================================================================
-class StencilMatrix( LinearOperator ):
+class StencilMatrix( Matrix ):
     """
     Matrix in n-dimensional stencil format.
 
@@ -659,6 +659,14 @@ class StencilMatrix( LinearOperator ):
 
         return out
 
+    # ...
+    def toarray( self ):
+        return self.tocoo().toarray()
+
+    # ...
+    def tosparse( self ):
+        return self.tocoo()
+
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -736,10 +744,6 @@ class StencilMatrix( LinearOperator ):
     #...
     def tocsr( self ):
         return self.tocoo().tocsr()
-
-    #...
-    def toarray( self ):
-        return self.tocoo().toarray()
 
     #...
     def max( self ):
@@ -822,4 +826,4 @@ class StencilMatrix( LinearOperator ):
             return index + shift
 
 #===============================================================================
-del VectorSpace, Vector, LinearOperator
+del VectorSpace, Vector, Matrix

@@ -5,9 +5,9 @@
 import numpy as np
 from scipy.sparse import coo_matrix
 
-from spl.linalg.basic import VectorSpace, Vector, LinearOperator
+from spl.linalg.basic import VectorSpace, Vector, Matrix
 
-__all__ = ['DenseVectorSpace', 'DenseVector', 'DenseLinearOperator']
+__all__ = ['DenseVectorSpace', 'DenseVector', 'DenseMatrix']
 
 #==============================================================================
 class DenseVectorSpace( VectorSpace ):
@@ -128,7 +128,7 @@ class DenseVector( Vector ):
         return self._data.copy()
 
 #==============================================================================
-class DenseLinearOperator( LinearOperator ):
+class DenseMatrix( Matrix ):
 
     def __init__( self, V, W, data ):
 
@@ -173,12 +173,10 @@ class DenseLinearOperator( LinearOperator ):
 
         return out
 
-    #-------------------------------------
-    # Other properties/methods
-    #-------------------------------------
-    def tocoo( self ):
-        return coo_matrix( self._data )
-
     # ...
     def toarray( self ):
         return self._data.copy()
+
+    # ...
+    def tosparse( self ):
+        return coo_matrix( self._data )

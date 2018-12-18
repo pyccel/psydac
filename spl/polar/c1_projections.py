@@ -7,7 +7,7 @@ import numpy as np
 from spl.mapping.discrete import SplineMapping
 from spl.linalg.stencil   import StencilVectorSpace, StencilVector, StencilMatrix
 from spl.linalg.block     import ProductSpace, BlockVector, BlockMatrix
-from spl.polar .dense     import DenseVectorSpace, DenseVector, DenseLinearOperator
+from spl.polar .dense     import DenseVectorSpace, DenseVector, DenseMatrix
 from spl.polar.c1_spaces  import new_c1_vector_space
 from spl.polar.c1_linops  import LinearOperator_StencilToDense
 from spl.polar.c1_linops  import LinearOperator_DenseToStencil
@@ -143,7 +143,7 @@ class C1Projector:
                 Ap[u,v] = np.dot( L[u,:,:].flat, AL[v,:,:].flat )
 
         # Create linear operator
-        Ap = DenseLinearOperator( P[0], P[0], Ap )
+        Ap = DenseMatrix( P[0], P[0], Ap )
 
         #****************************************
         # Compute B' = L^T B
