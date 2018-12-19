@@ -4,9 +4,10 @@ import pytest
 import time
 import numpy as np
 from mpi4py                     import MPI
-from spl.ddm.cart               import Cart
 from scipy.sparse               import csc_matrix, dia_matrix, kron
 from scipy.sparse.linalg        import splu
+
+from spl.ddm.cart               import Cart
 from spl.linalg.stencil         import StencilVectorSpace, StencilVector, StencilMatrix
 from spl.linalg.kron            import kronecker_solve_3d_par
 from spl.linalg.direct_solvers  import SparseSolver, BandedSolver
@@ -15,9 +16,9 @@ from spl.linalg.direct_solvers  import SparseSolver, BandedSolver
 def kron_solve_seq_ref(A1, A2, A3, Y):
 
     # ...
-    A1_csr = A1.tocsr()
-    A2_csr = A2.tocsr()
-    A3_csr = A3.tocsr()
+    A1_csr = A1.tosparse().tocsr()
+    A2_csr = A2.tosparse().tocsr()
+    A3_csr = A3.tosparse().tocsr()
     C = csc_matrix(kron(kron(A1_csr, A2_csr), A3_csr))
 
     C_op  = splu(C)
@@ -30,8 +31,8 @@ def kron_solve_seq_ref(A1, A2, A3, Y):
 def to_bnd(A):
 
     dmat = dia_matrix(A.toarray())
-    la    = abs(dmat.offsets.min())
-    ua    = dmat.offsets.max()
+    la   = abs(dmat.offsets.min())
+    ua   = dmat.offsets.max()
     cmat = dmat.tocsr()
 
     A_bnd = np.zeros((1+ua+2*la, cmat.shape[1]))
@@ -179,21 +180,21 @@ def test_kron_solver_3d_sparse_par( n1, n2, n3, p1, p2, p3, P1=False, P2=False, 
     A1[:, 0 :1   ] = 10*p1
     A1[:, 1 :p1+1] = -4
     A1.remove_spurious_entries()
-    solver_1 = SparseSolver(A1.tocsr())
+    solver_1 = SparseSolver(A1.tosparse())
 
     A2 = StencilMatrix(V2, V2)
     A2[:,-p2:0   ] = -1
     A2[:, 0 :1   ] = 2*p2
     A2[:, 1 :p2+1] = -1
     A2.remove_spurious_entries()
-    solver_2 = SparseSolver(A2.tocsr())
+    solver_2 = SparseSolver(A2.tosparse())
 
     A3 = StencilMatrix(V3, V3)
     A3[:,-p3:0   ] = -2
     A3[:, 0 :1   ] = 3*p2
     A3[:, 1 :p3+1] = -2
     A3.remove_spurious_entries()
-    solver_3 = SparseSolver(A3.tocsr())
+    solver_3 = SparseSolver(A3.tosparse())
 
     #  ... RHS
     Y = StencilVector(V)

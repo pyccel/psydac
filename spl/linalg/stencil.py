@@ -660,12 +660,24 @@ class StencilMatrix( Matrix ):
         return out
 
     # ...
-    def toarray( self ):
-        return self.tocoo().toarray()
+    def toarray( self, *, with_pads=False ):
+
+        if self.codomain.parallel and with_pads:
+            coo = self._tocoo_parallel_with_pads()
+        else:
+            coo = self._tocoo_no_pads()
+
+        return coo.toarray()
 
     # ...
-    def tosparse( self ):
-        return self.tocoo()
+    def tosparse( self, *, with_pads=False ):
+
+        if self.codomain.parallel and with_pads:
+            coo = self._tocoo_parallel_with_pads()
+        else:
+            coo = self._tocoo_no_pads()
+
+        return coo
 
     #--------------------------------------
     # Other properties/methods
@@ -694,56 +706,6 @@ class StencilMatrix( Matrix ):
         index = self._getindex( key )
         self._data[index] = value
 
-    #...
-    def tocoo( self ):
-
-        # Shortcuts
-        nn = self._space.npts
-        nd = self._ndim
-
-        ss = self.starts
-        pp = self.pads
-
-        ravel_multi_index = np.ravel_multi_index
-
-        # COO storage
-        rows = []
-        cols = []
-        data = []
-
-        # Range of data owned by local process (no ghost regions)
-        local = tuple( [slice(p,-p) for p in pp] + [slice(None)] * nd )
-
-        for (index,value) in np.ndenumerate( self._data[local] ):
-
-            # index = [i1-s1, i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
-
-            xx = index[:nd]  # x=i-s
-            ll = index[nd:]  # l=p+k
-
-            ii = [s+x for s,x in zip(ss,xx)]
-            jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
-
-            I = ravel_multi_index( ii, dims=nn, order='C' )
-            J = ravel_multi_index( jj, dims=nn, order='C' )
-
-            rows.append( I )
-            cols.append( J )
-            data.append( value )
-
-        M = coo_matrix(
-                (data,(rows,cols)),
-                shape = [np.prod(nn)]*2,
-                dtype = self._space.dtype
-        )
-
-        M.eliminate_zeros()
-
-        return M
-
-    #...
-    def tocsr( self ):
-        return self.tocoo().tocsr()
 
     #...
     def max( self ):
@@ -824,6 +786,111 @@ class StencilMatrix( Matrix ):
             return slice(start, stop, index.step)
         else:
             return index + shift
+
+    #...
+    def _tocoo_no_pads( self ):
+
+        # Shortcuts
+        nn = self._space.npts
+        nd = self._ndim
+
+        ss = self.starts
+        pp = self.pads
+
+        ravel_multi_index = np.ravel_multi_index
+
+        # COO storage
+        rows = []
+        cols = []
+        data = []
+
+        # Range of data owned by local process (no ghost regions)
+        local = tuple( [slice(p,-p) for p in pp] + [slice(None)] * nd )
+
+        for (index,value) in np.ndenumerate( self._data[local] ):
+
+            # index = [i1-s1, i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
+
+            xx = index[:nd]  # x=i-s
+            ll = index[nd:]  # l=p+k
+
+            ii = [s+x for s,x in zip(ss,xx)]
+            jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
+
+            I = ravel_multi_index( ii, dims=nn, order='C' )
+            J = ravel_multi_index( jj, dims=nn, order='C' )
+
+            rows.append( I )
+            cols.append( J )
+            data.append( value )
+
+        M = coo_matrix(
+                (data,(rows,cols)),
+                shape = [np.prod(nn)]*2,
+                dtype = self._space.dtype
+        )
+
+        M.eliminate_zeros()
+
+        return M
+
+    #...
+    def _tocoo_parallel_with_pads( self ):
+
+        # Shortcuts
+        nn = self._space.npts
+        nd = self._ndim
+
+        ss = self.starts
+        ee = self.ends
+        pp = self.pads
+        cc = self._space.periods
+
+        ravel_multi_index = np.ravel_multi_index
+
+        # COO storage
+        rows = []
+        cols = []
+        data = []
+
+        for (index,value) in np.ndenumerate( self._data ):
+
+            # index = [p1+i1-s1, p2+i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
+
+            xx = index[:nd]  # x=p+i-s
+            ll = index[nd:]  # l=p+k
+
+            # Compute row multi-index with simple shift
+            ii = [s + x - p for (s, x, p) in zip(ss, xx, pp)]
+
+            # Apply periodicity where appropriate
+            ii = [i - n if (c and i >= n and i - n < s) else
+                  i + n if (c and i <  0 and i + n > e) else i
+                  for (i, s, e, n, c) in zip(ii, ss, ee, nn, cc)]
+
+            # Exclude values outside global limits of matrix
+            if not all(0 <= i < n for i, n in zip(ii, nn)):
+                continue
+
+            # Compute column multi-index
+            jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
+
+            I = ravel_multi_index( ii, dims=nn, order='C' )
+            J = ravel_multi_index( jj, dims=nn, order='C' )
+
+            rows.append( I )
+            cols.append( J )
+            data.append( value )
+
+        M = coo_matrix(
+                (data,(rows,cols)),
+                shape = [np.prod(nn)]*2,
+                dtype = self._space.dtype
+        )
+
+        M.eliminate_zeros()
+
+        return M
 
 #===============================================================================
 del VectorSpace, Vector, Matrix

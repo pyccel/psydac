@@ -99,7 +99,7 @@ def test_stencil_matrix_1d_serial_dot( n1, p1, P1 ):
     assert y.space is x.space
 
     # Convert stencil objects to Scipy sparse matrix and 1D Numpy arrays
-    Ms = M.tocsr()
+    Ms = M.tosparse()
     xa = x.toarray()
     ya = y.toarray()
 
@@ -199,7 +199,7 @@ def test_stencil_matrix_1d_parallel_dot( n1, p1, P1, reorder ):
     assert y.space is x.space
 
     # Convert stencil objects to Scipy sparse matrix and 1D Numpy arrays
-    Ms = M.tocsr()
+    Ms = M.tosparse()
     xa = x.toarray( with_pads=True )
     ya = y.toarray()
 
