@@ -26,51 +26,66 @@ from spl.cad.basic        import BasicDiscreteDomain
 from spl.cad.basic        import DiscreteBoundary
 from spl.cad.basic        import Edge, Topology
 
+from sympde.topology import Domain, Line, Square, Cube
 
 #==============================================================================
 class Geometry( BasicDiscreteDomain ):
     _patches  = []
     _topology = None
 
-    def __init__( self, filename=None, comm=MPI.COMM_WORLD,
-                  patches=None, topology=None ):
+    def __init__( self, domain=None, mappings=None,
+                  filename=None, comm=MPI.COMM_WORLD ):
 
         # ... read the geometry if the filename is given
         if not( filename is None ):
             self.read(filename, comm=comm)
 
-        elif not( patches is None ):
-            assert( isinstance( patches, (list, tuple) ) )
-            assert( not( topology is None ))
-            assert( isinstance( topology, Topology ) )
+        elif not( domain is None ):
+            assert( isinstance( domain, Domain ) )
+            assert( not( mappings is None ))
+            assert( isinstance( mappings, (dict, OrderedDict) ) )
 
-            self._patches  = patches
-            self._ldim     = patches[0].ldim
-            self._pdim     = patches[0].pdim
-            self._topology = topology
+            # ... check sanity
+            interior_names = sorted(domain.interior_names)
+            mappings_keys  = sorted(list(mappings.keys()))
+
+            assert( interior_names == mappings_keys )
+            # ...
+
+            self._domain   = domain
+            self._ldim     = domain.dim
+            self._pdim     = domain.dim # TODO must be given => only dim is  defined for a Domain
+            self._mappings = OrderedDict(mappings.items())
 
         else:
             raise ValueError('Wrong input')
         # ...
 
-    @property
-    def patches(self):
-        return self._patches
+        self._comm = comm
+
+    @classmethod
+    def from_discrete_mapping( cls, mapping ):
+        """Create a geometry from one discrete mapping."""
+        raise NotImplementedError('')
 
     @property
-    def topology(self):
-        return self._topology
+    def comm(self):
+        return self._comm
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def mappings(self):
+        return self._mappings
 
     @property
     def boundaries(self):
-        return self.topology.boundaries
-
-    @property
-    def n_patches(self):
-        return len(self.patches)
+        return self.domain.boundaries
 
     def __len__(self):
-        return len(self.patches)
+        return len(self.domain)
 
     def read( self, filename, comm=MPI.COMM_WORLD ):
         # ... check extension of the file
@@ -78,6 +93,9 @@ class Geometry( BasicDiscreteDomain ):
         if not(ext == '.h5'):
             raise ValueError('> Only h5 files are supported')
         # ...
+
+        # read the topological domain
+        domain = Domain.from_file(filename)
 
         if comm.size > 1:
             kwargs = dict( driver='mpio', comm=comm )
@@ -100,12 +118,14 @@ class Geometry( BasicDiscreteDomain ):
         # ...
 
         # ... read patchs
-        patches = []
+        mappings = {}
         for i_patch in range( n_patches ):
 
             item  = yml['patches'][i_patch]
+            patch_name = item['name']
+            mapping_id = item['mapping_id']
             dtype = item['type']
-            patch = h5[item['name']]
+            patch = h5[mapping_id]
             if dtype == 'SplineMapping':
 
                 degree   = [int (p) for p in patch.attrs['degree'  ]]
@@ -118,45 +138,7 @@ class Geometry( BasicDiscreteDomain ):
                 mapping      = SplineMapping.from_control_points( tensor_space, patch['points'] )
                 mapping.set_name( item['name'] )
 
-                patches.append(mapping)
-        # ...
-
-        # ... create a dict of patches, needed for the topology
-        d_patches = {}
-        for patch in patches:
-            d_patches[patch.name] = patch
-
-        d_patches = OrderedDict(sorted(d_patches.items()))
-        # ...
-
-        # ... read the topology
-        topology = Topology()
-
-        # connectivity
-        for k,v in yml['topology']['connectivity'].items():
-            edge = Edge(k)
-            bnds = []
-            for desc in v:
-                patch = d_patches[desc['patch']]
-                axis  = desc['axis']
-                ext   = desc['ext']
-                name  = desc['name']
-                bnd   = DiscreteBoundary(patch, axis=axis, ext=ext, name=name)
-                bnds.append(bnd)
-
-            topology[edge] = bnds
-
-        # boundaries
-        bnds = []
-        for desc in yml['topology']['boundaries']:
-            patch = d_patches[desc['patch']]
-            axis  = desc['axis']
-            ext   = desc['ext']
-            name  = desc['name']
-            bnd   = DiscreteBoundary(patch, axis=axis, ext=ext, name=name)
-            bnds.append(bnd)
-
-        topology.set_boundaries(bnds)
+                mappings[patch_name] = mapping
         # ...
 
         # ... close the h5 file
@@ -166,8 +148,8 @@ class Geometry( BasicDiscreteDomain ):
         # ...
         self._ldim       = ldim
         self._pdim       = pdim
-        self._patches    = patches
-        self._topology   = topology
+        self._mappings   = mappings
+        self._domain     = domain
         # ...
 
     def export( self, filename ):
@@ -180,10 +162,7 @@ class Geometry( BasicDiscreteDomain ):
         """
 
         # ...
-        if not( self.n_patches > 0 ):
-            raise ValueError('No patches are found')
-
-        comm  = self.patches[0].space.vector_space.cart.comm
+        comm  = self.comm
         # ...
 
         # Create dictionary with geometry metadata
@@ -192,43 +171,57 @@ class Geometry( BasicDiscreteDomain ):
         yml['pdim'] = self.pdim
 
         # ... information about the patches
+        if not( self.mappings ):
+            raise ValueError('No mappings were found')
+
         patches_info = []
-        for i_patch, patch in enumerate(self.patches):
-            dtype = type( patch ).__name__
-            if patch.name is None:
-                name = 'patch_{}'.format( i_patch )
+        i_mapping    = 0
+        for patch_name, mapping in self.mappings.items():
+            name       = '{}'.format( patch_name )
+            mapping_id = 'mapping_{}'.format( i_mapping  )
+            dtype      = '{}'.format( type( mapping ).__name__ )
 
-            else:
-                name = patch.name
+            patches_info += [OrderedDict( [('name'       , name       ),
+                                           ('mapping_id' , mapping_id ),
+                                           ('type'       , dtype      )] )]
 
-            patches_info += [OrderedDict( [('name' , '{}'.format( name )  ),
-                                           ('type' , '{}'.format( dtype ) ),
-                                           ('color', 'None'               )] )]
+            i_mapping += 1
 
         yml['patches'] = patches_info
         # ...
 
-        # ... topology
-        yml['topology'] = self.topology.todict()
-        # ...
 
-        # Dump geometry metadata to string in YAML file format
-        geo = yaml.dump( data   = yml,
-                         Dumper = yamlloader.ordereddict.Dumper )
+        # ... topology
+        topo_yml = self.domain.todict()
         # ...
 
         # Create HDF5 file (in parallel mode if MPI communicator size > 1)
         kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
         h5 = h5py.File( filename, mode='w', **kwargs )
 
+        # ...
+        # Dump geometry metadata to string in YAML file format
+        geo = yaml.dump( data   = yml,
+                         Dumper = yamlloader.ordereddict.Dumper )
+
         # Write geometry metadata as fixed-length array of ASCII characters
         h5['geometry.yml'] = np.array( geo, dtype='S' )
+        # ...
 
-        for i_patch, patch in enumerate(self.patches):
-            space = patch.space
+        # ...
+        # Dump geometry metadata to string in YAML file format
+        geo = yaml.dump( data   = topo_yml,
+                         Dumper = yamlloader.ordereddict.Dumper )
+        # Write topology metadata as fixed-length array of ASCII characters
+        h5['topology.yml'] = np.array( geo, dtype='S' )
+        # ...
+
+        i_mapping    = 0
+        for patch_name, mapping in self.mappings.items():
+            space = mapping.space
 
             # Create group for patch 0
-            group = h5.create_group( yml['patches'][i_patch]['name'] )
+            group = h5.create_group( yml['patches'][i_mapping]['mapping_id'] )
             group.attrs['shape'      ] = space.vector_space.npts
             group.attrs['degree'     ] = space.degree
             group.attrs['rational'   ] = False
@@ -246,35 +239,29 @@ class Geometry( BasicDiscreteDomain ):
             ends   = space.vector_space.ends
             index  = [slice(s, e+1) for s, e in zip(starts, ends)] + [slice(None)]
             index  = tuple( index )
-            dset[index] = patch.control_points[index]
+            dset[index] = mapping.control_points[index]
+
+            i_mapping += 1
 
         # Close HDF5 file
         h5.close()
 
 ######################################
 if __name__ == '__main__':
-#    geo = Geometry('square_0.h5')
-##    geo.export('square_1.h5')
-#
-#    geo = Geometry('square_mp.h5')
-#
-#    topo = Topology()
-#
-#    B = Edge('B')
-#
-#    P0 = geo.patches[0]
-#    P1 = geo.patches[1]
-#
-#    B_P0 = DiscreteBoundary(patch=P0, axis=1, ext=-1)
-#    B_P1 = DiscreteBoundary(patch=P1, axis=1, ext=-1)
-#
-#    topo[B] = (B_P0, B_P1)
-#
-#    newgeo = Geometry(patches=[P0, P1], topology=topo)
-#    newgeo.export('square_mp_new.h5')
+    from spl.mapping.discrete_gallery import discrete_mapping
 
-    geo = Geometry('square_mp_0.h5')
-    print(geo.boundaries)
-    geo.export('square_mp_1.h5')
+    domain = Square(name='Omega')
+    mapping = discrete_mapping('identity', ncells=[1,1], degree=[2,2])
+    mappings = {'Omega': mapping}
 
+#    print(domain.interior)
+#    print(domain.boundary)
+#    print(domain.connectivity)
+#    print(domain.get_interior('Omega'))
+
+    geo = Geometry(domain=domain, mappings=mappings)
+    geo.export('geometry.h5')
+
+    newgeo = Geometry(filename='geometry.h5')
+    newgeo.export('newgeometry.h5')
 

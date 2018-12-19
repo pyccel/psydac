@@ -12,7 +12,7 @@ from spl.mapping.analytical_gallery import Annulus, Target, Czarny, Collela
 from spl.mapping.analytical_gallery import Collela3D
 
 #==============================================================================
-def discrete_mapping(mapping, ncells, degree, return_space=False):
+def discrete_mapping(mapping, ncells, degree, return_space=False, comm=MPI.COMM_WORLD):
     mapping = mapping.lower()
 
     dim = len(ncells)
@@ -50,7 +50,7 @@ def discrete_mapping(mapping, ncells, degree, return_space=False):
         # Create tensor spline space, distributed
         V1 = SplineSpace( grid=np.linspace( *lims1, num=nc1+1 ), degree=p1, periodic=period1 )
         V2 = SplineSpace( grid=np.linspace( *lims2, num=nc2+1 ), degree=p2, periodic=period2 )
-        space = TensorFemSpace( V1, V2, comm=MPI.COMM_WORLD )
+        space = TensorFemSpace( V1, V2, comm=comm )
 
         # Create spline mapping by interpolating analytical one
         map_discrete = SplineMapping.from_mapping( space, map_analytic )
@@ -82,7 +82,7 @@ def discrete_mapping(mapping, ncells, degree, return_space=False):
         V1 = SplineSpace( grid=np.linspace( *lims1, num=nc1+1 ), degree=p1, periodic=period1 )
         V2 = SplineSpace( grid=np.linspace( *lims2, num=nc2+1 ), degree=p2, periodic=period2 )
         V3 = SplineSpace( grid=np.linspace( *lims3, num=nc3+1 ), degree=p3, periodic=period3 )
-        space = TensorFemSpace( V1, V2, V3, comm=MPI.COMM_WORLD )
+        space = TensorFemSpace( V1, V2, V3, comm=comm )
 
         # Create spline mapping by interpolating analytical one
         map_discrete = SplineMapping.from_mapping( space, map_analytic )
