@@ -66,7 +66,15 @@ class Geometry( BasicDiscreteDomain ):
     @classmethod
     def from_discrete_mapping( cls, mapping ):
         """Create a geometry from one discrete mapping."""
-        raise NotImplementedError('')
+        if mapping.ldim in [1,3]:
+            raise NotImplementedError('')
+
+        if mapping.ldim == 2:
+            domain = Square(name='Omega')
+            mappings = {'Omega': mapping}
+
+            return Geometry(domain=domain, mappings=mappings)
+
 
     @property
     def comm(self):
@@ -260,8 +268,11 @@ if __name__ == '__main__':
 #    print(domain.get_interior('Omega'))
 
     geo = Geometry(domain=domain, mappings=mappings)
-    geo.export('geometry.h5')
+    geo.export('geo.h5')
 
-    newgeo = Geometry(filename='geometry.h5')
-    newgeo.export('newgeometry.h5')
+    newgeo = Geometry(filename='geo.h5')
+    newgeo.export('newgeo.h5')
+
+    geo_1 = Geometry.from_discrete_mapping(mapping)
+    geo_1.export('geo_1.h5')
 
