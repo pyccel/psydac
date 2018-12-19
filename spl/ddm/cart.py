@@ -1,8 +1,36 @@
+# coding: utf-8
+
 import numpy as np
 from itertools import product
 from mpi4py    import MPI
 
 from spl.ddm.partition import mpi_compute_dims
+
+__all__ = ['find_mpi_type', 'Cart']
+
+#===============================================================================
+def find_mpi_type( dtype ):
+    """
+    Find correct MPI datatype that corresponds to user-provided datatype.
+
+    Parameters
+    ----------
+    dtype : [type | str | numpy.dtype | mpi4py.MPI.Datatype]
+        Datatype for which the corresponding MPI datatype is requested.
+
+    Returns
+    -------
+    mpi_type : mpi4py.MPI.Datatype
+        MPI datatype to be used for communication.
+
+    """
+    if isinstance( dtype, MPI.Datatype ):
+        mpi_type = dtype
+    else:
+        nt = np.dtype( dtype )
+        mpi_type = MPI._typedict[nt.char]
+
+    return mpi_type
 
 #===============================================================================
 class Cart():
@@ -206,6 +234,74 @@ class Cart():
                 'recv_starts': tuple( recv_starts )}
 
         return info
+
+    #---------------------------------------------------------------------------
+    def create_buffer_types( self, dtype, *, coeff_shape=() ):
+        """
+        Create MPI subarray datatypes for updating the ghost regions (padding)
+        of a multi-dimensional array of coefficients distributed according to
+        the current Cartesian decomposition.
+        
+        MPI requires a subarray datatype for accessing non-contiguous slices of
+        a multi-dimensional array; this is a typical situation when updating the
+        ghost regions.
+
+        Each coefficient may have multiple components, contiguous in memory.
+
+        Parameters
+        ----------
+        dtype : [type | str | numpy.dtype | mpi4py.MPI.Datatype]
+            Datatype of single coefficient (if scalar) or of each of its
+            components (if vector).
+
+        coeff_shape : [tuple(int) | list(int)]
+            Shape of a single coefficient, if this is a multidimensional array
+            (optional: by default, we assume scalar coefficients).
+
+        Returns
+        -------
+        send_types : dict
+            Dictionary of MPI subarray datatypes for SEND BUFFERS, accessed
+            through the integer pair (direction, displacement) as key;
+            'direction' takes values from 0 to ndim, 'disp' is -1 or +1.
+
+        recv_types : dict
+            Dictionary of MPI subarray datatypes for RECEIVE BUFFERS, accessed
+            through the integer pair (direction, displacement) as key;
+            'direction' takes values from 0 to ndim, 'disp' is -1 or +1.
+
+        """
+        mpi_type = find_mpi_type( dtype )
+
+        # Possibly, each coefficient could have multiple components
+        coeff_shape = list( coeff_shape )
+        coeff_start = [0] * len( coeff_shape )
+
+        data_shape = list( self.shape ) + coeff_shape
+        send_types = {}
+        recv_types = {}
+
+        for direction in range( self.ndim ):
+            for disp in [-1, 1]:
+                info = self.get_shift_info( direction, disp )
+
+                buf_shape   = list( info[ 'buf_shape' ] ) + coeff_shape
+                send_starts = list( info['send_starts'] ) + coeff_start
+                recv_starts = list( info['recv_starts'] ) + coeff_start
+
+                send_types[direction,disp] = mpi_type.Create_subarray(
+                    sizes    = data_shape ,
+                    subsizes =  buf_shape ,
+                    starts   = send_starts,
+                ).Commit()
+
+                recv_types[direction,disp] = mpi_type.Create_subarray(
+                    sizes    = data_shape ,
+                    subsizes =  buf_shape ,
+                    starts   = recv_starts,
+                ).Commit()
+
+        return send_types, recv_types
 
     #---------------------------------------------------------------------------
     def __del__(self):

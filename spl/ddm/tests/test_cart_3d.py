@@ -48,34 +48,14 @@ def run_cart_3d( verbose=False ):
 
     # Local 3D array with 3D vector data (extended domain)
     shape = list( cart.shape ) + [3]
-    u = np.zeros( shape, dtype='i' ) # NOTE: 32-bit C INTEGER!
+    u = np.zeros( shape, dtype=int )
 
     # Global indices of first and last elements of array
     s1,s2,s3 = cart.starts
     e1,e2,e3 = cart.ends
 
     # Create MPI subarray datatypes for accessing non-contiguous data
-    send_types = {}
-    recv_types = {}
-    for direction in range(3):
-        for disp in [-1,1]:
-            info = cart.get_shift_info( direction, disp )
-
-            buf_shape   = list( info[ 'buf_shape' ] ) + [3]
-            send_starts = list( info['send_starts'] ) + [0]
-            recv_starts = list( info['recv_starts'] ) + [0]
-
-            send_types[direction,disp] = MPI.INT.Create_subarray(
-                sizes    = u.shape,
-                subsizes = buf_shape,
-                starts   = send_starts,
-            ).Commit()
-
-            recv_types[direction,disp] = MPI.INT.Create_subarray(
-                sizes    = u.shape,
-                subsizes = buf_shape,
-                starts   = recv_starts,
-            ).Commit()
+    send_types, recv_types = cart.create_buffer_types( u.dtype, coeff_shape=[3] )
 
     # Print some info
     if rank == 0:

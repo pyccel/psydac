@@ -7,7 +7,7 @@ from scipy.sparse import coo_matrix
 from mpi4py import MPI
 
 from spl.linalg.basic import VectorSpace, Vector, Matrix
-from spl.ddm.cart     import Cart
+from spl.ddm.cart     import find_mpi_type, Cart
 
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix']
 
@@ -81,8 +81,8 @@ class StencilVectorSpace( VectorSpace ):
         self._npts   = cart.npts
 
         # Parallel attributes
-        mpi_type = self._find_mpi_type( dtype )
-        send_types, recv_types = self._create_buffer_types( cart, mpi_type )
+        mpi_type = find_mpi_type( dtype )
+        send_types, recv_types = cart.create_buffer_types( dtype )
 
         self._cart       = cart
         self._mpi_type   = mpi_type
@@ -162,44 +162,6 @@ class StencilVectorSpace( VectorSpace ):
     #---------------------------------------------------------------------------
     # PARALLEL FACILITIES
     #---------------------------------------------------------------------------
-    @staticmethod
-    def _find_mpi_type( dtype ):
-        nt = np.dtype( dtype )
-        mpi_type = MPI._typedict[nt.char]
-        return mpi_type
-
-    # ...
-    @staticmethod
-    def _create_buffer_types( cart, mpi_type ):
-        """ Create MPI subarray datatypes for accessing non-contiguous data.
-        """
-        data_shape = cart.shape
-        send_types = {}
-        recv_types = {}
-
-        for direction in range( len(data_shape) ):
-            for disp in [-1, 1]:
-                info = cart.get_shift_info( direction, disp )
-
-                buf_shape   = info[ 'buf_shape' ]
-                send_starts = info['send_starts']
-                recv_starts = info['recv_starts']
-
-                send_types[direction,disp] = mpi_type.Create_subarray(
-                    sizes    = data_shape ,
-                    subsizes =  buf_shape ,
-                    starts   = send_starts,
-                ).Commit()
-
-                recv_types[direction,disp] = mpi_type.Create_subarray(
-                    sizes    = data_shape ,
-                    subsizes =  buf_shape ,
-                    starts   = recv_starts,
-                ).Commit()
-
-        return send_types, recv_types
-
-    # ...
     def get_send_type( self, direction, disp ):
         return self._send_types[direction,disp] if self._parallel else None
 

@@ -35,29 +35,14 @@ def run_cart_1d( verbose=False ):
     cart = Cart( npts=[n1+1], pads=[p1], periods=[period1], reorder=False, comm=comm )
 
     # Local 1D array (extended domain)
-    u = np.zeros( cart.shape, dtype='i' ) # NOTE: 32-bit C INTEGER!
+    u = np.zeros( cart.shape, dtype=int )
 
     # Global indices of first and last elements of array
     s1, = cart.starts
     e1, = cart.ends
 
     # Create MPI subarray datatypes for accessing non-contiguous data
-    send_types = {}
-    recv_types = {}
-    for disp in [-1,1]:
-        info = cart.get_shift_info( 0, disp )
-
-        send_types[disp] = MPI.INT.Create_subarray(
-            sizes    = u.shape,
-            subsizes = info[ 'buf_shape' ],
-            starts   = info['send_starts'],
-        ).Commit()
-
-        recv_types[disp] = MPI.INT.Create_subarray(
-            sizes    = u.shape,
-            subsizes = info[ 'buf_shape' ],
-            starts   = info['recv_starts'],
-        ).Commit()
+    send_types, recv_types = cart.create_buffer_types( u.dtype )
 
     # Print some info
     if verbose:
@@ -90,14 +75,14 @@ def run_cart_1d( verbose=False ):
     # Start receiving data (MPI_IRECV)
     for disp in [-1,+1]:
         info     = cart.get_shift_info( 0, disp )
-        recv_buf = (u, 1, recv_types[disp])
+        recv_buf = (u, 1, recv_types[0,disp])
         recv_req = cart.comm_cart.Irecv( recv_buf, info['rank_source'], tag(disp) )
         requests.append( recv_req )
 
     # Start sending data (MPI_ISEND)
     for disp in [-1,+1]:
         info     = cart.get_shift_info( 0, disp )
-        send_buf = (u, 1, send_types[disp])
+        send_buf = (u, 1, send_types[0,disp])
         send_req = cart.comm_cart.Isend( send_buf, info['rank_dest'], tag(disp) )
         requests.append( send_req )
 
