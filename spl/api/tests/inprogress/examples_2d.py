@@ -17,7 +17,6 @@ from sympde.topology import VectorTestFunction
 from sympde.topology import Unknown
 from sympde.topology import InteriorDomain, Union
 from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Topology, Edge
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
@@ -26,15 +25,9 @@ from sympde.expr import BilinearForm, LinearForm, Integral
 from sympde.expr import Norm
 from sympde.expr import Equation, DirichletBC
 
-from spl.fem.context import fem_context
 from spl.fem.basic   import FemField
-from spl.fem.splines import SplineSpace
-from spl.fem.tensor  import TensorFemSpace
 from spl.fem.vector  import ProductFemSpace, VectorFemField
 from spl.api.discretization import discretize
-from spl.api.boundary_condition import DiscreteBoundary
-from spl.api.boundary_condition import DiscreteComplementBoundary
-from spl.api.boundary_condition import DiscreteDirichletBC
 
 from spl.mapping.discrete import SplineMapping
 
@@ -70,11 +63,16 @@ def assert_identical_coo(A, B):
         raise TypeError('Wrong types for entries')
 
 
+
+
 #==============================================================================
-def test_api_poisson_2d_dir_1():
+def test_api_poisson_2d_dir_identity():
+
+    # filename where the geometry is defined
+    filename = 'identity_2d.h5'
 
     # ... abstract model
-    domain = Square()
+    domain = Domain.from_file(filename)
 
     V = FunctionSpace('V', domain)
 
@@ -91,20 +89,26 @@ def test_api_poisson_2d_dir_1():
     expr = 2*pi**2*sin(pi*x)*sin(pi*y)*v
     l = LinearForm(v, expr)
 
-    error = F - sin(pi*x)*sin(pi*y)
+    error = F-sin(pi*x)*sin(pi*y)
     l2norm = Norm(error, domain, kind='l2', name='u')
     h1norm = Norm(error, domain, kind='h1', name='u')
 
     equation = Equation(a(v,u), l(v), bc=DirichletBC(domain.boundary))
     # ...
 
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, filename=filename)
+    # ...
+
     # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
+    Vh = discretize(V, domain_h)
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
     equation_h = discretize(equation, [Vh, Vh])
     # ...
+
+    import sys; sys.exit(0)
 
     # ... discretize norms
     l2norm_h = discretize(l2norm, Vh)
@@ -124,609 +128,17 @@ def test_api_poisson_2d_dir_1():
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
 
-    expected_l2_error =  0.00021808678604760232
-    expected_h1_error =  0.013023570720360362
+    expected_l2_error =  0.0006542603581247817
+    expected_h1_error =  0.039070712161073926
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
     # ...
 
-#==============================================================================
-def test_api_poisson_2d_dirneu_1():
 
-    # ... abstract model
-    domain = Square()
-
-    V = FunctionSpace('V', domain)
-
-    B_neumann = domain.get_boundary('Gamma_1')
-
-    x,y = domain.coordinates
-
-    F = Field('F', V)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
-
-    expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
-
-    solution = sin(0.5*pi*(1.-x))*sin(pi*y)
-
-    expr = (5./4.)*pi**2*solution*v
-    l0 = LinearForm(v, expr)
-
-    expr = v*trace_1(grad(solution), B_neumann)
-    l_B_neumann = LinearForm(v, expr)
-
-    expr = l0(v) + l_B_neumann(v)
-    l = LinearForm(v, expr)
-
-    error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
-
-    B_dirichlet = domain.boundary.complement(B_neumann)
-
-    equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
-    # ...
-
-    # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
-    # ...
-
-    # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
-    # ...
-
-    # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
-    # ...
-
-    # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
-    # ...
-
-    # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
-
-    expected_l2_error =  0.00015546057796452772
-    expected_h1_error =  0.00926930278452745
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    # ...
-
-#==============================================================================
-def test_api_poisson_2d_dirneu_2():
-
-    # ... abstract model
-    domain = Square()
-
-    V = FunctionSpace('V', domain)
-
-    B_neumann = domain.get_boundary('Gamma_2')
-
-    x,y = domain.coordinates
-
-    F = Field('F', V)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
-
-    expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
-
-    solution = sin(0.5*pi*x)*sin(pi*y)
-
-    expr = (5./4.)*pi**2*solution*v
-    l0 = LinearForm(v, expr)
-
-    expr = v*trace_1(grad(solution), B_neumann)
-    l_B_neumann = LinearForm(v, expr)
-
-    expr = l0(v) + l_B_neumann(v)
-    l = LinearForm(v, expr)
-
-    error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
-
-    B_dirichlet = domain.boundary.complement(B_neumann)
-
-    equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
-    # ...
-
-    # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
-    # ...
-
-    # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
-    # ...
-
-    # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
-    # ...
-
-    # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
-    # ...
-
-    # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
-
-    expected_l2_error =  0.0001554605779481901
-    expected_h1_error =  0.009269302784527256
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    # ...
-
-#==============================================================================
-def test_api_poisson_2d_dirneu_3():
-
-    # ... abstract model
-    domain = Square()
-
-    V = FunctionSpace('V', domain)
-
-    B_neumann = domain.get_boundary('Gamma_3')
-
-    x,y = domain.coordinates
-
-    F = Field('F', V)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
-
-    expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
-
-    solution = sin(pi*x)*sin(0.5*pi*(1.-y))
-
-    expr = (5./4.)*pi**2*solution*v
-    l0 = LinearForm(v, expr)
-
-    expr = v*trace_1(grad(solution), B_neumann)
-    l_B_neumann = LinearForm(v, expr)
-
-    expr = l0(v) + l_B_neumann(v)
-    l = LinearForm(v, expr)
-
-    error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
-
-    B_dirichlet = domain.boundary.complement(B_neumann)
-
-    equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
-    # ...
-
-    # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
-    # ...
-
-    # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
-    # ...
-
-    # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
-    # ...
-
-    # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
-    # ...
-
-    # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
-
-    expected_l2_error =  0.0001554605779681901
-    expected_h1_error =  0.009269302784528678
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    # ...
-
-#==============================================================================
-def test_api_poisson_2d_dirneu_4():
-
-    # ... abstract model
-    domain = Square()
-
-    V = FunctionSpace('V', domain)
-
-    B_neumann = domain.get_boundary('Gamma_4')
-
-    x,y = domain.coordinates
-
-    F = Field('F', V)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
-
-    expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
-
-    solution = sin(pi*x)*sin(0.5*pi*y)
-
-    expr = (5./4.)*pi**2*solution*v
-    l0 = LinearForm(v, expr)
-
-    expr = v*trace_1(grad(solution), B_neumann)
-    l_B_neumann = LinearForm(v, expr)
-
-    expr = l0(v) + l_B_neumann(v)
-    l = LinearForm(v, expr)
-
-    error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
-
-    B_dirichlet = domain.boundary.complement(B_neumann)
-
-    equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
-    # ...
-
-    # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
-    # ...
-
-    # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
-    # ...
-
-    # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
-    # ...
-
-    # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
-    # ...
-
-    # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
-
-    expected_l2_error =  0.00015546057796339546
-    expected_h1_error =  0.009269302784526841
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    # ...
-
-#==============================================================================
-def test_api_poisson_2d_dirneu_13():
-
-    # ... abstract model
-    domain = Square()
-
-    V = FunctionSpace('V', domain)
-
-    B1 = domain.get_boundary('Gamma_1')
-    B3 = domain.get_boundary('Gamma_3')
-    B_neumann = Union(B1, B3)
-
-    x,y = domain.coordinates
-
-    F = Field('F', V)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
-
-    expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
-
-    solution = cos(0.5*pi*x)*cos(0.5*pi*y)
-
-    expr = (1./2.)*pi**2*solution*v
-    l0 = LinearForm(v, expr)
-
-    expr = v*trace_1(grad(solution), B_neumann)
-    l_B_neumann = LinearForm(v, expr)
-
-    expr = l0(v) + l_B_neumann(v)
-    l = LinearForm(v, expr)
-
-    error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
-
-    B_dirichlet = domain.boundary.complement(B_neumann)
-
-    equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
-    # ...
-
-    # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
-    # ...
-
-    # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
-    # ...
-
-    # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
-    # ...
-
-    # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
-    # ...
-
-    # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
-
-    expected_l2_error =  2.6119892736036942e-05
-    expected_h1_error =  0.0016032430287934746
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    # ...
-
-#==============================================================================
-def test_api_poisson_2d_dirneu_24():
-
-    # ... abstract model
-    domain = Square()
-
-    V = FunctionSpace('V', domain)
-
-    B2 = domain.get_boundary('Gamma_2')
-    B4 = domain.get_boundary('Gamma_4')
-    B_neumann = Union(B2, B4)
-
-    x,y = domain.coordinates
-
-    F = Field('F', V)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
-
-    expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
-
-    solution = sin(0.5*pi*x)*sin(0.5*pi*y)
-
-    expr = (1./2.)*pi**2*solution*v
-    l0 = LinearForm(v, expr)
-
-    expr = v*trace_1(grad(solution), B_neumann)
-    l_B_neumann = LinearForm(v, expr)
-
-    expr = l0(v) + l_B_neumann(v)
-    l = LinearForm(v, expr)
-
-    error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
-
-    B_dirichlet = domain.boundary.complement(B_neumann)
-
-    equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
-    # ...
-
-    # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
-    # ...
-
-    # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
-    # ...
-
-    # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
-    # ...
-
-    # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
-    # ...
-
-    # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
-
-    expected_l2_error =  2.611989253883369e-05
-    expected_h1_error =  0.0016032430287973409
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    # ...
-
-#==============================================================================
-def test_api_poisson_2d_dirneu_123():
-
-    # ... abstract model
-    domain = Square()
-
-    V = FunctionSpace('V', domain)
-
-    B_dirichlet = domain.get_boundary('Gamma_4')
-    B_neumann = domain.boundary.complement(B_dirichlet)
-
-    x,y = domain.coordinates
-
-    F = Field('F', V)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
-
-    expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
-
-    solution = cos(0.25*pi*x)*cos(0.5*pi*y)
-
-    expr = (5./16.)*pi**2*solution*v
-    l0 = LinearForm(v, expr)
-
-    expr = v*trace_1(grad(solution), B_neumann)
-    l_B_neumann = LinearForm(v, expr)
-
-    expr = l0(v) + l_B_neumann(v)
-    l = LinearForm(v, expr)
-
-    error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
-
-    equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
-    # ...
-
-    # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
-    # ...
-
-    # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
-    # ...
-
-    # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
-    # ...
-
-    # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
-    # ...
-
-    # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
-
-    expected_l2_error =  2.3687570918077593e-05
-    expected_h1_error =  0.0014523656754457381
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    # ...
-
-#==============================================================================
-def test_api_poisson_2d_neu_1():
-
-    # ... abstract model
-    domain = Square()
-
-    V = FunctionSpace('V', domain)
-
-    B_neumann = domain.boundary
-
-    x,y = domain.coordinates
-
-    F = Field('F', V)
-
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
-
-    expr = dot(grad(v), grad(u)) + v*u
-    a = BilinearForm((v,u), expr)
-
-    solution = cos(0.25*pi*x)*cos(0.25*pi*y)
-
-    expr = ((1./8.)*pi**2 + 1.)*solution*v
-    l0 = LinearForm(v, expr)
-
-    expr = v*trace_1(grad(solution), B_neumann)
-    l_B_neumann = LinearForm(v, expr)
-
-    expr = l0(v) + l_B_neumann(v)
-    l = LinearForm(v, expr)
-
-    error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
-
-    equation = Equation(a(v,u), l(v))
-    # ...
-
-    # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
-    # ...
-
-    # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
-    # ...
-
-    # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
-    # ...
-
-    # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
-    # ...
-
-    # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
-
-    expected_l2_error =  2.5196152343755257e-06
-    expected_h1_error =  0.00015443613147528876
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    # ...
 
 
 
 ###############################################
 if __name__ == '__main__':
-    test_api_poisson_2d_dir_1()
-    test_api_poisson_2d_dirneu_1()
-    test_api_poisson_2d_dirneu_2()
-    test_api_poisson_2d_dirneu_3()
-    test_api_poisson_2d_dirneu_4()
-    test_api_poisson_2d_dirneu_13()
-    test_api_poisson_2d_dirneu_24()
-    test_api_poisson_2d_dirneu_123()
-    test_api_poisson_2d_neu_1()
-
+    test_api_poisson_2d_dir_identity()

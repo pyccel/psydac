@@ -10,36 +10,37 @@ from collections import namedtuple
 
 from pyccel.ast import Nil
 
-from sympde.expr import BasicForm as sym_BasicForm
-from sympde.expr import BilinearForm as sym_BilinearForm
-from sympde.expr import LinearForm as sym_LinearForm
-from sympde.expr import Integral as sym_Integral
-from sympde.expr import Equation as sym_Equation
-from sympde.expr import Model as sym_Model
-from sympde.expr import Boundary as sym_Boundary
-from sympde.expr import Norm as sym_Norm
-from sympde.expr import DirichletBC
-from sympde.expr import evaluate
-from sympde.topology import Boundary
+from sympde.expr     import BasicForm as sym_BasicForm
+from sympde.expr     import BilinearForm as sym_BilinearForm
+from sympde.expr     import LinearForm as sym_LinearForm
+from sympde.expr     import Integral as sym_Integral
+from sympde.expr     import Equation as sym_Equation
+from sympde.expr     import Model as sym_Model
+from sympde.expr     import Boundary as sym_Boundary
+from sympde.expr     import Norm as sym_Norm
+from sympde.expr     import DirichletBC
+from sympde.expr     import evaluate
+from sympde.topology import Domain, Boundary
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import FunctionSpace, VectorFunctionSpace
 
-from spl.api.grid  import QuadratureGrid, BoundaryQuadratureGrid
-from spl.api.basis import BasisValues
-from spl.api.codegen.ast import Kernel
-from spl.api.codegen.ast import Assembly
-from spl.api.codegen.ast import Interface
-from spl.api.codegen.printing import pycode
-from spl.api.boundary_condition import DiscreteBoundary
-from spl.api.boundary_condition import DiscreteComplementBoundary
-from spl.api.boundary_condition import DiscreteBoundaryCondition, DiscreteDirichletBC
-from spl.api.boundary_condition import apply_homogeneous_dirichlet_bc
-from spl.api.settings import SPL_BACKEND_PYTHON, SPL_DEFAULT_FOLDER
-from spl.linalg.stencil import StencilVector, StencilMatrix
+from spl.api.grid                 import QuadratureGrid, BoundaryQuadratureGrid
+from spl.api.basis                import BasisValues
+from spl.api.codegen.ast          import Kernel
+from spl.api.codegen.ast          import Assembly
+from spl.api.codegen.ast          import Interface
+from spl.api.codegen.printing     import pycode
+from spl.api.boundary_condition   import DiscreteBoundary
+from spl.api.boundary_condition   import DiscreteComplementBoundary
+from spl.api.boundary_condition   import DiscreteBoundaryCondition, DiscreteDirichletBC
+from spl.api.boundary_condition   import apply_homogeneous_dirichlet_bc
+from spl.api.settings             import SPL_BACKEND_PYTHON, SPL_DEFAULT_FOLDER
+from spl.linalg.stencil           import StencilVector, StencilMatrix
 from spl.linalg.iterative_solvers import cg
-from spl.fem.splines import SplineSpace
-from spl.fem.tensor  import TensorFemSpace
-from spl.fem.vector  import ProductFemSpace
+from spl.fem.splines              import SplineSpace
+from spl.fem.tensor               import TensorFemSpace
+from spl.fem.vector               import ProductFemSpace
+from spl.cad.geometry             import Geometry
 
 import inspect
 import sys
@@ -120,11 +121,12 @@ def driver_solve(L, **kwargs):
 
 #==============================================================================
 class BasicDiscrete(object):
+    """ mapping is the symbolic mapping here."""
 
     def __init__(self, a, kernel_expr, namespace=globals(),
                  boundary=None, target=None,
                  boundary_basis=None, backend=SPL_BACKEND_PYTHON, folder=None,
-                 discrete_space=None, comm=None, root=None):
+                 discrete_space=None, comm=None, root=None, mapping=None):
 
         # ...
         if not target:
@@ -160,16 +162,19 @@ class BasicDiscrete(object):
             kernel = Kernel( a, kernel_expr,
                              name              = 'kernel_{}'.format(tag),
                              target            = target,
+                             mapping           = mapping,
                              discrete_boundary = boundary,
                              boundary_basis    = boundary_basis )
 
             assembly = Assembly( kernel,
                                  name           = 'assembly_{}'.format(tag),
+                                 mapping        = mapping,
                                  discrete_space = discrete_space,
                                  comm           = comm )
 
             interface = Interface( assembly,
                                    name           = 'interface_{}'.format(tag),
+                                   mapping        = mapping,
                                    backend        = backend,
                                    discrete_space = discrete_space,
                                    comm           = comm )
@@ -1120,6 +1125,17 @@ class Model(BasicDiscrete):
 # TODO bounds and knots
 # TODO MPI
 def discretize_space(V, *args, **kwargs):
+    # ... from a discrete geoemtry
+    if isinstance(args[0], Geometry) and args[0].mappings:
+        geometry = args[0]
+        if len(geometry.mappings.values()) > 1:
+            raise NotImplementedError('Multipatch not yet available')
+
+        mapping = list(geometry.mappings.values())[0]
+        return mapping.space
+    # ...
+
+    # ... from inputs
     degree = kwargs.pop('degree', None)
     ncells = kwargs.pop('ncells', None)
 
@@ -1143,7 +1159,16 @@ def discretize_space(V, *args, **kwargs):
         Vh = TensorFemSpace( *spaces )
 
         return Vh
+    # ...
 
+def discretize_domain(domain, *args, **kwargs):
+    filename = kwargs.pop('filename', None)
+
+    if filename is None:
+        raise NotImplementedError('Only domains defined from a filename are treated')
+
+    geometry = Geometry(filename=filename)
+    return geometry
 
 
 def discretize(a, *args, **kwargs):
@@ -1170,3 +1195,6 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, BasicFunctionSpace):
         return discretize_space(a, *args, **kwargs)
+
+    elif isinstance(a, Domain):
+        return discretize_domain(a, *args, **kwargs)
