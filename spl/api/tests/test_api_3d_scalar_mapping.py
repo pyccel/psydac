@@ -260,8 +260,8 @@ def test_api_poisson_3d_dir_collela():
 
     l2_error, h1_error = run_poisson_3d_dir(filename, solution, f)
 
-    expected_l2_error =  0.8151461486397859
-    expected_h1_error =  7.887790839303131
+    expected_l2_error =  0.15687494944868827
+    expected_h1_error =  1.518006054794389
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -278,8 +278,8 @@ def test_api_poisson_3d_dirneu_identity_2():
 
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f, ['Gamma_2'])
 
-    expected_l2_error =  0.007476406034615364
-    expected_h1_error =  0.20417783668832656
+    expected_l2_error =  0.001438835012218704
+    expected_h1_error =  0.03929404299152016
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -297,8 +297,8 @@ def test_api_poisson_3d_dirneu_identity_13():
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
                                                ['Gamma_1', 'Gamma_3'])
 
-    expected_l2_error =  0.005339281019684631
-    expected_h1_error =  0.14517242816351372
+    expected_l2_error =  0.0010275451113313282
+    expected_h1_error =  0.027938446826372126
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -315,8 +315,8 @@ def test_api_poisson_3d_dirneu_identity_24():
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
                                                ['Gamma_2', 'Gamma_4'])
 
-    expected_l2_error =  0.005339281019682795
-    expected_h1_error =  0.14517242816351233
+    expected_l2_error =  0.001027545111330973
+    expected_h1_error =  0.027938446826371813
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -333,8 +333,8 @@ def test_api_poisson_3d_dirneu_identity_123():
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
                                                ['Gamma_1', 'Gamma_2', 'Gamma_3'])
 
-    expected_l2_error =  0.00681948184967118
-    expected_h1_error =  0.18416036905795535
+    expected_l2_error =  0.0013124098938804697
+    expected_h1_error =  0.035441679549890456
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -351,8 +351,8 @@ def test_api_poisson_3d_dirneu_identity_1235():
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
                                                ['Gamma_1', 'Gamma_2', 'Gamma_3', 'Gamma_5'])
 
-    expected_l2_error =  0.0010224893148868808
-    expected_h1_error =  0.030546175685500224
+    expected_l2_error =  0.00019677816039781896
+    expected_h1_error =  0.0058786142515790405
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -369,8 +369,8 @@ def test_api_poisson_3d_dirneu_collela_2():
 
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f, ['Gamma_2'])
 
-    expected_l2_error =  0.31651011929794615
-    expected_h1_error =  3.315168073716373
+    expected_l2_error =  0.06091240085930318
+    expected_h1_error =  0.6380043932563333
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -388,8 +388,8 @@ def test_api_poisson_3d_dirneu_collela_13():
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
                                                ['Gamma_1', 'Gamma_3'])
 
-    expected_l2_error =  0.1967707543568222
-    expected_h1_error =  1.997279767542349
+    expected_l2_error =  0.03786854933218588
+    expected_h1_error =  0.38437667047918933
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -406,8 +406,8 @@ def test_api_poisson_3d_dirneu_collela_24():
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
                                                ['Gamma_2', 'Gamma_4'])
 
-    expected_l2_error =  0.19713579709344806
-    expected_h1_error =  1.9973824048200948
+    expected_l2_error =  0.03793880183960465
+    expected_h1_error =  0.38439642303250143
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -424,8 +424,8 @@ def test_api_poisson_3d_dirneu_collela_123():
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
                                                ['Gamma_1', 'Gamma_2', 'Gamma_3'])
 
-    expected_l2_error =  0.6216671144774677
-    expected_h1_error =  5.854903143947668
+    expected_l2_error =  0.11963989196330076
+    expected_h1_error =  1.1267766354124575
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -442,8 +442,8 @@ def test_api_poisson_3d_dirneu_collela_1235():
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
                                                ['Gamma_1', 'Gamma_2', 'Gamma_3', 'Gamma_5'])
 
-    expected_l2_error =  0.6863456565612966
-    expected_h1_error =  5.177931817581279
+    expected_l2_error =  0.13208728319093133
+    expected_h1_error =  0.9964934429086868
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -459,8 +459,8 @@ def test_api_laplace_3d_neu_identity():
 
     l2_error, h1_error = run_laplace_3d_neu(filename, solution, f)
 
-    expected_l2_error =  0.008820692250536439
-    expected_h1_error =  0.24426625779804703
+    expected_l2_error =  0.0016975430150953524
+    expected_h1_error =  0.047009063231215
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -476,8 +476,8 @@ def test_api_laplace_3d_neu_collela():
 
     l2_error, h1_error = run_laplace_3d_neu(filename, solution, f)
 
-    expected_l2_error =  0.918680010922823
-    expected_h1_error =  8.85217673379022
+    expected_l2_error =  0.1768000505351402
+    expected_h1_error =  1.7036022067226382
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)

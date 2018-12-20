@@ -24,6 +24,7 @@ from sympde.topology import Domain, Boundary
 from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import ProductSpace
 from sympde.topology import Mapping
 
 from spl.api.grid                 import QuadratureGrid, BoundaryQuadratureGrid
@@ -572,27 +573,10 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._spaces = args[1]
         # ...
 
-        # ... TODO improve later
-        comm = None
-        Vh = self.spaces[0]
-        if isinstance(Vh, ProductFemSpace):
-            Vh = Vh.spaces[0]
-
-        if isinstance(Vh, TensorFemSpace):
-            if Vh.vector_space.parallel:
-                comm = Vh.vector_space.cart._comm
-        # ...
-
         kwargs['discrete_space'] = self.spaces
-        kwargs['comm']           = comm
-        kwargs['mapping']        = Vh.symbolic_mapping
+        kwargs['mapping']        = self.spaces[0].symbolic_mapping
 
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
-
-        # TODO to be removed
-        # initialize fem space basis/quad
-        for V in self.spaces:
-            V.init_fem(nderiv=self.max_nderiv)
 
         # ...
         test_space  = self.spaces[0]
@@ -679,26 +663,10 @@ class DiscreteLinearForm(BasicDiscrete):
         self._space = args[1]
         # ...
 
-        # ... TODO improve later
-        comm = None
-        Vh = self.space
-        if isinstance(Vh, ProductFemSpace):
-            Vh = Vh.spaces[0]
-
-        if isinstance(Vh, TensorFemSpace):
-            if Vh.vector_space.parallel:
-                comm = Vh.vector_space.cart._comm
-        # ...
-
         kwargs['discrete_space'] = self.space
-        kwargs['comm']           = comm
         kwargs['mapping']        = self.space.symbolic_mapping
 
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
-
-        # TODO to be removed
-        # initialize fem space basis/quad
-        self.space.init_fem(nderiv=self.max_nderiv)
 
         # ...
         quad_order = kwargs.pop('quad_order', None)
@@ -765,26 +733,10 @@ class DiscreteIntegral(BasicDiscrete):
         self._space = args[1]
         # ...
 
-        # ... TODO improve later
-        comm = None
-        Vh = self.space
-        if isinstance(Vh, ProductFemSpace):
-            Vh = Vh.spaces[0]
-
-        if isinstance(Vh, TensorFemSpace):
-            if Vh.vector_space.parallel:
-                comm = Vh.vector_space.cart._comm
-        # ...
-
         kwargs['discrete_space'] = self.space
-        kwargs['comm']           = comm
         kwargs['mapping']        = self.space.symbolic_mapping
 
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
-
-        # TODO to be removed
-        # initialize fem space basis/quad
-        self.space.init_fem(nderiv=self.max_nderiv)
 
         # ...
         quad_order = kwargs.pop('quad_order', None)
@@ -966,6 +918,8 @@ class DiscreteEquation(BasicDiscrete):
 
         self._lhs = discretize(expr.lhs.expr, *newargs, **kwargs)
         # ...
+#        print(test_trial)
+#        import sys; sys.exit(0)
 
         # ...
         kwargs['boundary'] = None
@@ -1197,6 +1151,11 @@ def discretize_space(V, domain_h, *args, **kwargs):
             spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
 
             Vh = TensorFemSpace( *spaces )
+
+    # Product and Vector spaces are constructed here using H1 subspaces
+    if V.shape > 1:
+        spaces = [Vh for i in range(V.shape)]
+        Vh = ProductFemSpace(*spaces)
 
     # add symbolic_mapping as a member to the space object
     setattr(Vh, 'symbolic_mapping', symbolic_mapping)
