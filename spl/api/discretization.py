@@ -229,7 +229,6 @@ class BasicDiscrete(object):
         self._kernel_expr = kernel_expr
         self._target = target
         self._tag = tag
-        self._mapping = mapping
         self._interface = interface
         self._in_arguments = in_arguments
         self._inout_arguments = inout_arguments
@@ -558,7 +557,19 @@ class DiscreteBilinearForm(BasicDiscrete):
         if not args:
             raise ValueError('> fem spaces must be given as a list/tuple')
 
-        self._spaces = args[0]
+        assert( len(args) == 2 )
+
+        # ...
+        domain_h = args[0]
+        assert( isinstance(domain_h, Geometry) )
+
+        mapping = list(domain_h.mappings.values())[0]
+        self._mapping = mapping
+        # ...
+
+        # ...
+        self._spaces = args[1]
+        # ...
 
         # ... TODO improve later
         comm = None
@@ -613,12 +624,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                                          nderiv = self.max_nderiv )
         # ...
 
-        if len(args) > 1:
-            domain_h = args[1]
-            assert( isinstance(domain_h, Geometry) )
-
-            mapping = list(domain_h.mappings.values())[0]
-            self._mapping = mapping
 
     @property
     def spaces(self):
@@ -659,7 +664,19 @@ class DiscreteLinearForm(BasicDiscrete):
         if not isinstance(expr, sym_LinearForm):
             raise TypeError('> Expecting a symbolic LinearForm')
 
-        self._space = args[0]
+        assert( len(args) == 2 )
+
+        # ...
+        domain_h = args[0]
+        assert( isinstance(domain_h, Geometry) )
+
+        mapping = list(domain_h.mappings.values())[0]
+        self._mapping = mapping
+        # ...
+
+        # ...
+        self._space = args[1]
+        # ...
 
         # ... TODO improve later
         comm = None
@@ -703,13 +720,6 @@ class DiscreteLinearForm(BasicDiscrete):
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv )
         # ...
-
-        if len(args) > 1:
-            domain_h = args[1]
-            assert( isinstance(domain_h, Geometry) )
-
-            mapping = list(domain_h.mappings.values())[0]
-            self._mapping = mapping
 
     @property
     def space(self):
@@ -740,7 +750,19 @@ class DiscreteIntegral(BasicDiscrete):
         if not isinstance(expr, sym_Integral):
             raise TypeError('> Expecting a symbolic Integral')
 
-        self._space = args[0]
+        assert( len(args) == 2 )
+
+        # ...
+        domain_h = args[0]
+        assert( isinstance(domain_h, Geometry) )
+
+        mapping = list(domain_h.mappings.values())[0]
+        self._mapping = mapping
+        # ...
+
+        # ...
+        self._space = args[1]
+        # ...
 
         # ... TODO improve later
         comm = None
@@ -784,13 +806,6 @@ class DiscreteIntegral(BasicDiscrete):
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv )
         # ...
-
-        if len(args) > 1:
-            domain_h = args[1]
-            assert( isinstance(domain_h, Geometry) )
-
-            mapping = list(domain_h.mappings.values())[0]
-            self._mapping = mapping
 
     @property
     def space(self):
@@ -927,7 +942,7 @@ class DiscreteEquation(BasicDiscrete):
         # since lhs and rhs are calls, we need to take their expr
 
         # ...
-        test_trial = args[0]
+        test_trial = args[1]
         test_space = test_trial[0]
         trial_space = test_trial[1]
         # ...
@@ -945,7 +960,10 @@ class DiscreteEquation(BasicDiscrete):
         if boundaries_lhs:
             kwargs['boundary'] = boundaries_lhs
 
-        self._lhs = discretize(expr.lhs.expr, test_trial, *args[1:], **kwargs)
+        newargs = list(args)
+        newargs[1] = test_trial
+
+        self._lhs = discretize(expr.lhs.expr, *newargs, **kwargs)
         # ...
 
         # ...
@@ -953,7 +971,9 @@ class DiscreteEquation(BasicDiscrete):
         if boundaries_rhs:
             kwargs['boundary'] = boundaries_rhs
 
-        self._rhs = discretize(expr.rhs.expr, test_space, *args[1:], **kwargs)
+        newargs = list(args)
+        newargs[1] = test_space
+        self._rhs = discretize(expr.rhs.expr, *newargs, **kwargs)
         # ...
 
         self._bc = bc
@@ -997,8 +1017,6 @@ class DiscreteEquation(BasicDiscrete):
             M = self.lhs.assemble(**kwargs)
             if self.bc:
                 for bc in self.bc:
-#                    print('ICI')
-#                    print(type(M))
                     apply_homogeneous_dirichlet_bc(self.test_space, bc, M)
         else:
             M = self.linear_system.lhs
