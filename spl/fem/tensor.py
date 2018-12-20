@@ -15,7 +15,7 @@ from spl.linalg.kron    import kronecker_solve
 from spl.fem.basic      import FemSpace, FemField
 from spl.fem.splines    import SplineSpace
 from spl.fem.grid       import FemAssemblyGrid
-from spl.ddm.cart       import Cart
+from spl.ddm.cart       import CartDecomposition
 from spl.core.bsplines  import find_span, basis_funs, basis_funs_1st_der
 
 #===============================================================================
@@ -44,11 +44,13 @@ class TensorFemSpace( FemSpace ):
             comm = kwargs['comm']
             assert isinstance(comm, MPI.Comm)
 
-            cart = Cart(npts = npts,
-                        pads    = pads,
-                        periods = periods,
-                        reorder = True,
-                        comm    = comm)
+            cart = CartDecomposition(
+                npts    = npts,
+                pads    = pads,
+                periods = periods,
+                reorder = True,
+                comm    = comm
+            )
 
             self._vector_space = StencilVectorSpace(cart)
 

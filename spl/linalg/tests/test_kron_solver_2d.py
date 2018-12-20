@@ -4,7 +4,7 @@ import pytest
 import time
 import numpy as np
 from mpi4py                     import MPI
-from spl.ddm.cart               import Cart
+from spl.ddm.cart               import CartDecomposition
 from scipy.sparse               import csc_matrix, dia_matrix, kron
 from scipy.sparse.linalg        import splu
 from spl.linalg.stencil         import StencilVectorSpace, StencilVector, StencilMatrix
@@ -53,8 +53,13 @@ def test_kron_solver_2d_band_par( n1, n2, p1, p2, P1=False, P2=False ):
     rank = comm.Get_rank()
 
     # ... 2D MPI cart
-    cart = Cart(npts = [n1, n2], pads = [p1, p2], periods = [P1, P2],\
-                reorder = True, comm = comm)
+    cart = CartDecomposition(
+        npts    = [n1, n2],
+        pads    = [p1, p2],
+        periods = [P1, P2],
+        reorder = True,
+        comm    = comm
+    )
 
     # ... Vector Spaces
     V = StencilVectorSpace(cart)
@@ -124,9 +129,13 @@ def test_kron_solver_3d_sparse_par( n1, n2, p1, p2, P1=False, P2=False ):
     rank = comm.Get_rank()
 
     # ... 2D MPI cart
-    cart = Cart(npts = [n1, n2], pads = [p1, p2], periods = [P1, P2],\
-                reorder = True, comm = comm)
-
+    cart = CartDecomposition(
+        npts    = [n1, n2],
+        pads    = [p1, p2],
+        periods = [P1, P2],
+        reorder = True,
+        comm    = comm
+    )
 
     # ... Vector Spaces
     V = StencilVectorSpace(cart)

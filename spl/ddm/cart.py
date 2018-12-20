@@ -6,7 +6,7 @@ from mpi4py    import MPI
 
 from spl.ddm.partition import mpi_compute_dims
 
-__all__ = ['find_mpi_type', 'Cart']
+__all__ = ['find_mpi_type', 'CartDecomposition']
 
 #===============================================================================
 def find_mpi_type( dtype ):
@@ -33,8 +33,34 @@ def find_mpi_type( dtype ):
     return mpi_type
 
 #===============================================================================
-class Cart():
+class CartDecomposition():
+    """
+    Cartesian decomposition of a tensor-product grid of coefficients.
+    This is built on top of an MPI communicator with multi-dimensional
+    Cartesian topology.
 
+    Parameters
+    ----------
+    npts : list or tuple of int
+        Number of coefficients in the global grid along each dimension.
+
+    pads : list or tuple of int
+        Padding along each grid dimension.
+        In 1D, this is the number of extra coefficients added at each boundary
+        of the local domain to permit non-local operations with compact support;
+        this concept extends to multiple dimensions through a tensor product.
+
+    periods : list or tuple of bool
+        Periodicity (True|False) along each grid dimension.
+
+    reorder : bool
+        Whether individual ranks can be changed in the new Cartesian communicator.
+
+    comm : mpi4py.MPI.Comm
+        MPI communicator that will be used to spawn a new Cartesian communicator
+        (optional: default is MPI_COMM_WORLD).
+
+    """
     def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD ):
 
         # Check input arguments

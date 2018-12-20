@@ -7,7 +7,7 @@ from mpi4py                     import MPI
 from scipy.sparse               import csc_matrix, dia_matrix, kron
 from scipy.sparse.linalg        import splu
 
-from spl.ddm.cart               import Cart
+from spl.ddm.cart               import CartDecomposition
 from spl.linalg.stencil         import StencilVectorSpace, StencilVector, StencilMatrix
 from spl.linalg.kron            import kronecker_solve_3d_par
 from spl.linalg.direct_solvers  import SparseSolver, BandedSolver
@@ -57,8 +57,13 @@ def test_kron_solver_3d_band_par( n1, n2, n3, p1, p2, p3, P1=False, P2=False, P3
     rank = comm.Get_rank()
 
     # ... 2D MPI cart
-    cart = Cart(npts = [n1, n2, n3], pads = [p1, p2, p3], periods = [P1, P2, P3],\
-                reorder = True, comm = comm)
+    cart = CartDecomposition(
+        npts    = [n1, n2, n3],
+        pads    = [p1, p2, p3],
+        periods = [P1, P2, P3],
+        reorder = True,
+        comm    = comm
+    )
 
     # ...
     sizes1 = cart.global_ends[0] - cart.global_starts[0] + 1
@@ -147,8 +152,13 @@ def test_kron_solver_3d_sparse_par( n1, n2, n3, p1, p2, p3, P1=False, P2=False, 
     rank = comm.Get_rank()
 
     # ... 2D MPI cart
-    cart = Cart(npts = [n1, n2, n3], pads = [p1, p2, p3], periods = [P1, P2, P3],\
-                reorder = True, comm = comm)
+    cart = CartDecomposition(
+        npts    = [n1, n2, n3],
+        pads    = [p1, p2, p3],
+        periods = [P1, P2, P3],
+        reorder = True,
+        comm    = comm
+    )
 
     # ...
     sizes1 = cart.global_ends[0] - cart.global_starts[0] + 1

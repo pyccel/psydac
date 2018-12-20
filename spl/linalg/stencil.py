@@ -7,7 +7,7 @@ from scipy.sparse import coo_matrix
 from mpi4py import MPI
 
 from spl.linalg.basic import VectorSpace, Vector, Matrix
-from spl.ddm.cart     import find_mpi_type, Cart
+from spl.ddm.cart     import find_mpi_type, CartDecomposition
 
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix']
 
@@ -35,8 +35,8 @@ class StencilVectorSpace( VectorSpace ):
     dtype : type
         Type of scalar entries.
 
-    cart : spl.ddm.cart.Cart
-        MPI Cartesian topology.
+    cart : spl.ddm.cart.CartDecomposition
+        Tensor-product grid decomposition according to MPI Cartesian topology.
 
     """
     def __init__( self, *args, **kwargs ):
@@ -66,7 +66,7 @@ class StencilVectorSpace( VectorSpace ):
     # ...
     def _init_parallel( self, cart, dtype=float ):
 
-        assert isinstance( cart, Cart )
+        assert isinstance( cart, CartDecomposition )
         self._parallel = True
 
         # Sequential attributes

@@ -184,14 +184,16 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
 def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
 
     from mpi4py       import MPI
-    from spl.ddm.cart import Cart
+    from spl.ddm.cart import CartDecomposition
 
     comm = MPI.COMM_WORLD
-    cart = Cart( npts    = [n1,n2],
-                 pads    = [p1,p2],
-                 periods = [P1,P2],
-                 reorder = reorder,
-                 comm    = comm )
+    cart = CartDecomposition(
+        npts    = [n1,n2],
+        pads    = [p1,p2],
+        periods = [P1,P2],
+        reorder = reorder,
+        comm    = comm
+    )
 
     # Create vector space, stencil matrix, and stencil vector
     V = StencilVectorSpace( cart )

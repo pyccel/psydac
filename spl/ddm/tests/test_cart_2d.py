@@ -1,13 +1,13 @@
 # File test_cart_2d.py
 
 #===============================================================================
-# TEST Cart in 2D
+# TEST CartDecomposition in 2D
 #===============================================================================
 def run_cart_2d( verbose=False ):
 
     import numpy as np
     from mpi4py       import MPI
-    from spl.ddm.cart import Cart
+    from spl.ddm.cart import CartDecomposition
 
     #---------------------------------------------------------------------------
     # INPUT PARAMETERS
@@ -35,7 +35,7 @@ def run_cart_2d( verbose=False ):
     rank = comm.Get_rank()
 
     # Decomposition of Cartesian domain
-    cart = Cart(
+    cart = CartDecomposition(
         npts    = [n1+1,n2+1],
         pads    = [p1,p2],
         periods = [period1, period2],
