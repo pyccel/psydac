@@ -253,26 +253,3 @@ class Geometry( BasicDiscreteDomain ):
 
         # Close HDF5 file
         h5.close()
-
-######################################
-if __name__ == '__main__':
-    from spl.mapping.discrete_gallery import discrete_mapping
-
-    domain = Square(name='Omega')
-    mapping = discrete_mapping('identity', ncells=[1,1], degree=[2,2])
-    mappings = {'Omega': mapping}
-
-#    print(domain.interior)
-#    print(domain.boundary)
-#    print(domain.connectivity)
-#    print(domain.get_interior('Omega'))
-
-    geo = Geometry(domain=domain, mappings=mappings)
-    geo.export('geo.h5')
-
-    newgeo = Geometry(filename='geo.h5')
-    newgeo.export('newgeo.h5')
-
-    geo_1 = Geometry.from_discrete_mapping(mapping)
-    geo_1.export('geo_1.h5')
-
