@@ -73,8 +73,8 @@ def test_api_poisson_2d_dir_1():
     l = LinearForm(v, expr)
 
     error = F - sin(pi*x)*sin(pi*y)
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
 
     equation = Equation(a(v,u), l(v), bc=DirichletBC(domain.boundary))
     # ...
@@ -145,8 +145,8 @@ def test_api_poisson_2d_dirneu_1():
     l = LinearForm(v, expr)
 
     error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
 
     B_dirichlet = domain.boundary.complement(B_neumann)
 
@@ -219,8 +219,8 @@ def test_api_poisson_2d_dirneu_2():
     l = LinearForm(v, expr)
 
     error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
 
     B_dirichlet = domain.boundary.complement(B_neumann)
 
@@ -292,8 +292,8 @@ def test_api_poisson_2d_dirneu_3():
     l = LinearForm(v, expr)
 
     error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
 
     B_dirichlet = domain.boundary.complement(B_neumann)
 
@@ -365,8 +365,8 @@ def test_api_poisson_2d_dirneu_4():
     l = LinearForm(v, expr)
 
     error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
 
     B_dirichlet = domain.boundary.complement(B_neumann)
 
@@ -440,8 +440,8 @@ def test_api_poisson_2d_dirneu_13():
     l = LinearForm(v, expr)
 
     error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
 
     B_dirichlet = domain.boundary.complement(B_neumann)
 
@@ -515,8 +515,8 @@ def test_api_poisson_2d_dirneu_24():
     l = LinearForm(v, expr)
 
     error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
 
     B_dirichlet = domain.boundary.complement(B_neumann)
 
@@ -590,8 +590,8 @@ def test_api_poisson_2d_dirneu_123():
     l = LinearForm(v, expr)
 
     error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
 
     equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
     # ...
@@ -661,8 +661,8 @@ def test_api_poisson_2d_neu_1():
     l = LinearForm(v, expr)
 
     error = F-solution
-    l2norm = Norm(error, domain, kind='l2', name='u')
-    h1norm = Norm(error, domain, kind='h1', name='u')
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
 
     equation = Equation(a(v,u), l(v))
     # ...
