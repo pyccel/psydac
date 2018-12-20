@@ -12,7 +12,11 @@ from spl.mapping.analytical_gallery import Annulus, Target, Czarny, Collela
 from spl.mapping.analytical_gallery import Collela3D
 
 #==============================================================================
-def discrete_mapping(mapping, ncells, degree, return_space=False, comm=MPI.COMM_WORLD):
+def discrete_mapping(mapping, ncells, degree, **kwargs):
+
+    comm         = kwargs.pop('comm', MPI.COMM_WORLD)
+    return_space = kwargs.pop('return_space', False)
+
     mapping = mapping.lower()
 
     dim = len(ncells)

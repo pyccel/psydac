@@ -662,7 +662,7 @@ def test_api_poisson_2d_dirneu_123():
     # ...
 
 #==============================================================================
-def test_api_poisson_2d_neu_1():
+def test_api_laplace_2d_neu_1():
 
     # ... abstract model
     domain = Square()
