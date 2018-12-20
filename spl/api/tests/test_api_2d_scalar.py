@@ -79,17 +79,21 @@ def test_api_poisson_2d_dir_1():
     equation = Equation(a(v,u), l(v), bc=DirichletBC(domain.boundary))
     # ...
 
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=[2**3,2**3])
+    # ...
+
     # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
+    Vh = discretize(V, domain_h, degree=[2,2])
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -153,17 +157,21 @@ def test_api_poisson_2d_dirneu_1():
     equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
     # ...
 
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=[2**3,2**3])
+    # ...
+
     # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
+    Vh = discretize(V, domain_h, degree=[2,2])
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -227,17 +235,21 @@ def test_api_poisson_2d_dirneu_2():
     equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
     # ...
 
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=[2**3,2**3])
+    # ...
+
     # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
+    Vh = discretize(V, domain_h, degree=[2,2])
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -300,17 +312,21 @@ def test_api_poisson_2d_dirneu_3():
     equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
     # ...
 
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=[2**3,2**3])
+    # ...
+
     # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
+    Vh = discretize(V, domain_h, degree=[2,2])
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -373,17 +389,21 @@ def test_api_poisson_2d_dirneu_4():
     equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
     # ...
 
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=[2**3,2**3])
+    # ...
+
     # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
+    Vh = discretize(V, domain_h, degree=[2,2])
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -448,17 +468,21 @@ def test_api_poisson_2d_dirneu_13():
     equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
     # ...
 
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=[2**3,2**3])
+    # ...
+
     # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
+    Vh = discretize(V, domain_h, degree=[2,2])
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -523,17 +547,21 @@ def test_api_poisson_2d_dirneu_24():
     equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
     # ...
 
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=[2**3,2**3])
+    # ...
+
     # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
+    Vh = discretize(V, domain_h, degree=[2,2])
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -596,17 +624,21 @@ def test_api_poisson_2d_dirneu_123():
     equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
     # ...
 
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=[2**3,2**3])
+    # ...
+
     # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
+    Vh = discretize(V, domain_h, degree=[2,2])
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
     # ...
 
     # ... solve the discrete equation
@@ -667,17 +699,21 @@ def test_api_poisson_2d_neu_1():
     equation = Equation(a(v,u), l(v))
     # ...
 
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=[2**3,2**3])
+    # ...
+
     # ... discrete spaces
-    Vh = discretize(V, ncells=[2**3,2**3], degree=[2,2])
+    Vh = discretize(V, domain_h, degree=[2,2])
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh)
-    h1norm_h = discretize(h1norm, Vh)
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
     # ...
 
     # ... solve the discrete equation
