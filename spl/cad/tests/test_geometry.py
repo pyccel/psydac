@@ -30,7 +30,7 @@ def test_geometry_2d():
     # export it again
     newgeo.export('newgeo.h5')
 
-    # create a geometry directly from a discrete mapping
+    # create a geometry from a discrete mapping
     geo_1 = Geometry.from_discrete_mapping(mapping)
 
     # export it
