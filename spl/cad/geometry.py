@@ -71,11 +71,17 @@ class Geometry( object ):
     @classmethod
     def from_discrete_mapping( cls, mapping ):
         """Create a geometry from one discrete mapping."""
-        if mapping.ldim in [1,3]:
+        if mapping.ldim in [1]:
             raise NotImplementedError('')
 
         if mapping.ldim == 2:
             domain = Square(name='Omega')
+            mappings = {'Omega': mapping}
+
+            return Geometry(domain=domain, mappings=mappings)
+
+        elif mapping.ldim == 3:
+            domain = Cube(name='Omega')
             mappings = {'Omega': mapping}
 
             return Geometry(domain=domain, mappings=mappings)
