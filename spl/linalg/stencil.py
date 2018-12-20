@@ -7,7 +7,7 @@ from scipy.sparse import coo_matrix
 from mpi4py import MPI
 
 from spl.linalg.basic import VectorSpace, Vector, Matrix
-from spl.ddm.cart     import find_mpi_type, CartDecomposition
+from spl.ddm.cart     import find_mpi_type, CartDecomposition, CartDataExchanger
 
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix']
 
@@ -81,13 +81,9 @@ class StencilVectorSpace( VectorSpace ):
         self._npts   = cart.npts
 
         # Parallel attributes
-        mpi_type = find_mpi_type( dtype )
-        send_types, recv_types = cart.create_buffer_types( dtype )
-
-        self._cart       = cart
-        self._mpi_type   = mpi_type
-        self._send_types = send_types
-        self._recv_types = recv_types
+        self._cart         = cart
+        self._mpi_type     = find_mpi_type( dtype )
+        self._synchronizer = CartDataExchanger( cart, dtype )
 
     #--------------------------------------
     # Abstract interface
@@ -158,16 +154,6 @@ class StencilVectorSpace( VectorSpace ):
     @property
     def ndim( self ):
         return self._ndim
-
-    #---------------------------------------------------------------------------
-    # PARALLEL FACILITIES
-    #---------------------------------------------------------------------------
-    def get_send_type( self, direction, disp ):
-        return self._send_types[direction,disp] if self._parallel else None
-
-    # ...
-    def get_recv_type( self, direction, disp ):
-        return self._recv_types[direction,disp] if self._parallel else None
 
 #===============================================================================
 class StencilVector( Vector ):
@@ -427,29 +413,23 @@ class StencilVector( Vector ):
             Single direction along which to operate (if not specified, all of them).
 
         """
-        ndim     = self._space.ndim
-        parallel = self._space.parallel
-
-        if parallel:
+        if self.space.parallel:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
-           update_ghost_regions = self._update_ghost_regions_parallel
+            self.space._synchronizer.update_ghost_regions( self._data, direction=direction )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
-            update_ghost_regions = self._update_ghost_regions_serial
-
-        if direction is not None:
-            assert isinstance( direction, int )
-            assert 0 <= direction < ndim
-            update_ghost_regions( direction )
-        else:
-            for direction in range(ndim):
-                update_ghost_regions( direction )
+            self._update_ghost_regions_serial( direction )
 
         # Flag ghost regions as up-to-date
         self._sync = True
 
     # ...
-    def _update_ghost_regions_serial( self, direction: int ):
+    def _update_ghost_regions_serial( self, direction=None ):
+
+        if direction is None:
+            for d in range( self._space.ndim ):
+                self._update_ghost_regions_serial( d )
+            return
 
         ndim     = self._space.ndim
         periodic = self._space.periods[direction]
@@ -479,42 +459,6 @@ class StencilVector( Vector ):
             # Set right ghost region to zero
             idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
             self._data[idx_ghost] = 0
-
-    # ...
-    def _update_ghost_regions_parallel( self, direction: int ):
-
-        u         = self._data
-        space     = self._space
-        cart      = space.cart
-        comm_cart = cart.comm_cart
-
-        # Choose non-negative invertible function tag(disp) >= 0
-        # NOTES:
-        #   . different values of disp must return different tags!
-        #   . tag at receiver must match message tag at sender
-        tag = lambda disp: 42+disp
-
-        # Requests' handles
-        requests = []
-
-        # Start receiving data (MPI_IRECV)
-        for disp in [-1,1]:
-            info     = cart.get_shift_info( direction, disp )
-            recv_typ = space.get_recv_type( direction, disp )
-            recv_buf = (u, 1, recv_typ)
-            recv_req = comm_cart.Irecv( recv_buf, info['rank_source'], tag(disp) )
-            requests.append( recv_req )
-
-        # Start sending data (MPI_ISEND)
-        for disp in [-1,1]:
-            info     = cart.get_shift_info( direction, disp )
-            send_typ = space.get_send_type( direction, disp )
-            send_buf = (u, 1, send_typ)
-            send_req = comm_cart.Isend( send_buf, info['rank_dest'], tag(disp) )
-            requests.append( send_req )
-
-        # Wait for end of data exchange (MPI_WAITALL)
-        MPI.Request.Waitall( requests )
 
     #--------------------------------------
     # Private methods

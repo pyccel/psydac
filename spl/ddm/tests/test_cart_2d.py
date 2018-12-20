@@ -1,13 +1,13 @@
 # File test_cart_2d.py
 
 #===============================================================================
-# TEST CartDecomposition in 2D
+# TEST CartDecomposition and CartDataExchanger in 2D
 #===============================================================================
 def run_cart_2d( verbose=False ):
 
     import numpy as np
     from mpi4py       import MPI
-    from spl.ddm.cart import CartDecomposition
+    from spl.ddm.cart import CartDecomposition, CartDataExchanger
 
     #---------------------------------------------------------------------------
     # INPUT PARAMETERS
@@ -51,8 +51,8 @@ def run_cart_2d( verbose=False ):
     s1,s2 = cart.starts
     e1,e2 = cart.ends
 
-    # Create MPI subarray datatypes for accessing non-contiguous data
-    send_types, recv_types = cart.create_buffer_types( u.dtype, coeff_shape=[2] )
+    # Create object in charge of exchanging data between subdomains
+    synchronizer = CartDataExchanger( cart, u.dtype, coeff_shape=[2] )
 
     # Print some info
     if rank == 0:
@@ -74,32 +74,8 @@ def run_cart_2d( verbose=False ):
     # Fill in true domain with u[i1_loc,i2_loc,:]=[i1_glob,i2_glob]
     u[p1:-p1,p2:-p2,:] = [[(i1,i2) for i2 in range(s2,e2+1)] for i1 in range(s1,e1+1)]
 
-    # Choose non-negative invertible function tag(disp) >= 0
-    # NOTE: different values of disp must return different tags!
-    tag = lambda disp: 42+disp
-
-    # Cycle over dimensions
-    for direction in range(2):
-
-        # Requests' handles
-        requests = []
-
-        # Start receiving data (MPI_IRECV)
-        for disp in [-1,1]:
-            info     = cart.get_shift_info( direction, disp )
-            recv_buf = (u, 1, recv_types[direction,disp])
-            recv_req = cart.comm_cart.Irecv( recv_buf, info['rank_source'], tag(disp) )
-            requests.append( recv_req )
-
-        # Start sending data (MPI_ISEND)
-        for disp in [-1,1]:
-            info     = cart.get_shift_info( direction, disp )
-            send_buf = (u, 1, send_types[direction,disp])
-            send_req = cart.comm_cart.Isend( send_buf, info['rank_dest'], tag(disp) )
-            requests.append( send_req )
-
-        # Wait for end of data exchange (MPI_WAITALL)
-        MPI.Request.Waitall( requests )
+    # Update ghost regions
+    synchronizer.update_ghost_regions( u )
 
     #---------------------------------------------------------------------------
     # CHECK RESULTS
