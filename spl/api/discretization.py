@@ -23,6 +23,7 @@ from sympde.expr     import evaluate
 from sympde.topology import Domain, Boundary
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import Mapping
 
 from spl.api.grid                 import QuadratureGrid, BoundaryQuadratureGrid
 from spl.api.basis                import BasisValues
@@ -228,7 +229,7 @@ class BasicDiscrete(object):
         self._kernel_expr = kernel_expr
         self._target = target
         self._tag = tag
-        self._mapping = None
+        self._mapping = mapping
         self._interface = interface
         self._in_arguments = in_arguments
         self._inout_arguments = inout_arguments
@@ -571,7 +572,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         # ...
 
         kwargs['discrete_space'] = self.spaces
-        kwargs['comm'] = comm
+        kwargs['comm']           = comm
+        kwargs['mapping']        = Vh.symbolic_mapping
 
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
@@ -612,7 +614,11 @@ class DiscreteBilinearForm(BasicDiscrete):
         # ...
 
         if len(args) > 1:
-            self._mapping = args[1]
+            domain_h = args[1]
+            assert( isinstance(domain_h, Geometry) )
+
+            mapping = list(domain_h.mappings.values())[0]
+            self._mapping = mapping
 
     @property
     def spaces(self):
@@ -667,7 +673,8 @@ class DiscreteLinearForm(BasicDiscrete):
         # ...
 
         kwargs['discrete_space'] = self.space
-        kwargs['comm'] = comm
+        kwargs['comm']           = comm
+        kwargs['mapping']        = self.space.symbolic_mapping
 
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
@@ -698,7 +705,11 @@ class DiscreteLinearForm(BasicDiscrete):
         # ...
 
         if len(args) > 1:
-            self._mapping = args[1]
+            domain_h = args[1]
+            assert( isinstance(domain_h, Geometry) )
+
+            mapping = list(domain_h.mappings.values())[0]
+            self._mapping = mapping
 
     @property
     def space(self):
@@ -743,7 +754,9 @@ class DiscreteIntegral(BasicDiscrete):
         # ...
 
         kwargs['discrete_space'] = self.space
-        kwargs['comm'] = comm
+        kwargs['comm']           = comm
+        kwargs['mapping']        = self.space.symbolic_mapping
+
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # TODO to be removed
@@ -773,7 +786,11 @@ class DiscreteIntegral(BasicDiscrete):
         # ...
 
         if len(args) > 1:
-            self._mapping = args[1]
+            domain_h = args[1]
+            assert( isinstance(domain_h, Geometry) )
+
+            mapping = list(domain_h.mappings.values())[0]
+            self._mapping = mapping
 
     @property
     def space(self):
@@ -1125,41 +1142,46 @@ class Model(BasicDiscrete):
 # TODO bounds and knots
 # TODO MPI
 def discretize_space(V, *args, **kwargs):
-    # ... from a discrete geoemtry
+    degree = kwargs.pop('degree', None)
+    ncells = kwargs.pop('ncells', None)
+
+    symbolic_mapping = None
+
+    # from a discrete geoemtry
     if isinstance(args[0], Geometry) and args[0].mappings:
         geometry = args[0]
         if len(geometry.mappings.values()) > 1:
             raise NotImplementedError('Multipatch not yet available')
 
         mapping = list(geometry.mappings.values())[0]
-        return mapping.space
-    # ...
+        Vh = mapping.space
 
-    # ... from inputs
-    degree = kwargs.pop('degree', None)
-    ncells = kwargs.pop('ncells', None)
+        # TODO how to give a name to the mapping?
+        symbolic_mapping = Mapping('M', geometry.pdim)
 
-    if ( degree is None ) or ( ncells is None ):
-        raise NotImplementedError('TODO')
+    elif not( degree is None ) and not( ncells is None ):
 
-    # 1d case
-    if V.ldim == 1:
-        raise NotImplementedError('TODO')
-    # 2d case
-    elif V.ldim in [2,3]:
-        assert(isinstance( degree, (list, tuple) ))
-        assert( len(degree) == V.ldim )
+        # 1d case
+        if V.ldim == 1:
+            raise NotImplementedError('TODO')
 
-        # Create uniform grid
-        grids = [np.linspace( 0., 1., num=ne+1 ) for ne in ncells]
+        # 2d case
+        elif V.ldim in [2,3]:
+            assert(isinstance( degree, (list, tuple) ))
+            assert( len(degree) == V.ldim )
 
-        # Create 1D finite element spaces and precompute quadrature data
-        spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
+            # Create uniform grid
+            grids = [np.linspace( 0., 1., num=ne+1 ) for ne in ncells]
 
-        Vh = TensorFemSpace( *spaces )
+            # Create 1D finite element spaces and precompute quadrature data
+            spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
 
-        return Vh
-    # ...
+            Vh = TensorFemSpace( *spaces )
+
+    # add symbolic_mapping as a member to the space object
+    setattr(Vh, 'symbolic_mapping', symbolic_mapping)
+
+    return Vh
 
 def discretize_domain(domain, *args, **kwargs):
     filename = kwargs.pop('filename', None)

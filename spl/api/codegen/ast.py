@@ -712,7 +712,8 @@ def is_vector_field(expr):
 class SplBasic(Basic):
     _discrete_boundary = None
 
-    def __new__(cls, tag, name=None, prefix=None, debug=False, detailed=False):
+    def __new__(cls, tag, name=None, prefix=None, debug=False, detailed=False,
+                mapping=None):
 
         if name is None:
             if prefix is None:
@@ -721,11 +722,13 @@ class SplBasic(Basic):
             name = '{prefix}_{tag}'.format(tag=tag, prefix=prefix)
 
         obj = Basic.__new__(cls)
-        obj._name = name
-        obj._tag = tag
+
+        obj._name         = name
+        obj._tag          = tag
         obj._dependencies = []
-        obj._debug = debug
-        obj._detailed = detailed
+        obj._debug        = debug
+        obj._detailed     = detailed
+        obj._mapping      = mapping
 
         return obj
 
@@ -758,6 +761,10 @@ class SplBasic(Basic):
         return self._detailed
 
     @property
+    def mapping(self):
+        return self._mapping
+
+    @property
     def discrete_boundary(self):
         return self._discrete_boundary
 
@@ -770,10 +777,10 @@ class EvalMapping(SplBasic):
         if not isinstance(mapping, Mapping):
             raise TypeError('> Expecting a Mapping object')
 
-        obj = SplBasic.__new__(cls, mapping, name=name, prefix='eval_mapping')
+        obj = SplBasic.__new__(cls, mapping, name=name,
+                               prefix='eval_mapping', mapping=mapping)
 
         obj._space = space
-        obj._mapping = mapping
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis = boundary_basis
 
@@ -814,10 +821,6 @@ class EvalMapping(SplBasic):
     @property
     def space(self):
         return self._space
-
-    @property
-    def mapping(self):
-        return self._mapping
 
     @property
     def boundary_basis(self):
@@ -935,10 +938,10 @@ class EvalField(SplBasic):
         if not isinstance(fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
 
-        obj = SplBasic.__new__(cls, space, name=name, prefix='eval_field')
+        obj = SplBasic.__new__(cls, space, name=name,
+                               prefix='eval_field', mapping=mapping)
 
         obj._space = space
-        obj._mapping = mapping
         obj._fields = Tuple(*fields)
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis = boundary_basis
@@ -949,10 +952,6 @@ class EvalField(SplBasic):
     @property
     def space(self):
         return self._space
-
-    @property
-    def mapping(self):
-        return self._mapping
 
     @property
     def fields(self):
@@ -1057,10 +1056,10 @@ class EvalVectorField(SplBasic):
         if not isinstance(vector_fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
 
-        obj = SplBasic.__new__(cls, space, name=name, prefix='eval_vector_field')
+        obj = SplBasic.__new__(cls, space, name=name,
+                               prefix='eval_vector_field', mapping=mapping)
 
         obj._space = space
-        obj._mapping = mapping
         obj._vector_fields = Tuple(*vector_fields)
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis = boundary_basis
@@ -1071,10 +1070,6 @@ class EvalVectorField(SplBasic):
     @property
     def space(self):
         return self._space
-
-    @property
-    def mapping(self):
-        return self._mapping
 
     @property
     def vector_fields(self):
@@ -1176,7 +1171,8 @@ class EvalVectorField(SplBasic):
 class Kernel(SplBasic):
 
     def __new__(cls, weak_form, kernel_expr, target=None,
-                discrete_boundary=None, name=None, boundary_basis=None):
+                discrete_boundary=None, name=None, boundary_basis=None,
+                mapping=None):
 
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
@@ -1222,13 +1218,14 @@ class Kernel(SplBasic):
         # ...
 
         tag = random_string( 8 )
-        obj = SplBasic.__new__(cls, tag, name=name, prefix='kernel')
+        obj = SplBasic.__new__(cls, tag, name=name,
+                               prefix='kernel', mapping=mapping)
 
-        obj._weak_form = weak_form
-        obj._kernel_expr = kernel_expr
-        obj._target = target
+        obj._weak_form         = weak_form
+        obj._kernel_expr       = kernel_expr
+        obj._target            = target
         obj._discrete_boundary = discrete_boundary
-        obj._boundary_basis = boundary_basis
+        obj._boundary_basis    = boundary_basis
 
         obj._func = obj._initialize()
 
@@ -1335,7 +1332,7 @@ class Kernel(SplBasic):
         is_function = isinstance(self.weak_form, Integral)
 
         expr = self.kernel_expr
-        mapping = self.weak_form.mapping
+        mapping = self.mapping
 
         # ...
         n_rows = 1 ; n_cols = 1
@@ -1490,7 +1487,7 @@ class Kernel(SplBasic):
         # ...
 
         # ... mapping
-        mapping = self.weak_form.mapping
+        mapping = self.mapping
         self._eval_mapping = None
         if mapping:
 
@@ -1921,12 +1918,14 @@ class Kernel(SplBasic):
 #==============================================================================
 class Assembly(SplBasic):
 
-    def __new__(cls, kernel, name=None, discrete_space=None, periodic=None, comm=None):
+    def __new__(cls, kernel, name=None, discrete_space=None, periodic=None,
+                comm=None, mapping=None):
 
         if not isinstance(kernel, Kernel):
             raise TypeError('> Expecting a kernel')
 
-        obj = SplBasic.__new__(cls, kernel.tag, name=name, prefix='assembly')
+        obj = SplBasic.__new__(cls, kernel.tag, name=name,
+                               prefix='assembly', mapping=mapping)
 
         # ... get periodicity of the space
         dim    = kernel.weak_form.ldim
@@ -2410,12 +2409,13 @@ class Assembly(SplBasic):
 class Interface(SplBasic):
 
     def __new__(cls, assembly, name=None, backend=None,
-                discrete_space=None, comm=None):
+                discrete_space=None, comm=None, mapping=None):
 
         if not isinstance(assembly, Assembly):
             raise TypeError('> Expecting an Assembly')
 
-        obj = SplBasic.__new__(cls, assembly.tag, name=name, prefix='interface')
+        obj = SplBasic.__new__(cls, assembly.tag, name=name,
+                               prefix='interface', mapping=mapping)
 
         obj._assembly = assembly
         obj._backend = backend
@@ -2564,7 +2564,7 @@ class Interface(SplBasic):
         support_length = variables([ 'support_length{}'.format(i) for i in range(1, dim+1)], 'int')
 
         mapping = ()
-        if form.mapping:
+        if self.mapping:
             mapping = Symbol('mapping')
         # ...
 
