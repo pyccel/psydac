@@ -275,6 +275,200 @@ def test_stencil_matrix_2d_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
     assert np.allclose( ya, ya_exact, rtol=1e-13, atol=1e-13 )
 
 #===============================================================================
+@pytest.mark.parametrize( 'n1', [20,67] )
+@pytest.mark.parametrize( 'p1', [1,2,3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parallel
+
+def test_stencil_matrix_1d_parallel_sync( n1, p1, P1, reorder ):
+
+    from mpi4py       import MPI
+    from spl.ddm.cart import CartDecomposition
+
+    comm = MPI.COMM_WORLD
+    cart = CartDecomposition(
+        npts    = [n1,],
+        pads    = [p1,],
+        periods = [P1,],
+        reorder = reorder,
+        comm    = comm
+    )
+
+    V = StencilVectorSpace( cart, dtype=int )
+    M = StencilMatrix( V, V )
+
+    s1, = V.starts
+    e1, = V.ends
+
+    # Fill-in pattern
+    fill_in = lambda i1, k1 : 10*i1+k1
+
+    # Fill in stencil matrix
+    for i1 in range(s1, e1+1):
+        for k1 in range(-p1, p1+1):
+            M[i1,k1] = fill_in( i1, k1 )
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # TEST: update ghost regions
+    M.update_ghost_regions()
+
+    # Convert stencil object to 1D Numpy array
+    Ma = M.toarray( with_pads=True )
+
+    # Create exact solution
+    Me = np.zeros( (n1,n1), dtype=V.dtype )
+
+    for i1 in range(n1):
+        for k1 in range(-p1, p1+1):
+
+            # Get column index
+            j1 = i1 + k1
+
+            # If j1 is outside matrix limits, apply periodic BCs or skip entry
+            if not 0 <= j1 < n1:
+                if P1:
+                    j1 = j1 % n1
+                else:
+                    continue
+
+            # Fill in matrix element
+            Me[i1,j1] = fill_in( i1, k1 )
+
+    # Compare local solution to global
+    i1_min = max(0, s1-p1)
+    i1_max = min(e1+p1+1, n1)
+
+#    for i in range( comm.size ):
+#        if i == comm.rank:
+#            print( "RANK {}:".format( i ) )
+#            print( M._data.shape )
+#            print( Ma.shape )
+#            print( Ma )
+#            print( "PASSED" )
+#            print( flush=True )
+#        comm.Barrier()
+
+    assert np.array_equal( Ma[i1_min:i1_max, :], Me[i1_min:i1_max, :] )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [21,67] )
+@pytest.mark.parametrize( 'n2', [13,32] )
+@pytest.mark.parametrize( 'p1', [1,3] )
+@pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parallel
+
+def test_stencil_matrix_2d_parallel_sync( n1, n2, p1, p2, P1, P2, reorder ):
+
+    from mpi4py       import MPI
+    from spl.ddm.cart import CartDecomposition
+
+    comm = MPI.COMM_WORLD
+    cart = CartDecomposition(
+        npts    = [n1, n2],
+        pads    = [p1, p2],
+        periods = [P1, P2],
+        reorder = reorder,
+        comm    = comm
+    )
+
+    V = StencilVectorSpace( cart, dtype=int )
+    M = StencilMatrix( V, V )
+
+    s1, s2 = V.starts
+    e1, e2 = V.ends
+
+    # Fill-in pattern
+    fill_in = lambda i1, i2, k1, k2: 1000*i1 + 100*i2 + 10*abs(k1) + abs(k2)
+
+    # Fill in stencil matrix
+    for i1 in range(s1, e1+1):
+        for i2 in range(s2, e2+1):
+            for k1 in range(-p1, p1+1):
+                for k2 in range(-p2, p2+1):
+                    M[i1, i2, k1, k2] = fill_in( i1, i2, k1, k2 )
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # TEST: update ghost regions
+    M.update_ghost_regions()
+
+    # Convert stencil object to 1D Numpy array
+    Ma = M.toarray( with_pads=True )
+
+    # Create exact solution
+    Me = np.zeros( (n1*n2, n1*n2), dtype=V.dtype )
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for k1 in range(-p1, p1+1):
+                for k2 in range(-p2, p2+1):
+
+                    # Get column multi-index
+                    j1 = i1 + k1
+                    j2 = i2 + k2
+
+                    # If j1 is outside matrix limits,
+                    # apply periodic BCs or skip entry
+                    if not 0 <= j1 < n1:
+                        if P1:
+                            j1 = j1 % n1
+                        else:
+                            continue
+
+                    # If j2 is outside matrix limits,
+                    # apply periodic BCs or skip entry
+                    if not 0 <= j2 < n2:
+                        if P2:
+                            j2 = j2 % n2
+                        else:
+                            continue
+
+                    # Get matrix indices assuming C ordering
+                    i = i1 * n2 + i2
+                    j = j1 * n2 + j2
+
+                    # Fill in matrix element
+                    Me[i,j] = fill_in( i1, i2, k1, k2 )
+
+#    #++++++++++++++++++++++++++++++++++++++
+#    # DEBUG
+#    #++++++++++++++++++++++++++++++++++++++
+#    np.set_printoptions( linewidth=200 )
+#
+#    if comm.rank == 0:
+#        print( 'Me' )
+#        print( Me )
+#        print( flush=True )
+#    comm.Barrier()
+#
+#    for i in range(comm.size):
+#        if i == comm.rank:
+#            print( 'RANK {}'.format( i ) )
+#            print( Ma )
+#            print( flush=True )
+#        comm.Barrier()
+#    #++++++++++++++++++++++++++++++++++++++
+
+    # Compare local solution to global, row by row
+    i1_min = max(0, s1-p1)
+    i1_max = min(e1+p1+1, n1)
+
+    i2_min = max(0, s2-p2)
+    i2_max = min(e2+p2+1, n2)
+
+    for i1 in range( i1_min, i1_max ):
+        for i2 in range( i2_min, i2_max ):
+            i = i1 * n2 + i2
+            assert np.array_equal( Ma[i,:], Me[i,:] )
+
+#===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================
 if __name__ == "__main__":
