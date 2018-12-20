@@ -22,14 +22,13 @@ from mpi4py import MPI
 from spl.fem.splines      import SplineSpace
 from spl.fem.tensor       import TensorFemSpace
 from spl.mapping.discrete import SplineMapping
-from spl.cad.basic        import BasicDiscreteDomain
-from spl.cad.basic        import DiscreteBoundary
-from spl.cad.basic        import Edge, Topology
 
 from sympde.topology import Domain, Line, Square, Cube
 
 #==============================================================================
-class Geometry( BasicDiscreteDomain ):
+class Geometry( object ):
+    _ldim     = None
+    _pdim     = None
     _patches  = []
     _topology = None
 
@@ -75,6 +74,13 @@ class Geometry( BasicDiscreteDomain ):
 
             return Geometry(domain=domain, mappings=mappings)
 
+    @property
+    def ldim(self):
+        return self._ldim
+
+    @property
+    def pdim(self):
+        return self._pdim
 
     @property
     def comm(self):

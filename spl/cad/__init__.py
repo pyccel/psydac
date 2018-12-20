@@ -1,7 +1,6 @@
 # coding = utf-8
 
-__all__ = ['geometry', 'gallery', 'basic']
+__all__ = ['geometry']
 
-from spl.cad import basic
 from spl.cad import geometry
-from spl.cad import gallery
+from spl.cad import cad
