@@ -21,6 +21,7 @@ from sympde.expr     import Norm as sym_Norm
 from sympde.expr     import DirichletBC
 from sympde.expr     import evaluate
 from sympde.topology import Domain, Boundary
+from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import FunctionSpace, VectorFunctionSpace
 from sympde.topology import Mapping
@@ -1159,25 +1160,26 @@ class Model(BasicDiscrete):
 # TODO multi patch
 # TODO bounds and knots
 # TODO MPI
-def discretize_space(V, *args, **kwargs):
+def discretize_space(V, domain_h, *args, **kwargs):
     degree = kwargs.pop('degree', None)
-    ncells = kwargs.pop('ncells', None)
-
     symbolic_mapping = None
 
     # from a discrete geoemtry
-    if isinstance(args[0], Geometry) and args[0].mappings:
-        geometry = args[0]
-        if len(geometry.mappings.values()) > 1:
+    # TODO improve condition on mappings
+    if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
+        if len(domain_h.mappings.values()) > 1:
             raise NotImplementedError('Multipatch not yet available')
 
-        mapping = list(geometry.mappings.values())[0]
+        mapping = list(domain_h.mappings.values())[0]
         Vh = mapping.space
 
         # TODO how to give a name to the mapping?
-        symbolic_mapping = Mapping('M', geometry.pdim)
+        symbolic_mapping = Mapping('M', domain_h.pdim)
 
-    elif not( degree is None ) and not( ncells is None ):
+    elif not( degree is None ):
+        assert(hasattr(domain_h, 'ncells'))
+
+        ncells = domain_h.ncells
 
         # 1d case
         if V.ldim == 1:
@@ -1203,11 +1205,29 @@ def discretize_space(V, *args, **kwargs):
 
 def discretize_domain(domain, *args, **kwargs):
     filename = kwargs.pop('filename', None)
+    ncells   = kwargs.pop('ncells',   None)
 
-    if filename is None:
-        raise NotImplementedError('Only domains defined from a filename are treated')
+    if not( ncells is None ):
+        dtype = domain.dtype
 
-    geometry = Geometry(filename=filename)
+        if dtype['type'].lower() == 'line' :
+            return Geometry.as_line(ncells)
+
+        elif dtype['type'].lower() == 'square' :
+            return Geometry.as_square(ncells)
+
+        elif dtype['type'].lower() == 'cube' :
+            return Geometry.as_cube(ncells)
+
+        else:
+            msg = 'no corresponding discrete geometry is available, given {}'
+            msg = msg.format(dtype['type'])
+
+            raise ValueError(msg)
+
+    elif not( filename is None ):
+        geometry = Geometry(filename=filename)
+
     return geometry
 
 

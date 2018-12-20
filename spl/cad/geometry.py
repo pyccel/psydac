@@ -32,6 +32,9 @@ class Geometry( object ):
     _patches  = []
     _topology = None
 
+    #--------------------------------------------------------------------------
+    # Option [1]: from a (domain, mappings) or a file
+    #--------------------------------------------------------------------------
     def __init__( self, domain=None, mappings=None,
                   filename=None, comm=MPI.COMM_WORLD ):
 
@@ -62,6 +65,9 @@ class Geometry( object ):
 
         self._comm = comm
 
+    #--------------------------------------------------------------------------
+    # Option [2]: from a discrete mapping
+    #--------------------------------------------------------------------------
     @classmethod
     def from_discrete_mapping( cls, mapping ):
         """Create a geometry from one discrete mapping."""
@@ -73,6 +79,37 @@ class Geometry( object ):
             mappings = {'Omega': mapping}
 
             return Geometry(domain=domain, mappings=mappings)
+
+    #--------------------------------------------------------------------------
+    # Option [3]: discrete topological line/square/cube
+    #--------------------------------------------------------------------------
+    # TODO shall we create a discrete line/square/cube?
+    @classmethod
+    def as_line( cls, ncells=None ):
+        domain = Line(name='Omega')
+        mappings = {'Omega': None}
+
+        geo = Geometry(domain=domain, mappings=mappings)
+        setattr(geo, 'ncells', ncells)
+        return geo
+
+    @classmethod
+    def as_square( cls, ncells=None ):
+        domain = Square(name='Omega')
+        mappings = {'Omega': None}
+
+        geo = Geometry(domain=domain, mappings=mappings)
+        setattr(geo, 'ncells', ncells)
+        return geo
+
+    @classmethod
+    def as_cube( cls, ncells=None ):
+        domain = Cube(name='Omega')
+        mappings = {'Omega': None}
+
+        geo = Geometry(domain=domain, mappings=mappings)
+        setattr(geo, 'ncells', ncells)
+        return geo
 
     @property
     def ldim(self):
