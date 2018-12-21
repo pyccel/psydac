@@ -1,39 +1,28 @@
 # -*- coding: UTF-8 -*-
 
+from sympy import Tuple, Matrix
 from sympy import pi, cos, sin
-from sympy import S
-from sympy import Tuple
-from sympy import Matrix
 
-from sympde.core import dx, dy, dz
-from sympde.core import Mapping
 from sympde.core import Constant
-from sympde.core import Field
-from sympde.core import VectorField
 from sympde.core import grad, dot, inner, cross, rot, curl, div
-from sympde.core import FunctionSpace, VectorFunctionSpace
-from sympde.core import TestFunction
-from sympde.core import VectorTestFunction
-from sympde.core import BilinearForm, LinearForm, Integral
-from sympde.core import Norm
-from sympde.core import Equation, DirichletBC
-from sympde.core import Domain
-from sympde.core import Boundary, trace_0, trace_1
-from sympde.core import ComplementBoundary
-from sympde.gallery import Poisson, Stokes
+from sympde.core import laplace, hessian
+from sympde.topology import (dx, dy, dz)
+from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import Field, VectorField
+from sympde.topology import ProductSpace
+from sympde.topology import TestFunction
+from sympde.topology import VectorTestFunction
+from sympde.topology import Boundary, NormalVector, TangentVector
+from sympde.topology import Domain, Line, Square, Cube
+from sympde.topology import Trace, trace_0, trace_1
+from sympde.topology import Union
+from sympde.expr import BilinearForm, LinearForm, Integral
+from sympde.expr import Norm
+from sympde.expr import Equation, DirichletBC
 
-from spl.fem.context import fem_context
 from spl.fem.basic   import FemField
-from spl.fem.splines import SplineSpace
-from spl.fem.tensor  import TensorFemSpace
-from spl.fem.vector  import ProductFemSpace, VectorFemField
+from spl.fem.vector  import VectorFemField
 from spl.api.discretization import discretize
-from spl.api.boundary_condition import DiscreteBoundary
-from spl.api.boundary_condition import DiscreteComplementBoundary
-from spl.api.boundary_condition import DiscreteDirichletBC
-from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL
-
-from spl.mapping.discrete import SplineMapping
 
 from numpy import linspace, zeros, allclose
 
@@ -42,78 +31,53 @@ import os
 base_dir = os.path.dirname(os.path.realpath(__file__))
 mesh_dir = os.path.join(base_dir, 'mesh')
 
-domain = Domain('\Omega', dim=3)
-
-
-def test_api_vector_laplace_3d_dir_collela():
+#==============================================================================
+def run_vector_poisson_3d_dir(filename, solution, f):
 
     # ... abstract model
-    mapping = Mapping('M', rdim=3, domain=domain)
+    domain = Domain.from_file(filename)
 
-    U = VectorFunctionSpace('U', domain)
     V = VectorFunctionSpace('V', domain)
-
-    B1 = Boundary(r'\Gamma_1', domain)
-    B2 = Boundary(r'\Gamma_2', domain)
-    B3 = Boundary(r'\Gamma_3', domain)
-    B4 = Boundary(r'\Gamma_4', domain)
-    B5 = Boundary(r'\Gamma_5', domain)
-    B6 = Boundary(r'\Gamma_6', domain)
 
     x,y,z = domain.coordinates
 
     F = VectorField(V, name='F')
 
     v = VectorTestFunction(V, name='v')
-    u = VectorTestFunction(U, name='u')
+    u = VectorTestFunction(V, name='u')
 
     expr = inner(grad(v), grad(u))
-    a = BilinearForm((v,u), expr, mapping=mapping)
+    a = BilinearForm((v,u), expr)
 
-    f1 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f2 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f3 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f = Tuple(f1, f2, f3)
     expr = dot(f, v)
-    l = LinearForm(v, expr, mapping=mapping)
+    l = LinearForm(v, expr)
 
-    f1 = sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f2 = sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f3 = sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f = Tuple(f1, f2, f3)
-    error = Matrix([F[0]-f[0], F[1]-f[1], F[2]-f[2]])
-    l2norm = Norm(error, domain, kind='l2', name='u', mapping=mapping)
-    h1norm = Norm(error, domain, kind='h1', name='u', mapping=mapping)
+    error = Matrix([F[0]-solution[0], F[1]-solution[1], F[2]-solution[2]])
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
 
-    bc = [DirichletBC(i) for i in [B1, B2, B3, B4, B5, B6]]
-    equation = Equation(a(v,u), l(v), bc=bc)
+    equation = Equation(a(v,u), l(v), bc=DirichletBC(domain.boundary))
+    # ...
+
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, filename=filename)
     # ...
 
     # ... discrete spaces
-    Vh, mapping = fem_context(os.path.join(mesh_dir, 'collela_3d.h5'))
-    Vh = ProductFemSpace(Vh, Vh, Vh)
+    Vh = discretize(V, domain_h)
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
-    B1 = DiscreteBoundary(B1, axis=0, ext=-1)
-    B2 = DiscreteBoundary(B2, axis=0, ext= 1)
-    B3 = DiscreteBoundary(B3, axis=1, ext=-1)
-    B4 = DiscreteBoundary(B4, axis=1, ext= 1)
-    B5 = DiscreteBoundary(B5, axis=2, ext=-1)
-    B6 = DiscreteBoundary(B6, axis=2, ext= 1)
-
-    bc = [DiscreteDirichletBC(i) for i in [B1, B2, B3, B4, B5, B6]]
-    equation_h = discretize(equation, [Vh, Vh], mapping, bc=bc)
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
     # ...
 
     # ... discretize norms
-    l2norm_h = discretize(l2norm, Vh, mapping)
-    h1norm_h = discretize(h1norm, Vh, mapping)
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve(settings={'solver':'cg', 'tol':1e-13, 'maxiter':1000,
-                                   'verbose':False})
+    x = equation_h.solve()
     # ...
 
     # ...
@@ -126,13 +90,57 @@ def test_api_vector_laplace_3d_dir_collela():
     # ... compute norms
     l2_error = l2norm_h.assemble(F=phi)
     h1_error = h1norm_h.assemble(F=phi)
+    # ...
 
-    expected_l2_error =  1.4118745450381855
-    expected_h1_error =  13.662054493149498
+    return l2_error, h1_error
+
+#==============================================================================
+def test_api_vector_poisson_3d_dir_identity():
+    filename = os.path.join(mesh_dir, 'identity_3d.h5')
+
+    from sympy.abc import x,y,z
+
+    u1 = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    u2 = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    u3 = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    solution = Tuple(u1, u2, u3)
+
+    f1 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f2 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f3 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f = Tuple(f1, f2, f3)
+
+    l2_error, h1_error = run_vector_poisson_3d_dir(filename, solution, f)
+
+    expected_l2_error =  0.0030390821236941324
+    expected_h1_error =  0.0834666625692994
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    # ...
+
+#==============================================================================
+def test_api_vector_poisson_3d_dir_collela():
+    filename = os.path.join(mesh_dir, 'collela_3d.h5')
+
+    from sympy.abc import x,y,z
+
+    u1 = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    u2 = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    u3 = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    solution = Tuple(u1, u2, u3)
+
+    f1 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f2 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f3 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f = Tuple(f1, f2, f3)
+
+    l2_error, h1_error = run_vector_poisson_3d_dir(filename, solution, f)
+
+    expected_l2_error =  0.2717153828799274
+    expected_h1_error =  2.6292636131010663
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 
 #==============================================================================
