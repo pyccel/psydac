@@ -69,7 +69,7 @@ class Geometry( object ):
     # Option [2]: from a discrete mapping
     #--------------------------------------------------------------------------
     @classmethod
-    def from_discrete_mapping( cls, mapping ):
+    def from_discrete_mapping( cls, mapping, comm=None ):
         """Create a geometry from one discrete mapping."""
         if mapping.ldim in [1]:
             raise NotImplementedError('')
@@ -78,42 +78,42 @@ class Geometry( object ):
             domain = Square(name='Omega')
             mappings = {'Omega': mapping}
 
-            return Geometry(domain=domain, mappings=mappings)
+            return Geometry(domain=domain, mappings=mappings, comm=comm)
 
         elif mapping.ldim == 3:
             domain = Cube(name='Omega')
             mappings = {'Omega': mapping}
 
-            return Geometry(domain=domain, mappings=mappings)
+            return Geometry(domain=domain, mappings=mappings, comm=comm)
 
     #--------------------------------------------------------------------------
     # Option [3]: discrete topological line/square/cube
     #--------------------------------------------------------------------------
     # TODO shall we create a discrete line/square/cube?
     @classmethod
-    def as_line( cls, ncells=None ):
+    def as_line( cls, ncells=None, comm=None ):
         domain = Line(name='Omega')
         mappings = {'Omega': None}
 
-        geo = Geometry(domain=domain, mappings=mappings)
+        geo = Geometry(domain=domain, mappings=mappings, comm=comm)
         setattr(geo, 'ncells', ncells)
         return geo
 
     @classmethod
-    def as_square( cls, ncells=None ):
+    def as_square( cls, ncells=None, comm=None ):
         domain = Square(name='Omega')
         mappings = {'Omega': None}
 
-        geo = Geometry(domain=domain, mappings=mappings)
+        geo = Geometry(domain=domain, mappings=mappings, comm=comm)
         setattr(geo, 'ncells', ncells)
         return geo
 
     @classmethod
-    def as_cube( cls, ncells=None ):
+    def as_cube( cls, ncells=None, comm=None ):
         domain = Cube(name='Omega')
         mappings = {'Omega': None}
 
-        geo = Geometry(domain=domain, mappings=mappings)
+        geo = Geometry(domain=domain, mappings=mappings, comm=comm)
         setattr(geo, 'ncells', ncells)
         return geo
 

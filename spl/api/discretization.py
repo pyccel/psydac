@@ -52,6 +52,7 @@ import importlib
 import string
 import random
 import numpy as np
+from mpi4py import MPI
 
 
 #==============================================================================
@@ -187,8 +188,6 @@ class BasicDiscrete(object):
 
         # ...
         if not( comm is None):
-            from mpi4py import MPI
-
             if root is None:
                 root = 0
 
@@ -575,6 +574,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         kwargs['discrete_space'] = self.spaces
         kwargs['mapping']        = self.spaces[0].symbolic_mapping
+        kwargs['comm']           = domain_h.comm
 
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
@@ -665,6 +665,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         kwargs['discrete_space'] = self.space
         kwargs['mapping']        = self.space.symbolic_mapping
+        kwargs['comm']           = domain_h.comm
 
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
@@ -735,6 +736,7 @@ class DiscreteIntegral(BasicDiscrete):
 
         kwargs['discrete_space'] = self.space
         kwargs['mapping']        = self.space.symbolic_mapping
+        kwargs['comm']           = domain_h.comm
 
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
@@ -1116,6 +1118,7 @@ class Model(BasicDiscrete):
 # TODO MPI
 def discretize_space(V, domain_h, *args, **kwargs):
     degree = kwargs.pop('degree', None)
+    comm   = domain_h.comm
     symbolic_mapping = None
 
     # from a discrete geoemtry
@@ -1129,6 +1132,9 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
         # TODO how to give a name to the mapping?
         symbolic_mapping = Mapping('M', domain_h.pdim)
+
+        if not( comm is None ):
+            raise NotImplementedError('must create a TensorFemSpace in 1d')
 
     elif not( degree is None ):
         assert(hasattr(domain_h, 'ncells'))
@@ -1150,7 +1156,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
             # Create 1D finite element spaces and precompute quadrature data
             spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
 
-            Vh = TensorFemSpace( *spaces )
+            Vh = TensorFemSpace( *spaces, comm=comm )
 
     # Product and Vector spaces are constructed here using H1 subspaces
     if V.shape > 1:
@@ -1165,18 +1171,19 @@ def discretize_space(V, domain_h, *args, **kwargs):
 def discretize_domain(domain, *args, **kwargs):
     filename = kwargs.pop('filename', None)
     ncells   = kwargs.pop('ncells',   None)
+    comm     = kwargs.pop('comm',     None)
 
     if not( ncells is None ):
         dtype = domain.dtype
 
         if dtype['type'].lower() == 'line' :
-            return Geometry.as_line(ncells)
+            return Geometry.as_line(ncells, comm=comm)
 
         elif dtype['type'].lower() == 'square' :
-            return Geometry.as_square(ncells)
+            return Geometry.as_square(ncells, comm=comm)
 
         elif dtype['type'].lower() == 'cube' :
-            return Geometry.as_cube(ncells)
+            return Geometry.as_cube(ncells, comm=comm)
 
         else:
             msg = 'no corresponding discrete geometry is available, given {}'
@@ -1185,7 +1192,7 @@ def discretize_domain(domain, *args, **kwargs):
             raise ValueError(msg)
 
     elif not( filename is None ):
-        geometry = Geometry(filename=filename)
+        geometry = Geometry(filename=filename, comm=comm)
 
     return geometry
 

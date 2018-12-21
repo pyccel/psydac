@@ -11,3 +11,6 @@ python3 -m pytest spl/api/tests/test_api_2d_vector_mapping.py
 python3 -m pytest spl/api/tests/test_api_3d_scalar.py
 python3 -m pytest spl/api/tests/test_api_3d_scalar_mapping.py
 python3 -m pytest spl/api/tests/test_api_3d_vector.py
+
+mpirun -np 2 python3 -m pytest spl/api/tests/test_api_2d_scalar_parallel.py
+
