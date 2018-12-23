@@ -4,10 +4,9 @@
 
 import numpy as np
 from collections        import OrderedDict
-from scipy.sparse       import coo_matrix, bmat
+from scipy.sparse       import bmat
 
-from spl.linalg.basic   import VectorSpace, Vector, LinearOperator
-from spl.linalg.stencil import StencilMatrix
+from spl.linalg.basic   import VectorSpace, Vector, LinearOperator, Matrix
 
 __all__ = ['ProductSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix']
 
@@ -316,10 +315,11 @@ class BlockLinearOperator( LinearOperator ):
         self._blocks[i,j] = value
 
 #===============================================================================
-class BlockMatrix( BlockLinearOperator ):
+class BlockMatrix( BlockLinearOperator, Matrix ):
     """
     Linear operator that can be written as blocks of other Linear Operators,
-    with the additional capability to be converted to COO sparse matrix format.
+    with the additional capability to be converted to a 2D Numpy array
+    or to a Scipy sparse matrix.
 
     Parameters
     ----------
@@ -330,16 +330,43 @@ class BlockMatrix( BlockLinearOperator ):
         Codomain of the new linear operator.
 
     blocks : dict | (list of lists) | (tuple of tuples)
-        LinearOperator objects with 'tocoo()' method (optional).
+        Matrix objects (optional).
 
         a) 'blocks' can be dictionary with
             . key   = tuple (i, j), where i and j are two integers >= 0
-            . value = corresponding LinearOperator Lij
+            . value = corresponding Matrix Mij
 
         b) 'blocks' can be list of lists (or tuple of tuples) where blocks[i][j]
-            is the LinearOperator Lij (if None, we assume null operator)
+            is the Matrix Mij (if None, we assume all entries are zeros)
 
     """
+    #--------------------------------------
+    # Abstract interface
+    #--------------------------------------
+    def toarray( self ):
+        """ Convert to 2D Numpy array.
+        """
+        return self.tosparse().toarray()
+
+    # ...
+    def tosparse( self ):
+        """ Convert to Scipy sparse matrix.
+        """
+        # Convert all blocks to Scipy sparse format
+        blocks_sparse = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
+        for (i,j), Mij in self._blocks.items():
+            blocks_sparse[i][j] = Mij.tosparse()
+
+        # Create sparse matrix from sparse blocks
+        M = bmat( blocks_sparse )
+        M.eliminate_zeros()
+
+        # Sanity check
+        assert M.shape[0] == self.codomain.dimension
+        assert M.shape[1] == self.  domain.dimension
+
+        return M
+
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -350,33 +377,8 @@ class BlockMatrix( BlockLinearOperator ):
         if value is None:
             pass
 
-        elif not hasattr( value, 'tocoo' ):
-            msg = "Block ({},{}) does not have 'tocoo()' method.".format( i,j )
+        elif not isinstance( value, Matrix ):
+            msg = "Block ({},{}) must be 'Matrix' from module 'spl.linalg.basic'.".format( i,j )
             raise TypeError( msg )
 
-        super().__setitem__( key, value )
-
-    # ...
-    def tocoo( self ):
-        """ Convert to Scipy's COO format.
-        """
-        # Convert all blocks to COO format
-        blocks_coo = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
-        for (i,j), Mij in self._blocks.items():
-            blocks_coo[i][j] = Mij.tocoo()
-
-        # Create COO matrix from blocks in COO format
-        coo = bmat( blocks_coo, format='coo' )
-        coo.eliminate_zeros()
-
-        # Sanity check
-        assert coo.shape[0] == self.codomain.dimension
-        assert coo.shape[1] == self.  domain.dimension
-
-        return coo
-
-    # ...
-    def toarray( self ):
-        """ Convert to 2D Numpy array.
-        """
-        return self.tocoo().toarray()
+        BlockLinearOperator.__setitem__( self, key, value )

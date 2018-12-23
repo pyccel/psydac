@@ -2,22 +2,23 @@
 #
 # Copyright 2018 Yaman Güçlü
 
-from spl.ddm.cart import Cart
+from spl.ddm.cart import CartDecomposition
 
 __all__ = ['C1_Cart']
 
 #==============================================================================
-class C1_Cart( Cart ):
+class C1_Cart( CartDecomposition ):
     """
-    A new Cart() that is generated from an existing one by removing all degrees
-    of freedom corresponding to i_d = 0, 1 with d being the radial dimension.
+    A CartDecomposition subclass whose objects are generated from an existing
+    CartDecomposition object by removing all degrees of freedom corresponding
+    to i_d = 0, 1 with d being the radial dimension.
 
     This is used to apply a C1-correction to a tensor-product finite element
     space built on a mapping with a polar singularity.
 
     Parameters
     ----------
-    cart : spl.ddm.Cart
+    cart : spl.ddm.CartDecomposition
         MPI decomposition of a logical grid with Cartesian topology.
 
     radial_dim : int
@@ -26,7 +27,7 @@ class C1_Cart( Cart ):
     """
     def __init__( self, cart, radial_dim=0 ):
 
-        assert isinstance( cart, Cart )
+        assert isinstance( cart, CartDecomposition )
         assert isinstance( radial_dim, int )
         assert 0 <= radial_dim < cart.ndim
         assert cart.ndim >= 2

@@ -149,14 +149,16 @@ def test_stencil_vector_2d_serial_dot( n1, n2, p1, p2, P1=True, P2=False ):
 def test_stencil_vector_2d_parallel_init( n1, n2, p1, p2, P1=True, P2=False ):
 
     from mpi4py       import MPI
-    from spl.ddm.cart import Cart
+    from spl.ddm.cart import CartDecomposition
 
     comm = MPI.COMM_WORLD
-    cart = Cart( npts    = [n1,n2],
-                 pads    = [p1,p2],
-                 periods = [P1,P2],
-                 reorder = False,
-                 comm    = comm )
+    cart = CartDecomposition(
+        npts    = [n1,n2],
+        pads    = [p1,p2],
+        periods = [P1,P2],
+        reorder = False,
+        comm    = comm
+    )
 
     V = StencilVectorSpace( cart )
     x = StencilVector( V )
@@ -178,17 +180,19 @@ def test_stencil_vector_2d_parallel_init( n1, n2, p1, p2, P1=True, P2=False ):
 def test_stencil_vector_2d_parallel_toarray( n1, n2, p1, p2, P1, P2 ):
 
     from mpi4py       import MPI
-    from spl.ddm.cart import Cart
+    from spl.ddm.cart import CartDecomposition
 
     # Values in 2D grid (global indexing)
     f = lambda i1,i2 : 100*i1+i2
 
     comm = MPI.COMM_WORLD
-    cart = Cart( npts    = [n1,n2],
-                 pads    = [p1,p2],
-                 periods = [P1,P2],
-                 reorder = False,
-                 comm    = comm )
+    cart = CartDecomposition(
+        npts    = [n1,n2],
+        pads    = [p1,p2],
+        periods = [P1,P2],
+        reorder = False,
+        comm    = comm
+    )
 
     V = StencilVectorSpace( cart )
     x = StencilVector( V )
@@ -239,14 +243,16 @@ def test_stencil_vector_2d_parallel_toarray( n1, n2, p1, p2, P1, P2 ):
 def test_stencil_vector_2d_parallel_dot( n1, n2, p1, p2, P1, P2 ):
 
     from mpi4py       import MPI
-    from spl.ddm.cart import Cart
+    from spl.ddm.cart import CartDecomposition
 
     comm = MPI.COMM_WORLD
-    cart = Cart( npts    = [n1,n2],
-                 pads    = [p1,p2],
-                 periods = [P1,P2],
-                 reorder = False,
-                 comm    = comm )
+    cart = CartDecomposition(
+        npts    = [n1,n2],
+        pads    = [p1,p2],
+        periods = [P1,P2],
+        reorder = False,
+        comm    = comm
+    )
 
     V = StencilVectorSpace( cart )
     x = StencilVector( V )

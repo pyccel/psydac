@@ -6,8 +6,8 @@ import numpy as np
 from scipy.sparse import coo_matrix
 from mpi4py import MPI
 
-from spl.linalg.basic import VectorSpace, Vector, LinearOperator
-from spl.ddm.cart     import Cart
+from spl.linalg.basic import VectorSpace, Vector, Matrix
+from spl.ddm.cart     import find_mpi_type, CartDecomposition, CartDataExchanger
 
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix']
 
@@ -35,8 +35,8 @@ class StencilVectorSpace( VectorSpace ):
     dtype : type
         Type of scalar entries.
 
-    cart : spl.ddm.cart.Cart
-        MPI Cartesian topology.
+    cart : spl.ddm.cart.CartDecomposition
+        Tensor-product grid decomposition according to MPI Cartesian topology.
 
     """
     def __init__( self, *args, **kwargs ):
@@ -66,7 +66,7 @@ class StencilVectorSpace( VectorSpace ):
     # ...
     def _init_parallel( self, cart, dtype=float ):
 
-        assert isinstance( cart, Cart )
+        assert isinstance( cart, CartDecomposition )
         self._parallel = True
 
         # Sequential attributes
@@ -81,13 +81,9 @@ class StencilVectorSpace( VectorSpace ):
         self._npts   = cart.npts
 
         # Parallel attributes
-        mpi_type = self._find_mpi_type( dtype )
-        send_types, recv_types = self._create_buffer_types( cart, mpi_type )
-
-        self._cart       = cart
-        self._mpi_type   = mpi_type
-        self._send_types = send_types
-        self._recv_types = recv_types
+        self._cart         = cart
+        self._mpi_type     = find_mpi_type( dtype )
+        self._synchronizer = CartDataExchanger( cart, dtype )
 
     #--------------------------------------
     # Abstract interface
@@ -158,54 +154,6 @@ class StencilVectorSpace( VectorSpace ):
     @property
     def ndim( self ):
         return self._ndim
-
-    #---------------------------------------------------------------------------
-    # PARALLEL FACILITIES
-    #---------------------------------------------------------------------------
-    @staticmethod
-    def _find_mpi_type( dtype ):
-        nt = np.dtype( dtype )
-        mpi_type = MPI._typedict[nt.char]
-        return mpi_type
-
-    # ...
-    @staticmethod
-    def _create_buffer_types( cart, mpi_type ):
-        """ Create MPI subarray datatypes for accessing non-contiguous data.
-        """
-        data_shape = cart.shape
-        send_types = {}
-        recv_types = {}
-
-        for direction in range( len(data_shape) ):
-            for disp in [-1, 1]:
-                info = cart.get_shift_info( direction, disp )
-
-                buf_shape   = info[ 'buf_shape' ]
-                send_starts = info['send_starts']
-                recv_starts = info['recv_starts']
-
-                send_types[direction,disp] = mpi_type.Create_subarray(
-                    sizes    = data_shape ,
-                    subsizes =  buf_shape ,
-                    starts   = send_starts,
-                ).Commit()
-
-                recv_types[direction,disp] = mpi_type.Create_subarray(
-                    sizes    = data_shape ,
-                    subsizes =  buf_shape ,
-                    starts   = recv_starts,
-                ).Commit()
-
-        return send_types, recv_types
-
-    # ...
-    def get_send_type( self, direction, disp ):
-        return self._send_types[direction,disp] if self._parallel else None
-
-    # ...
-    def get_recv_type( self, direction, disp ):
-        return self._recv_types[direction,disp] if self._parallel else None
 
 #===============================================================================
 class StencilVector( Vector ):
@@ -465,29 +413,23 @@ class StencilVector( Vector ):
             Single direction along which to operate (if not specified, all of them).
 
         """
-        ndim     = self._space.ndim
-        parallel = self._space.parallel
-
-        if parallel:
+        if self.space.parallel:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
-           update_ghost_regions = self._update_ghost_regions_parallel
+            self.space._synchronizer.update_ghost_regions( self._data, direction=direction )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
-            update_ghost_regions = self._update_ghost_regions_serial
-
-        if direction is not None:
-            assert isinstance( direction, int )
-            assert 0 <= direction < ndim
-            update_ghost_regions( direction )
-        else:
-            for direction in range(ndim):
-                update_ghost_regions( direction )
+            self._update_ghost_regions_serial( direction )
 
         # Flag ghost regions as up-to-date
         self._sync = True
 
     # ...
-    def _update_ghost_regions_serial( self, direction: int ):
+    def _update_ghost_regions_serial( self, direction=None ):
+
+        if direction is None:
+            for d in range( self._space.ndim ):
+                self._update_ghost_regions_serial( d )
+            return
 
         ndim     = self._space.ndim
         periodic = self._space.periods[direction]
@@ -518,42 +460,6 @@ class StencilVector( Vector ):
             idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
             self._data[idx_ghost] = 0
 
-    # ...
-    def _update_ghost_regions_parallel( self, direction: int ):
-
-        u         = self._data
-        space     = self._space
-        cart      = space.cart
-        comm_cart = cart.comm_cart
-
-        # Choose non-negative invertible function tag(disp) >= 0
-        # NOTES:
-        #   . different values of disp must return different tags!
-        #   . tag at receiver must match message tag at sender
-        tag = lambda disp: 42+disp
-
-        # Requests' handles
-        requests = []
-
-        # Start receiving data (MPI_IRECV)
-        for disp in [-1,1]:
-            info     = cart.get_shift_info( direction, disp )
-            recv_typ = space.get_recv_type( direction, disp )
-            recv_buf = (u, 1, recv_typ)
-            recv_req = comm_cart.Irecv( recv_buf, info['rank_source'], tag(disp) )
-            requests.append( recv_req )
-
-        # Start sending data (MPI_ISEND)
-        for disp in [-1,1]:
-            info     = cart.get_shift_info( direction, disp )
-            send_typ = space.get_send_type( direction, disp )
-            send_buf = (u, 1, send_typ)
-            send_req = comm_cart.Isend( send_buf, info['rank_dest'], tag(disp) )
-            requests.append( send_req )
-
-        # Wait for end of data exchange (MPI_WAITALL)
-        MPI.Request.Waitall( requests )
-
     #--------------------------------------
     # Private methods
     #--------------------------------------
@@ -575,7 +481,7 @@ class StencilVector( Vector ):
         return tuple(index)
 
 #===============================================================================
-class StencilMatrix( LinearOperator ):
+class StencilMatrix( Matrix ):
     """
     Matrix in n-dimensional stencil format.
 
@@ -599,13 +505,23 @@ class StencilMatrix( LinearOperator ):
         assert isinstance( W, StencilVectorSpace )
         assert V is W
 
-        dims        = [e-s+1 for s,e in zip(V.starts, V.ends)]
+        dims        = [e-s+2*p+1 for s,e,p in zip(V.starts, V.ends, V.pads)]
         diags       = [2*p+1 for p in V.pads]
         self._data  = np.zeros( dims+diags, dtype=V.dtype )
         self._space = V
-
-        self._dims  = dims
         self._ndim  = len( dims )
+
+        # Parallel attributes
+        if V.parallel:
+            # Create data exchanger for ghost regions
+            self._synchronizer = CartDataExchanger(
+                cart        = V.cart,
+                dtype       = V.dtype,
+                coeff_shape = diags
+            )
+
+        # Flag ghost regions as not up-to-date (conservative choice)
+        self._sync = False
 
     #--------------------------------------
     # Abstract interface
@@ -622,9 +538,6 @@ class StencilMatrix( LinearOperator ):
     # ...
     def dot( self, v, out=None ):
 
-        ndindex = np.ndindex
-        dot     = np.dot
-
         assert isinstance( v, StencilVector )
         assert v.space is self.domain
 
@@ -638,11 +551,20 @@ class StencilMatrix( LinearOperator ):
         else:
             out = StencilVector( self.codomain )
 
+        # Shortcuts
         ss = self.starts
+        ee = self.ends
         pp = self.pads
+
+        dot = np.dot
+
+        # Index for k=i-j
         kk = [slice(None)] * self._ndim
 
-        for xx in ndindex( *self._dims ):
+        # Number of rows in matrix (along each dimension)
+        nrows = [e-s+1 for s,e in zip(ss,ee)]
+
+        for xx in np.ndindex( *nrows ):
 
             ii    = tuple( s+x for s,x in zip(ss,xx) )
             jj    = tuple( slice(i-p,i+p+1) for i,p in zip(ii,pp) )
@@ -654,6 +576,26 @@ class StencilMatrix( LinearOperator ):
         out.ghost_regions_in_sync = False
 
         return out
+
+    # ...
+    def toarray( self, *, with_pads=False ):
+
+        if self.codomain.parallel and with_pads:
+            coo = self._tocoo_parallel_with_pads()
+        else:
+            coo = self._tocoo_no_pads()
+
+        return coo.toarray()
+
+    # ...
+    def tosparse( self, *, with_pads=False ):
+
+        if self.codomain.parallel and with_pads:
+            coo = self._tocoo_parallel_with_pads()
+        else:
+            coo = self._tocoo_no_pads()
+
+        return coo
 
     #--------------------------------------
     # Other properties/methods
@@ -682,55 +624,6 @@ class StencilMatrix( LinearOperator ):
         index = self._getindex( key )
         self._data[index] = value
 
-    #...
-    def tocoo( self ):
-
-        # Shortcuts
-        nn = self._space.npts
-        nd = self._ndim
-
-        ss = self.starts
-        pp = self.pads
-
-        # COO storage
-        rows = []
-        cols = []
-        data = []
-
-        for (index,value) in np.ndenumerate( self._data ):
-
-            # index = [i1-s1, i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
-
-            xx = index[:nd]  # x=i-s
-            ll = index[nd:]  # l=p+k
-
-            ii = [s+x for s,x in zip(ss,xx)]
-            jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
-
-            I = np.ravel_multi_index( ii, dims=nn, order='C' )
-            J = np.ravel_multi_index( jj, dims=nn, order='C' )
-
-            rows.append( I )
-            cols.append( J )
-            data.append( value )
-
-        M = coo_matrix(
-                (data,(rows,cols)),
-                shape = [np.prod(nn)]*2,
-                dtype = self._space.dtype
-        )
-
-        M.eliminate_zeros()
-
-        return M
-
-    #...
-    def tocsr( self ):
-        return self.tocoo().tocsr()
-
-    #...
-    def toarray( self ):
-        return self.tocoo().toarray()
 
     #...
     def max( self ):
@@ -781,6 +674,31 @@ class StencilMatrix( LinearOperator ):
                                    idx_front + [slice(n-i,p+1)] + idx_back )
                     self[index] = 0
 
+    # ...
+    def update_ghost_regions( self, *, direction=None ):
+        """
+        Update ghost regions before performing non-local access to matrix
+        elements (e.g. in matrix transposition).
+
+        Parameters
+        ----------
+        direction : int
+            Single direction along which to operate (if not specified, all of them).
+
+        """
+        ndim     = self._space.ndim
+        parallel = self._space.parallel
+
+        if self._space.parallel:
+            # PARALLEL CASE: fill in ghost regions with data from neighbors
+            self._synchronizer.update_ghost_regions( self._data, direction=direction )
+        else:
+            # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
+            self._update_ghost_regions_serial( direction )
+
+        # Flag ghost regions as up-to-date
+        self._sync = True
+
     #--------------------------------------
     # Private methods
     #--------------------------------------
@@ -792,12 +710,12 @@ class StencilMatrix( LinearOperator ):
 
         index = []
 
-        for i,s in zip( ii, self.starts ):
-            x = self._shift_index( i,-s )
+        for i,s,p in zip( ii, self.starts, self.pads ):
+            x = self._shift_index( i, p-s )
             index.append( x )
 
         for k,p in zip( kk, self.pads ):
-            l = self._shift_index( k,p )
+            l = self._shift_index( k, p )
             index.append( l )
 
         return tuple(index)
@@ -812,5 +730,159 @@ class StencilMatrix( LinearOperator ):
         else:
             return index + shift
 
+    #...
+    def _tocoo_no_pads( self ):
+
+        # Shortcuts
+        nn = self._space.npts
+        nd = self._ndim
+
+        ss = self.starts
+        pp = self.pads
+
+        ravel_multi_index = np.ravel_multi_index
+
+        # COO storage
+        rows = []
+        cols = []
+        data = []
+
+        # Range of data owned by local process (no ghost regions)
+        local = tuple( [slice(p,-p) for p in pp] + [slice(None)] * nd )
+
+        for (index,value) in np.ndenumerate( self._data[local] ):
+
+            # index = [i1-s1, i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
+
+            xx = index[:nd]  # x=i-s
+            ll = index[nd:]  # l=p+k
+
+            ii = [s+x for s,x in zip(ss,xx)]
+            jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
+
+            I = ravel_multi_index( ii, dims=nn, order='C' )
+            J = ravel_multi_index( jj, dims=nn, order='C' )
+
+            rows.append( I )
+            cols.append( J )
+            data.append( value )
+
+        M = coo_matrix(
+                (data,(rows,cols)),
+                shape = [np.prod(nn)]*2,
+                dtype = self._space.dtype
+        )
+
+        M.eliminate_zeros()
+
+        return M
+
+    #...
+    def _tocoo_parallel_with_pads( self ):
+
+        # Shortcuts
+        nn = self._space.npts
+        nd = self._ndim
+
+        ss = self.starts
+        ee = self.ends
+        pp = self.pads
+        cc = self._space.periods
+
+        ravel_multi_index = np.ravel_multi_index
+
+        # COO storage
+        rows = []
+        cols = []
+        data = []
+
+        for (index,value) in np.ndenumerate( self._data ):
+
+            # index = [p1+i1-s1, p2+i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
+
+            xx = index[:nd]  # x=p+i-s
+            ll = index[nd:]  # l=p+k
+
+            # Compute row multi-index with simple shift
+            ii = [s + x - p for (s, x, p) in zip(ss, xx, pp)]
+
+            # Apply periodicity where appropriate
+            ii = [i - n if (c and i >= n and i - n < s) else
+                  i + n if (c and i <  0 and i + n > e) else i
+                  for (i, s, e, n, c) in zip(ii, ss, ee, nn, cc)]
+
+            # Exclude values outside global limits of matrix
+            if not all(0 <= i < n for i, n in zip(ii, nn)):
+                continue
+
+            # Compute column multi-index
+            jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
+
+            I = ravel_multi_index( ii, dims=nn, order='C' )
+            J = ravel_multi_index( jj, dims=nn, order='C' )
+
+            rows.append( I )
+            cols.append( J )
+            data.append( value )
+
+        M = coo_matrix(
+                (data,(rows,cols)),
+                shape = [np.prod(nn)]*2,
+                dtype = self._space.dtype
+        )
+
+        M.eliminate_zeros()
+
+        return M
+
+    # ...
+    @property
+    def ghost_regions_in_sync( self ):
+        return self._sync
+
+    # ...
+    # NOTE: this property must be set collectively
+    @ghost_regions_in_sync.setter
+    def ghost_regions_in_sync( self, value ):
+        assert isinstance( value, bool )
+        self._sync = value
+
+    # ...
+    def _update_ghost_regions_serial( self, direction: int ):
+
+        if direction is None:
+            for d in range( self._space.ndim ):
+                self._update_ghost_regions_serial( d )
+            return
+
+        ndim     = self._space.ndim
+        periodic = self._space.periods[direction]
+        p        = self._space.pads   [direction]
+
+        idx_front = [slice(None)]*direction
+        idx_back  = [slice(None)]*(ndim-direction-1 + ndim)
+
+        if periodic:
+
+            # Copy data from left to right
+            idx_from = tuple( idx_front + [slice( p, 2*p)] + idx_back )
+            idx_to   = tuple( idx_front + [slice(-p,None)] + idx_back )
+            self._data[idx_to] = self._data[idx_from]
+
+            # Copy data from right to left
+            idx_from = tuple( idx_front + [slice(-2*p,-p)] + idx_back )
+            idx_to   = tuple( idx_front + [slice(None, p)] + idx_back )
+            self._data[idx_to] = self._data[idx_from]
+
+        else:
+
+            # Set left ghost region to zero
+            idx_ghost = tuple( idx_front + [slice(None, p)] + idx_back )
+            self._data[idx_ghost] = 0
+
+            # Set right ghost region to zero
+            idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
+            self._data[idx_ghost] = 0
+
 #===============================================================================
-del VectorSpace, Vector, LinearOperator
+del VectorSpace, Vector, Matrix

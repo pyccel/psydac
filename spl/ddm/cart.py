@@ -1,12 +1,66 @@
+# coding: utf-8
+
 import numpy as np
 from itertools import product
 from mpi4py    import MPI
 
 from spl.ddm.partition import mpi_compute_dims
 
-#===============================================================================
-class Cart():
+__all__ = ['find_mpi_type', 'CartDecomposition', 'CartDataExchanger']
 
+#===============================================================================
+def find_mpi_type( dtype ):
+    """
+    Find correct MPI datatype that corresponds to user-provided datatype.
+
+    Parameters
+    ----------
+    dtype : [type | str | numpy.dtype | mpi4py.MPI.Datatype]
+        Datatype for which the corresponding MPI datatype is requested.
+
+    Returns
+    -------
+    mpi_type : mpi4py.MPI.Datatype
+        MPI datatype to be used for communication.
+
+    """
+    if isinstance( dtype, MPI.Datatype ):
+        mpi_type = dtype
+    else:
+        nt = np.dtype( dtype )
+        mpi_type = MPI._typedict[nt.char]
+
+    return mpi_type
+
+#===============================================================================
+class CartDecomposition():
+    """
+    Cartesian decomposition of a tensor-product grid of coefficients.
+    This is built on top of an MPI communicator with multi-dimensional
+    Cartesian topology.
+
+    Parameters
+    ----------
+    npts : list or tuple of int
+        Number of coefficients in the global grid along each dimension.
+
+    pads : list or tuple of int
+        Padding along each grid dimension.
+        In 1D, this is the number of extra coefficients added at each boundary
+        of the local domain to permit non-local operations with compact support;
+        this concept extends to multiple dimensions through a tensor product.
+
+    periods : list or tuple of bool
+        Periodicity (True|False) along each grid dimension.
+
+    reorder : bool
+        Whether individual ranks can be changed in the new Cartesian communicator.
+
+    comm : mpi4py.MPI.Comm
+        MPI communicator that will be used to spawn a new Cartesian communicator
+        (optional: default is MPI_COMM_WORLD).
+
+    """
     def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD ):
 
         # Check input arguments
@@ -216,3 +270,183 @@ class Cart():
 
         # Destroy Cartesian communicator
         self._comm_cart.Free()
+
+#===============================================================================
+class CartDataExchanger:
+    """
+    Type that takes care of updating the ghost regions (padding) of a
+    multi-dimensional array distributed according to the given Cartesian
+    decomposition of a tensor-product grid of coefficients.
+
+    Each coefficient in the decomposed grid may have multiple components,
+    contiguous in memory.
+
+    Parameters
+    ----------
+    cart : spl.ddm.CartDecomposition
+        Object that contains all information about the Cartesian decomposition
+        of a tensor-product grid of coefficients.
+
+    dtype : [type | str | numpy.dtype | mpi4py.MPI.Datatype]
+        Datatype of single coefficient (if scalar) or of each of its
+        components (if vector).
+
+    coeff_shape : [tuple(int) | list(int)]
+        Shape of a single coefficient, if this is multi-dimensional
+        (optional: by default, we assume scalar coefficients).
+
+    """
+    def __init__( self, cart, dtype, *, coeff_shape=() ):
+
+        self._send_types, self._recv_types = self._create_buffer_types(
+                cart, dtype, coeff_shape=coeff_shape )
+
+        self._cart = cart
+        self._comm = cart.comm_cart
+
+    #---------------------------------------------------------------------------
+    # Public interface
+    #---------------------------------------------------------------------------
+    def get_send_type( self, direction, disp ):
+        return self._send_types[direction, disp]
+
+    # ...
+    def get_recv_type( self, direction, disp ):
+        return self._recv_types[direction, disp]
+
+    # ...
+    def update_ghost_regions( self, array, *, direction=None ):
+        """
+        Update ghost regions in a numpy array with dimensions compatible with
+        CartDecomposition (and coeff_shape) provided at initialization.
+
+        Parameters
+        ----------
+        array : numpy.ndarray
+            Multidimensional array corresponding to local subdomain in
+            decomposed tensor grid, including padding.
+
+        direction : int
+            Index of dimension over which ghost regions should be updated
+            (optional: by default all ghost regions are updated).
+
+        """
+        if direction is None:
+            for d in range( self._cart.ndim ):
+                self.update_ghost_regions( array, direction=d )
+            return
+
+        assert isinstance( array, np.ndarray )
+        assert isinstance( direction, int )
+
+        # Shortcuts
+        cart = self._cart
+        comm = self._comm
+
+        # Choose non-negative invertible function tag(disp) >= 0
+        # NOTES:
+        #   . different values of disp must return different tags!
+        #   . tag at receiver must match message tag at sender
+        tag = lambda disp: 42+disp
+
+        # Requests' handles
+        requests = []
+
+        # Start receiving data (MPI_IRECV)
+        for disp in [-1,1]:
+            info     = cart.get_shift_info( direction, disp )
+            recv_typ = self.get_recv_type ( direction, disp )
+            recv_buf = (array, 1, recv_typ)
+            recv_req = comm.Irecv( recv_buf, info['rank_source'], tag(disp) )
+            requests.append( recv_req )
+
+        # Start sending data (MPI_ISEND)
+        for disp in [-1,1]:
+            info     = cart.get_shift_info( direction, disp )
+            send_typ = self.get_send_type ( direction, disp )
+            send_buf = (array, 1, send_typ)
+            send_req = comm.Isend( send_buf, info['rank_dest'], tag(disp) )
+            requests.append( send_req )
+
+        # Wait for end of data exchange (MPI_WAITALL)
+        MPI.Request.Waitall( requests )
+
+        comm.Barrier()
+
+    #---------------------------------------------------------------------------
+    # Private methods
+    #---------------------------------------------------------------------------
+    @staticmethod
+    def _create_buffer_types( cart, dtype, *, coeff_shape=() ):
+        """
+        Create MPI subarray datatypes for updating the ghost regions (padding)
+        of a multi-dimensional array distributed according to the given Cartesian
+        decomposition of a tensor-product grid of coefficients.
+
+        MPI requires a subarray datatype for accessing non-contiguous slices of
+        a multi-dimensional array; this is a typical situation when updating the
+        ghost regions.
+
+        Each coefficient in the decomposed grid may have multiple components,
+        contiguous in memory.
+
+        Parameters
+        ----------
+        cart : spl.ddm.CartDecomposition
+            Object that contains all information about the Cartesian decomposition
+            of a tensor-product grid of coefficients.
+
+        dtype : [type | str | numpy.dtype | mpi4py.MPI.Datatype]
+            Datatype of single coefficient (if scalar) or of each of its
+            components (if vector).
+
+        coeff_shape : [tuple(int) | list(int)]
+            Shape of a single coefficient, if this is multidimensional
+            (optional: by default, we assume scalar coefficients).
+
+        Returns
+        -------
+        send_types : dict
+            Dictionary of MPI subarray datatypes for SEND BUFFERS, accessed
+            through the integer pair (direction, displacement) as key;
+            'direction' takes values from 0 to ndim, 'disp' is -1 or +1.
+
+        recv_types : dict
+            Dictionary of MPI subarray datatypes for RECEIVE BUFFERS, accessed
+            through the integer pair (direction, displacement) as key;
+            'direction' takes values from 0 to ndim, 'disp' is -1 or +1.
+
+        """
+        assert isinstance( cart, CartDecomposition )
+
+        mpi_type = find_mpi_type( dtype )
+
+        # Possibly, each coefficient could have multiple components
+        coeff_shape = list( coeff_shape )
+        coeff_start = [0] * len( coeff_shape )
+
+        data_shape = list( cart.shape ) + coeff_shape
+        send_types = {}
+        recv_types = {}
+
+        for direction in range( cart.ndim ):
+            for disp in [-1, 1]:
+                info = cart.get_shift_info( direction, disp )
+
+                buf_shape   = list( info[ 'buf_shape' ] ) + coeff_shape
+                send_starts = list( info['send_starts'] ) + coeff_start
+                recv_starts = list( info['recv_starts'] ) + coeff_start
+
+                send_types[direction,disp] = mpi_type.Create_subarray(
+                    sizes    = data_shape ,
+                    subsizes =  buf_shape ,
+                    starts   = send_starts,
+                ).Commit()
+
+                recv_types[direction,disp] = mpi_type.Create_subarray(
+                    sizes    = data_shape ,
+                    subsizes =  buf_shape ,
+                    starts   = recv_starts,
+                ).Commit()
+
+        return send_types, recv_types

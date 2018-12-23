@@ -5,7 +5,7 @@
 from abc   import ABCMeta, abstractmethod
 from numpy import ndarray
 
-__all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'LinearSolver']
+__all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'LinearSolver', 'Matrix']
 
 #===============================================================================
 class VectorSpace( metaclass=ABCMeta ):
@@ -93,7 +93,8 @@ Vector.register( ndarray )
 #===============================================================================
 class LinearOperator( metaclass=ABCMeta ):
     """
-    Linear operator acting on a (normed) vector space V.
+    Linear operator acting between two (normed) vector spaces V (domain)
+    and W (codomain).
 
     """
     @property
@@ -118,6 +119,23 @@ class LinearOperator( metaclass=ABCMeta ):
         pass
 
 LinearOperator.register( ndarray )
+
+#===============================================================================
+class Matrix( LinearOperator ):
+    """
+    Linear operator whose coefficients can be viewed as a 2D matrix.
+
+    """
+    #-------------------------------------
+    # Deferred methods
+    #-------------------------------------
+    @abstractmethod
+    def toarray( self ):
+        """ Convert to Numpy 2D array. """
+
+    @abstractmethod
+    def tosparse( self ):
+        """ Convert to any Scipy sparse matrix format. """
 
 #===============================================================================
 class LinearSolver( metaclass=ABCMeta ):

@@ -383,11 +383,12 @@ def assemble_matrices( V, mapping, kernel ):
     [n1, n2] = V.vector_space.npts
 
     # Quadrature data
-    [      nq1,       nq2] = [W.quad_order   for W in V.spaces]
-    [  spans_1,   spans_2] = [W.spans        for W in V.spaces]
-    [  basis_1,   basis_2] = [W.quad_basis   for W in V.spaces]
-    [ points_1,  points_2] = [W.quad_points  for W in V.spaces]
-    [weights_1, weights_2] = [W.quad_weights for W in V.spaces]
+    [      nk1,       nk2] = [g.num_elements for g in V.quad_grids]
+    [      nq1,       nq2] = [g.num_quad_pts for g in V.quad_grids]
+    [  spans_1,   spans_2] = [g.spans        for g in V.quad_grids]
+    [  basis_1,   basis_2] = [g.basis        for g in V.quad_grids]
+    [ points_1,  points_2] = [g.points       for g in V.quad_grids]
+    [weights_1, weights_2] = [g.weights      for g in V.quad_grids]
 
     # Create global matrices
     mass      = StencilMatrix( V.vector_space, V.vector_space )
@@ -397,12 +398,9 @@ def assemble_matrices( V, mapping, kernel ):
     mat_m = np.zeros( (p1+1, p2+1, 2*p1+1, 2*p2+1) ) # mass
     mat_s = np.zeros( (p1+1, p2+1, 2*p1+1, 2*p2+1) ) # stiffness
 
-    # Element range
-    support1, support2 = V.local_support
-
     # Build global matrices: cycle over elements
-    for k1 in support1:
-        for k2 in support2:
+    for k1 in range( nk1 ):
+        for k2 in range( nk2 ):
 
             # Get spline index, B-splines' values and quadrature weights
             is1 =   spans_1[k1]
@@ -425,18 +423,8 @@ def assemble_matrices( V, mapping, kernel ):
             kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s )
 
             # Update global matrices
-            for il1 in range( p1+1 ):
-                for il2 in range( p2+1 ):
-
-                    # Global index of test basis
-                    i1 = (is1-p1+il1) % n1
-                    i2 = (is2-p2+il2) % n2
-
-                    # If basis belongs to process,
-                    # update one row of the global matrices
-                    if s1 <= i1 <= e1 and s2 <= i2 <= e2:
-                        mass     [i1,i2,:,:] += mat_m[il1,il2,:,:]
-                        stiffness[i1,i2,:,:] += mat_s[il1,il2,:,:]
+            mass     [is1-p1:is1+1, is2-p2:is2+1, :, :] += mat_m[:, :, :, :]
+            stiffness[is1-p1:is1+1, is2-p2:is2+1, :, :] += mat_s[:, :, :, :]
 
     # Make sure that periodic corners are zero in non-periodic case
     mass     .remove_spurious_entries()
@@ -473,21 +461,19 @@ def assemble_rhs( V, mapping, f ):
     [n1, n2] = V.vector_space.npts
 
     # Quadrature data
-    [      nq1,       nq2] = [W.quad_order   for W in V.spaces]
-    [  spans_1,   spans_2] = [W.spans        for W in V.spaces]
-    [  basis_1,   basis_2] = [W.quad_basis   for W in V.spaces]
-    [ points_1,  points_2] = [W.quad_points  for W in V.spaces]
-    [weights_1, weights_2] = [W.quad_weights for W in V.spaces]
+    [      nk1,       nk2] = [g.num_elements for g in V.quad_grids]
+    [      nq1,       nq2] = [g.num_quad_pts for g in V.quad_grids]
+    [  spans_1,   spans_2] = [g.spans        for g in V.quad_grids]
+    [  basis_1,   basis_2] = [g.basis        for g in V.quad_grids]
+    [ points_1,  points_2] = [g.points       for g in V.quad_grids]
+    [weights_1, weights_2] = [g.weights      for g in V.quad_grids]
 
     # Data structure
     rhs = StencilVector( V.vector_space )
 
-    # Element range
-    support1, support2 = V.local_support
-
     # Build RHS
-    for k1 in support1:
-        for k2 in support2:
+    for k1 in range( nk1 ):
+        for k2 in range( nk2 ):
 
             # Get spline index, B-splines' values and quadrature weights
             is1 =   spans_1[k1]
@@ -521,13 +507,11 @@ def assemble_rhs( V, mapping, f ):
                             v   += bi_0 * f_quad[q1,q2] * wvol
 
                     # Global index of test basis
-                    i1 = (is1-p1+il1) % n1
-                    i2 = (is2-p2+il2) % n2
+                    i1 = is1 - p1 + il1
+                    i2 = is2 - p2 + il2
 
-                    # If basis belongs to process,
-                    # update one element of the rhs vector
-                    if s1<=i1<=e1 and s2<=i2<=e2:
-                        rhs[i1, i2] += v
+                    # Update one element of the rhs vector
+                    rhs[i1, i2] += v
 
     # IMPORTANT: ghost regions must be up-to-date
     rhs.update_ghost_regions()
@@ -588,12 +572,13 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visua
     grid_1 = np.linspace( *model.domain[0], num=ne1+1 )
     grid_2 = np.linspace( *model.domain[1], num=ne2+1 )
 
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1, periodic=per1 ); V1.init_fem()
-    V2 = SplineSpace( p2, grid=grid_2, periodic=per2 ); V2.init_fem()
+    # Create 1D finite element spaces
+    V1 = SplineSpace( p1, grid=grid_1, periodic=per1 )
+    V2 = SplineSpace( p2, grid=grid_2, periodic=per2 )
 
     # Create 2D tensor product finite element space
     V = TensorFemSpace( V1, V2, comm=mpi_comm )
+
     s1, s2 = V.vector_space.starts
     e1, e2 = V.vector_space.ends
 
@@ -631,10 +616,6 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visua
 
     mpi_comm.Barrier()
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-    # DEBUG
-    support1, support2 = V.local_support
-    lims1, lims2 = V.eta_lims
 
     # Analytical and spline mappings
     map_analytic = model.mapping

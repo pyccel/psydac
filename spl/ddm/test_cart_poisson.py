@@ -3,7 +3,7 @@ import h5py
 from mpi4py    import MPI
 from itertools import product
 
-from spl.ddm.cart import Cart
+from spl.ddm.cart import CartDecomposition
 
 #===============================================================================
 # INPUT PARAMETERS
@@ -114,7 +114,7 @@ comm = MPI.COMM_WORLD
 
 # New distributed 2D Cartesian mesh
 # (built around MPI communicator with 2D Cartesian topology)
-mesh = Cart( npts, pads, periods, reorder, comm )
+mesh = CartDecomposition( npts, pads, periods, reorder, comm )
 
 # Local mesh information
 s1,s2 = mesh.starts

@@ -149,9 +149,6 @@ def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
             err[i1,i2] = ug[i1,i2] - tensor_field( x1g[i1], x2g[i2] )
     interp_error = abs( err[:,:] ).max()
 
-    # Prepare FEM usage of splines (quadrature, etc.)
-    for space in tensor_space.spaces: space.init_fem()
-
     # Compute L2 norm of error
     integrand = lambda x1,x2: (f(x1,x2)-tensor_field(x1,x2))**2
     l2_error  = np.sqrt( tensor_space.integral( integrand ) )

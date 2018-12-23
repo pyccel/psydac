@@ -6,14 +6,14 @@ import numpy as np
 from itertools    import repeat
 from scipy.sparse import coo_matrix
 
-from spl.linalg.basic   import VectorSpace, Vector, LinearOperator
+from spl.linalg.basic   import VectorSpace, Vector, Matrix
 from spl.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from spl.polar .dense   import DenseVectorSpace, DenseVector, DenseLinearOperator
+from spl.polar .dense   import DenseVectorSpace, DenseVector, DenseMatrix
 
 __all__ = ['LinearOperator_StencilToDense', 'LinearOperator_DenseToStencil']
 
 #==============================================================================
-class LinearOperator_StencilToDense( LinearOperator ):
+class LinearOperator_StencilToDense( Matrix ):
 
     def __init__( self, V, W, data ):
 
@@ -81,6 +81,31 @@ class LinearOperator_StencilToDense( LinearOperator ):
     
         return out
 
+    # ...
+    def toarray( self ):
+
+        n0     = self.codomain.dimension
+
+        n1, n2 = self.domain.npts
+        p1, p2 = self.domain.pads
+        s1, s2 = self.domain.starts
+        e1, e2 = self.domain.ends
+
+        a  = np.zeros( (n0,n1*n2), dtype=self.codomain.dtype )
+        d  = self._data
+
+        for i in range( n0 ):
+            for j1 in range( p1 ):
+                j_start = j1*n2 + s2
+                j_stop  = j1*n2 + e2 + 1
+                a[i,j_start:j_stop] = d[i,j1,:]
+
+        return a
+
+    # ...
+    def tosparse( self ):
+        return self.tocoo()
+
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
@@ -109,29 +134,8 @@ class LinearOperator_StencilToDense( LinearOperator ):
 
         return coo
 
-    # ...
-    def toarray( self ):
-
-        n0     = self.codomain.dimension
-
-        n1, n2 = self.domain.npts
-        p1, p2 = self.domain.pads
-        s1, s2 = self.domain.starts
-        e1, e2 = self.domain.ends
-
-        a  = np.zeros( (n0,n1*n2), dtype=self.codomain.dtype )
-        d  = self._data
-
-        for i in range( n0 ):
-            for j1 in range( p1 ):
-                j_start = j1*n2 + s2
-                j_stop  = j1*n2 + e2 + 1
-                a[i,j_start:j_stop] = d[i,j1,:]
-
-        return a
-
 #==============================================================================
-class LinearOperator_DenseToStencil( LinearOperator ):
+class LinearOperator_DenseToStencil( Matrix ):
 
     def __init__( self, V, W, data ):
 
@@ -197,6 +201,30 @@ class LinearOperator_DenseToStencil( LinearOperator ):
 
         return out
 
+    # ...
+    def toarray( self ):
+
+        n0     = self.domain.dimension
+
+        n1, n2 = self.codomain.npts
+        p1, p2 = self.codomain.pads
+        s1, s2 = self.codomain.starts
+        e1, e2 = self.codomain.ends
+
+        a  = np.zeros( (n1*n2,n0), dtype=self.codomain.dtype )
+        d  = self._data
+
+        for i1 in range( p1 ):
+            for i2 in range( s2, e2+1 ):
+                i = i1*n2 + i2
+                a[i,:] = d[i1,i2,:]
+
+        return a
+
+    # ...
+    def tosparse( self ):
+        return self.tocoo()
+
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
@@ -225,22 +253,3 @@ class LinearOperator_DenseToStencil( LinearOperator ):
 
         return coo
 
-    # ...
-    def toarray( self ):
-
-        n0     = self.domain.dimension
-
-        n1, n2 = self.codomain.npts
-        p1, p2 = self.codomain.pads
-        s1, s2 = self.codomain.starts
-        e1, e2 = self.codomain.ends
-
-        a  = np.zeros( (n1*n2,n0), dtype=self.codomain.dtype )
-        d  = self._data
-
-        for i1 in range( p1 ):
-            for i2 in range( s2, e2+1 ):
-                i = i1*n2 + i2
-                a[i,:] = d[i1,i2,:]
-
-        return a
