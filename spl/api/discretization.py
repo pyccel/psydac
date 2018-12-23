@@ -549,6 +549,7 @@ class BasicDiscrete(object):
         return _kwargs
 
 
+#==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
 
     def __init__(self, expr, kernel_expr, *args, **kwargs):
@@ -643,6 +644,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 #        sys.path.remove(self.folder)
 #        return  interface_mw7je54z(*newargs, **kwargs)
 
+#==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
 
     def __init__(self, expr, kernel_expr, *args, **kwargs):
@@ -714,6 +716,7 @@ class DiscreteLinearForm(BasicDiscrete):
         return self.func(*newargs, **kwargs)
 
 
+#==============================================================================
 class DiscreteIntegral(BasicDiscrete):
 
     def __init__(self, expr, kernel_expr, *args, **kwargs):
@@ -806,6 +809,7 @@ class DiscreteIntegral(BasicDiscrete):
         return v
 
 
+#==============================================================================
 class DiscreteSumForm(BasicDiscrete):
 
     def __init__(self, a, kernel_expr, *args, **kwargs):
@@ -880,6 +884,7 @@ class DiscreteSumForm(BasicDiscrete):
 
         return M
 
+#==============================================================================
 class DiscreteEquation(BasicDiscrete):
 
     def __init__(self, expr, *args, **kwargs):
@@ -1005,6 +1010,8 @@ class DiscreteEquation(BasicDiscrete):
 
         return driver_solve(self.linear_system, **settings)
 
+#==============================================================================
+# TODO not used for the moment
 class Model(BasicDiscrete):
 
     def __init__(self, expr, *args, **kwargs):
@@ -1113,6 +1120,7 @@ class Model(BasicDiscrete):
             raise NotImplementedError('TODO')
 
 
+#==============================================================================
 # TODO multi patch
 # TODO bounds and knots
 # TODO MPI
@@ -1133,7 +1141,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         # TODO how to give a name to the mapping?
         symbolic_mapping = Mapping('M', domain_h.pdim)
 
-        if not( comm is None ):
+        if not( comm is None ) and domain_h.ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
 
     elif not( degree is None ):
@@ -1168,6 +1176,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     return Vh
 
+#==============================================================================
 def discretize_domain(domain, *args, **kwargs):
     filename = kwargs.pop('filename', None)
     ncells   = kwargs.pop('ncells',   None)
@@ -1197,6 +1206,7 @@ def discretize_domain(domain, *args, **kwargs):
     return geometry
 
 
+#==============================================================================
 def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BasicForm):

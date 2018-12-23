@@ -1,9 +1,7 @@
 # -*- coding: UTF-8 -*-
+# TODO compare the result with the sequential version
 
 from sympy import pi, cos, sin
-from sympy import S
-from sympy import Tuple
-from sympy import Matrix
 
 from sympde.core import Constant
 from sympde.core import grad, dot, inner, cross, rot, curl, div
@@ -14,41 +12,31 @@ from sympde.topology import Field, VectorField
 from sympde.topology import ProductSpace
 from sympde.topology import TestFunction
 from sympde.topology import VectorTestFunction
-from sympde.topology import Unknown
-from sympde.topology import InteriorDomain, Union
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
-from sympde.topology import Mapping
 from sympde.expr import BilinearForm, LinearForm, Integral
 from sympde.expr import Norm
 from sympde.expr import Equation, DirichletBC
 
 from spl.fem.basic   import FemField
-from spl.fem.vector  import ProductFemSpace, VectorFemField
 from spl.api.discretization import discretize
 
-from spl.mapping.discrete import SplineMapping
-
 from numpy import linspace, zeros, allclose
-
 from mpi4py import MPI
 import pytest
-import os
 
-base_dir = os.path.dirname(os.path.realpath(__file__))
-mesh_dir = os.path.join(base_dir, 'mesh')
 
 #==============================================================================
-def run_poisson_2d_dir(filename, solution, f, comm=MPI.COMM_WORLD):
+def run_poisson_3d_dir(solution, f, ncells, degree, comm=MPI.COMM_WORLD):
 
     # ... abstract model
-    domain = Domain.from_file(filename)
+    domain = Cube()
 
     V = FunctionSpace('V', domain)
 
-    x,y = domain.coordinates
+    x,y,z = domain.coordinates
 
     F = Field('F', V)
 
@@ -69,11 +57,11 @@ def run_poisson_2d_dir(filename, solution, f, comm=MPI.COMM_WORLD):
     # ...
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, filename=filename, comm=comm)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
     # ...
 
     # ... discrete spaces
-    Vh = discretize(V, domain_h)
+    Vh = discretize(V, domain_h, degree=degree)
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
@@ -91,7 +79,7 @@ def run_poisson_2d_dir(filename, solution, f, comm=MPI.COMM_WORLD):
 
     # ...
     phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
+    phi.coeffs[:,:,:] = x[:,:,:]
     # ...
 
     # ... compute norms
@@ -104,21 +92,22 @@ def run_poisson_2d_dir(filename, solution, f, comm=MPI.COMM_WORLD):
 
 #==============================================================================
 @pytest.mark.parallel
-def test_api_poisson_2d_dir_identity():
-    filename = os.path.join(mesh_dir, 'identity_2d.h5')
+def test_api_poisson_3d_dir_1():
 
-    from sympy.abc import x,y
+    from sympy.abc import x,y,z
 
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
+    solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f        = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
 
-    l2_error, h1_error = run_poisson_2d_dir(filename, solution, f)
+    l2_error, h1_error = run_poisson_3d_dir(solution, f,
+                                            ncells=[2**2,2**2,2**2], degree=[2,2,2])
 
-    expected_l2_error =  0.0006542603581211454
-    expected_h1_error =  0.03907071216108295
+    expected_l2_error =  0.00911724637108828
+    expected_h1_error =  0.2503999877078965
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
@@ -131,4 +120,3 @@ def teardown_module():
 def teardown_function():
     from sympy import cache
     cache.clear_cache()
-

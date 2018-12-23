@@ -90,7 +90,7 @@ def run_poisson_3d_dir(filename, solution, f):
 
     # ...
     phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
+    phi.coeffs[:,:,:] = x[:,:,:]
     # ...
 
     # ... compute norms
@@ -168,7 +168,7 @@ def run_poisson_3d_dirneu(filename, solution, f, boundary):
 
     # ...
     phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
+    phi.coeffs[:,:,:] = x[:,:,:]
     # ...
 
     # ... compute norms
@@ -237,7 +237,7 @@ def run_laplace_3d_neu(filename, solution, f):
 
     # ...
     phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
+    phi.coeffs[:,:,:] = x[:,:,:]
     # ...
 
     # ... compute norms

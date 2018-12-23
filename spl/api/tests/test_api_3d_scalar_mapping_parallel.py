@@ -41,14 +41,14 @@ base_dir = os.path.dirname(os.path.realpath(__file__))
 mesh_dir = os.path.join(base_dir, 'mesh')
 
 #==============================================================================
-def run_poisson_2d_dir(filename, solution, f, comm=MPI.COMM_WORLD):
+def run_poisson_3d_dir(filename, solution, f, comm=MPI.COMM_WORLD):
 
     # ... abstract model
     domain = Domain.from_file(filename)
 
     V = FunctionSpace('V', domain)
 
-    x,y = domain.coordinates
+    x,y,z = domain.coordinates
 
     F = Field('F', V)
 
@@ -91,7 +91,7 @@ def run_poisson_2d_dir(filename, solution, f, comm=MPI.COMM_WORLD):
 
     # ...
     phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
+    phi.coeffs[:,:,:] = x[:,:,:]
     # ...
 
     # ... compute norms
@@ -104,18 +104,18 @@ def run_poisson_2d_dir(filename, solution, f, comm=MPI.COMM_WORLD):
 
 #==============================================================================
 @pytest.mark.parallel
-def test_api_poisson_2d_dir_identity():
-    filename = os.path.join(mesh_dir, 'identity_2d.h5')
+def test_api_poisson_3d_dir_identity():
+    filename = os.path.join(mesh_dir, 'identity_3d.h5')
 
-    from sympy.abc import x,y
+    from sympy.abc import x,y,z
 
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
+    solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f        = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
 
-    l2_error, h1_error = run_poisson_2d_dir(filename, solution, f)
+    l2_error, h1_error = run_poisson_3d_dir(filename, solution, f)
 
-    expected_l2_error =  0.0006542603581211454
-    expected_h1_error =  0.03907071216108295
+    expected_l2_error =  0.009117246371085389
+    expected_h1_error =  0.25039998770790184
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -132,3 +132,5 @@ def teardown_function():
     from sympy import cache
     cache.clear_cache()
 
+
+test_api_poisson_3d_dir_identity()
