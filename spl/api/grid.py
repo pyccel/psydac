@@ -141,14 +141,12 @@ class QuadratureGrid():
 #==============================================================================
 class BoundaryQuadratureGrid(QuadratureGrid):
     def __init__( self, V, axis, ext, quad_order=None ):
-        if isinstance(V, ProductFemSpace):
-            raise NotImplementedError('')
+        assert( not( isinstance(V, ProductFemSpace) ) )
 
-        pw = compute_quadrature( V, quad_order=quad_order )
-        points, weights = zip(*pw)
+        QuadratureGrid.__init__( self, V, quad_order=quad_order )
 
-        points  = list(points)
-        weights = list(weights)
+        points     = self.points
+        weights    = self.weights
 
         # ...
         if V.ldim == 1:
@@ -158,8 +156,8 @@ class BoundaryQuadratureGrid(QuadratureGrid):
             bounds[-1] = V.domain[0]
             bounds[1]  = V.domain[1]
 
-            points[axis] = np.asarray([[bounds[ext]]])
-            weights[axis] = np.asarray([[1.]])
+            points[axis]     = np.asarray([[bounds[ext]]])
+            weights[axis]    = np.asarray([[1.]])
 
         elif V.ldim in [2, 3]:
             assert( isinstance( V, TensorFemSpace ) )
@@ -168,12 +166,12 @@ class BoundaryQuadratureGrid(QuadratureGrid):
             bounds[-1] = V.spaces[axis].domain[0]
             bounds[1]  = V.spaces[axis].domain[1]
 
-            points[axis] = np.asarray([[bounds[ext]]])
-            weights[axis] = np.asarray([[1.]])
+            points[axis]     = np.asarray([[bounds[ext]]])
+            weights[axis]    = np.asarray([[1.]])
         # ...
 
-        self._points  = points
-        self._weights = weights
+        self._points     = points
+        self._weights    = weights
 
 
 #==============================================================================

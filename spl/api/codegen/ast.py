@@ -2294,7 +2294,8 @@ class Assembly(SplBasic):
 
         # ... loop over elements
         # TODO improve
-        ranges_elm  = [Range(0, n_elements[i]) for i,axis in zip(range(dim), range(dim)) if not(axis in axis_bnd)]
+#        ranges_elm  = [Range(0, n_elements[i]) for i,axis in zip(range(dim), range(dim)) if not(axis in axis_bnd)]
+        ranges_elm  = [Range(0, n_elements[i]) for i in range(dim)]
 
         # TODO call init_loops
         init_stmts = init_loop_support( indices_elm, n_elements,

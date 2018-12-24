@@ -383,15 +383,15 @@ def test_api_poisson_2d_dirneu_123():
 
     from sympy.abc import x,y
 
-    solution = cos(0.25*pi*x)*cos(0.5*pi*y)
-    f        = (5./16.)*pi**2*solution
+    solution = cos(pi*x)*cos(0.5*pi*y)
+    f        = 5./4.*pi**2*solution
 
     l2_error, h1_error = run_poisson_2d_dirneu(solution, f,
                                                ['Gamma_1', 'Gamma_2', 'Gamma_3'],
                                                ncells=[2**3,2**3], degree=[2,2])
 
-    expected_l2_error =  2.3687570918077593e-05
-    expected_h1_error =  0.0014523656754457381
+    expected_l2_error =  0.00015494478505412876
+    expected_h1_error =  0.009242166414700994
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -402,13 +402,13 @@ def test_api_laplace_2d_neu():
 
     from sympy.abc import x,y
 
-    solution = cos(0.25*pi*x)*cos(0.25*pi*y)
-    f        = ((1./8.)*pi**2 + 1.)*solution
+    solution = cos(pi*x)*cos(pi*y)
+    f        = (2.*pi**2 + 1.)*solution
 
     l2_error, h1_error = run_laplace_2d_neu(solution, f, ncells=[2**3,2**3], degree=[2,2])
 
-    expected_l2_error =  2.5196152343755257e-06
-    expected_h1_error =  0.00015443613147528876
+    expected_l2_error =  0.0002172846538950129
+    expected_h1_error =  0.012984852988125026
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
