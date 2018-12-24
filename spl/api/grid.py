@@ -8,6 +8,7 @@ from spl.fem.splines            import SplineSpace
 from spl.fem.tensor             import TensorFemSpace
 from spl.fem.vector             import ProductFemSpace
 from spl.api.boundary_condition import DiscreteBoundary
+from spl.fem.grid import FemAssemblyGrid
 
 #==============================================================================
 def _compute_quadrature_SplineSpace( V, quad_order=None ):
@@ -109,14 +110,21 @@ def compute_quadrature( V, quad_order=None ):
 #==============================================================================
 class QuadratureGrid():
     def __init__( self, V, quad_order=None ):
-        pw = compute_quadrature( V, quad_order=quad_order )
-        points, weights = zip(*pw)
 
-        points  = list(points)
-        weights = list(weights)
+        quad_grid = create_fem_assembly_grid( V, quad_order=quad_order )
 
-        self._points  = points
-        self._weights = weights
+        self._fem_grid   = quad_grid
+        self._n_elements = [g.num_elements for g in quad_grid]
+        self._points     = [g.points       for g in quad_grid]
+        self._weights    = [g.weights      for g in quad_grid]
+
+    @property
+    def fem_grid(self):
+        return self._fem_grid
+
+    @property
+    def n_elements(self):
+        return self._n_elements
 
     @property
     def points(self):
@@ -168,6 +176,76 @@ class BoundaryQuadratureGrid(QuadratureGrid):
         self._weights = weights
 
 
+#==============================================================================
+def create_fem_assembly_grid(V, quad_order=None, nderiv=1):
+    # TODO we assume all spaces are the same for the moment
+    if isinstance(V, ProductFemSpace):
+        return create_fem_assembly_grid(V.spaces[0])
+
+    # ...
+    if not( quad_order is None ):
+        if isinstance( quad_order, int ):
+            quad_order = [quad_order for i in range(V.ldim)]
+
+        elif not isinstance( quad_order, (list, tuple) ):
+            raise TypeError('Expecting a tuple/list or int')
+
+    else:
+        quad_order = [None for i in range(V.ldim)]
+
+    # ...
+
+    # ...
+    if not( nderiv is None ):
+        if isinstance( nderiv, int ):
+            nderiv = [nderiv for i in range(V.ldim)]
+
+        elif not isinstance( nderiv, (list, tuple) ):
+            raise TypeError('Expecting a tuple/list or int')
+
+    else:
+        nderiv = [1 for i in range(V.ldim)]
+    # ...
+
+    if V.ldim == 1:
+        grid = FemAssemblyGrid( V, V.vector_space.starts[0], V.vector_space.ends[0],
+                                quad_order=quad_order[0], nderiv=nderiv[0] )
+        return [ grid ]
+
+    elif V.ldim > 1:
+
+        return [FemAssemblyGrid(W, s, e, quad_order=n, nderiv=d )
+                for W,s,e,n,d in zip( V.spaces,
+                                      V.vector_space.starts, V.vector_space.ends,
+                                      quad_order, nderiv ) ]
+
+    else:
+        raise ValueError('Expecting dimension 1, 2 or 3')
+
+
+#==============================================================================
+class BasisValues():
+    def __init__( self, V, grid, nderiv ):
+        assert( isinstance( grid, QuadratureGrid ) )
+
+        # TODO quad_order in FemAssemblyGrid must be be the order and not the
+        # degree
+        quad_order = [q-1 for q in grid.quad_order]
+        quad_grid = create_fem_assembly_grid( V,
+                                              quad_order=quad_order,
+                                              nderiv=nderiv )
+
+        self._spans = [g.spans for g in quad_grid]
+        self._basis = [g.basis for g in quad_grid]
+
+    @property
+    def basis(self):
+        return self._basis
+
+    @property
+    def spans(self):
+        return self._spans
+
 ################################################
 if __name__ == '__main__':
     from numpy import linspace
@@ -193,6 +271,15 @@ if __name__ == '__main__':
     V = TensorFemSpace( V1, V2 )
     # ...
 
+    qd_1d = QuadratureGrid(V1)
+    qd_2d = QuadratureGrid(V)
+
+    values_1d = BasisValues(V1, qd_1d, nderiv=1)
+    print('> basis  = ', values_1d.basis)
+
+    values_2d = BasisValues(V, qd_2d, nderiv=1)
+    print('> basis  = ', values_2d.basis)
+
 #    # ...
 #    print('=== 1D case ===')
 #    qd_1d = QuadratureGrid(V1)
@@ -201,20 +288,20 @@ if __name__ == '__main__':
 #    print('> weights = ', qd_1d.weights)
 #    # ...
 
-    # ...
-    print('=== 2D case ===')
-    qd_2d = QuadratureGrid(V)
-
-    for x,w in zip(qd_2d.points, qd_2d.weights):
-        print('> points  = ', x)
-        print('> weights = ', w)
-    # ...
-
-    # ...
-    print('=== 2D case boundary ===')
-    qd_2d = BoundaryQuadratureGrid(V, axis=1, ext=-1)
-
-    for x,w in zip(qd_2d.points, qd_2d.weights):
-        print('> points  = ', x)
-        print('> weights = ', w)
-    # ...
+#    # ...
+#    print('=== 2D case ===')
+#    qd_2d = QuadratureGrid(V)
+#
+#    for x,w in zip(qd_2d.points, qd_2d.weights):
+#        print('> points  = ', x)
+#        print('> weights = ', w)
+#    # ...
+#
+#    # ...
+#    print('=== 2D case boundary ===')
+#    qd_2d = BoundaryQuadratureGrid(V, axis=1, ext=-1)
+#
+#    for x,w in zip(qd_2d.points, qd_2d.weights):
+#        print('> points  = ', x)
+#        print('> weights = ', w)
+#    # ...

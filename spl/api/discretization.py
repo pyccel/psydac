@@ -28,7 +28,7 @@ from sympde.topology import ProductSpace
 from sympde.topology import Mapping
 
 from spl.api.grid                 import QuadratureGrid, BoundaryQuadratureGrid
-from spl.api.basis                import BasisValues
+from spl.api.grid                 import BasisValues
 from spl.api.codegen.ast          import Kernel
 from spl.api.codegen.ast          import Assembly
 from spl.api.codegen.ast          import Interface
@@ -637,12 +637,12 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         return self.func(*newargs, **kwargs)
 
-        # TODO remove => this is for debug only
+#        # TODO remove => this is for debug only
 #        import sys
 #        sys.path.append(self.folder)
-#        from interface_mw7je54z import  interface_mw7je54z
+#        from interface_hwhsz0rf import  interface_hwhsz0rf
 #        sys.path.remove(self.folder)
-#        return  interface_mw7je54z(*newargs, **kwargs)
+#        return  interface_hwhsz0rf(*newargs, **kwargs)
 
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
@@ -1123,7 +1123,6 @@ class Model(BasicDiscrete):
 #==============================================================================
 # TODO multi patch
 # TODO bounds and knots
-# TODO MPI
 def discretize_space(V, domain_h, *args, **kwargs):
     degree = kwargs.pop('degree', None)
     comm   = domain_h.comm
@@ -1164,7 +1163,11 @@ def discretize_space(V, domain_h, *args, **kwargs):
             # Create 1D finite element spaces and precompute quadrature data
             spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
 
-            Vh = TensorFemSpace( *spaces, comm=comm )
+            if comm is None:
+                Vh = TensorFemSpace( *spaces )
+
+            else:
+                Vh = TensorFemSpace( *spaces, comm=comm )
 
     # Product and Vector spaces are constructed here using H1 subspaces
     if V.shape > 1:

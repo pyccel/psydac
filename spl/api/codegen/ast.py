@@ -284,7 +284,7 @@ def init_loop_basis(indices, ranges, discrete_boundary):
     return stmts
 
 #==============================================================================
-def init_loop_support(indices_support, indices_elm, local_support,
+def init_loop_support(indices_elm, n_elements,
                       indices_span, spans, ranges,
                       points_in_elm, points,
                       weights_in_elm, weights,
@@ -300,10 +300,10 @@ def init_loop_support(indices_support, indices_elm, local_support,
     quad_mask = [i[0] for i in discrete_boundary]
     quad_ext  = [i[1] for i in discrete_boundary]
 
-    dim = len(indices_support)
+    dim = len(indices_elm)
     for i in range(dim-1,-1,-1):
         rx = ranges[i]
-        x = indices_support[i]
+        x = indices_elm[i]
 
         if i in quad_mask:
             i_index = quad_mask.index(i)
@@ -320,10 +320,8 @@ def init_loop_support(indices_support, indices_elm, local_support,
     axis = quad_mask[0]
 
     # ... assign element index
-    support = local_support[axis]
-    i_support = indices_support[axis]
+    ncells = n_elements[axis]
     ie = indices_elm[axis]
-    stmts += [Assign(ie, support[i_support])]
     # ...
 
     # ... assign span index
@@ -2023,8 +2021,11 @@ class Assembly(SplBasic):
 
 
         # ... declarations
+        n_elements     = variables([ 'n_elements_{}'.format(i) for i in range(1, dim+1)], 'int')
+        # TODO remove?
         starts        = variables([ 's{}'.format(i)        for i in range(1, dim+1)], 'int')
         ends          = variables([ 'e{}'.format(i)        for i in range(1, dim+1)], 'int')
+
         indices_elm   = variables([ 'ie{}'.format(i)       for i in range(1, dim+1)], 'int')
         indices_span  = variables([ 'is{}'.format(i)       for i in range(1, dim+1)], 'int')
         test_pads     = variables([ 'test_p{}'.format(i)   for i in range(1, dim+1)], 'int')
@@ -2062,18 +2063,11 @@ class Assembly(SplBasic):
 
         spans    = ['test_spans_{}'.format(i) for i in range(1, dim+1)]
         spans    = indexed_variables(spans, dtype='int', rank=1)
-
-        local_support  = [ 'support_{}'.format(i) for i in range(1, dim+1)]
-        local_support  = indexed_variables(local_support, dtype='int', rank=1)
-
-        support_length = variables([ 'support_length{}'.format(i) for i in range(1, dim+1)], 'int')
-
-        indices_support = variables([ 'i_support{}'.format(i) for i in range(1, dim+1)], 'int')
         # ...
 
         # ...
         if is_bilinear:
-            self._basic_args = (local_support +
+            self._basic_args = (n_elements +
                                 starts + ends +
                                 npts +
                                 quad_orders +
@@ -2083,7 +2077,7 @@ class Assembly(SplBasic):
                                 test_basis + trial_basis)
 
         if is_linear or is_function:
-            self._basic_args = (local_support +
+            self._basic_args = (n_elements +
                                 starts + ends +
                                 npts +
                                 quad_orders +
@@ -2230,7 +2224,7 @@ class Assembly(SplBasic):
 
             if is_bilinear:
 
-                gslices = [Slice(i-p,i+1) for i,p in zip(indices_span, test_degrees)]
+                gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
 
                 gslices += [Slice(None,None)]*dim # for assignement
 
@@ -2299,16 +2293,11 @@ class Assembly(SplBasic):
         # ...
 
         # ... loop over elements
-        init_elm = [Assign(k, support[i])
-                    for k,i,support,axis in zip(indices_elm, indices_support, local_support, range(dim))
-                    if not(axis in axis_bnd)]
-
-        body = init_elm + body
-
-        ranges_elm  = [Range(0, support_length[i]) for i in range(dim)]
+        # TODO improve
+        ranges_elm  = [Range(0, n_elements[i]) for i,axis in zip(range(dim), range(dim)) if not(axis in axis_bnd)]
 
         # TODO call init_loops
-        init_stmts = init_loop_support( indices_support, indices_elm, local_support,
+        init_stmts = init_loop_support( indices_elm, n_elements,
                                        indices_span, spans, ranges_elm,
                                        points_in_elm, points,
                                        weights_in_elm, weights,
@@ -2316,7 +2305,7 @@ class Assembly(SplBasic):
                                        trial_basis_in_elm, trial_basis,
                                        is_bilinear, self.discrete_boundary )
 
-        body = select_loops(indices_support, ranges_elm, body,
+        body = select_loops(indices_elm, ranges_elm, body,
                             self.kernel.discrete_boundary, boundary_basis=False)
 
         body = init_stmts + body
@@ -2368,11 +2357,6 @@ class Assembly(SplBasic):
             for v in self.kernel.fields_tmp_coeffs:
                 stmt = Assign(v, Zeros(orders))
                 prelude += [stmt]
-        # ...
-
-        # ...
-        len_support = [Assign(k, Len(u)) for k,u in zip(support_length, local_support)]
-        body = len_support + body
         # ...
 
         # ...
@@ -2535,9 +2519,12 @@ class Interface(SplBasic):
                 test_vector_space = DottedName(test_vector_space, 'spaces[0]')
             # ...
 
+        n_elements     = variables([ 'n_elements_{}'.format(i) for i in range(1, dim+1)], 'int')
+        # TODO remove?
         starts         = variables([ 's{}'.format(i)      for i in range(1, dim+1)], 'int')
         ends           = variables([ 'e{}'.format(i)      for i in range(1, dim+1)], 'int')
         npts           = variables([ 'n{}'.format(i)      for i in range(1, dim+1)], 'int')
+
         test_degrees   = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
         trial_degrees  = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
 
@@ -2557,11 +2544,6 @@ class Interface(SplBasic):
         spans          = indexed_variables(spans, dtype='int', rank=1)
 
         quad_orders    = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
-
-        local_support  = [ 'support_{}'.format(i) for i in range(1, dim+1)]
-        local_support  = indexed_variables(local_support, dtype='int', rank=1)
-
-        support_length = variables([ 'support_length{}'.format(i) for i in range(1, dim+1)], 'int')
 
         mapping = ()
         if self.mapping:
@@ -2587,12 +2569,14 @@ class Interface(SplBasic):
         # ...
 
         # ... grid data
-        body += [Assign(points,  DottedName(grid, 'points'))]
-        body += [Assign(weights, DottedName(grid, 'weights'))]
+        body += [Assign(n_elements,  DottedName(grid, 'n_elements'))]
+        body += [Assign(points,      DottedName(grid, 'points'))]
+        body += [Assign(weights,     DottedName(grid, 'weights'))]
         body += [Assign(quad_orders, DottedName(grid, 'quad_order'))]
         # ...
 
         # ... basis values
+        body += [Assign(spans,      DottedName(test_basis_values, 'spans'))]
         body += [Assign(test_basis, DottedName(test_basis_values, 'basis'))]
 
         if is_bilinear:
@@ -2607,16 +2591,6 @@ class Interface(SplBasic):
         body += [Assign(starts, DottedName(test_vector_space, 'starts'))]
         body += [Assign(ends,   DottedName(test_vector_space, 'ends'))]
         body += [Assign(npts,   DottedName(test_vector_space, 'npts'))]
-
-        # ... TODO improve
-        if isinstance(Wh, ProductFemSpace):
-            body += [Assign(spans,          DottedName(test_space, 'spaces[0]', 'spans'))]
-            body += [Assign(local_support,  DottedName(test_space, 'spaces[0]', 'local_support'))]
-
-        else:
-            body += [Assign(spans,          DottedName(test_space, 'spans'))]
-            body += [Assign(local_support,  DottedName(test_space, 'local_support'))]
-        # ...
 
         # ...
         if mapping:
