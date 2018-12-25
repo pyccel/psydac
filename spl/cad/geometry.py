@@ -154,8 +154,9 @@ class Geometry( object ):
         # read the topological domain
         domain = Domain.from_file(filename)
 
-        if comm.size > 1:
-            kwargs = dict( driver='mpio', comm=comm )
+        if not(comm is None):
+            kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
+
         else:
             kwargs = {}
 
@@ -253,7 +254,12 @@ class Geometry( object ):
         # ...
 
         # Create HDF5 file (in parallel mode if MPI communicator size > 1)
-        kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
+        if not(comm is None) and comm.size > 1:
+            kwargs = dict( driver='mpio', comm=comm )
+
+        else:
+            kwargs = {}
+
         h5 = h5py.File( filename, mode='w', **kwargs )
 
         # ...
