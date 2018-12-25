@@ -2217,79 +2217,117 @@ class Assembly(SplBasic):
         # ...
 
         # ... update global matrices
-        if ( self.comm is None ) and not( all(self.periodic) ):
-            lslices = [Slice(None,None)]*dim
-            if is_bilinear:
-                lslices += [Slice(None,None)]*dim # for assignement
+        lslices = [Slice(None,None)]*dim
+        if is_bilinear:
+            lslices += [Slice(None,None)]*dim # for assignement
 
-            if is_bilinear:
+        if is_bilinear:
 
+            if ( self.comm is None ):
                 gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
 
-                gslices += [Slice(None,None)]*dim # for assignement
+            else:
+                gslices = [Slice(i-s,i+p+1-s) for i,p,s in zip(indices_span,
+                                                               test_degrees,
+                                                               starts)]
 
-            if is_linear:
+            gslices += [Slice(None,None)]*dim # for assignement
+
+        if is_linear:
+            if ( self.comm is None ):
                 gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
 
-            if is_function:
-                lslices = 0
-                gslices = 0
+            else:
+                gslices = [Slice(i-s,i+p+1-s) for i,p,s in zip(indices_span,
+                                                               test_degrees,
+                                                               starts)]
 
-            for ij, M in global_matrices.items():
-                i,j = ij
-                mat = element_matrices[i,j]
+        if is_function:
+            lslices = 0
+            gslices = 0
 
-                stmt = AugAssign(M[gslices], '+', mat[lslices])
+        for ij, M in global_matrices.items():
+            i,j = ij
+            mat = element_matrices[i,j]
 
-                body += [stmt]
+            stmt = AugAssign(M[gslices], '+', mat[lslices])
 
-        else:
-            if is_bilinear:
-                lslices = list(indices_il)
-                gslices = [i-s for i,s in zip(indices_i, starts)]
+            body += [stmt]
 
-            elif is_linear:
-                lslices = list(indices_il)
-                gslices = [i+p-s for i,s,p in zip(indices_i, starts, test_degrees)]
-
-            elif is_function:
-                lslices = 0
-                gslices = 0
-
-            if is_bilinear:
-                lslices = lslices + [Slice(None,None)]*dim
-                gslices = gslices + [Slice(None,None)]*dim
-
-            stmts = []
-            for i,il,p,span,n,per in zip( indices_i,
-                                          indices_il,
-                                          test_degrees,
-                                          indices_span,
-                                          npts,
-                                          self.periodic ):
-
-                if not per:
-                    stmts += [Assign(i, span-p+il)]
-
-                else:
-                    stmts += [Assign(i, Mod(span-p+il, n))]
-
-            _args = [And(Ge(i, s), Le(i, e)) for i, s, e in zip(indices_i, starts, ends)]
-            if_cond = And(*_args)
-            if_body = []
-            for ij, M in global_matrices.items():
-                i,j = ij
-                mat = element_matrices[i,j]
-
-                if_body += [AugAssign(M[gslices], '+', mat[lslices])]
-
-            stmts += [If((if_cond, if_body))]
-
-            ranges = [Range(0, test_degrees[i]+1) for i in range(dim)]
-            for x,rx in list(zip(indices_il, ranges))[::-1]:
-                stmts = [For(x, rx, stmts)]
-
-            body += stmts
+# TODO to be removed, not used anymore
+#        if ( self.comm is None ) and not( all(self.periodic) ):
+#            lslices = [Slice(None,None)]*dim
+#            if is_bilinear:
+#                lslices += [Slice(None,None)]*dim # for assignement
+#
+#            if is_bilinear:
+#
+#                gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
+#
+#                gslices += [Slice(None,None)]*dim # for assignement
+#
+#            if is_linear:
+#                gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
+#
+#            if is_function:
+#                lslices = 0
+#                gslices = 0
+#
+#            for ij, M in global_matrices.items():
+#                i,j = ij
+#                mat = element_matrices[i,j]
+#
+#                stmt = AugAssign(M[gslices], '+', mat[lslices])
+#
+#                body += [stmt]
+#
+#        else:
+#            if is_bilinear:
+#                lslices = list(indices_il)
+#                gslices = [i-s for i,s in zip(indices_i, starts)]
+#
+#            elif is_linear:
+#                lslices = list(indices_il)
+#                gslices = [i+p-s for i,s,p in zip(indices_i, starts, test_degrees)]
+#
+#            elif is_function:
+#                lslices = 0
+#                gslices = 0
+#
+#            if is_bilinear:
+#                lslices = lslices + [Slice(None,None)]*dim
+#                gslices = gslices + [Slice(None,None)]*dim
+#
+#            stmts = []
+#            for i,il,p,span,n,per in zip( indices_i,
+#                                          indices_il,
+#                                          test_degrees,
+#                                          indices_span,
+#                                          npts,
+#                                          self.periodic ):
+#
+#                if not per:
+#                    stmts += [Assign(i, span-p+il)]
+#
+#                else:
+#                    stmts += [Assign(i, Mod(span-p+il, n))]
+#
+#            _args = [And(Ge(i, s), Le(i, e)) for i, s, e in zip(indices_i, starts, ends)]
+#            if_cond = And(*_args)
+#            if_body = []
+#            for ij, M in global_matrices.items():
+#                i,j = ij
+#                mat = element_matrices[i,j]
+#
+#                if_body += [AugAssign(M[gslices], '+', mat[lslices])]
+#
+#            stmts += [If((if_cond, if_body))]
+#
+#            ranges = [Range(0, test_degrees[i]+1) for i in range(dim)]
+#            for x,rx in list(zip(indices_il, ranges))[::-1]:
+#                stmts = [For(x, rx, stmts)]
+#
+#            body += stmts
         # ...
 
         # ... loop over elements

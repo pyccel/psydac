@@ -640,9 +640,9 @@ class DiscreteBilinearForm(BasicDiscrete):
 #        # TODO remove => this is for debug only
 #        import sys
 #        sys.path.append(self.folder)
-#        from interface_hwhsz0rf import  interface_hwhsz0rf
+#        from interface_9entwkkx import  interface_9entwkkx
 #        sys.path.remove(self.folder)
-#        return  interface_hwhsz0rf(*newargs, **kwargs)
+#        return  interface_9entwkkx(*newargs, **kwargs)
 
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):

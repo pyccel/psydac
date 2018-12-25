@@ -113,10 +113,13 @@ class QuadratureGrid():
 
         quad_grid = create_fem_assembly_grid( V, quad_order=quad_order )
 
-        self._fem_grid   = quad_grid
-        self._n_elements = [g.num_elements for g in quad_grid]
-        self._points     = [g.points       for g in quad_grid]
-        self._weights    = [g.weights      for g in quad_grid]
+        self._fem_grid            = quad_grid
+        self._n_elements          = [g.num_elements        for g in quad_grid]
+        self._local_element_start = [g.local_element_start for g in quad_grid]
+        self._local_element_end   = [g.local_element_end   for g in quad_grid]
+        self._points              = [g.points              for g in quad_grid]
+        self._weights             = [g.weights             for g in quad_grid]
+
 
     @property
     def fem_grid(self):
@@ -125,6 +128,19 @@ class QuadratureGrid():
     @property
     def n_elements(self):
         return self._n_elements
+
+    @property
+    def local_element_start( self ):
+        """ Local index of first element owned by process.
+        """
+        return self._local_element_start
+
+    # ...
+    @property
+    def local_element_end( self ):
+        """ Local index of last element owned by process.
+        """
+        return self._local_element_end
 
     @property
     def points(self):
