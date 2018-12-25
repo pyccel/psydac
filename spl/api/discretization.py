@@ -1124,8 +1124,8 @@ class Model(BasicDiscrete):
 # TODO multi patch
 # TODO bounds and knots
 def discretize_space(V, domain_h, *args, **kwargs):
-    degree = kwargs.pop('degree', None)
-    comm   = domain_h.comm
+    degree           = kwargs.pop('degree', None)
+    comm             = domain_h.comm
     symbolic_mapping = None
 
     # from a discrete geoemtry
@@ -1163,11 +1163,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
             # Create 1D finite element spaces and precompute quadrature data
             spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
 
-            if comm is None:
-                Vh = TensorFemSpace( *spaces )
-
-            else:
-                Vh = TensorFemSpace( *spaces, comm=comm )
+            Vh = TensorFemSpace( *spaces, comm=comm )
 
     # Product and Vector spaces are constructed here using H1 subspaces
     if V.shape > 1:
