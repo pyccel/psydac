@@ -124,14 +124,14 @@ def run_poisson_2d_dir(solution, f, ncells, degree, comm=MPI.COMM_WORLD):
     # ...
 
 
-    #######################
-    import numpy as np
-    phi_anal  = lambda x,y: np.sin(np.pi*x)*np.sin(np.pi*y)
-    integrand = lambda *x: (phi(*x)-phi_anal(*x))**2
-    err2 = np.sqrt( Vh.integral( integrand ) )
-    print('> err2 = ', err2)
-    #######################
-
+#    #######################
+#    import numpy as np
+#    phi_anal  = lambda x,y: np.sin(np.pi*x)*np.sin(np.pi*y)
+#    integrand = lambda *x: (phi(*x)-phi_anal(*x))**2
+#    err2 = np.sqrt( Vh.integral( integrand ) )
+#    print('> err2 = ', err2)
+#    #######################
+#
     return l2_error, h1_error
 
 
@@ -146,13 +146,13 @@ def test_api_poisson_2d_dir_1():
     l2_error, h1_error = run_poisson_2d_dir(solution, f,
                                             ncells=[2**3,2**3], degree=[2,2])
 
-    print(l2_error, h1_error)
+#    print(l2_error, h1_error)
 
-#    expected_l2_error =  0.00021808678604760232
-#    expected_h1_error =  0.013023570720360362
-#
-#    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-#    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    expected_l2_error =  0.00021808678604760232
+    expected_h1_error =  0.013023570720360362
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 ###############################################
 if __name__ == '__main__':

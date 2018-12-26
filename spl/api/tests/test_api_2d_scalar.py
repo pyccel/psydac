@@ -23,6 +23,8 @@ from spl.fem.basic   import FemField
 from spl.api.discretization import discretize
 
 from numpy import linspace, zeros, allclose
+from mpi4py import MPI
+import pytest
 
 
 #==============================================================================
@@ -49,7 +51,7 @@ def assert_identical_coo(A, B):
 
 
 #==============================================================================
-def run_poisson_2d_dir(solution, f, ncells, degree):
+def run_poisson_2d_dir(solution, f, ncells, degree, comm=None):
 
     # ... abstract model
     domain = Square()
@@ -77,7 +79,7 @@ def run_poisson_2d_dir(solution, f, ncells, degree):
     # ...
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, ncells=ncells)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
     # ...
 
     # ... discrete spaces
@@ -110,7 +112,7 @@ def run_poisson_2d_dir(solution, f, ncells, degree):
     return l2_error, h1_error
 
 #==============================================================================
-def run_poisson_2d_dirneu(solution, f, boundary, ncells, degree):
+def run_poisson_2d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 
     assert( isinstance(boundary, (list, tuple)) )
 
@@ -155,7 +157,7 @@ def run_poisson_2d_dirneu(solution, f, boundary, ncells, degree):
     # ...
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, ncells=ncells)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
     # ...
 
     # ... discrete spaces
@@ -188,7 +190,7 @@ def run_poisson_2d_dirneu(solution, f, boundary, ncells, degree):
     return l2_error, h1_error
 
 #==============================================================================
-def run_laplace_2d_neu(solution, f, ncells, degree):
+def run_laplace_2d_neu(solution, f, ncells, degree, comm=None):
 
     # ... abstract model
     domain = Square()
@@ -224,7 +226,7 @@ def run_laplace_2d_neu(solution, f, ncells, degree):
     # ...
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, ncells=ncells)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
     # ...
 
     # ... discrete spaces
@@ -256,6 +258,9 @@ def run_laplace_2d_neu(solution, f, ncells, degree):
 
     return l2_error, h1_error
 
+###############################################################################
+#            SERIAL TESTS
+###############################################################################
 
 #==============================================================================
 def test_api_poisson_2d_dir_1():
@@ -412,6 +417,30 @@ def test_api_laplace_2d_neu():
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+###############################################################################
+#            PARALLEL TESTS
+###############################################################################
+
+#==============================================================================
+@pytest.mark.parallel
+def test_api_poisson_2d_dir_1_parallel():
+
+    from sympy.abc import x,y
+
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
+
+    l2_error, h1_error = run_poisson_2d_dir(solution, f,
+                                            ncells=[2**3,2**3], degree=[2,2],
+                                            comm=MPI.COMM_WORLD)
+
+    expected_l2_error =  0.00021808678604760232
+    expected_h1_error =  0.013023570720360362
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
 
 
 ##==============================================================================

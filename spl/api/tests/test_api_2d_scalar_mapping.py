@@ -32,6 +32,8 @@ from spl.api.discretization import discretize
 from spl.mapping.discrete import SplineMapping
 
 from numpy import linspace, zeros, allclose
+from mpi4py import MPI
+import pytest
 
 import os
 
@@ -39,7 +41,7 @@ base_dir = os.path.dirname(os.path.realpath(__file__))
 mesh_dir = os.path.join(base_dir, 'mesh')
 
 #==============================================================================
-def run_poisson_2d_dir(filename, solution, f):
+def run_poisson_2d_dir(filename, solution, f, comm=None):
 
     # ... abstract model
     domain = Domain.from_file(filename)
@@ -67,7 +69,7 @@ def run_poisson_2d_dir(filename, solution, f):
     # ...
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, filename=filename)
+    domain_h = discretize(domain, filename=filename, comm=comm)
     # ...
 
     # ... discrete spaces
@@ -100,7 +102,7 @@ def run_poisson_2d_dir(filename, solution, f):
     return l2_error, h1_error
 
 #==============================================================================
-def run_poisson_2d_dirneu(filename, solution, f, boundary):
+def run_poisson_2d_dirneu(filename, solution, f, boundary, comm=None):
 
     assert( isinstance(boundary, (list, tuple)) )
 
@@ -145,7 +147,7 @@ def run_poisson_2d_dirneu(filename, solution, f, boundary):
     # ...
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, filename=filename)
+    domain_h = discretize(domain, filename=filename, comm=comm)
     # ...
 
     # ... discrete spaces
@@ -178,7 +180,7 @@ def run_poisson_2d_dirneu(filename, solution, f, boundary):
     return l2_error, h1_error
 
 #==============================================================================
-def run_laplace_2d_neu(filename, solution, f):
+def run_laplace_2d_neu(filename, solution, f, comm=None):
 
     # ... abstract model
     domain = Domain.from_file(filename)
@@ -214,7 +216,7 @@ def run_laplace_2d_neu(filename, solution, f):
     # ...
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, filename=filename)
+    domain_h = discretize(domain, filename=filename, comm=comm)
     # ...
 
     # ... discrete spaces
@@ -245,6 +247,10 @@ def run_laplace_2d_neu(filename, solution, f):
     # ...
 
     return l2_error, h1_error
+
+###############################################################################
+#            SERIAL TESTS
+###############################################################################
 
 #==============================================================================
 def test_api_poisson_2d_dir_identity():
@@ -490,6 +496,29 @@ def test_api_laplace_2d_neu_identity():
 #
 #    assert( abs(l2_error - expected_l2_error) < 1.e-7)
 #    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+###############################################################################
+#            PARALLEL TESTS
+###############################################################################
+
+#==============================================================================
+@pytest.mark.parallel
+def test_api_poisson_2d_dir_identity_parallel():
+    filename = os.path.join(mesh_dir, 'identity_2d.h5')
+
+    from sympy.abc import x,y
+
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
+
+    l2_error, h1_error = run_poisson_2d_dir(filename, solution, f,
+                                            comm=MPI.COMM_WORLD)
+
+    expected_l2_error =  0.00021808678604159413
+    expected_h1_error =  0.013023570720357957
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 
 #==============================================================================

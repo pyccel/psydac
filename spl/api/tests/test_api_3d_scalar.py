@@ -23,9 +23,11 @@ from spl.fem.basic   import FemField
 from spl.api.discretization import discretize
 
 from numpy import linspace, zeros, allclose
+from mpi4py import MPI
+import pytest
 
 #==============================================================================
-def run_poisson_3d_dir(solution, f, ncells, degree):
+def run_poisson_3d_dir(solution, f, ncells, degree, comm=None):
 
     # ... abstract model
     domain = Cube()
@@ -53,7 +55,7 @@ def run_poisson_3d_dir(solution, f, ncells, degree):
     # ...
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, ncells=ncells)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
     # ...
 
     # ... discrete spaces
@@ -86,7 +88,7 @@ def run_poisson_3d_dir(solution, f, ncells, degree):
     return l2_error, h1_error
 
 #==============================================================================
-def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree):
+def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 
     assert( isinstance(boundary, (list, tuple)) )
 
@@ -131,7 +133,7 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree):
     # ...
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, ncells=ncells)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
     # ...
 
     # ... discrete spaces
@@ -163,6 +165,10 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree):
 
     return l2_error, h1_error
 
+
+###############################################################################
+#            SERIAL TESTS
+###############################################################################
 
 #==============================================================================
 def test_api_poisson_3d_dir_1():
@@ -284,6 +290,29 @@ def test_api_poisson_3d_dirneu_24():
 #
 #    assert( abs(l2_error - expected_l2_error) < 1.e-7)
 #    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+###############################################################################
+#            PARALLEL TESTS
+###############################################################################
+
+#==============================================================================
+@pytest.mark.parallel
+def test_api_poisson_3d_dir_1_parallel():
+
+    from sympy.abc import x,y,z
+
+    solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f        = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+
+    l2_error, h1_error = run_poisson_3d_dir(solution, f,
+                                            ncells=[2**2,2**2,2**2], degree=[2,2,2],
+                                            comm=MPI.COMM_WORLD)
+
+    expected_l2_error =  0.0017546148822053188
+    expected_h1_error =  0.048189500102744275
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 
 #==============================================================================
