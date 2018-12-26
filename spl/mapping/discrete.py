@@ -266,3 +266,137 @@ class SplineMapping( Mapping ):
                 coords = np.array( m.fields[dim_idx].coeffs[pnt_idx] )
 
             return coords
+
+#==============================================================================
+class NurbsMapping( SplineMapping ):
+
+    def __init__( self, *components, name=None ):
+
+        weights    = components[-1]
+        components = components[:-1]
+
+        SplineMapping.__init__( self, *components, name=name )
+
+        self._weights = NurbsMapping.Weights( self )
+        self._weights_field = weights
+
+    #--------------------------------------------------------------------------
+    # Option [2]: initialize from TensorFemSpace and spline control points
+    #--------------------------------------------------------------------------
+    @classmethod
+    def from_control_points_weights( cls, tensor_space, control_points, weights ):
+
+        assert isinstance( tensor_space, TensorFemSpace )
+        assert isinstance( control_points, (np.ndarray, h5py.Dataset) )
+        assert isinstance( weights, (np.ndarray, h5py.Dataset) )
+
+        assert control_points.ndim       == tensor_space.ldim + 1
+        assert control_points.shape[:-1] == tuple( V.nbasis for V in tensor_space.spaces )
+        assert control_points.shape[ -1] >= tensor_space.ldim
+        assert weights.shape == tuple( V.nbasis for V in tensor_space.spaces )
+
+        # Create one separate scalar field for each physical dimension
+        # TODO: use one unique field belonging to VectorFemSpace
+        name    = random_string( 8 )
+        fields  = [FemField( tensor_space, 'mapping_{name}_x{d}'.format( name=name, d=d ) )
+                  for d in range( control_points.shape[-1] )]
+        fields += [FemField( tensor_space, 'mapping_{name}_weights'.format( name=name ) )]
+
+        # Get spline coefficients for each coordinate X_i
+        # we store w*x where w is the weight and x is the control point
+        starts = tensor_space.vector_space.starts
+        ends   = tensor_space.vector_space.ends
+        idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
+        for i,field in enumerate( fields[:-1] ):
+            idx_from = tuple(list(idx_to)+[i])
+            idw_from = tuple(idx_to)
+            field.coeffs[idx_to] = control_points[idx_from] * weights[idw_from]
+            field.coeffs.update_ghost_regions()
+
+        # weights
+        idx_from = tuple(idx_to)
+        fields[-1].coeffs[idx_to] = weights[idx_from]
+        fields[-1].coeffs.update_ghost_regions()
+
+        # Create SplineMapping object
+        return cls( *fields )
+
+    #--------------------------------------------------------------------------
+    # Abstract interface
+    #--------------------------------------------------------------------------
+    def __call__( self, eta ):
+        map_W = self._weights_field
+        w = map_W( *eta )
+        Xd = [map_Xd( *eta ) for map_Xd in self._fields]
+        return np.asarray( Xd ) / w
+
+    def jac_mat( self, eta ):
+        raise NotImplementedError('TODO')
+#        return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
+
+    def metric( self, eta ):
+        raise NotImplementedError('TODO')
+#        J = self.jac_mat( eta )
+#        return np.dot( J.T, J )
+
+    def metric_det( self, eta ):
+        raise NotImplementedError('TODO')
+#        return np.linalg.det( self.metric( eta ) )
+
+    #--------------------------------------------------------------------------
+    # Other properties/methods
+    #--------------------------------------------------------------------------
+
+    @property
+    def control_points( self ):
+        return self._control_points
+
+    @property
+    def weights( self ):
+        return self._weights
+
+    # TODO: move to 'Geometry' class in 'spl.cad.geometry' module
+    def export( self, filename ):
+        """
+        Export tensor-product spline space and mapping to geometry file in HDF5
+        format (single-patch only).
+
+        Parameters
+        ----------
+        filename : str
+          Name of HDF5 output file.
+
+        """
+        raise NotImplementedError('')
+
+    #==========================================================================
+    class Weights:
+        """ Convenience object to access weights.
+
+        """
+        # TODO: should not allow access to ghost regions
+
+        def __init__( self, mapping ):
+            assert isinstance( mapping, NurbsMapping )
+            self._mapping = mapping
+
+        # ...
+        @property
+        def mapping( self ):
+            return self._mapping
+
+        # ...
+        def __getitem__( self, key ):
+
+            m = self._mapping
+
+            if key is Ellipsis:
+                key = tuple( slice( None ) for i in range( m.ldim ) )
+            elif isinstance( key, tuple ):
+                assert len( key ) == m.ldim
+            else:
+                raise ValueError( key )
+
+            pnt_idx = key[:-1]
+
+            return np.array( m.fields[-1].coeffs[pnt_idx] )
