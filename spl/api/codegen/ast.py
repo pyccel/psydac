@@ -2022,9 +2022,10 @@ class Assembly(SplBasic):
 
         # ... declarations
         n_elements     = variables([ 'n_elements_{}'.format(i) for i in range(1, dim+1)], 'int')
-        # TODO remove?
-        starts        = variables([ 's{}'.format(i)        for i in range(1, dim+1)], 'int')
-        ends          = variables([ 'e{}'.format(i)        for i in range(1, dim+1)], 'int')
+        starts         = variables([ 's{}'.format(i)        for i in range(1, dim+1)], 'int')
+        ends           = variables([ 'e{}'.format(i)        for i in range(1, dim+1)], 'int')
+        element_starts = variables([ 'element_s{}'.format(i)      for i in range(1, dim+1)], 'int')
+        element_ends   = variables([ 'element_e{}'.format(i)      for i in range(1, dim+1)], 'int')
 
         indices_elm   = variables([ 'ie{}'.format(i)       for i in range(1, dim+1)], 'int')
         indices_span  = variables([ 'is{}'.format(i)       for i in range(1, dim+1)], 'int')
@@ -2066,8 +2067,10 @@ class Assembly(SplBasic):
         # ...
 
         # ...
+        # TODO improve: select args parallel/serial
         if is_bilinear:
             self._basic_args = (n_elements +
+                                element_starts + element_ends +
                                 starts + ends +
                                 npts +
                                 quad_orders +
@@ -2078,6 +2081,7 @@ class Assembly(SplBasic):
 
         if is_linear or is_function:
             self._basic_args = (n_elements +
+                                element_starts + element_ends +
                                 starts + ends +
                                 npts +
                                 quad_orders +
@@ -2253,87 +2257,15 @@ class Assembly(SplBasic):
             stmt = AugAssign(M[gslices], '+', mat[lslices])
 
             body += [stmt]
-
-# TODO to be removed, not used anymore
-#        if ( self.comm is None ) and not( all(self.periodic) ):
-#            lslices = [Slice(None,None)]*dim
-#            if is_bilinear:
-#                lslices += [Slice(None,None)]*dim # for assignement
-#
-#            if is_bilinear:
-#
-#                gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
-#
-#                gslices += [Slice(None,None)]*dim # for assignement
-#
-#            if is_linear:
-#                gslices = [Slice(i,i+p+1) for i,p in zip(indices_span, test_degrees)]
-#
-#            if is_function:
-#                lslices = 0
-#                gslices = 0
-#
-#            for ij, M in global_matrices.items():
-#                i,j = ij
-#                mat = element_matrices[i,j]
-#
-#                stmt = AugAssign(M[gslices], '+', mat[lslices])
-#
-#                body += [stmt]
-#
-#        else:
-#            if is_bilinear:
-#                lslices = list(indices_il)
-#                gslices = [i-s for i,s in zip(indices_i, starts)]
-#
-#            elif is_linear:
-#                lslices = list(indices_il)
-#                gslices = [i+p-s for i,s,p in zip(indices_i, starts, test_degrees)]
-#
-#            elif is_function:
-#                lslices = 0
-#                gslices = 0
-#
-#            if is_bilinear:
-#                lslices = lslices + [Slice(None,None)]*dim
-#                gslices = gslices + [Slice(None,None)]*dim
-#
-#            stmts = []
-#            for i,il,p,span,n,per in zip( indices_i,
-#                                          indices_il,
-#                                          test_degrees,
-#                                          indices_span,
-#                                          npts,
-#                                          self.periodic ):
-#
-#                if not per:
-#                    stmts += [Assign(i, span-p+il)]
-#
-#                else:
-#                    stmts += [Assign(i, Mod(span-p+il, n))]
-#
-#            _args = [And(Ge(i, s), Le(i, e)) for i, s, e in zip(indices_i, starts, ends)]
-#            if_cond = And(*_args)
-#            if_body = []
-#            for ij, M in global_matrices.items():
-#                i,j = ij
-#                mat = element_matrices[i,j]
-#
-#                if_body += [AugAssign(M[gslices], '+', mat[lslices])]
-#
-#            stmts += [If((if_cond, if_body))]
-#
-#            ranges = [Range(0, test_degrees[i]+1) for i in range(dim)]
-#            for x,rx in list(zip(indices_il, ranges))[::-1]:
-#                stmts = [For(x, rx, stmts)]
-#
-#            body += stmts
         # ...
 
         # ... loop over elements
-        # TODO improve
-#        ranges_elm  = [Range(0, n_elements[i]) for i,axis in zip(range(dim), range(dim)) if not(axis in axis_bnd)]
-        ranges_elm  = [Range(0, n_elements[i]) for i in range(dim)]
+        if is_function:
+            ranges_elm  = [Range(s, e+1) for s,e in zip(element_starts,
+                                                      element_ends)]
+
+        else:
+            ranges_elm  = [Range(0, n_elements[i]) for i in range(dim)]
 
         # TODO call init_loops
         init_stmts = init_loop_support( indices_elm, n_elements,
@@ -2559,10 +2491,11 @@ class Interface(SplBasic):
             # ...
 
         n_elements     = variables([ 'n_elements_{}'.format(i) for i in range(1, dim+1)], 'int')
-        # TODO remove?
         starts         = variables([ 's{}'.format(i)      for i in range(1, dim+1)], 'int')
         ends           = variables([ 'e{}'.format(i)      for i in range(1, dim+1)], 'int')
         npts           = variables([ 'n{}'.format(i)      for i in range(1, dim+1)], 'int')
+        element_starts = variables([ 'element_s{}'.format(i)      for i in range(1, dim+1)], 'int')
+        element_ends   = variables([ 'element_e{}'.format(i)      for i in range(1, dim+1)], 'int')
 
         test_degrees   = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
         trial_degrees  = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
@@ -2608,10 +2541,12 @@ class Interface(SplBasic):
         # ...
 
         # ... grid data
-        body += [Assign(n_elements,  DottedName(grid, 'n_elements'))]
-        body += [Assign(points,      DottedName(grid, 'points'))]
-        body += [Assign(weights,     DottedName(grid, 'weights'))]
-        body += [Assign(quad_orders, DottedName(grid, 'quad_order'))]
+        body += [Assign(n_elements,     DottedName(grid, 'n_elements'))]
+        body += [Assign(points,         DottedName(grid, 'points'))]
+        body += [Assign(weights,        DottedName(grid, 'weights'))]
+        body += [Assign(quad_orders,    DottedName(grid, 'quad_order'))]
+        body += [Assign(element_starts, DottedName(grid, 'local_element_start'))]
+        body += [Assign(element_ends,   DottedName(grid, 'local_element_end'))]
         # ...
 
         # ... basis values
