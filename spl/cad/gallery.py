@@ -13,11 +13,12 @@ from spl.cad.utils        import plot_mapping
 def quart_circle( rmin=0.5, rmax=1.0, center=None ):
 
     degrees = (2, 1)
+    pdim    = 2
 
     knots = [[0.0 , 0.0 , 0.0 , 1.0 , 1.0 , 1.0],
              [0.0 , 0.0 , 1.0 , 1.0] ]
 
-    points          = np.zeros((3,2,2))
+    points          = np.zeros((3,2,pdim))
     j = 0
     points[0,j,:]   = [0.0   , -rmin]
     points[1,j,:]   = [-rmin , -rmin]
@@ -41,6 +42,9 @@ def quart_circle( rmin=0.5, rmax=1.0, center=None ):
     weights[1,j]   = 0.707106781187
     weights[2,j]   = 1.0
 
+    for i in range(pdim):
+        points[...,i] *= weights[...]
+
     return degrees, knots, points, weights
 
 
@@ -48,11 +52,12 @@ def quart_circle( rmin=0.5, rmax=1.0, center=None ):
 def annulus(rmin=0.5, rmax=1.0, center=None):
 
     degrees = (1, 2)
+    pdim    = 2
 
     knots = [[0.0 , 0.0 , 1.0 , 1.0],
              [0.0 , 0.0 , 0.0 , 0.25 , 0.25 , 0.5 , 0.5 , 0.75 , 0.75 , 1.0 , 1.0 , 1.0] ]
 
-    points          = np.zeros((2,9,2))
+    points          = np.zeros((2,9,pdim))
     j = 0
     points[j,0,:]   = np.asarray([0.0   , -rmin])
     points[j,1,:]   = np.asarray([-rmin , -rmin])
@@ -99,6 +104,9 @@ def annulus(rmin=0.5, rmax=1.0, center=None):
     weights[j,6]   = 1.0
     weights[j,7]   = 0.707106781187
     weights[j,8]   = 1.0
+
+    for i in range(pdim):
+        points[...,i] *= weights[...]
 
     return degrees, knots, points, weights
 

@@ -309,8 +309,8 @@ class NurbsMapping( SplineMapping ):
         idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
         for i,field in enumerate( fields[:-1] ):
             idx_from = tuple(list(idx_to)+[i])
-            idw_from = tuple(idx_to)
-            field.coeffs[idx_to] = control_points[idx_from] * weights[idw_from]
+#            idw_from = tuple(idx_to)
+            field.coeffs[idx_to] = control_points[idx_from] #* weights[idw_from]
             field.coeffs.update_ghost_regions()
 
         # weights
@@ -397,6 +397,6 @@ class NurbsMapping( SplineMapping ):
             else:
                 raise ValueError( key )
 
-            pnt_idx = key[:-1]
+            pnt_idx = key[:]
 
-            return np.array( m.fields[-1].coeffs[pnt_idx] )
+            return np.array( m._weights_field.coeffs[pnt_idx] )

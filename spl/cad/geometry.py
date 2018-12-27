@@ -21,7 +21,7 @@ from mpi4py import MPI
 
 from spl.fem.splines      import SplineSpace
 from spl.fem.tensor       import TensorFemSpace
-from spl.mapping.discrete import SplineMapping
+from spl.mapping.discrete import SplineMapping, NurbsMapping
 
 from sympde.topology import Domain, Line, Square, Cube
 
@@ -184,7 +184,7 @@ class Geometry( object ):
             mapping_id = item['mapping_id']
             dtype = item['type']
             patch = h5[mapping_id]
-            if dtype == 'SplineMapping':
+            if dtype in ['SplineMapping', 'NurbsMapping']:
 
                 degree   = [int (p) for p in patch.attrs['degree'  ]]
                 periodic = [bool(b) for b in patch.attrs['periodic']]
@@ -193,7 +193,15 @@ class Geometry( object ):
                             for p,k,b in zip( degree, knots, periodic )]
 
                 tensor_space = TensorFemSpace( *spaces, comm=comm )
-                mapping      = SplineMapping.from_control_points( tensor_space, patch['points'] )
+                if dtype == 'SplineMapping':
+                    mapping = SplineMapping.from_control_points( tensor_space,
+                                                                 patch['points'] )
+
+                elif dtype == 'NurbsMapping':
+                    mapping = NurbsMapping.from_control_points_weights( tensor_space,
+                                                                        patch['points'],
+                                                                        patch['weights'] )
+
                 mapping.set_name( item['name'] )
 
                 mappings[patch_name] = mapping
@@ -287,7 +295,7 @@ class Geometry( object ):
             group = h5.create_group( yml['patches'][i_mapping]['mapping_id'] )
             group.attrs['shape'      ] = space.vector_space.npts
             group.attrs['degree'     ] = space.degree
-            group.attrs['rational'   ] = False
+            group.attrs['rational'   ] = False # TODO remove
             group.attrs['periodic'   ] = space.periodic
             for d in range( self.ldim ):
                 group['knots_{}'.format( d )] = space.spaces[d].knots
@@ -303,6 +311,20 @@ class Geometry( object ):
             index  = [slice(s, e+1) for s, e in zip(starts, ends)] + [slice(None)]
             index  = tuple( index )
             dset[index] = mapping.control_points[index]
+
+            # case of NURBS
+            if isinstance(mapping, NurbsMapping):
+                # Collective: create dataset for weights
+                shape = [n for n in space.vector_space.npts]
+                dtype = space.vector_space.dtype
+                dset  = group.create_dataset( 'weights', shape=shape, dtype=dtype )
+
+                # Independent: write weights to dataset
+                starts = space.vector_space.starts
+                ends   = space.vector_space.ends
+                index  = [slice(s, e+1) for s, e in zip(starts, ends)]
+                index  = tuple( index )
+                dset[index] = mapping.weights[index]
 
             i_mapping += 1
 

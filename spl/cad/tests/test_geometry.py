@@ -4,10 +4,15 @@
 from sympde.topology import Domain, Line, Square, Cube
 
 from spl.cad.geometry             import Geometry
+from spl.cad.cad                  import elevate, refine
+from spl.cad.gallery              import quart_circle
+from spl.mapping.discrete         import SplineMapping, NurbsMapping
 from spl.mapping.discrete_gallery import discrete_mapping
+from spl.fem.splines              import SplineSpace
+from spl.fem.tensor               import TensorFemSpace
 
 #==============================================================================
-def test_geometry_2d():
+def test_geometry_2d_1():
 
     # create an identity mapping
     mapping = discrete_mapping('identity', ncells=[1,1], degree=[2,2])
@@ -25,16 +30,55 @@ def test_geometry_2d():
     geo.export('geo.h5')
 
     # read it again
-    newgeo = Geometry(filename='geo.h5')
+    geo_0 = Geometry(filename='geo.h5')
 
     # export it again
-    newgeo.export('newgeo.h5')
+    geo_0.export('geo_0.h5')
 
     # create a geometry from a discrete mapping
     geo_1 = Geometry.from_discrete_mapping(mapping)
 
     # export it
     geo_1.export('geo_1.h5')
+
+#==============================================================================
+def test_geometry_2d_2():
+
+    # create a nurbs mapping
+    degrees, knots, points, weights = quart_circle( rmin=0.5, rmax=1.0, center=None )
+
+    # Create tensor spline space, distributed
+    spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
+    space = TensorFemSpace( *spaces, comm=None )
+
+    mapping = NurbsMapping.from_control_points_weights( space, points, weights )
+
+    mapping = elevate( mapping, axis=0, times=1 )
+    mapping = refine( mapping, axis=0, values=[0.3, 0.6, 0.8] )
+
+    # create a topological domain
+    domain = Square(name='Omega')
+
+    # associate the mapping to the topological domain
+    mappings = {'Omega': mapping}
+
+    # create a geometry from a topological domain and the dict of mappings
+    geo = Geometry(domain=domain, mappings=mappings)
+
+    # export the geometry
+    geo.export('quart_circle.h5')
+
+    # read it again
+    geo_0 = Geometry(filename='quart_circle.h5')
+
+    # export it again
+    geo_0.export('quart_circle_0.h5')
+
+    # create a geometry from a discrete mapping
+    geo_1 = Geometry.from_discrete_mapping(mapping)
+
+    # export it
+    geo_1.export('quart_circle_1.h5')
 
 
 #==============================================================================
@@ -56,3 +100,4 @@ def teardown_function():
     from sympy import cache
     cache.clear_cache()
 
+test_geometry_2d_2()
