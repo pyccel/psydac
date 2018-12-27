@@ -7,7 +7,7 @@ import random
 from spl.fem.splines      import SplineSpace
 from spl.fem.tensor       import TensorFemSpace
 from spl.fem.basic        import FemField
-from spl.mapping.discrete import SplineMapping
+from spl.mapping.discrete import SplineMapping, NurbsMapping
 
 #==============================================================================
 def random_string( n ):
@@ -21,8 +21,8 @@ def translate(mapping, displ):
     displ = np.array(displ)
     assert( mapping.pdim == len(displ) )
 
-    pdim = mapping.pdim
-    space = mapping.space
+    pdim           = mapping.pdim
+    space          = mapping.space
     control_points = mapping.control_points
 
     name   = random_string( 8 )
@@ -39,6 +39,138 @@ def translate(mapping, displ):
         field.coeffs.update_ghost_regions()
 
     return SplineMapping( *fields )
+
+#==============================================================================
+def elevate(mapping, axis, times):
+    """
+    Elevate the mapping degree times time in the direction axis.
+
+    Note: we are using igakit for the moment, until we implement the elevation
+    degree algorithm in spl
+    """
+    try:
+        from igakit.nurbs import NURBS
+    except:
+        raise ImportError('Could not find igakit.')
+
+    assert( isinstance(mapping, (SplineSpace, NurbsMapping)) )
+    assert( isinstance(times, int) )
+    assert( isinstance(axis, int) )
+
+    space = mapping.space
+    pdim  = mapping.pdim
+
+    knots  = [V.knots             for V in space.spaces]
+    degree = [V.degree            for V in space.spaces]
+    shape  = [V.nbasis            for V in space.spaces]
+    points = np.zeros(shape+[mapping.pdim])
+    for i,f in enumerate( mapping._fields ):
+        points[...,i] = f._coeffs.toarray().reshape(shape)
+
+    weights = None
+    if isinstance(mapping, NurbsMapping):
+        weights = mapping._weights_field._coeffs.toarray().reshape(shape)
+
+    # degree elevation using igakit
+    nrb = NURBS(knots, points, weights=weights)
+    nrb = nrb.clone().elevate(axis, times)
+
+    spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
+    space  = TensorFemSpace( *spaces )
+
+    name   = random_string( 8 )
+    fields = [FemField( space, 'mapping_{name}_x{d}'.format( name=name, d=d ) )
+              for d in range( pdim )]
+
+    # Get spline coefficients for each coordinate X_i
+    starts = space.vector_space.starts
+    ends   = space.vector_space.ends
+    idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
+    for i,field in enumerate( fields ):
+        idx_from = tuple(list(idx_to)+[i])
+        field.coeffs[idx_to] = nrb.points[idx_from]
+        field.coeffs.update_ghost_regions()
+
+    if isinstance(mapping, NurbsMapping):
+        weights_field = FemField( space, 'mapping_{name}_weights'.format( name=name ) )
+
+        idx_from = idx_to
+        weights_field.coeffs[idx_to] = nrb.weights[idx_from]
+        weights_field.coeffs.update_ghost_regions()
+
+        fields.append( weights_field )
+
+        return NurbsMapping( *fields )
+
+    return SplineMapping( *fields )
+
+
+#==============================================================================
+# TODO add level
+def refine(mapping, axis, values):
+    """
+    Refine the mapping by inserting values in the direction axis.
+
+    Note: we are using igakit for the moment, until we implement the knot
+    insertion algorithm in spl
+    """
+    try:
+        from igakit.nurbs import NURBS
+    except:
+        raise ImportError('Could not find igakit.')
+
+    assert( isinstance(mapping, (SplineSpace, NurbsMapping)) )
+    assert( isinstance(values, (list, tuple)) )
+    assert( isinstance(axis, int) )
+
+    space = mapping.space
+    pdim  = mapping.pdim
+
+    knots  = [V.knots             for V in space.spaces]
+    degree = [V.degree            for V in space.spaces]
+    shape  = [V.nbasis            for V in space.spaces]
+    points = np.zeros(shape+[mapping.pdim])
+    for i,f in enumerate( mapping._fields ):
+        points[...,i] = f._coeffs.toarray().reshape(shape)
+
+    weights = None
+    if isinstance(mapping, NurbsMapping):
+        weights = mapping._weights_field._coeffs.toarray().reshape(shape)
+
+    # degree elevation using igakit
+    nrb = NURBS(knots, points, weights=weights)
+    nrb = nrb.clone().refine(axis, values)
+
+    spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
+    space  = TensorFemSpace( *spaces )
+
+    name   = random_string( 8 )
+    fields = [FemField( space, 'mapping_{name}_x{d}'.format( name=name, d=d ) )
+              for d in range( pdim )]
+
+    # Get spline coefficients for each coordinate X_i
+    starts = space.vector_space.starts
+    ends   = space.vector_space.ends
+    idx_to = tuple( slice( s, e+1 ) for s,e in zip( starts, ends ) )
+    for i,field in enumerate( fields ):
+        idx_from = tuple(list(idx_to)+[i])
+        field.coeffs[idx_to] = nrb.points[idx_from]
+        field.coeffs.update_ghost_regions()
+
+    if isinstance(mapping, NurbsMapping):
+        weights_field = FemField( space, 'mapping_{name}_weights'.format( name=name ) )
+
+        idx_from = idx_to
+        weights_field.coeffs[idx_to] = nrb.weights[idx_from]
+        weights_field.coeffs.update_ghost_regions()
+
+        fields.append( weights_field )
+
+        return NurbsMapping( *fields )
+
+    return SplineMapping( *fields )
+
+
 
 ######################################
 if __name__ == '__main__':
