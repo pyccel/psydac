@@ -286,6 +286,24 @@ def test_api_poisson_2d_dir_collela():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
+#==============================================================================
+def test_api_poisson_2d_dir_quart_circle():
+    filename = os.path.join(mesh_dir, 'quart_circle.h5')
+
+    from sympy.abc import x,y
+
+    c = pi / (1. - 0.5**2)
+    r2 = 1. - x**2 - y**2
+    solution = x*y*sin(c * r2)
+    f = 4.*c**2*x*y*(x**2 + y**2)*sin(c * r2) + 12.*c*x*y*cos(c * r2)
+
+    l2_error, h1_error = run_poisson_2d_dir(filename, solution, f)
+
+    expected_l2_error =  0.00010289930281268989
+    expected_h1_error =  0.009473407914765117
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
 def test_api_poisson_2d_dirneu_identity_1():

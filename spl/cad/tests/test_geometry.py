@@ -1,6 +1,8 @@
 # coding: utf-8
 #
 
+import numpy as np
+
 from sympde.topology import Domain, Line, Square, Cube
 
 from spl.cad.geometry             import Geometry
@@ -80,6 +82,35 @@ def test_geometry_2d_2():
     # export it
     geo_1.export('quart_circle_1.h5')
 
+#==============================================================================
+# TODO to be removed
+def test_geometry_2d_3():
+
+    # create a nurbs mapping
+    degrees, knots, points, weights = quart_circle( rmin=0.5, rmax=1.0, center=None )
+
+    # Create tensor spline space, distributed
+    spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
+    space = TensorFemSpace( *spaces, comm=None )
+
+    mapping = NurbsMapping.from_control_points_weights( space, points, weights )
+
+    mapping = elevate( mapping, axis=1, times=1 )
+
+    n = 8
+    t = np.linspace(0, 1, n+1)[1:-1]
+
+    # TODO allow for 1d numpy array
+    t = list(t)
+
+    for axis in [0, 1]:
+        mapping = refine( mapping, axis=axis, values=t )
+
+    # create a geometry from a discrete mapping
+    geo = Geometry.from_discrete_mapping(mapping)
+
+    # export it
+    geo.export('quart_circle.h5')
 
 #==============================================================================
 def test_geometry_1():
@@ -99,5 +130,3 @@ def teardown_module():
 def teardown_function():
     from sympy import cache
     cache.clear_cache()
-
-test_geometry_2d_2()

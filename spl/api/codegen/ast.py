@@ -684,6 +684,94 @@ def compute_atoms_expr_mapping(atom, indices_quad,
     return init, update
 
 #==============================================================================
+def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
+
+    _print = lambda i: print_expression(i, mapping_name=False)
+
+    M = mapping
+    dim = space.ldim
+    ops = _partial_derivatives[:dim]
+
+    # ... mapping components and their derivatives
+    components = [M[i] for i in range(0, dim)]
+    elements = list(components)
+
+    if nderiv > 0:
+        elements += [d(M[i]) for d in ops for i in range(0, dim)]
+
+    if nderiv > 1:
+        elements += [d1(d2(M[i])) for e,d1 in enumerate(ops)
+                                  for d2 in ops[:e+1]
+                                  for i in range(0, dim)]
+
+    if nderiv > 2:
+        raise NotImplementedError('TODO')
+    # ...
+
+    # ... weights and their derivatives
+    weights = Field('w', space)
+
+    weights_elements = [weights]
+    if nderiv > 0:
+        weights_elements += [d(weights) for d in ops]
+
+    if nderiv > 1:
+        weights_elements += [d1(d2(weights)) for e,d1 in enumerate(ops)
+                                             for d2 in ops[:e+1]]
+
+    if nderiv > 2:
+        raise NotImplementedError('TODO')
+    # ...
+
+    stmts = []
+    # declarations
+    stmts += [Comment('declarations')]
+    for atom in elements + weights_elements:
+        atom_name = _print(atom)
+        val_name = atom_name + '_values'
+        val  = IndexedBase(val_name)[indices_quad]
+
+        stmt = Assign(atom_name, val)
+        stmts += [stmt]
+
+    # assignements
+    stmts += [Comment('rationalize')]
+
+    # 0 order terms
+    w  = Symbol( _print( weights ) )
+    for i in range(dim):
+        u  = Symbol( _print( M[i] ) )
+
+        val_name = u.name + '_values'
+        val  = IndexedBase(val_name)[indices_quad]
+        stmt = Assign(val, u / w )
+
+        stmts += [stmt]
+
+    # 1 order terms
+    if nderiv >= 1:
+        for d in ops:
+            w  = Symbol( _print( weights    ) )
+            dw = Symbol( _print( d(weights) ) )
+
+            for i in range(dim):
+                u  = Symbol( _print( M[i]    ) )
+                du = Symbol( _print( d(M[i]) ) )
+
+                val_name = du.name + '_values'
+                val  = IndexedBase(val_name)[indices_quad]
+                stmt = Assign(val, du / w - u * dw / w**2 )
+
+                stmts += [stmt]
+
+    # 2 order terms
+    if nderiv >= 2:
+        raise NotImplementedError("")
+
+    return stmts
+
+
+#==============================================================================
 def is_field(expr):
 
     if isinstance(expr, _partial_derivatives):
@@ -711,7 +799,7 @@ class SplBasic(Basic):
     _discrete_boundary = None
 
     def __new__(cls, tag, name=None, prefix=None, debug=False, detailed=False,
-                mapping=None):
+                mapping=None, is_rational_mapping=None):
 
         if name is None:
             if prefix is None:
@@ -721,12 +809,13 @@ class SplBasic(Basic):
 
         obj = Basic.__new__(cls)
 
-        obj._name         = name
-        obj._tag          = tag
-        obj._dependencies = []
-        obj._debug        = debug
-        obj._detailed     = detailed
-        obj._mapping      = mapping
+        obj._name                = name
+        obj._tag                 = tag
+        obj._dependencies        = []
+        obj._debug               = debug
+        obj._detailed            = detailed
+        obj._mapping             = mapping
+        obj._is_rational_mapping = is_rational_mapping
 
         return obj
 
@@ -763,6 +852,10 @@ class SplBasic(Basic):
         return self._mapping
 
     @property
+    def is_rational_mapping(self):
+        return self._is_rational_mapping
+
+    @property
     def discrete_boundary(self):
         return self._discrete_boundary
 
@@ -770,13 +863,15 @@ class SplBasic(Basic):
 #==============================================================================
 class EvalMapping(SplBasic):
 
-    def __new__(cls, space, mapping, discrete_boundary=None, name=None, boundary_basis=None, nderiv=1):
+    def __new__(cls, space, mapping, discrete_boundary=None, name=None,
+                boundary_basis=None, nderiv=1, is_rational_mapping=None):
 
         if not isinstance(mapping, Mapping):
             raise TypeError('> Expecting a Mapping object')
 
         obj = SplBasic.__new__(cls, mapping, name=name,
-                               prefix='eval_mapping', mapping=mapping)
+                               prefix='eval_mapping', mapping=mapping,
+                               is_rational_mapping=is_rational_mapping)
 
         obj._space = space
         obj._discrete_boundary = discrete_boundary
@@ -794,22 +889,31 @@ class EvalMapping(SplBasic):
         M = mapping
 
         components = [M[i] for i in range(0, dim)]
-        elements = list(components)
+
+        d_elements = {}
+        d_elements[0] = list(components)
 
         if nderiv > 0:
-            elements += [d(M[i]) for d in ops for i in range(0, dim)]
+            ls = [d(M[i]) for d in ops for i in range(0, dim)]
+
+            d_elements[1] = ls
 
         if nderiv > 1:
-            elements += [d1(d2(M[i])) for e,d1 in enumerate(ops)
-                                      for d2 in ops[:e+1]
-                                      for i in range(0, dim)]
+            ls = [d1(d2(M[i])) for e,d1 in enumerate(ops)
+                               for d2 in ops[:e+1]
+                               for i in range(0, dim)]
+
+            d_elements[2] = ls
 
         if nderiv > 2:
             raise NotImplementedError('TODO')
 
+        elements = [i for l in d_elements.values() for i in l]
         obj._elements = tuple(elements)
+        obj._d_elements = d_elements
 
         obj._components = tuple(components)
+        obj._nderiv = nderiv
         # ...
 
         obj._func = obj._initialize()
@@ -825,12 +929,20 @@ class EvalMapping(SplBasic):
         return self._boundary_basis
 
     @property
+    def nderiv(self):
+        return self._nderiv
+
+    @property
     def lcoords(self):
         return self._lcoords
 
     @property
     def elements(self):
         return self._elements
+
+    @property
+    def d_elements(self):
+        return self._d_elements
 
     @property
     def components(self):
@@ -870,6 +982,36 @@ class EvalMapping(SplBasic):
                                           dtype='real', rank=dim)
         mapping_values = indexed_variables(['{}_values'.format(f) for f in mapping_str],
                                           dtype='real', rank=dim)
+
+        weights_elements = []
+        if self.is_rational_mapping:
+            weights = Field('w', self.space)
+
+            weights_elements = [weights]
+
+            # ...
+            nderiv = self.nderiv
+            ops = _partial_derivatives[:dim]
+
+            if nderiv > 0:
+                weights_elements += [d(weights) for d in ops]
+
+            if nderiv > 1:
+                weights_elements += [d1(d2(weights)) for e,d1 in enumerate(ops)
+                                                     for d2 in ops[:e+1]]
+
+            if nderiv > 2:
+                raise NotImplementedError('TODO')
+            # ...
+
+            mapping_weights_str = [_print(f) for f in weights_elements]
+            mapping_wvalues = indexed_variables(['{}_values'.format(f) for f in mapping_weights_str],
+                                                dtype='real', rank=dim)
+
+            mapping_coeffs  = mapping_coeffs + (IndexedVariable('coeff_w', dtype='real', rank=dim),)
+            mapping_values  = mapping_values + tuple(mapping_wvalues)
+
+        weights_elements = tuple(weights_elements)
         # ...
 
         # ... ranges
@@ -882,8 +1024,8 @@ class EvalMapping(SplBasic):
         # ...
 
         # ...
-        self._mapping_coeffs = mapping_coeffs
-        self._mapping_values    = mapping_values
+        self._mapping_coeffs  = mapping_coeffs
+        self._mapping_values  = mapping_values
         # ...
 
         # ...
@@ -891,7 +1033,7 @@ class EvalMapping(SplBasic):
         body = []
         init_basis = OrderedDict()
         updates = []
-        for atom in self.elements:
+        for atom in self.elements + weights_elements:
             init, update = compute_atoms_expr_mapping(atom, indices_quad,
                                                       indices_basis, basis, Nj)
 
@@ -909,6 +1051,12 @@ class EvalMapping(SplBasic):
         body = filter_loops(indices_basis, ranges_basis, body,
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
+
+        if self.is_rational_mapping:
+            stmts = rationalize_eval_mapping(self.mapping, self.nderiv,
+                                             self.space, indices_quad)
+
+            body += stmts
 
         # put the body in for loops of quadrature points
         body = filter_loops(indices_quad, ranges_quad, body,
@@ -931,13 +1079,14 @@ class EvalMapping(SplBasic):
 class EvalField(SplBasic):
 
     def __new__(cls, space, fields, discrete_boundary=None, name=None,
-                boundary_basis=None, mapping=None):
+                boundary_basis=None, mapping=None, is_rational_mapping=None):
 
         if not isinstance(fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
 
         obj = SplBasic.__new__(cls, space, name=name,
-                               prefix='eval_field', mapping=mapping)
+                               prefix='eval_field', mapping=mapping,
+                               is_rational_mapping=is_rational_mapping)
 
         obj._space = space
         obj._fields = Tuple(*fields)
@@ -1049,13 +1198,14 @@ class EvalField(SplBasic):
 class EvalVectorField(SplBasic):
 
     def __new__(cls, space, vector_fields, discrete_boundary=None, name=None,
-                boundary_basis=None, mapping=None):
+                boundary_basis=None, mapping=None, is_rational_mapping=None):
 
         if not isinstance(vector_fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
 
         obj = SplBasic.__new__(cls, space, name=name,
-                               prefix='eval_vector_field', mapping=mapping)
+                               prefix='eval_vector_field', mapping=mapping,
+                               is_rational_mapping=is_rational_mapping)
 
         obj._space = space
         obj._vector_fields = Tuple(*vector_fields)
@@ -1170,7 +1320,7 @@ class Kernel(SplBasic):
 
     def __new__(cls, weak_form, kernel_expr, target=None,
                 discrete_boundary=None, name=None, boundary_basis=None,
-                mapping=None):
+                mapping=None, is_rational_mapping=None):
 
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
@@ -1217,7 +1367,8 @@ class Kernel(SplBasic):
 
         tag = random_string( 8 )
         obj = SplBasic.__new__(cls, tag, name=name,
-                               prefix='kernel', mapping=mapping)
+                               prefix='kernel', mapping=mapping,
+                               is_rational_mapping=is_rational_mapping)
 
         obj._weak_form         = weak_form
         obj._kernel_expr       = kernel_expr
@@ -1498,7 +1649,8 @@ class Kernel(SplBasic):
             eval_mapping = EvalMapping(space, mapping,
                                        discrete_boundary=self.discrete_boundary,
                                        boundary_basis=self.boundary_basis,
-                                       nderiv=nderiv)
+                                       nderiv=nderiv,
+                                       is_rational_mapping=self.is_rational_mapping)
             self._eval_mapping = eval_mapping
 
             # update dependencies
@@ -1917,13 +2069,14 @@ class Kernel(SplBasic):
 class Assembly(SplBasic):
 
     def __new__(cls, kernel, name=None, discrete_space=None, periodic=None,
-                comm=None, mapping=None):
+                comm=None, mapping=None, is_rational_mapping=None):
 
         if not isinstance(kernel, Kernel):
             raise TypeError('> Expecting a kernel')
 
         obj = SplBasic.__new__(cls, kernel.tag, name=name,
-                               prefix='assembly', mapping=mapping)
+                               prefix='assembly', mapping=mapping,
+                               is_rational_mapping=is_rational_mapping)
 
         # ... get periodicity of the space
         dim    = kernel.weak_form.ldim
@@ -2364,13 +2517,14 @@ class Assembly(SplBasic):
 class Interface(SplBasic):
 
     def __new__(cls, assembly, name=None, backend=None,
-                discrete_space=None, comm=None, mapping=None):
+                discrete_space=None, comm=None, mapping=None, is_rational_mapping=None):
 
         if not isinstance(assembly, Assembly):
             raise TypeError('> Expecting an Assembly')
 
         obj = SplBasic.__new__(cls, assembly.tag, name=name,
-                               prefix='interface', mapping=mapping)
+                               prefix='interface', mapping=mapping,
+                               is_rational_mapping=is_rational_mapping)
 
         obj._assembly = assembly
         obj._backend = backend
@@ -2568,8 +2722,18 @@ class Interface(SplBasic):
 
         # ...
         if mapping:
-            for i, coeff in enumerate(assembly.kernel.mapping_coeffs):
+            # we limit the range to dim, since the last element can be the
+            # weights when using NURBS
+            for i, coeff in enumerate(assembly.kernel.mapping_coeffs[:dim]):
                 component = IndexedBase(DottedName(mapping, '_fields'))[i]
+                c_var = DottedName(component, '_coeffs', '_data')
+                body += [Assign(coeff, c_var)]
+
+            # NURBS case
+            if self.is_rational_mapping:
+                coeff = assembly.kernel.mapping_coeffs[-1]
+
+                component = DottedName(mapping, '_weights_field')
                 c_var = DottedName(component, '_coeffs', '_data')
                 body += [Assign(coeff, c_var)]
         # ...

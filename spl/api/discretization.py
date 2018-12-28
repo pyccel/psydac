@@ -44,6 +44,7 @@ from spl.fem.splines              import SplineSpace
 from spl.fem.tensor               import TensorFemSpace
 from spl.fem.vector               import ProductFemSpace
 from spl.cad.geometry             import Geometry
+from spl.mapping.discrete         import SplineMapping, NurbsMapping
 
 import inspect
 import sys
@@ -74,7 +75,6 @@ def random_string( n ):
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
 #==============================================================================
-
 def write_code(filename, code, folder=None):
     if not folder:
         folder = os.getcwd()
@@ -130,7 +130,8 @@ class BasicDiscrete(object):
     def __init__(self, a, kernel_expr, namespace=globals(),
                  boundary=None, target=None,
                  boundary_basis=None, backend=SPL_BACKEND_PYTHON, folder=None,
-                 discrete_space=None, comm=None, root=None, mapping=None):
+                 discrete_space=None, comm=None, root=None, mapping=None,
+                 is_rational_mapping=None):
 
         # ...
         if not target:
@@ -164,24 +165,27 @@ class BasicDiscrete(object):
         # ...
         def _create_ast(tag):
             kernel = Kernel( a, kernel_expr,
-                             name              = 'kernel_{}'.format(tag),
-                             target            = target,
-                             mapping           = mapping,
-                             discrete_boundary = boundary,
-                             boundary_basis    = boundary_basis )
+                             name                = 'kernel_{}'.format(tag),
+                             target              = target,
+                             mapping             = mapping,
+                             is_rational_mapping = is_rational_mapping,
+                             discrete_boundary   = boundary,
+                             boundary_basis      = boundary_basis )
 
             assembly = Assembly( kernel,
                                  name           = 'assembly_{}'.format(tag),
                                  mapping        = mapping,
+                                 is_rational_mapping = is_rational_mapping,
                                  discrete_space = discrete_space,
                                  comm           = comm )
 
             interface = Interface( assembly,
-                                   name           = 'interface_{}'.format(tag),
-                                   mapping        = mapping,
-                                   backend        = backend,
-                                   discrete_space = discrete_space,
-                                   comm           = comm )
+                                   name                = 'interface_{}'.format(tag),
+                                   mapping             = mapping,
+                                   is_rational_mapping = is_rational_mapping,
+                                   backend             = backend,
+                                   discrete_space      = discrete_space,
+                                   comm                = comm )
 
             return kernel, assembly, interface
         # ...
@@ -312,6 +316,10 @@ class BasicDiscrete(object):
     @property
     def mapping(self):
         return self._mapping
+
+    @property
+    def is_rational_mapping(self):
+        return self._is_rational_mapping
 
     @property
     def interface(self):
@@ -567,15 +575,22 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         mapping = list(domain_h.mappings.values())[0]
         self._mapping = mapping
+
+        is_rational_mapping = False
+        if not( mapping is None ):
+            is_rational_mapping = isinstance( mapping, NurbsMapping )
+
+        self._is_rational_mapping = is_rational_mapping
         # ...
 
         # ...
         self._spaces = args[1]
         # ...
 
-        kwargs['discrete_space'] = self.spaces
-        kwargs['mapping']        = self.spaces[0].symbolic_mapping
-        kwargs['comm']           = domain_h.comm
+        kwargs['discrete_space']      = self.spaces
+        kwargs['mapping']             = self.spaces[0].symbolic_mapping
+        kwargs['is_rational_mapping'] = is_rational_mapping
+        kwargs['comm']                = domain_h.comm
 
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
@@ -659,15 +674,22 @@ class DiscreteLinearForm(BasicDiscrete):
 
         mapping = list(domain_h.mappings.values())[0]
         self._mapping = mapping
+
+        is_rational_mapping = False
+        if not( mapping is None ):
+            is_rational_mapping = isinstance( mapping, NurbsMapping )
+
+        self._is_rational_mapping = is_rational_mapping
         # ...
 
         # ...
         self._space = args[1]
         # ...
 
-        kwargs['discrete_space'] = self.space
-        kwargs['mapping']        = self.space.symbolic_mapping
-        kwargs['comm']           = domain_h.comm
+        kwargs['discrete_space']      = self.space
+        kwargs['mapping']             = self.space.symbolic_mapping
+        kwargs['is_rational_mapping'] = is_rational_mapping
+        kwargs['comm']                = domain_h.comm
 
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
@@ -731,15 +753,22 @@ class DiscreteIntegral(BasicDiscrete):
 
         mapping = list(domain_h.mappings.values())[0]
         self._mapping = mapping
+
+        is_rational_mapping = False
+        if not( mapping is None ):
+            is_rational_mapping = isinstance( mapping, NurbsMapping )
+
+        self._is_rational_mapping = is_rational_mapping
         # ...
 
         # ...
         self._space = args[1]
         # ...
 
-        kwargs['discrete_space'] = self.space
-        kwargs['mapping']        = self.space.symbolic_mapping
-        kwargs['comm']           = domain_h.comm
+        kwargs['discrete_space']      = self.space
+        kwargs['mapping']             = self.space.symbolic_mapping
+        kwargs['is_rational_mapping'] = is_rational_mapping
+        kwargs['comm']                = domain_h.comm
 
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
