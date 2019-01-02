@@ -7,7 +7,7 @@ from sympde.topology import Domain, Line, Square, Cube
 
 from spl.cad.geometry             import Geometry
 from spl.cad.cad                  import elevate, refine
-from spl.cad.gallery              import quart_circle
+from spl.cad.gallery              import quart_circle, circle
 from spl.mapping.discrete         import SplineMapping, NurbsMapping
 from spl.mapping.discrete_gallery import discrete_mapping
 from spl.fem.splines              import SplineSpace
@@ -111,6 +111,36 @@ def test_geometry_2d_3():
 
     # export it
     geo.export('quart_circle.h5')
+
+#==============================================================================
+# TODO to be removed
+def test_geometry_2d_4():
+
+    # create a nurbs mapping
+    radius = np.sqrt(2)/2.
+    degrees, knots, points, weights = circle( radius=radius, center=None )
+
+    # Create tensor spline space, distributed
+    spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
+    space = TensorFemSpace( *spaces, comm=None )
+
+    mapping = NurbsMapping.from_control_points_weights( space, points, weights )
+
+    n = 8
+#    n = 32
+    t = np.linspace(0, 1, n+1)[1:-1]
+
+    # TODO allow for 1d numpy array
+    t = list(t)
+
+    for axis in [0, 1]:
+        mapping = refine( mapping, axis=axis, values=t )
+
+    # create a geometry from a discrete mapping
+    geo = Geometry.from_discrete_mapping(mapping)
+
+    # export it
+    geo.export('circle.h5')
 
 #==============================================================================
 def test_geometry_1():

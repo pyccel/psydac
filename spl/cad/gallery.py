@@ -110,11 +110,54 @@ def annulus(rmin=0.5, rmax=1.0, center=None):
 
     return degrees, knots, points, weights
 
+
+#==============================================================================
+def circle(radius=1.0, center=None):
+    degrees = (2, 2)
+    pdim    = 2
+
+    s = 1./np.sqrt(2)
+    knots = [[0.0 , 0.0 , 0.0 , 1.0 , 1.0 , 1.0],
+             [0.0 , 0.0 , 0.0 , 1.0 , 1.0 , 1.0] ]
+
+    points          = np.zeros((3,3,pdim))
+    points[0,0,:]   = np.asarray([-s   , -s  ])
+    points[1,0,:]   = np.asarray([-2*s , 0.  ])
+    points[2,0,:]   = np.asarray([-s   , s   ])
+    points[0,1,:]   = np.asarray([0.   , -2*s])
+    points[1,1,:]   = np.asarray([0.   , 0.0 ])
+    points[2,1,:]   = np.asarray([0.   , 2*s ])
+    points[0,2,:]   = np.asarray([s    , -s  ])
+    points[1,2,:]   = np.asarray([2*s  , 0.  ])
+    points[2,2,:]   = np.asarray([s    , s   ])
+    points         *= radius
+
+    if center is not None:
+        points[...,0] += center[0]
+        points[...,1] += center[1]
+
+    weights         = np.zeros((3,3))
+    weights[0,0]    = 1.
+    weights[1,0]    = s
+    weights[2,0]    = 1.
+    weights[0,1]    = s
+    weights[1,1]    = 1.
+    weights[2,1]    = s
+    weights[0,2]    = 1.
+    weights[1,2]    = s
+    weights[2,2]    = 1.
+
+    for i in range(pdim):
+        points[...,i] *= weights[...]
+
+    return degrees, knots, points, weights
+
 #==============================================================================
 if __name__ == '__main__':
 
 #    degrees, knots, points, weights = quart_circle( rmin=0.5, rmax=1.0, center=None )
-    degrees, knots, points, weights = annulus( rmin=0.5, rmax=1.0, center=None )
+#    degrees, knots, points, weights = annulus( rmin=0.5, rmax=1.0, center=None )
+    degrees, knots, points, weights = circle( radius=1., center=None )
 
     # Create tensor spline space, distributed
     spaces = [SplineSpace( knots=k, degree=p ) for k,p in zip(knots, degrees)]
@@ -126,5 +169,6 @@ if __name__ == '__main__':
     from spl.cad.cad import elevate, refine
     mapping = elevate( mapping, axis=0, times=1 )
     mapping = refine( mapping, axis=0, values=[0.3, 0.6, 0.8] )
+    mapping = refine( mapping, axis=1, values=[0.3, 0.6, 0.8] )
     plot_mapping(mapping, N=10)
 
