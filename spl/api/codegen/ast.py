@@ -386,9 +386,6 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
     orders = [0 for i in range(0, dim)]
     p_indices = get_index_derivatives(atom)
 
-#    print('> atom = ', atom)
-#    print('> test_function = ', test_function)
-
     # ...
     def _get_name(atom):
         atom_name = None
@@ -416,8 +413,8 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
     else:
         atom_name = _get_name(atom)
 
-    test_name = _get_name(test_function)
-    test = atom_name == test_name
+    test_names = [_get_name(i) for i in test_function]
+    test = atom_name in test_names
 
     if test or is_linear:
         basis  = basis_test
@@ -1658,10 +1655,15 @@ class Kernel(SplBasic):
         # ...
 
         if is_bilinear or is_linear:
-            test_function = self.weak_form.test_functions[0]
+            test_function = self.weak_form.test_functions
+            if not isinstance(test_function, (tuple, Tuple)):
+                test_function = [test_function]
+                test_function = Tuple(*test_function)
 
         elif is_function:
             test_function = TestFunction(self.weak_form.space, name='Nj')
+            test_function = [test_function]
+            test_function = Tuple(*test_function)
 
         # creation of symbolic vars
         if is_bilinear:
@@ -2809,7 +2811,7 @@ class Interface(SplBasic):
 
                     body += [Import('BlockMatrix', 'spl.linalg.block')]
 
-                    # TODO this is a duplicated code => use a function to define
+                    # ... TODO this is a duplicated code => use a function to define
                     # global_matrices
                     n_rows = self.assembly.kernel.n_rows
                     n_cols = self.assembly.kernel.n_cols
@@ -2823,7 +2825,7 @@ class Interface(SplBasic):
                                 d[(i,j)] = mat
 
                             ind += 1
-
+                    # ...
 
                     # ... create product space
                     test_vector_space = DottedName(test_space, 'vector_space')
@@ -2839,6 +2841,23 @@ class Interface(SplBasic):
                 elif is_linear:
                     L = IndexedBase('L')
 
+                    # ... TODO this is a duplicated code => use a function to define
+                    # global_matrices
+                    n_rows = self.assembly.kernel.n_rows
+                    n_cols = self.assembly.kernel.n_cols
+                    # n_cols is equal to 1
+
+                    ind = 0
+                    d = {}
+                    j = 0
+                    for i in range(0, n_rows):
+                        if not( ind in zero_terms ):
+                            mat = IndexedBase('M_{i}{j}'.format(i=i,j=j))
+                            d[i] = mat
+
+                        ind += 1
+                    # ...
+
                     body += [Import('BlockVector', 'spl.linalg.block')]
 
                     # ... create product space
@@ -2846,8 +2865,9 @@ class Interface(SplBasic):
                     # ...
 
                     body += [Assign(L, FunctionCall('BlockVector', [test_vector_space]))]
-                    for i,m in enumerate(global_matrices):
-                        body += [Assign(L[i], m)]
+                    d = OrderedDict(sorted(d.items()))
+                    for k,v in d.items():
+                        body += [Assign(L[k], v)]
 
                 body += [Return(L)]
 
