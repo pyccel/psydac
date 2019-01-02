@@ -65,10 +65,10 @@ def plot_field(phi):
 
 
 #==============================================================================
-def run_poisson_2d_dir(solution, f, ncells, degree, comm=MPI.COMM_WORLD):
+def run_poisson_2d_dir(filename, solution, f, comm=None):
 
     # ... abstract model
-    domain = Square()
+    domain = Domain.from_file(filename)
 
     V = FunctionSpace('V', domain)
 
@@ -93,11 +93,11 @@ def run_poisson_2d_dir(solution, f, ncells, degree, comm=MPI.COMM_WORLD):
     # ...
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    domain_h = discretize(domain, filename=filename, comm=comm)
     # ...
 
     # ... discrete spaces
-    Vh = discretize(V, domain_h, degree=degree)
+    Vh = discretize(V, domain_h)
     # ...
 
     # ... dsicretize the equation using Dirichlet bc
@@ -123,37 +123,31 @@ def run_poisson_2d_dir(solution, f, ncells, degree, comm=MPI.COMM_WORLD):
     h1_error = h1norm_h.assemble(F=phi)
     # ...
 
-
-#    #######################
-#    import numpy as np
-#    phi_anal  = lambda x,y: np.sin(np.pi*x)*np.sin(np.pi*y)
-#    integrand = lambda *x: (phi(*x)-phi_anal(*x))**2
-#    err2 = np.sqrt( Vh.integral( integrand ) )
-#    print('> err2 = ', err2)
-#    #######################
-#
     return l2_error, h1_error
 
 
 #==============================================================================
-def test_api_poisson_2d_dir_1():
+def test_api_poisson_2d_dir_quart_circle():
+#    filename = os.path.join(mesh_dir, 'identity_2d.h5')
+    filename = 'quart_circle.h5'
 
     from sympy.abc import x,y
 
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
+    c = pi / (1. - 0.5**2)
+    r2 = 1. - x**2 - y**2
+    solution = x*y*sin(c * r2)
+    f = 4.*c**2*x*y*(x**2 + y**2)*sin(c * r2) + 12.*c*x*y*cos(c * r2)
 
-    l2_error, h1_error = run_poisson_2d_dir(solution, f,
-                                            ncells=[2**3,2**3], degree=[2,2])
+    l2_error, h1_error = run_poisson_2d_dir(filename, solution, f)
+    print(l2_error, h1_error)
 
-#    print(l2_error, h1_error)
+#    expected_l2_error =  0.00021808678604159413
+#    expected_h1_error =  0.013023570720357957
+#
+#    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+#    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
-    expected_l2_error =  0.00021808678604760232
-    expected_h1_error =  0.013023570720360362
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 ###############################################
 if __name__ == '__main__':
-    test_api_poisson_2d_dir_1()
+    test_api_poisson_2d_dir_quart_circle()
