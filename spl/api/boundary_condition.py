@@ -316,6 +316,9 @@ def apply_homogeneous_dirichlet_bc_BlockVector(V, bc, a):
 # TODO must pass two spaces for a matrix
 def apply_homogeneous_dirichlet_bc(V, bc, *args):
 
+    if not isinstance(bc, (tuple, list)):
+        bc = [bc]
+
     _avail_classes = [StencilVector, StencilMatrix,
                       BlockVector, BlockMatrix]
     for a in args:
@@ -336,4 +339,5 @@ def apply_homogeneous_dirichlet_bc(V, bc, *args):
             apply_bc = pattern.format( name = cls.__name__ )
 
         apply_bc = eval(apply_bc)
-        apply_bc(V, bc, a)
+        for b in bc:
+            apply_bc(V, b, a)
