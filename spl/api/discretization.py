@@ -63,7 +63,9 @@ def mkdir_p(folder):
     os.makedirs(folder)
 
 #==============================================================================
-def touch(path):
+def touch_init_file(path):
+    mkdir_p(path)
+    path = os.path.join(path, '__init__.py')
     with open(path, 'a'):
         os.utime(path, None)
 
@@ -88,8 +90,7 @@ def write_code(filename, code, folder=None):
 
     # TODO check if init exists
     # add __init__.py for imports
-    init_fname = os.path.join(folder, '__init__.py')
-    touch(init_fname)
+    touch_init_file(folder)
 
     f = open(filename, 'w')
     for line in code:
@@ -382,9 +383,9 @@ class BasicDiscrete(object):
             folder = os.path.join( basedir, folder )
 
             # ... add __init__ to all directories to be able to
-            touch(os.path.join('__pycache__', '__init__.py'))
+            touch_init_file('__pycache__')
             for root, dirs, files in os.walk(folder):
-                touch(os.path.join(root, '__init__.py'))
+                touch_init_file(root)
             # ...
 
         else:
