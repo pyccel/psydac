@@ -148,9 +148,6 @@ class BasicDiscrete(object):
 
             if isinstance(boundary, Boundary):
                 if not( boundary is target ):
-#                    print(boundary)
-#                    print(target)
-#                    import sys; sys.exit(0)
                     raise ValueError('> Unconsistent boundary with symbolic model')
 
                 boundary = [boundary.axis, boundary.ext]
@@ -830,7 +827,8 @@ class DiscreteIntegral(BasicDiscrete):
                 v = self.comm.allreduce(sendobj=v)
 
             if self.expr.exponent == 2:
-                v = np.sqrt(v)
+                # add abs because of 0 machine
+                v = np.sqrt(np.abs(v))
 
             else:
                 raise NotImplementedError('TODO')
@@ -954,8 +952,6 @@ class DiscreteEquation(BasicDiscrete):
 
         self._lhs = discretize(expr.lhs.expr, *newargs, **kwargs)
         # ...
-#        print(test_trial)
-#        import sys; sys.exit(0)
 
         # ...
         kwargs['boundary'] = None
