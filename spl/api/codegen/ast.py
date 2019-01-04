@@ -2805,7 +2805,10 @@ class Interface(SplBasic):
 
         # ... results
         if is_bilinear or is_linear:
-            if len(global_matrices) > 1:
+            n_rows = self.assembly.kernel.n_rows
+            n_cols = self.assembly.kernel.n_cols
+
+            if n_rows * n_cols > 1:
                 if is_bilinear:
                     L = IndexedBase('L')
 
@@ -2813,9 +2816,6 @@ class Interface(SplBasic):
 
                     # ... TODO this is a duplicated code => use a function to define
                     # global_matrices
-                    n_rows = self.assembly.kernel.n_rows
-                    n_cols = self.assembly.kernel.n_cols
-
                     ind = 0
                     d = {}
                     for i in range(0, n_rows):
@@ -2843,8 +2843,6 @@ class Interface(SplBasic):
 
                     # ... TODO this is a duplicated code => use a function to define
                     # global_matrices
-                    n_rows = self.assembly.kernel.n_rows
-                    n_cols = self.assembly.kernel.n_cols
                     # n_cols is equal to 1
 
                     ind = 0
