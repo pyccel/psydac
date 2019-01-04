@@ -129,31 +129,31 @@ class DiscreteDirichletBC(DiscreteBoundaryCondition):
         return DiscreteDirichletBC(B)
 
 
-def apply_homogeneous_dirichlet_bc_1d_StencilVector(V, bc, a):
+def apply_homogeneous_dirichlet_bc_1d_StencilVector(V, bc, a, shift=0):
     """ Apply homogeneous dirichlet boundary conditions in 1D """
 
     # assumes a 1D spline space
     # add asserts on the space if it is periodic
 
     if bc.boundary.ext == -1:
-        a[0] = 0.
+        a[0+shift] = 0.
 
     if bc.boundary.ext == 1:
-        a[V.nbasis-1] = 0.
+        a[V.nbasis-1-shift] = 0.
 
-def apply_homogeneous_dirichlet_bc_1d_StencilMatrix(V, bc, a):
+def apply_homogeneous_dirichlet_bc_1d_StencilMatrix(V, bc, a, shift=0):
     """ Apply homogeneous dirichlet boundary conditions in 1D """
 
     # assumes a 1D spline space
     # add asserts on the space if it is periodic
 
     if bc.boundary.ext == -1:
-        a[ 0,:] = 0.
+        a[ 0+shift,:] = 0.
 
     if bc.boundary.ext == 1:
-        a[-1,:] = 0.
+        a[-1-shift,:] = 0.
 
-def apply_homogeneous_dirichlet_bc_2d_StencilVector(V, bc, a):
+def apply_homogeneous_dirichlet_bc_2d_StencilVector(V, bc, a, shift=0):
     """ Apply homogeneous dirichlet boundary conditions in 2D """
 
     # assumes a 2D Tensor space
@@ -167,22 +167,22 @@ def apply_homogeneous_dirichlet_bc_2d_StencilVector(V, bc, a):
     if bc.boundary.axis == 0:
         # left  bc.boundary.at x=0.
         if s1 == 0 and bc.boundary.ext == -1:
-            a[0,:] = 0.
+            a[0+shift,:] = 0.
 
         # right bc.boundary.at x=1.
         if e1 == V1.nbasis-1 and bc.boundary.ext == 1:
-            a [e1,:] = 0.
+            a [e1-shift,:] = 0.
 
     if bc.boundary.axis == 1:
         # lower bc.boundary.at y=0.
         if s2 == 0 and bc.boundary.ext == -1:
-            a [:,0] = 0.
+            a [:,0+shift] = 0.
 
         # upper bc.boundary.at y=1.
         if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
-            a [:,e2] = 0.
+            a [:,e2-shift] = 0.
 
-def apply_homogeneous_dirichlet_bc_2d_StencilMatrix(V, bc, a):
+def apply_homogeneous_dirichlet_bc_2d_StencilMatrix(V, bc, a, shift=0):
     """ Apply homogeneous dirichlet boundary conditions in 2D """
 
     # assumes a 2D Tensor space
@@ -196,24 +196,24 @@ def apply_homogeneous_dirichlet_bc_2d_StencilMatrix(V, bc, a):
     if bc.boundary.axis == 0:
         # left  bc.boundary.at x=0.
         if s1 == 0 and bc.boundary.ext == -1:
-            a[0,:,:,:] = 0.
+            a[0+shift,:,:,:] = 0.
 
         # right bc.boundary.at x=1.
         if e1 == V1.nbasis-1 and bc.boundary.ext == 1:
-            a[e1,:,:,:] = 0.
+            a[e1-shift,:,:,:] = 0.
 
     if bc.boundary.axis == 1:
         # lower bc.boundary.at y=0.
         if s2 == 0 and bc.boundary.ext == -1:
-            a[:,0,:,:] = 0.
+            a[:,0+shift,:,:] = 0.
 
         # upper bc.boundary.at y=1.
         if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
-            a[:,e2,:,:] = 0.
+            a[:,e2-shift,:,:] = 0.
 
 
 
-def apply_homogeneous_dirichlet_bc_3d_StencilVector(V, bc, a):
+def apply_homogeneous_dirichlet_bc_3d_StencilVector(V, bc, a, shift=0):
     """ Apply homogeneous dirichlet boundary conditions in 3D """
 
     # assumes a 3D Tensor space
@@ -227,31 +227,31 @@ def apply_homogeneous_dirichlet_bc_3d_StencilVector(V, bc, a):
     if bc.boundary.axis == 0:
         # left  bc at x=0.
         if s1 == 0 and bc.boundary.ext == -1:
-            a[0,:,:] = 0.
+            a[0+shift,:,:] = 0.
 
         # right bc at x=1.
         if e1 == V1.nbasis-1 and bc.boundary.ext == 1:
-            a [e1,:,:] = 0.
+            a [e1-shift,:,:] = 0.
 
     if bc.boundary.axis == 1:
         # lower bc at y=0.
         if s2 == 0 and bc.boundary.ext == -1:
-            a [:,0,:] = 0.
+            a [:,0+shift,:] = 0.
 
         # upper bc at y=1.
         if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
-            a [:,e2,:] = 0.
+            a [:,e2-shift,:] = 0.
 
     if bc.boundary.axis == 2:
         # lower bc at z=0.
         if s3 == 0 and bc.boundary.ext == -1:
-            a [:,:,0] = 0.
+            a [:,:,0+shift] = 0.
 
         # upper bc at z=1.
         if e3 == V3.nbasis-1 and bc.boundary.ext == 1:
-            a [:,:,e3] = 0.
+            a [:,:,e3-shift] = 0.
 
-def apply_homogeneous_dirichlet_bc_3d_StencilMatrix(V, bc, a):
+def apply_homogeneous_dirichlet_bc_3d_StencilMatrix(V, bc, a, shift=0):
     """ Apply homogeneous dirichlet boundary conditions in 3D """
 
     # assumes a 3D Tensor space
@@ -265,44 +265,44 @@ def apply_homogeneous_dirichlet_bc_3d_StencilMatrix(V, bc, a):
     if bc.boundary.axis == 0:
         # left  bc at x=0.
         if s1 == 0 and bc.boundary.ext == -1:
-            a[0,:,:,:,:,:] = 0.
+            a[0+shift,:,:,:,:,:] = 0.
 
         # right bc at x=1.
         if e1 == V1.nbasis-1 and bc.boundary.ext == 1:
-            a[e1,:,:,:,:,:] = 0.
+            a[e1-shift,:,:,:,:,:] = 0.
 
     if bc.boundary.axis == 1:
         # lower bc at y=0.
         if s2 == 0 and bc.boundary.ext == -1:
-            a[:,0,:,:,:,:] = 0.
+            a[:,0+shift,:,:,:,:] = 0.
 
         # upper bc at y=1.
         if e2 == V2.nbasis-1 and bc.boundary.ext == 1:
-            a[:,e2,:,:,:,:] = 0.
+            a[:,e2-shift,:,:,:,:] = 0.
 
     if bc.boundary.axis == 2:
         # lower bc at z=0.
         if s3 == 0 and bc.boundary.ext == -1:
-            a[:,:,0,:,:,:] = 0.
+            a[:,:,0+shift,:,:,:] = 0.
 
         # upper bc at z=1.
         if e3 == V3.nbasis-1 and bc.boundary.ext == 1:
-            a[:,:,e3,:,:,:] = 0.
+            a[:,:,e3-shift,:,:,:] = 0.
 
 
 # V is a ProductFemSpace here
-def apply_homogeneous_dirichlet_bc_BlockMatrix(V, bc, a):
+def apply_homogeneous_dirichlet_bc_BlockMatrix(V, bc, a, shift=0):
     """ Apply homogeneous dirichlet boundary conditions in nD """
 
     for ij, M in a._blocks.items():
         i_row, i_col = ij
         # TODO must use col space too
         W = V.spaces[i_row]
-        apply_homogeneous_dirichlet_bc(W, bc, M)
+        apply_homogeneous_dirichlet_bc(W, bc, M, shift=shift)
 
 
 # V is a ProductFemSpace here
-def apply_homogeneous_dirichlet_bc_BlockVector(V, bc, a):
+def apply_homogeneous_dirichlet_bc_BlockVector(V, bc, a, shift=0):
     """ Apply homogeneous dirichlet boundary conditions in nD """
 
     n_blocks = a.n_blocks
@@ -310,11 +310,11 @@ def apply_homogeneous_dirichlet_bc_BlockVector(V, bc, a):
         M = a[i]
         # TODO must use col space too
         W = V.spaces[i]
-        apply_homogeneous_dirichlet_bc(W, bc, M)
+        apply_homogeneous_dirichlet_bc(W, bc, M, shift=shift)
 
 
 # TODO must pass two spaces for a matrix
-def apply_homogeneous_dirichlet_bc(V, bc, *args):
+def apply_homogeneous_dirichlet_bc(V, bc, *args, **kwargs):
 
     if not isinstance(bc, (tuple, list)):
         bc = [bc]
@@ -340,4 +340,4 @@ def apply_homogeneous_dirichlet_bc(V, bc, *args):
 
         apply_bc = eval(apply_bc)
         for b in bc:
-            apply_bc(V, b, a)
+            apply_bc(V, b, a, **kwargs)
