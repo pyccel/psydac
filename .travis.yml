@@ -20,9 +20,9 @@ before_install:
   - python -m pip uninstall -y spl
   - python -m pip uninstall -y sympde
   - python -m pip uninstall -y pyccel
-  - wget https://raw.githubusercontent.com/pyccel/pyccel/devel/requirements.txt -O requirements_pyccel.txt
+  - wget https://raw.githubusercontent.com/pyccel/pyccel/master/requirements.txt -O requirements_pyccel.txt
   - python -m pip install -r requirements_pyccel.txt
-  - python -m pip install git+https://github.com/pyccel/pyccel@devel 
+  - python -m pip install git+https://github.com/pyccel/pyccel@master
   - wget https://raw.githubusercontent.com/pyccel/sympde/master/requirements.txt -O requirements_sympde.txt
   - python -m pip install -r requirements_sympde.txt
   - python -m pip install git+https://github.com/pyccel/sympde@master
