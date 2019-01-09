@@ -37,8 +37,15 @@ import pytest
 
 import os
 
-base_dir = os.path.dirname(os.path.realpath(__file__))
-mesh_dir = os.path.join(base_dir, 'mesh')
+# ... get the mesh directory
+try:
+    mesh_dir = os.environ['SPL_MESH_DIR']
+
+except:
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    base_dir = os.path.join(base_dir, '..', '..', '..')
+    mesh_dir = os.path.join(base_dir, 'mesh')
+# ...
 
 #==============================================================================
 def run_poisson_2d_dir(filename, solution, f, comm=None):

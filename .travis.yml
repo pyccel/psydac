@@ -34,6 +34,7 @@ install:
 before_script:
   - mkdir pytest
   - cp mpi_tester.py pytest
+  - export SPL_MESH_DIR=$TRAVIS_BUILD_DIR/mesh
 
 # command to run tests
 script:
