@@ -2672,7 +2672,7 @@ class Interface(SplBasic):
         spans          = indexed_variables(spans, dtype='int', rank=1)
 
         quad_orders    = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
-
+        dot            = Symbol('dot')
         mapping = ()
         if self.mapping:
             mapping = Symbol('mapping')
@@ -2753,10 +2753,18 @@ class Interface(SplBasic):
                 if is_bilinear:
                     args = [test_vector_space, trial_vector_space]
                     if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
+                    if_body.append(Assign(dot,FunctionCall('LinearOperatorDot', [dim, DottedName(M,'pads')])))
+                    if_body.append(Assign(dot,FunctionCall('backend',[dot])))
+                    if_body.append(Assign(DottedName(M,'_dot'),dot))
+                    
+
 
                 if is_linear:
                     args = [test_vector_space]
                     if_body = [Assign(M, FunctionCall('StencilVector', args))]
+                    if_body.append(Assign(dot,FunctionCall('VectorDot', [dim])))
+                    if_body.append(Assign(dot,FunctionCall('backend',[dot])))
+                    if_body.append(Assign(DottedName(M,'_dot'),dot))
 
                 stmt = If((if_cond, if_body))
                 body += [stmt]
@@ -2904,3 +2912,140 @@ class Interface(SplBasic):
         # ...
 
         return FunctionDef(self.name, list(func_args), [], body)
+        
+        
+        
+class LinearOperatorDot(SplBasic):
+
+    def __new__(cls, ndim, pads):
+
+
+        obj = SplBasic.__new__(cls, 'dot')
+        obj._ndim = ndim
+        obj._pads = pads
+        obj._func = obj._initilize()
+        
+    @property
+    def ndim(self):
+        return self._ndim
+        
+    @property
+    def pads(self):
+        return self._pads
+        
+    def _initilize(self):
+
+        ndim = self.ndim
+        nrows           = symbols('n1:%s'%(ndim+1))
+        pads            = symbols('p1:%s'%(ndim+1))
+        indices1        = symbols('ind1:%s'%(ndim+1))
+        indices2        = symbols('i1:%s'%(ndim+1))
+        extra_rows      = IndexedBase('extra_rows')
+        ex,v            = symbols('ex,v')
+        mat, x, out     = symbols('mat, x, out',cls=IndexedBase)
+        
+        body = []
+        ranges = [Range(2*p+1) for p in pads]
+        target = Product(*ranges)
+        
+        
+        v1 = x[tuple(i+j for i,j in zip(indices1,indices2))]
+        v2 = mat[tuple(i+j for i,j in zip(indices1,pads))+tuple(indices2)]
+        v3 = out[tuple(i+j for i,j in zip(indices1,pads))]
+        
+        body = [AugAssign(v,'+' ,Mul(v1,v2))]
+        body = [For(indices2, target, body)]
+        body.insert(0,Assign(v, 0.0))
+        body.append(Assign(v3,v))
+        ranges = [Range(i) for i in nrows]
+        target = Product(*ranges)
+        body = [For(indices1,target,body)]
+        
+        for dim in range(ndim):
+            body.append(Assign(ex,extra_rows[dim]))
+
+            
+            v1 = [i+j for i,j in zip(indices1, indices2)]
+            v2 = [i+j for i,j in zip(indices1, pads)]
+            v1[dim] += nrows[dim]
+            v2[dim] += nrows[dim]
+            v3 = v2
+            v1 = x[tuple(v1)]
+            v2 = mat[tuple(v2)+ indices2]
+            v3 = out[tuple(v3)]
+            
+            rows = list(nrows)
+            rows[dim] = ex
+            ranges = [2*p+1 for p in pads]
+            ranges[dim] -= indices1[dim] + 1 
+            ranges =[Range(i) for i in ranges]
+            target = Product(*ranges)
+            
+            for_body = [AugAssign(v, '+',Mul(v1,v2))]
+            for_body = [For(indices2, target, for_body)]
+            for_body.insert(0,Assign(v, 0.0))
+            for_body.append(Assign(v3,v))
+            
+            ranges = [Range(i) for i in rows]
+            target = Product(*ranges)
+            body += [For(indices1, target, for_body)]
+            
+        args = nrows + pads + (extra_rows, mat, x, out)
+        nrows = ','.join(pycode(i) for i in nrows)
+        pads = ','.join(pycode(i) for i in pads)
+        dim = ','.join(':' for i in range(ndim))
+        header = 'header function dot({nrows},{pads},int[:],float64[{dim},{dim}],float64[{dim}],float64[{dim}])'
+        header = header.format(nrows=nrows,pads=pads,dim=dim)
+
+        return FunctionDef('dot', args, [], body,imports=[Import('product','itertools')],header=header)
+        
+class VectorDot(SplBasic):
+
+    def __new__(cls, ndim):
+
+
+        obj = SplBasic.__new__(cls, 'dot')
+        obj._ndim = ndim
+        obj._pads = pads
+        obj._func = obj._initilize()
+        
+    @property
+    def ndim(self):
+        return self._ndim
+        
+    @property
+    def pads(self):
+        return self._pads
+        
+    def _initilize(self):
+
+        ndim = self.ndim
+        
+        indices = symbols('i1:%s'%(ndim+1))
+        dims    = symbols('n1:%s'%(ndim+1))
+        out     = symbols('out')
+        x1,x2   = symbols('x1, x2',cls=IndexedBase)
+        
+        body = []
+        ranges = [Range(n) for n in dims]
+        target = Product(*ranges)
+        
+        
+        v1 = x1[indices]
+        v2 = x2[indices]
+        
+        body = [AugAssign(out,'+' ,Mul(v1,v2))]
+        body = [For(indices, target, body)]
+        body.insert(0,Assign(out, 0.0))
+        body.append(Return([out]))
+            
+        args = dims +(x1, x2)
+        dim = ','.join(':' for i in range(ndim))
+        dims = ','.join('n%s'%i for i in range(1,ndim+1))
+        
+        header = 'header function dot({dims},float64[{dim}],float64[{dim}])'
+        header = header.format(dims=dims,dim=dim)
+
+        return FunctionDef('dot', args, [], body,imports=[Import('product','itertools')],header=header)
+
+
