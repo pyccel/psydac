@@ -24,7 +24,7 @@ from pyccel.ast.core import For
 from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Slice
-from pyccel.ast.core import Range
+from pyccel.ast.core import Range, Product
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
 from pyccel.ast.core import Import
@@ -2532,9 +2532,14 @@ class Interface(SplBasic):
         obj._backend = backend
         obj._discrete_space = discrete_space
         obj._comm = comm
-
+        
+        dim = assembly.weak_form.ldim
+        
         # update dependencies
-        obj._dependencies += [assembly]
+        lo_dot = LinearOperatorDot(dim)
+        v_dot  = VectorDot(dim)
+        obj._dots = [lo_dot, v_dot] 
+        obj._dependencies += [assembly, lo_dot, v_dot]
 
         obj._func = obj._initialize()
         return obj
@@ -2574,6 +2579,10 @@ class Interface(SplBasic):
     @property
     def inout_arguments(self):
         return self._inout_arguments
+        
+    @property
+    def dots(self):
+        return self._dots
 
     def _initialize(self):
         form = self.weak_form
@@ -2670,6 +2679,7 @@ class Interface(SplBasic):
 
         spans          = ['test_spans_{}'.format(i) for i in range(1, dim+1)]
         spans          = indexed_variables(spans, dtype='int', rank=1)
+        dots           = symbols('lo_dot v_dot')
 
         quad_orders    = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
         dot            = Symbol('dot')
@@ -2753,18 +2763,14 @@ class Interface(SplBasic):
                 if is_bilinear:
                     args = [test_vector_space, trial_vector_space]
                     if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
-                    if_body.append(Assign(dot,FunctionCall('LinearOperatorDot', [dim, DottedName(M,'pads')])))
-                    if_body.append(Assign(dot,FunctionCall('backend',[dot])))
-                    if_body.append(Assign(DottedName(M,'_dot'),dot))
+                    if_body.append(Assign(DottedName(M,'_dot'),dots[0]))
                     
 
 
                 if is_linear:
                     args = [test_vector_space]
                     if_body = [Assign(M, FunctionCall('StencilVector', args))]
-                    if_body.append(Assign(dot,FunctionCall('VectorDot', [dim])))
-                    if_body.append(Assign(dot,FunctionCall('backend',[dot])))
-                    if_body.append(Assign(DottedName(M,'_dot'),dot))
+                    if_body.append(Assign(DottedName(M,'_dot'),dots[1]))
 
                 stmt = If((if_cond, if_body))
                 body += [stmt]
@@ -2917,21 +2923,22 @@ class Interface(SplBasic):
         
 class LinearOperatorDot(SplBasic):
 
-    def __new__(cls, ndim, pads):
+    def __new__(cls, ndim):
 
 
-        obj = SplBasic.__new__(cls, 'dot')
+        obj = SplBasic.__new__(cls, 'dot',name='lo_dot',prefix='lo_dot')
         obj._ndim = ndim
-        obj._pads = pads
         obj._func = obj._initilize()
+        return obj
         
     @property
     def ndim(self):
         return self._ndim
         
     @property
-    def pads(self):
-        return self._pads
+    def func(self):
+        return self._func
+ 
         
     def _initilize(self):
 
@@ -2991,31 +2998,35 @@ class LinearOperatorDot(SplBasic):
             body += [For(indices1, target, for_body)]
             
         args = nrows + pads + (extra_rows, mat, x, out)
-        nrows = ','.join(pycode(i) for i in nrows)
-        pads = ','.join(pycode(i) for i in pads)
+        
+        pads = ', '.join('int' for i in range(dim))
         dim = ','.join(':' for i in range(ndim))
-        header = 'header function dot({nrows},{pads},int[:],float64[{dim},{dim}],float64[{dim}],float64[{dim}])'
-        header = header.format(nrows=nrows,pads=pads,dim=dim)
+        
+        types = """{pads}, {pads}, 'real[{dim},{dim}]', 'real[{dim}]', 'real[{dim}]'"""
+        types = types.format(pads=pads,dim=dim)
+        types = types.split(',')
+        decorators = {'types': types,
+                      'external_call': []}
 
-        return FunctionDef('dot', args, [], body,imports=[Import('product','itertools')],header=header)
+        return FunctionDef(self.name, args, [], body,imports=[Import('product','itertools')],decorators=decorators)
         
 class VectorDot(SplBasic):
 
     def __new__(cls, ndim):
 
 
-        obj = SplBasic.__new__(cls, 'dot')
+        obj = SplBasic.__new__(cls, 'dot', name='v_dot', prefix='v_dot')
         obj._ndim = ndim
-        obj._pads = pads
         obj._func = obj._initilize()
+        return obj
         
     @property
     def ndim(self):
         return self._ndim
         
     @property
-    def pads(self):
-        return self._pads
+    def func(self):
+        return self._func
         
     def _initilize(self):
 
@@ -3041,11 +3052,13 @@ class VectorDot(SplBasic):
             
         args = dims +(x1, x2)
         dim = ','.join(':' for i in range(ndim))
-        dims = ','.join('n%s'%i for i in range(1,ndim+1))
+        dims = ','.join('int' for i in range(ndim))
         
-        header = 'header function dot({dims},float64[{dim}],float64[{dim}])'
-        header = header.format(dims=dims,dim=dim)
-
-        return FunctionDef('dot', args, [], body,imports=[Import('product','itertools')],header=header)
+        types = """{dims}, 'real[{dim}]', 'real[{dim}]'"""
+        types = types.format(dims=dims,dim=dim)
+        types = types.split(',')
+        decorators = {'types': types, 'external_call': []}
+        
+        return FunctionDef(self.name, args, [], body,imports=[Import('product','itertools')],decorators=decorators)
 
 
