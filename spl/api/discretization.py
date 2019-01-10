@@ -487,11 +487,7 @@ class BasicDiscrete(object):
         # ...
         # update module name for dependencies
         # needed for interface when importing assembly
-        # name.name is needed for f2py
-        # we take the relative path of self.folder (which is absolute)
-        folder = os.path.relpath(self.folder, basedir)
-        folder = os.path.join(folder, _PYCCEL_FOLDER)
-        name = os.path.join(folder, f2py_module.__name__)
+        name = os.path.join(_PYCCEL_FOLDER, f2py_module.__name__)
         name = name.replace('/', '.')
         imports = []
         for f in functions:
