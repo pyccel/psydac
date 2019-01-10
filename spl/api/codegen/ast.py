@@ -2454,18 +2454,16 @@ class Assembly(SplBasic):
                     mat = element_matrices[i,j]
 
                     if is_bilinear:
-                        stmt = Assign(mat, Zeros((*orders, *spads)))
+                        args = tuple(orders + spads)
 
                     if is_linear:
-                        stmt = Assign(mat, Zeros((*orders,)))
+                        args = tuple(orders)
 
                     if is_function:
-                        stmt = Assign(mat, Zeros((1,)))
+                        args = tuple([1])
 
+                    stmt = Assign(mat, Zeros(args))
                     prelude += [stmt]
-
-                    if self.debug:
-                        prelude += [Print((String('> shape {} = '.format(mat)), *orders, *spads))]
 
                 ind += 1
 
