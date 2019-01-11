@@ -21,13 +21,13 @@ from sympde.expr import Equation, DirichletBC
 
 from spl.fem.basic   import FemField
 from spl.api.discretization import discretize
-from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL
+from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL,SPL_BACKEND_NUMBA
 
 import time
 from tabulate import tabulate
 from collections import namedtuple
 
-Timing = namedtuple('Timing', ['kind', 'python', 'pyccel'])
+Timing = namedtuple('Timing', ['kind', 'python', 'pyccel', 'numba'])
 
 DEBUG = False
 
@@ -181,11 +181,11 @@ DEBUG = False
 def print_timing(ls):
     # ...
     table   = []
-    headers = ['Assembly time', 'Python', 'Pyccel', 'Speedup']
+    headers = ['Assembly time', 'Python', 'Pyccel', 'Numba','Speedup']
 
     for timing in ls:
         speedup = timing.python / timing.pyccel
-        line   = [timing.kind, timing.python, timing.pyccel, speedup]
+        line   = [timing.kind, timing.python, timing.pyccel, timing.numba, speedup]
         table.append(line)
 
     print(tabulate(table, headers=headers, tablefmt='latex'))
@@ -257,14 +257,15 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
 ###############################################################################
 
 #==============================================================================
-def test_perf_poisson_2d(ncells=[2**3,2**3], degree=[2,2]):
+def test_perf_poisson_2d(ncells=[2**8,2**8], degree=[2,2]):
     domain = Square()
     x,y = domain.coordinates
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
-
-    # using Python
+    
+                             
+    # using Python               
     d_py = run_poisson( domain, solution, f,
                         ncells=ncells, degree=degree,
                         backend=SPL_BACKEND_PYTHON )
@@ -273,12 +274,19 @@ def test_perf_poisson_2d(ncells=[2**3,2**3], degree=[2,2]):
     d_f90 = run_poisson( domain, solution, f,
                          ncells=ncells, degree=degree,
                          backend=SPL_BACKEND_PYCCEL )
+                         
+        # using numba
+    d_numba = run_poisson( domain, solution, f,
+                          ncells=ncells, degree=degree, 
+                          backend=SPL_BACKEND_NUMBA )   
+
 
     # ... add every new backend here
-    d_all = [d_py, d_f90]
+    d_all = [d_py, d_f90, d_numba]
 
     keys = sorted(list(d_py.keys()))
     timings = []
+    
     for key in keys:
         args = [d[key] for d in d_all]
         timing = Timing(key, *args)

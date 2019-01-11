@@ -40,6 +40,7 @@ from pyccel.ast.core      import _atomic
 from pyccel.ast.utilities import build_types_decorator
 from pyccel.ast.utilities import variables, indexed_variables
 
+
 from sympde.core import grad
 from sympde.core import Cross_3d
 from sympde.core import Constant
@@ -813,6 +814,7 @@ class SplBasic(Basic):
         obj._detailed            = detailed
         obj._mapping             = mapping
         obj._is_rational_mapping = is_rational_mapping
+        obj._imports = []
 
         return obj
 
@@ -855,13 +857,17 @@ class SplBasic(Basic):
     @property
     def discrete_boundary(self):
         return self._discrete_boundary
+        
+    @property
+    def imports(self):
+        return self._imports
 
 
 #==============================================================================
 class EvalMapping(SplBasic):
 
     def __new__(cls, space, mapping, discrete_boundary=None, name=None,
-                boundary_basis=None, nderiv=1, is_rational_mapping=None):
+                boundary_basis=None, nderiv=1, is_rational_mapping=None,backend=None):
 
         if not isinstance(mapping, Mapping):
             raise TypeError('> Expecting a Mapping object')
@@ -873,6 +879,7 @@ class EvalMapping(SplBasic):
         obj._space = space
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis = boundary_basis
+        obj._backend = backend
 
         dim = mapping.rdim
 
@@ -952,6 +959,10 @@ class EvalMapping(SplBasic):
     @property
     def mapping_values(self):
         return self._mapping_values
+        
+    @property
+    def backend(self):
+        return self._backend
 
     def build_arguments(self, data):
 
@@ -1066,8 +1077,14 @@ class EvalMapping(SplBasic):
         body =  init_vals + body
 
         func_args = self.build_arguments(degrees + basis + mapping_coeffs + mapping_values)
-
-        decorators = {'types': build_types_decorator(func_args)}
+        
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args)}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        else:
+            decorators = {}
+            
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators)
 
@@ -1076,7 +1093,7 @@ class EvalMapping(SplBasic):
 class EvalField(SplBasic):
 
     def __new__(cls, space, fields, discrete_boundary=None, name=None,
-                boundary_basis=None, mapping=None, is_rational_mapping=None):
+                boundary_basis=None, mapping=None, is_rational_mapping=None,backend=None):
 
         if not isinstance(fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
@@ -1089,7 +1106,9 @@ class EvalField(SplBasic):
         obj._fields = Tuple(*fields)
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis = boundary_basis
+        obj._backend = backend
         obj._func = obj._initialize()
+        
 
         return obj
 
@@ -1108,6 +1127,10 @@ class EvalField(SplBasic):
     @property
     def boundary_basis(self):
         return self._boundary_basis
+        
+    @property
+    def backend(self):
+        return self._backend
 
     def build_arguments(self, data):
 
@@ -1186,7 +1209,14 @@ class EvalField(SplBasic):
 
         func_args = self.build_arguments(degrees + basis + fields_coeffs + fields_val)
 
-        decorators = {'types': build_types_decorator(func_args)}
+
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args)}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        else:
+            decorators = {}
+            
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators)
 
@@ -1195,7 +1225,7 @@ class EvalField(SplBasic):
 class EvalVectorField(SplBasic):
 
     def __new__(cls, space, vector_fields, discrete_boundary=None, name=None,
-                boundary_basis=None, mapping=None, is_rational_mapping=None):
+                boundary_basis=None, mapping=None, is_rational_mapping=None, backend = None):
 
         if not isinstance(vector_fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
@@ -1208,6 +1238,7 @@ class EvalVectorField(SplBasic):
         obj._vector_fields = Tuple(*vector_fields)
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis = boundary_basis
+        obj._backend = backend
         obj._func = obj._initialize()
 
         return obj
@@ -1227,6 +1258,10 @@ class EvalVectorField(SplBasic):
     @property
     def boundary_basis(self):
         return self._boundary_basis
+        
+    @property
+    def backend(self):
+        return self._backend
 
     def build_arguments(self, data):
 
@@ -1306,7 +1341,13 @@ class EvalVectorField(SplBasic):
 
         func_args = self.build_arguments(degrees + basis + vector_fields_coeffs + vector_fields_val)
 
-        decorators = {'types': build_types_decorator(func_args)}
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args)}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        else:
+            decorators = {}
+            
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators)
 
@@ -1317,7 +1358,7 @@ class Kernel(SplBasic):
 
     def __new__(cls, weak_form, kernel_expr, target=None,
                 discrete_boundary=None, name=None, boundary_basis=None,
-                mapping=None, is_rational_mapping=None):
+                mapping=None, is_rational_mapping=None,backend=None):
 
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
@@ -1372,6 +1413,7 @@ class Kernel(SplBasic):
         obj._target            = target
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis    = boundary_basis
+        obj._backend = backend
 
         obj._func = obj._initialize()
 
@@ -1458,6 +1500,10 @@ class Kernel(SplBasic):
     @property
     def eval_mapping(self):
         return self._eval_mapping
+        
+    @property
+    def backend(self):
+        return self._backend
 
     def build_arguments(self, data):
 
@@ -1574,7 +1620,7 @@ class Kernel(SplBasic):
                 eval_field = EvalField(space, fields_expressions,
                                        discrete_boundary=self.discrete_boundary,
                                        boundary_basis=self.boundary_basis,
-                                       mapping=mapping)
+                                       mapping=mapping,backend=self.backend)
 
                 self._eval_fields.append(eval_field)
                 for k,v in eval_field.map_stmts.items():
@@ -1608,7 +1654,7 @@ class Kernel(SplBasic):
                 eval_vector_field = EvalVectorField(space, vector_fields_expressions,
                                                     discrete_boundary=self.discrete_boundary,
                                                     boundary_basis=self.boundary_basis,
-                                                    mapping=mapping)
+                                                    mapping=mapping,backend=self.backend)
                 self._eval_vector_fields.append(eval_vector_field)
                 for k,v in eval_vector_field.map_stmts.items():
                     self._map_stmts_fields[k] = v
@@ -1647,7 +1693,7 @@ class Kernel(SplBasic):
                                        discrete_boundary=self.discrete_boundary,
                                        boundary_basis=self.boundary_basis,
                                        nderiv=nderiv,
-                                       is_rational_mapping=self.is_rational_mapping)
+                                       is_rational_mapping=self.is_rational_mapping,backend=self.backend)
             self._eval_mapping = eval_mapping
 
             # update dependencies
@@ -2024,11 +2070,12 @@ class Kernel(SplBasic):
             args = eval_field.build_arguments(args)
             body = [FunctionCall(eval_field.func, args)] + body
 
+        imports = []
         # calculate field values
         if fields_val:
-            prelude  = [Import('zeros', 'numpy')]
+            imports  = [Import('zeros', 'numpy')]
             allocate = [Assign(f, Zeros(qds_dim)) for f in fields_val]
-            body = prelude + allocate + body
+            body =  allocate + body
 
         # call eval vector_field
         for eval_vector_field in self.eval_vector_fields:
@@ -2038,9 +2085,9 @@ class Kernel(SplBasic):
 
         # calculate vector_field values
         if vector_fields_val:
-            prelude  = [Import('zeros', 'numpy')]
+            imports  = [Import('zeros', 'numpy')]
             allocate = [Assign(f, Zeros(qds_dim)) for f in vector_fields_val]
-            body = prelude + allocate + body
+            body = allocate + body
 
         # call eval mapping
         if self.eval_mapping:
@@ -2057,13 +2104,21 @@ class Kernel(SplBasic):
         math_imports = []
         for e in math_elements:
             math_imports += [Import(e, 'numpy')]
-        body = math_imports + body
-
+            
+        imports += math_imports
+        self._imports = imports
         # function args
         mats = tuple([M for i,M in enumerate(mats) if not( i in zero_terms )])
         func_args = self.build_arguments(fields_coeffs + vector_fields_coeffs + mapping_coeffs + mats)
 
-        decorators = {'types': build_types_decorator(func_args)}
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args)}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        else:
+            decorators = {}
+           
+        
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators)
 
@@ -2071,7 +2126,7 @@ class Kernel(SplBasic):
 class Assembly(SplBasic):
 
     def __new__(cls, kernel, name=None, discrete_space=None, periodic=None,
-                comm=None, mapping=None, is_rational_mapping=None):
+                comm=None, mapping=None, is_rational_mapping=None,backend=None):
 
         if not isinstance(kernel, Kernel):
             raise TypeError('> Expecting a kernel')
@@ -2108,6 +2163,7 @@ class Assembly(SplBasic):
         obj._periodic = periodic
         obj._comm = comm
         obj._discrete_boundary = kernel.discrete_boundary
+        obj._backend = backend
 
         # update dependencies
         obj._dependencies += [kernel]
@@ -2138,6 +2194,10 @@ class Assembly(SplBasic):
     @property
     def global_matrices(self):
         return self._global_matrices
+        
+    @property
+    def backend(self):
+        return self._backend
 
     def build_arguments(self, data):
 
@@ -2438,12 +2498,13 @@ class Assembly(SplBasic):
         # ...
 
         # ... prelude
-        prelude = []
+        imports = []
 
         # import zeros from numpy
         stmt = Import('zeros', 'numpy')
-        prelude += [stmt]
-
+        imports += [stmt]
+        
+        prelude = []
         # allocate element matrices
         orders  = [p+1 for p in test_degrees]
         spads   = [2*p+1 for p in test_pads]
@@ -2504,11 +2565,17 @@ class Assembly(SplBasic):
         self._global_matrices = mats
         # ...
 
+        self._imports = imports
         # function args
         func_args = self.build_arguments(fields_coeffs + vector_fields_coeffs + mats)
 
-        decorators = {'types': build_types_decorator(func_args),
-                      'external_call': []}
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args), 'external_call': []}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        else:
+            decorators = {}
+        
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators)
 
@@ -2533,13 +2600,16 @@ class Interface(SplBasic):
         
         dim = assembly.weak_form.ldim
         
+
         # update dependencies
-        lo_dot = LinearOperatorDot(dim)
-        v_dot  = VectorDot(dim)
-        obj._dots = [lo_dot, v_dot] 
+        lo_dot = LinearOperatorDot(dim, backend)
+        v_dot  = VectorDot(dim, backend)
+        
+        obj._dots = [lo_dot, v_dot]
         obj._dependencies += [assembly, lo_dot, v_dot]
 
         obj._func = obj._initialize()
+                    
         return obj
 
     @property
@@ -2581,6 +2651,7 @@ class Interface(SplBasic):
     @property
     def dots(self):
         return self._dots
+        
 
     def _initialize(self):
         form = self.weak_form
@@ -2749,12 +2820,13 @@ class Interface(SplBasic):
         # ...
 
         # ...
+        imports = []
         if not is_function:
             if is_bilinear:
-                body += [Import('StencilMatrix', 'spl.linalg.stencil')]
+                imports += [Import('StencilMatrix', 'spl.linalg.stencil')]
 
             if is_linear:
-                body += [Import('StencilVector', 'spl.linalg.stencil')]
+                imports += [Import('StencilVector', 'spl.linalg.stencil')]
 
             for M in global_matrices:
                 if_cond = Is(M, Nil())
@@ -2774,7 +2846,7 @@ class Interface(SplBasic):
                 body += [stmt]
 
         else:
-            body += [Import('zeros', 'numpy')]
+            imports += [Import('zeros', 'numpy')]
             for M in global_matrices:
                 body += [Assign(M, Zeros(1))]
         # ...
@@ -2824,7 +2896,7 @@ class Interface(SplBasic):
                 if is_bilinear:
                     L = IndexedBase('L')
 
-                    body += [Import('BlockMatrix', 'spl.linalg.block')]
+                    imports += [Import('BlockMatrix', 'spl.linalg.block')]
 
                     # ... TODO this is a duplicated code => use a function to define
                     # global_matrices
@@ -2868,7 +2940,7 @@ class Interface(SplBasic):
                         ind += 1
                     # ...
 
-                    body += [Import('BlockVector', 'spl.linalg.block')]
+                    imports += [Import('BlockVector', 'spl.linalg.block')]
 
                     # ... create product space
                     test_vector_space = DottedName(test_space, 'vector_space')
@@ -2914,18 +2986,20 @@ class Interface(SplBasic):
 
         func_args = self.build_arguments(args)
         # ...
-
+        
+        self._imports = imports
         return FunctionDef(self.name, list(func_args), [], body)
         
         
         
 class LinearOperatorDot(SplBasic):
 
-    def __new__(cls, ndim):
+    def __new__(cls, ndim, backend=None):
 
 
         obj = SplBasic.__new__(cls, 'dot',name='lo_dot',prefix='lo_dot')
         obj._ndim = ndim
+        obj._backend = backend
         obj._func = obj._initilize()
         return obj
         
@@ -2936,6 +3010,10 @@ class LinearOperatorDot(SplBasic):
     @property
     def func(self):
         return self._func
+        
+    @property
+    def backend(self):
+        return self._backend
  
         
     def _initilize(self):
@@ -2997,24 +3075,32 @@ class LinearOperatorDot(SplBasic):
             
         args = nrows + pads + (extra_rows, mat, x, out)
         
-        pads = ', '.join('int' for i in range(dim))
+        pads = ', '.join('int' for i in range(ndim))
         dim = ','.join(':' for i in range(ndim))
         
-        types = """{pads}, {pads}, 'real[{dim},{dim}]', 'real[{dim}]', 'real[{dim}]'"""
-        types = types.format(pads=pads,dim=dim)
-        types = types.split(',')
-        decorators = {'types': types,
-                      'external_call': []}
+        if self.backend['name'] == 'pyccel':
+            types = """{pads}, {pads}, 'int[:]', 'real[{dim},{dim}]', 'real[{dim}]', 'real[{dim}]'"""
+            types = types.format(pads=pads,dim=dim)
+            types = types.split(',')
+            decorators = {'types': types,
+                          'external_call': []}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        else:
+            decorators = {}
+            
 
-        return FunctionDef(self.name, args, [], body,imports=[Import('product','itertools')],decorators=decorators)
+        self._imports = [Import('product','itertools')]
+        return FunctionDef(self.name, args, [], body,decorators=decorators)
         
 class VectorDot(SplBasic):
 
-    def __new__(cls, ndim):
+    def __new__(cls, ndim, backend=None):
 
 
         obj = SplBasic.__new__(cls, 'dot', name='v_dot', prefix='v_dot')
         obj._ndim = ndim
+        obj._backend = backend
         obj._func = obj._initilize()
         return obj
         
@@ -3025,6 +3111,10 @@ class VectorDot(SplBasic):
     @property
     def func(self):
         return self._func
+        
+    @property
+    def backend(self):
+        return self._backend
         
     def _initilize(self):
 
@@ -3046,17 +3136,24 @@ class VectorDot(SplBasic):
         body = [AugAssign(out,'+' ,Mul(v1,v2))]
         body = [For(indices, target, body)]
         body.insert(0,Assign(out, 0.0))
-        body.append(Return([out]))
+        body.append(Return(out))
             
         args = dims +(x1, x2)
         dim = ','.join(':' for i in range(ndim))
         dims = ','.join('int' for i in range(ndim))
         
-        types = """{dims}, 'real[{dim}]', 'real[{dim}]'"""
-        types = types.format(dims=dims,dim=dim)
-        types = types.split(',')
-        decorators = {'types': types, 'external_call': []}
-        
-        return FunctionDef(self.name, args, [], body,imports=[Import('product','itertools')],decorators=decorators)
+        if self.backend['name'] == 'pyccel':
+            types = """{dims}, 'real[{dim}]', 'real[{dim}]'"""
+            types = types.format(dims=dims,dim=dim)
+            types = types.split(',')
+            decorators = {'types': types, 'external': []}
+            
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        else:
+            decorators = {}
+
+        self._imports = [Import('product','itertools')]
+        return FunctionDef(self.name, args, [], body, decorators=decorators)
 
 

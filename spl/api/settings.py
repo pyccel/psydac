@@ -11,6 +11,8 @@ SPL_BACKEND_PYCCEL = {'name':     'pyccel',
                       'flags':    '-O3',
                       'accelerator': None,
                       'folder': '__pyccel__'}
+                      
+SPL_BACKEND_NUMBA = {'name': 'numba'}
 
 SPL_BACKEND = SPL_BACKEND_PYTHON
 # ...

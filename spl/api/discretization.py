@@ -168,14 +168,16 @@ class BasicDiscrete(object):
                              mapping             = mapping,
                              is_rational_mapping = is_rational_mapping,
                              discrete_boundary   = boundary,
-                             boundary_basis      = boundary_basis )
+                             boundary_basis      = boundary_basis,
+                             backend = backend )
 
             assembly = Assembly( kernel,
                                  name           = 'assembly_{}'.format(tag),
                                  mapping        = mapping,
                                  is_rational_mapping = is_rational_mapping,
                                  discrete_space = discrete_space,
-                                 comm           = comm )
+                                 comm           = comm,
+                                 backend = backend )
 
             interface = Interface( assembly,
                                    name                = 'interface_{}'.format(tag),
@@ -183,7 +185,7 @@ class BasicDiscrete(object):
                                    is_rational_mapping = is_rational_mapping,
                                    backend             = backend,
                                    discrete_space      = discrete_space,
-                                   comm                = comm )
+                                   comm                = comm)
 
             return kernel, assembly, interface
         # ...
@@ -257,6 +259,7 @@ class BasicDiscrete(object):
         if not( interface is None ):
             self._dependencies = interface.dependencies
             self._dependencies_code = self._generate_code()
+            
 
         if not( interface is None ):
             # save dependencies code
@@ -399,8 +402,20 @@ class BasicDiscrete(object):
 
     def _generate_code(self):
         # ... generate code that can be pyccelized
-        code = 'from pyccel.decorators import types'
-        code = '{code}\nfrom pyccel.decorators import external_call'.format( code = code )
+        
+        if self.backend['name'] == 'pyccel':
+            code = 'from pyccel.decorators import types'
+            code = '{code}\nfrom pyccel.decorators import external, external_call'.format( code = code )
+            
+        elif self.backend['name'] == 'numba':
+            code = 'from numba import jit'
+        else:
+            code = ''
+
+        imports = '\n'.join(pycode(imp) for dep in self.dependencies for imp in dep.imports )
+        
+        code = '{code}\n{imports}'.format(code=code, imports=imports)
+
         for dep in self.dependencies:
             code = '{code}\n{dep}'.format(code=code, dep=pycode(dep))
         # ...

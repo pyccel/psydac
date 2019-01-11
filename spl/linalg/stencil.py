@@ -191,7 +191,7 @@ class StencilVector( Vector ):
         assert v._space is self._space
 
         index = tuple( slice(p,-p) for p in self.pads )
-        res   = np.dot( self._data[index].flat, v._data[index].flat )
+        res   = self._dot(self._data[index], v._data[index])
 
         if self._space.parallel:
             res = self._space.cart.comm_cart.allreduce( res, op=MPI.SUM )
@@ -199,6 +199,10 @@ class StencilVector( Vector ):
         return res
 
     #...
+    def _dot(self, v1, v2):
+        return np.dot(v1.flat, v2.flat)
+        
+        
     def copy( self ):
         w = StencilVector( self._space )
         w._data[:] = self._data[:]
@@ -552,30 +556,36 @@ class StencilMatrix( Matrix ):
             out = StencilVector( self.codomain )
 
         # Shortcuts
-        ss = self.starts
+        
         ee = self.ends
         pp = self.pads
-
-        dot = np.dot
+        ss = self.starts
 
         # Index for k=i-j
-        kk = [slice(None)] * self._ndim
+        
 
         # Number of rows in matrix (along each dimension)
+        
         nrows = [e-s+1 for s,e in zip(ss,ee)]
-
-        for xx in np.ndindex( *nrows ):
-
-            ii    = tuple( s+x for s,x in zip(ss,xx) )
-            jj    = tuple( slice(i-p,i+p+1) for i,p in zip(ii,pp) )
-            ii_kk = tuple( list(ii) + kk )
-
-            out[ii] = dot( self[ii_kk].flat, v[jj].flat )
-
+        self._dot([], self._data, v._data, out._data, *nrows,*pp)
+        
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
-
         return out
+        
+    def _dot(self, extra_rows, mat, x, out, *args):
+        nrows = args[:self._ndim]
+        pp    = args[self._ndim:]
+        kk = [slice(None)] * self._ndim
+        for xx in np.ndindex( *nrows ):
+
+            ii    = tuple( p+x for p,x in zip(pp,xx) )
+            jj    = tuple( slice(x,x+2*p+1) for x,p in zip(xx,pp) )
+            ii_kk = tuple( list(ii) + kk )
+
+            out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
+
+
 
     # ...
     def toarray( self, *, with_pads=False ):
