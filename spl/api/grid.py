@@ -7,7 +7,6 @@ from spl.core.bsplines          import quadrature_grid
 from spl.fem.splines            import SplineSpace
 from spl.fem.tensor             import TensorFemSpace
 from spl.fem.vector             import ProductFemSpace
-from spl.api.boundary_condition import DiscreteBoundary
 from spl.fem.grid import FemAssemblyGrid
 
 #==============================================================================
