@@ -17,7 +17,7 @@ from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm, Integral
 from sympde.expr import Norm
-from sympde.expr import Equation, DirichletBC
+from sympde.expr import Equation, EssentialBC
 
 from spl.fem.basic   import FemField
 from spl.api.discretization import discretize
@@ -28,37 +28,12 @@ import pytest
 
 
 #==============================================================================
-def assert_identical_coo(A, B):
-
-    if isinstance(A, (list, tuple)) and isinstance(B, (list, tuple)):
-        assert len(A) == len(B)
-
-        for a,b in zip(A, B): assert_identical_coo(a, b)
-
-    elif not(isinstance(A, (list, tuple))) and not(isinstance(B, (list, tuple))):
-        A = A.tocoo()
-        B = B.tocoo()
-
-        assert(A.shape == B.shape)
-        assert(A.nnz == B.nnz)
-
-        assert(allclose(A.row,  B.row))
-        assert(allclose(A.col,  B.col))
-        assert(allclose(A.data, B.data))
-
-    else:
-        raise TypeError('Wrong types for entries')
-
-
-#==============================================================================
 def run_poisson_2d_dir(solution, f, ncells, degree, comm=None):
 
     # ... abstract model
     domain = Square()
 
     V = FunctionSpace('V', domain)
-
-    x,y = domain.coordinates
 
     F = Field('F', V)
 
@@ -75,7 +50,8 @@ def run_poisson_2d_dir(solution, f, ncells, degree, comm=None):
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
-    equation = Equation(a(v,u), l(v), bc=DirichletBC(domain.boundary))
+    bc = EssentialBC(u, 0, domain.boundary)
+    equation = Equation(a(v,u), l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain
@@ -152,8 +128,9 @@ def run_poisson_2d_dirneu(solution, f, boundary, ncells, degree, comm=None):
     h1norm = Norm(error, domain, kind='h1')
 
     B_dirichlet = domain.boundary.complement(B_neumann)
+    bc = EssentialBC(u, 0, B_dirichlet)
 
-    equation = Equation(a(v,u), l(v), bc=DirichletBC(B_dirichlet))
+    equation = Equation(a(v,u), l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain
@@ -257,6 +234,69 @@ def run_laplace_2d_neu(solution, f, ncells, degree, comm=None):
     # ...
 
     return l2_error, h1_error
+
+#==============================================================================
+def run_biharmonic_2d_dir(solution, f, ncells, degree, comm=None):
+
+    # ... abstract model
+    domain = Square()
+
+    V = FunctionSpace('V', domain)
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(V, name='u')
+
+    expr = laplace(v) * laplace(u)
+    a = BilinearForm((v,u), expr)
+
+    expr = f*v
+    l = LinearForm(v, expr)
+
+    error = F - solution
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
+
+    nn = NormalVector('nn')
+    bc  = [EssentialBC(u, 0, domain.boundary)]
+    bc += [EssentialBC(dot(grad(u), nn), 0, domain.boundary)]
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    # ...
+
+    # ... discrete spaces
+    Vh = discretize(V, domain_h, degree=degree)
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+    # ...
+
+    return l2_error, h1_error
+
 
 ###############################################################################
 #            SERIAL TESTS
@@ -418,6 +458,27 @@ def test_api_laplace_2d_neu():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
+#==============================================================================
+def test_api_biharmonic_2d_dir_1():
+
+    from sympy.abc import x,y
+    from sympde.expr import atomize
+
+    solution = (sin(pi*x)*sin(pi*y))**2
+
+    # compute the analytical solution
+    f = laplace(laplace(solution))
+    f = atomize(f, dim=2)
+
+    l2_error, h1_error = run_biharmonic_2d_dir(solution, f,
+                                            ncells=[2**3,2**3], degree=[2,2])
+
+    expected_l2_error =  0.015086415626061608
+    expected_h1_error =  0.08773346232942228
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################
@@ -440,54 +501,6 @@ def test_api_poisson_2d_dir_1_parallel():
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-
-
-##==============================================================================
-#def test_api_bilinear_2d_sumform_1():
-#
-#    # ... abstract model
-#    U = FunctionSpace('U', domain)
-#    V = FunctionSpace('V', domain)
-#
-#    v = TestFunction(V, name='v')
-#    u = TestFunction(U, name='u')
-#
-#    alpha = Constant('alpha')
-#
-#    expr = dot(grad(v), grad(u))
-#    a_0 = BilinearForm((v,u), expr, name='a_0')
-#
-#    expr = alpha*v*u
-#    a_1 = BilinearForm((v,u), expr, name='a_1')
-#
-#    expr = a_0(v,u) + a_1(v,u)
-#    a = BilinearForm((v,u), expr, name='a')
-#    # ...
-#
-#    # ... discrete spaces
-#    Vh = create_discrete_space()
-#    # ...
-#
-#    # ...
-#    ah_0 = discretize(a_0, [Vh, Vh])
-#    ah_1 = discretize(a_1, [Vh, Vh])
-#
-#    M_0 = ah_0.assemble()
-#    M_1 = ah_1.assemble(alpha=0.5)
-#
-#    M_expected = M_0.tocoo() + M_1.tocoo()
-#    # ...
-#
-#    # ...
-#    ah = discretize(a, [Vh, Vh])
-#    M = ah.assemble(alpha=0.5)
-#    # ...
-#
-#    # ...
-#    assert_identical_coo(M.tocoo(), M_expected)
-#    # ...
-#
 
 
 #==============================================================================

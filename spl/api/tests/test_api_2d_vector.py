@@ -18,7 +18,7 @@ from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm, Integral
 from sympde.expr import Norm
-from sympde.expr import Equation, DirichletBC
+from sympde.expr import Equation, EssentialBC
 
 from spl.fem.basic   import FemField
 from spl.fem.vector  import VectorFemField
@@ -52,7 +52,8 @@ def run_vector_poisson_2d_dir(solution, f, ncells, degree):
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
-    equation = Equation(a(v,u), l(v), bc=DirichletBC(domain.boundary))
+    bc = EssentialBC(u, 0, domain.boundary)
+    equation = Equation(a(v,u), l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain
@@ -111,80 +112,6 @@ def test_api_vector_poisson_2d_dir_1():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
-
-##==============================================================================
-#def test_api_vector_2d_2():
-#
-#    # ... abstract model
-#    U = VectorFunctionSpace('U', domain)
-#    V = VectorFunctionSpace('V', domain)
-#
-#    x,y = domain.coordinates
-#
-#    F = VectorField(V, name='F')
-#
-#    v = VectorTestFunction(V, name='v')
-#    u = VectorTestFunction(U, name='u')
-#
-#    expr = inner(grad(v), grad(u))
-#    a = BilinearForm((v,u), expr)
-#
-#    f1 = 2*pi**2*sin(pi*x)*sin(pi*y)
-#    f2 = 2*pi**2*sin(pi*x)*sin(pi*y)
-#    f = Tuple(f1, f2)
-#    expr = dot(f, v)
-#    l = LinearForm(v, expr)
-#    # ...
-#
-#    # ... discrete spaces
-#    Vh = create_discrete_space()
-#    Vh = ProductFemSpace(Vh, Vh)
-#    # ...
-#
-#    # ...
-#    ah = discretize(a, [Vh, Vh])
-#    lh = discretize(l, Vh)
-#    # ...
-#
-#    # ... abstract model
-#    UU1 = FunctionSpace('UU1', domain)
-#    VV1 = FunctionSpace('VV1', domain)
-#
-#    vv1 = TestFunction(VV1, name='vv1')
-#    uu1 = TestFunction(UU1, name='uu1')
-#
-#    expr = dot(grad(vv1), grad(uu1))
-#    a1 = BilinearForm((vv1,uu1), expr, name='a1')
-#
-#    expr = 2*pi**2*sin(pi*x)*sin(pi*y)*vv1
-#    l1 = LinearForm(vv1, expr, name='l1')
-#    # ...
-#
-#    # ... discrete spaces
-#    Wh = create_discrete_space()
-#    # ...
-#
-#    # ...
-#    a1h = discretize(a1, [Wh, Wh])
-#    l1h = discretize(l1, Wh)
-#    # ...
-#
-#    # ...
-#    A = ah.assemble()
-#    L = lh.assemble()
-#
-#    A1 = a1h.assemble()
-#    L1 = l1h.assemble()
-#    # ...
-#
-#    # ...
-#    allclose( L1.toarray(), L[0].toarray() )
-#    allclose( L1.toarray(), L[1].toarray() )
-#
-#    n = len(L1.toarray())
-#    assert( allclose( L1.toarray(), L.toarray()[:n] ) )
-#    assert( allclose( L1.toarray(), L.toarray()[n:] ) )
-#    # ...
 
 
 #==============================================================================

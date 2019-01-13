@@ -15,7 +15,6 @@ from sympde.expr     import BilinearForm as sym_BilinearForm
 from sympde.expr     import LinearForm as sym_LinearForm
 from sympde.expr     import Integral as sym_Integral
 from sympde.expr     import Equation as sym_Equation
-from sympde.expr     import Model as sym_Model
 from sympde.expr     import Boundary as sym_Boundary
 from sympde.expr     import Norm as sym_Norm
 from sympde.expr     import DirichletBC
@@ -1030,115 +1029,6 @@ class DiscreteEquation(BasicDiscrete):
 
         return driver_solve(self.linear_system, **settings)
 
-#==============================================================================
-# TODO not used for the moment
-class Model(BasicDiscrete):
-
-    def __init__(self, expr, *args, **kwargs):
-        if not isinstance(expr, sym_Model):
-            raise TypeError('> Expecting a symbolic Model')
-
-        if not args:
-            raise ValueError('> fem spaces must be given as a list/tuple')
-
-        self._expr = expr
-        self._spaces = args[0]
-
-        if len(args) > 1:
-            self._mapping = args[1]
-
-        # create a module name if not given
-        tag = random_string( 8 )
-
-        # ... create discrete forms
-        test_space = self.spaces[0]
-        trial_space = self.spaces[1]
-        d_forms = {}
-        # TODO treat equation forms
-        for name, a in list(expr.forms.items()):
-            kernel_expr = evaluate(a)
-            if isinstance(a, sym_BilinearForm):
-                spaces = (test_space, trial_space)
-                ah = DiscreteBilinearForm(a, kernel_expr, spaces)
-
-            elif isinstance(a, sym_LinearForm):
-                ah = DiscreteLinearForm(a, kernel_expr, test_space)
-
-            elif isinstance(a, sym_Integral):
-                ah = DiscreteIntegral(a, kernel_expr, test_space)
-
-            d_forms[name] = ah
-
-        d_forms = OrderedDict(sorted(d_forms.items()))
-        self._forms = d_forms
-        # ...
-
-        # ...
-        if expr.equation:
-            # ...
-            lhs_h = None
-            lhs = expr.equation.lhs
-            if not isinstance(lhs, Nil):
-                if lhs.name in list(d_forms.keys()):
-                    lhs_h = d_forms[lhs.name]
-            # ...
-
-            # ...
-            rhs_h = None
-            rhs = expr.equation.rhs
-            if not isinstance(rhs, Nil):
-                if rhs.name in list(d_forms.keys()):
-                    rhs_h = d_forms[rhs.name]
-            # ...
-
-            equation = DiscreteEquation(expr.equation, lhs=lhs_h, rhs=rhs_h)
-            self._equation = equation
-        # ...
-
-        # ... save all dependencies codes in one single string
-        code = ''
-        for name, ah in list(self.forms.items()):
-            code = '{code}\n{ah}'.format(code=code, ah=ah.dependencies_code)
-        self._dependencies_code = code
-        # ...
-
-        # ...
-        # save dependencies code
-        self._save_code()
-        # ...
-
-        # ...
-        namespace = kwargs.pop('namespace', globals())
-        code = ''
-        for name, ah in list(self.forms.items()):
-            # generate code for Python interface
-            ah._generate_interface_code()
-
-            # compile code
-            ah._compile(namespace)
-        # ...
-
-    @property
-    def forms(self):
-        return self._forms
-
-    @property
-    def equation(self):
-        return self._equation
-
-    @property
-    def spaces(self):
-        return self._spaces
-
-    def assemble(self, **kwargs):
-        lhs = self.equation.lhs
-        if lhs:
-            lhs.assemble(**kwargs)
-
-        rhs = self.equation.rhs
-        if rhs:
-            raise NotImplementedError('TODO')
-
 
 #==============================================================================
 # TODO multi patch
@@ -1244,9 +1134,6 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, sym_Equation):
         return DiscreteEquation(a, *args, **kwargs)
-
-    elif isinstance(a, sym_Model):
-        return Model(a, *args, **kwargs)
 
     elif isinstance(a, BasicFunctionSpace):
         return discretize_space(a, *args, **kwargs)

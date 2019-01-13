@@ -1,7 +1,5 @@
 # coding: utf-8
 
-# TODO remove V from apply_dirichlet_bc functions => get info from vector/matrix
-
 from sympde.topology import Boundary as sym_Boundary
 
 from spl.linalg.stencil import StencilVector, StencilMatrix
@@ -9,7 +7,7 @@ from spl.linalg.block   import BlockVector, BlockMatrix
 
 
 #==============================================================================
-def apply_homogeneous_dirichlet_bc_1d_StencilVector(V, bc, a):
+def apply_essential_bc_1d_StencilVector(V, bc, a):
     """ Apply homogeneous dirichlet boundary conditions in 1D """
 
     # assumes a 1D spline space
@@ -25,7 +23,7 @@ def apply_homogeneous_dirichlet_bc_1d_StencilVector(V, bc, a):
         a[V.nbasis-1-order] = 0.
 
 #==============================================================================
-def apply_homogeneous_dirichlet_bc_1d_StencilMatrix(V, bc, a):
+def apply_essential_bc_1d_StencilMatrix(V, bc, a):
     """ Apply homogeneous dirichlet boundary conditions in 1D """
 
     # assumes a 1D spline space
@@ -41,7 +39,7 @@ def apply_homogeneous_dirichlet_bc_1d_StencilMatrix(V, bc, a):
         a[-1-order,:] = 0.
 
 #==============================================================================
-def apply_homogeneous_dirichlet_bc_2d_StencilVector(V, bc, a):
+def apply_essential_bc_2d_StencilVector(V, bc, a):
     """ Apply homogeneous dirichlet boundary conditions in 2D """
 
     # assumes a 2D Tensor space
@@ -74,7 +72,7 @@ def apply_homogeneous_dirichlet_bc_2d_StencilVector(V, bc, a):
             a [:,e2-order] = 0.
 
 #==============================================================================
-def apply_homogeneous_dirichlet_bc_2d_StencilMatrix(V, bc, a):
+def apply_essential_bc_2d_StencilMatrix(V, bc, a):
     """ Apply homogeneous dirichlet boundary conditions in 2D """
 
     # assumes a 2D Tensor space
@@ -109,7 +107,7 @@ def apply_homogeneous_dirichlet_bc_2d_StencilMatrix(V, bc, a):
 
 
 #==============================================================================
-def apply_homogeneous_dirichlet_bc_3d_StencilVector(V, bc, a):
+def apply_essential_bc_3d_StencilVector(V, bc, a):
     """ Apply homogeneous dirichlet boundary conditions in 3D """
 
     # assumes a 3D Tensor space
@@ -151,7 +149,7 @@ def apply_homogeneous_dirichlet_bc_3d_StencilVector(V, bc, a):
             a [:,:,e3-order] = 0.
 
 #==============================================================================
-def apply_homogeneous_dirichlet_bc_3d_StencilMatrix(V, bc, a):
+def apply_essential_bc_3d_StencilMatrix(V, bc, a):
     """ Apply homogeneous dirichlet boundary conditions in 3D """
 
     # assumes a 3D Tensor space
@@ -195,29 +193,33 @@ def apply_homogeneous_dirichlet_bc_3d_StencilMatrix(V, bc, a):
 
 #==============================================================================
 # V is a ProductFemSpace here
-# TODO must use bc.position
-def apply_homogeneous_dirichlet_bc_BlockMatrix(V, bc, a):
+def apply_essential_bc_BlockMatrix(V, bc, a):
     """ Apply homogeneous dirichlet boundary conditions in nD """
 
-    for ij, M in a._blocks.items():
-        i_row, i_col = ij
-        # TODO must use col space too
-        W = V.spaces[i_row]
-        apply_homogeneous_dirichlet_bc(W, bc, M, order=order)
+    if bc.index_component:
+        keys = list(a._blocks.keys())
+        for i_loc in bc.index_component:
+            i = bc.position + i_loc
+            js = [ij[1] for ij in keys if ij[0] == i]
+            for j in js:
+                M = a[i,j]
+
+                W = V.spaces[i]
+                apply_essential_bc(W, bc, M)
 
 
 #==============================================================================
 # V is a ProductFemSpace here
-# TODO must use bc.position
-def apply_homogeneous_dirichlet_bc_BlockVector(V, bc, a):
+def apply_essential_bc_BlockVector(V, bc, a):
     """ Apply homogeneous dirichlet boundary conditions in nD """
 
-    n_blocks = a.n_blocks
-    for i in range(0, n_blocks):
-        M = a[i]
-        # TODO must use col space too
-        W = V.spaces[i]
-        apply_homogeneous_dirichlet_bc(W, bc, M, order=order)
+    if bc.index_component:
+        for i_loc in bc.index_component:
+            i = bc.position + i_loc
+
+            M = a[i]
+            W = V.spaces[i]
+            apply_essential_bc(W, bc, M)
 
 
 #==============================================================================
@@ -239,11 +241,11 @@ def apply_essential_bc(V, bc, *args, **kwargs):
         cls = classes[0]
 
         if not isinstance(a, (BlockMatrix, BlockVector)):
-            pattern = 'apply_homogeneous_dirichlet_bc_{dim}d_{name}'
+            pattern = 'apply_essential_bc_{dim}d_{name}'
             apply_bc = pattern.format( dim = V.ldim, name = cls.__name__ )
 
         else:
-            pattern = 'apply_homogeneous_dirichlet_bc_{name}'
+            pattern = 'apply_essential_bc_{name}'
             apply_bc = pattern.format( name = cls.__name__ )
 
         apply_bc = eval(apply_bc)
