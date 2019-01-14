@@ -8,10 +8,9 @@ _range = re.compile('([0-9]*:[0-9]+|[a-zA-Z]?:[a-zA-Z])')
 def variables(names, dtype, **args):
 
     def contruct_variable(cls, name, dtype, rank, **args):
-        if cls == Variable:
+        if issubclass(cls, Variable):
             return Variable(dtype,  name, rank=rank, **args)
-        elif cls == IndexedVariable:
-
+        elif issubclass(cls, IndexedVariable):
             return IndexedVariable(name, dtype=dtype, rank=rank, **args)
         else:
             raise TypeError('only Variables and IndexedVariables are supported')

@@ -461,11 +461,20 @@ class BasicDiscrete(object):
 
         self._interface_code = '{imports}\n{code}'.format(imports=imports, code=code)
 
+    def _compile_pythran(self, namespace):
+        module_name = self.dependencies_modname
+        basedir = os.getcwd()
+        os.chdir(self.folder)
+        curdir = os.getcwd()
+        sys.path.append(self.folder)
+        os.system('pythran {}.py -O3'.format(module_name))
+        sys.path.remove(self.folder)
+        
+        # ...
     def _compile_pyccel(self, namespace, verbose=False):
 
         module_name = self.dependencies_modname
 
-        # ...
         from pyccel.epyccel import epyccel
 
         # ... convert python to fortran using pyccel
@@ -479,6 +488,7 @@ class BasicDiscrete(object):
         basedir = os.getcwd()
         os.chdir(self.folder)
         curdir = os.getcwd()
+
         # ...
 
         # ...
