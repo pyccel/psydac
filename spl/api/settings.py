@@ -14,5 +14,7 @@ SPL_BACKEND_PYCCEL = {'name':     'pyccel',
                       
 SPL_BACKEND_NUMBA = {'name': 'numba'}
 
+SPL_BACKEND_PYTHRAN = {'name':'pythran'}
+
 SPL_BACKEND = SPL_BACKEND_PYTHON
 # ...

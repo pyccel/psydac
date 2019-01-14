@@ -171,6 +171,8 @@ class StencilVector( Vector ):
         assert isinstance( V, StencilVectorSpace )
 
         sizes = [e-s+2*p+1 for s,e,p in zip(V.starts, V.ends, V.pads)]
+        self._sizes = tuple(sizes)
+        self._ndim = len(V.starts)
         self._data  = np.zeros( sizes, dtype=V.dtype )
         self._space = V
 
@@ -190,17 +192,20 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
 
-        index = tuple( slice(p,-p) for p in self.pads )
-        res   = self._dot(self._data[index], v._data[index])
 
+        res   = self._dot(self._data, v._data , *self.pads, *self._sizes)
+        
         if self._space.parallel:
             res = self._space.cart.comm_cart.allreduce( res, op=MPI.SUM )
 
         return res
 
     #...
-    def _dot(self, v1, v2):
-        return np.dot(v1.flat, v2.flat)
+    @staticmethod
+    def _dot(v1, v2, *pads):
+        ndim = len(v1.shape)
+        index = tuple( slice(p,-p) for p in pads[:ndim] )
+        return np.dot(v1[index].flat, v2[index].flat)
         
         
     def copy( self ):
@@ -514,6 +519,7 @@ class StencilMatrix( Matrix ):
         self._data  = np.zeros( dims+diags, dtype=V.dtype )
         self._space = V
         self._ndim  = len( dims )
+        
 
         # Parallel attributes
         if V.parallel:
@@ -556,7 +562,7 @@ class StencilMatrix( Matrix ):
             out = StencilVector( self.codomain )
 
         # Shortcuts
-        
+
         ee = self.ends
         pp = self.pads
         ss = self.starts
@@ -567,16 +573,19 @@ class StencilMatrix( Matrix ):
         # Number of rows in matrix (along each dimension)
         
         nrows = [e-s+1 for s,e in zip(ss,ee)]
-        self._dot([], self._data, v._data, out._data, *nrows,*pp)
+        self._dot([], self._data, v._data, out._data, *nrows, *pp)
         
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
         return out
         
-    def _dot(self, extra_rows, mat, x, out, *args):
-        nrows = args[:self._ndim]
-        pp    = args[self._ndim:]
-        kk = [slice(None)] * self._ndim
+    @staticmethod
+    def _dot(extra_rows, mat, x, out, *args):
+    
+        ndim = len(x.shape)
+        nrows = args[:ndim]
+        pp    = args[ndim:]
+        kk = [slice(None)]*ndim
         for xx in np.ndindex( *nrows ):
 
             ii    = tuple( p+x for p,x in zip(pp,xx) )

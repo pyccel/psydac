@@ -267,6 +267,8 @@ class BasicDiscrete(object):
 
             if self.backend['name'] == 'pyccel':
                 self._compile_pyccel(namespace)
+            elif self.backend['name'] == 'pythran':
+                self._compile_pythran(namespace)
 
             # generate code for Python interface
             self._generate_interface_code()

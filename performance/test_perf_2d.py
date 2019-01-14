@@ -21,13 +21,13 @@ from sympde.expr import Equation, DirichletBC
 
 from spl.fem.basic   import FemField
 from spl.api.discretization import discretize
-from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL,SPL_BACKEND_NUMBA
+from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL,SPL_BACKEND_NUMBA,SPL_BACKEND_PYTHRAN
 
 import time
 from tabulate import tabulate
 from collections import namedtuple
-
-Timing = namedtuple('Timing', ['kind', 'python', 'pyccel', 'numba'])
+ 
+Timing = namedtuple('Timing', ['kind', 'python', 'pyccel', 'numba', 'pythran'])
 
 DEBUG = False
 
@@ -181,11 +181,11 @@ DEBUG = False
 def print_timing(ls):
     # ...
     table   = []
-    headers = ['Assembly time', 'Python', 'Pyccel', 'Numba','Speedup']
+    headers = ['Assembly time', 'Python', 'Pyccel', 'Numba','pythran','Speedup']
 
     for timing in ls:
         speedup = timing.python / timing.pyccel
-        line   = [timing.kind, timing.python, timing.pyccel, timing.numba, speedup]
+        line   = [timing.kind, timing.python, timing.pyccel, timing.numba, timing.pythran, speedup]
         table.append(line)
 
     print(tabulate(table, headers=headers, tablefmt='latex'))
@@ -226,17 +226,28 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
     # ... bilinear form
     ah = discretize(a, domain_h, [Vh, Vh], backend=backend)
 
+    n = 1 if backend==SPL_BACKEND_PYTHON else 2
+    
     tb = time.time(); M = ah.assemble(); te = time.time()
+    times = []
+    for i in range(n):
+        tb = time.time(); M = ah.assemble(); te = time.time()
+        times.append(te-tb)
 
-    d['matrix'] = te-tb
+    d['matrix'] = sum(times)/len(times)
     # ...
 
     # ... linear form
     lh = discretize(l, domain_h, Vh, backend=backend)
 
     tb = time.time(); L = lh.assemble(); te = time.time()
-
-    d['rhs'] = te-tb
+    
+    times = []
+    for i in range(n):
+        tb = time.time(); L = lh.assemble(); te = time.time()
+        times.append(te-tb)
+        
+    d['rhs'] = sum(times)/len(times)
     # ...
 
     # ... norm
@@ -246,8 +257,12 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
     l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
 
     tb = time.time(); err = l2norm_h.assemble(F=phi); te = time.time()
-
-    d['l2norm'] = te-tb
+    times = []
+    for i in range(n):
+        tb = time.time(); err = l2norm_h.assemble(F=phi); te = time.time()
+        times.append(te-tb)
+        
+    d['l2norm'] = sum(times)/len(times)
     # ...
 
     return d
@@ -264,7 +279,12 @@ def test_perf_poisson_2d(ncells=[2**8,2**8], degree=[2,2]):
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
     
-                             
+
+    # using pythran
+    d_pythran = run_poisson( domain, solution, f,
+                          ncells=ncells, degree=degree, 
+                          backend=SPL_BACKEND_PYTHRAN)  
+                          
     # using Python               
     d_py = run_poisson( domain, solution, f,
                         ncells=ncells, degree=degree,
@@ -275,14 +295,17 @@ def test_perf_poisson_2d(ncells=[2**8,2**8], degree=[2,2]):
                          ncells=ncells, degree=degree,
                          backend=SPL_BACKEND_PYCCEL )
                          
-        # using numba
+    # using numba
     d_numba = run_poisson( domain, solution, f,
                           ncells=ncells, degree=degree, 
                           backend=SPL_BACKEND_NUMBA )   
+                          
+                          
+ 
 
 
     # ... add every new backend here
-    d_all = [d_py, d_f90, d_numba]
+    d_all = [d_py, d_f90, d_numba, d_pythran]
 
     keys = sorted(list(d_py.keys()))
     timings = []
