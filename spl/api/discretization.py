@@ -404,15 +404,13 @@ class BasicDiscrete(object):
 
     def _generate_code(self):
         # ... generate code that can be pyccelized
-        
         if self.backend['name'] == 'pyccel':
-            code = 'from pyccel.decorators import types'
-            code = '{code}\nfrom pyccel.decorators import external, external_call'.format( code = code )
+            
+            code += '\nfrom pyccel.decorators import types'
+            code += '\nfrom pyccel.decorators import external, external_call'
             
         elif self.backend['name'] == 'numba':
-            code = 'from numba import jit'
-        else:
-            code = ''
+            code += 'from numba import jit'
 
         imports = '\n'.join(pycode(imp) for dep in self.dependencies for imp in dep.imports )
         

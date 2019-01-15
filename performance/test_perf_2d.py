@@ -24,6 +24,7 @@ from spl.api.discretization import discretize
 from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL,SPL_BACKEND_NUMBA,SPL_BACKEND_PYTHRAN
 
 import time
+import os
 from tabulate import tabulate
 from collections import namedtuple
  
@@ -31,150 +32,14 @@ Timing = namedtuple('Timing', ['kind', 'python', 'pyccel', 'numba', 'pythran'])
 
 DEBUG = False
 
+# ... get the mesh directory
+try:
+    mesh_dir = os.environ['SPL_MESH_DIR']
 
-#def test_api_vector_poisson_2d():
-#    print('============ test_api_vector_poisson_2d =============')
-#
-#    # ... abstract model
-#    U = VectorFunctionSpace('U', domain)
-#    V = VectorFunctionSpace('V', domain)
-#
-#    x,y = domain.coordinates
-#
-#    F = VectorField(V, name='F')
-#
-#    v = VectorTestFunction(V, name='v')
-#    u = VectorTestFunction(U, name='u')
-#
-#    expr = inner(grad(v), grad(u))
-#    a = BilinearForm((v,u), expr)
-#
-#    f = Tuple(2*pi**2*sin(pi*x)*sin(pi*y), 2*pi**2*sin(pi*x)*sin(pi*y))
-#
-#    expr = dot(f, v)
-#    l = LinearForm(v, expr)
-#
-#    # TODO improve
-#    error = F[0] -sin(pi*x)*sin(pi*y) + F[1] -sin(pi*x)*sin(pi*y)
-#    l2norm = Norm(error, domain, kind='l2', name='u')
-#    # ...
-#
-#    # ... discrete spaces
-##    Vh = create_discrete_space(p=(3,3), ne=(2**8,2**8))
-#    Vh = create_discrete_space(p=(2,2), ne=(2**3,2**3))
-#    Vh = ProductFemSpace(Vh, Vh)
-#    # ...
-#
-#    # ...
-#    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYCCEL)
-#    tb = time.time()
-#    M_f90 = ah.assemble()
-#    te = time.time()
-#    print('> [pyccel] elapsed time (matrix) = ', te-tb)
-#    t_f90 = te-tb
-#
-#    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYTHON)
-#    tb = time.time()
-#    M_py = ah.assemble()
-#    te = time.time()
-#    print('> [python] elapsed time (matrix) = ', te-tb)
-#    t_py = te-tb
-#
-#    matrix_timing = Timing('matrix', t_py, t_f90)
-#    # ...
-#
-#    # ...
-#    lh = discretize(l, Vh, backend=SPL_BACKEND_PYCCEL)
-#    tb = time.time()
-#    L_f90 = lh.assemble()
-#    te = time.time()
-#    print('> [pyccel] elapsed time (rhs) = ', te-tb)
-#    t_f90 = te-tb
-#
-#    lh = discretize(l, Vh, backend=SPL_BACKEND_PYTHON)
-#    tb = time.time()
-#    L_py = lh.assemble()
-#    te = time.time()
-#    print('> [python] elapsed time (rhs) = ', te-tb)
-#    t_py = te-tb
-#
-#    rhs_timing = Timing('rhs', t_py, t_f90)
-#    # ...
-#
-#    # ... coeff of phi are 0
-#    phi = VectorFemField( Vh, 'phi' )
-#    # ...
-#
-#    # ...
-#    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYCCEL)
-#    tb = time.time()
-#    L_f90 = l2norm_h.assemble(F=phi)
-#    te = time.time()
-#    t_f90 = te-tb
-#    print('> [pyccel] elapsed time (L2 norm) = ', te-tb)
-#
-#    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYTHON)
-#    tb = time.time()
-#    L_py = l2norm_h.assemble(F=phi)
-#    te = time.time()
-#    print('> [python] elapsed time (L2 norm) = ', te-tb)
-#    t_py = te-tb
-#
-#    l2norm_timing = Timing('l2norm', t_py, t_f90)
-#    # ...
-#
-#    # ...
-#    print_timing([matrix_timing, rhs_timing, l2norm_timing])
-#    # ...
-#
-#def test_api_stokes_2d():
-#    print('============ test_api_stokes_2d =============')
-#
-#    # ... abstract model
-#    V = VectorFunctionSpace('V', domain)
-#    W = FunctionSpace('W', domain)
-#
-#    v = VectorTestFunction(V, name='v')
-#    u = VectorTestFunction(V, name='u')
-#    p = TestFunction(W, name='p')
-#    q = TestFunction(W, name='q')
-#
-#    A = BilinearForm((v,u), inner(grad(v), grad(u)), name='A')
-#    B = BilinearForm((v,p), div(v)*p, name='B')
-#    a = BilinearForm(((v,q),(u,p)), A(v,u) - B(v,p) + B(u,q), name='a')
-#    # ...
-#
-#    # ... discrete spaces
-##    Vh = create_discrete_space(p=(3,3), ne=(2**8,2**8))
-#    Vh = create_discrete_space(p=(2,2), ne=(2**3,2**3))
-#
-#    # TODO improve this?
-#    Vh = ProductFemSpace(Vh, Vh, Vh)
-#    # ...
-#
-#    # ...
-#    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYCCEL)
-#    tb = time.time()
-#    M_f90 = ah.assemble()
-#    te = time.time()
-#    print('> [pyccel] elapsed time (matrix) = ', te-tb)
-#    t_f90 = te-tb
-#
-#    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYTHON)
-#    tb = time.time()
-#    M_py = ah.assemble()
-#    te = time.time()
-#    print('> [python] elapsed time (matrix) = ', te-tb)
-#    t_py = te-tb
-#
-#    matrix_timing = Timing('matrix', t_py, t_f90)
-#    # ...
-#
-#    # ...
-#    print_timing([matrix_timing])
-##    print_timing([matrix_timing, rhs_timing, l2norm_timing])
-#    # ...
-
+except:
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    base_dir = os.path.join(base_dir, '..')
+    mesh_dir = os.path.join(base_dir, 'mesh')
 
 
 #==============================================================================
@@ -219,20 +84,20 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
     # ... discrete spaces
     Vh = discretize(V, domain_h, degree=degree)
     # ...
-
+    n = 1 if backend==SPL_BACKEND_PYTHON else 4
     # dict to store timings
     d = {}
-
+    
     # ... bilinear form
     ah = discretize(a, domain_h, [Vh, Vh], backend=backend)
 
-    n = 1 if backend==SPL_BACKEND_PYTHON else 2
-    
     tb = time.time(); M = ah.assemble(); te = time.time()
+    
     times = []
     for i in range(n):
         tb = time.time(); M = ah.assemble(); te = time.time()
         times.append(te-tb)
+
 
     d['matrix'] = sum(times)/len(times)
     # ...
@@ -244,19 +109,20 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
     
     times = []
     for i in range(n):
-        tb = time.time(); L = lh.assemble(); te = time.time()
+        tb = time.time(); lh = ah.assemble(); te = time.time()
         times.append(te-tb)
-        
+
     d['rhs'] = sum(times)/len(times)
     # ...
 
+  
     # ... norm
     # coeff of phi are 0
     phi = FemField( Vh, 'phi' )
 
     l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
-
-    tb = time.time(); err = l2norm_h.assemble(F=phi); te = time.time()
+    
+    err = l2norm_h.assemble(F=phi)
     times = []
     for i in range(n):
         tb = time.time(); err = l2norm_h.assemble(F=phi); te = time.time()
@@ -266,6 +132,89 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
     # ...
 
     return d
+    
+def run_poisson_2d_mapping(filename, solution, f, comm=None):
+
+    # ... abstract model
+    domain = Domain.from_file(filename)
+
+    V = FunctionSpace('V', domain)
+
+    x,y = domain.coordinates
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(V, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    expr = f*v
+    l = LinearForm(v, expr)
+
+    error = F - solution
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
+
+
+    # ...
+
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, filename=filename, comm=comm)
+    # ...
+
+    # ... discrete spaces
+    Vh = discretize(V, domain_h)
+    # ...
+
+ 
+    ah = discretize(a, domain_h, [Vh, Vh], backend=backend)
+   
+    # ...
+    tb = time.time(); M = ah.assemble(); te = time.time()
+    
+    times = []
+    for i in range(n):
+        tb = time.time(); M = ah.assemble(); te = time.time()
+        times.append(te-tb)
+
+
+    d['matrix'] = sum(times)/len(times)
+    # ...
+
+    # ... linear form
+    lh = discretize(l, domain_h, Vh, backend=backend)
+
+    tb = time.time(); L = lh.assemble(); te = time.time()
+    
+    times = []
+    for i in range(n):
+        tb = time.time(); lh = ah.assemble(); te = time.time()
+        times.append(te-tb)
+
+    d['rhs'] = sum(times)/len(times)
+    # ...
+
+  
+    # ... norm
+    # coeff of phi are 0
+    phi = FemField( Vh, 'phi' )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+
+    l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
+    
+    err = l2norm_h.assemble(F=phi)
+    times = []
+    for i in range(n):
+        tb = time.time(); err = l2norm_h.assemble(F=phi); te = time.time()
+        times.append(te-tb)
+        
+    d['l2norm'] = sum(times)/len(times)
+    # ...
+
 
 ###############################################################################
 #            SERIAL TESTS
@@ -279,7 +228,65 @@ def test_perf_poisson_2d(ncells=[2**8,2**8], degree=[2,2]):
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
     
+    # using Pyccel
+    d_f90 = run_poisson_2d_dir( domain, solution, f,
+                         ncells=ncells, degree=degree,
+                         backend=SPL_BACKEND_PYCCEL )
+                         
+    # using pythran
+    d_pythran = run_poisson_2d_dir( domain, solution, f,
+                          ncells=ncells, degree=degree, 
+                          backend=SPL_BACKEND_PYTHRAN)  
+                          
+    # using Python               
+    d_py = run_poisson_2d_dir( domain, solution, f,
+                        ncells=ncells, degree=degree,
+                        backend=SPL_BACKEND_PYTHON )
 
+
+                         
+    # using numba
+    d_numba = run_poisson_2d_dir( domain, solution, f,
+                          ncells=ncells, degree=degree, 
+                          backend=SPL_BACKEND_NUMBA )   
+                          
+                          
+ 
+
+
+    # ... add every new backend here
+    d_all = [d_py, d_f90, d_numba, d_pythran]
+
+    keys = sorted(list(d_py.keys()))
+    timings = []
+    
+    for key in keys:
+        args = [d[key] for d in d_all]
+        timing = Timing(key, *args)
+        timings += [timing]
+
+    print_timing(timings)
+    # ...
+    
+#==============================================================================
+def test_perf_poisson_2d_dir_quart_circle(ncells=[2**10,2**10], degree=[1,1]):
+    filename = os.path.join(mesh_dir, 'quart_circle.h5')
+
+    from sympy.abc import x,y
+
+    c = pi / (1. - 0.5**2)
+    r2 = 1. - x**2 - y**2
+    solution = x*y*sin(c * r2)
+    f = 4.*c**2*x*y*(x**2 + y**2)*sin(c * r2) + 12.*c*x*y*cos(c * r2)
+
+    domain = Domain.from_file(filename)
+    x,y = domain.coordinates
+    
+    # using Pyccel
+    d_f90 = run_poisson( domain, solution, f,
+                         ncells=ncells, degree=degree,
+                         backend=SPL_BACKEND_PYCCEL )
+                         
     # using pythran
     d_pythran = run_poisson( domain, solution, f,
                           ncells=ncells, degree=degree, 
@@ -290,10 +297,7 @@ def test_perf_poisson_2d(ncells=[2**8,2**8], degree=[2,2]):
                         ncells=ncells, degree=degree,
                         backend=SPL_BACKEND_PYTHON )
 
-    # using Pyccel
-    d_f90 = run_poisson( domain, solution, f,
-                         ncells=ncells, degree=degree,
-                         backend=SPL_BACKEND_PYCCEL )
+
                          
     # using numba
     d_numba = run_poisson( domain, solution, f,
@@ -316,13 +320,11 @@ def test_perf_poisson_2d(ncells=[2**8,2**8], degree=[2,2]):
         timings += [timing]
 
     print_timing(timings)
-    # ...
 
 ###############################################
 if __name__ == '__main__':
 
     # ... examples without mapping
-    test_perf_poisson_2d()
-#    test_api_vector_poisson_2d()
-#    test_api_stokes_2d()
+    #test_perf_poisson_2d()
+    test_perf_poisson_2d_dir_quart_circle()
     # ...
