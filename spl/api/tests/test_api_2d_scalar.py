@@ -3,8 +3,8 @@
 from sympy import pi, cos, sin
 
 from sympde.core import Constant
-from sympde.core import grad, dot, inner, cross, rot, curl, div
-from sympde.core import laplace, hessian
+from sympde.calculus import grad, dot, inner, cross, rot, curl, div
+from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
 from sympde.topology import Field, VectorField
@@ -324,7 +324,7 @@ def test_api_poisson_2d_dirneu_1():
 
     from sympy.abc import x,y
 
-    solution = sin(0.5*pi*(1.-x))*sin(pi*y)
+    solution = cos(0.5*pi*x)*sin(pi*y)
     f        = (5./4.)*pi**2*solution
 
     l2_error, h1_error = run_poisson_2d_dirneu(solution, f, ['Gamma_1'],
@@ -358,7 +358,7 @@ def test_api_poisson_2d_dirneu_3():
 
     from sympy.abc import x,y
 
-    solution = sin(pi*x)*sin(0.5*pi*(1.-y))
+    solution = sin(pi*x)*cos(0.5*pi*y)
     f        = (5./4.)*pi**2*solution
 
     l2_error, h1_error = run_poisson_2d_dirneu(solution, f, ['Gamma_3'],

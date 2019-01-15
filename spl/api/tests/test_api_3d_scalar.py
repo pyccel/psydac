@@ -3,8 +3,8 @@
 from sympy import pi, cos, sin
 
 from sympde.core import Constant
-from sympde.core import grad, dot, inner, cross, rot, curl, div
-from sympde.core import laplace, hessian
+from sympde.calculus import grad, dot, inner, cross, rot, curl, div
+from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
 from sympde.topology import Field, VectorField
