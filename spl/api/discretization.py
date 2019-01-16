@@ -404,13 +404,15 @@ class BasicDiscrete(object):
 
     def _generate_code(self):
         # ... generate code that can be pyccelized
+        code = ''
+
         if self.backend['name'] == 'pyccel':
             
             code += '\nfrom pyccel.decorators import types'
             code += '\nfrom pyccel.decorators import external, external_call'
             
         elif self.backend['name'] == 'numba':
-            code += 'from numba import jit'
+            code = 'from numba import jit'
 
         imports = '\n'.join(pycode(imp) for dep in self.dependencies for imp in dep.imports )
         
@@ -460,7 +462,9 @@ class BasicDiscrete(object):
         self._interface_code = '{imports}\n{code}'.format(imports=imports, code=code)
 
     def _compile_pythran(self, namespace):
+        
         module_name = self.dependencies_modname
+
         basedir = os.getcwd()
         os.chdir(self.folder)
         curdir = os.getcwd()

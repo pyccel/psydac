@@ -28,7 +28,7 @@ import os
 from tabulate import tabulate
 from collections import namedtuple
  
-Timing = namedtuple('Timing', ['kind', 'python', 'pyccel', 'numba', 'pythran'])
+Timing = namedtuple('Timing', ['kind', 'python', 'pyccel'])
 
 DEBUG = False
 
@@ -40,17 +40,15 @@ except:
     base_dir = os.path.dirname(os.path.realpath(__file__))
     base_dir = os.path.join(base_dir, '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
-
-
 #==============================================================================
 def print_timing(ls):
     # ...
     table   = []
-    headers = ['Assembly time', 'Python', 'Pyccel', 'Numba','pythran','Speedup']
+    headers = ['Assembly time', 'Python', 'Pyccel','Speedup']
 
     for timing in ls:
         speedup = timing.python / timing.pyccel
-        line   = [timing.kind, timing.python, timing.pyccel, timing.numba, timing.pythran, speedup]
+        line   = [timing.kind, timing.python, timing.pyccel, speedup]
         table.append(line)
 
     print(tabulate(table, headers=headers, tablefmt='latex'))
@@ -123,6 +121,7 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
     l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
     
     err = l2norm_h.assemble(F=phi)
+
     times = []
     for i in range(n):
         tb = time.time(); err = l2norm_h.assemble(F=phi); te = time.time()
@@ -133,11 +132,9 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
 
     return d
     
-def run_poisson_2d_mapping(filename, solution, f, comm=None):
-
-    # ... abstract model
+def run_poisson_2d_mapping(filename, solution, f, backend, comm=None):
+    
     domain = Domain.from_file(filename)
-
     V = FunctionSpace('V', domain)
 
     x,y = domain.coordinates
@@ -157,23 +154,25 @@ def run_poisson_2d_mapping(filename, solution, f, comm=None):
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
-
+    n = 1 if backend==SPL_BACKEND_PYTHON else 1
     # ...
 
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, filename=filename, comm=comm)
     # ...
 
+
     # ... discrete spaces
     Vh = discretize(V, domain_h)
     # ...
 
- 
+    d = {}
+
     ah = discretize(a, domain_h, [Vh, Vh], backend=backend)
-   
+
     # ...
     tb = time.time(); M = ah.assemble(); te = time.time()
-    
+
     times = []
     for i in range(n):
         tb = time.time(); M = ah.assemble(); te = time.time()
@@ -187,10 +186,10 @@ def run_poisson_2d_mapping(filename, solution, f, comm=None):
     lh = discretize(l, domain_h, Vh, backend=backend)
 
     tb = time.time(); L = lh.assemble(); te = time.time()
-    
+
     times = []
     for i in range(n):
-        tb = time.time(); lh = ah.assemble(); te = time.time()
+        tb = time.time(); lh = lh.assemble(); te = time.time()
         times.append(te-tb)
 
     d['rhs'] = sum(times)/len(times)
@@ -200,13 +199,12 @@ def run_poisson_2d_mapping(filename, solution, f, comm=None):
     # ... norm
     # coeff of phi are 0
     phi = FemField( Vh, 'phi' )
-    phi.coeffs[:,:] = x[:,:]
     # ...
 
 
     l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
+    tb = time.time(); err = l2norm_h.assemble(F=phi); te = time.time()
     
-    err = l2norm_h.assemble(F=phi)
     times = []
     for i in range(n):
         tb = time.time(); err = l2norm_h.assemble(F=phi); te = time.time()
@@ -214,6 +212,8 @@ def run_poisson_2d_mapping(filename, solution, f, comm=None):
         
     d['l2norm'] = sum(times)/len(times)
     # ...
+
+    return d
 
 
 ###############################################################################
@@ -227,60 +227,6 @@ def test_perf_poisson_2d(ncells=[2**8,2**8], degree=[2,2]):
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
-    
-    # using Pyccel
-    d_f90 = run_poisson_2d_dir( domain, solution, f,
-                         ncells=ncells, degree=degree,
-                         backend=SPL_BACKEND_PYCCEL )
-                         
-    # using pythran
-    d_pythran = run_poisson_2d_dir( domain, solution, f,
-                          ncells=ncells, degree=degree, 
-                          backend=SPL_BACKEND_PYTHRAN)  
-                          
-    # using Python               
-    d_py = run_poisson_2d_dir( domain, solution, f,
-                        ncells=ncells, degree=degree,
-                        backend=SPL_BACKEND_PYTHON )
-
-
-                         
-    # using numba
-    d_numba = run_poisson_2d_dir( domain, solution, f,
-                          ncells=ncells, degree=degree, 
-                          backend=SPL_BACKEND_NUMBA )   
-                          
-                          
- 
-
-
-    # ... add every new backend here
-    d_all = [d_py, d_f90, d_numba, d_pythran]
-
-    keys = sorted(list(d_py.keys()))
-    timings = []
-    
-    for key in keys:
-        args = [d[key] for d in d_all]
-        timing = Timing(key, *args)
-        timings += [timing]
-
-    print_timing(timings)
-    # ...
-    
-#==============================================================================
-def test_perf_poisson_2d_dir_quart_circle(ncells=[2**10,2**10], degree=[1,1]):
-    filename = os.path.join(mesh_dir, 'quart_circle.h5')
-
-    from sympy.abc import x,y
-
-    c = pi / (1. - 0.5**2)
-    r2 = 1. - x**2 - y**2
-    solution = x*y*sin(c * r2)
-    f = 4.*c**2*x*y*(x**2 + y**2)*sin(c * r2) + 12.*c*x*y*cos(c * r2)
-
-    domain = Domain.from_file(filename)
-    x,y = domain.coordinates
     
     # using Pyccel
     d_f90 = run_poisson( domain, solution, f,
@@ -310,6 +256,48 @@ def test_perf_poisson_2d_dir_quart_circle(ncells=[2**10,2**10], degree=[1,1]):
 
     # ... add every new backend here
     d_all = [d_py, d_f90, d_numba, d_pythran]
+
+    keys = sorted(list(d_py.keys()))
+    timings = []
+    
+    for key in keys:
+        args = [d[key] for d in d_all]
+        timing = Timing(key, *args)
+        timings += [timing]
+
+    print_timing(timings)
+    # ...
+ 
+#==============================================================================
+def test_perf_poisson_2d_dir_quart_circle():
+    filename = os.path.join(mesh_dir, 'quart_circle.h5')
+    
+    from sympy.abc import x,y
+
+    c = pi / (1. - 0.5**2)
+    r2 = 1. - x**2 - y**2
+    solution = x*y*sin(c * r2)
+    f = 4.*c**2*x*y*(x**2 + y**2)*sin(c * r2) + 12.*c*x*y*cos(c * r2)
+
+                         
+    # using pythran
+    d_pythran = run_poisson_2d_mapping(filename, solution, f,
+                          backend=SPL_BACKEND_PYTHRAN)  
+                          
+#    # using Python               
+    d_py = run_poisson_2d_mapping(filename, solution, f,
+                        backend=SPL_BACKEND_PYTHON )
+
+
+                         
+   
+                          
+                          
+ 
+
+
+    # ... add every new backend here
+    d_all = [d_py, d_f90]
 
     keys = sorted(list(d_py.keys()))
     timings = []
