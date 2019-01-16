@@ -17,7 +17,6 @@ from sympde.expr     import Integral as sym_Integral
 from sympde.expr     import Equation as sym_Equation
 from sympde.expr     import Boundary as sym_Boundary
 from sympde.expr     import Norm as sym_Norm
-from sympde.expr     import DirichletBC
 from sympde.expr     import evaluate
 from sympde.topology import Domain, Boundary
 from sympde.topology import Line, Square, Cube
@@ -32,8 +31,6 @@ from spl.api.codegen.ast          import Kernel
 from spl.api.codegen.ast          import Assembly
 from spl.api.codegen.ast          import Interface
 from spl.api.codegen.printing     import pycode
-from spl.api.boundary_condition   import DiscreteDirichletBC
-from spl.api.boundary_condition   import apply_homogeneous_dirichlet_bc
 from spl.api.essential_bc         import apply_essential_bc
 from spl.api.settings             import SPL_BACKEND_PYTHON, SPL_DEFAULT_FOLDER
 from spl.linalg.stencil           import StencilVector, StencilMatrix
@@ -995,7 +992,6 @@ class DiscreteEquation(BasicDiscrete):
             if self.bc:
                 # TODO change it: now apply_bc can be called on a list/tuple
                 for bc in self.bc:
-#                    apply_homogeneous_dirichlet_bc(self.test_space, bc, M)
                     apply_essential_bc(self.test_space, bc, M)
         else:
             M = self.linear_system.lhs
@@ -1005,7 +1001,6 @@ class DiscreteEquation(BasicDiscrete):
             if self.bc:
                 # TODO change it: now apply_bc can be called on a list/tuple
                 for bc in self.bc:
-#                    apply_homogeneous_dirichlet_bc(self.test_space, bc, rhs)
                     apply_essential_bc(self.test_space, bc, rhs)
 
         else:

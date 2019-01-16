@@ -17,7 +17,7 @@ from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm, Integral
 from sympde.expr import Norm
-from sympde.expr import Equation, DirichletBC, EssentialBC
+from sympde.expr import Equation, EssentialBC
 
 from spl.fem.basic   import FemField
 from spl.fem.vector   import VectorFemField
