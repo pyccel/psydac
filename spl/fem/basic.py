@@ -8,6 +8,8 @@ be used to specify the used data structure for example.
 
 from abc import ABCMeta, abstractmethod
 
+from spl.linalg.basic import Vector
+
 #===============================================================================
 # ABSTRACT BASE CLASS: FINITE ELEMENT SPACE
 #===============================================================================
@@ -52,12 +54,6 @@ class FemSpace( metaclass=ABCMeta ):
     @abstractmethod
     def vector_space( self ):
         """Topologically associated vector space."""
-
-    # NOTE: not sure the following is useful
-    @property
-    @abstractmethod
-    def fields( self ):
-        """Dictionary containing all FemField objects associated to this space."""
 
     #---------------------------------------
     # Abstract interface: evaluation methods
@@ -166,47 +162,32 @@ class FemField:
 
     Parameters
     ----------
-    space : FemSpace
+    space : spl.fem.basic.FemSpace
         Finite element space to which this field belongs.
 
-    name : str
-        Name of new field to be created.
+    coeffs : spl.linalg.basic.Vector (optional)
+        Vector of coefficients in finite element basis
+        (by default assume zero vector).
 
     """
-    def __init__( self, space, name ):
+    def __init__( self, space, coeffs=None ):
 
         assert isinstance( space, FemSpace )
-        assert isinstance( name, str )
+
+        if coeffs is not None:
+            assert isinstance( coeffs, Vector )
+            assert space.vector_space is coeffs.space
+        else:
+            coeffs = space.vector_space.zeros()
 
         self._space  = space
-        self._name   = name
-        self._coeffs = space.vector_space.zeros()
-
-        # NOTE: not sure the following is useful
-        # NOTE: since each FemField object contains a reference to its FemSpace,
-        #       only weak references should be stored in the FemSpace 'fields'
-        #       dictionary to avoid cyclic references
-        import weakref
-        assert name not in space.fields
-        space.fields[name] = weakref.ref( self )
-
-    # ...
-    # NOTE: not sure the following is useful
-    def __del__( self ):
-        #self._space.fields.__delitem__( self._name )
-        del self._space.fields[self._name]
+        self._coeffs = coeffs
 
     # ...
     @property
     def space( self ):
         """Finite element space to which this field belongs."""
         return self._space
-
-    # ...
-    @property
-    def name( self ):
-        """Name assigned to current field object."""
-        return self._name
 
     # ...
     @property

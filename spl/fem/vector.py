@@ -44,9 +44,6 @@ class VectorFemSpace( FemSpace ):
 
         # TODO parallel case
 
-        # Dictionary with all FemFields objects belonging to this space
-        self._fields = {}
-
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
@@ -68,11 +65,6 @@ class VectorFemSpace( FemSpace ):
     def vector_space(self):
         """Returns the topological associated vector space."""
         return self._vector_space
-
-    @property
-    def fields( self ):
-        """Dictionary containing all FemField objects associated to this space."""
-        return self._fields
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods

@@ -15,7 +15,7 @@ def test_1d_1():
     p = 2
     V = SplineSpace(p, knots=knots)
     print (V)
-    F = FemField(V,'F')
+    F = FemField(V)
 
 def test_1d_2():
     print ('>>> test_1d_2')
@@ -24,7 +24,7 @@ def test_1d_2():
     grid = linspace(0., 1., 5)
     V = SplineSpace(p, grid=grid)
     print (V)
-    F = FemField(V,'F')
+    F = FemField(V)
 
 def test_1d_3():
     print ('>>> test_1d_3')
@@ -48,7 +48,7 @@ def test_2d_1():
 
     V = TensorFemSpace(V1, V2)
     print (V)
-    F = FemField(V,'F')
+    F = FemField(V)
 
 def test_2d_2():
     print ('>>> test_2d_2')
@@ -62,7 +62,7 @@ def test_2d_2():
 
     V = TensorFemSpace(V1, V2)
     print (V)
-    F = FemField(V,'F')
+    F = FemField(V)
 
 def test_2d_3():
     print ('>>> test_2d_3')
@@ -103,7 +103,7 @@ def test_3d_1():
 
     V = TensorFemSpace(V1, V2, V3)
     print (V)
-    F = FemField(V,'F')
+    F = FemField(V)
 
 def test_3d_2():
     print ('>>> test_3d_2')
@@ -120,7 +120,7 @@ def test_3d_2():
 
     V = TensorFemSpace(V1, V2, V3)
     print (V)
-    F = FemField(V,'F')
+    F = FemField(V)
 
 def test_3d_3():
     print ('>>> test_3d_3')

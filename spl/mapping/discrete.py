@@ -58,9 +58,9 @@ class SplineMapping( Mapping ):
         assert isinstance( mapping, Mapping )
         assert tensor_space.ldim == mapping.ldim
 
-        name   = random_string( 8 )
-        fields = [FemField( tensor_space, 'mapping_{name}_x{d}'.format( name=name, d=d ) )
-                  for d in range( mapping.pdim )]
+        # Create one separate scalar field for each physical dimension
+        # TODO: use one unique field belonging to VectorFemSpace
+        fields = [FemField( tensor_space ) for d in range( mapping.pdim )]
 
         V = tensor_space.vector_space
         values = [V.zeros() for d in range( mapping.pdim )]
@@ -99,9 +99,7 @@ class SplineMapping( Mapping ):
 
         # Create one separate scalar field for each physical dimension
         # TODO: use one unique field belonging to VectorFemSpace
-        name   = random_string( 8 )
-        fields = [FemField( tensor_space, 'mapping_{name}_x{d}'.format( name=name, d=d ) )
-                  for d in range( control_points.shape[2] )]
+        fields = [FemField( tensor_space ) for d in range( control_points.shape[2] )]
 
         # Get spline coefficients for each coordinate X_i
         starts = tensor_space.vector_space.starts
