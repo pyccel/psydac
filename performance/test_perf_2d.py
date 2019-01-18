@@ -28,8 +28,7 @@ import os
 from tabulate import tabulate
 from collections import namedtuple
  
-Timing = namedtuple('Timing', ['kind', 'python', 'pyccel'])
-
+Timing = namedtuple('Timing', ['kind', 'python', 'pyccel']
 DEBUG = False
 
 # ... get the mesh directory
@@ -313,6 +312,6 @@ def test_perf_poisson_2d_dir_quart_circle():
 if __name__ == '__main__':
 
     # ... examples without mapping
-    #test_perf_poisson_2d()
-    test_perf_poisson_2d_dir_quart_circle()
+    test_perf_poisson_2d()
+    #test_perf_poisson_2d_dir_quart_circle()
     # ...
