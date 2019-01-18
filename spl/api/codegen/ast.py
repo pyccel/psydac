@@ -200,7 +200,7 @@ def filter_loops(indices, ranges, body, discrete_boundary, boundary_basis=False)
 
         rx = Range(start, end)
         body = [For(x, rx, body)]
-
+    #body = fusion_loops(body)
     return body
 
 
@@ -228,23 +228,38 @@ def select_loops(indices, ranges, body, discrete_boundary, boundary_basis=False)
         end   = rx.stop
 
         rx = Range(start, end)
+        body = [For(x, rx, body)]
 
-    body = [For(indices, Product(*ranges), body)]
+    body = fusion_loops(body)
     return body
 
 def fusion_loops(loops):
     ranges = []
     indices = []
     loops_cp = loops
-    while isinstance(loops, For):
-        ranges.append(loops.iterable)
-        indices.append(loops.target)
+
+    while len(loops) == 1 and isinstance(loops[0], For):
+        loops = loops[0]
+        target = loops.target
+        iterable = loops.iterable
+        if isinstance(iterable, Product):
+            ranges  += list(iterable.elements)
+            indices += list(target)
+            if not isinstance(target,(tuple,list,Tuple)):
+                raise ValueError('target must be a list or a tuple of indices')
+                
+        elif isinstance(iterable, Range): 
+            ranges.append(iterable)
+            indices.append(target)
+        else:
+            raise TypeError('only range an product are supported')
+     
         loops = loops.body
-        
+    
     if len(ranges)>1:
-        return [Product(indices, Product(*ranges), body)]
+        return [For(indices, Product(*ranges), loops)]
     else:
-        return [loops_cp]
+        return loops_cp
         
 #==============================================================================
 def init_loop_quadrature(indices, ranges, discrete_boundary):
@@ -1076,8 +1091,6 @@ class EvalMapping(SplBasic):
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
                         
-        body = fusion_loops(body[0])
-
         if self.is_rational_mapping:
             stmts = rationalize_eval_mapping(self.mapping, self.nderiv,
                                              self.space, indices_quad)
@@ -1089,8 +1102,6 @@ class EvalMapping(SplBasic):
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
 
-        body = fusion_loops(body[0])
-        
         # initialization of the matrix
         init_vals = [f[[Slice(None,None)]*dim] for f in mapping_values]
         init_vals = [Assign(e, 0.0) for e in init_vals]
@@ -1219,14 +1230,12 @@ class EvalField(SplBasic):
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
 
-        body = fusion_loops(body[0])
         
         # put the body in for loops of quadrature points
         body = filter_loops(indices_quad, ranges_quad, body,
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
 
-        body = fusion_loops(body[0])
         
         # initialization of the matrix
         init_vals = [f[[Slice(None,None)]*dim] for f in fields_val]
@@ -1357,15 +1366,11 @@ class EvalVectorField(SplBasic):
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
 
-        body = fusion_loops(body[0])
-        
         # put the body in for loops of quadrature points
         body = filter_loops(indices_quad, ranges_quad, body,
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
 
-        body = fusion_loops(body[0])
-        
         # initialization of the matrix
         init_vals = [f[[Slice(None,None)]*dim] for f in vector_fields_val]
         init_vals = [Assign(e, 0.0) for e in init_vals]
@@ -2053,8 +2058,6 @@ class Kernel(SplBasic):
         body = select_loops( indices_quad, ranges_quad, body,
                              self.discrete_boundary,
                              boundary_basis=self.boundary_basis)
-                             
-        body = fusion_loops(body[0])
 
         # initialization of intermediate vars
         init_vars = [Assign(v[i],0.0) for i in range(ln) if not( i in zero_terms )]
@@ -2086,14 +2089,10 @@ class Kernel(SplBasic):
             body = select_loops(indices_test, ranges_test, body,
                                 self.discrete_boundary,
                                 boundary_basis=self.boundary_basis)
-                                
-            body = fusion_loops(body[0])
 
             body = select_loops(indices_trial, ranges_trial, body,
                                 self.discrete_boundary,
                                 boundary_basis=self.boundary_basis)
-                                
-            body = fusion_loops(body[0])
 
         if is_linear:
             init_stmts += init_loop_basis( indices_test, ranges_test, self.discrete_boundary )
@@ -2101,8 +2100,7 @@ class Kernel(SplBasic):
             body = select_loops(indices_test, ranges_test, body,
                                 self.discrete_boundary,
                                 boundary_basis=self.boundary_basis)
-                                
-            body = fusion_loops(body[0])
+          
         # ...
 
         # ... add init stmts
@@ -2528,8 +2526,6 @@ class Assembly(SplBasic):
 
         body = select_loops(indices_elm, ranges_elm, body,
                             self.kernel.discrete_boundary, boundary_basis=False)
-                            
-        body = fusion_loops(body[0])
 
         body = init_stmts + body
         
@@ -2581,7 +2577,7 @@ class Assembly(SplBasic):
 
         if self.kernel.vector_fields_val:
             fields_shape = tuple(FunctionCall('len',[p[0,Slice(None,None)]]) for p in points)
-            for F_value in self.kernel.vector_fields:
+            for F_value in self.kernel.vector_fields_val:
                 prelude += [Assign(F_value, Zeros(fields_shape))]
         # ...
         if not( self.comm is None ) and any(self.periodic) :
