@@ -710,6 +710,55 @@ class StencilMatrix( Matrix ):
         # Flag ghost regions as up-to-date
         self._sync = True
 
+    # ...
+    def transpose( self ):
+        """ Create new StencilMatrix Mt, where domain and codomain are swapped
+            with respect to original matrix M, and Mt_{ij} = M_{ji}.
+        """
+        # For clarity rename self
+        M = self
+
+        # If necessary, update ghost regions of original matrix M
+        if not M.ghost_regions_in_sync:
+            M.update_ghost_regions()
+
+        # Create new matrix where domain and codomain are swapped
+        Mt = StencilMatrix(M.codomain, M.domain)
+
+        # Number of rows in matrix (along each dimension)
+        nrows = [e - s + 1 for s, e in zip(M.starts, M.ends)]
+        nrows_extra = []
+
+        # Call low-level '_transpose' function (works on Numpy arrays directly)
+        self._transpose(M._data, Mt._data, nrows, nrows_extra, M.pads)
+
+        # Update ghost regions of transposed matrix Mt
+        Mt.update_ghost_regions()
+
+        return Mt
+
+    # ...
+    @staticmethod
+    def _transpose( M, Mt, nrows, nrows_extra, pads ):
+
+        # NOTE:
+        #  . Array M  index by [i1, i2, ..., k1, k2, ...]
+        #  . Array Mt index by [j1, j2, ..., l1, l2, ...]
+
+        pp = pads
+        ndiags = [2*p + 1 for p in pp]
+
+        for xx in np.ndindex( *nrows ):
+
+            jj = tuple(p + x for p, x in zip(pp, xx) )
+
+            for ll in np.ndindex( *ndiags ):
+
+                ii = tuple(  x + l for x, l in zip(xx, ll))
+                kk = tuple(2*p - l for p, l in zip(pp, ll))
+
+                Mt[(*jj, *ll)] = M[(*ii, *kk)]
+
     #--------------------------------------
     # Private methods
     #--------------------------------------
