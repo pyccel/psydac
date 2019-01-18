@@ -200,7 +200,7 @@ def filter_loops(indices, ranges, body, discrete_boundary, boundary_basis=False)
 
         rx = Range(start, end)
         body = [For(x, rx, body)]
-    #body = fusion_loops(body)
+    body = fusion_loops(body)
     return body
 
 
@@ -239,9 +239,11 @@ def fusion_loops(loops):
     loops_cp = loops
 
     while len(loops) == 1 and isinstance(loops[0], For):
+        
         loops = loops[0]
         target = loops.target
         iterable = loops.iterable
+        
         if isinstance(iterable, Product):
             ranges  += list(iterable.elements)
             indices += list(target)
