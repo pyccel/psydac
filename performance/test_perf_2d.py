@@ -21,14 +21,19 @@ from sympde.expr import Equation, DirichletBC
 
 from spl.fem.basic   import FemField
 from spl.api.discretization import discretize
-from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL,SPL_BACKEND_NUMBA,SPL_BACKEND_PYTHRAN
+from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_GPYCCEL,\
+                             SPL_BACKEND_IPYCCEL, SPL_BACKEND_PGPYCCEL,\
+                             SPL_BACKEND_NUMBA, SPL_BACKEND_PYTHRAN
+
+backends = (SPL_BACKEND_PYTHON, SPL_BACKEND_GPYCCEL,
+            SPL_BACKEND_IPYCCEL, SPL_BACKEND_PGPYCCEL,)
+#            SPL_BACKEND_NUMBA, SPL_BACKEND_PYTHRAN)
 
 import time
 import os
 from tabulate import tabulate
 from collections import namedtuple
- 
-Timing = namedtuple('Timing', ['kind', 'python', 'pyccel'])
+from collections import OrderedDict 
 
 DEBUG = False
 
@@ -41,14 +46,13 @@ except:
     base_dir = os.path.join(base_dir, '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 #==============================================================================
-def print_timing(ls):
+def print_timing(d):
     # ...
     table   = []
-    headers = ['Assembly time', 'Python', 'Pyccel','Speedup']
+    headers = ['Assembly time']+ list(d['matrix'].keys())
 
-    for timing in ls:
-        speedup = timing.python / timing.pyccel
-        line   = [timing.kind, timing.python, timing.pyccel, speedup]
+    for key, val in d.items():
+        line   = [key] + list(val.values())
         table.append(line)
 
     print(tabulate(table, headers=headers, tablefmt='latex'))
@@ -84,16 +88,16 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
     # ...
     n = 1 if backend==SPL_BACKEND_PYTHON else 4
     # dict to store timings
-    d = {}
+    d = OrderedDict()
     
     # ... bilinear form
     ah = discretize(a, domain_h, [Vh, Vh], backend=backend)
 
-    tb = time.time(); M = ah.assemble(); te = time.time()
+    ah.assemble()
     
     times = []
     for i in range(n):
-        tb = time.time(); M = ah.assemble(); te = time.time()
+        tb = time.time(); ah.assemble(); te = time.time()
         times.append(te-tb)
 
 
@@ -103,14 +107,14 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
     # ... linear form
     lh = discretize(l, domain_h, Vh, backend=backend)
 
-    tb = time.time(); L = lh.assemble(); te = time.time()
+    lh.assemble()
     
     times = []
     for i in range(n):
-        tb = time.time(); lh = ah.assemble(); te = time.time()
+        tb = time.time(); lh.assemble(); te = time.time()
         times.append(te-tb)
 
-    d['rhs'] = sum(times)/len(times)
+    d['lhs'] = sum(times)/len(times)
     # ...
 
   
@@ -120,11 +124,11 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
 
     l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
     
-    err = l2norm_h.assemble(F=phi)
+    l2norm_h.assemble(F=phi)
 
     times = []
     for i in range(n):
-        tb = time.time(); err = l2norm_h.assemble(F=phi); te = time.time()
+        tb = time.time(); l2norm_h.assemble(F=phi); te = time.time()
         times.append(te-tb)
         
     d['l2norm'] = sum(times)/len(times)
@@ -166,7 +170,7 @@ def run_poisson_2d_mapping(filename, solution, f, backend, comm=None):
     Vh = discretize(V, domain_h)
     # ...
 
-    d = {}
+    d = OrderedDict()
 
     ah = discretize(a, domain_h, [Vh, Vh], backend=backend)
 
@@ -185,14 +189,14 @@ def run_poisson_2d_mapping(filename, solution, f, backend, comm=None):
     # ... linear form
     lh = discretize(l, domain_h, Vh, backend=backend)
 
-    tb = time.time(); L = lh.assemble(); te = time.time()
+    lh.assemble()
 
     times = []
     for i in range(n):
-        tb = time.time(); lh = lh.assemble(); te = time.time()
+        tb = time.time(); lh.assemble(); te = time.time()
         times.append(te-tb)
 
-    d['rhs'] = sum(times)/len(times)
+    d['lhs'] = sum(times)/len(times)
     # ...
 
   
@@ -203,11 +207,11 @@ def run_poisson_2d_mapping(filename, solution, f, backend, comm=None):
 
 
     l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
-    tb = time.time(); err = l2norm_h.assemble(F=phi); te = time.time()
+    l2norm_h.assemble(F=phi)
     
     times = []
     for i in range(n):
-        tb = time.time(); err = l2norm_h.assemble(F=phi); te = time.time()
+        tb = time.time(); l2norm_h.assemble(F=phi); te = time.time()
         times.append(te-tb)
         
     d['l2norm'] = sum(times)/len(times)
@@ -228,46 +232,23 @@ def test_perf_poisson_2d(ncells=[2**8,2**8], degree=[2,2]):
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
     
-    # using Pyccel
-    d_f90 = run_poisson( domain, solution, f,
-                         ncells=ncells, degree=degree,
-                         backend=SPL_BACKEND_PYCCEL )
-                         
-    # using pythran
-    d_pythran = run_poisson( domain, solution, f,
-                          ncells=ncells, degree=degree, 
-                          backend=SPL_BACKEND_PYTHRAN)  
-                          
-    # using Python               
-    d_py = run_poisson( domain, solution, f,
-                        ncells=ncells, degree=degree,
-                        backend=SPL_BACKEND_PYTHON )
-
-
-                         
-    # using numba
-    d_numba = run_poisson( domain, solution, f,
-                          ncells=ncells, degree=degree, 
-                          backend=SPL_BACKEND_NUMBA )   
-                          
-                          
  
+                         
+    d_all = OrderedDict()
+    for backend in backends:
+        d_all[backend['tag']] = run_poisson(domain, solution, f,
+                               ncells=ncells,degree=degree, backend=backend)
 
-
-    # ... add every new backend here
-    d_all = [d_py, d_f90, d_numba, d_pythran]
-
-    keys = sorted(list(d_py.keys()))
-    timings = []
-    
+    keys = d_all['python'].keys()
+    d_new = OrderedDict()
     for key in keys:
-        args = [d[key] for d in d_all]
-        timing = Timing(key, *args)
-        timings += [timing]
+        d_new[key] = OrderedDict((k,val[key]) for k,val in d_all.items())
 
-    print_timing(timings)
-    # ...
- 
+
+    print_timing(d_new)
+
+
+                      
 #==============================================================================
 def test_perf_poisson_2d_dir_quart_circle():
     filename = os.path.join(mesh_dir, 'quart_circle.h5')
@@ -280,39 +261,23 @@ def test_perf_poisson_2d_dir_quart_circle():
     f = 4.*c**2*x*y*(x**2 + y**2)*sin(c * r2) + 12.*c*x*y*cos(c * r2)
 
                          
-    # using pythran
-    d_pythran = run_poisson_2d_mapping(filename, solution, f,
-                          backend=SPL_BACKEND_PYTHRAN)  
-                          
-#    # using Python               
-    d_py = run_poisson_2d_mapping(filename, solution, f,
-                        backend=SPL_BACKEND_PYTHON )
-
-
-                         
+    d_all = {}
+    for backend in backends:
+        d_all[backend['tag']] = run_poisson_2d_mapping(filename, solution, f,
+                          backend=backend) 
    
-                          
-                          
- 
-
-
-    # ... add every new backend here
-    d_all = [d_py, d_f90]
-
-    keys = sorted(list(d_py.keys()))
-    timings = []
-    
+    keys = d_all['python'].keys()
+    d_new = {}
     for key in keys:
-        args = [d[key] for d in d_all]
-        timing = Timing(key, *args)
-        timings += [timing]
+        d_new[key] = {k:val[key] for k,val in d_all.items()}
+      
 
-    print_timing(timings)
+    print_timing(d_new)
 
 ###############################################
 if __name__ == '__main__':
 
     # ... examples without mapping
-    #test_perf_poisson_2d()
-    test_perf_poisson_2d_dir_quart_circle()
+    test_perf_poisson_2d()
+    #test_perf_poisson_2d_dir_quart_circle()
     # ...
