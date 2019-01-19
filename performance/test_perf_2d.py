@@ -25,8 +25,8 @@ from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_GPYCCEL,\
                              SPL_BACKEND_IPYCCEL, SPL_BACKEND_PGPYCCEL,\
                              SPL_BACKEND_NUMBA, SPL_BACKEND_PYTHRAN
 
-backends = (SPL_BACKEND_PYTHON, SPL_BACKEND_GPYCCEL,
-            SPL_BACKEND_IPYCCEL, SPL_BACKEND_PGPYCCEL,)
+backends = (SPL_BACKEND_PYTHON, SPL_BACKEND_GPYCCEL,)
+#            SPL_BACKEND_IPYCCEL, SPL_BACKEND_PGPYCCEL,)
 #            SPL_BACKEND_NUMBA, SPL_BACKEND_PYTHRAN)
 
 import time
@@ -113,7 +113,7 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
         tb = time.time(); lh.assemble(); te = time.time()
         times.append(te-tb)
 
-    d['lhs'] = sum(times)/len(times)
+    d['rhs'] = sum(times)/len(times)
     # ...
 
   
@@ -174,11 +174,11 @@ def run_poisson_2d_mapping(filename, solution, f, backend, comm=None):
     ah = discretize(a, domain_h, [Vh, Vh], backend=backend)
 
     # ...
-    tb = time.time(); M = ah.assemble(); te = time.time()
+    ah.assemble()
 
     times = []
     for i in range(n):
-        tb = time.time(); M = ah.assemble(); te = time.time()
+        tb = time.time(); ah.assemble(); te = time.time()
         times.append(te-tb)
 
 
@@ -195,7 +195,7 @@ def run_poisson_2d_mapping(filename, solution, f, backend, comm=None):
         tb = time.time(); lh.assemble(); te = time.time()
         times.append(te-tb)
 
-    d['lhs'] = sum(times)/len(times)
+    d['rhs'] = sum(times)/len(times)
     # ...
 
   
@@ -260,15 +260,15 @@ def test_perf_poisson_2d_dir_quart_circle():
     f = 4.*c**2*x*y*(x**2 + y**2)*sin(c * r2) + 12.*c*x*y*cos(c * r2)
 
                          
-    d_all = {}
+    d_all = OrderedDict()
     for backend in backends:
         d_all[backend['tag']] = run_poisson_2d_mapping(filename, solution, f,
                           backend=backend) 
    
     keys = d_all['python'].keys()
-    d_new = {}
+    d_new = OrderedDict()
     for key in keys:
-        d_new[key] = {k:val[key] for k,val in d_all.items()}
+        d_new[key] = OrderedDict((k,val[key]) for k,val in d_all.items())
       
 
     print_timing(d_new)
@@ -278,5 +278,5 @@ if __name__ == '__main__':
 
     # ... examples without mapping
     test_perf_poisson_2d()
-    #test_perf_poisson_2d_dir_quart_circle()
+    test_perf_poisson_2d_dir_quart_circle()
     # ...
