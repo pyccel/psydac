@@ -32,7 +32,6 @@ backends = (SPL_BACKEND_PYTHON, SPL_BACKEND_GPYCCEL,
 import time
 import os
 from tabulate import tabulate
-from collections import namedtuple
 from collections import OrderedDict 
 
 DEBUG = False

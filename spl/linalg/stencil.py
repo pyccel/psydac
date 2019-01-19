@@ -171,8 +171,6 @@ class StencilVector( Vector ):
         assert isinstance( V, StencilVectorSpace )
 
         sizes = [e-s+2*p+1 for s,e,p in zip(V.starts, V.ends, V.pads)]
-        self._sizes = tuple(sizes)
-        self._ndim = len(V.starts)
         self._data  = np.zeros( sizes, dtype=V.dtype )
         self._space = V
 
@@ -192,22 +190,15 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
 
+        index = tuple( slice(p,-p) for p in self.pads )
+        res   = np.dot( self._data[index].flat, v._data[index].flat )
 
-        res   = self._dot(self._data, v._data , *self.pads, *self._sizes)
-        
         if self._space.parallel:
             res = self._space.cart.comm_cart.allreduce( res, op=MPI.SUM )
 
         return res
 
     #...
-    @staticmethod
-    def _dot(v1, v2, *pads):
-        ndim = len(v1.shape)
-        index = tuple( slice(p,-p) for p in pads[:ndim] )
-        return np.dot(v1[index].flat, v2[index].flat)
-        
-        
     def copy( self ):
         w = StencilVector( self._space )
         w._data[:] = self._data[:]
@@ -519,7 +510,6 @@ class StencilMatrix( Matrix ):
         self._data  = np.zeros( dims+diags, dtype=V.dtype )
         self._space = V
         self._ndim  = len( dims )
-        
 
         # Parallel attributes
         if V.parallel:
@@ -562,39 +552,30 @@ class StencilMatrix( Matrix ):
             out = StencilVector( self.codomain )
 
         # Shortcuts
-
+        ss = self.starts
         ee = self.ends
         pp = self.pads
-        ss = self.starts
+
+        dot = np.dot
 
         # Index for k=i-j
-        
+        kk = [slice(None)] * self._ndim
 
         # Number of rows in matrix (along each dimension)
-        
         nrows = [e-s+1 for s,e in zip(ss,ee)]
-        self._dot([], self._data, v._data, out._data, *nrows, *pp)
-        
-        # IMPORTANT: flag that ghost regions are not up-to-date
-        out.ghost_regions_in_sync = False
-        return out
-        
-    @staticmethod
-    def _dot(extra_rows, mat, x, out, *args):
-    
-        ndim = len(x.shape)
-        nrows = args[:ndim]
-        pp    = args[ndim:]
-        kk = [slice(None)]*ndim
+
         for xx in np.ndindex( *nrows ):
 
-            ii    = tuple( p+x for p,x in zip(pp,xx) )
-            jj    = tuple( slice(x,x+2*p+1) for x,p in zip(xx,pp) )
+            ii    = tuple( s+x for s,x in zip(ss,xx) )
+            jj    = tuple( slice(i-p,i+p+1) for i,p in zip(ii,pp) )
             ii_kk = tuple( list(ii) + kk )
 
-            out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
+            out[ii] = dot( self[ii_kk].flat, v[jj].flat )
 
+        # IMPORTANT: flag that ghost regions are not up-to-date
+        out.ghost_regions_in_sync = False
 
+        return out
 
     # ...
     def toarray( self, *, with_pads=False ):
@@ -905,3 +886,4 @@ class StencilMatrix( Matrix ):
 
 #===============================================================================
 del VectorSpace, Vector, Matrix
+
