@@ -219,7 +219,7 @@ def select_loops(indices, ranges, body, discrete_boundary, boundary_basis=False)
         # remove them from directions
 
     dim = len(indices)
-    dims = [i for i in range(dim) if not( i in quad_mask )]
+    dims = [i for i in range(dim-1,-1,-1) if not( i in quad_mask )]
     
     for i in dims:
         rx = ranges[i]
