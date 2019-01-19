@@ -14,6 +14,10 @@ class PythonCodePrinter(SympdePythonCodePrinter):
     def _print_SplBasic(self, expr):
         code = ''
         if self._enable_dependencies and expr.dependencies:
+            imports = []
+            for dep in expr.dependencies:
+                imports +=dep.imports
+            code = '\n'.join(self._print(i) for i in imports)
             for dep in expr.dependencies:
                 code = '{code}\n{dep}'.format(code=code,
                                               dep=self._print(dep))
@@ -21,7 +25,9 @@ class PythonCodePrinter(SympdePythonCodePrinter):
         return '{code}\n{func}'.format(code=code, func=self._print(expr.func))
 
     def _print_Interface(self, expr):
-        return self._print(expr.func)
+        code = '\n'.join(self._print(i) for i in expr.imports)
+        
+        return code +'\n' + self._print(expr.func)
 
 
 def pycode(expr, **settings):

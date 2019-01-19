@@ -24,7 +24,7 @@ from pyccel.ast.core import For
 from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Slice
-from pyccel.ast.core import Range
+from pyccel.ast.core import Range, Product
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
 from pyccel.ast.core import Import
@@ -38,7 +38,9 @@ from pyccel.ast import String, Print, Shape
 from pyccel.ast import Comment, NewLine
 from pyccel.ast.core      import _atomic
 from pyccel.ast.utilities import build_types_decorator
-from pyccel.ast.utilities import variables, indexed_variables
+
+from .utilities import build_pythran_types_header, variables
+
 
 from sympde.core import Cross_3d
 from sympde.core import Constant
@@ -198,7 +200,7 @@ def filter_loops(indices, ranges, body, discrete_boundary, boundary_basis=False)
 
         rx = Range(start, end)
         body = [For(x, rx, body)]
-
+    body = fusion_loops(body)
     return body
 
 
@@ -218,6 +220,7 @@ def select_loops(indices, ranges, body, discrete_boundary, boundary_basis=False)
 
     dim = len(indices)
     dims = [i for i in range(dim-1,-1,-1) if not( i in quad_mask )]
+
     for i in dims:
         rx = ranges[i]
         x = indices[i]
@@ -227,7 +230,38 @@ def select_loops(indices, ranges, body, discrete_boundary, boundary_basis=False)
         rx = Range(start, end)
         body = [For(x, rx, body)]
 
+    body = fusion_loops(body)
     return body
+
+def fusion_loops(loops):
+    ranges = []
+    indices = []
+    loops_cp = loops
+
+    while len(loops) == 1 and isinstance(loops[0], For):
+
+        loops = loops[0]
+        target = loops.target
+        iterable = loops.iterable
+
+        if isinstance(iterable, Product):
+            ranges  += list(iterable.elements)
+            indices += list(target)
+            if not isinstance(target,(tuple,list,Tuple)):
+                raise ValueError('target must be a list or a tuple of indices')
+
+        elif isinstance(iterable, Range):
+            ranges.append(iterable)
+            indices.append(target)
+        else:
+            raise TypeError('only range an product are supported')
+
+        loops = loops.body
+
+    if len(ranges)>1:
+        return [For(indices, Product(*ranges), loops)]
+    else:
+        return loops_cp
 
 #==============================================================================
 def init_loop_quadrature(indices, ranges, discrete_boundary):
@@ -813,6 +847,7 @@ class SplBasic(Basic):
         obj._detailed            = detailed
         obj._mapping             = mapping
         obj._is_rational_mapping = is_rational_mapping
+        obj._imports = []
 
         return obj
 
@@ -856,12 +891,16 @@ class SplBasic(Basic):
     def discrete_boundary(self):
         return self._discrete_boundary
 
+    @property
+    def imports(self):
+        return self._imports
+
 
 #==============================================================================
 class EvalMapping(SplBasic):
 
     def __new__(cls, space, mapping, discrete_boundary=None, name=None,
-                boundary_basis=None, nderiv=1, is_rational_mapping=None):
+                boundary_basis=None, nderiv=1, is_rational_mapping=None,backend=None):
 
         if not isinstance(mapping, Mapping):
             raise TypeError('> Expecting a Mapping object')
@@ -873,6 +912,7 @@ class EvalMapping(SplBasic):
         obj._space = space
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis = boundary_basis
+        obj._backend = backend
 
         dim = mapping.rdim
 
@@ -953,6 +993,10 @@ class EvalMapping(SplBasic):
     def mapping_values(self):
         return self._mapping_values
 
+    @property
+    def backend(self):
+        return self._backend
+
     def build_arguments(self, data):
 
         other = data
@@ -969,16 +1013,16 @@ class EvalMapping(SplBasic):
 #        mapping_str = sorted([_print(f) for f in self.elements])
 
         # ... declarations
-        degrees        = variables([ 'p{}'.format(i) for i in range(1, dim+1)], 'int')
-        orders         = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
-        indices_basis  = variables([ 'jl{}'.format(i) for i in range(1, dim+1)], 'int')
-        indices_quad   = variables([ 'g{}'.format(i) for i in range(1, dim+1)], 'int')
-        basis          = indexed_variables(['basis{}'.format(i) for i in range(1, dim+1)],
-                                          dtype='real', rank=3)
-        mapping_coeffs = indexed_variables(['coeff_{}'.format(f) for f in mapping_atoms],
-                                          dtype='real', rank=dim)
-        mapping_values = indexed_variables(['{}_values'.format(f) for f in mapping_str],
-                                          dtype='real', rank=dim)
+        degrees        = variables( 'p1:%s'%(dim+1), 'int')
+        orders         = variables( 'k1:%s'%(dim+1), 'int')
+        indices_basis  = variables( 'jl1:%s'%(dim+1), 'int')
+        indices_quad   = variables( 'g1:%s'%(dim+1), 'int')
+        basis          = variables('basis1:%s'%(dim+1),
+                                  dtype='real', rank=3, cls=IndexedVariable)
+        mapping_coeffs = variables(['coeff_{}'.format(f) for f in mapping_atoms],
+                                  dtype='real', rank=dim, cls=IndexedVariable)
+        mapping_values = variables(['{}_values'.format(f) for f in mapping_str],
+                                  dtype='real', rank=dim, cls=IndexedVariable)
 
         weights_elements = []
         if self.is_rational_mapping:
@@ -1002,8 +1046,8 @@ class EvalMapping(SplBasic):
             # ...
 
             mapping_weights_str = [_print(f) for f in weights_elements]
-            mapping_wvalues = indexed_variables(['{}_values'.format(f) for f in mapping_weights_str],
-                                                dtype='real', rank=dim)
+            mapping_wvalues = variables(['{}_values'.format(f) for f in mapping_weights_str],
+                                                dtype='real', rank=dim, cls=IndexedVariable)
 
             mapping_coeffs  = mapping_coeffs + (IndexedVariable('coeff_w', dtype='real', rank=dim),)
             mapping_values  = mapping_values + tuple(mapping_wvalues)
@@ -1067,16 +1111,24 @@ class EvalMapping(SplBasic):
 
         func_args = self.build_arguments(degrees + basis + mapping_coeffs + mapping_values)
 
-        decorators = {'types': build_types_decorator(func_args)}
+        decorators = {}
+        header = None
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args)}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        elif self.backend['name'] == 'pythran':
+            header = build_pythran_types_header(self.name, func_args)
+
         return FunctionDef(self.name, list(func_args), [], body,
-                           decorators=decorators)
+                           decorators=decorators,header=header)
 
 
 #==============================================================================
 class EvalField(SplBasic):
 
     def __new__(cls, space, fields, discrete_boundary=None, name=None,
-                boundary_basis=None, mapping=None, is_rational_mapping=None):
+                boundary_basis=None, mapping=None, is_rational_mapping=None,backend=None):
 
         if not isinstance(fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
@@ -1089,7 +1141,9 @@ class EvalField(SplBasic):
         obj._fields = Tuple(*fields)
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis = boundary_basis
+        obj._backend = backend
         obj._func = obj._initialize()
+
 
         return obj
 
@@ -1109,6 +1163,10 @@ class EvalField(SplBasic):
     def boundary_basis(self):
         return self._boundary_basis
 
+    @property
+    def backend(self):
+        return self._backend
+
     def build_arguments(self, data):
 
         other = data
@@ -1124,16 +1182,16 @@ class EvalField(SplBasic):
         fields_str = sorted([print_expression(f) for f in self.fields])
 
         # ... declarations
-        degrees       = variables([ 'p{}'.format(i) for i in range(1, dim+1)], 'int')
-        orders        = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
-        indices_basis = variables([ 'jl{}'.format(i) for i in range(1, dim+1)], 'int')
-        indices_quad  = variables([ 'g{}'.format(i) for i in range(1, dim+1)], 'int')
-        basis         = indexed_variables(['basis{}'.format(i) for i in range(1, dim+1)],
-                                          dtype='real', rank=3)
-        fields_coeffs = indexed_variables(['coeff_{}'.format(f) for f in field_atoms],
-                                          dtype='real', rank=dim)
-        fields_val    = indexed_variables(['{}_values'.format(f) for f in fields_str],
-                                          dtype='real', rank=dim)
+        degrees       = variables( 'p1:%s'%(dim+1), 'int')
+        orders        = variables( 'k1:%s'%(dim+1), 'int')
+        indices_basis = variables( 'jl1:%s'%(dim+1), 'int')
+        indices_quad  = variables( 'g1:%s'%(dim+1), 'int')
+        basis         = variables('basis1:%s'%(dim+1),
+                                  dtype='real', rank=3, cls=IndexedVariable)
+        fields_coeffs = variables(['coeff_{}'.format(f) for f in field_atoms],
+                                  dtype='real', rank=dim, cls=IndexedVariable)
+        fields_val    = variables(['{}_values'.format(f) for f in fields_str],
+                                  dtype='real', rank=dim, cls=IndexedVariable)
         # ...
 
         # ... ranges
@@ -1174,10 +1232,12 @@ class EvalField(SplBasic):
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
 
+
         # put the body in for loops of quadrature points
         body = filter_loops(indices_quad, ranges_quad, body,
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
+
 
         # initialization of the matrix
         init_vals = [f[[Slice(None,None)]*dim] for f in fields_val]
@@ -1186,16 +1246,25 @@ class EvalField(SplBasic):
 
         func_args = self.build_arguments(degrees + basis + fields_coeffs + fields_val)
 
-        decorators = {'types': build_types_decorator(func_args)}
+        decorators = {}
+        header = None
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args)}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        elif self.backend['name'] == 'pythran':
+            header = build_pythran_types_header(self.name, func_args)
+
         return FunctionDef(self.name, list(func_args), [], body,
-                           decorators=decorators)
+                           decorators=decorators,header=header)
+
 
 
 #==============================================================================
 class EvalVectorField(SplBasic):
 
     def __new__(cls, space, vector_fields, discrete_boundary=None, name=None,
-                boundary_basis=None, mapping=None, is_rational_mapping=None):
+                boundary_basis=None, mapping=None, is_rational_mapping=None, backend = None):
 
         if not isinstance(vector_fields, (tuple, list, Tuple)):
             raise TypeError('> Expecting an iterable')
@@ -1208,6 +1277,7 @@ class EvalVectorField(SplBasic):
         obj._vector_fields = Tuple(*vector_fields)
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis = boundary_basis
+        obj._backend = backend
         obj._func = obj._initialize()
 
         return obj
@@ -1228,6 +1298,10 @@ class EvalVectorField(SplBasic):
     def boundary_basis(self):
         return self._boundary_basis
 
+    @property
+    def backend(self):
+        return self._backend
+
     def build_arguments(self, data):
 
         other = data
@@ -1244,16 +1318,16 @@ class EvalVectorField(SplBasic):
         vector_fields_str = sorted([print_expression(f) for f in self.vector_fields])
 
         # ... declarations
-        degrees       = variables([ 'p{}'.format(i) for i in range(1, dim+1)], 'int')
-        orders        = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
-        indices_basis = variables([ 'jl{}'.format(i) for i in range(1, dim+1)], 'int')
-        indices_quad  = variables([ 'g{}'.format(i) for i in range(1, dim+1)], 'int')
-        basis         = indexed_variables(['basis{}'.format(i) for i in range(1, dim+1)],
-                                          dtype='real', rank=3)
+        degrees       = variables('p1:%s'%(dim+1),  'int')
+        orders        = variables('k1:%s'%(dim+1),  'int')
+        indices_basis = variables('jl1:%s'%(dim+1), 'int')
+        indices_quad  = variables('g1:%s'%(dim+1),  'int')
+        basis         = variables('basis1:%s'%(dim+1),
+                                  dtype='real', rank=3, cls=IndexedVariable)
         coeffs = ['coeff_{}'.format(print_expression(f)) for f in vector_field_atoms]
-        vector_fields_coeffs = indexed_variables(coeffs, dtype='real', rank=dim)
-        vector_fields_val    = indexed_variables(['{}_values'.format(f) for f in vector_fields_str],
-                                          dtype='real', rank=dim)
+        vector_fields_coeffs = variables(coeffs, dtype='real', rank=dim, cls=IndexedVariable)
+        vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
+                                          dtype='real', rank=dim, cls=IndexedVariable)
         # ...
 
         # ... ranges
@@ -1306,10 +1380,17 @@ class EvalVectorField(SplBasic):
 
         func_args = self.build_arguments(degrees + basis + vector_fields_coeffs + vector_fields_val)
 
-        decorators = {'types': build_types_decorator(func_args)}
-        return FunctionDef(self.name, list(func_args), [], body,
-                           decorators=decorators)
+        decorators = {}
+        header = None
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args)}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        elif self.backend['name'] == 'pythran':
+            header = build_pythran_types_header(self.name, func_args)
 
+        return FunctionDef(self.name, list(func_args), [], body,
+                           decorators=decorators,header=header)
 
 #==============================================================================
 # target is used when there are multiple expression (domain/boundaries)
@@ -1317,7 +1398,7 @@ class Kernel(SplBasic):
 
     def __new__(cls, weak_form, kernel_expr, target=None,
                 discrete_boundary=None, name=None, boundary_basis=None,
-                mapping=None, is_rational_mapping=None):
+                mapping=None, is_rational_mapping=None,backend=None):
 
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
@@ -1372,9 +1453,10 @@ class Kernel(SplBasic):
         obj._target            = target
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis    = boundary_basis
+        obj._backend = backend
+
 
         obj._func = obj._initialize()
-
         return obj
 
     @property
@@ -1434,6 +1516,14 @@ class Kernel(SplBasic):
         return self._vector_fields_coeffs
 
     @property
+    def fields_val(self):
+        return self._fields_val
+
+    @property
+    def vector_fields_val(self):
+        return self._vector_fields_val
+
+    @property
     def mapping_coeffs(self):
         if not self.eval_mapping:
             return ()
@@ -1458,6 +1548,10 @@ class Kernel(SplBasic):
     @property
     def eval_mapping(self):
         return self._eval_mapping
+
+    @property
+    def backend(self):
+        return self._backend
 
     def build_arguments(self, data):
 
@@ -1574,7 +1668,7 @@ class Kernel(SplBasic):
                 eval_field = EvalField(space, fields_expressions,
                                        discrete_boundary=self.discrete_boundary,
                                        boundary_basis=self.boundary_basis,
-                                       mapping=mapping)
+                                       mapping=mapping,backend=self.backend)
 
                 self._eval_fields.append(eval_field)
                 for k,v in eval_field.map_stmts.items():
@@ -1608,7 +1702,7 @@ class Kernel(SplBasic):
                 eval_vector_field = EvalVectorField(space, vector_fields_expressions,
                                                     discrete_boundary=self.discrete_boundary,
                                                     boundary_basis=self.boundary_basis,
-                                                    mapping=mapping)
+                                                    mapping=mapping,backend=self.backend)
                 self._eval_vector_fields.append(eval_vector_field)
                 for k,v in eval_vector_field.map_stmts.items():
                     self._map_stmts_fields[k] = v
@@ -1647,7 +1741,7 @@ class Kernel(SplBasic):
                                        discrete_boundary=self.discrete_boundary,
                                        boundary_basis=self.boundary_basis,
                                        nderiv=nderiv,
-                                       is_rational_mapping=self.is_rational_mapping)
+                                       is_rational_mapping=self.is_rational_mapping,backend=self.backend)
             self._eval_mapping = eval_mapping
 
             # update dependencies
@@ -1684,7 +1778,7 @@ class Kernel(SplBasic):
                 for i_col in range(0, sh[1]):
                     mats.append('mat_{}{}'.format(i_row, i_col))
 
-            mats = indexed_variables(mats, dtype='real', rank=rank)
+            mats = variables(mats, dtype='real', rank=rank, cls=IndexedVariable)
             # ...
 
             # ...
@@ -1716,42 +1810,43 @@ class Kernel(SplBasic):
         fields        = symbols(fields_str)
         fields_logical = symbols(fields_logical_str)
 
-        fields_coeffs = indexed_variables(['coeff_{}'.format(f) for f in field_atoms],
-                                          dtype='real', rank=dim)
-        fields_val    = indexed_variables(['{}_values'.format(f) for f in fields_str],
-                                          dtype='real', rank=dim)
+        fields_coeffs = variables(['coeff_{}'.format(f) for f in field_atoms],
+                                          dtype='real', rank=dim, cls=IndexedVariable)
+        fields_val    = variables(['{}_values'.format(f) for f in fields_str],
+                                          dtype='real', rank=dim, cls=IndexedVariable)
 
-        fields_tmp_coeffs = indexed_variables(['tmp_coeff_{}'.format(f) for f in field_atoms],
-                                              dtype='real', rank=dim)
+        fields_tmp_coeffs = variables(['tmp_coeff_{}'.format(f) for f in field_atoms],
+                                              dtype='real', rank=dim, cls=IndexedVariable)
 
         vector_fields        = symbols(vector_fields_str)
         vector_fields_logical = symbols(vector_fields_logical_str)
 
         vector_field_atoms = [f[i] for f in vector_field_atoms for i in range(0, dim)]
         coeffs = ['coeff_{}'.format(print_expression(f)) for f in vector_field_atoms]
-        vector_fields_coeffs = indexed_variables(coeffs, dtype='real', rank=dim)
+        vector_fields_coeffs = variables(coeffs, dtype='real', rank=dim, cls=IndexedVariable)
 
-        vector_fields_val    = indexed_variables(['{}_values'.format(f) for f in vector_fields_str],
-                                          dtype='real', rank=dim)
+        vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
+                                          dtype='real', rank=dim, cls=IndexedVariable)
 
-        test_degrees  = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
-        trial_degrees = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
-        test_pads     = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
-        trial_pads    = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
-        indices_quad  = variables(['g{}'.format(i) for i in range(1, dim+1)], 'int')
-        qds_dim       = variables(['k{}'.format(i) for i in range(1, dim+1)], 'int')
-        indices_test  = variables(['il{}'.format(i) for i in range(1, dim+1)], 'int')
-        indices_trial = variables(['jl{}'.format(i) for i in range(1, dim+1)], 'int')
+        test_degrees  = variables('test_p1:%s'%(dim+1),  'int')
+        trial_degrees = variables('trial_p1:%s'%(dim+1), 'int')
+        test_pads     = variables('test_p1:%s'%(dim+1),  'int')
+        trial_pads    = variables('trial_p1:%s'%(dim+1), 'int')
+
+        indices_quad  = variables('g1:%s'%(dim+1),  'int')
+        qds_dim       = variables('k1:%s'%(dim+1),  'int')
+        indices_test  = variables('il1:%s'%(dim+1), 'int')
+        indices_trial = variables('jl1:%s'%(dim+1), 'int')
         wvol          = Variable('real', 'wvol')
 
-        basis_trial   = indexed_variables(['trial_bs{}'.format(i) for i in range(1, dim+1)],
-                                          dtype='real', rank=3)
-        basis_test    = indexed_variables(['test_bs{}'.format(i) for i in range(1, dim+1)],
-                                          dtype='real', rank=3)
-        weighted_vols = indexed_variables(['w{}'.format(i) for i in range(1, dim+1)],
-                                          dtype='real', rank=1)
-        positions     = indexed_variables(['u{}'.format(i) for i in range(1, dim+1)],
-                                          dtype='real', rank=1)
+        basis_trial   = variables('trial_bs1:%s'%(dim+1),
+                                  dtype='real', rank=3, cls=IndexedVariable)
+        basis_test    = variables('test_bs1:%s'%(dim+1),
+                                  dtype='real', rank=3, cls=IndexedVariable)
+        weighted_vols = variables('w1:%s'%(dim+1),
+                                  dtype='real', rank=1, cls=IndexedVariable)
+        positions     = variables('u1:%s'%(dim+1),
+                                  dtype='real', rank=1, cls=IndexedVariable)
 
         # ...
 
@@ -1764,7 +1859,8 @@ class Kernel(SplBasic):
         if is_linear or is_function:
             self._basic_args = (test_pads +
                                 basis_test +
-                                positions + weighted_vols)
+                                positions + weighted_vols+
+                                fields_val + vector_fields_val)
         # ...
 
         # ...
@@ -1779,13 +1875,15 @@ class Kernel(SplBasic):
             mapping_elements = symbols(tuple(mapping_elements))
 
             mapping_coeffs = [_print(i) for i in _eval.mapping_coeffs]
-            mapping_coeffs = indexed_variables(mapping_coeffs, dtype='real', rank=dim)
+            mapping_coeffs = variables(mapping_coeffs, dtype='real', rank=dim, cls=IndexedVariable)
 
             mapping_values = [_print(i) for i in _eval.mapping_values]
-            mapping_values = indexed_variables(mapping_values, dtype='real', rank=dim)
+            mapping_values = variables(mapping_values, dtype='real', rank=dim, cls=IndexedVariable)
         # ...
 
         # ...
+        self._fields_val = fields_val
+        self._vector_fields_val = vector_fields_val
         self._fields = fields
         self._fields_logical = fields_logical
         self._fields_coeffs = fields_coeffs
@@ -2004,6 +2102,7 @@ class Kernel(SplBasic):
             body = select_loops(indices_test, ranges_test, body,
                                 self.discrete_boundary,
                                 boundary_basis=self.boundary_basis)
+
         # ...
 
         # ... add init stmts
@@ -2024,23 +2123,13 @@ class Kernel(SplBasic):
             args = eval_field.build_arguments(args)
             body = [FunctionCall(eval_field.func, args)] + body
 
-        # calculate field values
-        if fields_val:
-            prelude  = [Import('zeros', 'numpy')]
-            allocate = [Assign(f, Zeros(qds_dim)) for f in fields_val]
-            body = prelude + allocate + body
+        imports = []
 
         # call eval vector_field
         for eval_vector_field in self.eval_vector_fields:
             args = test_degrees + basis_test + vector_fields_coeffs + vector_fields_val
             args = eval_vector_field.build_arguments(args)
             body = [FunctionCall(eval_vector_field.func, args)] + body
-
-        # calculate vector_field values
-        if vector_fields_val:
-            prelude  = [Import('zeros', 'numpy')]
-            allocate = [Assign(f, Zeros(qds_dim)) for f in vector_fields_val]
-            body = prelude + allocate + body
 
         # call eval mapping
         if self.eval_mapping:
@@ -2057,21 +2146,30 @@ class Kernel(SplBasic):
         math_imports = []
         for e in math_elements:
             math_imports += [Import(e, 'numpy')]
-        body = math_imports + body
 
+        imports += math_imports
+        self._imports = imports
         # function args
         mats = tuple([M for i,M in enumerate(mats) if not( i in zero_terms )])
         func_args = self.build_arguments(fields_coeffs + vector_fields_coeffs + mapping_coeffs + mats)
 
-        decorators = {'types': build_types_decorator(func_args)}
+        decorators = {}
+        header = None
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args)}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        elif self.backend['name'] == 'pythran':
+            header = build_pythran_types_header(self.name, func_args)
+
         return FunctionDef(self.name, list(func_args), [], body,
-                           decorators=decorators)
+                           decorators=decorators,header=header)
 
 #==============================================================================
 class Assembly(SplBasic):
 
     def __new__(cls, kernel, name=None, discrete_space=None, periodic=None,
-                comm=None, mapping=None, is_rational_mapping=None):
+                comm=None, mapping=None, is_rational_mapping=None, backend=None):
 
         if not isinstance(kernel, Kernel):
             raise TypeError('> Expecting a kernel')
@@ -2108,6 +2206,7 @@ class Assembly(SplBasic):
         obj._periodic = periodic
         obj._comm = comm
         obj._discrete_boundary = kernel.discrete_boundary
+        obj._backend = backend
 
         # update dependencies
         obj._dependencies += [kernel]
@@ -2138,6 +2237,10 @@ class Assembly(SplBasic):
     @property
     def global_matrices(self):
         return self._global_matrices
+
+    @property
+    def backend(self):
+        return self._backend
 
     def build_arguments(self, data):
 
@@ -2176,49 +2279,41 @@ class Assembly(SplBasic):
 
 
         # ... declarations
-        n_elements     = variables([ 'n_elements_{}'.format(i) for i in range(1, dim+1)], 'int')
-        starts         = variables([ 's{}'.format(i)        for i in range(1, dim+1)], 'int')
-        ends           = variables([ 'e{}'.format(i)        for i in range(1, dim+1)], 'int')
-        element_starts = variables([ 'element_s{}'.format(i)      for i in range(1, dim+1)], 'int')
-        element_ends   = variables([ 'element_e{}'.format(i)      for i in range(1, dim+1)], 'int')
 
-        indices_elm   = variables([ 'ie{}'.format(i)       for i in range(1, dim+1)], 'int')
-        indices_span  = variables([ 'is{}'.format(i)       for i in range(1, dim+1)], 'int')
-        test_pads     = variables([ 'test_p{}'.format(i)   for i in range(1, dim+1)], 'int')
-        trial_pads    = variables(['trial_p{}'.format(i)   for i in range(1, dim+1)], 'int')
-        test_degrees  = variables([ 'test_p{}'.format(i)   for i in range(1, dim+1)], 'int')
-        trial_degrees = variables(['trial_p{}'.format(i)   for i in range(1, dim+1)], 'int')
-        quad_orders   = variables([ 'k{}'.format(i)        for i in range(1, dim+1)], 'int')
-        indices_il    = variables([ 'il{}'.format(i)       for i in range(1, dim+1)], 'int')
-        indices_i     = variables([ 'i{}'.format(i)        for i in range(1, dim+1)], 'int')
-        npts          = variables([ 'n{}'.format(i)        for i in range(1, dim+1)], 'int')
+        starts         = variables('s1:%s'%(dim+1), 'int')
+        ends           = variables('e1:%s'%(dim+1), 'int')
 
-        trial_basis   = ['trial_basis_{}'.format(i) for i in range(1, dim+1)]
-        trial_basis   = indexed_variables(trial_basis, dtype='real', rank=4)
+        n_elements     = variables('n_elements_1:%s'%(dim+1), 'int')
+        element_starts = variables('element_s1:%s'%(dim+1),   'int')
+        element_ends   = variables('element_e1:%s'%(dim+1),   'int')
 
-        test_basis    = ['test_basis_{}'.format(i) for i in range(1, dim+1)]
-        test_basis    = indexed_variables(test_basis, dtype='real', rank=4)
+        indices_elm   = variables('ie1:%s'%(dim+1), 'int')
+        indices_span  = variables('is1:%s'%(dim+1), 'int')
 
-        trial_basis_in_elm = ['trial_bs{}'.format(i) for i in range(1, dim+1)]
-        trial_basis_in_elm = indexed_variables(trial_basis_in_elm, dtype='real', rank=3)
+        test_pads     = variables('test_p1:%s'%(dim+1),  'int')
+        trial_pads    = variables('trial_p1:%s'%(dim+1), 'int')
+        test_degrees  = variables('test_p1:%s'%(dim+1),  'int')
+        trial_degrees = variables('trial_p1:%s'%(dim+1), 'int')
 
-        test_basis_in_elm  = ['test_bs{}'.format(i) for i in range(1, dim+1)]
-        test_basis_in_elm  = indexed_variables(test_basis_in_elm, dtype='real', rank=3)
+        quad_orders   = variables('k1:%s'%(dim+1),  'int')
+        indices_il    = variables('il1:%s'%(dim+1), 'int')
+        indices_i     = variables('i1:%s'%(dim+1),  'int')
+        npts          = variables('n1:%s'%(dim+1),  'int')
 
-        points_in_elm  = ['u{}'.format(i) for i in range(1, dim+1)]
-        points_in_elm  = indexed_variables(points_in_elm, dtype='real', rank=1)
 
-        weights_in_elm = ['w{}'.format(i) for i in range(1, dim+1)]
-        weights_in_elm = indexed_variables(weights_in_elm, dtype='real', rank=1)
+        trial_basis   = variables('trial_basis_1:%s'%(dim+1), dtype='real', rank=4, cls=IndexedVariable)
+        test_basis    = variables('test_basis_1:%s'%(dim+1), dtype='real', rank=4, cls=IndexedVariable)
 
-        points   = ['points_{}'.format(i) for i in range(1, dim+1)]
-        points   = indexed_variables(points, dtype='real', rank=2)
+        trial_basis_in_elm = variables('trial_bs1:%s'%(dim+1), dtype='real', rank=3, cls=IndexedVariable)
+        test_basis_in_elm  = variables('test_bs1:%s'%(dim+1), dtype='real', rank=3, cls=IndexedVariable)
 
-        weights  = ['weights_{}'.format(i) for i in range(1, dim+1)]
-        weights  = indexed_variables(weights, dtype='real', rank=2)
+        points_in_elm  = variables('u1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
+        weights_in_elm = variables('w1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
 
-        spans    = ['test_spans_{}'.format(i) for i in range(1, dim+1)]
-        spans    = indexed_variables(spans, dtype='int', rank=1)
+
+        points   = variables('points_1:%s'%(dim+1), dtype='real', rank=2, cls=IndexedVariable)
+        weights  = variables('weights_1:%s'%(dim+1), dtype='real', rank=2, cls=IndexedVariable)
+        spans    = variables('test_spans_1:%s'%(dim+1), dtype='int', rank=1, cls=IndexedVariable)
         # ...
 
         # ...
@@ -2435,15 +2530,22 @@ class Assembly(SplBasic):
                             self.kernel.discrete_boundary, boundary_basis=False)
 
         body = init_stmts + body
+
+
         # ...
 
         # ... prelude
-        prelude = []
+        imports = []
 
         # import zeros from numpy
         stmt = Import('zeros', 'numpy')
-        prelude += [stmt]
+        imports += [stmt]
 
+        # import product from itertools
+        stmt = Import('product', 'itertools')
+        imports += [stmt]
+
+        prelude = []
         # allocate element matrices
         orders  = [p+1 for p in test_degrees]
         spads   = [2*p+1 for p in test_pads]
@@ -2474,8 +2576,15 @@ class Assembly(SplBasic):
                 prelude += [stmt]
 
         # TODO allocate field values
-        # ...
+        if self.kernel.fields:
+            fields_shape = tuple(FunctionCall('len',[p[0,Slice(None,None)]]) for p in points)
+            for F_value in self.kernel.fields_val:
+                prelude += [Assign(F_value, Zeros(fields_shape))]
 
+        if self.kernel.vector_fields_val:
+            fields_shape = tuple(FunctionCall('len',[p[0,Slice(None,None)]]) for p in points)
+            for F_value in self.kernel.vector_fields_val:
+                prelude += [Assign(F_value, Zeros(fields_shape))]
         # ...
         if not( self.comm is None ) and any(self.periodic) :
             for v in self.kernel.fields_tmp_coeffs:
@@ -2504,13 +2613,21 @@ class Assembly(SplBasic):
         self._global_matrices = mats
         # ...
 
+        self._imports = imports
         # function args
         func_args = self.build_arguments(fields_coeffs + vector_fields_coeffs + mats)
 
-        decorators = {'types': build_types_decorator(func_args),
-                      'external_call': []}
+        decorators = {}
+        header = None
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args),'external_call':[]}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        elif self.backend['name'] == 'pythran':
+            header = build_pythran_types_header(self.name, func_args)
+
         return FunctionDef(self.name, list(func_args), [], body,
-                           decorators=decorators)
+                           decorators=decorators,header=header)
 
 
 #==============================================================================
@@ -2531,10 +2648,21 @@ class Interface(SplBasic):
         obj._discrete_space = discrete_space
         obj._comm = comm
 
+        dim = assembly.weak_form.ldim
+
+
         # update dependencies
+	# TODO uncomment later
+        #lo_dot = LinearOperatorDot(dim, backend)
+        #v_dot  = VectorDot(dim, backend)
+
+        #obj._dots = [lo_dot, v_dot]
+        #obj._dependencies += [assembly, lo_dot, v_dot]
+
         obj._dependencies += [assembly]
 
         obj._func = obj._initialize()
+
         return obj
 
     @property
@@ -2572,6 +2700,12 @@ class Interface(SplBasic):
     @property
     def inout_arguments(self):
         return self._inout_arguments
+
+# TODO uncomment later
+    #@property
+    #def dots(self):
+    #    return self._dots
+
 
     def _initialize(self):
         form = self.weak_form
@@ -2644,32 +2778,29 @@ class Interface(SplBasic):
                 test_vector_space = DottedName(test_vector_space, 'spaces[0]')
             # ...
 
-        n_elements     = variables([ 'n_elements_{}'.format(i) for i in range(1, dim+1)], 'int')
-        starts         = variables([ 's{}'.format(i)      for i in range(1, dim+1)], 'int')
-        ends           = variables([ 'e{}'.format(i)      for i in range(1, dim+1)], 'int')
-        npts           = variables([ 'n{}'.format(i)      for i in range(1, dim+1)], 'int')
-        element_starts = variables([ 'element_s{}'.format(i)      for i in range(1, dim+1)], 'int')
-        element_ends   = variables([ 'element_e{}'.format(i)      for i in range(1, dim+1)], 'int')
+        n_elements     = variables('n_elements_1:%s'%(dim+1), 'int')
+        starts         = variables('s1:%s'%(dim+1), 'int')
+        ends           = variables('e1:%s'%(dim+1), 'int')
+        npts           = variables('n1:%s'%(dim+1), 'int')
+        element_starts = variables('element_s1:%s'%(dim+1), 'int')
+        element_ends   = variables('element_e1:%s'%(dim+1), 'int')
 
-        test_degrees   = variables([ 'test_p{}'.format(i) for i in range(1, dim+1)], 'int')
-        trial_degrees  = variables(['trial_p{}'.format(i) for i in range(1, dim+1)], 'int')
+        test_degrees   = variables('test_p1:%s'%(dim+1), 'int')
+        trial_degrees  = variables('trial_p1:%s'%(dim+1), 'int')
 
-        points         = ['points_{}'.format(i) for i in range(1, dim+1)]
-        points         = indexed_variables(points,  dtype='real', rank=2)
 
-        weights        = ['weights_{}'.format(i) for i in range(1, dim+1)]
-        weights        = indexed_variables(weights, dtype='real', rank=2)
+        points         = variables('points_1:%s'%(dim+1),  dtype='real', rank=2, cls=IndexedVariable)
+        weights        = variables('weights_1:%s'%(dim+1), dtype='real', rank=2, cls=IndexedVariable)
 
-        trial_basis    = ['trial_basis_{}'.format(i) for i in range(1, dim+1)]
-        trial_basis    = indexed_variables(trial_basis, dtype='real', rank=4)
+        trial_basis    = variables('trial_basis_1:%s'%(dim+1), dtype='real', rank=4, cls=IndexedVariable)
+        test_basis     = variables('test_basis_1:%s'%(dim+1), dtype='real', rank=4, cls=IndexedVariable)
 
-        test_basis     = ['test_basis_{}'.format(i) for i in range(1, dim+1)]
-        test_basis     = indexed_variables(test_basis, dtype='real', rank=4)
+        spans          = variables('test_spans_1:%s'%(dim+1), dtype='int', rank=1, cls=IndexedVariable)
+        quad_orders    = variables( 'k1:%s'%(dim+1), 'int')
 
-        spans          = ['test_spans_{}'.format(i) for i in range(1, dim+1)]
-        spans          = indexed_variables(spans, dtype='int', rank=1)
-
-        quad_orders    = variables([ 'k{}'.format(i) for i in range(1, dim+1)], 'int')
+	# TODO uncomment later
+        #dots           = symbols('lo_dot v_dot')
+        #dot            = Symbol('dot')
 
         mapping = ()
         if self.mapping:
@@ -2739,28 +2870,34 @@ class Interface(SplBasic):
         # ...
 
         # ...
+        imports = []
         if not is_function:
             if is_bilinear:
-                body += [Import('StencilMatrix', 'spl.linalg.stencil')]
+                imports += [Import('StencilMatrix', 'spl.linalg.stencil')]
 
             if is_linear:
-                body += [Import('StencilVector', 'spl.linalg.stencil')]
+                imports += [Import('StencilVector', 'spl.linalg.stencil')]
 
             for M in global_matrices:
                 if_cond = Is(M, Nil())
                 if is_bilinear:
                     args = [test_vector_space, trial_vector_space]
                     if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
+# TODO uncomment later
+                    #if_body.append(Assign(DottedName(M,'_dot'),dots[0]))
+
 
                 if is_linear:
                     args = [test_vector_space]
                     if_body = [Assign(M, FunctionCall('StencilVector', args))]
+# TODO uncomment later
+                    #if_body.append(Assign(DottedName(M,'_dot'),dots[1]))
 
                 stmt = If((if_cond, if_body))
                 body += [stmt]
 
         else:
-            body += [Import('zeros', 'numpy')]
+            imports += [Import('zeros', 'numpy')]
             for M in global_matrices:
                 body += [Assign(M, Zeros(1))]
         # ...
@@ -2810,7 +2947,7 @@ class Interface(SplBasic):
                 if is_bilinear:
                     L = IndexedBase('L')
 
-                    body += [Import('BlockMatrix', 'spl.linalg.block')]
+                    imports += [Import('BlockMatrix', 'spl.linalg.block')]
 
                     # ... TODO this is a duplicated code => use a function to define
                     # global_matrices
@@ -2854,7 +2991,7 @@ class Interface(SplBasic):
                         ind += 1
                     # ...
 
-                    body += [Import('BlockVector', 'spl.linalg.block')]
+                    imports += [Import('BlockVector', 'spl.linalg.block')]
 
                     # ... create product space
                     test_vector_space = DottedName(test_space, 'vector_space')
@@ -2901,4 +3038,174 @@ class Interface(SplBasic):
         func_args = self.build_arguments(args)
         # ...
 
+        self._imports = imports
         return FunctionDef(self.name, list(func_args), [], body)
+
+
+# TODO uncomment later
+class LinearOperatorDot(SplBasic):
+
+    def __new__(cls, ndim, backend=None):
+
+
+        obj = SplBasic.__new__(cls, 'dot',name='lo_dot',prefix='lo_dot')
+        obj._ndim = ndim
+        obj._backend = backend
+        obj._func = obj._initilize()
+        return obj
+
+    @property
+    def ndim(self):
+        return self._ndim
+
+    @property
+    def func(self):
+        return self._func
+
+    @property
+    def backend(self):
+        return self._backend
+
+
+    def _initilize(self):
+
+        ndim = self.ndim
+        nrows           = variables('n1:%s'%(ndim+1),  'int')
+        pads            = variables('p1:%s'%(ndim+1),  'int')
+        indices1        = variables('ind1:%s'%(ndim+1),'int')
+        indices2        = variables('i1:%s'%(ndim+1),  'int')
+        extra_rows      = variables('extra_rows','int',rank=1,cls=IndexedVariable)
+
+        ex,v            = variables('ex','int'), variables('v','real')
+        x, out          = variables('x, out','real',cls=IndexedVariable, rank=ndim)
+        mat             = variables('mat','real',cls=IndexedVariable, rank=2*ndim)
+
+        body = []
+        ranges = [Range(2*p+1) for p in pads]
+        target = Product(*ranges)
+
+
+        v1 = x[tuple(i+j for i,j in zip(indices1,indices2))]
+        v2 = mat[tuple(i+j for i,j in zip(indices1,pads))+tuple(indices2)]
+        v3 = out[tuple(i+j for i,j in zip(indices1,pads))]
+
+        body = [AugAssign(v,'+' ,Mul(v1,v2))]
+        body = [For(indices2, target, body)]
+        body.insert(0,Assign(v, 0.0))
+        body.append(Assign(v3,v))
+        ranges = [Range(i) for i in nrows]
+        target = Product(*ranges)
+        body = [For(indices1,target,body)]
+
+        for dim in range(ndim):
+            body.append(Assign(ex,extra_rows[dim]))
+
+
+            v1 = [i+j for i,j in zip(indices1, indices2)]
+            v2 = [i+j for i,j in zip(indices1, pads)]
+            v1[dim] += nrows[dim]
+            v2[dim] += nrows[dim]
+            v3 = v2
+            v1 = x[tuple(v1)]
+            v2 = mat[tuple(v2)+ indices2]
+            v3 = out[tuple(v3)]
+
+            rows = list(nrows)
+            rows[dim] = ex
+            ranges = [2*p+1 for p in pads]
+            ranges[dim] -= indices1[dim] + 1
+            ranges =[Range(i) for i in ranges]
+            target = Product(*ranges)
+
+            for_body = [AugAssign(v, '+',Mul(v1,v2))]
+            for_body = [For(indices2, target, for_body)]
+            for_body.insert(0,Assign(v, 0.0))
+            for_body.append(Assign(v3,v))
+
+            ranges = [Range(i) for i in rows]
+            target = Product(*ranges)
+            body += [For(indices1, target, for_body)]
+
+
+        func_args =  (extra_rows, mat, x, out) + nrows + pads
+
+        self._imports = [Import('product','itertools')]
+
+        decorators = {}
+        header = None
+
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args), 'external_call':[]}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        elif self.backend['name'] == 'pythran':
+            header = build_pythran_types_header(self.name, func_args)
+
+        return FunctionDef(self.name, list(func_args), [], body,
+                           decorators=decorators,header=header)
+
+
+class VectorDot(SplBasic):
+
+    def __new__(cls, ndim, backend=None):
+
+
+        obj = SplBasic.__new__(cls, 'dot', name='v_dot', prefix='v_dot')
+        obj._ndim = ndim
+        obj._backend = backend
+        obj._func = obj._initilize()
+        return obj
+
+    @property
+    def ndim(self):
+        return self._ndim
+
+    @property
+    def func(self):
+        return self._func
+
+    @property
+    def backend(self):
+        return self._backend
+
+    def _initilize(self):
+
+        ndim = self.ndim
+
+        indices = variables('i1:%s'%(ndim+1),'int')
+        dims    = variables('n1:%s'%(ndim+1),'int')
+        pads    = variables('p1:%s'%(ndim+1),'int')
+        out     = variables('out','real')
+        x1,x2   = variables('x1, x2','real',rank=ndim,cls=IndexedVariable)
+
+        body = []
+        ranges = [Range(p,n-p) for n,p in zip(dims,pads)]
+        target = Product(*ranges)
+
+
+        v1 = x1[indices]
+        v2 = x2[indices]
+
+        body = [AugAssign(out,'+' ,Mul(v1,v2))]
+        body = [For(indices, target, body)]
+        body.insert(0,Assign(out, 0.0))
+        body.append(Return(out))
+
+        func_args =  (x1, x2) + pads + dims
+
+        self._imports = [Import('product','itertools')]
+
+        decorators = {}
+        header = None
+
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args), 'external':[]}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        elif self.backend['name'] == 'pythran':
+            header = build_pythran_types_header(self.name, func_args)
+
+        return FunctionDef(self.name, list(func_args), [], body,
+                           decorators=decorators,header=header)
+
+

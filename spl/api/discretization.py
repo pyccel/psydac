@@ -163,14 +163,16 @@ class BasicDiscrete(object):
                              mapping             = mapping,
                              is_rational_mapping = is_rational_mapping,
                              discrete_boundary   = boundary,
-                             boundary_basis      = boundary_basis )
+                             boundary_basis      = boundary_basis,
+                             backend = backend )
 
             assembly = Assembly( kernel,
                                  name           = 'assembly_{}'.format(tag),
                                  mapping        = mapping,
                                  is_rational_mapping = is_rational_mapping,
                                  discrete_space = discrete_space,
-                                 comm           = comm )
+                                 comm           = comm,
+                                 backend = backend )
 
             interface = Interface( assembly,
                                    name                = 'interface_{}'.format(tag),
@@ -259,6 +261,8 @@ class BasicDiscrete(object):
 
             if self.backend['name'] == 'pyccel':
                 self._compile_pyccel(namespace)
+            elif self.backend['name'] == 'pythran':
+                self._compile_pythran(namespace)
 
             # generate code for Python interface
             self._generate_interface_code()
@@ -394,8 +398,20 @@ class BasicDiscrete(object):
 
     def _generate_code(self):
         # ... generate code that can be pyccelized
-        code = 'from pyccel.decorators import types'
-        code = '{code}\nfrom pyccel.decorators import external_call'.format( code = code )
+        code = ''
+
+        if self.backend['name'] == 'pyccel':
+            
+            code += '\nfrom pyccel.decorators import types'
+            code += '\nfrom pyccel.decorators import external, external_call'
+            
+        elif self.backend['name'] == 'numba':
+            code = 'from numba import jit'
+
+        imports = '\n'.join(pycode(imp) for dep in self.dependencies for imp in dep.imports )
+        
+        code = '{code}\n{imports}'.format(code=code, imports=imports)
+
         for dep in self.dependencies:
             code = '{code}\n{dep}'.format(code=code, dep=pycode(dep))
         # ...
@@ -439,6 +455,18 @@ class BasicDiscrete(object):
 
         self._interface_code = '{imports}\n{code}'.format(imports=imports, code=code)
 
+    def _compile_pythran(self, namespace):
+        
+        module_name = self.dependencies_modname
+
+        basedir = os.getcwd()
+        os.chdir(self.folder)
+        curdir = os.getcwd()
+        sys.path.append(self.folder)
+        os.system('pythran {}.py -O3'.format(module_name))
+        sys.path.remove(self.folder)
+        
+        # ...
     def _compile_pyccel(self, namespace, verbose=False):
 
         module_name = self.dependencies_modname
