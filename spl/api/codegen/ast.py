@@ -241,24 +241,25 @@ def fusion_loops(loops):
 
     while len(loops) == 1 and isinstance(loops[0], For):
 
+        
         loops = loops[0]
         target = loops.target
         iterable = loops.iterable
-
+        
         if isinstance(iterable, Product):
             ranges  += list(iterable.elements)
             indices += list(target)
             if not isinstance(target,(tuple,list,Tuple)):
                 raise ValueError('target must be a list or a tuple of indices')
 
-        elif isinstance(iterable, Range):
+        elif isinstance(iterable, Range): 
             ranges.append(iterable)
             indices.append(target)
         else:
             raise TypeError('only range an product are supported')
-
+            
         loops = loops.body
-
+    
     if len(ranges)>1:
         return [For(indices, Product(*ranges), loops)]
     else:
@@ -932,6 +933,10 @@ class SplBasic(Basic):
     @property
     def discrete_boundary(self):
         return self._discrete_boundary
+        
+    @property
+    def imports(self):
+        return self._imports
 
     @property
     def imports(self):
@@ -944,6 +949,7 @@ class EvalMapping(SplBasic):
     def __new__(cls, space, mapping, discrete_boundary=None, name=None,
                 boundary_basis=None, nderiv=1, is_rational_mapping=None,
                 area=None, backend=None):
+
 
         if not isinstance(mapping, Mapping):
             raise TypeError('> Expecting a Mapping object')
@@ -1036,6 +1042,10 @@ class EvalMapping(SplBasic):
     @property
     def mapping_values(self):
         return self._mapping_values
+        
+    @property
+    def backend(self):
+        return self._backend
 
     @property
     def backend(self):
@@ -1083,7 +1093,7 @@ class EvalMapping(SplBasic):
                             dtype='real', rank=1, cls=IndexedVariable)
 
         self._weights = weights
-        # ...
+
 
         weights_elements = []
         if self.is_rational_mapping:
@@ -1153,7 +1163,7 @@ class EvalMapping(SplBasic):
         body = filter_loops(indices_basis, ranges_basis, body,
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
-
+                        
         if self.is_rational_mapping:
             stmts = rationalize_eval_mapping(self.mapping, self.nderiv,
                                              self.space, indices_quad)
@@ -1187,7 +1197,7 @@ class EvalMapping(SplBasic):
             body += [Assign(self.area, Pow(self.area, 1./dim))]
 
         func_args = self.build_arguments(degrees + basis + mapping_coeffs + mapping_values)
-
+        
         decorators = {}
         header = None
         if self.backend['name'] == 'pyccel':
@@ -1220,6 +1230,7 @@ class EvalField(SplBasic):
         obj._boundary_basis = boundary_basis
         obj._backend = backend
         obj._func = obj._initialize()
+        
 
 
         return obj
@@ -1239,6 +1250,10 @@ class EvalField(SplBasic):
     @property
     def boundary_basis(self):
         return self._boundary_basis
+        
+    @property
+    def backend(self):
+        return self._backend
 
     @property
     def backend(self):
@@ -1309,12 +1324,10 @@ class EvalField(SplBasic):
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
 
-
         # put the body in for loops of quadrature points
         body = filter_loops(indices_quad, ranges_quad, body,
                             self.discrete_boundary,
                             boundary_basis=self.boundary_basis)
-
 
         # initialization of the matrix
         init_vals = [f[[Slice(None,None)]*dim] for f in fields_val]
@@ -1374,6 +1387,10 @@ class EvalVectorField(SplBasic):
     @property
     def boundary_basis(self):
         return self._boundary_basis
+        
+    @property
+    def backend(self):
+        return self._backend
 
     @property
     def backend(self):
@@ -1532,7 +1549,7 @@ class Kernel(SplBasic):
         obj._boundary_basis    = boundary_basis
         obj._area              = None
         obj._backend           = backend
-
+        
         obj._func = obj._initialize()
         return obj
 
@@ -1591,6 +1608,14 @@ class Kernel(SplBasic):
     @property
     def vector_fields_coeffs(self):
         return self._vector_fields_coeffs
+        
+    @property
+    def fields_val(self):
+        return self._fields_val
+        
+    @property
+    def vector_fields_val(self):
+        return self._vector_fields_val
 
     @property
     def fields_val(self):
@@ -1625,6 +1650,10 @@ class Kernel(SplBasic):
     @property
     def eval_mapping(self):
         return self._eval_mapping
+        
+    @property
+    def backend(self):
+        return self._backend
 
     @property
     def area(self):
@@ -1837,6 +1866,7 @@ class Kernel(SplBasic):
                                        is_rational_mapping=self.is_rational_mapping,
                                        area=self.area,
                                        backend=self.backend)
+
             self._eval_mapping = eval_mapping
 
             # update dependencies
@@ -1955,6 +1985,7 @@ class Kernel(SplBasic):
             self._basic_args = (test_pads +
                                 basis_test +
                                 positions + weighted_vols+
+
                                 fields_val + vector_fields_val)
         # ...
 
@@ -2345,6 +2376,10 @@ class Assembly(SplBasic):
     @property
     def global_matrices(self):
         return self._global_matrices
+        
+    @property
+    def backend(self):
+        return self._backend
 
     @property
     def backend(self):
@@ -2388,16 +2423,17 @@ class Assembly(SplBasic):
 
         # ... declarations
 
+
         starts         = variables('s1:%s'%(dim+1), 'int')
         ends           = variables('e1:%s'%(dim+1), 'int')
-
+        
         n_elements     = variables('n_elements_1:%s'%(dim+1), 'int')
         element_starts = variables('element_s1:%s'%(dim+1),   'int')
         element_ends   = variables('element_e1:%s'%(dim+1),   'int')
 
         indices_elm   = variables('ie1:%s'%(dim+1), 'int')
         indices_span  = variables('is1:%s'%(dim+1), 'int')
-
+        
         test_pads     = variables('test_p1:%s'%(dim+1),  'int')
         trial_pads    = variables('trial_p1:%s'%(dim+1), 'int')
         test_degrees  = variables('test_p1:%s'%(dim+1),  'int')
@@ -2417,6 +2453,7 @@ class Assembly(SplBasic):
 
         points_in_elm  = variables('quad_u1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
         weights_in_elm = variables('quad_w1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
+
 
 
         points   = variables('points_1:%s'%(dim+1), dtype='real', rank=2, cls=IndexedVariable)
@@ -2755,21 +2792,25 @@ class Interface(SplBasic):
         obj._backend = backend
         obj._discrete_space = discrete_space
         obj._comm = comm
+        
+        dim = assembly.weak_form.ldim
+        
 
         dim = assembly.weak_form.ldim
 
 
         # update dependencies
-	# TODO uncomment later
-        #lo_dot = LinearOperatorDot(dim, backend)
-        #v_dot  = VectorDot(dim, backend)
 
-        #obj._dots = [lo_dot, v_dot]
-        #obj._dependencies += [assembly, lo_dot, v_dot]
+        lo_dot = LinearOperatorDot(dim, backend)
+        v_dot  = VectorDot(dim, backend)
+
+        obj._dots = [lo_dot, v_dot]
+        obj._dependencies += [assembly, lo_dot, v_dot]
 
         obj._dependencies += [assembly]
 
         obj._func = obj._initialize()
+
 
         return obj
 
@@ -2808,11 +2849,14 @@ class Interface(SplBasic):
     @property
     def inout_arguments(self):
         return self._inout_arguments
-
-# TODO uncomment later
-    #@property
-    #def dots(self):
-    #    return self._dots
+        
+    @property
+    def dots(self):
+        return self._dots
+        
+    @property
+    def dots(self):
+        return self._dots
 
 
     def _initialize(self):
@@ -2906,10 +2950,10 @@ class Interface(SplBasic):
         spans          = variables('test_spans_1:%s'%(dim+1), dtype='int', rank=1, cls=IndexedVariable)
         quad_orders    = variables( 'k1:%s'%(dim+1), 'int')
 
-	# TODO uncomment later
-        #dots           = symbols('lo_dot v_dot')
-        #dot            = Symbol('dot')
-
+        
+        dots           = symbols('lo_dot v_dot')
+        dot            = Symbol('dot')
+        
         mapping = ()
         if self.mapping:
             mapping = Symbol('mapping')
@@ -2991,15 +3035,15 @@ class Interface(SplBasic):
                 if is_bilinear:
                     args = [test_vector_space, trial_vector_space]
                     if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
-# TODO uncomment later
-                    #if_body.append(Assign(DottedName(M,'_dot'),dots[0]))
+
+                    if_body.append(Assign(DottedName(M,'_dot'),dots[0]))
 
 
                 if is_linear:
                     args = [test_vector_space]
                     if_body = [Assign(M, FunctionCall('StencilVector', args))]
-# TODO uncomment later
-                    #if_body.append(Assign(DottedName(M,'_dot'),dots[1]))
+
+                    if_body.append(Assign(DottedName(M,'_dot'),dots[1]))
 
                 stmt = If((if_cond, if_body))
                 body += [stmt]
@@ -3146,11 +3190,11 @@ class Interface(SplBasic):
         func_args = self.build_arguments(args)
         # ...
 
+        
         self._imports = imports
         return FunctionDef(self.name, list(func_args), [], body)
-
-
-# TODO uncomment later
+        
+        
 class LinearOperatorDot(SplBasic):
 
     def __new__(cls, ndim, backend=None):
@@ -3162,19 +3206,20 @@ class LinearOperatorDot(SplBasic):
         obj._func = obj._initilize()
         return obj
 
+        
     @property
     def ndim(self):
         return self._ndim
-
+        
     @property
     def func(self):
         return self._func
-
+        
     @property
     def backend(self):
         return self._backend
-
-
+ 
+        
     def _initilize(self):
 
         ndim = self.ndim
@@ -3184,19 +3229,20 @@ class LinearOperatorDot(SplBasic):
         indices2        = variables('i1:%s'%(ndim+1),  'int')
         extra_rows      = variables('extra_rows','int',rank=1,cls=IndexedVariable)
 
+        
         ex,v            = variables('ex','int'), variables('v','real')
         x, out          = variables('x, out','real',cls=IndexedVariable, rank=ndim)
         mat             = variables('mat','real',cls=IndexedVariable, rank=2*ndim)
-
+        
         body = []
         ranges = [Range(2*p+1) for p in pads]
         target = Product(*ranges)
-
-
+        
+        
         v1 = x[tuple(i+j for i,j in zip(indices1,indices2))]
         v2 = mat[tuple(i+j for i,j in zip(indices1,pads))+tuple(indices2)]
         v3 = out[tuple(i+j for i,j in zip(indices1,pads))]
-
+        
         body = [AugAssign(v,'+' ,Mul(v1,v2))]
         body = [For(indices2, target, body)]
         body.insert(0,Assign(v, 0.0))
@@ -3205,10 +3251,11 @@ class LinearOperatorDot(SplBasic):
         target = Product(*ranges)
         body = [For(indices1,target,body)]
 
+        
         for dim in range(ndim):
             body.append(Assign(ex,extra_rows[dim]))
 
-
+            
             v1 = [i+j for i,j in zip(indices1, indices2)]
             v2 = [i+j for i,j in zip(indices1, pads)]
             v1[dim] += nrows[dim]
@@ -3218,30 +3265,32 @@ class LinearOperatorDot(SplBasic):
             v2 = mat[tuple(v2)+ indices2]
             v3 = out[tuple(v3)]
 
+            
             rows = list(nrows)
             rows[dim] = ex
             ranges = [2*p+1 for p in pads]
-            ranges[dim] -= indices1[dim] + 1
+            ranges[dim] -= indices1[dim] + 1 
             ranges =[Range(i) for i in ranges]
             target = Product(*ranges)
-
+            
             for_body = [AugAssign(v, '+',Mul(v1,v2))]
             for_body = [For(indices2, target, for_body)]
             for_body.insert(0,Assign(v, 0.0))
             for_body.append(Assign(v3,v))
 
+            
             ranges = [Range(i) for i in rows]
             target = Product(*ranges)
             body += [For(indices1, target, for_body)]
-
+            
 
         func_args =  (extra_rows, mat, x, out) + nrows + pads
-
+        
         self._imports = [Import('product','itertools')]
-
+        
         decorators = {}
         header = None
-
+        
         if self.backend['name'] == 'pyccel':
             decorators = {'types': build_types_decorator(func_args), 'external_call':[]}
         elif self.backend['name'] == 'numba':
@@ -3251,7 +3300,6 @@ class LinearOperatorDot(SplBasic):
 
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators,header=header)
-
 
 class VectorDot(SplBasic):
 
@@ -3263,49 +3311,51 @@ class VectorDot(SplBasic):
         obj._backend = backend
         obj._func = obj._initilize()
         return obj
-
+        
     @property
     def ndim(self):
         return self._ndim
-
+        
     @property
     def func(self):
         return self._func
-
+        
     @property
     def backend(self):
         return self._backend
-
+        
     def _initilize(self):
 
         ndim = self.ndim
-
+        
         indices = variables('i1:%s'%(ndim+1),'int')
         dims    = variables('n1:%s'%(ndim+1),'int')
         pads    = variables('p1:%s'%(ndim+1),'int')
         out     = variables('out','real')
         x1,x2   = variables('x1, x2','real',rank=ndim,cls=IndexedVariable)
 
+        
         body = []
         ranges = [Range(p,n-p) for n,p in zip(dims,pads)]
         target = Product(*ranges)
-
-
+        
+        
         v1 = x1[indices]
         v2 = x2[indices]
-
+        
         body = [AugAssign(out,'+' ,Mul(v1,v2))]
         body = [For(indices, target, body)]
         body.insert(0,Assign(out, 0.0))
         body.append(Return(out))
 
+            
         func_args =  (x1, x2) + pads + dims
-
+        
         self._imports = [Import('product','itertools')]
-
+        
         decorators = {}
         header = None
-
+        
         if self.backend['name'] == 'pyccel':
             decorators = {'types': build_types_decorator(func_args), 'external':[]}
         elif self.backend['name'] == 'numba':

@@ -946,3 +946,4 @@ class StencilMatrix( Matrix ):
 
 #===============================================================================
 del VectorSpace, Vector, Matrix
+

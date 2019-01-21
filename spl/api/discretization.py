@@ -180,7 +180,7 @@ class BasicDiscrete(object):
                                    is_rational_mapping = is_rational_mapping,
                                    backend             = backend,
                                    discrete_space      = discrete_space,
-                                   comm                = comm )
+                                   comm                = comm)
 
             return kernel, assembly, interface
         # ...
@@ -254,6 +254,7 @@ class BasicDiscrete(object):
         if not( interface is None ):
             self._dependencies = interface.dependencies
             self._dependencies_code = self._generate_code()
+            
 
         if not( interface is None ):
             # save dependencies code
@@ -402,14 +403,15 @@ class BasicDiscrete(object):
 
         if self.backend['name'] == 'pyccel':
 
+            
             code += '\nfrom pyccel.decorators import types'
             code += '\nfrom pyccel.decorators import external, external_call'
-
+            
         elif self.backend['name'] == 'numba':
             code = 'from numba import jit'
 
         imports = '\n'.join(pycode(imp) for dep in self.dependencies for imp in dep.imports )
-
+        
         code = '{code}\n{imports}'.format(code=code, imports=imports)
 
         for dep in self.dependencies:
@@ -471,7 +473,6 @@ class BasicDiscrete(object):
 
         module_name = self.dependencies_modname
 
-        # ...
         from pyccel.epyccel import epyccel
 
         # ... convert python to fortran using pyccel
@@ -485,6 +486,7 @@ class BasicDiscrete(object):
         basedir = os.getcwd()
         os.chdir(self.folder)
         curdir = os.getcwd()
+
         # ...
 
         # ...
