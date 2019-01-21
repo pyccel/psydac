@@ -9,6 +9,7 @@ from collections import OrderedDict
 from collections import namedtuple
 
 from pyccel.ast import Nil
+from pyccel.epyccel import get_source_function
 
 from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm
@@ -121,13 +122,15 @@ def driver_solve(L, **kwargs):
 
 #==============================================================================
 class BasicDiscrete(object):
-    """ mapping is the symbolic mapping here."""
+    """ mapping is the symbolic mapping here.
+    kwargs is used to pass user defined functions for the moment.
+    """
 
     def __init__(self, a, kernel_expr, namespace=globals(),
                  boundary=None, target=None,
                  boundary_basis=None, backend=SPL_BACKEND_PYTHON, folder=None,
                  discrete_space=None, comm=None, root=None, mapping=None,
-                 is_rational_mapping=None):
+                 is_rational_mapping=None, **kwargs):
 
         # ...
         if not target:
@@ -199,6 +202,7 @@ class BasicDiscrete(object):
                 max_nderiv = interface.max_nderiv
                 in_arguments = [str(a) for a in interface.in_arguments]
                 inout_arguments = [str(a) for a in interface.inout_arguments]
+                user_functions = [str(a) for a in interface.user_functions]
 
             else:
                 kernel = None
@@ -208,12 +212,14 @@ class BasicDiscrete(object):
                 max_nderiv = None
                 in_arguments = None
                 inout_arguments = None
+                user_functions = None
 
             comm.Barrier()
             tag = comm.bcast( tag, root=root )
             max_nderiv = comm.bcast( max_nderiv, root=root )
             in_arguments = comm.bcast( in_arguments, root=root )
             inout_arguments = comm.bcast( inout_arguments, root=root )
+            user_functions = comm.bcast( user_functions, root=root )
 
         else:
             tag = random_string( 8 )
@@ -222,6 +228,7 @@ class BasicDiscrete(object):
             interface_name = interface.name
             in_arguments = [str(a) for a in interface.in_arguments]
             inout_arguments = [str(a) for a in interface.inout_arguments]
+            user_functions = [str(a) for a in interface.user_functions]
         # ...
 
         # ...
@@ -232,6 +239,7 @@ class BasicDiscrete(object):
         self._interface = interface
         self._in_arguments = in_arguments
         self._inout_arguments = inout_arguments
+        self._user_functions = user_functions
         self._backend = backend
         self._folder = self._initialize_folder(folder)
         self._comm = comm
@@ -248,6 +256,22 @@ class BasicDiscrete(object):
         self._interface_code = None
         self._interface_base_import_code = None
         self._func = None
+        # ...
+
+        # ... when using user defined functions, there must be passed as
+        #     arguments of discretize. here we create a dictionary where the key
+        #     is the function name, and the value is a valid implementation.
+        d_user_functions = {}
+        if user_functions:
+            for f in user_functions:
+                try:
+                    d_user_functions[f] = kwargs[f]
+
+                except:
+                    raise KeyError('can not find {} implementation'.format(f))
+
+        # TODO use OrderedDict
+        self._d_user_functions = d_user_functions
         # ...
 
         # generate python code as strings for dependencies
@@ -309,6 +333,14 @@ class BasicDiscrete(object):
     @property
     def inout_arguments(self):
         return self._inout_arguments
+
+    @property
+    def user_functions(self):
+        return self._user_functions
+
+    @property
+    def d_user_functions(self):
+        return self._d_user_functions
 
     @property
     def mapping(self):
@@ -411,6 +443,13 @@ class BasicDiscrete(object):
         imports = '\n'.join(pycode(imp) for dep in self.dependencies for imp in dep.imports )
 
         code = '{code}\n{imports}'.format(code=code, imports=imports)
+
+        # ... add user defined functions
+        if self.d_user_functions:
+            for f_name, func in self.d_user_functions.items():
+                func_code = get_source_function(func)
+                code = '{code}\n{func_code}'.format(code=code, func_code=func_code)
+        # ...
 
         for dep in self.dependencies:
             code = '{code}\n{dep}'.format(code=code, dep=pycode(dep))
