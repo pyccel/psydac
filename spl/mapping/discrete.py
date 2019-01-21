@@ -108,7 +108,7 @@ class SplineMapping( Mapping ):
 
         # Create one separate scalar field for each physical dimension
         # TODO: use one unique field belonging to VectorFemSpace
-        fields = [FemField( tensor_space ) for d in range( control_points.shape[2] )]
+        fields = [FemField( tensor_space ) for d in range( control_points.shape[-1] )]
 
         # Get spline coefficients for each coordinate X_i
         starts = tensor_space.vector_space.starts
@@ -205,7 +205,6 @@ class SplineMapping( Mapping ):
         group = h5.create_group( yml['patches'][0]['name'] )
         group.attrs['shape'      ] = space.vector_space.npts
         group.attrs['degree'     ] = space.degree
-        group.attrs['rational'   ] = False
         group.attrs['periodic'   ] = space.periodic
         for d in range( self.pdim ):
             group['knots_{}'.format( d )] = space.spaces[d].knots
@@ -295,10 +294,8 @@ class NurbsMapping( SplineMapping ):
 
         # Create one separate scalar field for each physical dimension
         # TODO: use one unique field belonging to VectorFemSpace
-        name    = random_string( 8 )
-        fields  = [FemField( tensor_space, 'mapping_{name}_x{d}'.format( name=name, d=d ) )
-                  for d in range( control_points.shape[-1] )]
-        fields += [FemField( tensor_space, 'mapping_{name}_weights'.format( name=name ) )]
+        fields  = [FemField( tensor_space ) for d in range( control_points.shape[-1] )]
+        fields += [FemField( tensor_space )]
 
         # Get spline coefficients for each coordinate X_i
         # we store w*x where w is the weight and x is the control point
