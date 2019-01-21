@@ -1,3 +1,4 @@
+# Packages from PyPi
 numpy>=1.13, <1.16
 scipy>=0.18
 matplotlib
@@ -7,4 +8,18 @@ sympy
 pytest
 pyyaml
 yamlloader
+
+# h5py must be built from source using MPI compiler
+# and linked to parallel HDF5 library. To do so set
+#
+# CC="mpicc"
+# HDF5_MPI="ON"
+# HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+#
+--no-binary h5py
+
+# Igakit
 https://bitbucket.org/dalcinl/igakit/get/default.tar.gz
+
+# In addition, SPL depends on "sympde" and "pyccel" libraries,
+# to be installed manually from their git repositories.
