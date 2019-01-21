@@ -3,7 +3,6 @@ language: python
 
 # which python versions to test
 python:
-  - "3.4"
   - "3.5"
   - "3.6"
 
