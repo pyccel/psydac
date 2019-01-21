@@ -27,7 +27,6 @@ from sympde.expr import Norm
 from sympde.expr import Equation, EssentialBC
 
 from spl.fem.basic   import FemField
-from spl.fem.vector  import ProductFemSpace, VectorFemField
 from spl.api.discretization import discretize
 
 from spl.mapping.discrete import SplineMapping
@@ -99,7 +98,7 @@ def run_poisson_3d_dir(filename, solution, f, comm=None):
     # ...
 
     # ...
-    phi = FemField( Vh, 'phi' )
+    phi = FemField( Vh )
     phi.coeffs[:,:,:] = x[:,:,:]
     # ...
 
@@ -178,7 +177,7 @@ def run_poisson_3d_dirneu(filename, solution, f, boundary, comm=None):
     # ...
 
     # ...
-    phi = FemField( Vh, 'phi' )
+    phi = FemField( Vh )
     phi.coeffs[:,:,:] = x[:,:,:]
     # ...
 
@@ -247,7 +246,7 @@ def run_laplace_3d_neu(filename, solution, f, comm=None):
     # ...
 
     # ...
-    phi = FemField( Vh, 'phi' )
+    phi = FemField( Vh )
     phi.coeffs[:,:,:] = x[:,:,:]
     # ...
 

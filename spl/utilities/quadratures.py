@@ -8,7 +8,6 @@ with weights equal to 1
 """
 
 import numpy as np
-from .quadradau import radau_left, radau_right
 
 
 # ....
@@ -83,46 +82,6 @@ def quadrature(a, k, method="legendre"):
         tab = dx * x + dx + xmin
         xgl[i, :] = tab[::-1]
         wgl[i, :] = 0.5 * ( xmax - xmin ) * w
-
-    return xgl,wgl
-# ....
-
-# ....
-def quadrature_inter(a, k):
-    """
-    this routine generates a quad pts on the grid linspace(a,b,N)
-    """
-
-    x_l, w_l = radau_left(k)
-    x_int, w_int = gauss_legendre(k)
-    x_r, w_r = radau_right(k)
-
-    grid = a
-    N = len(a)
-    xgl = np.zeros((N-1, k + 1))
-    wgl = np.zeros((N-1, k + 1))
-
-    # ... left
-    i = 0
-    xmin = grid[i];xmax = grid[i + 1];dx = 0.5 * (xmax-xmin)
-    xgl[i, :] = dx * x_l + dx + xmin
-    wgl[i, :] = 0.5 * ( xmax - xmin ) * w_l
-    # ...
-
-    # ... interior
-    for i in range (1, N-2):
-        xmin = grid[i];xmax = grid[i + 1];dx = 0.5 * (xmax-xmin)
-        tab = dx * x_int + dx + xmin
-        xgl[i, :] = tab[::-1]
-        wgl[i, :] = 0.5 * ( xmax - xmin ) * w_int
-    # ...
-
-    # ... right
-    i = N-2
-    xmin = grid[i];xmax = grid[i + 1];dx = 0.5 * (xmax-xmin)
-    xgl[i, :] = dx * x_r + dx + xmin
-    wgl[i, :] = 0.5 * ( xmax - xmin ) * w_r
-    # ...
 
     return xgl,wgl
 # ....

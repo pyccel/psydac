@@ -29,7 +29,7 @@ def test_product_space_2d():
     # ...
 
     V = ProductFemSpace(Vx, Vy)
-    F = VectorFemField(V, 'F')
+    F = VectorFemField(V)
 
 def test_product_space_3d():
     print ('>>> test_product_space_3d')
@@ -64,7 +64,7 @@ def test_product_space_3d():
     # ...
 
     V = ProductFemSpace(Vx, Vy, Vz)
-    F = VectorFemField(V, 'F')
+    F = VectorFemField(V)
 
 
 ###############################################

@@ -25,9 +25,7 @@ def translate(mapping, displ):
     space          = mapping.space
     control_points = mapping.control_points
 
-    name   = random_string( 8 )
-    fields = [FemField( space, 'mapping_{name}_x{d}'.format( name=name, d=d ) )
-              for d in range( pdim )]
+    fields = [FemField( space ) for d in range( pdim )]
 
     # Get spline coefficients for each coordinate X_i
     starts = space.vector_space.starts
@@ -80,10 +78,7 @@ def elevate(mapping, axis, times):
 
     spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
     space  = TensorFemSpace( *spaces )
-
-    name   = random_string( 8 )
-    fields = [FemField( space, 'mapping_{name}_x{d}'.format( name=name, d=d ) )
-              for d in range( pdim )]
+    fields = [FemField( space ) for d in range( pdim )]
 
     # Get spline coefficients for each coordinate X_i
     starts = space.vector_space.starts
@@ -101,7 +96,7 @@ def elevate(mapping, axis, times):
         field.coeffs.update_ghost_regions()
 
     if isinstance(mapping, NurbsMapping):
-        weights_field = FemField( space, 'mapping_{name}_weights'.format( name=name ) )
+        weights_field = FemField( space )
 
         idx_from = idx_to
         weights_field.coeffs[idx_to] = nrb.weights[idx_from]
@@ -155,10 +150,7 @@ def refine(mapping, axis, values):
 
     spaces = [SplineSpace(degree=p, knots=u) for p,u in zip( nrb.degree, nrb.knots )]
     space  = TensorFemSpace( *spaces )
-
-    name   = random_string( 8 )
-    fields = [FemField( space, 'mapping_{name}_x{d}'.format( name=name, d=d ) )
-              for d in range( pdim )]
+    fields = [FemField( space ) for d in range( pdim )]
 
     # Get spline coefficients for each coordinate X_i
     starts = space.vector_space.starts
@@ -174,7 +166,7 @@ def refine(mapping, axis, values):
             field.coeffs[idx_to] = nrb.points[idx_from]
 
     if isinstance(mapping, NurbsMapping):
-        weights_field = FemField( space, 'mapping_{name}_weights'.format( name=name ) )
+        weights_field = FemField( space )
 
         idx_from = idx_to
         weights_field.coeffs[idx_to] = nrb.weights[idx_from]

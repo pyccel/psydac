@@ -263,17 +263,12 @@ class VectorFemField:
     space : ProductFemSpace
         Finite element product space to which this field belongs.
 
-    name : str
-        Name of new field to be created.
-
     """
-    def __init__( self, space, name ):
+    def __init__( self, space ):
 
         assert isinstance( space, ProductFemSpace )
-        assert isinstance( name, str )
 
         self._space  = space
-        self._name   = name
         self._coeffs = space.vector_space.zeros()
 
     # ...
@@ -281,12 +276,6 @@ class VectorFemField:
     def space( self ):
         """Finite element space to which this field belongs."""
         return self._space
-
-    # ...
-    @property
-    def name( self ):
-        """Name assigned to current field object."""
-        return self._name
 
     # ...
     @property

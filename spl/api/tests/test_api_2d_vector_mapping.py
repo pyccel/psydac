@@ -20,7 +20,6 @@ from sympde.expr import BilinearForm, LinearForm, Integral
 from sympde.expr import Norm
 from sympde.expr import Equation, EssentialBC
 
-from spl.fem.basic   import FemField
 from spl.fem.vector  import VectorFemField
 from spl.api.discretization import discretize
 
@@ -89,7 +88,7 @@ def run_vector_poisson_2d_dir(filename, solution, f):
     # ...
 
     # ...
-    phi = VectorFemField( Vh, 'phi' )
+    phi = VectorFemField( Vh )
     phi.coeffs[0][:,:] = x[0][:,:]
     phi.coeffs[1][:,:] = x[1][:,:]
     # ...
