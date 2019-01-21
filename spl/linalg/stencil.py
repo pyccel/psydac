@@ -171,6 +171,8 @@ class StencilVector( Vector ):
         assert isinstance( V, StencilVectorSpace )
 
         sizes = [e-s+2*p+1 for s,e,p in zip(V.starts, V.ends, V.pads)]
+        self._sizes = tuple(sizes)
+        self._ndim = len(V.starts)
         self._data  = np.zeros( sizes, dtype=V.dtype )
         self._space = V
 
@@ -190,13 +192,19 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
 
-        index = tuple( slice(p,-p) for p in self.pads )
-        res   = np.dot( self._data[index].flat, v._data[index].flat )
+        res = self._dot(self._data, v._data , self.pads)
 
         if self._space.parallel:
             res = self._space.cart.comm_cart.allreduce( res, op=MPI.SUM )
 
         return res
+
+    #...
+    @staticmethod
+    def _dot(v1, v2, pads):
+        ndim = len(v1.shape)
+        index = tuple( slice(p,-p) for p in pads)
+        return np.dot(v1[index].flat, v2[index].flat)
 
     #...
     def copy( self ):
@@ -552,30 +560,33 @@ class StencilMatrix( Matrix ):
             out = StencilVector( self.codomain )
 
         # Shortcuts
-        ss = self.starts
         ee = self.ends
         pp = self.pads
-
-        dot = np.dot
-
-        # Index for k=i-j
-        kk = [slice(None)] * self._ndim
+        ss = self.starts
 
         # Number of rows in matrix (along each dimension)
         nrows = [e-s+1 for s,e in zip(ss,ee)]
-
-        for xx in np.ndindex( *nrows ):
-
-            ii    = tuple( s+x for s,x in zip(ss,xx) )
-            jj    = tuple( slice(i-p,i+p+1) for i,p in zip(ii,pp) )
-            ii_kk = tuple( list(ii) + kk )
-
-            out[ii] = dot( self[ii_kk].flat, v[jj].flat )
+        self._dot(self._data, v._data, out._data, nrows, [], pp)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
-
         return out
+
+    # ...
+    @staticmethod
+    def _dot(mat, x, out, nrows, nrows_extra, pads):
+
+        # Index for k=i-j
+        ndim = len(x.shape)
+        kk = [slice(None)]*ndim
+
+        for xx in np.ndindex( *nrows ):
+
+            ii    = tuple( p+x for p,x in zip(pads,xx) )
+            jj    = tuple( slice(x,x+2*p+1) for x,p in zip(xx,pads) )
+            ii_kk = tuple( list(ii) + kk )
+
+            out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
 
     # ...
     def toarray( self, *, with_pads=False ):
@@ -698,6 +709,55 @@ class StencilMatrix( Matrix ):
 
         # Flag ghost regions as up-to-date
         self._sync = True
+
+    # ...
+    def transpose( self ):
+        """ Create new StencilMatrix Mt, where domain and codomain are swapped
+            with respect to original matrix M, and Mt_{ij} = M_{ji}.
+        """
+        # For clarity rename self
+        M = self
+
+        # If necessary, update ghost regions of original matrix M
+        if not M.ghost_regions_in_sync:
+            M.update_ghost_regions()
+
+        # Create new matrix where domain and codomain are swapped
+        Mt = StencilMatrix(M.codomain, M.domain)
+
+        # Number of rows in matrix (along each dimension)
+        nrows = [e - s + 1 for s, e in zip(M.starts, M.ends)]
+        nrows_extra = []
+
+        # Call low-level '_transpose' function (works on Numpy arrays directly)
+        self._transpose(M._data, Mt._data, nrows, nrows_extra, M.pads)
+
+        # Update ghost regions of transposed matrix Mt
+        Mt.update_ghost_regions()
+
+        return Mt
+
+    # ...
+    @staticmethod
+    def _transpose( M, Mt, nrows, nrows_extra, pads ):
+
+        # NOTE:
+        #  . Array M  index by [i1, i2, ..., k1, k2, ...]
+        #  . Array Mt index by [j1, j2, ..., l1, l2, ...]
+
+        pp = pads
+        ndiags = [2*p + 1 for p in pp]
+
+        for xx in np.ndindex( *nrows ):
+
+            jj = tuple(p + x for p, x in zip(pp, xx) )
+
+            for ll in np.ndindex( *ndiags ):
+
+                ii = tuple(  x + l for x, l in zip(xx, ll))
+                kk = tuple(2*p - l for p, l in zip(pp, ll))
+
+                Mt[(*jj, *ll)] = M[(*ii, *kk)]
 
     #--------------------------------------
     # Private methods

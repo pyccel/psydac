@@ -36,7 +36,7 @@ def test_2d_1():
             print('', flush=True)
         comm.Barrier()
 
-    F = FemField(V,'F')
+    F = FemField(V)
 
 
 ###############################################

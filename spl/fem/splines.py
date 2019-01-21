@@ -82,7 +82,6 @@ class SplineSpace( FemSpace ):
             self._nbasis = len(knots) - degree - 1 - defect
 
         self._vector_space = StencilVectorSpace( [self.nbasis], [self.degree], [periodic] )
-        self._fields = {}
 
         # Store flag: object NOT YET prepared for interpolation
         self._collocation_ready = False
@@ -144,11 +143,6 @@ class SplineSpace( FemSpace ):
     def vector_space( self ):
         """Returns the topological associated vector space."""
         return self._vector_space
-
-    @property
-    def fields( self ):
-        """Dictionary containing all FemField objects associated to this space."""
-        return self._fields
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods

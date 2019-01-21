@@ -73,9 +73,6 @@ class TensorFemSpace( FemSpace ):
         self._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
            for s,e,space in zip( self._element_starts, self._element_ends, self.spaces ) )
 
-        # Create (empty) dictionary that will contain all fields in this space
-        self._fields = {}
-
         # Store flag: object NOT YET prepared for interpolation
         self._collocation_ready = False
 
@@ -100,11 +97,6 @@ class TensorFemSpace( FemSpace ):
     def vector_space(self):
         """Returns the topological associated vector space."""
         return self._vector_space
-
-    @property
-    def fields( self ):
-        """Dictionary containing all FemField objects associated to this space."""
-        return self._fields
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods

@@ -32,7 +32,7 @@ def test_SplineInterpolation1D_exact( ncells, degree ):
 
     grid  = random_grid( domain, ncells, 0.5 )
     space = SplineSpace( degree=degree, grid=grid, periodic=periodic )
-    field = FemField( space, 'f' )
+    field = FemField( space )
 
     xg = space.greville
     ug = f( xg )
@@ -63,7 +63,7 @@ def test_SplineInterpolation1D_cosine( ncells, degree, periodic ):
 
     grid, dx = np.linspace( *f.domain, num=ncells+1, retstep=True )
     space = SplineSpace( degree=degree, grid=grid, periodic=periodic )
-    field = FemField( space, 'f' )
+    field = FemField( space )
 
     xg = space.greville
     ug = f.eval( xg )
@@ -117,7 +117,7 @@ def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
 
     # Tensor-product 2D spline space, distributed, and field
     tensor_space = TensorFemSpace( space1, space2, comm=mpi_comm )
-    tensor_field = FemField( tensor_space, 'T' )
+    tensor_field = FemField( tensor_space )
 
     # Coordinates of Greville points (global)
     x1g = space1.greville

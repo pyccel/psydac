@@ -153,6 +153,61 @@ def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2, P1, P2 ):
     assert np.allclose( ya, ya_exact, rtol=1e-13, atol=1e-13 )
 
 #===============================================================================
+@pytest.mark.parametrize( 'n1', [7, 32] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+
+def test_stencil_matrix_1d_serial_transpose( n1, p1, P1 ):
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace( [n1], [p1], [P1] )
+    M = StencilMatrix( V, V )
+
+    # Fill in matrix values with random numbers between 0 and 1
+    M[0:n1, -p1:p1+1] = np.random.random( (n1, 2*p1+1) )
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # TEST: compute transpose, then convert to Numpy array
+    Mta = M.transpose().toarray()
+
+    # Exact result: convert to Numpy array, then transpose
+    Mta_exact = M.toarray().transpose()
+
+    # Check data
+    assert np.array_equal( Mta, Mta_exact )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [7, 15] )
+@pytest.mark.parametrize( 'n2', [7, 12] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2, 3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+
+def test_stencil_matrix_2d_serial_transpose( n1, n2, p1, p2, P1, P2 ):
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace( [n1, n2], [p1, p2], [P1, P2] )
+    M = StencilMatrix( V, V )
+
+    # Fill in matrix values with random numbers between 0 and 1
+    M[0:n1, 0:n2, -p1:p1+1, -p2:p2+1] = np.random.random((n1, n2, 2*p1+1, 2*p2+1))
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # TEST: compute transpose, then convert to Scipy sparse format
+    Mts = M.transpose().tosparse()
+
+    # Exact result: convert to Scipy sparse format, then transpose
+    Mts_exact = M.tosparse().transpose()
+
+    # Check data
+    assert (Mts != Mts_exact).nnz == 0
+
+#===============================================================================
 # PARALLEL TESTS
 #===============================================================================
 @pytest.mark.parametrize( 'n1', [20,67] )
