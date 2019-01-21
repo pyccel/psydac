@@ -47,3 +47,16 @@ Uninstall
     :alt: Documentation Status
     :scale: 100%
     :target: http://spl.readthedocs.io/en/latest/?badge=latest
+
+Mesh Generation
+***************
+
+After installation, a command line **spl-mesh** will be available.
+
+
+Example of usage
+^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+  spl-mesh -n='16,16' -d='3,3' square mesh.h5

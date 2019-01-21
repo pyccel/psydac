@@ -60,7 +60,6 @@ def fem_context( filename, comm=MPI.COMM_WORLD ):
 
         degree   = [int (p) for p in patch.attrs['degree'  ]]
         periodic = [bool(b) for b in patch.attrs['periodic']]
-        nbasis   = [int (n) for n in patch.attrs['shape'   ]]
         knots    = [patch['knots_{}'.format(d)].value for d in range( ldim )]
         spaces   = [SplineSpace( degree=p, knots=k, periodic=b )
                     for p,k,b in zip( degree, knots, periodic )]

@@ -39,7 +39,7 @@ class TensorFemSpace( FemSpace ):
         pads = [V.degree for V in self.spaces]
         periods = [V.periodic for V in self.spaces]
 
-        if 'comm' in kwargs:
+        if 'comm' in kwargs and not( kwargs['comm'] is None ):
             # parallel case
             comm = kwargs['comm']
             assert isinstance(comm, MPI.Comm)
@@ -370,13 +370,21 @@ class TensorFemSpace( FemSpace ):
         assert all( field.space is self for field in fields.values() )
 
         V    = self.vector_space
-        comm = V.cart.comm
+
+        comm = None
+        if V.parallel:
+            comm = V.cart.comm
 
         # Multi-dimensional index range local to process
         index = tuple( slice( s, e+1 ) for s,e in zip( V.starts, V.ends ) )
 
         # Create HDF5 file (in parallel mode if MPI communicator size > 1)
-        kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
+        if not(comm is None):
+            kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
+
+        else:
+            kwargs = {}
+
         h5 = h5py.File( filename, mode='w', **kwargs )
 
         # Add field coefficients as named datasets

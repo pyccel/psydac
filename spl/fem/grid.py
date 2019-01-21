@@ -56,6 +56,10 @@ class FemAssemblyGrid:
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )
 
+        # invert order
+        u = u[::-1]
+        w = w[::-1]
+
         #-------------------------------------------
         # GLOBAL GRID
         #-------------------------------------------

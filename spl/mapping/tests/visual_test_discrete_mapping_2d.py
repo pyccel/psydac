@@ -17,7 +17,7 @@ def main( mapping='Target', degree=(2,2), ncells=(2,5), **kwargs ):
     from spl.fem.tensor                 import TensorFemSpace
     from spl.mapping.discrete           import SplineMapping
     from spl.mapping.analytical         import IdentityMapping
-    from spl.mapping.analytical_gallery import Annulus, Target, Czarny
+    from spl.mapping.analytical_gallery import Annulus, Target, Czarny, Collela
     from spl.utilities.utils            import refine_array_1d
 
     # Input parameters
@@ -27,6 +27,14 @@ def main( mapping='Target', degree=(2,2), ncells=(2,5), **kwargs ):
         lims2   = (0, 1)
         period1 = False
         period2 = False
+
+    elif mapping == 'Collela':
+        map_analytic = Collela( **kwargs )
+        lims1   = (0, 1)
+        lims2   = (0, 1)
+        period1 = False
+        period2 = False
+
     else:
         map_analytic = locals()[mapping]( **kwargs )
         lims1 = (0, 1)
@@ -89,7 +97,7 @@ def parse_input_arguments():
 
     parser.add_argument( '-m',
         type    = str,
-        choices =('Identity', 'Annulus', 'Target', 'Czarny'),
+        choices =('Identity', 'Annulus', 'Target', 'Czarny', 'Collela'),
         default = 'Annulus',
         dest    = 'mapping',
         help    = 'Analytical mapping'
@@ -117,6 +125,8 @@ def parse_input_arguments():
 
 #==============================================================================
 # Script functionality
+# Usage:
+#     python3 spl/mapping/tests/visual_test_discrete_mapping_2d.py -m Annulus -d 2 2 -n 4 10
 #==============================================================================
 if __name__ == '__main__':
 
