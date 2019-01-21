@@ -55,7 +55,7 @@ from mpi4py import MPI
 def mkdir_p(folder):
     if os.path.isdir(folder):
         return
-    os.makedirs(folder)
+    os.makedirs(folder, exist_ok=True)
 
 #==============================================================================
 def touch_init_file(path):
@@ -401,15 +401,15 @@ class BasicDiscrete(object):
         code = ''
 
         if self.backend['name'] == 'pyccel':
-            
+
             code += '\nfrom pyccel.decorators import types'
             code += '\nfrom pyccel.decorators import external, external_call'
-            
+
         elif self.backend['name'] == 'numba':
             code = 'from numba import jit'
 
         imports = '\n'.join(pycode(imp) for dep in self.dependencies for imp in dep.imports )
-        
+
         code = '{code}\n{imports}'.format(code=code, imports=imports)
 
         for dep in self.dependencies:
@@ -456,7 +456,7 @@ class BasicDiscrete(object):
         self._interface_code = '{imports}\n{code}'.format(imports=imports, code=code)
 
     def _compile_pythran(self, namespace):
-        
+
         module_name = self.dependencies_modname
 
         basedir = os.getcwd()
@@ -465,7 +465,7 @@ class BasicDiscrete(object):
         sys.path.append(self.folder)
         os.system('pythran {}.py -O3'.format(module_name))
         sys.path.remove(self.folder)
-        
+
         # ...
     def _compile_pyccel(self, namespace, verbose=False):
 
