@@ -10,7 +10,7 @@ import numpy as np
 
 from sympy import Basic
 from sympy import symbols, Symbol, IndexedBase, Indexed, Function
-from sympy import Mul, Add, Tuple, Min, Max
+from sympy import Mul, Add, Tuple, Min, Max, Pow
 from sympy import Matrix, ImmutableDenseMatrix
 from sympy import sqrt as sympy_sqrt
 from sympy import S as sympy_S
@@ -51,6 +51,7 @@ from sympde.topology import Field
 from sympde.topology import VectorField, IndexedVectorField
 from sympde.topology import Boundary, BoundaryVector, NormalVector, TangentVector
 from sympde.topology import Covariant, Contravariant
+from sympde.topology import ElementArea
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
 from sympde.topology.space import FunctionSpace
@@ -801,6 +802,47 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
 
     return stmts
 
+#==============================================================================
+# TODO take exponent to 1/dim
+def area_eval_mapping(mapping, area, dim, indices_quad, weight):
+
+    _print = lambda i: print_expression(i, mapping_name=False)
+
+    M = mapping
+    ops = _partial_derivatives[:dim]
+
+    # ... mapping components and their derivatives
+    elements = [d(M[i]) for d in ops for i in range(0, dim)]
+    # ...
+
+    stmts = []
+    # declarations
+    stmts += [Comment('declarations')]
+    for atom in elements:
+        atom_name = _print(atom)
+        val_name = atom_name + '_values'
+        val  = IndexedBase(val_name)[indices_quad]
+
+        stmt = Assign(atom_name, val)
+        stmts += [stmt]
+
+    # ... inv jacobian
+    jac = mapping.det_jacobian
+    rdim = mapping.rdim
+    ops = _partial_derivatives[:rdim]
+    elements = [d(mapping[i]) for d in ops for i in range(0, rdim)]
+    for e in elements:
+        new = print_expression(e, mapping_name=False)
+        new = Symbol(new)
+        jac = jac.subs(e, new)
+    # ...
+
+    # ...
+    stmts += [AugAssign(area, '+', Abs(jac) * weight)]
+    # ...
+
+    return stmts
+
 
 #==============================================================================
 def is_field(expr):
@@ -900,7 +942,8 @@ class SplBasic(Basic):
 class EvalMapping(SplBasic):
 
     def __new__(cls, space, mapping, discrete_boundary=None, name=None,
-                boundary_basis=None, nderiv=1, is_rational_mapping=None,backend=None):
+                boundary_basis=None, nderiv=1, is_rational_mapping=None,
+                area=None, backend=None):
 
         if not isinstance(mapping, Mapping):
             raise TypeError('> Expecting a Mapping object')
@@ -951,6 +994,7 @@ class EvalMapping(SplBasic):
 
         obj._components = tuple(components)
         obj._nderiv = nderiv
+        obj._area = area
         # ...
 
         obj._func = obj._initialize()
@@ -997,9 +1041,19 @@ class EvalMapping(SplBasic):
     def backend(self):
         return self._backend
 
+    @property
+    def area(self):
+        return self._area
+
+    @property
+    def weights(self):
+        return self._weights
+
     def build_arguments(self, data):
 
         other = data
+        if self.area:
+            other = other + self.weights + (self.area, )
 
         return self.basic_args + other
 
@@ -1024,21 +1078,28 @@ class EvalMapping(SplBasic):
         mapping_values = variables(['{}_values'.format(f) for f in mapping_str],
                                   dtype='real', rank=dim, cls=IndexedVariable)
 
+        # ... needed for area
+        weights = variables('quad_w1:%s'%(dim+1),
+                            dtype='real', rank=1, cls=IndexedVariable)
+
+        self._weights = weights
+        # ...
+
         weights_elements = []
         if self.is_rational_mapping:
-            weights = Field('w', self.space)
+            weights_pts = Field('w', self.space)
 
-            weights_elements = [weights]
+            weights_elements = [weights_pts]
 
             # ...
             nderiv = self.nderiv
             ops = _partial_derivatives[:dim]
 
             if nderiv > 0:
-                weights_elements += [d(weights) for d in ops]
+                weights_elements += [d(weights_pts) for d in ops]
 
             if nderiv > 1:
-                weights_elements += [d1(d2(weights)) for e,d1 in enumerate(ops)
+                weights_elements += [d1(d2(weights_pts)) for e,d1 in enumerate(ops)
                                                      for d2 in ops[:e+1]]
 
             if nderiv > 2:
@@ -1099,6 +1160,15 @@ class EvalMapping(SplBasic):
 
             body += stmts
 
+        # ...
+        if self.area:
+            weight = filter_product(indices_quad, weights, self.discrete_boundary)
+
+            stmts = area_eval_mapping(self.mapping, self.area, dim, indices_quad, weight)
+
+            body += stmts
+        # ...
+
         # put the body in for loops of quadrature points
         body = filter_loops(indices_quad, ranges_quad, body,
                             self.discrete_boundary,
@@ -1108,6 +1178,13 @@ class EvalMapping(SplBasic):
         init_vals = [f[[Slice(None,None)]*dim] for f in mapping_values]
         init_vals = [Assign(e, 0.0) for e in init_vals]
         body =  init_vals + body
+
+        if self.area:
+            # add init to 0 at the begining
+            body = [Assign(self.area, 0.0)] + body
+
+            # add power to 1/dim
+            body += [Assign(self.area, Pow(self.area, 1./dim))]
 
         func_args = self.build_arguments(degrees + basis + mapping_coeffs + mapping_values)
 
@@ -1453,8 +1530,8 @@ class Kernel(SplBasic):
         obj._target            = target
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis    = boundary_basis
-        obj._backend = backend
-
+        obj._area              = None
+        obj._backend           = backend
 
         obj._func = obj._initialize()
         return obj
@@ -1550,6 +1627,10 @@ class Kernel(SplBasic):
         return self._eval_mapping
 
     @property
+    def area(self):
+        return self._area
+
+    @property
     def backend(self):
         return self._backend
 
@@ -1573,6 +1654,18 @@ class Kernel(SplBasic):
 
         expr = self.kernel_expr
         mapping = self.mapping
+
+        # ... area of an element
+        area = list(expr.atoms(ElementArea))
+        if area:
+            assert(len(area) == 1)
+            area = area[0]
+
+            self._area = Variable('real', 'area')
+
+            # update exp
+            expr = expr.subs(area, self.area)
+        # ...
 
         # ...
         n_rows = 1 ; n_cols = 1
@@ -1741,7 +1834,9 @@ class Kernel(SplBasic):
                                        discrete_boundary=self.discrete_boundary,
                                        boundary_basis=self.boundary_basis,
                                        nderiv=nderiv,
-                                       is_rational_mapping=self.is_rational_mapping,backend=self.backend)
+                                       is_rational_mapping=self.is_rational_mapping,
+                                       area=self.area,
+                                       backend=self.backend)
             self._eval_mapping = eval_mapping
 
             # update dependencies
@@ -1843,9 +1938,9 @@ class Kernel(SplBasic):
                                   dtype='real', rank=3, cls=IndexedVariable)
         basis_test    = variables('test_bs1:%s'%(dim+1),
                                   dtype='real', rank=3, cls=IndexedVariable)
-        weighted_vols = variables('w1:%s'%(dim+1),
+        weighted_vols = variables('quad_w1:%s'%(dim+1),
                                   dtype='real', rank=1, cls=IndexedVariable)
-        positions     = variables('u1:%s'%(dim+1),
+        positions     = variables('quad_u1:%s'%(dim+1),
                                   dtype='real', rank=1, cls=IndexedVariable)
 
         # ...
@@ -1963,7 +2058,6 @@ class Kernel(SplBasic):
 
                 body += stmts
         # ...
-
 
         if mapping:
             inv_jac = Symbol('inv_jac')
@@ -2137,6 +2231,20 @@ class Kernel(SplBasic):
             args = eval_mapping.build_arguments(args)
             body = [FunctionCall(eval_mapping.func, args)] + body
 
+        # init/eval area
+        if self.area:
+            # evaluation of the area if the mapping is not used
+            if not mapping:
+                stmts = [AugAssign(self.area, '+', weighted_vol)]
+                stmts = select_loops( indices_quad, ranges_quad, stmts,
+                                      self.discrete_boundary,
+                                      boundary_basis=self.boundary_basis)
+
+                body = stmts + body
+
+            # init area
+            body = [Assign(self.area, 0.0)] + body
+
         # compute length of logical points
         len_quads = [Assign(k, Len(u)) for k,u in zip(qds_dim, positions)]
         body = len_quads + body
@@ -2307,8 +2415,8 @@ class Assembly(SplBasic):
         trial_basis_in_elm = variables('trial_bs1:%s'%(dim+1), dtype='real', rank=3, cls=IndexedVariable)
         test_basis_in_elm  = variables('test_bs1:%s'%(dim+1), dtype='real', rank=3, cls=IndexedVariable)
 
-        points_in_elm  = variables('u1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
-        weights_in_elm = variables('w1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
+        points_in_elm  = variables('quad_u1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
+        weights_in_elm = variables('quad_w1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
 
 
         points   = variables('points_1:%s'%(dim+1), dtype='real', rank=2, cls=IndexedVariable)
