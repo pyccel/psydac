@@ -54,10 +54,10 @@ class Grad_2D(object):
         D0 = d_matrix(n0)
         D1 = d_matrix(n1)
 
-        I0 = I0.todense()
-        I1 = I1.todense()
-        D0 = D0.todense()
-        D1 = D1.todense()
+        I0 = I0.toarray()
+        I1 = I1.toarray()
+        D0 = D0.toarray()
+        D1 = D1.toarray()
 
         A = kron(D0, I1)
         B = kron(I0, D1)
@@ -85,10 +85,10 @@ class Curl_2D(object):
         D0 = d_matrix(n0)
         D1 = d_matrix(n1)
 
-        I0 = I0.todense()
-        I1 = I1.todense()
-        D0 = D0.todense()
-        D1 = D1.todense()
+        I0 = I0.toarray()
+        I1 = I1.toarray()
+        D0 = D0.toarray()
+        D1 = D1.toarray()
 
         A = kron(D0, I1)
         B = kron(I0, D1)

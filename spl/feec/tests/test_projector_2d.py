@@ -92,15 +92,10 @@ def test_projectors_2d(verbose=False):
     # ...
 
     # ... compute error on L2
-    h_2 = solve(M2, to_array_L2(H))
-    S = scaling_matrix(p, n, T, kind='L2')
+    h_2  = solve(M2, to_array_L2(H))
+    S    = scaling_matrix(p, n, T, kind='L2')
     h_2  = S.dot(h_2)
-    # TODO improve and remove
-    x = np.zeros(h_2.size)
-    for i in range(0, h_2.size):
-        x[i] = h_2[0,i]
-    h_2 = x
-    tck = get_tck('L2', p, n, T, h_2)
+    tck  = get_tck('L2', p, n, T, h_2)
     hh_0 = lambda x,y: bisplev(x, y, tck)
     diff = lambda x,y: (h(x,y) - hh_0(x,y))**2
 

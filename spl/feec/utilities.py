@@ -23,7 +23,7 @@ def _mass_matrix_H1(p, n, T):
         M = mass_matrix(p[i], n[i], T[i])
         M = csr_matrix(M)
         # we must convert it to dense, otherwise we get a scipy
-        Ms.append(M.todense())
+        Ms.append(M.toarray())
     M = kron(*Ms)
     return csr_matrix(M)
 
@@ -55,7 +55,7 @@ def _mass_matrix_Hcurl_2D(p, n, T):
     TT = list(T) ; TT[1] = TT[1][1:-1]
     M1 = _mass_matrix_H1(pp, nn, TT)
 
-    M = block_diag(M0.todense(), M1.todense())
+    M = block_diag(M0.toarray(), M1.toarray())
     return csr_matrix(M)
 
 
@@ -119,7 +119,7 @@ def build_kron_matrix(p, n, T, kind):
         M = func(_p, _n, _T, _grid)
         M = csr_matrix(M)
 
-        Ms.append(M.todense()) # kron expects dense matrices
+        Ms.append(M.toarray()) # kron expects dense matrices
 
     return kron(*Ms)
 # ...
@@ -278,7 +278,7 @@ def scaling_matrix(p, n, T, kind=None):
         for i in range(0, len(p)):
             M = scaling_matrix(p[i], n[i], T[i])
             # we must convert it to dense, otherwise we get a scipy
-            Ms.append(M.todense())
+            Ms.append(M.toarray())
         return kron(*Ms)
 
     elif kind == 'Hcurl':
@@ -290,10 +290,10 @@ def scaling_matrix(p, n, T, kind=None):
         S0 = scaling_matrix(p0-1, n0-1, T0[1:-1])
         S1 = scaling_matrix(p1-1, n1-1, T1[1:-1])
 
-        I0 = I0.todense()
-        I1 = I1.todense()
-        S0 = S0.todense()
-        S1 = S1.todense()
+        I0 = I0.toarray()
+        I1 = I1.toarray()
+        S0 = S0.toarray()
+        S1 = S1.toarray()
 
         M0 = kron(S0, I1)
         M1 = kron(I0, S1)

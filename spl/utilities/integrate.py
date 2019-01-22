@@ -43,7 +43,7 @@ def integrate(points, weights, f):
     for ie in range(0, ne):
         X = points[:, ie]
         W = weights[:, ie]
-        f_int[ie] = np.sum(w*f(x) for (x,w) in zip(X,W))
+        f_int[ie] = sum(w*f(x) for (x,w) in zip(X,W))
 
     return f_int
 
