@@ -161,7 +161,7 @@ class Geometry( object ):
             kwargs = {}
 
         h5  = h5py.File( filename, mode='r', **kwargs )
-        yml = yaml.load( h5['geometry.yml'].value )
+        yml = yaml.load( h5['geometry.yml'][()] )
 
         ldim = yml['ldim']
         pdim = yml['pdim']
@@ -188,7 +188,7 @@ class Geometry( object ):
 
                 degree   = [int (p) for p in patch.attrs['degree'  ]]
                 periodic = [bool(b) for b in patch.attrs['periodic']]
-                knots    = [patch['knots_{}'.format(d)].value for d in range( ldim )]
+                knots    = [patch['knots_{}'.format(d)][:] for d in range( ldim )]
                 spaces   = [SplineSpace( degree=p, knots=k, periodic=b )
                             for p,k,b in zip( degree, knots, periodic )]
 
