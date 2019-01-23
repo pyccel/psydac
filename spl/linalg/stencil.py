@@ -732,9 +732,6 @@ class StencilMatrix( Matrix ):
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         self._transpose(M._data, Mt._data, nrows, nrows_extra, M.pads)
 
-        # Update ghost regions of transposed matrix Mt
-        Mt.update_ghost_regions()
-
         return Mt
 
     # ...
