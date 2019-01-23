@@ -837,6 +837,10 @@ class StencilMatrix( Matrix ):
     #...
     def _tocoo_parallel_with_pads( self ):
 
+        # If necessary, update ghost regions
+        if not self.ghost_regions_in_sync:
+            self.update_ghost_regions()
+
         # Shortcuts
         nn = self._space.npts
         nd = self._ndim
@@ -853,12 +857,15 @@ class StencilMatrix( Matrix ):
         cols = []
         data = []
 
-        for (index,value) in np.ndenumerate( self._data ):
+        # List of rows (to avoid duplicate updates)
+        I_list = []
 
-            # index = [p1+i1-s1, p2+i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
+        # Shape of row and diagonal spaces
+        xx_dims = self._data.shape[:nd]
+        ll_dims = self._data.shape[nd:]
 
-            xx = index[:nd]  # x=p+i-s
-            ll = index[nd:]  # l=p+k
+        # Cycle over rows (x = p + i - s)
+        for xx in np.ndindex( *xx_dims ):
 
             # Compute row multi-index with simple shift
             ii = [s + x - p for (s, x, p) in zip(ss, xx, pp)]
@@ -868,20 +875,38 @@ class StencilMatrix( Matrix ):
                   i + n if (c and i <  0 and i + n > e) else i
                   for (i, s, e, n, c) in zip(ii, ss, ee, nn, cc)]
 
+            # Compute row flat index
             # Exclude values outside global limits of matrix
-            if not all(0 <= i < n for i, n in zip(ii, nn)):
+            try:
+                I = ravel_multi_index( ii, dims=nn, order='C' )
+            except ValueError:
                 continue
 
-            # Compute column multi-index
-            jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
+            # If I is a new row, append it to list of rows
+            # DO NOT update same row twice!
+            if I not in I_list:
+                I_list.append( I )
+            else:
+                continue
 
-            I = ravel_multi_index( ii, dims=nn, order='C' )
-            J = ravel_multi_index( jj, dims=nn, order='C' )
+            # Cycle over diagonals (l = p + k)
+            for ll in np.ndindex( *ll_dims ):
 
-            rows.append( I )
-            cols.append( J )
-            data.append( value )
+                # Compute column multi-index (k = j - i)
+                jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
 
+                # Compute column flat index
+                J = ravel_multi_index( jj, dims=nn, order='C' )
+
+                # Extract matrix value
+                value = self._data[(*xx, *ll)]
+
+                # Append information to COO arrays
+                rows.append( I )
+                cols.append( J )
+                data.append( value )
+
+        # Create Scipy COO matrix
         M = coo_matrix(
                 (data,(rows,cols)),
                 shape = [np.prod(nn)]*2,
