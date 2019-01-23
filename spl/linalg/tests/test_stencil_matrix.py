@@ -153,7 +153,7 @@ def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2, P1, P2 ):
     assert np.allclose( ya, ya_exact, rtol=1e-13, atol=1e-13 )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [7, 32] )
+@pytest.mark.parametrize( 'n1', [4, 10, 32] )
 @pytest.mark.parametrize( 'p1', [1, 2, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 
@@ -170,17 +170,17 @@ def test_stencil_matrix_1d_serial_transpose( n1, p1, P1 ):
     M.remove_spurious_entries()
 
     # TEST: compute transpose, then convert to Numpy array
-    Mta = M.transpose().toarray()
+    Ta = M.transpose().toarray()
 
     # Exact result: convert to Numpy array, then transpose
-    Mta_exact = M.toarray().transpose()
+    Ta_exact = M.toarray().transpose()
 
     # Check data
-    assert np.array_equal( Mta, Mta_exact )
+    assert np.array_equal( Ta, Ta_exact )
 
 #===============================================================================
-@pytest.mark.parametrize( 'n1', [7, 15] )
-@pytest.mark.parametrize( 'n2', [7, 12] )
+@pytest.mark.parametrize( 'n1', [5, 15] )
+@pytest.mark.parametrize( 'n2', [5, 12] )
 @pytest.mark.parametrize( 'p1', [1, 2, 3] )
 @pytest.mark.parametrize( 'p2', [1, 2, 3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
@@ -194,18 +194,19 @@ def test_stencil_matrix_2d_serial_transpose( n1, n2, p1, p2, P1, P2 ):
 
     # Fill in matrix values with random numbers between 0 and 1
     M[0:n1, 0:n2, -p1:p1+1, -p2:p2+1] = np.random.random((n1, n2, 2*p1+1, 2*p2+1))
+    M.remove_spurious_entries()
 
     # If domain is not periodic, set corresponding periodic corners to zero
     M.remove_spurious_entries()
 
     # TEST: compute transpose, then convert to Scipy sparse format
-    Mts = M.transpose().tosparse()
+    Ts = M.transpose().tosparse()
 
     # Exact result: convert to Scipy sparse format, then transpose
-    Mts_exact = M.tosparse().transpose()
+    Ts_exact = M.tosparse().transpose()
 
     # Check data
-    assert (Mts != Mts_exact).nnz == 0
+    assert abs(Ts - Ts_exact).max() < 1e-14
 
 #===============================================================================
 # PARALLEL TESTS
@@ -522,6 +523,113 @@ def test_stencil_matrix_2d_parallel_sync( n1, n2, p1, p2, P1, P2, reorder ):
         for i2 in range( i2_min, i2_max ):
             i = i1 * n2 + i2
             assert np.array_equal( Ma[i,:], Me[i,:] )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [20, 67] )
+@pytest.mark.parametrize( 'p1', [1, 2, 3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parallel
+
+def test_stencil_matrix_1d_parallel_transpose( n1, p1, P1, reorder ):
+
+    from mpi4py       import MPI
+    from spl.ddm.cart import CartDecomposition
+
+    comm = MPI.COMM_WORLD
+    cart = CartDecomposition(
+        npts    = [n1,],
+        pads    = [p1,],
+        periods = [P1,],
+        reorder = reorder,
+        comm    = comm
+    )
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace( cart )
+    M = StencilMatrix( V, V )
+
+    s1, = V.starts
+    e1, = V.ends
+
+    # Fill in matrix values with random numbers between 0 and 1
+    M[s1:e1+1, -p1:p1+1] = np.random.random( (e1-s1+1, 2*p1+1) )
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # TEST: compute transpose, then convert to Numpy array
+    Ta = M.transpose().toarray()
+
+    # Exact result: convert to Numpy array including padding, then transpose,
+    # hence remove entries that do not belong to current process.
+    Ta_exact = M.toarray( with_pads=True ).transpose()
+    Ta_exact[  :s1, :] = 0.0
+    Ta_exact[e1+1:, :] = 0.0
+
+    # Check data
+    assert np.array_equal( Ta, Ta_exact )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [ 8, 21] )
+@pytest.mark.parametrize( 'n2', [13, 32] )
+@pytest.mark.parametrize( 'p1', [1, 3] )
+@pytest.mark.parametrize( 'p2', [1, 2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parallel
+
+def test_stencil_matrix_2d_parallel_transpose( n1, n2, p1, p2, P1, P2, reorder ):
+
+    from mpi4py       import MPI
+    from spl.ddm.cart import CartDecomposition
+
+    comm = MPI.COMM_WORLD
+    cart = CartDecomposition(
+        npts    = [n1, n2],
+        pads    = [p1, p2],
+        periods = [P1, P2],
+        reorder = reorder,
+        comm    = comm
+    )
+
+    # Create vector space and stencil matrix
+    V = StencilVectorSpace( cart )
+    M = StencilMatrix( V, V )
+
+    s1, s2 = V.starts
+    e1, e2 = V.ends
+
+    # Fill in matrix values with random numbers between 0 and 1
+    M[s1:e1+1, s2:e2+1, -p1:p1+1, -p2:p2+1] = np.random.random(
+            (e1-s1+1, e2-s2+1, 2*p1+1, 2*p2+1))
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # TEST: compute transpose, then convert to Scipy sparse format
+    Ts = M.transpose().tosparse()
+
+    # Exact result: convert to Scipy sparse format, then transpose
+    Ts_exact = M.tosparse().transpose()
+
+    # Exact result: convert to Scipy sparse format including padding, then
+    # transpose, hence remove entries that do not belong to current process.
+    Ts_exact = M.tosparse( with_pads=True ).transpose()
+
+    #...
+    Ts_exact = Ts_exact.tocsr()
+    for i, j in zip(*Ts_exact.nonzero()):
+        i1, i2 = np.unravel_index( i, dims=[n1, n2], order='C' )
+        if not (s1 <= i1 <= e1 and s2 <= i2 <= e2):
+            Ts_exact[i, j] = 0.0
+    Ts_exact = Ts_exact.tocoo()
+    Ts_exact.eliminate_zeros()
+    #...
+
+    # Check data
+    assert abs(Ts - Ts_exact).max() < 1e-14
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
