@@ -1,9 +1,11 @@
 # coding: utf-8
 """
 This module provides iterative solvers and precondionners.
-"""
 
-__all__ = ['cg','pcg', 'jacobi', 'weighted_jacobi']
+"""
+from math import sqrt
+
+__all__ = ['cg', 'pcg', 'bicg', 'jacobi', 'weighted_jacobi']
 
 # ...
 def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
@@ -36,18 +38,22 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
     verbose : bool
         If True, L2-norm of residual r is printed at each iteration.
 
-    Returns
+    Results
     -------
     x : spl.linalg.basic.Vector
         Converged solution.
 
-    See also
-    --------
+    info : dict
+        Dictionary containing convergence information:
+          - 'niter'    = (int) number of iterations
+          - 'success'  = (boolean) whether convergence criteria have been met
+          - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+
+    References
+    ----------
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
     """
-    from math import sqrt
-
     n = A.shape[0]
 
     assert( A.shape == (n,n) )
@@ -374,4 +380,152 @@ def weighted_jacobi(A, b, x0=None, omega= 2./3, tol=1e-10, maxiter=100, verbose=
     info = {'niter': k, 'success': nrmr < tol_sqr, 'res_norm': sqrt(nrmr) }
 
     return x
+# ...
+
+# ...
+def bicg(A, At, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
+    """
+    Biconjugate gradient (BCG) algorithm for solving linear system Ax=b.
+    Implementation from [1], page 175.
+
+    Parameters
+    ----------
+    A : spl.linalg.basic.LinearOperator
+        Left-hand-side matrix A of linear system; individual entries A[i,j]
+        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
+        function (i.e. matrix-vector product A*p).
+
+    At : spl.linalg.basic.LinearOperator
+        Matrix transpose of A, with 'shape' attribute and 'dot(p)' function.
+
+    b : spl.linalg.basic.Vector
+        Right-hand-side vector of linear system. Individual entries b[i] need
+        not be accessed, but b has 'shape' attribute and provides 'copy()' and
+        'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
+        scalar multiplication and sum operations are available.
+
+    x0 : spl.linalg.basic.Vector
+        First guess of solution for iterative solver (optional).
+
+    tol : float
+        Absolute tolerance for 2-norm of residual r = A*x - b.
+
+    maxiter: int
+        Maximum number of iterations.
+
+    verbose : bool
+        If True, 2-norm of residual r is printed at each iteration.
+
+    Results
+    -------
+    x : spl.linalg.basic.Vector
+        Numerical solution of linear system.
+
+    info : dict
+        Dictionary containing convergence information:
+          - 'niter'    = (int) number of iterations
+          - 'success'  = (boolean) whether convergence criteria have been met
+          - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+
+    References
+    ----------
+    [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
+
+    TODO
+    ----
+    Add optional preconditioner
+
+    """
+    n = A.shape[0]
+
+    assert A .shape == (n, n)
+    assert At.shape == (n, n)
+    assert b .shape == (n,)
+
+    # First guess of solution
+    if x0 is None:
+        x = 0.0 * b.copy()
+    else:
+        assert x0.shape == (n,)
+        x = x0.copy()
+
+    # First values
+    r  = b - A.dot( x )
+    p  = r.copy()
+    v  = 0.0 * b.copy()
+
+    rs = r.copy()
+    ps = p.copy()
+    vs = 0.0 * b.copy()
+
+    res_sqr = r.dot(r)
+    tol_sqr = tol**2
+
+    if verbose:
+        print( "BiCG solver:" )
+        print( "+---------+---------------------+")
+        print( "+ Iter. # | L2-norm of residual |")
+        print( "+---------+---------------------+")
+        template = "| {:7d} | {:19.2e} |"
+
+    # Iterate to convergence
+    for m in range(1, maxiter + 1):
+
+        if res_sqr < tol_sqr:
+            m -= 1
+            break
+
+        #-----------------------
+        # MATRIX-VECTOR PRODUCTS
+        #-----------------------
+        A .dot(p , out=v )
+        At.dot(ps, out=vs)
+        #-----------------------
+
+        # c := (r, rs)
+        c = r.dot(rs)
+
+        # a := (r, rs) / (v, ps)
+        a = c / v.dot(ps)
+
+        #-----------------------
+        # SOLUTION UPDATE
+        #-----------------------
+        # x := x + a*p
+        p *= a
+        x += p
+        #-----------------------
+
+        # r := r - a*v
+        v *= a
+        r -= v
+
+        # rs := rs - a*vs
+        vs *= a
+        rs -= vs
+
+        # b := (r, rs)_{m+1} / (r, rs)_m
+        b = r.dot(rs) / c
+
+        # p := r + b*p
+        p *= (b/a)
+        p += r
+
+        # ps := rs + b*ps
+        ps *= b
+        ps += rs
+
+        # ||r||_2 := (r, r)
+        res_sqr = r.dot( r )
+
+        if verbose:
+            print( template.format(m, sqrt(res_sqr)) )
+
+    if verbose:
+        print( "+---------+---------------------+")
+
+    # Convergence information
+    info = {'niter': m, 'success': res_sqr < tol_sqr, 'res_norm': sqrt( res_sqr ) }
+
+    return x, info
 # ...
