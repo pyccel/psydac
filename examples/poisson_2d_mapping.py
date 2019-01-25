@@ -268,11 +268,11 @@ def kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s ):
     nq2 : int
         Number of quadrature points along x2 (same in each element).
 
-    bs1 : 3D array_like (p1+1, nderiv, nq1)
+    bs1 : 3D array_like (p1+1, 1+nderiv, nq1)
         Values (and derivatives) of non-zero basis functions along x1
         at each quadrature point.
 
-    bs2 : 3D array_like (p2+1, nderiv, nq2)
+    bs2 : 3D array_like (p2+1, 1+nderiv, nq2)
         Values (and derivatives) of non-zero basis functions along x2
         at each quadrature point.
 
@@ -380,7 +380,6 @@ def assemble_matrices( V, mapping, kernel ):
     [s1, s2] = V.vector_space.starts
     [e1, e2] = V.vector_space.ends
     [p1, p2] = V.vector_space.pads
-    [n1, n2] = V.vector_space.npts
 
     # Quadrature data
     [      nk1,       nk2] = [g.num_elements for g in V.quad_grids]
@@ -458,7 +457,6 @@ def assemble_rhs( V, mapping, f ):
     [s1, s2] = V.vector_space.starts
     [e1, e2] = V.vector_space.ends
     [p1, p2] = V.vector_space.pads
-    [n1, n2] = V.vector_space.npts
 
     # Quadrature data
     [      nk1,       nk2] = [g.num_elements for g in V.quad_grids]
@@ -520,7 +518,7 @@ def assemble_rhs( V, mapping, f ):
 
 ####################################################################################
 
-def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visualize_serial ):
+def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distribute_viz ):
 
     timing = {}
     timing['assembly'   ] = 0.0
@@ -690,8 +688,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visua
     timing['solution'] = t1-t0
 
     # Create potential field
-    phi = FemField( V, 'phi' )
-    phi.coeffs[:] = x[:]
+    phi = FemField( V, coeffs=x )
     phi.coeffs.update_ghost_regions()
 
     # Compute L2 norm of error
@@ -742,7 +739,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, visua
     V.plot_2d_decomposition( model.mapping, refine=N )
 
     # Perform other visualization using master or all processes
-    if visualize_serial:
+    if not distribute_viz:
 
         # Non-master processes stop here
         if mpi_rank != 0:
@@ -878,9 +875,9 @@ def parse_input_arguments():
         help    = 'Apply C1 correction at polar singularity (O point)'
     )
 
-    parser.add_argument( '--distribute_visualization',
-        action  = 'store_false',
-        dest    = 'visualize_serial',
+    parser.add_argument( '--distribute_viz',
+        action  = 'store_true',
+        dest    = 'distribute_viz',
         help    = 'Create separate plots for each subdomain'
     )
 

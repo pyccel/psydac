@@ -50,7 +50,7 @@ def kernel( p1, k1, bs1, w1, mat_m, mat_s ):
     k1 : int
         Number of quadrature points in each element.
 
-    bs1 : 3D array_like (p1+1, nderiv, k1)
+    bs1 : 3D array_like (p1+1, 1+nderiv, k1)
         Values (and derivatives) of non-zero basis functions at each
         quadrature point.
 
@@ -128,29 +128,30 @@ def assemble_matrices( V, kernel ):
     [p1] = V.vector_space.pads
 
     # Quadrature data
-    k1        = V.quad_order
-    spans_1   = V.spans
-    basis_1   = V.quad_basis
-    weights_1 = V.quad_weights
+    nk1       = V.quad_grids[0].num_elements
+    nq1       = V.quad_grids[0].num_quad_pts
+    spans_1   = V.quad_grids[0].spans
+    basis_1   = V.quad_grids[0].basis
+    weights_1 = V.quad_grids[0].weights
 
     # Create global matrices
     mass      = StencilMatrix( V.vector_space, V.vector_space )
     stiffness = StencilMatrix( V.vector_space, V.vector_space )
 
     # Create element matrices
-    mat_m = np.zeros( (p1+1,2*p1+1) ) # mass
-    mat_s = np.zeros( (p1+1,2*p1+1) ) # stiffness
+    mat_m = np.zeros( (p1+1, 2*p1+1) ) # mass
+    mat_s = np.zeros( (p1+1, 2*p1+1) ) # stiffness
 
     # Build global matrices: cycle over elements
-    for ie1 in range(s1, e1+1-p1):
+    for k1 in range( nk1 ):
 
         # Get spline index, B-splines' values and quadrature weights
-        is1 =   spans_1[ie1]
-        bs1 =   basis_1[ie1,:,:,:]
-        w1  = weights_1[ie1,:]
+        is1 =   spans_1[k1]
+        bs1 =   basis_1[k1,:,:,:]
+        w1  = weights_1[k1,:]
 
         # Compute element matrices
-        kernel( p1, k1, bs1, w1, mat_m, mat_s )
+        kernel( p1, nq1, bs1, w1, mat_m, mat_s )
 
         # Update global matrices
         mass     [is1-p1:is1+1,:] += mat_m[:,:]
@@ -183,29 +184,31 @@ def assemble_rhs( V, f ):
     [p1] = V.vector_space.pads
 
     # Quadrature data
-    spans_1   = V.spans
-    basis_1   = V.quad_basis
-    points_1  = V.quad_points
-    weights_1 = V.quad_weights
+    nk1       = V.quad_grids[0].num_elements
+    nq1       = V.quad_grids[0].num_quad_pts
+    spans_1   = V.quad_grids[0].spans
+    basis_1   = V.quad_grids[0].basis
+    points_1  = V.quad_grids[0].points
+    weights_1 = V.quad_grids[0].weights
 
     # Data structure
     rhs = StencilVector( V.vector_space )
 
     # Build RHS
-    for ie1 in range(s1, e1+1-p1):
+    for k1 in range( nk1 ):
 
-        i_span_1 =   spans_1[ie1]
-        x1       =  points_1[ie1, :]
-        wvol     = weights_1[ie1, :]
-        f_quad   = f( x1 )
+        is1    =   spans_1[k1]
+        bs1    =   basis_1[k1,:,:,:]
+        x1     =  points_1[k1, :]
+        wvol   = weights_1[k1, :]
+        f_quad = f( x1 )
 
-        for il_1 in range(0, p1+1):
+        for il1 in range( p1+1 ):
 
-            bi_0 = basis_1[ie1, il_1, 0, :]
-            i1   = i_span_1 - p1 + il_1
+            bi_0 = bs1[il1, 0, :]
             v    = bi_0 * f_quad * wvol
 
-            rhs[i1] += v.sum()
+            rhs[is1-p1+il1] += v.sum()
 
     return rhs
 
@@ -216,6 +219,7 @@ if __name__ == '__main__':
     from time import time
 
     from spl.fem.splines import SplineSpace
+    from spl.fem.tensor  import TensorFemSpace
     from spl.fem.basic   import FemField
 
     timing = {}
@@ -230,9 +234,9 @@ if __name__ == '__main__':
     # Create uniform grid
     grid = np.linspace( *model.domain, num=ne+1 )
 
-    # Create finite element space and precompute quadrature data
+    # Create finite element space
     V = SplineSpace( p, grid=grid, periodic=model.periodic )
-    V.init_fem()
+    V = TensorFemSpace( V )
 
     # Build mass and stiffness matrices
     t0 = time()
@@ -244,10 +248,13 @@ if __name__ == '__main__':
     rhs = assemble_rhs( V, model.rho )
 
     # Apply homogeneous dirichlet boundary conditions
-    stiffness[ 0,:] = 0.
-    stiffness[-1,:] = 0.
-    rhs[0] = 0.
-    rhs[V.nbasis-1] = 0.
+    s1, = V.vector_space.starts
+    e1, = V.vector_space.ends
+
+    stiffness[s1,:] = 0.
+    stiffness[e1,:] = 0.
+    rhs[s1] = 0.
+    rhs[e1] = 0.
 
     # Solve linear system
     t0 = time()
@@ -256,8 +263,7 @@ if __name__ == '__main__':
     timing['solution'] = t1-t0
 
     # Create potential field
-    phi = FemField( V, 'phi' )
-    phi.coeffs[:] = x[:]
+    phi = FemField( V, coeffs=x )
     phi.coeffs.update_ghost_regions()
 
     # Compute L2 norm of error
