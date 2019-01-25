@@ -370,21 +370,16 @@ class TensorFemSpace( FemSpace ):
         assert all( field.space is self for field in fields.values() )
 
         V    = self.vector_space
-
-        comm = None
-        if V.parallel:
-            comm = V.cart.comm
+        comm = V.cart.comm if V.parallel else None
 
         # Multi-dimensional index range local to process
         index = tuple( slice( s, e+1 ) for s,e in zip( V.starts, V.ends ) )
 
         # Create HDF5 file (in parallel mode if MPI communicator size > 1)
-        if not(comm is None):
-            kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
-
-        else:
-            kwargs = {}
-
+        kwargs = {}
+        if comm is not None:
+            if comm.size > 1:
+                kwargs.update( driver='mpio', comm=comm )
         h5 = h5py.File( filename, mode='w', **kwargs )
 
         # Add field coefficients as named datasets
@@ -418,13 +413,16 @@ class TensorFemSpace( FemSpace ):
         assert all( isinstance( name, str ) for name in field_names )
 
         V    = self.vector_space
-        comm = V.cart.comm
+        comm = V.cart.comm if V.parallel else None
 
         # Multi-dimensional index range local to process
         index = tuple( slice( s, e+1 ) for s,e in zip( V.starts, V.ends ) )
 
         # Open HDF5 file (in parallel mode if MPI communicator size > 1)
-        kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
+        kwargs = {}
+        if comm is not None:
+            if comm.size > 1:
+                kwargs.update( driver='mpio', comm=comm )
         h5 = h5py.File( filename, mode='r', **kwargs )
 
         # Create fields and load their coefficients from HDF5 datasets
@@ -434,7 +432,7 @@ class TensorFemSpace( FemSpace ):
             if dset.shape != V.npts:
                 h5.close()
                 raise TypeError( 'Dataset not compatible with spline space.' )
-            field = FemField( self, name )
+            field = FemField( self )
             field.coeffs[index] = dset[index]
             field.coeffs.update_ghost_regions()
             fields.append( field )
