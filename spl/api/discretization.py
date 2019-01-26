@@ -202,7 +202,7 @@ class BasicDiscrete(object):
                 max_nderiv = interface.max_nderiv
                 in_arguments = [str(a) for a in interface.in_arguments]
                 inout_arguments = [str(a) for a in interface.inout_arguments]
-                user_functions = [str(a) for a in interface.user_functions]
+                user_functions = interface.user_functions
 
             else:
                 kernel = None
@@ -228,7 +228,7 @@ class BasicDiscrete(object):
             interface_name = interface.name
             in_arguments = [str(a) for a in interface.in_arguments]
             inout_arguments = [str(a) for a in interface.inout_arguments]
-            user_functions = [str(a) for a in interface.user_functions]
+            user_functions = interface.user_functions
         # ...
 
         # ...
@@ -261,17 +261,11 @@ class BasicDiscrete(object):
         # ... when using user defined functions, there must be passed as
         #     arguments of discretize. here we create a dictionary where the key
         #     is the function name, and the value is a valid implementation.
-        d_user_functions = {}
         if user_functions:
             for f in user_functions:
-                try:
-                    d_user_functions[f] = kwargs[f]
-
-                except:
-                    raise KeyError('can not find {} implementation'.format(f))
-
-        # TODO use OrderedDict
-        self._d_user_functions = d_user_functions
+                if not hasattr(f, '_imp_'):
+                    # TODO raise appropriate error message
+                    raise ValueError('can not find {} implementation'.format(f))
         # ...
 
         # generate python code as strings for dependencies
@@ -337,10 +331,6 @@ class BasicDiscrete(object):
     @property
     def user_functions(self):
         return self._user_functions
-
-    @property
-    def d_user_functions(self):
-        return self._d_user_functions
 
     @property
     def mapping(self):
@@ -445,9 +435,9 @@ class BasicDiscrete(object):
         code = '{code}\n{imports}'.format(code=code, imports=imports)
 
         # ... add user defined functions
-        if self.d_user_functions:
-            for f_name, func in self.d_user_functions.items():
-                func_code = get_source_function(func)
+        if self.user_functions:
+            for func in self.user_functions:
+                func_code = get_source_function(func._imp_)
                 code = '{code}\n{func_code}'.format(code=code, func_code=func_code)
         # ...
 

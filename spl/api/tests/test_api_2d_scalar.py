@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from sympy import pi, cos, sin
+from sympy.utilities.lambdify import implemented_function
 
 from sympde.core import Constant
 from sympde.calculus import grad, dot, inner, cross, rot, curl, div
@@ -298,6 +299,70 @@ def run_biharmonic_2d_dir(solution, f, ncells, degree, comm=None):
     return l2_error, h1_error
 
 
+#==============================================================================
+def run_poisson_user_function_2d_dir(f, solution, ncells, degree, comm=None):
+
+    # ... abstract model
+    domain = Square()
+    x,y = domain.coordinates
+
+    f = implemented_function('f', f)
+
+    V = FunctionSpace('V', domain)
+
+    F = Field('F', V)
+
+    v = TestFunction(V, name='v')
+    u = TestFunction(V, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    expr = f(x,y)*v
+    l = LinearForm(v, expr)
+
+    error = F - solution
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
+
+    bc = EssentialBC(u, 0, domain.boundary)
+    equation = Equation(a(v,u), l(v), bc=bc)
+    # ...
+
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    # ...
+
+    # ... discrete spaces
+    Vh = discretize(V, domain_h, degree=degree)
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh )
+    phi.coeffs[:,:] = x[:,:]
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+    # ...
+
+    return l2_error, h1_error
+
+
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
@@ -475,6 +540,34 @@ def test_api_biharmonic_2d_dir_1():
 
     expected_l2_error =  0.015086415626061608
     expected_h1_error =  0.08773346232942228
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+
+
+#==============================================================================
+def test_api_poisson_user_function_2d_dir_1():
+
+    from sympy.abc import x,y
+
+    solution = sin(pi*x)*sin(pi*y)
+
+    # ...
+    def f(x,y):
+        from numpy import pi
+        from numpy import cos
+        from numpy import sin
+
+        value = 2*pi**2*sin(pi*x)*sin(pi*y)
+        return value
+    # ...
+
+    l2_error, h1_error = run_poisson_user_function_2d_dir(f, solution,
+                                            ncells=[2**3,2**3], degree=[2,2])
+
+    expected_l2_error =  0.00021808678604760232
+    expected_h1_error =  0.013023570720360362
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
