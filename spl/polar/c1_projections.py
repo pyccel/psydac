@@ -35,32 +35,42 @@ class C1Projector:
 
         assert isinstance( S, StencilVectorSpace )
 
-        # Store matrix L with 3 indices
-        lamb = self.compute_lambda( mapping )
-        self._L = np.array( lamb )
-
         # Vector spaces
         self._S = S
         self._P = new_c1_vector_space( S, radial_dim=0 )
+
+        # Store matrix L with 3 indices
+        lamb = self.compute_lambda( mapping )
+        self._L = np.array( lamb )
 
     # ...
     def compute_lambda( self, mapping ):
 
         s1, s2 = mapping.space.vector_space.starts
         e1, e2 = mapping.space.vector_space.ends
+        p1, p2 = mapping.space.vector_space.pads
 
-        x = mapping.control_points[0:2,s2:e2+1,0]
-        y = mapping.control_points[0:2,s2:e2+1,1]
+        # Extract control points, including ghost regions
+        x_ext = mapping.control_points[0:2,:,0]
+        y_ext = mapping.control_points[0:2,:,1]
+
+        # Exclude ghost regions for calculations
+        x = x_ext[:, s2:e2+1]
+        y = y_ext[:, s2:e2+1]
 
         SQRT3     = np.sqrt(3.0)
         ONE_THIRD = 1.0/3.0
         (x0,y0)   = (x[0,0],y[0,0])
 
         # Define equilateral triangle enclosing first row of control points
-        # TODO: use MPI_MAX
         tau = max( np.max( -2*(x[1,:]-x0) ),
                    np.max( x[1,:]-x0-SQRT3*(y[1,:]-y0) ),
                    np.max( x[1,:]-x0+SQRT3*(y[1,:]-y0) ) )
+
+        if self.tensor_space.parallel:
+            from mpi4py import MPI
+            comm = self.tensor_space.cart.comm
+            tau  = comm.reduce( tau, op=MPI.MAX )
 
         # Coordinates of vertices of equilateral triangle
         vrtx = [(x0-tau/2, y0-SQRT3*tau/2), 
@@ -69,13 +79,14 @@ class C1Projector:
 
         # Define barycentric coordinates with respect to smallest circle
         # enclosing first row of control points
-        lambda_0  = ONE_THIRD*(1.0 + 2.0*(x-x0)                /tau)
-        lambda_1  = ONE_THIRD*(1.0 -    ((x-x0) - SQRT3*(y-y0))/tau)
-        lambda_2  = ONE_THIRD*(1.0 -    ((x-x0) + SQRT3*(y-y0))/tau)
+        # [extended domain]
+        lambda_0  = ONE_THIRD*(1.0 + 2.0*(x_ext-x0)                    /tau)
+        lambda_1  = ONE_THIRD*(1.0 -    ((x_ext-x0) - SQRT3*(y_ext-y0))/tau)
+        lambda_2  = ONE_THIRD*(1.0 -    ((x_ext-x0) + SQRT3*(y_ext-y0))/tau)
         lamb = (lambda_0, lambda_1, lambda_2)
 
         # STORE INFO
-        self._tau = tau
+        self._tau  = tau
         self._vrtx = vrtx
         self._lamb = lamb
 
@@ -133,14 +144,15 @@ class C1Projector:
                     for j1 in [0,1]:
                         for k2 in range( -p2, p2+1 ):
                             j2 = (i2+k2) % n2
-                            temp += G[i1,i2,j1-i1,k2] * L[v,j1,j2]
+#                            temp += G[i1,i2,j1-i1,k2] * L[v,j1,j2]
+                            temp += G[i1,i2,j1-i1,k2] * L[v,j1,p2+j2-s2]
 
                     AL[v,i1,i2] = temp
 
         # Compute product A' = L^T (A L)
         for u in range( 3 ):
             for v in range( 3 ):
-                Ap[u,v] = np.dot( L[u,:,:].flat, AL[v,:,:].flat )
+                Ap[u,v] = np.dot( L[u,:,p2:-p2].flat, AL[v,:,:].flat )
 
         # Create linear operator
         Ap = DenseMatrix( P[0], P[0], Ap )
@@ -158,8 +170,8 @@ class C1Projector:
                     for j1 in range( 2, i1+p1+1 ):
                         for k2 in range( -p2, p2+1 ):
                             j2 = (i2+k2) % n2
-
-                            Bp[u,j1-2,j2] += L[u,i1,i2] * G[i1,i2,j1-i1,k2]
+#                            Bp[u,j1-2,j2] += L[u,i1,i2] * G[i1,i2,j1-i1,k2]
+                            Bp[u,j1-2,j2] += L[u,i1,p2+i2-s2] * G[i1,i2,j1-i1,k2]
 
         # Create linear operator
         Bp = LinearOperator_StencilToDense( P[1], P[0], Bp )
@@ -179,7 +191,8 @@ class C1Projector:
                     for j1 in range( max(0,i1-p1), 2 ):
                         for k2 in range( -p2, p2+1 ):
                             j2 = (i2+k2) % n2
-                            temp += G[i1,i2,j1-i1,k2] * L[v,j1,j2]
+#                            temp += G[i1,i2,j1-i1,k2] * L[v,j1,j2]
+                            temp += G[i1,i2,j1-i1,k2] * L[v,j1,p2+j2-s2]
 
                     Cp[i1-2,i2,v] = temp
 
@@ -231,12 +244,14 @@ class C1Projector:
 
         s1, s2 = b.starts
         e1, e2 = b.ends
+        p1, p2 = b.pads
 
         bp0 = np.zeros( 3 )
         for u in [0,1,2]:
             for i1 in [0,1]:
                 for i2 in range( s2, e2+1 ):
-                    bp0[u] += L[u,i1,i2] * b[i1,i2]
+#                    bp0[u] += L[u,i1,i2] * b[i1,i2]
+                    bp0[u] += L[u,i1,p2+i2-s2] * b[i1,i2]
 
         bp0 =   DenseVector( P[0], bp0 )
         bp1 = StencilVector( P[1] )
@@ -264,12 +279,14 @@ class C1Projector:
 
         s1, s2 = v.starts
         e1, e2 = v.ends
+        p1, p2 = v.pads
 
         vp0 = vp[0].toarray()
         for i1 in [0,1]:
             for i2 in range( s2, e2+1 ):
                 for u in [0,1,2]:
-                    v[i1,i2] = np.dot( L[:,i1,i2], vp0 )
+#                    v[i1,i2] = np.dot( L[:,i1,i2], vp0 )
+                    v[i1,i2] = np.dot( L[:,i1,p2+i2-s2], vp0 )
 
         v.update_ghost_regions()
 
