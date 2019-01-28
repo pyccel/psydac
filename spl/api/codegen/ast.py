@@ -18,6 +18,7 @@ from sympy import Integer, Float
 from sympy.core.relational    import Le, Ge
 from sympy.logic.boolalg      import And
 from sympy import Mod, Abs
+from sympy.core.function import AppliedUndef
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
@@ -1531,6 +1532,7 @@ class Kernel(SplBasic):
         obj._discrete_boundary = discrete_boundary
         obj._boundary_basis    = boundary_basis
         obj._area              = None
+        obj._user_functions    = []
         obj._backend           = backend
 
         obj._func = obj._initialize()
@@ -1631,6 +1633,10 @@ class Kernel(SplBasic):
         return self._area
 
     @property
+    def user_functions(self):
+        return self._user_functions
+
+    @property
     def backend(self):
         return self._backend
 
@@ -1665,6 +1671,12 @@ class Kernel(SplBasic):
 
             # update exp
             expr = expr.subs(area, self.area)
+        # ...
+
+        # ... undefined functions
+        funcs = expr.atoms(AppliedUndef)
+        if funcs:
+            self._user_functions = [f.func for f in list(funcs)]
         # ...
 
         # ...
@@ -2808,6 +2820,10 @@ class Interface(SplBasic):
     @property
     def inout_arguments(self):
         return self._inout_arguments
+
+    @property
+    def user_functions(self):
+        return self.assembly.kernel.user_functions
 
 # TODO uncomment later
     #@property
