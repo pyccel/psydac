@@ -3,8 +3,6 @@ from sympy import Tuple
 
 from sympde.printing.pycode import PythonCodePrinter as SympdePythonCodePrinter
 
-from pyccel.epyccel import get_source_function
-
 class PythonCodePrinter(SympdePythonCodePrinter):
 
     def __init__(self, settings=None):
@@ -31,11 +29,6 @@ class PythonCodePrinter(SympdePythonCodePrinter):
         return code +'\n' + self._print(expr.func)
 
     def _print_AppliedUndef(self, expr):
-#        if expr._imp_:
-#            code = get_source_function(expr._imp_)
-#            return code
-#
-#        else:
         if not expr._imp_:
             raise ValueError('_imp_ not impltemented')
 
