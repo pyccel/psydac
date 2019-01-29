@@ -53,7 +53,10 @@ from sympde.topology import VectorField, IndexedVectorField
 from sympde.topology import Boundary, BoundaryVector, NormalVector, TangentVector
 from sympde.topology import Covariant, Contravariant
 from sympde.topology import ElementArea
+from sympde.topology import LogicalExpr
+from sympde.topology import SymbolicExpr
 from sympde.topology.derivatives import _partial_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
 from sympde.topology.space import FunctionSpace
 from sympde.topology.space import TestFunction
@@ -117,14 +120,7 @@ def compute_normal_vector(vector, discrete_boundary, mapping):
         J = Matrix(lines)
         # ...
 
-        # ...
-        ops = _partial_derivatives[:dim]
-        elements = [d(M[i]) for d in ops for i in range(0, dim)]
-        for e in elements:
-            new = print_expression(e, mapping_name=False)
-            new = Symbol(new)
-            J = J.subs(e, new)
-        # ...
+        J = SymbolicExpr(J)
 
         if dim == 1:
             raise NotImplementedError('TODO')
@@ -415,8 +411,6 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
     dim  = len(indices_test)
 
     if not isinstance(atom, cls):
-#        print(atom, type(atom))
-#        import sys; sys.exit(0)
         raise TypeError('atom must be of type {}'.format(str(cls)))
 
     orders = [0 for i in range(0, dim)]
@@ -473,33 +467,9 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
     map_stmts = []
     if mapping and  isinstance(atom, _partial_derivatives):
         name = print_expression(atom)
-
-        a = get_atom_derivatives(atom)
-
-        M = mapping
-        dim = M.rdim
-        ops = _partial_derivatives[:dim]
-
-        # ... gradient
-        lgrad_B = [d(a) for d in ops]
-        grad_B = Covariant(mapping, lgrad_B)
-        rhs = grad_B[atom.grad_index]
-
-        # update expression
-        elements = [d(M[i]) for d in ops for i in range(0, dim)]
-        for e in elements:
-            new = print_expression(e, mapping_name=False)
-            new = Symbol(new)
-            rhs = rhs.subs(e, new)
-
-        for e in lgrad_B:
-            new = print_expression(e, logical=True)
-            new = Symbol(new)
-            rhs = rhs.subs(e, new)
-        # ...
-
-        map_stmts += [Assign(Symbol(name), rhs)]
-        # ...
+        rhs = LogicalExpr(mapping, atom)
+        rhs = SymbolicExpr(rhs)
+        map_stmts = [Assign(Symbol(name), rhs)]
     # ...
 
     return assign, map_stmts
@@ -555,33 +525,9 @@ def compute_atoms_expr_field(atom, indices_quad,
     map_stmts = []
     if mapping and  isinstance(atom, _partial_derivatives):
         name = print_expression(atom)
-
-        a = get_atom_derivatives(atom)
-
-        M = mapping
-        dim = M.rdim
-        ops = _partial_derivatives[:dim]
-
-        # ... gradient
-        lgrad_B = [d(a) for d in ops]
-        grad_B = Covariant(mapping, lgrad_B)
-        rhs = grad_B[atom.grad_index]
-
-        # update expression
-        elements = [d(M[i]) for d in ops for i in range(0, dim)]
-        for e in elements:
-            new = print_expression(e, mapping_name=False)
-            new = Symbol(new)
-            rhs = rhs.subs(e, new)
-
-        for e in lgrad_B:
-            new = print_expression(e, logical=True)
-            new = Symbol(new)
-            rhs = rhs.subs(e, new)
-        # ...
-
-        map_stmts += [Assign(Symbol(name), rhs)]
-        # ...
+        rhs = LogicalExpr(mapping, atom)
+        rhs = SymbolicExpr(rhs)
+        map_stmts = [Assign(Symbol(name), rhs)]
     # ...
 
     return init, update, map_stmts
@@ -638,34 +584,50 @@ def compute_atoms_expr_vector_field(atom, indices_quad,
     map_stmts = []
     if mapping and  isinstance(atom, _partial_derivatives):
         name = print_expression(atom)
+        rhs = LogicalExpr(mapping, atom)
+        rhs = SymbolicExpr(rhs)
+        map_stmts = [Assign(Symbol(name), rhs)]
 
-        a = get_atom_derivatives(atom)
-
-        M = mapping
-        dim = M.rdim
-        ops = _partial_derivatives[:dim]
-
-        # ... gradient
-        lgrad_B = [d(a) for d in ops]
-        grad_B = Covariant(mapping, lgrad_B)
-        rhs = grad_B[atom.grad_index]
-
-        # update expression
-        elements = [d(M[i]) for d in ops for i in range(0, dim)]
-        for e in elements:
-            new = print_expression(e, mapping_name=False)
-            new = Symbol(new)
-            rhs = rhs.subs(e, new)
-
-        for e in lgrad_B:
-            new = print_expression(e, logical=True)
-            new = Symbol(new)
-            rhs = rhs.subs(e, new)
-        # ...
-
-        map_stmts += [Assign(Symbol(name), rhs)]
-        # ...
+#    map_stmts = []
+#    if mapping and  isinstance(atom, _partial_derivatives):
+#        name = print_expression(atom)
+#
+#        a = get_atom_derivatives(atom)
+#
+#        M = mapping
+#        dim = M.rdim
+#        ops = _partial_derivatives[:dim]
+#
+#        # ... gradient
+#        lgrad_B = [d(a) for d in ops]
+#        grad_B = Covariant(mapping, lgrad_B)
+#        rhs = grad_B[atom.grad_index]
+#
+#        # update expression
+#        elements = [d(M[i]) for d in ops for i in range(0, dim)]
+#        for e in elements:
+#            new = print_expression(e, mapping_name=False)
+#            new = Symbol(new)
+#            rhs = rhs.subs(e, new)
+#
+#        for e in lgrad_B:
+#            new = print_expression(e, logical=True)
+#            new = Symbol(new)
+#            rhs = rhs.subs(e, new)
+#        # ...
+#
+#        map_stmts += [Assign(Symbol(name), rhs)]
+#        # ...
     # ...
+
+#        print('|update| ', update)
+#        print('|stmt|   ', map_stmts[0])
+#        print('|atom|   ', atom)
+#        print('|logical|', LogicalExpr(mapping, atom))
+#        rhs = LogicalExpr(mapping, atom)
+#        rhs = SymbolicExpr(rhs)
+#        print('|rhs|    ', rhs)
+#        import sys; sys.exit(0)
 
     return init, update, map_stmts
 
@@ -2079,13 +2041,7 @@ class Kernel(SplBasic):
 
                 # ... inv jacobian
                 jac = mapping.det_jacobian
-                rdim = mapping.rdim
-                ops = _partial_derivatives[:rdim]
-                elements = [d(mapping[i]) for d in ops for i in range(0, rdim)]
-                for e in elements:
-                    new = print_expression(e, mapping_name=False)
-                    new = Symbol(new)
-                    jac = jac.subs(e, new)
+                jac = SymbolicExpr(jac)
                 # ...
 
                 body += [Assign(det_jac, jac)]
