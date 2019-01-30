@@ -587,47 +587,7 @@ def compute_atoms_expr_vector_field(atom, indices_quad,
         rhs = LogicalExpr(mapping, atom)
         rhs = SymbolicExpr(rhs)
         map_stmts = [Assign(Symbol(name), rhs)]
-
-#    map_stmts = []
-#    if mapping and  isinstance(atom, _partial_derivatives):
-#        name = print_expression(atom)
-#
-#        a = get_atom_derivatives(atom)
-#
-#        M = mapping
-#        dim = M.rdim
-#        ops = _partial_derivatives[:dim]
-#
-#        # ... gradient
-#        lgrad_B = [d(a) for d in ops]
-#        grad_B = Covariant(mapping, lgrad_B)
-#        rhs = grad_B[atom.grad_index]
-#
-#        # update expression
-#        elements = [d(M[i]) for d in ops for i in range(0, dim)]
-#        for e in elements:
-#            new = print_expression(e, mapping_name=False)
-#            new = Symbol(new)
-#            rhs = rhs.subs(e, new)
-#
-#        for e in lgrad_B:
-#            new = print_expression(e, logical=True)
-#            new = Symbol(new)
-#            rhs = rhs.subs(e, new)
-#        # ...
-#
-#        map_stmts += [Assign(Symbol(name), rhs)]
-#        # ...
     # ...
-
-#        print('|update| ', update)
-#        print('|stmt|   ', map_stmts[0])
-#        print('|atom|   ', atom)
-#        print('|logical|', LogicalExpr(mapping, atom))
-#        rhs = LogicalExpr(mapping, atom)
-#        rhs = SymbolicExpr(rhs)
-#        print('|rhs|    ', rhs)
-#        import sys; sys.exit(0)
 
     return init, update, map_stmts
 
