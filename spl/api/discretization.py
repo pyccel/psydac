@@ -14,11 +14,11 @@ from pyccel.epyccel import get_source_function
 from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm
 from sympde.expr     import LinearForm as sym_LinearForm
-from sympde.expr     import Integral as sym_Integral
+from sympde.expr     import Functional as sym_Functional
 from sympde.expr     import Equation as sym_Equation
 from sympde.expr     import Boundary as sym_Boundary
 from sympde.expr     import Norm as sym_Norm
-from sympde.expr     import evaluate
+from sympde.expr     import TerminalExpr
 from sympde.topology import Domain, Boundary
 from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
@@ -155,7 +155,7 @@ class BasicDiscrete(object):
 
             # boundary is now a list of boundaries
             # TODO shall we keep it this way? since this is the simplest
-            # interface to be able to compute Integral on a curve in 3d
+            # interface to be able to compute Functional on a curve in 3d
         # ...
 
         # ...
@@ -785,11 +785,11 @@ class DiscreteLinearForm(BasicDiscrete):
 
 
 #==============================================================================
-class DiscreteIntegral(BasicDiscrete):
+class DiscreteFunctional(BasicDiscrete):
 
     def __init__(self, expr, kernel_expr, *args, **kwargs):
-        if not isinstance(expr, sym_Integral):
-            raise TypeError('> Expecting a symbolic Integral')
+        if not isinstance(expr, sym_Functional):
+            raise TypeError('> Expecting a symbolic Functional')
 
         assert( len(args) == 2 )
 
@@ -889,8 +889,8 @@ class DiscreteIntegral(BasicDiscrete):
 class DiscreteSumForm(BasicDiscrete):
 
     def __init__(self, a, kernel_expr, *args, **kwargs):
-        if not isinstance(a, (sym_BilinearForm, sym_LinearForm, sym_Integral)):
-            raise TypeError('> Expecting a symbolic BilinearForm, LinearFormn Integral')
+        if not isinstance(a, (sym_BilinearForm, sym_LinearForm, sym_Functional)):
+            raise TypeError('> Expecting a symbolic BilinearForm, LinearFormn Functional')
 
         self._expr = a
 
@@ -919,8 +919,8 @@ class DiscreteSumForm(BasicDiscrete):
             elif isinstance(a, sym_LinearForm):
                 ah = DiscreteLinearForm(a, kernel_expr, *args, **kwargs)
 
-            elif isinstance(a, sym_Integral):
-                ah = DiscreteIntegral(a, kernel_expr, *args, **kwargs)
+            elif isinstance(a, sym_Functional):
+                ah = DiscreteFunctional(a, kernel_expr, *args, **kwargs)
 
             forms.append(ah)
             kwargs['boundary'] = None
@@ -979,10 +979,10 @@ class DiscreteEquation(BasicDiscrete):
         # ...
 
         # ...
-        boundaries_lhs = expr.lhs.expr.atoms(sym_Boundary)
+        boundaries_lhs = expr.lhs.atoms(sym_Boundary)
         boundaries_lhs = list(boundaries_lhs)
 
-        boundaries_rhs = expr.rhs.expr.atoms(sym_Boundary)
+        boundaries_rhs = expr.rhs.atoms(sym_Boundary)
         boundaries_rhs = list(boundaries_rhs)
         # ...
 
@@ -994,7 +994,7 @@ class DiscreteEquation(BasicDiscrete):
         newargs = list(args)
         newargs[1] = test_trial
 
-        self._lhs = discretize(expr.lhs.expr, *newargs, **kwargs)
+        self._lhs = discretize(expr.lhs, *newargs, **kwargs)
         # ...
 
         # ...
@@ -1004,7 +1004,7 @@ class DiscreteEquation(BasicDiscrete):
 
         newargs = list(args)
         newargs[1] = test_space
-        self._rhs = discretize(expr.rhs.expr, *newargs, **kwargs)
+        self._rhs = discretize(expr.rhs, *newargs, **kwargs)
         # ...
 
         self._bc = bc
@@ -1171,7 +1171,7 @@ def discretize_domain(domain, *args, **kwargs):
 def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BasicForm):
-        kernel_expr = evaluate(a)
+        kernel_expr = TerminalExpr(a)
 #        print('=================')
 #        print(kernel_expr)
 #        print('=================')
@@ -1185,8 +1185,8 @@ def discretize(a, *args, **kwargs):
     elif isinstance(a, sym_LinearForm):
         return DiscreteLinearForm(a, kernel_expr, *args, **kwargs)
 
-    elif isinstance(a, sym_Integral):
-        return DiscreteIntegral(a, kernel_expr, *args, **kwargs)
+    elif isinstance(a, sym_Functional):
+        return DiscreteFunctional(a, kernel_expr, *args, **kwargs)
 
     elif isinstance(a, sym_Equation):
         return DiscreteEquation(a, *args, **kwargs)
@@ -1196,3 +1196,6 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, Domain):
         return discretize_domain(a, *args, **kwargs)
+
+    else:
+        raise NotImplementedError('given {}'.format(type(a)))

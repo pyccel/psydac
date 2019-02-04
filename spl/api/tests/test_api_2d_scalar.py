@@ -16,7 +16,7 @@ from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm, Integral
+from sympde.expr import BilinearForm, LinearForm
 from sympde.expr import Norm
 from sympde.expr import Equation, EssentialBC
 
@@ -527,13 +527,13 @@ def test_api_laplace_2d_neu():
 def test_api_biharmonic_2d_dir_1():
 
     from sympy.abc import x,y
-    from sympde.expr import atomize
+    from sympde.expr import TerminalExpr
 
     solution = (sin(pi*x)*sin(pi*y))**2
 
     # compute the analytical solution
     f = laplace(laplace(solution))
-    f = atomize(f, dim=2)
+    f = TerminalExpr(f, dim=2)
 
     l2_error, h1_error = run_biharmonic_2d_dir(solution, f,
                                             ncells=[2**3,2**3], degree=[2,2])

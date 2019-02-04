@@ -21,7 +21,7 @@ from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.topology import Mapping
-from sympde.expr import BilinearForm, LinearForm, Integral
+from sympde.expr import BilinearForm, LinearForm
 from sympde.expr import Norm
 from sympde.expr import Equation, EssentialBC
 
