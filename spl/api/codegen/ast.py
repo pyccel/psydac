@@ -664,7 +664,8 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
     # ...
 
     # ... weights and their derivatives
-    weights = Field('w', space)
+    # TODO check if 'w' exist already
+    weights = Field(space, name='w')
 
     weights_elements = [weights]
     if nderiv > 0:
@@ -1010,7 +1011,8 @@ class EvalMapping(SplBasic):
 
         weights_elements = []
         if self.is_rational_mapping:
-            weights_pts = Field('w', self.space)
+            # TODO check if 'w' exist already
+            weights_pts = Field(self.space, name='w')
 
             weights_elements = [weights_pts]
 

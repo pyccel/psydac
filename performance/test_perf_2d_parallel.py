@@ -94,7 +94,7 @@ def test_perf_poisson_2d_parallel(backend=SPL_BACKEND_PYTHON):
 
     x,y = domain.coordinates
 
-    F = Field('F', V)
+    F = Field(V, name='F')
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')

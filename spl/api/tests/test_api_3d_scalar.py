@@ -36,7 +36,7 @@ def run_poisson_3d_dir(solution, f, ncells, degree, comm=None):
 
     x,y,z = domain.coordinates
 
-    F = Field('F', V)
+    F = Field(V, name='F')
 
     v = TestFunction(V, name='v')
     u = TestFunction(V, name='u')
@@ -107,7 +107,7 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 
     x,y,z = domain.coordinates
 
-    F = Field('F', V)
+    F = Field(V, name='F')
 
     v = TestFunction(V, name='v')
     u = TestFunction(V, name='u')

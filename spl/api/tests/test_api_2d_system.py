@@ -40,9 +40,8 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
 
     x,y = domain.coordinates
 
-    # TODO improve: naming are not given the same way
     F = VectorField(W, name='F')
-    G = Field('G', V)
+    G = Field(V, name='G')
 
     u,v = [VectorTestFunction(W, name=i) for i in ['u', 'v']]
     p,q = [      TestFunction(V, name=i) for i in ['p', 'q']]

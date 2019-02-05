@@ -57,7 +57,7 @@ def run_poisson_2d_dir(filename, solution, f, comm=None):
 
     x,y = domain.coordinates
 
-    F = Field('F', V)
+    F = Field(V, name='F')
 
     v = TestFunction(V, name='v')
     u = TestFunction(V, name='u')
@@ -128,7 +128,7 @@ def run_poisson_2d_dirneu(filename, solution, f, boundary, comm=None):
 
     x,y = domain.coordinates
 
-    F = Field('F', V)
+    F = Field(V, name='F')
 
     v = TestFunction(V, name='v')
     u = TestFunction(V, name='u')
@@ -200,7 +200,7 @@ def run_laplace_2d_neu(filename, solution, f, comm=None):
 
     x,y = domain.coordinates
 
-    F = Field('F', V)
+    F = Field(V, name='F')
 
     v = TestFunction(V, name='v')
     u = TestFunction(V, name='u')
