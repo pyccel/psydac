@@ -76,7 +76,7 @@ def test_api_poisson_3d():
 
     x,y,z = domain.coordinates
 
-    F = Field('F', V)
+    F = Field(V, name='F')
 
     v = TestFunction(V, name='v')
     u = TestFunction(U, name='u')

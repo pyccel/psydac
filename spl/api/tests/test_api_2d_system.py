@@ -15,7 +15,7 @@ from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm, Integral
+from sympde.expr import BilinearForm, LinearForm
 from sympde.expr import Norm
 from sympde.expr import Equation, EssentialBC
 
@@ -40,9 +40,8 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
 
     x,y = domain.coordinates
 
-    # TODO improve: naming are not given the same way
     F = VectorField(W, name='F')
-    G = Field('G', V)
+    G = Field(V, name='G')
 
     u,v = [VectorTestFunction(W, name=i) for i in ['u', 'v']]
     p,q = [      TestFunction(V, name=i) for i in ['p', 'q']]

@@ -66,7 +66,7 @@ from sympde.topology.space import Trace
 from sympde.topology.derivatives import print_expression
 from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
-from sympde.expr import BilinearForm, LinearForm, Integral, BasicForm
+from sympde.expr import BilinearForm, LinearForm, Functional, BasicForm
 from sympde.printing.pycode import pycode  # TODO remove from here
 
 from spl.fem.splines import SplineSpace
@@ -74,7 +74,7 @@ from spl.fem.tensor  import TensorFemSpace
 from spl.fem.vector  import ProductFemSpace
 
 
-FunctionalForms = (BilinearForm, LinearForm, Integral)
+FunctionalForms = (BilinearForm, LinearForm, Functional)
 
 #==============================================================================
 def random_string( n ):
@@ -664,7 +664,8 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
     # ...
 
     # ... weights and their derivatives
-    weights = Field('w', space)
+    # TODO check if 'w' exist already
+    weights = Field(space, name='w')
 
     weights_elements = [weights]
     if nderiv > 0:
@@ -1010,7 +1011,8 @@ class EvalMapping(SplBasic):
 
         weights_elements = []
         if self.is_rational_mapping:
-            weights_pts = Field('w', self.space)
+            # TODO check if 'w' exist already
+            weights_pts = Field(self.space, name='w')
 
             weights_elements = [weights_pts]
 
@@ -1578,7 +1580,7 @@ class Kernel(SplBasic):
 
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
-        is_function = isinstance(self.weak_form, Integral)
+        is_function = isinstance(self.weak_form, Functional)
 
         expr = self.kernel_expr
         mapping = self.mapping
@@ -2302,7 +2304,7 @@ class Assembly(SplBasic):
 
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
-        is_function = isinstance(self.weak_form, Integral)
+        is_function = isinstance(self.weak_form, Functional)
 
         dim    = form.ldim
 
@@ -2762,7 +2764,7 @@ class Interface(SplBasic):
 
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
-        is_function = isinstance(self.weak_form, Integral)
+        is_function = isinstance(self.weak_form, Functional)
 
         dim = form.ldim
 

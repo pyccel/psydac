@@ -22,7 +22,7 @@ from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.topology import Mapping
 from sympde.topology import Domain
-from sympde.expr import BilinearForm, LinearForm, Integral
+from sympde.expr import BilinearForm, LinearForm
 from sympde.expr import Norm
 from sympde.expr import Equation, EssentialBC
 
@@ -57,7 +57,7 @@ def run_poisson_3d_dir(filename, solution, f, comm=None):
 
     x,y,z = domain.coordinates
 
-    F = Field('F', V)
+    F = Field(V, name='F')
 
     v = TestFunction(V, name='v')
     u = TestFunction(V, name='u')
@@ -128,7 +128,7 @@ def run_poisson_3d_dirneu(filename, solution, f, boundary, comm=None):
 
     x,y,z = domain.coordinates
 
-    F = Field('F', V)
+    F = Field(V, name='F')
 
     v = TestFunction(V, name='v')
     u = TestFunction(V, name='u')
@@ -200,7 +200,7 @@ def run_laplace_3d_neu(filename, solution, f, comm=None):
 
     x,y,z = domain.coordinates
 
-    F = Field('F', V)
+    F = Field(V, name='F')
 
     v = TestFunction(V, name='v')
     u = TestFunction(V, name='u')
