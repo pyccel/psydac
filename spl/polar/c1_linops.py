@@ -78,7 +78,14 @@ class LinearOperator_StencilToDense( Matrix ):
 
         for i in range( n0 ):
             y[i] = np.dot( B_sd[i,:,:].flat, v[0:p1,s2:e2+1].flat )
-    
+
+        # Sum contributions from all processes that share data at r=0
+        if out.space.parallel:
+            from mpi4py import MPI
+            U = out.space
+            if U.radial_comm.rank == U.radial_root:
+                U.angle_comm.Allreduce( MPI.IN_PLACE, y, op=MPI.SUM )
+
         return out
 
     # ...
@@ -194,7 +201,8 @@ class LinearOperator_DenseToStencil( Matrix ):
         B_ds = self._data
         x    =    v._data
 
-        out[0:p1,s2:e2+1] = np.dot( B_ds, x )
+        if n0 > 0:
+            out[0:p1,s2:e2+1] = np.dot( B_ds, x )
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
