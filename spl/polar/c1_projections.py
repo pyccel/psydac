@@ -40,8 +40,7 @@ class C1Projector:
         self._P = new_c1_vector_space( S, radial_dim=0 )
 
         # Store matrix L with 3 indices
-        lamb = self.compute_lambda( mapping )
-        self._L = np.array( lamb )
+        self._L = self.compute_lambda( mapping )
 
     # ...
     def compute_lambda( self, mapping ):
@@ -50,47 +49,64 @@ class C1Projector:
         e1, e2 = mapping.space.vector_space.ends
         p1, p2 = mapping.space.vector_space.pads
 
-        # Extract control points, including ghost regions
-        x_ext = mapping.control_points[0:2,:,0]
-        y_ext = mapping.control_points[0:2,:,1]
+        if s1 == 0:
 
-        # Exclude ghost regions for calculations
-        x = x_ext[:, s2:e2+1]
-        y = y_ext[:, s2:e2+1]
+            # Number of coefficients
+            n0 = 3
 
-        SQRT3     = np.sqrt(3.0)
-        ONE_THIRD = 1.0/3.0
-        (x0,y0)   = (x[0,0],y[0,0])
+            # Extract control points, including ghost regions
+            x_ext = mapping.control_points[0:2,:,0]
+            y_ext = mapping.control_points[0:2,:,1]
 
-        # Define equilateral triangle enclosing first row of control points
-        tau = max( np.max( -2*(x[1,:]-x0) ),
-                   np.max( x[1,:]-x0-SQRT3*(y[1,:]-y0) ),
-                   np.max( x[1,:]-x0+SQRT3*(y[1,:]-y0) ) )
+            # Exclude ghost regions for calculations
+            # TODO: fix numbering
+            x = x_ext[:, s2:e2+1]
+            y = y_ext[:, s2:e2+1]
 
-        if self.tensor_space.parallel:
-            from mpi4py import MPI
-            comm = self.tensor_space.cart.comm
-            tau  = comm.reduce( tau, op=MPI.MAX )
+            SQRT3     = np.sqrt(3.0)
+            ONE_THIRD = 1.0/3.0
+            (x0,y0)   = (x[0,0],y[0,0])
 
-        # Coordinates of vertices of equilateral triangle
-        vrtx = [(x0-tau/2, y0-SQRT3*tau/2), 
-                (x0+tau  , y0            ),
-                (x0-tau/2, y0+SQRT3*tau/2)]
+            # Define equilateral triangle enclosing first row of control points
+            tau = max( np.max( -2*(x[1,:]-x0) ),
+                       np.max( x[1,:]-x0-SQRT3*(y[1,:]-y0) ),
+                       np.max( x[1,:]-x0+SQRT3*(y[1,:]-y0) ) )
 
-        # Define barycentric coordinates with respect to smallest circle
-        # enclosing first row of control points
-        # [extended domain]
-        lambda_0  = ONE_THIRD*(1.0 + 2.0*(x_ext-x0)                    /tau)
-        lambda_1  = ONE_THIRD*(1.0 -    ((x_ext-x0) - SQRT3*(y_ext-y0))/tau)
-        lambda_2  = ONE_THIRD*(1.0 -    ((x_ext-x0) + SQRT3*(y_ext-y0))/tau)
-        lamb = (lambda_0, lambda_1, lambda_2)
+            # Obtain maximum from all processes at center
+            if self.c1_space[0].parallel:
+                from mpi4py import MPI
+                comm = self.c1_space[0].angle_comm
+                tau  = comm.allreduce( tau, op=MPI.MAX )
+
+            # Coordinates of vertices of equilateral triangle
+            vrtx = [(x0-tau/2, y0-SQRT3*tau/2),
+                    (x0+tau  , y0            ),
+                    (x0-tau/2, y0+SQRT3*tau/2)]
+
+            # Define barycentric coordinates with respect to smallest circle
+            # enclosing first row of control points
+            # [extended domain]
+            lambda_0  = ONE_THIRD*(1.0 + 2.0*(x_ext-x0)                    /tau)
+            lambda_1  = ONE_THIRD*(1.0 -    ((x_ext-x0) - SQRT3*(y_ext-y0))/tau)
+            lambda_2  = ONE_THIRD*(1.0 -    ((x_ext-x0) + SQRT3*(y_ext-y0))/tau)
+            lamb = (lambda_0, lambda_1, lambda_2)
+            print( lambda_0.shape )
+
+        else:
+
+            n0   = 0
+            tau  = None
+            vrtx = None
+            lamb = ()
 
         # STORE INFO
+        # TODO: remove this?
         self._tau  = tau
         self._vrtx = vrtx
         self._lamb = lamb
 
-        return lamb
+        L  = np.array( lamb, dtype=float ).reshape( n0, 2, e2-s2+1+2*p2 )
+        return L
 
     # ...
     @property
@@ -123,19 +139,21 @@ class C1Projector:
         L = self._L
         P = self.c1_space
 
-        n1, n2 = G.domain.npts
-        s1, s2 = G.starts
-        e1, e2 = G.ends
-        p1, p2 = G.pads
+        n0 = P[0].dimension
+
+        n1, n2 = P[1].npts
+        s1, s2 = P[1].starts
+        e1, e2 = P[1].ends
+        p1, p2 = P[1].pads
 
         #****************************************
         # Compute A' = L^T A L
         #****************************************
-        Ap = np.zeros( (3,3) )
+        Ap = np.zeros( (n0, n0) )
 
         # Compute product (A L) and store it
-        AL = np.zeros( (3,2,n2) )
-        for v in [0,1,2]:
+        AL = np.zeros( (n0, 2, n2) )
+        for v in range( n0 ):
             for i1 in [0,1]:
                 for i2 in range( s2, e2+1 ):
 
@@ -150,19 +168,27 @@ class C1Projector:
                     AL[v,i1,i2] = temp
 
         # Compute product A' = L^T (A L)
-        for u in range( 3 ):
-            for v in range( 3 ):
+        for u in range( n0 ):
+            for v in range( n0 ):
                 Ap[u,v] = np.dot( L[u,:,p2:-p2].flat, AL[v,:,:].flat )
 
-        # Create linear operator
+        # Merge all contributions at different angles
+        if P[0].parallel:
+            from mpi4py import MPI
+            U = P[0]
+            if U.radial_comm.rank == U.radial_root:
+                U.angle_comm.Allreduce( MPI.IN_PLACE, Ap, op=MPI.SUM )
+            del U, MPI
+
+        # Convert Numpy 2D array to our own linear operator
         Ap = DenseMatrix( P[0], P[0], Ap )
 
         #****************************************
         # Compute B' = L^T B
         #****************************************
-        Bp = np.zeros( (3,p1,n2) )
+        Bp = np.zeros( (n0, p1, n2) )
 
-        for u in [0,1,2]:
+        for u in range( n0 ):
 
             for i1 in [0,1]:
                 for i2 in range( s2, e2+1 ):
@@ -179,12 +205,12 @@ class C1Projector:
         #****************************************
         # Compute C' = C L
         #****************************************
-        Cp = np.zeros( (p1,n2,3) )
+        Cp = np.zeros( (p1, n2, n0) )
 
         for i1 in range( 2, 2+p1 ):
             for i2 in range( s2, e2+1 ):
 
-                for v in [0,1,2]:
+                for v in range( n0 ):
 
                     # Sum over j1 and j2
                     temp = 0
@@ -207,7 +233,7 @@ class C1Projector:
         Dp = StencilMatrix( P[1], P[1] )
 
         # Copy all data from G, but skip values for i1 = 0, 1
-        Dp[0:,:,:,:] = G[2:,:,:,:]
+        Dp[s1:e1+1, :, :, :] = G[2+s1:2+e1+1, :, :, :]
 
         # Remove values with negative j1 which may have polluted ghost region
         Dp.remove_spurious_entries()
@@ -241,22 +267,31 @@ class C1Projector:
 
         L = self._L
         P = self.c1_space
+        n0 = P[0].dimension
 
-        s1, s2 = b.starts
-        e1, e2 = b.ends
-        p1, p2 = b.pads
+        s1, s2 = P[1].starts
+        e1, e2 = P[1].ends
+        p1, p2 = P[1].pads
 
-        bp0 = np.zeros( 3 )
-        for u in [0,1,2]:
+        bp0 = np.zeros( n0 )
+        for u in range( n0 ):
             for i1 in [0,1]:
                 for i2 in range( s2, e2+1 ):
 #                    bp0[u] += L[u,i1,i2] * b[i1,i2]
                     bp0[u] += L[u,i1,p2+i2-s2] * b[i1,i2]
 
+        # Merge all contributions at different angles
+        if P[0].parallel:
+            from mpi4py import MPI
+            U = P[0]
+            if U.radial_comm.rank == U.radial_root:
+                U.angle_comm.Allreduce( MPI.IN_PLACE, bp0, op=MPI.SUM )
+            del U, MPI
+
         bp0 =   DenseVector( P[0], bp0 )
         bp1 = StencilVector( P[1] )
-        bp1[0:,:,:,:] = b[2:,:,:,:]
 
+        bp1[s1:e1+1, :] = b[2+s1:2+e1+1, :]
         bp1.update_ghost_regions()
 
         return BlockVector( P, blocks = [bp0, bp1] )
@@ -273,18 +308,21 @@ class C1Projector:
         assert vp.space == self.c1_space
 
         L = self._L
+        P = self.c1_space
+
+        n0 = P[0].dimension
+
+        s1, s2 = P[1].starts
+        e1, e2 = P[1].ends
+        p1, p2 = P[1].pads
 
         v = StencilVector( self.tensor_space )
-        v[2:,:] = vp[1][0:,:]
-
-        s1, s2 = v.starts
-        e1, e2 = v.ends
-        p1, p2 = v.pads
+        v[2+s1:2+e1+1, :] = vp[1][s1:e1+1, :]
 
         vp0 = vp[0].toarray()
         for i1 in [0,1]:
             for i2 in range( s2, e2+1 ):
-                for u in [0,1,2]:
+                for u in range( n0 ):
 #                    v[i1,i2] = np.dot( L[:,i1,i2], vp0 )
                     v[i1,i2] = np.dot( L[:,i1,p2+i2-s2], vp0 )
 
