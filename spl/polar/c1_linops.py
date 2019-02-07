@@ -30,7 +30,7 @@ class LinearOperator_StencilToDense( Matrix ):
         n0     = W.ncoeff
 
         data = np.asarray( data )
-        assert data.shape == (n0, p1, e2-s2+1)
+        assert data.shape == (n0, p1, e2-s2+1+2*p2)
 
         # Store information in object
         self._domain   = V
@@ -76,8 +76,11 @@ class LinearOperator_StencilToDense( Matrix ):
         B_sd = self._data
         y    =  out._data
 
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
+
         for i in range( n0 ):
-            y[i] = np.dot( B_sd[i,:,:].flat, v[0:p1,s2:e2+1].flat )
+            y[i] = np.dot( B_sd[i,:,:].flat, v[0:p1,:].flat )
 
         # Sum contributions from all processes that share data at r=0
         if out.space.parallel:
@@ -132,8 +135,8 @@ class LinearOperator_StencilToDense( Matrix ):
         for i in range( n0 ):
             for j1 in range( p1 ):
                 data += self._data[i,j1,:].flat
-                rows += repeat( i, e2-s2+1 )
-                cols += range( j1*n2+s2, j1*n2+e2+1 )
+                rows += repeat( i, e2-s2+1+2*p2 )
+                cols += (j1*n2 + i2%n2 for i2 in range(s2-p2, e2+1+p2))
 
         # Create Scipy sparse matrix in COO format
         coo = coo_matrix( (data,(rows,cols)), shape=(n0,n1*n2), dtype=self.codomain.dtype )

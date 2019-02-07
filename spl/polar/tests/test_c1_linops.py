@@ -34,8 +34,8 @@ def test_c1_linops( n0, npts, pads, verbose=False ):
     # M =  |      |
     #      | C  D |
     Aa = np.random.random( (n0, n0) )
-    Ba = np.random.random( (n0, p1, e2-s2+1) )
-    Ca = Ba.transpose( 1,2,0 ).copy()
+    Ba = np.random.random( (n0, p1, e2-s2+1+2*p2) )
+    Ca = np.random.random( (p1, e2-s2+1, n0) )
 
     # Linear operators
     A = DenseMatrix( U, U, Aa )

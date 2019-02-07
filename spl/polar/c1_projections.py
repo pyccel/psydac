@@ -186,20 +186,16 @@ class C1Projector:
         #****************************************
         # Compute B' = L^T B
         #****************************************
-        Bp = np.zeros( (n0, p1, e2-s2+1) )
-
-        # NOTE: necessary because we access rows of G in ghost region along i2
-        if not G.ghost_regions_in_sync:
-            G.update_ghost_regions( direction=1 )
+        Bp = np.zeros( (n0, p1, e2-s2+1+2*p2) )
 
         for u in range( n0 ):
             for i1 in [0,1]:
-                for j1 in range( 2, i1+p1+1 ):
-                    for j2 in range( s2, e2+1 ):
+                for i2 in range( s2, e2+1 ):
+                    for j1 in range( 2, i1+p1+1 ):
+                        k1 = j1 - i1
                         for k2 in range( -p2, p2+1 ):
-                            k1 = j1 - i1
-                            i2 = j2 - k2
-                            Bp[u, j1-2, j2-s2] += L[u, i1, p2+i2-s2] * G[i1, i2, k1, k2]
+                            j2 = i2 + k2
+                            Bp[u, j1-2, p2+j2-s2] += L[u, i1, p2+i2-s2] * G[i1, i2, k1, k2]
 
         # Create linear operator
         Bp = LinearOperator_StencilToDense( P[1], P[0], Bp )
@@ -238,13 +234,6 @@ class C1Projector:
 
         # Remove values with negative j1 which may have polluted ghost region
         Dp.remove_spurious_entries()
-
-        #****************************************
-        # Consistency checks
-        #****************************************
-
-        # Is it true that C'=(B')^T ?
-        assert np.allclose( Cp._data, np.moveaxis( Bp._data, 0, -1 ), rtol=1e-14, atol=1e-14 )
 
         #****************************************
         # Block linear operator G' = E^T G E
