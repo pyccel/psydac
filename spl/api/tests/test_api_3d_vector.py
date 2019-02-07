@@ -18,7 +18,7 @@ from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm
 from sympde.expr import Norm
-from sympde.expr import Equation, EssentialBC
+from sympde.expr import find, EssentialBC
 
 from spl.fem.vector  import VectorFemField
 from spl.api.discretization import discretize
@@ -52,7 +52,7 @@ def run_vector_poisson_3d_dir(solution, f, ncells, degree):
     h1norm = Norm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
-    equation = Equation(a(v,u), l(v), bc=bc)
+    equation = find(u, forall=v, lhs=a, rhs=l, bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain
