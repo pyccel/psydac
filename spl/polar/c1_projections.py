@@ -188,6 +188,10 @@ class C1Projector:
         #****************************************
         Bp = np.zeros( (n0, p1, e2-s2+1) )
 
+        # NOTE: necessary because we access rows of G in ghost region along i2
+        if not G.ghost_regions_in_sync:
+            G.update_ghost_regions( direction=1 )
+
         for u in range( n0 ):
             for i1 in [0,1]:
                 for j1 in range( 2, i1+p1+1 ):
@@ -207,7 +211,6 @@ class C1Projector:
 
         for i1 in range( 2, 2+p1 ):
             for i2 in range( s2, e2+1 ):
-
                 for v in range( n0 ):
 
                     # Sum over j1 and j2
