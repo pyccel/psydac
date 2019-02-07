@@ -1,15 +1,24 @@
 from sympy.core import Symbol
 from sympy import Tuple
 
-from sympde.printing.pycode import PythonCodePrinter as SympdePythonCodePrinter
+from pyccel.codegen.printing.pycode import PythonCodePrinter as PyccelPythonCodePrinter
 
-class PythonCodePrinter(SympdePythonCodePrinter):
+from sympde.calculus import Dot, Inner, Cross
+from sympde.calculus import Grad, Rot, Curl, Div
+from sympde.topology import Line, Square, Cube
+from sympde.topology.derivatives import _partial_derivatives
+from sympde.topology.derivatives import print_expression
+
+class PythonCodePrinter(PyccelPythonCodePrinter):
 
     def __init__(self, settings=None):
         self._enable_dependencies = settings.pop('enable_dependencies', True)
 
-        SympdePythonCodePrinter.__init__(self, settings=settings)
+        PyccelPythonCodePrinter.__init__(self, settings=settings)
 
+    # .........................................................
+    #      SPL objects
+    # .........................................................
     def _print_SplBasic(self, expr):
         code = ''
         if self._enable_dependencies and expr.dependencies:
@@ -27,7 +36,55 @@ class PythonCodePrinter(SympdePythonCodePrinter):
         code = '\n'.join(self._print(i) for i in expr.imports)
 
         return code +'\n' + self._print(expr.func)
+    # .........................................................
 
+    # .........................................................
+    #         SYMPDE objects
+    # .........................................................
+    def _print_dx(self, expr):
+        arg = expr.args[0]
+        if isinstance(arg, _partial_derivatives):
+            arg = print_expression(arg, mapping_name=False)
+
+        else:
+            arg = self._print(arg) + '_'
+
+        return arg + 'x'
+
+    def _print_dy(self, expr):
+        arg = expr.args[0]
+        if isinstance(arg, _partial_derivatives):
+            arg = print_expression(arg, mapping_name=False)
+
+        else:
+            arg = self._print(arg) + '_'
+
+        return arg + 'y'
+
+    def _print_dz(self, expr):
+        arg = expr.args[0]
+        if isinstance(arg, _partial_derivatives):
+            arg = print_expression(arg, mapping_name=False)
+
+        else:
+            arg = self._print(arg) + '_'
+
+        return arg + 'z'
+
+    def _print_IndexedTestTrial(self, expr):
+        base = self._print(expr.base)
+        index = self._print(expr.indices[0])
+        return  '{base}_{i}'.format(base=base, i=index)
+
+    def _print_IndexedVectorField(self, expr):
+        base = self._print(expr.base)
+        index = self._print(expr.indices[0])
+        return  '{base}_{i}'.format(base=base, i=index)
+    # .........................................................
+
+    # .........................................................
+    #        SYMPY objects
+    # .........................................................
     def _print_AppliedUndef(self, expr):
         if not expr._imp_:
             raise ValueError('_imp_ not impltemented')
@@ -35,6 +92,7 @@ class PythonCodePrinter(SympdePythonCodePrinter):
         args = ','.join(self._print(i) for i in expr.args)
         fname = self._print(expr.func.__name__)
         return '{fname}({args})'.format(fname=fname, args=args)
+    # .........................................................
 
 
 def pycode(expr, **settings):

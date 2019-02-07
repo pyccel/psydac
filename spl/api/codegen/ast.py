@@ -1,6 +1,5 @@
-# TODO - in pycode, when printing a For loop, we should check if end == start + 1
-#        in which case, we shall replace the For statement by its body and subs
-#        the iteration index by its value (start)
+# TODO: - replace call to pycode by SymbolicExpr (may need to use LogicalExpr)
+#       - replace call to print_expression by SymbolicExpr (may need to use LogicalExpr)
 
 from collections import OrderedDict
 from itertools import groupby
@@ -67,11 +66,11 @@ from sympde.topology.derivatives import print_expression
 from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
 from sympde.expr import BilinearForm, LinearForm, Functional, BasicForm
-from sympde.printing.pycode import pycode  # TODO remove from here
 
 from spl.fem.splines import SplineSpace
 from spl.fem.tensor  import TensorFemSpace
 from spl.fem.vector  import ProductFemSpace
+from .printing import pycode  # TODO remove from here
 
 
 FunctionalForms = (BilinearForm, LinearForm, Functional)
