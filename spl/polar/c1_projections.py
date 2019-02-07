@@ -152,7 +152,7 @@ class C1Projector:
         Ap = np.zeros( (n0, n0) )
 
         # Compute product (A L) and store it
-        AL = np.zeros( (n0, 2, n2) )
+        AL = np.zeros( (n0, 2, e2-s2+1) )
         for v in range( n0 ):
             for i1 in [0,1]:
                 for i2 in range( s2, e2+1 ):
@@ -161,11 +161,11 @@ class C1Projector:
                     temp = 0
                     for j1 in [0,1]:
                         for k2 in range( -p2, p2+1 ):
-                            j2 = (i2+k2) % n2
-#                            temp += G[i1,i2,j1-i1,k2] * L[v,j1,j2]
-                            temp += G[i1,i2,j1-i1,k2] * L[v,j1,p2+j2-s2]
+                            k1 = j1 - i1
+                            j2 = i2 + k2
+                            temp += G[i1, i2, k1, k2] * L[v, j1, p2+j2-s2]
 
-                    AL[v,i1,i2] = temp
+                    AL[v, i1, i2-s2] = temp
 
         # Compute product A' = L^T (A L)
         for u in range( n0 ):
@@ -186,18 +186,16 @@ class C1Projector:
         #****************************************
         # Compute B' = L^T B
         #****************************************
-        Bp = np.zeros( (n0, p1, n2) )
+        Bp = np.zeros( (n0, p1, e2-s2+1) )
 
         for u in range( n0 ):
-
             for i1 in [0,1]:
-                for i2 in range( s2, e2+1 ):
-
-                    for j1 in range( 2, i1+p1+1 ):
+                for j1 in range( 2, i1+p1+1 ):
+                    for j2 in range( s2, e2+1 ):
                         for k2 in range( -p2, p2+1 ):
-                            j2 = (i2+k2) % n2
-#                            Bp[u,j1-2,j2] += L[u,i1,i2] * G[i1,i2,j1-i1,k2]
-                            Bp[u,j1-2,j2] += L[u,i1,p2+i2-s2] * G[i1,i2,j1-i1,k2]
+                            k1 = j1 - i1
+                            i2 = j2 - k2
+                            Bp[u, j1-2, j2-s2] += L[u, i1, p2+i2-s2] * G[i1, i2, k1, k2]
 
         # Create linear operator
         Bp = LinearOperator_StencilToDense( P[1], P[0], Bp )
@@ -205,7 +203,7 @@ class C1Projector:
         #****************************************
         # Compute C' = C L
         #****************************************
-        Cp = np.zeros( (p1, n2, n0) )
+        Cp = np.zeros( (p1, e2-s2+1, n0) )
 
         for i1 in range( 2, 2+p1 ):
             for i2 in range( s2, e2+1 ):
@@ -216,11 +214,11 @@ class C1Projector:
                     temp = 0
                     for j1 in range( max(0,i1-p1), 2 ):
                         for k2 in range( -p2, p2+1 ):
-                            j2 = (i2+k2) % n2
-#                            temp += G[i1,i2,j1-i1,k2] * L[v,j1,j2]
-                            temp += G[i1,i2,j1-i1,k2] * L[v,j1,p2+j2-s2]
+                            k1 = j1 - i1
+                            j2 = i2 + k2
+                            temp += G[i1, i2, k1, k2] * L[v, j1, p2+j2-s2]
 
-                    Cp[i1-2,i2,v] = temp
+                    Cp[i1-2, i2-s2, v] = temp
 
         # Create linear operator
         Cp = LinearOperator_DenseToStencil( P[0], P[1], Cp )
