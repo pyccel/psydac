@@ -27,7 +27,7 @@ class LinearOperator_StencilToDense( Matrix ):
         s1, s2 = V.starts
         e1, e2 = V.ends
         p1, p2 = V.pads
-        n0     = W.dimension
+        n0     = W.ncoeff
 
         data = np.asarray( data )
         assert data.shape == (n0, p1, e2-s2+1)
@@ -71,7 +71,7 @@ class LinearOperator_StencilToDense( Matrix ):
         s1, s2 = V.starts
         e1, e2 = V.ends
         p1, p2 = V.pads
-        n0     = W.dimension
+        n0     = W.ncoeff
 
         B_sd = self._data
         y    =  out._data
@@ -91,7 +91,7 @@ class LinearOperator_StencilToDense( Matrix ):
     # ...
     def toarray( self ):
 
-        n0     = self.codomain.dimension
+        n0     = self.codomain.ncoeff
 
         n1, n2 = self.domain.npts
         p1, p2 = self.domain.pads
@@ -119,7 +119,7 @@ class LinearOperator_StencilToDense( Matrix ):
     def tocoo( self ):
 
         # Extract relevant information from vector spaces
-        n0     = self.codomain.dimension
+        n0     = self.codomain.ncoeff
         n1, n2 = self.domain.npts
         p1, p2 = self.domain.pads
         s1, s2 = self.domain.starts
@@ -156,7 +156,7 @@ class LinearOperator_DenseToStencil( Matrix ):
         s1, s2 = W.starts
         e1, e2 = W.ends
         p1, p2 = W.pads
-        n0     = V.dimension
+        n0     = V.ncoeff
 
         data = np.asarray( data )
         assert data.shape == (p1, e2-s2+1, n0)
@@ -196,7 +196,7 @@ class LinearOperator_DenseToStencil( Matrix ):
         s1, s2 = W.starts
         e1, e2 = W.ends
         p1, p2 = W.pads
-        n0     = V.dimension
+        n0     = V.ncoeff
 
         B_ds = self._data
         x    =    v._data
@@ -212,7 +212,7 @@ class LinearOperator_DenseToStencil( Matrix ):
     # ...
     def toarray( self ):
 
-        n0     = self.domain.dimension
+        n0     = self.domain.ncoeff
 
         n1, n2 = self.codomain.npts
         p1, p2 = self.codomain.pads
@@ -239,7 +239,7 @@ class LinearOperator_DenseToStencil( Matrix ):
     def tocoo( self ):
 
         # Extract relevant information from vector spaces
-        n0     = self.domain.dimension
+        n0     = self.domain.ncoeff
         n1, n2 = self.codomain.npts
         p1, p2 = self.codomain.pads
         s1, s2 = self.codomain.starts

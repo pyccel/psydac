@@ -139,7 +139,7 @@ class C1Projector:
         L = self._L
         P = self.c1_space
 
-        n0 = P[0].dimension
+        n0 = P[0].ncoeff
 
         n1, n2 = P[1].npts
         s1, s2 = P[1].starts
@@ -267,7 +267,7 @@ class C1Projector:
 
         L = self._L
         P = self.c1_space
-        n0 = P[0].dimension
+        n0 = P[0].ncoeff
 
         s1, s2 = P[1].starts
         e1, e2 = P[1].ends
@@ -310,7 +310,7 @@ class C1Projector:
         L = self._L
         P = self.c1_space
 
-        n0 = P[0].dimension
+        n0 = P[0].ncoeff
 
         s1, s2 = P[1].starts
         e1, e2 = P[1].ends

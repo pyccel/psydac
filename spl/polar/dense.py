@@ -87,6 +87,9 @@ class DenseVectorSpace( VectorSpace ):
             remain_dims = [d not in (radial_dim, angle_dim) for d in range( cart.ndim )]
             tensor_comm = cart.comm_cart.Sub( remain_dims )
 
+            # Calculate dimension of linear space
+            self._dimension = n * np.prod( [cart.npts[d] for d in remain_dims] )
+
             # Store info
             self._radial_dim  = radial_dim
             self._radial_comm = radial_comm
@@ -95,18 +98,36 @@ class DenseVectorSpace( VectorSpace ):
             self._angle_comm  = angle_comm
             self._tensor_comm = tensor_comm
 
+        else:
+
+            # TODO: remove inconsistency between serial and parallel cases
+
+            # For now, in the serial case we assume that the dimension of the
+            # linear space is equal to the number of components
+            self._dimension = n
+
     #-------------------------------------
     # Abstract interface
     #-------------------------------------
     @property
     def dimension( self ):
-#        return self._n
-        # TODO: maybe revert this and add 'data_shape' property
-        return self._n if self._radial_comm.rank == self._radial_root else 0
+        """ The dimension of a vector space V is the cardinality
+            (i.e. the number of vectors) of a basis of V over its base field.
+        """
+        return self._dimension
 
     # ...
     def zeros( self ):
-        data = np.zeros( self.dimension, dtype=self.dtype )
+        """
+        Get a copy of the null element of the DenseVectorSpace V.
+
+        Returns
+        -------
+        null : DenseVector
+            A new vector object with all components equal to zero.
+
+        """
+        data = np.zeros( self.ncoeff, dtype=self.dtype )
         return DenseVector( self, data )
 
     #-------------------------------------
@@ -120,6 +141,16 @@ class DenseVectorSpace( VectorSpace ):
     @property
     def parallel( self ):
         return (self._cart is not None)
+
+    # ...
+    @property
+    def ncoeff( self ):
+        """ Local number of coefficients. """
+        # TODO: maybe keep this number global, and add local 'dshape' property
+        if self.parallel:
+            return self._n if self._radial_comm.rank == self._radial_root else 0
+        else:
+            return self._n
 
     # ...
     @property
@@ -150,7 +181,7 @@ class DenseVector( Vector ):
 
         data = np.asarray( data )
         assert data.ndim  == 1
-        assert data.shape ==(V.dimension,)
+        assert data.shape ==(V.ncoeff,)
         assert data.dtype == V.dtype
 
         self._space = V
@@ -237,7 +268,7 @@ class DenseMatrix( Matrix ):
 
         data = np.asarray( data )
         assert data.ndim  == 2
-        assert data.shape == (W.dimension, V.dimension)
+        assert data.shape == (W.ncoeff, V.ncoeff)
 #        assert data.dfype == #???
 
         self._domain   = V
