@@ -22,7 +22,6 @@ class LinearOperator_StencilToDense( Matrix ):
 
         # V space must be 2D for now (TODO: extend to higher dimensions)
         # W space must have 3 components for now (TODO: change to arbitrary n)
-        # Only works in serial (TODO: extend to MPI setting)
 
         s1, s2 = V.starts
         e1, e2 = V.ends
@@ -61,10 +60,6 @@ class LinearOperator_StencilToDense( Matrix ):
         else:
             out = self._codomain.zeros()
 
-        # TODO: verify if range(s1,e1+1) contains degrees of freedom
-        # TODO: implement parallel version
-        # TODO: do we care about having a 'dot_incr' option?
-
         V = self._domain
         W = self._codomain
 
@@ -76,11 +71,13 @@ class LinearOperator_StencilToDense( Matrix ):
         B_sd = self._data
         y    =  out._data
 
+        # IMPORTANT: algorithm uses data in ghost regions
         if not v.ghost_regions_in_sync:
             v.update_ghost_regions()
 
+        # Compute local contribution to global dot product
         for i in range( n0 ):
-            y[i] = np.dot( B_sd[i,:,:].flat, v[0:p1,:].flat )
+            y[i] = np.dot( B_sd[i, :, :].flat, v[0:p1, :].flat )
 
         # Sum contributions from all processes that share data at r=0
         if out.space.parallel:
@@ -134,7 +131,7 @@ class LinearOperator_StencilToDense( Matrix ):
         cols  = []  # corresponding column indices j
         for i in range( n0 ):
             for j1 in range( p1 ):
-                data += self._data[i,j1,:].flat
+                data += self._data[i, j1, :].flat
                 rows += repeat( i, e2-s2+1+2*p2 )
                 cols += (j1*n2 + i2%n2 for i2 in range(s2-p2, e2+1+p2))
 
@@ -154,7 +151,6 @@ class LinearOperator_DenseToStencil( Matrix ):
 
         # V space must have 3 components for now (TODO: change to arbitrary n)
         # W space must be 2D for now (TODO: extend to higher dimensions)
-        # Only works in serial (TODO: extend to MPI setting)
 
         s1, s2 = W.starts
         e1, e2 = W.ends
@@ -205,7 +201,7 @@ class LinearOperator_DenseToStencil( Matrix ):
         x    =    v._data
 
         if n0 > 0:
-            out[0:p1,s2:e2+1] = np.dot( B_ds, x )
+            out[0:p1, s2:e2+1] = np.dot( B_ds, x )
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -222,13 +218,13 @@ class LinearOperator_DenseToStencil( Matrix ):
         s1, s2 = self.codomain.starts
         e1, e2 = self.codomain.ends
 
-        a  = np.zeros( (n1*n2,n0), dtype=self.codomain.dtype )
+        a  = np.zeros( (n1*n2, n0), dtype=self.codomain.dtype )
         d  = self._data
 
         for i1 in range( p1 ):
             for i2 in range( s2, e2+1 ):
                 i = i1*n2 + i2
-                a[i,:] = d[i1,i2,:]
+                a[i, :] = d[i1, i2, :]
 
         return a
 
@@ -254,7 +250,7 @@ class LinearOperator_DenseToStencil( Matrix ):
         cols  = []  # corresponding column indices j
         for i1 in range( p1 ):
             for i2 in range( s2, e2+1 ):
-                data += self._data[i1,i2,:].flat
+                data += self._data[i1, i2, :].flat
                 rows += repeat( i1*n2+i2, n0 )
                 cols += range( n0 )
 

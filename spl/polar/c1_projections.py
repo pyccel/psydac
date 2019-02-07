@@ -59,7 +59,6 @@ class C1Projector:
             y_ext = mapping.control_points[0:2,:,1]
 
             # Exclude ghost regions for calculations
-            # TODO: fix numbering
             x = x_ext[:, s2:e2+1]
             y = y_ext[:, s2:e2+1]
 
@@ -90,7 +89,6 @@ class C1Projector:
             lambda_1  = ONE_THIRD*(1.0 -    ((x_ext-x0) - SQRT3*(y_ext-y0))/tau)
             lambda_2  = ONE_THIRD*(1.0 -    ((x_ext-x0) + SQRT3*(y_ext-y0))/tau)
             lamb = (lambda_0, lambda_1, lambda_2)
-            print( lambda_0.shape )
 
         else:
 
@@ -250,8 +248,6 @@ class C1Projector:
         onto the tensor-product spline space.
 
         """
-        # TODO: make this work in parallel
-
         assert isinstance( b, StencilVector )
         assert b.space == self.tensor_space
 
@@ -267,8 +263,7 @@ class C1Projector:
         for u in range( n0 ):
             for i1 in [0,1]:
                 for i2 in range( s2, e2+1 ):
-#                    bp0[u] += L[u,i1,i2] * b[i1,i2]
-                    bp0[u] += L[u,i1,p2+i2-s2] * b[i1,i2]
+                    bp0[u] += L[u, i1, p2+i2-s2] * b[i1, i2]
 
         # Merge all contributions at different angles
         if P[0].parallel:
@@ -292,8 +287,6 @@ class C1Projector:
         Compute v = E * v'
 
         """
-        # TODO: make this work in parallel
-
         assert isinstance( vp, BlockVector )
         assert vp.space == self.c1_space
 
@@ -313,8 +306,7 @@ class C1Projector:
         for i1 in [0,1]:
             for i2 in range( s2, e2+1 ):
                 for u in range( n0 ):
-#                    v[i1,i2] = np.dot( L[:,i1,i2], vp0 )
-                    v[i1,i2] = np.dot( L[:,i1,p2+i2-s2], vp0 )
+                    v[i1, i2] = np.dot( L[:, i1, p2+i2-s2], vp0 )
 
         v.update_ghost_regions()
 
