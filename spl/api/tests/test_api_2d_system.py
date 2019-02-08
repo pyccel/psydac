@@ -76,10 +76,10 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     Vh = discretize(V, domain_h, degree=degree)
     Wh = discretize(W, domain_h, degree=degree)
     Xh = discretize(X, domain_h, degree=degree)
-    Xh = Wh * Vh
     # ...
 
 #    # TODO: make this work
+#    Xh = Wh * Vh
 #    Wh, Vh = Xh.spaces
 
     # ... dsicretize the equation using Dirichlet bc
