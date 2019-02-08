@@ -63,7 +63,7 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     h1norm_G = Norm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
-    equation = find([u,p], forall=[v,q], lhs=a, rhs=l, bc=bc)
+    equation = find([u,p], forall=[v,q], lhs=a((u,p),(v,q)), rhs=l(v,q), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain

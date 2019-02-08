@@ -52,7 +52,7 @@ def run_vector_poisson_2d_dir(solution, f, ncells, degree):
     h1norm = Norm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
-    equation = find(u, forall=v, lhs=a, rhs=l, bc=bc)
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain
