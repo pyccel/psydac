@@ -17,7 +17,7 @@ from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm
 from sympde.expr import Norm
-from sympde.expr import Equation, EssentialBC
+from sympde.expr import find, EssentialBC
 
 from spl.fem.basic   import FemField
 from spl.fem.vector   import VectorFemField
@@ -63,7 +63,7 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     h1norm_G = Norm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
-    equation = Equation(a((v,q),(u,p)), l(v,q), bc=bc)
+    equation = find([u,p], forall=[v,q], lhs=a((u,p),(v,q)), rhs=l(v,q), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain

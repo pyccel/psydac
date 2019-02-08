@@ -18,7 +18,7 @@ from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm
 from sympde.expr import Norm
-from sympde.expr import Equation, EssentialBC
+from sympde.expr import find, EssentialBC
 
 from spl.fem.basic   import FemField
 from spl.api.discretization import discretize
@@ -52,7 +52,7 @@ def run_poisson_2d_dir(solution, f, ncells, degree, comm=None):
     h1norm = Norm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
-    equation = Equation(a(v,u), l(v), bc=bc)
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain
@@ -131,7 +131,7 @@ def run_poisson_2d_dirneu(solution, f, boundary, ncells, degree, comm=None):
     B_dirichlet = domain.boundary.complement(B_neumann)
     bc = EssentialBC(u, 0, B_dirichlet)
 
-    equation = Equation(a(v,u), l(v), bc=bc)
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain
@@ -200,7 +200,7 @@ def run_laplace_2d_neu(solution, f, ncells, degree, comm=None):
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
-    equation = Equation(a(v,u), l(v))
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
     # ...
 
     # ... create the computational domain from a topological domain
@@ -262,7 +262,7 @@ def run_biharmonic_2d_dir(solution, f, ncells, degree, comm=None):
     nn = NormalVector('nn')
     bc  = [EssentialBC(u, 0, domain.boundary)]
     bc += [EssentialBC(dot(grad(u), nn), 0, domain.boundary)]
-    equation = Equation(a(v,u), l(v), bc=bc)
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain
@@ -326,7 +326,7 @@ def run_poisson_user_function_2d_dir(f, solution, ncells, degree, comm=None):
     h1norm = Norm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
-    equation = Equation(a(v,u), l(v), bc=bc)
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain
