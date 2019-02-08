@@ -88,9 +88,7 @@ def run_vector_poisson_2d_dir(filename, solution, f):
     # ...
 
     # ...
-    phi = VectorFemField( Vh )
-    phi.coeffs[0][:,:] = x[0][:,:]
-    phi.coeffs[1][:,:] = x[1][:,:]
+    phi = VectorFemField( Vh, x )
     # ...
 
     # ... compute norms

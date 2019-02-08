@@ -38,6 +38,8 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     V = FunctionSpace('V', domain)
     X = ProductSpace(W, V)
 
+    X = W * V
+
     x,y = domain.coordinates
 
     F = VectorField(W, name='F')
@@ -74,7 +76,11 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     Vh = discretize(V, domain_h, degree=degree)
     Wh = discretize(W, domain_h, degree=degree)
     Xh = discretize(X, domain_h, degree=degree)
+    Xh = Wh * Vh
     # ...
+
+#    # TODO: make this work
+#    Wh, Vh = Xh.spaces
 
     # ... dsicretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh])
