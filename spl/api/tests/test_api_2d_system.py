@@ -7,9 +7,9 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import Field, VectorField
+from sympde.topology import ScalarField, VectorField
 from sympde.topology import ProductSpace
-from sympde.topology import TestFunction
+from sympde.topology import ScalarTestFunction
 from sympde.topology import VectorTestFunction
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
@@ -41,10 +41,10 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     x,y = domain.coordinates
 
     F = VectorField(W, name='F')
-    G = Field(V, name='G')
+    G = ScalarField(V, name='G')
 
     u,v = [VectorTestFunction(W, name=i) for i in ['u', 'v']]
-    p,q = [      TestFunction(V, name=i) for i in ['p', 'q']]
+    p,q = [      ScalarTestFunction(V, name=i) for i in ['p', 'q']]
 
     a0 = BilinearForm((v,u), inner(grad(v), grad(u)))
     a1 = BilinearForm((q,p), p*q)

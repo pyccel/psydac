@@ -8,9 +8,9 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import Field, VectorField
+from sympde.topology import ScalarField, VectorField
 from sympde.topology import ProductSpace
-from sympde.topology import TestFunction
+from sympde.topology import ScalarTestFunction
 from sympde.topology import VectorTestFunction
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
@@ -36,10 +36,10 @@ def run_poisson_2d_dir(solution, f, ncells, degree, comm=None):
 
     V = FunctionSpace('V', domain)
 
-    F = Field(V, name='F')
+    F = ScalarField(V, name='F')
 
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
+    v = ScalarTestFunction(V, name='v')
+    u = ScalarTestFunction(V, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -107,10 +107,10 @@ def run_poisson_2d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 
     x,y = domain.coordinates
 
-    F = Field(V, name='F')
+    F = ScalarField(V, name='F')
 
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
+    v = ScalarTestFunction(V, name='v')
+    u = ScalarTestFunction(V, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -179,10 +179,10 @@ def run_laplace_2d_neu(solution, f, ncells, degree, comm=None):
 
     x,y = domain.coordinates
 
-    F = Field(V, name='F')
+    F = ScalarField(V, name='F')
 
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
+    v = ScalarTestFunction(V, name='v')
+    u = ScalarTestFunction(V, name='u')
 
     expr = dot(grad(v), grad(u)) + v*u
     a = BilinearForm((v,u), expr)
@@ -244,10 +244,10 @@ def run_biharmonic_2d_dir(solution, f, ncells, degree, comm=None):
 
     V = FunctionSpace('V', domain)
 
-    F = Field(V, name='F')
+    F = ScalarField(V, name='F')
 
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
+    v = ScalarTestFunction(V, name='v')
+    u = ScalarTestFunction(V, name='u')
 
     expr = laplace(v) * laplace(u)
     a = BilinearForm((v,u), expr)
@@ -310,10 +310,10 @@ def run_poisson_user_function_2d_dir(f, solution, ncells, degree, comm=None):
 
     V = FunctionSpace('V', domain)
 
-    F = Field(V, name='F')
+    F = ScalarField(V, name='F')
 
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
+    v = ScalarTestFunction(V, name='v')
+    u = ScalarTestFunction(V, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)

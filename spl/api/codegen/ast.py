@@ -47,7 +47,7 @@ from sympde.core import Constant
 from sympde.core.math import math_atoms_as_str
 from sympde.calculus import grad
 from sympde.topology import Mapping
-from sympde.topology import Field
+from sympde.topology import ScalarField
 from sympde.topology import VectorField, IndexedVectorField
 from sympde.topology import Boundary, BoundaryVector, NormalVector, TangentVector
 from sympde.topology import Covariant, Contravariant
@@ -58,7 +58,7 @@ from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
 from sympde.topology.space import FunctionSpace
-from sympde.topology.space import TestFunction
+from sympde.topology.space import ScalarTestFunction
 from sympde.topology.space import VectorTestFunction
 from sympde.topology.space import IndexedTestTrial
 from sympde.topology.space import Trace
@@ -404,7 +404,7 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
 
     cls = (_partial_derivatives,
            VectorTestFunction,
-           TestFunction,
+           ScalarTestFunction,
            IndexedTestTrial)
 
     dim  = len(indices_test)
@@ -418,7 +418,7 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
     # ...
     def _get_name(atom):
         atom_name = None
-        if isinstance( atom, TestFunction ):
+        if isinstance( atom, ScalarTestFunction ):
             atom_name = str(atom.name)
 
         elif isinstance( atom, VectorTestFunction ):
@@ -482,7 +482,7 @@ def compute_atoms_expr_field(atom, indices_quad,
     if not is_field(atom):
         raise TypeError('atom must be a field expr')
 
-    field = list(atom.atoms(Field))[0]
+    field = list(atom.atoms(ScalarField))[0]
     field_name = 'coeff_'+str(field.name)
 
     # ...
@@ -664,7 +664,7 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
 
     # ... weights and their derivatives
     # TODO check if 'w' exist already
-    weights = Field(space, name='w')
+    weights = ScalarField(space, name='w')
 
     weights_elements = [weights]
     if nderiv > 0:
@@ -773,7 +773,7 @@ def is_field(expr):
     if isinstance(expr, _partial_derivatives):
         return is_field(expr.args[0])
 
-    elif isinstance(expr, Field):
+    elif isinstance(expr, ScalarField):
         return True
 
     return False
@@ -1011,7 +1011,7 @@ class EvalMapping(SplBasic):
         weights_elements = []
         if self.is_rational_mapping:
             # TODO check if 'w' exist already
-            weights_pts = Field(self.space, name='w')
+            weights_pts = ScalarField(self.space, name='w')
 
             weights_elements = [weights_pts]
 
@@ -1055,7 +1055,7 @@ class EvalMapping(SplBasic):
         # ...
 
         # ...
-        Nj = TestFunction(space, name='Nj')
+        Nj = ScalarTestFunction(space, name='Nj')
         body = []
         init_basis = OrderedDict()
         updates = []
@@ -1179,7 +1179,7 @@ class EvalField(SplBasic):
         dim = space.ldim
         mapping = self.mapping
 
-        field_atoms = self.fields.atoms(Field)
+        field_atoms = self.fields.atoms(ScalarField)
         fields_str = sorted([print_expression(f) for f in self.fields])
 
         # ... declarations
@@ -1205,7 +1205,7 @@ class EvalField(SplBasic):
         # ...
 
         # ...
-        Nj = TestFunction(space, name='Nj')
+        Nj = ScalarTestFunction(space, name='Nj')
         body = []
         init_basis = OrderedDict()
         init_map   = OrderedDict()
@@ -1655,9 +1655,9 @@ class Kernel(SplBasic):
         # ...
         atoms_types = (_partial_derivatives,
                        VectorTestFunction,
-                       TestFunction,
+                       ScalarTestFunction,
                        IndexedTestTrial,
-                       Field,
+                       ScalarField,
                        VectorField, IndexedVectorField)
 
         atoms  = _atomic(expr, cls=atoms_types)
@@ -1675,7 +1675,7 @@ class Kernel(SplBasic):
         fields_str    = sorted(tuple(map(pycode, atomic_expr_field)))
         fields_logical_str = sorted([print_expression(f, logical=True) for f in
                                      atomic_expr_field])
-        field_atoms   = tuple(expr.atoms(Field))
+        field_atoms   = tuple(expr.atoms(ScalarField))
 
         # ... create EvalField
         self._eval_fields = []
@@ -1687,7 +1687,7 @@ class Kernel(SplBasic):
                 g_names = set([f.name for f in group])
                 fields_expressions = []
                 for e in atomic_expr_field:
-                    fs = e.atoms(Field)
+                    fs = e.atoms(ScalarField)
                     f_names = set([f.name for f in fs])
                     if f_names & g_names:
                         fields_expressions += [e]
@@ -1785,7 +1785,7 @@ class Kernel(SplBasic):
                 test_function = Tuple(*test_function)
 
         elif is_function:
-            test_function = TestFunction(self.weak_form.space, name='Nj')
+            test_function = ScalarTestFunction(self.weak_form.space, name='Nj')
             test_function = [test_function]
             test_function = Tuple(*test_function)
 
@@ -2752,7 +2752,7 @@ class Interface(SplBasic):
         form = self.weak_form
         assembly = self.assembly
         global_matrices = assembly.global_matrices
-        fields = tuple(form.expr.atoms(Field))
+        fields = tuple(form.expr.atoms(ScalarField))
         fields = sorted(fields, key=lambda x: str(x.name))
         fields = tuple(fields)
         zero_terms = assembly.kernel.zero_terms
