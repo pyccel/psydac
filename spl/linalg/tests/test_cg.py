@@ -45,7 +45,7 @@ def test_cg_tridiagonal( n ):
     b = A.dot( xe )
 
     # Solve linear system using CG
-    x, info = cg( A, b, tol=1e-12, verbose=True )
+    x, info = cg( A, b, tol=1e-13, verbose=True )
 
     # Verify correctness of calculation: L2-norm of error
     err = x-xe
