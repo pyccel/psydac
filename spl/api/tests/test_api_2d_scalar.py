@@ -77,8 +77,7 @@ def run_poisson_2d_dir(solution, f, ncells, degree, comm=None):
     # ...
 
     # ...
-    phi = FemField( Vh )
-    phi.coeffs[:,:] = x[:,:]
+    phi = FemField( Vh, x )
     # ...
 
     # ... compute norms
@@ -156,8 +155,7 @@ def run_poisson_2d_dirneu(solution, f, boundary, ncells, degree, comm=None):
     # ...
 
     # ...
-    phi = FemField( Vh )
-    phi.coeffs[:,:] = x[:,:]
+    phi = FemField( Vh, x )
     # ...
 
     # ... compute norms
@@ -225,8 +223,7 @@ def run_laplace_2d_neu(solution, f, ncells, degree, comm=None):
     # ...
 
     # ...
-    phi = FemField( Vh )
-    phi.coeffs[:,:] = x[:,:]
+    phi = FemField( Vh, x )
     # ...
 
     # ... compute norms
@@ -287,8 +284,7 @@ def run_biharmonic_2d_dir(solution, f, ncells, degree, comm=None):
     # ...
 
     # ...
-    phi = FemField( Vh )
-    phi.coeffs[:,:] = x[:,:]
+    phi = FemField( Vh, x )
     # ...
 
     # ... compute norms
@@ -351,8 +347,7 @@ def run_poisson_user_function_2d_dir(f, solution, ncells, degree, comm=None):
     # ...
 
     # ...
-    phi = FemField( Vh )
-    phi.coeffs[:,:] = x[:,:]
+    phi = FemField( Vh, x )
     # ...
 
     # ... compute norms
