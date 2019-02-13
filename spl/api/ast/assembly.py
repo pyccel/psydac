@@ -1,5 +1,4 @@
-# TODO: - replace call to pycode by SymbolicExpr (may need to use LogicalExpr)
-#       - replace call to print_expression by SymbolicExpr (may need to use LogicalExpr)
+# TODO: - replace call to print_expression by SymbolicExpr (may need to use LogicalExpr)
 
 from collections import OrderedDict
 from itertools import groupby
@@ -69,7 +68,6 @@ from spl.fem.vector  import ProductFemSpace
 
 from .basic import SplBasic
 from .evaluation import EvalMapping, EvalField, EvalVectorField
-from .printing import pycode  # TODO remove from here
 from .utilities import random_string
 from .utilities import build_pythran_types_header, variables
 from .utilities import compute_normal_vector, compute_tangent_vector
@@ -521,7 +519,7 @@ class Kernel(SplBasic):
         # ...
 
         # TODO use print_expression
-        fields_str    = sorted(tuple(map(pycode, atomic_expr_field)))
+        fields_str    = sorted(tuple(map(print_expression, atomic_expr_field)))
         fields_logical_str = sorted([print_expression(f, logical=True) for f in
                                      atomic_expr_field])
         field_atoms   = tuple(expr.atoms(ScalarField))

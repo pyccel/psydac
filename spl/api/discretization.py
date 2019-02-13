@@ -28,10 +28,10 @@ from sympde.topology import Mapping
 
 from spl.api.grid                 import QuadratureGrid, BoundaryQuadratureGrid
 from spl.api.grid                 import BasisValues
-from spl.api.codegen.ast          import Kernel
-from spl.api.codegen.ast          import Assembly
-from spl.api.codegen.ast          import Interface
-from spl.api.codegen.printing     import pycode
+from spl.api.ast.assembly         import Kernel
+from spl.api.ast.assembly         import Assembly
+from spl.api.ast.assembly         import Interface
+from spl.api.printing.pycode      import pycode
 from spl.api.essential_bc         import apply_essential_bc
 from spl.api.settings             import SPL_BACKEND_PYTHON, SPL_DEFAULT_FOLDER
 from spl.linalg.stencil           import StencilVector, StencilMatrix
