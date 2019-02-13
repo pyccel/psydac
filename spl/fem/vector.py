@@ -2,6 +2,7 @@
 
 # TODO: - have a block version for VectorSpace when all component spaces are the same
 
+from spl.linalg.basic   import Vector
 from spl.linalg.stencil import StencilVectorSpace
 from spl.fem.basic      import FemSpace, FemField
 
@@ -264,12 +265,18 @@ class VectorFemField:
         Finite element product space to which this field belongs.
 
     """
-    def __init__( self, space ):
+    def __init__( self, space, coeffs=None ):
 
         assert isinstance( space, ProductFemSpace )
 
+        if coeffs is not None:
+            assert isinstance( coeffs, Vector )
+            assert space.vector_space is coeffs.space
+        else:
+            coeffs = space.vector_space.zeros()
+
         self._space  = space
-        self._coeffs = space.vector_space.zeros()
+        self._coeffs = coeffs
 
     # ...
     @property
