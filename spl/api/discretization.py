@@ -26,11 +26,17 @@ from sympde.topology import FunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import Mapping
 
+from gelato.expr     import GltExpr as sym_GltExpr
+
+
 from spl.api.grid                 import QuadratureGrid, BoundaryQuadratureGrid
 from spl.api.grid                 import BasisValues
 from spl.api.ast.assembly         import Kernel
 from spl.api.ast.assembly         import Assembly
 from spl.api.ast.assembly         import Interface
+from spl.api.ast.glt              import GltKernel
+from spl.api.ast.glt              import GltInterface
+
 from spl.api.printing.pycode      import pycode
 from spl.api.essential_bc         import apply_essential_bc
 from spl.api.settings             import SPL_BACKEND_PYTHON, SPL_DEFAULT_FOLDER
@@ -1166,6 +1172,222 @@ def discretize_domain(domain, *args, **kwargs):
 
     return geometry
 
+#==============================================================================
+class DiscreteGltExpr(object):
+
+    def __init__(self, expr, *args, **kwargs):
+        if not isinstance(expr, sym_GltExpr):
+            raise TypeError('> Expecting a symbolic Glt expression')
+
+        if not args:
+            raise ValueError('> fem spaces must be given as a list/tuple')
+
+        assert( len(args) == 3 )
+
+        # ...
+        domain_h = args[0]
+        assert( isinstance(domain_h, Geometry) )
+
+        mapping = list(domain_h.mappings.values())[0]
+        self._mapping = mapping
+
+        is_rational_mapping = False
+        if not( mapping is None ):
+            is_rational_mapping = isinstance( mapping, NurbsMapping )
+
+        self._is_rational_mapping = is_rational_mapping
+        # ...
+
+        # ...
+        self._spaces = args[1]
+        self._discrete_form = args[2]
+        # ...
+
+        # ...
+        kernel = GltKernel(expr, self.spaces)
+        print('DONE')
+        import sys; sys.exit(0)
+        interface = GltInterface(kernel)
+        # ...
+
+        # ...
+        self._expr = a
+        self._discrete_space = Vh
+        self._tag = kernel.tag
+        self._mapping = None
+        self._interface = interface
+        self._dependencies = self.interface.dependencies
+        # ...
+
+        # generate python code as strings for dependencies
+        self._dependencies_code = self._generate_code()
+
+        self._dependencies_fname = None
+        self._interface_code = None
+        self._func = None
+        if to_compile:
+            # save dependencies code
+            self._save_code(module_name=module_name)
+
+            # generate code for Python interface
+            self._generate_interface_code()
+
+            # compile code
+            self._compile(namespace)
+
+    @property
+    def expr(self):
+        return self._expr
+
+    @property
+    def discrete_form(self):
+        return self._discrete_form
+
+    @property
+    def discrete_space(self):
+        return self._discrete_space
+
+    @property
+    def tag(self):
+        return self._tag
+
+    @property
+    def mapping(self):
+        return self._mapping
+
+    @property
+    def interface(self):
+        return self._interface
+
+    @property
+    def dependencies(self):
+        return self._dependencies
+
+    @property
+    def interface_code(self):
+        return self._interface_code
+
+    @property
+    def dependencies_code(self):
+        return self._dependencies_code
+
+    @property
+    def dependencies_fname(self):
+        return self._dependencies_fname
+
+    @property
+    def dependencies_modname(self):
+        module_name = os.path.splitext(self.dependencies_fname)[0]
+        module_name = module_name.replace('/', '.')
+        return module_name
+
+    @property
+    def func(self):
+        return self._func
+
+    def _generate_code(self):
+        # ... generate code that can be pyccelized
+        code = ''
+        for dep in self.dependencies:
+            code = '{code}\n{dep}'.format(code=code, dep=pycode(dep))
+        # ...
+        return code
+
+    def _save_code(self, module_name=None):
+        folder = SPL_DEFAULT_FOLDER
+
+        code = self.dependencies_code
+        if module_name is None:
+            module_name = 'dependencies_{}'.format(self.tag)
+        self._dependencies_fname = write_code(module_name, code, ext='py', folder=folder)
+
+    def _generate_interface_code(self, module_name=None):
+        imports = []
+
+        # ... generate imports from dependencies module
+        pattern = 'from {module} import {dep}'
+
+        if module_name is None:
+            module_name = self.dependencies_modname
+
+        for dep in self.dependencies:
+            txt = pattern.format(module=module_name, dep=dep.name)
+            imports.append(txt)
+        # ...
+
+        # ...
+        imports = '\n'.join(imports)
+        # ...
+
+        code = pycode(self.interface)
+
+        self._interface_code = '{imports}\n{code}'.format(imports=imports, code=code)
+
+    def _compile(self, namespace, module_name=None):
+
+        if module_name is None:
+            module_name = self.dependencies_modname
+
+        # ...
+        dependencies_module = importlib.import_module(module_name)
+        # ...
+
+        # ...
+        code = self.interface_code
+        name = self.interface.name
+
+        exec(code, namespace)
+        interface = namespace[name]
+        # ...
+
+        self._func = interface
+
+    def _check_arguments(self, **kwargs):
+
+        # TODO do we need a method from Interface to map the dictionary of arguments
+        # that are passed for the call (in the same spirit of build_arguments)
+        # the idea is to be sure of their order, since they can be passed to
+        # Fortran
+
+        _kwargs = {}
+
+        # ... mandatory arguments
+        sym_args = self.interface.in_arguments
+        keys = [str(a) for a in sym_args]
+        for key in keys:
+            try:
+                _kwargs[key] = kwargs[key]
+            except:
+                raise KeyError('Unconsistent argument with interface')
+        # ...
+
+        # ... optional (inout) arguments
+        sym_args = self.interface.inout_arguments
+        keys = [str(a) for a in sym_args]
+        for key in keys:
+            try:
+                _kwargs[key] = kwargs[key]
+            except:
+                pass
+        # ...
+
+        return _kwargs
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+    def evaluate(self, *args, **kwargs):
+#        newargs = tuple(self.discrete_spaces)
+#
+#        if self.mapping:
+#            newargs = newargs + (self.mapping,)
+
+        kwargs = self._check_arguments(**kwargs)
+
+#        return self.func(*newargs, **kwargs)
+        return self.func(*args, **kwargs)
+
 
 #==============================================================================
 def discretize(a, *args, **kwargs):
@@ -1196,6 +1418,9 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, Domain):
         return discretize_domain(a, *args, **kwargs)
+
+    elif isinstance(a, sym_GltExpr):
+        return DiscreteGltExpr(a, *args, **kwargs)
 
     else:
         raise NotImplementedError('given {}'.format(type(a)))
