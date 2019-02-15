@@ -106,9 +106,56 @@ def write_code(filename, code, folder=None):
 class BasicCodeGen(object):
     """ Basic class for any discrete concept that needs code generation """
 
-    def __init__(self, expr, tag, interface, in_arguments, inout_arguments,
-                 user_functions, backend, folder, comm, root, max_nderiv,
-                 interface_name, namespace=globals()):
+    def __init__(self, expr, **kwargs):
+
+        namespace = kwargs.pop('namespace', globals())
+        backend   = kwargs.pop('backend', SPL_BACKEND_PYTHON)
+        folder    = kwargs.pop('folder', None)
+        comm      = kwargs.pop('comm', None)
+        root      = kwargs.pop('root', None)
+
+        # ...
+        if not( comm is None):
+            if root is None:
+                root = 0
+
+            assert isinstance( comm, MPI.Comm )
+            assert isinstance( root, int      )
+
+            if comm.rank == root:
+                tag = random_string( 8 )
+                ast = self._create_ast( expr, tag, **kwargs )
+                interface = ast['interface']
+                max_nderiv = interface.max_nderiv
+                in_arguments = [str(a) for a in interface.in_arguments]
+                inout_arguments = [str(a) for a in interface.inout_arguments]
+                user_functions = interface.user_functions
+
+            else:
+                interface = None
+                tag = None
+                max_nderiv = None
+                in_arguments = None
+                inout_arguments = None
+                user_functions = None
+
+            comm.Barrier()
+            tag = comm.bcast( tag, root=root )
+            max_nderiv = comm.bcast( max_nderiv, root=root )
+            in_arguments = comm.bcast( in_arguments, root=root )
+            inout_arguments = comm.bcast( inout_arguments, root=root )
+            user_functions = comm.bcast( user_functions, root=root )
+
+        else:
+            tag = random_string( 8 )
+            ast = self._create_ast( expr, tag, **kwargs )
+            interface = ast['interface']
+            max_nderiv = interface.max_nderiv
+            interface_name = interface.name
+            in_arguments = [str(a) for a in interface.in_arguments]
+            inout_arguments = [str(a) for a in interface.inout_arguments]
+            user_functions = interface.user_functions
+        # ...
 
         # ...
         self._expr = expr
@@ -470,13 +517,11 @@ class BasicDiscrete(BasicCodeGen):
     kwargs is used to pass user defined functions for the moment.
     """
 
-    def __init__(self, a, kernel_expr, namespace=globals(), **kwargs):
+    def __init__(self, expr, kernel_expr, **kwargs):
 
         # ...
         target              = kwargs.pop('target', None)
         boundary            = kwargs.pop('boundary', None)
-        comm                = kwargs.pop('comm', None)
-        root                = kwargs.pop('root', None)
         # ...
 
         # ...
@@ -507,63 +552,17 @@ class BasicDiscrete(BasicCodeGen):
         # ...
 
         # ... put back optional args to kwargs
-        kwargs['comm'] = comm
-        kwargs['root'] = root
         kwargs['target'] = target
         kwargs['boundary'] = boundary
         kwargs['boundary_basis'] = boundary_basis
         # ...
 
         # ...
-        if not( comm is None):
-            if root is None:
-                root = 0
-
-            assert isinstance( comm, MPI.Comm )
-            assert isinstance( root, int      )
-
-            if comm.rank == root:
-                tag = random_string( 8 )
-                ast = self._create_ast( a, kernel_expr, tag, **kwargs )
-                interface = ast['interface']
-                max_nderiv = interface.max_nderiv
-                in_arguments = [str(a) for a in interface.in_arguments]
-                inout_arguments = [str(a) for a in interface.inout_arguments]
-                user_functions = interface.user_functions
-
-            else:
-                interface = None
-                tag = None
-                max_nderiv = None
-                in_arguments = None
-                inout_arguments = None
-                user_functions = None
-
-            comm.Barrier()
-            tag = comm.bcast( tag, root=root )
-            max_nderiv = comm.bcast( max_nderiv, root=root )
-            in_arguments = comm.bcast( in_arguments, root=root )
-            inout_arguments = comm.bcast( inout_arguments, root=root )
-            user_functions = comm.bcast( user_functions, root=root )
-
-        else:
-            tag = random_string( 8 )
-            ast = self._create_ast( a, kernel_expr, tag, **kwargs )
-            interface = ast['interface']
-            max_nderiv = interface.max_nderiv
-            interface_name = interface.name
-            in_arguments = [str(a) for a in interface.in_arguments]
-            inout_arguments = [str(a) for a in interface.inout_arguments]
-            user_functions = interface.user_functions
+        kwargs['kernel_expr'] = kernel_expr
         # ...
 
         # ...
-        backend             = kwargs.pop('backend', SPL_BACKEND_PYTHON)
-        folder              = kwargs.pop('folder', None)
-        BasicCodeGen.__init__(self, a, tag, interface, in_arguments, inout_arguments,
-                              user_functions, backend, folder, comm, root, max_nderiv,
-                              interface_name, namespace=globals())
-
+        BasicCodeGen.__init__(self, expr, **kwargs)
         # ...
 
         # ...
@@ -591,7 +590,8 @@ class BasicDiscrete(BasicCodeGen):
     def max_nderiv(self):
         return self._max_nderiv
 
-    def _create_ast(self, expr, kernel_expr, tag, **kwargs):
+    def _create_ast(self, expr, tag, **kwargs):
+        kernel_expr         = kwargs.pop('kernel_expr', None)
         target              = kwargs.pop('target', None)
         mapping             = kwargs.pop('mapping', None)
         is_rational_mapping = kwargs.pop('is_rational_mapping', None)
@@ -600,6 +600,9 @@ class BasicDiscrete(BasicCodeGen):
         backend             = kwargs.pop('backend', SPL_BACKEND_PYTHON)
         discrete_space      = kwargs.pop('discrete_space', None)
         comm                = kwargs.pop('comm', None)
+
+        if kernel_expr is None:
+            raise ValueError('kernel_expr must be given')
 
         kernel = Kernel( expr, kernel_expr,
                          name                = 'kernel_{}'.format(tag),
