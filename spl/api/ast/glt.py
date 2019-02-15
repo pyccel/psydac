@@ -66,6 +66,10 @@ class GltKernel(SplBasic):
         return self._expr
 
     @property
+    def form(self):
+        return self.expr.form
+
+    @property
     def spaces(self):
         return self._spaces
 
@@ -144,7 +148,7 @@ class GltKernel(SplBasic):
         return self.basic_args + other
 
     def _initialize(self):
-        weak_form = self.expr.form
+        weak_form = self.form
         dim       = self.expr.ldim
 
         # ... discrete values
@@ -345,7 +349,7 @@ class GltKernel(SplBasic):
 
 class GltInterface(SplBasic):
 
-    def __new__(cls, kernel, name=None):
+    def __new__(cls, kernel, name=None, mapping=None):
 
         if not isinstance(kernel, GltKernel):
             raise TypeError('> Expecting an GltKernel')
@@ -353,6 +357,7 @@ class GltInterface(SplBasic):
         obj = SplBasic.__new__(cls, kernel.tag, name=name, prefix='interface')
 
         obj._kernel = kernel
+        obj._mapping = mapping
 
         # update dependencies
         obj._dependencies += [kernel]
@@ -361,12 +366,12 @@ class GltInterface(SplBasic):
         return obj
 
     @property
-    def weak_form(self):
-        return self.kernel.weak_form
-
-    @property
     def kernel(self):
         return self._kernel
+
+    @property
+    def mapping(self):
+        return self._mapping
 
     @property
     def max_nderiv(self):
@@ -386,14 +391,14 @@ class GltInterface(SplBasic):
 
     @property
     def coordinates(self):
-        return self._coordinates
+        return self.kernel.coordinates
 
     def _initialize(self):
-        form = self.weak_form
+        form = self.kernel.form
         kernel = self.kernel
         global_mats = kernel.global_mats
         global_mats_types = kernel.global_mats_types
-        fields = tuple(form.expr.atoms(Field))
+        fields = form.fields
         fields = sorted(fields, key=lambda x: str(x.name))
         fields = tuple(fields)
 
@@ -407,18 +412,12 @@ class GltInterface(SplBasic):
         lengths    = symbols('nt1:%d'%(dim+1))
 
         mapping = ()
-        if form.mapping:
+        if self.mapping:
             mapping = Symbol('mapping')
         # ...
 
         # ...
         self._basic_args = kernel.basic_args
-        # ...
-
-        # ...
-        self._coordinates = []
-        if self.kernel.with_coordinates:
-            self._coordinates = symbols('x y z')[:dim]
         # ...
 
         # ...

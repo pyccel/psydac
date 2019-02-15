@@ -1182,7 +1182,7 @@ class DiscreteGltExpr(object):
         if not args:
             raise ValueError('> fem spaces must be given as a list/tuple')
 
-        assert( len(args) == 3 )
+        assert( len(args) == 2 )
 
         # ...
         domain_h = args[0]
@@ -1200,23 +1200,25 @@ class DiscreteGltExpr(object):
 
         # ...
         self._spaces = args[1]
-        self._discrete_form = args[2]
         # ...
 
         # ...
         kernel = GltKernel(expr, self.spaces)
-        print('DONE')
-        import sys; sys.exit(0)
         interface = GltInterface(kernel)
         # ...
 
         # ...
-        self._expr = a
-        self._discrete_space = Vh
+        self._expr = expr
+        self._discrete_space = self.spaces[0] # TODO use both spaces
         self._tag = kernel.tag
         self._mapping = None
         self._interface = interface
         self._dependencies = self.interface.dependencies
+        folder = None
+        self._folder = self._initialize_folder(folder)
+
+        interface_name = 'interface_{}'.format(kernel.tag)
+        self._interface_name = interface_name
         # ...
 
         # generate python code as strings for dependencies
@@ -1225,23 +1227,32 @@ class DiscreteGltExpr(object):
         self._dependencies_fname = None
         self._interface_code = None
         self._func = None
-        if to_compile:
-            # save dependencies code
-            self._save_code(module_name=module_name)
 
-            # generate code for Python interface
-            self._generate_interface_code()
 
-            # compile code
-            self._compile(namespace)
+        # ... TODO change this
+        namespace = globals()
+
+        # save dependencies code
+        self._save_code()
+
+        # generate code for Python interface
+        self._generate_interface_code()
+
+        # compile code
+        self._compile(namespace)
+        # ...
+
+    @property
+    def folder(self):
+        return self._folder
+
+    @property
+    def interface_name(self):
+        return self._interface_name
 
     @property
     def expr(self):
         return self._expr
-
-    @property
-    def discrete_form(self):
-        return self._discrete_form
 
     @property
     def discrete_space(self):
@@ -1285,6 +1296,28 @@ class DiscreteGltExpr(object):
     def func(self):
         return self._func
 
+    def _initialize_folder(self, folder=None):
+        # ...
+        if folder is None:
+            basedir = os.getcwd()
+            folder = SPL_DEFAULT_FOLDER
+            folder = os.path.join( basedir, folder )
+
+            # ... add __init__ to all directories to be able to
+            touch_init_file('__pycache__')
+            for root, dirs, files in os.walk(folder):
+                touch_init_file(root)
+            # ...
+
+        else:
+            raise NotImplementedError('user output folder not yet available')
+
+        folder = os.path.abspath( folder )
+        mkdir_p(folder)
+        # ...
+
+        return folder
+
     def _generate_code(self):
         # ... generate code that can be pyccelized
         code = ''
@@ -1293,22 +1326,26 @@ class DiscreteGltExpr(object):
         # ...
         return code
 
-    def _save_code(self, module_name=None):
-        folder = SPL_DEFAULT_FOLDER
-
+    # TODO to be removed
+    def _save_code(self):
+        # ...
         code = self.dependencies_code
-        if module_name is None:
-            module_name = 'dependencies_{}'.format(self.tag)
-        self._dependencies_fname = write_code(module_name, code, ext='py', folder=folder)
+        module_name = 'dependencies_{}'.format(self.tag)
 
-    def _generate_interface_code(self, module_name=None):
+        self._dependencies_fname = '{}.py'.format(module_name)
+        write_code(self.dependencies_fname, code, folder = self.folder)
+        # ...
+
+        # TODO check this? since we are using relative paths now
+        self._dependencies_modname = module_name.replace('/', '.')
+
+    # TODO to be removed
+    def _generate_interface_code(self):
         imports = []
+        module_name = self.dependencies_modname
 
         # ... generate imports from dependencies module
         pattern = 'from {module} import {dep}'
-
-        if module_name is None:
-            module_name = self.dependencies_modname
 
         for dep in self.dependencies:
             txt = pattern.format(module=module_name, dep=dep.name)
@@ -1323,24 +1360,29 @@ class DiscreteGltExpr(object):
 
         self._interface_code = '{imports}\n{code}'.format(imports=imports, code=code)
 
-    def _compile(self, namespace, module_name=None):
+    # TODO to be removed
+    def _compile(self, namespace):
 
-        if module_name is None:
-            module_name = self.dependencies_modname
+        module_name = self.dependencies_modname
 
-        # ...
-        dependencies_module = importlib.import_module(module_name)
-        # ...
-
-        # ...
+        # ... TODO move to save
         code = self.interface_code
-        name = self.interface.name
-
-        exec(code, namespace)
-        interface = namespace[name]
+        interface_module_name = 'interface_{}'.format(self.tag)
+        fname = '{}.py'.format(interface_module_name)
+        fname = write_code(fname, code, folder = self.folder)
         # ...
 
-        self._func = interface
+        self._set_func(interface_module_name, self.interface_name)
+
+    # TODO to be removed
+    def _set_func(self, interface_module_name, interface_name):
+        # ...
+        sys.path.append(self.folder)
+        package = importlib.import_module( interface_module_name )
+        sys.path.remove(self.folder)
+        # ...
+
+        self._func = getattr(package, interface_name)
 
     def _check_arguments(self, **kwargs):
 
