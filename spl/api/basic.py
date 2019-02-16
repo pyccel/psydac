@@ -11,29 +11,12 @@ from collections import namedtuple
 from pyccel.ast import Nil
 from pyccel.epyccel import get_source_function
 
-from sympde.expr     import BasicForm as sym_BasicForm
-from sympde.expr     import BilinearForm as sym_BilinearForm
-from sympde.expr     import LinearForm as sym_LinearForm
-from sympde.expr     import Functional as sym_Functional
-from sympde.expr     import Equation as sym_Equation
-from sympde.expr     import Boundary as sym_Boundary
-from sympde.expr     import Norm as sym_Norm
-from sympde.expr     import TerminalExpr
 from sympde.topology import Domain, Boundary
-from sympde.topology import Line, Square, Cube
-from sympde.topology import BasicFunctionSpace
-from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
-from sympde.topology import Mapping
-
-from gelato.expr     import GltExpr as sym_GltExpr
 
 
-from spl.api.grid                 import QuadratureGrid, BoundaryQuadratureGrid
-from spl.api.grid                 import BasisValues
-from spl.api.ast.assembly         import Kernel
-from spl.api.ast.assembly         import Assembly
-from spl.api.ast.assembly         import Interface
+from spl.api.ast.fem              import Kernel
+from spl.api.ast.fem              import Assembly
+from spl.api.ast.fem              import Interface
 from spl.api.ast.glt              import GltKernel
 from spl.api.ast.glt              import GltInterface
 

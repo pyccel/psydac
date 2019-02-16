@@ -34,19 +34,9 @@ from spl.api.fem                  import DiscreteBilinearForm
 from spl.api.fem                  import DiscreteLinearForm
 from spl.api.fem                  import DiscreteFunctional
 from spl.api.fem                  import DiscreteSumForm
-from spl.api.grid                 import QuadratureGrid, BoundaryQuadratureGrid
-from spl.api.grid                 import BasisValues
-from spl.api.ast.assembly         import Kernel
-from spl.api.ast.assembly         import Assembly
-from spl.api.ast.assembly         import Interface
-from spl.api.ast.glt              import GltKernel
-from spl.api.ast.glt              import GltInterface
 from spl.api.glt                  import DiscreteGltExpr
 
-from spl.api.printing.pycode      import pycode
 from spl.api.essential_bc         import apply_essential_bc
-from spl.api.settings             import SPL_BACKEND_PYTHON, SPL_DEFAULT_FOLDER
-from spl.linalg.stencil           import StencilVector, StencilMatrix
 from spl.linalg.iterative_solvers import cg
 from spl.fem.splines              import SplineSpace
 from spl.fem.tensor               import TensorFemSpace

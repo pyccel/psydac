@@ -20,19 +20,20 @@ from sympde.topology import FunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import Mapping
 
-from spl.api.basic                import BasicDiscrete
-from spl.api.grid                 import QuadratureGrid, BoundaryQuadratureGrid
-from spl.api.grid                 import BasisValues
-from spl.api.ast.assembly         import Kernel
-from spl.api.ast.assembly         import Assembly
-from spl.api.ast.assembly         import Interface
-from spl.api.ast.glt              import GltKernel
-from spl.api.ast.glt              import GltInterface
-from spl.api.glt                  import DiscreteGltExpr
+from spl.api.basic           import BasicDiscrete
+from spl.api.basic           import random_string
+from spl.api.grid            import QuadratureGrid, BoundaryQuadratureGrid
+from spl.api.grid            import BasisValues
+from spl.api.ast.fem         import Kernel
+from spl.api.ast.fem         import Assembly
+from spl.api.ast.fem         import Interface
+from spl.api.ast.glt         import GltKernel
+from spl.api.ast.glt         import GltInterface
+from spl.api.glt             import DiscreteGltExpr
 
-from spl.linalg.stencil           import StencilVector, StencilMatrix
-from spl.cad.geometry             import Geometry
-from spl.mapping.discrete         import SplineMapping, NurbsMapping
+from spl.linalg.stencil      import StencilVector, StencilMatrix
+from spl.cad.geometry        import Geometry
+from spl.mapping.discrete    import SplineMapping, NurbsMapping
 
 import inspect
 import sys
