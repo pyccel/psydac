@@ -36,6 +36,11 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
         code = '\n'.join(self._print(i) for i in expr.imports)
 
         return code +'\n' + self._print(expr.func)
+
+    def _print_GltInterface(self, expr):
+        code = '\n'.join(self._print(i) for i in expr.imports)
+
+        return code +'\n' + self._print(expr.func)
     # .........................................................
 
     # .........................................................

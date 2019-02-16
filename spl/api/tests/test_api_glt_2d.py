@@ -62,7 +62,8 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
 
     # ... dsicretize the glt symbol
     glt_ah = discretize(glt_a, domain_h, [Vh, Vh])
-    print(glt_ah.evaluate([0.5], [0.2]))
+    x = glt_ah.evaluate([0.5], [0.2])
+    assert(x[0,0] ==  0.2697044243683245)
     # ...
 
 
@@ -88,4 +89,4 @@ def teardown_function():
     from sympy import cache
     cache.clear_cache()
 
-#test_api_glt_poisson_2d_dir_1()
+test_api_glt_poisson_2d_dir_1()

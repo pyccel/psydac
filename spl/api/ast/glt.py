@@ -47,15 +47,19 @@ from .utilities import random_string
 
 class GltKernel(SplBasic):
 
-    def __new__(cls, expr, spaces, name=None):
+    def __new__(cls, expr, spaces, name=None, mapping=None, is_rational_mapping=None, backend=None):
 
         tag = random_string( 8 )
-        obj = SplBasic.__new__(cls, tag, name=name, prefix='kernel')
+        obj = SplBasic.__new__(cls, tag, name=name,
+                               prefix='kernel', mapping=mapping,
+                               is_rational_mapping=is_rational_mapping)
 
         obj._expr = expr
         obj._spaces = spaces
         obj._eval_fields = None
         obj._eval_mapping = None
+        obj._user_functions = []
+        obj._backend = backend
 
         obj._func = obj._initialize()
 
@@ -81,9 +85,10 @@ class GltKernel(SplBasic):
     def n_cols(self):
         return self._n_cols
 
+    # needed for MPI comm => TODO improve BasicCodeGen
     @property
     def max_nderiv(self):
-        return self._max_nderiv
+        return None
 
     @property
     def with_coordinates(self):
@@ -134,6 +139,14 @@ class GltKernel(SplBasic):
     @property
     def global_mats_types(self):
         return self._global_mats_types
+
+    @property
+    def user_functions(self):
+        return self._user_functions
+
+    @property
+    def backend(self):
+        return self._backend
 
     def build_arguments(self, data):
 
@@ -373,9 +386,10 @@ class GltInterface(SplBasic):
     def mapping(self):
         return self._mapping
 
+    # needed for MPI comm => TODO improve BasicCodeGen
     @property
     def max_nderiv(self):
-        return self.kernel.kernel.max_nderiv
+        return None
 
     def build_arguments(self, data):
         # data must be at the end, since they are optional
@@ -392,6 +406,10 @@ class GltInterface(SplBasic):
     @property
     def coordinates(self):
         return self.kernel.coordinates
+
+    @property
+    def user_functions(self):
+        return self.kernel.user_functions
 
     def _initialize(self):
         form = self.kernel.form
