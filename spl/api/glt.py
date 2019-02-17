@@ -5,6 +5,7 @@ from gelato.expr     import GltExpr as sym_GltExpr
 from spl.api.basic         import BasicCodeGen
 from spl.api.ast.glt       import GltKernel
 from spl.api.ast.glt       import GltInterface
+from spl.api.settings      import SPL_BACKEND_PYTHON, SPL_DEFAULT_FOLDER
 
 from spl.cad.geometry      import Geometry
 from spl.mapping.discrete  import SplineMapping, NurbsMapping
@@ -52,11 +53,19 @@ class DiscreteGltExpr(BasicCodeGen):
     def spaces(self):
         return self._spaces
 
+    # TODO add comm and treate parallel case
     def _create_ast(self, expr, tag, **kwargs):
 
+        backend = kwargs.pop('backend', SPL_BACKEND_PYTHON)
+
         # ...
-        kernel = GltKernel(expr, self.spaces, name='kernel_{}'.format(tag))
-        interface = GltInterface(kernel, name='interface_{}'.format(tag))
+        kernel = GltKernel( expr, self.spaces,
+                            name = 'kernel_{}'.format(tag),
+                            backend = backend )
+
+        interface = GltInterface( kernel,
+                                  name = 'interface_{}'.format(tag),
+                                  backend = backend )
         # ...
 
         ast = {'kernel': kernel, 'interface': interface}

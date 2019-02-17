@@ -14,6 +14,7 @@ from sympy import S as sympy_S
 from sympy import simplify, expand
 from sympy.core.numbers import ImaginaryUnit
 
+from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
 from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
@@ -43,6 +44,7 @@ from gelato.glt import BasicGlt
 
 from .basic import SplBasic
 from .utilities import random_string
+from .utilities import build_pythran_types_header, variables
 
 
 class GltKernel(SplBasic):
@@ -232,14 +234,15 @@ class GltKernel(SplBasic):
 
 
         # ...
-        degrees    = symbols('p1:%d'%(dim+1), integer=True)
-        n_elements = symbols('n1:%d'%(dim+1), integer=True)
-        tis        = symbols('t1:%d'%(dim+1), real=True)
-        arr_tis    = symbols('arr_t1:%d'%(dim+1), cls=IndexedBase)
-        xis        = symbols('x1:%d'%(dim+1), real=True)
-        arr_xis    = symbols('arr_x1:%d'%(dim+1), cls=IndexedBase)
-        indices    = symbols('i1:%d'%(dim+1))
-        lengths    = symbols('nt1:%d'%(dim+1))
+        degrees    = variables('p1:%d'%(dim+1), 'int')
+        n_elements = variables('n1:%d'%(dim+1), 'int')
+        tis        = variables('t1:%d'%(dim+1), 'real')
+        arr_tis    = variables('arr_t1:%d'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
+        xis        = variables('x1:%d'%(dim+1), 'real')
+        arr_xis    = variables('arr_x1:%d'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
+        indices    = variables('i1:%d'%(dim+1), 'int')
+        lengths    = variables('nt1:%d'%(dim+1), 'int')
+
         ranges     = [Range(lengths[i]) for i in range(dim)]
         # ...
 
@@ -358,19 +361,35 @@ class GltKernel(SplBasic):
         # function args
         func_args = self.build_arguments(self.coordinates + mats)
 
-        return FunctionDef(self.name, list(func_args), [], body)
+#        return FunctionDef(self.name, list(func_args), [], body)
+
+        decorators = {}
+        header = None
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args)}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        elif self.backend['name'] == 'pythran':
+            header = build_pythran_types_header(self.name, func_args)
+
+        return FunctionDef(self.name, list(func_args), [], body,
+                           decorators=decorators,header=header)
+
 
 class GltInterface(SplBasic):
 
-    def __new__(cls, kernel, name=None, mapping=None):
+    def __new__(cls, kernel, name=None, mapping=None, is_rational_mapping=None, backend=None):
 
         if not isinstance(kernel, GltKernel):
             raise TypeError('> Expecting an GltKernel')
 
-        obj = SplBasic.__new__(cls, kernel.tag, name=name, prefix='interface')
+        obj = SplBasic.__new__(cls, kernel.tag, name=name,
+                               prefix='interface', mapping=mapping,
+                               is_rational_mapping=is_rational_mapping)
 
         obj._kernel = kernel
         obj._mapping = mapping
+        obj._backend = backend
 
         # update dependencies
         obj._dependencies += [kernel]
@@ -385,6 +404,10 @@ class GltInterface(SplBasic):
     @property
     def mapping(self):
         return self._mapping
+
+    @property
+    def backend(self):
+        return self._backend
 
     # needed for MPI comm => TODO improve BasicCodeGen
     @property

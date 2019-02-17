@@ -61,6 +61,8 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     # ...
 
     # ... dsicretize the glt symbol
+#    from spl.api.settings import SPL_BACKEND_GPYCCEL as backend
+#    glt_ah = discretize(glt_a, domain_h, [Vh, Vh], backend=backend)
     glt_ah = discretize(glt_a, domain_h, [Vh, Vh])
     x = glt_ah.evaluate([0.5], [0.2])
     assert(x[0,0] ==  0.2697044243683245)
