@@ -22,7 +22,6 @@ from pyccel.ast.core import Slice
 from pyccel.ast.core import Range
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
-from pyccel.ast.core import Import
 from pyccel.ast import Zeros
 from pyccel.ast import Import
 from pyccel.ast import DottedName
@@ -317,12 +316,16 @@ class GltKernel(SplBasic):
         body = prelude + body
         # ...
 
-        # get math functions and constants
+        # ... get math functions and constants
+        imports = []
+
         math_elements = math_atoms_as_str(kernel_expr)
         math_imports = []
         for e in math_elements:
             math_imports += [Import(e, 'numpy')]
-        body = math_imports + body
+
+        imports += math_imports
+        # ...
 
         # ...
         self._basic_args = [*arr_tis]
@@ -358,10 +361,10 @@ class GltKernel(SplBasic):
         self._global_mats_types = mats_types
         # ...
 
+        self._imports = imports
+
         # function args
         func_args = self.build_arguments(self.coordinates + mats)
-
-#        return FunctionDef(self.name, list(func_args), [], body)
 
         decorators = {}
         header = None
@@ -462,6 +465,8 @@ class GltInterface(SplBasic):
         # ...
 
         # ...
+        imports = []
+        prelude = []
         body = []
 
         # ...
@@ -472,7 +477,10 @@ class GltInterface(SplBasic):
         # ...
 
         # ...
-        prelude = [Import('zeros', 'numpy')]
+        imports += [Import('zeros', 'numpy')]
+        # ...
+
+        # ...
         for l,arr_ti in zip(lengths, arr_tis):
             prelude += [Assign(l, Len(arr_ti))]
         # ...
@@ -552,4 +560,5 @@ class GltInterface(SplBasic):
         func_args = self.build_arguments(args)
         # ...
 
+        self._imports = imports
         return FunctionDef(self.name, list(func_args), [], body)
