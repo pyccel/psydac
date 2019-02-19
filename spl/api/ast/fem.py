@@ -67,7 +67,7 @@ from spl.fem.tensor  import TensorFemSpace
 from spl.fem.vector  import ProductFemSpace
 
 from .basic import SplBasic
-from .evaluation import EvalMapping, EvalField, EvalVectorField
+from .evaluation import EvalQuadratureMapping, EvalQuadratureField, EvalQuadratureVectorField
 from .utilities import random_string
 from .utilities import build_pythran_types_header, variables
 from .utilities import compute_normal_vector, compute_tangent_vector
@@ -524,7 +524,7 @@ class Kernel(SplBasic):
                                      atomic_expr_field])
         field_atoms   = tuple(expr.atoms(ScalarField))
 
-        # ... create EvalField
+        # ... create EvalQuadratureField
         self._eval_fields = []
         self._map_stmts_fields = OrderedDict()
         if atomic_expr_field:
@@ -540,7 +540,7 @@ class Kernel(SplBasic):
                         fields_expressions += [e]
                         space = list(fs)[0].space
 
-                eval_field = EvalField(space, fields_expressions,
+                eval_field = EvalQuadratureField(space, fields_expressions,
                                        discrete_boundary=self.discrete_boundary,
                                        boundary_basis=self.boundary_basis,
                                        mapping=mapping,backend=self.backend)
@@ -559,7 +559,7 @@ class Kernel(SplBasic):
                                      atomic_expr_vector_field])
         vector_field_atoms   = tuple(expr.atoms(VectorField))
 
-        # ... create EvalVectorField
+        # ... create EvalQuadratureVectorField
         self._eval_vector_fields = []
         if atomic_expr_vector_field:
             keyfunc = lambda F: F.space.name
@@ -574,7 +574,7 @@ class Kernel(SplBasic):
                         vector_fields_expressions += [e]
                         space = list(fs)[0].space
 
-                eval_vector_field = EvalVectorField(space, vector_fields_expressions,
+                eval_vector_field = EvalQuadratureVectorField(space, vector_fields_expressions,
                                                     discrete_boundary=self.discrete_boundary,
                                                     boundary_basis=self.boundary_basis,
                                                     mapping=mapping,backend=self.backend)
@@ -612,7 +612,7 @@ class Kernel(SplBasic):
             elif is_function:
                 space = self.weak_form.space
 
-            eval_mapping = EvalMapping(space, mapping,
+            eval_mapping = EvalQuadratureMapping(space, mapping,
                                        discrete_boundary=self.discrete_boundary,
                                        boundary_basis=self.boundary_basis,
                                        nderiv=nderiv,

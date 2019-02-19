@@ -68,6 +68,58 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     assert(x[0,0] ==  0.2697044243683245)
     # ...
 
+#==============================================================================
+def run_field_2d_dir(ncells, degree, comm=None):
+
+    # ... abstract model
+    domain = Square()
+
+    V = FunctionSpace('V', domain)
+
+    F = ScalarField(V, name='F')
+
+    v = ScalarTestFunction(V, name='v')
+    u = ScalarTestFunction(V, name='u')
+
+    a  = BilinearForm((v,u), dot(grad(v), grad(u)) + F*u*v)
+    ae = BilinearForm((v,u), dot(grad(v), grad(u)) + u*v)
+
+    glt_a  = GltExpr(a)
+    glt_ae = GltExpr(ae)
+    # ...
+
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    # ...
+
+    # ... discrete spaces
+    Vh = discretize(V, domain_h, degree=degree)
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    ah  = discretize(a, domain_h, [Vh, Vh])
+    aeh = discretize(ae, domain_h, [Vh, Vh])
+    # ...
+
+    # ...
+    x = Vh.vector_space.zeros()
+    x[:] = 1.
+
+    phi = FemField( Vh, x )
+    # ...
+
+    # ... discretize the glt symbol
+    glt_ah  = discretize(glt_a, domain_h, [Vh, Vh])
+    glt_aeh = discretize(glt_ae, domain_h, [Vh, Vh])
+    # ...
+
+    # ...
+    x  = glt_ah.evaluate([0.5], [0.2], F=phi)
+    xe = glt_aeh.evaluate([0.5], [0.2])
+
+    assert(allclose(x, xe))
+    # ...
+
 
 ###############################################################################
 #            SERIAL TESTS
@@ -77,6 +129,11 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
 def test_api_glt_poisson_2d_dir_1():
 
     run_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
+
+#==============================================================================
+def test_api_glt_field_2d_dir_1():
+
+    run_field_2d_dir(ncells=[2**3,2**3], degree=[2,2])
 
 
 #==============================================================================
@@ -91,4 +148,5 @@ def teardown_function():
     from sympy import cache
     cache.clear_cache()
 
-test_api_glt_poisson_2d_dir_1()
+#test_api_glt_poisson_2d_dir_1()
+test_api_glt_field_2d_dir_1()

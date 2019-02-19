@@ -445,7 +445,9 @@ def filter_loops(indices, ranges, body, discrete_boundary, boundary_basis=False)
 
         rx = Range(start, end)
         body = [For(x, rx, body)]
+
     body = fusion_loops(body)
+
     return body
 
 #==============================================================================

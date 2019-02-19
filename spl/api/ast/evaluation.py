@@ -76,7 +76,7 @@ from .utilities import compute_atoms_expr_field
 
 
 #==============================================================================
-class EvalMapping(SplBasic):
+class EvalQuadratureMapping(SplBasic):
 
     def __new__(cls, space, mapping, discrete_boundary=None, name=None,
                 boundary_basis=None, nderiv=1, is_rational_mapping=None,
@@ -340,7 +340,7 @@ class EvalMapping(SplBasic):
 
 
 #==============================================================================
-class EvalField(SplBasic):
+class EvalQuadratureField(SplBasic):
 
     def __new__(cls, space, fields, discrete_boundary=None, name=None,
                 boundary_basis=None, mapping=None, is_rational_mapping=None,backend=None):
@@ -476,7 +476,7 @@ class EvalField(SplBasic):
 
 
 #==============================================================================
-class EvalVectorField(SplBasic):
+class EvalQuadratureVectorField(SplBasic):
 
     def __new__(cls, space, vector_fields, discrete_boundary=None, name=None,
                 boundary_basis=None, mapping=None, is_rational_mapping=None, backend = None):
@@ -606,3 +606,167 @@ class EvalVectorField(SplBasic):
 
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators,header=header)
+
+
+#==============================================================================
+# TODO move it
+def _create_loop(indices, ranges, body):
+
+    dim = len(indices)
+    for i in range(dim-1,-1,-1):
+        rx = ranges[i]
+        x = indices[i]
+
+        start = rx.start
+        end   = rx.stop
+
+        rx = Range(start, end)
+        body = [For(x, rx, body)]
+
+    return body
+
+#==============================================================================
+class EvalArrayField(SplBasic):
+
+    def __new__(cls, space, fields, discrete_boundary=None, name=None,
+                boundary_basis=None, mapping=None, is_rational_mapping=None,backend=None):
+
+        if not isinstance(fields, (tuple, list, Tuple)):
+            raise TypeError('> Expecting an iterable')
+
+        obj = SplBasic.__new__(cls, space, name=name,
+                               prefix='eval_field', mapping=mapping,
+                               is_rational_mapping=is_rational_mapping)
+
+        obj._space = space
+        obj._fields = Tuple(*fields)
+        obj._discrete_boundary = discrete_boundary
+        obj._boundary_basis = boundary_basis
+        obj._backend = backend
+        obj._func = obj._initialize()
+
+
+        return obj
+
+    @property
+    def space(self):
+        return self._space
+
+    @property
+    def fields(self):
+        return self._fields
+
+    @property
+    def map_stmts(self):
+        return self._map_stmts
+
+    @property
+    def boundary_basis(self):
+        return self._boundary_basis
+
+    @property
+    def backend(self):
+        return self._backend
+
+    def build_arguments(self, data):
+
+        other = data
+
+        return self.basic_args + other
+
+    def _initialize(self):
+        space = self.space
+        dim = space.ldim
+        mapping = self.mapping
+
+        field_atoms = self.fields.atoms(ScalarField)
+        fields_str = sorted([print_expression(f) for f in self.fields])
+
+        # ... declarations
+        degrees        = variables( 'p1:%s'%(dim+1), 'int')
+        orders         = variables( 'k1:%s'%(dim+1), 'int')
+        indices_basis  = variables( 'jl1:%s'%(dim+1), 'int')
+        indices_quad   = variables( 'g1:%s'%(dim+1), 'int')
+
+        basis          = variables('basis1:%s'%(dim+1),
+                                  dtype='real', rank=3, cls=IndexedVariable)
+        fields_coeffs  = variables(['coeff_{}'.format(f) for f in field_atoms],
+                                  dtype='real', rank=dim, cls=IndexedVariable)
+        fields_val     = variables(['{}_values'.format(f) for f in fields_str],
+                                  dtype='real', rank=dim, cls=IndexedVariable)
+
+        spans  = variables( 'spans1:%s'%(dim+1),
+                            dtype = 'int', rank = 1, cls = IndexedVariable )
+        i_spans = variables( 'i_span1:%s'%(dim+1), 'int')
+        # ...
+
+        # ... ranges
+        ranges_basis = [Range(i_spans[i]-degrees[i], i_spans[i]+1) for i in range(dim)]
+        ranges_quad  = [Range(orders[i]) for i in range(dim)]
+        # ...
+
+        # ... basic arguments
+        self._basic_args = (orders)
+        # ...
+
+        # ...
+        body = []
+        updates = []
+        # ...
+
+        # ...
+        Nj = ScalarTestFunction(space, name='Nj')
+        init_basis = OrderedDict()
+        init_map   = OrderedDict()
+        for atom in self.fields:
+            init, update, map_stmts = compute_atoms_expr_field(atom, indices_quad, indices_basis,
+                                                               basis, Nj,
+                                                               mapping=mapping)
+
+            updates.append(update)
+
+            basis_name = str(init.lhs)
+            init_basis[basis_name] = init
+            for stmt in map_stmts:
+                init_map[str(stmt.lhs)] = stmt
+
+        init_basis = OrderedDict(sorted(init_basis.items()))
+        body += list(init_basis.values())
+        body += updates
+        self._map_stmts = init_map
+        # ...
+
+        # put the body in tests for loops
+        body = _create_loop(indices_basis, ranges_basis, body)
+
+
+        # put the body in for loops of quadrature points
+        assign_spans = []
+        for x, i_span, span in zip(indices_quad, i_spans, spans):
+            assign_spans += [Assign(i_span, span[x])]
+
+        body = assign_spans + body
+
+        body = _create_loop(indices_quad, ranges_quad, body)
+
+
+        # initialization of the matrix
+        init_vals = [f[[Slice(None,None)]*dim] for f in fields_val]
+        init_vals = [Assign(e, 0.0) for e in init_vals]
+        body =  init_vals + body
+
+        func_args = self.build_arguments(degrees + spans + basis + fields_coeffs + fields_val)
+
+        decorators = {}
+        header = None
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args)}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        elif self.backend['name'] == 'pythran':
+            header = build_pythran_types_header(self.name, func_args)
+
+        return FunctionDef(self.name, list(func_args), [], body,
+                           decorators=decorators,header=header)
+
+

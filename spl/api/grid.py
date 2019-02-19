@@ -259,62 +259,60 @@ class BasisValues():
     def spans(self):
         return self._spans
 
-################################################
-if __name__ == '__main__':
-    from numpy import linspace
+#==============================================================================
+# TODO have a parallel version of this function, as done for fem
+from spl.core.bsplines import find_span, basis_funs_all_ders
+def create_collocation_basis( glob_points, space, nderiv=1 ):
 
-    # ...
-    p=(2,2)
-    ne=(2**1,2**1)
+    T    = space.knots      # knots sequence
+    p    = space.degree     # spline degree
+    n    = space.nbasis     # total number of control points
+    grid = space.breaks     # breakpoints
+    nc   = space.ncells     # number of cells in domain (nc=len(grid)-1)
 
-    # ... discrete spaces
-    # Input data: degree, number of elements
-    p1,p2 = p
-    ne1,ne2 = ne
+    #-------------------------------------------
+    # GLOBAL GRID
+    #-------------------------------------------
 
-    # Create uniform grid
-    grid_1 = linspace( 0., 1., num=ne1+1 )
-    grid_2 = linspace( 0., 1., num=ne2+1 )
+    # List of basis function values on each element
+    nq = len(glob_points)
+    glob_spans = np.zeros( nq, dtype='int' )
+#    glob_basis = np.zeros( (p+1,nderiv+1,nq) ) # TODO use this for local basis fct
+    glob_basis = np.zeros( (n,nderiv+1,nq) )
+    for iq,xq in enumerate(glob_points):
+        span = find_span( T, p, xq )
+        glob_spans[iq] = span
 
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1 )
-    V2 = SplineSpace( p2, grid=grid_2 )
+        ders = basis_funs_all_ders( T, p, xq, span, nderiv )
+        glob_basis[span-p:span+1,:,iq] = ders.transpose()
 
-    # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2 )
-    # ...
+    return glob_points, glob_spans, glob_basis
 
-    qd_1d = QuadratureGrid(V1)
-    qd_2d = QuadratureGrid(V)
 
-    values_1d = BasisValues(V1, qd_1d, nderiv=1)
-    print('> basis  = ', values_1d.basis)
+#==============================================================================
+# TODO experimental
+class CollocationBasisValues():
+    def __init__( self, points, V, nderiv ):
 
-    values_2d = BasisValues(V, qd_2d, nderiv=1)
-    print('> basis  = ', values_2d.basis)
+        assert(isinstance(V, TensorFemSpace))
 
-#    # ...
-#    print('=== 1D case ===')
-#    qd_1d = QuadratureGrid(V1)
-#
-#    print('> points  = ', qd_1d.points)
-#    print('> weights = ', qd_1d.weights)
-#    # ...
+        _points  = []
+        _basis = []
+        _spans = []
 
-#    # ...
-#    print('=== 2D case ===')
-#    qd_2d = QuadratureGrid(V)
-#
-#    for x,w in zip(qd_2d.points, qd_2d.weights):
-#        print('> points  = ', x)
-#        print('> weights = ', w)
-#    # ...
-#
-#    # ...
-#    print('=== 2D case boundary ===')
-#    qd_2d = BoundaryQuadratureGrid(V, axis=1, ext=-1)
-#
-#    for x,w in zip(qd_2d.points, qd_2d.weights):
-#        print('> points  = ', x)
-#        print('> weights = ', w)
-#    # ...
+        for i,W in enumerate(V.spaces):
+            ps, sp, bs = create_collocation_basis( points[i], W, nderiv=nderiv )
+            _points.append(ps)
+            _basis.append(bs)
+            _spans.append(sp)
+
+        self._spans = _spans
+        self._basis = _basis
+
+    @property
+    def basis(self):
+        return self._basis
+
+    @property
+    def spans(self):
+        return self._spans

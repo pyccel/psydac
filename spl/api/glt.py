@@ -6,6 +6,7 @@ from spl.api.basic         import BasicCodeGen
 from spl.api.ast.glt       import GltKernel
 from spl.api.ast.glt       import GltInterface
 from spl.api.settings      import SPL_BACKEND_PYTHON, SPL_DEFAULT_FOLDER
+from spl.api.grid          import CollocationBasisValues
 
 from spl.cad.geometry      import Geometry
 from spl.mapping.discrete  import SplineMapping, NurbsMapping
@@ -44,6 +45,13 @@ class DiscreteGltExpr(BasicCodeGen):
         # ...
         BasicCodeGen.__init__(self, expr, **kwargs)
         # ...
+
+#        print('====================')
+#        print(self.dependencies_code)
+#        print('====================')
+#        print(self.interface_code)
+#        print('====================')
+##        import sys; sys.exit(0)
 
     @property
     def mapping(self):
@@ -111,5 +119,21 @@ class DiscreteGltExpr(BasicCodeGen):
 
         kwargs = self._check_arguments(**kwargs)
 
-#        return self.func(*newargs, **kwargs)
+        # ... TODO
+        t1,t2 = args
+        # ...
+
+        # ... TODO
+        Wh, Vh = self.spaces
+        args = args + (Vh,)
+        # ...
+
+        # ...
+        if self.expr.form.fields:
+            grid = (t1, t2)
+            basis_values = CollocationBasisValues(grid, Vh, nderiv=0)
+            args = args + (basis_values,)
+        # ...
+
         return self.func(*args, **kwargs)
+#        return self.func(*newargs, **kwargs)
