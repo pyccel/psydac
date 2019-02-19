@@ -3,7 +3,7 @@ import string
 import random
 import numpy as np
 
-from sympy import Symbol, IndexedBase
+from sympy import Symbol, IndexedBase, Indexed
 from sympy import Mul, Add, Tuple, Min, Max, Pow
 from sympy import Matrix
 from sympy import sqrt as sympy_sqrt
@@ -17,11 +17,13 @@ from pyccel.ast.core import Range, Product
 from pyccel.ast import Comment, NewLine
 
 from sympde.topology.derivatives import _partial_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.space import ScalarTestFunction
 from sympde.topology.space import VectorTestFunction
 from sympde.topology.space import IndexedTestTrial
 from sympde.topology import ScalarField
 from sympde.topology import VectorField, IndexedVectorField
+from sympde.topology import Mapping
 from sympde.topology.derivatives import print_expression
 from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
@@ -37,6 +39,20 @@ def random_string( n ):
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
+
+#==============================================================================
+def is_mapping(expr):
+
+    if isinstance(expr, _logical_partial_derivatives):
+        return is_mapping(expr.args[0])
+
+    elif isinstance(expr, Indexed) and isinstance(expr.base, Mapping):
+        return True
+
+    elif isinstance(expr, Mapping):
+        return True
+
+    return False
 
 #==============================================================================
 def is_field(expr):

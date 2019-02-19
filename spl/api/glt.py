@@ -43,6 +43,8 @@ class DiscreteGltExpr(BasicCodeGen):
         # ...
 
         # ...
+        kwargs['mapping'] = self.spaces[0].symbolic_mapping
+
         BasicCodeGen.__init__(self, expr, **kwargs)
         # ...
 
@@ -64,15 +66,18 @@ class DiscreteGltExpr(BasicCodeGen):
     # TODO add comm and treate parallel case
     def _create_ast(self, expr, tag, **kwargs):
 
+        mapping = kwargs.pop('mapping', None)
         backend = kwargs.pop('backend', SPL_BACKEND_PYTHON)
 
         # ...
         kernel = GltKernel( expr, self.spaces,
                             name = 'kernel_{}'.format(tag),
+                            mapping = mapping,
                             backend = backend )
 
         interface = GltInterface( kernel,
                                   name = 'interface_{}'.format(tag),
+                                  mapping = mapping,
                                   backend = backend )
         # ...
 
@@ -112,10 +117,6 @@ class DiscreteGltExpr(BasicCodeGen):
         return _kwargs
 
     def evaluate(self, *args, **kwargs):
-#        newargs = tuple(self.discrete_spaces)
-#
-#        if self.mapping:
-#            newargs = newargs + (self.mapping,)
 
         kwargs = self._check_arguments(**kwargs)
 
@@ -128,12 +129,16 @@ class DiscreteGltExpr(BasicCodeGen):
         args = args + (Vh,)
         # ...
 
-        # ...
-        if self.expr.form.fields:
+        # ... TODO add nderiv
+        if self.expr.form.fields or self.mapping:
             grid = (t1, t2)
-            basis_values = CollocationBasisValues(grid, Vh, nderiv=0)
+#            basis_values = CollocationBasisValues(grid, Vh, nderiv=0)
+            basis_values = CollocationBasisValues(grid, Vh, nderiv=1)
             args = args + (basis_values,)
         # ...
+
+        if self.mapping:
+            args = args + (self.mapping,)
 
         return self.func(*args, **kwargs)
 #        return self.func(*newargs, **kwargs)

@@ -35,6 +35,7 @@ from pyccel.ast.core      import _atomic
 from sympde.core import Constant
 from sympde.topology import ScalarField, VectorField
 from sympde.topology import IndexedVectorField
+from sympde.topology import Mapping
 from sympde.expr import BilinearForm
 from sympde.core.math import math_atoms_as_str
 from sympde.topology.derivatives import _partial_derivatives
@@ -43,17 +44,21 @@ from sympde.topology.derivatives import get_max_partial_derivatives
 from sympde.topology.derivatives import print_expression
 from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
+from sympde.topology import LogicalExpr
+from sympde.topology import SymbolicExpr
+from sympde.topology import SymbolicDeterminant
 
 #from gelato.core import gelatize
 
 from gelato.glt import BasicGlt
+from gelato.expr import gelatize
 
 from .basic import SplBasic
 from .utilities import random_string
 from .utilities import build_pythran_types_header, variables
-from .utilities import is_vector_field, is_field
-#from .evaluation import EvalArrayMapping, EvalArrayField, EvalArrayVectorField
-from .evaluation import EvalArrayField
+from .utilities import is_vector_field, is_field, is_mapping
+#from .evaluation import EvalArrayVectorField
+from .evaluation import EvalArrayMapping, EvalArrayField
 
 
 class GltKernel(SplBasic):
@@ -163,9 +168,6 @@ class GltKernel(SplBasic):
 
         other = data
 
-        if self.mapping_values:
-            other = self.mapping_values + other
-
         if self.constants:
             other = other + self.constants
 
@@ -176,13 +178,6 @@ class GltKernel(SplBasic):
         dim     = self.expr.ldim
         mapping = self.mapping
 
-        fields = form.fields
-        fields = sorted(fields, key=lambda x: str(x.name))
-        fields = tuple(fields)
-
-        mapping = ()
-        if self.mapping: mapping = Symbol('mapping')
-
         # ... discrete values
         Vh, Wh = self.spaces
 
@@ -190,53 +185,65 @@ class GltKernel(SplBasic):
         degrees    = Vh.degree
         # ...
 
-        # ...
-        expr = self.expr.expr
+        # recompute the symbol
+        expr = gelatize(form, degrees=degrees, n_elements=n_elements,
+                        mapping=mapping, evaluate=True, human=True)
 
-        #*************************************
-        # TODO must be moved to __call__ of GltExpr
-        #*************************************
-        # ... TODO must be moved to __call__ of GltExpr
-        ns = ['nx', 'ny', 'nz'][:dim]
-        ns = [Symbol(i, integer=True) for i in ns]
+        fields = form.fields
+        fields = sorted(fields, key=lambda x: str(x.name))
+        fields = tuple(fields)
 
-        if isinstance(n_elements, int):
-            n_elements = [n_elements]*dim
+        # TODO improve
+        if mapping is None:
+            mapping = ()
+#        if self.mapping: mapping = Symbol('mapping')
 
-        if not( len(ns) == len(n_elements) ):
-            raise ValueError('Wrong size for n_elements')
+#        #*************************************
+#        # TODO must be moved to __call__ of GltExpr
+#        #*************************************
+#        # ... TODO must be moved to __call__ of GltExpr
+#        ns = ['nx', 'ny', 'nz'][:dim]
+#        ns = [Symbol(i, integer=True) for i in ns]
+#
+#        if isinstance(n_elements, int):
+#            n_elements = [n_elements]*dim
+#
+#        if not( len(ns) == len(n_elements) ):
+#            raise ValueError('Wrong size for n_elements')
+#
+#        for n,v in zip(ns, n_elements):
+#            expr = expr.subs(n, v)
+#        # ...
+#
+#        # ...
+#        ps = ['px', 'py', 'pz'][:dim]
+#        ps = [Symbol(i, integer=True) for i in ps]
+#
+#        if isinstance(degrees, int):
+#            degrees = [degrees]*dim
+#
+#        if not( len(ps) == len(degrees) ):
+#            raise ValueError('Wrong size for degrees')
+#
+#        d_degrees = {}
+#        for p,v in zip(ps, degrees):
+#            d_degrees[p] = v
+#
+#        atoms = list(self.expr.expr.atoms(BasicGlt))
+#        for a in atoms:
+#            func = a.func
+#            p,t = a._args[:]
+#            newargs = (d_degrees[p], t)
+#            newa = func(*newargs)
+#            expr = expr.subs(a, newa)
+#        # ...
+#        #*************************************
 
-        for n,v in zip(ns, n_elements):
-            expr = expr.subs(n, v)
-        # ...
-
-        # ...
-        ps = ['px', 'py', 'pz'][:dim]
-        ps = [Symbol(i, integer=True) for i in ps]
-
-        if isinstance(degrees, int):
-            degrees = [degrees]*dim
-
-        if not( len(ps) == len(degrees) ):
-            raise ValueError('Wrong size for degrees')
-
-        d_degrees = {}
-        for p,v in zip(ps, degrees):
-            d_degrees[p] = v
-
-        atoms = list(self.expr.expr.atoms(BasicGlt))
-        for a in atoms:
-            func = a.func
-            p,t = a._args[:]
-            newargs = (d_degrees[p], t)
-            newa = func(*newargs)
-            expr = expr.subs(a, newa)
-        # ...
-        #*************************************
-
-#        expr = expand(expr)
-#        expr = simplify(expr)
+        expr = expand(expr)
         expr = expr.evalf()
+
+#        if mapping:
+#            expr = simplify(expr)
         # ...
 
         # ...
@@ -253,7 +260,6 @@ class GltKernel(SplBasic):
         prelude = []
         body = []
         imports = []
-
         # ...
 
         # ...
@@ -306,19 +312,27 @@ class GltKernel(SplBasic):
 
         # ...
         atoms_types = (_partial_derivatives,
+                       _logical_partial_derivatives,
                        ScalarField,
-                       VectorField, IndexedVectorField)
+                       VectorField, IndexedVectorField,
+                       SymbolicDeterminant)
 
         atoms  = _atomic(expr, cls=atoms_types)
         # ...
 
         # ...
+#        atomic_expr_mapping      = [atom for atom in atoms if is_mapping(atom)]
         atomic_expr_field        = [atom for atom in atoms if is_field(atom)]
         atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
         # ...
 
         # ...
-        # TODO use print_expression
+#        mapping_expressions = [SymbolicExpr(i) for i in  atomic_expr_mapping]
+#        for old, new in zip(atomic_expr_mapping, mapping_expressions):
+#            expr = expr.subs(old, new)
+        # ...
+
+        # ...
         fields_str    = sorted(tuple(map(print_expression, atomic_expr_field)))
         fields_logical_str = sorted([print_expression(f, logical=True) for f in
                                      atomic_expr_field])
@@ -342,7 +356,7 @@ class GltKernel(SplBasic):
                         space = list(fs)[0].space
 
                 eval_field = EvalArrayField(space, fields_expressions,
-                                       mapping=mapping,backend=self.backend)
+                                            mapping=mapping,backend=self.backend)
 
                 self._eval_fields.append(eval_field)
                 for k,v in eval_field.map_stmts.items():
@@ -350,6 +364,38 @@ class GltKernel(SplBasic):
 
         # update dependencies
         self._dependencies += self.eval_fields
+        # ...
+
+        # ... TODO add it as a method to basic class
+        nderiv = 1
+        if isinstance(expr, Matrix):
+            n_rows, n_cols = expr.shape
+            for i_row in range(0, n_rows):
+                for i_col in range(0, n_cols):
+                    d = get_max_partial_derivatives(expr[i_row,i_col])
+                    nderiv = max(nderiv, max(d.values()))
+        else:
+            d = get_max_partial_derivatives(expr)
+            nderiv = max(nderiv, max(d.values()))
+
+        self._max_nderiv = nderiv
+        # ...
+
+        # ... mapping
+        mapping = self.mapping
+        self._eval_mapping = None
+        if mapping:
+
+            space = self.spaces[0]
+
+            eval_mapping = EvalArrayMapping(space, mapping,
+                                            nderiv=nderiv,
+                                            is_rational_mapping=self.is_rational_mapping,
+                                            backend=self.backend)
+            self._eval_mapping = eval_mapping
+
+            # update dependencies
+            self._dependencies += [self.eval_mapping]
         # ...
 
         # ... declarations
@@ -376,6 +422,37 @@ class GltKernel(SplBasic):
         # ...
 
         # ...
+        mapping_elements = ()
+        mapping_coeffs = ()
+        mapping_values = ()
+        if mapping:
+            _eval = self.eval_mapping
+            _print = lambda i: print_expression(i, mapping_name=False)
+
+            mapping_elements = [_print(i) for i in _eval.elements]
+            mapping_elements = symbols(tuple(mapping_elements))
+
+            mapping_coeffs = [_print(i) for i in _eval.mapping_coeffs]
+            mapping_coeffs = variables(mapping_coeffs, dtype='real', rank=dim, cls=IndexedVariable)
+
+            mapping_values = [_print(i) for i in _eval.mapping_values]
+            mapping_values = variables(mapping_values, dtype='real', rank=dim, cls=IndexedVariable)
+        # ...
+
+#        # ...
+#        self._fields_val = fields_val
+#        self._vector_fields_val = vector_fields_val
+#        self._fields = fields
+#        self._fields_logical = fields_logical
+#        self._fields_coeffs = fields_coeffs
+#        self._fields_tmp_coeffs = fields_tmp_coeffs
+#        self._vector_fields = vector_fields
+#        self._vector_fields_logical = vector_fields_logical
+#        self._vector_fields_coeffs = vector_fields_coeffs
+#        self._mapping_coeffs = mapping_coeffs
+#        # ...
+
+        # ...
         for l,arr_ti in zip(lengths, arr_tis):
             prelude += [Assign(l, Len(arr_ti))]
         # ...
@@ -391,6 +468,22 @@ class GltKernel(SplBasic):
         # ... fields
         for i in range(len(fields_val)):
             body.append(Assign(fields[i],fields_val[i][indices]))
+        # ...
+
+        # ... mapping
+        if mapping:
+            for value, array in zip(mapping_elements, mapping_values):
+                body.append(Assign(value, array[indices]))
+
+            jac = mapping.det_jacobian
+            jac = SymbolicExpr(jac)
+
+            det_jac = SymbolicExpr(SymbolicDeterminant(mapping))
+
+            body += [Assign(det_jac, jac)]
+
+            body += [Print(mapping_elements)]
+            print(mapping_elements)
         # ...
 
         # ...
@@ -432,11 +525,11 @@ class GltKernel(SplBasic):
 #            args = eval_vector_field.build_arguments(args)
 #            body = [FunctionCall(eval_vector_field.func, args)] + body
 
-#        # call eval mapping
-#        if self.eval_mapping:
-#            args = (degrees + basis + mapping_coeffs + mapping_values)
-#            args = eval_mapping.build_arguments(args)
-#            body = [FunctionCall(eval_mapping.func, args)] + body
+        # call eval mapping
+        if self.eval_mapping:
+            args = (degrees + spans + basis + mapping_coeffs + mapping_values)
+            args = eval_mapping.build_arguments(args)
+            body = [FunctionCall(eval_mapping.func, args)] + body
 
 
         if fields:
@@ -447,6 +540,11 @@ class GltKernel(SplBasic):
 #        if vector_fields_val:
 #            for F_value in vector_fields_val:
 #                prelude += [Assign(F_value, Zeros(lengths))]
+
+        if mapping:
+            imports += [Import('zeros', 'numpy')]
+            for M_value in mapping_values:
+                prelude += [Assign(M_value, Zeros(lengths))]
 
         # ...
         body = prelude + body
@@ -501,7 +599,7 @@ class GltKernel(SplBasic):
         args = ()
         if fields or mapping:
             args = degrees + spans + basis
-        args = self.coordinates + args + fields_coeffs + mats
+        args = self.coordinates + args + fields_coeffs + mapping_coeffs + mats
         func_args = self.build_arguments(args)
 
 #        func_args = self.build_arguments(self.coordinates + fields_coeffs + vector_fields_coeffs + mapping_coeffs + mats)
@@ -642,7 +740,7 @@ class GltInterface(SplBasic):
 
         # ...
         if mapping:
-            for i, coeff in enumerate(kernel.kernel.mapping_coeffs):
+            for i, coeff in enumerate(kernel.mapping_coeffs):
                 component = IndexedBase(DottedName(mapping, '_fields'))[i]
                 body += [Assign(coeff, DottedName(component, '_coeffs', '_data'))]
         # ...
@@ -690,7 +788,7 @@ class GltInterface(SplBasic):
         args = ()
         if fields or mapping:
             args = degrees + spans + basis
-        args = self.coordinates + args + field_data + mat_data
+        args = self.coordinates + args + field_data + kernel.mapping_coeffs + mat_data
         args = kernel.build_arguments(args)
 
         body += [FunctionCall(kernel.func, args)]

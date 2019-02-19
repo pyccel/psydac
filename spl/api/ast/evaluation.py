@@ -770,3 +770,242 @@ class EvalArrayField(SplBasic):
                            decorators=decorators,header=header)
 
 
+#==============================================================================
+class EvalArrayMapping(SplBasic):
+
+    def __new__(cls, space, mapping, name=None,
+                nderiv=1, is_rational_mapping=None,
+                backend=None):
+
+        if not isinstance(mapping, Mapping):
+            raise TypeError('> Expecting a Mapping object')
+
+        obj = SplBasic.__new__(cls, mapping, name=name,
+                               prefix='eval_mapping', mapping=mapping,
+                               is_rational_mapping=is_rational_mapping)
+
+        obj._space = space
+        obj._backend = backend
+
+        dim = mapping.rdim
+
+        # ...
+        lcoords = ['x1', 'x2', 'x3'][:dim]
+        obj._lcoords = symbols(lcoords)
+        # ...
+
+        # ...
+        ops = _partial_derivatives[:dim]
+        M = mapping
+
+        components = [M[i] for i in range(0, dim)]
+
+        d_elements = {}
+        d_elements[0] = list(components)
+
+        if nderiv > 0:
+            ls = [d(M[i]) for d in ops for i in range(0, dim)]
+
+            d_elements[1] = ls
+
+        if nderiv > 1:
+            ls = [d1(d2(M[i])) for e,d1 in enumerate(ops)
+                               for d2 in ops[:e+1]
+                               for i in range(0, dim)]
+
+            d_elements[2] = ls
+
+        if nderiv > 2:
+            raise NotImplementedError('TODO')
+
+        elements = [i for l in d_elements.values() for i in l]
+        obj._elements = tuple(elements)
+        obj._d_elements = d_elements
+
+        obj._components = tuple(components)
+        obj._nderiv = nderiv
+        # ...
+
+        obj._func = obj._initialize()
+
+        return obj
+
+    @property
+    def space(self):
+        return self._space
+
+    @property
+    def nderiv(self):
+        return self._nderiv
+
+    @property
+    def lcoords(self):
+        return self._lcoords
+
+    @property
+    def elements(self):
+        return self._elements
+
+    @property
+    def d_elements(self):
+        return self._d_elements
+
+    @property
+    def components(self):
+        return self._components
+
+    @property
+    def mapping_coeffs(self):
+        return self._mapping_coeffs
+
+    @property
+    def mapping_values(self):
+        return self._mapping_values
+
+    @property
+    def backend(self):
+        return self._backend
+
+    @property
+    def weights(self):
+        return self._weights
+
+    def build_arguments(self, data):
+
+        other = data
+
+        return self.basic_args + other
+
+    def _initialize(self):
+        space = self.space
+        dim = space.ldim
+
+        _print = lambda i: print_expression(i, mapping_name=False)
+        mapping_atoms = [_print(f) for f in self.components]
+        mapping_str = [_print(f) for f in self.elements]
+#        mapping_str = sorted([_print(f) for f in self.elements])
+
+        # ... declarations
+        degrees        = variables( 'p1:%s'%(dim+1), 'int')
+        orders         = variables( 'k1:%s'%(dim+1), 'int')
+        indices_basis  = variables( 'jl1:%s'%(dim+1), 'int')
+        indices_quad   = variables( 'g1:%s'%(dim+1), 'int')
+        basis          = variables('basis1:%s'%(dim+1),
+                                  dtype='real', rank=3, cls=IndexedVariable)
+        mapping_coeffs = variables(['coeff_{}'.format(f) for f in mapping_atoms],
+                                  dtype='real', rank=dim, cls=IndexedVariable)
+        mapping_values = variables(['{}_values'.format(f) for f in mapping_str],
+                                  dtype='real', rank=dim, cls=IndexedVariable)
+
+        spans  = variables( 'spans1:%s'%(dim+1),
+                            dtype = 'int', rank = 1, cls = IndexedVariable )
+        i_spans = variables( 'i_span1:%s'%(dim+1), 'int')
+
+        # ... needed for area
+        weights = variables('quad_w1:%s'%(dim+1),
+                            dtype='real', rank=1, cls=IndexedVariable)
+
+        self._weights = weights
+        # ...
+
+        weights_elements = []
+        if self.is_rational_mapping:
+            # TODO check if 'w' exist already
+            weights_pts = ScalarField(self.space, name='w')
+
+            weights_elements = [weights_pts]
+
+            # ...
+            nderiv = self.nderiv
+            ops = _partial_derivatives[:dim]
+
+            if nderiv > 0:
+                weights_elements += [d(weights_pts) for d in ops]
+
+            if nderiv > 1:
+                weights_elements += [d1(d2(weights_pts)) for e,d1 in enumerate(ops)
+                                                     for d2 in ops[:e+1]]
+
+            if nderiv > 2:
+                raise NotImplementedError('TODO')
+            # ...
+
+            mapping_weights_str = [_print(f) for f in weights_elements]
+            mapping_wvalues = variables(['{}_values'.format(f) for f in mapping_weights_str],
+                                                dtype='real', rank=dim, cls=IndexedVariable)
+
+            mapping_coeffs  = mapping_coeffs + (IndexedVariable('coeff_w', dtype='real', rank=dim),)
+            mapping_values  = mapping_values + tuple(mapping_wvalues)
+
+        weights_elements = tuple(weights_elements)
+        # ...
+
+        # ... ranges
+        ranges_basis = [Range(i_spans[i]-degrees[i], i_spans[i]+1) for i in range(dim)]
+        ranges_quad  = [Range(orders[i]) for i in range(dim)]
+        # ...
+
+        # ... basic arguments
+        self._basic_args = (orders)
+        # ...
+
+        # ...
+        self._mapping_coeffs  = mapping_coeffs
+        self._mapping_values  = mapping_values
+        # ...
+
+        # ...
+        Nj = ScalarTestFunction(space, name='Nj')
+        body = []
+        init_basis = OrderedDict()
+        updates = []
+        for atom in self.elements + weights_elements:
+            init, update = compute_atoms_expr_mapping(atom, indices_quad,
+                                                      indices_basis, basis, Nj)
+
+            updates.append(update)
+
+            basis_name = str(init.lhs)
+            init_basis[basis_name] = init
+
+        init_basis = OrderedDict(sorted(init_basis.items()))
+        body += list(init_basis.values())
+        body += updates
+        # ...
+
+        # put the body in tests for loops
+        body = _create_loop(indices_basis, ranges_basis, body)
+
+        if self.is_rational_mapping:
+            stmts = rationalize_eval_mapping(self.mapping, self.nderiv,
+                                             self.space, indices_quad)
+
+            body += stmts
+
+        assign_spans = []
+        for x, i_span, span in zip(indices_quad, i_spans, spans):
+            assign_spans += [Assign(i_span, span[x])]
+
+        body = assign_spans + body
+        # put the body in for loops of quadrature points
+        body = _create_loop(indices_quad, ranges_quad, body)
+
+        # initialization of the matrix
+        init_vals = [f[[Slice(None,None)]*dim] for f in mapping_values]
+        init_vals = [Assign(e, 0.0) for e in init_vals]
+        body =  init_vals + body
+
+        func_args = self.build_arguments(degrees + spans + basis + mapping_coeffs + mapping_values)
+
+        decorators = {}
+        header = None
+        if self.backend['name'] == 'pyccel':
+            decorators = {'types': build_types_decorator(func_args)}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit':[]}
+        elif self.backend['name'] == 'pythran':
+            header = build_pythran_types_header(self.name, func_args)
+
+        return FunctionDef(self.name, list(func_args), [], body,
+                           decorators=decorators,header=header)
+

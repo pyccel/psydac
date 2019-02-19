@@ -586,7 +586,7 @@ class Kernel(SplBasic):
         self._dependencies += self.eval_vector_fields
         # ...
 
-        # ...
+        # ... TODO add it as a method to basic class
         nderiv = 1
         if isinstance(self.kernel_expr, Matrix):
             n_rows, n_cols = self.kernel_expr.shape
