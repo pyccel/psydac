@@ -33,7 +33,8 @@ from spl.api.discretization import discretize
 
 from spl.mapping.discrete import SplineMapping
 
-from numpy import linspace, zeros, allclose
+import numpy as np
+from scipy.linalg import eig as eig_solver
 from mpi4py import MPI
 import pytest
 
@@ -81,14 +82,19 @@ def run_poisson_2d_dir(filename, comm=None):
 
     # ... dsicretize the glt symbol
     glt_ah = discretize(glt_a, domain_h, [Vh, Vh])
-    x = glt_ah.evaluate([0.51], [0.21])
-    # identity
-#    assert(allclose(x,  [[0.2819065744042024]]))
-    # collela
-    print(x[0,0])
-    # ...
+#    x = glt_ah.evaluate([np.pi/2], [np.pi/2], x1=[0.51], x2=[0.21])
+#    # identity
+#    # collela
+#    print(x[0,0])
+#    # ...
+#
+#    eigh = glt_ah.eig()
 
+    # ...
     eigh = glt_ah.eig()
+    eigh = eigh.ravel()
+    eigh.sort()
+    # ...
 
 
 #==============================================================================

@@ -106,7 +106,19 @@ class DiscreteGltExpr(BasicCodeGen):
         keys = [str(a) for a in sym_args]
         for key in keys:
             try:
-                _kwargs[key] = kwargs[key]
+                # we use x1 for the call rather than arr_x1, to keep x1 inside
+                # the loop
+                if key == 'x1':
+                    _kwargs['arr_x1'] = kwargs[key]
+
+                elif key == 'x2':
+                    _kwargs['arr_x2'] = kwargs[key]
+
+                elif key == 'x3':
+                    _kwargs['arr_x3'] = kwargs[key]
+
+                else:
+                    _kwargs[key] = kwargs[key]
             except:
                 raise KeyError('Unconsistent argument with interface')
         # ...
@@ -128,18 +140,17 @@ class DiscreteGltExpr(BasicCodeGen):
         kwargs = self._check_arguments(**kwargs)
 
         # ... TODO
-        t1,t2 = args
-        # ...
-
-        # ... TODO
         Wh, Vh = self.spaces
         args = args + (Vh,)
         # ...
 
-        # ... TODO add nderiv
+        # ...
         if self.expr.form.fields or self.mapping:
+            dim = Vh.ldim
             nderiv = self.interface.max_nderiv
-            grid = (t1, t2)
+            xis = [kwargs['arr_x{}'.format(i)] for i in range(1,dim+1)]
+            grid = tuple(xis)
+            # TODO assert that xis are inside the space domain
             basis_values = CollocationBasisValues(grid, Vh, nderiv=nderiv)
             args = args + (basis_values,)
         # ...

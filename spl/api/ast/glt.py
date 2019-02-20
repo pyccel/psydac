@@ -195,48 +195,6 @@ class GltKernel(SplBasic):
         # TODO improve
         if mapping is None:
             mapping = ()
-#        if self.mapping: mapping = Symbol('mapping')
-
-#        #*************************************
-#        # TODO must be moved to __call__ of GltExpr
-#        #*************************************
-#        # ... TODO must be moved to __call__ of GltExpr
-#        ns = ['nx', 'ny', 'nz'][:dim]
-#        ns = [Symbol(i, integer=True) for i in ns]
-#
-#        if isinstance(n_elements, int):
-#            n_elements = [n_elements]*dim
-#
-#        if not( len(ns) == len(n_elements) ):
-#            raise ValueError('Wrong size for n_elements')
-#
-#        for n,v in zip(ns, n_elements):
-#            expr = expr.subs(n, v)
-#        # ...
-#
-#        # ...
-#        ps = ['px', 'py', 'pz'][:dim]
-#        ps = [Symbol(i, integer=True) for i in ps]
-#
-#        if isinstance(degrees, int):
-#            degrees = [degrees]*dim
-#
-#        if not( len(ps) == len(degrees) ):
-#            raise ValueError('Wrong size for degrees')
-#
-#        d_degrees = {}
-#        for p,v in zip(ps, degrees):
-#            d_degrees[p] = v
-#
-#        atoms = list(self.expr.expr.atoms(BasicGlt))
-#        for a in atoms:
-#            func = a.func
-#            p,t = a._args[:]
-#            newargs = (d_degrees[p], t)
-#            newa = func(*newargs)
-#            expr = expr.subs(a, newa)
-#        # ...
-#        #*************************************
 
         expr = expand(expr)
         expr = expr.evalf()
@@ -286,7 +244,13 @@ class GltKernel(SplBasic):
                                 cls = IndexedVariable )
 
         # ...
-        self._coordinates = tuple(self.expr.space_variables)
+        if fields or mapping:
+            names = ['x1', 'x2', 'x3'][:dim]
+            self._coordinates = tuple([Symbol(i) for i in names])
+
+        else:
+            self._coordinates = tuple(self.expr.space_variables)
+
         self._with_coordinates = (len(self._coordinates) > 0)
         # ...
 
@@ -593,12 +557,14 @@ class GltKernel(SplBasic):
 
         # function args
         args = ()
-        if fields or mapping:
-            args = degrees + spans + basis
-        args = self.coordinates + args + fields_coeffs + mapping_coeffs + mats
-        func_args = self.build_arguments(args)
+        if self.with_coordinates:
+            args = arr_xis
 
-#        func_args = self.build_arguments(self.coordinates + fields_coeffs + vector_fields_coeffs + mapping_coeffs + mats)
+        if fields or mapping:
+            args = args + degrees + spans + basis
+
+        args = args + fields_coeffs + mapping_coeffs + mats
+        func_args = self.build_arguments(args)
 
         decorators = {}
         header = None
@@ -693,6 +659,7 @@ class GltInterface(SplBasic):
         trial_space = Symbol('V')
 
         arr_tis    = symbols('arr_t1:%d'%(dim+1), cls=IndexedBase)
+        arr_xis    = symbols('arr_x1:%d'%(dim+1), cls=IndexedBase)
         lengths    = symbols('k1:%d'%(dim+1))
         degrees    = variables( 'p1:%s'%(dim+1), 'int')
 
@@ -796,9 +763,13 @@ class GltInterface(SplBasic):
         field_data     = tuple(field_data)
 
         args = ()
+        if self.with_coordinates:
+            args = arr_xis
+
         if fields or mapping:
-            args = degrees + spans + basis
-        args = self.coordinates + args + field_data + kernel.mapping_coeffs + mat_data
+            args = args + degrees + spans + basis
+
+        args = args + field_data + kernel.mapping_coeffs + mat_data
         args = kernel.build_arguments(args)
 
         body += [FunctionCall(kernel.func, args)]
@@ -824,16 +795,16 @@ class GltInterface(SplBasic):
         if self.kernel.constants:
             constants = self.kernel.constants
 
-            if self.coordinates:
-                coordinates = self.coordinates
+            if self.with_coordinates:
+                coordinates = arr_xis
                 args = mapping + constants + coordinates + fields + mats
 
             else:
                 args = mapping + constants + fields + mats
 
         else:
-            if self.coordinates:
-                coordinates = self.coordinates
+            if self.with_coordinates:
+                coordinates = arr_xis
                 args = mapping + coordinates + fields + mats
 
             else:
