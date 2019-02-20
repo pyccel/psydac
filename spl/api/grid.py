@@ -278,13 +278,13 @@ def create_collocation_basis( glob_points, space, nderiv=1 ):
     nq = len(glob_points)
     glob_spans = np.zeros( nq, dtype='int' )
 #    glob_basis = np.zeros( (p+1,nderiv+1,nq) ) # TODO use this for local basis fct
-    glob_basis = np.zeros( (n,nderiv+1,nq) )
+    glob_basis = np.zeros( (n+p,nderiv+1,nq) ) # n+p for ghosts
     for iq,xq in enumerate(glob_points):
         span = find_span( T, p, xq )
         glob_spans[iq] = span
 
         ders = basis_funs_all_ders( T, p, xq, span, nderiv )
-        glob_basis[span-p:span+1,:,iq] = ders.transpose()
+        glob_basis[span:span+p+1,:,iq] = ders.transpose()
 
     return glob_points, glob_spans, glob_basis
 

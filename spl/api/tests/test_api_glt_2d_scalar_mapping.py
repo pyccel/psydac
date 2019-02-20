@@ -82,8 +82,10 @@ def run_poisson_2d_dir(filename, comm=None):
     # ... dsicretize the glt symbol
     glt_ah = discretize(glt_a, domain_h, [Vh, Vh])
     x = glt_ah.evaluate([0.51], [0.21])
-    print(x)
-#    assert(x[0,0] ==  0.2697044243683245)
+    # identity
+#    assert(allclose(x,  [[0.2819065744042024]]))
+    # collela
+    print(x[0,0])
     # ...
 
 
@@ -93,6 +95,12 @@ def test_api_glt_poisson_2d_dir_identity():
 
     run_poisson_2d_dir(filename)
 
+
+#==============================================================================
+def test_api_glt_poisson_2d_dir_collela():
+    filename = os.path.join(mesh_dir, 'collela_2d.h5')
+
+    run_poisson_2d_dir(filename)
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
@@ -106,4 +114,5 @@ def teardown_function():
     from sympy import cache
     cache.clear_cache()
 
-test_api_glt_poisson_2d_dir_identity()
+#test_api_glt_poisson_2d_dir_identity()
+#test_api_glt_poisson_2d_dir_collela()

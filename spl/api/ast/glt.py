@@ -481,9 +481,6 @@ class GltKernel(SplBasic):
             det_jac = SymbolicExpr(SymbolicDeterminant(mapping))
 
             body += [Assign(det_jac, jac)]
-
-            body += [Print(mapping_elements)]
-            print(mapping_elements)
         # ...
 
         # ...

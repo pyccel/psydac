@@ -701,7 +701,8 @@ class EvalArrayField(SplBasic):
         # ...
 
         # ... ranges
-        ranges_basis = [Range(i_spans[i]-degrees[i], i_spans[i]+1) for i in range(dim)]
+        # we add the degree because of the padding
+        ranges_basis = [Range(i_spans[i], i_spans[i]+degrees[i]+1) for i in range(dim)]
         ranges_quad  = [Range(orders[i]) for i in range(dim)]
         # ...
 
@@ -941,7 +942,8 @@ class EvalArrayMapping(SplBasic):
         # ...
 
         # ... ranges
-        ranges_basis = [Range(i_spans[i]-degrees[i], i_spans[i]+1) for i in range(dim)]
+        # we add the degree because of the padding
+        ranges_basis = [Range(i_spans[i], i_spans[i]+degrees[i]+1) for i in range(dim)]
         ranges_quad  = [Range(orders[i]) for i in range(dim)]
         # ...
 
