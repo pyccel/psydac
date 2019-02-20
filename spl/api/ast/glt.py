@@ -386,7 +386,7 @@ class GltKernel(SplBasic):
         self._eval_mapping = None
         if mapping:
 
-            space = self.spaces[0]
+            space = form.trial_spaces[0]
 
             eval_mapping = EvalArrayMapping(space, mapping,
                                             nderiv=nderiv,
@@ -737,9 +737,20 @@ class GltInterface(SplBasic):
 
         # ...
         if mapping:
-            for i, coeff in enumerate(kernel.mapping_coeffs):
+            # we limit the range to dim, since the last element can be the
+            # weights when using NURBS
+            for i, coeff in enumerate(kernel.mapping_coeffs[:dim]):
                 component = IndexedBase(DottedName(mapping, '_fields'))[i]
-                body += [Assign(coeff, DottedName(component, '_coeffs', '_data'))]
+                c_var = DottedName(component, '_coeffs', '_data')
+                body += [Assign(coeff, c_var)]
+
+            # NURBS case
+            if self.is_rational_mapping:
+                coeff = kernel.mapping_coeffs[-1]
+
+                component = DottedName(mapping, '_weights_field')
+                c_var = DottedName(component, '_coeffs', '_data')
+                body += [Assign(coeff, c_var)]
         # ...
 
         # ...

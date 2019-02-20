@@ -103,6 +103,12 @@ def test_api_glt_poisson_2d_dir_collela():
     run_poisson_2d_dir(filename)
 
 #==============================================================================
+def test_api_glt_poisson_2d_dir_quart_circle():
+    filename = os.path.join(mesh_dir, 'quart_circle.h5')
+
+    run_poisson_2d_dir(filename)
+
+#==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
 
@@ -116,3 +122,4 @@ def teardown_function():
 
 #test_api_glt_poisson_2d_dir_identity()
 #test_api_glt_poisson_2d_dir_collela()
+test_api_glt_poisson_2d_dir_quart_circle()

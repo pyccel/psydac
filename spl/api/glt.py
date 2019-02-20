@@ -44,6 +44,7 @@ class DiscreteGltExpr(BasicCodeGen):
 
         # ...
         kwargs['mapping'] = self.spaces[0].symbolic_mapping
+        kwargs['is_rational_mapping'] = is_rational_mapping
 
         BasicCodeGen.__init__(self, expr, **kwargs)
         # ...
@@ -53,7 +54,7 @@ class DiscreteGltExpr(BasicCodeGen):
 #        print('====================')
 #        print(self.interface_code)
 #        print('====================')
-##        import sys; sys.exit(0)
+#        import sys; sys.exit(0)
 
     @property
     def mapping(self):
@@ -66,18 +67,21 @@ class DiscreteGltExpr(BasicCodeGen):
     # TODO add comm and treate parallel case
     def _create_ast(self, expr, tag, **kwargs):
 
-        mapping = kwargs.pop('mapping', None)
-        backend = kwargs.pop('backend', SPL_BACKEND_PYTHON)
+        mapping             = kwargs.pop('mapping', None)
+        backend             = kwargs.pop('backend', SPL_BACKEND_PYTHON)
+        is_rational_mapping = kwargs.pop('is_rational_mapping', None)
 
         # ...
         kernel = GltKernel( expr, self.spaces,
                             name = 'kernel_{}'.format(tag),
                             mapping = mapping,
+                            is_rational_mapping = is_rational_mapping,
                             backend = backend )
 
         interface = GltInterface( kernel,
                                   name = 'interface_{}'.format(tag),
                                   mapping = mapping,
+                                  is_rational_mapping = is_rational_mapping,
                                   backend = backend )
         # ...
 
