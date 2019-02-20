@@ -82,13 +82,7 @@ def run_poisson_2d_dir(filename, comm=None):
 
     # ... dsicretize the glt symbol
     glt_ah = discretize(glt_a, domain_h, [Vh, Vh])
-#    x = glt_ah.evaluate([np.pi/2], [np.pi/2], x1=[0.51], x2=[0.21])
-#    # identity
-#    # collela
-#    print(x[0,0])
-#    # ...
-#
-#    eigh = glt_ah.eig()
+    # ...
 
     # ...
     eigh = glt_ah.eig()
@@ -96,25 +90,41 @@ def run_poisson_2d_dir(filename, comm=None):
     eigh.sort()
     # ...
 
+    # ... use eigenvalue solver
+    M = ah.assemble().tosparse().todense()
+    w, v = eig_solver(M)
+    eig = w.real
+    eig.sort()
+    # ...
+
+    # ...
+    error = np.linalg.norm(eig-eigh) / Vh.nbasis
+    # ...
+
+    return error
+
 
 #==============================================================================
 def test_api_glt_poisson_2d_dir_identity():
     filename = os.path.join(mesh_dir, 'identity_2d.h5')
 
-    run_poisson_2d_dir(filename)
+    error = run_poisson_2d_dir(filename)
+    assert(np.allclose([error], [0.029738578422276986]))
 
 
 #==============================================================================
 def test_api_glt_poisson_2d_dir_collela():
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
 
-    run_poisson_2d_dir(filename)
+    error = run_poisson_2d_dir(filename)
+    assert(np.allclose([error], [0.04655602895206486]))
 
 #==============================================================================
 def test_api_glt_poisson_2d_dir_quart_circle():
     filename = os.path.join(mesh_dir, 'quart_circle.h5')
 
-    run_poisson_2d_dir(filename)
+    error = run_poisson_2d_dir(filename)
+    assert(np.allclose([error], [0.04139096668630673]))
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
@@ -128,6 +138,6 @@ def teardown_function():
     from sympy import cache
     cache.clear_cache()
 
-test_api_glt_poisson_2d_dir_identity()
+#test_api_glt_poisson_2d_dir_identity()
 #test_api_glt_poisson_2d_dir_collela()
 #test_api_glt_poisson_2d_dir_quart_circle()

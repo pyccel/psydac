@@ -185,7 +185,7 @@ class DiscreteGltExpr(BasicCodeGen):
         # ... space variables (as key words)
         if self.interface.with_coordinates:
             xs = [np.linspace(bound[0], bound[1], n) for n, bound in zip(nbasis, bounds)]
-            for n,x in zip(['x', 'y', 'z'][:dim], xs):
+            for n,x in zip(['x1', 'x2', 'x3'][:dim], xs):
                 kwargs[n] = x
         # ...
 
