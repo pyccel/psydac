@@ -88,6 +88,8 @@ def run_poisson_2d_dir(filename, comm=None):
     print(x[0,0])
     # ...
 
+    eigh = glt_ah.eig()
+
 
 #==============================================================================
 def test_api_glt_poisson_2d_dir_identity():
@@ -120,6 +122,6 @@ def teardown_function():
     from sympy import cache
     cache.clear_cache()
 
-#test_api_glt_poisson_2d_dir_identity()
+test_api_glt_poisson_2d_dir_identity()
 #test_api_glt_poisson_2d_dir_collela()
-test_api_glt_poisson_2d_dir_quart_circle()
+#test_api_glt_poisson_2d_dir_quart_circle()

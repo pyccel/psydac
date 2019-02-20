@@ -101,10 +101,9 @@ class GltKernel(SplBasic):
     def n_cols(self):
         return self._n_cols
 
-    # needed for MPI comm => TODO improve BasicCodeGen
     @property
     def max_nderiv(self):
-        return None
+        return self._max_nderiv
 
     @property
     def with_coordinates(self):
@@ -647,10 +646,9 @@ class GltInterface(SplBasic):
     def backend(self):
         return self._backend
 
-    # needed for MPI comm => TODO improve BasicCodeGen
     @property
     def max_nderiv(self):
-        return None
+        return self.kernel.max_nderiv
 
     def build_arguments(self, data):
         # data must be at the end, since they are optional
@@ -671,6 +669,10 @@ class GltInterface(SplBasic):
     @property
     def user_functions(self):
         return self.kernel.user_functions
+
+    @property
+    def with_coordinates(self):
+        return self.kernel.with_coordinates
 
     def _initialize(self):
         form = self.kernel.form

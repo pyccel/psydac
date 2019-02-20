@@ -1,5 +1,7 @@
 # coding: utf-8
 
+import numpy as np
+
 from gelato.expr     import GltExpr as sym_GltExpr
 
 from spl.api.basic         import BasicCodeGen
@@ -10,6 +12,7 @@ from spl.api.grid          import CollocationBasisValues
 
 from spl.cad.geometry      import Geometry
 from spl.mapping.discrete  import SplineMapping, NurbsMapping
+from spl.fem.tensor        import TensorFemSpace
 
 
 #==============================================================================
@@ -135,9 +138,9 @@ class DiscreteGltExpr(BasicCodeGen):
 
         # ... TODO add nderiv
         if self.expr.form.fields or self.mapping:
+            nderiv = self.interface.max_nderiv
             grid = (t1, t2)
-#            basis_values = CollocationBasisValues(grid, Vh, nderiv=0)
-            basis_values = CollocationBasisValues(grid, Vh, nderiv=1)
+            basis_values = CollocationBasisValues(grid, Vh, nderiv=nderiv)
             args = args + (basis_values,)
         # ...
 
@@ -145,4 +148,36 @@ class DiscreteGltExpr(BasicCodeGen):
             args = args + (self.mapping,)
 
         return self.func(*args, **kwargs)
-#        return self.func(*newargs, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        return self.evaluate(*args, **kwargs)
+
+    def eig(self, **kwargs):
+        """
+        Approximates the eigenvalues of the matrix associated to the given
+        bilinear form.
+        the current algorithm is based on a uniform sampling of the glt symbol.
+        """
+        Vh = self.spaces[0]
+        if not isinstance(Vh, TensorFemSpace):
+            raise NotImplementedError('Only TensorFemSpace is available for the moment')
+
+        nbasis = [V.nbasis for V in Vh.spaces]
+        bounds = [V.domain for V in Vh.spaces]
+        dim    = Vh.ldim
+
+        # ... fourier variables (as arguments)
+        ts = [np.linspace(-np.pi, np.pi, n) for n in nbasis]
+        args = tuple(ts)
+        # ...
+
+        # ... space variables (as key words)
+        if self.interface.with_coordinates:
+            xs = [np.linspace(bound[0], bound[1], n) for n, bound in zip(nbasis, bounds)]
+            for n,x in zip(['x', 'y', 'z'][:dim], xs):
+                kwargs[n] = x
+        # ...
+
+        values = self(*args, **kwargs)
+
+        return values

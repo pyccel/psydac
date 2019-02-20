@@ -25,7 +25,8 @@ from gelato.expr import GltExpr
 from spl.fem.basic   import FemField
 from spl.api.discretization import discretize
 
-from numpy import linspace, zeros, allclose
+import numpy as np
+from scipy.linalg import eig as eig_solver
 from mpi4py import MPI
 import pytest
 
@@ -62,9 +63,26 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
 
     # ... dsicretize the glt symbol
     glt_ah = discretize(glt_a, domain_h, [Vh, Vh])
-    x = glt_ah.evaluate([0.51], [0.21])
-    assert(allclose(x,  [[0.2819065744042024]]))
     # ...
+
+    # ...
+    eigh = glt_ah.eig()
+    eigh = eigh.ravel()
+    eigh.sort()
+    # ...
+
+    # ... use eigenvalue solver
+    M = ah.assemble().tosparse().todense()
+    w, v = eig_solver(M)
+    eig = w.real
+    eig.sort()
+    # ...
+
+    # ...
+    error = np.linalg.norm(eig-eigh) / Vh.nbasis
+    # ...
+
+    return error
 
 #==============================================================================
 def run_field_2d_dir(ncells, degree, comm=None):
@@ -112,12 +130,20 @@ def run_field_2d_dir(ncells, degree, comm=None):
     # ...
 
     # ...
-    x  = glt_ah.evaluate([0.51], [0.21], F=phi)
-    xe = glt_aeh.evaluate([0.51], [0.21])
+    eigh_a = glt_ah.eig(F=phi)
+    eigh_a = eigh_a.ravel()
+    eigh_a.sort()
 
-    assert(allclose(x, xe))
+    eigh_ae = glt_aeh.eig()
+    eigh_ae = eigh_ae.ravel()
+    eigh_ae.sort()
     # ...
 
+    # ...
+    error = np.linalg.norm(eigh_a-eigh_ae) / Vh.nbasis
+    # ...
+
+    return error
 
 ###############################################################################
 #            SERIAL TESTS
@@ -126,12 +152,14 @@ def run_field_2d_dir(ncells, degree, comm=None):
 #==============================================================================
 def test_api_glt_poisson_2d_dir_1():
 
-    run_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
+    error = run_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
+    assert(np.allclose([error], [0.029738578422276972]))
 
 #==============================================================================
 def test_api_glt_field_2d_dir_1():
 
-    run_field_2d_dir(ncells=[2**3,2**3], degree=[2,2])
+    error = run_field_2d_dir(ncells=[2**3,2**3], degree=[2,2])
+    assert(np.allclose([error], [9.739541824956656e-16]))
 
 
 #==============================================================================
@@ -145,6 +173,3 @@ def teardown_module():
 def teardown_function():
     from sympy import cache
     cache.clear_cache()
-
-#test_api_glt_poisson_2d_dir_1()
-#test_api_glt_field_2d_dir_1()
