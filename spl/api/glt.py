@@ -188,10 +188,17 @@ class DiscreteGltExpr(BasicCodeGen):
                     i += 1
 
             eig_mat = np.zeros((n_rows,*nbasis))
-            mat = np.zeros((n_rows,n_cols))
+
+            # ... compute dtype of the matrix
+            dtype = 'float'
+            are_complex = [i == 'complex' for i in self.interface.global_mats_types]
+            if any(are_complex):
+                dtype = 'complex'
+            # ...
+
+            mat = np.zeros((n_rows,n_cols), dtype=dtype)
 
             if dim == 2:
-                mat = np.zeros((n_rows,n_cols))
                 for i1 in range(0, nbasis[0]):
                     for i2 in range(0, nbasis[1]):
                         mat[...] = 0.
@@ -203,7 +210,6 @@ class DiscreteGltExpr(BasicCodeGen):
                         eig_mat[:,i1,i2] = wr[:]
 
             elif dim == 3:
-                mat = np.zeros((n_rows,n_cols))
                 for i1 in range(0, nbasis[0]):
                     for i2 in range(0, nbasis[1]):
                         for i3 in range(0, nbasis[2]):

@@ -628,6 +628,10 @@ class GltInterface(SplBasic):
     def n_cols(self):
         return self.kernel.n_cols
 
+    @property
+    def global_mats_types(self):
+        return self.kernel.global_mats_types
+
     def build_arguments(self, data):
         # data must be at the end, since they are optional
         return self.basic_args + data

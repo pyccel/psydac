@@ -88,10 +88,8 @@ def run_vector_poisson_2d_dir(ncells, degree):
 #==============================================================================
 def test_api_glt_vector_poisson_2d_dir_1():
 
-#    error = run_vector_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
-    error = run_vector_poisson_2d_dir(ncells=[2**1,2**1], degree=[2,2])
-    print(error)
-#    assert(np.allclose([error], [0.029738578422276972]))
+    error = run_vector_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
+    assert(np.allclose([error], [0.021028350465240004]))
 
 
 
@@ -106,5 +104,3 @@ def teardown_module():
 def teardown_function():
     from sympy import cache
     cache.clear_cache()
-
-test_api_glt_vector_poisson_2d_dir_1()
