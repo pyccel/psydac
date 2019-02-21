@@ -220,20 +220,10 @@ def create_fem_assembly_grid(V, quad_order=None, nderiv=1):
         nderiv = [1 for i in range(V.ldim)]
     # ...
 
-    if V.ldim == 1:
-        grid = FemAssemblyGrid( V, V.vector_space.starts[0], V.vector_space.ends[0],
-                                quad_order=quad_order[0], nderiv=nderiv[0] )
-        return [ grid ]
-
-    elif V.ldim > 1:
-
-        return [FemAssemblyGrid(W, s, e, quad_order=n, nderiv=d )
-                for W,s,e,n,d in zip( V.spaces,
-                                      V.vector_space.starts, V.vector_space.ends,
-                                      quad_order, nderiv ) ]
-
-    else:
-        raise ValueError('Expecting dimension 1, 2 or 3')
+    return [FemAssemblyGrid(W, s, e, quad_order=n, nderiv=d )
+            for W,s,e,n,d in zip( V.spaces,
+                                  V.vector_space.starts, V.vector_space.ends,
+                                  quad_order, nderiv ) ]
 
 
 #==============================================================================

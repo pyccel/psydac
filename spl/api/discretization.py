@@ -233,22 +233,16 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
         ncells = domain_h.ncells
 
-        # 1d case
-        if V.ldim == 1:
-            raise NotImplementedError('TODO')
+        assert(isinstance( degree, (list, tuple) ))
+        assert( len(degree) == V.ldim )
 
-        # 2d case
-        elif V.ldim in [2,3]:
-            assert(isinstance( degree, (list, tuple) ))
-            assert( len(degree) == V.ldim )
+        # Create uniform grid
+        grids = [np.linspace( 0., 1., num=ne+1 ) for ne in ncells]
 
-            # Create uniform grid
-            grids = [np.linspace( 0., 1., num=ne+1 ) for ne in ncells]
+        # Create 1D finite element spaces and precompute quadrature data
+        spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
 
-            # Create 1D finite element spaces and precompute quadrature data
-            spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
-
-            Vh = TensorFemSpace( *spaces, comm=comm )
+        Vh = TensorFemSpace( *spaces, comm=comm )
 
     # Product and Vector spaces are constructed here using H1 subspaces
     if V.shape > 1:
