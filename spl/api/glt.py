@@ -1,6 +1,10 @@
 # coding: utf-8
 
+# TODO for the moment we assume Product of same space
+
 import numpy as np
+from itertools import product
+from scipy.linalg import eig as eig_solver
 
 from gelato.expr     import GltExpr as sym_GltExpr
 
@@ -12,7 +16,10 @@ from spl.api.grid          import CollocationBasisValues
 
 from spl.cad.geometry      import Geometry
 from spl.mapping.discrete  import SplineMapping, NurbsMapping
-from spl.fem.tensor        import TensorFemSpace
+
+from spl.fem.splines import SplineSpace
+from spl.fem.tensor  import TensorFemSpace
+from spl.fem.vector  import ProductFemSpace
 
 
 #==============================================================================
@@ -139,14 +146,21 @@ class DiscreteGltExpr(BasicCodeGen):
 
         kwargs = self._check_arguments(**kwargs)
 
-        # ... TODO
-        Wh, Vh = self.spaces
+        Vh = self.spaces[0]
+        is_block = False
+        if isinstance(Vh, ProductFemSpace):
+            Vh = Vh.spaces[0]
+            is_block = True
+
+        if not isinstance(Vh, TensorFemSpace):
+            raise NotImplementedError('Only TensorFemSpace is available for the moment')
+
         args = args + (Vh,)
-        # ...
+
+        dim = Vh.ldim
 
         # ...
         if self.expr.form.fields or self.mapping:
-            dim = Vh.ldim
             nderiv = self.interface.max_nderiv
             xis = [kwargs['arr_x{}'.format(i)] for i in range(1,dim+1)]
             grid = tuple(xis)
@@ -158,7 +172,55 @@ class DiscreteGltExpr(BasicCodeGen):
         if self.mapping:
             args = args + (self.mapping,)
 
-        return self.func(*args, **kwargs)
+        values = self.func(*args, **kwargs)
+
+        if is_block:
+            # n_rows = n_cols here
+            n_rows = self.interface.n_rows
+            n_cols = self.interface.n_cols
+            nbasis = [V.nbasis for V in Vh.spaces]
+
+            d = {}
+            i = 0
+            for i_row in range(0, n_rows):
+                for i_col in range(0, n_cols):
+                    d[i_row, i_col] = values[i]
+                    i += 1
+
+            eig_mat = np.zeros((n_rows,*nbasis))
+            mat = np.zeros((n_rows,n_cols))
+
+            if dim == 2:
+                mat = np.zeros((n_rows,n_cols))
+                for i1 in range(0, nbasis[0]):
+                    for i2 in range(0, nbasis[1]):
+                        mat[...] = 0.
+                        for i_row in range(0,n_rows):
+                            for i_col in range(0,n_cols):
+                                mat[i_row,i_col] = d[i_row,i_col][i1, i2]
+                        w,v = eig_solver(mat)
+                        wr = w.real
+                        eig_mat[:,i1,i2] = wr[:]
+
+            elif dim == 3:
+                mat = np.zeros((n_rows,n_cols))
+                for i1 in range(0, nbasis[0]):
+                    for i2 in range(0, nbasis[1]):
+                        for i3 in range(0, nbasis[2]):
+                            mat[...] = 0.
+                            for i_row in range(0,n_rows):
+                                for i_col in range(0,n_cols):
+                                    mat[i_row,i_col] = d[i_row,i_col][i1, i2, i3]
+                            w,v = eig_solver(mat)
+                            wr = w.real
+                            eig_mat[:,i1,i2,i3] = wr[:]
+
+            else:
+                raise NotImplementedError('')
+
+            values = eig_mat
+
+        return values
 
     def __call__(self, *args, **kwargs):
         return self.evaluate(*args, **kwargs)
@@ -170,6 +232,9 @@ class DiscreteGltExpr(BasicCodeGen):
         the current algorithm is based on a uniform sampling of the glt symbol.
         """
         Vh = self.spaces[0]
+        if isinstance(Vh, ProductFemSpace):
+            Vh = Vh.spaces[0]
+
         if not isinstance(Vh, TensorFemSpace):
             raise NotImplementedError('Only TensorFemSpace is available for the moment')
 

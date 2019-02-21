@@ -57,7 +57,7 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     Vh = discretize(V, domain_h, degree=degree)
     # ...
 
-    # ... dsicretize the equation using Dirichlet bc
+    # ... dsicretize the bilinear form
     ah = discretize(a, domain_h, [Vh, Vh])
     # ...
 

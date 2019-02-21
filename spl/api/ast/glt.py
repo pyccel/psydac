@@ -60,6 +60,9 @@ from .utilities import is_vector_field, is_field, is_mapping
 #from .evaluation import EvalArrayVectorField
 from .evaluation import EvalArrayMapping, EvalArrayField
 
+from spl.fem.splines import SplineSpace
+from spl.fem.tensor  import TensorFemSpace
+from spl.fem.vector  import ProductFemSpace
 
 class GltKernel(SplBasic):
 
@@ -182,6 +185,9 @@ class GltKernel(SplBasic):
 
         n_elements = Vh.ncells
         degrees    = Vh.degree
+        # TODO improve
+        if isinstance(Vh, ProductFemSpace):
+            degrees = degrees[0]
         # ...
 
         # recompute the symbol
@@ -613,6 +619,14 @@ class GltInterface(SplBasic):
     @property
     def max_nderiv(self):
         return self.kernel.max_nderiv
+
+    @property
+    def n_rows(self):
+        return self.kernel.n_rows
+
+    @property
+    def n_cols(self):
+        return self.kernel.n_cols
 
     def build_arguments(self, data):
         # data must be at the end, since they are optional
