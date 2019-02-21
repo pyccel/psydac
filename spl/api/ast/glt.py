@@ -115,11 +115,11 @@ class GltKernel(SplBasic):
 
     @property
     def constants(self):
-        return self.expr.constants
+        return tuple(self.expr.constants)
 
     @property
     def fields(self):
-        return self.expr.fields
+        return tuple(self.expr.fields)
 
     @property
     def fields_coeffs(self):
@@ -244,12 +244,10 @@ class GltKernel(SplBasic):
                                 cls = IndexedVariable )
 
         # ...
-        if fields or mapping:
+        self._coordinates = tuple()
+        if fields or mapping or self.expr.space_variables:
             names = ['x1', 'x2', 'x3'][:dim]
             self._coordinates = tuple([Symbol(i) for i in names])
-
-        else:
-            self._coordinates = tuple(self.expr.space_variables)
 
         self._with_coordinates = (len(self._coordinates) > 0)
         # ...

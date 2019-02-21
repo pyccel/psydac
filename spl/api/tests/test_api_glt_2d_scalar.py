@@ -145,6 +145,63 @@ def run_field_2d_dir(ncells, degree, comm=None):
 
     return error
 
+#==============================================================================
+def run_variable_coeff_2d_dir(ncells, degree, comm=None):
+
+    # ... abstract model
+    domain = Square()
+    x,y = domain.coordinates
+
+    V = FunctionSpace('V', domain)
+
+    F = ScalarField(V, name='F')
+
+    v = ScalarTestFunction(V, name='v')
+    u = ScalarTestFunction(V, name='u')
+
+    c = Constant('c', real=True)
+
+    expr = (1 + c*sin(pi*(x+y)))*dx(u)*dx(v) + (1 + c*sin(pi*(x-y)))*dy(u)*dy(v)
+    a = BilinearForm((v,u), expr)
+
+    glt_a = GltExpr(a)
+    # ...
+
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    # ...
+
+    # ... discrete spaces
+    Vh = discretize(V, domain_h, degree=degree)
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    ah = discretize(a, domain_h, [Vh, Vh])
+    # ...
+
+    # ... dsicretize the glt symbol
+    glt_ah = discretize(glt_a, domain_h, [Vh, Vh])
+    # ...
+
+    # ...
+    eigh = glt_ah.eig(c=0.2)
+    eigh = eigh.ravel()
+    eigh.sort()
+    # ...
+
+    # ... use eigenvalue solver
+    M = ah.assemble(c=0.2).tosparse().todense()
+    w, v = eig_solver(M)
+    eig = w.real
+    eig.sort()
+    # ...
+
+    # ...
+    error = np.linalg.norm(eig-eigh) / Vh.nbasis
+    # ...
+
+    return error
+
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
@@ -160,6 +217,12 @@ def test_api_glt_field_2d_dir_1():
 
     error = run_field_2d_dir(ncells=[2**3,2**3], degree=[2,2])
     assert(np.allclose([error], [9.739541824956656e-16]))
+
+#==============================================================================
+def test_api_glt_variable_coeff_2d_dir_1():
+
+    error = run_variable_coeff_2d_dir(ncells=[2**3,2**3], degree=[2,2])
+    assert(np.allclose([error], [0.02481741625914586]))
 
 
 #==============================================================================
