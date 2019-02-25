@@ -261,15 +261,6 @@ class CartDecomposition():
 
         return info
 
-    #---------------------------------------------------------------------------
-    def __del__(self):
-
-        # Destroy sub-communicators
-        for s in self._subcomm:
-            s.Free()
-
-        # Destroy Cartesian communicator
-        self._comm_cart.Free()
 
 #===============================================================================
 class CartDataExchanger:
