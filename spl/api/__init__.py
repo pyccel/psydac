@@ -5,3 +5,4 @@ from spl.api import essential_bc
 from spl.api import codegen
 from spl.api import settings
 from spl.api import grid
+from spl.api import postprocessing
