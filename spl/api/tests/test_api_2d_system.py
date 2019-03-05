@@ -29,6 +29,7 @@ from mpi4py import MPI
 import pytest
 
 #==============================================================================
+@pytest.mark.skip(reason="the bug in TerminalExpr need to be fixed ")
 def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
 
     # ... abstract model
