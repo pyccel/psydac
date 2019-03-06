@@ -4,10 +4,12 @@ import numpy as np
 
 from spl.utilities.quadratures  import gauss_legendre
 from spl.core.bsplines          import quadrature_grid
+from spl.core.bsplines          import find_span
+from spl.core.bsplines          import basis_funs_all_ders
 from spl.fem.splines            import SplineSpace
 from spl.fem.tensor             import TensorFemSpace
 from spl.fem.vector             import ProductFemSpace
-from spl.fem.grid import FemAssemblyGrid
+from spl.fem.grid               import FemAssemblyGrid
 
 #==============================================================================
 def _compute_quadrature_SplineSpace( V, quad_order=None ):
@@ -251,7 +253,6 @@ class BasisValues():
 
 #==============================================================================
 # TODO have a parallel version of this function, as done for fem
-from spl.core.bsplines import find_span, basis_funs_all_ders
 def create_collocation_basis( glob_points, space, nderiv=1 ):
 
     T    = space.knots      # knots sequence
