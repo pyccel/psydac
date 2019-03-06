@@ -107,7 +107,7 @@ class BasicCodeGen(object):
 
             if comm.rank == root:
                 tag = random_string( 8 )
-                ast = self._create_ast( expr, tag, **kwargs )
+                ast = self._create_ast( expr, tag, comm=comm,**kwargs )
                 interface = ast['interface']
                 max_nderiv = interface.max_nderiv
                 in_arguments = [str(a) for a in interface.in_arguments]
