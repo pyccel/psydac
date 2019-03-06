@@ -45,7 +45,7 @@ def test_bicg_tridiagonal( n ):
     b = A.dot( xe )
 
     # Solve linear system using BiCG
-    x, info = bicg( A, A.transpose(), b, tol=1e-12, verbose=True )
+    x, info = bicg( A, A.transpose(), b, tol=1e-13, verbose=True )
 
     # Verify correctness of calculation: L2-norm of error
     err = x-xe

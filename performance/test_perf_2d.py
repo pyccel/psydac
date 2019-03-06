@@ -7,9 +7,9 @@ from sympde.core import grad, dot, inner, cross, rot, curl, div
 from sympde.core import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import Field, VectorField
+from sympde.topology import ScalarField, VectorField
 from sympde.topology import ProductSpace
-from sympde.topology import TestFunction
+from sympde.topology import ScalarTestFunction
 from sympde.topology import VectorTestFunction
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
@@ -136,8 +136,8 @@ DEBUG = False
 #
 #    v = VectorTestFunction(V, name='v')
 #    u = VectorTestFunction(V, name='u')
-#    p = TestFunction(W, name='p')
-#    q = TestFunction(W, name='q')
+#    p = ScalarTestFunction(W, name='p')
+#    q = ScalarTestFunction(W, name='q')
 #
 #    A = BilinearForm((v,u), inner(grad(v), grad(u)), name='A')
 #    B = BilinearForm((v,p), div(v)*p, name='B')
@@ -199,10 +199,10 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
 
     x,y = domain.coordinates
 
-    F = Field(V, name='F')
+    F = ScalarField(V, name='F')
 
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
+    v = ScalarTestFunction(V, name='v')
+    u = ScalarTestFunction(V, name='u')
 
     a = BilinearForm((v,u), dot(grad(v), grad(u)))
     l = LinearForm(v, f*v)

@@ -10,9 +10,9 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import Field, VectorField
+from sympde.topology import ScalarField, VectorField
 from sympde.topology import ProductSpace
-from sympde.topology import TestFunction
+from sympde.topology import ScalarTestFunction
 from sympde.topology import VectorTestFunction
 from sympde.topology import Unknown
 from sympde.topology import InteriorDomain, Union
@@ -23,7 +23,7 @@ from sympde.topology import Union
 from sympde.topology import Mapping
 from sympde.expr import BilinearForm, LinearForm
 from sympde.expr import Norm
-from sympde.expr import Equation, EssentialBC
+from sympde.expr import find, EssentialBC
 
 from spl.fem.basic   import FemField
 from spl.fem.vector  import ProductFemSpace, VectorFemField
@@ -57,10 +57,10 @@ def run_poisson_2d_dir(filename, solution, f, comm=None):
 
     x,y = domain.coordinates
 
-    F = Field(V, name='F')
+    F = ScalarField(V, name='F')
 
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
+    v = ScalarTestFunction(V, name='v')
+    u = ScalarTestFunction(V, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -73,7 +73,7 @@ def run_poisson_2d_dir(filename, solution, f, comm=None):
     h1norm = Norm(error, domain, kind='h1')
 
     bc = EssentialBC(u, 0, domain.boundary)
-    equation = Equation(a(v,u), l(v), bc=bc)
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain
@@ -98,8 +98,7 @@ def run_poisson_2d_dir(filename, solution, f, comm=None):
     # ...
 
     # ...
-    phi = FemField( Vh )
-    phi.coeffs[:,:] = x[:,:]
+    phi = FemField( Vh, x )
     # ...
 
     # ... compute norms
@@ -128,10 +127,10 @@ def run_poisson_2d_dirneu(filename, solution, f, boundary, comm=None):
 
     x,y = domain.coordinates
 
-    F = Field(V, name='F')
+    F = ScalarField(V, name='F')
 
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
+    v = ScalarTestFunction(V, name='v')
+    u = ScalarTestFunction(V, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -152,7 +151,7 @@ def run_poisson_2d_dirneu(filename, solution, f, boundary, comm=None):
     B_dirichlet = domain.boundary.complement(B_neumann)
     bc = EssentialBC(u, 0, B_dirichlet)
 
-    equation = Equation(a(v,u), l(v), bc=bc)
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain
@@ -177,8 +176,7 @@ def run_poisson_2d_dirneu(filename, solution, f, boundary, comm=None):
     # ...
 
     # ...
-    phi = FemField( Vh )
-    phi.coeffs[:,:] = x[:,:]
+    phi = FemField( Vh, x )
     # ...
 
     # ... compute norms
@@ -200,10 +198,10 @@ def run_laplace_2d_neu(filename, solution, f, comm=None):
 
     x,y = domain.coordinates
 
-    F = Field(V, name='F')
+    F = ScalarField(V, name='F')
 
-    v = TestFunction(V, name='v')
-    u = TestFunction(V, name='u')
+    v = ScalarTestFunction(V, name='v')
+    u = ScalarTestFunction(V, name='u')
 
     expr = dot(grad(v), grad(u)) + v*u
     a = BilinearForm((v,u), expr)
@@ -221,7 +219,7 @@ def run_laplace_2d_neu(filename, solution, f, comm=None):
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
-    equation = Equation(a(v,u), l(v))
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
     # ...
 
     # ... create the computational domain from a topological domain
@@ -246,8 +244,7 @@ def run_laplace_2d_neu(filename, solution, f, comm=None):
     # ...
 
     # ...
-    phi = FemField( Vh )
-    phi.coeffs[:,:] = x[:,:]
+    phi = FemField( Vh, x )
     # ...
 
     # ... compute norms

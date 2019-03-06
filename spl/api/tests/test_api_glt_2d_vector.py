@@ -20,39 +20,34 @@ from sympde.expr import BilinearForm, LinearForm
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
+from gelato.expr import GltExpr
+
 from spl.fem.vector  import VectorFemField
 from spl.api.discretization import discretize
 
-from numpy import linspace, zeros, allclose
-
+import numpy as np
+from scipy.linalg import eig as eig_solver
+from mpi4py import MPI
+import pytest
 
 #==============================================================================
-def run_vector_poisson_3d_dir(solution, f, ncells, degree):
+def run_vector_poisson_2d_dir(ncells, degree):
 
     # ... abstract model
-    domain = Cube()
+    domain = Square()
 
     V = VectorFunctionSpace('V', domain)
 
-    x,y,z = domain.coordinates
+    x,y = domain.coordinates
 
     F = VectorField(V, name='F')
 
     v = VectorTestFunction(V, name='v')
     u = VectorTestFunction(V, name='u')
 
-    expr = inner(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v,u), inner(grad(v), grad(u)))
 
-    expr = dot(f, v)
-    l = LinearForm(v, expr)
-
-    error = Matrix([F[0]-solution[0], F[1]-solution[1], F[2]-solution[2]])
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
-
-    bc = EssentialBC(u, 0, domain.boundary)
-    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
+    glt_a = GltExpr(a)
     # ...
 
     # ... create the computational domain from a topological domain
@@ -63,53 +58,39 @@ def run_vector_poisson_3d_dir(solution, f, ncells, degree):
     Vh = discretize(V, domain_h, degree=degree)
     # ...
 
-    # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, domain_h, [Vh, Vh])
+    # ... dsicretize the bilinear form
+    ah = discretize(a, domain_h, [Vh, Vh])
     # ...
 
-    # ... discretize norms
-    l2norm_h = discretize(l2norm, domain_h, Vh)
-    h1norm_h = discretize(h1norm, domain_h, Vh)
-    # ...
-
-    # ... solve the discrete equation
-    x = equation_h.solve()
+    # ... dsicretize the glt symbol
+    glt_ah = discretize(glt_a, domain_h, [Vh, Vh])
     # ...
 
     # ...
-    phi = VectorFemField( Vh, x )
+    eigh = glt_ah.eig()
+    eigh = eigh.ravel()
+    eigh.sort()
     # ...
 
-    # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    # ... use eigenvalue solver
+    M = ah.assemble().tosparse().todense()
+    w, v = eig_solver(M)
+    eig = w.real
+    eig.sort()
     # ...
 
-    return l2_error, h1_error
+    # ...
+    error = np.linalg.norm(eig-eigh) / Vh.nbasis
+    # ...
+
+    return error
 
 #==============================================================================
-def test_api_vector_poisson_3d_dir_1():
+def test_api_glt_vector_poisson_2d_dir_1():
 
-    from sympy.abc import x,y,z
+    error = run_vector_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
+    assert(np.allclose([error], [0.021028350465240004]))
 
-    u1 = sin(pi*x)*sin(pi*y)*sin(pi*z)
-    u2 = sin(pi*x)*sin(pi*y)*sin(pi*z)
-    u3 = sin(pi*x)*sin(pi*y)*sin(pi*z)
-    solution = Tuple(u1, u2, u3)
-
-    f1 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f2 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f3 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f = Tuple(f1, f2, f3)
-
-    l2_error, h1_error = run_vector_poisson_3d_dir(solution, f,
-                                                   ncells=[2**2,2**2,2**2], degree=[2,2,2])
-
-    expected_l2_error =  0.0030390821236931788
-    expected_h1_error =  0.08346666256929804
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 
 #==============================================================================
