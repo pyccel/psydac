@@ -750,7 +750,7 @@ class StencilMatrix( Matrix ):
         Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads)
 
         # Number of rows in matrix (along each dimension)
-        nrows = [e - s + 1 for s, e in zip(M.starts, M.ends)]
+        nrows = [e - s + 1 for s, e in zip(M._codomain.starts, M._codomain.ends)]
         nrows_extra = []
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
