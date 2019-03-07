@@ -594,9 +594,9 @@ class StencilMatrix( Matrix ):
 
             out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
 
-        for d,er in enumerate(extra_rows):
+        for d,er in enumerate(nrows_extra):
         
-            ee = [0]*len(extra_rows)
+            ee = [0]*len(nrows_extra)
             kk = [slice(None)] *ndim
             rows = nrows.copy()
             del rows[d]
