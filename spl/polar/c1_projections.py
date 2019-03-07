@@ -113,8 +113,8 @@ class C1Projector:
         P = self.c1_space
 
         n1, n2 = G.domain.npts
-        s1, s2 = G.starts
-        e1, e2 = G.ends
+        s1, s2 = G._codomain.starts
+        e1, e2 = G._codomain.ends
         p1, p2 = G.pads
 
         #****************************************
