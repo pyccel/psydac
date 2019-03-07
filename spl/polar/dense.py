@@ -24,23 +24,110 @@ class DenseVectorSpace( VectorSpace ):
 
     dtype : data-type, optional
         Desired data-type for the arrays (default is numpy.float64).
-    
+
+    cart : spl.ddm.cart.CartDecomposition, optional
+        N-dimensional Cartesian communicator with N >= 2 (default is None).
+
+    radial_dim : int, optional
+        Dimension index for radial variable (default is 0).
+
+    angle_dim : int, optional
+        Dimension index for angle variable (default is 1).
+
+    Notes
+    -----
+
+    - The current implementation is tailored to the algorithm for imposing C^1
+      continuity of a field on a domain with a polar singularity (O-point).
+
+    - Given an N-dimensional Cartesian communicator (N=2+M), each process
+      belongs to 3 different subcommunicators:
+
+        1. An 'angular' 1D subcommunicator, where all processes share the same
+           identical (M+1)-dimensional array;
+
+        2. A 'radial' 1D subcommunicator, where only the 'master' process has
+           access to the data array (other processes store a 0-length array);
+
+        3. A 'tensor' M-dimensional subcommunicator, where the data array
+           is distributed among processes and requires the usual StencilVector
+           communication pattern.
+
+    - When computing the dot product between two vectors, the following
+      operations will be performed in sequence:
+
+        1. Processes with radial coordinate = 0 compute a local dot product;
+
+        2. Processes with radial coordinate = 0 perform an MPI_ALLREDUCE
+           operation on the 'tensor' subcommunicator;
+
+        3. All processes perform an MPI_BCAST operation on the 'radial'
+           subcommunicator (process with radial coordinate = 0 is the root);
+
     """
-    def __init__( self, n, dtype=np.float64 ):
+    def __init__( self, n, *, dtype=np.float64, cart=None, radial_dim=0, angle_dim=1 ):
+
         self._n     = n
         self._dtype = dtype
-        pass
+        self._cart  = cart
+
+        if cart is not None:
+
+            # TODO: perform checks on input arguments
+
+            # Angle sub-communicator (1D)
+            angle_comm = cart.subcomm[angle_dim]
+
+            # Radial sub-communicator (1D)
+            radial_comm   = cart.subcomm[radial_dim]
+            radial_master = (cart.coords[radial_dim] == 0)
+            radial_root   = radial_comm.allreduce( radial_comm.rank if radial_master else 0 )
+
+            # Tensor sub-communicator (M-dimensional)
+            remain_dims = [d not in (radial_dim, angle_dim) for d in range( cart.ndim )]
+            tensor_comm = cart.comm_cart.Sub( remain_dims )
+
+            # Calculate dimension of linear space
+            self._dimension = n * np.prod( [cart.npts[d] for d in remain_dims] )
+
+            # Store info
+            self._radial_dim  = radial_dim
+            self._radial_comm = radial_comm
+            self._radial_root = radial_root
+            self._angle_dim   = angle_dim
+            self._angle_comm  = angle_comm
+            self._tensor_comm = tensor_comm
+
+        else:
+
+            # TODO: remove inconsistency between serial and parallel cases
+
+            # For now, in the serial case we assume that the dimension of the
+            # linear space is equal to the number of components
+            self._dimension = n
 
     #-------------------------------------
     # Abstract interface
     #-------------------------------------
     @property
     def dimension( self ):
-        return self._n
+        """ The dimension of a vector space V is the cardinality
+            (i.e. the number of vectors) of a basis of V over its base field.
+        """
+        return self._dimension
 
     # ...
     def zeros( self ):
-        data = np.zeros( self.dimension, dtype=self.dtype )
+        """
+        Get a copy of the null element of the DenseVectorSpace V.
+
+        Returns
+        -------
+        null : DenseVector
+            A new vector object with all components equal to zero.
+
+        """
+        data = np.zeros( self.ncoeff, dtype=self.dtype )
         return DenseVector( self, data )
 
     #-------------------------------------
@@ -49,6 +136,41 @@ class DenseVectorSpace( VectorSpace ):
     @property
     def dtype( self ):
         return self._dtype
+
+    # ...
+    @property
+    def parallel( self ):
+        return (self._cart is not None)
+
+    # ...
+    @property
+    def ncoeff( self ):
+        """ Local number of coefficients. """
+        # TODO: maybe keep this number global, and add local 'dshape' property
+        if self.parallel:
+            return self._n if self._radial_comm.rank == self._radial_root else 0
+        else:
+            return self._n
+
+    # ...
+    @property
+    def tensor_comm( self ):
+        return self._tensor_comm
+
+    # ...
+    @property
+    def angle_comm( self ):
+        return self._angle_comm
+
+    # ...
+    @property
+    def radial_comm( self ):
+        return self._radial_comm
+
+    # ...
+    @property
+    def radial_root( self ):
+        return self._radial_root
 
 #==============================================================================
 class DenseVector( Vector ):
@@ -59,7 +181,7 @@ class DenseVector( Vector ):
 
         data = np.asarray( data )
         assert data.ndim  == 1
-        assert data.shape ==(V.dimension,)
+        assert data.shape ==(V.ncoeff,)
         assert data.dtype == V.dtype
 
         self._space = V
@@ -76,7 +198,16 @@ class DenseVector( Vector ):
     def dot( self, v ):
         assert isinstance( v, DenseVector )
         assert v._space is self._space
-        return np.dot( self._data, v._data )
+
+        res = np.dot( self._data, v._data )
+
+        V = self._space
+        if V.parallel:
+            if V.radial_comm.rank == V.radial_root:
+                res = V.tensor_comm.allreduce( res )
+            res = V.radial_comm.bcast( res, root=V.radial_root )
+
+        return res
 
     # ...
     def copy( self ):
@@ -137,7 +268,7 @@ class DenseMatrix( Matrix ):
 
         data = np.asarray( data )
         assert data.ndim  == 2
-        assert data.shape == (W.dimension, V.dimension)
+        assert data.shape == (W.ncoeff, V.ncoeff)
 #        assert data.dfype == #???
 
         self._domain   = V

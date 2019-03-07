@@ -22,15 +22,14 @@ class LinearOperator_StencilToDense( Matrix ):
 
         # V space must be 2D for now (TODO: extend to higher dimensions)
         # W space must have 3 components for now (TODO: change to arbitrary n)
-        # Only works in serial (TODO: extend to MPI setting)
 
         s1, s2 = V.starts
         e1, e2 = V.ends
         p1, p2 = V.pads
-        n0     = W.dimension
+        n0     = W.ncoeff
 
         data = np.asarray( data )
-        assert data.shape == (n0, p1, e2-s2+1)
+        assert data.shape == (n0, p1, e2-s2+1+2*p2)
 
         # Store information in object
         self._domain   = V
@@ -61,30 +60,38 @@ class LinearOperator_StencilToDense( Matrix ):
         else:
             out = self._codomain.zeros()
 
-        # TODO: verify if range(s1,e1+1) contains degrees of freedom
-        # TODO: implement parallel version
-        # TODO: do we care about having a 'dot_incr' option?
-
         V = self._domain
         W = self._codomain
 
         s1, s2 = V.starts
         e1, e2 = V.ends
         p1, p2 = V.pads
-        n0     = W.dimension
+        n0     = W.ncoeff
 
         B_sd = self._data
         y    =  out._data
 
+        # IMPORTANT: algorithm uses data in ghost regions
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
+
+        # Compute local contribution to global dot product
         for i in range( n0 ):
-            y[i] = np.dot( B_sd[i,:,:].flat, v[0:p1,s2:e2+1].flat )
-    
+            y[i] = np.dot( B_sd[i, :, :].flat, v[0:p1, :].flat )
+
+        # Sum contributions from all processes that share data at r=0
+        if out.space.parallel:
+            from mpi4py import MPI
+            U = out.space
+            if U.radial_comm.rank == U.radial_root:
+                U.angle_comm.Allreduce( MPI.IN_PLACE, y, op=MPI.SUM )
+
         return out
 
     # ...
     def toarray( self ):
 
-        n0     = self.codomain.dimension
+        n0     = self.codomain.ncoeff
 
         n1, n2 = self.domain.npts
         p1, p2 = self.domain.pads
@@ -112,7 +119,7 @@ class LinearOperator_StencilToDense( Matrix ):
     def tocoo( self ):
 
         # Extract relevant information from vector spaces
-        n0     = self.codomain.dimension
+        n0     = self.codomain.ncoeff
         n1, n2 = self.domain.npts
         p1, p2 = self.domain.pads
         s1, s2 = self.domain.starts
@@ -124,9 +131,9 @@ class LinearOperator_StencilToDense( Matrix ):
         cols  = []  # corresponding column indices j
         for i in range( n0 ):
             for j1 in range( p1 ):
-                data += self._data[i,j1,:].flat
-                rows += repeat( i, e2-s2+1 )
-                cols += range( j1*n2+s2, j1*n2+e2+1 )
+                data += self._data[i, j1, :].flat
+                rows += repeat( i, e2-s2+1+2*p2 )
+                cols += (j1*n2 + i2%n2 for i2 in range(s2-p2, e2+1+p2))
 
         # Create Scipy sparse matrix in COO format
         coo = coo_matrix( (data,(rows,cols)), shape=(n0,n1*n2), dtype=self.codomain.dtype )
@@ -144,12 +151,11 @@ class LinearOperator_DenseToStencil( Matrix ):
 
         # V space must have 3 components for now (TODO: change to arbitrary n)
         # W space must be 2D for now (TODO: extend to higher dimensions)
-        # Only works in serial (TODO: extend to MPI setting)
 
         s1, s2 = W.starts
         e1, e2 = W.ends
         p1, p2 = W.pads
-        n0     = V.dimension
+        n0     = V.ncoeff
 
         data = np.asarray( data )
         assert data.shape == (p1, e2-s2+1, n0)
@@ -189,12 +195,13 @@ class LinearOperator_DenseToStencil( Matrix ):
         s1, s2 = W.starts
         e1, e2 = W.ends
         p1, p2 = W.pads
-        n0     = V.dimension
+        n0     = V.ncoeff
 
         B_ds = self._data
         x    =    v._data
 
-        out[0:p1,s2:e2+1] = np.dot( B_ds, x )
+        if n0 > 0:
+            out[0:p1, s2:e2+1] = np.dot( B_ds, x )
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -204,20 +211,20 @@ class LinearOperator_DenseToStencil( Matrix ):
     # ...
     def toarray( self ):
 
-        n0     = self.domain.dimension
+        n0     = self.domain.ncoeff
 
         n1, n2 = self.codomain.npts
         p1, p2 = self.codomain.pads
         s1, s2 = self.codomain.starts
         e1, e2 = self.codomain.ends
 
-        a  = np.zeros( (n1*n2,n0), dtype=self.codomain.dtype )
+        a  = np.zeros( (n1*n2, n0), dtype=self.codomain.dtype )
         d  = self._data
 
         for i1 in range( p1 ):
             for i2 in range( s2, e2+1 ):
                 i = i1*n2 + i2
-                a[i,:] = d[i1,i2,:]
+                a[i, :] = d[i1, i2, :]
 
         return a
 
@@ -231,7 +238,7 @@ class LinearOperator_DenseToStencil( Matrix ):
     def tocoo( self ):
 
         # Extract relevant information from vector spaces
-        n0     = self.domain.dimension
+        n0     = self.domain.ncoeff
         n1, n2 = self.codomain.npts
         p1, p2 = self.codomain.pads
         s1, s2 = self.codomain.starts
@@ -243,7 +250,7 @@ class LinearOperator_DenseToStencil( Matrix ):
         cols  = []  # corresponding column indices j
         for i1 in range( p1 ):
             for i2 in range( s2, e2+1 ):
-                data += self._data[i1,i2,:].flat
+                data += self._data[i1, i2, :].flat
                 rows += repeat( i1*n2+i2, n0 )
                 cols += range( n0 )
 
