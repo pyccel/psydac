@@ -260,6 +260,79 @@ class CartDecomposition():
                 'recv_starts': tuple( recv_starts )}
 
         return info
+        
+    def reduce_pads( self, axes):
+
+        if isinstance(axes, int):
+            axes = [axes]
+
+        cart = Cart(self._npts, self._pads, self._periods, self._reorder)
+        
+        cart._dims = self._dims
+        cart._comm_cart = self._comm_cart
+        cart._coords    = self._coords
+        cart._nprocs    = self._nprocs
+        
+        coords = cart.coords 
+        nprocs = cart.nprocs 
+     
+        starts = cart._starts
+        ends   = list(cart._ends)
+        
+        for axis in axes:
+        
+            assert(axis<cart._ndims)
+            
+            # Recalculate start/end values of global indices (without ghost regions)
+               
+            if not cart.periods[axis] and coords[axis] == nprocs[axis]-1:
+                ends[axis] -= 1
+
+            # set pads and npts
+            cart._npts = tuple(n - 1 if axis == i and not cart.periods[i] else n for i,n in enumerate(cart.npts))
+            
+        cart._starts = starts
+        cart._ends   = tuple(ends)
+
+        # List of 1D global indices (without ghost regions)
+        cart._grids = tuple( range(s,e+1) for s,e in zip( cart._starts, cart._ends ) )
+
+        # N-dimensional global indices (without ghost regions)
+        cart._indices = product( *cart._grids )
+
+        # Compute shape of local arrays in topology (with ghost regions)
+        cart._shape = tuple( e-s+1+2*p for s,e,p in zip( cart._starts, cart._ends, cart._pads ) )
+
+        # Extended grids with ghost regions
+        cart._extended_grids = tuple( range(s-p,e+p+1) for s,e,p in zip( cart._starts, cart._ends, cart._pads ) )
+
+        # N-dimensional global indices with ghost regions
+        cart._extended_indices = product( *cart._extended_grids )
+
+        # Create (N-1)-dimensional communicators within the cartsian topology
+        cart._subcomm = [None]*cart._ndims
+        for i in range(cart._ndims):
+            remain_dims     = [i==j for j in range( cart._ndims )]
+            cart._subcomm[i] = cart._comm_cart.Sub( remain_dims )
+
+        # Compute/store information for communicating with neighbors
+        cart._shift_info = {}
+        for dimension in range( cart._ndims ):
+            for disp in [-1,1]:
+                cart._shift_info[ dimension, disp ] = \
+                        cart._compute_shift_info( dimension, disp )
+
+        # Store arrays with all the starts and ends along each direction
+        cart._global_starts = [None]*cart._ndims
+        cart._global_ends   = [None]*cart._ndims
+        for dimension in range( cart._ndims ):
+            n =     cart.npts[dimension]
+            d = cart._dims[dimension]
+            cart._global_starts[dimension] = np.array( [( c   *n)//d   for c in range( d )] )
+            cart._global_ends  [dimension] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
+
+        return cart
+
 
 
 #===============================================================================

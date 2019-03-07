@@ -71,8 +71,8 @@ def test_c1_projections( degrees, ncells, verbose=False ):
     A[:, :,+1, 0] = -2
 
     # Add (symmetric) random perturbation to matrix
-    s1, s2 = A.starts
-    e1, e2 = A.ends
+    s1, s2 = V.vector_space.starts
+    e1, e2 = V.vector_space.ends
     n1, n2 = A.domain.npts
     perturbation = 0.1 * np.random.random( (e1-s1+1, e2-s2+1, p1, p2) )
     for i1 in range(s1,e1+1):

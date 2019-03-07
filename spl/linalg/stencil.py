@@ -721,10 +721,10 @@ class StencilMatrix( Matrix ):
             Single direction along which to operate (if not specified, all of them).
 
         """
-        ndim     = self._space.ndim
-        parallel = self._space.parallel
+        ndim     = self._codomain.ndim
+        parallel = self._codomain.parallel
 
-        if self._space.parallel:
+        if self._codomain.parallel:
             # PARALLEL CASE: fill in ghost regions with data from neighbors
             self._synchronizer.update_ghost_regions( self._data, direction=direction )
         else:

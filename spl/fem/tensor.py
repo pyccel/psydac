@@ -441,6 +441,67 @@ class TensorFemSpace( FemSpace ):
         h5.close()
 
         return fields
+        
+    def reduce_degree(self, axes):
+    
+        if isinstance(axes, int):
+            axes = [axes]
+            
+        v = self._vector_space
+        
+        spaces = list(self.spaces)
+
+        for axis in axes:
+            
+            reduced_space = spaces[axis]
+            degree = reduced_space.degree
+            grid   = reduced_space.breaks
+            periodic = reduced_space.periodic
+            dirichlet = reduced_space.dirichlet
+            
+            reduced_space = SplineSpace(degree-1, grid=grid, 
+                                        periodic=periodic, 
+                                        dirichlet=dirichlet)
+            
+            
+            spaces[axis] = reduced_space
+            
+        # create new Tensor Vector
+
+
+        
+        if v.cart:
+            
+            tensor_vec = TensorFemSpace(*spaces, comm=v.cart.comm)
+            red_cart = v.cart.reduce(axes)
+            v = StencilVectorSpace(red_cart)
+            tensor_vec._vector_space = v
+        else:
+            tensor_vec = TensorFemSpace(*spaces)
+      
+        tensor_vec._spaces = tuple(spaces)
+        
+        npts = [V.nbasis for V in spaces]
+        pads = v.pads
+        periods = [V.periodic for V in spaces]
+
+        
+       # Compute extended 1D quadrature grids (local to process) along each direction
+        tensor_vec._quad_grids = tuple( FemAssemblyGrid( V,s,e )
+                                  for V,s,e in zip( spaces, v.starts, v.ends ) )
+
+
+        tensor_vec._element_starts, tensor_vec._element_ends =  self._element_starts, self._element_ends
+        
+        # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
+        tensor_vec._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
+        for s,e,space in zip( self._element_starts, self._element_ends, spaces ) )
+
+        # Store flag: object NOT YET prepared for interpolation
+        tensor_vec._collocation_ready = False
+                
+        return tensor_vec
+
 
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):
