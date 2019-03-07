@@ -507,17 +507,19 @@ class StencilMatrix( Matrix ):
         Codomain of the new linear operator.
 
     """
-    def __init__( self, V, W ):
+    def __init__( self, V, W, pads=None ):
 
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
-        assert V is W
-
-        dims        = [e-s+2*p+1 for s,e,p in zip(V.starts, V.ends, V.pads)]
-        diags       = [2*p+1 for p in V.pads]
-        self._data  = np.zeros( dims+diags, dtype=V.dtype )
-        self._space = V
-        self._ndim  = len( dims )
+        assert W.pads == V.pads
+        
+        self._pads     = pads or tuple(V.pads)
+        dims           = [e-s+2*p+1 for s,e,p in zip(W.starts, W.ends, W.pads)]
+        diags          = [2*p+1 for p in self._pads]
+        self._data     = np.zeros( dims+diags, dtype=W.dtype )
+        self._domain   = V
+        self._codomain = W
+        self._ndim     = len( dims )
 
         # Parallel attributes
         if V.parallel:
@@ -536,12 +538,12 @@ class StencilMatrix( Matrix ):
     #--------------------------------------
     @property
     def domain( self ):
-        return self._space
+        return self._domain
 
     # ...
     @property
     def codomain( self ):
-        return self._space
+        return self._codomain
 
     # ...
     def dot( self, v, out=None ):
@@ -560,12 +562,16 @@ class StencilMatrix( Matrix ):
             out = StencilVector( self.codomain )
 
         # Shortcuts
-        ee = self.ends
+        ssc = self.codomain.starts
+        eec = self.codomain.ends
+        ssd = self.domain.starts
+        eed = self.domain.ends
         pp = self.pads
-        ss = self.starts
 
         # Number of rows in matrix (along each dimension)
-        nrows = [e-s+1 for s,e in zip(ss,ee)]
+        nrows       = [ed-s+1 for s,ed in zip(ssd, eed)]
+        nrows_extra = [0 if ec<=ed else ec-ed for ec,ed in zip(eec,eed)]
+        
         self._dot(self._data, v._data, out._data, nrows, [], pp)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
@@ -587,6 +593,31 @@ class StencilMatrix( Matrix ):
             ii_kk = tuple( list(ii) + kk )
 
             out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
+
+        for d,er in enumerate(extra_rows):
+        
+            ee = [0]*len(extra_rows)
+            kk = [slice(None)] *ndim
+            rows = nrows.copy()
+            del rows[d]
+            
+            
+            for n in range(er):
+                ee[d] = n+1
+                for xx in np.ndindex(*rows):
+                    ii = [*xx]
+                    ii.insert(d, nrows[d]+n)
+        
+                    ii    = tuple(i+p for i,p in zip(ii, pads))
+                    jj    = tuple( slice(i, i+2*p+1-e) for i,p,e in zip(ii, pp, ee) )
+
+                    kk[d] = slice(None,2*pp[d]-n)
+                    
+                    ii_kk = tuple( list(ii) + kk )
+
+                    v1 = x[jj]
+                    v2 = mat[ii_kk]
+                    out[ii] = np.dot( v2.flat, v1.flat )
 
     # ...
     def toarray( self, *, with_pads=False ):
@@ -611,19 +642,11 @@ class StencilMatrix( Matrix ):
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
-    @property
-    def starts( self ):
-        return self._space.starts
-
-    # ...
-    @property
-    def ends( self ):
-        return self._space.ends
 
     # ...
     @property
     def pads( self ):
-        return self._space.pads
+        return self._pads
 
     # ...
     def __getitem__(self, key):
@@ -656,18 +679,19 @@ class StencilMatrix( Matrix ):
         # TODO: access 'self._data' directly for increased efficiency
         # TODO: add unit tests
 
-        ndim  = self._space.ndim
+        ndim  = self._domain.ndim
 
         for direction in range(ndim):
 
-            periodic = self._space.periods[direction]
+            periodic = self._domain.periods[direction]
 
             if not periodic:
 
-                n = self._space.npts[direction]
+                nc = self._codomain.npts[direction]
+                nd = self._domain.npts[direction]
 
-                s = self.starts[direction]
-                e = self.ends  [direction]
+                s = self._codomain.starts[direction]
+                e = self._codomain.ends  [direction]
                 p = self.pads  [direction]
 
                 idx_front = [slice(None)]*direction
@@ -680,9 +704,9 @@ class StencilMatrix( Matrix ):
                     self[index] = 0
 
                 # Bottom-left corner
-                for i in range( max(n-p,s), min(n,e+1) ):
+                for i in range( max(nd-p,s), min(nc,e+1) ):
                     index = tuple( idx_front + [i]              + idx_back +
-                                   idx_front + [slice(n-i,p+1)] + idx_back )
+                                   idx_front + [slice(nd-i,p+1)] + idx_back )
                     self[index] = 0
 
     # ...
@@ -723,7 +747,7 @@ class StencilMatrix( Matrix ):
             M.update_ghost_regions()
 
         # Create new matrix where domain and codomain are swapped
-        Mt = StencilMatrix(M.codomain, M.domain)
+        Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads)
 
         # Number of rows in matrix (along each dimension)
         nrows = [e - s + 1 for s, e in zip(M.starts, M.ends)]
@@ -767,11 +791,11 @@ class StencilMatrix( Matrix ):
 
         index = []
 
-        for i,s,p in zip( ii, self.starts, self.pads ):
+        for i,s,p in zip( ii, self._codomain.starts, self._codomain.pads ):
             x = self._shift_index( i, p-s )
             index.append( x )
 
-        for k,p in zip( kk, self.pads ):
+        for k,p in zip( kk, self._pads ):
             l = self._shift_index( k, p )
             index.append( l )
 
@@ -791,11 +815,12 @@ class StencilMatrix( Matrix ):
     def _tocoo_no_pads( self ):
 
         # Shortcuts
-        nn = self._space.npts
+        nr = self._codomain.npts
         nd = self._ndim
-
-        ss = self.starts
-        pp = self.pads
+        nc = self._domain.npts
+        ss = self._codomain.starts
+        pp = self._codomain.pads
+        
 
         ravel_multi_index = np.ravel_multi_index
 
@@ -815,10 +840,10 @@ class StencilMatrix( Matrix ):
             ll = index[nd:]  # l=p+k
 
             ii = [s+x for s,x in zip(ss,xx)]
-            jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
+            jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nc,self._pads)]
 
-            I = ravel_multi_index( ii, dims=nn, order='C' )
-            J = ravel_multi_index( jj, dims=nn, order='C' )
+            I = ravel_multi_index( ii, dims=nr, order='C' )
+            J = ravel_multi_index( jj, dims=nc, order='C' )
 
             rows.append( I )
             cols.append( J )
@@ -826,8 +851,8 @@ class StencilMatrix( Matrix ):
 
         M = coo_matrix(
                 (data,(rows,cols)),
-                shape = [np.prod(nn)]*2,
-                dtype = self._space.dtype
+                shape = [np.prod(nr),np.prod(nc)],
+                dtype = self._domain.dtype
         )
 
         M.eliminate_zeros()
@@ -842,13 +867,16 @@ class StencilMatrix( Matrix ):
             self.update_ghost_regions()
 
         # Shortcuts
-        nn = self._space.npts
+        nr = self._codomain.npts
+        nc = self._domain.npts
         nd = self._ndim
 
-        ss = self.starts
-        ee = self.ends
-        pp = self.pads
-        cc = self._space.periods
+        ss = self._codomain.starts
+        ee = self._codomain.ends
+        pp = self._pads
+        pc = self._codomain.pads
+        pd = self._domain.pads
+        cc = self._codomain.periods
 
         ravel_multi_index = np.ravel_multi_index
 
@@ -868,17 +896,17 @@ class StencilMatrix( Matrix ):
         for xx in np.ndindex( *xx_dims ):
 
             # Compute row multi-index with simple shift
-            ii = [s + x - p for (s, x, p) in zip(ss, xx, pp)]
+            ii = [s + x - p for (s, x, p) in zip(ss, xx, pc)]
 
             # Apply periodicity where appropriate
             ii = [i - n if (c and i >= n and i - n < s) else
                   i + n if (c and i <  0 and i + n > e) else i
-                  for (i, s, e, n, c) in zip(ii, ss, ee, nn, cc)]
+                  for (i, s, e, n, c) in zip(ii, ss, ee, nr, cc)]
 
             # Compute row flat index
             # Exclude values outside global limits of matrix
             try:
-                I = ravel_multi_index( ii, dims=nn, order='C' )
+                I = ravel_multi_index( ii, dims=nr, order='C' )
             except ValueError:
                 continue
 
@@ -893,10 +921,10 @@ class StencilMatrix( Matrix ):
             for ll in np.ndindex( *ll_dims ):
 
                 # Compute column multi-index (k = j - i)
-                jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nn,pp)]
+                jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nd,pp)]
 
                 # Compute column flat index
-                J = ravel_multi_index( jj, dims=nn, order='C' )
+                J = ravel_multi_index( jj, dims=nd, order='C' )
 
                 # Extract matrix value
                 value = self._data[(*xx, *ll)]
@@ -909,8 +937,8 @@ class StencilMatrix( Matrix ):
         # Create Scipy COO matrix
         M = coo_matrix(
                 (data,(rows,cols)),
-                shape = [np.prod(nn)]*2,
-                dtype = self._space.dtype
+                shape = [np.prod(nr), np.prod(nc)],
+                dtype = self._domain.dtype
         )
 
         M.eliminate_zeros()
@@ -933,13 +961,13 @@ class StencilMatrix( Matrix ):
     def _update_ghost_regions_serial( self, direction: int ):
 
         if direction is None:
-            for d in range( self._space.ndim ):
+            for d in range( self._codomain.ndim ):
                 self._update_ghost_regions_serial( d )
             return
 
-        ndim     = self._space.ndim
-        periodic = self._space.periods[direction]
-        p        = self._space.pads   [direction]
+        ndim     = self._codomain.ndim
+        periodic = self._codomain.periods[direction]
+        p        = self._codomain.pads   [direction]
 
         idx_front = [slice(None)]*direction
         idx_back  = [slice(None)]*(ndim-direction-1 + ndim)
