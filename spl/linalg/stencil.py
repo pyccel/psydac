@@ -921,7 +921,7 @@ class StencilMatrix( Matrix ):
             for ll in np.ndindex( *ll_dims ):
 
                 # Compute column multi-index (k = j - i)
-                jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nd,pp)]
+                jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nc,pp)]
 
                 # Compute column flat index
                 J = ravel_multi_index( jj, dims=nd, order='C' )
