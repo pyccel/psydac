@@ -572,7 +572,7 @@ class StencilMatrix( Matrix ):
         nrows       = [ed-s+1 for s,ed in zip(ssd, eed)]
         nrows_extra = [0 if ec<=ed else ec-ed for ec,ed in zip(eec,eed)]
         
-        self._dot(self._data, v._data, out._data, nrows, [], pp)
+        self._dot(self._data, v._data, out._data, nrows, nrows_extra, pp)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
