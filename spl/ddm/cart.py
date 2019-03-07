@@ -266,12 +266,12 @@ class CartDecomposition():
         if isinstance(axes, int):
             axes = [axes]
 
-        cart = Cart(self._npts, self._pads, self._periods, self._reorder)
+        cart = CartDecomposition(self._npts, self._pads, self._periods, self._reorder)
         
         cart._dims = self._dims
         cart._comm_cart = self._comm_cart
         cart._coords    = self._coords
-        cart._nprocs    = self._nprocs
+
         
         coords = cart.coords 
         nprocs = cart.nprocs 
