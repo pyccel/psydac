@@ -467,13 +467,11 @@ class TensorFemSpace( FemSpace ):
             spaces[axis] = reduced_space
             
         # create new Tensor Vector
-
-
         
         if v.cart:
             
             tensor_vec = TensorFemSpace(*spaces, comm=v.cart.comm)
-            red_cart = v.cart.reduce_pads(axes)
+            red_cart = v.cart.remove_last_element(axes)
             v = StencilVectorSpace(red_cart)
             tensor_vec._vector_space = v
         else:

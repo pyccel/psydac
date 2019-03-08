@@ -134,19 +134,19 @@ class CartDecomposition():
 
         # Compute/store information for communicating with neighbors
         self._shift_info = {}
-        for dimension in range( self._ndims ):
+        for axis in range( self._ndims ):
             for disp in [-1,1]:
-                self._shift_info[ dimension, disp ] = \
-                        self._compute_shift_info( dimension, disp )
+                self._shift_info[ axis, disp ] = \
+                        self._compute_shift_info( axis, disp )
 
         # Store arrays with all the starts and ends along each direction
         self._global_starts = [None]*self._ndims
         self._global_ends   = [None]*self._ndims
-        for dimension in range( self._ndims ):
-            n =     npts[dimension]
-            d = mpi_dims[dimension]
-            self._global_starts[dimension] = np.array( [( c   *n)//d   for c in range( d )] )
-            self._global_ends  [dimension] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
+        for axis in range( self._ndims ):
+            n =     npts[axis]
+            d = mpi_dims[axis]
+            self._global_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
+            self._global_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
 
     #---------------------------------------------------------------------------
     # Global properties (same for each process)
@@ -261,7 +261,7 @@ class CartDecomposition():
 
         return info
         
-    def reduce_pads( self, axes):
+    def remove_last_element( self, axes):
 
         if isinstance(axes, int):
             axes = [axes]
@@ -271,7 +271,6 @@ class CartDecomposition():
         cart._dims = self._dims
         cart._comm_cart = self._comm_cart
         cart._coords    = self._coords
-
         
         coords = cart.coords 
         nprocs = cart.nprocs 
@@ -317,19 +316,19 @@ class CartDecomposition():
 
         # Compute/store information for communicating with neighbors
         cart._shift_info = {}
-        for dimension in range( cart._ndims ):
+        for axis in range( cart._ndims ):
             for disp in [-1,1]:
-                cart._shift_info[ dimension, disp ] = \
-                        cart._compute_shift_info( dimension, disp )
+                cart._shift_info[ axis, disp ] = \
+                        cart._compute_shift_info( axis, disp )
 
         # Store arrays with all the starts and ends along each direction
         cart._global_starts = [None]*cart._ndims
         cart._global_ends   = [None]*cart._ndims
-        for dimension in range( cart._ndims ):
-            n =     cart.npts[dimension]
-            d = cart._dims[dimension]
-            cart._global_starts[dimension] = np.array( [( c   *n)//d   for c in range( d )] )
-            cart._global_ends  [dimension] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
+        for axis in range( cart._ndims ):
+            n =     cart.npts[axis]
+            d = cart._dims[axis]
+            cart._global_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
+            cart._global_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
 
         return cart
 
