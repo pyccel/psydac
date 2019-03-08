@@ -19,9 +19,9 @@ from sympde.expr import BilinearForm, LinearForm, Integral
 from sympde.expr import Norm
 from sympde.expr import Equation, DirichletBC
 
-from spl.fem.basic   import FemField
-from spl.api.discretization import discretize
-from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL
+from psydac.fem.basic   import FemField
+from psydac.api.discretization import discretize
+from psydac.api.settings import PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_PYCCEL
 
 import time
 from tabulate import tabulate
@@ -66,14 +66,14 @@ DEBUG = False
 #    # ...
 #
 #    # ...
-#    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYCCEL)
+#    ah = discretize(a, [Vh, Vh], backend=PSYDAC_BACKEND_PYCCEL)
 #    tb = time.time()
 #    M_f90 = ah.assemble()
 #    te = time.time()
 #    print('> [pyccel] elapsed time (matrix) = ', te-tb)
 #    t_f90 = te-tb
 #
-#    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYTHON)
+#    ah = discretize(a, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
 #    tb = time.time()
 #    M_py = ah.assemble()
 #    te = time.time()
@@ -84,14 +84,14 @@ DEBUG = False
 #    # ...
 #
 #    # ...
-#    lh = discretize(l, Vh, backend=SPL_BACKEND_PYCCEL)
+#    lh = discretize(l, Vh, backend=PSYDAC_BACKEND_PYCCEL)
 #    tb = time.time()
 #    L_f90 = lh.assemble()
 #    te = time.time()
 #    print('> [pyccel] elapsed time (rhs) = ', te-tb)
 #    t_f90 = te-tb
 #
-#    lh = discretize(l, Vh, backend=SPL_BACKEND_PYTHON)
+#    lh = discretize(l, Vh, backend=PSYDAC_BACKEND_PYTHON)
 #    tb = time.time()
 #    L_py = lh.assemble()
 #    te = time.time()
@@ -106,14 +106,14 @@ DEBUG = False
 #    # ...
 #
 #    # ...
-#    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYCCEL)
+#    l2norm_h = discretize(l2norm, Vh, backend=PSYDAC_BACKEND_PYCCEL)
 #    tb = time.time()
 #    L_f90 = l2norm_h.assemble(F=phi)
 #    te = time.time()
 #    t_f90 = te-tb
 #    print('> [pyccel] elapsed time (L2 norm) = ', te-tb)
 #
-#    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYTHON)
+#    l2norm_h = discretize(l2norm, Vh, backend=PSYDAC_BACKEND_PYTHON)
 #    tb = time.time()
 #    L_py = l2norm_h.assemble(F=phi)
 #    te = time.time()
@@ -153,14 +153,14 @@ DEBUG = False
 #    # ...
 #
 #    # ...
-#    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYCCEL)
+#    ah = discretize(a, [Vh, Vh], backend=PSYDAC_BACKEND_PYCCEL)
 #    tb = time.time()
 #    M_f90 = ah.assemble()
 #    te = time.time()
 #    print('> [pyccel] elapsed time (matrix) = ', te-tb)
 #    t_f90 = te-tb
 #
-#    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYTHON)
+#    ah = discretize(a, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
 #    tb = time.time()
 #    M_py = ah.assemble()
 #    te = time.time()
@@ -267,12 +267,12 @@ def test_perf_poisson_2d(ncells=[2**3,2**3], degree=[2,2]):
     # using Python
     d_py = run_poisson( domain, solution, f,
                         ncells=ncells, degree=degree,
-                        backend=SPL_BACKEND_PYTHON )
+                        backend=PSYDAC_BACKEND_PYTHON )
 
     # using Pyccel
     d_f90 = run_poisson( domain, solution, f,
                          ncells=ncells, degree=degree,
-                         backend=SPL_BACKEND_PYCCEL )
+                         backend=PSYDAC_BACKEND_PYCCEL )
 
     # ... add every new backend here
     d_all = [d_py, d_f90]

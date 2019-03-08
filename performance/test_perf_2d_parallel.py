@@ -21,18 +21,18 @@ from sympde.core import Boundary, trace_0, trace_1
 from sympde.core import ComplementBoundary
 from sympde.gallery import Poisson, Stokes
 
-from spl.fem.context import fem_context
-from spl.fem.basic   import FemField
-from spl.fem.splines import SplineSpace
-from spl.fem.tensor  import TensorFemSpace
-from spl.fem.vector  import ProductFemSpace, VectorFemField
-from spl.api.discretization import discretize
-from spl.api.boundary_condition import DiscreteBoundary
-from spl.api.boundary_condition import DiscreteComplementBoundary
-from spl.api.boundary_condition import DiscreteDirichletBC
-from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL
+from psydac.fem.context import fem_context
+from psydac.fem.basic   import FemField
+from psydac.fem.splines import SplineSpace
+from psydac.fem.tensor  import TensorFemSpace
+from psydac.fem.vector  import ProductFemSpace, VectorFemField
+from psydac.api.discretization import discretize
+from psydac.api.boundary_condition import DiscreteBoundary
+from psydac.api.boundary_condition import DiscreteComplementBoundary
+from psydac.api.boundary_condition import DiscreteDirichletBC
+from psydac.api.settings import PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_PYCCEL
 
-from spl.mapping.discrete import SplineMapping
+from psydac.mapping.discrete import SplineMapping
 
 from numpy import linspace, zeros, allclose
 from utils import assert_identical_coo
@@ -86,7 +86,7 @@ def print_timing(ls, backend):
     # ...
 
 
-def test_perf_poisson_2d_parallel(backend=SPL_BACKEND_PYTHON):
+def test_perf_poisson_2d_parallel(backend=PSYDAC_BACKEND_PYTHON):
 
     # ... abstract model
     U = FunctionSpace('U', domain)
@@ -153,7 +153,7 @@ def test_perf_poisson_2d_parallel(backend=SPL_BACKEND_PYTHON):
         print_timing([matrix_timing, rhs_timing, l2norm_timing], backend)
     # ...
 
-def test_perf_vector_poisson_2d(backend=SPL_BACKEND_PYTHON):
+def test_perf_vector_poisson_2d(backend=PSYDAC_BACKEND_PYTHON):
 
     # ... abstract model
     U = VectorFunctionSpace('U', domain)
@@ -228,7 +228,7 @@ def test_perf_vector_poisson_2d(backend=SPL_BACKEND_PYTHON):
 if __name__ == '__main__':
 
     # ...
-#    test_perf_poisson_2d_parallel(backend=SPL_BACKEND_PYCCEL)
-    test_perf_vector_poisson_2d(backend=SPL_BACKEND_PYCCEL)
-#    test_perf_vector_poisson_2d(backend=SPL_BACKEND_PYTHON)
+#    test_perf_poisson_2d_parallel(backend=PSYDAC_BACKEND_PYCCEL)
+    test_perf_vector_poisson_2d(backend=PSYDAC_BACKEND_PYCCEL)
+#    test_perf_vector_poisson_2d(backend=PSYDAC_BACKEND_PYTHON)
     # ...

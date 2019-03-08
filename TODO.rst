@@ -1,13 +1,13 @@
 TODO
 ====
 
-* Add GMRES solver to 'spl.linalg.solvers'
+* Add GMRES solver to 'psydac.linalg.solvers'
 
-* Add unit tests for Cart subcommunicators in 'spl.ddm.cart'
+* Add unit tests for Cart subcommunicators in 'psydac.ddm.cart'
 
-* Create parallel 'KroneckerLinearOperator' in 'spl.linalg.kronecker' using Cart subcommunicators
+* Create parallel 'KroneckerLinearOperator' in 'psydac.linalg.kronecker' using Cart subcommunicators
 
-* Create object of type 'spl.fem.splines.SplineSpace' with Cart
+* Create object of type 'psydac.fem.psydacines.SplineSpace' with Cart
 
 * Extend functionality of 'SplineSpace' class:
   . add (private?) methods 'init_fem' and 'init_collocation'
@@ -15,7 +15,7 @@ TODO
   . add method 'compute_interpolant( self, values, field )'
   . implement 'eval_field_gradient' method
 
-* Create 'SplineMapping' class in module 'spl.mapping.discrete'
+* Create 'SplineMapping' class in module 'psydac.mapping.discrete'
 
 * add a section in documentation about hdf5 installation (serial/parallel) + h5-tools (install+usage)
 
@@ -23,7 +23,7 @@ TODO
 Core
 ****
 
-* interface to *spl_eval_splines_ders*
+* interface to *psydac_eval_psydacines_ders*
 
 API
 ***
@@ -48,7 +48,7 @@ API
 
 - add other solvers to the solver_driver (only cg is available now)
 
-- remove spl/run_tests.sh. however, we need to clear the cache of sympy after 1d, 2d and 3d tests, otherwise pytest will crash.
+- remove psydac/run_tests.sh. however, we need to clear the cache of sympy after 1d, 2d and 3d tests, otherwise pytest will crash.
 
 - add sympde and pyccel install procedure; maybe wget to download the requierements files as requirements_pyccel.txt etc then call pip3
 

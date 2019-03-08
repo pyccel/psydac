@@ -1,9 +1,9 @@
-Welcome to SPL
-==============
+Welcome to PSYDAC
+=================
 
 |build-devel| |docs|
 
-**SPL** is a Python 3 library for isogeometric analysis. 
+**PSYDAC** is a Python 3 library for isogeometric analysis. 
 
 Requirements
 ************
@@ -51,7 +51,7 @@ Uninstall
 Mesh Generation
 ***************
 
-After installation, a command line **spl-mesh** will be available.
+After installation, a command line **psydac-mesh** will be available.
 
 
 Example of usage
@@ -59,4 +59,4 @@ Example of usage
 
 .. code-block:: bash
 
-  spl-mesh -n='16,16' -d='3,3' square mesh.h5
+  psydac-mesh -n='16,16' -d='3,3' square mesh.h5

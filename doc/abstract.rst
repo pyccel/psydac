@@ -1,6 +1,6 @@
-**SPL** is a Python/Fortran 2003 library for B-Splines/NURBS and Computer Aided Design Algorithms.
+**PSYDAC** is a Python/Fortran 2003 library for B-Splines/NURBS and Computer Aided Design Algorithms.
 
-**SPL** can be used in three different ways:
+**PSYDAC** can be used in three different ways:
 
 1. *Fortran 90/95* subroutines through the file **fortran/src/bsplines/bspline.F90**
 

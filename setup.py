@@ -6,10 +6,10 @@ import os
 from setuptools import find_packages
 from numpy.distutils.core import setup
 from numpy.distutils.core import Extension
-import spl
+import psydac
 
-NAME    = 'spl'
-VERSION = spl.__version__
+NAME    = 'psydac'
+VERSION = psydac.__version__
 AUTHOR  = 'Ahmed Ratnani, Jalal Lakhlili, Yaman Güçlü'
 EMAIL   = 'ratnaniahmed@gmail.com'
 URL     = 'http://www.ahmed.ratnani.org'
@@ -42,12 +42,12 @@ dependency_links = []
 
 
 # ... bspline extension
-bsp_ext = Extension(name    = 'spl.core.bsp',
-                        sources = ['spl/core/external/bspline.F90',
-                                   'spl/core/external/pppack.F90',
-                                   'spl/core/bsp_ext.F90',
-                                   'spl/core/bsp.F90',
-                                   'spl/core/bsp.pyf',
+bsp_ext = Extension(name    = 'psydac.core.bsp',
+                        sources = ['psydac/core/external/bspline.F90',
+                                   'psydac/core/external/pppack.F90',
+                                   'psydac/core/bsp_ext.F90',
+                                   'psydac/core/bsp.F90',
+                                   'psydac/core/bsp.pyf',
                                    ],
                         f2py_options = ['--quiet'],)
 
@@ -56,7 +56,7 @@ ext_modules  = [bsp_ext]
 # ...
 
 # ...
-entry_points = {'console_scripts': ['spl-mesh = spl.cmd.mesh:main']}
+entry_points = {'console_scripts': ['psydac-mesh = psydac.cmd.mesh:main']}
 # ...
 
 # ...

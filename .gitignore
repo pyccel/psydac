@@ -18,6 +18,6 @@ doc/_build
 doc/api-python
 
 
-spl/core/bsp-f2py*
-spl/core/bspmodule.c
-spl/core/*.so
+psydac/core/bsp-f2py*
+psydac/core/bspmodule.c
+psydac/core/*.so

@@ -6,18 +6,18 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 import matplotlib.pyplot as plt
 
-from spl.linalg.stencil             import StencilVector, StencilMatrix
-from spl.linalg.iterative_solvers   import cg
-from spl.fem.splines                import SplineSpace
-from spl.fem.tensor                 import TensorFemSpace
-from spl.fem.basic                  import FemField
-from spl.fem.context                import fem_context
-from spl.mapping.analytical         import AnalyticalMapping, IdentityMapping
-from spl.mapping.analytical_gallery import Annulus, Target, Czarny
-from spl.mapping.discrete           import SplineMapping
-from spl.utilities.utils            import refine_array_1d
+from psydac.linalg.stencil             import StencilVector, StencilMatrix
+from psydac.linalg.iterative_solvers   import cg
+from psydac.fem.splines                import SplineSpace
+from psydac.fem.tensor                 import TensorFemSpace
+from psydac.fem.basic                  import FemField
+from psydac.fem.context                import fem_context
+from psydac.mapping.analytical         import AnalyticalMapping, IdentityMapping
+from psydac.mapping.analytical_gallery import Annulus, Target, Czarny
+from psydac.mapping.discrete           import SplineMapping
+from psydac.utilities.utils            import refine_array_1d
 
-from spl.polar.c1_projections       import C1Projector
+from psydac.polar.c1_projections       import C1Projector
 
 #==============================================================================
 class Laplacian:
@@ -361,7 +361,7 @@ def assemble_matrices( V, mapping, kernel ):
     V : TensorFemSpace
         Finite element space where the Galerkin method is applied.
 
-    mapping : spl.mapping.basic.Mapping
+    mapping : psydac.mapping.basic.Mapping
         Mapping (analytical or discrete) from logical to physical coordinates.
 
     kernel : callable
@@ -441,7 +441,7 @@ def assemble_rhs( V, mapping, f ):
     V : TensorFemSpace
         Finite element space where the Galerkin method is applied.
 
-    mapping : spl.mapping.basic.Mapping
+    mapping : psydac.mapping.basic.Mapping
         Mapping (analytical or discrete) from logical to physical coordinates.
 
     f : callable

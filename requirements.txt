@@ -21,5 +21,5 @@ yamlloader
 # Igakit
 https://bitbucket.org/dalcinl/igakit/get/default.tar.gz
 
-# In addition, SPL depends on "sympde" and "pyccel" libraries,
+# In addition, PSYDAC depends on "sympde" and "pyccel" libraries,
 # to be installed manually from their git repositories.

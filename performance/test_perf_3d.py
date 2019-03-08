@@ -15,11 +15,11 @@ from sympde.core import Domain
 from sympde.core import BilinearForm, LinearForm, Integral
 from sympde.core import Norm
 
-from spl.fem.basic   import FemField
-from spl.fem.splines import SplineSpace
-from spl.fem.tensor  import TensorFemSpace
-from spl.api.discretization import discretize
-from spl.api.settings import SPL_BACKEND_PYTHON, SPL_BACKEND_PYCCEL
+from psydac.fem.basic   import FemField
+from psydac.fem.splines import SplineSpace
+from psydac.fem.tensor  import TensorFemSpace
+from psydac.api.discretization import discretize
+from psydac.api.settings import PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_PYCCEL
 
 from numpy import linspace, zeros
 
@@ -97,14 +97,14 @@ def test_api_poisson_3d():
     # ...
 
     # ...
-    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYCCEL)
+    ah = discretize(a, [Vh, Vh], backend=PSYDAC_BACKEND_PYCCEL)
     tb = time.time()
     M_f90 = ah.assemble()
     te = time.time()
     print('> [pyccel] elapsed time (matrix) = ', te-tb)
     t_f90 = te-tb
 
-    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYTHON)
+    ah = discretize(a, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
     tb = time.time()
     M_py = ah.assemble()
     te = time.time()
@@ -115,14 +115,14 @@ def test_api_poisson_3d():
     # ...
 
     # ...
-    lh = discretize(l, Vh, backend=SPL_BACKEND_PYCCEL)
+    lh = discretize(l, Vh, backend=PSYDAC_BACKEND_PYCCEL)
     tb = time.time()
     L_f90 = lh.assemble()
     te = time.time()
     print('> [pyccel] elapsed time (rhs) = ', te-tb)
     t_f90 = te-tb
 
-    lh = discretize(l, Vh, backend=SPL_BACKEND_PYTHON)
+    lh = discretize(l, Vh, backend=PSYDAC_BACKEND_PYTHON)
     tb = time.time()
     L_py = lh.assemble()
     te = time.time()
@@ -137,14 +137,14 @@ def test_api_poisson_3d():
     # ...
 
     # ...
-    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYCCEL)
+    l2norm_h = discretize(l2norm, Vh, backend=PSYDAC_BACKEND_PYCCEL)
     tb = time.time()
     L_f90 = l2norm_h.assemble(F=phi)
     te = time.time()
     print('> [pyccel] elapsed time (L2 norm) = ', te-tb)
     t_f90 = te-tb
 
-    l2norm_h = discretize(l2norm, Vh, backend=SPL_BACKEND_PYTHON)
+    l2norm_h = discretize(l2norm, Vh, backend=PSYDAC_BACKEND_PYTHON)
     tb = time.time()
     L_py = l2norm_h.assemble(F=phi)
     te = time.time()
@@ -180,14 +180,14 @@ def test_api_stokes_3d():
     # ...
 
     # ...
-    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYCCEL)
+    ah = discretize(a, [Vh, Vh], backend=PSYDAC_BACKEND_PYCCEL)
     tb = time.time()
     M_f90 = ah.assemble()
     te = time.time()
     print('> [pyccel] elapsed time (matrix) = ', te-tb)
     t_f90 = te-tb
 
-    ah = discretize(a, [Vh, Vh], backend=SPL_BACKEND_PYTHON)
+    ah = discretize(a, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
     tb = time.time()
     M_py = ah.assemble()
     te = time.time()

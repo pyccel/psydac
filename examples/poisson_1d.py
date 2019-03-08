@@ -1,9 +1,9 @@
 # coding: utf-8
 import numpy as np
 
-from spl.utilities.quadratures      import gauss_legendre
-from spl.linalg.stencil             import StencilVector, StencilMatrix
-from spl.linalg.iterative_solvers   import cg
+from psydac.utilities.quadratures      import gauss_legendre
+from psydac.linalg.stencil             import StencilVector, StencilMatrix
+from psydac.linalg.iterative_solvers   import cg
 
 #==============================================================================
 class Poisson1D:
@@ -218,9 +218,9 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     from time import time
 
-    from spl.fem.splines import SplineSpace
-    from spl.fem.tensor  import TensorFemSpace
-    from spl.fem.basic   import FemField
+    from psydac.fem.splines import SplineSpace
+    from psydac.fem.tensor  import TensorFemSpace
+    from psydac.fem.basic   import FemField
 
     timing = {}
 

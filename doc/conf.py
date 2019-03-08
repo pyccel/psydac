@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# spl documentation build configuration file, created by
+# psydac documentation build configuration file, created by
 # sphinx-quickstart on Fri Feb 16 16:21:17 2018.
 #
 # This file is execfile()d with the current directory set to its
@@ -49,7 +49,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'spl'
+project = u'psydac'
 copyright = u'2018, A. Ratnani, J. Lakhlili, Y. Guclu'
 author = u'A. Ratnani, J. Lakhlili, Y. Guclu'
 
@@ -82,7 +82,7 @@ todo_include_todos = True
 
 # -- Doxygen + autodoc ----------------------------------------------
 import subprocess
-subprocess.call('rm -rf api-python; sphinx-apidoc -o api-python/ ../spl', shell=True)
+subprocess.call('rm -rf api-python; sphinx-apidoc -o api-python/ ../psydac', shell=True)
 subprocess.call('doxygen Doxyfile ', shell=True)
 
 # -- Options for HTML output ----------------------------------------------
@@ -145,7 +145,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'spl.tex', u'spl Documentation',
+    (master_doc, 'psydac.tex', u'psydac Documentation',
      u'A. Ratnani, J. Lakhlili', 'manual'),
 ]
 
@@ -206,7 +206,7 @@ tikz_transparent    = True
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'spl', u'spl Documentation',
+    (master_doc, 'psydac', u'psydac Documentation',
      [author], 1)
 ]
 
@@ -217,8 +217,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'spl', u'spl Documentation',
-     author, 'spl', 'One line description of project.',
+    (master_doc, 'psydac', u'psydac Documentation',
+     author, 'psydac', 'One line description of project.',
      'Miscellaneous'),
 ]
 
@@ -232,5 +232,5 @@ class Mock(MagicMock):
     def __getattr__(cls, name):
         return MagicMock()
 
-MOCK_MODULES = ['spl.core.bsp']
+MOCK_MODULES = ['psydac.core.bsp']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)

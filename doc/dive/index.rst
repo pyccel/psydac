@@ -1,5 +1,5 @@
-Dive into SPL
-=============
+Dive into PSYDAC
+================
 
 Contents
 ********
