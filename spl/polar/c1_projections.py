@@ -137,6 +137,7 @@ class C1Projector:
         L = self._L
         P = self.c1_space
 
+
         n0 = P[0].ncoeff
 
         n1, n2 = P[1].npts
