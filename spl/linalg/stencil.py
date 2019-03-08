@@ -924,7 +924,7 @@ class StencilMatrix( Matrix ):
                 jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nc,pp)]
 
                 # Compute column flat index
-                J = ravel_multi_index( jj, dims=nd, order='C' )
+                J = ravel_multi_index( jj, dims=nc, order='C' )
 
                 # Extract matrix value
                 value = self._data[(*xx, *ll)]
