@@ -246,10 +246,11 @@ class Kernel(SplBasic):
 
     def __new__(cls, weak_form, kernel_expr, target=None,
                 discrete_boundary=None, name=None, boundary_basis=None,
-                mapping=None, is_rational_mapping=None,backend=None):
+                mapping=None, is_rational_mapping=None, backend=None):
 
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
+
 
         # ...
         # get the target expr if there are multiple expressions (domain/boundary)

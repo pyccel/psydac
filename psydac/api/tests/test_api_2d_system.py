@@ -128,7 +128,6 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
 ###############################################################################
 
 #==============================================================================
-@pytest.mark.skip(reason="the bug in TerminalExpr needs to be fixed ")
 def test_api_system_1_2d_dir_1():
 
     from sympy.abc import x,y
