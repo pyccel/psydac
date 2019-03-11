@@ -443,7 +443,7 @@ class TensorFemSpace( FemSpace ):
         return fields
         
     def reduce_degree(self, axes):
-    
+
         if isinstance(axes, int):
             axes = [axes]
             
@@ -466,8 +466,12 @@ class TensorFemSpace( FemSpace ):
             
             spaces[axis] = reduced_space
             
-        # create new Tensor Vector
         
+        npts = [V.nbasis for V in spaces]
+        pads = v.pads
+        periods = [V.periodic for V in spaces]
+        
+        # create new Tensor Vector
         if v.cart:
             
             tensor_vec = TensorFemSpace(*spaces, comm=v.cart.comm)
@@ -476,15 +480,18 @@ class TensorFemSpace( FemSpace ):
             tensor_vec._vector_space = v
         else:
             tensor_vec = TensorFemSpace(*spaces)
+            v = self._vector_space
+            tensor_vec._vector_space = StencilVectorSpace(npts, v.pads, v.periods)
+            v = tensor_vec._vector_space
       
         tensor_vec._spaces = tuple(spaces)
         
-        npts = [V.nbasis for V in spaces]
-        pads = v.pads
-        periods = [V.periodic for V in spaces]
+        
+
 
         
        # Compute extended 1D quadrature grids (local to process) along each direction
+       
         tensor_vec._quad_grids = tuple( FemAssemblyGrid( V,s,e,quad_order=q )
                                   for V,s,e,q in zip( spaces, v.starts, v.ends, self.degree ) )
 

@@ -251,7 +251,8 @@ class Kernel(SplBasic):
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
 
-
+        print(weak_form.trial_spaces,weak_form.test_spaces, kernel_expr)
+        raise SystemExit()
         # ...
         # get the target expr if there are multiple expressions (domain/boundary)
         on_boundary = False

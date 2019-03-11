@@ -25,6 +25,7 @@ from sympde.topology import BasicFunctionSpace
 from sympde.topology import FunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import Mapping
+from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
 
 from gelato.expr     import GltExpr as sym_GltExpr
 
@@ -212,6 +213,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
     degree           = kwargs.pop('degree', None)
     comm             = domain_h.comm
     symbolic_mapping = None
+    kind             = V.kind
+    ldim             = V.ldim
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
@@ -225,7 +228,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         # TODO how to give a name to the mapping?
         symbolic_mapping = Mapping('M', domain_h.pdim)
 
-        if not( comm is None ) and domain_h.ldim == 1:
+        if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
 
     elif not( degree is None ):
@@ -234,15 +237,40 @@ def discretize_space(V, domain_h, *args, **kwargs):
         ncells = domain_h.ncells
 
         assert(isinstance( degree, (list, tuple) ))
-        assert( len(degree) == V.ldim )
+        assert( len(degree) == ldim )
 
         # Create uniform grid
         grids = [np.linspace( 0., 1., num=ne+1 ) for ne in ncells]
 
         # Create 1D finite element spaces and precompute quadrature data
         spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
-
+        
         Vh = TensorFemSpace( *spaces, comm=comm )
+
+        if isinstance(kind, HcurlSpaceType):
+            if ldim == 1:
+                Vh = Vh.reduce_degree(axes=[0])
+            elif ldim == 2:
+                Vh = [Vh.reduce_degree(axes=[0]),Vh.reduce_degree(axes=[1])]
+            elif ldim == 3:
+                Vh = [Vh.reduce_degree(axes=[0]),Vh.reduce_degree(axes=[1]),Vh.reduce_degree(axes=[2])]
+            
+        elif isinstance(kind, HdivSpaceType):
+            if ldim == 1:
+                Vh = Vh.reduce_degree(axes=[0])
+            elif ldim == 2:
+                Vh = [Vh.reduce_degree(axes=[1]), Vh.reduce_degree(axes=[0])]
+            elif ldim == 3:
+                Vh = [Vh.reduce_degree(axes=[1,2]),Vh.reduce_degree(axes=[0,2]),Vh.reduce_degree(axes=[0,1])]
+            
+        elif isinstance(kind, L2SpaceType):
+            
+            if ldim == 1:
+                Vh = Vh.reduce_degree(axes=[0])
+            elif ldim == 2:
+                Vh = Vh.reduce_degree(axes=[0,1])
+            elif ldim == 3:
+                Vh = Vh.reduce_degree(axes=[0,1,2])
 
     # Product and Vector spaces are constructed here using H1 subspaces
     if V.shape > 1:
