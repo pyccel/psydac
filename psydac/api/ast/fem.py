@@ -253,7 +253,9 @@ class Kernel(SplBasic):
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
 
-        symbolic_space= symbolic_space[0]
+        if symbolic_space:
+            symbolic_space= symbolic_space[0]
+            
         is_compatible_spaces = False
         if isinstance(symbolic_space, ProductSpace):
             spaces = symbolic_space.spaces
