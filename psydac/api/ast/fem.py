@@ -53,6 +53,7 @@ from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
 from sympde.topology.space import FunctionSpace
+from sympde.topology.space import ProductSpace
 from sympde.topology.space import ScalarTestFunction
 from sympde.topology.space import VectorTestFunction
 from sympde.topology.space import IndexedTestTrial
@@ -61,6 +62,7 @@ from sympde.topology.derivatives import print_expression
 from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
 from sympde.expr import BilinearForm, LinearForm, Functional, BasicForm
+
 
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
@@ -246,13 +248,18 @@ class Kernel(SplBasic):
 
     def __new__(cls, weak_form, kernel_expr, target=None,
                 discrete_boundary=None, name=None, boundary_basis=None,
-                mapping=None, is_rational_mapping=None, backend=None):
+                mapping=None, is_rational_mapping=None,symbolic_space=None, backend=None):
 
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
 
-        print(weak_form.trial_spaces,weak_form.test_spaces, kernel_expr)
-        raise SystemExit()
+        symbolic_space= symbolic_space[0]
+        is_compatible_spaces = False
+        if isinstance(symbolic_space, ProductSpace):
+            spaces = symbolic_space.spaces
+            space = spaces[0]
+            is_compatible_spaces = not all(sp.kind==space.kind for sp in spaces)
+
         # ...
         # get the target expr if there are multiple expressions (domain/boundary)
         on_boundary = False
@@ -306,6 +313,7 @@ class Kernel(SplBasic):
         obj._area              = None
         obj._user_functions    = []
         obj._backend           = backend
+        obj._is_compatible_spaces = is_compatible_spaces
 
         obj._func = obj._initialize()
         return obj
@@ -409,6 +417,10 @@ class Kernel(SplBasic):
         return self._user_functions
 
     @property
+    def is_compatible_spaces(self):
+        return self._is_compatible_spaces
+        
+    @property
     def backend(self):
         return self._backend
 
@@ -429,6 +441,7 @@ class Kernel(SplBasic):
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
         is_function = isinstance(self.weak_form, Functional)
+        is_compatible_spaces = self.is_compatible_spaces
 
         expr = self.kernel_expr
         mapping = self.mapping
@@ -679,10 +692,13 @@ class Kernel(SplBasic):
             ln   = 1
 
             expr = [expr]
-
+            
         # ... looking for 0 terms
         zero_terms = [i for i,e in enumerate(expr) if e == 0]
         self._zero_terms = zero_terms
+        
+
+
         # ...
 
         # ... declarations
@@ -780,7 +796,7 @@ class Kernel(SplBasic):
         # ...
 
         # body of kernel
-        body = []
+
 
         init_basis = OrderedDict()
         init_map   = OrderedDict()
@@ -800,256 +816,281 @@ class Kernel(SplBasic):
             for stmt in map_stmts:
                 init_map[str(stmt.lhs)] = stmt
 
-        init_basis = OrderedDict(sorted(init_basis.items()))
-        body += list(init_basis.values())
+        
+        
 
-        if mapping:
-            body += [Assign(lhs, rhs[indices_quad]) for lhs, rhs in zip(mapping_elements,
-                                                          mapping_values)]
+        funcs = []
+        
+        if not is_compatible_spaces:
+            ln   = 1
+           
 
-        # ... normal/tangent vectors
-        init_map_bnd   = OrderedDict()
-        if isinstance(self.target, Boundary):
-            vectors = self.kernel_expr.atoms(BoundaryVector)
-            normal_vec = symbols('normal_1:%d'%(dim+1))
-            tangent_vec = symbols('tangent_1:%d'%(dim+1))
+        for indx in range(ln):
 
-            for vector in vectors:
-                if isinstance(vector, NormalVector):
-                    # replace n[i] by its scalar components
-                    for i in range(0, dim):
-                        expr = [e.subs(vector[i], normal_vec[i]) for e in expr]
+            if is_compatible_spaces and indx in zero_terms:
+                continue
+                
+            elif is_compatible_spaces:
+                start = indx
+                end   = indx + 1
+                
+            else:
+                start = 0
+                end   = len(expr)
+                
+            body = []
+            init_basis = OrderedDict(sorted(init_basis.items()))
+            body += list(init_basis.values())
 
-                    map_stmts, stmts = compute_normal_vector(normal_vec,
-                                                  self.discrete_boundary,
-                                                  mapping)
+            if mapping:
+                body += [Assign(lhs, rhs[indices_quad]) for lhs, rhs in zip(mapping_elements,
+                                                              mapping_values)]
 
-                elif isinstance(vector, TangentVector):
-                    # replace t[i] by its scalar components
-                    for i in range(0, dim):
-                        expr = [e.subs(vector[i], tangent_vec[i]) for e in expr]
+            # ... normal/tangent vectors
+            init_map_bnd   = OrderedDict()
+            if isinstance(self.target, Boundary):
+                vectors = self.kernel_expr.atoms(BoundaryVector)
+                normal_vec = symbols('normal_1:%d'%(dim+1))
+                tangent_vec = symbols('tangent_1:%d'%(dim+1))
 
-                    map_stmts, stmts = compute_tangent_vector(tangent_vec,
-                                                   self.discrete_boundary,
-                                                   mapping)
+                for vector in vectors:
+                    if isinstance(vector, NormalVector):
+                        # replace n[i] by its scalar components
+                        for i in range(0, dim):
+                            expr = [e.subs(vector[i], normal_vec[i]) for e in expr]
 
-                for stmt in map_stmts:
-                    init_map_bnd[str(stmt.lhs)] = stmt
+                        map_stmts, stmts = compute_normal_vector(normal_vec,
+                                                      self.discrete_boundary,
+                                                      mapping)
 
-                init_map_bnd = OrderedDict(sorted(init_map_bnd.items()))
-                for stmt in list(init_map_bnd.values()):
-                    body += [stmt]
+                    elif isinstance(vector, TangentVector):
+                        # replace t[i] by its scalar components
+                        for i in range(0, dim):
+                            expr = [e.subs(vector[i], tangent_vec[i]) for e in expr]
 
-                body += stmts
-        # ...
+                        map_stmts, stmts = compute_tangent_vector(tangent_vec,
+                                                       self.discrete_boundary,
+                                                       mapping)
 
-        if mapping:
-            inv_jac = Symbol('inv_jac')
-            det_jac = Symbol('det_jac')
+                    for stmt in map_stmts:
+                        init_map_bnd[str(stmt.lhs)] = stmt
 
-            if not  isinstance(self.target, Boundary):
+                    init_map_bnd = OrderedDict(sorted(init_map_bnd.items()))
+                    for stmt in list(init_map_bnd.values()):
+                        body += [stmt]
 
-                # ... inv jacobian
-                jac = mapping.det_jacobian
-                jac = SymbolicExpr(jac)
+                    body += stmts
+            # ...
+
+            if mapping:
+                inv_jac = Symbol('inv_jac')
+                det_jac = Symbol('det_jac')
+
+                if not  isinstance(self.target, Boundary):
+
+                    # ... inv jacobian
+                    jac = mapping.det_jacobian
+                    jac = SymbolicExpr(jac)
+                    # ...
+
+                    body += [Assign(det_jac, jac)]
+                    body += [Assign(inv_jac, 1./jac)]
+
+                    # TODO do we use the same inv_jac?
+        #            if not isinstance(self.target, Boundary):
+        #                body += [Assign(inv_jac, 1/jac)]
+
+                    init_map = OrderedDict(sorted(init_map.items()))
+                    for stmt in list(init_map.values()):
+                        body += [stmt.subs(1/jac, inv_jac)]
+
+            else:
+                body += [Assign(coordinates[i],positions[i][indices_quad[i]])
+                         for i in range(dim)]
+            # ...
+
+            # ...
+            weighted_vol = filter_product(indices_quad, weighted_vols, self.discrete_boundary)
+            # ...
+
+            # ...
+            # add fields and vector fields
+            if not mapping:
+                # ... fields
+                for i in range(len(fields_val)):
+                    body.append(Assign(fields[i],fields_val[i][indices_quad]))
                 # ...
 
-                body += [Assign(det_jac, jac)]
-                body += [Assign(inv_jac, 1./jac)]
+                # ... vector_fields
+                for i in range(len(vector_fields_val)):
+                    body.append(Assign(vector_fields[i],vector_fields_val[i][indices_quad]))
+                # ...
 
-                # TODO do we use the same inv_jac?
-    #            if not isinstance(self.target, Boundary):
-    #                body += [Assign(inv_jac, 1/jac)]
+            else:
+                # ... fields
+                for i in range(len(fields_val)):
+                    body.append(Assign(fields_logical[i],fields_val[i][indices_quad]))
+                # ...
 
-                init_map = OrderedDict(sorted(init_map.items()))
-                for stmt in list(init_map.values()):
+                # ... vector_fields
+    #            if vector_fields_val:
+    #                print(vector_fields_logical)
+    #                print(vector_fields_val)
+    #                import sys; sys.exit(0)
+                for i in range(len(vector_fields_val)):
+                    body.append(Assign(vector_fields_logical[i],vector_fields_val[i][indices_quad]))
+                # ...
+
+                # ... substitute expression of inv_jac
+                for k,stmt in self._map_stmts_fields.items():
                     body += [stmt.subs(1/jac, inv_jac)]
+                # ...
 
-        else:
-            body += [Assign(coordinates[i],positions[i][indices_quad[i]])
-                     for i in range(dim)]
-        # ...
+            # TODO use positive mapping all the time? Abs?
+            if mapping:
+                weighted_vol = weighted_vol * Abs(det_jac)
 
-        # ...
-        weighted_vol = filter_product(indices_quad, weighted_vols, self.discrete_boundary)
-        # ...
+            body.append(Assign(wvol,weighted_vol))
 
-        # ...
-        # add fields and vector fields
-        if not mapping:
-            # ... fields
-            for i in range(len(fields_val)):
-                body.append(Assign(fields[i],fields_val[i][indices_quad]))
-            # ...
-
-            # ... vector_fields
-            for i in range(len(vector_fields_val)):
-                body.append(Assign(vector_fields[i],vector_fields_val[i][indices_quad]))
-            # ...
-
-        else:
-            # ... fields
-            for i in range(len(fields_val)):
-                body.append(Assign(fields_logical[i],fields_val[i][indices_quad]))
-            # ...
-
-            # ... vector_fields
-#            if vector_fields_val:
-#                print(vector_fields_logical)
-#                print(vector_fields_val)
-#                import sys; sys.exit(0)
-            for i in range(len(vector_fields_val)):
-                body.append(Assign(vector_fields_logical[i],vector_fields_val[i][indices_quad]))
-            # ...
-
-            # ... substitute expression of inv_jac
-            for k,stmt in self._map_stmts_fields.items():
-                body += [stmt.subs(1/jac, inv_jac)]
-            # ...
-
-        # TODO use positive mapping all the time? Abs?
-        if mapping:
-            weighted_vol = weighted_vol * Abs(det_jac)
-
-        body.append(Assign(wvol,weighted_vol))
-
-        for i in range(ln):
-            if not( i in zero_terms ):
-                e = Mul(expr[i],wvol)
-
-                body.append(AugAssign(v[i],'+', e))
-        # ...
-
-        # ... stmts for initializtion: only when boundary is present
-        init_stmts = []
-        # ...
-
-        # ...
-        # put the body in for loops of quadrature points
-        init_stmts += init_loop_quadrature( indices_quad, ranges_quad,
-                                            self.discrete_boundary )
-
-        body = select_loops( indices_quad, ranges_quad, body,
-                             self.discrete_boundary,
-                             boundary_basis=self.boundary_basis)
-
-        # initialization of intermediate vars
-        init_vars = [Assign(v[i],0.0) for i in range(ln) if not( i in zero_terms )]
-        body = init_vars + body
-        # ...
-
-        if dim_trial:
-            trial_idxs = tuple([indices_trial[i]+trial_pads[i]-indices_test[i] for i in range(dim)])
-            idxs = indices_test + trial_idxs
-        else:
-            idxs = indices_test
-
-        if is_bilinear or is_linear:
-            for i in range(ln):
+            for i in range(start, end):
                 if not( i in zero_terms ):
-                    body.append(Assign(mats[i][idxs],v[i]))
+                    e = Mul(expr[i],wvol)
 
-        elif is_function:
-            for i in range(ln):
-                if not( i in zero_terms ):
-                    body.append(Assign(mats[i][0],v[i]))
+                    body.append(AugAssign(v[i],'+', e))
+            # ...
 
-        # ...
-        # put the body in tests and trials for loops
-        if is_bilinear:
-            init_stmts += init_loop_basis( indices_test,  ranges_test,  self.discrete_boundary )
-            init_stmts += init_loop_basis( indices_trial, ranges_trial, self.discrete_boundary )
+            # ... stmts for initializtion: only when boundary is present
+            init_stmts = []
+            # ...
 
-            body = select_loops(indices_test, ranges_test, body,
-                                self.discrete_boundary,
-                                boundary_basis=self.boundary_basis)
+            # ...
+            # put the body in for loops of quadrature points
+            init_stmts += init_loop_quadrature( indices_quad, ranges_quad,
+                                                self.discrete_boundary )
 
-            body = select_loops(indices_trial, ranges_trial, body,
-                                self.discrete_boundary,
-                                boundary_basis=self.boundary_basis)
+            body = select_loops( indices_quad, ranges_quad, body,
+                                 self.discrete_boundary,
+                                 boundary_basis=self.boundary_basis)
 
-        if is_linear:
-            init_stmts += init_loop_basis( indices_test, ranges_test, self.discrete_boundary )
+            # initialization of intermediate vars
+            init_vars = [Assign(v[i],0.0) for i in range(start, end) if not( i in zero_terms )]
+            body = init_vars + body
+            # ...
 
-            body = select_loops(indices_test, ranges_test, body,
-                                self.discrete_boundary,
-                                boundary_basis=self.boundary_basis)
+            if dim_trial:
+                trial_idxs = tuple([indices_trial[i]+trial_pads[i]-indices_test[i] for i in range(dim)])
+                idxs = indices_test + trial_idxs
+            else:
+                idxs = indices_test
 
-        # ...
+            if is_bilinear or is_linear:
+                for i in range(start, end):
+                    if not( i in zero_terms ):
+                        body.append(Assign(mats[i][idxs],v[i]))
 
-        # ... add init stmts
-        body = init_stmts + body
-        # ...
+            elif is_function:
+                for i in range(start, end):
+                    if not( i in zero_terms ):
+                        body.append(Assign(mats[i][0],v[i]))
 
-        # ...
-        # initialization of the matrix
-        if is_bilinear or is_linear:
-            init_mats = [mats[i][[Slice(None,None)]*(dim_test+dim_trial)] for i in range(ln) if not( i in zero_terms )]
+            # ...
+            # put the body in tests and trials for loops
+            if is_bilinear:
+                init_stmts += init_loop_basis( indices_test,  ranges_test,  self.discrete_boundary )
+                init_stmts += init_loop_basis( indices_trial, ranges_trial, self.discrete_boundary )
 
-            init_mats = [Assign(e, 0.0) for e in init_mats]
-            body =  init_mats + body
+                body = select_loops(indices_test, ranges_test, body,
+                                    self.discrete_boundary,
+                                    boundary_basis=self.boundary_basis)
 
-        # call eval field
-        for eval_field in self.eval_fields:
-            args = test_degrees + basis_test + fields_coeffs + fields_val
-            args = eval_field.build_arguments(args)
-            body = [FunctionCall(eval_field.func, args)] + body
+                body = select_loops(indices_trial, ranges_trial, body,
+                                    self.discrete_boundary,
+                                    boundary_basis=self.boundary_basis)
 
-        imports = []
+            if is_linear:
+                init_stmts += init_loop_basis( indices_test, ranges_test, self.discrete_boundary )
 
-        # call eval vector_field
-        for eval_vector_field in self.eval_vector_fields:
-            args = test_degrees + basis_test + vector_fields_coeffs + vector_fields_val
-            args = eval_vector_field.build_arguments(args)
-            body = [FunctionCall(eval_vector_field.func, args)] + body
+                body = select_loops(indices_test, ranges_test, body,
+                                    self.discrete_boundary,
+                                    boundary_basis=self.boundary_basis)
 
-        # call eval mapping
-        if self.eval_mapping:
-            args = (test_degrees + basis_test + mapping_coeffs + mapping_values)
-            args = eval_mapping.build_arguments(args)
-            body = [FunctionCall(eval_mapping.func, args)] + body
+            # ...
 
-        # init/eval area
-        if self.area:
-            # evaluation of the area if the mapping is not used
-            if not mapping:
-                stmts = [AugAssign(self.area, '+', weighted_vol)]
-                stmts = select_loops( indices_quad, ranges_quad, stmts,
-                                      self.discrete_boundary,
-                                      boundary_basis=self.boundary_basis)
+            # ... add init stmts
+            body = init_stmts + body
+            # ...
 
-                body = stmts + body
+            # ...
+            # initialization of the matrix
+            if is_bilinear or is_linear:
+                init_mats = [mats[i][[Slice(None,None)]*(dim_test+dim_trial)] for i in range(start, end) if not( i in zero_terms )]
 
-            # init area
-            body = [Assign(self.area, 0.0)] + body
+                init_mats = [Assign(e, 0.0) for e in init_mats]
+                body =  init_mats + body
 
-        # compute length of logical points
-        len_quads = [Assign(k, Len(u)) for k,u in zip(qds_dim, positions)]
-        body = len_quads + body
+            # call eval field
+            for eval_field in self.eval_fields:
+                args = test_degrees + basis_test + fields_coeffs + fields_val
+                args = eval_field.build_arguments(args)
+                body = [FunctionCall(eval_field.func, args)] + body
 
-        # get math functions and constants
-        math_elements = math_atoms_as_str(self.kernel_expr)
-        math_imports = []
-        for e in math_elements:
-            math_imports += [Import(e, 'numpy')]
+            imports = []
 
-        imports += math_imports
-        self._imports = imports
-        # function args
-        mats = tuple([M for i,M in enumerate(mats) if not( i in zero_terms )])
-        func_args = self.build_arguments(fields_coeffs + vector_fields_coeffs + mapping_coeffs + mats)
+            # call eval vector_field
+            for eval_vector_field in self.eval_vector_fields:
+                args = test_degrees + basis_test + vector_fields_coeffs + vector_fields_val
+                args = eval_vector_field.build_arguments(args)
+                body = [FunctionCall(eval_vector_field.func, args)] + body
 
-        decorators = {}
-        header = None
-        if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_types_decorator(func_args)}
-        elif self.backend['name'] == 'numba':
-            decorators = {'jit':[]}
-        elif self.backend['name'] == 'pythran':
-            header = build_pythran_types_header(self.name, func_args)
+            # call eval mapping
+            if self.eval_mapping:
+                args = (test_degrees + basis_test + mapping_coeffs + mapping_values)
+                args = eval_mapping.build_arguments(args)
+                body = [FunctionCall(eval_mapping.func, args)] + body
 
-        return FunctionDef(self.name, list(func_args), [], body,
-                           decorators=decorators,header=header)
+            # init/eval area
+            if self.area:
+                # evaluation of the area if the mapping is not used
+                if not mapping:
+                    stmts = [AugAssign(self.area, '+', weighted_vol)]
+                    stmts = select_loops( indices_quad, ranges_quad, stmts,
+                                          self.discrete_boundary,
+                                          boundary_basis=self.boundary_basis)
+
+                    body = stmts + body
+
+                # init area
+                body = [Assign(self.area, 0.0)] + body
+
+            # compute length of logical points
+            len_quads = [Assign(k, Len(u)) for k,u in zip(qds_dim, positions)]
+            body = len_quads + body
+
+            # get math functions and constants
+            math_elements = math_atoms_as_str(self.kernel_expr)
+            math_imports = []
+            for e in math_elements:
+                math_imports += [Import(e, 'numpy')]
+
+            imports += math_imports
+            self._imports = imports
+            # function args
+            mats_args = tuple([mats[i] for i in range(start, end) if not( i in zero_terms )])
+            func_args = self.build_arguments(fields_coeffs + vector_fields_coeffs + mapping_coeffs + mats_args)
+
+            decorators = {}
+            header = None
+            if self.backend['name'] == 'pyccel':
+                decorators = {'types': build_types_decorator(func_args)}
+            elif self.backend['name'] == 'numba':
+                decorators = {'jit':[]}
+            elif self.backend['name'] == 'pythran':
+                header = build_pythran_types_header(self.name, func_args)
+
+            funcs += [ FunctionDef(self.name+str(indx), list(func_args), [], body,
+                               decorators=decorators,header=header)]
+              
+        return funcs
 
 #==============================================================================
 class Assembly(SplBasic):
@@ -1064,6 +1105,7 @@ class Assembly(SplBasic):
                                prefix='assembly', mapping=mapping,
                                is_rational_mapping=is_rational_mapping)
 
+        
         # ... get periodicity of the space
         dim    = kernel.weak_form.ldim
         periodic = [False for i in range(0, dim)]
@@ -1149,6 +1191,7 @@ class Assembly(SplBasic):
         vector_fields = kernel.vector_fields
         vector_fields_coeffs = kernel.vector_fields_coeffs
         zero_terms = kernel.zero_terms
+        is_compatible_spaces = kernel.is_compatible_spaces
 
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
@@ -1352,8 +1395,13 @@ class Assembly(SplBasic):
             vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
             m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
 
-        args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + mats)
-        body += [FunctionCall(kernel.func, args)]
+        if is_compatible_spaces:
+            for i in range(len(mats)):
+                args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + (mats[i],))
+                body += [FunctionCall(kernel.func[i], args)]
+        else:
+            args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + mats)
+            body += [FunctionCall(kernel.func[0], args)]
         # ...
 
         # ... update global matrices
