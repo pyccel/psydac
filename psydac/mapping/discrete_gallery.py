@@ -40,6 +40,13 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
             period1 = False
             period2 = False
 
+        elif mapping == 'quarter_annulus':
+            map_analytic = Annulus( **kwargs )
+            lims1   = (1, 4)
+            lims2   = (0, np.pi/2)
+            period1 = False
+            period2 = False
+
         else:
             mapping = mapping.capitalize()
             map_analytic = locals()[mapping]( **kwargs )
