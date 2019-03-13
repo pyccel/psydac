@@ -86,7 +86,7 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     # ... dsicretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh])
     # ...
-
+    
     # ... discretize norms
     l2norm_F_h = discretize(l2norm_F, domain_h, Wh)
     h1norm_F_h = discretize(h1norm_F, domain_h, Wh)
