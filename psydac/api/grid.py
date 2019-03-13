@@ -193,9 +193,9 @@ class BoundaryQuadratureGrid(QuadratureGrid):
 
 #==============================================================================
 def create_fem_assembly_grid(V, quad_order=None, nderiv=1):
-    # TODO we assume all spaces are the same for the moment
+
     if isinstance(V, ProductFemSpace):
-        return create_fem_assembly_grid(V.spaces[0])
+        return [create_fem_assembly_grid(space) for space in V.spaces]
 
     # ...
     if not( quad_order is None ):
@@ -236,13 +236,18 @@ class BasisValues():
         # TODO quad_order in FemAssemblyGrid must be be the order and not the
         # degree
         quad_order = [q-1 for q in grid.quad_order]
-        quad_grid = create_fem_assembly_grid( V,
+        global_quad_grid = create_fem_assembly_grid( V,
                                               quad_order=quad_order,
                                               nderiv=nderiv )
 
-        self._spans = [g.spans for g in quad_grid]
-        self._basis = [g.basis for g in quad_grid]
-
+        if isinstance(V, ProductFemSpace):
+            self._spans = [[g.spans for g in quad_grid] for quad_grid in global_quad_grid]
+            self._basis = [[g.basis for g in quad_grid] for quad_grid in global_quad_grid]
+            
+        else:
+            self._spans = [g.spans for g in global_quad_grid]
+            self._basis = [g.basis for g in global_quad_grid]
+            
     @property
     def basis(self):
         return self._basis

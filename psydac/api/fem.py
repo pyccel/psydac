@@ -31,6 +31,8 @@ from psydac.api.ast.glt         import GltKernel
 from psydac.api.ast.glt         import GltInterface
 from psydac.api.glt             import DiscreteGltExpr
 
+from psydac.fem.vector          import ProductFemSpace
+
 from psydac.linalg.stencil      import StencilVector, StencilMatrix
 from psydac.cad.geometry        import Geometry
 from psydac.mapping.discrete    import SplineMapping, NurbsMapping
@@ -91,11 +93,19 @@ class DiscreteBilinearForm(BasicDiscrete):
         # ...
         # TODO must check that spaces lead to the same QuadratureGrid
         if boundary is None:
-            self._grid = QuadratureGrid( test_space, quad_order = quad_order )
+        
+            test_space_arg = test_space
+            if isinstance(test_space, ProductFemSpace):
+                test_space_arg = test_space.spaces[0]
+                
+            self._grid = QuadratureGrid( test_space_arg, quad_order = quad_order )
 
         else:
-
-            self._grid = BoundaryQuadratureGrid( test_space,
+            test_space_arg = test_space
+            if isinstance(test_space, ProductFemSpace):
+                test_space_arg = test_space.spaces[0]
+                
+            self._grid = BoundaryQuadratureGrid( test_space_arg,
                                                  boundary.axis,
                                                  boundary.ext,
                                                  quad_order = quad_order )
@@ -135,13 +145,6 @@ class DiscreteBilinearForm(BasicDiscrete):
         kwargs = self._check_arguments(**kwargs)
 
         return self.func(*newargs, **kwargs)
-
-#        # TODO remove => this is for debug only
-#        import sys
-#        sys.path.append(self.folder)
-#        from interface_9entwkkx import  interface_9entwkkx
-#        sys.path.remove(self.folder)
-#        return  interface_9entwkkx(*newargs, **kwargs)
 
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
