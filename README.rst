@@ -38,10 +38,10 @@ Uninstall
 
     python3 -m pip uninstall spl
     
-.. |build-devel| image:: https://travis-ci.org/pyccel/spl.svg?branch=devel
+.. |build-devel| image:: https://travis-ci.org/pyccel/psydac.svg?branch=devel
     :alt: devel status
     :scale: 100%
-    :target: https://travis-ci.org/pyccel/spl
+    :target: https://travis-ci.org/pyccel/psydac
 
 .. |docs| image:: https://readthedocs.org/projects/spl/badge/?version=latest
     :alt: Documentation Status
