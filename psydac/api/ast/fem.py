@@ -1384,6 +1384,7 @@ class Assembly(SplBasic):
                     stmts += [Assign(i, Mod(span-p+il, n))]
 
 #            _indices_i = [i for i,s,p in zip(indices_i, starts, test_degrees)]
+
             _indices_i = [i-s+p for i,s,p in zip(indices_i, starts, test_degrees)]
             for x,tmp_x in zip(fields_coeffs, fields_tmp_coeffs):
 #                stmts += [Print([_indices_i, '    ', indices_i, starts])]
@@ -1401,17 +1402,18 @@ class Assembly(SplBasic):
             # ...
 
             # ... TODO add tmp for vector fields and mapping
-            gslices = [Slice(i-s,i+p+1-s) for i,p,s in zip(indices_span,
-                                                           test_degrees,
+            gslices = [Slice(i-s,i+p+1-s) for i,p,s in zip(indices_span[::ln],
+                                                           test_degrees[::ln],
                                                            starts)]
             vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
             m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
             # ...
 
         else:
-            gslices = [Slice(i-s,i+p+1-s) for i,p,s in zip(indices_span,
-                                                           test_degrees,
+            gslices = [Slice(i-s,i+p+1-s) for i,p,s in zip(indices_span[::ln],
+                                                           test_degrees[::ln],
                                                            starts)]
+
             f_coeffs = tuple([f[gslices] for f in fields_coeffs])
             vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
             m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
@@ -1479,8 +1481,8 @@ class Assembly(SplBasic):
                 local_test_degrees = test_degrees[i::ln]
                 local_indices_span = indices_span[i::ln]
             else:
-                local_test_degrees = test_degrees
-                local_indices_span = indices_span
+                local_test_degrees = test_degrees[i::ln]
+                local_indices_span = indices_span[i::ln]
                 
 
             if is_bilinear:
