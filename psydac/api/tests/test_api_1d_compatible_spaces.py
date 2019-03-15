@@ -71,6 +71,7 @@ def run_system_1_1d_dir(f0, ncells, degree):
     # ...
     
     a=ah.assemble()
+    raise SystemExit()
     print(a)
 
     return x

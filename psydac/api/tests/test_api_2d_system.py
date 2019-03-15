@@ -147,5 +147,6 @@ def test_api_system_1_2d_dir_1():
     expected_h1_error =  np.asarray([0.018418110343264293,
                                      0.012987988507232278])
 
+
     assert( np.allclose(l2_error, expected_l2_error, 1.e-7) )
     assert( np.allclose(h1_error, expected_h1_error, 1.e-7) )

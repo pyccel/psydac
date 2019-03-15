@@ -1284,6 +1284,7 @@ class Assembly(SplBasic):
                                 test_basis + trial_basis)
 
         if is_linear or is_function:
+            
             self._basic_args = (n_elements +
                                 element_starts + element_ends +
                                 starts + ends +
@@ -1307,7 +1308,7 @@ class Assembly(SplBasic):
         # ...
 
         # ... element matrices
-        element_matrices = {}
+        element_matrices = OrderedDict()
         ind = 0
         for i in range(0, n_rows):
             for j in range(0, n_cols):
@@ -1323,7 +1324,7 @@ class Assembly(SplBasic):
 
         # ... global matrices
         ind = 0
-        global_matrices = {}
+        global_matrices = OrderedDict()
         for i in range(0, n_rows):
             for j in range(0, n_cols):
                 if not( ind in zero_terms ):
@@ -1341,25 +1342,25 @@ class Assembly(SplBasic):
 
         # assignments
 
-        body  = [Assign(indices_span[i], spans[i][indices_elm[i//ln]])
-                 for i in range(dim*ln) if not(i//ln in axis_bnd)]
+        body  = [Assign(indices_span[i*ln+j], spans[i*ln+j][indices_elm[i]])
+                 for i,j in np.ndindex(dim, ln) if not(i in axis_bnd)]
                  
         if self.debug and self.detailed:
             msg = lambda x: (String('> span {} = '.format(x)), x)
             body += [Print(msg(indices_span[i])) for i in range(dim*ln)]
 
         body += [Assign(points_in_elm[i], points[i][indices_elm[i],_slice])
-                 for i in range(dim) if not(i//ln in axis_bnd) ]
+                 for i in range(dim) if not(i in axis_bnd) ]
 
         body += [Assign(weights_in_elm[i], weights[i][indices_elm[i],_slice])
-                 for i in range(dim) if not(i//ln in axis_bnd) ]
+                 for i in range(dim) if not(i in axis_bnd) ]
 
-        body += [Assign(test_basis_in_elm[i], test_basis[i][indices_elm[i//ln],_slice,_slice,_slice])
-                 for i in range(dim*ln) if not(i//ln in axis_bnd) ]
+        body += [Assign(test_basis_in_elm[i*ln+j], test_basis[i*ln+j][indices_elm[i],_slice,_slice,_slice])
+                 for i,j in np.ndindex(dim,ln) if not(i in axis_bnd) ]
 
         if is_bilinear:
-            body += [Assign(trial_basis_in_elm[i], trial_basis[i][indices_elm[i//ln],_slice,_slice,_slice])
-                     for i in range(dim*ln) if not(i//ln in axis_bnd) ]
+            body += [Assign(trial_basis_in_elm[i*ln+j], trial_basis[i*ln+j][indices_elm[i],_slice,_slice,_slice])
+                     for i,j in np.ndindex(dim,ln) if not(i in axis_bnd) ]
 
         # ... kernel call
 
@@ -1417,21 +1418,45 @@ class Assembly(SplBasic):
             
          # ...
 
-        if is_compatible_spaces:
-            for (i,j), M in element_matrices.items():
-                args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + (M,))
+        if is_bilinear:
+            if is_compatible_spaces:
+                for (i,j), M in element_matrices.items():
+                    args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + (M,))
+                    args = list(args)
+                    args[:dim] = test_degrees[i::ln]
+                    args[dim:2*dim] = trial_degrees[j::ln]
+                    args[2*dim:3*dim] = test_basis_in_elm[i::ln]
+                    args[3*dim:4*dim] = trial_basis_in_elm[j::ln]
+                    body += [FunctionCall(kernel.func[i], args)]
+                    
+            else:  
+                args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + mats)
                 args = list(args)
-                args[:dim] = test_degrees[i*dim:dim*(i+1)]
-                args[dim:2*dim] = trial_degrees[j*dim:dim*(j+1)]
-                args[2*dim:3*dim] = test_basis_in_elm[i*dim:dim*(i+1)]
-                args[3*dim:4*dim] = trial_basis_in_elm[j*dim:dim*(j+1)]
-                body += [FunctionCall(kernel.func[i], args)]
+                args[:dim] = test_degrees[::ln]
+                args[dim:2*dim] = trial_degrees[::ln]
+                args[2*dim:3*dim] = test_basis_in_elm[::ln]
+                args[3*dim:4*dim] = trial_basis_in_elm[::ln]
+                body += [FunctionCall(kernel.func[0], args)]
+
+                
         else:
-            args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + mats)
-            args = list(args)
-            args[:dim] = test_degrees[i*dim:dim*(i+1)]
-            args[dim:2*dim] = test_basis_in_elm[i*dim:dim*(i+1)]
-            body += [FunctionCall(kernel.func[0], args)]
+            if is_compatible_spaces:
+                for (i,j), M in element_matrices.items():
+
+                    args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + (M,))
+                    args = list(args)
+                    
+                    args[:dim] = test_degrees[i::ln]
+                    args[dim:2*dim] = test_basis_in_elm[i::ln]
+                    body += [FunctionCall(kernel.func[i], args)]
+                    
+            else:
+                args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + mats)
+                args = list(args)
+                
+                args[:dim] = test_degrees[::ln]
+                args[dim:2*dim] = test_basis_in_elm[::ln]
+                body += [FunctionCall(kernel.func[0], args)]
             
         # ...
 
@@ -1450,9 +1475,9 @@ class Assembly(SplBasic):
  
             mat = element_matrices[i,j]
             
-            if is_compatible_spaces:
-                local_test_degrees = test_degrees[i*dim:(i+1)*dim]
-                local_indices_span = indices_span[i*dim:(i+1)*dim]
+            if is_product_space:
+                local_test_degrees = test_degrees[i::ln]
+                local_indices_span = indices_span[i::ln]
             else:
                 local_test_degrees = test_degrees
                 local_indices_span = indices_span
@@ -1525,8 +1550,8 @@ class Assembly(SplBasic):
 
         for (i,j),mat in element_matrices.items():
 
-            orders  = [p+1 for p in test_degrees[i*dim:(i+1)*dim]]
-            spads   = [2*p+1 for p in test_pads[j*dim:(j+1)*dim]]
+            orders  = [p+1 for p in test_degrees[i::ln]]
+            spads   = [2*p+1 for p in test_pads[j::ln]]
             if is_bilinear:
                 args = tuple(orders + spads)
 
@@ -1814,15 +1839,15 @@ class Interface(SplBasic):
                 body += [Assign(test_basis[dim*i:dim*(i+1)], DottedName(test_basis_values, basis_attr[i]))]   
        
         else:
-            body += [Assign(spans,      DottedName(test_basis_values, spans_attr[i]))]
-            body += [Assign(test_basis, DottedName(test_basis_values, basis_attr[i]))]
+            body += [Assign(spans,      DottedName(test_basis_values, spans_attr))]
+            body += [Assign(test_basis, DottedName(test_basis_values, basis_attr))]
 
         if is_bilinear:
             if is_product_fem_space:
                 for i in range(ln):
                     body += [Assign(trial_basis[dim*i:dim*(i+1)], DottedName(trial_basis_values, basis_attr[i]))]   
             else:
-                body += [Assign(trial_basis, DottedName(trial_basis_values, basis_attr[i]))]
+                body += [Assign(trial_basis, DottedName(trial_basis_values, basis_attr))]
         # ...
 
         # ... getting data from fem space
@@ -1881,21 +1906,27 @@ class Interface(SplBasic):
 
 
             for ij,M in global_matrices.items():
-                
+                (i,j) = ij
                 if_cond = Is(M, Nil())
                 if is_bilinear:
-                    (i,j) = ij
-                    args = [test_spaces[i], trial_spaces[j]]
+                    if is_product_fem_space:
+                        args = [test_spaces[i], trial_spaces[j]]
+                    else:
+                        args = [test_spaces, trial_spaces]
+                        
                     if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
-# TODO uncomment later
+                    # TODO uncomment later
                     #if_body.append(Assign(DottedName(M,'_dot'),dots[0]))
 
 
                 if is_linear:
-                    
-                    args = [test_spaces[ij]]
+                    if is_product_fem_space:
+                        args = [test_spaces[i]]
+                    else:
+                        args = [test_spaces]
+                        
                     if_body = [Assign(M, FunctionCall('StencilVector', args))]
-# TODO uncomment later
+                    # TODO uncomment later
                     #if_body.append(Assign(DottedName(M,'_dot'),dots[1]))
 
                 stmt = If((if_cond, if_body))

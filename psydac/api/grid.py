@@ -111,9 +111,11 @@ def compute_quadrature( V, quad_order=None ):
 #==============================================================================
 class QuadratureGrid():
     def __init__( self, V, quad_order=None ):
-
+        
+        if isinstance(V, ProductFemSpace):
+            V = V.spaces[0]
         quad_grid = create_fem_assembly_grid( V, quad_order=quad_order )
-
+        
         self._fem_grid            = quad_grid
         self._n_elements          = [g.num_elements        for g in quad_grid]
         self._local_element_start = [g.local_element_start for g in quad_grid]
