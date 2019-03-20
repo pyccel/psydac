@@ -167,8 +167,9 @@ class DiscreteEquation(BasicDiscrete):
     def assemble(self, **kwargs):
         assemble_lhs = kwargs.pop('assemble_lhs', True)
         assemble_rhs = kwargs.pop('assemble_rhs', True)
-
+        
         if assemble_lhs:
+            
             M = self.lhs.assemble(**kwargs)
             if self.bc:
                 # TODO change it: now apply_bc can be called on a list/tuple
@@ -191,7 +192,7 @@ class DiscreteEquation(BasicDiscrete):
 
     def solve(self, **kwargs):
         settings = kwargs.pop('settings', _default_solver)
-
+        
         rhs = kwargs.pop('rhs', None)
         if rhs:
             kwargs['assemble_rhs'] = False
@@ -244,9 +245,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
         # Create 1D finite element spaces and precompute quadrature data
         spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
-        
         Vh = TensorFemSpace( *spaces, comm=comm )
-
+        
         if isinstance(kind, HcurlSpaceType):
         
             if ldim == 2:
@@ -289,7 +289,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
                     spaces += [discretize_space(Vi, domain_h, *args, degree=degree,**kwargs)]
         
         Vh = ProductFemSpace(*spaces)
-
 
     # add symbolic_mapping as a member to the space object
     setattr(Vh, 'symbolic_mapping', symbolic_mapping)

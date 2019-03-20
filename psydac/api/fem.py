@@ -66,8 +66,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             is_rational_mapping = isinstance( mapping, NurbsMapping )
 
         self._is_rational_mapping = is_rational_mapping
-        # ...
-    
+        
         # ...
         self._spaces = args[1]
         # ...
@@ -82,7 +81,6 @@ class DiscreteBilinearForm(BasicDiscrete):
         # ...
         test_space  = self.spaces[0]
         trial_space = self.spaces[1]
-
         # ...
 
         # ...
@@ -198,7 +196,6 @@ class DiscreteLinearForm(BasicDiscrete):
         # ...
 
         # ...
-        
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv )
 
@@ -218,12 +215,11 @@ class DiscreteLinearForm(BasicDiscrete):
 
     def assemble(self, **kwargs):
         newargs = (self.space, self.grid, self.test_basis)
-
+        
         if self.mapping:
             newargs = newargs + (self.mapping,)
 
         kwargs = self._check_arguments(**kwargs)
-
         return self.func(*newargs, **kwargs)
 
 

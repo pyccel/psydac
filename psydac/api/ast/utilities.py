@@ -152,7 +152,6 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
         rhs = SymbolicExpr(rhs)
         map_stmts = [Assign(Symbol(name), rhs)]
     # ...
-    
     return assign, map_stmts
 
 

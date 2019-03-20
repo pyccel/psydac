@@ -606,7 +606,6 @@ class BasicDiscrete(BasicCodeGen):
                              comm           = comm,
                              backend = backend )
 
-
         interface = Interface( assembly,
                                name                = 'interface_{}'.format(tag),
                                mapping             = mapping,

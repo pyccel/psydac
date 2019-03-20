@@ -123,7 +123,6 @@ class QuadratureGrid():
         self._points              = [g.points              for g in quad_grid]
         self._weights             = [g.weights             for g in quad_grid]
 
-
     @property
     def fem_grid(self):
         return self._fem_grid
