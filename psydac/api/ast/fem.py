@@ -759,6 +759,9 @@ class Kernel(SplBasic):
             self._basic_args = (test_degrees + trial_degrees + trial_pads +
                                 basis_test + basis_trial +
                                 positions + weighted_vols)
+                                
+            if self.eval_fields:
+                self._basic_args = self._basic_args + fields_val
 
         if is_linear or is_function:
             self._basic_args = (test_degrees +
@@ -1049,7 +1052,9 @@ class Kernel(SplBasic):
             # call eval field
             for eval_field in self.eval_fields:
                 args = test_degrees + basis_test + fields_coeffs + fields_val
+
                 args = eval_field.build_arguments(args)
+
                 body = [FunctionCall(eval_field.func, args)] + body
 
             imports = []
@@ -1094,7 +1099,9 @@ class Kernel(SplBasic):
             self._imports = imports
             # function args
             mats_args = tuple([mats[i] for i in range(start, end) if not( i in zero_terms )])
-            func_args = self.build_arguments(fields_coeffs + vector_fields_coeffs + mapping_coeffs + mats_args)
+            func_args = fields_coeffs + vector_fields_coeffs + mapping_coeffs + mats_args
+                
+            func_args = self.build_arguments(func_args)
 
             decorators = {}
             header = None
