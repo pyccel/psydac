@@ -1,28 +1,16 @@
 # coding: utf-8
 #!/usr/bin/env python
 
-import sys
-import os
-import argparse
-import os.path
-
 # TODO add version
 #  --version  show program's version number and exit
 
 
-class MyParser(argparse.ArgumentParser):
-    """
-    Custom argument parser for printing help message in case of an error.
-    See http://stackoverflow.com/questions/4042452/display-help-message-with-python-argparse-when-script-is-called-without-any-argu
-    """
-    def error(self, message):
-        sys.stderr.write('error: %s\n' % message)
-        self.print_help()
-        sys.exit(2)
-
 #==============================================================================
 # TODO add more geoemtries from caid
 def export_caid_geometry(name, ncells, degree, filename):
+
+    import os.path
+
     from caid.cad_geometry import cad_geometry
     from caid.cad_geometry import line
     from caid.cad_geometry import square
@@ -41,6 +29,7 @@ def export_caid_geometry(name, ncells, degree, filename):
 
 #==============================================================================
 def export_analytical_mapping(mapping, ncells, degree, filename, **kwargs):
+
     from psydac.cad.geometry             import Geometry
     from psydac.mapping.discrete_gallery import discrete_mapping
 
@@ -55,42 +44,64 @@ def export_analytical_mapping(mapping, ncells, degree, filename, **kwargs):
 
 #==============================================================================
 # usage:
-#   psydac-mesh -n='8,8' -d='2,2' --analytical=identity identity_2d.h5
+#   psydac-mesh --analytical identity -n 8 8 -d 2 2 -o identity_2d.h5
 def main():
     """
     pyccel console command.
     """
-    parser = MyParser(
-        usage='%(prog)s [OPTIONS] <FILENAME>',
-        epilog="For more information, visit <http://psydac.readthedocs.io/>.",
-        description="""psydac mesh generation command line.""")
+    import argparse
 
-    # ...
-    parser.add_argument('filename', metavar='FILENAME',
-                        help='output filename')
-    # ...
+    parser = argparse.ArgumentParser(
+            description="psydac mesh generation command line.",
+            epilog = "For more information, visit <http://psydac.readthedocs.io/>.",
+            formatter_class = argparse.RawTextHelpFormatter,
+            )
 
     # ...
     group = parser.add_argument_group('Geometry')
-    group.add_argument('--caid', default = '',
-                        help='a geometry name from gallery/caid')
+    group = group.add_mutually_exclusive_group(required=True)
+    group.add_argument('--caid',
+        type    = str,
+        metavar = 'GEO',
+        default = '',
+        help    = 'a geometry name from gallery/caid'
+    )
 
-    group.add_argument('--analytical', default = '',
-                        help='analytical mapping provided by PSYDAC')
+    group.add_argument('--analytical',
+        type    = str,
+        metavar = 'MAP',
+        default = '',
+        help    = 'analytical mapping from mapping/analytical_gallery'
+    )
     # ...
 
     # ...
     group = parser.add_argument_group('Discretization')
     group.add_argument( '-d',
-        type    = str,
-        dest    = 'degree',
-        help    = 'Spline degree along each dimension'
+        required = True,
+        type     = int,
+        nargs    = '+',
+        dest     = 'degree',
+        metavar  = ('P1','P2'),
+        help     = 'spline degree along each dimension'
     )
 
     group.add_argument( '-n',
-        type    = str,
-        dest    = 'ncells',
-        help    = 'Number of grid cells (elements) along each dimension'
+        required = True,
+        type     = int,
+        nargs    = '+',
+        dest     = 'ncells',
+        metavar  = ('N1','N2'),
+        help     = 'number of grid cells (elements) along each dimension'
+    )
+    # ...
+
+    # ...
+    parser.add_argument( '-o',
+        type     = str,
+        default  = 'out.h5',
+        dest     = 'filename',
+        help     = 'Name of output geometry file (default: out.h5)'
     )
     # ...
 
@@ -99,23 +110,16 @@ def main():
     # ...
 
     # ...
-    filename = args.filename
-    geo_name = args.caid
+    filename   = args.filename
+    geo_name   = args.caid
     analytical = args.analytical
+    degree     = args.degree
+    ncells     = args.ncells
     # ...
 
     # ...
-    ncells = args.ncells
-    if not ncells: raise ValueError('> ncells must be given')
-
-    ncells = [int(i) for i in  ncells.split(',')]
-    # ...
-
-    # ...
-    degree = args.degree
-    if not degree: raise ValueError('> degree must be given')
-
-    degree = [int(i) for i in  degree.split(',')]
+    if len(degree) != len(ncells):
+        raise ValueError('> ncells and degree must have same dimension')
     # ...
 
     if geo_name:
