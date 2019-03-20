@@ -44,7 +44,9 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
                 code = '{code}\n{dep}'.format(code=code,
                                               dep=self._print(dep))
                                               
-        funcs = '\n'.join(self._print(func) for func in expr.func)
+        funcs = [func for fs in expr.func for func in fs if func is not None ]
+
+        funcs = '\n'.join(self._print(func) for func in funcs)
         
         return '{code}\n{funcs}'.format(code=code, funcs=funcs)
 

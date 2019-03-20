@@ -198,8 +198,10 @@ class DiscreteLinearForm(BasicDiscrete):
         # ...
 
         # ...
+        
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv )
+
         # ...
 
     @property

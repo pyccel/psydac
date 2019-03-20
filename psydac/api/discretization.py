@@ -248,17 +248,15 @@ def discretize_space(V, domain_h, *args, **kwargs):
         Vh = TensorFemSpace( *spaces, comm=comm )
 
         if isinstance(kind, HcurlSpaceType):
-            if ldim == 1:
-                Vh = Vh.reduce_degree(axes=[0])
-            elif ldim == 2:
+        
+            if ldim == 2:
                 Vh = [Vh.reduce_degree(axes=[0]),Vh.reduce_degree(axes=[1])]
             elif ldim == 3:
                 Vh = [Vh.reduce_degree(axes=[0]),Vh.reduce_degree(axes=[1]),Vh.reduce_degree(axes=[2])]
             
         elif isinstance(kind, HdivSpaceType):
-            if ldim == 1:
-                Vh = Vh.reduce_degree(axes=[0])
-            elif ldim == 2:
+        
+            if ldim == 2:
                 Vh = [Vh.reduce_degree(axes=[1]), Vh.reduce_degree(axes=[0])]
             elif ldim == 3:
                 Vh = [Vh.reduce_degree(axes=[1,2]),Vh.reduce_degree(axes=[0,2]),Vh.reduce_degree(axes=[0,1])]
@@ -273,9 +271,25 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 Vh = Vh.reduce_degree(axes=[0,1,2])
 
     # Product and Vector spaces are constructed here using H1 subspaces
+
     if V.shape > 1:
-        spaces = [Vh for i in range(V.shape)]
+    
+        if isinstance(V, VectorFunctionSpace):
+            spaces = [Vh for i in range(V.shape)]
+            
+        elif isinstance(V, ProductSpace):
+            spaces = []
+            
+            for Vi in V.spaces:
+            
+                if isinstance(Vi, VectorFunctionSpace):
+                    spaces += [Vh for i in range(Vi.shape)]
+                    
+                else:
+                    spaces += [discretize_space(Vi, domain_h, *args, degree=degree,**kwargs)]
+        
         Vh = ProductFemSpace(*spaces)
+
 
     # add symbolic_mapping as a member to the space object
     setattr(Vh, 'symbolic_mapping', symbolic_mapping)
