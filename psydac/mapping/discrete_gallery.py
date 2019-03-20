@@ -21,7 +21,7 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
 
     dim = len(ncells)
     if not( dim in [2,3] ):
-        raise NotImplementedError('only 2d, 3d are available')
+        raise NotImplementedError('Only 2D and 3D mappings are available')
 
     # ...
     if dim == 2:
@@ -40,6 +40,20 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
             period1 = False
             period2 = False
 
+        elif mapping == 'circle':
+            map_analytic = Annulus( **kwargs )
+            lims1   = (0, 1)
+            lims2   = (0, 2*np.pi)
+            period1 = False
+            period2 = True
+
+        elif mapping == 'annulus':
+            map_analytic = Annulus( **kwargs )
+            lims1   = (1, 4)
+            lims2   = (0, 2*np.pi)
+            period1 = False
+            period2 = True
+
         elif mapping == 'quarter_annulus':
             map_analytic = Annulus( **kwargs )
             lims1   = (1, 4)
@@ -47,13 +61,16 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
             period1 = False
             period2 = False
 
-        else:
+        elif mapping in ['target', 'czarny']:
             mapping = mapping.capitalize()
-            map_analytic = locals()[mapping]( **kwargs )
+            map_analytic = globals()[mapping]( **kwargs )
             lims1 = (0, 1)
             lims2 = (0, 2*np.pi)
             period1 = False
             period2 = True
+
+        else:
+            raise ValueError("Required 2D mapping not available")
 
         p1 , p2  = degree
         nc1, nc2 = ncells
@@ -85,6 +102,9 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
             period1 = False
             period2 = False
             period3 = False
+
+        else:
+            raise ValueError("Required 3D mapping not available")
 
         p1 , p2 , p3  = degree
         nc1, nc2, nc3 = ncells
