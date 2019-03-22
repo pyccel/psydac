@@ -90,20 +90,11 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         # ...
         # TODO must check that spaces lead to the same QuadratureGrid
-        if boundary is None:
-        
-            test_space_arg = test_space
-            if isinstance(test_space, ProductFemSpace):
-                test_space_arg = test_space.spaces[0]
-                
-            self._grid = QuadratureGrid( test_space_arg, quad_order = quad_order )
+        if boundary is None:   
+            self._grid = QuadratureGrid( test_space, quad_order = quad_order )
 
-        else:
-            test_space_arg = test_space
-            if isinstance(test_space, ProductFemSpace):
-                test_space_arg = test_space.spaces[0]
-                
-            self._grid = BoundaryQuadratureGrid( test_space_arg,
+        else:   
+            self._grid = BoundaryQuadratureGrid( test_space,
                                                  boundary.axis,
                                                  boundary.ext,
                                                  quad_order = quad_order )
@@ -267,7 +258,6 @@ class DiscreteFunctional(BasicDiscrete):
             self._grid = QuadratureGrid( self.space, quad_order = quad_order )
 
         else:
-
             self._grid = BoundaryQuadratureGrid( self.space,
                                                  boundary.axis,
                                                  boundary.ext,

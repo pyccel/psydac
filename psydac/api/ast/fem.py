@@ -1205,11 +1205,16 @@ class Assembly(SplBasic):
         is_function = isinstance(self.weak_form, Functional)
         
         if is_bilinear:
-            is_product_space = isinstance(self.discrete_space[0], ProductFemSpace)
+        
+            Wh = self.discrete_space[0]
+            Vh = self.discrete_space[1]
+            is_product_space = isinstance(Wh, ProductFemSpace)
             ln = 1
             if is_product_space:
-                ln = len(self.discrete_space[0].spaces)
+                ln = len(Wh.spaces)
         else:
+        
+            Wh = self.discrete_space
             ln = 1
             is_product_space = isinstance(self.discrete_space, ProductFemSpace)
             if is_product_space:
@@ -1417,7 +1422,7 @@ class Assembly(SplBasic):
                     args = list(args)
                     args[:dim] = test_degrees[i::ln]
                     args[dim:2*dim] = trial_degrees[j::ln]
-                    args[2*dim:3*dim] = trial_pads[j::ln]
+                    args[2*dim:3*dim] = [max(pi,pj) for pi,pj in zip(Vh.spaces[i].degree,Wh.spaces[j].degree)]
                     args[3*dim:4*dim] = test_basis_in_elm[i::ln]
                     args[4*dim:5*dim] = trial_basis_in_elm[j::ln]
 
@@ -1441,7 +1446,6 @@ class Assembly(SplBasic):
                     
                     args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + (M,))
                     args = list(args)
-                    
                     args[:dim] = test_degrees[i::ln]
                     args[dim:2*dim] = test_basis_in_elm[i::ln]
                     body += [FunctionCall(kernel.func[i][j], args)]
@@ -1449,7 +1453,6 @@ class Assembly(SplBasic):
             else:
                 args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + mats)
                 args = list(args)
-                
                 args[:dim] = test_degrees[::ln]
                 args[dim:2*dim] = test_basis_in_elm[::ln]
                 body += [FunctionCall(kernel.func[0][0], args)]
@@ -1545,7 +1548,8 @@ class Assembly(SplBasic):
             orders  = [p+1 for p in test_degrees[i::ln]]
             spads   = [2*p+1 for p in test_pads[j::ln]]
             if is_bilinear:
-                args = tuple(orders + spads)
+                spads = [2*max(pi,pj)+1 for pi,pj in zip(Vh.spaces[i].degree,Wh.spaces[j].degree)]
+                args  = tuple(orders + spads)
 
             if is_linear:
                 args = tuple(orders)
@@ -1785,7 +1789,8 @@ class Interface(SplBasic):
 
 
         test_spaces, trial_spaces = symbols('test_spaces, trial_spaces', cls=IndexedBase)
-        spans_attr, basis_attr  = symbols('spans, basis', cls=IndexedBase)
+        spans_attr , basis_attr   = symbols('spans, basis', cls=IndexedBase)
+        pads                      = symbols('pads')
         
 	# TODO uncomment later
         #dots           = symbols('lo_dot v_dot')
@@ -1821,8 +1826,8 @@ class Interface(SplBasic):
         # ... basis values
         if is_product_fem_space:
             for i in range(ln):
-                body += [Assign(spans[dim*i:dim*(i+1)],      DottedName(test_basis_values, spans_attr[i]))]
-                body += [Assign(test_basis[dim*i:dim*(i+1)], DottedName(test_basis_values, basis_attr[i]))]   
+                body += [Assign(spans[i::ln],      DottedName(test_basis_values, spans_attr[i]))]
+                body += [Assign(test_basis[i::ln], DottedName(test_basis_values, basis_attr[i]))]   
        
         else:
             body += [Assign(spans,      DottedName(test_basis_values, spans_attr))]
@@ -1831,7 +1836,7 @@ class Interface(SplBasic):
         if is_bilinear:
             if is_product_fem_space:
                 for i in range(ln):
-                    body += [Assign(trial_basis[dim*i:dim*(i+1)], DottedName(trial_basis_values, basis_attr[i]))]   
+                    body += [Assign(trial_basis[i::ln], DottedName(trial_basis_values, basis_attr[i]))]   
             else:
                 body += [Assign(trial_basis, DottedName(trial_basis_values, basis_attr))]
         # ...
@@ -1839,8 +1844,8 @@ class Interface(SplBasic):
         # ... getting data from fem space
         if is_product_fem_space:
             for i in range(ln):
-                body += [Assign(test_degrees[dim*i:dim*(i+1)], DottedName(test_space,spaces[i], 'degree'))]
-                body += [Assign(test_pads   [dim*i:dim*(i+1)], DottedName(test_spaces[i], 'pads'))]
+                body += [Assign(test_degrees[i::ln], DottedName(test_space,spaces[i], 'degree'))]
+                body += [Assign(test_pads   [i::ln], DottedName(test_spaces[i], 'pads'))]
             
         else:
             body += [Assign(test_degrees, DottedName(test_space, 'degree'))]
@@ -1850,8 +1855,8 @@ class Interface(SplBasic):
         
             if is_product_fem_space:
                 for i in range(ln):
-                    body += [Assign(trial_degrees[dim*i:dim*(i+1)], DottedName(trial_space,spaces[i], 'degree'))]
-                    body += [Assign(trial_pads   [dim*i:dim*(i+1)], DottedName(trial_spaces[i], 'pads'))]
+                    body += [Assign(trial_degrees[i::ln], DottedName(trial_space,spaces[i], 'degree'))]
+                    body += [Assign(trial_pads   [i::ln], DottedName(trial_spaces[i], 'pads'))]
             else:
                 body += [Assign(trial_degrees, DottedName(trial_space, 'degree'))]
                 body += [Assign(trial_pads   , DottedName(trial_spaces, 'pads'))]
@@ -1898,7 +1903,10 @@ class Interface(SplBasic):
                 if_cond = Is(M, Nil())
                 if is_bilinear:
                     if is_product_fem_space:
-                        args = [trial_spaces[j], test_spaces[i]]
+                        spj = Vh.spaces[j]
+                        spi = Wh.spaces[i]
+                        pads_args = tuple(max(pi,pj) for pi,pj in zip(spj.degree,spi.degree))
+                        args = [trial_spaces[j], test_spaces[i], Assign(pads,pads_args)]
                     else:
                         args = [trial_spaces , test_spaces]
                         

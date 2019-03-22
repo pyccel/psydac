@@ -111,9 +111,12 @@ def compute_quadrature( V, quad_order=None ):
 #==============================================================================
 class QuadratureGrid():
     def __init__( self, V, quad_order=None ):
-        
+
         if isinstance(V, ProductFemSpace):
-            V = V.spaces[0]
+            quad_order = np.array([v.degree for v in V.spaces])
+            quad_order = tuple(quad_order.max(axis=0))
+            V = V.spaces[0] 
+            
         quad_grid = create_fem_assembly_grid( V, quad_order=quad_order )
         
         self._fem_grid            = quad_grid
@@ -196,11 +199,10 @@ class BoundaryQuadratureGrid(QuadratureGrid):
 def create_fem_assembly_grid(V, quad_order=None, nderiv=1):
 
     if isinstance(V, ProductFemSpace):
-        if quad_order is None:
-            for v in V.spaces:
-                quad_order = np.array([v.degree for v in V.spaces])
-                quad_order = tuple(quad_order.max(axis=0))
 
+        quad_order = np.array([v.degree for v in V.spaces])
+        quad_order = tuple(quad_order.max(axis=0))
+        
         return [create_fem_assembly_grid(space,quad_order,nderiv) for space in V.spaces]
 
     # ...
