@@ -1547,8 +1547,11 @@ class Assembly(SplBasic):
 
             orders  = [p+1 for p in test_degrees[i::ln]]
             spads   = [2*p+1 for p in test_pads[j::ln]]
+            
             if is_bilinear:
-                spads = [2*max(pi,pj)+1 for pi,pj in zip(Vh.spaces[i].degree,Wh.spaces[j].degree)]
+                if is_compatible_spaces:
+                    spads = [2*max(pi,pj)+1 for pi,pj in zip(Vh.spaces[i].degree,Wh.spaces[j].degree)]
+                    
                 args  = tuple(orders + spads)
 
             if is_linear:
