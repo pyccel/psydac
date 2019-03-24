@@ -25,7 +25,7 @@ from sympde.topology import BasicFunctionSpace
 from sympde.topology import FunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import Mapping
-from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
+from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from gelato.expr     import GltExpr as sym_GltExpr
 
@@ -264,7 +264,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         
         if isinstance(V, VectorFunctionSpace):
         
-            if kind is None:
+            if isinstance(kind, UndefinedSpaceType):
                 spaces = [Vh for i in range(V.shape)]
                 
             elif isinstance(kind, HcurlSpaceType):
@@ -279,7 +279,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
                     spaces = [Vh.reduce_degree(axes=[1]), Vh.reduce_degree(axes=[0])]
                 elif ldim == 3:
                     spaces = [Vh.reduce_degree(axes=[1,2]),Vh.reduce_degree(axes=[0,2]),Vh.reduce_degree(axes=[0,1])]
-            
+            print(kind)
     
         elif isinstance(V, ProductSpace):
             
@@ -290,7 +290,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
                     spaces += list(space.spaces)
                 else:
                     spaces += [space]
-
+        
         Vh = ProductFemSpace(*spaces)
 
     
