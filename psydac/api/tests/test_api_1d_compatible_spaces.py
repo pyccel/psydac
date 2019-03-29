@@ -16,7 +16,7 @@ from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm
-from sympde.expr import Norm
+from sympde.expr import Norm, TerminalExpr
 from sympde.expr import find, EssentialBC
 
 from psydac.fem.basic   import FemField
@@ -27,7 +27,10 @@ from numpy import linspace, zeros, allclose
 import numpy as np
 from mpi4py import MPI
 import pytest
-
+#np.set_printoptions(linewidth=1000, precision=4)
+from scipy.sparse.linalg import cg, gmres
+from scipy import linalg
+import matplotlib.pyplot as plt
 #==============================================================================
 
 def run_system_1_1d_dir(f0, ncells, degree):
@@ -46,16 +49,14 @@ def run_system_1_1d_dir(f0, ncells, degree):
     u,v = [ScalarTestFunction(V2, name=i) for i in ['u', 'v']]
 
 
-
     a  = BilinearForm(((p,u),(q,v)),dot(p,q) + dot(div(q),u) + dot(div(p),v) )
 
     l  = LinearForm((q,v), dot(f0, v))
 
  
-    bc = EssentialBC(p, 0, domain.boundary)
-    equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v), bc=bc)
+    #bc = EssentialBC(p, 0, domain.boundary)
+    equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))
     # ...
-
 
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells)
@@ -65,30 +66,38 @@ def run_system_1_1d_dir(f0, ncells, degree):
     V1h = discretize(V1, domain_h, degree=degree)
     V2h = discretize(V2, domain_h, degree=degree)
     Xh  = discretize(X , domain_h, degree=degree)
-   
-    # ... dsicretize the equation using Dirichlet bc
-    ah = discretize(a, domain_h, [Xh, Xh], symbolic_space=[X, X])
-    # ...
-    
-    a=ah.assemble()
-    raise SystemExit()
-    print(a)
 
-    return x
+    # ... dsicretize the equation using Dirichlet bc
+    ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
+    # ...
+    M = ah.assemble()
+
+    M   = ah.linear_system.lhs.toarray()
+    rhs = ah.linear_system.rhs.toarray()
+    
+    M_inv = linalg.inv(M)
+    
+    sol = M_inv.dot(rhs)
+
+    
+    phi2 = FemField(V2h)
+
+    
+    phi2.coeffs[0:V2h.nbasis] = sol[V1h.nbasis:]
 
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
 
 #==============================================================================
-@pytest.mark.skip
+
 def test_api_system_1_1d_dir_1():
 
     from sympy.abc import x
 
-    f0 =  sin(2*pi*x)
+    f0 =  (2*pi)**2*sin(2*pi*x)
 
 
     x = run_system_1_1d_dir(f0, ncells=[10], degree=[2])
-
+    
 
