@@ -264,7 +264,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         
         if isinstance(V, VectorFunctionSpace):
         
-            if isinstance(kind, UndefinedSpaceType):
+            if isinstance(kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
                 spaces = [Vh for i in range(V.shape)]
                 
             elif isinstance(kind, HcurlSpaceType):
@@ -279,7 +279,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
                     spaces = [Vh.reduce_degree(axes=[1]), Vh.reduce_degree(axes=[0])]
                 elif ldim == 3:
                     spaces = [Vh.reduce_degree(axes=[1,2]),Vh.reduce_degree(axes=[0,2]),Vh.reduce_degree(axes=[0,1])]
-            print(kind)
+
     
         elif isinstance(V, ProductSpace):
             
