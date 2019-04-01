@@ -38,7 +38,6 @@ from matplotlib import animation
 #==============================================================================
 
 def run_system_1_2d_dir(f0, ncells, degree):
-
     # ... abstract model
     domain = Square()
 
@@ -52,16 +51,13 @@ def run_system_1_2d_dir(f0, ncells, degree):
     u,v = [ScalarTestFunction(V2, name=i) for i in ['u', 'v']]
 
     a  = BilinearForm(((p,u),(q,v)),dot(p,q) + div(q)*u + div(p)*v )
-
     l  = LinearForm((q,v), f0*v)
 
     equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))
-    # ...
-
+ 
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells)
     # ...
-
     # ... discrete spaces
     V1h = discretize(V1, domain_h, degree=degree)
     V2h = discretize(V2, domain_h, degree=degree)
@@ -70,19 +66,16 @@ def run_system_1_2d_dir(f0, ncells, degree):
     # ... dsicretize the equation using Dirichlet bc
     ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
     # ...
-    M = ah.assemble()
-    
+    ah.assemble()
     M   = ah.linear_system.lhs.toarray()
     rhs = ah.linear_system.rhs.toarray()
 
     M_inv = linalg.inv(M)
-    
     sol = M_inv.dot(rhs)
     
     return sol
     
 def run_system_2_2d_dir(f1, f2, ncells, degree):
-
     # ... abstract model
     domain = Square()
 
@@ -95,20 +88,14 @@ def run_system_2_2d_dir(f1, f2, ncells, degree):
     u,v = [VectorTestFunction(V1, name=i) for i in ['u', 'v']]
     p,q = [ScalarTestFunction(V2, name=i) for i in ['p', 'q']]
 
-    a  = BilinearForm(((u,p),(v,q)),inner(grad(u),grad(v)) + div(u)*q + p*div(v) )
-
+    a  = BilinearForm(((u,p),(v,q)),inner(grad(u),grad(v)) + div(u)*q - p*div(v) )
     l  = LinearForm((v,q), f1*v[0]+f2*v[1]+q)
-
- 
+    
     bc = EssentialBC(u, 0, domain.boundary)
     equation = find([u,p], forall=[v,q], lhs=a((u,p),(v,q)), rhs=l(v,q), bc=bc)
-    # ...
-
 
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells)
-    # ...
-
     # ... discrete spaces
     V1h = discretize(V1, domain_h, degree=degree)
     V2h = discretize(V2, domain_h, degree=degree)
@@ -142,26 +129,23 @@ def run_system_2_2d_dir(f1, f2, ncells, degree):
 
     M_1   = np.zeros((len(rhs)+1,len(rhs)+1))
     rhs_1 = np.zeros(len(rhs)+1)
-    b     = (e11+1)*(e12+1)+(e21+1)*(e22+1)
-    g     = rhs[b:].copy()
+    v2h_s = (e11+1)*(e12+1)+(e21+1)*(e22+1)
 
     M_1[:-1,:-1] = M
-    M_1[-1,b:-1]  = rhs[b:]
-    M_1[b:-1,-1]  = rhs[b:]
-    rhs_1[:b]   = rhs[:b] 
+    M_1[-1,v2h_s:-1]  = rhs[v2h_s:]
+    M_1[v2h_s:-1,-1]  = rhs[v2h_s:]
+    rhs_1[:v2h_s]   = rhs[:v2h_s] 
 
     M_inv = linalg.inv(M_1)
-    
     sol = M_inv.dot(rhs_1)
-
     
     phi2   = FemField(V2h)
     phi1_0 = FemField(V1h.spaces[0])
     phi1_1 = FemField(V1h.spaces[1])
     
     phi1_0.coeffs[s11:e11+1, s12:e12+1] = sol[:(e11+1)*(e12+1)].reshape((e11+1-s11, e12+1-s12))
-    phi1_1.coeffs[s21:e21+1, s22:e22+1] = sol[(e11+1)*(e12+1):b].reshape((e21+1-s21, e22+1-s22))
-    phi2.coeffs[s31:e31+1, s32:e32+1]   = sol[b:-1].reshape((e31-s31+1, e32-s32+1))
+    phi1_1.coeffs[s21:e21+1, s22:e22+1] = sol[(e11+1)*(e12+1):v2h_s].reshape((e21+1-s21, e22+1-s22))
+    phi2.coeffs[s31:e31+1, s32:e32+1]   = sol[v2h_s:-1].reshape((e31-s31+1, e32-s32+1))
     
     return sol
 
@@ -171,7 +155,6 @@ def run_system_2_2d_dir(f1, f2, ncells, degree):
 
 #==============================================================================
 def test_api_system_2_2d_dir_1():
-
     from sympy.abc import x,y
     from sympy import cos
     
@@ -182,15 +165,11 @@ def test_api_system_2_2d_dir_1():
     p  = sin(2*pi*x) - sin(2*pi*y)
     
     x = run_system_2_2d_dir(f1, f2, ncells=[2**3,2**3], degree=[2,2])
-        
-    
-    
+            
 def test_api_system_1_2d_dir_1():
     from sympy.abc import x,y
 
     f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
 
     x = run_system_1_2d_dir(f0, ncells=[10,10], degree=[2,2])
-    
-
 

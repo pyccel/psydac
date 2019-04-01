@@ -116,9 +116,8 @@ class QuadratureGrid():
             quad_order = np.array([v.degree for v in V.spaces])
             quad_order = tuple(quad_order.max(axis=0))
             V = V.spaces[0] 
-            
+
         quad_grid = create_fem_assembly_grid( V, quad_order=quad_order )
-        
         self._fem_grid            = quad_grid
         self._n_elements          = [g.num_elements        for g in quad_grid]
         self._local_element_start = [g.local_element_start for g in quad_grid]
@@ -140,7 +139,6 @@ class QuadratureGrid():
         """
         return self._local_element_start
 
-    # ...
     @property
     def local_element_end( self ):
         """ Local index of last element owned by process.
@@ -197,14 +195,10 @@ class BoundaryQuadratureGrid(QuadratureGrid):
 
 #==============================================================================
 def create_fem_assembly_grid(V, quad_order=None, nderiv=1):
-
     if isinstance(V, ProductFemSpace):
-
         quad_order = np.array([v.degree for v in V.spaces])
         quad_order = tuple(quad_order.max(axis=0))
-        
         return [create_fem_assembly_grid(space,quad_order,nderiv) for space in V.spaces]
-
     # ...
     if not( quad_order is None ):
         if isinstance( quad_order, int ):
@@ -215,9 +209,6 @@ def create_fem_assembly_grid(V, quad_order=None, nderiv=1):
 
     else:
         quad_order = [None for i in range(V.ldim)]
-
-    # ...
-
     # ...
     if not( nderiv is None ):
         if isinstance( nderiv, int ):
@@ -244,7 +235,6 @@ class BasisValues():
         # TODO quad_order in FemAssemblyGrid must be be the order and not the
         # degree
         quad_order = [q-1 for q in grid.quad_order]
-
         global_quad_grid = create_fem_assembly_grid( V,
                                               quad_order=quad_order,
                                               nderiv=nderiv )
@@ -252,7 +242,6 @@ class BasisValues():
         if isinstance(V, ProductFemSpace):
             self._spans = [[g.spans for g in quad_grid] for quad_grid in global_quad_grid]
             self._basis = [[g.basis for g in quad_grid] for quad_grid in global_quad_grid]
-            
         else:
             self._spans = [g.spans for g in global_quad_grid]
             self._basis = [g.basis for g in global_quad_grid]

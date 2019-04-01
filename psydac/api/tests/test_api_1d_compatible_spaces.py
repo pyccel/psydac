@@ -34,7 +34,6 @@ import matplotlib.pyplot as plt
 #==============================================================================
 
 def run_system_1_1d_dir(f0, ncells, degree):
-
     # ... abstract model
     domain = Line()
 
@@ -44,20 +43,15 @@ def run_system_1_1d_dir(f0, ncells, degree):
 
     x = domain.coordinates
 
-
     p,q = [ScalarTestFunction(V1, name=i) for i in ['p', 'q']]
     u,v = [ScalarTestFunction(V2, name=i) for i in ['u', 'v']]
-
 
     a  = BilinearForm(((p,u),(q,v)),dot(p,q) + dot(div(q),u) + dot(div(p),v) )
 
     l  = LinearForm((q,v), dot(f0, v))
 
- 
     #bc = EssentialBC(p, 0, domain.boundary)
     equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))
-    # ...
-
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells)
     # ...
@@ -66,7 +60,6 @@ def run_system_1_1d_dir(f0, ncells, degree):
     V1h = discretize(V1, domain_h, degree=degree)
     V2h = discretize(V2, domain_h, degree=degree)
     Xh  = discretize(X , domain_h, degree=degree)
-
     # ... dsicretize the equation using Dirichlet bc
     ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
     # ...
@@ -76,13 +69,9 @@ def run_system_1_1d_dir(f0, ncells, degree):
     rhs = ah.linear_system.rhs.toarray()
     
     M_inv = linalg.inv(M)
-    
     sol = M_inv.dot(rhs)
 
-    
-    phi2 = FemField(V2h)
-
-    
+    phi2 = FemField(V2h)    
     phi2.coeffs[0:V2h.nbasis] = sol[V1h.nbasis:]
 
 ###############################################################################

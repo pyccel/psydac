@@ -115,6 +115,7 @@ class TensorFemSpace( FemSpace ):
             knots  = space.knots
             degree = space.degree
             span   =  find_span( knots, degree, x )
+
             #-------------------------------------------------#
             # Fix span for boundaries between subdomains      #
             #-------------------------------------------------#
@@ -443,7 +444,6 @@ class TensorFemSpace( FemSpace ):
         return fields
         
     def reduce_degree(self, axes):
-
         if isinstance(axes, int):
             axes = [axes]
             
@@ -462,15 +462,11 @@ class TensorFemSpace( FemSpace ):
             reduced_space = SplineSpace(degree-1, grid=grid, 
                                         periodic=periodic, 
                                         dirichlet=dirichlet)
-            
-            
             spaces[axis] = reduced_space
             
-        
         npts = [V.nbasis for V in spaces]
         pads = v.pads
         periods = [V.periodic for V in spaces]
-        
         # create new Tensor Vector
         if v.cart:
             
@@ -486,15 +482,10 @@ class TensorFemSpace( FemSpace ):
       
         tensor_vec._spaces = tuple(spaces)
         
-        
-
-
-        
        # Compute extended 1D quadrature grids (local to process) along each direction
        
         tensor_vec._quad_grids = tuple( FemAssemblyGrid( V,s,e,quad_order=q )
                                   for V,s,e,q in zip( spaces, v.starts, v.ends, self.degree ) )
-
 
         tensor_vec._element_starts, tensor_vec._element_ends =  self._element_starts, self._element_ends
         
@@ -506,8 +497,6 @@ class TensorFemSpace( FemSpace ):
         tensor_vec._collocation_ready = False
                 
         return tensor_vec
-
-
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):
 

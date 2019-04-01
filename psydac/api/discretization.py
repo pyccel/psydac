@@ -167,9 +167,7 @@ class DiscreteEquation(BasicDiscrete):
     def assemble(self, **kwargs):
         assemble_lhs = kwargs.pop('assemble_lhs', True)
         assemble_rhs = kwargs.pop('assemble_rhs', True)
-        
         if assemble_lhs:
-            
             M = self.lhs.assemble(**kwargs)
             if self.bc:
                 # TODO change it: now apply_bc can be called on a list/tuple
@@ -192,7 +190,6 @@ class DiscreteEquation(BasicDiscrete):
 
     def solve(self, **kwargs):
         settings = kwargs.pop('settings', _default_solver)
-        
         rhs = kwargs.pop('rhs', None)
         if rhs:
             kwargs['assemble_rhs'] = False
@@ -256,15 +253,12 @@ def discretize_space(V, domain_h, *args, **kwargs):
             elif ldim == 3:
                 Vh = Vh.reduce_degree(axes=[0,1,2])
 
-
-    # Product and Vector spaces are constructed here using H1 subspaces
-
+    # Product and Vector spaces are constructed here
     if V.shape > 1:
         spaces = []
-        
         if isinstance(V, VectorFunctionSpace):
         
-            if isinstance(kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
+            if isinstance(kind, (H1SpaceType, L2SpaceType,  UndefinedSpaceType)):
                 spaces = [Vh for i in range(V.shape)]
                 
             elif isinstance(kind, HcurlSpaceType):
@@ -280,12 +274,10 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 elif ldim == 3:
                     spaces = [Vh.reduce_degree(axes=[1,2]),Vh.reduce_degree(axes=[0,2]),Vh.reduce_degree(axes=[0,1])]
 
-    
         elif isinstance(V, ProductSpace):
             
             for Vi in V.spaces:
                 space = discretize_space(Vi, domain_h, *args, degree=degree,**kwargs)
-                
                 if isinstance(space, ProductFemSpace):
                     spaces += list(space.spaces)
                 else:
@@ -293,7 +285,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
         
         Vh = ProductFemSpace(*spaces)
 
-    
     # add symbolic_mapping as a member to the space object
     setattr(Vh, 'symbolic_mapping', symbolic_mapping)
 
@@ -333,7 +324,6 @@ def discretize_domain(domain, *args, **kwargs):
 def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BasicForm):
-
         kernel_expr = TerminalExpr(a)
 #        print('=================')
 #        print(kernel_expr)

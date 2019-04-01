@@ -31,11 +31,10 @@ from psydac.api.ast.glt         import GltKernel
 from psydac.api.ast.glt         import GltInterface
 from psydac.api.glt             import DiscreteGltExpr
 
-from psydac.fem.vector          import ProductFemSpace
-
 from psydac.linalg.stencil      import StencilVector, StencilMatrix
 from psydac.cad.geometry        import Geometry
 from psydac.mapping.discrete    import SplineMapping, NurbsMapping
+from psydac.fem.vector          import ProductFemSpace
 
 import inspect
 import sys
@@ -66,11 +65,9 @@ class DiscreteBilinearForm(BasicDiscrete):
             is_rational_mapping = isinstance( mapping, NurbsMapping )
 
         self._is_rational_mapping = is_rational_mapping
-        
         # ...
         self._spaces = args[1]
         # ...
-        
         kwargs['discrete_space']      = self.spaces
         kwargs['mapping']             = self.spaces[0].symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
@@ -90,7 +87,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         # ...
         # TODO must check that spaces lead to the same QuadratureGrid
-        if boundary is None:   
+        if boundary is None:
             self._grid = QuadratureGrid( test_space, quad_order = quad_order )
 
         else:   
@@ -99,15 +96,10 @@ class DiscreteBilinearForm(BasicDiscrete):
                                                  boundary.ext,
                                                  quad_order = quad_order )
         # ...
-
-        # ...
         self._test_basis = BasisValues( test_space, self.grid,
                                         nderiv = self.max_nderiv )
-
         self._trial_basis = BasisValues( trial_space, self.grid,
                                          nderiv = self.max_nderiv )
-        # ...
-
 
     @property
     def spaces(self):
@@ -127,7 +119,6 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def assemble(self, **kwargs):
         newargs = tuple(self.spaces) + (self.grid, self.test_basis, self.trial_basis)
-
         if self.mapping:
             newargs = newargs + (self.mapping,)
 
