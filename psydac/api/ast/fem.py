@@ -254,11 +254,11 @@ class Kernel(SplBasic):
         if symbolic_space:
             symbolic_space= symbolic_space[0]
             
-        is_compatible_spaces = False
+        unique_scalar_space = True
         if isinstance(symbolic_space, ProductSpace):
             spaces = symbolic_space.spaces
             space = spaces[0]
-            is_compatible_spaces = not all(sp.kind==space.kind for sp in spaces)
+            unique_scalar_space = all(sp.kind==space.kind for sp in spaces)
 
         # ...
         # get the target expr if there are multiple expressions (domain/boundary)
@@ -305,16 +305,16 @@ class Kernel(SplBasic):
                                prefix='kernel', mapping=mapping,
                                is_rational_mapping=is_rational_mapping)
 
-        obj._weak_form         = weak_form
-        obj._kernel_expr       = kernel_expr
-        obj._target            = target
-        obj._discrete_boundary = discrete_boundary
-        obj._boundary_basis    = boundary_basis
-        obj._area              = None
-        obj._user_functions    = []
-        obj._backend           = backend
-        obj._symbolic_space    = symbolic_space
-        obj._is_compatible_spaces = is_compatible_spaces
+        obj._weak_form           = weak_form
+        obj._kernel_expr         = kernel_expr
+        obj._target              = target
+        obj._discrete_boundary   = discrete_boundary
+        obj._boundary_basis      = boundary_basis
+        obj._area                = None
+        obj._user_functions      = []
+        obj._backend             = backend
+        obj._symbolic_space      = symbolic_space
+        obj._unique_scalar_space = unique_scalar_space
 
         obj._func = obj._initialize()
         return obj
@@ -418,8 +418,8 @@ class Kernel(SplBasic):
         return self._user_functions
 
     @property
-    def is_compatible_spaces(self):
-        return self._is_compatible_spaces
+    def unique_scalar_space(self):
+        return self._unique_scalar_space
         
     @property
     def symbolic_space(self):
@@ -445,7 +445,7 @@ class Kernel(SplBasic):
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
         is_function = isinstance(self.weak_form, Functional)
-        is_compatible_spaces = self.is_compatible_spaces
+        unique_scalar_space = self.unique_scalar_space
 
         expr = self.kernel_expr
         mapping = self.mapping
@@ -818,7 +818,7 @@ class Kernel(SplBasic):
             for stmt in map_stmts:
                 init_map[str(stmt.lhs)] = stmt
          
-        if not is_compatible_spaces:
+        if unique_scalar_space:
             ln   = 1
             funcs = [[None]]
 
@@ -827,10 +827,10 @@ class Kernel(SplBasic):
 
         for indx in range(ln):
 
-            if is_compatible_spaces and indx in zero_terms:
+            if not unique_scalar_space and indx in zero_terms:
                 continue
                 
-            elif is_compatible_spaces:
+            elif not unique_scalar_space:
                 start = indx
                 end   = indx + 1
                 i_row = indx//self._n_cols
@@ -1220,7 +1220,7 @@ class Assembly(SplBasic):
             if is_product_space:
                 ln = len(self.discrete_space.spaces)
             
-        is_compatible_spaces = is_product_space and kernel.is_compatible_spaces
+        unique_scalar_space = kernel.unique_scalar_space
 
         dim    = form.ldim
 
@@ -1416,7 +1416,7 @@ class Assembly(SplBasic):
             m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
 
         if is_bilinear:
-            if is_compatible_spaces:
+            if not unique_scalar_space:
                 for (i,j), M in element_matrices.items():
                     args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + (M,))
                     args = list(args)
@@ -1441,7 +1441,7 @@ class Assembly(SplBasic):
                 body += [FunctionCall(kernel.func[0][0], args)]
                 
         else:
-            if is_compatible_spaces:
+            if not unique_scalar_space:
                 for (i,j), M in element_matrices.items():
                     
                     args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + (M,))
@@ -1549,7 +1549,7 @@ class Assembly(SplBasic):
             spads   = [2*p+1 for p in test_pads[j::ln]]
             
             if is_bilinear:
-                if is_compatible_spaces:
+                if not unique_scalar_space:
                     spads = [2*max(pi,pj)+1 for pi,pj in zip(Vh.spaces[i].degree,Wh.spaces[j].degree)]
                     
                 args  = tuple(orders + spads)
@@ -1731,7 +1731,7 @@ class Interface(SplBasic):
             Wh = self.discrete_space
             
         is_product_fem_space = isinstance(Wh, ProductFemSpace)
-        is_compatible_spaces = is_product_fem_space and assembly.kernel.is_compatible_spaces
+        unique_scalar_space = assembly.kernel.unique_scalar_space
 
         # ... declarations
 
