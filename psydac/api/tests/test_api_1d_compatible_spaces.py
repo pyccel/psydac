@@ -27,9 +27,11 @@ from numpy import linspace, zeros, allclose
 import numpy as np
 from mpi4py import MPI
 import pytest
-#np.set_printoptions(linewidth=1000, precision=4)
+
 from scipy.sparse.linalg import cg, gmres
 from scipy import linalg
+from scipy.sparse.linalg import spsolve
+
 import matplotlib.pyplot as plt
 #==============================================================================
 
@@ -62,17 +64,17 @@ def run_system_1_1d_dir(f0, ncells, degree):
     Xh  = discretize(X , domain_h, degree=degree)
     # ... dsicretize the equation using Dirichlet bc
     ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
-    # ...
-    M = ah.assemble()
 
-    M   = ah.linear_system.lhs.toarray()
+    ah.assemble()
+
+    M   = ah.linear_system.lhs.tosparse()
     rhs = ah.linear_system.rhs.toarray()
-    
-    M_inv = linalg.inv(M)
-    sol = M_inv.dot(rhs)
+    sol = spsolve(M, rhs)
 
     phi2 = FemField(V2h)    
     phi2.coeffs[0:V2h.nbasis] = sol[V1h.nbasis:]
+
+    return sol
 
 ###############################################################################
 #            SERIAL TESTS

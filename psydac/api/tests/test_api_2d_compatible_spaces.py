@@ -28,8 +28,9 @@ from numpy import linspace, zeros, allclose
 import numpy as np
 from mpi4py import MPI
 import pytest
-#np.set_printoptions(linewidth=1000, precision=4)
+
 from scipy.sparse.linalg import cg, gmres
+from scipy.sparse.linalg import spsolve
 from scipy import linalg
 
 import matplotlib.pyplot as plt
@@ -67,12 +68,11 @@ def run_system_1_2d_dir(f0, ncells, degree):
     ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
     # ...
     ah.assemble()
-    M   = ah.linear_system.lhs.toarray()
-    rhs = ah.linear_system.rhs.toarray()
 
-    M_inv = linalg.inv(M)
-    sol = M_inv.dot(rhs)
-    
+    M   = ah.linear_system.lhs.tosparse()
+    rhs = ah.linear_system.rhs.toarray()
+    sol = spsolve(M, rhs)
+
     return sol
     
 def run_system_2_2d_dir(f1, f2, ncells, degree):
@@ -111,9 +111,6 @@ def run_system_2_2d_dir(f1, f2, ncells, degree):
     # ... dsicretize the equation using Dirichlet bc
     ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
 
-    # ...
-    M = ah.assemble()
-    
     M     = ah.linear_system.lhs
     M[0,0][0,:,0,0] = 1.
     M[0,0][:,0,0,0] = 1.
