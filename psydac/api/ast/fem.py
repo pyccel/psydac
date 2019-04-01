@@ -51,7 +51,7 @@ from sympde.topology import SymbolicExpr
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
-from sympde.topology.space import FunctionSpace
+from sympde.topology.space import FunctionSpace, VectorFunctionSpace,UndefinedSpaceType
 from sympde.topology.space import ProductSpace
 from sympde.topology.space import ScalarTestFunction
 from sympde.topology.space import VectorTestFunction
@@ -259,6 +259,8 @@ class Kernel(SplBasic):
             spaces = symbolic_space.spaces
             space = spaces[0]
             unique_scalar_space = all(sp.kind==space.kind for sp in spaces)
+        elif isinstance(symbolic_space, VectorFunctionSpace):
+            unique_scalar_space = isinstance(symbolic_space.kind, UndefinedSpaceType)
 
         # ...
         # get the target expr if there are multiple expressions (domain/boundary)
