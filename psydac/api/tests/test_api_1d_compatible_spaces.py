@@ -98,7 +98,5 @@ def test_api_system_1_1d_dir_1():
 
     f0 =  -(2*pi)**2*sin(2*pi*x)
 
-
     x = run_system_1_1d_dir(f0, sin(2*pi*x),ncells=[10], degree=[2])
     
-
