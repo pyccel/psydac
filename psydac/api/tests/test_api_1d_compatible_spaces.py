@@ -35,7 +35,7 @@ from scipy.sparse.linalg import spsolve
 import matplotlib.pyplot as plt
 #==============================================================================
 
-def run_system_1_1d_dir(f0, ncells, degree):
+def run_system_1_1d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Line()
 
@@ -45,14 +45,18 @@ def run_system_1_1d_dir(f0, ncells, degree):
 
     x = domain.coordinates
 
+    F = ScalarField(V2, name='F')
+
     p,q = [ScalarTestFunction(V1, name=i) for i in ['p', 'q']]
     u,v = [ScalarTestFunction(V2, name=i) for i in ['u', 'v']]
 
     a  = BilinearForm(((p,u),(q,v)),dot(p,q) + dot(div(q),u) + dot(div(p),v) )
-
     l  = LinearForm((q,v), dot(f0, v))
 
-    #bc = EssentialBC(p, 0, domain.boundary)
+    error = F-sol
+    l2norm_F = Norm(error, domain, kind='l2')
+
+
     equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells)
@@ -65,6 +69,10 @@ def run_system_1_1d_dir(f0, ncells, degree):
     # ... dsicretize the equation using Dirichlet bc
     ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
 
+    # ... discretize norms
+    l2norm_F_h = discretize(l2norm_F, domain_h, V2h)
+
+
     ah.assemble()
 
     M   = ah.linear_system.lhs.tosparse()
@@ -73,8 +81,10 @@ def run_system_1_1d_dir(f0, ncells, degree):
 
     phi2 = FemField(V2h)    
     phi2.coeffs[0:V2h.nbasis] = sol[V1h.nbasis:]
+    
+    l2_error = l2norm_F_h.assemble(F=phi2)
 
-    return sol
+    return l2_error
 
 ###############################################################################
 #            SERIAL TESTS
@@ -86,9 +96,9 @@ def test_api_system_1_1d_dir_1():
 
     from sympy.abc import x
 
-    f0 =  (2*pi)**2*sin(2*pi*x)
+    f0 =  -(2*pi)**2*sin(2*pi*x)
 
 
-    x = run_system_1_1d_dir(f0, ncells=[10], degree=[2])
+    x = run_system_1_1d_dir(f0, sin(2*pi*x),ncells=[10], degree=[2])
     
 

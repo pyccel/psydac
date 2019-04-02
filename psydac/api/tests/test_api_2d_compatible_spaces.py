@@ -38,7 +38,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import animation
 #==============================================================================
 
-def run_system_1_2d_dir(f0, u, ncells, degree):
+def run_system_1_2d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Square()
 
@@ -47,19 +47,19 @@ def run_system_1_2d_dir(f0, u, ncells, degree):
     X  = ProductSpace(V1, V2)
 
     x,y = domain.coordinates
-    
+
     F = ScalarField(V2, name='F')
 
-    
+
     p,q = [VectorTestFunction(V1, name=i) for i in ['p', 'q']]
     u,v = [ScalarTestFunction(V2, name=i) for i in ['u', 'v']]
 
     a  = BilinearForm(((p,u),(q,v)),dot(p,q) + div(q)*u + div(p)*v )
     l  = LinearForm((q,v), f0*v)
 
-    error = F-u
+    error = F-sol
     l2norm_F = Norm(error, domain, kind='l2')
-    h1norm_F = Norm(error, domain, kind='h1')
+
 
     equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))
  
@@ -74,30 +74,30 @@ def run_system_1_2d_dir(f0, u, ncells, degree):
     # ... dsicretize the equation using Dirichlet bc
     ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
     # ...
-    
+
     # ... discretize norms
     l2norm_F_h = discretize(l2norm_F, domain_h, V2h)
-    h1norm_F_h = discretize(h1norm_F, domain_h, V2h)
+
 
     ah.assemble()
 
     M   = ah.linear_system.lhs.tosparse()
     rhs = ah.linear_system.rhs.toarray()
-    x = spsolve(M, rhs)
-    
-    
+    x   = spsolve(M, rhs)
+
+
     s31,s32 = V2h.vector_space.starts
     e31,e32 = V2h.vector_space.ends
     # ...
     Fh = FemField( V2h )
 
-    Fh.coeffs[:,:] = x[-(e31-s31+1)*(e32-s32+1):].reshape((e31-s31+1, e32-s32+1))
+    Fh.coeffs[s31:e31+1, s32:e32+1] = x[-(e31-s31+1)*(e32-s32+1):].reshape((e31-s31+1, e32-s32+1))
     # ...
     # ... compute norms
     l2_error = l2norm_F_h.assemble(F=Fh)
-    h1_error = h1norm_F_h.assemble(F=Fh)
 
-    return l2_error, h1_error
+
+    return l2_error
     
 def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
     # ... abstract model
@@ -109,8 +109,8 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
 
     x,y = domain.coordinates
 
-    F = VectorField(W, name='F')
-    
+    F = VectorField(V1, name='F')
+
     u,v = [VectorTestFunction(V1, name=i) for i in ['u', 'v']]
     p,q = [ScalarTestFunction(V2, name=i) for i in ['p', 'q']]
 
@@ -122,7 +122,6 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
 
     error = Matrix([F[0]-u1, F[1]-u2])
     l2norm_F = Norm(error, domain, kind='l2')
-    h1norm_F = Norm(error, domain, kind='h1')
 
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells)
@@ -140,13 +139,12 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
     
     # ... dsicretize the equation using Dirichlet bc
     ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
-    
+
     # ... discretize norms
     l2norm_F_h = discretize(l2norm_F, domain_h, V1h)
-    h1norm_F_h = discretize(h1norm_F, domain_h, V1h)
 
     ah.assemble()
-    
+
     M     = ah.linear_system.lhs
     M[0,0][0,:,0,0] = 1.
     M[0,0][:,0,0,0] = 1.
@@ -176,14 +174,13 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
     phi2 = FemField(V2h)
 
     
-    phi1[0].coeffs[s11:e11+1, s12:e12+1] = x[:(e11+1)*(e12+1)].reshape((e11+1-s11, e12+1-s12))
-    phi1[1].coeffs[s21:e21+1, s22:e22+1] = x[(e11+1)*(e12+1):v2h_s].reshape((e21+1-s21, e22+1-s22))
+    phi1.coeffs[0][s11:e11+1, s12:e12+1] = x[:(e11+1)*(e12+1)].reshape((e11+1-s11, e12+1-s12))
+    phi1.coeffs[1][s21:e21+1, s22:e22+1] = x[(e11+1)*(e12+1):v2h_s].reshape((e21+1-s21, e22+1-s22))
     phi2.coeffs[s31:e31+1, s32:e32+1]    = x[v2h_s:-1].reshape((e31-s31+1, e32-s32+1))
     
         # ... compute norms
     l2_error = l2norm_F_h.assemble(F=phi1)
-    h1_error = h1norm_F_h.assemble(F=phi1)
-    return l2_error, h1_error
+    return l2_error
 
 ###############################################################################
 #            SERIAL TESTS
@@ -200,7 +197,7 @@ def test_api_system_2_2d_dir_1():
     u2 =-y**2*(-y + 1)**2*(4*x**3 - 6*x**2 + 2*x)
     p  = sin(2*pi*x) - sin(2*pi*y)
     
-    x = run_system_2_2d_dir(f1, f2, ncells=[2**3,2**3], degree=[2,2])
+    x = run_system_2_2d_dir(f1, f2, u1, u2, ncells=[2**3,2**3], degree=[2,2])
             
 def test_api_system_1_2d_dir_1():
     from sympy.abc import x,y
@@ -209,4 +206,3 @@ def test_api_system_1_2d_dir_1():
     u  = sin(2*pi*x)*sin(2*pi*y)
     x = run_system_1_2d_dir(f0,u, ncells=[10,10], degree=[2,2])
 
-test_api_system_1_2d_dir_1()
