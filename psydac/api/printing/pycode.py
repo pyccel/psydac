@@ -31,6 +31,24 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
                                               dep=self._print(dep))
 
         return '{code}\n{func}'.format(code=code, func=self._print(expr.func))
+        
+    def _print_Kernel(self, expr):
+
+        code = ''
+        if self._enable_dependencies and expr.dependencies:
+            imports = []
+            for dep in expr.dependencies:
+                imports +=dep.imports
+            code = '\n'.join(self._print(i) for i in imports)
+            for dep in expr.dependencies:
+                code = '{code}\n{dep}'.format(code=code,
+                                              dep=self._print(dep))
+                                              
+        funcs = [func for fs in expr.func for func in fs if func is not None ]
+
+        funcs = '\n'.join(self._print(func) for func in funcs)
+        
+        return '{code}\n{funcs}'.format(code=code, funcs=funcs)
 
     def _print_Interface(self, expr):
         code = '\n'.join(self._print(i) for i in expr.imports)

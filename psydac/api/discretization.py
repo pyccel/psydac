@@ -25,6 +25,7 @@ from sympde.topology import BasicFunctionSpace
 from sympde.topology import FunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import Mapping
+from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from gelato.expr     import GltExpr as sym_GltExpr
 
@@ -166,7 +167,6 @@ class DiscreteEquation(BasicDiscrete):
     def assemble(self, **kwargs):
         assemble_lhs = kwargs.pop('assemble_lhs', True)
         assemble_rhs = kwargs.pop('assemble_rhs', True)
-
         if assemble_lhs:
             M = self.lhs.assemble(**kwargs)
             if self.bc:
@@ -190,7 +190,6 @@ class DiscreteEquation(BasicDiscrete):
 
     def solve(self, **kwargs):
         settings = kwargs.pop('settings', _default_solver)
-
         rhs = kwargs.pop('rhs', None)
         if rhs:
             kwargs['assemble_rhs'] = False
@@ -212,6 +211,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
     degree           = kwargs.pop('degree', None)
     comm             = domain_h.comm
     symbolic_mapping = None
+    kind             = V.kind
+    ldim             = V.ldim
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
@@ -225,7 +226,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         # TODO how to give a name to the mapping?
         symbolic_mapping = Mapping('M', domain_h.pdim)
 
-        if not( comm is None ) and domain_h.ldim == 1:
+        if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
 
     elif not( degree is None ):
@@ -234,19 +235,54 @@ def discretize_space(V, domain_h, *args, **kwargs):
         ncells = domain_h.ncells
 
         assert(isinstance( degree, (list, tuple) ))
-        assert( len(degree) == V.ldim )
+        assert( len(degree) == ldim )
 
         # Create uniform grid
         grids = [np.linspace( 0., 1., num=ne+1 ) for ne in ncells]
 
         # Create 1D finite element spaces and precompute quadrature data
         spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
-
         Vh = TensorFemSpace( *spaces, comm=comm )
+        
+        if isinstance(kind, L2SpaceType):
+  
+            if ldim == 1:
+                Vh = Vh.reduce_degree(axes=[0])
+            elif ldim == 2:
+                Vh = Vh.reduce_degree(axes=[0,1])
+            elif ldim == 3:
+                Vh = Vh.reduce_degree(axes=[0,1,2])
 
-    # Product and Vector spaces are constructed here using H1 subspaces
+    # Product and Vector spaces are constructed here
     if V.shape > 1:
-        spaces = [Vh for i in range(V.shape)]
+        spaces = []
+        if isinstance(V, VectorFunctionSpace):
+        
+            if isinstance(kind, (H1SpaceType, L2SpaceType,  UndefinedSpaceType)):
+                spaces = [Vh for i in range(V.shape)]
+                
+            elif isinstance(kind, HcurlSpaceType):
+                if ldim == 2:
+                    spaces = [Vh.reduce_degree(axes=[0]),Vh.reduce_degree(axes=[1])]
+                elif ldim == 3:
+                    spaces = [Vh.reduce_degree(axes=[0]),Vh.reduce_degree(axes=[1]),Vh.reduce_degree(axes=[2])]
+                
+            elif isinstance(kind, HdivSpaceType):
+            
+                if ldim == 2:
+                    spaces = [Vh.reduce_degree(axes=[1]), Vh.reduce_degree(axes=[0])]
+                elif ldim == 3:
+                    spaces = [Vh.reduce_degree(axes=[1,2]),Vh.reduce_degree(axes=[0,2]),Vh.reduce_degree(axes=[0,1])]
+
+        elif isinstance(V, ProductSpace):
+            
+            for Vi in V.spaces:
+                space = discretize_space(Vi, domain_h, *args, degree=degree,**kwargs)
+                if isinstance(space, ProductFemSpace):
+                    spaces += list(space.spaces)
+                else:
+                    spaces += [space]
+        
         Vh = ProductFemSpace(*spaces)
 
     # add symbolic_mapping as a member to the space object

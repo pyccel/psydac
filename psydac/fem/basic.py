@@ -212,3 +212,8 @@ class FemField:
     def gradient( self, *eta ):
         """Evaluate gradient of field at location identified by logical coordinates eta."""
         return self._space.eval_field_gradient( self, *eta )
+        
+    # ...
+    def divergence(self, *eta):
+        """Evaluate divergence of vector field at location identified by logical coordinates eta."""
+        return self._space.eval_field_divergence(self, *eta)

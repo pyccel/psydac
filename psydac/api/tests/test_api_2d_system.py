@@ -86,7 +86,7 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     # ... dsicretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh])
     # ...
-
+    
     # ... discretize norms
     l2norm_F_h = discretize(l2norm_F, domain_h, Wh)
     h1norm_F_h = discretize(h1norm_F, domain_h, Wh)
@@ -128,7 +128,6 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
 ###############################################################################
 
 #==============================================================================
-@pytest.mark.skip(reason="the bug in TerminalExpr needs to be fixed ")
 def test_api_system_1_2d_dir_1():
 
     from sympy.abc import x,y
@@ -147,6 +146,7 @@ def test_api_system_1_2d_dir_1():
                                      0.0002164796555228256])
     expected_h1_error =  np.asarray([0.018418110343264293,
                                      0.012987988507232278])
+
 
     assert( np.allclose(l2_error, expected_l2_error, 1.e-7) )
     assert( np.allclose(h1_error, expected_h1_error, 1.e-7) )

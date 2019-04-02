@@ -582,6 +582,7 @@ class BasicDiscrete(BasicCodeGen):
         boundary_basis      = kwargs.pop('boundary_basis', None)
         backend             = kwargs.pop('backend', PSYDAC_BACKEND_PYTHON)
         discrete_space      = kwargs.pop('discrete_space', None)
+        symbolic_space      = kwargs.pop('symbolic_space', None)
         comm                = kwargs.pop('comm', None)
 
         if kernel_expr is None:
@@ -594,6 +595,7 @@ class BasicDiscrete(BasicCodeGen):
                          is_rational_mapping = is_rational_mapping,
                          discrete_boundary   = boundary,
                          boundary_basis      = boundary_basis,
+                         symbolic_space      = symbolic_space,
                          backend = backend )
 
         assembly = Assembly( kernel,

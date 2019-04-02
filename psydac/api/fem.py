@@ -34,6 +34,7 @@ from psydac.api.glt             import DiscreteGltExpr
 from psydac.linalg.stencil      import StencilVector, StencilMatrix
 from psydac.cad.geometry        import Geometry
 from psydac.mapping.discrete    import SplineMapping, NurbsMapping
+from psydac.fem.vector          import ProductFemSpace
 
 import inspect
 import sys
@@ -65,11 +66,8 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         self._is_rational_mapping = is_rational_mapping
         # ...
-
-        # ...
         self._spaces = args[1]
         # ...
-
         kwargs['discrete_space']      = self.spaces
         kwargs['mapping']             = self.spaces[0].symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
@@ -92,22 +90,16 @@ class DiscreteBilinearForm(BasicDiscrete):
         if boundary is None:
             self._grid = QuadratureGrid( test_space, quad_order = quad_order )
 
-        else:
-
+        else:   
             self._grid = BoundaryQuadratureGrid( test_space,
                                                  boundary.axis,
                                                  boundary.ext,
                                                  quad_order = quad_order )
         # ...
-
-        # ...
         self._test_basis = BasisValues( test_space, self.grid,
                                         nderiv = self.max_nderiv )
-
         self._trial_basis = BasisValues( trial_space, self.grid,
                                          nderiv = self.max_nderiv )
-        # ...
-
 
     @property
     def spaces(self):
@@ -127,20 +119,12 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def assemble(self, **kwargs):
         newargs = tuple(self.spaces) + (self.grid, self.test_basis, self.trial_basis)
-
         if self.mapping:
             newargs = newargs + (self.mapping,)
 
         kwargs = self._check_arguments(**kwargs)
 
         return self.func(*newargs, **kwargs)
-
-#        # TODO remove => this is for debug only
-#        import sys
-#        sys.path.append(self.folder)
-#        from interface_9entwkkx import  interface_9entwkkx
-#        sys.path.remove(self.folder)
-#        return  interface_9entwkkx(*newargs, **kwargs)
 
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
@@ -196,6 +180,7 @@ class DiscreteLinearForm(BasicDiscrete):
         # ...
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv )
+
         # ...
 
     @property
@@ -212,12 +197,11 @@ class DiscreteLinearForm(BasicDiscrete):
 
     def assemble(self, **kwargs):
         newargs = (self.space, self.grid, self.test_basis)
-
+        
         if self.mapping:
             newargs = newargs + (self.mapping,)
 
         kwargs = self._check_arguments(**kwargs)
-
         return self.func(*newargs, **kwargs)
 
 
@@ -265,7 +249,6 @@ class DiscreteFunctional(BasicDiscrete):
             self._grid = QuadratureGrid( self.space, quad_order = quad_order )
 
         else:
-
             self._grid = BoundaryQuadratureGrid( self.space,
                                                  boundary.axis,
                                                  boundary.ext,
