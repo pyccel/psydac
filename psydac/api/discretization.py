@@ -28,7 +28,7 @@ from sympde.topology import Mapping
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from gelato.expr     import GltExpr as sym_GltExpr
-
+from sympy           import Expr    as sym_Expr
 
 from psydac.api.basic                import BasicDiscrete
 from psydac.api.fem                  import DiscreteBilinearForm
@@ -36,6 +36,7 @@ from psydac.api.fem                  import DiscreteLinearForm
 from psydac.api.fem                  import DiscreteFunctional
 from psydac.api.fem                  import DiscreteSumForm
 from psydac.api.glt                  import DiscreteGltExpr
+from psydac.api.expr                 import DiscreteExpr
 
 from psydac.api.essential_bc         import apply_essential_bc
 from psydac.linalg.iterative_solvers import cg
@@ -284,9 +285,11 @@ def discretize_space(V, domain_h, *args, **kwargs):
                     spaces += [space]
         
         Vh = ProductFemSpace(*spaces)
+        setattr(Vh, 'shape', V.shape)
 
     # add symbolic_mapping as a member to the space object
     setattr(Vh, 'symbolic_mapping', symbolic_mapping)
+    
 
     return Vh
 
@@ -352,6 +355,10 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, sym_GltExpr):
         return DiscreteGltExpr(a, *args, **kwargs)
+        
+    elif isinstance(a, sym_Expr):
+        kernel_expr = TerminalExpr(a)
+        return DiscreteExpr(a, kernel_expr,*args, **kwargs)
 
     else:
         raise NotImplementedError('given {}'.format(type(a)))

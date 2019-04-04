@@ -4,15 +4,12 @@
 
 import numpy as np
 from itertools import product
-from scipy.linalg import eig as eig_solver
-
-from gelato.expr     import GltExpr as sym_GltExpr
 
 from psydac.api.basic         import BasicCodeGen
-from psydac.api.ast.glt       import GltKernel
-from psydac.api.ast.glt       import GltInterface
 from psydac.api.settings      import PSYDAC_BACKEND_PYTHON, PSYDAC_DEFAULT_FOLDER
 from psydac.api.grid          import CollocationBasisValues
+
+from psydac.api.ast.expr      import ExprKernel, ExprInterface
 
 from psydac.cad.geometry      import Geometry
 from psydac.mapping.discrete  import SplineMapping, NurbsMapping
@@ -25,7 +22,7 @@ from sympy import Expr
 #==============================================================================
 class DiscreteExpr(BasicCodeGen):
 
-    def __init__(self, expr, *args, **kwargs):
+    def __init__(self, expr, kernel_expr, *args, **kwargs):
         if not isinstance(expr, Expr):
             raise TypeError('> Expecting a symbolic expression')
 
@@ -49,14 +46,14 @@ class DiscreteExpr(BasicCodeGen):
         # ...
 
         # ...
-        self._spaces = args[1]
+        self._space = args[1]
         # ...
 
         # ...
-        kwargs['mapping'] = self.spaces[0].symbolic_mapping
+        kwargs['mapping'] = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
 
-        BasicCodeGen.__init__(self, expr, **kwargs)
+        BasicCodeGen.__init__(self, kernel_expr, **kwargs)
         # ...
 
 #        print('====================')
@@ -71,8 +68,8 @@ class DiscreteExpr(BasicCodeGen):
         return self._mapping
 
     @property
-    def spaces(self):
-        return self._spaces
+    def space(self):
+        return self._space
 
     # TODO add comm and treate parallel case
     def _create_ast(self, expr, tag, **kwargs):
@@ -82,18 +79,23 @@ class DiscreteExpr(BasicCodeGen):
         is_rational_mapping = kwargs.pop('is_rational_mapping', None)
 
         # ...
-        kernel = ExprKernel( expr, self.spaces,
+
+        kernel = ExprKernel( expr, self.space,
                             name = 'kernel_{}'.format(tag),
                             mapping = mapping,
                             is_rational_mapping = is_rational_mapping,
                             backend = backend )
-
+                            
+        from psydac.api.printing.pycode import pycode
+        print(pycode(kernel.func))
+        
         interface = ExprInterface( kernel,
                                   name = 'interface_{}'.format(tag),
                                   mapping = mapping,
                                   is_rational_mapping = is_rational_mapping,
                                   backend = backend )
         # ...
+        print(pycode(interface.func))
 
         ast = {'kernel': kernel, 'interface': interface}
         return ast
@@ -142,11 +144,11 @@ class DiscreteExpr(BasicCodeGen):
 
         return _kwargs
 
-    def evaluate(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs):
 
         kwargs = self._check_arguments(**kwargs)
 
-        Vh = self.spaces[0]
+        Vh = self.space
         is_block = False
         if isinstance(Vh, ProductFemSpace):
             Vh = Vh.spaces[0]
@@ -155,79 +157,21 @@ class DiscreteExpr(BasicCodeGen):
         if not isinstance(Vh, TensorFemSpace):
             raise NotImplementedError('Only TensorFemSpace is available for the moment')
 
-        args = args + (Vh,)
+        args = (Vh,) + args 
 
         dim = Vh.ldim
 
         # ...
-        if self.expr.form.fields or self.mapping:
+        if self.kernel.fields:
             nderiv = self.interface.max_nderiv
             xis = [kwargs['arr_x{}'.format(i)] for i in range(1,dim+1)]
             grid = tuple(xis)
             # TODO assert that xis are inside the space domain
             basis_values = CollocationBasisValues(grid, Vh, nderiv=nderiv)
             args = args + (basis_values,)
-        # ...
-
-        if self.mapping:
-            args = args + (self.mapping,)
 
         values = self.func(*args, **kwargs)
 
-        if is_block:
-            # n_rows = n_cols here
-            n_rows = self.interface.n_rows
-            n_cols = self.interface.n_cols
-            nbasis = [V.nbasis for V in Vh.spaces]
-
-            d = {}
-            i = 0
-            for i_row in range(0, n_rows):
-                for i_col in range(0, n_cols):
-                    d[i_row, i_col] = values[i]
-                    i += 1
-
-            eig_mat = np.zeros((n_rows,*nbasis))
-
-            # ... compute dtype of the matrix
-            dtype = 'float'
-            are_complex = [i == 'complex' for i in self.interface.global_mats_types]
-            if any(are_complex):
-                dtype = 'complex'
-            # ...
-
-            mat = np.zeros((n_rows,n_cols), dtype=dtype)
-
-            if dim == 2:
-                for i1 in range(0, nbasis[0]):
-                    for i2 in range(0, nbasis[1]):
-                        mat[...] = 0.
-                        for i_row in range(0,n_rows):
-                            for i_col in range(0,n_cols):
-                                mat[i_row,i_col] = d[i_row,i_col][i1, i2]
-                        w,v = eig_solver(mat)
-                        wr = w.real
-                        eig_mat[:,i1,i2] = wr[:]
-
-            elif dim == 3:
-                for i1 in range(0, nbasis[0]):
-                    for i2 in range(0, nbasis[1]):
-                        for i3 in range(0, nbasis[2]):
-                            mat[...] = 0.
-                            for i_row in range(0,n_rows):
-                                for i_col in range(0,n_cols):
-                                    mat[i_row,i_col] = d[i_row,i_col][i1, i2, i3]
-                            w,v = eig_solver(mat)
-                            wr = w.real
-                            eig_mat[:,i1,i2,i3] = wr[:]
-
-            else:
-                raise NotImplementedError('')
-
-            values = eig_mat
-
         return values
 
-    def __call__(self, *args, **kwargs):
-        return self.evaluate(*args, **kwargs)
 
