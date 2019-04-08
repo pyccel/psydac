@@ -332,7 +332,54 @@ class CartDecomposition():
 
         return cart
 
+    def reduce_grid(self, global_starts, global_ends):
 
+        # Make a copy
+        cart = CartDecomposition(self.npts, self.pads, self.periods, self.reorder, comm=self.comm)
+
+        cart._npts = tuple(end[-1] + 1 for end in global_ends)
+
+        cart._dims = self._dims
+
+        # Create a 2D MPI cart
+        cart._comm_cart = self._comm_cart
+
+        # Know my coordinates in the topology
+        cart._rank_in_topo = self._rank_in_topo
+        cart._coords       = self._coords
+
+        # Start/end values of global indices (without ghost regions)
+        cart._starts = tuple( starts[i] for i,starts in zip( self._coords, global_starts) )
+        cart._ends   = tuple( ends[i]   for i,ends   in zip( self._coords, global_ends  ) )
+
+        # List of 1D global indices (without ghost regions)
+        cart._grids = tuple( range(s,e+1) for s,e in zip( cart._starts, cart._ends ) )
+
+        # N-dimensional global indices (without ghost regions)
+        cart._indices = product( *cart._grids )
+
+        # Compute shape of local arrays in topology (with ghost regions)
+        cart._shape = tuple( e-s+1+2*p for s,e,p in zip( cart._starts, cart._ends, cart._pads ) )
+
+        # Extended grids with ghost regions
+        cart._extended_grids = tuple( range(s-p,e+p+1) for s,e,p in zip( cart._starts, cart._ends, cart._pads ) )
+
+        # N-dimensional global indices with ghost regions
+        cart._extended_indices = product( *cart._extended_grids )
+
+
+        # Compute/store information for communicating with neighbors
+        cart._shift_info = {}
+        for dimension in range( cart._ndims ):
+            for disp in [-1,1]:
+                cart._shift_info[ dimension, disp ] = \
+                        cart._compute_shift_info( dimension, disp )
+
+        # Store arrays with all the starts and ends along each direction
+        cart._global_starts = global_starts
+        cart._global_ends   = global_ends
+
+        return cart
 
 #===============================================================================
 class CartDataExchanger:
