@@ -400,8 +400,7 @@ class TensorFemSpace( FemSpace ):
             out     = field.coeffs,
         )
 
-   def reduce_grid(self, axes=[], knots=[]):
-    
+    def reduce_grid(self, axes=[], knots=[]):
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
         v = self._vector_space
