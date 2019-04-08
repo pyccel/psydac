@@ -51,7 +51,7 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     # ... discrete spaces
     Vh = discretize(V, domain_h, degree=degree)
     # ...
-    a = x*y+pi*div(F)
+    a = x*y+pi*div(F)+dot(F,F)
     # ... dsicretize the bilinear form
     ah = discretize(a, domain_h, Vh)
     

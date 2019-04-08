@@ -71,7 +71,7 @@ def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
 
     p_indices = get_index_derivatives(atom)
     orders = [0 for i in range(0, dim)]
-    ind   = 0
+    ind    = 0
     a = atom
     if isinstance(atom, _partial_derivatives):
         a = get_atom_derivatives(atom)
@@ -259,7 +259,9 @@ class ExprKernel(SplBasic):
         # ...
         
         # ...
-
+        atomic_scalar_field = _atomic(expr, cls=ScalarField)
+        atomic_vector_field = _atomic(expr, cls=VectorField)
+        
         atomic_expr_field        = [atom for atom in atoms if is_field(atom)]
         atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
         self._fields = tuple(atomic_expr_field)
@@ -271,14 +273,13 @@ class ExprKernel(SplBasic):
         fields = symbols(fields_str)
         vector_fields = symbols(vector_fields_str)
         
-        fields_val    = variables(['{}_values'.format(f) for f in fields_str],
+        fields_coeff = ()
+        vector_fields_coeff = ()
+        if fields:
+            fields_coeff    = variables(['F_coeff',],
                                           dtype='real', rank=dim, cls=IndexedVariable)
-        vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
-                                          dtype='real', rank=dim, cls=IndexedVariable)
-                                          
-        fields_coeff    = variables(['{}_coeff'.format(f) for f in fields_str],
-                                          dtype='real', rank=dim, cls=IndexedVariable)
-        vector_fields_coeff    = variables(['{}_coeff'.format(f) for f in vector_fields_str],
+        if vector_fields:                              
+            vector_fields_coeff    = variables(['F_{}_coeff'.format(str(i)) for i in range(size)],
                                           dtype='real', rank=dim, cls=IndexedVariable)
                                           
         self._fields_coeff = fields_coeff
@@ -325,12 +326,12 @@ class ExprKernel(SplBasic):
         # ...
 
         # ... fields
-        for i in range(len(fields_val)):
+        for i in range(len(fields)):
             body.append(Assign(fields[i],0))
             atom      = atomic_expr_field[i]
             atoms,ind = compute_atoms_expr(atom, basis, indices, loc_indices, dim)
             slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans,degrees,loc_indices,indices))
-            args   = args + (fields_coeff[i][slices],)
+            args   = args + (fields_coeff[0][slices],)
             for_body = [AugAssign(fields[i],'+',Mul(*args))]
             loc_ranges = [Range(j) for j in degrees]
             for j in range(dim):
@@ -338,12 +339,12 @@ class ExprKernel(SplBasic):
             
             body += for_body
             
-        for i in range(len(vector_fields_val)):
+        for i in range(len(vector_fields)):
             body.append(Assign(vector_fields[i],0))
             atom = atomic_expr_vector_field[i]
             atoms,ind = compute_atoms_expr(atom, basis, indices, loc_indices, dim)
             slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans[ind::size],degrees[ind::size],loc_indices,indices))
-            atoms   = atoms + (vector_fields_coeff[i][slices],)
+            atoms   = atoms + (vector_fields_coeff[ind][slices],)
             for_body = [AugAssign(vector_fields[i],'+',Mul(*atoms))]
             loc_ranges = [Range(j) for j in degrees[ind::size]]
             for j in range(dim):
@@ -423,7 +424,6 @@ class ExprKernel(SplBasic):
         # function args
 
         func_args = self.build_arguments(mats)
-
         decorators = {}
         header = None
         if self.backend['name'] == 'pyccel':
