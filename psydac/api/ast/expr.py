@@ -59,6 +59,39 @@ from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace, VectorFemSpace
 
+#==============================================================================
+def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
+
+    cls = (_partial_derivatives,
+           ScalarField, VectorField,
+           IndexedVectorField)
+
+    if not isinstance(atom, cls):
+        raise TypeError('atom must be of type {}'.format(str(cls)))
+
+    p_indices = get_index_derivatives(atom)
+    orders = [0 for i in range(0, dim)]
+    ind   = 0
+    a = atom
+    if isinstance(atom, _partial_derivatives):
+        a = get_atom_derivatives(atom)
+        orders[atom.grad_index] = p_indices[atom.coordinate]
+        
+
+    if isinstance(a, IndexedVectorField):
+        ind = a.indices[0]
+    args = []
+    for i in range(dim):
+        if isinstance(a, IndexedVectorField):
+            args.append(basis[ind+i*dim][loc_indices[i],orders[i],indices[i]])
+        elif isinstance(a, ScalarField):
+            args.append(basis[i][loc_indices[i],orders[i],indices[i]])
+        else:
+            raise NotImplementedError('TODO')
+
+    #
+    return tuple(args),ind
+
 class ExprKernel(SplBasic):
 
     def __new__(cls, expr, space, name=None, mapping=None, is_rational_mapping=None, backend=None):
@@ -154,7 +187,6 @@ class ExprKernel(SplBasic):
         Vh   = self.space
         expr = self.expr
         dim  = Vh.ldim
-
         if isinstance(Vh, ProductFemSpace):
             size = Vh.shape
         else:
@@ -295,9 +327,10 @@ class ExprKernel(SplBasic):
         # ... fields
         for i in range(len(fields_val)):
             body.append(Assign(fields[i],0))
-            args = [basis[j][loc_indices[j],0,indices[j]] for j in range(dim)]
-            slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans,degres,loc_indices,indices))
-            args   = args + [fields_coeff[i][slices]]
+            atom      = atomic_expr_field[i]
+            atoms,ind = compute_atoms_expr(atom, basis, indices, loc_indices, dim)
+            slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans,degrees,loc_indices,indices))
+            args   = args + (fields_coeff[i][slices],)
             for_body = [AugAssign(fields[i],'+',Mul(*args))]
             loc_ranges = [Range(j) for j in degrees]
             for j in range(dim):
@@ -307,11 +340,11 @@ class ExprKernel(SplBasic):
             
         for i in range(len(vector_fields_val)):
             body.append(Assign(vector_fields[i],0))
-            ind = atomic_expr_vector_field[i].indices[0]
-            args = [basis[ind+j*dim][loc_indices[j],0,indices[j]] for j in range(dim)]
+            atom = atomic_expr_vector_field[i]
+            atoms,ind = compute_atoms_expr(atom, basis, indices, loc_indices, dim)
             slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans[ind::size],degrees[ind::size],loc_indices,indices))
-            args   = args + [vector_fields_coeff[i][slices]]
-            for_body = [AugAssign(vector_fields[i],'+',Mul(*args))]
+            atoms   = atoms + (vector_fields_coeff[i][slices],)
+            for_body = [AugAssign(vector_fields[i],'+',Mul(*atoms))]
             loc_ranges = [Range(j) for j in degrees[ind::size]]
             for j in range(dim):
                 for_body = [For(loc_indices[dim-1-j], loc_ranges[dim-1-j],for_body)]
@@ -356,7 +389,7 @@ class ExprKernel(SplBasic):
         # ...
 
         # ...
-        self._basic_args = arr_xis + fields_coeff + vector_fields_coeff + basis + spans
+        self._basic_args = arr_xis + fields_coeff + vector_fields_coeff + degrees +basis + spans
         # ...
 
         # ...
@@ -508,7 +541,7 @@ class ExprInterface(SplBasic):
             if_body = [Assign(M, FunctionCall('zeros', _args))]
 
             stmt = If((if_cond, if_body))
-            body += [stmt]
+            body += [Import('zeros', 'numpy'), stmt]
         # ...
 
         # ...

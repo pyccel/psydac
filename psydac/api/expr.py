@@ -17,12 +17,14 @@ from psydac.mapping.discrete  import SplineMapping, NurbsMapping
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
-from sympy import Expr
+
+from sympde.expr        import TerminalExpr
+from sympy              import Expr
 
 #==============================================================================
 class DiscreteExpr(BasicCodeGen):
 
-    def __init__(self, expr, kernel_expr, *args, **kwargs):
+    def __init__(self, expr, *args, **kwargs):
         if not isinstance(expr, Expr):
             raise TypeError('> Expecting a symbolic expression')
 
@@ -48,7 +50,7 @@ class DiscreteExpr(BasicCodeGen):
         # ...
         self._space = args[1]
         # ...
-
+        kernel_expr = TerminalExpr(expr, dim=self._space.ldim)
         # ...
         kwargs['mapping'] = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
@@ -85,9 +87,6 @@ class DiscreteExpr(BasicCodeGen):
                             mapping = mapping,
                             is_rational_mapping = is_rational_mapping,
                             backend = backend )
-                            
-        from psydac.api.printing.pycode import pycode
-        print(pycode(kernel.func))
         
         interface = ExprInterface( kernel,
                                   name = 'interface_{}'.format(tag),
@@ -95,81 +94,49 @@ class DiscreteExpr(BasicCodeGen):
                                   is_rational_mapping = is_rational_mapping,
                                   backend = backend )
         # ...
-        print(pycode(interface.func))
 
         ast = {'kernel': kernel, 'interface': interface}
         return ast
 
 
-    def _check_arguments(self, **kwargs):
-
-        # TODO do we need a method from Interface to map the dictionary of arguments
-        # that are passed for the call (in the same spirit of build_arguments)
-        # the idea is to be sure of their order, since they can be passed to
-        # Fortran
-
-        _kwargs = {}
-
-        # ... mandatory arguments
-        sym_args = self.interface.in_arguments
-        keys = [str(a) for a in sym_args]
-        for key in keys:
-            try:
-                # we use x1 for the call rather than arr_x1, to keep x1 inside
-                # the loop
-                if key == 'x1':
-                    _kwargs['arr_x1'] = kwargs[key]
-
-                elif key == 'x2':
-                    _kwargs['arr_x2'] = kwargs[key]
-
-                elif key == 'x3':
-                    _kwargs['arr_x3'] = kwargs[key]
-
-                else:
-                    _kwargs[key] = kwargs[key]
-            except:
-                raise KeyError('Unconsistent argument with interface')
-        # ...
-
-        # ... optional (inout) arguments
-        sym_args = self.interface.inout_arguments
-        keys = [str(a) for a in sym_args]
-        for key in keys:
-            try:
-                _kwargs[key] = kwargs[key]
-            except:
-                pass
-        # ...
-
-        return _kwargs
-
     def __call__(self, *args, **kwargs):
-
-        kwargs = self._check_arguments(**kwargs)
-
+        
         Vh = self.space
-        is_block = False
-        if isinstance(Vh, ProductFemSpace):
-            Vh = Vh.spaces[0]
-            is_block = True
-
-        if not isinstance(Vh, TensorFemSpace):
-            raise NotImplementedError('Only TensorFemSpace is available for the moment')
-
-        args = (Vh,) + args 
-
         dim = Vh.ldim
+        assert len(args)==dim+1
+        
+        is_block = False
 
-        # ...
-        if self.kernel.fields:
+        if self.interface.kernel.fields or self.interface.kernel.vector_fields:
             nderiv = self.interface.max_nderiv
-            xis = [kwargs['arr_x{}'.format(i)] for i in range(1,dim+1)]
-            grid = tuple(xis)
+            
+            field = args[-1]
+            grid = args[:-1]
+            
             # TODO assert that xis are inside the space domain
-            basis_values = CollocationBasisValues(grid, Vh, nderiv=nderiv)
-            args = args + (basis_values,)
+            if isinstance(Vh, ProductFemSpace):
+                basis_values = [CollocationBasisValues(grid, V, nderiv=nderiv) for V in Vh.spaces]
+                basis = [bs.basis for bs in basis_values]
+                spans = [bs.spans for bs in basis_values]
+                # transpose the basis and spans
+                degrees = list(np.array(Vh.degree).T.flatten())
+                basis   = list(map(list, zip(*basis)))
+                spans   = list(map(list, zip(*spans)))
+                basis   = [b for bs in basis for b in bs]
+                spans   = [s for sp in spans for s in sp]
+                field   = tuple(field.coeffs[i] for i in range(Vh.shape))
+            else:
+                
+                basis_values = CollocationBasisValues(grid, Vh, nderiv=nderiv)
+                basis   = basis_values.basis
+                spans   = basis_values.spans
+                degrees = Vh.degree
+                field   = (field.coeffs,)
+                
 
+            args = grid+ field +(*degrees, *basis, *spans)
+            
+        args = (Vh,) +args 
         values = self.func(*args, **kwargs)
 
         return values

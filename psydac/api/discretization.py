@@ -357,8 +357,7 @@ def discretize(a, *args, **kwargs):
         return DiscreteGltExpr(a, *args, **kwargs)
         
     elif isinstance(a, sym_Expr):
-        kernel_expr = TerminalExpr(a)
-        return DiscreteExpr(a, kernel_expr,*args, **kwargs)
+        return DiscreteExpr(a,*args, **kwargs)
 
     else:
         raise NotImplementedError('given {}'.format(type(a)))

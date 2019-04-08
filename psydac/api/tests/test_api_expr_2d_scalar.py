@@ -23,6 +23,7 @@ from sympde.expr import find, EssentialBC
 from gelato.expr import GltExpr
 
 from psydac.fem.basic   import FemField
+from psydac.fem.vector  import VectorFemField
 from psydac.api.discretization import discretize
 
 import numpy as np
@@ -50,10 +51,14 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     # ... discrete spaces
     Vh = discretize(V, domain_h, degree=degree)
     # ...
-    a = x*y+pi*sin(F[0]*F[1])
+    a = x*y+pi*div(F)
     # ... dsicretize the bilinear form
     ah = discretize(a, domain_h, Vh)
-
+    
+    Fh = VectorFemField(Vh) 
+    x = np.array(range(5))/5
+    y=ah(x,x,Fh)
+    print(y)
 
 
 ###############################################################################
@@ -64,6 +69,5 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
 def test_api_glt_poisson_2d_dir_1():
 
     error = run_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
-
 
 test_api_glt_poisson_2d_dir_1()
