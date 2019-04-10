@@ -7,10 +7,11 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import ScalarField, VectorField
+from sympde.topology import element_of_space, element_of_space
 from sympde.topology import ProductSpace
-from sympde.topology import ScalarTestFunction
-from sympde.topology import VectorTestFunction
+from sympde.topology import element_of_space
+from sympde.topology import element_of_space
+from sympde.topology import element_of_space
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
@@ -48,11 +49,11 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     x,y = domain.coordinates
 
-    F = ScalarField(V2, name='F')
+    F = element_of_space(V2, name='F')
 
 
-    p,q = [VectorTestFunction(V1, name=i) for i in ['p', 'q']]
-    u,v = [ScalarTestFunction(V2, name=i) for i in ['u', 'v']]
+    p,q = [element_of_space(V1, name=i) for i in ['p', 'q']]
+    u,v = [element_of_space(V2, name=i) for i in ['u', 'v']]
 
     a  = BilinearForm(((p,u),(q,v)),dot(p,q) + div(q)*u + div(p)*v )
     l  = LinearForm((q,v), f0*v)
@@ -109,10 +110,10 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
 
     x,y = domain.coordinates
 
-    F = VectorField(V1, name='F')
+    F = element_of_space(V1, name='F')
 
-    u,v = [VectorTestFunction(V1, name=i) for i in ['u', 'v']]
-    p,q = [ScalarTestFunction(V2, name=i) for i in ['p', 'q']]
+    u,v = [element_of_space(V1, name=i) for i in ['u', 'v']]
+    p,q = [element_of_space(V2, name=i) for i in ['p', 'q']]
 
     a  = BilinearForm(((u,p),(v,q)),inner(grad(u),grad(v)) + div(u)*q - p*div(v) )
     l  = LinearForm((v,q), f1*v[0]+f2*v[1]+q)
