@@ -151,3 +151,15 @@ def test_api_system_1_2d_dir_1():
 
     assert( np.allclose(l2_error, expected_l2_error, 1.e-7) )
     assert( np.allclose(h1_error, expected_h1_error, 1.e-7) )
+    
+#==============================================================================
+# CLEAN UP SYMPY NAMESPACE
+#==============================================================================
+
+def teardown_module():
+    from sympy import cache
+    cache.clear_cache()
+
+def teardown_function():
+    from sympy import cache
+    cache.clear_cache()

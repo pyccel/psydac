@@ -164,7 +164,6 @@ def run_variable_coeff_2d_dir(ncells, degree, comm=None):
 
     expr = (1 + c*sin(pi*(x+y)))*dx(u)*dx(v) + (1 + c*sin(pi*(x-y)))*dy(u)*dy(v)
     a = BilinearForm((v,u), expr)
-
     glt_a = GltExpr(a)
     # ...
 

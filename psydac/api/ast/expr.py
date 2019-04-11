@@ -90,7 +90,7 @@ def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
             raise NotImplementedError('TODO')
 
     #
-    return tuple(args),ind
+    return tuple(args), ind
 
 class ExprKernel(SplBasic):
 
@@ -257,8 +257,7 @@ class ExprKernel(SplBasic):
         self._constants = _atomic(expr, cls=Constant)
         self._coordinates = tuple(xis)
         # ...
-        
-        # ...
+
         atomic_scalar_field = _atomic(expr, cls=ScalarField)
         atomic_vector_field = _atomic(expr, cls=VectorField)
         

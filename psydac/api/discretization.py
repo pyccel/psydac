@@ -327,6 +327,8 @@ def discretize_domain(domain, *args, **kwargs):
 def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BasicForm):
+        if not a.is_annotated:
+            a = a._annotate()
         kernel_expr = TerminalExpr(a)
 #        print('=================')
 #        print(kernel_expr)
@@ -357,7 +359,7 @@ def discretize(a, *args, **kwargs):
         return DiscreteGltExpr(a, *args, **kwargs)
         
     elif isinstance(a, sym_Expr):
-        return DiscreteExpr(a,*args, **kwargs)
+        return DiscreteExpr(a, *args, **kwargs)
 
     else:
         raise NotImplementedError('given {}'.format(type(a)))
