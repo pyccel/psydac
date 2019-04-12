@@ -103,41 +103,45 @@ class DiscreteExpr(BasicCodeGen):
         
         Vh = self.space
         dim = Vh.ldim
-        assert len(args)==dim+1
+        assert len(args) == dim
         
         is_block = False
-
-        if self.interface.kernel.fields or self.interface.kernel.vector_fields:
+        fields = self.interface.kernel.fields + self.interface.kernel.vector_fields
+        
+        if fields:
             nderiv = self.interface.max_nderiv
-            
-            field = args[-1]
-            grid = args[:-1]
+            print(fields)
+            fields = [kwargs[F.name] for F in fields]
+            grid  = args
             
             # TODO assert that xis are inside the space domain
-            if isinstance(Vh, ProductFemSpace):
-                basis_values = [CollocationBasisValues(grid, V, nderiv=nderiv) for V in Vh.spaces]
-                basis = [bs.basis for bs in basis_values]
-                spans = [bs.spans for bs in basis_values]
-                # transpose the basis and spans
-                degrees = list(np.array(Vh.degree).T.flatten())
-                basis   = list(map(list, zip(*basis)))
-                spans   = list(map(list, zip(*spans)))
-                basis   = [b for bs in basis for b in bs]
-                spans   = [s for sp in spans for s in sp]
-                field   = tuple(field.coeffs[i] for i in range(Vh.shape))
-            else:
-                
-                basis_values = CollocationBasisValues(grid, Vh, nderiv=nderiv)
-                basis   = basis_values.basis
-                spans   = basis_values.spans
-                degrees = Vh.degree
-                field   = (field.coeffs,)
+            # TODO generalize to use multiple fields
+            coeffs = ()
+            for F in fields:
+                if isinstance(Vh, ProductFemSpace):
+                    basis_values = [CollocationBasisValues(grid, V, nderiv=nderiv) for V in Vh.spaces]
+                    basis = [bs.basis for bs in basis_values]
+                    spans = [bs.spans for bs in basis_values]
+                    # transpose the basis and spans
+                    degrees = list(np.array(Vh.degree).T.flatten())
+                    basis   = list(map(list, zip(*basis)))
+                    spans   = list(map(list, zip(*spans)))
+                    basis   = [b for bs in basis for b in bs]
+                    spans   = [s for sp in spans for s in sp]
+                    coeffs  = coeffs + tuple(F.coeffs[i] for i in range(Vh.shape))
+                else:
+                    
+                    basis_values = CollocationBasisValues(grid, Vh, nderiv=nderiv)
+                    basis   = basis_values.basis
+                    spans   = basis_values.spans
+                    degrees = Vh.degree
+                    coeffs  = coeffs + (F.coeffs,)
                 
 
-            args = grid+ field +(*degrees, *basis, *spans)
+            args = grid + coeffs + (*degrees, *basis, *spans)
             
-        args = (Vh,) +args 
-        values = self.func(*args, **kwargs)
+        args = (Vh,) + args 
+        values = self.func(*args)
 
         return values
 

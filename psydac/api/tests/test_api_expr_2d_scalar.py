@@ -43,6 +43,8 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     F = VectorField(V, name='F')
     
     x,y = domain.coordinates
+    
+    expr = x*y+ pi*div(F) + dot(F, F)
 
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
@@ -51,14 +53,17 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     # ... discrete spaces
     Vh = discretize(V, domain_h, degree=degree)
     # ...
-    a = x*y+pi*div(F)+dot(F,F)
+    
     # ... dsicretize the bilinear form
-    ah = discretize(a, domain_h, Vh)
+    exprh = discretize(expr, domain_h, Vh)
     
     Fh = VectorFemField(Vh) 
-    x = np.array(range(5))/5
-    y=ah(x,x,Fh)
-    print(y)
+   
+    x = np.linspace(0., 1., 101)
+    y = np.linspace(0., 1., 101)
+    
+    z = exprh(x, y, F=Fh)
+
 
 
 ###############################################################################
@@ -68,6 +73,6 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
 #==============================================================================
 def test_api_glt_poisson_2d_dir_1():
 
-    error = run_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
+    run_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
 
 test_api_glt_poisson_2d_dir_1()
