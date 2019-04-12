@@ -92,6 +92,7 @@ def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
     #
     return tuple(args), ind
 
+
 class ExprKernel(SplBasic):
 
     def __new__(cls, expr, space, name=None, mapping=None, is_rational_mapping=None, backend=None):
@@ -263,8 +264,9 @@ class ExprKernel(SplBasic):
         
         atomic_expr_field        = [atom for atom in atoms if is_field(atom)]
         atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
-        self._fields = tuple(atomic_expr_field)
-        self._vector_fields = tuple(atomic_expr_vector_field)
+
+        self._fields = tuple(expr.atoms(ScalarField))
+        self._vector_fields = tuple(expr.atoms(VectorField))
         # ...
         fields_str        = tuple(map(print_expression, atomic_expr_field))
         vector_fields_str = tuple(map(print_expression, atomic_expr_vector_field))  
