@@ -10,47 +10,46 @@ __all__ = ['KroneckerStencilMatrix_2D',
            'kronecker_solve']
 
 #==============================================================================
-class KroneckerStencilMatrix_2D( LinearOperator ):
+class KroneckerStencilMatrix( LinearOperator ):
 
-    def __init__( self, V, W, A1, A2 ):
+    def __init__( self,V, W, *args ):
 
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
-        assert V is W
-        assert V.ndim == 2
 
-        assert isinstance( A1, StencilMatrix )
-        assert A1.domain.ndim == 1
-        assert A1.domain.npts[0] == V.npts[0]
+        for A in args:
+            assert isinstance( A, StencilMatrix )
+            assert A.domain.ndim == 1
+            assert A.domain.npts[0] == V.npts[0]
 
-        assert isinstance( A2, StencilMatrix )
-        assert A2.domain.ndim == 1
-        assert A2.domain.npts[0] == V.npts[1]
-
-        self._space = V
-        self._A1    = A1
-        self._A2    = A2
-        self._Y     = StencilVector( V )
+        self._domain   = V
+        self._codomain = W
+        self._mats     = args
 
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
     @property
     def domain( self ):
-        return self._space
+        return self._domain
 
     # ...
     @property
     def codomain( self ):
-        return self._space
+        return self._codomain
 
     # ...
-    def dot( self, X, out=None ):
+    @property
+    def mats(self):
+        return self._mats
+
+    # ...
+    def dot( self, x, out=None ):
 
         dot = np.dot
 
-        assert isinstance( X, StencilVector )
-        assert X.space is self.domain
+        assert isinstance( x, StencilVector )
+        assert x.space is self.domain
 
         if out is not None:
             assert isinstance( out, StencilVector )
@@ -58,22 +57,23 @@ class KroneckerStencilMatrix_2D( LinearOperator ):
         else:
             out = StencilVector( self.codomain )
 
-        [s1, s2] = self._space.starts
-        [e1, e2] = self._space.ends
-        [p1, p2] = self._space.pads
+        starts = self._space.starts
+        ends   = self._space.ends
+        pads   = self._space.pads
 
-        A1 = self._A1
-        A2 = self._A2
-        Y  = self._Y
+        mats   = self.mats
+        
+        nrows  = tuple(e-s for s,e in zip(starts, ends))
+        pnrows = tuple(2*p+1 for p in pads)
+        
+        for ii in np.ndindex(*nrows):
+            v = 0.
+            for jj in np.ndindex(*pnrows):
+                index = tuple(i-p+j for i,j,p in zip(ii,jj,pads))
+                i_mats = [mat._data[i,j] for i,j,mat in zip(ii, jj,mats)]
+                v += x[index]*np.product(i_mats)
 
-        for j1 in range(s1-p1, e1+p1+1):
-            for i2 in range(s2, e2+1):
-                 Y[j1,i2] = dot( X[j1,i2-p2:i2+p2+1], A2[i2,:])
-
-        for i1 in range(s1, e1+1):
-            for i2 in range(s2, e2+1):
-                 out[i1,i2] = dot( A1[i1,:], Y[i1-p1:i1+p1+1,i2] )
-
+            out[ii] = v
         out.update_ghost_regions()
 
         return out
@@ -113,7 +113,7 @@ class KroneckerStencilMatrix_2D( LinearOperator ):
 
     #...
     def copy( self ):
-        M = KroneckerStencilMatrix_2D( self.domain, self.codomain, self._A1, self._A2 )
+        M = KroneckerStencilMatrix( self.domain, self.codomain, *self.mats )
         return M
 
 #==============================================================================

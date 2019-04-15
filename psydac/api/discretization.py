@@ -264,17 +264,21 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 
             elif isinstance(kind, HcurlSpaceType):
                 if ldim == 2:
-                    spaces = [Vh.reduce_degree(axes=[0]),Vh.reduce_degree(axes=[1])]
+                    spaces = [Vh.reduce_degree(axes=[0]), Vh.reduce_degree(axes=[1])]
                 elif ldim == 3:
-                    spaces = [Vh.reduce_degree(axes=[0]),Vh.reduce_degree(axes=[1]),Vh.reduce_degree(axes=[2])]
+                    spaces = [Vh.reduce_degree(axes=[0]), Vh.reduce_degree(axes=[1]), Vh.reduce_degree(axes=[2])]
+                else:
+                    raise NotImplementedError('TODO')
                 
             elif isinstance(kind, HdivSpaceType):
             
                 if ldim == 2:
                     spaces = [Vh.reduce_degree(axes=[1]), Vh.reduce_degree(axes=[0])]
                 elif ldim == 3:
-                    spaces = [Vh.reduce_degree(axes=[1,2]),Vh.reduce_degree(axes=[0,2]),Vh.reduce_degree(axes=[0,1])]
-
+                    spaces = [Vh.reduce_degree(axes=[1,2]), Vh.reduce_degree(axes=[0,2]), Vh.reduce_degree(axes=[0,1])]
+                else:
+                    raise NotImplementedError('TODO')
+                    
         elif isinstance(V, ProductSpace):
             
             for Vi in V.spaces:
