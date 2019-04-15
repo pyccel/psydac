@@ -2,7 +2,8 @@
 
 import numpy as np
 
-from psydac.linalg         import StencilMatrix, StencilVectorSpace, KroneckerStencilMatrix
+from psydac.linalg.stencil import StencilMatrix, StencilVectorSpace
+from psydac.linalg.kron    import KroneckerStencilMatrix
 from psydac.linalg.block   import ProductSpace, BlockVector, BlockLinearOperator, BlockMatrix
 from psydac.fem.vector     import ProductFemSpace
 
@@ -21,10 +22,10 @@ def d_matrix(n, p, P):
     """
     
     V = StencilVectorSpace([n], [p], [P])
-    M = StencilVector(V, V)
+    M = StencilMatrix(V, V)
     
     M._data[0, p] = 1.
-    for i in range(1, n):
+    for i in range(1, n+1):
         M._data[i,p] = 1.
         M[i,p-1] = -1.
         
@@ -45,9 +46,9 @@ def identity(n, p, P):
     """
     
     V = StencilVectorSpace([n], [p], [P])
-    M = StencilVector(V, V)
+    M = StencilMatrix(V, V)
     
-    for i in range(0, n):
+    for i in range(0, n+1):
         M._data[i, p] = 1.
         
     return M

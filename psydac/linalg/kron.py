@@ -57,23 +57,24 @@ class KroneckerStencilMatrix( LinearOperator ):
         else:
             out = StencilVector( self.codomain )
 
-        starts = self._space.starts
-        ends   = self._space.ends
-        pads   = self._space.pads
+        starts = self._codomain.starts
+        ends   = self._codomain.ends
+        pads   = self._codomain.pads
 
         mats   = self.mats
         
-        nrows  = tuple(e-s for s,e in zip(starts, ends))
+        nrows  = tuple(e-s+1 for s,e in zip(starts, ends))
         pnrows = tuple(2*p+1 for p in pads)
         
         for ii in np.ndindex(*nrows):
             v = 0.
+            xx = tuple(i+p for i,p in zip(ii,pads))
             for jj in np.ndindex(*pnrows):
-                index = tuple(i-p+j for i,j,p in zip(ii,jj,pads))
-                i_mats = [mat._data[i,j] for i,j,mat in zip(ii, jj,mats)]
-                v += x[index]*np.product(i_mats)
+                i_mats = [mat._data[x,j] for x,j,mat in zip(xx,jj,mats)]
+                ii_jj = tuple(i+j for i,j in zip(ii,jj))
+                v += x._data[ii_jj]*np.product(i_mats)
 
-            out[ii] = v
+            out._data[xx] = v
         out.update_ghost_regions()
 
         return out
