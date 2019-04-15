@@ -247,18 +247,21 @@ class BlockLinearOperator( LinearOperator ):
     def dot( self, v, out=None ):
 
         assert isinstance( v, BlockVector )
-        assert v.space is self._codomain
+        
+        for i in range(len(v.space[:])):
+            assert v.space[i] is self._domain[i]
+            
         assert all( v.blocks )
 
         if out is not None:
             assert isinstance( out, BlockVector )
-            assert out.space is self._domain
+            assert out.space is self._codomain
             out *= 0.0
         else:
-            out = BlockVector( self._domain )
+            out = BlockVector( self._codomain )
 
         for (i,j), Lij in self._blocks.items():
-            out[i] += Lij.dot( v[j] )
+            out[i] = Lij.dot( v[j] )
 
         return out
 
@@ -307,7 +310,6 @@ class BlockLinearOperator( LinearOperator ):
             return
 
         i,j = key
-
         assert isinstance( value, LinearOperator )
         assert value.domain   is self.domain  [j]
         assert value.codomain is self.codomain[i]

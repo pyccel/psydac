@@ -17,10 +17,10 @@ class KroneckerStencilMatrix( LinearOperator ):
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
 
-        for A in args:
+        for i,A in enumerate(args):
             assert isinstance( A, StencilMatrix )
             assert A.domain.ndim == 1
-            assert A.domain.npts[0] == V.npts[0]
+            assert A.domain.npts[0] == V.npts[i]
 
         self._domain   = V
         self._codomain = W

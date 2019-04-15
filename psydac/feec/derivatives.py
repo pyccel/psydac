@@ -21,11 +21,12 @@ def d_matrix(n, p, P):
         periodicity
     """
     
-    V = StencilVectorSpace([n], [p], [P])
-    M = StencilMatrix(V, V)
+    V1 = StencilVectorSpace([n], [p], [P])
+    V2 = StencilVectorSpace([n-1], [p], [P])
+    M = StencilMatrix(V1, V2)
     
     M._data[0, p] = 1.
-    for i in range(1, n+1):
+    for i in range(1, n):
         M._data[i,p] = 1.
         M[i,p-1] = -1.
         
@@ -65,7 +66,7 @@ class Grad(object):
         npts    = [V.nbasis for V in Vh.spaces]
         pads    = [V.degree for V in Vh.spaces]
         periods = [V.periodic for V in Vh.spaces]
-        
+
         d_matrices = [d_matrix(n, p, P) for n,p,P in zip(npts, pads, periods)]
         identities = [identity(n, p, P) for n,p,P in zip(npts, pads, periods)]
         
@@ -87,10 +88,15 @@ class Grad(object):
                 if i==j:
                     args.append(d_matrices[j])
                 else:
-                    args.append(idnetities[j])
-            mats.append(KroneckerStencilMatrix(Vh, Vh.reduce(axes=[i]), *args))
+                    args.append(identities[j])
 
-        Mat = BlockLinearOperator( Vh, Grad_Vh, blocks=[mats] )
+            mats.append(KroneckerStencilMatrix(Vh.vector_space, Grad_Vh.spaces[i].vector_space, *args))
+
+        Vh = Vh.vector_space
+        Wh = Grad_Vh.vector_space
+        Vh = ProductSpace(Vh)
+        mats = [[mat] for mat in mats]
+        Mat = BlockLinearOperator( Vh, Wh, blocks=mats )
         self._matrix = Mat
 
 
@@ -129,8 +135,8 @@ class Curl(object):
                 if i==j:
                     args.append(d_matrices[j])
                 else:
-                    args.append(idnetities[j])
-            mats.append(KroneckerStencilMatrix(Vh, Vh.reduce(axes=[i]), *args))
+                    args.append(identities[j])
+            mats.append(KroneckerStencilMatrix(Vh, Vh.reduce_degree(axes=[i]), *args))
             
         if dim == 3:
             mats = [[None,-mats[2],mats[1]],
@@ -176,8 +182,8 @@ class Div(object):
                 if i==j:
                     args.append(d_matrices[j])
                 else:
-                    args.append(idnetities[j])
-            mats.append(KroneckerStencilMatrix(Vh, Vh.reduce(axes=[i]), *args))
+                    args.append(identities[j])
+            mats.append(KroneckerStencilMatrix(Vh, Vh.reduce_degree(axes=[i]), *args))
             
         mats = [[mat] for mat in mats]
         
