@@ -261,7 +261,7 @@ class BlockLinearOperator( LinearOperator ):
             out = BlockVector( self._codomain )
 
         for (i,j), Lij in self._blocks.items():
-            out[i] = Lij.dot( v[j] )
+            out[i] += Lij.dot( v[j] )
 
         return out
 

@@ -110,8 +110,11 @@ class KroneckerStencilMatrix( LinearOperator ):
 
     #...
     def toarray( self ):
-        return self.tocoo().toarray()
-
+        # TODO improve by using tocoo.toarray()
+        mat = self.mats[0].toarray()
+        for i in range(len(self.mats)-1):
+            mat = np.kron(mat,self.mats[i+1].toarray())
+        return mat
     #...
     def copy( self ):
         M = KroneckerStencilMatrix( self.domain, self.codomain, *self.mats )
