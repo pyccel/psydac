@@ -336,7 +336,7 @@ def histopolation_matrix(p, n, T, greville):
 
     D = np.zeros((ng-1, n-1))
     for i in range(0, ng-1):
-        for j in range(1, n):
+        for j in range(max(i-p+1,1),min(i+p+3,n) ):
             s = 0.
             for k in range(0, j):
                 s += basis[i,k] - basis[i+1,k]
