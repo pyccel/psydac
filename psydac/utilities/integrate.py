@@ -40,14 +40,16 @@ def integrate_1d(points, weights, fun):
     n = points.shape[0]
     k = points.shape[1]
     """
-    n1 = len(points)
+    n1 = points.shape[1]
+    k1 = points.shape[0]
+    
     F = zeros(n1)
     
-    for ie1 in range(n):
-        for g1 in range(k):
-            F[ie] += weights[g1, ie1]*fun(points[g1], ie1)
+    for ie1 in range(n1):
+        for g1 in range(k1):
+            F[ie1] += weights[g1, ie1]*fun(points[g1, ie1])
         
-    return f_int
+    return F
 
 
 
@@ -108,7 +110,7 @@ def integrate_3d(points, weights, fun):
                             F[ie1, ie2, ie3] += weights_1[g1, ie1]*weights_2[g2, ie2]*weights_3[g3, ie3]\
                                                        *fun(pts_1[g1, ie1], pts_2[g2, ie2], pts_3[g3, ie3])
                      
-    return f_int
+    return F
     
 class Integral(object):
     """Class for 1d integration. It is presented as a class in order to store
