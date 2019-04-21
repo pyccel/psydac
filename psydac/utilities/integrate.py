@@ -1,10 +1,10 @@
 # -*- coding: UTF-8 -*-
 
-import numpy as np
-
+from numpy import zeros
+from numpy import array
 
 def integrate_1d(points, weights, fun):
-     """Integrates the function f over the quadrature grid
+    """Integrates the function f over the quadrature grid
     defined by (points,weights) in 1d.
 
     points: np.array
@@ -40,11 +40,12 @@ def integrate_1d(points, weights, fun):
     n = points.shape[0]
     k = points.shape[1]
     """
-    f_int = np.zeros(n)
+    n1 = len(points)
+    F = zeros(n1)
     
-    for ie in range(n):
-        for g in range(k):
-            f_int[ie] += weights[ie, g]*fun(points[ie, g])
+    for ie1 in range(n):
+        for g1 in range(k):
+            F[ie] += weights[g1, ie1]*fun(points[g1], ie1)
         
     return f_int
 
@@ -64,48 +65,48 @@ def integrate_2d(points, weights, fun):
     Examples
 
     """  
-    pts_0, pts_1 = points
-    wts_0, wts_1 = weights
+    points_1, points_2 = points
+    weights_1, weights_2 = weights
     
-    n0 = pts_0.shape[0]
-    n1 = pts_1.shape[0]
-    k0 = pts_0.shape[1]
-    k1 = pts_1.shape[1]
+    n1 = points_1.shape[1]
+    n2 = points_2.shape[1]
+    k1 = points_1.shape[0]
+    k2 = points_2.shape[0]
     
-    f_int = np.zeros((n0, n1))
+    F = zeros((n1, n2))
     
-    for ie_0 in range(n0):
-        for ie_1 in range(n1):
-            for g_0 in range(k0):
-                for g_1 in range(k1):
-                    f_int[ie_0, ie_1] += wts_0[ie_0, g_0]*wts_1[ie_1, g_1]*fun(pts_0[ie_0, g_0], pts_1[ie_1, g_1])
+    for ie1 in range(n1):
+        for ie2 in range(n2):
+            for g1 in range(k1):
+                for g2 in range(k2):
+                    F[ie1, ie2] += weights_1[g1,ie1]*weights_2[g2, ie2]*fun(points_1[g1, ie1], points_2[g2, ie2])
                      
-    return f_int
+    return F
 
 
 
 def integrate_3d(points, weights, fun):
     
-    pts_0, pts_1, pts_2 = points
-    wts_0, wts_1, wts_2 = weights
+    points_1, points_2, points_3 = points
+    weights_1, weights_2, weights_3 = weights
     
-    n0 = pts_0.shape[0]
-    n1 = pts_1.shape[0]
-    n2 = pts_2.shape[0]
-    k0 = pts_0.shape[1]
-    k1 = pts_1.shape[1]
-    k2 = pts_2.shape[1]
+    n1 = points_0.shape[1]
+    n2 = points_1.shape[1]
+    n3 = points_2.shape[1]
+    k1 = points_0.shape[0]
+    k2 = points_1.shape[0]
+    k3 = points_2.shape[0]
     
-    f_int = np.zeros((n0, n1, n2))
+    F = zeros((n1, n2, n3))
     
-    for ie_0 in range(n0):
-        for ie_1 in range(n1):
-            for ie_2 in range(n2):
-                for g_0 in range(k0):
-                    for g_1 in range(k1):
-                        for g_2 in range(k2):
-                            f_int[ie_0, ie_1, ie_2] += wts_0[ie_0, g_0]*wts_1[ie_1, g_1]*wts_2[ie_2, g_2]\
-                                                       *fun(pts_0[ie_0, g_0], pts_1[ie_1, g_1], pts_2[ie_2, g_2])
+    for ie1 in range(n1):
+        for ie2 in range(n2):
+            for ie3 in range(n3):
+                for g1 in range(k1):
+                    for g2 in range(k2):
+                        for g3 in range(k3):
+                            F[ie1, ie2, ie3] += weights_1[g1, ie1]*weights_2[g2, ie2]*weights_3[g3, ie3]\
+                                                       *fun(pts_1[g1, ie1], pts_2[g2, ie2], pts_3[g3, ie3])
                      
     return f_int
     
@@ -200,5 +201,5 @@ class Interpolation(object):
 
     def __call__(self, f):
         """evaluates the function over sites."""
-        return np.array([f(x) for x in self._sites])
+        return array([f(x) for x in self._sites])
 

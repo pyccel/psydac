@@ -227,7 +227,7 @@ class Interpolation(object):
                                 
                 return F1, F2, F3
             
-            elif self.dim == 2
+            elif self.dim == 2:
                 n1 = (self._n[0]-1, self._n[1])
                 n2 = (self._n[0], self._n[1]-1)
                 
@@ -290,7 +290,7 @@ class Interpolation(object):
                                 
                 return F1, F2, F3
             
-            elif self.dim == 2
+            elif self.dim == 2:
                 n1 = (self._n[0], self._n[1]-1)
                 n2 = (self._n[0]-1, self._n[1])
                 
