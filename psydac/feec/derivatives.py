@@ -25,11 +25,10 @@ def d_matrix(n, p, P):
     V2 = StencilVectorSpace([n-1], [p], [P])
     M = StencilMatrix(V1, V2)
     
-    M._data[0, p] = 1.
-    for i in range(1, n):
-        M._data[i,p] = 1.
-        M[i,p-1] = -1.
-        
+
+    for i in range(n):
+        M._data[p+i,p] = -1.
+        M._data[p+i,p+1] = 1.
     return M
     
 def identity(n, p, P):
@@ -50,7 +49,7 @@ def identity(n, p, P):
     M = StencilMatrix(V, V)
     
     for i in range(0, n+1):
-        M._data[i, p] = 1.
+        M._data[i+p, p] = 1.
         
     return M
 
@@ -85,7 +84,9 @@ class Grad(object):
 
         Vh = Vh.vector_space
         Vh = ProductSpace(Vh)
+
         mats = [[mat] for mat in mats]
+        
         Mat = BlockLinearOperator( Vh, Grad_Vh, blocks=mats )
         self._matrix = Mat
 
@@ -109,7 +110,7 @@ class Curl(object):
         npts    =  [V.nbasis for V in Vh.spaces]
         pads    =  [V.degree for V in Vh.spaces]
         periods =  [V.periodic for V in Vh.spaces]
-        
+
         d_matrices   = [d_matrix(n, p, P) for n,p,P in zip(npts, pads, periods)]
         identities_0 = [identity(n, p, P) for n,p,P in zip(npts, pads, periods)]
         identities_1 = [identity(n-1, p, P) for n,p,P in zip(npts, pads, periods)]
@@ -225,16 +226,14 @@ class Rot(object):
         identities = [identity(n, p, P) for n,p,P in zip(npts, pads, periods)]
          
         mats = []
-
-        args
-        mats += [Stencil_kron(Vh.vector_space, Grad_Vh.spaces[i], *args)]
-        
-        args
-        mats += [Stencil_kron(Vh.vector_space, Grad_Vh.spaces[i], *args)]
+        mats += [Stencil_kron(Vh.vector_space, Grad_Vh.spaces[0], *args)]
+        mats += [Stencil_kron(Vh.vector_space, Grad_Vh.spaces[1], *args)]
 
         Vh = Vh.vector_space
         Vh = ProductSpace(Vh)
+        
         mats = [[mats[1]],[-mats[0]]]
+        
         Mat = BlockLinearOperator( Vh, Grad_Vh, blocks=mats )
         self._matrix = Mat
 

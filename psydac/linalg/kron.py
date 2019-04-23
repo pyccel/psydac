@@ -333,3 +333,5 @@ def kronecker_solve( solvers, rhs, out=None ):
         elif space.ndim == 3: kronecker_solve_3d_par( *solvers, rhs=rhs, out=out )
         else:
             raise NotImplementedError( "Kronecker solver does not work in more than 3 dimensions." )
+
+    return out

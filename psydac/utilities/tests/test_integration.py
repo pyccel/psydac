@@ -25,7 +25,8 @@ def test_integrate():
     points, weights = construct_quadrature_grid(ne, k, u, w, grid)
 
     f = lambda u: u*(1.-u)
-    f_int = integrate_1d(points, weights, f)
+    F = np.zeros(n)
+    f_int = integrate_1d(points, weights, F, f)
 
 def test_integral():
     # ...

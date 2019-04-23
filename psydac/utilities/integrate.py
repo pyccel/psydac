@@ -3,7 +3,7 @@
 from numpy import zeros
 from numpy import array
 
-def integrate_1d(points, weights, fun):
+def integrate_1d(points, weights, F, fun):
     """Integrates the function f over the quadrature grid
     defined by (points,weights) in 1d.
 
@@ -43,17 +43,14 @@ def integrate_1d(points, weights, fun):
     n1 = points.shape[1]
     k1 = points.shape[0]
     
-    F = zeros(n1)
-    
     for ie1 in range(n1):
         for g1 in range(k1):
             F[ie1] += weights[g1, ie1]*fun(points[g1, ie1])
         
-    return F
 
 
 
-def integrate_2d(points, weights, fun):
+def integrate_2d(points, weights, F, fun):
 
     """Integrates the function f over the quadrature grid
     defined by (points,weights) in 2d.
@@ -74,20 +71,18 @@ def integrate_2d(points, weights, fun):
     n2 = points_2.shape[1]
     k1 = points_1.shape[0]
     k2 = points_2.shape[0]
-    
-    F = zeros((n1, n2))
+
     
     for ie1 in range(n1):
         for ie2 in range(n2):
             for g1 in range(k1):
                 for g2 in range(k2):
                     F[ie1, ie2] += weights_1[g1,ie1]*weights_2[g2, ie2]*fun(points_1[g1, ie1], points_2[g2, ie2])
-                     
-    return F
 
 
 
-def integrate_3d(points, weights, fun):
+
+def integrate_3d(points, weights, F, fun):
     
     points_1, points_2, points_3 = points
     weights_1, weights_2, weights_3 = weights
@@ -99,7 +94,6 @@ def integrate_3d(points, weights, fun):
     k2 = points_1.shape[0]
     k3 = points_2.shape[0]
     
-    F = zeros((n1, n2, n3))
     
     for ie1 in range(n1):
         for ie2 in range(n2):
@@ -109,8 +103,7 @@ def integrate_3d(points, weights, fun):
                         for g3 in range(k3):
                             F[ie1, ie2, ie3] += weights_1[g1, ie1]*weights_2[g2, ie2]*weights_3[g3, ie3]\
                                                        *fun(pts_1[g1, ie1], pts_2[g2, ie2], pts_3[g3, ie3])
-                     
-    return F
+
     
 class Integral(object):
     """Class for 1d integration. It is presented as a class in order to store
@@ -134,7 +127,7 @@ class Integral(object):
         quadrature order. if not given it will be p+1
     """
 
-    def __init__(self, p, n, T, kind='natural', k=None):
+    def __init__(self, p, n, T, kind='natural'):
         from psydac.core.interface        import construct_grid_from_knots
         from psydac.core.interface        import compute_greville
         from psydac.core.interface        import construct_quadrature_grid
@@ -148,8 +141,8 @@ class Integral(object):
         if kind == 'greville':
             grid = compute_greville(p, n, T)
 
-        if k is None:
-            k = p + 1
+        
+        k = p + 1
 
         u, w = gauss_legendre(k-1)  # gauss-legendre quadrature rule
         ne = len(grid) - 1          # number of elements
