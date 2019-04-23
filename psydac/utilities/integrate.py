@@ -158,7 +158,8 @@ class Integral(object):
 
     def __call__(self, f):
         """Computes the integral of the function f over each element of the grid."""
-        return integrate_1d(self._points, self._weights, f)
+        F = zeros(self._n)
+        return integrate_1d(self._points, self._weights, F, f)
 
 
 class Interpolation(object):
