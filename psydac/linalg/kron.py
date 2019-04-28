@@ -8,7 +8,24 @@ __all__ = ['KroneckerStencilMatrix_2D',
            'kronecker_solve_2d_par',
            'kronecker_solve_3d_par',
            'kronecker_solve']
+           
+def kron_dot(starts, ends, pads, X, X_tmp, Y, A, B):
+    s1 = starts[0]
+    s2 = starts[1]
+    e1 = ends[0]
+    e2 = ends[1]
+    p1 = pads[0]
+    p2 = pads[1]
 
+    for j1 in range(s1-p1, e1+p1+1):
+        for i2 in range(s2, e2+1):
+             
+             X_tmp[j1+p1-s1, i2-s2+p2] = sum(X[j1+p1-s1, i2-s2+k]*B[i2,k] for k in range(2*p2+1))
+    
+    for i1 in range(s1, e1+1):
+        for i2 in range(s2, e2+1):
+             Y[i1-s1+p1,i2-s2+p2] = sum(A[i1, k]*X_tmp[i1-s1+k, i2-s2+p2] for k in range(2*p1+1))
+    return Y
 #==============================================================================
 class KroneckerStencilMatrix_2D( LinearOperator ):
 
@@ -16,8 +33,8 @@ class KroneckerStencilMatrix_2D( LinearOperator ):
 
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
-        assert V is W
         assert V.ndim == 2
+        assert V is W
 
         assert isinstance( A1, StencilMatrix )
         assert A1.domain.ndim == 1
@@ -27,22 +44,23 @@ class KroneckerStencilMatrix_2D( LinearOperator ):
         assert A2.domain.ndim == 1
         assert A2.domain.npts[0] == V.npts[1]
 
-        self._space = V
-        self._A1    = A1
-        self._A2    = A2
-        self._Y     = StencilVector( V )
+        self._domain   = V
+        self._codomain = W
+        self._A1       = A1
+        self._A2       = A2
+        self._Y        = StencilVector( V )
 
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
     @property
     def domain( self ):
-        return self._space
+        return self._domain
 
     # ...
     @property
     def codomain( self ):
-        return self._space
+        return self._codomain
 
     # ...
     def dot( self, X, out=None ):
@@ -58,13 +76,14 @@ class KroneckerStencilMatrix_2D( LinearOperator ):
         else:
             out = StencilVector( self.codomain )
 
-        [s1, s2] = self._space.starts
-        [e1, e2] = self._space.ends
-        [p1, p2] = self._space.pads
+        [s1, s2] = self._codomain.starts
+        [e1, e2] = self._codomain.ends
+        [p1, p2] = self._codomain.pads
 
         A1 = self._A1
         A2 = self._A2
         Y  = self._Y
+        X.update_ghost_regions()
 
         for j1 in range(s1-p1, e1+p1+1):
             for i2 in range(s2, e2+1):
@@ -73,7 +92,7 @@ class KroneckerStencilMatrix_2D( LinearOperator ):
         for i1 in range(s1, e1+1):
             for i2 in range(s2, e2+1):
                  out[i1,i2] = dot( A1[i1,:], Y[i1-p1:i1+p1+1,i2] )
-
+        
         out.update_ghost_regions()
 
         return out
@@ -81,23 +100,13 @@ class KroneckerStencilMatrix_2D( LinearOperator ):
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
-    @property
-    def starts( self ):
-        return self._space.starts
 
-    # ...
-    @property
-    def ends( self ):
-        return self._space.ends
-
-    # ...
-    @property
-    def pads( self ):
-        return self._space.pads
-
-    # ...
     def __getitem__(self, key):
-        raise NotImplementedError('TODO')
+        rows = key[:2]
+        cols = key[2:]
+        A = self._A1
+        B = self._A2
+        return A[rows[0],cols[0]]*B[rows[1],cols[1]]
 
     # ...
     def tocoo( self ):
@@ -109,11 +118,123 @@ class KroneckerStencilMatrix_2D( LinearOperator ):
 
     #...
     def toarray( self ):
-        return self.tocoo().toarray()
+        # TODO improve by using tocoo.toarray()
+        A = self._A1.toarray()
+        B = self._A2.toarray()
+        mat = np.kron(A, B)
+        return mat
 
     #...
     def copy( self ):
         M = KroneckerStencilMatrix_2D( self.domain, self.codomain, self._A1, self._A2 )
+        return M
+
+
+class KroneckerStencilMatrix( LinearOperator ):
+
+    def __init__( self,V, W, *args ):
+
+        assert isinstance( V, StencilVectorSpace )
+        assert isinstance( W, StencilVectorSpace )
+
+        for i,A in enumerate(args):
+            assert isinstance( A, StencilMatrix )
+            assert A.domain.ndim == 1
+            assert A.domain.npts[0] == V.npts[i]
+
+        self._domain   = V
+        self._codomain = W
+        self._mats     = args
+        self._ndim     = len(args)
+
+    #--------------------------------------
+    # Abstract interface
+    #--------------------------------------
+    @property
+    def domain( self ):
+        return self._domain
+
+    # ...
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    # ...
+    @property
+    def ndim( self ):
+        return self._ndim
+        
+    # ...
+    @property
+    def mats( self ):
+        return self._mats
+
+    # ...
+    def dot( self, x, out=None ):
+
+        dot = np.dot
+
+        assert isinstance( x, StencilVector )
+        assert x.space is self.domain
+
+        if out is not None:
+            assert isinstance( out, StencilVector )
+            assert out.space is self.codomain
+        else:
+            out = StencilVector( self.codomain )
+
+        starts = self._codomain.starts
+        ends   = self._codomain.ends
+        pads   = self._codomain.pads
+
+        mats   = self.mats
+        
+        nrows  = tuple(e-s+1 for s,e in zip(starts, ends))
+        pnrows = tuple(2*p+1 for p in pads)
+        
+        for ii in np.ndindex(*nrows):
+            v = 0.
+            xx = tuple(i+p for i,p in zip(ii,pads))
+            for jj in np.ndindex(*pnrows):
+                i_mats = [mat._data[x,j] for x,j,mat in zip(xx,jj,mats)]
+                ii_jj = tuple(i+j for i,j in zip(ii,jj))
+                v += x._data[ii_jj]*np.product(i_mats)
+
+            out._data[xx] = v
+        out.update_ghost_regions()
+
+        return out
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+
+    # ...
+    def __getitem__(self, key):
+        pads = self._codomain.pads
+        rows = key[:self.ndim]
+        cols = key[self.ndim:]
+        mats = self.mats
+        elements = [A[i,j] for A,i,j in zip(mats, rows, cols)]
+        return np.product(elements)
+    # ...
+    def tocoo( self ):
+        raise NotImplementedError('TODO')
+
+    #...
+    def tocsr( self ):
+        return self.tocoo().tocsr()
+
+    #...
+    def toarray( self ):
+        # TODO improve by using tocoo.toarray()
+        mat = self.mats[0].toarray()
+        for i in range(len(self.mats)-1):
+            mat = np.kron(mat,self.mats[i+1].toarray())
+        return mat
+    #...
+    def copy( self ):
+        M = KroneckerStencilMatrix( self.domain, self.codomain, *self.mats )
         return M
 
 #==============================================================================
@@ -329,3 +450,6 @@ def kronecker_solve( solvers, rhs, out=None ):
         elif space.ndim == 3: kronecker_solve_3d_par( *solvers, rhs=rhs, out=out )
         else:
             raise NotImplementedError( "Kronecker solver does not work in more than 3 dimensions." )
+
+    return out
+

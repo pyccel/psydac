@@ -50,7 +50,6 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     F = ScalarField(V2, name='F')
 
-
     p,q = [VectorTestFunction(V1, name=i) for i in ['p', 'q']]
     u,v = [ScalarTestFunction(V2, name=i) for i in ['u', 'v']]
 
@@ -59,7 +58,6 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     error = F-sol
     l2norm_F = Norm(error, domain, kind='l2')
-
 
     equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))
  

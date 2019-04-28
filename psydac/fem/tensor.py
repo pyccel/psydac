@@ -342,12 +342,12 @@ class TensorFemSpace( FemSpace ):
         return self._element_starts, self._element_ends
 
     @property
-    def local_element_starts( self ):
-        return self._local_element_starts
+    def global_element_starts( self ):
+        return self._global_element_starts
 
     @property
     def local_element_ends( self ):
-        return self._local_element_ends
+        return self._global_element_ends
 
     @property
     def eta_lims( self ):
@@ -401,22 +401,31 @@ class TensorFemSpace( FemSpace ):
         )
 
     def reduce_grid(self, axes=[], knots=[]):
+    
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
+        
         v = self._vector_space
         spaces = list(self.spaces)
+        
         global_starts = v._cart._global_starts.copy()
         global_ends   = v._cart._global_ends.copy()
-        local_domains_ends   = self._global_element_ends
+        global_domains_ends   = self._global_element_ends
 
         for i, axis in enumerate(axes):
-            space  = spaces[axis]
-            degree = space._degree
-            periodic=space._periodic
-            breaks = space.breaks
-            elements_ends  = local_domains_ends[axis]
-            boundries = breaks[elements_ends+1].tolist()
-            T = knots[i]
+            space    = spaces[axis]
+            degree   = space._degree
+            periodic = space._periodic
+            breaks   = space.breaks
+            T        = list(knots[i]).copy()
+            elements_ends  = global_domains_ends[axis]
+            boundries      = breaks[elements_ends+1].tolist()
+            
+            for b in boundries:
+                if b not in T:
+                    T.append(b)
+            T.sort()
+            
             new_space = SplineSpace(degree, knots=T, periodic=periodic,
                                     dirichlet=space._dirichlet)
             spaces[axis] = new_space
