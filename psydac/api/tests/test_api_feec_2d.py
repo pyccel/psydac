@@ -69,6 +69,7 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     # ... discrete spaces
     H1_Vh   = discretize(H1, domain_h, degree=degree)
     Hdiv_Vh = discretize(Hdiv, domain_h, degree=degree)
+    L2_Vh   = discretize(L2, domain_h, degree=degree)
     Xh      = discretize(X , domain_h, degree=degree)
     
     # ... dsicretize the equation
@@ -80,8 +81,8 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     rhs = ah.linear_system.rhs
     
     # ...
-    DIV = Div(H1_Vh, Hdiv_Vh.vector_space, Xh.spaces[2].vector_space)
-    Int = Interpolation(H1=H1_Vh, Hdiv=Hdiv_Vh, L2=Xh.spaces[2])
+    DIV = Div(H1_Vh, Hdiv_Vh.vector_space, L2_Vh.vector_space)
+    Int = Interpolation(H1=H1_Vh, Hdiv=Hdiv_Vh, L2=L2_Vh)
 
     # ...
     M[2,0] = DIV._matrix[0,0]
