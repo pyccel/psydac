@@ -6,7 +6,7 @@ from sympde.core import Constant
 from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
-from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import FunctionSpace, VectorFunctionSpace, Derham
 from sympde.topology import ScalarField, VectorField
 from sympde.topology import ProductSpace
 from sympde.topology import ScalarTestFunction
@@ -43,10 +43,11 @@ from matplotlib import animation
 def run_system_1_2d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Square()
-
-    H1    = FunctionSpace('V2', domain, kind='H1')
-    Hdiv  = VectorFunctionSpace('Hdiv', domain, kind='Hdiv')
-    L2    = FunctionSpace('L2', domain, kind='L2')    
+    
+    derham = Derham('D', domain, sequence=['H1', 'Hdiv', 'L2'])
+    H1    = derham.V0
+    Hdiv  = derham.V1
+    L2    = derham.V2  
     X     = ProductSpace(Hdiv, L2)
 
     F = ScalarField(L2, name='F')
@@ -67,10 +68,12 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     # ...
     
     # ... discrete spaces
-    H1_Vh   = discretize(H1, domain_h, degree=degree)
-    Hdiv_Vh = discretize(Hdiv, domain_h, degree=degree)
-    L2_Vh   = discretize(L2, domain_h, degree=degree)
-    Xh      = discretize(X , domain_h, degree=degree)
+    derham_Vh = discretize(derham, domain_h, degree=degree)
+    Xh        = discretize(X , domain_h, degree=degree)
+    
+    Hdiv_Vh = derham_Vh.V1
+    L2_Vh   = derham_Vh.V2
+    
     
     # ... dsicretize the equation
     ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
@@ -79,18 +82,13 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     M   = ah.linear_system.lhs
     rhs = ah.linear_system.rhs
-    
     # ...
-    DIV = Div(H1_Vh, Hdiv_Vh.vector_space, L2_Vh.vector_space)
-    Int = Interpolation(H1=H1_Vh, Hdiv=Hdiv_Vh, L2=L2_Vh)
-
-    # ...
-    M[2,0] = DIV._matrix[0,0]
-    M[2,1] = DIV._matrix[0,1]
+    M[2,0] = Hdiv_Vh.div._matrix[0,0]
+    M[2,1] = Hdiv_Vh.div._matrix[0,1]
     
     # ...
     f      = lambda x,y: -2*(2*np.pi)**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
-    rhs[2] = Int('L2', f)
+    rhs[2] = L2_Vh.interpolate(f)
 
     # ...
     M   = M.tosparse().tocsc()
@@ -99,13 +97,14 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     x   = spsolve(M, rhs)
 
     # ...
-    s31,s32 = Xh.spaces[2].vector_space.starts
-    e31,e32 = Xh.spaces[2].vector_space.ends
+    s31,s32 = L2_Vh.vector_space.starts
+    e31,e32 = L2_Vh.vector_space.ends
     
+    u = x[-(e31-s31+1)*(e32-s32+1):].reshape((e31-s31+1, e32-s32+1))
     # ...
-    Fh = FemField( Xh.spaces[2], normalize=True )
+    Fh = FemField( L2_Vh, normalize=True )
 
-    Fh.coeffs[s31:e31+1, s32:e32+1] = x[-(e31-s31+1)*(e32-s32+1):].reshape((e31-s31+1, e32-s32+1))
+    Fh.coeffs[s31:e31+1, s32:e32+1] = u
     
     # ...  
     fig = plt.figure()

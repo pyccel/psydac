@@ -167,9 +167,6 @@ def interpolation_matrices(Vh):
 
 
 class Interpolation(object):
-    """
-    Vh: TensorFemSpace
-    """
 
     def __init__(self, **spaces):
 
@@ -179,7 +176,12 @@ class Interpolation(object):
         for Vh in spaces.values():
             assert isinstance(Vh, (TensorFemSpace, ProductFemSpace))
         
-        H1 = spaces['H1']
+        H1 = spaces.pop('H1')
+        
+        if len(spaces) == 0:
+            kind = 'H1'
+        else:
+            kind = list(spaces.keys())[0]
         
         T = [V.knots for V in H1.spaces]
         p = H1.degree
@@ -188,13 +190,22 @@ class Interpolation(object):
 
         Is = []
         Hs = []
-        for i in range(0, len(p)):
-
-            _interpolation = Inter(p[i], n[i], T[i])
-            _integration   = Integral(p[i], n[i], T[i], kind='greville')
-
-            Is.append(_interpolation)
-            Hs.append(_integration)
+        
+        if kind == 'H1':
+            for i in range(0, len(p)):
+                _interpolation = Inter(p[i], n[i], T[i])
+                Is.append(_interpolation)
+                
+        elif kind == 'L2':
+            for i in range(0, len(p)):
+                _integration   = Integral(p[i], n[i], T[i], kind='greville')
+                Hs.append(_integration)
+        else:
+            for i in range(0, len(p)):
+                _interpolation = Inter(p[i], n[i], T[i])
+                _integration   = Integral(p[i], n[i], T[i], kind='greville')
+                Is.append(_interpolation)
+                Hs.append(_integration)
 
         self._interpolate = Is
         self._integrate   = Hs
@@ -203,6 +214,7 @@ class Interpolation(object):
         self._n = n
         self._T = T
         self._spaces = spaces
+        self._kind   = kind
         self._dim = len(p)
 
     @property
@@ -216,11 +228,18 @@ class Interpolation(object):
     @property
     def spaces(self):
         return self._spaces
+        
+    @property
+    def kind(self):
+        return self._kind
 
-    def __call__(self, kind, f):
+    def __call__(self, f):
         """Computes the integral of the function f over each element of the grid."""
+        
+        kind = self.kind
         space = self.spaces[kind]
         slices = tuple(slice(p,-p) for p in self._p)
+        
         if kind == 'H1':
             F = StencilVector(space.vector_space)
             if self.dim == 3:
