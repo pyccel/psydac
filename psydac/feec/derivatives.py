@@ -55,11 +55,11 @@ def identity(n, p, P):
 
 
 class Grad(object):
-    def __init__(self, Vh, Grad_Vh):
+    def __init__(self, Vh, Curl_Vh):
         """
         Vh : TensorFemSpace
         
-        Grad_Vh : StencilVectorSpace
+        Curl_Vh : StencilVectorSpace
         
         """
         
@@ -80,14 +80,14 @@ class Grad(object):
                 else:
                     args.append(identities[j])
 
-            mats += [Stencil_kron(Vh.vector_space, Grad_Vh.spaces[i], *args)]
+            mats += [Stencil_kron(Vh.vector_space, Curl_Vh.spaces[i], *args)]
 
         Vh = Vh.vector_space
         Vh = ProductSpace(Vh)
 
         mats = [[mat] for mat in mats]
         
-        Mat = BlockLinearOperator( Vh, Grad_Vh, blocks=mats )
+        Mat = BlockLinearOperator( Vh, Curl_Vh, blocks=mats )
         self._matrix = Mat
 
 
@@ -96,13 +96,13 @@ class Grad(object):
         return self._matrix.dot(x)
 
 class Curl(object):
-    def __init__(self, Vh, Grad_Vh, Curl_Vh):
+    def __init__(self, Vh, Curl_Vh, Div_Vh):
         """
         Vh : TensorFemSpace
         
-        Grad_Vh : StencilVectorSpace
-        
         Curl_Vh : StencilVectorSpace
+        
+        Div_Vh : StencilVectorSpace
         
         """
 
@@ -123,41 +123,41 @@ class Curl(object):
                     [None,None,None]]
                     
             args       = [-identities_0[0],identities_1[1],d_matrices[2]]
-            mats[0][1] = Stencil_kron(Grad_Vh.spaces[1],Curl_Vh.spaces[0],*args)
+            mats[0][1] = Stencil_kron(Curl_Vh.spaces[1],Div_Vh.spaces[0],*args)
             
             args       = [identities_0[0],d_matrices[1],identities_1[2]]
-            mats[0][2] = Stencil_kron(Grad_Vh.spaces[2],Curl_Vh.spaces[0],*args)
+            mats[0][2] = Stencil_kron(Curl_Vh.spaces[2],Div_Vh.spaces[0],*args)
             # ...
             
             # ...
             args       = [identities_1[0],identities_0[1],d_matrices[2]]
-            mats[1][0] = Stencil_kron(Grad_Vh.spaces[0],Curl_Vh.spaces[1], *args)
+            mats[1][0] = Stencil_kron(Curl_Vh.spaces[0],Div_Vh.spaces[1], *args)
             
             args       = [-d_matrices[0],identities_0[1],identities_1[2]]
-            mats[1][2] = Stencil_kron(Grad_Vh.spaces[2],Curl_Vh.spaces[1], *args)
+            mats[1][2] = Stencil_kron(Curl_Vh.spaces[2],Div_Vh.spaces[1], *args)
             # ...
             
             # ...
             args       = [-identities_1[0],d_matrices[1],identities_0[2]]
-            mats[2][0] = Stencil_kron(Grad_Vh.spaces[0],Curl_Vh.spaces[2], *args)
+            mats[2][0] = Stencil_kron(Curl_Vh.spaces[0],Div_Vh.spaces[2], *args)
             
             args       = [d_matrices[0],identities_1[1],identities_0[2]]
-            mats[2][1] = Stencil_kron(Grad_Vh.spaces[1],Curl_Vh.spaces[2], *args)
+            mats[2][1] = Stencil_kron(Curl_Vh.spaces[1],Div_Vh.spaces[2], *args)
             
-            Vh = Grad_Vh
-            Wh = Curl_Vh
+            Vh = Curl_Vh
+            Wh = Div_Vh
 
         elif dim == 2:
             mats = [[None , None]]
         
             args = [-identities_1[0], d_matrices[1]]
-            mats[0][0] = Stencil_kron(Grad_Vh.spaces[0], Curl_Vh, *args)
+            mats[0][0] = Stencil_kron(Curl_Vh.spaces[0], Div_Vh, *args)
 
             args = [d_matrices[0], identities_1[1]]
-            mats[0][1] = Stencil_kron(Grad_Vh.spaces[1], Curl_Vh, *args)
+            mats[0][1] = Stencil_kron(Curl_Vh.spaces[1], Div_Vh, *args)
             
-            Vh = Grad_Vh
-            Wh = ProductSpace( Curl_Vh )
+            Vh = Curl_Vh
+            Wh = ProductSpace( Div_Vh )
         
         else:
             raise NotImplementedError('TODO')
@@ -170,15 +170,16 @@ class Curl(object):
         return self._matrix.dot(x)
 
 class Div(object):
-    def __init__(self, Vh, Curl_Vh, Div_Vh):
+    def __init__(self, Vh, Div_Vh, L2_Vh):
         """
         Vh      : TensorFemSpace
         
-        Curl_Vh : StencilVectorSpace
+        Div_Vh : StencilVectorSpace
         
-        Div_Vh  : StencilVectorSpace
+        L2_Vh  : StencilVectorSpace
         
         """
+
         dim     = Vh.ldim
         npts    =  [V.nbasis for V in Vh.spaces]
         pads    =  [V.degree for V in Vh.spaces]
@@ -196,9 +197,9 @@ class Div(object):
                 else:
                     args.append(identities[j])
                     
-            mats += [Stencil_kron(Curl_Vh.spaces[i], Div_Vh, *args)]
+            mats += [Stencil_kron(Div_Vh.spaces[i], L2_Vh, *args)]
         
-        Mat = BlockLinearOperator( Curl_Vh, ProductSpace(Div_Vh), blocks=mats )
+        Mat = BlockLinearOperator( Div_Vh, ProductSpace(L2_Vh), blocks=[mats])
         self._matrix = Mat
 
     def __call__(self, x):

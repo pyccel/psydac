@@ -3,6 +3,7 @@ import numpy as np
 
 from psydac.linalg.basic   import LinearOperator, LinearSolver
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from scipy.sparse          import kron
 
 __all__ = ['KroneckerStencilMatrix_2D',
            'kronecker_solve_2d_par',
@@ -101,20 +102,20 @@ class KroneckerStencilMatrix( LinearOperator ):
         raise NotImplementedError('TODO')
 
     # ...
-    def tocoo( self ):
-        raise NotImplementedError('TODO')
+    def tosparse( self ):
+
+        mat = self.mats[0].tosparse()
+        for i in range(len(self.mats)-1):
+            mat = kron(mat, self.mats[i+1].tosparse())
+        return mat
 
     #...
     def tocsr( self ):
-        return self.tocoo().tocsr()
+        return self.tosparse().tocsr()
 
     #...
     def toarray( self ):
-        # TODO improve by using tocoo.toarray()
-        mat = self.mats[0].toarray()
-        for i in range(len(self.mats)-1):
-            mat = np.kron(mat,self.mats[i+1].toarray())
-        return mat
+        return self.tosparse().toarray()
     #...
     def copy( self ):
         M = KroneckerStencilMatrix( self.domain, self.codomain, *self.mats )

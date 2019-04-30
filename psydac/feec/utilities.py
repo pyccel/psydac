@@ -179,9 +179,11 @@ class Interpolation(object):
         for Vh in spaces.values():
             assert isinstance(Vh, (TensorFemSpace, ProductFemSpace))
         
-        T = [V.knots for V in spaces['H1'].spaces]
-        p = spaces['H1'].degree
-        n = [V.nbasis for V in spaces['H1'].spaces]   
+        H1 = spaces['H1']
+        
+        T = [V.knots for V in H1.spaces]
+        p = H1.degree
+        n = [V.nbasis for V in H1.spaces]   
 
 
         Is = []

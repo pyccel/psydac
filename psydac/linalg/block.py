@@ -311,8 +311,9 @@ class BlockLinearOperator( LinearOperator ):
 
         i,j = key
         assert isinstance( value, LinearOperator )
-        assert value.domain   is self.domain  [j]
-        assert value.codomain is self.codomain[i]
+        print(value.domain,self.domain[j])
+        assert value.domain   == self.domain  [j]
+        assert value.codomain == self.codomain[i]
 
         self._blocks[i,j] = value
 
@@ -379,7 +380,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         if value is None:
             pass
 
-        elif not isinstance( value, Matrix ):
+        elif not isinstance( value, LinearOperator ):
             msg = "Block ({},{}) must be 'Matrix' from module 'psydac.linalg.basic'.".format( i,j )
             raise TypeError( msg )
 

@@ -107,6 +107,23 @@ class StencilVectorSpace( VectorSpace ):
 
         """
         return StencilVector( self )
+        
+    # ...
+    def __eq__(self, V):
+    
+        if self.parallel and V.parallel:
+            cond = self._dtype == V._dtype
+            cond = cond and self._cart ==  V._cart
+            return cond
+            
+        elif not self.parallel and not V.parallel:
+            cond = self.npts == V.npts
+            cond = cond and self.pads == V.pads
+            cond = cond and self.periods == V.periods
+            cond = cond and self.dtype == V.dtype
+            return cond
+        else:
+            return False
 
     #--------------------------------------
     # Other properties/methods

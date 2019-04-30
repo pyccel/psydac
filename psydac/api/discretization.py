@@ -45,6 +45,7 @@ from psydac.fem.tensor               import TensorFemSpace
 from psydac.fem.vector               import ProductFemSpace
 from psydac.cad.geometry             import Geometry
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
+from psydac.feec.derivatives         import Grad, Curl, Div
 
 import inspect
 import sys

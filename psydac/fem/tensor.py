@@ -109,8 +109,9 @@ class TensorFemSpace( FemSpace ):
 
         bases = []
         index = []
+            
 
-        for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
+        for (x, xlim, space, p) in zip( eta, self.eta_lims, self.spaces, self.vector_space.pads ):
 
             knots  = space.knots
             degree = space.degree
@@ -130,14 +131,14 @@ class TensorFemSpace( FemSpace ):
             # Determine local span
             wrap_x   = space.periodic and x > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
-
+            
             bases.append( basis )
             index.append( slice( loc_span-degree, loc_span+1 ) )
-
+        
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
         coeffs = field.coeffs[index].copy()
-
+        
         # Evaluation of multi-dimensional spline
         # TODO: optimize
 
@@ -148,7 +149,7 @@ class TensorFemSpace( FemSpace ):
         res = coeffs
         for basis in bases[::-1]:
             res = np.dot( res, basis )
-
+        
 #        # Option 2: cycle over each element of 'coeffs' (touched only once)
 #        #   - Pros: no temporary objects are created
 #        #   - Cons: large number of Python iterations = number of elements in 'coeffs'
@@ -158,6 +159,10 @@ class TensorFemSpace( FemSpace ):
 #            ndbasis = np.prod( [b[i] for i,b in zip( idx, bases )] )
 #            res    += c * ndbasis
 
+        if field.normalize:
+            coeff = np.prod( [d/(sp.knots[2*d]-sp.knots[d]) for d,sp in zip(self.vector_space.pads,self.spaces)] )
+            res = coeff**(1/len(self.spaces))*res
+        
         return res
 
     # ...
