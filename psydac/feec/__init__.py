@@ -1,4 +1,3 @@
-__all__ = ['utilities','derivatives']
+__all__ = ['derivatives']
 
 from psydac.feec import derivatives
-from psydac.feec import utilities

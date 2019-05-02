@@ -1,121 +1,248 @@
 # -*- coding: UTF-8 -*-
 
 import numpy as np
-from numpy import zeros
-from numpy import concatenate
-from numpy import block
 
-from scipy import kron
-from scipy.sparse import identity
-from scipy.sparse import csr_matrix
+from psydac.linalg.stencil import StencilMatrix, StencilVectorSpace
+from psydac.linalg.kron    import KroneckerStencilMatrix as Stencil_kron
+from psydac.linalg.block   import ProductSpace, BlockVector, BlockLinearOperator, BlockMatrix
+from psydac.fem.vector     import ProductFemSpace
 
-def d_matrix(n):
+def d_matrix(n, p, P):
     """creates a 1d incidence matrix.
     The final matrix will have a shape of (n,n-1)
 
     n: int
         number of nodes
+        
+    p : int
+        pads
+        
+    P : bool
+        periodicity
     """
-    M = zeros((n,n))
-    for i in range(0, n):
-        M[i,i] = 1.
-        if i>0:
-            M[i,i-1] = -1.
-    return csr_matrix(M[1:n,:])
+    
+    V1 = StencilVectorSpace([n], [p], [P])
+    V2 = StencilVectorSpace([n-1], [p], [P])
+    M = StencilMatrix(V1, V2)
+    
+
+    for i in range(n):
+        M._data[p+i,p] = -1.
+        M._data[p+i,p+1] = 1.
+    return M
+    
+def identity(n, p, P):
+    """creates a 1d identity matrix.
+    The final matrix will have a shape of (n,n)
+
+    n: int
+        number of nodes
+        
+    p : int
+        pads
+        
+    P : bool
+        periodicity
+    """
+    
+    V = StencilVectorSpace([n], [p], [P])
+    M = StencilMatrix(V, V)
+    
+    for i in range(0, n+1):
+        M._data[i+p, p] = 1.
+        
+    return M
 
 
-class Grad_1D(object):
-    def __init__(self, p, n, T):
-        self._p = p
-        self._n = n
-        self._T = T
+class Grad(object):
+    def __init__(self, Vh, Curl_Vh):
+        """
+        Vh : TensorFemSpace
+        
+        Curl_Vh : StencilVectorSpace
+        
+        """
+        
+        dim     = Vh.ldim
+        npts    = [V.nbasis for V in Vh.spaces]
+        pads    = [V.degree for V in Vh.spaces]
+        periods = [V.periodic for V in Vh.spaces]
 
-        self._matrix = d_matrix(n)
+        d_matrices = [d_matrix(n, p, P) for n,p,P in zip(npts, pads, periods)]
+        identities = [identity(n, p, P) for n,p,P in zip(npts, pads, periods)]
+         
+        mats = []
+        for i in range(dim):
+            args = []
+            for j in range(dim):
+                if i==j:
+                    args.append(d_matrices[j])
+                else:
+                    args.append(identities[j])
 
-    @property
-    def shape(self):
-        return self._matrix.shape
+            mats += [Stencil_kron(Vh.vector_space, Curl_Vh.spaces[i], *args)]
 
-    def __cal__(self, x):
+        Vh = Vh.vector_space
+        Vh = ProductSpace(Vh)
+
+        mats = [[mat] for mat in mats]
+        
+        Mat = BlockLinearOperator( Vh, Curl_Vh, blocks=mats )
+        self._matrix = Mat
+
+
+
+    def __call__(self, x):
         return self._matrix.dot(x)
 
+class Curl(object):
+    def __init__(self, Vh, Curl_Vh, Div_Vh):
+        """
+        Vh : TensorFemSpace
+        
+        Curl_Vh : StencilVectorSpace
+        
+        Div_Vh : StencilVectorSpace
+        
+        """
 
-class Grad_2D(object):
-    def __init__(self, p, n, T):
-        self._p = p
-        self._n = n
-        self._T = T
+        dim     = Vh.ldim
+        npts    =  [V.nbasis for V in Vh.spaces]
+        pads    =  [V.degree for V in Vh.spaces]
+        periods =  [V.periodic for V in Vh.spaces]
 
-        n0 = n[0]
-        n1 = n[1]
+        d_matrices   = [d_matrix(n, p, P) for n,p,P in zip(npts, pads, periods)]
+        identities_0 = [identity(n, p, P) for n,p,P in zip(npts, pads, periods)]
+        identities_1 = [identity(n-1, p, P) for n,p,P in zip(npts, pads, periods)]
+        
+        mats = []    
+            
+        if dim == 3:
+            mats = [[None, None, None],
+                    [None,None,None],
+                    [None,None,None]]
+                    
+            args       = [-identities_0[0],identities_1[1],d_matrices[2]]
+            mats[0][1] = Stencil_kron(Curl_Vh.spaces[1],Div_Vh.spaces[0],*args)
+            
+            args       = [identities_0[0],d_matrices[1],identities_1[2]]
+            mats[0][2] = Stencil_kron(Curl_Vh.spaces[2],Div_Vh.spaces[0],*args)
+            # ...
+            
+            # ...
+            args       = [identities_1[0],identities_0[1],d_matrices[2]]
+            mats[1][0] = Stencil_kron(Curl_Vh.spaces[0],Div_Vh.spaces[1], *args)
+            
+            args       = [-d_matrices[0],identities_0[1],identities_1[2]]
+            mats[1][2] = Stencil_kron(Curl_Vh.spaces[2],Div_Vh.spaces[1], *args)
+            # ...
+            
+            # ...
+            args       = [-identities_1[0],d_matrices[1],identities_0[2]]
+            mats[2][0] = Stencil_kron(Curl_Vh.spaces[0],Div_Vh.spaces[2], *args)
+            
+            args       = [d_matrices[0],identities_1[1],identities_0[2]]
+            mats[2][1] = Stencil_kron(Curl_Vh.spaces[1],Div_Vh.spaces[2], *args)
+            
+            Vh = Curl_Vh
+            Wh = Div_Vh
 
-        I0 = identity(n0)
-        I1 = identity(n1)
-        D0 = d_matrix(n0)
-        D1 = d_matrix(n1)
+        elif dim == 2:
+            mats = [[None , None]]
+        
+            args = [-identities_1[0], d_matrices[1]]
+            mats[0][0] = Stencil_kron(Curl_Vh.spaces[0], Div_Vh, *args)
 
-        I0 = I0.toarray()
-        I1 = I1.toarray()
-        D0 = D0.toarray()
-        D1 = D1.toarray()
+            args = [d_matrices[0], identities_1[1]]
+            mats[0][1] = Stencil_kron(Curl_Vh.spaces[1], Div_Vh, *args)
+            
+            Vh = Curl_Vh
+            Wh = ProductSpace( Div_Vh )
+        
+        else:
+            raise NotImplementedError('TODO')
+            
+        Mat = BlockLinearOperator( Vh, Wh, blocks=mats )
+        self._matrix = Mat
 
-        A = kron(D0, I1)
-        B = kron(I0, D1)
-        self._matrix = concatenate((A, B), axis=0)
-        self._matrix = csr_matrix(self._matrix)
 
-    @property
-    def shape(self):
-        return self._matrix.shape
-
-    def __cal__(self, x):
+    def __call__(self, x):
         return self._matrix.dot(x)
 
-class Curl_2D(object):
-    def __init__(self, p, n, T):
-        self._p = p
-        self._n = n
-        self._T = T
+class Div(object):
+    def __init__(self, Vh, Div_Vh, L2_Vh):
+        """
+        Vh      : TensorFemSpace
+        
+        Div_Vh : StencilVectorSpace
+        
+        L2_Vh  : StencilVectorSpace
+        
+        """
 
-        n0 = n[0]
-        n1 = n[1]
+        dim     = Vh.ldim
+        npts    =  [V.nbasis for V in Vh.spaces]
+        pads    =  [V.degree for V in Vh.spaces]
+        periods =  [V.periodic for V in Vh.spaces]
+        
+        d_matrices = [d_matrix(n, p, P) for n,p,P in zip(npts, pads, periods)]
+        identities = [identity(n-1, p, P) for n,p,P in zip(npts, pads, periods)]
+            
+        mats = []
+        for i in range(dim):
+            args = []
+            for j in range(dim):
+                if i==j:
+                    args.append(d_matrices[j])
+                else:
+                    args.append(identities[j])
+                    
+            mats += [Stencil_kron(Div_Vh.spaces[i], L2_Vh, *args)]
+        
+        Mat = BlockLinearOperator( Div_Vh, ProductSpace(L2_Vh), blocks=[mats])
+        self._matrix = Mat
 
-        I0 = identity(n0-1)
-        I1 = identity(n1-1)
-        D0 = d_matrix(n0)
-        D1 = d_matrix(n1)
-
-        I0 = I0.toarray()
-        I1 = I1.toarray()
-        D0 = D0.toarray()
-        D1 = D1.toarray()
-
-        A = kron(D0, I1)
-        B = kron(I0, D1)
-        self._matrix = block([-B, A])
-        self._matrix = csr_matrix(self._matrix)
-
-    @property
-    def shape(self):
-        return self._matrix.shape
-
-    def __cal__(self, x):
+    def __call__(self, x):
         return self._matrix.dot(x)
 
+class Rot(object):
+    def __init__(self, Vh, Rot_Vh):
+        """
+        Vh : TensorFemSpace
+        
+        Grad_Vh : StencilVectorSpace
+        
+        """
+        
+        dim     = Vh.ldim
+        
+        if dim != 2:
+            raise ValueError('only dimension 2 is available')
+            
+        npts    = [V.nbasis for V in Vh.spaces]
+        pads    = [V.degree for V in Vh.spaces]
+        periods = [V.periodic for V in Vh.spaces]
 
+        d_matrices = [d_matrix(n, p, P) for n,p,P in zip(npts, pads, periods)]
+        identities = [identity(n, p, P) for n,p,P in zip(npts, pads, periods)]
+         
+        mats = []
+        mats += [Stencil_kron(Vh.vector_space, Grad_Vh.spaces[0], *args)]
+        mats += [Stencil_kron(Vh.vector_space, Grad_Vh.spaces[1], *args)]
+
+        Vh = Vh.vector_space
+        Vh = ProductSpace(Vh)
+        
+        mats = [[mats[1]],[-mats[0]]]
+        
+        Mat = BlockLinearOperator( Vh, Grad_Vh, blocks=mats )
+        self._matrix = Mat
+
+
+
+    def __call__(self, x):
+        return self._matrix.dot(x)
 # user friendly function that returns all discrete derivatives
-def discrete_derivatives(p, n, T):
+def discrete_derivatives(Vh):
     """."""
-    # 1d case
-    if isinstance(p, int):
-        return Grad_1D(p, n, T)
-
-    if not isinstance(p, (list, tuple)):
-        raise TypeError('Expecting p to be int or list/tuple')
-
-    if len(p) == 2:
-        # TODO improve
-        # we only treat the sequence H1 -> Hcurl -> L2
-        return Grad_2D(p, n, T), Curl_2D(p, n, T)
-
-    raise NotImplementedError('only 1d and 2D are available')
+    

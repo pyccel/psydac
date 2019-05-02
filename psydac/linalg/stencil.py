@@ -107,6 +107,23 @@ class StencilVectorSpace( VectorSpace ):
 
         """
         return StencilVector( self )
+        
+    # ...
+    def __eq__(self, V):
+    
+        if self.parallel and V.parallel:
+            cond = self._dtype == V._dtype
+            cond = cond and self._cart ==  V._cart
+            return cond
+            
+        elif not self.parallel and not V.parallel:
+            cond = self.npts == V.npts
+            cond = cond and self.pads == V.pads
+            cond = cond and self.periods == V.periods
+            cond = cond and self.dtype == V.dtype
+            return cond
+        else:
+            return False
 
     #--------------------------------------
     # Other properties/methods
@@ -665,9 +682,28 @@ class StencilMatrix( Matrix ):
 
     #...
     def copy( self ):
-        M = StencilMatrix( self.domain, self.codomain )
+        M = StencilMatrix( self.domain, self.codomain, self._pads )
         M._data[:] = self._data[:]
         return M
+
+    #...
+    def __mul__( self, a ):
+        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w._data = self._data * a
+        w._sync = self._sync
+        return w
+
+    #...
+    def __rmul__( self, a ):
+        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w._data = a * self._data
+        w._sync = self._sync
+        return w
+
+    # ...
+    def __neg__(self):
+        return self.__mul__(-1)
+
 
     #...
     def remove_spurious_entries( self ):

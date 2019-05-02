@@ -49,7 +49,7 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
     p,q = [element_of_space(V1, name=i) for i in ['p', 'q']]
     u,v = [element_of_space(V2, name=i) for i in ['u', 'v']]
 
-    a  = BilinearForm(((p,u),(q,v)),dot(p,q) + dot(div(q),u) + dot(div(p),v) )
+    a  = BilinearForm(((p,u),(q,v)), dot(p,q) + dot(div(q),u) + dot(div(p),v) )
     l  = LinearForm((q,v), dot(f0, v))
 
     error = F-sol

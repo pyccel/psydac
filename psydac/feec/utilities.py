@@ -1,93 +1,61 @@
 # -*- coding: UTF-8 -*-
 
-from scipy import kron
+
 from scipy.sparse import csr_matrix
 from scipy.sparse import diags
-from scipy.linalg import block_diag
 from scipy.sparse import identity
+from psydac.linalg.kron import kronecker_solve
+from psydac.fem.tensor  import TensorFemSpace
+from psydac.fem.vector  import ProductFemSpace
+from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
+from psydac.linalg.stencil import StencilVector
+from itertools import product
+from psydac.utilities.integrate import integrate_2d
+from psydac.utilities.integrate import integrate_1d
+from psydac.utilities.integrate import integrate_3d
 
 from numpy import zeros
 from numpy import array
+import numpy as np
 
-# TODO: - docstrings + examples
+class Kron:
 
-def _mass_matrix_H1(p, n, T):
-    """Returns the 2D/3D mass matrix over H1."""
+    def __init__(self, *args):
+        self._args = args
+        
+    @property
+    def args(self):
+        return self._args
+        
+    def solve(self, rhs, out=None):
+       args = [SparseSolver(arg) for arg in self.args]
+       out  = kronecker_solve(args, rhs, out)
+       return out
+       
+    def toarray(self):
+        M1 = self.args[0].todense()
+        for M2 in self.args[1:]:
+            M1 = np.kron(M1, M2.todense())
+        return M1
+        
 
-    from psydac.core.interface import mass_matrix
+class block_diag:
 
-    assert(isinstance(p, (list, tuple)))
+    def __init__(self, *args):
+        self._args = args
+        
+    @property
+    def args(self):
+        return self._args
+        
+    def solve(self, rhs, out=None):
+        if out is None:
+            out = [None]*len(rhs)
 
-    Ms = []
-    for i in range(0, len(p)):
-        M = mass_matrix(p[i], n[i], T[i])
-        M = csr_matrix(M)
-        # we must convert it to dense, otherwise we get a scipy
-        Ms.append(M.toarray())
-    M = kron(*Ms)
-    return csr_matrix(M)
+        for i,arg in enumerate(self.args):
+            out[i] = arg.solve(rhs[i], out[i])
 
-def _mass_matrix_L2(p, n, T):
-    """Returns the 2D/3D mass matrix over L2."""
-
-    assert(isinstance(p, (list, tuple)))
-
-    pp = list(p)
-    nn = list(n)
-    TT = list(T)
-    for i in range(0, len(p)):
-        pp[i] -= 1
-        nn[i] -= 1
-        TT[i] = TT[i][1:-1]
-
-    M = _mass_matrix_H1(pp, nn, TT)
-    return csr_matrix(M)
-
-def _mass_matrix_Hcurl_2D(p, n, T):
-    """Returns the 2D mass matrix over Hcurl."""
-    pp = list(p) ; pp[0] -= 1
-    nn = list(n) ; nn[0] -= 1
-    TT = list(T) ; TT[0] = TT[0][1:-1]
-    M0 = _mass_matrix_H1(pp, nn, TT)
-
-    pp = list(p) ; pp[1] -= 1
-    nn = list(n) ; nn[1] -= 1
-    TT = list(T) ; TT[1] = TT[1][1:-1]
-    M1 = _mass_matrix_H1(pp, nn, TT)
-
-    M = block_diag(M0.toarray(), M1.toarray())
-    return csr_matrix(M)
-
-
-# This is a user-friendly function.
-def mass_matrices(p, n, T):
-    """Returns all mass matrices.
-    """
-    # 1d case
-    if isinstance(p, int):
-        from psydac.core.interface import mass_matrix
-
-        M0 = mass_matrix(p, n, T)
-
-        pp = p-1 ; nn = n-1 ; TT = T[1:-1]
-        M1 = mass_matrix(p, n, T)
-
-        return M0, M1
-
-    if not isinstance(p, (list, tuple)):
-        raise TypeError('Expecting p to be int or list/tuple')
-
-    if len(p) == 2:
-        # TODO improve
-        # we only treat the sequence H1 -> Hcurl -> L2
-        M0 = _mass_matrix_H1(p, n, T)
-        M1 = _mass_matrix_Hcurl_2D(p, n, T)
-        M2 = _mass_matrix_L2(p, n, T)
-        return M0, M1, M2
-
-    raise NotImplementedError('only 1d and 2D are available')
-
-
+        return out
 # ...
 def build_kron_matrix(p, n, T, kind):
     """."""
@@ -119,11 +87,32 @@ def build_kron_matrix(p, n, T, kind):
         M = func(_p, _n, _T, _grid)
         M = csr_matrix(M)
 
-        Ms.append(M.toarray()) # kron expects dense matrices
+        Ms.append(M) # kron expects dense matrices
 
-    return kron(*Ms)
+    return Kron(*Ms)
 # ...
+def _interpolation_matrices_3d(p, n, T):
+    """."""
 
+    # H1
+    M0 = build_kron_matrix(p, n, T, kind=['interpolation', 'interpolation', 'interpolation'])
+
+    # H-curl
+    A = build_kron_matrix(p, n, T, kind=['histopolation', 'interpolation', 'interpolation'])
+    B = build_kron_matrix(p, n, T, kind=['interpolation', 'histopolation', 'interpolation'])
+    C = build_kron_matrix(p, n, T, kind=['interpolation', 'interpolation', 'histopolation'])
+    M1 = block_diag(A, B, C)
+    
+    # H-div
+    A = build_kron_matrix(p, n, T, kind=['interpolation', 'histopolation', 'histopolation'])
+    B = build_kron_matrix(p, n, T, kind=['histopolation', 'interpolation', 'histopolation'])
+    C = build_kron_matrix(p, n, T, kind=['histopolation', 'histopolation', 'interpolation'])
+    M2 = block_diag(A, B, C)
+
+    # L2
+    M3 = build_kron_matrix(p, n, T, kind=['histopolation', 'histopolation','histopolation'])
+
+    return M0, M1, M2, M3
 
 def _interpolation_matrices_2d(p, n, T):
     """."""
@@ -142,11 +131,16 @@ def _interpolation_matrices_2d(p, n, T):
     return M0, M1, M2
 
 
-def interpolation_matrices(p, n, T):
+def interpolation_matrices(Vh):
     """Returns all interpolation matrices.
     This is a user-friendly function.
     """
     # 1d case
+    assert isinstance(Vh, TensorFemSpace)
+    
+    T = [V.knots for V in Vh.spaces]
+    p = Vh.degree
+    n = [V.nbasis for V in Vh.spaces] 
     if isinstance(p, int):
         from psydac.core.interface import compute_greville
         from psydac.core.interface import collocation_matrix
@@ -164,47 +158,54 @@ def interpolation_matrices(p, n, T):
 
     if len(p) == 2:
         return _interpolation_matrices_2d(p, n, T)
+        
+    elif len(p) == 3:
+        return _interpolation_matrices_3d(p, n, T)
 
-    raise NotImplementedError('only 1d and 2D are available')
+    raise NotImplementedError('only 1d 2D and 3D are available')
 
 
 
-class Interpolation2D(object):
-    """.
+class Interpolation(object):
 
-    p: list
-        spline degrees
-
-    n: list
-        number of splines functions for each direction
-
-    T: list
-        knot vectors for each direction
-
-    k: list
-        quadrature order for each direction. if not given it will be p+1
-    """
-
-    def __init__(self, p, n, T, k=None):
+    def __init__(self, **spaces):
 
         from psydac.utilities.integrate import Integral
-        from psydac.utilities.integrate import Interpolation
+        from psydac.utilities.integrate import Interpolation as Inter
 
-        if not isinstance(p, (tuple, list)) or not isinstance(n, (tuple, list)):
-            raise TypeError('Wrong type for n and/or p. must be tuple or list')
+        for Vh in spaces.values():
+            assert isinstance(Vh, (TensorFemSpace, ProductFemSpace))
+        
+        H1 = spaces.pop('H1')
+        
+        if len(spaces) == 0:
+            kind = 'H1'
+        else:
+            kind = list(spaces.keys())[0]
+        
+        T = [V.knots for V in H1.spaces]
+        p = H1.degree
+        n = [V.nbasis for V in H1.spaces]   
+
 
         Is = []
         Hs = []
-        for i in range(0, len(p)):
-            _k = None
-            if not(k is None):
-                _k = k[i]
-
-            _interpolation = Interpolation(p[i], n[i], T[i])
-            _integration   = Integral(p[i], n[i], T[i], kind='greville', k=_k)
-
-            Is.append(_interpolation)
-            Hs.append(_integration)
+        
+        if kind == 'H1':
+            for i in range(0, len(p)):
+                _interpolation = Inter(p[i], n[i], T[i])
+                Is.append(_interpolation)
+                
+        elif kind == 'L2':
+            for i in range(0, len(p)):
+                _integration   = Integral(p[i], n[i], T[i], kind='greville')
+                Hs.append(_integration)
+        else:
+            for i in range(0, len(p)):
+                _interpolation = Inter(p[i], n[i], T[i])
+                _integration   = Integral(p[i], n[i], T[i], kind='greville')
+                Is.append(_interpolation)
+                Hs.append(_integration)
 
         self._interpolate = Is
         self._integrate   = Hs
@@ -212,151 +213,265 @@ class Interpolation2D(object):
         self._p = p
         self._n = n
         self._T = T
+        self._spaces = spaces
+        self._kind   = kind
+        self._dim = len(p)
 
     @property
     def sites(self):
         return [i.sites for i in self._interpolate]
+        
+    @property
+    def dim(self):
+        return self._dim
+        
+    @property
+    def spaces(self):
+        return self._spaces
+        
+    @property
+    def kind(self):
+        return self._kind
 
-    def __call__(self, kind, f):
+    def __call__(self, f):
         """Computes the integral of the function f over each element of the grid."""
+        
+        kind = self.kind
+        space = self.spaces[kind]
+        slices = tuple(slice(p,-p) for p in self._p)
+        
         if kind == 'H1':
-            F = zeros(self._n)
-            for i,xi in enumerate(self.sites[0]):
-                F[i,:] = self._interpolate[1](lambda y: f(xi, y))
+            F = StencilVector(space.vector_space)
+            if self.dim == 3:
+                interpolate_3d(*self._n, *self.sites, F._data[slices], f)         
+            elif self.dim == 2:
+                interpolate_2d(*self._n, *self.sites, F._data[slices], f)                        
+            elif self.dim == 1:
+                interpolate_1d(*self._n, *self.sites, F._data[slices], f)               
+                
             return F
 
         elif kind == 'Hcurl':
-            n0 = (self._n[0]-1, self._n[1])
-            n1 = (self._n[0], self._n[1]-1)
+            if self.dim == 3:
+                n1 = (self._n[0]-1, self._n[1], self._n[2])
+                n2 = (self._n[0], self._n[1]-1, self._n[2])
+                n3 = (self._n[0], self._n[1], self._n[2]-1)
+                
+                ipoints_1 = self._integrate[0]._points
+                ipoints_2 = self._integrate[1]._points
+                ipoints_3 = self._integrate[2]._points
+ 
+                weights_1 = self._integrate[0]._weights
+                weights_2 = self._integrate[1]._weights
+                weights_3 = self._integrate[2]._weights
 
-            F0 = zeros(n0)
-            F1 = zeros(n1)
+                points_1 = self.sites[0]
+                points_2 = self.sites[1]
+                points_3 = self.sites[2]
+                
+                k1 = len(weights_1)
+                k2 = len(weights_2)
+                k3 = len(weights_3)
+                
+                F1 = StencilVector(space.spaces[0].vector_space)
+                F2 = StencilVector(space.spaces[1].vector_space)
+                F3 = StencilVector(space.spaces[2].vector_space)
+                
 
-            _f = lambda x,y: f(x,y)[0]
-            for j,yj in enumerate(self.sites[1]):
-                F0[:,j] = self._integrate[0](lambda x: _f(x, yj))
+                f1 = f[0]
+                f2 = f[1]
+                f3 = f[2]
+                Hcurl_projection_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, 
+                                    ipoints_3, points_1, points_2, points_3, F1._data[slices], F2._data[slices], F3._data[slices],
+                                     f1, f2, f3)
+                                
+                return F1, F2, F3
+            
+            elif self.dim == 2:
+                n1 = (self._n[0]-1, self._n[1])
+                n2 = (self._n[0], self._n[1]-1)
+                
+                ipoints_1 = self._integrate[0]._points
+                ipoints_2 = self._integrate[1]._points
+ 
+                weights_1 = self._integrate[0]._weights
+                weights_2 = self._integrate[1]._weights
 
-            _f = lambda x,y: f(x,y)[1]
-            for i,xi in enumerate(self.sites[0]):
-                F1[i,:] = self._integrate[1](lambda y: _f(xi, y))
+                points_1 = self.sites[0]
+                points_2 = self.sites[1]
+                
+                k1 = len(weights_1)
+                k2 = len(weights_2)
+                
+                F1 = StencilVector(space.spaces[0].vector_space)
+                F2 = StencilVector(space.spaces[1].vector_space)
+ 
+                f1 = f[0]
+                f2 = f[1]
+                
+                Hcurl_projection_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoints_2, 
+                                                    points_1, points_2, F1._data[slices], F2._data[slices], f1, f2)
+                            
+                return F1 ,F2
+            
+            
+        elif kind == 'Hdiv':
+            if self.dim == 3:
+                n1 = (self._n[0], self._n[1]-1, self._n[2]-1)
+                n2 = (self._n[0]-1, self._n[1], self._n[2]-1)
+                n3 = (self._n[0]-1, self._n[1]-1, self._n[2])
+                
+                ipoints_1 = self._integrate[0]._points
+                ipoints_2 = self._integrate[1]._points
+                ipoints_3 = self._integrate[2]._points
+ 
+                weights_1 = self._integrate[0]._weights
+                weights_2 = self._integrate[1]._weights
+                weights_3 = self._integrate[2]._weights
 
-            return F0, F1
+                points_1 = self.sites[0]
+                points_2 = self.sites[1]
+                points_3 = self.sites[2]
+                
+                k1 = len(weights_1)
+                k2 = len(weights_2)
+                k3 = len(weights_3)
+                
+
+                F1 = StencilVector(space.spaces[0].vector_space)
+                F2 = StencilVector(space.spaces[1].vector_space)
+                F3 = StencilVector(space.spaces[2].vector_space)
+
+                f1 = f[0]
+                f2 = f[1]
+                f3 = f[2]
+                
+                Hdiv_projection_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3,ipoints_1, ipoints_2,  
+                                   ipoints_3, points_1, points_2, points_3, F1._data[slices], F2._data[slices], F3._data[slices]
+                                   , f1, f2, f3)
+                                
+                return F1, F2, F3
+            
+            elif self.dim == 2:
+                n1 = (self._n[0], self._n[1]-1)
+                n2 = (self._n[0]-1, self._n[1])
+                
+                ipoints_1 = self._integrate[0]._points
+                ipoints_2 = self._integrate[1]._points
+ 
+                weights_1 = self._integrate[0]._weights
+                weights_2 = self._integrate[1]._weights
+
+                points_1 = self.sites[0]
+                points_2 = self.sites[1]
+                
+                k1 = len(weights_1)
+                k2 = len(weights_2)
+                
+                F1 = StencilVector(space.spaces[0].vector_space)
+                F2 = StencilVector(space.spaces[1].vector_space)
+
+                f1 = f[0]
+                f2 = f[1]
+                Hdiv_projection_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoints_2, 
+                                   points_1, points_2, F1._data[slices], F2._data[slices], f1, f2)
+                            
+                return F1, F2
 
         elif kind == 'L2':
-            from psydac.utilities.integrate import integrate_2d
 
-            points = (self._integrate[0]._points, self._integrate[1]._points)
-            weights = (self._integrate[0]._weights, self._integrate[1]._weights)
-
-            return integrate_2d(points, weights, f)
-
+            points  = tuple(self._integrate[i]._points for i in range(self._dim))
+            weights = tuple(self._integrate[i]._weights for i in range(self._dim))
+            F       = StencilVector(space.vector_space)
+            if self._dim == 1:
+                integrate_1d(points, weights, F._data[slices], f)
+            elif self._dim == 2:
+                integrate_2d(points, weights, F._data[slices], f)
+            elif self._dim == 3:
+                integrate_3d(points, weights, F._data[slices], f)
+            return F
         else:
-            raise NotImplementedError('Only H1, Hcurl and L2 are available')
+            raise NotImplementedError('Only H1, Hcurl ,Hdiv and L2 are available')
 
+def interpolate_1d(n1, points_1, F, f):
+    for i1 in range(n1):
+        F[i1] = f(points_1[i1])
+        
+def interpolate_2d(n1, n2, points_1, points_2, F, f):
+    for i1 in range(n1):
+        for i2 in range(n2):
+            F[i1,i2] = f(points_1[i1], points_2[i2])
 
-def scaling_matrix(p, n, T, kind=None):
-    """Returns the scaling matrix for M-splines.
-    It is a diagonal matrix whose elements are (p+1)/(T[i+p+1]-T[i])
+def interpolate_3d(n1, n2, n3, points_1, points_2, points_3, F, f):
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                F[i1, i2, i3] = f(points_1[i1], points_2[i2], points_3[i3])
 
+def Hcurl_projection_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoints_2, points_1, points_2, F1, F2, f1, f2):
 
-    """
-    if isinstance(p, int):
-        if kind is None:
-            x = zeros(n)
-            for i in range(0, n):
-                x[i] = (p+1)/(T[i+p+1]-T[i])
-            return diags(x)
-        elif kind == 'L2':
-            return scaling_matrix(p-1, n-1, T[1:-1])
-        else:
-            raise ValueError('Unexpected kind of scaling matrix for 1D')
+    for i2 in range(n1[1]):
+        for i1 in range(n1[0]):
+            for g1 in range(k1):
+                F1[i1, i2] += weights_1[g1, i1]*f1(ipoints_1[g1, i1], points_2[i2])
+                
+    for i1 in range(n2[0]):
+        for i2 in range(n2[1]):
+            for g2 in range(k2):
+                F2[i1, i2] += weights_2[g2, i2]*f2(points_1[i1], ipoints_2[g2, i2])
+                
+def Hcurl_projection_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,           
+                                                  points_1, points_2, points_3, F1, F2, F3, f1, f2, f3):
+    for i2 in range(n1[1]):
+        for i3 in range(n1[2]):
+            for i1 in range(n1[0]):
+                for g1 in range(k1):
+                    F1[i1, i2, i3] += weights_1[g1, i1]*f1(ipoints_1[g1, i1],points_2[i2], points_3[i3])
 
-    assert(isinstance(p, (list, tuple)))
+    for i1 in range(n2[0]):          
+        for i3 in range(n2[2]):
+            for i2 in range(n2[1]): 
+                for g2 in range(k2):
+                    F2[i1, i2, i3] += weights_2[g2, i2]*f2(points_1[i1],ipoints_2[g2, i2], points_3[i3])
 
-    if kind is None:
-        Ms = []
-        for i in range(0, len(p)):
-            M = scaling_matrix(p[i], n[i], T[i])
-            # we must convert it to dense, otherwise we get a scipy
-            Ms.append(M.toarray())
-        return kron(*Ms)
+    for i1 in range(n3[0]):
+        for i2 in range(n3[1]):
+            for i3 in range(n3[2]):
+                for g3 in range(k3):
+                    F3[i1, i2, i3] += weights_3[g3, i3]*f3(points_1[i1],points_2[i2], ipoints_3[g3, i3])
+                    
+def Hdiv_projection_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoints_2, points_1, points_2, F1, F2, f1, f2):
+    for i1 in range(n1[0]):
+        for i2 in range(n1[1]):
+            for g2 in range(k2):
+                F1[i1, i2] += weights_2[g2, i2]*f1(points_1[i1],ipoints_2[g2,i2])
 
-    elif kind == 'Hcurl':
-        p0 = p[0] ; n0 = n[0] ; T0 = T[0]
-        p1 = p[1] ; n1 = n[1] ; T1 = T[1]
-
-        I0 = identity(n0)
-        I1 = identity(n1)
-        S0 = scaling_matrix(p0-1, n0-1, T0[1:-1])
-        S1 = scaling_matrix(p1-1, n1-1, T1[1:-1])
-
-        I0 = I0.toarray()
-        I1 = I1.toarray()
-        S0 = S0.toarray()
-        S1 = S1.toarray()
-
-        M0 = kron(S0, I1)
-        M1 = kron(I0, S1)
-        return block_diag(M0, M1)
-
-    elif kind == 'L2':
-        pp = list(p)
-        nn = list(n)
-        TT = list(T)
-        for i in range(0, len(p)):
-            pp[i] -= 1
-            nn[i] -= 1
-            TT[i] = TT[i][1:-1]
-        return scaling_matrix(pp, nn, TT)
-
-    raise NotImplementedError('TODO')
-
-
-
-def _tck_H1_1D(p, n, T, c):
-    return (T, c, p)
-
-def _tck_L2_1D(p, n, T, c):
-    pp = p-1
-    nn = n-1
-    TT = T[1:-1]
-    return (TT, c, pp)
-
-def _tck_H1_2D(p, n, T, c):
-    return (T[0], T[1], c, p[0], p[1])
-
-def _tck_Hcurl_2D(p, n, T, c):
-    """."""
-    pp = list(p) ; pp[0] -= 1
-    nn = list(n) ; nn[0] -= 1
-    TT = list(T) ; TT[0] = TT[0][1:-1]
-    N = array(nn).prod()
-    c0 = c[:N]
-    tck0 = (TT[0], TT[1], c0, pp[0], pp[1])
-
-    pp = list(p) ; pp[1] -= 1
-    nn = list(n) ; nn[1] -= 1
-    TT = list(T) ; TT[1] = TT[1][1:-1]
-    c1 = c[N:]
-    tck1 = (TT[0], TT[1], c1, pp[0], pp[1])
-
-    return tck0, tck1
-
-def _tck_L2_2D(p, n, T, c):
-    return (T[0][1:-1], T[1][1:-1], c, p[0]-1, p[1]-1)
-
-def get_tck(kind, p, n, T, c):
-    """Returns the tck for a given space kind."""
-    if isinstance(p, int):
-        assert(kind in ['H1', 'L2'])
-        func = eval('_tck_{}_1D'.format(kind))
-
-    if isinstance(p, (list, tuple)):
-        assert(kind in ['H1', 'Hcurl', 'Hdiv', 'L2'])
-        if len(p) == 2:
-            func = eval('_tck_{}_2D'.format(kind))
-        else:
-            raise NotImplementedError('Only 2D is available')
-
-    return func(p, n, T, c)
-
+    for i2 in range(n2[1]):
+        for i1 in range(n2[0]):          
+            for g1 in range(k1):
+                F2[i1, i2] += weights_1[g1, i1]*f2(ipoints_1[g1,i1],points_2[i2])
+                
+def Hdiv_projection_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,           
+                                                  points_1, points_2, points_3, F1, F2, F3, f1, f2, f3):
+    for i1 in range(n1[0]):
+        for i2 in range(n1[1]):
+            for i3 in range(n1[2]):
+                for g2 in range(k2):
+                    for g3 in range(k3):
+                        F1[i1, i2, i3] += weights_2[g2, i2]*weights_3[g3, i3]*f1(points_1[i1],
+                                                                        ipoints_2[g2,i2], ipoints_3[g3,i3])
+                                                                        
+    for i2 in range(n2[1]):
+        for i1 in range(n2[0]):          
+            for i3 in range(n2[2]):
+                for g1 in range(k1):
+                    for g3 in range(k3):
+                        F2[i1, i2, i3] += weights_1[g1, i1]*weights_3[g3, i3]*f2(ipoints_1[g1,i1],
+                                                                points_2[i2], ipoints_3[g3, i3])
+    for i3 in range(n3[2]):
+        for i1 in range(n3[0]):
+            for i2 in range(n3[1]):
+                for g1 in range(k1):
+                    for g2 in range(k2):
+                        F3[i1, i2, i3] += weights_1[g1, i1]*weights_2[g2, i2]*f3(ipoints_1[g1,i1],
+                                                        ipoints_2[g2,i2], points_3[i3])

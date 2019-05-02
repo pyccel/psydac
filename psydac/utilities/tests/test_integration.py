@@ -7,7 +7,7 @@ from psydac.core.interface import construct_quadrature_grid
 from psydac.core.interface import compute_greville
 
 from psydac.utilities.quadratures import gauss_legendre
-from psydac.utilities.integrate   import integrate
+from psydac.utilities.integrate   import integrate_1d
 from psydac.utilities.integrate   import Integral
 
 def test_integrate():
@@ -25,7 +25,8 @@ def test_integrate():
     points, weights = construct_quadrature_grid(ne, k, u, w, grid)
 
     f = lambda u: u*(1.-u)
-    f_int = integrate(points, weights, f)
+    F = np.zeros(n)
+    f_int = integrate_1d(points, weights, F, f)
 
 def test_integral():
     # ...

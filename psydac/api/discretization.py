@@ -22,7 +22,7 @@ from sympde.expr     import TerminalExpr
 from sympde.topology import Domain, Boundary
 from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
-from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import FunctionSpace, VectorFunctionSpace, Derham
 from sympde.topology import ProductSpace
 from sympde.topology import Mapping
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
@@ -45,6 +45,8 @@ from psydac.fem.tensor               import TensorFemSpace
 from psydac.fem.vector               import ProductFemSpace
 from psydac.cad.geometry             import Geometry
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
+from psydac.feec.derivatives         import Grad, Curl, Div
+from psydac.feec.utilities           import Interpolation, interpolation_matrices
 
 import inspect
 import sys
@@ -204,16 +206,132 @@ class DiscreteEquation(BasicDiscrete):
 
         return driver_solve(self.linear_system, **settings)
 
+#==============================================================================
+class DiscreteDerham(BasicDiscrete):
+    def __init__(self, *spaces):
+    
+        dim       = len(spaces) - 1
+        self._V0  = None
+        self._V1  = None
+        self._V2  = None
+        self._V3  = None
+        self._dim = dim
+        
+        if dim == 1:
+            self._V0 = spaces[0]
+            self._V1 = spaces[1]
+        elif dim == 2:
+            self._V0 = spaces[0]
+            self._V1 = spaces[1]
+            self._V2 = spaces[2]
+        elif dim == 3:
+            self._V0 = spaces[0]
+            self._V1 = spaces[1]
+            self._V2 = spaces[2]
+            self._V3 = spaces[3]
 
+    # ...
+    @property
+    def dim(self):
+        return self._dim
+
+    # ...  
+    @property
+    def V0(self):
+        return self._V0
+
+    @property
+    def V1(self):
+        return self._V1        
+
+    @property
+    def V2(self):
+        return self._V2
+        
+    @property
+    def V3(self):
+        return self._V3  
+
+#==============================================================================           
+def discretize_derham(V, domain_h, *args, **kwargs):
+
+    spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in V.spaces]
+    ldim   = V.shape
+    
+    if ldim == 1:
+        D0 = Grad(spaces[0], spaces[1].vector_space)
+        setattr(spaces[0], 'grad', D0)
+        
+        interpolation0 = Interpolation(H1=spaces[0])
+        interpolation1 = Interpolation(H1=spaces[0], L2=spaces[1])
+        
+        setattr(spaces[0], 'interpolate', interpolation0)
+        setattr(spaces[1], 'interpolate', interpolation1)
+        
+    elif ldim == 2:
+        
+        if isinstance(V.spaces[1].kind, HcurlSpaceType):
+            D0 = Grad(spaces[0], spaces[1].vector_space)
+            D1 = Curl(spaces[0], spaces[1].vector_space, spaces[2].vector_space)
+            setattr(spaces[0], 'grad', D0)
+            setattr(spaces[1], 'curl', D1)
+            
+            interpolation0 = Interpolation(H1=spaces[0])
+            interpolation1 = Interpolation(H1=spaces[0], Hcurl=spaces[1])
+            interpolation2 = Interpolation(H1=spaces[0], L2=spaces[2])
+            
+        else:
+            D0 = Grad(spaces[0], spaces[1].vector_space)
+            D1 = Div(spaces[0], spaces[1].vector_space, spaces[2].vector_space)
+            setattr(spaces[0], 'grad', D0)
+            setattr(spaces[1], 'div', D1)
+            
+            interpolation0 = Interpolation(H1=spaces[0])
+            interpolation1 = Interpolation(H1=spaces[0], Hdiv=spaces[1])
+            interpolation2 = Interpolation(H1=spaces[0], L2=spaces[2])
+
+        setattr(spaces[0], 'interpolate', interpolation0)
+        setattr(spaces[1], 'interpolate', interpolation1)
+        setattr(spaces[2], 'interpolate', interpolation2)
+            
+    elif ldim == 3:
+        D0 = Grad(spaces[0], spaces[1].vector_space)
+        D1 = Curl(spaces[0], spaces[1].vector_space, spaces[2].vector_space)  
+        D2 = Div(spaces[0], spaces[2].vector_space, spaces[3].vector_space)
+        
+        setattr(spaces[1], 'grad', D0)
+        setattr(spaces[2], 'curl', D1)
+        setattr(spaces[3], 'div' , D2)
+        
+        interpolation0 = Interpolation(H1=spaces[0])
+        interpolation1 = Interpolation(H1=spaces[0], Hcurl=spaces[1])
+        interpolation2 = Interpolation(H1=spaces[0], Hdiv=spaces[2])
+        interpolation3 = Interpolation(H1=spaces[0], L2=spaces[3])
+        
+        setattr(spaces[0], 'interpolate', interpolation0)
+        setattr(spaces[1], 'interpolate', interpolation1)
+        setattr(spaces[2], 'interpolate', interpolation2)
+        setattr(spaces[3], 'interpolate', interpolation3)
+        
+
+        
+    return DiscreteDerham(*spaces)
 #==============================================================================
 # TODO multi patch
 # TODO bounds and knots
 def discretize_space(V, domain_h, *args, **kwargs):
     degree           = kwargs.pop('degree', None)
+    normalize        = kwargs.pop('normalize', True)
     comm             = domain_h.comm
     symbolic_mapping = None
     kind             = V.kind
     ldim             = V.ldim
+    
+    if isinstance(V, ProductSpace):
+        kwargs['normalize'] = normalize
+        normalize = False
+    else:
+        normalize = normalize
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
@@ -248,11 +366,11 @@ def discretize_space(V, domain_h, *args, **kwargs):
         if isinstance(kind, L2SpaceType):
   
             if ldim == 1:
-                Vh = Vh.reduce_degree(axes=[0])
+                Vh = Vh.reduce_degree(axes=[0], normalize=normalize)
             elif ldim == 2:
-                Vh = Vh.reduce_degree(axes=[0,1])
+                Vh = Vh.reduce_degree(axes=[0,1], normalize=normalize)
             elif ldim == 3:
-                Vh = Vh.reduce_degree(axes=[0,1,2])
+                Vh = Vh.reduce_degree(axes=[0,1,2], normalize=normalize)
 
     # Product and Vector spaces are constructed here
     if V.shape > 1:
@@ -264,17 +382,27 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 
             elif isinstance(kind, HcurlSpaceType):
                 if ldim == 2:
-                    spaces = [Vh.reduce_degree(axes=[0]),Vh.reduce_degree(axes=[1])]
+                    spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
+                              Vh.reduce_degree(axes=[1], normalize=normalize)]
                 elif ldim == 3:
-                    spaces = [Vh.reduce_degree(axes=[0]),Vh.reduce_degree(axes=[1]),Vh.reduce_degree(axes=[2])]
+                    spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
+                              Vh.reduce_degree(axes=[1], normalize=normalize), 
+                              Vh.reduce_degree(axes=[2], normalize=normalize)]
+                else:
+                    raise NotImplementedError('TODO')
                 
             elif isinstance(kind, HdivSpaceType):
             
                 if ldim == 2:
-                    spaces = [Vh.reduce_degree(axes=[1]), Vh.reduce_degree(axes=[0])]
+                    spaces = [Vh.reduce_degree(axes=[1], normalize=normalize), 
+                              Vh.reduce_degree(axes=[0], normalize=normalize)]
                 elif ldim == 3:
-                    spaces = [Vh.reduce_degree(axes=[1,2]),Vh.reduce_degree(axes=[0,2]),Vh.reduce_degree(axes=[0,1])]
-
+                    spaces = [Vh.reduce_degree(axes=[1,2], normalize=normalize), 
+                              Vh.reduce_degree(axes=[0,2], normalize=normalize), 
+                              Vh.reduce_degree(axes=[0,1], normalize=normalize)]
+                else:
+                    raise NotImplementedError('TODO')
+                    
         elif isinstance(V, ProductSpace):
             
             for Vi in V.spaces:
@@ -351,6 +479,9 @@ def discretize(a, *args, **kwargs):
 
     elif isinstance(a, BasicFunctionSpace):
         return discretize_space(a, *args, **kwargs)
+        
+    elif isinstance(a, Derham):
+        return discretize_derham(a, *args, **kwargs)
 
     elif isinstance(a, Domain):
         return discretize_domain(a, *args, **kwargs)

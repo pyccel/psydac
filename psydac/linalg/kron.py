@@ -3,6 +3,7 @@ import numpy as np
 
 from psydac.linalg.basic   import LinearOperator, LinearSolver
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from scipy.sparse          import kron
 
 __all__ = ['KroneckerStencilMatrix_2D',
            'kronecker_solve_2d_par',
@@ -27,29 +28,22 @@ def kron_dot(starts, ends, pads, X, X_tmp, Y, A, B):
              Y[i1-s1+p1,i2-s2+p2] = sum(A[i1, k]*X_tmp[i1-s1+k, i2-s2+p2] for k in range(2*p1+1))
     return Y
 #==============================================================================
-class KroneckerStencilMatrix_2D( LinearOperator ):
+class KroneckerStencilMatrix( LinearOperator ):
 
-    def __init__( self, V, W, A1, A2 ):
+    def __init__( self,V, W, *args ):
 
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
-        assert V.ndim == 2
-        assert V is W
 
-        assert isinstance( A1, StencilMatrix )
-        assert A1.domain.ndim == 1
-        assert A1.domain.npts[0] == V.npts[0]
+        for i,A in enumerate(args):
+            assert isinstance( A, StencilMatrix )
+            assert A.domain.ndim == 1
+            assert A.domain.npts[0] == V.npts[i]
 
-        assert isinstance( A2, StencilMatrix )
-        assert A2.domain.ndim == 1
-        assert A2.domain.npts[0] == V.npts[1]
 
         self._domain   = V
         self._codomain = W
-        self._A1       = A1
-        self._A2       = A2
-        self._Y        = StencilVector( V )
-
+        self._mats     = args
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -63,12 +57,17 @@ class KroneckerStencilMatrix_2D( LinearOperator ):
         return self._codomain
 
     # ...
-    def dot( self, X, out=None ):
+    @property
+    def mats(self):
+        return self._mats
+
+    # ...
+    def dot( self, x, out=None ):
 
         dot = np.dot
 
-        assert isinstance( X, StencilVector )
-        assert X.space is self.domain
+        assert isinstance( x, StencilVector )
+        assert x.space is self.domain
 
         if out is not None:
             assert isinstance( out, StencilVector )
@@ -76,23 +75,26 @@ class KroneckerStencilMatrix_2D( LinearOperator ):
         else:
             out = StencilVector( self.codomain )
 
-        [s1, s2] = self._codomain.starts
-        [e1, e2] = self._codomain.ends
-        [p1, p2] = self._codomain.pads
 
-        A1 = self._A1
-        A2 = self._A2
-        Y  = self._Y
-        X.update_ghost_regions()
+        starts = self._codomain.starts
+        ends   = self._codomain.ends
+        pads   = self._codomain.pads
 
-        for j1 in range(s1-p1, e1+p1+1):
-            for i2 in range(s2, e2+1):
-                 Y[j1,i2] = dot( X[j1,i2-p2:i2+p2+1], A2[i2,:])
-
-        for i1 in range(s1, e1+1):
-            for i2 in range(s2, e2+1):
-                 out[i1,i2] = dot( A1[i1,:], Y[i1-p1:i1+p1+1,i2] )
+        mats   = self.mats
         
+        nrows  = tuple(e-s+1 for s,e in zip(starts, ends))
+        pnrows = tuple(2*p+1 for p in pads)
+        
+        for ii in np.ndindex(*nrows):
+            v = 0.
+            xx = tuple(i+p for i,p in zip(ii,pads))
+            for jj in np.ndindex(*pnrows):
+                i_mats = [mat._data[x,j] for x,j,mat in zip(xx,jj,mats)]
+                ii_jj = tuple(i+j for i,j in zip(ii,jj))
+                v += x._data[ii_jj]*np.product(i_mats)
+
+            out._data[xx] = v
+
         out.update_ghost_regions()
 
         return out
@@ -218,20 +220,20 @@ class KroneckerStencilMatrix( LinearOperator ):
         elements = [A[i,j] for A,i,j in zip(mats, rows, cols)]
         return np.product(elements)
     # ...
-    def tocoo( self ):
-        raise NotImplementedError('TODO')
+    def tosparse( self ):
+
+        mat = self.mats[0].tosparse()
+        for i in range(len(self.mats)-1):
+            mat = kron(mat, self.mats[i+1].tosparse())
+        return mat
 
     #...
     def tocsr( self ):
-        return self.tocoo().tocsr()
+        return self.tosparse().tocsr()
 
     #...
     def toarray( self ):
-        # TODO improve by using tocoo.toarray()
-        mat = self.mats[0].toarray()
-        for i in range(len(self.mats)-1):
-            mat = np.kron(mat,self.mats[i+1].toarray())
-        return mat
+        return self.tosparse().toarray()
     #...
     def copy( self ):
         M = KroneckerStencilMatrix( self.domain, self.codomain, *self.mats )

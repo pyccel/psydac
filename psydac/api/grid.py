@@ -62,8 +62,6 @@ def _compute_quadrature_TensorFemSpace( V, quad_order=None ):
             for (W, order) in zip(V.spaces, quad_order)]
 
 #==============================================================================
-# TODO must take the max of degrees if quad_order is not present and
-# spaces.degrees are different
 def _compute_quadrature_ProductFemSpace( V, quad_order=None ):
     """
     returns quadrature points and weights for a product space
@@ -221,7 +219,7 @@ def create_fem_assembly_grid(V, quad_order=None, nderiv=1):
         nderiv = [1 for i in range(V.ldim)]
     # ...
 
-    return [FemAssemblyGrid(W, s, e, quad_order=n, nderiv=d )
+    return [FemAssemblyGrid(W, s, e, normalize=W.normalize, quad_order=n, nderiv=d )
             for W,s,e,n,d in zip( V.spaces,
                                   V.vector_space.starts, V.vector_space.ends,
                                   quad_order, nderiv ) ]

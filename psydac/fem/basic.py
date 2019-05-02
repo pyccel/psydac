@@ -170,7 +170,7 @@ class FemField:
         (by default assume zero vector).
 
     """
-    def __init__( self, space, coeffs=None ):
+    def __init__( self, space, coeffs=None, normalize=False ):
 
         assert isinstance( space, FemSpace )
 
@@ -180,8 +180,9 @@ class FemField:
         else:
             coeffs = space.vector_space.zeros()
 
-        self._space  = space
-        self._coeffs = coeffs
+        self._space     = space
+        self._coeffs    = coeffs
+        self._normalize = normalize
 
     # ...
     @property
@@ -202,6 +203,11 @@ class FemField:
 
         """
         return self._coeffs
+        
+    # ...
+    @property
+    def normalize(self):
+        return self._normalize
 
     # ...
     def __call__( self, *eta ):
