@@ -41,73 +41,81 @@ from matplotlib import animation
 def run_system_1_2d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Square()
-    
+
     derham = Derham(domain, sequence=['H1', 'Hdiv', 'L2'])
-    H1     = derham.V0
-    Hdiv   = derham.V1
-    L2     = derham.V2  
-    X      = ProductSpace(Hdiv, L2)
+    V0 = derham.V0
+    V1 = derham.V1
+    V2 = derham.V2
 
-    F = element_of_space(L2, name='F')
+    # TODO
+    # V0, V1, V2 = derham.spaces
 
-    p,q = [element_of_space(Hdiv, name=i) for i in ['p', 'q']]
-    u,v = [element_of_space(L2, name=i) for i in ['u', 'v']]
+    F = element_of_space(V2, name='F')
+
+    p,q = [element_of_space(V1, name=i) for i in ['p', 'q']]
+    u,v = [element_of_space(V2, name=i) for i in ['u', 'v']]
 
     a  = BilinearForm(((p,u),(q,v)), dot(p,q) + div(q)*u )
     l  = LinearForm((q,v), 2*v)
-    
+
     error  = F-sol
     l2norm = Norm(error, domain, kind='l2')
 
-    equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))
- 
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells)
     # ...
-    
-    # ... discrete spaces
-    derham_Vh = discretize(derham, domain_h, degree=degree)
-    Xh        = discretize(X , domain_h, degree=degree)
-    
-    Hdiv_Vh = derham_Vh.V1
-    L2_Vh   = derham_Vh.V2
-    
-    
-    # ... dsicretize the equation
-    ah       = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
-    l2norm_h = discretize(l2norm, domain_h, L2_Vh)
 
-    ah.assemble()
-    
-    M   = ah.linear_system.lhs
-    rhs = ah.linear_system.rhs
+    # ... discrete spaces
+    derham_h = discretize(derham, domain_h, degree=degree)
+
+    V1_h = derham_h.V1
+    V2_h = derham_h.V2
+    Xh   = V1_h * V2_h
+
+    # TODO
+    # V0_h, V1_h, V2_h = derham_h.spaces
     # ...
-    M[2,0] = Hdiv_Vh.div._matrix[0,0]
-    M[2,1] = Hdiv_Vh.div._matrix[0,1]
-    
+
+    # ...
+    ah       = discretize(a, domain_h, [Xh, Xh])
+    lh       = discretize(l, domain_h, Xh)
+
+    l2norm_h = discretize(l2norm, domain_h, V2_h)
+    # ...
+
+    # ...
+    M   = ah.assemble()
+    rhs = lh.assemble()
+    # ...
+
+    # ...
+    M[2,0] = V1_h.div._matrix[0,0]
+    M[2,1] = V1_h.div._matrix[0,1]
+    # ...
+
     # ...
     f      = lambda x,y: -2*(2*np.pi)**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
-    rhs[2] = L2_Vh.interpolate(f)
+    rhs[2] = V2_h.interpolate(f)
 
     # ...
     M   = M.tosparse().tocsc()
     rhs = rhs.toarray()
-    
+
     x   = spsolve(M, rhs)
 
     # ...
-    s31,s32 = L2_Vh.vector_space.starts
-    e31,e32 = L2_Vh.vector_space.ends
-    
+    s31,s32 = V2_h.vector_space.starts
+    e31,e32 = V2_h.vector_space.ends
+
     u = x[-(e31-s31+1)*(e32-s32+1):].reshape((e31-s31+1, e32-s32+1))
-    
+
     # ...
-    Fh = FemField( L2_Vh )
+    Fh = FemField( V2_h )
 
     Fh.coeffs[s31:e31+1, s32:e32+1] = u
-    
 
-    # ...  
+
+    # ...
 #    fig = plt.figure()
 #    ax = fig.add_subplot(111, projection='3d')
 
@@ -115,38 +123,40 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     y      = np.linspace( 0., 1., 101 )
 
     phi = np.array( [[Fh(xi, yj) for xi in x] for yj in y] )
-    
+
     X, Y = np.meshgrid(x, y, indexing='ij')
-    
+
     model = lambda x,y:np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
     Z = model(X,Y)
-    
+
     error = l2norm_h.assemble(F=Fh)
     # TODO fix bug it gives the wrong error
-    
+
     error = np.abs(Z-phi).max()
-     
+
 #    Axes3D.plot_wireframe(ax, X, Y, phi, color='b')
 #    Axes3D.plot_wireframe(ax, X, Y, Z, color='r')
-    
+
 #    plt.show()
-    
+
     return error
 
-    
+
 
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
 
 #==============================================================================
-            
-def test_api_system_1_2d_dir_1():
-    from sympy.abc import x,y
-    from sympy import sin, cos, pi
 
-    f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
-    u  = sin(2*pi*x)*sin(2*pi*y)
+#def test_api_system_1_2d_dir_1():
+#    from sympy.abc import x,y
+#    from sympy import sin, cos, pi
+#
+#    f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
+#    u  = sin(2*pi*x)*sin(2*pi*y)
+#
+#    error = run_system_1_2d_dir(f0,u, ncells=[5, 5], degree=[2,2])
 
-    error = run_system_1_2d_dir(f0,u, ncells=[5, 5], degree=[2,2])
 
+#test_api_system_1_2d_dir_1()
