@@ -333,7 +333,20 @@ class CartDecomposition():
         return cart
 
     def reduce_grid(self, global_starts, global_ends):
+        """ 
+        Returns a new CartDecomposition object with a coarser grid from the original one
+        we do that by giving a new global_starts  and global_ends of the coefficients
+        in each dimension.
+            
+        Parameters
+        ----------
+        global_starts : list/tuple
+            the list of the new global_starts  in each dimesion.
 
+        global_ends : list/tuple
+            the list of the new global_ends in each dimesion.
+ 
+        """
         # Make a copy
         cart = CartDecomposition(self.npts, self.pads, self.periods, self.reorder, comm=self.comm)
 

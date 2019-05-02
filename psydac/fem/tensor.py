@@ -346,7 +346,7 @@ class TensorFemSpace( FemSpace ):
         return self._global_element_starts
 
     @property
-    def local_element_ends( self ):
+    def global_element_ends( self ):
         return self._global_element_ends
 
     @property
@@ -401,6 +401,21 @@ class TensorFemSpace( FemSpace ):
         )
 
     def reduce_grid(self, axes=[], knots=[]):
+        """ 
+        Returns a new TensorFem object with a coarser grid from the original one
+         we do that by giving a new knot sequence in the desired dimension.
+            
+        Parameters
+        ----------
+        axes : list of int
+            the dimensions where we want to coarsen the grid.
+
+        field : list/tuple
+            the list of the new knot sequence in each dimesion.
+ 
+        """
+    
+        assert len(axes) == len(knots)
     
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
