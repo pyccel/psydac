@@ -291,6 +291,7 @@ class DiscreteFunctional(BasicDiscrete):
 #        # ...
 
         # case of a norm
+        
         if isinstance(self.expr, sym_Norm):
             if not( self.comm is None ):
                 v = self.comm.allreduce(sendobj=v)

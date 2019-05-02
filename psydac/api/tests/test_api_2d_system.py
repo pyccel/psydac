@@ -7,10 +7,11 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import ScalarField, VectorField
+from sympde.topology import element_of_space, element_of_space
 from sympde.topology import ProductSpace
-from sympde.topology import ScalarTestFunction
-from sympde.topology import VectorTestFunction
+from sympde.topology import element_of_space
+from sympde.topology import element_of_space
+from sympde.topology import element_of_space
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
@@ -43,11 +44,11 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
 
     x,y = domain.coordinates
 
-    F = VectorField(W, name='F')
-    G = ScalarField(V, name='G')
+    F = element_of_space(W, name='F')
+    G = element_of_space(V, name='G')
 
-    u,v = [VectorTestFunction(W, name=i) for i in ['u', 'v']]
-    p,q = [      ScalarTestFunction(V, name=i) for i in ['p', 'q']]
+    u,v = [element_of_space(W, name=i) for i in ['u', 'v']]
+    p,q = [      element_of_space(V, name=i) for i in ['p', 'q']]
 
     a0 = BilinearForm((v,u), inner(grad(v), grad(u)))
     a1 = BilinearForm((q,p), p*q)
@@ -150,3 +151,15 @@ def test_api_system_1_2d_dir_1():
 
     assert( np.allclose(l2_error, expected_l2_error, 1.e-7) )
     assert( np.allclose(h1_error, expected_h1_error, 1.e-7) )
+    
+#==============================================================================
+# CLEAN UP SYMPY NAMESPACE
+#==============================================================================
+
+def teardown_module():
+    from sympy import cache
+    cache.clear_cache()
+
+def teardown_function():
+    from sympy import cache
+    cache.clear_cache()

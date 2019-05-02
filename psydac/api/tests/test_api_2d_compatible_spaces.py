@@ -7,10 +7,11 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import ScalarField, VectorField
+from sympde.topology import element_of_space, element_of_space
 from sympde.topology import ProductSpace
-from sympde.topology import ScalarTestFunction
-from sympde.topology import VectorTestFunction
+from sympde.topology import element_of_space
+from sympde.topology import element_of_space
+from sympde.topology import element_of_space
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
@@ -48,24 +49,25 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     x,y = domain.coordinates
 
-    F = ScalarField(V2, name='F')
+    F = element_of_space(V2, name='F')
 
-
-    p,q = [VectorTestFunction(V1, name=i) for i in ['p', 'q']]
-    u,v = [ScalarTestFunction(V2, name=i) for i in ['u', 'v']]
+    p,q = [element_of_space(V1, name=i) for i in ['p', 'q']]
+    u,v = [element_of_space(V2, name=i) for i in ['u', 'v']]
 
     a  = BilinearForm(((p,u),(q,v)),dot(p,q) + div(q)*u + div(p)*v )
     l  = LinearForm((q,v), f0*v)
-
+    
+    # ...
     error = F-sol
     l2norm_F = Norm(error, domain, kind='l2')
-
-
+    # ...
+    
     equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))
  
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells)
     # ...
+
     # ... discrete spaces
     V1h = discretize(V1, domain_h, degree=degree)
     V2h = discretize(V2, domain_h, degree=degree)
@@ -77,22 +79,25 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     # ... discretize norms
     l2norm_F_h = discretize(l2norm_F, domain_h, V2h)
+    # ...
 
-
+    # ...
     ah.assemble()
-
     M   = ah.linear_system.lhs.tosparse()
     rhs = ah.linear_system.rhs.toarray()
     x   = spsolve(M, rhs)
-
-
+    # ...
+    
+    # ... 
     s31,s32 = V2h.vector_space.starts
     e31,e32 = V2h.vector_space.ends
     # ...
+    
+    # ...
     Fh = FemField( V2h )
-
     Fh.coeffs[s31:e31+1, s32:e32+1] = x[-(e31-s31+1)*(e32-s32+1):].reshape((e31-s31+1, e32-s32+1))
     # ...
+
     # ... compute norms
     l2_error = l2norm_F_h.assemble(F=Fh)
 
@@ -109,10 +114,10 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
 
     x,y = domain.coordinates
 
-    F = VectorField(V1, name='F')
+    F = element_of_space(V1, name='F')
 
-    u,v = [VectorTestFunction(V1, name=i) for i in ['u', 'v']]
-    p,q = [ScalarTestFunction(V2, name=i) for i in ['p', 'q']]
+    u,v = [element_of_space(V1, name=i) for i in ['u', 'v']]
+    p,q = [element_of_space(V2, name=i) for i in ['p', 'q']]
 
     a  = BilinearForm(((u,p),(v,q)),inner(grad(u),grad(v)) + div(u)*q - p*div(v) )
     l  = LinearForm((v,q), f1*v[0]+f2*v[1]+q)

@@ -31,6 +31,12 @@ from psydac.fem.vector               import ProductFemSpace
 from psydac.cad.geometry             import Geometry
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
 
+from sympde.expr.basic import BasicForm
+from sympde.topology.space import ScalarField, VectorField, IndexedVectorField
+from sympde.topology.space import Element, IndexedElement
+from gelato.expr       import GltExpr
+from sympy import Add, Mul
+
 import inspect
 import sys
 import os
@@ -96,7 +102,7 @@ class BasicCodeGen(object):
         folder    = kwargs.pop('folder', None)
         comm      = kwargs.pop('comm', None)
         root      = kwargs.pop('root', None)
-
+        expr      = self._annotate(expr)
         # ...
         if not( comm is None):
             if root is None:
@@ -107,7 +113,7 @@ class BasicCodeGen(object):
 
             if comm.rank == root:
                 tag = random_string( 8 )
-                ast = self._create_ast( expr, tag, comm=comm,**kwargs )
+                ast = self._create_ast( expr, tag, comm=comm, backend=backend, **kwargs )
                 interface = ast['interface']
                 max_nderiv = interface.max_nderiv
                 in_arguments = [str(a) for a in interface.in_arguments]
@@ -131,7 +137,7 @@ class BasicCodeGen(object):
 
         else:
             tag = random_string( 8 )
-            ast = self._create_ast( expr, tag, **kwargs )
+            ast = self._create_ast( expr, tag, backend=backend, **kwargs )
             interface = ast['interface']
             max_nderiv = interface.max_nderiv
             interface_name = interface.name
@@ -492,6 +498,19 @@ class BasicCodeGen(object):
         # ...
 
         return _kwargs
+
+    def _annotate(self, expr):
+    
+        if isinstance(expr, BasicForm):   
+            if not expr.is_annotated:
+                expr = expr._annotate()
+                
+        elif isinstance(expr, GltExpr):
+            form = expr.form
+            form = form._annotate()
+            expr = GltExpr(form)
+        return expr
+        
 
 
 #==============================================================================

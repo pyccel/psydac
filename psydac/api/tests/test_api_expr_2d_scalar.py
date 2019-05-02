@@ -8,10 +8,12 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import ScalarField, VectorField
+from sympde.topology import element_of_space, element_of_space
 from sympde.topology import ProductSpace
-from sympde.topology import ScalarTestFunction
-from sympde.topology import VectorTestFunction
+from sympde.topology import element_of_space
+from sympde.topology import element_of_space
+from sympde.topology import element_of_space
+
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
@@ -40,7 +42,7 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
 
     V = VectorFunctionSpace('V', domain)
 
-    F = VectorField(V, name='F')
+    F = element_of_space(V, name='F')
     
     x,y = domain.coordinates
     
@@ -65,14 +67,10 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     z = exprh(x, y, F=Fh)
 
 
-
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
 
 #==============================================================================
 def test_api_glt_poisson_2d_dir_1():
-
     run_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
-
-test_api_glt_poisson_2d_dir_1()

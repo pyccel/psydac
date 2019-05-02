@@ -7,10 +7,11 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import ScalarField, VectorField
+from sympde.topology import element_of_space, element_of_space
 from sympde.topology import ProductSpace
-from sympde.topology import ScalarTestFunction
-from sympde.topology import VectorTestFunction
+from sympde.topology import element_of_space
+from sympde.topology import element_of_space
+from sympde.topology import element_of_space
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
@@ -18,6 +19,7 @@ from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm
 from sympde.expr import Norm, TerminalExpr
 from sympde.expr import find, EssentialBC
+
 
 from psydac.fem.basic   import FemField
 from psydac.fem.vector   import VectorFemField
@@ -45,10 +47,10 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
 
     x = domain.coordinates
 
-    F = ScalarField(V2, name='F')
+    F = element_of_space(V2, name='F')
 
-    p,q = [ScalarTestFunction(V1, name=i) for i in ['p', 'q']]
-    u,v = [ScalarTestFunction(V2, name=i) for i in ['u', 'v']]
+    p,q = [element_of_space(V1, name=i) for i in ['p', 'q']]
+    u,v = [element_of_space(V2, name=i) for i in ['u', 'v']]
 
     a  = BilinearForm(((p,u),(q,v)),dot(p,q) + dot(div(q),u) + dot(div(p),v) )
     l  = LinearForm((q,v), dot(f0, v))
@@ -95,8 +97,9 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
 def test_api_system_1_1d_dir_1():
 
     from sympy.abc import x
+    
+    f0 = -(2*pi)**2*sin(2*pi*x)
+    u  = sin(2*pi*x)
+    x  = run_system_1_1d_dir(f0, u,ncells=[10], degree=[2])
 
-    f0 =  -(2*pi)**2*sin(2*pi*x)
-
-    x = run_system_1_1d_dir(f0, sin(2*pi*x),ncells=[10], degree=[2])
     

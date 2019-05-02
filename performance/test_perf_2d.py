@@ -1,27 +1,27 @@
 # -*- coding: UTF-8 -*-
 
 from sympy import pi, cos, sin
+from sympy import S
 
-from sympde.core import Constant
-from sympde.core import grad, dot, inner, cross, rot, curl, div
-from sympde.core import laplace, hessian
-from sympde.topology import (dx, dy, dz)
+from sympde.core     import Constant
+from sympde.calculus import grad, dot, inner, cross, rot, curl, div
+
+from sympde.topology import dx, dy, dz
+from sympde.topology import ScalarField
 from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import ScalarField, VectorField
-from sympde.topology import ProductSpace
-from sympde.topology import ScalarTestFunction
-from sympde.topology import VectorTestFunction
-from sympde.topology import Boundary, NormalVector, TangentVector
+from sympde.topology import element_of_space
+from sympde.topology import Domain
+from sympde.topology import Boundary, trace_0, trace_1
+from sympde.expr     import BilinearForm, LinearForm
+from sympde.expr     import Norm
+from sympde.expr     import find, EssentialBC
 from sympde.topology import Domain, Line, Square, Cube
-from sympde.topology import Trace, trace_0, trace_1
-from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm, Integral
-from sympde.expr import Norm
-from sympde.expr import Equation, DirichletBC
 
 from psydac.fem.basic   import FemField
+from psydac.fem.splines import SplineSpace
+from psydac.fem.tensor  import TensorFemSpace
 from psydac.api.discretization import discretize
-from psydac.api.settings import PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_PYCCEL
+from psydac.api.settings import PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL
 
 import time
 from tabulate import tabulate
@@ -30,7 +30,6 @@ from collections import namedtuple
 Timing = namedtuple('Timing', ['kind', 'python', 'pyccel'])
 
 DEBUG = False
-
 
 #def test_api_vector_poisson_2d():
 #    print('============ test_api_vector_poisson_2d =============')
@@ -199,10 +198,10 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
 
     x,y = domain.coordinates
 
-    F = ScalarField(V, name='F')
+    F = element_of_space(V, 'F')
 
-    v = ScalarTestFunction(V, name='v')
-    u = ScalarTestFunction(V, name='u')
+    v = element_of_space(V, 'v')
+    u = element_of_space(V, 'u')
 
     a = BilinearForm((v,u), dot(grad(v), grad(u)))
     l = LinearForm(v, f*v)
@@ -241,7 +240,7 @@ def run_poisson(domain, solution, f, ncells, degree, backend):
 
     # ... norm
     # coeff of phi are 0
-    phi = FemField( Vh, 'phi' )
+    phi = FemField( Vh )
 
     l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
 
@@ -272,7 +271,7 @@ def test_perf_poisson_2d(ncells=[2**3,2**3], degree=[2,2]):
     # using Pyccel
     d_f90 = run_poisson( domain, solution, f,
                          ncells=ncells, degree=degree,
-                         backend=PSYDAC_BACKEND_PYCCEL )
+                         backend=PSYDAC_BACKEND_GPYCCEL )
 
     # ... add every new backend here
     d_all = [d_py, d_f90]

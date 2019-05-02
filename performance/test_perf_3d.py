@@ -2,24 +2,26 @@
 
 from sympy import pi, cos, sin
 from sympy import S
-from sympy import Tuple
 
-from sympde.core import dx, dy, dz
-from sympde.core import Constant
-from sympde.core import ScalarField
-from sympde.core import grad, dot, inner, cross, rot, curl, div
-from sympde.core import FunctionSpace, VectorFunctionSpace
-from sympde.core import ScalarTestFunction
-from sympde.core import VectorTestFunction
-from sympde.core import Domain
-from sympde.core import BilinearForm, LinearForm, Integral
-from sympde.core import Norm
+from sympde.core     import Constant
+from sympde.calculus import grad, dot, inner, cross, rot, curl, div
+
+from sympde.topology import dx, dy, dz
+from sympde.topology import ScalarField
+from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import element_of_space
+from sympde.topology import Domain
+from sympde.topology import Boundary, trace_0, trace_1
+from sympde.expr     import BilinearForm, LinearForm
+from sympde.expr     import Norm
+from sympde.expr     import find, EssentialBC
+from sympde.topology import Domain, Line, Square, Cube
 
 from psydac.fem.basic   import FemField
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.api.discretization import discretize
-from psydac.api.settings import PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_PYCCEL
+from psydac.api.settings import PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL
 
 from numpy import linspace, zeros
 
@@ -29,29 +31,7 @@ from collections import namedtuple
 
 Timing = namedtuple('Timing', ['kind', 'python', 'pyccel'])
 
-domain = Domain('\Omega', dim=3)
-
-def create_discrete_space(p=(2,2,2), ne=(2,2,2)):
-    # ... discrete spaces
-    # Input data: degree, number of elements
-    p1,p2,p3 = p
-    ne1,ne2,ne3 = ne
-
-    # Create uniform grid
-    grid_1 = linspace( 0., 1., num=ne1+1 )
-    grid_2 = linspace( 0., 1., num=ne2+1 )
-    grid_3 = linspace( 0., 1., num=ne3+1 )
-
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
-    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
-    V3 = SplineSpace( p3, grid=grid_3 ); V3.init_fem()
-
-    # Create 3D tensor product finite element space
-    V = TensorFemSpace( V1, V2, V3 )
-    # ...
-
-    return V
+domain = Cube()
 
 def print_timing(ls):
     # ...
@@ -72,14 +52,13 @@ def test_api_poisson_3d():
 
     # ... abstract model
     U = FunctionSpace('U', domain)
-    V = FunctionSpace('V', domain)
 
     x,y,z = domain.coordinates
 
-    F = ScalarField(V, name='F')
+    F = element_of_space(U, 'F')
 
-    v = ScalarTestFunction(V, name='v')
-    u = ScalarTestFunction(U, name='u')
+    v = element_of_space(U, 'v')
+    u = element_of_space(U, 'u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -91,20 +70,23 @@ def test_api_poisson_3d():
     l2norm = Norm(error, domain, kind='l2', name='u')
     h1norm = Norm(error, domain, kind='h1', name='u')
     # ...
+    
+    domain_h = discretize(domain, ncells=(2**3, 2**3, 2**3))
+    # ...
 
     # ... discrete spaces
-    Vh = create_discrete_space(p=(3, 3, 3), ne=(2**4, 2**4, 2**4))
+    Vh = discretize(V, domain_h, degree=(3, 3, 3))
     # ...
 
     # ...
-    ah = discretize(a, [Vh, Vh], backend=PSYDAC_BACKEND_PYCCEL)
+    ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL)
     tb = time.time()
     M_f90 = ah.assemble()
     te = time.time()
     print('> [pyccel] elapsed time (matrix) = ', te-tb)
     t_f90 = te-tb
 
-    ah = discretize(a, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
+    ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
     tb = time.time()
     M_py = ah.assemble()
     te = time.time()
@@ -115,14 +97,14 @@ def test_api_poisson_3d():
     # ...
 
     # ...
-    lh = discretize(l, Vh, backend=PSYDAC_BACKEND_PYCCEL)
+    lh = discretize(l, domain_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL)
     tb = time.time()
     L_f90 = lh.assemble()
     te = time.time()
     print('> [pyccel] elapsed time (rhs) = ', te-tb)
     t_f90 = te-tb
 
-    lh = discretize(l, Vh, backend=PSYDAC_BACKEND_PYTHON)
+    lh = discretize(l, domain_h, Vh, backend=PSYDAC_BACKEND_PYTHON)
     tb = time.time()
     L_py = lh.assemble()
     te = time.time()
@@ -133,18 +115,18 @@ def test_api_poisson_3d():
     # ...
 
     # ... coeff of phi are 0
-    phi = FemField( Vh, 'phi' )
+    phi = FemField( Vh )
     # ...
 
     # ...
-    l2norm_h = discretize(l2norm, Vh, backend=PSYDAC_BACKEND_PYCCEL)
+    l2norm_h = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKEND_GPYCCEL)
     tb = time.time()
     L_f90 = l2norm_h.assemble(F=phi)
     te = time.time()
     print('> [pyccel] elapsed time (L2 norm) = ', te-tb)
     t_f90 = te-tb
 
-    l2norm_h = discretize(l2norm, Vh, backend=PSYDAC_BACKEND_PYTHON)
+    l2norm_h = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKEND_PYTHON)
     tb = time.time()
     L_py = l2norm_h.assemble(F=phi)
     te = time.time()
@@ -162,32 +144,37 @@ def test_api_stokes_3d():
     print('============ test_api_stokes_3d =============')
 
     # ... abstract model
-    V = VectorFunctionSpace('V', domain)
-    W = FunctionSpace('W', domain)
+    U = VectorFunctionSpace('V', domain)
+    V = FunctionSpace('W', domain)
 
-    v = VectorTestFunction(V, name='v')
-    u = VectorTestFunction(V, name='u')
-    p = ScalarTestFunction(W, name='p')
-    q = ScalarTestFunction(W, name='q')
+    W = U*V
 
-    A = BilinearForm((v,u), inner(grad(v), grad(u)), name='A')
-    B = BilinearForm((v,p), div(v)*p, name='B')
-    a = BilinearForm(((v,q),(u,p)), A(v,u) - B(v,p) + B(u,q), name='a')
+    v = element_of_space(U, 'v')
+    u = element_of_space(U, 'u')
+    p = element_of_space(V, 'p')
+    q = element_of_space(V, 'q')
+
+    A = BilinearForm((v,u), inner(grad(v), grad(u)))
+    B = BilinearForm((v,p), div(v)*p)
+    a = BilinearForm(((v,q),(u,p)), A(v,u) - B(v,p) + B(u,q))
     # ...
 
+    domain_h = discretize(domain, ncells=(2**3, 2**3, 2**3))
+    # ...
+
     # ... discrete spaces
-    Vh = create_discrete_space(p=(3, 3, 3), ne=(2**4, 2**4, 2**4))
+    Vh = discretize(W, domain_h, degree=(3, 3, 3))
     # ...
 
     # ...
-    ah = discretize(a, [Vh, Vh], backend=PSYDAC_BACKEND_PYCCEL)
+    ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL)
     tb = time.time()
     M_f90 = ah.assemble()
     te = time.time()
     print('> [pyccel] elapsed time (matrix) = ', te-tb)
     t_f90 = te-tb
 
-    ah = discretize(a, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
+    ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_PYTHON)
     tb = time.time()
     M_py = ah.assemble()
     te = time.time()
