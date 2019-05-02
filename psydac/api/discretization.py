@@ -208,6 +208,10 @@ class DiscreteEquation(BasicDiscrete):
 
 #==============================================================================
 class DiscreteDerham(BasicDiscrete):
+    """
+    Rerpresent the discrete derham sequence
+    
+    """
     def __init__(self, *spaces):
     
         dim       = len(spaces) - 1
@@ -216,6 +220,7 @@ class DiscreteDerham(BasicDiscrete):
         self._V2  = None
         self._V3  = None
         self._dim = dim
+        
         
         if dim == 1:
             self._V0 = spaces[0]
@@ -229,6 +234,8 @@ class DiscreteDerham(BasicDiscrete):
             self._V1 = spaces[1]
             self._V2 = spaces[2]
             self._V3 = spaces[3]
+        else:
+            raise ValueError('dimension {} is not available'.format(dim))
 
     # ...
     @property
@@ -253,9 +260,9 @@ class DiscreteDerham(BasicDiscrete):
         return self._V3  
 
 #==============================================================================           
-def discretize_derham(V, domain_h, *args, **kwargs):
+def discretize_derham(Complex, domain_h, *args, **kwargs):
 
-    spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in V.spaces]
+    spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
     ldim   = V.shape
     
     if ldim == 1:
@@ -270,7 +277,7 @@ def discretize_derham(V, domain_h, *args, **kwargs):
         
     elif ldim == 2:
         
-        if isinstance(V.spaces[1].kind, HcurlSpaceType):
+        if isinstance(Complex.spaces[1].kind, HcurlSpaceType):
             D0 = Grad(spaces[0], spaces[1].vector_space)
             D1 = Curl(spaces[0], spaces[1].vector_space, spaces[2].vector_space)
             setattr(spaces[0], 'grad', D0)
