@@ -263,7 +263,7 @@ class DiscreteDerham(BasicDiscrete):
 def discretize_derham(Complex, domain_h, *args, **kwargs):
 
     spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
-    ldim   = V.shape
+    ldim   = Complex.shape
     
     if ldim == 1:
         D0 = Grad(spaces[0], spaces[1].vector_space)
