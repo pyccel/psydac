@@ -53,6 +53,11 @@ class TensorFemSpace( FemSpace ):
             )
 
             self._vector_space = StencilVectorSpace(cart)
+            
+        elif 'cart' in kwargs and not (kwargs['cart'] is None):
+
+            cart = kwargs['cart']
+            self._vector_space = StencilVectorSpace(cart)
 
         else:
             # serial case
@@ -75,6 +80,30 @@ class TensorFemSpace( FemSpace ):
 
         # Store flag: object NOT YET prepared for interpolation
         self._collocation_ready = False
+
+        # Compute the local domains for every process
+        if v.parallel:
+            ndims = cart._ndims
+            self._global_element_starts = [None]*ndims
+            self._global_element_ends   = [None]*ndims
+            for dimension in range( ndims ):
+                periodic = periods[dimension]
+                p = pads[dimension]
+                d = cart._dims[dimension]
+                starts = cart.global_starts[dimension]
+                ends   = cart.global_ends  [dimension]
+                
+                if periodic:
+                    element_starts = starts
+                    element_ends   = ends
+                else:
+                    element_starts = np.array( [starts[d]-p+1 for d in range(d)] )
+                    element_ends   = np.array( [ends[d]-p+1   for d in range(d)] )
+                    element_starts[0] = 0
+                    element_ends [-1] = ends[-1] - p
+
+                self._global_element_starts[dimension] = element_starts
+                self._global_element_ends  [dimension] = element_ends
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -313,6 +342,14 @@ class TensorFemSpace( FemSpace ):
         return self._element_starts, self._element_ends
 
     @property
+    def global_element_starts( self ):
+        return self._global_element_starts
+
+    @property
+    def global_element_ends( self ):
+        return self._global_element_ends
+
+    @property
     def eta_lims( self ):
         """
         Eta limits of domain local to the process (for field evaluation).
@@ -362,6 +399,67 @@ class TensorFemSpace( FemSpace ):
             rhs     = values,
             out     = field.coeffs,
         )
+
+    def reduce_grid(self, axes=[], knots=[]):
+        """ 
+        Returns a new TensorFem object with a coarser grid from the original one
+         we do that by giving a new knot sequence in the desired dimension.
+            
+        Parameters
+        ----------
+        axes : list of int
+            the dimensions where we want to coarsen the grid.
+
+        field : list/tuple
+            the list of the new knot sequence in each dimesion.
+ 
+        """
+    
+        assert len(axes) == len(knots)
+    
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        
+        v = self._vector_space
+        spaces = list(self.spaces)
+        
+        global_starts = v._cart._global_starts.copy()
+        global_ends   = v._cart._global_ends.copy()
+        global_domains_ends   = self._global_element_ends
+
+        for i, axis in enumerate(axes):
+            space    = spaces[axis]
+            degree   = space._degree
+            periodic = space._periodic
+            breaks   = space.breaks
+            T        = list(knots[i]).copy()
+            elements_ends  = global_domains_ends[axis]
+            boundries      = breaks[elements_ends+1].tolist()
+            
+            for b in boundries:
+                if b not in T:
+                    T.append(b)
+            T.sort()
+            
+            new_space = SplineSpace(degree, knots=T, periodic=periodic,
+                                    dirichlet=space._dirichlet)
+            spaces[axis] = new_space
+            breaks = new_space.breaks.tolist()
+            elements_ends = np.array([breaks.index(bd) for bd in boundries])-1
+            elements_starts = np.array([0] + (elements_ends[:-1]+1).tolist())
+            
+            if periodic:
+                global_starts[axis] = elements_starts
+                global_ends[axis]   = elements_ends
+            else:
+                global_starts[axis] = elements_starts + degree - 1
+                global_ends[axis]   = elements_ends   + degree - 1
+                global_ends[axis][-1] += 1
+                global_starts[axis][0] = 0
+
+        cart = v._cart.reduce_grid(global_starts, global_ends)
+        V    = TensorFemSpace(*spaces, cart=cart)
+        return V
 
     # ...
     def export_fields( self, filename, **fields ):

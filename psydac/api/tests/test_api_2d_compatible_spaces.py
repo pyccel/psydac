@@ -48,6 +48,7 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     F = element_of_space(V2, name='F')
 
+
     p,q = [element_of_space(V1, name=i) for i in ['p', 'q']]
     u,v = [element_of_space(V2, name=i) for i in ['u', 'v']]
 
@@ -57,8 +58,8 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     # ...
     error = F-sol
     l2norm_F = Norm(error, domain, kind='l2')
+
     # ...
-    
     equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))
  
     # ... create the computational domain from a topological domain
