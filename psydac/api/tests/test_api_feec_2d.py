@@ -7,10 +7,8 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace, Derham
-from sympde.topology import ScalarField, VectorField
+from sympde.topology import element_of_space
 from sympde.topology import ProductSpace
-from sympde.topology import ScalarTestFunction
-from sympde.topology import VectorTestFunction
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
@@ -50,10 +48,10 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     L2     = derham.V2  
     X      = ProductSpace(Hdiv, L2)
 
-    F = ScalarField(L2, name='F')
+    F = element_of_space(L2, name='F')
 
-    p,q = [VectorTestFunction(Hdiv, name=i) for i in ['p', 'q']]
-    u,v = [ScalarTestFunction(L2, name=i) for i in ['u', 'v']]
+    p,q = [element_of_space(Hdiv, name=i) for i in ['p', 'q']]
+    u,v = [element_of_space(L2, name=i) for i in ['u', 'v']]
 
     a  = BilinearForm(((p,u),(q,v)), dot(p,q) + div(q)*u )
     l  = LinearForm((q,v), 2*v)
