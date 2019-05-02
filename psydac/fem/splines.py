@@ -55,12 +55,13 @@ class SplineSpace( FemSpace ):
 
     """
     def __init__( self, degree, knots=None, grid=None,
-                  periodic=False, dirichlet=(False, False) ):
+                  periodic=False, dirichlet=(False, False), normalize=False ):
 
         self._degree    = degree
         self._periodic  = periodic
         self._dirichlet = dirichlet
-
+        self._normalize = normalize
+        
         if not( knots is None ) and not( grid is None ):
             raise ValueError( 'Cannot provide both grid and knots.' )
 
@@ -224,6 +225,10 @@ class SplineSpace( FemSpace ):
         """ Coordinates of all Greville points.
         """
         return greville( self._knots, self._degree, self._periodic )
+        
+    @property
+    def normalize(self):
+        return self._normalize
 
     #--------------------------------------------------------------------------
     # Other methods

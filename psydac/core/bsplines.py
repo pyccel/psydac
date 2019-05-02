@@ -557,7 +557,7 @@ def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):
     return quad_x, quad_w
 
 #==============================================================================
-def basis_ders_on_quad_grid( knots, degree, quad_grid, nders ):
+def basis_ders_on_quad_grid( knots, degree, quad_grid, nders, normalize=False ):
     """
     Evaluate B-Splines and their derivatives on the quadrature grid.
 
@@ -600,5 +600,21 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders ):
             ders = basis_funs_all_ders( knots, degree, xq, span, nders )
             basis[ie,:,:,iq] = ders.transpose()
 
+    if normalize:
+        x = scaling_matrix(degree, ne+degree, knots)
+        basis *= x[0]
+
     return basis
 
+#==============================================================================
+def scaling_matrix(p, n, T):
+    """Returns the scaling array for M-splines.
+    It is an array whose elements are (p+1)/(T[i+p+1]-T[i])
+
+
+    """
+
+    x = np.zeros(n)
+    for i in range(0, n):
+        x[i] = (p+1)/(T[i+p+1]-T[i])
+    return x

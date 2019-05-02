@@ -35,9 +35,10 @@ class TensorFemSpace( FemSpace ):
         assert all( isinstance( s, SplineSpace ) for s in args )
         self._spaces = tuple(args)
 
-        npts = [V.nbasis for V in self.spaces]
-        pads = [V.degree for V in self.spaces]
-        periods = [V.periodic for V in self.spaces]
+        npts      = [V.nbasis for V in self.spaces]
+        pads      = [V.degree for V in self.spaces]
+        periods   = [V.periodic for V in self.spaces]
+        normalize = [V.normalize for V in self.spaces]
 
         if 'comm' in kwargs and not( kwargs['comm'] is None ):
             # parallel case
@@ -62,8 +63,8 @@ class TensorFemSpace( FemSpace ):
         v = self._vector_space
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e )
-                                  for V,s,e in zip( self.spaces, v.starts, v.ends ) )
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, normalize=n)
+                                  for V,s,e,n in zip( self.spaces, v.starts, v.ends, normalize ) )
 
         # Determine portion of logical domain local to process
         self._element_starts = tuple( g.indices[g.local_element_start] for g in self.quad_grids )
@@ -111,7 +112,7 @@ class TensorFemSpace( FemSpace ):
         index = []
             
 
-        for (x, xlim, space, p) in zip( eta, self.eta_lims, self.spaces, self.vector_space.pads ):
+        for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
 
             knots  = space.knots
             degree = space.degree
@@ -158,12 +159,19 @@ class TensorFemSpace( FemSpace ):
 #        for idx,c in np.ndenumerate( coeffs ):
 #            ndbasis = np.prod( [b[i] for i,b in zip( idx, bases )] )
 #            res    += c * ndbasis
-
-        if field.normalize:
-            coeff = np.prod( [d/(sp.knots[2*d]-sp.knots[d]) for d,sp in zip(self.vector_space.pads,self.spaces)] )
-            res = coeff**(1/len(self.spaces))*res
         
-        return res
+        coeff = 1.
+        n = 0
+        for space in self.spaces:
+            knots  = space.knots
+            degree = space.degree
+            
+            if space.normalize:
+                coeff *= (degree+1)/(knots[2*(degree+1)]-knots[degree+1])
+                n     += 1
+        coeff *= max(1, n)
+            
+        return res*coeff
 
     # ...
     def eval_field_gradient( self, field, *eta ):
@@ -448,7 +456,7 @@ class TensorFemSpace( FemSpace ):
 
         return fields
         
-    def reduce_degree(self, axes):
+    def reduce_degree(self, axes, normalize=False):
         if isinstance(axes, int):
             axes = [axes]
             
@@ -466,7 +474,7 @@ class TensorFemSpace( FemSpace ):
             
             reduced_space = SplineSpace(degree-1, grid=grid, 
                                         periodic=periodic, 
-                                        dirichlet=dirichlet)
+                                        dirichlet=dirichlet, normalize=normalize)
             spaces[axis] = reduced_space
             
         npts = [V.nbasis for V in spaces]

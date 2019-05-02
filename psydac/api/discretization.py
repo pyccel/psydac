@@ -325,6 +325,11 @@ def discretize_space(V, domain_h, *args, **kwargs):
     symbolic_mapping = None
     kind             = V.kind
     ldim             = V.ldim
+    
+    if isinstance(V, ProductSpace):
+        normalize = False
+    else:
+        normalize = V.normalize
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
@@ -359,11 +364,11 @@ def discretize_space(V, domain_h, *args, **kwargs):
         if isinstance(kind, L2SpaceType):
   
             if ldim == 1:
-                Vh = Vh.reduce_degree(axes=[0])
+                Vh = Vh.reduce_degree(axes=[0], normalize=normalize)
             elif ldim == 2:
-                Vh = Vh.reduce_degree(axes=[0,1])
+                Vh = Vh.reduce_degree(axes=[0,1], normalize=normalize)
             elif ldim == 3:
-                Vh = Vh.reduce_degree(axes=[0,1,2])
+                Vh = Vh.reduce_degree(axes=[0,1,2], normalize=normalize)
 
     # Product and Vector spaces are constructed here
     if V.shape > 1:
@@ -375,18 +380,24 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 
             elif isinstance(kind, HcurlSpaceType):
                 if ldim == 2:
-                    spaces = [Vh.reduce_degree(axes=[0]), Vh.reduce_degree(axes=[1])]
+                    spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
+                              Vh.reduce_degree(axes=[1], normalize=normalize)]
                 elif ldim == 3:
-                    spaces = [Vh.reduce_degree(axes=[0]), Vh.reduce_degree(axes=[1]), Vh.reduce_degree(axes=[2])]
+                    spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
+                              Vh.reduce_degree(axes=[1], normalize=normalize), 
+                              Vh.reduce_degree(axes=[2], normalize=normalize)]
                 else:
                     raise NotImplementedError('TODO')
                 
             elif isinstance(kind, HdivSpaceType):
             
                 if ldim == 2:
-                    spaces = [Vh.reduce_degree(axes=[1]), Vh.reduce_degree(axes=[0])]
+                    spaces = [Vh.reduce_degree(axes=[1], normalize=normalize), 
+                              Vh.reduce_degree(axes=[0], normalize=normalize)]
                 elif ldim == 3:
-                    spaces = [Vh.reduce_degree(axes=[1,2]), Vh.reduce_degree(axes=[0,2]), Vh.reduce_degree(axes=[0,1])]
+                    spaces = [Vh.reduce_degree(axes=[1,2], normalize=normalize), 
+                              Vh.reduce_degree(axes=[0,2], normalize=normalize), 
+                              Vh.reduce_degree(axes=[0,1], normalize=normalize)]
                 else:
                     raise NotImplementedError('TODO')
                     

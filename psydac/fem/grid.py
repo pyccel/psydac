@@ -44,7 +44,7 @@ class FemAssemblyGrid:
         points (default: 1).
 
     """
-    def __init__( self, space, start, end, *, quad_order=None, nderiv=1 ):
+    def __init__( self, space, start, end, *, quad_order=None, nderiv=1, normalize=False ):
 
         T    = space.knots      # knots sequence
         p    = space.degree     # spline degree
@@ -68,7 +68,7 @@ class FemAssemblyGrid:
         glob_points, glob_weights = quadrature_grid( grid, u, w )
 
         # List of basis function values on each element
-        glob_basis = basis_ders_on_quad_grid( T, p, glob_points, nderiv )
+        glob_basis = basis_ders_on_quad_grid( T, p, glob_points, nderiv, normalize )
 
         # List of spans on each element
         # (Span is global index of last non-vanishing basis function)

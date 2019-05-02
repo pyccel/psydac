@@ -44,11 +44,11 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Square()
     
-    derham = Derham('D', domain, sequence=['H1', 'Hdiv', 'L2'])
-    H1    = derham.V0
-    Hdiv  = derham.V1
-    L2    = derham.V2  
-    X     = ProductSpace(Hdiv, L2)
+    derham = Derham(domain, sequence=['H1', 'Hdiv', 'L2'], normalize=True)
+    H1     = derham.V0
+    Hdiv   = derham.V1
+    L2     = derham.V2  
+    X      = ProductSpace(Hdiv, L2)
 
     F = ScalarField(L2, name='F')
 
@@ -79,7 +79,7 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
 
     ah.assemble()
-
+    
     M   = ah.linear_system.lhs
     rhs = ah.linear_system.rhs
     # ...
@@ -101,8 +101,9 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     e31,e32 = L2_Vh.vector_space.ends
     
     u = x[-(e31-s31+1)*(e32-s32+1):].reshape((e31-s31+1, e32-s32+1))
+    
     # ...
-    Fh = FemField( L2_Vh, normalize=True )
+    Fh = FemField( L2_Vh )
 
     Fh.coeffs[s31:e31+1, s32:e32+1] = u
     
@@ -139,5 +140,5 @@ def test_api_system_1_2d_dir_1():
 
     f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
     u  = sin(2*pi*x)*sin(2*pi*y)
-    run_system_1_2d_dir(f0,u, ncells=[5,5], degree=[2,2])
+    run_system_1_2d_dir(f0,u, ncells=[5, 5], degree=[2,2])
 
