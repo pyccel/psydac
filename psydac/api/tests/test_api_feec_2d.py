@@ -44,7 +44,7 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Square()
     
-    derham = Derham(domain, sequence=['H1', 'Hdiv', 'L2'], normalize=True)
+    derham = Derham(domain, sequence=['H1', 'Hdiv', 'L2'])
     H1     = derham.V0
     Hdiv   = derham.V1
     L2     = derham.V2  

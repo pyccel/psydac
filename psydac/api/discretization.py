@@ -321,15 +321,17 @@ def discretize_derham(V, domain_h, *args, **kwargs):
 # TODO bounds and knots
 def discretize_space(V, domain_h, *args, **kwargs):
     degree           = kwargs.pop('degree', None)
+    normalize        = kwargs.pop('normalize', True)
     comm             = domain_h.comm
     symbolic_mapping = None
     kind             = V.kind
     ldim             = V.ldim
     
     if isinstance(V, ProductSpace):
+        kwargs['normalize'] = normalize
         normalize = False
     else:
-        normalize = V.normalize
+        normalize = normalize
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
