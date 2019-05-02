@@ -601,13 +601,13 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders, normalize=False ):
             basis[ie,:,:,iq] = ders.transpose()
 
     if normalize:
-        x = scaling_matrix(degree, ne+degree, knots)
+        x = scaling_vector(degree, ne+degree, knots)
         basis *= x[0]
 
     return basis
 
 #==============================================================================
-def scaling_matrix(p, n, T):
+def scaling_vector(p, n, T):
     """Returns the scaling array for M-splines.
     It is an array whose elements are (p+1)/(T[i+p+1]-T[i])
 

@@ -242,7 +242,4 @@ class Rot(object):
 
     def __call__(self, x):
         return self._matrix.dot(x)
-# user friendly function that returns all discrete derivatives
-def discrete_derivatives(Vh):
-    """."""
     
