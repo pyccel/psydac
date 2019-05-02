@@ -10,10 +10,8 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import ScalarField, VectorField
 from sympde.topology import ProductSpace
-from sympde.topology import ScalarTestFunction
-from sympde.topology import VectorTestFunction
+from sympde.topology import element_of_space
 from sympde.topology import Unknown
 from sympde.topology import InteriorDomain, Union
 from sympde.topology import Boundary, NormalVector, TangentVector
@@ -60,8 +58,8 @@ def run_poisson_2d_dir(filename, comm=None):
 
     x,y = domain.coordinates
 
-    v = ScalarTestFunction(V, name='v')
-    u = ScalarTestFunction(V, name='u')
+    v = element_of_space(V, name='v')
+    u = element_of_space(V, name='u')
 
     a = BilinearForm((v,u), dot(grad(v), grad(u)))
 

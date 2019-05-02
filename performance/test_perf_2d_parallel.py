@@ -1,39 +1,28 @@
 # -*- coding: UTF-8 -*-
 
+
 from sympy import pi, cos, sin
 from sympy import S
-from sympy import Tuple
 
-from sympde.core import dx, dy, dz
-from sympde.core import Mapping
-from sympde.core import Constant
-from sympde.core import ScalarField
-from sympde.core import VectorField
-from sympde.core import grad, dot, inner, cross, rot, curl, div
-from sympde.core import FunctionSpace, VectorFunctionSpace
-from sympde.core import ScalarTestFunction
-from sympde.core import VectorTestFunction
-from sympde.core import BilinearForm, LinearForm, Integral
-from sympde.core import Norm
-from sympde.core import Equation, DirichletBC
-from sympde.core import Domain
-from sympde.core import Boundary, trace_0, trace_1
-from sympde.core import ComplementBoundary
-from sympde.gallery import Poisson, Stokes
+from sympde.core     import Constant
+from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 
-from psydac.fem.context import fem_context
+from sympde.topology import dx, dy, dz
+from sympde.topology import ScalarField
+from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import element_of_space
+from sympde.topology import Domain
+from sympde.topology import Boundary, trace_0, trace_1
+from sympde.expr     import BilinearForm, LinearForm
+from sympde.expr     import Norm
+from sympde.expr     import find, EssentialBC
+from sympde.topology import Domain, Line, Square, Cube
+
 from psydac.fem.basic   import FemField
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
-from psydac.fem.vector  import ProductFemSpace, VectorFemField
 from psydac.api.discretization import discretize
-from psydac.api.boundary_condition import DiscreteBoundary
-from psydac.api.boundary_condition import DiscreteComplementBoundary
-from psydac.api.boundary_condition import DiscreteDirichletBC
-from psydac.api.settings import PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_PYCCEL
-
-from psydac.mapping.discrete import SplineMapping
-
+from psydac.api.settings import PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_GPYCCEL
 from numpy import linspace, zeros, allclose
 from utils import assert_identical_coo
 
@@ -45,32 +34,12 @@ from mpi4py import MPI
 
 DEBUG = False
 
-domain = Domain('\Omega', dim=2)
+domain = Square()
 
 # Communicator, size, rank
 mpi_comm = MPI.COMM_WORLD
 mpi_size = mpi_comm.Get_size()
 mpi_rank = mpi_comm.Get_rank()
-
-def create_discrete_space(p=(2,2), ne=(2,2), comm=MPI.COMM_WORLD):
-    # ... discrete spaces
-    # Input data: degree, number of elements
-    p1,p2 = p
-    ne1,ne2 = ne
-
-    # Create uniform grid
-    grid_1 = linspace( 0., 1., num=ne1+1 )
-    grid_2 = linspace( 0., 1., num=ne2+1 )
-
-    # Create 1D finite element spaces and precompute quadrature data
-    V1 = SplineSpace( p1, grid=grid_1 ); V1.init_fem()
-    V2 = SplineSpace( p2, grid=grid_2 ); V2.init_fem()
-
-    # Create 2D tensor product finite element space
-    V = TensorFemSpace( V1, V2, comm=comm )
-    # ...
-
-    return V
 
 def print_timing(ls, backend):
     # ...
@@ -89,15 +58,14 @@ def print_timing(ls, backend):
 def test_perf_poisson_2d_parallel(backend=PSYDAC_BACKEND_PYTHON):
 
     # ... abstract model
-    U = FunctionSpace('U', domain)
     V = FunctionSpace('V', domain)
 
     x,y = domain.coordinates
 
-    F = ScalarField(V, name='F')
+    F = element_of_space(V,'F')
 
-    v = ScalarTestFunction(V, name='v')
-    u = ScalarTestFunction(U, name='u')
+    v = element_of_space(V, 'v')
+    u = element_of_space(V, 'u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -110,15 +78,17 @@ def test_perf_poisson_2d_parallel(backend=PSYDAC_BACKEND_PYTHON):
     h1norm = Norm(error, domain, kind='h1', name='u')
     # ...
 
+    domain_h = discretize(domain, ncells=(2**8,2**8))
+    # ...
+
     # ... discrete spaces
-    Vh = create_discrete_space(p=(3,3), ne=(2**8,2**8))
-#    Vh = create_discrete_space(p=(2,2), ne=(2**3,2**3))
+    Vh = discretize(V, domain_h, degree=(3,3))
     # ...
 
     Timing = namedtuple('Timing', ['kind', 'value'])
 
     # ...
-    ah = discretize(a, [Vh, Vh], backend=backend)
+    ah = discretize(a, domain_h, [Vh, Vh], backend=backend)
     tb = time.time()
     Ah = ah.assemble()
     te = time.time()
@@ -127,7 +97,7 @@ def test_perf_poisson_2d_parallel(backend=PSYDAC_BACKEND_PYTHON):
     # ...
 
     # ...
-    lh = discretize(l, Vh, backend=backend)
+    lh = discretize(l, domain_h, Vh, backend=backend)
     tb = time.time()
     Lh = lh.assemble()
     te = time.time()
@@ -140,7 +110,7 @@ def test_perf_poisson_2d_parallel(backend=PSYDAC_BACKEND_PYTHON):
     # ...
 
     # ...
-    l2norm_h = discretize(l2norm, Vh, backend=backend)
+    l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
     tb = time.time()
     error = l2norm_h.assemble(F=phi)
     te = time.time()
@@ -156,15 +126,14 @@ def test_perf_poisson_2d_parallel(backend=PSYDAC_BACKEND_PYTHON):
 def test_perf_vector_poisson_2d(backend=PSYDAC_BACKEND_PYTHON):
 
     # ... abstract model
-    U = VectorFunctionSpace('U', domain)
     V = VectorFunctionSpace('V', domain)
-
+    
     x,y = domain.coordinates
 
-    F = VectorField(V, name='F')
+    F = Element_of_space(V, 'F')
 
-    v = VectorTestFunction(V, name='v')
-    u = VectorTestFunction(U, name='u')
+    v = Element_of_space(V, 'v')
+    u = Element_of_space(V, 'u')
 
     expr = inner(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -179,16 +148,18 @@ def test_perf_vector_poisson_2d(backend=PSYDAC_BACKEND_PYTHON):
     l2norm = Norm(error, domain, kind='l2', name='u')
     # ...
 
+    domain_h = discretize(domain, ncells=(2**8,2**8))
+    # ...
+
     # ... discrete spaces
-    Vh = create_discrete_space(p=(3,3), ne=(2**8,2**8))
-#    Vh = create_discrete_space(p=(2,2), ne=(2**3,2**3))
-    Vh = ProductFemSpace(Vh, Vh)
+    Vh = discretize(V, domain_h, degree=(3,3))
+
     # ...
 
     Timing = namedtuple('Timing', ['kind', 'value'])
 
     # ...
-    ah = discretize(a, [Vh, Vh], backend=backend)
+    ah = discretize(a, ,domain_h, [Vh, Vh], backend=backend)
     tb = time.time()
     Ah = ah.assemble()
     te = time.time()
@@ -197,7 +168,7 @@ def test_perf_vector_poisson_2d(backend=PSYDAC_BACKEND_PYTHON):
     # ...
 
     # ...
-    lh = discretize(l, Vh, backend=backend)
+    lh = discretize(l, domain_h, Vh, backend=backend)
     tb = time.time()
     Lh = lh.assemble()
     te = time.time()
@@ -206,11 +177,11 @@ def test_perf_vector_poisson_2d(backend=PSYDAC_BACKEND_PYTHON):
     # ...
 
     # ... coeff of phi are 0
-    phi = VectorFemField( Vh, 'phi' )
+    phi = VectorFemField( Vh )
     # ...
 
     # ...
-    l2norm_h = discretize(l2norm, Vh, backend=backend)
+    l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
     tb = time.time()
     L_f90 = l2norm_h.assemble(F=phi)
     te = time.time()
@@ -228,7 +199,7 @@ def test_perf_vector_poisson_2d(backend=PSYDAC_BACKEND_PYTHON):
 if __name__ == '__main__':
 
     # ...
-#    test_perf_poisson_2d_parallel(backend=PSYDAC_BACKEND_PYCCEL)
-    test_perf_vector_poisson_2d(backend=PSYDAC_BACKEND_PYCCEL)
+#    test_perf_poisson_2d_parallel(backend=PSYDAC_BACKEND_GPYCCEL)
+    test_perf_vector_poisson_2d(backend=PSYDAC_BACKEND_GPYCCEL)
 #    test_perf_vector_poisson_2d(backend=PSYDAC_BACKEND_PYTHON)
     # ...

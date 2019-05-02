@@ -7,10 +7,8 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import ScalarField, VectorField
 from sympde.topology import ProductSpace
-from sympde.topology import ScalarTestFunction
-from sympde.topology import VectorTestFunction
+from sympde.topology import element_of_space
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
@@ -36,10 +34,10 @@ def run_poisson_3d_dir(solution, f, ncells, degree, comm=None):
 
     x,y,z = domain.coordinates
 
-    F = ScalarField(V, name='F')
+    F = element_of_space(V, name='F')
 
-    v = ScalarTestFunction(V, name='v')
-    u = ScalarTestFunction(V, name='u')
+    v = element_of_space(V, name='v')
+    u = element_of_space(V, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -106,10 +104,10 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 
     x,y,z = domain.coordinates
 
-    F = ScalarField(V, name='F')
+    F = element_of_space(V, name='F')
 
-    v = ScalarTestFunction(V, name='v')
-    u = ScalarTestFunction(V, name='u')
+    v = element_of_space(V, name='v')
+    u = element_of_space(V, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
