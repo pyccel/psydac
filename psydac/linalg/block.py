@@ -311,7 +311,6 @@ class BlockLinearOperator( LinearOperator ):
 
         i,j = key
         assert isinstance( value, LinearOperator )
-        print(value.domain,self.domain[j])
         assert value.domain   == self.domain  [j]
         assert value.codomain == self.codomain[i]
 

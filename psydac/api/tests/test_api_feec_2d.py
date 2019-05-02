@@ -55,11 +55,11 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     p,q = [VectorTestFunction(Hdiv, name=i) for i in ['p', 'q']]
     u,v = [ScalarTestFunction(L2, name=i) for i in ['u', 'v']]
 
-    a  = BilinearForm(((p,u),(q,v)),dot(p,q) + div(q)*u )
+    a  = BilinearForm(((p,u),(q,v)), dot(p,q) + div(q)*u )
     l  = LinearForm((q,v), 2*v)
     
-    error = F-sol
-    l2norm_F = Norm(error, domain, kind='l2')
+    error  = F-sol
+    l2norm = Norm(error, domain, kind='l2')
 
     equation = find([p,u], forall=[q,v], lhs=a((p,u),(q,v)), rhs=l(q,v))
  
@@ -76,7 +76,8 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     
     
     # ... dsicretize the equation
-    ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
+    ah       = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
+    l2norm_h = discretize(l2norm, domain_h, L2_Vh)
 
     ah.assemble()
     
@@ -107,9 +108,10 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     Fh.coeffs[s31:e31+1, s32:e32+1] = u
     
+
     # ...  
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+#    fig = plt.figure()
+#    ax = fig.add_subplot(111, projection='3d')
 
     x      = np.linspace( 0., 1., 101 )
     y      = np.linspace( 0., 1., 101 )
@@ -121,10 +123,17 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     model = lambda x,y:np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
     Z = model(X,Y)
     
-    Axes3D.plot_wireframe(ax, X, Y, phi, color='b')
-    Axes3D.plot_wireframe(ax, X, Y, Z, color='r')
+    error = l2norm_h.assemble(F=Fh)
+    # TODO fix bug it gives the wrong error
     
-    plt.show()
+    error = np.abs(Z-phi).max()
+     
+#    Axes3D.plot_wireframe(ax, X, Y, phi, color='b')
+#    Axes3D.plot_wireframe(ax, X, Y, Z, color='r')
+    
+#    plt.show()
+    
+    return error
 
     
 
@@ -140,5 +149,6 @@ def test_api_system_1_2d_dir_1():
 
     f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
     u  = sin(2*pi*x)*sin(2*pi*y)
-    run_system_1_2d_dir(f0,u, ncells=[5, 5], degree=[2,2])
+
+    error = run_system_1_2d_dir(f0,u, ncells=[5, 5], degree=[2,2])
 
