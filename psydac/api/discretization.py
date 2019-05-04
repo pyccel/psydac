@@ -209,7 +209,7 @@ class DiscreteEquation(BasicDiscrete):
 #==============================================================================
 class DiscreteDerham(BasicDiscrete):
     """
-    Rerpresent the discrete derham sequence
+    Rerpresent the discrete De Rham sequence
     
     """
     def __init__(self, *spaces):
@@ -237,12 +237,10 @@ class DiscreteDerham(BasicDiscrete):
         else:
             raise ValueError('dimension {} is not available'.format(dim))
 
-    # ...
     @property
     def dim(self):
         return self._dim
-
-    # ...  
+  
     @property
     def V0(self):
         return self._V0
@@ -257,7 +255,18 @@ class DiscreteDerham(BasicDiscrete):
         
     @property
     def V3(self):
-        return self._V3  
+        return self._V3
+
+    @property
+    def spaces(self):
+        if self.dim == 1:
+            return (self._V0, self._V1)
+
+        elif self.dim == 2:
+            return (self._V0, self._V1, self._V2)
+
+        elif self.dim == 3:
+            return (self._V0, self._V1, self._V2, self._V3)
 
 #==============================================================================           
 def discretize_derham(Complex, domain_h, *args, **kwargs):
@@ -424,6 +433,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     # add symbolic_mapping as a member to the space object
     setattr(Vh, 'symbolic_mapping', symbolic_mapping)
+    setattr(Vh, 'symbolic_space', V)
     
 
     return Vh

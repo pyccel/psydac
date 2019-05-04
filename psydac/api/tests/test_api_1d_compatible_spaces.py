@@ -74,7 +74,7 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
 
     ah.assemble()
 
-    M   = ah.linear_system.lhs.tosparse()
+    M   = ah.linear_system.lhs.tosparse().tocsc()
     rhs = ah.linear_system.rhs.toarray()
     sol = spsolve(M, rhs)
 

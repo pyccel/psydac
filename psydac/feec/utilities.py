@@ -1,6 +1,5 @@
 # -*- coding: UTF-8 -*-
 
-
 from scipy.sparse import csr_matrix
 from scipy.sparse import diags
 from scipy.sparse import identity
@@ -276,7 +275,6 @@ class Interpolation(object):
                 F1 = StencilVector(space.spaces[0].vector_space)
                 F2 = StencilVector(space.spaces[1].vector_space)
                 F3 = StencilVector(space.spaces[2].vector_space)
-                
 
                 f1 = f[0]
                 f2 = f[1]

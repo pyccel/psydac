@@ -22,8 +22,7 @@ from psydac.fem.basic   import FemField
 from psydac.fem.vector  import VectorFemField
 from psydac.api.discretization import discretize
 from psydac.fem.vector         import ProductFemSpace
-from psydac.feec.utilities     import Interpolation, interpolation_matrices
-from psydac.feec.derivatives         import Grad, Curl, Div
+from psydac.linalg.block       import BlockVector, BlockMatrix
 from numpy import linspace, zeros, allclose
 import numpy as np
 from mpi4py import MPI
@@ -47,16 +46,14 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     V1 = derham.V1
     V2 = derham.V2
 
-    # TODO
-    # V0, V1, V2 = derham.spaces
+    V0, V1, V2 = derham.spaces
 
     F = element_of_space(V2, name='F')
 
     p,q = [element_of_space(V1, name=i) for i in ['p', 'q']]
     u,v = [element_of_space(V2, name=i) for i in ['u', 'v']]
 
-    a  = BilinearForm(((p,u),(q,v)), dot(p,q) + div(q)*u )
-    l  = LinearForm((q,v), 2*v)
+    a  = BilinearForm(((p,u),(q,)), dot(p,q) + div(q)*u )
 
     error  = F-sol
     l2norm = Norm(error, domain, kind='l2')
@@ -73,24 +70,30 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     Xh   = V1_h * V2_h
 
     # TODO
-    # V0_h, V1_h, V2_h = derham_h.spaces
+    V0_h, V1_h, V2_h = derham_h.spaces
     # ...
 
     # ...
-    ah       = discretize(a, domain_h, [Xh, Xh])
-    lh       = discretize(l, domain_h, Xh)
 
+    ah       = discretize(a, domain_h, [Xh, V1_h])
+    
     l2norm_h = discretize(l2norm, domain_h, V2_h)
     # ...
-
+    
     # ...
     M   = ah.assemble()
-    rhs = lh.assemble()
+    rhs = BlockVector(Xh.vector_space)
     # ...
 
     # ...
-    M[2,0] = V1_h.div._matrix[0,0]
-    M[2,1] = V1_h.div._matrix[0,1]
+    blocks  = [list(block) for block in M.blocks]
+    blocks += [[None, None, None]]
+
+    blocks[2][0] = V1_h.div._matrix[0,0]
+    blocks[2][1] = V1_h.div._matrix[0,1]
+    
+    M = BlockMatrix(Xh.vector_space, Xh.vector_space, blocks=blocks)
+     
     # ...
 
     # ...
@@ -116,8 +119,8 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
 
     # ...
-#    fig = plt.figure()
-#    ax = fig.add_subplot(111, projection='3d')
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
 
     x      = np.linspace( 0., 1., 101 )
     y      = np.linspace( 0., 1., 101 )
@@ -134,10 +137,10 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     error = np.abs(Z-phi).max()
 
-#    Axes3D.plot_wireframe(ax, X, Y, phi, color='b')
-#    Axes3D.plot_wireframe(ax, X, Y, Z, color='r')
+    Axes3D.plot_wireframe(ax, X, Y, phi, color='b')
+    Axes3D.plot_wireframe(ax, X, Y, Z, color='r')
 
-#    plt.show()
+    plt.show()
 
     return error
 
@@ -149,14 +152,14 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
 #==============================================================================
 
-#def test_api_system_1_2d_dir_1():
-#    from sympy.abc import x,y
-#    from sympy import sin, cos, pi
-#
-#    f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
-#    u  = sin(2*pi*x)*sin(2*pi*y)
-#
-#    error = run_system_1_2d_dir(f0,u, ncells=[5, 5], degree=[2,2])
+def test_api_system_1_2d_dir_1():
+    from sympy.abc import x,y
+    from sympy import sin, cos, pi
+
+    f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
+    u  = sin(2*pi*x)*sin(2*pi*y)
+
+    error = run_system_1_2d_dir(f0,u, ncells=[5, 5], degree=[2,2])
 
 
 #test_api_system_1_2d_dir_1()

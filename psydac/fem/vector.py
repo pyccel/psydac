@@ -253,6 +253,8 @@ class ProductFemSpace( FemSpace ):
         return self.spaces[0].comm
 
 
+
+
 # TODO still experimental
 #===============================================================================
 class VectorFemField:

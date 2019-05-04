@@ -81,7 +81,7 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     # ...
     ah.assemble()
-    M   = ah.linear_system.lhs.tosparse()
+    M   = ah.linear_system.lhs.tosparse().tocsr()
     rhs = ah.linear_system.rhs.toarray()
     x   = spsolve(M, rhs)
     # ...
@@ -157,9 +157,9 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
     M[1,1][:,0,0,0] = 1.
     M[1,1][e21,:,0,0] = 1.
     M[1,1][:,e22,0,0] = 1.
-    M = M.toarray()
     
-    rhs   = ah.linear_system.rhs.toarray()
+    M   = M.toarray()
+    rhs = ah.linear_system.rhs.toarray()
 
     M_1   = np.zeros((len(rhs)+1,len(rhs)+1))
     rhs_1 = np.zeros(len(rhs)+1)

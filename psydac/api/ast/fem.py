@@ -246,22 +246,37 @@ def area_eval_mapping(mapping, area, dim, indices_quad, weight):
 class Kernel(SplBasic):
 
     def __new__(cls, weak_form, kernel_expr, target=None,
-                discrete_boundary=None, name=None, boundary_basis=None,
-                mapping=None, is_rational_mapping=None,symbolic_space=None, backend=None):
+                discrete_space=None, discrete_boundary=None, name=None, boundary_basis=None,
+                mapping=None, is_rational_mapping=None, backend=None):
 
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
 
-        if symbolic_space:
-            symbolic_space= symbolic_space[0]
-            
+
+        spaces = discrete_space
+
+        if isinstance(spaces, (list, tuple)):
+            assert len(spaces) == 2
+            test_symbolic_space  = spaces[1].symbolic_space
+            trial_symbolic_space = spaces[0].symbolic_space
+            symbolic_space      = [trial_symbolic_space, test_symbolic_space]
+        else:
+            test_symbolic_space  = spaces.symbolic_space
+            trial_symbolic_space = None
+            symbolic_space       = test_symbolic_space
+
         unique_scalar_space = True
-        if isinstance(symbolic_space, ProductSpace):
-            spaces = symbolic_space.spaces
-            space = spaces[0]
-            unique_scalar_space = all(sp.kind==space.kind for sp in spaces)
-        elif isinstance(symbolic_space, VectorFunctionSpace):
-            unique_scalar_space = isinstance(symbolic_space.kind, UndefinedSpaceType)
+        if isinstance(test_symbolic_space, ProductSpace):
+            spaces = test_symbolic_space.spaces
+            unique_scalar_space = all(sp.kind==spaces[0].kind for sp in spaces)
+        elif isinstance(test_symbolic_space, VectorFunctionSpace):
+            unique_scalar_space = isinstance(test_symbolic_space.kind, UndefinedSpaceType)
+
+        if isinstance(trial_symbolic_space, ProductSpace):
+            spaces = trial_symbolic_space.spaces
+            unique_scalar_space = unique_scalar_space and all(sp.kind==spaces[0].kind for sp in spaces)
+        elif isinstance(trial_symbolic_space, VectorFunctionSpace):
+            unique_scalar_space = unique_scalar_space and isinstance(trial_symbolic_space.kind, UndefinedSpaceType)
 
         # ...
         # get the target expr if there are multiple expressions (domain/boundary)
@@ -316,7 +331,7 @@ class Kernel(SplBasic):
         obj._area                = None
         obj._user_functions      = []
         obj._backend             = backend
-        obj._symbolic_space      = symbolic_space
+        obj._symbolic_space     = symbolic_space
         obj._unique_scalar_space = unique_scalar_space
 
         obj._func = obj._initialize()
@@ -1209,22 +1224,27 @@ class Assembly(SplBasic):
         
         if is_bilinear:
         
-            Wh = self.discrete_space[0]
-            Vh = self.discrete_space[1]
-            is_product_space = isinstance(Wh, ProductFemSpace)
-            ln = 1
-            if is_product_space:
-                ln = len(Wh.spaces)
+            Vh = self.discrete_space[0]
+            Wh = self.discrete_space[1]
+            test_is_product_fem_space  = isinstance(Wh, ProductFemSpace)
+            trial_is_product_fem_space = isinstance(Vh, ProductFemSpace)
+            test_ln  = 1
+            trial_ln = 1
+            if test_is_product_fem_space:
+                test_ln = len(Wh.spaces)
+            if trial_is_product_fem_space:
+                trial_ln = len(Vh.spaces)
+
         else:
         
             Wh = self.discrete_space
-            ln = 1
-            is_product_space = isinstance(self.discrete_space, ProductFemSpace)
-            if is_product_space:
-                ln = len(self.discrete_space.spaces)
+            test_ln = 1
+            trial_ln = 0
+            test_is_product_fem_space = isinstance(Wh, ProductFemSpace)
+            if test_is_product_fem_space:
+                test_ln = len(Wh.spaces)
             
         unique_scalar_space = kernel.unique_scalar_space
-
         dim    = form.ldim
 
         n_rows = kernel.n_rows
@@ -1245,26 +1265,26 @@ class Assembly(SplBasic):
         element_ends   = variables('element_e1:%s'%(dim+1),   'int')
 
         indices_elm   = variables('ie1:%s'%(dim+1), 'int')
-        indices_span  = variables('is1:%s(1:%s)'%(dim+1, ln+1), 'int')
+        indices_span  = variables('is1:%s(1:%s)'%(dim+1, test_ln+1), 'int')
 
-        test_pads     = variables('test_p1:%s(1:%s)'%(dim+1,ln+1), 'int')
-        trial_pads    = variables('trial_p1:%s(1:%s)'%(dim+1,ln+1), 'int')
+        test_pads     = variables('test_p1:%s(1:%s)'%(dim+1,test_ln+1), 'int')
+        trial_pads    = variables('trial_p1:%s(1:%s)'%(dim+1,trial_ln+1), 'int')
         
-        test_degrees  = variables('test_d1:%s(1:%s)'%(dim+1,ln+1), 'int')
-        trial_degrees = variables('trial_d1:%s(1:%s)'%(dim+1,ln+1), 'int')
+        test_degrees  = variables('test_d1:%s(1:%s)'%(dim+1,test_ln+1), 'int')
+        trial_degrees = variables('trial_d1:%s(1:%s)'%(dim+1,trial_ln+1), 'int')
 
         indices_il    = variables('il1:%s'%(dim+1), 'int')
         indices_i     = variables('i1:%s'%(dim+1),  'int')
         npts          = variables('n1:%s'%(dim+1),  'int')
         
-        trial_basis    = variables('trial_basis_1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=4, cls=IndexedVariable)
-        test_basis     = variables('test_basis_1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=4, cls=IndexedVariable)
+        trial_basis    = variables('trial_basis_1:%s(1:%s)'%(dim+1,trial_ln+1), dtype='real', rank=4, cls=IndexedVariable)
+        test_basis     = variables('test_basis_1:%s(1:%s)'%(dim+1,test_ln+1), dtype='real', rank=4, cls=IndexedVariable)
 
-        spans          = variables('test_spans_1:%s(1:%s)'%(dim+1,ln+1), dtype='int', rank=1, cls=IndexedVariable)
+        spans          = variables('test_spans_1:%s(1:%s)'%(dim+1,test_ln+1), dtype='int', rank=1, cls=IndexedVariable)
         quad_orders    = variables( 'k1:%s'%(dim+1), dtype='int')
 
-        trial_basis_in_elm = variables('trial_bs1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=3, cls=IndexedVariable)
-        test_basis_in_elm  = variables('test_bs1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=3, cls=IndexedVariable)
+        trial_basis_in_elm = variables('trial_bs1:%s(1:%s)'%(dim+1,trial_ln+1), dtype='real', rank=3, cls=IndexedVariable)
+        test_basis_in_elm  = variables('test_bs1:%s(1:%s)'%(dim+1,test_ln+1), dtype='real', rank=3, cls=IndexedVariable)
 
         points_in_elm  = variables('quad_u1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
         weights_in_elm = variables('quad_w1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
@@ -1344,8 +1364,8 @@ class Assembly(SplBasic):
         _slice = Slice(None,None)
 
         # assignments
-        body  = [Assign(indices_span[i*ln+j], spans[i*ln+j][indices_elm[i]])
-                 for i,j in np.ndindex(dim, ln) if not(i in axis_bnd)]
+        body  = [Assign(indices_span[i*test_ln+j], spans[i*test_ln+j][indices_elm[i]])
+                 for i,j in np.ndindex(dim, test_ln) if not(i in axis_bnd)]
                  
         if self.debug and self.detailed:
             msg = lambda x: (String('> span {} = '.format(x)), x)
@@ -1357,12 +1377,12 @@ class Assembly(SplBasic):
         body += [Assign(weights_in_elm[i], weights[i][indices_elm[i],_slice])
                  for i in range(dim) if not(i in axis_bnd) ]
 
-        body += [Assign(test_basis_in_elm[i*ln+j], test_basis[i*ln+j][indices_elm[i],_slice,_slice,_slice])
-                 for i,j in np.ndindex(dim,ln) if not(i in axis_bnd) ]
+        body += [Assign(test_basis_in_elm[i*test_ln+j], test_basis[i*test_ln+j][indices_elm[i],_slice,_slice,_slice])
+                 for i,j in np.ndindex(dim,test_ln) if not(i in axis_bnd) ]
 
         if is_bilinear:
-            body += [Assign(trial_basis_in_elm[i*ln+j], trial_basis[i*ln+j][indices_elm[i],_slice,_slice,_slice])
-                     for i,j in np.ndindex(dim,ln) if not(i in axis_bnd) ]
+            body += [Assign(trial_basis_in_elm[i*trial_ln+j], trial_basis[i*trial_ln+j][indices_elm[i],_slice,_slice,_slice])
+                     for i,j in np.ndindex(dim,trial_ln) if not(i in axis_bnd) ]
 
         # ... kernel call
         mats = tuple(element_matrices.values())
@@ -1401,18 +1421,18 @@ class Assembly(SplBasic):
             # ...
 
             # ... TODO add tmp for vector fields and mapping
-            gslices = [Slice(sp-s-d+p,sp+p+1-s) for sp,d,p,s in zip(indices_span[::ln],
-                                                           test_degrees[::ln],
-                                                           test_pads[::ln],
+            gslices = [Slice(sp-s-d+p,sp+p+1-s) for sp,d,p,s in zip(indices_span[::test_ln],
+                                                           test_degrees[::test_ln],
+                                                           test_pads[::test_ln],
                                                            starts)]
             vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
             m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
             # ...
 
         else:
-            gslices = [Slice(sp-s-d+p,sp+p+1-s) for sp,d,p,s in zip(indices_span[::ln],
-                                                           test_degrees[::ln],
-                                                           test_pads[::ln],
+            gslices = [Slice(sp-s-d+p,sp+p+1-s) for sp,d,p,s in zip(indices_span[::test_ln],
+                                                           test_degrees[::test_ln],
+                                                           test_pads[::test_ln],
                                                            starts)]
             f_coeffs = tuple([f[gslices] for f in fields_coeffs])
             vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
@@ -1423,11 +1443,11 @@ class Assembly(SplBasic):
                 for (i,j), M in element_matrices.items():
                     args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + (M,))
                     args = list(args)
-                    args[:dim] = test_degrees[i::ln]
-                    args[dim:2*dim] = trial_degrees[j::ln]
-                    args[2*dim:3*dim] = [max(pi,pj) for pi,pj in zip(Vh.spaces[i].degree,Wh.spaces[j].degree)]
-                    args[3*dim:4*dim] = test_basis_in_elm[i::ln]
-                    args[4*dim:5*dim] = trial_basis_in_elm[j::ln]
+                    args[:dim] = test_degrees[i::test_ln]
+                    args[dim:2*dim] = trial_degrees[j::trial_ln]
+                    args[2*dim:3*dim] = [max(pi,pj) for pi,pj in zip(Wh.spaces[i].degree,Vh.spaces[j].degree)]
+                    args[3*dim:4*dim] = test_basis_in_elm[i::test_ln]
+                    args[4*dim:5*dim] = trial_basis_in_elm[j::trial_ln]
 
                     body += [FunctionCall(kernel.func[i][j], args)]
                     
@@ -1435,11 +1455,11 @@ class Assembly(SplBasic):
                 args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + mats)
                 args = list(args)
 
-                args[:dim] = test_degrees[::ln]
-                args[dim:2*dim] = trial_degrees[::ln]
-                args[2*dim:3*dim] = trial_pads[j::ln]
-                args[3*dim:4*dim] = test_basis_in_elm[::ln]
-                args[4*dim:5*dim] = trial_basis_in_elm[::ln]
+                args[:dim] = test_degrees[::test_ln]
+                args[dim:2*dim] = trial_degrees[::trial_ln]
+                args[2*dim:3*dim] = trial_pads[j::trial_ln]
+                args[3*dim:4*dim] = test_basis_in_elm[::test_ln]
+                args[4*dim:5*dim] = trial_basis_in_elm[::trial_ln]
 
                 body += [FunctionCall(kernel.func[0][0], args)]
                 
@@ -1449,15 +1469,15 @@ class Assembly(SplBasic):
                     
                     args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + (M,))
                     args = list(args)
-                    args[:dim] = test_degrees[i::ln]
-                    args[dim:2*dim] = test_basis_in_elm[i::ln]
+                    args[:dim] = test_degrees[i::test_ln]
+                    args[dim:2*dim] = test_basis_in_elm[i::test_ln]
                     body += [FunctionCall(kernel.func[i][j], args)]
                     
             else:
                 args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + mats)
                 args = list(args)
-                args[:dim] = test_degrees[::ln]
-                args[dim:2*dim] = test_basis_in_elm[::ln]
+                args[:dim] = test_degrees[::test_ln]
+                args[dim:2*dim] = test_basis_in_elm[::test_ln]
                 body += [FunctionCall(kernel.func[0][0], args)]
             
         # ...
@@ -1475,9 +1495,9 @@ class Assembly(SplBasic):
         for (i,j), M in global_matrices.items():
            
             mat = element_matrices[i,j]
-            local_test_degrees = test_degrees[i::ln]
-            local_indices_span = indices_span[i::ln]
-            local_test_pads = test_pads[i::ln]
+            local_test_degrees = test_degrees[i::test_ln]
+            local_indices_span = indices_span[i::test_ln]
+            local_test_pads = test_pads[i::test_ln]
                 
 
             if is_bilinear:
@@ -1548,12 +1568,12 @@ class Assembly(SplBasic):
 
         for (i,j),mat in element_matrices.items():
 
-            orders  = [p+1 for p in test_degrees[i::ln]]
-            spads   = [2*p+1 for p in test_pads[j::ln]]
+            orders  = [p+1 for p in test_degrees[i::test_ln]]
+            spads   = [2*p+1 for p in test_pads[j::test_ln]]
             
             if is_bilinear:
                 if not unique_scalar_space:
-                    spads = [2*max(pi,pj)+1 for pi,pj in zip(Vh.spaces[i].degree,Wh.spaces[j].degree)]
+                    spads = [2*max(pi,pj)+1 for pi,pj in zip(Wh.spaces[i].degree,Vh.spaces[j].degree)]
                     
                 args  = tuple(orders + spads)
 
@@ -1662,7 +1682,7 @@ class Interface(SplBasic):
         return self._assembly.weak_form
         
     @property
-    def space(self):
+    def symbolic_space(self):
         return self._assembly.kernel.symbolic_space
 
     @property
@@ -1727,13 +1747,15 @@ class Interface(SplBasic):
         dim = form.ldim
         
         if is_bilinear:
-            Wh = self.discrete_space[0]
-            Vh = self.discrete_space[1]
+            Vh = self.discrete_space[0]
+            Wh = self.discrete_space[1]
+            test_is_product_fem_space  = isinstance(Wh, ProductFemSpace)
+            trial_is_product_fem_space = isinstance(Vh, ProductFemSpace)
             
         else:
             Wh = self.discrete_space
-            
-        is_product_fem_space = isinstance(Wh, ProductFemSpace)
+            test_is_product_fem_space  = isinstance(Wh, ProductFemSpace)
+
         unique_scalar_space = assembly.kernel.unique_scalar_space
 
         # ... declarations
@@ -1751,23 +1773,27 @@ class Interface(SplBasic):
             basis_values = (test_basis_values,)
 
         if is_bilinear:
-            spaces = (test_space, trial_space)
+            spaces = (trial_space, test_space)
             test_vector_space = DottedName(test_space, 'vector_space')
             trial_vector_space = DottedName(trial_space, 'vector_space')
 
-            ln = 1
-            if is_product_fem_space: 
-                ln = len(Wh.spaces)         
+            test_ln  = 1
+            trial_ln = 1
+            if test_is_product_fem_space:
+                test_ln = len(Wh.spaces)
                 test_vector_space = DottedName(test_vector_space, 'spaces')
+            if trial_is_product_fem_space:
+                trial_ln = len(Vh.spaces)
                 trial_vector_space = DottedName(trial_vector_space, 'spaces')
             # ...
 
         if is_linear or is_function:
             test_vector_space = DottedName(test_space, 'vector_space')
             spaces = (test_space,)
-            ln = 1
-            if is_product_fem_space:
-                ln = len(Wh.spaces)
+            test_ln = 1
+            trial_ln = 0
+            if test_is_product_fem_space:
+                test_ln = len(Wh.spaces)
                 test_vector_space = DottedName(test_vector_space, 'spaces')
             # ...
 
@@ -1778,16 +1804,16 @@ class Interface(SplBasic):
         element_starts = variables('element_s1:%s'%(dim+1), 'int')
         element_ends   = variables('element_e1:%s'%(dim+1), 'int')
 
-        test_degrees   = variables('test_d1:%s(1:%s)'%(dim+1,ln+1), 'int')
-        trial_degrees  = variables('trial_d1:%s(1:%s)'%(dim+1,ln+1), 'int')
+        test_degrees   = variables('test_d1:%s(1:%s)'%(dim+1,test_ln+1), 'int')
+        trial_degrees  = variables('trial_d1:%s(1:%s)'%(dim+1,trial_ln+1), 'int')
         
-        test_pads      = variables('test_p1:%s(1:%s)'%(dim+1,ln+1), 'int')
-        trial_pads     = variables('trial_p1:%s(1:%s)'%(dim+1,ln+1), 'int')
+        test_pads      = variables('test_p1:%s(1:%s)'%(dim+1,test_ln+1), 'int')
+        trial_pads     = variables('trial_p1:%s(1:%s)'%(dim+1,trial_ln+1), 'int')
         
-        trial_basis    = variables('trial_basis_1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=4, cls=IndexedVariable)
-        test_basis     = variables('test_basis_1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=4, cls=IndexedVariable)
+        trial_basis    = variables('trial_basis_1:%s(1:%s)'%(dim+1,trial_ln+1), dtype='real', rank=4, cls=IndexedVariable)
+        test_basis     = variables('test_basis_1:%s(1:%s)'%(dim+1,test_ln+1), dtype='real', rank=4, cls=IndexedVariable)
 
-        spans          = variables('test_spans_1:%s(1:%s)'%(dim+1,ln+1), dtype='int', rank=1, cls=IndexedVariable)
+        spans          = variables('test_spans_1:%s(1:%s)'%(dim+1,test_ln+1), dtype='int', rank=1, cls=IndexedVariable)
         quad_orders    = variables( 'k1:%s'%(dim+1), dtype='int')
 
         points         = variables('points_1:%s'%(dim+1),  dtype='real', rank=2, cls=IndexedVariable)
@@ -1830,28 +1856,28 @@ class Interface(SplBasic):
         # ...
 
         # ... basis values
-        if is_product_fem_space:
-            for i in range(ln):
-                body += [Assign(spans[i::ln],      DottedName(test_basis_values, spans_attr[i]))]
-                body += [Assign(test_basis[i::ln], DottedName(test_basis_values, basis_attr[i]))]   
+        if test_is_product_fem_space:
+            for i in range(test_ln):
+                body += [Assign(spans[i::test_ln],      DottedName(test_basis_values, spans_attr[i]))]
+                body += [Assign(test_basis[i::test_ln], DottedName(test_basis_values, basis_attr[i]))]
        
         else:
             body += [Assign(spans,      DottedName(test_basis_values, spans_attr))]
             body += [Assign(test_basis, DottedName(test_basis_values, basis_attr))]
 
         if is_bilinear:
-            if is_product_fem_space:
-                for i in range(ln):
-                    body += [Assign(trial_basis[i::ln], DottedName(trial_basis_values, basis_attr[i]))]   
+            if trial_is_product_fem_space:
+                for i in range(trial_ln):
+                    body += [Assign(trial_basis[i::trial_ln], DottedName(trial_basis_values, basis_attr[i]))]
             else:
                 body += [Assign(trial_basis, DottedName(trial_basis_values, basis_attr))]
         # ...
 
         # ... getting data from fem space
-        if is_product_fem_space:
-            for i in range(ln):
-                body += [Assign(test_degrees[i::ln], DottedName(test_space,spaces[i], 'degree'))]
-                body += [Assign(test_pads   [i::ln], DottedName(test_spaces[i], 'pads'))]
+        if test_is_product_fem_space:
+            for i in range(test_ln):
+                body += [Assign(test_degrees[i::test_ln], DottedName(test_space,spaces[i], 'degree'))]
+                body += [Assign(test_pads   [i::test_ln], DottedName(test_spaces[i], 'pads'))]
             
         else:
             body += [Assign(test_degrees, DottedName(test_space, 'degree'))]
@@ -1859,15 +1885,15 @@ class Interface(SplBasic):
             
         if is_bilinear:
         
-            if is_product_fem_space:
-                for i in range(ln):
-                    body += [Assign(trial_degrees[i::ln], DottedName(trial_space,spaces[i], 'degree'))]
-                    body += [Assign(trial_pads   [i::ln], DottedName(trial_spaces[i], 'pads'))]
+            if trial_is_product_fem_space:
+                for i in range(trial_ln):
+                    body += [Assign(trial_degrees[i::trial_ln], DottedName(trial_space,spaces[i], 'degree'))]
+                    body += [Assign(trial_pads   [i::trial_ln], DottedName(trial_spaces[i], 'pads'))]
             else:
                 body += [Assign(trial_degrees, DottedName(trial_space, 'degree'))]
                 body += [Assign(trial_pads   , DottedName(trial_spaces, 'pads'))]
 
-        if is_product_fem_space:
+        if test_is_product_fem_space:
             body += [Assign(starts, DottedName(test_spaces[0], 'starts'))]
             body += [Assign(ends,   DottedName(test_spaces[0], 'ends'))]
             body += [Assign(npts,   DottedName(test_spaces[0], 'npts'))]
@@ -1908,20 +1934,31 @@ class Interface(SplBasic):
                 (i,j) = ij
                 if_cond = Is(M, Nil())
                 if is_bilinear:
-                    if is_product_fem_space:
+
+                    if trial_is_product_fem_space:
                         spj = Vh.spaces[j]
-                        spi = Wh.spaces[i]
-                        pads_args = tuple(max(pi,pj) for pi,pj in zip(spj.degree,spi.degree))
-                        args = [trial_spaces[j], test_spaces[i], Assign(pads,pads_args)]
+                        trial_sp = trial_spaces[j]
                     else:
-                        args = [trial_spaces , test_spaces]
+                        spj = Vh
+                        trial_sp = trial_spaces
+
+                    if test_is_product_fem_space:
+                        spi = Wh.spaces[i]
+                        test_sp = test_spaces[i]
+                    else:
+                        spi = Wh
+                        test_sp = test_spaces
+
+                    pads_args = tuple(max(pi,pj) for pi,pj in zip(spj.degree, spi.degree))
+                    args = [trial_sp, test_sp, Assign(pads, pads_args)]
+
                         
                     if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
                     # TODO uncomment later
                     #if_body.append(Assign(DottedName(M,'_dot'),dots[0]))
 
                 if is_linear:
-                    if is_product_fem_space:
+                    if test_is_product_fem_space:
                         args = [test_spaces[i]]
                     else:
                         args = [test_spaces]
@@ -2002,7 +2039,7 @@ class Interface(SplBasic):
                     # ... create product space
                     test_vector_space  = DottedName(test_space , 'vector_space')
                     trial_vector_space = DottedName(trial_space, 'vector_space')
-                    body += [Assign(L, FunctionCall('BlockMatrix', [test_vector_space, trial_vector_space]))]
+                    body += [Assign(L, FunctionCall('BlockMatrix', [trial_vector_space, test_vector_space]))]
                     d = OrderedDict(sorted(d.items()))
                     for k,v in d.items():
                         body += [Assign(L[k], v)]

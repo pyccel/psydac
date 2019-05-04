@@ -55,6 +55,39 @@ class FemSpace( metaclass=ABCMeta ):
     def vector_space( self ):
         """Topologically associated vector space."""
 
+    def __mul__( self, space):
+        #TODO improve
+        spaces = []
+        if isinstance(self, ProductFemSpace):
+            spaces += self.spaces
+        else:
+            spaces.append(self)
+
+        if isinstance(space, ProductFemSpace):
+            spaces += space.spaces
+        else:
+            spaces.append(space)
+
+        Vh = ProductFemSpace(*spaces)
+        V  = self.symbolic_space * space.symbolic_space
+        if hasattr(self, 'symbolic_mapping'):
+            sym = self.symbolic_mapping
+            setattr(Vh, 'symbolic_mapping', sym)
+        elif hasattr(space, 'symbolic_mapping'):
+            sym = space.symbolic_mapping
+            setattr(Vh, 'symbolic_mapping', sym)
+
+        shape = 0
+        if hasattr(self, 'shape'):
+            shape += self.shape
+        if hasattr(space, 'shape'):
+            shape += space.shape
+
+        if shape:
+            setattr(Vh, 'shape', shape)
+        setattr(Vh, 'symbolic_space', V)
+        return  Vh
+
     #---------------------------------------
     # Abstract interface: evaluation methods
     #---------------------------------------
@@ -223,3 +256,5 @@ class FemField:
     def divergence(self, *eta):
         """Evaluate divergence of vector field at location identified by logical coordinates eta."""
         return self._space.eval_field_divergence(self, *eta)
+
+from psydac.fem.vector import ProductFemSpace

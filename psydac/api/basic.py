@@ -614,7 +614,7 @@ class BasicDiscrete(BasicCodeGen):
                          is_rational_mapping = is_rational_mapping,
                          discrete_boundary   = boundary,
                          boundary_basis      = boundary_basis,
-                         symbolic_space      = symbolic_space,
+                         discrete_space      = discrete_space,
                          backend = backend )
 
         assembly = Assembly( kernel,
