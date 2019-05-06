@@ -24,10 +24,6 @@ from psydac.api.discretization import discretize
 from psydac.fem.vector         import ProductFemSpace
 from psydac.linalg.block       import BlockVector, BlockMatrix
 from psydac.linalg.utilities   import array_to_stencil
-from numpy import linspace, zeros, allclose
-import numpy as np
-from mpi4py import MPI
-import pytest
 
 from scipy.sparse.linalg import cg, gmres
 from scipy.sparse.linalg import spsolve
@@ -36,6 +32,9 @@ from scipy import linalg
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import animation
+
+import numpy as np
+from sympy import lambdify
 #==============================================================================
 
 def run_system_1_2d_dir(f0, sol, ncells, degree):
@@ -93,9 +92,7 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     M = BlockMatrix(Xh.vector_space, Xh.vector_space, blocks=blocks)
      
     # ...
-
-    f      = lambda x,y: -2*(2*np.pi)**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
-    rhs[2] = V2_h.interpolate(f)
+    rhs[2] = V2_h.interpolate(f0)
 
     # ...
     M   = M.tosparse().tocsc()
@@ -148,7 +145,7 @@ def test_api_system_1_2d_dir_1():
     from sympy.abc import x,y
     from sympy import sin, cos, pi
 
-    f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
+    f0 = lambda x,y: -2*(2*np.pi)**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
     u  = sin(2*pi*x)*sin(2*pi*y)
 
     error = run_system_1_2d_dir(f0,u, ncells=[5, 5], degree=[2,2])
