@@ -267,6 +267,36 @@ class DiscreteDerham(BasicDiscrete):
 
         elif self.dim == 3:
             return (self._V0, self._V1, self._V2, self._V3)
+            
+    @property
+    def derivatives_as_matrices(self):
+        if self.dim == 1:
+            return self._V0.grad._matrix
+
+        elif self.dim == 2:
+            if hasattr(self._V1, 'curl'):
+                matrix = self._V1.curl._matrix
+            else:
+                matrix = self._V1.div._matrix
+            return (self._V0.grad._matrix, matrix)
+
+        elif self.dim == 3:
+            return (self._V0._grad._matrix, self._V1.curl._matrix, self._V2.div._matrix)        
+
+    @property
+    def derivatives_as_operators(self):
+        if self.dim == 1:
+            return self._V0.grad
+
+        elif self.dim == 2:
+            if hasattr(self._V1, 'curl'):
+                operator = self._V1.curl
+            else:
+                operator = self._V1.div
+            return (self._V0.grad, operator)
+
+        elif self.dim == 3:
+            return (self._V0._grad, self._V1.curl, self._V2.div)        
 
 #==============================================================================           
 def discretize_derham(Complex, domain_h, *args, **kwargs):

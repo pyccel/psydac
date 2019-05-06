@@ -23,6 +23,7 @@ from psydac.fem.vector  import VectorFemField
 from psydac.api.discretization import discretize
 from psydac.fem.vector         import ProductFemSpace
 from psydac.linalg.block       import BlockVector, BlockMatrix
+from psydac.linalg.utilities   import array_to_stencil
 from numpy import linspace, zeros, allclose
 import numpy as np
 from mpi4py import MPI
@@ -69,14 +70,11 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     V2_h = derham_h.V2
     Xh   = V1_h * V2_h
 
-    # TODO
     V0_h, V1_h, V2_h = derham_h.spaces
-    # ...
-
+    GRAD, DIV        = derham_h.derivatives_as_matrices
     # ...
 
     ah       = discretize(a, domain_h, [Xh, V1_h])
-    
     l2norm_h = discretize(l2norm, domain_h, V2_h)
     # ...
     
@@ -89,14 +87,13 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     blocks  = [list(block) for block in M.blocks]
     blocks += [[None, None, None]]
 
-    blocks[2][0] = V1_h.div._matrix[0,0]
-    blocks[2][1] = V1_h.div._matrix[0,1]
+    blocks[2][0] = DIV[0,0]
+    blocks[2][1] = DIV[0,1]
     
     M = BlockMatrix(Xh.vector_space, Xh.vector_space, blocks=blocks)
      
     # ...
 
-    # ...
     f      = lambda x,y: -2*(2*np.pi)**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
     rhs[2] = V2_h.interpolate(f)
 
@@ -105,22 +102,17 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     rhs = rhs.toarray()
 
     x   = spsolve(M, rhs)
-
-    # ...
-    s31,s32 = V2_h.vector_space.starts
-    e31,e32 = V2_h.vector_space.ends
-
-    u = x[-(e31-s31+1)*(e32-s32+1):].reshape((e31-s31+1, e32-s32+1))
+    
+    u = array_to_stencil(x, Xh.vector_space)
 
     # ...
     Fh = FemField( V2_h )
 
-    Fh.coeffs[s31:e31+1, s32:e32+1] = u
-
+    Fh.coeffs[:,:] = u[2][:,:]
 
     # ...
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+#    fig = plt.figure()
+#    ax = fig.add_subplot(111, projection='3d')
 
     x      = np.linspace( 0., 1., 101 )
     y      = np.linspace( 0., 1., 101 )
@@ -137,10 +129,10 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     error = np.abs(Z-phi).max()
 
-    Axes3D.plot_wireframe(ax, X, Y, phi, color='b')
-    Axes3D.plot_wireframe(ax, X, Y, Z, color='r')
+#    Axes3D.plot_wireframe(ax, X, Y, phi, color='b')
+#    Axes3D.plot_wireframe(ax, X, Y, Z, color='r')
 
-    plt.show()
+#    plt.show()
 
     return error
 
@@ -161,5 +153,3 @@ def test_api_system_1_2d_dir_1():
 
     error = run_system_1_2d_dir(f0,u, ncells=[5, 5], degree=[2,2])
 
-
-#test_api_system_1_2d_dir_1()
