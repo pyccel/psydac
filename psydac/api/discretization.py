@@ -281,7 +281,7 @@ class DiscreteDerham(BasicDiscrete):
             return (self._V0.grad._matrix, matrix)
 
         elif self.dim == 3:
-            return (self._V0._grad._matrix, self._V1.curl._matrix, self._V2.div._matrix)        
+            return (self._V0.grad._matrix, self._V1.curl._matrix, self._V2.div._matrix)        
 
     @property
     def derivatives_as_operators(self):
@@ -295,8 +295,7 @@ class DiscreteDerham(BasicDiscrete):
                 operator = self._V1.div
             return (self._V0.grad, operator)
 
-        elif self.dim == 3:
-            return (self._V0._grad, self._V1.curl, self._V2.div)        
+            return (self._V0.grad, self._V1.curl, self._V2.div)        
 
 #==============================================================================           
 def discretize_derham(Complex, domain_h, *args, **kwargs):
@@ -345,9 +344,9 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
         D1 = Curl(spaces[0], spaces[1].vector_space, spaces[2].vector_space)  
         D2 = Div(spaces[0], spaces[2].vector_space, spaces[3].vector_space)
         
-        setattr(spaces[1], 'grad', D0)
-        setattr(spaces[2], 'curl', D1)
-        setattr(spaces[3], 'div' , D2)
+        setattr(spaces[0], 'grad', D0)
+        setattr(spaces[1], 'curl', D1)
+        setattr(spaces[2], 'div' , D2)
         
         interpolation0 = Interpolation(H1=spaces[0])
         interpolation1 = Interpolation(H1=spaces[0], Hcurl=spaces[1])

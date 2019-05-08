@@ -37,21 +37,18 @@ import numpy as np
 from sympy import lambdify
 #==============================================================================
 
-def run_system_1_2d_dir(f0, sol, ncells, degree):
+def run_system_1_1d_dir(f0, sol, ncells, degree):
     # ... abstract model
-    domain = Square()
+    domain = Line()
 
-    derham = Derham(domain, sequence=['H1', 'Hdiv', 'L2'])
-    V0 = derham.V0
-    V1 = derham.V1
-    V2 = derham.V2
+    derham = Derham(domain)
+    
+    V0, V1 = derham.spaces
 
-    V0, V1, V2 = derham.spaces
+    F = element_of_space(V1, name='F')
 
-    F = element_of_space(V2, name='F')
-
-    p,q = [element_of_space(V1, name=i) for i in ['p', 'q']]
-    u,v = [element_of_space(V2, name=i) for i in ['u', 'v']]
+    p,q = [element_of_space(V0, name=i) for i in ['p', 'q']]
+    u,v = [element_of_space(V1, name=i) for i in ['u', 'v']]
 
     a  = BilinearForm(((p,u),(q,)), dot(p,q) + div(q)*u )
 
@@ -65,16 +62,16 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     # ... discrete spaces
     derham_h = discretize(derham, domain_h, degree=degree)
 
+    V0_h = derham_h.V0
     V1_h = derham_h.V1
-    V2_h = derham_h.V2
-    Xh   = V1_h * V2_h
+    Xh   = V0_h * V1_h
 
-    V0_h, V1_h, V2_h = derham_h.spaces
-    GRAD, DIV        = derham_h.derivatives_as_matrices
+    V0_h, V1_h = derham_h.spaces
+    GRAD       = derham_h.derivatives_as_matrices
     # ...
 
-    ah       = discretize(a, domain_h, [Xh, V1_h])
-    l2norm_h = discretize(l2norm, domain_h, V2_h)
+    ah       = discretize(a, domain_h, [Xh, V0_h])
+    l2norm_h = discretize(l2norm, domain_h, V1_h)
     # ...
 
     # ...
@@ -84,15 +81,14 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     # ...
     blocks  = [list(block) for block in M.blocks]
-    blocks += [[None, None, None]]
+    blocks += [[None, None]]
 
-    blocks[2][0] = DIV[0,0]
-    blocks[2][1] = DIV[0,1]
+    blocks[1][0] = GRAD[0,0]
     
     M = BlockMatrix(Xh.vector_space, Xh.vector_space, blocks=blocks)
      
     # ...
-    rhs[2] = V2_h.interpolate(f0)
+    rhs[1] = V1_h.interpolate(f0)
 
     # ...
     M   = M.tosparse().tocsc()
@@ -103,31 +99,28 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     u = array_to_stencil(x, Xh.vector_space)
 
     # ...
-    Fh = FemField( V2_h )
+    Fh = FemField( V1_h )
 
-    Fh.coeffs[:,:] = u[2][:,:]
+    Fh.coeffs[:] = u[1][:]
 
     # ...
-#    fig = plt.figure()
-#    ax = fig.add_subplot(111, projection='3d')
+#    fig,ax = plt.subplots( 1, 1 )
 
     x      = np.linspace( 0., 1., 101 )
-    y      = np.linspace( 0., 1., 101 )
 
-    phi = np.array( [[Fh(xi, yj) for xi in x] for yj in y] )
+    phi = np.array( [Fh(xi) for xi in x] )
+    #TODO fig bug calculate the right field
 
-    X, Y = np.meshgrid(x, y, indexing='ij')
-
-    model = lambda x,y:np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
-    Z = model(X,Y)
+    model = lambda x:np.sin(2*np.pi*x)
+    y = model(x)
 
     error = l2norm_h.assemble(F=Fh)
     # TODO fix bug it gives the wrong error
 
-    error = np.abs(Z-phi).max()
+    error = np.abs(y-phi).max()
 
-#    Axes3D.plot_wireframe(ax, X, Y, phi, color='b')
-#    Axes3D.plot_wireframe(ax, X, Y, Z, color='r')
+#    ax.plot( x, phi )
+#    ax.plot( x, y )
 
 #    plt.show()
 
@@ -142,11 +135,11 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 #==============================================================================
 
 def test_api_system_1_2d_dir_1():
-    from sympy.abc import x,y
-    from sympy import sin, cos, pi
+    from sympy.abc import x
+    import sympy as sp
 
-    f0 = lambda x,y: -2*(2*np.pi)**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
-    u  = sin(2*pi*x)*sin(2*pi*y)
+    f0 = lambda x: -(2*np.pi)**2*np.sin(2*np.pi*x)
+    u  = sp.sin(2*sp.pi*x)
 
-    error = run_system_1_2d_dir(f0,u, ncells=[5, 5], degree=[2,2])
+    error = run_system_1_1d_dir(f0,u, ncells=[10], degree=[2])
 

@@ -1224,25 +1224,25 @@ class Assembly(SplBasic):
         
         if is_bilinear:
         
-            Vh = self.discrete_space[0]
-            Wh = self.discrete_space[1]
-            test_is_product_fem_space  = isinstance(Wh, ProductFemSpace)
-            trial_is_product_fem_space = isinstance(Vh, ProductFemSpace)
+            trial_spaces = self.discrete_space[0]
+            test_spaces  = self.discrete_space[1]
+            test_is_product_fem_space  = isinstance(test_spaces, ProductFemSpace)
+            trial_is_product_fem_space = isinstance(trial_spaces, ProductFemSpace)
             test_ln  = 1
             trial_ln = 1
             if test_is_product_fem_space:
-                test_ln = len(Wh.spaces)
+                test_ln = len(test_spaces.spaces)
             if trial_is_product_fem_space:
-                trial_ln = len(Vh.spaces)
+                trial_ln = len(trial_spaces.spaces)
 
         else:
         
-            Wh = self.discrete_space
+            test_spaces = self.discrete_space
             test_ln = 1
             trial_ln = 0
-            test_is_product_fem_space = isinstance(Wh, ProductFemSpace)
+            test_is_product_fem_space = isinstance(test_spaces, ProductFemSpace)
             if test_is_product_fem_space:
-                test_ln = len(Wh.spaces)
+                test_ln = len(test_spaces.spaces)
             
         unique_scalar_space = kernel.unique_scalar_space
         dim    = form.ldim
@@ -1445,7 +1445,18 @@ class Assembly(SplBasic):
                     args = list(args)
                     args[:dim] = test_degrees[i::test_ln]
                     args[dim:2*dim] = trial_degrees[j::trial_ln]
-                    args[2*dim:3*dim] = [max(pi,pj) for pi,pj in zip(Wh.spaces[i].degree,Vh.spaces[j].degree)]
+                    
+                    if trial_is_product_fem_space:
+                        trial_sp = trial_spaces.spaces[j]
+                    else:
+                        trial_sp = trial_spaces
+
+                    if test_is_product_fem_space:
+                        test_sp = test_spaces.spaces[i]
+                    else:
+                        test_sp = test_spaces
+                        
+                    args[2*dim:3*dim] = [max(pi,pj) for pi,pj in zip(trial_sp.degree,test_sp.degree)]
                     args[3*dim:4*dim] = test_basis_in_elm[i::test_ln]
                     args[4*dim:5*dim] = trial_basis_in_elm[j::trial_ln]
 
@@ -1573,7 +1584,17 @@ class Assembly(SplBasic):
             
             if is_bilinear:
                 if not unique_scalar_space:
-                    spads = [2*max(pi,pj)+1 for pi,pj in zip(Wh.spaces[i].degree,Vh.spaces[j].degree)]
+                    if trial_is_product_fem_space:
+                        trial_sp = trial_spaces.spaces[j]
+                    else:
+                        trial_sp = trial_spaces
+
+                    if test_is_product_fem_space:
+                        test_sp = test_spaces.spaces[i]
+                    else:
+                        test_sp = test_spaces
+
+                    spads = [2*max(pi,pj)+1 for pi,pj in zip(trial_sp.degree,test_sp.degree)]
                     
                 args  = tuple(orders + spads)
 

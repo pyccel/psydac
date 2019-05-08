@@ -6,6 +6,7 @@ import numpy as np
 from collections        import OrderedDict
 from scipy.sparse       import bmat
 
+from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.basic   import VectorSpace, Vector, LinearOperator, Matrix
 
 __all__ = ['ProductSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix']
@@ -209,6 +210,11 @@ class BlockLinearOperator( LinearOperator ):
     """
     def __init__( self, V1, V2, blocks=None ):
 
+        if isinstance(V1, StencilVectorSpace):
+            V1 = ProductSpace(V1)
+        if isinstance(V2, StencilVectorSpace):
+            V2 = ProductSpace(V2)
+            
         assert isinstance( V1, ProductSpace )
         assert isinstance( V2, ProductSpace )
 

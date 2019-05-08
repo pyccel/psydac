@@ -79,11 +79,17 @@ class Grad(object):
                     args.append(d_matrices[j])
                 else:
                     args.append(identities[j])
-
-            mats += [Stencil_kron(Vh.vector_space, Curl_Vh.spaces[i], *args)]
+            
+            if dim == 1:
+                mats += args
+            else: 
+                mats += [Stencil_kron(Vh.vector_space, Curl_Vh.spaces[i], *args)]
 
         Vh = Vh.vector_space
         Vh = ProductSpace(Vh)
+       
+        if dim == 1:
+            Curl_Vh = ProductSpace(Curl_Vh)
 
         mats = [[mat] for mat in mats]
         

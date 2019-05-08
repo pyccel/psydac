@@ -40,12 +40,14 @@ def integrate_1d(points, weights, F, fun):
     n = points.shape[0]
     k = points.shape[1]
     """
-    n1 = points.shape[1]
-    k1 = points.shape[0]
+    points_1, = points
+    weights_1, = weights
+    n1 = points_1.shape[1]
+    k1 = points_1.shape[0]
     
     for ie1 in range(n1):
         for g1 in range(k1):
-            F[ie1] += weights[g1, ie1]*fun(points[g1, ie1])
+            F[ie1] += weights_1[g1, ie1]*fun(points_1[g1, ie1])
         
 
 
@@ -87,12 +89,12 @@ def integrate_3d(points, weights, F, fun):
     points_1, points_2, points_3 = points
     weights_1, weights_2, weights_3 = weights
     
-    n1 = points_0.shape[1]
-    n2 = points_1.shape[1]
-    n3 = points_2.shape[1]
-    k1 = points_0.shape[0]
-    k2 = points_1.shape[0]
-    k3 = points_2.shape[0]
+    n1 = points_1.shape[1]
+    n2 = points_2.shape[1]
+    n3 = points_3.shape[1]
+    k1 = points_1.shape[0]
+    k2 = points_2.shape[0]
+    k3 = points_3.shape[0]
     
     
     for ie1 in range(n1):
@@ -102,7 +104,7 @@ def integrate_3d(points, weights, F, fun):
                     for g2 in range(k2):
                         for g3 in range(k3):
                             F[ie1, ie2, ie3] += weights_1[g1, ie1]*weights_2[g2, ie2]*weights_3[g3, ie3]\
-                                                       *fun(pts_1[g1, ie1], pts_2[g2, ie2], pts_3[g3, ie3])
+                                                       *fun(points_1[g1, ie1], points_2[g2, ie2], points_3[g3, ie3])
 
     
 class Integral(object):
