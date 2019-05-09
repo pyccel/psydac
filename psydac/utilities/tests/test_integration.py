@@ -26,7 +26,7 @@ def test_integrate():
 
     f = lambda u: u*(1.-u)
     F = np.zeros(n)
-    f_int = integrate_1d(points, weights, F, f)
+    f_int = integrate_1d([points], [weights], F, f)
 
 def test_integral():
     # ...

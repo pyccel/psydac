@@ -10,7 +10,7 @@ from sympde.topology import FunctionSpace, VectorFunctionSpace, Derham
 from sympde.topology import element_of_space
 from sympde.topology import ProductSpace
 from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Domain, Line, Square, Cube
+from sympde.topology import Domain, Line, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm
@@ -148,3 +148,14 @@ def test_api_system_1_3d_dir_1():
 
     error = run_system_1_3d_dir(f0,u, ncells=[5, 5, 5], degree=[2, 2, 2])
 
+#==============================================================================
+# CLEAN UP SYMPY NAMESPACE
+#==============================================================================
+
+def teardown_module():
+    from sympy import cache
+    cache.clear_cache()
+
+def teardown_function():
+    from sympy import cache
+    cache.clear_cache()

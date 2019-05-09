@@ -99,4 +99,15 @@ def test_api_system_1_1d_dir_1():
     u  = sin(2*pi*x)
     x  = run_system_1_1d_dir(f0, u,ncells=[10], degree=[2])
 
-    
+
+#==============================================================================
+# CLEAN UP SYMPY NAMESPACE
+#==============================================================================
+
+def teardown_module():
+    from sympy import cache
+    cache.clear_cache()
+
+def teardown_function():
+    from sympy import cache
+    cache.clear_cache()    
