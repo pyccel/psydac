@@ -36,7 +36,7 @@ class Geometry( object ):
     # Option [1]: from a (domain, mappings) or a file
     #--------------------------------------------------------------------------
     def __init__( self, domain=None, mappings=None,
-                  filename=None, comm=MPI.COMM_WORLD ):
+                  filename=None, periods=None, comm=MPI.COMM_WORLD ):
 
         # ... read the geometry if the filename is given
         if not( filename is None ):
@@ -55,6 +55,7 @@ class Geometry( object ):
             # ...
 
             self._domain   = domain
+            self._periods  = periods
             self._ldim     = domain.dim
             self._pdim     = domain.dim # TODO must be given => only dim is  defined for a Domain
             self._mappings = OrderedDict(mappings.items())
@@ -91,29 +92,29 @@ class Geometry( object ):
     #--------------------------------------------------------------------------
     # TODO shall we create a discrete line/square/cube?
     @classmethod
-    def as_line( cls, ncells=None, comm=None ):
+    def as_line( cls, ncells=None, periods=None, comm=None ):
         domain = Line(name='Omega')
         mappings = {'Omega': None}
 
-        geo = Geometry(domain=domain, mappings=mappings, comm=comm)
+        geo = Geometry(domain=domain, mappings=mappings, periods=periods, comm=comm)
         setattr(geo, 'ncells', ncells)
         return geo
 
     @classmethod
-    def as_square( cls, ncells=None, comm=None ):
+    def as_square( cls, ncells=None, periods=None, comm=None ):
         domain = Square(name='Omega')
         mappings = {'Omega': None}
 
-        geo = Geometry(domain=domain, mappings=mappings, comm=comm)
+        geo = Geometry(domain=domain, mappings=mappings, periods=periods, comm=comm)
         setattr(geo, 'ncells', ncells)
         return geo
 
     @classmethod
-    def as_cube( cls, ncells=None, comm=None ):
+    def as_cube( cls, ncells=None, periods=None, comm=None ):
         domain = Cube(name='Omega')
         mappings = {'Omega': None}
 
-        geo = Geometry(domain=domain, mappings=mappings, comm=comm)
+        geo = Geometry(domain=domain, mappings=mappings, periods=periods, comm=comm)
         setattr(geo, 'ncells', ncells)
         return geo
 
@@ -140,6 +141,10 @@ class Geometry( object ):
     @property
     def boundaries(self):
         return self.domain.boundaries
+        
+    @property
+    def periods(self):
+        return self._periods
 
     def __len__(self):
         return len(self.domain)

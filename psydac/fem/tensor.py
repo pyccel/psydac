@@ -198,7 +198,7 @@ class TensorFemSpace( FemSpace ):
             if space.normalize:
                 coeff *= (degree+1)/(knots[2*(degree+1)]-knots[degree+1])
                 n     += 1
-            
+
         coeff *= max(1, n)
             
         return res*coeff

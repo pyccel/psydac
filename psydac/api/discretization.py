@@ -19,7 +19,7 @@ from sympde.expr     import Equation as sym_Equation
 from sympde.expr     import Boundary as sym_Boundary
 from sympde.expr     import Norm as sym_Norm
 from sympde.expr     import TerminalExpr
-from sympde.topology import Domain, Boundary
+from sympde.topology import Domain, Boundary, PeriodicDomain
 from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import FunctionSpace, VectorFunctionSpace, Derham
@@ -367,6 +367,7 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
 def discretize_space(V, domain_h, *args, **kwargs):
     degree           = kwargs.pop('degree', None)
     normalize        = kwargs.pop('normalize', True)
+    periods          = domain_h.periods
     comm             = domain_h.comm
     symbolic_mapping = None
     kind             = V.kind
@@ -397,7 +398,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
         assert(hasattr(domain_h, 'ncells'))
 
         ncells = domain_h.ncells
-
         assert(isinstance( degree, (list, tuple) ))
         assert( len(degree) == ldim )
 
@@ -405,7 +405,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         grids = [np.linspace( 0., 1., num=ne+1 ) for ne in ncells]
 
         # Create 1D finite element spaces and precompute quadrature data
-        spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
+        spaces = [SplineSpace( d, periodic=p, grid=grid ) for d,p,grid in zip(degree, periods, grids)]
         Vh = TensorFemSpace( *spaces, comm=comm )
         
         if isinstance(kind, L2SpaceType):
@@ -472,18 +472,27 @@ def discretize_domain(domain, *args, **kwargs):
     filename = kwargs.pop('filename', None)
     ncells   = kwargs.pop('ncells',   None)
     comm     = kwargs.pop('comm',     None)
+    
+    
+    if isinstance(domain, PeriodicDomain):
+        periods = domain.periods
+        domain  = domain.domain
+        periods = [periods[ax] if ax in periods else False for ax in range(domain.dim)]
+    else:
+        periods = [False]*domain.dim
+        
 
     if not( ncells is None ):
         dtype = domain.dtype
 
         if dtype['type'].lower() == 'line' :
-            return Geometry.as_line(ncells, comm=comm)
+            return Geometry.as_line(ncells, periods=periods, comm=comm)
 
         elif dtype['type'].lower() == 'square' :
-            return Geometry.as_square(ncells, comm=comm)
+            return Geometry.as_square(ncells, periods=periods, comm=comm)
 
         elif dtype['type'].lower() == 'cube' :
-            return Geometry.as_cube(ncells, comm=comm)
+            return Geometry.as_cube(ncells, periods=periods, comm=comm)
 
         else:
             msg = 'no corresponding discrete geometry is available, given {}'
@@ -529,7 +538,7 @@ def discretize(a, *args, **kwargs):
     elif isinstance(a, Derham):
         return discretize_derham(a, *args, **kwargs)
 
-    elif isinstance(a, Domain):
+    elif isinstance(a, (Domain, PeriodicDomain)):
         return discretize_domain(a, *args, **kwargs)
 
     elif isinstance(a, sym_GltExpr):
