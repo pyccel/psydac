@@ -72,7 +72,7 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     Xh  = discretize(X , domain_h, degree=degree)
 
     # ... dsicretize the equation using Dirichlet bc
-    ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
+    ah = discretize(equation, domain_h, [Xh, Xh])
     # ...
 
     # ... discretize norms

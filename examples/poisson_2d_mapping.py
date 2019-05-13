@@ -73,7 +73,7 @@ class Poisson2D:
 
     # ...
     @staticmethod
-    def new_square( mx=1, my=1 ):
+    def new_square( mx=1, my=2 ):
         """
         Solve Poisson's equation on the unit square.
 
@@ -84,7 +84,7 @@ class Poisson2D:
 
         """
         domain   = ((0,1), (0,1))
-        periodic = (False, False)
+        periodic = (False, True)
         mapping  = IdentityMapping( ndim=2 )
 
         from sympy import symbols, sin, cos, pi, lambdify
@@ -649,6 +649,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
 
     # Apply homogeneous Dirichlet boundary conditions where appropriate
     # NOTE: this does not effect ghost regions
+
     if not V1.periodic:
         # left  bc at x=0.
         if not model.O_point and s1 == 0:

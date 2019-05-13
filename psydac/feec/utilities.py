@@ -179,6 +179,7 @@ class Interpolation(object):
         
         if len(spaces) == 0:
             kind = 'H1'
+            spaces[kind] = H1
         else:
             kind = list(spaces.keys())[0]
         
