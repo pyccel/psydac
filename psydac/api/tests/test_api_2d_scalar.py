@@ -16,7 +16,7 @@ from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm
 from sympde.expr import Norm
-from sympde.expr import find, EssentialBC
+from sympde.expr import find, EssentialBC, Mean
 
 from psydac.fem.basic   import FemField
 from psydac.api.discretization import discretize
@@ -87,6 +87,7 @@ def run_poisson_2d_dir(solution, f, ncells, degree, comm=None):
     # ...
 
     return l2_error, h1_error
+
 
 #==============================================================================
 def run_poisson_2d_per_1(solution, f, ncells, degree, comm=None):
@@ -175,6 +176,66 @@ def run_poisson_2d_per_2(solution, f, ncells, degree, comm=None):
 
     bc = EssentialBC(u, 0, domain.boundary)
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
+    # ...
+
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    # ...
+
+    # ... discrete spaces
+    Vh = discretize(V, domain_h, degree=degree)
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    Fh = FemField( Vh, x )
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=Fh)
+    h1_error = h1norm_h.assemble(F=Fh)
+    # ...
+
+    return l2_error, h1_error
+
+#==============================================================================
+def run_poisson_2d_per_3(solution, f, ncells, degree, comm=None):
+
+    # ... abstract model
+    domain = Square()
+    
+    domain = PeriodicDomain(domain, [True, True])
+
+    V = FunctionSpace('V', domain)
+
+    F = element_of_space(V, name='F')
+
+    v = element_of_space(V, name='v')
+    u = element_of_space(V, name='u')
+
+    expr = dot(grad(v), grad(u))
+    a = BilinearForm((v,u), expr)
+
+    expr = f*v
+    l = LinearForm(v, expr)
+
+    error = F - solution
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
+
+    constraint = Mean(u, 0)
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), constraint=constraint)
     # ...
 
     # ... create the computational domain from a topological domain
@@ -721,7 +782,23 @@ def test_api_poisson_2d_per_2():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
+def test_api_poisson_2d_per_3():
 
+    from sympy.abc import x,y
+
+    solution = sin(2*pi*x)*sin(2*pi*y)
+    f        = 2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
+
+    l2_error, h1_error = run_poisson_2d_per_3(solution, f,
+                                             ncells=[2**4, 2**4], degree=[2,2])
+
+    expected_l2_error =  0.00021808678605009276
+    expected_h1_error =  0.026047141440726427
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+test_api_poisson_2d_per_3()
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################

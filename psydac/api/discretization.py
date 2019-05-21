@@ -39,6 +39,7 @@ from psydac.api.glt                  import DiscreteGltExpr
 from psydac.api.expr                 import DiscreteExpr
 
 from psydac.api.essential_bc         import apply_essential_bc
+from psydac.api.constraint           import apply_constraint
 from psydac.linalg.iterative_solvers import cg
 from psydac.fem.splines              import SplineSpace
 from psydac.fem.tensor               import TensorFemSpace
@@ -95,6 +96,7 @@ class DiscreteEquation(BasicDiscrete):
         # ...
         bc = expr.bc
         # ...
+        constraint = expr.constraint
 
         self._expr = expr
         # since lhs and rhs are calls, we need to take their expr
@@ -133,8 +135,18 @@ class DiscreteEquation(BasicDiscrete):
         newargs[1] = test_space
         self._rhs = discretize(expr.rhs, *newargs, **kwargs)
         # ...
+        
+        if constraint:
+            newargs = list(args)
+            newargs[1] = trial_space
+
+            trials   = list(expr.lhs.trial_functions)
+            i_trials = [trials.index(cs.lhs) for cs in expr.constraint]
+            constraint = [sym_LinearForm(trials[i], cs.lhs-cs.rhs) for i,cs in zip(i_trials, constraint)]
+            constraint = [(i,discretize(cs, *newargs, **kwargs)) for i,cs in zip(i_trials, constraint)] 
 
         self._bc = bc
+        self._constraint = constraint
         self._linear_system = None
         self._trial_space = trial_space
         self._test_space = test_space
@@ -162,6 +174,10 @@ class DiscreteEquation(BasicDiscrete):
     @property
     def bc(self):
         return self._bc
+        
+    @property
+    def constraint(self):
+        return self._constraint
 
     @property
     def linear_system(self):
@@ -176,6 +192,9 @@ class DiscreteEquation(BasicDiscrete):
                 # TODO change it: now apply_bc can be called on a list/tuple
                 for bc in self.bc:
                     apply_essential_bc(self.test_space, bc, M)
+
+            if self.constraint:
+                M = apply_constraint(self.trial_space, self.test_space, self.constraint, M)
         else:
             M = self.linear_system.lhs
 

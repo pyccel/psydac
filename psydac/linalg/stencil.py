@@ -172,6 +172,7 @@ class StencilVectorSpace( VectorSpace ):
     def ndim( self ):
         return self._ndim
 
+
 #===============================================================================
 class StencilVector( Vector ):
     """
@@ -504,6 +505,7 @@ class StencilVector( Vector ):
                 l = i - s + p
             index.append(l)
         return tuple(index)
+
 
 #===============================================================================
 class StencilMatrix( Matrix ):
