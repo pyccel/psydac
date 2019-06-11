@@ -43,7 +43,7 @@ class DenseVectorSpace( VectorSpace ):
         
     @property
     def dimension(self):
-        return None
+        return self.ncoeff
 
     # ...
     def zeros( self ):
@@ -64,6 +64,10 @@ class DenseVectorSpace( VectorSpace ):
     @property
     def dtype( self ):
         return self._dtype
+        
+        
+    def __eq__( self, a ):
+        return self.ncoeff == a.ncoeff
 
 
 
@@ -87,21 +91,16 @@ class DenseVector( Vector ):
     # ...
     def dot( self, v ):
         assert isinstance( v, DenseVector )
-        assert v._space is self._space
+        assert v._space == self._space
 
         res = np.dot( self._data, v._data )
-
-        V = self._space
-        if V.parallel:
-            if V.radial_comm.rank == V.radial_root:
-                res = V.tensor_comm.allreduce( res )
-            res = V.radial_comm.bcast( res, root=V.radial_root )
-
         return res
 
     # ...
     def copy( self ):
-        return DenseVector( self._space, self._data.copy() )
+        v = DenseVector( self._space )
+        v._data = self._data.copy()
+        return v
 
     # ...
     def __mul__( self, a ):
@@ -116,7 +115,7 @@ class DenseVector( Vector ):
     # ...
     def __add__( self, v ):
         assert isinstance( v, DenseVector )
-        assert v._space is self._space
+        assert v._space == self._space
         w = DenseVector( self._space )
         w._data = self._data + v._data
         return w
@@ -124,7 +123,7 @@ class DenseVector( Vector ):
     # ...
     def __sub__( self, v ):
         assert isinstance( v, DenseVector )
-        assert v._space is self._space
+        assert v._space == self._space
         w = DenseVector( self._space )
         w._data = self._data - v._data
         return w
@@ -136,14 +135,14 @@ class DenseVector( Vector ):
     # ...
     def __iadd__( self, v ):
         assert isinstance( v, DenseVector )
-        assert v._space is self._space
+        assert v._space == self._space
         self._data += v._data
         return self
 
     # ...
     def __isub__( self, v ):
         assert isinstance( v, DenseVector )
-        assert v._space is self._space
+        assert v._space == self._space
         self._data -= v._data
         return self
 
@@ -187,10 +186,10 @@ class DenseMatrix( Matrix ):
 
     # ...
     def dot( self, v, out=None ):
-        assert v.space is self._domain
+        assert v.space == self._domain
 
         if out:
-            assert out.space is self._codomain
+            assert out.space == self._codomain
             if isinstance(self._codomain, DenseVectorSpace):
                 assert isinstance( out, DenseVector )
                 out._data[:] = [x.dot(v) for x in self._data]
@@ -204,7 +203,7 @@ class DenseMatrix( Matrix ):
                 out._data[:] = [x.dot(v) for x in self._data]
             else:
                 out = StencilVector(self._codomain)
-                for i in range(v.ncoeff):
+                for i in range(v.space.ncoeff):
                     out += self._data[i] * v._data[i] 
 
         return out
@@ -216,8 +215,8 @@ class DenseMatrix( Matrix ):
     # ...
     def tosparse( self ):
         
+        out = np.vstack([v.toarray() for v in self._data])
         if isinstance( self._domain, StencilVectorSpace):
-            out = np.vstack([v.toarray() for v in self._data])
             return coo_matrix(out)
         else:
             return coo_matrix(out).T

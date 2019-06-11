@@ -225,7 +225,7 @@ def run_poisson_2d_per_3(solution, f, ncells, degree, comm=None):
     u = element_of_space(V, name='u')
 
     expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((u,v), expr)
 
     expr = f*v
     l = LinearForm(v, expr)
@@ -254,19 +254,19 @@ def run_poisson_2d_per_3(solution, f, ncells, degree, comm=None):
     l2norm_h = discretize(l2norm, domain_h, Vh)
     h1norm_h = discretize(h1norm, domain_h, Vh)
     # ...
-
+    equation_h.assemble()
     # ... solve the discrete equation
+
     x = equation_h.solve()
+ 
     # ...
 
-    # ...
-    Fh = FemField( Vh, x )
+    Fh = FemField( Vh, x[0] )
 
     # ... compute norms
     l2_error = l2norm_h.assemble(F=Fh)
     h1_error = h1norm_h.assemble(F=Fh)
     # ...
-
     return l2_error, h1_error
 
 #==============================================================================
@@ -786,19 +786,19 @@ def test_api_poisson_2d_per_3():
 
     from sympy.abc import x,y
 
-    solution = sin(2*pi*x)*sin(2*pi*y)
-    f        = 2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
+    solution = cos(2*pi*x)*cos(2*pi*y)
+    f        = 2*(2*pi)**2*cos(2*pi*x)*cos(2*pi*y)
 
     l2_error, h1_error = run_poisson_2d_per_3(solution, f,
-                                             ncells=[2**4, 2**4], degree=[2,2])
+                                             ncells=[2**3, 2**3], degree=[2,2])
 
-    expected_l2_error =  0.00021808678605009276
-    expected_h1_error =  0.026047141440726427
+    expected_l2_error =  0.0020334379288622023
+    expected_h1_error =  0.1105695412795213
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
-test_api_poisson_2d_per_3()
+
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################

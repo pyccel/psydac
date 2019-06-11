@@ -67,6 +67,9 @@ class ProductSpace( VectorSpace ):
 
     def __getitem__( self, key ):
         return self._spaces[key]
+        
+    def __eq__( self, a):
+        return self.spaces == a.spaces
 
 #===============================================================================
 class BlockVector( Vector ):
@@ -109,7 +112,7 @@ class BlockVector( Vector ):
     def dot( self, v ):
 
         assert isinstance( v, BlockVector )
-        assert v._space is self._space
+        assert v._space == self._space
 
         return sum( b1.dot( b2 ) for b1,b2 in zip( self._blocks, v._blocks ) )
 
@@ -128,13 +131,13 @@ class BlockVector( Vector ):
     #...
     def __add__( self, v ):
         assert isinstance( v, BlockVector )
-        assert v._space is self._space
+        assert v._space == self._space
         return BlockVector( self._space, [b1+b2 for b1,b2 in zip( self._blocks, v._blocks )] )
 
     #...
     def __sub__( self, v ):
         assert isinstance( v, BlockVector )
-        assert v._space is self._space
+        assert v._space == self._space
         return BlockVector( self._space, [b1-b2 for b1,b2 in zip( self._blocks, v._blocks )] )
 
     #...
@@ -154,7 +157,7 @@ class BlockVector( Vector ):
     #...
     def __isub__( self, v ):
         assert isinstance( v, BlockVector )
-        assert v._space is self._space
+        assert v._space == self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 -= b2
         return self
@@ -255,7 +258,7 @@ class BlockLinearOperator( LinearOperator ):
         assert isinstance( v, BlockVector )
         
         for i in range(len(v.space[:])):
-            assert v.space[i] is self._domain[i]
+            assert v.space[i] == self._domain[i]
             
         assert all( v.blocks )
 

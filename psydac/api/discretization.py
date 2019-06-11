@@ -204,6 +204,9 @@ class DiscreteEquation(BasicDiscrete):
                 # TODO change it: now apply_bc can be called on a list/tuple
                 for bc in self.bc:
                     apply_essential_bc(self.test_space, bc, rhs)
+                    
+            if self.constraint:
+                rhs = apply_constraint(self.trial_space, self.test_space, self.constraint, rhs)
 
         else:
             rhs = self.linear_system.rhs
@@ -385,13 +388,13 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
 # TODO bounds and knots
 def discretize_space(V, domain_h, *args, **kwargs):
     degree           = kwargs.pop('degree', None)
-    normalize        = kwargs.pop('normalize', True)
+    normalize        = kwargs.pop('normalize', False)
     periods          = domain_h.periods
     comm             = domain_h.comm
     symbolic_mapping = None
     kind             = V.kind
     ldim             = V.ldim
-    
+
     if isinstance(V, ProductSpace):
         kwargs['normalize'] = normalize
         normalize = False
@@ -496,7 +499,7 @@ def discretize_domain(domain, *args, **kwargs):
     if isinstance(domain, PeriodicDomain):
         periods = domain.periods
         domain  = domain.domain
-        periods = [periods[ax] if ax in periods else False for ax in range(domain.dim)]
+        #periods = [periods[ax] if ax in periods else False for ax in range(domain.dim)]
     else:
         periods = [False]*domain.dim
         

@@ -628,14 +628,15 @@ class StencilMatrix( Matrix ):
                     ii.insert(d, nrows[d]+n)
         
                     ii    = tuple(i+p for i,p in zip(ii, pads))
-                    jj    = tuple( slice(i, i+2*p+1-e) for i,p,e in zip(ii, pp, ee) )
+                    jj    = tuple( slice(i-p, i+p+1-e) for i,p,e in zip(ii, pads, ee) )
 
-                    kk[d] = slice(None,2*pp[d]-n)
+                    kk[d] = slice(None, 2*pads[d]-n)
                     
                     ii_kk = tuple( list(ii) + kk )
 
                     v1 = x[jj]
                     v2 = mat[ii_kk]
+
                     out[ii] = np.dot( v2.flat, v1.flat )
 
     # ...

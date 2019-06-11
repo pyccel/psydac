@@ -26,7 +26,8 @@ def array_to_stencil(x, Xh):
         starts = np.array(Xh.starts)
         ends   = np.array(Xh.ends)
         g = tuple(slice(s, e+1) for s,e in zip(starts, ends))
-        u[g] = x.reshape(tuple(ends-starts+1))
+        shape = tuple(ends-starts+1)
+        u[g] = x[:np.product(shape)].reshape(shape)
     else:
         raise ValueError('Xh must be a StencilVectorSpace or a ProductSpace')
 

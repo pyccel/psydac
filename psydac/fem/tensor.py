@@ -200,7 +200,6 @@ class TensorFemSpace( FemSpace ):
                 n     += 1
 
         coeff *= max(1, n)
-            
         return res*coeff
 
     # ...

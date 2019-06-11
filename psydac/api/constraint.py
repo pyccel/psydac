@@ -12,18 +12,16 @@ from psydac.linalg.basic   import LinearOperator, Vector, VectorSpace
 #===============================================================================
 def apply_constraint_1d(test_space, trial_space, index, cs, a):
 
-    if isinstance(a, VectorSpace):
+    if isinstance(a, Vector):
         n   = len(cs)
         V   = DenseVectorSpace(n)
         if isinstance(test_space, ProductSpace):
             spaces = test_space.spaces
             test_space = ProductSpace(*spaces, V)
-            blocks     = list(a.blocks) + [None]
-            
-
+            blocks     = list(a.blocks) + [DenseVector(V)]
         else:
             test_space = ProductSpace(test_space, V)
-            blocks     = [a, None]
+            blocks     = [a, DenseVector(V)]
 
         return BlockVector(test_space, blocks=blocks)
             
@@ -62,25 +60,25 @@ def apply_constraint_1d(test_space, trial_space, index, cs, a):
         blocks[index][-1] = M
         blocks[-1][index] = M_T
 
-        return BlockLinearOperator(trial_space, test_space, blocks=blocks)
+        return BlockMatrix(trial_space, test_space, blocks=blocks)
     else:
         raise ValueError('only LinearOperator and Vectors are available')
 
 #===============================================================================                
 def apply_constraint_2d(test_space, trial_space, index, cs, a):
 
-    if isinstance(a, VectorSpace):
+    if isinstance(a, Vector):
         n   = len(cs)
         V   = DenseVectorSpace(n)
         if isinstance(test_space, ProductSpace):
             spaces = test_space.spaces
             test_space = ProductSpace(*spaces, V)
-            blocks     = list(a.blocks) + [None]
+            blocks     = list(a.blocks) + [DenseVector(V)]
             
 
         else:
             test_space = ProductSpace(test_space, V)
-            blocks     = [a, None]
+            blocks     = [a, DenseVector(V)]
 
         return BlockVector(test_space, blocks=blocks)
             
@@ -119,23 +117,23 @@ def apply_constraint_2d(test_space, trial_space, index, cs, a):
         blocks[index][-1] = M
         blocks[-1][index] = M_T
 
-        return BlockLinearOperator(trial_space, test_space, blocks=blocks)
+        return BlockMatrix(trial_space, test_space, blocks=blocks)
     else:
         raise ValueError('only LinearOperator and Vectors are available')    
 
 #===============================================================================    
 def apply_constraint_3d(test_space, trial_space, index, cs, a):
 
-    if isinstance(a, VectorSpace):
+    if isinstance(a, Vector):
         n   = len(cs)
         V   = DenseVectorSpace(n)
         if isinstance(test_space, ProductSpace):
             spaces = test_space.spaces
             test_space = ProductSpace(*spaces, V)
-            blocks     = list(a.blocks) + [None]
+            blocks     = list(a.blocks) + [DenseVector(V)]
         else:
             test_space = ProductSpace(test_space, V)
-            blocks     = [a, None]
+            blocks     = [a, DenseVector(V)]
 
         return BlockVector(test_space, blocks=blocks)
             
@@ -174,7 +172,7 @@ def apply_constraint_3d(test_space, trial_space, index, cs, a):
         blocks[index][-1] = M
         blocks[-1][index] = M_T
 
-        return BlockLinearOperator(trial_space, test_space, blocks=blocks)
+        return BlockMatrix(trial_space, test_space, blocks=blocks)
     else:
         raise ValueError('only LinearOperator and Vectors are available')
 
