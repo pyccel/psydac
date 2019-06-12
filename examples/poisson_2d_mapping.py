@@ -788,9 +788,11 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     ax.set_xlabel( r'$x$', rotation='horizontal' )
     ax.set_ylabel( r'$y$', rotation='horizontal' )
     ax.set_title ( r'$\phi_{ex}(x,y)$' )
-    ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
-    ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+    ax.plot( xx[:,::N]  , yy[:,::N]  , 'k', linewidth=1.0 )
+    ax.plot( xx[::N,:].T, yy[::N,:].T, 'k', linewidth=1.0 )
     ax.set_aspect('equal')
+    for c in im.collections:
+        c.set_rasterized(True)
 
     if use_spline_mapping:
         # Recompute physical coordinates of logical grid using spline mapping
@@ -805,9 +807,11 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     ax.set_xlabel( r'$x$', rotation='horizontal' )
     ax.set_ylabel( r'$y$', rotation='horizontal' )
     ax.set_title ( r'$\phi(x,y)$' )
-    ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
-    ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+    ax.plot( xx[:,::N]  , yy[:,::N]  , 'k', linewidth=1.0 )
+    ax.plot( xx[::N,:].T, yy[::N,:].T, 'k', linewidth=1.0 )
     ax.set_aspect('equal')
+    for c in im.collections:
+        c.set_rasterized(True)
 
     # Plot numerical error
     ax = axes[2]
@@ -816,9 +820,11 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     ax.set_xlabel( r'$x$', rotation='horizontal' )
     ax.set_ylabel( r'$y$', rotation='horizontal' )
     ax.set_title ( r'$\phi(x,y) - \phi_{ex}(x,y)$' )
-    ax.plot( xx[:,::N]  , yy[:,::N]  , 'k' )
-    ax.plot( xx[::N,:].T, yy[::N,:].T, 'k' )
+    ax.plot( xx[:,::N]  , yy[:,::N]  , 'k', linewidth=1.0 )
+    ax.plot( xx[::N,:].T, yy[::N,:].T, 'k', linewidth=1.0 )
     ax.set_aspect('equal')
+    for c in im.collections:
+        c.set_rasterized(True)
 
     # Show figure
     fig.show()
