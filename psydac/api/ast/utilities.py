@@ -152,6 +152,7 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
         rhs = SymbolicExpr(rhs)
         map_stmts = [Assign(Symbol(name), rhs)]
     # ...
+
     return assign, map_stmts
 
 
@@ -402,7 +403,27 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
 
     # 2 order terms
     if nderiv >= 2:
-        raise NotImplementedError("")
+        for e, d1 in enumerate(ops):
+            for d2 in ops[:e+1]:
+                w     = Symbol( _print(       weights   ) )
+                d1w   = Symbol( _print(    d1(weights)  ) )
+                d2w   = Symbol( _print(    d2(weights)  ) )
+                d1d2w = Symbol( _print( d1(d2(weights)) ) )
+
+                for i in range(dim):
+                    u     = Symbol( _print(       M[i]   ) )
+                    d1u   = Symbol( _print(    d1(M[i])  ) )
+                    d2u   = Symbol( _print(    d2(M[i])  ) )
+                    d1d2u = Symbol( _print( d1(d2(M[i])) ) )
+
+                    val_name = d1d2u.name + '_values'
+                    val  = IndexedBase(val_name)[indices_quad]
+                    stmt = Assign(val,
+                            d1d2u / w - u * d1d2w / w**2
+                            - d1w * d2u / w**2 - d2w * d1u / w**2
+                            + 2 * u * d1w * d2w / w**3)
+
+                    stmts += [stmt]
 
     return stmts
 
