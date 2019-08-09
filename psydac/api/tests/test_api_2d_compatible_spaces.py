@@ -6,9 +6,9 @@ from sympde.core import Constant
 from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
-from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
-from sympde.topology import element_of_space
+from sympde.topology import element_of
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
@@ -41,16 +41,16 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     domain = Square()
 
     V1 = VectorFunctionSpace('V1', domain, kind='Hdiv')
-    V2 = FunctionSpace('V2', domain, kind='L2')
+    V2 = ScalarFunctionSpace('V2', domain, kind='L2')
     X  = ProductSpace(V1, V2)
 
     x,y = domain.coordinates
 
-    F = element_of_space(V2, name='F')
+    F = element_of(V2, name='F')
 
 
-    p,q = [element_of_space(V1, name=i) for i in ['p', 'q']]
-    u,v = [element_of_space(V2, name=i) for i in ['u', 'v']]
+    p,q = [element_of(V1, name=i) for i in ['p', 'q']]
+    u,v = [element_of(V2, name=i) for i in ['u', 'v']]
 
     a  = BilinearForm(((p,u),(q,v)),dot(p,q) + div(q)*u + div(p)*v )
     l  = LinearForm((q,v), f0*v)
@@ -107,15 +107,15 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
     domain = Square()
 
     V1 = VectorFunctionSpace('V1', domain, kind='H1')
-    V2 = FunctionSpace('V2', domain, kind='L2')
+    V2 = ScalarFunctionSpace('V2', domain, kind='L2')
     X  = ProductSpace(V1, V2)
 
     x,y = domain.coordinates
 
-    F = element_of_space(V1, name='F')
+    F = element_of(V1, name='F')
 
-    u,v = [element_of_space(V1, name=i) for i in ['u', 'v']]
-    p,q = [element_of_space(V2, name=i) for i in ['p', 'q']]
+    u,v = [element_of(V1, name=i) for i in ['u', 'v']]
+    p,q = [element_of(V2, name=i) for i in ['p', 'q']]
 
     a  = BilinearForm(((u,p),(v,q)),inner(grad(u),grad(v)) + div(u)*q - p*div(v) )
     l  = LinearForm((v,q), f1*v[0]+f2*v[1]+q)
