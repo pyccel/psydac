@@ -9,9 +9,9 @@ from sympde.core import Constant
 from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
-from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
-from sympde.topology import element_of_space
+from sympde.topology import element_of
 from sympde.topology import Unknown
 from sympde.topology import InteriorDomain, Union
 from sympde.topology import Boundary, NormalVector, TangentVector
@@ -51,14 +51,14 @@ def run_poisson_2d_dir(filename, solution, f, comm=None):
     # ... abstract model
     domain = Domain.from_file(filename)
 
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
     x,y = domain.coordinates
 
-    F = element_of_space(V, name='F')
+    F = element_of(V, name='F')
 
-    v = element_of_space(V, name='v')
-    u = element_of_space(V, name='u')
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -114,7 +114,7 @@ def run_poisson_2d_dirneu(filename, solution, f, boundary, comm=None):
     # ... abstract model
     domain = Domain.from_file(filename)
 
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
     B_neumann = [domain.get_boundary(i) for i in boundary]
     if len(B_neumann) == 1:
@@ -125,10 +125,10 @@ def run_poisson_2d_dirneu(filename, solution, f, boundary, comm=None):
 
     x,y = domain.coordinates
 
-    F = element_of_space(V, name='F')
+    F = element_of(V, name='F')
 
-    v = element_of_space(V, name='v')
-    u = element_of_space(V, name='u')
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -190,16 +190,16 @@ def run_laplace_2d_neu(filename, solution, f, comm=None):
     # ... abstract model
     domain = Domain.from_file(filename)
 
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
     B_neumann = domain.boundary
 
     x,y = domain.coordinates
 
-    F = element_of_space(V, name='F')
+    F = element_of(V, name='F')
 
-    v = element_of_space(V, name='v')
-    u = element_of_space(V, name='u')
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
 
     expr = dot(grad(v), grad(u)) + v*u
     a = BilinearForm((v,u), expr)

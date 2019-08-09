@@ -9,8 +9,8 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 
 from sympde.topology import dx, dy, dz
 from sympde.topology import ScalarField
-from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of_space
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.topology import element_of
 from sympde.topology import Domain
 from sympde.topology import Boundary, trace_0, trace_1
 from sympde.expr     import BilinearForm, LinearForm
@@ -58,14 +58,14 @@ def print_timing(ls, backend):
 def test_perf_poisson_2d_parallel(backend=PSYDAC_BACKEND_PYTHON):
 
     # ... abstract model
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
     x,y = domain.coordinates
 
-    F = element_of_space(V,'F')
+    F = element_of(V,'F')
 
-    v = element_of_space(V, 'v')
-    u = element_of_space(V, 'u')
+    v = element_of(V, 'v')
+    u = element_of(V, 'u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)

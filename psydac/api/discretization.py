@@ -22,7 +22,7 @@ from sympde.expr     import TerminalExpr
 from sympde.topology import Domain, Boundary
 from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
-from sympde.topology import FunctionSpace, VectorFunctionSpace, Derham
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
 from sympde.topology import ProductSpace
 from sympde.topology import Mapping
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType

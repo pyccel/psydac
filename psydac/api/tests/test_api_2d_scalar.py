@@ -7,9 +7,9 @@ from sympde.core import Constant
 from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
-from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
-from sympde.topology import element_of_space
+from sympde.topology import element_of
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
@@ -32,12 +32,12 @@ def run_poisson_2d_dir(solution, f, ncells, degree, comm=None):
     # ... abstract model
     domain = Square()
 
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
-    F = element_of_space(V, name='F')
+    F = element_of(V, name='F')
 
-    v = element_of_space(V, name='v')
-    u = element_of_space(V, name='u')
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -93,7 +93,7 @@ def run_poisson_2d_dirneu(solution, f, boundary, ncells, degree, comm=None):
     # ... abstract model
     domain = Square()
 
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
     B_neumann = [domain.get_boundary(i) for i in boundary]
     if len(B_neumann) == 1:
@@ -104,10 +104,10 @@ def run_poisson_2d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 
     x,y = domain.coordinates
 
-    F = element_of_space(V, name='F')
+    F = element_of(V, name='F')
 
-    v = element_of_space(V, name='v')
-    u = element_of_space(V, name='u')
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -169,16 +169,16 @@ def run_laplace_2d_neu(solution, f, ncells, degree, comm=None):
     # ... abstract model
     domain = Square()
 
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
     B_neumann = domain.boundary
 
     x,y = domain.coordinates
 
-    F = element_of_space(V, name='F')
+    F = element_of(V, name='F')
 
-    v = element_of_space(V, name='v')
-    u = element_of_space(V, name='u')
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
 
     expr = dot(grad(v), grad(u)) + v*u
     a = BilinearForm((v,u), expr)
@@ -237,12 +237,12 @@ def run_biharmonic_2d_dir(solution, f, ncells, degree, comm=None):
     # ... abstract model
     domain = Square()
 
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
-    F = element_of_space(V, name='F')
+    F = element_of(V, name='F')
 
-    v = element_of_space(V, name='v')
-    u = element_of_space(V, name='u')
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
 
     expr = laplace(v) * laplace(u)
     a = BilinearForm((v,u), expr)
@@ -302,12 +302,12 @@ def run_poisson_user_function_2d_dir(f, solution, ncells, degree, comm=None):
 
     f = implemented_function('f', f)
 
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
-    F = element_of_space(V, name='F')
+    F = element_of(V, name='F')
 
-    v = element_of_space(V, name='v')
-    u = element_of_space(V, name='u')
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)

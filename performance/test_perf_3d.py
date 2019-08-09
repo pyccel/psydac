@@ -8,8 +8,8 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 
 from sympde.topology import dx, dy, dz
 from sympde.topology import ScalarField
-from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of_space
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.topology import element_of
 from sympde.topology import Domain
 from sympde.topology import Boundary, trace_0, trace_1
 from sympde.expr     import BilinearForm, LinearForm
@@ -51,14 +51,14 @@ def test_api_poisson_3d():
     print('============ test_api_poisson_3d =============')
 
     # ... abstract model
-    U = FunctionSpace('U', domain)
+    U = ScalarFunctionSpace('U', domain)
 
     x,y,z = domain.coordinates
 
-    F = element_of_space(U, 'F')
+    F = element_of(U, 'F')
 
-    v = element_of_space(U, 'v')
-    u = element_of_space(U, 'u')
+    v = element_of(U, 'v')
+    u = element_of(U, 'u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)
@@ -145,14 +145,14 @@ def test_api_stokes_3d():
 
     # ... abstract model
     U = VectorFunctionSpace('V', domain)
-    V = FunctionSpace('W', domain)
+    V = ScalarFunctionSpace('W', domain)
 
     W = U*V
 
-    v = element_of_space(U, 'v')
-    u = element_of_space(U, 'u')
-    p = element_of_space(V, 'p')
-    q = element_of_space(V, 'q')
+    v = element_of(U, 'v')
+    u = element_of(U, 'u')
+    p = element_of(V, 'p')
+    q = element_of(V, 'q')
 
     A = BilinearForm((v,u), inner(grad(v), grad(u)))
     B = BilinearForm((v,p), div(v)*p)

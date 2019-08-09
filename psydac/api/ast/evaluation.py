@@ -52,7 +52,7 @@ from sympde.topology import SymbolicExpr
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
-from sympde.topology.space import FunctionSpace
+from sympde.topology.space import ScalarFunctionSpace
 from sympde.topology.space import ScalarTestFunction
 from sympde.topology.space import VectorTestFunction
 from sympde.topology.space import IndexedTestTrial
