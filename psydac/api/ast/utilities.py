@@ -14,7 +14,9 @@ from pyccel.ast.core import For
 from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Range, Product
+from pyccel.ast.core import _atomic
 from pyccel.ast import Comment, NewLine
+
 
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
@@ -76,9 +78,19 @@ def is_vector_field(expr):
 
     return False
 
+def logical2physical(expr):
 
+    partial_der = dict(zip(_logical_partial_derivatives,_partial_derivatives))
+    
+    if isinstance(expr, _logical_partial_derivatives):
+        argument = logical2physical(expr.args[0])
+        new_expr = partial_der[type(expr)](argument)
+        return new_expr
+    else:
+        return expr
+        
 #==============================================================================
-def compute_atoms_expr(atom, indices_quad, indices_test,
+def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
                        indices_trial, basis_trial,
                        basis_test, cords, test_function,
                        is_linear,
@@ -88,14 +100,15 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
            VectorTestFunction,
            ScalarTestFunction,
            IndexedTestTrial)
-
+    
     dim  = len(indices_test)
 
-    if not isinstance(atom, cls):
-        raise TypeError('atom must be of type {}'.format(str(cls)))
-
-    orders = [0 for i in range(0, dim)]
-    p_indices = get_index_derivatives(atom)
+    if not isinstance(atomic_exprs, (list, tuple, Tuple)):
+        raise TypeError('Expecting a list of atoms')
+    
+    for atom in atomic_exprs:   
+        if not isinstance(atom, cls):
+            raise TypeError('atom must be of type {}'.format(str(cls)))
 
     # ...
     def _get_name(atom):
@@ -110,50 +123,72 @@ def compute_atoms_expr(atom, indices_quad, indices_test,
             atom_name = str(atom.base.name)
 
         else:
+            print(type(atom))
             raise TypeError('> Wrong type')
 
         return atom_name
     # ...
-
-    if isinstance(atom, _partial_derivatives):
-        a = get_atom_derivatives(atom)
-        atom_name = _get_name(a)
-
-        orders[atom.grad_index] = p_indices[atom.coordinate]
-
-    else:
-        atom_name = _get_name(atom)
-
-    test_names = [_get_name(i) for i in test_function]
-    test = atom_name in test_names
-
-    if test or is_linear:
-        basis  = basis_test
-        idxs   = indices_test
-    else:
-        basis  = basis_trial
-        idxs   = indices_trial
-
-    args = []
-    for i in range(dim):
-        args.append(basis[i][idxs[i],orders[i],indices_quad[i]])
-
-    # ... assign basis on quad point
-    logical = not( mapping is None )
-    name = print_expression(atom, logical=logical)
-    assign = Assign(Symbol(name), Mul(*args))
-    # ...
-
+    
+    atomic_exprs = list(atomic_exprs)
+    new_atoms    = []
     # ... map basis function
     map_stmts = []
-    if mapping and  isinstance(atom, _partial_derivatives):
-        name = print_expression(atom)
-        rhs = LogicalExpr(mapping, atom)
-        rhs = SymbolicExpr(rhs)
-        map_stmts = [Assign(Symbol(name), rhs)]
-    # ...
+    if mapping:
+        for atom in atomic_exprs:
+             if isinstance(atom, _partial_derivatives):
+                name = print_expression(atom)
+                rhs = LogicalExpr(mapping, atom)
+                # we look for new_atoms that must be added to atomic_exprs
+                # because we need them in the maps stmts
+                logical_atoms = _atomic(rhs, cls=_logical_partial_derivatives)
+                
+                for atom in logical_atoms:
+                    ls = _atomic(atom, Symbol)
+                    assert len(ls) == 1
+                    if isinstance(ls[0],cls):
+                        new_atoms += [logical2physical(atom)]
+                    
+                rhs = SymbolicExpr(rhs)
+                map_stmts += [Assign(Symbol(name), rhs)]
+    
+    atomic_exprs = {*atomic_exprs, *new_atoms}
 
-    return assign, map_stmts
+    assigns = []
+    for atom in atomic_exprs:
+        
+        p_indices = get_index_derivatives(atom)
+        orders = [0 for i in range(0, dim)]
+
+        if isinstance(atom, _partial_derivatives):
+            a = get_atom_derivatives(atom)
+            atom_name = _get_name(a)
+
+            orders[atom.grad_index] = p_indices[atom.coordinate]
+
+        else:
+            atom_name = _get_name(atom)
+
+        test_names = [_get_name(i) for i in test_function]
+        test = atom_name in test_names
+
+        if test or is_linear:
+            basis  = basis_test
+            idxs   = indices_test
+        else:
+            basis  = basis_trial
+            idxs   = indices_trial
+
+        args = []
+        for i in range(dim):
+            args.append(basis[i][idxs[i],orders[i],indices_quad[i]])
+
+        # ... assign basis on quad point
+        logical = not( mapping is None )
+        name = print_expression(atom, logical=logical)
+        assigns += [Assign(Symbol(name), Mul(*args))]
+
+    # ...
+    return assigns, map_stmts
 
 
 #==============================================================================

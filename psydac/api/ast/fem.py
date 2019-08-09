@@ -805,8 +805,8 @@ class Kernel(SplBasic):
 
         init_basis = OrderedDict()
         init_map   = OrderedDict()
-        for atom in atomic_expr:
-            init, map_stmts = compute_atoms_expr(atom,
+
+        init_stmts, map_stmts = compute_atoms_expr(atomic_expr,
                                                  indices_quad,
                                                  indices_test,
                                                  indices_trial,
@@ -817,8 +817,10 @@ class Kernel(SplBasic):
                                                  is_linear,
                                                  mapping)
 
-            init_basis[str(init.lhs)] = init
-            for stmt in map_stmts:
+        for stmt in init_stmts:
+            init_basis[str(stmt.lhs)] = stmt
+
+        for stmt in map_stmts:
                 init_map[str(stmt.lhs)] = stmt
          
         if unique_scalar_space:
