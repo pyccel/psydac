@@ -55,7 +55,7 @@ from gelato.expr import gelatize
 from .basic import SplBasic
 from .utilities import random_string
 from .utilities import build_pythran_types_header, variables
-from .utilities import is_vector_field, is_field, is_mapping
+from .utilities import is_scalar_field, is_vector_field, is_mapping
 from .utilities import math_atoms_as_str
 #from .evaluation import EvalArrayVectorField
 from .evaluation import EvalArrayMapping, EvalArrayField
@@ -289,7 +289,7 @@ class GltKernel(SplBasic):
 
         # ...
 #        atomic_expr_mapping      = [atom for atom in atoms if is_mapping(atom)]
-        atomic_expr_field        = [atom for atom in atoms if is_field(atom)]
+        atomic_expr_field        = [atom for atom in atoms if is_scalar_field(atom)]
         atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
         # ...
 

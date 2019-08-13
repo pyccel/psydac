@@ -72,12 +72,8 @@ from .utilities import random_string
 from .utilities import build_pythran_types_header, variables
 from .utilities import compute_normal_vector, compute_tangent_vector
 from .utilities import select_loops, filter_product
-from .utilities import rationalize_eval_mapping
-from .utilities import compute_atoms_expr_mapping
-from .utilities import compute_atoms_expr_vector_field
-from .utilities import compute_atoms_expr_field
 from .utilities import compute_atoms_expr
-from .utilities import is_vector_field, is_field
+from .utilities import is_scalar_field, is_vector_field
 from .utilities import math_atoms_as_str
 
 
@@ -533,7 +529,7 @@ class Kernel(SplBasic):
         # ...
 
         # ...
-        atomic_expr_field        = [atom for atom in atoms if is_field(atom)]
+        atomic_expr_field        = [atom for atom in atoms if is_scalar_field(atom)]
         atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
 
         atomic_expr       = [atom for atom in atoms if not( atom in atomic_expr_field ) and

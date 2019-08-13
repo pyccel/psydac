@@ -50,7 +50,7 @@ from sympde.topology import SymbolicDeterminant
 from .basic import SplBasic
 from .utilities import random_string
 from .utilities import build_pythran_types_header, variables
-from .utilities import is_vector_field, is_field, is_mapping
+from .utilities import is_scalar_field, is_vector_field, is_mapping
 from .utilities import math_atoms_as_str
 #from .evaluation import EvalArrayVectorField
 from .evaluation import EvalArrayMapping, EvalArrayField
@@ -262,7 +262,7 @@ class ExprKernel(SplBasic):
         atomic_scalar_field = _atomic(expr, cls=ScalarField)
         atomic_vector_field = _atomic(expr, cls=VectorField)
         
-        atomic_expr_field        = [atom for atom in atoms if is_field(atom)]
+        atomic_expr_field        = [atom for atom in atoms if is_scalar_field(atom)]
         atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
 
         self._fields = tuple(expr.atoms(ScalarField))

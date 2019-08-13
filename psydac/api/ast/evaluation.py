@@ -70,7 +70,6 @@ from .utilities import build_pythran_types_header, variables
 from .utilities import filter_loops, filter_product
 from .utilities import rationalize_eval_mapping
 from .utilities import compute_atoms_expr_mapping
-from .utilities import compute_atoms_expr_vector_field
 from .utilities import compute_atoms_expr_field
 
 
@@ -560,9 +559,8 @@ class EvalQuadratureVectorField(SplBasic):
         init_map   = OrderedDict()
         updates = []
         for atom in self.vector_fields:
-            init, update, map_stmts = compute_atoms_expr_vector_field(atom, indices_quad, indices_basis,
-                                                                      basis, Nj,
-                                                                      mapping=mapping)
+            init, update, map_stmts = compute_atoms_expr_field(atom, indices_quad, indices_basis,
+                                                               basis, Nj, mapping=mapping)
 
             updates.append(update)
 
@@ -720,8 +718,7 @@ class EvalArrayField(SplBasic):
         init_map   = OrderedDict()
         for atom in self.fields:
             init, update, map_stmts = compute_atoms_expr_field(atom, indices_quad, indices_basis,
-                                                               basis, Nj,
-                                                               mapping=mapping)
+                                                               basis, Nj, mapping=mapping)
 
             updates.append(update)
 
