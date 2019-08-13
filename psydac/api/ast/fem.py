@@ -38,7 +38,6 @@ from pyccel.ast.utilities import build_types_decorator
 
 from sympde.core import Cross_3d
 from sympde.core import Constant
-from sympde.core.math import math_atoms_as_str
 from sympde.calculus import grad
 from sympde.topology import Mapping
 from sympde.topology import ScalarField
@@ -79,6 +78,7 @@ from .utilities import compute_atoms_expr_vector_field
 from .utilities import compute_atoms_expr_field
 from .utilities import compute_atoms_expr
 from .utilities import is_vector_field, is_field
+from .utilities import math_atoms_as_str
 
 
 FunctionalForms = (BilinearForm, LinearForm, Functional)
@@ -1078,10 +1078,8 @@ class Kernel(SplBasic):
             body = len_quads + body
 
             # get math functions and constants
-            math_elements = math_atoms_as_str(self.kernel_expr)
-            math_imports = []
-            for e in math_elements:
-                math_imports += [Import(e, 'numpy')]
+            math_elements = math_atoms_as_str(self.kernel_expr, 'numpy')
+            math_imports  = [Import(e, 'numpy') for e in math_elements]
 
             imports += math_imports
             self._imports = imports

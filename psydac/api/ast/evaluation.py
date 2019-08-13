@@ -39,7 +39,6 @@ from pyccel.ast.utilities import build_types_decorator
 
 from sympde.core import Cross_3d
 from sympde.core import Constant
-from sympde.core.math import math_atoms_as_str
 from sympde.calculus import grad
 from sympde.topology import Mapping
 from sympde.topology import ScalarField

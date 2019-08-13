@@ -774,7 +774,7 @@ def variables(names, dtype, **args):
 
 
 
-
+#==============================================================================
 
 def build_pythran_types_header(name, args, order=None):
     """
@@ -804,3 +804,81 @@ def build_pythran_types_header(name, args, order=None):
     return header
 
 pythran_dtypes = {'real':'float','int':'int'}
+
+#==============================================================================
+
+from sympy import preorder_traversal
+from sympy import Function
+from sympy import NumberSymbol
+from sympy import Pow, S
+from sympy.printing.pycode import _known_functions_math
+from sympy.printing.pycode import _known_constants_math
+from sympy.printing.pycode import _known_functions_mpmath
+from sympy.printing.pycode import _known_constants_mpmath
+from sympy.printing.pycode import _known_functions_numpy
+
+
+def math_atoms_as_str(expr, lib='math'):
+    """
+    Given a Sympy expression, find all known mathematical atoms (functions and
+    constants) that need to be imported from a math library (e.g. Numpy) when
+    generating Python code.
+
+    Parameters
+    ----------
+    expr : sympy.core.expr.Expr
+        Symbolic expression for which Python code is to be generated.
+
+    lib : str
+        Library used to translate symbolic functions/constants into standard
+        Python ones. Options: ['math', 'mpmath', 'numpy']. Default: 'math'.
+
+    Returns
+    -------
+    imports : set of str
+        Set of all names (strings) to be imported.
+
+    """
+
+    # Choose translation dictionaries
+    if lib == 'math':
+        known_functions = _known_functions_math
+        known_constants = _known_constants_math
+    elif lib == 'mpmath':
+        known_functions = _known_functions_mpmath
+        known_constants = _known_constants_mpmath
+    elif lib == 'numpy':
+        known_functions = _known_functions_numpy
+        known_constants = _known_constants_math   # numpy version missing
+    else:
+        raise ValueError("Library {} not supported.".format(mod))
+
+    # Initialize variables
+    math_functions = set()
+    math_constants = set()
+    sqrt = False
+
+    # Walk expression tree
+    for i in preorder_traversal(expr):
+
+        # Search for math functions (e.g. cos, sin, exp, ...)
+        if isinstance(i, Function):
+            s = str(type(i))
+            if s in known_functions:
+                p = known_functions[s]
+                math_functions.add(p)
+
+        # Search for math constants (e.g. pi, e, ...)
+        elif isinstance(i, NumberSymbol):
+            s = type(i).__name__
+            if s in known_constants:
+                p = known_constants[s]
+                math_constants.add(p)
+
+        # Search for square roots
+        elif (not sqrt):
+            if isinstance(i, Pow) and (i.exp is S.Half):
+                math_functions.add('sqrt')
+                sqrt = True
+
+    return set.union(math_functions, math_constants)
