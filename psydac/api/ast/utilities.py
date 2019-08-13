@@ -155,21 +155,10 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
 
     assigns = []
     for atom in atomic_exprs:
-        
-        p_indices = get_index_derivatives(atom)
-        orders = [0 for i in range(0, dim)]
 
-        if isinstance(atom, _partial_derivatives):
-            a = get_atom_derivatives(atom)
-            atom_name = _get_name(a)
-
-            orders[atom.grad_index] = p_indices[atom.coordinate]
-
-        else:
-            atom_name = _get_name(atom)
-
-        test_names = [_get_name(i) for i in test_function]
-        test = atom_name in test_names
+        orders = [*get_index_derivatives(atom).values()]
+        a      = get_atom_derivatives(atom)
+        test   = _get_name(a) in [_get_name(f) for f in test_function]
 
         if test or is_linear:
             basis  = basis_test
@@ -178,13 +167,11 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
             basis  = basis_trial
             idxs   = indices_trial
 
-        args = []
-        for i in range(dim):
-            args.append(basis[i][idxs[i],orders[i],indices_quad[i]])
+        args = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
 
         # ... assign basis on quad point
-        logical = not( mapping is None )
-        name = print_expression(atom, logical=logical)
+        logical  = not( mapping is None )
+        name     = print_expression(atom, logical=logical)
         assigns += [Assign(Symbol(name), Mul(*args))]
 
     # ...
@@ -203,30 +190,15 @@ def compute_atoms_expr_field(atom, indices_quad,
     field_name = 'coeff_'+str(field.name)
 
     # ...
-    if isinstance(atom, _partial_derivatives):
-        direction = atom.grad_index + 1
-
-    else:
-        direction = 0
-    # ...
-
-    # ...
     test_function = atom.subs(field, test_function)
     name = print_expression(test_function)
     test_function = Symbol(name)
     # ...
 
     # ...
-    args = []
-    dim  = len(idxs)
-    for i in range(dim):
-        if direction == i+1:
-            args.append(basis[i][idxs[i],1,indices_quad[i]])
-
-        else:
-            args.append(basis[i][idxs[i],0,indices_quad[i]])
-
-    init = Assign(test_function, Mul(*args))
+    orders = [*get_index_derivatives(atom).values()]
+    args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
+    init   = Assign(test_function, Mul(*args))
     # ...
 
     # ...
@@ -250,6 +222,7 @@ def compute_atoms_expr_field(atom, indices_quad,
 
 
 #==============================================================================
+# TODO: merge into 'compute_atoms_expr_field'
 def compute_atoms_expr_vector_field(atom, indices_quad,
                             idxs, basis,
                             test_function, mapping):
@@ -257,17 +230,8 @@ def compute_atoms_expr_vector_field(atom, indices_quad,
     if not is_vector_field(atom):
         raise TypeError('atom must be a vector field expr')
 
-
     vector_field = atom
     vector_field_name = 'coeff_' + print_expression(get_atom_derivatives(atom))
-
-    # ...
-    if isinstance(atom, _partial_derivatives):
-        direction = atom.grad_index + 1
-
-    else:
-        direction = 0
-    # ...
 
     # ...
     base = list(atom.atoms(VectorField))[0]
@@ -277,16 +241,9 @@ def compute_atoms_expr_vector_field(atom, indices_quad,
     # ...
 
     # ...
-    args = []
-    dim  = len(idxs)
-    for i in range(dim):
-        if direction == i+1:
-            args.append(basis[i][idxs[i],1,indices_quad[i]])
-
-        else:
-            args.append(basis[i][idxs[i],0,indices_quad[i]])
-
-    init = Assign(test_function, Mul(*args))
+    orders = [*get_index_derivatives(atom).values()]
+    args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
+    init   = Assign(test_function, Mul(*args))
     # ...
 
     # ...
@@ -309,6 +266,7 @@ def compute_atoms_expr_vector_field(atom, indices_quad,
 
 
 #==============================================================================
+# TODO: merge into 'compute_atoms_expr_field'
 def compute_atoms_expr_mapping(atom, indices_quad,
                                idxs, basis,
                                test_function):
@@ -319,30 +277,15 @@ def compute_atoms_expr_mapping(atom, indices_quad,
     element_name = 'coeff_' + _print(element)
 
     # ...
-    if isinstance(atom, _partial_derivatives):
-        direction = atom.grad_index + 1
-
-    else:
-        direction = 0
-    # ...
-
-    # ...
     test_function = atom.subs(element, test_function)
     name = print_expression(test_function, logical=True)
     test_function = Symbol(name)
     # ...
 
     # ...
-    args = []
-    dim  = len(idxs)
-    for i in range(dim):
-        if direction == i+1:
-            args.append(basis[i][idxs[i],1,indices_quad[i]])
-
-        else:
-            args.append(basis[i][idxs[i],0,indices_quad[i]])
-
-    init = Assign(test_function, Mul(*args))
+    orders = [*get_index_derivatives(atom).values()]
+    args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
+    init   = Assign(test_function, Mul(*args))
     # ...
 
     # ...
