@@ -456,7 +456,7 @@ def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BasicForm):
         if not a.is_annotated:
-            a = a._annotate()
+            a = a.annotate()
         kernel_expr = TerminalExpr(a)
 #        print('=================')
 #        print(kernel_expr)
