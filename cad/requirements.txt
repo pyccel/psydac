@@ -1,0 +1,8 @@
+numpy>=1.16.4
+scipy>=0.18
+matplotlib
+plotly
+pandas
+cufflinks
+dash
+dash_daq
