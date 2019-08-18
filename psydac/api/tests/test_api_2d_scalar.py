@@ -99,18 +99,20 @@ def run_poisson_2d_per_1(solution, f, ncells, degree, comm=None):
     
     domain = PeriodicDomain(domain, [True, False])
 
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
-    F = element_of_space(V, name='F')
+    F = element_of(V, name='F')
 
-    v = element_of_space(V, name='v')
-    u = element_of_space(V, name='u')
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
 
+    int_0 = lambda expr: integral(domain , expr)
+    
     expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v,u), int_0(expr))
 
     expr = f*v
-    l = LinearForm(v, expr)
+    l = LinearForm(v, int_0(expr))
 
     error = F - solution
     l2norm = Norm(error, domain, kind='l2')
@@ -159,18 +161,20 @@ def run_poisson_2d_per_2(solution, f, ncells, degree, comm=None):
     
     domain = PeriodicDomain(domain, [False, True])
 
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
-    F = element_of_space(V, name='F')
+    F = element_of(V, name='F')
 
-    v = element_of_space(V, name='v')
-    u = element_of_space(V, name='u')
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
 
+    int_0 = lambda expr: integral(domain , expr)
+    
     expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v,u), int_0(expr))
 
     expr = f*v
-    l = LinearForm(v, expr)
+    l = LinearForm(v, int_0(expr))
 
     error = F - solution
     l2norm = Norm(error, domain, kind='l2')
@@ -219,18 +223,20 @@ def run_poisson_2d_per_3(solution, f, ncells, degree, comm=None):
     
     domain = PeriodicDomain(domain, [True, True])
 
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
-    F = element_of_space(V, name='F')
+    F = element_of(V, name='F')
 
-    v = element_of_space(V, name='v')
-    u = element_of_space(V, name='u')
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
 
+    int_0 = lambda expr: integral(domain , expr)
+    
     expr = dot(grad(v), grad(u))
-    a = BilinearForm((u,v), expr)
+    a = BilinearForm((u,v), int_0(expr))
 
     expr = f*v
-    l = LinearForm(v, expr)
+    l = LinearForm(v, int_0(expr))
 
     error = F - solution
     l2norm = Norm(error, domain, kind='l2')

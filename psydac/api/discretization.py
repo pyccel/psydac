@@ -14,6 +14,7 @@ from pyccel.epyccel import get_source_function
 from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm
 from sympde.expr     import LinearForm as sym_LinearForm
+from sympde.expr     import integral as sym_integral
 from sympde.expr     import Functional as sym_Functional
 from sympde.expr     import BoundaryIntegral as sym_BoundaryIntegral
 from sympde.expr     import Equation as sym_Equation
@@ -144,7 +145,9 @@ class DiscreteEquation(BasicDiscrete):
 
             trials   = list(expr.lhs.trial_functions)
             i_trials = [trials.index(cs.lhs) for cs in expr.constraint]
-            constraint = [sym_LinearForm(trials[i], cs.lhs-cs.rhs) for i,cs in zip(i_trials, constraint)]
+            domain   = expr.lhs.domain
+            constraint = [sym_LinearForm(trials[i], sym_integral(domain, cs.lhs-cs.rhs)) 
+                          for i,cs in zip(i_trials, constraint)]
             constraint = [(i,discretize(cs, *newargs, **kwargs)) for i,cs in zip(i_trials, constraint)] 
 
         self._bc = bc

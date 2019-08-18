@@ -6,14 +6,14 @@ from sympde.core import Constant
 from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
-from sympde.topology import FunctionSpace, VectorFunctionSpace, Derham
-from sympde.topology import element_of_space
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
+from sympde.topology import element_of
 from sympde.topology import ProductSpace
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm
+from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm, TerminalExpr
 from sympde.expr import find, EssentialBC
 
@@ -45,12 +45,14 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
     
     V0, V1 = derham.spaces
 
-    F = element_of_space(V1, name='F')
+    F = element_of(V1, name='F')
 
-    p,q = [element_of_space(V0, name=i) for i in ['p', 'q']]
-    u,v = [element_of_space(V1, name=i) for i in ['u', 'v']]
+    p,q = [element_of(V0, name=i) for i in ['p', 'q']]
+    u,v = [element_of(V1, name=i) for i in ['u', 'v']]
 
-    a  = BilinearForm(((p,u),(q,)), dot(p,q) + div(q)*u )
+    int_0 = lambda expr: integral(domain , expr)
+    
+    a  = BilinearForm(((p,u),(q,)), int_0(dot(p,q) + div(q)*u) )
 
     error  = F-sol
     l2norm = Norm(error, domain, kind='l2')

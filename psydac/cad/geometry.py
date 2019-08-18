@@ -41,7 +41,7 @@ class Geometry( object ):
         # ... read the geometry if the filename is given
         if not( filename is None ):
             self.read(filename, comm=comm)
-
+            self._periods  = periods
         elif not( domain is None ):
             assert( isinstance( domain, Domain ) )
             assert( not( mappings is None ))

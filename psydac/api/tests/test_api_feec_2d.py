@@ -9,6 +9,7 @@ from sympde.topology import (dx, dy, dz)
 
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
 from sympde.topology import ScalarField, VectorField
+from sympde.topology import element_of
 from sympde.topology import ProductSpace
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
@@ -49,17 +50,17 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     V0, V1, V2 = derham.spaces
 
-    F = element_of_space(V2, name='F')
+    F = element_of(V2, name='F')
 
-    p,q = [element_of_space(V1, name=i) for i in ['p', 'q']]
-    u,v = [element_of_space(V2, name=i) for i in ['u', 'v']]
-
-    a  = BilinearForm(((p,u),(q,)), dot(p,q) + div(q)*u )
-
+    p,q = [element_of(V1, name=i) for i in ['p', 'q']]
+    u,v = [element_of(V2, name=i) for i in ['u', 'v']]
 
     int_0 = lambda expr: integral(domain , expr)
+    
+    a  = BilinearForm(((p,u),(q,)), int_0(dot(p,q) + div(q)*u) )
 
-    a  = BilinearForm(((p,u),(q,v)), int_0(dot(p,q) + div(q)*u) )
+
+#    a  = BilinearForm(((p,u),(q,v)), int_0(dot(p,q) + div(q)*u) )
     l  = LinearForm((q,v), int_0(2*v))
     
     error  = F-sol

@@ -6,14 +6,14 @@ from sympde.core import Constant
 from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
-from sympde.topology import FunctionSpace, VectorFunctionSpace, Derham
-from sympde.topology import element_of_space
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
+from sympde.topology import element_of
 from sympde.topology import ProductSpace
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm
+from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm, TerminalExpr
 from sympde.expr import find, EssentialBC
 
@@ -45,12 +45,14 @@ def run_system_1_3d_dir(f0, sol, ncells, degree):
 
     V0, V1, V2, V3 = derham.spaces
 
-    F = element_of_space(V3, name='F')
+    F = element_of(V3, name='F')
 
-    p,q = [element_of_space(V2, name=i) for i in ['p', 'q']]
-    u,v = [element_of_space(V3, name=i) for i in ['u', 'v']]
+    p,q = [element_of(V2, name=i) for i in ['p', 'q']]
+    u,v = [element_of(V3, name=i) for i in ['u', 'v']]
 
-    a  = BilinearForm(((p,u),(q,)), dot(p,q) + div(q)*u )
+    int_0 = lambda expr: integral(domain , expr)
+    
+    a  = BilinearForm(((p,u),(q,)), int_0(dot(p,q) + div(q)*u) )
 
     error  = F-sol
     l2norm = Norm(error, domain, kind='l2')
@@ -146,7 +148,7 @@ def test_api_system_1_3d_dir_1():
     f0 = lambda x,y,z: -3*(2*np.pi)**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)*np.sin(2*np.pi*z)
     u  = sin(2*pi*x)*sin(2*pi*y)*sin(2*pi*z)
 
-    error = run_system_1_3d_dir(f0,u, ncells=[5, 5, 5], degree=[2, 2, 2])
+    error = run_system_1_3d_dir(f0,u, ncells=[5,5,5], degree=[2,2,2])
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
