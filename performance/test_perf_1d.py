@@ -8,8 +8,8 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 
 from sympde.topology import dx, dy, dz
 from sympde.topology import ScalarField
-from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of_space
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.topology import element_of
 from sympde.topology import Domain
 from sympde.topology import Boundary, trace_0, trace_1
 from sympde.expr     import BilinearForm, LinearForm
@@ -55,14 +55,14 @@ def test_api_poisson_1d():
     print('============ test_api_poisson_1d =============')
 
     # ... abstract model
-    U = FunctionSpace('U', domain)
+    U = ScalarFunctionSpace('U', domain)
 
     x = domain.coordinates
 
-    F = element_of_space(U, 'F')
+    F = element_of(U, 'F')
 
-    v = element_of_space(U, 'v')
-    u = element_of_space(U, 'u')
+    v = element_of(U, 'v')
+    u = element_of(U, 'u')
 
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), expr)

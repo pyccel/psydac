@@ -7,14 +7,14 @@ from sympde.core import Constant
 from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
-from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
-from sympde.topology import element_of_space
+from sympde.topology import element_of
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm
+from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
@@ -34,16 +34,18 @@ def run_vector_poisson_3d_dir(solution, f, ncells, degree):
 
     x,y,z = domain.coordinates
 
-    F = element_of_space(V, name='F')
+    F = element_of(V, name='F')
 
-    v = element_of_space(V, name='v')
-    u = element_of_space(V, name='u')
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
 
+    int_0 = lambda expr: integral(domain , expr)
+    
     expr = inner(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v,u), int_0(expr))
 
     expr = dot(f, v)
-    l = LinearForm(v, expr)
+    l = LinearForm(v, int_0(expr))
 
     error = Matrix([F[0]-solution[0], F[1]-solution[1], F[2]-solution[2]])
     l2norm = Norm(error, domain, kind='l2')

@@ -1,6 +1,8 @@
 TODO
 ====
 
+* mv psydac/feec/tests/todo_test_derivatives.py to psydac/feec/tests/test_derivatives.py once it is fixed
+
 * Add GMRES solver to 'psydac.linalg.solvers'
 
 * Add unit tests for Cart subcommunicators in 'psydac.ddm.cart'

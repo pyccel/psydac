@@ -16,7 +16,7 @@ from sympde.expr     import Norm as sym_Norm
 from sympde.topology import Domain, Boundary
 from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
-from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import Mapping
 

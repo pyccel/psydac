@@ -33,7 +33,6 @@ from psydac.mapping.discrete         import SplineMapping, NurbsMapping
 
 from sympde.expr.basic import BasicForm
 from sympde.topology.space import ScalarField, VectorField, IndexedVectorField
-from sympde.topology.space import Element, IndexedElement
 from gelato.expr       import GltExpr
 from sympy import Add, Mul
 
@@ -102,7 +101,7 @@ class BasicCodeGen(object):
         folder    = kwargs.pop('folder', None)
         comm      = kwargs.pop('comm', None)
         root      = kwargs.pop('root', None)
-        expr      = self._annotate(expr)
+        expr      = self.annotate(expr)
         # ...
         if not( comm is None):
             if root is None:
@@ -499,15 +498,15 @@ class BasicCodeGen(object):
 
         return _kwargs
 
-    def _annotate(self, expr):
+    def annotate(self, expr):
     
         if isinstance(expr, BasicForm):   
             if not expr.is_annotated:
-                expr = expr._annotate()
+                expr = expr.annotate()
                 
         elif isinstance(expr, GltExpr):
             form = expr.form
-            form = form._annotate()
+            form = form.annotate()
             expr = GltExpr(form)
         return expr
         

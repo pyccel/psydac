@@ -8,8 +8,8 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 
 from sympde.topology import dx, dy, dz
 from sympde.topology import ScalarField
-from sympde.topology import FunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of_space
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.topology import element_of
 from sympde.topology import Domain
 from sympde.topology import Boundary, trace_0, trace_1
 from sympde.expr     import BilinearForm, LinearForm
@@ -131,7 +131,7 @@ DEBUG = False
 #
 #    # ... abstract model
 #    V = VectorFunctionSpace('V', domain)
-#    W = FunctionSpace('W', domain)
+#    W = ScalarFunctionSpace('W', domain)
 #
 #    v = VectorTestFunction(V, name='v')
 #    u = VectorTestFunction(V, name='u')
@@ -194,14 +194,14 @@ def print_timing(ls):
 def run_poisson(domain, solution, f, ncells, degree, backend):
 
     # ... abstract model
-    V = FunctionSpace('V', domain)
+    V = ScalarFunctionSpace('V', domain)
 
     x,y = domain.coordinates
 
-    F = element_of_space(V, 'F')
+    F = element_of(V, 'F')
 
-    v = element_of_space(V, 'v')
-    u = element_of_space(V, 'u')
+    v = element_of(V, 'v')
+    u = element_of(V, 'u')
 
     a = BilinearForm((v,u), dot(grad(v), grad(u)))
     l = LinearForm(v, f*v)

@@ -39,7 +39,6 @@ from pyccel.ast.utilities import build_types_decorator
 
 from sympde.core import Cross_3d
 from sympde.core import Constant
-from sympde.core.math import math_atoms_as_str
 from sympde.calculus import grad
 from sympde.topology import Mapping
 from sympde.topology import ScalarField
@@ -52,7 +51,7 @@ from sympde.topology import SymbolicExpr
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
-from sympde.topology.space import FunctionSpace
+from sympde.topology.space import ScalarFunctionSpace
 from sympde.topology.space import ScalarTestFunction
 from sympde.topology.space import VectorTestFunction
 from sympde.topology.space import IndexedTestTrial
@@ -71,7 +70,6 @@ from .utilities import build_pythran_types_header, variables
 from .utilities import filter_loops, filter_product
 from .utilities import rationalize_eval_mapping
 from .utilities import compute_atoms_expr_mapping
-from .utilities import compute_atoms_expr_vector_field
 from .utilities import compute_atoms_expr_field
 
 
@@ -561,9 +559,8 @@ class EvalQuadratureVectorField(SplBasic):
         init_map   = OrderedDict()
         updates = []
         for atom in self.vector_fields:
-            init, update, map_stmts = compute_atoms_expr_vector_field(atom, indices_quad, indices_basis,
-                                                                      basis, Nj,
-                                                                      mapping=mapping)
+            init, update, map_stmts = compute_atoms_expr_field(atom, indices_quad, indices_basis,
+                                                               basis, Nj, mapping=mapping)
 
             updates.append(update)
 
@@ -721,8 +718,7 @@ class EvalArrayField(SplBasic):
         init_map   = OrderedDict()
         for atom in self.fields:
             init, update, map_stmts = compute_atoms_expr_field(atom, indices_quad, indices_basis,
-                                                               basis, Nj,
-                                                               mapping=mapping)
+                                                               basis, Nj, mapping=mapping)
 
             updates.append(update)
 

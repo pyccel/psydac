@@ -6,14 +6,15 @@ from sympde.core import Constant
 from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import (dx, dy, dz)
-from sympde.topology import FunctionSpace, VectorFunctionSpace
+from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
-from sympde.topology import element_of_space
+from sympde.topology import element_of
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm
+from sympde.expr import integral
 from sympde.expr import Norm, TerminalExpr
 from sympde.expr import find, EssentialBC
 
@@ -38,19 +39,21 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Line()
 
-    V1 = FunctionSpace('V1', domain, kind='Hdiv')
-    V2 = FunctionSpace('V2', domain, kind='L2')
+    V1 = ScalarFunctionSpace('V1', domain, kind='Hdiv')
+    V2 = ScalarFunctionSpace('V2', domain, kind='L2')
     X  = ProductSpace(V1, V2)
 
     x = domain.coordinates
 
-    F = element_of_space(V2, name='F')
+    F = element_of(V2, name='F')
 
-    p,q = [element_of_space(V1, name=i) for i in ['p', 'q']]
-    u,v = [element_of_space(V2, name=i) for i in ['u', 'v']]
+    p,q = [element_of(V1, name=i) for i in ['p', 'q']]
+    u,v = [element_of(V2, name=i) for i in ['u', 'v']]
+    
+    int_0 = lambda expr: integral(domain , expr)
 
-    a  = BilinearForm(((p,u),(q,v)), dot(p,q) + dot(div(q),u) + dot(div(p),v) )
-    l  = LinearForm((q,v), dot(f0, v))
+    a  = BilinearForm(((p,u),(q,v)), int_0(dot(p,q) + dot(div(q),u) + dot(div(p),v)) )
+    l  = LinearForm((q,v), int_0(dot(f0, v)))
 
     error = F-sol
     l2norm_F = Norm(error, domain, kind='l2')

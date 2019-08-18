@@ -37,7 +37,6 @@ from sympde.topology import ScalarField, VectorField
 from sympde.topology import IndexedVectorField
 from sympde.topology import Mapping
 from sympde.expr import BilinearForm
-from sympde.core.math import math_atoms_as_str
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
@@ -56,7 +55,8 @@ from gelato.expr import gelatize
 from .basic import SplBasic
 from .utilities import random_string
 from .utilities import build_pythran_types_header, variables
-from .utilities import is_vector_field, is_field, is_mapping
+from .utilities import is_scalar_field, is_vector_field, is_mapping
+from .utilities import math_atoms_as_str
 #from .evaluation import EvalArrayVectorField
 from .evaluation import EvalArrayMapping, EvalArrayField
 
@@ -289,7 +289,7 @@ class GltKernel(SplBasic):
 
         # ...
 #        atomic_expr_mapping      = [atom for atom in atoms if is_mapping(atom)]
-        atomic_expr_field        = [atom for atom in atoms if is_field(atom)]
+        atomic_expr_field        = [atom for atom in atoms if is_scalar_field(atom)]
         atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
         # ...
 
@@ -515,10 +515,8 @@ class GltKernel(SplBasic):
         # ...
 
         # ... get math functions and constants
-        math_elements = math_atoms_as_str(expr)
-        math_imports = []
-        for e in math_elements:
-            math_imports += [Import(e, 'numpy')]
+        math_elements = math_atoms_as_str(expr, 'numpy')
+        math_imports  = [Import(e, 'numpy') for e in math_elements]
 
         imports += math_imports
         # ...

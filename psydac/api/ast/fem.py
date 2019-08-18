@@ -38,7 +38,6 @@ from pyccel.ast.utilities import build_types_decorator
 
 from sympde.core import Cross_3d
 from sympde.core import Constant
-from sympde.core.math import math_atoms_as_str
 from sympde.calculus import grad
 from sympde.topology import Mapping
 from sympde.topology import ScalarField
@@ -52,7 +51,7 @@ from sympde.topology import UndefinedSpaceType
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
-from sympde.topology.space import FunctionSpace, VectorFunctionSpace
+from sympde.topology.space import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology.space import ProductSpace
 from sympde.topology.space import ScalarTestFunction
 from sympde.topology.space import VectorTestFunction
@@ -73,12 +72,9 @@ from .utilities import random_string
 from .utilities import build_pythran_types_header, variables
 from .utilities import compute_normal_vector, compute_tangent_vector
 from .utilities import select_loops, filter_product
-from .utilities import rationalize_eval_mapping
-from .utilities import compute_atoms_expr_mapping
-from .utilities import compute_atoms_expr_vector_field
-from .utilities import compute_atoms_expr_field
 from .utilities import compute_atoms_expr
-from .utilities import is_vector_field, is_field
+from .utilities import is_scalar_field, is_vector_field
+from .utilities import math_atoms_as_str
 
 
 FunctionalForms = (BilinearForm, LinearForm, Functional)
@@ -548,7 +544,7 @@ class Kernel(SplBasic):
         # ...
 
         # ...
-        atomic_expr_field        = [atom for atom in atoms if is_field(atom)]
+        atomic_expr_field        = [atom for atom in atoms if is_scalar_field(atom)]
         atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
 
         atomic_expr       = [atom for atom in atoms if not( atom in atomic_expr_field ) and
@@ -820,8 +816,8 @@ class Kernel(SplBasic):
 
         init_basis = OrderedDict()
         init_map   = OrderedDict()
-        for atom in atomic_expr:
-            init, map_stmts = compute_atoms_expr(atom,
+
+        init_stmts, map_stmts = compute_atoms_expr(atomic_expr,
                                                  indices_quad,
                                                  indices_test,
                                                  indices_trial,
@@ -832,8 +828,10 @@ class Kernel(SplBasic):
                                                  is_linear,
                                                  mapping)
 
-            init_basis[str(init.lhs)] = init
-            for stmt in map_stmts:
+        for stmt in init_stmts:
+            init_basis[str(stmt.lhs)] = stmt
+
+        for stmt in map_stmts:
                 init_map[str(stmt.lhs)] = stmt
          
         if unique_scalar_space:
@@ -1091,10 +1089,8 @@ class Kernel(SplBasic):
             body = len_quads + body
 
             # get math functions and constants
-            math_elements = math_atoms_as_str(self.kernel_expr)
-            math_imports = []
-            for e in math_elements:
-                math_imports += [Import(e, 'numpy')]
+            math_elements = math_atoms_as_str(self.kernel_expr, 'numpy')
+            math_imports  = [Import(e, 'numpy') for e in math_elements]
 
             imports += math_imports
             self._imports = imports
