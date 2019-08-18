@@ -14,6 +14,7 @@ from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm
+from sympde.expr import integral
 from sympde.expr import Norm, TerminalExpr
 from sympde.expr import find, EssentialBC
 
@@ -48,9 +49,11 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
 
     p,q = [element_of(V1, name=i) for i in ['p', 'q']]
     u,v = [element_of(V2, name=i) for i in ['u', 'v']]
+    
+    int_0 = lambda expr: integral(domain , expr)
 
-    a  = BilinearForm(((p,u),(q,v)), dot(p,q) + dot(div(q),u) + dot(div(p),v) )
-    l  = LinearForm((q,v), dot(f0, v))
+    a  = BilinearForm(((p,u),(q,v)), int_0(dot(p,q) + dot(div(q),u) + dot(div(p),v)) )
+    l  = LinearForm((q,v), int_0(dot(f0, v)))
 
     error = F-sol
     l2norm_F = Norm(error, domain, kind='l2')

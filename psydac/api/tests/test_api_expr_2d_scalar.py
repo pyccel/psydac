@@ -15,7 +15,7 @@ from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm
+from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
@@ -71,3 +71,4 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
 #==============================================================================
 def test_api_glt_poisson_2d_dir_1():
     run_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
+

@@ -13,7 +13,7 @@ from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm
+from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm, TerminalExpr
 from sympde.expr import find, EssentialBC
 
@@ -52,8 +52,10 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     p,q = [element_of(V1, name=i) for i in ['p', 'q']]
     u,v = [element_of(V2, name=i) for i in ['u', 'v']]
 
-    a  = BilinearForm(((p,u),(q,v)),dot(p,q) + div(q)*u + div(p)*v )
-    l  = LinearForm((q,v), f0*v)
+    int_0 = lambda expr: integral(domain , expr)
+    
+    a  = BilinearForm(((p,u),(q,v)), int_0(dot(p,q) + div(q)*u + div(p)*v) )
+    l  = LinearForm((q,v), int_0(f0*v))
     
     # ...
     error = F-sol
@@ -117,8 +119,11 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
     u,v = [element_of(V1, name=i) for i in ['u', 'v']]
     p,q = [element_of(V2, name=i) for i in ['p', 'q']]
 
-    a  = BilinearForm(((u,p),(v,q)),inner(grad(u),grad(v)) + div(u)*q - p*div(v) )
-    l  = LinearForm((v,q), f1*v[0]+f2*v[1]+q)
+    int_0 = lambda expr: integral(domain , expr)
+
+    
+    a  = BilinearForm(((u,p),(v,q)), int_0(inner(grad(u),grad(v)) + div(u)*q - p*div(v)) )
+    l  = LinearForm((v,q), int_0(f1*v[0]+f2*v[1]+q))
     
     bc = EssentialBC(u, 0, domain.boundary)
     equation = find([u,p], forall=[v,q], lhs=a((u,p),(v,q)), rhs=l(v,q), bc=bc)

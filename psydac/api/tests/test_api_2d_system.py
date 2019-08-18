@@ -13,7 +13,7 @@ from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm
+from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
@@ -47,12 +47,14 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     u,v = [element_of(W, name=i) for i in ['u', 'v']]
     p,q = [      element_of(V, name=i) for i in ['p', 'q']]
 
-    a0 = BilinearForm((v,u), inner(grad(v), grad(u)))
-    a1 = BilinearForm((q,p), p*q)
+    int_0 = lambda expr: integral(domain , expr)
+    
+    a0 = BilinearForm((v,u), int_0(inner(grad(v), grad(u))))
+    a1 = BilinearForm((q,p), int_0(p*q))
     a  = BilinearForm(((v,q),(u,p)), a0(v,u) + a1(q,p))
 
-    l0 = LinearForm(v, dot(f0, v))
-    l1 = LinearForm(q, f1*q)
+    l0 = LinearForm(v, int_0(dot(f0, v)))
+    l1 = LinearForm(q, int_0(f1*q))
     l  = LinearForm((v,q), l0(v) + l1(q))
 
     error = Matrix([F[0]-Fe[0], F[1]-Fe[1]])

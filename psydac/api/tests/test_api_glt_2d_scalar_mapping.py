@@ -19,7 +19,7 @@ from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.topology import Mapping
-from sympde.expr import BilinearForm, LinearForm
+from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
@@ -61,7 +61,9 @@ def run_poisson_2d_dir(filename, comm=None):
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
-    a = BilinearForm((v,u), dot(grad(v), grad(u)))
+    int_0 = lambda expr: integral(domain , expr)
+
+    a = BilinearForm((v,u), int_0(dot(grad(v), grad(u))))
 
     glt_a = GltExpr(a)
     # ...

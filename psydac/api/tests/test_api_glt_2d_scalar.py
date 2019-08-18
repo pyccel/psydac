@@ -14,7 +14,7 @@ from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm
+from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
@@ -42,7 +42,9 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
-    a = BilinearForm((v,u), dot(grad(v), grad(u)))
+    int_0 = lambda expr: integral(domain , expr)
+    
+    a = BilinearForm((v,u), int_0(dot(grad(v), grad(u))))
 
     glt_a = GltExpr(a)
     # ...
@@ -95,8 +97,10 @@ def run_field_2d_dir(ncells, degree, comm=None):
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
-    a  = BilinearForm((v,u), dot(grad(v), grad(u)) + F*u*v)
-    ae = BilinearForm((v,u), dot(grad(v), grad(u)) + u*v)
+    int_0 = lambda expr: integral(domain , expr)
+    
+    a  = BilinearForm((v,u), int_0(dot(grad(v), grad(u)) + F*u*v))
+    ae = BilinearForm((v,u), int_0(dot(grad(v), grad(u)) + u*v))
 
     glt_a  = GltExpr(a)
     glt_ae = GltExpr(ae)
@@ -159,8 +163,10 @@ def run_variable_coeff_2d_dir(ncells, degree, comm=None):
 
     c = Constant('c', real=True)
 
+    int_0 = lambda expr: integral(domain , expr)
+    
     expr = (1 + c*sin(pi*(x+y)))*dx(u)*dx(v) + (1 + c*sin(pi*(x-y)))*dy(u)*dy(v)
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v,u), int_0(expr))
     glt_a = GltExpr(a)
     # ...
 

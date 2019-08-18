@@ -15,7 +15,7 @@ from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm
+from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm, TerminalExpr
 from sympde.expr import find, EssentialBC
 
@@ -55,8 +55,10 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     p,q = [VectorTestFunction(Hdiv, name=i) for i in ['p', 'q']]
     u,v = [ScalarTestFunction(L2, name=i) for i in ['u', 'v']]
 
-    a  = BilinearForm(((p,u),(q,v)), dot(p,q) + div(q)*u )
-    l  = LinearForm((q,v), 2*v)
+    int_0 = lambda expr: integral(domain , expr)
+
+    a  = BilinearForm(((p,u),(q,v)), int_0(dot(p,q) + div(q)*u) )
+    l  = LinearForm((q,v), int_0(2*v))
     
     error  = F-sol
     l2norm = Norm(error, domain, kind='l2')

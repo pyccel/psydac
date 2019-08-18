@@ -15,6 +15,7 @@ from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm
 from sympde.expr     import LinearForm as sym_LinearForm
 from sympde.expr     import Functional as sym_Functional
+from sympde.expr     import BoundaryIntegral as sym_BoundaryIntegral
 from sympde.expr     import Equation as sym_Equation
 from sympde.expr     import Boundary as sym_Boundary
 from sympde.expr     import Norm as sym_Norm
@@ -106,14 +107,15 @@ class DiscreteEquation(BasicDiscrete):
         # ...
 
         # ...
-        boundaries_lhs = expr.lhs.atoms(sym_Boundary)
-        boundaries_lhs = list(boundaries_lhs)
+        boundaries_lhs = expr.lhs.atoms(sym_BoundaryIntegral)
+        boundaries_lhs = [a.domain for a in boundaries_lhs]
 
-        boundaries_rhs = expr.rhs.atoms(sym_Boundary)
-        boundaries_rhs = list(boundaries_rhs)
+        boundaries_rhs = expr.rhs.atoms(sym_BoundaryIntegral)
+        boundaries_rhs = [a.domain for a in boundaries_rhs]
         # ...
 
         # ...
+
         kwargs['boundary'] = None
         if boundaries_lhs:
             kwargs['boundary'] = boundaries_lhs
@@ -128,7 +130,7 @@ class DiscreteEquation(BasicDiscrete):
         kwargs['boundary'] = None
         if boundaries_rhs:
             kwargs['boundary'] = boundaries_rhs
-
+        
         newargs = list(args)
         newargs[1] = test_space
         self._rhs = discretize(expr.rhs, *newargs, **kwargs)

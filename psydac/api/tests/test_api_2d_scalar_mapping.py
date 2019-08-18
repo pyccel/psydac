@@ -19,7 +19,7 @@ from sympde.topology import Domain, Line, Square, Cube
 from sympde.topology import Trace, trace_0, trace_1
 from sympde.topology import Union
 from sympde.topology import Mapping
-from sympde.expr import BilinearForm, LinearForm
+from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
@@ -60,11 +60,13 @@ def run_poisson_2d_dir(filename, solution, f, comm=None):
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
+    int_0 = lambda expr: integral(domain , expr)
+    
     expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v,u), int_0(expr))
 
     expr = f*v
-    l = LinearForm(v, expr)
+    l = LinearForm(v, int_0(expr))
 
     error = F - solution
     l2norm = Norm(error, domain, kind='l2')
@@ -125,19 +127,24 @@ def run_poisson_2d_dirneu(filename, solution, f, boundary, comm=None):
 
     x,y = domain.coordinates
 
+    int_0 = lambda expr: integral(domain , expr)
+    int_1 = lambda expr: integral(B_neumann , expr)
+    
     F = element_of(V, name='F')
 
     v = element_of(V, name='v')
     u = element_of(V, name='u')
+    
+    nn = NormalVector('nn')
 
     expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v,u), int_0(expr))
 
     expr = f*v
-    l0 = LinearForm(v, expr)
+    l0 = LinearForm(v, int_0(expr))
 
-    expr = v*trace_1(grad(solution), B_neumann)
-    l_B_neumann = LinearForm(v, expr)
+    expr = v*dot(grad(solution), nn)
+    l_B_neumann = LinearForm(v, int_1(expr))
 
     expr = l0(v) + l_B_neumann(v)
     l = LinearForm(v, expr)
@@ -200,15 +207,20 @@ def run_laplace_2d_neu(filename, solution, f, comm=None):
 
     v = element_of(V, name='v')
     u = element_of(V, name='u')
+    
+    nn = NormalVector('nn')
+
+    int_0 = lambda expr: integral(domain , expr)
+    int_1 = lambda expr: integral(B_neumann , expr)
 
     expr = dot(grad(v), grad(u)) + v*u
-    a = BilinearForm((v,u), expr)
+    a = BilinearForm((v,u), int_0(expr))
 
     expr = f*v
-    l0 = LinearForm(v, expr)
+    l0 = LinearForm(v, int_0(expr))
 
-    expr = v*trace_1(grad(solution), B_neumann)
-    l_B_neumann = LinearForm(v, expr)
+    expr = v*dot(grad(solution), nn)
+    l_B_neumann = LinearForm(v, int_1(expr))
 
     expr = l0(v) + l_B_neumann(v)
     l = LinearForm(v, expr)
