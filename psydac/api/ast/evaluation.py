@@ -391,7 +391,6 @@ class EvalQuadratureField(SplBasic):
         mapping = self.mapping
 
         field_atoms = self.fields.atoms(ScalarField)
-        fields_str = sorted([print_expression(f) for f in self.fields])
 
         # ... declarations
         degrees       = variables( 'p1:%s'%(dim+1), 'int')
@@ -402,8 +401,7 @@ class EvalQuadratureField(SplBasic):
                                   dtype='real', rank=3, cls=IndexedVariable)
         fields_coeffs = variables(['coeff_{}'.format(f) for f in field_atoms],
                                   dtype='real', rank=dim, cls=IndexedVariable)
-        fields_val    = variables(['{}_values'.format(f) for f in fields_str],
-                                  dtype='real', rank=dim, cls=IndexedVariable)
+
         # ...
 
         # ... ranges
@@ -421,16 +419,22 @@ class EvalQuadratureField(SplBasic):
         init_basis = OrderedDict()
         init_map   = OrderedDict()
 
-        inits, updates, map_stmts = compute_atoms_expr_field(self.fields, indices_quad, indices_basis,
+        inits, updates, map_stmts, fields = compute_atoms_expr_field(self.fields, indices_quad, indices_basis,
                                                                basis, Nj,
                                                                mapping=mapping)
-
 
         for init in inits:
             basis_name = str(init.lhs)
             init_basis[basis_name] = init
         for stmt in map_stmts:
             init_map[str(stmt.lhs)] = stmt
+
+        self._fields = Tuple(*fields)
+
+        fields_str = sorted([print_expression(f) for f in self.fields])
+        fields_val    = variables(['{}_values'.format(f) for f in set(fields_str)],
+                                  dtype='real', rank=dim, cls=IndexedVariable)
+
 
         init_basis = OrderedDict(sorted(init_basis.items()))
         body += list(init_basis.values())
@@ -526,7 +530,7 @@ class EvalQuadratureVectorField(SplBasic):
 
         vector_field_atoms = self.vector_fields.atoms(VectorField)
         vector_field_atoms = [f[i] for f in vector_field_atoms for i in range(0, dim)]
-        vector_fields_str = sorted([print_expression(f) for f in self.vector_fields])
+
 
         # ... declarations
         degrees       = variables('p1:%s'%(dim+1),  'int')
@@ -537,8 +541,6 @@ class EvalQuadratureVectorField(SplBasic):
                                   dtype='real', rank=3, cls=IndexedVariable)
         coeffs = ['coeff_{}'.format(print_expression(f)) for f in vector_field_atoms]
         vector_fields_coeffs = variables(coeffs, dtype='real', rank=dim, cls=IndexedVariable)
-        vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
-                                          dtype='real', rank=dim, cls=IndexedVariable)
         # ...
 
         # ... ranges
@@ -556,7 +558,7 @@ class EvalQuadratureVectorField(SplBasic):
         init_basis = OrderedDict()
         init_map   = OrderedDict()
         
-        inits, updates, map_stmts = compute_atoms_expr_field(self.vector_fields, indices_quad, indices_basis,
+        inits, updates, map_stmts, vector_fields = compute_atoms_expr_field(self.vector_fields, indices_quad, indices_basis,
                                                                basis, Nj, mapping=mapping)
 
         for init in inits:
@@ -564,6 +566,11 @@ class EvalQuadratureVectorField(SplBasic):
             init_basis[basis_name] = init
         for stmt in map_stmts:
             init_map[str(stmt.lhs)] = stmt
+
+        self._vector_fields = Tuple(*vector_fields)
+        vector_fields_str = sorted([print_expression(f) for f in self.vector_fields])
+        vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
+                                          dtype='real', rank=dim, cls=IndexedVariable)
 
         init_basis = OrderedDict(sorted(init_basis.items()))
         body += list(init_basis.values())
