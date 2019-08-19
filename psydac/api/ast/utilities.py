@@ -17,6 +17,8 @@ from pyccel.ast.core import Range, Product
 from pyccel.ast.core import _atomic
 from pyccel.ast import Comment, NewLine
 
+from psydac.api.printing.pycode      import pycode
+
 
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
@@ -89,6 +91,22 @@ def logical2physical(expr):
         return new_expr
     else:
         return expr
+
+def _get_name(atom):
+    atom_name = None
+    if isinstance( atom, ScalarTestFunction ):
+        atom_name = str(atom.name)
+
+    elif isinstance( atom, VectorTestFunction ):
+        atom_name = str(atom.name)
+
+    elif isinstance( atom, IndexedTestTrial ):
+        atom_name = str(atom.base.name)
+
+    else:
+        raise TypeError('> Wrong type')
+
+    return atom_name
         
 #==============================================================================
 def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
@@ -110,24 +128,6 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
     for atom in atomic_exprs:   
         if not isinstance(atom, cls):
             raise TypeError('atom must be of type {}'.format(str(cls)))
-
-    # ...
-    def _get_name(atom):
-        atom_name = None
-        if isinstance( atom, ScalarTestFunction ):
-            atom_name = str(atom.name)
-
-        elif isinstance( atom, VectorTestFunction ):
-            atom_name = str(atom.name)
-
-        elif isinstance( atom, IndexedTestTrial ):
-            atom_name = str(atom.base.name)
-
-        else:
-            print(type(atom))
-            raise TypeError('> Wrong type')
-
-        return atom_name
     # ...
     
     atomic_exprs = list(atomic_exprs)
@@ -142,15 +142,13 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
                 # we look for new_atoms that must be added to atomic_exprs
                 # because we need them in the maps stmts
                 logical_atoms = _atomic(rhs, cls=_logical_partial_derivatives)
-                
+                rhs           = SymbolicExpr(rhs)
+                map_stmts     += [Assign(Symbol(name), rhs)]
                 for atom in logical_atoms:
                     ls = _atomic(atom, Symbol)
                     assert len(ls) == 1
-                    if isinstance(ls[0],cls):
+                    if isinstance(ls[0], cls):
                         new_atoms += [logical2physical(atom)]
-                    
-                rhs = SymbolicExpr(rhs)
-                map_stmts += [Assign(Symbol(name), rhs)]
     
     atomic_exprs = {*atomic_exprs, *new_atoms}
 
@@ -183,10 +181,43 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
 def compute_atoms_expr_field(atomic_exprs, indices_quad,
                             idxs, basis,
                             test_function, mapping):
-    
+
     inits     = []
     updates   = []
     map_stmts = []
+
+    cls = (_partial_derivatives,
+           ScalarField,
+           IndexedVectorField,
+           VectorField)
+
+    if mapping:
+        # ... map basis function
+        new_atoms = []
+        for atom in atomic_exprs:
+            if isinstance(atom, _partial_derivatives):
+                name       = print_expression(atom)
+                rhs        = LogicalExpr(mapping, atom)
+
+                logical_atoms = _atomic(rhs, cls=_logical_partial_derivatives)
+                rhs           = SymbolicExpr(rhs)
+                sym           = Symbol(name)
+                map_stmts    += [Assign(sym, rhs)]
+
+                if not pycode(atom) == name:
+                    var        = Symbol(pycode(atom))
+                    map_stmts += [Assign(var, sym)]
+
+                for atom in logical_atoms:
+                    ls = _atomic(atom, Symbol)
+                    if isinstance(ls[0], cls):
+                        new_atoms += [logical2physical(atom)]
+
+        atomic_exprs = {*atomic_exprs, *new_atoms}
+
+    atomic_exprs =  {print_expression(a):a for a in atomic_exprs}
+    atomic_exprs = tuple(atomic_exprs.values())
+
     for atom in atomic_exprs:
         if is_scalar_field(atom):
             field      = list(atom.atoms(ScalarField))[0]
@@ -221,16 +252,7 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
         updates += [AugAssign(val,'+',Mul(*args))]
         # ...
 
-        # ... map basis function
-
-        if mapping and  isinstance(atom, _partial_derivatives):
-            name       = print_expression(atom)
-            rhs        = LogicalExpr(mapping, atom)
-            rhs        = SymbolicExpr(rhs)
-            map_stmts += [Assign(Symbol(name), rhs)]
-    # ...
-
-    return inits, updates, map_stmts
+    return inits, updates, map_stmts, atomic_exprs
 
 #=============================================================================
 #def compute_atoms_expr_field(atom, indices_quad,
@@ -347,7 +369,7 @@ def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
         val_name = _print(atom) + '_values'
         val      = IndexedBase(val_name)[indices_quad]
         updates += [AugAssign(val,'+',Mul(*args))]
-    # ...
+        # ...
 
     return inits, updates
 
