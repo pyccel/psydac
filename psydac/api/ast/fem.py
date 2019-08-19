@@ -817,7 +817,7 @@ class Kernel(SplBasic):
             init_basis[str(stmt.lhs)] = stmt
 
         for stmt in map_stmts:
-                init_map[str(stmt.lhs)] = stmt
+            init_map[str(stmt.lhs)] = stmt
          
         if unique_scalar_space:
             ln   = 1
