@@ -431,7 +431,7 @@ class EvalQuadratureField(SplBasic):
 
         self._fields = Tuple(*fields)
 
-        fields_str = sorted([print_expression(f) for f in self.fields])
+        fields_str    = [print_expression(f) for f in self.fields]
         fields_val    = variables(['{}_values'.format(f) for f in set(fields_str)],
                                   dtype='real', rank=dim, cls=IndexedVariable)
 
@@ -568,8 +568,8 @@ class EvalQuadratureVectorField(SplBasic):
             init_map[str(stmt.lhs)] = stmt
 
         self._vector_fields = Tuple(*vector_fields)
-        vector_fields_str = sorted([print_expression(f) for f in self.vector_fields])
-        vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
+        vector_fields_str   =  [print_expression(f) for f in self.vector_fields]
+        vector_fields_val   = variables(['{}_values'.format(f) for f in vector_fields_str],
                                           dtype='real', rank=dim, cls=IndexedVariable)
 
         init_basis = OrderedDict(sorted(init_basis.items()))
