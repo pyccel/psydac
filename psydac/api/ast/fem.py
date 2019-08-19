@@ -570,9 +570,9 @@ class Kernel(SplBasic):
                 # TODO use print_expression
 
 
-        fields_str    = sorted(tuple(map(print_expression, fields)))
-        fields_logical_str = sorted([print_expression(f, logical=True) for f in
-                                     fields])
+        fields_str         = tuple(map(print_expression, fields))
+        fields_logical_str = [print_expression(f, logical=True) for f in
+                                     fields]
         # ...
 
         # ...
@@ -606,9 +606,9 @@ class Kernel(SplBasic):
 
         # update dependencies
         self._dependencies += self.eval_vector_fields
-        vector_fields_str    = sorted(tuple(print_expression(i) for i in  vector_fields))
-        vector_fields_logical_str = sorted([print_expression(f, logical=True) for f in
-                                            vector_fields])
+        vector_fields_str    = tuple(print_expression(i) for i in  vector_fields)
+        vector_fields_logical_str = [print_expression(f, logical=True) for f in
+                                            vector_fields]
         # ...
 
         # ... TODO add it as a method to basic class
