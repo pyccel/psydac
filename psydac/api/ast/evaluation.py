@@ -431,8 +431,8 @@ class EvalQuadratureField(SplBasic):
 
         self._fields = Tuple(*fields)
 
-        fields_str    = [print_expression(f) for f in self.fields]
-        fields_val    = variables(['{}_values'.format(f) for f in set(fields_str)],
+        fields_str    = [print_expression(f) for f in self._fields]
+        fields_val    = variables(['{}_values'.format(f) for f in fields_str],
                                   dtype='real', rank=dim, cls=IndexedVariable)
 
 
@@ -460,7 +460,7 @@ class EvalQuadratureField(SplBasic):
         body =  init_vals + body
 
         func_args = self.build_arguments(degrees + basis + fields_coeffs + fields_val)
-
+        
         decorators = {}
         header = None
         if self.backend['name'] == 'pyccel':
@@ -720,10 +720,10 @@ class EvalArrayField(SplBasic):
         init_basis = OrderedDict()
         init_map   = OrderedDict()
 
-        inits, updates, map_stmts, _ = compute_atoms_expr_field(self.fields, indices_quad, indices_basis,
+        inits, updates, map_stmts, fields = compute_atoms_expr_field(self.fields, indices_quad, indices_basis,
                                                                basis, Nj, mapping=mapping)
 
-
+        self._fields = fields
         for init in inits:
             basis_name = str(init.lhs)
             init_basis[basis_name] = init

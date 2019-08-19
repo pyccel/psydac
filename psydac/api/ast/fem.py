@@ -605,7 +605,7 @@ class Kernel(SplBasic):
                     self._map_stmts_fields[k] = v
 
         # update dependencies
-        self._dependencies += self.eval_vector_fields
+        self._dependencies  += self.eval_vector_fields
         vector_fields_str    = tuple(print_expression(i) for i in  vector_fields)
         vector_fields_logical_str = [print_expression(f, logical=True) for f in
                                             vector_fields]
