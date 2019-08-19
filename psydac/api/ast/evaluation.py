@@ -720,7 +720,7 @@ class EvalArrayField(SplBasic):
         init_basis = OrderedDict()
         init_map   = OrderedDict()
 
-        inits, updates, map_stmts = compute_atoms_expr_field(self.fields, indices_quad, indices_basis,
+        inits, updates, map_stmts, _ = compute_atoms_expr_field(self.fields, indices_quad, indices_basis,
                                                                basis, Nj, mapping=mapping)
 
 
