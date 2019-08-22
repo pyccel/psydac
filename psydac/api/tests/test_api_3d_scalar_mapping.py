@@ -61,7 +61,7 @@ def run_poisson_3d_dir(filename, solution, f, comm=None):
     u = element_of(V, name='u')
 
     int_0 = lambda expr: integral(domain , expr)
-    
+
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), int_0(expr))
 
@@ -118,7 +118,7 @@ def run_poisson_3d_dirneu(filename, solution, f, boundary, comm=None):
 
     V = ScalarFunctionSpace('V', domain)
 
-    B_neumann = [domain.get_boundary(i) for i in boundary]
+    B_neumann = [domain.get_boundary(**kw) for kw in boundary]
     if len(B_neumann) == 1:
         B_neumann = B_neumann[0]
 
@@ -136,7 +136,7 @@ def run_poisson_3d_dirneu(filename, solution, f, boundary, comm=None):
 
     int_0 = lambda expr: integral(domain , expr)
     int_1 = lambda expr: integral(B_neumann , expr)
-    
+
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), int_0(expr))
 
@@ -212,7 +212,7 @@ def run_laplace_3d_neu(filename, solution, f, comm=None):
 
     int_0 = lambda expr: integral(domain , expr)
     int_1 = lambda expr: integral(B_neumann , expr)
-    
+
     expr = dot(grad(v), grad(u)) + v*u
     a = BilinearForm((v,u), int_0(expr))
 
@@ -297,7 +297,7 @@ def test_api_poisson_3d_dirneu_identity_2():
     solution = sin(0.5*pi*x)*sin(pi*y)*sin(pi*z)
     f        = (9./4.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f, ['Gamma_2'])
+    l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f, [{'axis': 0, 'ext': 1}])
 
     expected_l2_error =  0.001438835012218704
     expected_h1_error =  0.03929404299152016
@@ -316,7 +316,8 @@ def test_api_poisson_3d_dirneu_identity_13():
     f        = (3./2.)*pi**2*solution
 
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
-                                               ['Gamma_1', 'Gamma_3'])
+                                               [{'axis': 0, 'ext': -1},
+                                                {'axis': 1, 'ext': -1}])
 
     expected_l2_error =  0.0010275451113313282
     expected_h1_error =  0.027938446826372126
@@ -334,7 +335,8 @@ def test_api_poisson_3d_dirneu_identity_24():
     f        = (3./2.)*pi**2*solution
 
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
-                                               ['Gamma_2', 'Gamma_4'])
+                                               [{'axis': 0, 'ext': 1},
+                                                {'axis': 1, 'ext': 1}])
 
     expected_l2_error =  0.001027545111330973
     expected_h1_error =  0.027938446826371813
@@ -353,7 +355,9 @@ def test_api_poisson_3d_dirneu_identity_24():
 #    f        = (21./16.)*pi**2*solution
 #
 #    l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
-#                                               ['Gamma_1', 'Gamma_2', 'Gamma_3'])
+#                                               [{'axis': 0, 'ext': -1},
+#                                                {'axis': 0, 'ext': 1},
+#                                                {'axis': 1, 'ext': -1}])
 #
 #    expected_l2_error =  0.0013124098938804697
 #    expected_h1_error =  0.035441679549890456
@@ -372,7 +376,10 @@ def test_api_poisson_3d_dirneu_identity_24():
 #    f        = (9./16.)*pi**2*solution
 #
 #    l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
-#                                               ['Gamma_1', 'Gamma_2', 'Gamma_3', 'Gamma_5'])
+#                                               [{'axis': 0, 'ext': -1},
+#                                                {'axis': 0, 'ext': 1},
+#                                                {'axis': 1, 'ext': -1},
+#                                                {'axis': 2, 'ext': -1}])
 #
 #    expected_l2_error =  0.00019677816039781896
 #    expected_h1_error =  0.0058786142515790405
@@ -390,7 +397,8 @@ def test_api_poisson_3d_dirneu_collela_2():
     solution = sin(0.25*pi*(x+1.))*sin(pi*y)*sin(pi*z)
     f        = (33./16.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f, ['Gamma_2'])
+    l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
+                                               [{'axis': 0, 'ext': 1}])
 
     expected_l2_error =  0.06091240085930318
     expected_h1_error =  0.6380043932563333
@@ -410,7 +418,8 @@ def test_api_poisson_3d_dirneu_collela_2():
 #    f        = (9./8.)*pi**2*solution
 #
 #    l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
-#                                               ['Gamma_1', 'Gamma_3'])
+#                                               [{'axis': 0, 'ext': -1},
+#                                                {'axis': 1, 'ext': -1}])
 #
 #    expected_l2_error =  0.03786854933218588
 #    expected_h1_error =  0.38437667047918933
@@ -428,7 +437,8 @@ def test_api_poisson_3d_dirneu_collela_24():
     f        = (9./8.)*pi**2*solution
 
     l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
-                                               ['Gamma_2', 'Gamma_4'])
+                                               [{'axis': 0, 'ext': 1},
+                                                {'axis': 1, 'ext': 1}])
 
     expected_l2_error =  0.03793880183960465
     expected_h1_error =  0.38439642303250143
@@ -447,7 +457,9 @@ def test_api_poisson_3d_dirneu_collela_24():
 #    f        = (33./16.)*pi**2*solution
 #
 #    l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
-#                                               ['Gamma_1', 'Gamma_2', 'Gamma_3'])
+#                                               [{'axis': 0, 'ext': -1},
+#                                                {'axis': 0, 'ext': 1},
+#                                                {'axis': 1, 'ext': -1}])
 #
 #    expected_l2_error =  0.11963989196330076
 #    expected_h1_error =  1.1267766354124575
@@ -466,7 +478,10 @@ def test_api_poisson_3d_dirneu_collela_24():
 #    f        = (9./8.)*pi**2*solution
 #
 #    l2_error, h1_error = run_poisson_3d_dirneu(filename, solution, f,
-#                                               ['Gamma_1', 'Gamma_2', 'Gamma_3', 'Gamma_5'])
+#                                               [{'axis': 0, 'ext': -1},
+#                                                {'axis': 0, 'ext': 1},
+#                                                {'axis': 1, 'ext': -1},
+#                                                {'axis': 2, 'ext': -1}])
 #
 #    expected_l2_error =  0.13208728319093133
 #    expected_h1_error =  0.9964934429086868

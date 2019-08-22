@@ -48,7 +48,7 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     p,q = [      element_of(V, name=i) for i in ['p', 'q']]
 
     int_0 = lambda expr: integral(domain , expr)
-    
+
     a0 = BilinearForm((v,u), int_0(inner(grad(v), grad(u))))
     a1 = BilinearForm((q,p), int_0(p*q))
     a  = BilinearForm(((v,q),(u,p)), a0(v,u) + a1(q,p))
@@ -86,7 +86,7 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     # ... dsicretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh])
     # ...
-    
+
     # ... discretize norms
     l2norm_F_h = discretize(l2norm_F, domain_h, Wh)
     h1norm_F_h = discretize(h1norm_F, domain_h, Wh)
@@ -150,7 +150,7 @@ def test_api_system_1_2d_dir_1():
 
     assert( np.allclose(l2_error, expected_l2_error, 1.e-7) )
     assert( np.allclose(h1_error, expected_h1_error, 1.e-7) )
-    
+
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================

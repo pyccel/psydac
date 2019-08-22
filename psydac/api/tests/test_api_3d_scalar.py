@@ -40,7 +40,7 @@ def run_poisson_3d_dir(solution, f, ncells, degree, comm=None):
     u = element_of(V, name='u')
 
     int_0 = lambda expr: integral(domain , expr)
-    
+
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), int_0(expr))
 
@@ -97,7 +97,7 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 
     V = ScalarFunctionSpace('V', domain)
 
-    B_neumann = [domain.get_boundary(i) for i in boundary]
+    B_neumann = [domain.get_boundary(**kw) for kw in boundary]
     if len(B_neumann) == 1:
         B_neumann = B_neumann[0]
 
@@ -115,7 +115,7 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 
     int_0 = lambda expr: integral(domain , expr)
     int_1 = lambda expr: integral(B_neumann , expr)
-    
+
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), int_0(expr))
 
@@ -200,7 +200,7 @@ def test_api_poisson_3d_dir_1():
 #    solution = sin(0.5*pi*x)*sin(pi*y)*sin(pi*z)
 #    f        = (9./4.)*pi**2*solution
 #
-#    l2_error, h1_error = run_poisson_3d_dirneu(solution, f, ['Gamma_1'],
+#    l2_error, h1_error = run_poisson_3d_dirneu(solution, f, [{'axis': 0, 'ext': -1}],
 #                                               ncells=[2**2,2**2,2**2], degree=[2,2,2])
 #
 #    expected_l2_error =  0.0014388350122198999
@@ -217,7 +217,7 @@ def test_api_poisson_3d_dirneu_2():
     solution = sin(0.5*pi*x)*sin(pi*y)*sin(pi*z)
     f        = (9./4.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_3d_dirneu(solution, f, ['Gamma_2'],
+    l2_error, h1_error = run_poisson_3d_dirneu(solution, f, [{'axis': 0, 'ext': 1}],
                                                ncells=[2**2,2**2,2**2], degree=[2,2,2])
 
     expected_l2_error =  0.0014388350122198999
@@ -234,7 +234,9 @@ def test_api_poisson_3d_dirneu_13():
     solution = cos(0.5*pi*x)*cos(0.5*pi*y)*sin(pi*z)
     f        = (3./2.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_3d_dirneu(solution, f, ['Gamma_1', 'Gamma_3'],
+    l2_error, h1_error = run_poisson_3d_dirneu(solution, f,
+                                               [{'axis': 0, 'ext': -1},
+                                                {'axis': 1, 'ext': -1}],
                                                ncells=[2**2,2**2,2**2], degree=[2,2,2])
 
     expected_l2_error =  0.0010275451113309177
@@ -251,7 +253,9 @@ def test_api_poisson_3d_dirneu_24():
     solution = sin(0.5*pi*x)*sin(0.5*pi*y)*sin(pi*z)
     f        = (3./2.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_3d_dirneu(solution, f, ['Gamma_2', 'Gamma_4'],
+    l2_error, h1_error = run_poisson_3d_dirneu(solution, f,
+                                               [{'axis': 0, 'ext': 1},
+                                                {'axis': 1, 'ext': 1}],
                                                ncells=[2**2,2**2,2**2], degree=[2,2,2])
 
     expected_l2_error =  0.0010275451113330345
@@ -269,7 +273,10 @@ def test_api_poisson_3d_dirneu_24():
 #    solution = cos(0.25*pi*x)*cos(0.5*pi*y)*sin(pi*z)
 #    f        = (21./16.)*pi**2*solution
 #
-#    l2_error, h1_error = run_poisson_3d_dirneu(solution, f, ['Gamma_1', 'Gamma_2', 'Gamma_3'],
+#    l2_error, h1_error = run_poisson_3d_dirneu(solution, f,
+#                                               [{'axis': 0, 'ext': -1},
+#                                                {'axis': 0, 'ext': 1},
+#                                                {'axis': 1, 'ext': -1}],
 #                                               ncells=[2**2,2**2,2**2], degree=[2,2,2])
 #
 #    expected_l2_error =  0.0013124098938818625
@@ -287,7 +294,11 @@ def test_api_poisson_3d_dirneu_24():
 #    solution = cos(0.25*pi*x)*cos(0.5*pi*y)*cos(0.5*pi*z)
 #    f        = (9./16.)*pi**2*solution
 #
-#    l2_error, h1_error = run_poisson_3d_dirneu(solution, f, ['Gamma_1', 'Gamma_2', 'Gamma_3', 'Gamma_5'],
+#    l2_error, h1_error = run_poisson_3d_dirneu(solution, f,
+#                                               [{'axis': 0, 'ext': -1},
+#                                                {'axis': 0, 'ext': 1},
+#                                                {'axis': 1, 'ext': -1},
+#                                                {'axis': 2, 'ext': -1}],
 #                                               ncells=[2**2,2**2,2**2], degree=[2,2,2])
 #
 #    expected_l2_error =  0.00019677816055503394
