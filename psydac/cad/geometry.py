@@ -23,7 +23,7 @@ from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.mapping.discrete import SplineMapping, NurbsMapping
 
-from sympde.topology import Domain, Line, Square, Cube
+from sympde.topology import Domain, Line, Square, Cube, Union
 
 #==============================================================================
 class Geometry( object ):
@@ -112,6 +112,23 @@ class Geometry( object ):
     def as_cube( cls, ncells=None, comm=None ):
         domain = Cube(name='Omega')
         mappings = {'Omega': None}
+
+        geo = Geometry(domain=domain, mappings=mappings, comm=comm)
+        setattr(geo, 'ncells', ncells)
+        return geo
+
+    @classmethod
+    def as_topological_domain( cls, domain, ncells=None, comm=None ):
+        # ...
+        assert(isinstance(domain, Domain))
+        assert(isinstance(domain.interior, Union))
+        assert(isinstance(ncells, (dict, OrderedDict)))
+        # ...
+
+        mappings = {}
+        interiors = domain.interior.as_tuple()
+        for interior in interiors:
+            mappings[interior.name] = None
 
         geo = Geometry(domain=domain, mappings=mappings, comm=comm)
         setattr(geo, 'ncells', ncells)
