@@ -2,6 +2,8 @@
 
 # TODO: - have a block version for VectorSpace when all component spaces are the same
 
+from collections import OrderedDict
+
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.fem.basic      import FemSpace, FemField
@@ -251,6 +253,39 @@ class ProductFemSpace( FemSpace ):
     @property
     def comm( self ):
         return self.spaces[0].comm
+
+#===============================================================================
+class BrokenFemSpace( ProductFemSpace ):
+    """
+    a broken FEM space, used for a DG representation
+    """
+
+    def __init__( self, spaces, **kwargs ):
+        """."""
+        assert(isinstance(spaces, (dict, OrderedDict)))
+
+        spaces = OrderedDict(spaces)
+        self._spaces = tuple(spaces.values())
+
+        # ... make sure that all spaces have the same parametric dimension
+        ldims = [V.ldim for V in self.spaces]
+        assert (len(unique(ldims)) == 1)
+
+        self._ldim = ldims[0]
+        # ...
+
+        # ...
+        ncells = {}
+        for subdomain, V in spaces.items():
+            ncells[subdomain] = V.ncells
+
+        self._ncells = OrderedDict(ncells)
+        # ...
+
+        # ...
+        v_spaces = [V.vector_space for V in self.spaces]
+        self._vector_space = ProductSpace(*v_spaces)
+        # ...
 
 
 # TODO still experimental

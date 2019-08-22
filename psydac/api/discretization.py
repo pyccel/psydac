@@ -45,6 +45,7 @@ from psydac.linalg.iterative_solvers import cg
 from psydac.fem.splines              import SplineSpace
 from psydac.fem.tensor               import TensorFemSpace
 from psydac.fem.vector               import ProductFemSpace
+from psydac.fem.vector               import BrokenFemSpace
 from psydac.cad.geometry             import Geometry
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
 from psydac.feec.derivatives         import Grad, Curl, Div
@@ -360,23 +361,43 @@ def discretize_space(V, domain_h, *args, **kwargs):
         assert( len(degree) == ldim )
 
         # Create uniform grid
-        grids = [np.linspace( 0., 1., num=ne+1 ) for ne in ncells]
+        if not isinstance(ncells, (dict, OrderedDict)):
+            d_ncells = {domain.name: ncells}
 
-        # Create 1D finite element spaces and precompute quadrature data
-        spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
-        Vh = TensorFemSpace( *spaces, comm=comm )
+        else:
+            d_ncells = ncells
 
-        if isinstance(kind, L2SpaceType):
+        d_Vh = {}
+        for subdomain, ncells in d_ncells.items():
+            grids = [np.linspace( 0., 1., num=ne+1 ) for ne in ncells]
 
-            if ldim == 1:
-                Vh = Vh.reduce_degree(axes=[0], normalize=normalize)
-            elif ldim == 2:
-                Vh = Vh.reduce_degree(axes=[0,1], normalize=normalize)
-            elif ldim == 3:
-                Vh = Vh.reduce_degree(axes=[0,1,2], normalize=normalize)
+            # Create 1D finite element spaces and precompute quadrature data
+            spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
+            Vh = TensorFemSpace( *spaces, comm=comm )
+
+            if isinstance(kind, L2SpaceType):
+
+                if ldim == 1:
+                    Vh = Vh.reduce_degree(axes=[0], normalize=normalize)
+                elif ldim == 2:
+                    Vh = Vh.reduce_degree(axes=[0,1], normalize=normalize)
+                elif ldim == 3:
+                    Vh = Vh.reduce_degree(axes=[0,1,2], normalize=normalize)
+
+            d_Vh[subdomain] = Vh
+
+        keys = list(d_Vh.keys())
+        if len(keys) == 1:
+            Vh = d_Vh[keys[0]]
+
+        else:
+            Vh = BrokenFemSpace(d_Vh)
 
     # Product and Vector spaces are constructed here
     if V.shape > 1:
+        if isinstance(ncells, (dict, OrderedDict)):
+            raise NotImplementedError('multi patchs not available yet')
+
         spaces = []
         if isinstance(V, VectorFunctionSpace):
 
