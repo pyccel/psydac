@@ -31,7 +31,7 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
                                               dep=self._print(dep))
 
         return '{code}\n{func}'.format(code=code, func=self._print(expr.func))
-        
+
     def _print_Kernel(self, expr):
 
         code = ''
@@ -43,11 +43,11 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
             for dep in expr.dependencies:
                 code = '{code}\n{dep}'.format(code=code,
                                               dep=self._print(dep))
-                                              
+
         funcs = [func for fs in expr.func for func in fs if func is not None ]
 
         funcs = '\n'.join(self._print(func) for func in funcs)
-        
+
         return '{code}\n{funcs}'.format(code=code, funcs=funcs)
 
     def _print_Interface(self, expr):
@@ -103,6 +103,16 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
         base = self._print(expr.base)
         index = self._print(expr.indices[0])
         return  '{base}_{i}'.format(base=base, i=index)
+
+    # TODO to be removed (will be handled by SymbolicExpr)
+    def _print_MinusInterfaceOperator(self, expr):
+        arg = expr.args[0]
+        return  '{arg}_minus'.format(arg=self._print(arg))
+
+    # TODO to be removed (will be handled by SymbolicExpr)
+    def _print_PlusInterfaceOperator(self, expr):
+        arg = expr.args[0]
+        return  '{arg}_plus'.format(arg=self._print(arg))
     # .........................................................
 
     # .........................................................

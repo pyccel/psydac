@@ -117,7 +117,6 @@ class DiscreteEquation(BasicDiscrete):
         # ...
 
         # ...
-
         kwargs['boundary'] = None
         if boundaries_lhs:
             kwargs['boundary'] = boundaries_lhs

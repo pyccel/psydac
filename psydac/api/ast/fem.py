@@ -43,6 +43,7 @@ from sympde.topology import Mapping
 from sympde.topology import ScalarField
 from sympde.topology import VectorField, IndexedVectorField
 from sympde.topology import Boundary, BoundaryVector, NormalVector, TangentVector
+from sympde.topology import Interface as sym_Interface
 from sympde.topology import Covariant, Contravariant
 from sympde.topology import ElementArea
 from sympde.topology import LogicalExpr
@@ -65,6 +66,7 @@ from sympde.expr import BilinearForm, LinearForm, Functional, BasicForm
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
+from psydac.fem.vector  import BrokenFemSpace
 
 from .basic import SplBasic
 from .evaluation import EvalQuadratureMapping, EvalQuadratureField, EvalQuadratureVectorField
@@ -243,6 +245,7 @@ class Kernel(SplBasic):
 
     def __new__(cls, weak_form, kernel_expr, target=None,
                 discrete_boundary=None, name=None, boundary_basis=None,
+                discrete_interface=None, interface_basis=None,
                 mapping=None, is_rational_mapping=None,symbolic_space=None, backend=None):
 
         if not isinstance(weak_form, FunctionalForms):
@@ -250,7 +253,7 @@ class Kernel(SplBasic):
 
         if symbolic_space:
             symbolic_space= symbolic_space[0]
-            
+
         unique_scalar_space = True
         if isinstance(symbolic_space, ProductSpace):
             spaces = symbolic_space.spaces
@@ -262,20 +265,50 @@ class Kernel(SplBasic):
         # ...
         # get the target expr if there are multiple expressions (domain/boundary)
         on_boundary = False
+        on_interface = False
         if target is None:
             if len(kernel_expr) > 1:
                 msg = '> weak form has multiple expression, but no target was given'
                 raise ValueError(msg)
 
             e = kernel_expr[0]
-            on_boundary = isinstance(e.target, Boundary)
+            on_interface = isinstance(e.target, sym_Interface)
+            on_boundary  = isinstance(e.target, Boundary) or on_interface
             kernel_expr = e.expr
 
         else:
             ls = [i for i in kernel_expr if i.target is target]
             e = ls[0]
-            on_boundary = isinstance(e.target, Boundary)
+            on_interface = isinstance(e.target, sym_Interface)
+            on_boundary  = isinstance(e.target, Boundary) or on_interface
             kernel_expr = e.expr
+        # ...
+
+        # ... TODO add similar thing for on_boundary
+        if on_interface:
+            discrete_interface = (target.minus.axis, target.minus.ext)
+            discrete_boundary  = (target.minus.axis, target.minus.ext)
+
+        if discrete_interface:
+            if not isinstance(discrete_interface, (tuple, list)):
+                raise TypeError('> Expecting a tuple or list for discrete_interface')
+
+            discrete_interface = list(discrete_interface)
+            if not isinstance(discrete_interface[0], (tuple, list)):
+                discrete_interface = [discrete_interface]
+            # discrete_interface is now a list of lists
+
+            # get the discrete boundary as the minus boundary of the interface
+            # ARA
+            discrete_boundary = discrete_interface[0]
+
+        # discrete_interface must be given if there are Trace nodes
+        if on_interface and not discrete_interface:
+            raise ValueError('> discrete_boundary must be provided for a interface Kernel')
+
+        # default value for interface_basis is True if on interface
+        if on_interface and (interface_basis is None):
+            interface_basis = True
         # ...
 
         # ...
@@ -287,17 +320,21 @@ class Kernel(SplBasic):
             if not isinstance(discrete_boundary[0], (tuple, list)):
                 discrete_boundary = [discrete_boundary]
             # discrete_boundary is now a list of lists
-        # ...
 
-        # ... discrete_boundary must be given if there are Trace nodes
+        # discrete_boundary must be given if there are Trace nodes
         if on_boundary and not discrete_boundary:
-            raise ValueError('> discrete_bounary must be provided for a boundary Kernel')
-        # ...
+            raise ValueError('> discrete_boundary must be provided for a boundary Kernel')
 
-        # ... default value for boundary_basis is True if on boundary
+        # default value for boundary_basis is True if on boundary
         if on_boundary and (boundary_basis is None):
             boundary_basis = True
         # ...
+
+#        print('> on interface = ', on_interface)
+#        print('> on boundary  = ', on_boundary)
+#        print('> discrete interface  = ', discrete_interface)
+#        print('> discrete boundary  = ', discrete_boundary)
+#        import sys; sys.exit(0)
 
         tag = random_string( 8 )
         obj = SplBasic.__new__(cls, tag, name=name,
@@ -309,6 +346,8 @@ class Kernel(SplBasic):
         obj._target              = target
         obj._discrete_boundary   = discrete_boundary
         obj._boundary_basis      = boundary_basis
+        obj._discrete_interface   = discrete_interface
+        obj._interface_basis      = interface_basis
         obj._area                = None
         obj._user_functions      = []
         obj._backend             = backend
@@ -333,6 +372,10 @@ class Kernel(SplBasic):
     @property
     def boundary_basis(self):
         return self._boundary_basis
+
+    @property
+    def interface_basis(self):
+        return self._interface_basis
 
     @property
     def n_rows(self):
@@ -419,11 +462,11 @@ class Kernel(SplBasic):
     @property
     def unique_scalar_space(self):
         return self._unique_scalar_space
-        
+
     @property
     def symbolic_space(self):
         return self._symbolic_space
-        
+
     @property
     def backend(self):
         return self._backend
@@ -694,11 +737,11 @@ class Kernel(SplBasic):
             ln   = 1
 
             expr = [expr]
-            
+
         # ... looking for 0 terms
         zero_terms = [i for i,e in enumerate(expr) if e == 0]
         self._zero_terms = zero_terms
-        
+
         # ...
 
         # ... declarations
@@ -749,7 +792,7 @@ class Kernel(SplBasic):
             self._basic_args = (test_degrees + trial_degrees + trial_pads +
                                 basis_test + basis_trial +
                                 positions + weighted_vols)
-                                
+
             if self.eval_fields:
                 self._basic_args = self._basic_args + fields_val
 
@@ -818,7 +861,7 @@ class Kernel(SplBasic):
 
         for stmt in map_stmts:
             init_map[str(stmt.lhs)] = stmt
-         
+
         if unique_scalar_space:
             ln   = 1
             funcs = [[None]]
@@ -830,19 +873,19 @@ class Kernel(SplBasic):
 
             if not unique_scalar_space and indx in zero_terms:
                 continue
-                
+
             elif not unique_scalar_space:
                 start = indx
                 end   = indx + 1
                 i_row = indx//self._n_cols
                 i_col = indx -i_row*self._n_cols
-                
+
             else:
                 i_row = 0
                 i_col = 0
                 start = 0
                 end   = len(expr)
-                
+
             body = []
             init_basis = OrderedDict(sorted(init_basis.items()))
             body += list(init_basis.values())
@@ -1082,7 +1125,7 @@ class Kernel(SplBasic):
             # function args
             mats_args = tuple([mats[i] for i in range(start, end) if not( i in zero_terms )])
             func_args = fields_coeffs + vector_fields_coeffs + mapping_coeffs + mats_args
-                
+
             func_args = self.build_arguments(func_args)
 
             decorators = {}
@@ -1093,10 +1136,10 @@ class Kernel(SplBasic):
                 decorators = {'jit':[]}
             elif self.backend['name'] == 'pythran':
                 header = build_pythran_types_header(self.name, func_args)
-            
+
             funcs[i_row][i_col] = FunctionDef(self.name+'_'+str(i_row)+str(i_col), list(func_args), [], body,
                                     decorators=decorators,header=header)
-   
+
         return funcs
 
 #==============================================================================
@@ -1112,7 +1155,7 @@ class Assembly(SplBasic):
                                prefix='assembly', mapping=mapping,
                                is_rational_mapping=is_rational_mapping)
 
-        
+
         # ... get periodicity of the space
         dim    = kernel.weak_form.ldim
         periodic = [False for i in range(0, dim)]
@@ -1202,23 +1245,25 @@ class Assembly(SplBasic):
         is_linear   = isinstance(self.weak_form, LinearForm)
         is_bilinear = isinstance(self.weak_form, BilinearForm)
         is_function = isinstance(self.weak_form, Functional)
-        
+
         if is_bilinear:
-        
+
             Wh = self.discrete_space[0]
             Vh = self.discrete_space[1]
-            is_product_space = isinstance(Wh, ProductFemSpace)
+            is_product_space = ( isinstance(Wh, ProductFemSpace) and
+                                not( isinstance(Wh, BrokenFemSpace) ))
             ln = 1
             if is_product_space:
                 ln = len(Wh.spaces)
         else:
-        
+
             Wh = self.discrete_space
             ln = 1
-            is_product_space = isinstance(self.discrete_space, ProductFemSpace)
+            is_product_space = ( isinstance(self.discrete_space, ProductFemSpace) and
+                                not( isinstance(self.discrete_space, BrokenFemSpace) ))
             if is_product_space:
                 ln = len(self.discrete_space.spaces)
-            
+
         unique_scalar_space = kernel.unique_scalar_space
 
         dim    = form.ldim
@@ -1245,14 +1290,14 @@ class Assembly(SplBasic):
 
         test_pads     = variables('test_p1:%s(1:%s)'%(dim+1,ln+1), 'int')
         trial_pads    = variables('trial_p1:%s(1:%s)'%(dim+1,ln+1), 'int')
-        
+
         test_degrees  = variables('test_d1:%s(1:%s)'%(dim+1,ln+1), 'int')
         trial_degrees = variables('trial_d1:%s(1:%s)'%(dim+1,ln+1), 'int')
 
         indices_il    = variables('il1:%s'%(dim+1), 'int')
         indices_i     = variables('i1:%s'%(dim+1),  'int')
         npts          = variables('n1:%s'%(dim+1),  'int')
-        
+
         trial_basis    = variables('trial_basis_1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=4, cls=IndexedVariable)
         test_basis     = variables('test_basis_1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=4, cls=IndexedVariable)
 
@@ -1342,7 +1387,7 @@ class Assembly(SplBasic):
         # assignments
         body  = [Assign(indices_span[i*ln+j], spans[i*ln+j][indices_elm[i]])
                  for i,j in np.ndindex(dim, ln) if not(i in axis_bnd)]
-                 
+
         if self.debug and self.detailed:
             msg = lambda x: (String('> span {} = '.format(x)), x)
             body += [Print(msg(indices_span[i])) for i in range(dim*ln)]
@@ -1426,8 +1471,8 @@ class Assembly(SplBasic):
                     args[4*dim:5*dim] = trial_basis_in_elm[j::ln]
 
                     body += [FunctionCall(kernel.func[i][j], args)]
-                    
-            else:  
+
+            else:
                 args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + mats)
                 args = list(args)
 
@@ -1438,24 +1483,24 @@ class Assembly(SplBasic):
                 args[4*dim:5*dim] = trial_basis_in_elm[::ln]
 
                 body += [FunctionCall(kernel.func[0][0], args)]
-                
+
         else:
             if not unique_scalar_space:
                 for (i,j), M in element_matrices.items():
-                    
+
                     args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + (M,))
                     args = list(args)
                     args[:dim] = test_degrees[i::ln]
                     args[dim:2*dim] = test_basis_in_elm[i::ln]
                     body += [FunctionCall(kernel.func[i][j], args)]
-                    
+
             else:
                 args = kernel.build_arguments(f_coeffs + vf_coeffs + m_coeffs + mats)
                 args = list(args)
                 args[:dim] = test_degrees[::ln]
                 args[dim:2*dim] = test_basis_in_elm[::ln]
                 body += [FunctionCall(kernel.func[0][0], args)]
-            
+
         # ...
 
         # ... update global matrices
@@ -1469,18 +1514,18 @@ class Assembly(SplBasic):
             gslices = 0
 
         for (i,j), M in global_matrices.items():
-           
+
             mat = element_matrices[i,j]
             local_test_degrees = test_degrees[i::ln]
             local_indices_span = indices_span[i::ln]
             local_test_pads = test_pads[i::ln]
-                
+
 
             if is_bilinear:
 
                 if ( self.comm is None ):
                     gslices = [Slice(sp-d+p,sp+p+1) for sp,d,p in zip(local_indices_span, local_test_degrees,local_test_pads)]
-    
+
                 else:
                     gslices = [Slice(sp-s-d+p,sp+p+1-s) for sp,d,p,s in zip(local_indices_span,
                                                                    local_test_degrees,
@@ -1498,7 +1543,7 @@ class Assembly(SplBasic):
                                                                    local_test_degrees,
                                                                    local_test_pads,
                                                                    starts)]
-            
+
             stmt = AugAssign(M[gslices], '+', mat[lslices])
 
             body += [stmt]
@@ -1546,11 +1591,11 @@ class Assembly(SplBasic):
 
             orders  = [p+1 for p in test_degrees[i::ln]]
             spads   = [2*p+1 for p in test_pads[j::ln]]
-            
+
             if is_bilinear:
                 if not unique_scalar_space:
                     spads = [2*max(pi,pj)+1 for pi,pj in zip(Vh.spaces[i].degree,Wh.spaces[j].degree)]
-                    
+
                 args  = tuple(orders + spads)
 
             if is_linear:
@@ -1656,7 +1701,7 @@ class Interface(SplBasic):
     @property
     def weak_form(self):
         return self._assembly.weak_form
-        
+
     @property
     def space(self):
         return self._assembly.kernel.symbolic_space
@@ -1721,14 +1766,14 @@ class Interface(SplBasic):
         is_function = isinstance(self.weak_form, Functional)
 
         dim = form.ldim
-        
+
         if is_bilinear:
             Wh = self.discrete_space[0]
             Vh = self.discrete_space[1]
-            
+
         else:
             Wh = self.discrete_space
-            
+
         is_product_fem_space = isinstance(Wh, ProductFemSpace)
         unique_scalar_space = assembly.kernel.unique_scalar_space
 
@@ -1752,8 +1797,8 @@ class Interface(SplBasic):
             trial_vector_space = DottedName(trial_space, 'vector_space')
 
             ln = 1
-            if is_product_fem_space: 
-                ln = len(Wh.spaces)         
+            if is_product_fem_space:
+                ln = len(Wh.spaces)
                 test_vector_space = DottedName(test_vector_space, 'spaces')
                 trial_vector_space = DottedName(trial_vector_space, 'spaces')
             # ...
@@ -1776,10 +1821,10 @@ class Interface(SplBasic):
 
         test_degrees   = variables('test_d1:%s(1:%s)'%(dim+1,ln+1), 'int')
         trial_degrees  = variables('trial_d1:%s(1:%s)'%(dim+1,ln+1), 'int')
-        
+
         test_pads      = variables('test_p1:%s(1:%s)'%(dim+1,ln+1), 'int')
         trial_pads     = variables('trial_p1:%s(1:%s)'%(dim+1,ln+1), 'int')
-        
+
         trial_basis    = variables('trial_basis_1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=4, cls=IndexedVariable)
         test_basis     = variables('test_basis_1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=4, cls=IndexedVariable)
 
@@ -1793,7 +1838,7 @@ class Interface(SplBasic):
         test_spaces, trial_spaces = symbols('test_spaces, trial_spaces', cls=IndexedBase)
         spans_attr , basis_attr   = symbols('spans, basis', cls=IndexedBase)
         pads                      = symbols('pads')
-        
+
 	# TODO uncomment later
         #dots           = symbols('lo_dot v_dot')
         #dot            = Symbol('dot')
@@ -1808,14 +1853,14 @@ class Interface(SplBasic):
         # ...
 
         spaces = IndexedBase('spaces')
-        
+
         # ... interface body
         body = []
         body += [Assign(test_spaces, test_vector_space)]
-        
+
         if is_bilinear:
             body += [Assign(trial_spaces, trial_vector_space)]
-            
+
         # ... grid data
         body += [Assign(n_elements,     DottedName(grid, 'n_elements'))]
         body += [Assign(points,         DottedName(grid, 'points'))]
@@ -1829,8 +1874,8 @@ class Interface(SplBasic):
         if is_product_fem_space:
             for i in range(ln):
                 body += [Assign(spans[i::ln],      DottedName(test_basis_values, spans_attr[i]))]
-                body += [Assign(test_basis[i::ln], DottedName(test_basis_values, basis_attr[i]))]   
-       
+                body += [Assign(test_basis[i::ln], DottedName(test_basis_values, basis_attr[i]))]
+
         else:
             body += [Assign(spans,      DottedName(test_basis_values, spans_attr))]
             body += [Assign(test_basis, DottedName(test_basis_values, basis_attr))]
@@ -1838,7 +1883,7 @@ class Interface(SplBasic):
         if is_bilinear:
             if is_product_fem_space:
                 for i in range(ln):
-                    body += [Assign(trial_basis[i::ln], DottedName(trial_basis_values, basis_attr[i]))]   
+                    body += [Assign(trial_basis[i::ln], DottedName(trial_basis_values, basis_attr[i]))]
             else:
                 body += [Assign(trial_basis, DottedName(trial_basis_values, basis_attr))]
         # ...
@@ -1848,13 +1893,13 @@ class Interface(SplBasic):
             for i in range(ln):
                 body += [Assign(test_degrees[i::ln], DottedName(test_space,spaces[i], 'degree'))]
                 body += [Assign(test_pads   [i::ln], DottedName(test_spaces[i], 'pads'))]
-            
+
         else:
             body += [Assign(test_degrees, DottedName(test_space, 'degree'))]
             body += [Assign(test_pads   , DottedName(test_spaces, 'pads'))]
-            
+
         if is_bilinear:
-        
+
             if is_product_fem_space:
                 for i in range(ln):
                     body += [Assign(trial_degrees[i::ln], DottedName(trial_space,spaces[i], 'degree'))]
@@ -1867,7 +1912,7 @@ class Interface(SplBasic):
             body += [Assign(starts, DottedName(test_spaces[0], 'starts'))]
             body += [Assign(ends,   DottedName(test_spaces[0], 'ends'))]
             body += [Assign(npts,   DottedName(test_spaces[0], 'npts'))]
-        
+
         else:
             body += [Assign(starts, DottedName(test_spaces, 'starts'))]
             body += [Assign(ends,   DottedName(test_spaces, 'ends'))]
@@ -1911,7 +1956,7 @@ class Interface(SplBasic):
                         args = [trial_spaces[j], test_spaces[i], Assign(pads,pads_args)]
                     else:
                         args = [trial_spaces , test_spaces]
-                        
+
                     if_body = [Assign(M, FunctionCall('StencilMatrix', args))]
                     # TODO uncomment later
                     #if_body.append(Assign(DottedName(M,'_dot'),dots[0]))
@@ -1921,7 +1966,7 @@ class Interface(SplBasic):
                         args = [test_spaces[i]]
                     else:
                         args = [test_spaces]
-                        
+
                     if_body = [Assign(M, FunctionCall('StencilVector', args))]
                     # TODO uncomment later
                     #if_body.append(Assign(DottedName(M,'_dot'),dots[1]))
@@ -2070,7 +2115,7 @@ class Interface(SplBasic):
         # ...
 
         self._imports = imports
-        
+
         return FunctionDef(self.name, list(func_args), [], body)
 
 

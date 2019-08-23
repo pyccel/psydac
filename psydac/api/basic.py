@@ -499,17 +499,17 @@ class BasicCodeGen(object):
         return _kwargs
 
     def annotate(self, expr):
-    
-        if isinstance(expr, BasicForm):   
+
+        if isinstance(expr, BasicForm):
             if not expr.is_annotated:
                 expr = expr.annotate()
-                
+
         elif isinstance(expr, GltExpr):
             form = expr.form
             form = form.annotate()
             expr = GltExpr(form)
         return expr
-        
+
 
 
 #==============================================================================
