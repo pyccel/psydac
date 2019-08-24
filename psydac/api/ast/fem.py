@@ -1224,6 +1224,10 @@ class Assembly(SplBasic):
     def backend(self):
         return self._backend
 
+    @property
+    def grid(self):
+        return self._grid
+
     def build_arguments(self, data):
 
         other = data
@@ -1281,13 +1285,21 @@ class Assembly(SplBasic):
 
 
         # ... declarations
+        target = self.kernel.target
+        if isinstance(target, sym_Interface):
+            grid = GridInterface(target, dim)
+
+        else:
+            grid = Grid(target, dim)
+
+        self._grid = grid
+
+        n_elements     = grid.n_elements
+        element_starts = grid.element_starts
+        element_ends   = grid.element_ends
 
         starts         = variables('s1:%s'%(dim+1), 'int')
         ends           = variables('e1:%s'%(dim+1), 'int')
-
-        n_elements     = variables('n_elements_1:%s'%(dim+1), 'int')
-        element_starts = variables('element_s1:%s'%(dim+1),   'int')
-        element_ends   = variables('element_e1:%s'%(dim+1),   'int')
 
         indices_elm   = variables('ie1:%s'%(dim+1), 'int')
         indices_span  = variables('is1:%s(1:%s)'%(dim+1, ln+1), 'int')
@@ -1784,12 +1796,7 @@ class Interface(SplBasic):
         unique_scalar_space = assembly.kernel.unique_scalar_space
 
         # ... declarations
-        target = self.assembly.kernel.target
-        if isinstance(target, sym_Interface):
-            grid = GridInterface(target, dim)
-
-        else:
-            grid = Grid(target, dim)
+        grid = self.assembly.grid
 
         test_space = Symbol('W')
         trial_space = Symbol('V')
