@@ -61,7 +61,7 @@ def run_poisson_2d_dir(filename, solution, f, comm=None):
     u = element_of(V, name='u')
 
     int_0 = lambda expr: integral(domain , expr)
-    
+
     expr = dot(grad(v), grad(u))
     a = BilinearForm((v,u), int_0(expr))
 
@@ -118,7 +118,7 @@ def run_poisson_2d_dirneu(filename, solution, f, boundary, comm=None):
 
     V = ScalarFunctionSpace('V', domain)
 
-    B_neumann = [domain.get_boundary(i) for i in boundary]
+    B_neumann = [domain.get_boundary(**kw) for kw in boundary]
     if len(B_neumann) == 1:
         B_neumann = B_neumann[0]
 
@@ -129,12 +129,12 @@ def run_poisson_2d_dirneu(filename, solution, f, boundary, comm=None):
 
     int_0 = lambda expr: integral(domain , expr)
     int_1 = lambda expr: integral(B_neumann , expr)
-    
+
     F = element_of(V, name='F')
 
     v = element_of(V, name='v')
     u = element_of(V, name='u')
-    
+
     nn = NormalVector('nn')
 
     expr = dot(grad(v), grad(u))
@@ -207,7 +207,7 @@ def run_laplace_2d_neu(filename, solution, f, comm=None):
 
     v = element_of(V, name='v')
     u = element_of(V, name='u')
-    
+
     nn = NormalVector('nn')
 
     int_0 = lambda expr: integral(domain , expr)
@@ -331,7 +331,8 @@ def test_api_poisson_2d_dirneu_identity_1():
     solution = cos(0.5*pi*x)*sin(pi*y)
     f        = (5./4.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, ['Gamma_1'])
+    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f,
+                                               [{'axis': 0, 'ext': -1}])
 
     expected_l2_error =  0.00015546057795986509
     expected_h1_error =  0.009269302784527035
@@ -348,7 +349,8 @@ def test_api_poisson_2d_dirneu_identity_2():
     solution = sin(0.5*pi*x)*sin(pi*y)
     f        = (5./4.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, ['Gamma_2'])
+    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f,
+                                               [{'axis': 0, 'ext': 1}])
 
     expected_l2_error =  0.00015546057795095866
     expected_h1_error =  0.009269302784528054
@@ -365,7 +367,8 @@ def test_api_poisson_2d_dirneu_identity_3():
     solution = sin(pi*x)*cos(0.5*pi*y)
     f        = (5./4.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, ['Gamma_3'])
+    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f,
+                                               [{'axis': 1, 'ext': -1}])
 
     expected_l2_error =  0.00015546057796188848
     expected_h1_error =  0.009269302784527448
@@ -382,7 +385,8 @@ def test_api_poisson_2d_dirneu_identity_4():
     solution = sin(pi*x)*sin(0.5*pi*y)
     f        = (5./4.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, ['Gamma_4'])
+    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f,
+                                               [{'axis': 1, 'ext': 1}])
 
     expected_l2_error =  0.00015546057795073548
     expected_h1_error =  0.009269302784522822
@@ -400,7 +404,8 @@ def test_api_poisson_2d_dirneu_identity_13():
     f        = (1./2.)*pi**2*solution
 
     l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f,
-                                               ['Gamma_1', 'Gamma_3'])
+                                               [{'axis': 0, 'ext': -1},
+                                                {'axis': 1, 'ext': -1}])
 
     expected_l2_error =  2.6119892693464717e-05
     expected_h1_error =  0.0016032430287989195
@@ -418,7 +423,9 @@ def test_api_poisson_2d_dirneu_identity_123():
     f        = 5./4.*pi**2*solution
 
     l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f,
-                                               ['Gamma_1', 'Gamma_2', 'Gamma_3'])
+                                               [{'axis': 0, 'ext': -1},
+                                                {'axis': 0, 'ext': 1},
+                                                {'axis': 1, 'ext': -1}])
 
     expected_l2_error =  0.00015492540684276186
     expected_h1_error =  0.009242166615517364
@@ -437,7 +444,7 @@ def test_api_poisson_2d_dirneu_identity_123():
 #    solution = cos(0.25*pi*x)*sin(pi*y)
 #    f        = (17./16.)*pi**2*solution
 #
-#    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, ['Gamma_1'])
+#    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, [{'axis': 0, 'ext': -1}])
 #
 #    expected_l2_error =  0.013540717397796734
 #    expected_h1_error =  0.19789463571596025
@@ -454,7 +461,7 @@ def test_api_poisson_2d_dirneu_collela_2():
     solution = sin(0.25*pi*(x+1.))*sin(pi*y)
     f        = (17./16.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, ['Gamma_2'])
+    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, [{'axis': 0, 'ext': 1}])
 
     expected_l2_error =  0.012890849094111699
     expected_h1_error =  0.19553563279728328
@@ -472,7 +479,7 @@ def test_api_poisson_2d_dirneu_collela_2():
 #    solution = cos(0.25*pi*y)*sin(pi*x)
 #    f        = (17./16.)*pi**2*solution
 #
-#    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, ['Gamma_3'])
+#    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, [{'axis': 1, 'ext': -1}])
 #
 #    expected_l2_error =  0.013540717397817427
 #    expected_h1_error =  0.19789463571595994
@@ -489,7 +496,7 @@ def test_api_poisson_2d_dirneu_collela_4():
     solution = sin(0.25*pi*(y+1.))*sin(pi*x)
     f        = (17./16.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, ['Gamma_4'])
+    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, [{'axis': 1, 'ext': 1}])
 
     expected_l2_error =  0.012890849094111942
     expected_h1_error =  0.19553563279728325
