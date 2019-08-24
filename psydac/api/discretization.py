@@ -361,7 +361,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
         # Create uniform grid
         if not isinstance(ncells, (dict, OrderedDict)):
-            d_ncells = {domain.name: ncells}
+            topological_domain = domain_h.domain
+            d_ncells = {topological_domain.name: ncells}
 
         else:
             d_ncells = ncells
@@ -394,9 +395,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     # Product and Vector spaces are constructed here
     if V.shape > 1:
-        if isinstance(ncells, (dict, OrderedDict)):
-            raise NotImplementedError('multi patchs not available yet')
-
         spaces = []
         if isinstance(V, VectorFunctionSpace):
 
