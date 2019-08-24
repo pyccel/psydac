@@ -68,7 +68,7 @@ from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
 from psydac.fem.vector  import BrokenFemSpace
 
-from .basic import SplBasic
+from .basic import SplBasic # TODO rename SplBasic into PsydacBasic
 from .evaluation import EvalQuadratureMapping, EvalQuadratureField, EvalQuadratureVectorField
 from .utilities import random_string
 from .utilities import build_pythran_types_header, variables
@@ -78,8 +78,12 @@ from .utilities import compute_atoms_expr
 from .utilities import is_scalar_field, is_vector_field
 from .utilities import math_atoms_as_str
 
+from .nodes import Grid, GridInterface
+from .visitor import psydac_visitor
+
 
 FunctionalForms = (BilinearForm, LinearForm, Functional)
+
 
 #==============================================================================
 def init_loop_quadrature(indices, ranges, discrete_boundary):
@@ -1749,6 +1753,8 @@ class Interface(SplBasic):
 
 
     def _initialize(self):
+        # in the case of Broken spaces, we shall have 2 grids on each side of an
+        # interface. The default case however, is to have one single grid
         form = self.weak_form
         assembly = self.assembly
         global_matrices = assembly.global_matrices
@@ -1778,10 +1784,15 @@ class Interface(SplBasic):
         unique_scalar_space = assembly.kernel.unique_scalar_space
 
         # ... declarations
+        target = self.assembly.kernel.target
+        if isinstance(target, sym_Interface):
+            grid = GridInterface(target, dim)
+
+        else:
+            grid = Grid(target, dim)
 
         test_space = Symbol('W')
         trial_space = Symbol('V')
-        grid = Symbol('grid')
         test_basis_values = Symbol('test_basis_values')
         trial_basis_values = Symbol('trial_basis_values')
 
@@ -1849,7 +1860,7 @@ class Interface(SplBasic):
         # ...
 
         # ...
-        self._basic_args = spaces + (grid,) + basis_values
+        self._basic_args = spaces + grid.args + basis_values
         # ...
 
         spaces = IndexedBase('spaces')
@@ -1862,12 +1873,7 @@ class Interface(SplBasic):
             body += [Assign(trial_spaces, trial_vector_space)]
 
         # ... grid data
-        body += [Assign(n_elements,     DottedName(grid, 'n_elements'))]
-        body += [Assign(points,         DottedName(grid, 'points'))]
-        body += [Assign(weights,        DottedName(grid, 'weights'))]
-        body += [Assign(quad_orders,    DottedName(grid, 'quad_order'))]
-        body += [Assign(element_starts, DottedName(grid, 'local_element_start'))]
-        body += [Assign(element_ends,   DottedName(grid, 'local_element_end'))]
+        body += psydac_visitor(grid)
         # ...
 
         # ... basis values
