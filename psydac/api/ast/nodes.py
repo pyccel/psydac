@@ -138,7 +138,17 @@ class Grid(BaseGrid):
     def element_ends(self):
         return self.attributs['element_ends']
 
-    # TODO add quad order?
+    @property
+    def quad_orders(self):
+        return self.attributs['quad_orders']
+
+    @property
+    def points(self):
+        return self.attributs['points']
+
+    @property
+    def weights(self):
+        return self.attributs['weights']
 
 #==============================================================================
 class GridInterface(BaseGrid):
@@ -176,3 +186,15 @@ class GridInterface(BaseGrid):
     @property
     def element_ends(self):
         return self.minus.element_ends + self.plus.element_ends
+
+    @property
+    def quad_orders(self):
+        return self.minus.quad_orders + self.plus.quad_orders
+
+    @property
+    def points(self):
+        return self.minus.points + self.plus.points
+
+    @property
+    def weights(self):
+        return self.minus.weights + self.plus.weights

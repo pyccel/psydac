@@ -1241,6 +1241,8 @@ class Assembly(SplBasic):
         return self.basic_args + other
 
     def _initialize(self):
+        # TODO: - are quad_orders used in generated statements?
+
         kernel = self.kernel
         form   = self.weak_form
         fields = kernel.fields
@@ -1297,6 +1299,9 @@ class Assembly(SplBasic):
         n_elements     = grid.n_elements
         element_starts = grid.element_starts
         element_ends   = grid.element_ends
+        quad_orders    = grid.quad_orders
+        points         = grid.points
+        weights        = grid.weights
 
         starts         = variables('s1:%s'%(dim+1), 'int')
         ends           = variables('e1:%s'%(dim+1), 'int')
@@ -1318,16 +1323,12 @@ class Assembly(SplBasic):
         test_basis     = variables('test_basis_1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=4, cls=IndexedVariable)
 
         spans          = variables('test_spans_1:%s(1:%s)'%(dim+1,ln+1), dtype='int', rank=1, cls=IndexedVariable)
-        quad_orders    = variables( 'k1:%s'%(dim+1), dtype='int')
 
         trial_basis_in_elm = variables('trial_bs1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=3, cls=IndexedVariable)
         test_basis_in_elm  = variables('test_bs1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=3, cls=IndexedVariable)
 
         points_in_elm  = variables('quad_u1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
         weights_in_elm = variables('quad_w1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
-
-        points   = variables('points_1:%s'%(dim+1), dtype='real', rank=2, cls=IndexedVariable)
-        weights  = variables('weights_1:%s'%(dim+1), dtype='real', rank=2, cls=IndexedVariable)
         # ...
 
         # TODO improve: select args parallel/serial
