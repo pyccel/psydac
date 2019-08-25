@@ -42,11 +42,14 @@ class BaseNode(object):
 #==============================================================================
 class BaseGrid(BaseNode):
 
-    def __init__(self, args=None, target=None, dim=None, attributs=None):
+    def __init__(self, args=None, target=None, dim=None, attributs=None,
+                 element=None, quad=None):
         BaseNode.__init__(self, args, attributs=attributs)
 
-        self._target = target
-        self._dim    = dim
+        self._target  = target
+        self._dim     = dim
+        self._element = element
+        self._quad    = quad
 
     @property
     def target(self):
@@ -56,10 +59,18 @@ class BaseGrid(BaseNode):
     def dim(self):
         return self._dim
 
+    @property
+    def element(self):
+        return self._element
+
+    @property
+    def quad(self):
+        return self._quad
+
 #==============================================================================
 class Grid(BaseGrid):
 
-    def __init__(self, target, dim, name=None, label=None):
+    def __init__(self, target, dim, name=None, label=None, axis_bnd=None):
         # ...
         if name is None:
             name = 'grid'
@@ -91,14 +102,6 @@ class Grid(BaseGrid):
                  for j in range(1,dim+1)]
         element_ends   = variables(names, 'int')
 
-        names = ['points{label}_{j}'.format(label=label, j=j)
-                 for j in range(1,dim+1)]
-        points  = variables(names,  dtype='real', rank=2, cls=IndexedVariable)
-
-        names = ['weights{label}_{j}'.format(label=label, j=j)
-                 for j in range(1,dim+1)]
-        weights = variables(names, dtype='real', rank=2, cls=IndexedVariable)
-
         names = ['k{label}_{j}'.format(label=label, j=j)
                  for j in range(1,dim+1)]
         quad_orders = variables(names, dtype='int')
@@ -106,20 +109,19 @@ class Grid(BaseGrid):
         attributs = {'n_elements':     n_elements,
                      'element_starts': element_starts,
                      'element_ends':   element_ends,
-                     'points':         points,
-                     'weights':        weights,
                      'quad_orders':    quad_orders}
         # ...
 
+        element = Element(dim, axis_bnd=axis_bnd)
+        quad    = GlobalQuadrature(element)
+
         BaseGrid.__init__(self, args, target, dim,
-                          attributs=attributs)
+                          attributs=attributs, element=element, quad=quad)
 
         # ...
         correspondance = {'n_elements':     'n_elements',
                           'element_starts': 'local_element_start',
                           'element_ends':   'local_element_end',
-                          'points':         'points',
-                          'weights':        'weights',
                           'quad_orders':    'quad_order'}
 
         self._correspondance = OrderedDict(correspondance)
@@ -144,14 +146,6 @@ class Grid(BaseGrid):
     @property
     def quad_orders(self):
         return self.attributs['quad_orders']
-
-    @property
-    def points(self):
-        return self.attributs['points']
-
-    @property
-    def weights(self):
-        return self.attributs['weights']
 
 #==============================================================================
 class GridInterface(BaseGrid):
@@ -202,25 +196,20 @@ class GridInterface(BaseGrid):
 class BaseElement(BaseNode):
     """Represents an element."""
 
-    def __init__(self, grid=None, attributs=None):
+    def __init__(self, dim, attributs=None):
         BaseNode.__init__(self, attributs=attributs)
 
-        self._grid = grid
-
-    @property
-    def grid(self):
-        return self._grid
+        self._dim = dim
 
     @property
     def dim(self):
-        return self.grid.dim
+        return self._dim
 
 #==============================================================================
 class Element(BaseElement):
     """Represents a tensor element."""
 
-    def __init__(self, grid, axis_bnd=None, label=None):
-        assert(isinstance(grid, Grid))
+    def __init__(self, dim, axis_bnd=None, label=None):
 
         # ...
         if label is None:
@@ -229,8 +218,6 @@ class Element(BaseElement):
         else:
             label = '_{}'.format(label)
         # ...
-
-        dim = grid.dim
 
         # ...
         names = ['ie{label}_{j}'.format(label=label, j=j)
@@ -242,7 +229,7 @@ class Element(BaseElement):
         attributs = {'indices_elm': indices_elm}
         # ...
 
-        BaseElement.__init__(self, grid, attributs=attributs)
+        BaseElement.__init__(self, dim, attributs=attributs)
 
         # ...
         if axis_bnd is None:
@@ -266,13 +253,12 @@ class Element(BaseElement):
 #==============================================================================
 class ElementInterface(BaseElement):
 
-    def __init__(self, grid, axis_minus=None, axis_plus=None):
-        assert(isinstance(grid, GridInterface))
+    def __init__(self, dim, axis_minus=None, axis_plus=None):
 
-        BaseElement.__init__(self, grid)
+        BaseElement.__init__(self, dim)
 
-        self._minus = Element(grid.minus, axis_minus, label='minus')
-        self._plus  = Element(grid.plus,  axis_plus,  label='plus')
+        self._minus = Element(dim, axis_minus, label='minus')
+        self._plus  = Element(dim,  axis_plus,  label='plus')
 
     @property
     def minus(self):
@@ -298,10 +284,15 @@ class BaseGlobalQuadrature(BaseNode):
         BaseNode.__init__(self, attributs=attributs)
 
         self._element = element
+        self._local   = LocalQuadrature(element.dim)
 
     @property
     def element(self):
         return self._element
+
+    @property
+    def local(self):
+        return self._local
 
     @property
     def dim(self):
@@ -325,15 +316,13 @@ class GlobalQuadrature(BaseGlobalQuadrature):
         dim = element.dim
 
         # ...
-        # TODO add '_'
-
-        names = ['quad_u{label}{j}'.format(label=label, j=j)
+        names = ['points{label}_{j}'.format(label=label, j=j)
                  for j in range(1,dim+1)]
-        points  = variables(names, dtype='real', rank=1, cls=IndexedVariable)
+        points  = variables(names,  dtype='real', rank=2, cls=IndexedVariable)
 
-        names = ['quad_w{label}{j}'.format(label=label, j=j)
+        names = ['weights{label}_{j}'.format(label=label, j=j)
                  for j in range(1,dim+1)]
-        weights = variables(names, dtype='real', rank=1, cls=IndexedVariable)
+        weights = variables(names, dtype='real', rank=2, cls=IndexedVariable)
         # ...
 
         # ...
@@ -342,6 +331,13 @@ class GlobalQuadrature(BaseGlobalQuadrature):
         # ...
 
         BaseGlobalQuadrature.__init__(self, element, attributs=attributs)
+
+        # ...
+        correspondance = {'points':  'points',
+                          'weights': 'weights'}
+
+        self._correspondance = OrderedDict(correspondance)
+        # ...
 
     @property
     def args(self):
@@ -354,6 +350,10 @@ class GlobalQuadrature(BaseGlobalQuadrature):
     @property
     def weights(self):
         return self.attributs['weights']
+
+    @property
+    def correspondance(self):
+        return self._correspondance
 
 #==============================================================================
 class GlobalQuadratureInterface(BaseGlobalQuadrature):
@@ -537,9 +537,6 @@ class GlobalBasis(BaseGlobalBasis):
             kind_str = '{}_'.format(kind)
         # ...
 
-        # TODO ARA check that the double loop in variables is well implemented here
-        # TODO add '_'
-
         # ...
         names = ['is{label}{j}{i}'.format(label=label, j=j, i=i)
                  for j in range(1,dim+1) for i in range(1, ln+1)]
@@ -690,9 +687,6 @@ class LocalBasis(BaseLocalBasis):
             kind_str = '{}_'.format(kind)
         # ...
 
-        # TODO ARA check that the double loop in variables is well implemented here
-        # TODO add '_'
-
         # ...
         names = ['{kind}p{label}{j}'.format(kind=kind_str, label=label, j=j)
                  for j in range(1,dim+1)]
@@ -708,14 +702,14 @@ class LocalBasis(BaseLocalBasis):
 
         names = ['{kind}bs{label}{j}'.format(kind=kind_str, label=label, j=j)
                  for j in range(1,dim+1)]
-        basis_in_elm = variables(names, dtype='real', rank=3, cls=IndexedVariable)
+        basis = variables(names, dtype='real', rank=3, cls=IndexedVariable)
         # ...
 
         # ...
-        attributs = {'pads':         pads,
-                     'degrees':      degrees,
-                     'indices':      indices,
-                     'basis_in_elm': basis_in_elm}
+        attributs = {'pads':    pads,
+                     'degrees': degrees,
+                     'indices': indices,
+                     'basis':   basis}
         # ...
 
         BaseLocalBasis.__init__(self, dim, kind=kind, attributs=attributs)
@@ -737,5 +731,5 @@ class LocalBasis(BaseLocalBasis):
         return self.attributs['indices']
 
     @property
-    def basis_in_elm(self):
-        return self.attributs['basis_in_elm']
+    def basis(self):
+        return self.attributs['basis']

@@ -38,9 +38,13 @@ class StatementsGenerator(object):
     # ....................................................
     def _visit_Grid(self, expr):
         grid = expr.args[0]
+        element = expr.element
+        quad    = expr.quad
+
         body = []
-        for k,v in expr.attributs.items():
-            body += [Assign(v, DottedName(grid, expr.correspondance[k]))]
+        for parent in [expr, quad]:
+            for k,v in parent.attributs.items():
+                body += [Assign(v, DottedName(grid, parent.correspondance[k]))]
 
         return body
 
@@ -69,19 +73,18 @@ class StatementsGenerator(object):
 
         dim     = expr.dim
         element = expr.element
-        grid    = element.grid
 
-        # quadrature attributs
-        points_in_elm  = expr.points
-        weights_in_elm = expr.weights
+        # local quadrature attributs
+        points_in_elm  = expr.local.points
+        weights_in_elm = expr.local.weights
+
+        # global quadrature attributs
+        points  = expr.points
+        weights = expr.weights
 
         # element attributs
         indices_elm    = element.indices_elm
         axis_bnd       = element.axis_bnd
-
-        # grid attributs
-        points         = grid.points
-        weights        = grid.weights
 
         body = []
 

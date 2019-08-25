@@ -806,15 +806,12 @@ class Kernel(SplBasic):
 
         vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
                                           dtype='real', rank=dim, cls=IndexedVariable)
-
         # ...
 
         # ...
         quad             = LocalQuadrature(dim)
         test_basis_node  = LocalBasis(dim, kind='test')
         trial_basis_node = LocalBasis(dim, kind='trial')
-
-        # TODO ARA store basis test/trial
 
         indices_quad  = quad.indices
         qds_dim       = quad.qds_dim
@@ -825,12 +822,12 @@ class Kernel(SplBasic):
         test_pads     = test_basis_node.pads
         test_degrees  = test_basis_node.degrees
         indices_test  = test_basis_node.indices
-        basis_test    = test_basis_node.basis_in_elm
+        basis_test    = test_basis_node.basis
 
         trial_pads    = trial_basis_node.pads
         trial_degrees = trial_basis_node.degrees
         indices_trial = trial_basis_node.indices
-        basis_trial   = trial_basis_node.basis_in_elm
+        basis_trial   = trial_basis_node.basis
         # ...
 
         # ...
@@ -1273,14 +1270,6 @@ class Assembly(SplBasic):
         return self._grid
 
     @property
-    def quad(self):
-        return self._quad
-
-    @property
-    def element(self):
-        return self._element
-
-    @property
     def axis_bnd(self):
         if self.discrete_boundary:
             return [i[0] for i in self.discrete_boundary]
@@ -1363,28 +1352,26 @@ class Assembly(SplBasic):
                                                   'trial', ln)
 
         else:
-            grid        = Grid(target, dim)
-            element     = Element(grid, axis_bnd=axis_bnd)
-            quad        = GlobalQuadrature(element)
+            grid        = Grid(target, dim, axis_bnd=axis_bnd)
+            element     = grid.element
+            quad        = grid.quad
             test_basis_node  = GlobalBasis(element, kind='test',  ln=ln)
             trial_basis_node = GlobalBasis(element, kind='trial', ln=ln)
 
         self._grid    = grid
-        self._quad    = quad
-        self._element = element
-        # TODO ARA store basis test/trial
 
         n_elements     = grid.n_elements
         element_starts = grid.element_starts
         element_ends   = grid.element_ends
         quad_orders    = grid.quad_orders
-        points         = grid.points
-        weights        = grid.weights
 
         indices_elm    = element.indices_elm
 
-        points_in_elm  = quad.points
-        weights_in_elm = quad.weights
+        points         = quad.points
+        weights        = quad.weights
+
+        points_in_elm  = quad.local.points
+        weights_in_elm = quad.local.weights
 
         indices_span      = test_basis_node.indices_span
         test_pads         = test_basis_node.pads
@@ -1950,7 +1937,7 @@ class Interface(SplBasic):
         if is_bilinear:
             body += [Assign(trial_spaces, trial_vector_space)]
 
-        # ... grid data
+        # ... grid statements
         body += generate_statements(grid)
         # ...
 
