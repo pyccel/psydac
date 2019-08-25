@@ -96,7 +96,7 @@ class StatementsGenerator(object):
 
         return body
 
-    def _visit_QuadratureInterface(self, expr):
+    def _visit_GlobalQuadratureInterface(self, expr):
         body  = []
         body += self._visit(expr.minus)
         body += self._visit(expr.plus)

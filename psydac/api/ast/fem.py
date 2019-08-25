@@ -90,7 +90,7 @@ from .statements import generate_statements
 FunctionalForms = (BilinearForm, LinearForm, Functional)
 
 #==============================================================================
-def init_loop_quadrature(indices, ranges, discrete_boundary):
+def _basis_on_interface(element, expr, atoms, kind, ln):
     # ...
     def _side_atoms(expr, atoms, side):
         # ...
@@ -108,6 +108,14 @@ def init_loop_quadrature(indices, ranges, discrete_boundary):
         return len(ls) > 0
     # ...
 
+    if _side_atoms(expr, atoms, '-'):
+        return GlobalBasis(element.minus, kind=kind,  ln=ln)
+
+    elif _side_atoms(expr, atoms, '+'):
+        return GlobalBasis(element.plus, kind=kind,  ln=ln)
+
+#==============================================================================
+def init_loop_quadrature(indices, ranges, discrete_boundary):
     stmts = []
     if not discrete_boundary:
         return stmts
@@ -1341,24 +1349,28 @@ class Assembly(SplBasic):
         target = self.kernel.target
         if isinstance(target, sym_Interface):
             # TODO ARA must have axis_bnd for each side
-            grid    = GridInterface(target, dim)
-            element = ElementInterface(grid, axis_minus=axis_bnd, axis_plus=axis_bnd)
-            quad    = GlobalQuadratureInterface(element)
-            test_basis_node = _global_basis_on_interface(element, kernel.kernel_expr,
+            grid = GridInterface(target, dim,
+                                 axis_minus=axis_bnd,
+                                 axis_plus=axis_bnd)
+
+            test_basis_node = _basis_on_interface(grid.element,
+                                                  kernel.kernel_expr,
                                                   self.weak_form.test_functions,
                                                   'test', ln)
-            trial_basis_node = _global_basis_on_interface(element, kernel.kernel_expr,
-                                                  self.weak_form.trial_functions,
-                                                  'trial', ln)
+            trial_basis_node = _basis_on_interface(grid.element,
+                                                   kernel.kernel_expr,
+                                                   self.weak_form.trial_functions,
+                                                   'trial', ln)
 
         else:
-            grid        = Grid(target, dim, axis_bnd=axis_bnd)
-            element     = grid.element
-            quad        = grid.quad
-            test_basis_node  = GlobalBasis(element, kind='test',  ln=ln)
-            trial_basis_node = GlobalBasis(element, kind='trial', ln=ln)
+            grid = Grid(target, dim, axis_bnd=axis_bnd)
 
-        self._grid    = grid
+            test_basis_node  = GlobalBasis(grid.element, kind='test',  ln=ln)
+            trial_basis_node = GlobalBasis(grid.element, kind='trial', ln=ln)
+
+        self._grid = grid
+        element    = grid.element
+        quad       = grid.quad
 
         n_elements     = grid.n_elements
         element_starts = grid.element_starts

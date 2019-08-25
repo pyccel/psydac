@@ -150,11 +150,15 @@ class Grid(BaseGrid):
 #==============================================================================
 class GridInterface(BaseGrid):
 
-    def __init__(self, target, dim):
-        BaseGrid.__init__(self, args=None, target=target, dim=dim)
+    def __init__(self, target, dim, axis_minus=None, axis_plus=None):
+        element = ElementInterface(dim, axis_minus=axis_minus, axis_plus=axis_plus)
+        quad    = GlobalQuadratureInterface(element)
 
-        self._minus = Grid(target, dim, label='minus')
-        self._plus  = Grid(target, dim, label='plus')
+        BaseGrid.__init__(self, args=None, target=target, dim=dim,
+                          element=element, quad=quad)
+
+        self._minus = Grid(target, dim, label='minus', axis_bnd=axis_minus)
+        self._plus  = Grid(target, dim, label='plus',  axis_bnd=axis_plus)
 
     @property
     def minus(self):
