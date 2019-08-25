@@ -11,7 +11,7 @@ from .utilities import variables
 from .nodes import Grid
 
 #==============================================================================
-class PsydacGenerator(object):
+class StatementsGenerator(object):
 
     def __init__(self, settings=None):
         self._settings = settings
@@ -104,6 +104,9 @@ class PsydacGenerator(object):
     #           Basis
     # ....................................................
     def _visit_Basis(self, expr):
+        # sympy does not like ':'
+        _slice = Slice(None,None)
+
         element       = expr.element
         is_test_basis = expr.is_test
         ln            = expr.ln
@@ -112,6 +115,8 @@ class PsydacGenerator(object):
         # basis attributs
         indices_span = expr.indices_span
         spans        = expr.spans
+        basis_in_elm = expr.basis_in_elm
+        basis        = expr.basis
 
         # element attributs
         indices_elm  = element.indices_elm
@@ -120,8 +125,13 @@ class PsydacGenerator(object):
         body = []
 
         if is_test_basis:
-            body += [Assign(indices_span[i*ln+j], spans[i*ln+j][indices_elm[i]])
+            body += [Assign(indices_span[i*ln+j],
+                            spans[i*ln+j][indices_elm[i]])
                      for i,j in np.ndindex(dim, ln) if not(i in axis_bnd)]
+
+        body += [Assign(basis_in_elm[i*ln+j],
+                        basis[i*ln+j][indices_elm[i],_slice,_slice,_slice])
+                 for i,j in np.ndindex(dim,ln) if not(i in axis_bnd) ]
 
         return body
 
@@ -133,5 +143,5 @@ class PsydacGenerator(object):
         return body
 
 #==============================================================================
-def psydac_visitor(expr, **settings):
-    return PsydacGenerator(settings).doit(expr)
+def generate_statements(expr, **settings):
+    return StatementsGenerator(settings).doit(expr)

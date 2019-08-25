@@ -78,11 +78,11 @@ from .utilities import compute_atoms_expr
 from .utilities import is_scalar_field, is_vector_field
 from .utilities import math_atoms_as_str
 
-from .nodes import Grid, GridInterface
-from .nodes import Quadrature, QuadratureInterface
-from .nodes import Element, ElementInterface
-from .nodes import Basis, BasisInterface
-from .visitor import psydac_visitor
+from .nodes      import Grid, GridInterface
+from .nodes      import Quadrature, QuadratureInterface
+from .nodes      import Element, ElementInterface
+from .nodes      import Basis, BasisInterface
+from .statements import generate_statements
 
 
 FunctionalForms = (BilinearForm, LinearForm, Functional)
@@ -1429,17 +1429,13 @@ class Assembly(SplBasic):
         _slice = Slice(None,None)
 
         # assignments
-        body  = psydac_visitor(test_basis_node)
-        body += psydac_visitor(quad)
-
-#        import sys; sys.exit(0)
-
-        body += [Assign(test_basis_in_elm[i*ln+j], test_basis[i*ln+j][indices_elm[i],_slice,_slice,_slice])
-                 for i,j in np.ndindex(dim,ln) if not(i in axis_bnd) ]
+        body  = generate_statements(test_basis_node)
+        body += generate_statements(quad)
 
         if is_bilinear:
-            body += [Assign(trial_basis_in_elm[i*ln+j], trial_basis[i*ln+j][indices_elm[i],_slice,_slice,_slice])
-                     for i,j in np.ndindex(dim,ln) if not(i in axis_bnd) ]
+            body += generate_statements(trial_basis_node)
+
+#        import sys; sys.exit(0)
 
         # ... kernel call
         mats = tuple(element_matrices.values())
@@ -1900,7 +1896,7 @@ class Interface(SplBasic):
             body += [Assign(trial_spaces, trial_vector_space)]
 
         # ... grid data
-        body += psydac_visitor(grid)
+        body += generate_statements(grid)
         # ...
 
         # ... basis values
