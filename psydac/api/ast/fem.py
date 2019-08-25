@@ -89,20 +89,29 @@ from .statements import generate_statements
 FunctionalForms = (BilinearForm, LinearForm, Functional)
 
 #==============================================================================
-def _side_atoms(expr, atoms, side):
+def _basis_on_interface(element, expr, atoms, kind, ln):
     # ...
-    if side == '-':
-        ls = list(expr.atoms(MinusInterfaceOperator))
-    elif side == '+':
-        ls = list(expr.atoms(PlusInterfaceOperator))
+    def _side_atoms(expr, atoms, side):
+        # ...
+        if side == '-':
+            ls = list(expr.atoms(MinusInterfaceOperator))
+        elif side == '+':
+            ls = list(expr.atoms(PlusInterfaceOperator))
+        # ...
+
+        # TODO ARA make sure args contains only scalar/vector TestFunction
+        args = set([i._args[0] for i in ls])
+
+        ls = list(args.intersection(set(atoms)))
+
+        return len(ls) > 0
     # ...
 
-    # TODO ARA make sure args contains only scalar/vector TestFunction
-    args = set([i._args[0] for i in ls])
+    if _side_atoms(expr, atoms, '-'):
+        return Basis(element.minus, kind=kind,  ln=ln)
 
-    ls = list(args.intersection(set(atoms)))
-
-    return len(ls) > 0
+    elif _side_atoms(expr, atoms, '+'):
+        return Basis(element.plus, kind=kind,  ln=ln)
 
 #==============================================================================
 def init_loop_quadrature(indices, ranges, discrete_boundary):
@@ -159,7 +168,7 @@ def init_loop_basis(indices, ranges, discrete_boundary):
     return stmts
 
 #==============================================================================
-def init_loop_support(indices_elm, n_elements,
+def init_loop_support(element, n_elements,
                       indices_span, spans, ranges,
                       points_in_elm, points,
                       weights_in_elm, weights,
@@ -169,6 +178,13 @@ def init_loop_support(indices_elm, n_elements,
     stmts = []
     if not discrete_boundary:
         return stmts
+
+    # ...
+    if isinstance(element, ElementInterface):
+        element = element.minus
+
+    indices_elm    = element.indices_elm
+    # ...
 
     # TODO improve using namedtuple or a specific class ? to avoid the 0 index
     #      => make it easier to understand
@@ -496,6 +512,14 @@ class Kernel(SplBasic):
     def backend(self):
         return self._backend
 
+    @property
+    def axis_bnd(self):
+        if self.discrete_boundary:
+            return [i[0] for i in self.discrete_boundary]
+
+        else:
+            return []
+
     def build_arguments(self, data):
 
         other = data
@@ -790,26 +814,55 @@ class Kernel(SplBasic):
         vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
                                           dtype='real', rank=dim, cls=IndexedVariable)
 
-        test_degrees  = variables('test_d1:%s'%(dim+1),  'int')
-        trial_degrees = variables('trial_d1:%s'%(dim+1), 'int')
-        test_pads     = variables('test_p1:%s'%(dim+1),  'int')
-        trial_pads    = variables('trial_p1:%s'%(dim+1), 'int')
 
         indices_quad  = variables('g1:%s'%(dim+1),  'int')
         qds_dim       = variables('k1:%s'%(dim+1),  'int')
         indices_test  = variables('il1:%s'%(dim+1), 'int')
         indices_trial = variables('jl1:%s'%(dim+1), 'int')
         wvol          = Variable('real', 'wvol')
+        # ...
 
-        basis_trial   = variables('trial_bs1:%s'%(dim+1),
-                                  dtype='real', rank=3, cls=IndexedVariable)
-        basis_test    = variables('test_bs1:%s'%(dim+1),
-                                  dtype='real', rank=3, cls=IndexedVariable)
-        weighted_vols = variables('quad_w1:%s'%(dim+1),
-                                  dtype='real', rank=1, cls=IndexedVariable)
-        positions     = variables('quad_u1:%s'%(dim+1),
-                                  dtype='real', rank=1, cls=IndexedVariable)
+        # ...
+        # TODO ARA: - if bilinear => create test_basis and trial_basis
+        #           - if linear   => create only test_basis
+        #           - if functional or evaluation => create basis
+        # subscript _node has been added since we use test_basis and trial_basis
+        # as variables => TODO improve
+        target = self.target
+        axis_bnd = self.axis_bnd
+        if isinstance(target, sym_Interface):
+            # TODO ARA must have axis_bnd for each side
+            grid    = GridInterface(target, dim)
+            element = ElementInterface(grid, axis_minus=axis_bnd, axis_plus=axis_bnd)
+            quad    = QuadratureInterface(element)
+            test_basis_node = _basis_on_interface(element, self.kernel_expr,
+                                                  self.weak_form.test_functions,
+                                                  'test', 1)
+            trial_basis_node = _basis_on_interface(element, self.kernel_expr,
+                                                  self.weak_form.trial_functions,
+                                                  'trial', 1)
 
+        else:
+            grid        = Grid(target, dim)
+            element     = Element(grid, axis_bnd=axis_bnd)
+            quad        = Quadrature(element)
+            test_basis_node  = Basis(element, kind='test',  ln=1)
+            trial_basis_node = Basis(element, kind='trial', ln=1)
+
+        # TODO ARA store basis test/trial
+
+        positions     = quad.points
+        weighted_vols = quad.weights
+
+        test_pads         = test_basis_node.pads
+        test_degrees      = test_basis_node.degrees
+#        indices_il        = test_basis_node.indices_l
+        basis_test        = test_basis_node.basis_in_elm
+
+        trial_pads        = trial_basis_node.pads
+        trial_degrees     = trial_basis_node.degrees
+#        indices_il        = trial_basis_node.indices_l
+        basis_trial       = trial_basis_node.basis_in_elm
         # ...
 
         # ...
@@ -1259,6 +1312,14 @@ class Assembly(SplBasic):
     def element(self):
         return self._element
 
+    @property
+    def axis_bnd(self):
+        if self.discrete_boundary:
+            return [i[0] for i in self.discrete_boundary]
+
+        else:
+            return []
+
     def build_arguments(self, data):
 
         other = data
@@ -1312,10 +1373,7 @@ class Assembly(SplBasic):
         n_rows = kernel.n_rows
         n_cols = kernel.n_cols
 
-        axis_bnd = []
-        if self.discrete_boundary:
-            axis_bnd = [i[0] for i in self.discrete_boundary]
-
+        axis_bnd = self.axis_bnd
 
         # ... declarations
         # TODO ARA: - if bilinear => create test_basis and trial_basis
@@ -1329,22 +1387,12 @@ class Assembly(SplBasic):
             grid    = GridInterface(target, dim)
             element = ElementInterface(grid, axis_minus=axis_bnd, axis_plus=axis_bnd)
             quad    = QuadratureInterface(element)
-
-            # ...
-            if _side_atoms(kernel.kernel_expr, self.weak_form.test_functions, '-'):
-                test_basis_node  = Basis(element.minus, kind='test',  ln=ln)
-
-            elif _side_atoms(kernel.kernel_expr, self.weak_form.test_functions, '+'):
-                test_basis_node  = Basis(element.plus, kind='test',  ln=ln)
-            # ...
-
-            # ...
-            if _side_atoms(kernel.kernel_expr, self.weak_form.trial_functions, '-'):
-                trial_basis_node = Basis(element.minus, kind='trial', ln=ln)
-
-            elif _side_atoms(kernel.kernel_expr, self.weak_form.trial_functions, '+'):
-                trial_basis_node = Basis(element.plus, kind='trial', ln=ln)
-            # ...
+            test_basis_node = _basis_on_interface(element, kernel.kernel_expr,
+                                                  self.weak_form.test_functions,
+                                                  'test', ln)
+            trial_basis_node = _basis_on_interface(element, kernel.kernel_expr,
+                                                  self.weak_form.trial_functions,
+                                                  'trial', ln)
 
         else:
             grid        = Grid(target, dim)
@@ -1356,6 +1404,7 @@ class Assembly(SplBasic):
         self._grid    = grid
         self._quad    = quad
         self._element = element
+        # TODO ARA store basis test/trial
 
         n_elements     = grid.n_elements
         element_starts = grid.element_starts
@@ -1620,13 +1669,21 @@ class Assembly(SplBasic):
             ranges_elm  = [Range(0, n_elements[i]) for i in range(dim)]
 
         # TODO call init_loops
-        init_stmts = init_loop_support( indices_elm, n_elements,
+        init_stmts = init_loop_support( element, n_elements,
                                        indices_span, spans, ranges_elm,
                                        points_in_elm, points,
                                        weights_in_elm, weights,
                                        test_basis_in_elm, test_basis,
                                        trial_basis_in_elm, trial_basis,
                                        is_bilinear, self.discrete_boundary )
+
+
+        # ...
+        if isinstance(element, ElementInterface):
+            element = element.minus
+
+        indices_elm    = element.indices_elm
+        # ...
 
         body = select_loops(indices_elm, ranges_elm, body,
                             self.kernel.discrete_boundary, boundary_basis=False)
