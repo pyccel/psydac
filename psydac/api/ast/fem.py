@@ -79,6 +79,9 @@ from .utilities import is_scalar_field, is_vector_field
 from .utilities import math_atoms_as_str
 
 from .nodes import Grid, GridInterface
+from .nodes import Quadrature, QuadratureInterface
+from .nodes import Element, ElementInterface
+from .nodes import Basis, BasisInterface
 from .visitor import psydac_visitor
 
 
@@ -1189,6 +1192,8 @@ class Assembly(SplBasic):
         obj._comm = comm
         obj._discrete_boundary = kernel.discrete_boundary
         obj._backend = backend
+        obj._grid = None
+        obj._quad = None
 
         # update dependencies
         obj._dependencies += [kernel]
@@ -1227,6 +1232,14 @@ class Assembly(SplBasic):
     @property
     def grid(self):
         return self._grid
+
+    @property
+    def quad(self):
+        return self._quad
+
+    @property
+    def element(self):
+        return self._element
 
     def build_arguments(self, data):
 
@@ -1287,14 +1300,32 @@ class Assembly(SplBasic):
 
 
         # ... declarations
+        # TODO ARA: - if bilinear => create test_basis and trial_basis
+        #           - if linear   => create only test_basis
+        #           - if functional or evaluation => create basis
+        # subscript _node has been added since we use test_basis and trial_basis
+        # as variables => TODO improve
         target = self.kernel.target
         if isinstance(target, sym_Interface):
-            grid = GridInterface(target, dim)
+            grid        = GridInterface(target, dim)
+            # TODO ARA must have axis_bnd for each side
+            element     = ElementInterface(grid,
+                                           axis_minus=axis_bnd,
+                                           axis_plus=axis_bnd)
+            quad        = QuadratureInterface(element)
+            test_basis_node  = BasisInterface(element, kind='test',  ln=ln)
+            trial_basis_node = BasisInterface(element, kind='trial', ln=ln)
 
         else:
-            grid = Grid(target, dim)
+            grid        = Grid(target, dim)
+            element     = Element(grid, axis_bnd=axis_bnd)
+            quad        = Quadrature(element)
+            test_basis_node  = Basis(element, kind='test',  ln=ln)
+            trial_basis_node = Basis(element, kind='trial', ln=ln)
 
-        self._grid = grid
+        self._grid    = grid
+        self._quad    = quad
+        self._element = element
 
         n_elements     = grid.n_elements
         element_starts = grid.element_starts
@@ -1303,32 +1334,28 @@ class Assembly(SplBasic):
         points         = grid.points
         weights        = grid.weights
 
+        indices_elm    = element.indices_elm
+
+        points_in_elm  = quad.points
+        weights_in_elm = quad.weights
+
+        indices_span      = test_basis_node.indices_span
+        test_pads         = test_basis_node.pads
+        test_degrees      = test_basis_node.degrees
+        indices_il        = test_basis_node.indices_l
+        indices_i         = test_basis_node.indices
+        npts              = test_basis_node.npts
+        spans             = test_basis_node.spans
+        test_basis_in_elm = test_basis_node.basis_in_elm
+        test_basis        = test_basis_node.basis
+
+        trial_pads         = trial_basis_node.pads
+        trial_degrees      = trial_basis_node.degrees
+        trial_basis_in_elm = trial_basis_node.basis_in_elm
+        trial_basis        = trial_basis_node.basis
+
         starts         = variables('s1:%s'%(dim+1), 'int')
         ends           = variables('e1:%s'%(dim+1), 'int')
-
-        indices_elm   = variables('ie1:%s'%(dim+1), 'int')
-        indices_span  = variables('is1:%s(1:%s)'%(dim+1, ln+1), 'int')
-
-        test_pads     = variables('test_p1:%s(1:%s)'%(dim+1,ln+1), 'int')
-        trial_pads    = variables('trial_p1:%s(1:%s)'%(dim+1,ln+1), 'int')
-
-        test_degrees  = variables('test_d1:%s(1:%s)'%(dim+1,ln+1), 'int')
-        trial_degrees = variables('trial_d1:%s(1:%s)'%(dim+1,ln+1), 'int')
-
-        indices_il    = variables('il1:%s'%(dim+1), 'int')
-        indices_i     = variables('i1:%s'%(dim+1),  'int')
-        npts          = variables('n1:%s'%(dim+1),  'int')
-
-        trial_basis    = variables('trial_basis_1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=4, cls=IndexedVariable)
-        test_basis     = variables('test_basis_1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=4, cls=IndexedVariable)
-
-        spans          = variables('test_spans_1:%s(1:%s)'%(dim+1,ln+1), dtype='int', rank=1, cls=IndexedVariable)
-
-        trial_basis_in_elm = variables('trial_bs1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=3, cls=IndexedVariable)
-        test_basis_in_elm  = variables('test_bs1:%s(1:%s)'%(dim+1,ln+1), dtype='real', rank=3, cls=IndexedVariable)
-
-        points_in_elm  = variables('quad_u1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
-        weights_in_elm = variables('quad_w1:%s'%(dim+1), dtype='real', rank=1, cls=IndexedVariable)
         # ...
 
         # TODO improve: select args parallel/serial
@@ -1402,18 +1429,10 @@ class Assembly(SplBasic):
         _slice = Slice(None,None)
 
         # assignments
-        body  = [Assign(indices_span[i*ln+j], spans[i*ln+j][indices_elm[i]])
-                 for i,j in np.ndindex(dim, ln) if not(i in axis_bnd)]
+        body  = psydac_visitor(test_basis_node)
+        body += psydac_visitor(quad)
 
-        if self.debug and self.detailed:
-            msg = lambda x: (String('> span {} = '.format(x)), x)
-            body += [Print(msg(indices_span[i])) for i in range(dim*ln)]
-
-        body += [Assign(points_in_elm[i], points[i][indices_elm[i],_slice])
-                 for i in range(dim) if not(i in axis_bnd) ]
-
-        body += [Assign(weights_in_elm[i], weights[i][indices_elm[i],_slice])
-                 for i in range(dim) if not(i in axis_bnd) ]
+#        import sys; sys.exit(0)
 
         body += [Assign(test_basis_in_elm[i*ln+j], test_basis[i*ln+j][indices_elm[i],_slice,_slice,_slice])
                  for i,j in np.ndindex(dim,ln) if not(i in axis_bnd) ]
