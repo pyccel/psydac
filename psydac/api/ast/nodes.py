@@ -424,7 +424,7 @@ class Basis(BaseBasis):
     """Represents quadrature rule on a tensor element."""
 
     def __init__(self, element, kind=None, label=None, ln=1):
-        assert(isinstance(element, Element))
+        assert(isinstance(element, BaseElement))
 
         # ...
         if label is None:
@@ -546,62 +546,3 @@ class Basis(BaseBasis):
     @property
     def basis_in_elm(self):
         return self.attributs['basis_in_elm']
-
-#==============================================================================
-class BasisInterface(BaseBasis):
-
-    def __init__(self, element, kind=None, ln=1):
-        assert(isinstance(element, ElementInterface))
-
-        BaseBasis.__init__(self, element)
-
-        self._minus = Basis(element.minus, kind=kind, label='minus', ln=ln)
-        self._plus  = Basis(element.plus,  kind=kind, label='plus',  ln=ln)
-
-    @property
-    def minus(self):
-        return self._minus
-
-    @property
-    def plus(self):
-        return self._plus
-
-    @property
-    def args(self):
-        return self.minus.args + self.plus.args
-
-    @property
-    def indices_span(self):
-        return self.minus.indices_span + self.plus.indices_span
-
-    @property
-    def pads(self):
-        return self.minus.pads + self.plus.pads
-
-    @property
-    def degrees(self):
-        return self.minus.degrees + self.plus.degrees
-
-    @property
-    def indices_l(self):
-        return self.minus.indices_l + self.plus.indices_l
-
-    @property
-    def indices(self):
-        return self.minus.indices + self.plus.indices
-
-    @property
-    def npts(self):
-        return self.minus.npts + self.plus.npts
-
-    @property
-    def basis(self):
-        return self.minus.basis + self.plus.basis
-
-    @property
-    def spans(self):
-        return self.minus.spans + self.plus.spans
-
-    @property
-    def basis_in_elm(self):
-        return self.minus.basis_in_elm + self.plus.basis_in_elm

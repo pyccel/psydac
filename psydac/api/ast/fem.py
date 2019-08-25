@@ -61,6 +61,7 @@ from sympde.topology.space import Trace
 from sympde.topology.derivatives import print_expression
 from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
+from sympde.calculus import MinusInterfaceOperator, PlusInterfaceOperator
 from sympde.expr import BilinearForm, LinearForm, Functional, BasicForm
 
 from psydac.fem.splines import SplineSpace
@@ -81,12 +82,27 @@ from .utilities import math_atoms_as_str
 from .nodes      import Grid, GridInterface
 from .nodes      import Quadrature, QuadratureInterface
 from .nodes      import Element, ElementInterface
-from .nodes      import Basis, BasisInterface
+from .nodes      import Basis
 from .statements import generate_statements
 
 
 FunctionalForms = (BilinearForm, LinearForm, Functional)
 
+#==============================================================================
+def _side_atoms(expr, atoms, side):
+    # ...
+    if side == '-':
+        ls = list(expr.atoms(MinusInterfaceOperator))
+    elif side == '+':
+        ls = list(expr.atoms(PlusInterfaceOperator))
+    # ...
+
+    # TODO ARA make sure args contains only scalar/vector TestFunction
+    args = set([i._args[0] for i in ls])
+
+    ls = list(args.intersection(set(atoms)))
+
+    return len(ls) > 0
 
 #==============================================================================
 def init_loop_quadrature(indices, ranges, discrete_boundary):
@@ -160,6 +176,8 @@ def init_loop_support(indices_elm, n_elements,
     quad_ext  = [i[1] for i in discrete_boundary]
 
     dim = len(indices_elm)
+#    print(indices_elm)
+#    import sys; sys.exit(0)
     for i in range(dim-1,-1,-1):
         rx = ranges[i]
         x = indices_elm[i]
@@ -1307,14 +1325,26 @@ class Assembly(SplBasic):
         # as variables => TODO improve
         target = self.kernel.target
         if isinstance(target, sym_Interface):
-            grid        = GridInterface(target, dim)
             # TODO ARA must have axis_bnd for each side
-            element     = ElementInterface(grid,
-                                           axis_minus=axis_bnd,
-                                           axis_plus=axis_bnd)
-            quad        = QuadratureInterface(element)
-            test_basis_node  = BasisInterface(element, kind='test',  ln=ln)
-            trial_basis_node = BasisInterface(element, kind='trial', ln=ln)
+            grid    = GridInterface(target, dim)
+            element = ElementInterface(grid, axis_minus=axis_bnd, axis_plus=axis_bnd)
+            quad    = QuadratureInterface(element)
+
+            # ...
+            if _side_atoms(kernel.kernel_expr, self.weak_form.test_functions, '-'):
+                test_basis_node  = Basis(element.minus, kind='test',  ln=ln)
+
+            elif _side_atoms(kernel.kernel_expr, self.weak_form.test_functions, '+'):
+                test_basis_node  = Basis(element.plus, kind='test',  ln=ln)
+            # ...
+
+            # ...
+            if _side_atoms(kernel.kernel_expr, self.weak_form.trial_functions, '-'):
+                trial_basis_node = Basis(element.minus, kind='trial', ln=ln)
+
+            elif _side_atoms(kernel.kernel_expr, self.weak_form.trial_functions, '+'):
+                trial_basis_node = Basis(element.plus, kind='trial', ln=ln)
+            # ...
 
         else:
             grid        = Grid(target, dim)

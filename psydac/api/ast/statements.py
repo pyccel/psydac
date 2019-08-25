@@ -135,13 +135,6 @@ class StatementsGenerator(object):
 
         return body
 
-    def _visit_BasisInterface(self, expr):
-        body  = []
-        body += self._visit(expr.minus)
-        body += self._visit(expr.plus)
-
-        return body
-
 #==============================================================================
 def generate_statements(expr, **settings):
     return StatementsGenerator(settings).doit(expr)
