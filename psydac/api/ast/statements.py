@@ -63,7 +63,7 @@ class StatementsGenerator(object):
     # ....................................................
     #           Quadrature
     # ....................................................
-    def _visit_Quadrature(self, expr):
+    def _visit_GlobalQuadrature(self, expr):
         # sympy does not like ':'
         _slice = Slice(None,None)
 
@@ -101,9 +101,9 @@ class StatementsGenerator(object):
         return body
 
     # ....................................................
-    #           Basis
+    #           GlobalBasis
     # ....................................................
-    def _visit_Basis(self, expr):
+    def _visit_GlobalBasis(self, expr):
         # sympy does not like ':'
         _slice = Slice(None,None)
 

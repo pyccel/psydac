@@ -80,16 +80,17 @@ from .utilities import is_scalar_field, is_vector_field
 from .utilities import math_atoms_as_str
 
 from .nodes      import Grid, GridInterface
-from .nodes      import Quadrature, QuadratureInterface
+from .nodes      import GlobalQuadrature, GlobalQuadratureInterface
+from .nodes      import LocalQuadrature
 from .nodes      import Element, ElementInterface
-from .nodes      import Basis
+from .nodes      import GlobalBasis, LocalBasis
 from .statements import generate_statements
 
 
 FunctionalForms = (BilinearForm, LinearForm, Functional)
 
 #==============================================================================
-def _basis_on_interface(element, expr, atoms, kind, ln):
+def init_loop_quadrature(indices, ranges, discrete_boundary):
     # ...
     def _side_atoms(expr, atoms, side):
         # ...
@@ -107,14 +108,6 @@ def _basis_on_interface(element, expr, atoms, kind, ln):
         return len(ls) > 0
     # ...
 
-    if _side_atoms(expr, atoms, '-'):
-        return Basis(element.minus, kind=kind,  ln=ln)
-
-    elif _side_atoms(expr, atoms, '+'):
-        return Basis(element.plus, kind=kind,  ln=ln)
-
-#==============================================================================
-def init_loop_quadrature(indices, ranges, discrete_boundary):
     stmts = []
     if not discrete_boundary:
         return stmts
@@ -814,55 +807,30 @@ class Kernel(SplBasic):
         vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
                                           dtype='real', rank=dim, cls=IndexedVariable)
 
-
-        indices_quad  = variables('g1:%s'%(dim+1),  'int')
-        qds_dim       = variables('k1:%s'%(dim+1),  'int')
-        indices_test  = variables('il1:%s'%(dim+1), 'int')
-        indices_trial = variables('jl1:%s'%(dim+1), 'int')
-        wvol          = Variable('real', 'wvol')
         # ...
 
         # ...
-        # TODO ARA: - if bilinear => create test_basis and trial_basis
-        #           - if linear   => create only test_basis
-        #           - if functional or evaluation => create basis
-        # subscript _node has been added since we use test_basis and trial_basis
-        # as variables => TODO improve
-        target = self.target
-        axis_bnd = self.axis_bnd
-        if isinstance(target, sym_Interface):
-            # TODO ARA must have axis_bnd for each side
-            grid    = GridInterface(target, dim)
-            element = ElementInterface(grid, axis_minus=axis_bnd, axis_plus=axis_bnd)
-            quad    = QuadratureInterface(element)
-            test_basis_node = _basis_on_interface(element, self.kernel_expr,
-                                                  self.weak_form.test_functions,
-                                                  'test', 1)
-            trial_basis_node = _basis_on_interface(element, self.kernel_expr,
-                                                  self.weak_form.trial_functions,
-                                                  'trial', 1)
-
-        else:
-            grid        = Grid(target, dim)
-            element     = Element(grid, axis_bnd=axis_bnd)
-            quad        = Quadrature(element)
-            test_basis_node  = Basis(element, kind='test',  ln=1)
-            trial_basis_node = Basis(element, kind='trial', ln=1)
+        quad             = LocalQuadrature(dim)
+        test_basis_node  = LocalBasis(dim, kind='test')
+        trial_basis_node = LocalBasis(dim, kind='trial')
 
         # TODO ARA store basis test/trial
 
+        indices_quad  = quad.indices
+        qds_dim       = quad.qds_dim
+        wvol          = quad.wvol
         positions     = quad.points
         weighted_vols = quad.weights
 
-        test_pads         = test_basis_node.pads
-        test_degrees      = test_basis_node.degrees
-#        indices_il        = test_basis_node.indices_l
-        basis_test        = test_basis_node.basis_in_elm
+        test_pads     = test_basis_node.pads
+        test_degrees  = test_basis_node.degrees
+        indices_test  = test_basis_node.indices
+        basis_test    = test_basis_node.basis_in_elm
 
-        trial_pads        = trial_basis_node.pads
-        trial_degrees     = trial_basis_node.degrees
-#        indices_il        = trial_basis_node.indices_l
-        basis_trial       = trial_basis_node.basis_in_elm
+        trial_pads    = trial_basis_node.pads
+        trial_degrees = trial_basis_node.degrees
+        indices_trial = trial_basis_node.indices
+        basis_trial   = trial_basis_node.basis_in_elm
         # ...
 
         # ...
@@ -1386,20 +1354,20 @@ class Assembly(SplBasic):
             # TODO ARA must have axis_bnd for each side
             grid    = GridInterface(target, dim)
             element = ElementInterface(grid, axis_minus=axis_bnd, axis_plus=axis_bnd)
-            quad    = QuadratureInterface(element)
-            test_basis_node = _basis_on_interface(element, kernel.kernel_expr,
+            quad    = GlobalQuadratureInterface(element)
+            test_basis_node = _global_basis_on_interface(element, kernel.kernel_expr,
                                                   self.weak_form.test_functions,
                                                   'test', ln)
-            trial_basis_node = _basis_on_interface(element, kernel.kernel_expr,
+            trial_basis_node = _global_basis_on_interface(element, kernel.kernel_expr,
                                                   self.weak_form.trial_functions,
                                                   'trial', ln)
 
         else:
             grid        = Grid(target, dim)
             element     = Element(grid, axis_bnd=axis_bnd)
-            quad        = Quadrature(element)
-            test_basis_node  = Basis(element, kind='test',  ln=ln)
-            trial_basis_node = Basis(element, kind='trial', ln=ln)
+            quad        = GlobalQuadrature(element)
+            test_basis_node  = GlobalBasis(element, kind='test',  ln=ln)
+            trial_basis_node = GlobalBasis(element, kind='trial', ln=ln)
 
         self._grid    = grid
         self._quad    = quad

@@ -2,11 +2,14 @@
 from collections import OrderedDict
 from sympy import symbols, Symbol
 
-from pyccel.ast.core import IndexedVariable
+from pyccel.ast.core import Variable, IndexedVariable
 
 from psydac.fem.vector  import BrokenFemSpace
 
 from .utilities import variables
+
+# TODO improve variables names
+
 
 #==============================================================================
 class BaseNode(object):
@@ -288,7 +291,7 @@ class ElementInterface(BaseElement):
         return self.minus.indices_elm + self.plus.indices_elm
 
 #==============================================================================
-class BaseQuadrature(BaseNode):
+class BaseGlobalQuadrature(BaseNode):
     """Represents quadrature rule on an element."""
 
     def __init__(self, element=None, attributs=None):
@@ -305,7 +308,7 @@ class BaseQuadrature(BaseNode):
         return self.element.dim
 
 #==============================================================================
-class Quadrature(BaseQuadrature):
+class GlobalQuadrature(BaseGlobalQuadrature):
     """Represents quadrature rule on a tensor element."""
 
     def __init__(self, element, label=None):
@@ -338,7 +341,7 @@ class Quadrature(BaseQuadrature):
                      'weights': weights}
         # ...
 
-        BaseQuadrature.__init__(self, element, attributs=attributs)
+        BaseGlobalQuadrature.__init__(self, element, attributs=attributs)
 
     @property
     def args(self):
@@ -353,15 +356,15 @@ class Quadrature(BaseQuadrature):
         return self.attributs['weights']
 
 #==============================================================================
-class QuadratureInterface(BaseQuadrature):
+class GlobalQuadratureInterface(BaseGlobalQuadrature):
 
     def __init__(self, element):
         assert(isinstance(element, ElementInterface))
 
-        BaseQuadrature.__init__(self, element)
+        BaseGlobalQuadrature.__init__(self, element)
 
-        self._minus = Quadrature(element.minus, label='minus')
-        self._plus  = Quadrature(element.plus,  label='plus')
+        self._minus = GlobalQuadrature(element.minus, label='minus')
+        self._plus  = GlobalQuadrature(element.plus,  label='plus')
 
     @property
     def minus(self):
@@ -383,8 +386,90 @@ class QuadratureInterface(BaseQuadrature):
     def weights(self):
         return self.minus.weights + self.plus.weights
 
+
 #==============================================================================
-class BaseBasis(BaseNode):
+class BaseLocalQuadrature(BaseNode):
+    """Represents quadrature rule on an element."""
+
+    def __init__(self, dim, attributs=None):
+        BaseNode.__init__(self, attributs=attributs)
+
+        self._dim = dim
+
+    @property
+    def dim(self):
+        return self._dim
+
+#==============================================================================
+class LocalQuadrature(BaseLocalQuadrature):
+    """Represents quadrature rule on a tensor element."""
+
+    def __init__(self, dim, label=None):
+
+        # ...
+        if label is None:
+            label = ''
+
+        else:
+            label = '_{}'.format(label)
+        # ...
+
+        # ...
+        names = ['quad_u{label}{j}'.format(label=label, j=j)
+                 for j in range(1,dim+1)]
+        points  = variables(names, dtype='real', rank=1, cls=IndexedVariable)
+
+        names = ['quad_w{label}{j}'.format(label=label, j=j)
+                 for j in range(1,dim+1)]
+        weights = variables(names, dtype='real', rank=1, cls=IndexedVariable)
+
+        names = ['g{label}{j}'.format(label=label, j=j)
+                 for j in range(1,dim+1)]
+        indices  = variables(names,  'int')
+
+        names = ['k{label}{j}'.format(label=label, j=j)
+                 for j in range(1,dim+1)]
+        qds_dim = variables(names,  'int')
+
+        wvol = Variable('real', 'wvol')
+        # ...
+
+        # ...
+        attributs = {'points':  points,
+                     'weights': weights,
+                     'indices': indices,
+                     'qds_dim': qds_dim,
+                     'wvol':    wvol}
+        # ...
+
+        BaseLocalQuadrature.__init__(self, dim, attributs=attributs)
+
+    @property
+    def args(self):
+        return tuple(self.points + self.weights)
+
+    @property
+    def points(self):
+        return self.attributs['points']
+
+    @property
+    def weights(self):
+        return self.attributs['weights']
+
+    @property
+    def indices(self):
+        return self.attributs['indices']
+
+    @property
+    def qds_dim(self):
+        return self.attributs['qds_dim']
+
+    @property
+    def wvol(self):
+        return self.attributs['wvol']
+
+#==============================================================================
+class BaseGlobalBasis(BaseNode):
     """Represents quadrature rule on an element."""
     _kind = None
 
@@ -420,7 +505,7 @@ class BaseBasis(BaseNode):
         return self.kind == 'trial'
 
 #==============================================================================
-class Basis(BaseBasis):
+class GlobalBasis(BaseGlobalBasis):
     """Represents quadrature rule on a tensor element."""
 
     def __init__(self, element, kind=None, label=None, ln=1):
@@ -505,7 +590,7 @@ class Basis(BaseBasis):
                      'basis_in_elm':  basis_in_elm}
         # ...
 
-        BaseBasis.__init__(self, element, kind=kind, attributs=attributs, ln=ln)
+        BaseGlobalBasis.__init__(self, element, kind=kind, attributs=attributs, ln=ln)
 
     @property
     def args(self):
@@ -542,6 +627,114 @@ class Basis(BaseBasis):
     @property
     def spans(self):
         return self.attributs['spans']
+
+    @property
+    def basis_in_elm(self):
+        return self.attributs['basis_in_elm']
+
+
+#==============================================================================
+class BaseLocalBasis(BaseNode):
+    """Represents quadrature rule on an element."""
+    _kind = None
+
+    def __init__(self, dim, kind=None, attributs=None):
+        BaseNode.__init__(self, attributs=attributs)
+
+        self._dim  = dim
+        self._kind = kind
+
+    @property
+    def dim(self):
+        return self._dim
+
+    @property
+    def kind(self):
+        return self._kind
+
+    @property
+    def is_test(self):
+        return self.kind == 'test'
+
+    @property
+    def is_trial(self):
+        return self.kind == 'trial'
+
+#==============================================================================
+class LocalBasis(BaseLocalBasis):
+    """Represents quadrature rule on a tensor element."""
+
+    def __init__(self, dim, kind=None, label=None):
+
+        # ...
+        if label is None:
+            label = ''
+
+        else:
+            label = '_{}'.format(label)
+        # ...
+
+        # ...
+        if kind == 'test':
+            index = 'i'
+
+        elif kind == 'trial':
+            index = 'j'
+        # ...
+
+        # ...
+        if kind is None:
+            kind_str = ''
+
+        else:
+            kind_str = '{}_'.format(kind)
+        # ...
+
+        # TODO ARA check that the double loop in variables is well implemented here
+        # TODO add '_'
+
+        # ...
+        names = ['{kind}p{label}{j}'.format(kind=kind_str, label=label, j=j)
+                 for j in range(1,dim+1)]
+        pads = variables(names, 'int')
+
+        names = ['{kind}d{label}{j}'.format(kind=kind_str, label=label, j=j)
+                 for j in range(1,dim+1)]
+        degrees = variables(names, 'int')
+
+        names = ['{index}l{label}{j}'.format(index=index, label=label, j=j)
+                 for j in range(1,dim+1)]
+        indices = variables(names, 'int')
+
+        names = ['{kind}bs{label}{j}'.format(kind=kind_str, label=label, j=j)
+                 for j in range(1,dim+1)]
+        basis_in_elm = variables(names, dtype='real', rank=3, cls=IndexedVariable)
+        # ...
+
+        # ...
+        attributs = {'pads':         pads,
+                     'degrees':      degrees,
+                     'indices':      indices,
+                     'basis_in_elm': basis_in_elm}
+        # ...
+
+        BaseLocalBasis.__init__(self, dim, kind=kind, attributs=attributs)
+
+    @property
+    def args(self):
+        raise NotImplementedError('TODO')
+
+    @property
+    def pads(self):
+        return self.attributs['pads']
+
+    @property
+    def degrees(self):
+        return self.attributs['degrees']
+
+    @property
+    def indices(self):
+        return self.attributs['indices']
 
     @property
     def basis_in_elm(self):
