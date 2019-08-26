@@ -115,6 +115,49 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
                        is_linear,
                        mapping):
 
+    """
+    This function computes atomic expressions needed
+    to evaluate  the Kernel final expression
+
+    Parameters
+    ----------
+    atomic_exprs : <list>
+        list of atoms
+
+    indices_quad : <list>
+        list of quadrature indices used in the quadrature loops
+
+    indices_test : <list>
+        list of  test_functions indices used in the for loops of the basis functions
+
+    indices_trial : <list>
+        list of  trial_functions indices used in the for loops of the basis functions
+
+    basis_test : <list>
+        list of basis functions in each dimesion
+
+    cords : <list>
+        list of coordinates Symbols
+
+    test_function : <Symbol>
+        test_function Symbol
+
+    is_linear : <boolean>
+        variable to determine if we are in the linear case
+
+    mapping : <Mapping>
+        Mapping object
+
+    Returns
+    -------
+    assignments : <list>
+       list of assignments of the atomic expression evaluated in the quadature points
+
+    map_stmts : <list>
+        list of assigments of atomic expression in case of mapping
+
+    """
+
     cls = (_partial_derivatives,
            VectorTestFunction,
            ScalarTestFunction,
@@ -181,6 +224,46 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
 def compute_atoms_expr_field(atomic_exprs, indices_quad,
                             idxs, basis,
                             test_function, mapping):
+
+    """
+    This function computes atomic expressions needed
+    to evaluate  EvaluteField/VectorField final expression
+
+    Parameters
+    ----------
+    atomic_exprs : <list>
+        list of atoms
+
+    indices_quad : <list>
+        list of quadrature indices used in the quadrature loops
+
+    idxs : <list>
+        list of basis functions indices used in the for loops of the basis functions
+
+
+    basis : <list>
+        list of basis functions in each dimesion
+
+    test_function : <Symbol>
+        test_function Symbol
+
+    mapping : <Mapping>
+        Mapping object
+
+    Returns
+    -------
+    inits : <list>
+       list of assignments of the atomic expression evaluated in the quadature points
+
+    updates : <list>
+        list of augemented assignments which are updated in each loop iteration
+
+    map_stmts : <list>
+        list of assigments of atomic expression in case of mapping
+
+    atomic_exprs: <list>
+        list of new atomic expression in case of mapping that were introduced in case of a mapping
+    """
 
     inits     = []
     updates   = []
@@ -344,6 +427,38 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
 def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
                                idxs, basis,
                                test_function):
+
+    """
+    This function computes atomic expressions needed
+    to evaluate  EvalMapping final expression
+
+    Parameters
+    ----------
+    atomic_exprs : <list>
+        list of atoms
+
+    indices_quad : <list>
+        list of quadrature indices used in the quadrature loops
+
+    idxs : <list>
+        list of basis functions indices used in the for loops of the basis functions
+
+
+    basis : <list>
+        list of basis functions in each dimesion
+
+    test_function : <Symbol>
+        test_function Symbol
+
+    Returns
+    -------
+    inits : <list>
+       list of assignments of the atomic expression evaluated in the quadature points
+
+    updates : <list>
+        list of augemented assignments which are updated in each loop iteration
+
+    """
 
     _print  = lambda i: print_expression(i, mapping_name=False)
     inits   = []

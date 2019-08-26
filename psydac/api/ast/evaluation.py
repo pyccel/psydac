@@ -460,7 +460,7 @@ class EvalQuadratureField(SplBasic):
         body =  init_vals + body
 
         func_args = self.build_arguments(degrees + basis + fields_coeffs + fields_val)
-        
+
         decorators = {}
         header = None
         if self.backend['name'] == 'pyccel':
