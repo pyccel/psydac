@@ -253,16 +253,16 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
     Returns
     -------
     inits : <list>
-       list of assignments of the atomic expression evaluated in the quadature points
+       list of assignments of the atomic expression evaluated in the quadrature points
 
     updates : <list>
-        list of augemented assignments which are updated in each loop iteration
+        list of augmented assignments which are updated in each loop iteration
 
     map_stmts : <list>
         list of assigments of atomic expression in case of mapping
 
     atomic_exprs: <list>
-        list of new atomic expression in case of mapping that were introduced in case of a mapping
+        list of new atomic expressions that were introduced in case of a mapping
     """
 
     inits     = []
@@ -358,7 +358,6 @@ def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
     idxs : <list>
         list of basis functions indices used in the for loops of the basis functions
 
-
     basis : <list>
         list of basis functions in each dimesion
 
@@ -368,10 +367,10 @@ def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
     Returns
     -------
     inits : <list>
-       list of assignments of the atomic expression evaluated in the quadature points
+       list of assignments of the atomic expression evaluated in the quadrature points
 
     updates : <list>
-        list of augemented assignments which are updated in each loop iteration
+        list of augmented assignments which are updated in each loop iteration
 
     """
 
