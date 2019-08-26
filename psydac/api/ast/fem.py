@@ -181,10 +181,13 @@ def init_loop_support(element, n_elements,
         return stmts
 
     # ...
+    dim = element.dim
+    # ARA we only take the minus one
     if isinstance(element, ElementInterface):
-        element = element.minus
+        indices_elm = element.indices[:dim]
 
-    indices_elm    = element.indices_elm
+    else:
+        indices_elm = element.indices
     # ...
 
     # TODO improve using namedtuple or a specific class ? to avoid the 0 index
@@ -192,9 +195,6 @@ def init_loop_support(element, n_elements,
     quad_mask = [i[0] for i in discrete_boundary]
     quad_ext  = [i[1] for i in discrete_boundary]
 
-    dim = len(indices_elm)
-#    print(indices_elm)
-#    import sys; sys.exit(0)
     for i in range(dim-1,-1,-1):
         rx = ranges[i]
         x = indices_elm[i]
@@ -1377,7 +1377,7 @@ class Assembly(SplBasic):
         element_ends   = grid.element_ends
         quad_orders    = grid.quad_orders
 
-        indices_elm    = element.indices_elm
+        indices_elm    = element.indices
 
         points         = quad.points
         weights        = quad.weights
@@ -1646,10 +1646,13 @@ class Assembly(SplBasic):
 
 
         # ...
+        # ARA we only take the minus one
+        # ARA TODO move to select_loops
         if isinstance(element, ElementInterface):
-            element = element.minus
+            indices_elm = element.indices[:dim]
 
-        indices_elm    = element.indices_elm
+        else:
+            indices_elm = element.indices
         # ...
 
         body = select_loops(indices_elm, ranges_elm, body,

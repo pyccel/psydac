@@ -83,7 +83,7 @@ class StatementsGenerator(object):
         weights = expr.weights
 
         # element attributs
-        indices_elm    = element.indices_elm
+        indices_elm    = element.indices
         axis_bnd       = element.axis_bnd
 
         body = []
@@ -122,7 +122,7 @@ class StatementsGenerator(object):
         basis        = expr.basis
 
         # element attributs
-        indices_elm  = element.indices_elm
+        indices_elm  = element.indices
         axis_bnd     = element.axis_bnd
 
         body = []

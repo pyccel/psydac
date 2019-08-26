@@ -213,7 +213,7 @@ class BaseElement(BaseNode):
 class Element(BaseElement):
     """Represents a tensor element."""
 
-    def __init__(self, dim, axis_bnd=None, label=None):
+    def __init__(self, dim, axis_bnd=None, label=None, indices_bnd=None):
 
         # ...
         if label is None:
@@ -226,11 +226,25 @@ class Element(BaseElement):
         # ...
         names = ['ie{label}_{j}'.format(label=label, j=j)
                  for j in range(1,dim+1)]
-        indices_elm   = variables(names, 'int')
+        indices = variables(names, 'int')
+        # ...
+
+        # ... update indices if indices_bnd is given
+        if not( indices_bnd is None ):
+            assert(not( axis_bnd is None ))
+
+            axis = list(set(range(dim)) - set(axis_bnd))
+            assert(len(axis) == len(indices_bnd))
+
+            indices = list(indices)
+            for i_axis, i in zip(axis, indices_bnd):
+                indices[i_axis] = i
+
+            indices = tuple(indices)
         # ...
 
         # ...
-        attributs = {'indices_elm': indices_elm}
+        attributs = {'indices': indices}
         # ...
 
         BaseElement.__init__(self, dim, attributs=attributs)
@@ -244,11 +258,11 @@ class Element(BaseElement):
 
     @property
     def args(self):
-        return tuple(self.indices_elm)
+        return tuple(self.indices)
 
     @property
-    def indices_elm(self):
-        return self.attributs['indices_elm']
+    def indices(self):
+        return self.attributs['indices']
 
     @property
     def axis_bnd(self):
@@ -257,12 +271,27 @@ class Element(BaseElement):
 #==============================================================================
 class ElementInterface(BaseElement):
 
-    def __init__(self, dim, axis_minus=None, axis_plus=None):
+    def __init__(self, dim, axis_minus, axis_plus):
 
         BaseElement.__init__(self, dim)
 
-        self._minus = Element(dim, axis_minus, label='minus')
-        self._plus  = Element(dim,  axis_plus,  label='plus')
+        assert(len(axis_minus) == len(axis_plus))
+
+        # ... make a unique index on the interface
+        if len(axis_minus) > 1:
+            # axis names for the boundary
+            # TODO use this convention everywhere?
+            axis = ['eta', 'xi'][:len(axis_minus)]
+
+            names   = ['ie_bnd_{j}'.format(j=j) for j in axis]
+            indices = variables(names,  'int')
+
+        else:
+            indices = [Variable('int', 'ie_bnd')]
+        # ...
+
+        self._minus = Element(dim, axis_minus, label='minus', indices_bnd=indices)
+        self._plus  = Element(dim,  axis_plus,  label='plus', indices_bnd=indices)
 
     @property
     def minus(self):
@@ -277,8 +306,8 @@ class ElementInterface(BaseElement):
         return self.minus.args + self.plus.args
 
     @property
-    def indices_elm(self):
-        return self.minus.indices_elm + self.plus.indices_elm
+    def indices(self):
+        return self.minus.indices + self.plus.indices
 
 #==============================================================================
 class BaseGlobalQuadrature(BaseNode):
