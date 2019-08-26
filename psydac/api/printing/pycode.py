@@ -3,7 +3,7 @@ from sympy.core import Symbol
 from pyccel.codegen.printing.pycode import PythonCodePrinter as PyccelPythonCodePrinter
 
 from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import print_expression  # TODO: remove
+from sympde.topology             import SymbolicExpr
 
 #==============================================================================
 class PythonCodePrinter(PyccelPythonCodePrinter):
@@ -64,31 +64,25 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
     def _print_dx(self, expr):
         arg = expr.args[0]
         if isinstance(arg, _partial_derivatives):
-            arg = print_expression(arg, mapping_name=False)
-
+            arg = SymbolicExpr(arg).name
         else:
             arg = self._print(arg) + '_'
-
         return arg + 'x'
 
     def _print_dy(self, expr):
         arg = expr.args[0]
         if isinstance(arg, _partial_derivatives):
-            arg = print_expression(arg, mapping_name=False)
-
+            arg = SymbolicExpr(arg).name
         else:
             arg = self._print(arg) + '_'
-
         return arg + 'y'
 
     def _print_dz(self, expr):
         arg = expr.args[0]
         if isinstance(arg, _partial_derivatives):
-            arg = print_expression(arg, mapping_name=False)
-
+            arg = SymbolicExpr(arg).name
         else:
             arg = self._print(arg) + '_'
-
         return arg + 'z'
 
     def _print_IndexedTestTrial(self, expr):
