@@ -10,7 +10,6 @@ from .utilities import variables
 
 # TODO improve variables names
 
-
 #==============================================================================
 class BaseNode(object):
 

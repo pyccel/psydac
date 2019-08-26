@@ -1475,11 +1475,11 @@ class Assembly(SplBasic):
         _slice = Slice(None,None)
 
         # assignments
-        body  = generate_statements(test_basis_node)
-        body += generate_statements(quad)
+        body  = generate_statements(test_basis_node).decs
+        body += generate_statements(quad).decs
 
         if is_bilinear:
-            body += generate_statements(trial_basis_node)
+            body += generate_statements(trial_basis_node).decs
 
 #        import sys; sys.exit(0)
 
@@ -1953,7 +1953,7 @@ class Interface(SplBasic):
             body += [Assign(trial_spaces, trial_vector_space)]
 
         # ... grid statements
-        body += generate_statements(grid)
+        body += generate_statements(grid).decs
         # ...
 
         # ... basis values
