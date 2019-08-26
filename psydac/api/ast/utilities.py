@@ -4,10 +4,25 @@ import random
 import numpy as np
 
 from sympy import Symbol, IndexedBase, Indexed
-from sympy import Mul, Add, Tuple, Min, Max, Pow
+from sympy import Mul, Tuple, Pow
 from sympy import Matrix
 from sympy import sqrt as sympy_sqrt
 from sympy.utilities.iterables import cartes
+
+from sympde.topology.space       import ScalarTestFunction
+from sympde.topology.space       import VectorTestFunction
+from sympde.topology.space       import IndexedTestTrial
+from sympde.topology             import ScalarField
+from sympde.topology             import VectorField, IndexedVectorField
+from sympde.topology             import Mapping
+from sympde.topology.derivatives import _partial_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives
+from sympde.topology.derivatives import get_atom_derivatives
+from sympde.topology.derivatives import get_index_derivatives
+from sympde.topology.derivatives import print_expression  # TODO: remove
+from sympde.topology             import LogicalExpr
+from sympde.topology             import SymbolicExpr
+from sympde.core                 import Cross_3d
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
@@ -15,27 +30,9 @@ from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Range, Product
 from pyccel.ast.core import _atomic
-from pyccel.ast import Comment, NewLine
+from pyccel.ast      import Comment
 
-from psydac.api.printing.pycode      import pycode
-
-
-from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.space import ScalarTestFunction
-from sympde.topology.space import VectorTestFunction
-from sympde.topology.space import IndexedTestTrial
-from sympde.topology import ScalarField
-from sympde.topology import VectorField, IndexedVectorField
-from sympde.topology import Mapping
-from sympde.topology.derivatives import print_expression
-from sympde.topology.derivatives import get_atom_derivatives
-from sympde.topology.derivatives import get_index_derivatives
-from sympde.topology import LogicalExpr
-from sympde.topology import SymbolicExpr
-from sympde.core import Cross_3d
-
-
+from psydac.api.printing.pycode import pycode
 
 #==============================================================================
 def random_string( n ):

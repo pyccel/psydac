@@ -1,14 +1,11 @@
 from sympy.core import Symbol
-from sympy import Tuple
 
 from pyccel.codegen.printing.pycode import PythonCodePrinter as PyccelPythonCodePrinter
 
-from sympde.calculus import Dot, Inner, Cross
-from sympde.calculus import Grad, Rot, Curl, Div
-from sympde.topology import Line, Square, Cube
 from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import print_expression
+from sympde.topology.derivatives import print_expression  # TODO: remove
 
+#==============================================================================
 class PythonCodePrinter(PyccelPythonCodePrinter):
 
     def __init__(self, settings=None):
@@ -117,7 +114,7 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
         return '{fname}({args})'.format(fname=fname, args=args)
     # .........................................................
 
-
+#==============================================================================
 def pycode(expr, **settings):
     """ Converts an expr to a string of Python code
     Parameters

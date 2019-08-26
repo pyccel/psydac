@@ -1,18 +1,10 @@
-# TODO: - replace call to print_expression by SymbolicExpr (may need to use LogicalExpr)
-
 from collections import OrderedDict
 from itertools import groupby
 import numpy as np
 
-from sympy import Basic
-from sympy import symbols, Symbol, IndexedBase, Indexed, Function
-from sympy import Mul, Add, Tuple, Min, Max, Pow
+from sympy import symbols, Symbol, IndexedBase
+from sympy import Mul, Tuple
 from sympy import Matrix, ImmutableDenseMatrix
-from sympy import sqrt as sympy_sqrt
-from sympy import S as sympy_S
-from sympy import Integer, Float
-from sympy.core.relational    import Le, Ge
-from sympy.logic.boolalg      import And
 from sympy import Mod, Abs
 from sympy.core.function import AppliedUndef
 
@@ -24,7 +16,6 @@ from pyccel.ast.core import Slice
 from pyccel.ast.core import Range, Product
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
-from pyccel.ast.core import Import
 from pyccel.ast import Zeros
 from pyccel.ast import Import
 from pyccel.ast import DottedName
@@ -32,49 +23,41 @@ from pyccel.ast import Nil
 from pyccel.ast import Len
 from pyccel.ast import If, Is, Return
 from pyccel.ast import String, Print, Shape
-from pyccel.ast import Comment, NewLine
+from pyccel.ast import Comment
 from pyccel.ast.core      import _atomic
 from pyccel.ast.utilities import build_types_decorator
 
-from sympde.core import Cross_3d
-from sympde.core import Constant
-from sympde.calculus import grad
-from sympde.topology import Mapping
-from sympde.topology import ScalarField
-from sympde.topology import VectorField, IndexedVectorField
-from sympde.topology import Boundary, BoundaryVector, NormalVector, TangentVector
-from sympde.topology import Covariant, Contravariant
-from sympde.topology import ElementArea
-from sympde.topology import LogicalExpr
-from sympde.topology import SymbolicExpr
-from sympde.topology import UndefinedSpaceType
+from sympde.core                 import Constant
+from sympde.topology             import ScalarField
+from sympde.topology             import VectorField, IndexedVectorField
+from sympde.topology             import Boundary, BoundaryVector, NormalVector, TangentVector
+from sympde.topology             import ElementArea
+from sympde.topology             import LogicalExpr
+from sympde.topology             import SymbolicExpr
+from sympde.topology             import UndefinedSpaceType
+from sympde.topology.space       import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.topology.space       import ProductSpace
+from sympde.topology.space       import ScalarTestFunction
+from sympde.topology.space       import VectorTestFunction
+from sympde.topology.space       import IndexedTestTrial
 from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
-from sympde.topology.space import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology.space import ProductSpace
-from sympde.topology.space import ScalarTestFunction
-from sympde.topology.space import VectorTestFunction
-from sympde.topology.space import IndexedTestTrial
-from sympde.topology.space import Trace
-from sympde.topology.derivatives import print_expression
-from sympde.topology.derivatives import get_atom_derivatives
-from sympde.topology.derivatives import get_index_derivatives
-from sympde.expr import BilinearForm, LinearForm, Functional, BasicForm
+from sympde.topology.derivatives import print_expression  # TODO: remove
+from sympde.expr                 import BilinearForm, LinearForm, Functional
 
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
 
-from .basic import SplBasic
+from .basic      import SplBasic
 from .evaluation import EvalQuadratureMapping, EvalQuadratureField, EvalQuadratureVectorField
-from .utilities import random_string
-from .utilities import build_pythran_types_header, variables
-from .utilities import compute_normal_vector, compute_tangent_vector
-from .utilities import select_loops, filter_product
-from .utilities import compute_atoms_expr
-from .utilities import is_scalar_field, is_vector_field
-from .utilities import math_atoms_as_str
+from .utilities  import random_string
+from .utilities  import build_pythran_types_header, variables
+from .utilities  import compute_normal_vector, compute_tangent_vector
+from .utilities  import select_loops, filter_product
+from .utilities  import compute_atoms_expr
+from .utilities  import is_scalar_field, is_vector_field
+from .utilities  import math_atoms_as_str
 
 
 FunctionalForms = (BilinearForm, LinearForm, Functional)

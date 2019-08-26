@@ -1,69 +1,49 @@
-
 from collections import OrderedDict
 from itertools import groupby
-import string
-import random
-import numpy as np
 
-from sympy import Basic
-from sympy import symbols, Symbol, IndexedBase, Indexed, Function
-from sympy import Mul, Add, Tuple
+from sympy import symbols, Symbol, IndexedBase
+from sympy import Tuple
 from sympy import Matrix, ImmutableDenseMatrix
-from sympy import sqrt as sympy_sqrt
-from sympy import S as sympy_S
 from sympy import simplify, expand
 from sympy.core.numbers import ImaginaryUnit
 
-from pyccel.ast.core import Variable, IndexedVariable
+from pyccel.ast.core import IndexedVariable
 from pyccel.ast.core import For
 from pyccel.ast.core import Assign
-from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Slice
 from pyccel.ast.core import Range
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
-from pyccel.ast import Zeros
-from pyccel.ast import Import
-from pyccel.ast import DottedName
-from pyccel.ast import Nil
-from pyccel.ast import Len
-from pyccel.ast import If, Is, Return
-from pyccel.ast import String, Print, Shape
-from pyccel.ast import Comment, NewLine
-from pyccel.ast.core      import _atomic
+from pyccel.ast      import Zeros
+from pyccel.ast      import Import
+from pyccel.ast      import DottedName
+from pyccel.ast      import Nil
+from pyccel.ast      import Len
+from pyccel.ast      import If, Is, Return
+from pyccel.ast.core import _atomic
 
-from sympde.core import Constant
-from sympde.topology import ScalarField, VectorField
-from sympde.topology import IndexedVectorField
-from sympde.topology import Mapping
-from sympde.expr import BilinearForm
+from sympde.topology             import ScalarField, VectorField
+from sympde.topology             import IndexedVectorField
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
-from sympde.topology.derivatives import print_expression
-from sympde.topology.derivatives import get_atom_derivatives
-from sympde.topology.derivatives import get_index_derivatives
-from sympde.topology import LogicalExpr
-from sympde.topology import SymbolicExpr
-from sympde.topology import SymbolicDeterminant
+from sympde.topology.derivatives import print_expression  # TODO: remove
+from sympde.topology             import LogicalExpr
+from sympde.topology             import SymbolicExpr
+from sympde.topology             import SymbolicDeterminant
 
-#from gelato.core import gelatize
-
-from gelato.glt import BasicGlt
 from gelato.expr import gelatize
 
-from .basic import SplBasic
-from .utilities import random_string
-from .utilities import build_pythran_types_header, variables
-from .utilities import is_scalar_field, is_vector_field, is_mapping
-from .utilities import math_atoms_as_str
-#from .evaluation import EvalArrayVectorField
+from .basic      import SplBasic
+from .utilities  import random_string
+from .utilities  import build_pythran_types_header, variables
+from .utilities  import is_scalar_field, is_vector_field, is_mapping
+from .utilities  import math_atoms_as_str
 from .evaluation import EvalArrayMapping, EvalArrayField
 
-from psydac.fem.splines import SplineSpace
-from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
 
+#==============================================================================
 class GltKernel(SplBasic):
 
     def __new__(cls, expr, spaces, name=None, mapping=None, is_rational_mapping=None, backend=None):
