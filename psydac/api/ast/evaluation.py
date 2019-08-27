@@ -271,12 +271,11 @@ class EvalQuadratureMapping(SplBasic):
         body = []
         init_basis = OrderedDict()
         updates = []
-        for atom in self.elements + weights_elements:
-            init, update = compute_atoms_expr_mapping(atom, indices_quad,
-                                                      indices_basis, basis, Nj)
+        atomic_exprs = self.elements + weights_elements
+        inits, updates = compute_atoms_expr_mapping(atomic_exprs, indices_quad,
+                                                    indices_basis, basis, Nj)
 
-            updates.append(update)
-
+        for init in inits:
             basis_name = str(init.lhs)
             init_basis[basis_name] = init
 
@@ -392,7 +391,6 @@ class EvalQuadratureField(SplBasic):
         mapping = self.mapping
 
         field_atoms = self.fields.atoms(ScalarField)
-        fields_str = sorted([print_expression(f) for f in self.fields])
 
         # ... declarations
         degrees       = variables( 'p1:%s'%(dim+1), 'int')
@@ -403,8 +401,7 @@ class EvalQuadratureField(SplBasic):
                                   dtype='real', rank=3, cls=IndexedVariable)
         fields_coeffs = variables(['coeff_{}'.format(f) for f in field_atoms],
                                   dtype='real', rank=dim, cls=IndexedVariable)
-        fields_val    = variables(['{}_values'.format(f) for f in fields_str],
-                                  dtype='real', rank=dim, cls=IndexedVariable)
+
         # ...
 
         # ... ranges
@@ -421,18 +418,23 @@ class EvalQuadratureField(SplBasic):
         body = []
         init_basis = OrderedDict()
         init_map   = OrderedDict()
-        updates = []
-        for atom in self.fields:
-            init, update, map_stmts = compute_atoms_expr_field(atom, indices_quad, indices_basis,
+
+        inits, updates, map_stmts, fields = compute_atoms_expr_field(self.fields, indices_quad, indices_basis,
                                                                basis, Nj,
                                                                mapping=mapping)
 
-            updates.append(update)
-
+        for init in inits:
             basis_name = str(init.lhs)
             init_basis[basis_name] = init
-            for stmt in map_stmts:
-                init_map[str(stmt.lhs)] = stmt
+        for stmt in map_stmts:
+            init_map[str(stmt.lhs)] = stmt
+
+        self._fields = Tuple(*fields)
+
+        fields_str    = [print_expression(f) for f in self._fields]
+        fields_val    = variables(['{}_values'.format(f) for f in fields_str],
+                                  dtype='real', rank=dim, cls=IndexedVariable)
+
 
         init_basis = OrderedDict(sorted(init_basis.items()))
         body += list(init_basis.values())
@@ -528,7 +530,7 @@ class EvalQuadratureVectorField(SplBasic):
 
         vector_field_atoms = self.vector_fields.atoms(VectorField)
         vector_field_atoms = [f[i] for f in vector_field_atoms for i in range(0, dim)]
-        vector_fields_str = sorted([print_expression(f) for f in self.vector_fields])
+
 
         # ... declarations
         degrees       = variables('p1:%s'%(dim+1),  'int')
@@ -539,8 +541,6 @@ class EvalQuadratureVectorField(SplBasic):
                                   dtype='real', rank=3, cls=IndexedVariable)
         coeffs = ['coeff_{}'.format(print_expression(f)) for f in vector_field_atoms]
         vector_fields_coeffs = variables(coeffs, dtype='real', rank=dim, cls=IndexedVariable)
-        vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
-                                          dtype='real', rank=dim, cls=IndexedVariable)
         # ...
 
         # ... ranges
@@ -557,17 +557,20 @@ class EvalQuadratureVectorField(SplBasic):
         body = []
         init_basis = OrderedDict()
         init_map   = OrderedDict()
-        updates = []
-        for atom in self.vector_fields:
-            init, update, map_stmts = compute_atoms_expr_field(atom, indices_quad, indices_basis,
+        
+        inits, updates, map_stmts, vector_fields = compute_atoms_expr_field(self.vector_fields, indices_quad, indices_basis,
                                                                basis, Nj, mapping=mapping)
 
-            updates.append(update)
-
+        for init in inits:
             basis_name = str(init.lhs)
             init_basis[basis_name] = init
-            for stmt in map_stmts:
-                init_map[str(stmt.lhs)] = stmt
+        for stmt in map_stmts:
+            init_map[str(stmt.lhs)] = stmt
+
+        self._vector_fields = Tuple(*vector_fields)
+        vector_fields_str   =  [print_expression(f) for f in self.vector_fields]
+        vector_fields_val   = variables(['{}_values'.format(f) for f in vector_fields_str],
+                                          dtype='real', rank=dim, cls=IndexedVariable)
 
         init_basis = OrderedDict(sorted(init_basis.items()))
         body += list(init_basis.values())
@@ -716,16 +719,16 @@ class EvalArrayField(SplBasic):
         Nj = ScalarTestFunction(space, name='Nj')
         init_basis = OrderedDict()
         init_map   = OrderedDict()
-        for atom in self.fields:
-            init, update, map_stmts = compute_atoms_expr_field(atom, indices_quad, indices_basis,
+
+        inits, updates, map_stmts, fields = compute_atoms_expr_field(self.fields, indices_quad, indices_basis,
                                                                basis, Nj, mapping=mapping)
 
-            updates.append(update)
-
+        self._fields = fields
+        for init in inits:
             basis_name = str(init.lhs)
             init_basis[basis_name] = init
-            for stmt in map_stmts:
-                init_map[str(stmt.lhs)] = stmt
+        for stmt in map_stmts:
+            init_map[str(stmt.lhs)] = stmt
 
         init_basis = OrderedDict(sorted(init_basis.items()))
         body += list(init_basis.values())
@@ -953,22 +956,19 @@ class EvalArrayMapping(SplBasic):
         # ...
 
         # ...
-        Nj = ScalarTestFunction(space, name='Nj')
-        body = []
-        init_basis = OrderedDict()
-        updates = []
-        for atom in self.elements + weights_elements:
-            init, update = compute_atoms_expr_mapping(atom, indices_quad,
+        Nj             = ScalarTestFunction(space, name='Nj')
+        body           = []
+        init_basis     = OrderedDict()
+        atomic_exprs   = self.elements + weights_elements
+        inits, updates = compute_atoms_expr_mapping(atomic_exprs, indices_quad,
                                                       indices_basis, basis, Nj)
-
-            updates.append(update)
-
+        for init in inits:
             basis_name = str(init.lhs)
             init_basis[basis_name] = init
 
         init_basis = OrderedDict(sorted(init_basis.items()))
-        body += list(init_basis.values())
-        body += updates
+        body      += list(init_basis.values())
+        body      += updates
         # ...
 
         # put the body in tests for loops

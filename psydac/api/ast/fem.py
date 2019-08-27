@@ -551,11 +551,9 @@ class Kernel(SplBasic):
                                                        not( atom in atomic_expr_vector_field)]
         # ...
 
-        # TODO use print_expression
-        fields_str    = sorted(tuple(map(print_expression, atomic_expr_field)))
-        fields_logical_str = sorted([print_expression(f, logical=True) for f in
-                                     atomic_expr_field])
+
         field_atoms   = tuple(expr.atoms(ScalarField))
+        fields        = []
 
         # ... create EvalQuadratureField
         self._eval_fields = []
@@ -577,23 +575,28 @@ class Kernel(SplBasic):
                                        discrete_boundary=self.discrete_boundary,
                                        boundary_basis=self.boundary_basis,
                                        mapping=mapping,backend=self.backend)
-
+                fields += list(eval_field.fields)
                 self._eval_fields.append(eval_field)
                 for k,v in eval_field.map_stmts.items():
                     self._map_stmts_fields[k] = v
 
         # update dependencies
         self._dependencies += self.eval_fields
+                # TODO use print_expression
+
+
+        fields_str         = tuple(map(print_expression, fields))
+        fields_logical_str = [print_expression(f, logical=True) for f in
+                                     fields]
         # ...
 
         # ...
-        vector_fields_str    = sorted(tuple(print_expression(i) for i in  atomic_expr_vector_field))
-        vector_fields_logical_str = sorted([print_expression(f, logical=True) for f in
-                                     atomic_expr_vector_field])
-        vector_field_atoms   = tuple(expr.atoms(VectorField))
 
+        vector_field_atoms   = tuple(expr.atoms(VectorField))
+        vector_fields        = []
         # ... create EvalQuadratureVectorField
         self._eval_vector_fields = []
+
         if atomic_expr_vector_field:
             keyfunc = lambda F: F.space.name
             data = sorted(vector_field_atoms, key=keyfunc)
@@ -611,12 +614,16 @@ class Kernel(SplBasic):
                                                     discrete_boundary=self.discrete_boundary,
                                                     boundary_basis=self.boundary_basis,
                                                     mapping=mapping,backend=self.backend)
+                vector_fields += list(eval_vector_field.vector_fields)
                 self._eval_vector_fields.append(eval_vector_field)
                 for k,v in eval_vector_field.map_stmts.items():
                     self._map_stmts_fields[k] = v
 
         # update dependencies
-        self._dependencies += self.eval_vector_fields
+        self._dependencies  += self.eval_vector_fields
+        vector_fields_str    = tuple(print_expression(i) for i in  vector_fields)
+        vector_fields_logical_str = [print_expression(f, logical=True) for f in
+                                            vector_fields]
         # ...
 
         # ... TODO add it as a method to basic class
@@ -832,7 +839,7 @@ class Kernel(SplBasic):
             init_basis[str(stmt.lhs)] = stmt
 
         for stmt in map_stmts:
-                init_map[str(stmt.lhs)] = stmt
+            init_map[str(stmt.lhs)] = stmt
          
         if unique_scalar_space:
             ln   = 1

@@ -17,6 +17,8 @@ from pyccel.ast.core import Range, Product
 from pyccel.ast.core import _atomic
 from pyccel.ast import Comment, NewLine
 
+from psydac.api.printing.pycode      import pycode
+
 
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
@@ -89,6 +91,22 @@ def logical2physical(expr):
         return new_expr
     else:
         return expr
+
+def _get_name(atom):
+    atom_name = None
+    if isinstance( atom, ScalarTestFunction ):
+        atom_name = str(atom.name)
+
+    elif isinstance( atom, VectorTestFunction ):
+        atom_name = str(atom.name)
+
+    elif isinstance( atom, IndexedTestTrial ):
+        atom_name = str(atom.base.name)
+
+    else:
+        raise TypeError('> Wrong type')
+
+    return atom_name
         
 #==============================================================================
 def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
@@ -96,6 +114,49 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
                        basis_test, cords, test_function,
                        is_linear,
                        mapping):
+
+    """
+    This function computes atomic expressions needed
+    to evaluate  the Kernel final expression
+
+    Parameters
+    ----------
+    atomic_exprs : <list>
+        list of atoms
+
+    indices_quad : <list>
+        list of quadrature indices used in the quadrature loops
+
+    indices_test : <list>
+        list of  test_functions indices used in the for loops of the basis functions
+
+    indices_trial : <list>
+        list of  trial_functions indices used in the for loops of the basis functions
+
+    basis_test : <list>
+        list of basis functions in each dimesion
+
+    cords : <list>
+        list of coordinates Symbols
+
+    test_function : <Symbol>
+        test_function Symbol
+
+    is_linear : <boolean>
+        variable to determine if we are in the linear case
+
+    mapping : <Mapping>
+        Mapping object
+
+    Returns
+    -------
+    assignments : <list>
+       list of assignments of the atomic expression evaluated in the quadature points
+
+    map_stmts : <list>
+        list of assigments of atomic expression in case of mapping
+
+    """
 
     cls = (_partial_derivatives,
            VectorTestFunction,
@@ -110,24 +171,6 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
     for atom in atomic_exprs:   
         if not isinstance(atom, cls):
             raise TypeError('atom must be of type {}'.format(str(cls)))
-
-    # ...
-    def _get_name(atom):
-        atom_name = None
-        if isinstance( atom, ScalarTestFunction ):
-            atom_name = str(atom.name)
-
-        elif isinstance( atom, VectorTestFunction ):
-            atom_name = str(atom.name)
-
-        elif isinstance( atom, IndexedTestTrial ):
-            atom_name = str(atom.base.name)
-
-        else:
-            print(type(atom))
-            raise TypeError('> Wrong type')
-
-        return atom_name
     # ...
     
     atomic_exprs = list(atomic_exprs)
@@ -142,15 +185,13 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
                 # we look for new_atoms that must be added to atomic_exprs
                 # because we need them in the maps stmts
                 logical_atoms = _atomic(rhs, cls=_logical_partial_derivatives)
-                
+                rhs           = SymbolicExpr(rhs)
+                map_stmts     += [Assign(Symbol(name), rhs)]
                 for atom in logical_atoms:
                     ls = _atomic(atom, Symbol)
                     assert len(ls) == 1
-                    if isinstance(ls[0],cls):
+                    if isinstance(ls[0], cls):
                         new_atoms += [logical2physical(atom)]
-                    
-                rhs = SymbolicExpr(rhs)
-                map_stmts += [Assign(Symbol(name), rhs)]
     
     atomic_exprs = {*atomic_exprs, *new_atoms}
 
@@ -180,169 +221,186 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
 
 
 #==============================================================================
-def compute_atoms_expr_field(atom, indices_quad,
+def compute_atoms_expr_field(atomic_exprs, indices_quad,
                             idxs, basis,
                             test_function, mapping):
 
-    if is_scalar_field(atom):
-        field      = list(atom.atoms(ScalarField))[0]
-        field_name = 'coeff_' + print_expression(field)
-        base       = field
+    """
+    This function computes atomic expressions needed
+    to evaluate  EvaluteField/VectorField final expression
 
-    elif is_vector_field(atom):
-        field      = list(atom.atoms(IndexedVectorField))[0]
-        field_name = 'coeff_' + print_expression(field)
-        base       = field.base
+    Parameters
+    ----------
+    atomic_exprs : <list>
+        list of atoms
 
-    else:
-        raise TypeError('atom must be either scalar or vector field')
+    indices_quad : <list>
+        list of quadrature indices used in the quadrature loops
 
-    # ...
-    test_function = atom.subs(base, test_function)
-    name          = print_expression(test_function)
-    test_function = Symbol(name)
-    # ...
+    idxs : <list>
+        list of basis functions indices used in the for loops of the basis functions
 
-    # ...
-    orders = [*get_index_derivatives(atom).values()]
-    args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
-    init   = Assign(test_function, Mul(*args))
-    # ...
 
-    # ...
-    args     = [IndexedBase(field_name)[idxs], test_function]
-    val_name = print_expression(atom) + '_values'
-    val      = IndexedBase(val_name)[indices_quad]
-    update   = AugAssign(val,'+',Mul(*args))
-    # ...
+    basis : <list>
+        list of basis functions in each dimesion
 
-    # ... map basis function
+    test_function : <Symbol>
+        test_function Symbol
+
+    mapping : <Mapping>
+        Mapping object
+
+    Returns
+    -------
+    inits : <list>
+       list of assignments of the atomic expression evaluated in the quadrature points
+
+    updates : <list>
+        list of augmented assignments which are updated in each loop iteration
+
+    map_stmts : <list>
+        list of assigments of atomic expression in case of mapping
+
+    atomic_exprs: <list>
+        list of new atomic expressions that were introduced in case of a mapping
+    """
+
+    inits     = []
+    updates   = []
     map_stmts = []
-    if mapping and  isinstance(atom, _partial_derivatives):
-        name = print_expression(atom)
-        rhs = LogicalExpr(mapping, atom)
-        rhs = SymbolicExpr(rhs)
-        map_stmts = [Assign(Symbol(name), rhs)]
-    # ...
 
-    return init, update, map_stmts
+    cls = (_partial_derivatives,
+           ScalarField,
+           IndexedVectorField,
+           VectorField)
 
-#=============================================================================
-#def compute_atoms_expr_field(atom, indices_quad,
-#                            idxs, basis,
-#                            test_function, mapping):
-#
-#    if not is_field(atom):
-#        raise TypeError('atom must be a field expr')
-#
-#    field = list(atom.atoms(ScalarField))[0]
-#    field_name = 'coeff_'+str(field.name)
-#
-#    # ...
-#    test_function = atom.subs(field, test_function)
-#    name = print_expression(test_function)
-#    test_function = Symbol(name)
-#    # ...
-#
-#    # ...
-#    orders = [*get_index_derivatives(atom).values()]
-#    args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
-#    init   = Assign(test_function, Mul(*args))
-#    # ...
-#
-#    # ...
-#    args = [IndexedBase(field_name)[idxs], test_function]
-#
-#    val_name = print_expression(atom) + '_values'
-#    val  = IndexedBase(val_name)[indices_quad]
-#    update = AugAssign(val,'+',Mul(*args))
-#    # ...
-#
-#    # ... map basis function
-#    map_stmts = []
-#    if mapping and  isinstance(atom, _partial_derivatives):
-#        name = print_expression(atom)
-#        rhs = LogicalExpr(mapping, atom)
-#        rhs = SymbolicExpr(rhs)
-#        map_stmts = [Assign(Symbol(name), rhs)]
-#    # ...
-#
-#    return init, update, map_stmts
-#
-#
-#=============================================================================
-#def compute_atoms_expr_vector_field(atom, indices_quad,
-#                            idxs, basis,
-#                            test_function, mapping):
-#
-#    if not is_vector_field(atom):
-#        raise TypeError('atom must be a vector field expr')
-#
-#    vector_field = atom
-#    vector_field_name = 'coeff_' + print_expression(get_atom_derivatives(atom))
-#
-#    # ...
-#    base = list(atom.atoms(VectorField))[0]
-#    test_function = atom.subs(base, test_function)
-#    name = print_expression(test_function)
-#    test_function = Symbol(name)
-#    # ...
-#
-#    # ...
-#    orders = [*get_index_derivatives(atom).values()]
-#    args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
-#    init   = Assign(test_function, Mul(*args))
-#    # ...
-#
-#    # ...
-#    args = [IndexedBase(vector_field_name)[idxs], test_function]
-#    val_name = print_expression(atom) + '_values'
-#    val  = IndexedBase(val_name)[indices_quad]
-#    update = AugAssign(val,'+',Mul(*args))
-#    # ...
-#
-#    # ... map basis function
-#    map_stmts = []
-#    if mapping and  isinstance(atom, _partial_derivatives):
-#        name = print_expression(atom)
-#        rhs = LogicalExpr(mapping, atom)
-#        rhs = SymbolicExpr(rhs)
-#        map_stmts = [Assign(Symbol(name), rhs)]
-#    # ...
-#
-#    return init, update, map_stmts
+    if mapping:
+        # ... map basis function
+        new_atoms = []
+        for atom in atomic_exprs:
+            if isinstance(atom, _partial_derivatives):
+                name       = print_expression(atom)
+                rhs        = LogicalExpr(mapping, atom)
+
+                logical_atoms = _atomic(rhs, cls=_logical_partial_derivatives)
+                rhs           = SymbolicExpr(rhs)
+                sym           = Symbol(name)
+                map_stmts    += [Assign(sym, rhs)]
+
+                if not pycode(atom) == name:
+                    var        = Symbol(pycode(atom))
+                    map_stmts += [Assign(var, sym)]
+
+                for atom in logical_atoms:
+                    ls = _atomic(atom, Symbol)
+                    if isinstance(ls[0], cls):
+                        new_atoms += [logical2physical(atom)]
+
+        atomic_exprs = {*atomic_exprs, *new_atoms}
+
+    atomic_exprs =  {print_expression(a):a for a in atomic_exprs}
+    atomic_exprs = tuple(atomic_exprs.values())
+
+    for atom in atomic_exprs:
+        if is_scalar_field(atom):
+            field      = list(atom.atoms(ScalarField))[0]
+            field_name = 'coeff_' + print_expression(field)
+            base       = field
+
+        elif is_vector_field(atom):
+            field      = list(atom.atoms(IndexedVectorField))[0]
+            field_name = 'coeff_' + print_expression(field)
+            base       = field.base
+
+        else:
+            raise TypeError('atom must be either scalar or vector field')
+
+        # ...
+
+        test_fun      = atom.subs(base, test_function)
+        name          = print_expression(test_fun)
+        test_fun      = Symbol(name)
+        # ...
+
+        # ...
+        orders = [*get_index_derivatives(atom).values()]
+        args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
+        inits += [Assign(test_fun, Mul(*args))]
+        # ...
+
+        # ...
+        args     = [IndexedBase(field_name)[idxs], test_fun]
+        val_name = print_expression(atom) + '_values'
+        val      = IndexedBase(val_name)[indices_quad]
+        updates += [AugAssign(val,'+',Mul(*args))]
+        # ...
+
+    return inits, updates, map_stmts, atomic_exprs
 
 #==============================================================================
 # TODO: merge into 'compute_atoms_expr_field'
-def compute_atoms_expr_mapping(atom, indices_quad,
+def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
                                idxs, basis,
                                test_function):
 
-    _print = lambda i: print_expression(i, mapping_name=False)
+    """
+    This function computes atomic expressions needed
+    to evaluate  EvalMapping final expression
 
-    element = get_atom_derivatives(atom)
-    element_name = 'coeff_' + _print(element)
+    Parameters
+    ----------
+    atomic_exprs : <list>
+        list of atoms
 
-    # ...
-    test_function = atom.subs(element, test_function)
-    name = print_expression(test_function, logical=True)
-    test_function = Symbol(name)
-    # ...
+    indices_quad : <list>
+        list of quadrature indices used in the quadrature loops
 
-    # ...
-    orders = [*get_index_derivatives(atom).values()]
-    args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
-    init   = Assign(test_function, Mul(*args))
-    # ...
+    idxs : <list>
+        list of basis functions indices used in the for loops of the basis functions
 
-    # ...
-    args = [IndexedBase(element_name)[idxs], test_function]
-    val_name = _print(atom) + '_values'
-    val  = IndexedBase(val_name)[indices_quad]
-    update = AugAssign(val,'+',Mul(*args))
-    # ...
+    basis : <list>
+        list of basis functions in each dimesion
 
-    return init, update
+    test_function : <Symbol>
+        test_function Symbol
+
+    Returns
+    -------
+    inits : <list>
+       list of assignments of the atomic expression evaluated in the quadrature points
+
+    updates : <list>
+        list of augmented assignments which are updated in each loop iteration
+
+    """
+
+    _print  = lambda i: print_expression(i, mapping_name=False)
+    inits   = []
+    updates = []
+    for atom in atomic_exprs:
+        element = get_atom_derivatives(atom)
+        element_name = 'coeff_' + _print(element)
+
+        # ...
+        test_fun = atom.subs(element, test_function)
+        name     = print_expression(test_fun, logical=True)
+        test_fun = Symbol(name)
+        # ...
+
+        # ...
+        orders = [*get_index_derivatives(atom).values()]
+        args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
+        inits += [Assign(test_fun, Mul(*args))]
+        # ...
+
+        # ...
+        args     = [IndexedBase(element_name)[idxs], test_fun]
+        val_name = _print(atom) + '_values'
+        val      = IndexedBase(val_name)[indices_quad]
+        updates += [AugAssign(val,'+',Mul(*args))]
+        # ...
+
+    return inits, updates
 
 #==============================================================================
 def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
