@@ -6,9 +6,84 @@ from pyccel.ast.core import IndexedVariable
 from pyccel.ast.core import Assign
 from pyccel.ast import DottedName
 from pyccel.ast.core import Slice
+from pyccel.ast.core import Range
 
 from .utilities import variables
-from .nodes import Grid
+from .nodes     import ElementInterface
+from .nodes     import Grid
+
+# ...
+def init_loop_support(element, n_elements,
+                      indices_span, spans, ranges,
+                      points_in_elm, points,
+                      weights_in_elm, weights,
+                      test_basis_in_elm, test_basis,
+                      trial_basis_in_elm, trial_basis,
+                      is_bilinear, discrete_boundary):
+    stmts = []
+    if not discrete_boundary:
+        return stmts
+
+    # ...
+    dim = element.dim
+    # ARA we only take the minus one
+    if isinstance(element, ElementInterface):
+        indices_elm = element.indices[:dim]
+
+    else:
+        indices_elm = element.indices
+    # ...
+
+    # TODO improve using namedtuple or a specific class ? to avoid the 0 index
+    #      => make it easier to understand
+    quad_mask = [i[0] for i in discrete_boundary]
+    quad_ext  = [i[1] for i in discrete_boundary]
+
+    for i in range(dim-1,-1,-1):
+        rx = ranges[i]
+        x = indices_elm[i]
+
+        if i in quad_mask:
+            i_index = quad_mask.index(i)
+            ext = quad_ext[i_index]
+
+            if ext == -1:
+                value = rx.start
+
+            elif ext == 1:
+                value = rx.stop - 1
+
+            stmts += [Assign(x, value)]
+
+    axis = quad_mask[0]
+
+    # ... assign element index
+    ncells = n_elements[axis]
+    ie = indices_elm[axis]
+    # ...
+
+    # ... assign span index
+    i_span = indices_span[axis]
+    stmts += [Assign(i_span, spans[axis][ie])]
+    # ...
+
+    # ... assign points, weights and basis
+    # ie is substitute by 0
+    # sympy does not like ':'
+    _slice = Slice(None,None)
+
+    stmts += [Assign(points_in_elm[axis], points[axis][0,_slice])]
+    stmts += [Assign(weights_in_elm[axis], weights[axis][0,_slice])]
+    stmts += [Assign(test_basis_in_elm[axis], test_basis[axis][0,_slice,_slice,_slice])]
+
+    if is_bilinear:
+        stmts += [Assign(trial_basis_in_elm[axis], trial_basis[axis][0,_slice,_slice,_slice])]
+    # ...
+
+    return stmts
+# ...
+
+
 
 #==============================================================================
 class DeclarationGenerator(object):
@@ -32,6 +107,54 @@ class DeclarationGenerator(object):
 
         # Unknown object, we raise an error.
         raise NotImplementedError('{}'.format(type(expr)))
+
+    # ....................................................
+    #           AssemblyNode
+    # ....................................................
+    def _visit_AssemblyNode(self, expr):
+        grid             = expr.grid
+        test_basis_node  = expr.test_basis
+        trial_basis_node = expr.trial_basis
+        discrete_boundary = expr.discrete_boundary # TODO
+        is_bilinear       = expr.is_bilinear # TODO
+        is_function       = expr.is_function # TODO
+
+        dim            = grid.dim
+        element        = grid.element
+        quad           = grid.quad
+        n_elements     = grid.n_elements
+        element_starts = grid.element_starts
+        element_ends   = grid.element_ends
+
+        points_in_elm  = quad.local.points
+        weights_in_elm = quad.local.weights
+        points         = quad.points
+        weights        = quad.weights
+
+        indices_span       = test_basis_node.indices_span
+        spans              = test_basis_node.spans
+        test_basis         = test_basis_node.basis
+        test_basis_in_elm  = test_basis_node.basis_in_elm
+        trial_basis        = trial_basis_node.basis
+        trial_basis_in_elm = trial_basis_node.basis_in_elm
+        # ...
+
+        # ...
+        if is_function:
+            ranges_elm  = [Range(s, e+1) for s,e in zip(element_starts, element_ends)]
+
+        else:
+            ranges_elm  = [Range(0, n_elements[i]) for i in range(dim)]
+        # ...
+
+        body = init_loop_support( element, n_elements,
+                                  indices_span, spans, ranges_elm,
+                                  points_in_elm, points,
+                                  weights_in_elm, weights,
+                                  test_basis_in_elm, test_basis,
+                                  trial_basis_in_elm, trial_basis,
+                                  is_bilinear, discrete_boundary )
+        return body
 
     # ....................................................
     #           Grid

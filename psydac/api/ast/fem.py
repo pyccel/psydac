@@ -61,7 +61,6 @@ from sympde.topology.space import Trace
 from sympde.topology.derivatives import print_expression
 from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
-from sympde.calculus import MinusInterfaceOperator, PlusInterfaceOperator
 from sympde.expr import BilinearForm, LinearForm, Functional, BasicForm
 
 from psydac.fem.splines import SplineSpace
@@ -79,7 +78,7 @@ from .utilities import compute_atoms_expr
 from .utilities import is_scalar_field, is_vector_field
 from .utilities import math_atoms_as_str
 
-from .nodes      import Grid, GridInterface
+from .nodes      import AssemblyNode
 from .nodes      import GlobalQuadrature, GlobalQuadratureInterface
 from .nodes      import LocalQuadrature
 from .nodes      import Element, ElementInterface
@@ -88,31 +87,6 @@ from .statements import generate_statements
 
 
 FunctionalForms = (BilinearForm, LinearForm, Functional)
-
-#==============================================================================
-def _basis_on_interface(element, expr, atoms, kind, ln):
-    # ...
-    def _side_atoms(expr, atoms, side):
-        # ...
-        if side == '-':
-            ls = list(expr.atoms(MinusInterfaceOperator))
-        elif side == '+':
-            ls = list(expr.atoms(PlusInterfaceOperator))
-        # ...
-
-        # TODO ARA make sure args contains only scalar/vector TestFunction
-        args = set([i._args[0] for i in ls])
-
-        ls = list(args.intersection(set(atoms)))
-
-        return len(ls) > 0
-    # ...
-
-    if _side_atoms(expr, atoms, '-'):
-        return GlobalBasis(element.minus, kind=kind,  ln=ln)
-
-    elif _side_atoms(expr, atoms, '+'):
-        return GlobalBasis(element.plus, kind=kind,  ln=ln)
 
 #==============================================================================
 def init_loop_quadrature(indices, ranges, discrete_boundary):
@@ -235,6 +209,11 @@ def init_loop_support(element, n_elements,
     if is_bilinear:
         stmts += [Assign(trial_basis_in_elm[axis], trial_basis[axis][0,_slice,_slice,_slice])]
     # ...
+
+#    print("================")
+#    for stmt in stmts:
+#        print(stmt)
+#    print("================")
 
     return stmts
 
@@ -1346,27 +1325,29 @@ class Assembly(SplBasic):
         #           - if functional or evaluation => create basis
         # subscript _node has been added since we use test_basis and trial_basis
         # as variables => TODO improve
+
         target = self.kernel.target
-        if isinstance(target, sym_Interface):
-            # TODO ARA must have axis_bnd for each side
-            grid = GridInterface(target, dim,
-                                 axis_minus=axis_bnd,
-                                 axis_plus=axis_bnd)
 
-            test_basis_node = _basis_on_interface(grid.element,
-                                                  kernel.kernel_expr,
-                                                  self.weak_form.test_functions,
-                                                  'test', ln)
-            trial_basis_node = _basis_on_interface(grid.element,
-                                                   kernel.kernel_expr,
-                                                   self.weak_form.trial_functions,
-                                                   'trial', ln)
+        # ...
+        tests  = None
+        if is_linear or is_bilinear:
+            tests = self.weak_form.test_functions
 
-        else:
-            grid = Grid(target, dim, axis_bnd=axis_bnd)
+        trials = None
+        if is_bilinear:
+            trials = self.weak_form.trial_functions
+        # ...
 
-            test_basis_node  = GlobalBasis(grid.element, kind='test',  ln=ln)
-            trial_basis_node = GlobalBasis(grid.element, kind='trial', ln=ln)
+        # ...
+        grid_loop = AssemblyNode(target, kernel.kernel_expr, dim,
+                                 tests=tests, trials=trials,
+                                 ln=ln, axis_bnd=axis_bnd,
+                                 discrete_boundary=self.discrete_boundary)
+
+        grid             = grid_loop.grid
+        test_basis_node  = grid_loop.test_basis
+        trial_basis_node = grid_loop.trial_basis
+        # ...
 
         self._grid = grid
         element    = grid.element
@@ -1636,14 +1617,7 @@ class Assembly(SplBasic):
             ranges_elm  = [Range(0, n_elements[i]) for i in range(dim)]
 
         # TODO call init_loops
-        init_stmts = init_loop_support( element, n_elements,
-                                       indices_span, spans, ranges_elm,
-                                       points_in_elm, points,
-                                       weights_in_elm, weights,
-                                       test_basis_in_elm, test_basis,
-                                       trial_basis_in_elm, trial_basis,
-                                       is_bilinear, self.discrete_boundary )
-
+        init_stmts = generate_statements(grid_loop).decs
 
         # ...
         # ARA we only take the minus one

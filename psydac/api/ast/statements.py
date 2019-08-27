@@ -55,6 +55,16 @@ class StatementGenerator(object):
         raise NotImplementedError('{}'.format(type(expr)))
 
     # ....................................................
+    #           AssemblyNode
+    # ....................................................
+    def _visit_AssemblyNode(self, expr):
+        # create declarations associated to the assembly node
+        decs  = generate_declarations(expr)
+        stmts = []
+
+        return Block(decs, stmts)
+
+    # ....................................................
     #           Grid
     # ....................................................
     def _visit_Grid(self, expr):

@@ -4,6 +4,9 @@ from sympy import symbols, Symbol
 
 from pyccel.ast.core import Variable, IndexedVariable
 
+from sympde.topology import Interface
+from sympde.calculus import MinusInterfaceOperator, PlusInterfaceOperator
+
 from psydac.fem.vector  import BrokenFemSpace
 
 from .utilities import variables
@@ -765,3 +768,108 @@ class LocalBasis(BaseLocalBasis):
     @property
     def basis(self):
         return self.attributs['basis']
+
+#==============================================================================
+def _basis_on_interface(element, expr, atoms, kind, ln):
+    # ...
+    def _side_atoms(expr, atoms, side):
+        # ...
+        if side == '-':
+            ls = list(expr.atoms(MinusInterfaceOperator))
+
+        elif side == '+':
+            ls = list(expr.atoms(PlusInterfaceOperator))
+        # ...
+
+        # TODO ARA make sure args contains only scalar/vector TestFunction
+        args = set([i._args[0] for i in ls])
+
+        ls = list(args.intersection(set(atoms)))
+
+        return len(ls) > 0
+    # ...
+
+    if _side_atoms(expr, atoms, '-'):
+        return GlobalBasis(element.minus, kind=kind,  ln=ln)
+
+    elif _side_atoms(expr, atoms, '+'):
+        return GlobalBasis(element.plus, kind=kind,  ln=ln)
+
+
+#==============================================================================
+class AssemblyNode(BaseNode):
+
+    def __init__(self, target, expr, dim,
+                 tests=None, trials=None,
+                 ln=1, axis_bnd=None,
+                 discrete_boundary=None):
+        """
+        target: integration domain/boundary/interface
+        expr: result of TerminalExpr
+        tests: test functions
+        trials: trial functions
+        ln: block size (TODO is this OK?)
+        axis_bnd: axis defining the boundary
+        """
+
+        # ...
+        is_bilinear = False
+        if not(tests is None) and not(trials is None):
+            is_bilinear = True
+
+        is_linear = False
+        if not(tests is None) and (trials is None):
+            is_linear = True
+
+        is_function = False
+        if (tests is None) and (trials is None):
+            is_function = True
+        # ...
+
+        # ...
+        # TODO we should construct only what is needed depending on
+        # linear/bilinear/function => only tests or trials etc
+        if isinstance(target, Interface):
+            # TODO ARA must have axis_bnd for each side
+            grid = GridInterface(target, dim,
+                                 axis_minus=axis_bnd,
+                                 axis_plus=axis_bnd)
+
+            test_basis = _basis_on_interface(grid.element,
+                                             expr,
+                                             tests,
+                                             'test', ln)
+
+            trial_basis = _basis_on_interface(grid.element,
+                                              expr,
+                                              trials,
+                                              'trial', ln)
+
+        else:
+            grid = Grid(target, dim, axis_bnd=axis_bnd)
+
+            test_basis  = GlobalBasis(grid.element, kind='test',  ln=ln)
+            trial_basis = GlobalBasis(grid.element, kind='trial', ln=ln)
+        # ...
+
+        BaseNode.__init__(self)
+
+        self._grid = grid
+        self._test_basis = test_basis
+        self._trial_basis = trial_basis
+
+        self.discrete_boundary = discrete_boundary # TODO
+        self.is_bilinear = is_bilinear # TODO
+        self.is_function = is_function # TODO
+
+    @property
+    def grid(self):
+        return self._grid
+
+    @property
+    def test_basis(self):
+        return self._test_basis
+
+    @property
+    def trial_basis(self):
+        return self._trial_basis
