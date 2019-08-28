@@ -369,21 +369,14 @@ class GltKernel(SplBasic):
         # ...
 
         # ...
-        mapping_elements = ()
-        mapping_coeffs = ()
-        mapping_values = ()
         if mapping:
-            _eval = self.eval_mapping
-            _print = lambda i: print_expression(i, mapping_name=False)
-
-            mapping_elements = [_print(i) for i in _eval.elements]
-            mapping_elements = symbols(tuple(mapping_elements))
-
-            mapping_coeffs = [_print(i) for i in _eval.mapping_coeffs]
-            mapping_coeffs = variables(mapping_coeffs, dtype='real', rank=dim, cls=IndexedVariable)
-
-            mapping_values = [_print(i) for i in _eval.mapping_values]
-            mapping_values = variables(mapping_values, dtype='real', rank=dim, cls=IndexedVariable)
+            mapping_elements = [SymbolicExpr(i) for i in self.eval_mapping.elements]
+            mapping_coeffs   = self.eval_mapping.mapping_coeffs
+            mapping_values   = self.eval_mapping.mapping_values
+        else:
+            mapping_elements = ()
+            mapping_coeffs   = ()
+            mapping_values   = ()
         # ...
 
 #        # ...
