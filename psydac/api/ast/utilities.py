@@ -148,8 +148,8 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
 
     Returns
     -------
-    assignments : <list>
-       list of assignments of the atomic expression evaluated in the quadature points
+    inits : <list>
+       list of assignments of the atomic expression evaluated in the quadrature points
 
     map_stmts : <list>
         list of assigments of atomic expression in case of mapping
@@ -169,16 +169,23 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
     for atom in atomic_exprs:   
         if not isinstance(atom, cls):
             raise TypeError('atom must be of type {}'.format(str(cls)))
-    # ...
     
-    atomic_exprs = list(atomic_exprs)
-    new_atoms    = []
-    # ... map basis function
-    map_stmts = []
+    # If there is a mapping, compute [dx(u), dy(u), dz(u)] as functions
+    # of [dx1(u), dx2(u), dx3(u)], and store results into intermediate
+    # variables [u_x, u_y, u_z]. (Same thing is done for higher derivatives.)
+    #
+    # Accordingly, we create a new list of atoms where all partial derivatives
+    # are taken with respect to the logical coordinates.
     if mapping:
+
+        new_atoms = set()
+        map_stmts = []
+        get_index = get_index_logical_derivatives
+        get_atom  = get_atom_logical_derivatives
+
         for atom in atomic_exprs:
 
-             if isinstance(atom, _partial_derivatives):
+            if isinstance(atom, _partial_derivatives):
                 lhs   = SymbolicExpr(atom)
                 rhs_p = LogicalExpr(mapping, atom)
 
@@ -189,18 +196,26 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
                     ls = _atomic(a, Symbol)
                     assert len(ls) == 1
                     if isinstance(ls[0], cls):
-                        new_atoms += [logical2physical(a)]
+                        new_atoms.add(a)
     
                 rhs = SymbolicExpr(rhs_p)
                 map_stmts += [Assign(lhs, rhs)]
 
-    atomic_exprs = {*atomic_exprs, *new_atoms}
+            else:
+                new_atoms.add(atom)
 
-    assigns = []
-    for atom in atomic_exprs:
+    else:
+        new_atoms = atomic_exprs
+        map_stmts = []
+        get_index = get_index_derivatives
+        get_atom  = get_atom_derivatives
 
-        orders = [*get_index_derivatives(atom).values()]
-        a      = get_atom_derivatives(atom)
+    # Create a list of statements for initialization of the point values,
+    # for each of the atoms in our (possibly new) list.
+    inits = []
+    for atom in new_atoms:
+        orders = [*get_index(atom).values()]
+        a      = get_atom(atom)
         test   = _get_name(a) in [_get_name(f) for f in test_function]
 
         if test or is_linear:
@@ -210,20 +225,14 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
             basis  = basis_trial
             idxs   = indices_trial
 
-        args = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
+        args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
+        lhs    = SymbolicExpr(atom)
+        rhs    = Mul(*args)
+        inits += [Assign(lhs, rhs)]
 
-        # ... assign basis on quad point
-        if mapping:
-            subs = dict(zip(_partial_derivatives, _logical_partial_derivatives))
-            atom = atom.subs(subs)
-
-        lhs      = SymbolicExpr(atom)
-        rhs      = Mul(*args)
-        assigns += [Assign(lhs, rhs)]
-
-    # ...
-    return assigns, map_stmts
-
+    # Return the initialization statements, and the additional initialization
+    # of intermediate variables in case of mapping
+    return inits, map_stmts
 
 #==============================================================================
 def compute_atoms_expr_field(atomic_exprs, indices_quad,
