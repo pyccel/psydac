@@ -27,7 +27,6 @@ from sympde.topology             import IndexedVectorField
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
-from sympde.topology.derivatives import print_expression  # TODO: remove
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
 from sympde.topology             import SymbolicDeterminant
@@ -280,10 +279,11 @@ class GltKernel(SplBasic):
         # ...
 
         # ...
-        fields_str    = sorted(tuple(map(print_expression, atomic_expr_field)))
-        fields_logical_str = sorted([print_expression(f, logical=True) for f in
-                                     atomic_expr_field])
-        field_atoms   = tuple(expr.atoms(ScalarField))
+        d_subs = dict(zip(_partial_derivatives, _logical_partial_derivatives))
+        atomic_expr_field_logical = tuple(f.subs(d_subs) for f in atomic_expr_field)
+        fields_str         = tuple(sorted(SymbolicExpr(f).name for f in atomic_expr_field))
+        fields_logical_str = tuple(sorted(SymbolicExpr(f).name for f in atomic_expr_field_logical))
+        field_atoms        = tuple(expr.atoms(ScalarField))
         # ...
 
         # ... create EvalArrayField
@@ -361,7 +361,7 @@ class GltKernel(SplBasic):
 #        vector_fields_logical = symbols(vector_fields_logical_str)
 #
 #        vector_field_atoms = [f[i] for f in vector_field_atoms for i in range(0, dim)]
-#        coeffs = ['coeff_{}'.format(print_expression(f)) for f in vector_field_atoms]
+#        coeffs = ['coeff_{}'.format(SymbolicExpr(f).name) for f in vector_field_atoms]
 #        vector_fields_coeffs = variables(coeffs, dtype='real', rank=dim, cls=IndexedVariable)
 #
 #        vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
