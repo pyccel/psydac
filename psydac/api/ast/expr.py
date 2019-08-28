@@ -25,7 +25,6 @@ from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
 from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
-from sympde.topology.derivatives import print_expression  # TODO: remove
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
 from sympde.topology             import SymbolicDeterminant
@@ -247,8 +246,8 @@ class ExprKernel(SplBasic):
         self._fields = tuple(expr.atoms(ScalarField))
         self._vector_fields = tuple(expr.atoms(VectorField))
         # ...
-        fields_str        = tuple(map(print_expression, atomic_expr_field))
-        vector_fields_str = tuple(map(print_expression, atomic_expr_vector_field))  
+        fields_str        = tuple(SymbolicExpr(f).name for f in atomic_expr_field)
+        vector_fields_str = tuple(SymbolicExpr(f).name for f in atomic_expr_vector_field)
         
         fields = symbols(fields_str)
         vector_fields = symbols(vector_fields_str)
