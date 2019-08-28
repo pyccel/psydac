@@ -41,8 +41,8 @@ from sympde.topology.space       import ScalarTestFunction
 from sympde.topology.space       import VectorTestFunction
 from sympde.topology.space       import IndexedTestTrial
 from sympde.topology.derivatives import _partial_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
-from sympde.topology.derivatives import print_expression  # TODO: remove
 from sympde.expr                 import BilinearForm, LinearForm, Functional
 
 from psydac.fem.splines import SplineSpace
@@ -181,44 +181,25 @@ def init_loop_support(indices_elm, n_elements,
 # TODO take exponent to 1/dim
 def area_eval_mapping(mapping, area, dim, indices_quad, weight):
 
-    _print = lambda i: print_expression(i, mapping_name=False)
-
-    M = mapping
-    ops = _partial_derivatives[:dim]
-
-    # ... mapping components and their derivatives
-    elements = [d(M[i]) for d in ops for i in range(0, dim)]
-    # ...
-
     stmts = []
+
+    # mapping components and their derivatives
+    ops      = _logical_partial_derivatives[:dim]
+    elements = [d(mapping[i]) for d in ops for i in range(0, dim)]
+
     # declarations
     stmts += [Comment('declarations')]
-    for atom in elements:
-        atom_name = _print(atom)
-        val_name = atom_name + '_values'
-        val  = IndexedBase(val_name)[indices_quad]
-
-        stmt = Assign(atom_name, val)
-        stmts += [stmt]
-
-    # ... inv jacobian
-    jac = mapping.det_jacobian
-    rdim = mapping.rdim
-    ops = _partial_derivatives[:rdim]
-    elements = [d(mapping[i]) for d in ops for i in range(0, rdim)]
     for e in elements:
-        new = print_expression(e, mapping_name=False)
-        new = Symbol(new)
-        jac = jac.subs(e, new)
-    # ...
+        lhs      = SymbolicExpr(e)
+        rhs_name = lhs.name + '_values'
+        rhs      = IndexedBase(rhs_name)[indices_quad]
+        stmts   += [Assign(lhs, rhs)]
 
-    # ...
+    # jacobian determinant
+    jac    = SymbolicExpr(mapping.det_jacobian)
     stmts += [AugAssign(area, '+', Abs(jac) * weight)]
-    # ...
 
     return stmts
-
-
 
 #==============================================================================
 # target is used when there are multiple expression (domain/boundaries)
@@ -550,21 +531,19 @@ class Kernel(SplBasic):
 
         # update dependencies
         self._dependencies += self.eval_fields
-                # TODO use print_expression
 
-
-        fields_str         = tuple(map(print_expression, fields))
-        fields_logical_str = [print_expression(f, logical=True) for f in
-                                     fields]
-        # ...
-
+        # TODO: remove these?
+        d_subs = dict(zip(_partial_derivatives, _logical_partial_derivatives))
+        fields_logical     = tuple(f.subs(d_subs) for f in fields)
+        fields_str         = tuple(SymbolicExpr(f).name for f in fields)
+        fields_logical_str = tuple(SymbolicExpr(f).name for f in fields_logical)
         # ...
 
         vector_field_atoms   = tuple(expr.atoms(VectorField))
         vector_fields        = []
+
         # ... create EvalQuadratureVectorField
         self._eval_vector_fields = []
-
         if atomic_expr_vector_field:
             keyfunc = lambda F: F.space.name
             data = sorted(vector_field_atoms, key=keyfunc)
@@ -589,9 +568,11 @@ class Kernel(SplBasic):
 
         # update dependencies
         self._dependencies  += self.eval_vector_fields
-        vector_fields_str    = tuple(print_expression(i) for i in  vector_fields)
-        vector_fields_logical_str = [print_expression(f, logical=True) for f in
-                                            vector_fields]
+
+        # TODO: remove these?
+        vector_fields_logical     = tuple(f.subs(d_subs) for f in vector_fields)
+        vector_fields_str         = tuple(SymbolicExpr(f).name for f in vector_fields)
+        vector_fields_logical_str = tuple(SymbolicExpr(f).name for f in vector_fields_logical)
         # ...
 
         # ... TODO add it as a method to basic class
@@ -706,7 +687,7 @@ class Kernel(SplBasic):
         vector_fields_logical = symbols(vector_fields_logical_str)
 
         vector_field_atoms = [f[i] for f in vector_field_atoms for i in range(0, dim)]
-        coeffs = ['coeff_{}'.format(print_expression(f)) for f in vector_field_atoms]
+        coeffs = ['coeff_{}'.format(SymbolicExpr(f).name) for f in vector_field_atoms]
         vector_fields_coeffs = variables(coeffs, dtype='real', rank=dim, cls=IndexedVariable)
 
         vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
