@@ -24,7 +24,6 @@ from psydac.fem.vector   import VectorFemField
 from psydac.api.discretization import discretize
 
 from numpy import linspace, zeros, allclose
-import numpy as np
 from mpi4py import MPI
 import pytest
 
@@ -97,9 +96,7 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
 def test_api_system_1_1d_dir_1():
 
     from sympy.abc import x
-    
+
     f0 = -(2*pi)**2*sin(2*pi*x)
     u  = sin(2*pi*x)
     x  = run_system_1_1d_dir(f0, u,ncells=[10], degree=[2])
-
-    
