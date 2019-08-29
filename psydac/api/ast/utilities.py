@@ -62,6 +62,9 @@ def is_scalar_field(expr):
     if isinstance(expr, _partial_derivatives):
         return is_scalar_field(expr.args[0])
 
+    elif isinstance(expr, _logical_partial_derivatives):
+        return is_scalar_field(expr.args[0])
+
     elif isinstance(expr, ScalarField):
         return True
 
@@ -71,6 +74,9 @@ def is_scalar_field(expr):
 def is_vector_field(expr):
 
     if isinstance(expr, _partial_derivatives):
+        return is_vector_field(expr.args[0])
+
+    elif isinstance(expr, _logical_partial_derivatives):
         return is_vector_field(expr.args[0])
 
     elif isinstance(expr, (VectorField, IndexedVectorField)):
@@ -273,10 +279,10 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
         list of augmented assignments which are updated in each loop iteration
 
     map_stmts : <list>
-        list of assigments of atomic expression in case of mapping
+        list of assignments of atomic expression in case of mapping
 
-    atomic_exprs: <list>
-        list of new atomic expressions that were introduced in case of a mapping
+    new_atoms: <list>
+        updated list of atomic expressions (some were introduced in case of a mapping)
     """
 
     inits     = []
@@ -288,57 +294,72 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
            IndexedVectorField,
            VectorField)
 
+    # If there is a mapping, compute [dx(u), dy(u), dz(u)] as functions
+    # of [dx1(u), dx2(u), dx3(u)], and store results into intermediate
+    # variables [u_x, u_y, u_z]. (Same thing is done for higher derivatives.)
+    #
+    # Accordingly, we create a new list of atoms where all partial derivatives
+    # are taken with respect to the logical coordinates.
     if mapping:
-        # ... map basis function
-        new_atoms = []
+
+        new_atoms = set()
+        map_stmts = []
+        get_index = get_index_logical_derivatives
+        get_atom  = get_atom_logical_derivatives
+
         for atom in atomic_exprs:
 
             if isinstance(atom, _partial_derivatives):
                 lhs   = SymbolicExpr(atom)
                 rhs_p = LogicalExpr(mapping, atom)
 
+                # we look for new_atoms that must be added to atomic_exprs
+                # because we need them in the maps stmts
                 logical_atoms = _atomic(rhs_p, cls=_logical_partial_derivatives)
                 for a in logical_atoms:
                     ls = _atomic(a, Symbol)
+                    assert len(ls) == 1
                     if isinstance(ls[0], cls):
-                        new_atoms += [logical2physical(a)]
+                        new_atoms.add(a)
 
                 rhs = SymbolicExpr(rhs_p)
                 map_stmts += [Assign(lhs, rhs)]
 
-                # Temporary hack: add 'phi_yx = phi_xy' where necessary
-                # TODO: remove pycode calls from Psydac's AST
-                if pycode(atom) != lhs.name:
-                    var        = Symbol(pycode(atom))
-                    map_stmts += [Assign(var, lhs)]
+            else:
+                new_atoms.add(atom)
 
-        atomic_exprs = {*atomic_exprs, *new_atoms}
+    else:
+        new_atoms = atomic_exprs
+        map_stmts = []
+        get_index = get_index_derivatives
+        get_atom  = get_atom_derivatives
 
-    # Make sure that we only pick one between 'dx(dy(u))' and 'dy(dx(u))'
-    atomic_exprs = {SymbolicExpr(a).name : a for a in atomic_exprs}
-    atomic_exprs = tuple(atomic_exprs.values())
+    # Make sure that we only pick one between 'dx1(dx2(u))' and 'dx2(dx1(u))'
+    new_atoms = {SymbolicExpr(a).name : a for a in new_atoms}
+    new_atoms = tuple(new_atoms.values())
 
-    for atom in atomic_exprs:
+    # Create a list of statements for initialization of the point values,
+    # for each of the atoms in our (possibly new) list.
+    inits = []
+    for atom in new_atoms:
+
+        # Extract field, compute name of coefficient variable, and get base
         if is_scalar_field(atom):
             field      = atom.atoms(ScalarField).pop()
             field_name = 'coeff_' + SymbolicExpr(field).name
             base       = field
-
         elif is_vector_field(atom):
             field      = atom.atoms(IndexedVectorField).pop()
             field_name = 'coeff_' + SymbolicExpr(field).name
             base       = field.base
-
         else:
             raise TypeError('atom must be either scalar or vector field')
 
-        # ...
+        # Obtain variable for storing point values of test function
         test_fun = SymbolicExpr(atom.subs(base, test_function))
-        # ...
 
-        # ...
-        # TODO: verify if 'get_index_logical_derivatives' should be used instead
-        orders = [*get_index_derivatives(atom).values()]
+        # ...
+        orders = [*get_index(atom).values()]
         args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
         inits += [Assign(test_fun, Mul(*args))]
         # ...
@@ -350,7 +371,7 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
         updates += [AugAssign(val,'+',Mul(*args))]
         # ...
 
-    return inits, updates, map_stmts, atomic_exprs
+    return inits, updates, map_stmts, new_atoms
 
 #==============================================================================
 # TODO: merge into 'compute_atoms_expr_field'
