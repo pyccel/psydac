@@ -430,10 +430,12 @@ class GltKernel(SplBasic):
                 symbol = symbol[indices]
 
                 if isinstance(expr, (Matrix, ImmutableDenseMatrix)):
-                    body += [Assign(symbol, expr[i_row,i_col])]
+                    rhs   = SymbolicExpr(expr[i_row,i_col])
+                    body += [Assign(symbol, rhs)]
 
                 else:
-                    body += [Assign(symbol, expr)]
+                    rhs   = SymbolicExpr(expr)
+                    body += [Assign(symbol, rhs)]
 
         for i in range(dim-1,-1,-1):
             x = indices[i]

@@ -678,7 +678,7 @@ class Kernel(SplBasic):
 
         fields_coeffs = variables(['coeff_{}'.format(f) for f in field_atoms],
                                           dtype='real', rank=dim, cls=IndexedVariable)
-        fields_val    = variables(['{}_values'.format(f) for f in fields_str],
+        fields_val    = variables(['{}_values'.format(f) for f in fields_logical_str],
                                           dtype='real', rank=dim, cls=IndexedVariable)
         fields_tmp_coeffs = variables(['tmp_coeff_{}'.format(f) for f in field_atoms],
                                               dtype='real', rank=dim, cls=IndexedVariable)
@@ -923,7 +923,7 @@ class Kernel(SplBasic):
 
             for i in range(start, end):
                 if not( i in zero_terms ):
-                    e = Mul(expr[i],wvol)
+                    e = SymbolicExpr(Mul(expr[i],wvol))
 
                     body.append(AugAssign(v[i],'+', e))
             # ...

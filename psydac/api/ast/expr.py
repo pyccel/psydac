@@ -340,10 +340,12 @@ class ExprKernel(SplBasic):
                 val = val[indices]
 
                 if isinstance(expr, (Matrix, ImmutableDenseMatrix)):
-                    body += [Assign(val, expr[i_row,i_col])]
+                    rhs   = SymbolicExpr(expr[i_row,i_col])
+                    body += [Assign(val, rhs)]
 
                 else:
-                    body += [Assign(val, expr)]
+                    rhs   = SymbolicExpr(expr)
+                    body += [Assign(val, rhs)]
 
         for i in range(dim-1,-1,-1):
             x = indices[i]

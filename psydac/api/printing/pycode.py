@@ -56,45 +56,6 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
         code = '\n'.join(self._print(i) for i in expr.imports)
 
         return code +'\n' + self._print(expr.func)
-    # .........................................................
-
-    # .........................................................
-    #         SYMPDE objects
-    # .........................................................
-    def _print_dx(self, expr):
-        arg = expr.args[0]
-        if isinstance(arg, _partial_derivatives):
-            arg = SymbolicExpr(arg).name
-        else:
-            arg = self._print(arg) + '_'
-        return arg + 'x'
-
-    def _print_dy(self, expr):
-        arg = expr.args[0]
-        if isinstance(arg, _partial_derivatives):
-            arg = SymbolicExpr(arg).name
-        else:
-            arg = self._print(arg) + '_'
-        return arg + 'y'
-
-    def _print_dz(self, expr):
-        arg = expr.args[0]
-        if isinstance(arg, _partial_derivatives):
-            arg = SymbolicExpr(arg).name
-        else:
-            arg = self._print(arg) + '_'
-        return arg + 'z'
-
-    def _print_IndexedTestTrial(self, expr):
-        base = self._print(expr.base)
-        index = self._print(expr.indices[0])
-        return  '{base}_{i}'.format(base=base, i=index)
-
-    def _print_IndexedVectorField(self, expr):
-        base = self._print(expr.base)
-        index = self._print(expr.indices[0])
-        return  '{base}_{i}'.format(base=base, i=index)
-    # .........................................................
 
     # .........................................................
     #        SYMPY objects
@@ -106,7 +67,6 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
         args = ','.join(self._print(i) for i in expr.args)
         fname = self._print(expr.func.__name__)
         return '{fname}({args})'.format(fname=fname, args=args)
-    # .........................................................
 
 #==============================================================================
 def pycode(expr, **settings):
