@@ -1,15 +1,19 @@
 # -*- coding: UTF-8 -*-
 #! /usr/bin/python
 
-import sys
-import os
+from pathlib    import Path
 from setuptools import find_packages
 from numpy.distutils.core import setup
 from numpy.distutils.core import Extension
-import psydac
+
+# ...
+# Read library version into '__version__' variable
+path = Path(__file__).parent / 'psydac' / 'version.py'
+exec(path.read_text())
+# ...
 
 NAME    = 'psydac'
-VERSION = psydac.__version__
+VERSION = __version__
 AUTHOR  = 'Ahmed Ratnani, Jalal Lakhlili, Yaman Güçlü'
 EMAIL   = 'ratnaniahmed@gmail.com'
 URL     = 'http://www.ahmed.ratnani.org'
