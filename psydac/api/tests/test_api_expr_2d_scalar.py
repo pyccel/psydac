@@ -69,6 +69,6 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
 ###############################################################################
 
 #==============================================================================
-def test_api_glt_poisson_2d_dir_1():
+def test_api_expr_2d_1():
     run_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])
 

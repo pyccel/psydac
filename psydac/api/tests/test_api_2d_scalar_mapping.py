@@ -264,6 +264,72 @@ def run_laplace_2d_neu(filename, solution, f, comm=None):
 
     return l2_error, h1_error
 
+#==============================================================================
+def run_biharmonic_2d_dir(filename, solution, f, comm=None):
+
+    # ... abstract model
+    domain = Domain.from_file(filename)
+
+    V = ScalarFunctionSpace('V', domain)
+
+    F = element_of(V, name='F')
+
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
+
+    int_0 = lambda expr: integral(domain , expr)
+
+    expr = laplace(v) * laplace(u)
+    a = BilinearForm((v,u),int_0(expr))
+
+    expr = f*v
+    l = LinearForm(v, int_0(expr))
+
+    error = F - solution
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
+    h2norm = Norm(error, domain, kind='h2')
+
+    nn = NormalVector('nn')
+    bc  = [EssentialBC(u, 0, domain.boundary)]
+    bc += [EssentialBC(dot(grad(u), nn), 0, domain.boundary)]
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
+    # ...
+
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, filename=filename, comm=comm)
+    # ...
+
+    # ... discrete spaces
+    Vh = discretize(V, domain_h)
+    # ...
+
+    # ... dsicretize the equation using Dirichlet bc
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
+    # ...
+
+    # ... discretize norms
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
+    h2norm_h = discretize(h2norm, domain_h, Vh)
+    # ...
+
+    # ... solve the discrete equation
+    x = equation_h.solve()
+    # ...
+
+    # ...
+    phi = FemField( Vh, x )
+    # ...
+
+    # ... compute norms
+    l2_error = l2norm_h.assemble(F=phi)
+    h1_error = h1norm_h.assemble(F=phi)
+    h2_error = h2norm_h.assemble(F=phi)
+    # ...
+
+    return l2_error, h1_error, h2_error
+
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
@@ -520,6 +586,27 @@ def test_api_laplace_2d_neu_identity():
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#==============================================================================
+def test_api_biharmonic_2d_dir_identity():
+    filename = os.path.join(mesh_dir, 'quart_circle.h5')
+
+    from sympy.abc import x,y
+
+    solution = (sin(pi*x)*sin(pi*y))**2
+    f        = laplace(laplace(solution))
+
+    l2_error, h1_error, h2_error = run_biharmonic_2d_dir(filename, solution, f)
+
+    expected_l2_error = 0.3092792236008727
+    expected_h1_error = 1.3320441589030887
+    expected_h2_error = 6.826223014197719
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    assert( abs(h2_error - expected_h2_error) < 1.e-7)
+
+# TODO: add biharmonic on Collela and quart_circle mappings
 
 ##==============================================================================
 ## TODO DEBUG, not working since merge with devel

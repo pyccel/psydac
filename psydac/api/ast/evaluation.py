@@ -1,77 +1,29 @@
-# TODO: - replace call to print_expression by SymbolicExpr (may need to use LogicalExpr)
-
 from collections import OrderedDict
-from itertools import groupby
-import numpy as np
 
-from sympy import Basic
-from sympy import symbols, Symbol, IndexedBase, Indexed, Function
-from sympy import Mul, Add, Tuple, Min, Max, Pow
-from sympy import Matrix, ImmutableDenseMatrix
-from sympy import sqrt as sympy_sqrt
-from sympy import S as sympy_S
-from sympy import Integer, Float
-from sympy.core.relational    import Le, Ge
-from sympy.logic.boolalg      import And
-from sympy import Mod, Abs
-from sympy.core.function import AppliedUndef
+from sympy import symbols
+from sympy import Tuple, Pow
 
-from pyccel.ast.core import Variable, IndexedVariable
-from pyccel.ast.core import For
-from pyccel.ast.core import Assign
-from pyccel.ast.core import AugAssign
-from pyccel.ast.core import Slice
-from pyccel.ast.core import Range, Product
-from pyccel.ast.core import FunctionDef
-from pyccel.ast.core import FunctionCall
-from pyccel.ast.core import Import
-from pyccel.ast import Zeros
-from pyccel.ast import Import
-from pyccel.ast import DottedName
-from pyccel.ast import Nil
-from pyccel.ast import Len
-from pyccel.ast import If, Is, Return
-from pyccel.ast import String, Print, Shape
-from pyccel.ast import Comment, NewLine
-from pyccel.ast.core      import _atomic
+from sympde.topology             import Mapping
+from sympde.topology             import ScalarField
+from sympde.topology             import VectorField
+from sympde.topology             import SymbolicExpr
+from sympde.topology.space       import ScalarTestFunction
+from sympde.topology.derivatives import _logical_partial_derivatives
+
+from pyccel.ast.core      import IndexedVariable
+from pyccel.ast.core      import For
+from pyccel.ast.core      import Assign
+from pyccel.ast.core      import Slice
+from pyccel.ast.core      import Range
+from pyccel.ast.core      import FunctionDef
 from pyccel.ast.utilities import build_types_decorator
 
-
-from sympde.core import Cross_3d
-from sympde.core import Constant
-from sympde.calculus import grad
-from sympde.topology import Mapping
-from sympde.topology import ScalarField
-from sympde.topology import VectorField, IndexedVectorField
-from sympde.topology import Boundary, BoundaryVector, NormalVector, TangentVector
-from sympde.topology import Covariant, Contravariant
-from sympde.topology import ElementArea
-from sympde.topology import LogicalExpr
-from sympde.topology import SymbolicExpr
-from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_max_partial_derivatives
-from sympde.topology.space import ScalarFunctionSpace
-from sympde.topology.space import ScalarTestFunction
-from sympde.topology.space import VectorTestFunction
-from sympde.topology.space import IndexedTestTrial
-from sympde.topology.space import Trace
-from sympde.topology.derivatives import print_expression
-from sympde.topology.derivatives import get_atom_derivatives
-from sympde.topology.derivatives import get_index_derivatives
-from sympde.expr import BilinearForm, LinearForm, Functional, BasicForm
-
-from psydac.fem.splines import SplineSpace
-from psydac.fem.tensor  import TensorFemSpace
-from psydac.fem.vector  import ProductFemSpace
-
-from .basic import SplBasic
+from .basic     import SplBasic
 from .utilities import build_pythran_types_header, variables
 from .utilities import filter_loops, filter_product
 from .utilities import rationalize_eval_mapping
 from .utilities import compute_atoms_expr_mapping
 from .utilities import compute_atoms_expr_field
-
 
 #==============================================================================
 class EvalQuadratureMapping(SplBasic):
@@ -100,7 +52,7 @@ class EvalQuadratureMapping(SplBasic):
         # ...
 
         # ...
-        ops = _partial_derivatives[:dim]
+        ops = _logical_partial_derivatives[:dim]
         M = mapping
 
         components = [M[i] for i in range(0, dim)]
@@ -196,10 +148,8 @@ class EvalQuadratureMapping(SplBasic):
         space = self.space
         dim = space.ldim
 
-        _print = lambda i: print_expression(i, mapping_name=False)
-        mapping_atoms = [_print(f) for f in self.components]
-        mapping_str = [_print(f) for f in self.elements]
-#        mapping_str = sorted([_print(f) for f in self.elements])
+        mapping_atoms = [SymbolicExpr(f).name for f in self.components]
+        mapping_str   = [SymbolicExpr(f).name for f in self.elements  ]
 
         # ... declarations
         degrees        = variables( 'p1:%s'%(dim+1), 'int')
@@ -229,7 +179,7 @@ class EvalQuadratureMapping(SplBasic):
 
             # ...
             nderiv = self.nderiv
-            ops = _partial_derivatives[:dim]
+            ops = _logical_partial_derivatives[:dim]
 
             if nderiv > 0:
                 weights_elements += [d(weights_pts) for d in ops]
@@ -242,7 +192,7 @@ class EvalQuadratureMapping(SplBasic):
                 raise NotImplementedError('TODO')
             # ...
 
-            mapping_weights_str = [_print(f) for f in weights_elements]
+            mapping_weights_str = [SymbolicExpr(f).name for f in weights_elements]
             mapping_wvalues = variables(['{}_values'.format(f) for f in mapping_weights_str],
                                                 dtype='real', rank=dim, cls=IndexedVariable)
 
@@ -267,11 +217,12 @@ class EvalQuadratureMapping(SplBasic):
         # ...
 
         # ...
-        Nj = ScalarTestFunction(space, name='Nj')
-        body = []
-        init_basis = OrderedDict()
-        updates = []
+        Nj           = ScalarTestFunction(space, name='Nj')
+        body         = []
+        init_basis   = OrderedDict()
+        updates      = []
         atomic_exprs = self.elements + weights_elements
+
         inits, updates = compute_atoms_expr_mapping(atomic_exprs, indices_quad,
                                                     indices_basis, basis, Nj)
 
@@ -356,7 +307,6 @@ class EvalQuadratureField(SplBasic):
         obj._backend = backend
         obj._func = obj._initialize()
 
-
         return obj
 
     @property
@@ -431,8 +381,8 @@ class EvalQuadratureField(SplBasic):
 
         self._fields = Tuple(*fields)
 
-        fields_str    = [print_expression(f) for f in self._fields]
-        fields_val    = variables(['{}_values'.format(f) for f in fields_str],
+        fields_str = [SymbolicExpr(f).name for f in self._fields]
+        fields_val = variables(['{}_values'.format(f) for f in fields_str],
                                   dtype='real', rank=dim, cls=IndexedVariable)
 
 
@@ -539,7 +489,7 @@ class EvalQuadratureVectorField(SplBasic):
         indices_quad  = variables('g1:%s'%(dim+1),  'int')
         basis         = variables('basis1:%s'%(dim+1),
                                   dtype='real', rank=3, cls=IndexedVariable)
-        coeffs = ['coeff_{}'.format(print_expression(f)) for f in vector_field_atoms]
+        coeffs = ['coeff_{}'.format(SymbolicExpr(f).name) for f in vector_field_atoms]
         vector_fields_coeffs = variables(coeffs, dtype='real', rank=dim, cls=IndexedVariable)
         # ...
 
@@ -568,7 +518,7 @@ class EvalQuadratureVectorField(SplBasic):
             init_map[str(stmt.lhs)] = stmt
 
         self._vector_fields = Tuple(*vector_fields)
-        vector_fields_str   =  [print_expression(f) for f in self.vector_fields]
+        vector_fields_str   = [SymbolicExpr(f).name for f in self.vector_fields]
         vector_fields_val   = variables(['{}_values'.format(f) for f in vector_fields_str],
                                           dtype='real', rank=dim, cls=IndexedVariable)
 
@@ -626,6 +576,7 @@ def _create_loop(indices, ranges, body):
     return body
 
 #==============================================================================
+# NOTE: this is used in module 'psydac.api.ast.glt'
 class EvalArrayField(SplBasic):
 
     def __new__(cls, space, fields, discrete_boundary=None, name=None,
@@ -644,7 +595,6 @@ class EvalArrayField(SplBasic):
         obj._boundary_basis = boundary_basis
         obj._backend = backend
         obj._func = obj._initialize()
-
 
         return obj
 
@@ -680,7 +630,7 @@ class EvalArrayField(SplBasic):
         mapping = self.mapping
 
         field_atoms = self.fields.atoms(ScalarField)
-        fields_str = sorted([print_expression(f) for f in self.fields])
+        fields_str = sorted([SymbolicExpr(f).name for f in self.fields])
 
         # ... declarations
         degrees        = variables( 'p1:%s'%(dim+1), 'int')
@@ -771,6 +721,7 @@ class EvalArrayField(SplBasic):
 
 
 #==============================================================================
+# NOTE: this is used in module 'psydac.api.ast.glt'
 class EvalArrayMapping(SplBasic):
 
     def __new__(cls, space, mapping, name=None,
@@ -795,7 +746,7 @@ class EvalArrayMapping(SplBasic):
         # ...
 
         # ...
-        ops = _partial_derivatives[:dim]
+        ops = _logical_partial_derivatives[:dim]
         M = mapping
 
         components = [M[i] for i in range(0, dim)]
@@ -880,10 +831,8 @@ class EvalArrayMapping(SplBasic):
         space = self.space
         dim = space.ldim
 
-        _print = lambda i: print_expression(i, mapping_name=False)
-        mapping_atoms = [_print(f) for f in self.components]
-        mapping_str = [_print(f) for f in self.elements]
-#        mapping_str = sorted([_print(f) for f in self.elements])
+        mapping_atoms = [SymbolicExpr(f).name for f in self.components]
+        mapping_str   = [SymbolicExpr(f).name for f in self.elements  ]
 
         # ... declarations
         degrees        = variables( 'p1:%s'%(dim+1), 'int')
@@ -917,7 +866,7 @@ class EvalArrayMapping(SplBasic):
 
             # ...
             nderiv = self.nderiv
-            ops = _partial_derivatives[:dim]
+            ops = _logical_partial_derivatives[:dim]
 
             if nderiv > 0:
                 weights_elements += [d(weights_pts) for d in ops]
@@ -930,7 +879,7 @@ class EvalArrayMapping(SplBasic):
                 raise NotImplementedError('TODO')
             # ...
 
-            mapping_weights_str = [_print(f) for f in weights_elements]
+            mapping_weights_str = [SymbolicExpr(f).name for f in weights_elements]
             mapping_wvalues = variables(['{}_values'.format(f) for f in mapping_weights_str],
                                                 dtype='real', rank=dim, cls=IndexedVariable)
 
@@ -983,8 +932,8 @@ class EvalArrayMapping(SplBasic):
         assign_spans = []
         for x, i_span, span in zip(indices_quad, i_spans, spans):
             assign_spans += [Assign(i_span, span[x])]
-
         body = assign_spans + body
+
         # put the body in for loops of quadrature points
         body = _create_loop(indices_quad, ranges_quad, body)
 
