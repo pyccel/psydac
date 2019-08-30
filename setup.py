@@ -47,7 +47,6 @@ install_requires = [
     'scipy>=0.18',
     'sympy>=1.2',
     'matplotlib',
-    'mpi4py',
     'pytest',
     'pyyaml',
     'yamlloader',
@@ -56,6 +55,14 @@ install_requires = [
     'sympde',
     'pyccel',
     'gelato',
+
+    # In addition, we depend on mpi4py and h5py (MPI version).
+    # Since h5py must be built from source, we run the commands
+    #
+    # python3 -m pip install requirements.txt
+    # python3 -m pip install .
+    'mpi4py',
+    'h5py',
 ]
 
 dependency_links = []
