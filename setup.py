@@ -36,12 +36,29 @@ packages = find_packages()
 # ...
 
 # ...
-install_requires = ['numpy', 'scipy']
+install_requires = [
+
+    # Third-party packages from PyPi
+    'numpy>=1.13',
+    'scipy>=0.18',
+    'sympy>=1.2',
+    'matplotlib',
+    'mpi4py',
+    'pytest',
+    'pyyaml',
+    'yamlloader',
+
+    # Our packages from PyPi
+    'sympde',
+    'pyccel',
+    'gelato',
+]
+
 dependency_links = []
 # ...
 
 
-# ... bspline extension
+# ... bspline extension (TODO: remove Fortran files from library)
 bsp_ext = Extension(name    = 'psydac.core.bsp',
                         sources = ['psydac/core/external/bspline.F90',
                                    'psydac/core/external/pppack.F90',
