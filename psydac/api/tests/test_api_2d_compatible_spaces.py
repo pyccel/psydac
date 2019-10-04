@@ -83,7 +83,7 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     # ...
     ah.assemble()
-    M   = ah.linear_system.lhs.tosparse()
+    M   = ah.linear_system.lhs.tosparse().tocsc()
     rhs = ah.linear_system.rhs.toarray()
     x   = spsolve(M, rhs)
     # ...
@@ -194,6 +194,13 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
 #            SERIAL TESTS
 ###############################################################################
 
+def test_api_system_1_2d_dir_1():
+    from sympy.abc import x,y
+
+    f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
+    u  = sin(2*pi*x)*sin(2*pi*y)
+    x = run_system_1_2d_dir(f0,u, ncells=[10,10], degree=[2,2])
+
 #==============================================================================
 def test_api_system_2_2d_dir_1():
     from sympy.abc import x,y
@@ -206,11 +213,3 @@ def test_api_system_2_2d_dir_1():
     p  = sin(2*pi*x) - sin(2*pi*y)
     
     x = run_system_2_2d_dir(f1, f2, u1, u2, ncells=[2**3,2**3], degree=[2,2])
-            
-def test_api_system_1_2d_dir_1():
-    from sympy.abc import x,y
-
-    f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
-    u  = sin(2*pi*x)*sin(2*pi*y)
-    x = run_system_1_2d_dir(f0,u, ncells=[10,10], degree=[2,2])
-
