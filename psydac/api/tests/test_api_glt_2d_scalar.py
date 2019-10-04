@@ -72,7 +72,7 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     # ...
 
     # ... use eigenvalue solver
-    M = ah.assemble().tosparse().todense()
+    M = ah.assemble().toarray()
     w, v = eig_solver(M)
     eig = w.real
     eig.sort()
@@ -193,7 +193,7 @@ def run_variable_coeff_2d_dir(ncells, degree, comm=None):
     # ...
 
     # ... use eigenvalue solver
-    M = ah.assemble(c=0.2).tosparse().todense()
+    M = ah.assemble(c=0.2).toarray()
     w, v = eig_solver(M)
     eig = w.real
     eig.sort()

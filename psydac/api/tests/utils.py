@@ -20,7 +20,7 @@ def assert_identical_coo(A, B):
         assert(allclose(A.col,  B.col))
         assert(allclose(A.data, B.data))
 
-#        assert(allclose(A.todense(), B.todense()))
+#        assert(allclose(A.toarray(), B.toarray()))
 
     else:
         raise TypeError('Wrong types for entries')

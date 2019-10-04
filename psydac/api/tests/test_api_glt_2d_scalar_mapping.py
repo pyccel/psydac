@@ -91,7 +91,7 @@ def run_poisson_2d_dir(filename, comm=None):
     # ...
 
     # ... use eigenvalue solver
-    M = ah.assemble().tosparse().todense()
+    M = ah.assemble().toarray()
     w, v = eig_solver(M)
     eig = w.real
     eig.sort()
