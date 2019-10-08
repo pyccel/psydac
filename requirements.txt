@@ -11,4 +11,4 @@ h5py
 --no-binary h5py
 
 # Igakit (TODO: remove library dependency)
-https://bitbucket.org/dalcinl/igakit/get/default.tar.gz
+https://bitbucket.org/dalcinl/igakit/get/master.tar.gz
