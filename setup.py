@@ -43,7 +43,7 @@ packages = find_packages()
 install_requires = [
 
     # Third-party packages from PyPi
-    'numpy>=1.13',
+    'numpy>=1.16',
     'scipy>=0.18',
     'sympy>=1.2',
     'matplotlib',
