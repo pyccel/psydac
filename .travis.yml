@@ -33,6 +33,7 @@ before_install:
 # command to install project
 install:
   - python -m pip install .
+  - python -m pip freeze
 
 before_script:
   - mkdir pytest
