@@ -1,32 +1,17 @@
 # -*- coding: UTF-8 -*-
 
-from sympy import Tuple, Matrix
-from sympy import pi, cos, sin
+import numpy as np
+from scipy.linalg import eig as eig_solver
 
-from sympde.core import Constant
-from sympde.calculus import grad, dot, inner, cross, rot, curl, div
-from sympde.calculus import laplace, hessian
-from sympde.topology import (dx, dy, dz)
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
+from sympde.calculus import grad, inner
+from sympde.topology import VectorFunctionSpace
 from sympde.topology import element_of
-from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Domain, Line, Square, Cube
-from sympde.topology import Trace, trace_0, trace_1
-from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
-from sympde.expr import find, EssentialBC
+from sympde.topology import Square
+from sympde.expr     import BilinearForm, integral
 
 from gelato.expr import GltExpr
 
-from psydac.fem.vector  import VectorFemField
 from psydac.api.discretization import discretize
-
-import numpy as np
-from scipy.linalg import eig as eig_solver
-from mpi4py import MPI
-import pytest
 
 #==============================================================================
 def run_vector_poisson_2d_dir(ncells, degree):

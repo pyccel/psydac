@@ -1,42 +1,18 @@
 # -*- coding: UTF-8 -*-
 
-from sympy import pi, cos, sin
-from sympy import S
-from sympy import Tuple
-from sympy import Matrix
+import os
+import numpy as np
+from scipy.linalg import eig as eig_solver
 
-from sympde.core import Constant
-from sympde.calculus import grad, dot, inner, cross, rot, curl, div
-from sympde.calculus import laplace, hessian
-from sympde.topology import (dx, dy, dz)
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
+from sympde.calculus import grad, dot
+from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
-from sympde.topology import Unknown
-from sympde.topology import InteriorDomain, Union
-from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Domain, Line, Square, Cube
-from sympde.topology import Trace, trace_0, trace_1
-from sympde.topology import Union
-from sympde.topology import Mapping
-from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
-from sympde.expr import find, EssentialBC
+from sympde.topology import Domain
+from sympde.expr     import BilinearForm, integral
 
 from gelato.expr import GltExpr
 
-from psydac.fem.basic   import FemField
-from psydac.fem.vector  import ProductFemSpace, VectorFemField
 from psydac.api.discretization import discretize
-
-from psydac.mapping.discrete import SplineMapping
-
-import numpy as np
-from scipy.linalg import eig as eig_solver
-from mpi4py import MPI
-import pytest
-
-import os
 
 # ... get the mesh directory
 try:

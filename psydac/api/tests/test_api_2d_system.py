@@ -1,30 +1,22 @@
 # -*- coding: UTF-8 -*-
 
+from mpi4py import MPI
 from sympy import pi, cos, sin, Tuple, Matrix
+import numpy as np
+import pytest
 
-from sympde.core import Constant
-from sympde.calculus import grad, dot, inner, cross, rot, curl, div
-from sympde.calculus import laplace, hessian
-from sympde.topology import (dx, dy, dz)
+from sympde.calculus import grad, dot, inner
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import element_of
-from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Domain, Line, Square, Cube
-from sympde.topology import Trace, trace_0, trace_1
-from sympde.topology import Union
+from sympde.topology import Square
 from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
-from psydac.fem.basic   import FemField
-from psydac.fem.vector   import VectorFemField
+from psydac.fem.basic          import FemField
+from psydac.fem.vector         import VectorFemField
 from psydac.api.discretization import discretize
-
-from numpy import linspace, zeros, allclose
-import numpy as np
-from mpi4py import MPI
-import pytest
 
 #==============================================================================
 

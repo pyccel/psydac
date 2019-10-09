@@ -1,43 +1,24 @@
 # -*- coding: UTF-8 -*-
 
-from sympy import Tuple, Matrix
-
-from sympde.core import Constant
-from sympde.calculus import grad, dot, inner, cross, rot, curl, div
-from sympde.calculus import laplace, hessian
-from sympde.topology import (dx, dy, dz)
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
-from sympde.topology import ScalarField, VectorField
-from sympde.topology import ProductSpace
-from sympde.topology import ScalarTestFunction
-from sympde.topology import VectorTestFunction
-from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Domain, Line, Square, Cube
-from sympde.topology import Trace, trace_0, trace_1
-from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm, TerminalExpr
-from sympde.expr import find, EssentialBC
-
-
-from psydac.fem.basic   import FemField
-from psydac.fem.vector  import VectorFemField
-from psydac.api.discretization import discretize
-from psydac.fem.vector         import ProductFemSpace
-from psydac.feec.utilities     import Interpolation, interpolation_matrices
-from psydac.feec.derivatives         import Grad, Curl, Div
-from numpy import linspace, zeros, allclose
-import numpy as np
 from mpi4py import MPI
-import pytest
-
-from scipy.sparse.linalg import cg, gmres
 from scipy.sparse.linalg import spsolve
-from scipy import linalg
+import numpy as np
+#import matplotlib.pyplot as plt
+#from mpl_toolkits.mplot3d import Axes3D
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import animation
+from sympde.calculus import dot, div
+from sympde.topology import Derham
+from sympde.topology import ScalarField
+from sympde.topology import ProductSpace
+from sympde.topology import ScalarTestFunction, VectorTestFunction
+from sympde.topology import Square
+from sympde.expr     import BilinearForm, LinearForm, integral
+from sympde.expr     import Norm
+from sympde.expr     import find
+
+from psydac.fem.basic          import FemField
+from psydac.api.discretization import discretize
+
 #==============================================================================
 
 def run_system_1_2d_dir(f0, sol, ncells, degree):
