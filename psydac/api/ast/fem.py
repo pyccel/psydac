@@ -39,6 +39,7 @@ from sympde.topology.space       import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology.space       import ProductSpace
 from sympde.topology.space       import ScalarTestFunction
 from sympde.topology.space       import VectorTestFunction
+from sympde.topology.space       import element_of
 from sympde.topology.space       import IndexedTestTrial
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
@@ -617,13 +618,11 @@ class Kernel(SplBasic):
         if is_bilinear or is_linear:
             test_function = self.weak_form.test_functions
             if not isinstance(test_function, (tuple, Tuple)):
-                test_function = [test_function]
-                test_function = Tuple(*test_function)
+                test_function = Tuple(test_function)
 
         elif is_function:
-            test_function = ScalarTestFunction(self.weak_form.space, name='Nj')
-            test_function = [test_function]
-            test_function = Tuple(*test_function)
+            test_function = element_of(self.weak_form.space, name='Nj')
+            test_function = Tuple(test_function)
 
         # creation of symbolic vars
         if is_bilinear:

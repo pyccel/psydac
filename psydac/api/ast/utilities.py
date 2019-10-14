@@ -12,6 +12,7 @@ from sympy.utilities.iterables import cartes
 from sympde.topology.space       import ScalarTestFunction
 from sympde.topology.space       import VectorTestFunction
 from sympde.topology.space       import IndexedTestTrial
+from sympde.topology.space       import element_of
 from sympde.topology             import ScalarField
 from sympde.topology             import VectorField, IndexedVectorField
 from sympde.topology             import Mapping
@@ -462,7 +463,7 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
 
     # ... weights and their derivatives
     # TODO check if 'w' exist already
-    weights = ScalarField(space, name='w')
+    weights = element_of(space, name='w')
 
     weights_elements = [weights]
     if nderiv > 0:

@@ -8,9 +8,8 @@ import numpy as np
 
 from sympde.calculus import dot, div
 from sympde.topology import Derham
-from sympde.topology import ScalarField
 from sympde.topology import ProductSpace
-from sympde.topology import ScalarTestFunction, VectorTestFunction
+from sympde.topology import element_of, elements_of
 from sympde.topology import Square
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm
@@ -31,10 +30,10 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     L2     = derham.V2  
     X      = ProductSpace(Hdiv, L2)
 
-    F = ScalarField(L2, name='F')
+    p, q = elements_of(Hdiv, names='p, q')
+    u, v = elements_of(  L2, names='u, v')
 
-    p,q = [VectorTestFunction(Hdiv, name=i) for i in ['p', 'q']]
-    u,v = [ScalarTestFunction(L2, name=i) for i in ['u', 'v']]
+    F = element_of(L2, name='F')
 
     int_0 = lambda expr: integral(domain , expr)
 
