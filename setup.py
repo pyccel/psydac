@@ -2,18 +2,21 @@
 #! /usr/bin/python
 
 from pathlib    import Path
+from importlib  import util
 from setuptools import find_packages
 from numpy.distutils.core import setup
 from numpy.distutils.core import Extension
 
 # ...
-# Read library version into '__version__' variable
+# Load module 'psydac.version' without running file 'psydac.__init__'
 path = Path(__file__).parent / 'psydac' / 'version.py'
-exec(path.read_text())
+spec = util.spec_from_file_location('version', str(path))
+mod  = util.module_from_spec(spec)
+spec.loader.exec_module(mod)
 # ...
 
 NAME    = 'psydac'
-VERSION = __version__
+VERSION = mod.__version__
 AUTHOR  = 'Ahmed Ratnani, Jalal Lakhlili, Yaman Güçlü'
 EMAIL   = 'ratnaniahmed@gmail.com'
 URL     = 'http://www.ahmed.ratnani.org'
