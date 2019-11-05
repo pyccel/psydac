@@ -1,37 +1,21 @@
 # -*- coding: UTF-8 -*-
 
-from sympy import pi, cos, sin, Tuple, Matrix
-
-from sympde.core import Constant
-from sympde.calculus import grad, dot, inner, cross, rot, curl, div
-from sympde.calculus import laplace, hessian
-from sympde.topology import (dx, dy, dz)
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
-from sympde.topology import element_of
-from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Domain, Line, Square, Cube
-from sympde.topology import Trace, trace_0, trace_1
-from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm
-from sympde.expr import integral
-from sympde.expr import Norm, TerminalExpr
-from sympde.expr import find, EssentialBC
-
-
-from psydac.fem.basic   import FemField
-from psydac.fem.vector   import VectorFemField
-from psydac.api.discretization import discretize
-
-from numpy import linspace, zeros, allclose
-from mpi4py import MPI
-import pytest
-
-from scipy.sparse.linalg import cg, gmres
-from scipy import linalg
+from sympy               import pi, sin
 from scipy.sparse.linalg import spsolve
 
-import matplotlib.pyplot as plt
+from sympde.calculus import dot, div
+from sympde.topology import ScalarFunctionSpace
+from sympde.topology import ProductSpace
+from sympde.topology import element_of
+from sympde.topology import Line
+from sympde.expr     import BilinearForm, LinearForm
+from sympde.expr     import integral
+from sympde.expr     import Norm
+from sympde.expr     import find
+
+from psydac.fem.basic          import FemField
+from psydac.api.discretization import discretize
+
 #==============================================================================
 
 def run_system_1_1d_dir(f0, sol, ncells, degree):
@@ -76,7 +60,7 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
 
     ah.assemble()
 
-    M   = ah.linear_system.lhs.tosparse()
+    M   = ah.linear_system.lhs.tosparse().tocsc()
     rhs = ah.linear_system.rhs.toarray()
     sol = spsolve(M, rhs)
 

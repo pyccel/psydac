@@ -7,7 +7,10 @@ from sympde.topology             import Mapping
 from sympde.topology             import ScalarField
 from sympde.topology             import VectorField
 from sympde.topology             import SymbolicExpr
-from sympde.topology.space       import ScalarTestFunction
+from sympde.topology.space       import element_of
+from sympde.topology.space       import ScalarFunctionSpace
+from sympde.topology.space       import VectorFunctionSpace
+from sympde.topology.datatype    import dtype_space_registry
 from sympde.topology.derivatives import _logical_partial_derivatives
 
 from pyccel.ast.core      import IndexedVariable
@@ -34,6 +37,21 @@ class EvalQuadratureMapping(SplBasic):
 
         if not isinstance(mapping, Mapping):
             raise TypeError('> Expecting a Mapping object')
+
+        #.....................................................................
+        # If vector space is of undefined type, we assume that each component
+        # lives in H1; otherwise we raise an error. TODO: improve!
+        if isinstance(space, VectorFunctionSpace):
+            if space.kind == dtype_space_registry['undefined']:
+                space = ScalarFunctionSpace(
+                    name   = space.name,
+                    domain = space.domain,
+                    kind   = 'H1'
+                )
+            else:
+                msg = 'Cannot evaluate vector spaces of kind {}'.format(space.kind)
+                raise NotImplementedError(msg)
+        #.....................................................................
 
         obj = SplBasic.__new__(cls, mapping, name=name,
                                prefix='eval_mapping', mapping=mapping,
@@ -173,7 +191,7 @@ class EvalQuadratureMapping(SplBasic):
         weights_elements = []
         if self.is_rational_mapping:
             # TODO check if 'w' exist already
-            weights_pts = ScalarField(self.space, name='w')
+            weights_pts = element_of(self.space, name='w')
 
             weights_elements = [weights_pts]
 
@@ -217,7 +235,7 @@ class EvalQuadratureMapping(SplBasic):
         # ...
 
         # ...
-        Nj           = ScalarTestFunction(space, name='Nj')
+        Nj           = element_of(space, name='Nj')
         body         = []
         init_basis   = OrderedDict()
         updates      = []
@@ -364,7 +382,7 @@ class EvalQuadratureField(SplBasic):
         # ...
 
         # ...
-        Nj = ScalarTestFunction(space, name='Nj')
+        Nj = element_of(space, name='Nj')
         body = []
         init_basis = OrderedDict()
         init_map   = OrderedDict()
@@ -503,7 +521,7 @@ class EvalQuadratureVectorField(SplBasic):
         # ...
 
         # ...
-        Nj = VectorField(space, name='Nj')
+        Nj = VectorField(space, name='Nj')  # TODO: use 'element_of'
         body = []
         init_basis = OrderedDict()
         init_map   = OrderedDict()
@@ -666,7 +684,7 @@ class EvalArrayField(SplBasic):
         # ...
 
         # ...
-        Nj = ScalarTestFunction(space, name='Nj')
+        Nj = element_of(space, name='Nj')
         init_basis = OrderedDict()
         init_map   = OrderedDict()
 
@@ -860,7 +878,7 @@ class EvalArrayMapping(SplBasic):
         weights_elements = []
         if self.is_rational_mapping:
             # TODO check if 'w' exist already
-            weights_pts = ScalarField(self.space, name='w')
+            weights_pts = element_of(self.space, name='w')
 
             weights_elements = [weights_pts]
 
@@ -905,7 +923,7 @@ class EvalArrayMapping(SplBasic):
         # ...
 
         # ...
-        Nj             = ScalarTestFunction(space, name='Nj')
+        Nj             = element_of(space, name='Nj')
         body           = []
         init_basis     = OrderedDict()
         atomic_exprs   = self.elements + weights_elements

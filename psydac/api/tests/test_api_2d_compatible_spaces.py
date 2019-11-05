@@ -1,39 +1,23 @@
 # -*- coding: UTF-8 -*-
 
-from sympy import pi, cos, sin, Tuple, Matrix
+import numpy as np
+from sympy import pi, cos, sin, Matrix
+from scipy import linalg
+from scipy.sparse.linalg import spsolve
 
-from sympde.core import Constant
-from sympde.calculus import grad, dot, inner, cross, rot, curl, div
-from sympde.calculus import laplace, hessian
-from sympde.topology import (dx, dy, dz)
+from sympde.calculus import grad, dot, inner, div
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import element_of
-from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Domain, Line, Square, Cube
-from sympde.topology import Trace, trace_0, trace_1
-from sympde.topology import Union
+from sympde.topology import Square
 from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm, TerminalExpr
+from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
-
-from psydac.fem.basic   import FemField
-from psydac.fem.vector  import VectorFemField
+from psydac.fem.basic          import FemField
+from psydac.fem.vector         import VectorFemField
 from psydac.api.discretization import discretize
 
-from numpy import linspace, zeros, allclose
-import numpy as np
-from mpi4py import MPI
-import pytest
-
-from scipy.sparse.linalg import cg, gmres
-from scipy.sparse.linalg import spsolve
-from scipy import linalg
-
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import animation
 #==============================================================================
 
 def run_system_1_2d_dir(f0, sol, ncells, degree):
@@ -83,7 +67,7 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     # ...
     ah.assemble()
-    M   = ah.linear_system.lhs.tosparse()
+    M   = ah.linear_system.lhs.tosparse().tocsc()
     rhs = ah.linear_system.rhs.toarray()
     x   = spsolve(M, rhs)
     # ...
@@ -194,19 +178,6 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
 #            SERIAL TESTS
 ###############################################################################
 
-#==============================================================================
-def test_api_system_2_2d_dir_1():
-    from sympy.abc import x,y
-    from sympy import cos
-    
-    f1 = -x**2*(x - 1)**2*(24*y - 12) - 4*y*(x**2 + 4*x*(x - 1) + (x - 1)**2)*(2*y**2 - 3*y + 1) - 2*pi*cos(2*pi*x)
-    f2 = 4*x*(2*x**2 - 3*x + 1)*(y**2 + 4*y*(y - 1) + (y - 1)**2) + y**2*(24*x - 12)*(y - 1)**2 + 2*pi*cos(2*pi*y)
-    u1 = x**2*(-x + 1)**2*(4*y**3 - 6*y**2 + 2*y)
-    u2 =-y**2*(-y + 1)**2*(4*x**3 - 6*x**2 + 2*x)
-    p  = sin(2*pi*x) - sin(2*pi*y)
-    
-    x = run_system_2_2d_dir(f1, f2, u1, u2, ncells=[2**3,2**3], degree=[2,2])
-            
 def test_api_system_1_2d_dir_1():
     from sympy.abc import x,y
 
@@ -214,3 +185,14 @@ def test_api_system_1_2d_dir_1():
     u  = sin(2*pi*x)*sin(2*pi*y)
     x = run_system_1_2d_dir(f0,u, ncells=[10,10], degree=[2,2])
 
+#==============================================================================
+def test_api_system_2_2d_dir_1():
+    from sympy.abc import x,y
+
+    f1 = -x**2*(x - 1)**2*(24*y - 12) - 4*y*(x**2 + 4*x*(x - 1) + (x - 1)**2)*(2*y**2 - 3*y + 1) - 2*pi*cos(2*pi*x)
+    f2 = 4*x*(2*x**2 - 3*x + 1)*(y**2 + 4*y*(y - 1) + (y - 1)**2) + y**2*(24*x - 12)*(y - 1)**2 + 2*pi*cos(2*pi*y)
+    u1 = x**2*(-x + 1)**2*(4*y**3 - 6*y**2 + 2*y)
+    u2 =-y**2*(-y + 1)**2*(4*x**3 - 6*x**2 + 2*x)
+    p  = sin(2*pi*x) - sin(2*pi*y)
+    
+    x = run_system_2_2d_dir(f1, f2, u1, u2, ncells=[2**3,2**3], degree=[2,2])

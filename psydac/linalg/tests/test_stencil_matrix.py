@@ -621,7 +621,7 @@ def test_stencil_matrix_2d_parallel_transpose( n1, n2, p1, p2, P1, P2, reorder )
     #...
     Ts_exact = Ts_exact.tocsr()
     for i, j in zip(*Ts_exact.nonzero()):
-        i1, i2 = np.unravel_index( i, dims=[n1, n2], order='C' )
+        i1, i2 = np.unravel_index( i, shape=[n1, n2], order='C' )
         if not (s1 <= i1 <= e1 and s2 <= i2 <= e2):
             Ts_exact[i, j] = 0.0
     Ts_exact = Ts_exact.tocoo()
