@@ -50,7 +50,7 @@ API
 
 - add other solvers to the solver_driver (only cg is available now)
 
-- remove psydac/run_tests.sh. however, we need to clear the cache of sympy after 1d, 2d and 3d tests, otherwise pytest will crash.
+- however, we need to clear the cache of sympy after 1d, 2d and 3d tests, otherwise pytest will crash.
 
 - add sympde and pyccel install procedure; maybe wget to download the requierements files as requirements_pyccel.txt etc then call pip3
 

@@ -1,25 +1,23 @@
 # coding: utf-8
 
 # TODO for the moment we assume Product of same space
+# TODO properly treat expression with mapping
 
-import numpy as np
 from itertools import product
+from sympy import Expr
+import numpy as np
+
+from sympde.expr import TerminalExpr
 
 from psydac.api.basic         import BasicCodeGen
 from psydac.api.settings      import PSYDAC_BACKEND_PYTHON, PSYDAC_DEFAULT_FOLDER
 from psydac.api.grid          import CollocationBasisValues
-
 from psydac.api.ast.expr      import ExprKernel, ExprInterface
-
 from psydac.cad.geometry      import Geometry
 from psydac.mapping.discrete  import SplineMapping, NurbsMapping
-
-from psydac.fem.splines import SplineSpace
-from psydac.fem.tensor  import TensorFemSpace
-from psydac.fem.vector  import ProductFemSpace
-
-from sympde.expr        import TerminalExpr
-from sympy              import Expr
+from psydac.fem.splines       import SplineSpace
+from psydac.fem.tensor        import TensorFemSpace
+from psydac.fem.vector        import ProductFemSpace
 
 #==============================================================================
 class DiscreteExpr(BasicCodeGen):

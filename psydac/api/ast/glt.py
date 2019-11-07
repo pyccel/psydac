@@ -1,69 +1,48 @@
-
 from collections import OrderedDict
 from itertools import groupby
-import string
-import random
-import numpy as np
 
-from sympy import Basic
-from sympy import symbols, Symbol, IndexedBase, Indexed, Function
-from sympy import Mul, Add, Tuple
+from sympy import symbols, Symbol, IndexedBase
+from sympy import Tuple
 from sympy import Matrix, ImmutableDenseMatrix
-from sympy import sqrt as sympy_sqrt
-from sympy import S as sympy_S
 from sympy import simplify, expand
 from sympy.core.numbers import ImaginaryUnit
 
-from pyccel.ast.core import Variable, IndexedVariable
+from pyccel.ast.core import IndexedVariable
 from pyccel.ast.core import For
 from pyccel.ast.core import Assign
-from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Slice
 from pyccel.ast.core import Range
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
-from pyccel.ast import Zeros
-from pyccel.ast import Import
-from pyccel.ast import DottedName
-from pyccel.ast import Nil
-from pyccel.ast import Len
-from pyccel.ast import If, Is, Return
-from pyccel.ast import String, Print, Shape
-from pyccel.ast import Comment, NewLine
-from pyccel.ast.core      import _atomic
+from pyccel.ast      import Zeros
+from pyccel.ast      import Import
+from pyccel.ast      import DottedName
+from pyccel.ast      import Nil
+from pyccel.ast      import Len
+from pyccel.ast      import If, Is, Return
+from pyccel.ast.core import _atomic
 
-from sympde.core import Constant
-from sympde.topology import ScalarField, VectorField
-from sympde.topology import IndexedVectorField
-from sympde.topology import Mapping
-from sympde.expr import BilinearForm
+from sympde.topology             import ScalarField, VectorField
+from sympde.topology             import IndexedVectorField
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
-from sympde.topology.derivatives import print_expression
-from sympde.topology.derivatives import get_atom_derivatives
-from sympde.topology.derivatives import get_index_derivatives
-from sympde.topology import LogicalExpr
-from sympde.topology import SymbolicExpr
-from sympde.topology import SymbolicDeterminant
+from sympde.topology             import LogicalExpr
+from sympde.topology             import SymbolicExpr
+from sympde.topology             import SymbolicDeterminant
 
-#from gelato.core import gelatize
-
-from gelato.glt import BasicGlt
 from gelato.expr import gelatize
 
-from .basic import SplBasic
-from .utilities import random_string
-from .utilities import build_pythran_types_header, variables
-from .utilities import is_scalar_field, is_vector_field, is_mapping
-from .utilities import math_atoms_as_str
-#from .evaluation import EvalArrayVectorField
+from .basic      import SplBasic
+from .utilities  import random_string
+from .utilities  import build_pythran_types_header, variables
+from .utilities  import is_scalar_field, is_vector_field, is_mapping
+from .utilities  import math_atoms_as_str
 from .evaluation import EvalArrayMapping, EvalArrayField
 
-from psydac.fem.splines import SplineSpace
-from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
 
+#==============================================================================
 class GltKernel(SplBasic):
 
     def __new__(cls, expr, spaces, name=None, mapping=None, is_rational_mapping=None, backend=None):
@@ -300,10 +279,11 @@ class GltKernel(SplBasic):
         # ...
 
         # ...
-        fields_str    = sorted(tuple(map(print_expression, atomic_expr_field)))
-        fields_logical_str = sorted([print_expression(f, logical=True) for f in
-                                     atomic_expr_field])
-        field_atoms   = tuple(expr.atoms(ScalarField))
+        d_subs = dict(zip(_partial_derivatives, _logical_partial_derivatives))
+        atomic_expr_field_logical = tuple(f.subs(d_subs) for f in atomic_expr_field)
+        fields_str         = tuple(sorted(SymbolicExpr(f).name for f in atomic_expr_field))
+        fields_logical_str = tuple(sorted(SymbolicExpr(f).name for f in atomic_expr_field_logical))
+        field_atoms        = tuple(expr.atoms(ScalarField))
         # ...
 
         # ... create EvalArrayField
@@ -381,7 +361,7 @@ class GltKernel(SplBasic):
 #        vector_fields_logical = symbols(vector_fields_logical_str)
 #
 #        vector_field_atoms = [f[i] for f in vector_field_atoms for i in range(0, dim)]
-#        coeffs = ['coeff_{}'.format(print_expression(f)) for f in vector_field_atoms]
+#        coeffs = ['coeff_{}'.format(SymbolicExpr(f).name) for f in vector_field_atoms]
 #        vector_fields_coeffs = variables(coeffs, dtype='real', rank=dim, cls=IndexedVariable)
 #
 #        vector_fields_val    = variables(['{}_values'.format(f) for f in vector_fields_str],
@@ -389,21 +369,14 @@ class GltKernel(SplBasic):
         # ...
 
         # ...
-        mapping_elements = ()
-        mapping_coeffs = ()
-        mapping_values = ()
         if mapping:
-            _eval = self.eval_mapping
-            _print = lambda i: print_expression(i, mapping_name=False)
-
-            mapping_elements = [_print(i) for i in _eval.elements]
-            mapping_elements = symbols(tuple(mapping_elements))
-
-            mapping_coeffs = [_print(i) for i in _eval.mapping_coeffs]
-            mapping_coeffs = variables(mapping_coeffs, dtype='real', rank=dim, cls=IndexedVariable)
-
-            mapping_values = [_print(i) for i in _eval.mapping_values]
-            mapping_values = variables(mapping_values, dtype='real', rank=dim, cls=IndexedVariable)
+            mapping_elements = [SymbolicExpr(i) for i in self.eval_mapping.elements]
+            mapping_coeffs   = self.eval_mapping.mapping_coeffs
+            mapping_values   = self.eval_mapping.mapping_values
+        else:
+            mapping_elements = ()
+            mapping_coeffs   = ()
+            mapping_values   = ()
         # ...
 
 #        # ...
@@ -457,10 +430,12 @@ class GltKernel(SplBasic):
                 symbol = symbol[indices]
 
                 if isinstance(expr, (Matrix, ImmutableDenseMatrix)):
-                    body += [Assign(symbol, expr[i_row,i_col])]
+                    rhs   = SymbolicExpr(expr[i_row,i_col])
+                    body += [Assign(symbol, rhs)]
 
                 else:
-                    body += [Assign(symbol, expr)]
+                    rhs   = SymbolicExpr(expr)
+                    body += [Assign(symbol, rhs)]
 
         for i in range(dim-1,-1,-1):
             x = indices[i]

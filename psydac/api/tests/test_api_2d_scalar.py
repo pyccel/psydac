@@ -1,33 +1,24 @@
 # -*- coding: UTF-8 -*-
 
+from mpi4py import MPI
 from sympy import pi, cos, sin
 from sympy.utilities.lambdify import implemented_function
-
-from sympde.core import Constant
-from sympde.calculus import grad, dot, inner, cross, rot, curl, div
-from sympde.calculus import laplace, hessian
-from sympde.topology import (dx, dy, dz)
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
-from sympde.topology import element_of
-from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Domain, Line, Square, Cube, PeriodicDomain
-from sympde.topology import Trace, trace_0, trace_1
-from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
-from sympde.expr import find, EssentialBC, Mean
-
-from psydac.fem.basic   import FemField
-from psydac.api.discretization import discretize
-
-from numpy import linspace, zeros, allclose
-from mpi4py import MPI
 import pytest
 
-import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+from sympde.calculus import grad, dot
+from sympde.calculus import laplace
+from sympde.topology import ScalarFunctionSpace
+from sympde.topology import element_of
+
+from sympde.topology import NormalVector
+from sympde.topology import Square
+from sympde.topology import Union
+from sympde.expr     import BilinearForm, LinearForm, integral
+from sympde.expr     import Norm
+from sympde.expr     import find, EssentialBC, Mean
+
+from psydac.fem.basic          import FemField
+from psydac.api.discretization import discretize
 
 #==============================================================================
 def run_poisson_2d_dir(solution, f, ncells, degree, comm=None):

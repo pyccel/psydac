@@ -4,10 +4,27 @@ import random
 import numpy as np
 
 from sympy import Symbol, IndexedBase, Indexed
-from sympy import Mul, Add, Tuple, Min, Max, Pow
+from sympy import Mul, Tuple, Pow
 from sympy import Matrix
 from sympy import sqrt as sympy_sqrt
 from sympy.utilities.iterables import cartes
+
+from sympde.topology.space       import ScalarTestFunction
+from sympde.topology.space       import VectorTestFunction
+from sympde.topology.space       import IndexedTestTrial
+from sympde.topology.space       import element_of
+from sympde.topology             import ScalarField
+from sympde.topology             import VectorField, IndexedVectorField
+from sympde.topology             import Mapping
+from sympde.topology.derivatives import _partial_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives
+from sympde.topology.derivatives import get_atom_derivatives
+from sympde.topology.derivatives import get_index_derivatives
+from sympde.topology.derivatives import get_atom_logical_derivatives
+from sympde.topology.derivatives import get_index_logical_derivatives
+from sympde.topology             import LogicalExpr
+from sympde.topology             import SymbolicExpr
+from sympde.core                 import Cross_3d
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
@@ -15,27 +32,9 @@ from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Range, Product
 from pyccel.ast.core import _atomic
-from pyccel.ast import Comment, NewLine
+from pyccel.ast      import Comment
 
-from psydac.api.printing.pycode      import pycode
-
-
-from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.space import ScalarTestFunction
-from sympde.topology.space import VectorTestFunction
-from sympde.topology.space import IndexedTestTrial
-from sympde.topology import ScalarField
-from sympde.topology import VectorField, IndexedVectorField
-from sympde.topology import Mapping
-from sympde.topology.derivatives import print_expression
-from sympde.topology.derivatives import get_atom_derivatives
-from sympde.topology.derivatives import get_index_derivatives
-from sympde.topology import LogicalExpr
-from sympde.topology import SymbolicExpr
-from sympde.core import Cross_3d
-
-
+from psydac.api.printing.pycode import pycode  # TODO: remove
 
 #==============================================================================
 def random_string( n ):
@@ -64,6 +63,9 @@ def is_scalar_field(expr):
     if isinstance(expr, _partial_derivatives):
         return is_scalar_field(expr.args[0])
 
+    elif isinstance(expr, _logical_partial_derivatives):
+        return is_scalar_field(expr.args[0])
+
     elif isinstance(expr, ScalarField):
         return True
 
@@ -73,6 +75,9 @@ def is_scalar_field(expr):
 def is_vector_field(expr):
 
     if isinstance(expr, _partial_derivatives):
+        return is_vector_field(expr.args[0])
+
+    elif isinstance(expr, _logical_partial_derivatives):
         return is_vector_field(expr.args[0])
 
     elif isinstance(expr, (VectorField, IndexedVectorField)):
@@ -150,8 +155,8 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
 
     Returns
     -------
-    assignments : <list>
-       list of assignments of the atomic expression evaluated in the quadature points
+    inits : <list>
+       list of assignments of the atomic expression evaluated in the quadrature points
 
     map_stmts : <list>
         list of assigments of atomic expression in case of mapping
@@ -171,35 +176,53 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
     for atom in atomic_exprs:   
         if not isinstance(atom, cls):
             raise TypeError('atom must be of type {}'.format(str(cls)))
-    # ...
     
-    atomic_exprs = list(atomic_exprs)
-    new_atoms    = []
-    # ... map basis function
-    map_stmts = []
+    # If there is a mapping, compute [dx(u), dy(u), dz(u)] as functions
+    # of [dx1(u), dx2(u), dx3(u)], and store results into intermediate
+    # variables [u_x, u_y, u_z]. (Same thing is done for higher derivatives.)
+    #
+    # Accordingly, we create a new list of atoms where all partial derivatives
+    # are taken with respect to the logical coordinates.
     if mapping:
+
+        new_atoms = set()
+        map_stmts = []
+        get_index = get_index_logical_derivatives
+        get_atom  = get_atom_logical_derivatives
+
         for atom in atomic_exprs:
-             if isinstance(atom, _partial_derivatives):
-                name = print_expression(atom)
-                rhs = LogicalExpr(mapping, atom)
+
+            if isinstance(atom, _partial_derivatives):
+                lhs   = SymbolicExpr(atom)
+                rhs_p = LogicalExpr(mapping, atom)
+
                 # we look for new_atoms that must be added to atomic_exprs
                 # because we need them in the maps stmts
-                logical_atoms = _atomic(rhs, cls=_logical_partial_derivatives)
-                rhs           = SymbolicExpr(rhs)
-                map_stmts     += [Assign(Symbol(name), rhs)]
-                for atom in logical_atoms:
-                    ls = _atomic(atom, Symbol)
+                logical_atoms = _atomic(rhs_p, cls=_logical_partial_derivatives)
+                for a in logical_atoms:
+                    ls = _atomic(a, Symbol)
                     assert len(ls) == 1
                     if isinstance(ls[0], cls):
-                        new_atoms += [logical2physical(atom)]
+                        new_atoms.add(a)
     
-    atomic_exprs = {*atomic_exprs, *new_atoms}
+                rhs = SymbolicExpr(rhs_p)
+                map_stmts += [Assign(lhs, rhs)]
 
-    assigns = []
-    for atom in atomic_exprs:
+            else:
+                new_atoms.add(atom)
 
-        orders = [*get_index_derivatives(atom).values()]
-        a      = get_atom_derivatives(atom)
+    else:
+        new_atoms = atomic_exprs
+        map_stmts = []
+        get_index = get_index_derivatives
+        get_atom  = get_atom_derivatives
+
+    # Create a list of statements for initialization of the point values,
+    # for each of the atoms in our (possibly new) list.
+    inits = []
+    for atom in new_atoms:
+        orders = [*get_index(atom).values()]
+        a      = get_atom(atom)
         test   = _get_name(a) in [_get_name(f) for f in test_function]
 
         if test or is_linear:
@@ -209,16 +232,14 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
             basis  = basis_trial
             idxs   = indices_trial
 
-        args = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
+        args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
+        lhs    = SymbolicExpr(atom)
+        rhs    = Mul(*args)
+        inits += [Assign(lhs, rhs)]
 
-        # ... assign basis on quad point
-        logical  = not( mapping is None )
-        name     = print_expression(atom, logical=logical)
-        assigns += [Assign(Symbol(name), Mul(*args))]
-
-    # ...
-    return assigns, map_stmts
-
+    # Return the initialization statements, and the additional initialization
+    # of intermediate variables in case of mapping
+    return inits, map_stmts
 
 #==============================================================================
 def compute_atoms_expr_field(atomic_exprs, indices_quad,
@@ -259,10 +280,10 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
         list of augmented assignments which are updated in each loop iteration
 
     map_stmts : <list>
-        list of assigments of atomic expression in case of mapping
+        list of assignments of atomic expression in case of mapping
 
-    atomic_exprs: <list>
-        list of new atomic expressions that were introduced in case of a mapping
+    new_atoms: <list>
+        updated list of atomic expressions (some were introduced in case of a mapping)
     """
 
     inits     = []
@@ -274,68 +295,84 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
            IndexedVectorField,
            VectorField)
 
+    # If there is a mapping, compute [dx(u), dy(u), dz(u)] as functions
+    # of [dx1(u), dx2(u), dx3(u)], and store results into intermediate
+    # variables [u_x, u_y, u_z]. (Same thing is done for higher derivatives.)
+    #
+    # Accordingly, we create a new list of atoms where all partial derivatives
+    # are taken with respect to the logical coordinates.
     if mapping:
-        # ... map basis function
-        new_atoms = []
+
+        new_atoms = set()
+        map_stmts = []
+        get_index = get_index_logical_derivatives
+        get_atom  = get_atom_logical_derivatives
+
         for atom in atomic_exprs:
+
             if isinstance(atom, _partial_derivatives):
-                name       = print_expression(atom)
-                rhs        = LogicalExpr(mapping, atom)
+                lhs   = SymbolicExpr(atom)
+                rhs_p = LogicalExpr(mapping, atom)
 
-                logical_atoms = _atomic(rhs, cls=_logical_partial_derivatives)
-                rhs           = SymbolicExpr(rhs)
-                sym           = Symbol(name)
-                map_stmts    += [Assign(sym, rhs)]
-
-                if not pycode(atom) == name:
-                    var        = Symbol(pycode(atom))
-                    map_stmts += [Assign(var, sym)]
-
-                for atom in logical_atoms:
-                    ls = _atomic(atom, Symbol)
+                # we look for new_atoms that must be added to atomic_exprs
+                # because we need them in the maps stmts
+                logical_atoms = _atomic(rhs_p, cls=_logical_partial_derivatives)
+                for a in logical_atoms:
+                    ls = _atomic(a, Symbol)
+                    assert len(ls) == 1
                     if isinstance(ls[0], cls):
-                        new_atoms += [logical2physical(atom)]
+                        new_atoms.add(a)
 
-        atomic_exprs = {*atomic_exprs, *new_atoms}
+                rhs = SymbolicExpr(rhs_p)
+                map_stmts += [Assign(lhs, rhs)]
 
-    atomic_exprs =  {print_expression(a):a for a in atomic_exprs}
-    atomic_exprs = tuple(atomic_exprs.values())
+            else:
+                new_atoms.add(atom)
 
-    for atom in atomic_exprs:
+    else:
+        new_atoms = atomic_exprs
+        map_stmts = []
+        get_index = get_index_derivatives
+        get_atom  = get_atom_derivatives
+
+    # Make sure that we only pick one between 'dx1(dx2(u))' and 'dx2(dx1(u))'
+    new_atoms = {SymbolicExpr(a).name : a for a in new_atoms}
+    new_atoms = tuple(new_atoms.values())
+
+    # Create a list of statements for initialization of the point values,
+    # for each of the atoms in our (possibly new) list.
+    inits = []
+    for atom in new_atoms:
+
+        # Extract field, compute name of coefficient variable, and get base
         if is_scalar_field(atom):
-            field      = list(atom.atoms(ScalarField))[0]
-            field_name = 'coeff_' + print_expression(field)
+            field      = atom.atoms(ScalarField).pop()
+            field_name = 'coeff_' + SymbolicExpr(field).name
             base       = field
-
         elif is_vector_field(atom):
-            field      = list(atom.atoms(IndexedVectorField))[0]
-            field_name = 'coeff_' + print_expression(field)
+            field      = atom.atoms(IndexedVectorField).pop()
+            field_name = 'coeff_' + SymbolicExpr(field).name
             base       = field.base
-
         else:
             raise TypeError('atom must be either scalar or vector field')
 
-        # ...
+        # Obtain variable for storing point values of test function
+        test_fun = SymbolicExpr(atom.subs(base, test_function))
 
-        test_fun      = atom.subs(base, test_function)
-        name          = print_expression(test_fun)
-        test_fun      = Symbol(name)
-        # ...
-
-        # ...
-        orders = [*get_index_derivatives(atom).values()]
+        # ...
+        orders = [*get_index(atom).values()]
         args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
         inits += [Assign(test_fun, Mul(*args))]
         # ...
 
         # ...
         args     = [IndexedBase(field_name)[idxs], test_fun]
-        val_name = print_expression(atom) + '_values'
+        val_name = SymbolicExpr(atom).name + '_values'
         val      = IndexedBase(val_name)[indices_quad]
         updates += [AugAssign(val,'+',Mul(*args))]
         # ...
 
-    return inits, updates, map_stmts, atomic_exprs
+    return inits, updates, map_stmts, new_atoms
 
 #==============================================================================
 # TODO: merge into 'compute_atoms_expr_field'
@@ -374,30 +411,29 @@ def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
 
     """
 
-    _print  = lambda i: print_expression(i, mapping_name=False)
     inits   = []
     updates = []
     for atom in atomic_exprs:
-        element = get_atom_derivatives(atom)
-        element_name = 'coeff_' + _print(element)
+
+        element = get_atom_logical_derivatives(atom)
+        element_name = 'coeff_' + SymbolicExpr(element).name
 
         # ...
         test_fun = atom.subs(element, test_function)
-        name     = print_expression(test_fun, logical=True)
-        test_fun = Symbol(name)
+        test_fun = SymbolicExpr(test_fun)
         # ...
 
         # ...
-        orders = [*get_index_derivatives(atom).values()]
+        orders = [*get_index_logical_derivatives(atom).values()]
         args   = [b[i, d, q] for b, i, d, q in zip(basis, idxs, orders, indices_quad)]
         inits += [Assign(test_fun, Mul(*args))]
         # ...
 
         # ...
-        args     = [IndexedBase(element_name)[idxs], test_fun]
-        val_name = _print(atom) + '_values'
+        val_name = SymbolicExpr(atom).name + '_values'
         val      = IndexedBase(val_name)[indices_quad]
-        updates += [AugAssign(val,'+',Mul(*args))]
+        expr     = IndexedBase(element_name)[idxs] * test_fun
+        updates += [AugAssign(val, '+', expr)]
         # ...
 
     return inits, updates
@@ -405,11 +441,9 @@ def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
 #==============================================================================
 def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
 
-    _print = lambda i: print_expression(i, mapping_name=False)
-
     M = mapping
     dim = space.ldim
-    ops = _partial_derivatives[:dim]
+    ops = _logical_partial_derivatives[:dim]
 
     # ... mapping components and their derivatives
     components = [M[i] for i in range(0, dim)]
@@ -429,7 +463,7 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
 
     # ... weights and their derivatives
     # TODO check if 'w' exist already
-    weights = ScalarField(space, name='w')
+    weights = element_of(space, name='w')
 
     weights_elements = [weights]
     if nderiv > 0:
@@ -447,7 +481,7 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
     # declarations
     stmts += [Comment('declarations')]
     for atom in elements + weights_elements:
-        atom_name = _print(atom)
+        atom_name = SymbolicExpr(atom).name
         val_name = atom_name + '_values'
         val  = IndexedBase(val_name)[indices_quad]
 
@@ -458,9 +492,9 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
     stmts += [Comment('rationalize')]
 
     # 0 order terms
-    w  = Symbol( _print( weights ) )
     for i in range(dim):
-        u  = Symbol( _print( M[i] ) )
+        w = SymbolicExpr(weights)
+        u = SymbolicExpr(M[i])
 
         val_name = u.name + '_values'
         val  = IndexedBase(val_name)[indices_quad]
@@ -471,12 +505,12 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
     # 1 order terms
     if nderiv >= 1:
         for d in ops:
-            w  = Symbol( _print( weights    ) )
-            dw = Symbol( _print( d(weights) ) )
+            w  = SymbolicExpr(  weights )
+            dw = SymbolicExpr(d(weights))
 
             for i in range(dim):
-                u  = Symbol( _print( M[i]    ) )
-                du = Symbol( _print( d(M[i]) ) )
+                u  = SymbolicExpr(  M[i] )
+                du = SymbolicExpr(d(M[i]))
 
                 val_name = du.name + '_values'
                 val  = IndexedBase(val_name)[indices_quad]
@@ -488,16 +522,16 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
     if nderiv >= 2:
         for e, d1 in enumerate(ops):
             for d2 in ops[:e+1]:
-                w     = Symbol( _print(       weights   ) )
-                d1w   = Symbol( _print(    d1(weights)  ) )
-                d2w   = Symbol( _print(    d2(weights)  ) )
-                d1d2w = Symbol( _print( d1(d2(weights)) ) )
+                w     = SymbolicExpr(      weights  )
+                d1w   = SymbolicExpr(   d1(weights) )
+                d2w   = SymbolicExpr(   d2(weights) )
+                d1d2w = SymbolicExpr(d1(d2(weights)))
 
                 for i in range(dim):
-                    u     = Symbol( _print(       M[i]   ) )
-                    d1u   = Symbol( _print(    d1(M[i])  ) )
-                    d2u   = Symbol( _print(    d2(M[i])  ) )
-                    d1d2u = Symbol( _print( d1(d2(M[i])) ) )
+                    u     = SymbolicExpr(      M[i]  )
+                    d1u   = SymbolicExpr(   d1(M[i]) )
+                    d2u   = SymbolicExpr(   d2(M[i]) )
+                    d1d2u = SymbolicExpr(d1(d2(M[i])))
 
                     val_name = d1d2u.name + '_values'
                     val  = IndexedBase(val_name)[indices_quad]

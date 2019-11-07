@@ -1,28 +1,21 @@
 # -*- coding: UTF-8 -*-
 
-from sympy import pi, cos, sin
-
-from sympde.core import Constant
-from sympde.calculus import grad, dot, inner, cross, rot, curl, div
-from sympde.calculus import laplace, hessian
-from sympde.topology import (dx, dy, dz)
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
-from sympde.topology import element_of
-from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Domain, Line, Square, Cube
-from sympde.topology import Trace, trace_0, trace_1
-from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
-from sympde.expr import find, EssentialBC
-
-from psydac.fem.basic   import FemField
-from psydac.api.discretization import discretize
-
-from numpy import linspace, zeros, allclose
 from mpi4py import MPI
+from sympy import pi, cos, sin
 import pytest
+
+from sympde.calculus import grad, dot
+from sympde.topology import ScalarFunctionSpace
+from sympde.topology import element_of
+from sympde.topology import NormalVector
+from sympde.topology import Cube
+from sympde.topology import Union
+from sympde.expr     import BilinearForm, LinearForm, integral
+from sympde.expr     import Norm
+from sympde.expr     import find, EssentialBC
+
+from psydac.fem.basic          import FemField
+from psydac.api.discretization import discretize
 
 #==============================================================================
 def run_poisson_3d_dir(solution, f, ncells, degree, comm=None):

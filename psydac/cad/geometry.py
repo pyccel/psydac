@@ -166,7 +166,7 @@ class Geometry( object ):
             kwargs = {}
 
         h5  = h5py.File( filename, mode='r', **kwargs )
-        yml = yaml.load( h5['geometry.yml'][()] )
+        yml = yaml.load( h5['geometry.yml'][()], Loader=yaml.SafeLoader )
 
         ldim = yml['ldim']
         pdim = yml['pdim']

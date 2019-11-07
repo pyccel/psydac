@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-
+import numpy as np
 from sympy import Tuple, Matrix
 
 from sympde.core import Constant
@@ -28,15 +28,26 @@ from psydac.linalg.block       import BlockVector, BlockMatrix
 from psydac.linalg.utilities   import array_to_stencil
 
 from scipy.sparse.linalg import cg, gmres
+
 from scipy.sparse.linalg import spsolve
-from scipy import linalg
+#import matplotlib.pyplot as plt
+#from mpl_toolkits.mplot3d import Axes3D
+
+from sympde.calculus import dot, div
+from sympde.topology import Derham
+from sympde.topology import ProductSpace
+from sympde.topology import element_of, elements_of
+from sympde.topology import Square
+from sympde.expr     import BilinearForm, LinearForm, integral
+from sympde.expr     import Norm
+from sympde.expr     import find
+
+from psydac.fem.basic          import FemField
+from psydac.api.discretization import discretize
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import animation
-
-import numpy as np
-from sympy import lambdify
 #==============================================================================
 
 def run_system_1_2d_dir(f0, sol, ncells, degree):
@@ -50,10 +61,10 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     V0, V1, V2 = derham.spaces
 
-    F = element_of(V2, name='F')
+    p, q = elements_of(Hdiv, names='p, q')
+    u, v = elements_of(  L2, names='u, v')
 
-    p,q = [element_of(V1, name=i) for i in ['p', 'q']]
-    u,v = [element_of(V2, name=i) for i in ['u', 'v']]
+    F = element_of(L2, name='F')
 
     int_0 = lambda expr: integral(domain , expr)
     

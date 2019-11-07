@@ -1,20 +1,9 @@
-
-from collections import OrderedDict
-from itertools import groupby
-import string
-import random
-import numpy as np
-
-from sympy import Basic
-from sympy import symbols, Symbol, IndexedBase, Indexed, Function
-from sympy import Mul, Add, Tuple
+from sympy import symbols, Symbol, IndexedBase
+from sympy import Mul, Tuple
 from sympy import Matrix, ImmutableDenseMatrix
-from sympy import sqrt as sympy_sqrt
-from sympy import S as sympy_S
-from sympy import simplify, expand
 from sympy.core.numbers import ImaginaryUnit
 
-from pyccel.ast.core import Variable, IndexedVariable
+from pyccel.ast.core import IndexedVariable
 from pyccel.ast.core import For
 from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
@@ -22,42 +11,31 @@ from pyccel.ast.core import Slice
 from pyccel.ast.core import Range
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
-from pyccel.ast import Zeros
-from pyccel.ast import Import
-from pyccel.ast import DottedName
-from pyccel.ast import Nil
-from pyccel.ast import Len
-from pyccel.ast import If, Is, Return
-from pyccel.ast import String, Print, Shape
-from pyccel.ast import Comment, NewLine
-from pyccel.ast.core      import _atomic
+from pyccel.ast      import Import
+from pyccel.ast      import Nil
+from pyccel.ast      import Len
+from pyccel.ast      import If, Is, Return
+from pyccel.ast.core import _atomic
 
-from sympde.core import Constant
-from sympde.topology import ScalarField, VectorField
-from sympde.topology import IndexedVectorField
-from sympde.topology import Mapping
-from sympde.expr import BilinearForm
+from sympde.core                 import Constant
+from sympde.topology             import ScalarField, VectorField
+from sympde.topology             import IndexedVectorField
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
-from sympde.topology.derivatives import print_expression
 from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
-from sympde.topology import LogicalExpr
-from sympde.topology import SymbolicExpr
-from sympde.topology import SymbolicDeterminant
+from sympde.topology             import LogicalExpr
+from sympde.topology             import SymbolicExpr
+from sympde.topology             import SymbolicDeterminant
 
-from .basic import SplBasic
-from .utilities import random_string
-from .utilities import build_pythran_types_header, variables
-from .utilities import is_scalar_field, is_vector_field, is_mapping
-from .utilities import math_atoms_as_str
-#from .evaluation import EvalArrayVectorField
-from .evaluation import EvalArrayMapping, EvalArrayField
+from .basic      import SplBasic
+from .utilities  import random_string
+from .utilities  import build_pythran_types_header, variables
+from .utilities  import is_scalar_field, is_vector_field
+from .utilities  import math_atoms_as_str
 
-from psydac.fem.splines import SplineSpace
-from psydac.fem.tensor  import TensorFemSpace
-from psydac.fem.vector  import ProductFemSpace, VectorFemSpace
+from psydac.fem.vector import ProductFemSpace
 
 #==============================================================================
 def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
@@ -268,8 +246,8 @@ class ExprKernel(SplBasic):
         self._fields = tuple(expr.atoms(ScalarField))
         self._vector_fields = tuple(expr.atoms(VectorField))
         # ...
-        fields_str        = tuple(map(print_expression, atomic_expr_field))
-        vector_fields_str = tuple(map(print_expression, atomic_expr_vector_field))  
+        fields_str        = tuple(SymbolicExpr(f).name for f in atomic_expr_field)
+        vector_fields_str = tuple(SymbolicExpr(f).name for f in atomic_expr_vector_field)
         
         fields = symbols(fields_str)
         vector_fields = symbols(vector_fields_str)
@@ -362,10 +340,12 @@ class ExprKernel(SplBasic):
                 val = val[indices]
 
                 if isinstance(expr, (Matrix, ImmutableDenseMatrix)):
-                    body += [Assign(val, expr[i_row,i_col])]
+                    rhs   = SymbolicExpr(expr[i_row,i_col])
+                    body += [Assign(val, rhs)]
 
                 else:
-                    body += [Assign(val, expr)]
+                    rhs   = SymbolicExpr(expr)
+                    body += [Assign(val, rhs)]
 
         for i in range(dim-1,-1,-1):
             x = indices[i]

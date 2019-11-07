@@ -32,9 +32,9 @@ class Kron:
        return out
        
     def toarray(self):
-        M1 = self.args[0].todense()
+        M1 = self.args[0].toarray()
         for M2 in self.args[1:]:
-            M1 = np.kron(M1, M2.todense())
+            M1 = np.kron(M1, M2.toarray())
         return M1
         
 
