@@ -328,10 +328,6 @@ class Kernel(SplBasic):
         return self._fields_coeffs
 
     @property
-    def fields_tmp_coeffs(self):
-        return self._fields_tmp_coeffs
-
-    @property
     def vector_fields(self):
         return self._vector_fields
 
@@ -679,8 +675,6 @@ class Kernel(SplBasic):
                                           dtype='real', rank=dim, cls=IndexedVariable)
         fields_val    = variables(['{}_values'.format(f) for f in fields_logical_str],
                                           dtype='real', rank=dim, cls=IndexedVariable)
-        fields_tmp_coeffs = variables(['tmp_coeff_{}'.format(f) for f in field_atoms],
-                                              dtype='real', rank=dim, cls=IndexedVariable)
 
         vector_fields        = symbols(vector_fields_str)
         vector_fields_logical = symbols(vector_fields_logical_str)
@@ -747,7 +741,6 @@ class Kernel(SplBasic):
         self._fields = fields
         self._fields_logical = fields_logical
         self._fields_coeffs = fields_coeffs
-        self._fields_tmp_coeffs = fields_tmp_coeffs
         self._vector_fields = vector_fields
         self._vector_fields_logical = vector_fields_logical
         self._vector_fields_coeffs = vector_fields_coeffs
@@ -1065,43 +1058,28 @@ class Kernel(SplBasic):
 #==============================================================================
 class Assembly(SplBasic):
 
-    def __new__(cls, kernel, name=None, discrete_space=None, periodic=None,
-                comm=None, mapping=None, is_rational_mapping=None, backend=None):
+    def __new__(cls, kernel, name=None, discrete_space=None, comm=None,
+                mapping=None, is_rational_mapping=None, backend=None):
 
+        # ... Check arguments
         if not isinstance(kernel, Kernel):
             raise TypeError('> Expecting a kernel')
+
+        if isinstance(discrete_space, (tuple, list)):
+            space = discrete_space[0]
+        else:
+            space = discrete_space
+
+        if not isinstance(space, (SplineSpace, TensorFemSpace, ProductFemSpace)):
+            raise NotImplementedError('Only Spline, Tensor and Product spaces are available')
+        # ...
 
         obj = SplBasic.__new__(cls, kernel.tag, name=name,
                                prefix='assembly', mapping=mapping,
                                is_rational_mapping=is_rational_mapping)
 
-        
-        # ... get periodicity of the space
-        dim    = kernel.weak_form.ldim
-        periodic = [False for i in range(0, dim)]
-        if not( discrete_space is None ):
-            if isinstance(discrete_space, (tuple, list)):
-                space = discrete_space[0]
-
-            else:
-                space = discrete_space
-
-            if isinstance(space, SplineSpace):
-                periodic = [space.periodic]
-
-            elif isinstance(space, TensorFemSpace):
-                periodic = space.periodic
-
-            elif isinstance(space, ProductFemSpace):
-                periodic = space.spaces[0].periodic
-
-            else:
-                raise NotImplementedError('Only Spline, Tensor and Product spaces are available')
-        # ...
-
         obj._kernel = kernel
         obj._discrete_space = discrete_space
-        obj._periodic = periodic
         obj._comm = comm
         obj._discrete_boundary = kernel.discrete_boundary
         obj._backend = backend
@@ -1123,10 +1101,6 @@ class Assembly(SplBasic):
     @property
     def discrete_space(self):
         return self._discrete_space
-
-    @property
-    def periodic(self):
-        return self._periodic
 
     @property
     def comm(self):
@@ -1157,7 +1131,6 @@ class Assembly(SplBasic):
         form   = self.weak_form
         fields = kernel.fields
         fields_coeffs = kernel.fields_coeffs
-        fields_tmp_coeffs = kernel.fields_tmp_coeffs
         vector_fields = kernel.vector_fields
         vector_fields_coeffs = kernel.vector_fields_coeffs
         zero_terms = kernel.zero_terms
@@ -1326,56 +1299,11 @@ class Assembly(SplBasic):
         # ... kernel call
         mats = tuple(element_matrices.values())
 
-        if not( self.comm is None ) and any(self.periodic) :
-            # ...
-            stmts = []
-            for i,il,p,span,n,per in zip( indices_i,
-                                          indices_il,
-                                          test_degrees,
-                                          indices_span,
-                                          npts,
-                                          self.periodic ):
-
-                if not per:
-                    stmts += [Assign(i, span-p+il)]
-
-                else:
-                    stmts += [Assign(i, Mod(span-p+il, n))]
-
-#            _indices_i = [i for i,s,p in zip(indices_i, starts, test_degrees)]
-            _indices_i = [i-s+p for i,s,p in zip(indices_i, starts, test_degrees)]
-            for x,tmp_x in zip(fields_coeffs, fields_tmp_coeffs):
-#                stmts += [Print([_indices_i, '    ', indices_i, starts])]
-                stmts += [Assign(tmp_x[indices_il], x[_indices_i])]
-
-            ranges = [Range(0, test_degrees[i]+1) for i in range(dim)]
-            for x,rx in list(zip(indices_il, ranges))[::-1]:
-                stmts = [For(x, rx, stmts)]
-
-            body += stmts
-            # ...
-
-            # ...
-            f_coeffs = tuple(fields_tmp_coeffs)
-            # ...
-
-            # ... TODO add tmp for vector fields and mapping
-            gslices = [Slice(sp-s-d+p,sp+p+1-s) for sp,d,p,s in zip(indices_span[::ln],
-                                                           test_degrees[::ln],
-                                                           test_pads[::ln],
-                                                           starts)]
-            vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
-            m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
-            # ...
-
-        else:
-            gslices = [Slice(sp-s-d+p,sp+p+1-s) for sp,d,p,s in zip(indices_span[::ln],
-                                                           test_degrees[::ln],
-                                                           test_pads[::ln],
-                                                           starts)]
-            f_coeffs = tuple([f[gslices] for f in fields_coeffs])
-            vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
-            m_coeffs = tuple([f[gslices] for f in kernel.mapping_coeffs])
+        gslices = [Slice(sp-s-d+p, sp+p+1-s) for sp,d,p,s in
+                   zip(indices_span[::ln], test_degrees[::ln], test_pads[::ln], starts)]
+        f_coeffs  = tuple([f[gslices] for f in fields_coeffs])
+        vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
+        m_coeffs  = tuple([f[gslices] for f in kernel.mapping_coeffs])
 
         if is_bilinear:
             if not unique_scalar_space:
@@ -1543,12 +1471,6 @@ class Assembly(SplBasic):
             fields_shape = tuple(FunctionCall('len',[p[0,Slice(None,None)]]) for p in points)
             for F_value in self.kernel.vector_fields_val:
                 prelude += [Assign(F_value, Zeros(fields_shape))]
-        # ...
-        if not( self.comm is None ) and any(self.periodic) :
-            for v in self.kernel.fields_tmp_coeffs:
-                stmt = Assign(v, Zeros(orders))
-                prelude += [stmt]
-        # ...
 
         # ...
         if self.debug:
