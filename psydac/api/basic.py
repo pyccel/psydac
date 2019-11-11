@@ -521,8 +521,8 @@ class BasicDiscrete(BasicCodeGen):
     def __init__(self, expr, kernel_expr, **kwargs):
 
         # ...
-        target              = kwargs.pop('target', None)
-        boundary            = kwargs.pop('boundary', None)
+        target   = kwargs.pop('target', None)
+        boundary = kwargs.pop('boundary', None)
         # ...
 
         # ...
@@ -542,10 +542,6 @@ class BasicDiscrete(BasicCodeGen):
             if isinstance(boundary, Boundary):
                 if not( boundary is target ):
                     raise ValueError('> Unconsistent boundary with symbolic model')
-
-                boundary = [boundary.axis, boundary.ext]
-                boundary = [boundary]
-                boundary_basis = True # TODO set it to False for Nitch method
 
             # boundary is now a list of boundaries
             # TODO shall we keep it this way? since this is the simplest
@@ -611,7 +607,7 @@ class BasicDiscrete(BasicCodeGen):
                          target              = target,
                          mapping             = mapping,
                          is_rational_mapping = is_rational_mapping,
-                         discrete_boundary   = boundary,
+                         boundary            = boundary,
                          boundary_basis      = boundary_basis,
                          symbolic_space      = symbolic_space,
                          backend = backend )

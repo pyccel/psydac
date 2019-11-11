@@ -64,15 +64,16 @@ from .utilities  import math_atoms_as_str
 FunctionalForms = (BilinearForm, LinearForm, Functional)
 
 #==============================================================================
-def init_loop_quadrature(indices, ranges, discrete_boundary):
+def init_loop_quadrature(indices, ranges, boundary):
     stmts = []
-    if not discrete_boundary:
+    if not boundary:
         return stmts
 
-    # TODO improve using namedtuple or a specific class ? to avoid the 0 index
-    #      => make it easier to understand
-    quad_mask = [i[0] for i in discrete_boundary]
-    quad_ext  = [i[1] for i in discrete_boundary]
+    if isinstance(boundary, Boundary):
+        quad_mask = [boundary.axis]
+        quad_ext  = [boundary.ext]
+    else:
+        raise TypeError(boundary)
 
     dim = len(indices)
     for i in range(dim-1,-1,-1):
@@ -88,15 +89,16 @@ def init_loop_quadrature(indices, ranges, discrete_boundary):
     return stmts
 
 #==============================================================================
-def init_loop_basis(indices, ranges, discrete_boundary):
+def init_loop_basis(indices, ranges, boundary):
     stmts = []
-    if not discrete_boundary:
+    if not boundary:
         return stmts
 
-    # TODO improve using namedtuple or a specific class ? to avoid the 0 index
-    #      => make it easier to understand
-    quad_mask = [i[0] for i in discrete_boundary]
-    quad_ext  = [i[1] for i in discrete_boundary]
+    if isinstance(boundary, Boundary):
+        quad_mask = [boundary.axis]
+        quad_ext  = [boundary.ext]
+    else:
+        raise TypeError(boundary)
 
     dim = len(indices)
     for i in range(dim-1,-1,-1):
@@ -124,15 +126,16 @@ def init_loop_support(indices_elm, n_elements,
                       weights_in_elm, weights,
                       test_basis_in_elm, test_basis,
                       trial_basis_in_elm, trial_basis,
-                      is_bilinear, discrete_boundary):
+                      is_bilinear, boundary):
     stmts = []
-    if not discrete_boundary:
+    if not boundary:
         return stmts
 
-    # TODO improve using namedtuple or a specific class ? to avoid the 0 index
-    #      => make it easier to understand
-    quad_mask = [i[0] for i in discrete_boundary]
-    quad_ext  = [i[1] for i in discrete_boundary]
+    if isinstance(boundary, Boundary):
+        quad_mask = [boundary.axis]
+        quad_ext  = [boundary.ext]
+    else:
+        raise TypeError(boundary)
 
     dim = len(indices_elm)
     for i in range(dim-1,-1,-1):
@@ -207,7 +210,7 @@ def area_eval_mapping(mapping, area, dim, indices_quad, weight):
 class Kernel(SplBasic):
 
     def __new__(cls, weak_form, kernel_expr, target=None,
-                discrete_boundary=None, name=None, boundary_basis=None,
+                boundary=None, name=None, boundary_basis=None,
                 mapping=None, is_rational_mapping=None,symbolic_space=None, backend=None):
 
         if not isinstance(weak_form, FunctionalForms):
@@ -244,19 +247,15 @@ class Kernel(SplBasic):
         # ...
 
         # ...
-        if discrete_boundary:
-            if not isinstance(discrete_boundary, (tuple, list)):
-                raise TypeError('> Expecting a tuple or list for discrete_boundary')
-
-            discrete_boundary = list(discrete_boundary)
-            if not isinstance(discrete_boundary[0], (tuple, list)):
-                discrete_boundary = [discrete_boundary]
-            # discrete_boundary is now a list of lists
+        if boundary:
+            if not isinstance(boundary, Boundary):
+                print(type(boundary))
+                raise TypeError('> Expecting a Boundary for boundary')
         # ...
 
-        # ... discrete_boundary must be given if there are Trace nodes
-        if on_boundary and not discrete_boundary:
-            raise ValueError('> discrete_bounary must be provided for a boundary Kernel')
+        # ... boundary must be given if there are Trace nodes
+        if on_boundary and not boundary:
+            raise ValueError('> boundary must be provided for a boundary Kernel')
         # ...
 
         # ... default value for boundary_basis is True if on boundary
@@ -272,7 +271,7 @@ class Kernel(SplBasic):
         obj._weak_form           = weak_form
         obj._kernel_expr         = kernel_expr
         obj._target              = target
-        obj._discrete_boundary   = discrete_boundary
+        obj._boundary            = boundary
         obj._boundary_basis      = boundary_basis
         obj._area                = None
         obj._user_functions      = []
@@ -518,9 +517,11 @@ class Kernel(SplBasic):
                         space = list(fs)[0].space
 
                 eval_field = EvalQuadratureField(space, fields_expressions,
-                                       discrete_boundary=self.discrete_boundary,
-                                       boundary_basis=self.boundary_basis,
-                                       mapping=mapping,backend=self.backend)
+                                       boundary       = self.boundary,
+                                       boundary_basis = self.boundary_basis,
+                                       mapping        = mapping,
+                                       backend        = self.backend)
+
                 fields += list(eval_field.fields)
                 self._eval_fields.append(eval_field)
                 for k,v in eval_field.map_stmts.items():
@@ -555,9 +556,11 @@ class Kernel(SplBasic):
                         space = list(fs)[0].space
 
                 eval_vector_field = EvalQuadratureVectorField(space, vector_fields_expressions,
-                                                    discrete_boundary=self.discrete_boundary,
-                                                    boundary_basis=self.boundary_basis,
-                                                    mapping=mapping,backend=self.backend)
+                                                    boundary       = self.boundary,
+                                                    boundary_basis = self.boundary_basis,
+                                                    mapping        = mapping,
+                                                    backend        = self.backend)
+
                 vector_fields += list(eval_vector_field.vector_fields)
                 self._eval_vector_fields.append(eval_vector_field)
                 for k,v in eval_vector_field.map_stmts.items():
@@ -599,12 +602,13 @@ class Kernel(SplBasic):
                 space = self.weak_form.space
 
             eval_mapping = EvalQuadratureMapping(space, mapping,
-                                       discrete_boundary=self.discrete_boundary,
-                                       boundary_basis=self.boundary_basis,
-                                       nderiv=nderiv,
-                                       is_rational_mapping=self.is_rational_mapping,
-                                       area=self.area,
-                                       backend=self.backend)
+                                       boundary       = self.boundary,
+                                       boundary_basis = self.boundary_basis,
+                                       nderiv         = nderiv,
+                                       is_rational_mapping = self.is_rational_mapping,
+                                       area           = self.area,
+                                       backend        = self.backend)
+
             self._eval_mapping = eval_mapping
 
             # update dependencies
@@ -821,7 +825,7 @@ class Kernel(SplBasic):
                             expr = [e.subs(vector[i], normal_vec[i]) for e in expr]
 
                         map_stmts, stmts = compute_normal_vector(normal_vec,
-                                                      self.discrete_boundary,
+                                                      self.boundary,
                                                       mapping)
 
                     elif isinstance(vector, TangentVector):
@@ -830,7 +834,7 @@ class Kernel(SplBasic):
                             expr = [e.subs(vector[i], tangent_vec[i]) for e in expr]
 
                         map_stmts, stmts = compute_tangent_vector(tangent_vec,
-                                                       self.discrete_boundary,
+                                                       self.boundary,
                                                        mapping)
 
                     for stmt in map_stmts:
@@ -847,23 +851,24 @@ class Kernel(SplBasic):
                 inv_jac = Symbol('inv_jac')
                 det_jac = Symbol('det_jac')
 
-                if not  isinstance(self.target, Boundary):
+                if isinstance(self.target, Boundary):
+                    det_jac_bnd = Symbol('det_jac_bnd')
 
-                    # ... inv jacobian
-                    jac = mapping.det_jacobian
-                    jac = SymbolicExpr(jac)
-                    # ...
+                # ... inv jacobian
+                jac = mapping.det_jacobian
+                jac = SymbolicExpr(jac)
+                # ...
 
-                    body += [Assign(det_jac, jac)]
-                    body += [Assign(inv_jac, 1./jac)]
+                body += [Assign(det_jac, jac)]
+                body += [Assign(inv_jac, 1./jac)]
 
-                    # TODO do we use the same inv_jac?
-        #            if not isinstance(self.target, Boundary):
-        #                body += [Assign(inv_jac, 1/jac)]
+                # TODO do we use the same inv_jac?
+    #            if not isinstance(self.target, Boundary):
+    #                body += [Assign(inv_jac, 1/jac)]
 
-                    init_map = OrderedDict(sorted(init_map.items()))
-                    for stmt in list(init_map.values()):
-                        body += [stmt.subs(1/jac, inv_jac)]
+                init_map = OrderedDict(sorted(init_map.items()))
+                for stmt in list(init_map.values()):
+                    body += [stmt.subs(1/jac, inv_jac)]
 
             else:
                 body += [Assign(coordinates[i],positions[i][indices_quad[i]])
@@ -871,7 +876,7 @@ class Kernel(SplBasic):
             # ...
 
             # ...
-            weighted_vol = filter_product(indices_quad, weighted_vols, self.discrete_boundary)
+            weighted_vol = filter_product(indices_quad, weighted_vols, self.boundary)
             # ...
 
             # ...
@@ -909,7 +914,10 @@ class Kernel(SplBasic):
 
             # TODO use positive mapping all the time? Abs?
             if mapping:
-                weighted_vol = weighted_vol * Abs(det_jac)
+                if isinstance(self.target, Boundary):
+                    weighted_vol = weighted_vol * Abs(det_jac_bnd)
+                else:
+                    weighted_vol = weighted_vol * Abs(det_jac)
 
             body.append(Assign(wvol,weighted_vol))
 
@@ -926,11 +934,9 @@ class Kernel(SplBasic):
 
             # ...
             # put the body in for loops of quadrature points
-            init_stmts += init_loop_quadrature( indices_quad, ranges_quad,
-                                                self.discrete_boundary )
+            init_stmts += init_loop_quadrature( indices_quad, ranges_quad, self.boundary )
 
-            body = select_loops( indices_quad, ranges_quad, body,
-                                 self.discrete_boundary,
+            body = select_loops( indices_quad, ranges_quad, body, self.boundary,
                                  boundary_basis=self.boundary_basis)
 
             # initialization of intermediate vars
@@ -957,22 +963,19 @@ class Kernel(SplBasic):
             # ...
             # put the body in tests and trials for loops
             if is_bilinear:
-                init_stmts += init_loop_basis( indices_test,  ranges_test,  self.discrete_boundary )
-                init_stmts += init_loop_basis( indices_trial, ranges_trial, self.discrete_boundary )
+                init_stmts += init_loop_basis( indices_test,  ranges_test,  self.boundary )
+                init_stmts += init_loop_basis( indices_trial, ranges_trial, self.boundary )
 
-                body = select_loops(indices_test, ranges_test, body,
-                                    self.discrete_boundary,
+                body = select_loops(indices_test, ranges_test, body, self.boundary,
                                     boundary_basis=self.boundary_basis)
 
-                body = select_loops(indices_trial, ranges_trial, body,
-                                    self.discrete_boundary,
+                body = select_loops(indices_trial, ranges_trial, body, self.boundary,
                                     boundary_basis=self.boundary_basis)
 
             if is_linear:
-                init_stmts += init_loop_basis( indices_test, ranges_test, self.discrete_boundary )
+                init_stmts += init_loop_basis( indices_test, ranges_test, self.boundary )
 
-                body = select_loops(indices_test, ranges_test, body,
-                                    self.discrete_boundary,
+                body = select_loops(indices_test, ranges_test, body, self.boundary,
                                     boundary_basis=self.boundary_basis)
 
             # ...
@@ -1016,8 +1019,7 @@ class Kernel(SplBasic):
                 # evaluation of the area if the mapping is not used
                 if not mapping:
                     stmts = [AugAssign(self.area, '+', weighted_vol)]
-                    stmts = select_loops( indices_quad, ranges_quad, stmts,
-                                          self.discrete_boundary,
+                    stmts = select_loops( indices_quad, ranges_quad, stmts, self.boundary,
                                           boundary_basis=self.boundary_basis)
 
                     body = stmts + body
@@ -1078,11 +1080,11 @@ class Assembly(SplBasic):
                                prefix='assembly', mapping=mapping,
                                is_rational_mapping=is_rational_mapping)
 
-        obj._kernel = kernel
+        obj._kernel         = kernel
         obj._discrete_space = discrete_space
-        obj._comm = comm
-        obj._discrete_boundary = kernel.discrete_boundary
-        obj._backend = backend
+        obj._comm           = comm
+        obj._boundary       = kernel.boundary
+        obj._backend        = backend
 
         # update dependencies
         obj._dependencies += [kernel]
@@ -1163,8 +1165,8 @@ class Assembly(SplBasic):
         n_cols = kernel.n_cols
 
         axis_bnd = []
-        if self.discrete_boundary:
-            axis_bnd = [i[0] for i in self.discrete_boundary]
+        if self.boundary:
+            axis_bnd = [self.boundary.axis]
 
 
         # ... declarations
@@ -1410,10 +1412,10 @@ class Assembly(SplBasic):
                                        weights_in_elm, weights,
                                        test_basis_in_elm, test_basis,
                                        trial_basis_in_elm, trial_basis,
-                                       is_bilinear, self.discrete_boundary )
+                                       is_bilinear, self.boundary )
 
         body = select_loops(indices_elm, ranges_elm, body,
-                            self.kernel.discrete_boundary, boundary_basis=False)
+                            self.kernel.boundary, boundary_basis=False)
 
         body = init_stmts + body
 
