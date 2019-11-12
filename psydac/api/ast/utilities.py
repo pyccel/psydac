@@ -671,6 +671,32 @@ def fusion_loops(loops):
         return loops_cp
 
 #==============================================================================
+def compute_boundary_jacobian(boundary, mapping):
+
+    # Sanity check on arguments
+    if isinstance(boundary, Boundary):
+        axis = boundary.axis
+        ext  = boundary.ext
+    else:
+        raise TypeError(boundary)
+
+    if not isinstance(mapping, Mapping):
+        raise TypeError(mapping)
+
+    # Compute metric determinant g on manifold
+    J  = SymbolicExpr(mapping.jacobian)
+    Jm = J[:, [i for i in range(J.shape[1]) if i != axis]]
+    g  = (Jm.T * Jm).det()
+
+    # Create statements for computing sqrt(g) and 1/sqrt(g)
+    inv_jac_bnd = Symbol('inv_jac_bnd')
+    det_jac_bnd = Symbol('det_jac_bnd')
+    map_stmts   = [Assign(det_jac_bnd, sympy_sqrt(g)),
+                   Assign(inv_jac_bnd, 1/det_jac_bnd)]
+
+    return map_stmts
+
+#==============================================================================
 def compute_normal_vector(vector, boundary, mapping):
     dim = len(vector)
     pdim = dim - 1

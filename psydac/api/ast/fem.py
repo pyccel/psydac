@@ -54,6 +54,7 @@ from .basic      import SplBasic
 from .evaluation import EvalQuadratureMapping, EvalQuadratureField, EvalQuadratureVectorField
 from .utilities  import random_string
 from .utilities  import build_pythran_types_header, variables
+from .utilities  import compute_boundary_jacobian
 from .utilities  import compute_normal_vector, compute_tangent_vector
 from .utilities  import select_loops, filter_product
 from .utilities  import compute_atoms_expr
@@ -848,27 +849,28 @@ class Kernel(SplBasic):
             # ...
 
             if mapping:
-                inv_jac = Symbol('inv_jac')
-                det_jac = Symbol('det_jac')
 
                 if isinstance(self.target, Boundary):
                     det_jac_bnd = Symbol('det_jac_bnd')
+                    if not vectors:
+                        body += compute_boundary_jacobian(self.target, mapping)
 
-                # ... inv jacobian
-                jac = mapping.det_jacobian
-                jac = SymbolicExpr(jac)
-                # ...
+                else:
 
-                body += [Assign(det_jac, jac)]
-                body += [Assign(inv_jac, 1./jac)]
+                    inv_jac = Symbol('inv_jac')
+                    det_jac = Symbol('det_jac')
 
-                # TODO do we use the same inv_jac?
-    #            if not isinstance(self.target, Boundary):
-    #                body += [Assign(inv_jac, 1/jac)]
+                    # ... inv jacobian
+                    jac = mapping.det_jacobian
+                    jac = SymbolicExpr(jac)
+                    # ...
 
-                init_map = OrderedDict(sorted(init_map.items()))
-                for stmt in list(init_map.values()):
-                    body += [stmt.subs(1/jac, inv_jac)]
+                    body += [Assign(det_jac, jac)]
+                    body += [Assign(inv_jac, 1/det_jac)]
+
+                    init_map = OrderedDict(sorted(init_map.items()))
+                    for stmt in list(init_map.values()):
+                        body += [stmt.subs(1/jac, inv_jac)]
 
             else:
                 body += [Assign(coordinates[i],positions[i][indices_quad[i]])
