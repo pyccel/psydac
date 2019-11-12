@@ -249,7 +249,6 @@ class Kernel(SplBasic):
         # ...
         if boundary:
             if not isinstance(boundary, Boundary):
-                print(type(boundary))
                 raise TypeError('> Expecting a Boundary for boundary')
         # ...
 
@@ -749,6 +748,7 @@ class Kernel(SplBasic):
         self._vector_fields_logical = vector_fields_logical
         self._vector_fields_coeffs = vector_fields_coeffs
         self._mapping_coeffs = mapping_coeffs
+        self._imports = set()
         # ...
 
         # ranges
@@ -1032,11 +1032,27 @@ class Kernel(SplBasic):
             body = len_quads + body
 
             # get math functions and constants
-            math_elements = math_atoms_as_str(self.kernel_expr, 'numpy')
+            def get_math_elements(function_body, lib):
+                math_elements = set()
+                for i in function_body:
+                    if isinstance(i, For):
+                        new = get_math_elements(i.body, lib)
+                        math_elements = math_elements.union(new)
+                    elif isinstance(i, (Assign, AugAssign)):
+                        new = math_atoms_as_str(i.rhs, lib)
+                        math_elements = math_elements.union(new)
+                    elif isinstance(i, FunctionCall):
+                        pass
+                    else:
+                        raise TypeError(i)
+                return math_elements
+
+            math_elements = get_math_elements(body, 'numpy')
             math_imports  = [Import(e, 'numpy') for e in math_elements]
 
             imports += math_imports
-            self._imports = imports
+            self._imports = self._imports.union(imports)
+
             # function args
             mats_args = tuple([mats[i] for i in range(start, end) if not( i in zero_terms )])
             func_args = fields_coeffs + vector_fields_coeffs + mapping_coeffs + mats_args
@@ -1054,7 +1070,7 @@ class Kernel(SplBasic):
             
             funcs[i_row][i_col] = FunctionDef(self.name+'_'+str(i_row)+str(i_col), list(func_args), [], body,
                                     decorators=decorators,header=header)
-   
+
         return funcs
 
 #==============================================================================
