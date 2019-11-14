@@ -520,22 +520,21 @@ def test_api_poisson_2d_dirneu_identity_123():
 
 
 ##==============================================================================
-# TODO DEBUG, not working since merge with devel
-#def test_api_poisson_2d_dirneu_collela_1():
-#    filename = os.path.join(mesh_dir, 'collela_2d.h5')
-#
-#    from sympy.abc import x,y
-#
-#    solution = cos(0.25*pi*x)*sin(pi*y)
-#    f        = (17./16.)*pi**2*solution
-#
-#    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, [{'axis': 0, 'ext': -1}])
-#
-#    expected_l2_error =  0.013540717397796734
-#    expected_h1_error =  0.19789463571596025
-#
-#    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-#    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+def test_api_poisson_2d_dirneu_collela_1():
+    filename = os.path.join(mesh_dir, 'collela_2d.h5')
+
+    from sympy.abc import x,y
+
+    solution = sin(0.25*pi*(x-1))*sin(pi*y)
+    f        = (17./16.)*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, [{'axis': 0, 'ext': -1}])
+
+    expected_l2_error =  0.013540717397796734
+    expected_h1_error =  0.19789463571596025
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
 def test_api_poisson_2d_dirneu_collela_2():
@@ -555,22 +554,21 @@ def test_api_poisson_2d_dirneu_collela_2():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 ##==============================================================================
-## TODO DEBUG, not working since merge with devel
-#def test_api_poisson_2d_dirneu_collela_3():
-#    filename = os.path.join(mesh_dir, 'collela_2d.h5')
-#
-#    from sympy.abc import x,y
-#
-#    solution = cos(0.25*pi*y)*sin(pi*x)
-#    f        = (17./16.)*pi**2*solution
-#
-#    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, [{'axis': 1, 'ext': -1}])
-#
-#    expected_l2_error =  0.013540717397817427
-#    expected_h1_error =  0.19789463571595994
-#
-#    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-#    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+def test_api_poisson_2d_dirneu_collela_3():
+    filename = os.path.join(mesh_dir, 'collela_2d.h5')
+
+    from sympy.abc import x,y
+
+    solution = sin(0.25*pi*(y-1))*sin(pi*x)
+    f        = (17./16.)*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f, [{'axis': 1, 'ext': -1}])
+
+    expected_l2_error =  0.013540717397817427
+    expected_h1_error =  0.19789463571595994
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
 def test_api_poisson_2d_dirneu_collela_4():
