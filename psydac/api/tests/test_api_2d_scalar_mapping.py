@@ -588,6 +588,78 @@ def test_api_poisson_2d_dirneu_collela_4():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
+def test_api_poisson_2d_dir_zero_neu_nonzero_identity_1():
+    filename = os.path.join(mesh_dir, 'identity_2d.h5')
+
+    from sympy.abc import x,y
+
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f,
+                                               [{'axis': 0, 'ext': -1}])
+
+    expected_l2_error = 0.00021786960671761908
+    expected_h1_error = 0.01302350067761177
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#==============================================================================
+def test_api_poisson_2d_dir_zero_neu_nonzero_identity_2():
+    filename = os.path.join(mesh_dir, 'identity_2d.h5')
+
+    from sympy.abc import x,y
+
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f,
+                                               [{'axis': 0, 'ext': 1}])
+
+    expected_l2_error = 0.00021786960671761908
+    expected_h1_error = 0.01302350067761177
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#==============================================================================
+def test_api_poisson_2d_dir_zero_neu_nonzero_identity_3():
+    filename = os.path.join(mesh_dir, 'identity_2d.h5')
+
+    from sympy.abc import x,y
+
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f,
+                                               [{'axis': 1, 'ext': -1}])
+
+    expected_l2_error = 0.00021786960671761908
+    expected_h1_error = 0.01302350067761177
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#==============================================================================
+def test_api_poisson_2d_dir_zero_neu_nonzero_identity_4():
+    filename = os.path.join(mesh_dir, 'identity_2d.h5')
+
+    from sympy.abc import x,y
+
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d_dirneu(filename, solution, f,
+                                               [{'axis': 1, 'ext': 1}])
+
+    expected_l2_error = 0.00021786960671761908
+    expected_h1_error = 0.01302350067761177
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#==============================================================================
 def test_api_laplace_2d_neu_identity():
     filename = os.path.join(mesh_dir, 'identity_2d.h5')
 
