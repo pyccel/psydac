@@ -512,6 +512,73 @@ def test_api_poisson_2d_dirneu_123():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
+#==============================================================================
+def test_api_poisson_2d_dir_zero_neu_nonzero_1():
+
+    from sympy.abc import x,y
+
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d_dirneu(solution, f, [{'axis': 0, 'ext': -1}],
+                                               ncells=[2**3, 2**3], degree=[2, 2])
+
+    expected_l2_error = 0.00021786960672322118
+    expected_h1_error = 0.01302350067761091
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#==============================================================================
+def test_api_poisson_2d_dir_zero_neu_nonzero_2():
+
+    from sympy.abc import x,y
+
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d_dirneu(solution, f, [{'axis': 0, 'ext': 1}],
+                                               ncells=[2**3, 2**3], degree=[2, 2])
+
+    expected_l2_error = 0.00021786960672322118
+    expected_h1_error = 0.01302350067761091
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#==============================================================================
+def test_api_poisson_2d_dir_zero_neu_nonzero_3():
+
+    from sympy.abc import x,y
+
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d_dirneu(solution, f, [{'axis': 1, 'ext': -1}],
+                                               ncells=[2**3, 2**3], degree=[2, 2])
+
+    expected_l2_error = 0.00021786960672322118
+    expected_h1_error = 0.01302350067761091
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#==============================================================================
+def test_api_poisson_2d_dir_zero_neu_nonzero_4():
+
+    from sympy.abc import x,y
+
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d_dirneu(solution, f, [{'axis': 1, 'ext': 1}],
+                                               ncells=[2**3, 2**3], degree=[2, 2])
+
+    expected_l2_error = 0.00021786960672322118
+    expected_h1_error = 0.01302350067761091
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
 def test_api_laplace_2d_neu():
