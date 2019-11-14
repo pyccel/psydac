@@ -852,8 +852,7 @@ class Kernel(SplBasic):
 
                 if isinstance(self.target, Boundary):
                     det_jac_bnd = Symbol('det_jac_bnd')
-                    if not vectors:
-                        body += compute_boundary_jacobian(self.target, mapping)
+                    body += compute_boundary_jacobian(self.target, mapping)
 
                 else:
 

@@ -698,77 +698,34 @@ def compute_boundary_jacobian(boundary, mapping):
 
 #==============================================================================
 def compute_normal_vector(vector, boundary, mapping):
-    dim = len(vector)
-    pdim = dim - 1
 
+    # Sanity check on arguments
     if isinstance(boundary, Boundary):
-        axis = boundary.axis ; ext = boundary.ext
+        axis = boundary.axis
+        ext  = boundary.ext
     else:
-        raise TypeError
+        raise TypeError(boundary)
 
-    map_stmts = []
-    body = []
 
-    if not mapping:
-
-        values = np.zeros(dim)
-        values[axis] = ext
+    if mapping is None:
+        map_stmts = []
+        values    = [(ext if i==axis else 0) for i, v in enumerate(vector)]
 
     else:
-        M = mapping
-        inv_jac_bnd = Symbol('inv_jac_bnd')
-        det_jac_bnd = Symbol('det_jac_bnd')
+        # Given the Jacobian matrix J, we need to extract the (i=axis) row
+        # of J^(-1). For efficiency we separately compute det(J) and the
+        # cofactors C[i=0...dim] of the (j=axis) column of J.
+        # NOTE: we also change the orientation according to 'ext'
+        J   = SymbolicExpr(mapping.jacobian)
+        det = J.det()
+        cof = [J.cofactor(i, j=axis) for i in range(J.shape[0])]
 
-        # ... construct jacobian on manifold
-        lines = []
-        n_row,n_col = M.jacobian.shape
-        range_row = [i for i in range(0,n_row) if not(i == axis)]
-        range_col = range(0,n_col)
-        for i_row in range_row:
-            line = []
-            for i_col in range_col:
-                line.append(M.jacobian[i_col, i_row])
+        inv_jac   = Symbol('inv_jac')
+        map_stmts = [Assign(inv_jac, 1 / det)]
+        values    = [ext * inv_jac * cof[i] for i in range(J.shape[0])]
 
-            lines.append(line)
-
-        J = Matrix(lines)
-        # ...
-
-        J = SymbolicExpr(J)
-
-        if dim == 1:
-            raise NotImplementedError('TODO')
-
-        elif dim == 2:
-            J = J[0,:]
-            # TODO shall we use sympy_sqrt here? is there any difference in
-            # Fortran between sqrt and Pow(, 1/2)?
-            j = (sum(J[i]**2 for i in range(0, dim)))**(1/2)
-
-            values = [inv_jac_bnd*J[1], -inv_jac_bnd*J[0]]
-
-        elif dim == 3:
-
-            x_s = J[0,:]
-            x_t = J[1,:]
-
-            values = Cross_3d(x_s, x_t)
-            j = (sum(J[i]**2 for i in range(0, dim)))**(1/2)
-            values = [inv_jac_bnd*v for v in values]
-
-
-        # change the orientation
-        values = [ext*i for i in values]
-
-        map_stmts += [Assign(det_jac_bnd, j)]
-        map_stmts += [Assign(inv_jac_bnd, 1./j)]
-
-    for i in range(0, dim):
-        body += [Assign(vector[i], values[i])]
-
-#    print(map_stmts)
-#    print(body)
-#    import sys; sys.exit(0)
+    # Create statements for computing normal vector components
+    body = [Assign(lhs, rhs) for lhs, rhs in zip(vector, values)]
 
     return map_stmts, body
 
