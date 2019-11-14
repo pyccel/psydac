@@ -1,4 +1,15 @@
 # -*- coding: UTF-8 -*-
+#
+# A note on the mappings used in these tests:
+#
+#   - 'identity_2d.h5' is the identity mapping on the unit square [0, 1] X [0, 1]
+#
+#   - 'collela_2d.h5' is a NURBS mapping from the unit square [0, 1]^2 to the
+#      larger square [-1, 1]^2, with deformations going as sin(pi x) * sin(pi y)
+#
+#   - 'quarter_annulus.h5' is a NURBS transformation from the unit square [0, 1]^2
+#      to the quarter annulus in the lower-left quadrant of the Cartesian place
+#      (hence both x and y are negative), with r_min = 0.5 and r_max = 0.5
 
 from mpi4py import MPI
 from sympy import pi, cos, sin
@@ -360,8 +371,8 @@ def test_api_poisson_2d_dir_collela():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_2d_dir_quart_circle():
-    filename = os.path.join(mesh_dir, 'quart_circle.h5')
+def test_api_poisson_2d_dir_quarter_annulus():
+    filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
 
     from sympy.abc import x,y
 
@@ -597,7 +608,7 @@ def test_api_laplace_2d_neu_identity():
 
 #==============================================================================
 def test_api_biharmonic_2d_dir_identity():
-    filename = os.path.join(mesh_dir, 'quart_circle.h5')
+    filename = os.path.join(mesh_dir, 'identity_2d.h5')
 
     from sympy.abc import x,y
 
@@ -606,15 +617,54 @@ def test_api_biharmonic_2d_dir_identity():
 
     l2_error, h1_error, h2_error = run_biharmonic_2d_dir(filename, solution, f)
 
-    expected_l2_error = 0.3092792236008727
-    expected_h1_error = 1.3320441589030887
-    expected_h2_error = 6.826223014197719
+    expected_l2_error = 0.015086415626060034
+    expected_h1_error = 0.08773346232941553
+    expected_h2_error = 1.9368842415954024
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
     assert( abs(h2_error - expected_h2_error) < 1.e-7)
 
-# TODO: add biharmonic on Collela and quart_circle mappings
+#==============================================================================
+def test_api_biharmonic_2d_dir_collela():
+    filename = os.path.join(mesh_dir, 'collela_2d.h5')
+
+    from sympy.abc import x,y
+
+    solution = (cos(pi*x/2)*cos(pi*y/2))**2
+    f        = laplace(laplace(solution))
+
+    l2_error, h1_error, h2_error = run_biharmonic_2d_dir(filename, solution, f)
+
+    expected_l2_error = 0.10977627980052021
+    expected_h1_error = 0.32254511059711766
+    expected_h2_error = 1.87205519824758
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    assert( abs(h2_error - expected_h2_error) < 1.e-7)
+
+#==============================================================================
+def test_api_biharmonic_2d_dir_quarter_annulus():
+    filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
+
+    from sympy.abc import x,y
+
+    r_in  = 0.5
+    r_out = 1
+    kappa = 1 / 0.00643911127175763
+    solution = kappa * (x * y * (x**2 + y**2 - r_in**2) * (x**2 + y**2 - r_out**2))**2
+    f        = laplace(laplace(solution))
+
+    l2_error, h1_error, h2_error = run_biharmonic_2d_dir(filename, solution, f)
+
+    expected_l2_error = 0.016730298635551484
+    expected_h1_error = 0.21243295522291714
+    expected_h2_error = 7.572921831391894
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    assert( abs(h2_error - expected_h2_error) < 1.e-7)
 
 ##==============================================================================
 ## TODO DEBUG, not working since merge with devel

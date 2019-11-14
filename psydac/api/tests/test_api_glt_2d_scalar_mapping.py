@@ -96,8 +96,8 @@ def test_api_glt_poisson_2d_dir_collela():
     assert(np.allclose([error], [0.04655602895206486]))
 
 #==============================================================================
-def test_api_glt_poisson_2d_dir_quart_circle():
-    filename = os.path.join(mesh_dir, 'quart_circle.h5')
+def test_api_glt_poisson_2d_dir_quarter_annulus():
+    filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
 
     error = run_poisson_2d_dir(filename)
     assert(np.allclose([error], [0.04139096668630673]))
@@ -116,4 +116,4 @@ def teardown_function():
 
 #test_api_glt_poisson_2d_dir_identity()
 #test_api_glt_poisson_2d_dir_collela()
-#test_api_glt_poisson_2d_dir_quart_circle()
+#test_api_glt_poisson_2d_dir_quarter_annulus()
