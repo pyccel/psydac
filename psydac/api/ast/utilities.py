@@ -671,7 +671,7 @@ def fusion_loops(loops):
         return loops_cp
 
 #==============================================================================
-def compute_boundary_jacobian(boundary, mapping):
+def compute_boundary_jacobian(parent_namespace, boundary, mapping=None):
 
     # Sanity check on arguments
     if isinstance(boundary, Boundary):
@@ -680,24 +680,23 @@ def compute_boundary_jacobian(boundary, mapping):
     else:
         raise TypeError(boundary)
 
-    if not isinstance(mapping, Mapping):
-        raise TypeError(mapping)
+    if mapping is None:
+        stmts = []
 
-    # Compute metric determinant g on manifold
-    J  = SymbolicExpr(mapping.jacobian)
-    Jm = J[:, [i for i in range(J.shape[1]) if i != axis]]
-    g  = (Jm.T * Jm).det()
+    else:
+        # Compute metric determinant g on manifold
+        J  = SymbolicExpr(mapping.jacobian)
+        Jm = J[:, [i for i in range(J.shape[1]) if i != axis]]
+        g  = (Jm.T * Jm).det()
 
-    # Create statements for computing sqrt(g) and 1/sqrt(g)
-    inv_jac_bnd = Symbol('inv_jac_bnd')
-    det_jac_bnd = Symbol('det_jac_bnd')
-    map_stmts   = [Assign(det_jac_bnd, sympy_sqrt(g)),
-                   Assign(inv_jac_bnd, 1/det_jac_bnd)]
+        # Create statements for computing sqrt(g)
+        det_jac_bnd = parent_namespace['det_jac_bnd']
+        stmts       = [Assign(det_jac_bnd, sympy_sqrt(g))]
 
-    return map_stmts
+    return stmts
 
 #==============================================================================
-def compute_normal_vector(vector, boundary, mapping):
+def compute_normal_vector(parent_namespace, vector, boundary, mapping=None):
 
     # Sanity check on arguments
     if isinstance(boundary, Boundary):
@@ -708,8 +707,7 @@ def compute_normal_vector(vector, boundary, mapping):
 
 
     if mapping is None:
-        map_stmts = []
-        values    = [(ext if i==axis else 0) for i, v in enumerate(vector)]
+        values = [(ext if i==axis else 0) for i, v in enumerate(vector)]
 
     else:
         # Given the Jacobian matrix J, we need to extract the (i=axis) row
@@ -720,19 +718,17 @@ def compute_normal_vector(vector, boundary, mapping):
         det = J.det()
         cof = [J.cofactor(i, j=axis) for i in range(J.shape[0])]
 
-        inv_jac   = Symbol('inv_jac')
-        map_stmts = [Assign(inv_jac, 1 / det)]
-        values    = [ext * inv_jac * cof[i] for i in range(J.shape[0])]
+        inv_jac = parent_namespace['inv_jac']
+        values  = [ext * inv_jac * cof[i] for i in range(J.shape[0])]
 
     # Create statements for computing normal vector components
-    body = [Assign(lhs, rhs) for lhs, rhs in zip(vector, values)]
+    stmts = [Assign(lhs, rhs) for lhs, rhs in zip(vector, values)]
 
-    return map_stmts, body
+    return stmts
 
 #==============================================================================
-def compute_tangent_vector(vector, boundary, mapping):
+def compute_tangent_vector(parent_namespace, vector, boundary, mapping):
     raise NotImplementedError('TODO')
-
 
 #==============================================================================
 _range = re.compile('([0-9]*:[0-9]+|[a-zA-Z]?:[a-zA-Z])')
