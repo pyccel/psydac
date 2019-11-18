@@ -30,12 +30,19 @@ except:
 # ...
 
 #==============================================================================
-def run_poisson_2d_dir(filename, solution, f, comm=None):
+def run_poisson_2d_dir(filename, solution, f, dir_boundary=None, comm=None):
 
     # ... abstract model
     domain = Domain.from_file(filename)
 
     V = ScalarFunctionSpace('V', domain)
+
+    if dir_boundary is None:
+        B_dirichlet = domain.boundary
+    elif len(dir_boundary) == 1:
+        B_dirichlet = domain.get_boundary(**dir_boundary[0])
+    else:
+        B_dirichlet = Union(*[domain.get_boundary(**kw) for kw in dir_boundary])
 
     x,y = domain.coordinates
 
@@ -56,7 +63,7 @@ def run_poisson_2d_dir(filename, solution, f, comm=None):
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
-    bc = EssentialBC(u, 0, domain.boundary)
+    bc = EssentialBC(u, 0, B_dirichlet)
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
     # ...
 
@@ -353,7 +360,6 @@ def test_api_poisson_2d_dir_collela():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-# TODO h1 norm not working => regression due to the last changes in sympde
 def test_api_poisson_2d_dir_quart_circle():
     filename = os.path.join(mesh_dir, 'quart_circle.h5')
 
@@ -370,7 +376,25 @@ def test_api_poisson_2d_dir_quart_circle():
     expected_h1_error =  0.009473407914765117
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
-#    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#==============================================================================
+def test_api_poisson_2d_dir_circle():
+    filename = os.path.join(mesh_dir, 'circle.h5')
+
+    from sympy.abc import x,y
+
+    solution = (1 - (x**2 + y**2)) * cos(2*pi*x) * cos(2*pi*y)
+    f        = -laplace(solution)
+
+    dir_boundary = [{'axis': 0, 'ext': 1}]
+    l2_error, h1_error = run_poisson_2d_dir(filename, solution, f, dir_boundary)
+
+    expected_l2_error = 0.0015245737751297718
+    expected_h1_error = 0.06653900724243668
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
 def test_api_poisson_2d_dirneu_identity_1():
