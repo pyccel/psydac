@@ -82,8 +82,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # ...
-        test_space  = self.spaces[0]
-        trial_space = self.spaces[1]
+        trial_space = self.spaces[0]
+        test_space  = self.spaces[1]
         # ...
 
         # ...

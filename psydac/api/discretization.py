@@ -101,9 +101,10 @@ class DiscreteEquation(BasicDiscrete):
         # since lhs and rhs are calls, we need to take their expr
 
         # ...
-        test_trial = args[1]
-        test_space = test_trial[0]
-        trial_space = test_trial[1]
+        domain      = args[0]
+        trial_test  = args[1]
+        trial_space = trial_test[0]
+        test_space  = trial_test[1]
         # ...
 
         # ...
@@ -121,7 +122,7 @@ class DiscreteEquation(BasicDiscrete):
             kwargs['boundary'] = boundaries_lhs
 
         newargs = list(args)
-        newargs[1] = test_trial
+        newargs[1] = trial_test
 
         self._lhs = discretize(expr.lhs, *newargs, **kwargs)
         # ...
