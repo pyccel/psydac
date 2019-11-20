@@ -556,6 +556,47 @@ def test_api_poisson_2d_dir0_123_neui_4():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
+def test_api_poisson_2d_dir0_123_diri_4():
+
+    from sympy.abc import x,y
+
+    solution = sin(pi * x) * sin(0.5*pi * y)
+    f        = 5/4*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries(1, 2, 3)
+    dir_nonzero_boundary = get_boundaries(4)
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
+
+    expected_l2_error = 0.00015292215711784052
+    expected_h1_error = 0.009293161646614652
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
+#==============================================================================
+def test_api_poisson_2d_dir0_13_diri_24():
+
+    from sympy.abc import x,y
+
+    solution = sin(3*pi/2 * x) * sin(3*pi/2 * y)
+    f        = 9/2*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries(1, 3)
+    dir_nonzero_boundary = get_boundaries(2, 4)
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
+
+    expected_l2_error = 0.0007786454571731944
+    expected_h1_error = 0.0449669071240554
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
+#==============================================================================
+
 def test_api_laplace_2d_neu():
 
     from sympy.abc import x,y
