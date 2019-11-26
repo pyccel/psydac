@@ -20,115 +20,63 @@ from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 
 #==============================================================================
-def run_poisson_2d_dir(solution, f, ncells, degree, comm=None):
+def get_boundaries(*args):
 
-    # ... abstract model
-    domain = Square()
+    if not args:
+        return ()
+    else:
+        assert all(1 <= a <= 4 for a in args)
+        assert len(set(args)) == len(args)
 
-    V = ScalarFunctionSpace('V', domain)
+    boundaries = {1: {'axis': 0, 'ext': -1},
+                  2: {'axis': 0, 'ext':  1},
+                  3: {'axis': 1, 'ext': -1},
+                  4: {'axis': 1, 'ext':  1}}
 
-    F = element_of(V, name='F')
-
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
-
-    int_0 = lambda expr: integral(domain , expr)
-
-    expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), int_0(expr))
-
-    expr = f*v
-    l = LinearForm(v, int_0(expr))
-
-    error = F - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
-
-    bc = EssentialBC(u, 0, domain.boundary)
-    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
-    # ...
-
-    # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
-    # ...
-
-    # ... discrete spaces
-    Vh = discretize(V, domain_h, degree=degree)
-    # ...
-
-    # ... dsicretize the equation using Dirichlet bc
-    equation_h = discretize(equation, domain_h, [Vh, Vh])
-    # ...
-
-    # ... discretize norms
-    l2norm_h = discretize(l2norm, domain_h, Vh)
-    h1norm_h = discretize(h1norm, domain_h, Vh)
-    # ...
-
-    # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, x )
-    # ...
-
-    # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
-    # ...
-
-    return l2_error, h1_error
+    return tuple(boundaries[i] for i in args)
 
 #==============================================================================
-def run_poisson_2d_dirneu(solution, f, boundary, ncells, degree, comm=None):
+def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary, ncells, degree, comm=None):
 
-    assert( isinstance(boundary, (list, tuple)) )
+    assert( isinstance(dir_zero_boundary   , (list, tuple)) )
+    assert( isinstance(dir_nonzero_boundary, (list, tuple)) )
 
     # ... abstract model
     domain = Square()
 
-    V = ScalarFunctionSpace('V', domain)
+    B_dirichlet_0 = Union(*[domain.get_boundary(**kw) for kw in dir_zero_boundary])
+    B_dirichlet_i = Union(*[domain.get_boundary(**kw) for kw in dir_nonzero_boundary])
+    B_dirichlet   = Union(B_dirichlet_0, B_dirichlet_i)
+    B_neumann = domain.boundary.complement(B_dirichlet)
 
-    B_neumann = [domain.get_boundary(**kw) for kw in boundary]
-    if len(B_neumann) == 1:
-        B_neumann = B_neumann[0]
-
-    else:
-        B_neumann = Union(*B_neumann)
-
-    x,y = domain.coordinates
-
-    F = element_of(V, name='F')
-
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
-
+    V  = ScalarFunctionSpace('V', domain)
+    u  = element_of(V, name='u')
+    v  = element_of(V, name='v')
     nn = NormalVector('nn')
 
-    int_0 = lambda expr: integral(domain , expr)
-    int_1 = lambda expr: integral(B_neumann , expr)
+    # Bilinear Form: a(u, v)
+    a = BilinearForm((u, v), integral(domain, dot(grad(u), grad(v))))
 
-    expr = dot(grad(v), grad(u))
-    a = BilinearForm((v,u), int_0(expr))
+    # Linear form: l(v)
+    l0 = LinearForm(v, integral(domain, f * v))
+    if B_neumann:
+        l1 = LinearForm(v, integral(B_neumann, v * dot(grad(solution), nn)))
+        l  = LinearForm(v, l0(v) + l1(v))
+    else:
+        l = l0
 
-    expr = f*v
-    l0 = LinearForm(v, int_0(expr))
+    # Dirichlet boundary conditions
+    bc = []
+    if B_dirichlet_0:  bc += [EssentialBC(u,        0, B_dirichlet_0)]
+    if B_dirichlet_i:  bc += [EssentialBC(u, solution, B_dirichlet_i)]
 
-    expr = v*dot(grad(solution), nn)
-    l_B_neumann = LinearForm(v, int_1(expr))
+    # Variational model
+    equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
 
-    expr = l0(v) + l_B_neumann(v)
-    l = LinearForm(v, expr)
-
-    error = F-solution
+    # Error norms
+    error  = u - solution
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
-
-    B_dirichlet = domain.boundary.complement(B_neumann)
-    bc = EssentialBC(u, 0, B_dirichlet)
-
-    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
     # ...
 
     # ... create the computational domain from a topological domain
@@ -153,12 +101,12 @@ def run_poisson_2d_dirneu(solution, f, boundary, ncells, degree, comm=None):
     # ...
 
     # ...
-    phi = FemField( Vh, x )
+    uh = FemField( Vh, x )
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    l2_error = l2norm_h.assemble(u=uh)
+    h1_error = h1norm_h.assemble(u=uh)
     # ...
 
     return l2_error, h1_error
@@ -299,7 +247,6 @@ def run_biharmonic_2d_dir(solution, f, ncells, degree, comm=None):
 
     return l2_error, h1_error
 
-
 #==============================================================================
 def run_poisson_user_function_2d_dir(f, solution, ncells, degree, comm=None):
 
@@ -369,16 +316,18 @@ def run_poisson_user_function_2d_dir(f, solution, ncells, degree, comm=None):
 #            SERIAL TESTS
 ###############################################################################
 
-#==============================================================================
-def test_api_poisson_2d_dir_1():
+def test_api_poisson_2d_dir0_1234():
 
     from sympy.abc import x,y
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
 
-    l2_error, h1_error = run_poisson_2d_dir(solution, f,
-                                            ncells=[2**3,2**3], degree=[2,2])
+    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  0.00021808678604760232
     expected_h1_error =  0.013023570720360362
@@ -387,15 +336,18 @@ def test_api_poisson_2d_dir_1():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_2d_dirneu_1():
+def test_api_poisson_2d_dir0_234_neu0_1():
 
     from sympy.abc import x,y
 
     solution = cos(0.5*pi*x)*sin(pi*y)
     f        = (5./4.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(solution, f, [{'axis': 0, 'ext': -1}],
-                                               ncells=[2**3,2**3], degree=[2,2])
+    dir_zero_boundary    = get_boundaries(2, 3, 4)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  0.00015546057796452772
     expected_h1_error =  0.00926930278452745
@@ -404,15 +356,18 @@ def test_api_poisson_2d_dirneu_1():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_2d_dirneu_2():
+def test_api_poisson_2d_dir0_134_neu0_2():
 
     from sympy.abc import x,y
 
     solution = sin(0.5*pi*x)*sin(pi*y)
     f        = (5./4.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(solution, f, [{'axis': 0, 'ext': 1}],
-                                               ncells=[2**3,2**3], degree=[2,2])
+    dir_zero_boundary    = get_boundaries(1, 3, 4)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  0.0001554605779481901
     expected_h1_error =  0.009269302784527256
@@ -421,15 +376,18 @@ def test_api_poisson_2d_dirneu_2():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_2d_dirneu_3():
+def test_api_poisson_2d_dir0_124_neu0_3():
 
     from sympy.abc import x,y
 
     solution = sin(pi*x)*cos(0.5*pi*y)
     f        = (5./4.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(solution, f, [{'axis': 1, 'ext': -1}],
-                                               ncells=[2**3,2**3], degree=[2,2])
+    dir_zero_boundary    = get_boundaries(1, 2, 4)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  0.0001554605779681901
     expected_h1_error =  0.009269302784528678
@@ -438,15 +396,18 @@ def test_api_poisson_2d_dirneu_3():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_2d_dirneu_4():
+def test_api_poisson_2d_dir0_123_neu0_4():
 
     from sympy.abc import x,y
 
     solution = sin(pi*x)*sin(0.5*pi*y)
     f        = (5./4.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(solution, f, [{'axis': 1, 'ext': 1}],
-                                               ncells=[2**3,2**3], degree=[2,2])
+    dir_zero_boundary    = get_boundaries(1, 2, 3)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  0.00015546057796339546
     expected_h1_error =  0.009269302784526841
@@ -455,17 +416,18 @@ def test_api_poisson_2d_dirneu_4():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_2d_dirneu_13():
+def test_api_poisson_2d_dir0_24_neu0_13():
 
     from sympy.abc import x,y
 
     solution = cos(0.5*pi*x)*cos(0.5*pi*y)
     f        = (1./2.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(solution, f,
-                                               [{'axis': 0, 'ext': -1},
-                                                {'axis': 1, 'ext': -1}],
-                                               ncells=[2**3,2**3], degree=[2,2])
+    dir_zero_boundary    = get_boundaries(2, 4)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  2.6119892736036942e-05
     expected_h1_error =  0.0016032430287934746
@@ -474,17 +436,18 @@ def test_api_poisson_2d_dirneu_13():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_2d_dirneu_24():
+def test_api_poisson_2d_dir0_13_neu0_24():
 
     from sympy.abc import x,y
 
     solution = sin(0.5*pi*x)*sin(0.5*pi*y)
     f        = (1./2.)*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(solution, f,
-                                               [{'axis': 0, 'ext': 1},
-                                                {'axis': 1, 'ext': 1}],
-                                               ncells=[2**3,2**3], degree=[2,2])
+    dir_zero_boundary    = get_boundaries(1, 3)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  2.611989253883369e-05
     expected_h1_error =  0.0016032430287973409
@@ -493,18 +456,18 @@ def test_api_poisson_2d_dirneu_24():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_2d_dirneu_123():
+def test_api_poisson_2d_dir0_4_neu0_123():
 
     from sympy.abc import x,y
 
     solution = cos(pi*x)*cos(0.5*pi*y)
     f        = 5./4.*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(solution, f,
-                                               [{'axis': 0, 'ext': -1},
-                                                {'axis': 0, 'ext': 1},
-                                                {'axis': 1, 'ext': -1}],
-                                               ncells=[2**3,2**3], degree=[2,2])
+    dir_zero_boundary    = get_boundaries(4)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error =  0.00015494478505412876
     expected_h1_error =  0.009242166414700994
@@ -513,15 +476,18 @@ def test_api_poisson_2d_dirneu_123():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_2d_dir_zero_neu_nonzero_1():
+def test_api_poisson_2d_dir0_234_neui_1():
 
     from sympy.abc import x,y
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(solution, f, [{'axis': 0, 'ext': -1}],
-                                               ncells=[2**3, 2**3], degree=[2, 2])
+    dir_zero_boundary    = get_boundaries(2, 3, 4)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error = 0.00021786960672322118
     expected_h1_error = 0.01302350067761091
@@ -530,15 +496,18 @@ def test_api_poisson_2d_dir_zero_neu_nonzero_1():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_2d_dir_zero_neu_nonzero_2():
+def test_api_poisson_2d_dir0_134_neui_2():
 
     from sympy.abc import x,y
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(solution, f, [{'axis': 0, 'ext': 1}],
-                                               ncells=[2**3, 2**3], degree=[2, 2])
+    dir_zero_boundary    = get_boundaries(1, 3, 4)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error = 0.00021786960672322118
     expected_h1_error = 0.01302350067761091
@@ -547,15 +516,18 @@ def test_api_poisson_2d_dir_zero_neu_nonzero_2():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_2d_dir_zero_neu_nonzero_3():
+def test_api_poisson_2d_dir0_124_neui_3():
 
     from sympy.abc import x,y
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(solution, f, [{'axis': 1, 'ext': -1}],
-                                               ncells=[2**3, 2**3], degree=[2, 2])
+    dir_zero_boundary    = get_boundaries(1, 2, 4)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error = 0.00021786960672322118
     expected_h1_error = 0.01302350067761091
@@ -564,15 +536,18 @@ def test_api_poisson_2d_dir_zero_neu_nonzero_3():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_poisson_2d_dir_zero_neu_nonzero_4():
+def test_api_poisson_2d_dir0_123_neui_4():
 
     from sympy.abc import x,y
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d_dirneu(solution, f, [{'axis': 1, 'ext': 1}],
-                                               ncells=[2**3, 2**3], degree=[2, 2])
+    dir_zero_boundary    = get_boundaries(1, 2, 3)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
 
     expected_l2_error = 0.00021786960672322118
     expected_h1_error = 0.01302350067761091
@@ -617,8 +592,6 @@ def test_api_biharmonic_2d_dir_1():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
-
-
 #==============================================================================
 def test_api_poisson_user_function_2d_dir_1():
 
@@ -651,16 +624,19 @@ def test_api_poisson_user_function_2d_dir_1():
 
 #==============================================================================
 @pytest.mark.parallel
-def test_api_poisson_2d_dir_1_parallel():
+def test_api_poisson_2d_dir0_1234_parallel():
 
     from sympy.abc import x,y
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
 
-    l2_error, h1_error = run_poisson_2d_dir(solution, f,
-                                            ncells=[2**3,2**3], degree=[2,2],
-                                            comm=MPI.COMM_WORLD)
+    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
+    dir_nonzero_boundary = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2],
+            comm=MPI.COMM_WORLD)
 
     expected_l2_error =  0.00021808678604760232
     expected_h1_error =  0.013023570720360362
