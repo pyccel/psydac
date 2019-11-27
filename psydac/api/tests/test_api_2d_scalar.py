@@ -38,10 +38,12 @@ def get_boundaries(*args):
 #==============================================================================
 def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary, ncells, degree, comm=None):
 
-    assert( isinstance(dir_zero_boundary   , (list, tuple)) )
-    assert( isinstance(dir_nonzero_boundary, (list, tuple)) )
+    assert isinstance(dir_zero_boundary   , (list, tuple))
+    assert isinstance(dir_nonzero_boundary, (list, tuple))
 
-    # ... abstract model
+    #+++++++++++++++++++++++++++++++
+    # 1. Abstract model
+    #+++++++++++++++++++++++++++++++
     domain = Square()
 
     B_dirichlet_0 = Union(*[domain.get_boundary(**kw) for kw in dir_zero_boundary])
@@ -54,7 +56,7 @@ def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary, ncells,
     v  = element_of(V, name='v')
     nn = NormalVector('nn')
 
-    # Bilinear Form: a(u, v)
+    # Bilinear form: a(u, v)
     a = BilinearForm((u, v), integral(domain, dot(grad(u), grad(v))))
 
     # Linear form: l(v)
@@ -77,37 +79,35 @@ def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary, ncells,
     error  = u - solution
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
-    # ...
 
-    # ... create the computational domain from a topological domain
+    #+++++++++++++++++++++++++++++++
+    # 2. Discretization
+    #+++++++++++++++++++++++++++++++
+
+    # Create computational domain from topological domain
     domain_h = discretize(domain, ncells=ncells, comm=comm)
-    # ...
 
-    # ... discrete spaces
+    # Discrete spaces
     Vh = discretize(V, domain_h, degree=degree)
-    # ...
 
-    # ... dsicretize the equation using Dirichlet bc
+    # Discretize equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Vh, Vh])
-    # ...
 
-    # ... discretize norms
+    # Discretize error norms
     l2norm_h = discretize(l2norm, domain_h, Vh)
     h1norm_h = discretize(h1norm, domain_h, Vh)
-    # ...
 
-    # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
+    #+++++++++++++++++++++++++++++++
+    # 3. Solution
+    #+++++++++++++++++++++++++++++++
 
-    # ...
+    # Solve linear system
+    x  = equation_h.solve()
     uh = FemField( Vh, x )
-    # ...
 
-    # ... compute norms
+    # Compute error norms
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
-    # ...
 
     return l2_error, h1_error
 
