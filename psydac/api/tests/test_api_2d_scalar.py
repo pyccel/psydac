@@ -185,67 +185,81 @@ def run_laplace_2d_neu(solution, f, ncells, degree, comm=None):
     return l2_error, h1_error
 
 #==============================================================================
-def run_biharmonic_2d_dir(solution, f, ncells, degree, comm=None):
+def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells, degree, comm=None):
 
-    # ... abstract model
+    assert isinstance(dir_zero_boundary, (list, tuple))
+
+    #+++++++++++++++++++++++++++++++
+    # 1. Abstract model
+    #+++++++++++++++++++++++++++++++
     domain = Square()
 
-    V = ScalarFunctionSpace('V', domain)
+    B_dirichlet_0 = Union(*[domain.get_boundary(**kw) for kw in dir_zero_boundary])
+    B_dirichlet_i = domain.boundary.complement(B_dirichlet_0)
 
-    F = element_of(V, name='F')
+    V  = ScalarFunctionSpace('V', domain)
+    v  = element_of(V, name='v')
+    u  = element_of(V, name='u')
+    nn = NormalVector('nn')
 
-    v = element_of(V, name='v')
-    u = element_of(V, name='u')
+    # Bilinear form a: V x V --> R
+    a = BilinearForm((u, v), integral(domain, laplace(u) * laplace(v)))
 
-    int_0 = lambda expr: integral(domain , expr)
+    # Linear form l: V --> R
+    l = LinearForm(v, integral(domain, f * v))
 
-    expr = laplace(v) * laplace(u)
-    a = BilinearForm((v,u),int_0(expr))
 
-    expr = f*v
-    l = LinearForm(v, int_0(expr))
+    # Essential boundary conditions
+    dn = lambda a: dot(grad(a), nn)
+    bc = []
+    if B_dirichlet_0:
+        bc += [EssentialBC(   u , 0, B_dirichlet_0)]
+        bc += [EssentialBC(dn(u), 0, B_dirichlet_0)]
+    if B_dirichlet_i:
+        bc += [EssentialBC(   u ,    solution , B_dirichlet_i)]
+        bc += [EssentialBC(dn(u), dn(solution), B_dirichlet_i)]
 
-    error = F - solution
+    # Variational model
+    equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
+
+    # Error norms
+    error  = u - solution
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
+    h2norm = Norm(error, domain, kind='h2')
 
-    nn = NormalVector('nn')
-    bc  = [EssentialBC(u, 0, domain.boundary)]
-    bc += [EssentialBC(dot(grad(u), nn), 0, domain.boundary)]
-    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
-    # ...
+    #+++++++++++++++++++++++++++++++
+    # 2. Discretization
+    #+++++++++++++++++++++++++++++++
 
-    # ... create the computational domain from a topological domain
+    # Create computational domain from topological domain
     domain_h = discretize(domain, ncells=ncells, comm=comm)
-    # ...
 
-    # ... discrete spaces
+    # Discrete spaces
     Vh = discretize(V, domain_h, degree=degree)
-    # ...
 
-    # ... dsicretize the equation using Dirichlet bc
+    # Discretize equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Vh, Vh])
-    # ...
 
-    # ... discretize norms
+    # Discretize error norms
     l2norm_h = discretize(l2norm, domain_h, Vh)
     h1norm_h = discretize(h1norm, domain_h, Vh)
-    # ...
+    h2norm_h = discretize(h2norm, domain_h, Vh)
 
-    # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
+    #+++++++++++++++++++++++++++++++
+    # 3. Solution
+    #+++++++++++++++++++++++++++++++
 
-    # ...
-    phi = FemField( Vh, x )
-    # ...
+    # Solve linear system
+    x  = equation_h.solve()
+    uh = FemField( Vh, x )
 
-    # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
-    # ...
+    # Compute error norms
+    l2_error = l2norm_h.assemble(u=uh)
+    h1_error = h1norm_h.assemble(u=uh)
+    h2_error = h2norm_h.assemble(u=uh)
 
-    return l2_error, h1_error
+    return l2_error, h1_error, h2_error
 
 #==============================================================================
 def run_poisson_user_function_2d_dir(f, solution, ncells, degree, comm=None):
@@ -613,25 +627,69 @@ def test_api_laplace_2d_neu():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #==============================================================================
-def test_api_biharmonic_2d_dir_1():
+def test_api_biharmonic_2d_dir0_1234():
 
     from sympy.abc import x,y
-    from sympde.expr import TerminalExpr
 
-    solution = (sin(pi*x)*sin(pi*y))**2
+    solution = sin(pi * x)**2 * sin(pi * y)**2
+    f        = laplace(laplace(solution))
 
-    # compute the analytical solution
-    f = laplace(laplace(solution))
-    f = TerminalExpr(f, dim=2)
+    dir_zero_boundary = get_boundaries(1, 2, 3, 4)
 
-    l2_error, h1_error = run_biharmonic_2d_dir(solution, f,
-                                            ncells=[2**3,2**3], degree=[2,2])
+    l2_error, h1_error, h2_error = run_biharmonic_2d_dir(solution, f,
+            dir_zero_boundary, ncells=[2**3, 2**3], degree=[3, 3])
 
-    expected_l2_error =  0.015086415626061608
-    expected_h1_error =  0.08773346232942228
+    expected_l2_error = 0.00019981371108040476
+    expected_h1_error = 0.0063205179028178295
+    expected_h2_error = 0.2123929568623994
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    assert( abs(h2_error - expected_h2_error) < 1.e-7)
+
+#==============================================================================
+@pytest.mark.xfail
+def test_api_biharmonic_2d_dir0_123_diri_4():
+
+    from sympy.abc import x,y
+
+    solution = sin(pi * x)**2 * sin(0.5*pi * y)**2
+    f        = laplace(laplace(solution))
+
+    dir_zero_boundary = get_boundaries(1, 2, 3)
+
+    l2_error, h1_error, h2_error = run_biharmonic_2d_dir(solution, f,
+            dir_zero_boundary, ncells=[2**3, 2**3], degree=[3, 3])
+
+    print()
+    print(l2_error)
+    print(h1_error)
+    print(h2_error)
+    print()
+
+    assert False
+
+#==============================================================================
+@pytest.mark.xfail
+def test_api_biharmonic_2d_dir0_13_diri_24():
+
+    from sympy.abc import x,y
+
+    solution = sin(3*pi/2 * x)**2 * sin(3*pi/2 * y)**2
+    f        = laplace(laplace(solution))
+
+    dir_zero_boundary = get_boundaries(1, 3)
+
+    l2_error, h1_error, h2_error = run_biharmonic_2d_dir(solution, f,
+            dir_zero_boundary, ncells=[2**3, 2**3], degree=[3, 3])
+
+    print()
+    print(l2_error)
+    print(h1_error)
+    print(h2_error)
+    print()
+
+    assert False
 
 #==============================================================================
 def test_api_poisson_user_function_2d_dir_1():

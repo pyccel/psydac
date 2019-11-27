@@ -248,9 +248,12 @@ class DiscreteEquation(BasicDiscrete):
                 # we will select the correct test function using a dictionary.
                 test_dict = dict(zip(u, v))
 
+                # TODO: use dot product for vector quantities
+#                product  = lambda f, g: (f * g if isinstance(g, ScalarTestFunction) else dot(f, g))
+                product  = lambda f, g: f * g
+
                 # Construct variational formulation that performs L2 projection
                 # of boundary conditions onto the correct space
-                product  = lambda f, g: (f * g if isinstance(g, ScalarTestFunction) else dot(f, g))
                 factor   = lambda bc : bc.lhs.xreplace(test_dict)
                 lhs_expr = sum(integral(i.boundary, product(i.lhs, factor(i))) for i in idbcs)
                 rhs_expr = sum(integral(i.boundary, product(i.rhs, factor(i))) for i in idbcs)
