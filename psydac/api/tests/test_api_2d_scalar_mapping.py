@@ -8,8 +8,11 @@
 #      larger square [-1, 1]^2, with deformations going as sin(pi x) * sin(pi y)
 #
 #   - 'quarter_annulus.h5' is a NURBS transformation from the unit square [0, 1]^2
-#      to the quarter annulus in the lower-left quadrant of the Cartesian place
-#      (hence both x and y are negative), with r_min = 0.5 and r_max = 0.5
+#      to the quarter annulus in the lower-left quadrant of the Cartesian plane
+#      (hence both x and y are negative), with r_min = 0.5 and r_max = 1
+#
+#      Please note that the logical coordinates (x1, x2) correspond to the polar
+#      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
 from mpi4py import MPI
 from sympy import pi, cos, sin
@@ -515,6 +518,46 @@ def test_poisson_2d_identity_dir0_123_neui_4():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
+#------------------------------------------------------------------------------
+def test_poisson_2d_identity_dir0_123_diri_4():
+
+    filename = os.path.join(mesh_dir, 'identity_2d.h5')
+    solution = sin(pi * x) * sin(0.5*pi * y)
+    f        = 5/4*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries(1, 2, 3)
+    dir_nonzero_boundary = get_boundaries(4)
+    neumann_boundary     = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error = 0.0001529221571156830
+    expected_h1_error = 0.009293161646612863
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_identity_dir0_13_diri_24():
+
+    filename = os.path.join(mesh_dir, 'identity_2d.h5')
+    solution = sin(3*pi/2 * x) * sin(3*pi/2 * y)
+    f        = 9/2*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries(1, 3)
+    dir_nonzero_boundary = get_boundaries(2, 4)
+    neumann_boundary     = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error = 0.0007786454571731944
+    expected_h1_error = 0.0449669071240554
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
 #==============================================================================
 # 2D Poisson's equation with "Collela" map
 #==============================================================================
@@ -617,6 +660,146 @@ def test_poisson_2d_collela_dir0_123_neu0_4():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
+#------------------------------------------------------------------------------
+def test_poisson_2d_collela_dir0_234_neui_1():
+
+    filename = os.path.join(mesh_dir, 'collela_2d.h5')
+    solution = sin(pi/3 * (1 - x)) * cos(pi/2 * y)
+    f        = (13/36)*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries(2, 3, 4)
+    dir_nonzero_boundary = get_boundaries()
+    neumann_boundary     = get_boundaries(1)
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error = 0.06606115297958418
+    expected_h1_error = 0.1808088420439245
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_collela_dir0_134_neui_2():
+
+    filename = os.path.join(mesh_dir, 'collela_2d.h5')
+    solution = sin(pi/3 * (1 + x)) * cos(pi/2 * y)
+    f        = (13/36)*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries(1, 3, 4)
+    dir_nonzero_boundary = get_boundaries()
+    neumann_boundary     = get_boundaries(2)
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error = 0.06581556358643213
+    expected_h1_error = 0.1810360332114653
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_collela_dir0_124_neui_3():
+
+    filename = os.path.join(mesh_dir, 'collela_2d.h5')
+    solution = cos(pi/2 * x) * sin(pi/3 * (1 - y))
+    f        = (13/36)*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries(1, 2, 4)
+    dir_nonzero_boundary = get_boundaries()
+    neumann_boundary     = get_boundaries(3)
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error = 0.06606115297960084
+    expected_h1_error = 0.1808088420440391
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_collela_dir0_123_neui_4():
+
+    filename = os.path.join(mesh_dir, 'collela_2d.h5')
+    solution = cos(pi/2 * x) * sin(pi/3 * (1 + y))
+    f        = (13/36)*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries(1, 2, 3)
+    dir_nonzero_boundary = get_boundaries()
+    neumann_boundary     = get_boundaries(4)
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error = 0.06581556358642991
+    expected_h1_error = 0.1810360332114519
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_collela_dir0_123_diri_4():
+
+    filename = os.path.join(mesh_dir, 'collela_2d.h5')
+    solution = cos(pi/2 * x) * sin(pi/3 * (1 + y))
+    f        = (13/36)*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries(1, 2, 3)
+    dir_nonzero_boundary = get_boundaries(4)
+    neumann_boundary     = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error = 0.0025850223987204306
+    expected_h1_error = 0.04401691486495642
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_collela_dir0_13_diri_24():
+
+    filename = os.path.join(mesh_dir, 'collela_2d.h5')
+    solution = sin(pi/3 * (1 + x)) * sin(pi/3 * (1 + y))
+    f        = (2/9)*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries(1, 3)
+    dir_nonzero_boundary = get_boundaries(2, 4)
+    neumann_boundary     = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error = 0.0012801077606328381
+    expected_h1_error = 0.02314405549486328
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_collela_diri_1234():
+
+    filename = os.path.join(mesh_dir, 'collela_2d.h5')
+    solution = cos(pi/3 * x) * cos(pi/3 * y)
+    f        = (2/9)*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries()
+    dir_nonzero_boundary = get_boundaries(1, 2, 3, 4)
+    neumann_boundary     = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error = 0.0014604231101091047
+    expected_h1_error = 0.025023352115363873
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
 #==============================================================================
 # 2D Poisson's equation on quarter annulus
 #==============================================================================
@@ -638,8 +821,91 @@ def test_poisson_2d_quarter_annulus_dir0_1234():
     expected_l2_error =  0.00010289930281268989
     expected_h1_error =  0.009473407914765117
 
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_quarter_annulus_dir0_12_diri_34():
+
+    filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
+    solution = sin(pi * x) * sin(pi * y)
+    f        = 2*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries(1, 2)
+    dir_nonzero_boundary = get_boundaries(3, 4)
+    neumann_boundary     = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error = 0.0005982761090480573
+    expected_h1_error = 0.021271053089631443
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_quarter_annulus_diri_1234():
+
+    filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
+    solution = sin(pi*x + pi/4) * sin(pi*y + pi/4)
+    f        = 2*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries()
+    dir_nonzero_boundary = get_boundaries(1, 2, 3, 4)
+    neumann_boundary     = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error = 0.0006536882827670037
+    expected_h1_error = 0.02592026831798558
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_quarter_annulus_diri_34_neui_12():
+
+    filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
+    solution = sin(pi*x + pi/4) * sin(pi*y + pi/4)
+    f        = 2*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries()
+    dir_nonzero_boundary = get_boundaries(3, 4)
+    neumann_boundary     = get_boundaries(1, 2)
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error = 0.005574858010884482
+    expected_h1_error = 0.09514303219069051
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
+#------------------------------------------------------------------------------
+@pytest.mark.xfail
+def test_poisson_2d_quarter_annulus_diri_12_neui_34():
+
+    filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
+    solution = sin(pi*x + pi/4) * sin(pi*y + pi/4)
+    f        = 2*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries()
+    dir_nonzero_boundary = get_boundaries(1, 2)
+    neumann_boundary     = get_boundaries(3, 4)
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    print()
+    print()
+    print(l2_error)
+    print(h1_error)
+    print()
+
+    assert False
 
 #==============================================================================
 # 2D Poisson's equation on circle
