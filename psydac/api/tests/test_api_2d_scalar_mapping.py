@@ -674,8 +674,8 @@ def test_poisson_2d_collela_dir0_234_neui_1():
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
             dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
 
-    expected_l2_error = 0.06606115297958418
-    expected_h1_error = 0.1808088420439245
+    expected_l2_error = 0.002701799327716594
+    expected_h1_error = 0.043091889730461796
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -694,8 +694,8 @@ def test_poisson_2d_collela_dir0_134_neui_2():
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
             dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
 
-    expected_l2_error = 0.06581556358643213
-    expected_h1_error = 0.1810360332114653
+    expected_l2_error = 0.0026061796931093253
+    expected_h1_error = 0.04400143055955451
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -714,8 +714,8 @@ def test_poisson_2d_collela_dir0_124_neui_3():
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
             dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
 
-    expected_l2_error = 0.06606115297960084
-    expected_h1_error = 0.1808088420440391
+    expected_l2_error = 0.002701799327724046
+    expected_h1_error = 0.04309188973046055
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -734,8 +734,8 @@ def test_poisson_2d_collela_dir0_123_neui_4():
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
             dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
 
-    expected_l2_error = 0.06581556358642991
-    expected_h1_error = 0.1810360332114519
+    expected_l2_error = 0.0026061796931066174
+    expected_h1_error = 0.04400143055955377
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
@@ -878,14 +878,13 @@ def test_poisson_2d_quarter_annulus_diri_34_neui_12():
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
             dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
 
-    expected_l2_error = 0.005574858010884482
-    expected_h1_error = 0.09514303219069051
+    expected_l2_error = 0.0006527836834289991
+    expected_h1_error = 0.025919435390680808
 
     assert abs(l2_error - expected_l2_error) < 1.e-7
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-@pytest.mark.xfail
 def test_poisson_2d_quarter_annulus_diri_12_neui_34():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -899,13 +898,11 @@ def test_poisson_2d_quarter_annulus_diri_12_neui_34():
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
             dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
 
-    print()
-    print()
-    print(l2_error)
-    print(h1_error)
-    print()
+    expected_l2_error = 0.0006663772402662598
+    expected_h1_error = 0.025906309642232804
 
-    assert False
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #==============================================================================
 # 2D Poisson's equation on circle

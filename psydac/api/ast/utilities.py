@@ -705,24 +705,30 @@ def compute_normal_vector(parent_namespace, vector, boundary, mapping=None):
     else:
         raise TypeError(boundary)
 
-
+    # If there is no mapping, normal vector has only one non-zero component,
+    # which is +1 or -1 according to the orientation of the boundary.
     if mapping is None:
-        values = [(ext if i==axis else 0) for i, v in enumerate(vector)]
+        return [Assign(v, ext if i==axis else 0) for i, v in enumerate(vector)]
 
-    else:
-        # Given the Jacobian matrix J, we need to extract the (i=axis) row
-        # of J^(-1). For efficiency we separately compute det(J) and the
-        # cofactors C[i=0...dim] of the (j=axis) column of J.
-        # NOTE: we also change the orientation according to 'ext'
-        J   = SymbolicExpr(mapping.jacobian)
-        det = J.det()
-        cof = [J.cofactor(i, j=axis) for i in range(J.shape[0])]
-
-        inv_jac = parent_namespace['inv_jac']
-        values  = [ext * inv_jac * cof[i] for i in range(J.shape[0])]
+    # Given the Jacobian matrix J, we need to extract the (i=axis) row of
+    # J^(-1) and then normalize it. We recall that J^(-1)[i, j] is equal to
+    # the cofactor of J[i, j] divided by det(J). For efficiency we only
+    # compute the cofactors C[i=0:dim] of the (j=axis) column of J, and we
+    # do not divide them by det(J) because the normal vector will need to
+    # be normalized anyway.
+    #
+    # NOTE: we also change the vector orientation according to 'ext'
+    J = SymbolicExpr(mapping.jacobian)
+    values = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
 
     # Create statements for computing normal vector components
     stmts = [Assign(lhs, rhs) for lhs, rhs in zip(vector, values)]
+
+    # Normalize vector
+    inv_norm_variable = Symbol('inv_norm')
+    inv_norm_value    = 1 / sympy_sqrt(sum(v**2 for v in values))
+    stmts += [Assign(inv_norm_variable, inv_norm_value)]
+    stmts += [AugAssign(v, '*', inv_norm_variable) for v in vector]
 
     return stmts
 
