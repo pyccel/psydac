@@ -200,7 +200,10 @@ class DiscreteEquation(BasicDiscrete):
         self._linear_system = LinearSystem(M, rhs)
 
     def solve(self, **kwargs):
-        settings = kwargs.pop('settings', _default_solver.copy())
+
+        settings = _default_solver.copy()
+        settings.update(kwargs.pop('settings', {}))
+
         rhs = kwargs.pop('rhs', None)
         if rhs:
             kwargs['assemble_rhs'] = False
@@ -259,11 +262,15 @@ class DiscreteEquation(BasicDiscrete):
                 rhs_expr = sum(integral(i.boundary, product(i.rhs, factor(i))) for i in idbcs)
                 equation = find(u, forall=v, lhs=lhs_expr, rhs=rhs_expr)
 
-                # Discretize weak form and find inhomogeneous solution
+                # Discretize weak form
                 domain_h   = self.domain
                 Vh         = self.trial_space
                 equation_h = discretize(equation, domain_h, [Vh, Vh])
-                X = equation_h.solve()
+
+                # Find inhomogeneous solution (use CG as system is symmetric)
+                loc_settings = settings.copy()
+                loc_settings['solver'] = 'cg'
+                X = equation_h.solve(**loc_settings)
 
                 # Use inhomogeneous solution as initial guess to solver
                 settings['x0'] = X
