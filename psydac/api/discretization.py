@@ -391,7 +391,7 @@ def discretize_derham(V, domain_h, *args, **kwargs):
     return DiscreteDerham(*spaces)
 #==============================================================================
 # TODO multi patch
-# TODO bounds and knots
+# TODO knots
 def discretize_space(V, domain_h, *args, **kwargs):
     degree           = kwargs.pop('degree', None)
     normalize        = kwargs.pop('normalize', True)
@@ -424,13 +424,16 @@ def discretize_space(V, domain_h, *args, **kwargs):
     elif not( degree is None ):
         assert(hasattr(domain_h, 'ncells'))
 
-        ncells = domain_h.ncells
+        ncells     = domain_h.ncells
+        min_coords = domain_h.domain.min_coords
+        max_coords = domain_h.domain.max_coords
 
         assert(isinstance( degree, (list, tuple) ))
         assert( len(degree) == ldim )
 
         # Create uniform grid
-        grids = [np.linspace( 0., 1., num=ne+1 ) for ne in ncells]
+        grids = [np.linspace(xmin, xmax, num=ne + 1)
+                 for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
         # Create 1D finite element spaces and precompute quadrature data
         spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
@@ -495,34 +498,19 @@ def discretize_space(V, domain_h, *args, **kwargs):
     return Vh
 
 #==============================================================================
-def discretize_domain(domain, *args, **kwargs):
-    filename = kwargs.pop('filename', None)
-    ncells   = kwargs.pop('ncells',   None)
-    comm     = kwargs.pop('comm',     None)
+def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
 
-    if not( ncells is None ):
-        dtype = domain.dtype
+    if not (filename or ncells):
+        raise ValueError("Must provide either 'filename' or 'ncells'")
 
-        if dtype['type'].lower() == 'line' :
-            return Geometry.as_line(ncells, comm=comm)
+    elif filename and ncells:
+        raise ValueError("Cannot provide both 'filename' and 'ncells'")
 
-        elif dtype['type'].lower() == 'square' :
-            return Geometry.as_square(ncells, comm=comm)
+    elif filename:
+        return Geometry(filename=filename, comm=comm)
 
-        elif dtype['type'].lower() == 'cube' :
-            return Geometry.as_cube(ncells, comm=comm)
-
-        else:
-            msg = 'no corresponding discrete geometry is available, given {}'
-            msg = msg.format(dtype['type'])
-
-            raise ValueError(msg)
-
-    elif not( filename is None ):
-        geometry = Geometry(filename=filename, comm=comm)
-
-    return geometry
-
+    elif ncells:
+        return Geometry.from_topological_domain(domain, ncells, comm)
 
 #==============================================================================
 def discretize(a, *args, **kwargs):
