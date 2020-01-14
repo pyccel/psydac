@@ -101,9 +101,10 @@ class DiscreteEquation(BasicDiscrete):
         # since lhs and rhs are calls, we need to take their expr
 
         # ...
-        test_trial = args[1]
-        test_space = test_trial[0]
-        trial_space = test_trial[1]
+        domain      = args[0]
+        trial_test  = args[1]
+        trial_space = trial_test[0]
+        test_space  = trial_test[1]
         # ...
 
         # ...
@@ -121,7 +122,7 @@ class DiscreteEquation(BasicDiscrete):
             kwargs['boundary'] = boundaries_lhs
 
         newargs = list(args)
-        newargs[1] = test_trial
+        newargs[1] = trial_test
 
         self._lhs = discretize(expr.lhs, *newargs, **kwargs)
         # ...
@@ -138,8 +139,9 @@ class DiscreteEquation(BasicDiscrete):
 
         self._bc = bc
         self._linear_system = None
+        self._domain      = domain
         self._trial_space = trial_space
-        self._test_space = test_space
+        self._test_space  = test_space
 
     @property
     def expr(self):
@@ -154,12 +156,16 @@ class DiscreteEquation(BasicDiscrete):
         return self._rhs
 
     @property
-    def test_space(self):
-        return self._test_space
+    def domain(self):
+        return self._domain
 
     @property
     def trial_space(self):
         return self._trial_space
+
+    @property
+    def test_space(self):
+        return self._test_space
 
     @property
     def bc(self):
@@ -194,7 +200,10 @@ class DiscreteEquation(BasicDiscrete):
         self._linear_system = LinearSystem(M, rhs)
 
     def solve(self, **kwargs):
-        settings = kwargs.pop('settings', _default_solver)
+
+        settings = _default_solver.copy()
+        settings.update(kwargs.pop('settings', {}))
+
         rhs = kwargs.pop('rhs', None)
         if rhs:
             kwargs['assemble_rhs'] = False
@@ -205,6 +214,68 @@ class DiscreteEquation(BasicDiscrete):
             L = self.linear_system
             L = LinearSystem(L.lhs, rhs)
             self._linear_system = L
+
+        #----------------------------------------------------------------------
+        # [YG, 18/11/2019]
+        #
+        # Impose inhomogeneous Dirichlet boundary conditions through
+        # L2 projection on the boundary. This requires setting up a
+        # new variational formulation and solving the resulting linear
+        # system to obtain a solution that does not live in the space
+        # of homogeneous solutions. Such a solution is then used as
+        # initial guess when the model equation is to be solved by an
+        # iterative method. Our current method of solution does not
+        # modify the initial guess at the boundary.
+        #
+        if self.bc:
+
+            # Inhomogeneous Dirichlet boundary conditions
+            idbcs = [i for i in self.bc if i.rhs != 0]
+
+            if idbcs:
+
+                from sympde.expr import integral
+                from sympde.expr import find
+                from sympde.topology import element_of #, ScalarTestFunction
+
+                # Extract trial functions from model equation
+                u = self.expr.trial_functions
+
+                # Create test functions in same space of trial functions
+                # TODO: check if we should generate random names
+                V = ProductSpace(*[ui.space for ui in u])
+                v = element_of(V, name='v:{}'.format(len(u)))
+
+                # In a system, each essential boundary condition is applied to
+                # only one component (bc.variable) of the state vector. Hence
+                # we will select the correct test function using a dictionary.
+                test_dict = dict(zip(u, v))
+
+                # TODO: use dot product for vector quantities
+#                product  = lambda f, g: (f * g if isinstance(g, ScalarTestFunction) else dot(f, g))
+                product  = lambda f, g: f * g
+
+                # Construct variational formulation that performs L2 projection
+                # of boundary conditions onto the correct space
+                factor   = lambda bc : bc.lhs.xreplace(test_dict)
+                lhs_expr = sum(integral(i.boundary, product(i.lhs, factor(i))) for i in idbcs)
+                rhs_expr = sum(integral(i.boundary, product(i.rhs, factor(i))) for i in idbcs)
+                equation = find(u, forall=v, lhs=lhs_expr, rhs=rhs_expr)
+
+                # Discretize weak form
+                domain_h   = self.domain
+                Vh         = self.trial_space
+                equation_h = discretize(equation, domain_h, [Vh, Vh])
+
+                # Find inhomogeneous solution (use CG as system is symmetric)
+                loc_settings = settings.copy()
+                loc_settings['solver'] = 'cg'
+                X = equation_h.solve(**loc_settings)
+
+                # Use inhomogeneous solution as initial guess to solver
+                settings['x0'] = X
+
+        #----------------------------------------------------------------------
 
         return driver_solve(self.linear_system, **settings)
 
@@ -320,7 +391,7 @@ def discretize_derham(V, domain_h, *args, **kwargs):
     return DiscreteDerham(*spaces)
 #==============================================================================
 # TODO multi patch
-# TODO bounds and knots
+# TODO knots
 def discretize_space(V, domain_h, *args, **kwargs):
     degree           = kwargs.pop('degree', None)
     normalize        = kwargs.pop('normalize', True)
@@ -353,13 +424,16 @@ def discretize_space(V, domain_h, *args, **kwargs):
     elif not( degree is None ):
         assert(hasattr(domain_h, 'ncells'))
 
-        ncells = domain_h.ncells
+        ncells     = domain_h.ncells
+        min_coords = domain_h.domain.min_coords
+        max_coords = domain_h.domain.max_coords
 
         assert(isinstance( degree, (list, tuple) ))
         assert( len(degree) == ldim )
 
         # Create uniform grid
-        grids = [np.linspace( 0., 1., num=ne+1 ) for ne in ncells]
+        grids = [np.linspace(xmin, xmax, num=ne + 1)
+                 for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
         # Create 1D finite element spaces and precompute quadrature data
         spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
@@ -424,34 +498,19 @@ def discretize_space(V, domain_h, *args, **kwargs):
     return Vh
 
 #==============================================================================
-def discretize_domain(domain, *args, **kwargs):
-    filename = kwargs.pop('filename', None)
-    ncells   = kwargs.pop('ncells',   None)
-    comm     = kwargs.pop('comm',     None)
+def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
 
-    if not( ncells is None ):
-        dtype = domain.dtype
+    if not (filename or ncells):
+        raise ValueError("Must provide either 'filename' or 'ncells'")
 
-        if dtype['type'].lower() == 'line' :
-            return Geometry.as_line(ncells, comm=comm)
+    elif filename and ncells:
+        raise ValueError("Cannot provide both 'filename' and 'ncells'")
 
-        elif dtype['type'].lower() == 'square' :
-            return Geometry.as_square(ncells, comm=comm)
+    elif filename:
+        return Geometry(filename=filename, comm=comm)
 
-        elif dtype['type'].lower() == 'cube' :
-            return Geometry.as_cube(ncells, comm=comm)
-
-        else:
-            msg = 'no corresponding discrete geometry is available, given {}'
-            msg = msg.format(dtype['type'])
-
-            raise ValueError(msg)
-
-    elif not( filename is None ):
-        geometry = Geometry(filename=filename, comm=comm)
-
-    return geometry
-
+    elif ncells:
+        return Geometry.from_topological_domain(domain, ncells, comm)
 
 #==============================================================================
 def discretize(a, *args, **kwargs):

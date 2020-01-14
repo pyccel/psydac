@@ -16,6 +16,7 @@ from sympde.topology.space       import element_of
 from sympde.topology             import ScalarField
 from sympde.topology             import VectorField, IndexedVectorField
 from sympde.topology             import Mapping
+from sympde.topology             import Boundary
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_atom_derivatives
@@ -545,15 +546,17 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
     return stmts
 
 #==============================================================================
-def filter_product(indices, args, discrete_boundary):
+def filter_product(indices, args, boundary):
 
     mask = []
     ext = []
-    if discrete_boundary:
-        # TODO improve using namedtuple or a specific class ? to avoid the 0 index
-        #      => make it easier to understand
-        mask = [i[0] for i in discrete_boundary]
-        ext  = [i[1] for i in discrete_boundary]
+    if boundary:
+
+        if isinstance(boundary, Boundary):
+            mask = [boundary.axis]
+            ext  = [boundary.ext]
+        else:
+            raise TypeError
 
         # discrete_boundary gives the perpendicular indices, then we need to
         # remove them from directions
@@ -565,15 +568,17 @@ def filter_product(indices, args, discrete_boundary):
 
 #==============================================================================
 # TODO remove it later
-def filter_loops(indices, ranges, body, discrete_boundary, boundary_basis=False):
+def filter_loops(indices, ranges, body, boundary, boundary_basis=False):
 
     quad_mask = []
     quad_ext = []
-    if discrete_boundary:
-        # TODO improve using namedtuple or a specific class ? to avoid the 0 index
-        #      => make it easier to understand
-        quad_mask = [i[0] for i in discrete_boundary]
-        quad_ext  = [i[1] for i in discrete_boundary]
+    if boundary:
+
+        if isinstance(boundary, Boundary):
+            quad_mask = [boundary.axis]
+            quad_ext  = [boundary.ext]
+        else:
+            raise TypeError
 
         # discrete_boundary gives the perpendicular indices, then we need to
         # remove them from directions
@@ -604,15 +609,17 @@ def filter_loops(indices, ranges, body, discrete_boundary, boundary_basis=False)
     return body
 
 #==============================================================================
-def select_loops(indices, ranges, body, discrete_boundary, boundary_basis=False):
+def select_loops(indices, ranges, body, boundary, boundary_basis=False):
 
     quad_mask = []
     quad_ext = []
-    if discrete_boundary:
-        # TODO improve using namedtuple or a specific class ? to avoid the 0 index
-        #      => make it easier to understand
-        quad_mask = [i[0] for i in discrete_boundary]
-        quad_ext  = [i[1] for i in discrete_boundary]
+    if boundary:
+
+        if isinstance(boundary, Boundary):
+            quad_mask = [boundary.axis]
+            quad_ext  = [boundary.ext]
+        else:
+            raise TypeError
 
         # discrete_boundary gives the perpendicular indices, then we need to
         # remove them from directions
@@ -664,84 +671,67 @@ def fusion_loops(loops):
         return loops_cp
 
 #==============================================================================
-def compute_normal_vector(vector, discrete_boundary, mapping):
-    dim = len(vector)
-    pdim = dim - len(discrete_boundary)
-    if len(discrete_boundary) > 1: raise NotImplementedError('TODO')
+def compute_boundary_jacobian(parent_namespace, boundary, mapping=None):
 
-    face = discrete_boundary[0]
-    axis = face[0] ; ext = face[1]
+    # Sanity check on arguments
+    if not isinstance(boundary, Boundary):
+        raise TypeError(boundary)
 
-    map_stmts = []
-    body = []
-
-    if not mapping:
-
-        values = np.zeros(dim)
-        values[axis] = ext
+    if mapping is None:
+        stmts = []
 
     else:
-        M = mapping
-        inv_jac = Symbol('inv_jac')
-        det_jac = Symbol('det_jac')
+        # Compute metric determinant g on manifold
+        J  = SymbolicExpr(mapping.jacobian)
+        Jm = J[:, [i for i in range(J.shape[1]) if i != boundary.axis]]
+        g  = (Jm.T * Jm).det()
 
-        # ... construct jacobian on manifold
-        lines = []
-        n_row,n_col = M.jacobian.shape
-        range_row = [i for i in range(0,n_row) if not(i == axis)]
-        range_col = range(0,n_col)
-        for i_row in range_row:
-            line = []
-            for i_col in range_col:
-                line.append(M.jacobian[i_col, i_row])
+        # Create statements for computing sqrt(g)
+        det_jac_bnd = parent_namespace['det_jac_bnd']
+        stmts       = [Assign(det_jac_bnd, sympy_sqrt(g))]
 
-            lines.append(line)
-
-        J = Matrix(lines)
-        # ...
-
-        J = SymbolicExpr(J)
-
-        if dim == 1:
-            raise NotImplementedError('TODO')
-
-        elif dim == 2:
-            J = J[0,:]
-            # TODO shall we use sympy_sqrt here? is there any difference in
-            # Fortran between sqrt and Pow(, 1/2)?
-            j = (sum(J[i]**2 for i in range(0, dim)))**(1/2)
-
-            values = [inv_jac*J[1], -inv_jac*J[0]]
-
-        elif dim == 3:
-
-            x_s = J[0,:]
-            x_t = J[1,:]
-
-            values = Cross_3d(x_s, x_t)
-            j = (sum(J[i]**2 for i in range(0, dim)))**(1/2)
-            values = [inv_jac*v for v in values]
-
-
-        # change the orientation
-        values = [ext*i for i in values]
-
-        map_stmts += [Assign(det_jac, j)]
-        map_stmts += [Assign(inv_jac, 1./j)]
-
-    for i in range(0, dim):
-        body += [Assign(vector[i], values[i])]
-
-#    print(map_stmts)
-#    print(body)
-#    import sys; sys.exit(0)
-
-    return map_stmts, body
+    return stmts
 
 #==============================================================================
-def compute_tangent_vector(vector, discrete_boundary, mapping):
-    raise NotImplementedError('TODO')
+def compute_normal_vector(parent_namespace, vector, boundary, mapping=None):
 
+    # Sanity check on arguments
+    if isinstance(boundary, Boundary):
+        axis = boundary.axis
+        ext  = boundary.ext
+    else:
+        raise TypeError(boundary)
+
+    # If there is no mapping, normal vector has only one non-zero component,
+    # which is +1 or -1 according to the orientation of the boundary.
+    if mapping is None:
+        return [Assign(v, ext if i==axis else 0) for i, v in enumerate(vector)]
+
+    # Given the Jacobian matrix J, we need to extract the (i=axis) row of
+    # J^(-1) and then normalize it. We recall that J^(-1)[i, j] is equal to
+    # the cofactor of J[i, j] divided by det(J). For efficiency we only
+    # compute the cofactors C[i=0:dim] of the (j=axis) column of J, and we
+    # do not divide them by det(J) because the normal vector will need to
+    # be normalized anyway.
+    #
+    # NOTE: we also change the vector orientation according to 'ext'
+    J = SymbolicExpr(mapping.jacobian)
+    values = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
+
+    # Create statements for computing normal vector components
+    stmts = [Assign(lhs, rhs) for lhs, rhs in zip(vector, values)]
+
+    # Normalize vector
+    inv_norm_variable = Symbol('inv_norm')
+    inv_norm_value    = 1 / sympy_sqrt(sum(v**2 for v in values))
+    stmts += [Assign(inv_norm_variable, inv_norm_value)]
+    stmts += [AugAssign(v, '*', inv_norm_variable) for v in vector]
+
+    return stmts
+
+#==============================================================================
+def compute_tangent_vector(parent_namespace, vector, boundary, mapping):
+    raise NotImplementedError('TODO')
 
 #==============================================================================
 _range = re.compile('([0-9]*:[0-9]+|[a-zA-Z]?:[a-zA-Z])')

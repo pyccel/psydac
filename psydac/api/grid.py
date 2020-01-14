@@ -6,6 +6,7 @@ from psydac.utilities.quadratures  import gauss_legendre
 from psydac.core.bsplines          import quadrature_grid
 from psydac.core.bsplines          import find_span
 from psydac.core.bsplines          import basis_funs_all_ders
+from psydac.core.bsplines          import basis_ders_on_quad_grid
 from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
 from psydac.fem.vector             import ProductFemSpace
@@ -162,8 +163,8 @@ class BoundaryQuadratureGrid(QuadratureGrid):
 
         QuadratureGrid.__init__( self, V, quad_order=quad_order )
 
-        points     = self.points
-        weights    = self.weights
+        points  = self.points
+        weights = self.weights
 
         # ...
         if V.ldim == 1:
@@ -173,8 +174,8 @@ class BoundaryQuadratureGrid(QuadratureGrid):
             bounds[-1] = V.domain[0]
             bounds[1]  = V.domain[1]
 
-            points[axis]     = np.asarray([[bounds[ext]]])
-            weights[axis]    = np.asarray([[1.]])
+            points[axis]  = np.asarray([[bounds[ext]]])
+            weights[axis] = np.asarray([[1.]])
 
         elif V.ldim in [2, 3]:
             assert( isinstance( V, TensorFemSpace ) )
@@ -183,13 +184,22 @@ class BoundaryQuadratureGrid(QuadratureGrid):
             bounds[-1] = V.spaces[axis].domain[0]
             bounds[1]  = V.spaces[axis].domain[1]
 
-            points[axis]     = np.asarray([[bounds[ext]]])
-            weights[axis]    = np.asarray([[1.]])
+            points[axis]  = np.asarray([[bounds[ext]]])
+            weights[axis] = np.asarray([[1.]])
         # ...
 
-        self._points     = points
-        self._weights    = weights
+        self._axis    = axis
+        self._ext     = ext
+        self._points  = points
+        self._weights = weights
 
+    @property
+    def axis(self):
+        return self._axis
+
+    @property
+    def ext(self):
+        return self._ext
 
 #==============================================================================
 def create_fem_assembly_grid(V, quad_order=None, nderiv=1):
@@ -243,7 +253,22 @@ class BasisValues():
         else:
             self._spans = [g.spans for g in global_quad_grid]
             self._basis = [g.basis for g in global_quad_grid]
-            
+
+        # Modify data for boundary grid
+        if isinstance(grid, BoundaryQuadratureGrid):
+            axis = grid.axis
+            if isinstance(V, ProductFemSpace):
+                for i in range(len(V.spaces)):
+                    sp_space = V.spaces[i].spaces[axis]
+                    points = grid.points[axis]
+                    boundary_basis = basis_ders_on_quad_grid(sp_space.knots, sp_space.degree, points, nderiv)
+                    self._basis[i][axis][0:1, :, :, 0:1] = boundary_basis
+            else:
+                sp_space = V.spaces[axis]
+                points = grid.points[axis]
+                boundary_basis = basis_ders_on_quad_grid(sp_space.knots, sp_space.degree, points, nderiv)
+                self._basis[axis][0:1, :, :, 0:1] = boundary_basis
+
     @property
     def basis(self):
         return self._basis

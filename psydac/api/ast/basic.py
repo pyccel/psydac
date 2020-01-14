@@ -6,7 +6,6 @@ from sympy import Basic
 
 #==============================================================================
 class SplBasic(Basic):
-    _discrete_boundary = None
 
     def __new__(cls, tag, name=None, prefix=None, debug=False, detailed=False,
                 mapping=None, is_rational_mapping=None):
@@ -67,8 +66,8 @@ class SplBasic(Basic):
         return self._is_rational_mapping
 
     @property
-    def discrete_boundary(self):
-        return self._discrete_boundary
+    def boundary(self):
+        return self._boundary
 
     @property
     def imports(self):

@@ -73,11 +73,17 @@ class DiscreteBilinearForm(BasicDiscrete):
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
 
+        boundary = kwargs.pop('boundary', [])
+        if boundary and isinstance(boundary, list):
+            kwargs['boundary'] = boundary[0]
+        elif boundary:
+            kwargs['boundary'] = boundary
+
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # ...
-        test_space  = self.spaces[0]
-        trial_space = self.spaces[1]
+        trial_space = self.spaces[0]
+        test_space  = self.spaces[1]
         # ...
 
         # ...
@@ -157,6 +163,12 @@ class DiscreteLinearForm(BasicDiscrete):
         kwargs['mapping']             = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
+
+        boundary = kwargs.pop('boundary', [])
+        if boundary and isinstance(boundary, list):
+            kwargs['boundary'] = boundary[0]
+        elif boundary:
+            kwargs['boundary'] = boundary
 
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
