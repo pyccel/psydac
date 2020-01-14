@@ -236,7 +236,7 @@ class DiscreteEquation(BasicDiscrete):
 
                 from sympde.expr import integral
                 from sympde.expr import find
-                from sympde.topology import element_of, ScalarTestFunction
+                from sympde.topology import element_of #, ScalarTestFunction
 
                 # Extract trial functions from model equation
                 u = self.expr.trial_functions

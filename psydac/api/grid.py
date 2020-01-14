@@ -257,7 +257,6 @@ class BasisValues():
         # Modify data for boundary grid
         if isinstance(grid, BoundaryQuadratureGrid):
             axis = grid.axis
-            ext  = grid.ext
             if isinstance(V, ProductFemSpace):
                 for i in range(len(V.spaces)):
                     sp_space = V.spaces[i].spaces[axis]

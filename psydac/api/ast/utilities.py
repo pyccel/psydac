@@ -674,10 +674,7 @@ def fusion_loops(loops):
 def compute_boundary_jacobian(parent_namespace, boundary, mapping=None):
 
     # Sanity check on arguments
-    if isinstance(boundary, Boundary):
-        axis = boundary.axis
-        ext  = boundary.ext
-    else:
+    if not isinstance(boundary, Boundary):
         raise TypeError(boundary)
 
     if mapping is None:
@@ -686,7 +683,7 @@ def compute_boundary_jacobian(parent_namespace, boundary, mapping=None):
     else:
         # Compute metric determinant g on manifold
         J  = SymbolicExpr(mapping.jacobian)
-        Jm = J[:, [i for i in range(J.shape[1]) if i != axis]]
+        Jm = J[:, [i for i in range(J.shape[1]) if i != boundary.axis]]
         g  = (Jm.T * Jm).det()
 
         # Create statements for computing sqrt(g)
