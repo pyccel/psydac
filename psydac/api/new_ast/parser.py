@@ -28,46 +28,46 @@ from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
 #from sympde.topology import SymbolicWeightedVolume
 
-from nodes import AtomicNode
-from nodes import BasisAtom
-from nodes import PhysicalBasisValue
-from nodes import LogicalBasisValue
-from nodes import TensorQuadrature
-from nodes import TensorBasis
-from nodes import GlobalTensorQuadrature
-from nodes import LocalTensorQuadrature
-from nodes import LocalTensorQuadratureBasis
-from nodes import LocalTensorQuadratureTestBasis
-from nodes import LocalTensorQuadratureTrialBasis
-from nodes import GlobalTensorQuadratureTestBasis
-from nodes import GlobalTensorQuadratureTrialBasis
-from nodes import TensorQuadratureBasis
-from nodes import index_quad, length_quad
-from nodes import index_dof, index_dof_test, index_dof_trial
-from nodes import length_dof, length_dof_test, length_dof_trial
-from nodes import index_element, length_element
-from nodes import index_deriv
-from nodes import SplitArray
-from nodes import Reduction
-from nodes import Reset
-from nodes import LogicalValueNode
-from nodes import TensorIteration
-from nodes import TensorIterator
-from nodes import TensorGenerator
-from nodes import ProductIteration
-from nodes import ProductIterator
-from nodes import ProductGenerator
-from nodes import StencilMatrixLocalBasis
-from nodes import StencilVectorLocalBasis
-from nodes import StencilMatrixGlobalBasis
-from nodes import StencilVectorGlobalBasis
-from nodes import TensorQuadratureTestBasis, TensorQuadratureTrialBasis
-from nodes import Span
-from nodes import Loop
-from nodes import WeightedVolumeQuadrature
-from nodes import ComputeLogical
-from nodes import ElementOf
-from nodes import Block
+from .nodes import AtomicNode
+from .nodes import BasisAtom
+from .nodes import PhysicalBasisValue
+from .nodes import LogicalBasisValue
+from .nodes import TensorQuadrature
+from .nodes import TensorBasis
+from .nodes import GlobalTensorQuadrature
+from .nodes import LocalTensorQuadrature
+from .nodes import LocalTensorQuadratureBasis
+from .nodes import LocalTensorQuadratureTestBasis
+from .nodes import LocalTensorQuadratureTrialBasis
+from .nodes import GlobalTensorQuadratureTestBasis
+from .nodes import GlobalTensorQuadratureTrialBasis
+from .nodes import TensorQuadratureBasis
+from .nodes import index_quad, length_quad
+from .nodes import index_dof, index_dof_test, index_dof_trial
+from .nodes import length_dof, length_dof_test, length_dof_trial
+from .nodes import index_element, length_element
+from .nodes import index_deriv
+from .nodes import SplitArray
+from .nodes import Reduction
+from .nodes import Reset
+from .nodes import LogicalValueNode
+from .nodes import TensorIteration
+from .nodes import TensorIterator
+from .nodes import TensorGenerator
+from .nodes import ProductIteration
+from .nodes import ProductIterator
+from .nodes import ProductGenerator
+from .nodes import StencilMatrixLocalBasis
+from .nodes import StencilVectorLocalBasis
+from .nodes import StencilMatrixGlobalBasis
+from .nodes import StencilVectorGlobalBasis
+from .nodes import TensorQuadratureTestBasis, TensorQuadratureTrialBasis
+from .nodes import Span
+from .nodes import Loop
+from .nodes import WeightedVolumeQuadrature
+from .nodes import ComputeLogical
+from .nodes import ElementOf
+from .nodes import Block
 
 
 #==============================================================================
