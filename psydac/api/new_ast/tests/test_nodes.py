@@ -635,5 +635,3 @@ test_loop_local_quad_geometry_2d_1()
 test_assembly_linear_form_2d_1()
 test_assembly_bilinear_form_2d_1()
 
-import sys; sys.exit(0)
-
