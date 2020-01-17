@@ -122,9 +122,17 @@ x,y = symbols('x, y')
 
 
 a = BilinearForm((u,v), integral(domain, dot(grad(u), grad(v))))
-ast = AST(a)
+ast_b = AST(a)
+b = LinearForm(v, integral(domain, v*cos(x)))
+ast_l = AST(b)
 
-stmt = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv})
-
-print(pycode(stmt))
+stmt_b = parse(ast_b.expr, settings={'dim': ast_b.dim, 'nderiv': ast_b.nderiv})
+stmt_l = parse(ast_l.expr, settings={'dim': ast_l.dim, 'nderiv': ast_l.nderiv})
+print('============================================BilinearForm=========================================')
+print()
+print(pycode(stmt_b))
+print()
+print('============================================LinearForm===========================================')
+print()
+print(pycode(stmt_l))
 
