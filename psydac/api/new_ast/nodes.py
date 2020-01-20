@@ -13,7 +13,7 @@ from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import Mapping
 from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
-#from sympde.topology import SymbolicWeightedVolume
+from sympde.topology import SymbolicWeightedVolume
 from sympde.topology import IdentityMapping
 
 #==============================================================================
@@ -836,7 +836,6 @@ class Loop(BaseNode):
 
         # ...
         if not( isinstance(index, IndexNode) ):
-            print(type(index), index)
             raise TypeError('Expecting an index node')
         # ...
 
@@ -911,7 +910,7 @@ class Loop(BaseNode):
         # TODO add other expressions
         args += [ComputeLogical(SymbolicDeterminant(mapping))]
         args += [ComputeLogical(SymbolicInverseDeterminant(mapping))]
-        args += [ComputeLogical(Symbol('SymbolicWeightedVolume(' + str(mapping) + ')'))]
+        args += [ComputeLogical(SymbolicWeightedVolume(mapping))]
 
         return Tuple(*args)
 
@@ -1274,7 +1273,7 @@ class AST(object):
                        ScalarField,
                        VectorField, IndexedVectorField)
 
-        atoms  = _atomic(expr, cls=atoms_types)
+        atoms  = _atomic(terminal_expr, cls=atoms_types)
         # ...
 
         # ...

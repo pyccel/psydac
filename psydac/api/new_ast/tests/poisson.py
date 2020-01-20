@@ -34,8 +34,8 @@ b     = LinearForm(v, integral(domain, v*cos(x)))
 ast_b = AST(a)
 ast_l = AST(b)
 
-stmt_b = parse(ast_b.expr, settings={'dim': ast_b.dim, 'nderiv': ast_b.nderiv})
-stmt_l = parse(ast_l.expr, settings={'dim': ast_l.dim, 'nderiv': ast_l.nderiv})
+stmt_b = parse(ast_b.expr, settings={'dim': ast_b.dim, 'nderiv': ast_b.nderiv, 'mapping':M})
+stmt_l = parse(ast_l.expr, settings={'dim': ast_l.dim, 'nderiv': ast_l.nderiv, 'mapping':M})
 
 print('============================================BilinearForm=========================================')
 print()
@@ -45,3 +45,11 @@ print('============================================LinearForm===================
 print()
 print(pycode(stmt_l))
 
+
+def teardown_module():
+    from sympy import cache
+    cache.clear_cache()
+
+def teardown_function():
+    from sympy import cache
+    cache.clear_cache()
