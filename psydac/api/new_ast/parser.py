@@ -133,7 +133,9 @@ class Parser(object):
         # TODO improve
         self.free_indices   = OrderedDict()
         self.free_lengths   = OrderedDict()
-        self.free_variables = OrderedDict()
+
+        self.free_local_variables = OrderedDict()
+        self.free_global_variables = OrderedDict()
 
     @property
     def settings(self):
@@ -283,6 +285,11 @@ class Parser(object):
         # gather by axis
         target = list(zip(points, weights))
 
+        for pnt in points:
+            self.free_global_variables[str(pnt)] = pnt
+        for wt in weights:
+            self.free_global_variables[str(wt)]  = wt
+
         return target
 
     # ....................................................
@@ -298,6 +305,11 @@ class Parser(object):
 
         # gather by axis
         target = list(zip(points, weights))
+
+        for pnt in points:
+            self.free_local_variables[str(pnt)] = pnt
+        for wt in weights:
+            self.free_local_variables[str(wt)]  = wt
 
         return target
 
@@ -352,7 +364,13 @@ class Parser(object):
         target = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
         if not isinstance(target[0], (tuple, list, Tuple)):
             target = [target]
+
         target = list(zip(*target))
+
+        for t in target:
+            for var in t:
+                self.free_global_variables[str(var)] = var
+
         return target
 
     # ....................................................
@@ -385,6 +403,11 @@ class Parser(object):
         if not isinstance(target[0], (tuple, list, Tuple)):
             target = [target]
         target = list(zip(*target))
+
+        for t in target:
+            for var in t:
+                self.free_local_variables[str(var)] = var
+
         return target
 
     # ....................................................
@@ -418,6 +441,11 @@ class Parser(object):
         if not isinstance(target[0], (tuple, list, Tuple)):
             target = [target]
         target = list(zip(*target))
+
+        for t in target:
+            for var in t:
+                self.free_local_variables[str(var)] = var
+
         return target
 
     # ....................................................
@@ -469,6 +497,10 @@ class Parser(object):
         if not isinstance(target[0], (tuple, list, Tuple)):
             target = [target]
         target = list(zip(*target))
+
+        for t in target:
+            self.free_global_variables[str(t)] = t
+
         return target
 
     # ....................................................
@@ -1107,7 +1139,7 @@ class Parser(object):
 
         # update with product statements if available
         body = list(p_inits) + list(geo_stmts) + list(stmts)
-        print(body)
+
         for index, length, init in zip(indices, lengths, inits):
             if len(length) == 1:
                 l = length[0]
