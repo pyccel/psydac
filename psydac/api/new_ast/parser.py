@@ -4,7 +4,7 @@ from sympy import IndexedBase, Indexed
 from sympy import Mul
 from sympy import Add
 from sympy import Abs
-from sympy import symbols, Symbol
+from sympy import Symbol
 from sympy.core.containers import Tuple
 
 from pyccel.ast import Range, Product, For
@@ -861,27 +861,27 @@ class Parser(object):
     # ....................................................
     def _visit_IndexElement(self, expr, **kwargs):
         dim = self.dim
-        return symbols('i_element_1:%d'%(dim+1))
+        return variables('i_element_1:%d'%(dim+1), dtype='int', cls=Variable)
 
     # ....................................................
     def _visit_IndexQuadrature(self, expr, **kwargs):
         dim = self.dim
-        return symbols('i_quad_1:%d'%(dim+1))
+        return variables('i_quad_1:%d'%(dim+1), dtype='int', cls=Variable)
 
     # ....................................................
     def _visit_IndexDof(self, expr, **kwargs):
         dim = self.dim
-        return symbols('i_basis_1:%d'%(dim+1))
+        return variables('i_basis_1:%d'%(dim+1), dtype='int', cls=Variable)
 
     # ....................................................
     def _visit_IndexDofTrial(self, expr, **kwargs):
         dim = self.dim
-        return symbols('j_basis_1:%d'%(dim+1))
+        return variables('j_basis_1:%d'%(dim+1), dtype='int', cls=Variable)
 
     # ....................................................
     def _visit_IndexDofTest(self, expr, **kwargs):
         dim = self.dim
-        return symbols('i_basis_1:%d'%(dim+1))
+        return variables('i_basis_1:%d'%(dim+1), dtype='int', cls=Variable)
 
     # ....................................................
     def _visit_IndexDerivative(self, expr, **kwargs):
@@ -890,30 +890,30 @@ class Parser(object):
     # ....................................................
     def _visit_LengthElement(self, expr, **kwargs):
         dim = self.dim
-        return symbols('n_element_1:%d'%(dim+1))
+        return variables('n_element_1:%d'%(dim+1), dtype='int', cls=Variable)
 
     # ....................................................
     def _visit_LengthQuadrature(self, expr, **kwargs):
         dim = self.dim
-        return symbols('k1:%d'%(dim+1))
+        return variables('k1:%d'%(dim+1), dtype='int', cls=Variable)
 
     # ....................................................
     def _visit_LengthDof(self, expr, **kwargs):
         # TODO must be p+1
         dim = self.dim
-        return symbols('p1:%d'%(dim+1))
+        return variables('p1:%d'%(dim+1), dtype='int', cls=Variable)
 
     # ....................................................
     def _visit_LengthDofTest(self, expr, **kwargs):
         # TODO must be p+1
         dim = self.dim
-        return symbols('test_p1:%d'%(dim+1))
+        return variables('test_p1:%d'%(dim+1), dtype='int', cls=Variable)
 
     # ....................................................
     def _visit_LengthDofTrial(self, expr, **kwargs):
         # TODO must be p+1
         dim = self.dim
-        return symbols('trial_p1:%d'%(dim+1))
+        return variables('trial_p1:%d'%(dim+1), dtype='int', cls=Variable)
 
     # ....................................................
     def _visit_RankDimension(self, expr, **kwargs):
@@ -1107,7 +1107,7 @@ class Parser(object):
 
         # update with product statements if available
         body = list(p_inits) + list(geo_stmts) + list(stmts)
-
+        print(body)
         for index, length, init in zip(indices, lengths, inits):
             if len(length) == 1:
                 l = length[0]
