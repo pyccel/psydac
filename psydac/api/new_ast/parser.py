@@ -42,10 +42,9 @@ from .nodes import LocalTensorQuadratureTrialBasis
 from .nodes import GlobalTensorQuadratureTestBasis
 from .nodes import GlobalTensorQuadratureTrialBasis
 from .nodes import TensorQuadratureBasis
-from .nodes import index_quad, length_quad
+from .nodes import index_quad
 from .nodes import index_dof, index_dof_test, index_dof_trial
-from .nodes import length_dof, length_dof_test, length_dof_trial
-from .nodes import index_element, length_element
+from .nodes import index_element
 from .nodes import index_deriv
 from .nodes import SplitArray
 from .nodes import Reduction
@@ -72,12 +71,7 @@ from .nodes import Block
 from psydac.api.ast.utilities import variables
 
 
-#==============================================================================
 
-def parse(expr, settings=None):
-    return Parser(settings).doit(expr)
-
-#==============================================================================
 #==============================================================================
 # TODO move it
 import string
@@ -88,12 +82,11 @@ def random_string( n ):
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
 #==============================================================================
-_length_of_registery = {index_quad:      length_quad,
-                        index_dof:       length_dof,
-                        index_dof_test:  length_dof_test,
-                        index_dof_trial: length_dof_trial,
-                        index_element:   length_element, }
 
+def parse(expr, settings=None):
+     psy_parser = Parser(settings)
+     ast = psy_parser.doit(expr)
+     return ast
 #==============================================================================
 class Parser(object):
     """
@@ -138,8 +131,9 @@ class Parser(object):
         self._settings = settings
 
         # TODO improve
-        self.free_indices = OrderedDict()
-        self.free_lengths = OrderedDict()
+        self.free_indices   = OrderedDict()
+        self.free_lengths   = OrderedDict()
+        self.free_variables = OrderedDict()
 
     @property
     def settings(self):
@@ -529,7 +523,7 @@ class Parser(object):
             rhs  = self._visit(expr, **kwargs)
 
             pads    = self._visit(pads)
-            degrees = self._visit(length_dof_test)
+            degrees = self._visit(index_dof_test.length)
 
             # TODO improve
             spans   = self._visit(Span())
@@ -557,7 +551,7 @@ class Parser(object):
             rhs  = self._visit(expr, **kwargs)
 
             pads    = self._visit(pads)
-            degrees = self._visit(length_dof_test)
+            degrees = self._visit(index_dof_test.length)
 
             # TODO improve
             spans   = self._visit(Span())
@@ -948,7 +942,6 @@ class Parser(object):
         # treat dummies and put them in the namespace
         dummies = self._visit(expr.dummies)
         dummies = list(zip(*dummies)) # TODO improve
-        self.free_indices[expr.dummies] = dummies
 
         # add dummies as args of pattern()
         pattern = expr.target.pattern()
@@ -979,11 +972,22 @@ class Parser(object):
         iterator  = self._visit(expr.iterator)
         generator = self._visit(expr.generator)
 
-        dummies = expr.generator.dummies
-        lengths = [_length_of_registery[i] for i in dummies]
+        indices = expr.generator.dummies
+
+        lengths = [i.length for i in indices]
+
+        indices = [self._visit(i) for i in indices]
         lengths = [self._visit(i) for i in lengths]
         lengths = list(zip(*lengths)) # TODO
-        indices = self.free_indices[dummies]
+
+
+        indices = tuple(ind for ls in indices for ind in ls)
+        for ind in indices:
+            self.free_indices[str(ind.name)] = ind
+
+        for ls in lengths:
+            for ind in ls:
+                self.free_lengths[str(ind.name)] = ind
 
         # ...
         inits = []
@@ -1043,10 +1047,13 @@ class Parser(object):
                         for i,j in zip(t_iterator, t_generator)]
 
         t_inits = []
+        #print(*[(self._visit(i),type(i)) for i in t_generator],sep='\n')
+        #print('================')
+
         if t_iterations:
             t_iterations = [self._visit(i) for i in t_iterations]
             indices, lengths, inits = zip(*t_iterations)
-            # indices and lengths are suppose to be repeated here
+            # indices and lengths are supposed to be repeated here
             # we only take the first occurence
             indices = indices[0]
             lengths = lengths[0]
@@ -1072,6 +1079,10 @@ class Parser(object):
         # ...
 
         # ...
+#        print('++++++++++p_inits++++++++++++++')
+#        print(*p_inits,sep='\n')
+#        print('++++++++++t_inits++++++++++++++')
+#        print(*t_inits, sep='\n')
         inits = t_inits
         # ...
 
@@ -1083,7 +1094,9 @@ class Parser(object):
 
         # ...
         # visit loop statements
+
         stmts = self._visit(expr.stmts, **kwargs)
+
 #        # sometimes we may have a list of list of statements
 #        # where the first list has one element
 #        # this is the case when we return a stmt+loop
@@ -1098,7 +1111,7 @@ class Parser(object):
         for index, length, init in zip(indices, lengths, inits):
             if len(length) == 1:
                 l = length[0]
-                i = index[0]
+                i = index
                 ranges = [Range(l)]
 
             else:

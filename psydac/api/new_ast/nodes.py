@@ -41,36 +41,6 @@ class FunctionalArity(ArityType):
     pass
 
 #==============================================================================
-class IndexNode(with_metaclass(Singleton, Basic)):
-    """Base class representing one index of an iterator"""
-    pass
-
-class IndexElement(IndexNode):
-    pass
-
-class IndexQuadrature(IndexNode):
-    pass
-
-class IndexDof(IndexNode):
-    pass
-
-class IndexDofTrial(IndexNode):
-    pass
-
-class IndexDofTest(IndexNode):
-    pass
-
-class IndexDerivative(IndexNode):
-    pass
-
-index_element   = IndexElement()
-index_quad      = IndexQuadrature()
-index_dof       = IndexDof()
-index_dof_trial = IndexDofTrial()
-index_dof_test  = IndexDofTest()
-index_deriv     = IndexDerivative()
-
-#==============================================================================
 class LengthNode(with_metaclass(Singleton, Basic)):
     """Base class representing one length of an iterator"""
     pass
@@ -89,12 +59,44 @@ class LengthDofTrial(LengthNode):
 
 class LengthDofTest(LengthNode):
     pass
+#==============================================================================
+class IndexNode(with_metaclass(Singleton, Basic)):
+    """Base class representing one index of an iterator"""
+    def __new__(cls, index_length):
+        assert isinstance(index_length, LengthNode)
+        return Basic.__new__(cls, index_length)
 
-length_element   = LengthElement()
-length_quad      = LengthQuadrature()
-length_dof       = LengthDof()
-length_dof_trial = LengthDofTrial()
-length_dof_test  = LengthDofTest()
+    @property
+    def length(self):
+        return self._args[0]
+
+class IndexElement(IndexNode):
+    pass
+
+class IndexQuadrature(IndexNode):
+    pass
+
+class IndexDof(IndexNode):
+    pass
+
+class IndexDofTrial(IndexNode):
+    pass
+
+class IndexDofTest(IndexNode):
+    pass
+
+class IndexDerivative(IndexNode):
+    def __new__(cls):
+        return Basic.__new__(cls)
+
+index_element   = IndexElement(LengthElement())
+index_quad      = IndexQuadrature(LengthQuadrature())
+index_dof       = IndexDof(LengthDof())
+index_dof_trial = IndexDofTrial(LengthDofTrial())
+index_dof_test  = IndexDofTest(LengthDofTest())
+index_deriv     = IndexDerivative()
+
+
 
 #==============================================================================
 class RankNode(with_metaclass(Singleton, Basic)):
