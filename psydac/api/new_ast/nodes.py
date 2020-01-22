@@ -1161,9 +1161,23 @@ def construct_itergener(a, index):
     return iterator, generator
 
 #==============================================================================
+
+class DefNode(Basic):
+    """."""
+    def __new__(cls, name, body):
+        return Basic.__new__(cls, name, body)
+
+    @property
+    def name(self):
+        return self._args[0]
+
+    @property
+    def body(self):
+        return self._args[1]
+
+#==============================================================================
 class Block(Basic):
-    """
-    """
+    """."""
     def __new__(cls, body):
         if not isinstance(body, (list, tuple, Tuple)):
             body = [body]
@@ -1219,6 +1233,7 @@ from sympde.topology.space       import IndexedTestTrial
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
+ 
 class AST(object):
     """
     """
@@ -1328,7 +1343,7 @@ class AST(object):
             raise NotImplementedError('TODO')
         # ...
 
-        self._expr   = ast
+        self._expr   = DefNode('assembly', ast)
         self._nderiv = nderiv
         self._domain = domain
 

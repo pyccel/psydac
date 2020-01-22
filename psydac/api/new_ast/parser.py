@@ -13,7 +13,7 @@ from pyccel.ast import AugAssign
 from pyccel.ast import Variable, IndexedVariable, IndexedElement
 from pyccel.ast import Slice
 from pyccel.ast import EmptyLine
-from pyccel.ast import CodeBlock
+from pyccel.ast import CodeBlock,FunctionDef
 
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import (dx1, dx2, dx3)
@@ -134,8 +134,9 @@ class Parser(object):
         self.free_indices   = OrderedDict()
         self.free_lengths   = OrderedDict()
 
-        self.free_local_variables = OrderedDict()
+        self.free_local_variables  = OrderedDict()
         self.free_global_variables = OrderedDict()
+        self.functions             = OrderedDict()
 
     @property
     def settings(self):
@@ -262,6 +263,14 @@ class Parser(object):
 
         else:
             return CodeBlock(body)
+
+    def _visit_DefNode(self, expr, **kwargs):
+        body = self._visit(expr.body, **kwargs)
+        arguments = tuple(self.free_global_variables.values())
+        name = expr.name
+        #TODO add allocation of local variables in the function body 
+        return FunctionDef(name, arguments, [], [body])
+
 
     # ....................................................
     def _visit_Grid(self, expr, **kwargs):
@@ -499,7 +508,8 @@ class Parser(object):
         target = list(zip(*target))
 
         for t in target:
-            self.free_global_variables[str(t)] = t
+            for var in t:
+                self.free_global_variables[str(var)] = var
 
         return target
 
