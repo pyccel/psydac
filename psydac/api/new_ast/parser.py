@@ -81,6 +81,17 @@ def random_string( n ):
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
+
+def flatten(args):
+    ls = []
+    def rec_flatten(args, ls):
+        if isinstance(args, (list, tuple, Tuple)):
+            for i in args:
+                rec_flatten(i,ls)
+        else:
+            ls.append(args)
+    rec_flatten(args, ls)
+    return type(args)(ls)
 #==============================================================================
 
 def parse(expr, settings=None):
@@ -265,11 +276,21 @@ class Parser(object):
             return CodeBlock(body)
 
     def _visit_DefNode(self, expr, **kwargs):
-        body = self._visit(expr.body, **kwargs)
-        arguments = tuple(self.free_global_variables.values())
+        body = tuple(self._visit(i, **kwargs) for i in expr.body)
+        args = tuple(self._visit(i, **kwargs) for i in expr.arguments)
+        arguments = tuple(flatten(args))
         name = expr.name
-        #TODO add allocation of local variables in the function body 
-        return FunctionDef(name, arguments, [], [body])
+        #TODO add allocation of local variables in the function body
+        func = FunctionDef(name, arguments, [], body)
+
+        self.functions[name] = func
+        self.free_indices   = OrderedDict()
+        self.free_lengths   = OrderedDict()
+
+        self.free_local_variables  = OrderedDict()
+        self.free_global_variables = OrderedDict()
+
+        return func
 
 
     # ....................................................
@@ -843,8 +864,9 @@ class Parser(object):
         rank = expr.rank
         tag  = expr.tag
         name = 'l_mat_{}'.format(tag)
-
-        return IndexedVariable(name, dtype='real', rank=rank)
+        var  = IndexedVariable(name, dtype='real', rank=rank)
+        self.free_local_variables[str(var)] = var
+        return var
 
     # ....................................................
     def _visit_StencilVectorLocalBasis(self, expr, **kwargs):
@@ -852,8 +874,9 @@ class Parser(object):
         rank = expr.rank
         tag  = expr.tag
         name = 'l_vec_{}'.format(tag)
-
-        return IndexedVariable(name, dtype='real', rank=rank)
+        var  = IndexedVariable(name, dtype='real', rank=rank) 
+        self.free_local_variables[str(var)] = var
+        return var
 
     # ....................................................
     def _visit_StencilMatrixGlobalBasis(self, expr, **kwargs):
@@ -861,17 +884,19 @@ class Parser(object):
         rank = expr.rank
         tag  = expr.tag
         name = 'g_mat_{}'.format(tag)
-
-        return IndexedVariable(name, dtype='real', rank=rank)
+        var  = IndexedVariable(name, dtype='real', rank=rank)
+        self.free_global_variables[str(var)] = var
+        return var
 
     # ....................................................
     def _visit_StencilVectorGlobalBasis(self, expr, **kwargs):
         pads = expr.pads
         rank = expr.rank
         tag  = expr.tag
-        name = 'g_vec_{}'.format(tag)
-
-        return IndexedVariable(name, dtype='real', rank=rank)
+        name = 'g_vec_{}'.format(tag)        
+        var  = IndexedVariable(name, dtype='real', rank=rank)
+        self.free_global_variables[str(var)] = var
+        return var
 
     # ....................................................
     def _visit_Pattern(self, expr, **kwargs):

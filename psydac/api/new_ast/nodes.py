@@ -1161,21 +1161,6 @@ def construct_itergener(a, index):
     return iterator, generator
 
 #==============================================================================
-
-class DefNode(Basic):
-    """."""
-    def __new__(cls, name, body):
-        return Basic.__new__(cls, name, body)
-
-    @property
-    def name(self):
-        return self._args[0]
-
-    @property
-    def body(self):
-        return self._args[1]
-
-#==============================================================================
 class Block(Basic):
     """."""
     def __new__(cls, body):
@@ -1233,7 +1218,28 @@ from sympde.topology.space       import IndexedTestTrial
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
- 
+
+class DefNode(Basic):
+    """."""
+    def __new__(cls, name, arguments, local_variables, body):
+        return Basic.__new__(cls, name, arguments, local_variables, body)
+
+    @property
+    def name(self):
+        return self._args[0]
+
+    @property
+    def arguments(self):
+        return self._args[1]
+
+    @property
+    def local_variables(self):
+        return self._args[2]
+
+    @property
+    def body(self):
+        return self._args[3]
+
 class AST(object):
     """
     """
@@ -1343,7 +1349,7 @@ class AST(object):
             raise NotImplementedError('TODO')
         # ...
 
-        self._expr   = DefNode('assembly', ast)
+        self._expr   = ast
         self._nderiv = nderiv
         self._domain = domain
 
@@ -1368,6 +1374,7 @@ class AST(object):
 def _create_ast_linear_form(terminal_expr, atomic_expr, tests, d_tests, nderiv, dim):
     """
     """
+    
     pads   = symbols('p1, p2, p3')[:dim]
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
@@ -1418,7 +1425,10 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, tests, d_tests, nderiv, 
 
     # ... TODO
     body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop))
-    stmt = Block(body)
+
+    args       = [*g_basis, *g_span, g_vec, g_quad]
+    local_vars = [*a_basis] 
+    stmt = DefNode('assembly', args, local_vars, body)
     # ...
 
     return stmt
@@ -1430,6 +1440,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr,
                               nderiv, dim):
     """
     """
+    #DefNode should be created here and given the right arguments
     pads   = symbols('p1, p2, p3')[:dim]
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
@@ -1490,7 +1501,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr,
 
     # ... TODO
     body = (Reset(g_mat), Reduce('+', l_mat, g_mat, loop))
-    stmt = Block(body)
     # ...
+    args = [*g_basis_tests, *g_basis_trials, *g_span, g_quad, g_mat]
+    local_vars = [*a_basis_tests, *a_basis_trials]
+    stmt = DefNode('assembly', args, local_vars, body)
 
     return stmt
