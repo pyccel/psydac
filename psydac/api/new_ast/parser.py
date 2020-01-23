@@ -4,7 +4,7 @@ from sympy import IndexedBase, Indexed
 from sympy import Mul
 from sympy import Add
 from sympy import Abs
-from sympy import Symbol
+from sympy import Symbol, Idx
 from sympy.core.containers import Tuple
 
 from pyccel.ast import Range, Product, For
@@ -145,9 +145,9 @@ class Parser(object):
         self.free_indices   = OrderedDict()
         self.free_lengths   = OrderedDict()
 
-        self.free_local_variables  = OrderedDict()
-        self.free_global_variables = OrderedDict()
-        self.functions             = OrderedDict()
+        self.inout_arguments  = OrderedDict()
+        self.in_arguments     = OrderedDict()
+        self.functions        = OrderedDict()
 
     @property
     def settings(self):
@@ -206,7 +206,9 @@ class Parser(object):
             else:
                 raise NotImplementedError('{}'.format(type(lhs)))
         # ...
-
+#        print(lhs, type(lhs))
+#        print(rhs, rhs.atoms(Symbol))
+        
         return Assign(lhs, rhs)
 
     # ....................................................
@@ -280,7 +282,6 @@ class Parser(object):
         args = tuple(self._visit(i, **kwargs) for i in expr.arguments)
         arguments = tuple(flatten(args))
         name = expr.name
-        #TODO add allocation of local variables in the function body
         func = FunctionDef(name, arguments, [], body)
 
         self.functions[name] = func
@@ -315,11 +316,6 @@ class Parser(object):
         # gather by axis
         target = list(zip(points, weights))
 
-        for pnt in points:
-            self.free_global_variables[str(pnt)] = pnt
-        for wt in weights:
-            self.free_global_variables[str(wt)]  = wt
-
         return target
 
     # ....................................................
@@ -335,11 +331,6 @@ class Parser(object):
 
         # gather by axis
         target = list(zip(points, weights))
-
-        for pnt in points:
-            self.free_local_variables[str(pnt)] = pnt
-        for wt in weights:
-            self.free_local_variables[str(wt)]  = wt
 
         return target
 
@@ -397,10 +388,6 @@ class Parser(object):
 
         target = list(zip(*target))
 
-        for t in target:
-            for var in t:
-                self.free_global_variables[str(var)] = var
-
         return target
 
     # ....................................................
@@ -433,10 +420,6 @@ class Parser(object):
         if not isinstance(target[0], (tuple, list, Tuple)):
             target = [target]
         target = list(zip(*target))
-
-        for t in target:
-            for var in t:
-                self.free_local_variables[str(var)] = var
 
         return target
 
@@ -471,10 +454,6 @@ class Parser(object):
         if not isinstance(target[0], (tuple, list, Tuple)):
             target = [target]
         target = list(zip(*target))
-
-        for t in target:
-            for var in t:
-                self.free_local_variables[str(var)] = var
 
         return target
 
@@ -528,10 +507,6 @@ class Parser(object):
             target = [target]
         target = list(zip(*target))
 
-        for t in target:
-            for var in t:
-                self.free_global_variables[str(var)] = var
-
         return target
 
     # ....................................................
@@ -539,7 +514,7 @@ class Parser(object):
         dim = self.dim
 
         names  = 'span1:%s'%(dim+1)
-        target = variables(names, dtype='int', cls=Variable)
+        target = variables(names, dtype='int', cls=Idx)
 
         if not isinstance(target[0], (tuple, list, Tuple)):
             target = [target]
@@ -865,7 +840,7 @@ class Parser(object):
         tag  = expr.tag
         name = 'l_mat_{}'.format(tag)
         var  = IndexedVariable(name, dtype='real', rank=rank)
-        self.free_local_variables[str(var)] = var
+
         return var
 
     # ....................................................
@@ -875,7 +850,7 @@ class Parser(object):
         tag  = expr.tag
         name = 'l_vec_{}'.format(tag)
         var  = IndexedVariable(name, dtype='real', rank=rank) 
-        self.free_local_variables[str(var)] = var
+
         return var
 
     # ....................................................
@@ -885,7 +860,7 @@ class Parser(object):
         tag  = expr.tag
         name = 'g_mat_{}'.format(tag)
         var  = IndexedVariable(name, dtype='real', rank=rank)
-        self.free_global_variables[str(var)] = var
+
         return var
 
     # ....................................................
@@ -895,7 +870,7 @@ class Parser(object):
         tag  = expr.tag
         name = 'g_vec_{}'.format(tag)        
         var  = IndexedVariable(name, dtype='real', rank=rank)
-        self.free_global_variables[str(var)] = var
+
         return var
 
     # ....................................................
@@ -928,27 +903,27 @@ class Parser(object):
     # ....................................................
     def _visit_IndexElement(self, expr, **kwargs):
         dim = self.dim
-        return variables('i_element_1:%d'%(dim+1), dtype='int', cls=Variable)
+        return variables('i_element_1:%d'%(dim+1), dtype='int', cls=Idx)
 
     # ....................................................
     def _visit_IndexQuadrature(self, expr, **kwargs):
         dim = self.dim
-        return variables('i_quad_1:%d'%(dim+1), dtype='int', cls=Variable)
+        return variables('i_quad_1:%d'%(dim+1), dtype='int', cls=Idx)
 
     # ....................................................
     def _visit_IndexDof(self, expr, **kwargs):
         dim = self.dim
-        return variables('i_basis_1:%d'%(dim+1), dtype='int', cls=Variable)
+        return variables('i_basis_1:%d'%(dim+1), dtype='int', cls=Idx)
 
     # ....................................................
     def _visit_IndexDofTrial(self, expr, **kwargs):
         dim = self.dim
-        return variables('j_basis_1:%d'%(dim+1), dtype='int', cls=Variable)
+        return variables('j_basis_1:%d'%(dim+1), dtype='int', cls=Idx)
 
     # ....................................................
     def _visit_IndexDofTest(self, expr, **kwargs):
         dim = self.dim
-        return variables('i_basis_1:%d'%(dim+1), dtype='int', cls=Variable)
+        return variables('i_basis_1:%d'%(dim+1), dtype='int', cls=Idx)
 
     # ....................................................
     def _visit_IndexDerivative(self, expr, **kwargs):
@@ -968,19 +943,19 @@ class Parser(object):
     def _visit_LengthDof(self, expr, **kwargs):
         # TODO must be p+1
         dim = self.dim
-        return variables('p1:%d'%(dim+1), dtype='int', cls=Variable)
+        return variables('p1:%d'%(dim+1), dtype='int', cls=Idx)
 
     # ....................................................
     def _visit_LengthDofTest(self, expr, **kwargs):
         # TODO must be p+1
         dim = self.dim
-        return variables('test_p1:%d'%(dim+1), dtype='int', cls=Variable)
+        return variables('test_p1:%d'%(dim+1), dtype='int', cls=Idx)
 
     # ....................................................
     def _visit_LengthDofTrial(self, expr, **kwargs):
         # TODO must be p+1
         dim = self.dim
-        return variables('trial_p1:%d'%(dim+1), dtype='int', cls=Variable)
+        return variables('trial_p1:%d'%(dim+1), dtype='int', cls=Idx)
 
     # ....................................................
     def _visit_RankDimension(self, expr, **kwargs):
@@ -1049,12 +1024,6 @@ class Parser(object):
 
 
         indices = tuple(ind for ls in indices for ind in ls)
-        for ind in indices:
-            self.free_indices[str(ind.name)] = ind
-
-        for ls in lengths:
-            for ind in ls:
-                self.free_lengths[str(ind.name)] = ind
 
         # ...
         inits = []

@@ -3,7 +3,7 @@ import string
 import random
 import numpy as np
 
-from sympy import Symbol, IndexedBase, Indexed
+from sympy import Symbol, IndexedBase, Indexed, Idx
 from sympy import Mul, Tuple, Pow
 from sympy import Matrix
 from sympy import sqrt as sympy_sqrt
@@ -743,6 +743,11 @@ def variables(names, dtype, **args):
             return Variable(dtype,  name, rank=rank, **args)
         elif issubclass(cls, IndexedVariable):
             return IndexedVariable(name, dtype=dtype, rank=rank, **args)
+        elif cls==Idx:
+            assert dtype == "int"
+            rank = args.pop('rank', 0)
+            assert rank == 0
+            return Idx(name)
         else:
             raise TypeError('only Variables and IndexedVariables are supported')
 
