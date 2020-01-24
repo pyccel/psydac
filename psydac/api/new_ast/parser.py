@@ -13,7 +13,10 @@ from pyccel.ast import AugAssign
 from pyccel.ast import Variable, IndexedVariable, IndexedElement
 from pyccel.ast import Slice
 from pyccel.ast import EmptyLine
-from pyccel.ast import CodeBlock,FunctionDef
+from pyccel.ast import CodeBlock, FunctionDef
+from pyccel.ast import Shape
+
+from pyccel.ast.core      import _atomic
 
 from sympde.topology import (dx, dy, dz)
 from sympde.topology import (dx1, dx2, dx3)
@@ -92,12 +95,21 @@ def flatten(args):
             ls.append(args)
     rec_flatten(args, ls)
     return type(args)(ls)
+
+
+def is_scalar_array(var):
+    indices = var.indices
+    for ind in indices:
+        if isinstance(ind, Slice):
+            return False
+    return True
 #==============================================================================
 
 def parse(expr, settings=None):
      psy_parser = Parser(settings)
      ast = psy_parser.doit(expr)
      return ast
+
 #==============================================================================
 class Parser(object):
     """
@@ -142,12 +154,12 @@ class Parser(object):
         self._settings = settings
 
         # TODO improve
-        self.free_indices   = OrderedDict()
-        self.free_lengths   = OrderedDict()
-
-        self.inout_arguments  = OrderedDict()
-        self.in_arguments     = OrderedDict()
+        self.indices   = OrderedDict()
+        self.wright_variables = OrderedDict()
+        self.read_variables   = OrderedDict()
         self.functions        = OrderedDict()
+        self.variables        = OrderedDict()
+        
 
     @property
     def settings(self):
@@ -167,6 +179,11 @@ class Parser(object):
 
     def doit(self, expr, **settings):
         return self._visit(expr, **settings)
+
+    def insert_variables(self, *args):
+        args = flatten(args)
+        for arg in args:
+            self.variables[str(arg)] = arg 
 
     def _visit(self, expr, **settings):
         classes = type(expr).__mro__
@@ -202,13 +219,23 @@ class Parser(object):
 
             elif isinstance(lhs, Symbol):
                 lhs = IndexedBase(lhs.name)[slices]
-
             else:
                 raise NotImplementedError('{}'.format(type(lhs)))
         # ...
-#        print(lhs, type(lhs))
-#        print(rhs, rhs.atoms(Symbol))
+        if isinstance(lhs, (IndexedElement,Indexed)):
+            name = str(lhs.base)
+            if isinstance(rhs, (IndexedElement,Indexed)):
+                
+                self.wright_variables[str(lhs.base)] = Shape(rhs)
+            else:
+                self.wright_variables[str(lhs.base)] = rhs
+                
+
         
+        if isinstance(rhs, IndexedElement):
+            #TODO check that this variable exist in argument or in wright variables else we raise an error
+            self.read_variables[str(rhs.base)] = rhs
+        print(lhs, ':=', rhs)
         return Assign(lhs, rhs)
 
     # ....................................................
@@ -238,9 +265,21 @@ class Parser(object):
             else:
                 raise NotImplementedError('{}'.format(type(lhs)))
         # ...
+        if isinstance(lhs, (IndexedElement,Indexed)):
+            name = str(lhs.base)
+            if isinstance(rhs, (IndexedElement,Indexed)):
+                
+                self.wright_variables[str(lhs.base)] = Shape(rhs)
+            else:
+                self.wright_variables[str(lhs.base)] = rhs
+                
 
-        return AugAssign(lhs, op, rhs)
+        
+        if isinstance(rhs, IndexedElement):
+            #TODO check that this variable exist in argument or in wright variables else we raise an error
+            self.read_variables[str(rhs.base)] = rhs
 
+        return AugAssign(lhs,op,rhs)
     # ....................................................
     def _visit_Add(self, expr, **kwargs):
         args = [self._visit(i) for i in expr.args]
@@ -285,11 +324,8 @@ class Parser(object):
         func = FunctionDef(name, arguments, [], body)
 
         self.functions[name] = func
-        self.free_indices   = OrderedDict()
-        self.free_lengths   = OrderedDict()
-
-        self.free_local_variables  = OrderedDict()
-        self.free_global_variables = OrderedDict()
+        for key,val in self.wright_variables.items():
+            print(key, val, type(val))
 
         return func
 
@@ -316,6 +352,8 @@ class Parser(object):
         # gather by axis
         target = list(zip(points, weights))
 
+        self.insert_variables(*points, *weights)
+
         return target
 
     # ....................................................
@@ -332,6 +370,8 @@ class Parser(object):
         # gather by axis
         target = list(zip(points, weights))
 
+        self.insert_variables(*points, *weights)
+
         return target
 
     # ....................................................
@@ -345,6 +385,9 @@ class Parser(object):
         weights = variables(names, dtype='real', cls=Variable)
 
         target = list(zip(points, weights))
+
+        self.insert_variables(*points, *weights)
+
         return target
 
     # ....................................................
@@ -354,8 +397,9 @@ class Parser(object):
         target = SymbolicExpr(expr.target)
 
         name = 'arr_{}'.format(target.name)
-        return IndexedVariable(name, dtype='real', rank=rank)
-
+        var  =  IndexedVariable(name, dtype='real', rank=rank)
+        self.insert_variables(var)
+        return var
     # ....................................................
     def _visit_GlobalTensorQuadratureBasis(self, expr, **kwargs):
         # TODO add label
@@ -383,6 +427,9 @@ class Parser(object):
                 names = 'global_basis_1:%s'%(dim+1)
 
         target = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+
+        self.insert_variables(*target)
+
         if not isinstance(target[0], (tuple, list, Tuple)):
             target = [target]
 
@@ -417,6 +464,9 @@ class Parser(object):
                 names = 'local_basis_1:%s'%(dim+1)
 
         target = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+
+        self.insert_variables(*target)
+
         if not isinstance(target[0], (tuple, list, Tuple)):
             target = [target]
         target = list(zip(*target))
@@ -451,6 +501,8 @@ class Parser(object):
         # ...
 
         target = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+
+        self.insert_variables(*target)
         if not isinstance(target[0], (tuple, list, Tuple)):
             target = [target]
         target = list(zip(*target))
@@ -484,17 +536,20 @@ class Parser(object):
     def _visit_CoefficientBasis(self, expr, **kwargs):
         target = SymbolicExpr(expr.target)
         name = 'coeff_{}'.format(target.name)
-        return Variable('real', name)
+        var  = Variable('real', name)
+        self.insert_variables(var)
+        return var
 
     # ....................................................
     def _visit_MatrixLocalBasis(self, expr, **kwargs):
-        dim = self.dim
+        dim    = self.dim
         rank   = self._visit(expr.rank)
         target = SymbolicExpr(expr.target)
 
         name = 'arr_{}'.format(target.name)
-        return IndexedVariable(name, dtype='real', rank=rank)
-
+        var  = IndexedVariable(name, dtype='real', rank=rank)
+        self.insert_variables(var)
+        return var
     # ....................................................
     def _visit_GlobalSpan(self, expr, **kwargs):
         dim = self.dim
@@ -503,6 +558,7 @@ class Parser(object):
         names  = 'global_span1:%s'%(dim+1)
         target = variables(names, dtype='int', rank=rank, cls=IndexedVariable)
 
+        self.insert_variables(*target)
         if not isinstance(target[0], (tuple, list, Tuple)):
             target = [target]
         target = list(zip(*target))
@@ -515,6 +571,8 @@ class Parser(object):
 
         names  = 'span1:%s'%(dim+1)
         target = variables(names, dtype='int', cls=Idx)
+
+        self.insert_variables(*target)
 
         if not isinstance(target[0], (tuple, list, Tuple)):
             target = [target]
@@ -532,7 +590,7 @@ class Parser(object):
         lhs  = self._visit(lhs, **kwargs)
         rank = lhs.rank
         slices  = [Slice(None, None)]*rank
-
+        
         return Assign(lhs[slices], 0.)
 
     # ....................................................
@@ -840,7 +898,7 @@ class Parser(object):
         tag  = expr.tag
         name = 'l_mat_{}'.format(tag)
         var  = IndexedVariable(name, dtype='real', rank=rank)
-
+        self.insert_variables(var)
         return var
 
     # ....................................................
@@ -850,7 +908,7 @@ class Parser(object):
         tag  = expr.tag
         name = 'l_vec_{}'.format(tag)
         var  = IndexedVariable(name, dtype='real', rank=rank) 
-
+        self.insert_variables(var)
         return var
 
     # ....................................................
@@ -860,7 +918,7 @@ class Parser(object):
         tag  = expr.tag
         name = 'g_mat_{}'.format(tag)
         var  = IndexedVariable(name, dtype='real', rank=rank)
-
+        self.insert_variables(var)
         return var
 
     # ....................................................
@@ -870,7 +928,7 @@ class Parser(object):
         tag  = expr.tag
         name = 'g_vec_{}'.format(tag)        
         var  = IndexedVariable(name, dtype='real', rank=rank)
-
+        self.insert_variables(var)
         return var
 
     # ....................................................
@@ -902,29 +960,34 @@ class Parser(object):
 
     # ....................................................
     def _visit_IndexElement(self, expr, **kwargs):
-        dim = self.dim
-        return variables('i_element_1:%d'%(dim+1), dtype='int', cls=Idx)
-
+        dim    = self.dim
+        target =  variables('i_element_1:%d'%(dim+1), dtype='int', cls=Idx)
+        self.insert_variables(*target)
+        return target
     # ....................................................
     def _visit_IndexQuadrature(self, expr, **kwargs):
         dim = self.dim
-        return variables('i_quad_1:%d'%(dim+1), dtype='int', cls=Idx)
-
+        target = variables('i_quad_1:%d'%(dim+1), dtype='int', cls=Idx)
+        self.insert_variables(*target)
+        return target
     # ....................................................
     def _visit_IndexDof(self, expr, **kwargs):
         dim = self.dim
-        return variables('i_basis_1:%d'%(dim+1), dtype='int', cls=Idx)
-
+        target = variables('i_basis_1:%d'%(dim+1), dtype='int', cls=Idx)
+        self.insert_variables(*target)
+        return target
     # ....................................................
     def _visit_IndexDofTrial(self, expr, **kwargs):
         dim = self.dim
-        return variables('j_basis_1:%d'%(dim+1), dtype='int', cls=Idx)
-
+        target = variables('j_basis_1:%d'%(dim+1), dtype='int', cls=Idx)
+        self.insert_variables(*target)
+        return target
     # ....................................................
     def _visit_IndexDofTest(self, expr, **kwargs):
         dim = self.dim
-        return variables('i_basis_1:%d'%(dim+1), dtype='int', cls=Idx)
-
+        target = variables('i_basis_1:%d'%(dim+1), dtype='int', cls=Idx)
+        self.insert_variables(*target)
+        return target
     # ....................................................
     def _visit_IndexDerivative(self, expr, **kwargs):
         raise NotImplementedError('TODO')
@@ -932,31 +995,36 @@ class Parser(object):
     # ....................................................
     def _visit_LengthElement(self, expr, **kwargs):
         dim = self.dim
-        return variables('n_element_1:%d'%(dim+1), dtype='int', cls=Variable)
-
+        target = variables('n_element_1:%d'%(dim+1), dtype='int', cls=Variable)
+        self.insert_variables(*target)
+        return target
     # ....................................................
     def _visit_LengthQuadrature(self, expr, **kwargs):
         dim = self.dim
-        return variables('k1:%d'%(dim+1), dtype='int', cls=Variable)
-
+        target = variables('k1:%d'%(dim+1), dtype='int', cls=Variable)
+        self.insert_variables(*target)
+        return target
     # ....................................................
     def _visit_LengthDof(self, expr, **kwargs):
         # TODO must be p+1
         dim = self.dim
-        return variables('p1:%d'%(dim+1), dtype='int', cls=Idx)
-
+        target = variables('p1:%d'%(dim+1), dtype='int', cls=Idx)
+        self.insert_variables(*target)
+        return target
     # ....................................................
     def _visit_LengthDofTest(self, expr, **kwargs):
         # TODO must be p+1
         dim = self.dim
-        return variables('test_p1:%d'%(dim+1), dtype='int', cls=Idx)
-
+        target = variables('test_p1:%d'%(dim+1), dtype='int', cls=Idx)
+        self.insert_variables(*target)
+        return target
     # ....................................................
     def _visit_LengthDofTrial(self, expr, **kwargs):
         # TODO must be p+1
         dim = self.dim
-        return variables('trial_p1:%d'%(dim+1), dtype='int', cls=Idx)
-
+        target = variables('trial_p1:%d'%(dim+1), dtype='int', cls=Idx)
+        self.insert_variables(*target)
+        return target
     # ....................................................
     def _visit_RankDimension(self, expr, **kwargs):
         return self.dim
@@ -1068,7 +1136,7 @@ class Parser(object):
         # TODO for the moment, we do not return indices and lengths
         iterator  = self._visit(expr.iterator)
         generator = self._visit(expr.generator)
-
+    
         return Assign(iterator, generator)
 
     # ....................................................
