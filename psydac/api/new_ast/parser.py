@@ -154,9 +154,10 @@ class Parser(object):
         self._settings = settings
 
         # TODO improve
-        self.indices   = OrderedDict()
+        self.indices          = OrderedDict()
         self.wright_variables = OrderedDict()
         self.read_variables   = OrderedDict()
+        self.shapes           = OrderedDict()
         self.functions        = OrderedDict()
         self.variables        = OrderedDict()
         
@@ -183,7 +184,49 @@ class Parser(object):
     def insert_variables(self, *args):
         args = flatten(args)
         for arg in args:
-            self.variables[str(arg)] = arg 
+            self.variables[str(arg)] = arg
+
+    def get_shape(self, expr):
+        lhs = expr.lhs
+        rhs = expr.rhs
+
+        rhs_indices = []
+        lhs_indices = lhs.indices
+
+        if isinstance(rhs, (Indexed, IndexedElement)):
+            rhs_indices = rhs.indices
+        if isinstance(lhs_indices[0],(tuple, list, Tuple)):
+            lhs_indices = lhs_indices[0]
+        if rhs_indices:
+            if isinstance(rhs_indices[0],(tuple, list, Tuple)):
+                rhs_indices = rhs_indices[0]
+
+        #TODO fix probleme of indices we should have a unique way of getting indices
+        ind1 = [None if isinstance(i, Slice) and i.start is None else i for i in lhs_indices]
+        ind2 = [None if isinstance(i, Slice) and i.start is None else i for i in rhs_indices]
+        shape_rhs = None
+        shape_lhs = None
+        shape = []
+
+        if all(i is None for i in ind1):
+            for i in ind2:
+                if i is None:
+                    shape.append(None)
+                elif str(i) in self.indices:
+                    shape.append(self.indices[str(i)]-1)
+            if len(shape) == len(ind2):
+                shape = tuple(Slice(None,None) if i is None else i for i in shape)
+                rhs = rhs.base
+                shape_lhs = Shape(rhs[shape])
+
+        elif all(i is not None for i in ind1):
+            for i in ind1:
+                if str(i) in self.indices:
+                    shape.append(self.indices[str(i)]-1)
+            if len(shape) == len(ind1):
+                shape_lhs = tuple(shape)
+
+        return shape_lhs
 
     def _visit(self, expr, **settings):
         classes = type(expr).__mro__
@@ -221,22 +264,26 @@ class Parser(object):
                 lhs = IndexedBase(lhs.name)[slices]
             else:
                 raise NotImplementedError('{}'.format(type(lhs)))
+
+        expr = Assign(lhs, rhs)
         # ...
-        if isinstance(lhs, (IndexedElement,Indexed)):
+        if isinstance(lhs, (IndexedElement, Indexed)):
             name = str(lhs.base)
-            if isinstance(rhs, (IndexedElement,Indexed)):
+            if isinstance(rhs, (IndexedElement, Indexed)):
                 
                 self.wright_variables[str(lhs.base)] = Shape(rhs)
             else:
                 self.wright_variables[str(lhs.base)] = rhs
-                
 
-        
+            shape = self.get_shape(expr)
+            if shape:
+                self.shapes[name] = shape
+
         if isinstance(rhs, IndexedElement):
-            #TODO check that this variable exist in argument or in wright variables else we raise an error
+            #TODO check that this variable exist in arguments
+            # or in wright variables else we raise an error
             self.read_variables[str(rhs.base)] = rhs
-        print(lhs, ':=', rhs)
-        return Assign(lhs, rhs)
+        return expr
 
     # ....................................................
     def _visit_AugAssign(self, expr, **kwargs):
@@ -264,6 +311,8 @@ class Parser(object):
 
             else:
                 raise NotImplementedError('{}'.format(type(lhs)))
+
+        expr = AugAssign(lhs,op,rhs)
         # ...
         if isinstance(lhs, (IndexedElement,Indexed)):
             name = str(lhs.base)
@@ -272,14 +321,18 @@ class Parser(object):
                 self.wright_variables[str(lhs.base)] = Shape(rhs)
             else:
                 self.wright_variables[str(lhs.base)] = rhs
-                
 
-        
+            shape = self.get_shape(expr)
+            if shape:
+                self.shapes[name] = shape
+
         if isinstance(rhs, IndexedElement):
-            #TODO check that this variable exist in argument or in wright variables else we raise an error
+            #TODO check that this variable exist in arguments
+            # or in wright variables else we raise an error
             self.read_variables[str(rhs.base)] = rhs
 
-        return AugAssign(lhs,op,rhs)
+
+        return expr
     # ....................................................
     def _visit_Add(self, expr, **kwargs):
         args = [self._visit(i) for i in expr.args]
@@ -324,9 +377,6 @@ class Parser(object):
         func = FunctionDef(name, arguments, [], body)
 
         self.functions[name] = func
-        for key,val in self.wright_variables.items():
-            print(key, val, type(val))
-
         return func
 
 
@@ -1093,6 +1143,9 @@ class Parser(object):
 
         indices = tuple(ind for ls in indices for ind in ls)
 
+        for i,j in zip(flatten(indices),flatten(lengths)):
+            self.indices[str(i)] = j
+
         # ...
         inits = []
         for l_xs, g_xs in zip(iterator, generator):
@@ -1151,8 +1204,6 @@ class Parser(object):
                         for i,j in zip(t_iterator, t_generator)]
 
         t_inits = []
-        #print(*[(self._visit(i),type(i)) for i in t_generator],sep='\n')
-        #print('================')
 
         if t_iterations:
             t_iterations = [self._visit(i) for i in t_iterations]
@@ -1183,10 +1234,6 @@ class Parser(object):
         # ...
 
         # ...
-#        print('++++++++++p_inits++++++++++++++')
-#        print(*p_inits,sep='\n')
-#        print('++++++++++t_inits++++++++++++++')
-#        print(*t_inits, sep='\n')
         inits = t_inits
         # ...
 
