@@ -14,7 +14,7 @@ from pyccel.ast import Variable, IndexedVariable, IndexedElement
 from pyccel.ast import Slice
 from pyccel.ast import EmptyLine
 from pyccel.ast import CodeBlock, FunctionDef
-from pyccel.ast import Shape
+from pyccel.ast import Shape, Zeros, ZerosLike
 
 from pyccel.ast.core      import _atomic
 
@@ -373,9 +373,16 @@ class Parser(object):
         body = tuple(self._visit(i, **kwargs) for i in expr.body)
         args = tuple(self._visit(i, **kwargs) for i in expr.arguments)
         arguments = tuple(flatten(args))
+        inits = []
+        for k,i in self.shapes.items():
+            if isinstance(i, Shape):
+                inits.append(Assign(self.variables[k], ZerosLike(i.arg)))
+            else:
+                inits.append(Assign(self.variables[k], Zeros(i)))
+
+        body =  tuple(inits) + body
         name = expr.name
         func = FunctionDef(name, arguments, [], body)
-
         self.functions[name] = func
         return func
 
@@ -828,6 +835,7 @@ class Parser(object):
     # ....................................................
     def _visit_BasisAtom(self, expr, **kwargs):
         symbol = SymbolicExpr(expr.expr)
+        self.variables[str(symbol.name)] = symbol
         return symbol
 
     # ....................................................
@@ -1172,12 +1180,10 @@ class Parser(object):
                 # TODO improve
                 if isinstance(l_x, IndexedVariable):
                     lhs = l_x
-
                 elif isinstance(expr.generator.target, (LocalTensorQuadratureBasis, TensorQuadratureBasis)):
                     lhs = self._visit(BasisAtom(l_x))
                 else:
                     lhs = l_x
-
                 ls += [self._visit(Assign(lhs, g_x))]
             inits.append(ls)
         # ...
