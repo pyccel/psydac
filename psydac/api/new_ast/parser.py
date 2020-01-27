@@ -160,6 +160,7 @@ class Parser(object):
         self.shapes           = OrderedDict()
         self.functions        = OrderedDict()
         self.variables        = OrderedDict()
+        self.arguments        = OrderedDict()
         
 
     @property
@@ -370,9 +371,11 @@ class Parser(object):
             return CodeBlock(body)
 
     def _visit_DefNode(self, expr, **kwargs):
-        body = tuple(self._visit(i, **kwargs) for i in expr.body)
+
         args = tuple(self._visit(i, **kwargs) for i in expr.arguments)
         arguments = tuple(flatten(args))
+        self.arguments = arguments
+        body = tuple(self._visit(i, **kwargs) for i in expr.body)
         inits = []
         for k,i in self.shapes.items():
             if isinstance(i, Shape):
