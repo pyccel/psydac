@@ -15,6 +15,7 @@ from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
 from sympde.topology import IdentityMapping
+from sympde.topology.space import element_of
 
 #==============================================================================
 # TODO move it
@@ -1284,6 +1285,10 @@ class AST(object):
             tests       = expr.test_functions
             trials      = expr.trial_functions
 
+        elif isinstance(expr, FunctionalForm):
+            is_functional = True
+            tests = element_of(self.weak_form.space, name='Nj')
+            tests = Tuple(test_function)
         else:
             raise NotImplementedError('TODO')
         # ...
@@ -1300,11 +1305,8 @@ class AST(object):
         # ...
 
         # ...
-        atomic_expr_field        = [atom for atom in atoms if is_scalar_field(atom)]
-        atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
-
-        atomic_expr = [atom for atom in atoms if not( atom in atomic_expr_field ) and
-                                                 not( atom in atomic_expr_vector_field)]
+        atomic_expr_field = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
+        atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_field ]
         # ...
 
         # ...
@@ -1335,14 +1337,18 @@ class AST(object):
 
         # ...
         if is_linear:
-            ast = _create_ast_linear_form(terminal_expr, atomic_expr, tests, d_tests,
+            ast = _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests,
                                           nderiv, domain.dim)
 
         elif is_bilinear:
-            ast = _create_ast_bilinear_form(terminal_expr, atomic_expr,
+            ast = _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
                                             tests, d_tests,
                                             trials, d_trials,
                                             nderiv, domain.dim)
+
+        elif is_functional:
+            ast = _create_ast_functional_form(terminal_expr, atomic_expr, atomic_expr_field,
+                                              tests, d_tests, nderiv, domain.dim)
 
 
         else:
@@ -1371,7 +1377,7 @@ class AST(object):
 
 
 #==============================================================================
-def _create_ast_linear_form(terminal_expr, atomic_expr, tests, d_tests, nderiv, dim):
+def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, nderiv, dim):
     """
     """
     
@@ -1434,7 +1440,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, tests, d_tests, nderiv, 
     return stmt
 
 #==============================================================================
-def _create_ast_bilinear_form(terminal_expr, atomic_expr,
+def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
                               tests, d_tests,
                               trials, d_trials,
                               nderiv, dim):
@@ -1502,8 +1508,71 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr,
     # ... TODO
     body = (Reset(g_mat), Reduce('+', l_mat, g_mat, loop))
     # ...
-    args = [*g_basis_tests, *g_basis_trials, *g_span, g_quad, g_mat]
+    args = [*g_basis_tests, *g_basis_trials, *g_span, g_quad, l_mat, g_mat]
     local_vars = [*a_basis_tests, *a_basis_trials]
     stmt = DefNode('assembly', args, local_vars, body)
 
     return stmt
+
+def _create_ast_functional_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, nderiv, dim):
+    """
+    """
+    
+    pads   = symbols('p1, p2, p3')[:dim]
+    g_quad = GlobalTensorQuadrature()
+    l_quad = LocalTensorQuadrature()
+
+    # ...
+    stmts = []
+    for v in tests:
+        stmts += construct_logical_expressions(v, nderiv)
+
+    stmts += [ComputePhysicalBasis(i) for i in atomic_expr]
+    # ...
+
+    # ...
+    a_basis = tuple([d['array'] for v,d in d_tests.items()])
+
+    loop  = Loop((l_quad, *a_basis), index_quad, stmts)
+    # ...
+
+    # ... TODO
+    l_vec = StencilVectorLocalBasis(pads)
+    # ...
+
+    # ...
+    loop = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
+    # ...
+
+    # ... loop over tests
+    l_basis = tuple([d['local'] for v,d in d_tests.items()])
+    stmts = [loop]
+    loop  = Loop(l_basis, index_dof_test, stmts)
+    # ...
+
+    # ... TODO
+    body  = (Reset(l_vec), loop)
+    stmts = Block(body)
+    # ...
+
+    # ...
+    g_basis = tuple([d['global'] for v,d in d_tests.items()])
+    g_span  = tuple([d['span']   for v,d in d_tests.items()])
+
+    loop  = Loop((g_quad, *g_basis, *g_span), index_element, stmts)
+    # ...
+
+    # ... TODO
+    g_vec = StencilVectorGlobalBasis(pads)
+    # ...
+
+    # ... TODO
+    body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop))
+
+    args       = [*g_basis, *g_span, g_vec, g_quad]
+    local_vars = [*a_basis] 
+    stmt = DefNode('assembly', args, local_vars, body)
+    # ...
+
+    return stmt
+
