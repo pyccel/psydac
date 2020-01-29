@@ -63,6 +63,8 @@ from .nodes import StencilMatrixLocalBasis
 from .nodes import StencilVectorLocalBasis
 from .nodes import StencilMatrixGlobalBasis
 from .nodes import StencilVectorGlobalBasis
+from .nodes import GlobalElementBasis
+from .nodes import LocalElementBasis
 from .nodes import TensorQuadratureTestBasis, TensorQuadratureTrialBasis
 from .nodes import Span
 from .nodes import Loop
@@ -643,15 +645,17 @@ class Parser(object):
     def _visit_Reset(self, expr, **kwargs):
         dim  = self.dim
 
-        lhs = expr.expr
-        if isinstance(lhs, ElementOf):
-            lhs = lhs.target
+        expr = expr.expr
 
-        lhs  = self._visit(lhs, **kwargs)
+        lhs  = self._visit(expr, **kwargs)
         rank = lhs.rank
-        slices  = [Slice(None, None)]*rank
         
-        return Assign(lhs[slices], 0.)
+        if isinstance(expr, LocalElementBasis):
+            args = 0
+        else:
+            args  = [Slice(None, None)]*rank
+        
+        return Assign(lhs[args], 0.)
 
     # ....................................................
     def _visit_Reduce(self, expr, **kwargs):
@@ -724,6 +728,11 @@ class Parser(object):
             rhs = rhs[rhs_slices]
 
             return AugAssign(lhs, op, rhs)
+
+        elif isinstance(lhs, GlobalElementBasis):
+            lhs = self._visit(lhs, **kwargs)
+            rhs = self._visit(expr, **kwargs)
+            return AugAssign(lhs[0], op, rhs[0])
 
         else:
             if not( lhs is None ):
@@ -948,6 +957,9 @@ class Parser(object):
             indices = list(rows)
 
             return target[indices]
+        elif isinstance(target, LocalElementBasis):
+            target = self._visit(target, **kwargs)
+            return target[0]
 
         else:
             raise NotImplementedError('TODO')
@@ -989,6 +1001,20 @@ class Parser(object):
         tag  = expr.tag
         name = 'g_vec_{}'.format(tag)        
         var  = IndexedVariable(name, dtype='real', rank=rank)
+        self.insert_variables(var)
+        return var
+
+    def _visit_GlobalElementBasis(self, expr, **kwargs):
+        tag  = expr.tag
+        name = 'g_el_{}'.format(tag)
+        var  = IndexedVariable(name, dtype='real', rank=1) 
+        self.insert_variables(var)
+        return var
+
+    def _visit_LocalElementBasis(self, expr, **kwargs):
+        tag  = expr.tag
+        name = 'l_el_{}'.format(tag)
+        var  = IndexedVariable(name, dtype='real', rank=1) 
         self.insert_variables(var)
         return var
 
@@ -1159,6 +1185,7 @@ class Parser(object):
 
         # ...
         inits = []
+        yes = None
         for l_xs, g_xs in zip(iterator, generator):
             ls = []
             # there is a special case here,
@@ -1189,7 +1216,6 @@ class Parser(object):
                     lhs = l_x
                 ls += [self._visit(Assign(lhs, g_x))]
             inits.append(ls)
-        # ...
 
         return  indices, lengths, inits
 

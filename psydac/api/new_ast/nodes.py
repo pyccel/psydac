@@ -6,7 +6,7 @@ from sympy.core.singleton import Singleton
 from sympy.core.compatibility import with_metaclass
 from sympy.core.containers import Tuple
 from sympy import AtomicExpr
-from sympy import Symbol
+from sympy import Symbol, Mul
 
 from sympde.topology import ScalarTestFunction, VectorTestFunction
 from sympde.topology import (dx1, dx2, dx3)
@@ -16,6 +16,9 @@ from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
 from sympde.topology import IdentityMapping
 from sympde.topology.space import element_of
+
+from .utilities import physical2logical
+from pyccel.ast import AugAssign
 
 #==============================================================================
 # TODO move it
@@ -439,6 +442,31 @@ class StencilMatrixLocalBasis(MatrixNode):
         return self._args[2]
 
 #==============================================================================
+class StencilMatrixGlobalBasis(MatrixNode):
+    """
+    used to describe local dof over an element as a stencil matrix
+    """
+    def __new__(cls, pads):
+        if not isinstance(pads, (list, tuple, Tuple)):
+            raise TypeError('Expecting an iterable')
+
+        pads = Tuple(*pads)
+        rank = 2*len(pads)
+        tag  = random_string( 6 )
+        return Basic.__new__(cls, pads, rank, tag)
+
+    @property
+    def pads(self):
+        return self._args[0]
+
+    @property
+    def rank(self):
+        return self._args[1]
+
+    @property
+    def tag(self):
+        return self._args[2]
+#==============================================================================
 class StencilVectorLocalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil vector
@@ -464,31 +492,7 @@ class StencilVectorLocalBasis(MatrixNode):
     def tag(self):
         return self._args[2]
 
-#==============================================================================
-class StencilMatrixGlobalBasis(MatrixNode):
-    """
-    used to describe local dof over an element as a stencil matrix
-    """
-    def __new__(cls, pads):
-        if not isinstance(pads, (list, tuple, Tuple)):
-            raise TypeError('Expecting an iterable')
 
-        pads = Tuple(*pads)
-        rank = 2*len(pads)
-        tag  = random_string( 6 )
-        return Basic.__new__(cls, pads, rank, tag)
-
-    @property
-    def pads(self):
-        return self._args[0]
-
-    @property
-    def rank(self):
-        return self._args[1]
-
-    @property
-    def tag(self):
-        return self._args[2]
 
 #==============================================================================
 class StencilVectorGlobalBasis(MatrixNode):
@@ -516,6 +520,11 @@ class StencilVectorGlobalBasis(MatrixNode):
     def tag(self):
         return self._args[2]
 
+class LocalElementBasis(MatrixNode):
+    tag  = random_string( 6 )
+
+class GlobalElementBasis(MatrixNode):
+    tag  = random_string( 6 )   
 #==============================================================================
 class GlobalSpan(ArrayNode):
     """
@@ -835,6 +844,7 @@ class Loop(BaseNode):
 
         iterable = others + geos
         iterable = Tuple(*iterable)
+        print(iterable)
         # ...
 
         # ...
@@ -1013,6 +1023,7 @@ def construct_logical_expressions(u, nderiv):
         args.append(atom)
 
     return [ComputeLogicalBasis(i) for i in args]
+
 
 #==============================================================================
 class GeometryExpressions(Basic):
@@ -1210,6 +1221,7 @@ from pyccel.ast.core      import _atomic
 from sympde.expr import TerminalExpr
 from sympde.expr import LinearForm
 from sympde.expr import BilinearForm
+from sympde.expr import Functional
 from sympde.topology             import element_of
 from sympde.topology             import ScalarField
 from sympde.topology             import VectorField, IndexedVectorField
@@ -1275,22 +1287,6 @@ class AST(object):
         is_functional = False
         tests         = []
         trials        = []
-
-        if isinstance(expr, LinearForm):
-            is_linear = True
-            tests     = expr.test_functions
-
-        elif isinstance(expr, BilinearForm):
-            is_bilinear = True
-            tests       = expr.test_functions
-            trials      = expr.trial_functions
-
-        elif isinstance(expr, FunctionalForm):
-            is_functional = True
-            tests = element_of(self.weak_form.space, name='Nj')
-            tests = Tuple(test_function)
-        else:
-            raise NotImplementedError('TODO')
         # ...
 
         # ...
@@ -1310,6 +1306,25 @@ class AST(object):
         # ...
 
         # ...
+
+        if isinstance(expr, LinearForm):
+            is_linear = True
+            tests     = expr.test_functions
+
+        elif isinstance(expr, BilinearForm):
+            is_bilinear = True
+            tests       = expr.test_functions
+            trials      = expr.trial_functions
+
+        elif isinstance(expr, Functional):
+            is_functional = True
+            fields = tuple(expr.atoms(ScalarTestFunction, VectorTestFunction))
+            assert len(fields) == 1
+            tests = fields[0]
+            tests = Tuple(tests)
+        else:
+            raise NotImplementedError('TODO')
+
         d_tests = {}
         for v in tests:
             d = {}
@@ -1347,7 +1362,7 @@ class AST(object):
                                             nderiv, domain.dim)
 
         elif is_functional:
-            ast = _create_ast_functional_form(terminal_expr, atomic_expr, atomic_expr_field,
+            ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
                                               tests, d_tests, nderiv, domain.dim)
 
 
@@ -1514,47 +1529,55 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     return stmt
 
-def _create_ast_functional_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, nderiv, dim):
+def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nderiv, dim):
     """
     """
-    
-    pads   = symbols('p1, p2, p3')[:dim]
-    g_quad = GlobalTensorQuadrature()
-    l_quad = LocalTensorQuadrature()
+    pads    = symbols('p1, p2, p3')[:dim]
+    g_quad  = GlobalTensorQuadrature()
+    l_quad  = LocalTensorQuadrature()
+    coeff   = CoefficientBasis(tests[0])
+    l_coeff = MatrixLocalBasis(tests[0])
 
-    # ...
     stmts = []
+
     for v in tests:
         stmts += construct_logical_expressions(v, nderiv)
 
-    stmts += [ComputePhysicalBasis(i) for i in atomic_expr]
     # ...
+
+    args   = [physical2logical(i) for i in atomic_expr]
+    stmts += [AugAssign(ProductGenerator(MatrixQuadrature(i), index_quad),
+                                        '+', Mul(coeff,AtomicNode(i)))
+             for i in args]
 
     # ...
     a_basis = tuple([d['array'] for v,d in d_tests.items()])
 
-    loop  = Loop((l_quad, *a_basis), index_quad, stmts)
+    loop  = Loop( a_basis, index_quad, stmts)
     # ...
 
-    # ... TODO
-    l_vec = StencilVectorLocalBasis(pads)
-    # ...
+    stmts = [loop]
 
-    # ...
+    l_basis = tuple([d['local'] for v,d in d_tests.items()])
+
+    stmts  = [Loop((*l_basis, l_coeff), index_dof, stmts)]
+    # add assign atom to MatrixQuadrature 
+    loop   = Loop((l_quad, *a_basis), index_quad, [])
+
+    l_vec = LocalElementBasis()
+
     loop = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
     # ...
 
     # ... loop over tests
-    l_basis = tuple([d['local'] for v,d in d_tests.items()])
-    stmts = [loop]
-    loop  = Loop(l_basis, index_dof_test, stmts)
+
+    stmts += [Reset(l_vec),loop]
     # ...
 
     # ... TODO
-    body  = (Reset(l_vec), loop)
-    stmts = Block(body)
+    stmts = Block(stmts)
     # ...
-
+    #global elements
     # ...
     g_basis = tuple([d['global'] for v,d in d_tests.items()])
     g_span  = tuple([d['span']   for v,d in d_tests.items()])
@@ -1563,7 +1586,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, atomic_expr_field, t
     # ...
 
     # ... TODO
-    g_vec = StencilVectorGlobalBasis(pads)
+    g_vec = GlobalElementBasis()
     # ...
 
     # ... TODO
