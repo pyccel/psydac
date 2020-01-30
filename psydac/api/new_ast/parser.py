@@ -290,8 +290,7 @@ class Parser(object):
 
     # ....................................................
     def _visit_AugAssign(self, expr, **kwargs):
-#        print(type(expr.lhs))
-#        import sys; sys.exit(0)
+
         lhs = self._visit(expr.lhs)
         rhs = self._visit(expr.rhs)
         op  = expr.op
@@ -308,10 +307,6 @@ class Parser(object):
             # TODO add assert on type lhs
             if isinstance(lhs, (IndexedBase, IndexedVariable)):
                 lhs = lhs[slices]
-
-            elif isinstance(lhs, Symbol):
-                lhs = IndexedBase(lhs.name)[slices]
-
             else:
                 raise NotImplementedError('{}'.format(type(lhs)))
 
@@ -385,6 +380,7 @@ class Parser(object):
             else:
                 inits.append(Assign(self.variables[k], Zeros(i)))
 
+        inits.append(EmptyLine())
         body =  tuple(inits) + body
         name = expr.name
         func = FunctionDef(name, arguments, [], body)
@@ -1185,7 +1181,7 @@ class Parser(object):
 
         # ...
         inits = []
-        yes = None
+
         for l_xs, g_xs in zip(iterator, generator):
             ls = []
             # there is a special case here,
@@ -1195,16 +1191,18 @@ class Parser(object):
             # this is the case when dealing with derivatives in each direction
             # TODO maybe we should add a flag here or a kwarg that says we
             # should enumerate the array
-            if len(l_xs) > len(g_xs):
-                assert(isinstance(expr.generator.target, (LocalTensorQuadratureBasis, TensorQuadratureBasis)))
+            #if isinstance(expr.generator.target, (LocalTensorQuadratureBasis, TensorQuadratureBasis))
+            if isinstance(expr.generator.target, TensorQuadratureBasis):
+                if len(l_xs) >= len(g_xs):
 
-                positions = [expr.generator.target.positions[i] for i in [index_deriv]]
-                args = []
-                for xs in g_xs:
-                    # TODO improve
-                    a = SplitArray(xs, positions, [self.nderiv+1])
-                    args += self._visit(a)
-                g_xs = args
+                    positions = [expr.generator.target.positions[i] for i in [index_deriv]]
+                    print(l_xs, g_xs, positions, type(expr.generator.target))
+                    args = []
+                    for xs in g_xs:
+                        # TODO impro    ve
+                        a = SplitArray(xs, positions, [self.nderiv+1])
+                        args += self._visit(a)
+                    g_xs = args
 
             for l_x,g_x in zip(l_xs, g_xs):
                 # TODO improve

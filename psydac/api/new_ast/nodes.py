@@ -18,7 +18,7 @@ from sympde.topology import IdentityMapping
 from sympde.topology.space import element_of
 
 from .utilities import physical2logical
-from pyccel.ast import AugAssign
+from pyccel.ast import AugAssign, Assign
 
 #==============================================================================
 # TODO move it
@@ -754,9 +754,8 @@ class BasisAtom(AtomicNode):
     def __new__(cls, expr):
         ls  = list(expr.atoms(ScalarTestFunction))
         ls += list(expr.atoms(VectorTestFunction))
+        ls += list(expr.atoms(ScalarField, VectorField))
         if not(len(ls) == 1):
-            print(expr, type(expr))
-            print(ls)
             raise ValueError('Expecting an expression with one test function')
 
         u = ls[0]
@@ -780,8 +779,6 @@ class GeometryAtom(AtomicNode):
     def __new__(cls, expr):
         ls = list(expr.atoms(Mapping))
         if not(len(ls) == 1):
-            print(expr, type(expr))
-            print(ls)
             raise ValueError('Expecting an expression with one mapping')
 
         # TODO
@@ -835,7 +832,7 @@ class Loop(BaseNode):
         # ... replace GeometryExpressions by a list of expressions
         others = [i for i in iterable if not isinstance(i, GeometryExpressions)]
         geos   = [i.arguments for i in iterable if isinstance(i, GeometryExpressions)]
-        with_geo = False # TODO remove
+
         if len(geos) == 1:
             geos = list(geos[0])
 
@@ -844,7 +841,6 @@ class Loop(BaseNode):
 
         iterable = others + geos
         iterable = Tuple(*iterable)
-        print(iterable)
         # ...
 
         # ...
@@ -861,7 +857,6 @@ class Loop(BaseNode):
             iterator.append(i)
             generator.append(g)
         # ...
-
         # ...
         iterator = Tuple(*iterator)
         generator = Tuple(*generator)
@@ -1065,59 +1060,59 @@ def construct_itergener(a, index):
     # ... create generator
     if isinstance(a, GlobalTensorQuadrature):
         generator = TensorGenerator(a, index)
-        element = LocalTensorQuadrature()
+        element   = LocalTensorQuadrature()
 
     elif isinstance(a, LocalTensorQuadrature):
         generator = TensorGenerator(a, index)
-        element = TensorQuadrature()
+        element   = TensorQuadrature()
 
     elif isinstance(a, GlobalTensorQuadratureTrialBasis):
         generator = TensorGenerator(a, index)
-        element = LocalTensorQuadratureTrialBasis(a.target)
+        element   = LocalTensorQuadratureTrialBasis(a.target)
 
     elif isinstance(a, LocalTensorQuadratureTrialBasis):
         generator = TensorGenerator(a, index)
-        element = TensorQuadratureTrialBasis(a.target)
+        element   = TensorQuadratureTrialBasis(a.target)
 
     elif isinstance(a, TensorQuadratureTrialBasis):
         generator = TensorGenerator(a, index)
-        element = TensorTrialBasis(a.target)
+        element   = TensorTrialBasis(a.target)
 
     elif isinstance(a, GlobalTensorQuadratureTestBasis):
         generator = TensorGenerator(a, index)
-        element = LocalTensorQuadratureTestBasis(a.target)
+        element   = LocalTensorQuadratureTestBasis(a.target)
 
     elif isinstance(a, LocalTensorQuadratureTestBasis):
         generator = TensorGenerator(a, index)
-        element = TensorQuadratureTestBasis(a.target)
+        element   = TensorQuadratureTestBasis(a.target)
 
     elif isinstance(a, TensorQuadratureTestBasis):
         generator = TensorGenerator(a, index)
-        element = TensorTestBasis(a.target)
+        element   = TensorTestBasis(a.target)
 
     elif isinstance(a, GlobalTensorQuadratureBasis):
         generator = TensorGenerator(a, index)
-        element = LocalTensorQuadratureBasis(a.target)
+        element   = LocalTensorQuadratureBasis(a.target)
 
     elif isinstance(a, LocalTensorQuadratureBasis):
         generator = TensorGenerator(a, index)
-        element = TensorQuadratureBasis(a.target)
+        element   = TensorQuadratureBasis(a.target)
 
     elif isinstance(a, TensorQuadratureBasis):
         generator = TensorGenerator(a, index)
-        element = TensorBasis(a.target)
+        element   = TensorBasis(a.target)
 
     elif isinstance(a, GlobalSpan):
         generator = TensorGenerator(a, index)
-        element = Span(a.target)
+        element   = Span(a.target)
 
     elif isinstance(a, MatrixLocalBasis):
         generator = ProductGenerator(a, index)
-        element = CoefficientBasis(a.target)
+        element   = CoefficientBasis(a.target)
 
     elif isinstance(a, GeometryExpr):
         generator = ProductGenerator(a.expr, index)
-        element = a.atom
+        element   = a.atom
 
     else:
         raise TypeError('{} not available'.format(type(a)))
@@ -1256,7 +1251,7 @@ class DefNode(Basic):
 class AST(object):
     """
     """
-    def __init__(self, expr):
+    def __init__(self, expr, Mapping):
         # ... compute terminal expr
         # TODO check that we have one single domain/interface/boundary
         terminal_expr = TerminalExpr(expr)
@@ -1353,17 +1348,17 @@ class AST(object):
         # ...
         if is_linear:
             ast = _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests,
-                                          nderiv, domain.dim)
+                                          nderiv, domain.dim, Mapping)
 
         elif is_bilinear:
             ast = _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
                                             tests, d_tests,
                                             trials, d_trials,
-                                            nderiv, domain.dim)
+                                            nderiv, domain.dim, Mapping)
 
         elif is_functional:
             ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
-                                              tests, d_tests, nderiv, domain.dim)
+                                              tests, d_tests, nderiv, domain.dim, Mapping)
 
 
         else:
@@ -1392,7 +1387,7 @@ class AST(object):
 
 
 #==============================================================================
-def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, nderiv, dim):
+def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, nderiv, dim, Mapping):
     """
     """
     
@@ -1411,7 +1406,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     # ...
     a_basis = tuple([d['array'] for v,d in d_tests.items()])
 
-    loop  = Loop((l_quad, *a_basis), index_quad, stmts)
+    loop  = Loop((l_quad, *a_basis, GeometryExpressions(Mapping, nderiv)), index_quad, stmts)
     # ...
 
     # ... TODO
@@ -1458,7 +1453,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
 def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
                               tests, d_tests,
                               trials, d_trials,
-                              nderiv, dim):
+                              nderiv, dim, Mapping):
     """
     """
     #DefNode should be created here and given the right arguments
@@ -1478,7 +1473,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     a_basis_tests  = tuple([d['array'] for v,d in d_tests.items()])
     a_basis_trials = tuple([d['array'] for v,d in d_trials.items()])
 
-    loop  = Loop((l_quad, *a_basis_tests, *a_basis_trials), index_quad, stmts)
+    loop  = Loop((l_quad, *a_basis_tests, *a_basis_trials, GeometryExpressions(Mapping, nderiv)), index_quad, stmts)
     # ...
 
     # ... TODO
@@ -1529,7 +1524,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     return stmt
 
-def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nderiv, dim):
+def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nderiv, dim, Mapping):
     """
     """
     pads    = symbols('p1, p2, p3')[:dim]
@@ -1561,8 +1556,11 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nder
     l_basis = tuple([d['local'] for v,d in d_tests.items()])
 
     stmts  = [Loop((*l_basis, l_coeff), index_dof, stmts)]
-    # add assign atom to MatrixQuadrature 
-    loop   = Loop((l_quad, *a_basis), index_quad, [])
+    # =================================================================================================
+    inits = [Assign(AtomicNode(i),ProductGenerator(MatrixQuadrature(i), index_quad)) for i in args]
+    inits += [ComputePhysicalBasis(i) for i in atomic_expr]
+
+    loop   = Loop((l_quad, *a_basis, GeometryExpressions(Mapping, nderiv)), index_quad, inits)
 
     l_vec = LocalElementBasis()
 
