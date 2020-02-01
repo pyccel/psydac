@@ -1458,8 +1458,6 @@ class AST(object):
         elif is_functional:
             ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
                                               tests, d_tests, nderiv, domain.dim, Mapping, spaces)
-
-
         else:
             raise NotImplementedError('TODO')
         # ...
@@ -1484,78 +1482,7 @@ class AST(object):
     def dim(self):
         return self.domain.dim
 
-
-#==============================================================================
-def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, nderiv, dim, Mapping, space):
-    """
-    """
-    
-    pads   = symbols('p1, p2, p3')[:dim]
-    g_quad = GlobalTensorQuadrature()
-    l_quad = LocalTensorQuadrature()
-    #TODO should we use tests for fields
-    coeffs   = [CoefficientBasis(i) for i in tests]
-    l_coeffs = [MatrixLocalBasis(i) for i in tests]
-    geo      = GeometryExpressions(Mapping, nderiv)
-
-    g_vec = StencilVectorGlobalBasis(pads)
-    l_vec = StencilVectorLocalBasis(pads)
-
-    q_basis = tuple([d['array'] for v,d in d_tests.items()])
-    l_basis = tuple([d['local'] for v,d in d_tests.items()])
-    g_basis = tuple([d['global'] for v,d in d_tests.items()])
-
-    g_span  = tuple([d['span']   for v,d in d_tests.items()])
-
-    # ...........................................................................................
-
-    eval_mapping = EvalMapping(index_quad, index_dof_test, q_basis, l_basis, Mapping, geo, space, nderiv)
-
-    if atomic_expr_field:
-        eval_field   = EvalField(atomic_expr_field, index_quad, q_basis, coeff, tests, nderiv)
-
-    # ...
-    stmts = []
-    for v in tests:
-        stmts += construct_logical_expressions(v, nderiv)
-
-    stmts += [ComputePhysicalBasis(i) for i in atomic_expr]
-
-    if atomic_expr_field:
-        stmts += list(eval_fiel.inits)
-
-    loop  = Loop((l_quad, *q_basis, geo), index_quad, stmts)
-    loop = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
-    # ...
-
-    # ... loop over tests to evaluate fields
-    fields = EmptyLine()
-    if atomic_expr_field:
-        fields = Loop((*l_basis, l_coeff), index_dof, [eval_field])
-
-    # ... loop over tests
-
-    stmts = [loop]
-    loop  = Loop(l_basis, index_dof_test, stmts)
-    # ...
-
-    body  = (EmptyLine(), eval_mapping, fields, Reset(l_vec), loop)
-    stmts = Block(body)
-    # ...
-    # ... loop over global elements
-    loop  = Loop((g_quad, *g_basis, *g_span), index_element, stmts)
-    # ...
-
-    body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop))
-
-    args       = [*g_basis, *g_span, g_vec, g_quad]
-    local_vars = [*q_basis] 
-    stmt = DefNode('assembly', args, local_vars, body)
-    # ...
-
-    return stmt
-
-#==============================================================================
+#================================================================================================================================
 def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
                               tests, d_tests,
                               trials, d_trials,
@@ -1589,17 +1516,19 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     # ...........................................................................................
 
+
     eval_mapping = EvalMapping(index_quad, index_dof_trial, q_basis_trials, l_basis_trials, Mapping, geo, spaces[1], nderiv)
     if atomic_expr_field:
         eval_field   = EvalField(atomic_expr_field, index_quad, q_basis_trials, coeff, trials, nderiv)
 
+    #=========================================================begin kernel======================================================
     stmts = []
     for v in tests:
         stmts += construct_logical_expressions(v, nderiv)
 
     stmts += [ComputePhysicalBasis(i) for i in atomic_expr]
     # ...
-    
+
     if atomic_expr_field:
         stmts += list(eval_fiel.inits)
 
@@ -1626,6 +1555,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     body  = (EmptyLine(), eval_mapping, fields, Reset(l_mat), loop)
     stmts = Block(body)
+    #=========================================================end kernel=========================================================
     # ...
     # ... loop over global elements
     loop  = Loop((g_quad, *g_basis_tests, *g_basis_trials, *g_span),
@@ -1640,6 +1570,79 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     return stmt
 
+#================================================================================================================================
+def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, nderiv, dim, Mapping, space):
+    """
+    """
+
+    pads   = symbols('p1, p2, p3')[:dim]
+    g_quad = GlobalTensorQuadrature()
+    l_quad = LocalTensorQuadrature()
+    #TODO should we use tests for fields
+    coeffs   = [CoefficientBasis(i) for i in tests]
+    l_coeffs = [MatrixLocalBasis(i) for i in tests]
+    geo      = GeometryExpressions(Mapping, nderiv)
+
+    g_vec = StencilVectorGlobalBasis(pads)
+    l_vec = StencilVectorLocalBasis(pads)
+
+    q_basis = tuple([d['array'] for v,d in d_tests.items()])
+    l_basis = tuple([d['local'] for v,d in d_tests.items()])
+    g_basis = tuple([d['global'] for v,d in d_tests.items()])
+
+    g_span  = tuple([d['span']   for v,d in d_tests.items()])
+
+    # ...........................................................................................
+
+    eval_mapping = EvalMapping(index_quad, index_dof_test, q_basis, l_basis, Mapping, geo, space, nderiv)
+
+    if atomic_expr_field:
+        eval_field   = EvalField(atomic_expr_field, index_quad, q_basis, coeff, tests, nderiv)
+
+    # ...
+    #=========================================================begin kernel======================================================
+    stmts = []
+    for v in tests:
+        stmts += construct_logical_expressions(v, nderiv)
+
+    stmts += [ComputePhysicalBasis(i) for i in atomic_expr]
+
+    if atomic_expr_field:
+        stmts += list(eval_fiel.inits)
+
+    loop  = Loop((l_quad, *q_basis, geo), index_quad, stmts)
+    loop = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
+    # ...
+
+    # ... loop over tests to evaluate fields
+    fields = EmptyLine()
+    if atomic_expr_field:
+        fields = Loop((*l_basis, l_coeff), index_dof, [eval_field])
+
+    # ... loop over tests
+
+    stmts = [loop]
+    loop  = Loop(l_basis, index_dof_test, stmts)
+    # ...
+
+    body  = (EmptyLine(), eval_mapping, fields, Reset(l_vec), loop)
+    stmts = Block(body)
+    # ...
+    #=========================================================end kernel=========================================================
+    # ... loop over global elements
+    loop  = Loop((g_quad, *g_basis, *g_span), index_element, stmts)
+    # ...
+
+    body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop))
+
+    args       = [*g_basis, *g_span, g_vec, g_quad]
+    local_vars = [*q_basis]
+    stmt = DefNode('assembly', args, local_vars, body)
+    # ...
+
+    return stmt
+
+#================================================================================================================================
 def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nderiv, dim, Mapping, space):
     """
     """
@@ -1666,6 +1669,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nder
     eval_mapping = EvalMapping(index_quad, index_dof_test, q_basis, l_basis, Mapping, geo, space, nderiv)
     eval_field   = EvalField(atomic_expr, index_quad, q_basis, coeffs, tests, nderiv)
 
+    #=========================================================begin kernel======================================================
     # ... loop over tests functions
 
     loop   = Loop((l_quad, *q_basis, geo), index_quad, eval_field.inits)
@@ -1675,6 +1679,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nder
     fields = Loop((*l_basis, *l_coeffs), index_dof, [eval_field])
     stmts  = Block([EmptyLine(),eval_mapping, fields, Reset(l_vec), loop])
 
+    #=========================================================end kernel=========================================================
     # ... loop over global elements
 
 
@@ -1684,7 +1689,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nder
     body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop))
 
     args       = [*g_basis, *g_span, g_vec, g_quad]
-    local_vars = [*q_basis] 
+    local_vars = [*q_basis]
     stmt = DefNode('assembly', args, local_vars, body)
     # ...
 
