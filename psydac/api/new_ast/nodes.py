@@ -19,6 +19,9 @@ from sympde.topology.space import element_of
 
 from .utilities import physical2logical
 from pyccel.ast import AugAssign, Assign
+from pyccel.ast import EmptyLine
+
+from sympde.topology.derivatives import get_index_logical_derivatives, get_atom_logical_derivatives
 
 #==============================================================================
 # TODO move it
@@ -129,6 +132,105 @@ class Pattern(Tuple):
     """
     """
     pass
+
+class EvalField(BaseNode):
+    def __new__(cls, atoms, index, basis, coeffs, tests, nderiv):
+
+        stmts  = []
+        inits  = []
+        for v in tests:
+            stmts += construct_logical_expressions(v, nderiv)
+        atoms   = [physical2logical(i) for i in atoms]
+
+        for coeff in coeffs:
+            for a in atoms:
+                node    = AtomicNode(a)
+                val     = ProductGenerator(MatrixQuadrature(a), index)
+                rhs     = Mul(coeff,node)
+                stmts  += [AugAssign(val, '+', rhs)]
+
+                inits += [Assign(node,val)]
+                inits += [ComputePhysicalBasis(a)]
+
+        inits = Tuple(*inits)
+        body  = Loop( basis, index, stmts)
+
+        return Basic.__new__(cls, atoms, inits, body)
+
+    @property
+    def atoms(self):
+        return self._args[0]
+
+    @property
+    def inits(self):
+        return self._args[1]
+
+    @property
+    def body(self):
+        return self._args[2]
+
+class EvalMapping(BaseNode):
+    """."""
+    def __new__(cls, quads, indices_basis, q_basis, l_basis, mapping, components, space, nderiv):
+        atoms  = components.arguments
+        basis  = q_basis[0]
+        target = basis.target
+        new_atoms  = []
+        nodes      = []
+        l_coeffs   = set()
+
+        for a in atoms:
+            atom   = get_atom_logical_derivatives(a)
+            node   = a.subs(atom, target)
+            new_atoms.append(atom)
+            nodes.append(node)
+
+        stmts = [ComputeLogicalBasis(v,) for v in set(nodes)]
+        for i in range(len(atoms)):
+            l_coeffs.add(MatrixLocalBasis(new_atoms[i]))
+            node    = AtomicNode(nodes[i])
+            val     = ProductGenerator(MatrixQuadrature(atoms[i]), quads)
+            rhs     = Mul(CoefficientBasis(new_atoms[i]),node)
+            stmts  += [AugAssign(val, '+', rhs)]
+        
+        loop   = Loop((*q_basis, *l_coeffs), quads, stmts)
+        loop   = Loop(*l_basis, indices_basis, [loop])
+
+        return Basic.__new__(cls, loop)
+
+    @property
+    def loop(self):
+        return self._args[0]
+    @property
+    def quads(self):
+        return self._args[0]
+
+    @property
+    def indices_basis(self):
+        return self._args[1]
+    
+    @property
+    def pads(self):
+        return self._args[2]
+
+    @property
+    def basis_array(self):
+        return self._args[3]
+
+    @property
+    def mapping(self):
+        return self._args[4]
+
+    @property
+    def components(self):
+        return self._args[5]
+
+    @property
+    def basis(self):
+        return self._args[6]
+
+    def coeffs(self, dim):
+        return Tuple(*[CoefficientBasis(self.mapping[i]) for i in range(dim)])
 
 #==============================================================================
 class IteratorBase(BaseNode):
@@ -353,8 +455,9 @@ class CoefficientBasis(ScalarNode):
     """
     """
     def __new__(cls, target):
-        if not isinstance(target, (ScalarTestFunction, VectorTestFunction)):
-            raise TypeError('Expecting a scalar/vector test function')
+        ls = target.atoms(ScalarTestFunction, VectorTestFunction, Mapping)
+        if not len(ls) == 1:
+            raise TypeError('Expecting a scalar/vector test function or a Mapping')
 
         return Basic.__new__(cls, target)
 
@@ -831,7 +934,7 @@ class Loop(BaseNode):
 
         # ... replace GeometryExpressions by a list of expressions
         others = [i for i in iterable if not isinstance(i, GeometryExpressions)]
-        geos   = [i.arguments for i in iterable if isinstance(i, GeometryExpressions)]
+        geos   = [i.expressions for i in iterable if isinstance(i, GeometryExpressions)]
 
         if len(geos) == 1:
             geos = list(geos[0])
@@ -1044,15 +1147,19 @@ class GeometryExpressions(Basic):
                         atom = op(atom)
                 args.append(atom)
 
-        args = [GeometryExpr(i) for i in args]
+        expressions = [GeometryExpr(i) for i in args]
 
-        args = Tuple(*args)
-        return Basic.__new__(cls, args)
+        args        = Tuple(*args)
+        expressions = Tuple(*expressions)
+        return Basic.__new__(cls, args, expressions)
 
     @property
     def arguments(self):
         return self._args[0]
 
+    @property
+    def expressions(self):
+        return self._args[1]
 #==============================================================================
 def construct_itergener(a, index):
     """
@@ -1251,17 +1358,13 @@ class DefNode(Basic):
 class AST(object):
     """
     """
-    def __init__(self, expr, Mapping):
+    def __init__(self, expr, spaces, Mapping):
         # ... compute terminal expr
         # TODO check that we have one single domain/interface/boundary
         terminal_expr = TerminalExpr(expr)
         domain        = terminal_expr[0].target
         terminal_expr = terminal_expr[0].expr
 
-#        print('> terminal expr = ', terminal_expr)
-        # ...
-
-        # ... compute max deriv
         nderiv = 0
         if isinstance(terminal_expr, Matrix):
             n_rows, n_cols = terminal_expr.shape
@@ -1273,10 +1376,6 @@ class AST(object):
             d = get_max_partial_derivatives(terminal_expr)
             nderiv = max(nderiv, max(d.values()))
 
-#        print('> nderiv = ', nderiv)
-        # ...
-
-        # ...
         is_bilinear   = False
         is_linear     = False
         is_functional = False
@@ -1348,17 +1447,17 @@ class AST(object):
         # ...
         if is_linear:
             ast = _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests,
-                                          nderiv, domain.dim, Mapping)
+                                          nderiv, domain.dim, Mapping, spaces)
 
         elif is_bilinear:
             ast = _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
                                             tests, d_tests,
                                             trials, d_trials,
-                                            nderiv, domain.dim, Mapping)
+                                            nderiv, domain.dim, Mapping, spaces)
 
         elif is_functional:
             ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
-                                              tests, d_tests, nderiv, domain.dim, Mapping)
+                                              tests, d_tests, nderiv, domain.dim, Mapping, spaces)
 
 
         else:
@@ -1387,13 +1486,33 @@ class AST(object):
 
 
 #==============================================================================
-def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, nderiv, dim, Mapping):
+def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, nderiv, dim, Mapping, space):
     """
     """
     
     pads   = symbols('p1, p2, p3')[:dim]
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
+    #TODO should we use tests for fields
+    coeffs   = [CoefficientBasis(i) for i in tests]
+    l_coeffs = [MatrixLocalBasis(i) for i in tests]
+    geo      = GeometryExpressions(Mapping, nderiv)
+
+    g_vec = StencilVectorGlobalBasis(pads)
+    l_vec = StencilVectorLocalBasis(pads)
+
+    q_basis = tuple([d['array'] for v,d in d_tests.items()])
+    l_basis = tuple([d['local'] for v,d in d_tests.items()])
+    g_basis = tuple([d['global'] for v,d in d_tests.items()])
+
+    g_span  = tuple([d['span']   for v,d in d_tests.items()])
+
+    # ...........................................................................................
+
+    eval_mapping = EvalMapping(index_quad, index_dof_test, q_basis, l_basis, Mapping, geo, space, nderiv)
+
+    if atomic_expr_field:
+        eval_field   = EvalField(atomic_expr_field, index_quad, q_basis, coeff, tests, nderiv)
 
     # ...
     stmts = []
@@ -1401,49 +1520,36 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         stmts += construct_logical_expressions(v, nderiv)
 
     stmts += [ComputePhysicalBasis(i) for i in atomic_expr]
-    # ...
 
-    # ...
-    a_basis = tuple([d['array'] for v,d in d_tests.items()])
+    if atomic_expr_field:
+        stmts += list(eval_fiel.inits)
 
-    loop  = Loop((l_quad, *a_basis, GeometryExpressions(Mapping, nderiv)), index_quad, stmts)
-    # ...
-
-    # ... TODO
-    l_vec = StencilVectorLocalBasis(pads)
-    # ...
-
-    # ...
+    loop  = Loop((l_quad, *q_basis, geo), index_quad, stmts)
     loop = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
     # ...
 
+    # ... loop over tests to evaluate fields
+    fields = EmptyLine()
+    if atomic_expr_field:
+        fields = Loop((*l_basis, l_coeff), index_dof, [eval_field])
+
     # ... loop over tests
-    l_basis = tuple([d['local'] for v,d in d_tests.items()])
+
     stmts = [loop]
     loop  = Loop(l_basis, index_dof_test, stmts)
     # ...
 
-    # ... TODO
-    body  = (Reset(l_vec), loop)
+    body  = (EmptyLine(), eval_mapping, fields, Reset(l_vec), loop)
     stmts = Block(body)
     # ...
-
-    # ...
-    g_basis = tuple([d['global'] for v,d in d_tests.items()])
-    g_span  = tuple([d['span']   for v,d in d_tests.items()])
-
+    # ... loop over global elements
     loop  = Loop((g_quad, *g_basis, *g_span), index_element, stmts)
     # ...
 
-    # ... TODO
-    g_vec = StencilVectorGlobalBasis(pads)
-    # ...
-
-    # ... TODO
     body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop))
 
     args       = [*g_basis, *g_span, g_vec, g_quad]
-    local_vars = [*a_basis] 
+    local_vars = [*q_basis] 
     stmt = DefNode('assembly', args, local_vars, body)
     # ...
 
@@ -1453,145 +1559,132 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
 def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
                               tests, d_tests,
                               trials, d_trials,
-                              nderiv, dim, Mapping):
+                              nderiv, dim, Mapping, spaces):
     """
     """
-    #DefNode should be created here and given the right arguments
+
     pads   = symbols('p1, p2, p3')[:dim]
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
+    #TODO should we use tests or trials for fields
+    coeffs   = [CoefficientBasis(i) for i in tests]
+    l_coeffs = [MatrixLocalBasis(i) for i in tests]
+    geo      = GeometryExpressions(Mapping, nderiv)
 
-    # ...
+
+    l_mat = StencilMatrixLocalBasis(pads)
+    g_mat = StencilMatrixGlobalBasis(pads)
+
+    q_basis_tests  = tuple([d['array'] for v,d in d_tests.items()])
+    q_basis_trials = tuple([d['array'] for v,d in d_trials.items()])
+
+    l_basis_tests  = tuple([d['local'] for v,d in d_tests.items()])
+    l_basis_trials = tuple([d['local'] for v,d in d_trials.items()])
+
+    g_basis_tests  = tuple([d['global'] for v,d in d_tests.items()])
+    g_basis_trials = tuple([d['global'] for v,d in d_trials.items()])
+
+    # TODO d_trials or d_tests here?
+    g_span         = tuple([d['span']   for v,d in d_trials.items()])
+
+    # ...........................................................................................
+
+    eval_mapping = EvalMapping(index_quad, index_dof_trial, q_basis_trials, l_basis_trials, Mapping, geo, spaces[1], nderiv)
+    if atomic_expr_field:
+        eval_field   = EvalField(atomic_expr_field, index_quad, q_basis_trials, coeff, trials, nderiv)
+
     stmts = []
     for v in tests:
         stmts += construct_logical_expressions(v, nderiv)
 
     stmts += [ComputePhysicalBasis(i) for i in atomic_expr]
     # ...
+    
+    if atomic_expr_field:
+        stmts += list(eval_fiel.inits)
 
-    # ...
-    a_basis_tests  = tuple([d['array'] for v,d in d_tests.items()])
-    a_basis_trials = tuple([d['array'] for v,d in d_trials.items()])
+    loop  = Loop((l_quad, *q_basis_tests, *q_basis_trials, geo), index_quad, stmts)
+    loop  = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_mat), loop)
 
-    loop  = Loop((l_quad, *a_basis_tests, *a_basis_trials, GeometryExpressions(Mapping, nderiv)), index_quad, stmts)
-    # ...
 
-    # ... TODO
-    l_mat = StencilMatrixLocalBasis(pads)
-    # ...
+    # ... loop over tests to evaluate fields
+    fields = EmptyLine()
+    if atomic_expr_field:
+        fields = Loop((*l_basis_trials, l_coeff), index_dof, [eval_field])
 
-    # ...
-    loop = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_mat), loop)
-    # ...
 
     # ... loop over trials
-    l_basis = tuple([d['local'] for v,d in d_trials.items()])
+
     stmts = [loop]
-    loop  = Loop(l_basis, index_dof_trial, stmts)
-    # ...
+    loop  = Loop(l_basis_trials, index_dof_trial, stmts)
 
     # ... loop over tests
-    l_basis = tuple([d['local'] for v,d in d_tests.items()])
+
     stmts = [loop]
-    loop  = Loop(l_basis, index_dof_test, stmts)
+    loop  = Loop(l_basis_tests, index_dof_test, stmts)
     # ...
 
-    # ... TODO
-    body  = (Reset(l_mat), loop)
+    body  = (EmptyLine(), eval_mapping, fields, Reset(l_mat), loop)
     stmts = Block(body)
     # ...
-
-    # ...
-    g_basis_tests  = tuple([d['global'] for v,d in d_tests.items()])
-    g_basis_trials = tuple([d['global'] for v,d in d_trials.items()])
-    # TODO d_trials or d_tests here?
-    g_span         = tuple([d['span']   for v,d in d_trials.items()])
-
+    # ... loop over global elements
     loop  = Loop((g_quad, *g_basis_tests, *g_basis_trials, *g_span),
                  index_element, stmts)
-    # ...
 
-    # ... TODO
-    g_mat = StencilMatrixGlobalBasis(pads)
-    # ...
 
-    # ... TODO
     body = (Reset(g_mat), Reduce('+', l_mat, g_mat, loop))
     # ...
     args = [*g_basis_tests, *g_basis_trials, *g_span, g_quad, l_mat, g_mat]
-    local_vars = [*a_basis_tests, *a_basis_trials]
+    local_vars = [*q_basis_tests, *q_basis_trials]
     stmt = DefNode('assembly', args, local_vars, body)
 
     return stmt
 
-def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nderiv, dim, Mapping):
+def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nderiv, dim, Mapping, space):
     """
     """
-    pads    = symbols('p1, p2, p3')[:dim]
-    g_quad  = GlobalTensorQuadrature()
-    l_quad  = LocalTensorQuadrature()
-    coeff   = CoefficientBasis(tests[0])
-    l_coeff = MatrixLocalBasis(tests[0])
+    pads     = symbols('p1, p2, p3')[:dim]
+    g_quad   = GlobalTensorQuadrature()
+    l_quad   = LocalTensorQuadrature()
 
-    stmts = []
+    #TODO should we use tests or trials for fields
+    coeffs   = [CoefficientBasis(i) for i in tests]
+    l_coeffs = [MatrixLocalBasis(i) for i in tests]
+    geo      = GeometryExpressions(Mapping, nderiv)
 
-    for v in tests:
-        stmts += construct_logical_expressions(v, nderiv)
-
-    # ...
-
-    args   = [physical2logical(i) for i in atomic_expr]
-    stmts += [AugAssign(ProductGenerator(MatrixQuadrature(i), index_quad),
-                                        '+', Mul(coeff,AtomicNode(i)))
-             for i in args]
-
-    # ...
-    a_basis = tuple([d['array'] for v,d in d_tests.items()])
-
-    loop  = Loop( a_basis, index_quad, stmts)
-    # ...
-
-    stmts = [loop]
-
+    q_basis = tuple([d['array'] for v,d in d_tests.items()])
     l_basis = tuple([d['local'] for v,d in d_tests.items()])
-
-    stmts  = [Loop((*l_basis, l_coeff), index_dof, stmts)]
-    # =================================================================================================
-    inits = [Assign(AtomicNode(i),ProductGenerator(MatrixQuadrature(i), index_quad)) for i in args]
-    inits += [ComputePhysicalBasis(i) for i in atomic_expr]
-
-    loop   = Loop((l_quad, *a_basis, GeometryExpressions(Mapping, nderiv)), index_quad, inits)
-
-    l_vec = LocalElementBasis()
-
-    loop = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
-    # ...
-
-    # ... loop over tests
-
-    stmts += [Reset(l_vec),loop]
-    # ...
-
-    # ... TODO
-    stmts = Block(stmts)
-    # ...
-    #global elements
-    # ...
     g_basis = tuple([d['global'] for v,d in d_tests.items()])
+
     g_span  = tuple([d['span']   for v,d in d_tests.items()])
+
+    l_vec   = LocalElementBasis()
+    g_vec   = GlobalElementBasis()
+
+    # ...........................................................................................
+
+    eval_mapping = EvalMapping(index_quad, index_dof_test, q_basis, l_basis, Mapping, geo, space, nderiv)
+    eval_field   = EvalField(atomic_expr, index_quad, q_basis, coeffs, tests, nderiv)
+
+    # ... loop over tests functions
+
+    loop   = Loop((l_quad, *q_basis, geo), index_quad, eval_field.inits)
+    loop   = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
+    # ...
+    # ... loop over tests functions to evaluate the fields
+    fields = Loop((*l_basis, *l_coeffs), index_dof, [eval_field])
+    stmts  = Block([EmptyLine(),eval_mapping, fields, Reset(l_vec), loop])
+
+    # ... loop over global elements
+
 
     loop  = Loop((g_quad, *g_basis, *g_span), index_element, stmts)
     # ...
 
-    # ... TODO
-    g_vec = GlobalElementBasis()
-    # ...
-
-    # ... TODO
     body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop))
 
     args       = [*g_basis, *g_span, g_vec, g_quad]
-    local_vars = [*a_basis] 
+    local_vars = [*q_basis] 
     stmt = DefNode('assembly', args, local_vars, body)
     # ...
 

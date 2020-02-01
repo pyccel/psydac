@@ -30,6 +30,7 @@ from sympde.expr.evaluation import _split_test_function
 from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
+from sympde.topology.derivatives import get_index_logical_derivatives, get_atom_logical_derivatives
 
 from .nodes import AtomicNode
 from .nodes import BasisAtom
@@ -96,7 +97,13 @@ def flatten(args):
         else:
             ls.append(args)
     rec_flatten(args, ls)
-    return type(args)(ls)
+
+    if isinstance(args, tuple):
+        return tuple(ls)
+    elif isinstance(args, Tuple):
+        return Tuple(*ls)
+    else:
+        return ls
 
 
 def is_scalar_array(var):
@@ -387,6 +394,11 @@ class Parser(object):
         self.functions[name] = func
         return func
 
+    def _visit_EvalField(self, expr, **kwargs):
+        return self._visit(expr.body, **kwargs)
+
+    def _visit_EvalMapping(self, expr, **kwargs):
+        return self._visit(expr.loop, **kwargs)
 
     # ....................................................
     def _visit_Grid(self, expr, **kwargs):
@@ -594,7 +606,7 @@ class Parser(object):
     def _visit_CoefficientBasis(self, expr, **kwargs):
         target = SymbolicExpr(expr.target)
         name = 'coeff_{}'.format(target.name)
-        var  = Variable('real', name)
+        var  = IndexedVariable(name, dtype='real', rank=self.dim)
         self.insert_variables(var)
         return var
 
@@ -1196,7 +1208,6 @@ class Parser(object):
                 if len(l_xs) >= len(g_xs):
 
                     positions = [expr.generator.target.positions[i] for i in [index_deriv]]
-                    print(l_xs, g_xs, positions, type(expr.generator.target))
                     args = []
                     for xs in g_xs:
                         # TODO impro    ve
@@ -1336,6 +1347,9 @@ class Parser(object):
     # ....................................................
     # TODO to be removed. usefull for testing
     def _visit_Pass(self, expr, **kwargs):
+        return expr
+
+    def _visit_EmptyLine(self ,expr, **kwargs):
         return expr
 
 
