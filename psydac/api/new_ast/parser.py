@@ -232,7 +232,7 @@ class Parser(object):
         elif all(i is not None for i in ind1):
             for i in ind1:
                 if str(i) in self.indices:
-                    shape.append(self.indices[str(i)]-1)
+                    shape.append(self.indices[str(i)])
             if len(shape) == len(ind1):
                 shape_lhs = tuple(shape)
 
@@ -382,10 +382,13 @@ class Parser(object):
         body = tuple(self._visit(i, **kwargs) for i in expr.body)
         inits = []
         for k,i in self.shapes.items():
+            var = self.variables[k]
+            if var in arguments:
+                continue
             if isinstance(i, Shape):
-                inits.append(Assign(self.variables[k], ZerosLike(i.arg)))
+                inits.append(Assign(var, ZerosLike(i.arg)))
             else:
-                inits.append(Assign(self.variables[k], Zeros(i)))
+                inits.append(Assign(var, Zeros(i)))
 
         inits.append(EmptyLine())
         body =  tuple(inits) + body
@@ -1183,10 +1186,16 @@ class Parser(object):
 
         indices = [self._visit(i) for i in indices]
         lengths = [self._visit(i) for i in lengths]
-        lengths = list(zip(*lengths)) # TODO
 
+        if isinstance(expr.generator.target, LocalTensorQuadratureBasis):
+            new_lengths = []
+            for ln in lengths:
+                t = tuple(j + 1 for j in ln)
+                new_lengths += [t] 
+            lengths = new_lengths
 
         indices = tuple(ind for ls in indices for ind in ls)
+        lengths = list(zip(*lengths)) # TODO
 
         for i,j in zip(flatten(indices),flatten(lengths)):
             self.indices[str(i)] = j
@@ -1204,6 +1213,7 @@ class Parser(object):
             # TODO maybe we should add a flag here or a kwarg that says we
             # should enumerate the array
             #if isinstance(expr.generator.target, (LocalTensorQuadratureBasis, TensorQuadratureBasis))
+
             if isinstance(expr.generator.target, TensorQuadratureBasis):
                 if len(l_xs) >= len(g_xs):
 

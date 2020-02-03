@@ -192,46 +192,18 @@ class EvalMapping(BaseNode):
             val     = ProductGenerator(MatrixQuadrature(atoms[i]), quads)
             rhs     = Mul(CoefficientBasis(new_atoms[i]),node)
             stmts  += [AugAssign(val, '+', rhs)]
-        
+
         loop   = Loop((*q_basis, *l_coeffs), quads, stmts)
         loop   = Loop(*l_basis, indices_basis, [loop])
 
-        return Basic.__new__(cls, loop)
+        return Basic.__new__(cls, loop, l_coeffs)
 
     @property
     def loop(self):
         return self._args[0]
     @property
-    def quads(self):
-        return self._args[0]
-
-    @property
-    def indices_basis(self):
+    def coeffs(self):
         return self._args[1]
-    
-    @property
-    def pads(self):
-        return self._args[2]
-
-    @property
-    def basis_array(self):
-        return self._args[3]
-
-    @property
-    def mapping(self):
-        return self._args[4]
-
-    @property
-    def components(self):
-        return self._args[5]
-
-    @property
-    def basis(self):
-        return self._args[6]
-
-    def coeffs(self, dim):
-        return Tuple(*[CoefficientBasis(self.mapping[i]) for i in range(dim)])
-
 #==============================================================================
 class IteratorBase(BaseNode):
     """
@@ -1490,7 +1462,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     """
     """
 
-    pads   = symbols('p1, p2, p3')[:dim]
+    pads   = symbols('pad1, pad2, pad3')[:dim]
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
     #TODO should we use tests or trials for fields
@@ -1556,7 +1528,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     body  = (EmptyLine(), eval_mapping, fields, Reset(l_mat), loop)
     stmts = Block(body)
     #=========================================================end kernel=========================================================
-    # ...
+
     # ... loop over global elements
     loop  = Loop((g_quad, *g_basis_tests, *g_basis_trials, *g_span),
                  index_element, stmts)
@@ -1564,7 +1536,19 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     body = (Reset(g_mat), Reduce('+', l_mat, g_mat, loop))
     # ...
-    args = [*g_basis_tests, *g_basis_trials, *g_span, g_quad, l_mat, g_mat]
+
+    indices = [index_element, index_quad, index_dof_test, index_dof_trial]
+    lengths = [i.length for i in indices]
+
+    args = [*g_basis_tests, *g_basis_trials, *g_span, g_quad, *lengths, *pads]
+
+    if atomic_expr_field:
+        args += [*l_coeffs]
+    if eval_mapping:
+        args+= [*eval_mapping.coeffs]
+
+    args += [l_mat, g_mat]
+
     local_vars = [*q_basis_tests, *q_basis_trials]
     stmt = DefNode('assembly', args, local_vars, body)
 
@@ -1575,7 +1559,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     """
     """
 
-    pads   = symbols('p1, p2, p3')[:dim]
+    pads   = symbols('pad1, pad2, pad3')[:dim]
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
     #TODO should we use tests for fields
@@ -1635,7 +1619,18 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
 
     body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop))
 
-    args       = [*g_basis, *g_span, g_vec, g_quad]
+    indices = [index_element, index_quad, index_dof_test]
+    lengths = [i.length for i in indices]
+
+    args       = [*g_basis, *g_span, g_vec, g_quad, *lengths, *pads]
+
+    if atomic_expr_field:
+        args += [*l_coeffs]
+    if eval_mapping:
+        args+= [*eval_mapping.coeffs]
+
+    args += [l_vec, g_vec]
+
     local_vars = [*q_basis]
     stmt = DefNode('assembly', args, local_vars, body)
     # ...
@@ -1646,7 +1641,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
 def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nderiv, dim, Mapping, space):
     """
     """
-    pads     = symbols('p1, p2, p3')[:dim]
+    pads     = symbols('pad1, pad2, pad3')[:dim]
     g_quad   = GlobalTensorQuadrature()
     l_quad   = LocalTensorQuadrature()
 
@@ -1676,7 +1671,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nder
     loop   = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
     # ...
     # ... loop over tests functions to evaluate the fields
-    fields = Loop((*l_basis, *l_coeffs), index_dof, [eval_field])
+    fields = Loop((*l_basis, *l_coeffs), index_dof_test, [eval_field])
     stmts  = Block([EmptyLine(),eval_mapping, fields, Reset(l_vec), loop])
 
     #=========================================================end kernel=========================================================
@@ -1688,7 +1683,15 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nder
 
     body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop))
 
-    args       = [*g_basis, *g_span, g_vec, g_quad]
+    indices = [index_element, index_quad, index_dof_test]
+    lengths = [i.length for i in indices]
+    args    = [*g_basis, *g_span, g_quad, *lengths, *pads, *coeffs]
+
+    if eval_mapping:
+        args+= [*eval_mapping.coeffs]
+
+    args += [l_vec, g_vec]
+
     local_vars = [*q_basis]
     stmt = DefNode('assembly', args, local_vars, body)
     # ...
