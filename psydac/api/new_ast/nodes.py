@@ -15,7 +15,8 @@ from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
 from sympde.topology import IdentityMapping
-from sympde.topology.space import element_of
+from sympde.topology import element_of, VectorFunctionSpace, ScalarFunctionSpace
+from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from .utilities import physical2logical
 from pyccel.ast import AugAssign, Assign
@@ -173,7 +174,7 @@ class EvalMapping(BaseNode):
     """."""
     def __new__(cls, quads, indices_basis, q_basis, l_basis, mapping, components, space, nderiv):
         atoms  = components.arguments
-        basis  = q_basis[0]
+        basis  = q_basis
         target = basis.target
         new_atoms  = []
         nodes      = []
@@ -183,8 +184,10 @@ class EvalMapping(BaseNode):
             atom   = get_atom_logical_derivatives(a)
             node   = a.subs(atom, target)
             new_atoms.append(atom)
-            nodes.append(node)
-
+            if isinstance(node, Matrix):
+                nodes += [*node[:]]
+            else:
+                nodes.append(node)
         stmts = [ComputeLogicalBasis(v,) for v in set(nodes)]
         for i in range(len(atoms)):
             l_coeffs.add(MatrixLocalBasis(new_atoms[i]))
@@ -193,8 +196,8 @@ class EvalMapping(BaseNode):
             rhs     = Mul(CoefficientBasis(new_atoms[i]),node)
             stmts  += [AugAssign(val, '+', rhs)]
 
-        loop   = Loop((*q_basis, *l_coeffs), quads, stmts)
-        loop   = Loop(*l_basis, indices_basis, [loop])
+        loop   = Loop((q_basis, *l_coeffs), quads, stmts)
+        loop   = Loop(l_basis, indices_basis, [loop])
 
         return Basic.__new__(cls, loop, l_coeffs)
 
@@ -281,7 +284,7 @@ class ArrayNode(BaseNode, AtomicExpr):
     """
     _rank = None
     _positions = None
-    _free_positions = None
+    _free_indices = None
 
     @property
     def rank(self):
@@ -292,19 +295,16 @@ class ArrayNode(BaseNode, AtomicExpr):
         return self._positions
 
     @property
-    def free_positions(self):
-        if self._free_positions is None:
+    def free_indices(self):
+        if self._free_indices is None:
             return list(self.positions.keys())
 
         else:
-            return self._free_positions
+            return self._free_indices
 
-    def pattern(self, args=None):
-        if args is None:
-            args = self.free_positions
-
+    def pattern(self):
         positions = {}
-        for a in args:
+        for a in self.free_indices:
             positions[a] = self.positions[a]
 
         args = [None]*self.rank
@@ -332,7 +332,7 @@ class GlobalTensorQuadrature(ArrayNode):
     """
     _rank = 2
     _positions = {index_element: 0, index_quad: 1}
-    _free_positions = [index_element]
+    _free_indices = [index_element]
 
 #==============================================================================
 class LocalTensorQuadrature(ArrayNode):
@@ -374,17 +374,28 @@ class GlobalTensorQuadratureBasis(ArrayNode):
     """
     _rank = 4
     _positions = {index_quad: 3, index_deriv: 2, index_dof: 1, index_element: 0}
-    _free_positions = [index_element]
+    _free_indices = [index_element]
 
     def __new__(cls, target):
         if not isinstance(target, (ScalarTestFunction, VectorTestFunction)):
             raise TypeError('Expecting a scalar/vector test function')
-
         return Basic.__new__(cls, target)
 
     @property
     def target(self):
         return self._args[0]
+
+    @property
+    def unique_scalar_space(self):
+        unique_scalar_space = True
+        space = self.target.space
+        if isinstance(space, VectorFunctionSpace):
+            unique_scalar_space = isinstance(space.kind, UndefinedSpaceType)
+        return unique_scalar_space
+
+    @property
+    def is_scalar(self):
+        return isinstance(self.target, ScalarTestFunction)
 
 #==============================================================================
 class LocalTensorQuadratureBasis(ArrayNode):
@@ -392,25 +403,35 @@ class LocalTensorQuadratureBasis(ArrayNode):
     """
     _rank = 3
     _positions = {index_quad: 2, index_deriv: 1, index_dof: 0}
-    _free_positions = [index_dof]
+    _free_indices = [index_dof]
 
     def __new__(cls, target):
         if not isinstance(target, (ScalarTestFunction, VectorTestFunction)):
             raise TypeError('Expecting a scalar/vector test function')
-
         return Basic.__new__(cls, target)
 
     @property
     def target(self):
         return self._args[0]
 
+    @property
+    def unique_scalar_space(self):
+        unique_scalar_space = True
+        space = self.target.space
+        if isinstance(space, VectorFunctionSpace):
+            unique_scalar_space = isinstance(space.kind, UndefinedSpaceType)
+        return unique_scalar_space
+
+    @property
+    def is_scalar(self):
+        return isinstance(self.target, ScalarTestFunction)
 #==============================================================================
 class TensorQuadratureBasis(ArrayNode):
     """
     """
     _rank = 2
     _positions = {index_quad: 1, index_deriv: 0}
-    _free_positions = [index_quad]
+    _free_indices = [index_quad]
 
     def __new__(cls, target):
         if not isinstance(target, (ScalarTestFunction, VectorTestFunction)):
@@ -422,6 +443,17 @@ class TensorQuadratureBasis(ArrayNode):
     def target(self):
         return self._args[0]
 
+    @property
+    def unique_scalar_space(self):
+        unique_scalar_space = True
+        space = self.target.space
+        if isinstance(space, VectorFunctionSpace):
+            unique_scalar_space = isinstance(space.kind, UndefinedSpaceType)
+        return unique_scalar_space
+
+    @property
+    def is_scalar(self):
+        return isinstance(self.target, ScalarTestFunction)
 #==============================================================================
 class CoefficientBasis(ScalarNode):
     """
@@ -430,7 +462,6 @@ class CoefficientBasis(ScalarNode):
         ls = target.atoms(ScalarTestFunction, VectorTestFunction, Mapping)
         if not len(ls) == 1:
             raise TypeError('Expecting a scalar/vector test function or a Mapping')
-
         return Basic.__new__(cls, target)
 
     @property
@@ -448,7 +479,7 @@ class GlobalTensorQuadratureTestBasis(GlobalTensorQuadratureBasis):
 #==============================================================================
 class LocalTensorQuadratureTestBasis(LocalTensorQuadratureBasis):
     _positions = {index_quad: 2, index_deriv: 1, index_dof_test: 0}
-    _free_positions = [index_dof_test]
+    _free_indices = [index_dof_test]
 
 #==============================================================================
 class TensorQuadratureTestBasis(TensorQuadratureBasis):
@@ -465,7 +496,7 @@ class GlobalTensorQuadratureTrialBasis(GlobalTensorQuadratureBasis):
 #==============================================================================
 class LocalTensorQuadratureTrialBasis(LocalTensorQuadratureBasis):
     _positions = {index_quad: 2, index_deriv: 1, index_dof_trial: 0}
-    _free_positions = [index_dof_trial]
+    _free_indices = [index_dof_trial]
 
 #==============================================================================
 class TensorQuadratureTrialBasis(TensorQuadratureBasis):
@@ -495,14 +526,15 @@ class StencilMatrixLocalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil matrix
     """
-    def __new__(cls, pads):
+    def __new__(cls, u, v, pads):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = 2*len(pads)
         tag  = random_string( 6 )
-        return Basic.__new__(cls, pads, rank, tag)
+        name = str(v) +  '_' + str(u)
+        return Basic.__new__(cls, pads, rank, name, tag)
 
     @property
     def pads(self):
@@ -513,22 +545,26 @@ class StencilMatrixLocalBasis(MatrixNode):
         return self._args[1]
 
     @property
-    def tag(self):
+    def name(self):
         return self._args[2]
 
+    @property
+    def tag(self):
+        return self._args[3]
 #==============================================================================
 class StencilMatrixGlobalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil matrix
     """
-    def __new__(cls, pads):
+    def __new__(cls, u, v, pads):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = 2*len(pads)
         tag  = random_string( 6 )
-        return Basic.__new__(cls, pads, rank, tag)
+        name = str(v) +  '_' + str(u)
+        return Basic.__new__(cls, pads, rank, name, tag)
 
     @property
     def pads(self):
@@ -539,21 +575,26 @@ class StencilMatrixGlobalBasis(MatrixNode):
         return self._args[1]
 
     @property
-    def tag(self):
+    def name(self):
         return self._args[2]
+
+    @property
+    def tag(self):
+        return self._args[3]
 #==============================================================================
 class StencilVectorLocalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil vector
     """
-    def __new__(cls, pads):
+    def __new__(cls, v, pads):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = len(pads)
         tag  = random_string( 6 )
-        return Basic.__new__(cls, pads, rank, tag)
+        name = str(v)
+        return Basic.__new__(cls, pads, rank, name, tag)
 
     @property
     def pads(self):
@@ -564,8 +605,12 @@ class StencilVectorLocalBasis(MatrixNode):
         return self._args[1]
 
     @property
-    def tag(self):
+    def name(self):
         return self._args[2]
+
+    @property
+    def tag(self):
+        return self._args[3]
 
 
 
@@ -574,14 +619,15 @@ class StencilVectorGlobalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil vector
     """
-    def __new__(cls, pads):
+    def __new__(cls, v, pads):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = len(pads)
         tag  = random_string( 6 )
-        return Basic.__new__(cls, pads, rank, tag)
+        name = str(v)
+        return Basic.__new__(cls, pads, rank, name, tag)
 
     @property
     def pads(self):
@@ -592,8 +638,14 @@ class StencilVectorGlobalBasis(MatrixNode):
         return self._args[1]
 
     @property
-    def tag(self):
+    def name(self):
         return self._args[2]
+
+    @property
+    def tag(self):
+        return self._args[3]
+
+
 
 class LocalElementBasis(MatrixNode):
     tag  = random_string( 6 )
@@ -1085,13 +1137,13 @@ def construct_logical_expressions(u, nderiv):
     indices = [ijk for ijk in indices if sum(ijk) <= nderiv]
 
     args = []
+    u = [u] if isinstance(u, ScalarTestFunction) else [u[i] for i in range(dim)]
     for ijk in indices:
-        atom = u
-        for n,op in zip(ijk, ops):
-            for i in range(1, n+1):
-                atom = op(atom)
-        args.append(atom)
-
+        for atom in u:
+            for n,op in zip(ijk, ops):
+                for i in range(1, n+1):
+                    atom = op(atom)
+            args.append(atom)
     return [ComputeLogicalBasis(i) for i in args]
 
 
@@ -1333,20 +1385,6 @@ class AST(object):
     def __init__(self, expr, spaces, Mapping):
         # ... compute terminal expr
         # TODO check that we have one single domain/interface/boundary
-        terminal_expr = TerminalExpr(expr)
-        domain        = terminal_expr[0].target
-        terminal_expr = terminal_expr[0].expr
-
-        nderiv = 0
-        if isinstance(terminal_expr, Matrix):
-            n_rows, n_cols = terminal_expr.shape
-            for i_row in range(0, n_rows):
-                for i_col in range(0, n_cols):
-                    d = get_max_partial_derivatives(terminal_expr[i_row,i_col])
-                    nderiv = max(nderiv, max(d.values()))
-        else:
-            d = get_max_partial_derivatives(terminal_expr)
-            nderiv = max(nderiv, max(d.values()))
 
         is_bilinear   = False
         is_linear     = False
@@ -1355,23 +1393,10 @@ class AST(object):
         trials        = []
         # ...
 
-        # ...
-        atoms_types = (_partial_derivatives,
-                       VectorTestFunction,
-                       ScalarTestFunction,
-                       IndexedTestTrial,
-                       ScalarField,
-                       VectorField, IndexedVectorField)
-
-        atoms  = _atomic(terminal_expr, cls=atoms_types)
-        # ...
-
-        # ...
-        atomic_expr_field = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
-        atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_field ]
-        # ...
-
-        # ...
+        terminal_expr = TerminalExpr(expr)
+        domain        = terminal_expr[0].target
+        terminal_expr = terminal_expr[0].expr
+        dim           = domain.dim
 
         if isinstance(expr, LinearForm):
             is_linear = True
@@ -1390,6 +1415,37 @@ class AST(object):
             tests = Tuple(tests)
         else:
             raise NotImplementedError('TODO')
+
+        atoms_types = (_partial_derivatives,
+                       VectorTestFunction,
+                       ScalarTestFunction,
+                       IndexedTestTrial,
+                       ScalarField,
+                       VectorField, IndexedVectorField)
+
+        nderiv = 0
+        if isinstance(terminal_expr, Matrix):
+            n_rows, n_cols = terminal_expr.shape
+            atomic_expr = terminal_expr.zeros(n_rows, n_cols)
+            atomic_expr_field = []
+            for i_row in range(0, n_rows):
+                for i_col in range(0, n_cols):
+                    d = get_max_partial_derivatives(terminal_expr[i_row,i_col])
+                    nderiv = max(nderiv, max(d.values()))
+                    atoms  = _atomic(terminal_expr[i_row, i_col], cls=atoms_types)
+                    fields = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
+                    atoms  = [atom for atom in atoms if atom not in fields ]
+                    atomic_expr[i_row, i_col] = Tuple(*atoms)
+                    atomic_expr_field += [*fields]
+        else:
+            d = get_max_partial_derivatives(terminal_expr)
+            nderiv = max(nderiv, max(d.values()))
+            atoms  = _atomic(terminal_expr, cls=atoms_types)
+            atomic_expr_field = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
+            atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_field ]
+            atomic_expr       = Matrix([[Tuple(*atomic_expr)]])
+
+        # ...
 
         d_tests = {}
         for v in tests:
@@ -1416,20 +1472,42 @@ class AST(object):
             d_trials[v] = d
         # ...
 
+        shapes_tests  = {}
+        shapes_trials = {}
+
+        start = 0
+        for v in tests:
+            ln = 1 if isinstance(v, ScalarTestFunction) else dim
+            end = start + ln
+            shapes_tests[v] = (start, end)
+            start = end
+
+        start = 0
+        for u in trials:
+            ln = 1 if isinstance(u, ScalarTestFunction) else dim
+            end = start + ln
+            shapes_trials[u] = (start, end)
+            start = end
+
         # ...
         if is_linear:
-            ast = _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests,
-                                          nderiv, domain.dim, Mapping, spaces)
+            ast = _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, 
+                                          tests, d_tests, shapes_tests,
+                                          nderiv, domain.dim, 
+                                          Mapping, spaces)
 
         elif is_bilinear:
             ast = _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
-                                            tests, d_tests,
-                                            trials, d_trials,
-                                            nderiv, domain.dim, Mapping, spaces)
+                                            tests, d_tests, shapes_tests,
+                                            trials, d_trials, shapes_trials,
+                                            nderiv, domain.dim, 
+                                            Mapping, spaces)
 
         elif is_functional:
             ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
-                                              tests, d_tests, nderiv, domain.dim, Mapping, spaces)
+                                              tests, d_tests, shapes_tests,
+                                              nderiv, domain.dim, 
+                                              Mapping, spaces)
         else:
             raise NotImplementedError('TODO')
         # ...
@@ -1456,8 +1534,8 @@ class AST(object):
 
 #================================================================================================================================
 def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
-                              tests, d_tests,
-                              trials, d_trials,
+                              tests, d_tests, shapes_tests,
+                              trials, d_trials, shapes_trials,
                               nderiv, dim, Mapping, spaces):
     """
     """
@@ -1470,44 +1548,45 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     l_coeffs = [MatrixLocalBasis(i) for i in tests]
     geo      = GeometryExpressions(Mapping, nderiv)
 
+    l_mat  = {(u,v):StencilMatrixLocalBasis(u, v, pads)  for v in tests for u in trials}
+    g_mat  = {(u,v):StencilMatrixGlobalBasis(u, v, pads) for v in tests for u in trials}
 
-    l_mat = StencilMatrixLocalBasis(pads)
-    g_mat = StencilMatrixGlobalBasis(pads)
+    q_basis_tests  = {v:d_tests[v]['array']  for v in tests}
+    q_basis_trials = {u:d_trials[u]['array'] for u in trials}
 
-    q_basis_tests  = tuple([d['array'] for v,d in d_tests.items()])
-    q_basis_trials = tuple([d['array'] for v,d in d_trials.items()])
+    l_basis_tests  = {v:d_tests[v]['local']  for v in tests}
+    l_basis_trials = {u:d_trials[u]['local'] for u in trials}
 
-    l_basis_tests  = tuple([d['local'] for v,d in d_tests.items()])
-    l_basis_trials = tuple([d['local'] for v,d in d_trials.items()])
-
-    g_basis_tests  = tuple([d['global'] for v,d in d_tests.items()])
-    g_basis_trials = tuple([d['global'] for v,d in d_trials.items()])
+    g_basis_tests  = {v:d_tests[v]['global']  for v in tests}
+    g_basis_trials = {u:d_trials[u]['global'] for u in trials}
 
     # TODO d_trials or d_tests here?
-    g_span         = tuple([d['span']   for v,d in d_trials.items()])
+    g_span          = {u:d_trials[u]['span'] for u in trials}
 
     # ...........................................................................................
 
 
-    eval_mapping = EvalMapping(index_quad, index_dof_trial, q_basis_trials, l_basis_trials, Mapping, geo, spaces[1], nderiv)
+    eval_mapping = EvalMapping(index_quad, index_dof_trial, q_basis_trials[trials[0]], l_basis_trials[trials[0]], Mapping, geo, spaces[1], nderiv)
+
     if atomic_expr_field:
-        eval_field   = EvalField(atomic_expr_field, index_quad, q_basis_trials, coeff, trials, nderiv)
+        eval_field   = EvalField(atomic_expr_field, index_quad, q_basis_trials[trials[0]], coeff, trials, nderiv)
+
 
     #=========================================================begin kernel======================================================
     stmts = []
     for v in tests:
         stmts += construct_logical_expressions(v, nderiv)
-
+    
     stmts += [ComputePhysicalBasis(i) for i in atomic_expr]
     # ...
-
+    
     if atomic_expr_field:
         stmts += list(eval_fiel.inits)
 
-    loop  = Loop((l_quad, *q_basis_tests, *q_basis_trials, geo), index_quad, stmts)
-    loop  = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_mat), loop)
-
-
+    loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), index_quad, [])
+    #loop  = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_mat), loop)
+    return loop
+    raise
     # ... loop over tests to evaluate fields
     fields = EmptyLine()
     if atomic_expr_field:

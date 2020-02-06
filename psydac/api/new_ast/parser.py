@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 from sympy import IndexedBase, Indexed
-from sympy import Mul
+from sympy import Mul, Matrix
 from sympy import Add
 from sympy import Abs
 from sympy import Symbol, Idx
@@ -75,6 +75,7 @@ from .nodes import ElementOf
 from .nodes import Block
 
 from psydac.api.ast.utilities import variables
+from numpy import array
 
 
 
@@ -423,11 +424,13 @@ class Parser(object):
         weights  = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
         # gather by axis
-        target = list(zip(points, weights))
+        
+        targets = tuple(zip(points, weights))
 
         self.insert_variables(*points, *weights)
 
-        return target
+        return OrderedDict([(0,targets)])
+
 
     # ....................................................
     def _visit_LocalTensorQuadrature(self, expr, **kwargs):
@@ -441,11 +444,12 @@ class Parser(object):
         weights  = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
         # gather by axis
-        target = list(zip(points, weights))
+        
+        targets = tuple(zip(points, weights))
 
         self.insert_variables(*points, *weights)
 
-        return target
+        return OrderedDict([(0,targets)])
 
     # ....................................................
     def _visit_TensorQuadrature(self, expr, **kwargs):
@@ -457,11 +461,14 @@ class Parser(object):
         names   = 'w1:%s'%(dim+1)
         weights = variables(names, dtype='real', cls=Variable)
 
-        target = list(zip(points, weights))
+        # gather by axis
+        
+        targets = tuple(zip(points, weights))
 
         self.insert_variables(*points, *weights)
 
-        return target
+        return OrderedDict([(0,targets)])
+
 
     # ....................................................
     def _visit_MatrixQuadrature(self, expr, **kwargs):
@@ -476,111 +483,128 @@ class Parser(object):
     # ....................................................
     def _visit_GlobalTensorQuadratureBasis(self, expr, **kwargs):
         # TODO add label
-        # TODO add ln
         dim = self.dim
         rank = expr.rank
-        ln = 1
-
+        unique_scalar_space = expr.unique_scalar_space
+        is_scalar           = expr.is_scalar
+        target              = expr.target
+        label               = str(target)
         if isinstance(expr, GlobalTensorQuadratureTestBasis):
-            if ln > 1:
-                names = 'global_test_basis_1:%s(1:%s)'%(dim+1,ln+1)
+            if not unique_scalar_space:
+                names = 'global_test_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'global_test_basis_1:%s'%(dim+1)
+                names = 'global_test_basis_{label}1:{i}'.format(label=label,i=dim+1)
 
         elif isinstance(expr, GlobalTensorQuadratureTrialBasis):
-            if ln > 1:
-                names = 'global_trial_basis_1:%s(1:%s)'%(dim+1,ln+1)
+            if not unique_scalar_space:
+                names = 'global_trial_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'global_trial_basis_1:%s'%(dim+1)
+                names = 'global_trial_basis_{label}1:{i}'.format(label=label,i=dim+1)
 
         else:
-            if ln > 1:
-                names = 'global_basis_1:%s(1:%s)'%(dim+1,ln+1)
+            if not unique_scalar_space:
+                names = 'global_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'global_basis_1:%s'%(dim+1)
+                names = 'global_basis_{label}1:{i}'.format(label=label,i=dim+1)
 
-        target = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+        targets = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
-        self.insert_variables(*target)
+        self.insert_variables(*targets)
 
-        if not isinstance(target[0], (tuple, list, Tuple)):
-            target = [target]
+        arrays = OrderedDict()
+        if unique_scalar_space and not is_scalar:
+            for i in range(dim):
+                arrays[target[i]] = tuple(targets)
+        elif not unique_scalar_space:
+            for i in range(dim):
+                arrays[target[i]] = tuple(targets[i::dim])
+        else:
+            arrays[target] = tuple(targets)
 
-        target = list(zip(*target))
-
-        return target
-
+        return arrays
     # ....................................................
     def _visit_LocalTensorQuadratureBasis(self, expr, **kwargs):
-        # TODO add label
-        # TODO add ln
+
         dim = self.dim
         rank = expr.rank
-        ln = 1
-
+        unique_scalar_space = expr.unique_scalar_space
+        is_scalar           = expr.is_scalar
+        target              = expr.target
+        label               = str(target)
         if isinstance(expr, LocalTensorQuadratureTestBasis):
-            if ln > 1:
-                names = 'local_test_basis_1:%s(1:%s)'%(dim+1,ln+1)
+            if not unique_scalar_space:
+                names = 'local_test_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'local_test_basis_1:%s'%(dim+1)
+                names = 'local_test_basis_{label}1:{i}'.format(label=label,i=dim+1)
 
         elif isinstance(expr, LocalTensorQuadratureTrialBasis):
-            if ln > 1:
-                names = 'local_trial_basis_1:%s(1:%s)'%(dim+1,ln+1)
+            if not unique_scalar_space:
+                names = 'local_trial_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'local_trial_basis_1:%s'%(dim+1)
+                names = 'local_trial_basis_{label}1:{i}'.format(label=label,i=dim+1)
 
         else:
-            if ln > 1:
-                names = 'local_basis_1:%s(1:%s)'%(dim+1,ln+1)
+            if not unique_scalar_space:
+                names = 'local_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'local_basis_1:%s'%(dim+1)
+                names = 'local_basis_{label}1:{i}'.format(label=label,i=dim+1)
 
-        target = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+        targets = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+        self.insert_variables(*targets)
 
-        self.insert_variables(*target)
+        arrays = OrderedDict()
+        if unique_scalar_space and not is_scalar:
+            for i in range(dim):
+                arrays[target[i]] = tuple(targets)
+        elif not unique_scalar_space:
+            for i in range(dim):
+                arrays[target[i]] = tuple(targets[i::dim])
+        else:
+            arrays[target] = tuple(targets)
 
-        if not isinstance(target[0], (tuple, list, Tuple)):
-            target = [target]
-        target = list(zip(*target))
-
-        return target
+        return arrays
 
     # ....................................................
     def _visit_TensorQuadratureBasis(self, expr, **kwargs):
-        # TODO add label
-        # TODO add ln
         dim  = self.dim
         rank = expr.rank
-        ln   = 1
-
-        # ... TODO improve
+        unique_scalar_space = expr.unique_scalar_space
+        is_scalar           = expr.is_scalar
+        target              = expr.target
+        label               = str(target)
         if isinstance(expr, TensorQuadratureTestBasis):
-            if ln > 1:
-                names = 'test_basis_1:%s(1:%s)'%(dim+1,ln+1)
+            if not unique_scalar_space:
+                names = 'test_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'test_basis_1:%s'%(dim+1)
+                names = 'test_basis_{label}1:{i}'.format(label=label,i=dim+1)
 
         elif isinstance(expr, TensorQuadratureTrialBasis):
-            if ln > 1:
-                names = 'trial_basis_1:%s(1:%s)'%(dim+1,ln+1)
+            if not unique_scalar_space:
+                names = 'trial_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'trial_basis_1:%s'%(dim+1)
+                names = 'trial_basis_{label}1:{i}'.format(label=label,i=dim+1)
         else:
-            if ln > 1:
-                names = 'array_basis_1:%s(1:%s)'%(dim+1,ln+1)
+            if not unique_scalar_space:
+                names = 'array_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'array_basis_1:%s'%(dim+1)
+                names = 'array_basis_{label}1:{i}'.format(label=label,i=dim+1)
         # ...
 
-        target = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+        targets = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
-        self.insert_variables(*target)
-        if not isinstance(target[0], (tuple, list, Tuple)):
-            target = [target]
-        target = list(zip(*target))
+        self.insert_variables(*targets)
 
-        return target
+        arrays = OrderedDict()
+        if unique_scalar_space and not is_scalar:
+            for i in range(dim):
+                arrays[target[i]] = tuple(zip(targets))
+        elif not unique_scalar_space:
+            for i in range(dim):
+                arrays[target[i]] = tuple(zip(targets[i::dim]))
+        else:
+            arrays[target] = tuple(zip(targets))
+
+        return arrays
 
     # ....................................................
     def _visit_TensorBasis(self, expr, **kwargs):
@@ -591,18 +615,19 @@ class Parser(object):
 
         ops = [dx1, dx2, dx3][:dim]
         atoms =  _split_test_function(target)
-
-        args = []
-        for i,atom in enumerate(atoms):
-            d = ops[i]
-            ls = [atom]
-            a = atom
-            for n in range(1, nderiv+1):
-                a = d(a)
-                ls.append(a)
-
-            args.append(ls)
-
+        args = OrderedDict()
+        for atom in atoms:
+            sub_args = [None]*dim
+            for i in range(dim):
+                d = ops[i]
+                a = atoms[atom][i]
+                ls = [a]
+                for n in range(1, nderiv+1):
+                    a = d(a)
+                    ls.append(a)
+                sub_args[i] = tuple(ls)
+            args[atom] = tuple(sub_args)
+        
         return args
 
     # ....................................................
@@ -761,7 +786,9 @@ class Parser(object):
                 lhs = random_string( 6 )
                 lhs = Symbol('tmp_{}'.format(lhs))
 
-        rhs = self._visit(LogicalValueNode(expr), **kwargs)
+        node = LogicalValueNode(expr)
+        print(expr, node)
+        rhs = self._visit_LogicalValueNode(node, **kwargs)
 
         if op is None:
             stmt = Assign(lhs, rhs)
@@ -879,7 +906,10 @@ class Parser(object):
 
         expr   = expr.expr
         atom   = BasisAtom(expr).atom
+        raise
+        print(atom)
         atoms  = _split_test_function(atom)
+        print(atoms)
 
         ops = [dx1, dx2, dx3][:dim]
         d_atoms = dict(zip(coords, atoms))
@@ -895,6 +925,7 @@ class Parser(object):
         # ...
 
         expr = Mul(*args)
+        print(SymbolicExpr(expr))
         return SymbolicExpr(expr)
 
     # ....................................................
@@ -908,10 +939,10 @@ class Parser(object):
             return SymbolicExpr(1./SymbolicDeterminant(mapping))
 
         elif isinstance(expr, WeightedVolumeQuadrature):
+            #TODO improve l_quad should not be used like this
             l_quad = TensorQuadrature()
             l_quad = self._visit(l_quad, **kwargs)
-
-            points, weights = list(zip(*l_quad))
+            points, weights = list(zip(*l_quad.values()))
             wvol = Mul(*weights)
             return wvol
 
@@ -980,7 +1011,8 @@ class Parser(object):
         pads = expr.pads
         rank = expr.rank
         tag  = expr.tag
-        name = 'l_mat_{}'.format(tag)
+        name = expr.name
+        name = 'l_mat_{}_{}'.format(name, tag)
         var  = IndexedVariable(name, dtype='real', rank=rank)
         self.insert_variables(var)
         return var
@@ -990,7 +1022,8 @@ class Parser(object):
         pads = expr.pads
         rank = expr.rank
         tag  = expr.tag
-        name = 'l_vec_{}'.format(tag)
+        name = expr.name
+        name = 'l_vec_{}_{}'.format(name, tag)
         var  = IndexedVariable(name, dtype='real', rank=rank) 
         self.insert_variables(var)
         return var
@@ -1044,12 +1077,7 @@ class Parser(object):
             else:
                 v = self._visit(a)
                 args.append(v)
-
         args = list(zip(*args))
-
-        if len(args) == 1:
-            args = args[0]
-
         return args
 
     # ....................................................
@@ -1142,8 +1170,7 @@ class Parser(object):
     # ....................................................
     def _visit_TensorGenerator(self, expr, **kwargs):
         dim    = self.dim
-        target = self._visit(expr.target)
-
+        targets = self._visit(expr.target)
         if expr.dummies is None:
             return target
 
@@ -1152,16 +1179,18 @@ class Parser(object):
         dummies = list(zip(*dummies)) # TODO improve
 
         # add dummies as args of pattern()
-        pattern = expr.target.pattern()
-        pattern = self._visit(pattern)
+        patterns = expr.target.pattern()
+        patterns = self._visit_Pattern(patterns)
 
-        args = []
-        for p, xs in zip(pattern, target):
-            ls = []
-            for x in xs:
-                ls.append(x[p])
-            args.append(ls)
-
+        args = OrderedDict()
+        for i,target in targets.items():
+            args[i] = []
+            for p, xs in zip(patterns, target):
+                ls = []
+                for x in xs:
+                    ls.append(x[p])
+                args[i].append(tuple(ls))
+            args[i] = tuple(args[i])
         return args
 
     # ....................................................
@@ -1179,14 +1208,12 @@ class Parser(object):
     def _visit_TensorIteration(self, expr, **kwargs):
         iterator  = self._visit(expr.iterator)
         generator = self._visit(expr.generator)
-
         indices = expr.generator.dummies
 
         lengths = [i.length for i in indices]
 
         indices = [self._visit(i) for i in indices]
         lengths = [self._visit(i) for i in lengths]
-
         if isinstance(expr.generator.target, LocalTensorQuadratureBasis):
             new_lengths = []
             for ln in lengths:
@@ -1201,10 +1228,9 @@ class Parser(object):
             self.indices[str(i)] = j
 
         # ...
-        inits = []
-
-        for l_xs, g_xs in zip(iterator, generator):
-            ls = []
+        inits = [()]*self.dim
+        for (i, l_xs),(j, g_xs) in zip(iterator.items(), generator.items()):
+            assert i == j
             # there is a special case here,
             # when local var is a list while the global var is
             # an array of rank 1. In this case we want to enumerate all the
@@ -1212,30 +1238,27 @@ class Parser(object):
             # this is the case when dealing with derivatives in each direction
             # TODO maybe we should add a flag here or a kwarg that says we
             # should enumerate the array
-            #if isinstance(expr.generator.target, (LocalTensorQuadratureBasis, TensorQuadratureBasis))
 
             if isinstance(expr.generator.target, TensorQuadratureBasis):
-                if len(l_xs) >= len(g_xs):
+                positions = [expr.generator.target.positions[i] for i in [index_deriv]]
+                new_g_xs = [None]*len(g_xs)
+                for i,xs in enumerate(g_xs):
+                    args = SplitArray(xs[0], positions, [self.nderiv+1])
+                    new_g_xs[i] = tuple(self._visit(args, **kwargs))
+                g_xs = new_g_xs
 
-                    positions = [expr.generator.target.positions[i] for i in [index_deriv]]
-                    args = []
-                    for xs in g_xs:
-                        # TODO impro    ve
-                        a = SplitArray(xs, positions, [self.nderiv+1])
-                        args += self._visit(a)
-                    g_xs = args
-
-            for l_x,g_x in zip(l_xs, g_xs):
-                # TODO improve
-                if isinstance(l_x, IndexedVariable):
-                    lhs = l_x
-                elif isinstance(expr.generator.target, (LocalTensorQuadratureBasis, TensorQuadratureBasis)):
-                    lhs = self._visit(BasisAtom(l_x))
-                else:
-                    lhs = l_x
-                ls += [self._visit(Assign(lhs, g_x))]
-            inits.append(ls)
-
+            ls = []
+            for i in  range(self.dim):
+                for l_x,g_x in zip(l_xs[i], g_xs[i]):
+                    # TODO improve
+                    if isinstance(l_x, IndexedVariable):
+                        lhs = l_x
+                    elif isinstance(expr.generator.target, (LocalTensorQuadratureBasis, TensorQuadratureBasis)):
+                        lhs = self._visit(BasisAtom(l_x))
+                    else:
+                        lhs = l_x
+                    ls += [self._visit(Assign(lhs, g_x))]
+                inits[i] += tuple(ls)
         return  indices, lengths, inits
 
     # ....................................................
@@ -1258,24 +1281,14 @@ class Parser(object):
                         for i,j in zip(t_iterator, t_generator)]
 
         t_inits = []
-
         if t_iterations:
-            t_iterations = [self._visit(i) for i in t_iterations]
+            t_iterations = [self._visit_TensorIteration(i) for i in t_iterations]
             indices, lengths, inits = zip(*t_iterations)
             # indices and lengths are supposed to be repeated here
             # we only take the first occurence
             indices = indices[0]
             lengths = lengths[0]
-
-            inits_0 = inits[0]
-            dim = self.dim
-            for init in inits[1:]:
-                for i in range(dim):
-                    inits_0[i] += init[i]
-
-            t_inits = inits_0
         # ...
-
         # ... treate product iterations
         p_iterator   = [i for i in expr.iterator  if isinstance(i, ProductIterator)]
         p_generator  = [i for i in expr.generator if isinstance(i, ProductGenerator)]
@@ -1284,11 +1297,7 @@ class Parser(object):
 
         p_inits = []
         if p_iterations:
-            p_inits = [self._visit(i) for i in p_iterations]
-        # ...
-
-        # ...
-        inits = t_inits
+            p_inits = [self._visit_ProductIteration(i) for i in p_iterations]
         # ...
 
         # ... add weighted volume if local quadrature loop
@@ -1322,7 +1331,6 @@ class Parser(object):
             else:
                 ranges = [Range(l) for l in length]
                 i = index
-
             body = init + body
             body = [For(i, Product(*ranges), body)]
         # ...
@@ -1360,6 +1368,9 @@ class Parser(object):
         return expr
 
     def _visit_EmptyLine(self ,expr, **kwargs):
+        return expr
+
+    def _visit_NoneType(self, expr, **kwargs):
         return expr
 
 
