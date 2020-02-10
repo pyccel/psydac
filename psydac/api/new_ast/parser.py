@@ -61,8 +61,10 @@ from .nodes import ProductIteration
 from .nodes import ProductIterator
 from .nodes import ProductGenerator
 from .nodes import StencilMatrixLocalBasis
-from .nodes import StencilVectorLocalBasis
 from .nodes import StencilMatrixGlobalBasis
+from .nodes import BlockStencilMatrixLocalBasis
+from .nodes import BlockStencilMatrixGlobalBasis
+from .nodes import StencilVectorLocalBasis
 from .nodes import StencilVectorGlobalBasis
 from .nodes import GlobalElementBasis
 from .nodes import LocalElementBasis
@@ -627,7 +629,6 @@ class Parser(object):
                     ls.append(a)
                 sub_args[i] = tuple(ls)
             args[atom] = tuple(sub_args)
-        
         return args
 
     # ....................................................
@@ -787,7 +788,6 @@ class Parser(object):
                 lhs = Symbol('tmp_{}'.format(lhs))
 
         node = LogicalValueNode(expr)
-        print(expr, node)
         rhs = self._visit_LogicalValueNode(node, **kwargs)
 
         if op is None:
@@ -823,16 +823,17 @@ class Parser(object):
         expr = expr.expr
         if lhs is None:
             if not isinstance(expr, (Add, Mul)):
-                lhs = self._visit(BasisAtom(expr), **kwargs)
+                atom = BasisAtom(expr)
+                lhs  = self._visit_BasisAtom(atom, **kwargs)
             else:
                 lhs = random_string( 6 )
                 lhs = Symbol('tmp_{}'.format(lhs))
 
-        rhs = self._visit(LogicalBasisValue(expr), **kwargs)
+        expr = LogicalBasisValue(expr)
+        rhs = self._visit_LogicalBasisValue(expr, **kwargs)
 
         if op is None:
             stmt = Assign(lhs, rhs)
-
         else:
             stmt = AugAssign(lhs, op, rhs)
 
@@ -843,12 +844,14 @@ class Parser(object):
         expr   = expr.expr
         if lhs is None:
             if not isinstance(expr, (Add, Mul)):
-                lhs = self._visit(BasisAtom(expr), **kwargs)
+                atom = BasisAtom(expr)
+                lhs  = self._visit_BasisAtom(atom, **kwargs)
             else:
                 lhs = random_string( 6 )
                 lhs = Symbol('tmp_{}'.format(lhs))
 
-        rhs = self._visit(PhysicalBasisValue(expr), **kwargs)
+        expr = PhysicalBasisValue(expr)
+        rhs = self._visit(expr, **kwargs)
 
         if op is None:
             stmt = Assign(lhs, rhs)
@@ -860,27 +863,45 @@ class Parser(object):
 
     # ....................................................
     def _visit_ComputeKernelExpr(self, expr, op=None, lhs=None, **kwargs):
-        expr   = expr.expr
         if lhs is None:
             if not isinstance(expr, (Add, Mul)):
-                lhs = self._visit(BasisAtom(expr), **kwargs)
+                lhs = self._visit_BasisAtom(BasisAtom(expr), **kwargs)
             else:
                 lhs = random_string( 6 )
                 lhs = Symbol('tmp_{}'.format(lhs))
 
         weight  = SymbolicWeightedVolume(self.mapping)
         weight = SymbolicExpr(weight)
+        rhs = {}
 
-        rhs  = self._visit(expr, **kwargs)
-        rhs *= weight
+        for u,sh_u in expr.trials.items():
+            if isinstance(u, VectorTestFunction):
+                u  = [u[i] for i in range(self._dim)]
+            else:
+                u = [u]
+            for v,sh_v in expr.tests.items():
 
-        if op is None:
-            stmt = Assign(lhs, rhs)
+                if isinstance(v, VectorTestFunction):
+                    v  = [v[i] for i in range(self._dim)]
+                else:
+                    v = [v]
 
-        else:
-            stmt = AugAssign(lhs, op, rhs)
+                for i in range(*sh_v):
+                    for j in range(*sh_u):
+                        lu = u[j-sh_u[0]]
+                        lv = v[i-sh_v[0]]
+                        rhs[lu,lv]      = weight*self._visit(expr.expr[i,j], **kwargs)
 
-        return self._visit(stmt, **kwargs)
+        stmts = []
+        for i in rhs:
+            if not rhs[i]: continue
+            if op is None:
+                stmts += [Assign(lhs[i], rhs[i])]
+            else:
+                stmts += [AugAssign(lhs[i], op, rhs[i])]
+
+        stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
+        return stmts
 
     # ....................................................
     def _visit_BasisAtom(self, expr, **kwargs):
@@ -906,13 +927,9 @@ class Parser(object):
 
         expr   = expr.expr
         atom   = BasisAtom(expr).atom
-        raise
-        print(atom)
         atoms  = _split_test_function(atom)
-        print(atoms)
-
         ops = [dx1, dx2, dx3][:dim]
-        d_atoms = dict(zip(coords, atoms))
+        d_atoms = dict(zip(coords, atoms[atom]))
         d_ops   = dict(zip(coords, ops))
         d_indices = get_index_logical_derivatives(expr)
         args = []
@@ -925,8 +942,8 @@ class Parser(object):
         # ...
 
         expr = Mul(*args)
-        print(SymbolicExpr(expr))
-        return SymbolicExpr(expr)
+        expr =  SymbolicExpr(expr)
+        return expr
 
     # ....................................................
     def _visit_LogicalValueNode(self, expr, **kwargs):
@@ -941,9 +958,9 @@ class Parser(object):
         elif isinstance(expr, WeightedVolumeQuadrature):
             #TODO improve l_quad should not be used like this
             l_quad = TensorQuadrature()
-            l_quad = self._visit(l_quad, **kwargs)
+            l_quad = self._visit_TensorQuadrature(l_quad, **kwargs)
             points, weights = list(zip(*l_quad.values()))
-            wvol = Mul(*weights)
+            wvol = Mul(*weights[0])
             return wvol
 
         elif isinstance(expr, SymbolicWeightedVolume):
@@ -980,19 +997,37 @@ class Parser(object):
     def _visit_ElementOf(self, expr, **kwargs):
         dim    = self.dim
         target = expr.target
-        if isinstance(target, StencilMatrixLocalBasis):
+        
+        if isinstance(target, BlockStencilMatrixLocalBasis):
             pads   = target.pads
             rank   = target.rank
-            target = self._visit(target, **kwargs)
-
+            tests  = target._tests
+            trials = target._trials
+            tag    = target.tag
             rows = self._visit(index_dof_test)
             cols = self._visit(index_dof_trial)
             pads = self._visit(pads)
-            indices = list(rows) + [cols[i]+pads[i]-rows[i] for i in range(dim)]
+            indices = tuple(rows) + tuple(cols[i]+pads[i]-rows[i] for i in range(dim))
+            targets   = {}
+            for u in trials:
+                if isinstance(u, VectorTestFunction):
+                    local_trials = [u[i] for i in range(self._dim)]
+                else:
+                    local_trials = [u]
+                for v in tests:
+                    if isinstance(v, VectorTestFunction):
+                        local_tests = [v[i] for i in range(self._dim)]
+                    else:
+                        local_tests = [v]
 
-            return target[indices]
+                    for l_u in local_trials:
+                        for l_v in local_tests:
+                            mat = StencilMatrixLocalBasis(l_u, l_v, pads, tag)
+                            mat = self._visit(mat, **kwargs)
+                            targets[l_u,l_v] = mat[indices]
+            return targets
 
-        elif isinstance(target, StencilVectorLocalBasis):
+        elif isinstance(target, BlockStencilVectorLocalBasis):
             target = self._visit(target, **kwargs)
 
             rows = self._visit(index_dof_test)
@@ -1011,7 +1046,8 @@ class Parser(object):
         pads = expr.pads
         rank = expr.rank
         tag  = expr.tag
-        name = expr.name
+        name = '_'.join(str(SymbolicExpr(e)) for e in expr.name)
+
         name = 'l_mat_{}_{}'.format(name, tag)
         var  = IndexedVariable(name, dtype='real', rank=rank)
         self.insert_variables(var)
@@ -1022,7 +1058,7 @@ class Parser(object):
         pads = expr.pads
         rank = expr.rank
         tag  = expr.tag
-        name = expr.name
+        name = str(SymbolicExpr(expr.name))
         name = 'l_vec_{}_{}'.format(name, tag)
         var  = IndexedVariable(name, dtype='real', rank=rank) 
         self.insert_variables(var)
@@ -1033,7 +1069,8 @@ class Parser(object):
         pads = expr.pads
         rank = expr.rank
         tag  = expr.tag
-        name = 'g_mat_{}'.format(tag)
+        name = '_'.join(str(SymbolicExpr(e)) for e in expr.name)
+        name = 'g_mat_{}_{}'.format(name, tag)
         var  = IndexedVariable(name, dtype='real', rank=rank)
         self.insert_variables(var)
         return var
@@ -1043,7 +1080,8 @@ class Parser(object):
         pads = expr.pads
         rank = expr.rank
         tag  = expr.tag
-        name = 'g_vec_{}'.format(tag)        
+        name = str(SymbolicExpr(expr.name))
+        name = 'g_vec_{}_{}'.format(name, tag)        
         var  = IndexedVariable(name, dtype='real', rank=rank)
         self.insert_variables(var)
         return var
@@ -1247,14 +1285,14 @@ class Parser(object):
                     new_g_xs[i] = tuple(self._visit(args, **kwargs))
                 g_xs = new_g_xs
 
-            ls = []
+            
             for i in  range(self.dim):
+                ls = []
                 for l_x,g_x in zip(l_xs[i], g_xs[i]):
-                    # TODO improve
                     if isinstance(l_x, IndexedVariable):
                         lhs = l_x
                     elif isinstance(expr.generator.target, (LocalTensorQuadratureBasis, TensorQuadratureBasis)):
-                        lhs = self._visit(BasisAtom(l_x))
+                        lhs = self._visit_BasisAtom(BasisAtom(l_x))
                     else:
                         lhs = l_x
                     ls += [self._visit(Assign(lhs, g_x))]
@@ -1286,8 +1324,15 @@ class Parser(object):
             indices, lengths, inits = zip(*t_iterations)
             # indices and lengths are supposed to be repeated here
             # we only take the first occurence
+
             indices = indices[0]
             lengths = lengths[0]
+            ls = [()]*self._dim
+            for init in inits:
+                for i in range(self._dim):
+                    ls[i] += init[i]
+            inits = ls
+
         # ...
         # ... treate product iterations
         p_iterator   = [i for i in expr.iterator  if isinstance(i, ProductIterator)]
@@ -1310,14 +1355,7 @@ class Parser(object):
         # visit loop statements
 
         stmts = self._visit(expr.stmts, **kwargs)
-
-#        # sometimes we may have a list of list of statements
-#        # where the first list has one element
-#        # this is the case when we return a stmt+loop
-#        # TODO ARA improve
-#        if isinstance(stmts, (list, tuple, Tuple)) and len(stmts) == 1:
-#            if isinstance(stmts[0], (list, tuple, Tuple)):
-#                stmts = stmts[0]
+        stmts = flatten(stmts)
 
         # update with product statements if available
         body = list(p_inits) + list(geo_stmts) + list(stmts)
@@ -1331,7 +1369,8 @@ class Parser(object):
             else:
                 ranges = [Range(l) for l in length]
                 i = index
-            body = init + body
+
+            body = list(init) + body
             body = [For(i, Product(*ranges), body)]
         # ...
 

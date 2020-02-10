@@ -21,6 +21,7 @@ from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceT
 from .utilities import physical2logical
 from pyccel.ast import AugAssign, Assign
 from pyccel.ast import EmptyLine
+from pyccel.ast.core      import _atomic
 
 from sympde.topology.derivatives import get_index_logical_derivatives, get_atom_logical_derivatives
 
@@ -314,17 +315,8 @@ class ArrayNode(BaseNode, AtomicExpr):
         return Pattern(*args)
 
 #==============================================================================
-class MatrixNode(BaseNode, AtomicExpr):
-    """
-    """
-    _rank = None
-
-    @property
-    def rank(self):
-        return self._rank
-
-    def pattern(self, positions):
-        raise NotImplementedError('TODO')
+class MatrixNode(ArrayNode):
+    pass
 
 #==============================================================================
 class GlobalTensorQuadrature(ArrayNode):
@@ -526,14 +518,14 @@ class StencilMatrixLocalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil matrix
     """
-    def __new__(cls, u, v, pads):
+    def __new__(cls, u, v, pads, tag=None):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = 2*len(pads)
-        tag  = random_string( 6 )
-        name = str(v) +  '_' + str(u)
+        tag  = tag or random_string( 6 )
+        name = (u, v)
         return Basic.__new__(cls, pads, rank, name, tag)
 
     @property
@@ -556,14 +548,14 @@ class StencilMatrixGlobalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil matrix
     """
-    def __new__(cls, u, v, pads):
+    def __new__(cls, u, v, pads, tag=None):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = 2*len(pads)
-        tag  = random_string( 6 )
-        name = str(v) +  '_' + str(u)
+        tag  = tag or random_string( 6 )
+        name = (u, v)
         return Basic.__new__(cls, pads, rank, name, tag)
 
     @property
@@ -581,19 +573,95 @@ class StencilMatrixGlobalBasis(MatrixNode):
     @property
     def tag(self):
         return self._args[3]
+
+class BlockStencilMatrixLocalBasis(MatrixNode):
+    """
+    used to describe local dof over an element as a block stencil matrix
+    """
+    def __new__(cls, trials, tests, pads):
+        if not isinstance(pads, (list, tuple, Tuple)):
+            raise TypeError('Expecting an iterable')
+
+        pads = Tuple(*pads)
+        rank = 2*len(pads)
+        tag  = random_string( 6 )
+        obj  = Basic.__new__(cls, pads, rank, tag)
+        obj._trials = trials
+        obj._tests  = tests
+        return obj
+
+    @property
+    def pads(self):
+        return self._args[0]
+
+    @property
+    def rank(self):
+        return self._args[1]
+
+    @property
+    def tag(self):
+        return self._args[2]
+
+    @property
+    def unique_scalar_space(self):
+        types = (H1SpaceType, L2SpaceType, UndefinedSpaceType)
+        spaces = self.trials.space
+        cond = False
+        for cls in types:
+            cond = cond or all(isinstance(space.kind, cls) for space in spaces)
+        return cond
+
+#==============================================================================
+class BlockStencilMatrixGlobalBasis(MatrixNode):
+    """
+    used to describe local dof over an element as a block stencil matrix
+    """
+    def __new__(cls, trials, tests, pads):
+        if not isinstance(pads, (list, tuple, Tuple)):
+            raise TypeError('Expecting an iterable')
+
+        pads = Tuple(*pads)
+        rank = 2*len(pads)
+        tag  = random_string( 6 )
+        obj  = Basic.__new__(cls, pads, rank, tag)
+        obj._trials = trials
+        obj._tests  = tests
+        return obj
+
+    @property
+    def pads(self):
+        return self._args[0]
+
+    @property
+    def rank(self):
+        return self._args[1]
+
+    @property
+    def tag(self):
+        return self._args[2]
+
+    @property
+    def unique_scalar_space(self):
+        types = (H1SpaceType, L2SpaceType, UndefinedSpaceType)
+        spaces = self.trials.space
+        cond = False
+        for cls in types:
+            cond = cond or all(isinstance(space.kind, cls) for space in spaces)
+        return cond
+
 #==============================================================================
 class StencilVectorLocalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil vector
     """
-    def __new__(cls, v, pads):
+    def __new__(cls, v, pads, tag=None):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = len(pads)
-        tag  = random_string( 6 )
-        name = str(v)
+        tag  = tag or random_string( 6 )
+        name = v
         return Basic.__new__(cls, pads, rank, name, tag)
 
     @property
@@ -619,14 +687,14 @@ class StencilVectorGlobalBasis(MatrixNode):
     """
     used to describe local dof over an element as a stencil vector
     """
-    def __new__(cls, v, pads):
+    def __new__(cls, v, pads, tag=None):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = len(pads)
-        tag  = random_string( 6 )
-        name = str(v)
+        tag  = tag or random_string( 6 )
+        name = v
         return Basic.__new__(cls, pads, rank, name, tag)
 
     @property
@@ -729,7 +797,20 @@ class ComputePhysicalBasis(ComputePhysical):
 class ComputeKernelExpr(ComputeNode):
     """
     """
-    pass
+    def __new__(cls, trials, tests, expr):
+        return Basic.__new__(cls, trials, tests, expr)
+
+    @property
+    def trials(self):
+        return self._args[0]
+
+    @property
+    def tests(self):
+        return self._args[1]
+
+    @property
+    def expr(self):
+        return self._args[2]
 
 #==============================================================================
 class ComputeLogical(ComputeNode):
@@ -879,9 +960,11 @@ class BasisAtom(AtomicNode):
     """
     """
     def __new__(cls, expr):
-        ls  = list(expr.atoms(ScalarTestFunction))
-        ls += list(expr.atoms(VectorTestFunction))
-        ls += list(expr.atoms(ScalarField, VectorField))
+        types = (IndexedTestTrial, VectorTestFunction,
+                 ScalarTestFunction, IndexedVectorField,
+                 ScalarField, VectorField)
+
+        ls = _atomic(expr, cls=types)
         if not(len(ls) == 1):
             raise ValueError('Expecting an expression with one test function')
 
@@ -1343,7 +1426,7 @@ def is_vector_field(expr):
 #==============================================================================
 from sympy import Matrix, ImmutableDenseMatrix
 from sympy import symbols
-from pyccel.ast.core      import _atomic
+
 from sympde.expr import TerminalExpr
 from sympde.expr import LinearForm
 from sympde.expr import BilinearForm
@@ -1548,8 +1631,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     l_coeffs = [MatrixLocalBasis(i) for i in tests]
     geo      = GeometryExpressions(Mapping, nderiv)
 
-    l_mat  = {(u,v):StencilMatrixLocalBasis(u, v, pads)  for v in tests for u in trials}
-    g_mat  = {(u,v):StencilMatrixGlobalBasis(u, v, pads) for v in tests for u in trials}
+    l_mats  = BlockStencilMatrixLocalBasis(trials, tests, pads)
+    g_mats  = BlockStencilMatrixGlobalBasis(trials, tests, pads)
 
     q_basis_tests  = {v:d_tests[v]['array']  for v in tests}
     q_basis_trials = {u:d_trials[u]['array'] for u in trials}
@@ -1577,17 +1660,17 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     for v in tests:
         stmts += construct_logical_expressions(v, nderiv)
     
-    stmts += [ComputePhysicalBasis(i) for i in atomic_expr]
+    for expr in atomic_expr[:]:
+        stmts += [ComputePhysicalBasis(i) for i in expr]
     # ...
-    
+
     if atomic_expr_field:
         stmts += list(eval_fiel.inits)
 
-    loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), index_quad, [])
-    #loop  = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_mat), loop)
-    return loop
-    raise
+    loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), index_quad, stmts)
+    loop  = Reduce('+', ComputeKernelExpr(shapes_trials, shapes_tests,terminal_expr), ElementOf(l_mats), loop)
     # ... loop over tests to evaluate fields
+    return loop
     fields = EmptyLine()
     if atomic_expr_field:
         fields = Loop((*l_basis_trials, l_coeff), index_dof, [eval_field])
@@ -1596,12 +1679,14 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     # ... loop over trials
 
     stmts = [loop]
-    loop  = Loop(l_basis_trials, index_dof_trial, stmts)
+    for u in l_basis_trials:
+        loop  = Loop(l_basis_trials[u], index_dof_trial, stmts)
 
     # ... loop over tests
 
     stmts = [loop]
-    loop  = Loop(l_basis_tests, index_dof_test, stmts)
+    for v in l_basis_tests:
+        loop  = Loop(l_basis_tests[v], index_dof_test, stmts)
     # ...
 
     body  = (EmptyLine(), eval_mapping, fields, Reset(l_mat), loop)
