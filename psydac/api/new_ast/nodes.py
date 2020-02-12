@@ -25,6 +25,27 @@ from pyccel.ast.core      import _atomic
 
 from sympde.topology.derivatives import get_index_logical_derivatives, get_atom_logical_derivatives
 
+def expand(args):
+    new_args = []
+    for i in args:
+        if isinstance(i, ScalarTestFunction):
+            new_args += [i]
+        elif isinstance(i, VectorTestFunction):
+            new_args += [i[k] for k in  range(i.space.ldim)]
+        else:
+            raise NotImplementedError("TODO")
+    return new_args
+
+def get_length(args):
+    n = 0
+    for i in args:
+        if isinstance(i, ScalarTestFunction):
+            n += 1
+        elif isinstance(i, VectorTestFunction):
+            n += i.space.ldim
+        else:
+            raise NotImplementedError("TODO")
+    return n
 #==============================================================================
 # TODO move it
 import string
@@ -177,18 +198,22 @@ class EvalMapping(BaseNode):
         atoms  = components.arguments
         basis  = q_basis
         target = basis.target
+        if isinstance(target, VectorTestFunction):
+            target = target[0]
+            #TODO improve how should we do the eval mapping when it's a VectorTestFunction
         new_atoms  = []
         nodes      = []
         l_coeffs   = set()
-
         for a in atoms:
             atom   = get_atom_logical_derivatives(a)
             node   = a.subs(atom, target)
             new_atoms.append(atom)
-            if isinstance(node, Matrix):
-                nodes += [*node[:]]
-            else:
-                nodes.append(node)
+            nodes.append(node)
+#            if isinstance(node, Matrix):
+#                nodes += [*node[:]]
+#            else:
+#                nodes.append(node)
+
         stmts = [ComputeLogicalBasis(v,) for v in set(nodes)]
         for i in range(len(atoms)):
             l_coeffs.add(MatrixLocalBasis(new_atoms[i]))
@@ -318,6 +343,8 @@ class ArrayNode(BaseNode, AtomicExpr):
 class MatrixNode(ArrayNode):
     pass
 
+class BlockMatrixNode(MatrixNode):
+    pass
 #==============================================================================
 class GlobalTensorQuadrature(ArrayNode):
     """
@@ -574,81 +601,6 @@ class StencilMatrixGlobalBasis(MatrixNode):
     def tag(self):
         return self._args[3]
 
-class BlockStencilMatrixLocalBasis(MatrixNode):
-    """
-    used to describe local dof over an element as a block stencil matrix
-    """
-    def __new__(cls, trials, tests, pads):
-        if not isinstance(pads, (list, tuple, Tuple)):
-            raise TypeError('Expecting an iterable')
-
-        pads = Tuple(*pads)
-        rank = 2*len(pads)
-        tag  = random_string( 6 )
-        obj  = Basic.__new__(cls, pads, rank, tag)
-        obj._trials = trials
-        obj._tests  = tests
-        return obj
-
-    @property
-    def pads(self):
-        return self._args[0]
-
-    @property
-    def rank(self):
-        return self._args[1]
-
-    @property
-    def tag(self):
-        return self._args[2]
-
-    @property
-    def unique_scalar_space(self):
-        types = (H1SpaceType, L2SpaceType, UndefinedSpaceType)
-        spaces = self.trials.space
-        cond = False
-        for cls in types:
-            cond = cond or all(isinstance(space.kind, cls) for space in spaces)
-        return cond
-
-#==============================================================================
-class BlockStencilMatrixGlobalBasis(MatrixNode):
-    """
-    used to describe local dof over an element as a block stencil matrix
-    """
-    def __new__(cls, trials, tests, pads):
-        if not isinstance(pads, (list, tuple, Tuple)):
-            raise TypeError('Expecting an iterable')
-
-        pads = Tuple(*pads)
-        rank = 2*len(pads)
-        tag  = random_string( 6 )
-        obj  = Basic.__new__(cls, pads, rank, tag)
-        obj._trials = trials
-        obj._tests  = tests
-        return obj
-
-    @property
-    def pads(self):
-        return self._args[0]
-
-    @property
-    def rank(self):
-        return self._args[1]
-
-    @property
-    def tag(self):
-        return self._args[2]
-
-    @property
-    def unique_scalar_space(self):
-        types = (H1SpaceType, L2SpaceType, UndefinedSpaceType)
-        spaces = self.trials.space
-        cond = False
-        for cls in types:
-            cond = cond or all(isinstance(space.kind, cls) for space in spaces)
-        return cond
-
 #==============================================================================
 class StencilVectorLocalBasis(MatrixNode):
     """
@@ -719,7 +671,172 @@ class LocalElementBasis(MatrixNode):
     tag  = random_string( 6 )
 
 class GlobalElementBasis(MatrixNode):
-    tag  = random_string( 6 )   
+    tag  = random_string( 6 )
+
+class BlockStencilMatrixLocalBasis(BlockMatrixNode):
+    """
+    used to describe local dof over an element as a block stencil matrix
+    """
+    def __new__(cls, trials, tests, pads, expr):
+        if not isinstance(pads, (list, tuple, Tuple)):
+            raise TypeError('Expecting an iterable')
+
+        pads = Tuple(*pads)
+        rank = 2*len(pads)
+        tag  = random_string( 6 )
+        obj  = Basic.__new__(cls, pads, rank, tag, expr)
+        obj._trials = trials
+        obj._tests  = tests
+        return obj
+
+    @property
+    def pads(self):
+        return self._args[0]
+
+    @property
+    def rank(self):
+        return self._args[1]
+
+    @property
+    def tag(self):
+        return self._args[2]
+
+    @property
+    def expr(self):
+        return self._args[3]
+
+    @property
+    def unique_scalar_space(self):
+        types = (H1SpaceType, L2SpaceType, UndefinedSpaceType)
+        spaces = self.trials.space
+        cond = False
+        for cls in types:
+            cond = cond or all(isinstance(space.kind, cls) for space in spaces)
+        return cond
+
+#==============================================================================
+class BlockStencilMatrixGlobalBasis(BlockMatrixNode):
+    """
+    used to describe local dof over an element as a block stencil matrix
+    """
+    def __new__(cls, trials, tests, pads, expr):
+        if not isinstance(pads, (list, tuple, Tuple)):
+            raise TypeError('Expecting an iterable')
+
+        pads = Tuple(*pads)
+        rank = 2*len(pads)
+        tag  = random_string( 6 )
+        obj  = Basic.__new__(cls, pads, rank, tag, expr)
+        obj._trials = trials
+        obj._tests  = tests
+        return obj
+
+    @property
+    def pads(self):
+        return self._args[0]
+
+    @property
+    def rank(self):
+        return self._args[1]
+
+    @property
+    def tag(self):
+        return self._args[2]
+
+    @property
+    def expr(self):
+        return self._args[3]
+
+    @property
+    def unique_scalar_space(self):
+        types = (H1SpaceType, L2SpaceType, UndefinedSpaceType)
+        spaces = self.trials.space
+        cond = False
+        for cls in types:
+            cond = cond or all(isinstance(space.kind, cls) for space in spaces)
+        return cond
+
+
+class BlockStencilVectorLocalBasis(BlockMatrixNode):
+    """
+    used to describe local dof over an element as a block stencil matrix
+    """
+    def __new__(cls,tests, pads, expr):
+        if not isinstance(pads, (list, tuple, Tuple)):
+            raise TypeError('Expecting an iterable')
+
+        pads = Tuple(*pads)
+        rank = 2*len(pads)
+        tag  = random_string( 6 )
+        obj  = Basic.__new__(cls, pads, rank, tag, expr)
+        obj._tests  = tests
+        return obj
+
+    @property
+    def pads(self):
+        return self._args[0]
+
+    @property
+    def rank(self):
+        return self._args[1]
+
+    @property
+    def tag(self):
+        return self._args[2]
+
+    @property
+    def expr(self):
+        return self._args[3]
+
+    @property
+    def unique_scalar_space(self):
+        types = (H1SpaceType, L2SpaceType, UndefinedSpaceType)
+        spaces = self._tests.space
+        cond = False
+        for cls in types:
+            cond = cond or all(isinstance(space.kind, cls) for space in spaces)
+        return cond
+
+#==============================================================================
+class BlockStencilVectorGlobalBasis(BlockMatrixNode):
+    """
+    used to describe local dof over an element as a block stencil matrix
+    """
+    def __new__(cls, tests, pads, expr):
+        if not isinstance(pads, (list, tuple, Tuple)):
+            raise TypeError('Expecting an iterable')
+
+        pads = Tuple(*pads)
+        rank = 2*len(pads)
+        tag  = random_string( 6 )
+        obj  = Basic.__new__(cls, pads, rank, tag, expr)
+        obj._tests  = tests
+        return obj
+
+    @property
+    def pads(self):
+        return self._args[0]
+
+    @property
+    def rank(self):
+        return self._args[1]
+
+    @property
+    def tag(self):
+        return self._args[2]
+
+    @property
+    def expr(self):
+        return self._args[3]
+
+    @property
+    def unique_scalar_space(self):
+        types = (H1SpaceType, L2SpaceType, UndefinedSpaceType)
+        spaces = self._tests.space
+        cond = False
+        for cls in types:
+            cond = cond or all(isinstance(space.kind, cls) for space in spaces)
+        return cond
 #==============================================================================
 class GlobalSpan(ArrayNode):
     """
@@ -797,20 +914,12 @@ class ComputePhysicalBasis(ComputePhysical):
 class ComputeKernelExpr(ComputeNode):
     """
     """
-    def __new__(cls, trials, tests, expr):
-        return Basic.__new__(cls, trials, tests, expr)
-
-    @property
-    def trials(self):
-        return self._args[0]
-
-    @property
-    def tests(self):
-        return self._args[1]
+    def __new__(cls, expr):
+        return Basic.__new__(cls, expr)
 
     @property
     def expr(self):
-        return self._args[2]
+        return self._args[0]
 
 #==============================================================================
 class ComputeLogical(ComputeNode):
@@ -875,12 +984,16 @@ class Reduce(Basic):
 class Reset(Basic):
     """
     """
-    def __new__(cls, expr):
-        return Basic.__new__(cls, expr)
+    def __new__(cls, var, expr=None):
+        return Basic.__new__(cls, var, expr)
+
+    @property
+    def var(self):
+        return self._args[0]
 
     @property
     def expr(self):
-        return self._args[0]
+        return self._args[1]
 
 #==============================================================================
 class ElementOf(Basic):
@@ -1443,8 +1556,8 @@ from sympde.topology.derivatives import get_max_partial_derivatives
 
 class DefNode(Basic):
     """."""
-    def __new__(cls, name, arguments, local_variables, body):
-        return Basic.__new__(cls, name, arguments, local_variables, body)
+    def __new__(cls, name, arguments, mats, local_variables, body):
+        return Basic.__new__(cls, name, arguments, mats, local_variables, body)
 
     @property
     def name(self):
@@ -1455,12 +1568,16 @@ class DefNode(Basic):
         return self._args[1]
 
     @property
-    def local_variables(self):
+    def mats(self):
         return self._args[2]
 
     @property
-    def body(self):
+    def local_variables(self):
         return self._args[3]
+
+    @property
+    def body(self):
+        return self._args[4]
 
 class AST(object):
     """
@@ -1527,6 +1644,7 @@ class AST(object):
             atomic_expr_field = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
             atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_field ]
             atomic_expr       = Matrix([[Tuple(*atomic_expr)]])
+            terminal_expr     = Matrix([[terminal_expr]])
 
         # ...
 
@@ -1614,7 +1732,7 @@ class AST(object):
     @property
     def dim(self):
         return self.domain.dim
-
+#TODO add the parallel case
 #================================================================================================================================
 def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
                               tests, d_tests, shapes_tests,
@@ -1631,8 +1749,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     l_coeffs = [MatrixLocalBasis(i) for i in tests]
     geo      = GeometryExpressions(Mapping, nderiv)
 
-    l_mats  = BlockStencilMatrixLocalBasis(trials, tests, pads)
-    g_mats  = BlockStencilMatrixGlobalBasis(trials, tests, pads)
+    l_mats  = BlockStencilMatrixLocalBasis(trials, tests, pads, terminal_expr)
+    g_mats  = BlockStencilMatrixGlobalBasis(trials, tests, pads, terminal_expr)
 
     q_basis_tests  = {v:d_tests[v]['array']  for v in tests}
     q_basis_trials = {u:d_trials[u]['array'] for u in trials}
@@ -1648,12 +1766,10 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     # ...........................................................................................
 
-
     eval_mapping = EvalMapping(index_quad, index_dof_trial, q_basis_trials[trials[0]], l_basis_trials[trials[0]], Mapping, geo, spaces[1], nderiv)
 
     if atomic_expr_field:
         eval_field   = EvalField(atomic_expr_field, index_quad, q_basis_trials[trials[0]], coeff, trials, nderiv)
-
 
     #=========================================================begin kernel======================================================
     stmts = []
@@ -1668,13 +1784,12 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
         stmts += list(eval_fiel.inits)
 
     loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), index_quad, stmts)
-    loop  = Reduce('+', ComputeKernelExpr(shapes_trials, shapes_tests,terminal_expr), ElementOf(l_mats), loop)
+    loop  = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_mats), loop)
     # ... loop over tests to evaluate fields
-    return loop
+
     fields = EmptyLine()
     if atomic_expr_field:
         fields = Loop((*l_basis_trials, l_coeff), index_dof, [eval_field])
-
 
     # ... loop over trials
 
@@ -1689,60 +1804,60 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
         loop  = Loop(l_basis_tests[v], index_dof_test, stmts)
     # ...
 
-    body  = (EmptyLine(), eval_mapping, fields, Reset(l_mat), loop)
+    body  = (EmptyLine(), eval_mapping, fields, Reset(l_mats), loop)
     stmts = Block(body)
+
     #=========================================================end kernel=========================================================
 
     # ... loop over global elements
-    loop  = Loop((g_quad, *g_basis_tests, *g_basis_trials, *g_span),
-                 index_element, stmts)
+    loop  = Loop((g_quad, *g_basis_tests.values(), *g_basis_trials.values(), *g_span.values()),
+                  index_element, stmts)
 
 
-    body = (Reset(g_mat), Reduce('+', l_mat, g_mat, loop))
+    body = [Reduce('+', l_mats, g_mats, loop)]
     # ...
 
     indices = [index_element, index_quad, index_dof_test, index_dof_trial]
     lengths = [i.length for i in indices]
 
-    args = [*g_basis_tests, *g_basis_trials, *g_span, g_quad, *lengths, *pads]
+    args = [*g_basis_tests.values(), *g_basis_trials.values(), *g_span.values(), g_quad, *lengths, *pads]
 
     if atomic_expr_field:
         args += [*l_coeffs]
     if eval_mapping:
         args+= [*eval_mapping.coeffs]
 
-    args += [l_mat, g_mat]
+    mats  = [l_mats, g_mats]
 
     local_vars = [*q_basis_tests, *q_basis_trials]
-    stmt = DefNode('assembly', args, local_vars, body)
+    stmt = DefNode('assembly', args, mats, local_vars, body)
 
     return stmt
 
 #================================================================================================================================
-def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, nderiv, dim, Mapping, space):
+def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, shapes_tests, nderiv, dim, Mapping, space):
     """
     """
-
     pads   = symbols('pad1, pad2, pad3')[:dim]
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
-    #TODO should we use tests for fields
+
     coeffs   = [CoefficientBasis(i) for i in tests]
     l_coeffs = [MatrixLocalBasis(i) for i in tests]
     geo      = GeometryExpressions(Mapping, nderiv)
 
-    g_vec = StencilVectorGlobalBasis(pads)
-    l_vec = StencilVectorLocalBasis(pads)
+    l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr)
+    g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr)
 
-    q_basis = tuple([d['array'] for v,d in d_tests.items()])
-    l_basis = tuple([d['local'] for v,d in d_tests.items()])
-    g_basis = tuple([d['global'] for v,d in d_tests.items()])
+    q_basis = {v:d_tests[v]['array']  for v in tests}
+    l_basis = {v:d_tests[v]['local']  for v in tests}
+    g_basis = {v:d_tests[v]['global']  for v in tests}
+    g_span  = {u:d_tests[u]['span'] for u in tests}
 
-    g_span  = tuple([d['span']   for v,d in d_tests.items()])
 
     # ...........................................................................................
 
-    eval_mapping = EvalMapping(index_quad, index_dof_test, q_basis, l_basis, Mapping, geo, space, nderiv)
+    eval_mapping = EvalMapping(index_quad, index_dof_test, q_basis[tests[0]], l_basis[tests[0]], Mapping, geo, space, nderiv)
 
     if atomic_expr_field:
         eval_field   = EvalField(atomic_expr_field, index_quad, q_basis, coeff, tests, nderiv)
@@ -1753,13 +1868,14 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     for v in tests:
         stmts += construct_logical_expressions(v, nderiv)
 
-    stmts += [ComputePhysicalBasis(i) for i in atomic_expr]
+    for expr in atomic_expr[:]:
+        stmts += [ComputePhysicalBasis(i) for i in expr]
 
     if atomic_expr_field:
         stmts += list(eval_fiel.inits)
 
-    loop  = Loop((l_quad, *q_basis, geo), index_quad, stmts)
-    loop = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
+    loop  = Loop((l_quad, *q_basis.values(), geo), index_quad, stmts)
+    loop = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vecs), loop)
     # ...
 
     # ... loop over tests to evaluate fields
@@ -1770,82 +1886,87 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     # ... loop over tests
 
     stmts = [loop]
-    loop  = Loop(l_basis, index_dof_test, stmts)
+    for v in l_basis:
+        loop  = Loop(l_basis[v], index_dof_test, stmts)
     # ...
 
-    body  = (EmptyLine(), eval_mapping, fields, Reset(l_vec), loop)
+    body  = (EmptyLine(), eval_mapping, fields, Reset(l_vecs), loop)
     stmts = Block(body)
     # ...
     #=========================================================end kernel=========================================================
     # ... loop over global elements
-    loop  = Loop((g_quad, *g_basis, *g_span), index_element, stmts)
+    loop  = Loop((g_quad, *g_basis.values(), *g_span.values()), index_element, stmts)
     # ...
 
-    body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop))
+    body = (Reduce('+', l_vecs, g_vecs, loop),)
 
     indices = [index_element, index_quad, index_dof_test]
     lengths = [i.length for i in indices]
 
-    args       = [*g_basis, *g_span, g_vec, g_quad, *lengths, *pads]
+    args       = [*g_basis, *g_span, g_quad, *lengths, *pads]
 
     if atomic_expr_field:
         args += [*l_coeffs]
     if eval_mapping:
         args+= [*eval_mapping.coeffs]
 
-    args += [l_vec, g_vec]
+    mats = [l_vecs, g_vecs]
 
     local_vars = [*q_basis]
-    stmt = DefNode('assembly', args, local_vars, body)
+    stmt = DefNode('assembly', args, mats, local_vars, body)
     # ...
 
     return stmt
 
 #================================================================================================================================
-def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nderiv, dim, Mapping, space):
+def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shapes_tests, nderiv, dim, Mapping, space):
     """
     """
-    pads     = symbols('pad1, pad2, pad3')[:dim]
-    g_quad   = GlobalTensorQuadrature()
-    l_quad   = LocalTensorQuadrature()
+
+    pads   = symbols('pad1, pad2, pad3')[:dim]
+    g_quad = GlobalTensorQuadrature()
+    l_quad = LocalTensorQuadrature()
 
     #TODO should we use tests or trials for fields
     coeffs   = [CoefficientBasis(i) for i in tests]
     l_coeffs = [MatrixLocalBasis(i) for i in tests]
     geo      = GeometryExpressions(Mapping, nderiv)
 
-    q_basis = tuple([d['array'] for v,d in d_tests.items()])
-    l_basis = tuple([d['local'] for v,d in d_tests.items()])
-    g_basis = tuple([d['global'] for v,d in d_tests.items()])
+    l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr)
+    g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr)
 
-    g_span  = tuple([d['span']   for v,d in d_tests.items()])
+    q_basis = {v:d_tests[v]['array']  for v in tests}
+    l_basis = {v:d_tests[v]['local']  for v in tests}
+    g_basis = {v:d_tests[v]['global']  for v in tests}
+    g_span  = {u:d_tests[u]['span'] for u in tests}
 
     l_vec   = LocalElementBasis()
     g_vec   = GlobalElementBasis()
 
     # ...........................................................................................
 
-    eval_mapping = EvalMapping(index_quad, index_dof_test, q_basis, l_basis, Mapping, geo, space, nderiv)
-    eval_field   = EvalField(atomic_expr, index_quad, q_basis, coeffs, tests, nderiv)
+    eval_mapping = EvalMapping(index_quad, index_dof_test, q_basis[tests[0]], l_basis[tests[0]], Mapping, geo, space, nderiv)
+    eval_field   = EvalField(atomic_expr, index_quad, q_basis[tests[0]], coeffs, tests, nderiv)
 
     #=========================================================begin kernel======================================================
     # ... loop over tests functions
 
-    loop   = Loop((l_quad, *q_basis, geo), index_quad, eval_field.inits)
+    loop   = Loop((l_quad, *q_basis.values(), geo), index_quad, eval_field.inits)
     loop   = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
+
     # ...
     # ... loop over tests functions to evaluate the fields
-    fields = Loop((*l_basis, *l_coeffs), index_dof_test, [eval_field])
-    stmts  = Block([EmptyLine(),eval_mapping, fields, Reset(l_vec), loop])
+    fields = Loop((*l_basis.values(), *l_coeffs), index_dof_test, [eval_field])
+    stmts  = Block([EmptyLine(), eval_mapping, fields, Reset(l_vec), loop])
 
     #=========================================================end kernel=========================================================
     # ... loop over global elements
 
 
-    loop  = Loop((g_quad, *g_basis, *g_span), index_element, stmts)
+    loop  = Loop((g_quad, *g_basis.values(), *g_span.values()), index_element, stmts)
     # ...
 
-    body = (Reset(g_vec), Reduce('+', l_vec, g_vec, loop))
+    body = (Reduce('+', l_vec, g_vec, loop),)
 
     indices = [index_element, index_quad, index_dof_test]
     lengths = [i.length for i in indices]
@@ -1854,10 +1975,10 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, nder
     if eval_mapping:
         args+= [*eval_mapping.coeffs]
 
-    args += [l_vec, g_vec]
+    mats = [l_vec, g_vec]
 
     local_vars = [*q_basis]
-    stmt = DefNode('assembly', args, local_vars, body)
+    stmt = DefNode('assembly', args, mats, local_vars, body)
     # ...
 
     return stmt

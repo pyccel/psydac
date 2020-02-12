@@ -36,27 +36,17 @@ error  = u - cos(x)*sin(x)
 l2norm = Norm(error, domain, kind='l2')
 h1norm = Norm(error, domain, kind='h1')
 
-print('============================================BilinearForm=========================================')
-print()
-ast_b    = AST(b, [V,V], M)
-stmt_b = parse(ast_b.expr, settings={'dim': ast_b.dim, 'nderiv': ast_b.nderiv, 'mapping':M})
-print(pycode(stmt_b))
-print()
+print('============================================Norm===========================================')
+ast_norm = AST(h1norm,V, M)
+stmt_n = parse(ast_norm.expr, settings={'dim': ast_norm.dim, 'nderiv': ast_norm.nderiv, 'mapping':M})
+print(pycode(stmt_n))
+
 print('============================================LinearForm===========================================')
 ast_l    = AST(l, V,M)
 stmt_l = parse(ast_l.expr, settings={'dim': ast_l.dim, 'nderiv': ast_l.nderiv, 'mapping':M})
-print()
 print(pycode(stmt_l))
-print('============================================Norm===========================================')
-ast_norm = AST(h1norm,V, M)
-stmt_n = parse(ast_norm.expr, settings={'dim': ast_l.dim, 'nderiv': ast_l.nderiv, 'mapping':M})
-print()
-print(pycode(stmt_n))
 
-def teardown_module():
-    from sympy import cache
-    cache.clear_cache()
-
-def teardown_function():
-    from sympy import cache
-    cache.clear_cache()
+print('============================================BilinearForm=========================================')
+ast_b    = AST(b, [V,V], M)
+stmt_b = parse(ast_b.expr, settings={'dim': ast_b.dim, 'nderiv': ast_b.nderiv, 'mapping':M})
+print(pycode(stmt_b))

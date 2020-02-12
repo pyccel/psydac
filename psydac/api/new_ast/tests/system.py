@@ -48,30 +48,18 @@ error = Matrix([F[0]-Fe[0], F[1]-Fe[1]])
 l2norm_F = Norm(error, domain, kind='l2')
 h1norm_F = Norm(error, domain, kind='h1')
 
-ast_b    = AST(b, [V,V], M)
-print('============================================BilinearForm=========================================')
-print()
-stmt_b = parse(ast_b.expr, settings={'dim': ast_b.dim, 'nderiv': ast_b.nderiv, 'mapping':M})
-print(pycode(stmt_b))
-print()
 
-raise
-ast_l    = AST(l, V, M)
-print('============================================LinearForm===========================================')
-stmt_l = parse(ast_l.expr, settings={'dim': ast_l.dim, 'nderiv': ast_l.nderiv, 'mapping':M})
-print()
-print(pycode(stmt_l))
-
-ast_norm = AST(h1norm,V, M)
 print('============================================Norm===========================================')
-stmt_n = parse(ast_norm.expr, settings={'dim': ast_l.dim, 'nderiv': ast_l.nderiv, 'mapping':M})
-print()
+ast_norm = AST(h1norm_F,V, M)
+stmt_n = parse(ast_norm.expr, settings={'dim': ast_norm.dim, 'nderiv': ast_norm.nderiv, 'mapping':M})
 print(pycode(stmt_n))
 
-def teardown_module():
-    from sympy import cache
-    cache.clear_cache()
+print('============================================LinearForm===========================================')
+ast_l    = AST(l, V, M)
+stmt_l = parse(ast_l.expr, settings={'dim': ast_l.dim, 'nderiv': ast_l.nderiv, 'mapping':M})
+print(pycode(stmt_l))
 
-def teardown_function():
-    from sympy import cache
-    cache.clear_cache()
+print('============================================BilinearForm=========================================')
+ast_b    = AST(b, [V,V], M)
+stmt_b = parse(ast_b.expr, settings={'dim': ast_b.dim, 'nderiv': ast_b.nderiv, 'mapping':M})
+print(pycode(stmt_b))
