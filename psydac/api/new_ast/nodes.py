@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from itertools import product
+from itertools import product,groupby
 
 from sympy import Basic
 from sympy.core.singleton import Singleton
@@ -24,6 +24,25 @@ from pyccel.ast import EmptyLine
 from pyccel.ast.core      import _atomic
 
 from sympde.topology.derivatives import get_index_logical_derivatives, get_atom_logical_derivatives
+def convert(dtype):
+    if isinstance(dtype, (H1SpaceType, UndefinedSpaceType)):
+        return 0
+    elif isinstance(dtype, HcurlSpaceType):
+        return 1
+    elif isinstance(dtype, HdivSpaceType):
+        return 2
+    elif isinstance(dtype, L2SpaceType):
+        return 3
+
+def regroupe(tests, dim=0):
+    spaces = [i.space for i in tests]
+    kinds  = [i.kind for i in spaces]
+    funcs  = OrderedDict(zip(tests, kinds))
+    funcs  = sorted(funcs.items(), key=lambda x:convert(x[1]))
+    groups = [OrderedDict(g) for k,g in groupby(funcs,key=lambda x:convert(x[1]))]
+    groups = [(list(g.values())[0],tuple(g.keys())) for g in groups]
+    return groups
+    
 
 def expand(args):
     new_args = []
@@ -155,7 +174,7 @@ class Pattern(Tuple):
     """
     """
     pass
-
+#==============================================================================
 class EvalField(BaseNode):
     def __new__(cls, atoms, index, basis, coeffs, tests, nderiv):
 
@@ -191,7 +210,7 @@ class EvalField(BaseNode):
     @property
     def body(self):
         return self._args[2]
-
+#==============================================================================
 class EvalMapping(BaseNode):
     """."""
     def __new__(cls, quads, indices_basis, q_basis, l_basis, mapping, components, space, nderiv):
@@ -486,7 +505,6 @@ class CoefficientBasis(ScalarNode):
     @property
     def target(self):
         return self._args[0]
-
 #==============================================================================
 class TensorBasis(CoefficientBasis):
     pass
@@ -570,6 +588,7 @@ class StencilMatrixLocalBasis(MatrixNode):
     @property
     def tag(self):
         return self._args[3]
+
 #==============================================================================
 class StencilMatrixGlobalBasis(MatrixNode):
     """
@@ -1771,48 +1790,70 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     if atomic_expr_field:
         eval_field   = EvalField(atomic_expr_field, index_quad, q_basis_trials[trials[0]], coeff, trials, nderiv)
 
-    #=========================================================begin kernel======================================================
-    stmts = []
-    for v in tests:
-        stmts += construct_logical_expressions(v, nderiv)
-    
-    for expr in atomic_expr[:]:
-        stmts += [ComputePhysicalBasis(i) for i in expr]
-    # ...
-
-    if atomic_expr_field:
-        stmts += list(eval_fiel.inits)
-
-    loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), index_quad, stmts)
-    loop  = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_mats), loop)
     # ... loop over tests to evaluate fields
-
     fields = EmptyLine()
     if atomic_expr_field:
         fields = Loop((*l_basis_trials, l_coeff), index_dof, [eval_field])
 
-    # ... loop over trials
+    g_stmts = [eval_mapping, fields]
+    test_groups  = regroupe(tests)
+    trial_groups = regroupe(trials)
+    ex_tests     = expand(tests)
+    ex_trials    = expand(trials)
+    print(terminal_expr)
+    #=========================================================begin kernel======================================================
 
-    stmts = [loop]
-    for u in l_basis_trials:
-        loop  = Loop(l_basis_trials[u], index_dof_trial, stmts)
+    for te_dtype,sub_tests in test_groups:
+        for tr_dtype, sub_trials in trial_groups:
 
-    # ... loop over tests
+            tests_indices = [ex_tests.index(i) for i in expand(sub_tests)]
+            trials_indices = [ex_trials.index(i) for i in expand(sub_trials)]
+            sub_terminal_expr = terminal_expr[tests_indices,trials_indices]
+            sub_atomic_expr   = atomic_expr[tests_indices,trials_indices]
+            l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials,sub_tests, pads, sub_terminal_expr)
+            if sub_terminal_expr.is_zero:
+                continue
+            q_basis_tests  = {v:d_tests[v]['array']  for v in sub_tests}
+            q_basis_trials = {u:d_trials[u]['array'] for u in sub_trials}
 
-    stmts = [loop]
-    for v in l_basis_tests:
-        loop  = Loop(l_basis_tests[v], index_dof_test, stmts)
-    # ...
+            l_basis_tests  = {v:d_tests[v]['local']  for v in sub_tests}
+            l_basis_trials = {u:d_trials[u]['local'] for u in sub_trials}
 
-    body  = (EmptyLine(), eval_mapping, fields, Reset(l_mats), loop)
-    stmts = Block(body)
+            stmts = []
+            for v in sub_tests:
+                stmts += construct_logical_expressions(v, nderiv)
+            
+            for expr in sub_atomic_expr[:]:
+                stmts += [ComputePhysicalBasis(i) for i in expr]
+            # ...
 
+            if atomic_expr_field:
+                stmts += list(eval_fiel.inits)
+
+            loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), index_quad, stmts)
+            loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr), ElementOf(l_sub_mats), loop)
+
+            # ... loop over trials
+
+            stmts = [loop]
+            for u in l_basis_trials:
+                loop  = Loop(l_basis_trials[u], index_dof_trial, stmts)
+
+            # ... loop over tests
+
+            stmts = [loop]
+            for v in l_basis_tests:
+                loop  = Loop(l_basis_tests[v], index_dof_test, stmts)
+            # ...
+
+            body  = (Reset(l_sub_mats), loop)
+            stmts = Block(body)
+            g_stmts += [stmts]
     #=========================================================end kernel=========================================================
 
     # ... loop over global elements
     loop  = Loop((g_quad, *g_basis_tests.values(), *g_basis_trials.values(), *g_span.values()),
-                  index_element, stmts)
-
+                  index_element, g_stmts)
 
     body = [Reduce('+', l_mats, g_mats, loop)]
     # ...
@@ -1848,9 +1889,9 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
 
     l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr)
     g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr)
-
     q_basis = {v:d_tests[v]['array']  for v in tests}
     l_basis = {v:d_tests[v]['local']  for v in tests}
+
     g_basis = {v:d_tests[v]['global']  for v in tests}
     g_span  = {u:d_tests[u]['span'] for u in tests}
 
@@ -1863,41 +1904,57 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         eval_field   = EvalField(atomic_expr_field, index_quad, q_basis, coeff, tests, nderiv)
 
     # ...
+    g_stmts = [eval_mapping]
+    groups = regroupe(tests)
+    ex_tests = expand(tests)
+    # ... 
     #=========================================================begin kernel======================================================
-    stmts = []
-    for v in tests:
-        stmts += construct_logical_expressions(v, nderiv)
 
-    for expr in atomic_expr[:]:
-        stmts += [ComputePhysicalBasis(i) for i in expr]
+    for dtype, group in groups:
+        tests_indices = [ex_tests.index(i) for i in expand(group)]
+        sub_terminal_expr = terminal_expr[tests_indices,0]
+        sub_atomic_expr   = atomic_expr[tests_indices,0]
+        l_sub_vecs  = BlockStencilVectorLocalBasis(group, pads, sub_terminal_expr)
+        q_basis = {v:d_tests[v]['array']  for v in group}
+        l_basis = {v:d_tests[v]['local']  for v in group}
+        if sub_terminal_expr.is_zero:
+            continue
+        stmts = []
+        for v in group:
+            stmts += construct_logical_expressions(v, nderiv)
 
-    if atomic_expr_field:
-        stmts += list(eval_fiel.inits)
+        for expr in sub_atomic_expr[:]:
+            stmts += [ComputePhysicalBasis(i) for i in expr]
 
-    loop  = Loop((l_quad, *q_basis.values(), geo), index_quad, stmts)
-    loop = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vecs), loop)
+        if atomic_expr_field:
+            stmts += list(eval_fiel.inits)
+
+        loop  = Loop((l_quad, *q_basis.values(), geo), index_quad, stmts)
+        loop = Reduce('+', ComputeKernelExpr(sub_terminal_expr), ElementOf(l_sub_vecs), loop)
     # ...
 
     # ... loop over tests to evaluate fields
-    fields = EmptyLine()
-    if atomic_expr_field:
-        fields = Loop((*l_basis, l_coeff), index_dof, [eval_field])
+        fields = EmptyLine()
+        if atomic_expr_field:
+            fields = Loop((*l_basis, l_coeff), index_dof, [eval_field])
 
     # ... loop over tests
 
-    stmts = [loop]
-    for v in l_basis:
-        loop  = Loop(l_basis[v], index_dof_test, stmts)
-    # ...
+        stmts = [loop]
+        for v in l_basis:
+            loop  = Loop(l_basis[v], index_dof_test, stmts)
+        # ...
 
-    body  = (EmptyLine(), eval_mapping, fields, Reset(l_vecs), loop)
-    stmts = Block(body)
+        body  = (EmptyLine(), fields, Reset(l_sub_vecs), loop)
+        stmts = Block(body)
+        g_stmts += [stmts]
     # ...
+    
     #=========================================================end kernel=========================================================
     # ... loop over global elements
-    loop  = Loop((g_quad, *g_basis.values(), *g_span.values()), index_element, stmts)
+    loop  = Loop((g_quad, *g_basis.values(), *g_span.values()), index_element, g_stmts)
     # ...
-
+    
     body = (Reduce('+', l_vecs, g_vecs, loop),)
 
     indices = [index_element, index_quad, index_dof_test]
