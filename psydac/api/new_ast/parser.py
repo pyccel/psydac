@@ -46,10 +46,6 @@ from .nodes import LocalTensorQuadratureTrialBasis
 from .nodes import GlobalTensorQuadratureTestBasis
 from .nodes import GlobalTensorQuadratureTrialBasis
 from .nodes import TensorQuadratureBasis
-from .nodes import index_quad
-from .nodes import index_dof, index_dof_test, index_dof_trial
-from .nodes import index_element
-from .nodes import index_deriv
 from .nodes import SplitArray
 from .nodes import Reduction
 from .nodes import Reset
@@ -77,8 +73,15 @@ from .nodes import Loop
 from .nodes import WeightedVolumeQuadrature
 from .nodes import ComputeLogical
 from .nodes import ElementOf
-from .nodes import Block
-from .nodes import get_length, expand
+
+
+from .nodes import index_quad
+from .nodes import index_dof, index_dof_test, index_dof_trial
+from .nodes import index_element
+from .nodes import index_deriv
+
+from .fem import Block
+from .fem import get_length, expand
 from psydac.api.ast.utilities import variables
 from numpy import array
 
@@ -502,24 +505,24 @@ class Parser(object):
         unique_scalar_space = expr.unique_scalar_space
         is_scalar           = expr.is_scalar
         target              = expr.target
-        label               = str(target)
+        label               = str(SymbolicExpr(target))
         if isinstance(expr, GlobalTensorQuadratureTestBasis):
             if not unique_scalar_space:
-                names = 'global_test_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
+                names = 'global_test_basis_{label}(1:{j})_1:{i}'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'global_test_basis_{label}1:{i}'.format(label=label,i=dim+1)
+                names = 'global_test_basis_{label}_1:{i}'.format(label=label,i=dim+1)
 
         elif isinstance(expr, GlobalTensorQuadratureTrialBasis):
             if not unique_scalar_space:
-                names = 'global_trial_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
+                names = 'global_trial_basis_{label}(1:{j})_1:{i}'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'global_trial_basis_{label}1:{i}'.format(label=label,i=dim+1)
+                names = 'global_trial_basis_{label}_1:{i}'.format(label=label,i=dim+1)
 
         else:
             if not unique_scalar_space:
-                names = 'global_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
+                names = 'global_basis_{label}(1:{j})_1:{i}'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'global_basis_{label}1:{i}'.format(label=label,i=dim+1)
+                names = 'global_basis_{label}_1:{i}'.format(label=label,i=dim+1)
 
         targets = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
@@ -543,24 +546,24 @@ class Parser(object):
         unique_scalar_space = expr.unique_scalar_space
         is_scalar           = expr.is_scalar
         target              = expr.target
-        label               = str(target)
+        label               = str(SymbolicExpr(target))
         if isinstance(expr, LocalTensorQuadratureTestBasis):
             if not unique_scalar_space:
-                names = 'local_test_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
+                names = 'local_test_basis_{label}(1:{j})_1:{i}'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'local_test_basis_{label}1:{i}'.format(label=label,i=dim+1)
+                names = 'local_test_basis_{label}_1:{i}'.format(label=label,i=dim+1)
 
         elif isinstance(expr, LocalTensorQuadratureTrialBasis):
             if not unique_scalar_space:
-                names = 'local_trial_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
+                names = 'local_trial_basis_{label}(1:{j})_1:{i}'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'local_trial_basis_{label}1:{i}'.format(label=label,i=dim+1)
+                names = 'local_trial_basis_{label}_1:{i}'.format(label=label,i=dim+1)
 
         else:
             if not unique_scalar_space:
-                names = 'local_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
+                names = 'local_basis_{label}(1:{j})_1:{i}'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'local_basis_{label}1:{i}'.format(label=label,i=dim+1)
+                names = 'local_basis_{label}_1:{i}'.format(label=label,i=dim+1)
 
         targets = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
         self.insert_variables(*targets)
@@ -583,23 +586,23 @@ class Parser(object):
         unique_scalar_space = expr.unique_scalar_space
         is_scalar           = expr.is_scalar
         target              = expr.target
-        label               = str(target)
+        label               = str(SymbolicExpr(target))
         if isinstance(expr, TensorQuadratureTestBasis):
             if not unique_scalar_space:
-                names = 'test_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
+                names = 'test_basis_{label}(1:{j})_1:{i})'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'test_basis_{label}1:{i}'.format(label=label,i=dim+1)
+                names = 'test_basis_{label}_1:{i}'.format(label=label,i=dim+1)
 
         elif isinstance(expr, TensorQuadratureTrialBasis):
             if not unique_scalar_space:
-                names = 'trial_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
+                names = 'trial_basis_{label}(1:{j})_1:{i}'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'trial_basis_{label}1:{i}'.format(label=label,i=dim+1)
+                names = 'trial_basis_{label}_1:{i}'.format(label=label,i=dim+1)
         else:
             if not unique_scalar_space:
-                names = 'array_basis_{label}1:{i}_(1:{j})'.format(label=label,i=dim+1,j=dim+1)
+                names = 'array_basis_{label}(1:{j})_1:{i})'.format(label=label,i=dim+1,j=dim+1)
             else:
-                names = 'array_basis_{label}1:{i}'.format(label=label,i=dim+1)
+                names = 'array_basis_{label}_1:{i}'.format(label=label,i=dim+1)
         # ...
 
         targets = variables(names, dtype='real', rank=rank, cls=IndexedVariable)

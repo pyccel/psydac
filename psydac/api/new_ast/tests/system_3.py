@@ -16,7 +16,7 @@ from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm
 from sympde.expr     import Norm
 
-from psydac.api.new_ast.nodes  import AST
+from psydac.api.new_ast.fem  import AST
 from psydac.api.new_ast.parser import parse
 
 from pyccel.codegen.printing.pycode import pycode
@@ -26,7 +26,7 @@ from pyccel.codegen.printing.pycode import pycode
 
 domain = Square()
 M      = Mapping('M', domain.dim)
-V = VectorFunctionSpace('W', domain)
+V = VectorFunctionSpace('W', domain,kind='hdiv')
 
 x,y = domain.coordinates
 
