@@ -73,6 +73,7 @@ from .nodes import Loop
 from .nodes import WeightedVolumeQuadrature
 from .nodes import ComputeLogical
 from .nodes import ElementOf
+from .nodes import LengthDofTest
 
 
 from .nodes import index_quad
@@ -741,26 +742,27 @@ class Parser(object):
             dim  = self.dim
             rank = lhs.rank
             pads = lhs.pads
-
+            tests = expand(lhs._tests)
             lhs = self._visit_BlockStencilMatrixGlobalBasis(lhs)
             rhs = self._visit(expr)
 
             pads    = self._visit(pads)
-            degrees = self._visit(index_dof_test.length)
-            #TODO improve we shouldn't use spans like this
             spans   = self._visit_Span(Span())
             spans   = flatten(*spans.values())
 
-            lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
             lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
+            rhs_slices = [Slice(None, None)]*rank
+            for k1 in range(lhs.shape[0]):
+                degrees = self._visit_LengthDofTest(LengthDofTest(tests[k1]))
+                lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
+                for k2 in range(lhs.shape[1]):
+                    if expr.expr[k1,k2]:
+                        lhs_slices  = [Slice(s, e) for s,e in zip(lhs_starts, lhs_ends)]
+                        lhs_slices += [Slice(None, None)]*dim
+                        lhs[k1,k2] = [lhs[k1,k2][lhs_slices]]
+                        rhs[k1,k2] = [rhs[k1,k2][rhs_slices]]
 
-            lhs_slices  = [Slice(s, e) for s,e in zip(lhs_starts, lhs_ends)]
-            lhs_slices += [Slice(None, None)]*dim
-            rhs_slices  = [Slice(None, None)]*rank
-
-            lhs = [a[lhs_slices]  for a,e in zip(lhs[:], expr.expr[:]) if e]
-            rhs = [b[rhs_slices]  for b,e in zip(rhs[:], expr.expr[:]) if e]
-            return tuple( AugAssign(a, op, b) for a,b in zip(lhs, rhs))
+            return tuple( AugAssign(a, op, b) for a,b,e in zip(lhs[:], rhs[:], expr.expr[:]) if e)
 
         elif isinstance(lhs, BlockStencilVectorLocalBasis):
             lhs = self.BlockStencilVectorLocalBasis(lhs)
@@ -768,28 +770,30 @@ class Parser(object):
             return expr
         elif isinstance(lhs, BlockStencilVectorGlobalBasis):
 
-            dim  = self.dim
-            rank = lhs.rank
-            pads = lhs.pads
-
+            dim   = self.dim
+            rank  = lhs.rank
+            pads  = lhs.pads
+            tests = expand(lhs._tests)
             lhs = self._visit_BlockStencilVectorGlobalBasis(lhs)
             rhs = self._visit(expr)
 
             pads    = self._visit(pads)
             degrees = self._visit(index_dof_test.length)
-            #TODO improve we shouldn't use spans like this
             spans   = self._visit_Span(Span())
             spans   = flatten(*spans.values())
 
-            lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
             lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
-
-            lhs_slices = [Slice(s, e) for s,e in zip(lhs_starts, lhs_ends)]
             rhs_slices = [Slice(None, None)]*rank
 
-            lhs = [a[lhs_slices]  for a,e in zip(lhs[:], expr.expr[:]) if e]
-            rhs = [b[rhs_slices]  for b,e in zip(rhs[:], expr.expr[:]) if e]
-            return tuple( AugAssign(a, op, b) for a,b in zip(lhs, rhs))
+            for k in range(lhs.shape[0]):
+                if expr.expr[k,0]:
+                    degrees = self._visit_LengthDofTest(LengthDofTest(tests[k]))
+                    lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
+                    lhs_slices = [Slice(s, e) for s,e in zip(lhs_starts, lhs_ends)]
+                    lhs[k,0] = lhs[k,0][lhs_slices]
+                    rhs[k,0] = rhs[k,0][rhs_slices]
+
+            return tuple( AugAssign(a, op, b) for a,b,e in zip(lhs[:], rhs[:], expr.expr[:]) if e)
         else:
             if not( lhs is None ):
                 lhs = self._visit(lhs)
@@ -1197,34 +1201,51 @@ class Parser(object):
     # ....................................................
     def _visit_LengthElement(self, expr, **kwargs):
         dim = self.dim
-        target = variables('n_element_1:%d'%(dim+1), dtype='int', cls=Variable)
+        names = 'n_element_1:%d'%(dim+1)
+        target = variables(names, dtype='int', cls=Variable)
         self.insert_variables(*target)
         return target
     # ....................................................
     def _visit_LengthQuadrature(self, expr, **kwargs):
         dim = self.dim
-        target = variables('k1:%d'%(dim+1), dtype='int', cls=Variable)
+        names = 'k1:%d'%(dim+1)
+        target = variables(names, dtype='int', cls=Variable)
         self.insert_variables(*target)
         return target
     # ....................................................
     def _visit_LengthDof(self, expr, **kwargs):
         # TODO must be p+1
         dim = self.dim
-        target = variables('p1:%d'%(dim+1), dtype='int', cls=Idx)
+        names = 'p1:%d'%(dim+1)
+        target = variables(names, dtype='int', cls=Idx)
         self.insert_variables(*target)
         return target
     # ....................................................
     def _visit_LengthDofTest(self, expr, **kwargs):
         # TODO must be p+1
         dim = self.dim
-        target = variables('test_p1:%d'%(dim+1), dtype='int', cls=Idx)
+        target = expr.target
+        if target:
+            target = '_' + str(SymbolicExpr(target))
+        else:
+            target = ''
+
+        names = 'test{}_p1:{}'.format(target, dim+1)
+        target = variables(names, dtype='int', cls=Idx)
         self.insert_variables(*target)
         return target
     # ....................................................
     def _visit_LengthDofTrial(self, expr, **kwargs):
         # TODO must be p+1
         dim = self.dim
-        target = variables('trial_p1:%d'%(dim+1), dtype='int', cls=Idx)
+        target = expr.target
+        if target:
+            target = '_' + str(SymbolicExpr(target))
+        else:
+            target = ''
+
+        names = 'trial{}_p1:{}'.format(target, dim+1)
+        target = variables(names, dtype='int', cls=Idx)
         self.insert_variables(*target)
         return target
     # ....................................................

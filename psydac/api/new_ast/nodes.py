@@ -55,7 +55,14 @@ class FunctionalArity(ArityType):
 #==============================================================================
 class LengthNode(Basic):
     """Base class representing one length of an iterator"""
-    pass
+    def __new__(cls, target=None):
+        obj = Basic.__new__(cls)
+        obj._target = target
+        return obj
+
+    @property
+    def target(self):
+        return self._target
 
 class LengthElement(LengthNode):
     pass
@@ -74,13 +81,19 @@ class LengthDofTest(LengthNode):
 #==============================================================================
 class IndexNode(Basic):
     """Base class representing one index of an iterator"""
-    def __new__(cls, index_length):
-        assert isinstance(index_length, LengthNode)
-        return Basic.__new__(cls, index_length)
+    def __new__(cls, length=None):
+        obj = Basic.__new__(cls)
+        obj._length = length
+        return obj
 
     @property
     def length(self):
-        return self._args[0]
+        return self._length
+
+    def set_length(self, length):
+        assert isinstance(length, LengthNode)
+        obj = type(self)(length)
+        return obj
 
 class IndexElement(IndexNode):
     pass
@@ -101,11 +114,11 @@ class IndexDerivative(IndexNode):
     def __new__(cls):
         return Basic.__new__(cls)
 
-index_element   = IndexElement(LengthElement())
-index_quad      = IndexQuadrature(LengthQuadrature())
-index_dof       = IndexDof(LengthDof())
-index_dof_trial = IndexDofTrial(LengthDofTrial())
-index_dof_test  = IndexDofTest(LengthDofTest())
+index_element   = IndexElement()
+index_quad      = IndexQuadrature()
+index_dof       = IndexDof()
+index_dof_test  = IndexDofTest()
+index_dof_trial = IndexDofTrial()
 index_deriv     = IndexDerivative()
 #==============================================================================
 class RankNode(with_metaclass(Singleton, Basic)):

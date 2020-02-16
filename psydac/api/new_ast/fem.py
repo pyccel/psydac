@@ -415,11 +415,14 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     g_span          = {u:d_trials[u]['span'] for u in trials}
 
     # ...........................................................................................
-
-    eval_mapping = EvalMapping(index_quad, index_dof_trial, q_basis_trials[trials[0]], l_basis_trials[trials[0]], Mapping, geo, spaces[1], nderiv)
+    ind_quad      = index_quad.set_length(LengthQuadrature())
+    ind_element   = index_element.set_length(LengthElement())
+    ind_dof_trial = index_dof_trial.set_length(LengthDofTrial(trials[0]))
+    # ...........................................................................................
+    eval_mapping = EvalMapping(ind_quad, ind_dof_trial, q_basis_trials[trials[0]], l_basis_trials[trials[0]], Mapping, geo, spaces[1], nderiv)
 
     if atomic_expr_field:
-        eval_field   = EvalField(atomic_expr_field, index_quad, q_basis_trials[trials[0]], coeff, trials, nderiv)
+        eval_field   = EvalField(atomic_expr_field, ind_quad, q_basis_trials[trials[0]], coeff, trials, nderiv)
 
     # ... loop over tests to evaluate fields
     fields = EmptyLine()
@@ -461,20 +464,24 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             if atomic_expr_field:
                 stmts += list(eval_fiel.inits)
 
-            loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), index_quad, stmts)
+            loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts)
             loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr), ElementOf(l_sub_mats), loop)
 
             # ... loop over trials
 
             stmts = [loop]
             for u in l_basis_trials:
-                loop  = Loop(l_basis_trials[u], index_dof_trial, stmts)
+                length = LengthDofTrial(u)
+                ind_dof_trial = index_dof_trial.set_length(length)
+                loop  = Loop(l_basis_trials[u], ind_dof_trial, stmts)
 
             # ... loop over tests
 
             stmts = [loop]
             for v in l_basis_tests:
-                loop  = Loop(l_basis_tests[v], index_dof_test, stmts)
+                length = LengthDofTest(v)
+                ind_dof_test = index_dof_test.set_length(length)
+                loop  = Loop(l_basis_tests[v], ind_dof_test, stmts)
             # ...
 
             body  = (Reset(l_sub_mats), loop)
@@ -484,7 +491,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     # ... loop over global elements
     loop  = Loop((g_quad, *g_basis_tests.values(), *g_basis_trials.values(), *g_span.values()),
-                  index_element, g_stmts)
+                  ind_element, g_stmts)
 
     body = [Reduce('+', l_mats, g_mats, loop)]
     # ...
@@ -528,11 +535,14 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
 
 
     # ...........................................................................................
-
-    eval_mapping = EvalMapping(index_quad, index_dof_test, q_basis[tests[0]], l_basis[tests[0]], Mapping, geo, space, nderiv)
+    ind_quad      = index_quad.set_length(LengthQuadrature())
+    ind_element   = index_element.set_length(LengthElement())
+    ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0]))
+    # ...........................................................................................
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], Mapping, geo, space, nderiv)
 
     if atomic_expr_field:
-        eval_field   = EvalField(atomic_expr_field, index_quad, q_basis, coeff, tests, nderiv)
+        eval_field   = EvalField(atomic_expr_field, ind_quad, q_basis, coeff, tests, nderiv)
 
     # ...
     g_stmts = [eval_mapping]
@@ -560,20 +570,21 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         if atomic_expr_field:
             stmts += list(eval_fiel.inits)
 
-        loop  = Loop((l_quad, *q_basis.values(), geo), index_quad, stmts)
+        loop  = Loop((l_quad, *q_basis.values(), geo), ind_quad, stmts)
         loop = Reduce('+', ComputeKernelExpr(sub_terminal_expr), ElementOf(l_sub_vecs), loop)
     # ...
 
     # ... loop over tests to evaluate fields
         fields = EmptyLine()
         if atomic_expr_field:
-            fields = Loop((*l_basis, l_coeff), index_dof, [eval_field])
+            fields = Loop((*l_basis, l_coeff), ind_dof, [eval_field])
 
     # ... loop over tests
 
         stmts = [loop]
         for v in l_basis:
-            loop  = Loop(l_basis[v], index_dof_test, stmts)
+            ind_dof_test = index_dof_test.set_length(LengthDofTest(v))
+            loop  = Loop(l_basis[v], ind_dof_test, stmts)
         # ...
 
         body  = (EmptyLine(), fields, Reset(l_sub_vecs), loop)
@@ -583,7 +594,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     
     #=========================================================end kernel=========================================================
     # ... loop over global elements
-    loop  = Loop((g_quad, *g_basis.values(), *g_span.values()), index_element, g_stmts)
+    loop  = Loop((g_quad, *g_basis.values(), *g_span.values()), ind_element, g_stmts)
     # ...
     
     body = (Reduce('+', l_vecs, g_vecs, loop),)
@@ -632,26 +643,29 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
     g_vec   = GlobalElementBasis()
 
     # ...........................................................................................
-
-    eval_mapping = EvalMapping(index_quad, index_dof_test, q_basis[tests[0]], l_basis[tests[0]], Mapping, geo, space, nderiv)
-    eval_field   = EvalField(atomic_expr, index_quad, q_basis[tests[0]], coeffs, tests, nderiv)
+    ind_quad      = index_quad.set_length(LengthQuadrature())
+    ind_element   = index_element.set_length(LengthElement())
+    ind_dof_test  = index_dof_test.set_length(LengthDofTest(tests[0]))
+    # ...........................................................................................
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], Mapping, geo, space, nderiv)
+    eval_field   = EvalField(atomic_expr, ind_quad, q_basis[tests[0]], coeffs, tests, nderiv)
 
     #=========================================================begin kernel======================================================
     # ... loop over tests functions
 
-    loop   = Loop((l_quad, *q_basis.values(), geo), index_quad, eval_field.inits)
+    loop   = Loop((l_quad, *q_basis.values(), geo), ind_quad, eval_field.inits)
     loop   = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
 
     # ...
     # ... loop over tests functions to evaluate the fields
-    fields = Loop((*l_basis.values(), *l_coeffs), index_dof_test, [eval_field])
+    fields = Loop((*l_basis.values(), *l_coeffs), ind_dof_test, [eval_field])
     stmts  = Block([EmptyLine(), eval_mapping, fields, Reset(l_vec), loop])
 
     #=========================================================end kernel=========================================================
     # ... loop over global elements
 
 
-    loop  = Loop((g_quad, *g_basis.values(), *g_span.values()), index_element, stmts)
+    loop  = Loop((g_quad, *g_basis.values(), *g_span.values()), ind_element, stmts)
     # ...
 
     body = (Reduce('+', l_vec, g_vec, loop),)
