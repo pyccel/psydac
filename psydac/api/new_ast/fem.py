@@ -413,10 +413,14 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     # TODO d_trials or d_tests here?
     g_span          = {u:d_trials[u]['span'] for u in trials}
-
+    lengths         = []
     # ...........................................................................................
-    ind_quad      = index_quad.set_length(LengthQuadrature())
-    ind_element   = index_element.set_length(LengthElement())
+    quad_length = LengthQuadrature()
+    el_length   = LengthElement()
+    lengths    += [el_length,quad_length]
+
+    ind_quad      = index_quad.set_length(quad_length)
+    ind_element   = index_element.set_length(el_length)
     ind_dof_trial = index_dof_trial.set_length(LengthDofTrial(trials[0]))
     # ...........................................................................................
     eval_mapping = EvalMapping(ind_quad, ind_dof_trial, q_basis_trials[trials[0]], l_basis_trials[trials[0]], Mapping, geo, spaces[1], nderiv)
@@ -434,6 +438,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     trial_groups = regroupe(trials)
     ex_tests     = expand(tests)
     ex_trials    = expand(trials)
+    
 
     #=========================================================begin kernel======================================================
 
@@ -471,6 +476,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             for u in l_basis_trials:
                 stmts = [loop]
                 length = LengthDofTrial(u)
+                lengths += [length]
                 ind_dof_trial = index_dof_trial.set_length(length)
                 loop  = Loop(l_basis_trials[u], ind_dof_trial, stmts)
 
@@ -478,6 +484,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             for v in l_basis_tests:
                 stmts = [loop]
                 length = LengthDofTest(v)
+                lengths += [length]
                 ind_dof_test = index_dof_test.set_length(length)
                 loop  = Loop(l_basis_tests[v], ind_dof_test, stmts)
             # ...
@@ -494,13 +501,12 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     body = [Reduce('+', l_mats, g_mats, loop)]
     # ...
 
-    indices = [index_element, index_quad, index_dof_test, index_dof_trial]
-    lengths = [i.length for i in indices]
-
-    args = [*g_basis_tests.values(), *g_basis_trials.values(), *g_span.values(), g_quad, *lengths, *pads]
+    args  = [*g_basis_tests.values(), *g_basis_trials.values(), *g_span.values(), g_quad]
+    args += [*lengths, *pads]
 
     if atomic_expr_field:
         args += [*l_coeffs]
+
     if eval_mapping:
         args+= [*eval_mapping.coeffs]
 
@@ -531,10 +537,14 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     g_basis = {v:d_tests[v]['global']  for v in tests}
     g_span  = {u:d_tests[u]['span'] for u in tests}
 
-
+    lengths         = []
     # ...........................................................................................
-    ind_quad      = index_quad.set_length(LengthQuadrature())
-    ind_element   = index_element.set_length(LengthElement())
+    quad_length = LengthQuadrature()
+    el_length   = LengthElement()
+    lengths    += [el_length,quad_length]
+
+    ind_quad      = index_quad.set_length(quad_length)
+    ind_element   = index_element.set_length(el_length)
     ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0]))
     # ...........................................................................................
     eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], Mapping, geo, space, nderiv)
@@ -579,11 +589,13 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
 
     # ... loop over tests
         for v in l_basis:
-            stmts = [loop]
-            ind_dof_test = index_dof_test.set_length(LengthDofTest(v))
+            stmts    = [loop]
+            length   = LengthDofTest(v)
+            lengths += [length]
+
+            ind_dof_test = index_dof_test.set_length(length)
             loop  = Loop(l_basis[v], ind_dof_test, stmts)
         # ...
-
         body  = (EmptyLine(), fields, Reset(l_sub_vecs), loop)
         stmts = Block(body)
         g_stmts += [stmts]
@@ -596,10 +608,8 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     
     body = (Reduce('+', l_vecs, g_vecs, loop),)
 
-    indices = [index_element, index_quad, index_dof_test]
-    lengths = [i.length for i in indices]
-
-    args       = [*g_basis, *g_span, g_quad, *lengths, *pads]
+    args  = [*g_basis, *g_span, g_quad]
+    args += [*lengths, *pads]    
 
     if atomic_expr_field:
         args += [*l_coeffs]
@@ -640,9 +650,14 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
     g_vec   = GlobalElementBasis()
 
     # ...........................................................................................
-    ind_quad      = index_quad.set_length(LengthQuadrature())
-    ind_element   = index_element.set_length(LengthElement())
-    ind_dof_test  = index_dof_test.set_length(LengthDofTest(tests[0]))
+    quad_length = LengthQuadrature()
+    el_length   = LengthElement()
+    test_length = LengthDofTest(tests[0])
+    lengths     = [el_length, quad_length, test_length]
+
+    ind_quad      = index_quad.set_length(quad_length)
+    ind_element   = index_element.set_length(el_length)
+    ind_dof_test  = index_dof_test.set_length(test_length)
     # ...........................................................................................
     eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], Mapping, geo, space, nderiv)
     eval_field   = EvalField(atomic_expr, ind_quad, q_basis[tests[0]], coeffs, tests, nderiv)
@@ -667,9 +682,8 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
 
     body = (Reduce('+', l_vec, g_vec, loop),)
 
-    indices = [index_element, index_quad, index_dof_test]
-    lengths = [i.length for i in indices]
-    args    = [*g_basis, *g_span, g_quad, *lengths, *pads, *coeffs]
+    args  = [*g_basis, *g_span, g_quad] 
+    args += [*lengths, *pads, *coeffs]
 
     if eval_mapping:
         args+= [*eval_mapping.coeffs]
