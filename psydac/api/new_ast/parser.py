@@ -960,8 +960,8 @@ class Parser(object):
             #TODO improve l_quad should not be used like this
             l_quad = TensorQuadrature()
             l_quad = self._visit_TensorQuadrature(l_quad, **kwargs)
-            points, weights = list(zip(*l_quad.values()))
-            wvol = Mul(*weights[0])
+            points, weights = list(zip(*list(l_quad.values())[0]))
+            wvol = Mul(*weights)
             return wvol
 
         elif isinstance(expr, SymbolicWeightedVolume):
@@ -1418,7 +1418,7 @@ class Parser(object):
         # update with product statements if available
         body = list(p_inits) + list(geo_stmts) + list(stmts)
 
-        for index, length, init in zip(indices, lengths, inits):
+        for index, length, init in zip(indices[::-1], lengths[::-1], inits[::-1]):
             if len(length) == 1:
                 l = length[0]
                 i = index
