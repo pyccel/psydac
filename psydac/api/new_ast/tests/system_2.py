@@ -47,7 +47,7 @@ print('============================================BilinearForm=================
 ast_b    = AST(b, [V1*V2,V1*V2], M)
 stmt_b = parse(ast_b.expr, settings={'dim': ast_b.dim, 'nderiv': ast_b.nderiv, 'mapping':M})
 print(pycode(stmt_b))
-raise
+
 print('============================================LinearForm===========================================')
 ast_l    = AST(l, V1*V2, M)
 stmt_l = parse(ast_l.expr, settings={'dim': ast_l.dim, 'nderiv': ast_l.nderiv, 'mapping':M})

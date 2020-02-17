@@ -468,17 +468,15 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr), ElementOf(l_sub_mats), loop)
 
             # ... loop over trials
-
-            stmts = [loop]
             for u in l_basis_trials:
+                stmts = [loop]
                 length = LengthDofTrial(u)
                 ind_dof_trial = index_dof_trial.set_length(length)
                 loop  = Loop(l_basis_trials[u], ind_dof_trial, stmts)
 
             # ... loop over tests
-
-            stmts = [loop]
             for v in l_basis_tests:
+                stmts = [loop]
                 length = LengthDofTest(v)
                 ind_dof_test = index_dof_test.set_length(length)
                 loop  = Loop(l_basis_tests[v], ind_dof_test, stmts)
@@ -580,9 +578,8 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
             fields = Loop((*l_basis, l_coeff), ind_dof, [eval_field])
 
     # ... loop over tests
-
-        stmts = [loop]
         for v in l_basis:
+            stmts = [loop]
             ind_dof_test = index_dof_test.set_length(LengthDofTest(v))
             loop  = Loop(l_basis[v], ind_dof_test, stmts)
         # ...

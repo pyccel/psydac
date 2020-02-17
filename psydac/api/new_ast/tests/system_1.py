@@ -41,7 +41,7 @@ u,v = [element_of(V, name=i) for i in ['u', 'v']]
 
 int_0 = lambda expr: integral(domain , expr)
 
-b = BilinearForm((v,u), int_0(inner(grad(v), grad(u))))
+b = BilinearForm((u,v), int_0(inner(grad(v), grad(u))))
 l = LinearForm(v, int_0(dot(f, v)))
 
 error = Matrix([F[0]-Fe[0], F[1]-Fe[1]])

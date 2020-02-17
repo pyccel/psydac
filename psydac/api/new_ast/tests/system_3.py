@@ -41,7 +41,7 @@ u,v = [element_of(V, name=i) for i in ['u', 'v']]
 
 int_0 = lambda expr: integral(domain , expr)
 
-b = BilinearForm((v,u), int_0(div(v)*div(u)))
+b = BilinearForm((u,v), int_0(div(v)*div(u)))
 print('============================================BilinearForm=========================================')
 ast_b    = AST(b, [V,V], M)
 stmt_b = parse(ast_b.expr, settings={'dim': ast_b.dim, 'nderiv': ast_b.nderiv, 'mapping':M})
