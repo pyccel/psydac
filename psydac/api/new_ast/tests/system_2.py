@@ -26,22 +26,28 @@ from pyccel.codegen.printing.pycode import pycode
 
 domain = Square()
 M      = Mapping('M', domain.dim)
-V1     = VectorFunctionSpace('V1', domain, kind='H1')
-V2     = ScalarFunctionSpace('V2', domain, kind='L2')
 
-x,y    = domain.coordinates
+V1 = VectorFunctionSpace('V1', domain, kind='Hdiv')
+V2 = ScalarFunctionSpace('V2', domain, kind='L2')
 
-F      = element_of(V1, name='F')
+x,y = domain.coordinates
 
-u,v    = [element_of(V1, name=i) for i in ['u', 'v']]
-p,q    = [element_of(V2, name=i) for i in ['p', 'q']]
+F = element_of(V2, name='F')
+
+
+p,q = [element_of(V1, name=i) for i in ['p', 'q']]
+u,v = [element_of(V2, name=i) for i in ['u', 'v']]
+
+int_0 = lambda expr: integral(domain , expr)
+
+
 
 int_0  = lambda expr: integral(domain , expr)
 f1     = cos(x)*sin(y)
 f2     = sin(2*x)*sin(2*y)
 
-b  = BilinearForm(((u,p),(v,q)), int_0(inner(grad(u),grad(v)) + div(u)*q - p*div(v)) )
-l  = LinearForm((v,q), int_0(f1*v[0]+f2*v[1]+q))
+b  = BilinearForm(((p,u),(q,v)), int_0(dot(p,q) + div(q)*u + div(p)*v) )
+l  = LinearForm((q,v), int_0(f1*q[0]+f2*q[1]+v))
 
 print('============================================BilinearForm=========================================')
 ast_b    = AST(b, [V1*V2,V1*V2], M)

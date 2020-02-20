@@ -625,8 +625,9 @@ class Parser(object):
         dim    = self.dim
         rank   = expr.rank
         target = expr.target
+        label = SymbolicExpr(target).name
 
-        names  = 'global_span1:%s'%(dim+1)
+        names  = 'global_span_{}_1:{}'.format(label, str(dim+1))
         targets = variables(names, dtype='int', rank=rank, cls=IndexedVariable)
 
         self.insert_variables(*targets)
@@ -637,9 +638,10 @@ class Parser(object):
     # ....................................................
     def _visit_Span(self, expr, **kwargs):
         dim = self.dim
-        names  = 'span1:%s'%(dim+1)
-        targets = variables(names, dtype='int', cls=Idx)
         target = expr.target
+        label  = SymbolicExpr(target).name
+        names  = 'span_{}_1:{}'.format(label,str(dim+1))
+        targets = variables(names, dtype='int', cls=Idx)
 
         self.insert_variables(*targets)
         if not isinstance(targets[0], (tuple, list, Tuple)):
@@ -648,6 +650,20 @@ class Parser(object):
         target = OrderedDict([(target ,tuple(zip(*targets)))])
         return target
 
+    def _visit_Pads(self, expr, **kwargs):
+        dim = self.dim
+        tests  = expand(expr.tests)
+        trials = expand(expr.trials)
+        pads = Matrix.zeros(len(tests),len(trials))
+        for i in range(pads.shape[0]):
+            for j in range(pads.shape[1]):
+                label1 = SymbolicExpr(tests[i]).name
+                label2 = SymbolicExpr(trials[i]).name
+                names  = 'pad_{}_{}_1:{}'.format(label1, label2, str(dim+1))
+                targets = variables(names, dtype='int', cls=Idx)
+                pads[i,j] = Tuple(*targets)
+                self.insert_variables(*targets)
+        return pads
     # ....................................................
     def _visit_TensorBasis(self, expr, **kwargs):
         # TODO label
@@ -747,12 +763,11 @@ class Parser(object):
             rhs = self._visit(expr)
 
             pads    = self._visit(pads)
-            spans   = self._visit_Span(Span())
-            spans   = flatten(*spans.values())
-
-            lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
             rhs_slices = [Slice(None, None)]*rank
             for k1 in range(lhs.shape[0]):
+                spans   = self._visit_Span(Span(tests[k1]))
+                spans   = flatten(*spans.values())
+                lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
                 degrees = self._visit_LengthDofTest(LengthDofTest(tests[k1]))
                 lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
                 for k2 in range(lhs.shape[1]):
@@ -765,7 +780,7 @@ class Parser(object):
             return tuple( AugAssign(a, op, b) for a,b,e in zip(lhs[:], rhs[:], expr.expr[:]) if e)
 
         elif isinstance(lhs, BlockStencilVectorLocalBasis):
-            lhs = self.BlockStencilVectorLocalBasis(lhs)
+            lhs = self._visit_BlockStencilVectorLocalBasis(lhs)
             expr = self._visit(expr, op=op, lhs=lhs)
             return expr
         elif isinstance(lhs, BlockStencilVectorGlobalBasis):
@@ -779,7 +794,7 @@ class Parser(object):
 
             pads    = self._visit(pads)
             degrees = self._visit(index_dof_test.length)
-            spans   = self._visit_Span(Span())
+            spans   = self._visit_Span(Span(tests[0]))
             spans   = flatten(*spans.values())
 
             lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
@@ -1000,14 +1015,17 @@ class Parser(object):
         target = expr.target
         #improve we shouldn't use index_dof_test
         if isinstance(target, BlockStencilMatrixLocalBasis):
-            pads   = target.pads
+            tests  = expand(target._tests)
+            trials = expand(target._trials)
             rows = self._visit(index_dof_test)
             cols = self._visit(index_dof_trial)
-            pads = self._visit(pads)
-            indices = tuple(rows) + tuple(cols[i]+pads[i]-rows[i] for i in range(dim))
+            pads = self._visit_Pads(target.pads)
+
             targets = self._visit_BlockStencilMatrixLocalBasis(target)
             for i in range(targets.shape[0]):
                 for j in range(targets.shape[1]):
+                    padding  = pads[i,j]
+                    indices = tuple(rows) + tuple(cols[k]+padding[k]-rows[k] for k in range(dim))
                     targets[i,j] = targets[i,j][indices]
             return targets
 
@@ -1029,7 +1047,7 @@ class Parser(object):
 
     # .............................................................................
     def _visit_BlockStencilMatrixLocalBasis(self, expr, **kwargs):
-        pads   = expr.pads
+        pads   = self._visit_Pads(expr.pads)
         tests  = expr._tests
         trials = expr._trials
         tag    = expr.tag
@@ -1038,7 +1056,7 @@ class Parser(object):
         targets = Matrix.zeros(len(tests), len(trials))
         for i,v in enumerate(tests):
             for j,u in enumerate(trials):
-                mat = StencilMatrixLocalBasis(u, v, pads, tag)
+                mat = StencilMatrixLocalBasis(u, v, pads[i,j], tag)
                 mat = self._visit_StencilMatrixLocalBasis(mat, **kwargs)
                 targets[i,j] = mat
         return targets

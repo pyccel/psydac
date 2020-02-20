@@ -40,7 +40,6 @@ from .nodes import GlobalSpan
 from .nodes import CoefficientBasis
 from .nodes import MatrixLocalBasis
 from .nodes import GeometryExpressions
-from .nodes import Span
 from .nodes import Loop
 from .nodes import EvalMapping, EvalField
 from .nodes import WeightedVolumeQuadrature
@@ -399,8 +398,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     l_coeffs = [MatrixLocalBasis(i) for i in tests]
     geo      = GeometryExpressions(Mapping, nderiv)
 
-    l_mats  = BlockStencilMatrixLocalBasis(trials, tests, pads, terminal_expr)
-    g_mats  = BlockStencilMatrixGlobalBasis(trials, tests, pads, terminal_expr)
+    l_mats  = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim)
+    g_mats  = BlockStencilMatrixGlobalBasis(trials, tests, pads, terminal_expr, l_mats.tag)
 
     q_basis_tests  = {v:d_tests[v]['array']  for v in tests}
     q_basis_trials = {u:d_trials[u]['array'] for u in trials}
@@ -411,8 +410,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     g_basis_tests  = {v:d_tests[v]['global']  for v in tests}
     g_basis_trials = {u:d_trials[u]['global'] for u in trials}
 
-    # TODO d_trials or d_tests here?
-    g_span          = {u:d_trials[u]['span'] for u in trials}
+    g_span          = {u:d_tests[u]['span'] for u in tests}
     lengths         = []
     # ...........................................................................................
     quad_length = LengthQuadrature()
@@ -438,7 +436,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     trial_groups = regroupe(trials)
     ex_tests     = expand(tests)
     ex_trials    = expand(trials)
-    
+
 
     #=========================================================begin kernel======================================================
 
@@ -449,7 +447,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             trials_indices = [ex_trials.index(i) for i in expand(sub_trials)]
             sub_terminal_expr = terminal_expr[tests_indices,trials_indices]
             sub_atomic_expr   = atomic_expr[tests_indices,trials_indices]
-            l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials,sub_tests, pads, sub_terminal_expr)
+            l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials,sub_tests, pads, sub_terminal_expr, l_mats.tag)
             if sub_terminal_expr.is_zero:
                 continue
             q_basis_tests  = {v:d_tests[v]['array']  for v in sub_tests}
@@ -530,7 +528,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     geo      = GeometryExpressions(Mapping, nderiv)
 
     l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr)
-    g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr)
+    g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr,l_vecs.tag)
     q_basis = {v:d_tests[v]['array']  for v in tests}
     l_basis = {v:d_tests[v]['local']  for v in tests}
 
@@ -563,7 +561,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         tests_indices = [ex_tests.index(i) for i in expand(group)]
         sub_terminal_expr = terminal_expr[tests_indices,0]
         sub_atomic_expr   = atomic_expr[tests_indices,0]
-        l_sub_vecs  = BlockStencilVectorLocalBasis(group, pads, sub_terminal_expr)
+        l_sub_vecs  = BlockStencilVectorLocalBasis(group, pads, sub_terminal_expr, l_vecs.tag)
         q_basis = {v:d_tests[v]['array']  for v in group}
         l_basis = {v:d_tests[v]['local']  for v in group}
         if sub_terminal_expr.is_zero:
@@ -605,7 +603,6 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     # ... loop over global elements
     loop  = Loop((g_quad, *g_basis.values(), *g_span.values()), ind_element, g_stmts)
     # ...
-    
     body = (Reduce('+', l_vecs, g_vecs, loop),)
 
     args  = [*g_basis, *g_span, g_quad]

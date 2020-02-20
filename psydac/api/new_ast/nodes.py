@@ -675,13 +675,12 @@ class BlockStencilMatrixLocalBasis(BlockMatrixNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
-    def __new__(cls, trials, tests, pads, expr):
-        if not isinstance(pads, (list, tuple, Tuple)):
-            raise TypeError('Expecting an iterable')
+    def __new__(cls, trials, tests, expr, dim, tag=None):
 
-        pads = Tuple(*pads)
-        rank = 2*len(pads)
-        tag  = random_string( 6 )
+
+        pads = Pads(tests, trials)
+        rank = 2*dim
+        tag  = tag or random_string( 6 )
         obj  = Basic.__new__(cls, pads, rank, tag, expr)
         obj._trials = trials
         obj._tests  = tests
@@ -717,13 +716,13 @@ class BlockStencilMatrixGlobalBasis(BlockMatrixNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
-    def __new__(cls, trials, tests, pads, expr):
+    def __new__(cls, trials, tests, pads, expr, tag=None):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = 2*len(pads)
-        tag  = random_string( 6 )
+        tag  = tag or random_string( 6 )
         obj  = Basic.__new__(cls, pads, rank, tag, expr)
         obj._trials = trials
         obj._tests  = tests
@@ -759,13 +758,13 @@ class BlockStencilVectorLocalBasis(BlockMatrixNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
-    def __new__(cls,tests, pads, expr):
+    def __new__(cls,tests, pads, expr, tag=None):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = 2*len(pads)
-        tag  = random_string( 6 )
+        tag  = tag or random_string( 6 )
         obj  = Basic.__new__(cls, pads, rank, tag, expr)
         obj._tests  = tests
         return obj
@@ -800,13 +799,13 @@ class BlockStencilVectorGlobalBasis(BlockMatrixNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
-    def __new__(cls, tests, pads, expr):
+    def __new__(cls, tests, pads, expr, tag=None):
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
         rank = 2*len(pads)
-        tag  = random_string( 6 )
+        tag  = tag or random_string( 6 )
         obj  = Basic.__new__(cls, pads, rank, tag, expr)
         obj._tests  = tests
         return obj
@@ -856,16 +855,32 @@ class GlobalSpan(ArrayNode):
 class Span(ScalarNode):
     """
     """
-    def __new__(cls, target=None):
-        if not( target is None ):
-            if not isinstance(target, (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)):
-                raise TypeError('Expecting a scalar/vector test function')
+    def __new__(cls, target):
+        if not isinstance(target, (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)):
+            raise TypeError('Expecting a scalar/vector test function')
 
         return Basic.__new__(cls, target)
 
     @property
     def target(self):
         return self._args[0]
+
+class Pads(ScalarNode):
+    """
+    """
+    def __new__(cls, tests, trials):
+        for target in tests + trials:
+            if not isinstance(target, (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)):
+                raise TypeError('Expecting a scalar/vector test function')
+        return Basic.__new__(cls, tests, trials)
+
+    @property
+    def tests(self):
+        return self._args[0]
+
+    @property
+    def trials(self):
+        return self._args[1]
 
 #==============================================================================
 class Evaluation(BaseNode):
