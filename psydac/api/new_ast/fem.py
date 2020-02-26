@@ -47,6 +47,7 @@ from .nodes import ComputeLogical, ComputeKernelExpr
 from .nodes import ElementOf, Reduce
 from .nodes import construct_logical_expressions
 from .nodes import ComputePhysicalBasis
+from .nodes import Pads
 
 #==============================================================================
 from sympy import Basic
@@ -201,8 +202,8 @@ class Block(Basic):
 #==============================================================================
 class DefNode(Basic):
     """."""
-    def __new__(cls, name, arguments, mats, local_variables, body):
-        return Basic.__new__(cls, name, arguments, mats, local_variables, body)
+    def __new__(cls, name, arguments, local_variables, body):
+        return Basic.__new__(cls, name, arguments, local_variables, body)
 
     @property
     def name(self):
@@ -213,16 +214,12 @@ class DefNode(Basic):
         return self._args[1]
 
     @property
-    def mats(self):
+    def local_variables(self):
         return self._args[2]
 
     @property
-    def local_variables(self):
-        return self._args[3]
-
-    @property
     def body(self):
-        return self._args[4]
+        return self._args[3]
 #==============================================================================
 class AST(object):
     """
@@ -411,11 +408,13 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     g_basis_trials = {u:d_trials[u]['global'] for u in trials}
 
     g_span          = {u:d_tests[u]['span'] for u in tests}
-    lengths         = []
+
+    lengths_trials  = {u:LengthDofTrial(u) for u in trials}
+    lengths_tests   = {v:LengthDofTest(v) for v in tests}
     # ...........................................................................................
     quad_length = LengthQuadrature()
     el_length   = LengthElement()
-    lengths    += [el_length,quad_length]
+    lengths     = [el_length,quad_length]
 
     ind_quad      = index_quad.set_length(quad_length)
     ind_element   = index_element.set_length(el_length)
@@ -473,16 +472,14 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             # ... loop over trials
             for u in l_basis_trials:
                 stmts = [loop]
-                length = LengthDofTrial(u)
-                lengths += [length]
+                length = lengths_trials[u]
                 ind_dof_trial = index_dof_trial.set_length(length)
                 loop  = Loop(l_basis_trials[u], ind_dof_trial, stmts)
 
             # ... loop over tests
             for v in l_basis_tests:
                 stmts = [loop]
-                length = LengthDofTest(v)
-                lengths += [length]
+                length = lengths_tests[v]
                 ind_dof_test = index_dof_test.set_length(length)
                 loop  = Loop(l_basis_tests[v], ind_dof_test, stmts)
             # ...
@@ -498,20 +495,30 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     body = [Reduce('+', l_mats, g_mats, loop)]
     # ...
+    args = {}
+    args['tests_basis']  = g_basis_tests.values()
+    args['trial_basis']  = g_basis_trials.values()
 
-    args  = [*g_basis_tests.values(), *g_basis_trials.values(), *g_span.values(), g_quad]
-    args += [*lengths, *pads]
+    args['spans'] = g_span.values()
+    args['quads'] = g_quad
+
+    args['tests_degrees'] = lengths_tests
+    args['trials_degrees'] = lengths_trials
+
+    args['quads_degree'] = lengths
+    args['global_pads']  = pads
+    args['local_pads']   = Pads(tests, trials)
 
     if atomic_expr_field:
-        args += [*l_coeffs]
+        args['coeffs'] = l_coeffs
 
     if eval_mapping:
-        args+= [*eval_mapping.coeffs]
+        args['mapping'] = eval_mapping.coeffs
 
-    mats  = [l_mats, g_mats]
+    args['mats']  = [l_mats, g_mats]
 
     local_vars = [*q_basis_tests, *q_basis_trials]
-    stmt = DefNode('assembly', args, mats, local_vars, body)
+    stmt = DefNode('assembly', args, local_vars, body)
 
     return stmt
 

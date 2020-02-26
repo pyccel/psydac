@@ -85,6 +85,7 @@ from .fem import Block
 from .fem import get_length, expand
 from psydac.api.ast.utilities import variables
 from numpy import array
+from sympy import Max
 
 import time
 
@@ -386,10 +387,47 @@ class Parser(object):
 
     def _visit_DefNode(self, expr, **kwargs):
 
-        args = [self._visit(i, **kwargs) for i in expr.arguments]
+        args = expr.arguments
+
+        tests_basis = args['tests_basis']
+        trial_basis = args['trial_basis']
+
+        g_span = args['spans']
+        g_quad = args['quads']
+
+        lengths_tests  = args['tests_degrees']
+        lengths_trials = args['trials_degrees']
+
+        lengths = args['quads_degree']
+        g_pads  = args['global_pads']
+        l_pads  = args['local_pads']
+
+        l_coeffs   =  args.pop('coeffs', None)
+        map_coeffs = args.pop('mapping', None)
+        mats = args['mats']
+
+        tests = l_pads.tests
+        trials = l_pads.trials
+
+        l_pads = self._visit(l_pads , **kwargs)
+        inits = []
+        for i,v in enumerate(tests):
+            for j,u in enumerate(trials):
+                test_ln = self._visit(lengths_tests[v], **kwargs)
+                trial_ln = self._visit(lengths_trials[u], **kwargs)
+                for stmt in zip(l_pads[i,j], test_ln, trial_ln):
+                    inits += [Assign(stmt[0], Max(*stmt[1:]))]
+
+        args = [*tests_basis, *trial_basis, *g_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *lengths, *g_pads]
+        if l_coeffs:
+            args += [*l_coeffs]
+        if map_coeffs:
+            args += [*map_coeffs]
+
+        args = [self._visit(i, **kwargs) for i in args]
         args = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in args]
         arguments = flatten(args)
-        mats = expr.mats
+
         if isinstance(mats[0], BlockMatrixNode):
             exprs     = [mat.expr for mat in mats]
             mats      = [self._visit(mat) for mat in mats]
@@ -399,7 +437,7 @@ class Parser(object):
             mats      = [self._visit(mat) for mat in mats]
         arguments = arguments + mats
         body = tuple(self._visit(i, **kwargs) for i in expr.body)
-        inits = []
+
         for k,i in self.shapes.items():
             var = self.variables[k]
             if var in arguments:
@@ -658,7 +696,7 @@ class Parser(object):
         for i in range(pads.shape[0]):
             for j in range(pads.shape[1]):
                 label1 = SymbolicExpr(tests[i]).name
-                label2 = SymbolicExpr(trials[i]).name
+                label2 = SymbolicExpr(trials[j]).name
                 names  = 'pad_{}_{}_1:{}'.format(label1, label2, str(dim+1))
                 targets = variables(names, dtype='int', cls=Idx)
                 pads[i,j] = Tuple(*targets)
