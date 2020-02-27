@@ -398,19 +398,19 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     l_mats  = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim)
     g_mats  = BlockStencilMatrixGlobalBasis(trials, tests, pads, terminal_expr, l_mats.tag)
 
-    q_basis_tests  = {v:d_tests[v]['array']  for v in tests}
-    q_basis_trials = {u:d_trials[u]['array'] for u in trials}
+    q_basis_tests  = OrderedDict((v,d_tests[v]['array'])  for v in tests)
+    q_basis_trials = OrderedDict((u,d_trials[u]['array']) for u in trials)
 
-    l_basis_tests  = {v:d_tests[v]['local']  for v in tests}
-    l_basis_trials = {u:d_trials[u]['local'] for u in trials}
+    l_basis_tests  = OrderedDict((v,d_tests[v]['local'])  for v in tests)
+    l_basis_trials = OrderedDict((u,d_trials[u]['local']) for u in trials)
 
-    g_basis_tests  = {v:d_tests[v]['global']  for v in tests}
-    g_basis_trials = {u:d_trials[u]['global'] for u in trials}
+    g_basis_tests  = OrderedDict((v,d_tests[v]['global'])  for v in tests)
+    g_basis_trials = OrderedDict((u,d_trials[u]['global']) for u in trials)
 
-    g_span          = {u:d_tests[u]['span'] for u in tests}
+    g_span          = OrderedDict((u,d_tests[u]['span']) for u in tests)
 
-    lengths_trials  = {u:LengthDofTrial(u) for u in trials}
-    lengths_tests   = {v:LengthDofTest(v) for v in tests}
+    lengths_trials  = OrderedDict((u,LengthDofTrial(u)) for u in trials)
+    lengths_tests   = OrderedDict((v,LengthDofTest(v)) for v in tests)
     # ...........................................................................................
     quad_length = LengthQuadrature()
     el_length   = LengthElement()
@@ -449,11 +449,11 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials,sub_tests, pads, sub_terminal_expr, l_mats.tag)
             if sub_terminal_expr.is_zero:
                 continue
-            q_basis_tests  = {v:d_tests[v]['array']  for v in sub_tests}
-            q_basis_trials = {u:d_trials[u]['array'] for u in sub_trials}
+            q_basis_tests  = OrderedDict((v,d_tests[v]['array'])  for v in sub_tests)
+            q_basis_trials = OrderedDict((u,d_trials[u]['array']) for u in sub_trials)
 
-            l_basis_tests  = {v:d_tests[v]['local']  for v in sub_tests}
-            l_basis_trials = {u:d_trials[u]['local'] for u in sub_trials}
+            l_basis_tests  = OrderedDict((v,d_tests[v]['local'])  for v in sub_tests)
+            l_basis_trials = OrderedDict((u,d_trials[u]['local']) for u in sub_trials)
 
             stmts = []
             for v in sub_tests+sub_trials:
