@@ -414,7 +414,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     # ...........................................................................................
     quad_length = LengthQuadrature()
     el_length   = LengthElement()
-    lengths     = [el_length,quad_length]
+    lengths     = [el_length, quad_length]
 
     ind_quad      = index_quad.set_length(quad_length)
     ind_element   = index_element.set_length(el_length)
@@ -495,7 +495,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     body = [Reduce('+', l_mats, g_mats, loop)]
     # ...
-    args = {}
+    args = OrderedDict()
     args['tests_basis']  = g_basis_tests.values()
     args['trial_basis']  = g_basis_trials.values()
 
@@ -509,13 +509,13 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     args['global_pads']  = pads
     args['local_pads']   = Pads(tests, trials)
 
-    if atomic_expr_field:
-        args['coeffs'] = l_coeffs
+    args['mats']  = [l_mats, g_mats]
 
     if eval_mapping:
         args['mapping'] = eval_mapping.coeffs
 
-    args['mats']  = [l_mats, g_mats]
+    if atomic_expr_field:
+        args['coeffs'] = l_coeffs
 
     local_vars = [*q_basis_tests, *q_basis_trials]
     stmt = DefNode('assembly', args, local_vars, body)
@@ -536,17 +536,17 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
 
     l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr)
     g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr,l_vecs.tag)
-    q_basis = {v:d_tests[v]['array']  for v in tests}
-    l_basis = {v:d_tests[v]['local']  for v in tests}
 
-    g_basis = {v:d_tests[v]['global']  for v in tests}
-    g_span  = {u:d_tests[u]['span'] for u in tests}
+    q_basis  = OrderedDict((v,d_tests[v]['array'])  for v in tests)
+    l_basis  = OrderedDict((v,d_tests[v]['local'])  for v in tests)
+    g_basis  = OrderedDict((v,d_tests[v]['global'])  for v in tests)
 
-    lengths         = []
+    g_span          = OrderedDict((v,d_tests[v]['span']) for v in tests)
+    lengths_tests   = OrderedDict((v,LengthDofTest(v)) for v in tests)
     # ...........................................................................................
     quad_length = LengthQuadrature()
     el_length   = LengthElement()
-    lengths    += [el_length,quad_length]
+    lengths     = [el_length,quad_length]
 
     ind_quad      = index_quad.set_length(quad_length)
     ind_element   = index_element.set_length(el_length)
@@ -595,8 +595,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     # ... loop over tests
         for v in l_basis:
             stmts    = [loop]
-            length   = LengthDofTest(v)
-            lengths += [length]
+            length   = lengths_tests[v]
 
             ind_dof_test = index_dof_test.set_length(length)
             loop  = Loop(l_basis[v], ind_dof_test, stmts)
@@ -612,18 +611,27 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     # ...
     body = (Reduce('+', l_vecs, g_vecs, loop),)
 
-    args  = [*g_basis, *g_span, g_quad]
-    args += [*lengths, *pads]    
+    args = OrderedDict()
+    args['tests_basis']  = g_basis.values()
+
+    args['spans'] = g_span.values()
+    args['quads'] = g_quad
+
+    args['tests_degrees'] = lengths_tests
+
+    args['quads_degree'] = lengths
+    args['global_pads']  = pads
+
+    args['mats']  = [l_vecs, g_vecs]
+
+    if eval_mapping:
+        args['mapping'] = eval_mapping.coeffs
 
     if atomic_expr_field:
-        args += [*l_coeffs]
-    if eval_mapping:
-        args+= [*eval_mapping.coeffs]
-
-    mats = [l_vecs, g_vecs]
+        args['coeffs'] = l_coeffs
 
     local_vars = [*q_basis]
-    stmt = DefNode('assembly', args, mats, local_vars, body)
+    stmt = DefNode('assembly', args, local_vars, body)
     # ...
 
     return stmt
@@ -645,10 +653,12 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
     l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr)
     g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr)
 
-    q_basis = {v:d_tests[v]['array']  for v in tests}
-    l_basis = {v:d_tests[v]['local']  for v in tests}
-    g_basis = {v:d_tests[v]['global']  for v in tests}
-    g_span  = {u:d_tests[u]['span'] for u in tests}
+    q_basis  = OrderedDict((v,d_tests[v]['array'])  for v in tests)
+    l_basis  = OrderedDict((v,d_tests[v]['local'])  for v in tests)
+    g_basis  = OrderedDict((v,d_tests[v]['global'])  for v in tests)
+    g_span          = OrderedDict((v,d_tests[v]['span']) for v in tests)
+    lengths_tests   = OrderedDict((v,LengthDofTest(v)) for v in tests)
+
 
     l_vec   = LocalElementBasis()
     g_vec   = GlobalElementBasis()
@@ -656,12 +666,11 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
     # ...........................................................................................
     quad_length = LengthQuadrature()
     el_length   = LengthElement()
-    test_length = LengthDofTest(tests[0])
-    lengths     = [el_length, quad_length, test_length]
+    lengths     = [el_length, quad_length]
 
     ind_quad      = index_quad.set_length(quad_length)
     ind_element   = index_element.set_length(el_length)
-    ind_dof_test  = index_dof_test.set_length(test_length)
+    ind_dof_test  = index_dof_test.set_length(lengths_tests[tests[0]])
     # ...........................................................................................
     eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], Mapping, geo, space, nderiv)
     eval_field   = EvalField(atomic_expr, ind_quad, q_basis[tests[0]], coeffs, tests, nderiv)
@@ -686,16 +695,26 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
 
     body = (Reduce('+', l_vec, g_vec, loop),)
 
-    args  = [*g_basis, *g_span, g_quad] 
-    args += [*lengths, *pads, *coeffs]
+    args = OrderedDict()
+    args['tests_basis']  = g_basis.values()
+
+    args['spans'] = g_span.values()
+    args['quads'] = g_quad
+
+    args['tests_degrees'] = lengths_tests
+
+    args['quads_degree'] = lengths
+    args['global_pads']  = pads
+
+    args['mats']  = [l_vecs, g_vecs]
 
     if eval_mapping:
-        args+= [*eval_mapping.coeffs]
+        args['mapping'] = eval_mapping.coeffs
 
-    mats = [l_vec, g_vec]
+    args['coeffs'] = coeffs
 
     local_vars = [*q_basis]
-    stmt = DefNode('assembly', args, mats, local_vars, body)
+    stmt = DefNode('assembly', args, local_vars, body)
     # ...
 
     return stmt
