@@ -763,7 +763,7 @@ class BlockStencilVectorLocalBasis(BlockMatrixNode):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
-        rank = 2*len(pads)
+        rank = len(pads)
         tag  = tag or random_string( 6 )
         obj  = Basic.__new__(cls, pads, rank, tag, expr)
         obj._tests  = tests
@@ -804,7 +804,7 @@ class BlockStencilVectorGlobalBasis(BlockMatrixNode):
             raise TypeError('Expecting an iterable')
 
         pads = Tuple(*pads)
-        rank = 2*len(pads)
+        rank = len(pads)
         tag  = tag or random_string( 6 )
         obj  = Basic.__new__(cls, pads, rank, tag, expr)
         obj._tests  = tests

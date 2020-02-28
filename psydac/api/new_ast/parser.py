@@ -421,19 +421,15 @@ class Parser(object):
 
         args = [*tests_basis, *trial_basis, *g_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *lengths, *g_pads]
 
-        if isinstance(mats[0], BlockMatrixNode):
-            exprs     = [mat.expr for mat in mats]
-            mats      = [self._visit(mat) for mat in mats]
-            mats      = [[a for a,e in zip(mat[:],expr[:]) if e] for mat,expr in zip(mats, exprs)]
-            mats      = flatten(mats)
-        else:
-            mats      = [self._visit(mat) for mat in mats]
+        exprs     = [mat.expr for mat in mats]
+
+        mats      = [self._visit(mat) for mat in mats]
+        mats      = [[a for a,e in zip(mat[:],expr[:]) if e] for mat,expr in zip(mats, exprs)]
+        mats      = flatten(mats)
 
         args = [self._visit(i, **kwargs) for i in args]
         args = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in args]
         arguments = flatten(args) + mats
-
-        arguments = arguments + mats
 
         if l_coeffs:
             arguments += [self._visit(i, **kwargs) for i in l_coeffs]
@@ -835,17 +831,17 @@ class Parser(object):
             rhs = self._visit(expr)
 
             pads    = self._visit(pads)
-            degrees = self._visit(index_dof_test.length)
-            spans   = self._visit_Span(Span(tests[0]))
-            spans   = flatten(*spans.values())
 
-            lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
             rhs_slices = [Slice(None, None)]*rank
 
+        
             for k in range(lhs.shape[0]):
                 if expr.expr[k,0]:
+                    spans   = self._visit_Span(Span(tests[k]))
+                    spans   = flatten(*spans.values())
                     degrees = self._visit_LengthDofTest(LengthDofTest(tests[k]))
                     lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
+                    lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
                     lhs_slices = [Slice(s, e) for s,e in zip(lhs_starts, lhs_ends)]
                     lhs[k,0] = lhs[k,0][lhs_slices]
                     rhs[k,0] = rhs[k,0][rhs_slices]
