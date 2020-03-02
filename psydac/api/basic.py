@@ -20,6 +20,9 @@ from psydac.api.ast.fem              import Interface
 from psydac.api.ast.glt              import GltKernel
 from psydac.api.ast.glt              import GltInterface
 
+from psydac.api.new_ast.fem  import AST
+from psydac.api.new_ast.parser import parse
+
 from psydac.api.printing.pycode      import pycode
 from psydac.api.essential_bc         import apply_essential_bc
 from psydac.api.settings             import PSYDAC_BACKEND_PYTHON, PSYDAC_DEFAULT_FOLDER
@@ -101,7 +104,6 @@ class BasicCodeGen(object):
         folder    = kwargs.pop('folder', None)
         comm      = kwargs.pop('comm', None)
         root      = kwargs.pop('root', None)
-        expr      = self.annotate(expr)
         # ...
         if not( comm is None):
             if root is None:
@@ -113,19 +115,11 @@ class BasicCodeGen(object):
             if comm.rank == root:
                 tag = random_string( 8 )
                 ast = self._create_ast( expr, tag, comm=comm, backend=backend, **kwargs )
-                interface = ast['interface']
-                max_nderiv = interface.max_nderiv
-                in_arguments = [str(a) for a in interface.in_arguments]
-                inout_arguments = [str(a) for a in interface.inout_arguments]
-                user_functions = interface.user_functions
+                max_nderiv = ast.nderiv
+                arguments  = ast.expr.arguments
 
             else:
-                interface = None
-                tag = None
-                max_nderiv = None
-                in_arguments = None
-                inout_arguments = None
-                user_functions = None
+                ast = None
 
             comm.Barrier()
             tag = comm.bcast( tag, root=root )
@@ -137,20 +131,14 @@ class BasicCodeGen(object):
         else:
             tag = random_string( 8 )
             ast = self._create_ast( expr, tag, backend=backend, **kwargs )
-            interface = ast['interface']
-            max_nderiv = interface.max_nderiv
-            interface_name = interface.name
-            in_arguments = [str(a) for a in interface.in_arguments]
-            inout_arguments = [str(a) for a in interface.inout_arguments]
-            user_functions = interface.user_functions
+            max_nderiv = ast.nderiv
+            arguments  = ast.expr.arguments
         # ...
-
-        # ...
+        user_functions = None
         self._expr = expr
         self._tag = tag
-        self._interface = interface
-        self._in_arguments = in_arguments
-        self._inout_arguments = inout_arguments
+        self._ast = ast
+        self._arguments = arguments
         self._user_functions = user_functions
         self._backend = backend
         self._folder = self._initialize_folder(folder)
@@ -158,44 +146,29 @@ class BasicCodeGen(object):
         self._root = root
         self._max_nderiv = max_nderiv
 
-        self._dependencies = None
-        self._dependencies_code = None
-        self._dependencies_fname = None
-        self._dependencies_modname = None
-
-        interface_name = 'interface_{}'.format(tag)
-        self._interface_name = interface_name
-        self._interface_code = None
-        self._interface_base_import_code = None
+        self._code = None
         self._func = None
+        self._dependencies_fname   = None
+        self._dependencies_modname = None
         # ...
 
         # ... when using user defined functions, there must be passed as
         #     arguments of discretize. here we create a dictionary where the key
         #     is the function name, and the value is a valid implementation.
-        if user_functions:
-            for f in user_functions:
-                if not hasattr(f, '_imp_'):
-                    # TODO raise appropriate error message
-                    raise ValueError('can not find {} implementation'.format(f))
-        # ...
+        # if user_functions:
+        #     for f in user_functions:
+        #         if not hasattr(f, '_imp_'):
+        #             # TODO raise appropriate error message
+        #             raise ValueError('can not find {} implementation'.format(f))
 
-        # generate python code as strings for dependencies
-        if not( interface is None ):
-            self._dependencies = interface.dependencies
-            self._dependencies_code = self._generate_code()
-
-        if not( interface is None ):
-            # save dependencies code
+        if ast:
+            self._code = self._generate_code()
             self._save_code()
 
             if self.backend['name'] == 'pyccel':
                 self._compile_pyccel(namespace)
             elif self.backend['name'] == 'pythran':
                 self._compile_pythran(namespace)
-
-            # generate code for Python interface
-            self._generate_interface_code()
 
             # compile code
             self._compile(namespace)
@@ -226,48 +199,20 @@ class BasicCodeGen(object):
         return self._tag
 
     @property
-    def in_arguments(self):
-        return self._in_arguments
-
-    @property
-    def inout_arguments(self):
-        return self._inout_arguments
+    def arguments(self):
+        return self._arguments
 
     @property
     def user_functions(self):
         return self._user_functions
 
     @property
-    def interface(self):
-        return self._interface
+    def ast(self):
+        return self._ast
 
     @property
-    def dependencies(self):
-        return self._dependencies
-
-    @property
-    def interface_name(self):
-        return self._interface_name
-
-    @property
-    def interface_code(self):
+    def code(self):
         return self._interface_code
-
-    @property
-    def interface_base_import_code(self):
-        return self._interface_base_import_code
-
-    @property
-    def dependencies_code(self):
-        return self._dependencies_code
-
-    @property
-    def dependencies_fname(self):
-        return self._dependencies_fname
-
-    @property
-    def dependencies_modname(self):
-        return self._dependencies_modname
 
     @property
     def func(self):
@@ -288,6 +233,14 @@ class BasicCodeGen(object):
     @property
     def folder(self):
         return self._folder
+
+    @property
+    def dependencies_fname(self):
+        return self._dependencies_fname
+
+    @property
+    def dependencies_modname(self):
+        return self._dependencies_modname
 
     def _create_ast(self, **kwargs):
         raise NotImplementedError('Must be implemented')
@@ -326,59 +279,24 @@ class BasicCodeGen(object):
         elif self.backend['name'] == 'numba':
             code = 'from numba import jit'
 
-        imports = '\n'.join(pycode(imp) for dep in self.dependencies for imp in dep.imports )
+        ast = self.ast
+        expr = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping':ast.mapping})
 
-        code = '{code}\n{imports}'.format(code=code, imports=imports)
+        code = '{code}\n{dep}'.format(code=code, dep=pycode(expr))
 
-        # ... add user defined functions
-        if self.user_functions:
-            for func in self.user_functions:
-                func_code = get_source_function(func._imp_)
-                code = '{code}\n{func_code}'.format(code=code, func_code=func_code)
-        # ...
-
-        for dep in self.dependencies:
-            code = '{code}\n{dep}'.format(code=code, dep=pycode(dep))
-        # ...
         return code
 
     def _save_code(self):
         # ...
-        code = self.dependencies_code
+        code = self._code
         module_name = 'dependencies_{}'.format(self.tag)
 
         self._dependencies_fname = '{}.py'.format(module_name)
-        write_code(self.dependencies_fname, code, folder = self.folder)
+        write_code(self._dependencies_fname, code, folder = self.folder)
         # ...
 
         # TODO check this? since we are using relative paths now
         self._dependencies_modname = module_name.replace('/', '.')
-
-    def _generate_interface_code(self):
-        imports = []
-        prefix = ''
-
-        module_name = self.dependencies_modname
-
-        # ...
-        if self.backend['name'] == 'pyccel':
-            imports += [self.interface_base_import_code]
-
-        else:
-            # ... generate imports from dependencies module
-            pattern = 'from {module} import {dep}'
-
-            for dep in self.dependencies:
-                txt = pattern.format(module=module_name, dep=dep.name)
-                imports.append(txt)
-            # ...
-        # ...
-
-        imports = '\n'.join(imports)
-
-        code = pycode(self.interface)
-
-        self._interface_code = '{imports}\n{code}'.format(imports=imports, code=code)
 
     def _compile_pythran(self, namespace):
 
@@ -406,11 +324,9 @@ class BasicCodeGen(object):
         _PYCCEL_FOLDER = self.backend['folder']
         # ...
 
-        # ...
         basedir = os.getcwd()
         os.chdir(self.folder)
         curdir = os.getcwd()
-        # ...
 
         # ...
         sys.path.append(self.folder)
@@ -432,7 +348,6 @@ class BasicCodeGen(object):
                 functions.append(name)
         # ...
 
-        # ...
         # update module name for dependencies
         # needed for interface when importing assembly
         name = os.path.join(_PYCCEL_FOLDER, f2py_module.__name__)
@@ -452,65 +367,16 @@ class BasicCodeGen(object):
     def _compile(self, namespace):
 
         module_name = self.dependencies_modname
+        self._set_func(module_name, self.ast.expr.name)
 
-        # ... TODO move to save
-        code = self.interface_code
-        interface_module_name = 'interface_{}'.format(self.tag)
-        fname = '{}.py'.format(interface_module_name)
-        fname = write_code(fname, code, folder = self.folder)
-        # ...
-
-        self._set_func(interface_module_name, self.interface_name)
-
-    def _set_func(self, interface_module_name, interface_name):
+    def _set_func(self, module_name, name):
         # ...
         sys.path.append(self.folder)
-        package = importlib.import_module( interface_module_name )
+        package = importlib.import_module( module_name )
         sys.path.remove(self.folder)
         # ...
 
-        self._func = getattr(package, interface_name)
-
-    def _check_arguments(self, **kwargs):
-
-        # TODO do we need a method from Interface to map the dictionary of arguments
-        # that are passed for the call (in the same spirit of build_arguments)
-        # the idea is to be sure of their order, since they can be passed to
-        # Fortran
-
-        _kwargs = {}
-
-        # ... mandatory arguments
-        for key in self.in_arguments:
-            try:
-                _kwargs[key] = kwargs[key]
-            except:
-                raise KeyError('Unconsistent argument with interface')
-        # ...
-
-        # ... optional (inout) arguments
-        for key in self.inout_arguments:
-            try:
-                _kwargs[key] = kwargs[key]
-            except:
-                pass
-        # ...
-
-        return _kwargs
-
-    def annotate(self, expr):
-    
-        if isinstance(expr, BasicForm):   
-            if not expr.is_annotated:
-                expr = expr.annotate()
-                
-        elif isinstance(expr, GltExpr):
-            form = expr.form
-            form = form.annotate()
-            expr = GltExpr(form)
-        return expr
-        
-
+        self._func = getattr(package, name)
 
 #==============================================================================
 class BasicDiscrete(BasicCodeGen):
@@ -554,11 +420,9 @@ class BasicDiscrete(BasicCodeGen):
         kwargs['boundary_basis'] = boundary_basis
         # ...
 
-        # ...
         kwargs['kernel_expr'] = kernel_expr
         # ...
 
-        # ...
         BasicCodeGen.__init__(self, expr, **kwargs)
         # ...
 
@@ -588,45 +452,11 @@ class BasicDiscrete(BasicCodeGen):
         return self._max_nderiv
 
     def _create_ast(self, expr, tag, **kwargs):
-        kernel_expr         = kwargs.pop('kernel_expr', None)
-        target              = kwargs.pop('target', None)
         mapping             = kwargs.pop('mapping', None)
         is_rational_mapping = kwargs.pop('is_rational_mapping', None)
         boundary            = kwargs.pop('boundary', None)
         boundary_basis      = kwargs.pop('boundary_basis', None)
-        backend             = kwargs.pop('backend', PSYDAC_BACKEND_PYTHON)
         discrete_space      = kwargs.pop('discrete_space', None)
-        symbolic_space      = kwargs.pop('symbolic_space', None)
         comm                = kwargs.pop('comm', None)
 
-        if kernel_expr is None:
-            raise ValueError('kernel_expr must be given')
-
-        kernel = Kernel( expr, kernel_expr,
-                         name                = 'kernel_{}'.format(tag),
-                         target              = target,
-                         mapping             = mapping,
-                         is_rational_mapping = is_rational_mapping,
-                         boundary            = boundary,
-                         boundary_basis      = boundary_basis,
-                         symbolic_space      = symbolic_space,
-                         backend = backend )
-
-        assembly = Assembly( kernel,
-                             name           = 'assembly_{}'.format(tag),
-                             mapping        = mapping,
-                             is_rational_mapping = is_rational_mapping,
-                             discrete_space = discrete_space,
-                             comm           = comm,
-                             backend = backend )
-
-        interface = Interface( assembly,
-                               name                = 'interface_{}'.format(tag),
-                               mapping             = mapping,
-                               is_rational_mapping = is_rational_mapping,
-                               backend             = backend,
-                               discrete_space      = discrete_space,
-                               comm                = comm )
-
-        ast = {'kernel': kernel, 'assembly': assembly, 'interface': interface}
-        return ast
+        return AST(expr, discrete_space, mapping, is_rational_mapping, tag)

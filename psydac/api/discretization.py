@@ -493,6 +493,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     # add symbolic_mapping as a member to the space object
     setattr(Vh, 'symbolic_mapping', symbolic_mapping)
+    setattr(Vh, 'symbolic_space', V)
     
 
     return Vh
@@ -516,8 +517,6 @@ def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
 def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BasicForm):
-        if not a.is_annotated:
-            a = a.annotate()
         kernel_expr = TerminalExpr(a)
 #        print('=================')
 #        print(kernel_expr)

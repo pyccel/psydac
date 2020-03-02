@@ -141,7 +141,6 @@ class DiscreteLinearForm(BasicDiscrete):
 
         assert( len(args) == 2 )
 
-        # ...
         domain_h = args[0]
         assert( isinstance(domain_h, Geometry) )
 
@@ -153,11 +152,8 @@ class DiscreteLinearForm(BasicDiscrete):
             is_rational_mapping = isinstance( mapping, NurbsMapping )
 
         self._is_rational_mapping = is_rational_mapping
-        # ...
 
-        # ...
         self._space = args[1]
-        # ...
 
         kwargs['discrete_space']      = self.space
         kwargs['mapping']             = self.space.symbolic_mapping
@@ -177,7 +173,6 @@ class DiscreteLinearForm(BasicDiscrete):
         boundary   = kwargs.pop('boundary',   None)
         # ...
 
-        # ...
         if boundary is None:
             self._grid = QuadratureGrid( self.space, quad_order = quad_order )
 
@@ -187,14 +182,9 @@ class DiscreteLinearForm(BasicDiscrete):
                                                  boundary.axis,
                                                  boundary.ext,
                                                  quad_order = quad_order )
-        # ...
 
-        # ...
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv )
-
-        # ...
-
     @property
     def space(self):
         return self._space
@@ -238,11 +228,8 @@ class DiscreteFunctional(BasicDiscrete):
             is_rational_mapping = isinstance( mapping, NurbsMapping )
 
         self._is_rational_mapping = is_rational_mapping
-        # ...
 
-        # ...
         self._space = args[1]
-        # ...
 
         kwargs['discrete_space']      = self.space
         kwargs['mapping']             = self.space.symbolic_mapping
@@ -256,7 +243,6 @@ class DiscreteFunctional(BasicDiscrete):
         boundary   = kwargs.pop('boundary',   None)
         # ...
 
-        # ...
         if boundary is None:
             self._grid = QuadratureGrid( self.space, quad_order = quad_order )
 
@@ -265,12 +251,10 @@ class DiscreteFunctional(BasicDiscrete):
                                                  boundary.axis,
                                                  boundary.ext,
                                                  quad_order = quad_order )
-        # ...
 
         # ...
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv )
-        # ...
 
     @property
     def space(self):
@@ -299,7 +283,7 @@ class DiscreteFunctional(BasicDiscrete):
 #        sys.path.append(self.folder)
 #        from interface_pt3xujb5 import  interface_pt3xujb5
 #        sys.path.remove(self.folder)
-#        v = interface_pt3xujb5(*newargs, **kwargs)
+#        return interface_pt3xujb5(*newargs, **kwargs)
 #        # ...
 
         # case of a norm

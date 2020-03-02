@@ -60,6 +60,7 @@ from sympde.expr import LinearForm
 from sympde.expr import BilinearForm
 from sympde.expr import Functional
 
+from sympde.topology             import Mapping
 from sympde.topology             import H1SpaceType, HcurlSpaceType
 from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology             import element_of
@@ -224,7 +225,7 @@ class DefNode(Basic):
 class AST(object):
     """
     """
-    def __init__(self, expr, spaces, Mapping):
+    def __init__(self, expr, spaces, mapping, is_rational_mapping, tag=None):
         # ... compute terminal expr
         # TODO check that we have one single domain/interface/boundary
 
@@ -234,7 +235,6 @@ class AST(object):
         tests         = []
         trials        = []
         # ...
-
         terminal_expr = TerminalExpr(expr)
         domain        = terminal_expr[0].target
         terminal_expr = terminal_expr[0].expr
@@ -243,18 +243,27 @@ class AST(object):
         if isinstance(expr, LinearForm):
             is_linear = True
             tests     = expr.test_functions
+            spaces    = spaces.symbolic_space
+            if mapping is None:
+                mapping =  Mapping('M', spaces.domain.dim)
 
         elif isinstance(expr, BilinearForm):
             is_bilinear = True
             tests       = expr.test_functions
             trials      = expr.trial_functions
+            spaces      = [V.symbolic_space for V in spaces]
+            if mapping is None:
+                mapping =  Mapping('M', spaces[0].domain.dim)
 
         elif isinstance(expr, Functional):
             is_functional = True
             fields = tuple(expr.atoms(ScalarTestFunction, VectorTestFunction))
             assert len(fields) == 1
-            tests = fields[0]
-            tests = Tuple(tests)
+            tests  = fields[0]
+            tests  = Tuple(tests)
+            spaces = spaces.symbolic_space
+            if mapping is None:
+                mapping =  Mapping('M', spaces.domain.dim)
         else:
             raise NotImplementedError('TODO')
 
@@ -339,27 +348,28 @@ class AST(object):
             ast = _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, 
                                           tests, d_tests, shapes_tests,
                                           nderiv, domain.dim, 
-                                          Mapping, spaces)
+                                          mapping, spaces, tag)
 
         elif is_bilinear:
             ast = _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
                                             tests, d_tests, shapes_tests,
                                             trials, d_trials, shapes_trials,
                                             nderiv, domain.dim, 
-                                            Mapping, spaces)
+                                            mapping, spaces, tag)
 
         elif is_functional:
             ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
                                               tests, d_tests, shapes_tests,
                                               nderiv, domain.dim, 
-                                              Mapping, spaces)
+                                              mapping, spaces, tag)
         else:
             raise NotImplementedError('TODO')
         # ...
 
-        self._expr   = ast
-        self._nderiv = nderiv
-        self._domain = domain
+        self._expr    = ast
+        self._nderiv  = nderiv
+        self._domain  = domain
+        self._mapping = mapping
 
     @property
     def expr(self):
@@ -374,6 +384,10 @@ class AST(object):
         return self._domain
 
     @property
+    def mapping(self):
+        return self._mapping
+
+    @property
     def dim(self):
         return self.domain.dim
 #==============================================================================
@@ -383,7 +397,7 @@ class AST(object):
 def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
                               tests, d_tests, shapes_tests,
                               trials, d_trials, shapes_trials,
-                              nderiv, dim, Mapping, spaces):
+                              nderiv, dim, mapping, spaces, tag):
     """
     """
 
@@ -393,9 +407,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     #TODO should we use tests or trials for fields
     coeffs   = [CoefficientBasis(i) for i in tests]
     l_coeffs = [MatrixLocalBasis(i) for i in tests]
-    geo      = GeometryExpressions(Mapping, nderiv)
+    geo      = GeometryExpressions(mapping, nderiv)
 
-    l_mats  = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim)
+    l_mats  = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim, tag)
     g_mats  = BlockStencilMatrixGlobalBasis(trials, tests, pads, terminal_expr, l_mats.tag)
 
     q_basis_tests  = OrderedDict((v,d_tests[v]['array'])  for v in tests)
@@ -420,7 +434,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     ind_element   = index_element.set_length(el_length)
     ind_dof_trial = index_dof_trial.set_length(LengthDofTrial(trials[0]))
     # ...........................................................................................
-    eval_mapping = EvalMapping(ind_quad, ind_dof_trial, q_basis_trials[trials[0]], l_basis_trials[trials[0]], Mapping, geo, spaces[1], nderiv)
+    eval_mapping = EvalMapping(ind_quad, ind_dof_trial, q_basis_trials[trials[0]], l_basis_trials[trials[0]], mapping, geo, spaces[1], nderiv)
 
     if atomic_expr_field:
         eval_field   = EvalField(atomic_expr_field, ind_quad, q_basis_trials[trials[0]], coeff, trials, nderiv)
@@ -518,12 +532,12 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
         args['coeffs'] = l_coeffs
 
     local_vars = [*q_basis_tests, *q_basis_trials]
-    stmt = DefNode('assembly', args, local_vars, body)
+    stmt = DefNode('assembly_'+l_mats.tag, args, local_vars, body)
 
     return stmt
 
 #================================================================================================================================
-def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, shapes_tests, nderiv, dim, Mapping, space):
+def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, shapes_tests, nderiv, dim, mapping, space, tag):
     """
     """
     pads   = symbols('pad1, pad2, pad3')[:dim]
@@ -532,9 +546,9 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
 
     coeffs   = [CoefficientBasis(i) for i in tests]
     l_coeffs = [MatrixLocalBasis(i) for i in tests]
-    geo      = GeometryExpressions(Mapping, nderiv)
+    geo      = GeometryExpressions(mapping, nderiv)
 
-    l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr)
+    l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr, tag)
     g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr,l_vecs.tag)
 
     q_basis  = OrderedDict((v,d_tests[v]['array'])  for v in tests)
@@ -552,7 +566,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     ind_element   = index_element.set_length(el_length)
     ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0]))
     # ...........................................................................................
-    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], Mapping, geo, space, nderiv)
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], mapping, geo, space, nderiv)
 
     if atomic_expr_field:
         eval_field   = EvalField(atomic_expr_field, ind_quad, q_basis, coeff, tests, nderiv)
@@ -631,13 +645,13 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         args['coeffs'] = l_coeffs
 
     local_vars = [*q_basis]
-    stmt = DefNode('assembly', args, local_vars, body)
+    stmt = DefNode('assembly_'+l_vecs.tag, args, local_vars, body)
     # ...
 
     return stmt
 
 #================================================================================================================================
-def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shapes_tests, nderiv, dim, Mapping, space):
+def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shapes_tests, nderiv, dim, mapping, space, tag):
     """
     """
 
@@ -648,17 +662,16 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
     #TODO should we use tests or trials for fields
     coeffs   = [CoefficientBasis(i) for i in tests]
     l_coeffs = [MatrixLocalBasis(i) for i in tests]
-    geo      = GeometryExpressions(Mapping, nderiv)
+    geo      = GeometryExpressions(mapping, nderiv)
 
-    l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr)
-    g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr)
+    l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr, tag)
+    g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr, l_vecs.tag)
 
     q_basis  = OrderedDict((v,d_tests[v]['array'])  for v in tests)
     l_basis  = OrderedDict((v,d_tests[v]['local'])  for v in tests)
     g_basis  = OrderedDict((v,d_tests[v]['global'])  for v in tests)
     g_span          = OrderedDict((v,d_tests[v]['span']) for v in tests)
     lengths_tests   = OrderedDict((v,LengthDofTest(v)) for v in tests)
-
 
     l_vec   = LocalElementBasis()
     g_vec   = GlobalElementBasis()
@@ -672,7 +685,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
     ind_element   = index_element.set_length(el_length)
     ind_dof_test  = index_dof_test.set_length(lengths_tests[tests[0]])
     # ...........................................................................................
-    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], Mapping, geo, space, nderiv)
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], mapping, geo, space, nderiv)
     eval_field   = EvalField(atomic_expr, ind_quad, q_basis[tests[0]], coeffs, tests, nderiv)
 
     #=========================================================begin kernel======================================================
@@ -714,7 +727,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
     args['coeffs'] = coeffs
 
     local_vars = [*q_basis]
-    stmt = DefNode('assembly', args, local_vars, body)
+    stmt = DefNode('assembly_'+l_vecs.tag, args, local_vars, body)
     # ...
 
     return stmt

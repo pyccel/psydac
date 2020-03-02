@@ -18,6 +18,7 @@ from sympde.expr     import Norm
 
 from psydac.api.new_ast.fem  import AST
 from psydac.api.new_ast.parser import parse
+from psydac.api.discretization import discretize
 
 from pyccel.codegen.printing.pycode import pycode
 
@@ -32,21 +33,21 @@ x,y    = symbols('x, y')
 b     = BilinearForm((u,v), integral(domain, dot(grad(u), grad(v))))
 l     = LinearForm(v, integral(domain, v*cos(x)))
 
+# Create computational domain from topological domain
+domain_h = discretize(domain, ncells=[3,3])
+
+# Discrete spaces
+Vh = discretize(V, domain_h, degree=[2,2])
+
+
 error  = u - cos(x)*sin(x)
 l2norm = Norm(error, domain, kind='l2')
 h1norm = Norm(error, domain, kind='h1')
 
-print('============================================Norm===========================================')
-ast_norm = AST(h1norm,V, M)
-stmt_n = parse(ast_norm.expr, settings={'dim': ast_norm.dim, 'nderiv': ast_norm.nderiv, 'mapping':M})
-print(pycode(stmt_n))
+# Discretize forms
 
-print('============================================LinearForm===========================================')
-ast_l    = AST(l, V,M)
-stmt_l = parse(ast_l.expr, settings={'dim': ast_l.dim, 'nderiv': ast_l.nderiv, 'mapping':M})
-print(pycode(stmt_l))
+b_h      = discretize(b, domain_h, [Vh, Vh])
+l_h      = discretize(l, domain_h, Vh)
 
-print('============================================BilinearForm=========================================')
-ast_b    = AST(b, [V,V], M)
-stmt_b = parse(ast_b.expr, settings={'dim': ast_b.dim, 'nderiv': ast_b.nderiv, 'mapping':M})
-print(pycode(stmt_b))
+l2norm_h = discretize(l2norm, domain_h, Vh)
+h1norm_h = discretize(h1norm, domain_h, Vh)
