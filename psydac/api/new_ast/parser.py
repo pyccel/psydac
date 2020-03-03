@@ -75,7 +75,6 @@ from .nodes import ComputeLogical
 from .nodes import ElementOf
 from .nodes import LengthDofTest
 
-
 from .nodes import index_quad
 from .nodes import index_dof, index_dof_test, index_dof_trial
 from .nodes import index_element
@@ -84,6 +83,7 @@ from .nodes import index_deriv
 from .fem import Block
 from .fem import get_length, expand
 from psydac.api.ast.utilities import variables
+from psydac.api.utilities     import flatten
 from numpy import array
 from sympy import Max
 
@@ -97,25 +97,6 @@ def random_string( n ):
     chars    = string.ascii_lowercase + string.digits
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
-
-
-def flatten(args):
-    ls = []
-    def rec_flatten(args, ls):
-        if isinstance(args, (list, tuple, Tuple)):
-            for i in args:
-                rec_flatten(i,ls)
-        else:
-            ls.append(args)
-    rec_flatten(args, ls)
-
-    if isinstance(args, tuple):
-        return tuple(ls)
-    elif isinstance(args, Tuple):
-        return Tuple(*ls)
-    else:
-        return ls
-
 
 def is_scalar_array(var):
     indices = var.indices

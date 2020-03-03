@@ -30,6 +30,7 @@ from psydac.api.ast.fem         import Interface
 from psydac.api.ast.glt         import GltKernel
 from psydac.api.ast.glt         import GltInterface
 from psydac.api.glt             import DiscreteGltExpr
+from psydac.api.utilities        import flatten
 
 from psydac.linalg.stencil      import StencilVector, StencilMatrix
 from psydac.cad.geometry        import Geometry
@@ -106,6 +107,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                                         nderiv = self.max_nderiv )
         self._trial_basis = BasisValues( trial_space, self.grid,
                                          nderiv = self.max_nderiv )
+        #self._args = self.construct_arguments()
 
     @property
     def spaces(self):
@@ -123,6 +125,10 @@ class DiscreteBilinearForm(BasicDiscrete):
     def trial_basis(self):
         return self._trial_basis
 
+    @property
+    def args(self):
+        return self._args
+
     def assemble(self, **kwargs):
         newargs = tuple(self.spaces) + (self.grid, self.test_basis, self.trial_basis)
         if self.mapping:
@@ -132,6 +138,24 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         return self.func(*newargs, **kwargs)
 
+    def construct_arguments(self):
+        tests_basis = flatten(self.test_basis.basis)
+        trial_basis = flatten(self.trial_basis.basis)
+        spans = flatten(self.test_basis.spans)
+        points = self.grid.points
+        weights = self.grid.weights
+        quads   = flatten(list(zip(points, weights)))
+        tests_degrees = flatten(self.spaces[1].degree)
+        trials_degrees = flatten(self.spaces[0].degree)
+        quads_degree = flatten(self.grid.quad_order)
+        global_pads = self.spaces[0].vector_space.pads
+        mats = allocate_matrices(self.spaces)
+        mapping = self.mapping
+        args = (tests_basis, trial_basis, spans, quads, tests_degrees, trials_degrees, quads_degree, global_pads, mats, mapping)
+        return args
+
+def allocate_matrices(spaces, expr):
+    pass
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
 

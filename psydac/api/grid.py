@@ -114,9 +114,9 @@ class QuadratureGrid():
         if isinstance(V, ProductFemSpace):
             quad_order = np.array([v.degree for v in V.spaces])
             quad_order = tuple(quad_order.max(axis=0))
-            V = V.spaces[0] 
+            V = V.spaces[0]
 
-        quad_grid = create_fem_assembly_grid( V, quad_order=quad_order )
+        quad_grid                 = create_fem_assembly_grid( V, quad_order=quad_order )
         self._fem_grid            = quad_grid
         self._n_elements          = [g.num_elements        for g in quad_grid]
         self._local_element_start = [g.local_element_start for g in quad_grid]
@@ -203,11 +203,7 @@ class BoundaryQuadratureGrid(QuadratureGrid):
 
 #==============================================================================
 def create_fem_assembly_grid(V, quad_order=None, nderiv=1):
-    if isinstance(V, ProductFemSpace):
-        quad_order = np.array([v.degree for v in V.spaces])
-        quad_order = tuple(quad_order.max(axis=0))
-        return [create_fem_assembly_grid(space,quad_order,nderiv) for space in V.spaces]
-    # ...
+
     if not( quad_order is None ):
         if isinstance( quad_order, int ):
             quad_order = [quad_order for i in range(V.ldim)]
@@ -227,47 +223,42 @@ def create_fem_assembly_grid(V, quad_order=None, nderiv=1):
 
     else:
         nderiv = [1 for i in range(V.ldim)]
-    # ...
 
-    return [FemAssemblyGrid(W, s, e, normalize=W.normalize, quad_order=n, nderiv=d )
-            for W,s,e,n,d in zip( V.spaces,
-                                  V.vector_space.starts, V.vector_space.ends,
-                                  quad_order, nderiv ) ]
+    grid = []
+    for W,s,e,n,d in zip( V.spaces, V.vector_space.starts, V.vector_space.ends, quad_order, nderiv ):
+        grid += [FemAssemblyGrid(W, s, e, normalize=W.normalize, quad_order=n, nderiv=d )]
 
+    return grid
 
 #==============================================================================
 class BasisValues():
     def __init__( self, V, grid, nderiv ):
         assert( isinstance( grid, QuadratureGrid ) )
 
-        # TODO quad_order in FemAssemblyGrid must be be the order and not the
-        # degree
         quad_order = [q-1 for q in grid.quad_order]
-        global_quad_grid = create_fem_assembly_grid( V,
-                                              quad_order=quad_order,
-                                              nderiv=nderiv )
 
         if isinstance(V, ProductFemSpace):
-            self._spans = [[g.spans for g in quad_grid] for quad_grid in global_quad_grid]
-            self._basis = [[g.basis for g in quad_grid] for quad_grid in global_quad_grid]
+            V = V.spaces
         else:
-            self._spans = [g.spans for g in global_quad_grid]
-            self._basis = [g.basis for g in global_quad_grid]
+            V = [V]
 
-        # Modify data for boundary grid
+        spans = []
+        basis = []
+        for Vi in V:
+            quad_grid = create_fem_assembly_grid( Vi, quad_order=quad_order, nderiv=nderiv )
+            spans += [[g.spans for g in quad_grid]]
+            basis += [[g.basis for g in quad_grid]]
+
+        self._spans = spans
+        self._basis = basis
+
         if isinstance(grid, BoundaryQuadratureGrid):
             axis = grid.axis
-            if isinstance(V, ProductFemSpace):
-                for i in range(len(V.spaces)):
-                    sp_space = V.spaces[i].spaces[axis]
-                    points = grid.points[axis]
-                    boundary_basis = basis_ders_on_quad_grid(sp_space.knots, sp_space.degree, points, nderiv)
-                    self._basis[i][axis][0:1, :, :, 0:1] = boundary_basis
-            else:
-                sp_space = V.spaces[axis]
+            for i,Vi in enumerate(V):
+                space  = Vi.spaces[axis]
                 points = grid.points[axis]
-                boundary_basis = basis_ders_on_quad_grid(sp_space.knots, sp_space.degree, points, nderiv)
-                self._basis[axis][0:1, :, :, 0:1] = boundary_basis
+                boundary_basis = basis_ders_on_quad_grid(space.knots, space.degree, points, nderiv)
+                self._basis[i][axis][0:1, :, :, 0:1] = boundary_basis
 
     @property
     def basis(self):

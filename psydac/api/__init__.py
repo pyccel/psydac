@@ -9,4 +9,5 @@ from psydac.api import glt
 from psydac.api import grid
 from psydac.api import printing
 from psydac.api import settings
+from psydac.api import utilities
 

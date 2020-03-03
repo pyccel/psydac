@@ -139,7 +139,6 @@ class TensorFemSpace( FemSpace ):
 
         bases = []
         index = []
-            
 
         for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
 
