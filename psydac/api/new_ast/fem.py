@@ -432,9 +432,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     ind_quad      = index_quad.set_length(quad_length)
     ind_element   = index_element.set_length(el_length)
-    ind_dof_trial = index_dof_trial.set_length(LengthDofTrial(trials[0]))
+    ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0]))
     # ...........................................................................................
-    eval_mapping = EvalMapping(ind_quad, ind_dof_trial, q_basis_trials[trials[0]], l_basis_trials[trials[0]], mapping, geo, spaces[1], nderiv)
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis_tests[tests[0]], l_basis_tests[tests[0]], mapping, geo, spaces[1], nderiv)
 
     if atomic_expr_field:
         eval_field   = EvalField(atomic_expr_field, ind_quad, q_basis_trials[trials[0]], coeff, trials, nderiv)

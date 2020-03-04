@@ -192,39 +192,48 @@ class EvalMapping(BaseNode):
         target = basis.target
         if isinstance(target, VectorTestFunction):
             target = target[0]
-            #TODO improve how should we do the eval mapping when it's a VectorTestFunction
+
         new_atoms  = []
         nodes      = []
         l_coeffs   = set()
+        g_coeffs   = set()
+        values     = set()
         for a in atoms:
             atom   = get_atom_logical_derivatives(a)
             node   = a.subs(atom, target)
             new_atoms.append(atom)
             nodes.append(node)
-#            if isinstance(node, Matrix):
-#                nodes += [*node[:]]
-#            else:
-#                nodes.append(node)
 
         stmts = [ComputeLogicalBasis(v,) for v in set(nodes)]
         for i in range(len(atoms)):
-            l_coeffs.add(MatrixLocalBasis(new_atoms[i]))
             node    = AtomicNode(nodes[i])
             val     = ProductGenerator(MatrixQuadrature(atoms[i]), quads)
             rhs     = Mul(CoefficientBasis(new_atoms[i]),node)
             stmts  += [AugAssign(val, '+', rhs)]
+            l_coeffs.add(MatrixLocalBasis(new_atoms[i]))
+            g_coeffs.add(MatrixGlobalBasis(new_atoms[i], target))
+            values.add(val)
 
-        loop   = Loop((q_basis, *l_coeffs), quads, stmts)
-        loop   = Loop(l_basis, indices_basis, [loop])
+        loop   = Loop(q_basis, quads, stmts)
+        loop   = Loop((l_basis, *l_coeffs), indices_basis, [loop])
 
-        return Basic.__new__(cls, loop, l_coeffs)
+        return Basic.__new__(cls, loop, l_coeffs, g_coeffs, values)
 
     @property
     def loop(self):
         return self._args[0]
+
+    @property
+    def local_coeffs(self):
+        return self._args[1]
+
     @property
     def coeffs(self):
-        return self._args[1]
+        return self._args[2]
+
+    @property
+    def values(self):
+        return self._args[3]
 #==============================================================================
 class IteratorBase(BaseNode):
     """
@@ -522,6 +531,23 @@ class TensorQuadratureTrialBasis(TensorQuadratureBasis):
 class TensorTrialBasis(TensorBasis):
     pass
 
+class MatrixGlobalBasis(MatrixNode):
+    """
+    used to describe global dof
+    """
+    _rank = rank_dim
+
+    def __new__(cls, target, test):
+        # TODO check target
+        return Basic.__new__(cls, target, test)
+
+    @property
+    def target(self):
+        return self._args[0]
+
+    @property
+    def test(self):
+        return self._args[1]
 #==============================================================================
 class MatrixLocalBasis(MatrixNode):
     """

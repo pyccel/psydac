@@ -37,6 +37,8 @@ from psydac.cad.geometry        import Geometry
 from psydac.mapping.discrete    import SplineMapping, NurbsMapping
 from psydac.fem.vector          import ProductFemSpace
 
+from collections import OrderedDict
+from sympy import Matrix
 import inspect
 import sys
 import numpy as np
@@ -107,7 +109,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                                         nderiv = self.max_nderiv )
         self._trial_basis = BasisValues( trial_space, self.grid,
                                          nderiv = self.max_nderiv )
-        #self._args = self.construct_arguments()
+        self._args = self.construct_arguments()
 
     @property
     def spaces(self):
@@ -149,13 +151,34 @@ class DiscreteBilinearForm(BasicDiscrete):
         trials_degrees = flatten(self.spaces[0].degree)
         quads_degree = flatten(self.grid.quad_order)
         global_pads = self.spaces[0].vector_space.pads
-        mats = allocate_matrices(self.spaces)
+        mats = self.allocate_matrices()
         mapping = self.mapping
-        args = (tests_basis, trial_basis, spans, quads, tests_degrees, trials_degrees, quads_degree, global_pads, mats, mapping)
+        args = (*tests_basis, *trial_basis, *spans, *quads, *tests_degrees, *trials_degrees, *quads_degree, *global_pads, *mats, mapping)
         return args
 
-def allocate_matrices(spaces, expr):
-    pass
+    def allocate_matrices(self):
+        spaces = self.spaces
+        expr   = self.kernel_expr
+        global_mats = OrderedDict()
+        local_mats  = OrderedDict()
+        test_space  = spaces[1].vector_space
+        trial_space = spaces[0].vector_space
+        test_degree = np.array(spaces[1].degree)
+        trial_degree = np.array(spaces[0].degree)
+        pads  = np.block([[*test_degree],[*trial_degree]]).max(axis=0).reshape(test_degree.shape)
+        if isinstance(expr, Matrix):
+            for i in range(expr.shape[0]):
+                for j in range(expr.shape[1]):
+                    if expr[i,j].is_zero:
+                        continue
+                    else:
+                        global_mats[i,j] = StencilMatrix(test_space.spaces[i], trial_space.spaces[j])
+                        local_mats[i,j]  = np.zeros((*test_degree[i],*(2*pads[j]+1)))
+        else:
+            global_mats[0,0] = StencilMatrix(test_space, trial_space)
+            local_mats[0,0]  = np.zeros((*test_degree,*(2*pads+1)))
+
+        return [*local_mats.values(), *global_mats.values()]
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
 

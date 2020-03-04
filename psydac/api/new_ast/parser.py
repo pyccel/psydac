@@ -439,6 +439,11 @@ class Parser(object):
         return self._visit(expr.body, **kwargs)
 
     def _visit_EvalMapping(self, expr, **kwargs):
+        values  = expr.values
+        coeffs  = expr.coeffs
+        for coeff in coeffs:
+            spans   = self._visit_Span(Span(coeff.test))
+            degrees = self._visit_LengthDofTest(LengthDofTest(coeff.test))
         return self._visit(expr.loop, **kwargs)
 
     # ....................................................
@@ -720,7 +725,18 @@ class Parser(object):
         rank   = self._visit(expr.rank)
         target = SymbolicExpr(expr.target)
 
-        name = 'arr_{}'.format(target.name)
+        name = 'arr_coeffs_{}'.format(target.name)
+        var  = IndexedVariable(name, dtype='real', rank=rank)
+        self.insert_variables(var)
+        return var
+    # ....................................................
+
+    def _visit_MatrixGlobalBasis(self, expr, **kwargs):
+        dim    = self.dim
+        rank   = self._visit(expr.rank)
+        target = SymbolicExpr(expr.target)
+
+        name = 'global_arr_coeffs_{}'.format(target.name)
         var  = IndexedVariable(name, dtype='real', rank=rank)
         self.insert_variables(var)
         return var
@@ -785,9 +801,9 @@ class Parser(object):
             rhs_slices = [Slice(None, None)]*rank
             for k1 in range(lhs.shape[0]):
                 spans   = self._visit_Span(Span(tests[k1]))
+                degrees = self._visit_LengthDofTest(LengthDofTest(tests[k1]))
                 spans   = flatten(*spans.values())
                 lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
-                degrees = self._visit_LengthDofTest(LengthDofTest(tests[k1]))
                 lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
                 for k2 in range(lhs.shape[1]):
                     if expr.expr[k1,k2]:

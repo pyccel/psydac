@@ -518,10 +518,6 @@ def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BasicForm):
         kernel_expr = TerminalExpr(a)
-#        print('=================')
-#        print(kernel_expr)
-#        print('=================')
-#        sys.exit(0)
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 
