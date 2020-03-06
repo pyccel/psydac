@@ -36,6 +36,7 @@ from psydac.linalg.stencil      import StencilVector, StencilMatrix
 from psydac.cad.geometry        import Geometry
 from psydac.mapping.discrete    import SplineMapping, NurbsMapping
 from psydac.fem.vector          import ProductFemSpace
+from psydac.fem.basic          import FemField
 
 from collections import OrderedDict
 from sympy import Matrix
@@ -132,13 +133,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         return self._args
 
     def assemble(self, **kwargs):
-        newargs = tuple(self.spaces) + (self.grid, self.test_basis, self.trial_basis)
-        if self.mapping:
-            newargs = newargs + (self.mapping,)
-
-        kwargs = self._check_arguments(**kwargs)
-
-        return self.func(*newargs, **kwargs)
+        self.func(*self._args, **kwargs)
+        return self._global_mats[0]
 
     def construct_arguments(self):
         tests_basis = flatten(self.test_basis.basis)
@@ -150,10 +146,12 @@ class DiscreteBilinearForm(BasicDiscrete):
         tests_degrees = flatten(self.spaces[1].degree)
         trials_degrees = flatten(self.spaces[0].degree)
         quads_degree = flatten(self.grid.quad_order)
+        n_elements   = self.grid.n_elements
         global_pads = self.spaces[0].vector_space.pads
-        mats = self.allocate_matrices()
-        mapping = self.mapping
-        args = (*tests_basis, *trial_basis, *spans, *quads, *tests_degrees, *trials_degrees, *quads_degree, *global_pads, *mats, mapping)
+        local_mats, global_mats = self.allocate_matrices()
+        global_mats = [M._data for M in global_mats]
+        mapping = [e._coeffs._data for e in self.mapping._fields]
+        args = (*tests_basis, *trial_basis, *spans, *quads, *tests_degrees, *trials_degrees, *n_elements, *quads_degree, *global_pads, *local_mats, *global_mats, *mapping)
         return args
 
     def allocate_matrices(self):
@@ -173,12 +171,12 @@ class DiscreteBilinearForm(BasicDiscrete):
                         continue
                     else:
                         global_mats[i,j] = StencilMatrix(test_space.spaces[i], trial_space.spaces[j])
-                        local_mats[i,j]  = np.zeros((*test_degree[i],*(2*pads[j]+1)))
+                        local_mats[i,j]  = np.zeros((*(test_degree[i]+1),*(2*pads[j]+1)))
         else:
             global_mats[0,0] = StencilMatrix(test_space, trial_space)
-            local_mats[0,0]  = np.zeros((*test_degree,*(2*pads+1)))
-
-        return [*local_mats.values(), *global_mats.values()]
+            local_mats[0,0]  = np.zeros((*(test_degree+1),*(2*pads+1)))
+        self._global_mats = list(global_mats.values())
+        return local_mats.values(), global_mats.values()
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
 
@@ -232,6 +230,8 @@ class DiscreteLinearForm(BasicDiscrete):
 
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv )
+        self._args = self.construct_arguments()
+
     @property
     def space(self):
         return self._space
@@ -244,14 +244,50 @@ class DiscreteLinearForm(BasicDiscrete):
     def test_basis(self):
         return self._test_basis
 
-    def assemble(self, **kwargs):
-        newargs = (self.space, self.grid, self.test_basis)
-        
-        if self.mapping:
-            newargs = newargs + (self.mapping,)
+    @property
+    def args(self):
+        return self._args
 
-        kwargs = self._check_arguments(**kwargs)
-        return self.func(*newargs, **kwargs)
+    def assemble(self, **kwargs):
+        self.func(*self._args, **kwargs)
+        return self._global_mats[0]
+
+    def construct_arguments(self):
+        tests_basis = flatten(self.test_basis.basis)
+        spans = flatten(self.test_basis.spans)
+        points = self.grid.points
+        weights = self.grid.weights
+        quads   = flatten(list(zip(points, weights)))
+        tests_degrees = flatten(self.space.degree)
+        quads_degree = flatten(self.grid.quad_order)
+        n_elements   = self.grid.n_elements
+        global_pads = self.space.vector_space.pads
+        local_mats, global_mats = self.allocate_matrices()
+        global_mats = [M._data for M in global_mats]
+        mapping = [e._coeffs._data for e in self.mapping._fields]
+        args = (*tests_basis, *spans, *quads, *tests_degrees, *n_elements, *quads_degree, *global_pads, *local_mats, *global_mats, *mapping)
+        return args
+
+    def allocate_matrices(self):
+        space = self.space
+        expr   = self.kernel_expr
+        global_mats = OrderedDict()
+        local_mats  = OrderedDict()
+        test_space  = space.vector_space
+        test_degree = np.array(space.degree)
+        if isinstance(expr, Matrix):
+            expr = expr[:]
+            for i in range(len(expr)):
+                    if expr[i].is_zero:
+                        continue
+                    else:
+                        global_mats[i] = StencilVector(test_space.spaces[i])
+                        local_mats[i]  = np.zeros([*(test_degree[i]+1)])
+        else:
+            global_mats[0] = StencilVector(test_space)
+            local_mats[0]  = np.zeros([*(test_degree+1)])
+        self._global_mats = list(global_mats.values())
+        return local_mats.values(), global_mats.values()
 
 
 #==============================================================================
@@ -302,6 +338,7 @@ class DiscreteFunctional(BasicDiscrete):
         # ...
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv )
+        self._args = self.construct_arguments()
 
     @property
     def space(self):
@@ -315,25 +352,32 @@ class DiscreteFunctional(BasicDiscrete):
     def test_basis(self):
         return self._test_basis
 
+    def construct_arguments(self):
+        tests_basis = flatten(self.test_basis.basis)
+        spans = flatten(self.test_basis.spans)
+        points = self.grid.points
+        weights = self.grid.weights
+        quads   = flatten(list(zip(points, weights)))
+        tests_degrees = flatten(self.space.degree)
+        quads_degree = flatten(self.grid.quad_order)
+        n_elements   = self.grid.n_elements
+        global_pads = self.space.vector_space.pads
+        local_mats, global_mats = np.zeros((1,)), np.zeros((1,))
+        mapping = [e._coeffs._data for e in self.mapping._fields]
+
+        args = (*tests_basis, *spans, *quads, *tests_degrees, *n_elements, *quads_degree, *global_pads, local_mats, global_mats, *mapping)
+        self._global_mats = global_mats
+        return args
+
     def assemble(self, **kwargs):
-        newargs = (self.space, self.grid, self.test_basis)
+        for i in kwargs.copy():
+            if isinstance(kwargs[i], FemField):
+                el = kwargs.pop(i)
+                i = 'global_arr_coeffs_' + i
+                kwargs[i] = el._coeffs._data
 
-        if self.mapping:
-            newargs = newargs + (self.mapping,)
-
-        kwargs = self._check_arguments(**kwargs)
-
-        v = self.func(*newargs, **kwargs)
-
-#        # ... TODO remove => this is for debug only
-#        import sys
-#        sys.path.append(self.folder)
-#        from interface_pt3xujb5 import  interface_pt3xujb5
-#        sys.path.remove(self.folder)
-#        return interface_pt3xujb5(*newargs, **kwargs)
-#        # ...
-
-        # case of a norm
+        self.func(*self._args, **kwargs)
+        v = self._global_mats[0]
         
         if isinstance(self.expr, sym_Norm):
             if not( self.comm is None ):
@@ -342,7 +386,6 @@ class DiscreteFunctional(BasicDiscrete):
             if self.expr.exponent == 2:
                 # add abs because of 0 machine
                 v = np.sqrt(np.abs(v))
-
             else:
                 raise NotImplementedError('TODO')
 

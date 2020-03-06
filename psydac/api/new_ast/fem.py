@@ -38,7 +38,7 @@ from .nodes import TensorQuadratureTestBasis, TensorQuadratureTrialBasis
 from .nodes import TensorTestBasis,TensorTrialBasis
 from .nodes import GlobalSpan
 from .nodes import CoefficientBasis
-from .nodes import MatrixLocalBasis
+from .nodes import MatrixLocalBasis, MatrixGlobalBasis
 from .nodes import GeometryExpressions
 from .nodes import Loop
 from .nodes import EvalMapping, EvalField
@@ -274,7 +274,7 @@ class AST(object):
                        ScalarField,
                        VectorField, IndexedVectorField)
 
-        nderiv = 0
+        nderiv = 1
         if isinstance(terminal_expr, Matrix):
             n_rows, n_cols = terminal_expr.shape
             atomic_expr = terminal_expr.zeros(n_rows, n_cols)
@@ -532,7 +532,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
         args['coeffs'] = l_coeffs
 
     local_vars = [*q_basis_tests, *q_basis_trials]
-    stmt = DefNode('assembly_'+l_mats.tag, args, local_vars, body)
+    stmt = DefNode('assembly', args, local_vars, body)
 
     return stmt
 
@@ -645,7 +645,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         args['coeffs'] = l_coeffs
 
     local_vars = [*q_basis]
-    stmt = DefNode('assembly_'+l_vecs.tag, args, local_vars, body)
+    stmt = DefNode('assembly', args, local_vars, body)
     # ...
 
     return stmt
@@ -659,13 +659,12 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
 
-    #TODO should we use tests or trials for fields
+    #TODO move to EvalField
     coeffs   = [CoefficientBasis(i) for i in tests]
     l_coeffs = [MatrixLocalBasis(i) for i in tests]
-    geo      = GeometryExpressions(mapping, nderiv)
+    g_coeffs = [MatrixGlobalBasis(i,i) for i in tests]
 
-    l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr, tag)
-    g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr, l_vecs.tag)
+    geo      = GeometryExpressions(mapping, nderiv)
 
     q_basis  = OrderedDict((v,d_tests[v]['array'])  for v in tests)
     l_basis  = OrderedDict((v,d_tests[v]['local'])  for v in tests)
@@ -686,18 +685,17 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
     ind_dof_test  = index_dof_test.set_length(lengths_tests[tests[0]])
     # ...........................................................................................
     eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], mapping, geo, space, nderiv)
-    eval_field   = EvalField(atomic_expr, ind_quad, q_basis[tests[0]], coeffs, tests, nderiv)
+    eval_field   = EvalField(atomic_expr, ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], coeffs, l_coeffs, g_coeffs, tests, nderiv)
 
     #=========================================================begin kernel======================================================
     # ... loop over tests functions
 
-    loop   = Loop((l_quad, *q_basis.values(), geo), ind_quad, eval_field.inits)
+    loop   = Loop((l_quad, geo), ind_quad, eval_field.inits)
     loop   = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
 
-    # ...
     # ... loop over tests functions to evaluate the fields
-    fields = Loop((*l_basis.values(), *l_coeffs), ind_dof_test, [eval_field])
-    stmts  = Block([EmptyLine(), eval_mapping, fields, Reset(l_vec), loop])
+
+    stmts  = Block([eval_mapping, eval_field, Reset(l_vec), loop])
 
     #=========================================================end kernel=========================================================
     # ... loop over global elements
@@ -719,15 +717,15 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
     args['quads_degree'] = lengths
     args['global_pads']  = pads
 
-    args['mats']  = [l_vecs, g_vecs]
+    args['mats']  = [l_vec, g_vec]
 
     if eval_mapping:
         args['mapping'] = eval_mapping.coeffs
 
-    args['coeffs'] = coeffs
+    args['coeffs'] = g_coeffs
 
     local_vars = [*q_basis]
-    stmt = DefNode('assembly_'+l_vecs.tag, args, local_vars, body)
+    stmt = DefNode('assembly', args, local_vars, body)
     # ...
 
     return stmt

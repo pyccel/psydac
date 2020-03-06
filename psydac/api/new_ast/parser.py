@@ -12,7 +12,7 @@ from pyccel.ast import Assign
 from pyccel.ast import AugAssign
 from pyccel.ast import Variable, IndexedVariable, IndexedElement
 from pyccel.ast import Slice
-from pyccel.ast import EmptyLine
+from pyccel.ast import EmptyLine, Import
 from pyccel.ast import CodeBlock, FunctionDef
 from pyccel.ast import Shape, Zeros, ZerosLike
 
@@ -82,7 +82,7 @@ from .nodes import index_deriv
 
 from .fem import Block
 from .fem import get_length, expand
-from psydac.api.ast.utilities import variables
+from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.utilities     import flatten
 from numpy import array
 from sympy import Max
@@ -162,6 +162,7 @@ class Parser(object):
         self.functions        = OrderedDict()
         self.variables        = OrderedDict()
         self.arguments        = OrderedDict()
+        self._math_functions  = ()
         
 
     @property
@@ -204,28 +205,33 @@ class Parser(object):
                 rhs_indices = rhs_indices[0]
 
         #TODO fix probleme of indices we should have a unique way of getting indices
-        ind1 = [None if isinstance(i, Slice) and i.start is None else i for i in lhs_indices]
-        ind2 = [None if isinstance(i, Slice) and i.start is None else i for i in rhs_indices]
+        lhs_indices = [None if isinstance(i, Slice) and i.start is None else i for i in lhs_indices]
+        rhs_indices = [None if isinstance(i, Slice) and i.start is None else i for i in rhs_indices]
         shape_rhs = None
         shape_lhs = None
         shape = []
 
-        if all(i is None for i in ind1):
-            for i in ind2:
+        if all(i is None for i in lhs_indices):
+            for i in rhs_indices:
                 if i is None:
                     shape.append(None)
                 elif str(i) in self.indices:
                     shape.append(self.indices[str(i)]-1)
-            if len(shape) == len(ind2):
-                shape = tuple(Slice(None,None) if i is None else i for i in shape)
-                rhs = rhs.base
-                shape_lhs = Shape(rhs[shape])
+                elif isinstance(i, Slice) and i.start and i.end:
+                    shape.append(i.end-i.start)
+            if len(shape) == len(rhs_indices):
+                if any(s is None for s in shape):
+                    shape = tuple(Slice(None,None) if i is None else i for i in shape)
+                    rhs = rhs.base
+                    shape_lhs = Shape(rhs[shape])
+                else:
+                    shape_lhs = tuple(shape)
 
-        elif all(i is not None for i in ind1):
-            for i in ind1:
+        elif all(i is not None for i in lhs_indices):
+            for i in lhs_indices:
                 if str(i) in self.indices:
                     shape.append(self.indices[str(i)])
-            if len(shape) == len(ind1):
+            if len(shape) == len(lhs_indices):
                 shape_lhs = tuple(shape)
 
         return shape_lhs
@@ -244,10 +250,6 @@ class Parser(object):
         lhs = self._visit(expr.lhs)
         rhs = self._visit(expr.rhs)
 
-        # ARA TODO check that all tests work
-#        lhs = expr.lhs
-#        rhs = expr.rhs
-
         # ... extract slices from rhs
         slices = []
         if isinstance(rhs, IndexedElement):
@@ -263,8 +265,6 @@ class Parser(object):
 
             elif isinstance(lhs, Symbol):
                 lhs = IndexedBase(lhs.name)[slices]
-            else:
-                raise NotImplementedError('{}'.format(type(lhs)))
 
         expr = Assign(lhs, rhs)
         # ...
@@ -402,20 +402,24 @@ class Parser(object):
 
         args = [*tests_basis, *trial_basis, *g_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *lengths, *g_pads]
 
-        exprs     = [mat.expr for mat in mats]
+        if isinstance(mats[0], (LocalElementBasis, GlobalElementBasis)):
+            mats = [self._visit(mat) for mat in mats]
+        else:
+            exprs     = [mat.expr for mat in mats]
 
-        mats      = [self._visit(mat) for mat in mats]
-        mats      = [[a for a,e in zip(mat[:],expr[:]) if e] for mat,expr in zip(mats, exprs)]
-        mats      = flatten(mats)
+            mats      = [self._visit(mat) for mat in mats]
+            mats      = [[a for a,e in zip(mat[:],expr[:]) if e] for mat,expr in zip(mats, exprs)]
+            mats      = flatten(mats)
 
         args = [self._visit(i, **kwargs) for i in args]
         args = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in args]
         arguments = flatten(args) + mats
 
-        if l_coeffs:
-            arguments += [self._visit(i, **kwargs) for i in l_coeffs]
         if map_coeffs:
             arguments += [self._visit(i, **kwargs) for i in map_coeffs]
+
+        if l_coeffs:
+            arguments += [self._visit(i, **kwargs) for i in l_coeffs]
 
         body = tuple(self._visit(i, **kwargs) for i in expr.body)
 
@@ -431,20 +435,61 @@ class Parser(object):
         inits.append(EmptyLine())
         body =  tuple(inits) + body
         name = expr.name
-        func = FunctionDef(name, arguments, [], body)
+        imports = ('zeros', 'zeros_like') + tuple(self._math_functions)
+        imports = [Import(imports,'numpy')]
+        func = FunctionDef(name, arguments, [],body, imports=imports)
         self.functions[name] = func
         return func
 
     def _visit_EvalField(self, expr, **kwargs):
-        return self._visit(expr.body, **kwargs)
+        g_coeffs   = expr.g_coeffs
+        l_coeffs   = expr.l_coeffs
+        stmts      = []
+        mats       = expr.atoms
+        dim        = self._dim
+        lhs_slices = [Slice(None,None)]*dim
+        mats       = [self._visit(mat, **kwargs) for mat in mats]
+        inits      = [Assign(mat[lhs_slices], 0.) for mat in mats]
+        body       = self._visit(expr.body, **kwargs)
+        for l_coeff,g_coeff in zip(l_coeffs, g_coeffs):
+            basis = g_coeff.test
+            degrees = self._visit_LengthDofTest(LengthDofTest(basis))
+            spans   = flatten(self._visit_Span(Span(basis))[basis])
+            rhs_starts = [spans[i] for i in range(dim)]
+            rhs_ends   = [spans[i]+degrees[i]+1          for i in range(dim)]
+            rhs_slices = [Slice(s, e) for s,e in zip(rhs_starts, rhs_ends)]
+            l_coeff    = self._visit(l_coeff, **kwargs)
+            g_coeff    = self._visit(g_coeff, **kwargs)
+            stmt       = self._visit_Assign(Assign(l_coeff[lhs_slices], g_coeff[rhs_slices]), **kwargs)
+            stmts      += [stmt]
+        return CodeBlock(inits + stmts + [body])
 
     def _visit_EvalMapping(self, expr, **kwargs):
         values  = expr.values
         coeffs  = expr.coeffs
-        for coeff in coeffs:
-            spans   = self._visit_Span(Span(coeff.test))
+        l_coeffs = expr.local_coeffs
+        stmts   = []
+        dim = self._dim
+        test = coeffs[0].test
+        lhs_slices = [Slice(None,None)]*dim
+        for coeff, l_coeff in zip(coeffs, l_coeffs):
+            spans   = flatten(self._visit_Span(Span(test))[test])
             degrees = self._visit_LengthDofTest(LengthDofTest(coeff.test))
-        return self._visit(expr.loop, **kwargs)
+            coeff   = self._visit(coeff)
+            l_coeff = self._visit(l_coeff)
+            rhs_starts = [spans[i] for i in range(dim)]
+            rhs_ends   = [spans[i]+degrees[i]+1          for i in range(dim)]
+            rhs_slices = [Slice(s, e) for s,e in zip(rhs_starts, rhs_ends)]
+            stmt       = self._visit_Assign(Assign(l_coeff[lhs_slices], coeff[rhs_slices]), **kwargs)
+            stmts.append(stmt)
+
+        inits = []
+        for val in expr.values:
+            val = self._visit(val, **kwargs)
+            inits.append(Assign(val[lhs_slices], 0.))
+        loop = self._visit(expr.loop, **kwargs)
+        stmts.append(loop)
+        return CodeBlock(inits+stmts)
 
     # ....................................................
     def _visit_Grid(self, expr, **kwargs):
@@ -952,6 +997,7 @@ class Parser(object):
             stmts = [AugAssign(i, op, j) for i,j in zip(lhs,rhs) if j]
 
         stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
+        self._math_functions = math_atoms_as_str(expr.expr, 'numpy')
         return stmts
 
     # ....................................................

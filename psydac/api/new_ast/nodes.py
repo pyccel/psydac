@@ -149,28 +149,38 @@ class Pattern(Tuple):
     pass
 #==============================================================================
 class EvalField(BaseNode):
-    def __new__(cls, atoms, index, basis, coeffs, tests, nderiv):
+    def __new__(cls, atoms, q_index, l_index, q_basis, l_basis, coeffs, l_coeffs, g_coeffs, tests, nderiv):
 
-        stmts  = []
-        inits  = []
+        stmts_1  = []
+        stmts_2  = []
+        inits    = []
+        mats     = []
         for v in tests:
-            stmts += construct_logical_expressions(v, nderiv)
-        atoms   = [physical2logical(i) for i in atoms]
+            stmts_1 += construct_logical_expressions(v, nderiv)
 
-        for coeff in coeffs:
-            for a in atoms:
+        logical_atoms   = [physical2logical(i) for i in atoms]
+
+        for coeff, l_coeff in zip(coeffs,l_coeffs):
+            for a in logical_atoms:
                 node    = AtomicNode(a)
-                val     = ProductGenerator(MatrixQuadrature(a), index)
+                mat     = MatrixQuadrature(a)
+                val     = ProductGenerator(mat, q_index)
                 rhs     = Mul(coeff,node)
-                stmts  += [AugAssign(val, '+', rhs)]
-
+                stmts_1 += [AugAssign(val, '+', rhs)]
+                mats    += [mat]
                 inits += [Assign(node,val)]
                 inits += [ComputePhysicalBasis(a)]
+                stmts_2 += [Assign(coeff, ProductGenerator(l_coeff, l_index))]
 
+        inits += [ComputePhysicalBasis(expr) for expr in atoms]
         inits = Tuple(*inits)
-        body  = Loop( basis, index, stmts)
-
-        return Basic.__new__(cls, atoms, inits, body)
+        body  = Loop( q_basis, q_index, stmts_1)
+        stmts_2 += [body]
+        body  = Loop(l_basis, l_index, stmts_2)
+        obj = Basic.__new__(cls, Tuple(*mats), inits, body)
+        obj._l_coeffs = l_coeffs
+        obj._g_coeffs = g_coeffs
+        return obj
 
     @property
     def atoms(self):
@@ -183,6 +193,15 @@ class EvalField(BaseNode):
     @property
     def body(self):
         return self._args[2]
+
+    @property
+    def l_coeffs(self):
+        return self._l_coeffs
+
+    @property
+    def g_coeffs(self):
+        return self._g_coeffs
+
 #==============================================================================
 class EvalMapping(BaseNode):
     """."""
@@ -195,9 +214,10 @@ class EvalMapping(BaseNode):
 
         new_atoms  = []
         nodes      = []
-        l_coeffs   = set()
-        g_coeffs   = set()
+        l_coeffs   = []
+        g_coeffs   = []
         values     = set()
+
         for a in atoms:
             atom   = get_atom_logical_derivatives(a)
             node   = a.subs(atom, target)
@@ -210,9 +230,13 @@ class EvalMapping(BaseNode):
             val     = ProductGenerator(MatrixQuadrature(atoms[i]), quads)
             rhs     = Mul(CoefficientBasis(new_atoms[i]),node)
             stmts  += [AugAssign(val, '+', rhs)]
-            l_coeffs.add(MatrixLocalBasis(new_atoms[i]))
-            g_coeffs.add(MatrixGlobalBasis(new_atoms[i], target))
-            values.add(val)
+            l_coeff = MatrixLocalBasis(new_atoms[i])
+            g_coeff = MatrixGlobalBasis(new_atoms[i], target)
+            if l_coeff not in l_coeffs:
+                l_coeffs.append(l_coeff)
+                g_coeffs.append(g_coeff)
+
+            values.add(val.target)
 
         loop   = Loop(q_basis, quads, stmts)
         loop   = Loop((l_basis, *l_coeffs), indices_basis, [loop])
@@ -1391,7 +1415,7 @@ class GeometryExpressions(Basic):
     """
     def __new__(cls, M, nderiv):
         dim = M.rdim
-
+        nderiv = 1 if nderiv == 0 else nderiv
         ops = [dx1, dx2, dx3][:dim]
         r = range(nderiv+1)
         ranges = [r]*dim
@@ -1479,6 +1503,10 @@ def construct_itergener(a, index):
         generator = ProductGenerator(a, index)
         element   = CoefficientBasis(a.target)
 
+    elif isinstance(a, MatrixGlobalBasis):
+        generator = ProductGenerator(a, index)
+        element   = MatrixLocalBasis(a.target)
+
     elif isinstance(a, GeometryExpr):
         generator = ProductGenerator(a.expr, index)
         element   = a.atom
@@ -1530,6 +1558,8 @@ def construct_itergener(a, index):
     elif isinstance(element, GeometryAtom):
         iterator = ProductIterator(element)
 
+    elif isinstance(element, MatrixLocalBasis):
+        iterator = ProductIterator(element)
     else:
         raise TypeError('{} not available'.format(type(element)))
     # ...

@@ -35,6 +35,7 @@ from psydac.cad.geometry             import Geometry
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
 
 from sympde.expr.basic import BasicForm
+from sympde.expr       import Functional
 from sympde.topology.space import ScalarField, VectorField, IndexedVectorField
 from gelato.expr       import GltExpr
 from sympy import Add, Mul
@@ -291,6 +292,7 @@ class BasicCodeGen(object):
         code = self._code
         module_name = 'dependencies_{}'.format(self.tag)
 
+        #module_name = 'dependencies_gv1ocbgr'
         self._dependencies_fname = '{}.py'.format(module_name)
         write_code(self._dependencies_fname, code, folder = self.folder)
         # ...
