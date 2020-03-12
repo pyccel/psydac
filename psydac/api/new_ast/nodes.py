@@ -148,13 +148,25 @@ class Pattern(Tuple):
     """
     pass
 #==============================================================================
+class Mask(Basic):
+    def __new__(cls, axis, ext):
+        return Basic.__new__(cls, axis, ext)
+    @property
+    def axis(self):
+        return self._args[0]
+
+    @property
+    def ext(self):
+        return self._args[1]
+#==============================================================================
 class EvalField(BaseNode):
-    def __new__(cls, atoms, q_index, l_index, q_basis, l_basis, coeffs, l_coeffs, g_coeffs, tests, nderiv):
+    def __new__(cls, atoms, q_index, l_index, q_basis, l_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, pads, nderiv, mask=None):
 
         stmts_1  = []
-        stmts_2  = []
+        stmts_2  = OrderedDict()
         inits    = []
         mats     = []
+
         for v in tests:
             stmts_1 += construct_logical_expressions(v, nderiv)
 
@@ -170,16 +182,18 @@ class EvalField(BaseNode):
                 mats    += [mat]
                 inits += [Assign(node,val)]
                 inits += [ComputePhysicalBasis(a)]
-                stmts_2 += [Assign(coeff, ProductGenerator(l_coeff, l_index))]
+                stmts_2[coeff] = Assign(coeff, ProductGenerator(l_coeff, l_index))
 
         inits += [ComputePhysicalBasis(expr) for expr in atoms]
         inits = Tuple(*inits)
-        body  = Loop( q_basis, q_index, stmts_1)
-        stmts_2 += [body]
+        body  = Loop( q_basis, q_index, stmts=stmts_1, mask=mask)
+        stmts_2 = [*stmts_2.values(), body]
         body  = Loop(l_basis, l_index, stmts_2)
         obj = Basic.__new__(cls, Tuple(*mats), inits, body)
         obj._l_coeffs = l_coeffs
         obj._g_coeffs = g_coeffs
+        obj._tests    = tests
+        obj._pads     = pads
         return obj
 
     @property
@@ -195,6 +209,10 @@ class EvalField(BaseNode):
         return self._args[2]
 
     @property
+    def pads(self):
+        return self._pads
+
+    @property
     def l_coeffs(self):
         return self._l_coeffs
 
@@ -205,7 +223,7 @@ class EvalField(BaseNode):
 #==============================================================================
 class EvalMapping(BaseNode):
     """."""
-    def __new__(cls, quads, indices_basis, q_basis, l_basis, mapping, components, space, nderiv):
+    def __new__(cls, quads, indices_basis, q_basis, l_basis, mapping, components, space, nderiv, mask=None):
         atoms  = components.arguments
         basis  = q_basis
         target = basis.target
@@ -238,7 +256,7 @@ class EvalMapping(BaseNode):
 
             values.add(val.target)
 
-        loop   = Loop(q_basis, quads, stmts)
+        loop   = Loop(q_basis, quads, stmts=stmts, mask=mask)
         loop   = Loop((l_basis, *l_coeffs), indices_basis, [loop])
 
         return Basic.__new__(cls, loop, l_coeffs, g_coeffs, values)
@@ -1207,7 +1225,7 @@ class Loop(BaseNode):
     class to describe a loop of an iterator over a generator.
     """
 
-    def __new__(cls, iterable, index, stmts=None):
+    def __new__(cls, iterable, index, stmts=None, mask=None):
         # ...
         if not( isinstance(iterable, (list, tuple, Tuple)) ):
             iterable = [iterable]
@@ -1258,7 +1276,7 @@ class Loop(BaseNode):
         stmts = Tuple(*stmts)
         # ...
 
-        obj = Basic.__new__(cls, iterable, index, stmts)
+        obj = Basic.__new__(cls, iterable, index, stmts, mask)
         obj._iterator  = iterator
         obj._generator = generator
 
@@ -1275,6 +1293,10 @@ class Loop(BaseNode):
     @property
     def stmts(self):
         return self._args[2]
+
+    @property
+    def mask(self):
+        return self._args[3]
 
     @property
     def iterator(self):
@@ -1294,19 +1316,19 @@ class Loop(BaseNode):
         assert(len(l_quad) == 1)
         l_quad = l_quad[0]
 
-        if isinstance(mapping, IdentityMapping):
+        if mapping._expressions is not None:
             args += [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
             return Tuple(*args)
+        else:
+            args += [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
 
-        args += [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
+            # add stmts related to the geometry
+            # TODO add other expressions
+            args += [ComputeLogical(SymbolicDeterminant(mapping))]
+            args += [ComputeLogical(SymbolicInverseDeterminant(mapping))]
+            args += [ComputeLogical(SymbolicWeightedVolume(mapping))]
 
-        # add stmts related to the geometry
-        # TODO add other expressions
-        args += [ComputeLogical(SymbolicDeterminant(mapping))]
-        args += [ComputeLogical(SymbolicInverseDeterminant(mapping))]
-        args += [ComputeLogical(SymbolicWeightedVolume(mapping))]
-
-        return Tuple(*args)
+            return Tuple(*args)
 
 #==============================================================================
 class TensorIteration(BaseNode):
@@ -1414,26 +1436,29 @@ class GeometryExpressions(Basic):
     """
     """
     def __new__(cls, M, nderiv):
-        dim = M.rdim
-        nderiv = 1 if nderiv == 0 else nderiv
-        ops = [dx1, dx2, dx3][:dim]
-        r = range(nderiv+1)
-        ranges = [r]*dim
-        indices = product(*ranges)
+        expressions = []
+        args        = []
+        if M._expressions is None:
 
-        indices = list(indices)
-        indices = [ijk for ijk in indices if sum(ijk) <= nderiv]
+            dim = M.rdim
+            nderiv = 1 if nderiv == 0 else nderiv
+            ops = [dx1, dx2, dx3][:dim]
+            r = range(nderiv+1)
+            ranges = [r]*dim
+            indices = product(*ranges)
 
-        args = []
-        for d in range(dim):
-            for ijk in indices:
-                atom = M[d]
-                for n,op in zip(ijk, ops):
-                    for i in range(1, n+1):
-                        atom = op(atom)
-                args.append(atom)
+            indices = list(indices)
+            indices = [ijk for ijk in indices if sum(ijk) <= nderiv]
 
-        expressions = [GeometryExpr(i) for i in args]
+            for d in range(dim):
+                for ijk in indices:
+                    atom = M[d]
+                    for n,op in zip(ijk, ops):
+                        for i in range(1, n+1):
+                            atom = op(atom)
+                    args.append(atom)
+
+            expressions = [GeometryExpr(i) for i in args]
 
         args        = Tuple(*args)
         expressions = Tuple(*expressions)

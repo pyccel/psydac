@@ -30,6 +30,7 @@ from sympde.expr.evaluation import _split_test_function
 from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
+from sympde.topology import Boundary, NormalVector
 from sympde.topology.derivatives import get_index_logical_derivatives, get_atom_logical_derivatives
 
 from .nodes import AtomicNode
@@ -81,7 +82,7 @@ from .nodes import index_element
 from .nodes import index_deriv
 
 from .fem import Block
-from .fem import get_length, expand
+from .fem import get_length, expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.utilities     import flatten
 from numpy import array
@@ -146,10 +147,13 @@ class Parser(object):
         if not( settings is None ):
             mapping = settings.pop('mapping', None)
 
-        if mapping is None:
-            mapping = IdentityMapping('M', dim)
-
         self._mapping = mapping
+
+        target = None
+        if not( settings is None ):
+            target = settings.pop('target', None)
+
+        self._target = target
         # ...
 
         self._settings = settings
@@ -180,6 +184,10 @@ class Parser(object):
     @property
     def mapping(self):
         return self._mapping
+
+    @property
+    def target(self):
+        return self._target
 
     def doit(self, expr, **settings):
         return self._visit(expr, **settings)
@@ -221,7 +229,7 @@ class Parser(object):
                     shape.append(i.end-i.start)
             if len(shape) == len(rhs_indices):
                 if any(s is None for s in shape):
-                    shape = tuple(Slice(None,None) if i is None else i for i in shape)
+                    shape = tuple(Slice(None,None) if i is None else 0 for i in shape)
                     rhs = rhs.base
                     shape_lhs = Shape(rhs[shape])
                 else:
@@ -393,10 +401,12 @@ class Parser(object):
             tests = l_pads.tests
             trials = l_pads.trials
             l_pads = self._visit(l_pads , **kwargs)
-            for i,v in enumerate(tests):
-                for j,u in enumerate(trials):
-                    test_ln = self._visit(lengths_tests[v], **kwargs)
-                    trial_ln = self._visit(lengths_trials[u], **kwargs)
+            for i,v in enumerate(expand(tests)):
+                for j,u in enumerate(expand(trials)):
+                    test_ln = lengths_tests[v] if v in lengths_tests else lengths_tests[v.base]
+                    trial_ln = lengths_trials[u] if u in lengths_trials else lengths_trials[u.base]
+                    test_ln = self._visit(test_ln, **kwargs)
+                    trial_ln = self._visit(trial_ln, **kwargs)
                     for stmt in zip(l_pads[i,j], test_ln, trial_ln):
                         inits += [Assign(stmt[0], Max(*stmt[1:]))]
 
@@ -444,27 +454,32 @@ class Parser(object):
     def _visit_EvalField(self, expr, **kwargs):
         g_coeffs   = expr.g_coeffs
         l_coeffs   = expr.l_coeffs
-        stmts      = []
+        tests      = expand_hdiv_hcurl(expr._tests)
         mats       = expr.atoms
         dim        = self._dim
         lhs_slices = [Slice(None,None)]*dim
         mats       = [self._visit(mat, **kwargs) for mat in mats]
         inits      = [Assign(mat[lhs_slices], 0.) for mat in mats]
         body       = self._visit(expr.body, **kwargs)
+        stmts      = OrderedDict()
+        pads       = expr.pads
         for l_coeff,g_coeff in zip(l_coeffs, g_coeffs):
-            basis = g_coeff.test
-            degrees = self._visit_LengthDofTest(LengthDofTest(basis))
-            spans   = flatten(self._visit_Span(Span(basis))[basis])
-            rhs_starts = [spans[i] for i in range(dim)]
-            rhs_ends   = [spans[i]+degrees[i]+1          for i in range(dim)]
-            rhs_slices = [Slice(s, e) for s,e in zip(rhs_starts, rhs_ends)]
-            l_coeff    = self._visit(l_coeff, **kwargs)
-            g_coeff    = self._visit(g_coeff, **kwargs)
-            stmt       = self._visit_Assign(Assign(l_coeff[lhs_slices], g_coeff[rhs_slices]), **kwargs)
-            stmts      += [stmt]
-        return CodeBlock(inits + stmts + [body])
+            basis        = g_coeff.test
+            basis        = basis if basis in tests else basis.base
+            degrees      = self._visit_LengthDofTest(LengthDofTest(basis))
+            spans        = flatten(self._visit_Span(Span(basis))[basis])
+            rhs_starts   = [spans[i]-degrees[i] + pads[i] for i in range(dim)]
+            rhs_ends     = [spans[i]+pads[i]+1          for i in range(dim)]
+            rhs_slices   = [Slice(s, e) for s,e in zip(rhs_starts, rhs_ends)]
+            l_coeff      = self._visit(l_coeff, **kwargs)
+            g_coeff      = self._visit(g_coeff, **kwargs)
+            stmt         = self._visit_Assign(Assign(l_coeff[lhs_slices], g_coeff[rhs_slices]), **kwargs)
+            stmts[basis] = stmt
+        return CodeBlock([*inits , *stmts.values() , body])
 
     def _visit_EvalMapping(self, expr, **kwargs):
+        if self._mapping._expressions is not None:
+            return EmptyLine()
         values  = expr.values
         coeffs  = expr.coeffs
         l_coeffs = expr.local_coeffs
@@ -659,7 +674,7 @@ class Parser(object):
         label               = str(SymbolicExpr(target))
         if isinstance(expr, TensorQuadratureTestBasis):
             if not unique_scalar_space:
-                names = 'test_basis_{label}(1:{j})_1:{i})'.format(label=label,i=dim+1,j=dim+1)
+                names = 'test_basis_{label}(1:{j})_1:{i}'.format(label=label,i=dim+1,j=dim+1)
             else:
                 names = 'test_basis_{label}_1:{i}'.format(label=label,i=dim+1)
 
@@ -670,7 +685,7 @@ class Parser(object):
                 names = 'trial_basis_{label}_1:{i}'.format(label=label,i=dim+1)
         else:
             if not unique_scalar_space:
-                names = 'array_basis_{label}(1:{j})_1:{i})'.format(label=label,i=dim+1,j=dim+1)
+                names = 'array_basis_{label}(1:{j})_1:{i}'.format(label=label,i=dim+1,j=dim+1)
             else:
                 names = 'array_basis_{label}_1:{i}'.format(label=label,i=dim+1)
         # ...
@@ -791,7 +806,6 @@ class Parser(object):
 
         var = expr.var
         lhs  = self._visit(var, **kwargs)
-
         if isinstance(var, (GlobalElementBasis,LocalElementBasis)):
             args = 0
         else:
@@ -810,7 +824,7 @@ class Parser(object):
         loop = expr.loop
 
         stmts = list(loop.stmts) + [Reduction(op, rhs, lhs)]
-        loop  = Loop(loop.iterable, loop.index, stmts=stmts)
+        loop  = Loop(loop.iterable, loop.index, stmts=stmts, mask=loop.mask)
         return self._visit(loop, **kwargs)
 
     # ....................................................
@@ -839,17 +853,20 @@ class Parser(object):
             rank = lhs.rank
             pads = lhs.pads
             tests = expand(lhs._tests)
+            tests_2 = expand_hdiv_hcurl(lhs._tests)
             lhs = self._visit_BlockStencilMatrixGlobalBasis(lhs)
             rhs = self._visit(expr)
 
             pads    = self._visit(pads)
             rhs_slices = [Slice(None, None)]*rank
             for k1 in range(lhs.shape[0]):
-                spans   = self._visit_Span(Span(tests[k1]))
-                degrees = self._visit_LengthDofTest(LengthDofTest(tests[k1]))
+                test = tests[k1]
+                test = test if test in tests_2 else test.base
+                spans   = self._visit_Span(Span(test))
+                degrees = self._visit_LengthDofTest(LengthDofTest(test))
                 spans   = flatten(*spans.values())
-                lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
                 lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
+                lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
                 for k2 in range(lhs.shape[1]):
                     if expr.expr[k1,k2]:
                         lhs_slices  = [Slice(s, e) for s,e in zip(lhs_starts, lhs_ends)]
@@ -869,6 +886,7 @@ class Parser(object):
             rank  = lhs.rank
             pads  = lhs.pads
             tests = expand(lhs._tests)
+            tests_2 = expand_hdiv_hcurl(lhs._tests)
             lhs = self._visit_BlockStencilVectorGlobalBasis(lhs)
             rhs = self._visit(expr)
 
@@ -879,9 +897,11 @@ class Parser(object):
         
             for k in range(lhs.shape[0]):
                 if expr.expr[k,0]:
-                    spans   = self._visit_Span(Span(tests[k]))
+                    test = tests[k]
+                    test = test if test in tests_2 else test.base
+                    spans   = self._visit_Span(Span(test))
                     spans   = flatten(*spans.values())
-                    degrees = self._visit_LengthDofTest(LengthDofTest(tests[k]))
+                    degrees = self._visit_LengthDofTest(LengthDofTest(test))
                     lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
                     lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
                     lhs_slices = [Slice(s, e) for s,e in zip(lhs_starts, lhs_ends)]
@@ -988,8 +1008,22 @@ class Parser(object):
 
         weight  = SymbolicWeightedVolume(self.mapping)
         weight = SymbolicExpr(weight)
-        rhs = [weight*self._visit(expr, **kwargs) for expr in expr.expr[:]]
+        exprs = expr.expr[:]
+
+        if self.mapping.is_analytical:
+            exprs =  [LogicalExpr(self.mapping, i) for i in exprs]
+
+        rhs = [weight*self._visit(expr, **kwargs) for expr in exprs]
         lhs = lhs[:]
+
+        normal_vec_stmts = []
+        normal_vectors = expr.expr.atoms(NormalVector)
+        target         = self._target
+        dim            = self._dim
+        for vec in normal_vectors:
+            axis   = target.axis
+            ext    = target.ext
+            normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), ext if i==axis else 0) for i in range(dim)]
 
         if op is None:
             stmts = [Assign(i, j) for i,j in zip(lhs,rhs) if j]
@@ -997,7 +1031,8 @@ class Parser(object):
             stmts = [AugAssign(i, op, j) for i,j in zip(lhs,rhs) if j]
 
         stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
-        self._math_functions = math_atoms_as_str(expr.expr, 'numpy')
+        stmts = tuple(normal_vec_stmts) + stmts
+        self._math_functions = math_atoms_as_str(exprs, 'numpy')
         return stmts
 
     # ....................................................
@@ -1046,6 +1081,7 @@ class Parser(object):
     def _visit_LogicalValueNode(self, expr, **kwargs):
         mapping = self.mapping
         expr = expr.expr
+
         if isinstance(expr, SymbolicDeterminant):
             return SymbolicExpr(mapping.det_jacobian)
 
@@ -1470,6 +1506,7 @@ class Parser(object):
         # these iterations are splitted between what is tensor or not
 
         # ... treate tensor iterations
+
         t_iterator   = [i for i in expr.iterator  if isinstance(i, TensorIterator)]
         t_generator  = [i for i in expr.generator if isinstance(i, TensorGenerator)]
         t_iterations = [TensorIteration(i,j)
@@ -1482,8 +1519,8 @@ class Parser(object):
             # indices and lengths are supposed to be repeated here
             # we only take the first occurence
 
-            indices = indices[0]
-            lengths = lengths[0]
+            indices = list(indices[0])
+            lengths = list(lengths[0])
             ls = [()]*self._dim
             for init in inits:
                 for i in range(self._dim):
@@ -1516,6 +1553,14 @@ class Parser(object):
 
         # update with product statements if available
         body = list(p_inits) + list(geo_stmts) + list(stmts)
+        mask = expr.mask
+        if mask:
+            axis   = mask.axis
+            ext    = mask.ext
+            index  = indices.pop(axis)
+            length = lengths.pop(axis)
+            init   = inits.pop(axis)
+            mask_init = [Assign(index, 0), *init]
 
         for index, length, init in zip(indices[::-1], lengths[::-1], inits[::-1]):
             if len(length) == 1:
@@ -1530,9 +1575,11 @@ class Parser(object):
             body = list(init) + body
             body = [For(i, Product(*ranges), body)]
         # ...
-
         # remove the list and return the For Node only
         body = body[0]
+
+        if mask:
+            body = CodeBlock([*mask_init, body])
 
         return body
 

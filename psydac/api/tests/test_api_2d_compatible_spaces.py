@@ -17,6 +17,7 @@ from sympde.expr import find, EssentialBC
 from psydac.fem.basic          import FemField
 from psydac.fem.vector         import VectorFemField
 from psydac.api.discretization import discretize
+from psydac.linalg.utilities   import array_to_stencil
 
 #==============================================================================
 
@@ -60,7 +61,6 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     # ... dsicretize the equation using Dirichlet bc
     ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
     # ...
-
     # ... discretize norms
     l2norm_F_h = discretize(l2norm_F, domain_h, V2h)
     # ...
@@ -69,22 +69,18 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     ah.assemble()
     M   = ah.linear_system.lhs.tosparse().tocsc()
     rhs = ah.linear_system.rhs.toarray()
+
     x   = spsolve(M, rhs)
-    # ...
-    
-    # ... 
-    s31,s32 = V2h.vector_space.starts
-    e31,e32 = V2h.vector_space.ends
-    # ...
+    x   = array_to_stencil(x, Xh.vector_space)
     
     # ...
     Fh = FemField( V2h )
-    Fh.coeffs[s31:e31+1, s32:e32+1] = x[-(e31-s31+1)*(e32-s32+1):].reshape((e31-s31+1, e32-s32+1))
+    Fh.coeffs[:, :] = x[2][:,:]
     # ...
 
     # ... compute norms
+#    l2norm_F_h._set_func('dependencies_evlw0ux7','assembly')
     l2_error = l2norm_F_h.assemble(F=Fh)
-
 
     return l2_error
     
@@ -120,6 +116,7 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
     # ... discrete spaces
     V1h = discretize(V1, domain_h, degree=degree)
     V2h = discretize(V2, domain_h, degree=degree)
+
     Xh  = discretize(X , domain_h, degree=degree)
     
     s11,s12 = V1h.spaces[0].vector_space.starts
@@ -181,18 +178,19 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
 def test_api_system_1_2d_dir_1():
     from sympy.abc import x,y
 
-    f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
-    u  = sin(2*pi*x)*sin(2*pi*y)
-    x = run_system_1_2d_dir(f0,u, ncells=[10,10], degree=[2,2])
+    f0 =  -2*x*(1-x) -2*y*(1-y)
+    u  = x*(1-x)*y*(1-y)
+    l2_error = run_system_1_2d_dir(f0,u, ncells=[2**3,2**3], degree=[2,2])
+    assert l2_error-0.00030070020628128664<1e-13
 
-#==============================================================================
 def test_api_system_2_2d_dir_1():
     from sympy.abc import x,y
-
     f1 = -x**2*(x - 1)**2*(24*y - 12) - 4*y*(x**2 + 4*x*(x - 1) + (x - 1)**2)*(2*y**2 - 3*y + 1) - 2*pi*cos(2*pi*x)
     f2 = 4*x*(2*x**2 - 3*x + 1)*(y**2 + 4*y*(y - 1) + (y - 1)**2) + y**2*(24*x - 12)*(y - 1)**2 + 2*pi*cos(2*pi*y)
     u1 = x**2*(-x + 1)**2*(4*y**3 - 6*y**2 + 2*y)
     u2 =-y**2*(-y + 1)**2*(4*x**3 - 6*x**2 + 2*x)
     p  = sin(2*pi*x) - sin(2*pi*y)
     
-    x = run_system_2_2d_dir(f1, f2, u1, u2, ncells=[2**3,2**3], degree=[2,2])
+    l2_error = run_system_2_2d_dir(f1, f2, u1, u2, ncells=[2**3,2**3], degree=[2,2])
+
+

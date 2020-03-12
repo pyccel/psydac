@@ -117,7 +117,6 @@ class BasicCodeGen(object):
                 tag = random_string( 8 )
                 ast = self._create_ast( expr, tag, comm=comm, backend=backend, **kwargs )
                 max_nderiv = ast.nderiv
-                arguments  = ast.expr.arguments
 
             else:
                 ast = None
@@ -125,10 +124,7 @@ class BasicCodeGen(object):
             comm.Barrier()
             tag = comm.bcast( tag, root=root )
             max_nderiv = comm.bcast( max_nderiv, root=root )
-            in_arguments = comm.bcast( in_arguments, root=root )
-            inout_arguments = comm.bcast( inout_arguments, root=root )
-            user_functions = comm.bcast( user_functions, root=root )
-
+            #user_functions = comm.bcast( user_functions, root=root )
         else:
             tag = random_string( 8 )
             ast = self._create_ast( expr, tag, backend=backend, **kwargs )
@@ -139,7 +135,6 @@ class BasicCodeGen(object):
         self._expr = expr
         self._tag = tag
         self._ast = ast
-        self._arguments = arguments
         self._user_functions = user_functions
         self._backend = backend
         self._folder = self._initialize_folder(folder)
@@ -198,10 +193,6 @@ class BasicCodeGen(object):
     @property
     def tag(self):
         return self._tag
-
-    @property
-    def arguments(self):
-        return self._arguments
 
     @property
     def user_functions(self):
@@ -281,7 +272,7 @@ class BasicCodeGen(object):
             code = 'from numba import jit'
 
         ast = self.ast
-        expr = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping':ast.mapping})
+        expr = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping':ast.mapping, 'target':ast.domain})
 
         code = '{code}\n{dep}'.format(code=code, dep=pycode(expr))
 
@@ -388,49 +379,17 @@ class BasicDiscrete(BasicCodeGen):
 
     def __init__(self, expr, kernel_expr, **kwargs):
 
-        # ...
-        target   = kwargs.pop('target', None)
-        boundary = kwargs.pop('boundary', None)
-        # ...
-
-        # ...
-        if not target:
-            if len(kernel_expr) > 1:
+        if isinstance(kernel_expr, list):
+            if len(kernel_expr) == 1:
+                kernel_expr = kernel_expr[0]
+            else:
                 raise ValueError('> Expecting only one kernel')
 
-            target = kernel_expr[0].target
-        # ...
-
-        # ...
-        boundary_basis = False
-        if boundary:
-            if not isinstance(boundary, (tuple, list, Boundary)):
-                raise TypeError('> Expecting a tuple, list or Boundary')
-
-            if isinstance(boundary, Boundary):
-                if not( boundary is target ):
-                    raise ValueError('> Unconsistent boundary with symbolic model')
-
-            # boundary is now a list of boundaries
-            # TODO shall we keep it this way? since this is the simplest
-            # interface to be able to compute Functional on a curve in 3d
-        # ...
-
-        # ... put back optional args to kwargs
-        kwargs['target'] = target
-        kwargs['boundary'] = boundary
-        kwargs['boundary_basis'] = boundary_basis
-        # ...
-
         kwargs['kernel_expr'] = kernel_expr
-        # ...
 
         BasicCodeGen.__init__(self, expr, **kwargs)
         # ...
-
-        # ...
         self._kernel_expr = kernel_expr
-        self._target = target
         # ...
 
     @property
@@ -453,12 +412,10 @@ class BasicDiscrete(BasicCodeGen):
     def max_nderiv(self):
         return self._max_nderiv
 
-    def _create_ast(self, expr, tag, **kwargs):
-        mapping             = kwargs.pop('mapping', None)
+    def _create_ast(self, expr,tag, **kwargs):
         is_rational_mapping = kwargs.pop('is_rational_mapping', None)
-        boundary            = kwargs.pop('boundary', None)
-        boundary_basis      = kwargs.pop('boundary_basis', None)
         discrete_space      = kwargs.pop('discrete_space', None)
         comm                = kwargs.pop('comm', None)
+        kernel_expr         = kwargs['kernel_expr']
 
-        return AST(expr, discrete_space, mapping, is_rational_mapping, tag)
+        return AST(expr, kernel_expr, discrete_space, is_rational_mapping, tag)

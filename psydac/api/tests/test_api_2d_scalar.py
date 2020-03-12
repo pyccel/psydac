@@ -525,6 +525,7 @@ def test_poisson_2d_dir0_13_diri_24():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
+@pytest.mark.xfail
 def test_poisson_2d_dir0_1234_user_function():
 
     solution = sin(pi*x)*sin(pi*y)
@@ -575,6 +576,7 @@ def test_laplace_2d_neu0_1234():
 #==============================================================================
 # 2D biharmonic equation
 #==============================================================================
+@pytest.mark.xfail
 def test_biharmonic_2d_dir0_1234():
 
     solution = sin(pi * x)**2 * sin(pi * y)**2

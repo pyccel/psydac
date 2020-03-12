@@ -10,119 +10,19 @@ from psydac.core.bsplines          import basis_ders_on_quad_grid
 from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
 from psydac.fem.vector             import ProductFemSpace
-from psydac.fem.grid               import FemAssemblyGrid
-
-#==============================================================================
-def _compute_quadrature_SplineSpace( V, quad_order=None ):
-    """
-    returns quadrature points and weights over a grid, given a 1d Spline space
-    """
-    assert( isinstance( V, SplineSpace ) )
-
-    T    = V.knots       # knots sequence
-    p    = V.degree      # spline degree
-    n    = V.nbasis      # total number of control points
-    grid = V.breaks      # breakpoints
-    ne   = V.ncells      # number of cells in domain (ne=len(grid)-1)
-
-    # ...
-    if quad_order is None:
-        quad_order = p
-
-    elif not( isinstance( quad_order, int )):
-        raise TypeError('Expecting int value for quad_order')
-    # ...
-
-    u, w = gauss_legendre( quad_order )
-    u = u[::-1] # reorder quad points
-    w = w[::-1] # reorder quad weights
-    points, weights = quadrature_grid( grid, u, w )
-
-    return points, weights
-
-#==============================================================================
-def _compute_quadrature_TensorFemSpace( V, quad_order=None ):
-    """
-    returns quadrature points and weights for a tensor space
-    """
-    # ...
-    if quad_order is None:
-        quad_order = [None for d in range(V.ldim)]
-
-    elif isinstance( quad_order, int ):
-        quad_order = [quad_order for d in range(V.ldim)]
-
-    elif not isinstance( quad_order, (list, tuple) ):
-        raise TypeError('Expecting None, int or list/tuple of int')
-
-    else:
-        assert( len(quad_order) == V.ldim )
-    # ...
-
-    return [_compute_quadrature_SplineSpace( W, quad_order=order )
-            for (W, order) in zip(V.spaces, quad_order)]
-
-#==============================================================================
-def _compute_quadrature_ProductFemSpace( V, quad_order=None ):
-    """
-    returns quadrature points and weights for a product space
-    """
-    # ...
-    if quad_order is None:
-        quad_order = [None for d in range(V.ldim)]
-
-    elif isinstance( quad_order, int ):
-        quad_order = [quad_order for d in range(V.ldim)]
-
-    elif not isinstance( quad_order, (list, tuple) ):
-        raise TypeError('Expecting None, int or list/tuple of int')
-
-    else:
-        assert( len(quad_order) == V.ldim )
-    # ...
-
-    return compute_quadrature( V.spaces[0], quad_order=quad_order )
-
-#==============================================================================
-def compute_quadrature( V, quad_order=None ):
-    """
-    """
-    _avail_classes = [SplineSpace, TensorFemSpace, ProductFemSpace]
-
-    classes = type(V).__mro__
-    classes = set(classes) & set(_avail_classes)
-    classes = list(classes)
-    if not classes:
-        raise TypeError('> wrong argument type {}'.format(type(V)))
-
-    cls = classes[0]
-
-    pattern = '_compute_quadrature_{name}'
-    func = pattern.format( name = cls.__name__ )
-
-    func = eval(func)
-    pw = func(V, quad_order=quad_order)
-    if isinstance( V, SplineSpace ):
-        pw = [pw]
-
-    return pw
-
 #==============================================================================
 class QuadratureGrid():
     def __init__( self, V, quad_order=None ):
 
         if isinstance(V, ProductFemSpace):
-            quad_order = np.array([v.degree for v in V.spaces])
-            quad_order = tuple(quad_order.max(axis=0))
             V = V.spaces[0]
 
-        quad_grid                 = create_fem_assembly_grid( V, quad_order=quad_order )
-        self._fem_grid            = quad_grid
-        self._n_elements          = [g.num_elements        for g in quad_grid]
-        self._local_element_start = [g.local_element_start for g in quad_grid]
-        self._local_element_end   = [g.local_element_end   for g in quad_grid]
-        self._points              = [g.points              for g in quad_grid]
-        self._weights             = [g.weights             for g in quad_grid]
+        self._fem_grid            = V.quad_grids
+        self._n_elements          = [g.num_elements        for g in V.quad_grids]
+        self._local_element_start = [g.local_element_start for g in V.quad_grids]
+        self._local_element_end   = [g.local_element_end   for g in V.quad_grids]
+        self._points              = [g.points              for g in V.quad_grids]
+        self._weights             = [g.weights             for g in V.quad_grids]
 
     @property
     def fem_grid(self):
@@ -200,65 +100,38 @@ class BoundaryQuadratureGrid(QuadratureGrid):
     @property
     def ext(self):
         return self._ext
-
-#==============================================================================
-def create_fem_assembly_grid(V, quad_order=None, nderiv=1):
-
-    if not( quad_order is None ):
-        if isinstance( quad_order, int ):
-            quad_order = [quad_order for i in range(V.ldim)]
-
-        elif not isinstance( quad_order, (list, tuple) ):
-            raise TypeError('Expecting a tuple/list or int')
-
-    else:
-        quad_order = [None for i in range(V.ldim)]
-    # ...
-    if not( nderiv is None ):
-        if isinstance( nderiv, int ):
-            nderiv = [nderiv for i in range(V.ldim)]
-
-        elif not isinstance( nderiv, (list, tuple) ):
-            raise TypeError('Expecting a tuple/list or int')
-
-    else:
-        nderiv = [1 for i in range(V.ldim)]
-
-    grid = []
-    for W,s,e,n,d in zip( V.spaces, V.vector_space.starts, V.vector_space.ends, quad_order, nderiv ):
-        grid += [FemAssemblyGrid(W, s, e, normalize=W.normalize, quad_order=n, nderiv=d )]
-
-    return grid
-
 #==============================================================================
 class BasisValues():
     def __init__( self, V, grid, nderiv ):
         assert( isinstance( grid, QuadratureGrid ) )
 
         quad_order = [q-1 for q in grid.quad_order]
-
         if isinstance(V, ProductFemSpace):
             V = V.spaces
         else:
             V = [V]
-
         spans = []
         basis = []
         for Vi in V:
-            quad_grid = create_fem_assembly_grid( Vi, quad_order=quad_order, nderiv=nderiv )
-            spans += [[g.spans for g in quad_grid]]
-            basis += [[g.basis for g in quad_grid]]
+            quad_grid  = Vi.quad_grids
+            spans     += [[g.spans for g in quad_grid]]
+            basis     += [[g.basis for g in quad_grid]]
 
         self._spans = spans
         self._basis = basis
 
         if isinstance(grid, BoundaryQuadratureGrid):
             axis = grid.axis
+            ext  = grid.ext
             for i,Vi in enumerate(V):
                 space  = Vi.spaces[axis]
                 points = grid.points[axis]
                 boundary_basis = basis_ders_on_quad_grid(space.knots, space.degree, points, nderiv)
+                self._basis[i][axis] = self._basis[i][axis].copy()
                 self._basis[i][axis][0:1, :, :, 0:1] = boundary_basis
+                if ext == 1:
+                    self._spans[i][axis]             = self._spans[i][axis].copy()
+                    self._spans[i][axis][0]          = self._spans[i][axis][-1]
 
     @property
     def basis(self):

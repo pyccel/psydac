@@ -5,6 +5,8 @@ from psydac.linalg.block   import BlockVector, ProductSpace
 
 import numpy as np
 
+__all__ = ['array_to_stencil']
+
 def array_to_stencil(x, Xh):
     """ converts a numpy array to StencilVector or BlockVector format"""
     

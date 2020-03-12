@@ -93,7 +93,7 @@ class BlockVector( Vector ):
         # We store the blocks in a List so that we can change them later.
         if blocks:
             # Verify that vectors belong to correct spaces and store them
-            assert isinstance( blocks, (list, tuple) )
+            assert isinstance( blocks, (list, tuple, dict) )
             assert all( (Vi is bi.space) for Vi,bi in zip( V.spaces, blocks ) )
             self._blocks = list( blocks )
         else:

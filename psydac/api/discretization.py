@@ -25,7 +25,7 @@ from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
 from sympde.topology import ProductSpace
-from sympde.topology import Mapping
+from sympde.topology import Mapping, IdentityMapping
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from gelato.expr     import GltExpr as sym_GltExpr
@@ -200,7 +200,6 @@ class DiscreteEquation(BasicDiscrete):
         self._linear_system = LinearSystem(M, rhs)
 
     def solve(self, **kwargs):
-
         settings = _default_solver.copy()
         settings.update(kwargs.pop('settings', {}))
 
@@ -270,7 +269,7 @@ class DiscreteEquation(BasicDiscrete):
                 # Find inhomogeneous solution (use CG as system is symmetric)
                 loc_settings = settings.copy()
                 loc_settings['solver'] = 'cg'
-                X = equation_h.solve(**loc_settings)
+                X = equation_h.solve(settings=loc_settings)
 
                 # Use inhomogeneous solution as initial guess to solver
                 settings['x0'] = X
@@ -396,9 +395,9 @@ def discretize_space(V, domain_h, *args, **kwargs):
     degree           = kwargs.pop('degree', None)
     normalize        = kwargs.pop('normalize', True)
     comm             = domain_h.comm
-    symbolic_mapping = None
     kind             = V.kind
     ldim             = V.ldim
+    symbolic_mapping = kwargs.pop('mapping', IdentityMapping('M', ldim))
     
     if isinstance(V, ProductSpace):
         kwargs['normalize'] = normalize
