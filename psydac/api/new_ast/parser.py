@@ -672,6 +672,7 @@ class Parser(object):
         is_scalar           = expr.is_scalar
         target              = expr.target
         label               = str(SymbolicExpr(target))
+
         if isinstance(expr, TensorQuadratureTestBasis):
             if not unique_scalar_space:
                 names = 'test_basis_{label}(1:{j})_1:{i}'.format(label=label,i=dim+1,j=dim+1)
@@ -1032,7 +1033,9 @@ class Parser(object):
 
         stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
         stmts = tuple(normal_vec_stmts) + stmts
-        self._math_functions = math_atoms_as_str(exprs, 'numpy')
+        math_functions = math_atoms_as_str(exprs, 'numpy')
+        math_functions = tuple(m for m in math_functions if m not in self._math_functions)
+        self._math_functions = math_functions + self._math_functions
         return stmts
 
     # ....................................................
@@ -1490,6 +1493,7 @@ class Parser(object):
                         lhs = l_x
                     ls += [self._visit(Assign(lhs, g_x))]
                 inits[i] += tuple(ls)
+
         return  indices, lengths, inits
 
     # ....................................................

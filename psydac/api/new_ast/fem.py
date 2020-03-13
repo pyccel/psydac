@@ -455,7 +455,6 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     ex_tests     = expand(tests)
     ex_trials    = expand(trials)
 
-
     #=========================================================begin kernel======================================================
     for te_dtype,sub_tests in test_groups:
         for tr_dtype, sub_trials in trial_groups:
@@ -501,6 +500,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             body  = (Reset(l_sub_mats), loop)
             stmts = Block(body)
             g_stmts += [stmts]
+    
     #=========================================================end kernel=========================================================
 
     # ... loop over global elements

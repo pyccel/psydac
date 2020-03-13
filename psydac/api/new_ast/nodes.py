@@ -454,7 +454,7 @@ class GlobalTensorQuadratureBasis(ArrayNode):
             return True
         space = self.target.space
         if isinstance(space, VectorFunctionSpace):
-            unique_scalar_space = isinstance(space.kind, UndefinedSpaceType)
+            unique_scalar_space = isinstance(space.kind, (UndefinedSpaceType, H1SpaceType, L2SpaceType))
         return unique_scalar_space
 
     @property
@@ -485,7 +485,7 @@ class LocalTensorQuadratureBasis(ArrayNode):
             return True
         space = self.target.space
         if isinstance(space, VectorFunctionSpace):
-            unique_scalar_space = isinstance(space.kind, UndefinedSpaceType)
+            unique_scalar_space = isinstance(space.kind, (UndefinedSpaceType, H1SpaceType, L2SpaceType))
         return unique_scalar_space
 
     @property
@@ -516,7 +516,8 @@ class TensorQuadratureBasis(ArrayNode):
             return True
         space = self.target.space
         if isinstance(space, VectorFunctionSpace):
-            unique_scalar_space = isinstance(space.kind, UndefinedSpaceType)
+            unique_scalar_space = isinstance(space.kind, (UndefinedSpaceType, H1SpaceType, L2SpaceType))
+        print(self.target, unique_scalar_space, 'äääääääääääää')
         return unique_scalar_space
 
     @property

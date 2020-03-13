@@ -129,7 +129,6 @@ class BasicCodeGen(object):
             tag = random_string( 8 )
             ast = self._create_ast( expr, tag, backend=backend, **kwargs )
             max_nderiv = ast.nderiv
-            arguments  = ast.expr.arguments
         # ...
         user_functions = None
         self._expr = expr
