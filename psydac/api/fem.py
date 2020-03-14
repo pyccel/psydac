@@ -25,9 +25,6 @@ from psydac.api.basic           import BasicDiscrete
 from psydac.api.basic           import random_string
 from psydac.api.grid            import QuadratureGrid, BoundaryQuadratureGrid
 from psydac.api.grid            import BasisValues
-from psydac.api.ast.fem         import Kernel
-from psydac.api.ast.fem         import Assembly
-from psydac.api.ast.fem         import Interface
 from psydac.api.ast.glt         import GltKernel
 from psydac.api.ast.glt         import GltInterface
 from psydac.api.glt             import DiscreteGltExpr

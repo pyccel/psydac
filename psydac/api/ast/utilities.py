@@ -4,8 +4,7 @@ import random
 import numpy as np
 
 from sympy import Symbol, IndexedBase, Indexed, Idx
-from sympy import Mul, Tuple, Pow
-from sympy import Matrix
+from sympy import Add, Mul, Pow, Function, Matrix, Tuple
 from sympy import sqrt as sympy_sqrt
 from sympy.utilities.iterables import cartes
 
@@ -98,13 +97,26 @@ def logical2physical(expr):
     else:
         return expr
 
+partial_der = dict(zip(_partial_derivatives,_logical_partial_derivatives))
+symbols     = {Symbol('x'):Symbol('x1'),Symbol('y'):Symbol('x2'),Symbol('z'):Symbol('x3')}
 def physical2logical(expr):
-
-    partial_der = dict(zip(_partial_derivatives,_logical_partial_derivatives))
     
-    if isinstance(expr, _partial_derivatives):
+    if isinstance(expr, (_partial_derivatives)):
         argument = physical2logical(expr.args[0])
         new_expr = partial_der[type(expr)](argument)
+        return new_expr
+    elif isinstance(expr, (ScalarTestFunction, VectorTestFunction, ScalarField, VectorField, IndexedVectorField, IndexedTestTrial)):
+        return expr
+    elif isinstance(expr, Symbol):
+        return symbols[expr]
+    elif isinstance(expr, (Add, Mul, Pow, Function)):
+        args = [physical2logical(i) for i in expr.args]
+        return type(expr)(*args)
+    elif isinstance(expr, Matrix):
+        new_expr = expr.zeros((*expr.shape))
+        for i in range(expr.shape[0]):
+            for j in range(expr.shape[1]):
+                new_expr[i,j] = physical2logical(expr[i,j])
         return new_expr
     else:
         return expr
@@ -391,40 +403,6 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
 def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
                                idxs, basis,
                                test_function):
-
-    """
-    This function computes atomic expressions needed
-    to evaluate  EvalMapping final expression
-
-    Parameters
-    ----------
-    atomic_exprs : <list>
-        list of atoms
-
-    indices_quad : <list>
-        list of quadrature indices used in the quadrature loops
-
-    idxs : <list>
-        list of basis functions indices used in the for loops of the basis functions
-
-    basis : <list>
-        list of basis functions in each dimesion
-
-    test_function : <Symbol>
-        test_function Symbol
-
-    Returns
-    -------
-    inits : <list>
-       list of assignments of the atomic expression evaluated in the quadrature points
-
-    updates : <list>
-        list of augmented assignments which are updated in each loop iteration
-
-    """
-
-    inits   = []
-    updates = []
     for atom in atomic_exprs:
 
         element = get_atom_logical_derivatives(atom)

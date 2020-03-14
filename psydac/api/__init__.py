@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from psydac.api import ast
+from psydac.api import old_ast
 from psydac.api import basic
 from psydac.api import discretization
 from psydac.api import essential_bc

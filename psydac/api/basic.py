@@ -13,15 +13,11 @@ from pyccel.epyccel import get_source_function
 
 from sympde.topology import Domain, Boundary
 
-
-from psydac.api.ast.fem              import Kernel
-from psydac.api.ast.fem              import Assembly
-from psydac.api.ast.fem              import Interface
 from psydac.api.ast.glt              import GltKernel
 from psydac.api.ast.glt              import GltInterface
 
-from psydac.api.new_ast.fem  import AST
-from psydac.api.new_ast.parser import parse
+from psydac.api.ast.fem  import AST
+from psydac.api.ast.parser import parse
 
 from psydac.api.printing.pycode      import pycode
 from psydac.api.essential_bc         import apply_essential_bc
