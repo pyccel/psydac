@@ -5,16 +5,16 @@ from sympy import Mul, Matrix
 from sympy import Add
 from sympy import Abs
 from sympy import Symbol, Idx
+from sympy.core.function import Application
 from sympy.core.containers import Tuple
 
-from pyccel.ast import Range, Product, For
-from pyccel.ast import Assign
-from pyccel.ast import AugAssign
-from pyccel.ast import Variable, IndexedVariable, IndexedElement
-from pyccel.ast import Slice
-from pyccel.ast import EmptyLine, Import
-from pyccel.ast import CodeBlock, FunctionDef
-from pyccel.ast import Shape, Zeros, ZerosLike
+from pyccel.ast.builtins import Range
+from pyccel.ast.core import Assign, Product, AugAssign, For
+from pyccel.ast.core import Variable, IndexedVariable, IndexedElement
+from pyccel.ast.core import Slice
+from pyccel.ast.core import EmptyLine, Import
+from pyccel.ast.core import CodeBlock, FunctionDef
+from pyccel.ast      import Shape
 
 from pyccel.ast.core      import _atomic
 
@@ -81,6 +81,7 @@ from .nodes import index_dof, index_dof_test, index_dof_trial
 from .nodes import index_element
 from .nodes import index_deriv
 
+from .nodes import   Zeros, ZerosLike
 from .fem import Block
 from .fem import get_length, expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str
@@ -89,7 +90,6 @@ from numpy import array
 from sympy import Max
 
 import time
-
 #==============================================================================
 # TODO move it
 import string
@@ -459,10 +459,11 @@ class Parser(object):
         dim        = self._dim
         lhs_slices = [Slice(None,None)]*dim
         mats       = [self._visit(mat, **kwargs) for mat in mats]
-        inits      = [Assign(mat[lhs_slices], 0.) for mat in mats]
+        inits      = {mat:Assign(mat[lhs_slices], 0.) for mat in mats}
         body       = self._visit(expr.body, **kwargs)
         stmts      = OrderedDict()
         pads       = expr.pads
+
         for l_coeff,g_coeff in zip(l_coeffs, g_coeffs):
             basis        = g_coeff.test
             basis        = basis if basis in tests else basis.base
@@ -474,8 +475,8 @@ class Parser(object):
             l_coeff      = self._visit(l_coeff, **kwargs)
             g_coeff      = self._visit(g_coeff, **kwargs)
             stmt         = self._visit_Assign(Assign(l_coeff[lhs_slices], g_coeff[rhs_slices]), **kwargs)
-            stmts[basis] = stmt
-        return CodeBlock([*inits , *stmts.values() , body])
+            stmts[stmt.lhs.base] = stmt
+        return CodeBlock([*inits.values() , *stmts.values() , body])
 
     def _visit_EvalMapping(self, expr, **kwargs):
         if self._mapping._expressions is not None:
@@ -485,11 +486,13 @@ class Parser(object):
         l_coeffs = expr.local_coeffs
         stmts   = []
         dim = self._dim
+        tests = expr._tests
         test = coeffs[0].test
+        test = test if test in tests else test.base
         lhs_slices = [Slice(None,None)]*dim
         for coeff, l_coeff in zip(coeffs, l_coeffs):
             spans   = flatten(self._visit_Span(Span(test))[test])
-            degrees = self._visit_LengthDofTest(LengthDofTest(coeff.test))
+            degrees = self._visit_LengthDofTest(LengthDofTest(test))
             coeff   = self._visit(coeff)
             l_coeff = self._visit(l_coeff)
             rhs_starts = [spans[i] for i in range(dim)]

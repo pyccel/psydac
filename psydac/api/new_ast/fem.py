@@ -117,7 +117,7 @@ def regroupe(tests):
     grs = [(list(g.values())[0],tuple(g.keys())) for g in grs]
     groups = []
     for d,g in grs:
-        if isinstance(d, (HcurlSpaceType, HdivSpaceType)):
+        if isinstance(d, (HcurlSpaceType, HdivSpaceType)) and isinstance(g[0], VectorTestFunction):
             dim = g[0].space.ldim
             for i in range(dim):
                 s = [u[i] for u in g]
@@ -438,7 +438,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     ind_element   = index_element.set_length(el_length)
     ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0]))
     # ...........................................................................................
-    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis_tests[tests[0]], l_basis_tests[tests[0]], mapping, geo, spaces[1], nderiv, mask)
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis_tests[tests[0]], l_basis_tests[tests[0]], mapping, geo, spaces[1], tests, nderiv, mask)
 
     if atomic_expr_field:
         raise NotImplementedError('TODO')
@@ -566,7 +566,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     ind_element   = index_element.set_length(el_length)
     ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0]))
     # ...........................................................................................
-    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], mapping, geo, space, nderiv, mask)
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], mapping, geo, space, tests, nderiv, mask)
 
     if atomic_expr_field:
         raise NotImplementedError('TODO')
@@ -683,7 +683,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
     ind_element   = index_element.set_length(el_length)
     ind_dof_test  = index_dof_test.set_length(lengths_tests[tests[0]])
     # ...........................................................................................
-    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], mapping, geo, space, nderiv, mask)
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], mapping, geo, space, tests, nderiv, mask)
     eval_field   = EvalField(atomic_expr, ind_quad, ind_dof_test, q_basis[tests[0]], l_basis[tests[0]], coeffs, l_coeffs, g_coeffs, tests, mapping, pads, nderiv, mask)
 
     #=========================================================begin kernel======================================================

@@ -6,13 +6,13 @@ from sympy.core.singleton import Singleton
 from sympy.core.compatibility import with_metaclass
 from sympy.core.containers import Tuple
 from sympy import AtomicExpr
-from sympy import Symbol, Mul
+from sympy import Symbol, Mul, Function
 
 from sympde.topology import ScalarTestFunction, VectorTestFunction
 from sympde.topology import IndexedTestTrial
 from sympde.topology import ScalarField, VectorField
 from sympde.topology import IndexedVectorField
-from sympde.topology import (dx1, dx2, dx3)
+from sympde.topology import dx1, dx2, dx3
 from sympde.topology import Mapping
 from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
@@ -37,6 +37,16 @@ def random_string( n ):
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
+
+class ZerosLike(Function):
+    @property
+    def rhs(self):
+        return self._args[0]
+
+class Zeros(Function):
+    @property
+    def shape(self):
+        return self._args[0]
 
 #==============================================================================
 class ArityType(with_metaclass(Singleton, Basic)):
@@ -171,9 +181,17 @@ class EvalField(BaseNode):
             stmts_1 += construct_logical_expressions(v, nderiv)
 
         logical_atoms   = [physical2logical(i) for i in atoms]
-
+        new_atoms = {}
+        for a in logical_atoms:
+            atom = str(get_atom_logical_derivatives(a))
+            if atom  in new_atoms:
+                new_atoms[atom] += [a]
+            else:
+                new_atoms[atom]  = [a]
+        logical_atoms = new_atoms
         for coeff, l_coeff in zip(coeffs,l_coeffs):
-            for a in logical_atoms:
+            print(logical_atoms.keys(), str(coeff.target))
+            for a in logical_atoms[str(coeff.target)]:
                 node    = AtomicNode(a)
                 mat     = MatrixQuadrature(a)
                 val     = ProductGenerator(mat, q_index)
@@ -223,7 +241,7 @@ class EvalField(BaseNode):
 #==============================================================================
 class EvalMapping(BaseNode):
     """."""
-    def __new__(cls, quads, indices_basis, q_basis, l_basis, mapping, components, space, nderiv, mask=None):
+    def __new__(cls, quads, indices_basis, q_basis, l_basis, mapping, components, space, tests, nderiv, mask=None):
         atoms  = components.arguments
         basis  = q_basis
         target = basis.target
@@ -258,8 +276,9 @@ class EvalMapping(BaseNode):
 
         loop   = Loop(q_basis, quads, stmts=stmts, mask=mask)
         loop   = Loop((l_basis, *l_coeffs), indices_basis, [loop])
-
-        return Basic.__new__(cls, loop, l_coeffs, g_coeffs, values)
+        obj    = Basic.__new__(cls, loop, l_coeffs, g_coeffs, values)
+        obj._tests = tests
+        return obj
 
     @property
     def loop(self):
@@ -517,7 +536,6 @@ class TensorQuadratureBasis(ArrayNode):
         space = self.target.space
         if isinstance(space, VectorFunctionSpace):
             unique_scalar_space = isinstance(space.kind, (UndefinedSpaceType, H1SpaceType, L2SpaceType))
-        print(self.target, unique_scalar_space, 'äääääääääääää')
         return unique_scalar_space
 
     @property
