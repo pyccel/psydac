@@ -661,7 +661,7 @@ def test_poisson_2d_collela_dir0_123_neu0_4():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-@pytest.mark.xfail
+
 def test_poisson_2d_collela_dir0_234_neui_1():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -682,7 +682,7 @@ def test_poisson_2d_collela_dir0_234_neui_1():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-@pytest.mark.xfail
+
 def test_poisson_2d_collela_dir0_134_neui_2():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -703,7 +703,7 @@ def test_poisson_2d_collela_dir0_134_neui_2():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-@pytest.mark.xfail
+
 def test_poisson_2d_collela_dir0_124_neui_3():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -724,7 +724,7 @@ def test_poisson_2d_collela_dir0_124_neui_3():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-@pytest.mark.xfail
+
 def test_poisson_2d_collela_dir0_123_neui_4():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -745,7 +745,7 @@ def test_poisson_2d_collela_dir0_123_neui_4():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-@pytest.mark.xfail
+
 def test_poisson_2d_collela_dir0_123_diri_4():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -766,7 +766,7 @@ def test_poisson_2d_collela_dir0_123_diri_4():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-@pytest.mark.xfail
+
 def test_poisson_2d_collela_dir0_13_diri_24():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -787,7 +787,7 @@ def test_poisson_2d_collela_dir0_13_diri_24():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-@pytest.mark.xfail
+
 def test_poisson_2d_collela_diri_1234():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
