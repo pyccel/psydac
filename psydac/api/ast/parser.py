@@ -1031,10 +1031,13 @@ class Parser(object):
         for vec in normal_vectors:
             axis    = target.axis
             ext     = target.ext
-            inv_jac = LogicalExpr(self.mapping, self.mapping.jacobian.inv())
-            inv_jac = inv_jac[axis,:]
-            inv_jac = inv_jac/(inv_jac.dot(inv_jac.T)**0.5)
-            normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), ext*SymbolicExpr(inv_jac[i])) for i in range(dim)]
+            J       = self.mapping.jacobian
+            values  = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
+            normalization = sum(v**2 for v in values)**0.5
+            values  = [v1/normalization for v1 in values]
+            values  = [LogicalExpr(self.mapping, v) for v in values]
+            values  = [SymbolicExpr(v).simplify() for v in values]
+            normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), values[i]) for i in range(dim)]
 
         if op is None:
             stmts = [Assign(i, j) for i,j in zip(lhs,rhs) if j]
@@ -1114,13 +1117,16 @@ class Parser(object):
 
         elif isinstance(expr, SymbolicWeightedVolume):
             wvol = self._visit(expr, **kwargs)
-            det_jac = SymbolicDeterminant(mapping)
             if isinstance(target, Boundary):
-                jac = mapping.jacobian.copy()
-                jac.col_del(target.axis)
-                det_jac = LogicalExpr(mapping, jac.dot(jac.T))
-                det_jac = SymbolicExpr(det_jac)**0.5
+                J = mapping.jacobian.copy()
+                J.col_del(target.axis)
+                J = LogicalExpr(mapping, J)
+                J = SymbolicExpr(J)
+                det_jac = (J.T*J).det()
+                det_jac = det_jac.simplify()**0.5
+                print(det_jac)
             else:
+                det_jac = SymbolicDeterminant(mapping)
                 det_jac = SymbolicExpr(det_jac)
             return wvol * Abs(det_jac)
         elif isinstance(expr, Symbol):
