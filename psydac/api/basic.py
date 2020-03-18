@@ -130,6 +130,7 @@ class BasicCodeGen(object):
         self._expr = expr
         self._tag = tag
         self._ast = ast
+        self._free_args = ()
         self._user_functions = user_functions
         self._backend = backend
         self._folder = self._initialize_folder(folder)
@@ -163,6 +164,10 @@ class BasicCodeGen(object):
 
             # compile code
             self._compile(namespace)
+            # collect free arguments
+            print(ast.expr.arguments.copy().pop('fields', ()),ast.expr.arguments.copy().pop('constants', ()))
+            free_args = ast.expr.arguments.pop('fields', ()) +  ast.expr.arguments.pop('constants', ())
+            self._free_args = OrderedDict((str(i),i) for i in free_args)
 
         if not( comm is None):
             comm.Barrier()
@@ -192,6 +197,10 @@ class BasicCodeGen(object):
     @property
     def user_functions(self):
         return self._user_functions
+
+    @property
+    def free_args(self):
+        return self._free_args
 
     @property
     def ast(self):

@@ -403,6 +403,8 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
 def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
                                idxs, basis,
                                test_function):
+    inits   = []
+    updates = []
     for atom in atomic_exprs:
 
         element = get_atom_logical_derivatives(atom)

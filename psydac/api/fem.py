@@ -160,7 +160,18 @@ class DiscreteBilinearForm(BasicDiscrete):
         return self._args
 
     def assemble(self, **kwargs):
-        self.func(*self._args, **kwargs)
+        if self._free_args:
+            args = self._args
+            for key in self._free_args:
+                if isinstance(kwargs[key], FemField):
+                    args += (kwargs[key]._coeffs._data,)
+                elif isinstance(kwargs[key], VectorFemField):
+                    args += tuple(e._data for e in kwargs[key].coeffs[:])
+                else:
+                    args += (kwargs[key], )
+        else:
+            args = self._args
+        self.func(*args)
         return self._matrix
 
     def construct_arguments(self):
@@ -302,7 +313,18 @@ class DiscreteLinearForm(BasicDiscrete):
         return self._args
 
     def assemble(self, **kwargs):
-        self.func(*self._args, **kwargs)
+        if self._free_args:
+            args = self._args
+            for key in self._free_args:
+                if isinstance(kwargs[key], FemField):
+                    args += (kwargs[key]._coeffs._data,)
+                elif isinstance(kwargs[key], VectorFemField):
+                    args += tuple(e._data for e in kwargs[key].coeffs[:])
+                else:
+                    args += (kwargs[key], )
+        else:
+            args = self._args
+        self.func(*args)
         return self._vector
 
     def construct_arguments(self):
@@ -453,18 +475,21 @@ class DiscreteFunctional(BasicDiscrete):
         return args
 
     def assemble(self, **kwargs):
-        for key in kwargs.copy():
-            if isinstance(kwargs[key], FemField):
-                el = kwargs.pop(key)
-                key = 'global_arr_coeffs_' + key
-                kwargs[key] = el._coeffs._data
-            elif isinstance(kwargs[key], VectorFemField):
-                el = kwargs.pop(key)
-                for i in range(len(el.coeffs[:])):
-                    new_key = 'global_arr_coeffs_' + key + '_{}'.format(i)
-                    kwargs[new_key] = el._coeffs[i]._data
 
-        self.func(*self._args, **kwargs)
+        if self._free_args:
+            args = self._args
+            free_args = self._free_args
+            for key in free_args:
+                if isinstance(kwargs[key], FemField):
+                    args += (kwargs[key]._coeffs._data,)
+                elif isinstance(kwargs[key], VectorFemField):
+                    args += tuple(e._data for e in kwargs[key].coeffs[:])
+                else:
+                    args += (kwargs[key], )
+        else:
+            args = self._args
+
+        self.func(*args)
         v = self._global_mats[0]
         
         if isinstance(self.expr, sym_Norm):

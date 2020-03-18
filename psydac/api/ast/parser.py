@@ -395,6 +395,7 @@ class Parser(object):
 
         l_coeffs   =  args.pop('coeffs', None)
         map_coeffs = args.pop('mapping', None)
+        constants  = args.pop('constants', None)
 
         inits = []
         if l_pads:
@@ -430,6 +431,9 @@ class Parser(object):
 
         if l_coeffs:
             arguments += [self._visit(i, **kwargs) for i in l_coeffs]
+
+        if constants:
+            arguments += [self._visit(i, **kwargs) for i in constants]
 
         body = tuple(self._visit(i, **kwargs) for i in expr.body)
 
@@ -1025,9 +1029,12 @@ class Parser(object):
         target         = self._target
         dim            = self._dim
         for vec in normal_vectors:
-            axis   = target.axis
-            ext    = target.ext
-            normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), ext if i==axis else 0) for i in range(dim)]
+            axis    = target.axis
+            ext     = target.ext
+            inv_jac = LogicalExpr(self.mapping, self.mapping.jacobian.inv())
+            inv_jac = inv_jac[axis,:]
+            inv_jac = inv_jac/(inv_jac.dot(inv_jac.T)**0.5)
+            normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), ext*SymbolicExpr(inv_jac[i])) for i in range(dim)]
 
         if op is None:
             stmts = [Assign(i, j) for i,j in zip(lhs,rhs) if j]
@@ -1087,7 +1094,7 @@ class Parser(object):
     def _visit_LogicalValueNode(self, expr, **kwargs):
         mapping = self.mapping
         expr = expr.expr
-
+        target = self.target
         if isinstance(expr, SymbolicDeterminant):
             return SymbolicExpr(mapping.det_jacobian)
 
@@ -1099,13 +1106,22 @@ class Parser(object):
             l_quad = TensorQuadrature()
             l_quad = self._visit_TensorQuadrature(l_quad, **kwargs)
             points, weights = list(zip(*list(l_quad.values())[0]))
+            if isinstance(target, Boundary):
+                weights = list(weights)
+                weights.pop(target.axis)
             wvol = Mul(*weights)
             return wvol
 
         elif isinstance(expr, SymbolicWeightedVolume):
             wvol = self._visit(expr, **kwargs)
             det_jac = SymbolicDeterminant(mapping)
-            det_jac = SymbolicExpr(det_jac)
+            if isinstance(target, Boundary):
+                jac = mapping.jacobian.copy()
+                jac.col_del(target.axis)
+                det_jac = LogicalExpr(mapping, jac.dot(jac.T))
+                det_jac = SymbolicExpr(det_jac)**0.5
+            else:
+                det_jac = SymbolicExpr(det_jac)
             return wvol * Abs(det_jac)
         elif isinstance(expr, Symbol):
             return expr
