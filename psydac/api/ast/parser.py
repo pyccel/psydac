@@ -5,7 +5,6 @@ from sympy import Mul, Matrix
 from sympy import Add
 from sympy import Abs
 from sympy import Symbol, Idx
-from sympy.core.function import Application
 from sympy.core.containers import Tuple
 
 from pyccel.ast.builtins import Range
@@ -16,31 +15,22 @@ from pyccel.ast.core import EmptyLine, Import
 from pyccel.ast.core import CodeBlock, FunctionDef
 from pyccel.ast      import Shape
 
-from pyccel.ast.core      import _atomic
-
-from sympde.topology import (dx, dy, dz)
 from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import SymbolicExpr
 from sympde.topology import LogicalExpr
-from sympde.topology import IdentityMapping
 from sympde.topology.derivatives import get_index_logical_derivatives
-from sympde.topology import element_of
-from sympde.topology import ScalarTestFunction, VectorTestFunction
 from sympde.expr.evaluation import _split_test_function
 from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
 from sympde.topology import Boundary, NormalVector
-from sympde.topology.derivatives import get_index_logical_derivatives, get_atom_logical_derivatives
+from sympde.topology.derivatives import get_index_logical_derivatives
 
 from .nodes import AtomicNode
 from .nodes import BasisAtom
 from .nodes import PhysicalBasisValue
 from .nodes import LogicalBasisValue
 from .nodes import TensorQuadrature
-from .nodes import TensorBasis
-from .nodes import GlobalTensorQuadrature
-from .nodes import LocalTensorQuadrature
 from .nodes import LocalTensorQuadratureBasis
 from .nodes import LocalTensorQuadratureTestBasis
 from .nodes import LocalTensorQuadratureTrialBasis
@@ -49,7 +39,6 @@ from .nodes import GlobalTensorQuadratureTrialBasis
 from .nodes import TensorQuadratureBasis
 from .nodes import SplitArray
 from .nodes import Reduction
-from .nodes import Reset
 from .nodes import LogicalValueNode
 from .nodes import TensorIteration
 from .nodes import TensorIterator
@@ -63,7 +52,6 @@ from .nodes import BlockStencilMatrixLocalBasis
 from .nodes import BlockStencilMatrixGlobalBasis
 from .nodes import BlockStencilVectorLocalBasis
 from .nodes import BlockStencilVectorGlobalBasis
-from .nodes import BlockMatrixNode
 from .nodes import StencilVectorLocalBasis
 from .nodes import StencilVectorGlobalBasis
 from .nodes import GlobalElementBasis
@@ -72,24 +60,17 @@ from .nodes import TensorQuadratureTestBasis, TensorQuadratureTrialBasis
 from .nodes import Span
 from .nodes import Loop
 from .nodes import WeightedVolumeQuadrature
-from .nodes import ComputeLogical
-from .nodes import ElementOf
 from .nodes import LengthDofTest
 
-from .nodes import index_quad
-from .nodes import index_dof, index_dof_test, index_dof_trial
-from .nodes import index_element
+from .nodes import index_dof_test, index_dof_trial
 from .nodes import index_deriv
 
 from .nodes import   Zeros, ZerosLike
-from .fem import Block
-from .fem import get_length, expand, expand_hdiv_hcurl
+from .fem import expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.utilities     import flatten
-from numpy import array
 from sympy import Max
 
-import time
 #==============================================================================
 # TODO move it
 import string
@@ -215,7 +196,6 @@ class Parser(object):
         #TODO fix probleme of indices we should have a unique way of getting indices
         lhs_indices = [None if isinstance(i, Slice) and i.start is None else i for i in lhs_indices]
         rhs_indices = [None if isinstance(i, Slice) and i.start is None else i for i in rhs_indices]
-        shape_rhs = None
         shape_lhs = None
         shape = []
 
@@ -506,7 +486,7 @@ class Parser(object):
             stmts.append(stmt)
 
         inits = []
-        for val in expr.values:
+        for val in values:
             val = self._visit(val, **kwargs)
             inits.append(Assign(val[lhs_slices], 0.))
         loop = self._visit(expr.loop, **kwargs)
@@ -772,7 +752,7 @@ class Parser(object):
                 d = ops[i]
                 a = atoms[atom][i]
                 ls = [a]
-                for n in range(1, nderiv+1):
+                for _ in range(1, nderiv+1):
                     a = d(a)
                     ls.append(a)
                 sub_args[i] = tuple(ls)
@@ -1031,12 +1011,12 @@ class Parser(object):
         for vec in normal_vectors:
             axis    = target.axis
             ext     = target.ext
-            J       = self.mapping.jacobian
+            J       = LogicalExpr(self.mapping, self.mapping.jacobian)
+            J       = SymbolicExpr(J)
             values  = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
             normalization = sum(v**2 for v in values)**0.5
+            values  = [v.simplify() for v in values]
             values  = [v1/normalization for v1 in values]
-            values  = [LogicalExpr(self.mapping, v) for v in values]
-            values  = [SymbolicExpr(v).simplify() for v in values]
             normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), values[i]) for i in range(dim)]
 
         if op is None:
@@ -1060,7 +1040,6 @@ class Parser(object):
     # ....................................................
     def _visit_AtomicNode(self, expr, **kwargs):
         if isinstance(expr.expr, WeightedVolumeQuadrature):
-            mapping = self.mapping
             expr = SymbolicWeightedVolume(self.mapping)
             return self._visit(expr, **kwargs )
 
@@ -1084,7 +1063,7 @@ class Parser(object):
         for k,u in d_atoms.items():
             d = d_ops[k]
             n = d_indices[k]
-            for i in range(n):
+            for _ in range(n):
                 u = d(u)
             args.append(u)
         # ...
@@ -1108,7 +1087,7 @@ class Parser(object):
             #TODO improve l_quad should not be used like this
             l_quad = TensorQuadrature()
             l_quad = self._visit_TensorQuadrature(l_quad, **kwargs)
-            points, weights = list(zip(*list(l_quad.values())[0]))
+            _, weights = list(zip(*list(l_quad.values())[0]))
             if isinstance(target, Boundary):
                 weights = list(weights)
                 weights.pop(target.axis)
@@ -1160,8 +1139,6 @@ class Parser(object):
         target = expr.target
         #improve we shouldn't use index_dof_test
         if isinstance(target, BlockStencilMatrixLocalBasis):
-            tests  = expand(target._tests)
-            trials = expand(target._trials)
             rows = self._visit(index_dof_test)
             cols = self._visit(index_dof_trial)
             pads = self._visit_Pads(target.pads)
@@ -1248,7 +1225,6 @@ class Parser(object):
 
     # .............................................................................
     def _visit_StencilMatrixLocalBasis(self, expr, **kwargs):
-        pads = expr.pads
         rank = expr.rank
         tag  = expr.tag
         name = '_'.join(str(SymbolicExpr(e)) for e in expr.name)
@@ -1260,7 +1236,6 @@ class Parser(object):
 
     # ....................................................
     def _visit_StencilVectorLocalBasis(self, expr, **kwargs):
-        pads = expr.pads
         rank = expr.rank
         tag  = expr.tag
         name = str(SymbolicExpr(expr.name))
@@ -1271,7 +1246,6 @@ class Parser(object):
 
     # ....................................................
     def _visit_StencilMatrixGlobalBasis(self, expr, **kwargs):
-        pads = expr.pads
         rank = expr.rank
         tag  = expr.tag
         name = '_'.join(str(SymbolicExpr(e)) for e in expr.name)
@@ -1282,7 +1256,6 @@ class Parser(object):
 
     # ....................................................
     def _visit_StencilVectorGlobalBasis(self, expr, **kwargs):
-        pads = expr.pads
         rank = expr.rank
         tag  = expr.tag
         name = str(SymbolicExpr(expr.name))
@@ -1417,23 +1390,21 @@ class Parser(object):
 
     # ....................................................
     def _visit_TensorIterator(self, expr, **kwargs):
-        dim  = self.dim
         target = self._visit(expr.target)
         return target
 
     # ....................................................
     def _visit_ProductIterator(self, expr, **kwargs):
-        dim  = self.dim
         target = self._visit(expr.target)
         return target
 
     # ....................................................
     def _visit_TensorGenerator(self, expr, **kwargs):
-        dim    = self.dim
 
         targets = self._visit(expr.target)
         if expr.dummies is None:
-            return target
+            #TODO check if we never pass this condition
+            return expr.target
 
         # treat dummies and put them in the namespace
         dummies = self._visit(expr.dummies)
@@ -1454,7 +1425,6 @@ class Parser(object):
         return args
     # ....................................................
     def _visit_ProductGenerator(self, expr, **kwargs):
-        dim    = self.dim
         target = self._visit(expr.target)
 
         # treat dummies and put them in the namespace
@@ -1477,7 +1447,7 @@ class Parser(object):
             new_lengths = []
             for ln in lengths:
                 t = tuple(j + 1 for j in ln)
-                new_lengths += [t] 
+                new_lengths += [t]
             lengths = new_lengths
 
         indices = tuple(ind for ls in indices for ind in ls)
@@ -1505,7 +1475,6 @@ class Parser(object):
                     args = SplitArray(xs[0], positions, [self.nderiv+1])
                     new_g_xs[i] = tuple(self._visit(args, **kwargs))
                 g_xs = new_g_xs
-
             
             for i in  range(self.dim):
                 ls = []
@@ -1585,7 +1554,6 @@ class Parser(object):
         mask = expr.mask
         if mask:
             axis   = mask.axis
-            ext    = mask.ext
             index  = indices.pop(axis)
             length = lengths.pop(axis)
             init   = inits.pop(axis)

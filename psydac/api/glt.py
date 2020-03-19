@@ -21,8 +21,7 @@ from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
 
 from sympde.expr.basic     import BasicForm
-from sympde.topology.space import ScalarField, VectorField, IndexedVectorField
-from gelato.expr           import GltExpr
+from sympde.topology.space import VectorField
 from psydac.api.printing.pycode      import pycode
 
 import inspect
@@ -31,7 +30,6 @@ import os
 import importlib
 import string
 import random
-import numpy as np
 from mpi4py import MPI
 
 #==============================================================================
@@ -288,7 +286,7 @@ class BasicCodeGen(object):
 
             # ... add __init__ to all directories to be able to
             touch_init_file('__pycache__')
-            for root, dirs, files in os.walk(folder):
+            for root, _, _ in os.walk(folder):
                 touch_init_file(root)
             # ...
 
@@ -343,7 +341,6 @@ class BasicCodeGen(object):
 
     def _generate_interface_code(self):
         imports = []
-        prefix = ''
 
         module_name = self.dependencies_modname
 
@@ -371,9 +368,7 @@ class BasicCodeGen(object):
 
         module_name = self.dependencies_modname
 
-        basedir = os.getcwd()
         os.chdir(self.folder)
-        curdir = os.getcwd()
         sys.path.append(self.folder)
         os.system('pythran {}.py -O3'.format(module_name))
         sys.path.remove(self.folder)
@@ -396,7 +391,6 @@ class BasicCodeGen(object):
         # ...
         basedir = os.getcwd()
         os.chdir(self.folder)
-        curdir = os.getcwd()
         # ...
 
         # ...
@@ -437,8 +431,6 @@ class BasicCodeGen(object):
         os.chdir(basedir)
 
     def _compile(self, namespace):
-
-        module_name = self.dependencies_modname
 
         # ... TODO move to save
         code = self.interface_code
@@ -489,10 +481,10 @@ class BasicCodeGen(object):
         if isinstance(expr, BasicForm):
             if not expr.is_annotated:
                 expr = expr.annotate()
-        elif isinstance(expr, GltExpr):
+        elif isinstance(expr, sym_GltExpr):
             form = expr.form
             form = form.annotate()
-            expr = GltExpr(form)
+            expr = sym_GltExpr(form)
         return expr
 
 #==============================================================================

@@ -2,8 +2,6 @@
 
 import numpy as np
 
-from psydac.utilities.quadratures  import gauss_legendre
-from psydac.core.bsplines          import quadrature_grid
 from psydac.core.bsplines          import find_span
 from psydac.core.bsplines          import basis_funs_all_ders
 from psydac.core.bsplines          import basis_ders_on_quad_grid
@@ -105,7 +103,6 @@ class BasisValues():
     def __init__( self, V, grid, nderiv ):
         assert( isinstance( grid, QuadratureGrid ) )
 
-        quad_order = [q-1 for q in grid.quad_order]
         if isinstance(V, ProductFemSpace):
             V = V.spaces
         else:

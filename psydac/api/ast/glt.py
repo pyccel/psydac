@@ -30,7 +30,7 @@ from sympde.topology.derivatives import get_max_partial_derivatives
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
 from sympde.topology             import SymbolicDeterminant
-from sympde.topology             import Mapping, IdentityMapping
+from sympde.topology             import IdentityMapping
 
 from gelato.expr import gelatize
 

@@ -1,16 +1,12 @@
 # -*- coding: UTF-8 -*-
 
+from sympy import pi, cos, sin
 
-from sympy import symbols
-from sympy import pi, cos, sin, Tuple, Matrix
-
-from sympde.topology import (dx, dy, dz)
-from sympde.topology import (dx1, dx2, dx3)
-from sympde.calculus import grad, dot, inner,div
+from sympde.calculus import dot, div
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of, elements_of
+from sympde.topology import element_of
 from sympde.topology import Square
-from sympde.topology import Mapping, IdentityMapping, PolarMapping
+from sympde.topology import Mapping
 from sympde.expr     import integral
 from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm

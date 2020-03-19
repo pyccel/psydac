@@ -5,16 +5,13 @@ from sympy import Mul
 from sympy import symbols
 from sympy import cos
 
-from pyccel.ast import Assign
 from pyccel.ast import AugAssign
 # TODO remove
 from pyccel.codegen.printing.pycode import pycode
 
 from sympde.calculus import grad, dot
-from sympde.topology import (dx, dy, dz)
-from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import ScalarFunctionSpace
-from sympde.topology import element_of, elements_of
+from sympde.topology import elements_of
 from sympde.topology import Square
 from sympde.topology import Mapping
 from sympde.expr     import integral
@@ -23,19 +20,12 @@ from sympde.expr     import BilinearForm
 
 from psydac.api.new_ast.nodes import Grid
 from psydac.api.new_ast.nodes import Element
-from psydac.api.new_ast.nodes import TensorIterator
-from psydac.api.new_ast.nodes import TensorGenerator
-from psydac.api.new_ast.nodes import ProductIterator
 from psydac.api.new_ast.nodes import ProductGenerator
 from psydac.api.new_ast.nodes import Loop
 from psydac.api.new_ast.nodes import GlobalTensorQuadrature
 from psydac.api.new_ast.nodes import LocalTensorQuadrature
 from psydac.api.new_ast.nodes import TensorQuadrature
 from psydac.api.new_ast.nodes import MatrixQuadrature
-from psydac.api.new_ast.nodes import GlobalTensorQuadratureBasis
-from psydac.api.new_ast.nodes import LocalTensorQuadratureBasis
-from psydac.api.new_ast.nodes import TensorQuadratureBasis
-from psydac.api.new_ast.nodes import TensorBasis
 from psydac.api.new_ast.nodes import GlobalTensorQuadratureTestBasis
 from psydac.api.new_ast.nodes import LocalTensorQuadratureTestBasis
 from psydac.api.new_ast.nodes import TensorQuadratureTestBasis
@@ -48,7 +38,6 @@ from psydac.api.new_ast.nodes import GlobalSpan
 from psydac.api.new_ast.nodes import Span
 from psydac.api.new_ast.nodes import BasisAtom
 from psydac.api.new_ast.nodes import PhysicalBasisValue
-from psydac.api.new_ast.nodes import LogicalBasisValue
 from psydac.api.new_ast.nodes import index_element
 from psydac.api.new_ast.nodes import index_quad
 from psydac.api.new_ast.nodes import index_dof, index_dof_test, index_dof_trial
@@ -62,7 +51,6 @@ from psydac.api.new_ast.nodes import construct_logical_expressions
 from psydac.api.new_ast.nodes import GeometryAtom
 from psydac.api.new_ast.nodes import GeometryExpressions
 from psydac.api.new_ast.nodes import PhysicalGeometryValue
-from psydac.api.new_ast.nodes import LogicalGeometryValue
 from psydac.api.new_ast.nodes import AtomicNode
 from psydac.api.new_ast.nodes import MatrixLocalBasis
 from psydac.api.new_ast.nodes import CoefficientBasis
@@ -71,7 +59,6 @@ from psydac.api.new_ast.nodes import StencilVectorLocalBasis
 from psydac.api.new_ast.nodes import StencilMatrixGlobalBasis
 from psydac.api.new_ast.nodes import StencilVectorGlobalBasis
 from psydac.api.new_ast.nodes import ElementOf
-from psydac.api.new_ast.nodes import WeightedVolumeQuadrature
 from psydac.api.new_ast.nodes import ComputeKernelExpr
 from psydac.api.new_ast.nodes import AST
 from psydac.api.new_ast.nodes import Block
@@ -156,7 +143,6 @@ def test_basis_atom_2d_2():
 def test_geometry_atom_2d_1():
     expr = M[0]
     lhs  = GeometryAtom(expr)
-    rhs  = PhysicalGeometryValue(expr)
 
     settings = {'dim': domain.dim, 'nderiv': 1, 'mapping': M}
     _parse = lambda expr: parse(expr, settings=settings)

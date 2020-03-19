@@ -876,7 +876,6 @@ pythran_dtypes = {'real':'float','int':'int'}
 #==============================================================================
 
 from sympy import preorder_traversal
-from sympy import Function
 from sympy import NumberSymbol
 from sympy import Pow, S
 from sympy.printing.pycode import _known_functions_math

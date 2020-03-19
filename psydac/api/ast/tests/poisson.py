@@ -5,8 +5,7 @@ from sympy import symbols
 from sympy import cos,sin,pi
 
 from sympde.calculus import grad, dot
-from sympde.topology import (dx, dy, dz)
-from sympde.topology import (dx1, dx2, dx3)
+
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of, elements_of
 from sympde.topology import Square
@@ -16,12 +15,8 @@ from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm
 from sympde.expr     import Norm
 
-from psydac.api.new_ast.fem  import AST
-from psydac.api.new_ast.parser import parse
 from psydac.api.discretization import discretize
 from sympde.expr import find, EssentialBC
-from pyccel.codegen.printing.pycode import pycode
-from sympde.topology import Domain
 from psydac.fem.basic          import FemField
 import os
 from psydac.api.essential_bc         import apply_essential_bc
@@ -64,8 +59,7 @@ equation_h.lhs._set_func('dependencies_mq3duq68','assembly')
 M = equation_h.rhs.assemble()
 for i in equation_h.bc:
     apply_essential_bc(equation_h.test_space, i, M)
-print(equation_h.solve().toarray())
-raise
+
 uh = FemField(Vh, x)
 
 l2_error = l2norm_h.assemble(u=uh)

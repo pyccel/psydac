@@ -1,12 +1,14 @@
+# -*- coding: UTF-8 -*-
+
 from collections import OrderedDict
-from itertools import product,groupby
+from itertools import product
 
 from sympy import Basic
 from sympy.core.singleton import Singleton
 from sympy.core.compatibility import with_metaclass
 from sympy.core.containers import Tuple
 from sympy import AtomicExpr
-from sympy import Symbol, Mul, Function
+from sympy import Mul
 
 from sympde.topology import ScalarTestFunction, VectorTestFunction
 from sympde.topology import IndexedTestTrial
@@ -17,16 +19,15 @@ from sympde.topology import Mapping
 from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
-from sympde.topology import IdentityMapping
-from sympde.topology import element_of, VectorFunctionSpace, ScalarFunctionSpace
-from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
+from sympde.topology import VectorFunctionSpace
+from sympde.topology import H1SpaceType, L2SpaceType, UndefinedSpaceType
 
 from .utilities import physical2logical
 
 from pyccel.ast           import AugAssign, Assign
 from pyccel.ast.core      import _atomic
 
-from sympde.topology.derivatives import get_index_logical_derivatives, get_atom_logical_derivatives
+from sympde.topology.derivatives import get_atom_logical_derivatives
 
 #==============================================================================
 # TODO move it
@@ -121,7 +122,7 @@ class IndexDofTest(IndexNode):
     pass
 
 class IndexDerivative(IndexNode):
-    def __new__(cls):
+    def __new__(cls, length=None):
         return Basic.__new__(cls)
 
 index_element   = IndexElement()
@@ -1134,38 +1135,26 @@ class ValueNode(ExprNode):
 
 #==============================================================================
 class PhysicalValueNode(ValueNode):
-    """
-    """
     pass
 
 #==============================================================================
 class LogicalValueNode(ValueNode):
-    """
-    """
     pass
 
 #==============================================================================
 class PhysicalBasisValue(PhysicalValueNode):
-    """
-    """
     pass
 
 #==============================================================================
 class LogicalBasisValue(LogicalValueNode):
-    """
-    """
     pass
 
 #==============================================================================
 class PhysicalGeometryValue(PhysicalValueNode):
-    """
-    """
     pass
 
 #==============================================================================
 class LogicalGeometryValue(LogicalValueNode):
-    """
-    """
     pass
 
 #==============================================================================
@@ -1444,7 +1433,7 @@ def construct_logical_expressions(u, nderiv):
     for ijk in indices:
         for atom in u:
             for n,op in zip(ijk, ops):
-                for i in range(1, n+1):
+                for _ in range(1, n+1):
                     atom = op(atom)
             args.append(atom)
     return [ComputeLogicalBasis(i) for i in args]
@@ -1473,7 +1462,7 @@ class GeometryExpressions(Basic):
                 for ijk in indices:
                     atom = M[d]
                     for n,op in zip(ijk, ops):
-                        for i in range(1, n+1):
+                        for _ in range(1, n+1):
                             atom = op(atom)
                     args.append(atom)
 

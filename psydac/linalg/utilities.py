@@ -9,13 +9,12 @@ __all__ = ['array_to_stencil']
 
 def array_to_stencil(x, Xh):
     """ converts a numpy array to StencilVector or BlockVector format"""
-    
+
     if isinstance(Xh, ProductSpace):
         u = BlockVector(Xh)
         starts = [np.array(V.starts) for V in Xh.spaces]
         ends   = [np.array(V.ends)   for V in Xh.spaces]
-        dim    = len(starts[0])
-        
+
         for i in range(len(starts)):
             g = tuple(slice(s,e+1) for s,e in zip(starts[i], ends[i]))
             shape = tuple(ends[i]-starts[i]+1)
@@ -23,7 +22,7 @@ def array_to_stencil(x, Xh):
             x       = x[np.product(shape):]
 
     elif isinstance(Xh, StencilVectorSpace):
-    
+
         u =  StencilVector(Xh)
         starts = np.array(Xh.starts)
         ends   = np.array(Xh.ends)

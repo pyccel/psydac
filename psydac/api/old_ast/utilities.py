@@ -1,11 +1,9 @@
 import re
 import string
 import random
-import numpy as np
 
 from sympy import Symbol, IndexedBase, Indexed, Idx
 from sympy import Mul, Tuple, Pow
-from sympy import Matrix
 from sympy import sqrt as sympy_sqrt
 from sympy.utilities.iterables import cartes
 
@@ -25,7 +23,6 @@ from sympde.topology.derivatives import get_atom_logical_derivatives
 from sympde.topology.derivatives import get_index_logical_derivatives
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
-from sympde.core                 import Cross_3d
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
@@ -34,8 +31,6 @@ from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Range, Product
 from pyccel.ast.core import _atomic
 from pyccel.ast      import Comment
-
-from psydac.api.printing.pycode import pycode  # TODO: remove
 
 #==============================================================================
 def random_string( n ):
@@ -184,11 +179,11 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
 
     if not isinstance(atomic_exprs, (list, tuple, Tuple)):
         raise TypeError('Expecting a list of atoms')
-    
-    for atom in atomic_exprs:   
+
+    for atom in atomic_exprs:
         if not isinstance(atom, cls):
             raise TypeError('atom must be of type {}'.format(str(cls)))
-    
+
     # If there is a mapping, compute [dx(u), dy(u), dz(u)] as functions
     # of [dx1(u), dx2(u), dx3(u)], and store results into intermediate
     # variables [u_x, u_y, u_z]. (Same thing is done for higher derivatives.)
@@ -216,7 +211,7 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
                     assert len(ls) == 1
                     if isinstance(ls[0], cls):
                         new_atoms.add(a)
-    
+
                 rhs = SymbolicExpr(rhs_p)
                 map_stmts += [Assign(lhs, rhs)]
 
@@ -318,7 +313,6 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
         new_atoms = set()
         map_stmts = []
         get_index = get_index_logical_derivatives
-        get_atom  = get_atom_logical_derivatives
 
         for atom in atomic_exprs:
 
@@ -345,7 +339,6 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
         new_atoms = atomic_exprs
         map_stmts = []
         get_index = get_index_derivatives
-        get_atom  = get_atom_derivatives
 
     # Make sure that we only pick one between 'dx1(dx2(u))' and 'dx2(dx1(u))'
     new_atoms = {SymbolicExpr(a).name : a for a in new_atoms}
@@ -560,7 +553,6 @@ def rationalize_eval_mapping(mapping, nderiv, space, indices_quad):
 def filter_product(indices, args, boundary):
 
     mask = []
-    ext = []
     if boundary:
 
         if isinstance(boundary, Boundary):
@@ -582,7 +574,6 @@ def filter_product(indices, args, boundary):
 def filter_loops(indices, ranges, body, boundary, boundary_basis=False):
 
     quad_mask = []
-    quad_ext = []
     if boundary:
 
         if isinstance(boundary, Boundary):
@@ -898,7 +889,7 @@ pythran_dtypes = {'real':'float','int':'int'}
 from sympy import preorder_traversal
 from sympy import Function
 from sympy import NumberSymbol
-from sympy import Pow, S
+from sympy import S
 from sympy.printing.pycode import _known_functions_math
 from sympy.printing.pycode import _known_constants_math
 from sympy.printing.pycode import _known_functions_mpmath

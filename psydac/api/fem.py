@@ -171,7 +171,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     args += (kwargs[key], )
         else:
             args = self._args
-        self.func(*args)
+        self._func(*args)
         return self._matrix
 
     def construct_arguments(self):
@@ -324,7 +324,7 @@ class DiscreteLinearForm(BasicDiscrete):
                     args += (kwargs[key], )
         else:
             args = self._args
-        self.func(*args)
+        self._func(*args)
         return self._vector
 
     def construct_arguments(self):
@@ -489,7 +489,7 @@ class DiscreteFunctional(BasicDiscrete):
         else:
             args = self._args
 
-        self.func(*args)
+        self._func(*args)
         v = self._global_mats[0]
         
         if isinstance(self.expr, sym_Norm):

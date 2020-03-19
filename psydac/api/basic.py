@@ -9,12 +9,8 @@ from collections import OrderedDict
 from collections import namedtuple
 
 from pyccel.ast import Nil
-from pyccel.epyccel import get_source_function
 
 from sympde.topology import Domain, Boundary
-
-from psydac.api.ast.glt              import GltKernel
-from psydac.api.ast.glt              import GltInterface
 
 from psydac.api.ast.fem  import AST
 from psydac.api.ast.parser import parse
@@ -30,10 +26,7 @@ from psydac.fem.vector               import ProductFemSpace
 from psydac.cad.geometry             import Geometry
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
 
-from sympde.expr.basic import BasicForm
-from sympde.expr       import Functional
 from sympde.topology.space import ScalarField, VectorField, IndexedVectorField
-from gelato.expr       import GltExpr
 from sympy import Add, Mul
 
 import inspect
@@ -419,7 +412,6 @@ class BasicDiscrete(BasicCodeGen):
     def _create_ast(self, expr,tag, **kwargs):
         is_rational_mapping = kwargs.pop('is_rational_mapping', None)
         discrete_space      = kwargs.pop('discrete_space', None)
-        comm                = kwargs.pop('comm', None)
         kernel_expr         = kwargs['kernel_expr']
 
         return AST(expr, kernel_expr, discrete_space, is_rational_mapping, tag)

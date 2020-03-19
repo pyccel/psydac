@@ -1,37 +1,17 @@
-from .nodes import TensorQuadrature
-from .nodes import TensorBasis
+# -*- coding: UTF-8 -*-
+
 from .nodes import GlobalTensorQuadrature
 from .nodes import LocalTensorQuadrature
-from .nodes import LocalTensorQuadratureBasis
 from .nodes import LocalTensorQuadratureTestBasis
 from .nodes import LocalTensorQuadratureTrialBasis
 from .nodes import GlobalTensorQuadratureTestBasis
 from .nodes import GlobalTensorQuadratureTrialBasis
-from .nodes import TensorQuadratureBasis
-from .nodes import IndexElement, IndexQuadrature
-from .nodes import IndexDof, IndexDofTest, IndexDofTrial
-from .nodes import IndexDerivative
 from .nodes import LengthElement, LengthQuadrature
-from .nodes import LengthDof, LengthDofTest, LengthDofTrial
-from .nodes import SplitArray
-from .nodes import Reduction
 from .nodes import Reset
-from .nodes import LogicalValueNode
-from .nodes import TensorIteration
-from .nodes import TensorIterator
-from .nodes import TensorGenerator
-from .nodes import ProductIteration
-from .nodes import ProductIterator
-from .nodes import ProductGenerator
-from .nodes import StencilMatrixLocalBasis
-from .nodes import StencilMatrixGlobalBasis
 from .nodes import BlockStencilMatrixLocalBasis
 from .nodes import BlockStencilMatrixGlobalBasis
 from .nodes import BlockStencilVectorLocalBasis
 from .nodes import BlockStencilVectorGlobalBasis
-from .nodes import BlockMatrixNode
-from .nodes import StencilVectorLocalBasis
-from .nodes import StencilVectorGlobalBasis
 from .nodes import GlobalElementBasis
 from .nodes import LocalElementBasis
 from .nodes import TensorQuadratureTestBasis, TensorQuadratureTrialBasis
@@ -42,30 +22,25 @@ from .nodes import MatrixLocalBasis, MatrixGlobalBasis
 from .nodes import GeometryExpressions
 from .nodes import Loop
 from .nodes import EvalMapping, EvalField
-from .nodes import WeightedVolumeQuadrature
-from .nodes import ComputeLogical, ComputeKernelExpr
+from .nodes import ComputeKernelExpr
 from .nodes import ElementOf, Reduce
 from .nodes import construct_logical_expressions
 from .nodes import ComputePhysicalBasis
 from .nodes import Pads, Mask
 
-from .utilities import physical2logical
 #==============================================================================
 from sympy import Basic
-from sympy import Matrix, ImmutableDenseMatrix
+from sympy import Matrix
 from sympy import symbols
 from sympy.core.containers import Tuple
 
-from sympde.expr import TerminalExpr
 from sympde.expr import LinearForm
 from sympde.expr import BilinearForm
 from sympde.expr import Functional
 
 from sympde.topology.basic       import Boundary
-from sympde.topology             import Mapping
 from sympde.topology             import H1SpaceType, HcurlSpaceType
 from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology             import element_of
 from sympde.topology             import ScalarField
 from sympde.topology             import VectorField, IndexedVectorField
 from sympde.topology.space       import ScalarTestFunction
@@ -75,15 +50,10 @@ from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
 
-
-
-from pyccel.ast       import EmptyLine
 from pyccel.ast.core  import _atomic
 
 from .nodes import index_quad
-from .nodes import index_dof, index_dof_test, index_dof_trial
 from .nodes import index_element
-from .nodes import index_deriv
 
 from collections import OrderedDict
 from itertools   import groupby
@@ -458,8 +428,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     ex_trials    = expand(trials)
 
     #=========================================================begin kernel======================================================
-    for te_dtype,sub_tests in test_groups:
-        for tr_dtype, sub_trials in trial_groups:
+    for _, sub_tests in test_groups:
+        for _, sub_trials in trial_groups:
             tests_indices = [ex_tests.index(i) for i in expand(sub_tests)]
             trials_indices = [ex_trials.index(i) for i in expand(sub_trials)]
             sub_terminal_expr = terminal_expr[tests_indices,trials_indices]
@@ -587,7 +557,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     # ... 
     #=========================================================begin kernel======================================================
 
-    for dtype, group in groups:
+    for _, group in groups:
         tests_indices = [ex_tests.index(i) for i in expand(group)]
         sub_terminal_expr = terminal_expr[tests_indices,0]
         sub_atomic_expr   = atomic_expr[tests_indices,0]
