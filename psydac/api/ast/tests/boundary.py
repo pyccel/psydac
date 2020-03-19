@@ -15,7 +15,6 @@ from sympde.expr     import BilinearForm
 from sympde.topology import NormalVector
 
 from psydac.api.discretization import discretize
-from sympde.expr import find, EssentialBC
 
 import os
 # ...

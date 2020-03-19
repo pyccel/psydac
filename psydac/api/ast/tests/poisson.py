@@ -2,14 +2,14 @@
 
 
 from sympy import symbols
-from sympy import cos,sin,pi
+from sympy import sin,pi
 
 from sympde.calculus import grad, dot
 
 from sympde.topology import ScalarFunctionSpace
-from sympde.topology import element_of, elements_of
+from sympde.topology import elements_of
 from sympde.topology import Square
-from sympde.topology import Mapping, IdentityMapping, PolarMapping
+from sympde.topology import IdentityMapping#,Mapping PolarMapping
 from sympde.expr     import integral
 from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm
@@ -24,7 +24,7 @@ from psydac.api.essential_bc         import apply_essential_bc
 try:
     mesh_dir = os.environ['PSYDAC_MESH_DIR']
 
-except:
+except KeyError:
     base_dir = os.path.dirname(os.path.realpath(__file__))
     base_dir = os.path.join(base_dir, '..', '..', '..','..')
     mesh_dir = os.path.join(base_dir, 'mesh')

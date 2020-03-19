@@ -38,6 +38,7 @@ def random_string( n ):
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
+from sympy import Function
 
 class ZerosLike(Function):
     @property
@@ -52,7 +53,6 @@ class Zeros(Function):
 #==============================================================================
 class ArityType(with_metaclass(Singleton, Basic)):
     """Base class representing a form type: bilinear/linear/functional"""
-    pass
 
 class BilinearArity(ArityType):
     pass

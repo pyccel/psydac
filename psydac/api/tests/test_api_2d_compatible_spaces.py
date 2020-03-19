@@ -191,6 +191,8 @@ def test_api_system_2_2d_dir_1():
     u2 =-y**2*(-y + 1)**2*(4*x**3 - 6*x**2 + 2*x)
     p  = sin(2*pi*x) - sin(2*pi*y)
     
-    l2_error = run_system_2_2d_dir(f1, f2, u1, u2, ncells=[2**3,2**3], degree=[2,2])
+    l2_error = run_system_2_2d_dir(f1, f2, u1, u2, ncells=[2**4,2**4], degree=[2,2])
+    assert l2_error-0.020113712082281063<1e-13
+    #TODO verify convergence rate
 
 

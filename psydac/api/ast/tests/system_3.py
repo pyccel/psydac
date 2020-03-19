@@ -1,10 +1,8 @@
 # -*- coding: UTF-8 -*-
 
+from sympy import pi, sin, Tuple
 
-from sympy import symbols
-from sympy import pi, cos, sin, Tuple, Matrix
-
-from sympde.calculus import grad, dot, inner,div
+from sympde.calculus import div
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import Square

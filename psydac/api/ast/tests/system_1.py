@@ -6,7 +6,7 @@ from sympde.calculus import grad, dot, inner
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import Square
-from sympde.topology import Mapping, IdentityMapping#, PolarMapping
+from sympde.topology import Mapping#, IdentityMapping, PolarMapping
 from sympde.expr     import integral
 from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm

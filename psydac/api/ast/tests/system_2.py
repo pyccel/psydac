@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 
-from sympy import pi, cos, sin
+from sympy import cos, sin
 
 from sympde.calculus import dot, div
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
@@ -10,7 +10,6 @@ from sympde.topology import Mapping
 from sympde.expr     import integral
 from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm
-from sympde.expr     import Norm
 
 from psydac.api.new_ast.fem  import AST
 from psydac.api.new_ast.parser import parse

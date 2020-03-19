@@ -769,10 +769,8 @@ class Parser(object):
 
     # ....................................................
     def _visit_MatrixLocalBasis(self, expr, **kwargs):
-        dim    = self.dim
         rank   = self._visit(expr.rank)
         target = SymbolicExpr(expr.target)
-
         name = 'arr_coeffs_{}'.format(target.name)
         var  = IndexedVariable(name, dtype='real', rank=rank)
         self.insert_variables(var)
@@ -780,7 +778,6 @@ class Parser(object):
     # ....................................................
 
     def _visit_MatrixGlobalBasis(self, expr, **kwargs):
-        dim    = self.dim
         rank   = self._visit(expr.rank)
         target = SymbolicExpr(expr.target)
 
@@ -790,8 +787,6 @@ class Parser(object):
         return var
     # ....................................................
     def _visit_Reset(self, expr, **kwargs):
-        dim  = self.dim
-
         var = expr.var
         lhs  = self._visit(var, **kwargs)
         if isinstance(var, (GlobalElementBasis,LocalElementBasis)):
@@ -1510,7 +1505,6 @@ class Parser(object):
         t_iterations = [TensorIteration(i,j)
                         for i,j in zip(t_iterator, t_generator)]
 
-        t_inits = []
         if t_iterations:
             t_iterations = [self._visit_TensorIteration(i) for i in t_iterations]
             indices, lengths, inits = zip(*t_iterations)

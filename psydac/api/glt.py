@@ -21,7 +21,6 @@ from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
 
 from sympde.expr.basic     import BasicForm
-from sympde.topology.space import VectorField
 from psydac.api.printing.pycode      import pycode
 
 import inspect

@@ -50,7 +50,6 @@ from psydac.api.new_ast.nodes import Reduction
 from psydac.api.new_ast.nodes import construct_logical_expressions
 from psydac.api.new_ast.nodes import GeometryAtom
 from psydac.api.new_ast.nodes import GeometryExpressions
-from psydac.api.new_ast.nodes import PhysicalGeometryValue
 from psydac.api.new_ast.nodes import AtomicNode
 from psydac.api.new_ast.nodes import MatrixLocalBasis
 from psydac.api.new_ast.nodes import CoefficientBasis

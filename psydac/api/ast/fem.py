@@ -7,6 +7,7 @@ from .nodes import LocalTensorQuadratureTrialBasis
 from .nodes import GlobalTensorQuadratureTestBasis
 from .nodes import GlobalTensorQuadratureTrialBasis
 from .nodes import LengthElement, LengthQuadrature
+from .nodes import LengthDofTrial, LengthDofTest
 from .nodes import Reset
 from .nodes import BlockStencilMatrixLocalBasis
 from .nodes import BlockStencilMatrixGlobalBasis
@@ -54,6 +55,8 @@ from pyccel.ast.core  import _atomic
 
 from .nodes import index_quad
 from .nodes import index_element
+from .nodes import index_dof_test
+from .nodes import index_dof_trial
 
 from collections import OrderedDict
 from itertools   import groupby
