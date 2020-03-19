@@ -18,7 +18,6 @@ from pyccel.ast      import Shape
 from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import SymbolicExpr
 from sympde.topology import LogicalExpr
-from sympde.topology.derivatives import get_index_logical_derivatives
 from sympde.expr.evaluation import _split_test_function
 from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
