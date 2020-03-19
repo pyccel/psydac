@@ -108,7 +108,7 @@ x,y = symbols('x, y')
 # ...
 
 #==============================================================================
-def test_basis_atom_2d_1():
+def basis_atom_2d_1():
     expr = dx(u)
     lhs  = BasisAtom(expr)
     rhs  = PhysicalBasisValue(expr)
@@ -124,7 +124,7 @@ def test_basis_atom_2d_1():
     assert(_parse(rhs) == u_x1)
 
 #==============================================================================
-def test_basis_atom_2d_2():
+def basis_atom_2d_2():
     expr = dy(dx(u))
     lhs  = BasisAtom(expr)
     rhs  = PhysicalBasisValue(expr)
@@ -140,7 +140,7 @@ def test_basis_atom_2d_2():
     assert(_parse(rhs) == u_x1x2)
 
 #==============================================================================
-def test_geometry_atom_2d_1():
+def geometry_atom_2d_1():
     expr = M[0]
     lhs  = GeometryAtom(expr)
 
@@ -153,7 +153,7 @@ def test_geometry_atom_2d_1():
     # TODO add assert on parse rhs
 
 #==============================================================================
-def test_loop_local_quad_2d_1():
+def loop_local_quad_2d_1():
     stmts = []
     loop  = Loop(l_quad, index_quad, stmts)
 
@@ -162,7 +162,7 @@ def test_loop_local_quad_2d_1():
     print()
 
 #==============================================================================
-def test_loop_local_dof_quad_2d_1():
+def loop_local_dof_quad_2d_1():
     # ...
     stmts = []
     loop  = Loop((l_quad, a_basis), index_quad, stmts)
@@ -180,7 +180,7 @@ def test_loop_local_dof_quad_2d_1():
     print()
 
 #==============================================================================
-def test_loop_local_dof_quad_2d_2():
+def loop_local_dof_quad_2d_2():
     # ...
     args   = [dx(u), dx(dy(u)), dy(dy(u)), dx(u) + dy(u)]
     stmts  = [ComputePhysicalBasis(i) for i in args]
@@ -201,7 +201,7 @@ def test_loop_local_dof_quad_2d_2():
     print()
 
 #==============================================================================
-def test_loop_local_dof_quad_2d_3():
+def loop_local_dof_quad_2d_3():
     # ...
     stmts  = [dx1(u)]
     stmts  = [ComputeLogicalBasis(i) for i in stmts]
@@ -222,7 +222,7 @@ def test_loop_local_dof_quad_2d_3():
     print()
 
 #==============================================================================
-def test_loop_local_dof_quad_2d_4():
+def loop_local_dof_quad_2d_4():
     # ...
     stmts = []
 
@@ -248,7 +248,7 @@ def test_loop_local_dof_quad_2d_4():
     print()
 
 #==============================================================================
-def test_loop_global_local_quad_2d_1():
+def loop_global_local_quad_2d_1():
     # ...
     stmts = []
     loop  = Loop(l_quad, index_quad, stmts)
@@ -264,7 +264,7 @@ def test_loop_global_local_quad_2d_1():
     print()
 
 #==============================================================================
-def test_global_span_2d_1():
+def global_span_2d_1():
     # ...
     stmts = []
     loop  = Loop(g_span, index_element, stmts)
@@ -276,7 +276,7 @@ def test_global_span_2d_1():
     print()
 
 #==============================================================================
-def test_global_quad_span_2d_1():
+def global_quad_span_2d_1():
     # ...
     stmts = []
     loop  = Loop((g_quad, g_span), index_element, stmts)
@@ -288,7 +288,7 @@ def test_global_quad_span_2d_1():
     print()
 
 #==============================================================================
-def test_global_quad_basis_span_2d_1():
+def global_quad_basis_span_2d_1():
     # ...
     stmts = []
     loop  = Loop((g_quad, g_basis, g_span), index_element, stmts)
@@ -300,7 +300,7 @@ def test_global_quad_basis_span_2d_1():
     print()
 
 #==============================================================================
-def test_global_quad_basis_span_2d_2():
+def global_quad_basis_span_2d_2():
     # ...
     nderiv = 2
     stmts = construct_logical_expressions(u, nderiv)
@@ -332,7 +332,7 @@ def test_global_quad_basis_span_2d_2():
     print()
 
 #==============================================================================
-def test_loop_local_quad_geometry_2d_1():
+def loop_local_quad_geometry_2d_1():
     # ...
     nderiv = 1
     stmts = []
@@ -349,7 +349,7 @@ def test_loop_local_quad_geometry_2d_1():
     print()
 
 #==============================================================================
-def test_eval_field_2d_1():
+def eval_field_2d_1():
     # ...
     args = [dx1(u), dx2(u)]
 
@@ -380,7 +380,7 @@ def test_eval_field_2d_1():
     print()
 
 #==============================================================================
-def test_global_quad_basis_span_2d_vector_1():
+def global_quad_basis_span_2d_vector_1():
     # ...
     nderiv = 2
     stmts = construct_logical_expressions(v, nderiv)
@@ -421,7 +421,7 @@ def test_global_quad_basis_span_2d_vector_1():
     print()
 
 #==============================================================================
-def test_global_quad_basis_span_2d_vector_2():
+def global_quad_basis_span_2d_vector_2():
     # ...
     nderiv = 1
     stmts = construct_logical_expressions(v, nderiv)
@@ -463,7 +463,7 @@ def test_global_quad_basis_span_2d_vector_2():
     print()
 
 #==============================================================================
-def test_global_quad_basis_span_2d_matrix_1():
+def global_quad_basis_span_2d_matrix_1():
     # ...
     nderiv = 2
     stmts = construct_logical_expressions(u, nderiv)
@@ -509,7 +509,7 @@ def test_global_quad_basis_span_2d_matrix_1():
     print()
 
 #==============================================================================
-def test_global_quad_basis_span_2d_matrix_2():
+def global_quad_basis_span_2d_matrix_2():
     # ...
     nderiv = 1
     stmts = construct_logical_expressions(u, nderiv)
@@ -555,7 +555,7 @@ def test_global_quad_basis_span_2d_matrix_2():
     print()
 
 #==============================================================================
-def test_assembly_linear_form_2d_1():
+def assembly_linear_form_2d_1():
     b = LinearForm(v, integral(domain, v*cos(x)))
     ast = AST(b)
 
@@ -564,7 +564,7 @@ def test_assembly_linear_form_2d_1():
     print()
 
 #==============================================================================
-def test_assembly_bilinear_form_2d_1():
+def assembly_bilinear_form_2d_1():
     a = BilinearForm((u,v), integral(domain, dot(grad(u), grad(v))))
     ast = AST(a)
 
@@ -588,36 +588,36 @@ def teardown_function():
 
 
 #==============================================================================
-#test_assembly_linear_form_2d_1()
-#test_assembly_bilinear_form_2d_1()
-#test_global_quad_basis_span_2d_vector_1()
-#test_global_quad_basis_span_2d_vector_2()
-#test_global_quad_basis_span_2d_matrix_1()
-#test_global_quad_basis_span_2d_matrix_2()
+#assembly_linear_form_2d_1()
+#assembly_bilinear_form_2d_1()
+#global_quad_basis_span_2d_vector_1()
+#global_quad_basis_span_2d_vector_2()
+#global_quad_basis_span_2d_matrix_1()
+#global_quad_basis_span_2d_matrix_2()
 #import sys; sys.exit(0)
 # tests with assert
-#test_basis_atom_2d_1()
-#test_basis_atom_2d_2()
-#test_geometry_atom_2d_1()
+#basis_atom_2d_1()
+#basis_atom_2d_2()
+#geometry_atom_2d_1()
 
 # tests without assert
-#test_loop_local_quad_2d_1()
-#test_loop_local_dof_quad_2d_1()
-#test_loop_local_dof_quad_2d_2()
-#test_loop_local_dof_quad_2d_3()
-#test_loop_local_dof_quad_2d_4()
-#test_loop_global_local_quad_2d_1()
-#test_global_span_2d_1()
-#test_global_quad_span_2d_1()
-#test_global_quad_basis_span_2d_1()
-#test_global_quad_basis_span_2d_2()
-#test_eval_field_2d_1()
+#loop_local_quad_2d_1()
+#loop_local_dof_quad_2d_1()
+#loop_local_dof_quad_2d_2()
+#loop_local_dof_quad_2d_3()
+#loop_local_dof_quad_2d_4()
+#loop_global_local_quad_2d_1()
+#global_span_2d_1()
+#global_quad_span_2d_1()
+#global_quad_basis_span_2d_1()
+#global_quad_basis_span_2d_2()
+#eval_field_2d_1()
 
-#test_global_quad_basis_span_2d_vector_1()
-#test_global_quad_basis_span_2d_vector_2()
-#test_global_quad_basis_span_2d_matrix_1()
-#test_global_quad_basis_span_2d_matrix_2()
-#test_loop_local_quad_geometry_2d_1()
-#test_assembly_linear_form_2d_1()
-#test_assembly_bilinear_form_2d_1()
+#global_quad_basis_span_2d_vector_1()
+#global_quad_basis_span_2d_vector_2()
+#global_quad_basis_span_2d_matrix_1()
+#global_quad_basis_span_2d_matrix_2()
+#loop_local_quad_geometry_2d_1()
+#assembly_linear_form_2d_1()
+#assembly_bilinear_form_2d_1()
 
