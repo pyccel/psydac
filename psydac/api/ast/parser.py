@@ -543,7 +543,6 @@ class Parser(object):
     # ....................................................
     def _visit_TensorQuadrature(self, expr, **kwargs):
         dim = self.dim
-
         names   = 'x1:%s'%(dim+1)
         points  = variables(names, dtype='real', cls=Variable)
 
@@ -561,7 +560,6 @@ class Parser(object):
 
     # ....................................................
     def _visit_MatrixQuadrature(self, expr, **kwargs):
-        dim = self.dim
         rank   = self._visit(expr.rank)
         target = SymbolicExpr(expr.target)
 
@@ -612,7 +610,6 @@ class Parser(object):
         return arrays
     # ....................................................
     def _visit_LocalTensorQuadratureBasis(self, expr, **kwargs):
-
         dim = self.dim
         rank = expr.rank
         unique_scalar_space = expr.unique_scalar_space
@@ -864,7 +861,6 @@ class Parser(object):
             expr = self._visit(expr, op=op, lhs=lhs)
             return expr
         elif isinstance(lhs, BlockStencilVectorGlobalBasis):
-
             dim   = self.dim
             rank  = lhs.rank
             pads  = lhs.pads
@@ -872,12 +868,9 @@ class Parser(object):
             tests_2 = expand_hdiv_hcurl(lhs._tests)
             lhs = self._visit_BlockStencilVectorGlobalBasis(lhs)
             rhs = self._visit(expr)
-
             pads    = self._visit(pads)
-
             rhs_slices = [Slice(None, None)]*rank
 
-        
             for k in range(lhs.shape[0]):
                 if expr.expr[k,0]:
                     test = tests[k]
@@ -1430,9 +1423,10 @@ class Parser(object):
 
     # ....................................................
     def _visit_TensorIteration(self, expr, **kwargs):
+        dim       = self.dim
         iterator  = self._visit(expr.iterator)
         generator = self._visit(expr.generator)
-        indices = expr.generator.dummies
+        indices   = expr.generator.dummies
 
         lengths = [i.length for i in indices]
 
@@ -1452,7 +1446,7 @@ class Parser(object):
             self.indices[str(i)] = j
 
         # ...
-        inits = [()]*self.dim
+        inits = [()]*dim
         for (i, l_xs),(j, g_xs) in zip(iterator.items(), generator.items()):
             assert i == j
             # there is a special case here,
@@ -1471,7 +1465,7 @@ class Parser(object):
                     new_g_xs[i] = tuple(self._visit(args, **kwargs))
                 g_xs = new_g_xs
             
-            for i in  range(self.dim):
+            for i in  range(dim):
                 ls = []
                 for l_x,g_x in zip(l_xs[i], g_xs[i]):
                     if isinstance(l_x, IndexedVariable):
