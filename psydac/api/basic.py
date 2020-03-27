@@ -106,35 +106,47 @@ class BasicCodeGen(object):
                 tag = random_string( 8 )
                 ast = self._create_ast( expr, tag, comm=comm, backend=backend, **kwargs )
                 max_nderiv = ast.nderiv
+                func_name = ast.expr.name
+                free_args = ast.expr.arguments.pop('fields', ()) +  ast.expr.arguments.pop('constants', ())
+                free_args = tuple(str(i) for i in free_args)
 
             else:
+                tag = None
                 ast = None
+                max_nderiv = None
+                func_name  = None
+                free_args  = None
 
             comm.Barrier()
             tag = comm.bcast( tag, root=root )
             max_nderiv = comm.bcast( max_nderiv, root=root )
+            func_name  = comm.bcast(func_name, root=root)
+            free_args  = comm.bcast(free_args, root=root)
             #user_functions = comm.bcast( user_functions, root=root )
         else:
             tag = random_string( 8 )
             ast = self._create_ast( expr, tag, backend=backend, **kwargs )
             max_nderiv = ast.nderiv
+            func_name = ast.expr.name
+            free_args = ast.expr.arguments.pop('fields', ()) +  ast.expr.arguments.pop('constants', ())
+            free_args = tuple(str(i) for i in free_args)
         # ...
         user_functions = None
         self._expr = expr
         self._tag = tag
         self._ast = ast
-        self._free_args = ()
+        self._func_name = func_name
+        self._free_args = free_args
         self._user_functions = user_functions
         self._backend = backend
         self._folder = self._initialize_folder(folder)
         self._comm = comm
         self._root = root
         self._max_nderiv = max_nderiv
-
         self._code = None
         self._func = None
-        self._dependencies_fname   = None
-        self._dependencies_modname = None
+        self._dependencies_modname = 'dependencies_{}'.format(self.tag)
+        self._dependencies_fname   = '{}.py'.format(self._dependencies_modname)
         # ...
 
         # ... when using user defined functions, there must be passed as
@@ -157,10 +169,6 @@ class BasicCodeGen(object):
 
             # compile code
             self._compile(namespace)
-            # collect free arguments
-            print(ast.expr.arguments.copy().pop('fields', ()),ast.expr.arguments.copy().pop('constants', ()))
-            free_args = ast.expr.arguments.pop('fields', ()) +  ast.expr.arguments.pop('constants', ())
-            self._free_args = OrderedDict((str(i),i) for i in free_args)
 
         if not( comm is None):
             comm.Barrier()
@@ -169,8 +177,7 @@ class BasicCodeGen(object):
                     _folder = os.path.join(self.folder, self.backend['folder'])
                     sys.path.append(_folder)
 
-                interface_module_name = interface_name
-                self._set_func(interface_module_name, interface_name)
+                self._set_func(self._dependencies_modname, self._func_name)
 
                 if self.backend['name'] == 'pyccel':
                     _folder = os.path.join(self.folder, self.backend['folder'])
@@ -259,12 +266,8 @@ class BasicCodeGen(object):
     def _generate_code(self):
         # ... generate code that can be pyccelized
         code = ''
-
         if self.backend['name'] == 'pyccel':
-
-            code += '\nfrom pyccel.decorators import types'
-            code += '\nfrom pyccel.decorators import external, external_call'
-
+            code = 'from pyccel.decorators import types'
         elif self.backend['name'] == 'numba':
             code = 'from numba import jit'
 
@@ -278,15 +281,7 @@ class BasicCodeGen(object):
     def _save_code(self):
         # ...
         code = self._code
-        module_name = 'dependencies_{}'.format(self.tag)
-
-        #module_name = 'dependencies_gv1ocbgr'
-        self._dependencies_fname = '{}.py'.format(module_name)
         write_code(self._dependencies_fname, code, folder = self.folder)
-        # ...
-
-        # TODO check this? since we are using relative paths now
-        self._dependencies_modname = module_name.replace('/', '.')
 
     def _compile_pythran(self, namespace):
 
@@ -357,7 +352,7 @@ class BasicCodeGen(object):
     def _compile(self, namespace):
 
         module_name = self.dependencies_modname
-        self._set_func(module_name, self.ast.expr.name)
+        self._set_func(module_name, self._func_name)
 
     def _set_func(self, module_name, name):
         # ...
@@ -365,7 +360,6 @@ class BasicCodeGen(object):
         package = importlib.import_module( module_name )
         sys.path.remove(self.folder)
         # ...
-
         self._func = getattr(package, name)
 
 #==============================================================================

@@ -117,7 +117,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         # ...
         quad_order = kwargs.pop('quad_order', None)
-        domain   = self.ast.domain
+        domain     = self.kernel_expr.target
         # ...
 
         # ...
@@ -278,7 +278,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         # ...
         quad_order = kwargs.pop('quad_order', None)
-        domain     = self.ast.domain
+        domain     = self.kernel_expr.target
         # ...
 
         if not isinstance(domain, sym_Boundary):
@@ -450,21 +450,24 @@ class DiscreteFunctional(BasicDiscrete):
         return self._test_basis
 
     def construct_arguments(self):
+        sk          = self.grid.local_element_start
+        ek          = self.grid.local_element_end
+        points      = [p[s:e+1] for s,e,p in zip(sk,ek,self.grid.points)]
+        weights     = [w[s:e+1] for s,e,w in zip(sk,ek,self.grid.weights)]
+        n_elements  = [e-s+1 for s,e in zip(sk,ek)]
+        tests_basis = [[bs[s:e+1] for s,e,bs in zip(sk,ek,basis)] for basis in self.test_basis.basis]
+        spans       = [[sp[s:e+1] for s,e,sp in zip(sk,ek,spans)] for spans in self.test_basis.spans]
 
-        tests_basis = self.test_basis.basis
         tests_degrees = self.space.degree
-        spans = self.test_basis.spans
         tests_basis, tests_degrees, spans = collect_spaces(self.space.symbolic_space, tests_basis, tests_degrees, spans)
         tests_basis   = flatten(tests_basis)
         tests_degrees = flatten(tests_degrees)
         spans         = flatten(spans)
-        points        = self.grid.points
-        weights       = self.grid.weights
         quads         = flatten(list(zip(points, weights)))
         quads_degree  = flatten(self.grid.quad_order)
-        n_elements    = self.grid.n_elements
         global_pads   = self.space.vector_space.pads
         local_mats, global_mats = np.zeros((1,)), np.zeros((1,))
+
         if self.mapping:
             mapping = [e._coeffs._data for e in self.mapping._fields]
         else:
