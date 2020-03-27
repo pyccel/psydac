@@ -107,7 +107,8 @@ class BasicCodeGen(object):
                 ast = self._create_ast( expr, tag, comm=comm, backend=backend, **kwargs )
                 max_nderiv = ast.nderiv
                 func_name = ast.expr.name
-                free_args = ast.expr.arguments.pop('fields', ()) +  ast.expr.arguments.pop('constants', ())
+                arguments = ast.expr.arguments.copy()
+                free_args = arguments.pop('fields', ()) +  arguments.pop('constants', ())
                 free_args = tuple(str(i) for i in free_args)
 
             else:
@@ -128,7 +129,8 @@ class BasicCodeGen(object):
             ast = self._create_ast( expr, tag, backend=backend, **kwargs )
             max_nderiv = ast.nderiv
             func_name = ast.expr.name
-            free_args = ast.expr.arguments.pop('fields', ()) +  ast.expr.arguments.pop('constants', ())
+            arguments = ast.expr.arguments.copy()
+            free_args = arguments.pop('fields', ()) +  arguments.pop('constants', ())
             free_args = tuple(str(i) for i in free_args)
         # ...
         user_functions = None
