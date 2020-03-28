@@ -68,7 +68,7 @@ class TensorFemSpace( FemSpace ):
         v = self._vector_space
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, normalize=n)
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, normalize=n, nderiv=V.degree)
                                   for V,s,e,n in zip( self.spaces, v.starts, v.ends, normalize ) )
 
         # Determine portion of logical domain local to process

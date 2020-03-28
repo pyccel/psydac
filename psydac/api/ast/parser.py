@@ -1090,7 +1090,6 @@ class Parser(object):
                 J = SymbolicExpr(J)
                 det_jac = (J.T*J).det()
                 det_jac = det_jac.simplify()**0.5
-                print(det_jac)
             else:
                 det_jac = SymbolicDeterminant(mapping)
                 det_jac = SymbolicExpr(det_jac)

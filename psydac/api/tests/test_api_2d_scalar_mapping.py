@@ -919,7 +919,6 @@ def test_poisson_2d_quarter_annulus_diri_12_neui_34():
 #==============================================================================
 # 2D Poisson's equation on circle
 #==============================================================================
-@pytest.mark.xfail
 def test_poisson_2d_circle_dir0():
 
     filename = os.path.join(mesh_dir, 'circle.h5')
@@ -962,7 +961,6 @@ def test_laplace_2d_identity_neu0_1234():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-@pytest.mark.xfail
 def test_laplace_2d_collela_neu0_1234():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -985,7 +983,7 @@ def test_laplace_2d_collela_neu0_1234():
 #==============================================================================
 # 2D biharmonic equation
 #==============================================================================
-@pytest.mark.xfail
+
 def test_biharmonic_2d_identity_dir0_1234():
 
     filename = os.path.join(mesh_dir, 'identity_2d.h5')

@@ -191,7 +191,6 @@ class EvalField(BaseNode):
                 new_atoms[atom]  = [a]
         logical_atoms = new_atoms
         for coeff, l_coeff in zip(coeffs,l_coeffs):
-            print(logical_atoms.keys(), str(coeff.target))
             for a in logical_atoms[str(coeff.target)]:
                 node    = AtomicNode(a)
                 mat     = MatrixQuadrature(a)
