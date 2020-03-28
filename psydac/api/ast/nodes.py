@@ -181,7 +181,7 @@ class EvalField(BaseNode):
         for v in tests:
             stmts_1 += construct_logical_expressions(v, nderiv)
 
-        logical_atoms   = [physical2logical(i) for i in atoms]
+        logical_atoms   = [a.expr for a in stmts_1]
         new_atoms = {}
         for a in logical_atoms:
             atom = str(get_atom_logical_derivatives(a))
@@ -189,6 +189,7 @@ class EvalField(BaseNode):
                 new_atoms[atom] += [a]
             else:
                 new_atoms[atom]  = [a]
+
         logical_atoms = new_atoms
         for coeff, l_coeff in zip(coeffs,l_coeffs):
             for a in logical_atoms[str(coeff.target)]:

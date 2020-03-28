@@ -919,7 +919,7 @@ class Parser(object):
                 lhs = random_string( 6 )
                 lhs = Symbol('tmp_{}'.format(lhs))
 
-        rhs = self._visit(PhysicalValueNode(expr), **kwargs)
+        rhs = self._visit_PhysicalValueNode(PhysicalValueNode(expr), **kwargs)
 
         if op is None:
             stmt = Assign(lhs, rhs)
