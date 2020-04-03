@@ -9,7 +9,7 @@ from mpi4py import MPI
 from psydac.linalg.basic import VectorSpace, Vector, Matrix
 from psydac.ddm.cart     import find_mpi_type, CartDecomposition, CartDataExchanger
 
-__all__ = ['StencilVectorSpace','StencilVector','StencilMatrix']
+__all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
 
 #===============================================================================
 class StencilVectorSpace( VectorSpace ):
@@ -1029,6 +1029,430 @@ class StencilMatrix( Matrix ):
             # Set right ghost region to zero
             idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
             self._data[idx_ghost] = 0
+
+class StencilInterfaceMatrix(Matrix):
+    """
+    Matrix in n-dimensional stencil format for an interface.
+
+    This is a linear operator that maps elements of stencil vector space V to
+    elements of stencil vector space W.
+
+    Parameters
+    ----------
+    V : psydac.linalg.stencil.StencilVectorSpace
+        Domain of the new linear operator.
+
+    W : psydac.linalg.stencil.StencilVectorSpace
+        Codomain of the new linear operator.
+
+    """
+    def __init__( self, V, W, s_d, s_c, dim, pads=None ):
+
+        assert isinstance( V, StencilVectorSpace )
+        assert isinstance( W, StencilVectorSpace )
+        assert W.pads == V.pads
+
+        self._pads     = pads or tuple(V.pads)
+        dims           = [e-s+2*p+1 for s,e,p in zip(W.starts, W.ends, W.pads)]
+        dims[dim]      = 3*W.pads[dim] + 1
+        diags          = [2*p+1 for p in self._pads]
+        self._data     = np.zeros( dims+diags, dtype=W.dtype )
+        self._domain   = V
+        self._codomain = W
+        self._dim      = dim
+        self._d_start  = s_d - self._pads[dim]
+        self._c_start  = s_c - self._pads[dim]
+        self._ndim     = len( dims )
+
+        # Flag ghost regions as not up-to-date (conservative choice)
+        self._sync = False
+
+    #--------------------------------------
+    # Abstract interface
+    #--------------------------------------
+    @property
+    def domain( self ):
+        return self._domain
+
+    # ...
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    @property
+    def dim( self ):
+        return self._dim
+
+    @property
+    def d_start( self ):
+        return self._d_start
+
+    @property
+    def c_start( self ):
+        return self._c_start
+    # ...
+    def dot( self, v, out=None ):
+
+        assert isinstance( v, StencilVector )
+        assert v.space is self.domain
+
+        # Necessary if vector space is distributed across processes
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
+
+        if out is not None:
+            assert isinstance( out, StencilVector )
+            assert out.space is self.codomain
+        else:
+            out = StencilVector( self.codomain )
+
+        # Shortcuts
+        ssc = self.codomain.starts
+        eec = self.codomain.ends
+        ssd = self.domain.starts
+        eed = self.domain.ends
+        dim = self.dim
+        c_start = self.c_start
+        d_start = self.d_start
+        pp  = self.pads
+
+        # Number of rows in matrix (along each dimension)
+        nrows        = [ed-s+1 for s,ed in zip(ssd, eed)]
+        nrows[dim]   = self._pads[dim] + 1
+
+        self._dot(self._data, v._data, out._data, nrows, dim, d_start, c_start, pp)
+
+        # IMPORTANT: flag that ghost regions are not up-to-date
+        out.ghost_regions_in_sync = False
+        return out
+
+    # ...
+    @staticmethod
+    def _dot(mat, v, out, nrows, dim, d_start, c_start, pads):
+
+        # Index for k=i-j
+        ndim = len(v.shape)
+        kk = [slice(None)]*ndim
+
+        shift_d      = [0]*ndim
+        shift_d[dim] = d_start
+        shift_d      = tuple(shift_d)
+
+        for xx in np.ndindex( *nrows ):
+            ii    = [ p+x for p,x in zip(pads,xx) ]
+            ii_kk = tuple( ii + kk )
+            jj    = tuple( slice(s+x,s+x+2*p+1) for x,p,s in zip(xx,pads,shift_d) )
+
+            ii[dim] += c_start
+            out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
+    # ...
+    def toarray( self, *, with_pads=False ):
+
+        if self.codomain.parallel and with_pads:
+            coo = self._tocoo_parallel_with_pads()
+        else:
+            coo = self._tocoo_no_pads()
+
+        return coo.toarray()
+
+    # ...
+    def tosparse( self, *, with_pads=False ):
+
+        if self.codomain.parallel and with_pads:
+            coo = self._tocoo_parallel_with_pads()
+        else:
+            coo = self._tocoo_no_pads()
+
+        return coo
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+
+    # ...
+    @property
+    def pads( self ):
+        return self._pads
+
+    # ...
+    def __getitem__(self, key):
+        index = self._getindex( key )
+        return self._data[index]
+
+    # ...
+    def __setitem__(self, key, value):
+        index = self._getindex( key )
+        self._data[index] = value
+
+
+    #...
+    def max( self ):
+        return self._data.max()
+
+    #...
+    def copy( self ):
+        M = StencilMatrix( self.domain, self.codomain, self._pads )
+        M._data[:] = self._data[:]
+        return M
+
+    #...
+    def __mul__( self, a ):
+        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w._data = self._data * a
+        w._sync = self._sync
+        return w
+
+    #...
+    def __rmul__( self, a ):
+        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w._data = a * self._data
+        w._sync = self._sync
+        return w
+
+    # ...
+    def __neg__(self):
+        return self.__mul__(-1)
+
+
+
+    # ...
+    def update_ghost_regions( self, *, direction=None ):
+        """
+        Update ghost regions before performing non-local access to matrix
+        elements (e.g. in matrix transposition).
+
+        Parameters
+        ----------
+        direction : int
+            Single direction along which to operate (if not specified, all of them).
+
+        """
+        ndim     = self._codomain.ndim
+        parallel = self._codomain.parallel
+
+        if self._codomain.parallel:
+            # PARALLEL CASE: fill in ghost regions with data from neighbors
+            self._synchronizer.update_ghost_regions( self._data, direction=direction )
+        else:
+            # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
+            self._update_ghost_regions_serial( direction )
+
+        # Flag ghost regions as up-to-date
+        self._sync = True
+    #--------------------------------------
+    # Private methods
+    #--------------------------------------
+    def _getindex( self, key ):
+
+        nd = self._ndim
+        ii = key[:nd]
+        kk = key[nd:]
+
+        index = []
+
+        for i,s,p in zip( ii, self._codomain.starts, self._codomain.pads ):
+            x = self._shift_index( i, p-s )
+            index.append( x )
+
+        for k,p in zip( kk, self._pads ):
+            l = self._shift_index( k, p )
+            index.append( l )
+
+        return tuple(index)
+
+    # ...
+    @staticmethod
+    def _shift_index( index, shift ):
+        if isinstance( index, slice ):
+            start = None if index.start is None else index.start + shift
+            stop  = None if index.stop  is None else index.stop  + shift
+            return slice(start, stop, index.step)
+        else:
+            return index + shift
+
+    #...
+
+    def _tocoo_no_pads( self ):
+        # Shortcuts
+        nr = self.codomain.npts
+        nc = self.domain.npts
+        ss = self.codomain.starts
+        pp = self.pads
+        nd = len(pp)
+        dim = self.dim
+        c_start = self.c_start
+        d_start = self.d_start
+
+        ravel_multi_index = np.ravel_multi_index
+
+        # COO storage
+        rows = []
+        cols = []
+        data = []
+
+        # Range of data owned by local process (no ghost regions)
+        local = tuple( [slice(p,-p) for p in pp] + [slice(None)] * nd )
+        for (index,value) in np.ndenumerate( self._data[local] ):
+            if value:
+                # index = [i1, i2, ..., p1+j1-i1, p2+j2-i2, ...]
+
+                xx = index[:nd]  # x=i-s
+                ll = index[nd:]  # l=p+k
+
+                ii = [s+x for s,x in zip(ss,xx)]
+                jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nc,pp)]
+
+                ii[dim] += c_start
+                jj[dim] += d_start
+
+                I = ravel_multi_index( ii, dims=nr, order='C' )
+                J = ravel_multi_index( jj, dims=nc, order='C' )
+
+                rows.append( I )
+                cols.append( J )
+                data.append( value )
+
+        M = coo_matrix(
+                    (data,(rows,cols)),
+                    shape = [np.prod(nr),np.prod(nc)],
+                    dtype = self.domain.dtype)
+
+        return M
+
+    def _tocoo_parallel_with_pads( self ):
+
+        # If necessary, update ghost regions
+        if not self.ghost_regions_in_sync:
+            self.update_ghost_regions()
+
+        # Shortcuts
+        nr = self._codomain.npts
+        nc = self._domain.npts
+        nd = self._ndim
+
+        ss = self._codomain.starts
+        ee = self._codomain.ends
+        pp = self._pads
+        pc = self._codomain.pads
+        pd = self._domain.pads
+        cc = self._codomain.periods
+
+        ravel_multi_index = np.ravel_multi_index
+
+        # COO storage
+        rows = []
+        cols = []
+        data = []
+
+        # List of rows (to avoid duplicate updates)
+        I_list = []
+
+        # Shape of row and diagonal spaces
+        xx_dims = self._data.shape[:nd]
+        ll_dims = self._data.shape[nd:]
+
+        # Cycle over rows (x = p + i - s)
+        for xx in np.ndindex( *xx_dims ):
+
+            # Compute row multi-index with simple shift
+            ii = [s + x - p for (s, x, p) in zip(ss, xx, pc)]
+
+            # Apply periodicity where appropriate
+            ii = [i - n if (c and i >= n and i - n < s) else
+                  i + n if (c and i <  0 and i + n > e) else i
+                  for (i, s, e, n, c) in zip(ii, ss, ee, nr, cc)]
+
+            # Compute row flat index
+            # Exclude values outside global limits of matrix
+            try:
+                I = ravel_multi_index( ii, dims=nr, order='C' )
+            except ValueError:
+                continue
+
+            # If I is a new row, append it to list of rows
+            # DO NOT update same row twice!
+            if I not in I_list:
+                I_list.append( I )
+            else:
+                continue
+
+            # Cycle over diagonals (l = p + k)
+            for ll in np.ndindex( *ll_dims ):
+
+                # Compute column multi-index (k = j - i)
+                jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nc,pp)]
+
+                # Compute column flat index
+                J = ravel_multi_index( jj, dims=nc, order='C' )
+
+                # Extract matrix value
+                value = self._data[(*xx, *ll)]
+
+                # Append information to COO arrays
+                rows.append( I )
+                cols.append( J )
+                data.append( value )
+
+        # Create Scipy COO matrix
+        M = coo_matrix(
+                (data,(rows,cols)),
+                shape = [np.prod(nr), np.prod(nc)],
+                dtype = self._domain.dtype
+        )
+
+        M.eliminate_zeros()
+
+        return M
+
+    # ...
+    @property
+    def ghost_regions_in_sync( self ):
+        return self._sync
+
+    # ...
+    # NOTE: this property must be set collectively
+    @ghost_regions_in_sync.setter
+    def ghost_regions_in_sync( self, value ):
+        assert isinstance( value, bool )
+        self._sync = value
+
+    # ...
+    def _update_ghost_regions_serial( self, direction: int ):
+
+        if direction is None:
+            for d in range( self._codomain.ndim ):
+                self._update_ghost_regions_serial( d )
+            return
+
+        ndim     = self._codomain.ndim
+        periodic = self._codomain.periods[direction]
+        p        = self._codomain.pads   [direction]
+
+        idx_front = [slice(None)]*direction
+        idx_back  = [slice(None)]*(ndim-direction-1 + ndim)
+
+        if periodic:
+
+            # Copy data from left to right
+            idx_from = tuple( idx_front + [slice( p, 2*p)] + idx_back )
+            idx_to   = tuple( idx_front + [slice(-p,None)] + idx_back )
+            self._data[idx_to] = self._data[idx_from]
+
+            # Copy data from right to left
+            idx_from = tuple( idx_front + [slice(-2*p,-p)] + idx_back )
+            idx_to   = tuple( idx_front + [slice(None, p)] + idx_back )
+            self._data[idx_to] = self._data[idx_from]
+
+        else:
+
+            # Set left ghost region to zero
+            idx_ghost = tuple( idx_front + [slice(None, p)] + idx_back )
+            self._data[idx_ghost] = 0
+
+            # Set right ghost region to zero
+            idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
+            self._data[idx_ghost] = 0
+
 
 #===============================================================================
 del VectorSpace, Vector, Matrix
