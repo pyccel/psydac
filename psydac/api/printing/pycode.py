@@ -57,6 +57,12 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
 
         return code +'\n' + self._print(expr.func)
 
+    def _print_MinusInterfaceOperator(self, expr):
+        return self._print(expr.args[0])
+
+    def _print_PlusInterfaceOperator(self, expr):
+        return self._print(expr.args[0])
+
     # .........................................................
     #        SYMPY objects
     # .........................................................

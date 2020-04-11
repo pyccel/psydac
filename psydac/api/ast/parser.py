@@ -22,7 +22,7 @@ from sympde.expr.evaluation import _split_test_function
 from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
-from sympde.topology import Boundary, NormalVector
+from sympde.topology import Boundary, NormalVector, Interface
 from sympde.topology.derivatives import get_index_logical_derivatives
 
 from .nodes import AtomicNode
@@ -844,8 +844,14 @@ class Parser(object):
                 spans   = self._visit_Span(Span(test))
                 degrees = self._visit_LengthDofTest(LengthDofTest(test))
                 spans   = flatten(*spans.values())
+
                 lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
                 lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
+                if isinstance(self._target, Interface):
+                    axis = self._target.axis
+                    lhs_starts[axis] = pads[axis]
+                    lhs_ends[axis]   = 2*pads[axis] + 1
+
                 for k2 in range(lhs.shape[1]):
                     if expr.expr[k1,k2]:
                         lhs_slices  = [Slice(s, e) for s,e in zip(lhs_starts, lhs_ends)]
@@ -990,14 +996,13 @@ class Parser(object):
 
         rhs = [weight*self._visit(expr, **kwargs) for expr in exprs]
         lhs = lhs[:]
-
         normal_vec_stmts = []
         normal_vectors = expr.expr.atoms(NormalVector)
         target         = self._target
         dim            = self._dim
         for vec in normal_vectors:
             axis    = target.axis
-            ext     = target.ext
+            ext     = target.ext if isinstance(target, Boundary) else 1
             J       = LogicalExpr(self.mapping, self.mapping.jacobian)
             J       = SymbolicExpr(J)
             values  = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]

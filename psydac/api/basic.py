@@ -10,7 +10,7 @@ from collections import namedtuple
 
 from pyccel.ast import Nil
 
-from sympde.topology import Domain, Boundary
+from sympde.topology import Domain
 
 from psydac.api.ast.fem  import AST
 from psydac.api.ast.parser import parse
