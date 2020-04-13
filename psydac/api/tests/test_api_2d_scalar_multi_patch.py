@@ -50,11 +50,18 @@ def run_poisson_2d(solution, f, domain, ncells, degree):
 
     I = domain.interfaces
 
-    kappa  = 10**2
-    expr_I =- dot(grad(plus(u)),nn)*minus(v) + dot(grad(minus(v)),nn)*plus(u) - kappa*plus(u)*minus(v)\
-            + dot(grad(minus(u)),nn)*plus(v) - dot(grad(plus(v)),nn)*minus(u) - kappa*plus(v)*minus(u)\
-            - dot(grad(plus(v)),nn)*plus(u)   + kappa*plus(u)*plus(v)\
-            - dot(grad(minus(v)),nn)*minus(u) + kappa*minus(u)*minus(v)
+    kappa  = 10**3
+
+    #expr_I =- dot(grad(plus(u)),nn)*minus(v)  + dot(grad(minus(v)),nn)*plus(u) - kappa*plus(u)*minus(v)\
+    #        + dot(grad(minus(u)),nn)*plus(v)  - dot(grad(plus(v)),nn)*minus(u) - kappa*plus(v)*minus(u)\
+    #        - dot(grad(plus(v)),nn)*plus(u)   + kappa*plus(u)*plus(v)\
+    #        - dot(grad(minus(v)),nn)*minus(u) + kappa*minus(u)*minus(v)
+
+    expr_I =- 0.5*dot(grad(plus(u)),nn)*minus(v)  + 0.5*dot(grad(minus(v)),nn)*plus(u)  - kappa*plus(u)*minus(v)\
+            + 0.5*dot(grad(minus(u)),nn)*plus(v)  - 0.5*dot(grad(plus(v)),nn)*minus(u)  - kappa*plus(v)*minus(u)\
+            - 0.5*dot(grad(minus(v)),nn)*minus(u) - 0.5*dot(grad(minus(u)),nn)*minus(v) + kappa*minus(u)*minus(v)\
+            - 0.5*dot(grad(plus(v)),nn)*plus(u)   - 0.5*dot(grad(plus(u)),nn)*plus(v)   + kappa*plus(u)*plus(v)
+
 
     expr   = dot(grad(u),grad(v))
 
@@ -92,7 +99,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree):
 
 #------------------------------------------------------------------------------
 
-def test_poisson_2d_2_patch_dirichlet():
+def test_poisson_2d_2_patch_dirichlet_0():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
 
@@ -106,8 +113,28 @@ def test_poisson_2d_2_patch_dirichlet():
 
     l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 2.050963465007663e-09
-    expected_h1_error = 1.3236506530072164e-09
+    expected_l2_error = 2.176726763610992e-09
+    expected_h1_error = 2.9725703533101877e-09
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-13 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-13 )
+
+def test_poisson_2d_2_patch_dirichlet_1():
+    A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
+    B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
+
+    domain = A.join(B, name = 'domain',
+                bnd_minus = A.get_boundary(axis=0, ext=1),
+                bnd_plus  = B.get_boundary(axis=0, ext=-1))
+
+    x,y = domain.coordinates
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+
+    expected_l2_error = 0.0014391246983836191
+    expected_h1_error = 0.040161111095794906
 
     assert ( abs(l2_error - expected_l2_error) < 1e-13 )
     assert ( abs(h1_error - expected_h1_error) < 1e-13 )
