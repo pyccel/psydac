@@ -30,6 +30,7 @@ before_install:
   - python -m pip uninstall -y gelato
   - python -m pip install numpy>=1.16
   - python -m pip install mpi4py
+  - python -m pip install Cython>=0.25
   - python -c "import Cython; print(Cython.__version__); print(Cython.__file__)"
   - python -m pip freeze
   - python -m pip install -r requirements.txt
