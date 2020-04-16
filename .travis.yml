@@ -28,6 +28,8 @@ before_install:
   - python -m pip uninstall -y sympde
   - python -m pip uninstall -y pyccel
   - python -m pip uninstall -y gelato
+  - python -c "import Cython; print(Cython.__version__); print(Cython.__file__)"
+  - python -m pip freeze
   - python -m pip install -r requirements.txt
 
 # command to install project
