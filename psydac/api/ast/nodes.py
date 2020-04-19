@@ -3,7 +3,7 @@
 from collections import OrderedDict
 from itertools import product
 
-from sympy import Basic
+from sympy import Basic,Expr
 from sympy.core.singleton import Singleton
 from sympy.core.compatibility import with_metaclass
 from sympy.core.containers import Tuple
@@ -11,11 +11,12 @@ from sympy import AtomicExpr
 from sympy import Mul
 
 from sympde.topology import ScalarTestFunction, VectorTestFunction
-from sympde.topology import IndexedTestTrial
+from sympde.topology import IndexedTestTrial, ScalarFunctionSpace
 from sympde.topology import ScalarField, VectorField
 from sympde.topology import IndexedVectorField
 from sympde.topology import dx1, dx2, dx3
 from sympde.topology import Mapping
+from sympde.topology import elements_of
 from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
@@ -64,16 +65,15 @@ class FunctionalArity(ArityType):
     pass
 
 #==============================================================================
-class LengthNode(Basic):
+class LengthNode(Expr):
     """Base class representing one length of an iterator"""
     def __new__(cls, target=None):
-        obj = Basic.__new__(cls)
-        obj._target = target
+        obj = Basic.__new__(cls, target)
         return obj
 
     @property
     def target(self):
-        return self._target
+        return self._args[0]
 
 class LengthElement(LengthNode):
     pass
@@ -102,7 +102,6 @@ class IndexNode(Basic):
         return self._length
 
     def set_length(self, length):
-        assert isinstance(length, LengthNode)
         obj = type(self)(length)
         return obj
 
@@ -115,10 +114,10 @@ class IndexQuadrature(IndexNode):
 class IndexDof(IndexNode):
     pass
 
-class IndexDofTrial(IndexNode):
+class IndexDofTrial(IndexDof):
     pass
 
-class IndexDofTest(IndexNode):
+class IndexDofTest(IndexDof):
     pass
 
 class IndexDerivative(IndexNode):
@@ -207,7 +206,7 @@ class EvalField(BaseNode):
         inits = Tuple(*inits)
         body  = Loop( q_basis, q_index, stmts=stmts_1, mask=mask)
         stmts_2 = [*stmts_2.values(), body]
-        body  = Loop(l_basis, l_index, stmts_2)
+        body  = Loop((), l_index, stmts_2)
         obj = Basic.__new__(cls, Tuple(*mats), inits, body)
         obj._l_coeffs = l_coeffs
         obj._g_coeffs = g_coeffs
@@ -239,44 +238,72 @@ class EvalField(BaseNode):
     def g_coeffs(self):
         return self._g_coeffs
 
+class RAT(Basic):
+    pass
 #==============================================================================
 class EvalMapping(BaseNode):
     """."""
-    def __new__(cls, quads, indices_basis, q_basis, l_basis, mapping, components, space, tests, nderiv, mask=None):
-        atoms  = components.arguments
-        basis  = q_basis
-        target = basis.target
+    def __new__(cls, quads, indices_basis, q_basis, l_basis, mapping, components, space, tests, nderiv, mask=None, is_rational=None):
+        mapping_atoms  = components.arguments
+        basis          = q_basis
+        target         = basis.target
+        if isinstance(target, IndexedTestTrial):
+            space          = target.base.space
+        else:
+            space      = target.space
+        weight,        = elements_of(space, names='weight')
         if isinstance(target, VectorTestFunction):
             target = target[0]
 
-        new_atoms  = []
-        nodes      = []
-        l_coeffs   = []
-        g_coeffs   = []
-        values     = set()
+        l_coeffs    = []
+        g_coeffs    = []
+        values      = set()
 
-        for a in atoms:
-            atom   = get_atom_logical_derivatives(a)
-            node   = a.subs(atom, target)
-            new_atoms.append(atom)
-            nodes.append(node)
+        components  = [get_atom_logical_derivatives(a) for a in mapping_atoms]
+        test_atoms  = [a.subs(comp, target) for a,comp in zip(mapping_atoms, components)]
+        weights     = [a.subs(comp, weight) for a,comp in zip(mapping_atoms, components)]
 
-        stmts = [ComputeLogicalBasis(v,) for v in set(nodes)]
-        for i in range(len(atoms)):
-            node    = AtomicNode(nodes[i])
-            val     = ProductGenerator(MatrixQuadrature(atoms[i]), quads)
-            rhs     = Mul(CoefficientBasis(new_atoms[i]),node)
+        stmts       = [ComputeLogicalBasis(v,) for v in set(test_atoms)]
+        declarations = []
+        rationalization = []
+        for test,mapp,comp in zip(test_atoms, mapping_atoms, components):
+            test    = AtomicNode(test)
+            val     = ProductGenerator(MatrixQuadrature(mapp), quads)
+            rhs     = Mul(CoefficientBasis(comp),test)
             stmts  += [AugAssign(val, '+', rhs)]
-            l_coeff = MatrixLocalBasis(new_atoms[i])
-            g_coeff = MatrixGlobalBasis(new_atoms[i], target)
+
+            l_coeff = MatrixLocalBasis(comp)
+            g_coeff = MatrixGlobalBasis(comp, target)
+            declarations += [Assign(mapp, val)]
             if l_coeff not in l_coeffs:
                 l_coeffs.append(l_coeff)
                 g_coeffs.append(g_coeff)
 
             values.add(val.target)
 
-        loop   = Loop(q_basis, quads, stmts=stmts, mask=mask)
-        loop   = Loop((l_basis, *l_coeffs), indices_basis, [loop])
+        if is_rational:
+            l_coeffs.append(MatrixLocalBasis(weight))
+            g_coeffs.append(MatrixGlobalBasis(weight, target))
+
+            for node, w in set(zip(test_atoms, weights)):
+                node    = AtomicNode(node)
+                val     = ProductGenerator(MatrixQuadrature(w), quads)
+                rhs     = Mul(CoefficientBasis(weight),node)
+                stmts  += [AugAssign(val, '+', rhs)]
+                values.add(val.target)
+                declarations += [Assign(w,val)]
+
+            for test,mapp,w in zip(test_atoms, mapping_atoms, weights):
+                comp = get_atom_logical_derivatives(mapp)
+                lhs  = ProductGenerator(MatrixQuadrature(mapp), quads)
+                rhs  = mapp.subs(comp,comp/weight)
+                rationalization += [Assign(lhs, rhs)]
+
+            rationalization  = [*declarations, *rationalization]
+
+        loop   = Loop((q_basis,*l_coeffs), indices_basis, stmts)
+        loop   = Loop((), quads, stmts=[loop, *rationalization], mask=mask)
+
         obj    = Basic.__new__(cls, loop, l_coeffs, g_coeffs, values)
         obj._tests = tests
         return obj
@@ -456,7 +483,7 @@ class GlobalTensorQuadratureBasis(ArrayNode):
     """
     _rank = 4
     _positions = {index_quad: 3, index_deriv: 2, index_dof: 1, index_element: 0}
-    _free_indices = [index_element]
+    _free_indices = [index_element, index_quad, index_dof]
 
     def __new__(cls, target):
         if not isinstance(target, (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)):
@@ -562,6 +589,7 @@ class TensorBasis(CoefficientBasis):
 #==============================================================================
 class GlobalTensorQuadratureTestBasis(GlobalTensorQuadratureBasis):
     _positions = {index_quad: 3, index_deriv: 2, index_dof_test: 1, index_element: 0}
+    _free_indices = [index_element, index_quad, index_dof_test]
 
 #==============================================================================
 class LocalTensorQuadratureTestBasis(LocalTensorQuadratureBasis):
@@ -579,6 +607,7 @@ class TensorTestBasis(TensorBasis):
 #==============================================================================
 class GlobalTensorQuadratureTrialBasis(GlobalTensorQuadratureBasis):
     _positions = {index_quad: 3, index_deriv: 2, index_dof_trial: 1, index_element: 0}
+    _free_indices = [index_element, index_quad, index_dof_trial]
 
 #==============================================================================
 class LocalTensorQuadratureTrialBasis(LocalTensorQuadratureBasis):
@@ -1495,35 +1524,15 @@ def construct_itergener(a, index):
 
     elif isinstance(a, GlobalTensorQuadratureTrialBasis):
         generator = TensorGenerator(a, index)
-        element   = LocalTensorQuadratureTrialBasis(a.target)
-
-    elif isinstance(a, LocalTensorQuadratureTrialBasis):
-        generator = TensorGenerator(a, index)
-        element   = TensorQuadratureTrialBasis(a.target)
-
-    elif isinstance(a, TensorQuadratureTrialBasis):
-        generator = TensorGenerator(a, index)
         element   = TensorTrialBasis(a.target)
 
     elif isinstance(a, GlobalTensorQuadratureTestBasis):
-        generator = TensorGenerator(a, index)
-        element   = LocalTensorQuadratureTestBasis(a.target)
-
-    elif isinstance(a, LocalTensorQuadratureTestBasis):
-        generator = TensorGenerator(a, index)
-        element   = TensorQuadratureTestBasis(a.target)
-
-    elif isinstance(a, TensorQuadratureTestBasis):
         generator = TensorGenerator(a, index)
         element   = TensorTestBasis(a.target)
 
     elif isinstance(a, GlobalTensorQuadratureBasis):
         generator = TensorGenerator(a, index)
-        element   = LocalTensorQuadratureBasis(a.target)
-
-    elif isinstance(a, LocalTensorQuadratureBasis):
-        generator = TensorGenerator(a, index)
-        element   = TensorQuadratureBasis(a.target)
+        element   = TensorBasis(a.target)
 
     elif isinstance(a, TensorQuadratureBasis):
         generator = TensorGenerator(a, index)

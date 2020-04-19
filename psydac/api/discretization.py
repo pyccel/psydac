@@ -392,12 +392,14 @@ def discretize_derham(V, domain_h, *args, **kwargs):
 # TODO multi patch
 # TODO knots
 def discretize_space(V, domain_h, *args, **kwargs):
-    degree           = kwargs.pop('degree', None)
-    normalize        = kwargs.pop('normalize', True)
-    comm             = domain_h.comm
-    kind             = V.kind
-    ldim             = V.ldim
+
+    degree              = kwargs.pop('degree', None)
+    normalize           = kwargs.pop('normalize', True)
+    comm                = domain_h.comm
+    kind                = V.kind
+    ldim                = V.ldim
     symbolic_mapping = kwargs.pop('mapping', None)
+    is_rational_mapping = False
     
     if isinstance(V, ProductSpace):
         kwargs['normalize'] = normalize
@@ -414,6 +416,9 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
         mapping = list(domain_h.mappings.values())[0]
         g_spaces = [mapping.space]
+
+        is_rational_mapping = isinstance( mapping, NurbsMapping )
+
 
         symbolic_mapping = Mapping('M', domain_h.pdim)
 
@@ -519,6 +524,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     # add symbolic_mapping as a member to the space object
     setattr(Vh, 'symbolic_mapping', symbolic_mapping)
+    setattr(Vh, 'is_rational_mapping', is_rational_mapping)
     setattr(Vh, 'symbolic_space', V)
 
     return Vh
