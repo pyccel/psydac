@@ -39,7 +39,7 @@ from sympde.expr import LinearForm
 from sympde.expr import BilinearForm
 from sympde.expr import Functional
 
-from sympde.topology.basic       import Boundary
+from sympde.topology.basic       import Boundary, Interface
 from sympde.topology             import H1SpaceType, HcurlSpaceType
 from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology             import ScalarField
@@ -220,6 +220,8 @@ class AST(object):
 
         if isinstance(domain, Boundary):
             mask = Mask(domain.axis, domain.ext)
+        elif isinstance(domain, Interface):
+            mask = Mask(domain.axis, None)
 
         if isinstance(expr, LinearForm):
             is_linear           = True

@@ -27,7 +27,7 @@ from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
 from sympde.topology import ProductSpace
 from sympde.topology import Mapping, IdentityMapping
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
-
+from sympde.topology.basic import Union
 from gelato.expr     import GltExpr as sym_GltExpr
 from sympy           import Expr    as sym_Expr
 
@@ -117,7 +117,7 @@ class DiscreteEquation(BasicDiscrete):
 
         # ...
 
-        kwargs['boundary'] = None
+        kwargs['boundary'] = []
         if boundaries_lhs:
             kwargs['boundary'] = boundaries_lhs
 
@@ -128,7 +128,7 @@ class DiscreteEquation(BasicDiscrete):
         # ...
 
         # ...
-        kwargs['boundary'] = None
+        kwargs['boundary'] = []
         if boundaries_rhs:
             kwargs['boundary'] = boundaries_rhs
         
@@ -414,7 +414,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
         mapping = list(domain_h.mappings.values())[0]
         is_rational_mapping = isinstance( mapping, NurbsMapping )
-        Vh = mapping.space
+        g_spaces = [mapping.space]
 
         # TODO how to give a name to the mapping?
         symbolic_mapping = Mapping('M', domain_h.pdim)
@@ -425,78 +425,98 @@ def discretize_space(V, domain_h, *args, **kwargs):
     elif not( degree is None ):
         assert(hasattr(domain_h, 'ncells'))
 
-        ncells     = domain_h.ncells
-        min_coords = domain_h.domain.min_coords
-        max_coords = domain_h.domain.max_coords
+        interiors = domain_h.domain.interior
+        if isinstance(interiors, Union):
+            interiors = interiors.args
+        else:
+            interiors = [interiors]
+        g_spaces = []
+        for interior in interiors:
+            ncells     = domain_h.ncells
+            min_coords = interior.min_coords
+            max_coords = interior.max_coords
 
-        assert(isinstance( degree, (list, tuple) ))
-        assert( len(degree) == ldim )
+            assert(isinstance( degree, (list, tuple) ))
+            assert( len(degree) == ldim )
 
-        # Create uniform grid
-        grids = [np.linspace(xmin, xmax, num=ne + 1)
-                 for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
+            # Create uniform grid
+            grids = [np.linspace(xmin, xmax, num=ne + 1)
+                     for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
-        # Create 1D finite element spaces and precompute quadrature data
-        spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
-        Vh = TensorFemSpace( *spaces, comm=comm )
-        
-        if isinstance(kind, L2SpaceType):
-  
-            if ldim == 1:
-                Vh = Vh.reduce_degree(axes=[0], normalize=normalize)
-            elif ldim == 2:
-                Vh = Vh.reduce_degree(axes=[0,1], normalize=normalize)
-            elif ldim == 3:
-                Vh = Vh.reduce_degree(axes=[0,1,2], normalize=normalize)
+            # Create 1D finite element spaces and precompute quadrature data
+            spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
+            Vh = TensorFemSpace( *spaces, comm=comm )
 
+            if isinstance(kind, L2SpaceType):
+
+                if ldim == 1:
+                    Vh = Vh.reduce_degree(axes=[0], normalize=normalize)
+                elif ldim == 2:
+                    Vh = Vh.reduce_degree(axes=[0,1], normalize=normalize)
+                elif ldim == 3:
+                    Vh = Vh.reduce_degree(axes=[0,1,2], normalize=normalize)
+
+            g_spaces.append(Vh)
     # Product and Vector spaces are constructed here
+
     if V.shape > 1:
-        spaces = []
-        if isinstance(V, VectorFunctionSpace):
-        
-            if isinstance(kind, (H1SpaceType, L2SpaceType,  UndefinedSpaceType)):
-                spaces = [Vh for i in range(V.shape)]
-                
-            elif isinstance(kind, HcurlSpaceType):
-                if ldim == 2:
-                    spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
-                              Vh.reduce_degree(axes=[1], normalize=normalize)]
-                elif ldim == 3:
-                    spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
-                              Vh.reduce_degree(axes=[1], normalize=normalize), 
-                              Vh.reduce_degree(axes=[2], normalize=normalize)]
-                else:
-                    raise NotImplementedError('TODO')
-                
-            elif isinstance(kind, HdivSpaceType):
-            
-                if ldim == 2:
-                    spaces = [Vh.reduce_degree(axes=[1], normalize=normalize), 
-                              Vh.reduce_degree(axes=[0], normalize=normalize)]
-                elif ldim == 3:
-                    spaces = [Vh.reduce_degree(axes=[1,2], normalize=normalize), 
-                              Vh.reduce_degree(axes=[0,2], normalize=normalize), 
-                              Vh.reduce_degree(axes=[0,1], normalize=normalize)]
-                else:
-                    raise NotImplementedError('TODO')
-                    
-        elif isinstance(V, ProductSpace):
-            
-            for Vi in V.spaces:
-                space = discretize_space(Vi, domain_h, *args, degree=degree,**kwargs)
-                if isinstance(space, ProductFemSpace):
-                    spaces += list(space.spaces)
-                else:
-                    spaces += [space]
-        
-        Vh = ProductFemSpace(*spaces)
-        setattr(Vh, 'shape', V.shape)
+        new_spaces = []
+        for Vh in g_spaces:
+            if isinstance(V, VectorFunctionSpace):
+
+                if isinstance(kind, (H1SpaceType, L2SpaceType,  UndefinedSpaceType)):
+                    spaces = [Vh for i in range(V.shape)]
+
+                elif isinstance(kind, HcurlSpaceType):
+                    if ldim == 2:
+                        spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
+                                  Vh.reduce_degree(axes=[1], normalize=normalize)]
+                    elif ldim == 3:
+                        spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
+                                  Vh.reduce_degree(axes=[1], normalize=normalize), 
+                                  Vh.reduce_degree(axes=[2], normalize=normalize)]
+                    else:
+                        raise NotImplementedError('TODO')
+
+                elif isinstance(kind, HdivSpaceType):
+ 
+                    if ldim == 2:
+                        spaces = [Vh.reduce_degree(axes=[1], normalize=normalize),
+                                  Vh.reduce_degree(axes=[0], normalize=normalize)]
+                    elif ldim == 3:
+                        spaces = [Vh.reduce_degree(axes=[1,2], normalize=normalize),
+                                  Vh.reduce_degree(axes=[0,2], normalize=normalize),
+                                  Vh.reduce_degree(axes=[0,1], normalize=normalize)]
+                    else:
+                        raise NotImplementedError('TODO')
+
+            elif isinstance(V, ProductSpace):
+                spaces = []
+                for Vi in V.spaces:
+                    space = discretize_space(Vi, domain_h, *args, degree=degree,**kwargs)
+
+                    if isinstance(space, ProductFemSpace):
+                        spaces += list(space.spaces)
+                    else:
+                        spaces += [space]
+            else:
+                raise TypeError('space must be of type VectorSpace or ProductSpace got {}'.format(V))
+            new_spaces += spaces
+
+    else:
+        new_spaces = g_spaces
+
+    if len(new_spaces) == 1:
+        Vh = new_spaces[0]
+        setattr(Vh, 'shape', 1)
+    else:
+        Vh = ProductFemSpace(*new_spaces)
+        setattr(Vh, 'shape', len(new_spaces))
 
     # add symbolic_mapping as a member to the space object
     setattr(Vh, 'symbolic_mapping', symbolic_mapping)
     setattr(Vh, 'is_rational_mapping', is_rational_mapping)
     setattr(Vh, 'symbolic_space', V)
-    
 
     return Vh
 
