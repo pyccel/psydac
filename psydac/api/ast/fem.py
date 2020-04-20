@@ -229,7 +229,7 @@ class AST(object):
             tests               = expr.test_functions
             fields              = expr.fields
             mapping             = spaces.symbolic_mapping
-            is_rational_mapping = spaces.is_rational_mapping
+            #is_rational_mapping = spaces.is_rational_mapping
             spaces              = spaces.symbolic_space
             is_broken           = spaces.is_broken
 
@@ -239,7 +239,7 @@ class AST(object):
             trials              = expr.trial_functions
             fields              = expr.fields
             mapping             = spaces[0].symbolic_mapping
-            is_rational_mapping = spaces[0].is_rational_mapping
+            #is_rational_mapping = spaces[0].is_rational_mapping
             spaces              = [V.symbolic_space for V in spaces]
             is_broken           = spaces[0].is_broken
         elif isinstance(expr, Functional):
@@ -248,7 +248,7 @@ class AST(object):
             tests               = fields[0]
             tests               = (tests,)
             mapping             = spaces.symbolic_mapping
-            is_rational_mapping = spaces.is_rational_mapping
+            #is_rational_mapping = spaces.is_rational_mapping
             spaces              = spaces.symbolic_space
             is_broken           = spaces.is_broken
 

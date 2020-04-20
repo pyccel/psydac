@@ -397,7 +397,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
     comm             = domain_h.comm
     kind             = V.kind
     ldim             = V.ldim
-    symbolic_mapping = kwargs.pop('mapping', IdentityMapping('M', ldim))
+    symbolic_mapping = kwargs.pop('mapping', None)
     
     if isinstance(V, ProductSpace):
         kwargs['normalize'] = normalize
@@ -421,13 +421,19 @@ def discretize_space(V, domain_h, *args, **kwargs):
             raise NotImplementedError('must create a TensorFemSpace in 1d')
 
     elif not( degree is None ):
-        assert(hasattr(domain_h, 'ncells'))
 
+        assert(hasattr(domain_h, 'ncells'))
         interiors = domain_h.domain.interior
         if isinstance(interiors, Union):
             interiors = interiors.args
         else:
             interiors = [interiors]
+
+        if symbolic_mapping is None:
+            symbolic_mapping = [IdentityMapping('M', ldim)]*len(interiors)
+            if len(interiors) == 1:
+                symbolic_mapping = symbolic_mapping[0]
+
         g_spaces = []
         for interior in interiors:
             ncells     = domain_h.ncells
