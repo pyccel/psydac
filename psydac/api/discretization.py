@@ -408,6 +408,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
+    # TODO how to give a name to the mapping?
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
         if len(domain_h.mappings.values()) > 1:
             raise NotImplementedError('Multipatch not yet available')
@@ -416,7 +417,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
         is_rational_mapping = isinstance( mapping, NurbsMapping )
         g_spaces = [mapping.space]
 
-        # TODO how to give a name to the mapping?
         symbolic_mapping = Mapping('M', domain_h.pdim)
 
         if not( comm is None ) and ldim == 1:

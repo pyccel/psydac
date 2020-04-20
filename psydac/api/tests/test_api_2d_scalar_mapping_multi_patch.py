@@ -19,6 +19,7 @@ from sympde.topology import trace_1
 from sympde.topology import Square
 from sympde.topology import ElementDomain
 from sympde.topology import Area
+from sympde.topology import IdentityMapping, PolarMapping
                          
 from sympde.expr.expr import LinearExpr
 from sympde.expr.expr import LinearForm, BilinearForm
@@ -30,10 +31,10 @@ from psydac.api.discretization import discretize
 from sympde.expr     import find, EssentialBC
 from psydac.fem.vector                  import VectorFemField
 from psydac.fem.basic                   import FemField
-
+import numpy as np
 #==============================================================================
 
-def run_poisson_2d(solution, f, domain, ncells, degree):
+def run_poisson_2d(solution, f, domain, mappings, ncells, degree):
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -44,13 +45,13 @@ def run_poisson_2d(solution, f, domain, ncells, degree):
     u, v = elements_of(V, names='u, v')
     nn   = NormalVector('nn')
 
-    bc   = EssentialBC(u, 0, domain.boundary)
+    bc   = EssentialBC(u, solution, domain.boundary)
 
     error  = u - solution
 
     I = domain.interfaces
 
-    kappa  = 10**3
+    kappa  = 10**2
 
     #expr_I =- dot(grad(plus(u)),nn)*minus(v)  + dot(grad(minus(v)),nn)*plus(u) - kappa*plus(u)*minus(v)\
     #        + dot(grad(minus(u)),nn)*plus(v)  - dot(grad(plus(v)),nn)*minus(u) - kappa*plus(v)*minus(u)\
@@ -65,7 +66,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree):
 
     expr   = dot(grad(u),grad(v))
 
-    a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
+    a = BilinearForm((u,v), integral(domain, expr) )#+ integral(I, expr_I))
     l = LinearForm(v, integral(domain, f*v))
 
     equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
@@ -78,7 +79,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree):
     #+++++++++++++++++++++++++++++++
     
     domain_h = discretize(domain, ncells=ncells)
-    Vh       = discretize(V, domain_h, degree=degree)
+    Vh       = discretize(V, domain_h, mapping=mappings, degree=degree)
     
     equation_h = discretize(equation, domain_h, [Vh, Vh])
 
@@ -100,41 +101,51 @@ def run_poisson_2d(solution, f, domain, ncells, degree):
 #------------------------------------------------------------------------------
 
 def test_poisson_2d_2_patch_dirichlet_0():
-    A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
-    B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
+    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+    B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
     domain = A.join(B, name = 'domain',
-                bnd_minus = A.get_boundary(axis=0, ext=1),
-                bnd_plus  = B.get_boundary(axis=0, ext=-1))
+                bnd_minus = A.get_boundary(axis=1, ext=1),
+                bnd_plus  = B.get_boundary(axis=1, ext=-1))
+
+    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+
+    mappings  = [mapping_1, mapping_2]
 
     x,y = domain.coordinates
-    solution = x*y*(1-y)*(1-x)
-    f        = -2*x*(x - 1) -2*y*(y - 1)
+    solution = x**2 + y**2
+    f        = -4
 
-    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=[2,2], degree=[2,2])
 
-    expected_l2_error = 2.176726763610992e-09
-    expected_h1_error = 2.9725703533101877e-09
+    expected_l2_error = 4.392322106253971e-09
+    expected_h1_error = 1.2987175816495979e-08
 
-    assert ( abs(l2_error - expected_l2_error) < 1e-9 )
+    assert ( abs(l2_error - expected_l2_error) < 1e-9)
     assert ( abs(h1_error - expected_h1_error) < 1e-9 )
 
 def test_poisson_2d_2_patch_dirichlet_1():
-    A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
-    B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
+    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+    B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
     domain = A.join(B, name = 'domain',
-                bnd_minus = A.get_boundary(axis=0, ext=1),
-                bnd_plus  = B.get_boundary(axis=0, ext=-1))
+                bnd_minus = A.get_boundary(axis=1, ext=1),
+                bnd_plus  = B.get_boundary(axis=1, ext=-1))
+
+    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+
+    mappings  = [mapping_1, mapping_2]
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.0014391246983836191
-    expected_h1_error = 0.040161111095794906
+    expected_l2_error = 0.0886866859032343
+    expected_h1_error = 0.814540564578897
 
     assert ( abs(l2_error - expected_l2_error) < 1e-9 )
     assert ( abs(h1_error - expected_h1_error) < 1e-9 )

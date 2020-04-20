@@ -230,6 +230,7 @@ class AST(object):
             mapping             = spaces.symbolic_mapping
             is_rational_mapping = spaces.is_rational_mapping
             spaces              = spaces.symbolic_space
+            is_broken           = spaces.is_broken
 
         elif isinstance(expr, BilinearForm):
             is_bilinear         = True
@@ -239,7 +240,7 @@ class AST(object):
             mapping             = spaces[0].symbolic_mapping
             is_rational_mapping = spaces[0].is_rational_mapping
             spaces              = [V.symbolic_space for V in spaces]
-
+            is_broken           = spaces[0].is_broken
         elif isinstance(expr, Functional):
             is_functional       = True
             fields              = tuple(expr.atoms(ScalarTestFunction, VectorTestFunction))
@@ -248,6 +249,7 @@ class AST(object):
             mapping             = spaces.symbolic_mapping
             is_rational_mapping = spaces.is_rational_mapping
             spaces              = spaces.symbolic_space
+            is_broken           = spaces.is_broken
 
         else:
             raise NotImplementedError('TODO')
@@ -320,7 +322,19 @@ class AST(object):
             shapes_trials[u] = (start, end)
             start = end
 
-        # ...
+        if is_broken:
+            if is_bilinear:
+                space_domain = spaces[0].domain
+            else:
+                space_domain = spaces.domain
+
+            if isinstance(domain, Interface):
+                i = space_domain.interior.args.index(domain.minus.domain)
+            elif isinstance(domain, Boundary):
+                i = space_domain.interior.args.index(domain.domain)
+            else:
+                i = space_domain.interior.args.index(domain)
+            mapping = mapping[i]
 
         if is_linear:
             ast = _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, 

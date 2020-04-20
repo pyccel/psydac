@@ -1075,6 +1075,7 @@ class Parser(object):
 
     # ....................................................
     def _visit_LogicalValueNode(self, expr, **kwargs):
+
         mapping = self.mapping
         expr = expr.expr
         target = self.target
@@ -1105,8 +1106,14 @@ class Parser(object):
                 det_jac = (J.T*J).det()
                 det_jac = det_jac.simplify()**0.5
             else:
-                det_jac = SymbolicDeterminant(mapping)
+                if mapping._expressions is None:
+                    det_jac = SymbolicDeterminant(mapping)
+                else:
+                    det_jac = LogicalExpr(mapping, mapping.det_jacobian)
                 det_jac = SymbolicExpr(det_jac)
+            math_functions = math_atoms_as_str(det_jac, 'numpy')
+            math_functions = tuple(m for m in math_functions if m not in self._math_functions)
+            self._math_functions = math_functions + self._math_functions
             return wvol * Abs(det_jac)
         elif isinstance(expr, Symbol):
             return expr
