@@ -35,7 +35,6 @@ from .nodes import LocalTensorQuadratureTestBasis
 from .nodes import LocalTensorQuadratureTrialBasis
 from .nodes import GlobalTensorQuadratureTestBasis
 from .nodes import GlobalTensorQuadratureTrialBasis
-from .nodes import GlobalTensorQuadratureBasis
 from .nodes import TensorQuadratureBasis
 from .nodes import SplitArray
 from .nodes import Reduction
@@ -221,6 +220,7 @@ class Parser(object):
                     shape.append(self.indices[str(i)])
             if len(shape) == len(lhs_indices):
                 shape_lhs = tuple(shape)
+
         return shape_lhs
 
     def _visit(self, expr, **settings):
@@ -319,16 +319,7 @@ class Parser(object):
     # ....................................................
     def _visit_Add(self, expr, **kwargs):
         args = [self._visit(i) for i in expr.args]
-        tuples = [e for e in args if isinstance(e, tuple)]
-        args   = [e for e in args if not e in tuples]
-        expr   =  Add(*args)
-        if tuples:
-            args  = list(tuples[0])
-            for e in tuples[1:]:
-                args = [args[i]+e[i] for i in range(len(args))]
-            tuples = tuple(Add(expr,e) for e in args)
-            return tuples
-        return expr
+        return Add(*args)
 
     # ....................................................
     def _visit_Mul(self, expr, **kwargs):
@@ -1350,6 +1341,7 @@ class Parser(object):
         return target
     # ....................................................
     def _visit_LengthDof(self, expr, **kwargs):
+        # TODO must be p+1
         dim = self.dim
         names = 'p1:%d'%(dim+1)
         target = variables(names, dtype='int', cls=Idx)
@@ -1357,6 +1349,7 @@ class Parser(object):
         return target
     # ....................................................
     def _visit_LengthDofTest(self, expr, **kwargs):
+        # TODO must be p+1
         dim = self.dim
         target = expr.target
         if target:
@@ -1370,6 +1363,7 @@ class Parser(object):
         return target
     # ....................................................
     def _visit_LengthDofTrial(self, expr, **kwargs):
+        # TODO must be p+1
         dim = self.dim
         target = expr.target
         if target:
@@ -1403,6 +1397,11 @@ class Parser(object):
             #TODO check if we never pass this condition
             return expr.target
 
+        # treat dummies and put them in the namespace
+        dummies = self._visit(expr.dummies)
+        dummies = list(zip(*dummies)) # TODO improve
+
+        # add dummies as args of pattern()
         patterns = expr.target.pattern()
         patterns = self._visit_Pattern(patterns)
         args = OrderedDict()
@@ -1414,7 +1413,6 @@ class Parser(object):
                     ls.append(x[p])
                 args[i].append(tuple(ls))
             args[i] = tuple(args[i])
-
         return args
     # ....................................................
     def _visit_ProductGenerator(self, expr, **kwargs):
@@ -1431,25 +1429,58 @@ class Parser(object):
         dim       = self.dim
         iterator  = self._visit(expr.iterator)
         generator = self._visit(expr.generator)
+        indices   = expr.generator.dummies
 
+        lengths = [i.length for i in indices]
+
+        indices = [self._visit(i) for i in indices]
+        lengths = [self._visit(i) for i in lengths]
+        if isinstance(expr.generator.target, LocalTensorQuadratureBasis):
+            new_lengths = []
+            for ln in lengths:
+                t = tuple(j + 1 for j in ln)
+                new_lengths += [t]
+            lengths = new_lengths
+
+        indices = tuple(ind for ls in indices for ind in ls)
+        lengths = list(zip(*lengths)) # TODO
+
+        for i,j in zip(flatten(indices),flatten(lengths)):
+            self.indices[str(i)] = j
+
+        # ...
         inits = [()]*dim
         for (i, l_xs),(j, g_xs) in zip(iterator.items(), generator.items()):
-            if isinstance(expr.generator.target, GlobalTensorQuadratureBasis):
-                positions = [expr.generator.target.positions[index_deriv]]
-                g_xs = [SplitArray(xs[0], positions, [self.nderiv+1]) for xs in g_xs]
-                g_xs = [tuple(self._visit(xs, **kwargs)) for xs in g_xs]
+            assert i == j
+            # there is a special case here,
+            # when local var is a list while the global var is
+            # an array of rank 1. In this case we want to enumerate all the
+            # components of the global var.
+            # this is the case when dealing with derivatives in each direction
+            # TODO maybe we should add a flag here or a kwarg that says we
+            # should enumerate the array
+
+            if isinstance(expr.generator.target, TensorQuadratureBasis):
+                positions = [expr.generator.target.positions[i] for i in [index_deriv]]
+                new_g_xs = [None]*len(g_xs)
+                for i,xs in enumerate(g_xs):
+                    args = SplitArray(xs[0], positions, [self.nderiv+1])
+                    new_g_xs[i] = tuple(self._visit(args, **kwargs))
+                g_xs = new_g_xs
             
             for i in  range(dim):
                 ls = []
                 for l_x,g_x in zip(l_xs[i], g_xs[i]):
-                    if isinstance(expr.generator.target, GlobalTensorQuadratureBasis):
+                    if isinstance(l_x, IndexedVariable):
+                        lhs = l_x
+                    elif isinstance(expr.generator.target, (LocalTensorQuadratureBasis, TensorQuadratureBasis)):
                         lhs = self._visit_BasisAtom(BasisAtom(l_x))
                     else:
                         lhs = l_x
                     ls += [self._visit(Assign(lhs, g_x))]
                 inits[i] += tuple(ls)
-        inits = [flatten(init) for init in inits]
-        return  inits
+
+        return  indices, lengths, inits
 
     # ....................................................
     def _visit_ProductIteration(self, expr, **kwargs):
@@ -1459,8 +1490,6 @@ class Parser(object):
     
         return Assign(iterator, generator)
 
-    def _visit_RAT(self, expr):
-        return str(expr)
     # ....................................................
     def _visit_Loop(self, expr, **kwargs):
         # we first create iteration statements
@@ -1473,20 +1502,19 @@ class Parser(object):
         t_iterations = [TensorIteration(i,j)
                         for i,j in zip(t_iterator, t_generator)]
 
-        indices, lengths = list(self._visit(expr.index)), list(self._visit(expr.index.length))
-        for i,j in zip(flatten(indices),flatten(lengths)):
-            self.indices[str(i)] = j
-
-        inits = [()]*self._dim
         if t_iterations:
             t_iterations = [self._visit_TensorIteration(i) for i in t_iterations]
-
+            indices, lengths, inits = zip(*t_iterations)
             # indices and lengths are supposed to be repeated here
             # we only take the first occurence
 
-            for init in t_iterations:
+            indices = list(indices[0])
+            lengths = list(lengths[0])
+            ls = [()]*self._dim
+            for init in inits:
                 for i in range(self._dim):
-                    inits[i] += tuple(init[i])
+                    ls[i] += init[i]
+            inits = ls
 
         # ...
         # ... treate product iterations
@@ -1523,9 +1551,17 @@ class Parser(object):
             mask_init = [Assign(index, 0), *init]
 
         for index, length, init in zip(indices[::-1], lengths[::-1], inits[::-1]):
+            if len(length) == 1:
+                l = length[0]
+                i = index
+                ranges = [Range(l)]
+
+            else:
+                ranges = [Range(l) for l in length]
+                i = index
 
             body = list(init) + body
-            body = [For(index, Range(length), body)]
+            body = [For(i, Product(*ranges), body)]
         # ...
         # remove the list and return the For Node only
         body = body[0]
@@ -1550,6 +1586,7 @@ class Parser(object):
                 indices[p] = i
                 x = base[indices]
                 args.append(x)
+
         return args
 
     # ....................................................

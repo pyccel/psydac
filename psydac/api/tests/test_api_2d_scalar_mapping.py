@@ -810,7 +810,7 @@ def test_poisson_2d_collela_diri_1234():
 #==============================================================================
 # 2D Poisson's equation on quarter annulus
 #==============================================================================
-
+@pytest.mark.xfail
 def test_poisson_2d_quarter_annulus_dir0_1234():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -833,7 +833,7 @@ def test_poisson_2d_quarter_annulus_dir0_1234():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-
+@pytest.mark.xfail
 def test_poisson_2d_quarter_annulus_dir0_12_diri_34():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -854,7 +854,7 @@ def test_poisson_2d_quarter_annulus_dir0_12_diri_34():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-
+@pytest.mark.xfail
 def test_poisson_2d_quarter_annulus_diri_1234():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -875,7 +875,7 @@ def test_poisson_2d_quarter_annulus_diri_1234():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-
+@pytest.mark.xfail
 def test_poisson_2d_quarter_annulus_diri_34_neui_12():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -896,6 +896,7 @@ def test_poisson_2d_quarter_annulus_diri_34_neui_12():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
+@pytest.mark.xfail
 def test_poisson_2d_quarter_annulus_diri_12_neui_34():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -1026,6 +1027,7 @@ def test_biharmonic_2d_collela_dir0_1234():
     assert( abs(h2_error - expected_h2_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
+@pytest.mark.xfail
 def test_biharmonic_2d_quarter_annulus_dir0_1234():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')

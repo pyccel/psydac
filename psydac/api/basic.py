@@ -406,7 +406,8 @@ class BasicDiscrete(BasicCodeGen):
         return self._max_nderiv
 
     def _create_ast(self, expr,tag, **kwargs):
+        is_rational_mapping = kwargs.pop('is_rational_mapping', None)
         discrete_space      = kwargs.pop('discrete_space', None)
         kernel_expr         = kwargs['kernel_expr']
 
-        return AST(expr, kernel_expr, discrete_space, tag)
+        return AST(expr, kernel_expr, discrete_space, is_rational_mapping, tag)
