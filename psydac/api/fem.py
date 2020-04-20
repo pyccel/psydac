@@ -231,8 +231,6 @@ class DiscreteBilinearForm(BasicDiscrete):
         global_mats = [M._data for M in global_mats]
         if self.mapping:
             mapping = [e._coeffs._data for e in self.mapping._fields]
-            if self.is_rational_mapping:
-                mapping = [*mapping, self.mapping._weights_field._coeffs._data]
         else:
             mapping = []
         args = (*tests_basis, *trial_basis, *spans, *quads, *tests_degrees, *trials_degrees, *n_elements, *quads_degree, *global_pads, *local_mats, *global_mats, *mapping)
@@ -443,8 +441,6 @@ class DiscreteLinearForm(BasicDiscrete):
         global_mats   = [M._data for M in global_mats]
         if self.mapping:
             mapping   = [e._coeffs._data for e in self.mapping._fields]
-            if self.is_rational_mapping:
-                mapping = [*mapping, self.mapping._weights_field._coeffs._data]
         else:
             mapping   = []
         args = (*tests_basis, *spans, *quads, *tests_degrees, *n_elements, *quads_degree, *global_pads, *local_mats, *global_mats, *mapping)
@@ -602,8 +598,6 @@ class DiscreteFunctional(BasicDiscrete):
 
         if self.mapping:
             mapping = [e._coeffs._data for e in self.mapping._fields]
-            if self.is_rational_mapping:
-                mapping = [*mapping, self.mapping._weights_field._coeffs._data]
         else:
             mapping = []
 
