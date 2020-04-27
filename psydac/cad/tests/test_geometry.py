@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-
+import pytest
 import numpy as np
 
 from sympde.topology import Domain, Line, Square, Cube
@@ -143,6 +143,7 @@ def test_geometry_2d_4():
     geo.export('circle.h5')
 
 #==============================================================================
+@pytest.mark.xfail
 def test_geometry_1():
 
     line   = Geometry.as_line(ncells=[10])
