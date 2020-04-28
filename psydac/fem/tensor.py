@@ -42,15 +42,19 @@ class TensorFemSpace( FemSpace ):
 
         if 'comm' in kwargs and not( kwargs['comm'] is None ):
             # parallel case
-            comm = kwargs['comm']
+            comm         = kwargs['comm']
+            nprocs       = kwargs.pop('nprocs', None)
+            reverse_axis = kwargs.pop('reverse_axis', None)
             assert isinstance(comm, MPI.Comm)
 
             cart = CartDecomposition(
-                npts    = npts,
-                pads    = pads,
-                periods = periods,
-                reorder = True,
-                comm    = comm
+                npts         = npts,
+                pads         = pads,
+                periods      = periods,
+                reorder      = True,
+                comm         = comm,
+                nprocs       = nprocs,
+                reverse_axis = reverse_axis
             )
 
             self._vector_space = StencilVectorSpace(cart)
@@ -678,6 +682,7 @@ class TensorFemSpace( FemSpace ):
         ax.legend( handles=handles, bbox_to_anchor=(1.05, 1), loc=2 )
         fig.tight_layout()
         fig.show()
+
 
     # ...
     def __str__(self):

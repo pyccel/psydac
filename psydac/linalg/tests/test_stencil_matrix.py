@@ -215,9 +215,10 @@ def test_stencil_matrix_2d_serial_transpose( n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parametrize( 'reverse_axis', [None, 0] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_1d_parallel_dot( n1, p1, P1, reorder ):
+def test_stencil_matrix_1d_parallel_dot( n1, p1, P1, reorder, reverse_axis ):
 
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -228,7 +229,8 @@ def test_stencil_matrix_1d_parallel_dot( n1, p1, P1, reorder ):
         pads    = [p1,],
         periods = [P1,],
         reorder = reorder,
-        comm    = comm
+        comm    = comm,
+        reverse_axis=reverse_axis
     )
 
     V = StencilVectorSpace( cart )
@@ -275,9 +277,10 @@ def test_stencil_matrix_1d_parallel_dot( n1, p1, P1, reorder ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parametrize( 'reverse_axis', [None, 0, 1] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_2d_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
+def test_stencil_matrix_2d_parallel_dot( n1, n2, p1, p2, P1, P2, reorder , reverse_axis):
 
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -288,7 +291,8 @@ def test_stencil_matrix_2d_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
         pads    = [p1,p2],
         periods = [P1,P2],
         reorder = reorder,
-        comm    = comm
+        comm    = comm,
+        reverse_axis = reverse_axis
     )
 
     # Create vector space, stencil matrix, and stencil vector
@@ -335,9 +339,10 @@ def test_stencil_matrix_2d_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parametrize( 'reverse_axis', [None, 0] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_1d_parallel_sync( n1, p1, P1, reorder ):
+def test_stencil_matrix_1d_parallel_sync( n1, p1, P1, reorder, reverse_axis):
 
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -348,7 +353,8 @@ def test_stencil_matrix_1d_parallel_sync( n1, p1, P1, reorder ):
         pads    = [p1,],
         periods = [P1,],
         reorder = reorder,
-        comm    = comm
+        comm    = comm,
+        reverse_axis=reverse_axis
     )
 
     V = StencilVectorSpace( cart, dtype=int )
@@ -417,9 +423,10 @@ def test_stencil_matrix_1d_parallel_sync( n1, p1, P1, reorder ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parametrize( 'reverse_axis', [None, 0, 1] )
 @pytest.mark.parallel
 
-def test_stencil_matrix_2d_parallel_sync( n1, n2, p1, p2, P1, P2, reorder ):
+def test_stencil_matrix_2d_parallel_sync( n1, n2, p1, p2, P1, P2, reorder ,reverse_axis):
 
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -430,7 +437,8 @@ def test_stencil_matrix_2d_parallel_sync( n1, n2, p1, p2, P1, P2, reorder ):
         pads    = [p1, p2],
         periods = [P1, P2],
         reorder = reorder,
-        comm    = comm
+        comm    = comm,
+        reverse_axis=reverse_axis
     )
 
     V = StencilVectorSpace( cart, dtype=int )

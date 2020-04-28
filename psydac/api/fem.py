@@ -70,7 +70,8 @@ def collect_spaces(space, *ls):
             return [[e[0]] for e in ls]
 
     return ls
-
+def do_nothing(*args):
+    pass
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
 
@@ -151,6 +152,17 @@ class DiscreteBilinearForm(BasicDiscrete):
                                                  quad_order = quad_order )
             test_ext  = domain.ext
             trial_ext = domain.ext
+
+            if test_ext == -1:
+                start = test_space.vector_space.starts[domain.axis]
+                if start != 0 :
+                    self._func = do_nothing
+            elif test_ext == 1:
+                end = test_space.vector_space.ends[domain.axis]
+                nb  = test_space.spaces[domain.axis].nbasis
+                if end+1 != nb:
+                    self._func = do_nothing
+
         elif isinstance(domain, sym_Interface):
             test_ext  = -1 if isinstance(self.kernel_expr.test,  PlusInterfaceOperator) else 1
             trial_ext = -1 if isinstance(self.kernel_expr.trial, PlusInterfaceOperator) else 1
@@ -158,6 +170,16 @@ class DiscreteBilinearForm(BasicDiscrete):
                          domain.axis,
                          test_ext,
                          quad_order = quad_order )
+
+            if test_ext == -1:
+                start = test_space.vector_space.starts[domain.axis]
+                if start != 0 :
+                    self._func = do_nothing
+            elif test_ext == 1:
+                end = test_space.vector_space.ends[domain.axis]
+                nb  = test_space.spaces[domain.axis].nbasis
+                if end+1 != nb:
+                    self._func = do_nothing
         else:
             test_ext  = None
             trial_ext = None
@@ -207,28 +229,31 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def construct_arguments(self):
 
-        tests_basis = self.test_basis.basis
-        trial_basis = self.trial_basis.basis
-        target      = self.kernel_expr.target
-        tests_degrees = self.spaces[1].degree
+        tests_basis    = self.test_basis.basis
+        trial_basis    = self.trial_basis.basis
+        target         = self.kernel_expr.target
+        tests_degrees  = self.spaces[1].degree
         trials_degrees = self.spaces[0].degree
-        spans = self.test_basis.spans
+        spans          = self.test_basis.spans
+
         tests_basis, tests_degrees, spans = collect_spaces(self._test_symbolic_space, tests_basis, tests_degrees, spans)
         trial_basis, trials_degrees       = collect_spaces(self._trial_symbolic_space, trial_basis, trials_degrees)
-        tests_basis = flatten(tests_basis)
-        trial_basis = flatten(trial_basis)
-        tests_degrees = flatten(tests_degrees)
-        trials_degrees = flatten(trials_degrees)
-        spans = flatten(spans)
-        points = self.grid.points
-        weights = self.grid.weights
-        quads   = flatten(list(zip(points, weights)))
 
-        quads_degree = flatten(self.grid.quad_order)
-        n_elements   = self.grid.n_elements
-        global_pads = self.spaces[0].vector_space.pads
+        tests_basis    = flatten(tests_basis)
+        trial_basis    = flatten(trial_basis)
+        tests_degrees  = flatten(tests_degrees)
+        trials_degrees = flatten(trials_degrees)
+        spans          = flatten(spans)
+        points         = self.grid.points
+        weights        = self.grid.weights
+        quads          = flatten(list(zip(points, weights)))
+
+        quads_degree   = flatten(self.grid.quad_order)
+        n_elements     = self.grid.n_elements
+        global_pads    = self.spaces[0].vector_space.pads
+
         local_mats, global_mats = self.allocate_matrices()
-        global_mats = [M._data for M in global_mats]
+        global_mats             = [M._data for M in global_mats]
         if self.mapping:
             mapping = [e._coeffs._data for e in self.mapping._fields]
             if self.is_rational_mapping:
@@ -287,7 +312,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         elif is_broken:
             if isinstance(target, sym_Interface):
-                axis = target.axis
+                axis        = target.axis
                 test_spans  = self.test_basis.spans
                 trial_spans = self.trial_basis.spans
                 ij = [domain.index(target.minus.domain),domain.index(target.plus.domain)]
@@ -296,7 +321,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 ii, jj = ij
                 if self._matrix[ii,jj]:
                     global_mats[ii,jj] = self._matrix[ii,jj]
-                else:
+                elif self._func != do_nothing:
                     global_mats[ii,jj] = StencilInterfaceMatrix(trial_space, test_space, trial_spans[0][axis][0], test_spans[0][axis][0], axis)
                 local_mats[ii,jj]  = np.zeros((*(test_degree+1),*(2*trial_degree+1)))
             else:
@@ -384,6 +409,16 @@ class DiscreteLinearForm(BasicDiscrete):
                                                  quad_order = quad_order )
             ext = domain.ext
 
+            if ext == -1:
+                start = self.space.vector_space.starts[domain.axis]
+                if start != 0 :
+                    self._func = do_nothing
+            elif ext == 1:
+                end = self.space.vector_space.ends[domain.axis]
+                nb  = self.space.spaces[domain.axis].nbasis
+                if end+1 != nb:
+                    self._func = do_nothing
+
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv, ext=ext)
 
@@ -429,9 +464,9 @@ class DiscreteLinearForm(BasicDiscrete):
 
         tests_basis, tests_degrees, spans = collect_spaces(self._symbolic_space, tests_basis, tests_degrees, spans)
 
-        tests_basis = flatten(tests_basis)
+        tests_basis   = flatten(tests_basis)
         tests_degrees = flatten(tests_degrees)
-        spans = flatten(spans)
+        spans         = flatten(spans)
 
         points        = self.grid.points
         weights       = self.grid.weights
@@ -439,8 +474,10 @@ class DiscreteLinearForm(BasicDiscrete):
         quads_degree  = flatten(self.grid.quad_order)
         n_elements    = self.grid.n_elements
         global_pads   = self.space.vector_space.pads
+
         local_mats, global_mats = self.allocate_matrices()
-        global_mats   = [M._data for M in global_mats]
+        global_mats             = [M._data for M in global_mats]
+
         if self.mapping:
             mapping   = [e._coeffs._data for e in self.mapping._fields]
             if self.is_rational_mapping:

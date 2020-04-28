@@ -194,7 +194,7 @@ class StencilVector( Vector ):
         self._space = V
 
         # TODO: distinguish between different directions
-        self._sync  = True
+        self._sync  = False
 
     #--------------------------------------
     # Abstract interface
@@ -210,7 +210,6 @@ class StencilVector( Vector ):
         assert v._space is self._space
 
         res = self._dot(self._data, v._data , self.pads)
-
         if self._space.parallel:
             res = self._space.cart.comm_cart.allreduce( res, op=MPI.SUM )
 

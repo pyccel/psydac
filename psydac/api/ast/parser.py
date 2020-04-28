@@ -1098,7 +1098,7 @@ class Parser(object):
 
         elif isinstance(expr, SymbolicWeightedVolume):
             wvol = self._visit(expr, **kwargs)
-            if isinstance(target, Boundary):
+            if isinstance(target, (Boundary, Interface)):
                 J = mapping.jacobian.copy()
                 J.col_del(target.axis)
                 J = LogicalExpr(mapping, J)

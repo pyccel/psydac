@@ -237,7 +237,7 @@ def apply_essential_bc_2d_StencilInterfaceMatrix(V, bc, a):
 
         # right bc.boundary.at x=1.
         if e1 == V1.nbasis-1 and ext == 1:
-            a._data[pads[0]+e1-order,:,:,:] = 0.
+            a._data[pads[0]+e1-s1-order,:,:,:] = 0.
     elif axis == 0:
         # left  bc.boundary.at x=0.
         if s1 == 0 and ext == -1 and d_start == 0:
@@ -254,7 +254,7 @@ def apply_essential_bc_2d_StencilInterfaceMatrix(V, bc, a):
 
         # upper bc.boundary.at y=1.
         if e2 == V2.nbasis-1 and ext == 1:
-            a._data[:,pads[1]+e2-order,:,:] = 0.
+            a._data[:,pads[1]+e2-s2-order,:,:] = 0.
     elif axis == 1:
         # lower bc.boundary.at y=0.
         if s2 == 0 and ext == -1 and d_start == 0:

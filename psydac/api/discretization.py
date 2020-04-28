@@ -17,7 +17,7 @@ from sympde.expr     import LinearForm as sym_LinearForm
 from sympde.expr     import Functional as sym_Functional
 from sympde.expr     import BoundaryIntegral as sym_BoundaryIntegral
 from sympde.expr     import Equation as sym_Equation
-from sympde.expr     import Boundary as sym_Boundary
+from sympde.expr     import Boundary as sym_Boundary, Interface as sym_Interface
 from sympde.expr     import Norm as sym_Norm
 from sympde.expr     import TerminalExpr
 from sympde.topology import Domain, Boundary
@@ -200,9 +200,7 @@ class DiscreteEquation(BasicDiscrete):
         self._linear_system = LinearSystem(M, rhs)
 
     def solve(self, **kwargs):
-        settings = _default_solver.copy()
-        settings.update(kwargs.pop('settings', {}))
-
+        settings = {k:kwargs[k] if k in kwargs else it for k,it in _default_solver.items()}
         rhs = kwargs.pop('rhs', None)
         if rhs:
             kwargs['assemble_rhs'] = False
@@ -269,7 +267,7 @@ class DiscreteEquation(BasicDiscrete):
                 # Find inhomogeneous solution (use CG as system is symmetric)
                 loc_settings = settings.copy()
                 loc_settings['solver'] = 'cg'
-                X = equation_h.solve(settings=loc_settings)
+                X = equation_h.solve(**loc_settings)
 
                 # Use inhomogeneous solution as initial guess to solver
                 settings['x0'] = X
@@ -398,7 +396,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
     comm                = domain_h.comm
     kind                = V.kind
     ldim                = V.ldim
-    symbolic_mapping = kwargs.pop('mapping', None)
+    symbolic_mapping    = kwargs.pop('mapping', None)
     is_rational_mapping = False
     
     if isinstance(V, ProductSpace):
@@ -431,6 +429,9 @@ def discretize_space(V, domain_h, *args, **kwargs):
         interiors = domain_h.domain.interior
         if isinstance(interiors, Union):
             interiors = interiors.args
+            interfaces = domain_h.domain.interfaces
+            if isinstance(interfaces, sym_Interface):
+                interfaces = [interfaces]
         else:
             interiors = [interiors]
 
@@ -440,7 +441,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 symbolic_mapping = symbolic_mapping[0]
 
         g_spaces = []
-        for interior in interiors:
+        for i,interior in enumerate(interiors):
             ncells     = domain_h.ncells
             min_coords = interior.min_coords
             max_coords = interior.max_coords
@@ -454,7 +455,28 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
             # Create 1D finite element spaces and precompute quadrature data
             spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
-            Vh = TensorFemSpace( *spaces, comm=comm )
+            Vh     = None
+            if i>0:
+                for e in interfaces:
+                    plus = e.plus.domain
+                    minus = e.minus.domain
+                    if plus == interior:
+                        index = interiors.index(minus)
+                    elif minus == interior:
+                        index = interiors.index(plus)
+                    else:
+                        continue
+                    if index<i:
+                        nprocs = None
+                        if comm is not None:
+                            nprocs = g_spaces[index].vector_space.cart.nprocs
+                        Vh = TensorFemSpace( *spaces, comm=comm, nprocs=nprocs, reverse_axis=e.axis)
+                        break
+            else:
+                Vh = TensorFemSpace( *spaces, comm=comm)
+
+            if Vh is None:
+                raise ValueError('Unable to discretize the space')
 
             if isinstance(kind, L2SpaceType):
 

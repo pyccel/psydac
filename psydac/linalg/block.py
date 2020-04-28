@@ -264,6 +264,10 @@ class BlockLinearOperator( LinearOperator ):
         else:
             out = BlockVector( self._codomain )
 
+        for vi in v[:]:
+            if not vi.ghost_regions_in_sync:
+                vi.update_ghost_regions()
+
         for (i,j), Lij in self._blocks.items():
             out[i] += Lij.dot( v[j] )
 
