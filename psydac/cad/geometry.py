@@ -90,34 +90,21 @@ class Geometry( object ):
     #--------------------------------------------------------------------------
     # Option [3]: discrete topological line/square/cube
     #--------------------------------------------------------------------------
-    # TODO shall we create a discrete line/square/cube?
     @classmethod
-    def as_line( cls, ncells=None, periods=None, comm=None ):
-        domain = Line(name='Omega')
-        mappings = {'Omega': None}
+    def from_topological_domain(cls, domain, ncells, comm=None):
 
-        geo = Geometry(domain=domain, mappings=mappings, periods=periods, comm=comm)
-        setattr(geo, 'ncells', ncells)
+        if not isinstance(domain, (Line, Square, Cube)):
+            msg = "Topological domain must be Line, Square or Cube;"\
+                  " got {} instead.".format(type(domain))
+            raise TypeError(msg)
+
+        mappings = {domain.interior.name: None}
+        geo = Geometry(domain=domain, mappings=mappings, comm=comm)
+        geo.ncells = ncells
+
         return geo
 
-    @classmethod
-    def as_square( cls, ncells=None, periods=None, comm=None ):
-        domain = Square(name='Omega')
-        mappings = {'Omega': None}
-
-        geo = Geometry(domain=domain, mappings=mappings, periods=periods, comm=comm)
-        setattr(geo, 'ncells', ncells)
-        return geo
-
-    @classmethod
-    def as_cube( cls, ncells=None, periods=None, comm=None ):
-        domain = Cube(name='Omega')
-        mappings = {'Omega': None}
-
-        geo = Geometry(domain=domain, mappings=mappings, periods=periods, comm=comm)
-        setattr(geo, 'ncells', ncells)
-        return geo
-
+    #--------------------------------------------------------------------------
     @property
     def ldim(self):
         return self._ldim

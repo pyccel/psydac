@@ -48,15 +48,15 @@ install_requires = [
     # Third-party packages from PyPi
     'numpy>=1.16',
     'scipy>=0.18',
-    'sympy>=1.2',
+    'sympy>=1.2,<1.5',
     'matplotlib',
-    'pytest',
+    'pytest>=4.5',
     'pyyaml',
     'yamlloader',
 
     # Our packages from PyPi
-    'sympde',
-    'pyccel',
+    'sympde==0.9.6',
+    'pyccel==0.9.6',
     'gelato',
 
     # In addition, we depend on mpi4py and h5py (MPI version).
