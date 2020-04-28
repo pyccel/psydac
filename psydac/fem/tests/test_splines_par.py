@@ -11,7 +11,7 @@ from numpy  import linspace
 from mpi4py import MPI
 
 @pytest.mark.parametrize( 'reverse_axis', [None, 0, 1] )
-def test_2d_1(reverse_axis=None):
+def test_2d_1(reverse_axis):
 
     p_1 = 2
     p_2 = 2
