@@ -65,6 +65,10 @@ from itertools   import groupby
 
 #==============================================================================
 def convert(dtype):
+    """
+    This function returns the index of a Function Space in a 3D DeRham sequence
+
+    """
     if isinstance(dtype, (H1SpaceType, UndefinedSpaceType)):
         return 0
     elif isinstance(dtype, HcurlSpaceType):
@@ -74,7 +78,11 @@ def convert(dtype):
     elif isinstance(dtype, L2SpaceType):
         return 3
 #==============================================================================
-def regroupe(tests):
+def regroup(tests):
+    """
+    This function regourps the test/trial functions by their Function Space
+
+    """
     tests  = [i.base if isinstance(i, IndexedTestTrial) else i for i in tests]
     new_tests = []
     for i in tests:
@@ -100,6 +108,10 @@ def regroupe(tests):
     return groups
 #==============================================================================
 def expand(args):
+    """
+    This function expands vector functions into indexed functions
+
+    """
     new_args = []
     for i in args:
         if isinstance(i, (ScalarTestFunction, IndexedTestTrial)):
@@ -111,6 +123,10 @@ def expand(args):
     return tuple(new_args)
 #==============================================================================
 def expand_hdiv_hcurl(args):
+    """
+    This function expands vector functions of type hdiv and hculr into indexed functions
+
+    """
     new_args = []
     for i in args:
         if isinstance(i, (ScalarTestFunction, IndexedTestTrial)):
@@ -123,17 +139,6 @@ def expand_hdiv_hcurl(args):
         else:
             raise NotImplementedError("TODO")
     return tuple(new_args)
-#==============================================================================
-def get_length(args):
-    n = 0
-    for i in args:
-        if isinstance(i, ScalarTestFunction):
-            n += 1
-        elif isinstance(i, VectorTestFunction):
-            n += i.space.ldim
-        else:
-            raise NotImplementedError("TODO")
-    return n
 
 #==============================================================================
 def is_scalar_field(expr):
@@ -164,7 +169,10 @@ def is_vector_field(expr):
     return False
 #==============================================================================
 class Block(Basic):
-    """."""
+    """
+    This class represents a Block of statements
+
+    """
     def __new__(cls, body):
         if not isinstance(body, (list, tuple, Tuple)):
             body = [body]
@@ -177,7 +185,10 @@ class Block(Basic):
         return self._args[0]
 #==============================================================================
 class DefNode(Basic):
-    """."""
+    """
+    DefNode represents a function definition where it contains the arguments and the body
+
+    """
     def __new__(cls, name, arguments, local_variables, body):
         return Basic.__new__(cls, name, arguments, local_variables, body)
 
@@ -199,6 +210,9 @@ class DefNode(Basic):
 #==============================================================================
 class AST(object):
     """
+    The Ast class transforms a terminal expression returned from sympde
+    into a DefNode
+
     """
     def __init__(self, expr, terminal_expr, spaces, tag=None):
         # ... compute terminal expr
@@ -301,43 +315,24 @@ class AST(object):
             d_trials[u] = d
         # ...
 
-        shapes_tests  = {}
-        shapes_trials = {}
-
-        start = 0
-        for v in tests:
-            ln = 1 if isinstance(v, ScalarTestFunction) else dim
-            end = start + ln
-            shapes_tests[v] = (start, end)
-            start = end
-
-        start = 0
-        for u in trials:
-            ln = 1 if isinstance(u, ScalarTestFunction) else dim
-            end = start + ln
-            shapes_trials[u] = (start, end)
-            start = end
-
-        # ...
-
         if is_linear:
             ast = _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, 
-                                          tests, d_tests, shapes_tests,
+                                          tests, d_tests,
                                           fields, constants,
                                           nderiv, domain.dim,
                                           mapping, is_rational_mapping, spaces, mask, tag)
 
         elif is_bilinear:
             ast = _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
-                                            tests, d_tests, shapes_tests,
-                                            trials, d_trials, shapes_trials,
+                                            tests, d_tests,
+                                            trials, d_trials,
                                             fields, constants,
                                             nderiv, domain.dim, 
                                             mapping, is_rational_mapping, spaces, mask, tag)
 
         elif is_functional:
             ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
-                                              tests, d_tests, shapes_tests, constants,
+                                              tests, d_tests, constants,
                                               nderiv, domain.dim, 
                                               mapping, is_rational_mapping, spaces, mask, tag)
         else:
@@ -371,11 +366,70 @@ class AST(object):
 
 #================================================================================================================================
 def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
-                              tests, d_tests, shapes_tests,
-                              trials, d_trials, shapes_trials,
+                              tests, d_tests,
+                              trials, d_trials,
                               fields, constants,
                               nderiv, dim, mapping, is_rational_mapping, spaces, mask, tag):
     """
+    This function creates the assembly function of a bilinearform
+
+    Parameters
+    ----------
+
+    terminal_expr : <Matrix>
+        atomic representation of the bilinear form
+
+    atomic_expr   : <Matrix>
+        atoms used in the terminal_expr
+
+    atomic_expr_field: <list>
+        list  of atomic expressions of fields
+
+    tests   : <list>
+        list of tests functions
+
+    d_tests : <dict>
+        dictionary that contains the symbolic spans and basis values of each test function
+
+    trials : <list>
+        list of trial functions
+
+    d_trials: <list>
+        dictionary that contains the symbolic spans and basis values of each trial function
+
+    fields : <list>
+        list of fields
+
+    constants : <list>
+        list of constants
+
+    nderiv : int
+        the order of the bilinear form
+
+    dim : int
+        number of dimension
+
+    mapping : <Mapping>
+        Sympde Mapping object
+
+    is_rational_mapping : <bool>
+        takes the value of True if the mapping is rational
+
+    spaces : <list>
+        list of sympde symbolic test and trial spaces
+
+    mask  : <int|None>
+        the masked direction in case of boundary domain
+
+    tag   : <str>
+        tag to be added to variable names
+
+
+    Returns
+    -------
+    node : DefNode
+        represents the a function definition node that computes the assembly
+
     """
 
     pads   = symbols('pad1, pad2, pad3')[:dim]
@@ -409,8 +463,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
         eval_field  = EvalField(atomic_expr_field, ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], coeffs, l_coeffs, g_coeffs, fields, mapping, pads, nderiv, mask)
         g_stmts    += [eval_field]
 
-    test_groups  = regroupe(tests)
-    trial_groups = regroupe(trials)
+    test_groups  = regroup(tests)
+    trial_groups = regroup(trials)
     ex_tests     = expand(tests)
     ex_trials    = expand(trials)
 
@@ -492,14 +546,67 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
         args['constants'] = constants
 
     local_vars = []
-    stmt = DefNode('assembly', args, local_vars, body)
+    node = DefNode('assembly', args, local_vars, body)
 
-    return stmt
+    return node
 
 #================================================================================================================================
-def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, shapes_tests, fields, constants, nderiv,
+def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, fields, constants, nderiv,
                             dim, mapping, is_rational_mapping, space, mask, tag):
     """
+    This function creates the assembly function of a linearform
+
+    Parameters
+    ----------
+
+    terminal_expr : <Matrix>
+        atomic representation of the linear form
+
+    atomic_expr   : <Matrix>
+        atoms used in the terminal_expr
+
+    atomic_expr_field : <list>
+        list  of atomic expressions of fields
+
+    tests   : <list>
+        list of tests functions
+
+    d_tests : <dict>
+        dictionary that contains the symbolic spans and basis values of each test function
+
+    fields  : <list>
+        list of fields
+
+    constants : <list>
+        list of constants
+
+    nderiv : int
+        the order of the bilinear form
+
+    dim : int
+        number of dimension
+
+    mapping : <Mapping>
+        Sympde Mapping object
+
+    is_rational_mapping : <bool>
+        takes the value of True if the mapping is rational
+
+    spaces : <Space>
+        sympde symbolic space
+
+    mask  : <int|None>
+        the masked direction in case of boundary domain
+
+    tag   : <str>
+        tag to be added to variable names
+
+
+    Returns
+    -------
+    node : DefNode
+        represents the a function definition node that computes the assembly
+
     """
     pads   = symbols('pad1, pad2, pad3')[:dim]
     g_quad = GlobalTensorQuadrature()
@@ -533,7 +640,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         g_stmts      += [eval_field]
     # ...
 
-    groups = regroupe(tests)
+    groups = regroup(tests)
     ex_tests = expand(tests)
     # ... 
     #=========================================================begin kernel======================================================
@@ -600,15 +707,61 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         args['constants'] = constants
 
     local_vars = []
-    stmt = DefNode('assembly', args, local_vars, body)
-    # ...
+    node = DefNode('assembly', args, local_vars, body)
 
-    return stmt
+    return node
 
 #================================================================================================================================
-def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shapes_tests, constants, nderiv,
+def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, constants, nderiv,
                                 dim, mapping, is_rational_mapping, space, mask, tag):
     """
+    This function creates the assembly function of a Functional Form
+
+    Parameters
+    ----------
+
+    terminal_expr : <Matrix>
+        atomic representation of the Functional form
+
+    atomic_expr   : <Matrix>
+        atoms used in the terminal_expr
+
+    tests   : <list>
+        list of tests functions
+
+    d_tests : <dict>
+        dictionary that contains the symbolic spans and basis values of each test function
+
+    constants : <list>
+        list of constants
+
+    nderiv : int
+        the order of the bilinear form
+
+    dim : int
+        number of dimension
+
+    mapping : <Mapping>
+        Sympde Mapping object
+
+    is_rational_mapping : <bool>
+        takes the value of True if the mapping is rational
+
+    space : <Space>
+        sympde symbolic space
+
+    mask  : <int|None>
+        the masked direction in case of boundary domain
+
+    tag   : <str>
+        tag to be added to variable names
+
+
+    Returns
+    -------
+    node : DefNode
+        represents the a function definition node that computes the assembly
+
     """
 
     pads   = symbols('pad1, pad2, pad3')[:dim]
@@ -685,7 +838,6 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, shap
         args['constants'] = constants
 
     local_vars = []
-    stmt = DefNode('assembly', args, local_vars, body)
-    # ...
+    node = DefNode('assembly', args, local_vars, body)
 
-    return stmt
+    return node
