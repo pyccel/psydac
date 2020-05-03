@@ -68,6 +68,10 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
         fname = self._print(expr.func.__name__)
         return '{fname}({args})'.format(fname=fname, args=args)
 
+    def _print_PythonTuple(self, expr):
+        args = ', '.join(self._print(i) for i in expr.args)
+        return '('+args+')'
+
 #==============================================================================
 def pycode(expr, **settings):
     """ Converts an expr to a string of Python code
