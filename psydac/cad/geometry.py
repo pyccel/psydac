@@ -23,7 +23,7 @@ from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.mapping.discrete import SplineMapping, NurbsMapping
 
-from sympde.topology import Domain, Line, Square, Cube
+from sympde.topology import Domain, PeriodicDomain, Line, Square, Cube
 
 #==============================================================================
 class Geometry( object ):
@@ -93,13 +93,19 @@ class Geometry( object ):
     @classmethod
     def from_topological_domain(cls, domain, ncells, comm=None):
 
+        if isinstance(domain, PeriodicDomain):
+            domain  = domain.domain
+            periods = domain.periods
+        else:
+            periods = [False]*domain.dim
+
         if not isinstance(domain, (Line, Square, Cube)):
             msg = "Topological domain must be Line, Square or Cube;"\
                   " got {} instead.".format(type(domain))
             raise TypeError(msg)
 
         mappings = {domain.interior.name: None}
-        geo = Geometry(domain=domain, mappings=mappings, comm=comm)
+        geo = Geometry(domain=domain, mappings=mappings, periods=periods, comm=comm)
         geo.ncells = ncells
 
         return geo

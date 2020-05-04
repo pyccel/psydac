@@ -225,31 +225,32 @@ class Kernel(SplBasic):
         if not isinstance(weak_form, FunctionalForms):
             raise TypeError('> Expecting a weak formulation')
 
+        if symbolic_space:
+            symbolic_space = symbolic_space[0]
 
-        spaces = discrete_space
-
-        if isinstance(spaces, (list, tuple)):
-            assert len(spaces) == 2
-            test_symbolic_space  = spaces[1].symbolic_space
-            trial_symbolic_space = spaces[0].symbolic_space
-            symbolic_space      = [trial_symbolic_space, test_symbolic_space]
-        else:
-            test_symbolic_space  = spaces.symbolic_space
-            trial_symbolic_space = None
-            symbolic_space       = test_symbolic_space
+#        if isinstance(spaces, (list, tuple)):
+#            assert len(spaces) == 2
+#            test_symbolic_space  = spaces[1].symbolic_space
+#            trial_symbolic_space = spaces[0].symbolic_space
+#            symbolic_space      = [trial_symbolic_space, test_symbolic_space]
+#        else:
+#            test_symbolic_space  = spaces.symbolic_space
+#            trial_symbolic_space = None
+#            symbolic_space       = test_symbolic_space
 
         unique_scalar_space = True
-        if isinstance(test_symbolic_space, ProductSpace):
-            spaces = test_symbolic_space.spaces
-            unique_scalar_space = all(sp.kind==spaces[0].kind for sp in spaces)
-        elif isinstance(test_symbolic_space, VectorFunctionSpace):
+        if isinstance(symbolic_space, ProductSpace):
+            spaces = symbolic_space.spaces
+            space = spaces[0]
+            unique_scalar_space = all(sp.kind==spaces.kind for sp in spaces)
+        elif isinstance(symbolic_space, VectorFunctionSpace):
             unique_scalar_space = isinstance(test_symbolic_space.kind, UndefinedSpaceType)
 
-        if isinstance(trial_symbolic_space, ProductSpace):
-            spaces = trial_symbolic_space.spaces
-            unique_scalar_space = unique_scalar_space and all(sp.kind==spaces[0].kind for sp in spaces)
-        elif isinstance(trial_symbolic_space, VectorFunctionSpace):
-            unique_scalar_space = unique_scalar_space and isinstance(trial_symbolic_space.kind, UndefinedSpaceType)
+#        if isinstance(trial_symbolic_space, ProductSpace):
+#            spaces = trial_symbolic_space.spaces
+#            unique_scalar_space = unique_scalar_space and all(sp.kind==spaces[0].kind for sp in spaces)
+#        elif isinstance(trial_symbolic_space, VectorFunctionSpace):
+#            unique_scalar_space = unique_scalar_space and isinstance(trial_symbolic_space.kind, UndefinedSpaceType)
 
         # ...
         # get the target expr if there are multiple expressions (domain/boundary)
@@ -299,7 +300,7 @@ class Kernel(SplBasic):
         obj._area                = None
         obj._user_functions      = []
         obj._backend             = backend
-        obj._symbolic_space     = symbolic_space
+        obj._symbolic_space      = symbolic_space
         obj._unique_scalar_space = unique_scalar_space
 
         obj._func = obj._initialize()
@@ -1337,7 +1338,7 @@ class Assembly(SplBasic):
         mats = tuple(element_matrices.values())
 
         gslices = [Slice(sp-s-d+p, sp+p+1-s) for sp,d,p,s in
-                   zip(indices_span[::ln], test_degrees[::ln], test_pads[::ln], starts)]
+                   zip(indices_span[::test_ln], test_degrees[::test_ln], test_pads[::test_ln], starts)]
         f_coeffs  = tuple([f[gslices] for f in fields_coeffs])
         vf_coeffs = tuple([f[gslices] for f in vector_fields_coeffs])
         m_coeffs  = tuple([f[gslices] for f in kernel.mapping_coeffs])

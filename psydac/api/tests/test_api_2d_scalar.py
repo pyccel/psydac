@@ -14,6 +14,7 @@ from sympde.topology import element_of
 from sympde.topology import NormalVector
 from sympde.topology import Square
 from sympde.topology import Union
+from sympde.topology import PeriodicDomain
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC, Mean
