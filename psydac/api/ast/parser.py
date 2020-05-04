@@ -88,7 +88,26 @@ def is_scalar_array(var):
     return True
 #==============================================================================
 
-def parse(expr, settings=None):
+def parse(expr, settings):
+    """
+    This function takes a Psydac Ast and returns a Pyccel Ast
+
+    Parameters
+    ----------
+
+    expr: <Psydac Ast>
+        psydac ast node
+
+    settings : <dict>
+        dictionary that continas number of dimension, mappings and target if provided
+
+    Returns
+    -------
+
+    ast : Pyccel Ast
+        pyccel abstract syntax tree that can be translated into a Python code
+
+    """
      psy_parser = Parser(settings)
      ast = psy_parser.doit(expr)
      return ast
@@ -96,46 +115,34 @@ def parse(expr, settings=None):
 #==============================================================================
 class Parser(object):
     """
-    """
-    def __init__(self, settings=None):
-        # use a local copy (because of pop)
-        if not settings is None:
-            settings = settings.copy()
+    This class takes a Psyadac Ast and transforms it to a Pyccel Ast
+    by calling the Parser.doit method
 
-        # ...
-        dim = None
-        if not( settings is None ):
-            dim = settings.pop('dim', None)
-            if dim is None:
-                raise ValueError('dim not provided')
+    """
+    def __init__(self, settings):
+
+        settings = settings.copy()
+
+        dim = settings.pop('dim', None)
+        if dim is None:
+            raise ValueError('dim not provided')
 
         self._dim = dim
         # ...
 
-        # ...
-        nderiv = None
-        if not( settings is None ):
-            nderiv = settings.pop('nderiv', None)
-#            if nderiv is None:
-#                raise ValueError('nderiv not provided')
+        nderiv = settings.pop('nderiv', None)
+        if nderiv is None:
+            raise ValueError('nderiv not provided')
 
         self._nderiv = nderiv
-        # ...
 
-        # ...
-        # TODO dim must be available !
-        mapping = None
-        if not( settings is None ):
-            mapping = settings.pop('mapping', None)
-
-        self._mapping = mapping
-
-        target = None
-        if not( settings is None ):
-            target = settings.pop('target', None)
+        target = settings.pop('target', None)
+        if target is None:
+            raise ValueError('target not provided')
 
         self._target = target
-        # ...
+
+        self._mapping = settings.pop('mapping', None)
 
         self._settings = settings
 
