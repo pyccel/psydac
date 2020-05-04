@@ -108,9 +108,9 @@ def parse(expr, settings):
         pyccel abstract syntax tree that can be translated into a Python code
 
     """
-     psy_parser = Parser(settings)
-     ast = psy_parser.doit(expr)
-     return ast
+    psy_parser = Parser(settings)
+    ast = psy_parser.doit(expr)
+    return ast
 
 #==============================================================================
 class Parser(object):
