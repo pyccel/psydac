@@ -75,7 +75,7 @@ def write_code(filename, code, folder=None):
     return filename
 
 
-class BasicCodeGen(object):
+class GltBasicCodeGen(object):
     """ Basic class for any discrete concept that needs code generation """
 
     def __init__(self, expr, **kwargs):
@@ -487,7 +487,7 @@ class BasicCodeGen(object):
         return expr
 
 #==============================================================================
-class DiscreteGltExpr(BasicCodeGen):
+class DiscreteGltExpr(GltBasicCodeGen):
 
     def __init__(self, expr, *args, **kwargs):
         if not isinstance(expr, sym_GltExpr):
@@ -520,7 +520,7 @@ class DiscreteGltExpr(BasicCodeGen):
         kwargs['mapping'] = self.spaces[0].symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
 
-        BasicCodeGen.__init__(self, expr, **kwargs)
+        GltBasicCodeGen.__init__(self, expr, **kwargs)
         # ...
 
 #        print('====================')
