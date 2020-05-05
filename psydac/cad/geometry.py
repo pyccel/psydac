@@ -94,8 +94,9 @@ class Geometry( object ):
     def from_topological_domain(cls, domain, ncells, comm=None):
 
         if isinstance(domain, PeriodicDomain):
-            domain  = domain.domain
             periods = domain.periods
+            domain  = domain.domain
+
         else:
             periods = [False]*domain.dim
 

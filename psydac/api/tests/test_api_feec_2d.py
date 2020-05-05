@@ -61,10 +61,10 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
     V0, V1, V2 = derham.spaces
 
-    p, q = elements_of(Hdiv, names='p, q')
-    u, v = elements_of(  L2, names='u, v')
+    p, q = elements_of(V1, names='p, q')
+    u, v = elements_of(V2, names='u, v')
 
-    F = element_of(L2, name='F')
+    F = element_of(V2, name='F')
 
     int_0 = lambda expr: integral(domain , expr)
     
