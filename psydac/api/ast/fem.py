@@ -242,7 +242,7 @@ class Kernel(SplBasic):
         if isinstance(symbolic_space, ProductSpace):
             spaces = symbolic_space.spaces
             space = spaces[0]
-            unique_scalar_space = all(sp.kind==spaces.kind for sp in spaces)
+            unique_scalar_space = all(sp.kind==space.kind for sp in spaces)
         elif isinstance(symbolic_space, VectorFunctionSpace):
             unique_scalar_space = isinstance(test_symbolic_space.kind, UndefinedSpaceType)
 
