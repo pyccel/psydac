@@ -1483,11 +1483,11 @@ class Assembly(SplBasic):
         # allocate element matrices
 
         for (i,j),mat in element_matrices.items():
-
             orders  = [p+1 for p in test_degrees[i::test_ln]]
-            spads   = [2*p+1 for p in test_pads[j::test_ln]]
+
             
             if is_bilinear:
+                spads   = [2*p+1 for p in trial_pads[j::trial_ln]]
                 if not unique_scalar_space:
                     if trial_is_product_fem_space:
                         trial_sp = trial_spaces.spaces[j]
