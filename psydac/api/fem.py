@@ -55,6 +55,12 @@ def collect_spaces(space, *args):
 
     args : <list>
         list of discrete space components like basis values, spans, ...
+
+    Returns
+    -------
+    args : <list>
+        list of discrete space components elements used in the asembly
+
     """
     if isinstance(space, ProductSpace):
         spaces = space.spaces

@@ -403,6 +403,38 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
 def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
                                idxs, basis,
                                test_function):
+
+    """
+    This function computes atomic expressions needed
+    to evaluate  EvalMapping final expression
+
+    Parameters
+    ----------
+
+    atomic_exprs : <list>
+        list of atoms
+
+    indices_quad : <list>
+        list of quadrature indices used in the quadrature loops
+
+    idxs : <list>
+        list of basis functions indices used in the for loops of the basis functions
+
+    basis : <list>
+        list of basis functions in each dimesion
+
+    test_function : <Symbol>
+        test_function Symbol
+
+    Returns
+    -------
+    inits : <list>
+       list of assignments of the atomic expression evaluated in the quadrature points
+
+    updates : <list>
+        list of augmented assignments which are updated in each loop iteration
+    """
+
     inits   = []
     updates = []
     for atom in atomic_exprs:
