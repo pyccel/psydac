@@ -44,8 +44,18 @@ import inspect
 import sys
 import numpy as np
 
-def collect_spaces(space, *ls):
+def collect_spaces(space, *args):
+    """
+    This function collect the arguments used in the assembly function
 
+    Parameters
+    ----------
+    space: <FunctionSpace>
+        the symbolic space
+
+    args : <list>
+        list of discrete space components like basis values, spans, ...
+    """
     if isinstance(space, ProductSpace):
         spaces = space.spaces
         indices = []
@@ -60,15 +70,13 @@ def collect_spaces(space, *ls):
             else:
                 indices.append(i)
                 i = i + 1
-        new_ls = []
-        for e in ls:
-            new_ls   += [[e[i] for i in indices]]
-        ls = new_ls
+        args = [[e[i] for i in indices] for e in args]
+
     elif isinstance(space, VectorFunctionSpace):
         if isinstance(space.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
-            return [[e[0]] for e in ls]
+            args = [[e[0]] for e in args]
 
-    return ls
+    return args
 
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
@@ -183,18 +191,18 @@ class DiscreteBilinearForm(BasicDiscrete):
         spans = self.test_basis.spans
         tests_basis, tests_degrees, spans = collect_spaces(self.spaces[1].symbolic_space, tests_basis, tests_degrees, spans)
         trial_basis, trials_degrees       = collect_spaces(self.spaces[0].symbolic_space, trial_basis, trials_degrees)
-        tests_basis = flatten(tests_basis)
-        trial_basis = flatten(trial_basis)
-        tests_degrees = flatten(tests_degrees)
+        tests_basis    = flatten(tests_basis)
+        trial_basis    = flatten(trial_basis)
+        tests_degrees  = flatten(tests_degrees)
         trials_degrees = flatten(trials_degrees)
-        spans = flatten(spans)
-        points = self.grid.points
-        weights = self.grid.weights
-        quads   = flatten(list(zip(points, weights)))
+        spans          = flatten(spans)
+        points         = self.grid.points
+        weights        = self.grid.weights
+        quads          = flatten(list(zip(points, weights)))
 
-        quads_degree = flatten(self.grid.quad_order)
-        n_elements   = self.grid.n_elements
-        global_pads = self.spaces[0].vector_space.pads
+        quads_degree   = flatten(self.grid.quad_order)
+        n_elements     = self.grid.n_elements
+        global_pads    = self.spaces[0].vector_space.pads
         local_mats, global_mats = self.allocate_matrices()
         global_mats = [M._data for M in global_mats]
         if self.mapping:

@@ -463,8 +463,10 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
         eval_field  = EvalField(atomic_expr_field, ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], coeffs, l_coeffs, g_coeffs, fields, mapping, pads, nderiv, mask)
         g_stmts    += [eval_field]
 
+    # sort tests and trials by their space type
     test_groups  = regroup(tests)
     trial_groups = regroup(trials)
+    # expand every VectorTestFunction into IndexedTestFunctions
     ex_tests     = expand(tests)
     ex_trials    = expand(trials)
 
@@ -640,7 +642,10 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         g_stmts      += [eval_field]
     # ...
 
+
+    # sort tests by their space type
     groups = regroup(tests)
+    # expand every VectorTestFunction into IndexedTestFunctions
     ex_tests = expand(tests)
     # ... 
     #=========================================================begin kernel======================================================
