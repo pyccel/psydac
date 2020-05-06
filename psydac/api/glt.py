@@ -13,6 +13,7 @@ from psydac.api.ast.glt       import GltInterface
 from psydac.api.settings      import PSYDAC_BACKEND_PYTHON, PSYDAC_DEFAULT_FOLDER
 from psydac.api.grid          import CollocationBasisValues
 
+from psydac.api.utilities     import mkdir_p, touch_init_file, random_string, write_code
 from psydac.cad.geometry      import Geometry
 from psydac.mapping.discrete  import SplineMapping, NurbsMapping
 
@@ -20,8 +21,8 @@ from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
 
-from sympde.expr.basic     import BasicForm
-from psydac.api.printing.pycode      import pycode
+from sympde.expr.basic            import BasicForm
+from psydac.api.printing.pycode   import pycode
 
 import inspect
 import sys
@@ -30,50 +31,6 @@ import importlib
 import string
 import random
 from mpi4py import MPI
-
-#==============================================================================
-def mkdir_p(folder):
-    if os.path.isdir(folder):
-        return
-    os.makedirs(folder, exist_ok=True)
-
-#==============================================================================
-def touch_init_file(path):
-    mkdir_p(path)
-    path = os.path.join(path, '__init__.py')
-    with open(path, 'a'):
-        os.utime(path, None)
-
-#==============================================================================
-def random_string( n ):
-    # we remove uppercase letters because of f2py
-    chars    = string.ascii_lowercase + string.digits
-    selector = random.SystemRandom()
-    return ''.join( selector.choice( chars ) for _ in range( n ) )
-
-#==============================================================================
-def write_code(filename, code, folder=None):
-    if not folder:
-        folder = os.getcwd()
-
-    folder = os.path.abspath(folder)
-    if not os.path.isdir(folder):
-        raise ValueError('{} folder does not exist'.format(folder))
-
-    filename = os.path.basename( filename )
-    filename = os.path.join(folder, filename)
-
-    # TODO check if init exists
-    # add __init__.py for imports
-    touch_init_file(folder)
-
-    f = open(filename, 'w')
-    for line in code:
-        f.write(line)
-    f.close()
-
-    return filename
-
 
 class GltBasicCodeGen(object):
     """ Basic class for any discrete concept that needs code generation """
