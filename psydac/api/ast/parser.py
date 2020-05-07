@@ -13,7 +13,6 @@ from pyccel.ast.core import Variable, IndexedVariable, IndexedElement
 from pyccel.ast.core import Slice
 from pyccel.ast.core import EmptyLine, Import
 from pyccel.ast.core import CodeBlock, FunctionDef
-from pyccel.ast      import Shape
 
 from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import SymbolicExpr
@@ -70,6 +69,7 @@ from .fem import expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.utilities     import flatten
 from sympy import Max
+from sympy import Basic
 
 #==============================================================================
 # TODO move it
@@ -79,6 +79,11 @@ def random_string( n ):
     chars    = string.ascii_lowercase + string.digits
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
+
+class Shape(Basic):
+    @property
+    def arg(self):
+        return self._args[0]
 
 def is_scalar_array(var):
     indices = var.indices
@@ -1440,7 +1445,7 @@ class Parser(object):
                 positions = [expr.generator.target.positions[index_deriv]]
                 g_xs = [SplitArray(xs[0], positions, [self.nderiv+1]) for xs in g_xs]
                 g_xs = [tuple(self._visit(xs, **kwargs)) for xs in g_xs]
-            
+
             for i in  range(dim):
                 ls = []
                 for l_x,g_x in zip(l_xs[i], g_xs[i]):
@@ -1539,10 +1544,10 @@ class Parser(object):
 
     # ....................................................
     def _visit_SplitArray(self, expr, **kwargs):
-        target  = expr.target
+        target    = expr.target
         positions = expr.positions
-        lengths = expr.lengths
-        base = target.base
+        lengths   = expr.lengths
+        base      = target.base
 
         args = []
         for p,n in zip(positions, lengths):
@@ -1550,7 +1555,7 @@ class Parser(object):
             indices = [i for i in indices] # make a copy
             for i in range(n):
                 indices[p] = i
-                x = base[indices]
+                x = base[tuple(indices)]
                 args.append(x)
         return args
 
