@@ -10,7 +10,7 @@ from psydac.fem.vector  import VectorFemSpace
 from numpy  import linspace
 from mpi4py import MPI
 
-@pytest.mark.parametrize( 'reverse_axis', [None, [True,False], [False,True]] )
+@pytest.mark.parametrize( 'reverse_axis', [None, 0, 1] )
 def test_2d_1(reverse_axis):
 
     p_1 = 2
@@ -41,4 +41,4 @@ def test_2d_1(reverse_axis):
 
 ###############################################
 if __name__ == '__main__':
-    test_2d_1(None)
+    test_2d_2()

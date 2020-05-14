@@ -467,17 +467,10 @@ def discretize_space(V, domain_h, *args, **kwargs):
                     else:
                         continue
                     if index<i:
-                        nprocs       = None
-                        reverse_axis = None
+                        nprocs = None
                         if comm is not None:
-                            nprocs       = g_spaces[index].vector_space.cart.nprocs
-                            reverse_axis = g_spaces[index].vector_space.cart.reverse_axis
-                            if reverse_axis is None:
-                                reverse_axis = [False]*ldim
-                                reverse_axis[e.axis] = True
-                            else:
-                                reverse_axis[e.axis] = not reverse_axis[e.axis]
-                        Vh = TensorFemSpace( *spaces, comm=comm, nprocs=nprocs, reverse_axis=reverse_axis)
+                            nprocs = g_spaces[index].vector_space.cart.nprocs
+                        Vh = TensorFemSpace( *spaces, comm=comm, nprocs=nprocs, reverse_axis=e.axis)
                         break
             else:
                 Vh = TensorFemSpace( *spaces, comm=comm)

@@ -109,14 +109,14 @@ def test_cart_2d():
 @pytest.mark.parallel
 def test_cart_2d_reverse_axis_0():
 
-    namespace = run_cart_2d(reverse_axis=[True, False])
+    namespace = run_cart_2d(reverse_axis=0)
 
     assert namespace['success']
 
 @pytest.mark.parallel
 def test_cart_2d_reverse_axis_1():
 
-    namespace = run_cart_2d(reverse_axis=[False, True])
+    namespace = run_cart_2d(reverse_axis=1)
 
     assert namespace['success']
 

@@ -166,7 +166,7 @@ def test_poisson_2d_2_patch_dirichlet_1():
 #==============================================================================
 
 @pytest.mark.parallel
-def test_poisson_2d_2_patch_dirichlet_parallel_1():
+def test_poisson_2d_2_patch_dirichlet_1():
 
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))

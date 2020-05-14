@@ -111,7 +111,7 @@ class CartDecomposition():
         self._coords       = self._comm_cart.Get_coords( rank=self._rank_in_topo )
 
         if reverse_axis is not None:
-            self._coords = [d - c - 1 if axis else c for c,d,axis in zip(self._coords, self._dims, reverse_axis)]
+            self._coords[reverse_axis] = self._dims[reverse_axis] - self._coords[reverse_axis] - 1
 
         # Start/end values of global indices (without ghost regions)
         self._starts = tuple( ( c   *n)//d   for n,d,c in zip( npts, self._dims, self._coords ) )
@@ -240,7 +240,7 @@ class CartDecomposition():
         assert( 0 <= direction < self._ndims )
         assert( isinstance( disp, int ) )
 
-        reorder = self.reverse_axis[direction] if self.reverse_axis else False
+        reorder = self.reverse_axis == direction
         # Process ranks for data shifting with MPI_SENDRECV
         (rank_source, rank_dest) = self.comm_cart.Shift( direction, disp )
 
