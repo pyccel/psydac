@@ -61,7 +61,7 @@ class CartDecomposition():
         (optional: default is MPI_COMM_WORLD).
 
     """
-    def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD ):
+    def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, nprocs=None, reverse_axis=None ):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
@@ -91,8 +91,11 @@ class CartDecomposition():
         # ...
         # Know the number of processes along each direction
 #        self._dims = MPI.Compute_dims( self._size, self._ndims )
-        mpi_dims, block_shape = mpi_compute_dims( self._size, npts, pads )
-        self._dims = mpi_dims
+        if nprocs is None:
+            nprocs, block_shape = mpi_compute_dims( self._size, npts, pads )
+
+        self._dims = nprocs
+        self._reverse_axis = reverse_axis
         # ...
 
         # ...
@@ -106,6 +109,9 @@ class CartDecomposition():
         # Know my coordinates in the topology
         self._rank_in_topo = self._comm_cart.Get_rank()
         self._coords       = self._comm_cart.Get_coords( rank=self._rank_in_topo )
+
+        if reverse_axis is not None:
+            self._coords = [d - c - 1 if axis else c for c,d,axis in zip(self._coords, self._dims, reverse_axis)]
 
         # Start/end values of global indices (without ghost regions)
         self._starts = tuple( ( c   *n)//d   for n,d,c in zip( npts, self._dims, self._coords ) )
@@ -143,8 +149,8 @@ class CartDecomposition():
         self._global_starts = [None]*self._ndims
         self._global_ends   = [None]*self._ndims
         for axis in range( self._ndims ):
-            n =     npts[axis]
-            d = mpi_dims[axis]
+            n = npts[axis]
+            d = nprocs[axis]
             self._global_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
             self._global_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
 
@@ -182,6 +188,10 @@ class CartDecomposition():
     @property
     def nprocs( self ):
         return self._dims
+
+    @property
+    def reverse_axis(self):
+        return self._reverse_axis
 
     @property
     def global_starts( self ):
@@ -230,8 +240,12 @@ class CartDecomposition():
         assert( 0 <= direction < self._ndims )
         assert( isinstance( disp, int ) )
 
+        reorder = self.reverse_axis[direction] if self.reverse_axis else False
         # Process ranks for data shifting with MPI_SENDRECV
         (rank_source, rank_dest) = self.comm_cart.Shift( direction, disp )
+
+        if reorder:
+            (rank_source, rank_dest) = (rank_dest, rank_source)
 
         # Mesh info info along given direction
         s = self._starts[direction]

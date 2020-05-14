@@ -21,7 +21,7 @@ from sympde.expr.evaluation import _split_test_function
 from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
-from sympde.topology import Boundary, NormalVector
+from sympde.topology import Boundary, NormalVector, Interface
 from sympde.topology.derivatives import get_index_logical_derivatives
 
 from .nodes import AtomicNode
@@ -865,8 +865,14 @@ class Parser(object):
                 spans   = self._visit_Span(Span(test))
                 degrees = self._visit_LengthDofTest(LengthDofTest(test))
                 spans   = flatten(*spans.values())
+
                 lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
                 lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
+                if isinstance(self._target, Interface):
+                    axis = self._target.axis
+                    lhs_starts[axis] = pads[axis]
+                    lhs_ends[axis]   = 2*pads[axis] + 1
+
                 for k2 in range(lhs.shape[1]):
                     if expr.expr[k1,k2]:
                         lhs_slices  = [Slice(s, e) for s,e in zip(lhs_starts, lhs_ends)]
@@ -1011,14 +1017,13 @@ class Parser(object):
 
         rhs = [weight*self._visit(expr, **kwargs) for expr in exprs]
         lhs = lhs[:]
-
         normal_vec_stmts = []
         normal_vectors = expr.expr.atoms(NormalVector)
         target         = self._target
         dim            = self._dim
         for vec in normal_vectors:
             axis    = target.axis
-            ext     = target.ext
+            ext     = target.ext if isinstance(target, Boundary) else 1
             J       = LogicalExpr(self.mapping, self.mapping.jacobian)
             J       = SymbolicExpr(J)
             values  = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
@@ -1082,6 +1087,7 @@ class Parser(object):
 
     # ....................................................
     def _visit_LogicalValueNode(self, expr, **kwargs):
+
         mapping = self.mapping
         expr = expr.expr
         target = self.target
@@ -1104,7 +1110,7 @@ class Parser(object):
 
         elif isinstance(expr, SymbolicWeightedVolume):
             wvol = self._visit(expr, **kwargs)
-            if isinstance(target, Boundary):
+            if isinstance(target, (Boundary, Interface)):
                 J = mapping.jacobian.copy()
                 J.col_del(target.axis)
                 J = LogicalExpr(mapping, J)
@@ -1112,8 +1118,14 @@ class Parser(object):
                 det_jac = (J.T*J).det()
                 det_jac = det_jac.simplify()**0.5
             else:
-                det_jac = SymbolicDeterminant(mapping)
+                if mapping._expressions is None:
+                    det_jac = SymbolicDeterminant(mapping)
+                else:
+                    det_jac = LogicalExpr(mapping, mapping.det_jacobian)
                 det_jac = SymbolicExpr(det_jac)
+            math_functions = math_atoms_as_str(det_jac, 'numpy')
+            math_functions = tuple(m for m in math_functions if m not in self._math_functions)
+            self._math_functions = math_functions + self._math_functions
             return wvol * Abs(det_jac)
         elif isinstance(expr, Symbol):
             return expr

@@ -39,7 +39,7 @@ from sympde.expr import LinearForm
 from sympde.expr import BilinearForm
 from sympde.expr import Functional
 
-from sympde.topology.basic       import Boundary
+from sympde.topology.basic       import Boundary, Interface
 from sympde.topology             import H1SpaceType, HcurlSpaceType
 from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology             import ScalarField
@@ -234,14 +234,18 @@ class AST(object):
 
         if isinstance(domain, Boundary):
             mask = Mask(domain.axis, domain.ext)
+        elif isinstance(domain, Interface):
+            mask = Mask(domain.axis, None)
 
         if isinstance(expr, LinearForm):
+
             is_linear           = True
             tests               = expr.test_functions
             fields              = expr.fields
             mapping             = spaces.symbolic_mapping
             is_rational_mapping = spaces.is_rational_mapping
             spaces              = spaces.symbolic_space
+            is_broken           = spaces.is_broken
 
         elif isinstance(expr, BilinearForm):
             is_bilinear         = True
@@ -251,6 +255,7 @@ class AST(object):
             mapping             = spaces[0].symbolic_mapping
             is_rational_mapping = spaces[0].is_rational_mapping
             spaces              = [V.symbolic_space for V in spaces]
+            is_broken           = spaces[0].is_broken
 
         elif isinstance(expr, Functional):
             is_functional       = True
@@ -260,6 +265,7 @@ class AST(object):
             mapping             = spaces.symbolic_mapping
             is_rational_mapping = spaces.is_rational_mapping
             spaces              = spaces.symbolic_space
+            is_broken           = spaces.is_broken
 
         else:
             raise NotImplementedError('TODO')
@@ -314,6 +320,37 @@ class AST(object):
             d['span']   = GlobalSpan(u)
             d_trials[u] = d
         # ...
+
+        shapes_tests  = {}
+        shapes_trials = {}
+
+        start = 0
+        for v in tests:
+            ln = 1 if isinstance(v, ScalarTestFunction) else dim
+            end = start + ln
+            shapes_tests[v] = (start, end)
+            start = end
+
+        start = 0
+        for u in trials:
+            ln = 1 if isinstance(u, ScalarTestFunction) else dim
+            end = start + ln
+            shapes_trials[u] = (start, end)
+            start = end
+
+        if is_broken:
+            if is_bilinear:
+                space_domain = spaces[0].domain
+            else:
+                space_domain = spaces.domain
+
+            if isinstance(domain, Interface):
+                i = space_domain.interior.args.index(domain.minus.domain)
+            elif isinstance(domain, Boundary):
+                i = space_domain.interior.args.index(domain.domain)
+            else:
+                i = space_domain.interior.args.index(domain)
+            mapping = mapping[i]
 
         if is_linear:
             ast = _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, 

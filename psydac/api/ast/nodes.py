@@ -1377,6 +1377,7 @@ class Loop(BaseNode):
 
         if mapping._expressions is not None:
             args += [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
+            args += [ComputeLogical(SymbolicWeightedVolume(mapping))]
             return Tuple(*args)
         else:
             args += [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
