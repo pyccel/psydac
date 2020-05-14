@@ -119,6 +119,7 @@ class BasisValues():
 
         if isinstance(grid, BoundaryQuadratureGrid):
             axis = grid.axis
+            ext  = grid.ext
             for i,Vi in enumerate(V):
                 space  = Vi.spaces[axis]
                 points = grid.points[axis]

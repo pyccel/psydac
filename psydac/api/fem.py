@@ -20,6 +20,7 @@ from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import Mapping
 from sympde.topology import H1SpaceType, L2SpaceType, UndefinedSpaceType
+
 from sympde.calculus.core  import PlusInterfaceOperator, MinusInterfaceOperator
 
 from psydac.api.basic           import BasicDiscrete
@@ -32,6 +33,7 @@ from psydac.api.glt             import DiscreteGltExpr
 from psydac.api.utilities       import flatten
 
 from psydac.linalg.stencil      import StencilVector, StencilMatrix, StencilInterfaceMatrix
+
 from psydac.linalg.block        import BlockVector, BlockMatrix
 from psydac.cad.geometry        import Geometry
 from psydac.mapping.discrete    import SplineMapping, NurbsMapping
@@ -87,6 +89,7 @@ def collect_spaces(space, *args):
 
 def do_nothing(*args):
     pass
+
 
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
@@ -158,6 +161,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._spaces = (trial_space, test_space)
         self._test_symbolic_space  = test_sym_space
         self._trial_symbolic_space = trial_sym_space
+
 
         # TODO must check that spaces lead to the same QuadratureGrid
 
@@ -271,6 +275,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         local_mats, global_mats = self.allocate_matrices()
         global_mats             = [M._data for M in global_mats]
+
         if self.mapping:
             mapping = [e._coeffs._data for e in self.mapping._fields]
             if self.is_rational_mapping:
@@ -281,6 +286,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         return args
 
     def allocate_matrices(self):
+
         spaces          = self.spaces
         expr            = self.kernel_expr.expr
         target          = self.kernel_expr.target
@@ -294,6 +300,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         trial_sym_space = self._trial_symbolic_space
         is_broken       = test_sym_space.is_broken
         domain          = test_sym_space.domain.interior.args if is_broken else test_sym_space.domain.interior
+
         if isinstance(expr, Matrix):
             pads         = np.zeros((len(test_degree),len(trial_degree),len(test_degree[0])), dtype=int)
             for i in range(len(test_degree)):
@@ -305,6 +312,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             pads = test_degree
 
         if isinstance(expr, Matrix):
+
             shape = expr.shape
             for i in range(shape[0]):
                 for j in range(shape[1]):
@@ -318,6 +326,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                         else:
                             global_mats[ii,jj] = StencilMatrix(trial_space.spaces[j], test_space.spaces[i], pads = tuple(pads[i,j]))
                         local_mats[ii,jj]  = np.zeros((*(test_degree[i]+1),*(2*pads[i,j]+1)))
+
                     else:
                         if self._matrix and self._matrix[i,j]:
                             global_mats[i,j] = self._matrix[i,j]
@@ -398,6 +407,7 @@ class DiscreteLinearForm(BasicDiscrete):
         # ...
         quad_order = kwargs.pop('quad_order', None)
         domain     = self.kernel_expr.target
+
         self._vector = kwargs.pop('vector', None)
         if self._vector is None:
             if isinstance(self._space, ProductFemSpace):
@@ -415,6 +425,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         self._symbolic_space  = test_sym_space
 
+
         if not isinstance(domain, sym_Boundary):
             self._grid = QuadratureGrid( self.space, quad_order = quad_order )
             ext        = None
@@ -424,6 +435,7 @@ class DiscreteLinearForm(BasicDiscrete):
                                                  domain.axis,
                                                  domain.ext,
                                                  quad_order = quad_order )
+
             ext = domain.ext
 
             if ext == -1:
@@ -436,11 +448,11 @@ class DiscreteLinearForm(BasicDiscrete):
                 if end+1 != nb:
                     self._func = do_nothing
 
+
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv, ext=ext)
 
-
-        self._args = self.construct_arguments()
+        self._args   = self.construct_arguments()
 
     @property
     def space(self):
@@ -485,6 +497,7 @@ class DiscreteLinearForm(BasicDiscrete):
         tests_degrees = flatten(tests_degrees)
         spans         = flatten(spans)
 
+
         points        = self.grid.points
         weights       = self.grid.weights
         quads         = flatten(list(zip(points, weights)))
@@ -511,6 +524,7 @@ class DiscreteLinearForm(BasicDiscrete):
         local_mats  = OrderedDict()
         test_space  = space.vector_space
         test_degree = np.array(space.degree)
+
         target      = self.kernel_expr.target
         sym_space   = self._symbolic_space
         is_broken   = sym_space.is_broken
@@ -541,6 +555,7 @@ class DiscreteLinearForm(BasicDiscrete):
                 global_mats[i] = StencilVector(test_space)
 
             local_mats[i] = np.zeros([*(test_degree+1)])
+
             for i in global_mats:
                 self._vector[i] = global_mats[i]
         else:
@@ -591,9 +606,11 @@ class DiscreteFunctional(BasicDiscrete):
         domain     = self.kernel_expr.target
         # ...
 
+
         test_sym_space   = self._space.symbolic_space
         if test_sym_space.is_broken:
             domains = test_sym_space.domain.interior.args
+
 
             if isinstance(domain, sym_Boundary):
                 i = domains.index(domain.domain)
@@ -618,6 +635,7 @@ class DiscreteFunctional(BasicDiscrete):
         # ...
         self._test_basis = BasisValues( self.space, self.grid,
                                         nderiv = self.max_nderiv, ext=ext)
+
         self._args = self.construct_arguments()
 
     @property
@@ -642,13 +660,16 @@ class DiscreteFunctional(BasicDiscrete):
         spans       = [[sp[s:e+1] for s,e,sp in zip(sk,ek,spans)] for spans in self.test_basis.spans]
 
         tests_degrees = self.space.degree
+
         tests_basis, tests_degrees, spans = collect_spaces(self._symbolic_space, tests_basis, tests_degrees, spans)
+
         tests_basis   = flatten(tests_basis)
         tests_degrees = flatten(tests_degrees)
         spans         = flatten(spans)
         quads         = flatten(list(zip(points, weights)))
         quads_degree  = flatten(self.grid.quad_order)
         global_pads   = self.space.vector_space.pads
+
         local_mats, vector = np.zeros((1,)), np.zeros((1,))
 
         if self._vector is None:
@@ -673,11 +694,13 @@ class DiscreteFunctional(BasicDiscrete):
             for key in free_args:
                 if isinstance(kwargs[key], FemField):
                     args += (kwargs[key]._coeffs._data,)
+
                 elif isinstance(kwargs[key], VectorFemField) and not self._symbolic_space.is_broken:
                     args += tuple(e._data for e in kwargs[key].coeffs[:])
                 elif isinstance(kwargs[key], VectorFemField) and self._symbolic_space.is_broken:
                     index = self._symbolic_space.domain.interior.args.index(self._domain)
                     args += (kwargs[key].coeffs[index]._data, )
+
                 else:
                     args += (kwargs[key], )
         else:
@@ -719,11 +742,13 @@ class DiscreteSumForm(BasicDiscrete):
 
         # ...
         forms = []
+
         for e in kernel_expr:
             kwargs['target'] = e.target
             if isinstance(a, sym_BilinearForm):
                 ah = DiscreteBilinearForm(a, e, *args, **kwargs)
                 kwargs['matrix'] = ah._matrix
+
             elif isinstance(a, sym_LinearForm):
                 ah = DiscreteLinearForm(a, e, *args, **kwargs)
                 kwargs['vector'] = ah._vector
@@ -731,6 +756,8 @@ class DiscreteSumForm(BasicDiscrete):
                 ah = DiscreteFunctional(a, e, *args, **kwargs)
                 kwargs['vector'] = ah._vector
             forms.append(ah)
+
+            kwargs['boundary'] = None
 
         self._forms = forms
         # ...

@@ -201,6 +201,7 @@ class DiscreteEquation(BasicDiscrete):
 
     def solve(self, **kwargs):
         settings = {k:kwargs[k] if k in kwargs else it for k,it in _default_solver.items()}
+
         rhs = kwargs.pop('rhs', None)
         if rhs:
             kwargs['assemble_rhs'] = False
@@ -267,7 +268,7 @@ class DiscreteEquation(BasicDiscrete):
                 # Find inhomogeneous solution (use CG as system is symmetric)
                 loc_settings = settings.copy()
                 loc_settings['solver'] = 'cg'
-                X = equation_h.solve(**loc_settings)
+                X = equation_h.solve(settings=loc_settings)
 
                 # Use inhomogeneous solution as initial guess to solver
                 settings['x0'] = X
@@ -396,7 +397,9 @@ def discretize_space(V, domain_h, *args, **kwargs):
     comm                = domain_h.comm
     kind                = V.kind
     ldim                = V.ldim
-    symbolic_mapping    = kwargs.pop('mapping', None)
+
+    symbolic_mapping    = kwargs.pop('mapping', IdentityMapping('M', ldim))
+
     is_rational_mapping = False
     
     if isinstance(V, ProductSpace):
@@ -413,10 +416,9 @@ def discretize_space(V, domain_h, *args, **kwargs):
             raise NotImplementedError('Multipatch not yet available')
 
         mapping = list(domain_h.mappings.values())[0]
+
         g_spaces = [mapping.space]
-
         is_rational_mapping = isinstance( mapping, NurbsMapping )
-
 
         symbolic_mapping = Mapping('M', domain_h.pdim)
 

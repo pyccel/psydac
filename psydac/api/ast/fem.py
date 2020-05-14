@@ -39,6 +39,7 @@ from sympde.expr import LinearForm
 from sympde.expr import BilinearForm
 from sympde.expr import Functional
 
+
 from sympde.topology.basic       import Boundary, Interface
 from sympde.topology             import H1SpaceType, HcurlSpaceType
 from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
@@ -60,7 +61,6 @@ from .nodes import index_dof_trial
 
 from collections import OrderedDict
 from itertools   import groupby
-
 
 
 #==============================================================================
@@ -234,6 +234,7 @@ class AST(object):
 
         if isinstance(domain, Boundary):
             mask = Mask(domain.axis, domain.ext)
+
         elif isinstance(domain, Interface):
             mask = Mask(domain.axis, None)
 
@@ -321,22 +322,6 @@ class AST(object):
             d_trials[u] = d
         # ...
 
-        shapes_tests  = {}
-        shapes_trials = {}
-
-        start = 0
-        for v in tests:
-            ln = 1 if isinstance(v, ScalarTestFunction) else dim
-            end = start + ln
-            shapes_tests[v] = (start, end)
-            start = end
-
-        start = 0
-        for u in trials:
-            ln = 1 if isinstance(u, ScalarTestFunction) else dim
-            end = start + ln
-            shapes_trials[u] = (start, end)
-            start = end
 
         if is_broken:
             if is_bilinear:
@@ -351,6 +336,7 @@ class AST(object):
             else:
                 i = space_domain.interior.args.index(domain)
             mapping = mapping[i]
+
 
         if is_linear:
             ast = _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, 

@@ -22,6 +22,7 @@ from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
 from sympde.topology import Boundary, NormalVector, Interface
+
 from sympde.topology.derivatives import get_index_logical_derivatives
 
 from .nodes import AtomicNode
@@ -1017,6 +1018,7 @@ class Parser(object):
 
         rhs = [weight*self._visit(expr, **kwargs) for expr in exprs]
         lhs = lhs[:]
+
         normal_vec_stmts = []
         normal_vectors = expr.expr.atoms(NormalVector)
         target         = self._target
@@ -1024,6 +1026,7 @@ class Parser(object):
         for vec in normal_vectors:
             axis    = target.axis
             ext     = target.ext if isinstance(target, Boundary) else 1
+
             J       = LogicalExpr(self.mapping, self.mapping.jacobian)
             J       = SymbolicExpr(J)
             values  = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
@@ -1126,6 +1129,7 @@ class Parser(object):
             math_functions = math_atoms_as_str(det_jac, 'numpy')
             math_functions = tuple(m for m in math_functions if m not in self._math_functions)
             self._math_functions = math_functions + self._math_functions
+
             return wvol * Abs(det_jac)
         elif isinstance(expr, Symbol):
             return expr
