@@ -9,7 +9,7 @@ import numpy as np
 
 from sympde.expr import TerminalExpr
 
-from psydac.api.glt           import BasicCodeGen
+from psydac.api.glt           import GltBasicCodeGen as BasicCodeGen
 from psydac.api.settings      import PSYDAC_BACKEND_PYTHON, PSYDAC_DEFAULT_FOLDER
 from psydac.api.grid          import CollocationBasisValues
 from psydac.api.ast.expr      import ExprKernel, ExprInterface

@@ -50,7 +50,7 @@ install_requires = [
     'scipy>=0.18',
     'sympy>=1.2,<1.5',
     'matplotlib',
-    'pytest',
+    'pytest>=4.5',
     'pyyaml',
     'yamlloader',
 

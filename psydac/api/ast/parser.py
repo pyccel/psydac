@@ -13,7 +13,6 @@ from pyccel.ast.core import Variable, IndexedVariable, IndexedElement
 from pyccel.ast.core import Slice
 from pyccel.ast.core import EmptyLine, Import
 from pyccel.ast.core import CodeBlock, FunctionDef
-from pyccel.ast      import Shape
 
 from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import SymbolicExpr
@@ -70,6 +69,7 @@ from .fem import expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.utilities     import flatten
 from sympy import Max
+from sympy import Basic
 
 #==============================================================================
 # TODO move it
@@ -80,6 +80,11 @@ def random_string( n ):
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
+class Shape(Basic):
+    @property
+    def arg(self):
+        return self._args[0]
+
 def is_scalar_array(var):
     indices = var.indices
     for ind in indices:
@@ -88,54 +93,61 @@ def is_scalar_array(var):
     return True
 #==============================================================================
 
-def parse(expr, settings=None):
-     psy_parser = Parser(settings)
-     ast = psy_parser.doit(expr)
-     return ast
+def parse(expr, settings):
+    """
+    This function takes a Psydac Ast and returns a Pyccel Ast
+
+    Parameters
+    ----------
+
+    expr: <Psydac Ast>
+        psydac ast node
+
+    settings : <dict>
+        dictionary that continas number of dimension, mappings and target if provided
+
+    Returns
+    -------
+
+    ast : Pyccel Ast
+        pyccel abstract syntax tree that can be translated into a Python code
+
+    """
+    psy_parser = Parser(settings)
+    ast = psy_parser.doit(expr)
+    return ast
 
 #==============================================================================
 class Parser(object):
     """
-    """
-    def __init__(self, settings=None):
-        # use a local copy (because of pop)
-        if not settings is None:
-            settings = settings.copy()
+    This class takes a Psyadac Ast and transforms it to a Pyccel Ast
+    by calling the Parser.doit method
 
-        # ...
-        dim = None
-        if not( settings is None ):
-            dim = settings.pop('dim', None)
-            if dim is None:
-                raise ValueError('dim not provided')
+    """
+    def __init__(self, settings):
+
+        settings = settings.copy()
+
+        dim = settings.pop('dim', None)
+        if dim is None:
+            raise ValueError('dim not provided')
 
         self._dim = dim
         # ...
 
-        # ...
-        nderiv = None
-        if not( settings is None ):
-            nderiv = settings.pop('nderiv', None)
-#            if nderiv is None:
-#                raise ValueError('nderiv not provided')
+        nderiv = settings.pop('nderiv', None)
+        if nderiv is None:
+            raise ValueError('nderiv not provided')
 
         self._nderiv = nderiv
-        # ...
 
-        # ...
-        # TODO dim must be available !
-        mapping = None
-        if not( settings is None ):
-            mapping = settings.pop('mapping', None)
-
-        self._mapping = mapping
-
-        target = None
-        if not( settings is None ):
-            target = settings.pop('target', None)
+        target = settings.pop('target', None)
+        if target is None:
+            raise ValueError('target not provided')
 
         self._target = target
-        # ...
+
+        self._mapping = settings.pop('mapping', None)
 
         self._settings = settings
 
@@ -1445,7 +1457,7 @@ class Parser(object):
                 positions = [expr.generator.target.positions[index_deriv]]
                 g_xs = [SplitArray(xs[0], positions, [self.nderiv+1]) for xs in g_xs]
                 g_xs = [tuple(self._visit(xs, **kwargs)) for xs in g_xs]
-            
+
             for i in  range(dim):
                 ls = []
                 for l_x,g_x in zip(l_xs[i], g_xs[i]):
@@ -1544,10 +1556,10 @@ class Parser(object):
 
     # ....................................................
     def _visit_SplitArray(self, expr, **kwargs):
-        target  = expr.target
+        target    = expr.target
         positions = expr.positions
-        lengths = expr.lengths
-        base = target.base
+        lengths   = expr.lengths
+        base      = target.base
 
         args = []
         for p,n in zip(positions, lengths):
@@ -1555,7 +1567,7 @@ class Parser(object):
             indices = [i for i in indices] # make a copy
             for i in range(n):
                 indices[p] = i
-                x = base[indices]
+                x = base[tuple(indices)]
                 args.append(x)
         return args
 

@@ -170,6 +170,10 @@ class Mask(Basic):
         return self._args[1]
 #==============================================================================
 class EvalField(BaseNode):
+    """
+       This function computes atomic expressions needed
+       to evaluate  EvaluteField/VectorField final expression
+    """
     def __new__(cls, atoms, q_index, l_index, q_basis, l_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, pads, nderiv, mask=None):
 
         stmts_1  = []
@@ -242,7 +246,10 @@ class RAT(Basic):
     pass
 #==============================================================================
 class EvalMapping(BaseNode):
-    """."""
+    """
+        This function computes atomic expressions needed
+        to evaluate  EvalMapping final expression
+    """
     def __new__(cls, quads, indices_basis, q_basis, l_basis, mapping, components, space, tests, nderiv, mask=None, is_rational=None):
         mapping_atoms  = components.arguments
         basis          = q_basis
@@ -1259,7 +1266,22 @@ class GeometryExpr(Basic):
 #==============================================================================
 class Loop(BaseNode):
     """
-    class to describe a loop of an iterator over a generator.
+    class to describe a dimensionless loop of an iterator over a generator.
+
+    Parameters
+    ----------
+    iterable : <list|iterator>
+        list of iterator object
+
+    index    : <IndexNode>
+        represent the dimensionless index used in the for loop
+
+    stmts    : <list|None>
+        list of body statements
+
+    mask     : <int|None>
+        the masked dimension where we fix the index in that dimension
+
     """
 
     def __new__(cls, iterable, index, stmts=None, mask=None):

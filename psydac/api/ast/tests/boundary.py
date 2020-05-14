@@ -14,7 +14,11 @@ from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm
 from sympde.topology import NormalVector
 
-from psydac.api.discretization import discretize
+from sympde.expr.evaluation import TerminalExpr
+from psydac.api.ast.fem          import AST
+from psydac.api.ast.parser       import parse
+from psydac.api.discretization   import discretize
+from psydac.api.printing.pycode  import pycode
 
 import os
 # ...
@@ -28,31 +32,35 @@ except KeyError:
     mesh_dir = os.path.join(base_dir, 'mesh')
     filename = os.path.join(mesh_dir, 'identity_2d.h5')
 
-kappa = 10**15
-domain  = Square()
-mapping = IdentityMapping('M',2)
-nn      = NormalVector('nn')
-V       = ScalarFunctionSpace('V', domain)
-u,v     = elements_of(V, names='u,v')
+def test_codegen():
+    kappa = 10**15
+    domain  = Square()
+    mapping = IdentityMapping('M',2)
+    nn      = NormalVector('nn')
+    V       = ScalarFunctionSpace('V', domain)
+    u,v     = elements_of(V, names='u,v')
 
-x,y     = symbols('x, y')
-B       = domain.get_boundary(axis=0,ext=1)
-int_1   = lambda expr: integral(B, expr)
-int_0   = lambda expr: integral(domain, expr)
-g       = Tuple(x**2, y**2)
+    x,y     = symbols('x, y')
+    B       = domain.get_boundary(axis=0,ext=1)
+    int_1   = lambda expr: integral(B, expr)
+    int_0   = lambda expr: integral(domain, expr)
+    g       = Tuple(x**2, y**2)
 
-b       = BilinearForm((u,v), int_1(v*dot(grad(u), nn)) + int_0(u*v))
-l       = LinearForm(v, int_1(-x*y*(1-y)*dot(grad(v),nn) + kappa*x*y*(1-y)*v))
+    b       = BilinearForm((u,v), int_1(v*dot(grad(u), nn)))
+    l       = LinearForm(v, int_1(-x*y*(1-y)*dot(grad(v),nn)))
 
-# Create computational domain from topological domain
-domain_h = discretize(domain, ncells=[2**2,2**2])
+    # Create computational domain from topological domain
+    domain_h = discretize(domain, ncells=[2**2,2**2])
 
-# Discrete spaces
-Vh = discretize(V, domain_h, degree=[1,1], mapping=mapping)
+    # Discrete spaces
+    Vh = discretize(V, domain_h, degree=[1,1], mapping=mapping)
+    print(TerminalExpr(b)[0])
+    ast_b = AST(b, TerminalExpr(b)[0], [Vh, Vh])
+    ast_b = parse(ast_b.expr, settings={'dim':2,'nderiv':1,'mapping':Vh.symbolic_mapping, 'target':B})
+    print(pycode(ast_b))
 
-# Discretize forms
-l_h = discretize(l, domain_h,  Vh)
-b_h = discretize(b, domain_h, [Vh, Vh])
-d   = l_h.assemble()
-M   = b_h.assemble()
-print(d.toarray())
+    print('==============================================================================================================')
+    ast_l = AST(l, TerminalExpr(l)[0], Vh)
+    ast_l = parse(ast_l.expr, settings={'dim':2,'nderiv':1,'mapping':Vh.symbolic_mapping,'target':B})
+    print(pycode(ast_l))
+
