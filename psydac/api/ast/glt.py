@@ -30,6 +30,7 @@ from sympde.topology.derivatives import get_max_partial_derivatives
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
 from sympde.topology             import SymbolicDeterminant
+from sympde.topology             import IdentityMapping
 
 from gelato.expr import gelatize
 
@@ -46,6 +47,10 @@ from psydac.fem.vector  import ProductFemSpace
 class GltKernel(SplBasic):
 
     def __new__(cls, expr, spaces, name=None, mapping=None, is_rational_mapping=None, backend=None):
+
+
+        if isinstance(mapping, IdentityMapping):
+            mapping = None
 
         tag = random_string( 8 )
         obj = SplBasic.__new__(cls, tag, name=name,
@@ -562,6 +567,9 @@ class GltInterface(SplBasic):
 
         if not isinstance(kernel, GltKernel):
             raise TypeError('> Expecting an GltKernel')
+
+        if isinstance(mapping, IdentityMapping):
+            mapping = None
 
         obj = SplBasic.__new__(cls, kernel.tag, name=name,
                                prefix='interface', mapping=mapping,

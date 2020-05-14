@@ -55,8 +55,8 @@ install_requires = [
     'yamlloader',
 
     # Our packages from PyPi
-    'sympde==0.9.6',
-    'pyccel==0.9.6',
+    'sympde',
+    'pyccel',
     'gelato',
 
     # In addition, we depend on mpi4py and h5py (MPI version).

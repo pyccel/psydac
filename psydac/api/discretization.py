@@ -25,7 +25,7 @@ from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
 from sympde.topology import ProductSpace
-from sympde.topology import Mapping
+from sympde.topology import Mapping, IdentityMapping
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 
 from gelato.expr     import GltExpr as sym_GltExpr
@@ -200,7 +200,6 @@ class DiscreteEquation(BasicDiscrete):
         self._linear_system = LinearSystem(M, rhs)
 
     def solve(self, **kwargs):
-
         settings = _default_solver.copy()
         settings.update(kwargs.pop('settings', {}))
 
@@ -270,7 +269,7 @@ class DiscreteEquation(BasicDiscrete):
                 # Find inhomogeneous solution (use CG as system is symmetric)
                 loc_settings = settings.copy()
                 loc_settings['solver'] = 'cg'
-                X = equation_h.solve(**loc_settings)
+                X = equation_h.solve(settings=loc_settings)
 
                 # Use inhomogeneous solution as initial guess to solver
                 settings['x0'] = X
@@ -393,12 +392,13 @@ def discretize_derham(V, domain_h, *args, **kwargs):
 # TODO multi patch
 # TODO knots
 def discretize_space(V, domain_h, *args, **kwargs):
-    degree           = kwargs.pop('degree', None)
-    normalize        = kwargs.pop('normalize', True)
-    comm             = domain_h.comm
-    symbolic_mapping = None
-    kind             = V.kind
-    ldim             = V.ldim
+    degree              = kwargs.pop('degree', None)
+    normalize           = kwargs.pop('normalize', True)
+    comm                = domain_h.comm
+    kind                = V.kind
+    ldim                = V.ldim
+    symbolic_mapping    = kwargs.pop('mapping', IdentityMapping('M', ldim))
+    is_rational_mapping = False
     
     if isinstance(V, ProductSpace):
         kwargs['normalize'] = normalize
@@ -413,6 +413,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
             raise NotImplementedError('Multipatch not yet available')
 
         mapping = list(domain_h.mappings.values())[0]
+        is_rational_mapping = isinstance( mapping, NurbsMapping )
         Vh = mapping.space
 
         # TODO how to give a name to the mapping?
@@ -493,6 +494,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     # add symbolic_mapping as a member to the space object
     setattr(Vh, 'symbolic_mapping', symbolic_mapping)
+    setattr(Vh, 'is_rational_mapping', is_rational_mapping)
+    setattr(Vh, 'symbolic_space', V)
     
 
     return Vh
@@ -516,13 +519,7 @@ def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
 def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BasicForm):
-        if not a.is_annotated:
-            a = a.annotate()
         kernel_expr = TerminalExpr(a)
-#        print('=================')
-#        print(kernel_expr)
-#        print('=================')
-#        sys.exit(0)
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 

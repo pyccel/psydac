@@ -525,6 +525,7 @@ def test_poisson_2d_dir0_13_diri_24():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
+@pytest.mark.xfail
 def test_poisson_2d_dir0_1234_user_function():
 
     solution = sin(pi*x)*sin(pi*y)

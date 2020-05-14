@@ -3,9 +3,8 @@ import string
 import random
 import numpy as np
 
-from sympy import Symbol, IndexedBase, Indexed
-from sympy import Mul, Tuple, Pow
-from sympy import Matrix
+from sympy import Symbol, IndexedBase, Indexed, Idx
+from sympy import Add, Mul, Pow, Function, Matrix, Tuple
 from sympy import sqrt as sympy_sqrt
 from sympy.utilities.iterables import cartes
 
@@ -94,6 +93,30 @@ def logical2physical(expr):
     if isinstance(expr, _logical_partial_derivatives):
         argument = logical2physical(expr.args[0])
         new_expr = partial_der[type(expr)](argument)
+        return new_expr
+    else:
+        return expr
+
+partial_der = dict(zip(_partial_derivatives,_logical_partial_derivatives))
+symbols     = {Symbol('x'):Symbol('x1'),Symbol('y'):Symbol('x2'),Symbol('z'):Symbol('x3')}
+def physical2logical(expr):
+    
+    if isinstance(expr, (_partial_derivatives)):
+        argument = physical2logical(expr.args[0])
+        new_expr = partial_der[type(expr)](argument)
+        return new_expr
+    elif isinstance(expr, (ScalarTestFunction, VectorTestFunction, ScalarField, VectorField, IndexedVectorField, IndexedTestTrial)):
+        return expr
+    elif isinstance(expr, Symbol):
+        return symbols[expr]
+    elif isinstance(expr, (Add, Mul, Pow, Function)):
+        args = [physical2logical(i) for i in expr.args]
+        return type(expr)(*args)
+    elif isinstance(expr, Matrix):
+        new_expr = expr.zeros((*expr.shape))
+        for i in range(expr.shape[0]):
+            for j in range(expr.shape[1]):
+                new_expr[i,j] = physical2logical(expr[i,j])
         return new_expr
     else:
         return expr
@@ -387,6 +410,7 @@ def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
 
     Parameters
     ----------
+
     atomic_exprs : <list>
         list of atoms
 
@@ -409,7 +433,6 @@ def compute_atoms_expr_mapping(atomic_exprs, indices_quad,
 
     updates : <list>
         list of augmented assignments which are updated in each loop iteration
-
     """
 
     inits   = []
@@ -743,6 +766,11 @@ def variables(names, dtype, **args):
             return Variable(dtype,  name, rank=rank, **args)
         elif issubclass(cls, IndexedVariable):
             return IndexedVariable(name, dtype=dtype, rank=rank, **args)
+        elif cls==Idx:
+            assert dtype == "int"
+            rank = args.pop('rank', 0)
+            assert rank == 0
+            return Idx(name)
         else:
             raise TypeError('only Variables and IndexedVariables are supported')
 
@@ -880,7 +908,6 @@ pythran_dtypes = {'real':'float','int':'int'}
 #==============================================================================
 
 from sympy import preorder_traversal
-from sympy import Function
 from sympy import NumberSymbol
 from sympy import Pow, S
 from sympy.printing.pycode import _known_functions_math
