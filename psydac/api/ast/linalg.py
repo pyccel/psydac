@@ -51,7 +51,7 @@ class LinearOperatorDot(SplBasic):
         return self._backend
 
 
-    def _initilize(self):
+    def _initialize(self):
 
         ndim = self.ndim
         nrows           = variables('n1:%s'%(ndim+1),  'int')
@@ -152,7 +152,7 @@ class VectorDot(SplBasic):
     def backend(self):
         return self._backend
 
-    def _initilize(self):
+    def _initialize(self):
 
         ndim = self.ndim
 

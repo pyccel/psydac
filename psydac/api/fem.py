@@ -45,8 +45,24 @@ import inspect
 import sys
 import numpy as np
 
-def collect_spaces(space, *ls):
+def collect_spaces(space, *args):
+    """
+    This function collect the arguments used in the assembly function
 
+    Parameters
+    ----------
+    space: <FunctionSpace>
+        the symbolic space
+
+    args : <list>
+        list of discrete space components like basis values, spans, ...
+
+    Returns
+    -------
+    args : <list>
+        list of discrete space components elements used in the asembly
+
+    """
     if isinstance(space, ProductSpace):
         spaces = space.spaces
         indices = []
@@ -61,17 +77,17 @@ def collect_spaces(space, *ls):
             else:
                 indices.append(i)
                 i = i + 1
-        new_ls = []
-        for e in ls:
-            new_ls   += [[e[i] for i in indices]]
-        ls = new_ls
+        args = [[e[i] for i in indices] for e in args]
+
     elif isinstance(space, VectorFunctionSpace):
         if isinstance(space.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
-            return [[e[0]] for e in ls]
+            args = [[e[0]] for e in args]
 
-    return ls
+    return args
+
 def do_nothing(*args):
     pass
+
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
 
@@ -234,6 +250,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         target         = self.kernel_expr.target
         tests_degrees  = self.spaces[1].degree
         trials_degrees = self.spaces[0].degree
+
         spans          = self.test_basis.spans
 
         tests_basis, tests_degrees, spans = collect_spaces(self._test_symbolic_space, tests_basis, tests_degrees, spans)
@@ -681,7 +698,6 @@ class DiscreteFunctional(BasicDiscrete):
                 raise NotImplementedError('TODO')
 
         return v
-
 
 #==============================================================================
 class DiscreteSumForm(BasicDiscrete):
