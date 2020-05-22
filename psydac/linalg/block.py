@@ -162,6 +162,12 @@ class BlockVector( Vector ):
             b1 -= b2
         return self
 
+    # ...
+    def update_ghost_regions( self, *, direction=None ):
+        for vi in self.blocks:
+            if not vi.ghost_regions_in_sync:
+                vi.update_ghost_regions()
+
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -264,9 +270,7 @@ class BlockLinearOperator( LinearOperator ):
         else:
             out = BlockVector( self._codomain )
 
-        for vi in v[:]:
-            if not vi.ghost_regions_in_sync:
-                vi.update_ghost_regions()
+        v.update_ghost_regions()
 
         for (i,j), Lij in self._blocks.items():
             out[i] += Lij.dot( v[j] )
@@ -295,7 +299,6 @@ class BlockLinearOperator( LinearOperator ):
     def n_block_cols( self ):
         return self._domain.n_blocks
 
-    # ...
     def __getitem__( self, key ):
 
         assert isinstance( key, tuple )

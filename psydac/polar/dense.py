@@ -252,6 +252,10 @@ class DenseVector( Vector ):
         self._data -= v._data
         return self
 
+    # ...
+    def update_ghost_regions( self, *, direction=None ):
+        pass
+
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
