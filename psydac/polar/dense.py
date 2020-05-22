@@ -194,6 +194,10 @@ class DenseVector( Vector ):
     def space( self ):
         return self._space
 
+    @property
+    def ghost_regions_in_sync(self):
+        return True
+
     # ...
     def dot( self, v ):
         assert isinstance( v, DenseVector )
