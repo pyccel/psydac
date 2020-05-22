@@ -397,8 +397,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
     comm                = domain_h.comm
     kind                = V.kind
     ldim                = V.ldim
-
-    symbolic_mapping    = kwargs.pop('mapping', IdentityMapping('M', ldim))
+    symbolic_mapping    = kwargs.pop('mapping', None)
 
     is_rational_mapping = False
     
