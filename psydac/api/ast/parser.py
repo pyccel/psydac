@@ -8,11 +8,11 @@ from sympy import Symbol, Idx
 from sympy.core.containers import Tuple
 
 from pyccel.ast.builtins import Range
-from pyccel.ast.core import Assign, Product, AugAssign, For
-from pyccel.ast.core import Variable, IndexedVariable, IndexedElement
-from pyccel.ast.core import Slice
-from pyccel.ast.core import EmptyLine, Import
-from pyccel.ast.core import CodeBlock, FunctionDef
+from pyccel.ast.core     import Assign, Product, AugAssign, For
+from pyccel.ast.core     import Variable, IndexedVariable, IndexedElement
+from pyccel.ast.core     import Slice
+from pyccel.ast.core     import EmptyLine, Import
+from pyccel.ast.core     import CodeBlock, FunctionDef
 
 from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import SymbolicExpr
