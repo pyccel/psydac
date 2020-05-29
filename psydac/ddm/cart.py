@@ -93,6 +93,8 @@ class CartDecomposition():
 #        self._dims = MPI.Compute_dims( self._size, self._ndims )
         if nprocs is None:
             nprocs, block_shape = mpi_compute_dims( self._size, npts, pads )
+        else:
+            assert len(nprocs) == len(npts)
 
         self._dims = nprocs
         self._reverse_axis = reverse_axis

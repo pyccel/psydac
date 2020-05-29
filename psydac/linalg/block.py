@@ -166,7 +166,7 @@ class BlockVector( Vector ):
     def update_ghost_regions( self, *, direction=None ):
         for vi in self.blocks:
             if not vi.ghost_regions_in_sync:
-                vi.update_ghost_regions()
+                vi.update_ghost_regions(direction=direction)
 
     #--------------------------------------
     # Other properties/methods

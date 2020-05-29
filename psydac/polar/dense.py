@@ -194,10 +194,6 @@ class DenseVector( Vector ):
     def space( self ):
         return self._space
 
-    @property
-    def ghost_regions_in_sync(self):
-        return True
-
     # ...
     def dot( self, v ):
         assert isinstance( v, DenseVector )
@@ -256,15 +252,20 @@ class DenseVector( Vector ):
         self._data -= v._data
         return self
 
-    # ...
-    def update_ghost_regions( self, *, direction=None ):
-        pass
-
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
     def toarray( self ):
         return self._data.copy()
+
+    # ...
+    def update_ghost_regions( self, *, direction=None ):
+        pass
+
+    # ...
+    @property
+    def ghost_regions_in_sync(self):
+        return True
 
 #==============================================================================
 class DenseMatrix( Matrix ):
