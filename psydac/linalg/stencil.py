@@ -1048,13 +1048,13 @@ class StencilInterfaceMatrix(Matrix):
           The starting index of the domain.
 
     s_c : int
-          The starting index if the codomain.
+          The starting index of the codomain.
 
     dim : int
           The axis of the interface.
 
     pads: <list|tuple>
-          Padding of the lineair operator.
+          Padding of the linear operator.
 
     """
     def __init__( self, V, W, s_d, s_c, dim, pads=None ):
