@@ -116,8 +116,8 @@ def test_poisson_2d_2_patch_dirichlet_0():
     expected_l2_error = 2.176726763610992e-09
     expected_h1_error = 2.9725703533101877e-09
 
-    assert ( abs(l2_error - expected_l2_error) < 1e-9 )
-    assert ( abs(h1_error - expected_h1_error) < 1e-9 )
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 def test_poisson_2d_2_patch_dirichlet_1():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
@@ -136,8 +136,8 @@ def test_poisson_2d_2_patch_dirichlet_1():
     expected_l2_error = 0.0014391246983836191
     expected_h1_error = 0.040161111095794906
 
-    assert ( abs(l2_error - expected_l2_error) < 1e-9 )
-    assert ( abs(h1_error - expected_h1_error) < 1e-9 )
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE

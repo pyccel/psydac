@@ -161,6 +161,7 @@ class Pattern(Tuple):
 class Mask(Basic):
     def __new__(cls, axis, ext):
         return Basic.__new__(cls, axis, ext)
+
     @property
     def axis(self):
         return self._args[0]
