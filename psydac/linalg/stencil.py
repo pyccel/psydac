@@ -1038,12 +1038,23 @@ class StencilInterfaceMatrix(Matrix):
 
     Parameters
     ----------
-    V : psydac.linalg.stencil.StencilVectorSpace
-        Domain of the new linear operator.
+    V   : psydac.linalg.stencil.StencilVectorSpace
+          Domain of the new linear operator.
 
-    W : psydac.linalg.stencil.StencilVectorSpace
-        Codomain of the new linear operator.
+    W   : psydac.linalg.stencil.StencilVectorSpace
+          Codomain of the new linear operator.
 
+    s_d : int
+          The starting index of the domain.
+
+    s_c : int
+          The starting index if the codomain.
+
+    dim : int
+          The axis of the interface.
+
+    pads: <list|tuple>
+          Padding of the lineair operator.
     """
     def __init__( self, V, W, s_d, s_c, dim, pads=None ):
 
@@ -1077,18 +1088,6 @@ class StencilInterfaceMatrix(Matrix):
     @property
     def codomain( self ):
         return self._codomain
-
-    @property
-    def dim( self ):
-        return self._dim
-
-    @property
-    def d_start( self ):
-        return self._d_start
-
-    @property
-    def c_start( self ):
-        return self._c_start
     # ...
     def dot( self, v, out=None ):
 
@@ -1168,6 +1167,20 @@ class StencilInterfaceMatrix(Matrix):
     # Other properties/methods
     #--------------------------------------
 
+    @property
+    def dim( self ):
+        return self._dim
+
+    # ...
+    @property
+    def d_start( self ):
+        return self._d_start
+
+    # ...
+    @property
+    def c_start( self ):
+        return self._c_start
+
     # ...
     @property
     def pads( self ):
@@ -1182,7 +1195,6 @@ class StencilInterfaceMatrix(Matrix):
     def __setitem__(self, key, value):
         index = self._getindex( key )
         self._data[index] = value
-
 
     #...
     def max( self ):
@@ -1211,8 +1223,6 @@ class StencilInterfaceMatrix(Matrix):
     # ...
     def __neg__(self):
         return self.__mul__(-1)
-
-
 
     # ...
     def update_ghost_regions( self, *, direction=None ):
