@@ -1055,6 +1055,7 @@ class StencilInterfaceMatrix(Matrix):
 
     pads: <list|tuple>
           Padding of the lineair operator.
+
     """
     def __init__( self, V, W, s_d, s_c, dim, pads=None ):
 
@@ -1088,6 +1089,7 @@ class StencilInterfaceMatrix(Matrix):
     @property
     def codomain( self ):
         return self._codomain
+
     # ...
     def dot( self, v, out=None ):
 
@@ -1110,9 +1112,10 @@ class StencilInterfaceMatrix(Matrix):
         ssd = self.domain.starts
         eed = self.domain.ends
         dim = self.dim
+
         c_start = self.c_start
         d_start = self.d_start
-        pp  = self.pads
+        pp      = self.pads
 
         # Number of rows in matrix (along each dimension)
         nrows        = [ed-s+1 for s,ed in zip(ssd, eed)]
@@ -1143,6 +1146,7 @@ class StencilInterfaceMatrix(Matrix):
 
             ii[dim] += c_start
             out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
+
     # ...
     def toarray( self, *, with_pads=False ):
 
@@ -1248,6 +1252,7 @@ class StencilInterfaceMatrix(Matrix):
 
         # Flag ghost regions as up-to-date
         self._sync = True
+
     #--------------------------------------
     # Private methods
     #--------------------------------------
@@ -1280,7 +1285,6 @@ class StencilInterfaceMatrix(Matrix):
             return index + shift
 
     #...
-
     def _tocoo_no_pads( self ):
         # Shortcuts
         nr = self.codomain.npts
