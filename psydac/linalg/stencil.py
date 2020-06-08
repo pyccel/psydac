@@ -1098,7 +1098,7 @@ class StencilInterfaceMatrix(Matrix):
 
         # Necessary if vector space is distributed across processes
         if not v.ghost_regions_in_sync:
-            v.update_ghost_regions()
+            raise ValueError('ghost regions are not updated')
 
         if out is not None:
             assert isinstance( out, StencilVector )

@@ -51,6 +51,7 @@ from sympde.topology.space       import IndexedTestTrial
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
+from sympde.topology.mapping     import InterfaceMapping
 
 from pyccel.ast.core  import _atomic
 
@@ -331,11 +332,14 @@ class AST(object):
 
             if isinstance(domain, Interface):
                 i = space_domain.interior.args.index(domain.minus.domain)
+                j = space_domain.interior.args.index(domain.plus.domain)
+                mapping = InterfaceMapping(mapping[i], mapping[j])
             elif isinstance(domain, Boundary):
                 i = space_domain.interior.args.index(domain.domain)
+                mapping = mapping[i]
             else:
                 i = space_domain.interior.args.index(domain)
-            mapping = mapping[i]
+                mapping = mapping[i]
 
 
         if is_linear:

@@ -484,7 +484,7 @@ class Parser(object):
         return CodeBlock([*inits.values() , *stmts.values() , body])
 
     def _visit_EvalMapping(self, expr, **kwargs):
-        if self._mapping._expressions is not None:
+        if self._mapping.is_analytical:
             return EmptyLine()
         values  = expr.values
         coeffs  = expr.coeffs
@@ -921,7 +921,7 @@ class Parser(object):
         expr = expr.expr
         if lhs is None:
             if not isinstance(expr, (Add, Mul)):
-                lhs = self._visit(AtomicNode(expr), **kwargs)
+                lhs = self._visit_AtomicNode(AtomicNode(expr), **kwargs)
             else:
                 lhs = random_string( 6 )
                 lhs = Symbol('tmp_{}'.format(lhs))
@@ -1009,12 +1009,13 @@ class Parser(object):
                 lhs = random_string( 6 )
                 lhs = Symbol('tmp_{}'.format(lhs))
 
-        weight  = SymbolicWeightedVolume(self.mapping)
+        mapping = self.mapping
+        weight  = SymbolicWeightedVolume(mapping)
         weight = SymbolicExpr(weight)
         exprs = expr.expr[:]
 
         if self.mapping.is_analytical:
-            exprs =  [LogicalExpr(self.mapping, i) for i in exprs]
+            exprs =  [LogicalExpr(mapping, i) for i in exprs]
 
         rhs = [weight*self._visit(expr, **kwargs) for expr in exprs]
         lhs = lhs[:]
@@ -1023,11 +1024,15 @@ class Parser(object):
         normal_vectors = expr.expr.atoms(NormalVector)
         target         = self._target
         dim            = self._dim
+
+        if isinstance(target, Interface):
+            mapping = mapping.M1
+
         for vec in normal_vectors:
             axis    = target.axis
             ext     = target.ext if isinstance(target, Boundary) else 1
 
-            J       = LogicalExpr(self.mapping, self.mapping.jacobian)
+            J       = LogicalExpr(mapping, mapping.jacobian)
             J       = SymbolicExpr(J)
             values  = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
             normalization = sum(v**2 for v in values)**0.5
@@ -1092,8 +1097,13 @@ class Parser(object):
     def _visit_LogicalValueNode(self, expr, **kwargs):
 
         mapping = self.mapping
+
         expr = expr.expr
         target = self.target
+
+        if isinstance(target, Interface):
+                mapping = mapping.M1
+
         if isinstance(expr, SymbolicDeterminant):
             return SymbolicExpr(mapping.det_jacobian)
 
@@ -1121,7 +1131,7 @@ class Parser(object):
                 det_jac = (J.T*J).det()
                 det_jac = det_jac.simplify()**0.5
             else:
-                if mapping._expressions is None:
+                if not mapping.is_analytical:
                     det_jac = SymbolicDeterminant(mapping)
                 else:
                     det_jac = LogicalExpr(mapping, mapping.det_jacobian)

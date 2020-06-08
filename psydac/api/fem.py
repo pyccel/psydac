@@ -709,6 +709,7 @@ class DiscreteFunctional(BasicDiscrete):
         self._func(*args)
 
         v = self._vector[0]
+        self._vector[:] = 0
 
         if isinstance(self.expr, sym_Norm):
             if not( self.comm is None ):
@@ -719,7 +720,6 @@ class DiscreteFunctional(BasicDiscrete):
                 v = np.sqrt(np.abs(v))
             else:
                 raise NotImplementedError('TODO')
-
         return v
 
 #==============================================================================
