@@ -475,6 +475,9 @@ def discretize_space(V, domain_h, *args, **kwargs):
                             nprocs = g_spaces[index].vector_space.cart.nprocs
                         Vh = TensorFemSpace( *spaces, comm=comm, nprocs=nprocs, reverse_axis=e.axis)
                         break
+                else:
+                    if Vh is None:
+                        Vh = TensorFemSpace( *spaces, comm=comm)
             else:
                 Vh = TensorFemSpace( *spaces, comm=comm)
 
