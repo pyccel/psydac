@@ -297,3 +297,7 @@ class VectorFemField:
 
         """
         return self._coeffs
+
+    @property
+    def fields( self ):
+        return [FemField(s, coeff) for s,coeff in zip(self.space.spaces, self.coeffs)]
