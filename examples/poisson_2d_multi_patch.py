@@ -181,7 +181,7 @@ if __name__ == '__main__':
     xx = pcoords[:,:,0]
     yy = pcoords[:,:,1]
 
-    fig = plt.figure(figsize=plt.figaspect(0.5))
+    fig = plt.figure(figsize=(17., 4.8))
 
     ax = fig.add_subplot(1, 3, 1)
 
