@@ -432,10 +432,13 @@ def discretize_space(V, domain_h, *args, **kwargs):
         if isinstance(interiors, Union):
             interiors = interiors.args
             interfaces = domain_h.domain.interfaces
+
             if isinstance(interfaces, sym_Interface):
                 interfaces = [interfaces]
-            else:
+            elif isinstance(interfaces, Union):
                 interfaces = interfaces.args
+            else:
+                interfaces = []
         else:
             interiors = [interiors]
 
