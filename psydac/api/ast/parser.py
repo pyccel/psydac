@@ -1026,7 +1026,7 @@ class Parser(object):
         dim            = self._dim
 
         if isinstance(target, Interface):
-            mapping = mapping.M1
+            mapping = mapping.minus
 
         for vec in normal_vectors:
             axis    = target.axis
@@ -1102,7 +1102,7 @@ class Parser(object):
         target = self.target
 
         if isinstance(target, Interface):
-                mapping = mapping.M1
+                mapping = mapping.minus
 
         if isinstance(expr, SymbolicDeterminant):
             return SymbolicExpr(mapping.det_jacobian)

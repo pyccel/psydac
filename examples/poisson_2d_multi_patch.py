@@ -34,6 +34,7 @@ from psydac.fem.vector         import VectorFemField
 from psydac.fem.basic          import FemField
 from psydac.utilities.utils    import refine_array_1d
 
+import time
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -91,17 +92,30 @@ def run_poisson_2d(solution, f, domain, mappings, ncells, degree, comm=None):
     l2norm_h = discretize(l2norm, domain_h, Vh)
     h1norm_h = discretize(h1norm, domain_h, Vh)
 
-    x  = equation_h.solve()
-    
+    timing   = {}
+
+    t0       = time.time()
+    equation_h.assemble()
+    t1       = time.time()
+    timing['assembly'] = t1-t0
+
+    t0       = time.time()
+    x, info  = equation_h.solve(info=True)
+    t1       = time.time()
+    timing['solution'] = t1-t0
+
     uh = VectorFemField( Vh )
 
     for i in range(len(uh.coeffs[:])):
         uh.coeffs[i][:,:] = x[i][:,:]
 
+    t0 = time.time()
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
+    t1       = time.time()
+    timing['diagnostics'] = t1-t0
 
-    return uh, l2_error, h1_error
+    return uh, info, timing, l2_error, h1_error
 
 
 if __name__ == '__main__':
@@ -128,16 +142,30 @@ if __name__ == '__main__':
     solution  = x**2 + y**2
     f         = -4
 
-    uh, l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=[2**2,2**2], degree=[2,2])
+    ne     = [2**2,2**2]
+    degree = [2,2]
+
+    uh, info, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=ne, degree=degree)
 
     # ...
+
+    print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
+    print( '> Degree        :: [{p1},{p2}]'  .format( p1=degree[0], p2=degree[1] ) )
+    print( '> CG info       :: ',info )
+    print( '> L2 error      :: {:.2e}'.format( l2_error ) )
+    print( '> H1 error      :: {:.2e}'.format( h1_error ) )
+    print( '' )
+    print( '> Assembly time :: {:.2e}'.format( timing['assembly'] ) )
+    print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
+    print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
+    N = 20
 
     from sympy import lambdify
 
     mappings = [lambdify(M.logical_coordinates, M.expressions) for M in mappings]
     solution = lambdify(domain.coordinates, solution)
 
-    etas     = [[refine_array_1d( D.bounds1, 10 ), refine_array_1d( D.bounds2, 10 )] for D in domains]
+    etas     = [[refine_array_1d( D.bounds1, N ), refine_array_1d( D.bounds2, N )] for D in domains]
     # ...
 
     pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
@@ -157,13 +185,26 @@ if __name__ == '__main__':
 
     ax = fig.add_subplot(1, 3, 1)
 
-    cp = ax.contourf(xx, yy, num, 50, cmap='jet')
+    cp = ax.contourf(xx, yy, ex, 50, cmap='jet')
     cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
+    ax.set_xlabel( r'$x$', rotation='horizontal' )
+    ax.set_ylabel( r'$y$', rotation='horizontal' )
+    ax.set_title ( r'$\phi_{ex}(x,y)$' )
+
     ax = fig.add_subplot(1, 3, 2)
-    cp2 = ax.contourf(xx, yy, ex, 50, cmap='jet') 
+    cp2 = ax.contourf(xx, yy, num, 50, cmap='jet')
     cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
+
+    ax.set_xlabel( r'$x$', rotation='horizontal' )
+    ax.set_ylabel( r'$y$', rotation='horizontal' )
+    ax.set_title ( r'$\phi(x,y)$' )
+
     ax = fig.add_subplot(1, 3, 3)
     cp3 = ax.contourf(xx, yy, err, 50, cmap='jet')   
     cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
+
+    ax.set_xlabel( r'$x$', rotation='horizontal' )
+    ax.set_ylabel( r'$y$', rotation='horizontal' )
+    ax.set_title ( r'$\phi(x,y) - \phi_{ex}(x,y)$' )
     plt.show()
 

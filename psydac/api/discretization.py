@@ -73,9 +73,8 @@ def driver_solve(L, **kwargs):
     M = L.lhs
     rhs = L.rhs
 
-    name = kwargs.pop('solver')
+    name        = kwargs.pop('solver')
     return_info = kwargs.pop('info', False)
-
     if name == 'cg':
         x, info = cg( M, rhs, **kwargs )
         if return_info:
@@ -201,6 +200,7 @@ class DiscreteEquation(BasicDiscrete):
 
     def solve(self, **kwargs):
         settings = {k:kwargs[k] if k in kwargs else it for k,it in _default_solver.items()}
+        settings.update({it[0]:it[1] for it in kwargs.items() if it[0] not in settings})
 
         rhs = kwargs.pop('rhs', None)
         if rhs:
@@ -268,7 +268,8 @@ class DiscreteEquation(BasicDiscrete):
                 # Find inhomogeneous solution (use CG as system is symmetric)
                 loc_settings = settings.copy()
                 loc_settings['solver'] = 'cg'
-                X = equation_h.solve(settings=loc_settings)
+                loc_settings.pop('info',False)
+                X = equation_h.solve(**loc_settings)
 
                 # Use inhomogeneous solution as initial guess to solver
                 settings['x0'] = X
@@ -476,8 +477,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
                         Vh = TensorFemSpace( *spaces, comm=comm, nprocs=nprocs, reverse_axis=e.axis)
                         break
                 else:
-                    if Vh is None:
-                        Vh = TensorFemSpace( *spaces, comm=comm)
+                    Vh = TensorFemSpace( *spaces, comm=comm)
             else:
                 Vh = TensorFemSpace( *spaces, comm=comm)
 
