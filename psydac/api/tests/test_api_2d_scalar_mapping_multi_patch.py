@@ -106,6 +106,7 @@ def run_poisson_2d(solution, f, domain, mappings, ncells, degree, comm=None):
 #------------------------------------------------------------------------------
 
 def test_poisson_2d_2_patch_dirichlet_0():
+
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
@@ -153,13 +154,14 @@ def test_poisson_2d_2_patch_dirichlet_1():
 
     l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.012393142705781398
-    expected_h1_error = 0.17197987625215966
+    expected_l2_error = 0.008813239980488852
+    expected_h1_error = 0.12252946949143205
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 def test_poisson_2d_2_patch_dirichlet_2():
+
     A = Square('A',bounds1=(0.5, 1.), bounds2=(-1., 0.))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
 #    C = Square('C',bounds1=(-1., 0.), bounds2=(0.5, 1.))
@@ -218,8 +220,8 @@ def test_poisson_2d_2_patch_dirichlet_parallel_0():
     l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=[2**2,2**2], degree=[2,2],
                                         comm=MPI.COMM_WORLD)
 
-    expected_l2_error = 0.012393142705781398
-    expected_h1_error = 0.17197987625215966
+    expected_l2_error = 0.008813239980488852
+    expected_h1_error = 0.12252946949143205
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
