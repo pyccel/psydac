@@ -81,18 +81,15 @@ def run_poisson_2d(solution, f, domain, mappings, ncells, degree, comm=None):
     # 2. Discretization
     #+++++++++++++++++++++++++++++++
     
-    domain_h = discretize(domain, ncells=ncells)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
     Vh       = discretize(V, domain_h, mapping=mappings, degree=degree)  
     
     equation_h = discretize(equation, domain_h, [Vh, Vh])
-    ah = equation_h.lhs.assemble()
-    lh = equation_h.rhs.assemble()
-
     l2norm_h = discretize(l2norm, domain_h, Vh)
     h1norm_h = discretize(h1norm, domain_h, Vh)
 
     x  = equation_h.solve()
-    
+
     uh = VectorFemField( Vh )
 
     for i in range(len(uh.coeffs[:])):
@@ -197,7 +194,6 @@ def test_poisson_2d_2_patch_dirichlet_2():
 ###############################################################################
 
 #==============================================================================
-
 @pytest.mark.parallel
 def test_poisson_2d_2_patch_dirichlet_parallel_0():
 

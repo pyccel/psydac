@@ -742,7 +742,7 @@ class DiscreteSumForm(BasicDiscrete):
 
         # ...
         forms = []
-
+        self._kernel_expr = kernel_expr
         for e in kernel_expr:
             kwargs['target'] = e.target
             if isinstance(a, sym_BilinearForm):

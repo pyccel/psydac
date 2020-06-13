@@ -61,8 +61,16 @@ class ProductSpace( VectorSpace ):
         return self._spaces
 
     @property
-    def pads(self):
-        return self.spaces[0].pads
+    def starts( self ):
+        return [s.starts for s in self._spaces]
+
+    @property
+    def ends( self ):
+        return [s.ends for s in self._spaces]
+
+    @property
+    def pads( self ):
+        return self._spaces[0].pads
 
     @property
     def n_blocks( self ):

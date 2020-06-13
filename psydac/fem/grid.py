@@ -127,7 +127,7 @@ class FemAssemblyGrid:
         # Quadrature data on extended distributed domain
         self._num_elements = ne
         self._num_quad_pts = len( u )
-        self._spans   = np.array( spans   ) - start
+        self._spans   = np.array( spans   )
         self._basis   = np.array( basis   )
         self._points  = np.array( points  )
         self._weights = np.array( weights )

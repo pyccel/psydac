@@ -138,9 +138,9 @@ class DiscreteEquation(BasicDiscrete):
 
         self._bc = bc
         self._linear_system = None
-        self._domain      = domain
-        self._trial_space = trial_space
-        self._test_space  = test_space
+        self._domain        = domain
+        self._trial_space   = trial_space
+        self._test_space    = test_space
 
     @property
     def expr(self):
