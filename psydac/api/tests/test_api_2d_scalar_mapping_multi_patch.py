@@ -114,7 +114,7 @@ def test_poisson_2d_2_patch_dirichlet_0():
     mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
-    mappings  = [mapping_1, mapping_2]
+    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
 
     x,y = domain.coordinates
     solution = x**2 + y**2
@@ -143,7 +143,7 @@ def test_poisson_2d_2_patch_dirichlet_1():
     mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
-    mappings  = [mapping_1, mapping_2]
+    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
@@ -175,7 +175,7 @@ def test_poisson_2d_2_patch_dirichlet_2():
     mapping_2 = PolarMapping   ('M2', 2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     #mapping_3 = IdentityMapping('M3', 2)
 
-    mappings  = [mapping_1, mapping_2]
+    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
 
     x,y       = AB.coordinates
     solution  = x**2 + y**2
@@ -207,7 +207,7 @@ def test_poisson_2d_2_patch_dirichlet_parallel_0():
     mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
-    mappings  = [mapping_1, mapping_2]
+    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)

@@ -331,15 +331,11 @@ class AST(object):
                 space_domain = spaces.domain
 
             if isinstance(domain, Interface):
-                i = space_domain.interior.args.index(domain.minus.domain)
-                j = space_domain.interior.args.index(domain.plus.domain)
-                mapping = InterfaceMapping(mapping[i], mapping[j])
+                mapping = InterfaceMapping(mapping[domain.minus.domain], mapping[domain.plus.domain])
             elif isinstance(domain, Boundary):
-                i = space_domain.interior.args.index(domain.domain)
-                mapping = mapping[i]
+                mapping = mapping[domain.domain]
             else:
-                i = space_domain.interior.args.index(domain)
-                mapping = mapping[i]
+                mapping = mapping[domain]
 
 
         if is_linear:

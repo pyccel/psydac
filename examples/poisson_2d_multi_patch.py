@@ -1,5 +1,8 @@
 import pytest      
-                
+import time
+import matplotlib.pyplot as plt
+import numpy as np
+
 from sympy.core.containers import Tuple
 from sympy                 import Matrix               
 from sympy                 import Function                                
@@ -34,10 +37,7 @@ from psydac.fem.vector         import VectorFemField
 from psydac.fem.basic          import FemField
 from psydac.utilities.utils    import refine_array_1d
 
-import time
-import matplotlib.pyplot as plt
-import numpy as np
-
+from mpi4py import MPI
 #==============================================================================
 
 def run_poisson_2d(solution, f, domain, mappings, ncells, degree, comm=None):
@@ -84,7 +84,7 @@ def run_poisson_2d(solution, f, domain, mappings, ncells, degree, comm=None):
     # 2. Discretization
     #+++++++++++++++++++++++++++++++
     
-    domain_h = discretize(domain, ncells=ncells)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
     Vh       = discretize(V, domain_h, mapping=mappings, degree=degree)  
     
     equation_h = discretize(equation, domain_h, [Vh, Vh])
@@ -136,8 +136,7 @@ if __name__ == '__main__':
     mapping_2 = PolarMapping   ('M2', 2, c1 = 0., c2 = 0., rmin = 0., rmax=1.)
     mapping_3 = AffineMapping  ('M3', 2, c1 = 0., c2 = np.pi, a11 = -1, a22 = -1, a21 = 0, a12 = 0)
 
-    mappings  = [mapping_1, mapping_2, mapping_3]
-    domains   = [A, B, C]
+    mappings  = {A.interior:mapping_1, B.interior:mapping_2, C.interior:mapping_3}
     x,y       = domain.coordinates
     solution  = x**2 + y**2
     f         = -4
@@ -148,7 +147,6 @@ if __name__ == '__main__':
     uh, info, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=ne, degree=degree)
 
     # ...
-
     print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
     print( '> Degree        :: [{p1},{p2}]'  .format( p1=degree[0], p2=degree[1] ) )
     print( '> CG info       :: ',info )
@@ -162,11 +160,10 @@ if __name__ == '__main__':
 
     from sympy import lambdify
 
-    mappings = [lambdify(M.logical_coordinates, M.expressions) for M in mappings]
-    solution = lambdify(domain.coordinates, solution)
+    etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
 
-    etas     = [[refine_array_1d( D.bounds1, N ), refine_array_1d( D.bounds2, N )] for D in domains]
-    # ...
+    mappings = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
+    solution = lambdify(domain.coordinates, solution)
 
     pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
     num     = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(uh.fields, etas)]
