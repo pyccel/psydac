@@ -43,6 +43,11 @@ class FemAssemblyGrid:
         Number of basis functions' derivatives to be precomputed at the Gauss
         points (default: 1).
 
+    normalize : bool
+        True for D-spline basis
+        False for N-spline basis
+        # TODO: rename as use_Dspline_basis ++ check other uses of 'normalize' flag in the code... 
+
     """
     def __init__( self, space, start, end, *, quad_order=None, nderiv=1, normalize=False ):
 

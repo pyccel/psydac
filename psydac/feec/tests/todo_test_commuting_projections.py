@@ -25,17 +25,13 @@ L2    = H1.reduce_degree([0,1])
 Int = Interpolation(H1=H1, Hcurl=Hcurl, L2=L2)
 M0, M1, M2 = interpolation_matrices(H1)
 # ... H1
-
-print (Int.kind)   ## TODO: the Interpolation object has a strange kind -- fix that
-
-
 f = lambda x,y: x*(1.-x)*y*(1.-y)
-F = Int([f])
+F = Int('H1', f)
 
 # ... Hcurl
 g0 = lambda x,y: (1.-2.*x)*y*(1.-y)
 g1 = lambda x,y: x*(1.-x)*(1.-2.*y)
-G = Int([g0, g1])  #'Hcurl',
+G = Int('Hcurl', [g0, g1])
 
 F =  M0.solve(F)
 G =  M1.solve(G)

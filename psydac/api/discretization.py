@@ -398,10 +398,15 @@ class DiscreteDerham(BasicDiscrete):
 #==============================================================================           
 def discretize_derham(Complex, domain_h, *args, **kwargs):
 
+    # TODO: we should make sure that
+
     spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
     ldim   = Complex.shape
     
     if ldim == 1:
+        # = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
+        #spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
+
         D0 = Grad(spaces[0], spaces[1].vector_space)
         setattr(spaces[0], 'grad', D0)
         
@@ -462,6 +467,10 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
 #==============================================================================
 # TODO multi patch
 # TODO knots
+
+# TODO: normalize flag should be removed: we always assume it to be True, meaning that we always use the "N" or "D" basis according
+#       to the position of the space in the sequence
+
 def discretize_space(V, domain_h, *args, **kwargs):
     degree           = kwargs.pop('degree', None)
     normalize        = kwargs.pop('normalize', False)
