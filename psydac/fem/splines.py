@@ -21,6 +21,14 @@ from psydac.utilities.quadratures import gauss_legendre
 __all__ = ['SplineSpace']
 
 #===============================================================================
+# TODO: reorganize files:
+#   - add core/interpolation.py (1D)
+#   - add core/histopolation.py (1D)
+#   - choose if SplineSpace should use N-basis or D-basis, remove normalize flag
+#   - rename _init_collocation as _init_interpolation (also in TensorFemSpace)
+#   - if N-basis, _interpolator uses collocation matrix
+#   - if D-basis, _interpolator uses histopolation matrix
+#
 class SplineSpace( FemSpace ):
     """
     a 1D Splines Finite Element space
