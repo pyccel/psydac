@@ -61,8 +61,16 @@ class ProductSpace( VectorSpace ):
         return self._spaces
 
     @property
-    def pads(self):
-        return self.spaces[0].pads
+    def starts( self ):
+        return [s.starts for s in self._spaces]
+
+    @property
+    def ends( self ):
+        return [s.ends for s in self._spaces]
+
+    @property
+    def pads( self ):
+        return self._spaces[0].pads
 
     @property
     def n_blocks( self ):
@@ -161,6 +169,12 @@ class BlockVector( Vector ):
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 -= b2
         return self
+
+    # ...
+    def update_ghost_regions( self, *, direction=None ):
+        for vi in self.blocks:
+            if not vi.ghost_regions_in_sync:
+                vi.update_ghost_regions(direction=direction)
 
     #--------------------------------------
     # Other properties/methods
@@ -264,6 +278,8 @@ class BlockLinearOperator( LinearOperator ):
         else:
             out = BlockVector( self._codomain )
 
+        v.update_ghost_regions()
+
         for (i,j), Lij in self._blocks.items():
             out[i] += Lij.dot( v[j] )
 
@@ -291,7 +307,6 @@ class BlockLinearOperator( LinearOperator ):
     def n_block_cols( self ):
         return self._domain.n_blocks
 
-    # ...
     def __getitem__( self, key ):
 
         assert isinstance( key, tuple )

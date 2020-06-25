@@ -65,6 +65,7 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
     sol = spsolve(M, rhs)
 
     phi2 = FemField(V2h)    
+
     phi2.coeffs[0:V2h.nbasis] = sol[V1h.nbasis:]
     
     l2_error = l2norm_F_h.assemble(F=phi2)

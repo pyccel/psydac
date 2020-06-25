@@ -258,6 +258,15 @@ class DenseVector( Vector ):
     def toarray( self ):
         return self._data.copy()
 
+    # ...
+    def update_ghost_regions( self, *, direction=None ):
+        pass
+
+    # ...
+    @property
+    def ghost_regions_in_sync(self):
+        return True
+
 #==============================================================================
 class DenseMatrix( Matrix ):
 

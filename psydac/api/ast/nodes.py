@@ -161,6 +161,7 @@ class Pattern(Tuple):
 class Mask(Basic):
     def __new__(cls, axis, ext):
         return Basic.__new__(cls, axis, ext)
+
     @property
     def axis(self):
         return self._args[0]
@@ -1375,8 +1376,9 @@ class Loop(BaseNode):
         assert(len(l_quad) == 1)
         l_quad = l_quad[0]
 
-        if mapping._expressions is not None:
+        if mapping.is_analytical:
             args += [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
+            args += [ComputeLogical(SymbolicWeightedVolume(mapping))]
             return Tuple(*args)
         else:
             args += [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
@@ -1497,7 +1499,7 @@ class GeometryExpressions(Basic):
     def __new__(cls, M, nderiv):
         expressions = []
         args        = []
-        if M._expressions is None:
+        if not M.is_analytical:
 
             dim = M.rdim
             nderiv = 1 if nderiv == 0 else nderiv

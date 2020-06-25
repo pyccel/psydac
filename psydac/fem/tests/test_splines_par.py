@@ -10,9 +10,8 @@ from psydac.fem.vector  import VectorFemSpace
 from numpy  import linspace
 from mpi4py import MPI
 
-@pytest.mark.parallel
-
-def test_2d_1():
+@pytest.mark.parametrize( 'reverse_axis', [None, 0, 1] )
+def test_2d_1(reverse_axis):
 
     p_1 = 2
     p_2 = 2
@@ -23,8 +22,10 @@ def test_2d_1():
 
     V1 = SplineSpace(p_1, grid=grid_1)
     V2 = SplineSpace(p_2, grid=grid_2)
-    V = TensorFemSpace(V1, V2, comm=comm)
+    V = TensorFemSpace(V1, V2, comm=comm, reverse_axis=reverse_axis)
 
+    if rank == 0:
+        print(V.vector_space.cart.nprocs)
     for i in range(comm.Get_size()):
         if rank == i:
             print('rank ', rank)
@@ -38,7 +39,6 @@ def test_2d_1():
 
     F = FemField(V)
 
-
 ###############################################
 if __name__ == '__main__':
-    test_2d_1()
+    test_2d_2()

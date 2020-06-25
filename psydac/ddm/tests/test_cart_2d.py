@@ -3,7 +3,7 @@
 #===============================================================================
 # TEST CartDecomposition and CartDataExchanger in 2D
 #===============================================================================
-def run_cart_2d( verbose=False ):
+def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
 
     import numpy as np
     from mpi4py       import MPI
@@ -41,6 +41,8 @@ def run_cart_2d( verbose=False ):
         periods = [period1, period2],
         reorder = False,
         comm    = comm,
+        nprocs  = nprocs,
+        reverse_axis = reverse_axis
     )
 
     # Local 2D array with 2D vector data (extended domain)
@@ -104,6 +106,20 @@ def test_cart_2d():
 
     assert namespace['success']
 
+@pytest.mark.parallel
+def test_cart_2d_reverse_axis_0():
+
+    namespace = run_cart_2d(reverse_axis=0)
+
+    assert namespace['success']
+
+@pytest.mark.parallel
+def test_cart_2d_reverse_axis_1():
+
+    namespace = run_cart_2d(reverse_axis=1)
+
+    assert namespace['success']
+
 #===============================================================================
 # RUN TEST MANUALLY
 #===============================================================================
@@ -122,3 +138,4 @@ if __name__=='__main__':
             print( "PASSED", end='\n\n', flush=True )
         else:
             print( "FAILED", end='\n\n', flush=True )
+

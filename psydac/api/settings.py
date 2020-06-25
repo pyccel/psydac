@@ -1,7 +1,7 @@
 # coding: utf-8
 
 
-PSYDAC_DEFAULT_FOLDER = '__pycache__/__spl__'
+PSYDAC_DEFAULT_FOLDER = '__psydac__'
 
 
 # ... defining PSYDAC backends

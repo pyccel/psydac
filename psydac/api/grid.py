@@ -68,7 +68,7 @@ class BoundaryQuadratureGrid(QuadratureGrid):
         if V.ldim == 1:
             assert( isinstance( V, SplineSpace ) )
 
-            bounds = {}
+            bounds     = {}
             bounds[-1] = V.domain[0]
             bounds[1]  = V.domain[1]
 
@@ -78,7 +78,7 @@ class BoundaryQuadratureGrid(QuadratureGrid):
         elif V.ldim in [2, 3]:
             assert( isinstance( V, TensorFemSpace ) )
 
-            bounds = {}
+            bounds     = {}
             bounds[-1] = V.spaces[axis].domain[0]
             bounds[1]  = V.spaces[axis].domain[1]
 
@@ -100,26 +100,28 @@ class BoundaryQuadratureGrid(QuadratureGrid):
         return self._ext
 #==============================================================================
 class BasisValues():
-    def __init__( self, V, grid, nderiv ):
+    def __init__( self, V, grid, nderiv , ext=None):
         assert( isinstance( grid, QuadratureGrid ) )
 
         if isinstance(V, ProductFemSpace):
-            V = V.spaces
+            starts = V.vector_space.starts
+            V      = V.spaces
         else:
-            V = [V]
+            starts = [V.vector_space.starts]
+            V      = [V]
+
         spans = []
         basis = []
-        for Vi in V:
-            quad_grid  = Vi.quad_grids
-            spans     += [[g.spans for g in quad_grid]]
-            basis     += [[g.basis for g in quad_grid]]
+        for s,Vi in zip(starts,V):
+            quad_grids  = Vi.quad_grids
+            spans      += [[g.spans-i for i,g in zip(s,quad_grids)]]
+            basis      += [[g.basis for g in quad_grids]]
 
         self._spans = spans
         self._basis = basis
 
         if isinstance(grid, BoundaryQuadratureGrid):
             axis = grid.axis
-            ext  = grid.ext
             for i,Vi in enumerate(V):
                 space  = Vi.spaces[axis]
                 points = grid.points[axis]

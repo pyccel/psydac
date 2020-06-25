@@ -8,11 +8,11 @@ from sympy import Symbol, Idx
 from sympy.core.containers import Tuple
 
 from pyccel.ast.builtins import Range
-from pyccel.ast.core import Assign, Product, AugAssign, For
-from pyccel.ast.core import Variable, IndexedVariable, IndexedElement
-from pyccel.ast.core import Slice
-from pyccel.ast.core import EmptyLine, Import
-from pyccel.ast.core import CodeBlock, FunctionDef
+from pyccel.ast.core     import Assign, Product, AugAssign, For
+from pyccel.ast.core     import Variable, IndexedVariable, IndexedElement
+from pyccel.ast.core     import Slice
+from pyccel.ast.core     import EmptyLine, Import
+from pyccel.ast.core     import CodeBlock, FunctionDef
 
 from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import SymbolicExpr
@@ -21,7 +21,8 @@ from sympde.expr.evaluation import _split_test_function
 from sympde.topology import SymbolicDeterminant
 from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
-from sympde.topology import Boundary, NormalVector
+from sympde.topology import Boundary, NormalVector, Interface
+
 from sympde.topology.derivatives import get_index_logical_derivatives
 
 from .nodes import AtomicNode
@@ -483,7 +484,7 @@ class Parser(object):
         return CodeBlock([*inits.values() , *stmts.values() , body])
 
     def _visit_EvalMapping(self, expr, **kwargs):
-        if self._mapping._expressions is not None:
+        if self._mapping.is_analytical:
             return EmptyLine()
         values  = expr.values
         coeffs  = expr.coeffs
@@ -865,8 +866,14 @@ class Parser(object):
                 spans   = self._visit_Span(Span(test))
                 degrees = self._visit_LengthDofTest(LengthDofTest(test))
                 spans   = flatten(*spans.values())
+
                 lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
                 lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
+                if isinstance(self._target, Interface):
+                    axis = self._target.axis
+                    lhs_starts[axis] = pads[axis]
+                    lhs_ends[axis]   = 2*pads[axis] + 1
+
                 for k2 in range(lhs.shape[1]):
                     if expr.expr[k1,k2]:
                         lhs_slices  = [Slice(s, e) for s,e in zip(lhs_starts, lhs_ends)]
@@ -914,7 +921,7 @@ class Parser(object):
         expr = expr.expr
         if lhs is None:
             if not isinstance(expr, (Add, Mul)):
-                lhs = self._visit(AtomicNode(expr), **kwargs)
+                lhs = self._visit_AtomicNode(AtomicNode(expr), **kwargs)
             else:
                 lhs = random_string( 6 )
                 lhs = Symbol('tmp_{}'.format(lhs))
@@ -1002,12 +1009,13 @@ class Parser(object):
                 lhs = random_string( 6 )
                 lhs = Symbol('tmp_{}'.format(lhs))
 
-        weight  = SymbolicWeightedVolume(self.mapping)
+        mapping = self.mapping
+        weight  = SymbolicWeightedVolume(mapping)
         weight = SymbolicExpr(weight)
         exprs = expr.expr[:]
 
         if self.mapping.is_analytical:
-            exprs =  [LogicalExpr(self.mapping, i) for i in exprs]
+            exprs =  [LogicalExpr(mapping, i) for i in exprs]
 
         rhs = [weight*self._visit(expr, **kwargs) for expr in exprs]
         lhs = lhs[:]
@@ -1016,10 +1024,15 @@ class Parser(object):
         normal_vectors = expr.expr.atoms(NormalVector)
         target         = self._target
         dim            = self._dim
+
+        if isinstance(target, Interface):
+            mapping = mapping.minus
+
         for vec in normal_vectors:
             axis    = target.axis
-            ext     = target.ext
-            J       = LogicalExpr(self.mapping, self.mapping.jacobian)
+            ext     = target.ext if isinstance(target, Boundary) else 1
+
+            J       = LogicalExpr(mapping, mapping.jacobian)
             J       = SymbolicExpr(J)
             values  = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
             normalization = sum(v**2 for v in values)**0.5
@@ -1082,9 +1095,15 @@ class Parser(object):
 
     # ....................................................
     def _visit_LogicalValueNode(self, expr, **kwargs):
+
         mapping = self.mapping
+
         expr = expr.expr
         target = self.target
+
+        if isinstance(target, Interface):
+                mapping = mapping.minus
+
         if isinstance(expr, SymbolicDeterminant):
             return SymbolicExpr(mapping.det_jacobian)
 
@@ -1104,7 +1123,7 @@ class Parser(object):
 
         elif isinstance(expr, SymbolicWeightedVolume):
             wvol = self._visit(expr, **kwargs)
-            if isinstance(target, Boundary):
+            if isinstance(target, (Boundary, Interface)):
                 J = mapping.jacobian.copy()
                 J.col_del(target.axis)
                 J = LogicalExpr(mapping, J)
@@ -1112,8 +1131,15 @@ class Parser(object):
                 det_jac = (J.T*J).det()
                 det_jac = det_jac.simplify()**0.5
             else:
-                det_jac = SymbolicDeterminant(mapping)
+                if not mapping.is_analytical:
+                    det_jac = SymbolicDeterminant(mapping)
+                else:
+                    det_jac = LogicalExpr(mapping, mapping.det_jacobian)
                 det_jac = SymbolicExpr(det_jac)
+            math_functions = math_atoms_as_str(det_jac, 'numpy')
+            math_functions = tuple(m for m in math_functions if m not in self._math_functions)
+            self._math_functions = math_functions + self._math_functions
+
             return wvol * Abs(det_jac)
         elif isinstance(expr, Symbol):
             return expr

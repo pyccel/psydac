@@ -39,7 +39,8 @@ from sympde.expr import LinearForm
 from sympde.expr import BilinearForm
 from sympde.expr import Functional
 
-from sympde.topology.basic       import Boundary
+
+from sympde.topology.basic       import Boundary, Interface
 from sympde.topology             import H1SpaceType, HcurlSpaceType
 from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology             import ScalarField
@@ -50,6 +51,7 @@ from sympde.topology.space       import IndexedTestTrial
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
+from sympde.topology.mapping     import InterfaceMapping
 
 from pyccel.ast.core  import _atomic
 
@@ -60,7 +62,6 @@ from .nodes import index_dof_trial
 
 from collections import OrderedDict
 from itertools   import groupby
-
 
 
 #==============================================================================
@@ -235,13 +236,18 @@ class AST(object):
         if isinstance(domain, Boundary):
             mask = Mask(domain.axis, domain.ext)
 
+        elif isinstance(domain, Interface):
+            mask = Mask(domain.axis, None)
+
         if isinstance(expr, LinearForm):
+
             is_linear           = True
             tests               = expr.test_functions
             fields              = expr.fields
             mapping             = spaces.symbolic_mapping
             is_rational_mapping = spaces.is_rational_mapping
             spaces              = spaces.symbolic_space
+            is_broken           = spaces.is_broken
 
         elif isinstance(expr, BilinearForm):
             is_bilinear         = True
@@ -251,6 +257,7 @@ class AST(object):
             mapping             = spaces[0].symbolic_mapping
             is_rational_mapping = spaces[0].is_rational_mapping
             spaces              = [V.symbolic_space for V in spaces]
+            is_broken           = spaces[0].is_broken
 
         elif isinstance(expr, Functional):
             is_functional       = True
@@ -260,6 +267,7 @@ class AST(object):
             mapping             = spaces.symbolic_mapping
             is_rational_mapping = spaces.is_rational_mapping
             spaces              = spaces.symbolic_space
+            is_broken           = spaces.is_broken
 
         else:
             raise NotImplementedError('TODO')
@@ -314,6 +322,21 @@ class AST(object):
             d['span']   = GlobalSpan(u)
             d_trials[u] = d
         # ...
+
+
+        if is_broken:
+            if is_bilinear:
+                space_domain = spaces[0].domain
+            else:
+                space_domain = spaces.domain
+
+            if isinstance(domain, Interface):
+                mapping = InterfaceMapping(mapping[domain.minus.domain], mapping[domain.plus.domain])
+            elif isinstance(domain, Boundary):
+                mapping = mapping[domain.domain]
+            else:
+                mapping = mapping[domain]
+
 
         if is_linear:
             ast = _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, 

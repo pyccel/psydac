@@ -2,6 +2,7 @@
 *.pyo
 .ipynb_checkpoints/
 *.so
+__psydac__/
 
 build
 *build*
