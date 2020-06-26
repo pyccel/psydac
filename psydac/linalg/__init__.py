@@ -7,3 +7,4 @@ from psydac.linalg import iterative_solvers
 from psydac.linalg import stencil
 from psydac.linalg import kron
 from psydac.linalg import utilities
+from psydac.linalg import identity
