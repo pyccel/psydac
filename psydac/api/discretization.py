@@ -280,113 +280,92 @@ class DiscreteEquation(BasicDiscrete):
 
 #==============================================================================
 class DiscreteDerham(BasicDiscrete):
-    def __init__(self, *spaces):
+    """
+    Rerpresent the discrete De Rham sequence
     
-        dim       = len(spaces) - 1
-        self._V0  = None
-        self._V1  = None
-        self._V2  = None
-        self._V3  = None
-        self._dim = dim
-        
-        if dim == 1:
-            self._V0 = spaces[0]
-            self._V1 = spaces[1]
-        elif dim == 2:
-            self._V0 = spaces[0]
-            self._V1 = spaces[1]
-            self._V2 = spaces[2]
-        elif dim == 3:
-            self._V0 = spaces[0]
-            self._V1 = spaces[1]
-            self._V2 = spaces[2]
-            self._V3 = spaces[3]
+    """
+    def __init__(self, *spaces):
 
-    # ...
+        dim          = len(spaces) - 1
+        self._dim    = dim
+        self._spaces = spaces
+
+        if dim not in [1,2,3]:
+            raise ValueError('dimension {} is not available'.format(dim))
+
     @property
     def dim(self):
         return self._dim
 
-    # ...  
     @property
     def V0(self):
-        return self._V0
+        return self._spaces[0]
 
     @property
     def V1(self):
-        return self._V1        
+        return self._spaces[1]
 
     @property
     def V2(self):
-        return self._V2
-        
+        return self._spaces[2]
+
     @property
     def V3(self):
-        return self._V3  
+        return self._spaces[3]
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+    @property
+    def derivatives_as_matrices(self):
+        return tuple(V.diff._matrix for V in self.spaces)
+
+    @property
+    def derivatives_as_operators(self):
+        return tuple(V.diff for V in self.spaces)
+
 
 #==============================================================================           
-def discretize_derham(V, domain_h, *args, **kwargs):
+def discretize_derham(Complex, domain_h, *args, **kwargs):
 
-    spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in V.spaces]
-    ldim   = V.shape
+    # TODO: we should make sure that
+
+    spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
+    ldim   = Complex.shape
     
     if ldim == 1:
+        # = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
+        #spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
+
         D0 = Grad(spaces[0], spaces[1].vector_space)
-        setattr(spaces[0], 'grad', D0)
-        
-        interpolation0 = Interpolation(H1=spaces[0])
-        interpolation1 = Interpolation(H1=spaces[0], L2=spaces[1])
-        
-        setattr(spaces[0], 'interpolate', interpolation0)
-        setattr(spaces[1], 'interpolate', interpolation1)
+
+        spaces[0].diff = spaces[0].grad = D0
         
     elif ldim == 2:
         
-        if isinstance(V.spaces[1].kind, HcurlSpaceType):
+        if isinstance(Complex.spaces[1].kind, HcurlSpaceType):
             D0 = Grad(spaces[0], spaces[1].vector_space)
             D1 = Curl(spaces[0], spaces[1].vector_space, spaces[2].vector_space)
-            setattr(spaces[0], 'grad', D0)
-            setattr(spaces[1], 'curl', D1)
-            
-            interpolation0 = Interpolation(H1=spaces[0])
-            interpolation1 = Interpolation(H1=spaces[0], Hcurl=spaces[1])
-            interpolation2 = Interpolation(H1=spaces[0], L2=spaces[2])
+
+            spaces[0].diff = spaces[0].grad =  D0
+            spaces[1].diff = spaces[1].curl =  D1
             
         else:
-            D0 = Grad(spaces[0], spaces[1].vector_space)
+            D0 = Grad(spaces[0], spaces[0].vector_space, spaces[1].vector_space)
             D1 = Div(spaces[0], spaces[1].vector_space, spaces[2].vector_space)
-            setattr(spaces[0], 'grad', D0)
-            setattr(spaces[1], 'div', D1)
-            
-            interpolation0 = Interpolation(H1=spaces[0])
-            interpolation1 = Interpolation(H1=spaces[0], Hdiv=spaces[1])
-            interpolation2 = Interpolation(H1=spaces[0], L2=spaces[2])
+            spaces[0].diff = spaces[0].grad = D0
+            spaces[1].diff = spaces[1].div  = D1
 
-        setattr(spaces[0], 'interpolate', interpolation0)
-        setattr(spaces[1], 'interpolate', interpolation1)
-        setattr(spaces[2], 'interpolate', interpolation2)
-            
     elif ldim == 3:
         D0 = Grad(spaces[0], spaces[1].vector_space)
         D1 = Curl(spaces[0], spaces[1].vector_space, spaces[2].vector_space)  
-        D2 = Div(spaces[0], spaces[2].vector_space, spaces[3].vector_space)
+        D2 = Div(spaces[0],  spaces[2].vector_space, spaces[3].vector_space)
         
-        setattr(spaces[1], 'grad', D0)
-        setattr(spaces[2], 'curl', D1)
-        setattr(spaces[3], 'div' , D2)
-        
-        interpolation0 = Interpolation(H1=spaces[0])
-        interpolation1 = Interpolation(H1=spaces[0], Hcurl=spaces[1])
-        interpolation2 = Interpolation(H1=spaces[0], Hdiv=spaces[2])
-        interpolation3 = Interpolation(H1=spaces[0], L2=spaces[3])
-        
-        setattr(spaces[0], 'interpolate', interpolation0)
-        setattr(spaces[1], 'interpolate', interpolation1)
-        setattr(spaces[2], 'interpolate', interpolation2)
-        setattr(spaces[3], 'interpolate', interpolation3)
-        
+        spaces[0].diff = spaces[0].grad =  D0
+        spaces[1].diff = spaces[1].curl =  D1
+        spaces[2].diff = spaces[2].div  =  D2
 
-        
     return DiscreteDerham(*spaces)
 #==============================================================================
 # TODO multi patch

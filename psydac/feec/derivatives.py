@@ -2,10 +2,11 @@
 
 import numpy as np
 
-from psydac.linalg.stencil import StencilMatrix, StencilVectorSpace
-from psydac.linalg.kron    import KroneckerStencilMatrix as Stencil_kron
-from psydac.linalg.block   import ProductSpace, BlockVector, BlockLinearOperator, BlockMatrix
-from psydac.fem.vector     import ProductFemSpace
+from psydac.linalg.stencil  import StencilMatrix, StencilVectorSpace
+from psydac.linalg.kron     import KroneckerStencilMatrix
+from psydac.linalg.block    import ProductSpace, BlockVector, BlockLinearOperator, BlockMatrix
+from psydac.fem.vector      import ProductFemSpace
+from psydac.linalg.identity import IdentityLinearOperator, IdentityMatrix
 
 def d_matrix(n, p, P):
     """creates a 1d incidence matrix.
@@ -24,53 +25,29 @@ def d_matrix(n, p, P):
     V1 = StencilVectorSpace([n], [p], [P])
     V2 = StencilVectorSpace([n-1], [p], [P])
     M = StencilMatrix(V1, V2)
-    
 
     for i in range(n):
         M._data[p+i,p] = -1.
         M._data[p+i,p+1] = 1.
     return M
-    
-def identity(n, p, P):
-    """creates a 1d identity matrix.
-    The final matrix will have a shape of (n,n)
-
-    n: int
-        number of nodes
-        
-    p : int
-        pads
-        
-    P : bool
-        periodicity
-    """
-    
-    V = StencilVectorSpace([n], [p], [P])
-    M = StencilMatrix(V, V)
-    
-    for i in range(0, n+1):
-        M._data[i+p, p] = 1.
-        
-    return M
-
 
 class Grad(object):
-    def __init__(self, Vh, Curl_Vh):
+    def __init__(self, V0_h, V1_h):
         """
-        Vh : TensorFemSpace
+        V0_h : TensorFemSpace
         
-        Curl_Vh : StencilVectorSpace
+        V1_h : ProductFemSpace
         
         """
         
-        dim     = Vh.ldim
-        npts    = [V.nbasis for V in Vh.spaces]
-        pads    = [V.degree for V in Vh.spaces]
-        periods = [V.periodic for V in Vh.spaces]
+        dim     = V0_h.ldim
+        npts    = [V.nbasis for V in V0_h.spaces]
+        pads    = [V.degree for V in V0_h.spaces]
+        periods = [V.periodic for V in V0_h.spaces]
 
         d_matrices = [d_matrix(n, p, P) for n,p,P in zip(npts, pads, periods)]
-        identities = [identity(n, p, P) for n,p,P in zip(npts, pads, periods)]
-         
+        identities = [IdentityMatrix(V.vector_space) for V in V0_h.spaces]
+
         mats = []
         for i in range(dim):
             args = []
@@ -79,30 +56,32 @@ class Grad(object):
                     args.append(d_matrices[j])
                 else:
                     args.append(identities[j])
+            
+            if dim == 1:
+                mats += args
+            else: 
+                mats += [KroneckerStencilMatrix(V0_h.vector_space, V1_h.vector_space.spaces[i], *args)]
 
-            mats += [Stencil_kron(Vh.vector_space, Curl_Vh.spaces[i], *args)]
+        C0 = ProductSpace(V0_h.vector_space)
+       
+        if dim == 1:
+            C1 = ProductSpace(V1_h.vector_space)
+        else:
+            C1 = V1_h.vector_space
 
-        Vh = Vh.vector_space
-        Vh = ProductSpace(Vh)
-
-        mats = [[mat] for mat in mats]
-        
-        Mat = BlockLinearOperator( Vh, Curl_Vh, blocks=mats )
-        self._matrix = Mat
-
-
+        self._matrix = BlockMatrix( C0, C1, blocks=[[mat] for mat in mats] )
 
     def __call__(self, x):
+        x = BlockVector(ProductSpace(x.space), blocks=[x])
         return self._matrix.dot(x)
 
 class Curl(object):
-    def __init__(self, Vh, Curl_Vh, Div_Vh):
+    def __init__(self, Curl_Vh, Div_Vh):
         """
-        Vh : TensorFemSpace
         
-        Curl_Vh : StencilVectorSpace
+        Curl_Vh : ProductFemSpace
         
-        Div_Vh : StencilVectorSpace
+        Div_Vh  : ProductFemSpace
         
         """
 
