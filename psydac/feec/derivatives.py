@@ -41,11 +41,8 @@ class Grad(object):
         """
         
         dim     = V0_h.ldim
-        npts    = [V.nbasis for V in V0_h.spaces]
-        pads    = [V.degree for V in V0_h.spaces]
-        periods = [V.periodic for V in V0_h.spaces]
 
-        d_matrices = [d_matrix(n, p, P) for n,p,P in zip(npts, pads, periods)]
+        d_matrices = [d_matrix(V.nbasis, V.degree, V.periods) for V in V0_h.spaces]
         identities = [IdentityMatrix(V.vector_space) for V in V0_h.spaces]
 
         mats = []
@@ -56,43 +53,45 @@ class Grad(object):
                     args.append(d_matrices[j])
                 else:
                     args.append(identities[j])
-            
+
             if dim == 1:
                 mats += args
-            else: 
+            else:
                 mats += [KroneckerStencilMatrix(V0_h.vector_space, V1_h.vector_space.spaces[i], *args)]
 
-        C0 = ProductSpace(V0_h.vector_space)
-       
-        if dim == 1:
-            C1 = ProductSpace(V1_h.vector_space)
-        else:
-            C1 = V1_h.vector_space
+        VS0 = ProductSpace(V0_h.vector_space)
 
-        self._matrix = BlockMatrix( C0, C1, blocks=[[mat] for mat in mats] )
+        if dim == 1:
+            VS1 = ProductSpace(V1_h.vector_space)
+        else:
+            VS1 = V1_h.vector_space
+
+        self._matrix = BlockMatrix( VS0, VS1, blocks=[[mat] for mat in mats] )
 
     def __call__(self, x):
         x = BlockVector(ProductSpace(x.space), blocks=[x])
         return self._matrix.dot(x)
 
 class Curl(object):
-    def __init__(self, Curl_Vh, Div_Vh):
+    def __init__(self, V1_h, V2_h):
         """
         
-        Curl_Vh : ProductFemSpace
+        V1_h  : ProductFemSpace
         
-        Div_Vh  : ProductFemSpace
+        V2_h  : ProductFemSpace
         
         """
 
-        dim     = Vh.ldim
-        npts    =  [V.nbasis for V in Vh.spaces]
-        pads    =  [V.degree for V in Vh.spaces]
-        periods =  [V.periodic for V in Vh.spaces]
+        D_basis = [V.spaces[i] for i,V in enumerate(V1_h.spaces)]
+        dim     = len(D_basis)
+        if dim == 2:
+            N_basis = [V1_h.spaces[1].spaces[0], V1_h.spaces[0].spaces[1]]
+        elif dim == 3:
+            N_basis = [V1_h.spaces[1].spaces[0], V1_h.spaces[0].spaces[1], V1_h.spaces[0].spaces[2]]
 
-        d_matrices   = [d_matrix(n, p, P) for n,p,P in zip(npts, pads, periods)]
-        identities_0 = [identity(n, p, P) for n,p,P in zip(npts, pads, periods)]
-        identities_1 = [identity(n-1, p, P) for n,p,P in zip(npts, pads, periods)]
+        d_matrices   = [d_matrix(V.nbasis, V.degree, V.periods)   for V in N_basis]
+        identities_0 = [IdentityMatrix(V.vector_space) for V in N_basis]
+        identities_1 = [IdentityMatrix(V.vector_space) for V in D_basis]
         
         mats = []    
             
@@ -101,71 +100,61 @@ class Curl(object):
                     [None,None,None],
                     [None,None,None]]
                     
-            args       = [-identities_0[0],identities_1[1],d_matrices[2]]
-            mats[0][1] = Stencil_kron(Curl_Vh.spaces[1],Div_Vh.spaces[0],*args)
+            args       = [-identities_0[0], identities_1[1], d_matrices[2]]
+            mats[0][1] = KroneckerStencilMatrix(V1_h.vector_space.spaces[1], V2_h.vector_space.spaces[0],*args)
             
-            args       = [identities_0[0],d_matrices[1],identities_1[2]]
-            mats[0][2] = Stencil_kron(Curl_Vh.spaces[2],Div_Vh.spaces[0],*args)
+            args       = [identities_0[0], d_matrices[1], identities_1[2]]
+            mats[0][2] = KroneckerStencilMatrix(V1_h.vector_space.spaces[2], V2_h.vector_space.spaces[0],*args)
             # ...
             
             # ...
-            args       = [identities_1[0],identities_0[1],d_matrices[2]]
-            mats[1][0] = Stencil_kron(Curl_Vh.spaces[0],Div_Vh.spaces[1], *args)
+            args       = [identities_1[0], identities_0[1], d_matrices[2]]
+            mats[1][0] = KroneckerStencilMatrix(V1_h.vector_space.spaces[0], V2_h.vector_space.spaces[1], *args)
             
-            args       = [-d_matrices[0],identities_0[1],identities_1[2]]
-            mats[1][2] = Stencil_kron(Curl_Vh.spaces[2],Div_Vh.spaces[1], *args)
+            args       = [-d_matrices[0], identities_0[1], identities_1[2]]
+            mats[1][2] = KroneckerStencilMatrix(V1_h.vector_space.spaces[2], V2_h.vector_space.spaces[1], *args)
             # ...
             
             # ...
-            args       = [-identities_1[0],d_matrices[1],identities_0[2]]
-            mats[2][0] = Stencil_kron(Curl_Vh.spaces[0],Div_Vh.spaces[2], *args)
+            args       = [-identities_1[0], d_matrices[1], identities_0[2]]
+            mats[2][0] = KroneckerStencilMatrix(V1_h.vector_space.spaces[0], V2_h.vector_space.spaces[2], *args)
             
-            args       = [d_matrices[0],identities_1[1],identities_0[2]]
-            mats[2][1] = Stencil_kron(Curl_Vh.spaces[1],Div_Vh.spaces[2], *args)
-            
-            Vh = Curl_Vh
-            Wh = Div_Vh
+            args       = [d_matrices[0], identities_1[1], identities_0[2]]
+            mats[2][1] = KroneckerStencilMatrix(V1_h.vector_space.spaces[1], V2_h.vector_space.spaces[2], *args)
+
+            self._matrix = BlockLinearOperator( V1_h.vector_space, V2_h.vector_space, blocks=mats )
 
         elif dim == 2:
             mats = [[None , None]]
         
             args = [-identities_1[0], d_matrices[1]]
-            mats[0][0] = Stencil_kron(Curl_Vh.spaces[0], Div_Vh, *args)
+            mats[0][0] = KroneckerStencilMatrix(V1_h.vector_space.spaces[0], V2_h.vector_space, *args)
 
             args = [d_matrices[0], identities_1[1]]
-            mats[0][1] = Stencil_kron(Curl_Vh.spaces[1], Div_Vh, *args)
-            
-            Vh = Curl_Vh
-            Wh = ProductSpace( Div_Vh )
+            mats[0][1] = KroneckerStencilMatrix(V1_h.vector_space.spaces[1], V2_h.vector_space, *args)
+
+            self._matrix = BlockLinearOperator( V1_h.vector_space, ProductSpace( V2_h.vector_space ), blocks=mats )
         
         else:
             raise NotImplementedError('TODO')
-            
-        Mat = BlockLinearOperator( Vh, Wh, blocks=mats )
-        self._matrix = Mat
-
 
     def __call__(self, x):
         return self._matrix.dot(x)
 
 class Div(object):
-    def __init__(self, Vh, Div_Vh, L2_Vh):
+    def __init__(self, V2_h, V3_h):
         """
-        Vh      : TensorFemSpace
-        
-        Div_Vh : StencilVectorSpace
-        
-        L2_Vh  : StencilVectorSpace
+        V2_h : ProductFemSpace
+
+        V3_h  : TensorFemSpace
         
         """
 
-        dim     = Vh.ldim
-        npts    =  [V.nbasis for V in Vh.spaces]
-        pads    =  [V.degree for V in Vh.spaces]
-        periods =  [V.periodic for V in Vh.spaces]
-        
-        d_matrices = [d_matrix(n, p, P) for n,p,P in zip(npts, pads, periods)]
-        identities = [identity(n-1, p, P) for n,p,P in zip(npts, pads, periods)]
+        dim        = V2_h.ldim
+        N_basis    = [V.spaces[i] for i,V in enumerate(V2_h.spaces)]
+
+        d_matrices = [d_matrix(V.nbasis, V.degree, V.periods)   for V in N_basis]
+        identities = [IdentityMatrix(V.vector_space) for V in V3_h.spaces]
             
         mats = []
         for i in range(dim):
@@ -176,52 +165,39 @@ class Div(object):
                 else:
                     args.append(identities[j])
                     
-            mats += [Stencil_kron(Div_Vh.spaces[i], L2_Vh, *args)]
+            mats += [KroneckerStencilMatrix(V2_h.spaces[i].vector_space, V3_h.vector_space, *args)]
         
-        Mat = BlockLinearOperator( Div_Vh, ProductSpace(L2_Vh), blocks=[mats])
+        Mat = BlockLinearOperator( V2_h.vector_space, ProductSpace(V3_h.vector_space), blocks=[mats])
         self._matrix = Mat
 
     def __call__(self, x):
         return self._matrix.dot(x)
 
 class Rot(object):
-    def __init__(self, Vh, Rot_Vh):
+    def __init__(self, V0_h, V1_h):
         """
-        Vh : TensorFemSpace
+        V0_h : TensorFemSpace
         
-        Grad_Vh : StencilVectorSpace
+        V1_h : ProductFemSpace
         
         """
         
-        dim     = Vh.ldim
-        
-        if dim != 2:
+        if V0_h.ldim != 2:
             raise ValueError('only dimension 2 is available')
-            
-        npts    = [V.nbasis for V in Vh.spaces]
-        pads    = [V.degree for V in Vh.spaces]
-        periods = [V.periodic for V in Vh.spaces]
 
-        d_matrices = [d_matrix(n, p, P) for n,p,P in zip(npts, pads, periods)]
-        identities = [identity(n, p, P) for n,p,P in zip(npts, pads, periods)]
+
+        d_matrices = [d_matrix(V.nbasis, V.degree, V.periods) for V in V0_h.spaces]
+        identities = [IdentityMatrix(V.vector_space) for V in V0_h.spaces]
          
-        mats = []
-        mats += [Stencil_kron(Vh.vector_space, Grad_Vh.spaces[0], *args)]
-        mats += [Stencil_kron(Vh.vector_space, Grad_Vh.spaces[1], *args)]
+        mats = [[None],[None]]
+        mats[0][0] = [KroneckerStencilMatrix(V0_h.vector_space, V1_h.spaces[0].vector_space, *[identities[0],d_matrices[1]])]
+        mats[1][0] = [KroneckerStencilMatrix(V0_h.vector_space, V1_h.spaces[1].vector_space, *[-d_matrices[0],identities[1]])]
 
-        Vh = Vh.vector_space
-        Vh = ProductSpace(Vh)
-        
-        mats = [[mats[1]],[-mats[0]]]
-        
-        Mat = BlockLinearOperator( Vh, Grad_Vh, blocks=mats )
+        Mat = BlockLinearOperator( ProductSpace(V0_h.vector_space), V1_h.vector_space, blocks=mats )
         self._matrix = Mat
 
-
-
     def __call__(self, x):
+         x = BlockVector(ProductSpace(x.space), blocks=[x])
         return self._matrix.dot(x)
-# user friendly function that returns all discrete derivatives
-def discrete_derivatives(Vh):
-    """."""
+
     
