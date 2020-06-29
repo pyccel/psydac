@@ -46,7 +46,7 @@ from psydac.fem.tensor               import TensorFemSpace
 from psydac.fem.vector               import ProductFemSpace
 from psydac.cad.geometry             import Geometry
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
-from psydac.feec.derivatives         import Grad, Curl, Div
+from psydac.feec.derivatives         import Grad, Curl, Div, Rot
 from psydac.feec.utilities           import Interpolation, interpolation_matrices
 
 import inspect
@@ -338,29 +338,29 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
         # = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
         #spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
 
-        D0 = Grad(spaces[0], spaces[1].vector_space)
+        D0 = Grad(spaces[0], spaces[1])
 
         spaces[0].diff = spaces[0].grad = D0
         
     elif ldim == 2:
         
         if isinstance(Complex.spaces[1].kind, HcurlSpaceType):
-            D0 = Grad(spaces[0], spaces[1].vector_space)
-            D1 = Curl(spaces[0], spaces[1].vector_space, spaces[2].vector_space)
+            D0 = Grad(spaces[0], spaces[1])
+            D1 = Curl(spaces[1], spaces[2])
 
             spaces[0].diff = spaces[0].grad =  D0
             spaces[1].diff = spaces[1].curl =  D1
             
         else:
-            D0 = Grad(spaces[0], spaces[0].vector_space, spaces[1].vector_space)
-            D1 = Div(spaces[0], spaces[1].vector_space, spaces[2].vector_space)
-            spaces[0].diff = spaces[0].grad = D0
+            D0 = Rot(spaces[0], spaces[1])
+            D1 = Div(spaces[1], spaces[2])
+            spaces[0].diff = spaces[0].rot  = D0
             spaces[1].diff = spaces[1].div  = D1
 
     elif ldim == 3:
-        D0 = Grad(spaces[0], spaces[1].vector_space)
-        D1 = Curl(spaces[0], spaces[1].vector_space, spaces[2].vector_space)  
-        D2 = Div(spaces[0],  spaces[2].vector_space, spaces[3].vector_space)
+        D0 = Grad(spaces[0], spaces[1])
+        D1 = Curl(spaces[1], spaces[2])  
+        D2 = Div(spaces[2], spaces[3])
         
         spaces[0].diff = spaces[0].grad =  D0
         spaces[1].diff = spaces[1].curl =  D1
