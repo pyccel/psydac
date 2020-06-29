@@ -42,7 +42,7 @@ class Grad(object):
         
         dim     = V0_h.ldim
 
-        d_matrices = [d_matrix(V.nbasis, V.degree, V.periods) for V in V0_h.spaces]
+        d_matrices = [d_matrix(V.nbasis, V.degree, V.periodic) for V in V0_h.spaces]
         identities = [IdentityMatrix(V.vector_space) for V in V0_h.spaces]
 
         mats = []
@@ -89,7 +89,7 @@ class Curl(object):
         elif dim == 3:
             N_basis = [V1_h.spaces[1].spaces[0], V1_h.spaces[0].spaces[1], V1_h.spaces[0].spaces[2]]
 
-        d_matrices   = [d_matrix(V.nbasis, V.degree, V.periods)   for V in N_basis]
+        d_matrices   = [d_matrix(V.nbasis, V.degree, V.periodic)   for V in N_basis]
         identities_0 = [IdentityMatrix(V.vector_space) for V in N_basis]
         identities_1 = [IdentityMatrix(V.vector_space) for V in D_basis]
         
@@ -153,7 +153,7 @@ class Div(object):
         dim        = V2_h.ldim
         N_basis    = [V.spaces[i] for i,V in enumerate(V2_h.spaces)]
 
-        d_matrices = [d_matrix(V.nbasis, V.degree, V.periods)   for V in N_basis]
+        d_matrices = [d_matrix(V.nbasis, V.degree, V.periodic)   for V in N_basis]
         identities = [IdentityMatrix(V.vector_space) for V in V3_h.spaces]
             
         mats = []
@@ -186,7 +186,7 @@ class Rot(object):
             raise ValueError('only dimension 2 is available')
 
 
-        d_matrices = [d_matrix(V.nbasis, V.degree, V.periods) for V in V0_h.spaces]
+        d_matrices = [d_matrix(V.nbasis, V.degree, V.periodic) for V in V0_h.spaces]
         identities = [IdentityMatrix(V.vector_space) for V in V0_h.spaces]
          
         mats = [[None],[None]]
@@ -197,7 +197,7 @@ class Rot(object):
         self._matrix = Mat
 
     def __call__(self, x):
-         x = BlockVector(ProductSpace(x.space), blocks=[x])
+        x = BlockVector(ProductSpace(x.space), blocks=[x])
         return self._matrix.dot(x)
 
     
