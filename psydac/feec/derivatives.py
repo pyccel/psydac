@@ -6,7 +6,7 @@ from psydac.linalg.stencil  import StencilMatrix, StencilVectorSpace
 from psydac.linalg.kron     import KroneckerStencilMatrix
 from psydac.linalg.block    import ProductSpace, BlockVector, BlockLinearOperator, BlockMatrix
 from psydac.fem.vector      import ProductFemSpace
-from psydac.linalg.identity import IdentityLinearOperator, IdentityMatrix
+from psydac.linalg.identity import IdentityLinearOperator, IdentityStencilMatrix as IdentityMatrix
 
 def d_matrix(n, p, P):
     """creates a 1d incidence matrix.
