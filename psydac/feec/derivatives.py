@@ -190,8 +190,8 @@ class Rot(object):
         identities = [IdentityMatrix(V.vector_space) for V in V0_h.spaces]
          
         mats = [[None],[None]]
-        mats[0][0] = [KroneckerStencilMatrix(V0_h.vector_space, V1_h.spaces[0].vector_space, *[identities[0],d_matrices[1]])]
-        mats[1][0] = [KroneckerStencilMatrix(V0_h.vector_space, V1_h.spaces[1].vector_space, *[-d_matrices[0],identities[1]])]
+        mats[0][0] = KroneckerStencilMatrix(V0_h.vector_space, V1_h.spaces[0].vector_space, *[identities[0],d_matrices[1]])
+        mats[1][0] = KroneckerStencilMatrix(V0_h.vector_space, V1_h.spaces[1].vector_space, *[-d_matrices[0],identities[1]])
 
         Mat = BlockLinearOperator( ProductSpace(V0_h.vector_space), V1_h.vector_space, blocks=mats )
         self._matrix = Mat
