@@ -1,0 +1,10 @@
+TODO:
+
+  - add core/interpolation.py (1D)
+  - add core/histopolation.py (1D)
+  - when choosing SplineSpace, choose if it should use N-basis or D-basis, remove normalize flag
+  - rename _init_collocation as _init_interpolation (also in TensorFemSpace)
+  - if N-basis, _interpolator uses collocation matrix
+  - if D-basis, _interpolator uses histopolation matrix
+
+  - remove normalize argument from discretize_space (and everywhere else)
