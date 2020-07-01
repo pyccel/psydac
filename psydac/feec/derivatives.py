@@ -43,7 +43,7 @@ class Grad(object):
         dim     = V0_h.ldim
 
         d_matrices = [d_matrix(V.nbasis, V.degree, V.periodic) for V in V0_h.spaces]
-        identities = [IdentityMatrix(V.vector_space) for V in V0_h.spaces]
+        identities = [IdentityMatrix(V.vector_space)           for V in V0_h.spaces]
 
         mats = []
         for i in range(dim):
@@ -133,7 +133,7 @@ class Curl(object):
             args = [d_matrices[0], identities_1[1]]
             mats[0][1] = KroneckerStencilMatrix(V1_h.vector_space.spaces[1], V2_h.vector_space, *args)
 
-            self._matrix = BlockLinearOperator( V1_h.vector_space, ProductSpace( V2_h.vector_space ), blocks=mats )
+            self._matrix = BlockMatrix( V1_h.vector_space, ProductSpace( V2_h.vector_space ), blocks=mats )
         
         else:
             raise NotImplementedError('TODO')
@@ -167,7 +167,7 @@ class Div(object):
                     
             mats += [KroneckerStencilMatrix(V2_h.spaces[i].vector_space, V3_h.vector_space, *args)]
         
-        Mat = BlockLinearOperator( V2_h.vector_space, ProductSpace(V3_h.vector_space), blocks=[mats])
+        Mat = BlockMatrix( V2_h.vector_space, ProductSpace(V3_h.vector_space), blocks=[mats])
         self._matrix = Mat
 
     def __call__(self, x):
@@ -193,7 +193,7 @@ class Rot(object):
         mats[0][0] = KroneckerStencilMatrix(V0_h.vector_space, V1_h.spaces[0].vector_space, *[identities[0],d_matrices[1]])
         mats[1][0] = KroneckerStencilMatrix(V0_h.vector_space, V1_h.spaces[1].vector_space, *[-d_matrices[0],identities[1]])
 
-        Mat = BlockLinearOperator( ProductSpace(V0_h.vector_space), V1_h.vector_space, blocks=mats )
+        Mat = BlockMatrix( ProductSpace(V0_h.vector_space), V1_h.vector_space, blocks=mats )
         self._matrix = Mat
 
     def __call__(self, x):
