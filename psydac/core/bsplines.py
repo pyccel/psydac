@@ -22,6 +22,7 @@ __all__ = ['find_span',
            'basis_funs_1st_der',
            'basis_funs_all_ders',
            'collocation_matrix',
+           'histopolation_matrix',
            'breakpoints',
            'greville',
            'elements_spans',
@@ -322,6 +323,49 @@ def collocation_matrix( knots, degree, xgrid, periodic ):
         mat[i,js(span)] = basis
 
     return mat
+
+#==============================================================================
+def histopolation_matrix(knots, degree, xgrid, periodic):
+    """
+    Compute the histopolation matrix $H_ij = \int_{x_i}^{x_{i+1}} B_j(x) dx$, which contains the
+    integrals of each B-spline basis function $B_j$ between two successive grid points.
+
+    Parameters
+    ----------
+    knots : 1D array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    xgrid : 1D array_like
+        Grid points.
+
+    periodic : bool
+        True if domain is periodic, False otherwise.
+
+    """
+
+    # Number of basis functions (in periodic case remove degree repeated elements)
+    nb = len(knots)-degree-1
+    if periodic:
+        nb -= degree
+
+    # Number of evaluation points
+    nx = len(xgrid)
+
+    # basis[i,j] := Nj(xi)
+    basis = collocation_matrix(knots, degree, xgrid, periodic)
+
+    D = np.zeros((nx-1, nb-1))
+    for i in range(0, nx-1):
+        for j in range(max(i-degree+1,1),min(i+degree+3, nx) ):
+            s = 0.
+            for k in range(0, j):
+                s += basis[i,k] - basis[i+1,k]
+            D[i, j-1] = s
+
+    return D
 
 #==============================================================================
 def breakpoints( knots, degree ):

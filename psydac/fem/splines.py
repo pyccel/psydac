@@ -45,22 +45,21 @@ class SplineSpace( FemSpace ):
         otherwise. Must be specified for each bound
         Default: (False, False)
 
-    quad_order : int
-        Order of Gaussian quadrature.
-        Default: degree+1
-
-    nderiv : int
-        Number of derivatives to be pre-computed at quadrature points.
-        Default: 1
+    basis : <str>
+        Set to "N" for N-basis splines
+        Set to "D" for D-basis splines
 
     """
     def __init__( self, degree, knots=None, grid=None,
-                  periodic=False, dirichlet=(False, False), normalize=False ):
+                  periodic=False, dirichlet=(False, False), basis='N' ):
+
+        if basis not in ['N', 'D']:
+            raise ValueError(" only options for basis functions are N or D ")
 
         self._degree    = degree
         self._periodic  = periodic
         self._dirichlet = dirichlet
-        self._normalize = normalize
+        self._basis     = basis
         
         if not( knots is None ) and not( grid is None ):
             raise ValueError( 'Cannot provide both grid and knots.' )
@@ -88,19 +87,24 @@ class SplineSpace( FemSpace ):
         self._collocation_ready = False
 
     # ...
-    def init_collocation( self ):
+    def init_interpolation( self ):
         """
         Compute the 1D interpolation matrix and factorize it, in preparation
         for the calculation of a spline interpolant given the values at the
         Greville points.
 
         """
-        imat = collocation_matrix(
+        if self.basis == 'N':
+            interpolation_matrix = collocation_matrix
+        else:
+            interpolation_matrix = histopolation_matrix
+
+        imat = interpolation_matrix(
             self.knots,
             self.degree,
             self.greville,
-            self.periodic
-        )
+            self.periodic)
+
 
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
