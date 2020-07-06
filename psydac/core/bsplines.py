@@ -647,14 +647,37 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders ):
     return basis
 
 #==============================================================================
-def scaling_matrix(p, n, T):
-    """Returns the scaling array for M-splines.
-    It is an array whose elements are (p+1)/(T[i+p+1]-T[i])
+def scaling_vector(knots, degree, periodic):
+    """
+    Return the scaling array K for converting B-splines to M-splines, which
+    contains the inverse of the integral of each B-spline over the real line.
 
+    By multiplying a B-spline by its corresponding value in the scaling vector,
+    we obtain an M-spline, which has unit integral:
+
+    \int_{-\infty}^{+\infty} B[i](x) dx = (T[i+p+1]-T[i]) / (p+1),
+
+    M[i](x) := B[i](x) * (p+1) / (T[i+p+1]-T[i]) = B[i](x) * K[i].
+
+    Note that a spline basis made of M-splines does not have the
+    partition-of-unity property.
+
+    Parameters
+    ----------
+
+    knots : 1D array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    periodic : bool
+        True if domain is periodic, False otherwise.
 
     """
+    T = knots
+    p = degree
+    n = len(T)-2*p-1 if periodic else len(T)-p-1
+    K = np.array([(p + 1) / (T[i+p+1] - T[i]) for i in range(n)])
 
-    x = np.zeros(n)
-    for i in range(0, n):
-        x[i] = (p+1)/(T[i+p+1]-T[i])
-    return x
+    return K
