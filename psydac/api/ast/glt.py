@@ -14,13 +14,14 @@ from pyccel.ast.core import Slice
 from pyccel.ast.core import Range
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
-from pyccel.ast      import Zeros
-from pyccel.ast      import Import
-from pyccel.ast      import DottedName
-from pyccel.ast      import Nil
-from pyccel.ast      import Len
-from pyccel.ast      import If, Is, Return
+from pyccel.ast.core import Import
+from pyccel.ast.core import DottedName
+from pyccel.ast.core import Nil
+from pyccel.ast.core import Len
+from pyccel.ast.core import If, Is, Return
 from pyccel.ast.core import _atomic
+
+from pyccel.ast.numpyext import Zeros
 
 from sympde.topology             import ScalarField, VectorField
 from sympde.topology             import IndexedVectorField
