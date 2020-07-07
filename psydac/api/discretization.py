@@ -8,8 +8,8 @@
 from collections import OrderedDict
 from collections import namedtuple
 
-from pyccel.ast import Nil
-from pyccel.epyccel import get_source_function
+from pyccel.ast.core import Nil
+from pyccel.epyccel  import get_source_function
 
 from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm

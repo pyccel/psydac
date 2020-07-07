@@ -8,7 +8,7 @@
 from collections import OrderedDict
 from collections import namedtuple
 
-from pyccel.ast import Nil
+from pyccel.ast.core import Nil
 
 from sympde.topology import Domain
 

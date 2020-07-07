@@ -32,7 +32,7 @@ from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Range, Product
 from pyccel.ast.core import _atomic
-from pyccel.ast      import Comment
+from pyccel.ast.core import Comment
 
 from psydac.api.printing.pycode import pycode  # TODO: remove
 

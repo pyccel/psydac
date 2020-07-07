@@ -25,8 +25,8 @@ from sympde.topology import H1SpaceType, L2SpaceType, UndefinedSpaceType
 
 from .utilities import physical2logical
 
-from pyccel.ast           import AugAssign, Assign
-from pyccel.ast.core      import _atomic
+from pyccel.ast.core import AugAssign, Assign
+from pyccel.ast.core import _atomic
 
 from sympde.topology.derivatives import get_atom_logical_derivatives
 
