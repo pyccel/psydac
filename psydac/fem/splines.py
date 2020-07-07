@@ -11,10 +11,12 @@ from psydac.core.bsplines         import (
         find_span,
         basis_funs,
         collocation_matrix,
+        histopolation_matrix,
         breakpoints,
         greville,
         elements_spans,
-        make_knots
+        make_knots,
+        scaling_vector
         )
 from psydac.utilities.quadratures import gauss_legendre
 
@@ -45,16 +47,16 @@ class SplineSpace( FemSpace ):
         otherwise. Must be specified for each bound
         Default: (False, False)
 
-    basis : <str>
-        Set to "N" for N-basis splines
-        Set to "D" for D-basis splines
+    basis : str
+        Set to "B" for B-splines (have partition of unity)
+        Set to "M" for M-splines (have unit integrals)
 
     """
     def __init__( self, degree, knots=None, grid=None,
-                  periodic=False, dirichlet=(False, False), basis='N' ):
+                  periodic=False, dirichlet=(False, False), basis='B' ):
 
-        if basis not in ['N', 'D']:
-            raise ValueError(" only options for basis functions are N or D ")
+        if basis not in ['B', 'M']:
+            raise ValueError(" only options for basis functions are B or M ")
 
         self._degree    = degree
         self._periodic  = periodic
@@ -84,27 +86,88 @@ class SplineSpace( FemSpace ):
         self._vector_space = StencilVectorSpace( [self.nbasis], [self.degree], [periodic] )
 
         # Store flag: object NOT YET prepared for interpolation
-        self._collocation_ready = False
+        self._interpolation_ready = False
+
+        # Coefficients to convert B-splines to M-splines (if needed)
+        if self.basis == 'M':
+            self._scaling_vector = scaling_vector(
+                self.knots,
+                self.degree,
+                self.periodic)
+        else:
+            self._scaling_vector = None
+
+        # Greville points
+        self._greville = greville(self.knots, self.degree, self.periodic)
+
+        # Knot sequence and Greville points of "extended" space of degree p+1
+        # These are needed for performing histopolation
+        self._ext_knots = make_knots(self.breaks, self.degree + 1, self.periodic)
+        self._ext_greville = greville(self.ext_knots, self.degree + 1, self.periodic)
 
     # ...
-    def init_interpolation( self ):
+    def collocation_solver(self):
         """
-        Compute the 1D interpolation matrix and factorize it, in preparation
+        Compute the 1D collocation matrix and factorize it, in preparation
         for the calculation of a spline interpolant given the values at the
         Greville points.
 
         """
-        if self.basis == 'N':
-            interpolation_matrix = collocation_matrix
-        else:
-            interpolation_matrix = histopolation_matrix
-
-        imat = interpolation_matrix(
+        cmat = collocation_matrix(
             self.knots,
             self.degree,
             self.greville,
             self.periodic)
 
+        self._collocation_solver = SparseSolver(csc_matrix(cmat))
+
+    # ...
+    def init_histopolation(self):
+        """
+        Compute the 1D histopolation matrix and factorize it, in preparation
+        for the calculation of a spline interpolant give the integrals in the
+        intervals defined by the extended Greville points.
+
+        """
+        # TODO: change signature of histopolation matrix
+        hmat = histopolation_matrix(
+            self.ext_knots,
+            self.degree + 1,
+            self.ext_greville,
+            self.periodic)
+
+        self._histopolation_solver = SparseSolver(csc_matrix(hmat))
+
+    # ...
+    def init_interpolation( self ):
+        """
+        Prepare collocation for B-splines, or histopolation for M-splines.
+
+        B-splines:
+            Compute the 1D collocation matrix and factorize it, in preparation
+            for the calculation of a spline interpolant given the values at the
+            Greville points.
+
+        M-splines:
+            Compute the 1D histopolation matrix and factorize it, in preparation
+            for the calculation of a spline interpolant give the integrals in
+            the intervals defined by the extended Greville points.
+
+        """
+        if self.basis == 'B':
+            imat = collocation_matrix(
+                self.knots,
+                self.degree,
+                self.greville,
+                self.periodic)
+        elif self.basis == 'M':
+            imat = histopolation_matrix(
+                self.ext_knots,
+                self.degree + 1,
+                self.ext_greville,
+                self.periodic)
+        else:
+            raise NotImplementedError()
 
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
@@ -121,7 +184,7 @@ class SplineSpace( FemSpace ):
             self._interpolator = BandedSolver( u, l, bmat )
 
         # Store flag
-        self._collocation_ready = True
+        self._interpolation_ready = True
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -160,8 +223,12 @@ class SplineSpace( FemSpace ):
 
         span  =  find_span( self.knots, self.degree, eta[0] )
         basis = basis_funs( self.knots, self.degree, eta[0], span )
+        index = slice(span-self.degree, span+1)
 
-        return np.dot( field.coeffs[span-self.degree:span+1], basis )
+        if self.basis == 'M':
+            basis *= self._scaling_vector[index]
+
+        return np.dot( field.coeffs[index], basis )
 
     # ...
     def eval_field_gradient( self, field, *eta ):
@@ -180,6 +247,19 @@ class SplineSpace( FemSpace ):
         """ Only scalar field is implemented for now.
         """
         return True
+
+    @property
+    def basis( self ):
+        return self._basis
+
+    @property
+    def interpolation_grid( self ):
+        if self.basis == 'B':
+            return self.greville
+        elif self.basis == 'M':
+            return self.ext_greville
+        else:
+            raise NotImplementedError()
 
     @property
     def nbasis( self ):
@@ -212,6 +292,12 @@ class SplineSpace( FemSpace ):
         return self._knots
 
     @property
+    def ext_knots( self ):
+        """ Knot sequence of 'extended' space with degree p+1.
+        """
+        return self._ext_knots
+
+    @property
     def breaks( self ):
         """ List of breakpoints.
         """
@@ -228,7 +314,13 @@ class SplineSpace( FemSpace ):
     def greville( self ):
         """ Coordinates of all Greville points.
         """
-        return greville( self._knots, self._degree, self._periodic )
+        return self._greville
+
+    @property
+    def ext_greville( self ):
+        """ Greville coordinates of 'extended' space with degree p+1.
+        """
+        return self._ext_greville
         
     @property
     def normalize(self):
@@ -257,8 +349,8 @@ class SplineSpace( FemSpace ):
         assert isinstance( field, FemField )
         assert field.space is self
 
-        if not self._collocation_ready:
-            self.init_collocation()
+        if not self._interpolation_ready:
+            self.init_interpolation()
 
         n = self.nbasis
         c = field.coeffs
