@@ -5,7 +5,7 @@ from sympy import Mul
 from sympy import symbols
 from sympy import cos
 
-from pyccel.ast import AugAssign
+from pyccel.ast.core import AugAssign
 # TODO remove
 from pyccel.codegen.printing.pycode import pycode
 
