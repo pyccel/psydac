@@ -27,6 +27,7 @@ __all__ = ['find_span',
            'greville',
            'elements_spans',
            'make_knots',
+           'elevate_knots',
            'quadrature_grid',
            'basis_ders_on_quad_grid']
 
@@ -531,6 +532,33 @@ def make_knots( breaks, degree, periodic ):
         T[-p:] = breaks[-1]
 
     return T
+
+#==============================================================================
+def elevate_knots(knots, periodic):
+    """
+    Given the knot sequence of a spline space of degree p, compute the knot
+    sequence of a spline space of degree p+1 that contains the original space.
+
+    In the periodic case the knots sequence is left unchanged.
+
+    Parameters
+    ----------
+    knots : array_like
+        Knots sequence of spline space of degree p.
+
+    periodic : bool
+        True if domain is periodic, False otherwise.
+
+    Returns
+    -------
+    new_knots : 1D numpy.ndarray
+        Knots sequence of spline space of degree p+1.
+
+    """
+    if periodic:
+        return np.asarray(knots)
+
+    return np.array([knots[0], *knots, knots[-1]])
 
 #==============================================================================
 def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):
