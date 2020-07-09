@@ -694,17 +694,17 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders ):
 
     """
     # TODO: add example to docstring
-    # TODO: check if it is safe to compute span only once for each element
 
     ne,nq = quad_grid.shape
-    basis = np.zeros( (ne,degree+1,nders+1,nq) )
+    basis = np.zeros((ne, degree+1, nders+1, nq))
+    spans = elements_spans(knots, degree)
 
     for ie in range(ne):
-        xx = quad_grid[ie,:]
-        for iq,xq in enumerate(xx):
-            span = find_span( knots, degree, xq )
-            ders = basis_funs_all_ders( knots, degree, xq, span, nders )
-            basis[ie,:,:,iq] = ders.transpose()
+        xx = quad_grid[ie, :]
+        span = spans[ie]
+        for iq, xq in enumerate(xx):
+            ders = basis_funs_all_ders(knots, degree, xq, span, nders)
+            basis[ie, :, :, iq] = ders.transpose()
 
     return basis
 
