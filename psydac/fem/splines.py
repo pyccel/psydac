@@ -59,7 +59,7 @@ class SplineSpace( FemSpace ):
         if basis not in ['B', 'M']:
             raise ValueError(" only options for basis functions are B or M ")
 
-        if knots and grid:
+        if (knots is not None) and (grid is not None):
             raise ValueError( 'Cannot provide both grid and knots.' )
 
         if (knots is None) and (grid is None):
