@@ -663,9 +663,11 @@ def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):
     return quad_x, quad_w
 
 #==============================================================================
-def basis_ders_on_quad_grid( knots, degree, quad_grid, nders ):
+def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization):
     """
     Evaluate B-Splines and their derivatives on the quadrature grid.
+
+    If called with normalization='M', this uses M-splines instead of B-splines.
 
     Parameters
     ----------
@@ -681,6 +683,9 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders ):
 
     nders : int
         Maximum derivative of interest.
+
+    normalization : str
+        Set to 'B' for B-splines, and 'M' for M-splines.
 
     Returns
     -------
@@ -699,12 +704,20 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders ):
     basis = np.zeros((ne, degree+1, nders+1, nq))
     spans = elements_spans(knots, degree)
 
+    if normalization == 'M':
+        # Setting periodic=False computes a few more values than necessary if
+        # the space is periodic, but this is harmless and simplifies the code.
+        scaling = 1. / basis_integrals(knots, degree, False)
+
     for ie in range(ne):
         xx = quad_grid[ie, :]
         span = spans[ie]
         for iq, xq in enumerate(xx):
             ders = basis_funs_all_ders(knots, degree, xq, span, nders)
             basis[ie, :, :, iq] = ders.transpose()
+
+        if normalization == 'M':
+            basis[ie, :, :, :] *= scaling[span-degree:span+1, None, None]
 
     return basis
 
