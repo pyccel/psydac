@@ -98,6 +98,7 @@ class BoundaryQuadratureGrid(QuadratureGrid):
     @property
     def ext(self):
         return self._ext
+
 #==============================================================================
 class BasisValues():
     def __init__( self, V, grid, nderiv , ext=None):
@@ -125,12 +126,13 @@ class BasisValues():
             for i,Vi in enumerate(V):
                 space  = Vi.spaces[axis]
                 points = grid.points[axis]
-                boundary_basis = basis_ders_on_quad_grid(space.knots, space.degree, points, nderiv)
+                boundary_basis = basis_ders_on_quad_grid(
+                        space.knots, space.degree, points, nderiv, space.basis)
                 self._basis[i][axis] = self._basis[i][axis].copy()
                 self._basis[i][axis][0:1, :, 0:nderiv+1, 0:1] = boundary_basis
                 if ext == 1:
-                    self._spans[i][axis]             = self._spans[i][axis].copy()
-                    self._spans[i][axis][0]          = self._spans[i][axis][-1]
+                    self._spans[i][axis]    = self._spans[i][axis].copy()
+                    self._spans[i][axis][0] = self._spans[i][axis][-1]
 
     @property
     def basis(self):

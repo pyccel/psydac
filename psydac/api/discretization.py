@@ -367,13 +367,14 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
         spaces[2].diff = spaces[2].div  =  D2
 
     return DiscreteDerham(*spaces)
+
 #==============================================================================
 # TODO multi patch
 # TODO knots
 def discretize_space(V, domain_h, *args, **kwargs):
 
     degree              = kwargs.pop('degree', None)
-    normalize           = kwargs.pop('normalize', True)
+    basis               = kwargs.pop('basis', 'M')
     comm                = domain_h.comm
     kind                = V.kind
     ldim                = V.ldim
@@ -381,10 +382,10 @@ def discretize_space(V, domain_h, *args, **kwargs):
     is_rational_mapping = False
     
     if isinstance(V, ProductSpace):
-        kwargs['normalize'] = normalize
-        normalize = False
+        kwargs['basis'] = basis
+        basis = 'B'
     else:
-        normalize = normalize
+        basis = basis
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
@@ -474,11 +475,11 @@ def discretize_space(V, domain_h, *args, **kwargs):
             if isinstance(kind, L2SpaceType):
 
                 if ldim == 1:
-                    Vh = Vh.reduce_degree(axes=[0], normalize=normalize)
+                    Vh = Vh.reduce_degree(axes=[0], basis=basis)
                 elif ldim == 2:
-                    Vh = Vh.reduce_degree(axes=[0,1], normalize=normalize)
+                    Vh = Vh.reduce_degree(axes=[0,1], basis=basis)
                 elif ldim == 3:
-                    Vh = Vh.reduce_degree(axes=[0,1,2], normalize=normalize)
+                    Vh = Vh.reduce_degree(axes=[0,1,2], basis=basis)
 
             g_spaces.append(Vh)
     # Product and Vector spaces are constructed here
@@ -493,24 +494,24 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
                 elif isinstance(kind, HcurlSpaceType):
                     if ldim == 2:
-                        spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
-                                  Vh.reduce_degree(axes=[1], normalize=normalize)]
+                        spaces = [Vh.reduce_degree(axes=[0], basis=basis),
+                                  Vh.reduce_degree(axes=[1], basis=basis)]
                     elif ldim == 3:
-                        spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
-                                  Vh.reduce_degree(axes=[1], normalize=normalize), 
-                                  Vh.reduce_degree(axes=[2], normalize=normalize)]
+                        spaces = [Vh.reduce_degree(axes=[0], basis=basis),
+                                  Vh.reduce_degree(axes=[1], basis=basis),
+                                  Vh.reduce_degree(axes=[2], basis=basis)]
                     else:
                         raise NotImplementedError('TODO')
 
                 elif isinstance(kind, HdivSpaceType):
  
                     if ldim == 2:
-                        spaces = [Vh.reduce_degree(axes=[1], normalize=normalize),
-                                  Vh.reduce_degree(axes=[0], normalize=normalize)]
+                        spaces = [Vh.reduce_degree(axes=[1], basis=basis),
+                                  Vh.reduce_degree(axes=[0], basis=basis)]
                     elif ldim == 3:
-                        spaces = [Vh.reduce_degree(axes=[1,2], normalize=normalize),
-                                  Vh.reduce_degree(axes=[0,2], normalize=normalize),
-                                  Vh.reduce_degree(axes=[0,1], normalize=normalize)]
+                        spaces = [Vh.reduce_degree(axes=[1,2], basis=basis),
+                                  Vh.reduce_degree(axes=[0,2], basis=basis),
+                                  Vh.reduce_degree(axes=[0,1], basis=basis)]
                     else:
                         raise NotImplementedError('TODO')
 
