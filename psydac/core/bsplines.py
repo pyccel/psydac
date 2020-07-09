@@ -568,10 +568,12 @@ def make_knots( breaks, degree, periodic ):
 #==============================================================================
 def elevate_knots(knots, periodic):
     """
-    Given the knot sequence of a spline space of degree p, compute the knot
-    sequence of a spline space of degree p+1 that contains the original space.
+    Given the knot sequence of a spline space S of degree p, compute the knot
+    sequence of a spline space S_0 of degree p+1 such that u' is in S for all
+    u in S_0.
 
-    In the periodic case the knots sequence is left unchanged.
+    Specifically, on bounded domains the first and last knots are repeated in
+    the sequence, and in the periodic case the knot sequence is left unchanged.
 
     Parameters
     ----------
