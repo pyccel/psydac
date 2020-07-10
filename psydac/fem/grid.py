@@ -67,7 +67,7 @@ class FemAssemblyGrid:
         # Lists of quadrature coordinates and weights on each element
         glob_points, glob_weights = quadrature_grid( grid, u, w )
 
-        # List of basis function values on each element (B-splines)
+        # List of basis function values on each element
         glob_basis = basis_ders_on_quad_grid( T, p, glob_points, nderiv, space.basis )
 
         # List of spans on each element

@@ -14,7 +14,6 @@ from psydac.core.bsplines         import (
         histopolation_matrix,
         breakpoints,
         greville,
-        elements_spans,
         make_knots,
         elevate_knots,
         basis_integrals,
