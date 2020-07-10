@@ -419,19 +419,23 @@ class TensorFemSpace( FemSpace ):
 
     def reduce_grid(self, axes=[], knots=[]):
         """ 
-        Returns a new TensorFem object with a coarser grid from the original one
-         we do that by giving a new knot sequence in the desired dimension.
+        Create a new TensorFemSpace object with a coarser grid than the original one
+        we do that by giving a new knot sequence in the desired dimension.
             
         Parameters
         ----------
         axes : list of int
-            the dimensions where we want to coarsen the grid.
+            Dimensions where we want to coarsen the grid.
 
-        field : list/tuple
-            the list of the new knot sequence in each dimesion.
+        knots : list/tuple
+            New knot sequences in each dimension.
  
-        """
+        Returns
+        -------
+        V : TensorFemSpace
+            New space with a coarser grid.
 
+        """
         assert len(axes) == len(knots)
 
         comm = MPI.COMM_WORLD
@@ -442,12 +446,12 @@ class TensorFemSpace( FemSpace ):
 
         global_starts = v._cart._global_starts.copy()
         global_ends   = v._cart._global_ends.copy()
-        global_domains_ends   = self._global_element_ends
+        global_domains_ends  = self._global_element_ends
 
         for i, axis in enumerate(axes):
             space    = spaces[axis]
-            degree   = space._degree
-            periodic = space._periodic
+            degree   = space.degree
+            periodic = space.periodic
             breaks   = space.breaks
             T        = list(knots[i]).copy()
             elements_ends = global_domains_ends[axis]
@@ -459,7 +463,7 @@ class TensorFemSpace( FemSpace ):
             T.sort()
 
             new_space = SplineSpace(degree, knots=T, periodic=periodic,
-                                    dirichlet=space._dirichlet)
+                                    dirichlet=space.dirichlet, basis=space.basis)
             spaces[axis] = new_space
             breaks = new_space.breaks.tolist()
             elements_ends = np.array([breaks.index(bd) for bd in boundaries])-1
@@ -567,16 +571,14 @@ class TensorFemSpace( FemSpace ):
         spaces = list(self.spaces)
 
         for axis in axes:
-
-            reduced_space = spaces[axis]
-            degree = reduced_space.degree
-            grid   = reduced_space.breaks
-            periodic = reduced_space.periodic
-            dirichlet = reduced_space.dirichlet
-
-            reduced_space = SplineSpace(degree-1, grid=grid, 
-                                        periodic=periodic, 
-                                        dirichlet=dirichlet, basis=basis)
+            space = spaces[axis]
+            reduced_space = SplineSpace(
+                degree   = space.degree - 1,
+                grid     = space.breaks,
+                periodic = space.periodic,
+                dirichlet= space.dirichlet,
+                basis    = space.basis
+            )
             spaces[axis] = reduced_space
 
         npts = [V.nbasis for V in spaces]
