@@ -679,7 +679,7 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization):
 
     quad_grid: 2D numpy.ndarray (ne,nq)
         Coordinates of quadrature points of each element in 1D domain,
-        given by quadrature_grid() function.
+        which can be given by quadrature_grid() or chosen arbitrarily.
 
     nders : int
         Maximum derivative of interest.
@@ -702,7 +702,6 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization):
 
     ne,nq = quad_grid.shape
     basis = np.zeros((ne, degree+1, nders+1, nq))
-    spans = elements_spans(knots, degree)
 
     if normalization == 'M':
         # Setting periodic=False computes a few more values than necessary if
@@ -711,13 +710,12 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization):
 
     for ie in range(ne):
         xx = quad_grid[ie, :]
-        span = spans[ie]
         for iq, xq in enumerate(xx):
+            span = find_span(knots, degree, xq)
             ders = basis_funs_all_ders(knots, degree, xq, span, nders)
+            if normalization == 'M':
+                ders *= scaling[None, span-degree:span+1]
             basis[ie, :, :, iq] = ders.transpose()
-
-        if normalization == 'M':
-            basis[ie, :, :, :] *= scaling[span-degree:span+1, None, None]
 
     return basis
 
