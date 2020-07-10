@@ -374,7 +374,7 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
 def discretize_space(V, domain_h, *args, **kwargs):
 
     degree              = kwargs.pop('degree', None)
-    basis               = kwargs.pop('basis', 'M')
+    basis               = kwargs.pop('basis', 'B')
     comm                = domain_h.comm
     kind                = V.kind
     ldim                = V.ldim
