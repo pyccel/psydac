@@ -26,7 +26,6 @@ from .nodes import EvalMapping, EvalField
 from .nodes import ComputeKernelExpr
 from .nodes import ElementOf, Reduce
 from .nodes import construct_logical_expressions
-from .nodes import ComputePhysicalBasis
 from .nodes import Pads, Mask
 
 #==============================================================================
@@ -50,7 +49,7 @@ from sympde.topology.space       import VectorTestFunction
 from sympde.topology.space       import IndexedTestTrial
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_max_partial_derivatives
+from sympde.topology.derivatives import get_max_logical_partial_derivatives
 from sympde.topology.mapping     import InterfaceMapping
 
 from pyccel.ast.core  import _atomic
@@ -225,7 +224,6 @@ class AST(object):
         tests         = ()
         trials        = ()
         # ...
-        #TODO use LogicalExpr instead and return the appropriate expression in case of analytical or non analytical mapping
 
         domain        = terminal_expr.target
         terminal_expr = terminal_expr.expr
@@ -286,7 +284,7 @@ class AST(object):
             atomic_expr_field = []
             for i_row in range(0, n_rows):
                 for i_col in range(0, n_cols):
-                    d = get_max_partial_derivatives(terminal_expr[i_row,i_col])
+                    d = get_max_logical_partial_derivatives(terminal_expr[i_row,i_col])
                     nderiv = max(nderiv, max(d.values()))
                     atoms  = _atomic(terminal_expr[i_row, i_col], cls=atoms_types)
                     fields = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
@@ -294,7 +292,7 @@ class AST(object):
                     atomic_expr[i_row, i_col] = Tuple(*atoms)
                     atomic_expr_field += [*fields]
         else:
-            d = get_max_partial_derivatives(terminal_expr)
+            d = get_max_logical_partial_derivatives(terminal_expr)
             nderiv = max(nderiv, max(d.values()))
             atoms  = _atomic(terminal_expr, cls=atoms_types)
             atomic_expr_field = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
@@ -303,6 +301,7 @@ class AST(object):
             terminal_expr     = Matrix([[terminal_expr]])
 
         # ...
+
 
         d_tests = {}
         tests  = expand_hdiv_hcurl(tests)
@@ -509,11 +508,6 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             stmts = []
             for v in sub_tests+sub_trials:
                 stmts += construct_logical_expressions(v, nderiv)
-            
-            if not mapping.is_analytical:
-                for expr in sub_atomic_expr[:]:
-                    stmts += [ComputePhysicalBasis(i) for i in expr]
-            # ...
 
             if atomic_expr_field:
                 stmts += list(eval_field.inits)
@@ -684,10 +678,6 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         stmts = []
         for v in group:
             stmts += construct_logical_expressions(v, nderiv)
-
-        if mapping._expressions is None:
-            for expr in sub_atomic_expr[:]:
-                stmts += [ComputePhysicalBasis(i) for i in expr]
 
         if atomic_expr_field:
             stmts += list(eval_field.inits)

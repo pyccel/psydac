@@ -7,9 +7,9 @@ from sympy import sin,pi
 from sympde.calculus import grad, dot
 
 from sympde.topology import ScalarFunctionSpace
-from sympde.topology import elements_of
+from sympde.topology import elements_of,LogicalExpr
 from sympde.topology import Square
-from sympde.topology import IdentityMapping#,Mapping PolarMapping
+from sympde.topology import IdentityMapping,Mapping ,PolarMapping
 from sympde.expr     import integral
 from sympde.expr     import LinearForm
 from sympde.expr     import BilinearForm
@@ -34,14 +34,15 @@ except KeyError:
 
 def test_codegen():
     domain  = Square()
-    #mapping = IdentityMapping('M',2, c1= 1., c2= 3., rmin = 1., rmax=2.)
+    M       = Mapping('M',2)
+    domain  = M(domain)
     V       = ScalarFunctionSpace('V', domain)
     u,v     = elements_of(V, names='u,v')
 
     x,y      = symbols('x, y')
 
-    b        = BilinearForm((u,v), integral(domain, dot(grad(u), grad(v))))
-    l        = LinearForm(v, integral(domain, v*2*pi**2*sin(pi*x)*sin(pi*y)))
+    b        = LogicalExpr(M, BilinearForm((u,v), integral(domain, dot(grad(u), grad(v)))))
+    l        = LogicalExpr(M, LinearForm(v, integral(domain, v*2*pi**2*sin(pi*x)*sin(pi*y))))
 
     # Create computational domain from topological domain
     domain_h = discretize(domain, filename=filename)
@@ -50,22 +51,22 @@ def test_codegen():
     Vh = discretize(V, domain_h)
 
     error  = u - sin(pi*x)*sin(pi*y)
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    l2norm = LogicalExpr(M, Norm(error, domain, kind='l2'))
+    h1norm = LogicalExpr(M, Norm(error, domain, kind='h1'))
 
     ast_b = AST(b, TerminalExpr(b)[0],[Vh, Vh])
-    ast_b = parse(ast_b.expr, settings={'dim':2,'nderiv':1,'mapping':Vh.symbolic_mapping})
+    ast_b = parse(ast_b.expr, settings={'dim':2,'nderiv':1,'mapping':M,'target':domain.logical_domain})
     print(pycode(ast_b))
 
     print('==============================================================================================================')
     ast_l = AST(l, TerminalExpr(l)[0], Vh)
-    ast_l = parse(ast_l.expr, settings={'dim':2,'nderiv':1,'mapping':Vh.symbolic_mapping})
+    ast_l = parse(ast_l.expr, settings={'dim':2,'nderiv':1,'mapping':M,'target':domain.logical_domain})
     print(pycode(ast_l))
 
 
     print('==============================================================================================================')
     ast_l2norm = AST(l2norm, TerminalExpr(l2norm)[0], Vh)
-    ast_l2norm = parse(ast_l2norm.expr, settings={'dim':2,'nderiv':1,'mapping':Vh.symbolic_mapping})
+    ast_l2norm = parse(ast_l2norm.expr, settings={'dim':2,'nderiv':1,'mapping':M, 'target':domain.logical_domain})
     print(pycode(ast_l2norm))
-
+test_codegen()
 

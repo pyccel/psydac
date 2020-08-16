@@ -25,7 +25,7 @@ from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
 from sympde.topology import ProductSpace
-from sympde.topology import Mapping, IdentityMapping
+from sympde.topology import Mapping, IdentityMapping, LogicalExpr
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology.basic import Union
 from gelato.expr     import GltExpr as sym_GltExpr
@@ -580,7 +580,13 @@ def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
 def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BasicForm):
+        domain_h = args[0]
+        assert( isinstance(domain_h, Geometry) )
+        mapping     = domain_h.domain.mapping
+        if mapping is not None:
+            a       = LogicalExpr(mapping, a)
         kernel_expr = TerminalExpr(a)
+
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 

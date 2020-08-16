@@ -27,7 +27,7 @@ from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
-from sympde.topology             import SymbolicDeterminant
+from sympde.calculus.matrices    import SymbolicDeterminant
 
 from .basic      import SplBasic
 from .utilities  import random_string
