@@ -15,7 +15,7 @@ from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm
 from sympde.expr     import LinearForm as sym_LinearForm
 from sympde.expr     import Functional as sym_Functional
-from sympde.expr     import BoundaryIntegral as sym_BoundaryIntegral
+from sympde.expr     import Integral
 from sympde.expr     import Equation as sym_Equation
 from sympde.expr     import Boundary as sym_Boundary, Interface as sym_Interface
 from sympde.expr     import Norm as sym_Norm
@@ -107,11 +107,11 @@ class DiscreteEquation(BasicDiscrete):
         # ...
 
         # ...
-        boundaries_lhs = expr.lhs.atoms(sym_BoundaryIntegral)
-        boundaries_lhs = [a.domain for a in boundaries_lhs]
+        boundaries_lhs = expr.lhs.atoms(Integral)
+        boundaries_lhs = [a.domain for a in boundaries_lhs if a.is_boundary_integral]
 
-        boundaries_rhs = expr.rhs.atoms(sym_BoundaryIntegral)
-        boundaries_rhs = [a.domain for a in boundaries_rhs]
+        boundaries_rhs = expr.rhs.atoms(Integral)
+        boundaries_rhs = [a.domain for a in boundaries_rhs if a.is_boundary_integral]
         # ...
 
         # ...
@@ -583,8 +583,8 @@ def discretize(a, *args, **kwargs):
         domain_h = args[0]
         assert( isinstance(domain_h, Geometry) )
         mapping     = domain_h.domain.mapping
-        if mapping is not None:
-            a       = LogicalExpr(mapping, a)
+        if not mapping is None:
+            a           = LogicalExpr(mapping, a)
         kernel_expr = TerminalExpr(a)
 
         if len(kernel_expr) > 1:

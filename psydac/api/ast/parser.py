@@ -5,6 +5,9 @@ from sympy import Mul, Matrix
 from sympy import Add
 from sympy import Abs
 from sympy import Symbol, Idx
+from sympy import Max
+from sympy import Basic
+from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
 
 from pyccel.ast.builtins import Range
@@ -68,8 +71,6 @@ from .nodes import   Zeros, ZerosLike
 from .fem import expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.utilities     import flatten
-from sympy import Max
-from sympy import Basic
 
 #==============================================================================
 # TODO move it
@@ -943,8 +944,11 @@ class Parser(object):
         weight = SymbolicExpr(weight)
         exprs = expr.expr[:]
 
-        rhs = [weight*self._visit(expr, **kwargs).simplify() for expr in exprs]
+        rhs = [weight*self._visit(expr, **kwargs) for expr in exprs]
         lhs = lhs[:]
+
+        temps = []
+        #temps, rhs = cse_main.cse(rhs, symbols=cse_main.numbered_symbols(prefix='temp'))
 
         normal_vec_stmts = []
         normal_vectors = expr.expr.atoms(NormalVector)
@@ -971,12 +975,13 @@ class Parser(object):
         else:
             stmts = [AugAssign(i, op, j) for i,j in zip(lhs,rhs) if j]
 
+        temps = tuple(Assign(a,b) for a,b in temps)
         stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
         stmts = tuple(normal_vec_stmts) + stmts
         math_functions = math_atoms_as_str(exprs, 'numpy')
         math_functions = tuple(m for m in math_functions if m not in self._math_functions)
         self._math_functions = math_functions + self._math_functions
-        return stmts
+        return temps + stmts
 
     # ....................................................
     def _visit_BasisAtom(self, expr, **kwargs):
