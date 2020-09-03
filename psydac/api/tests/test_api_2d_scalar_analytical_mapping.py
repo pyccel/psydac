@@ -82,16 +82,18 @@ def run_poisson_2d(solution, f, domain, mapping, ncells, degree, comm=None):
 
 #------------------------------------------------------------------------------
 
-def test_poisson_2d_2_patch_dirichlet_0():
+def test_poisson_2d_analytical_mapping_0():
 
     domain  = Square('A',bounds1=(0., 1.), bounds2=(0, np.pi))
     mapping = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
-    x,y = domain.coordinates
+    mapped_domain = mapping(domain)
+
+    x,y = mapped_domain.coordinates
     solution = x**2 + y**2
     f        = -4
 
-    l2_error, h1_error = run_poisson_2d(solution, f, domain, mapping, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error = run_poisson_2d(solution, f, mapped_domain, mapping, ncells=[2**2,2**2], degree=[2,2])
 
     expected_l2_error = 1.0930839536997034e-09
     expected_h1_error = 1.390398663745195e-08

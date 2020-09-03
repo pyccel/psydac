@@ -93,10 +93,9 @@ class Geometry( object ):
     @classmethod
     def from_topological_domain(cls, domain, ncells, comm=None):
         interior = domain.interior
-        if isinstance(interior, Union):
-            interior = interior.args
-        else:
+        if not isinstance(interior, Union):
             interior = [interior]
+
         for itr in interior:
             if not isinstance(itr, NCubeInterior):
                 msg = "Topological domain must be an NCube;"\

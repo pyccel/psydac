@@ -33,6 +33,8 @@ from sympde.topology             import SymbolicExpr
 from sympde.calculus.matrices    import SymbolicDeterminant
 from sympde.topology             import IdentityMapping
 
+from sympde.expr.evaluation import TerminalExpr
+
 from gelato.expr import gelatize
 
 from .basic      import SplBasic
@@ -43,11 +45,12 @@ from .utilities  import math_atoms_as_str
 from .evaluation import EvalArrayMapping, EvalArrayField
 
 from psydac.fem.vector  import ProductFemSpace
+from .nodes             import Zeros
 
 #==============================================================================
 class GltKernel(SplBasic):
 
-    def __new__(cls, expr, spaces, name=None, mapping=None, is_rational_mapping=None, backend=None):
+    def __new__(cls, expr, spaces, name=None, mapping=None, is_rational_mapping=None, backend=None, **kwargs):
 
 
         if isinstance(mapping, IdentityMapping):
@@ -65,7 +68,7 @@ class GltKernel(SplBasic):
         obj._user_functions = []
         obj._backend = backend
 
-        obj._func = obj._initialize()
+        obj._func = obj._initialize(**kwargs)
 
         return obj
 
@@ -160,7 +163,7 @@ class GltKernel(SplBasic):
 
         return self.basic_args + other
 
-    def _initialize(self):
+    def _initialize(self, **kwargs):
         form    = self.form
         dim     = self.expr.ldim
         mapping = self.mapping
@@ -175,9 +178,10 @@ class GltKernel(SplBasic):
             degrees = degrees[0]
         # ...
 
+        expand_expr = kwargs.pop('expand', False)
         # recompute the symbol
         expr = gelatize(form, degrees=degrees, n_elements=n_elements,
-                        mapping=mapping, evaluate=True, human=True)
+                        mapping=mapping, evaluate=True, human=True, expand=expand_expr)
 
         fields = form.fields
         fields = sorted(fields, key=lambda x: str(x.name))
@@ -254,11 +258,11 @@ class GltKernel(SplBasic):
 
         # ... replace tx/ty/tz by t1/t2/t3
         txs = [Symbol(tx) for tx in ['tx', 'ty', 'tz'][:dim]]
-        for ti, tx in zip(tis, txs):
+        for tx, ti in zip(txs, tis):
             expr = expr.subs(tx, ti)
 
         xs = [Symbol(x) for x in ['x', 'y', 'z'][:dim]]
-        for xi, x in zip(xis, xs):
+        for x, xi in zip(xs, xis):
             expr = expr.subs(x, xi)
         # ...
 
@@ -421,7 +425,7 @@ class GltKernel(SplBasic):
             for value, array in zip(mapping_elements, mapping_values):
                 body.append(Assign(value, array[indices]))
 
-            jac = mapping.det_jacobian
+            jac = TerminalExpr(mapping.det_jacobian, dim=dim, logical=True)
             jac = SymbolicExpr(jac)
 
             det_jac = SymbolicExpr(SymbolicDeterminant(mapping))
@@ -478,7 +482,7 @@ class GltKernel(SplBasic):
 
 
         if fields:
-            imports += [Import('zeros', 'numpy')]
+            imports += [Import('numpy', 'zeros')]
             for F_value in fields_val:
                 prelude += [Assign(F_value, Zeros(lengths))]
 
@@ -487,7 +491,7 @@ class GltKernel(SplBasic):
 #                prelude += [Assign(F_value, Zeros(lengths))]
 
         if mapping:
-            imports += [Import('zeros', 'numpy')]
+            imports += [Import('numpy', 'zeros')]
             for M_value in mapping_values:
                 prelude += [Assign(M_value, Zeros(lengths))]
 
@@ -497,7 +501,7 @@ class GltKernel(SplBasic):
 
         # ... get math functions and constants
         math_elements = math_atoms_as_str(expr, 'numpy')
-        math_imports  = [Import(e, 'numpy') for e in math_elements]
+        math_imports  = [Import('numpy', e) for e in math_elements]
 
         imports += math_imports
         # ...
@@ -564,7 +568,7 @@ class GltKernel(SplBasic):
 
 class GltInterface(SplBasic):
 
-    def __new__(cls, kernel, name=None, mapping=None, is_rational_mapping=None, backend=None):
+    def __new__(cls, kernel, name=None, mapping=None, is_rational_mapping=None, backend=None, **kwargs):
 
         if not isinstance(kernel, GltKernel):
             raise TypeError('> Expecting an GltKernel')
@@ -721,7 +725,7 @@ class GltInterface(SplBasic):
         # ...
 
         # ...
-        imports += [Import('zeros', 'numpy')]
+        imports += [Import('numpy', 'zeros')]
         # ...
 
         # ...
@@ -737,8 +741,8 @@ class GltInterface(SplBasic):
         for M,dtype in zip(global_mats, global_mats_types):
             if_cond = Is(M, Nil())
 
-            _args = list(lengths) + ['dtype={}'.format(dtype)]
-            if_body = [Assign(M, FunctionCall('zeros', _args))]
+            _args = list(lengths) + ['{}'.format(dtype)]
+            if_body = [Assign(M, Zeros(*_args))]
 
             stmt = If((if_cond, if_body))
             body += [stmt]

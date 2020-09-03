@@ -30,7 +30,7 @@ from .nodes import Pads, Mask
 
 #==============================================================================
 from sympy import Basic
-from sympy import Matrix
+from sympy import Matrix, ImmutableDenseMatrix
 from sympy import symbols
 from sympy.core.containers import Tuple
 
@@ -278,9 +278,9 @@ class AST(object):
                        VectorField, IndexedVectorField)
 
         nderiv = 1
-        if isinstance(terminal_expr, Matrix):
+        if isinstance(terminal_expr, (ImmutableDenseMatrix, Matrix)):
             n_rows, n_cols = terminal_expr.shape
-            atomic_expr = terminal_expr.zeros(n_rows, n_cols)
+            atomic_expr = Matrix.zeros(n_rows, n_cols)
             atomic_expr_field = []
             for i_row in range(0, n_rows):
                 for i_col in range(0, n_cols):
@@ -301,7 +301,6 @@ class AST(object):
             terminal_expr     = Matrix([[terminal_expr]])
 
         # ...
-
 
         d_tests = {}
         tests  = expand_hdiv_hcurl(tests)

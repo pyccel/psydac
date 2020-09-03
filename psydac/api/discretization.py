@@ -583,10 +583,15 @@ def discretize(a, *args, **kwargs):
         domain_h = args[0]
         assert( isinstance(domain_h, Geometry) )
         mapping     = domain_h.domain.mapping
-        if not mapping is None:
-            a           = LogicalExpr(mapping, a)
-        kernel_expr = TerminalExpr(a)
 
+        if isinstance(a, sym_Norm):
+            kernel_expr = TerminalExpr(a)
+            if not mapping is None:
+                kernel_expr = tuple(LogicalExpr(i) for i in kernel_expr)
+        else:
+            if not mapping is None:
+                a           = LogicalExpr(a)
+            kernel_expr = TerminalExpr(a)
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 

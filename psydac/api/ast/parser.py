@@ -22,7 +22,7 @@ from sympde.topology import SymbolicExpr
 from sympde.topology import LogicalExpr, Jacobian
 from sympde.expr.evaluation import _split_test_function
 from sympde.calculus.matrices import SymbolicDeterminant
-from sympde.topology import SymbolicWeightedVolume
+from sympde.topology import SymbolicWeightedVolume, InterfaceMapping
 from sympde.topology import Boundary, NormalVector, Interface
 
 from sympde.topology.derivatives import get_index_logical_derivatives
@@ -939,12 +939,24 @@ class Parser(object):
                 lhs = random_string( 6 )
                 lhs = Symbol('tmp_{}'.format(lhs))
 
+        exprs   = expr.expr
         mapping = self.mapping
-        weight  = SymbolicWeightedVolume(mapping)
-        weight = SymbolicExpr(weight)
-        exprs = expr.expr[:]
 
-        rhs = [weight*self._visit(expr, **kwargs) for expr in exprs]
+        if mapping.is_analytical and not isinstance(mapping, InterfaceMapping):
+            for i in range(mapping.rdim):
+                exprs = exprs.subs(mapping[i], mapping.expressions[i])
+
+        elif mapping.is_analytical and isinstance(mapping, InterfaceMapping):
+            M1 = mapping.minus
+            M2 = mapping.plus
+            for i in range(M1.rdim):
+                exprs = exprs.subs(M1[i], M1.expressions[i])
+                exprs = exprs.subs(M2[i], M2.expressions[i])
+
+        weight  = SymbolicWeightedVolume(mapping)
+        weight  = SymbolicExpr(weight)
+
+        rhs = [weight*self._visit(expr, **kwargs) for expr in exprs[:]]
         lhs = lhs[:]
 
         temps = []
@@ -962,7 +974,7 @@ class Parser(object):
             axis    = target.axis
             ext     = target.ext if isinstance(target, Boundary) else 1
 
-            J       = LogicalExpr(mapping, Jacobian(mapping))
+            J       = LogicalExpr(Jacobian(mapping), mapping=mapping, dim=dim, subs=True)
             J       = SymbolicExpr(J)
             values  = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
             normalization = sum(v**2 for v in values)**0.5
@@ -977,11 +989,11 @@ class Parser(object):
 
         temps = tuple(Assign(a,b) for a,b in temps)
         stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
-        stmts = tuple(normal_vec_stmts) + stmts
-        math_functions = math_atoms_as_str(exprs, 'numpy')
+        stmts = tuple(normal_vec_stmts) + temps + stmts
+        math_functions = math_atoms_as_str(list(exprs)+normal_vec_stmts, 'numpy')
         math_functions = tuple(m for m in math_functions if m not in self._math_functions)
         self._math_functions = math_functions + self._math_functions
-        return temps + stmts
+        return stmts
 
     # ....................................................
     def _visit_BasisAtom(self, expr, **kwargs):
