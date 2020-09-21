@@ -14,7 +14,7 @@ from pyccel.ast.builtins import Range
 from pyccel.ast.core     import Assign, Product, AugAssign, For
 from pyccel.ast.core     import Variable, IndexedVariable, IndexedElement
 from pyccel.ast.core     import Slice
-from pyccel.ast.core     import EmptyLine, Import
+from pyccel.ast.core     import EmptyNode, Import
 from pyccel.ast.core     import CodeBlock, FunctionDef
 
 from sympde.topology import (dx1, dx2, dx3)
@@ -420,7 +420,7 @@ class Parser(object):
             else:
                 inits.append(Assign(var, Zeros(i)))
 
-        inits.append(EmptyLine())
+        inits.append(EmptyNode())
         body =  tuple(inits) + body
         name = expr.name
         imports = ('zeros', 'zeros_like') + tuple(self._math_functions)
@@ -458,7 +458,7 @@ class Parser(object):
 
     def _visit_EvalMapping(self, expr, **kwargs):
         if self._mapping.is_analytical:
-            return EmptyLine()
+            return EmptyNode()
         values  = expr.values
         coeffs  = expr.coeffs
         l_coeffs = expr.local_coeffs
@@ -1491,7 +1491,7 @@ class Parser(object):
     def _visit_Pass(self, expr, **kwargs):
         return expr
 
-    def _visit_EmptyLine(self ,expr, **kwargs):
+    def _visit_EmptyNode(self ,expr, **kwargs):
         return expr
 
     def _visit_NoneType(self, expr, **kwargs):
