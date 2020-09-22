@@ -202,11 +202,8 @@ class EvalField(BaseNode):
                 stmts_1 += [AugAssign(val, '+', rhs)]
                 mats    += [mat]
                 inits += [Assign(node,val)]
-                #inits += [ComputePhysicalBasis(a)]
                 stmts_2[coeff] = Assign(coeff, ProductGenerator(l_coeff, l_index))
 
-        #inits += [ComputePhysicalBasis(expr) for expr in atoms]
-        #inits = Tuple(*inits)
         body  = Loop( q_basis, q_index, stmts=stmts_1, mask=mask)
         stmts_2 = [*stmts_2.values(), body]
         body  = Loop((), l_index, stmts_2)
