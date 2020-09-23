@@ -81,16 +81,17 @@ def run_vector_poisson_3d_dir(solution, f, ncells, degree):
 #==============================================================================
 def test_api_vector_poisson_3d_dir_1():
 
-    from sympy.abc import x,y,z
+    from sympy import symbols
+    x1, x2, x3 = symbols('x1, x2, x3')
 
-    u1 = sin(pi*x)*sin(pi*y)*sin(pi*z)
-    u2 = sin(pi*x)*sin(pi*y)*sin(pi*z)
-    u3 = sin(pi*x)*sin(pi*y)*sin(pi*z)
+    u1 = sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
+    u2 = sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
+    u3 = sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
     solution = Tuple(u1, u2, u3)
 
-    f1 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f2 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f3 = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    f1 = 3*pi**2*sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
+    f2 = 3*pi**2*sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
+    f3 = 3*pi**2*sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
     f = Tuple(f1, f2, f3)
 
     l2_error, h1_error = run_vector_poisson_3d_dir(solution, f,

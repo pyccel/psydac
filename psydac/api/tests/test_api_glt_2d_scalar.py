@@ -6,7 +6,7 @@ from sympy.utilities.lambdify import implemented_function
 from sympde.core import Constant
 from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
-from sympde.topology import (dx, dy, dz)
+from sympde.topology import dx1, dx2, dx3
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import element_of
@@ -165,7 +165,7 @@ def run_variable_coeff_2d_dir(ncells, degree, comm=None):
 
     int_0 = lambda expr: integral(domain , expr)
     
-    expr = (1 + c*sin(pi*(x+y)))*dx(u)*dx(v) + (1 + c*sin(pi*(x-y)))*dy(u)*dy(v)
+    expr = (1 + c*sin(pi*(x+y)))*dx1(u)*dx2(v) + (1 + c*sin(pi*(x-y)))*dx1(u)*dx2(v)
     a = BilinearForm((v,u), int_0(expr))
     glt_a = GltExpr(a)
     # ...
@@ -225,7 +225,7 @@ def test_api_glt_field_2d_dir_1():
 def test_api_glt_variable_coeff_2d_dir_1():
 
     error = run_variable_coeff_2d_dir(ncells=[2**3,2**3], degree=[2,2])
-    assert(np.allclose([error], [0.02481741625914586]))
+    assert(np.allclose([error], [0.015007922966035904]))
 
 
 #==============================================================================

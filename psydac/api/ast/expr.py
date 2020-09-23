@@ -27,7 +27,7 @@ from sympde.topology.derivatives import get_atom_derivatives
 from sympde.topology.derivatives import get_index_derivatives
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
-from sympde.topology             import SymbolicDeterminant
+from sympde.calculus.matrices    import SymbolicDeterminant
 
 from .basic      import SplBasic
 from .utilities  import random_string
@@ -36,6 +36,7 @@ from .utilities  import is_scalar_field, is_vector_field
 from .utilities  import math_atoms_as_str
 
 from psydac.fem.vector import ProductFemSpace
+from .nodes            import Zeros
 
 #==============================================================================
 def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
@@ -267,7 +268,7 @@ class ExprKernel(SplBasic):
         if fields or vector_fields_str:
             basis  = variables( 'basis1:%s(1:%s)'%(dim+1,size+1),
                                 dtype = 'real',
-                                rank = 4,
+                                rank = 3,
                                 cls = IndexedVariable )
 
             spans  = variables( 'spans1:%s(1:%s)'%(dim+1,size+1),
@@ -309,7 +310,7 @@ class ExprKernel(SplBasic):
             body.append(Assign(fields[i],0))
             atom      = atomic_expr_field[i]
             atoms,ind = compute_atoms_expr(atom, basis, indices, loc_indices, dim)
-            slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans,degrees,loc_indices,indices))
+            slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans, degrees, loc_indices, indices))
             args   = args + (fields_coeff[0][slices],)
             for_body = [AugAssign(fields[i],'+',Mul(*args))]
             loc_ranges = [Range(j) for j in degrees]
@@ -321,8 +322,8 @@ class ExprKernel(SplBasic):
         for i in range(len(vector_fields)):
             body.append(Assign(vector_fields[i],0))
             atom = atomic_expr_vector_field[i]
-            atoms,ind = compute_atoms_expr(atom, basis, indices, loc_indices, dim)
-            slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans[ind::size],degrees[ind::size],loc_indices,indices))
+            atoms, ind = compute_atoms_expr(atom, basis, indices, loc_indices, dim)
+            slices = tuple(sp[id]-p+j for sp,p,j,id in zip(spans[ind::size], degrees[ind::size], loc_indices,indices))
             atoms   = atoms + (vector_fields_coeff[ind][slices],)
             for_body = [AugAssign(vector_fields[i],'+',Mul(*atoms))]
             loc_ranges = [Range(j) for j in degrees[ind::size]]
@@ -363,13 +364,13 @@ class ExprKernel(SplBasic):
 
         # ... get math functions and constants
         math_elements = math_atoms_as_str(expr, 'numpy')
-        math_imports  = [Import(e, 'numpy') for e in math_elements]
+        math_imports  = [Import('numpy', e) for e in math_elements]
 
         imports += math_imports
         # ...
 
         # ...
-        self._basic_args = arr_xis + fields_coeff + vector_fields_coeff + degrees +basis + spans
+        self._basic_args = arr_xis + fields_coeff + vector_fields_coeff + degrees + basis + spans
         # ...
 
         # ...
@@ -500,7 +501,7 @@ class ExprInterface(SplBasic):
         body = []
 
         # ...
-        imports += [Import('zeros', 'numpy')]
+        imports += [Import('numpy',('zeros',))]
         # ...
 
         # ...
@@ -516,11 +517,11 @@ class ExprInterface(SplBasic):
         for M,dtype in zip(global_mats, global_mats_types):
             if_cond = Is(M, Nil())
 
-            _args = list(lengths) + ['dtype={}'.format(dtype)]
-            if_body = [Assign(M, FunctionCall('zeros', _args))]
+            _args = list(lengths) + ['{}'.format(dtype)]
+            if_body = [Assign(M, Zeros(*_args))]
 
             stmt = If((if_cond, if_body))
-            body += [Import('zeros', 'numpy'), stmt]
+            body += [Import('numpy',('zeros',)), stmt]
         # ...
 
         # ...

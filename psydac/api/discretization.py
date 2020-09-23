@@ -15,7 +15,7 @@ from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm
 from sympde.expr     import LinearForm as sym_LinearForm
 from sympde.expr     import Functional as sym_Functional
-from sympde.expr     import BoundaryIntegral as sym_BoundaryIntegral
+from sympde.expr     import Integral
 from sympde.expr     import Equation as sym_Equation
 from sympde.expr     import Boundary as sym_Boundary, Interface as sym_Interface
 from sympde.expr     import Norm as sym_Norm
@@ -25,7 +25,7 @@ from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
 from sympde.topology import ProductSpace
-from sympde.topology import Mapping, IdentityMapping
+from sympde.topology import Mapping, IdentityMapping, LogicalExpr
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology.basic import Union
 from gelato.expr     import GltExpr as sym_GltExpr
@@ -107,11 +107,11 @@ class DiscreteEquation(BasicDiscrete):
         # ...
 
         # ...
-        boundaries_lhs = expr.lhs.atoms(sym_BoundaryIntegral)
-        boundaries_lhs = [a.domain for a in boundaries_lhs]
+        boundaries_lhs = expr.lhs.atoms(Integral)
+        boundaries_lhs = [a.domain for a in boundaries_lhs if a.is_boundary_integral]
 
-        boundaries_rhs = expr.rhs.atoms(sym_BoundaryIntegral)
-        boundaries_rhs = [a.domain for a in boundaries_rhs]
+        boundaries_rhs = expr.rhs.atoms(Integral)
+        boundaries_rhs = [a.domain for a in boundaries_rhs if a.is_boundary_integral]
         # ...
 
         # ...
@@ -378,7 +378,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
     comm                = domain_h.comm
     kind                = V.kind
     ldim                = V.ldim
-    symbolic_mapping    = kwargs.pop('mapping', None)
 
     is_rational_mapping = False
     
@@ -422,11 +421,16 @@ def discretize_space(V, domain_h, *args, **kwargs):
         else:
             interiors = [interiors]
 
-        if symbolic_mapping is None:
+        if domain_h.domain.mapping is None:
             if len(interiors) == 1:
                 symbolic_mapping = IdentityMapping('M_{}'.format(interiors[0].name), ldim)
             else:
                 symbolic_mapping = {D:IdentityMapping('M_{}'.format(D.name), ldim) for D in interiors}
+        else:
+            if len(interiors) == 1:
+                symbolic_mapping = domain_h.domain.mapping
+            else:
+                symbolic_mapping = domain_h.domain.mapping.mappings
 
         g_spaces = []
         for i,interior in enumerate(interiors):
@@ -560,7 +564,18 @@ def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
 def discretize(a, *args, **kwargs):
 
     if isinstance(a, sym_BasicForm):
-        kernel_expr = TerminalExpr(a)
+        domain_h = args[0]
+        assert( isinstance(domain_h, Geometry) )
+        mapping     = domain_h.domain.mapping
+
+        if isinstance(a, sym_Norm):
+            kernel_expr = TerminalExpr(a)
+            if not mapping is None:
+                kernel_expr = tuple(LogicalExpr(i) for i in kernel_expr)
+        else:
+            if not mapping is None:
+                a           = LogicalExpr(a)
+            kernel_expr = TerminalExpr(a)
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 

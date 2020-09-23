@@ -122,14 +122,16 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
 #==============================================================================
 def test_api_system_1_2d_dir_1():
 
-    from sympy.abc import x,y
+    from sympy import symbols
+    
+    x1,x2 = symbols('x1, x2')
 
-    Fe = Tuple(sin(pi*x)*sin(pi*y), sin(pi*x)*sin(pi*y))
-    f0 = Tuple(2*pi**2*sin(pi*x)*sin(pi*y),
-              2*pi**2*sin(pi*x)*sin(pi*y))
+    Fe = Tuple(sin(pi*x1)*sin(pi*x2), sin(pi*x1)*sin(pi*x2))
+    f0 = Tuple(2*pi**2*sin(pi*x1)*sin(pi*x2),
+              2*pi**2*sin(pi*x1)*sin(pi*x2))
 
-    Ge = cos(pi*x)*cos(pi*y)
-    f1 = cos(pi*x)*cos(pi*y)
+    Ge = cos(pi*x1)*cos(pi*x2)
+    f1 = cos(pi*x1)*cos(pi*x2)
 
     l2_error, h1_error = run_system_1_2d_dir(Fe, Ge, f0, f1,
                                             ncells=[2**3,2**3], degree=[2,2])

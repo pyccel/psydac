@@ -5,22 +5,24 @@ from sympy import Mul, Matrix
 from sympy import Add
 from sympy import Abs
 from sympy import Symbol, Idx
+from sympy import Max
+from sympy import Basic
+from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
 
 from pyccel.ast.builtins import Range
 from pyccel.ast.core     import Assign, Product, AugAssign, For
 from pyccel.ast.core     import Variable, IndexedVariable, IndexedElement
 from pyccel.ast.core     import Slice
-from pyccel.ast.core     import EmptyLine, Import
+from pyccel.ast.core     import EmptyNode, Import
 from pyccel.ast.core     import CodeBlock, FunctionDef
 
 from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import SymbolicExpr
-from sympde.topology import LogicalExpr
+from sympde.topology import LogicalExpr, Jacobian
 from sympde.expr.evaluation import _split_test_function
-from sympde.topology import SymbolicDeterminant
-from sympde.topology import SymbolicInverseDeterminant
-from sympde.topology import SymbolicWeightedVolume
+from sympde.calculus.matrices import SymbolicDeterminant
+from sympde.topology import SymbolicWeightedVolume, InterfaceMapping
 from sympde.topology import Boundary, NormalVector, Interface
 
 from sympde.topology.derivatives import get_index_logical_derivatives
@@ -69,8 +71,6 @@ from .nodes import   Zeros, ZerosLike
 from .fem import expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.utilities     import flatten
-from sympy import Max
-from sympy import Basic
 
 #==============================================================================
 # TODO move it
@@ -154,8 +154,6 @@ class Parser(object):
 
         # TODO improve
         self.indices          = OrderedDict()
-        self.wright_variables = OrderedDict()
-        self.read_variables   = OrderedDict()
         self.shapes           = OrderedDict()
         self.functions        = OrderedDict()
         self.variables        = OrderedDict()
@@ -196,15 +194,9 @@ class Parser(object):
         rhs = expr.rhs
 
         rhs_indices = []
-        lhs_indices = lhs.indices
-
         if isinstance(rhs, (Indexed, IndexedElement)):
             rhs_indices = rhs.indices
-        if isinstance(lhs_indices[0],(tuple, list, Tuple)):
-            lhs_indices = lhs_indices[0]
-        if rhs_indices:
-            if isinstance(rhs_indices[0],(tuple, list, Tuple)):
-                rhs_indices = rhs_indices[0]
+        lhs_indices = lhs.indices
 
         #TODO fix probleme of indices we should have a unique way of getting indices
         lhs_indices = [None if isinstance(i, Slice) and i.start is None else i for i in lhs_indices]
@@ -234,6 +226,7 @@ class Parser(object):
                     shape.append(self.indices[str(i)])
             if len(shape) == len(lhs_indices):
                 shape_lhs = tuple(shape)
+
         return shape_lhs
 
     def _visit(self, expr, **settings):
@@ -247,14 +240,14 @@ class Parser(object):
 
     # ....................................................
     def _visit_Assign(self, expr, **kwargs):
+
         lhs = self._visit(expr.lhs)
         rhs = self._visit(expr.rhs)
 
         # ... extract slices from rhs
         slices = []
         if isinstance(rhs, IndexedElement):
-            indices = rhs.indices[0]
-            slices = [i for i in indices if isinstance(i, Slice)]
+            slices = [i for i in rhs.indices if isinstance(i, Slice)]
         # ...
 
         # ... update lhs with slices
@@ -267,23 +260,15 @@ class Parser(object):
                 lhs = IndexedBase(lhs.name)[slices]
 
         expr = Assign(lhs, rhs)
-        # ...
+        # ..
+
         if isinstance(lhs, (IndexedElement, Indexed)):
             name = str(lhs.base)
-            if isinstance(rhs, (IndexedElement, Indexed)):
-                
-                self.wright_variables[str(lhs.base)] = Shape(rhs)
-            else:
-                self.wright_variables[str(lhs.base)] = rhs
 
             shape = self.get_shape(expr)
             if shape:
                 self.shapes[name] = shape
 
-        if isinstance(rhs, IndexedElement):
-            #TODO check that this variable exist in arguments
-            # or in wright variables else we raise an error
-            self.read_variables[str(rhs.base)] = rhs
         return expr
 
     # ....................................................
@@ -296,7 +281,6 @@ class Parser(object):
         # ... extract slices from rhs
         slices = []
         if isinstance(rhs, IndexedElement):
-            indices = rhs.indices[0]
             slices = [i for i in indices if isinstance(i, Slice)]
         # ...
 
@@ -312,21 +296,10 @@ class Parser(object):
         # ...
         if isinstance(lhs, (IndexedElement,Indexed)):
             name = str(lhs.base)
-            if isinstance(rhs, (IndexedElement,Indexed)):
-                
-                self.wright_variables[str(lhs.base)] = Shape(rhs)
-            else:
-                self.wright_variables[str(lhs.base)] = rhs
 
             shape = self.get_shape(expr)
             if shape:
                 self.shapes[name] = shape
-
-        if isinstance(rhs, IndexedElement):
-            #TODO check that this variable exist in arguments
-            # or in wright variables else we raise an error
-            self.read_variables[str(rhs.base)] = rhs
-
 
         return expr
     # ....................................................
@@ -447,11 +420,11 @@ class Parser(object):
             else:
                 inits.append(Assign(var, Zeros(i)))
 
-        inits.append(EmptyLine())
+        inits.append(EmptyNode())
         body =  tuple(inits) + body
         name = expr.name
         imports = ('zeros', 'zeros_like') + tuple(self._math_functions)
-        imports = [Import(imports,'numpy')]
+        imports = [Import('numpy', imports)]
         func = FunctionDef(name, arguments, [],body, imports=imports)
         self.functions[name] = func
         return func
@@ -485,7 +458,7 @@ class Parser(object):
 
     def _visit_EvalMapping(self, expr, **kwargs):
         if self._mapping.is_analytical:
-            return EmptyLine()
+            return EmptyNode()
         values  = expr.values
         coeffs  = expr.coeffs
         l_coeffs = expr.local_coeffs
@@ -931,27 +904,6 @@ class Parser(object):
 
         if op is None:
             stmt = Assign(lhs, rhs)
-
-        else:
-            stmt = AugAssign(lhs, op, rhs)
-
-        return self._visit(stmt, **kwargs)
-
-    # ....................................................
-    def _visit_ComputePhysical(self, expr, op=None, lhs=None, **kwargs):
-        expr = expr.expr
-        if lhs is None:
-            if not isinstance(expr, (Add, Mul)):
-                lhs = self._visit(AtomicNode(expr), **kwargs)
-            else:
-                lhs = random_string( 6 )
-                lhs = Symbol('tmp_{}'.format(lhs))
-
-        rhs = self._visit_PhysicalValueNode(PhysicalValueNode(expr), **kwargs)
-
-        if op is None:
-            stmt = Assign(lhs, rhs)
-
         else:
             stmt = AugAssign(lhs, op, rhs)
 
@@ -979,28 +931,6 @@ class Parser(object):
         return self._visit(stmt, **kwargs)
 
     # ....................................................
-    def _visit_ComputePhysicalBasis(self, expr, op=None, lhs=None, **kwargs):
-        expr   = expr.expr
-        if lhs is None:
-            if not isinstance(expr, (Add, Mul)):
-                atom = BasisAtom(expr)
-                lhs  = self._visit_BasisAtom(atom, **kwargs)
-            else:
-                lhs = random_string( 6 )
-                lhs = Symbol('tmp_{}'.format(lhs))
-
-        expr = PhysicalBasisValue(expr)
-        rhs = self._visit(expr, **kwargs)
-
-        if op is None:
-            stmt = Assign(lhs, rhs)
-
-        else:
-            stmt = AugAssign(lhs, op, rhs)
-
-        return self._visit(stmt, **kwargs)
-
-    # ....................................................
     def _visit_ComputeKernelExpr(self, expr, op=None, lhs=None, **kwargs):
         if lhs is None:
             if not isinstance(expr, (Add, Mul)):
@@ -1009,16 +939,28 @@ class Parser(object):
                 lhs = random_string( 6 )
                 lhs = Symbol('tmp_{}'.format(lhs))
 
+        exprs   = expr.expr
         mapping = self.mapping
+
+        if mapping.is_analytical and not isinstance(mapping, InterfaceMapping):
+            for i in range(mapping.rdim):
+                exprs = exprs.subs(mapping[i], mapping.expressions[i])
+
+        elif mapping.is_analytical and isinstance(mapping, InterfaceMapping):
+            M1 = mapping.minus
+            M2 = mapping.plus
+            for i in range(M1.rdim):
+                exprs = exprs.subs(M1[i], M1.expressions[i])
+                exprs = exprs.subs(M2[i], M2.expressions[i])
+
         weight  = SymbolicWeightedVolume(mapping)
-        weight = SymbolicExpr(weight)
-        exprs = expr.expr[:]
+        weight  = SymbolicExpr(weight)
 
-        if self.mapping.is_analytical:
-            exprs =  [LogicalExpr(mapping, i) for i in exprs]
-
-        rhs = [weight*self._visit(expr, **kwargs) for expr in exprs]
+        rhs = [weight*self._visit(expr, **kwargs) for expr in exprs[:]]
         lhs = lhs[:]
+
+        temps = []
+        temps, rhs = cse_main.cse(rhs, symbols=cse_main.numbered_symbols(prefix='temp'))
 
         normal_vec_stmts = []
         normal_vectors = expr.expr.atoms(NormalVector)
@@ -1032,7 +974,7 @@ class Parser(object):
             axis    = target.axis
             ext     = target.ext if isinstance(target, Boundary) else 1
 
-            J       = LogicalExpr(mapping, mapping.jacobian)
+            J       = LogicalExpr(Jacobian(mapping), mapping=mapping, dim=dim, subs=True)
             J       = SymbolicExpr(J)
             values  = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
             normalization = sum(v**2 for v in values)**0.5
@@ -1045,9 +987,10 @@ class Parser(object):
         else:
             stmts = [AugAssign(i, op, j) for i,j in zip(lhs,rhs) if j]
 
+        temps = tuple(Assign(a,b) for a,b in temps)
         stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
-        stmts = tuple(normal_vec_stmts) + stmts
-        math_functions = math_atoms_as_str(exprs, 'numpy')
+        stmts = tuple(normal_vec_stmts) + temps + stmts
+        math_functions = math_atoms_as_str(list(exprs)+normal_vec_stmts, 'numpy')
         math_functions = tuple(m for m in math_functions if m not in self._math_functions)
         self._math_functions = math_functions + self._math_functions
         return stmts
@@ -1096,21 +1039,10 @@ class Parser(object):
     # ....................................................
     def _visit_LogicalValueNode(self, expr, **kwargs):
 
-        mapping = self.mapping
-
         expr = expr.expr
         target = self.target
 
-        if isinstance(target, Interface):
-                mapping = mapping.minus
-
-        if isinstance(expr, SymbolicDeterminant):
-            return SymbolicExpr(mapping.det_jacobian)
-
-        elif isinstance(expr, SymbolicInverseDeterminant):
-            return SymbolicExpr(1./SymbolicDeterminant(mapping))
-
-        elif isinstance(expr, WeightedVolumeQuadrature):
+        if isinstance(expr, WeightedVolumeQuadrature):
             #TODO improve l_quad should not be used like this
             l_quad = TensorQuadrature()
             l_quad = self._visit_TensorQuadrature(l_quad, **kwargs)
@@ -1120,44 +1052,8 @@ class Parser(object):
                 weights.pop(target.axis)
             wvol = Mul(*weights)
             return wvol
-
-        elif isinstance(expr, SymbolicWeightedVolume):
-            wvol = self._visit(expr, **kwargs)
-            if isinstance(target, (Boundary, Interface)):
-                J = mapping.jacobian.copy()
-                J.col_del(target.axis)
-                J = LogicalExpr(mapping, J)
-                J = SymbolicExpr(J)
-                det_jac = (J.T*J).det()
-                det_jac = det_jac.simplify()**0.5
-            else:
-                if not mapping.is_analytical:
-                    det_jac = SymbolicDeterminant(mapping)
-                else:
-                    det_jac = LogicalExpr(mapping, mapping.det_jacobian)
-                det_jac = SymbolicExpr(det_jac)
-            math_functions = math_atoms_as_str(det_jac, 'numpy')
-            math_functions = tuple(m for m in math_functions if m not in self._math_functions)
-            self._math_functions = math_functions + self._math_functions
-
-            return wvol * Abs(det_jac)
-        elif isinstance(expr, Symbol):
-            return expr
-
         else:
             raise TypeError('{} not available'.format(type(expr)))
-
-    # ....................................................
-    def _visit_PhysicalValueNode(self, expr, **kwargs):
-        mapping = self.mapping
-        expr = LogicalExpr(mapping, expr.expr)
-        expr = SymbolicExpr(expr)
-
-        inv_jac = SymbolicInverseDeterminant(mapping)
-        jac = SymbolicExpr(mapping.det_jacobian)
-        expr = expr.subs(1/jac, inv_jac)
-
-        return expr
 
     # ....................................................
     def _visit_PhysicalGeometryValue(self, expr, **kwargs):
@@ -1482,6 +1378,7 @@ class Parser(object):
                     ls += [self._visit(Assign(lhs, g_x))]
                 inits[i] += tuple(ls)
         inits = [flatten(init) for init in inits]
+
         return  inits
 
     # ....................................................
@@ -1577,7 +1474,7 @@ class Parser(object):
 
         args = []
         for p,n in zip(positions, lengths):
-            indices = target.indices[0] # sympy is return a tuple of tuples
+            indices = target.indices # sympy is return a tuple of tuples
             indices = [i for i in indices] # make a copy
             for i in range(n):
                 indices[p] = i
@@ -1594,7 +1491,7 @@ class Parser(object):
     def _visit_Pass(self, expr, **kwargs):
         return expr
 
-    def _visit_EmptyLine(self ,expr, **kwargs):
+    def _visit_EmptyNode(self ,expr, **kwargs):
         return expr
 
     def _visit_NoneType(self, expr, **kwargs):

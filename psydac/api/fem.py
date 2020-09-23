@@ -42,7 +42,7 @@ from psydac.fem.basic           import FemField
 from psydac.fem.vector          import VectorFemField
 
 from collections import OrderedDict
-from sympy import Matrix
+from sympy import ImmutableDenseMatrix, Matrix
 import inspect
 import sys
 import numpy as np
@@ -301,7 +301,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         is_broken       = test_sym_space.is_broken
         domain          = test_sym_space.domain.interior.args if is_broken else test_sym_space.domain.interior
 
-        if isinstance(expr, Matrix):
+        if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
             pads         = np.zeros((len(test_degree),len(trial_degree),len(test_degree[0])), dtype=int)
             for i in range(len(test_degree)):
                 for j in range(len(trial_degree)):
@@ -311,7 +311,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             pads = test_degree
 
-        if isinstance(expr, Matrix):
+        if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
 
             shape = expr.shape
             for i in range(shape[0]):
@@ -529,7 +529,7 @@ class DiscreteLinearForm(BasicDiscrete):
         sym_space   = self._symbolic_space
         is_broken   = sym_space.is_broken
         domain      = sym_space.domain.interior.args if is_broken else sym_space.domain.interior
-        if isinstance(expr, Matrix):
+        if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
             expr = expr[:]
             for i in range(len(expr)):
                 if expr[i].is_zero:

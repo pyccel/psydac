@@ -176,20 +176,25 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
 ###############################################################################
 
 def test_api_system_1_2d_dir_1():
-    from sympy.abc import x,y
+    from sympy import symbols
+    x1, x2 = symbols('x1, x2')
 
-    f0 =  -2*x*(1-x) -2*y*(1-y)
-    u  = x*(1-x)*y*(1-y)
+    f0 =  -2*x1*(1-x1) -2*x2*(1-x2)
+    u  = x1*(1-x1)*x2*(1-x2)
+
     l2_error = run_system_1_2d_dir(f0,u, ncells=[2**3,2**3], degree=[2,2])
     assert l2_error-0.00030070020628128664<1e-13
 
 def test_api_system_2_2d_dir_1():
-    from sympy.abc import x,y
-    f1 = -x**2*(x - 1)**2*(24*y - 12) - 4*y*(x**2 + 4*x*(x - 1) + (x - 1)**2)*(2*y**2 - 3*y + 1) - 2*pi*cos(2*pi*x)
-    f2 = 4*x*(2*x**2 - 3*x + 1)*(y**2 + 4*y*(y - 1) + (y - 1)**2) + y**2*(24*x - 12)*(y - 1)**2 + 2*pi*cos(2*pi*y)
-    u1 = x**2*(-x + 1)**2*(4*y**3 - 6*y**2 + 2*y)
-    u2 =-y**2*(-y + 1)**2*(4*x**3 - 6*x**2 + 2*x)
-    p  = sin(2*pi*x) - sin(2*pi*y)
+
+    from sympy import symbols
+    x1, x2 = symbols('x1, x2')
+ 
+    f1 = -x1**2*(x1 - 1)**2*(24*x2 - 12) - 4*x2*(x1**2 + 4*x1*(x1 - 1) + (x1 - 1)**2)*(2*x2**2 - 3*x2 + 1) - 2*pi*cos(2*pi*x1)
+    f2 = 4*x1*(2*x1**2 - 3*x1 + 1)*(x2**2 + 4*x2*(x2 - 1) + (x2 - 1)**2) + x2**2*(24*x1 - 12)*(x2 - 1)**2 + 2*pi*cos(2*pi*x2)
+    u1 = x1**2*(-x1 + 1)**2*(4*x2**3 - 6*x2**2 + 2*x2)
+    u2 =-x2**2*(-x2 + 1)**2*(4*x1**3 - 6*x1**2 + 2*x1)
+    p  = sin(2*pi*x1) - sin(2*pi*x2)
     
     l2_error = run_system_2_2d_dir(f1, f2, u1, u2, ncells=[2**4,2**4], degree=[2,2])
     assert l2_error-0.020113712082281063<1e-13

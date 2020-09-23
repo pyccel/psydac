@@ -80,14 +80,15 @@ def run_vector_poisson_2d_dir(solution, f, ncells, degree):
 #==============================================================================
 def test_api_vector_poisson_2d_dir_1():
 
-    from sympy.abc import x,y
+    from sympy import symbols
+    x1, x2 = symbols('x1, x2')
 
-    u1 = sin(pi*x)*sin(pi*y)
-    u2 = sin(pi*x)*sin(pi*y)
+    u1 = sin(pi*x1)*sin(pi*x2)
+    u2 = sin(pi*x1)*sin(pi*x2)
     solution = Tuple(u1, u2)
 
-    f1 = 2*pi**2*sin(pi*x)*sin(pi*y)
-    f2 = 2*pi**2*sin(pi*x)*sin(pi*y)
+    f1 = 2*pi**2*sin(pi*x1)*sin(pi*x2)
+    f2 = 2*pi**2*sin(pi*x1)*sin(pi*x2)
     f = Tuple(f1, f2)
 
     l2_error, h1_error = run_vector_poisson_2d_dir(solution, f,
