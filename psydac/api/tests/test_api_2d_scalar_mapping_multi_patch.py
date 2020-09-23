@@ -37,7 +37,7 @@ from mpi4py import MPI
 
 #==============================================================================
 
-def run_poisson_2d(solution, f, domain, mappings, ncells, degree, comm=None):
+def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -82,7 +82,7 @@ def run_poisson_2d(solution, f, domain, mappings, ncells, degree, comm=None):
     #+++++++++++++++++++++++++++++++
     
     domain_h = discretize(domain, ncells=ncells, comm=comm)
-    Vh       = discretize(V, domain_h, mapping=mappings, degree=degree)  
+    Vh       = discretize(V, domain_h, degree=degree)
     
     equation_h = discretize(equation, domain_h, [Vh, Vh])
     l2norm_h = discretize(l2norm, domain_h, Vh)
@@ -117,13 +117,11 @@ def test_poisson_2d_2_patch_dirichlet_0():
                 bnd_minus = D1.get_boundary(axis=1, ext=1),
                 bnd_plus  = D2.get_boundary(axis=1, ext=-1))
 
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
-
     x,y = domain.coordinates
     solution = x**2 + y**2
     f        = -4
 
-    l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=[2**2, 2**2], degree=[2,2])
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2, 2**2], degree=[2,2])
 
     expected_l2_error = 6.223948817460227e-09
     expected_h1_error = 8.184613465986152e-09
@@ -149,13 +147,11 @@ def test_poisson_2d_2_patch_dirichlet_1():
                 bnd_minus = D1.get_boundary(axis=1, ext=1),
                 bnd_plus  = D2.get_boundary(axis=1, ext=-1))
 
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
-
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
     expected_l2_error = 0.008813239980488852
     expected_h1_error = 0.12252946949143205
@@ -185,13 +181,11 @@ def test_poisson_2d_2_patch_dirichlet_2():
     #            bnd_minus = D2.get_boundary(axis=1, ext=1),
     #            bnd_plus  = D3.get_boundary(axis=0, ext=1))
 
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
-
     x,y       = D1D2.coordinates
     solution  = x**2 + y**2
     f         = -4
 
-    l2_error, h1_error = run_poisson_2d(solution, f, D1D2, mappings, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error = run_poisson_2d(solution, f, D1D2, ncells=[2**2,2**2], degree=[2,2])
 
     expected_l2_error = 3.044249692897913e-09
     expected_h1_error = 1.3784679832274999e-08
@@ -220,13 +214,11 @@ def test_poisson_2d_2_patch_dirichlet_parallel_0():
                 bnd_minus = D1.get_boundary(axis=1, ext=1),
                 bnd_plus  = D2.get_boundary(axis=1, ext=-1))
 
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
-
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=[2**2,2**2], degree=[2,2],
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2],
                                         comm=MPI.COMM_WORLD)
 
     expected_l2_error = 0.008813239980488852

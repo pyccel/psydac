@@ -398,7 +398,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
     comm                = domain_h.comm
     kind                = V.kind
     ldim                = V.ldim
-    symbolic_mapping    = kwargs.pop('mapping', None)
 
     is_rational_mapping = False
     
@@ -442,11 +441,16 @@ def discretize_space(V, domain_h, *args, **kwargs):
         else:
             interiors = [interiors]
 
-        if symbolic_mapping is None:
+        if domain_h.domain.mapping is None:
             if len(interiors) == 1:
                 symbolic_mapping = IdentityMapping('M_{}'.format(interiors[0].name), ldim)
             else:
                 symbolic_mapping = {D:IdentityMapping('M_{}'.format(D.name), ldim) for D in interiors}
+        else:
+            if len(interiors) == 1:
+                symbolic_mapping = domain_h.domain.mapping
+            else:
+                symbolic_mapping = domain_h.domain.mapping.mappings
 
         g_spaces = []
         for i,interior in enumerate(interiors):

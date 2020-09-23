@@ -37,7 +37,7 @@ from mpi4py import MPI
 
 #==============================================================================
 
-def run_poisson_2d(solution, f, domain, mapping, ncells, degree, comm=None):
+def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -64,7 +64,7 @@ def run_poisson_2d(solution, f, domain, mapping, ncells, degree, comm=None):
     #+++++++++++++++++++++++++++++++
     
     domain_h = discretize(domain, ncells=ncells)
-    Vh       = discretize(V, domain_h, mapping=mapping, degree=degree)  
+    Vh       = discretize(V, domain_h, degree=degree)
     
     equation_h = discretize(equation, domain_h, [Vh, Vh])
 
@@ -93,7 +93,7 @@ def test_poisson_2d_analytical_mapping_0():
     solution = x**2 + y**2
     f        = -4
 
-    l2_error, h1_error = run_poisson_2d(solution, f, mapped_domain, mapping, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error = run_poisson_2d(solution, f, mapped_domain, ncells=[2**2,2**2], degree=[2,2])
 
     expected_l2_error = 1.0930839536997034e-09
     expected_h1_error = 1.390398663745195e-08
