@@ -37,7 +37,7 @@ from mpi4py import MPI
 
 #==============================================================================
 
-def run_poisson_2d(solution, f, domain, mappings, ncells, degree, comm=None):
+def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -82,7 +82,7 @@ def run_poisson_2d(solution, f, domain, mappings, ncells, degree, comm=None):
     #+++++++++++++++++++++++++++++++
     
     domain_h = discretize(domain, ncells=ncells, comm=comm)
-    Vh       = discretize(V, domain_h, mapping=mappings, degree=degree)  
+    Vh       = discretize(V, domain_h, degree=degree)
     
     equation_h = discretize(equation, domain_h, [Vh, Vh])
     l2norm_h = discretize(l2norm, domain_h, Vh)
@@ -107,20 +107,21 @@ def test_poisson_2d_2_patch_dirichlet_0():
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
-    domain = A.join(B, name = 'domain',
-                bnd_minus = A.get_boundary(axis=1, ext=1),
-                bnd_plus  = B.get_boundary(axis=1, ext=-1))
-
     mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
+    D1     = mapping_1(A)
+    D2     = mapping_2(B)
+
+    domain = D1.join(D2, name = 'domain',
+                bnd_minus = D1.get_boundary(axis=1, ext=1),
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
 
     x,y = domain.coordinates
     solution = x**2 + y**2
     f        = -4
 
-    l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2, 2**2], degree=[2,2])
 
     expected_l2_error = 6.223948817460227e-09
     expected_h1_error = 8.184613465986152e-09
@@ -136,20 +137,21 @@ def test_poisson_2d_2_patch_dirichlet_1():
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
-    domain = A.join(B, name = 'domain',
-                bnd_minus = A.get_boundary(axis=1, ext=1),
-                bnd_plus  = B.get_boundary(axis=1, ext=-1))
-
     mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
+    D1     = mapping_1(A)
+    D2     = mapping_2(B)
+
+    domain = D1.join(D2, name = 'domain',
+                bnd_minus = D1.get_boundary(axis=1, ext=1),
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
     expected_l2_error = 0.008813239980488852
     expected_h1_error = 0.12252946949143205
@@ -163,25 +165,27 @@ def test_poisson_2d_2_patch_dirichlet_2():
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
 #    C = Square('C',bounds1=(-1., 0.), bounds2=(0.5, 1.))
 
-    AB        = A.join(B, name = 'AB',
-                bnd_minus = A.get_boundary(axis=1, ext=1),
-                bnd_plus  = B.get_boundary(axis=1, ext=-1))
-
-    #ABC       = AB.join(C, name = 'ABC',
-    #            bnd_minus = B.get_boundary(axis=1, ext=1),
-    #            bnd_plus  = C.get_boundary(axis=0, ext=1))
-
     mapping_1 = IdentityMapping('M1', 2)
     mapping_2 = PolarMapping   ('M2', 2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     #mapping_3 = IdentityMapping('M3', 2)
 
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
+    D1     = mapping_1(A)
+    D2     = mapping_2(B)
+    #D3     = mapping_3(C)
 
-    x,y       = AB.coordinates
+    D1D2        = D1.join(D2, name = 'AB',
+                bnd_minus = D1.get_boundary(axis=1, ext=1),
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+
+    #D1D2D3       = D1D2.join(D3, name = 'ABC',
+    #            bnd_minus = D2.get_boundary(axis=1, ext=1),
+    #            bnd_plus  = D3.get_boundary(axis=0, ext=1))
+
+    x,y       = D1D2.coordinates
     solution  = x**2 + y**2
     f         = -4
 
-    l2_error, h1_error = run_poisson_2d(solution, f, AB, mappings, ncells=[2**2,2**2], degree=[2,2])
+    l2_error, h1_error = run_poisson_2d(solution, f, D1D2, ncells=[2**2,2**2], degree=[2,2])
 
     expected_l2_error = 3.044249692897913e-09
     expected_h1_error = 1.3784679832274999e-08
@@ -200,20 +204,21 @@ def test_poisson_2d_2_patch_dirichlet_parallel_0():
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
-    domain = A.join(B, name = 'domain',
-                bnd_minus = A.get_boundary(axis=1, ext=1),
-                bnd_plus  = B.get_boundary(axis=1, ext=-1))
-
     mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
+    D1     = mapping_1(A)
+    D2     = mapping_2(B)
+
+    domain = D1.join(D2, name = 'domain',
+                bnd_minus = D1.get_boundary(axis=1, ext=1),
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*solution
 
-    l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=[2**2,2**2], degree=[2,2],
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2],
                                         comm=MPI.COMM_WORLD)
 
     expected_l2_error = 0.008813239980488852

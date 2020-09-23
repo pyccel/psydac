@@ -171,10 +171,11 @@ def run_poisson_3d_dirneu(solution, f, boundary, ncells, degree, comm=None):
 #==============================================================================
 def test_api_poisson_3d_dir_1():
 
-    from sympy.abc import x,y,z
+    from sympy import symbols
+    x1, x2, x3 = symbols('x1, x2, x3')
 
-    solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f        = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    solution = sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
+    f        = 3*pi**2*sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
 
     l2_error, h1_error = run_poisson_3d_dir(solution, f,
                                             ncells=[2**2,2**2,2**2], degree=[2,2,2])
@@ -205,9 +206,10 @@ def test_api_poisson_3d_dir_1():
 #==============================================================================
 def test_api_poisson_3d_dirneu_2():
 
-    from sympy.abc import x,y,z
+    from sympy import symbols
+    x1, x2, x3 = symbols('x1, x2, x3')
 
-    solution = sin(0.5*pi*x)*sin(pi*y)*sin(pi*z)
+    solution = sin(0.5*pi*x1)*sin(pi*x2)*sin(pi*x3)
     f        = (9./4.)*pi**2*solution
 
     l2_error, h1_error = run_poisson_3d_dirneu(solution, f, [{'axis': 0, 'ext': 1}],
@@ -222,9 +224,10 @@ def test_api_poisson_3d_dirneu_2():
 #==============================================================================
 def test_api_poisson_3d_dirneu_13():
 
-    from sympy.abc import x,y,z
+    from sympy import symbols
+    x1, x2, x3 = symbols('x1, x2, x3')
 
-    solution = cos(0.5*pi*x)*cos(0.5*pi*y)*sin(pi*z)
+    solution = cos(0.5*pi*x1)*cos(0.5*pi*x2)*sin(pi*x3)
     f        = (3./2.)*pi**2*solution
 
     l2_error, h1_error = run_poisson_3d_dirneu(solution, f,
@@ -241,9 +244,10 @@ def test_api_poisson_3d_dirneu_13():
 #==============================================================================
 def test_api_poisson_3d_dirneu_24():
 
-    from sympy.abc import x,y,z
+    from sympy import symbols
+    x1, x2, x3 = symbols('x1, x2, x3')
 
-    solution = sin(0.5*pi*x)*sin(0.5*pi*y)*sin(pi*z)
+    solution = sin(0.5*pi*x1)*sin(0.5*pi*x2)*sin(pi*x3)
     f        = (3./2.)*pi**2*solution
 
     l2_error, h1_error = run_poisson_3d_dirneu(solution, f,
@@ -308,10 +312,11 @@ def test_api_poisson_3d_dirneu_24():
 @pytest.mark.parallel
 def test_api_poisson_3d_dir_1_parallel():
 
-    from sympy.abc import x,y,z
+    from sympy import symbols
+    x1, x2, x3 = symbols('x1, x2, x3')
 
-    solution = sin(pi*x)*sin(pi*y)*sin(pi*z)
-    f        = 3*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)
+    solution = sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
+    f        = 3*pi**2*sin(pi*x1)*sin(pi*x2)*sin(pi*x3)
 
     l2_error, h1_error = run_poisson_3d_dir(solution, f,
                                             ncells=[2**2,2**2,2**2], degree=[2,2,2],

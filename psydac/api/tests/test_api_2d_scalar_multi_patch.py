@@ -108,6 +108,7 @@ def test_poisson_2d_2_patch_dirichlet_0():
                 bnd_plus  = B.get_boundary(axis=0, ext=-1))
 
     x,y = domain.coordinates
+
     solution = x*y*(1-y)*(1-x)
     f        = -2*x*(x - 1) -2*y*(y - 1)
 

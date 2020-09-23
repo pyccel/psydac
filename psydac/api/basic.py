@@ -329,7 +329,7 @@ class BasicDiscrete(BasicCodeGen):
 
     def __init__(self, expr, kernel_expr, **kwargs):
 
-        if isinstance(kernel_expr, list):
+        if isinstance(kernel_expr, (tuple, list)):
             if len(kernel_expr) == 1:
                 kernel_expr = kernel_expr[0]
             else:

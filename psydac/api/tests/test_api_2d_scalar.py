@@ -1,8 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from mpi4py import MPI
-from sympy import pi, cos, sin
-from sympy.abc import x, y
+from sympy import pi, cos, sin, symbols
 from sympy.utilities.lambdify import implemented_function
 import pytest
 
@@ -20,6 +19,7 @@ from sympde.expr     import find, EssentialBC
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 
+x,y,z = symbols('x1, x2, x3')
 #==============================================================================
 def get_boundaries(*args):
 

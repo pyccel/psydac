@@ -506,13 +506,13 @@ class DiscreteGltExpr(GltBasicCodeGen):
                             name = 'kernel_{}'.format(tag),
                             mapping = mapping,
                             is_rational_mapping = is_rational_mapping,
-                            backend = backend )
+                            backend = backend, **kwargs )
 
         interface = GltInterface( kernel,
                                   name = 'interface_{}'.format(tag),
                                   mapping = mapping,
                                   is_rational_mapping = is_rational_mapping,
-                                  backend = backend )
+                                  backend = backend , **kwargs)
         # ...
 
         ast = {'kernel': kernel, 'interface': interface}

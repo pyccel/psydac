@@ -126,11 +126,13 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 #==============================================================================
             
 def test_api_system_1_2d_dir_1():
-    from sympy.abc import x,y
+    from sympy import symbols
     from sympy import sin, cos, pi
 
-    f0 =  -2*(2*pi)**2*sin(2*pi*x)*sin(2*pi*y)
-    u  = sin(2*pi*x)*sin(2*pi*y)
+    x1, x2, x3 = symbols('x1, x2, x3')
+
+    f0 =  -2*(2*pi)**2*sin(2*pi*x1)*sin(2*pi*x2)
+    u  = sin(2*pi*x1)*sin(2*pi*x2)
 
     error = run_system_1_2d_dir(f0,u, ncells=[5, 5], degree=[2,2])
 

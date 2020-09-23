@@ -17,8 +17,6 @@ from sympde.topology import IndexedVectorField
 from sympde.topology import dx1, dx2, dx3
 from sympde.topology import Mapping
 from sympde.topology import elements_of
-from sympde.topology import SymbolicDeterminant
-from sympde.topology import SymbolicInverseDeterminant
 from sympde.topology import SymbolicWeightedVolume
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import H1SpaceType, L2SpaceType, UndefinedSpaceType
@@ -204,11 +202,8 @@ class EvalField(BaseNode):
                 stmts_1 += [AugAssign(val, '+', rhs)]
                 mats    += [mat]
                 inits += [Assign(node,val)]
-                inits += [ComputePhysicalBasis(a)]
                 stmts_2[coeff] = Assign(coeff, ProductGenerator(l_coeff, l_index))
 
-        inits += [ComputePhysicalBasis(expr) for expr in atoms]
-        inits = Tuple(*inits)
         body  = Loop( q_basis, q_index, stmts=stmts_1, mask=mask)
         stmts_2 = [*stmts_2.values(), body]
         body  = Loop((), l_index, stmts_2)
@@ -1367,29 +1362,16 @@ class Loop(BaseNode):
         return self._generator
 
     def get_geometry_stmts(self, mapping):
-        args = []
 
         l_quad = list(self.generator.atoms(LocalTensorQuadrature))
         if len(l_quad) == 0:
-            return Tuple(*args)
+            return Tuple()
 
         assert(len(l_quad) == 1)
         l_quad = l_quad[0]
 
-        if mapping.is_analytical:
-            args += [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
-            args += [ComputeLogical(SymbolicWeightedVolume(mapping))]
-            return Tuple(*args)
-        else:
-            args += [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
-
-            # add stmts related to the geometry
-            # TODO add other expressions
-            args += [ComputeLogical(SymbolicDeterminant(mapping))]
-            args += [ComputeLogical(SymbolicInverseDeterminant(mapping))]
-            args += [ComputeLogical(SymbolicWeightedVolume(mapping))]
-
-            return Tuple(*args)
+        args = [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
+        return Tuple(*args)
 
 #==============================================================================
 class TensorIteration(BaseNode):
