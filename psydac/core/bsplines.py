@@ -392,7 +392,7 @@ def histopolation_matrix(knots, degree, xgrid, periodic, normalization):
     # Fill in non-zero values of histopolation matrix
     H = np.zeros((nx-1, nb))
     for i in range(0, nx-1):
-        for j in range(max(i-degree, 1), min(i+degree+4, nx) ):
+        for j in range(max(i-degree, 1), min(i+degree+4, nb+1) ):
             s = 0.
             for k in range(0, j):
                 s += basis[i,k] - basis[i+1,k]

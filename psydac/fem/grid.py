@@ -127,11 +127,13 @@ class FemAssemblyGrid:
         # Quadrature data on extended distributed domain
         self._num_elements = ne
         self._num_quad_pts = len( u )
-        self._spans   = np.array( spans   )
-        self._basis   = np.array( basis   )
-        self._points  = np.array( points  )
-        self._weights = np.array( weights )
-        self._indices = np.array( indices )
+        self._spans        = np.array( spans   )
+        self._basis        = np.array( basis   )
+        self._points       = np.array( points  )
+        self._weights      = np.array( weights )
+        self._indices      = np.array( indices )
+        self._quad_rule_x  = u
+        self._quad_rule_w  = w
 
         # Local index of start/end elements of domain partitioning
         self._local_element_start = local_element_start
@@ -185,6 +187,20 @@ class FemAssemblyGrid:
         """ Global index of each element used in assembly process.
         """
         return self._indices
+
+    # ...
+    @property
+    def quad_rule_x( self ):
+        """ Coordinates of quadrature points on canonical interval [-1,1].
+        """
+        return self._quad_rule_x
+
+    # ...
+    @property
+    def quad_rule_w( self ):
+        """ Weights assigned to quadrature points on canonical interval [-1,1].
+        """
+        return self._quad_rule_w
 
     # ...
     @property

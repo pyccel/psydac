@@ -10,9 +10,9 @@ from psydac.fem.vector  import ProductFemSpace
 from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
 from psydac.linalg.stencil import StencilVector
 from itertools import product
-from psydac.utilities.integrate import integrate_2d
-from psydac.utilities.integrate import integrate_1d
-from psydac.utilities.integrate import integrate_3d
+from psydac.core.bsplines import quadrature_grid
+from psydac.utilities.quadratures import gauss_legendre
+from psydac.linalg.utilities import array_to_stencil
 
 from numpy import zeros
 from numpy import array
@@ -165,6 +165,155 @@ def interpolation_matrices(Vh):
     raise NotImplementedError('only 1d 2D and 3D are available')
 
 
+class H1_Projector:
+
+    def __init__(self, H1):
+
+        # Quadrature grids in cells defined by consecutive Greville points
+
+        points = [V.greville for V in H1.spaces]
+
+        H1.init_interpolation()
+
+        # Collocation matrices for N-splines in each direction
+        self.N   = [V._interpolator for V in H1.spaces]
+        n_basis  = [V.nbasis for V in H1.spaces]
+        self.rhs = StencilVector(H1.vector_space)
+        slices   = tuple(slice(p,-p) for p in H1.degree)
+
+        self.space = H1
+        self.args  = (*n_basis, *points, self.rhs._data[slices])
+
+        if len(self.N) == 1:
+            self.func = interpolate_1d
+        elif len(self.N) == 2:
+            self.func = interpolate_2d
+        elif len(self.N) == 3:
+            self.func = interpolate_3d
+        else:
+            raise ValueError('H1 projector of dimension {} not available'.format(str(len(self.N))))
+
+    # ======================================
+    def __call__(self, fun):
+
+        '''
+        Projection on the space V0 via interpolation.
+
+        Parameters
+        ----------
+        fun : callable
+            fun(x) \in R is the 0-form to be projected.
+
+        Returns
+        -------
+        coeffs : 1D array_like
+            Finite element coefficients obtained by projection.
+        '''
+
+        self.func(*self.args, fun)
+        if len(self.N)==1:
+            rhs = self.rhs.toarray()
+            return array_to_stencil(self.N[0].solve(rhs), self.space.vector_space)
+        out = kronecker_solve(solvers = self.N, rhs = self.rhs)
+        return out
+
+class Hcurl_Projector:
+
+    def __init__(self, Hcurl, quads=None):
+
+        if quads:
+            uw = [gauss_legendre( k-1 ) for k in quads]
+            uw = [(u[::-1], w[::-1]) for u,w in uw]
+        else:
+            uw = [(V.quad_grids[i].quad_rule_x,V.quad_grids[i].quad_rule_w) for i,V in enumerate(Hcurl.spaces)]
+
+        dim = len(quads)
+
+        self.rhs = StencilVector(Hcurl.vector_space)
+
+        for V in Hcurl.spaces:
+            V.init_interpolation()
+            V.init_histopolation()
+
+        if dim == 3:
+            self.DNN = [Hcurl.spaces[0]._histopolator, Hcurl.spaces[0]._interpolator, Hcurl.spaces[0]._interpolator]
+            self.NDN = [Hcurl.spaces[1]._interpolator, Hcurl.spaces[1]._histopolator, Hcurl.spaces[1]._interpolator]
+            self.NND = [Hcurl.spaces[2]._interpolator, Hcurl.spaces[2]._interpolator, Hcurl.spaces[2]._histopolator]
+
+            n_basis1  = [V.nbasis for V in Hcurl.spaces[0].spaces]
+            n_basis2  = [V.nbasis for V in Hcurl.spaces[1].spaces]
+            n_basis3  = [V.nbasis for V in Hcurl.spaces[2].spaces]
+
+        slices   = tuple(slice(p,-p) for p in Hcurl.degree)
+
+        self.args1  = (*n_basis, *points, self.rhs._data[slices])
+        self.args2  = (*n_basis, *points, self.rhs._data[slices])
+        self.args3  = (*n_basis, *points, self.rhs._data[slices])
+
+    # ======================================
+    def __call__(self, fun):
+
+        self.func(*self.args, fun)
+
+        out = kronecker_solve(solvers = self.N, rhs = self.rhs)   
+        return out
+
+class L2_Projector:
+
+    def __init__(self, L2, quads=None):
+
+        # Quadrature grids in cells defined by consecutive Greville points
+        if quads:
+            uw = [gauss_legendre( k-1 ) for k in quads]
+            uw = [(u[::-1], w[::-1]) for u,w in uw]
+        else:
+            uw = [(V.quad_rule_x,V.quad_rule_w) for V in L2.quad_grids]
+
+        quads           = [quadrature_grid( V.ext_greville , u, w ) for V,(u,w) in zip(L2.spaces, uw)]
+        points, weights = list(zip(*quads))
+
+        L2.init_histopolation()
+
+        # Histopolation matrices for D-splines in each direction
+        self.D = [V._histopolator for V in L2.spaces]
+
+        self.rhs = StencilVector(L2.vector_space)
+        slices   = tuple(slice(p+1,-p-1) for p in L2.degree)
+
+        if len(self.D) == 1:
+            self.func = integrate_1d
+        elif len(self.D) == 2:
+            self.func = integrate_2d
+        elif len(self.D) == 3:
+            self.func = integrate_3d
+        else:
+            raise ValueError('H1 projector of dimension {} not available'.format(str(len(self.N))))
+
+        self.space = L2
+        self.args  = (*points, *weights, self.rhs._data[slices])
+    # ======================================
+    def __call__(self, fun):
+
+        '''
+        Projection on the space V1 via histopolation.
+
+        Parameters
+        ----------
+        fun : callable
+            fun(x) \in R is the 1-form to be projected.
+
+        Returns
+        -------
+        coeffs : Vector
+            Finite element coefficients obtained by projection.
+        '''
+
+        self.func(*self.args, fun)
+        if len(self.D)==1:
+            rhs = self.rhs.toarray()
+            return array_to_stencil(self.D[0].solve(rhs), self.space.vector_space)
+        out = kronecker_solve(solvers = self.D, rhs = self.rhs)
+        return out
 
 class Interpolation(object):
 
@@ -475,3 +624,93 @@ def Hdiv_projection_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3, 
                     for g2 in range(k2):
                         F3[i1, i2, i3] += weights_1[g1, i1]*weights_2[g2, i2]*f3(ipoints_1[g1,i1],
                                                         ipoints_2[g2,i2], points_3[i3])
+
+
+def integrate_1d(points, weights, F, fun):
+    """Integrates the function f over the quadrature grid
+    defined by (points,weights) in 1d.
+
+    points: np.array
+        a multi-dimensional array describing the quadrature points mapped onto
+        the grid. it must be constructed using construct_quadrature_grid
+
+    weights: np.array
+        a multi-dimensional array describing the quadrature weights (scaled) mapped onto
+        the grid. it must be constructed using construct_quadrature_grid
+
+    Examples
+
+    >>> from psydac.core.interface import make_open_knots
+    >>> from psydac.core.interface import construct_grid_from_knots
+    >>> from psydac.core.interface import construct_quadrature_grid
+    >>> from psydac.core.interface import compute_greville
+    >>> from psydac.utilities.quadratures import gauss_legendre
+
+    >>> n_elements = 8
+    >>> p = 2                    # spline degree
+    >>> n = n_elements + p - 1   # number of control points
+    >>> T = make_open_knots(p, n)
+    >>> grid = compute_greville(p, n, T)
+    >>> u, w = gauss_legendre(p)  # gauss-legendre quadrature rule
+    >>> k = len(u)
+    >>> ne = len(grid) - 1        # number of elements
+    >>> points, weights = construct_quadrature_grid(ne, k, u, w, grid)
+    >>> f = lambda u: u*(1.-u)
+    >>> f_int = integrate(points, weights, f)
+    >>> f_int
+    [0.00242954 0.01724976 0.02891156 0.03474247 0.03474247 0.02891156
+     0.01724976 0.00242954]
+    n = points.shape[0]
+    k = points.shape[1]
+    """
+    n1 = points.shape[0]
+    k1 = points.shape[1]
+
+    for ie1 in range(n1):
+        for g1 in range(k1):
+            F[ie1] += weights[ie1, g1]*fun(points[ie1, g1])
+
+def integrate_2d(points_1, points_2, weights_1, weights_2, F, fun):
+
+    """Integrates the function f over the quadrature grid
+    defined by (points,weights) in 2d.
+
+    points: list, tuple
+        list of quadrature points, as they should be passed for `integrate`
+
+    weights: list, tuple
+        list of quadrature weights, as they should be passed for `integrate`
+
+    Examples
+
+    """
+
+    n1 = points_1.shape[1]
+    n2 = points_2.shape[1]
+    k1 = points_1.shape[0]
+    k2 = points_2.shape[0]
+
+    for ie1 in range(n1):
+        for ie2 in range(n2):
+            for g1 in range(k1):
+                for g2 in range(k2):
+                    F[ie1, ie2] += weights_1[g1,ie1]*weights_2[g2, ie2]*fun(points_1[g1, ie1], points_2[g2, ie2])
+
+
+def integrate_3d(points_1, points_2, points_3,  weights_1, weights_2, weights_3, F, fun):
+
+    n1 = points_0.shape[1]
+    n2 = points_1.shape[1]
+    n3 = points_2.shape[1]
+    k1 = points_0.shape[0]
+    k2 = points_1.shape[0]
+    k3 = points_2.shape[0]
+
+    for ie1 in range(n1):
+        for ie2 in range(n2):
+            for ie3 in range(n3):
+                for g1 in range(k1):
+                    for g2 in range(k2):
+                        for g3 in range(k3):
+                            F[ie1, ie2, ie3] += weights_1[g1, ie1]*weights_2[g2, ie2]*weights_3[g3, ie3]\
+                                                       *fun(pts_1[g1, ie1], pts_2[g2, ie2], pts_3[g3, ie3])
