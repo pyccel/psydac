@@ -40,8 +40,8 @@ class Grad(object):
         
         """
         
-        dim     = V0_h.ldim
-
+        dim      = V0_h.ldim
+        self.dim = dim
         d_matrices = [d_matrix(V.nbasis, V.degree, V.periodic) for V in V0_h.spaces]
         identities = [IdentityMatrix(V.vector_space)           for V in V0_h.spaces]
 
@@ -70,7 +70,10 @@ class Grad(object):
 
     def __call__(self, x):
         x = BlockVector(ProductSpace(x.space), blocks=[x])
-        return self._matrix.dot(x)
+        res = self._matrix.dot(x)
+        if self.dim == 1:
+            res = res[0]
+        return res
 
 class Curl(object):
     def __init__(self, V1_h, V2_h):

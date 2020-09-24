@@ -386,6 +386,12 @@ class TensorFemSpace( FemSpace ):
             if not V._interpolation_ready:
                 V.init_interpolation()
 
+    def init_histopolation( self ):
+        for V in self.spaces:
+            # TODO: check if OK to access private attribute...
+            if not V._histopolation_ready:
+                V.init_histopolation()
+
     # ...
     def compute_interpolant( self, values, field ):
         """
@@ -573,11 +579,11 @@ class TensorFemSpace( FemSpace ):
         for axis in axes:
             space = spaces[axis]
             reduced_space = SplineSpace(
-                degree   = space.degree - 1,
-                grid     = space.breaks,
-                periodic = space.periodic,
-                dirichlet= space.dirichlet,
-                basis    = space.basis
+                degree    = space.degree - 1,
+                grid      = space.breaks,
+                periodic  = space.periodic,
+                dirichlet = space.dirichlet,
+                basis     = basis
             )
             spaces[axis] = reduced_space
 

@@ -198,7 +198,7 @@ if __name__ == '__main__':
 
     u, w = gauss_legendre(p)
     quad_x, quad_w = quadrature_grid(grid, u, w)
-    quad_basis = basis_ders_on_quad_grid(knots, p, quad_x, nders=0)
+    quad_basis = basis_ders_on_quad_grid(knots, p, quad_x, nders=0, normalization='B')
     integrals  = np.zeros(nb)
     for ie, span in enumerate(elements_spans(knots, p)):
         integrals[span-p:span+1] += np.dot(quad_basis[ie, :, 0, :], quad_w[ie, :])

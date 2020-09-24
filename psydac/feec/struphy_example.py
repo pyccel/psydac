@@ -27,4 +27,4 @@ G, C, D = derham_h.derivatives_as_matrices()
 # Projectors
 #  . Input: callable functions
 #  . Output: FemField objects
-Pi0, Pi1, Pi2, Pi3 = derham_h.projectors()
+Pi0, Pi1, Pi2, Pi3 = derham_h.projectors(quda=[10,10,10])
