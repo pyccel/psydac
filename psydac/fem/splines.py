@@ -36,7 +36,7 @@ class SplineSpace( FemSpace ):
         Coordinates of knots (clamped or extended by periodicity).
 
     grid: array_like
-        Coorinates of the grid. Used to construct the knots sequence, if not given.
+        Coordinates of the grid. Used to construct the knots sequence, if not given.
 
     periodic : bool
         True if domain is periodic, False otherwise.
@@ -118,9 +118,9 @@ class SplineSpace( FemSpace ):
         imat = collocation_matrix(
             knots    = self.knots,
             degree   = self.degree,
-            xgrid    = self.greville,
             periodic = self.periodic,
-            normalization = self.basis
+            normalization = self.basis,
+            xgrid    = self.greville
         )
 
         if self.periodic:
@@ -151,9 +151,9 @@ class SplineSpace( FemSpace ):
         imat = histopolation_matrix(
             knots    = self.knots,
             degree   = self.degree,
-            xgrid    = self.ext_greville,
             periodic = self.periodic,
-            normalization = self.basis
+            normalization = self.basis,
+            xgrid    = self.ext_greville
         )
 
         if self.periodic:

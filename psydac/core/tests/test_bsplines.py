@@ -110,7 +110,7 @@ def test_collocation_matrix_non_periodic( lims, nc, p, tol=1e-14 ):
     grid, dx = np.linspace( *lims, num=nc+1, retstep=True )
     knots = np.r_[ [grid[0]]*p, grid, [grid[-1]]*p ]
 
-    mat = collocation_matrix( knots, p, grid, periodic=False, normalization='B' )
+    mat = collocation_matrix(knots, p, periodic=False, normalization='B', xgrid=grid)
 
     for row in mat:
         assert all( row >= 0.0 )
@@ -131,7 +131,7 @@ def test_collocation_matrix_periodic( lims, nc, p, tol=1e-14 ):
     period = lims[1]-lims[0]
     knots  = np.r_[ grid[-p-1:-1]-period, grid, grid[1:1+p]+period ]
 
-    mat = collocation_matrix( knots, p, grid[:-1], periodic=True, normalization='B' )
+    mat = collocation_matrix(knots, p, periodic=True, normalization='B', xgrid=grid[:-1])
 
     for row in mat:
         assert all( row >= 0.0 )
