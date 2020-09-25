@@ -375,7 +375,7 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
 
     # B-splines of degree p+1: basis[i,j] := Bj(xi)
     basis = collocation_matrix(
-        knots    = elevate_knots(knots, periodic),
+        knots    = elevate_knots(knots, degree, periodic),
         degree   = degree + 1,
         periodic = periodic,
         normalization = 'B',
@@ -566,19 +566,23 @@ def make_knots( breaks, degree, periodic ):
     return T
 
 #==============================================================================
-def elevate_knots(knots, periodic):
+def elevate_knots(knots, degree, periodic):
     """
     Given the knot sequence of a spline space S of degree p, compute the knot
     sequence of a spline space S_0 of degree p+1 such that u' is in S for all
     u in S_0.
 
     Specifically, on bounded domains the first and last knots are repeated in
-    the sequence, and in the periodic case the knot sequence is left unchanged.
+    the sequence, and in the periodic case the knot sequence is extended by
+    periodicity.
 
     Parameters
     ----------
     knots : array_like
         Knots sequence of spline space of degree p.
+
+    degree : int
+        Spline degree (= polynomial degree within each interval).
 
     periodic : bool
         True if domain is periodic, False otherwise.
@@ -589,10 +593,17 @@ def elevate_knots(knots, periodic):
         Knots sequence of spline space of degree p+1.
 
     """
-    if periodic:
-        return np.asarray(knots)
 
-    return np.array([knots[0], *knots, knots[-1]])
+    if periodic:
+        [T, p] = knots, degree
+        period = T[-1-p] - T[p]
+        left   = T[-1-p-(p+1)] - period
+        right  = T[   p+(p+1)] + period
+    else:
+        left  = knots[0]
+        right = knots[-1]
+
+    return np.array([left, *knots, right])
 
 #==============================================================================
 def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):
