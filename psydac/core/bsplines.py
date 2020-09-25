@@ -276,7 +276,7 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
     return ders
 
 #==============================================================================
-def collocation_matrix(knots, degree, xgrid, periodic, normalization):
+def collocation_matrix(knots, degree, periodic, normalization, xgrid):
     """
     Compute the collocation matrix $C_ij = B_j(x_i)$, which contains the
     values of each B-spline basis function $B_j$ at all locations $x_i$.
@@ -291,14 +291,14 @@ def collocation_matrix(knots, degree, xgrid, periodic, normalization):
     degree : int
         Polynomial degree of spline space.
 
-    xgrid : 1D array_like
-        Evaluation points.
-
     periodic : bool
         True if domain is periodic, False otherwise.
 
     normalization : str
         Set to 'B' for B-splines, and 'M' for M-splines.
+
+    xgrid : 1D array_like
+        Evaluation points.
 
     Returns
     -------
@@ -339,7 +339,7 @@ def collocation_matrix(knots, degree, xgrid, periodic, normalization):
     return mat
 
 #==============================================================================
-def histopolation_matrix(knots, degree, xgrid, periodic, normalization):
+def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
     r"""
     Compute the histopolation matrix $H_{ij} = \int_{x_i}^{x_{i+1}} B_j(x) dx$,
     which contains the integrals of each B-spline basis function $M_j$ between
@@ -355,14 +355,14 @@ def histopolation_matrix(knots, degree, xgrid, periodic, normalization):
     degree : int
         Polynomial degree of spline space.
 
-    xgrid : 1D array_like
-        Grid points.
-
     periodic : bool
         True if domain is periodic, False otherwise.
 
     normalization : str
         Set to 'B' for B-splines, and 'M' for M-splines.
+
+    xgrid : 1D array_like
+        Grid points.
 
     """
     # Number of basis functions (in periodic case remove degree repeated elements)
@@ -377,9 +377,9 @@ def histopolation_matrix(knots, degree, xgrid, periodic, normalization):
     basis = collocation_matrix(
         knots    = elevate_knots(knots, periodic),
         degree   = degree + 1,
-        xgrid    = xgrid,
         periodic = periodic,
-        normalization = 'B'
+        normalization = 'B',
+        xgrid = xgrid
     )
 
     # Rescaling of M-splines, to get B-splines if needed
