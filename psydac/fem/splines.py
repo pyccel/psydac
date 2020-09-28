@@ -36,7 +36,7 @@ class SplineSpace( FemSpace ):
         Coordinates of knots (clamped or extended by periodicity).
 
     grid: array_like
-        Coorinates of the grid. Used to construct the knots sequence, if not given.
+        Coordinates of the grid. Used to construct the knots sequence, if not given.
 
     periodic : bool
         True if domain is periodic, False otherwise.
@@ -97,7 +97,7 @@ class SplineSpace( FemSpace ):
         self._breaks        = grid
         self._ncells        = len(grid) - 1
         self._greville      = greville(knots, degree, periodic)
-        self._ext_greville  = greville(elevate_knots(knots, periodic), degree+1, periodic)
+        self._ext_greville  = greville(elevate_knots(knots, degree, periodic), degree+1, periodic)
         self._scaling_array = scaling_array
 
         # Create space of spline coefficients
@@ -118,9 +118,9 @@ class SplineSpace( FemSpace ):
         imat = collocation_matrix(
             knots    = self.knots,
             degree   = self.degree,
-            xgrid    = self.greville,
             periodic = self.periodic,
-            normalization = self.basis
+            normalization = self.basis,
+            xgrid    = self.greville
         )
 
         if self.periodic:
@@ -152,9 +152,9 @@ class SplineSpace( FemSpace ):
         imat = histopolation_matrix(
             knots    = self.knots,
             degree   = self.degree,
-            xgrid    = self.ext_greville,
             periodic = self.periodic,
-            normalization = self.basis
+            normalization = self.basis,
+            xgrid    = self.ext_greville
         )
         self.hmat= imat
         if self.periodic:

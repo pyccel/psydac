@@ -276,7 +276,7 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
     return ders
 
 #==============================================================================
-def collocation_matrix(knots, degree, xgrid, periodic, normalization):
+def collocation_matrix(knots, degree, periodic, normalization, xgrid):
     """
     Compute the collocation matrix $C_ij = B_j(x_i)$, which contains the
     values of each B-spline basis function $B_j$ at all locations $x_i$.
@@ -291,14 +291,14 @@ def collocation_matrix(knots, degree, xgrid, periodic, normalization):
     degree : int
         Polynomial degree of spline space.
 
-    xgrid : 1D array_like
-        Evaluation points.
-
     periodic : bool
         True if domain is periodic, False otherwise.
 
     normalization : str
         Set to 'B' for B-splines, and 'M' for M-splines.
+
+    xgrid : 1D array_like
+        Evaluation points.
 
     Returns
     -------
@@ -339,7 +339,7 @@ def collocation_matrix(knots, degree, xgrid, periodic, normalization):
     return mat
 
 #==============================================================================
-def histopolation_matrix(knots, degree, xgrid, periodic, normalization):
+def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
     r"""
     Compute the histopolation matrix $H_{ij} = \int_{x_i}^{x_{i+1}} B_j(x) dx$,
     which contains the integrals of each B-spline basis function $M_j$ between
@@ -355,14 +355,14 @@ def histopolation_matrix(knots, degree, xgrid, periodic, normalization):
     degree : int
         Polynomial degree of spline space.
 
-    xgrid : 1D array_like
-        Grid points.
-
     periodic : bool
         True if domain is periodic, False otherwise.
 
     normalization : str
         Set to 'B' for B-splines, and 'M' for M-splines.
+
+    xgrid : 1D array_like
+        Grid points.
 
     """
     # Number of basis functions (in periodic case remove degree repeated elements)
@@ -375,11 +375,11 @@ def histopolation_matrix(knots, degree, xgrid, periodic, normalization):
 
     # B-splines of degree p+1: basis[i,j] := Bj(xi)
     basis = collocation_matrix(
-        knots    = elevate_knots(knots, periodic),
+        knots    = elevate_knots(knots, degree, periodic),
         degree   = degree + 1,
-        xgrid    = xgrid,
         periodic = periodic,
-        normalization = 'B'
+        normalization = 'B',
+        xgrid = xgrid
     )
 
     # Rescaling of M-splines, to get B-splines if needed
@@ -566,19 +566,23 @@ def make_knots( breaks, degree, periodic ):
     return T
 
 #==============================================================================
-def elevate_knots(knots, periodic):
+def elevate_knots(knots, degree, periodic):
     """
     Given the knot sequence of a spline space S of degree p, compute the knot
     sequence of a spline space S_0 of degree p+1 such that u' is in S for all
     u in S_0.
 
     Specifically, on bounded domains the first and last knots are repeated in
-    the sequence, and in the periodic case the knot sequence is left unchanged.
+    the sequence, and in the periodic case the knot sequence is extended by
+    periodicity.
 
     Parameters
     ----------
     knots : array_like
         Knots sequence of spline space of degree p.
+
+    degree : int
+        Spline degree (= polynomial degree within each interval).
 
     periodic : bool
         True if domain is periodic, False otherwise.
@@ -589,10 +593,17 @@ def elevate_knots(knots, periodic):
         Knots sequence of spline space of degree p+1.
 
     """
-    if periodic:
-        return np.asarray(knots)
 
-    return np.array([knots[0], *knots, knots[-1]])
+    if periodic:
+        [T, p] = knots, degree
+        period = T[-1-p] - T[p]
+        left   = T[-1-p-(p+1)] - period
+        right  = T[   p+(p+1)] + period
+    else:
+        left  = knots[0]
+        right = knots[-1]
+
+    return np.array([left, *knots, right])
 
 #==============================================================================
 def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):
