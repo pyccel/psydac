@@ -202,10 +202,11 @@ class KroneckerStencilMatrix( Matrix ):
         
         for ii in np.ndindex(*nrows):
             v = 0.
-            xx = tuple(i+p for i,p in zip(ii,pads))
+            xx = tuple(i+p for i,p in zip(ii, pads))
+
             for jj in np.ndindex(*pnrows):
-                i_mats = [mat._data[x,j] for x,j,mat in zip(xx,jj,mats)]
-                ii_jj = tuple(i+j for i,j in zip(ii,jj))
+                i_mats = [mat._data[s, j] for s,j,mat in zip(xx, jj, mats)]
+                ii_jj = tuple(i+j for i,j in zip(ii, jj))
                 v += x._data[ii_jj]*np.product(i_mats)
 
             out._data[xx] = v

@@ -136,6 +136,7 @@ class SplineSpace( FemSpace ):
             for i,j in zip( *cmat.nonzero() ):
                 bmat[u+l+i-j,j] = cmat[i,j]
             self._interpolator = BandedSolver( u, l, bmat )
+            self.imat = imat
 
         # Store flag
         self._interpolation_ready = True
@@ -155,7 +156,7 @@ class SplineSpace( FemSpace ):
             normalization = self.basis,
             xgrid    = self.ext_greville
         )
-
+        self.hmat= imat
         if self.periodic:
             # Convert to CSC format and compute sparse LU decomposition
             self._histopolator = SparseSolver( csc_matrix( imat ) )

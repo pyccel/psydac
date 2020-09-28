@@ -87,6 +87,7 @@ class Curl(object):
 
         D_basis = [V.spaces[i] for i,V in enumerate(V1_h.spaces)]
         dim     = len(D_basis)
+
         if dim == 2:
             N_basis = [V1_h.spaces[1].spaces[0], V1_h.spaces[0].spaces[1]]
         elif dim == 3:
@@ -94,20 +95,20 @@ class Curl(object):
 
         d_matrices   = [d_matrix(V.nbasis, V.degree, V.periodic)   for V in N_basis]
         identities_0 = [IdentityMatrix(V.vector_space) for V in N_basis]
-        identities_1 = [IdentityMatrix(V.vector_space) for V in D_basis]
+        identities_1 = [IdentityMatrix(V.vector_space, p=V.vector_space.pads[0]+1) for V in D_basis]
         
         mats = []    
             
         if dim == 3:
-            mats = [[None, None, None],
+            mats = [[None,None,None],
                     [None,None,None],
                     [None,None,None]]
                     
             args       = [-identities_0[0], identities_1[1], d_matrices[2]]
-            mats[0][1] = KroneckerStencilMatrix(V1_h.vector_space.spaces[1], V2_h.vector_space.spaces[0],*args)
-            
+            mats[0][1] = KroneckerStencilMatrix(V1_h.vector_space.spaces[1], V2_h.vector_space.spaces[0], *args)
+
             args       = [identities_0[0], d_matrices[1], identities_1[2]]
-            mats[0][2] = KroneckerStencilMatrix(V1_h.vector_space.spaces[2], V2_h.vector_space.spaces[0],*args)
+            mats[0][2] = KroneckerStencilMatrix(V1_h.vector_space.spaces[2], V2_h.vector_space.spaces[0], *args)
             # ...
             
             # ...
@@ -125,7 +126,7 @@ class Curl(object):
             args       = [d_matrices[0], identities_1[1], identities_0[2]]
             mats[2][1] = KroneckerStencilMatrix(V1_h.vector_space.spaces[1], V2_h.vector_space.spaces[2], *args)
 
-            self._matrix = BlockLinearOperator( V1_h.vector_space, V2_h.vector_space, blocks=mats )
+            self._matrix = BlockMatrix( V1_h.vector_space, V2_h.vector_space, blocks=mats )
 
         elif dim == 2:
             mats = [[None , None]]
@@ -157,7 +158,7 @@ class Div(object):
         N_basis    = [V.spaces[i] for i,V in enumerate(V2_h.spaces)]
 
         d_matrices = [d_matrix(V.nbasis, V.degree, V.periodic)   for V in N_basis]
-        identities = [IdentityMatrix(V.vector_space) for V in V3_h.spaces]
+        identities = [IdentityMatrix(V.vector_space, p=V.vector_space.pads[0]+1) for V in V3_h.spaces]
             
         mats = []
         for i in range(dim):
