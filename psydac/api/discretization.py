@@ -47,7 +47,7 @@ from psydac.fem.vector               import ProductFemSpace
 from psydac.cad.geometry             import Geometry
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
 from psydac.feec.derivatives         import Grad, Curl, Div, Rot
-from psydac.feec.utilities           import Interpolation, interpolation_matrices
+from psydac.feec.utilities           import interpolation_matrices
 
 import inspect
 import sys
@@ -360,7 +360,7 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
     elif ldim == 3:
         D0 = Grad(spaces[0], spaces[1])
         D1 = Curl(spaces[1], spaces[2])  
-        D2 = Div(spaces[2], spaces[3])
+        D2 = Div (spaces[2], spaces[3])
         
         spaces[0].diff = spaces[0].grad =  D0
         spaces[1].diff = spaces[1].curl =  D1

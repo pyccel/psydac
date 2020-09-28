@@ -43,13 +43,14 @@ class IdentityMatrix( Matrix, IdentityLinearOperator ):
         return sparse_id(*self.shape)
 
 class IdentityStencilMatrix( StencilMatrix ):
-    def __init__(self, V):
+    def __init__(self, V, p=None):
         assert V.ndim == 1
-        super().__init__(V, V)
         n = V.npts[0]
-        p = V.pads[0]
-        for i in range(0, n+1):
-            self._data[i+p, p] = 1.
+        p = p or V.pads[0]
+
+        super().__init__(V, V, pads=(p,))
+
+        self._data[:, p] = 1.
 
     #-------------------------------------
     # Deferred methods
