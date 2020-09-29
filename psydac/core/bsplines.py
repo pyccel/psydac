@@ -453,8 +453,8 @@ def greville( knots, degree, periodic ):
 
     # If needed apply periodic boundary conditions
     if periodic:
-        a  = T[ p]
-        b  = T[-p]
+        a  = T[p]
+        b  = T[-1-p]
         xg = np.around( (xg-a)%(b-a)+a, decimals=15 )
 
     return xg
