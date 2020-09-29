@@ -7,7 +7,17 @@ from psydac.core.bsplines import ( find_span,
         basis_funs,
         basis_funs_1st_der,
         basis_funs_all_ders,
+        make_knots,
+        greville,
         collocation_matrix )
+
+from psydac.fem.tests.utilities import random_grid
+
+# TODO: add unit tests for
+#  - make_knots
+#  - elevate_knots
+#  - greville
+#  - histopolation_matrix
 
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
@@ -100,43 +110,23 @@ def test_basis_funs_all_ders( lims, nc, p, tol=1e-14 ):
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
 @pytest.mark.parametrize( 'nc', (10, 18, 33) )
-@pytest.mark.parametrize( 'p' , (1,2,3,7,10) )
-
-# TODO: construct knots from grid
-# TODO: evaluate on Greville points
-# TODO: improve checks
-def test_collocation_matrix_non_periodic( lims, nc, p, tol=1e-14 ):
-
-    grid, dx = np.linspace( *lims, num=nc+1, retstep=True )
-    knots = np.r_[ [grid[0]]*p, grid, [grid[-1]]*p ]
-
-    mat = collocation_matrix(knots, p, periodic=False, normalization='B', xgrid=grid)
-
-    for row in mat:
-        assert all( row >= 0.0 )
-        assert len( row.nonzero()[0] ) in [1,p,p+1]
-        assert abs( sum( row ) - 1.0 ) < tol
-
-#==============================================================================
-@pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
-@pytest.mark.parametrize( 'nc', (10, 18, 33) )
 @pytest.mark.parametrize( 'p' , (1,2,3,7,8) )
+@pytest.mark.parametrize( 'periodic' , (True, False) )
 
-# TODO: construct knots from grid
-# TODO: evaluate on Greville points
 # TODO: improve checks
-def test_collocation_matrix_periodic( lims, nc, p, tol=1e-14 ):
+def test_collocation_matrix(lims, nc, p, periodic, tol=1e-14):
 
-    grid, dx = np.linspace( *lims, num=nc+1, retstep=True )
-    period = lims[1]-lims[0]
-    knots  = np.r_[ grid[-p-1:-1]-period, grid, grid[1:1+p]+period ]
+    breaks = random_grid(domain=lims, ncells=nc, random_fraction=0.3)
+    knots  = make_knots(breaks, p, periodic)
+    xgrid  = greville(knots, p, periodic)
+    mat    = collocation_matrix(knots, p, periodic, normalization='B', xgrid=xgrid)
 
-    mat = collocation_matrix(knots, p, periodic=True, normalization='B', xgrid=grid[:-1])
+    acceptable_nonzeros_in_row = [p, p+1] if periodic else [1, p, p+1]
 
     for row in mat:
         assert all( row >= 0.0 )
-        assert len( row.nonzero()[0] ) in [p,p+1]
         assert abs( sum( row ) - 1.0 ) < tol
+        assert (abs(row) > tol).sum() in acceptable_nonzeros_in_row
 
 #==============================================================================
 # SCRIPT FUNCTIONALITY: PLOT BASIS FUNCTIONS
