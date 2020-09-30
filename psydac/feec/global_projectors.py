@@ -1,172 +1,15 @@
 # -*- coding: UTF-8 -*-
 
-
-from scipy.sparse import csr_matrix
-from scipy.sparse import diags
-from scipy.sparse import identity
-from psydac.linalg.kron import kronecker_solve
-from psydac.fem.tensor  import TensorFemSpace
-from psydac.fem.vector  import ProductFemSpace
-from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
-from itertools import product
-from psydac.core.bsplines import quadrature_grid
+from psydac.linalg.utilities      import array_to_stencil
+from psydac.linalg.kron           import kronecker_solve
+from psydac.linalg.stencil        import StencilVector
+from psydac.linalg.block          import BlockVector
+from psydac.core.bsplines         import quadrature_grid
 from psydac.utilities.quadratures import gauss_legendre
-from psydac.linalg.utilities import array_to_stencil
+from psydac.fem.basic             import FemField
+from psydac.fem.vector            import VectorFemField
 
-from numpy import zeros
-from numpy import array
-import numpy as np
-
-class Kron:
-
-    def __init__(self, *args):
-        self._args = args
-        
-    @property
-    def args(self):
-        return self._args
-        
-    def solve(self, rhs, out=None):
-       args = [SparseSolver(arg) for arg in self.args]
-       out  = kronecker_solve(args, rhs, out)
-       return out
-       
-    def toarray(self):
-        M1 = self.args[0].toarray()
-        for M2 in self.args[1:]:
-            M1 = np.kron(M1, M2.toarray())
-        return M1
-        
-
-class block_diag:
-
-    def __init__(self, *args):
-        self._args = args
-        
-    @property
-    def args(self):
-        return self._args
-        
-    def solve(self, rhs, out=None):
-        if out is None:
-            out = [None]*len(rhs)
-
-        for i,arg in enumerate(self.args):
-            out[i] = arg.solve(rhs[i], out[i])
-
-        return out
-# ...
-def build_kron_matrix(p, n, T, kind):
-    """."""
-    from psydac.core.interface import collocation_matrix
-    from psydac.core.interface import histopolation_matrix
-    from psydac.core.interface import compute_greville
-
-    if not isinstance(p, (tuple, list)) or not isinstance(n, (tuple, list)):
-        raise TypeError('Wrong type for n and/or p. must be tuple or list')
-
-    assert(len(kind) == len(T))
-
-    grid = [compute_greville(_p, _n, _T) for (_n,_p,_T) in zip(n, p, T)]
-
-    Ms = []
-    for i in range(0, len(p)):
-        _p = p[i]
-        _n = n[i]
-        _T = T[i]
-        _grid = grid[i]
-        _kind = kind[i]
-
-        if _kind == 'interpolation':
-            _kind = 'collocation'
-        else:
-            assert(_kind == 'histopolation')
-
-        func = eval('{}_matrix'.format(_kind))
-        M = func(_p, _n, _T, _grid)
-        M = csr_matrix(M)
-
-        Ms.append(M) # kron expects dense matrices
-
-    return Kron(*Ms)
-# ...
-def _interpolation_matrices_3d(p, n, T):
-    """."""
-
-    # H1
-    M0 = build_kron_matrix(p, n, T, kind=['interpolation', 'interpolation', 'interpolation'])
-
-    # H-curl
-    A = build_kron_matrix(p, n, T, kind=['histopolation', 'interpolation', 'interpolation'])
-    B = build_kron_matrix(p, n, T, kind=['interpolation', 'histopolation', 'interpolation'])
-    C = build_kron_matrix(p, n, T, kind=['interpolation', 'interpolation', 'histopolation'])
-    M1 = block_diag(A, B, C)
-    
-    # H-div
-    A = build_kron_matrix(p, n, T, kind=['interpolation', 'histopolation', 'histopolation'])
-    B = build_kron_matrix(p, n, T, kind=['histopolation', 'interpolation', 'histopolation'])
-    C = build_kron_matrix(p, n, T, kind=['histopolation', 'histopolation', 'interpolation'])
-    M2 = block_diag(A, B, C)
-
-    # L2
-    M3 = build_kron_matrix(p, n, T, kind=['histopolation', 'histopolation','histopolation'])
-
-    return M0, M1, M2, M3
-
-def _interpolation_matrices_2d(p, n, T):
-    """."""
-
-    # H1
-    M0 = build_kron_matrix(p, n, T, kind=['interpolation', 'interpolation'])
-
-    # H-curl
-    A = build_kron_matrix(p, n, T, kind=['histopolation', 'interpolation'])
-    B = build_kron_matrix(p, n, T, kind=['interpolation', 'histopolation'])
-    M1 = block_diag(A, B)
-
-    # L2
-    M2 = build_kron_matrix(p, n, T, kind=['histopolation', 'histopolation'])
-
-    return M0, M1, M2
-
-
-def interpolation_matrices(Vh):
-    """Returns all interpolation matrices.
-    This is a user-friendly function.
-    """
-    # 1d case
-    assert isinstance(Vh, TensorFemSpace)
-    
-    T = [V.knots for V in Vh.spaces]
-    p = Vh.degree
-    n = [V.nbasis for V in Vh.spaces] 
-    if isinstance(p, int):
-        from psydac.core.interface import compute_greville
-        from psydac.core.interface import collocation_matrix
-        from psydac.core.interface import histopolation_matrix
-
-        grid = compute_greville(p, n, T)
-
-        M = collocation_matrix(p, n, T, grid)
-        H = histopolation_matrix(p, n, T, grid)
-
-        return M, H
-
-    if not isinstance(p, (list, tuple)):
-        raise TypeError('Expecting p to be int or list/tuple')
-
-    if len(p) == 2:
-        return _interpolation_matrices_2d(p, n, T)
-        
-    elif len(p) == 3:
-        return _interpolation_matrices_3d(p, n, T)
-
-    raise NotImplementedError('only 1d 2D and 3D are available')
-
-
-class H1_Projector:
+class Projector_H1:
 
     def __init__(self, H1):
 
@@ -186,11 +29,11 @@ class H1_Projector:
         self.args  = (*n_basis, *points, self.rhs._data[slices])
 
         if len(self.N) == 1:
-            self.func = interpolate_1d
+            self.func = evaluate_dof_0form_1d
         elif len(self.N) == 2:
-            self.func = interpolate_2d
+            self.func = evaluate_dof_0form_2d
         elif len(self.N) == 3:
-            self.func = interpolate_3d
+            self.func = evaluate_dof_0form_3d
         else:
             raise ValueError('H1 projector of dimension {} not available'.format(str(len(self.N))))
 
@@ -211,14 +54,17 @@ class H1_Projector:
             Finite element coefficients obtained by projection.
         '''
 
+        # build the rhs
         self.func(*self.args, fun)
+
         if len(self.N)==1:
             rhs = self.rhs.toarray()
             return array_to_stencil(self.N[0].solve(rhs), self.space.vector_space)
-        out = kronecker_solve(solvers = self.N, rhs = self.rhs)
-        return out
 
-class Hcurl_Projector:
+        coeffs = kronecker_solve(solvers = self.N, rhs = self.rhs)
+        return FemField(self.space, coeffs=coeffs)
+
+class Projector_Hcurl:
 
     def __init__(self, Hcurl, n_quads=None):
 
@@ -230,8 +76,8 @@ class Hcurl_Projector:
 
         dim = len(n_quads)
 
-        self.rhs = BlockVector(Hcurl.vector_space)
-        self.out = BlockVector(Hcurl.vector_space)
+        self.space  = Hcurl
+        self.rhs    = BlockVector(Hcurl.vector_space)
 
         for V in Hcurl.spaces:
             V.init_interpolation()
@@ -257,22 +103,26 @@ class Hcurl_Projector:
             self.args   =  (*n_basis, *n_quads, *i_weights, *i_points, *points,
                             self.rhs[0]._data[slices], self.rhs[1]._data[slices], self.rhs[2]._data[slices])
 
-            self.func = Hcurl_projection_3d
+            self.func = evaluate_dof_1form_3d
             self.Ns = Ns
             self.Ds = Ds
+        else:
+            raise NotImplementedError('only 3d is available')
 
     # ======================================
     def __call__(self, fun):
 
+        # build the rhs
         self.func(*self.args, *fun)
 
-        self.out[0] = kronecker_solve(solvers = self.DNN, rhs = self.rhs[0])
-        self.out[1] = kronecker_solve(solvers = self.NDN, rhs = self.rhs[1])
-        self.out[2] = kronecker_solve(solvers = self.NND, rhs = self.rhs[2])
+        coeffs    = BlockVector(self.space.vector_space)
+        coeffs[0] = kronecker_solve(solvers = self.DNN, rhs = self.rhs[0])
+        coeffs[1] = kronecker_solve(solvers = self.NDN, rhs = self.rhs[1])
+        coeffs[2] = kronecker_solve(solvers = self.NND, rhs = self.rhs[2])
 
-        return self.out
+        return VectorFemField(self.space, coeffs=coeffs)
 
-class Hdiv_Projector:
+class Projector_Hdiv:
 
     def __init__(self, Hdiv, n_quads=None):
 
@@ -284,8 +134,9 @@ class Hdiv_Projector:
 
         dim = len(n_quads)
 
-        self.rhs = BlockVector(Hdiv.vector_space)
-        self.out = BlockVector(Hdiv.vector_space)
+        self.space  = Hdiv
+        self.rhs    = BlockVector(Hdiv.vector_space)
+
 
         for V in Hdiv.spaces:
             V.init_interpolation()
@@ -311,22 +162,24 @@ class Hdiv_Projector:
             self.args   =  (*n_basis, *n_quads, *i_weights, *i_points, *points,
                             self.rhs[0]._data[slices], self.rhs[1]._data[slices], self.rhs[2]._data[slices])
 
-            self.func = Hdiv_projection_3d
+            self.func = evaluate_dof_2form_3d
             self.Ns = Ns
             self.Ds = Ds
 
     # ======================================
     def __call__(self, fun):
 
+        # build the rhs
         self.func(*self.args, *fun)
 
-        self.out[0] = kronecker_solve(solvers = self.NDD, rhs = self.rhs[0])
-        self.out[1] = kronecker_solve(solvers = self.DND, rhs = self.rhs[1])
-        self.out[2] = kronecker_solve(solvers = self.DDN, rhs = self.rhs[2])
+        coeffs    = BlockVector(self.space.vector_space)
+        coeffs[0] = kronecker_solve(solvers = self.NDD, rhs = self.rhs[0])
+        coeffs[1] = kronecker_solve(solvers = self.DND, rhs = self.rhs[1])
+        coeffs[2] = kronecker_solve(solvers = self.DDN, rhs = self.rhs[2])
 
-        return self.out
+        return VectorFemField(self.space, coeffs=coeffs)
 
-class L2_Projector:
+class Projector_L2:
 
     def __init__(self, L2, quads=None):
 
@@ -345,19 +198,19 @@ class L2_Projector:
         # Histopolation matrices for D-splines in each direction
         self.D = [V._histopolator for V in L2.spaces]
 
-        self.rhs = StencilVector(L2.vector_space)
-        slices   = tuple(slice(p+1,-p-1) for p in L2.degree)
+        self.space = L2
+        self.rhs   = StencilVector(L2.vector_space)
+        slices     = tuple(slice(p+1,-p-1) for p in L2.degree)
 
         if len(self.D) == 1:
-            self.func = integrate_1d
+            self.func = evaluate_dof_3form_1d
         elif len(self.D) == 2:
-            self.func = integrate_2d
+            self.func = evaluate_dof_3form_2d
         elif len(self.D) == 3:
-            self.func = integrate_3d
+            self.func = evaluate_dof_3form_3d
         else:
             raise ValueError('H1 projector of dimension {} not available'.format(str(len(self.N))))
 
-        self.space = L2
         self.args  = (*points, *weights, self.rhs._data[slices])
 
     def __call__(self, fun):
@@ -376,29 +229,33 @@ class L2_Projector:
             Finite element coefficients obtained by projection.
         '''
 
+        # build the rhs
         self.func(*self.args, fun)
-        if len(self.D)==1:
-            rhs = self.rhs.toarray()
-            return array_to_stencil(self.D[0].solve(rhs), self.space.vector_space)
-        out = kronecker_solve(solvers = self.D, rhs = self.rhs)
-        return out
 
-def interpolate_1d(n1, points_1, F, f):
+        if len(self.D) == 1:
+            rhs = self.rhs.toarray()
+            coeffs = array_to_stencil(self.D[0].solve(rhs), self.space.vector_space)
+        else:
+            coeffs = kronecker_solve(solvers = self.D, rhs = self.rhs)
+
+        return FemField(self.space, coeffs=coeffs)
+
+def evaluate_dof_0form_1d(n1, points_1, F, f):
     for i1 in range(n1):
         F[i1] = f(points_1[i1])
         
-def interpolate_2d(n1, n2, points_1, points_2, F, f):
+def evaluate_dof_0form_2d(n1, n2, points_1, points_2, F, f):
     for i1 in range(n1):
         for i2 in range(n2):
             F[i1,i2] = f(points_1[i1], points_2[i2])
 
-def interpolate_3d(n1, n2, n3, points_1, points_2, points_3, F, f):
+def evaluate_dof_0form_3d(n1, n2, n3, points_1, points_2, points_3, F, f):
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
                 F[i1, i2, i3] = f(points_1[i1], points_2[i2], points_3[i3])
 
-def Hcurl_projection_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoints_2, points_1, points_2, F1, F2, f1, f2):
+def evaluate_dof_1form_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoints_2, points_1, points_2, F1, F2, f1, f2):
 
     for i2 in range(n1[1]):
         for i1 in range(n1[0]):
@@ -410,7 +267,7 @@ def Hcurl_projection_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoints
             for g2 in range(k2):
                 F2[i1, i2] += weights_2[g2, i2]*f2(points_1[i1], ipoints_2[g2, i2])
                 
-def Hcurl_projection_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,           
+def evaluate_dof_1form_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,           
                                                   points_1, points_2, points_3, F1, F2, F3, f1, f2, f3):
     for i2 in range(n2):
         for i3 in range(n3):
@@ -430,7 +287,7 @@ def Hcurl_projection_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3,
                 for g3 in range(k3):
                     F3[i1, i2, i3] += weights_3[i3, g3]*f3(points_1[i1],points_2[i2], ipoints_3[i3, g3])
                     
-def Hdiv_projection_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoints_2, points_1, points_2, F1, F2, f1, f2):
+def evaluate_dof_2form_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoints_2, points_1, points_2, F1, F2, f1, f2):
     for i1 in range(n1[0]):
         for i2 in range(n1[1]):
             for g2 in range(k2):
@@ -441,7 +298,7 @@ def Hdiv_projection_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoints_
             for g1 in range(k1):
                 F2[i1, i2] += weights_1[g1, i1]*f2(ipoints_1[g1,i1],points_2[i2])
                 
-def Hdiv_projection_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,
+def evaluate_dof_2form_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,
                                                   points_1, points_2, points_3, F1, F2, F3, f1, f2, f3):
     for i1 in range(n1):
         for i2 in range(n2-1):
@@ -466,7 +323,7 @@ def Hdiv_projection_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3, 
                                                         ipoints_2[i2, g2], points_3[i3])
 
 
-def integrate_1d(points, weights, F, fun):
+def evaluate_dof_3form_1d(points, weights, F, fun):
     """Integrates the function f over the quadrature grid
     defined by (points,weights) in 1d.
 
@@ -510,7 +367,7 @@ def integrate_1d(points, weights, F, fun):
         for g1 in range(k1):
             F[ie1] += weights[ie1, g1]*fun(points[ie1, g1])
 
-def integrate_2d(points_1, points_2, weights_1, weights_2, F, fun):
+def evaluate_dof_3form_2d(points_1, points_2, weights_1, weights_2, F, fun):
 
     """Integrates the function f over the quadrature grid
     defined by (points,weights) in 2d.
@@ -537,7 +394,7 @@ def integrate_2d(points_1, points_2, weights_1, weights_2, F, fun):
                     F[ie1, ie2] += weights_1[ie1, g1]*weights_2[ie2, g2]*fun(points_1[ie1, g1], points_2[ie2, g2])
 
 
-def integrate_3d(points_1, points_2, points_3,  weights_1, weights_2, weights_3, F, fun):
+def evaluate_dof_3form_3d(points_1, points_2, points_3,  weights_1, weights_2, weights_3, F, fun):
 
     n1 = points_1.shape[0]
     n2 = points_2.shape[0]

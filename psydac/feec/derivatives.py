@@ -6,8 +6,12 @@ from psydac.linalg.stencil  import StencilMatrix, StencilVectorSpace
 from psydac.linalg.kron     import KroneckerStencilMatrix
 from psydac.linalg.block    import ProductSpace, BlockVector, BlockLinearOperator, BlockMatrix
 from psydac.fem.vector      import ProductFemSpace
+from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.identity import IdentityLinearOperator, IdentityStencilMatrix as IdentityMatrix
+from psydac.fem.basic       import FemField
+from psydac.fem.vector      import VectorFemField
 
+#====================================================================================================
 def d_matrix(n, p, P):
     """creates a 1d incidence matrix.
     The final matrix will have a shape of (n,n-1)
@@ -31,7 +35,23 @@ def d_matrix(n, p, P):
         M._data[p+i,p+1] = 1.
     return M
 
-class Grad(object):
+#====================================================================================================
+class DiffOperator:
+
+    @property
+    def matrix(self):
+        return self._matrix
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+#====================================================================================================
+class Grad(DiffOperator):
     def __init__(self, V0_h, V1_h):
         """
         V0_h : TensorFemSpace
@@ -39,7 +59,13 @@ class Grad(object):
         V1_h : ProductFemSpace
         
         """
-        
+
+        assert isinstance(V0_h, TensorFemSpace)
+        assert isinstance(V1_h, ProductFemSpace)
+
+        self._domain   = V0_h
+        self._codomain = V1_h
+
         dim      = V0_h.ldim
         self.dim = dim
         d_matrices = [d_matrix(V.nbasis, V.degree, V.periodic) for V in V0_h.spaces]
@@ -66,16 +92,25 @@ class Grad(object):
         else:
             VS1 = V1_h.vector_space
 
-        self._matrix = BlockMatrix( VS0, VS1, blocks=[[mat] for mat in mats] )
+        self._matrix   = BlockMatrix( VS0, VS1, blocks=[[mat] for mat in mats] )
+
 
     def __call__(self, x):
-        x = BlockVector(ProductSpace(x.space), blocks=[x])
-        res = self._matrix.dot(x)
-        if self.dim == 1:
-            res = res[0]
-        return res
 
-class Curl(object):
+        assert isinstance(x, FemField)
+        assert x.space == self._domain
+
+        y = BlockVector(ProductSpace(x.coeffs.space), blocks=[x.coeffs])
+
+        coeffs = self._matrix.dot(y)
+        if self.dim == 1:
+            out    = FemField(self._codomain, coeffs=coeffs[0])
+        else:
+            out    = VectorFemField(self._codomain, coeffs=coeffs)
+        return out
+
+#====================================================================================================
+class Curl(DiffOperator):
     def __init__(self, V1_h, V2_h):
         """
         
@@ -85,6 +120,12 @@ class Curl(object):
         
         """
 
+        assert isinstance(V1_h, ProductFemSpace)
+        assert isinstance(V2_h, ProductFemSpace)
+
+        self._domain   = V1_h
+        self._codomain = V2_h
+ 
         D_basis = [V.spaces[i] for i,V in enumerate(V1_h.spaces)]
         dim     = len(D_basis)
 
@@ -143,16 +184,27 @@ class Curl(object):
             raise NotImplementedError('TODO')
 
     def __call__(self, x):
-        return self._matrix.dot(x)
+        assert isinstance(x, VectorFemField)
+        assert x.space == self._domain
+        
+        coeffs = self._matrix.dot(x.coeffs)
+        return VectorFemField(self._codomain, coeffs=coeffs)
 
-class Div(object):
+#====================================================================================================
+class Div(DiffOperator):
     def __init__(self, V2_h, V3_h):
         """
-        V2_h : ProductFemSpace
+        V2_h  : ProductFemSpace
 
         V3_h  : TensorFemSpace
         
         """
+
+        assert isinstance(V2_h, ProductFemSpace)
+        assert isinstance(V3_h, TensorFemSpace)
+
+        self._domain   = V2_h
+        self._codomain = V3_h
 
         dim        = V2_h.ldim
         N_basis    = [V.spaces[i] for i,V in enumerate(V2_h.spaces)]
@@ -175,9 +227,13 @@ class Div(object):
         self._matrix = Mat
 
     def __call__(self, x):
-        return self._matrix.dot(x)
+        assert isinstance(x, VectorFemField)
+        assert x.space == self._domain
+        coeffs =  self._matrix.dot(x.coeffs)
+        return FemField(self._codomain, coeffs=coeffs[0])
 
-class Rot(object):
+#====================================================================================================
+class Rot(DiffOperator):
     def __init__(self, V0_h, V1_h):
         """
         V0_h : TensorFemSpace
@@ -185,7 +241,13 @@ class Rot(object):
         V1_h : ProductFemSpace
         
         """
-        
+
+        assert isinstance(V0_h, TensorFemSpace)
+        assert isinstance(V1_h, ProductFemSpace)
+
+        self._domain   = V0_h
+        self._codomain = V1_h
+      
         if V0_h.ldim != 2:
             raise ValueError('only dimension 2 is available')
 
@@ -201,7 +263,11 @@ class Rot(object):
         self._matrix = Mat
 
     def __call__(self, x):
-        x = BlockVector(ProductSpace(x.space), blocks=[x])
-        return self._matrix.dot(x)
+        assert isinstance(x, FemField)
+        assert x.space == self._domain
+
+        y      = BlockVector(ProductSpace(x.coeffs.space), blocks=[x.coeffs])
+        coeffs = self._matrix.dot(y)
+        return VectorFemField(self._codomain, coeffs=coeffs)
 
     
