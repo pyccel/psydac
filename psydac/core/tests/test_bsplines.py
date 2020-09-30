@@ -8,8 +8,10 @@ from psydac.core.bsplines import ( find_span,
         basis_funs_1st_der,
         basis_funs_all_ders,
         make_knots,
+        elevate_knots,
         greville,
-        collocation_matrix )
+        collocation_matrix,
+        histopolation_matrix )
 
 from psydac.fem.tests.utilities import random_grid
 
@@ -17,7 +19,6 @@ from psydac.fem.tests.utilities import random_grid
 #  - make_knots
 #  - elevate_knots
 #  - greville
-#  - histopolation_matrix
 
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
@@ -127,6 +128,25 @@ def test_collocation_matrix(lims, nc, p, periodic, tol=1e-14):
         assert all( row >= 0.0 )
         assert abs( sum( row ) - 1.0 ) < tol
         assert (abs(row) > tol).sum() in acceptable_nonzeros_in_row
+
+#==============================================================================
+@pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
+@pytest.mark.parametrize( 'nc', (10, 18, 33) )
+@pytest.mark.parametrize( 'p' , (1,2,3,4,5,6) )
+@pytest.mark.parametrize( 'periodic' , (True, False) )
+
+# TODO: improve checks
+def test_histopolation_matrix(lims, nc, p, periodic, tol=1e-13):
+
+    breaks = random_grid(domain=lims, ncells=nc, random_fraction=0.3)
+    knots  = make_knots(breaks, p, periodic)
+    xgrid  = greville(elevate_knots(knots, p, periodic), p+1, periodic)
+    mat    = histopolation_matrix(knots, p, periodic, normalization='M', xgrid=xgrid)
+
+    for col in mat.T:
+        assert all( col >= 0.0 )
+        assert abs( sum( col ) - 1.0 ) < tol
+#        assert (abs(col) > tol).sum() <= 2*p + 1
 
 #==============================================================================
 # SCRIPT FUNCTIONALITY: PLOT BASIS FUNCTIONS
