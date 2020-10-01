@@ -6,16 +6,18 @@ from sympy import Add
 from sympy import Abs
 from sympy import Symbol, Idx
 from sympy import Max
-from sympy import Basic
+from sympy import Basic, Function
 from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
 
-from pyccel.ast.builtins import Range
-from pyccel.ast.core     import Assign, Product, AugAssign, For
-from pyccel.ast.core     import Variable, IndexedVariable, IndexedElement
-from pyccel.ast.core     import Slice
-from pyccel.ast.core     import EmptyNode, Import
-from pyccel.ast.core     import CodeBlock, FunctionDef
+from pyccel.ast.builtins  import Range
+from pyccel.ast.utilities import build_types_decorator
+from pyccel.ast.core      import Assign, Product, AugAssign, For
+from pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
+from pyccel.ast.core      import Slice
+from pyccel.ast.core      import EmptyNode, Import
+from pyccel.ast.core      import CodeBlock, FunctionDef
+
 
 from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import SymbolicExpr
@@ -71,6 +73,7 @@ from .nodes import   Zeros, ZerosLike
 from .fem import expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.utilities     import flatten
+from psydac.api.ast.utilities import build_pythran_types_header
 
 #==============================================================================
 # TODO move it
@@ -94,7 +97,7 @@ def is_scalar_array(var):
     return True
 #==============================================================================
 
-def parse(expr, settings):
+def parse(expr, settings, backend=None):
     """
     This function takes a Psydac Ast and returns a Pyccel Ast
 
@@ -114,7 +117,7 @@ def parse(expr, settings):
         pyccel abstract syntax tree that can be translated into a Python code
 
     """
-    psy_parser = Parser(settings)
+    psy_parser = Parser(settings, backend)
     ast = psy_parser.doit(expr)
     return ast
 
@@ -125,7 +128,7 @@ class Parser(object):
     by calling the Parser.doit method
 
     """
-    def __init__(self, settings):
+    def __init__(self, settings, backend=None):
 
         settings = settings.copy()
 
@@ -151,6 +154,7 @@ class Parser(object):
         self._mapping = settings.pop('mapping', None)
 
         self._settings = settings
+        self.backend   = backend
 
         # TODO improve
         self.indices          = OrderedDict()
@@ -383,7 +387,7 @@ class Parser(object):
                     test_ln = self._visit(test_ln, **kwargs)
                     trial_ln = self._visit(trial_ln, **kwargs)
                     for stmt in zip(l_pads[i,j], test_ln, trial_ln):
-                        inits += [Assign(stmt[0], Max(*stmt[1:]))]
+                        inits += [Assign(stmt[0], Function('max')(tuple(stmt[1:])))]
 
         args = [*tests_basis, *trial_basis, *g_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *lengths, *g_pads]
 
@@ -425,9 +429,27 @@ class Parser(object):
         name = expr.name
         imports = ('zeros', 'zeros_like') + tuple(self._math_functions)
         imports = [Import('numpy', imports)]
-        func = FunctionDef(name, arguments, [],body, imports=imports)
+
+        if self.backend['name'] == 'pyccel':
+            a = build_types_decorator(arguments)
+            decorators = {'types': Function('types')(*a)}
+        elif self.backend['name'] == 'numba':
+            decorators = {'jit': Symbol('jit')}
+        elif self.backend['name'] == 'pythran':
+            header = build_pythran_types_header(name, arguments)
+        else:
+            decorators = {}
+
+        if self.backend['name'] == 'numba':
+            func = FunctionDef(name, arguments, [], body, decorators=decorators)
+            stmts = CodeBlock([*imports , func])
+        else:
+            func = FunctionDef(name, arguments, [], body, imports=imports, decorators=decorators)
+            stmts = func
+
         self.functions[name] = func
-        return func
+
+        return stmts
 
     def _visit_EvalField(self, expr, **kwargs):
         g_coeffs   = expr.g_coeffs
@@ -704,7 +726,7 @@ class Parser(object):
         target = expr.target
         label  = SymbolicExpr(target).name
         names  = 'span_{}_1:{}'.format(label,str(dim+1))
-        targets = variables(names, dtype='int', cls=Idx)
+        targets = variables(names, dtype='int')
 
         self.insert_variables(*targets)
         if not isinstance(targets[0], (tuple, list, Tuple)):
@@ -723,7 +745,7 @@ class Parser(object):
                 label1 = SymbolicExpr(tests[i]).name
                 label2 = SymbolicExpr(trials[j]).name
                 names  = 'pad_{}_{}_1:{}'.format(label2, label1, str(dim+1))
-                targets = variables(names, dtype='int', cls=Idx)
+                targets = variables(names, dtype='int')
                 pads[i,j] = Tuple(*targets)
                 self.insert_variables(*targets)
         return pads
@@ -1232,31 +1254,31 @@ class Parser(object):
     # ....................................................
     def _visit_IndexElement(self, expr, **kwargs):
         dim    = self.dim
-        target =  variables('i_element_1:%d'%(dim+1), dtype='int', cls=Idx)
+        target =  variables('i_element_1:%d'%(dim+1), dtype='int')
         self.insert_variables(*target)
         return target
     # ....................................................
     def _visit_IndexQuadrature(self, expr, **kwargs):
         dim = self.dim
-        target = variables('i_quad_1:%d'%(dim+1), dtype='int', cls=Idx)
+        target = variables('i_quad_1:%d'%(dim+1), dtype='int')
         self.insert_variables(*target)
         return target
     # ....................................................
     def _visit_IndexDof(self, expr, **kwargs):
         dim = self.dim
-        target = variables('i_basis_1:%d'%(dim+1), dtype='int', cls=Idx)
+        target = variables('i_basis_1:%d'%(dim+1), dtype='int')
         self.insert_variables(*target)
         return target
     # ....................................................
     def _visit_IndexDofTrial(self, expr, **kwargs):
         dim = self.dim
-        target = variables('j_basis_1:%d'%(dim+1), dtype='int', cls=Idx)
+        target = variables('j_basis_1:%d'%(dim+1), dtype='int')
         self.insert_variables(*target)
         return target
     # ....................................................
     def _visit_IndexDofTest(self, expr, **kwargs):
         dim = self.dim
-        target = variables('i_basis_1:%d'%(dim+1), dtype='int', cls=Idx)
+        target = variables('i_basis_1:%d'%(dim+1), dtype='int')
         self.insert_variables(*target)
         return target
     # ....................................................
@@ -1281,7 +1303,7 @@ class Parser(object):
     def _visit_LengthDof(self, expr, **kwargs):
         dim = self.dim
         names = 'p1:%d'%(dim+1)
-        target = variables(names, dtype='int', cls=Idx)
+        target = variables(names, dtype='int')
         self.insert_variables(*target)
         return target
     # ....................................................
@@ -1294,7 +1316,7 @@ class Parser(object):
             target = ''
 
         names = 'test{}_p1:{}'.format(target, dim+1)
-        target = variables(names, dtype='int', cls=Idx)
+        target = variables(names, dtype='int')
         self.insert_variables(*target)
         return target
     # ....................................................
@@ -1307,7 +1329,7 @@ class Parser(object):
             target = ''
 
         names = 'trial{}_p1:{}'.format(target, dim+1)
-        target = variables(names, dtype='int', cls=Idx)
+        target = variables(names, dtype='int')
         self.insert_variables(*target)
         return target
     # ....................................................

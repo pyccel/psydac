@@ -118,16 +118,14 @@ class BasicCodeGen(object):
         #             raise ValueError('can not find {} implementation'.format(f))
 
         if ast:
-            self._code = self._generate_code()
-            self._save_code()
+            self._save_code(self._generate_code(), backend=self.backend['name'])
+            # compile code
+            self._compile(namespace)
 
             if self.backend['name'] == 'pyccel':
                 self._compile_pyccel(namespace)
             elif self.backend['name'] == 'pythran':
                 self._compile_pythran(namespace)
-
-            # compile code
-            self._compile(namespace)
 
         if not( comm is None):
             comm.Barrier()
@@ -231,96 +229,49 @@ class BasicCodeGen(object):
             code = 'from numba import jit'
 
         ast = self.ast
-        expr = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping':ast.mapping, 'target':ast.domain})
+        expr = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping':ast.mapping, 'target':ast.domain}, backend=self.backend)
 
         code = '{code}\n{dep}'.format(code=code, dep=pycode(expr))
 
         return code
 
-    def _save_code(self):
+    def _save_code(self, code, backend=None):
         # ...
-        code = self._code
         write_code(self._dependencies_fname, code, folder = self.folder)
 
     def _compile_pythran(self, namespace):
+        raise NotImplementedError('Pythran is not available')
 
-        module_name = self.dependencies_modname
-
-        basedir = os.getcwd()
-        os.chdir(self.folder)
-        curdir = os.getcwd()
-        sys.path.append(self.folder)
-        os.system('pythran {}.py -O3'.format(module_name))
-        sys.path.remove(self.folder)
-
-        # ...
     def _compile_pyccel(self, namespace, verbose=False):
 
         module_name = self.dependencies_modname
-
-        # ...
-        from pyccel.epyccel import epyccel
-
         # ... convert python to fortran using pyccel
         compiler       = self.backend['compiler']
         fflags         = self.backend['flags']
         accelerator    = self.backend['accelerator']
         _PYCCEL_FOLDER = self.backend['folder']
+
+        from pyccel.epyccel import epyccel
+
+        func = epyccel(self._func,
+                       compiler    = compiler,
+                       fflags      = fflags,
+                       accelerator = accelerator,
+                       comm        = self.comm,
+                       bcast       = False)
+        self._func = func
+
         # ...
-
-        basedir = os.getcwd()
-        os.chdir(self.folder)
-        curdir = os.getcwd()
-
-        # ...
-        sys.path.append(self.folder)
-        package = importlib.import_module( module_name )
-        f2py_module = epyccel( package,
-                               compiler    = compiler,
-                               fflags      = fflags,
-                               accelerator = accelerator,
-                               comm        = self.comm,
-                               bcast       = False,
-                               folder      = _PYCCEL_FOLDER )
-        sys.path.remove(self.folder)
-        # ...
-
-        # ... get list of all functions inside the f2py module
-        functions = []
-        for name, obj in inspect.getmembers(f2py_module):
-            if callable(obj) and not( name.startswith( 'f2py_' ) ):
-                functions.append(name)
-        # ...
-
-        # update module name for dependencies
-        # needed for interface when importing assembly
-        name = os.path.join(_PYCCEL_FOLDER, f2py_module.__name__)
-        name = name.replace('/', '.')
-        imports = []
-        for f in functions:
-            pattern = 'from {name} import {f}'
-            stmt = pattern.format( name = name, f = f )
-            imports.append(stmt)
-        imports = '\n'.join(i for i in imports)
-
-        self._interface_base_import_code = imports
-        # ...
-
-        os.chdir(basedir)
 
     def _compile(self, namespace):
 
         module_name = self.dependencies_modname
-        self._set_func(module_name, self._func_name)
 
-    def _set_func(self, module_name, name):
-        # ...
         sys.path.append(self.folder)
         package = importlib.import_module( module_name )
         sys.path.remove(self.folder)
-        # ...
-        self._func = getattr(package, name)
 
+        self._func = getattr(package, self._func_name)
 #==============================================================================
 class BasicDiscrete(BasicCodeGen):
     """ mapping is the symbolic mapping here.
