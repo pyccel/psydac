@@ -336,6 +336,9 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid):
         basis = basis_funs( knots, degree, x, span )
         mat[i,js(span)] = normalize(basis, span)
 
+    # Mitigate round-off errors
+    mat[abs(mat) < 1e-14] = 0.0
+
     return mat
 
 #==============================================================================
