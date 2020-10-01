@@ -345,7 +345,7 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid):
 def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
     r"""
     Compute the histopolation matrix $H_{ij} = \int_{x_i}^{x_{i+1}} B_j(x) dx$,
-    which contains the integrals of each B-spline basis function $M_j$ between
+    which contains the integrals of each B-spline basis function $B_j$ between
     two successive grid points.
 
     If called with normalization='M', this uses M-splines instead of B-splines.
@@ -368,6 +368,28 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
         Grid points.
 
     """
+    # Check that knots are ordered (but allow repeated knots)
+    if not np.all(np.diff(knots) >= 0):
+        raise ValueError("Cannot accept knot sequence: {}".format(knots))
+
+    # Check that spline degree is non-negative integer
+    if not isinstance(degree, (int, np.integer)):
+        raise TypeError("Degree {} must be integer, got type {} instead".format(degree, type(degree)))
+    if degree < 0:
+        raise ValueError("Cannot accept negative degree: {}".format(degree))
+
+    # Check 'periodic' flag
+    if not isinstance(periodic, bool):
+        raise TypeError("Cannot accept non-boolean 'periodic' parameter: {}".format(periodic))
+
+    # Check 'normalization' option
+    if normalization not in ['B', 'M']:
+        raise ValueError("Cannot accept 'normalization' parameter: {}".format(normalization))
+
+    # Check that grid points are ordered, and do not allow repetitions
+    if not np.all(np.diff(xgrid) > 0):
+        raise ValueError("Grid points must be ordered, with no repetitions: {}".format(xgrid))
+
     # Number of basis functions (in periodic case remove degree repeated elements)
     nb = len(knots)-degree-1
     if periodic:
@@ -376,11 +398,25 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
     # Number of evaluation points
     nx = len(xgrid)
 
+    # In periodic case, make sure that evaluation points include domain boundaries
+    # TODO: only do this if the user asks for it!
+    if periodic:
+        xmin  = knots[degree]
+        xmax  = knots[-1-degree]
+        if xgrid[0] > xmin:
+            xgrid = [xmin, *xgrid]
+        if xgrid[-1] < xmax:
+            xgrid = [*xgrid, xmax]
+
     # B-splines of degree p+1: basis[i,j] := Bj(xi)
-    basis = collocation_matrix(
+    #
+    # NOTES:
+    #  . cannot use M-splines in analytical formula for histopolation matrix
+    #  . always use non-periodic splines to avoid circulant matrix structure
+    C = collocation_matrix(
         knots    = elevate_knots(knots, degree, periodic),
         degree   = degree + 1,
-        periodic = periodic,
+        periodic = False,
         normalization = 'B',
         xgrid = xgrid
     )
@@ -392,16 +428,40 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
         scaling = basis_integrals(knots, degree, periodic)
         normalize = lambda bi, j: bi * scaling[j]
 
-    # Fill in non-zero values of histopolation matrix
-    H = np.zeros((nx-1, nb))
-    for i in range(0, nx-1):
-        for j in range(max(i-degree, 1), min(i+degree+4, nb+1) ):
-            s = 0.
-            for k in range(0, j):
-                s += basis[i,k] - basis[i+1,k]
+    # Compute span for each row (index of last non-zero basis function)
+    # TODO: would be better to have this ready beforehand
+    # TODO: use tolerance instead of comparing against zero
+    spans = [(row != 0).argmax() + (degree+1) for row in C]
+
+    # Compute histopolation matrix from collocation matrix of higher degree
+    m = C.shape[0] - 1
+    n = C.shape[1] - 1
+    H = np.zeros((m, n))
+    for i in range(m):
+        # Indices of first/last non-zero elements in row of collocation matrix
+        jstart = spans[i] - (degree+1)
+        jend   = min(spans[i+1], n)
+        # Compute non-zero values of histopolation matrix
+        for j in range(1+jstart, jend+1):
+            s = C[i, 0:j].sum() - C[i+1, 0:j].sum()
             H[i, j-1] = normalize(s, j-1)
 
-    return H
+    # Mitigate round-off errors
+    H[abs(H) < 1e-14] = 0.0
+
+    # Non periodic case: stop here
+    if not periodic:
+        return H
+
+    # Periodic case: wrap around histopolation matrix
+    #  1. identify repeated basis functions (sum columns)
+    #  2. identify split interval (sum rows)
+    Hp = np.zeros((nx, nb))
+    for i in range(m):
+        for j in range(n):
+            Hp[i%nx, j%nb] += H[i, j]
+
+    return Hp
 
 #==============================================================================
 def breakpoints( knots, degree ):
