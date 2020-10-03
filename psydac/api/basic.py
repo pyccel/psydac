@@ -119,29 +119,11 @@ class BasicCodeGen(object):
 
         if ast:
             self._save_code(self._generate_code(), backend=self.backend['name'])
-            # compile code
-            self._compile(namespace)
 
-            if self.backend['name'] == 'pyccel':
-                self._compile_pyccel(namespace)
-            elif self.backend['name'] == 'pythran':
-                self._compile_pythran(namespace)
+        if comm is not None: comm.Barrier()
 
-        if not( comm is None):
-            comm.Barrier()
-            if comm.rank != root:
-                if self.backend['name'] == 'pyccel':
-                    _folder = os.path.join(self.folder, self.backend['folder'])
-                    sys.path.append(_folder)
-
-                self._set_func(self._dependencies_modname, self._func_name)
-
-                if self.backend['name'] == 'pyccel':
-                    _folder = os.path.join(self.folder, self.backend['folder'])
-                    sys.path.remove(_folder)
-
-            comm.Barrier()
-
+        # compile code
+        self._compile(namespace)
 
     @property
     def expr(self):
@@ -239,12 +221,11 @@ class BasicCodeGen(object):
         # ...
         write_code(self._dependencies_fname, code, folder = self.folder)
 
-    def _compile_pythran(self, namespace):
+    def _compile_pythran(self, namespace, mod):
         raise NotImplementedError('Pythran is not available')
 
-    def _compile_pyccel(self, namespace, verbose=False):
+    def _compile_pyccel(self, namespace, mod, verbose=False):
 
-        module_name = self.dependencies_modname
         # ... convert python to fortran using pyccel
         compiler       = self.backend['compiler']
         fflags         = self.backend['flags']
@@ -253,25 +234,30 @@ class BasicCodeGen(object):
 
         from pyccel.epyccel import epyccel
 
-        func = epyccel(self._func,
+        fmod = epyccel(mod,
                        compiler    = compiler,
                        fflags      = fflags,
                        accelerator = accelerator,
                        comm        = self.comm,
-                       bcast       = False)
-        self._func = func
+                       bcast       = True,
+                       folder      = _PYCCEL_FOLDER)
 
-        # ...
+        return fmod
 
     def _compile(self, namespace):
 
         module_name = self.dependencies_modname
-
         sys.path.append(self.folder)
         package = importlib.import_module( module_name )
         sys.path.remove(self.folder)
 
+        if self.backend['name'] == 'pyccel':
+            package = self._compile_pyccel(namespace, package)
+        elif self.backend['name'] == 'pythran':
+            package = self._compile_pythran(namespace, package)
+
         self._func = getattr(package, self._func_name)
+
 #==============================================================================
 class BasicDiscrete(BasicCodeGen):
     """ mapping is the symbolic mapping here.
