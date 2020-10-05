@@ -25,11 +25,11 @@ before_install:
   - python -m pip uninstall -y pyccel
   - python -m pip uninstall -y gelato
   - python -m pip install -r requirements.txt
-  - python -m pip install numba
 
 # command to install project
 install:
   - python -m pip install .
+  - python -m pip install numba
   - python -m pip freeze
 
 before_script:

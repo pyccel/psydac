@@ -310,6 +310,12 @@ def test_poisson_2d_dir0_1234_numba():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
+###############################################################################
+#            PARALLEL TESTS
+###############################################################################
+
+#==============================================================================
+
 @pytest.mark.parallel
 def test_poisson_2d_dir0_1234_parallel_pyccel():
 
@@ -347,6 +353,8 @@ def test_poisson_2d_dir0_1234_parallel_numba():
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
