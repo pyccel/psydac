@@ -70,9 +70,6 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
     #        SYMPY objects
     # .........................................................
     def _print_AppliedUndef(self, expr):
-        if not expr._imp_:
-            raise ValueError('_imp_ not impltemented')
-
         args = ','.join(self._print(i) for i in expr.args)
         fname = self._print(expr.func.__name__)
         return '{fname}({args})'.format(fname=fname, args=args)
