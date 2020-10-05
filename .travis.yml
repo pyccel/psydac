@@ -4,9 +4,9 @@ language: python
 
 # which python versions to test
 python:
-  - 3.5
   - 3.6
   - 3.7
+  - 3.8
 
 # Cache directory $HOME/.cache/pip
 cache: pip
@@ -29,6 +29,7 @@ before_install:
 # command to install project
 install:
   - python -m pip install .
+  - python -m pip install numba
   - python -m pip freeze
 
 before_script:

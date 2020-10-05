@@ -52,7 +52,8 @@ from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_logical_partial_derivatives
 from sympde.topology.mapping     import InterfaceMapping
 
-from pyccel.ast.core  import _atomic
+from pyccel.ast.core          import _atomic
+from psydac.api.ast.utilities import variables
 
 from .nodes import index_quad
 from .nodes import index_element
@@ -61,6 +62,7 @@ from .nodes import index_dof_trial
 
 from collections import OrderedDict
 from itertools   import groupby
+
 
 
 #==============================================================================
@@ -453,7 +455,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     """
 
-    pads   = symbols('pad1, pad2, pad3')[:dim]
+    pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
 
@@ -626,7 +628,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         represents the a function definition node that computes the assembly
 
     """
-    pads   = symbols('pad1, pad2, pad3')[:dim]
+    pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
 
@@ -781,7 +783,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, cons
 
     """
 
-    pads   = symbols('pad1, pad2, pad3')[:dim]
+    pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
 
