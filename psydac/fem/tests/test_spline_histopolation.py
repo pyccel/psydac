@@ -8,9 +8,8 @@ from psydac.fem.splines import SplineSpace
 #from psydac.fem.tensor  import TensorFemSpace
 
 from psydac.fem.tests.utilities              import horner, random_grid
-#from psydac.fem.tests.splines_error_bounds   import spline_1d_error_bound
-#from psydac.fem.tests.analytical_profiles_1d import (AnalyticalProfile1D_Cos,
-#                                                  AnalyticalProfile1D_Poly)
+from psydac.fem.tests.splines_error_bounds   import spline_1d_error_bound
+from psydac.fem.tests.analytical_profiles_1d import AnalyticalProfile1D_Cos
 
 #==============================================================================
 def histopolate_polynomial(basis, ncells, degree):
@@ -49,6 +48,52 @@ def test_histopolation_exact(basis, ncells, degree, num_pts=100, tol=1e-12):
     yh = np.array([fh(xi) for xi in x])
 
     assert np.allclose(yh, y, rtol=tol, atol=tol)
+
+#==============================================================================
+@pytest.mark.parametrize('basis', ['B', 'M'])
+@pytest.mark.parametrize('ncells', [10, 20, 33])
+@pytest.mark.parametrize('degree', [2, 5, 7])
+@pytest.mark.parametrize('periodic', [True, False])
+def test_histopolation_cosine(basis, ncells, degree, periodic, num_pts=100):
+
+    # Function to be approximated
+    # TODO: write function and domain explicitly
+    f = AnalyticalProfile1D_Cos()
+
+    # Define spline space and field
+    grid, dx = np.linspace(*f.domain, num=ncells+1, retstep=True)
+    Vh = SplineSpace(degree=degree, grid=grid, periodic=periodic)
+    fh = FemField(Vh)
+
+    # ...
+    # Histopolation grid
+    xg = Vh.ext_greville
+
+    # Split periodic integration interval if needed (TODO: avoid)
+    if xg[ 0] != f.domain[0]: xg = [f.domain[0], *xg]
+    if xg[-1] != f.domain[1]: xg = [*xg, f.domain[1]]
+    # ...
+
+    # ...
+    # Compute histopolant
+    Ig = np.array([quad(f.eval, xg[i], xg[i+1])[0] for i in range(len(xg)-1)])
+
+    # Split periodic integration interval if needed (TODO: avoid)
+    if periodic and (degree % 2 == 1):
+        Ig = np.array([Ig[0]+Ig[-1], *Ig[1:-1]])
+
+    Vh.compute_histopolant(Ig, fh)
+    # ...
+
+    # Compare to exact solution
+    x  = np.linspace(*f.domain, num=num_pts)
+    y  = f.eval(x)
+    yh = np.array([fh(xi) for xi in x])
+
+    max_norm_err = np.max(abs(y - yh))
+    err_bound    = spline_1d_error_bound(f, dx, degree)
+
+    assert max_norm_err < err_bound
 
 #==============================================================================
 # Diagnostics
