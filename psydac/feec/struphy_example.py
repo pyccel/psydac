@@ -1,30 +1,45 @@
+
+from sympy import pi, cos, sin, symbols
+from sympy.utilities.lambdify import implemented_function
+import pytest
+import numpy as np
+from sympde.calculus import grad, dot
+from sympde.calculus import laplace
+from sympde.topology import ScalarFunctionSpace
+from sympde.topology import elements_of
+from sympde.topology import NormalVector
+from sympde.topology import Cube, Derham, Line
+from sympde.topology import Union
+from sympde.expr     import BilinearForm, LinearForm, integral
+from sympde.expr     import Norm
+from sympde.expr     import find, EssentialBC
+
+from psydac.fem.basic          import FemField
+from psydac.api.discretization import discretize
+
+from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
+
+np.set_printoptions(precision=3, linewidth=180)
 # Continuous world: SymPDE
 
-#domain = MappedDomain(Cube(), mapping=CollelaMapping())
-domain = Domain('Omega')
-derham = Derham(domain)
+domain  = Line('C')
+#domain = Mapping(domain)
+V  = ScalarFunctionSpace('M', domain)
 
-u1, v1 = elements_of(derham.V1, names='u1, v1')
-u2, v2 = elements_of(derham.V2, names='u2, v2')
+u0, v0 = elements_of(V, names='u0, v0')
 
-a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
-a2 = BilinearForm((u2, v2), integral(domain, dot(u2, v2)))
+
+a0 = BilinearForm((u0, v0), integral(domain, u0*v0))
 
 #==============================================================================
 # Discrete objects: Psydac
-domain_h = discretize(domain, ncells=(10, 10, 10))
-derham_h = discretize(derham, domain_h, degree=(3, 3, 3), periodic=(False, False, True))
+domain_h = discretize(domain, ncells=(2,))
+Vh = discretize(V, domain_h, degree=(2, ), periodic=(True,))
 
-a1_h = discretize(a1, (derham_h.V1, derham_h.V1))
-a2_h = discretize(a2, (derham_h.V2, derham_h.V2))
+a0_h = discretize(a0, domain_h, (Vh, Vh), backend=PSYDAC_BACKEND_NUMBA)
 
 # StencilMatrix objects
-M1 = a1_h.assemble()
-M2 = a2_h.assemble()
-
-G, C, D = derham_h.derivatives_as_matrices()
-
-# Projectors
-#  . Input: callable functions
-#  . Output: FemField objects
-Pi0, Pi1, Pi2, Pi3 = derham_h.projectors(kind='global', nquads=[10,10,10])
+M0 = a0_h.assemble()
+print(M0[0,0])
+print(M0._data[2:-2])
+print(M0.toarray())
