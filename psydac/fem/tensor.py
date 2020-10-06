@@ -607,7 +607,7 @@ class TensorFemSpace( FemSpace ):
 
        # Compute extended 1D quadrature grids (local to process) along each direction
        
-        tensor_vec._quad_grids = tuple( FemAssemblyGrid( V,s,e,quad_order=q )
+        tensor_vec._quad_grids = tuple( FemAssemblyGrid( V,s,e,quad_order=q, p=q )
                                   for V,s,e,q in zip( spaces, v.starts, v.ends, self.degree ) )
 
         tensor_vec._element_starts, tensor_vec._element_ends =  self._element_starts, self._element_ends

@@ -348,44 +348,55 @@ class DiscreteDerham(BasicDiscrete):
 #==============================================================================           
 def discretize_derham(Complex, domain_h, *args, **kwargs):
 
-    # TODO: we should make sure that
+    ldim     = Complex.shape
+    spaces   = Complex.spaces
+    d_spaces = [None]*(ldim+1)
 
-    spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
-    ldim   = Complex.shape
-    
     if ldim == 1:
-        # = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
-        #spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in Complex.spaces]
 
-        D0 = Grad(spaces[0], spaces[1])
+        d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
+        d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
 
-        spaces[0].diff = spaces[0].grad = D0
+        D0 = Grad(d_spaces[0], d_spaces[1])
+
+        d_spaces[0].diff = d_spaces[0].grad = D0
         
     elif ldim == 2:
-        
-        if isinstance(Complex.spaces[1].kind, HcurlSpaceType):
-            D0 = Grad(spaces[0], spaces[1])
-            D1 = Curl(spaces[1], spaces[2])
 
-            spaces[0].diff = spaces[0].grad =  D0
-            spaces[1].diff = spaces[1].curl =  D1
+        d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
+        d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
+        d_spaces[2] = discretize_space(spaces[2], domain_h, *args, basis='M', **kwargs)
+
+        if isinstance(spaces[1].kind, HcurlSpaceType):
+            D0 = Grad(d_spaces[0], d_spaces[1])
+            D1 = Curl(d_spaces[1], d_spaces[2])
+
+            d_spaces[0].diff = d_spaces[0].grad =  D0
+            d_spaces[1].diff = d_spaces[1].curl =  D1
             
         else:
-            D0 = Rot(spaces[0], spaces[1])
-            D1 = Div(spaces[1], spaces[2])
-            spaces[0].diff = spaces[0].rot  = D0
-            spaces[1].diff = spaces[1].div  = D1
+            D0 = Rot(d_spaces[0], d_spaces[1])
+            D1 = Div(d_spaces[1], d_spaces[2])
+
+            d_spaces[0].diff = d_spaces[0].rot  = D0
+            d_spaces[1].diff = d_spaces[1].div  = D1
 
     elif ldim == 3:
-        D0 = Grad(spaces[0], spaces[1])
-        D1 = Curl(spaces[1], spaces[2])  
-        D2 = Div (spaces[2], spaces[3])
-        
-        spaces[0].diff = spaces[0].grad =  D0
-        spaces[1].diff = spaces[1].curl =  D1
-        spaces[2].diff = spaces[2].div  =  D2
 
-    return DiscreteDerham(*spaces)
+        d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
+        d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
+        d_spaces[2] = discretize_space(spaces[2], domain_h, *args, basis='M', **kwargs)
+        d_spaces[3] = discretize_space(spaces[3], domain_h, *args, basis='M', **kwargs)
+
+        D0 = Grad(d_spaces[0], d_spaces[1])
+        D1 = Curl(d_spaces[1], d_spaces[2])  
+        D2 = Div (d_spaces[2], d_spaces[3])
+
+        d_spaces[0].diff = d_spaces[0].grad =  D0
+        d_spaces[1].diff = d_spaces[1].curl =  D1
+        d_spaces[2].diff = d_spaces[2].div  =  D2
+
+    return DiscreteDerham(*d_spaces)
 
 #==============================================================================
 # TODO multi patch
@@ -397,6 +408,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
     comm                = domain_h.comm
     kind                = V.kind
     ldim                = V.ldim
+    periodic            = kwargs.pop('periodic', [False]*ldim)
 
     is_rational_mapping = False
     
@@ -465,7 +477,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
                      for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
             # Create 1D finite element spaces and precompute quadrature data
-            spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
+            spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
             Vh     = None
             if i>0:
                 for e in interfaces:

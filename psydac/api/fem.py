@@ -311,6 +311,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             pads = test_degree
 
+
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
 
             shape = expr.shape
@@ -368,7 +369,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             if self._matrix:
                 global_mats[0,0] = self._matrix
             else:
-                global_mats[0,0] = StencilMatrix(trial_space, test_space)
+                global_mats[0,0] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
+
             local_mats[0,0]  = np.zeros((*(test_degree+1),*(2*pads+1)))
             self._matrix     = global_mats[0,0]
         return local_mats.values(), global_mats.values()

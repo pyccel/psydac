@@ -51,6 +51,7 @@ from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_logical_partial_derivatives
 from sympde.topology.mapping     import InterfaceMapping
+from sympde.calculus.core        import is_zero
 
 from pyccel.ast.core          import _atomic
 from psydac.api.ast.utilities import variables
@@ -62,7 +63,6 @@ from .nodes import index_dof_trial
 
 from collections import OrderedDict
 from itertools   import groupby
-
 
 
 #==============================================================================
@@ -501,8 +501,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             sub_terminal_expr = terminal_expr[tests_indices,trials_indices]
             sub_atomic_expr   = atomic_expr[tests_indices,trials_indices]
             l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials, sub_tests, sub_terminal_expr, dim, l_mats.tag)
-            if sub_terminal_expr.is_zero:
+            if is_zero(sub_terminal_expr):
                 continue
+
             q_basis_tests  = OrderedDict((v,d_tests[v]['global'])  for v in sub_tests)
             q_basis_trials = OrderedDict((u,d_trials[u]['global']) for u in sub_trials)
 
@@ -530,7 +531,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             body  = (Reset(l_sub_mats), loop)
             stmts = Block(body)
             g_stmts += [stmts]
-    
+
     #=========================================================end kernel=========================================================
 
     # ... loop over global elements
@@ -674,7 +675,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         sub_atomic_expr   = atomic_expr[tests_indices,0]
         l_sub_vecs  = BlockStencilVectorLocalBasis(group, pads, sub_terminal_expr, l_vecs.tag)
         q_basis = {v:d_tests[v]['global']  for v in group}
-        if sub_terminal_expr.is_zero:
+        if is_zero(sub_terminal_expr):
             continue
         stmts = []
         for v in group:

@@ -14,7 +14,7 @@ from psydac.fem.vector      import VectorFemField
 #====================================================================================================
 def d_matrix(n, p, P):
     """creates a 1d incidence matrix.
-    The final matrix will have a shape of (n,n-1)
+    The final matrix will have a shape of (n,n-1+P)
 
     n: int
         number of nodes
@@ -27,12 +27,18 @@ def d_matrix(n, p, P):
     """
     
     V1 = StencilVectorSpace([n], [p], [P])
-    V2 = StencilVectorSpace([n-1], [p], [P])
+
+    if P:
+        V2 = StencilVectorSpace([n], [p], [P])
+    else:
+        V2 = StencilVectorSpace([n-1], [p], [P])
+
     M = StencilMatrix(V1, V2)
 
     for i in range(n):
-        M._data[p+i,p] = -1.
+        M._data[p+i,p]   = -1.
         M._data[p+i,p+1] = 1.
+
     return M
 
 #====================================================================================================

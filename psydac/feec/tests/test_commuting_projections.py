@@ -5,7 +5,9 @@ from psydac.feec.derivatives import Grad, Curl, Div
 from psydac.fem.tensor import TensorFemSpace, SplineSpace
 from psydac.fem.vector import ProductFemSpace
 from psydac.linalg.block import BlockVector
+from psydac.core.bsplines import make_knots
 
+from mpi4py import MPI
 import numpy as np
 ## ----------------------
 ## function to be derived
@@ -123,7 +125,7 @@ for Nel in Nel_cases:
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
 
     # knot sequences
-    knots = [bsp.make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
+    knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=False, basis='B') for pi, Ti in zip(p,knots)]
     H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
