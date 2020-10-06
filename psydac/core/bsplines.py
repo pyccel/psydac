@@ -426,7 +426,7 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
         normalize = lambda bi, j: bi
     elif normalization == 'B':
         scaling = basis_integrals(knots, degree, periodic)
-        normalize = lambda bi, j: bi * scaling[j]
+        normalize = lambda bi, j: bi * scaling[j % nb]
 
     # Compute span for each row (index of last non-zero basis function)
     # TODO: would be better to have this ready beforehand
