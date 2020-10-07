@@ -65,25 +65,10 @@ def test_histopolation_cosine(basis, ncells, degree, periodic, num_pts=100):
     Vh = SplineSpace(degree=degree, grid=grid, periodic=periodic)
     fh = FemField(Vh)
 
-    # ...
-    # Histopolation grid
-    xg = Vh.ext_greville
-
-    # Split periodic integration interval if needed (TODO: avoid)
-    if xg[ 0] != f.domain[0]: xg = [f.domain[0], *xg]
-    if xg[-1] != f.domain[1]: xg = [*xg, f.domain[1]]
-    # ...
-
-    # ...
     # Compute histopolant
-    Ig = np.array([quad(f.eval, xg[i], xg[i+1])[0] for i in range(len(xg)-1)])
-
-    # Split periodic integration interval if needed (TODO: avoid)
-    if periodic and (degree % 2 == 1):
-        Ig = np.array([Ig[0]+Ig[-1], *Ig[1:-1]])
-
+    xg = Vh.ext_greville
+    Ig = np.array([quad(f.eval, xl, xr)[0] for xl, xr in Vh.get_edges()])
     Vh.compute_histopolant(Ig, fh)
-    # ...
 
     # Compare to exact solution
     x  = np.linspace(*f.domain, num=num_pts)
