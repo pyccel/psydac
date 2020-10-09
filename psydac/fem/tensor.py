@@ -161,6 +161,10 @@ class TensorFemSpace( FemSpace ):
             #-------------------------------------------------#
             basis  = basis_funs( knots, degree, x, span )
 
+            # If needed, rescale B-splines to get M-splines
+            if space.basis == 'M':
+                basis *= space.scaling_array[span-degree : span+1]
+
             # Determine local span
             wrap_x   = space.periodic and x > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
@@ -192,19 +196,7 @@ class TensorFemSpace( FemSpace ):
 #            ndbasis = np.prod( [b[i] for i,b in zip( idx, bases )] )
 #            res    += c * ndbasis
 
-        coeff = 1.
-        n = 0
-        for space in self.spaces:
-            knots  = space.knots
-            degree = space.degree
-
-            if space.basis == 'M':
-                coeff *= (degree+1)/(knots[2*(degree+1)]-knots[degree+1])
-                n     += 1
-
-        coeff *= max(1, n)
-
-        return res*coeff
+        return res
 
     # ...
     def eval_field_gradient( self, field, *eta ):
@@ -233,6 +225,12 @@ class TensorFemSpace( FemSpace ):
             #-------------------------------------------------#
             basis_0 = basis_funs( knots, degree, x, span )
             basis_1 = basis_funs_1st_der( knots, degree, x, span )
+
+            # If needed, rescale B-splines to get M-splines
+            if space.basis == 'M':
+                scaling  = space.scaling_array[span-degree : span+1]
+                basis_0 *= scaling
+                basis_1 *= scaling
 
             # Determine local span
             wrap_x   = space.periodic and x > xlim[1]
