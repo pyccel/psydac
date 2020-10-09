@@ -338,7 +338,17 @@ class SplineSpace( FemSpace ):
             Used for histopolation.
         """
         return self._ext_greville
-        
+
+    @property
+    def scaling_array(self):
+        """
+        If self.basis=='M', return array used to rescale B-splines to M-splines
+        If self.basis=='B', return None.
+
+        The length of the scaling array is (len(knots)-degree-1).
+        """
+        return self._scaling_array
+
     #--------------------------------------------------------------------------
     # Other methods
     #--------------------------------------------------------------------------
