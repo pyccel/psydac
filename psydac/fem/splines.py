@@ -339,10 +339,6 @@ class SplineSpace( FemSpace ):
         """
         return self._ext_greville
         
-    @property
-    def normalize(self):
-        return self._normalize
-
     #--------------------------------------------------------------------------
     # Other methods
     #--------------------------------------------------------------------------
