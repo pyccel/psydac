@@ -102,7 +102,7 @@ class SplineSpace( FemSpace ):
 
         # Coefficients to convert B-splines to M-splines (if needed)
         if basis == 'M':
-            scaling_array = 1 / basis_integrals(knots, degree, periodic)
+            scaling_array = 1 / basis_integrals(knots, degree)
         else:
             scaling_array = None
 

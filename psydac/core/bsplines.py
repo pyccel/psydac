@@ -327,7 +327,7 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid):
     if normalization == 'B':
         normalize = lambda basis, span: basis
     elif normalization == 'M':
-        scaling = 1 / basis_integrals(knots, degree, periodic)
+        scaling = 1 / basis_integrals(knots, degree)
         normalize = lambda basis, span: basis * scaling[span-degree: span+1]
 
     # Fill in non-zero matrix values
@@ -425,8 +425,8 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
     if normalization == 'M':
         normalize = lambda bi, j: bi
     elif normalization == 'B':
-        scaling = basis_integrals(knots, degree, periodic)
-        normalize = lambda bi, j: bi * scaling[j % nb]
+        scaling = basis_integrals(knots, degree)
+        normalize = lambda bi, j: bi * scaling[j]
 
     # Compute span for each row (index of last non-zero basis function)
     # TODO: would be better to have this ready beforehand
@@ -778,9 +778,7 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization):
     basis = np.zeros((ne, degree+1, nders+1, nq))
 
     if normalization == 'M':
-        # Setting periodic=False computes a few more values than necessary if
-        # the space is periodic, but this is harmless and simplifies the code.
-        scaling = 1. / basis_integrals(knots, degree, False)
+        scaling = 1. / basis_integrals(knots, degree)
 
     for ie in range(ne):
         xx = quad_grid[ie, :]
@@ -794,7 +792,7 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization):
     return basis
 
 #==============================================================================
-def basis_integrals(knots, degree, periodic):
+def basis_integrals(knots, degree):
     r"""
     Return the integral of each B-spline basis function over the real line:
 
@@ -805,25 +803,28 @@ def basis_integrals(knots, degree, periodic):
 
     Parameters
     ----------
-
     knots : 1D array_like
         Knots sequence.
 
     degree : int
         Polynomial degree of B-splines.
 
-    periodic : bool
-        True if domain is periodic, False otherwise.
-
     Returns
     -------
     K : 1D numpy.ndarray
         Array with the integrals of each B-spline basis function.
 
+    Notes
+    -----
+    For convenience, this function does not distinguish between periodic and
+    non-periodic spaces, hence the length of the output array is always equal
+    to (len(knots)-degree-1). In the periodic case the last (degree) values in
+    the array are redundant, as they are a copy of the first (degree) values.
+
     """
     T = knots
     p = degree
-    n = len(T)-2*p-1 if periodic else len(T)-p-1
+    n = len(T)-p-1
     K = np.array([(T[i+p+1] - T[i]) / (p + 1) for i in range(n)])
 
     return K
