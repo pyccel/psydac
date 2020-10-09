@@ -112,6 +112,8 @@ class Grad(DiffOperator):
         y = BlockVector(ProductSpace(x.coeffs.space), blocks=[x.coeffs])
 
         coeffs = self._matrix.dot(y)
+        coeffs.update_ghost_regions()
+
         if self.dim == 1:
             out    = FemField(self._codomain, coeffs=coeffs[0])
         else:
@@ -197,6 +199,8 @@ class Curl(DiffOperator):
         assert x.space == self._domain
         
         coeffs = self._matrix.dot(x.coeffs)
+        coeffs.update_ghost_regions()
+
         return VectorFemField(self._codomain, coeffs=coeffs)
 
 #====================================================================================================
@@ -238,7 +242,10 @@ class Div(DiffOperator):
     def __call__(self, x):
         assert isinstance(x, VectorFemField)
         assert x.space == self._domain
+
         coeffs =  self._matrix.dot(x.coeffs)
+        coeffs.update_ghost_regions()
+
         return FemField(self._codomain, coeffs=coeffs[0])
 
 #====================================================================================================
@@ -277,6 +284,8 @@ class Rot(DiffOperator):
 
         y      = BlockVector(ProductSpace(x.coeffs.space), blocks=[x.coeffs])
         coeffs = self._matrix.dot(y)
+        coeffs.update_ghost_regions()
+
         return VectorFemField(self._codomain, coeffs=coeffs)
 
     
