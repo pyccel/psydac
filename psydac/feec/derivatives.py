@@ -12,32 +12,37 @@ from psydac.fem.basic       import FemField
 from psydac.fem.vector      import VectorFemField
 
 #====================================================================================================
-def d_matrix(n, p, P):
-    """creates a 1d incidence matrix.
-    The final matrix will have a shape of (n,n-1+P)
-
-    n: int
-        number of nodes
-        
-    p : int
-        pads
-        
-    P : bool
-        periodicity
+def d_matrix(n, p, periodic):
     """
-    
-    V1 = StencilVectorSpace([n], [p], [P])
+    Create a 1D incidence matrix of shape (n, n) in the periodic case, and (n, n-1) otherwise.
+    The incidence matrix has values -1 on the main diagonal, and +1 on the diagonal above it.
 
-    if P:
-        V2 = StencilVectorSpace([n], [p], [P])
-    else:
-        V2 = StencilVectorSpace([n-1], [p], [P])
+    Parameters
+    ----------
+    n : int
+        Number of degrees of freedom.
 
-    M = StencilMatrix(V1, V2)
+    p : int
+        Padding size.
 
-    for i in range(n):
-        M._data[p+i,p]   = -1.
-        M._data[p+i,p+1] = 1.
+    periodic : bool
+        True if matrix is periodic, False otherwise.
+
+    Results
+    -------
+    M : psydac.linalg.stencil.StencilMatrix
+        1D incidence matrix of shape (n, n) in the periodic case, and (n, n-1) otherwise.
+
+    """
+    m = n if periodic else n - 1
+
+    V1 = StencilVectorSpace([n], [p], [periodic])
+    V2 = StencilVectorSpace([m], [p], [periodic])
+    M  = StencilMatrix(V1, V2)
+
+    for i in range(m):
+        M._data[p+i, p]   = -1.
+        M._data[p+i, p+1] =  1.
 
     return M
 
@@ -58,13 +63,19 @@ class DiffOperator:
 
 #====================================================================================================
 class Grad(DiffOperator):
+    """
+    Gradient operator in 1D, 2D or 3D.
+
+    Parameters
+    ----------
+    V0_h : TensorFemSpace
+        Domain of gradient operator.
+
+    V1_h : TensorFemSpace | ProductFemSpace
+        Codomain of gradient operator; it is a scalar space in 1D, otherwise a vector space.
+
+    """
     def __init__(self, V0_h, V1_h):
-        """
-        V0_h : TensorFemSpace
-        
-        V1_h : ProductFemSpace
-        
-        """
 
         assert isinstance(V0_h, TensorFemSpace)
         dim = V0_h.ldim
@@ -101,8 +112,7 @@ class Grad(DiffOperator):
         else:
             VS1 = V1_h.vector_space
 
-        self._matrix   = BlockMatrix( VS0, VS1, blocks=[[mat] for mat in mats] )
-
+        self._matrix = BlockMatrix( VS0, VS1, blocks=[[mat] for mat in mats] )
 
     def __call__(self, x):
 
@@ -115,21 +125,27 @@ class Grad(DiffOperator):
         coeffs.update_ghost_regions()
 
         if self.dim == 1:
-            out    = FemField(self._codomain, coeffs=coeffs[0])
+            out = FemField(self._codomain, coeffs=coeffs[0])
         else:
-            out    = VectorFemField(self._codomain, coeffs=coeffs)
+            out = VectorFemField(self._codomain, coeffs=coeffs)
+
         return out
 
 #====================================================================================================
 class Curl(DiffOperator):
+    """
+    Curl operator in 2D or 3D.
+
+    Parameters
+    ----------
+    V1_h : ProductFemSpace
+        Domain of curl operator.
+
+    V2_h : ProductFemSpace
+        Codomain of curl operator.
+
+    """
     def __init__(self, V1_h, V2_h):
-        """
-        
-        V1_h  : ProductFemSpace
-        
-        V2_h  : ProductFemSpace
-        
-        """
 
         assert isinstance(V1_h, ProductFemSpace)
         assert isinstance(V2_h, ProductFemSpace)
@@ -205,13 +221,19 @@ class Curl(DiffOperator):
 
 #====================================================================================================
 class Div(DiffOperator):
-    def __init__(self, V2_h, V3_h):
-        """
-        V2_h  : ProductFemSpace
+    """
+    Divergence operator in 1D, 2D or 3D.
 
-        V3_h  : TensorFemSpace
-        
-        """
+    Parameters
+    ----------
+    V2_h : ProductFemSpace
+        Domain of divergence operator.
+
+    V3_h : TensorFemSpace
+        Codomain of divergence operator.
+
+    """
+    def __init__(self, V2_h, V3_h):
 
         assert isinstance(V2_h, ProductFemSpace)
         assert isinstance(V3_h, TensorFemSpace)
@@ -243,20 +265,26 @@ class Div(DiffOperator):
         assert isinstance(x, VectorFemField)
         assert x.space == self._domain
 
-        coeffs =  self._matrix.dot(x.coeffs)
+        coeffs = self._matrix.dot(x.coeffs)
         coeffs.update_ghost_regions()
 
         return FemField(self._codomain, coeffs=coeffs[0])
 
 #====================================================================================================
 class Rot(DiffOperator):
+    """
+    2D Rot operator.
+
+    Parameters
+    ----------
+    V0_h : TensorFemSpace
+        Domain of 2D Rot operator.
+
+    V1_h : ProductFemSpace
+        Codomain of 2D Rot operator.
+
+    """
     def __init__(self, V0_h, V1_h):
-        """
-        V0_h : TensorFemSpace
-        
-        V1_h : ProductFemSpace
-        
-        """
 
         assert isinstance(V0_h, TensorFemSpace)
         assert isinstance(V1_h, ProductFemSpace)
@@ -288,4 +316,3 @@ class Rot(DiffOperator):
 
         return VectorFemField(self._codomain, coeffs=coeffs)
 
-    
