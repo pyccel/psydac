@@ -67,12 +67,15 @@ class Grad(DiffOperator):
         """
 
         assert isinstance(V0_h, TensorFemSpace)
-        assert isinstance(V1_h, ProductFemSpace)
+        dim = V0_h.ldim
+        if dim == 1:
+            assert isinstance(V1_h, TensorFemSpace)
+        else:
+            assert isinstance(V1_h, ProductFemSpace)
 
         self._domain   = V0_h
         self._codomain = V1_h
 
-        dim      = V0_h.ldim
         self.dim = dim
         d_matrices = [d_matrix(V.nbasis, V.degree, V.periodic) for V in V0_h.spaces]
         identities = [IdentityMatrix(V.vector_space)           for V in V0_h.spaces]
