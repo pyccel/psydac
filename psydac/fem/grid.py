@@ -45,15 +45,15 @@ class FemAssemblyGrid:
         points (default: 1).
 
     """
-    def __init__( self, space, start, end, *, quad_order=None, nderiv=1 , p=None):
+    def __init__( self, space, start, end, *, quad_order=None, nderiv=1 , pad=None):
 
-        T    = space.knots      # knots sequence
-        d    = space.degree     # spline degree
-        n    = space.nbasis     # total number of control points
-        grid = space.breaks     # breakpoints
-        nc   = space.ncells     # number of cells in domain (nc=len(grid)-1)
-        k    = quad_order or d  # polynomial order for which the mass matrix is exact
-        p    = p or d
+        T      = space.knots           # knots sequence
+        degree = space.degree          # spline degree
+        n      = space.nbasis          # total number of control points
+        grid   = space.breaks          # breakpoints
+        nc     = space.ncells          # number of cells in domain (nc=len(grid)-1)
+        k      = quad_order or degree  # polynomial order for which the mass matrix is exact
+        pad    = pad or degree         # padding to add in the periodic case
 
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )
@@ -69,20 +69,14 @@ class FemAssemblyGrid:
         # Lists of quadrature coordinates and weights on each element
         glob_points, glob_weights = quadrature_grid( grid, u, w )
 
-
         # List of basis function values on each element
-        glob_basis = basis_ders_on_quad_grid( T, d, glob_points, nderiv, space.basis )
+        glob_basis = basis_ders_on_quad_grid( T, degree, glob_points, nderiv, space.basis )
 
         # List of spans on each element
         # (Span is global index of last non-vanishing basis function)
-        glob_spans = elements_spans( T, d )
 
-        if space.periodic:
-            if d<p and p-d == 1:
-                n_T                 = elevate_knots(T, d, True)
-                elevated_glob_spans = elements_spans( n_T, p )
-            elif d<p:
-                raise NotImplementedError('TODO')
+        glob_spans = elements_spans( T, degree )
+
         #-------------------------------------------
         # LOCAL GRID, EXTENDED (WITH GHOST REGIONS)
         #-------------------------------------------
@@ -97,35 +91,38 @@ class FemAssemblyGrid:
 
         # a) Periodic case only, left-most process in 1D domain
         if space.periodic:
-            for k in range( nc ):
-                gk = glob_spans[k]
-                if start <= gk-n and gk-n-d <= end:
-                    spans  .append( glob_spans[k]-n )
-                    basis  .append( glob_basis  [k] )
-                    points .append( glob_points [k] )
-                    weights.append( glob_weights[k] )
-                    indices.append( k )
-                    ne += 1
-            if d<p:
-                # recompute weights and points
-                points  = []
-                weights = []
+
+            if degree<pad:
+                if pad-degree == 1:
+                    elevated_T          = elevate_knots(T, degree, True)
+                    elevated_glob_spans = elements_spans( elevated_T, pad )
+                else:
+                    raise NotImplementedError('TODO')
+
                 for k in range( nc ):
                     gk = elevated_glob_spans[k]
-                    if start <= gk-n and gk-n-p <= end:
+                    if start <= gk-n and gk-n-pad <= end:
+                        spans  .append( glob_spans[k]-n )
+                        basis  .append( glob_basis  [k] )
                         points .append( glob_points [k] )
                         weights.append( glob_weights[k] )
-
-                for k in range(len(points)-len(basis)):
-                    spans  .insert(0, spans[0] )
-                    basis  .insert(0, np.zeros_like(basis[0]) )
-                    indices.insert(0, indices[0] )
-                    ne += 1
+                        indices.append( k )
+                        ne += 1
+            else:
+                for k in range( nc ):
+                    gk = glob_spans[k]
+                    if start <= gk-n and gk-n-degree <= end:
+                        spans  .append( glob_spans[k]-n )
+                        basis  .append( glob_basis  [k] )
+                        points .append( glob_points [k] )
+                        weights.append( glob_weights[k] )
+                        indices.append( k )
+                        ne += 1
 
         # b) All cases
         for k in range( nc ):
             gk = glob_spans[k]
-            if start <= gk and gk-d <= end:
+            if start <= gk and gk-degree <= end:
                 spans  .append( glob_spans  [k] )
                 basis  .append( glob_basis  [k] )
                 points .append( glob_points [k] )
@@ -138,10 +135,10 @@ class FemAssemblyGrid:
 
         # Local indices of first/last elements in proper domain
         if space.periodic:
-            local_element_start = spans.index( d + start )
-            local_element_end   = spans.index( d + end   )
+            local_element_start = spans.index( degree + start )
+            local_element_end   = spans.index( degree + end   )
         else:
-            local_element_start = spans.index( d   if start == 0   else 1 + start )
+            local_element_start = spans.index( degree if start == 0   else 1 + start )
             local_element_end   = spans.index( end if end   == n-1 else 1 + end   )
 
         #-------------------------------------------

@@ -206,9 +206,9 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._grid = QuadratureGrid( test_space, quad_order = quad_order )
         # ...
         self._test_basis = BasisValues( test_space, self.grid,
-                                        nderiv = self.max_nderiv , ext=test_ext)
+                                        nderiv = self.max_nderiv , trial=False, ext=test_ext)
         self._trial_basis = BasisValues( trial_space, self.grid,
-                                         nderiv = self.max_nderiv , ext=trial_ext)
+                                         nderiv = self.max_nderiv , trial=True, ext=trial_ext)
 
         self._args  = self.construct_arguments()
 

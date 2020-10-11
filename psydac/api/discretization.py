@@ -600,13 +600,13 @@ def discretize(a, *args, **kwargs):
         mapping     = domain_h.domain.mapping
 
         if isinstance(a, sym_Norm):
-            kernel_expr = TerminalExpr(a)
+            kernel_expr = TerminalExpr(a, mapping=mapping, subs=True)
             if not mapping is None:
-                kernel_expr = tuple(LogicalExpr(i) for i in kernel_expr)
+                kernel_expr = tuple(LogicalExpr(i, mapping=mapping, subs=True) for i in kernel_expr)
         else:
             if not mapping is None:
-                a           = LogicalExpr(a)
-            kernel_expr = TerminalExpr(a)
+                a       = LogicalExpr (a, mapping=mapping, subs=True)
+            kernel_expr = TerminalExpr(a, mapping=mapping, subs=True)
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 
