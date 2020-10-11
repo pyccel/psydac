@@ -964,17 +964,6 @@ class Parser(object):
         exprs   = expr.expr
         mapping = self.mapping
 
-        if mapping.is_analytical and not isinstance(mapping, InterfaceMapping):
-            for i in range(mapping.rdim):
-                exprs = exprs.subs(mapping[i], mapping.expressions[i])
-
-        elif mapping.is_analytical and isinstance(mapping, InterfaceMapping):
-            M1 = mapping.minus
-            M2 = mapping.plus
-            for i in range(M1.rdim):
-                exprs = exprs.subs(M1[i], M1.expressions[i])
-                exprs = exprs.subs(M2[i], M2.expressions[i])
-
         weight  = SymbolicWeightedVolume(mapping)
         weight  = SymbolicExpr(weight)
 

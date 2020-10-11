@@ -101,7 +101,7 @@ class BoundaryQuadratureGrid(QuadratureGrid):
 
 #==============================================================================
 class BasisValues():
-    def __init__( self, V, grid, nderiv , ext=None):
+    def __init__( self, V, grid, nderiv , trial=False, ext=None):
         assert( isinstance( grid, QuadratureGrid ) )
 
         if isinstance(V, ProductFemSpace):
@@ -113,10 +113,25 @@ class BasisValues():
 
         spans = []
         basis = []
-        for s,Vi in zip(starts,V):
+        for si,Vi in zip(starts,V):
             quad_grids  = Vi.quad_grids
-            spans      += [[g.spans-i for i,g in zip(s,quad_grids)]]
-            basis      += [[g.basis for g in quad_grids]]
+            spans_i     = []
+            basis_i     = []
+
+            for sij,g,p,vij in zip(si, quad_grids, Vi.vector_space.pads, Vi.spaces):
+                sp = g.spans-sij
+                bs = g.basis
+                if not trial and vij.periodic and vij.degree <= p:
+                    bs                 = bs.copy()
+                    sp                 = sp.copy()
+                    bs[0:p-vij.degree] = 0.
+                    sp[0:p-vij.degree] = sp[p-vij.degree]
+
+                spans_i.append(sp)
+                basis_i.append(bs)
+
+            spans.append(spans_i)
+            basis.append(basis_i)
 
         self._spans = spans
         self._basis = basis

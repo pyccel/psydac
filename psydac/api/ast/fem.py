@@ -302,8 +302,6 @@ class AST(object):
             atomic_expr       = Matrix([[Tuple(*atomic_expr)]])
             terminal_expr     = Matrix([[terminal_expr]])
 
-        # ...
-
         d_tests = {}
         tests  = expand_hdiv_hcurl(tests)
         trials = expand_hdiv_hcurl(trials)
