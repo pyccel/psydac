@@ -986,9 +986,9 @@ class Parser(object):
             ext     = target.ext if isinstance(target, Boundary) else 1
 
             J       = LogicalExpr(Jacobian(mapping), mapping=mapping, dim=dim, subs=True)
-            J       = SymbolicExpr(J)
-            values  = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
-            normalization = sum(v**2 for v in values)**0.5
+            J       = SymbolicExpr(J).inv()
+            values  = ext * J[axis, :]
+            normalization = values.dot(values)**0.5
             values  = [v.simplify() for v in values]
             values  = [v1/normalization for v1 in values]
             normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), values[i]) for i in range(dim)]

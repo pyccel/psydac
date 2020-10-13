@@ -477,6 +477,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
                      for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
             # Create 1D finite element spaces and precompute quadrature data
+
             spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
             Vh     = None
             if i>0:
@@ -605,7 +606,7 @@ def discretize(a, *args, **kwargs):
                 kernel_expr = tuple(LogicalExpr(i, mapping=mapping, subs=True) for i in kernel_expr)
         else:
             if not mapping is None:
-                a       = LogicalExpr (a, mapping=mapping, subs=True)
+                a       = LogicalExpr (a)
             kernel_expr = TerminalExpr(a, mapping=mapping, subs=True)
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
