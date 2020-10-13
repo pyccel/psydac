@@ -511,14 +511,20 @@ def greville( knots, degree, periodic ):
     n = len(T)-2*p-1 if periodic else len(T)-p-1
 
     # Compute greville abscissas as average of p consecutive knot values
-    xg = np.around( [sum(T[i:i+p])/p for i in range(1,1+n)], decimals=15 )
+    xg = np.array([sum(T[i:i+p])/p for i in range(1,1+n)])
+
+    # Domain boundaries
+    a = T[p]
+    b = T[-1-p]
 
     # If needed apply periodic boundary conditions, then sort array
     if periodic:
-        a  = T[p]
-        b  = T[-1-p]
-        xg = np.around( (xg-a)%(b-a)+a, decimals=15 )
+        xg = (xg-a) % (b-a) + a
         xg = xg[np.argsort(xg)]
+
+    # Make sure roundoff errors don't push Greville points outside domain
+    xg[ 0] = max(xg[ 0], a)
+    xg[-1] = min(xg[-1], b)
 
     return xg
 
