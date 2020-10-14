@@ -41,10 +41,13 @@ def test_Grad_1d(domain, ncells, degree, periodic):
 
     # Create evaluation grid, and check if ∂/∂x u0(x) == u1(x)
     xgrid = np.linspace(*N.domain, num=11)
-    y_du0_dx = np.array([u0.gradient(x)[0] for x in xgrid])
-    y_u1 = np.array([u1(x) for x in xgrid])
+    vals_grad_u0 = np.array([u0.gradient(x)[0] for x in xgrid])
+    vals_u1 = np.array([u1(x) for x in xgrid])
 
-    assert np.allclose(y_du0_dx, y_u1, rtol=1e-14, atol=1e-14)
+    # Test if relative max-norm of error is <= TOL
+    maxnorm_field = abs(vals_u1).max()
+    maxnorm_error = abs(vals_u1 - vals_grad_u0).max()
+    assert maxnorm_error / maxnorm_field <= 1e-14
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              # 1 case
@@ -95,7 +98,10 @@ def test_Grad_2d(domain, ncells, degree, periodic):
     vals_grad_u0 = np.array([[u0.gradient(x, y) for x in xgrid] for y in ygrid])
     vals_u1 = np.array([[[u1x(x, y), u1y(x, y)] for x in xgrid] for y in ygrid])
 
-    assert np.allclose(vals_grad_u0, vals_u1, rtol=1e-14, atol=1e-14)
+    # Test if relative max-norm of error is <= TOL
+    maxnorm_field = abs(vals_u1).max()
+    maxnorm_error = abs(vals_u1 - vals_grad_u0).max()
+    assert maxnorm_error / maxnorm_field <= 1e-14
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  # 1 case
@@ -149,7 +155,10 @@ def test_Grad_3d(domain, ncells, degree, periodic):
     vals_grad_u0 = np.array([u0.gradient(*xyz) for xyz in xyz_pts])
     vals_u1 = np.array([[u1x(*xyz), u1y(*xyz), u1z(*xyz)] for xyz in xyz_pts])
 
-    assert np.allclose(vals_grad_u0, vals_u1, rtol=1e-14, atol=1e-14)
+    # Test if relative max-norm of error is <= TOL
+    maxnorm_field = abs(vals_u1).max()
+    maxnorm_error = abs(vals_u1 - vals_grad_u0).max()
+    assert maxnorm_error / maxnorm_field <= 1e-14
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  # 1 case
@@ -229,7 +238,10 @@ def test_Curl_3d(domain, ncells, degree, periodic):
     vals_curl_u1 = np.array([eval_curl(u1x, u1y, u1z, *xyz) for xyz in xyz_pts])
     vals_u2 = np.array([[u2x(*xyz), u2y(*xyz), u2z(*xyz)] for xyz in xyz_pts])
 
-    assert np.allclose(vals_curl_u1, vals_u2, rtol=1e-14, atol=1e-14)
+    # Test if relative max-norm of error is <= TOL
+    maxnorm_field = abs(vals_u2).max()
+    maxnorm_error = abs(vals_u2 - vals_curl_u1).max()
+    assert maxnorm_error / maxnorm_field <= 1e-14
 
 #==============================================================================
 if __name__ == '__main__':
