@@ -244,6 +244,148 @@ def test_Curl_3d(domain, ncells, degree, periodic):
     assert maxnorm_error / maxnorm_field <= 1e-14
 
 #==============================================================================
+@pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              # 1 case
+@pytest.mark.parametrize('ncells', [(10, 9), (27, 15)])              # 2 cases
+@pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
+@pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
+
+def test_Div_2d(domain, ncells, degree, periodic):
+
+    # Compute breakpoints along each direction
+    breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
+
+    # H1 space (0-forms)
+    Nx, Ny = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
+                                  for d, g, p in zip(degree, breaks, periodic)]
+    V0 = TensorFemSpace(Nx, Ny)
+
+    # H-div space (1-forms)
+    NxDy = V0.reduce_degree(axes=[1], basis='M')
+    DxNy = V0.reduce_degree(axes=[0], basis='M')
+    V1 = ProductFemSpace(NxDy, DxNy)
+
+    # L2 space (2-forms)
+    V2 = V0.reduce_degree(axes=[0, 1], basis='M')
+
+    # Linear operator: divergence
+    div = Div(V1, V2)
+
+    # ...
+    # Create random field in V1
+    u1 = VectorFemField(V1)
+
+    s1, s2 = V1.vector_space[0].starts
+    e1, e2 = V1.vector_space[0].ends
+    u1.coeffs[0][s1:e1+1, s2:e2+1] = np.random.random((e1-s1+1, e2-s2+1))
+
+    s1, s2 = V1.vector_space[1].starts
+    e1, e2 = V1.vector_space[1].ends
+    u1.coeffs[1][s1:e1+1, s2:e2+1] = np.random.random((e1-s1+1, e2-s2+1))
+    # ...
+
+    # Compute divergence of u1
+    u2 = div(u1)
+
+    # Components of vector field u1
+    u1x, u1y = u1.fields
+
+    # Create random evaluation points (x, y, z) for evaluating fields
+    npts = 1000
+    xyz_pts = [[lims[0]+s*(lims[1]-lims[0]) for s, lims in zip(np.random.random(3), domain)]
+        for i in range(npts)]
+
+    # Check if
+    #   ∂/∂x u1x(x, y) + ∂/∂y u1y(x, y) == u2(x, y)
+
+    def eval_div(fx, fy, *eta):
+        dfx_dx, dfx_dy = fx.gradient(*eta)
+        dfy_dx, dfy_dy = fy.gradient(*eta)
+        return dfx_dx + dfy_dy
+
+    vals_div_u1 = np.array([eval_div(u1x, u1y, *xyz) for xyz in xyz_pts])
+    vals_u2 = np.array([u2(*xyz) for xyz in xyz_pts])
+
+    # Test if relative max-norm of error is <= TOL
+    maxnorm_field = abs(vals_u2).max()
+    maxnorm_error = abs(vals_u2 - vals_div_u1).max()
+    assert maxnorm_error / maxnorm_field <= 1e-14
+
+#==============================================================================
+@pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  # 1 case
+@pytest.mark.parametrize('ncells', [(4, 5, 7)])                       # 1 case
+@pytest.mark.parametrize('degree', [(3, 2, 5), (2, 4, 7)])            # 2 cases
+@pytest.mark.parametrize('periodic', [( True, False, False),          # 3 cases
+                                      (False,  True, False),
+                                      (False, False,  True)])
+
+def test_Div_3d(domain, ncells, degree, periodic):
+
+    # Compute breakpoints along each direction
+    breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
+
+    # H1 space (0-forms)
+    Nx, Ny, Nz = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
+                                  for d, g, p in zip(degree, breaks, periodic)]
+    V0 = TensorFemSpace(Nx, Ny, Nz)
+
+    # H-div space (2-forms)
+    NxDyDz = V0.reduce_degree(axes=[1, 2], basis='M')
+    DxNyDz = V0.reduce_degree(axes=[2, 0], basis='M')
+    DxDyNz = V0.reduce_degree(axes=[0, 1], basis='M')
+    V2 = ProductFemSpace(NxDyDz, DxNyDz, DxDyNz)
+
+    # L2 space (3-forms)
+    V3 = V0.reduce_degree(axes=[0, 1, 2], basis='M')
+
+    # Linear operator: divergence
+    div = Div(V2, V3)
+
+    # ...
+    # Create random field in V2
+    u2 = VectorFemField(V2)
+
+    s1, s2, s3 = V2.vector_space[0].starts
+    e1, e2, e3 = V2.vector_space[0].ends
+    u2.coeffs[0][s1:e1+1, s2:e2+1, s3:e3+1] = np.random.random((e1-s1+1, e2-s2+1, e3-s3+1))
+
+    s1, s2, s3 = V2.vector_space[1].starts
+    e1, e2, e3 = V2.vector_space[1].ends
+    u2.coeffs[1][s1:e1+1, s2:e2+1, s3:e3+1] = np.random.random((e1-s1+1, e2-s2+1, e3-s3+1))
+
+    s1, s2, s3 = V2.vector_space[2].starts
+    e1, e2, e3 = V2.vector_space[2].ends
+    u2.coeffs[2][s1:e1+1, s2:e2+1, s3:e3+1] = np.random.random((e1-s1+1, e2-s2+1, e3-s3+1))
+    # ...
+
+    # Compute divergence of u2
+    u3 = div(u2)
+
+    # Components of vector field u2
+    u2x, u2y, u2z = u2.fields
+
+    # Create random evaluation points (x, y, z) for evaluating fields
+    npts = 1000
+    xyz_pts = [[lims[0]+s*(lims[1]-lims[0]) for s, lims in zip(np.random.random(3), domain)]
+        for i in range(npts)]
+
+    # Check if
+    #   ∂/∂x u2x(x, y, z) + ∂/∂y u2y(x, y, z) + ∂/∂z u2z(x, y, z) == u3(x, y, z)
+
+    def eval_div(fx, fy, fz, *eta):
+        dfx_dx, dfx_dy, dfx_dz = fx.gradient(*eta)
+        dfy_dx, dfy_dy, dfy_dz = fy.gradient(*eta)
+        dfz_dx, dfz_dy, dfz_dz = fz.gradient(*eta)
+        return dfx_dx + dfy_dy + dfz_dz
+
+    vals_div_u2 = np.array([eval_div(u2x, u2y, u2z, *xyz) for xyz in xyz_pts])
+    vals_u3 = np.array([u3(*xyz) for xyz in xyz_pts])
+
+    # Test if relative max-norm of error is <= TOL
+    maxnorm_field = abs(vals_u3).max()
+    maxnorm_error = abs(vals_u3 - vals_div_u2).max()
+    assert maxnorm_error / maxnorm_field <= 1e-14
+
+#==============================================================================
 if __name__ == '__main__':
 
     test_Grad_1d(domain=[0, 1], ncells=12, degree=3, periodic=False)
@@ -259,6 +401,15 @@ if __name__ == '__main__':
     )
 
     test_Curl_3d(
+        domain   = ([0, 1], [0, 1], [0, 1]),
+        ncells   = (5, 8, 4),
+        degree   = (3, 2, 3),
+        periodic = (False, True, True)
+    )
+
+    test_Div_2d(domain=([0, 1], [0, 1]), ncells=(10, 15), degree=(3, 2), periodic=(False, True))
+
+    test_Div_3d(
         domain   = ([0, 1], [0, 1], [0, 1]),
         ncells   = (5, 8, 4),
         degree   = (3, 2, 3),
