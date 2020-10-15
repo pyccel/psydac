@@ -1,0 +1,78 @@
+import numpy as np
+import pytest
+
+from psydac.core.bsplines    import make_knots
+from psydac.fem.basic        import FemField
+from psydac.fem.tensor       import SplineSpace, TensorFemSpace
+from psydac.fem.vector       import ProductFemSpace, VectorFemField
+from psydac.feec.global_projectors import Projector_H1, Projector_L2
+
+#==============================================================================
+@pytest.mark.parametrize('domain', [(0, 2*np.pi)])
+@pytest.mark.parametrize('ncells', [500])
+@pytest.mark.parametrize('degree', [1, 2, 3, 4, 5, 6, 7])
+@pytest.mark.parametrize('periodic', [False, True])
+
+def test_H1_projector_1d(domain, ncells, degree, periodic):
+
+    breaks = np.linspace(*domain, num=ncells+1)
+    knots  = make_knots(breaks, degree, periodic)
+
+    # H1 space (0-forms)
+    N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
+    V0 = TensorFemSpace(N)
+
+
+    # Linear operator: gradient
+    P0 = Projector_H1(V0)
+
+    # Function to project
+    f  = lambda xi1 : np.sin( xi1 )
+
+    # Compute the projection
+    u0 = P0(f)
+
+    # Create evaluation grid, and check if  u0(x) == f(x)
+    xgrid = np.linspace(*N.domain, num=11)
+    vals_u0 = np.array([u0(x) for x in xgrid])
+    vals_f  = np.array([f(x)  for x in xgrid])
+
+    # Test if max-norm of error is <= TOL
+    maxnorm_error = abs(vals_u0 - vals_f).max()
+    assert maxnorm_error  <= 1e-14
+
+@pytest.mark.parametrize('domain', [(0, 2*np.pi)])
+@pytest.mark.parametrize('ncells', [100, 200, 300])
+@pytest.mark.parametrize('degree', [2])
+@pytest.mark.parametrize('periodic', [False])
+@pytest.mark.parametrize('nquads', [100, 120, 140, 160])
+
+def test_L2_projector_1d(domain, ncells, degree, periodic, nquads):
+
+    breaks = np.linspace(*domain, num=ncells+1)
+    knots  = make_knots(breaks, degree, periodic)
+
+    # H1 space (0-forms)
+    N  = SplineSpace(degree=degree, knots=knots, periodic=periodic, basis='B')
+    V0 = TensorFemSpace(N)
+
+    # L2 space (1-forms)
+    V1 = V0.reduce_degree(axes=[0], basis='M')
+
+    # Linear operator: gradient
+    P1 = Projector_L2(V1, quads=[nquads])
+
+    # Function to project
+    f  = lambda xi1 : np.sin( xi1 )
+
+    # Compute the projection
+    u1 = P1(f)
+
+    # Create evaluation grid, and check if  u0(x) == f(x)
+    xgrid = np.linspace(*N.domain, num=11)
+    vals_u1 = np.array([u1(x) for x in xgrid])
+    vals_f  = np.array([f(x)  for x in xgrid])
+
+    # Test if max-norm of error is <= TOL
+    maxnorm_error = abs(vals_u1 - vals_f).max()
+    assert maxnorm_error  <= 1e-14
