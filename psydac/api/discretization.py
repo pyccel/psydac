@@ -319,15 +319,15 @@ class DiscreteDerham(BasicDiscrete):
 
     @property
     def derivatives_as_matrices(self):
-        return tuple(V.diff.matrix for V in self.spaces)
+        return tuple(V.diff.matrix for V in self.spaces[:-1])
 
     @property
     def derivatives_as_operators(self):
-        return tuple(V.diff for V in self.spaces)
+        return tuple(V.diff for V in self.spaces[:-1])
 
-    def projectors(kind='global', nquads=None):
+    def projectors(self, *, kind='global', nquads=None):
 
-        if not kind == 'global':
+        if not (kind == 'global'):
             raise NotImplementedError('only global projectors are available')
 
         if self.dim == 1:
@@ -601,13 +601,13 @@ def discretize(a, *args, **kwargs):
         mapping     = domain_h.domain.mapping
 
         if isinstance(a, sym_Norm):
-            kernel_expr = TerminalExpr(a, mapping=mapping, subs=True)
+            kernel_expr = TerminalExpr(a)
             if not mapping is None:
-                kernel_expr = tuple(LogicalExpr(i, mapping=mapping, subs=True) for i in kernel_expr)
+                kernel_expr = tuple(LogicalExpr(i) for i in kernel_expr)
         else:
             if not mapping is None:
                 a       = LogicalExpr (a)
-            kernel_expr = TerminalExpr(a, mapping=mapping, subs=True)
+            kernel_expr = TerminalExpr(a)
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 
