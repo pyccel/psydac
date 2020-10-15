@@ -46,8 +46,11 @@ from psydac.fem.tensor               import TensorFemSpace
 from psydac.fem.vector               import ProductFemSpace
 from psydac.cad.geometry             import Geometry
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
-from psydac.feec.derivatives         import Grad, Curl, Div, Rot
 from psydac.feec.global_projectors   import Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2
+
+from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
+from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
+from psydac.feec.derivatives import Divergence_2D, Divergence_3D
 
 import inspect
 import sys
@@ -357,7 +360,7 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
         d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
         d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
 
-        D0 = Grad(d_spaces[0], d_spaces[1])
+        D0 = Derivative_1D(d_spaces[0], d_spaces[1])
 
         d_spaces[0].diff = d_spaces[0].grad = D0
         
@@ -368,18 +371,18 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
         d_spaces[2] = discretize_space(spaces[2], domain_h, *args, basis='M', **kwargs)
 
         if isinstance(spaces[1].kind, HcurlSpaceType):
-            D0 = Grad(d_spaces[0], d_spaces[1])
-            D1 = Curl(d_spaces[1], d_spaces[2])
+            D0 =   Gradient_2D(d_spaces[0], d_spaces[1])
+            D1 = ScalarCurl_2D(d_spaces[1], d_spaces[2])
 
-            d_spaces[0].diff = d_spaces[0].grad =  D0
-            d_spaces[1].diff = d_spaces[1].curl =  D1
+            d_spaces[0].diff = d_spaces[0].grad = D0
+            d_spaces[1].diff = d_spaces[1].curl = D1
             
         else:
-            D0 = Rot(d_spaces[0], d_spaces[1])
-            D1 = Div(d_spaces[1], d_spaces[2])
+            D0 = VectorCurl_2D(d_spaces[0], d_spaces[1])
+            D1 = Divergence_2D(d_spaces[1], d_spaces[2])
 
-            d_spaces[0].diff = d_spaces[0].rot  = D0
-            d_spaces[1].diff = d_spaces[1].div  = D1
+            d_spaces[0].diff = d_spaces[0].rot = D0
+            d_spaces[1].diff = d_spaces[1].div = D1
 
     elif ldim == 3:
 
@@ -388,13 +391,13 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
         d_spaces[2] = discretize_space(spaces[2], domain_h, *args, basis='M', **kwargs)
         d_spaces[3] = discretize_space(spaces[3], domain_h, *args, basis='M', **kwargs)
 
-        D0 = Grad(d_spaces[0], d_spaces[1])
-        D1 = Curl(d_spaces[1], d_spaces[2])  
-        D2 = Div (d_spaces[2], d_spaces[3])
+        D0 =   Gradient_3D(d_spaces[0], d_spaces[1])
+        D1 =       Curl_3D(d_spaces[1], d_spaces[2])  
+        D2 = Divergence_3D(d_spaces[2], d_spaces[3])
 
-        d_spaces[0].diff = d_spaces[0].grad =  D0
-        d_spaces[1].diff = d_spaces[1].curl =  D1
-        d_spaces[2].diff = d_spaces[2].div  =  D2
+        d_spaces[0].diff = d_spaces[0].grad = D0
+        d_spaces[1].diff = d_spaces[1].curl = D1
+        d_spaces[2].diff = d_spaces[2].div  = D2
 
     return DiscreteDerham(*d_spaces)
 
