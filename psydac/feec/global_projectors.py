@@ -58,7 +58,7 @@ class Projector_H1:
 
         if len(self.N)==1:
             rhs = self.rhs.toarray()
-            return array_to_stencil(self.N[0].solve(rhs), self.space.vector_space)
+            return FemField(self.space, array_to_stencil(self.N[0].solve(rhs), self.space.vector_space))
 
         coeffs = kronecker_solve(solvers = self.N, rhs = self.rhs)
         return FemField(self.space, coeffs=coeffs)
