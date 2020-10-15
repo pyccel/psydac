@@ -19,6 +19,7 @@ from psydac.core.bsplines         import (
         basis_integrals,
         )
 from psydac.utilities.quadratures import gauss_legendre
+from psydac.utilities.utils import unroll_edges
 
 __all__ = ['SplineSpace']
 
@@ -119,8 +120,7 @@ class SplineSpace( FemSpace ):
         self._ext_greville  = greville(elevate_knots(knots, degree, periodic), degree+1, periodic)
         self._scaling_array = scaling_array
 
-        (self._edges_xleft, self._edges_xright) = \
-                _periodic_intervals(self.domain, self.ext_greville)
+        self._histopolation_grid = unroll_edges(self.domain, self.ext_greville)
 
         # Create space of spline coefficients
         self._vector_space = StencilVectorSpace([nbasis], [degree], [periodic])
@@ -130,16 +130,19 @@ class SplineSpace( FemSpace ):
         self._histopolation_ready = False
 
     # ...
-    def get_edges(self):
+    @property
+    def histopolation_grid(self):
         """
-        Iterator over the 1D edges (x[i], x[i+1]) for histopolation, where x is
-        the array of extended Greville points. In the periodic case we "unroll"
-        the 1D edges to ensure that they correspond to positive, well-defined
-        intervals with x[i] < x[i+1]. In all cases the number of edges is equal
-        to the number of basis functions (i.e. the cardinality of the space).
+        Coordinates of the N+1 points x[i] that define the N 1D edges
+        (x[i], x[i+1]) for histopolation, where N is equal to the number of
+        basis functions (i.e. the cardinality of the space).
+
+        In the non-periodic case x is simply the array of extended Greville
+        points. In the periodic case we "unroll" the 1D edges to ensure that
+        they correspond to positive, well-defined intervals with x[i] < x[i+1].
 
         """
-        return zip(self._edges_xleft, self._edges_xright)
+        return self._histopolation_grid
 
     # ...
     def init_interpolation( self ):

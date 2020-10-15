@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from psydac.feec.global_projectors import Projector_H1, Projector_L2, Projector_Hcurl, Projector_Hdiv
-from psydac.feec.derivatives import Grad, Curl, Div
+from psydac.feec.derivatives import Gradient_3D, Curl_3D, Divergence_3D
 from psydac.fem.tensor import TensorFemSpace, SplineSpace
 from psydac.fem.vector import ProductFemSpace
 from psydac.linalg.block import BlockVector
@@ -119,7 +119,7 @@ for Nel in Nel_cases:
     print('Nel=', Nel)
     
     # number of elements
-    Nel = [8, 8, 8]   
+    Nel = [Nel, Nel, Nel]
 
     # element boundaries
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
@@ -127,7 +127,7 @@ for Nel in Nel_cases:
     # knot sequences
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
 
-    Vs     = [SplineSpace(pi, knots=Ti, periodic=False, basis='B') for pi, Ti in zip(p,knots)]
+    Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
     H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
     spaces = [H1.reduce_degree(axes=[0], basis='M'),
               H1.reduce_degree(axes=[1], basis='M'),
@@ -146,10 +146,10 @@ for Nel in Nel_cases:
     # create an instance of the H1 projector class
     P0 = Projector_H1(H1)
 
-    # Build gradient
-    grad = Grad(H1, Hcurl)
-    curl = Curl(Hcurl, Hdiv)
-    div  = Div(Hdiv, L2)
+    # Build linear operators on stencil arrays
+    grad = Gradient_3D(H1, Hcurl)
+    curl = Curl_3D(Hcurl, Hdiv)
+    div  = Divergence_3D(Hdiv, L2)
 
     for Nq in Nq_cases:
         

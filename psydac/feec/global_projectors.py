@@ -39,8 +39,7 @@ class Projector_H1:
 
     # ======================================
     def __call__(self, fun):
-
-        '''
+        r'''
         Projection on the space V0 via interpolation.
 
         Parameters
@@ -93,7 +92,7 @@ class Projector_Hcurl:
 
             n_basis = [V.nbasis for V in Ns]
 
-            quads  = [quadrature_grid( V.ext_greville , u, w ) for V,(u,w) in zip(Ds, uw)]
+            quads  = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(Ds, uw)]
             points = [V.greville for V in Ns]
 
             i_points, i_weights = list(zip(*quads))
@@ -152,7 +151,7 @@ class Projector_Hdiv:
 
             n_basis = [V.nbasis for V in Ns]
 
-            quads  = [quadrature_grid( V.ext_greville , u, w ) for V,(u,w) in zip(Ds, uw)]
+            quads  = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(Ds, uw)]
             points = [V.greville for V in Ns]
 
             i_points, i_weights = list(zip(*quads))
@@ -190,7 +189,7 @@ class Projector_L2:
         else:
             uw = [(V.quad_rule_x,V.quad_rule_w) for V in L2.quad_grids]
 
-        quads           = [quadrature_grid( V.ext_greville , u, w ) for V,(u,w) in zip(L2.spaces, uw)]
+        quads = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(L2.spaces, uw)]
         points, weights = list(zip(*quads))
 
         L2.init_histopolation()
@@ -214,8 +213,7 @@ class Projector_L2:
         self.args  = (*points, *weights, self.rhs._data[slices])
 
     def __call__(self, fun):
-
-        '''
+        r'''
         Projection on the space V1 via histopolation.
 
         Parameters
