@@ -185,6 +185,10 @@ class KroneckerStencilMatrix( Matrix ):
         assert isinstance( x, StencilVector )
         assert x.space is self.domain
 
+        # Necessary if vector space is periodic or distributed across processes
+        if not x.ghost_regions_in_sync:
+            x.update_ghost_regions()
+
         if out is not None:
             assert isinstance( out, StencilVector )
             assert out.space is self.codomain
@@ -210,8 +214,9 @@ class KroneckerStencilMatrix( Matrix ):
                 v += x._data[ii_jj]*np.product(i_mats)
 
             out._data[xx] = v
-        out.update_ghost_regions()
 
+        # IMPORTANT: flag that ghost regions are not up-to-date
+        out.ghost_regions_in_sync = False
         return out
 
     #--------------------------------------
