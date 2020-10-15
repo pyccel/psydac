@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
     domain   = (0, 2*np.pi)
     degree   = 3
-    periodic = False
+    periodic = True
     ncells   = [10, 20, 40, 80, 160, 320, 640]
 
     for nc in ncells:

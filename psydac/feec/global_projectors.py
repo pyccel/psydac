@@ -92,7 +92,8 @@ class Projector_Hcurl:
             self.NDN = [Ns[0]._interpolator, Ds[1]._histopolator, Ns[2]._interpolator]
             self.NND = [Ns[0]._interpolator, Ns[1]._interpolator, Ds[2]._histopolator]
 
-            n_basis = [V.nbasis for V in Ns]
+            n_basis  = [V.nbasis for V in Ns]
+            periodic = [V.periodic for V in Ns]
 
             quads  = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(Ds, uw)]
             points = [V.greville for V in Ns]
@@ -101,7 +102,7 @@ class Projector_Hcurl:
 
             slices   = tuple(slice(p,-p) for p in Hcurl.spaces[0].vector_space.pads)
 
-            self.args   =  (*n_basis, *n_quads, *i_weights, *i_points, *points,
+            self.args   =  (*n_basis, *periodic, *n_quads, *i_weights, *i_points, *points,
                             self.rhs[0]._data[slices], self.rhs[1]._data[slices], self.rhs[2]._data[slices])
 
             self.func = evaluate_dof_1form_3d
@@ -115,6 +116,8 @@ class Projector_Hcurl:
 
         # build the rhs
         self.func(*self.args, *fun)
+
+        self.rhs.update_ghost_regions()
 
         coeffs    = BlockVector(self.space.vector_space)
         coeffs[0] = kronecker_solve(solvers = self.DNN, rhs = self.rhs[0])
@@ -151,7 +154,8 @@ class Projector_Hdiv:
             self.DND = [Ds[0]._histopolator, Ns[1]._interpolator, Ds[2]._histopolator]
             self.DDN = [Ds[0]._histopolator, Ds[1]._histopolator, Ns[2]._interpolator]
 
-            n_basis = [V.nbasis for V in Ns]
+            n_basis  = [V.nbasis for V in Ns]
+            periodic = [V.periodic for V in Ns]
 
             quads  = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(Ds, uw)]
             points = [V.greville for V in Ns]
@@ -160,7 +164,7 @@ class Projector_Hdiv:
 
             slices   = tuple(slice(p,-p) for p in Hdiv.spaces[0].vector_space.pads)
 
-            self.args   =  (*n_basis, *n_quads, *i_weights, *i_points, *points,
+            self.args   =  (*n_basis, *periodic, *n_quads, *i_weights, *i_points, *points,
                             self.rhs[0]._data[slices], self.rhs[1]._data[slices], self.rhs[2]._data[slices])
 
             self.func = evaluate_dof_2form_3d
@@ -172,6 +176,8 @@ class Projector_Hdiv:
 
         # build the rhs
         self.func(*self.args, *fun)
+
+        self.rhs.update_ghost_regions()
 
         coeffs    = BlockVector(self.space.vector_space)
         coeffs[0] = kronecker_solve(solvers = self.NDD, rhs = self.rhs[0])
@@ -268,23 +274,23 @@ def evaluate_dof_1form_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoin
             for g2 in range(k2):
                 F2[i1, i2] += weights_2[g2, i2]*f2(points_1[i1], ipoints_2[g2, i2])
                 
-def evaluate_dof_1form_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,           
+def evaluate_dof_1form_3d(n1, n2, n3, p1, p2, p3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,     
                                                   points_1, points_2, points_3, F1, F2, F3, f1, f2, f3):
     for i2 in range(n2):
         for i3 in range(n3):
-            for i1 in range(n1-1):
+            for i1 in range(n1-1+p1):
                 for g1 in range(k1):
                     F1[i1, i2, i3] += weights_1[i1, g1]*f1(ipoints_1[i1, g1], points_2[i2], points_3[i3])
 
     for i1 in range(n1):
         for i3 in range(n3):
-            for i2 in range(n2-1):
+            for i2 in range(n2-1+p2):
                 for g2 in range(k2):
                     F2[i1, i2, i3] += weights_2[i2, g2]*f2(points_1[i1],ipoints_2[i2, g2], points_3[i3])
 
     for i1 in range(n1):
         for i2 in range(n2):
-            for i3 in range(n3-1):
+            for i3 in range(n3-1+p3):
                 for g3 in range(k3):
                     F3[i1, i2, i3] += weights_3[i3, g3]*f3(points_1[i1],points_2[i2], ipoints_3[i3, g3])
                     
@@ -299,25 +305,26 @@ def evaluate_dof_2form_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoin
             for g1 in range(k1):
                 F2[i1, i2] += weights_1[g1, i1]*f2(ipoints_1[g1,i1],points_2[i2])
                 
-def evaluate_dof_2form_3d(n1, n2, n3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,
+def evaluate_dof_2form_3d(n1, n2, n3, p1, p2, p3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,
                                                   points_1, points_2, points_3, F1, F2, F3, f1, f2, f3):
+
     for i1 in range(n1):
-        for i2 in range(n2-1):
-            for i3 in range(n3-1):
+        for i2 in range(n2-1+p2):
+            for i3 in range(n3-1+p3):
                 for g2 in range(k2):
                     for g3 in range(k3):
                         F1[i1, i2, i3] += weights_2[i2, g2]*weights_3[i3, g3]*f1(points_1[i1],
                                                                         ipoints_2[i2, g2], ipoints_3[i3, g3])                        
     for i2 in range(n2):
-        for i1 in range(n1-1):
-            for i3 in range(n3-1):
+        for i1 in range(n1-1+p1):
+            for i3 in range(n3-1+p3):
                 for g1 in range(k1):
                     for g3 in range(k3):
                         F2[i1, i2, i3] += weights_1[i1, g1]*weights_3[i3, g3]*f2(ipoints_1[i1, g1],
                                                                 points_2[i2], ipoints_3[i3, g3])
     for i3 in range(n3):
-        for i1 in range(n1-1):
-            for i2 in range(n2-1):
+        for i1 in range(n1-1+p1):
+            for i2 in range(n2-1+p2):
                 for g1 in range(k1):
                     for g2 in range(k2):
                         F3[i1, i2, i3] += weights_1[i1, g1]*weights_2[i2, g2]*f3(ipoints_1[i1, g1],
