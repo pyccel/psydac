@@ -66,8 +66,8 @@ def test_histopolation_cosine(basis, ncells, degree, periodic, num_pts=100):
     fh = FemField(Vh)
 
     # Compute histopolant
-    xg = Vh.ext_greville
-    Ig = np.array([quad(f.eval, xl, xr)[0] for xl, xr in Vh.get_edges()])
+    xg = Vh.histopolation_grid
+    Ig = np.array([quad(f.eval, xl, xr)[0] for xl, xr in zip(xg[:-1], xg[1:])])
     Vh.compute_histopolant(Ig, fh)
 
     # Compare to exact solution
