@@ -989,7 +989,7 @@ class Parser(object):
             J       = SymbolicExpr(J).inv()
             values  = ext * J[axis, :]
             normalization = values.dot(values)**0.5
-            values  = [v.simplify() for v in values]
+            values  = [v for v in values]
             values  = [v1/normalization for v1 in values]
             normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), values[i]) for i in range(dim)]
 
