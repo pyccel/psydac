@@ -151,29 +151,35 @@ class Projector_Hdiv:
             V.init_histopolation()
 
         if dim == 3:
-            Ns       = [Hdiv.spaces[0].spaces[0], Hdiv.spaces[1].spaces[1], Hdiv.spaces[2].spaces[2]]
-            Ds       = [Hdiv.spaces[1].spaces[0], Hdiv.spaces[0].spaces[1], Hdiv.spaces[0].spaces[2]]
 
+            # 1D spline spaces (B-splines of degree p and M-splines of degree p-1)
+            Ns = [Hdiv.spaces[0].spaces[0], Hdiv.spaces[1].spaces[1], Hdiv.spaces[2].spaces[2]]
+            Ds = [Hdiv.spaces[1].spaces[0], Hdiv.spaces[0].spaces[1], Hdiv.spaces[0].spaces[2]]
+
+            # Package 1D interpolators and 1D histopolators for 3D Kronecker solver
             self.NDD = [Ns[0]._interpolator, Ds[1]._histopolator, Ds[2]._histopolator]
             self.DND = [Ds[0]._histopolator, Ns[1]._interpolator, Ds[2]._histopolator]
             self.DDN = [Ds[0]._histopolator, Ds[1]._histopolator, Ns[2]._interpolator]
 
-            n_basis  = [V.nbasis for V in Ns]
-            periodic = [V.periodic for V in Ns]
+            # Interpolation points
+            intp_x = [V.greville for V in Ns]
 
+            # Quadrature points and weights
             quads  = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(Ds, uw)]
-            points = [V.greville for V in Ns]
+            quad_x, quad_w = list(zip(*quads))
 
-            i_points, i_weights = list(zip(*quads))
+            # Arrays of degrees of freedom (to be computed) as slices of RHS vector
+            slices = tuple(slice(p,-p) for p in Hdiv.spaces[0].vector_space.pads)
+            dofs   = [x._data[slices] for x in self.rhs]
 
-            slices   = tuple(slice(p,-p) for p in Hdiv.spaces[0].vector_space.pads)
-
-            self.args   =  (*n_basis, *periodic, *n_quads, *i_weights, *i_points, *points,
-                            self.rhs[0]._data[slices], self.rhs[1]._data[slices], self.rhs[2]._data[slices])
-
+            # Store data in object
+            self.args = (*intp_x, *quad_x, *quad_w, *dofs)
             self.func = evaluate_dof_2form_3d
             self.Ns = Ns
             self.Ds = Ds
+
+        else:
+            raise NotImplementedError('only 3d is available')
 
     # ======================================
     def __call__(self, fun):
@@ -327,32 +333,50 @@ def evaluate_dof_2form_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoin
             for g1 in range(k1):
                 F2[i1, i2] += weights_1[g1, i1]*f2(ipoints_1[g1,i1],points_2[i2])
                 
-def evaluate_dof_2form_3d(n1, n2, n3, p1, p2, p3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,
-                                                  points_1, points_2, points_3, F1, F2, F3, f1, f2, f3):
+#==============================================================================
+def evaluate_dof_2form_3d(
+        intp_x1, intp_x2, intp_x3, # interpolation points
+        quad_x1, quad_x2, quad_x3, # quadrature points
+        quad_w1, quad_w2, quad_w3, # quadrature weights
+        F1, F2, F3,                # arrays of degrees of freedom (intent out)
+        f1, f2, f3                 # input scalar functions (callable)
+        ):
 
+    k1 = quad_x1.shape[1]
+    k2 = quad_x2.shape[1]
+    k3 = quad_x3.shape[1]
+
+    n1, n2, n3 = F1.shape
     for i1 in range(n1):
-        for i2 in range(n2-1+p2):
-            for i3 in range(n3-1+p3):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                F1[i1, i2, i3] = 0.0
                 for g2 in range(k2):
                     for g3 in range(k3):
-                        F1[i1, i2, i3] += weights_2[i2, g2]*weights_3[i3, g3]*f1(points_1[i1],
-                                                                        ipoints_2[i2, g2], ipoints_3[i3, g3])                        
-    for i2 in range(n2):
-        for i1 in range(n1-1+p1):
-            for i3 in range(n3-1+p3):
+                        F1[i1, i2, i3] += quad_w2[i2, g2] * quad_w3[i3, g3] * \
+                            f1(intp_x1[i1], quad_x2[i2, g2], quad_x3[i3, g3])
+
+    n1, n2, n3 = F2.shape
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                F2[i1, i2, i3] = 0.0
                 for g1 in range(k1):
                     for g3 in range(k3):
-                        F2[i1, i2, i3] += weights_1[i1, g1]*weights_3[i3, g3]*f2(ipoints_1[i1, g1],
-                                                                points_2[i2], ipoints_3[i3, g3])
-    for i3 in range(n3):
-        for i1 in range(n1-1+p1):
-            for i2 in range(n2-1+p2):
+                        F2[i1, i2, i3] += quad_w1[i1, g1] * quad_w3[i3, g3] * \
+                            f2(quad_x1[i1, g1], intp_x2[i2], quad_x3[i3, g3])
+
+    n1, n2, n3 = F3.shape
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                F3[i1, i2, i3] = 0.0
                 for g1 in range(k1):
                     for g2 in range(k2):
-                        F3[i1, i2, i3] += weights_1[i1, g1]*weights_2[i2, g2]*f3(ipoints_1[i1, g1],
-                                                        ipoints_2[i2, g2], points_3[i3])
+                        F3[i1, i2, i3] += quad_w1[i1, g1] * quad_w2[i2, g2] * \
+                            f3(quad_x1[i1, g1], quad_x2[i2, g2], intp_x3[i3])
 
-
+#==============================================================================
 def evaluate_dof_3form_1d(points, weights, F, fun):
     """Integrates the function f over the quadrature grid
     defined by (points,weights) in 1d.
