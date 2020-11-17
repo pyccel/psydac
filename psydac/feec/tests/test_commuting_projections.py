@@ -9,6 +9,8 @@ from psydac.core.bsplines import make_knots
 
 from mpi4py import MPI
 import numpy as np
+
+#==============================================================================
 ## ----------------------
 ## function to be derived
 ## ----------------------
@@ -71,9 +73,10 @@ import numpy as np
 
 #print(grad)
 #print(grad._matrix.tosparse())
-#======================================================================================================
-#======================================================================================================
-#======================================================================================================
+
+#==============================================================================
+# Analytical functions
+#==============================================================================
 
 fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)*np.sin(xi3)
 D1fun1  = lambda xi1, xi2, xi3 : np.cos(xi1)*np.sin(xi2)*np.sin(xi3)
@@ -96,27 +99,39 @@ cf3 = lambda xi1, xi2, xi3 : D1fun2(xi1, xi2, xi3) - D2fun1(xi1, xi2, xi3)
 
 difun = lambda xi1, xi2, xi3 : D1fun1(xi1, xi2, xi3)+ D2fun2(xi1, xi2, xi3) + D3fun3(xi1, xi2, xi3)
 
-#-----------------
-# Create the grid:
-#-----------------
-# side lengths of logical cube
+#==============================================================================
+# Test parameters
+#==============================================================================
+
+# Side lengths of logical cube [0, L]^3
 L = [2*np.pi, 2*np.pi , 2*np.pi] 
 
-# spline degrees
-p = [2, 2, 2]   
+# Spline degrees
+p = [2, 3, 3]
 
-# periodic boundary conditions (use 'False' if clamped)
-bc = [False, False, False] 
+# Periodic boundary conditions (use 'False' if clamped)
+bc = [True, False, True]
 
 # FOR TESTING: loop over different number of elements (convergence test)
-Nel_cases = [16]
+Nel_cases = [10]
 
 # FOR TESTING: loop over different number of quadrature points per element
 Nq_cases = [1, 2, 3, 4, 5]
 
+# FOR TESTING: choose to test 'grad', 'curl', or 'div'
+diff = 'curl'
+
+#==============================================================================
+# Run test
+#==============================================================================
+
+print('-' * 35)
+print('Testing commuting property for ' + diff)
+print('-' * 35)
+
 for Nel in Nel_cases:
     
-    print('Nel=', Nel)
+    print('Nel = {}'.format(Nel))
     
     # number of elements
     Nel = [Nel, Nel, Nel]
@@ -161,32 +176,32 @@ for Nel in Nel_cases:
         P2 = Projector_Hdiv(Hdiv, Nq)
         P3 = Projector_L2(L2, Nq)
 
-        # --------------------
-        # compute projections:
-        # --------------------
-        # for grad commutation:
-#        u_0  = P0( fun1 )
-#        u_1  = P1((D1fun1, D2fun1, D3fun1))
+        #-------------------------------------
+        # Projections and discrete derivatives
+        #-------------------------------------
 
-#         for curl commutation:
-#        u_1  = P1((fun1, fun2, fun3))
-#        u_2  = P2((cf1, cf2, cf3))
+        if diff == 'grad':
+            u0 = P0(fun1)
+            u1 = P1((D1fun1, D2fun1, D3fun1))
+            Dfun_h = grad(u0)
+            Dfun_proj = u1
 
-#         for div commutation:
-        u_2  = P2((fun1, fun2, fun3))
-        u_3  = P3(difun)
+        elif diff == 'curl':
+            u1 = P1((fun1, fun2, fun3))
+            u2 = P2((cf1, cf2, cf3))
+            Dfun_h = curl(u1)
+            Dfun_proj = u2
 
-#         Compute discrete derivative
-#        Dfun_h    = grad( u_0 )
-#        Dfun_proj = u_1
+        elif diff == 'div':
+            u2 = P2((fun1, fun2, fun3))
+            u3 = P3(difun)
+            Dfun_h = div(u2)
+            Dfun_proj = u3
 
-#        Dfun_h = curl( u_1 )
-#        Dfun_proj = u_2
+        else:
+            raise ValueError("Unrecognized option for 'diff': {}".format(diff))
 
-        Dfun_h    = div( u_2 )
-        Dfun_proj = u_3
-
-        #Test commuting property
-        print( 'Nq=', Nq, np.max( np.abs( (Dfun_proj.coeffs-Dfun_h.coeffs).toarray() ) ) )
+        # Test commuting property
+        print( 'Nq = {};  Error = {:.3e}'.format(Nq, abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()) )
         
     print('')
