@@ -124,6 +124,7 @@ class Projector_Hcurl:
         coeffs[1] = kronecker_solve(solvers = self.NDN, rhs = self.rhs[1])
         coeffs[2] = kronecker_solve(solvers = self.NND, rhs = self.rhs[2])
 
+        coeffs.update_ghost_regions()
         return VectorFemField(self.space, coeffs=coeffs)
 
 class Projector_Hdiv:
@@ -184,6 +185,7 @@ class Projector_Hdiv:
         coeffs[1] = kronecker_solve(solvers = self.DND, rhs = self.rhs[1])
         coeffs[2] = kronecker_solve(solvers = self.DDN, rhs = self.rhs[2])
 
+        coeffs.update_ghost_regions()
         return VectorFemField(self.space, coeffs=coeffs)
 
 class Projector_L2:
@@ -274,7 +276,7 @@ def evaluate_dof_1form_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoin
             for g2 in range(k2):
                 F2[i1, i2] += weights_2[g2, i2]*f2(points_1[i1], ipoints_2[g2, i2])
                 
-def evaluate_dof_1form_3d(n1, n2, n3, p1, p2, p3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,     
+def evaluate_dof_1form_3d(n1, n2, n3, p1, p2, p3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,
                                                   points_1, points_2, points_3, F1, F2, F3, f1, f2, f3):
     for i2 in range(n2):
         for i3 in range(n3):

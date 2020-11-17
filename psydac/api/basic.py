@@ -240,7 +240,8 @@ class BasicCodeGen(object):
                        accelerator = accelerator,
                        comm        = self.comm,
                        bcast       = True,
-                       folder      = _PYCCEL_FOLDER)
+                       folder      = _PYCCEL_FOLDER,
+                       verbose     = verbose)
 
         return fmod
 
@@ -302,5 +303,6 @@ class BasicDiscrete(BasicCodeGen):
     def _create_ast(self, expr,tag, **kwargs):
         discrete_space      = kwargs.pop('discrete_space', None)
         kernel_expr         = kwargs['kernel_expr']
+        quad_order          = kwargs.pop('quad_order', None)
 
-        return AST(expr, kernel_expr, discrete_space, tag)
+        return AST(expr, kernel_expr, discrete_space, tag, quad_order=quad_order)

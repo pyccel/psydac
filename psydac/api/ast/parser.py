@@ -1415,7 +1415,7 @@ class Parser(object):
                         for i,j in zip(t_iterator, t_generator)]
 
         indices, lengths = list(self._visit(expr.index)), list(self._visit(expr.index.length))
-        for i,j in zip(flatten(indices),flatten(lengths)):
+        for i,j in zip(flatten(indices), flatten(lengths)):
             self.indices[str(i)] = j
 
         inits = [()]*self._dim

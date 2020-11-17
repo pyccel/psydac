@@ -36,6 +36,31 @@ class AnalyticalProfile1D_Cos( AnalyticalProfile ):
         return self._k**diff
 
 #===============================================================================
+class AnalyticalProfile1D_Sin( AnalyticalProfile ):
+
+    def __init__( self, n=1, c=0.0 ):
+        twopi     = 2.0*math.pi
+        self._k   = twopi * n
+        self._phi = twopi * c
+
+    @property
+    def ndims( self ):
+        return 1
+
+    @property
+    def domain( self ):
+        return (0.0, 1.0)
+
+    @property
+    def poly_order( self ):
+        return -1
+
+    def eval( self, x, diff=0 ):
+        return self._k**diff * np.sin( 0.5*math.pi*diff + self._k*x + self._phi )
+
+    def max_norm( self, diff=0 ):
+        return self._k**diff
+#===============================================================================
 class AnalyticalProfile1D_Poly( AnalyticalProfile ):
 
     def __init__( self, deg ):

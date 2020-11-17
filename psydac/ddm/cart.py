@@ -122,17 +122,11 @@ class CartDecomposition():
         # List of 1D global indices (without ghost regions)
         self._grids = tuple( range(s,e+1) for s,e in zip( self._starts, self._ends ) )
 
-        # N-dimensional global indices (without ghost regions)
-        self._indices = product( *self._grids )
-
         # Compute shape of local arrays in topology (with ghost regions)
         self._shape = tuple( e-s+1+2*p for s,e,p in zip( self._starts, self._ends, self._pads ) )
 
         # Extended grids with ghost regions
         self._extended_grids = tuple( range(s-p,e+p+1) for s,e,p in zip( self._starts, self._ends, self._pads ) )
-
-        # N-dimensional global indices with ghost regions
-        self._extended_indices = product( *self._extended_grids )
 
         # Create (N-1)-dimensional communicators within the Cartesian topology
         self._subcomm = [None]*self._ndims
@@ -156,6 +150,8 @@ class CartDecomposition():
             self._global_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
             self._global_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
 
+
+        self._petsccart = None
     #---------------------------------------------------------------------------
     # Global properties (same for each process)
     #---------------------------------------------------------------------------
@@ -225,6 +221,13 @@ class CartDecomposition():
     @property
     def subcomm( self ):
         return self._subcomm
+
+    #---------------------------------------------------------------------------
+    def topetsc( self ):
+        if self._petsccart is None:
+            from psydac.ddm.petsc import PetscCart
+            self._petsccart = PetscCart(self)
+        return self._petsccart
 
     #---------------------------------------------------------------------------
     def coords_exist( self, coords ):

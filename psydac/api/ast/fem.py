@@ -216,7 +216,7 @@ class AST(object):
     into a DefNode
 
     """
-    def __init__(self, expr, terminal_expr, spaces, tag=None):
+    def __init__(self, expr, terminal_expr, spaces, tag=None, **kwargs):
         # ... compute terminal expr
         # TODO check that we have one single domain/interface/boundary
 
@@ -341,7 +341,7 @@ class AST(object):
                                           tests, d_tests,
                                           fields, constants,
                                           nderiv, domain.dim,
-                                          mapping, is_rational_mapping, spaces, mask, tag)
+                                          mapping, is_rational_mapping, spaces, mask, tag, **kwargs)
 
         elif is_bilinear:
             ast = _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
@@ -349,13 +349,13 @@ class AST(object):
                                             trials, d_trials,
                                             fields, constants,
                                             nderiv, domain.dim, 
-                                            mapping, is_rational_mapping, spaces, mask, tag)
+                                            mapping, is_rational_mapping, spaces, mask, tag, **kwargs)
 
         elif is_functional:
             ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
                                               tests, d_tests, constants,
                                               nderiv, domain.dim, 
-                                              mapping, is_rational_mapping, spaces, mask, tag)
+                                              mapping, is_rational_mapping, spaces, mask, tag, **kwargs)
         else:
             raise NotImplementedError('TODO')
         # ...
@@ -390,7 +390,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
                               tests, d_tests,
                               trials, d_trials,
                               fields, constants,
-                              nderiv, dim, mapping, is_rational_mapping, spaces, mask, tag):
+                              nderiv, dim, mapping, is_rational_mapping, spaces, mask, tag, **kwargs):
     """
     This function creates the assembly function of a bilinearform
 
@@ -456,7 +456,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
-
+    quad_order = kwargs.pop('quad_order', None)
     geo      = GeometryExpressions(mapping, nderiv)
 
     l_mats  = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim, tag)
@@ -471,7 +471,11 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     el_length   = LengthElement()
     lengths     = [el_length, quad_length]
 
-    ind_quad      = index_quad.set_length(quad_length)
+    if quad_order is not None:
+        ind_quad      = index_quad.set_length(Tuple(*quad_order))
+    else:
+        ind_quad      = index_quad.set_length(quad_length)
+
     ind_element   = index_element.set_length(el_length)
     ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0])+1)
     # ...........................................................................................
@@ -571,7 +575,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
 #================================================================================================================================
 def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, fields, constants, nderiv,
-                            dim, mapping, is_rational_mapping, space, mask, tag):
+                            dim, mapping, is_rational_mapping, space, mask, tag, **kwargs):
     """
     This function creates the assembly function of a linearform
 
@@ -731,7 +735,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
 
 #================================================================================================================================
 def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, constants, nderiv,
-                                dim, mapping, is_rational_mapping, space, mask, tag):
+                                dim, mapping, is_rational_mapping, space, mask, tag, **kwargs):
     """
     This function creates the assembly function of a Functional Form
 

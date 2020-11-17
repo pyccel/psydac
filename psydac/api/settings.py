@@ -3,13 +3,12 @@
 
 PSYDAC_DEFAULT_FOLDER = '__psydac__'
 
-
 # ... defining PSYDAC backends
 PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python'}
 
 PSYDAC_BACKEND_GPYCCEL = {'name':     'pyccel',
                       'compiler': 'gfortran',
-                      'flags':    '-O3',
+                      'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math',
                       'accelerator': None,
                       'folder': '__gpyccel__',
                       'tag':'gpyccel'}

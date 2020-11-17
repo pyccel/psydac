@@ -67,7 +67,7 @@ from mpi4py import MPI
 LinearSystem = namedtuple('LinearSystem', ['lhs', 'rhs'])
 
 #==============================================================================
-_default_solver = {'solver':'cg', 'tol':1e-9, 'maxiter':1000, 'verbose':False}
+_default_solver = {'solver':'cg', 'tol':1e-9, 'maxiter':3000, 'verbose':False}
 
 def driver_solve(L, **kwargs):
     if not isinstance(L, LinearSystem):

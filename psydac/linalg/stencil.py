@@ -338,6 +338,11 @@ class StencilVector( Vector ):
         return self._data[index].flatten()
 
     # ...
+    def toarray_local( self ):
+        idx = tuple( slice(p,-p) for p in self.pads )
+        return self._data[idx].flatten()
+
+    # ...
     def _toarray_parallel_no_pads( self ):
         a         = np.zeros( self.space.npts )
         idx_from  = tuple( slice(p,-p) for p in self.pads )
@@ -402,6 +407,23 @@ class StencilVector( Vector ):
 #        return out.flatten()
         return out.reshape(-1)
 
+    def topetsc( self ):
+        space = self.space
+        assert space.parallel
+        cart      = space.cart
+        petsccart = cart.topetsc()
+        petsc     = petsccart.petsc
+        lgmap     = petsccart.l2g_mapping
+
+        size  = (petsccart.local_size, None)
+        gvec  = petsc.Vec().createMPI(size, comm=cart.comm)
+        gvec.setLGMap(lgmap)
+        gvec.setUp()
+
+        idx = tuple( slice(p,-p) for p in self.pads )
+        gvec.setArray(self._data[idx])
+
+        return gvec
     # ...
     def __getitem__(self, key):
         index = self._getindex( key )
@@ -587,7 +609,7 @@ class StencilMatrix( Matrix ):
         # Number of rows in matrix (along each dimension)
         nrows       = [ed-s+1 for s,ed in zip(ssd, eed)]
         nrows_extra = [0 if ec<=ed else ec-ed for ec,ed in zip(eec,eed)]
-        
+
         self._dot(self._data, v._data, out._data, nrows, nrows_extra, pp)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
@@ -894,6 +916,59 @@ class StencilMatrix( Matrix ):
 
         return M
 
+    def tocoo_local( self ):
+
+        # Shortcuts
+        sc = self._codomain.starts
+        ec = self._codomain.ends
+        pc = self._codomain.pads
+
+        sd = self._domain.starts
+        ed = self._domain.ends
+        pd = self._domain.pads
+
+        nd = self._ndim
+
+        nr = [e-s+1 +2*p for s,e,p in zip(sc, ec, pc)]
+        nc = [e-s+1 +2*p for s,e,p in zip(sd, ed, pd)]
+
+        ravel_multi_index = np.ravel_multi_index
+
+        # COO storage
+        rows = []
+        cols = []
+        data = []
+
+        local = tuple( [slice(p,-p) for p in pc] + [slice(None)] * nd )
+
+        dd = [pdi-ppi for pdi,ppi in zip(pd, self._pads)]
+
+        for (index, value) in np.ndenumerate( self._data[local] ):
+
+            # index = [i1-s1, i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
+
+            xx = index[:nd]  # ii is local
+            ll = index[nd:]  # l=p+k
+
+            ii = [x+p for x,p in zip(xx, pc)]
+            jj = [(l+i+d) for (i,l,d) in zip(xx,ll,dd)]
+
+            I = ravel_multi_index( ii, dims=nr, order='C' )
+            J = ravel_multi_index( jj, dims=nc, order='C' )
+
+            rows.append( I )
+            cols.append( J )
+            data.append( value )
+
+        M = coo_matrix(
+                (data,(rows,cols)),
+                shape = [np.prod(nr),np.prod(nc)],
+                dtype = self._domain.dtype
+        )
+
+        M.eliminate_zeros()
+
+        return M
     #...
     def _tocoo_parallel_with_pads( self ):
 
@@ -979,6 +1054,38 @@ class StencilMatrix( Matrix ):
         M.eliminate_zeros()
 
         return M
+
+    # ...
+    def topetsc( self ):
+
+        dspace = self.domain
+        cspace = self.codomain
+        assert cspace.parallel and dspace.parallel
+
+        ccart      = cspace.cart
+        cpetsccart = ccart.topetsc()
+        clgmap     = cpetsccart.l2g_mapping
+
+        dcart      = dspace.cart
+        dpetsccart = dcart.topetsc()
+        dlgmap     = dpetsccart.l2g_mapping
+
+        petsc      = dpetsccart.petsc
+
+        r_size  = (cpetsccart.local_size, None)
+        c_size  = (dpetsccart.local_size, None)
+
+        gmat = petsc.Mat().create(comm=dcart.comm)
+        gmat.setSizes((r_size, c_size))
+        gmat.setType('mpiaij')
+        gmat.setLGMap(clgmap, dlgmap)
+        gmat.setUp()
+
+        mat_csr = self.tocoo_local().tocsr()
+
+        gmat.setValuesLocalCSR(mat_csr.indptr,mat_csr.indices,mat_csr.data)
+        gmat.assemble()
+        return gmat
 
     # ...
     @property

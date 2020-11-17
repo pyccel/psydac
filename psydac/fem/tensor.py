@@ -314,6 +314,14 @@ class TensorFemSpace( FemSpace ):
         return dim
 
     @property
+    def knots(self):
+        return [V.knots for V in self.spaces]
+
+    @property
+    def breaks(self):
+        return [V.breaks for V in self.spaces]
+
+    @property
     def degree(self):
         return [V.degree for V in self.spaces]
 
