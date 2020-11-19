@@ -101,7 +101,7 @@ def pull_2(funcs_ini, mapping):
     exprs    = mapping.expressions
     f1,f2,f3 = lambdify(coords, exprs[0]), lambdify(coords, exprs[1]), lambdify(coords, exprs[2])
     J_inv    = lambdify(coords, mapping.jacobian_inv_expr)
-    det      = lambdify(coords, mapping.jacobian_det_expr)
+    det      = lambdify(coords, mapping.metric_det_expr**0.5)
 
     def fun1(xi1, xi2, xi3):
         x = f1(xi1, xi2, xi3)
@@ -159,7 +159,7 @@ def pull_3(func_ini, mapping):
     coords   = mapping.logical_coordinates
     exprs    = mapping.expressions
     f1,f2,f3 = lambdify(coords, exprs[0]), lambdify(coords, exprs[1]), lambdify(coords, exprs[2])
-    det      = lambdify(coords, mapping.jacobian_det_expr)
+    det      = lambdify(coords, mapping.metric_det_expr**0.5)
 
     def fun(xi1, xi2, xi3):
         x = f1(xi1, xi2, xi3)
@@ -206,7 +206,7 @@ def push_2(a1, a2, a3, xi1, xi2, xi3, mapping):
     f1,f2,f3  = lambdify(coords, exprs[0]), lambdify(coords, exprs[1]), lambdify(coords, exprs[2])
     J         = lambdify(coords, mapping.jacobian_expr)
     J_value   = J(xi1, xi2, xi3)
-    det       = lambdify(coords, mapping.jacobian_det_expr)
+    det       = lambdify(coords, mapping.metric_det_expr**0.5)
     det_value = det(xi1, xi2, xi3)
 
     value1 = ( J_value[0,0]*a1(xi1, xi2, xi3) +
