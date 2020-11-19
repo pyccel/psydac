@@ -285,14 +285,6 @@ def evaluate_dof_1form_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoin
         for i2 in range(n2[1]):
             for g2 in range(k2):
                 F2[i1, i2] += weights_2[g2, i2]*f2(points_1[i1], ipoints_2[g2, i2])
-<<<<<<< HEAD
-                
-def evaluate_dof_1form_3d(n1, n2, n3, p1, p2, p3, k1, k2, k3, weights_1, weights_2, weights_3, ipoints_1, ipoints_2, ipoints_3,
-                                                  points_1, points_2, points_3, F1, F2, F3, f1, f2, f3):
-    for i2 in range(n2):
-        for i3 in range(n3):
-            for i1 in range(n1-1+p1):
-=======
 
 #==============================================================================
 def evaluate_dof_1form_3d(
@@ -312,7 +304,7 @@ def evaluate_dof_1form_3d(
         for i2 in range(n2):
             for i3 in range(n3):
                 F1[i1, i2, i3] = 0.0
->>>>>>> 68c3221bce0c5efb4dd6bf1554349a490e80fed9
+
                 for g1 in range(k1):
                     F1[i1, i2, i3] += quad_w1[i1, g1] * f1(quad_x1[i1, g1], intp_x2[i2], intp_x3[i3])
 
