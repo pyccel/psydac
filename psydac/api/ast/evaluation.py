@@ -62,7 +62,7 @@ class EvalQuadratureMapping(SplBasic):
         obj._boundary_basis = boundary_basis
         obj._backend = backend
 
-        dim = mapping.rdim
+        dim = mapping.ldim
 
         # ...
         lcoords = ['x1', 'x2', 'x3'][:dim]
@@ -754,7 +754,7 @@ class EvalArrayMapping(SplBasic):
         obj._space = space
         obj._backend = backend
 
-        dim = mapping.rdim
+        dim = mapping.ldim
 
         # ...
         lcoords = ['x1', 'x2', 'x3'][:dim]

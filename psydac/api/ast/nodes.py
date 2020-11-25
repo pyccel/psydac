@@ -1483,7 +1483,7 @@ class GeometryExpressions(Basic):
         args        = []
         if not M.is_analytical:
 
-            dim = M.rdim
+            dim = M.ldim
             nderiv = 1 if nderiv == 0 else nderiv
             ops = [dx1, dx2, dx3][:dim]
             r = range(nderiv+1)

@@ -201,6 +201,12 @@ class BlockVector( Vector ):
     def toarray( self ):
         return np.concatenate( [bi.toarray() for bi in self._blocks] )
 
+    def topetsc( self ):
+        blocks    = [v.topetsc() for v in self._blocks]
+        cart      = self._space.spaces[0].cart
+        petsccart = cart.topetsc()
+        return petsccart.petsc.Vec(),createNest(blocks, comm=cart.comm)
+
 #===============================================================================
 class BlockLinearOperator( LinearOperator ):
     """
@@ -387,6 +393,19 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         assert M.shape[1] == self.  domain.dimension
 
         return M
+
+    # ...
+    def topetsc( self ):
+        """ Convert to petsc Nest Matrix.
+        """
+        # Convert all blocks to petsc format
+        blocks = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
+        for (i,j), Mij in self._blocks.items():
+            blocks[i][j] = Mij.topetsc()
+
+        cart      = self.domain.spaces[0].cart
+        petsccart = cart.topetsc()
+        return petsccart.petsc.Mat().createNest( blocks, comm=cart.comm)
 
     #--------------------------------------
     # Other properties/methods

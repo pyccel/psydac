@@ -33,7 +33,8 @@ class CollelaMapping3D(Mapping):
                     'y': 'k2*(x2 + eps*sin(2.*pi*x1)*sin(2.*pi*x2))',
                     'z': 'k3*x3'}
 
-    _rdim        = 3
+    _ldim        = 3
+    _pdim        = 3
 
 M       = CollelaMapping3D('M', k1=1, k2=1, k3=1, eps=0.1)
 

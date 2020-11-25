@@ -14,7 +14,7 @@ from pyccel.ast.builtins  import Range
 from pyccel.ast.utilities import build_types_decorator
 from pyccel.ast.core      import Assign, Product, AugAssign, For
 from pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
-from pyccel.ast.core      import Slice
+from pyccel.ast.core      import Slice, String
 from pyccel.ast.core      import EmptyNode, Import
 from pyccel.ast.core      import CodeBlock, FunctionDef
 
@@ -432,6 +432,7 @@ class Parser(object):
 
         if self.backend['name'] == 'pyccel':
             a = build_types_decorator(arguments)
+            a = [String(i) for i in a]
             decorators = {'types': Function('types')(*a)}
         elif self.backend['name'] == 'numba':
             decorators = {'jit': Symbol('jit')}
