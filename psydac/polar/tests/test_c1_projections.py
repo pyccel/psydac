@@ -2,11 +2,11 @@ from mpi4py import MPI
 import numpy as np
 import pytest
 
-from psydac.fem.splines                import SplineSpace
-from psydac.fem.tensor                 import TensorFemSpace
-from psydac.mapping.analytical_gallery import Annulus
-from psydac.mapping.discrete           import SplineMapping
-from psydac.linalg.stencil             import StencilVector, StencilMatrix
+from psydac.fem.splines                 import SplineSpace
+from psydac.fem.tensor                  import TensorFemSpace
+from sympde.topology.analytical_mapping import PolarMapping
+from psydac.mapping.discrete            import SplineMapping
+from psydac.linalg.stencil              import StencilVector, StencilMatrix
 
 from psydac.polar.c1_projections import C1Projector
 
@@ -28,7 +28,7 @@ def test_c1_projections( degrees, ncells, verbose=False ):
     lims_2       = (0, 2*np.pi)
     period_1     = False
     period_2     = True
-    map_analytic = Annulus( rmin=0, rmax=1 )
+    map_analytic = PolarMapping( 'M', dim=2, rmin=0, rmax=1, c1=0.0, c2=0.0)
 
     # Discretization: number of elements and polynomial degree
     ne1, ne2 = ncells

@@ -432,7 +432,7 @@ class Parser(object):
 
         if self.backend['name'] == 'pyccel':
             a = build_types_decorator(arguments)
-            a = [String(i) for i in a]
+            a = [String(str(i)) for i in a]
             decorators = {'types': Function('types')(*a)}
         elif self.backend['name'] == 'numba':
             decorators = {'jit': Symbol('jit')}
