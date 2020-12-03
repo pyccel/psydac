@@ -72,11 +72,11 @@ jobs:
       run: |
         mkdir pytest
         cp mpi_tester.py pytest
-        export PSYDAC_MESH_DIR=$PWD/mesh
 
     - name: Test with pytest
       working-directory: ./pytest
       run: |
+        export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
         pytest -m pytest --pyargs psydac -m "not parallel"
         python mpi_tester.py --pyargs psydac -m "parallel"
 
