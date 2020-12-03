@@ -11,7 +11,7 @@ import h5py
 import yaml
 import yamlloader
 
-from psydac.mapping.basic import Mapping
+from sympde.topology.mapping  import Mapping
 from psydac.fem.tensor    import TensorFemSpace
 from psydac.fem.basic     import FemField
 
@@ -24,7 +24,7 @@ def random_string( n ):
     return ''.join( selector.choice( chars ) for _ in range( n ) )
 
 #==============================================================================
-class SplineMapping( Mapping ):
+class SplineMapping:
 
     def __init__( self, *components, name=None ):
 
@@ -80,9 +80,10 @@ class SplineMapping( Mapping ):
         # and store vector values in one separate scalar field for each
         # physical dimension
         # TODO: use one unique field belonging to VectorFemSpace
+        callable_mapping = mapping.get_callable_mapping()
         for index in product( *ranges ):
             x = [grid[i] for grid,i in zip( grids, index )]
-            u = mapping( x )
+            u = callable_mapping( *x )
             for d,ud in enumerate( u ):
                 values[d][index] = ud
 

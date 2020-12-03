@@ -4,12 +4,18 @@
 import numpy as np
 from mpi4py import MPI
 
-from psydac.fem.splines                import SplineSpace
-from psydac.fem.tensor                 import TensorFemSpace
-from psydac.mapping.discrete           import SplineMapping
-from psydac.mapping.analytical         import IdentityMapping
-from psydac.mapping.analytical_gallery import Annulus, Target, Czarny, Collela
-from psydac.mapping.analytical_gallery import Collela3D
+from psydac.fem.splines                 import SplineSpace
+from psydac.fem.tensor                  import TensorFemSpace
+from psydac.mapping.discrete            import SplineMapping
+from sympde.topology.analytical_mapping import IdentityMapping
+from sympde.topology.analytical_mapping import PolarMapping, TargetMapping, CzarnyMapping, CollelaMapping2D
+from sympde.topology.mapping            import Mapping
+
+class Collela3D( Mapping ):
+
+    expressions = {'x':'2.*(x1 + 0.1**sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
+                   'y':'2.*(x2 + 0.1**sin(2.*pi*x1)*sin(2.*pi*x2)) - 1.',
+                   'z':'2.*x3  - 1.'}
 
 #==============================================================================
 def discrete_mapping(mapping, ncells, degree, **kwargs):
@@ -27,48 +33,59 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
     if dim == 2:
         # Input parameters
         if mapping == 'identity':
-            map_analytic = IdentityMapping( ndim=dim )
+            map_analytic = IdentityMapping( 'M', dim=dim )
             lims1   = (0, 1)
             lims2   = (0, 1)
             period1 = False
             period2 = False
 
         elif mapping == 'collela':
-            map_analytic = Collela( **kwargs )
+            default_params = dict( k1=1.0, k2=1.0, eps=0.1 )
+            map_analytic = CollelaMapping2D( 'M', dim=dim, **default_params )
             lims1   = (0, 1)
             lims2   = (0, 1)
             period1 = False
             period2 = False
 
         elif mapping == 'circle':
-            map_analytic = Annulus( **kwargs )
+            default_params = dict( rmin=0.0, rmax=1.0, c1=0.0, c2=0.0)
+            map_analytic = PolarMapping( 'M', dim=dim, **default_params )
             lims1   = (0, 1)
             lims2   = (0, 2*np.pi)
             period1 = False
             period2 = True
 
         elif mapping == 'annulus':
-            map_analytic = Annulus( **kwargs )
+            default_params = dict( rmin=0.0, rmax=1.0, c1=0.0, c2=0.0)
+            map_analytic = PolarMapping( 'M', dim=dim, **default_params )
             lims1   = (1, 4)
             lims2   = (0, 2*np.pi)
             period1 = False
             period2 = True
 
         elif mapping == 'quarter_annulus':
-            map_analytic = Annulus( **kwargs )
+            default_params = dict( rmin=0.0, rmax=1.0, c1=0.0, c2=0.0)
+            map_analytic = PolarMapping( 'M', dim=dim, **default_params )
             lims1   = (1, 4)
             lims2   = (0, np.pi/2)
             period1 = False
             period2 = False
 
-        elif mapping in ['target', 'czarny']:
-            mapping = mapping.capitalize()
-            map_analytic = globals()[mapping]( **kwargs )
-            lims1 = (0, 1)
-            lims2 = (0, 2*np.pi)
+        elif mapping == 'target':
+            default_params = dict( c1=0, c2=0, k=0.3, D=0.2 )
+            map_analytic = TargetMapping( 'M', dim=dim, **default_params )
+            lims1   = (0, 1)
+            lims2   = (0, 2*np.pi)
             period1 = False
             period2 = True
 
+        elif mapping == 'czarny':
+            default_params = dict( c2=0, b=1.4, eps=0.3 )
+            map_analytic = CzarnyMapping( 'M', dim=dim, **default_params )
+            lims1   = (0, 1)
+            lims2   = (0, 2*np.pi)
+            period1 = False
+            period2 = True
         else:
             raise ValueError("Required 2D mapping not available")
 
@@ -76,8 +93,8 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
         nc1, nc2 = ncells
 
         # Create tensor spline space, distributed
-        V1 = SplineSpace( grid=np.linspace( *lims1, num=nc1+1 ), degree=p1, periodic=period1 )
-        V2 = SplineSpace( grid=np.linspace( *lims2, num=nc2+1 ), degree=p2, periodic=period2 )
+        V1    = SplineSpace( grid=np.linspace( *lims1, num=nc1+1 ), degree=p1, periodic=period1 )
+        V2    = SplineSpace( grid=np.linspace( *lims2, num=nc2+1 ), degree=p2, periodic=period2 )
         space = TensorFemSpace( V1, V2, comm=comm )
 
         # Create spline mapping by interpolating analytical one
@@ -86,7 +103,7 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
     elif dim == 3:
         # Input parameters
         if mapping == 'identity':
-            map_analytic = IdentityMapping( ndim=dim )
+            map_analytic = IdentityMapping( 'M', dim=dim )
             lims1   = (0, 1)
             lims2   = (0, 1)
             lims3   = (0, 1)
@@ -95,7 +112,7 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
             period3 = False
 
         elif mapping == 'collela':
-            map_analytic = Collela3D( **kwargs )
+            map_analytic = Collela3D( 'M', dim=dim )
             lims1   = (0, 1)
             lims2   = (0, 1)
             lims3   = (0, 1)
@@ -110,9 +127,9 @@ def discrete_mapping(mapping, ncells, degree, **kwargs):
         nc1, nc2, nc3 = ncells
 
         # Create tensor spline space, distributed
-        V1 = SplineSpace( grid=np.linspace( *lims1, num=nc1+1 ), degree=p1, periodic=period1 )
-        V2 = SplineSpace( grid=np.linspace( *lims2, num=nc2+1 ), degree=p2, periodic=period2 )
-        V3 = SplineSpace( grid=np.linspace( *lims3, num=nc3+1 ), degree=p3, periodic=period3 )
+        V1    = SplineSpace( grid=np.linspace( *lims1, num=nc1+1 ), degree=p1, periodic=period1 )
+        V2    = SplineSpace( grid=np.linspace( *lims2, num=nc2+1 ), degree=p2, periodic=period2 )
+        V3    = SplineSpace( grid=np.linspace( *lims3, num=nc3+1 ), degree=p3, periodic=period3 )
         space = TensorFemSpace( V1, V2, V3, comm=comm )
 
         # Create spline mapping by interpolating analytical one
