@@ -51,7 +51,7 @@ class KroneckerStencilMatrix_2D( Matrix ):
         self._space = V
         self._A1    = A1
         self._A2    = A2
-        self._Y     = StencilVector( V )
+        self._w     = StencilVector( V )
 
     #--------------------------------------
     # Abstract interface
@@ -66,12 +66,12 @@ class KroneckerStencilMatrix_2D( Matrix ):
         return self._space
 
     # ...
-    def dot( self, X, out=None ):
+    def dot( self, v, out=None ):
 
         dot = np.dot
 
-        assert isinstance( X, StencilVector )
-        assert X.space is self.domain
+        assert isinstance( v, StencilVector )
+        assert v.space is self.domain
 
         if out is not None:
             assert isinstance( out, StencilVector )
@@ -85,15 +85,15 @@ class KroneckerStencilMatrix_2D( Matrix ):
 
         A1 = self._A1
         A2 = self._A2
-        Y  = self._Y
+        w  = self._w
 
         for j1 in range(s1-p1, e1+p1+1):
             for i2 in range(s2, e2+1):
-                 Y[j1,i2] = dot( X[j1,i2-p2:i2+p2+1], A2[i2,:])
+                 w[j1,i2] = dot( v[j1,i2-p2:i2+p2+1], A2[i2,:])
 
         for i1 in range(s1, e1+1):
             for i2 in range(s2, e2+1):
-                 out[i1,i2] = dot( A1[i1,:], Y[i1-p1:i1+p1+1,i2] )
+                 out[i1,i2] = dot( A1[i1,:], w[i1-p1:i1+p1+1,i2] )
 
         out.update_ghost_regions()
 

@@ -1,20 +1,9 @@
-from psydac.feec.derivatives import Grad, Curl, Div
-from psydac.fem.tensor       import TensorFemSpace
-from psydac.fem.splines      import SplineSpace
-from psydac.linalg.stencil   import StencilVector
-from psydac.linalg.block     import BlockVector,ProductSpace
-from psydac.fem.vector       import ProductFemSpace
-from psydac.feec.utilities   import Interpolation, interpolation_matrices
-from psydac.fem.basic        import FemField
+import pytest
 import numpy as np
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-
-from mpi4py import MPI
 from sympy import pi, cos, sin
 from sympy.abc import x, y
 from sympy.utilities.lambdify import implemented_function
-import pytest
+from mpi4py import MPI
 
 from sympde.calculus import grad, dot
 from sympde.calculus import laplace
@@ -27,7 +16,14 @@ from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
 
+from psydac.linalg.stencil     import StencilVector
+from psydac.linalg.block       import BlockVector,ProductSpace
 from psydac.fem.basic          import FemField
+from psydac.fem.splines        import SplineSpace
+from psydac.fem.tensor         import TensorFemSpace
+from psydac.fem.vector         import ProductFemSpace
+from psydac.feec.utilities     import Interpolation, interpolation_matrices
+from psydac.feec.derivatives   import Grad, Curl, Div
 from psydac.api.discretization import discretize
 
 #===========================================================================================

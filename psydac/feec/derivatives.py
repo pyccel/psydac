@@ -13,7 +13,6 @@ from psydac.fem.vector      import VectorFemField
 
 __all__ = (
     'd_matrix',
-    'identity',
     'DiffOperator',
     'Derivative_1D',
     'Gradient_2D',
