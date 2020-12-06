@@ -9,70 +9,7 @@ from psydac.core.bsplines import make_knots
 
 from mpi4py import MPI
 import numpy as np
-
-#==============================================================================
-## ----------------------
-## function to be derived
-## ----------------------
-#fun  = lambda xi1 : np.sin( xi1 )
-#Dfun = lambda xi1 : np.cos( xi1 )
-
-##-----------------
-## Create the grid:
-##-----------------
-## side lengths of logical cube
-#L = 2*np.pi 
-
-## spline degrees
-#p = 3   
-
-## periodic boundary conditions (use 'False' if clamped)
-#bc = False 
-
-## loop over different number of elements (convergence test)
-#Nel_cases = [16]
-
-## loop over different number of quadrature points per element
-#Nq_cases = [1, 2, 3, 4, 5, 6, 7, 8]
-
-#for Nel in Nel_cases:
-#    
-#    print('Nel=', Nel)
-#    
-#    # element boundaries
-#    el_b = np.linspace(0., L, Nel + 1) 
-
-#    # knot sequences
-#    T = bsp.make_knots(el_b, p, bc)
-
-#    H1 = TensorFemSpace(SplineSpace(p, knots=T, periodic=False, basis='B'))
-#    L2 = H1.reduce_degree(axes=[0], basis='M')
-
-#    # create an instance of the H1 projector class
-#    P0 = H1_Projector(H1)
-
-#    # Build gradient
-#    grad = Grad(H1, L2)
-
-#    for Nq in Nq_cases:
-
-#        # create an instance of the L2 projector class
-#        P1 = L2_Projector(L2, quads=[Nq])
-
-#        # compute coefficients
-#        coeffs_0 = P0(fun)
-#        coeffs_1 = P1(Dfun)
-
-#        # Compute discrete derivative
-#        Dfun_h = grad(coeffs_0)
-
-#        # Test commuting property
-#        print( 'Nq=', Nq, np.max( np.abs(coeffs_1.toarray()-Dfun_h.toarray()) ) )
-#        
-#    print('')
-
-#print(grad)
-#print(grad._matrix.tosparse())
+import pytest
 
 #==============================================================================
 # Analytical functions
@@ -100,41 +37,21 @@ cf3 = lambda xi1, xi2, xi3 : D1fun2(xi1, xi2, xi3) - D2fun1(xi1, xi2, xi3)
 difun = lambda xi1, xi2, xi3 : D1fun1(xi1, xi2, xi3)+ D2fun2(xi1, xi2, xi3) + D3fun3(xi1, xi2, xi3)
 
 #==============================================================================
-# Test parameters
-#==============================================================================
-
-# Side lengths of logical cube [0, L]^3
-L = [2*np.pi, 2*np.pi , 2*np.pi] 
-
-# Spline degrees
-p = [2, 3, 3]
-
-# Periodic boundary conditions (use 'False' if clamped)
-bc = [True, False, True]
-
-# FOR TESTING: loop over different number of elements (convergence test)
-Nel_cases = [10]
-
-# FOR TESTING: loop over different number of quadrature points per element
-Nq_cases = [1, 2, 3, 4, 5]
-
-# FOR TESTING: choose to test 'grad', 'curl', or 'div'
-diff = 'curl'
-
-#==============================================================================
 # Run test
 #==============================================================================
+@pytest.mark.parametrize('Nel', [4, 8])
+@pytest.mark.parametrize('Nq', [5])
+@pytest.mark.parametrize('p', [2,3])
+@pytest.mark.parametrize('bc', [True, False])
+def test_commuting_pro_1(Nel, Nq, p, bc):
 
-print('-' * 35)
-print('Testing commuting property for ' + diff)
-print('-' * 35)
+    Nel = [Nel]*3
+    Nq  = [Nq]*3
+    p   = [p]*3
+    bc  = [bc]*3
 
-for Nel in Nel_cases:
-    
-    print('Nel = {}'.format(Nel))
-    
-    # number of elements
-    Nel = [Nel, Nel, Nel]
+    # Side lengths of logical cube [0, L]^3
+    L = [2*np.pi, 2*np.pi , 2*np.pi]
 
     # element boundaries
     el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
@@ -144,64 +61,149 @@ for Nel in Nel_cases:
 
     Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
     H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
+
     spaces = [H1.reduce_degree(axes=[0], basis='M'),
               H1.reduce_degree(axes=[1], basis='M'),
               H1.reduce_degree(axes=[2], basis='M')]
 
     Hcurl  = ProductFemSpace(*spaces)
-    
-    spaces = [H1.reduce_degree(axes=[1,2], basis='M'),
-              H1.reduce_degree(axes=[0,2], basis='M'),
-              H1.reduce_degree(axes=[0,1], basis='M')]
-
-    Hdiv  = ProductFemSpace(*spaces)
-    
-    L2  = H1.reduce_degree(axes=[0,1,2], basis='M')
 
     # create an instance of the H1 projector class
     P0 = Projector_H1(H1)
 
     # Build linear operators on stencil arrays
     grad = Gradient_3D(H1, Hcurl)
+
+    # create an instance of the projector class
+    P1 = Projector_Hcurl(Hcurl, Nq)
+    #-------------------------------------
+    # Projections and discrete derivatives
+    #-------------------------------------
+
+    u0        = P0(fun1)
+    u1        = P1((D1fun1, D2fun1, D3fun1))
+    Dfun_h    = grad(u0)
+    Dfun_proj = u1
+
+    error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
+    assert abs(error)<1e-9
+
+#==============================================================================
+@pytest.mark.parametrize('Nel', [4, 8])
+@pytest.mark.parametrize('Nq', [8])
+@pytest.mark.parametrize('p', [2,3])
+@pytest.mark.parametrize('bc', [True, False])
+def test_commuting_pro_2(Nel, Nq, p, bc):
+
+    Nel = [Nel]*3
+    Nq  = [Nq]*3
+    p   = [p]*3
+    bc  = [bc]*3
+
+    # Side lengths of logical cube [0, L]^3
+    L = [2*np.pi, 2*np.pi , 2*np.pi]
+
+    # element boundaries
+    el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
+
+    # knot sequences
+    knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
+
+    Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
+    H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
+
+    spaces = [H1.reduce_degree(axes=[0], basis='M'),
+              H1.reduce_degree(axes=[1], basis='M'),
+              H1.reduce_degree(axes=[2], basis='M')]
+
+    Hcurl  = ProductFemSpace(*spaces)
+
+    spaces = [H1.reduce_degree(axes=[1,2], basis='M'),
+              H1.reduce_degree(axes=[0,2], basis='M'),
+              H1.reduce_degree(axes=[0,1], basis='M')]
+
+    Hdiv  = ProductFemSpace(*spaces)
+
+    # Build linear operators on stencil arrays
     curl = Curl_3D(Hcurl, Hdiv)
+
+    # create an instance of the projector class
+    P1 = Projector_Hcurl(Hcurl, Nq)
+    P2 = Projector_Hdiv(Hdiv, Nq)
+
+    #-------------------------------------
+    # Projections and discrete derivatives
+    #-------------------------------------
+    u1        = P1((fun1, fun2, fun3))
+    u2        = P2((cf1, cf2, cf3))
+    Dfun_h    = curl(u1)
+    Dfun_proj = u2
+
+    error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
+    assert abs(error)<1e-9
+
+#==============================================================================
+@pytest.mark.parametrize('Nel', [4, 8])
+@pytest.mark.parametrize('Nq', [8])
+@pytest.mark.parametrize('p', [2,3])
+@pytest.mark.parametrize('bc', [True, False])
+def test_commuting_pro_3(Nel, Nq, p, bc):
+
+    Nel = [Nel]*3
+    Nq  = [Nq]*3
+    p   = [p]*3
+    bc  = [bc]*3
+
+    # Side lengths of logical cube [0, L]^3
+    L = [2*np.pi, 2*np.pi , 2*np.pi]
+
+    # element boundaries
+    el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
+
+    # knot sequences
+    knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
+
+    Vs     = [SplineSpace(pi, knots=Ti, periodic=periodic, basis='B') for pi, Ti, periodic in zip(p, knots, bc)]
+    H1     = TensorFemSpace(*Vs, comm=MPI.COMM_WORLD)
+
+    spaces = [H1.reduce_degree(axes=[1,2], basis='M'),
+              H1.reduce_degree(axes=[0,2], basis='M'),
+              H1.reduce_degree(axes=[0,1], basis='M')]
+
+    Hdiv  = ProductFemSpace(*spaces)
+
+    L2  = H1.reduce_degree(axes=[0,1,2], basis='M')
+
+    # create an instance of the H1 projector class
+
+    # Build linear operators on stencil arrays
     div  = Divergence_3D(Hdiv, L2)
 
-    for Nq in Nq_cases:
-        
-        # number of elements
-        Nq = [Nq, Nq, Nq]
+    # create an instance of the projector class
+    P2 = Projector_Hdiv(Hdiv, Nq)
+    P3 = Projector_L2(L2, Nq)
 
-        # create an instance of the projector class
-        P1 = Projector_Hcurl(Hcurl, Nq)
-        P2 = Projector_Hdiv(Hdiv, Nq)
-        P3 = Projector_L2(L2, Nq)
+    #-------------------------------------
+    # Projections and discrete derivatives
+    #-------------------------------------
 
-        #-------------------------------------
-        # Projections and discrete derivatives
-        #-------------------------------------
+    u2        = P2((fun1, fun2, fun3))
+    u3        = P3(difun)
+    Dfun_h    = div(u2)
+    Dfun_proj = u3
 
-        if diff == 'grad':
-            u0 = P0(fun1)
-            u1 = P1((D1fun1, D2fun1, D3fun1))
-            Dfun_h = grad(u0)
-            Dfun_proj = u1
+    error = (Dfun_proj.coeffs-Dfun_h.coeffs).toarray().max()
+    assert abs(error)<1e-9
 
-        elif diff == 'curl':
-            u1 = P1((fun1, fun2, fun3))
-            u2 = P2((cf1, cf2, cf3))
-            Dfun_h = curl(u1)
-            Dfun_proj = u2
+#==============================================================================
+if __name__ == '__main__':
 
-        elif diff == 'div':
-            u2 = P2((fun1, fun2, fun3))
-            u3 = P3(difun)
-            Dfun_h = div(u2)
-            Dfun_proj = u3
+    Nel = 8
+    Nq  = 8
+    p   = 3
+    bc  = True
 
-        else:
-            raise ValueError("Unrecognized option for 'diff': {}".format(diff))
+    test_commuting_pro_1(Nel, Nq, p, bc)
+    test_commuting_pro_2(Nel, Nq, p, bc)
+    test_commuting_pro_3(Nel, Nq, p, bc)
 
-        # Test commuting property
-        print( 'Nq = {};  Error = {:.3e}'.format(Nq, abs((Dfun_proj.coeffs-Dfun_h.coeffs).toarray()).max()) )
-        
-    print('')
