@@ -5,12 +5,12 @@ from sympy import Mul, Matrix
 from sympy import Add
 from sympy import Abs
 from sympy import Symbol, Idx
-from sympy import Max
+from sympy import Max, Range
 from sympy import Basic, Function
 from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
 
-from pyccel.ast.builtins  import Range
+
 from pyccel.ast.utilities import build_types_decorator
 from pyccel.ast.core      import Assign, Product, AugAssign, For
 from pyccel.ast.core      import Variable, IndexedVariable, IndexedElement

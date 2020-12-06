@@ -1,13 +1,13 @@
 # coding: utf-8
 
 from sympy import Mul, Tuple
-from sympy import Mod, Abs
+from sympy import Mod, Abs, Range
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
 from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
-from pyccel.ast.core import Range, Product
+from pyccel.ast.core import Product
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
 from pyccel.ast.core import Import

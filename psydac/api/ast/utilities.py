@@ -5,7 +5,7 @@ import numpy as np
 
 from sympy import Symbol, IndexedBase, Indexed, Idx
 from sympy import Add, Mul, Pow, Function, Matrix, Tuple
-from sympy import sqrt as sympy_sqrt
+from sympy import sqrt as sympy_sqrt, Range
 from sympy.utilities.iterables import cartes
 
 from sympde.topology.space       import ScalarTestFunction
@@ -30,7 +30,7 @@ from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
 from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
-from pyccel.ast.core import Range, Product
+from pyccel.ast.core import Product
 from pyccel.ast.core import _atomic
 from pyccel.ast.core import Comment
 

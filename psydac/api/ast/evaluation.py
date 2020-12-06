@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from sympy import symbols
+from sympy import symbols, Range
 from sympy import Tuple, Pow
 
 from sympde.topology             import Mapping
@@ -17,7 +17,6 @@ from pyccel.ast.core      import IndexedVariable
 from pyccel.ast.core      import For
 from pyccel.ast.core      import Assign
 from pyccel.ast.core      import Slice
-from pyccel.ast.core      import Range
 from pyccel.ast.core      import FunctionDef
 from pyccel.ast.utilities import build_types_decorator
 
