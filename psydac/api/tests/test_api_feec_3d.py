@@ -32,7 +32,7 @@ def splitting_integrator(e0, b0, M1, M2, CURL, dt, niter):
     M1_solver = sc.sparse.linalg.splu(M1)
     def M1CM2_dot(b):
         y1 = M2.dot(b)
-        y2 = CURL.T.dot(y1)
+        y2 = CURL_T.dot(y1)
         return M1_solver.solve(y2)
     
     e_history = [e0]
@@ -58,7 +58,7 @@ def evaluation_all_times(fields, x, y, z):
     return ak_value
 
 #==============================================================================
-def run_maxwell_3d(logical_domain, mapping, e0, b0, b_ex, ncells, degree, periodic, dt, niter):
+def run_maxwell_3d(logical_domain, mapping, e_ex, b_ex, ncells, degree, periodic, dt, niter):
 
     domain  = mapping(logical_domain)
     derham  = Derham(domain)
@@ -79,14 +79,12 @@ def run_maxwell_3d(logical_domain, mapping, e0, b0, b_ex, ncells, degree, period
     domain_h = discretize(domain, ncells=ncells, comm=MPI.COMM_WORLD)
     derham_h = discretize(derham, domain_h, degree=degree, periodic=periodic)
 
-    a0_h = discretize(a0, domain_h, (derham_h.V0, derham_h.V0))
-    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_NUMBA)
-    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=PSYDAC_BACKEND_NUMBA)
-    a3_h = discretize(a3, domain_h, (derham_h.V3, derham_h.V3))
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
+    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=PSYDAC_BACKEND_GPYCCEL)
 
     # StencilMatrix objects
     M1 = a1_h.assemble().tosparse().tocsc()
-    M2 = a2_h.assemble().tosparse().tocsc()
+    M2 = a2_h.assemble().tosparse().tocsr()
 
     # Diff operators
     GRAD, CURL, DIV = derham_h.derivatives_as_matrices
@@ -96,6 +94,19 @@ def run_maxwell_3d(logical_domain, mapping, e0, b0, b_ex, ncells, degree, period
 
     CURL     = CURL.tosparse().tocsr()
 
+    # initial conditions
+    e0_1 = lambda x, y, z: e_ex[0](0, x, y, z)
+    e0_2 = lambda x, y, z: e_ex[1](0, x, y, z)
+    e0_3 = lambda x, y, z: e_ex[2](0, x, y, z)
+
+    e0   = (e0_1, e0_2, e0_3)
+
+    b0_1 = lambda x, y, z : b_ex[0](0, x, y, z)
+    b0_2 = lambda x, y, z : b_ex[1](0, x, y, z)
+    b0_3 = lambda x, y, z : b_ex[2](0, x, y, z)
+
+    b0   = (b0_1, b0_2, b0_3)
+    
     # project initial conditions
     e0_log   = pull_1(e0, mapping)
     e0_coeff = P1(e0_log).coeffs
@@ -135,10 +146,13 @@ def run_maxwell_3d(logical_domain, mapping, e0, b0, b_ex, ncells, degree, period
     error = abs(b_values_0-b_ex_values_0).max()
     return error
 
-#==============================================================================
-#==============================================================================
-#==============================================================================
+###############################################################################
+#            SERIAL TESTS
+###############################################################################
 
+#==============================================================================
+# 3D Maxwell's equations with "Collela" map
+#==============================================================================
 def test_maxwell_3d_1():
     class CollelaMapping3D(Mapping):
 
@@ -152,38 +166,31 @@ def test_maxwell_3d_1():
     M               = CollelaMapping3D('M', k1=1, k2=1, k3=1, eps=0.1)
     logical_domain  = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))
 
-    # initial conditions
-    e0_1 = lambda x, y, z: 0
-    e0_2 = lambda x, y, z: -np.cos(-2*np.pi*z)
-    e0_3 = lambda x, y, z: 0
-
-    e0   = (e0_1, e0_2, e0_3)
-
-    b0_1 = lambda x, y, z : np.cos(-2*np.pi*z)
-    b0_2 = lambda x, y, z : 0
-    b0_3 = lambda x, y, z : 0
-
-    b0   = (b0_1, b0_2, b0_3)
-
     # exact solution
-    b_ex_0 = lambda t,x,y,z : np.cos(2*np.pi*t-2*np.pi*z)
-    b_ex_1 = lambda t,x,y,z : 0
-    b_ex_2 = lambda t,x,y,z : 0
+    e_ex_0 = lambda t, x, y, z: 0
+    e_ex_1 = lambda t, x, y, z: -np.cos(2*np.pi*t-2*np.pi*z)
+    e_ex_2 = lambda t, x, y, z: 0
+
+    e_ex   = (e_ex_0, e_ex_1, e_ex_2)
+
+    b_ex_0 = lambda t, x, y, z : np.cos(2*np.pi*t-2*np.pi*z)
+    b_ex_1 = lambda t, x, y, z : 0
+    b_ex_2 = lambda t, x, y, z : 0
 
     b_ex   = (b_ex_0, b_ex_1, b_ex_2)
 
     #space parameters
-    ncells   = [16, 8, 32]
+    ncells   = [2**4, 2**3, 2**5]
     degree   = [2, 2, 2]
     periodic = [True, True, True]
 
     #time parameters
-    T     = 3./50
+    dt    = 0.5*1/max(ncells)
     niter = 10
-    dt    = T/niter
+    T     = dt*niter
 
-    error = run_maxwell_3d(logical_domain, M, e0, b0, b_ex, ncells, degree, periodic, dt, niter)
-    assert abs(error - 0.009933708249063478) < 1e-9
+    error = run_maxwell_3d(logical_domain, M, e_ex, b_ex, ncells, degree, periodic, dt, niter)
+    assert abs(error - 0.04294761712765949) < 1e-9
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
