@@ -43,7 +43,7 @@ def test_SplineInterpolation1D_exact( ncells, degree ):
     err = np.array( [field( x ) - f( x ) for x in xt] )
 
     max_norm_err = np.max( abs( err ) )
-    assert max_norm_err < 5.0e-14
+    assert max_norm_err < 1.0e-13
 
 #===============================================================================
 def args_SplineInterpolation1D_cosine():

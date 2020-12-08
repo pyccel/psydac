@@ -144,6 +144,10 @@ class TensorFemSpace( FemSpace ):
         bases = []
         index = []
 
+        # Necessary if vector coeffs is distributed across processes
+        if not field.coeffs.ghost_regions_in_sync:
+            field.coeffs.update_ghost_regions()
+
         for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
 
             knots  = space.knots
