@@ -121,16 +121,16 @@ class KroneckerStencilMatrix_2D( Matrix ):
         raise NotImplementedError('TODO')
 
     # ...
-    def tocoo( self ):
+    def tosparse( self ):
         raise NotImplementedError('TODO')
 
     #...
     def tocsr( self ):
-        return self.tocoo().tocsr()
+        return self.tosparse().tocsr()
 
     #...
     def toarray( self ):
-        return self.tocoo().toarray()
+        return self.tosparse().toarray()
 
     #...
     def copy( self ):

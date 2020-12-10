@@ -202,6 +202,9 @@ class BlockVector( Vector ):
         return np.concatenate( [bi.toarray() for bi in self._blocks] )
 
     def topetsc( self ):
+        """ Convert to petsc Nest vector.
+        """
+
         blocks    = [v.topetsc() for v in self._blocks]
         cart      = self._space.spaces[0].cart
         petsccart = cart.topetsc()

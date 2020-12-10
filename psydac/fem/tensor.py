@@ -433,7 +433,7 @@ class TensorFemSpace( FemSpace ):
             out     = field.coeffs,
         )
 
-    def reduce_grid(self, axes=[], knots=[]):
+    def reduce_grid(self, axes=(), knots=()):
         """ 
         Create a new TensorFemSpace object with a coarser grid than the original one
         we do that by giving a new knot sequence in the desired dimension.

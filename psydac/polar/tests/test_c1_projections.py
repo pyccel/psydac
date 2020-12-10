@@ -1,14 +1,18 @@
-from mpi4py import MPI
+# coding: utf-8
+#!/usr/bin/env python
+
 import numpy as np
 import pytest
 
-from psydac.fem.splines                 import SplineSpace
-from psydac.fem.tensor                  import TensorFemSpace
+from mpi4py import MPI
 from sympde.topology.analytical_mapping import PolarMapping
+
+from psydac.polar.c1_projections        import C1Projector
 from psydac.mapping.discrete            import SplineMapping
 from psydac.linalg.stencil              import StencilVector, StencilMatrix
+from psydac.fem.splines                 import SplineSpace
+from psydac.fem.tensor                  import TensorFemSpace
 
-from psydac.polar.c1_projections import C1Projector
 
 #==============================================================================
 @pytest.mark.parametrize( 'degrees', [(2,2),(2,3),(3,2),(3,3)] )

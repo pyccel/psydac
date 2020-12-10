@@ -24,25 +24,6 @@ from psydac.utilities.utils import unroll_edges
 __all__ = ['SplineSpace']
 
 #===============================================================================
-def _periodic_intervals(domain, xgrid):
-
-    xA, xB = domain
-    assert all(xA <= xgrid)
-    assert all(xgrid <= xB)
-
-    if xgrid[0] == xA and xgrid[-1] == xB:
-        xleft  = xgrid[:-1]
-        xright = xgrid[1:]
-    elif xgrid[0] != xA:
-        xleft  = np.array([xgrid[-1] - (xB-xA), *xgrid[:-1]])
-        xright = xgrid
-    elif xgrid[-1] != xB:
-        xleft  = xgrid
-        xright = np.array([*xgrid[1:], xgrid[0] + (xB-xA)])
-
-    return xleft, xright
-
-#===============================================================================
 class SplineSpace( FemSpace ):
     """
     a 1D Splines Finite Element space

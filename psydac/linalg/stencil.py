@@ -334,11 +334,11 @@ class StencilVector( Vector ):
                 return self._toarray_parallel_no_pads()
 
         # In serial case, ignore 'with_pads' flag
-        index = tuple( slice(p,-p) for p in self.pads )
-        return self._data[index].flatten()
+        return self.toarray_local()
 
     # ...
     def toarray_local( self ):
+        """ return the local array without the padding"""
         idx = tuple( slice(p,-p) for p in self.pads )
         return self._data[idx].flatten()
 
@@ -408,6 +408,9 @@ class StencilVector( Vector ):
         return out.reshape(-1)
 
     def topetsc( self ):
+        """ Convert to petsc data structure.
+        """
+
         space = self.space
         assert space.parallel
         cart      = space.cart
@@ -1057,6 +1060,8 @@ class StencilMatrix( Matrix ):
 
     # ...
     def topetsc( self ):
+        """ Convert to petsc data structure.
+        """
 
         dspace = self.domain
         cspace = self.codomain

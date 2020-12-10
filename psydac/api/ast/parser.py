@@ -431,8 +431,7 @@ class Parser(object):
         imports = [Import('numpy', imports)]
 
         if self.backend['name'] == 'pyccel':
-            a = build_types_decorator(arguments)
-            a = [String(str(i)) for i in a]
+            a = [String(str(i)) for i in build_types_decorator(arguments)]
             decorators = {'types': Function('types')(*a)}
         elif self.backend['name'] == 'numba':
             decorators = {'jit': Symbol('jit')}
@@ -986,9 +985,9 @@ class Parser(object):
             axis    = target.axis
             ext     = target.ext if isinstance(target, Boundary) else 1
 
-            J       = LogicalExpr(Jacobian(mapping), mapping=mapping, dim=dim, subs=True)
-            J       = SymbolicExpr(J).inv()
-            values  = ext * J[axis, :]
+            J_inv   = LogicalExpr(mapping.jacobian_inv_expr, mapping=mapping, dim=dim, subs=True)
+            J_inv   = SymbolicExpr(J_inv)
+            values  = ext * J_inv[axis, :]
             normalization = values.dot(values)**0.5
             values  = [v for v in values]
             values  = [v1/normalization for v1 in values]

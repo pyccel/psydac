@@ -1,5 +1,32 @@
 # -*- coding: UTF-8 -*-
 
+from collections import OrderedDict
+from itertools   import groupby
+
+from sympy import Basic
+from sympy import Matrix, ImmutableDenseMatrix
+from sympy import symbols
+from sympy.core.containers import Tuple
+
+from sympde.expr                 import LinearForm
+from sympde.expr                 import BilinearForm
+from sympde.expr                 import Functional
+from sympde.topology.basic       import Boundary, Interface
+from sympde.topology             import H1SpaceType, HcurlSpaceType
+from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
+from sympde.topology             import ScalarField
+from sympde.topology             import VectorField, IndexedVectorField
+from sympde.topology.space       import ScalarTestFunction
+from sympde.topology.space       import VectorTestFunction
+from sympde.topology.space       import IndexedTestTrial
+from sympde.topology.derivatives import _partial_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives
+from sympde.topology.derivatives import get_max_logical_partial_derivatives
+from sympde.topology.mapping     import InterfaceMapping
+from sympde.calculus.core        import is_zero
+
+from pyccel.ast.core          import _atomic
+
 from .nodes import GlobalTensorQuadrature
 from .nodes import LocalTensorQuadrature
 from .nodes import LocalTensorQuadratureTestBasis
@@ -27,43 +54,12 @@ from .nodes import ComputeKernelExpr
 from .nodes import ElementOf, Reduce
 from .nodes import construct_logical_expressions
 from .nodes import Pads, Mask
-
-#==============================================================================
-from sympy import Basic
-from sympy import Matrix, ImmutableDenseMatrix
-from sympy import symbols
-from sympy.core.containers import Tuple
-
-from sympde.expr import LinearForm
-from sympde.expr import BilinearForm
-from sympde.expr import Functional
-
-
-from sympde.topology.basic       import Boundary, Interface
-from sympde.topology             import H1SpaceType, HcurlSpaceType
-from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology             import ScalarField
-from sympde.topology             import VectorField, IndexedVectorField
-from sympde.topology.space       import ScalarTestFunction
-from sympde.topology.space       import VectorTestFunction
-from sympde.topology.space       import IndexedTestTrial
-from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_max_logical_partial_derivatives
-from sympde.topology.mapping     import InterfaceMapping
-from sympde.calculus.core        import is_zero
-
-from pyccel.ast.core          import _atomic
-from psydac.api.ast.utilities import variables
-
 from .nodes import index_quad
 from .nodes import index_element
 from .nodes import index_dof_test
 from .nodes import index_dof_trial
 
-from collections import OrderedDict
-from itertools   import groupby
-
+from psydac.api.ast.utilities import variables
 
 #==============================================================================
 def convert(dtype):

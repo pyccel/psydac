@@ -25,7 +25,7 @@ import pytest
 import numpy as np
 import scipy as sc
 
-#==============================================================================
+#===============================================================================
 def splitting_integrator(e0, b0, M1, M2, CURL, dt, niter):
 
     CURL_T = CURL.T
@@ -57,7 +57,7 @@ def evaluation_all_times(fields, x, y, z):
         ak_value[i] = fields[i](x,y,z)
     return ak_value
 
-#==============================================================================
+#==================================================================================
 def run_maxwell_3d(logical_domain, mapping, e_ex, b_ex, ncells, degree, periodic, dt, niter):
 
     domain  = mapping(logical_domain)

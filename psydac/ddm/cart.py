@@ -224,6 +224,8 @@ class CartDecomposition():
 
     #---------------------------------------------------------------------------
     def topetsc( self ):
+        """ Convert the cart to a petsc cart.
+        """
         if self._petsccart is None:
             from psydac.ddm.petsc import PetscCart
             self._petsccart = PetscCart(self)

@@ -3,13 +3,14 @@
 
 import numpy as np
 from mpi4py import MPI
+from sympde.topology.analytical_mapping import IdentityMapping
+from sympde.topology.analytical_mapping import PolarMapping, TargetMapping, CzarnyMapping, CollelaMapping2D
+from sympde.topology.mapping            import Mapping
 
 from psydac.fem.splines                 import SplineSpace
 from psydac.fem.tensor                  import TensorFemSpace
 from psydac.mapping.discrete            import SplineMapping
-from sympde.topology.analytical_mapping import IdentityMapping
-from sympde.topology.analytical_mapping import PolarMapping, TargetMapping, CzarnyMapping, CollelaMapping2D
-from sympde.topology.mapping            import Mapping
+
 
 class Collela3D( Mapping ):
 

@@ -19,10 +19,10 @@ class PetscCart:
         self._cart  = cart
         self._petsc = PETSc
 
-        self._indices          = self.create_indices()
-        self._extended_indices = self.create_extended_indices()
-        self._ao               = self.create_Ao()
-        self._l2g_mapping      = self.create_LGMap()
+        self._indices          = self._create_indices()
+        self._extended_indices = self._create_extended_indices()
+        self._ao               = self._create_Ao()
+        self._l2g_mapping      = self._create_LGMap()
 
         # Compute local shape of local arrays in topology (without ghost regions)
         self._local_shape = tuple( e-s+1 for s,e in zip( cart._starts, cart._ends ) )
@@ -63,14 +63,18 @@ class PetscCart:
     def l2g_mapping( self ):
         return self._l2g_mapping
         
-    def create_indices( self ):
+    def _create_indices( self ):
+        """ Create the global indices without the ghost regions.
+        """
         cart    = self.cart
         indices = product(*cart._grids)
         npts    = cart.npts
         array   = [np.ravel_multi_index(i, npts) for i in indices]
         return array
 
-    def create_extended_indices( self ):
+    def _create_extended_indices( self ):
+        """ Create the global indices with the ghost regions.
+        """
         cart    = self.cart
         indices = product(*cart._extended_grids)
         npts    = cart.npts
@@ -78,18 +82,24 @@ class PetscCart:
         array   = [np.ravel_multi_index(i, npts, mode=mode) for i in indices]
         return array
 
-    def create_Ao( self ):
+    def _create_Ao( self ):
+        """ Create the mapping between the global ordering and the natural ordering.
+        """
         cart    = self.cart
         indices = self.indices
         return self.petsc.AO().createBasic(indices, comm=cart.comm)
 
-    def create_LGMap( self ):
+    def _create_LGMap( self ):
+        """ Create local to global mapping.
+        """
         cart    = self.cart
         indices = self.extended_indices
         ao      = self.ao
         return self.petsc.LGMap().create(ao.app2petsc(indices), comm=cart.comm)
 
     def create_g2n(self, gvec, natural):
+        """ This method creates a natural ordering vector from a global ordering vector.
+        """
         cart     = self.cart
         indices  = self.indices
         size     = self.local_size

@@ -283,9 +283,7 @@ class DiscreteEquation(BasicDiscrete):
 
 #==============================================================================
 class DiscreteDerham(BasicDiscrete):
-    """
-    Rerpresent the discrete De Rham sequence
-    
+    """ Represent the discrete De Rham sequence.
     """
     def __init__(self, *spaces):
 
