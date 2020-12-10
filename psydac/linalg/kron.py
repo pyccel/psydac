@@ -244,6 +244,14 @@ class KroneckerStencilMatrix( Matrix ):
     def copy(self):
         return KroneckerStencilMatrix(self.domain, self.codomain, *self.mats)
 
+    def transpose(self):
+        mats_tr = [Mi.transpose() for Mi in self.mats]
+        return KroneckerStencilMatrix(self.codomain, self.domain, *mats_tr)
+
+    @property
+    def T(self):
+        return self.transpose()
+
 #==============================================================================
 def kronecker_solve_2d_par( A1, A2, rhs, out=None ):
     """
