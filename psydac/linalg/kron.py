@@ -11,131 +11,131 @@ __all__ = ['KroneckerStencilMatrix',
            'kronecker_solve_3d_par',
            'kronecker_solve']
 
-#==============================================================================
-def kron_dot(starts, ends, pads, X, X_tmp, Y, A, B):
-    s1 = starts[0]
-    s2 = starts[1]
-    e1 = ends[0]
-    e2 = ends[1]
-    p1 = pads[0]
-    p2 = pads[1]
+##==============================================================================
+#def kron_dot(starts, ends, pads, X, X_tmp, Y, A, B):
+#    s1 = starts[0]
+#    s2 = starts[1]
+#    e1 = ends[0]
+#    e2 = ends[1]
+#    p1 = pads[0]
+#    p2 = pads[1]
 
-    for j1 in range(s1-p1, e1+p1+1):
-        for i2 in range(s2, e2+1):
-             
-             X_tmp[j1+p1-s1, i2-s2+p2] = sum(X[j1+p1-s1, i2-s2+k]*B[i2,k] for k in range(2*p2+1))
-    
-    for i1 in range(s1, e1+1):
-        for i2 in range(s2, e2+1):
-             Y[i1-s1+p1,i2-s2+p2] = sum(A[i1, k]*X_tmp[i1-s1+k, i2-s2+p2] for k in range(2*p1+1))
-    return Y
+#    for j1 in range(s1-p1, e1+p1+1):
+#        for i2 in range(s2, e2+1):
+#             
+#             X_tmp[j1+p1-s1, i2-s2+p2] = sum(X[j1+p1-s1, i2-s2+k]*B[i2,k] for k in range(2*p2+1))
+#    
+#    for i1 in range(s1, e1+1):
+#        for i2 in range(s2, e2+1):
+#             Y[i1-s1+p1,i2-s2+p2] = sum(A[i1, k]*X_tmp[i1-s1+k, i2-s2+p2] for k in range(2*p1+1))
+#    return Y
 
-#==============================================================================
-class KroneckerStencilMatrix_2D( Matrix ):
+##==============================================================================
+#class KroneckerStencilMatrix_2D( Matrix ):
 
-    def __init__( self, V, W, A1, A2 ):
+#    def __init__( self, V, W, A1, A2 ):
 
-        assert isinstance( V, StencilVectorSpace )
-        assert isinstance( W, StencilVectorSpace )
-        assert V is W
-        assert V.ndim == 2
+#        assert isinstance( V, StencilVectorSpace )
+#        assert isinstance( W, StencilVectorSpace )
+#        assert V is W
+#        assert V.ndim == 2
 
-        assert isinstance( A1, StencilMatrix )
-        assert A1.domain.ndim == 1
-        assert A1.domain.npts[0] == V.npts[0]
+#        assert isinstance( A1, StencilMatrix )
+#        assert A1.domain.ndim == 1
+#        assert A1.domain.npts[0] == V.npts[0]
 
-        assert isinstance( A2, StencilMatrix )
-        assert A2.domain.ndim == 1
-        assert A2.domain.npts[0] == V.npts[1]
+#        assert isinstance( A2, StencilMatrix )
+#        assert A2.domain.ndim == 1
+#        assert A2.domain.npts[0] == V.npts[1]
 
-        self._space = V
-        self._A1    = A1
-        self._A2    = A2
-        self._w     = StencilVector( V )
+#        self._space = V
+#        self._A1    = A1
+#        self._A2    = A2
+#        self._w     = StencilVector( V )
 
-    #--------------------------------------
-    # Abstract interface
-    #--------------------------------------
-    @property
-    def domain( self ):
-        return self._space
+#    #--------------------------------------
+#    # Abstract interface
+#    #--------------------------------------
+#    @property
+#    def domain( self ):
+#        return self._space
 
-    # ...
-    @property
-    def codomain( self ):
-        return self._space
+#    # ...
+#    @property
+#    def codomain( self ):
+#        return self._space
 
-    # ...
-    def dot( self, v, out=None ):
+#    # ...
+#    def dot( self, v, out=None ):
 
-        dot = np.dot
+#        dot = np.dot
 
-        assert isinstance( v, StencilVector )
-        assert v.space is self.domain
+#        assert isinstance( v, StencilVector )
+#        assert v.space is self.domain
 
-        if out is not None:
-            assert isinstance( out, StencilVector )
-            assert out.space is self.codomain
-        else:
-            out = StencilVector( self.codomain )
+#        if out is not None:
+#            assert isinstance( out, StencilVector )
+#            assert out.space is self.codomain
+#        else:
+#            out = StencilVector( self.codomain )
 
-        [s1, s2] = self._space.starts
-        [e1, e2] = self._space.ends
-        [p1, p2] = self._space.pads
+#        [s1, s2] = self._space.starts
+#        [e1, e2] = self._space.ends
+#        [p1, p2] = self._space.pads
 
-        A1 = self._A1
-        A2 = self._A2
-        w  = self._w
+#        A1 = self._A1
+#        A2 = self._A2
+#        w  = self._w
 
-        for j1 in range(s1-p1, e1+p1+1):
-            for i2 in range(s2, e2+1):
-                 w[j1,i2] = dot( v[j1,i2-p2:i2+p2+1], A2[i2,:])
+#        for j1 in range(s1-p1, e1+p1+1):
+#            for i2 in range(s2, e2+1):
+#                 w[j1,i2] = dot( v[j1,i2-p2:i2+p2+1], A2[i2,:])
 
-        for i1 in range(s1, e1+1):
-            for i2 in range(s2, e2+1):
-                 out[i1,i2] = dot( A1[i1,:], w[i1-p1:i1+p1+1,i2] )
+#        for i1 in range(s1, e1+1):
+#            for i2 in range(s2, e2+1):
+#                 out[i1,i2] = dot( A1[i1,:], w[i1-p1:i1+p1+1,i2] )
 
-        out.update_ghost_regions()
+#        out.update_ghost_regions()
 
-        return out
+#        return out
 
-    #--------------------------------------
-    # Other properties/methods
-    #--------------------------------------
-    @property
-    def starts( self ):
-        return self._space.starts
+#    #--------------------------------------
+#    # Other properties/methods
+#    #--------------------------------------
+#    @property
+#    def starts( self ):
+#        return self._space.starts
 
-    # ...
-    @property
-    def ends( self ):
-        return self._space.ends
+#    # ...
+#    @property
+#    def ends( self ):
+#        return self._space.ends
 
-    # ...
-    @property
-    def pads( self ):
-        return self._space.pads
+#    # ...
+#    @property
+#    def pads( self ):
+#        return self._space.pads
 
-    # ...
-    def __getitem__(self, key):
-        raise NotImplementedError('TODO')
+#    # ...
+#    def __getitem__(self, key):
+#        raise NotImplementedError('TODO')
 
-    # ...
-    def tosparse( self ):
-        raise NotImplementedError('TODO')
+#    # ...
+#    def tosparse( self ):
+#        raise NotImplementedError('TODO')
 
-    #...
-    def tocsr( self ):
-        return self.tosparse().tocsr()
+#    #...
+#    def tocsr( self ):
+#        return self.tosparse().tocsr()
 
-    #...
-    def toarray( self ):
-        return self.tosparse().toarray()
+#    #...
+#    def toarray( self ):
+#        return self.tosparse().toarray()
 
-    #...
-    def copy( self ):
-        M = KroneckerStencilMatrix_2D( self.domain, self.codomain, self._A1, self._A2 )
-        return M
+#    #...
+#    def copy( self ):
+#        M = KroneckerStencilMatrix_2D( self.domain, self.codomain, self._A1, self._A2 )
+#        return M
 
 #==============================================================================
 class KroneckerStencilMatrix( Matrix ):
