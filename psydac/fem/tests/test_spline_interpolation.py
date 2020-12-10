@@ -171,8 +171,8 @@ def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
         mpi_comm.Barrier()
 
     # Verify that error is only caused by finite precision arithmetic
-    assert interp_error < 1.0e-14
-    assert     l2_error < 1.0e-14
+    assert interp_error < 1.0e-13
+    assert     l2_error < 1.0e-13
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
