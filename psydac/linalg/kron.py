@@ -6,7 +6,7 @@ from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatr
 from scipy.sparse          import kron
 
 __all__ = ['KroneckerStencilMatrix',
-           'KroneckerStencilMatrix_2D',
+#           'KroneckerStencilMatrix_2D',
            'kronecker_solve_2d_par',
            'kronecker_solve_3d_par',
            'kronecker_solve']
