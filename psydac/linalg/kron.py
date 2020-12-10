@@ -1,9 +1,11 @@
 #coding = utf-8
+from functools import reduce
+
 import numpy as np
+from scipy.sparse import kron
 
 from psydac.linalg.basic   import LinearOperator, LinearSolver, Matrix
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from scipy.sparse          import kron
 
 __all__ = ['KroneckerStencilMatrix',
 #           'KroneckerStencilMatrix_2D',
@@ -139,6 +141,8 @@ __all__ = ['KroneckerStencilMatrix',
 
 #==============================================================================
 class KroneckerStencilMatrix( Matrix ):
+    """ Kronecker product of 1D stencil matrices.
+    """
 
     def __init__( self,V, W, *args ):
 
@@ -223,7 +227,6 @@ class KroneckerStencilMatrix( Matrix ):
     # Other properties/methods
     #--------------------------------------
 
-    # ...
     def __getitem__(self, key):
         pads = self._codomain.pads
         rows = key[:self.ndim]
@@ -231,25 +234,15 @@ class KroneckerStencilMatrix( Matrix ):
         mats = self.mats
         elements = [A[i,j] for A,i,j in zip(mats, rows, cols)]
         return np.product(elements)
-    # ...
-    def tosparse( self ):
 
-        mat = self.mats[0].tosparse()
-        for i in range(len(self.mats)-1):
-            mat = kron(mat, self.mats[i+1].tosparse())
-        return mat
+    def tosparse(self):
+        return reduce(kron, (m.tosparse() for m in self.mats))
 
-    #...
-    def tocsr( self ):
-        return self.tosparse().tocsr()
-
-    #...
-    def toarray( self ):
+    def toarray(self):
         return self.tosparse().toarray()
-    #...
-    def copy( self ):
-        M = KroneckerStencilMatrix( self.domain, self.codomain, *self.mats )
-        return M
+
+    def copy(self):
+        return KroneckerStencilMatrix(self.domain, self.codomain, *self.mats)
 
 #==============================================================================
 def kronecker_solve_2d_par( A1, A2, rhs, out=None ):
