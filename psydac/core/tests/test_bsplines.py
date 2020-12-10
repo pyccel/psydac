@@ -115,7 +115,7 @@ def test_basis_funs_all_ders( lims, nc, p, tol=1e-14 ):
 @pytest.mark.parametrize( 'periodic' , (True, False) )
 
 # TODO: improve checks
-def test_collocation_matrix(lims, nc, p, periodic, tol=1e-14):
+def test_collocation_matrix(lims, nc, p, periodic, tol=1e-13):
 
     breaks = random_grid(domain=lims, ncells=nc, random_fraction=0.3)
     knots  = make_knots(breaks, p, periodic)

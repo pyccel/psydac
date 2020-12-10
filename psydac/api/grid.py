@@ -101,27 +101,35 @@ class BoundaryQuadratureGrid(QuadratureGrid):
 
 #==============================================================================
 class BasisValues():
+    """ Compute the basis values and the spans.
+
+    Parameters
+    ----------
+    V : FemSpace
+       the space that contains the basis values and the spans.
+
+    grid : QuadratureGrid
+        the quadrature grid of the of the discretized domain.
+
+    nderiv : int
+        the maximum number of derivatives needed for the basis values.
+
+    trial : bool, optional
+        the trial parameter indicates if the FemSpace represents the trial space or the test space.
+
+    ext : int, optional
+        needed for the basis values on the boundary to indicate the boundary over an axis.
+
+    Attributes
+    ----------
+    basis : list
+        The basis values.
+    spans : list
+        The spans of the basis functions.
+
+    """
     def __init__( self, V, grid, nderiv , trial=False, ext=None):
-        """ Compute the basis values and the spans.
 
-        Parameters
-        ----------
-        V : FemSpace
-           the space that contains the basis values and the spans.
-
-        grid : QuadratureGrid
-            the quadrature grid of the of the discretized domain.
-
-        nderiv : int
-            the maximum number of derivatives needed for the basis values.
-
-        trial : bool, optional
-            the trial parameter indicates if the FemSpace represents the trial space or the test space.
-
-        ext : int, optional
-            needed for the basis values on the boundary to indicate the boundary over an axis.
-
-        """
         assert( isinstance( grid, QuadratureGrid ) )
 
         if isinstance(V, ProductFemSpace):

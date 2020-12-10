@@ -14,7 +14,7 @@ class PetscCart:
         try:
             from petsc4py import PETSc
         except ImportError:
-            raise 
+            raise ImportError('petsc4py needs to be installed in order to use the class PetscCart')
 
         self._cart  = cart
         self._petsc = PETSc
