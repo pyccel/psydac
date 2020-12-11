@@ -79,6 +79,8 @@ class Projector_Hcurl:
 
         self.space  = Hcurl
         self.rhs    = BlockVector(Hcurl.vector_space)
+        self.dim    = dim
+        self.mats   = [None]*dim
 
         for V in Hcurl.spaces:
             V.init_interpolation()
@@ -91,9 +93,9 @@ class Projector_Hcurl:
             Ds = [Hcurl.spaces[0].spaces[0], Hcurl.spaces[1].spaces[1], Hcurl.spaces[2].spaces[2]]
 
             # Package 1D interpolators and 1D histopolators for 3D Kronecker solver
-            self.DNN = [Ds[0]._histopolator, Ns[1]._interpolator, Ns[2]._interpolator]
-            self.NDN = [Ns[0]._interpolator, Ds[1]._histopolator, Ns[2]._interpolator]
-            self.NND = [Ns[0]._interpolator, Ns[1]._interpolator, Ds[2]._histopolator]
+            self.mats[0] = [Ds[0]._histopolator, Ns[1]._interpolator, Ns[2]._interpolator]
+            self.mats[1] = [Ns[0]._interpolator, Ds[1]._histopolator, Ns[2]._interpolator]
+            self.mats[2] = [Ns[0]._interpolator, Ns[1]._interpolator, Ds[2]._histopolator]
 
             # Interpolation points
             intp_x = [V.greville for V in Ns]
@@ -112,8 +114,33 @@ class Projector_Hcurl:
             self.Ns = Ns
             self.Ds = Ds
 
+        elif dim == 2:
+            # 1D spline spaces (B-splines of degree p and M-splines of degree p-1)
+            Ns = [Hcurl.spaces[1].spaces[0], Hcurl.spaces[0].spaces[1]]
+            Ds = [Hcurl.spaces[0].spaces[0], Hcurl.spaces[1].spaces[1]]
+
+            # Package 1D interpolators and 1D histopolators for 2D Kronecker solver
+            self.mats[0] = [Ds[0]._histopolator, Ns[1]._interpolator]
+            self.mats[1] = [Ns[0]._interpolator, Ds[1]._histopolator]
+
+            # Interpolation points
+            intp_x = [V.greville for V in Ns]
+
+            # Quadrature points and weights
+            quads = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(Ds, uw)]
+            quad_x, quad_w = list(zip(*quads))
+
+            # Arrays of degrees of freedom (to be computed) as slices of RHS vector
+            slices = tuple(slice(p, -p) for p in Hcurl.spaces[0].vector_space.pads)
+            dofs   = [x._data[slices] for x in self.rhs]
+
+            # Store data in object
+            self.args = (*intp_x, *quad_x, *quad_w, *dofs)
+            self.func = evaluate_dof_1form_2d
+            self.Ns = Ns
+            self.Ds = Ds
         else:
-            raise NotImplementedError('only 3d is available')
+            raise NotImplementedError('only 3d and 2d are available')
 
     # ======================================
     def __call__(self, fun):
@@ -124,9 +151,8 @@ class Projector_Hcurl:
         self.rhs.update_ghost_regions()
 
         coeffs    = BlockVector(self.space.vector_space)
-        coeffs[0] = kronecker_solve(solvers = self.DNN, rhs = self.rhs[0])
-        coeffs[1] = kronecker_solve(solvers = self.NDN, rhs = self.rhs[1])
-        coeffs[2] = kronecker_solve(solvers = self.NND, rhs = self.rhs[2])
+        for i in range(self.dim):
+            coeffs[i] = kronecker_solve(solvers = self.mats[i], rhs = self.rhs[i])
 
         coeffs.update_ghost_regions()
         return VectorFemField(self.space, coeffs=coeffs)
@@ -145,6 +171,8 @@ class Projector_Hdiv:
 
         self.space  = Hdiv
         self.rhs    = BlockVector(Hdiv.vector_space)
+        self.dim    = dim
+        self.mats   = [None]*dim
 
 
         for V in Hdiv.spaces:
@@ -158,9 +186,9 @@ class Projector_Hdiv:
             Ds = [Hdiv.spaces[1].spaces[0], Hdiv.spaces[0].spaces[1], Hdiv.spaces[0].spaces[2]]
 
             # Package 1D interpolators and 1D histopolators for 3D Kronecker solver
-            self.NDD = [Ns[0]._interpolator, Ds[1]._histopolator, Ds[2]._histopolator]
-            self.DND = [Ds[0]._histopolator, Ns[1]._interpolator, Ds[2]._histopolator]
-            self.DDN = [Ds[0]._histopolator, Ds[1]._histopolator, Ns[2]._interpolator]
+            self.mats[0] = [Ns[0]._interpolator, Ds[1]._histopolator, Ds[2]._histopolator]
+            self.mats[1] = [Ds[0]._histopolator, Ns[1]._interpolator, Ds[2]._histopolator]
+            self.mats[2] = [Ds[0]._histopolator, Ds[1]._histopolator, Ns[2]._interpolator]
 
             # Interpolation points
             intp_x = [V.greville for V in Ns]
@@ -179,6 +207,31 @@ class Projector_Hdiv:
             self.Ns = Ns
             self.Ds = Ds
 
+        elif dim == 2:
+            # 1D spline spaces (B-splines of degree p and M-splines of degree p-1)
+            Ns = [Hdiv.spaces[0].spaces[0], Hdiv.spaces[1].spaces[1]]
+            Ds = [Hdiv.spaces[1].spaces[0], Hdiv.spaces[0].spaces[1]]
+
+            # Package 1D interpolators and 1D histopolators for 2D Kronecker solver
+            self.mats[0] = [Ns[0]._interpolator, Ds[1]._histopolator]
+            self.mats[1] = [Ds[0]._histopolator, Ns[1]._interpolator]
+
+            # Interpolation points
+            intp_x = [V.greville for V in Ns]
+
+            # Quadrature points and weights
+            quads  = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(Ds, uw)]
+            quad_x, quad_w = list(zip(*quads))
+
+            # Arrays of degrees of freedom (to be computed) as slices of RHS vector
+            slices = tuple(slice(p,-p) for p in Hdiv.spaces[0].vector_space.pads)
+            dofs   = [x._data[slices] for x in self.rhs]
+
+            # Store data in object
+            self.args = (*intp_x, *quad_x, *quad_w, *dofs)
+            self.func = evaluate_dof_2form_2d
+            self.Ns = Ns
+            self.Ds = Ds
         else:
             raise NotImplementedError('only 3d is available')
 
@@ -191,9 +244,9 @@ class Projector_Hdiv:
         self.rhs.update_ghost_regions()
 
         coeffs    = BlockVector(self.space.vector_space)
-        coeffs[0] = kronecker_solve(solvers = self.NDD, rhs = self.rhs[0])
-        coeffs[1] = kronecker_solve(solvers = self.DND, rhs = self.rhs[1])
-        coeffs[2] = kronecker_solve(solvers = self.DDN, rhs = self.rhs[2])
+
+        for i in range(self.dim):
+            coeffs[i] = kronecker_solve(solvers = self.mats[i], rhs = self.rhs[i])
 
         coeffs.update_ghost_regions()
         return VectorFemField(self.space, coeffs=coeffs)
@@ -259,6 +312,7 @@ class Projector_L2:
 
         return FemField(self.space, coeffs=coeffs)
 
+#==============================================================================
 def evaluate_dof_0form_1d(n1, points_1, F, f):
     for i1 in range(n1):
         F[i1] = f(points_1[i1])
@@ -273,20 +327,31 @@ def evaluate_dof_0form_3d(n1, n2, n3, points_1, points_2, points_3, F, f):
         for i2 in range(n2):
             for i3 in range(n3):
                 F[i1, i2, i3] = f(points_1[i1], points_2[i2], points_3[i3])
-
-def evaluate_dof_1form_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoints_2, points_1, points_2, F1, F2, f1, f2):
-
-    for i2 in range(n1[1]):
-        for i1 in range(n1[0]):
-            for g1 in range(k1):
-                F1[i1, i2] += weights_1[g1, i1]*f1(ipoints_1[g1, i1], points_2[i2])
-                
-    for i1 in range(n2[0]):
-        for i2 in range(n2[1]):
-            for g2 in range(k2):
-                F2[i1, i2] += weights_2[g2, i2]*f2(points_1[i1], ipoints_2[g2, i2])
-
+               
 #==============================================================================
+def evaluate_dof_1form_2d(
+        intp_x1, intp_x2, # interpolation points
+        quad_x1, quad_x2, # quadrature points
+        quad_w1, quad_w2, # quadrature weights
+        F1, F2,           # arrays of degrees of freedom (intent out)
+        f1, f2            # input scalar functions (callable)
+        ):
+
+    k1 = quad_x1.shape[1]
+    k2 = quad_x2.shape[1]
+
+    n1, n2 = F1.shape
+    for i2 in range(n1):
+        for i1 in range(n2):
+            for g1 in range(k1):
+                F1[i1, i2] += quad_w1[i1, g1]*f1(quad_x1[i1, g1], intp_x2[i2])
+
+    n1, n2 = F2.shape               
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for g2 in range(k2):
+                F2[i1, i2] += quad_w2[i2, g2]*f2(intp_x1[i1], quad_x2[i2, g2])
+
 def evaluate_dof_1form_3d(
         intp_x1, intp_x2, intp_x3, # interpolation points
         quad_x1, quad_x2, quad_x3, # quadrature points
@@ -325,18 +390,31 @@ def evaluate_dof_1form_3d(
                     F3[i1, i2, i3] += quad_w3[i3, g3] * f3(intp_x1[i1], intp_x2[i2], quad_x3[i3, g3])
 
 #==============================================================================
-def evaluate_dof_2form_2d(n1, n2, k1, k2, weights_1, weights_2, ipoints_1, ipoints_2, points_1, points_2, F1, F2, f1, f2):
-    for i1 in range(n1[0]):
-        for i2 in range(n1[1]):
-            for g2 in range(k2):
-                F1[i1, i2] += weights_2[i2, g2]*f1(points_1[i1],ipoints_2[i2, g2])
+def evaluate_dof_2form_2d(     
+        intp_x1, intp_x2, # interpolation points
+        quad_x1, quad_x2, # quadrature points
+        quad_w1, quad_w2, # quadrature weights
+        F1, F2,           # arrays of degrees of freedom (intent out)
+        f1, f2            # input scalar functions (callable)
+        ):  
 
-    for i2 in range(n2[1]):
-        for i1 in range(n2[0]):          
+    k1 = quad_x1.shape[1]
+    k2 = quad_x2.shape[1]
+
+    n1, n2 = F1.shape
+    
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for g2 in range(k2):
+                F1[i1, i2] += quad_w2[i2, g2]*f1(intp_x1[i1],quad_x2[i2, g2])
+
+    n1, n2 = F2.shape
+    for i2 in range(n1):
+        for i1 in range(n2):          
             for g1 in range(k1):
-                F2[i1, i2] += weights_1[g1, i1]*f2(ipoints_1[g1,i1],points_2[i2])
+                F2[i1, i2] += quad_w1[i1, g1]*f2(quad_x1[i1, g1],intp_x2[i2])
                 
-#==============================================================================
+
 def evaluate_dof_2form_3d(
         intp_x1, intp_x2, intp_x3, # interpolation points
         quad_x1, quad_x2, quad_x3, # quadrature points
