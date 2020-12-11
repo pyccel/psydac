@@ -425,3 +425,11 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             raise TypeError( msg )
 
         BlockLinearOperator.__setitem__( self, key, value )
+
+    def transpose(self):
+        blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
+        return BlockMatrix(self.codomain, self.domain, blocks=blocks)
+
+    @property
+    def T(self):
+        return self.transpose()
