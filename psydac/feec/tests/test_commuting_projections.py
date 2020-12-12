@@ -211,7 +211,6 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc):
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
-@xfail
 def test_2d_commuting_pro_1(Nel, Nq, p, bc):
 
     fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
@@ -227,7 +226,7 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc):
     L = [2*np.pi, 2*np.pi]
 
     # element boundaries
-    el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
+    el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
 
     # knot sequences
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
@@ -264,7 +263,6 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc):
 @pytest.mark.parametrize('Nq', [5])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
-@xfail
 def test_2d_commuting_pro_2(Nel, Nq, p, bc):
 
     fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
@@ -280,7 +278,7 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
     L = [2*np.pi, 2*np.pi]
 
     # element boundaries
-    el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
+    el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
 
     # knot sequences
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
@@ -300,7 +298,7 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
     curl = VectorCurl_2D(H1, Hdiv)
 
     # create an instance of the projector class
-    P1 = Projector_Hcurl(Hcurl, Nq)
+    P1 = Projector_Hdiv(Hdiv, Nq)
     #-------------------------------------
     # Projections and discrete derivatives
     #-------------------------------------
@@ -317,16 +315,15 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
-@xfail
 def test_2d_commuting_pro_3(Nel, Nq, p, bc):
 
-    fun1    = lambda xi1, xi2, xi3 : np.sin(xi1)*np.sin(xi2)
-    D1fun1  = lambda xi1, xi2, xi3 : np.cos(xi1)*np.sin(xi2)
+    fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
+    D1fun1  = lambda xi1, xi2 : np.cos(xi1)*np.sin(xi2)
 
-    fun2    = lambda xi1, xi2, xi3 :   np.sin(2*xi1)*np.sin(2*xi2)
-    D2fun2  = lambda xi1, xi2, xi3 : 2*np.sin(2*xi1)*np.cos(2*xi2)
+    fun2    = lambda xi1, xi2 :   np.sin(2*xi1)*np.sin(2*xi2)
+    D2fun2  = lambda xi1, xi2 : 2*np.sin(2*xi1)*np.cos(2*xi2)
 
-    difun = lambda xi1, xi2, xi3 : D1fun1(xi1, xi2, xi3)+ D2fun2(xi1, xi2, xi3)
+    difun = lambda xi1, xi2 : D1fun1(xi1, xi2)+ D2fun2(xi1, xi2)
 
     Nel = [Nel]*2
     Nq  = [Nq]*2
@@ -337,7 +334,7 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc):
     L = [2*np.pi, 2*np.pi]
 
     # element boundaries
-    el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
+    el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
 
     # knot sequences
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
@@ -377,16 +374,15 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc):
 @pytest.mark.parametrize('Nq', [8])
 @pytest.mark.parametrize('p', [2,3])
 @pytest.mark.parametrize('bc', [True, False])
-@xfail
 def test_2d_commuting_pro_4(Nel, Nq, p, bc):
 
     fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
-    D1fun1  = lambda xi1, xi2 : np.cos(xi1)*np.sin(xi2)
+    D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
 
     fun2    = lambda xi1, xi2 :   np.sin(2*xi1)*np.sin(2*xi2)
-    D2fun2  = lambda xi1, xi2 : 2*np.sin(2*xi1)*np.cos(2*xi2)
+    D1fun2  = lambda xi1, xi2 : 2*np.cos(2*xi1)*np.sin(2*xi2)
 
-    difun = lambda xi1, xi2 : D1fun1(xi1, xi2) + D2fun2(xi1, xi2)
+    difun = lambda xi1, xi2 : D1fun2(xi1, xi2) - D2fun1(xi1, xi2)
 
     Nel = [Nel]*2
     Nq  = [Nq]*2
@@ -397,7 +393,7 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc):
     L = [2*np.pi, 2*np.pi]
 
     # element boundaries
-    el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
+    el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
 
     # knot sequences
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]
@@ -418,15 +414,15 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc):
     curl  = ScalarCurl_2D(Hcurl, L2)
 
     # create an instance of the projector class
-    P2 = Projector_Hcurl(Hcurl, Nq)
-    P3 = Projector_L2(L2, Nq)
+    P1 = Projector_Hcurl(Hcurl, Nq)
+    P2 = Projector_L2(L2, Nq)
 
     #-------------------------------------
     # Projections and discrete derivatives
     #-------------------------------------
 
-    u2        = P2((fun1, fun2))
-    u3        = P3(difun)
+    u2        = P1((fun1, fun2))
+    u3        = P2(difun)
     Dfun_h    = curl(u2)
     Dfun_proj = u3
 
@@ -441,7 +437,7 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc):
 
     fun1    = lambda xi1 : np.sin(xi1)
     Dfun1   = lambda xi1 : np.cos(xi1)
-    
+
     Nel = [Nel]
     Nq  = [Nq]
     p   = [p]
@@ -451,7 +447,7 @@ def test_1d_commuting_pro_1(Nel, Nq, p, bc):
     L = [2*np.pi]
 
     # element boundaries
-    el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)] 
+    el_b = [np.linspace(0., L_i, Nel_i + 1) for L_i, Nel_i in zip(L, Nel)]
 
     # knot sequences
     knots = [make_knots(el_b_i, p_i, bc_i) for el_b_i, p_i, bc_i in zip(el_b, p, bc)]

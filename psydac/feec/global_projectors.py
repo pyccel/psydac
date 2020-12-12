@@ -327,7 +327,7 @@ def evaluate_dof_0form_3d(n1, n2, n3, points_1, points_2, points_3, F, f):
         for i2 in range(n2):
             for i3 in range(n3):
                 F[i1, i2, i3] = f(points_1[i1], points_2[i2], points_3[i3])
-               
+
 #==============================================================================
 def evaluate_dof_1form_2d(
         intp_x1, intp_x2, # interpolation points
@@ -341,12 +341,12 @@ def evaluate_dof_1form_2d(
     k2 = quad_x2.shape[1]
 
     n1, n2 = F1.shape
-    for i2 in range(n1):
-        for i1 in range(n2):
+    for i1 in range(n1):
+        for i2 in range(n2):
             for g1 in range(k1):
                 F1[i1, i2] += quad_w1[i1, g1]*f1(quad_x1[i1, g1], intp_x2[i2])
 
-    n1, n2 = F2.shape               
+    n1, n2 = F2.shape
     for i1 in range(n1):
         for i2 in range(n2):
             for g2 in range(k2):
@@ -390,27 +390,27 @@ def evaluate_dof_1form_3d(
                     F3[i1, i2, i3] += quad_w3[i3, g3] * f3(intp_x1[i1], intp_x2[i2], quad_x3[i3, g3])
 
 #==============================================================================
-def evaluate_dof_2form_2d(     
+def evaluate_dof_2form_2d(
         intp_x1, intp_x2, # interpolation points
         quad_x1, quad_x2, # quadrature points
         quad_w1, quad_w2, # quadrature weights
         F1, F2,           # arrays of degrees of freedom (intent out)
         f1, f2            # input scalar functions (callable)
-        ):  
+        ):
 
     k1 = quad_x1.shape[1]
     k2 = quad_x2.shape[1]
 
     n1, n2 = F1.shape
-    
+
     for i1 in range(n1):
         for i2 in range(n2):
             for g2 in range(k2):
                 F1[i1, i2] += quad_w2[i2, g2]*f1(intp_x1[i1],quad_x2[i2, g2])
 
     n1, n2 = F2.shape
-    for i2 in range(n1):
-        for i1 in range(n2):          
+    for i1 in range(n1):
+        for i2 in range(n2):
             for g1 in range(k1):
                 F2[i1, i2] += quad_w1[i1, g1]*f2(quad_x1[i1, g1],intp_x2[i2])
                 
