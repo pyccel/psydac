@@ -341,9 +341,9 @@ class DiscreteDerham(BasicDiscrete):
         if self.dim == 1:
             P0 = Projector_H1(self.V0)
             P1 = Projector_L2(self.V1, nquads)
-            if self.mappping:
-                P0_m = lambda f:P0(pull_1d_h1(f, self.mapping))
-                P1_m = lambda f:P1(pull_1d_l2(f, self.mapping))
+            if self.mapping:
+                P0_m = lambda f: P0(pull_1d_h1(f, self.mapping))
+                P1_m = lambda f: P1(pull_1d_l2(f, self.mapping))
                 return P0_m, P1_m
             return P0, P1
 
