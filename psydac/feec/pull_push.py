@@ -1,6 +1,7 @@
-from sympy import lambdify
+# coding: utf-8
+
 # =======================================================================
-def pull_v(funcs_ini, mapping):
+def pull_3d_v(funcs_ini, mapping):
 
     mapping  = mapping.get_callable_mapping()
     f1,f2,f3 = mapping._func_eval
@@ -24,7 +25,7 @@ def pull_v(funcs_ini, mapping):
     return fun
 
 #==============================================================================
-def pull_0(func_ini, mapping):
+def pull_3d_h1(func_ini, mapping):
 
     mapping  = mapping.get_callable_mapping()
     f1,f2,f3 = mapping._func_eval
@@ -40,7 +41,7 @@ def pull_0(func_ini, mapping):
     return fun
 
 #==============================================================================
-def pull_1(funcs_ini, mapping):
+def pull_3d_hcurl(funcs_ini, mapping):
 
     mapping  = mapping.get_callable_mapping()
     f1,f2,f3 = mapping._func_eval
@@ -91,7 +92,7 @@ def pull_1(funcs_ini, mapping):
     return fun1, fun2, fun3
 
 #==============================================================================
-def pull_2(funcs_ini, mapping):
+def pull_3d_hdiv(funcs_ini, mapping):
 
     mapping    = mapping.get_callable_mapping()
     f1,f2,f3   = mapping._func_eval
@@ -149,7 +150,7 @@ def pull_2(funcs_ini, mapping):
     return fun1, fun2, fun3
 
 #==============================================================================
-def pull_3(func_ini, mapping):
+def pull_3d_l2(func_ini, mapping):
 
     mapping    = mapping.get_callable_mapping()
     f1,f2,f3   = mapping._func_eval
@@ -167,8 +168,135 @@ def pull_3(func_ini, mapping):
     return fun
 
 #==============================================================================
+def pull_2d_h1(func_ini, mapping):
 
-def push_1(a1, a2, a3, xi1, xi2, xi3, mapping):
+    mapping = mapping.get_callable_mapping()
+    f1,f2   = mapping._func_eval
+
+    def fun(xi1, xi2):
+        x = f1(xi1, xi2)
+        y = f2(xi1, xi2)
+
+        value = func_ini(x, y)
+        return value
+
+    return fun
+
+#==============================================================================
+def pull_2d_hcurl(func_ini, mapping):
+
+    mapping  = mapping.get_callable_mapping()
+    f1,f2    = mapping._func_eval
+    jacobian = mapping._jacobian
+
+    def fun1(xi1, xi2):
+        x = f1(xi1, xi2)
+        y = f2(xi1, xi2)
+
+        a1_phys = funcs_ini[0](x, y)
+        a2_phys = funcs_ini[1](x, y)
+
+        J_T_value = jacobian(xi1, xi2).T
+        value_1 = J_T_value[0,0]*a1_phys + J_T_value[0,1]*a2_phys
+        return value_1
+
+    def fun2(xi1, xi2):
+        x = f1(xi1, xi2)
+        y = f2(xi1, xi2)
+
+        a1_phys = funcs_ini[0](x, y)
+        a2_phys = funcs_ini[1](x, y)
+
+        J_T_value = jacobian(xi1, xi2).T
+
+        value_2 = J_T_value[1,0]*a1_phys + J_T_value[1,1]*a2_phys
+
+        return value_2
+
+    return fun1, fun2
+#==============================================================================
+def pull_2d_hdiv(func_ini, mapping):
+
+    mapping    = mapping.get_callable_mapping()
+    f1,f2      = mapping._func_eval
+    J_inv      = mapping._jacobian_inv
+    metric_det = mapping._metric_det
+
+    def fun1(xi1, xi2):
+        x = f1(xi1, xi2)
+        y = f2(xi1, xi2)
+
+        a1_phys = funcs_ini[0](x, y)
+        a2_phys = funcs_ini[1](x, y)
+
+        J_inv_value = J_inv(xi1, xi2)
+        det_value   = metric_det(xi1, xi2)**0.5
+
+        value_1 = J_inv_value[0,0]*a1_phys + J_inv_value[0,1]*a2_phys
+
+        return det_value*value_1
+
+    def fun2(xi1, xi2):
+        x = f1(xi1, xi2)
+        y = f2(xi1, xi2)
+
+        a1_phys = funcs_ini[0](x, y)
+        a2_phys = funcs_ini[1](x, y)
+
+        J_inv_value = J_inv(xi1, xi2)
+        det_value   = metric_det(xi1, xi2)**0.5
+
+        value_2 = J_inv_value[1,0]*a1_phys + J_inv_value[1,1]*a2_phys
+
+        return det_value*value_2
+ 
+    return fun1, fun2
+#==============================================================================
+def pull_2d_l2(func_ini, mapping):
+
+    mapping    = mapping.get_callable_mapping()
+    f1,f2      = mapping._func_eval
+    metric_det = mapping._metric_det
+
+    def fun(xi1, xi2):
+        x = f1(xi1, xi2)
+        y = f2(xi1, xi2)
+
+        det_value = metric_det(xi1, xi2)**0.5
+        value     = func_ini(x, y)
+        return det_value*value
+
+    return fun
+#==============================================================================
+def pull_1d_h1(func_ini, mapping):
+
+    mapping = mapping.get_callable_mapping()
+    f1,     = mapping._func_eval
+
+    def fun(xi1):
+        x = f1(xi1)
+
+        value = func_ini(x)
+        return value
+
+    return fun
+#==============================================================================
+def pull_1d_l2(func_ini, mapping):
+
+    mapping    = mapping.get_callable_mapping()
+    f1,        = mapping._func_eval
+    metric_det = mapping._metric_det
+
+    def fun(xi1):
+        x = f1(xi1)
+
+        det_value = metric_det(xi1)**0.5
+        value     = func_ini(x)
+        return det_value*value
+
+    return fun
+#==============================================================================
+def push_3d_hcurl(a1, a2, a3, xi1, xi2, xi3, mapping):
 
     mapping    = mapping.get_callable_mapping()
     J_inv      = mapping._jacobian_inv
@@ -189,9 +317,8 @@ def push_1(a1, a2, a3, xi1, xi2, xi3, mapping):
 
     return value1, value2, value3
 
-
 #==============================================================================
-def push_2(a1, a2, a3, xi1, xi2, xi3, mapping):
+def push_3d_hdiv(a1, a2, a3, xi1, xi2, xi3, mapping):
 
     mapping    = mapping.get_callable_mapping()
     J          = mapping._jacobian
@@ -213,3 +340,65 @@ def push_2(a1, a2, a3, xi1, xi2, xi3, mapping):
                J_value[2,2]*a3(xi1, xi2, xi3) ) / det_value
 
     return value1, value2, value3
+#==============================================================================
+def push_3d_l2(func, xi1, xi2, xi3, mapping):
+
+    mapping    = mapping.get_callable_mapping()
+    metric_det = mapping._metric_det
+
+    det_value = metric_det(xi1, xi2, xi3)**0.5
+    value     = func(xi1, xi2, xi3)
+    return value/det_value
+#==============================================================================
+def push_2d_hcurl(a1, a2, xi1, xi2, mapping):
+
+    mapping    = mapping.get_callable_mapping()
+    J_inv      = mapping._jacobian_inv
+
+    J_inv_value = J_inv(xi1, xi2)
+
+    value1 = (J_inv_value[0,0]*a1(xi1, xi2) +
+              J_inv_value[1,0]*a2(xi1, xi2))
+
+    value2 = (J_inv_value[0,1]*a1(xi1, xi2) +
+              J_inv_value[1,1]*a2(xi1, xi2))
+
+    value3 = (J_inv_value[0,2]*a1(xi1, xi2) +
+              J_inv_value[1,2]*a2(xi1, xi2))
+
+    return value1, value2
+
+#==============================================================================
+def push_2d_hdiv(a1, a2, xi1, xi2, mapping):
+
+    mapping    = mapping.get_callable_mapping()
+    J          = mapping._jacobian
+    metric_det = mapping._metric_det
+
+    J_value    = J(xi1, xi2)
+    det_value  = metric_det(xi1, xi2)**0.5
+
+    value1 = ( J_value[0,0]*a1(xi1, xi2) +
+               J_value[0,1]*a2(xi1, xi2)) / det_value
+
+    value2 = ( J_value[1,0]*a1(xi1, xi2) +
+               J_value[1,1]*a2(xi1, xi2)) / det_value
+    return value1, value2
+#==============================================================================
+def push_2d_l2(func, xi1, xi2, mapping):
+
+    mapping    = mapping.get_callable_mapping()
+    metric_det = mapping._metric_det
+
+    det_value = metric_det(xi1, xi2)**0.5
+    value     = func(xi1, xi2)
+    return value/det_value
+#==============================================================================
+def push_1d_l2(func, xi1, mapping):
+
+    mapping    = mapping.get_callable_mapping()
+    metric_det = mapping._metric_det
+
+    det_value = metric_det(xi1)**0.5
+    value     = func(xi1)
+    return value/det_value

@@ -52,6 +52,8 @@ from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
 from psydac.feec.derivatives import Divergence_2D, Divergence_3D
 
+from psydac.feec.pull_push import *
+
 import inspect
 import sys
 import os
@@ -285,11 +287,12 @@ class DiscreteEquation(BasicDiscrete):
 class DiscreteDerham(BasicDiscrete):
     """ Represent the discrete De Rham sequence.
     """
-    def __init__(self, *spaces):
+    def __init__(self, mapping, *spaces):
 
-        dim          = len(spaces) - 1
-        self._dim    = dim
-        self._spaces = spaces
+        dim           = len(spaces) - 1
+        self._dim     = dim
+        self._spaces  = spaces
+        self._mapping = mapping
 
         if dim not in [1,2,3]:
             raise ValueError('dimension {} is not available'.format(dim))
@@ -319,6 +322,10 @@ class DiscreteDerham(BasicDiscrete):
         return self._spaces
 
     @property
+    def mapping(self):
+        return self._mapping
+
+    @property
     def derivatives_as_matrices(self):
         return tuple(V.diff.matrix for V in self.spaces[:-1])
 
@@ -334,16 +341,45 @@ class DiscreteDerham(BasicDiscrete):
         if self.dim == 1:
             P0 = Projector_H1(self.V0)
             P1 = Projector_L2(self.V1, nquads)
+            if self.mappping:
+                P0_m = lambda f:P0(pull_1d_h1(f, self.mapping))
+                P1_m = lambda f:P1(pull_1d_l2(f, self.mapping))
+                return P0_m, P1_m
             return P0, P1
 
         elif self.dim == 2:
-            raise NotImplementedError('TODO')
+            P0 = Projector_H1(self.V0)
+            P2 = Projector_L2(self.V2, nquads)
+
+            kind = self.V1.symbolic_space.kind
+            if isinstance(kind, HcurlSpaceType):
+                P1 = Projector_Hcurl(self.V1, nquads)
+            elif isinstance(kind, HdivSpaceType):
+                P1 = Projector_Hdiv(self.V1, nquads)
+            else:
+                raise TypeError('projector of space type {} is not available'.format(kind))
+
+            if self.mapping:
+                P0_m = lambda f:P0(pull_2d_h1(f, self.mapping))
+                P2_m = lambda f:P2(pull_2d_l2(f, self.mapping))
+                if isinstance(kind, HcurlSpaceType):
+                    P1_m = lambda f:P1(pull_2d_hcurl(f, self.mapping))
+                elif isinstance(kind, HdivSpaceType):
+                    P1_m = lambda f:P1(pull_2d_hdiv(f, self.mapping))
+                return P0_m, P1_m, P2_m
+            return P0, P1, P2
 
         elif self.dim == 3:
             P0 = Projector_H1(self.V0)
             P1 = Projector_Hcurl(self.V1, nquads)
             P2 = Projector_Hdiv(self.V2, nquads)
             P3 = Projector_L2(self.V3, nquads)
+            if self.mapping:
+                P0_m = lambda f:P0(pull_3d_h1(f, self.mapping))
+                P1_m = lambda f:P1(pull_3d_hcurl(f, self.mapping))
+                P2_m = lambda f:P2(pull_3d_hdiv(f, self.mapping))
+                P3_m = lambda f:P3(pull_3d_l2(f, self.mapping))
+                return P0_m, P1_m, P2_m, P3_m
             return P0, P1, P2, P3
 
 #==============================================================================           
@@ -351,6 +387,7 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
 
     ldim     = Complex.shape
     spaces   = Complex.spaces
+    mapping  = spaces[0].domain.mapping
     d_spaces = [None]*(ldim+1)
 
     if ldim == 1:
@@ -397,7 +434,7 @@ def discretize_derham(Complex, domain_h, *args, **kwargs):
         d_spaces[1].diff = d_spaces[1].curl = D1
         d_spaces[2].diff = d_spaces[2].div  = D2
 
-    return DiscreteDerham(*d_spaces)
+    return DiscreteDerham(mapping, *d_spaces)
 
 #==============================================================================
 # TODO multi patch

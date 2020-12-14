@@ -15,7 +15,7 @@ from sympde.expr     import find, EssentialBC
 from psydac.fem.basic          import FemField
 from psydac.fem.vector         import VectorFemField
 from psydac.api.discretization import discretize
-from psydac.feec.pull_push     import pull_1, pull_2, push_1, push_2
+from psydac.feec.pull_push     import push_3d_hcurl, push_3d_hdiv
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
 from psydac.linalg.utilities   import array_to_stencil
 
@@ -108,11 +108,9 @@ def run_maxwell_3d(logical_domain, mapping, e_ex, b_ex, ncells, degree, periodic
     b0   = (b0_1, b0_2, b0_3)
     
     # project initial conditions
-    e0_log   = pull_1(e0, mapping)
-    e0_coeff = P1(e0_log).coeffs
+    e0_coeff = P1(e0).coeffs
 
-    b0_log   = pull_2(b0, mapping)
-    b0_coeff = P2(b0_log).coeffs
+    b0_coeff = P2(b0).coeffs
 
     # time integrator
     e_history, b_history = splitting_integrator(e0_coeff.toarray(), b0_coeff.toarray(), M1, M2, CURL, dt, niter)
@@ -134,7 +132,7 @@ def run_maxwell_3d(logical_domain, mapping, e_ex, b_ex, ncells, degree, periodic
 
     b_values_0 = []
     for zi in z:
-        b_value_phys  = push_2(bx_value_fun, by_value_fun, bz_value_fun, x, y, zi, mapping)
+        b_value_phys  = push_3d_hdiv(bx_value_fun, by_value_fun, bz_value_fun, x, y, zi, mapping)
         b_values_0.append(b_value_phys[0])
     b_values_0  = np.array(b_values_0)
 
