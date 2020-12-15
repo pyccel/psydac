@@ -636,24 +636,23 @@ class StencilMatrix( Matrix ):
             out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
 
         for d,er in enumerate(nrows_extra):
-        
+
             ee = [0]*len(nrows_extra)
             kk = [slice(None)] *ndim
             rows = nrows.copy()
             del rows[d]
-            
-            
+
             for n in range(er):
                 ee[d] = n+1
                 for xx in np.ndindex(*rows):
                     ii = [*xx]
                     ii.insert(d, nrows[d]+n)
-        
+
                     ii    = tuple(i+p for i,p in zip(ii, pads))
                     jj    = tuple( slice(i, i+2*p+1-e) for i,p,e in zip(ii, pp, ee) )
 
                     kk[d] = slice(None,2*pp[d]-n)
-                    
+
                     ii_kk = tuple( list(ii) + kk )
 
                     v1 = x[jj]
@@ -728,6 +727,19 @@ class StencilMatrix( Matrix ):
     def __neg__(self):
         return self.__mul__(-1)
 
+    #...
+    def __sub__( self, a):
+        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w._data = a._data - self._data
+        w._sync = self._sync
+        return w
+
+    #...
+    def __abs__( self ):
+        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w._data = abs(self._data)
+        w._sync = self._sync
+        return w
 
     #...
     def remove_spurious_entries( self ):
@@ -809,12 +821,19 @@ class StencilMatrix( Matrix ):
         # Create new matrix where domain and codomain are swapped
         Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads)
 
-        # Number of rows in matrix (along each dimension)
-        nrows = [e - s + 1 for s, e in zip(M._codomain.starts, M._codomain.ends)]
-        nrows_extra = []
+        ssc = self.codomain.starts
+        eec = self.codomain.ends
+        ssd = self.domain.starts
+        eed = self.domain.ends
+        pp = self.pads
+
+        # Number of rows in the transposed matrix (along each dimension)
+        ee          = tuple(min(e1,e2) for e1,e2 in zip(eec, eed))
+        nrows       = [ec-s+1 for s,ec in zip(ssc, ee)]
+        nrows_extra = [0 if ed<=ec else ed-ec for ec,ed in zip(eec,eed)]
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
-        self._transpose(M._data, Mt._data, nrows, nrows_extra, M.pads)
+        self._transpose(M._data, Mt._data, nrows, nrows_extra, pp)
 
         return Mt
 
@@ -826,8 +845,12 @@ class StencilMatrix( Matrix ):
         #  . Array M  index by [i1, i2, ..., k1, k2, ...]
         #  . Array Mt index by [j1, j2, ..., l1, l2, ...]
 
-        pp = pads
+        #M[i,j-i+p]
+        #Mt[j,i-j+p]
+
+        pp     = pads
         ndiags = [2*p + 1 for p in pp]
+        ndim   = len(nrows)
 
         for xx in np.ndindex( *nrows ):
 
@@ -840,6 +863,28 @@ class StencilMatrix( Matrix ):
 
                 Mt[(*jj, *ll)] = M[(*ii, *kk)]
 
+        new_nrows = nrows.copy()
+        for d,er in enumerate(nrows_extra):
+            rows = new_nrows.copy()
+            del rows[d]
+
+            for n in range(er):
+                for xx in np.ndindex(*rows):
+
+                    xx = [*xx]
+                    xx.insert(d, nrows[d]+n)
+
+                    jj     = tuple(i+p for i,p in zip(xx, pads))
+                    ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
+                    ndiags = [2*p + 1-e for p,e in zip(pp,ee)]
+
+                    for ll in np.ndindex( *ndiags ):
+
+                        ii = tuple(  x + l for x, l in zip(xx, ll))
+                        kk = tuple(2*p - l for p, l in zip(pp, ll))
+                        Mt[(*jj, *ll)] = M[(*ii, *kk)]
+
+            new_nrows[d] += er
     #--------------------------------------
     # Private methods
     #--------------------------------------

@@ -305,7 +305,6 @@ class BlockLinearOperator( LinearOperator ):
         return tuple(
                tuple( self._blocks.get( (i,j), None ) for j in range( self.n_block_cols ) )
                                                       for i in range( self.n_block_rows ) )
-
     # ...
     @property
     def n_block_rows( self ):
@@ -315,6 +314,14 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def n_block_cols( self ):
         return self._domain.n_blocks
+
+    def update_ghost_regions( self ):
+        for Lij in self._blocks.values():
+            Lij.update_ghost_regions()
+
+    def remove_spurious_entries( self ):
+        for Lij in self._blocks.values():
+            Lij.remove_spurious_entries()
 
     def __getitem__( self, key ):
 
