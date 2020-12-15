@@ -268,7 +268,7 @@ class ScalarCurl_2D(DiffOperator):
 
         # 1D identity matrices for M-spline coefficients
         # NOTE: We keep the same padding of the parent space N
-        Jx, Jy = [IdentityMatrix(D.vector_space, p=D.vector_space.pads[0]+1) for D in D_basis]
+        Jx, Jy = [IdentityMatrix(D.vector_space) for D in D_basis]
 
         # Tensor-product spaces of coefficients - domain
         (M_B, B_M) = Hcurl.vector_space.spaces
@@ -392,7 +392,7 @@ class Curl_3D(DiffOperator):
 
         # 1D identity matrices for M-spline coefficients
         # NOTE: We keep the same padding of the parent space N
-        Jx, Jy, Jz = [IdentityMatrix(D.vector_space, p=D.vector_space.pads[0]+1) for D in D_basis]
+        Jx, Jy, Jz = [IdentityMatrix(D.vector_space) for D in D_basis]
 
         # Tensor-product spaces of coefficients - domain
         (M_B_B, B_M_B, B_B_M) = Hcurl.vector_space.spaces
@@ -460,7 +460,7 @@ class Divergence_2D(DiffOperator):
 
         # 1D identity matrices for M-spline coefficients
         # NOTE: We keep the same padding of the parent space N
-        Jx, Jy = [IdentityMatrix(D.vector_space, p=D.vector_space.pads[0]+1) for D in D_basis]
+        Jx, Jy = [IdentityMatrix(D.vector_space) for D in D_basis]
 
         # Tensor-product spaces of coefficients - domain
         (B_M, M_B) = Hdiv.vector_space.spaces
@@ -524,7 +524,7 @@ class Divergence_3D(DiffOperator):
 
         # 1D identity matrices for M-spline coefficients
         # NOTE: We keep the same padding of the parent space N
-        Jx, Jy, Jz = [IdentityMatrix(D.vector_space, p=D.vector_space.pads[0]+1) for D in D_basis]
+        Jx, Jy, Jz = [IdentityMatrix(D.vector_space) for D in D_basis]
 
         # Tensor-product spaces of coefficients - domain
         (B_M_M, M_B_M, M_M_B) = Hdiv.vector_space.spaces

@@ -54,7 +54,7 @@ class SplineSpace( FemSpace ):
 
     """
     def __init__( self, degree, knots=None, grid=None,
-                  periodic=False, dirichlet=(False, False), basis='B' ):
+                  periodic=False, dirichlet=(False, False), basis='B', pads=None ):
 
         if basis not in ['B', 'M']:
             raise ValueError(" only options for basis functions are B or M ")
@@ -90,6 +90,7 @@ class SplineSpace( FemSpace ):
 
         # Store attributes in object
         self._degree        = degree
+        self._pads          = pads or degree
         self._knots         = knots
         self._periodic      = periodic
         self._dirichlet     = dirichlet
@@ -104,7 +105,7 @@ class SplineSpace( FemSpace ):
         self._histopolation_grid = unroll_edges(self.domain, self.ext_greville)
 
         # Create space of spline coefficients
-        self._vector_space = StencilVectorSpace([nbasis], [degree], [periodic])
+        self._vector_space = StencilVectorSpace([nbasis], [self._pads], [periodic])
 
         # Store flag: object NOT YET prepared for interpolation / histopolation
         self._interpolation_ready = False

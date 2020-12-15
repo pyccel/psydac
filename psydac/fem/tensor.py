@@ -590,6 +590,7 @@ class TensorFemSpace( FemSpace ):
             space = spaces[axis]
             reduced_space = SplineSpace(
                 degree    = space.degree - 1,
+                pads      = space.degree,
                 grid      = space.breaks,
                 periodic  = space.periodic,
                 dirichlet = space.dirichlet,
