@@ -655,9 +655,7 @@ class StencilMatrix( Matrix ):
                     ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
                     jj     = tuple( slice(x+d, x+d+2*p+1-e) for x,p,d,e in zip(xx, pads, diff, ee) )
                     ndiags = [2*p + 1-e for p,e in zip(pads,ee)]
-
                     kk     = [slice(None,diag) for diag in ndiags]
-
                     ii_kk  = tuple( list(ii) + kk )
 
                     v1 = x[jj]
@@ -827,11 +825,12 @@ class StencilMatrix( Matrix ):
         # Create new matrix where domain and codomain are swapped
         Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads)
 
-        ssc = self.codomain.starts
-        eec = self.codomain.ends
-        ssd = self.domain.starts
-        eed = self.domain.ends
-        pp  = self.pads
+        ssc   = self.codomain.starts
+        eec   = self.codomain.ends
+        ssd   = self.domain.starts
+        eed   = self.domain.ends
+        pads  = self.pads
+        xpads = self.domain.pads
 
         # Number of rows in the transposed matrix (along each dimension)
         ee          = tuple(min(e1,e2) for e1,e2 in zip(eec, eed))
@@ -839,13 +838,13 @@ class StencilMatrix( Matrix ):
         nrows_extra = [0 if ed<=ec else ed-ec for ec,ed in zip(eec,eed)]
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
-        self._transpose(M._data, Mt._data, nrows, nrows_extra, pp)
+        self._transpose(M._data, Mt._data, nrows, nrows_extra, xpads, pads)
 
         return Mt
 
     # ...
     @staticmethod
-    def _transpose( M, Mt, nrows, nrows_extra, pads ):
+    def _transpose( M, Mt, nrows, nrows_extra, xpads, pads ):
 
         # NOTE:
         #  . Array M  index by [i1, i2, ..., k1, k2, ...]
@@ -856,15 +855,16 @@ class StencilMatrix( Matrix ):
 
         pp     = pads
         ndiags = [2*p + 1 for p in pp]
+        diff   = [xp-p for xp,p in zip(xpads, pp)]
         ndim   = len(nrows)
 
         for xx in np.ndindex( *nrows ):
 
-            jj = tuple(p + x for p, x in zip(pp, xx) )
+            jj = tuple(xp + x for xp, x in zip(xpads, xx) )
 
             for ll in np.ndindex( *ndiags ):
 
-                ii = tuple(  x + l for x, l in zip(xx, ll))
+                ii = tuple(  x + l + d for x, l, d in zip(xx, ll, diff))
                 kk = tuple(2*p - l for p, l in zip(pp, ll))
 
                 Mt[(*jj, *ll)] = M[(*ii, *kk)]
@@ -880,13 +880,13 @@ class StencilMatrix( Matrix ):
                     xx = [*xx]
                     xx.insert(d, nrows[d]+n)
 
-                    jj     = tuple(i+p for i,p in zip(xx, pads))
+                    jj     = tuple(xp + x for xp, x in zip(xpads, xx))
                     ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
-                    ndiags = [2*p + 1-e for p,e in zip(pp,ee)]
+                    ndiags = [2*p + 1-e for p,e in zip(pp, ee)]
 
                     for ll in np.ndindex( *ndiags ):
 
-                        ii = tuple(  x + l for x, l in zip(xx, ll))
+                        ii = tuple(  x + l + df for x, l, df in zip(xx, ll, diff))
                         kk = tuple(2*p - l for p, l in zip(pp, ll))
 
                         Mt[(*jj, *ll)] = M[(*ii, *kk)]
