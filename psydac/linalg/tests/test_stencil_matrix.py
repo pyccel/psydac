@@ -117,7 +117,7 @@ def test_stencil_matrix_1d_serial_dot( n1, p1, P1 ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2, P1, P2 ):
+def test_stencil_matrix_2d_serial_dot_1( n1, n2, p1, p2, P1, P2 ):
 
     # Create vector space, stencil matrix, and stencil vector
     V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
@@ -152,6 +152,179 @@ def test_stencil_matrix_2d_serial_dot( n1, n2, p1, p2, P1, P2 ):
     # Check data in 1D array
     assert np.allclose( ya, ya_exact, rtol=1e-13, atol=1e-13 )
 
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [5,15] )
+@pytest.mark.parametrize( 'n2', [5,12] )
+@pytest.mark.parametrize( 'p1', [2,3] )
+@pytest.mark.parametrize( 'p2', [2,3] )
+@pytest.mark.parametrize( 'P1', [False] )
+@pytest.mark.parametrize( 'P2', [False] )
+
+def test_stencil_matrix_2d_serial_dot_2( n1, n2, p1, p2, P1, P2 ):
+
+    # Create vector space, stencil matrix, and stencil vector
+    V1 = StencilVectorSpace( [n1,n2], [p1, p2], [P1,P2] )
+    V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
+    M1 = StencilMatrix( V1, V2 ,pads=(p1,p2))
+    M2 = StencilMatrix( V2, V1 ,pads=(p1,p2))
+    x1 = StencilVector( V1 )
+    x2 = StencilVector( V2 )
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    M1._data[p1:-p1, p2:-p2, :, :] = np.random.random(M1._data[p1:-p1, p2:-p2, :, :].shape)
+    M2._data[p1:-p1, p2:-p2, :, :] = np.random.random(M2._data[p1:-p1, p2:-p2, :, :].shape)
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2-1):
+            x1[i1,i2] = 2.0*random() - 1.0
+    x1.update_ghost_regions()
+
+    for i1 in range(n1-1):
+        for i2 in range(n2-1):
+            x2[i1,i2] = 2.0*random() - 1.0
+    x2.update_ghost_regions()
+
+    # Compute matrix-vector product
+    y1 = M1.dot(x1)
+    y2 = M2.dot(x2)
+
+    # Convert stencil objects to Numpy arrays
+    M1a = M1.toarray()
+    x1a = x1.toarray()
+    y1a = y1.toarray()
+
+    M2a = M2.toarray()
+    x2a = x2.toarray()
+    y2a = y2.toarray()
+
+    # Exact result using Numpy dot product
+    y1a_exact = np.dot( M1a, x1a )
+    y2a_exact = np.dot( M2a, x2a )
+
+    # Check data in 1D array
+    print(y2a-y2a_exact)
+    assert np.allclose( y1a, y1a_exact, rtol=1e-13, atol=1e-13 )
+    assert np.allclose( y2a, y2a_exact, rtol=1e-13, atol=1e-13 )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [5,15] )
+@pytest.mark.parametrize( 'n2', [5,12] )
+@pytest.mark.parametrize( 'p1', [2,3] )
+@pytest.mark.parametrize( 'p2', [2,3] )
+@pytest.mark.parametrize( 'P1', [False] )
+@pytest.mark.parametrize( 'P2', [False] )
+
+def test_stencil_matrix_2d_serial_dot_3( n1, n2, p1, p2, P1, P2 ):
+
+    # Create vector space, stencil matrix, and stencil vector
+    V1 = StencilVectorSpace( [n1,n2-1], [p1, p2], [P1,P2] )
+    V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
+    M1 = StencilMatrix( V1, V2 ,pads=(p1,p2-1))
+    M2 = StencilMatrix( V2, V1 ,pads=(p1,p2-1))
+    x1 = StencilVector( V1 )
+    x2 = StencilVector( V2 )
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    M1._data[p1:-p1, p2:-p2, :, :] = np.random.random(M1._data[p1:-p1, p2:-p2, :, :].shape)
+    M2._data[p1:-p1, p2:-p2, :, :] = np.random.random(M2._data[p1:-p1, p2:-p2, :, :].shape)
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2-1):
+            x1[i1,i2] = 2.0*random() - 1.0
+    x1.update_ghost_regions()
+
+    for i1 in range(n1-1):
+        for i2 in range(n2-1):
+            x2[i1,i2] = 2.0*random() - 1.0
+    x2.update_ghost_regions()
+
+    # Compute matrix-vector product
+    y1 = M1.dot(x1)
+    y2 = M2.dot(x2)
+
+    # Convert stencil objects to Numpy arrays
+    M1a = M1.toarray()
+    x1a = x1.toarray()
+    y1a = y1.toarray()
+
+    M2a = M2.toarray()
+    x2a = x2.toarray()
+    y2a = y2.toarray()
+
+    # Exact result using Numpy dot product
+    y1a_exact = np.dot( M1a, x1a )
+    y2a_exact = np.dot( M2a, x2a )
+
+    # Check data in 1D array
+
+    assert np.allclose( y1a, y1a_exact, rtol=1e-13, atol=1e-13 )
+    assert np.allclose( y2a, y2a_exact, rtol=1e-13, atol=1e-13 )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [5,15] )
+@pytest.mark.parametrize( 'n2', [5,12] )
+@pytest.mark.parametrize( 'p1', [2,3] )
+@pytest.mark.parametrize( 'p2', [2,3] )
+@pytest.mark.parametrize( 'P1', [False] )
+@pytest.mark.parametrize( 'P2', [False] )
+
+def test_stencil_matrix_2d_serial_dot_4( n1, n2, p1, p2, P1, P2 ):
+
+    # Create vector space, stencil matrix, and stencil vector
+    V1 = StencilVectorSpace( [n1-1,n2], [p1, p2], [P1,P2] )
+    V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
+    M1 = StencilMatrix( V1, V2 ,pads=(p1-1,p2))
+    M2 = StencilMatrix( V2, V1 ,pads=(p1-1,p2))
+    x1 = StencilVector( V1 )
+    x2 = StencilVector( V2 )
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    M1._data[p1:-p1, p2:-p2, :, :] = np.random.random(M1._data[p1:-p1, p2:-p2, :, :].shape)
+    M2._data[p1:-p1, p2:-p2, :, :] = np.random.random(M2._data[p1:-p1, p2:-p2, :, :].shape)
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1-1):
+        for i2 in range(n2):
+            x1[i1,i2] = 2.0*random() - 1.0
+    x1.update_ghost_regions()
+
+    for i1 in range(n1-1):
+        for i2 in range(n2-1):
+            x2[i1,i2] = 2.0*random() - 1.0
+    x2.update_ghost_regions()
+
+    # Compute matrix-vector product
+    y1 = M1.dot(x1)
+    y2 = M2.dot(x2)
+
+    # Convert stencil objects to Numpy arrays
+    M1a = M1.toarray()
+    x1a = x1.toarray()
+    y1a = y1.toarray()
+
+    M2a = M2.toarray()
+    x2a = x2.toarray()
+    y2a = y2.toarray()
+
+    # Exact result using Numpy dot product
+    y1a_exact = np.dot( M1a, x1a )
+    y2a_exact = np.dot( M2a, x2a )
+
+    # Check data in 1D array
+
+    assert np.allclose( y1a, y1a_exact, rtol=1e-13, atol=1e-13 )
+    assert np.allclose( y2a, y2a_exact, rtol=1e-13, atol=1e-13 )
 #===============================================================================
 @pytest.mark.parametrize( 'n1', [4, 10, 32] )
 @pytest.mark.parametrize( 'p1', [1, 2, 3] )

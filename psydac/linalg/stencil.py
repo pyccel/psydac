@@ -553,6 +553,10 @@ class StencilMatrix( Matrix ):
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
         assert W.pads == V.pads
+
+        if pads is not None:
+            for p,vp in zip(pads, V.pads):
+                assert p<=vp
         
         self._pads     = pads or tuple(V.pads)
         dims           = [e-s+2*p+1 for s,e,p in zip(W.starts, W.ends, W.pads)]
@@ -603,17 +607,18 @@ class StencilMatrix( Matrix ):
             out = StencilVector( self.codomain )
 
         # Shortcuts
-        ssc = self.codomain.starts
-        eec = self.codomain.ends
-        ssd = self.domain.starts
-        eed = self.domain.ends
-        pp = self.pads
+        ssc   = self.codomain.starts
+        eec   = self.codomain.ends
+        ssd   = self.domain.starts
+        eed   = self.domain.ends
+        pads  = self.pads
+        xpads = self.domain.pads
 
         # Number of rows in matrix (along each dimension)
         nrows       = [ed-s+1 for s,ed in zip(ssd, eed)]
         nrows_extra = [0 if ec<=ed else ec-ed for ec,ed in zip(eec,eed)]
 
-        self._dot(self._data, v._data, out._data, nrows, nrows_extra, pp)
+        self._dot(self._data, v._data, out._data, nrows, nrows_extra, xpads, pads)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -621,43 +626,44 @@ class StencilMatrix( Matrix ):
 
     # ...
     @staticmethod
-    def _dot(mat, x, out, nrows, nrows_extra, pads):
+    def _dot(mat, x, out, nrows, nrows_extra, xpads, pads):
 
         # Index for k=i-j
         ndim = len(x.shape)
-        kk = [slice(None)]*ndim
-
+        kk   = [slice(None)]*ndim
+        diff = [xp-p for xp,p in zip(xpads, pads)]
         for xx in np.ndindex( *nrows ):
 
-            ii    = tuple( p+x for p,x in zip(pads,xx) )
-            jj    = tuple( slice(x,x+2*p+1) for x,p in zip(xx,pads) )
+            ii    = tuple( xp+x for xp,x in zip(xpads,xx) )
+            jj    = tuple( slice(d+x,d+x+2*p+1) for x,p,d in zip(xx,pads,diff) )
             ii_kk = tuple( list(ii) + kk )
 
             out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
 
+        new_nrows = nrows.copy()
         for d,er in enumerate(nrows_extra):
 
-            ee = [0]*len(nrows_extra)
-            kk = [slice(None)] *ndim
-            rows = nrows.copy()
+            rows = new_nrows.copy()
             del rows[d]
 
             for n in range(er):
-                ee[d] = n+1
                 for xx in np.ndindex(*rows):
-                    ii = [*xx]
-                    ii.insert(d, nrows[d]+n)
+                    xx = list(xx)
+                    xx.insert(d, nrows[d]+n)
 
-                    ii    = tuple(i+p for i,p in zip(ii, pads))
-                    jj    = tuple( slice(i, i+2*p+1-e) for i,p,e in zip(ii, pp, ee) )
+                    ii     = tuple(x+xp for x,xp in zip(xx, xpads))
+                    ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
+                    jj     = tuple( slice(x+d, x+d+2*p+1-e) for x,p,d,e in zip(xx, pads, diff, ee) )
+                    ndiags = [2*p + 1-e for p,e in zip(pads,ee)]
 
-                    kk[d] = slice(None,2*pp[d]-n)
+                    kk     = [slice(None,diag) for diag in ndiags]
 
-                    ii_kk = tuple( list(ii) + kk )
+                    ii_kk  = tuple( list(ii) + kk )
 
                     v1 = x[jj]
                     v2 = mat[ii_kk]
                     out[ii] = np.dot( v2.flat, v1.flat )
+            new_nrows[d] += er
 
     # ...
     def toarray( self, *, with_pads=False ):
@@ -825,7 +831,7 @@ class StencilMatrix( Matrix ):
         eec = self.codomain.ends
         ssd = self.domain.starts
         eed = self.domain.ends
-        pp = self.pads
+        pp  = self.pads
 
         # Number of rows in the transposed matrix (along each dimension)
         ee          = tuple(min(e1,e2) for e1,e2 in zip(eec, eed))
@@ -882,6 +888,7 @@ class StencilMatrix( Matrix ):
 
                         ii = tuple(  x + l for x, l in zip(xx, ll))
                         kk = tuple(2*p - l for p, l in zip(pp, ll))
+
                         Mt[(*jj, *ll)] = M[(*ii, *kk)]
 
             new_nrows[d] += er
