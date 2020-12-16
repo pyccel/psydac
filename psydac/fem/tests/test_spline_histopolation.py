@@ -38,7 +38,7 @@ def histopolate_polynomial(basis, ncells, degree):
 @pytest.mark.parametrize('basis', ['B', 'M'])
 @pytest.mark.parametrize('ncells', [10, 20, 33])
 @pytest.mark.parametrize('degree', [2, 5, 7])
-def test_histopolation_exact(basis, ncells, degree, num_pts=100, tol=1e-12):
+def test_histopolation_exact(basis, ncells, degree, num_pts=100, tol=1e-11):
 
     domain, f, fh = histopolate_polynomial(basis, ncells, degree)
 
