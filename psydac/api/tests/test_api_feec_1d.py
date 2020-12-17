@@ -187,15 +187,15 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     diagnostics_num = {'time': [], 'electric_energy': [], 'magnetic_energy': []}
 
     #--------------------------------------------------------------------------
-    # Visualization setup
+    # Visualization and diagnostics setup
     #--------------------------------------------------------------------------
+
+    # Very fine grids for evaluation of solution
+    x1 = np.linspace(grid_x1[0], grid_x1[-1], 101)
+    x  = F(x1)[0]
 
     # Prepare plots
     if plot_interval:
-
-        # Very fine grids for evaluation of solution
-        x1 = np.linspace(grid_x1[0], grid_x1[-1], 101)
-        x  = F(x1)[0]
 
         # Plot physical grid
         fig1, ax1 = plt.subplots(2, 1, figsize=(6, 6))
@@ -236,7 +236,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         fig2.show()
         # ...
 
-    input('\nSimulation setup done... press any key to start')
+        input('\nSimulation setup done... press any key to start')
 
     # Prepare diagnostics
     if diagnostics_interval:
@@ -323,8 +323,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     error_E = max(abs(E_ex(t, x) - E_values))
     error_B = max(abs(B_ex(t, x) - B_values))
     print()
-    print('Max-norm of error on E(t,x) at final time: {}'.format(error_E))
-    print('Max-norm of error on B(t,x) at final time: {}'.format(error_B))
+    print('Max-norm of error on E(t,x) at final time: {:.2e}'.format(error_E))
+    print('Max-norm of error on B(t,x) at final time: {:.2e}'.format(error_B))
 
     if diagnostics_interval:
 
