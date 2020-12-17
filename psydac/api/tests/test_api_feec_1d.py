@@ -412,7 +412,7 @@ def test_maxwell_1d_periodic():
         diagnostics_interval = 0
     )
 
-    TOL = 1e-13
+    TOL = 1e-10
     ref = dict(error_E = 4.191954319623381e-04,
                error_B = 4.447074070748624e-04)
 
@@ -436,7 +436,7 @@ def test_maxwell_1d_dirichlet():
         diagnostics_interval = 0
     )
 
-    TOL = 1e-13
+    TOL = 1e-10
     ref = dict(error_E = 1.320471502738063e-03,
                error_B = 7.453774187340390e-04)
 
