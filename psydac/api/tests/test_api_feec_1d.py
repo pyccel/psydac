@@ -126,7 +126,24 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     M1 = a1_h.assemble()
 
     # Differential operators
-    D0,  = derham_h.derivatives_as_matrices
+    D0, = derham_h.derivatives_as_matrices
+
+    # If needed, apply homogeneous Dirichlet BCs
+    if not periodic:
+
+        s1, = M0.codomain.starts
+        e1, = M0.codomain.ends
+        n1, = M0.codomain.npts
+
+        if s1 == 0:
+            M0[s1, :] = 0.0
+            D0[s1, 0] = 0.0
+
+        if e1 == n1-1:
+            M0[e1  , :] = 0.0
+            D0[e1-1, 1] = 0.0
+
+    # Transpose of derivative matrix
     D0_T = D0.T
 
     # Projectors
