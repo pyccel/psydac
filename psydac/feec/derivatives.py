@@ -25,6 +25,20 @@ __all__ = (
 )
 
 #====================================================================================================
+def block_tostencil(M):
+    """
+    Convert a BlockMatrix that contains KroneckerStencilMatrix objects
+    to a BlockMatrix that contains StencilMatrix objects
+    """
+    blocks = [list(b) for b in M.blocks]
+    for i1,b in enumerate(blocks):
+        for i2, mat in enumerate(b):
+            if mat is None:
+                continue
+            blocks[i1][i2] = mat.tostencil()
+    return BlockMatrix(M.domain, M.codomain, blocks=blocks)
+
+#====================================================================================================
 def d_matrix(n, p, periodic):
     """
     Create a 1D incidence matrix of shape (n, n) in the periodic case, and (n, n-1) otherwise.
@@ -104,6 +118,7 @@ class Derivative_1D(DiffOperator):
         self._domain   = H1
         self._codomain = L2
         self._matrix   = KroneckerStencilMatrix(H1.vector_space, L2.vector_space, Dx)
+        self._matrix   = self._matrix.tostencil()
 
     def __call__(self, u):
 
@@ -160,7 +175,7 @@ class Gradient_2D(DiffOperator):
         # Store data in object
         self._domain   = H1
         self._codomain = Hcurl
-        self._matrix   = matrix
+        self._matrix   = block_tostencil(matrix)
 
     def __call__(self, x):
 
@@ -221,7 +236,7 @@ class Gradient_3D(DiffOperator):
         # Store data in object
         self._domain   = H1
         self._codomain = Hcurl
-        self._matrix   = matrix
+        self._matrix   = block_tostencil(matrix)
 
     def __call__(self, x):
 
@@ -284,7 +299,7 @@ class ScalarCurl_2D(DiffOperator):
         # Store data in object
         self._domain   = Hcurl
         self._codomain = L2
-        self._matrix   = matrix
+        self._matrix   = block_tostencil(matrix)
    
     def __call__(self, u):
 
@@ -342,7 +357,7 @@ class VectorCurl_2D(DiffOperator):
         # Store data in object
         self._domain   = H1
         self._codomain = Hdiv
-        self._matrix   = matrix
+        self._matrix   = block_tostencil(matrix)
 
     def __call__(self, u):
 
@@ -414,7 +429,7 @@ class Curl_3D(DiffOperator):
         # Store data in object
         self._domain   = Hcurl
         self._codomain = Hdiv
-        self._matrix   = matrix
+        self._matrix   = block_tostencil(matrix)
    
     def __call__(self, u):
 
@@ -476,7 +491,7 @@ class Divergence_2D(DiffOperator):
         # Store data in object
         self._domain   = Hdiv
         self._codomain = L2
-        self._matrix   = matrix
+        self._matrix   = block_tostencil(matrix)
 
     def __call__(self, x):
 
@@ -540,7 +555,7 @@ class Divergence_3D(DiffOperator):
         # Store data in object
         self._domain   = Hdiv
         self._codomain = L2
-        self._matrix   = matrix
+        self._matrix   = block_tostencil(matrix)
 
     def __call__(self, x):
 
