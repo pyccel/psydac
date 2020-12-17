@@ -843,6 +843,11 @@ class StencilMatrix( Matrix ):
         return Mt
 
     # ...
+    @property
+    def T(self):
+        return self.transpose()
+
+    # ...
     def tocoo_local( self ):
 
         # Shortcuts
