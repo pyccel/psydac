@@ -396,7 +396,52 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 # UNIT TESTS
 #==============================================================================
 
-# TODO
+def test_maxwell_1d_periodic():
+
+    namespace = run_maxwell_1d(
+        L        = 1.0,
+        eps      = 0.5,
+        ncells   = 30,
+        degree   = 3,
+        periodic = True,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0
+    )
+
+    TOL = 1e-13
+    ref = dict(error_E = 4.191954319623381e-04,
+               error_B = 4.447074070748624e-04)
+
+    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
+    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+
+
+def test_maxwell_1d_dirichlet():
+
+    namespace = run_maxwell_1d(
+        L        = 1.0,
+        eps      = 0.5,
+        ncells   = 20,
+        degree   = 5,
+        periodic = False,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0
+    )
+
+    TOL = 1e-13
+    ref = dict(error_E = 1.320471502738063e-03,
+               error_B = 7.453774187340390e-04)
+
+    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
+    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
 
 #==============================================================================
 # SCRIPT CAPABILITIES
