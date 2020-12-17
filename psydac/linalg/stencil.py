@@ -702,7 +702,6 @@ class StencilMatrix( Matrix ):
         index = self._getindex( key )
         self._data[index] = value
 
-
     #...
     def max( self ):
         return self._data.max()

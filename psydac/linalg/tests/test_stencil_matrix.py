@@ -674,10 +674,41 @@ def test_stencil_matrix_2d_serial_transpose_7( n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'n2', [7, 10] )
 @pytest.mark.parametrize( 'p1', [2, 3] )
 @pytest.mark.parametrize( 'p2', [2, 3] )
+@pytest.mark.parametrize( 'P1', [False] )
+@pytest.mark.parametrize( 'P2', [False] )
+
+def test_stencil_matrix_2d_serial_transpose_8( n1, n2, p1, p2, P1, P2 ):
+    # This should only work with non periodic boundaries
+
+    # Create vector space and stencil matrix
+    V1 = StencilVectorSpace( [n1-1, n2-1], [p1, p2], [P1, P2] )
+    V2 = StencilVectorSpace( [n1-1, n2-1], [p1, p2], [P1, P2] )
+    M  = StencilMatrix(V1, V2)
+
+    # Fill in matrix values with random numbers between 0 and 1
+    M[0:n1-1, 0:n2-1, :, :] = np.random.random((n1-1, n2-1, 2*p1+1, 2*p2+1))
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # TEST: compute transpose, then convert to Scipy sparse format
+    Ts = M.transpose().transpose().tosparse()
+
+    # Exact result: convert to Scipy sparse format, then transpose
+    Ts_exact = M.tosparse()
+
+    # Check data
+    assert abs(Ts - Ts_exact).max() < 1e-14
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [7, 12] )
+@pytest.mark.parametrize( 'n2', [7, 10] )
+@pytest.mark.parametrize( 'p1', [2, 3] )
+@pytest.mark.parametrize( 'p2', [2, 3] )
 @pytest.mark.parametrize( 'P1', [True] )
 @pytest.mark.parametrize( 'P2', [True] )
 
-def test_stencil_matrix_2d_serial_transpose_8( n1, n2, p1, p2, P1, P2 ):
+def test_stencil_matrix_2d_serial_transpose_9( n1, n2, p1, p2, P1, P2 ):
     # This should only work with non periodic boundaries
 
     # Create vector space and stencil matrix
@@ -732,36 +763,7 @@ def test_stencil_matrix_3d_serial_transpose_1( n1, n2, n3, p1, p2, p3, P1, P2, P
 
     # Check data
     assert abs(Ts - Ts_exact).max() < 1e-14
-#===============================================================================
-@pytest.mark.parametrize( 'n1', [7, 12] )
-@pytest.mark.parametrize( 'n2', [7, 10] )
-@pytest.mark.parametrize( 'p1', [2, 3] )
-@pytest.mark.parametrize( 'p2', [2, 3] )
-@pytest.mark.parametrize( 'P1', [False] )
-@pytest.mark.parametrize( 'P2', [False] )
 
-def test_stencil_matrix_2d_serial_transpose_7( n1, n2, p1, p2, P1, P2 ):
-    # This should only work with non periodic boundaries
-
-    # Create vector space and stencil matrix
-    V1 = StencilVectorSpace( [n1-1, n2-1], [p1, p2], [P1, P2] )
-    V2 = StencilVectorSpace( [n1-1, n2-1], [p1, p2], [P1, P2] )
-    M  = StencilMatrix(V1, V2)
-
-    # Fill in matrix values with random numbers between 0 and 1
-    M[0:n1-1, 0:n2-1, :, :] = np.random.random((n1-1, n2-1, 2*p1+1, 2*p2+1))
-
-    # If domain is not periodic, set corresponding periodic corners to zero
-    M.remove_spurious_entries()
-
-    # TEST: compute transpose, then convert to Scipy sparse format
-    Ts = M.transpose().transpose().tosparse()
-
-    # Exact result: convert to Scipy sparse format, then transpose
-    Ts_exact = M.tosparse()
-
-    # Check data
-    assert abs(Ts - Ts_exact).max() < 1e-14
 #===============================================================================
 # PARALLEL TESTS
 #===============================================================================
