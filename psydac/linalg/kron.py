@@ -235,47 +235,6 @@ class KroneckerStencilMatrix( Matrix ):
         elements = [A[i,j] for A,i,j in zip(mats, rows, cols)]
         return np.product(elements)
 
-    def tostencil(self):
-
-        mats  = self.mats
-        ssc   = self.codomain.starts
-        eec   = self.codomain.ends
-        ssd   = self.domain.starts
-        eed   = self.domain.ends
-        pads  = [A.pads[0] for A in self.mats]
-        xpads = self.domain.pads
-
-        # Number of rows in matrix (along each dimension)
-        nrows       = [ed-s+1 for s,ed in zip(ssd, eed)]
-        nrows_extra = [0 if ec<=ed else ec-ed for ec,ed in zip(eec,eed)]
-
-        # create the stencil matrix
-        M  = StencilMatrix(self.domain, self.codomain, pads=tuple(pads))
-
-        mats = [mat._data for mat in mats]
-
-        self._tostencil(M._data, mats, nrows, nrows_extra, pads, xpads)
-        return M
-
-    @staticmethod
-    def _tostencil(M, mats, nrows, nrows_extra, pads, xpads):
-
-        ndiags = [2*p + 1 for p in pads]
-        diff   = [xp-p for xp,p in zip(xpads, pads)]
-        ndim   = len(nrows)
-
-        for xx in np.ndindex( *nrows ):
-
-            ii = tuple(xp + x for xp, x in zip(xpads, xx) )
-
-            for kk in np.ndindex( *ndiags ):
-
-                values        = [mat[i,k] for mat,i,k in zip(mats, ii, kk)]
-                M[(*ii, *kk)] = np.product(values)
-
-    def topetsc(self):
-        raise NotImplementedError('TODO')
-
     def tosparse(self):
         return reduce(kron, (m.tosparse() for m in self.mats))
 
