@@ -9,7 +9,7 @@ __all__ = (
     'pull_2d_h1',
     'pull_2d_hcurl',
     'pull_2d_hdiv',
-    'pull_2d_l2,
+    'pull_2d_l2',
     'pull_3d_v',  # NOTE: what is this used for?
     'pull_3d_h1',
     'pull_3d_hcurl',
