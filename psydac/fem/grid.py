@@ -7,6 +7,7 @@ import numpy as np
 from psydac.core.bsplines         import elements_spans
 from psydac.core.bsplines         import quadrature_grid
 from psydac.core.bsplines         import basis_ders_on_quad_grid
+from psydac.core.bsplines         import elevate_knots
 from psydac.utilities.quadratures import gauss_legendre
 
 __all__ = ['FemAssemblyGrid']
@@ -44,14 +45,15 @@ class FemAssemblyGrid:
         points (default: 1).
 
     """
-    def __init__( self, space, start, end, *, quad_order=None, nderiv=1, normalize=False ):
+    def __init__( self, space, start, end, *, quad_order=None, nderiv=1 , pad=None):
 
-        T    = space.knots      # knots sequence
-        p    = space.degree     # spline degree
-        n    = space.nbasis     # total number of control points
-        grid = space.breaks     # breakpoints
-        nc   = space.ncells     # number of cells in domain (nc=len(grid)-1)
-        k    = quad_order or p  # polynomial order for which the mass matrix is exact
+        T      = space.knots           # knots sequence
+        degree = space.degree          # spline degree
+        n      = space.nbasis          # total number of control points
+        grid   = space.breaks          # breakpoints
+        nc     = space.ncells          # number of cells in domain (nc=len(grid)-1)
+        k      = quad_order or degree  # polynomial order for which the mass matrix is exact
+        pad    = pad or degree         # padding to add in the periodic case
 
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )
@@ -68,11 +70,12 @@ class FemAssemblyGrid:
         glob_points, glob_weights = quadrature_grid( grid, u, w )
 
         # List of basis function values on each element
-        glob_basis = basis_ders_on_quad_grid( T, p, glob_points, nderiv, normalize )
+        glob_basis = basis_ders_on_quad_grid( T, degree, glob_points, nderiv, space.basis )
 
         # List of spans on each element
         # (Span is global index of last non-vanishing basis function)
-        glob_spans = elements_spans( T, p )
+
+        glob_spans = elements_spans( T, degree )
 
         #-------------------------------------------
         # LOCAL GRID, EXTENDED (WITH GHOST REGIONS)
@@ -88,20 +91,38 @@ class FemAssemblyGrid:
 
         # a) Periodic case only, left-most process in 1D domain
         if space.periodic:
-            for k in range( nc ):
-                gk = glob_spans[k]
-                if start <= gk-n and gk-n-p <= end:
-                    spans  .append( glob_spans[k]-n )
-                    basis  .append( glob_basis  [k] )
-                    points .append( glob_points [k] )
-                    weights.append( glob_weights[k] )
-                    indices.append( k )
-                    ne += 1
+
+            if degree<pad:
+                if pad-degree == 1:
+                    elevated_T          = elevate_knots(T, degree, True)
+                    elevated_glob_spans = elements_spans( elevated_T, pad )
+                else:
+                    raise NotImplementedError('TODO')
+
+                for k in range( nc ):
+                    gk = elevated_glob_spans[k]
+                    if start <= gk-n and gk-n-pad <= end:
+                        spans  .append( glob_spans[k]-n )
+                        basis  .append( glob_basis  [k] )
+                        points .append( glob_points [k] )
+                        weights.append( glob_weights[k] )
+                        indices.append( k )
+                        ne += 1
+            else:
+                for k in range( nc ):
+                    gk = glob_spans[k]
+                    if start <= gk-n and gk-n-degree <= end:
+                        spans  .append( glob_spans[k]-n )
+                        basis  .append( glob_basis  [k] )
+                        points .append( glob_points [k] )
+                        weights.append( glob_weights[k] )
+                        indices.append( k )
+                        ne += 1
 
         # b) All cases
         for k in range( nc ):
             gk = glob_spans[k]
-            if start <= gk and gk-p <= end:
+            if start <= gk and gk-degree <= end:
                 spans  .append( glob_spans  [k] )
                 basis  .append( glob_basis  [k] )
                 points .append( glob_points [k] )
@@ -114,10 +135,10 @@ class FemAssemblyGrid:
 
         # Local indices of first/last elements in proper domain
         if space.periodic:
-            local_element_start = spans.index( p + start )
-            local_element_end   = spans.index( p + end   )
+            local_element_start = spans.index( degree + start )
+            local_element_end   = spans.index( degree + end   )
         else:
-            local_element_start = spans.index( p   if start == 0   else 1 + start )
+            local_element_start = spans.index( degree if start == 0   else 1 + start )
             local_element_end   = spans.index( end if end   == n-1 else 1 + end   )
 
         #-------------------------------------------
@@ -127,11 +148,13 @@ class FemAssemblyGrid:
         # Quadrature data on extended distributed domain
         self._num_elements = ne
         self._num_quad_pts = len( u )
-        self._spans   = np.array( spans   )
-        self._basis   = np.array( basis   )
-        self._points  = np.array( points  )
-        self._weights = np.array( weights )
-        self._indices = np.array( indices )
+        self._spans        = np.array( spans   )
+        self._basis        = np.array( basis   )
+        self._points       = np.array( points  )
+        self._weights      = np.array( weights )
+        self._indices      = np.array( indices )
+        self._quad_rule_x  = u
+        self._quad_rule_w  = w
 
         # Local index of start/end elements of domain partitioning
         self._local_element_start = local_element_start
@@ -185,6 +208,20 @@ class FemAssemblyGrid:
         """ Global index of each element used in assembly process.
         """
         return self._indices
+
+    # ...
+    @property
+    def quad_rule_x( self ):
+        """ Coordinates of quadrature points on canonical interval [-1,1].
+        """
+        return self._quad_rule_x
+
+    # ...
+    @property
+    def quad_rule_w( self ):
+        """ Weights assigned to quadrature points on canonical interval [-1,1].
+        """
+        return self._quad_rule_w
 
     # ...
     @property

@@ -7,7 +7,18 @@ from psydac.core.bsplines import ( find_span,
         basis_funs,
         basis_funs_1st_der,
         basis_funs_all_ders,
-        collocation_matrix )
+        make_knots,
+        elevate_knots,
+        greville,
+        collocation_matrix,
+        histopolation_matrix )
+
+from psydac.fem.tests.utilities import random_grid
+
+# TODO: add unit tests for
+#  - make_knots
+#  - elevate_knots
+#  - greville
 
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
@@ -100,43 +111,42 @@ def test_basis_funs_all_ders( lims, nc, p, tol=1e-14 ):
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
 @pytest.mark.parametrize( 'nc', (10, 18, 33) )
-@pytest.mark.parametrize( 'p' , (1,2,3,7,10) )
+@pytest.mark.parametrize( 'p' , (1,2,3,7,8) )
+@pytest.mark.parametrize( 'periodic' , (True, False) )
 
-# TODO: construct knots from grid
-# TODO: evaluate on Greville points
 # TODO: improve checks
-def test_collocation_matrix_non_periodic( lims, nc, p, tol=1e-14 ):
+def test_collocation_matrix(lims, nc, p, periodic, tol=1e-13):
 
-    grid, dx = np.linspace( *lims, num=nc+1, retstep=True )
-    knots = np.r_[ [grid[0]]*p, grid, [grid[-1]]*p ]
+    breaks = random_grid(domain=lims, ncells=nc, random_fraction=0.3)
+    knots  = make_knots(breaks, p, periodic)
+    xgrid  = greville(knots, p, periodic)
+    mat    = collocation_matrix(knots, p, periodic, normalization='B', xgrid=xgrid)
 
-    mat = collocation_matrix( knots, p, grid, periodic=False )
+    acceptable_nonzeros_in_row = [p, p+1] if periodic else [1, p, p+1]
 
     for row in mat:
         assert all( row >= 0.0 )
-        assert len( row.nonzero()[0] ) in [1,p,p+1]
         assert abs( sum( row ) - 1.0 ) < tol
+        assert (abs(row) > tol).sum() in acceptable_nonzeros_in_row
 
 #==============================================================================
 @pytest.mark.parametrize( 'lims', ([0,1], [-2,3]) )
 @pytest.mark.parametrize( 'nc', (10, 18, 33) )
-@pytest.mark.parametrize( 'p' , (1,2,3,7,8) )
+@pytest.mark.parametrize( 'p' , (1,2,3,4,5,6) )
+@pytest.mark.parametrize( 'periodic' , (True, False) )
 
-# TODO: construct knots from grid
-# TODO: evaluate on Greville points
 # TODO: improve checks
-def test_collocation_matrix_periodic( lims, nc, p, tol=1e-14 ):
+def test_histopolation_matrix(lims, nc, p, periodic, tol=1e-13):
 
-    grid, dx = np.linspace( *lims, num=nc+1, retstep=True )
-    period = lims[1]-lims[0]
-    knots  = np.r_[ grid[-p-1:-1]-period, grid, grid[1:1+p]+period ]
+    breaks = random_grid(domain=lims, ncells=nc, random_fraction=0.3)
+    knots  = make_knots(breaks, p, periodic)
+    xgrid  = greville(elevate_knots(knots, p, periodic), p+1, periodic)
+    mat    = histopolation_matrix(knots, p, periodic, normalization='M', xgrid=xgrid)
 
-    mat = collocation_matrix( knots, p, grid[:-1], periodic=True )
-
-    for row in mat:
-        assert all( row >= 0.0 )
-        assert len( row.nonzero()[0] ) in [p,p+1]
-        assert abs( sum( row ) - 1.0 ) < tol
+    for col in mat.T:
+        assert all( col >= 0.0 )
+        assert abs( sum( col ) - 1.0 ) < tol
+#        assert (abs(col) > tol).sum() <= 2*p + 1
 
 #==============================================================================
 # SCRIPT FUNCTIONALITY: PLOT BASIS FUNCTIONS
@@ -144,6 +154,7 @@ def test_collocation_matrix_periodic( lims, nc, p, tol=1e-14 ):
 if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
+    np.set_printoptions(linewidth=130)
 
     # Domain limits, number of cells and spline degree
     lims = [0, 1]
@@ -156,6 +167,7 @@ if __name__ == '__main__':
 
     # Grid (breakpoints) and clamped knot sequence
     grid  = np.linspace( *lims, num=nc+1 )
+    grid[1:-1] += 0.1*np.random.random_sample(nc-1) - 0.05  # Perturb internal breakpoints
     knots = np.r_[ [grid[0]]*p, grid, [grid[-1]]*p ]
 
     # Insert repeated internal knot
@@ -163,16 +175,49 @@ if __name__ == '__main__':
     knots = knots[:k] + [knots[k]]*m + knots[k+1:]
     knots = np.array( knots )
 
+    # Number of basis functions
+    nb = len(knots)-p-1
+
     # Evaluation grid
     xx = np.linspace( *lims, num=501 )
 
     # Compute values of each basis function on evaluation grid
-    yy = np.zeros( (len(xx),len(knots)-p-1) )
-    zz = np.zeros( (len(xx),len(knots)-p-1) )
+    yy = np.zeros( (len(xx), nb) )
+    zz = np.zeros( (len(xx), nb) )
     for i,x in enumerate( xx ):
         span = find_span( knots, p, x )
         yy[i,span-p:span+1] = basis_funs        ( knots, p, x, span )
         zz[i,span-p:span+1] = basis_funs_1st_der( knots, p, x, span )
+
+    # Check partition of unity on evaluation grid
+    unity = yy.sum(axis=1)
+    print("\nPartition of unity on evaluation grid:")
+    print(unity)
+
+    # ...
+    # Integrals of each B-spline over domain (theoretical values)
+    #
+    #   \int B(i) dx = length(support(B)) / (p + 1) = (T[i + p + 1] - T[i]) / (p + 1)
+    #
+    integrals_theory = np.array([(knots[i+p+1] - knots[i]) / (p+1) for i in range(nb)])
+
+    # Integrals of each B-spline over domain (Gaussian quadrature)
+    from psydac.utilities.quadratures import gauss_legendre
+    from psydac.core.bsplines import quadrature_grid, basis_ders_on_quad_grid
+    from psydac.core.bsplines import elements_spans
+
+    u, w = gauss_legendre(p)
+    quad_x, quad_w = quadrature_grid(grid, u, w)
+    quad_basis = basis_ders_on_quad_grid(knots, p, quad_x, nders=0, normalization='B')
+    integrals  = np.zeros(nb)
+    for ie, span in enumerate(elements_spans(knots, p)):
+        integrals[span-p:span+1] += np.dot(quad_basis[ie, :, 0, :], quad_w[ie, :])
+
+    # Compare theory results with computed integrals
+    print("\nIntegrals of basis functions over domain:")
+    print("Theory  :", integrals_theory)
+    print("Computed:", integrals)
+    # ...
 
     # Create figure
     fig, axes = plt.subplots( 2, 1, sharex=True )

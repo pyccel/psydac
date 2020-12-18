@@ -40,7 +40,7 @@ from psydac.utilities.utils    import refine_array_1d
 from mpi4py import MPI
 #==============================================================================
 
-def run_poisson_2d(solution, f, domain, mappings, ncells, degree, comm=None):
+def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -85,7 +85,7 @@ def run_poisson_2d(solution, f, domain, mappings, ncells, degree, comm=None):
     #+++++++++++++++++++++++++++++++
     
     domain_h = discretize(domain, ncells=ncells, comm=comm)
-    Vh       = discretize(V, domain_h, mapping=mappings, degree=degree)  
+    Vh       = discretize(V, domain_h, degree=degree)
     
     equation_h = discretize(equation, domain_h, [Vh, Vh])
 
@@ -120,23 +120,28 @@ def run_poisson_2d(solution, f, domain, mappings, ncells, degree, comm=None):
 
 if __name__ == '__main__':
 
-    A = Square('A',bounds1=(0.5, 1.), bounds2=(-1., 0.))
-    B = Square('B',bounds1=(0.5, 1.), bounds2=(0, np.pi))
-    C = Square('C',bounds1=(0.5, 1.), bounds2=(np.pi, np.pi + 1))
-
-    domain     = A.join(B, name = 'AB',
-                bnd_minus = A.get_boundary(axis=1, ext=1),
-                bnd_plus  = B.get_boundary(axis=1, ext=-1))
-
-    domain    = domain.join(C, name = 'ABC',
-                bnd_minus = B.get_boundary(axis=1, ext=1),
-                bnd_plus  = C.get_boundary(axis=1, ext=-1))
-
     mapping_1 = IdentityMapping('M1', 2)
     mapping_2 = PolarMapping   ('M2', 2, c1 = 0., c2 = 0., rmin = 0., rmax=1.)
     mapping_3 = AffineMapping  ('M3', 2, c1 = 0., c2 = np.pi, a11 = -1, a22 = -1, a21 = 0, a12 = 0)
 
+    A = Square('A',bounds1=(0.5, 1.), bounds2=(-1., 0.))
+    B = Square('B',bounds1=(0.5, 1.), bounds2=(0, np.pi))
+    C = Square('C',bounds1=(0.5, 1.), bounds2=(np.pi, np.pi + 1))
+
+    D1     = mapping_1(A)
+    D2     = mapping_2(B)
+    D3     = mapping_3(C)
+
+    D1D2      = D1.join(D2, name = 'D1D2',
+                bnd_minus = D1.get_boundary(axis=1, ext=1),
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+
+    domain    = D1D2.join(D3, name = 'D1D2D3',
+                bnd_minus = D2.get_boundary(axis=1, ext=1),
+                bnd_plus  = D3.get_boundary(axis=1, ext=-1))
+
     mappings  = {A.interior:mapping_1, B.interior:mapping_2, C.interior:mapping_3}
+
     x,y       = domain.coordinates
     solution  = x**2 + y**2
     f         = -4
@@ -144,7 +149,7 @@ if __name__ == '__main__':
     ne     = [2**2,2**2]
     degree = [2,2]
 
-    uh, info, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, mappings, ncells=ne, degree=degree)
+    uh, info, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=ne, degree=degree)
 
     # ...
     print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )

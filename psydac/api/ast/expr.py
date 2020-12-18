@@ -1,5 +1,5 @@
 from sympy import symbols, Symbol, IndexedBase
-from sympy import Mul, Tuple
+from sympy import Mul, Tuple, Range
 from sympy import Matrix, ImmutableDenseMatrix
 from sympy.core.numbers import ImaginaryUnit
 
@@ -8,7 +8,6 @@ from pyccel.ast.core import For
 from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Slice
-from pyccel.ast.core import Range
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
 from pyccel.ast.core import Import

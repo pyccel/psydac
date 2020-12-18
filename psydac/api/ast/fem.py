@@ -1,5 +1,32 @@
 # -*- coding: UTF-8 -*-
 
+from collections import OrderedDict
+from itertools   import groupby
+
+from sympy import Basic
+from sympy import Matrix, ImmutableDenseMatrix
+from sympy import symbols
+from sympy.core.containers import Tuple
+
+from sympde.expr                 import LinearForm
+from sympde.expr                 import BilinearForm
+from sympde.expr                 import Functional
+from sympde.topology.basic       import Boundary, Interface
+from sympde.topology             import H1SpaceType, HcurlSpaceType
+from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
+from sympde.topology             import ScalarField
+from sympde.topology             import VectorField, IndexedVectorField
+from sympde.topology.space       import ScalarTestFunction
+from sympde.topology.space       import VectorTestFunction
+from sympde.topology.space       import IndexedTestTrial
+from sympde.topology.derivatives import _partial_derivatives
+from sympde.topology.derivatives import _logical_partial_derivatives
+from sympde.topology.derivatives import get_max_logical_partial_derivatives
+from sympde.topology.mapping     import InterfaceMapping
+from sympde.calculus.core        import is_zero
+
+from pyccel.ast.core          import _atomic
+
 from .nodes import GlobalTensorQuadrature
 from .nodes import LocalTensorQuadrature
 from .nodes import LocalTensorQuadratureTestBasis
@@ -27,43 +54,12 @@ from .nodes import ComputeKernelExpr
 from .nodes import ElementOf, Reduce
 from .nodes import construct_logical_expressions
 from .nodes import Pads, Mask
-
-#==============================================================================
-from sympy import Basic
-from sympy import Matrix, ImmutableDenseMatrix
-from sympy import symbols
-from sympy.core.containers import Tuple
-
-from sympde.expr import LinearForm
-from sympde.expr import BilinearForm
-from sympde.expr import Functional
-
-
-from sympde.topology.basic       import Boundary, Interface
-from sympde.topology             import H1SpaceType, HcurlSpaceType
-from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology             import ScalarField
-from sympde.topology             import VectorField, IndexedVectorField
-from sympde.topology.space       import ScalarTestFunction
-from sympde.topology.space       import VectorTestFunction
-from sympde.topology.space       import IndexedTestTrial
-from sympde.topology.derivatives import _partial_derivatives
-from sympde.topology.derivatives import _logical_partial_derivatives
-from sympde.topology.derivatives import get_max_logical_partial_derivatives
-from sympde.topology.mapping     import InterfaceMapping
-
-from pyccel.ast.core          import _atomic
-from psydac.api.ast.utilities import variables
-
 from .nodes import index_quad
 from .nodes import index_element
 from .nodes import index_dof_test
 from .nodes import index_dof_trial
 
-from collections import OrderedDict
-from itertools   import groupby
-
-
+from psydac.api.ast.utilities import variables
 
 #==============================================================================
 def convert(dtype):
@@ -216,7 +212,7 @@ class AST(object):
     into a DefNode
 
     """
-    def __init__(self, expr, terminal_expr, spaces, tag=None):
+    def __init__(self, expr, terminal_expr, spaces, tag=None, **kwargs):
         # ... compute terminal expr
         # TODO check that we have one single domain/interface/boundary
 
@@ -302,8 +298,6 @@ class AST(object):
             atomic_expr       = Matrix([[Tuple(*atomic_expr)]])
             terminal_expr     = Matrix([[terminal_expr]])
 
-        # ...
-
         d_tests = {}
         tests  = expand_hdiv_hcurl(tests)
         trials = expand_hdiv_hcurl(trials)
@@ -343,7 +337,7 @@ class AST(object):
                                           tests, d_tests,
                                           fields, constants,
                                           nderiv, domain.dim,
-                                          mapping, is_rational_mapping, spaces, mask, tag)
+                                          mapping, is_rational_mapping, spaces, mask, tag, **kwargs)
 
         elif is_bilinear:
             ast = _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
@@ -351,13 +345,13 @@ class AST(object):
                                             trials, d_trials,
                                             fields, constants,
                                             nderiv, domain.dim, 
-                                            mapping, is_rational_mapping, spaces, mask, tag)
+                                            mapping, is_rational_mapping, spaces, mask, tag, **kwargs)
 
         elif is_functional:
             ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
                                               tests, d_tests, constants,
                                               nderiv, domain.dim, 
-                                              mapping, is_rational_mapping, spaces, mask, tag)
+                                              mapping, is_rational_mapping, spaces, mask, tag, **kwargs)
         else:
             raise NotImplementedError('TODO')
         # ...
@@ -392,7 +386,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
                               tests, d_tests,
                               trials, d_trials,
                               fields, constants,
-                              nderiv, dim, mapping, is_rational_mapping, spaces, mask, tag):
+                              nderiv, dim, mapping, is_rational_mapping, spaces, mask, tag, **kwargs):
     """
     This function creates the assembly function of a bilinearform
 
@@ -458,7 +452,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad = GlobalTensorQuadrature()
     l_quad = LocalTensorQuadrature()
-
+    quad_order = kwargs.pop('quad_order', None)
     geo      = GeometryExpressions(mapping, nderiv)
 
     l_mats  = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim, tag)
@@ -473,7 +467,11 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     el_length   = LengthElement()
     lengths     = [el_length, quad_length]
 
-    ind_quad      = index_quad.set_length(quad_length)
+    if quad_order is not None:
+        ind_quad      = index_quad.set_length(Tuple(*quad_order))
+    else:
+        ind_quad      = index_quad.set_length(quad_length)
+
     ind_element   = index_element.set_length(el_length)
     ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0])+1)
     # ...........................................................................................
@@ -501,8 +499,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             sub_terminal_expr = terminal_expr[tests_indices,trials_indices]
             sub_atomic_expr   = atomic_expr[tests_indices,trials_indices]
             l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials, sub_tests, sub_terminal_expr, dim, l_mats.tag)
-            if sub_terminal_expr.is_zero:
+            if is_zero(sub_terminal_expr):
                 continue
+
             q_basis_tests  = OrderedDict((v,d_tests[v]['global'])  for v in sub_tests)
             q_basis_trials = OrderedDict((u,d_trials[u]['global']) for u in sub_trials)
 
@@ -530,7 +529,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
             body  = (Reset(l_sub_mats), loop)
             stmts = Block(body)
             g_stmts += [stmts]
-    
+
     #=========================================================end kernel=========================================================
 
     # ... loop over global elements
@@ -572,7 +571,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
 #================================================================================================================================
 def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, fields, constants, nderiv,
-                            dim, mapping, is_rational_mapping, space, mask, tag):
+                            dim, mapping, is_rational_mapping, space, mask, tag, **kwargs):
     """
     This function creates the assembly function of a linearform
 
@@ -674,7 +673,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         sub_atomic_expr   = atomic_expr[tests_indices,0]
         l_sub_vecs  = BlockStencilVectorLocalBasis(group, pads, sub_terminal_expr, l_vecs.tag)
         q_basis = {v:d_tests[v]['global']  for v in group}
-        if sub_terminal_expr.is_zero:
+        if is_zero(sub_terminal_expr):
             continue
         stmts = []
         for v in group:
@@ -732,7 +731,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
 
 #================================================================================================================================
 def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, constants, nderiv,
-                                dim, mapping, is_rational_mapping, space, mask, tag):
+                                dim, mapping, is_rational_mapping, space, mask, tag, **kwargs):
     """
     This function creates the assembly function of a Functional Form
 

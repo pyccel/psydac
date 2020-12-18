@@ -35,10 +35,10 @@ class TensorFemSpace( FemSpace ):
         assert all( isinstance( s, SplineSpace ) for s in args )
         self._spaces = tuple(args)
 
-        npts      = [V.nbasis for V in self.spaces]
-        pads      = [V.degree for V in self.spaces]
-        periods   = [V.periodic for V in self.spaces]
-        normalize = [V.normalize for V in self.spaces]
+        npts    = [V.nbasis   for V in self.spaces]
+        pads    = [V.degree   for V in self.spaces]
+        periods = [V.periodic for V in self.spaces]
+        basis   = [V.basis    for V in self.spaces]
 
         if 'comm' in kwargs and not( kwargs['comm'] is None ):
             # parallel case
@@ -72,8 +72,8 @@ class TensorFemSpace( FemSpace ):
         v = self._vector_space
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, normalize=n, nderiv=V.degree)
-                                  for V,s,e,n in zip( self.spaces, v.starts, v.ends, normalize ) )
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree)
+                                  for V,s,e in zip( self.spaces, v.starts, v.ends ) )
 
         # Determine portion of logical domain local to process
         self._element_starts = tuple( g.indices[g.local_element_start] for g in self.quad_grids )
@@ -84,7 +84,7 @@ class TensorFemSpace( FemSpace ):
            for s,e,space in zip( self._element_starts, self._element_ends, self.spaces ) )
 
         # Store flag: object NOT YET prepared for interpolation
-        self._collocation_ready = False
+        self._interpolation_ready = False
 
         # Compute the local domains for every process
         if v.parallel:
@@ -144,6 +144,10 @@ class TensorFemSpace( FemSpace ):
         bases = []
         index = []
 
+        # Necessary if vector coeffs is distributed across processes
+        if not field.coeffs.ghost_regions_in_sync:
+            field.coeffs.update_ghost_regions()
+
         for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
 
             knots  = space.knots
@@ -161,17 +165,21 @@ class TensorFemSpace( FemSpace ):
             #-------------------------------------------------#
             basis  = basis_funs( knots, degree, x, span )
 
+            # If needed, rescale B-splines to get M-splines
+            if space.basis == 'M':
+                basis *= space.scaling_array[span-degree : span+1]
+
             # Determine local span
             wrap_x   = space.periodic and x > xlim[1]
             loc_span = span - space.nbasis if wrap_x else span
-            
+
             bases.append( basis )
             index.append( slice( loc_span-degree, loc_span+1 ) )
-        
+
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
         coeffs = field.coeffs[index].copy()
-        
+
         # Evaluation of multi-dimensional spline
         # TODO: optimize
 
@@ -182,7 +190,7 @@ class TensorFemSpace( FemSpace ):
         res = coeffs
         for basis in bases[::-1]:
             res = np.dot( res, basis )
-        
+
 #        # Option 2: cycle over each element of 'coeffs' (touched only once)
 #        #   - Pros: no temporary objects are created
 #        #   - Cons: large number of Python iterations = number of elements in 'coeffs'
@@ -191,19 +199,8 @@ class TensorFemSpace( FemSpace ):
 #        for idx,c in np.ndenumerate( coeffs ):
 #            ndbasis = np.prod( [b[i] for i,b in zip( idx, bases )] )
 #            res    += c * ndbasis
-        
-        coeff = 1.
-        n = 0
-        for space in self.spaces:
-            knots  = space.knots
-            degree = space.degree
-            
-            if space.normalize:
-                coeff *= (degree+1)/(knots[2*(degree+1)]-knots[degree+1])
-                n     += 1
-        coeff *= max(1, n)
-            
-        return res*coeff
+
+        return res
 
     # ...
     def eval_field_gradient( self, field, *eta ):
@@ -232,6 +229,12 @@ class TensorFemSpace( FemSpace ):
             #-------------------------------------------------#
             basis_0 = basis_funs( knots, degree, x, span )
             basis_1 = basis_funs_1st_der( knots, degree, x, span )
+
+            # If needed, rescale B-splines to get M-splines
+            if space.basis == 'M':
+                scaling  = space.scaling_array[span-degree : span+1]
+                basis_0 *= scaling
+                basis_1 *= scaling
 
             # Determine local span
             wrap_x   = space.periodic and x > xlim[1]
@@ -315,6 +318,14 @@ class TensorFemSpace( FemSpace ):
         return dim
 
     @property
+    def knots(self):
+        return [V.knots for V in self.spaces]
+
+    @property
+    def breaks(self):
+        return [V.breaks for V in self.spaces]
+
+    @property
     def degree(self):
         return [V.degree for V in self.spaces]
 
@@ -379,11 +390,17 @@ class TensorFemSpace( FemSpace ):
         return self._eta_limits
 
     # ...
-    def init_collocation( self ):
+    def init_interpolation( self ):
         for V in self.spaces:
             # TODO: check if OK to access private attribute...
-            if not V._collocation_ready:
-                V.init_collocation()
+            if not V._interpolation_ready:
+                V.init_interpolation()
+
+    def init_histopolation( self ):
+        for V in self.spaces:
+            # TODO: check if OK to access private attribute...
+            if not V._histopolation_ready:
+                V.init_histopolation()
 
     # ...
     def compute_interpolant( self, values, field ):
@@ -406,8 +423,8 @@ class TensorFemSpace( FemSpace ):
         assert isinstance( field, FemField )
         assert field.space is self
 
-        if not self._collocation_ready:
-            self.init_collocation()
+        if not self._interpolation_ready:
+            self.init_interpolation()
 
         # TODO: check if OK to access private attribute '_interpolator' in self.spaces[i]
         kronecker_solve(
@@ -416,54 +433,58 @@ class TensorFemSpace( FemSpace ):
             out     = field.coeffs,
         )
 
-    def reduce_grid(self, axes=[], knots=[]):
+    def reduce_grid(self, axes=(), knots=()):
         """ 
-        Returns a new TensorFem object with a coarser grid from the original one
-         we do that by giving a new knot sequence in the desired dimension.
+        Create a new TensorFemSpace object with a coarser grid than the original one
+        we do that by giving a new knot sequence in the desired dimension.
             
         Parameters
         ----------
         axes : list of int
-            the dimensions where we want to coarsen the grid.
+            Dimensions where we want to coarsen the grid.
 
-        field : list/tuple
-            the list of the new knot sequence in each dimesion.
+        knots : list/tuple
+            New knot sequences in each dimension.
  
+        Returns
+        -------
+        V : TensorFemSpace
+            New space with a coarser grid.
+
         """
-    
         assert len(axes) == len(knots)
-    
+
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
-        
+
         v = self._vector_space
         spaces = list(self.spaces)
-        
+
         global_starts = v._cart._global_starts.copy()
         global_ends   = v._cart._global_ends.copy()
-        global_domains_ends   = self._global_element_ends
+        global_domains_ends  = self._global_element_ends
 
         for i, axis in enumerate(axes):
             space    = spaces[axis]
-            degree   = space._degree
-            periodic = space._periodic
+            degree   = space.degree
+            periodic = space.periodic
             breaks   = space.breaks
             T        = list(knots[i]).copy()
-            elements_ends  = global_domains_ends[axis]
-            boundries      = breaks[elements_ends+1].tolist()
-            
-            for b in boundries:
+            elements_ends = global_domains_ends[axis]
+            boundaries    = breaks[elements_ends+1].tolist()
+
+            for b in boundaries:
                 if b not in T:
                     T.append(b)
             T.sort()
-            
+
             new_space = SplineSpace(degree, knots=T, periodic=periodic,
-                                    dirichlet=space._dirichlet)
+                                    dirichlet=space.dirichlet, basis=space.basis)
             spaces[axis] = new_space
             breaks = new_space.breaks.tolist()
-            elements_ends = np.array([breaks.index(bd) for bd in boundries])-1
+            elements_ends = np.array([breaks.index(bd) for bd in boundaries])-1
             elements_starts = np.array([0] + (elements_ends[:-1]+1).tolist())
-            
+
             if periodic:
                 global_starts[axis] = elements_starts
                 global_ends[axis]   = elements_ends
@@ -556,34 +577,33 @@ class TensorFemSpace( FemSpace ):
         h5.close()
 
         return fields
-        
-    def reduce_degree(self, axes, normalize=False):
+
+    def reduce_degree(self, axes, basis='B'):
         if isinstance(axes, int):
             axes = [axes]
-            
+
         v = self._vector_space
-        
+
         spaces = list(self.spaces)
 
         for axis in axes:
-            
-            reduced_space = spaces[axis]
-            degree = reduced_space.degree
-            grid   = reduced_space.breaks
-            periodic = reduced_space.periodic
-            dirichlet = reduced_space.dirichlet
-            
-            reduced_space = SplineSpace(degree-1, grid=grid, 
-                                        periodic=periodic, 
-                                        dirichlet=dirichlet, normalize=normalize)
+            space = spaces[axis]
+            reduced_space = SplineSpace(
+                degree    = space.degree - 1,
+                pads      = space.degree,
+                grid      = space.breaks,
+                periodic  = space.periodic,
+                dirichlet = space.dirichlet,
+                basis     = basis
+            )
             spaces[axis] = reduced_space
-            
+
         npts = [V.nbasis for V in spaces]
         pads = v.pads
         periods = [V.periodic for V in spaces]
         # create new Tensor Vector
         if v.cart:
-            
+
             tensor_vec = TensorFemSpace(*spaces, comm=v.cart.comm)
             red_cart = v.cart.remove_last_element(axes)
             v = StencilVectorSpace(red_cart)
@@ -593,24 +613,25 @@ class TensorFemSpace( FemSpace ):
             v = self._vector_space
             tensor_vec._vector_space = StencilVectorSpace(npts, v.pads, v.periods)
             v = tensor_vec._vector_space
-      
+
         tensor_vec._spaces = tuple(spaces)
-        
+
        # Compute extended 1D quadrature grids (local to process) along each direction
        
-        tensor_vec._quad_grids = tuple( FemAssemblyGrid( V,s,e,quad_order=q )
+        tensor_vec._quad_grids = tuple( FemAssemblyGrid( V,s,e,quad_order=q, pad=q )
                                   for V,s,e,q in zip( spaces, v.starts, v.ends, self.degree ) )
 
         tensor_vec._element_starts, tensor_vec._element_ends =  self._element_starts, self._element_ends
-        
+
         # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
         tensor_vec._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
         for s,e,space in zip( self._element_starts, self._element_ends, spaces ) )
 
         # Store flag: object NOT YET prepared for interpolation
-        tensor_vec._collocation_ready = False
-                
+        tensor_vec._interpolation_ready = False
+
         return tensor_vec
+
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):
 

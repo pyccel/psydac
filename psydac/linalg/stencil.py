@@ -246,7 +246,7 @@ class StencilVector( Vector ):
     #...
     def __add__( self, v ):
         assert isinstance( v, StencilVector )
-        assert v._space is self._space
+        assert v._space == self._space
         w = StencilVector( self._space )
         w._data = self._data  +  v._data
         w._sync = self._sync and v._sync
@@ -255,7 +255,7 @@ class StencilVector( Vector ):
     #...
     def __sub__( self, v ):
         assert isinstance( v, StencilVector )
-        assert v._space is self._space
+        assert v._space == self._space
         w = StencilVector( self._space )
         w._data = self._data  -  v._data
         w._sync = self._sync and v._sync
@@ -269,7 +269,7 @@ class StencilVector( Vector ):
     #...
     def __iadd__( self, v ):
         assert isinstance( v, StencilVector )
-        assert v._space is self._space
+        assert v._space == self._space
         self._data += v._data
         self._sync  = v._sync and self._sync
         return self
@@ -334,8 +334,13 @@ class StencilVector( Vector ):
                 return self._toarray_parallel_no_pads()
 
         # In serial case, ignore 'with_pads' flag
-        index = tuple( slice(p,-p) for p in self.pads )
-        return self._data[index].flatten()
+        return self.toarray_local()
+
+    # ...
+    def toarray_local( self ):
+        """ return the local array without the padding"""
+        idx = tuple( slice(p,-p) for p in self.pads )
+        return self._data[idx].flatten()
 
     # ...
     def _toarray_parallel_no_pads( self ):
@@ -402,6 +407,26 @@ class StencilVector( Vector ):
 #        return out.flatten()
         return out.reshape(-1)
 
+    def topetsc( self ):
+        """ Convert to petsc data structure.
+        """
+
+        space = self.space
+        assert space.parallel
+        cart      = space.cart
+        petsccart = cart.topetsc()
+        petsc     = petsccart.petsc
+        lgmap     = petsccart.l2g_mapping
+
+        size  = (petsccart.local_size, None)
+        gvec  = petsc.Vec().createMPI(size, comm=cart.comm)
+        gvec.setLGMap(lgmap)
+        gvec.setUp()
+
+        idx = tuple( slice(p,-p) for p in self.pads )
+        gvec.setArray(self._data[idx])
+
+        return gvec
     # ...
     def __getitem__(self, key):
         index = self._getindex( key )
@@ -528,6 +553,10 @@ class StencilMatrix( Matrix ):
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
         assert W.pads == V.pads
+
+        if pads is not None:
+            for p,vp in zip(pads, V.pads):
+                assert p<=vp
         
         self._pads     = pads or tuple(V.pads)
         dims           = [e-s+2*p+1 for s,e,p in zip(W.starts, W.ends, W.pads)]
@@ -565,7 +594,7 @@ class StencilMatrix( Matrix ):
     def dot( self, v, out=None ):
 
         assert isinstance( v, StencilVector )
-        assert v.space is self.domain
+        assert v.space == self.domain
 
         # Necessary if vector space is distributed across processes
         if not v.ghost_regions_in_sync:
@@ -573,22 +602,23 @@ class StencilMatrix( Matrix ):
 
         if out is not None:
             assert isinstance( out, StencilVector )
-            assert out.space is self.codomain
+            assert out.space == self.codomain
         else:
             out = StencilVector( self.codomain )
 
         # Shortcuts
-        ssc = self.codomain.starts
-        eec = self.codomain.ends
-        ssd = self.domain.starts
-        eed = self.domain.ends
-        pp = self.pads
+        ssc   = self.codomain.starts
+        eec   = self.codomain.ends
+        ssd   = self.domain.starts
+        eed   = self.domain.ends
+        pads  = self.pads
+        xpads = self.domain.pads
 
         # Number of rows in matrix (along each dimension)
         nrows       = [ed-s+1 for s,ed in zip(ssd, eed)]
         nrows_extra = [0 if ec<=ed else ec-ed for ec,ed in zip(eec,eed)]
-        
-        self._dot(self._data, v._data, out._data, nrows, nrows_extra, pp)
+
+        self._dot(self._data, v._data, out._data, nrows, nrows_extra, xpads, pads)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -596,44 +626,42 @@ class StencilMatrix( Matrix ):
 
     # ...
     @staticmethod
-    def _dot(mat, x, out, nrows, nrows_extra, pads):
+    def _dot(mat, x, out, nrows, nrows_extra, xpads, pads):
 
         # Index for k=i-j
         ndim = len(x.shape)
-        kk = [slice(None)]*ndim
-
+        kk   = [slice(None)]*ndim
+        diff = [xp-p for xp,p in zip(xpads, pads)]
         for xx in np.ndindex( *nrows ):
 
-            ii    = tuple( p+x for p,x in zip(pads,xx) )
-            jj    = tuple( slice(x,x+2*p+1) for x,p in zip(xx,pads) )
+            ii    = tuple( xp+x for xp,x in zip(xpads,xx) )
+            jj    = tuple( slice(d+x,d+x+2*p+1) for x,p,d in zip(xx,pads,diff) )
             ii_kk = tuple( list(ii) + kk )
 
             out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
 
+        new_nrows = nrows.copy()
         for d,er in enumerate(nrows_extra):
-        
-            ee = [0]*len(nrows_extra)
-            kk = [slice(None)] *ndim
-            rows = nrows.copy()
-            del rows[d]
-            
-            
-            for n in range(er):
-                ee[d] = n+1
-                for xx in np.ndindex(*rows):
-                    ii = [*xx]
-                    ii.insert(d, nrows[d]+n)
-        
-                    ii    = tuple(i+p for i,p in zip(ii, pads))
-                    jj    = tuple( slice(i, i+2*p+1-e) for i,p,e in zip(ii, pp, ee) )
 
-                    kk[d] = slice(None,2*pp[d]-n)
-                    
-                    ii_kk = tuple( list(ii) + kk )
+            rows = new_nrows.copy()
+            del rows[d]
+
+            for n in range(er):
+                for xx in np.ndindex(*rows):
+                    xx = list(xx)
+                    xx.insert(d, nrows[d]+n)
+
+                    ii     = tuple(x+xp for x,xp in zip(xx, xpads))
+                    ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
+                    jj     = tuple( slice(x+d, x+d+2*p+1-e) for x,p,d,e in zip(xx, pads, diff, ee) )
+                    ndiags = [2*p + 1-e for p,e in zip(pads,ee)]
+                    kk     = [slice(None,diag) for diag in ndiags]
+                    ii_kk  = tuple( list(ii) + kk )
 
                     v1 = x[jj]
                     v2 = mat[ii_kk]
                     out[ii] = np.dot( v2.flat, v1.flat )
+            new_nrows[d] += er
 
     # ...
     def toarray( self, *, with_pads=False ):
@@ -703,6 +731,19 @@ class StencilMatrix( Matrix ):
     def __neg__(self):
         return self.__mul__(-1)
 
+    #...
+    def __sub__( self, a):
+        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w._data = a._data - self._data
+        w._sync = self._sync
+        return w
+
+    #...
+    def __abs__( self ):
+        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w._data = abs(self._data)
+        w._sync = self._sync
+        return w
 
     #...
     def remove_spurious_entries( self ):
@@ -784,40 +825,171 @@ class StencilMatrix( Matrix ):
         # Create new matrix where domain and codomain are swapped
         Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads)
 
-        # Number of rows in matrix (along each dimension)
-        nrows = [e - s + 1 for s, e in zip(M._codomain.starts, M._codomain.ends)]
-        nrows_extra = []
+        ssc   = self.codomain.starts
+        eec   = self.codomain.ends
+        ssd   = self.domain.starts
+        eed   = self.domain.ends
+        pads  = self.pads
+        xpads = self.domain.pads
+
+        # Number of rows in the transposed matrix (along each dimension)
+        ee          = tuple(min(e1,e2) for e1,e2 in zip(eec, eed))
+        nrows       = [ec-s+1 for s,ec in zip(ssc, ee)]
+        nrows_extra = [0 if ed<=ec else ed-ec for ec,ed in zip(eec,eed)]
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
-        self._transpose(M._data, Mt._data, nrows, nrows_extra, M.pads)
+        self._transpose(M._data, Mt._data, nrows, nrows_extra, xpads, pads)
 
         return Mt
 
     # ...
+    @property
+    def T(self):
+        return self.transpose()
+
+    # ...
+    def tocoo_local( self ):
+
+        # Shortcuts
+        sc = self._codomain.starts
+        ec = self._codomain.ends
+        pc = self._codomain.pads
+
+        sd = self._domain.starts
+        ed = self._domain.ends
+        pd = self._domain.pads
+
+        nd = self._ndim
+
+        nr = [e-s+1 +2*p for s,e,p in zip(sc, ec, pc)]
+        nc = [e-s+1 +2*p for s,e,p in zip(sd, ed, pd)]
+
+        ravel_multi_index = np.ravel_multi_index
+
+        # COO storage
+        rows = []
+        cols = []
+        data = []
+
+        local = tuple( [slice(p,-p) for p in pc] + [slice(None)] * nd )
+
+        dd = [pdi-ppi for pdi,ppi in zip(pd, self._pads)]
+
+        for (index, value) in np.ndenumerate( self._data[local] ):
+
+            # index = [i1-s1, i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
+
+            xx = index[:nd]  # ii is local
+            ll = index[nd:]  # l=p+k
+
+            ii = [x+p for x,p in zip(xx, pc)]
+            jj = [(l+i+d) for (i,l,d) in zip(xx,ll,dd)]
+
+            I = ravel_multi_index( ii, dims=nr, order='C' )
+            J = ravel_multi_index( jj, dims=nc, order='C' )
+
+            rows.append( I )
+            cols.append( J )
+            data.append( value )
+
+        M = coo_matrix(
+                (data,(rows,cols)),
+                shape = [np.prod(nr),np.prod(nc)],
+                dtype = self._domain.dtype
+        )
+
+        M.eliminate_zeros()
+
+        return M
+
+    # ...
+    def topetsc( self ):
+        """ Convert to petsc data structure.
+        """
+
+        dspace = self.domain
+        cspace = self.codomain
+        assert cspace.parallel and dspace.parallel
+
+        ccart      = cspace.cart
+        cpetsccart = ccart.topetsc()
+        clgmap     = cpetsccart.l2g_mapping
+
+        dcart      = dspace.cart
+        dpetsccart = dcart.topetsc()
+        dlgmap     = dpetsccart.l2g_mapping
+
+        petsc      = dpetsccart.petsc
+
+        r_size  = (cpetsccart.local_size, None)
+        c_size  = (dpetsccart.local_size, None)
+
+        gmat = petsc.Mat().create(comm=dcart.comm)
+        gmat.setSizes((r_size, c_size))
+        gmat.setType('mpiaij')
+        gmat.setLGMap(clgmap, dlgmap)
+        gmat.setUp()
+
+        mat_csr = self.tocoo_local().tocsr()
+
+        gmat.setValuesLocalCSR(mat_csr.indptr,mat_csr.indices,mat_csr.data)
+        gmat.assemble()
+        return gmat
+
+    #--------------------------------------
+    # Private methods
+    #--------------------------------------
     @staticmethod
-    def _transpose( M, Mt, nrows, nrows_extra, pads ):
+    def _transpose( M, Mt, nrows, nrows_extra, xpads, pads ):
 
         # NOTE:
         #  . Array M  index by [i1, i2, ..., k1, k2, ...]
         #  . Array Mt index by [j1, j2, ..., l1, l2, ...]
 
-        pp = pads
+        #M[i,j-i+p]
+        #Mt[j,i-j+p]
+
+        pp     = pads
         ndiags = [2*p + 1 for p in pp]
+        diff   = [xp-p for xp,p in zip(xpads, pp)]
+        ndim   = len(nrows)
 
         for xx in np.ndindex( *nrows ):
 
-            jj = tuple(p + x for p, x in zip(pp, xx) )
+            jj = tuple(xp + x for xp, x in zip(xpads, xx) )
 
             for ll in np.ndindex( *ndiags ):
 
-                ii = tuple(  x + l for x, l in zip(xx, ll))
+                ii = tuple(  x + l + d for x, l, d in zip(xx, ll, diff))
                 kk = tuple(2*p - l for p, l in zip(pp, ll))
 
                 Mt[(*jj, *ll)] = M[(*ii, *kk)]
 
-    #--------------------------------------
-    # Private methods
-    #--------------------------------------
+        new_nrows = nrows.copy()
+        for d,er in enumerate(nrows_extra):
+            rows = new_nrows.copy()
+            del rows[d]
+
+            for n in range(er):
+                for xx in np.ndindex(*rows):
+
+                    xx = [*xx]
+                    xx.insert(d, nrows[d]+n)
+
+                    jj     = tuple(xp + x for xp, x in zip(xpads, xx))
+                    ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
+                    ndiags = [2*p + 1-e for p,e in zip(pp, ee)]
+
+                    for ll in np.ndindex( *ndiags ):
+
+                        ii = tuple(  x + l + df for x, l, df in zip(xx, ll, diff))
+                        kk = tuple(2*p - l for p, l in zip(pp, ll))
+
+                        Mt[(*jj, *ll)] = M[(*ii, *kk)]
+
+            new_nrows[d] += er
+
+    # ...
     def _getindex( self, key ):
 
         nd = self._ndim
@@ -1029,6 +1201,7 @@ class StencilMatrix( Matrix ):
             idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
             self._data[idx_ghost] = 0
 
+#===============================================================================
 class StencilInterfaceMatrix(Matrix):
     """
     Matrix in n-dimensional stencil format for an interface.

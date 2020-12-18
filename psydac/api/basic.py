@@ -17,7 +17,7 @@ from psydac.api.ast.parser import parse
 
 from psydac.api.printing.pycode      import pycode
 from psydac.api.essential_bc         import apply_essential_bc
-from psydac.api.settings             import PSYDAC_BACKEND_PYTHON, PSYDAC_DEFAULT_FOLDER
+from psydac.api.settings             import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
 from psydac.linalg.stencil           import StencilVector, StencilMatrix
 from psydac.linalg.iterative_solvers import cg
 from psydac.fem.splines              import SplineSpace
@@ -46,8 +46,12 @@ class BasicCodeGen(object):
 
     def __init__(self, expr, **kwargs):
 
+        # Get default backend from environment, or use 'python'.
+        default_backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))\
+                       or PSYDAC_BACKENDS['python']
+
         namespace = kwargs.pop('namespace', globals())
-        backend   = kwargs.pop('backend', PSYDAC_BACKEND_PYTHON)
+        backend   = kwargs.pop('backend', default_backend)
         folder    = kwargs.pop('folder', None)
         comm      = kwargs.pop('comm', None)
         root      = kwargs.pop('root', None)
@@ -240,7 +244,8 @@ class BasicCodeGen(object):
                        accelerator = accelerator,
                        comm        = self.comm,
                        bcast       = True,
-                       folder      = _PYCCEL_FOLDER)
+                       folder      = _PYCCEL_FOLDER,
+                       verbose     = verbose)
 
         return fmod
 
@@ -302,5 +307,6 @@ class BasicDiscrete(BasicCodeGen):
     def _create_ast(self, expr,tag, **kwargs):
         discrete_space      = kwargs.pop('discrete_space', None)
         kernel_expr         = kwargs['kernel_expr']
+        quad_order          = kwargs.pop('quad_order', None)
 
-        return AST(expr, kernel_expr, discrete_space, tag)
+        return AST(expr, kernel_expr, discrete_space, tag, quad_order=quad_order)

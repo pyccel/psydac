@@ -47,6 +47,11 @@ import inspect
 import sys
 import numpy as np
 
+def get_quad_order(Vh):
+    if isinstance(Vh, ProductFemSpace):
+        Vh = Vh.spaces[0]
+    return tuple([g.weights.shape[1] for g in Vh.quad_grids])
+
 def collect_spaces(space, *args):
     """
     This function collect the arguments used in the assembly function
@@ -117,20 +122,17 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._is_rational_mapping = is_rational_mapping
         # ...
         self._spaces = args[1]
-        # ...
+        trial_space  = self.spaces[0]
+        test_space   = self.spaces[1]
+
         kwargs['discrete_space']      = self.spaces
         kwargs['mapping']             = self.spaces[0].symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
+        quad_order                    = kwargs.pop('quad_order', get_quad_order(test_space))
 
-        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
+        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
-        # ...
-        trial_space = self.spaces[0]
-        test_space  = self.spaces[1]
-
-        # ...
-        quad_order   = kwargs.pop('quad_order', None)
         domain       = self.kernel_expr.target
         self._matrix = kwargs.pop('matrix', None)
 
@@ -206,9 +208,9 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._grid = QuadratureGrid( test_space, quad_order = quad_order )
         # ...
         self._test_basis = BasisValues( test_space, self.grid,
-                                        nderiv = self.max_nderiv , ext=test_ext)
+                                        nderiv = self.max_nderiv , trial=False, ext=test_ext)
         self._trial_basis = BasisValues( trial_space, self.grid,
-                                         nderiv = self.max_nderiv , ext=trial_ext)
+                                         nderiv = self.max_nderiv , trial=True, ext=trial_ext)
 
         self._args  = self.construct_arguments()
 
@@ -311,6 +313,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             pads = test_degree
 
+
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
 
             shape = expr.shape
@@ -368,7 +371,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             if self._matrix:
                 global_mats[0,0] = self._matrix
             else:
-                global_mats[0,0] = StencilMatrix(trial_space, test_space)
+                global_mats[0,0] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
+
             local_mats[0,0]  = np.zeros((*(test_degree+1),*(2*pads+1)))
             self._matrix     = global_mats[0,0]
         return local_mats.values(), global_mats.values()
@@ -401,11 +405,11 @@ class DiscreteLinearForm(BasicDiscrete):
         kwargs['mapping']             = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
+        quad_order                    = kwargs.pop('quad_order', get_quad_order(self.space))
 
-        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
+        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
         # ...
-        quad_order = kwargs.pop('quad_order', None)
         domain     = self.kernel_expr.target
 
         self._vector = kwargs.pop('vector', None)
@@ -597,11 +601,11 @@ class DiscreteFunctional(BasicDiscrete):
         kwargs['mapping']             = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
+        quad_order                    = kwargs.pop('quad_order', get_quad_order(self.space))
 
-        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
+        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
         # ...
-        quad_order = kwargs.pop('quad_order', None)
         self._vector = kwargs.pop('vector', None)
         domain     = self.kernel_expr.target
         # ...

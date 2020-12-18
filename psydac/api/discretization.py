@@ -46,8 +46,13 @@ from psydac.fem.tensor               import TensorFemSpace
 from psydac.fem.vector               import ProductFemSpace
 from psydac.cad.geometry             import Geometry
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
-from psydac.feec.derivatives         import Grad, Curl, Div
-from psydac.feec.utilities           import Interpolation, interpolation_matrices
+from psydac.feec.global_projectors   import Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2
+
+from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
+from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
+from psydac.feec.derivatives import Divergence_2D, Divergence_3D
+
+from psydac.feec.pull_push import *
 
 import inspect
 import sys
@@ -64,7 +69,7 @@ from mpi4py import MPI
 LinearSystem = namedtuple('LinearSystem', ['lhs', 'rhs'])
 
 #==============================================================================
-_default_solver = {'solver':'cg', 'tol':1e-9, 'maxiter':1000, 'verbose':False}
+_default_solver = {'solver':'cg', 'tol':1e-9, 'maxiter':3000, 'verbose':False}
 
 def driver_solve(L, **kwargs):
     if not isinstance(L, LinearSystem):
@@ -280,132 +285,176 @@ class DiscreteEquation(BasicDiscrete):
 
 #==============================================================================
 class DiscreteDerham(BasicDiscrete):
-    def __init__(self, *spaces):
-    
-        dim       = len(spaces) - 1
-        self._V0  = None
-        self._V1  = None
-        self._V2  = None
-        self._V3  = None
-        self._dim = dim
-        
-        if dim == 1:
-            self._V0 = spaces[0]
-            self._V1 = spaces[1]
-        elif dim == 2:
-            self._V0 = spaces[0]
-            self._V1 = spaces[1]
-            self._V2 = spaces[2]
-        elif dim == 3:
-            self._V0 = spaces[0]
-            self._V1 = spaces[1]
-            self._V2 = spaces[2]
-            self._V3 = spaces[3]
+    """ Represent the discrete De Rham sequence.
+    """
+    def __init__(self, mapping, *spaces):
 
-    # ...
+        dim           = len(spaces) - 1
+        self._dim     = dim
+        self._spaces  = spaces
+        self._mapping = mapping
+
+        if dim not in [1,2,3]:
+            raise ValueError('dimension {} is not available'.format(dim))
+
     @property
     def dim(self):
         return self._dim
 
-    # ...  
     @property
     def V0(self):
-        return self._V0
+        return self._spaces[0]
 
     @property
     def V1(self):
-        return self._V1        
+        return self._spaces[1]
 
     @property
     def V2(self):
-        return self._V2
-        
+        return self._spaces[2]
+
     @property
     def V3(self):
-        return self._V3  
+        return self._spaces[3]
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+    @property
+    def mapping(self):
+        return self._mapping
+
+    @property
+    def derivatives_as_matrices(self):
+        return tuple(V.diff.matrix for V in self.spaces[:-1])
+
+    @property
+    def derivatives_as_operators(self):
+        return tuple(V.diff for V in self.spaces[:-1])
+
+    def projectors(self, *, kind='global', nquads=None):
+
+        if not (kind == 'global'):
+            raise NotImplementedError('only global projectors are available')
+
+        if self.dim == 1:
+            P0 = Projector_H1(self.V0)
+            P1 = Projector_L2(self.V1, nquads)
+            if self.mapping:
+                P0_m = lambda f: P0(pull_1d_h1(f, self.mapping))
+                P1_m = lambda f: P1(pull_1d_l2(f, self.mapping))
+                return P0_m, P1_m
+            return P0, P1
+
+        elif self.dim == 2:
+            P0 = Projector_H1(self.V0)
+            P2 = Projector_L2(self.V2, nquads)
+
+            kind = self.V1.symbolic_space.kind
+            if isinstance(kind, HcurlSpaceType):
+                P1 = Projector_Hcurl(self.V1, nquads)
+            elif isinstance(kind, HdivSpaceType):
+                P1 = Projector_Hdiv(self.V1, nquads)
+            else:
+                raise TypeError('projector of space type {} is not available'.format(kind))
+
+            if self.mapping:
+                P0_m = lambda f:P0(pull_2d_h1(f, self.mapping))
+                P2_m = lambda f:P2(pull_2d_l2(f, self.mapping))
+                if isinstance(kind, HcurlSpaceType):
+                    P1_m = lambda f:P1(pull_2d_hcurl(f, self.mapping))
+                elif isinstance(kind, HdivSpaceType):
+                    P1_m = lambda f:P1(pull_2d_hdiv(f, self.mapping))
+                return P0_m, P1_m, P2_m
+            return P0, P1, P2
+
+        elif self.dim == 3:
+            P0 = Projector_H1(self.V0)
+            P1 = Projector_Hcurl(self.V1, nquads)
+            P2 = Projector_Hdiv(self.V2, nquads)
+            P3 = Projector_L2(self.V3, nquads)
+            if self.mapping:
+                P0_m = lambda f:P0(pull_3d_h1(f, self.mapping))
+                P1_m = lambda f:P1(pull_3d_hcurl(f, self.mapping))
+                P2_m = lambda f:P2(pull_3d_hdiv(f, self.mapping))
+                P3_m = lambda f:P3(pull_3d_l2(f, self.mapping))
+                return P0_m, P1_m, P2_m, P3_m
+            return P0, P1, P2, P3
 
 #==============================================================================           
-def discretize_derham(V, domain_h, *args, **kwargs):
+def discretize_derham(Complex, domain_h, *args, **kwargs):
 
-    spaces = [discretize_space(Vi, domain_h, *args, **kwargs) for Vi in V.spaces]
-    ldim   = V.shape
-    
+    ldim     = Complex.shape
+    spaces   = Complex.spaces
+    mapping  = spaces[0].domain.mapping
+    d_spaces = [None]*(ldim+1)
+
     if ldim == 1:
-        D0 = Grad(spaces[0], spaces[1].vector_space)
-        setattr(spaces[0], 'grad', D0)
-        
-        interpolation0 = Interpolation(H1=spaces[0])
-        interpolation1 = Interpolation(H1=spaces[0], L2=spaces[1])
-        
-        setattr(spaces[0], 'interpolate', interpolation0)
-        setattr(spaces[1], 'interpolate', interpolation1)
+
+        d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
+        d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
+
+        D0 = Derivative_1D(d_spaces[0], d_spaces[1])
+
+        d_spaces[0].diff = d_spaces[0].grad = D0
         
     elif ldim == 2:
-        
-        if isinstance(V.spaces[1].kind, HcurlSpaceType):
-            D0 = Grad(spaces[0], spaces[1].vector_space)
-            D1 = Curl(spaces[0], spaces[1].vector_space, spaces[2].vector_space)
-            setattr(spaces[0], 'grad', D0)
-            setattr(spaces[1], 'curl', D1)
-            
-            interpolation0 = Interpolation(H1=spaces[0])
-            interpolation1 = Interpolation(H1=spaces[0], Hcurl=spaces[1])
-            interpolation2 = Interpolation(H1=spaces[0], L2=spaces[2])
+
+        d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
+        d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
+        d_spaces[2] = discretize_space(spaces[2], domain_h, *args, basis='M', **kwargs)
+
+        if isinstance(spaces[1].kind, HcurlSpaceType):
+            D0 =   Gradient_2D(d_spaces[0], d_spaces[1])
+            D1 = ScalarCurl_2D(d_spaces[1], d_spaces[2])
+
+            d_spaces[0].diff = d_spaces[0].grad = D0
+            d_spaces[1].diff = d_spaces[1].curl = D1
             
         else:
-            D0 = Grad(spaces[0], spaces[1].vector_space)
-            D1 = Div(spaces[0], spaces[1].vector_space, spaces[2].vector_space)
-            setattr(spaces[0], 'grad', D0)
-            setattr(spaces[1], 'div', D1)
-            
-            interpolation0 = Interpolation(H1=spaces[0])
-            interpolation1 = Interpolation(H1=spaces[0], Hdiv=spaces[1])
-            interpolation2 = Interpolation(H1=spaces[0], L2=spaces[2])
+            D0 = VectorCurl_2D(d_spaces[0], d_spaces[1])
+            D1 = Divergence_2D(d_spaces[1], d_spaces[2])
 
-        setattr(spaces[0], 'interpolate', interpolation0)
-        setattr(spaces[1], 'interpolate', interpolation1)
-        setattr(spaces[2], 'interpolate', interpolation2)
-            
+            d_spaces[0].diff = d_spaces[0].rot = D0
+            d_spaces[1].diff = d_spaces[1].div = D1
+
     elif ldim == 3:
-        D0 = Grad(spaces[0], spaces[1].vector_space)
-        D1 = Curl(spaces[0], spaces[1].vector_space, spaces[2].vector_space)  
-        D2 = Div(spaces[0], spaces[2].vector_space, spaces[3].vector_space)
-        
-        setattr(spaces[1], 'grad', D0)
-        setattr(spaces[2], 'curl', D1)
-        setattr(spaces[3], 'div' , D2)
-        
-        interpolation0 = Interpolation(H1=spaces[0])
-        interpolation1 = Interpolation(H1=spaces[0], Hcurl=spaces[1])
-        interpolation2 = Interpolation(H1=spaces[0], Hdiv=spaces[2])
-        interpolation3 = Interpolation(H1=spaces[0], L2=spaces[3])
-        
-        setattr(spaces[0], 'interpolate', interpolation0)
-        setattr(spaces[1], 'interpolate', interpolation1)
-        setattr(spaces[2], 'interpolate', interpolation2)
-        setattr(spaces[3], 'interpolate', interpolation3)
-        
 
-        
-    return DiscreteDerham(*spaces)
+        d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
+        d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
+        d_spaces[2] = discretize_space(spaces[2], domain_h, *args, basis='M', **kwargs)
+        d_spaces[3] = discretize_space(spaces[3], domain_h, *args, basis='M', **kwargs)
+
+        D0 =   Gradient_3D(d_spaces[0], d_spaces[1])
+        D1 =       Curl_3D(d_spaces[1], d_spaces[2])  
+        D2 = Divergence_3D(d_spaces[2], d_spaces[3])
+
+        d_spaces[0].diff = d_spaces[0].grad = D0
+        d_spaces[1].diff = d_spaces[1].curl = D1
+        d_spaces[2].diff = d_spaces[2].div  = D2
+
+    return DiscreteDerham(mapping, *d_spaces)
+
 #==============================================================================
 # TODO multi patch
 # TODO knots
 def discretize_space(V, domain_h, *args, **kwargs):
 
     degree              = kwargs.pop('degree', None)
-    normalize           = kwargs.pop('normalize', True)
+    basis               = kwargs.pop('basis', 'B')
     comm                = domain_h.comm
     kind                = V.kind
     ldim                = V.ldim
+    periodic            = kwargs.pop('periodic', [False]*ldim)
 
     is_rational_mapping = False
     
     if isinstance(V, ProductSpace):
-        kwargs['normalize'] = normalize
-        normalize = False
+        kwargs['basis'] = basis
+        basis = 'B'
     else:
-        normalize = normalize
+        basis = basis
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
@@ -466,7 +515,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
                      for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
             # Create 1D finite element spaces and precompute quadrature data
-            spaces = [SplineSpace( p, grid=grid ) for p,grid in zip(degree, grids)]
+
+            spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
             Vh     = None
             if i>0:
                 for e in interfaces:
@@ -495,11 +545,11 @@ def discretize_space(V, domain_h, *args, **kwargs):
             if isinstance(kind, L2SpaceType):
 
                 if ldim == 1:
-                    Vh = Vh.reduce_degree(axes=[0], normalize=normalize)
+                    Vh = Vh.reduce_degree(axes=[0], basis=basis)
                 elif ldim == 2:
-                    Vh = Vh.reduce_degree(axes=[0,1], normalize=normalize)
+                    Vh = Vh.reduce_degree(axes=[0,1], basis=basis)
                 elif ldim == 3:
-                    Vh = Vh.reduce_degree(axes=[0,1,2], normalize=normalize)
+                    Vh = Vh.reduce_degree(axes=[0,1,2], basis=basis)
 
             g_spaces.append(Vh)
     # Product and Vector spaces are constructed here
@@ -514,24 +564,24 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
                 elif isinstance(kind, HcurlSpaceType):
                     if ldim == 2:
-                        spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
-                                  Vh.reduce_degree(axes=[1], normalize=normalize)]
+                        spaces = [Vh.reduce_degree(axes=[0], basis=basis),
+                                  Vh.reduce_degree(axes=[1], basis=basis)]
                     elif ldim == 3:
-                        spaces = [Vh.reduce_degree(axes=[0], normalize=normalize), 
-                                  Vh.reduce_degree(axes=[1], normalize=normalize), 
-                                  Vh.reduce_degree(axes=[2], normalize=normalize)]
+                        spaces = [Vh.reduce_degree(axes=[0], basis=basis),
+                                  Vh.reduce_degree(axes=[1], basis=basis),
+                                  Vh.reduce_degree(axes=[2], basis=basis)]
                     else:
                         raise NotImplementedError('TODO')
 
                 elif isinstance(kind, HdivSpaceType):
  
                     if ldim == 2:
-                        spaces = [Vh.reduce_degree(axes=[1], normalize=normalize),
-                                  Vh.reduce_degree(axes=[0], normalize=normalize)]
+                        spaces = [Vh.reduce_degree(axes=[1], basis=basis),
+                                  Vh.reduce_degree(axes=[0], basis=basis)]
                     elif ldim == 3:
-                        spaces = [Vh.reduce_degree(axes=[1,2], normalize=normalize),
-                                  Vh.reduce_degree(axes=[0,2], normalize=normalize),
-                                  Vh.reduce_degree(axes=[0,1], normalize=normalize)]
+                        spaces = [Vh.reduce_degree(axes=[1,2], basis=basis),
+                                  Vh.reduce_degree(axes=[0,2], basis=basis),
+                                  Vh.reduce_degree(axes=[0,1], basis=basis)]
                     else:
                         raise NotImplementedError('TODO')
 
@@ -594,7 +644,7 @@ def discretize(a, *args, **kwargs):
                 kernel_expr = tuple(LogicalExpr(i) for i in kernel_expr)
         else:
             if not mapping is None:
-                a           = LogicalExpr(a)
+                a       = LogicalExpr (a)
             kernel_expr = TerminalExpr(a)
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)

@@ -3,13 +3,12 @@
 
 PSYDAC_DEFAULT_FOLDER = '__psydac__'
 
-
 # ... defining PSYDAC backends
 PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python'}
 
 PSYDAC_BACKEND_GPYCCEL = {'name':     'pyccel',
                       'compiler': 'gfortran',
-                      'flags':    '-O3',
+                      'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math',
                       'accelerator': None,
                       'folder': '__gpyccel__',
                       'tag':'gpyccel'}
@@ -31,6 +30,14 @@ PSYDAC_BACKEND_PGPYCCEL = {'name':     'pyccel',
 PSYDAC_BACKEND_NUMBA = {'name': 'numba','tag':'numba'}
 
 PSYDAC_BACKEND_PYTHRAN = {'name':'pythran','tag':'pythran'}
-
-PSYDAC_BACKEND = PSYDAC_BACKEND_PYTHON
 # ...
+
+# List of all available backends for accelerating Python code
+PSYDAC_BACKENDS = {
+    'python'      : PSYDAC_BACKEND_PYTHON,
+    'pyccel-gcc'  : PSYDAC_BACKEND_GPYCCEL,
+    'pyccel-intel': PSYDAC_BACKEND_IPYCCEL,
+    'pyccel-pgi'  : PSYDAC_BACKEND_PGPYCCEL,
+    'numba'       : PSYDAC_BACKEND_NUMBA,
+    'pythran'     : PSYDAC_BACKEND_PYTHRAN,
+}

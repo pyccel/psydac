@@ -5,16 +5,16 @@ from sympy import Mul, Matrix
 from sympy import Add
 from sympy import Abs
 from sympy import Symbol, Idx
-from sympy import Max
+from sympy import Max, Range
 from sympy import Basic, Function
 from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
 
-from pyccel.ast.builtins  import Range
+
 from pyccel.ast.utilities import build_types_decorator
 from pyccel.ast.core      import Assign, Product, AugAssign, For
 from pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
-from pyccel.ast.core      import Slice
+from pyccel.ast.core      import Slice, String
 from pyccel.ast.core      import EmptyNode, Import
 from pyccel.ast.core      import CodeBlock, FunctionDef
 
@@ -431,7 +431,7 @@ class Parser(object):
         imports = [Import('numpy', imports)]
 
         if self.backend['name'] == 'pyccel':
-            a = build_types_decorator(arguments)
+            a = [String(str(i)) for i in build_types_decorator(arguments)]
             decorators = {'types': Function('types')(*a)}
         elif self.backend['name'] == 'numba':
             decorators = {'jit': Symbol('jit')}
@@ -964,17 +964,6 @@ class Parser(object):
         exprs   = expr.expr
         mapping = self.mapping
 
-        if mapping.is_analytical and not isinstance(mapping, InterfaceMapping):
-            for i in range(mapping.rdim):
-                exprs = exprs.subs(mapping[i], mapping.expressions[i])
-
-        elif mapping.is_analytical and isinstance(mapping, InterfaceMapping):
-            M1 = mapping.minus
-            M2 = mapping.plus
-            for i in range(M1.rdim):
-                exprs = exprs.subs(M1[i], M1.expressions[i])
-                exprs = exprs.subs(M2[i], M2.expressions[i])
-
         weight  = SymbolicWeightedVolume(mapping)
         weight  = SymbolicExpr(weight)
 
@@ -996,11 +985,11 @@ class Parser(object):
             axis    = target.axis
             ext     = target.ext if isinstance(target, Boundary) else 1
 
-            J       = LogicalExpr(Jacobian(mapping), mapping=mapping, dim=dim, subs=True)
-            J       = SymbolicExpr(J)
-            values  = [ext * J.cofactor(i, j=axis) for i in range(J.shape[0])]
-            normalization = sum(v**2 for v in values)**0.5
-            values  = [v.simplify() for v in values]
+            J_inv   = LogicalExpr(mapping.jacobian_inv_expr, mapping=mapping, dim=dim, subs=True)
+            J_inv   = SymbolicExpr(J_inv)
+            values  = ext * J_inv[axis, :]
+            normalization = values.dot(values)**0.5
+            values  = [v for v in values]
             values  = [v1/normalization for v1 in values]
             normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), values[i]) for i in range(dim)]
 
@@ -1426,7 +1415,7 @@ class Parser(object):
                         for i,j in zip(t_iterator, t_generator)]
 
         indices, lengths = list(self._visit(expr.index)), list(self._visit(expr.index.length))
-        for i,j in zip(flatten(indices),flatten(lengths)):
+        for i,j in zip(flatten(indices), flatten(lengths)):
             self.indices[str(i)] = j
 
         inits = [()]*self._dim

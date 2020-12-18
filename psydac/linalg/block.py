@@ -201,6 +201,15 @@ class BlockVector( Vector ):
     def toarray( self ):
         return np.concatenate( [bi.toarray() for bi in self._blocks] )
 
+    def topetsc( self ):
+        """ Convert to petsc Nest vector.
+        """
+
+        blocks    = [v.topetsc() for v in self._blocks]
+        cart      = self._space.spaces[0].cart
+        petsccart = cart.topetsc()
+        return petsccart.petsc.Vec(),createNest(blocks, comm=cart.comm)
+
 #===============================================================================
 class BlockLinearOperator( LinearOperator ):
     """
@@ -296,7 +305,6 @@ class BlockLinearOperator( LinearOperator ):
         return tuple(
                tuple( self._blocks.get( (i,j), None ) for j in range( self.n_block_cols ) )
                                                       for i in range( self.n_block_rows ) )
-
     # ...
     @property
     def n_block_rows( self ):
@@ -306,6 +314,14 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def n_block_cols( self ):
         return self._domain.n_blocks
+
+    def update_ghost_regions( self ):
+        for Lij in self._blocks.values():
+            Lij.update_ghost_regions()
+
+    def remove_spurious_entries( self ):
+        for Lij in self._blocks.values():
+            Lij.remove_spurious_entries()
 
     def __getitem__( self, key ):
 
@@ -388,6 +404,19 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
         return M
 
+    # ...
+    def topetsc( self ):
+        """ Convert to petsc Nest Matrix.
+        """
+        # Convert all blocks to petsc format
+        blocks = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
+        for (i,j), Mij in self._blocks.items():
+            blocks[i][j] = Mij.topetsc()
+
+        cart      = self.domain.spaces[0].cart
+        petsccart = cart.topetsc()
+        return petsccart.petsc.Mat().createNest( blocks, comm=cart.comm)
+
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -403,3 +432,11 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
             raise TypeError( msg )
 
         BlockLinearOperator.__setitem__( self, key, value )
+
+    def transpose(self):
+        blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
+        return BlockMatrix(self.codomain, self.domain, blocks=blocks)
+
+    @property
+    def T(self):
+        return self.transpose()

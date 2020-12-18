@@ -22,11 +22,14 @@ __all__ = ['find_span',
            'basis_funs_1st_der',
            'basis_funs_all_ders',
            'collocation_matrix',
+           'histopolation_matrix',
            'breakpoints',
            'greville',
            'elements_spans',
            'make_knots',
+           'elevate_knots',
            'quadrature_grid',
+           'basis_integrals',
            'basis_ders_on_quad_grid']
 
 #==============================================================================
@@ -273,10 +276,12 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
     return ders
 
 #==============================================================================
-def collocation_matrix( knots, degree, xgrid, periodic ):
+def collocation_matrix(knots, degree, periodic, normalization, xgrid):
     """
     Compute the collocation matrix $C_ij = B_j(x_i)$, which contains the
     values of each B-spline basis function $B_j$ at all locations $x_i$.
+
+    If called with normalization='M', this uses M-splines instead of B-splines.
 
     Parameters
     ----------
@@ -284,13 +289,16 @@ def collocation_matrix( knots, degree, xgrid, periodic ):
         Knots sequence.
 
     degree : int
-        Polynomial degree of B-splines.
-
-    xgrid : 1D array_like
-        Evaluation points.
+        Polynomial degree of spline space.
 
     periodic : bool
         True if domain is periodic, False otherwise.
+
+    normalization : str
+        Set to 'B' for B-splines, and 'M' for M-splines.
+
+    xgrid : 1D array_like
+        Evaluation points.
 
     Returns
     -------
@@ -315,13 +323,145 @@ def collocation_matrix( knots, degree, xgrid, periodic ):
     else:
         js = lambda span: slice( span-degree, span+1 )
 
+    # Rescaling of B-splines, to get M-splines if needed
+    if normalization == 'B':
+        normalize = lambda basis, span: basis
+    elif normalization == 'M':
+        scaling = 1 / basis_integrals(knots, degree)
+        normalize = lambda basis, span: basis * scaling[span-degree: span+1]
+
     # Fill in non-zero matrix values
     for i,x in enumerate( xgrid ):
         span  =  find_span( knots, degree, x )
         basis = basis_funs( knots, degree, x, span )
-        mat[i,js(span)] = basis
+        mat[i,js(span)] = normalize(basis, span)
+
+    # Mitigate round-off errors
+    mat[abs(mat) < 1e-14] = 0.0
 
     return mat
+
+#==============================================================================
+def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
+    r"""
+    Compute the histopolation matrix $H_{ij} = \int_{x_i}^{x_{i+1}} B_j(x) dx$,
+    which contains the integrals of each B-spline basis function $B_j$ between
+    two successive grid points.
+
+    If called with normalization='M', this uses M-splines instead of B-splines.
+
+    Parameters
+    ----------
+    knots : 1D array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of spline space.
+
+    periodic : bool
+        True if domain is periodic, False otherwise.
+
+    normalization : str
+        Set to 'B' for B-splines, and 'M' for M-splines.
+
+    xgrid : 1D array_like
+        Grid points.
+
+    """
+    # Check that knots are ordered (but allow repeated knots)
+    if not np.all(np.diff(knots) >= 0):
+        raise ValueError("Cannot accept knot sequence: {}".format(knots))
+
+    # Check that spline degree is non-negative integer
+    if not isinstance(degree, (int, np.integer)):
+        raise TypeError("Degree {} must be integer, got type {} instead".format(degree, type(degree)))
+    if degree < 0:
+        raise ValueError("Cannot accept negative degree: {}".format(degree))
+
+    # Check 'periodic' flag
+    if not isinstance(periodic, bool):
+        raise TypeError("Cannot accept non-boolean 'periodic' parameter: {}".format(periodic))
+
+    # Check 'normalization' option
+    if normalization not in ['B', 'M']:
+        raise ValueError("Cannot accept 'normalization' parameter: {}".format(normalization))
+
+    # Check that grid points are ordered, and do not allow repetitions
+    if not np.all(np.diff(xgrid) > 0):
+        raise ValueError("Grid points must be ordered, with no repetitions: {}".format(xgrid))
+
+    # Number of basis functions (in periodic case remove degree repeated elements)
+    nb = len(knots)-degree-1
+    if periodic:
+        nb -= degree
+
+    # Number of evaluation points
+    nx = len(xgrid)
+
+    # In periodic case, make sure that evaluation points include domain boundaries
+    # TODO: only do this if the user asks for it!
+    if periodic:
+        xmin  = knots[degree]
+        xmax  = knots[-1-degree]
+        if xgrid[0] > xmin:
+            xgrid = [xmin, *xgrid]
+        if xgrid[-1] < xmax:
+            xgrid = [*xgrid, xmax]
+
+    # B-splines of degree p+1: basis[i,j] := Bj(xi)
+    #
+    # NOTES:
+    #  . cannot use M-splines in analytical formula for histopolation matrix
+    #  . always use non-periodic splines to avoid circulant matrix structure
+    C = collocation_matrix(
+        knots    = elevate_knots(knots, degree, periodic),
+        degree   = degree + 1,
+        periodic = False,
+        normalization = 'B',
+        xgrid = xgrid
+    )
+
+    # Rescaling of M-splines, to get B-splines if needed
+    if normalization == 'M':
+        normalize = lambda bi, j: bi
+    elif normalization == 'B':
+        scaling = basis_integrals(knots, degree)
+        normalize = lambda bi, j: bi * scaling[j]
+
+    # Compute span for each row (index of last non-zero basis function)
+    # TODO: would be better to have this ready beforehand
+    # TODO: use tolerance instead of comparing against zero
+    spans = [(row != 0).argmax() + (degree+1) for row in C]
+
+    # Compute histopolation matrix from collocation matrix of higher degree
+    m = C.shape[0] - 1
+    n = C.shape[1] - 1
+    H = np.zeros((m, n))
+    for i in range(m):
+        # Indices of first/last non-zero elements in row of collocation matrix
+        jstart = spans[i] - (degree+1)
+        jend   = min(spans[i+1], n)
+        # Compute non-zero values of histopolation matrix
+        for j in range(1+jstart, jend+1):
+            s = C[i, 0:j].sum() - C[i+1, 0:j].sum()
+            H[i, j-1] = normalize(s, j-1)
+
+    # Mitigate round-off errors
+    H[abs(H) < 1e-14] = 0.0
+
+    # Non periodic case: stop here
+    if not periodic:
+        return H
+
+    # Periodic case: wrap around histopolation matrix
+    #  1. identify repeated basis functions (sum columns)
+    #  2. identify split interval (sum rows)
+    Hp = np.zeros((nx, nb))
+    for i in range(m):
+        for j in range(n):
+            Hp[i%nx, j%nb] += H[i, j]
+
+    return Hp
 
 #==============================================================================
 def breakpoints( knots, degree ):
@@ -368,17 +508,23 @@ def greville( knots, degree, periodic ):
     """
     T = knots
     p = degree
-    s = 1+p//2       if periodic else 1
     n = len(T)-2*p-1 if periodic else len(T)-p-1
 
     # Compute greville abscissas as average of p consecutive knot values
-    xg = np.around( [sum(T[i:i+p])/p for i in range(s,s+n)], decimals=15 )
+    xg = np.array([sum(T[i:i+p])/p for i in range(1,1+n)])
 
-    # If needed apply periodic boundary conditions
+    # Domain boundaries
+    a = T[p]
+    b = T[-1-p]
+
+    # If needed apply periodic boundary conditions, then sort array
     if periodic:
-        a  = T[ p]
-        b  = T[-p]
-        xg = np.around( (xg-a)%(b-a)+a, decimals=15 )
+        xg = (xg-a) % (b-a) + a
+        xg = xg[np.argsort(xg)]
+
+    # Make sure roundoff errors don't push Greville points outside domain
+    xg[ 0] = max(xg[ 0], a)
+    xg[-1] = min(xg[-1], b)
 
     return xg
 
@@ -489,8 +635,48 @@ def make_knots( breaks, degree, periodic ):
     return T
 
 #==============================================================================
-def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):
+def elevate_knots(knots, degree, periodic):
     """
+    Given the knot sequence of a spline space S of degree p, compute the knot
+    sequence of a spline space S_0 of degree p+1 such that u' is in S for all
+    u in S_0.
+
+    Specifically, on bounded domains the first and last knots are repeated in
+    the sequence, and in the periodic case the knot sequence is extended by
+    periodicity.
+
+    Parameters
+    ----------
+    knots : array_like
+        Knots sequence of spline space of degree p.
+
+    degree : int
+        Spline degree (= polynomial degree within each interval).
+
+    periodic : bool
+        True if domain is periodic, False otherwise.
+
+    Returns
+    -------
+    new_knots : 1D numpy.ndarray
+        Knots sequence of spline space of degree p+1.
+
+    """
+
+    if periodic:
+        [T, p] = knots, degree
+        period = T[-1-p] - T[p]
+        left   = T[-1-p-(p+1)] - period
+        right  = T[   p+(p+1)] + period
+    else:
+        left  = knots[0]
+        right = knots[-1]
+
+    return np.array([left, *knots, right])
+
+#==============================================================================
+def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):
+    r"""
     Compute the quadrature points and weights for performing integrals over
     each element (interval) of the 1D domain, given a certain Gaussian
     quadrature rule.
@@ -557,9 +743,11 @@ def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):
     return quad_x, quad_w
 
 #==============================================================================
-def basis_ders_on_quad_grid( knots, degree, quad_grid, nders, normalize=False ):
+def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization):
     """
     Evaluate B-Splines and their derivatives on the quadrature grid.
+
+    If called with normalization='M', this uses M-splines instead of B-splines.
 
     Parameters
     ----------
@@ -571,10 +759,13 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders, normalize=False ):
 
     quad_grid: 2D numpy.ndarray (ne,nq)
         Coordinates of quadrature points of each element in 1D domain,
-        given by quadrature_grid() function.
+        which can be given by quadrature_grid() or chosen arbitrarily.
 
     nders : int
         Maximum derivative of interest.
+
+    normalization : str
+        Set to 'B' for B-splines, and 'M' for M-splines.
 
     Returns
     -------
@@ -588,33 +779,58 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders, normalize=False ):
 
     """
     # TODO: add example to docstring
-    # TODO: check if it is safe to compute span only once for each element
 
     ne,nq = quad_grid.shape
-    basis = np.zeros( (ne,degree+1,nders+1,nq) )
+    basis = np.zeros((ne, degree+1, nders+1, nq))
+
+    if normalization == 'M':
+        scaling = 1. / basis_integrals(knots, degree)
 
     for ie in range(ne):
-        xx = quad_grid[ie,:]
-        for iq,xq in enumerate(xx):
-            span = find_span( knots, degree, xq )
-            ders = basis_funs_all_ders( knots, degree, xq, span, nders )
-            basis[ie,:,:,iq] = ders.transpose()
-
-    if normalize:
-        x = scaling_matrix(degree, ne+degree, knots)
-        basis *= x[0]
+        xx = quad_grid[ie, :]
+        for iq, xq in enumerate(xx):
+            span = find_span(knots, degree, xq)
+            ders = basis_funs_all_ders(knots, degree, xq, span, nders)
+            if normalization == 'M':
+                ders *= scaling[None, span-degree:span+1]
+            basis[ie, :, :, iq] = ders.transpose()
 
     return basis
 
 #==============================================================================
-def scaling_matrix(p, n, T):
-    """Returns the scaling array for M-splines.
-    It is an array whose elements are (p+1)/(T[i+p+1]-T[i])
+def basis_integrals(knots, degree):
+    r"""
+    Return the integral of each B-spline basis function over the real line:
 
+    K[i] := \int_{-\infty}^{+\infty} B[i](x) dx = (T[i+p+1]-T[i]) / (p+1).
+
+    This array can be used to convert B-splines to M-splines, which have unit
+    integral over the real line but no partition-of-unity property.
+
+    Parameters
+    ----------
+    knots : 1D array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    Returns
+    -------
+    K : 1D numpy.ndarray
+        Array with the integrals of each B-spline basis function.
+
+    Notes
+    -----
+    For convenience, this function does not distinguish between periodic and
+    non-periodic spaces, hence the length of the output array is always equal
+    to (len(knots)-degree-1). In the periodic case the last (degree) values in
+    the array are redundant, as they are a copy of the first (degree) values.
 
     """
+    T = knots
+    p = degree
+    n = len(T)-p-1
+    K = np.array([(T[i+p+1] - T[i]) / (p + 1) for i in range(n)])
 
-    x = np.zeros(n)
-    for i in range(0, n):
-        x[i] = (p+1)/(T[i+p+1]-T[i])
-    return x
+    return K

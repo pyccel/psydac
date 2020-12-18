@@ -1,31 +1,24 @@
 # coding: utf-8
 
 from sympy import Mul, Tuple
-from sympy import Mod, Abs
+from sympy import Mod, Abs, Range
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
 from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
-from pyccel.ast.core import Slice
-from pyccel.ast.core import Range, Product
+from pyccel.ast.core import Product
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
-from pyccel.ast import Zeros
-from pyccel.ast import Import
-from pyccel.ast import DottedName
-from pyccel.ast import Nil
-from pyccel.ast import Len
-from pyccel.ast import If, Is, Return
-from pyccel.ast import String, Print, Shape
-from pyccel.ast import Comment
+from pyccel.ast.core import Import
 from pyccel.ast.utilities import build_types_decorator
+from psydac.api.ast.utilities import variables, math_atoms_as_str
 
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
 
-from .basic      import SplBasic
+from psydac.api.ast.basic import SplBasic
 
 class LinearOperatorDot(SplBasic):
 
@@ -35,7 +28,7 @@ class LinearOperatorDot(SplBasic):
         obj = SplBasic.__new__(cls, 'dot',name='lo_dot',prefix='lo_dot')
         obj._ndim = ndim
         obj._backend = backend
-        obj._func = obj._initilize()
+        obj._func = obj._initialize()
         return obj
 
     @property
@@ -118,12 +111,12 @@ class LinearOperatorDot(SplBasic):
         decorators = {}
         header = None
 
-        if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_types_decorator(func_args), 'external_call':[]}
-        elif self.backend['name'] == 'numba':
-            decorators = {'jit':[]}
-        elif self.backend['name'] == 'pythran':
-            header = build_pythran_types_header(self.name, func_args)
+#        if self.backend['name'] == 'pyccel':
+#            decorators = {'types': build_types_decorator(func_args), 'external_call':[]}
+#        elif self.backend['name'] == 'numba':
+#            decorators = {'jit':[]}
+#        elif self.backend['name'] == 'pythran':
+#            header = build_pythran_types_header(self.name, func_args)
 
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators,header=header)
@@ -177,7 +170,7 @@ class VectorDot(SplBasic):
 
         func_args =  (x1, x2) + pads + dims
 
-        self._imports = [Import('product','itertools')]
+        self._imports = [Import('itertools', 'product')]
 
         decorators = {}
         header = None

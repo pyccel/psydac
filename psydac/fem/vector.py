@@ -277,6 +277,7 @@ class VectorFemField:
 
         self._space  = space
         self._coeffs = coeffs
+        self._fields = [FemField(s, coeff) for s,coeff in zip(self.space.spaces, self.coeffs)]
 
     # ...
     @property
@@ -300,4 +301,8 @@ class VectorFemField:
 
     @property
     def fields( self ):
-        return [FemField(s, coeff) for s,coeff in zip(self.space.spaces, self.coeffs)]
+        return self._fields
+
+    def __call__( self , *eta):
+        return tuple(f( *eta ) for f in self.fields)
+

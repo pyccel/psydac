@@ -98,9 +98,38 @@ class BoundaryQuadratureGrid(QuadratureGrid):
     @property
     def ext(self):
         return self._ext
+
 #==============================================================================
 class BasisValues():
-    def __init__( self, V, grid, nderiv , ext=None):
+    """ Compute the basis values and the spans.
+
+    Parameters
+    ----------
+    V : FemSpace
+       the space that contains the basis values and the spans.
+
+    grid : QuadratureGrid
+        the quadrature grid of the of the discretized domain.
+
+    nderiv : int
+        the maximum number of derivatives needed for the basis values.
+
+    trial : bool, optional
+        the trial parameter indicates if the FemSpace represents the trial space or the test space.
+
+    ext : int, optional
+        needed for the basis values on the boundary to indicate the boundary over an axis.
+
+    Attributes
+    ----------
+    basis : list
+        The basis values.
+    spans : list
+        The spans of the basis functions.
+
+    """
+    def __init__( self, V, grid, nderiv , trial=False, ext=None):
+
         assert( isinstance( grid, QuadratureGrid ) )
 
         if isinstance(V, ProductFemSpace):
@@ -112,10 +141,25 @@ class BasisValues():
 
         spans = []
         basis = []
-        for s,Vi in zip(starts,V):
+        for si,Vi in zip(starts,V):
             quad_grids  = Vi.quad_grids
-            spans      += [[g.spans-i for i,g in zip(s,quad_grids)]]
-            basis      += [[g.basis for g in quad_grids]]
+            spans_i     = []
+            basis_i     = []
+
+            for sij,g,p,vij in zip(si, quad_grids, Vi.vector_space.pads, Vi.spaces):
+                sp = g.spans-sij
+                bs = g.basis
+                if not trial and vij.periodic and vij.degree <= p:
+                    bs                 = bs.copy()
+                    sp                 = sp.copy()
+                    bs[0:p-vij.degree] = 0.
+                    sp[0:p-vij.degree] = sp[p-vij.degree]
+
+                spans_i.append(sp)
+                basis_i.append(bs)
+
+            spans.append(spans_i)
+            basis.append(basis_i)
 
         self._spans = spans
         self._basis = basis
@@ -125,12 +169,13 @@ class BasisValues():
             for i,Vi in enumerate(V):
                 space  = Vi.spaces[axis]
                 points = grid.points[axis]
-                boundary_basis = basis_ders_on_quad_grid(space.knots, space.degree, points, nderiv)
+                boundary_basis = basis_ders_on_quad_grid(
+                        space.knots, space.degree, points, nderiv, space.basis)
                 self._basis[i][axis] = self._basis[i][axis].copy()
                 self._basis[i][axis][0:1, :, 0:nderiv+1, 0:1] = boundary_basis
                 if ext == 1:
-                    self._spans[i][axis]             = self._spans[i][axis].copy()
-                    self._spans[i][axis][0]          = self._spans[i][axis][-1]
+                    self._spans[i][axis]    = self._spans[i][axis].copy()
+                    self._spans[i][axis][0] = self._spans[i][axis][-1]
 
     @property
     def basis(self):
