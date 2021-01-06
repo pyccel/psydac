@@ -51,7 +51,7 @@ def run_vector_poisson_2d_dir(filename, solution, f):
     u = element_of(V, name='u')
 
     int_0 = lambda expr: integral(domain , expr)
-    
+
     expr = inner(grad(v), grad(u))
     a = BilinearForm((v,u), int_0(expr))
 
@@ -149,9 +149,9 @@ def test_api_vector_poisson_2d_dir_collela():
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()

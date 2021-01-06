@@ -123,7 +123,7 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
 def test_api_system_1_2d_dir_1():
 
     from sympy import symbols
-    
+
     x1,x2 = symbols('x1, x2')
 
     Fe = Tuple(sin(pi*x1)*sin(pi*x2), sin(pi*x1)*sin(pi*x2))
@@ -150,9 +150,9 @@ def test_api_system_1_2d_dir_1():
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()

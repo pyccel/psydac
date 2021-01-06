@@ -109,11 +109,11 @@ def test_api_glt_poisson_2d_dir_quarter_annulus():
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 #test_api_glt_poisson_2d_dir_identity()

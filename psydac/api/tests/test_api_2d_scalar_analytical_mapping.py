@@ -1,10 +1,10 @@
-import pytest      
-                
+import pytest
+
 from sympy.core.containers import Tuple
-from sympy import Matrix               
-from sympy import Function                                
-from sympy import pi, cos, sin, exp                        
-      
+from sympy import Matrix
+from sympy import Function
+from sympy import pi, cos, sin, exp
+
 from sympde.core import Constant
 from sympde.calculus import grad, dot, inner, rot, div
 from sympde.calculus import laplace, bracket, convect
@@ -20,12 +20,12 @@ from sympde.topology import Square
 from sympde.topology import ElementDomain
 from sympde.topology import Area
 from sympde.topology import IdentityMapping, PolarMapping
-                         
+
 from sympde.expr.expr import LinearExpr
 from sympde.expr.expr import LinearForm, BilinearForm
-from sympde.expr.expr import integral              
-from sympde.expr.expr import Functional, Norm                       
-from sympde.expr.expr import linearize                      
+from sympde.expr.expr import integral
+from sympde.expr.expr import Functional, Norm
+from sympde.expr.expr import linearize
 from sympde.expr.evaluation import TerminalExpr
 from psydac.api.discretization import discretize
 from sympde.expr     import find, EssentialBC
@@ -62,17 +62,17 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
     #+++++++++++++++++++++++++++++++
-    
+
     domain_h = discretize(domain, ncells=ncells)
     Vh       = discretize(V, domain_h, degree=degree)
-    
+
     equation_h = discretize(equation, domain_h, [Vh, Vh])
 
     l2norm_h = discretize(l2norm, domain_h, Vh)
     h1norm_h = discretize(h1norm, domain_h, Vh)
 
     x  = equation_h.solve()
-    
+
     uh = FemField( Vh , x)
 
     l2_error = l2norm_h.assemble(u=uh)
@@ -108,10 +108,10 @@ def test_poisson_2d_analytical_mapping_0():
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 

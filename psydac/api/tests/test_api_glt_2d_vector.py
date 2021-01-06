@@ -29,7 +29,7 @@ def run_vector_poisson_2d_dir(ncells, degree):
     u = element_of(V, name='u')
 
     int_0 = lambda expr: integral(domain , expr)
-    
+
     a = BilinearForm((v,u), int_0(inner(grad(v), grad(u))))
 
     glt_a = GltExpr(a)
@@ -83,9 +83,9 @@ def test_api_glt_vector_poisson_2d_dir_1():
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()

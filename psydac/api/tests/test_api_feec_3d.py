@@ -35,7 +35,7 @@ def splitting_integrator_scipy(e0, b0, M1, M2, CURL, dt, niter):
         y1 = M2.dot(b)
         y2 = CURL_T.dot(y1)
         return M1_solver.solve(y2)
-    
+
     e_history = [e0]
     b_history = [b0]
 
@@ -76,7 +76,7 @@ def splitting_integrator_stencil(e0, b0, M1, M2, CURL, dt, niter):
 
 def evaluation_all_times(fields, x, y, z):
     ak_value = np.empty(len(fields), dtype = 'float')
-    
+
     for i in range(len(fields)):
         ak_value[i] = fields[i](x,y,z)
     return ak_value
@@ -130,7 +130,7 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     b0_3 = lambda x, y, z : b_ex[2](0, x, y, z)
 
     b0   = (b0_1, b0_2, b0_3)
-    
+
     # project initial conditions
     e0_coeff = P1(e0).coeffs
 
@@ -340,10 +340,10 @@ def test_maxwell_3d_2():
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
