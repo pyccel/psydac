@@ -22,3 +22,5 @@ doc/api-python
 psydac/core/bsp-f2py*
 psydac/core/bspmodule.c
 psydac/core/*.so
+__*pyccel__
+.env
