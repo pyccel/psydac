@@ -109,6 +109,10 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     a0 = BilinearForm((u0, v0), integral(domain, u0 * v0))
     a1 = BilinearForm((u1, v1), integral(domain, u1 * v1))
 
+    # If needed, use penalization to apply homogeneous Dirichlet BCs
+    if not periodic:
+        a0_bc = BilinearForm((u0, v0), integral(domain.boundary, 1e30 * u0 * v0))
+
     #--------------------------------------------------------------------------
     # Discrete objects: Psydac
     #--------------------------------------------------------------------------
@@ -128,20 +132,11 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Differential operators
     D0, = derham_h.derivatives_as_matrices
 
-    # If needed, apply homogeneous Dirichlet BCs
+    # Discretize and assemble penalization matrix
     if not periodic:
+        a0_bc_h = discretize(a0_bc, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_GPYCCEL)
+        M0_bc   = a0_bc_h.assemble()
 
-        s1, = M0.codomain.starts
-        e1, = M0.codomain.ends
-        n1, = M0.codomain.npts
-
-        if s1 == 0:
-            M0[s1, :] = 0.0
-            D0[s1, 0] = 0.0
-
-        if e1 == n1-1:
-            M0[e1  , :] = 0.0
-            D0[e1-1, 1] = 0.0
 
     # Transpose of derivative matrix
     D0_T = D0.T
@@ -283,7 +278,10 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # TODO: add option to convert to scipy sparse format
 
     # Arguments for time stepping
-    args = (e, b, M0, M1, D0, D0_T)
+    if periodic:
+        args = (e, b, M0, M1, D0, D0_T)
+    else:
+        args = (e, b, M0 + M0_bc, M1, D0, D0_T)
 
     # Time loop
     for i in range(nsteps):
