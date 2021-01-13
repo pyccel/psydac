@@ -80,7 +80,7 @@ def pull_2d_h1(func_ini, mapping):
     return fun
 
 #==============================================================================
-def pull_2d_hcurl(func_ini, mapping):
+def pull_2d_hcurl(funcs_ini, mapping):
 
     mapping  = mapping.get_callable_mapping()
     f1,f2    = mapping._func_eval
@@ -113,7 +113,7 @@ def pull_2d_hcurl(func_ini, mapping):
     return fun1, fun2
 
 #==============================================================================
-def pull_2d_hdiv(func_ini, mapping):
+def pull_2d_hdiv(funcs_ini, mapping):
 
     mapping    = mapping.get_callable_mapping()
     f1,f2      = mapping._func_eval
