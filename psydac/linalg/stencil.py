@@ -732,6 +732,17 @@ class StencilMatrix( Matrix ):
         return self.__mul__(-1)
 
     #...
+    def __add__(self, m):
+        assert isinstance(m, StencilMatrix)
+        assert m._domain   == self._domain
+        assert m._codomain == self._codomain
+        assert m._pads     == self._pads
+        w = StencilMatrix(self._domain, self._codomain, self._pads)
+        w._data = self._data  +  m._data
+        w._sync = self._sync and m._sync
+        return w
+
+    #...
     def __sub__(self, m):
         assert isinstance(m, StencilMatrix)
         assert m._domain   == self._domain
@@ -741,6 +752,31 @@ class StencilMatrix( Matrix ):
         w._data = self._data  -  m._data
         w._sync = self._sync and m._sync
         return w
+
+    #...
+    def __imul__(self, a):
+        self._data *= a
+        return self
+
+    #...
+    def __iadd__(self, m):
+        assert isinstance(m, StencilMatrix)
+        assert m._domain   == self._domain
+        assert m._codomain == self._codomain
+        assert m._pads     == self._pads
+        self._data += m._data
+        self._sync  = m._sync and self._sync
+        return self
+
+    #...
+    def __isub__(self, m):
+        assert isinstance(m, StencilMatrix)
+        assert m._domain   == self._domain
+        assert m._codomain == self._codomain
+        assert m._pads     == self._pads
+        self._data -= m._data
+        self._sync  = m._sync and self._sync
+        return self
 
     #...
     def __abs__( self ):
