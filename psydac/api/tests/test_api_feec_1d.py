@@ -140,10 +140,6 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         a0_bc_h = discretize(a0_bc, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_GPYCCEL)
         M0_bc   = a0_bc_h.assemble()
 
-#        # Fix assembly process by hand
-#        M0_bc[0, 0] = 1e30
-#        M0_bc[M0_bc.domain.ends[0], 0] = 1e30
-
     # Transpose of derivative matrix
     D0_T = D0.T
 
@@ -287,11 +283,6 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     if periodic:
         args = (e, b, M0, M1, D0, D0_T)
     else:
-        np.set_printoptions(linewidth = 300, precision = 2)
-        print(M0_bc.toarray())
-        print()
-        print((M0 + M0_bc).toarray())
-        print()
         args = (e, b, M0 + M0_bc, M1, D0, D0_T)
 
     # Time loop
