@@ -734,7 +734,7 @@ class StencilMatrix( Matrix ):
     #...
     def __sub__( self, a):
         w = StencilMatrix( self._domain, self._codomain, self._pads )
-        w._data = a._data - self._data
+        w._data = self._data - a._data
         w._sync = self._sync
         return w
 
