@@ -65,25 +65,18 @@ class BoundaryQuadratureGrid(QuadratureGrid):
         weights = self.weights
 
         # ...
-        if V.ldim == 1:
-            assert( isinstance( V, SplineSpace ) )
+        if V.ldim == 1 and isinstance(V, SplineSpace):
+            bounds = {-1: V.domain[0],
+                       1: V.domain[1]}
+        elif isinstance(V, TensorFemSpace):
+            bounds = {-1: V.spaces[axis].domain[0],
+                       1: V.spaces[axis].domain[1]}
+        else:
+            raise ValueError('Incompatible type(V) = {} in {} dimensions'.format(
+                type(V), V.ldim))
 
-            bounds     = {}
-            bounds[-1] = V.domain[0]
-            bounds[1]  = V.domain[1]
-
-            points[axis]  = np.asarray([[bounds[ext]]])
-            weights[axis] = np.asarray([[1.]])
-
-        elif V.ldim in [2, 3]:
-            assert( isinstance( V, TensorFemSpace ) )
-
-            bounds     = {}
-            bounds[-1] = V.spaces[axis].domain[0]
-            bounds[1]  = V.spaces[axis].domain[1]
-
-            points[axis]  = np.asarray([[bounds[ext]]])
-            weights[axis] = np.asarray([[1.]])
+        points [axis] = np.asarray([[bounds[ext]]])
+        weights[axis] = np.asarray([[1.]])
         # ...
 
         self._axis    = axis
