@@ -43,7 +43,7 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     u = element_of(V, name='u')
 
     int_0 = lambda expr: integral(domain , expr)
-    
+
     a = BilinearForm((v,u), int_0(dot(grad(v), grad(u))))
 
     glt_a = GltExpr(a)
@@ -98,7 +98,7 @@ def run_field_2d_dir(ncells, degree, comm=None):
     u = element_of(V, name='u')
 
     int_0 = lambda expr: integral(domain , expr)
-    
+
     a  = BilinearForm((v,u), int_0(dot(grad(v), grad(u)) + F*u*v))
     ae = BilinearForm((v,u), int_0(dot(grad(v), grad(u)) + u*v))
 
@@ -164,7 +164,7 @@ def run_variable_coeff_2d_dir(ncells, degree, comm=None):
     c = Constant('c', real=True)
 
     int_0 = lambda expr: integral(domain , expr)
-    
+
     expr = (1 + c*sin(pi*(x+y)))*dx1(u)*dx2(v) + (1 + c*sin(pi*(x-y)))*dx1(u)*dx2(v)
     a = BilinearForm((v,u), int_0(expr))
     glt_a = GltExpr(a)
@@ -233,9 +233,9 @@ def test_api_glt_variable_coeff_2d_dir_1():
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
