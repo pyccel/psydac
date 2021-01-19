@@ -100,6 +100,9 @@ class BasisValues():
     trial : bool, optional
         the trial parameter indicates if the FemSpace represents the trial space or the test space.
 
+    grid : QuaratureGrid, optional
+        needed for the basis values on the boundary to indicate the boundary over an axis.
+
     ext : int, optional
         needed for the basis values on the boundary to indicate the boundary over an axis.
 
@@ -111,7 +114,7 @@ class BasisValues():
         The spans of the basis functions.
 
     """
-    def __init__( self, V, nderiv , trial=False, points=None, axis=None, ext=None):
+    def __init__( self, V, nderiv , trial=False, grid=None, ext=None):
 
         self._space = V
 
@@ -147,10 +150,11 @@ class BasisValues():
         self._spans = spans
         self._basis = basis
 
-        if axis is not None:
+        if grid and grid.axis is not None:
+            axis = grid.axis
             for i,Vi in enumerate(V):
                 space  = Vi.spaces[axis]
-                points = points[axis]
+                points = grid.points[axis]
                 boundary_basis = basis_ders_on_quad_grid(
                         space.knots, space.degree, points, nderiv, space.basis)
                 self._basis[i][axis] = self._basis[i][axis].copy()

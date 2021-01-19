@@ -222,8 +222,8 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         grid              = QuadratureGrid( test_space, axis, test_ext )
         self._grid        = grid
-        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, points=grid.points, axis=axis, ext=test_ext)
-        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, points=grid.points, axis=axis, ext=trial_ext)
+        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
+        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
 
         self._args                 = self.construct_arguments()
 
@@ -462,7 +462,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         grid             = QuadratureGrid( self.space, axis=axis, ext=ext )
         self._grid       = grid
-        self._test_basis = BasisValues( self.space, nderiv = self.max_nderiv, points=grid.points, axis=axis, ext=ext)
+        self._test_basis = BasisValues( self.space, nderiv = self.max_nderiv, grid=grid, ext=ext)
 
         self._args = self.construct_arguments()
 
@@ -647,8 +647,9 @@ class DiscreteFunctional(BasicDiscrete):
             axis       = None
 
         # ...
-        self._grid       = QuadratureGrid( self.space,  axis=axis, ext=ext)
-        self._test_basis = BasisValues( self.space, nderiv = self.max_nderiv, axis=axis, ext=ext)
+        grid       = QuadratureGrid( self.space,  axis=axis, ext=ext)
+        self._grid = grid
+        self._test_basis = BasisValues( self.space, nderiv = self.max_nderiv, grid=grid, ext=ext)
 
         self._args = self.construct_arguments()
 

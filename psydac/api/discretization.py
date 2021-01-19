@@ -204,8 +204,6 @@ class DiscreteEquation(BasicDiscrete):
         self._linear_system = LinearSystem(M, rhs)
 
     def solve(self, **kwargs):
-        settings = {k:kwargs[k] if k in kwargs else it for k,it in _default_solver.items()}
-        settings.update({it[0]:it[1] for it in kwargs.items() if it[0] not in settings})
 
         rhs = kwargs.pop('rhs', None)
         if rhs:
@@ -213,10 +211,16 @@ class DiscreteEquation(BasicDiscrete):
 
         self.assemble(**kwargs)
 
+        free_args = set(self.lhs.free_args + self.rhs.free_args)
+        for e in free_args: kwargs.pop(e, None)
+
         if rhs:
             L = self.linear_system
             L = LinearSystem(L.lhs, rhs)
             self._linear_system = L
+
+        settings = {k:kwargs[k] if k in kwargs else it for k,it in _default_solver.items()}
+        settings.update({it[0]:it[1] for it in kwargs.items() if it[0] not in settings})
 
         #----------------------------------------------------------------------
         # [YG, 18/11/2019]
