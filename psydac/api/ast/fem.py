@@ -60,7 +60,7 @@ from .nodes import index_dof_test
 from .nodes import index_dof_trial
 
 from psydac.api.ast.utilities import variables
-
+from psydac.api.utilities     import flatten
 #==============================================================================
 def convert(dtype):
     """
@@ -205,6 +205,7 @@ class DefNode(Basic):
     @property
     def body(self):
         return self._args[3]
+
 #==============================================================================
 class AST(object):
     """
@@ -258,8 +259,6 @@ class AST(object):
         elif isinstance(expr, Functional):
             is_functional       = True
             fields              = tuple(expr.atoms(ScalarTestFunction, VectorTestFunction))
-            tests               = fields[0]
-            tests               = (tests,)
             mapping             = spaces.symbolic_mapping
             is_rational_mapping = spaces.is_rational_mapping
             spaces              = spaces.symbolic_space
@@ -268,39 +267,46 @@ class AST(object):
         else:
             raise NotImplementedError('TODO')
 
-        atoms_types = (_partial_derivatives,
+        tests  = expand_hdiv_hcurl(tests)
+        trials = expand_hdiv_hcurl(trials)
+        fields = expand_hdiv_hcurl(fields)
+
+        atoms_types = (ScalarTestFunction,
                        VectorTestFunction,
-                       ScalarTestFunction,
-                       IndexedTestTrial,
                        ScalarField,
-                       VectorField, IndexedVectorField)
+                       VectorField, 
+                       IndexedVectorField,
+                       IndexedTestTrial)
 
         nderiv = 1
         if isinstance(terminal_expr, (ImmutableDenseMatrix, Matrix)):
-            n_rows, n_cols = terminal_expr.shape
-            atomic_expr = Matrix.zeros(n_rows, n_cols)
-            atomic_expr_field = []
+            n_rows, n_cols    = terminal_expr.shape
+            atomic_expr_field = {f:[] for f in fields}
             for i_row in range(0, n_rows):
                 for i_col in range(0, n_cols):
-                    d = get_max_logical_partial_derivatives(terminal_expr[i_row,i_col])
-                    nderiv = max(nderiv, max(d.values()))
-                    atoms  = _atomic(terminal_expr[i_row, i_col], cls=atoms_types)
-                    fields = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
-                    atoms  = [atom for atom in atoms if atom not in fields ]
-                    atomic_expr[i_row, i_col] = Tuple(*atoms)
-                    atomic_expr_field += [*fields]
+                    d            = get_max_logical_partial_derivatives(terminal_expr[i_row,i_col])
+                    nderiv       = max(nderiv, max(d.values()))
+                    atoms        = _atomic(terminal_expr[i_row, i_col], cls=atoms_types+_logical_partial_derivatives)
+                    fields_atoms = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
+                    for f in fields_atoms:
+                        a = _atomic(f, cls=atoms_types)
+                        assert len(a) == 1
+                        atomic_expr_field[a[0]].append(f)
         else:
-            d = get_max_logical_partial_derivatives(terminal_expr)
-            nderiv = max(nderiv, max(d.values()))
-            atoms  = _atomic(terminal_expr, cls=atoms_types)
-            atomic_expr_field = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
-            atomic_expr       = [atom for atom in atoms if atom not in atomic_expr_field ]
-            atomic_expr       = Matrix([[Tuple(*atomic_expr)]])
+            d            = get_max_logical_partial_derivatives(terminal_expr)
+            nderiv       = max(nderiv, max(d.values()))
+            atoms        = _atomic(terminal_expr, cls=atoms_types+_logical_partial_derivatives)
+            fields_atoms  = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
+
+            atomic_expr_field = {f:[] for f in fields}
+            for f in fields_atoms:
+                a = _atomic(f, cls=atoms_types)
+                assert len(a) == 1
+                atomic_expr_field[a[0]].append(f)
+
             terminal_expr     = Matrix([[terminal_expr]])
 
         d_tests = {}
-        tests  = expand_hdiv_hcurl(tests)
-        trials = expand_hdiv_hcurl(trials)
         for v in tests:
             d = {}
             d['global'] = GlobalTensorQuadratureTestBasis(v)
@@ -317,7 +323,13 @@ class AST(object):
             d_trials[u] = d
         # ...
 
-
+        d_fields = {}
+        for f in fields:
+            d = {}
+            d['global'] = GlobalTensorQuadratureTestBasis(f)
+            d['span']   = GlobalSpan(f)
+            d_fields[f] = d
+            
         if is_broken:
             if is_bilinear:
                 space_domain = spaces[0].domain
@@ -333,23 +345,23 @@ class AST(object):
 
 
         if is_linear:
-            ast = _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, 
+            ast = _create_ast_linear_form(terminal_expr, atomic_expr_field, 
                                           tests, d_tests,
-                                          fields, constants,
+                                          fields, d_fields, constants,
                                           nderiv, domain.dim,
                                           mapping, is_rational_mapping, spaces, mask, tag, **kwargs)
 
         elif is_bilinear:
-            ast = _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
+            ast = _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                                             tests, d_tests,
                                             trials, d_trials,
-                                            fields, constants,
+                                            fields, d_fields, constants,
                                             nderiv, domain.dim, 
                                             mapping, is_rational_mapping, spaces, mask, tag, **kwargs)
 
         elif is_functional:
             ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
-                                              tests, d_tests, constants,
+                                              fields, d_fields, constants,
                                               nderiv, domain.dim, 
                                               mapping, is_rational_mapping, spaces, mask, tag, **kwargs)
         else:
@@ -382,10 +394,10 @@ class AST(object):
         return self.domain.dim
 
 #================================================================================================================================
-def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
-                              tests, d_tests,
+def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
+                              tests,  d_tests,
                               trials, d_trials,
-                              fields, constants,
+                              fields, d_fields, constants,
                               nderiv, dim, mapping, is_rational_mapping, spaces, mask, tag, **kwargs):
     """
     This function creates the assembly function of a bilinearform
@@ -396,11 +408,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     terminal_expr : <Matrix>
         atomic representation of the bilinear form
 
-    atomic_expr   : <Matrix>
-        atoms used in the terminal_expr
-
-    atomic_expr_field: <list>
-        list  of atomic expressions of fields
+    atomic_expr_field: <dict>
+        dict  of atomic expressions of fields
 
     tests   : <list>
         list of tests functions
@@ -449,23 +458,25 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
 
     """
 
-    pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
-    g_quad = GlobalTensorQuadrature()
-    l_quad = LocalTensorQuadrature()
+    pads       = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
+    g_quad     = GlobalTensorQuadrature()
+    l_quad     = LocalTensorQuadrature()
     quad_order = kwargs.pop('quad_order', None)
-    geo      = GeometryExpressions(mapping, nderiv)
+    geo        = GeometryExpressions(mapping, nderiv)
+    g_coeffs   = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
+    l_mats     = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim, tag)
+    g_mats     = BlockStencilMatrixGlobalBasis(trials, tests, pads, terminal_expr, l_mats.tag)
 
-    l_mats  = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim, tag)
-    g_mats  = BlockStencilMatrixGlobalBasis(trials, tests, pads, terminal_expr, l_mats.tag)
-
+    # ...........................................................................................
     g_span          = OrderedDict((u,d_tests[u]['span']) for u in tests)
-
+    f_span          = OrderedDict((f,d_fields[f]['span']) for f in fields)
     lengths_trials  = OrderedDict((u,LengthDofTrial(u)) for u in trials)
     lengths_tests   = OrderedDict((v,LengthDofTest(v)) for v in tests)
+    lengths_fields  = OrderedDict((f,LengthDofTest(f)) for f in fields)
     # ...........................................................................................
-    quad_length = LengthQuadrature()
-    el_length   = LengthElement()
-    lengths     = [el_length, quad_length]
+    quad_length     = LengthQuadrature()
+    el_length       = LengthElement()
+    lengths         = [el_length, quad_length]
 
     if quad_order is not None:
         ind_quad      = index_quad.set_length(Tuple(*quad_order))
@@ -473,16 +484,18 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
         ind_quad      = index_quad.set_length(quad_length)
 
     ind_element   = index_element.set_length(el_length)
-    ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0])+1)
+    ind_dof_test  = index_dof_test.set_length(LengthDofTest(tests[0])+1)
     # ...........................................................................................
     eval_mapping = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], mapping, geo, spaces[1], tests, nderiv, mask, is_rational_mapping)
     g_stmts      = [eval_mapping]
-    if atomic_expr_field:
-        coeffs      = [CoefficientBasis(i) for i in expand(fields)]
-        l_coeffs    = [MatrixLocalBasis(i) for i in expand(fields)]
-        g_coeffs    = [MatrixGlobalBasis(i,i) for i in expand(fields)]
-        eval_field  = EvalField(atomic_expr_field, ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], coeffs, l_coeffs, g_coeffs, fields, mapping, pads, nderiv, mask)
-        g_stmts    += [eval_field]
+
+    for f in fields:
+        f_ex         = expand([f])
+        coeffs       = [CoefficientBasis(i)    for i in f_ex]
+        l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
+        ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
+        eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, pads, nderiv, mask)
+        g_stmts     += [eval_field]
 
     # sort tests and trials by their space type
     test_groups  = regroup(tests)
@@ -494,10 +507,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     #=========================================================begin kernel======================================================
     for _, sub_tests in test_groups:
         for _, sub_trials in trial_groups:
-            tests_indices = [ex_tests.index(i) for i in expand(sub_tests)]
-            trials_indices = [ex_trials.index(i) for i in expand(sub_trials)]
+            tests_indices     = [ex_tests.index(i) for i in expand(sub_tests)]
+            trials_indices    = [ex_trials.index(i) for i in expand(sub_trials)]
             sub_terminal_expr = terminal_expr[tests_indices,trials_indices]
-            sub_atomic_expr   = atomic_expr[tests_indices,trials_indices]
             l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials, sub_tests, sub_terminal_expr, dim, l_mats.tag)
             if is_zero(sub_terminal_expr):
                 continue
@@ -533,7 +545,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     #=========================================================end kernel=========================================================
 
     # ... loop over global elements
-    loop  = Loop((g_quad, *g_span.values()),
+    loop  = Loop((g_quad, *g_span.values(), *f_span.values()),
                   ind_element, stmts=g_stmts, mask=mask)
 
     body = [Reduce('+', l_mats, g_mats, loop)]
@@ -545,7 +557,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     args['spans'] = g_span.values()
     args['quads'] = g_quad
 
-    args['tests_degrees'] = lengths_tests
+    args['tests_degrees']  = lengths_tests
     args['trials_degrees'] = lengths_trials
 
     args['quads_degree'] = lengths
@@ -557,9 +569,12 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     if eval_mapping:
         args['mapping'] = eval_mapping.coeffs
 
-    if atomic_expr_field:
-        args['coeffs'] = l_coeffs
-        args['fields'] = fields
+    if fields:
+        args['f_span']         = f_span.values()
+        args['f_coeffs']       = flatten(list(g_coeffs.values()))
+        args['field_basis']    = tuple(d_fields[f]['global'] for f in fields)
+        args['fields_degrees'] = lengths_fields.values()
+        args['fields']         = fields
 
     if constants:
         args['constants'] = constants
@@ -570,7 +585,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr, atomic_expr_field,
     return node
 
 #================================================================================================================================
-def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests, d_tests, fields, constants, nderiv,
+def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fields, d_fields, constants, nderiv,
                             dim, mapping, is_rational_mapping, space, mask, tag, **kwargs):
     """
     This function creates the assembly function of a linearform
@@ -581,11 +596,8 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     terminal_expr : <Matrix>
         atomic representation of the linear form
 
-    atomic_expr   : <Matrix>
-        atoms used in the terminal_expr
-
-    atomic_expr_field : <list>
-        list  of atomic expressions of fields
+    atomic_expr_field : <dict>
+        dict  of atomic expressions of fields
 
     tests   : <list>
         list of tests functions
@@ -627,19 +639,19 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
         represents the a function definition node that computes the assembly
 
     """
-    pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
-    g_quad = GlobalTensorQuadrature()
-    l_quad = LocalTensorQuadrature()
-
-    coeffs   = [CoefficientBasis(i) for i in tests]
-    l_coeffs = [MatrixLocalBasis(i) for i in tests]
+    pads     = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
+    g_quad   = GlobalTensorQuadrature()
+    l_quad   = LocalTensorQuadrature()
     geo      = GeometryExpressions(mapping, nderiv)
+    g_coeffs = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
 
     l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr, tag)
     g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr,l_vecs.tag)
 
     g_span          = OrderedDict((v,d_tests[v]['span']) for v in tests)
+    f_span          = OrderedDict((f,d_fields[f]['span']) for f in fields)
     lengths_tests   = OrderedDict((v,LengthDofTest(v)) for v in tests)
+    lengths_fields  = OrderedDict((f,LengthDofTest(f)) for f in fields)
     # ...........................................................................................
     quad_length = LengthQuadrature()
     el_length   = LengthElement()
@@ -651,12 +663,14 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     # ...........................................................................................
     eval_mapping = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], mapping, geo, space, tests, nderiv, mask, is_rational_mapping)
     g_stmts = [eval_mapping]
-    if atomic_expr_field:
-        coeffs       = [CoefficientBasis(i) for i in expand(fields)]
-        l_coeffs     = [MatrixLocalBasis(i) for i in expand(fields)]
-        g_coeffs     = [MatrixGlobalBasis(i,i) for i in expand(fields)]
-        eval_field   = EvalField(atomic_expr_field, ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], coeffs, l_coeffs, g_coeffs, fields, mapping, pads, nderiv, mask)
-        g_stmts      += [eval_field]
+
+    for f in fields:
+        f_ex         = expand([f])
+        coeffs       = [CoefficientBasis(i)    for i in f_ex]
+        l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
+        ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
+        eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, pads, nderiv, mask)
+        g_stmts     += [eval_field]
     # ...
 
 
@@ -668,10 +682,9 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     #=========================================================begin kernel======================================================
 
     for _, group in groups:
-        tests_indices = [ex_tests.index(i) for i in expand(group)]
+        tests_indices     = [ex_tests.index(i) for i in expand(group)]
         sub_terminal_expr = terminal_expr[tests_indices,0]
-        sub_atomic_expr   = atomic_expr[tests_indices,0]
-        l_sub_vecs  = BlockStencilVectorLocalBasis(group, pads, sub_terminal_expr, l_vecs.tag)
+        l_sub_vecs        = BlockStencilVectorLocalBasis(group, pads, sub_terminal_expr, l_vecs.tag)
         q_basis = {v:d_tests[v]['global']  for v in group}
         if is_zero(sub_terminal_expr):
             continue
@@ -697,7 +710,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     
     #=========================================================end kernel=========================================================
     # ... loop over global elements
-    loop  = Loop((g_quad, *g_span.values()), ind_element, stmts=g_stmts, mask=mask)
+    loop  = Loop((g_quad, *g_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)
     # ...
     body = (Reduce('+', l_vecs, g_vecs, loop),)
 
@@ -717,9 +730,12 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     if eval_mapping:
         args['mapping'] = eval_mapping.coeffs
 
-    if atomic_expr_field:
-        args['coeffs'] = l_coeffs
-        args['fields'] = fields
+    if fields:
+        args['f_span']         = f_span.values()
+        args['f_coeffs']       = flatten(list(g_coeffs.values()))
+        args['field_basis']    = tuple(d_fields[f]['global'] for f in fields)
+        args['fields_degrees'] = lengths_fields.values()
+        args['fields']         = fields
 
     if constants:
         args['constants'] = constants
@@ -730,7 +746,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr, atomic_expr_field, tests
     return node
 
 #================================================================================================================================
-def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, constants, nderiv,
+def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, constants, nderiv,
                                 dim, mapping, is_rational_mapping, space, mask, tag, **kwargs):
     """
     This function creates the assembly function of a Functional Form
@@ -741,14 +757,14 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, cons
     terminal_expr : <Matrix>
         atomic representation of the Functional form
 
-    atomic_expr   : <Matrix>
+    atomic_expr   : <dict>
         atoms used in the terminal_expr
 
-    tests   : <list>
-        list of tests functions
+    fields   : <list>
+        list of the fields
 
-    d_tests : <dict>
-        dictionary that contains the symbolic spans and basis values of each test function
+    d_fields : <dict>
+        dictionary that contains the symbolic spans and basis values of each field
 
     constants : <list>
         list of constants
@@ -787,16 +803,16 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, cons
     l_quad = LocalTensorQuadrature()
 
     #TODO move to EvalField
-    coeffs   = [CoefficientBasis(i) for i in expand(tests)]
-    l_coeffs = [MatrixLocalBasis(i) for i in expand(tests)]
-    g_coeffs = [MatrixGlobalBasis(i,i) for i in expand(tests)]
+    coeffs   = [CoefficientBasis(i) for i in expand(fields)]
+    l_coeffs = [MatrixLocalBasis(i) for i in expand(fields)]
+    g_coeffs = [MatrixGlobalBasis(i,i) for i in expand(fields)]
 
     geo      = GeometryExpressions(mapping, nderiv)
 
-    g_span   = OrderedDict((v,d_tests[v]['span']) for v in tests)
-    g_basis  = OrderedDict((v,d_tests[v]['global'])  for v in tests)
+    g_span   = OrderedDict((v,d_fields[v]['span']) for v in fields)
+    g_basis  = OrderedDict((v,d_fields[v]['global'])  for v in fields)
 
-    lengths_tests   = OrderedDict((v,LengthDofTest(v)) for v in tests)
+    lengths_tests   = OrderedDict((v,LengthDofTest(v)) for v in fields)
 
     l_vec   = LocalElementBasis()
     g_vec   = GlobalElementBasis()
@@ -809,10 +825,10 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, cons
     ind_quad      = index_quad.set_length(quad_length)
     ind_element   = index_element.set_length(el_length)
 
-    ind_dof_test  = index_dof_test.set_length(lengths_tests[tests[0]]+1)
+    ind_dof_test  = index_dof_test.set_length(lengths_tests[fields[0]]+1)
     # ...........................................................................................
-    eval_mapping = EvalMapping(ind_quad, ind_dof_test, g_basis[tests[0]], g_basis[tests[0]], mapping, geo, space, tests, nderiv, mask, is_rational_mapping)
-    eval_field   = EvalField(atomic_expr, ind_quad, ind_dof_test, g_basis[tests[0]], g_basis[tests[0]], coeffs, l_coeffs, g_coeffs, tests, mapping, pads, nderiv, mask)
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, g_basis[fields[0]], g_basis[fields[0]], mapping, geo, space, fields, nderiv, mask, is_rational_mapping)
+    eval_field   = EvalField(atomic_expr[fields[0]], ind_quad, ind_dof_test, g_basis[fields[0]], g_basis[fields[0]], coeffs, l_coeffs, g_coeffs, fields, mapping, pads, nderiv, mask)
 
     #=========================================================begin kernel======================================================
     # ... loop over tests functions
@@ -849,9 +865,9 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, tests, d_tests, cons
     if eval_mapping:
         args['mapping'] = eval_mapping.coeffs
 
-    args['coeffs'] = g_coeffs
-    args['fields'] = tests
-
+    args['f_coeffs'] = g_coeffs
+    args['fields']   = fields
+ 
     if constants:
         args['constants'] = constants
 

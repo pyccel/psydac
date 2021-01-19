@@ -96,7 +96,7 @@ def logical2physical(expr):
         return new_expr
     else:
         return expr
-
+#==============================================================================
 partial_der = dict(zip(_partial_derivatives,_logical_partial_derivatives))
 symbols     = {Symbol('x'):Symbol('x1'),Symbol('y'):Symbol('x2'),Symbol('z'):Symbol('x3')}
 def physical2logical(expr):
@@ -120,7 +120,7 @@ def physical2logical(expr):
         return new_expr
     else:
         return expr
-
+#==============================================================================
 def _get_name(atom):
     atom_name = None
     if isinstance( atom, ScalarTestFunction ):
@@ -315,9 +315,9 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
     map_stmts = []
 
     cls = (_partial_derivatives,
-           ScalarField,
-           IndexedVectorField,
-           VectorField)
+           ScalarTestFunction,
+           IndexedTestTrial,
+           VectorTestFunction)
 
     # If there is a mapping, compute [dx(u), dy(u), dz(u)] as functions
     # of [dx1(u), dx2(u), dx3(u)], and store results into intermediate
@@ -369,12 +369,12 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
     for atom in new_atoms:
 
         # Extract field, compute name of coefficient variable, and get base
-        if is_scalar_field(atom):
-            field      = atom.atoms(ScalarField).pop()
+        if atom.atoms(ScalarTestFunction):
+            field      = atom.atoms(ScalarTestFunction).pop()
             field_name = 'coeff_' + SymbolicExpr(field).name
             base       = field
-        elif is_vector_field(atom):
-            field      = atom.atoms(IndexedVectorField).pop()
+        elif atom.atoms(VectorTestFunction):
+            field      = atom.atoms(IndexedTestTrial).pop()
             field_name = 'coeff_' + SymbolicExpr(field).name
             base       = field.base
         else:

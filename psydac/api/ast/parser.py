@@ -354,7 +354,8 @@ class Parser(object):
 
     def _visit_DefNode(self, expr, **kwargs):
 
-        args = expr.arguments.copy()
+        args   = expr.arguments.copy()
+        f_args = ()
 
         tests_basis = args.pop('tests_basis')
         trial_basis = args.pop('trial_basis',[])
@@ -370,10 +371,17 @@ class Parser(object):
         l_pads  = args.pop('local_pads', None)
 
         mats = args.pop('mats')
-
-        l_coeffs   =  args.pop('coeffs', None)
+        
         map_coeffs = args.pop('mapping', None)
         constants  = args.pop('constants', None)
+
+        f_coeffs   = args.pop('f_coeffs',    None)
+        
+        if f_coeffs:
+            f_span     = args.pop('f_span',      [])
+            f_basis    = args.pop('field_basis', [])
+            f_degrees  = args.pop('fields_degrees', [])
+            f_args     = (*f_basis, *f_span, *f_degrees, *f_coeffs)
 
         inits = []
         if l_pads:
@@ -407,11 +415,13 @@ class Parser(object):
         if map_coeffs:
             arguments += [self._visit(i, **kwargs) for i in map_coeffs]
 
-        if l_coeffs:
-            arguments += [self._visit(i, **kwargs) for i in l_coeffs]
-
         if constants:
             arguments += [self._visit(i, **kwargs) for i in constants]
+
+        if f_args:
+            f_args     = [self._visit(i, **kwargs) for i in f_args]
+            f_args     = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in f_args]
+            arguments += flatten(f_args)
 
         body = tuple(self._visit(i, **kwargs) for i in expr.body)
 
