@@ -55,7 +55,7 @@ install_requires = [
     'yamlloader',
 
     # Our packages from PyPi
-    'sympde==0.10.5',
+    'sympde==0.10.6',
     'pyccel==0.10.1',
     'gelato',
 
