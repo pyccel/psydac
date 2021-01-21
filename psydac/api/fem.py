@@ -758,6 +758,7 @@ class DiscreteSumForm(BasicDiscrete):
 
         # ...
         forms = []
+        free_args = []
         self._kernel_expr = kernel_expr
         for e in kernel_expr:
             kwargs['target'] = e.target
@@ -772,15 +773,20 @@ class DiscreteSumForm(BasicDiscrete):
                 ah = DiscreteFunctional(a, e, *args, **kwargs)
                 kwargs['vector'] = ah._vector
             forms.append(ah)
-
+            free_args.append(ah.free_args)
             kwargs['boundary'] = None
 
-        self._forms = forms
+        self._forms     = forms
+        self._free_args = tuple(set(free_args))
         # ...
 
     @property
     def forms(self):
         return self._forms
+
+    @property
+    def free_args(self):
+        return self._free_args
 
     def assemble(self, **kwargs):
         for form in self.forms:
