@@ -120,7 +120,7 @@ def test_poisson_2d_identity_1_dir0_1234():
     filename = os.path.join(mesh_dir, 'identity_2d.h5')
     f        = sin(pi*x)*sin(pi*y)
 
-    error_1, error_2 = run_poisson_2d(filename, f)
+    error_1, error_2 = run_field_test(filename, f)
 
     expected_error_1 =  4.77987181085604e-12
     expected_error_2 =  1.196388887893425e-07
@@ -134,7 +134,7 @@ def test_poisson_2d_identity_2_dir0_1234():
     filename = os.path.join(mesh_dir, 'identity_2d.h5')
     f        = x*y*(x-1)*(y-1)
 
-    error_1, error_2 = run_poisson_2d(filename, f)
+    error_1, error_2 = run_field_test(filename, f)
 
     expected_error_1 =  5.428295909559039e-11
     expected_error_2 =  2.9890068935570224e-11
@@ -147,7 +147,7 @@ def test_poisson_2d_collela_dir0_1234():
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
     f        = sin(pi*x)*sin(pi*y)
 
-    error_1, error_2 = run_poisson_2d(filename, f)
+    error_1, error_2 = run_field_test(filename, f)
 
     expected_error_1 =  1.9180860719170134e-10
     expected_error_2 =  0.00010748308338081464
@@ -163,7 +163,7 @@ def test_poisson_2d_quarter_annulus_dir0_1234():
     r2       = 1. - x**2 - y**2
     f        = x*y*sin(c * r2)
 
-    error_1, error_2 = run_poisson_2d(filename, f)
+    error_1, error_2 = run_field_test(filename, f)
 
     expected_error_1 =  1.1146377538410329e-10
     expected_error_2 =  9.18920469410037e-08
