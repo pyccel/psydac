@@ -44,13 +44,13 @@ except:
     mesh_dir = os.path.join(base_dir, 'mesh')
 # ...
 
-#+++++++++++++++++++++++++++++++
-# 1. Abstract model
-#+++++++++++++++++++++++++++++++
-def run_poisson_2d(filename, solution):
-    domain = Domain.from_file(filename)
+def run_field_test(filename, f):
 
-    B_dirichlet_0 = domain.boundary
+    #+++++++++++++++++++++++++++++++
+    # 1. Abstract model
+    #+++++++++++++++++++++++++++++++
+
+    domain = Domain.from_file(filename)
 
     V  = ScalarFunctionSpace('V', domain)
     u  = element_of(V, name='u')
@@ -58,10 +58,10 @@ def run_poisson_2d(filename, solution):
     F  = element_of(V, name='F')
 
     # Bilinear form a: V x V --> R
-    a = BilinearForm((u, v), integral(domain, u*v))
+    a = BilinearForm((u, v), integral(domain, u * v))
 
     # Linear form l: V --> R
-    l = LinearForm(v, integral(domain, solution * v))
+    l = LinearForm(v, integral(domain, f * v))
 
     # Variational model
     equation = find(u, forall=v, lhs=a(u, v), rhs=l(v))
@@ -84,17 +84,19 @@ def run_poisson_2d(filename, solution):
     #+++++++++++++++++++++++++++++++
 
     # Solve linear system
+    # uh is the L2-projection of the analytical field "f"
+
     x  = equation_h.solve()
     uh = FemField( Vh, x )
 
     #+++++++++++++++++++++++++++++++
     l1   = LinearForm( v, integral(domain, F*v))
-    l2   = LinearForm( v, integral(domain, solution*v))
+    l2   = LinearForm( v, integral(domain, f*v))
     l1_h = discretize(l1, domain_h,  Vh)
     l2_h = discretize(l2, domain_h,  Vh)
 
     a1   = BilinearForm( (u,v), integral(domain, F*u*v))
-    a2   = BilinearForm( (u,v), integral(domain, solution*u*v))
+    a2   = BilinearForm( (u,v), integral(domain, f*u*v))
     a1_h = discretize(a1, domain_h,  [Vh, Vh])
     a2_h = discretize(a2, domain_h,  [Vh, Vh])
               
@@ -106,6 +108,7 @@ def run_poisson_2d(filename, solution):
 
     error_1 = abs((x1-x2).toarray()).max()
     error_2 = abs((A1-A2).toarray()).max()
+
     return error_1, error_2
 
 ###############################################################################
@@ -115,10 +118,9 @@ def run_poisson_2d(filename, solution):
 def test_poisson_2d_identity_1_dir0_1234():
 
     filename = os.path.join(mesh_dir, 'identity_2d.h5')
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
+    f        = sin(pi*x)*sin(pi*y)
 
-    error_1, error_2 = run_poisson_2d(filename, solution)
+    error_1, error_2 = run_poisson_2d(filename, f)
 
     expected_error_1 =  4.77987181085604e-12
     expected_error_2 =  1.196388887893425e-07
@@ -130,10 +132,9 @@ def test_poisson_2d_identity_1_dir0_1234():
 def test_poisson_2d_identity_2_dir0_1234():
 
     filename = os.path.join(mesh_dir, 'identity_2d.h5')
-    solution = x*y*(x-1)*(y-1)
-    f        = -(solution.diff(x,2) + solution.diff(y,2))
+    f        = x*y*(x-1)*(y-1)
 
-    error_1, error_2 = run_poisson_2d(filename, solution)
+    error_1, error_2 = run_poisson_2d(filename, f)
 
     expected_error_1 =  5.428295909559039e-11
     expected_error_2 =  2.9890068935570224e-11
@@ -144,10 +145,9 @@ def test_poisson_2d_identity_2_dir0_1234():
 def test_poisson_2d_collela_dir0_1234():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
+    f        = sin(pi*x)*sin(pi*y)
 
-    error_1, error_2 = run_poisson_2d(filename, solution)
+    error_1, error_2 = run_poisson_2d(filename, f)
 
     expected_error_1 =  1.9180860719170134e-10
     expected_error_2 =  0.00010748308338081464
@@ -161,10 +161,9 @@ def test_poisson_2d_quarter_annulus_dir0_1234():
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
     c        = pi / (1. - 0.5**2)
     r2       = 1. - x**2 - y**2
-    solution = x*y*sin(c * r2)
-    f        = 4.*c**2*x*y*(x**2 + y**2)*sin(c * r2) + 12.*c*x*y*cos(c * r2)
+    f        = x*y*sin(c * r2)
 
-    error_1, error_2 = run_poisson_2d(filename, solution)
+    error_1, error_2 = run_poisson_2d(filename, f)
 
     expected_error_1 =  1.1146377538410329e-10
     expected_error_2 =  9.18920469410037e-08
