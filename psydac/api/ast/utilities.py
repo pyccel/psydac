@@ -96,31 +96,7 @@ def logical2physical(expr):
         return new_expr
     else:
         return expr
-
-partial_der = dict(zip(_partial_derivatives,_logical_partial_derivatives))
-symbols     = {Symbol('x'):Symbol('x1'),Symbol('y'):Symbol('x2'),Symbol('z'):Symbol('x3')}
-def physical2logical(expr):
-    
-    if isinstance(expr, (_partial_derivatives)):
-        argument = physical2logical(expr.args[0])
-        new_expr = partial_der[type(expr)](argument)
-        return new_expr
-    elif isinstance(expr, (ScalarTestFunction, VectorTestFunction, ScalarField, VectorField, IndexedVectorField, IndexedTestTrial)):
-        return expr
-    elif isinstance(expr, Symbol):
-        return symbols[expr]
-    elif isinstance(expr, (Add, Mul, Pow, Function)):
-        args = [physical2logical(i) for i in expr.args]
-        return type(expr)(*args)
-    elif isinstance(expr, Matrix):
-        new_expr = expr.zeros((*expr.shape))
-        for i in range(expr.shape[0]):
-            for j in range(expr.shape[1]):
-                new_expr[i,j] = physical2logical(expr[i,j])
-        return new_expr
-    else:
-        return expr
-
+#==============================================================================
 def _get_name(atom):
     atom_name = None
     if isinstance( atom, ScalarTestFunction ):
