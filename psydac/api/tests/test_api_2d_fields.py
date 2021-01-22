@@ -138,8 +138,8 @@ def test_poisson_2d_identity_2_dir0_1234():
     expected_error_1 =  5.428295909559039e-11
     expected_error_2 =  2.9890068935570224e-11
 
-    assert( abs(error_1 - expected_error_1) < 1.e-14)
-    assert( abs(error_2 - expected_error_2) < 1.e-14)
+    assert( abs(error_1 - expected_error_1) < 1.e-10)
+    assert( abs(error_2 - expected_error_2) < 1.e-10)
 #------------------------------------------------------------------------------
 def test_poisson_2d_collela_dir0_1234():
 
