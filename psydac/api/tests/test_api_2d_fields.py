@@ -47,7 +47,7 @@ except:
 #+++++++++++++++++++++++++++++++
 # 1. Abstract model
 #+++++++++++++++++++++++++++++++
-def run_poisson_2d(filename, solution, f):
+def run_poisson_2d(filename, solution):
     domain = Domain.from_file(filename)
 
     B_dirichlet_0 = domain.boundary
@@ -58,22 +58,13 @@ def run_poisson_2d(filename, solution, f):
     F  = element_of(V, name='F')
 
     # Bilinear form a: V x V --> R
-    a = BilinearForm((u, v), integral(domain, dot(grad(u), grad(v))))
+    a = BilinearForm((u, v), integral(domain, u*v))
 
     # Linear form l: V --> R
-    l = LinearForm(v, integral(domain, f * v))
-
-    # Dirichlet boundary conditions
-    bc = [EssentialBC(u,  0, B_dirichlet_0)]
-
+    l = LinearForm(v, integral(domain, solution * v))
 
     # Variational model
-    equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
-
-    # Error norms
-    error  = u - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
+    equation = find(u, forall=v, lhs=a(u, v), rhs=l(v))
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
@@ -87,10 +78,6 @@ def run_poisson_2d(filename, solution, f):
 
     # Discretize equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Vh, Vh])
-
-    # Discretize error norms
-    l2norm_h = discretize(l2norm, domain_h, Vh)
-    h1norm_h = discretize(h1norm, domain_h, Vh)
 
     #+++++++++++++++++++++++++++++++
     # 3. Solution
@@ -131,10 +118,10 @@ def test_poisson_2d_identity_1_dir0_1234():
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
 
-    error_1, error_2 = run_poisson_2d(filename, solution, f)
+    error_1, error_2 = run_poisson_2d(filename, solution)
 
-    expected_error_1 =  1.2902405843379702e-06
-    expected_error_2 =  5.691117428555293e-07
+    expected_error_1 =  4.77987181085604e-12
+    expected_error_2 =  1.196388887893425e-07
 
     assert( abs(error_1 - expected_error_1) < 1.e-7)
     assert( abs(error_2 - expected_error_2) < 1.e-7)
@@ -146,10 +133,10 @@ def test_poisson_2d_identity_2_dir0_1234():
     solution = x*y*(x-1)*(y-1)
     f        = -(solution.diff(x,2) + solution.diff(y,2))
 
-    error_1, error_2 = run_poisson_2d(filename, solution, f)
+    error_1, error_2 = run_poisson_2d(filename, solution)
 
-    expected_error_1 =  8.784051502667978e-14
-    expected_error_2 =  4.066666166140098e-14
+    expected_error_1 =  5.428295909559039e-11
+    expected_error_2 =  2.9890068935570224e-11
 
     assert( abs(error_1 - expected_error_1) < 1.e-14)
     assert( abs(error_2 - expected_error_2) < 1.e-14)
@@ -160,10 +147,10 @@ def test_poisson_2d_collela_dir0_1234():
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
 
-    error_1, error_2 = run_poisson_2d(filename, solution, f)
+    error_1, error_2 = run_poisson_2d(filename, solution)
 
-    expected_error_1 =  0.0007343500640612094
-    expected_error_2 =  0.00022901839284597547
+    expected_error_1 =  1.9180860719170134e-10
+    expected_error_2 =  0.00010748308338081464
 
     assert( abs(error_1 - expected_error_1) < 1.e-7)
     assert( abs(error_2 - expected_error_2) < 1.e-7)
@@ -177,10 +164,10 @@ def test_poisson_2d_quarter_annulus_dir0_1234():
     solution = x*y*sin(c * r2)
     f        = 4.*c**2*x*y*(x**2 + y**2)*sin(c * r2) + 12.*c*x*y*cos(c * r2)
 
-    error_1, error_2 = run_poisson_2d(filename, solution, f)
+    error_1, error_2 = run_poisson_2d(filename, solution)
 
-    expected_error_1 =  7.954918451356864e-07
-    expected_error_2 =  3.3779301725050655e-07
+    expected_error_1 =  1.1146377538410329e-10
+    expected_error_2 =  9.18920469410037e-08
 
     assert( abs(error_1 - expected_error_1) < 1.e-7)
     assert( abs(error_2 - expected_error_2) < 1.e-7)

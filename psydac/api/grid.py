@@ -100,7 +100,7 @@ class BasisValues():
     trial : bool, optional
         the trial parameter indicates if the FemSpace represents the trial space or the test space.
 
-    grid : QuaratureGrid, optional
+    grid : QuadratureGrid, optional
         needed for the basis values on the boundary to indicate the boundary over an axis.
 
     ext : int, optional
