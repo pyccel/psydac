@@ -15,7 +15,7 @@
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
 from mpi4py import MPI
-from sympy import pi, cos, sin
+from sympy import pi, cos, sin, log, exp
 from sympy.abc import x, y
 import pytest
 import os
@@ -27,13 +27,14 @@ from sympde.topology import element_of
 from sympde.topology import NormalVector
 from sympde.topology import Domain
 from sympde.topology import Union
+from sympde.expr     import linearize
 from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
-
+from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 # ... get the mesh directory
 try:
     mesh_dir = os.environ['PSYDAC_MESH_DIR']
@@ -44,6 +45,7 @@ except:
     mesh_dir = os.path.join(base_dir, 'mesh')
 # ...
 
+#------------------------------------------------------------------------------
 def run_field_test(filename, f):
 
     #+++++++++++++++++++++++++++++++
@@ -111,11 +113,85 @@ def run_field_test(filename, f):
 
     return error_1, error_2
 
+#------------------------------------------------------------------------------
+def run_non_linear_poisson(filename, comm=None):
+
+    # Maximum number of Newton iterations and convergence tolerance
+    N = 20
+    TOL = 1e-14
+
+    # Define topological domain
+    Omega = Domain.from_file(filename)
+
+    # Method of manufactured solutions: define exact
+    # solution phi_e, then compute right-hand side f
+    x, y  = Omega.coordinates
+    u_e = 2 * log(0.5 * (x**2 + y**2) + 0.5)
+
+    # Define abstract model
+    V = ScalarFunctionSpace('V', Omega)
+    v = element_of(V, name='v')
+    u = element_of(V, name='u')
+
+    f = -2.*exp(-u)
+    l = LinearForm( v, integral(Omega, dot(grad(v), grad(u)) - f*v ))
+
+    du = element_of(V, name='du')
+    dir_boundary = Omega.get_boundary(axis=0, ext=1)
+    bc = EssentialBC(du, 0, dir_boundary)
+
+    # Linearized model (for Newton iteration)
+    a = linearize(l, u, trials=du)
+    equation = find(du, forall=v, lhs=a(du, v), rhs=-l(v), bc=bc)
+
+    # Define (abstract) norms
+    l2norm_err = Norm(u - u_e, Omega, kind='l2')
+    l2norm_du  = Norm(du     , Omega, kind='l2')
+
+    # Create computational domain from topological domain
+    Omega_h = discretize(Omega, filename=filename, comm=comm)
+
+    # Create discrete spline space
+    Vh = discretize(V, Omega_h)
+
+    # Discretize equation (u is free parameter and must be provided later)
+    equation_h = discretize(equation, Omega_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL)
+
+    # Discretize norms
+    l2norm_err_h = discretize(l2norm_err, Omega_h, Vh)
+    l2norm_du_h  = discretize(l2norm_du , Omega_h, Vh)
+
+    # First guess: zero solution
+    u_h  = FemField(Vh)
+
+    # Newton iteration
+    for n in range(N):
+
+        print()
+        print('==== iteration {} ===='.format(n))
+        X = equation_h.solve(u=u_h)
+        du_h = FemField(Vh, X)
+
+        # Compute L2 norm of increment
+        l2_du = l2norm_du_h.assemble(du=du_h)
+        print('L2_norm(du) = {}'.format(l2_du))
+
+        if l2_du <= TOL:
+            print('CONVERGED')
+            break
+
+        # update field
+        u_h.coeffs[:,:] += X[:,:]
+
+    # Compute L2 error norm from solution field
+    l2_error = l2norm_err_h.assemble(u=u_h)
+
+    return l2_error
+
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
-
-def test_poisson_2d_identity_1_dir0_1234():
+def test_field_identity_1():
 
     filename = os.path.join(mesh_dir, 'identity_2d.h5')
     f        = sin(pi*x)*sin(pi*y)
@@ -129,7 +205,7 @@ def test_poisson_2d_identity_1_dir0_1234():
     assert( abs(error_2 - expected_error_2) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_identity_2_dir0_1234():
+def test_field_identity_2():
 
     filename = os.path.join(mesh_dir, 'identity_2d.h5')
     f        = x*y*(x-1)*(y-1)
@@ -141,8 +217,9 @@ def test_poisson_2d_identity_2_dir0_1234():
 
     assert( abs(error_1 - expected_error_1) < 1.e-10)
     assert( abs(error_2 - expected_error_2) < 1.e-10)
+
 #------------------------------------------------------------------------------
-def test_poisson_2d_collela_dir0_1234():
+def test_field_collela():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
     f        = sin(pi*x)*sin(pi*y)
@@ -156,7 +233,7 @@ def test_poisson_2d_collela_dir0_1234():
     assert( abs(error_2 - expected_error_2) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_quarter_annulus_dir0_1234():
+def test_field_quarter_annulus():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
     c        = pi / (1. - 0.5**2)
@@ -170,6 +247,16 @@ def test_poisson_2d_quarter_annulus_dir0_1234():
 
     assert( abs(error_1 - expected_error_1) < 1.e-7)
     assert( abs(error_2 - expected_error_2) < 1.e-7)
+
+#==============================================================================
+def test_non_linear_poinsson_circle():
+
+    filename = os.path.join(mesh_dir, 'circle.h5')
+    l2_error = run_non_linear_poisson(filename)
+
+    expected_l2_error =  0.004026218710733066
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE

@@ -233,7 +233,7 @@ class DiscreteEquation(BasicDiscrete):
         # initial guess when the model equation is to be solved by an
         # iterative method. Our current method of solution does not
         # modify the initial guess at the boundary.
-        #
+
         if self.bc:
 
             # Inhomogeneous Dirichlet boundary conditions

@@ -423,7 +423,7 @@ class Parser(object):
             f_args     = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in f_args]
             arguments += flatten(f_args)
 
-        body = tuple(self._visit(i, **kwargs) for i in expr.body)
+        body = flatten(tuple(self._visit(i, **kwargs) for i in expr.body))
 
         for k,i in self.shapes.items():
             var = self.variables[k]
