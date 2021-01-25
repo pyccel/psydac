@@ -17,8 +17,9 @@ from pyccel.ast.core import If, Is, Return
 from pyccel.ast.core import _atomic
 
 from sympde.core                 import Constant
-from sympde.topology             import ScalarField, VectorField
-from sympde.topology             import IndexedVectorField
+from sympde.topology.space       import ScalarTestFunction
+from sympde.topology.space       import VectorTestFunction
+from sympde.topology.space       import IndexedTestTrial
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
@@ -31,18 +32,46 @@ from sympde.calculus.matrices    import SymbolicDeterminant
 from .basic      import SplBasic
 from .utilities  import random_string
 from .utilities  import build_pythran_types_header, variables
-from .utilities  import is_scalar_field, is_vector_field
 from .utilities  import math_atoms_as_str
 
 from psydac.fem.vector import ProductFemSpace
 from .nodes            import Zeros
 
 #==============================================================================
+def is_scalar_field(expr):
+
+    if isinstance(expr, _partial_derivatives):
+        return is_scalar_field(expr.args[0])
+
+    elif isinstance(expr, _logical_partial_derivatives):
+        return is_scalar_field(expr.args[0])
+
+    elif isinstance(expr, ScalarTestFunction):
+        return True
+
+    return False
+
+#==============================================================================
+def is_vector_field(expr):
+
+    if isinstance(expr, _partial_derivatives):
+        return is_vector_field(expr.args[0])
+
+    elif isinstance(expr, _logical_partial_derivatives):
+        return is_vector_field(expr.args[0])
+
+    elif isinstance(expr, (VectorTestFunction, IndexedTestTrial)):
+        return True
+
+    return False
+
+#==============================================================================
 def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
 
     cls = (_partial_derivatives,
-           ScalarField, VectorField,
-           IndexedVectorField)
+           ScalarTestFunction,
+           VectorTestFunction,
+           IndexedTestTrial)
 
     if not isinstance(atom, cls):
         raise TypeError('atom must be of type {}'.format(str(cls)))
@@ -56,13 +85,13 @@ def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
         orders[atom.grad_index] = p_indices[atom.coordinate]
         
 
-    if isinstance(a, IndexedVectorField):
+    if isinstance(a, IndexedTestTrial):
         ind = a.indices[0]
     args = []
     for i in range(dim):
-        if isinstance(a, IndexedVectorField):
+        if isinstance(a, IndexedTestTrial):
             args.append(basis[ind+i*dim][loc_indices[i],orders[i],indices[i]])
-        elif isinstance(a, ScalarField):
+        elif isinstance(a, ScalarTestFunction):
             args.append(basis[i][loc_indices[i],orders[i],indices[i]])
         else:
             raise NotImplementedError('TODO')
@@ -227,8 +256,8 @@ class ExprKernel(SplBasic):
         # ...
         atoms_types = (_partial_derivatives,
                        _logical_partial_derivatives,
-                       ScalarField,
-                       VectorField, IndexedVectorField,
+                       ScalarTestFunction,
+                       VectorTestFunction, IndexedTestTrial,
                        SymbolicDeterminant,
                        Symbol)
 
@@ -236,15 +265,12 @@ class ExprKernel(SplBasic):
         self._constants = _atomic(expr, cls=Constant)
         self._coordinates = tuple(xis)
         # ...
-
-        atomic_scalar_field = _atomic(expr, cls=ScalarField)
-        atomic_vector_field = _atomic(expr, cls=VectorField)
         
         atomic_expr_field        = [atom for atom in atoms if is_scalar_field(atom)]
         atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
 
-        self._fields = tuple(expr.atoms(ScalarField))
-        self._vector_fields = tuple(expr.atoms(VectorField))
+        self._fields = tuple(expr.atoms(ScalarTestFunction))
+        self._vector_fields = tuple(expr.atoms(VectorTestFunction))
         # ...
         fields_str        = tuple(SymbolicExpr(f).name for f in atomic_expr_field)
         vector_fields_str = tuple(SymbolicExpr(f).name for f in atomic_expr_vector_field)
@@ -261,7 +287,7 @@ class ExprKernel(SplBasic):
             vector_fields_coeff    = variables(['F_{}_coeff'.format(str(i)) for i in range(size)],
                                           dtype='real', rank=dim, cls=IndexedVariable)
                                           
-        self._fields_coeff = fields_coeff
+        self._fields_coeff        = fields_coeff
         self._vector_fields_coeff = vector_fields_coeff 
                                           
         if fields or vector_fields_str:

@@ -23,8 +23,9 @@ from pyccel.ast.core import _atomic
 
 from pyccel.ast.numpyext import Zeros
 
-from sympde.topology             import ScalarField, VectorField
-from sympde.topology             import IndexedVectorField
+from sympde.topology.space       import ScalarTestFunction
+from sympde.topology.space       import VectorTestFunction
+from sympde.topology.space       import IndexedTestTrial
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
@@ -40,7 +41,7 @@ from gelato.expr import gelatize
 from .basic      import SplBasic
 from .utilities  import random_string
 from .utilities  import build_pythran_types_header, variables
-from .utilities  import is_scalar_field, is_vector_field, is_mapping
+from .utilities  import is_mapping
 from .utilities  import math_atoms_as_str
 from .evaluation import EvalArrayMapping, EvalArrayField
 
@@ -237,7 +238,6 @@ class GltKernel(SplBasic):
                                 dtype = 'int',
                                 rank = 1,
                                 cls = IndexedVariable )
-
         # ...
         self._coordinates = tuple()
         if fields or mapping or self.expr.space_variables:
@@ -267,10 +267,12 @@ class GltKernel(SplBasic):
         # ...
 
         # ...
+
         atoms_types = (_partial_derivatives,
                        _logical_partial_derivatives,
-                       ScalarField,
-                       VectorField, IndexedVectorField,
+                       ScalarTestFunction,
+                       VectorTestFunction,
+                       IndexedTestTrial,
                        SymbolicDeterminant)
 
         atoms  = _atomic(expr, cls=atoms_types)
@@ -278,8 +280,8 @@ class GltKernel(SplBasic):
 
         # ...
 #        atomic_expr_mapping      = [atom for atom in atoms if is_mapping(atom)]
-        atomic_expr_field        = [atom for atom in atoms if is_scalar_field(atom)]
-        atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
+        atomic_expr_field        = [atom for atom in atoms if atom.atoms(ScalarTestFunction)]
+        atomic_expr_vector_field = [atom for atom in atoms if atom.atoms(VectorTestFunction)]
         # ...
 
         # ...
@@ -293,7 +295,7 @@ class GltKernel(SplBasic):
         atomic_expr_field_logical = tuple(f.subs(d_subs) for f in atomic_expr_field)
         fields_str         = tuple(sorted(SymbolicExpr(f).name for f in atomic_expr_field))
         fields_logical_str = tuple(sorted(SymbolicExpr(f).name for f in atomic_expr_field_logical))
-        field_atoms        = tuple(expr.atoms(ScalarField))
+        field_atoms        = tuple(expr.atoms(ScalarTestFunction))
         # ...
 
         # ... create EvalArrayField
@@ -306,7 +308,7 @@ class GltKernel(SplBasic):
                 g_names = set([f.name for f in group])
                 fields_expressions = []
                 for e in atomic_expr_field:
-                    fs = e.atoms(ScalarField)
+                    fs = e.atoms(ScalarTestFunction)
                     f_names = set([f.name for f in fs])
                     if f_names & g_names:
                         fields_expressions += [e]
@@ -318,7 +320,6 @@ class GltKernel(SplBasic):
                 self._eval_fields.append(eval_field)
                 for k,v in eval_field.map_stmts.items():
                     self._map_stmts_fields[k] = v
-
         # update dependencies
         self._dependencies += self.eval_fields
         # ...
@@ -463,8 +464,8 @@ class GltKernel(SplBasic):
         # ...
 
         # call eval field
-        for eval_field in self.eval_fields:
-            args = degrees + spans + basis + fields_coeffs + fields_val
+        for i,eval_field in enumerate(self.eval_fields):
+            args = (degrees[i] , spans[i] , basis[i] , fields_val[i])
             args = eval_field.build_arguments(args)
             body = [FunctionCall(eval_field.func, args)] + body
 
