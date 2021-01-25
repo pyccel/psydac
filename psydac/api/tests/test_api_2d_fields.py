@@ -249,7 +249,7 @@ def test_field_quarter_annulus():
     assert( abs(error_2 - expected_error_2) < 1.e-7)
 
 #==============================================================================
-def test_non_linear_poinsson_circle():
+def test_nonlinear_poisson_circle():
 
     filename = os.path.join(mesh_dir, 'circle.h5')
     l2_error = run_non_linear_poisson(filename)
