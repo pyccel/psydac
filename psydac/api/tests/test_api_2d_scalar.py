@@ -664,9 +664,9 @@ def test_poisson_2d_dir0_1234_parallel():
 #==============================================================================
 
 def teardown_module():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()
 
 def teardown_function():
-    from sympy import cache
+    from sympy.core import cache
     cache.clear_cache()

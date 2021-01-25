@@ -42,7 +42,6 @@ class GltBasicCodeGen(object):
         folder    = kwargs.pop('folder', None)
         comm      = kwargs.pop('comm', None)
         root      = kwargs.pop('root', None)
-        expr      = self.annotate(expr)
         # ...
         if not( comm is None):
             if root is None:
@@ -432,16 +431,6 @@ class GltBasicCodeGen(object):
         # ...
 
         return _kwargs
-
-    def annotate(self, expr):
-        if isinstance(expr, BasicForm):
-            if not expr.is_annotated:
-                expr = expr.annotate()
-        elif isinstance(expr, sym_GltExpr):
-            form = expr.form
-            form = form.annotate()
-            expr = sym_GltExpr(form)
-        return expr
 
 #==============================================================================
 class DiscreteGltExpr(GltBasicCodeGen):

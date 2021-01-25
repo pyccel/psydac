@@ -21,8 +21,6 @@ from sympde.topology import SymbolicWeightedVolume
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import H1SpaceType, L2SpaceType, UndefinedSpaceType
 
-from .utilities import physical2logical
-
 from pyccel.ast.core import AugAssign, Assign
 from pyccel.ast.core import _atomic
 
