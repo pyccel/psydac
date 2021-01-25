@@ -177,13 +177,12 @@ class Gradient_2D(DiffOperator):
         self._codomain = Hcurl
         self._matrix   = block_tostencil(matrix)
 
-    def __call__(self, x):
+    def __call__(self, u):
 
-        assert isinstance(x, FemField)
-        assert x.space == self._domain
+        assert isinstance(u, FemField)
+        assert u.space == self.domain
 
-        y = BlockVector(ProductSpace(x.coeffs.space), blocks=[x.coeffs])
-        coeffs = self._matrix.dot(y)
+        coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
         return VectorFemField(self.codomain, coeffs=coeffs)
@@ -238,13 +237,12 @@ class Gradient_3D(DiffOperator):
         self._codomain = Hcurl
         self._matrix   = block_tostencil(matrix)
 
-    def __call__(self, x):
+    def __call__(self, u):
 
-        assert isinstance(x, FemField)
-        assert x.space == self._domain
+        assert isinstance(u, FemField)
+        assert u.space == self.domain
 
-        y = BlockVector(ProductSpace(x.coeffs.space), blocks=[x.coeffs])
-        coeffs = self._matrix.dot(y)
+        coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
         return VectorFemField(self.codomain, coeffs=coeffs)
@@ -306,7 +304,7 @@ class ScalarCurl_2D(DiffOperator):
         assert isinstance(u, VectorFemField)
         assert u.space == self.domain
         
-        coeffs = self.matrix.dot(u.coeffs)[0]
+        coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
         return FemField(self.codomain, coeffs=coeffs)
@@ -364,8 +362,7 @@ class VectorCurl_2D(DiffOperator):
         assert isinstance(u, FemField)
         assert u.space == self.domain
 
-        x      = BlockVector(ProductSpace(u.coeffs.space), blocks=[u.coeffs])
-        coeffs = self.matrix.dot(x)
+        coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
         return VectorFemField(self.codomain, coeffs=coeffs)
@@ -493,15 +490,15 @@ class Divergence_2D(DiffOperator):
         self._codomain = L2
         self._matrix   = block_tostencil(matrix)
 
-    def __call__(self, x):
+    def __call__(self, u):
 
-        assert isinstance(x, VectorFemField)
-        assert x.space == self._domain
+        assert isinstance(u, VectorFemField)
+        assert u.space == self.domain
 
-        coeffs = self._matrix.dot(x.coeffs)
+        coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
-        return FemField(self._codomain, coeffs=coeffs[0])
+        return FemField(self.codomain, coeffs=coeffs)
 
 #====================================================================================================
 class Divergence_3D(DiffOperator):
@@ -557,12 +554,12 @@ class Divergence_3D(DiffOperator):
         self._codomain = L2
         self._matrix   = block_tostencil(matrix)
 
-    def __call__(self, x):
+    def __call__(self, u):
 
-        assert isinstance(x, VectorFemField)
-        assert x.space == self._domain
+        assert isinstance(u, VectorFemField)
+        assert u.space == self.domain
 
-        coeffs = self._matrix.dot(x.coeffs)
+        coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
-        return FemField(self._codomain, coeffs=coeffs[0])
+        return FemField(self.codomain, coeffs=coeffs)

@@ -21,12 +21,28 @@ class ProductSpace( VectorSpace ):
         A list of Vector Spaces.
 
     """
-    def __init__( self,  *spaces ):
+    def __new__(cls, *spaces):
 
-        assert all( isinstance( Vi, VectorSpace ) for Vi in spaces )
+        # Check that all input arguments are vector spaces
+        if not all(isinstance(Vi, VectorSpace) for Vi in spaces):
+            raise TypeError('All input spaces must be VectorSpace objects')
 
-        # We store the spaces in a Tuple because they will not be changed
-        self._spaces = tuple( spaces )
+        # If no spaces are passed, raise an error
+        if len(spaces) == 0:
+            raise ValueError('Cannot create a ProductSpace of zero spaces')
+
+        # If only one space is passed, return it without creating a new object
+        if len(spaces) == 1:
+            return spaces[0]
+
+        # Create a new ProductSpace object
+        return VectorSpace.__new__(cls)
+
+    # ...
+    def __init__(self,  *spaces):
+
+        # Store spaces in a Tuple, because they will not be changed
+        self._spaces = tuple(spaces)
 
     #--------------------------------------
     # Abstract interface
@@ -214,13 +230,15 @@ class BlockVector( Vector ):
 class BlockLinearOperator( LinearOperator ):
     """
     Linear operator that can be written as blocks of other Linear Operators.
+    Either the domain or the codomain of this operator, or both, should be of
+    class ProductSpace.
 
     Parameters
     ----------
-    V1 : psydac.linalg.block.ProductSpace
+    V1 : psydac.linalg.block.VectorSpace
         Domain of the new linear operator.
 
-    V2 : psydac.linalg.block.ProductSpace
+    V2 : psydac.linalg.block.VectorSpace
         Codomain of the new linear operator.
 
     blocks : dict | (list of lists) | (tuple of tuples)
@@ -236,12 +254,18 @@ class BlockLinearOperator( LinearOperator ):
     """
     def __init__( self, V1, V2, blocks=None ):
 
-        assert isinstance( V1, ProductSpace )
-        assert isinstance( V2, ProductSpace )
+        assert isinstance( V1, VectorSpace )
+        assert isinstance( V2, VectorSpace )
+
+        if not (isinstance(V1, ProductSpace) or isinstance(V2, ProductSpace)):
+            raise TypeError("Either domain or codomain must be of type ProductSpace")
 
         self._domain   = V1
         self._codomain = V2
         self._blocks   = OrderedDict()
+
+        self._nrows = V2.n_blocks if isinstance(V2, ProductSpace) else 1
+        self._ncols = V1.n_blocks if isinstance(V1, ProductSpace) else 1
 
         # Store blocks in OrderedDict (hence they can be manually changed later)
         if blocks:
@@ -273,24 +297,34 @@ class BlockLinearOperator( LinearOperator ):
     # ...
     def dot( self, v, out=None ):
 
-        assert isinstance( v, BlockVector )
-        
-        for i in range(len(v.space[:])):
-            assert v.space[i] is self._domain[i]
-            
-        assert all( v.blocks )
+        if self.n_block_cols == 1:
+            assert isinstance(v, Vector)
+        else:
+            assert isinstance(v, BlockVector)
+
+        assert v.space == self.domain
 
         if out is not None:
-            assert isinstance( out, BlockVector )
-            assert out.space is self._codomain
+            if self.n_block_rows == 1:
+                assert isinstance(out, Vector)
+            else:
+                assert isinstance(out, BlockVector)
+            assert out.space == self.codomain
             out *= 0.0
         else:
-            out = BlockVector( self._codomain )
+            out = self.codomain.zeros()
 
         v.update_ghost_regions()
 
-        for (i,j), Lij in self._blocks.items():
-            out[i] += Lij.dot( v[j] )
+        if self.n_block_rows == 1:
+            for (_, j), L0j in self._blocks.items():
+                out += L0j.dot(v[j])
+        elif self.n_block_cols == 1:
+            for (i, _), Li0 in self._blocks.items():
+                out[i] += Li0.dot(v)
+        else:
+            for (i, j), Lij in self._blocks.items():
+                out[i] += Lij.dot(v[j])
 
         return out
 
@@ -308,21 +342,24 @@ class BlockLinearOperator( LinearOperator ):
     # ...
     @property
     def n_block_rows( self ):
-        return self._codomain.n_blocks
+        return self._nrows
 
     # ...
     @property
     def n_block_cols( self ):
-        return self._domain.n_blocks
+        return self._ncols
 
+    # ...
     def update_ghost_regions( self ):
         for Lij in self._blocks.values():
             Lij.update_ghost_regions()
 
+    # ...
     def remove_spurious_entries( self ):
         for Lij in self._blocks.values():
             Lij.remove_spurious_entries()
 
+    # ...
     def __getitem__( self, key ):
 
         assert isinstance( key, tuple )
@@ -346,8 +383,18 @@ class BlockLinearOperator( LinearOperator ):
 
         i,j = key
         assert isinstance( value, LinearOperator )
-        assert value.domain   == self.domain  [j]
-        assert value.codomain == self.codomain[i]
+
+        # Check domain of rhs
+        if self.n_block_cols == 1:
+            assert value.domain == self.domain
+        else:
+            assert value.domain == self.domain[j]
+
+        # Check codomain of rhs
+        if self.n_block_rows == 1:
+            assert value.codomain == self.codomain
+        else:
+            assert value.codomain == self.codomain[i]
 
         self._blocks[i,j] = value
 
@@ -413,9 +460,14 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         for (i,j), Mij in self._blocks.items():
             blocks[i][j] = Mij.topetsc()
 
-        cart      = self.domain.spaces[0].cart
+        if self.n_block_cols == 1:
+            cart = self.domain.cart
+        else:
+            cart = self.domain.spaces[0].cart
+
         petsccart = cart.topetsc()
-        return petsccart.petsc.Mat().createNest( blocks, comm=cart.comm)
+
+        return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
 
     #--------------------------------------
     # Other properties/methods
@@ -427,7 +479,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         if value is None:
             pass
 
-        elif not isinstance( value, LinearOperator ):
+        elif not isinstance( value, Matrix ):
             msg = "Block ({},{}) must be 'Matrix' from module 'psydac.linalg.basic'.".format( i,j )
             raise TypeError( msg )
 
