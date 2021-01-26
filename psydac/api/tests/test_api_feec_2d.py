@@ -25,28 +25,12 @@ def step_ampere_2d(dt, e, b, M1, M2, D1, D1_T):
     from psydac.linalg.iterative_solvers import cg
 
   # b += 0
-    e -= dt * cg(M1, D1_T.dot((M2.dot(b))))[0]
-#    e -= dt * cg(M1, D1_T @ (M2 @ b))[0]
+    e += dt * cg(M1, D1_T.dot(M2.dot(b)))[0]
+#    e += dt * cg(M1, D1_T @ (M2 @ b))[0]
 
 #==============================================================================
 # VISUALIZATION
 #==============================================================================
-def make_plot(ax, t, sol_ex, sol_num, x, xlim, label):
-    ax.plot(x, sol_ex , '--', label='exact')
-    ax.plot(x, sol_num, '-' , label='numerical')
-    ax.legend(loc='upper right')
-    ax.grid()
-    ax.set_title('Time t = {:10.3e}'.format(t))
-    ax.set_xlabel('x')
-    ax.set_ylabel(label, rotation='horizontal')
-    ax.set_xlim(xlim)
-
-def update_plot(ax, t, sol_ex, sol_num):
-    ax.set_title('Time t = {:10.3e}'.format(t))
-    ax.lines[0].set_ydata(sol_ex )
-    ax.lines[1].set_ydata(sol_num)
-    ax.get_figure().canvas.draw()
-
 
 def add_colorbar(im, ax, **kwargs):
     from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -73,10 +57,26 @@ def plot_field_and_error(name, x, y, field_h, field_ex, *gridlines):
     fig.tight_layout()
     return fig, (ax0, ax1)
 
+def update_plot(ax, t, x, y, field_h, field_ex):
+    ax0, ax1 = ax
+
+    ax0.collections = []
+    ax0.contourf(x, y, field_h)
+
+    ax1.collections = []
+    ax1.contourf(x, y, field_ex - field_h)
+
+    ax0.get_figure().canvas.draw()
+
+#    ax.set_title('Time t = {:10.3e}'.format(t))
+#    ax.lines[0].set_ydata(sol_ex )
+#    ax.lines[1].set_ydata(sol_num)
+#    ax.get_figure().canvas.draw()
+
 #==============================================================================
 # SIMULATION
 #==============================================================================
-def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
+def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
         splitting_order, plot_interval, diagnostics_interval):
 
     import numpy as np
@@ -116,12 +116,13 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     (nx, ny) = (2, 2)
 
     kx = np.pi * nx / a
-    ky = np.pi * ny / a
+    ky = np.pi * ny / b
+
     omega = c * np.sqrt(kx**2 + ky**2)
 
-    Ex_ex = lambda t, x, y:  np.cos(kx * x) * np.sin(ky * y) * np.sin(omega * t + np.pi/4) * omega
-    Ey_ex = lambda t, x, y: -np.sin(kx * x) * np.cos(ky * y) * np.sin(omega * t + np.pi/4) * omega
-    Bz_ex = lambda t, x, y:  np.sin(kx * x) * np.sin(ky * y) * np.cos(omega * t + np.pi/4)
+    Ex_ex = lambda t, x, y:  np.cos(kx * x) * np.sin(ky * y) * np.cos(omega * t)
+    Ey_ex = lambda t, x, y: -np.sin(kx * x) * np.cos(ky * y) * np.cos(omega * t)
+    Bz_ex = lambda t, x, y:  np.cos(kx * x) * np.cos(ky * y) * np.sin(omega * t) * (kx + ky) / omega
     #...
 
     #--------------------------------------------------------------------------
@@ -147,19 +148,18 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     derham = Derham(domain, sequence=['h1', 'hcurl', 'l2'])
 
     # Trial and test functions
-    u1, v1 = elements_of(derham.V1, names='u1, v1')
-    u2, v2 = elements_of(derham.V2, names='u2, v2')
+    u1, v1 = elements_of(derham.V1, names='u1, v1')  # electric field E = (Ex, Ey)
+    u2, v2 = elements_of(derham.V2, names='u2, v2')  # magnetic field Bz
 
     # Bilinear forms that correspond to mass matrices for spaces V1 and V2
     a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
     a2 = BilinearForm((u2, v2), integral(domain, u2 * v2))
 
-# TODO
-#    # If needed, use penalization to apply homogeneous Dirichlet BCs
-#    if not periodic:
-#        nn = NormalVector('nn')
-#        a1_bc = BilinearForm((u1, v1),
-#                integral(domain.boundary, dot(cross(u1, nn), cross(v1, nn))))
+    # If needed, use penalization to apply homogeneous Dirichlet BCs
+    if not periodic:
+        nn = NormalVector('nn')
+        a1_bc = BilinearForm((u1, v1),
+                integral(domain.boundary, dot(cross(u1, nn), cross(v1, nn))))
 
     #--------------------------------------------------------------------------
     # Discrete objects: Psydac
@@ -180,11 +180,10 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Differential operators
     D0, D1 = derham_h.derivatives_as_matrices
 
-# TODO
-#    # Discretize and assemble penalization matrix
-#    if not periodic:
-#        a1_bc_h = discretize(a1_bc, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
-#        M1_bc   = a1_bc_h.assemble()
+    # Discretize and assemble penalization matrix
+    if not periodic:
+        a1_bc_h = discretize(a1_bc, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
+        M1_bc   = a1_bc_h.assemble()
 
     # Transpose of derivative matrix
     D1_T = D1.T
@@ -198,10 +197,6 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     grid_x2 = derham_h.V0.breaks[1]
 
     grid_x, grid_y = F(*np.meshgrid(grid_x1, grid_x2, indexing='ij'))
-
-#
-#    xmin = grid_x[ 0]
-#    xmax = grid_x[-1]
 
     #--------------------------------------------------------------------------
     # Time integration setup
@@ -258,7 +253,9 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
             a    = logical_domain.bounds1[0],
             b    = logical_domain.bounds1[1],
             gfun = lambda x1: logical_domain.bounds2[0],
-            hfun = lambda x1: logical_domain.bounds2[1]
+            hfun = lambda x1: logical_domain.bounds2[1],
+            epsabs = 1e-10,
+            epsrel = 1e-10
         )
         We = dblquad(lambda x2, x1: we(t, x1, x2), **kwargs)[0]
         Wb = dblquad(lambda x2, x1: wb(t, x1, x2), **kwargs)[0]
@@ -281,7 +278,7 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     #--------------------------------------------------------------------------
 
     # Very fine grids for evaluation of solution
-    N = 10 
+    N = 5
     x1 = refine_array_1d(grid_x1, N)
     x2 = refine_array_1d(grid_x2, N)
 
@@ -291,6 +288,10 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
     gridlines_x2 = (x[::N, :].T, y[::N, :].T)
     gridlines = (gridlines_x1, gridlines_x2)
+
+    Ex_values = np.empty_like(x1)
+    Ey_values = np.empty_like(x1)
+    Bz_values = np.empty_like(x1)
 
     # Prepare plots
     if plot_interval:
@@ -309,11 +310,7 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         fig1.show()
 
         # ...
-        # Prepare animations
-        Ex_values = np.empty_like(x1)
-        Ey_values = np.empty_like(x1)
-        Bz_values = np.empty_like(x1)
-
+        # Plot initial conditions
         # TODO: improve
         for i, x1i in enumerate(x1[:, 0]):
             for j, x2j in enumerate(x2[0, :]):
@@ -322,7 +319,6 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
                         push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, mapping)
 
                 Bz_values[i, j] = push_2d_l2(B, x1i, x2j, mapping)
-
 
         # Electric field, x component
         fig2, ax2 = plot_field_and_error(r'E^x', x, y, Ex_values, Ex_ex(0, x, y), *gridlines)
@@ -370,9 +366,6 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     print()
     print(type(D1))
     print(type(D1_T))
-
-    import sys
-    sys.exit('STOP')
     ##############################
 
     #--------------------------------------------------------------------------
@@ -388,7 +381,7 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         args = (e, b, M1 + M1_bc, M2, D1, D1_T)
 
     # Time loop
-    for i in range(nsteps):
+    for i in range(1, nsteps+1):
 
         # TODO: allow for high-order splitting
 
@@ -400,15 +393,24 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         t += dt
 
         # Animation
-        if plot_interval and (i % plot_interval == 0 or i == nsteps-1):
+        if plot_interval and (i % plot_interval == 0 or i == nsteps):
 
-            E_values = [E(xi) for xi in x1]
-            B_values = push_1d_l2(lambda x1: np.array([B(xi) for xi in x1]), x1, mapping)
+            # ...
+            # TODO: improve
+            for i, x1i in enumerate(x1[:, 0]):
+                for j, x2j in enumerate(x2[0, :]):
+
+                    Ex_values[i, j], Ey_values[i, j] = \
+                            push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, mapping)
+
+                    Bz_values[i, j] = push_2d_l2(B, x1i, x2j, mapping)
+            # ...
 
             # Update plot
-            update_plot(ax2[0], t, E_ex(t, x), E_values)
-            update_plot(ax2[1], t, B_ex(t, x), B_values)
-            plt.pause(0.01)
+            update_plot(ax2, t, x, y, Ex_values, Ex_ex(t, x, y))
+            update_plot(ax3, t, x, y, Ey_values, Ey_ex(t, x, y))
+            update_plot(ax4, t, x, y, Bz_values, Bz_ex(t, x, y))
+            plt.pause(0.1)
 
         # Scalar diagnostics
         if diagnostics_interval and i % diagnostics_interval == 0:
@@ -435,15 +437,25 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Post-processing
     #--------------------------------------------------------------------------
 
-    # Error at final time
-    E_values = np.array([E(xi) for xi in x1])
-    B_values = push_1d_l2(lambda x1: np.array([B(xi) for xi in x1]), x1, mapping)
+    # ...
+    # TODO: improve
+    for i, x1i in enumerate(x1[:, 0]):
+        for j, x2j in enumerate(x2[0, :]):
 
-    error_E = max(abs(E_ex(t, x) - E_values))
-    error_B = max(abs(B_ex(t, x) - B_values))
+            Ex_values[i, j], Ey_values[i, j] = \
+                    push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, mapping)
+
+            Bz_values[i, j] = push_2d_l2(B, x1i, x2j, mapping)
+    # ...
+
+    # Error at final time
+    error_Ex = abs(Ex_ex(t, x, y) - Ex_values).max()
+    error_Ey = abs(Ey_ex(t, x, y) - Ey_values).max()
+    error_Bz = abs(Bz_ex(t, x, y) - Bz_values).max()
     print()
-    print('Max-norm of error on E(t,x) at final time: {:.2e}'.format(error_E))
-    print('Max-norm of error on B(t,x) at final time: {:.2e}'.format(error_B))
+    print('Max-norm of error on Ex(t,x) at final time: {:.2e}'.format(error_Ex))
+    print('Max-norm of error on Ey(t,x) at final time: {:.2e}'.format(error_Ey))
+    print('Max-norm of error on Bz(t,x) at final time: {:.2e}'.format(error_Bz))
 
     if diagnostics_interval:
 
@@ -498,12 +510,11 @@ def run_maxwell_2d_TE(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 # UNIT TESTS
 #==============================================================================
 
-def test_maxwell_1d_periodic():
+def test_maxwell_2d_periodic():
 
     namespace = run_maxwell_2d_TE(
-        L        = 1.0,
         eps      = 0.5,
-        ncells   = 30,
+        ncells   = 12,
         degree   = 3,
         periodic = True,
         Cp       = 0.5,
@@ -515,19 +526,20 @@ def test_maxwell_1d_periodic():
     )
 
     TOL = 1e-6
-    ref = dict(error_E = 4.191954319623381e-04,
-               error_B = 4.447074070748624e-04)
+    ref = dict(error_Ex = 6.870389e-03,
+               error_Ey = 6.870389e-03,
+               error_Bz = 4.443822e-03)
 
-    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
-    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+    assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
+    assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
+    assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
 
 
-def test_maxwell_1d_dirichlet():
+def test_maxwell_2d_dirichlet():
 
     namespace = run_maxwell_2d_TE(
-        L        = 1.0,
         eps      = 0.5,
-        ncells   = 20,
+        ncells   = 10,
         degree   = 5,
         periodic = False,
         Cp       = 0.5,
@@ -538,12 +550,20 @@ def test_maxwell_1d_dirichlet():
         diagnostics_interval = 0
     )
 
-    TOL = 1e-6
-    ref = dict(error_E = 1.320471502738063e-03,
-               error_B = 7.453774187340390e-04)
+    print('~'*50)
+    print('{:e}'.format(namespace['error_Ex']))
+    print('{:e}'.format(namespace['error_Ey']))
+    print('{:e}'.format(namespace['error_Bz']))
+    print('~'*50)
 
-    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
-    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+    TOL = 1e-6
+    ref = dict(error_Ex = 6.870389e-03,
+               error_Ey = 6.870389e-03,
+               error_Bz = 4.443822e-03)
+
+    assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
+    assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
+    assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
 
 #==============================================================================
 # SCRIPT CAPABILITIES
@@ -554,7 +574,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         formatter_class = argparse.ArgumentDefaultsHelpFormatter,
-        description     = "Solve 1D Maxwell equations with spline FEEC method."
+        description = "Solve 2D Maxwell's equations in rectangular cavity with spline FEEC method."
     )
 
     parser.add_argument('ncells',
@@ -577,14 +597,6 @@ if __name__ == '__main__':
         default = 2,
         choices = [2, 4, 6],
         help    = 'Order of accuracy of operator splitting'
-    )
-
-    parser.add_argument( '-l',
-        type    = float,
-        default = 1.0,
-        dest    = 'L',
-        metavar = 'L',
-        help    = 'Length of domain [0, L]'
     )
 
     parser.add_argument( '-e',
