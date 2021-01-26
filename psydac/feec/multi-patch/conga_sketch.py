@@ -79,11 +79,15 @@ class ConformingProjection( LinearOperator ):
     todo
 
     """
-    def __init__( self, domain, V0, V0h ):
+    def __init__( self, V0h ):
 
         # assert isinstance( domain_h , discretized domain )  ## ?
         # assert isinstance( Vh , discretized space )  ## ?
 
+        V0 = V0h.symbolic_space  # (check)
+        domain = V0.domain
+        domain_h = V0h.domain  # (check)
+        
         self._domain   = V0h
         self._codomain = V0h
 
@@ -91,38 +95,38 @@ class ConformingProjection( LinearOperator ):
         expr   = dot(u,v)
 
         kappa  = 10**20
-        I = domain.interfaces
+        I = domain.interfaces  # note: interfaces does not include the boundary 
         expr_I = kappa*( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
 
-        domain_h = V0h.domain # ?
-        ah = discretize(a, domain_h, V0h)
 
-        self._A = ah.assemble().toarray()
+        ah = discretize(a, domain_h, [V0h, V0h])
+
+        self._A = ah.assemble()  #.toarray()
+
+        f = element_of(V0, name='f')
+        l = LinearForm(v, f*v)
+        self._lh = discretize(l, domain_h, V0h)
 
 
-    def dot( self, v, out=None ):
+    def __call__( self, f ):
 
-        V0h = self._domain
-        assert isinstance(v, FemField)
-        assert v.space == V0h
-
-        w = element_of(V0h)
-        l = LinearForm(w, integral(domain_h, v*w))
-
-        # or use a discrete equation ?
-        l = LinearForm(w, f*w)
-        b = discretize(l, domain_h, V0h)
-
+        
+        b = self._lh.assemble(f=f)
+        
         sol_coeffs, info = cg( self._A, b, tol=1e-13, verbose=True )
+        
+        return  FemField(self.codomain, coeffs=sol_coeffs)
+           
+        
+    def dot( self, f_coeffs, out=None ):
 
-        return FemField(self.codomain, coeffs=sol_coeffs)   # or just the coefs ?
+        # todo: build field from coeffs and use __call__
+      
+        return something
 
 
-    def __call__( self, v ):
-
-        return  self.dot(v)
 
 
 def test_conga_2d():
@@ -149,12 +153,19 @@ def test_conga_2d():
 
     D1     = mapping_1(A)
     D2     = mapping_2(B)
+    
+    derham_1  = Derham(D1)
+    derham_2  = Derham(D2)
 
+    --> here build the local de rham operators
+    
+    
+    
     domain = D1.join(D2, name = 'domain',
                 bnd_minus = D1.get_boundary(axis=1, ext=1),
                 bnd_plus  = D2.get_boundary(axis=1, ext=-1))
 
-    derham  = Derham(domain)
+    derham  = Derham(domain)  # try
 
 
     #+++++++++++++++++++++++++++++++
@@ -165,10 +176,17 @@ def test_conga_2d():
     degree=[2,2]
 
     domain_h = discretize(domain, ncells=ncells)
-    derham_h = discretize(derham, domain_h, degree=degree)
-    V0h       = derham_h.V0
-    V1h       = derham_h.V1
-
+    
+    ## derham for later
+    # derham_h = discretize(derham, domain_h, degree=degree)      # build them by hand if this doesn't work
+    # V0h       = derham_h.V0
+    # V1h       = derham_h.V1
+    
+    # broken multipatch spaces
+    V0h = discretize(derham.V0, domain_h, degree=degree)
+    V1h = discretize(derham.V1, domain_h, degree=degree)
+    
+    
     #+++++++++++++++++++++++++++++++
     # . Some matrices
     #+++++++++++++++++++++++++++++++
@@ -180,7 +198,7 @@ def test_conga_2d():
     u1, v1 = elements_of(derham.V1, names='u1, v1')
     a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
     a1_h = discretize(a1, domain_h, (V1h, V1h), backend=PSYDAC_BACKEND_GPYCCEL)
-    M1 = a1_h.assemble().tosparse().tocsc()
+    M1 = a1_h.assemble()  #.tosparse().tocsc()
 
     #+++++++++++++++++++++++++++++++
     # . Differential operators
@@ -188,16 +206,27 @@ def test_conga_2d():
     #+++++++++++++++++++++++++++++++
 
     # "broken grad" operator, coincides with the grad on the conforming subspace of V0h
-    Dconf0 = Gradient_2D(V0h, V1h)
-
+    # later: broken_D0 = Gradient_2D(V0h, V1h)   # on multi-patch domains we should maybe provide the "BrokenGradient"
+    # or broken_D0 = derham_h.D0 ?
+        
+    V0h_0 = V0h.spaces[0]  # V0h on domain 1
+    V0h_1 = V0h.spaces[1]  # V0h on domain 2
+    V1h_0 = ProductSpace(V1h.spaces[0], V1h.spaces[1])  # V1h on domain 1
+    V1h_1 = ProductSpace(V1h.spaces[2], V1h.spaces[3])  # V1h on domain 2
+    
+    D0_0 = Gradient_2D(V0h_0, V1h_0)
+    D0_1 = Gradient_2D(V0h_1, V1h_1)
+    
+    broken_D0 = BlockMatrix(V0h, V1h, blocks=[[D0_0, None],[None, D0_1]])
+    
     # projection from broken multipatch space to conforming subspace
     Pconf_0 = ConformingProjection(V0h)
 
     # Conga grad operator (on the broken V0h)
-    D0 = Dconf0.matmat(Pconf_0)
+    D0 = broken_D0.matmat(Pconf_0)
 
     # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-    D0_transp = Pconf_0.matmat(Dconf0.T)
+    D0_transp = Pconf_0.matmat(broken_D0.T)
 
 
     #+++++++++++++++++++++++++++++++
@@ -205,7 +234,17 @@ def test_conga_2d():
     #+++++++++++++++++++++++++++++++
 
     # create an instance of the H1 projector class
-    P0 = Projector_H1(V0h)
+    # P0 = Projector_H1(V0h)
+    
+    
+    P0_1 = ... Projector_H1(V0h_1)
+    P0_2 = ... Projector_H1(V0h_1)   # find proper command
+    
+    -> assemble P0 of u as a BlockVector.
+    
+    
+    
+    
 
     # create an instance of the projector class
     P1 = Projector_Hcurl(V1h)
