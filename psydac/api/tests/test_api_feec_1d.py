@@ -83,9 +83,6 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     mapping = CollelaMapping1D('M', k=L, eps=eps)
     domain  = mapping(logical_domain)
-
-    # NOTE: don't use mapping at the moment
-    domain  = logical_domain
     #...
 
     # Exact solution
