@@ -159,7 +159,7 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     if not periodic:
         nn = NormalVector('nn')
         a1_bc = BilinearForm((u1, v1),
-                integral(domain.boundary, dot(cross(u1, nn), cross(v1, nn))))
+                integral(domain.boundary, cross(u1, nn) * cross(v1, nn)))
 
     #--------------------------------------------------------------------------
     # Discrete objects: Psydac
