@@ -159,7 +159,7 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     if not periodic:
         nn = NormalVector('nn')
         a1_bc = BilinearForm((u1, v1),
-                integral(domain.boundary, cross(u1, nn) * cross(v1, nn)))
+                integral(domain.boundary, 1e30 * cross(u1, nn) * cross(v1, nn)))
 
     #--------------------------------------------------------------------------
     # Discrete objects: Psydac
@@ -557,9 +557,9 @@ def test_maxwell_2d_dirichlet():
     print('~'*50)
 
     TOL = 1e-6
-    ref = dict(error_Ex = 6.870389e-03,
-               error_Ey = 6.870389e-03,
-               error_Bz = 4.443822e-03)
+    ref = dict(error_Ex = 3.578544e-03,
+               error_Ey = 3.578545e-03,
+               error_Bz = 4.373875e-03)
 
     assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
     assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
