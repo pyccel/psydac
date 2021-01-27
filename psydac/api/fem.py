@@ -479,12 +479,12 @@ class DiscreteLinearForm(BasicDiscrete):
             else:
                 vector_space = self.space.vector_space
 
-            if test_ext == -1:
+            if ext == -1:
                 start = vector_space.starts[axis]
                 if start != 0:
                     self._func = do_nothing
 
-            elif test_ext == 1:
+            elif ext == 1:
                 end  = vector_space.ends[axis]
                 npts = vector_space.npts[axis]
                 if end + 1 != npts:
