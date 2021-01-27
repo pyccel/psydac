@@ -474,10 +474,10 @@ class DiscreteLinearForm(BasicDiscrete):
             #...
             # If process does not own the boundary or interface, do not assemble anything
             import psydac
-            if isinstance(test_space.vector_space, psydac.linalg.block.ProductSpace):
-                vector_space = test_space.vector_space.spaces[0]
+            if isinstance(self.space.vector_space, psydac.linalg.block.ProductSpace):
+                vector_space = self.space.vector_space.spaces[0]
             else:
-                vector_space = test_space.vector_space
+                vector_space = self.space.vector_space
 
             if test_ext == -1:
                 start = vector_space.starts[axis]
