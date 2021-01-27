@@ -456,23 +456,98 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         return M
 
     # ...
-    def topetsc( self ):
-        """ Convert to petsc Nest Matrix.
-        """
-        # Convert all blocks to petsc format
-        blocks = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
-        for (i,j), Mij in self._blocks.items():
-            blocks[i][j] = Mij.topetsc()
+    def copy(self):
+        blocks = {ij: Bij.copy() for ij, Bij in self._blocks.items()}
+        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
 
-        if self.n_block_cols == 1:
-            cart = self.domain.cart
-        else:
-            cart = self.domain.spaces[0].cart
+    # ...
+    def __neg__(self, a):
+        blocks = {ij: -Bij for ij, Bij in self._blocks.items()}
+        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
 
-        petsccart = cart.topetsc()
+    # ...
+    def __mul__(self, a):
+        blocks = {ij: Bij * a for ij, Bij in self._blocks.items()}
+        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
 
-        return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
+    # ...
+    def __rmul__(self, a):
+        blocks = {ij: a * Bij for ij, Bij in self._blocks.items()}
+        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
 
+    # ...
+    def __add__(self, M):
+        assert isinstance(M, BlockMatrix)
+        assert M.  domain == self.  domain
+        assert M.codomain == self.codomain
+        blocks  = {}
+        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+            Bij = self[ij]
+            Mij = M[ij]
+            if   Bij is None: blocks[ij] = Mij.copy()
+            elif Mij is None: blocks[ij] = Bij.copy()
+            else            : blocks[ij] = Bij + Mij
+        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
+
+    # ...
+    def __sub__(self, M):
+        assert isinstance(M, BlockMatrix)
+        assert M.  domain == self.  domain
+        assert M.codomain == self.codomain
+        blocks  = {}
+        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+            Bij = self[ij]
+            Mij = M[ij]
+            if   Bij is None: blocks[ij] = -Mij
+            elif Mij is None: blocks[ij] =  Bij.copy()
+            else            : blocks[ij] =  Bij - Mij
+        return BlockMatrix(self.domain, self.codomain, blocks=blocks)
+
+    # ...
+    def __imul__(self, a):
+        for Bij in self._blocks.values():
+            Bij *= a
+        return self
+
+    # ...
+    def __iadd__(self, M):
+        assert isinstance(M, BlockMatrix)
+        assert M.  domain == self.  domain
+        assert M.codomain == self.codomain
+
+        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+
+            Mij = M[ij]
+            if Mij is None:
+                continue
+
+            Bij = self[ij]
+            if Bij is None:
+                self[ij] = Mij.copy()
+            else:
+                Bij += Mij
+
+        return self
+
+    # ...
+    def __isub__(self, M):
+        assert isinstance(M, BlockMatrix)
+        assert M.  domain == self.  domain
+        assert M.codomain == self.codomain
+
+        for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
+
+            Mij = M[ij]
+            if Mij is None:
+                continue
+
+            Bij = self[ij]
+            if Bij is None:
+                self[ij] = -Mij
+            else:
+                Bij -= Mij
+
+        return self
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -489,10 +564,30 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
         BlockLinearOperator.__setitem__( self, key, value )
 
+    # ...
     def transpose(self):
         blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
         return BlockMatrix(self.codomain, self.domain, blocks=blocks)
 
+    # ...
     @property
     def T(self):
         return self.transpose()
+
+    # ...
+    def topetsc( self ):
+        """ Convert to petsc Nest Matrix.
+        """
+        # Convert all blocks to petsc format
+        blocks = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
+        for (i,j), Mij in self._blocks.items():
+            blocks[i][j] = Mij.topetsc()
+
+        if self.n_block_cols == 1:
+            cart = self.domain.cart
+        else:
+            cart = self.domain.spaces[0].cart
+
+        petsccart = cart.topetsc()
+
+        return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)

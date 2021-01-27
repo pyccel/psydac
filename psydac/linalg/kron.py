@@ -223,6 +223,44 @@ class KroneckerStencilMatrix( Matrix ):
         out.ghost_regions_in_sync = False
         return out
 
+    # ...
+    def copy(self):
+        mats = [m.copy() for m in self.mats]
+        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
+
+    # ...
+    def __neg__(self):
+        mats = [-self.mats[0], *(m.copy() for m in self.mats[1:])]
+        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
+
+    # ...
+    def __mul__(self, a):
+        mats = [*(m.copy() for m in self.mats[:-1]), self.mats[-1] * a]
+        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
+
+    # ...
+    def __rmul__(self):
+        mats = [a * self.mats[0], *(m.copy() for m in self.mats[1:])]
+        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
+
+    # ...
+    def __imul__(self, a):
+        self.mats[-1] *= a
+        return self
+
+    # ...
+    def __add__(self, m):
+        raise NotImplementedError('Cannot sum Kronecker matrices')
+
+    def __sub__(self, m):
+        raise NotImplementedError('Cannot subtract Kronecker matrices')
+
+    def __iadd__(self, m):
+        raise NotImplementedError('Cannot sum Kronecker matrices')
+
+    def __isub__(self, m):
+        raise NotImplementedError('Cannot subtract Kronecker matrices')
+
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -278,9 +316,6 @@ class KroneckerStencilMatrix( Matrix ):
 
     def toarray(self):
         return self.tosparse().toarray()
-
-    def copy(self):
-        return KroneckerStencilMatrix(self.domain, self.codomain, *self.mats)
 
     def transpose(self):
         mats_tr = [Mi.transpose() for Mi in self.mats]

@@ -151,6 +151,54 @@ class Matrix( LinearOperator ):
     def tosparse( self ):
         """ Convert to any Scipy sparse matrix format. """
 
+    @abstractmethod
+    def copy(self):
+        """ Create an identical copy of the matrix. """
+
+    @abstractmethod
+    def __neg__(self):
+        """ Get the opposite matrix, i.e. a copy with negative sign. """
+
+    @abstractmethod
+    def __mul__(self, a):
+        """ Multiply by scalar. """
+
+    @abstractmethod
+    def __rmul__(self, a):
+        """ Multiply by scalar. """
+
+    @abstractmethod
+    def __add__(self, m):
+        """ Add matrix. """
+
+    @abstractmethod
+    def __sub__(self, m):
+        """ Subtract matrix. """
+
+    @abstractmethod
+    def __imul__(self, a):
+        """ Multiply by scalar, in place. """
+
+    @abstractmethod
+    def __iadd__(self, m):
+        """ Add matrix, in place. """
+
+    @abstractmethod
+    def __isub__(self, m):
+        """ Subtract matrix, in place. """
+
+    #-------------------------------------
+    # Methods with default implementation
+    #-------------------------------------
+    def __div__(self, a):
+        """ Divide by scalar. """
+        return self * (1.0 / a)
+
+    def __idiv__(self, a):
+        """ Divide by scalar, in place. """
+        self *= 1.0 / a
+        return self
+
 #===============================================================================
 class LinearSolver( metaclass=ABCMeta ):
     """
