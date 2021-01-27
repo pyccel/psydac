@@ -145,6 +145,10 @@ class BlockVector( Vector ):
         return BlockVector( self._space, [b.copy() for b in self._blocks] )
 
     #...
+    def __neg__( self ):
+        return BlockVector( self._space, [-b for b in self._blocks] )
+
+    #...
     def __mul__( self, a ):
         return BlockVector( self._space, [b*a for b in self._blocks] )
 

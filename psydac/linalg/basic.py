@@ -61,6 +61,10 @@ class Vector( metaclass=ABCMeta ):
         pass
 
     @abstractmethod
+    def __neg__( self, a ):
+        pass
+
+    @abstractmethod
     def __mul__( self, a ):
         pass
 
@@ -87,6 +91,16 @@ class Vector( metaclass=ABCMeta ):
     @abstractmethod
     def __isub__( self, v ):
         pass
+
+    #-------------------------------------
+    # Methods with default implementation
+    #-------------------------------------
+    def __div__( self, a ):
+        return self * (1.0 / a)
+
+    def __idiv__( self, a ):
+        self *= 1.0 / a
+        return self
 
 Vector.register( ndarray )
 
