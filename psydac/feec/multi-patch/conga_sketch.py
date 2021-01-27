@@ -1,6 +1,6 @@
 # small script written to test Conga operators on multipatch domains, using the piecewise (broken) de Rham sequences available on every space
 
-
+from mpi4py import MPI
 
 import numpy as np
 
@@ -31,7 +31,7 @@ from psydac.feec.derivatives import Gradient_2D
 from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
 
 
-[feec_multipatch] updated the test for Conga operators
+comm = MPI.COMM_WORLD
 
 
 #===============================================================================
@@ -203,8 +203,8 @@ def test_conga_2d():
 
     # local construction
 
-    domain_h_1 = discretize(domain_1, ncells=ncells)
-    domain_h_2 = discretize(domain_2, ncells=ncells)
+    domain_h_1 = discretize(domain_1, ncells=ncells, comm=comm)
+    domain_h_2 = discretize(domain_2, ncells=ncells, comm=comm)
 
     V0h_1 = discretize(derham_1.V0, domain_h_1, degree=degree)
     V0h_2 = discretize(derham_2.V0, domain_h_2, degree=degree)
