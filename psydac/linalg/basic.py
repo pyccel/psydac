@@ -61,7 +61,7 @@ class Vector( metaclass=ABCMeta ):
         pass
 
     @abstractmethod
-    def __neg__( self, a ):
+    def __neg__( self ):
         pass
 
     @abstractmethod

@@ -230,7 +230,7 @@ class StencilVector( Vector ):
         return w
 
     #...
-    def __neg__( self, a ):
+    def __neg__( self ):
         w = StencilVector( self._space )
         w._data[:] = -self._data[:]
         w._sync    =  self._sync

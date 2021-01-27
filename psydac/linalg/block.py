@@ -461,7 +461,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         return BlockMatrix(self.domain, self.codomain, blocks=blocks)
 
     # ...
-    def __neg__(self, a):
+    def __neg__(self):
         blocks = {ij: -Bij for ij, Bij in self._blocks.items()}
         return BlockMatrix(self.domain, self.codomain, blocks=blocks)
 
