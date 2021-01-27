@@ -1,70 +1,37 @@
-
-# def run_poisson_2d(solution, f, domain, ncells, degree):
-#
-#     #+++++++++++++++++++++++++++++++
-#     # 1. Abstract model
-#     #+++++++++++++++++++++++++++++++
-#
-#     V   = ScalarFunctionSpace('V', domain, kind=None)
-#
-#     u, v = elements_of(V, names='u, v')
-#     nn   = NormalVector('nn')
-#
-#
-#     # MCP: should be imposed by penalization, I am not sure that 'essential' means that
-#     bc   = EssentialBC(u, 0, domain.boundary)
-#
-#     error  = u - solution
-#
-#     I = domain.interfaces
-#
-#
-#     # expr_I =- 0.5*dot(grad(plus(u)),nn)*minus(v)  + 0.5*dot(grad(minus(v)),nn)*plus(u)  - kappa*plus(u)*minus(v)\
-#     #         + 0.5*dot(grad(minus(u)),nn)*plus(v)  - 0.5*dot(grad(plus(v)),nn)*minus(u)  - kappa*plus(v)*minus(u)\
-#     #         - 0.5*dot(grad(minus(v)),nn)*minus(u) - 0.5*dot(grad(minus(u)),nn)*minus(v) + kappa*minus(u)*minus(v)\
-#     #         - 0.5*dot(grad(plus(v)),nn)*plus(u)   - 0.5*dot(grad(plus(u)),nn)*plus(v)   + kappa*plus(u)*plus(v)
-#
-#     # global conforming projection
-#
-#
-#
-#
-#
-#     conf_proj = LinearOperator()
-#
-#
-#
-#     l2norm = Norm(error, domain, kind='l2')
-#     h1norm = Norm(error, domain, kind='h1')
-#
-#     #+++++++++++++++++++++++++++++++
-#     # 2. Discretization
-#     #+++++++++++++++++++++++++++++++
-#
-#     domain_h = discretize(domain, ncells=ncells)
-#     Vh       = discretize(V, domain_h, degree=degree)
-#
-#     equation_h = discretize(equation, domain_h, [Vh, Vh])
-#
-#     l2norm_h = discretize(l2norm, domain_h, Vh)
-#     h1norm_h = discretize(h1norm, domain_h, Vh)
-#
-#     x  = equation_h.solve()
-#
-#     uh = VectorFemField( Vh )
-#
-#     for i in range(len(uh.coeffs[:])):
-#         uh.coeffs[i][:,:] = x[i][:,:]
-#
-#     l2_error = l2norm_h.assemble(u=uh)
-#     h1_error = h1norm_h.assemble(u=uh)
-#
-#     return l2_error, h1_error
-#
-#
+# small script written to test Conga operators on multipatch domains, using the piecewise (broken) de Rham sequences available on every space
 
 
 
+import numpy as np
+
+from sympde.calculus import grad, dot, inner, rot, div
+from sympde.calculus import laplace, bracket, convect
+from sympde.calculus import jump, avg, Dn, minus, plus
+
+from sympde.topology import Derham
+from sympde.topology import ProductSpace
+from sympde.topology import element_of, elements_of
+from sympde.topology import Square
+from sympde.topology import IdentityMapping, PolarMapping
+
+from sympde.expr.expr import LinearForm, BilinearForm
+from sympde.expr.expr import integral
+
+from psydac.api.discretization import discretize
+
+from psydac.linalg.basic import LinearOperator
+from psydac.linalg.block import ProductSpace, BlockVector, BlockMatrix
+from psydac.linalg.iterative_solvers import cg
+from psydac.linalg.identity import IdentityLinearOperator #, IdentityStencilMatrix as IdentityMatrix
+
+from psydac.fem.basic   import FemField
+from psydac.fem.vector import ProductFemSpace
+
+from psydac.feec.derivatives import Gradient_2D
+from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
+
+
+[feec_multipatch] updated the test for Conga operators
 
 
 #===============================================================================
@@ -101,7 +68,7 @@ class ConformingProjection( LinearOperator ):
         a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
 
 
-        ah = discretize(a, domain_h, [V0h, V0h])
+        ah = discretize(a, domain_h, [V0h, V0h])    # ... or (V0h, V0h)?
 
         self._A = ah.assemble()  #.toarray()
 
@@ -122,11 +89,58 @@ class ConformingProjection( LinearOperator ):
         
     def dot( self, f_coeffs, out=None ):
 
-        # todo: build field from coeffs and use __call__
-      
-        return something
+        f = FemField(self.domain, coeffs=f_coeffs)
+
+        return self(f).coeffs
 
 
+class ComposedLinearOperator( LinearOperator ):
+
+    def __init__( self, B, A ):
+
+        assert isinstance(A, LinearOperator)
+        assert isinstance(B, LinearOperator)
+        assert B.domain == A.codomain
+
+        self._domain   = A.domain
+        self._codomain = B.codomain
+
+        self._A = A
+        self._B = B
+
+    def __call__( self, f ):
+
+        return  self._B(self._A(f))
+
+    def dot( self, f_coeffs, out=None ):
+
+        return  self._B.dot(self._A.dot(f_coeffs))
+
+#
+# class IdLinearOperator( LinearOperator ):
+#
+#     def __init__(self, V):
+#         # assert isinstance( V, VectorSpace )
+#         self._V  = V
+#
+#     #-------------------------------------
+#     # Deferred methods
+#     #-------------------------------------
+#     @property
+#     def domain( self ):
+#         return self._V
+#
+#     @property
+#     def codomain( self ):
+#         return self._V
+#
+#     def dot( self, v, out=None ):
+#         # assert isinstance( v, Vector )
+#         assert v.space is self.domain
+#         return v
+#
+#     def __call__( self, f ):
+#         return f
 
 
 def test_conga_2d():
@@ -151,21 +165,19 @@ def test_conga_2d():
     mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
-    D1     = mapping_1(A)
-    D2     = mapping_2(B)
-    
-    derham_1  = Derham(D1)
-    derham_2  = Derham(D2)
+    domain_1     = mapping_1(A)
+    domain_2     = mapping_2(B)
 
-    --> here build the local de rham operators
-    
-    
-    
-    domain = D1.join(D2, name = 'domain',
-                bnd_minus = D1.get_boundary(axis=1, ext=1),
-                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+    # local de Rham sequences:
+    derham_1  = Derham(domain_1, ["H1", "Hcurl"])
+    derham_2  = Derham(domain_2, ["H1", "Hcurl"])
 
-    derham  = Derham(domain)  # try
+    
+    domain = domain_1.join(domain_2, name = 'domain',
+                bnd_minus = domain_1.get_boundary(axis=1, ext=1),
+                bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
+
+    derham  = Derham(domain, ["H1", "Hcurl"])
 
 
     #+++++++++++++++++++++++++++++++
@@ -181,52 +193,31 @@ def test_conga_2d():
     # derham_h = discretize(derham, domain_h, degree=degree)      # build them by hand if this doesn't work
     # V0h       = derham_h.V0
     # V1h       = derham_h.V1
-    
+
     # broken multipatch spaces
-    V0h = discretize(derham.V0, domain_h, degree=degree)
     V1h = discretize(derham.V1, domain_h, degree=degree)
-    
-    
-    #+++++++++++++++++++++++++++++++
-    # . Some matrices
-    #+++++++++++++++++++++++++++++++
+    V0h = discretize(derham.V0, domain_h, degree=degree)
 
-    # identity operator on V0h
-    I0 = IdentityMatrix(V0h)
+    assert isinstance(V1h, ProductFemSpace)
+    assert isinstance(V1h.vector_space, ProductSpace)
 
-    # mass matrix of V1   (mostly taken from psydac/api/tests/test_api_feec_3d.py)
-    u1, v1 = elements_of(derham.V1, names='u1, v1')
-    a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
-    a1_h = discretize(a1, domain_h, (V1h, V1h), backend=PSYDAC_BACKEND_GPYCCEL)
-    M1 = a1_h.assemble()  #.tosparse().tocsc()
+    # local construction
 
-    #+++++++++++++++++++++++++++++++
-    # . Differential operators
-    #   on conforming and broken spaces
-    #+++++++++++++++++++++++++++++++
+    domain_h_1 = discretize(domain_1, ncells=ncells)
+    domain_h_2 = discretize(domain_2, ncells=ncells)
 
-    # "broken grad" operator, coincides with the grad on the conforming subspace of V0h
-    # later: broken_D0 = Gradient_2D(V0h, V1h)   # on multi-patch domains we should maybe provide the "BrokenGradient"
-    # or broken_D0 = derham_h.D0 ?
-        
-    V0h_0 = V0h.spaces[0]  # V0h on domain 1
-    V0h_1 = V0h.spaces[1]  # V0h on domain 2
-    V1h_0 = ProductSpace(V1h.spaces[0], V1h.spaces[1])  # V1h on domain 1
-    V1h_1 = ProductSpace(V1h.spaces[2], V1h.spaces[3])  # V1h on domain 2
-    
-    D0_0 = Gradient_2D(V0h_0, V1h_0)
-    D0_1 = Gradient_2D(V0h_1, V1h_1)
-    
-    broken_D0 = BlockMatrix(V0h, V1h, blocks=[[D0_0, None],[None, D0_1]])
-    
-    # projection from broken multipatch space to conforming subspace
-    Pconf_0 = ConformingProjection(V0h)
+    V0h_1 = discretize(derham_1.V0, domain_h_1, degree=degree)
+    V0h_2 = discretize(derham_2.V0, domain_h_2, degree=degree)
+    V1h_1 = discretize(derham_1.V1, domain_h_1, degree=degree)
+    V1h_2 = discretize(derham_2.V1, domain_h_2, degree=degree)
 
-    # Conga grad operator (on the broken V0h)
-    D0 = broken_D0.matmat(Pconf_0)
+    if 0:
+        # equivalent ?
+        V0h_1 = V0h.spaces[0]  # V0h on domain 1
+        V0h_2 = V0h.spaces[1]  # V0h on domain 2
+        V1h_1 = ProductSpace(V1h.spaces[0], V1h.spaces[1])  # V1h on domain 1
+        V1h_2 = ProductSpace(V1h.spaces[2], V1h.spaces[3])  # V1h on domain 2
 
-    # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-    D0_transp = Pconf_0.matmat(broken_D0.T)
 
 
     #+++++++++++++++++++++++++++++++
@@ -234,20 +225,16 @@ def test_conga_2d():
     #+++++++++++++++++++++++++++++++
 
     # create an instance of the H1 projector class
-    # P0 = Projector_H1(V0h)
-    
-    
-    P0_1 = ... Projector_H1(V0h_1)
-    P0_2 = ... Projector_H1(V0h_1)   # find proper command
-    
-    -> assemble P0 of u as a BlockVector.
-    
-    
-    
-    
+    # P0 = Projector_H1(V0h)   # todo
+    # P1 = Projector_Hcurl(V1h)
 
-    # create an instance of the projector class
-    P1 = Projector_Hcurl(V1h)
+
+    P0_1 = Projector_H1(V0h_1)
+    P0_2 = Projector_H1(V0h_2)
+
+    n_quads = [5,5]
+    P1_1 = Projector_Hcurl(V1h_1, n_quads)
+    P1_2 = Projector_Hcurl(V1h_2, n_quads)
 
 
     #+++++++++++++++++++++++++++++++
@@ -258,9 +245,21 @@ def test_conga_2d():
     D1fun1  = lambda xi1, xi2 : np.cos(xi1)*np.sin(xi2)
     D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
 
-    u0        = P0(fun1)
+    u0_1 = P0_1(fun1)
+    u0_2 = P0_2(fun1)
+
+    u1_1 = P1_1((D1fun1, D2fun1))
+    u1_2 = P1_2((D1fun1, D2fun1))
+
+    u0 = BlockVector( V0h, [u0_1, u0_2] )
+    u1 = BlockVector( V1h, [u1_1, u1_2] )
+
+    # later:
+    # u0        = P0(fun1)
+    # u1        = P1((D1fun1, D2fun1))
+
+
     u0_conf   = Pconf_0(u0)
-    u1        = P1((D1fun1, D2fun1))
     Dfun_h    = D0(u0)
     Dfun_proj = u1
 
@@ -276,27 +275,134 @@ def test_conga_2d():
     assert abs(error)<1e-9
     print(error)
 
+
+
+
+
+    #+++++++++++++++++++++++++++++++
+    # . Some matrices
+    #+++++++++++++++++++++++++++++++
+
+    # identity operator on V0h
+    # I0_1 = IdentityMatrix(V0h_1)
+    # I0_2 = IdentityMatrix(V0h_2)
+    # I0 = BlockMatrix(V0h, V0h, blocks=[[I0_1, None],[None, I0_2]])
+
+    # I0 = IdentityLinearOperator(V0h)
+    I0 = IdentityLinearOperator(V0h.vector_space)
+
+
+    # mass matrix of V1   (mostly taken from psydac/api/tests/test_api_feec_3d.py)
+
+    if 0:
+        # this would be nice but doesn't work:
+        u1, v1 = elements_of(derham.V1, names='u1, v1')
+        a1 = BilinearForm((u1, v1), integral(domain, dot(u1, v1)))
+        a1_h = discretize(a1, domain_h, [V1h, V1h])  # , backend=PSYDAC_BACKEND_GPYCCEL)
+        M1 = a1_h.assemble()  #.tosparse().tocsc()
+    else:
+        # so, block construction
+        u1_1, v1_1 = elements_of(derham_1.V1, names='u1_1, v1_1')
+        a1_1 = BilinearForm((u1_1, v1_1), integral(domain_1, dot(u1_1, v1_1)))
+        a1_h_1 = discretize(a1_1, domain_h_1, [V1h_1, V1h_1])  # , backend=PSYDAC_BACKEND_GPYCCEL)
+        M1_1 = a1_h_1.assemble()  #.tosparse().tocsc()
+
+        u1_2, v1_2 = elements_of(derham_2.V1, names='u1_2, v1_2')
+        a1_2 = BilinearForm((u1_2, v1_2), integral(domain_2, dot(u1_2, v1_2)))
+        a1_h_2 = discretize(a1_2, domain_h_2, [V1h_2, V1h_2])  # , backend=PSYDAC_BACKEND_GPYCCEL)
+        M1_2 = a1_h_2.assemble()  #.tosparse().tocsc()
+
+        M1 = BlockMatrix(V1h.vector_space, V1h.vector_space, blocks=[[M1_1, None],[None, M1_2]])
+
+    #+++++++++++++++++++++++++++++++
+    # . Differential operators
+    #   on conforming and broken spaces
+    #+++++++++++++++++++++++++++++++
+
+    # "broken grad" operator, coincides with the grad on the conforming subspace of V0h
+    # later: broken_D0 = Gradient_2D(V0h, V1h)   # on multi-patch domains we should maybe provide the "BrokenGradient"
+    # or broken_D0 = derham_h.D0 ?
+
+    D0_1 = Gradient_2D(V0h_1, V1h_1)
+    D0_2 = Gradient_2D(V0h_2, V1h_2)
+    
+    broken_D0 = BlockMatrix(V0h.vector_space, V1h.vector_space, blocks=[[D0_1, None],[None, D0_2]])
+    
+    # projection from broken multipatch space to conforming subspace
+    Pconf_0 = ConformingProjection(V0h)
+
+    # Conga grad operator (on the broken V0h)
+    D0 = ComposedLinearOperator(broken_D0,Pconf_0)
+
+    # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
+    D0_transp = ComposedLinearOperator(Pconf_0,broken_D0.T)
+
+
+
+    # plot ?
+    # (use example from poisson_2d_multipatch ??)
+
+    # xx = pcoords[:,:,0]
+    # yy = pcoords[:,:,1]
+    #
+    # fig = plt.figure(figsize=(17., 4.8))
+    #
+    # ax = fig.add_subplot(1, 3, 1)
+    #
+    # cp = ax.contourf(xx, yy, ex, 50, cmap='jet')
+    # cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
+    # ax.set_xlabel( r'$x$', rotation='horizontal' )
+    # ax.set_ylabel( r'$y$', rotation='horizontal' )
+    # ax.set_title ( r'$\phi_{ex}(x,y)$' )
+    #
+    # ax = fig.add_subplot(1, 3, 2)
+    # cp2 = ax.contourf(xx, yy, num, 50, cmap='jet')
+    # cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
+    #
+    # ax.set_xlabel( r'$x$', rotation='horizontal' )
+    # ax.set_ylabel( r'$y$', rotation='horizontal' )
+    # ax.set_title ( r'$\phi(x,y)$' )
+    #
+    # ax = fig.add_subplot(1, 3, 3)
+    # cp3 = ax.contourf(xx, yy, err, 50, cmap='jet')
+    # cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
+    #
+    # ax.set_xlabel( r'$x$', rotation='horizontal' )
+    # ax.set_ylabel( r'$y$', rotation='horizontal' )
+    # ax.set_title ( r'$\phi(x,y) - \phi_{ex}(x,y)$' )
+    # plt.show()
+
+
+
+    # next test:
+
     #+++++++++++++++++++++++++++++++
     # . test Poisson solver
     #+++++++++++++++++++++++++++++++
 
-    x,y = domain.coordinates
-    solution = x**2 + y**2
-    f        = -4
+    # x,y = domain.coordinates
+    # solution = x**2 + y**2
+    # f        = -4
+    #
+    # v = element_of(derham.V0, 'v')
+    # l = LinearForm(v, f*v)
+    # b = discretize(l, domain_h, V0h)
+    #
+    # D0T_M1_D0 = ComposedLinearOperator( D0_transp, ComposedLinearOperator( M1,D0 ) )
+    #
+    # A = D0T_M1_D0 + (I0 - Pconf_0)
+    #
+    # solution, info = cg( A, b, tol=1e-13, verbose=True )
+    #
+    # l2_error, h1_error = run_poisson_2d(solution, f, domain, )
+    #
+    # # todo: plot the solution for visual check
+    #
+    # print(l2_error)
 
-    v = element_of(V0, 'v')
-    l = LinearForm(v, f*v)
-    b = discretize(l, domain_h, V0h)
-
-    A = D0_transp.matmat(M1.matmat(D0)) + (I0 - Pconf_0)
-
-    solution, info = cg( A, b, tol=1e-13, verbose=True )
-
-    l2_error, h1_error = run_poisson_2d(solution, f, domain, )
-
-    # todo: plot the solution for visual check
-
-    print(l2_error)
 
 
 
+if __name__ == '__main__':
+
+    test_conga_2d()
