@@ -54,24 +54,20 @@ def plot_field_and_error(name, x, y, field_h, field_ex, *gridlines):
         ax.set_aspect('equal')
     add_colorbar(im0, ax0)
     add_colorbar(im1, ax1)
+    fig.suptitle('Time t = {:10.3e}'.format(0))
     fig.tight_layout()
-    return fig, (ax0, ax1)
+    return fig
 
-def update_plot(ax, t, x, y, field_h, field_ex):
-    ax0, ax1 = ax
-
-    ax0.collections = []
-    ax0.contourf(x, y, field_h)
-
-    ax1.collections = []
-    ax1.contourf(x, y, field_ex - field_h)
-
-    ax0.get_figure().canvas.draw()
-
-#    ax.set_title('Time t = {:10.3e}'.format(t))
-#    ax.lines[0].set_ydata(sol_ex )
-#    ax.lines[1].set_ydata(sol_num)
-#    ax.get_figure().canvas.draw()
+def update_plot(fig, t, x, y, field_h, field_ex):
+    ax0, ax1, cax0, cax1 = fig.axes
+    ax0.collections.clear(); cax0.clear()
+    ax1.collections.clear(); cax1.clear()
+    im0 = ax0.contourf(x, y, field_h)
+    im1 = ax1.contourf(x, y, field_ex - field_h)
+    fig.colorbar(im0, cax=cax0)
+    fig.colorbar(im1, cax=cax1)
+    fig.suptitle('Time t = {:10.3e}'.format(t))
+    fig.canvas.draw()
 
 #==============================================================================
 # SIMULATION
@@ -321,15 +317,15 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
                 Bz_values[i, j] = push_2d_l2(B, x1i, x2j, mapping)
 
         # Electric field, x component
-        fig2, ax2 = plot_field_and_error(r'E^x', x, y, Ex_values, Ex_ex(0, x, y), *gridlines)
+        fig2 = plot_field_and_error(r'E^x', x, y, Ex_values, Ex_ex(0, x, y), *gridlines)
         fig2.show()                                             
                                                                 
         # Electric field, y component                           
-        fig3, ax3 = plot_field_and_error(r'E^y', x, y, Ey_values, Ey_ex(0, x, y), *gridlines)
+        fig3 = plot_field_and_error(r'E^y', x, y, Ey_values, Ey_ex(0, x, y), *gridlines)
         fig3.show()                                             
                                                                 
         # Magnetic field, z component                           
-        fig4, ax4 = plot_field_and_error(r'B^z', x, y, Bz_values, Bz_ex(0, x, y), *gridlines)
+        fig4 = plot_field_and_error(r'B^z', x, y, Bz_values, Bz_ex(0, x, y), *gridlines)
         fig4.show()
         # ...
 
@@ -351,22 +347,13 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
         diagnostics_num['magnetic_energy'].append(Wb_num)
 
         print('\nTotal energy in domain:')
-        print('t = {:8.4f},  exact = {Wt_ex:.13e},  discrete = {Wt_num:.13e}'.format(t,
+        print('ts = {:4d},  t = {:8.4f},  exact = {Wt_ex:.13e},  discrete = {Wt_num:.13e}'.format(0,
+            t,
             Wt_ex  = We_ex  + Wb_ex,
             Wt_num = We_num + Wb_num)
         )
-
-    ##############################
-    print()
-    print(type(e))
-    print(type(b))
-    print()
-    print(type(M1))
-    print(type(M2))
-    print()
-    print(type(D1))
-    print(type(D1_T))
-    ##############################
+    else:
+        print('ts = {:4d},  t = {:8.4f}'.format(0, t))
 
     #--------------------------------------------------------------------------
     # Solution
@@ -381,7 +368,7 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
         args = (e, b, M1 + M1_bc, M2, D1, D1_T)
 
     # Time loop
-    for i in range(1, nsteps+1):
+    for ts in range(1, nsteps+1):
 
         # TODO: allow for high-order splitting
 
@@ -393,7 +380,7 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
         t += dt
 
         # Animation
-        if plot_interval and (i % plot_interval == 0 or i == nsteps):
+        if plot_interval and (ts % plot_interval == 0 or ts == nsteps):
 
             # ...
             # TODO: improve
@@ -407,13 +394,13 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
             # ...
 
             # Update plot
-            update_plot(ax2, t, x, y, Ex_values, Ex_ex(t, x, y))
-            update_plot(ax3, t, x, y, Ey_values, Ey_ex(t, x, y))
-            update_plot(ax4, t, x, y, Bz_values, Bz_ex(t, x, y))
+            update_plot(fig2, t, x, y, Ex_values, Ex_ex(t, x, y))
+            update_plot(fig3, t, x, y, Ey_values, Ey_ex(t, x, y))
+            update_plot(fig4, t, x, y, Bz_values, Bz_ex(t, x, y))
             plt.pause(0.1)
 
         # Scalar diagnostics
-        if diagnostics_interval and i % diagnostics_interval == 0:
+        if diagnostics_interval and ts % diagnostics_interval == 0:
 
             # Update exact diagnostics
             We_ex, Wb_ex = exact_energies(t)
@@ -428,10 +415,13 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
             diagnostics_num['magnetic_energy'].append(Wb_num)
 
             # Print total energy to terminal
-            print('t = {:8.4f},  exact = {Wt_ex:.13e},  discrete = {Wt_num:.13e}'.format(t,
+            print('ts = {:4d},  t = {:8.4f},  exact = {Wt_ex:.13e},  discrete = {Wt_num:.13e}'.format(ts,
+                t,
                 Wt_ex  = We_ex  + Wb_ex,
                 Wt_num = We_num + Wb_num)
             )
+        else:
+            print('ts = {:4d},  t = {:8.4f}'.format(ts, t))
 
     #--------------------------------------------------------------------------
     # Post-processing
