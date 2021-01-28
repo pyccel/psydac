@@ -1249,6 +1249,9 @@ class StencilMatrix( Matrix ):
             self._data[idx_ghost] = 0
 
 #===============================================================================
+# TODO [YG, 28.01.2021]:
+# - Check if StencilMatrix should be subclassed
+# - Reimplement magic methods (some are simply copied from StencilMatrix)
 class StencilInterfaceMatrix(Matrix):
     """
     Matrix in n-dimensional stencil format for an interface.
@@ -1387,6 +1390,50 @@ class StencilInterfaceMatrix(Matrix):
 
         return coo
 
+    #...
+    def copy( self ):
+        M = StencilMatrix( self.domain, self.codomain, self._pads )
+        M._data[:] = self._data[:]
+        return M
+
+    # ...
+    def __neg__(self):
+        return self.__mul__(-1)
+
+    #...
+    def __mul__( self, a ):
+        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w._data = self._data * a
+        w._sync = self._sync
+        return w
+
+    #...
+    def __rmul__( self, a ):
+        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w._data = a * self._data
+        w._sync = self._sync
+        return w
+
+    #...
+    def __add__(self, m):
+        raise NotImplementedError('TODO: StencilInterfaceMatrix.__add__')
+
+    #...
+    def __sub__(self, m):
+        raise NotImplementedError('TODO: StencilInterfaceMatrix.__sub__')
+
+    #...
+    def __imul__(self, a):
+        raise NotImplementedError('TODO: StencilInterfaceMatrix.__imul__')
+
+    #...
+    def __iadd__(self, m):
+        raise NotImplementedError('TODO: StencilInterfaceMatrix.__iadd__')
+
+    #...
+    def __isub__(self, m):
+        raise NotImplementedError('TODO: StencilInterfaceMatrix.__isub__')
+
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -1423,30 +1470,6 @@ class StencilInterfaceMatrix(Matrix):
     #...
     def max( self ):
         return self._data.max()
-
-    #...
-    def copy( self ):
-        M = StencilMatrix( self.domain, self.codomain, self._pads )
-        M._data[:] = self._data[:]
-        return M
-
-    #...
-    def __mul__( self, a ):
-        w = StencilMatrix( self._domain, self._codomain, self._pads )
-        w._data = self._data * a
-        w._sync = self._sync
-        return w
-
-    #...
-    def __rmul__( self, a ):
-        w = StencilMatrix( self._domain, self._codomain, self._pads )
-        w._data = a * self._data
-        w._sync = self._sync
-        return w
-
-    # ...
-    def __neg__(self):
-        return self.__mul__(-1)
 
     # ...
     def update_ghost_regions( self, *, direction=None ):
