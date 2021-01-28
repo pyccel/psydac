@@ -556,7 +556,7 @@ def test_maxwell_2d_dirichlet():
     print('{:e}'.format(namespace['error_Bz']))
     print('~'*50)
 
-    TOL = 1e-6
+    TOL = 1e-5
     ref = dict(error_Ex = 3.578544e-03,
                error_Ey = 3.578545e-03,
                error_Bz = 4.373875e-03)
