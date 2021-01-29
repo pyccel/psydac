@@ -69,13 +69,13 @@ class Projector_H1:
 #==============================================================================
 class Projector_Hcurl:
 
-    def __init__(self, Hcurl, n_quads=None):
+    def __init__(self, Hcurl, nquads=None):
 
         dim = Hcurl.n_components
 
-        if n_quads:
-            assert len(n_quads) == dim
-            uw = [gauss_legendre( k-1 ) for k in n_quads]
+        if nquads:
+            assert len(nquads) == dim
+            uw = [gauss_legendre( k-1 ) for k in nquads]
             uw = [(u[::-1], w[::-1]) for u,w in uw]
         else:
             uw = [(V.quad_grids[i].quad_rule_x,V.quad_grids[i].quad_rule_w) for i,V in enumerate(Hcurl.spaces)]
@@ -163,13 +163,13 @@ class Projector_Hcurl:
 #==============================================================================
 class Projector_Hdiv:
 
-    def __init__(self, Hdiv, n_quads=None):
+    def __init__(self, Hdiv, nquads=None):
 
         dim = Hdiv.n_components
 
-        if n_quads:
-            assert len(n_quads) == dim
-            uw = [gauss_legendre( k-1 ) for k in n_quads]
+        if nquads:
+            assert len(nquads) == dim
+            uw = [gauss_legendre( k-1 ) for k in nquads]
             uw = [(u[::-1], w[::-1]) for u,w in uw]
         else:
             uw = [(V.quad_grids[i].quad_rule_x,V.quad_grids[i].quad_rule_w) for i,V in enumerate(Hdiv.spaces)]
@@ -258,17 +258,17 @@ class Projector_Hdiv:
 #==============================================================================
 class Projector_L2:
 
-    def __init__(self, L2, quads=None):
+    def __init__(self, L2, nquads=None):
 
         # Quadrature grids in cells defined by consecutive Greville points
-        if quads:
-            uw = [gauss_legendre( k-1 ) for k in quads]
+        if nquads:
+            uw = [gauss_legendre( k-1 ) for k in nquads]
             uw = [(u[::-1], w[::-1]) for u,w in uw]
         else:
             uw = [(V.quad_rule_x,V.quad_rule_w) for V in L2.quad_grids]
 
         quads = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(L2.spaces, uw)]
-        points, weights = list(zip(*quads))
+        quad_x, quad_w = list(zip(*quads))
 
         L2.init_histopolation()
 
@@ -288,7 +288,7 @@ class Projector_L2:
         else:
             raise ValueError('H1 projector of dimension {} not available'.format(str(len(self.N))))
 
-        self.args  = (*points, *weights, self.rhs._data[slices])
+        self.args  = (*quad_x, *quad_w, self.rhs._data[slices])
 
     def __call__(self, fun):
         r'''

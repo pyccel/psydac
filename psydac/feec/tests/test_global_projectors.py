@@ -61,7 +61,7 @@ def test_L2_projector_1d(domain, ncells, degree, periodic, nquads):
     V1 = V0.reduce_degree(axes=[0], basis='M')
 
     # Projector onto L2 space (1D histopolation)
-    P1 = Projector_L2(V1, quads=[nquads])
+    P1 = Projector_L2(V1, nquads=[nquads])
 
     # Function to project
     f  = lambda xi1 : np.sin( xi1 + 0.5 )
