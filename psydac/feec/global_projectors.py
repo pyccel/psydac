@@ -16,29 +16,38 @@ class Projector_H1:
 
         # Quadrature grids in cells defined by consecutive Greville points
 
-        points = [V.greville for V in H1.spaces]
 
+        # Number of dimensions
+        dim = H1.ldim
+
+        # Collocation matrices for B-splines in each direction
         H1.init_interpolation()
+        N = [V._interpolator for V in H1.spaces]
 
-        # Collocation matrices for N-splines in each direction
-        self.N   = [V._interpolator for V in H1.spaces]
-        n_basis  = [V.nbasis for V in H1.spaces]
-        self.rhs = StencilVector(H1.vector_space)
-        slices   = tuple(slice(p,-p) for p in H1.degree)
+        # Empty vector to store right-hand side of linear system
+        rhs = StencilVector(H1.vector_space)
 
-        self.space = H1
-        self.args  = (*n_basis, *points, self.rhs._data[slices])
+        # Construct arguments for computing degrees of freedom
+        n_basis = [V.nbasis for V in H1.spaces]
+        intp_x  = [V.greville for V in H1.spaces]
+        slices  = tuple(slice(p,-p) for p in H1.degree)
+        args    = (*n_basis, *intp_x, rhs._data[slices])
 
-        if len(self.N) == 1:
-            self.func = evaluate_dofs_1d_0form
-        elif len(self.N) == 2:
-            self.func = evaluate_dofs_2d_0form
-        elif len(self.N) == 3:
-            self.func = evaluate_dofs_3d_0form
+        # Select correct function for computing degrees of freedom
+        if   dim == 1:  func = evaluate_dofs_1d_0form
+        elif dim == 2:  func = evaluate_dofs_2d_0form
+        elif dim == 3:  func = evaluate_dofs_3d_0form
         else:
-            raise ValueError('H1 projector of dimension {} not available'.format(str(len(self.N))))
+            raise ValueError('H1 projector of dimension {} not available'.format(dim))
 
-    # ======================================
+        # Store attributes in object
+        self.space = H1
+        self.N     = N
+        self.func  = func
+        self.args  = args
+        self.rhs   = rhs
+
+    #--------------------------------------------------------------------------
     def __call__(self, fun):
         r'''
         Projection on the space V0 via interpolation.
@@ -118,6 +127,7 @@ class Projector_Hcurl:
             self.Ds = Ds
 
         elif dim == 2:
+
             # 1D spline spaces (B-splines of degree p and M-splines of degree p-1)
             Ns = [Hcurl.spaces[1].spaces[0], Hcurl.spaces[0].spaces[1]]
             Ds = [Hcurl.spaces[0].spaces[0], Hcurl.spaces[1].spaces[1]]
@@ -142,8 +152,9 @@ class Projector_Hcurl:
             self.func = evaluate_dofs_2d_1form_hcurl
             self.Ns = Ns
             self.Ds = Ds
+
         else:
-            raise NotImplementedError('only 3d and 2d are available')
+            raise NotImplementedError('Hcurl projector is only available in 2D or 3D.')
 
     # ======================================
     def __call__(self, fun):
@@ -236,8 +247,9 @@ class Projector_Hdiv:
             self.func = evaluate_dofs_2d_1form_hdiv
             self.Ns = Ns
             self.Ds = Ds
+
         else:
-            raise NotImplementedError('only 3d is available')
+            raise NotImplementedError('Hdiv projector is only available in 2D or 3D.')
 
     # ======================================
     def __call__(self, fun):
@@ -279,14 +291,11 @@ class Projector_L2:
         self.rhs   = StencilVector(L2.vector_space)
         slices     = tuple(slice(p+1,-p-1) for p in L2.degree)
 
-        if len(self.D) == 1:
-            self.func = evaluate_dofs_1d_1form
-        elif len(self.D) == 2:
-            self.func = evaluate_dofs_2d_2form
-        elif len(self.D) == 3:
-            self.func = evaluate_dofs_3d_3form
+        if   len(self.D) == 1:  self.func = evaluate_dofs_1d_1form
+        elif len(self.D) == 2:  self.func = evaluate_dofs_2d_2form
+        elif len(self.D) == 3:  self.func = evaluate_dofs_3d_3form
         else:
-            raise ValueError('H1 projector of dimension {} not available'.format(str(len(self.N))))
+            raise ValueError('L2 projector of dimension {} not available'.format(str(len(self.N))))
 
         self.args  = (*quad_x, *quad_w, self.rhs._data[slices])
 
