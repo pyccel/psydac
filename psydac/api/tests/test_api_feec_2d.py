@@ -29,6 +29,121 @@ def step_ampere_2d(dt, e, b, M1, M2, D1, D1_T):
 #    e += dt * cg(M1, D1_T @ (M2 @ b))[0]
 
 #==============================================================================
+# ANALYTICAL SOLUTION
+#==============================================================================
+class CavitySolution:
+    """
+    Time-harmonic solution of Maxwell's equations in a rectangular cavity with
+    perfectly conducting walls. This is a "transverse electric" solution, with
+    E = (Ex, Ey) and B = Bz. Domain is [0, a] x [0, b].
+
+    Parameters
+    ----------
+    a : float
+        Size of cavity along x direction.
+
+    b : float
+        Size of cavity along y direction.
+
+    c : float
+        Speed of light in arbitrary units.
+
+    nx : int
+        Number of half wavelengths along x direction.
+
+    ny : int
+        Number of half wavelengths along y direction.
+
+    """
+    def __init__(self, *, a, b, c, nx, ny):
+
+        from sympy import symbols
+        from sympy import lambdify
+
+        sym_params, sym_fields, sym_energy = self.symbolic()
+
+        params = {'a': a, 'b': b, 'c': c, 'nx': nx, 'ny': ny}
+        repl = [(sym_params[k], params[k]) for k in sym_params.keys()]
+        args = symbols('t, x, y')
+
+        # Callable functions
+        fields = {k: lambdify(args   , v.subs(repl), 'numpy') for k, v in sym_fields.items()}
+        energy = {k: lambdify(args[0], v.subs(repl), 'numpy') for k, v in sym_energy.items()}
+
+        # Store private attributes
+        self._sym_params = sym_params
+        self._sym_fields = sym_fields
+        self._sym_energy = sym_energy
+
+        self._params = params
+        self._fields = fields
+        self._energy = energy
+
+    #--------------------------------------------------------------------------
+    @staticmethod
+    def symbolic():
+
+        from sympy import symbols
+        from sympy import cos, sin, pi, sqrt
+        from sympy.integrals import integrate
+
+        t, x, y = symbols('t x y', real=True)
+        a, b, c = symbols('a b c', positive=True)
+        nx, ny  = symbols('nx ny', positive=True, integer=True)
+
+        kx = pi * nx / a
+        ky = pi * ny / b
+        omega = c * sqrt(kx**2 + ky**2)
+
+        # Exact solutions for electric and magnetic field
+        Ex =  cos(kx * x) * sin(ky * y) * cos(omega * t)
+        Ey = -sin(kx * x) * cos(ky * y) * cos(omega * t)
+        Bz =  cos(kx * x) * cos(ky * y) * sin(omega * t) * (kx + ky) / omega
+
+        # Electric and magnetic energy in domain
+        We = integrate(integrate((Ex**2 + Ey**2)/ 2, (x, 0, a)), (y, 0, b)).simplify()
+        Wb = integrate(integrate(         Bz**2 / 2, (x, 0, a)), (y, 0, b)).simplify()
+
+        params = {'a': a, 'b': b, 'c': c, 'nx': nx, 'ny': ny}
+        fields = {'Ex': Ex, 'Ey': Ey, 'Bz': Bz}
+        energy = {'We': We, 'Wb': Wb}
+
+        return params, fields, energy
+
+    #--------------------------------------------------------------------------
+    @property
+    def params(self):
+        return self._params
+
+    @property
+    def fields(self):
+        return self._fields
+
+    @property
+    def energy(self):
+        return self._energy
+
+    @property
+    def derived_params(self):
+        from numpy import pi, sqrt
+        kx    = pi * self.params['nx'] / self.params['a']
+        ky    = pi * self.params['ny'] / self.params['b']
+        omega = self.params['c'] * sqrt(kx**2 + ky**2)
+        return {'kx': kx, 'ky' : ky, 'omega': omega}
+
+    @property
+    def sym_params(self):
+        return self._sym_params
+
+    @property
+    def sym_fields(self):
+        return self._sym_fields
+
+    @property
+    def sym_energy(self):
+        return self._sym_energy
+
+#==============================================================================
 # VISUALIZATION
 #==============================================================================
 
@@ -106,19 +221,17 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Speed of light is 1
     c = 1.0
 
-    #... Exact solution
-
     # Mode number
     (nx, ny) = (2, 2)
 
-    kx = np.pi * nx / a
-    ky = np.pi * ny / b
+    # Exact solution
+    exact_solution = CavitySolution(a=a, b=b, c=c, nx=nx, ny=ny)
 
-    omega = c * np.sqrt(kx**2 + ky**2)
+    # Exact fields, as callable functions of (t, x, y)
+    Ex_ex = exact_solution.fields['Ex']
+    Ey_ex = exact_solution.fields['Ey']
+    Bz_ex = exact_solution.fields['Bz']
 
-    Ex_ex = lambda t, x, y:  np.cos(kx * x) * np.sin(ky * y) * np.cos(omega * t)
-    Ey_ex = lambda t, x, y: -np.sin(kx * x) * np.cos(ky * y) * np.cos(omega * t)
-    Bz_ex = lambda t, x, y:  np.cos(kx * x) * np.cos(ky * y) * np.sin(omega * t) * (kx + ky) / omega
     #...
 
     #--------------------------------------------------------------------------
@@ -223,38 +336,12 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Scalar diagnostics setup
     #--------------------------------------------------------------------------
 
-    def we(t, x1, x2):
-        """ Electric energy density in logical domain.
-        """
-        x, y = F(x1, x2)
-        jac  = np.sqrt(F.metric_det(x1, x2))
-        Ex   = Ex_ex(t, x, y)
-        Ey   = Ey_ex(t, x, y)
-        return 0.5 * (Ex * Ex + Ey * Ey) * jac
-
-    def wb(t, x1, x2):
-        """ Magnetic energy density in logical domain.
-        """
-        x, y = F(x1, x2)
-        jac  = np.sqrt(F.metric_det(x1, x2))
-        Bz   = Bz_ex(t, x, y)
-        return 0.5 * (Bz * Bz) * jac
-
     # Energy of exact solution
-    # TODO: assemble diagnostics instead
     def exact_energies(t):
         """ Compute electric & magnetic energies of exact solution.
         """
-        kwargs = dict(
-            a    = logical_domain.bounds1[0],
-            b    = logical_domain.bounds1[1],
-            gfun = lambda x1: logical_domain.bounds2[0],
-            hfun = lambda x1: logical_domain.bounds2[1],
-            epsabs = 1e-10,
-            epsrel = 1e-10
-        )
-        We = dblquad(lambda x2, x1: we(t, x1, x2), **kwargs)[0]
-        Wb = dblquad(lambda x2, x1: wb(t, x1, x2), **kwargs)[0]
+        We = exact_solution.energy['We'](t)
+        Wb = exact_solution.energy['Wb'](t)
         return (We, Wb)
 
     # Energy of numerical solution
