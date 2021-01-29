@@ -11,11 +11,22 @@ from psydac.fem.vector            import VectorFemField
 
 #==============================================================================
 class Projector_H1:
+    """
+    Projector from H1 to an H1-conformal finite element space (i.e. a finite
+    dimensional subspace of H1) constructed with tensor-product B-splines in 1,
+    2 or 3 dimensions.
 
+    This is a global projector based on interpolation over a tensor-product
+    grid in the logical domain. The interpolation grid is the tensor-product of
+    the 1D splines' Greville points along each direction.
+
+    Parameters
+    ----------
+    H1 : SplineSpace or TensorFemSpace
+        H1-conformal finite element space, codomain of the projection operator.
+
+    """
     def __init__(self, H1):
-
-        # Quadrature grids in cells defined by consecutive Greville points
-
 
         # Number of dimensions
         dim = H1.ldim
@@ -49,20 +60,28 @@ class Projector_H1:
 
     #--------------------------------------------------------------------------
     def __call__(self, fun):
-        r'''
-        Projection on the space V0 via interpolation.
+        r"""
+        Project scalar function onto the H1-conformal finite element space.
+        This happens in the logical domain $\hat{\Omega}$.
 
         Parameters
         ----------
         fun : callable
-            fun(x) \in R is the 0-form to be projected.
+            Real-valued scalar function to be projected, with arguments the
+            coordinates (x1, ..., xd) of a point in the logical domain. This
+            corresponds to the coefficient of a 0-form in the canonical basis
+            (dx1, dx2, dx3).
+
+            $fun : \hat{\Omega} \mapsto \mathbb{R}$.
 
         Returns
         -------
-        coeffs : 1D array_like
-            Finite element coefficients obtained by projection.
-        '''
+        field : FemField
+            Field obtained by projection (element of the H1-conformal finite
+            element space). This is also a real-valued scalar function in the
+            logical domain.
 
+        """
         # build the rhs
         self.func(*self.args, fun)
 
