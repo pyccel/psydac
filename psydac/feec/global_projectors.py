@@ -9,6 +9,7 @@ from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
 from psydac.fem.vector            import VectorFemField
 
+#==============================================================================
 class Projector_H1:
 
     def __init__(self, H1):
@@ -65,17 +66,19 @@ class Projector_H1:
 
         return FemField(self.space, coeffs=coeffs)
 
+#==============================================================================
 class Projector_Hcurl:
 
     def __init__(self, Hcurl, n_quads=None):
 
+        dim = Hcurl.n_components
+
         if n_quads:
+            assert len(n_quads) == dim
             uw = [gauss_legendre( k-1 ) for k in n_quads]
             uw = [(u[::-1], w[::-1]) for u,w in uw]
         else:
             uw = [(V.quad_grids[i].quad_rule_x,V.quad_grids[i].quad_rule_w) for i,V in enumerate(Hcurl.spaces)]
-
-        dim = len(n_quads)
 
         self.space  = Hcurl
         self.rhs    = BlockVector(Hcurl.vector_space)
@@ -157,23 +160,24 @@ class Projector_Hcurl:
         coeffs.update_ghost_regions()
         return VectorFemField(self.space, coeffs=coeffs)
 
+#==============================================================================
 class Projector_Hdiv:
 
     def __init__(self, Hdiv, n_quads=None):
 
+        dim = Hdiv.n_components
+
         if n_quads:
+            assert len(n_quads) == dim
             uw = [gauss_legendre( k-1 ) for k in n_quads]
             uw = [(u[::-1], w[::-1]) for u,w in uw]
         else:
             uw = [(V.quad_grids[i].quad_rule_x,V.quad_grids[i].quad_rule_w) for i,V in enumerate(Hdiv.spaces)]
 
-        dim = len(n_quads)
-
         self.space  = Hdiv
         self.rhs    = BlockVector(Hdiv.vector_space)
         self.dim    = dim
         self.mats   = [None]*dim
-
 
         for V in Hdiv.spaces:
             V.init_interpolation()
@@ -251,6 +255,7 @@ class Projector_Hdiv:
         coeffs.update_ghost_regions()
         return VectorFemField(self.space, coeffs=coeffs)
 
+#==============================================================================
 class Projector_L2:
 
     def __init__(self, L2, quads=None):
