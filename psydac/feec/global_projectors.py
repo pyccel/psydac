@@ -12,19 +12,18 @@ from psydac.fem.vector            import VectorFemField
 #==============================================================================
 class Projector_H1:
     """
-    Projector from H1 to an H1-conformal finite element space (i.e. a finite
+    Projector from H1 to an H1-conforming finite element space (i.e. a finite
     dimensional subspace of H1) constructed with tensor-product B-splines in 1,
     2 or 3 dimensions.
 
     This is a global projector based on interpolation over a tensor-product
-    grid in the logical domain. The interpolation grid is the tensor-product of
+    grid in the logical domain. The interpolation grid is the tensor product of
     the 1D splines' Greville points along each direction.
 
     Parameters
     ----------
     H1 : SplineSpace or TensorFemSpace
-        H1-conformal finite element space, codomain of the projection operator.
-
+        H1-conforming finite element space, codomain of the projection operator
     """
     def __init__(self, H1):
 
@@ -61,26 +60,24 @@ class Projector_H1:
     #--------------------------------------------------------------------------
     def __call__(self, fun):
         r"""
-        Project scalar function onto the H1-conformal finite element space.
+        Project scalar function onto the H1-conforming finite element space.
         This happens in the logical domain $\hat{\Omega}$.
 
         Parameters
         ----------
         fun : callable
             Real-valued scalar function to be projected, with arguments the
-            coordinates (x1, ..., xd) of a point in the logical domain. This
-            corresponds to the coefficient of a 0-form in the canonical basis
-            (dx1, dx2, dx3).
+            coordinates (x_1, ..., x_N) of a point in the logical domain. This
+            corresponds to the coefficient of a 0-form.
 
             $fun : \hat{\Omega} \mapsto \mathbb{R}$.
 
         Returns
         -------
         field : FemField
-            Field obtained by projection (element of the H1-conformal finite
+            Field obtained by projection (element of the H1-conforming finite
             element space). This is also a real-valued scalar function in the
             logical domain.
-
         """
         # build the rhs
         self.func(*self.args, fun)
@@ -96,7 +93,31 @@ class Projector_H1:
 
 #==============================================================================
 class Projector_Hcurl:
+    """
+    Projector from H(curl) to an H(curl)-conforming finite element space, i.e.
+    a finite dimensional subspace of H(curl), constructed with tensor-product
+    B- and M-splines in 2 or 3 dimensions.
 
+    This is a global projector constructed over a tensor-product grid in the
+    logical domain. The vertices of this grid are obtained as the tensor
+    product of the 1D splines' Greville points along each direction.
+
+    The H(curl) projector matches the "geometric" degrees of freedom of
+    discrete 1-forms, which are the line integrals of a vector field along cell
+    edges. To achieve this, each component of the vector field is projected
+    independently, by combining 1D histopolation along the direction of the
+    edges with 1D interpolation along the other directions.
+
+    Parameters
+    ----------
+    Hcurl : ProductFemSpace
+        H(curl)-conforming finite element space, codomain of the projection
+        operator.
+
+    nquads : list(int) | tuple(int)
+        Number of quadrature points along each direction, to be used in Gauss
+        quadrature rule for computing the (approximated) degrees of freedom.
+    """
     def __init__(self, Hcurl, nquads=None):
 
         dim = Hcurl.n_components
@@ -175,8 +196,31 @@ class Projector_Hcurl:
         else:
             raise NotImplementedError('Hcurl projector is only available in 2D or 3D.')
 
-    # ======================================
+    #--------------------------------------------------------------------------
     def __call__(self, fun):
+        r"""
+        Project vector function onto the H(curl)-conforming finite element
+        space. This happens in the logical domain $\hat{\Omega}$.
+
+        Parameters
+        ----------
+        fun : callable
+            Real-valued vector function to be projected, with arguments the
+            coordinates (x_1, ..., x_N) of a point in the logical domain. This
+            corresponds to the coefficients of a 1-form in the canonical basis
+            (dx_1, ..., dx_N).
+
+            $fun : \hat{\Omega} \mapsto \mathbb{R}^N$.
+
+        Returns
+        -------
+        field : VectorFemField
+            Field obtained by projection (element of the H(curl)-conforming
+            finite element space). This is also a real-valued vector function
+            in the logical domain.
+        """
+        # build the rhs
+        self.func(*self.args, fun)
 
         # build the rhs
         self.func(*self.args, *fun)
@@ -192,7 +236,34 @@ class Projector_Hcurl:
 
 #==============================================================================
 class Projector_Hdiv:
+    """
+    Projector from H(div) to an H(div)-conforming finite element space, i.e. a
+    finite dimensional subspace of H(div), constructed with tensor-product
+    B- and M-splines in 2 or 3 dimensions.
 
+    This is a global projector constructed over a tensor-product grid in the
+    logical domain. The vertices of this grid are obtained as the tensor
+    product of the 1D splines' Greville points along each direction.
+
+    The H(div) projector matches the "geometric" degrees of freedom of discrete
+    (N-1)-forms in N dimensions, which are the integrated flux of a vector
+    field through cell faces (in 3D) or cell edges (in 2D).
+
+    To achieve this, each component of the vector field is projected
+    independently, by combining histopolation along the direction(s) tangential
+    to the face (in 3D) or edge (in 2D), with 1D interpolation along the normal
+    direction.
+
+    Parameters
+    ----------
+    Hdiv : ProductFemSpace
+        H(div)-conforming finite element space, codomain of the projection
+        operator.
+
+    nquads : list(int) | tuple(int)
+        Number of quadrature points along each direction, to be used in Gauss
+        quadrature rule for computing the (approximated) degrees of freedom.
+    """
     def __init__(self, Hdiv, nquads=None):
 
         dim = Hdiv.n_components
@@ -270,9 +341,29 @@ class Projector_Hdiv:
         else:
             raise NotImplementedError('Hdiv projector is only available in 2D or 3D.')
 
-    # ======================================
+    #--------------------------------------------------------------------------
     def __call__(self, fun):
+        r"""
+        Project vector function onto the H(div)-conforming finite element
+        space. This happens in the logical domain $\hat{\Omega}$.
 
+        Parameters
+        ----------
+        fun : callable
+            Real-valued vector function to be projected, with arguments the
+            coordinates (x_1, ..., x_N) of a point in the logical domain. In 3D
+            this corresponds to the coefficients of a 2-form in the canonical
+            basis (dx_1 ∧ dx_2, dx_2 ∧ dx_3, dx_3 ∧ dx_1).
+
+            $fun : \hat{\Omega} \mapsto \mathbb{R}^N$.
+
+        Returns
+        -------
+        field : VectorFemField
+            Field obtained by projection (element of the H(div)-conforming
+            finite element space). This is also a real-valued vector function
+            in the logical domain.
+        """
         # build the rhs
         self.func(*self.args, *fun)
 
@@ -288,7 +379,29 @@ class Projector_Hdiv:
 
 #==============================================================================
 class Projector_L2:
+    """
+    Projector from L2 to an L2-conforming finite element space (i.e. a finite
+    dimensional subspace of L2) constructed with tensor-product M-splines in 1,
+    2 or 3 dimensions.
 
+    This is a global projector constructed over a tensor-product grid in the
+    logical domain. The vertices of this grid are obtained as the tensor
+    product of the 1D splines' Greville points along each direction.
+
+    The L2 projector matches the "geometric" degrees of freedom of discrete
+    N-forms in N dimensions, which are line/surface/volume integrals of a
+    scalar field over an edge/face/cell in 1/2/3 dimension(s). To this end
+    histopolation is used along each direction.
+
+    Parameters
+    ----------
+    L2 : SplineSpace
+        L2-conforming finite element space, codomain of the projection operator
+
+    nquads : list(int) | tuple(int)
+        Number of quadrature points along each direction, to be used in Gauss
+        quadrature rule for computing the (approximated) degrees of freedom.
+    """
     def __init__(self, L2, nquads=None):
 
         # Quadrature grids in cells defined by consecutive Greville points
@@ -318,21 +431,29 @@ class Projector_L2:
 
         self.args  = (*quad_x, *quad_w, self.rhs._data[slices])
 
+    #--------------------------------------------------------------------------
     def __call__(self, fun):
-        r'''
-        Projection on the space V1 via histopolation.
+        r"""
+        Project scalar function onto the L2-conforming finite element space.
+        This happens in the logical domain $\hat{\Omega}$.
 
         Parameters
         ----------
         fun : callable
-            fun(x) \in R is the 1-form to be projected.
+            Real-valued scalar function to be projected, with arguments the
+            coordinates (x_1, ..., x_N) of a point in the logical domain. This
+            corresponds to the coefficient of an N-form in N dimensions, in
+            the canonical basis dx_1 ∧ ... ∧ dx_N.
+
+            $fun : \hat{\Omega} \mapsto \mathbb{R}$.
 
         Returns
         -------
-        coeffs : Vector
-            Finite element coefficients obtained by projection.
-        '''
-
+        field : FemField
+            Field obtained by projection (element of the L2-conforming finite
+            element space). This is also a real-valued scalar function in the
+            logical domain.
+        """
         # build the rhs
         self.func(*self.args, fun)
 
