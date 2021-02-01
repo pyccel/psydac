@@ -204,13 +204,13 @@ class Projector_Hcurl:
 
         Parameters
         ----------
-        fun : callable
-            Real-valued vector function to be projected, with arguments the
-            coordinates (x_1, ..., x_N) of a point in the logical domain. This
-            corresponds to the coefficients of a 1-form in the canonical basis
-            (dx_1, ..., dx_N).
+        fun : list/tuple of callables
+            Scalar components of the real-valued vector function to be
+            projected, with arguments the coordinates (x_1, ..., x_N) of a
+            point in the logical domain. These correspond to the coefficients
+            of a 1-form in the canonical basis (dx_1, ..., dx_N).
 
-            $fun : \hat{\Omega} \mapsto \mathbb{R}^N$.
+            $fun_i : \hat{\Omega} \mapsto \mathbb{R}$ with i = 1, ..., N.
 
         Returns
         -------
@@ -346,13 +346,14 @@ class Projector_Hdiv:
 
         Parameters
         ----------
-        fun : callable
-            Real-valued vector function to be projected, with arguments the
-            coordinates (x_1, ..., x_N) of a point in the logical domain. In 3D
-            this corresponds to the coefficients of a 2-form in the canonical
-            basis (dx_1 ∧ dx_2, dx_2 ∧ dx_3, dx_3 ∧ dx_1).
+        fun : list/tuples of callable
+            Scalar components of the real-valued vector function to be
+            projected, with arguments the coordinates (x_1, ..., x_N) of a
+            point in the logical domain. In 3D these correspond to the
+            coefficients of a 2-form in the canonical basis (dx_1 ∧ dx_2,
+            dx_2 ∧ dx_3, dx_3 ∧ dx_1).
 
-            $fun : \hat{\Omega} \mapsto \mathbb{R}^N$.
+            $fun_i : \hat{\Omega} \mapsto \mathbb{R}$ with i = 1, ..., N.
 
         Returns
         -------
