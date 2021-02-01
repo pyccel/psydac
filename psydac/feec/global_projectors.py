@@ -220,9 +220,6 @@ class Projector_Hcurl:
             in the logical domain.
         """
         # build the rhs
-        self.func(*self.args, fun)
-
-        # build the rhs
         self.func(*self.args, *fun)
 
         self.rhs.update_ghost_regions()
