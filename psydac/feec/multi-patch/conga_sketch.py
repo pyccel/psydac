@@ -195,8 +195,8 @@ def test_conga_2d():
     # V1h       = derham_h.V1
 
     # broken multipatch spaces
-    V1h = discretize(derham.V1, domain_h, degree=degree)
     V0h = discretize(derham.V0, domain_h, degree=degree)
+    V1h = discretize(derham.V1, domain_h, degree=degree)
 
     assert isinstance(V1h, ProductFemSpace)
     assert isinstance(V1h.vector_space, ProductSpace)
@@ -211,8 +211,18 @@ def test_conga_2d():
     V1h_1 = discretize(derham_1.V1, domain_h_1, degree=degree)
     V1h_2 = discretize(derham_2.V1, domain_h_2, degree=degree)
 
+
+    V0h_vector_space = ProductSpace(V0h_1.vector_space, V0h_2.vector_space)
+    V1h_vector_space = ProductSpace(V1h_1.vector_space, V1h_2.vector_space)
+
+    print("V0h_vector_space: ", V0h_vector_space)
+    print("V0h.vector_space: ", V0h.vector_space)
+    print("%%%%%%%%% %%%%%%%%% %%%%%%%%%")
+
+    # exit()
+
     if 0:
-        # equivalent ?
+        # alternative (but with vector spaces)
         V0h_1 = V0h.spaces[0]  # V0h on domain 1
         V0h_2 = V0h.spaces[1]  # V0h on domain 2
         V1h_1 = ProductSpace(V1h.spaces[0], V1h.spaces[1])  # V1h on domain 1
@@ -228,6 +238,7 @@ def test_conga_2d():
     # P0 = Projector_H1(V0h)   # todo
     # P1 = Projector_Hcurl(V1h)
 
+    # P0 = Projector_H1(V0h)
 
     P0_1 = Projector_H1(V0h_1)
     P0_2 = Projector_H1(V0h_2)
@@ -251,13 +262,30 @@ def test_conga_2d():
     u1_1 = P1_1((D1fun1, D2fun1))
     u1_2 = P1_2((D1fun1, D2fun1))
 
-    u0 = BlockVector( V0h, [u0_1, u0_2] )
-    u1 = BlockVector( V1h, [u1_1, u1_2] )
+    print("u0_1: ", u0_1)
+    print("u0_1.space: ", u0_1.space)
+    # print("u0_1.coeffs: ", u0_1.coeffs)
+    print("u0_1.coeffs.space: ", u0_1.coeffs.space)
+    print("V0h.vector_space: ", V0h.vector_space)
+    print("V0h.vector_space.spaces[0]: ", V0h.vector_space.spaces[0])
+    print("V0h_vector_space.spaces[0]:", V0h_vector_space.spaces[0])
+
+
+    #print(V0h.vector_space)
+    #print(V0h_vector_space)
+
+    # u0 = BlockVector( V0h.vector_space, [u0_1.coeffs, u0_2.coeffs] )   # doesn't work
+
+    u0_coeffs = BlockVector( V0h_vector_space, [u0_1.coeffs, u0_2.coeffs] )
+    u0 = FemField(V0h, coeffs=u0_coeffs)
+
+    #u1 = BlockVector( V1h.vector_space, [u1_1, u1_2] )
 
     # later:
     # u0        = P0(fun1)
     # u1        = P1((D1fun1, D2fun1))
 
+    Pconf_0 = ConformingProjection(V0h)
 
     u0_conf   = Pconf_0(u0)
     Dfun_h    = D0(u0)
