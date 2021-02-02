@@ -79,9 +79,10 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         print( "+ Iter. # | L2-norm of residual |")
         print( "+---------+---------------------+")
         template = "| {:7d} | {:19.2e} |"
+        print( template.format( 1, sqrt( am ) ) )
 
     # Iterate to convergence
-    for m in range( 1, maxiter+1 ):
+    for m in range( 2, maxiter+1 ):
 
         if am < tol_sqr:
             m -= 1
