@@ -455,7 +455,10 @@ def test_maxwell_1d_periodic():
         tend     = None,
         splitting_order      = 2,
         plot_interval        = 0,
-        diagnostics_interval = 0
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        bc_mode = None,
+        verbose = False
     )
 
     TOL = 1e-6
@@ -466,7 +469,7 @@ def test_maxwell_1d_periodic():
     assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
 
 
-def test_maxwell_1d_dirichlet():
+def test_maxwell_1d_dirichlet_strong():
 
     namespace = run_maxwell_1d(
         L        = 1.0,
@@ -479,7 +482,10 @@ def test_maxwell_1d_dirichlet():
         tend     = None,
         splitting_order      = 2,
         plot_interval        = 0,
-        diagnostics_interval = 0
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        bc_mode = 'strong',
+        verbose = False
     )
 
     TOL = 1e-6
@@ -488,6 +494,34 @@ def test_maxwell_1d_dirichlet():
 
     assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
     assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+
+
+def test_maxwell_1d_dirichlet_penalization():
+
+    namespace = run_maxwell_1d(
+        L        = 1.0,
+        eps      = 0.5,
+        ncells   = 20,
+        degree   = 5,
+        periodic = False,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        bc_mode = 'penalization',
+        verbose = False
+    )
+
+    TOL = 1e-6
+    ref = dict(error_E = 1.320290052669426e-03,
+               error_B = 7.453277842247585e-04)
+
+    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
+    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+
 
 #==============================================================================
 # SCRIPT CAPABILITIES

@@ -606,7 +606,9 @@ def test_maxwell_2d_periodic():
         tend     = None,
         splitting_order      = 2,
         plot_interval        = 0,
-        diagnostics_interval = 0
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        verbose = False
     )
 
     TOL = 1e-6
@@ -631,19 +633,15 @@ def test_maxwell_2d_dirichlet():
         tend     = None,
         splitting_order      = 2,
         plot_interval        = 0,
-        diagnostics_interval = 0
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        verbose = False
     )
 
-    print('~'*50)
-    print('{:e}'.format(namespace['error_Ex']))
-    print('{:e}'.format(namespace['error_Ey']))
-    print('{:e}'.format(namespace['error_Bz']))
-    print('~'*50)
-
-    TOL = 1e-5
-    ref = dict(error_Ex = 3.578544e-03,
-               error_Ey = 3.578545e-03,
-               error_Bz = 4.373875e-03)
+    TOL = 1e-6
+    ref = dict(error_Ex = 3.597840e-03,
+               error_Ey = 3.597840e-03,
+               error_Bz = 4.366314e-03)
 
     assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
     assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
