@@ -251,31 +251,11 @@ def jacobi(A, b):
     #-------------------------------------------------------------
 
     V = b.space
-    x = V.zeros()
+    i = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+    ii = i + (0,) * V.ndim
 
-    # ...
-    if V.ndim == 1:
-        [s1] = V.starts
-        [e1] = V.ends
-        for i1 in range(s1, e1+1):
-            x[i1] = b[i1] / A[i1, 0]
-
-    elif V.ndim == 2:
-        [s1, s2] = V.starts
-        [e1, e2] = V.ends
-        for i1 in range(s1, e1+1):
-            for i2 in range(s2, e2+1):
-                x[i1, i2] = b[i1, i2] / A[i1, i2, 0, 0]
-
-    elif V.ndim == 3:
-        [s1, s2, s3] = V.starts
-        [e1, e2, e3] = V.ends
-        for i1 in range(s1, e1+1):
-            for i2 in range(s2, e2+1):
-                for i3 in range(s3, e3+1):
-                    x[i1, i2, i3] = b[i1, i2, i3] / A[i1, i2, i3, 0, 0, 0]
-    #...
-
+    x = b.copy()
+    x[i] /= A[ii]
     x.update_ghost_regions()
 
     return x
