@@ -222,64 +222,58 @@ def jacobi(A, b):
     """
     Jacobi preconditioner.
     ----------
-    A : psydac.linalg.stencil.StencilMatrix
+    A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockMatrix
         Left-hand-side matrix A of linear system.
 
-    b : psydac.linalg.stencil.StencilVector
+    b : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
         Right-hand-side vector of linear system.
 
     Returns
     -------
-    x : psydac.linalg.stencil.StencilVector
-        Converged solution.
+    x : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
+        Preconditioner solution
 
     """
-    from psydac.linalg.stencil import StencilVector
+    from psydac.linalg.block   import BlockMatrix, BlockVector
+    from psydac.linalg.stencil import StencilMatrix, StencilVector
 
-    n = A.shape[0]
+    # Sanity checks
+    assert isinstance(A, (StencilMatrix, BlockMatrix))
+    assert isinstance(b, (StencilVector, BlockVector))
+    assert A.codomain == A.domain
+    assert A.codomain == b.space
 
-    assert(A.shape == (n,n))
-    assert(b.shape == (n, ))
+    #-------------------------------------------------------------
+    # Handle the case of a block linear system
+    if isinstance(A, BlockMatrix):
+        x = [jacobi(A[i, i], bi) for i, bi in enumerate(b.blocks)]
+        return BlockVector(b.space, blocks=x)
+    #-------------------------------------------------------------
 
     V = b.space
-    x = StencilVector(V)
+    x = V.zeros()
 
     # ...
     if V.ndim == 1:
         [s1] = V.starts
         [e1] = V.ends
-        [p1] = V.pads
-
-        x[:] = 0.
-
         for i1 in range(s1, e1+1):
-                x[i1] = A[i1, 0]
-                x[i1] = b[i1]/ x[i1]
+            x[i1] = b[i1] / A[i1, 0]
 
     elif V.ndim == 2:
         [s1, s2] = V.starts
         [e1, e2] = V.ends
-        [p1, p2] = V.pads
-
-        x[:,:] = 0.
-
         for i1 in range(s1, e1+1):
             for i2 in range(s2, e2+1):
-                x[i1, i2] = A[i1, i2, 0, 0]
-                x[i1, i2] = b[i1, i2]/ x[i1, i2]
+                x[i1, i2] = b[i1, i2] / A[i1, i2, 0, 0]
 
     elif V.ndim == 3:
         [s1, s2, s3] = V.starts
         [e1, e2, e3] = V.ends
-        [p1, p2, p3] = V.pads
-
-        x[:,:, :] = 0.
-
         for i1 in range(s1, e1+1):
             for i2 in range(s2, e2+1):
                 for i3 in range(s3, e3+1):
-                    x[i1, i2. i3] = A[i1, i2, i3, 0, 0, 0]
-                    x[i1, i2, i3] = b[i1, i2, i3]/ x[i1, i2, i3]
+                    x[i1, i2, i3] = b[i1, i2, i3] / A[i1, i2, i3, 0, 0, 0]
     #...
 
     x.update_ghost_regions()
