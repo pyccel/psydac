@@ -61,13 +61,15 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
 
     # First guess of solution
     if x0 is None:
-        x = 0.0 * b.copy()
+        x  = b.copy()
+        x *= 0.0
     else:
         assert( x0.shape == (n,) )
         x = x0.copy()
 
     # First values
-    r  = b - A.dot( x )
+    v  = A.dot(x)
+    r  = b - v
     am = r.dot( r )
     p  = r.copy()
 
@@ -88,12 +90,13 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
             m -= 1
             break
 
-        v   = A.dot( p )
+        v   = A.dot(p, out=v)
         l   = am / v.dot( p )
         x  += l*p
         r  -= l*v
         am1 = r.dot( r )
-        p   = r + (am1/am)*p
+        p  *= (am1/am)
+        p  += r
         am  = am1
 
         if verbose:
