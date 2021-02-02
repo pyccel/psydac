@@ -1466,24 +1466,26 @@ class Parser(object):
         # update with product statements if available
         body = list(p_inits) + list(geo_stmts) + list(stmts)
         mask = expr.mask
+
         if mask:
             axis   = mask.axis
             index  = indices.pop(axis)
             length = lengths.pop(axis)
             init   = inits.pop(axis)
             mask_init = [Assign(index, 0), *init]
-
         for index, length, init in zip(indices[::-1], lengths[::-1], inits[::-1]):
 
             body = list(init) + body
             body = [For(index, Range(length), body)]
         # ...
         # remove the list and return the For Node only
-        body = body[0]
 
         if mask:
-            body = CodeBlock([*mask_init, body])
-
+            body = CodeBlock([*mask_init, *body])
+        elif len(body) > 1:
+            body = CodeBlock(body)
+        elif len(body) == 1:
+            body = body[0]
         return body
 
     # ....................................................

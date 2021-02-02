@@ -4,7 +4,7 @@
 #==============================================================================
 # TIME STEPPING METHOD
 #==============================================================================
-def step_faraday_1d(dt, e, b, M0, M1, D0, D0_T):
+def step_faraday_1d(dt, e, b, M0, M1, D0, D0_T, **kwargs):
     """
     Exactly integrate the semi-discrete Faraday equation over one time-step:
 
@@ -14,17 +14,22 @@ def step_faraday_1d(dt, e, b, M0, M1, D0, D0_T):
     b -= dt * D0.dot(e)
   # e += 0
 
-def step_ampere_1d(dt, e, b, M0, M1, D0, D0_T):
+def step_ampere_1d(dt, e, b, M0, M1, D0, D0_T, *, pc=None, tol=1e-7, verbose=False):
     """
     Exactly integrate the semi-discrete Amperè equation over one time-step:
 
     e_new = e + ∆t (M0^{-1} D0^T M1) b
 
     """
-    from psydac.linalg.iterative_solvers import cg
+    options = dict(tol=tol, verbose=verbose)
+    if pc:
+        from psydac.linalg.iterative_solvers import pcg as isolve
+        options['pc'] = pc
+    else:
+        from psydac.linalg.iterative_solvers import cg as isolve
 
   # b += 0
-    e += dt * cg(M0, D0_T.dot((M1.dot(b))))[0]
+    e += dt * isolve(M0, D0_T.dot((M1.dot(b))), **options)[0]
 
 #==============================================================================
 # VISUALIZATION
@@ -49,7 +54,8 @@ def update_plot(ax, t, sol_ex, sol_num):
 # SIMULATION
 #==============================================================================
 def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
-        splitting_order, plot_interval, diagnostics_interval):
+        splitting_order, plot_interval, diagnostics_interval,
+        bc_mode, tol, verbose):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -109,6 +115,23 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     a0 = BilinearForm((u0, v0), integral(domain, u0 * v0))
     a1 = BilinearForm((u1, v1), integral(domain, u1 * v1))
 
+    # ...
+    # If needed, apply homogeneous Dirichlet BCs
+    if not periodic:
+
+        # Option 1: Apply essential BCs to elements of V0 space
+        if bc_mode == 'strong':
+            from sympde.expr import EssentialBC
+            bcs = [EssentialBC(u0, 0, side) for side in domain.boundary]
+
+        # Option 2: Penalize L2 projection to V0 space
+        elif bc_mode == 'penalization':
+            a0_bc = BilinearForm((u0, v0), integral(domain.boundary, 1e30 * u0 * v0))
+
+        else:
+            NotImplementedError('bc_mode = {}'.format(bc_mode))
+    # ...
+
     #--------------------------------------------------------------------------
     # Discrete objects: Psydac
     #--------------------------------------------------------------------------
@@ -128,23 +151,35 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Differential operators
     D0, = derham_h.derivatives_as_matrices
 
-    # If needed, apply homogeneous Dirichlet BCs
-    if not periodic:
-
-        s1, = M0.codomain.starts
-        e1, = M0.codomain.ends
-        n1, = M0.codomain.npts
-
-        if s1 == 0:
-            M0[s1, :] = 0.0
-            D0[s1, 0] = 0.0
-
-        if e1 == n1-1:
-            M0[e1  , :] = 0.0
-            D0[e1-1, 1] = 0.0
-
     # Transpose of derivative matrix
     D0_T = D0.T
+
+    # Boundary conditions
+    if not periodic:
+
+        # Option 1: Modify operators to V0h space: mass matrix M0, differentiation matrix D0^T
+        if bc_mode == 'strong':
+            from psydac.api.essential_bc import apply_essential_bc
+            M0_dir   = M0.copy()
+            D0_T_dir = D0_T.copy()
+            for bc in bcs:
+                apply_essential_bc(derham_h.V0, bc, M0_dir)
+                apply_essential_bc(derham_h.V0, bc, D0_T_dir)
+
+            # Make sure that we have ones on the diagonal of the mass matrix,
+            # in order to use a Jacobi preconditioner
+            s, = M0.codomain.starts
+            e, = M0.codomain.ends
+            n, = M0.codomain.npts
+            if s == 0:
+                M0_dir[s, 0] = 1.0
+            if e + 1 == n:
+                M0_dir[e, 0] = 1.0
+
+        # Option 2: Discretize and assemble penalization matrix
+        elif bc_mode == 'penalization':
+            a0_bc_h = discretize(a0_bc, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_GPYCCEL)
+            M0_bc   = a0_bc_h.assemble()
 
     # Projectors
     P0, P1 = derham_h.projectors(nquads=[degree+2])
@@ -282,8 +317,19 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     # TODO: add option to convert to scipy sparse format
 
-    # Arguments for time stepping
-    args = (e, b, M0, M1, D0, D0_T)
+    # ... Arguments for time stepping
+    kwargs = {'verbose': verbose, 'tol': tol}
+
+    if periodic:
+        args = (e, b, M0, M1, D0, D0_T)
+
+    elif bc_mode == 'strong':
+        args = (e, b, M0_dir, M1, D0, D0_T_dir)
+
+    elif bc_mode == 'penalization':
+        args = (e, b, M0 + M0_bc, M1, D0, D0_T)
+        kwargs['pc'] = 'jacobi'
+    # ...
 
     # Time loop
     for i in range(nsteps):
@@ -291,9 +337,9 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         # TODO: allow for high-order splitting
 
         # Strang splitting, 2nd order
-        step_faraday_1d(0.5*dt, *args)
-        step_ampere_1d (    dt, *args)
-        step_faraday_1d(0.5*dt, *args)
+        step_faraday_1d(0.5*dt, *args, **kwargs)
+        step_ampere_1d (    dt, *args, **kwargs)
+        step_faraday_1d(0.5*dt, *args, **kwargs)
 
         t += dt
 
@@ -409,7 +455,10 @@ def test_maxwell_1d_periodic():
         tend     = None,
         splitting_order      = 2,
         plot_interval        = 0,
-        diagnostics_interval = 0
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        bc_mode = None,
+        verbose = False
     )
 
     TOL = 1e-6
@@ -420,7 +469,7 @@ def test_maxwell_1d_periodic():
     assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
 
 
-def test_maxwell_1d_dirichlet():
+def test_maxwell_1d_dirichlet_strong():
 
     namespace = run_maxwell_1d(
         L        = 1.0,
@@ -433,7 +482,10 @@ def test_maxwell_1d_dirichlet():
         tend     = None,
         splitting_order      = 2,
         plot_interval        = 0,
-        diagnostics_interval = 0
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        bc_mode = 'strong',
+        verbose = False
     )
 
     TOL = 1e-6
@@ -442,6 +494,34 @@ def test_maxwell_1d_dirichlet():
 
     assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
     assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+
+
+def test_maxwell_1d_dirichlet_penalization():
+
+    namespace = run_maxwell_1d(
+        L        = 1.0,
+        eps      = 0.5,
+        ncells   = 20,
+        degree   = 5,
+        periodic = False,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        bc_mode = 'penalization',
+        verbose = False
+    )
+
+    TOL = 1e-6
+    ref = dict(error_E = 1.320290052669426e-03,
+               error_B = 7.453277842247585e-04)
+
+    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
+    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+
 
 #==============================================================================
 # SCRIPT CAPABILITIES
@@ -532,6 +612,23 @@ if __name__ == '__main__':
         metavar = 'I',
         dest    = 'diagnostics_interval',
         help    = 'No. of time steps between successive calculations of scalar diagnostics, if I=0 no diagnostics are computed'
+    )
+
+    parser.add_argument( '-v', '--verbose',
+        action  = 'store_true',
+        help    = 'Print convergence information of iterative solver'
+    )
+
+    parser.add_argument( '--tol',
+        type    = float,
+        default = 1e-7,
+        help    = 'Tolerance for iterative solver (L2-norm of residual)'
+    )
+
+    parser.add_argument( '--bc_mode',
+        choices = ['strong', 'penalization'],
+        default = 'strong',
+        help    = 'Strategy for imposing Dirichlet BCs'
     )
 
     # Read input arguments

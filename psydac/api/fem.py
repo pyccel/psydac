@@ -213,22 +213,33 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_ext = None
 
         if isinstance(domain, (sym_Boundary, sym_Interface)):
+
+            #...
+            # If process does not own the boundary or interface, do not assemble anything
+            import psydac
+            if isinstance(test_space.vector_space, psydac.linalg.block.ProductSpace):
+                vector_space = test_space.vector_space.spaces[0]
+            else:
+                vector_space = test_space.vector_space
+
             if test_ext == -1:
-                start = test_space.vector_space.starts[axis]
-                if start != 0 :
+                start = vector_space.starts[axis]
+                if start != 0:
                     self._func = do_nothing
+
             elif test_ext == 1:
-                end = test_space.vector_space.ends[axis]
-                nb  = test_space.spaces[axis].nbasis
-                if end+1 != nb:
+                end  = vector_space.ends[axis]
+                npts = vector_space.npts[axis]
+                if end + 1 != npts:
                     self._func = do_nothing
+            #...
 
         grid              = QuadratureGrid( test_space, axis, test_ext )
         self._grid        = grid
         self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
         self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
 
-        self._args                 = self.construct_arguments()
+        self._args = self.construct_arguments()
 
     @property
     def spaces(self):
@@ -459,15 +470,26 @@ class DiscreteLinearForm(BasicDiscrete):
         else:
             ext  = domain.ext
             axis = domain.axis
+
+            #...
+            # If process does not own the boundary or interface, do not assemble anything
+            import psydac
+            if isinstance(self.space.vector_space, psydac.linalg.block.ProductSpace):
+                vector_space = self.space.vector_space.spaces[0]
+            else:
+                vector_space = self.space.vector_space
+
             if ext == -1:
-                start = self.space.vector_space.starts[domain.axis]
-                if start != 0 :
+                start = vector_space.starts[axis]
+                if start != 0:
                     self._func = do_nothing
+
             elif ext == 1:
-                end = self.space.vector_space.ends[domain.axis]
-                nb  = self.space.spaces[domain.axis].nbasis
-                if end+1 != nb:
+                end  = vector_space.ends[axis]
+                npts = vector_space.npts[axis]
+                if end + 1 != npts:
                     self._func = do_nothing
+            #...
 
         grid             = QuadratureGrid( self.space, axis=axis, ext=ext )
         self._grid       = grid
