@@ -4,7 +4,7 @@
 #==============================================================================
 # TIME STEPPING METHOD
 #==============================================================================
-def step_faraday_2d(dt, e, b, M1, M2, D1, D1_T):
+def step_faraday_2d(dt, e, b, M1, M2, D1, D1_T, **kwargs):
     """
     Exactly integrate the semi-discrete Faraday equation over one time-step:
 
@@ -12,21 +12,24 @@ def step_faraday_2d(dt, e, b, M1, M2, D1, D1_T):
 
     """
     b -= dt * D1.dot(e)
-#    b -= dt * (D1 @ e)
   # e += 0
 
-def step_ampere_2d(dt, e, b, M1, M2, D1, D1_T):
+def step_ampere_2d(dt, e, b, M1, M2, D1, D1_T, *, pc=None, tol=1e-7, verbose=False):
     """
     Exactly integrate the semi-discrete Amperè equation over one time-step:
 
     e_new = e - ∆t (M1^{-1} D1^T M2) b
 
     """
-    from psydac.linalg.iterative_solvers import cg
+    options = dict(tol=tol, verbose=verbose)
+    if pc:
+        from psydac.linalg.iterative_solvers import pcg as isolve
+        options['pc'] = pc
+    else:
+        from psydac.linalg.iterative_solvers import cg as isolve
 
   # b += 0
-    e += dt * cg(M1, D1_T.dot(M2.dot(b)))[0]
-#    e += dt * cg(M1, D1_T @ (M2 @ b))[0]
+    e += dt * isolve(M1, D1_T.dot(M2.dot(b)), **options)[0]
 
 #==============================================================================
 # ANALYTICAL SOLUTION
@@ -188,7 +191,7 @@ def update_plot(fig, t, x, y, field_h, field_ex):
 # SIMULATION
 #==============================================================================
 def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
-        splitting_order, plot_interval, diagnostics_interval):
+        splitting_order, plot_interval, diagnostics_interval, tol, verbose):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -448,11 +451,15 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     # TODO: add option to convert to scipy sparse format
 
-    # Arguments for time stepping
+    # ... Arguments for time stepping
+    kwargs = {'verbose': verbose, 'tol': tol}
+
     if periodic:
         args = (e, b, M1, M2, D1, D1_T)
     else:
         args = (e, b, M1 + M1_bc, M2, D1, D1_T)
+        kwargs['pc'] = 'jacobi'
+    # ...
 
     # Time loop
     for ts in range(1, nsteps+1):
@@ -460,9 +467,9 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
         # TODO: allow for high-order splitting
 
         # Strang splitting, 2nd order
-        step_faraday_2d(0.5*dt, *args)
-        step_ampere_2d (    dt, *args)
-        step_faraday_2d(0.5*dt, *args)
+        step_faraday_2d(0.5*dt, *args, **kwargs)
+        step_ampere_2d (    dt, *args, **kwargs)
+        step_faraday_2d(0.5*dt, *args, **kwargs)
 
         t += dt
 
@@ -723,6 +730,17 @@ if __name__ == '__main__':
         metavar = 'I',
         dest    = 'diagnostics_interval',
         help    = 'No. of time steps between successive calculations of scalar diagnostics, if I=0 no diagnostics are computed'
+    )
+
+    parser.add_argument( '--tol',
+        type    = float,
+        default = 1e-7,
+        help    = 'Tolerance for iterative solver (L2-norm of residual)'
+    )
+
+    parser.add_argument( '-v', '--verbose',
+        action  = 'store_true',
+        help    = 'Print convergence information of iterative solver'
     )
 
     # Read input arguments
