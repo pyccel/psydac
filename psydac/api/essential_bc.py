@@ -102,16 +102,23 @@ def apply_essential_bc_1d_StencilMatrix(V, bc, a):
     """ Apply homogeneous dirichlet boundary conditions in 1D """
 
     # assumes a 1D spline space
-    # add asserts on the space if it is periodic
+    # TODO: add asserts on the space if it is periodic
+    # TODO: verify if V argument is really needed
+
+    s1, = a.codomain.starts
+    e1, = a.codomain.ends
+    n1, = a.codomain.npts
 
     # get order
     order = bc.order
 
-    if bc.boundary.ext == -1:
-        a[ 0+order,:] = 0.
+    # left x1 boundary
+    if bc.boundary.ext == -1 and s1 == 0:
+        a[s1 + order, :] = 0.
 
-    if bc.boundary.ext == 1:
-        a[-1-order,:] = 0.
+    # right x1 boundary
+    if bc.boundary.ext == 1 and e1 == n1 - 1:
+        a[e1 - order, :] = 0.
 
 #==============================================================================
 def apply_essential_bc_2d_StencilMatrix(V, bc, a):
