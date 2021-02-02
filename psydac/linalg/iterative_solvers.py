@@ -157,54 +157,53 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
     # First guess of solution
     if x0 is None:
-        x = 0.0 * b.copy()
+        x  = b.copy()
+        x *= 0.0
     else:
         assert( x0.shape == (n,) )
         x = x0.copy()
 
-    # First values
-    r = b - A.dot(x)
+    # Preconditioner
+    psolve = globals()[pc]
 
-    nrmr0_sqr = r.dot(r)
+    # First values
+    v = A.dot(x)
+    r = b - v
+    nrmr_sqr = r.dot(r)
+
+    s  = psolve(A, r)
+    am = s.dot(r)
+    p  = s.copy()
+
     tol_sqr = tol**2
 
-    psolve = eval(pc)
-    s = psolve(A, r)
-    p = s
-    sr = s.dot(r)
-
     if verbose:
-        print( "CG solver:" )
+        print( "Pre-conditioned CG solver:" )
         print( "+---------+---------------------+")
         print( "+ Iter. # | L2-norm of residual |")
         print( "+---------+---------------------+")
         template = "| {:7d} | {:19.2e} |"
+        print( template.format(1, sqrt(nrmr_sqr)))
 
     # Iterate to convergence
-    for k in range(1, maxiter+1):
+    for k in range(2, maxiter+1):
 
-        q = A.dot(p)
-        alpha  = sr / p.dot(q)
-
-        x  = x + alpha*p
-        r  = r - alpha*q
-
-        s = A.dot(r)
-
-        nrmr_sqr = r.dot(r)
-
-        if nrmr_sqr < tol_sqr*nrmr0_sqr:
+        if nrmr_sqr < tol_sqr:
             k -= 1
             break
 
+        v  = A.dot(p, out=v)
+        l  = am / v.dot(p)
+        x += l*p
+        r -= l*v
+
+        nrmr_sqr = r.dot(r)
         s = psolve(A, r)
 
-        srold = sr
-        sr = s.dot(r)
-
-        beta = sr/srold
-
-        p = s + beta*p
+        am1 = s.dot(r)
+        p  *= (am1/am)
+        p  += s
+        am  = am1
 
         if verbose:
             print( template.format(k, sqrt(nrmr_sqr)))
@@ -213,7 +212,7 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         print( "+---------+---------------------+")
 
     # Convergence information
-    info = {'niter': k, 'success': nrmr_sqr < tol_sqr*nrmr0_sqr, 'res_norm': sqrt(nrmr_sqr) }
+    info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
 
     return x, info
 # ...
