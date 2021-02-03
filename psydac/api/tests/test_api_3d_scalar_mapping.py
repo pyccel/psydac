@@ -7,7 +7,6 @@ import os
 
 from sympde.calculus import grad, dot
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
 from sympde.topology import element_of
 from sympde.topology import NormalVector
 from sympde.topology import Union

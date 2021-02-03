@@ -3,7 +3,7 @@
 # Copyright 2018 Yaman Güçlü
 
 from psydac.linalg.stencil import StencilVectorSpace
-from psydac.linalg.block   import ProductSpace
+from psydac.linalg.block   import BlockVectorSpace
 from psydac.polar .dense   import DenseVectorSpace
 from psydac.polar .c1_cart import C1_Cart
 
@@ -28,7 +28,7 @@ def new_c1_vector_space( V, radial_dim=0, angle_dim=1 ):
 
     Results
     -------
-    P : ProductSpace
+    P : BlockVectorSpace
         Space of the coefficients of a new finite-element space which has
         C^1 continuity at the O-point.
 
@@ -51,6 +51,6 @@ def new_c1_vector_space( V, radial_dim=0, angle_dim=1 ):
         S = StencilVectorSpace( c1_npts, V.pads, V.periods, V.dtype )
         D = DenseVectorSpace( 3 )
 
-    P = ProductSpace( D, S )
+    P = BlockVectorSpace( D, S )
 
     return P

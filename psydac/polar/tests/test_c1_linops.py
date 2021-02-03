@@ -3,7 +3,7 @@ import numpy as np
 
 from psydac.polar.dense    import DenseVectorSpace, DenseVector, DenseMatrix
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.block   import ProductSpace, BlockVector, BlockMatrix
+from psydac.linalg.block   import BlockVectorSpace, BlockVector, BlockMatrix
 
 from psydac.polar.c1_linops import LinearOperator_StencilToDense
 from psydac.polar.c1_linops import LinearOperator_DenseToStencil
@@ -24,7 +24,7 @@ def test_c1_linops( n0, npts, pads, verbose=False ):
     # Spaces
     U = DenseVectorSpace( n0 )
     V = StencilVectorSpace( npts=(n1-2,n2), pads=(p1,p2), periods=(False, True), dtype=float )
-    W = ProductSpace( U, V )
+    W = BlockVectorSpace( U, V )
 
     s1, s2 = V.starts
     e1, e2 = V.ends

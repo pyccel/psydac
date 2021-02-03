@@ -5,7 +5,6 @@ from sympy import pi, sin
 
 from sympde.calculus import grad, dot, inner
 from sympde.topology import VectorFunctionSpace
-from sympde.topology import ProductSpace
 from sympde.topology import element_of
 from sympde.topology import Cube
 from sympde.expr     import BilinearForm, LinearForm, integral
