@@ -9,7 +9,7 @@ from sympde.calculus import laplace, bracket, convect
 from sympde.calculus import jump, avg, Dn, minus, plus
 
 from sympde.topology import Derham
-from sympde.topology import ProductSpace
+# from sympde.topology import ProductSpace
 from sympde.topology import element_of, elements_of
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
@@ -20,7 +20,8 @@ from sympde.expr.expr import integral
 from psydac.api.discretization import discretize
 
 from psydac.linalg.basic import LinearOperator
-from psydac.linalg.block import ProductSpace, BlockVector, BlockMatrix
+# ProductSpace
+from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
 from psydac.linalg.iterative_solvers import cg
 from psydac.linalg.identity import IdentityLinearOperator #, IdentityStencilMatrix as IdentityMatrix
 
@@ -116,32 +117,6 @@ class ComposedLinearOperator( LinearOperator ):
 
         return  self._B.dot(self._A.dot(f_coeffs))
 
-#
-# class IdLinearOperator( LinearOperator ):
-#
-#     def __init__(self, V):
-#         # assert isinstance( V, VectorSpace )
-#         self._V  = V
-#
-#     #-------------------------------------
-#     # Deferred methods
-#     #-------------------------------------
-#     @property
-#     def domain( self ):
-#         return self._V
-#
-#     @property
-#     def codomain( self ):
-#         return self._V
-#
-#     def dot( self, v, out=None ):
-#         # assert isinstance( v, Vector )
-#         assert v.space is self.domain
-#         return v
-#
-#     def __call__( self, f ):
-#         return f
-
 
 def test_conga_2d():
     """
@@ -168,15 +143,15 @@ def test_conga_2d():
     domain_1     = mapping_1(A)
     domain_2     = mapping_2(B)
 
-    # local de Rham sequences:
+    # local (single patch) de Rham sequences:
     derham_1  = Derham(domain_1, ["H1", "Hcurl"])
     derham_2  = Derham(domain_2, ["H1", "Hcurl"])
 
-    
     domain = domain_1.join(domain_2, name = 'domain',
                 bnd_minus = domain_1.get_boundary(axis=1, ext=1),
                 bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
 
+    # multi-patch de Rham sequence:
     derham  = Derham(domain, ["H1", "Hcurl"])
 
 
@@ -199,7 +174,7 @@ def test_conga_2d():
     V1h = discretize(derham.V1, domain_h, degree=degree)
 
     assert isinstance(V1h, ProductFemSpace)
-    assert isinstance(V1h.vector_space, ProductSpace)
+    assert isinstance(V1h.vector_space, BlockVectorSpace)
 
     # local construction
 
@@ -212,21 +187,19 @@ def test_conga_2d():
     V1h_2 = discretize(derham_2.V1, domain_h_2, degree=degree)
 
 
-    V0h_vector_space = ProductSpace(V0h_1.vector_space, V0h_2.vector_space)
-    V1h_vector_space = ProductSpace(V1h_1.vector_space, V1h_2.vector_space)
+    V0h_vector_space = BlockVectorSpace(V0h_1.vector_space, V0h_2.vector_space)
+    V1h_vector_space = BlockVectorSpace(V1h_1.vector_space, V1h_2.vector_space)
 
-    print("V0h_vector_space: ", V0h_vector_space)
-    print("V0h.vector_space: ", V0h.vector_space)
-    print("%%%%%%%%% %%%%%%%%% %%%%%%%%%")
-
-    # exit()
+    # print("V0h_vector_space: ", V0h_vector_space)
+    # print("V0h.vector_space: ", V0h.vector_space)
+    # print("%%%%%%%%% %%%%%%%%% %%%%%%%%%")
 
     if 0:
         # alternative (but with vector spaces)
         V0h_1 = V0h.spaces[0]  # V0h on domain 1
         V0h_2 = V0h.spaces[1]  # V0h on domain 2
-        V1h_1 = ProductSpace(V1h.spaces[0], V1h.spaces[1])  # V1h on domain 1
-        V1h_2 = ProductSpace(V1h.spaces[2], V1h.spaces[3])  # V1h on domain 2
+        V1h_1 = BlockVectorSpace(V1h.spaces[0], V1h.spaces[1])  # V1h on domain 1
+        V1h_2 = BlockVectorSpace(V1h.spaces[2], V1h.spaces[3])  # V1h on domain 2
 
 
 
@@ -262,21 +235,19 @@ def test_conga_2d():
     u1_1 = P1_1((D1fun1, D2fun1))
     u1_2 = P1_2((D1fun1, D2fun1))
 
-    print("u0_1: ", u0_1)
-    print("u0_1.space: ", u0_1.space)
-    # print("u0_1.coeffs: ", u0_1.coeffs)
-    print("u0_1.coeffs.space: ", u0_1.coeffs.space)
-    print("V0h.vector_space: ", V0h.vector_space)
-    print("V0h.vector_space.spaces[0]: ", V0h.vector_space.spaces[0])
-    print("V0h_vector_space.spaces[0]:", V0h_vector_space.spaces[0])
-
+    # print("u0_1: ", u0_1)
+    # print("u0_1.space: ", u0_1.space)
+    # # print("u0_1.coeffs: ", u0_1.coeffs)
+    # print("u0_1.coeffs.space: ", u0_1.coeffs.space)
+    # print("V0h.vector_space: ", V0h.vector_space)
+    # print("V0h.vector_space.spaces[0]: ", V0h.vector_space.spaces[0])
+    # print("V0h_vector_space.spaces[0]:", V0h_vector_space.spaces[0])
 
     #print(V0h.vector_space)
     #print(V0h_vector_space)
 
     # u0 = BlockVector( V0h.vector_space, [u0_1.coeffs, u0_2.coeffs] )   # doesn't work
-
-    u0_coeffs = BlockVector( V0h_vector_space, [u0_1.coeffs, u0_2.coeffs] )
+    u0_coeffs = BlockVector( V0h_vector_space, [u0_1.coeffs, u0_2.coeffs] )  # works but gives an error below
     u0 = FemField(V0h, coeffs=u0_coeffs)
 
     #u1 = BlockVector( V1h.vector_space, [u1_1, u1_2] )
