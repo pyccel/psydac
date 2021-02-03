@@ -26,7 +26,7 @@ from psydac.linalg.iterative_solvers import cg
 from psydac.linalg.identity import IdentityLinearOperator #, IdentityStencilMatrix as IdentityMatrix
 
 from psydac.fem.basic   import FemField
-from psydac.fem.vector import ProductFemSpace
+from psydac.fem.vector import ProductFemSpace, VectorFemField
 
 from psydac.feec.derivatives import Gradient_2D
 from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
@@ -85,18 +85,16 @@ class ConformingProjection( LinearOperator ):
     def __call__( self, f ):
 
         b = self._lh.assemble(f=f)
-        
+
         sol_coeffs, info = cg( self._A, b, tol=1e-13, verbose=True )
-        
-        return  FemField(self.codomain, coeffs=sol_coeffs)
-           
-        
+
+        return  VectorFemField(self.codomain, coeffs=sol_coeffs)
+
     def dot( self, f_coeffs, out=None ):
 
-        f = FemField(self.domain, coeffs=f_coeffs)
+        f = VectorFemField(self.domain, coeffs=f_coeffs)
 
         return self(f).coeffs
-
 
 class ComposedLinearOperator( LinearOperator ):
 
@@ -249,9 +247,11 @@ def test_conga_2d():
     #print(V0h.vector_space)
     #print(V0h_vector_space)
 
-    u0 = BlockVector( V0h.vector_space, [u0_1.coeffs, u0_2.coeffs] )   # doesn't work
-    # u0_coeffs = BlockVector( V0h_vector_space, [u0_1.coeffs, u0_2.coeffs] )  # works but gives an error below
-    # u0 = FemField(V0h, coeffs=u0_coeffs)
+    # Create empty vector FEM field, then copy coefficients from scalar fields
+    u0 = VectorFemField(V0h)
+    u0.coeffs[0][:] = u0_1.coeffs[:]
+    u0.coeffs[1][:] = u0_2.coeffs[:]
+    u0.coeffs.update_ghost_regions()
 
     #u1 = BlockVector( V1h.vector_space, [u1_1, u1_2] )
 
