@@ -9,50 +9,76 @@ from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
 from psydac.fem.vector            import VectorFemField
 
+#==============================================================================
 class Projector_H1:
+    """
+    Projector from H1 to an H1-conforming finite element space (i.e. a finite
+    dimensional subspace of H1) constructed with tensor-product B-splines in 1,
+    2 or 3 dimensions.
 
+    This is a global projector based on interpolation over a tensor-product
+    grid in the logical domain. The interpolation grid is the tensor product of
+    the 1D splines' Greville points along each direction.
+
+    Parameters
+    ----------
+    H1 : SplineSpace or TensorFemSpace
+        H1-conforming finite element space, codomain of the projection operator
+    """
     def __init__(self, H1):
 
-        # Quadrature grids in cells defined by consecutive Greville points
+        # Number of dimensions
+        dim = H1.ldim
 
-        points = [V.greville for V in H1.spaces]
-
+        # Collocation matrices for B-splines in each direction
         H1.init_interpolation()
+        N = [V._interpolator for V in H1.spaces]
 
-        # Collocation matrices for N-splines in each direction
-        self.N   = [V._interpolator for V in H1.spaces]
-        n_basis  = [V.nbasis for V in H1.spaces]
-        self.rhs = StencilVector(H1.vector_space)
-        slices   = tuple(slice(p,-p) for p in H1.degree)
+        # Empty vector to store right-hand side of linear system
+        rhs = StencilVector(H1.vector_space)
 
-        self.space = H1
-        self.args  = (*n_basis, *points, self.rhs._data[slices])
+        # Construct arguments for computing degrees of freedom
+        n_basis = [V.nbasis for V in H1.spaces]
+        intp_x  = [V.greville for V in H1.spaces]
+        slices  = tuple(slice(p,-p) for p in H1.degree)
+        args    = (*n_basis, *intp_x, rhs._data[slices])
 
-        if len(self.N) == 1:
-            self.func = evaluate_dof_0form_1d
-        elif len(self.N) == 2:
-            self.func = evaluate_dof_0form_2d
-        elif len(self.N) == 3:
-            self.func = evaluate_dof_0form_3d
+        # Select correct function for computing degrees of freedom
+        if   dim == 1:  func = evaluate_dofs_1d_0form
+        elif dim == 2:  func = evaluate_dofs_2d_0form
+        elif dim == 3:  func = evaluate_dofs_3d_0form
         else:
-            raise ValueError('H1 projector of dimension {} not available'.format(str(len(self.N))))
+            raise ValueError('H1 projector of dimension {} not available'.format(dim))
 
-    # ======================================
+        # Store attributes in object
+        self.space = H1
+        self.N     = N
+        self.func  = func
+        self.args  = args
+        self.rhs   = rhs
+
+    #--------------------------------------------------------------------------
     def __call__(self, fun):
-        r'''
-        Projection on the space V0 via interpolation.
+        r"""
+        Project scalar function onto the H1-conforming finite element space.
+        This happens in the logical domain $\hat{\Omega}$.
 
         Parameters
         ----------
         fun : callable
-            fun(x) \in R is the 0-form to be projected.
+            Real-valued scalar function to be projected, with arguments the
+            coordinates (x_1, ..., x_N) of a point in the logical domain. This
+            corresponds to the coefficient of a 0-form.
+
+            $fun : \hat{\Omega} \mapsto \mathbb{R}$.
 
         Returns
         -------
-        coeffs : 1D array_like
-            Finite element coefficients obtained by projection.
-        '''
-
+        field : FemField
+            Field obtained by projection (element of the H1-conforming finite
+            element space). This is also a real-valued scalar function in the
+            logical domain.
+        """
         # build the rhs
         self.func(*self.args, fun)
 
@@ -65,17 +91,43 @@ class Projector_H1:
 
         return FemField(self.space, coeffs=coeffs)
 
+#==============================================================================
 class Projector_Hcurl:
+    """
+    Projector from H(curl) to an H(curl)-conforming finite element space, i.e.
+    a finite dimensional subspace of H(curl), constructed with tensor-product
+    B- and M-splines in 2 or 3 dimensions.
 
-    def __init__(self, Hcurl, n_quads=None):
+    This is a global projector constructed over a tensor-product grid in the
+    logical domain. The vertices of this grid are obtained as the tensor
+    product of the 1D splines' Greville points along each direction.
 
-        if n_quads:
-            uw = [gauss_legendre( k-1 ) for k in n_quads]
+    The H(curl) projector matches the "geometric" degrees of freedom of
+    discrete 1-forms, which are the line integrals of a vector field along cell
+    edges. To achieve this, each component of the vector field is projected
+    independently, by combining 1D histopolation along the direction of the
+    edges with 1D interpolation along the other directions.
+
+    Parameters
+    ----------
+    Hcurl : ProductFemSpace
+        H(curl)-conforming finite element space, codomain of the projection
+        operator.
+
+    nquads : list(int) | tuple(int)
+        Number of quadrature points along each direction, to be used in Gauss
+        quadrature rule for computing the (approximated) degrees of freedom.
+    """
+    def __init__(self, Hcurl, nquads=None):
+
+        dim = Hcurl.n_components
+
+        if nquads:
+            assert len(nquads) == dim
+            uw = [gauss_legendre( k-1 ) for k in nquads]
             uw = [(u[::-1], w[::-1]) for u,w in uw]
         else:
             uw = [(V.quad_grids[i].quad_rule_x,V.quad_grids[i].quad_rule_w) for i,V in enumerate(Hcurl.spaces)]
-
-        dim = len(n_quads)
 
         self.space  = Hcurl
         self.rhs    = BlockVector(Hcurl.vector_space)
@@ -110,11 +162,12 @@ class Projector_Hcurl:
 
             # Store data in object
             self.args = (*intp_x, *quad_x, *quad_w, *dofs)
-            self.func = evaluate_dof_1form_3d
+            self.func = evaluate_dofs_3d_1form
             self.Ns = Ns
             self.Ds = Ds
 
         elif dim == 2:
+
             # 1D spline spaces (B-splines of degree p and M-splines of degree p-1)
             Ns = [Hcurl.spaces[1].spaces[0], Hcurl.spaces[0].spaces[1]]
             Ds = [Hcurl.spaces[0].spaces[0], Hcurl.spaces[1].spaces[1]]
@@ -136,15 +189,36 @@ class Projector_Hcurl:
 
             # Store data in object
             self.args = (*intp_x, *quad_x, *quad_w, *dofs)
-            self.func = evaluate_dof_1form_2d
+            self.func = evaluate_dofs_2d_1form_hcurl
             self.Ns = Ns
             self.Ds = Ds
+
         else:
-            raise NotImplementedError('only 3d and 2d are available')
+            raise NotImplementedError('Hcurl projector is only available in 2D or 3D.')
 
-    # ======================================
+    #--------------------------------------------------------------------------
     def __call__(self, fun):
+        r"""
+        Project vector function onto the H(curl)-conforming finite element
+        space. This happens in the logical domain $\hat{\Omega}$.
 
+        Parameters
+        ----------
+        fun : list/tuple of callables
+            Scalar components of the real-valued vector function to be
+            projected, with arguments the coordinates (x_1, ..., x_N) of a
+            point in the logical domain. These correspond to the coefficients
+            of a 1-form in the canonical basis (dx_1, ..., dx_N).
+
+            $fun_i : \hat{\Omega} \mapsto \mathbb{R}$ with i = 1, ..., N.
+
+        Returns
+        -------
+        field : VectorFemField
+            Field obtained by projection (element of the H(curl)-conforming
+            finite element space). This is also a real-valued vector function
+            in the logical domain.
+        """
         # build the rhs
         self.func(*self.args, *fun)
 
@@ -157,23 +231,51 @@ class Projector_Hcurl:
         coeffs.update_ghost_regions()
         return VectorFemField(self.space, coeffs=coeffs)
 
+#==============================================================================
 class Projector_Hdiv:
+    """
+    Projector from H(div) to an H(div)-conforming finite element space, i.e. a
+    finite dimensional subspace of H(div), constructed with tensor-product
+    B- and M-splines in 2 or 3 dimensions.
 
-    def __init__(self, Hdiv, n_quads=None):
+    This is a global projector constructed over a tensor-product grid in the
+    logical domain. The vertices of this grid are obtained as the tensor
+    product of the 1D splines' Greville points along each direction.
 
-        if n_quads:
-            uw = [gauss_legendre( k-1 ) for k in n_quads]
+    The H(div) projector matches the "geometric" degrees of freedom of discrete
+    (N-1)-forms in N dimensions, which are the integrated flux of a vector
+    field through cell faces (in 3D) or cell edges (in 2D).
+
+    To achieve this, each component of the vector field is projected
+    independently, by combining histopolation along the direction(s) tangential
+    to the face (in 3D) or edge (in 2D), with 1D interpolation along the normal
+    direction.
+
+    Parameters
+    ----------
+    Hdiv : ProductFemSpace
+        H(div)-conforming finite element space, codomain of the projection
+        operator.
+
+    nquads : list(int) | tuple(int)
+        Number of quadrature points along each direction, to be used in Gauss
+        quadrature rule for computing the (approximated) degrees of freedom.
+    """
+    def __init__(self, Hdiv, nquads=None):
+
+        dim = Hdiv.n_components
+
+        if nquads:
+            assert len(nquads) == dim
+            uw = [gauss_legendre( k-1 ) for k in nquads]
             uw = [(u[::-1], w[::-1]) for u,w in uw]
         else:
             uw = [(V.quad_grids[i].quad_rule_x,V.quad_grids[i].quad_rule_w) for i,V in enumerate(Hdiv.spaces)]
-
-        dim = len(n_quads)
 
         self.space  = Hdiv
         self.rhs    = BlockVector(Hdiv.vector_space)
         self.dim    = dim
         self.mats   = [None]*dim
-
 
         for V in Hdiv.spaces:
             V.init_interpolation()
@@ -203,7 +305,7 @@ class Projector_Hdiv:
 
             # Store data in object
             self.args = (*intp_x, *quad_x, *quad_w, *dofs)
-            self.func = evaluate_dof_2form_3d
+            self.func = evaluate_dofs_3d_2form
             self.Ns = Ns
             self.Ds = Ds
 
@@ -229,15 +331,37 @@ class Projector_Hdiv:
 
             # Store data in object
             self.args = (*intp_x, *quad_x, *quad_w, *dofs)
-            self.func = evaluate_dof_2form_2d
+            self.func = evaluate_dofs_2d_1form_hdiv
             self.Ns = Ns
             self.Ds = Ds
+
         else:
-            raise NotImplementedError('only 3d is available')
+            raise NotImplementedError('Hdiv projector is only available in 2D or 3D.')
 
-    # ======================================
+    #--------------------------------------------------------------------------
     def __call__(self, fun):
+        r"""
+        Project vector function onto the H(div)-conforming finite element
+        space. This happens in the logical domain $\hat{\Omega}$.
 
+        Parameters
+        ----------
+        fun : list/tuples of callable
+            Scalar components of the real-valued vector function to be
+            projected, with arguments the coordinates (x_1, ..., x_N) of a
+            point in the logical domain. In 3D these correspond to the
+            coefficients of a 2-form in the canonical basis (dx_1 ∧ dx_2,
+            dx_2 ∧ dx_3, dx_3 ∧ dx_1).
+
+            $fun_i : \hat{\Omega} \mapsto \mathbb{R}$ with i = 1, ..., N.
+
+        Returns
+        -------
+        field : VectorFemField
+            Field obtained by projection (element of the H(div)-conforming
+            finite element space). This is also a real-valued vector function
+            in the logical domain.
+        """
         # build the rhs
         self.func(*self.args, *fun)
 
@@ -251,19 +375,42 @@ class Projector_Hdiv:
         coeffs.update_ghost_regions()
         return VectorFemField(self.space, coeffs=coeffs)
 
+#==============================================================================
 class Projector_L2:
+    """
+    Projector from L2 to an L2-conforming finite element space (i.e. a finite
+    dimensional subspace of L2) constructed with tensor-product M-splines in 1,
+    2 or 3 dimensions.
 
-    def __init__(self, L2, quads=None):
+    This is a global projector constructed over a tensor-product grid in the
+    logical domain. The vertices of this grid are obtained as the tensor
+    product of the 1D splines' Greville points along each direction.
+
+    The L2 projector matches the "geometric" degrees of freedom of discrete
+    N-forms in N dimensions, which are line/surface/volume integrals of a
+    scalar field over an edge/face/cell in 1/2/3 dimension(s). To this end
+    histopolation is used along each direction.
+
+    Parameters
+    ----------
+    L2 : SplineSpace
+        L2-conforming finite element space, codomain of the projection operator
+
+    nquads : list(int) | tuple(int)
+        Number of quadrature points along each direction, to be used in Gauss
+        quadrature rule for computing the (approximated) degrees of freedom.
+    """
+    def __init__(self, L2, nquads=None):
 
         # Quadrature grids in cells defined by consecutive Greville points
-        if quads:
-            uw = [gauss_legendre( k-1 ) for k in quads]
+        if nquads:
+            uw = [gauss_legendre( k-1 ) for k in nquads]
             uw = [(u[::-1], w[::-1]) for u,w in uw]
         else:
             uw = [(V.quad_rule_x,V.quad_rule_w) for V in L2.quad_grids]
 
         quads = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(L2.spaces, uw)]
-        points, weights = list(zip(*quads))
+        quad_x, quad_w = list(zip(*quads))
 
         L2.init_histopolation()
 
@@ -274,32 +421,37 @@ class Projector_L2:
         self.rhs   = StencilVector(L2.vector_space)
         slices     = tuple(slice(p+1,-p-1) for p in L2.degree)
 
-        if len(self.D) == 1:
-            self.func = evaluate_dof_3form_1d
-        elif len(self.D) == 2:
-            self.func = evaluate_dof_3form_2d
-        elif len(self.D) == 3:
-            self.func = evaluate_dof_3form_3d
+        if   len(self.D) == 1:  self.func = evaluate_dofs_1d_1form
+        elif len(self.D) == 2:  self.func = evaluate_dofs_2d_2form
+        elif len(self.D) == 3:  self.func = evaluate_dofs_3d_3form
         else:
-            raise ValueError('H1 projector of dimension {} not available'.format(str(len(self.N))))
+            raise ValueError('L2 projector of dimension {} not available'.format(str(len(self.N))))
 
-        self.args  = (*points, *weights, self.rhs._data[slices])
+        self.args  = (*quad_x, *quad_w, self.rhs._data[slices])
 
+    #--------------------------------------------------------------------------
     def __call__(self, fun):
-        r'''
-        Projection on the space V1 via histopolation.
+        r"""
+        Project scalar function onto the L2-conforming finite element space.
+        This happens in the logical domain $\hat{\Omega}$.
 
         Parameters
         ----------
         fun : callable
-            fun(x) \in R is the 1-form to be projected.
+            Real-valued scalar function to be projected, with arguments the
+            coordinates (x_1, ..., x_N) of a point in the logical domain. This
+            corresponds to the coefficient of an N-form in N dimensions, in
+            the canonical basis dx_1 ∧ ... ∧ dx_N.
+
+            $fun : \hat{\Omega} \mapsto \mathbb{R}$.
 
         Returns
         -------
-        coeffs : Vector
-            Finite element coefficients obtained by projection.
-        '''
-
+        field : FemField
+            Field obtained by projection (element of the L2-conforming finite
+            element space). This is also a real-valued scalar function in the
+            logical domain.
+        """
         # build the rhs
         self.func(*self.args, fun)
 
@@ -313,23 +465,42 @@ class Projector_L2:
         return FemField(self.space, coeffs=coeffs)
 
 #==============================================================================
-def evaluate_dof_0form_1d(n1, points_1, F, f):
+# 1D DEGREES OF FREEDOM
+#==============================================================================
+
+# TODO: cleanup
+def evaluate_dofs_1d_0form(n1, points_1, F, f):
     for i1 in range(n1):
         F[i1] = f(points_1[i1])
         
-def evaluate_dof_0form_2d(n1, n2, points_1, points_2, F, f):
+#------------------------------------------------------------------------------
+def evaluate_dofs_1d_1form(
+        quad_x1, # quadrature points
+        quad_w1, # quadrature weights
+        F,       # array of degrees of freedom (intent out)
+        f        # input scalar function (callable)
+        ):
+
+    k1 = quad_x1.shape[1]
+
+    n1, = F.shape
+    for i1 in range(n1):
+        F[i1] = 0.0
+        for g1 in range(k1):
+            F[i1] += quad_w1[i1, g1] * f(quad_x1[i1, g1])
+
+#==============================================================================
+# 2D DEGREES OF FREEDOM
+#==============================================================================
+
+# TODO: cleanup
+def evaluate_dofs_2d_0form(n1, n2, points_1, points_2, F, f):
     for i1 in range(n1):
         for i2 in range(n2):
             F[i1,i2] = f(points_1[i1], points_2[i2])
 
-def evaluate_dof_0form_3d(n1, n2, n3, points_1, points_2, points_3, F, f):
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for i3 in range(n3):
-                F[i1, i2, i3] = f(points_1[i1], points_2[i2], points_3[i3])
-
-#==============================================================================
-def evaluate_dof_1form_2d(
+#------------------------------------------------------------------------------
+def evaluate_dofs_2d_1form_hcurl(
         intp_x1, intp_x2, # interpolation points
         quad_x1, quad_x2, # quadrature points
         quad_w1, quad_w2, # quadrature weights
@@ -343,16 +514,76 @@ def evaluate_dof_1form_2d(
     n1, n2 = F1.shape
     for i1 in range(n1):
         for i2 in range(n2):
+            F1[i1, i2] = 0.0
             for g1 in range(k1):
-                F1[i1, i2] += quad_w1[i1, g1]*f1(quad_x1[i1, g1], intp_x2[i2])
+                F1[i1, i2] += quad_w1[i1, g1] * f1(quad_x1[i1, g1], intp_x2[i2])
 
     n1, n2 = F2.shape
     for i1 in range(n1):
         for i2 in range(n2):
+            F2[i1, i2] = 0.0
             for g2 in range(k2):
-                F2[i1, i2] += quad_w2[i2, g2]*f2(intp_x1[i1], quad_x2[i2, g2])
+                F2[i1, i2] += quad_w2[i2, g2] * f2(intp_x1[i1], quad_x2[i2, g2])
 
-def evaluate_dof_1form_3d(
+#------------------------------------------------------------------------------
+def evaluate_dofs_2d_1form_hdiv(
+        intp_x1, intp_x2, # interpolation points
+        quad_x1, quad_x2, # quadrature points
+        quad_w1, quad_w2, # quadrature weights
+        F1, F2,           # arrays of degrees of freedom (intent out)
+        f1, f2            # input scalar functions (callable)
+        ):
+
+    k1 = quad_x1.shape[1]
+    k2 = quad_x2.shape[1]
+
+    n1, n2 = F1.shape
+    for i1 in range(n1):
+        for i2 in range(n2):
+            F1[i1, i2] = 0.0
+            for g2 in range(k2):
+                F1[i1, i2] += quad_w2[i2, g2] * f1(intp_x1[i1], quad_x2[i2, g2])
+
+    n1, n2 = F2.shape
+    for i1 in range(n1):
+        for i2 in range(n2):
+            F2[i1, i2] = 0.0
+            for g1 in range(k1):
+                F2[i1, i2] += quad_w1[i1, g1] * f2(quad_x1[i1, g1], intp_x2[i2])
+
+#------------------------------------------------------------------------------
+def evaluate_dofs_2d_2form(
+        quad_x1, quad_x2, # quadrature points
+        quad_w1, quad_w2, # quadrature weights
+        F,                # array of degrees of freedom (intent out)
+        f,                # input scalar function (callable)
+        ):
+
+    k1 = quad_x1.shape[1]
+    k2 = quad_x2.shape[1]
+
+    n1, n2 = F.shape
+    for i1 in range(n1):
+        for i2 in range(n2):
+            F[i1, i2] = 0.0
+            for g1 in range(k1):
+                for g2 in range(k2):
+                    F[i1, i2] += quad_w1[i1, g1] * quad_w2[i2, g2] * \
+                            f(quad_x1[i1, g1], quad_x2[i2, g2])
+
+#==============================================================================
+# 3D DEGREES OF FREEDOM
+#==============================================================================
+
+# TODO: cleanup
+def evaluate_dofs_3d_0form(n1, n2, n3, points_1, points_2, points_3, F, f):
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                F[i1, i2, i3] = f(points_1[i1], points_2[i2], points_3[i3])
+
+#------------------------------------------------------------------------------
+def evaluate_dofs_3d_1form(
         intp_x1, intp_x2, intp_x3, # interpolation points
         quad_x1, quad_x2, quad_x3, # quadrature points
         quad_w1, quad_w2, quad_w3, # quadrature weights
@@ -369,9 +600,9 @@ def evaluate_dof_1form_3d(
         for i2 in range(n2):
             for i3 in range(n3):
                 F1[i1, i2, i3] = 0.0
-
                 for g1 in range(k1):
-                    F1[i1, i2, i3] += quad_w1[i1, g1] * f1(quad_x1[i1, g1], intp_x2[i2], intp_x3[i3])
+                    F1[i1, i2, i3] += quad_w1[i1, g1] * \
+                            f1(quad_x1[i1, g1], intp_x2[i2], intp_x3[i3])
 
     n1, n2, n3 = F2.shape
     for i1 in range(n1):
@@ -379,7 +610,8 @@ def evaluate_dof_1form_3d(
             for i3 in range(n3):
                 F2[i1, i2, i3] = 0.0
                 for g2 in range(k2):
-                    F2[i1, i2, i3] += quad_w2[i2, g2] * f2(intp_x1[i1], quad_x2[i2, g2], intp_x3[i3])
+                    F2[i1, i2, i3] += quad_w2[i2, g2] * \
+                            f2(intp_x1[i1], quad_x2[i2, g2], intp_x3[i3])
 
     n1, n2, n3 = F3.shape
     for i1 in range(n1):
@@ -387,35 +619,11 @@ def evaluate_dof_1form_3d(
             for i3 in range(n3):
                 F3[i1, i2, i3] = 0.0
                 for g3 in range(k3):
-                    F3[i1, i2, i3] += quad_w3[i3, g3] * f3(intp_x1[i1], intp_x2[i2], quad_x3[i3, g3])
+                    F3[i1, i2, i3] += quad_w3[i3, g3] * \
+                            f3(intp_x1[i1], intp_x2[i2], quad_x3[i3, g3])
 
-#==============================================================================
-def evaluate_dof_2form_2d(
-        intp_x1, intp_x2, # interpolation points
-        quad_x1, quad_x2, # quadrature points
-        quad_w1, quad_w2, # quadrature weights
-        F1, F2,           # arrays of degrees of freedom (intent out)
-        f1, f2            # input scalar functions (callable)
-        ):
-
-    k1 = quad_x1.shape[1]
-    k2 = quad_x2.shape[1]
-
-    n1, n2 = F1.shape
-
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for g2 in range(k2):
-                F1[i1, i2] += quad_w2[i2, g2]*f1(intp_x1[i1],quad_x2[i2, g2])
-
-    n1, n2 = F2.shape
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for g1 in range(k1):
-                F2[i1, i2] += quad_w1[i1, g1]*f2(quad_x1[i1, g1],intp_x2[i2])
-                
-
-def evaluate_dof_2form_3d(
+#------------------------------------------------------------------------------
+def evaluate_dofs_3d_2form(
         intp_x1, intp_x2, intp_x3, # interpolation points
         quad_x1, quad_x2, quad_x3, # quadrature points
         quad_w1, quad_w2, quad_w3, # quadrature weights
@@ -457,94 +665,26 @@ def evaluate_dof_2form_3d(
                         F3[i1, i2, i3] += quad_w1[i1, g1] * quad_w2[i2, g2] * \
                             f3(quad_x1[i1, g1], quad_x2[i2, g2], intp_x3[i3])
 
-#==============================================================================
-def evaluate_dof_3form_1d(points, weights, F, fun):
-    """Integrates the function f over the quadrature grid
-    defined by (points,weights) in 1d.
+#------------------------------------------------------------------------------
+def evaluate_dofs_3d_3form(
+        quad_x1, quad_x2, quad_x3, # quadrature points
+        quad_w1, quad_w2, quad_w3, # quadrature weights
+        F,                         # array of degrees of freedom (intent out)
+        f,                         # input scalar function (callable)
+        ):
 
-    points: np.array
-        a multi-dimensional array describing the quadrature points mapped onto
-        the grid. it must be constructed using construct_quadrature_grid
+    k1 = quad_x1.shape[1]
+    k2 = quad_x2.shape[1]
+    k3 = quad_x3.shape[1]
 
-    weights: np.array
-        a multi-dimensional array describing the quadrature weights (scaled) mapped onto
-        the grid. it must be constructed using construct_quadrature_grid
-
-    Examples
-
-    >>> from psydac.core.interface import make_open_knots
-    >>> from psydac.core.interface import construct_grid_from_knots
-    >>> from psydac.core.interface import construct_quadrature_grid
-    >>> from psydac.core.interface import compute_greville
-    >>> from psydac.utilities.quadratures import gauss_legendre
-
-    >>> n_elements = 8
-    >>> p = 2                    # spline degree
-    >>> n = n_elements + p - 1   # number of control points
-    >>> T = make_open_knots(p, n)
-    >>> grid = compute_greville(p, n, T)
-    >>> u, w = gauss_legendre(p)  # gauss-legendre quadrature rule
-    >>> k = len(u)
-    >>> ne = len(grid) - 1        # number of elements
-    >>> points, weights = construct_quadrature_grid(ne, k, u, w, grid)
-    >>> f = lambda u: u*(1.-u)
-    >>> f_int = integrate(points, weights, f)
-    >>> f_int
-    [0.00242954 0.01724976 0.02891156 0.03474247 0.03474247 0.02891156
-     0.01724976 0.00242954]
-    n = points.shape[0]
-    k = points.shape[1]
-    """
-    n1 = points.shape[0]
-    k1 = points.shape[1]
-
-    for ie1 in range(n1):
-        for g1 in range(k1):
-            F[ie1] += weights[ie1, g1]*fun(points[ie1, g1])
-
-def evaluate_dof_3form_2d(points_1, points_2, weights_1, weights_2, F, fun):
-
-    """Integrates the function f over the quadrature grid
-    defined by (points,weights) in 2d.
-
-    points: list, tuple
-        list of quadrature points, as they should be passed for `integrate`
-
-    weights: list, tuple
-        list of quadrature weights, as they should be passed for `integrate`
-
-    Examples
-
-    """
-
-    n1 = points_1.shape[0]
-    n2 = points_2.shape[0]
-
-    k1 = points_1.shape[1]
-    k2 = points_2.shape[1]
-
-    for ie1 in range(n1):
-        for ie2 in range(n2):
-            for g1 in range(k1):
-                for g2 in range(k2):
-                    F[ie1, ie2] += weights_1[ie1, g1]*weights_2[ie2, g2]*fun(points_1[ie1, g1], points_2[ie2, g2])
-
-
-def evaluate_dof_3form_3d(points_1, points_2, points_3,  weights_1, weights_2, weights_3, F, fun):
-
-    n1 = points_1.shape[0]
-    n2 = points_2.shape[0]
-    n3 = points_3.shape[0]
-
-    k1 = points_1.shape[1]
-    k2 = points_2.shape[1]
-    k3 = points_3.shape[1]
-
-    for ie1 in range(n1):
-        for ie2 in range(n2):
-            for ie3 in range(n3):
+    n1, n2, n3 = F.shape
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                F[i1, i2, i3] = 0.0
                 for g1 in range(k1):
                     for g2 in range(k2):
                         for g3 in range(k3):
-                            F[ie1, ie2, ie3] += weights_1[ie1, g1]*weights_2[ie2, g2]*weights_3[ie3, g3]\
-                                                       *fun(points_1[ie1, g1], points_2[ie2, g2], points_3[ie3, g3])
+                            F[i1, i2, i3] += \
+                                    quad_w1[i1, g1] * quad_w2[i2, g2] * quad_w3[i3, g3] * \
+                                    f(quad_x1[i1, g1], quad_x2[i2, g2], quad_x3[i3, g3])

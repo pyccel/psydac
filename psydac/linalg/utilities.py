@@ -1,7 +1,7 @@
 # coding: utf-8
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
-from psydac.linalg.block   import BlockVector, ProductSpace
+from psydac.linalg.block   import BlockVector, BlockVectorSpace
 
 import numpy as np
 
@@ -10,7 +10,7 @@ __all__ = ['array_to_stencil']
 def array_to_stencil(x, Xh):
     """ converts a numpy array to StencilVector or BlockVector format"""
 
-    if isinstance(Xh, ProductSpace):
+    if isinstance(Xh, BlockVectorSpace):
         u = BlockVector(Xh)
         starts = [np.array(V.starts) for V in Xh.spaces]
         ends   = [np.array(V.ends)   for V in Xh.spaces]
@@ -30,6 +30,6 @@ def array_to_stencil(x, Xh):
         shape = tuple(ends-starts+1)
         u[g] = x[:np.product(shape)].reshape(shape)
     else:
-        raise ValueError('Xh must be a StencilVectorSpace or a ProductSpace')
+        raise ValueError('Xh must be a StencilVectorSpace or a BlockVectorSpace')
 
     return u

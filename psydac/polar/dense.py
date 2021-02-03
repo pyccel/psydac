@@ -214,6 +214,10 @@ class DenseVector( Vector ):
         return DenseVector( self._space, self._data.copy() )
 
     # ...
+    def __neg__( self ):
+        return DenseVector( self._space, -self._data )
+
+    # ...
     def __mul__( self, a ):
         return DenseVector( self._space, self._data * a )
 
@@ -320,3 +324,54 @@ class DenseMatrix( Matrix ):
     # ...
     def tosparse( self ):
         return coo_matrix( self._data )
+
+    # ...
+    def copy(self):
+        return DenseMatrix(self.domain, self.codomain, self._data.copy())
+
+    # ...
+    def __neg__(self):
+        return DenseMatrix(self.domain, self.codomain, -self._data)
+
+    # ...
+    def __mul__(self, a):
+        return DenseMatrix(self.domain, self.codomain, self._data * a)
+
+    # ...
+    def __rmul__(self, a):
+        return DenseMatrix(self.domain, self.codomain, a * self._data)
+
+    # ...
+    def __add__(self, m):
+        assert isinstance(m, DenseMatrix)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        return DenseMatrix(self.domain, self.codomain, self._data + m._data)
+
+    # ...
+    def __sub__(self, m):
+        assert isinstance(m, DenseMatrix)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        return DenseMatrix(self.domain, self.codomain, self._data - m._data)
+
+    # ...
+    def __imul__(self, a):
+        self._data *= a
+        return self
+
+    # ...
+    def __iadd__(self, m):
+        assert isinstance(m, DenseMatrix)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        self._data += m._data
+        return self
+
+    # ...
+    def __isub__(self, m):
+        assert isinstance(m, DenseMatrix)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        self._data -= m._data
+        return self

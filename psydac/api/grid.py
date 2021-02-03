@@ -10,7 +10,7 @@ from psydac.fem.tensor             import TensorFemSpace
 from psydac.fem.vector             import ProductFemSpace
 #==============================================================================
 class QuadratureGrid():
-    def __init__( self, V, quad_order=None ):
+    def __init__( self, V , axis=None, ext=None):
 
         if isinstance(V, ProductFemSpace):
             V = V.spaces[0]
@@ -21,6 +21,29 @@ class QuadratureGrid():
         self._local_element_end   = [g.local_element_end   for g in V.quad_grids]
         self._points              = [g.points              for g in V.quad_grids]
         self._weights             = [g.weights             for g in V.quad_grids]
+        self._axis                = axis
+        self._ext                 = ext
+
+        if axis is not None:
+            points  = self.points
+            weights = self.weights
+
+            # ...
+            if V.ldim == 1 and isinstance(V, SplineSpace):
+                bounds = {-1: V.domain[0],
+                           1: V.domain[1]}
+            elif isinstance(V, TensorFemSpace):
+                bounds = {-1: V.spaces[axis].domain[0],
+                           1: V.spaces[axis].domain[1]}
+            else:
+                raise ValueError('Incompatible type(V) = {} in {} dimensions'.format(
+                    type(V), V.ldim))
+
+            points [axis] = np.asarray([[bounds[ext]]])
+            weights[axis] = np.asarray([[1.]])
+            # ...
+            self._points  = points
+            self._weights = weights
 
     @property
     def fem_grid(self):
@@ -54,43 +77,6 @@ class QuadratureGrid():
     def quad_order(self):
         return [w.shape[1] for w in self.weights]
 
-#==============================================================================
-class BoundaryQuadratureGrid(QuadratureGrid):
-    def __init__( self, V, axis, ext, quad_order=None ):
-        assert( not( isinstance(V, ProductFemSpace) ) )
-
-        QuadratureGrid.__init__( self, V, quad_order=quad_order )
-
-        points  = self.points
-        weights = self.weights
-
-        # ...
-        if V.ldim == 1:
-            assert( isinstance( V, SplineSpace ) )
-
-            bounds     = {}
-            bounds[-1] = V.domain[0]
-            bounds[1]  = V.domain[1]
-
-            points[axis]  = np.asarray([[bounds[ext]]])
-            weights[axis] = np.asarray([[1.]])
-
-        elif V.ldim in [2, 3]:
-            assert( isinstance( V, TensorFemSpace ) )
-
-            bounds     = {}
-            bounds[-1] = V.spaces[axis].domain[0]
-            bounds[1]  = V.spaces[axis].domain[1]
-
-            points[axis]  = np.asarray([[bounds[ext]]])
-            weights[axis] = np.asarray([[1.]])
-        # ...
-
-        self._axis    = axis
-        self._ext     = ext
-        self._points  = points
-        self._weights = weights
-
     @property
     def axis(self):
         return self._axis
@@ -108,14 +94,14 @@ class BasisValues():
     V : FemSpace
        the space that contains the basis values and the spans.
 
-    grid : QuadratureGrid
-        the quadrature grid of the of the discretized domain.
-
     nderiv : int
         the maximum number of derivatives needed for the basis values.
 
     trial : bool, optional
         the trial parameter indicates if the FemSpace represents the trial space or the test space.
+
+    grid : QuadratureGrid, optional
+        needed for the basis values on the boundary to indicate the boundary over an axis.
 
     ext : int, optional
         needed for the basis values on the boundary to indicate the boundary over an axis.
@@ -128,9 +114,9 @@ class BasisValues():
         The spans of the basis functions.
 
     """
-    def __init__( self, V, grid, nderiv , trial=False, ext=None):
+    def __init__( self, V, nderiv , trial=False, grid=None, ext=None):
 
-        assert( isinstance( grid, QuadratureGrid ) )
+        self._space = V
 
         if isinstance(V, ProductFemSpace):
             starts = V.vector_space.starts
@@ -164,7 +150,7 @@ class BasisValues():
         self._spans = spans
         self._basis = basis
 
-        if isinstance(grid, BoundaryQuadratureGrid):
+        if grid and grid.axis is not None:
             axis = grid.axis
             for i,Vi in enumerate(V):
                 space  = Vi.spaces[axis]
@@ -184,6 +170,10 @@ class BasisValues():
     @property
     def spans(self):
         return self._spans
+
+    @property
+    def space(self):
+        return self._space
 
 #==============================================================================
 # TODO have a parallel version of this function, as done for fem

@@ -80,7 +80,7 @@ def pull_2d_h1(func_ini, mapping):
     return fun
 
 #==============================================================================
-def pull_2d_hcurl(func_ini, mapping):
+def pull_2d_hcurl(funcs_ini, mapping):
 
     mapping  = mapping.get_callable_mapping()
     f1,f2    = mapping._func_eval
@@ -113,7 +113,7 @@ def pull_2d_hcurl(func_ini, mapping):
     return fun1, fun2
 
 #==============================================================================
-def pull_2d_hdiv(func_ini, mapping):
+def pull_2d_hdiv(funcs_ini, mapping):
 
     mapping    = mapping.get_callable_mapping()
     f1,f2      = mapping._func_eval
@@ -353,19 +353,14 @@ def push_1d_l2(func, xi1, mapping):
 #==============================================================================
 def push_2d_hcurl(a1, a2, xi1, xi2, mapping):
 
-    mapping    = mapping.get_callable_mapping()
-    J_inv      = mapping._jacobian_inv
+    F = mapping.get_callable_mapping()
+    J_inv_value = F.jacobian_inv(xi1, xi2)
 
-    J_inv_value = J_inv(xi1, xi2)
+    a1_value = a1(xi1, xi2)
+    a2_value = a2(xi1, xi2)
 
-    value1 = (J_inv_value[0,0]*a1(xi1, xi2) +
-              J_inv_value[1,0]*a2(xi1, xi2))
-
-    value2 = (J_inv_value[0,1]*a1(xi1, xi2) +
-              J_inv_value[1,1]*a2(xi1, xi2))
-
-    value3 = (J_inv_value[0,2]*a1(xi1, xi2) +
-              J_inv_value[1,2]*a2(xi1, xi2))
+    value1 = J_inv_value[0, 0] * a1_value + J_inv_value[1, 0] * a2_value
+    value2 = J_inv_value[0, 1] * a1_value + J_inv_value[1, 1] * a2_value
 
     return value1, value2
 
@@ -384,17 +379,18 @@ def push_2d_hdiv(a1, a2, xi1, xi2, mapping):
 
     value2 = ( J_value[1,0]*a1(xi1, xi2) +
                J_value[1,1]*a2(xi1, xi2)) / det_value
+
     return value1, value2
 
 #==============================================================================
 def push_2d_l2(func, xi1, xi2, mapping):
 
-    mapping    = mapping.get_callable_mapping()
-    metric_det = mapping._metric_det
+    F = mapping.get_callable_mapping()
 
-    det_value = metric_det(xi1, xi2)**0.5
+    det_value = F.metric_det(xi1, xi2)**0.5
     value     = func(xi1, xi2)
-    return value/det_value
+
+    return value / det_value
 
 #==============================================================================
 # 3D PUSH-FORWARDS

@@ -5,7 +5,8 @@ import numpy as np
 from random import random
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.block   import ProductSpace, BlockVector, BlockLinearOperator, BlockMatrix
+from psydac.linalg.block   import BlockVectorSpace, BlockVector
+from psydac.linalg.block   import BlockLinearOperator, BlockMatrix
 
 #===============================================================================
 # SERIAL TESTS
@@ -37,7 +38,7 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
     M2.remove_spurious_entries()
     M3.remove_spurious_entries()
 
-    W = ProductSpace(V, V)
+    W = BlockVectorSpace(V, V)
 
     # Construct a BlockLinearOperator object containing M1, M2, M, using 3 ways
     #     |M1  M2|
@@ -121,7 +122,7 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
     M3.remove_spurious_entries()
     M4.remove_spurious_entries()
 
-    W = ProductSpace(V, V)
+    W = BlockVectorSpace(V, V)
     # Construct a BlockMatrix object containing M1, M2, M3 and M4, using 3 ways
     #     |M1  M2|
     # L = |      |
@@ -230,7 +231,7 @@ def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
     x2.update_ghost_regions()
 
     # Create and Fill Block objects
-    W = ProductSpace(V, V)
+    W = BlockVectorSpace(V, V)
     L = BlockLinearOperator( W, W )
     L[0,0] = M1
     L[0,1] = M2

@@ -8,7 +8,6 @@ from sympde.calculus import grad, dot, inner, cross, rot, curl, div
 from sympde.calculus import laplace, hessian
 from sympde.topology import dx1, dx2, dx3
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
 from sympde.topology import element_of
 from sympde.topology import Boundary, NormalVector, TangentVector
 from sympde.topology import Domain, Line, Square, Cube
@@ -216,6 +215,7 @@ def test_api_glt_poisson_2d_dir_1():
     assert(np.allclose([error], [0.029738578422276972]))
 
 #==============================================================================
+@pytest.mark.xfail
 def test_api_glt_field_2d_dir_1():
 
     error = run_field_2d_dir(ncells=[2**3,2**3], degree=[2,2])

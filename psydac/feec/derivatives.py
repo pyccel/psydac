@@ -4,7 +4,7 @@ import numpy as np
 
 from psydac.linalg.stencil  import StencilMatrix, StencilVectorSpace
 from psydac.linalg.kron     import KroneckerStencilMatrix
-from psydac.linalg.block    import ProductSpace, BlockVector, BlockLinearOperator, BlockMatrix
+from psydac.linalg.block    import BlockVectorSpace, BlockVector, BlockLinearOperator, BlockMatrix
 from psydac.fem.vector      import ProductFemSpace
 from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.identity import IdentityLinearOperator, IdentityStencilMatrix as IdentityMatrix
@@ -170,20 +170,19 @@ class Gradient_2D(DiffOperator):
         # Build Gradient matrix block by block
         blocks = [[KroneckerStencilMatrix(B_B, M_B, *(Dx, Iy))],
                   [KroneckerStencilMatrix(B_B, B_M, *(Ix, Dy))]]
-        matrix = BlockMatrix(ProductSpace(H1.vector_space), Hcurl.vector_space, blocks=blocks)
+        matrix = BlockMatrix(BlockVectorSpace(H1.vector_space), Hcurl.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
         self._codomain = Hcurl
         self._matrix   = block_tostencil(matrix)
 
-    def __call__(self, x):
+    def __call__(self, u):
 
-        assert isinstance(x, FemField)
-        assert x.space == self._domain
+        assert isinstance(u, FemField)
+        assert u.space == self.domain
 
-        y = BlockVector(ProductSpace(x.coeffs.space), blocks=[x.coeffs])
-        coeffs = self._matrix.dot(y)
+        coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
         return VectorFemField(self.codomain, coeffs=coeffs)
@@ -231,20 +230,19 @@ class Gradient_3D(DiffOperator):
         blocks = [[KroneckerStencilMatrix(B_B_B, M_B_B, *(Dx, Iy, Iz))],
                   [KroneckerStencilMatrix(B_B_B, B_M_B, *(Ix, Dy, Iz))],
                   [KroneckerStencilMatrix(B_B_B, B_B_M, *(Ix, Iy, Dz))]]
-        matrix = BlockMatrix(ProductSpace(H1.vector_space), Hcurl.vector_space, blocks=blocks)
+        matrix = BlockMatrix(BlockVectorSpace(H1.vector_space), Hcurl.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
         self._codomain = Hcurl
         self._matrix   = block_tostencil(matrix)
 
-    def __call__(self, x):
+    def __call__(self, u):
 
-        assert isinstance(x, FemField)
-        assert x.space == self._domain
+        assert isinstance(u, FemField)
+        assert u.space == self.domain
 
-        y = BlockVector(ProductSpace(x.coeffs.space), blocks=[x.coeffs])
-        coeffs = self._matrix.dot(y)
+        coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
         return VectorFemField(self.codomain, coeffs=coeffs)
@@ -294,7 +292,7 @@ class ScalarCurl_2D(DiffOperator):
         # Build Curl matrix block by block
         f = KroneckerStencilMatrix
         blocks = [[f(M_B, M_M, *(-Jx, Dy)), f(B_M, M_M, *(Dx, Jy))]]
-        matrix = BlockMatrix(Hcurl.vector_space, ProductSpace(L2.vector_space), blocks=blocks)
+        matrix = BlockMatrix(Hcurl.vector_space, BlockVectorSpace(L2.vector_space), blocks=blocks)
 
         # Store data in object
         self._domain   = Hcurl
@@ -306,7 +304,7 @@ class ScalarCurl_2D(DiffOperator):
         assert isinstance(u, VectorFemField)
         assert u.space == self.domain
         
-        coeffs = self.matrix.dot(u.coeffs)[0]
+        coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
         return FemField(self.codomain, coeffs=coeffs)
@@ -352,7 +350,7 @@ class VectorCurl_2D(DiffOperator):
         # Build Curl matrix block by block
         blocks = [[KroneckerStencilMatrix(B_B, B_M, *( Ix, Dy))],
                   [KroneckerStencilMatrix(B_B, M_B, *(-Dx, Iy))]]
-        matrix = BlockMatrix(ProductSpace(H1.vector_space), Hdiv.vector_space, blocks=blocks)
+        matrix = BlockMatrix(BlockVectorSpace(H1.vector_space), Hdiv.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
@@ -364,8 +362,7 @@ class VectorCurl_2D(DiffOperator):
         assert isinstance(u, FemField)
         assert u.space == self.domain
 
-        x      = BlockVector(ProductSpace(u.coeffs.space), blocks=[u.coeffs])
-        coeffs = self.matrix.dot(x)
+        coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
         return VectorFemField(self.codomain, coeffs=coeffs)
@@ -486,22 +483,22 @@ class Divergence_2D(DiffOperator):
         # Build Divergence matrix block by block
         f = KroneckerStencilMatrix
         blocks = [[f(B_M, M_M, *(Dx, Jy)), f(M_B, M_M, *(Jx, Dy))]]
-        matrix = BlockMatrix(Hdiv.vector_space, ProductSpace(L2.vector_space), blocks=blocks) 
+        matrix = BlockMatrix(Hdiv.vector_space, BlockVectorSpace(L2.vector_space), blocks=blocks) 
 
         # Store data in object
         self._domain   = Hdiv
         self._codomain = L2
         self._matrix   = block_tostencil(matrix)
 
-    def __call__(self, x):
+    def __call__(self, u):
 
-        assert isinstance(x, VectorFemField)
-        assert x.space == self._domain
+        assert isinstance(u, VectorFemField)
+        assert u.space == self.domain
 
-        coeffs = self._matrix.dot(x.coeffs)
+        coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
-        return FemField(self._codomain, coeffs=coeffs[0])
+        return FemField(self.codomain, coeffs=coeffs)
 
 #====================================================================================================
 class Divergence_3D(DiffOperator):
@@ -550,19 +547,19 @@ class Divergence_3D(DiffOperator):
         # Build Divergence matrix block by block
         f = KroneckerStencilMatrix
         blocks = [[f(B_M_M, M_M_M, *(Dx, Jy, Jz)), f(M_B_M, M_M_M, *(Jx, Dy, Jz)), f(M_M_B, M_M_M, *(Jx, Jy, Dz))]]
-        matrix = BlockMatrix(Hdiv.vector_space, ProductSpace(L2.vector_space), blocks=blocks) 
+        matrix = BlockMatrix(Hdiv.vector_space, BlockVectorSpace(L2.vector_space), blocks=blocks) 
 
         # Store data in object
         self._domain   = Hdiv
         self._codomain = L2
         self._matrix   = block_tostencil(matrix)
 
-    def __call__(self, x):
+    def __call__(self, u):
 
-        assert isinstance(x, VectorFemField)
-        assert x.space == self._domain
+        assert isinstance(u, VectorFemField)
+        assert u.space == self.domain
 
-        coeffs = self._matrix.dot(x.coeffs)
+        coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
-        return FemField(self._codomain, coeffs=coeffs[0])
+        return FemField(self.codomain, coeffs=coeffs)

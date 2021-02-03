@@ -354,7 +354,8 @@ class Parser(object):
 
     def _visit_DefNode(self, expr, **kwargs):
 
-        args = expr.arguments.copy()
+        args   = expr.arguments.copy()
+        f_args = ()
 
         tests_basis = args.pop('tests_basis')
         trial_basis = args.pop('trial_basis',[])
@@ -370,10 +371,17 @@ class Parser(object):
         l_pads  = args.pop('local_pads', None)
 
         mats = args.pop('mats')
-
-        l_coeffs   =  args.pop('coeffs', None)
+        
         map_coeffs = args.pop('mapping', None)
         constants  = args.pop('constants', None)
+
+        f_coeffs   = args.pop('f_coeffs',    None)
+        
+        if f_coeffs:
+            f_span     = args.pop('f_span',      [])
+            f_basis    = args.pop('field_basis', [])
+            f_degrees  = args.pop('fields_degrees', [])
+            f_args     = (*f_basis, *f_span, *f_degrees, *f_coeffs)
 
         inits = []
         if l_pads:
@@ -407,13 +415,15 @@ class Parser(object):
         if map_coeffs:
             arguments += [self._visit(i, **kwargs) for i in map_coeffs]
 
-        if l_coeffs:
-            arguments += [self._visit(i, **kwargs) for i in l_coeffs]
-
         if constants:
             arguments += [self._visit(i, **kwargs) for i in constants]
 
-        body = tuple(self._visit(i, **kwargs) for i in expr.body)
+        if f_args:
+            f_args     = [self._visit(i, **kwargs) for i in f_args]
+            f_args     = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in f_args]
+            arguments += flatten(f_args)
+
+        body = flatten(tuple(self._visit(i, **kwargs) for i in expr.body))
 
         for k,i in self.shapes.items():
             var = self.variables[k]
@@ -1456,24 +1466,26 @@ class Parser(object):
         # update with product statements if available
         body = list(p_inits) + list(geo_stmts) + list(stmts)
         mask = expr.mask
+
         if mask:
             axis   = mask.axis
             index  = indices.pop(axis)
             length = lengths.pop(axis)
             init   = inits.pop(axis)
             mask_init = [Assign(index, 0), *init]
-
         for index, length, init in zip(indices[::-1], lengths[::-1], inits[::-1]):
 
             body = list(init) + body
             body = [For(index, Range(length), body)]
         # ...
         # remove the list and return the For Node only
-        body = body[0]
 
         if mask:
-            body = CodeBlock([*mask_init, body])
-
+            body = CodeBlock([*mask_init, *body])
+        elif len(body) > 1:
+            body = CodeBlock(body)
+        elif len(body) == 1:
+            body = body[0]
         return body
 
     # ....................................................

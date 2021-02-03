@@ -61,13 +61,15 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
 
     # First guess of solution
     if x0 is None:
-        x = 0.0 * b.copy()
+        x  = b.copy()
+        x *= 0.0
     else:
         assert( x0.shape == (n,) )
         x = x0.copy()
 
     # First values
-    r  = b - A.dot( x )
+    v  = A.dot(x)
+    r  = b - v
     am = r.dot( r )
     p  = r.copy()
 
@@ -79,20 +81,22 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
         print( "+ Iter. # | L2-norm of residual |")
         print( "+---------+---------------------+")
         template = "| {:7d} | {:19.2e} |"
+        print( template.format( 1, sqrt( am ) ) )
 
     # Iterate to convergence
-    for m in range( 1, maxiter+1 ):
+    for m in range( 2, maxiter+1 ):
 
         if am < tol_sqr:
             m -= 1
             break
 
-        v   = A.dot( p )
+        v   = A.dot(p, out=v)
         l   = am / v.dot( p )
         x  += l*p
         r  -= l*v
         am1 = r.dot( r )
-        p   = r + (am1/am)*p
+        p  *= (am1/am)
+        p  += r
         am  = am1
 
         if verbose:
@@ -153,54 +157,53 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
 
     # First guess of solution
     if x0 is None:
-        x = 0.0 * b.copy()
+        x  = b.copy()
+        x *= 0.0
     else:
         assert( x0.shape == (n,) )
         x = x0.copy()
 
-    # First values
-    r = b - A.dot(x)
+    # Preconditioner
+    psolve = globals()[pc]
 
-    nrmr0_sqr = r.dot(r)
+    # First values
+    v = A.dot(x)
+    r = b - v
+    nrmr_sqr = r.dot(r)
+
+    s  = psolve(A, r)
+    am = s.dot(r)
+    p  = s.copy()
+
     tol_sqr = tol**2
 
-    psolve = eval(pc)
-    s = psolve(A, r)
-    p = s
-    sr = s.dot(r)
-
     if verbose:
-        print( "CG solver:" )
+        print( "Pre-conditioned CG solver:" )
         print( "+---------+---------------------+")
         print( "+ Iter. # | L2-norm of residual |")
         print( "+---------+---------------------+")
         template = "| {:7d} | {:19.2e} |"
+        print( template.format(1, sqrt(nrmr_sqr)))
 
     # Iterate to convergence
-    for k in range(1, maxiter+1):
+    for k in range(2, maxiter+1):
 
-        q = A.dot(p)
-        alpha  = sr / p.dot(q)
-
-        x  = x + alpha*p
-        r  = r - alpha*q
-
-        s = A.dot(r)
-
-        nrmr_sqr = r.dot(r)
-
-        if nrmr_sqr < tol_sqr*nrmr0_sqr:
+        if nrmr_sqr < tol_sqr:
             k -= 1
             break
 
+        v  = A.dot(p, out=v)
+        l  = am / v.dot(p)
+        x += l*p
+        r -= l*v
+
+        nrmr_sqr = r.dot(r)
         s = psolve(A, r)
 
-        srold = sr
-        sr = s.dot(r)
-
-        beta = sr/srold
-
-        p = s + beta*p
+        am1 = s.dot(r)
+        p  *= (am1/am)
+        p  += s
+        am  = am1
 
         if verbose:
             print( template.format(k, sqrt(nrmr_sqr)))
@@ -209,7 +212,7 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         print( "+---------+---------------------+")
 
     # Convergence information
-    info = {'niter': k, 'success': nrmr_sqr < tol_sqr*nrmr0_sqr, 'res_norm': sqrt(nrmr_sqr) }
+    info = {'niter': k, 'success': nrmr_sqr < tol_sqr, 'res_norm': sqrt(nrmr_sqr) }
 
     return x, info
 # ...
@@ -219,66 +222,40 @@ def jacobi(A, b):
     """
     Jacobi preconditioner.
     ----------
-    A : psydac.linalg.stencil.StencilMatrix
+    A : psydac.linalg.stencil.StencilMatrix | psydac.linalg.block.BlockMatrix
         Left-hand-side matrix A of linear system.
 
-    b : psydac.linalg.stencil.StencilVector
+    b : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
         Right-hand-side vector of linear system.
 
     Returns
     -------
-    x : psydac.linalg.stencil.StencilVector
-        Converged solution.
+    x : psydac.linalg.stencil.StencilVector | psydac.linalg.block.BlockVector
+        Preconditioner solution
 
     """
-    from psydac.linalg.stencil import StencilVector
+    from psydac.linalg.block   import BlockMatrix, BlockVector
+    from psydac.linalg.stencil import StencilMatrix, StencilVector
 
-    n = A.shape[0]
+    # Sanity checks
+    assert isinstance(A, (StencilMatrix, BlockMatrix))
+    assert isinstance(b, (StencilVector, BlockVector))
+    assert A.codomain == A.domain
+    assert A.codomain == b.space
 
-    assert(A.shape == (n,n))
-    assert(b.shape == (n, ))
+    #-------------------------------------------------------------
+    # Handle the case of a block linear system
+    if isinstance(A, BlockMatrix):
+        x = [jacobi(A[i, i], bi) for i, bi in enumerate(b.blocks)]
+        return BlockVector(b.space, blocks=x)
+    #-------------------------------------------------------------
 
     V = b.space
-    x = StencilVector(V)
+    i = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+    ii = i + (0,) * V.ndim
 
-    # ...
-    if V.ndim == 1:
-        [s1] = V.starts
-        [e1] = V.ends
-        [p1] = V.pads
-
-        x[:] = 0.
-
-        for i1 in range(s1, e1+1):
-                x[i1] = A[i1, 0]
-                x[i1] = b[i1]/ x[i1]
-
-    elif V.ndim == 2:
-        [s1, s2] = V.starts
-        [e1, e2] = V.ends
-        [p1, p2] = V.pads
-
-        x[:,:] = 0.
-
-        for i1 in range(s1, e1+1):
-            for i2 in range(s2, e2+1):
-                x[i1, i2] = A[i1, i2, 0, 0]
-                x[i1, i2] = b[i1, i2]/ x[i1, i2]
-
-    elif V.ndim == 3:
-        [s1, s2, s3] = V.starts
-        [e1, e2, e3] = V.ends
-        [p1, p2, p3] = V.pads
-
-        x[:,:, :] = 0.
-
-        for i1 in range(s1, e1+1):
-            for i2 in range(s2, e2+1):
-                for i3 in range(s3, e3+1):
-                    x[i1, i2. i3] = A[i1, i2, i3, 0, 0, 0]
-                    x[i1, i2, i3] = b[i1, i2, i3]/ x[i1, i2, i3]
-    #...
-
+    x = b.copy()
+    x[i] /= A[ii]
     x.update_ghost_regions()
 
     return x

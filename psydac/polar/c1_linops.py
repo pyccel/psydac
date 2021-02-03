@@ -113,6 +113,57 @@ class LinearOperator_StencilToDense( Matrix ):
     def tosparse( self ):
         return self.tocoo()
 
+    # ...
+    def copy(self):
+        return LinearOperator_StencilToDense(self.domain, self.codomain, self._data.copy())
+
+    # ...
+    def __neg__(self):
+        return LinearOperator_StencilToDense(self.domain, self.codomain, -self._data)
+
+    # ...
+    def __mul__(self, a):
+        return LinearOperator_StencilToDense(self.domain, self.codomain, self._data * a)
+
+    # ...
+    def __rmul__(self, a):
+        return LinearOperator_StencilToDense(self.domain, self.codomain, a * self._data)
+
+    # ...
+    def __add__(self, m):
+        assert isinstance(m, LinearOperator_StencilToDense)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        return LinearOperator_StencilToDense(self.domain, self.codomain, self._data + m._data)
+
+    # ...
+    def __sub__(self, m):
+        assert isinstance(m, LinearOperator_StencilToDense)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        return LinearOperator_StencilToDense(self.domain, self.codomain, self._data - m._data)
+
+    # ...
+    def __imul__(self, a):
+        self._data *= a
+        return self
+
+    # ...
+    def __iadd__(self, m):
+        assert isinstance(m, LinearOperator_StencilToDense)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        self._data += m._data
+        return self
+
+    # ...
+    def __isub__(self, m):
+        assert isinstance(m, LinearOperator_StencilToDense)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        self._data -= m._data
+        return self
+
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
@@ -232,6 +283,56 @@ class LinearOperator_DenseToStencil( Matrix ):
     def tosparse( self ):
         return self.tocoo()
 
+    # ...
+    def copy(self):
+        return LinearOperator_DenseToStencil(self.domain, self.codomain, self._data.copy())
+
+    # ...
+    def __neg__(self):
+        return LinearOperator_DenseToStencil(self.domain, self.codomain, -self._data)
+
+    # ...
+    def __mul__(self, a):
+        return LinearOperator_DenseToStencil(self.domain, self.codomain, self._data * a)
+
+    # ...
+    def __rmul__(self, a):
+        return LinearOperator_DenseToStencil(self.domain, self.codomain, a * self._data)
+
+    # ...
+    def __add__(self, m):
+        assert isinstance(m, LinearOperator_DenseToStencil)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        return LinearOperator_DenseToStencil(self.domain, self.codomain, self._data + m._data)
+
+    # ...
+    def __sub__(self, m):
+        assert isinstance(m, LinearOperator_DenseToStencil)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        return LinearOperator_DenseToStencil(self.domain, self.codomain, self._data - m._data)
+
+    # ...
+    def __imul__(self, a):
+        self._data *= a
+        return self
+
+    # ...
+    def __iadd__(self, m):
+        assert isinstance(m, LinearOperator_DenseToStencil)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        self._data += m._data
+        return self
+
+    # ...
+    def __isub__(self, m):
+        assert isinstance(m, LinearOperator_DenseToStencil)
+        assert self.  domain == m.  domain
+        assert self.codomain == m.codomain
+        self._data -= m._data
+        return self
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------

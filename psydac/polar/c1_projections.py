@@ -6,8 +6,8 @@ import numpy as np
 
 from psydac.mapping.discrete import SplineMapping
 from psydac.linalg.stencil   import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.block     import ProductSpace, BlockVector, BlockMatrix
-from psydac.polar .dense     import DenseVectorSpace, DenseVector, DenseMatrix
+from psydac.linalg.block     import BlockVector, BlockMatrix
+from psydac.polar .dense     import DenseVector, DenseMatrix
 from psydac.polar.c1_spaces  import new_c1_vector_space
 from psydac.polar.c1_linops  import LinearOperator_StencilToDense
 from psydac.polar.c1_linops  import LinearOperator_DenseToStencil
