@@ -47,7 +47,7 @@ class ConformingProjection( LinearOperator ):
     todo
 
     """
-    def __init__( self, V0h, domain_h):
+    def __init__( self, V0h_1, V0h_2, domain_h_1, domain_h_2, V0h, domain_h):
 
         V0 = V0h.symbolic_space
         domain = V0.domain
@@ -69,9 +69,17 @@ class ConformingProjection( LinearOperator ):
 
         self._A = ah.assemble()  #.toarray()
 
-        f = element_of(V0, name='f')
-        l = LinearForm(v, integral(domain, f*v))
-        self._lh = discretize(l, domain_h, V0h)
+        V0_1 = V0h_1.symbolic_space
+        V0_2 = V0h_2.symbolic_space
+
+        v1, f1 = elements_of(V0_1, names='v1, f1')
+        v2, f2 = elements_of(V0_2, names='v2, f2')
+ 
+        l1 = LinearForm(v1, integral(V0_1.domain, f1*v1))
+        l2 = LinearForm(v2, integral(V0_2.domain, f2*v2))
+
+        self._lh_1 = discretize(l1, domain_h_1, V0h_1)
+        self._lh_2 = discretize(l2, domain_h_2, V0h_2)
 
     @property
     def domain( self ):
@@ -84,7 +92,11 @@ class ConformingProjection( LinearOperator ):
 
     def __call__( self, f ):
 
-        b = self._lh.assemble(f=f)
+        f1,f2 = f.fields
+
+        b1 = self._lh_1.assemble(f1=f1)
+        b2 = self._lh_2.assemble(f2=f2)
+        b  = BlockVector(self.codomain.vector_space, blocks=[b1, b2])
 
         sol_coeffs, info = cg( self._A, b, tol=1e-13, verbose=True )
 
@@ -163,7 +175,7 @@ def test_conga_2d():
     ncells=[2**2, 2**2]
     degree=[2,2]
 
-    domain_h = discretize(domain, ncells=ncells)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
     
     ## derham for later
     # derham_h = discretize(derham, domain_h, degree=degree)      # build them by hand if this doesn't work
@@ -259,7 +271,7 @@ def test_conga_2d():
     # u0        = P0(fun1)
     # u1        = P1((D1fun1, D2fun1))
 
-    Pconf_0 = ConformingProjection(V0h, domain_h)
+    Pconf_0 = ConformingProjection(V0h_1, V0h_2, domain_h_1, domain_h_2, V0h, domain_h)
 
     u0_conf   = Pconf_0(u0)
     Dfun_h    = D0(u0)
@@ -340,7 +352,6 @@ def test_conga_2d():
     D0_transp = ComposedLinearOperator(Pconf_0,broken_D0.T)
 
 
-
     # plot ?
     # (use example from poisson_2d_multipatch ??)
 
@@ -408,3 +419,4 @@ def test_conga_2d():
 if __name__ == '__main__':
 
     test_conga_2d()
+

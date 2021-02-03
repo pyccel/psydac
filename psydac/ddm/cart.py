@@ -222,6 +222,11 @@ class CartDecomposition():
     def subcomm( self ):
         return self._subcomm
 
+    def __eq__( self, a):
+        a = (a.npts, a.pads, a.periods, a.comm)
+        b = (self.npts, self.pads, self.periods, self.comm)
+        return a == b
+
     #---------------------------------------------------------------------------
     def topetsc( self ):
         """ Convert the cart to a petsc cart.

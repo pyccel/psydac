@@ -119,6 +119,8 @@ class BlockVector( Vector ):
             # Verify that vectors belong to correct spaces and store them
             assert isinstance( blocks, (list, tuple) )
             # assert all( (Vi is bi.space) for Vi,bi in zip( V.spaces, blocks ) )    #  DEBUG
+            assert all( (Vi == bi.space) for Vi,bi in zip( V.spaces, blocks ) )
+
             self._blocks = list( blocks )
         else:
             # TODO: Each block is a 'zeros' vector of the correct space for now,
