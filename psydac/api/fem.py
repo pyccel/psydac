@@ -5,47 +5,44 @@
 
 # TODO: avoid using os.system and use subprocess.call
 
-
-from sympde.expr     import BasicForm as sym_BasicForm
-from sympde.expr     import BilinearForm as sym_BilinearForm
-from sympde.expr     import LinearForm as sym_LinearForm
-from sympde.expr     import Functional as sym_Functional
-from sympde.expr     import Equation as sym_Equation
-from sympde.expr     import Boundary as sym_Boundary, Interface as sym_Interface
-from sympde.expr     import Norm as sym_Norm
-from sympde.topology import Domain, Boundary
-from sympde.topology import Line, Square, Cube
-from sympde.topology import BasicFunctionSpace
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import ProductSpace
-from sympde.topology import Mapping
-from sympde.topology import H1SpaceType, L2SpaceType, UndefinedSpaceType
-
-from sympde.calculus.core  import PlusInterfaceOperator, MinusInterfaceOperator
-
-from psydac.api.basic           import BasicDiscrete
-from psydac.api.basic           import random_string
-from psydac.api.grid            import QuadratureGrid, BasisValues
-from psydac.api.ast.glt         import GltKernel
-from psydac.api.ast.glt         import GltInterface
-from psydac.api.glt             import DiscreteGltExpr
-from psydac.api.utilities       import flatten
-
-from psydac.linalg.stencil      import StencilVector, StencilMatrix, StencilInterfaceMatrix
-
-from psydac.linalg.block        import BlockVector, BlockMatrix
-from psydac.cad.geometry        import Geometry
-from psydac.mapping.discrete    import SplineMapping, NurbsMapping
-from psydac.fem.vector          import ProductFemSpace
-from psydac.fem.basic           import FemField
-from psydac.fem.vector          import VectorFemField
-
 from collections import OrderedDict
 from sympy import ImmutableDenseMatrix, Matrix
 import inspect
 import sys
 import numpy as np
 
+from sympde.expr          import BasicForm as sym_BasicForm
+from sympde.expr          import BilinearForm as sym_BilinearForm
+from sympde.expr          import LinearForm as sym_LinearForm
+from sympde.expr          import Functional as sym_Functional
+from sympde.expr          import Equation as sym_Equation
+from sympde.expr          import Boundary as sym_Boundary, Interface as sym_Interface
+from sympde.expr          import Norm as sym_Norm
+from sympde.topology      import Domain, Boundary
+from sympde.topology      import Line, Square, Cube
+from sympde.topology      import BasicFunctionSpace
+from sympde.topology      import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.topology      import ProductSpace
+from sympde.topology      import Mapping
+from sympde.topology      import H1SpaceType, L2SpaceType, UndefinedSpaceType
+from sympde.calculus.core import PlusInterfaceOperator, MinusInterfaceOperator
+
+from psydac.api.basic        import BasicDiscrete
+from psydac.api.basic        import random_string
+from psydac.api.grid         import QuadratureGrid, BasisValues
+from psydac.api.ast.glt      import GltKernel
+from psydac.api.ast.glt      import GltInterface
+from psydac.api.glt          import DiscreteGltExpr
+from psydac.api.utilities    import flatten
+from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfaceMatrix
+from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockMatrix
+from psydac.cad.geometry     import Geometry
+from psydac.mapping.discrete import SplineMapping, NurbsMapping
+from psydac.fem.vector       import ProductFemSpace
+from psydac.fem.basic        import FemField
+from psydac.fem.vector       import VectorFemField
+
+#==============================================================================
 def get_quad_order(Vh):
     if isinstance(Vh, ProductFemSpace):
         Vh = Vh.spaces[0]
@@ -216,8 +213,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
             #...
             # If process does not own the boundary or interface, do not assemble anything
-            import psydac
-            if isinstance(test_space.vector_space, psydac.linalg.block.ProductSpace):
+            if isinstance(test_space.vector_space, BlockVectorSpace):
                 vector_space = test_space.vector_space.spaces[0]
             else:
                 vector_space = test_space.vector_space
@@ -473,8 +469,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
             #...
             # If process does not own the boundary or interface, do not assemble anything
-            import psydac
-            if isinstance(self.space.vector_space, psydac.linalg.block.ProductSpace):
+            if isinstance(self.space.vector_space, BlockVectorSpace):
                 vector_space = self.space.vector_space.spaces[0]
             else:
                 vector_space = self.space.vector_space

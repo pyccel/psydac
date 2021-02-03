@@ -146,7 +146,7 @@ class VectorFemSpace( FemSpace ):
 
 # TODO still experimental
 #===============================================================================
-from psydac.linalg.block import ProductSpace
+from psydac.linalg.block import BlockVectorSpace
 class ProductFemSpace( FemSpace ):
     """
     Product of FEM space
@@ -178,7 +178,7 @@ class ProductFemSpace( FemSpace ):
 
         # ...
         v_spaces = [V.vector_space for V in self.spaces]
-        self._vector_space = ProductSpace(*v_spaces)
+        self._vector_space = BlockVectorSpace(*v_spaces)
         # ...
 
     #--------------------------------------------------------------------------

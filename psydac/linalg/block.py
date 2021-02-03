@@ -8,10 +8,10 @@ from scipy.sparse       import bmat
 
 from psydac.linalg.basic   import VectorSpace, Vector, LinearOperator, Matrix
 
-__all__ = ['ProductSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix']
+__all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix']
 
 #===============================================================================
-class ProductSpace( VectorSpace ):
+class BlockVectorSpace( VectorSpace ):
     """
     Product Vector Space V of two Vector Spaces (V1,V2) or more.
 
@@ -29,13 +29,13 @@ class ProductSpace( VectorSpace ):
 
         # If no spaces are passed, raise an error
         if len(spaces) == 0:
-            raise ValueError('Cannot create a ProductSpace of zero spaces')
+            raise ValueError('Cannot create a BlockVectorSpace of zero spaces')
 
         # If only one space is passed, return it without creating a new object
         if len(spaces) == 1:
             return spaces[0]
 
-        # Create a new ProductSpace object
+        # Create a new BlockVectorSpace object
         return VectorSpace.__new__(cls)
 
     # ...
@@ -98,11 +98,11 @@ class ProductSpace( VectorSpace ):
 #===============================================================================
 class BlockVector( Vector ):
     """
-    Block of Vectors, which is an element of a ProductSpace.
+    Block of Vectors, which is an element of a BlockVectorSpace.
 
     Parameters
     ----------
-    V : psydac.linalg.block.ProductSpace
+    V : psydac.linalg.block.BlockVectorSpace
         Space to which the new vector belongs.
 
     blocks : list or tuple (psydac.linalg.basic.Vector)
@@ -111,7 +111,7 @@ class BlockVector( Vector ):
     """
     def __init__( self,  V, blocks=None ):
 
-        assert isinstance( V, ProductSpace )
+        assert isinstance( V, BlockVectorSpace )
         self._space = V
 
         # We store the blocks in a List so that we can change them later.
@@ -235,7 +235,7 @@ class BlockLinearOperator( LinearOperator ):
     """
     Linear operator that can be written as blocks of other Linear Operators.
     Either the domain or the codomain of this operator, or both, should be of
-    class ProductSpace.
+    class BlockVectorSpace.
 
     Parameters
     ----------
@@ -261,15 +261,15 @@ class BlockLinearOperator( LinearOperator ):
         assert isinstance( V1, VectorSpace )
         assert isinstance( V2, VectorSpace )
 
-        if not (isinstance(V1, ProductSpace) or isinstance(V2, ProductSpace)):
-            raise TypeError("Either domain or codomain must be of type ProductSpace")
+        if not (isinstance(V1, BlockVectorSpace) or isinstance(V2, BlockVectorSpace)):
+            raise TypeError("Either domain or codomain must be of type BlockVectorSpace")
 
         self._domain   = V1
         self._codomain = V2
         self._blocks   = OrderedDict()
 
-        self._nrows = V2.n_blocks if isinstance(V2, ProductSpace) else 1
-        self._ncols = V1.n_blocks if isinstance(V1, ProductSpace) else 1
+        self._nrows = V2.n_blocks if isinstance(V2, BlockVectorSpace) else 1
+        self._ncols = V1.n_blocks if isinstance(V1, BlockVectorSpace) else 1
 
         # Store blocks in OrderedDict (hence they can be manually changed later)
         if blocks:
@@ -411,10 +411,10 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
 
     Parameters
     ----------
-    V1 : psydac.linalg.block.ProductSpace
+    V1 : psydac.linalg.block.BlockVectorSpace
         Domain of the new linear operator.
 
-    V2 : psydac.linalg.block.ProductSpace
+    V2 : psydac.linalg.block.BlockVectorSpace
         Codomain of the new linear operator.
 
     blocks : dict | (list of lists) | (tuple of tuples)
