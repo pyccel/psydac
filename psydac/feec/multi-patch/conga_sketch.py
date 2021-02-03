@@ -47,20 +47,17 @@ class ConformingProjection( LinearOperator ):
     todo
 
     """
-    def __init__( self, V0h ):
+    def __init__( self, V0h, domain_h):
 
-        # assert isinstance( domain_h , discretized domain )  ## ?
-        # assert isinstance( Vh , discretized space )  ## ?
-
-        V0 = V0h.symbolic_space  # (check)
+        V0 = V0h.symbolic_space
         domain = V0.domain
-        domain_h = V0h.domain  # (check)
+        # domain_h = V0h.domain  # would be nice
         
         self._domain   = V0h
         self._codomain = V0h
 
         u, v = elements_of(V0, names='u, v')
-        expr   = dot(u,v)
+        expr   = u*v  # dot(u,v)
 
         kappa  = 10**20
         I = domain.interfaces  # note: interfaces does not include the boundary 
@@ -68,19 +65,25 @@ class ConformingProjection( LinearOperator ):
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
 
-
         ah = discretize(a, domain_h, [V0h, V0h])    # ... or (V0h, V0h)?
 
         self._A = ah.assemble()  #.toarray()
 
         f = element_of(V0, name='f')
-        l = LinearForm(v, f*v)
+        l = LinearForm(v, integral(domain, f*v))
         self._lh = discretize(l, domain_h, V0h)
+
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
 
 
     def __call__( self, f ):
 
-        
         b = self._lh.assemble(f=f)
         
         sol_coeffs, info = cg( self._A, b, tol=1e-13, verbose=True )
@@ -246,9 +249,9 @@ def test_conga_2d():
     #print(V0h.vector_space)
     #print(V0h_vector_space)
 
-    # u0 = BlockVector( V0h.vector_space, [u0_1.coeffs, u0_2.coeffs] )   # doesn't work
-    u0_coeffs = BlockVector( V0h_vector_space, [u0_1.coeffs, u0_2.coeffs] )  # works but gives an error below
-    u0 = FemField(V0h, coeffs=u0_coeffs)
+    u0 = BlockVector( V0h.vector_space, [u0_1.coeffs, u0_2.coeffs] )   # doesn't work
+    # u0_coeffs = BlockVector( V0h_vector_space, [u0_1.coeffs, u0_2.coeffs] )  # works but gives an error below
+    # u0 = FemField(V0h, coeffs=u0_coeffs)
 
     #u1 = BlockVector( V1h.vector_space, [u1_1, u1_2] )
 
@@ -256,7 +259,7 @@ def test_conga_2d():
     # u0        = P0(fun1)
     # u1        = P1((D1fun1, D2fun1))
 
-    Pconf_0 = ConformingProjection(V0h)
+    Pconf_0 = ConformingProjection(V0h, domain_h)
 
     u0_conf   = Pconf_0(u0)
     Dfun_h    = D0(u0)
