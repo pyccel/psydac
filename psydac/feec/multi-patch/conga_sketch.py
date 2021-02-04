@@ -3,6 +3,7 @@
 from mpi4py import MPI
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from sympde.calculus import grad, dot, inner, rot, div
 from sympde.calculus import laplace, bracket, convect
@@ -22,7 +23,8 @@ from psydac.api.discretization import discretize
 from psydac.linalg.basic import LinearOperator
 # ProductSpace
 from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
-from psydac.linalg.iterative_solvers import cg
+from psydac.linalg.iterative_solvers import cg, pcg
+from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.identity import IdentityLinearOperator #, IdentityStencilMatrix as IdentityMatrix
 
 from psydac.fem.basic   import FemField
@@ -30,6 +32,8 @@ from psydac.fem.vector import ProductFemSpace, VectorFemField
 
 from psydac.feec.derivatives import Gradient_2D
 from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
+
+from psydac.utilities.utils    import refine_array_1d
 
 
 comm = MPI.COMM_WORLD
@@ -59,7 +63,7 @@ class ConformingProjection( LinearOperator ):
         u, v = elements_of(V0, names='u, v')
         expr   = u*v  # dot(u,v)
 
-        kappa  = 10**20
+        kappa  = 1000 # 10**20
         I = domain.interfaces  # note: interfaces does not include the boundary 
         expr_I = kappa*( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
@@ -67,7 +71,8 @@ class ConformingProjection( LinearOperator ):
 
         ah = discretize(a, domain_h, [V0h, V0h])    # ... or (V0h, V0h)?
 
-        self._A = ah.assemble()  #.toarray()
+        self._A = ah.assemble() #.toarray()
+        self._solver = SparseSolver( self._A.tosparse() )
 
         V0_1 = V0h_1.symbolic_space
         V0_2 = V0h_2.symbolic_space
@@ -98,7 +103,10 @@ class ConformingProjection( LinearOperator ):
         b2 = self._lh_2.assemble(f2=f2)
         b  = BlockVector(self.codomain.vector_space, blocks=[b1, b2])
 
-        sol_coeffs, info = cg( self._A, b, tol=1e-13, verbose=True )
+        # sol_coeffs, info = cg( self._A, b, tol=1e-13, verbose=True )
+        sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=1e-6, verbose=True )  # doesn't cv
+        #
+        # sol_coeffs = self._solver.solve( b )
 
         return  VectorFemField(self.codomain, coeffs=sol_coeffs)
 
@@ -164,8 +172,11 @@ def test_conga_2d():
                 bnd_minus = domain_1.get_boundary(axis=1, ext=1),
                 bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
 
+    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
+
     # multi-patch de Rham sequence:
     derham  = Derham(domain, ["H1", "Hcurl"])
+
 
 
     #+++++++++++++++++++++++++++++++
@@ -198,6 +209,23 @@ def test_conga_2d():
     V0h_2 = discretize(derham_2.V0, domain_h_2, degree=degree)
     V1h_1 = discretize(derham_1.V1, domain_h_1, degree=degree)
     V1h_2 = discretize(derham_2.V1, domain_h_2, degree=degree)
+
+    # try also
+    patch_domains = [domain_1, domain_2]
+    patch_domains_h = [discretize(patch_domain, ncells=ncells, comm=comm) for patch_domain in patch_domains]
+    patch_derhams  = [Derham(patch_domain, ["H1", "Hcurl"]) for patch_domain in patch_domains]
+    patch_derhams_h = [discretize(patch_derham, patch_domain_h, degree=degree)
+                 for patch_domain_h, patch_derham in zip(patch_domains_h, patch_derhams)]
+
+    patch_V0s_h = [  discretize(patch_derham.V0, patch_domain_h, degree=degree)
+                  for patch_domain_h, patch_derham in zip(patch_domains_h, patch_derhams)]
+
+    # patch_V0h = patch_derhams_h[0].V0
+    # print("*-*:", patch_V0h)
+    #
+    # patch_V0h = patch_V0s_h[0]
+    # print("*+*:", patch_V0h)
+    # exit()
 
 
     V0h_vector_space = BlockVectorSpace(V0h_1.vector_space, V0h_2.vector_space)
@@ -238,12 +266,38 @@ def test_conga_2d():
     # . test commuting diagram
     #+++++++++++++++++++++++++++++++
 
+    x,y       = domain.coordinates
+    solution  = x**2 + y**2
+    solution_aux = 0
+
+    from sympy import lambdify
+    solution = lambdify(domain.coordinates, solution)
+    solution_aux = lambdify(domain.coordinates, solution_aux)
+
     fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
     D1fun1  = lambda xi1, xi2 : np.cos(xi1)*np.sin(xi2)
     D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
 
-    u0_1 = P0_1(fun1)
-    u0_2 = P0_2(fun1)
+    # fun2    = lambda xi1, xi2 : .5*np.sin(xi1)*np.sin(xi2)
+
+
+    # pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
+
+    # print(mapping_1.items()[1])
+    # M.logical_coordinates, M.expressions) for d,M in mappings.items()]
+    F1 = mapping_1.get_callable_mapping()
+    F2 = mapping_2.get_callable_mapping()
+    F = [F1,F2]
+
+    solution_log_1 = lambda xi1, xi2 : solution(*F1(xi1,xi2))
+    solution_log_2 = lambda xi1, xi2 : solution_aux(*F2(xi1,xi2))
+
+    # u0_1 = P0_1(fun1)
+    # u0_2 = P0_2(fun1)
+
+    u0_1 = P0_1(solution_log_1)
+    u0_2 = P0_2(solution_log_2)
+
 
     u1_1 = P1_1((D1fun1, D2fun1))
     u1_2 = P1_2((D1fun1, D2fun1))
@@ -273,7 +327,111 @@ def test_conga_2d():
 
     Pconf_0 = ConformingProjection(V0h_1, V0h_2, domain_h_1, domain_h_2, V0h, domain_h)
 
-    u0_conf   = Pconf_0(u0)
+    # u0_conf   = Pconf_0(u0)
+    u0c = Pconf_0(u0)
+
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # VISUALIZATION  adapted from examples/poisson_2d_multi_patch.py
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    N = 20
+
+    etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
+
+    mappings = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
+    # solution = lambdify(domain.coordinates, solution)
+
+    pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
+    num     = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0.fields, etas)]
+    num_c   = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0c.fields, etas)]
+    ex      = [np.array( [[solution( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
+
+    pcoords  = np.concatenate(pcoords, axis=1)
+    num      = np.concatenate(num,     axis=1)
+    num_c    = np.concatenate(num_c,     axis=1)
+    ex       = np.concatenate(ex,      axis=1)
+
+    err      = abs(num - ex)
+
+    xx = pcoords[:,:,0]
+    yy = pcoords[:,:,1]
+
+    plotted_patch = 1
+
+    if plotted_patch is not None:
+        assert plotted_patch in [0, 1]
+
+        #patch_derham = patch_derhams_h[plotted_patch]
+        grid_x1 = patch_derhams_h[plotted_patch].V0.breaks[0]
+        grid_x2 = patch_derhams_h[plotted_patch].V0.breaks[1]
+
+        print("grid_x1 = ", grid_x1)
+
+        x1 = refine_array_1d(grid_x1, N)
+        x2 = refine_array_1d(grid_x2, N)
+
+        x1, x2 = np.meshgrid(x1, x2, indexing='ij')
+        x, y = F[plotted_patch](x1, x2)
+
+        print("x1 = ", x1)
+
+        gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
+        gridlines_x2 = (x[::N, :].T, y[::N, :].T)
+        gridlines = (gridlines_x1, gridlines_x2)
+
+
+    fig = plt.figure(figsize=(17., 4.8))
+
+    ax = fig.add_subplot(1, 3, 1)
+
+    if plotted_patch is not None:
+        ax.plot(*gridlines_x1, color='k')
+        ax.plot(*gridlines_x2, color='k')
+    cp = ax.contourf(xx, yy, ex, 50, cmap='jet')
+    cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
+    ax.set_xlabel( r'$x$', rotation='horizontal' )
+    ax.set_ylabel( r'$y$', rotation='horizontal' )
+    ax.set_title ( r'$u_{ex}(x,y)$' )
+
+
+    ax = fig.add_subplot(1, 3, 2)
+    cp2 = ax.contourf(xx, yy, num, 50, cmap='jet')
+    cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
+
+    ax.set_xlabel( r'$x$', rotation='horizontal' )
+    ax.set_ylabel( r'$y$', rotation='horizontal' )
+    ax.set_title ( r'$u_h(x,y)$' )
+
+    ax = fig.add_subplot(1, 3, 3)
+    cp3 = ax.contourf(xx, yy, num_c, 50, cmap='jet')
+    # cp3 = ax.contourf(xx, yy, err, 50, cmap='jet')
+    cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
+
+    ax.set_xlabel( r'$x$', rotation='horizontal' )
+    ax.set_ylabel( r'$y$', rotation='horizontal' )
+    ax.set_title ( r'$u_c(x,y)$' )
+    # ax.set_title ( r'$u_h(x,y) - u_{ex}(x,y)$' )
+    plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     Dfun_h    = D0(u0)
     Dfun_proj = u1
 
