@@ -3,44 +3,39 @@
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add quad_order too?
 
-# TODO: avoid using os.system and use subprocess.call
-
 from collections import OrderedDict
-from sympy import ImmutableDenseMatrix, Matrix
-import inspect
-import sys
-import numpy as np
 
-from sympde.expr          import BasicForm as sym_BasicForm
+import numpy as np
+from sympy import ImmutableDenseMatrix, Matrix
+
 from sympde.expr          import BilinearForm as sym_BilinearForm
 from sympde.expr          import LinearForm as sym_LinearForm
 from sympde.expr          import Functional as sym_Functional
-from sympde.expr          import Equation as sym_Equation
-from sympde.expr          import Boundary as sym_Boundary, Interface as sym_Interface
 from sympde.expr          import Norm as sym_Norm
-from sympde.topology      import Domain, Boundary
-from sympde.topology      import Line, Square, Cube
-from sympde.topology      import BasicFunctionSpace
-from sympde.topology      import ScalarFunctionSpace, VectorFunctionSpace
+from sympde.topology      import Boundary, Interface
+from sympde.topology      import VectorFunctionSpace
 from sympde.topology      import ProductSpace
-from sympde.topology      import Mapping
 from sympde.topology      import H1SpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.calculus.core import PlusInterfaceOperator, MinusInterfaceOperator
+from sympde.calculus.core import PlusInterfaceOperator
 
 from psydac.api.basic        import BasicDiscrete
 from psydac.api.basic        import random_string
 from psydac.api.grid         import QuadratureGrid, BasisValues
-from psydac.api.ast.glt      import GltKernel
-from psydac.api.ast.glt      import GltInterface
-from psydac.api.glt          import DiscreteGltExpr
 from psydac.api.utilities    import flatten
 from psydac.linalg.stencil   import StencilVector, StencilMatrix, StencilInterfaceMatrix
 from psydac.linalg.block     import BlockVectorSpace, BlockVector, BlockMatrix
 from psydac.cad.geometry     import Geometry
-from psydac.mapping.discrete import SplineMapping, NurbsMapping
+from psydac.mapping.discrete import NurbsMapping
 from psydac.fem.vector       import ProductFemSpace
 from psydac.fem.basic        import FemField
 from psydac.fem.vector       import VectorFemField
+
+__all__ = (
+    'DiscreteBilinearForm',
+    'DiscreteFunctional',
+    'DiscreteLinearForm',
+    'DiscreteSumForm',
+)
 
 #==============================================================================
 def get_quad_order(Vh):
@@ -178,7 +173,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         trial_sym_space  = trial_space.symbolic_space
         if test_sym_space.is_broken:
             domains = test_sym_space.domain.interior.args
-            if isinstance(domain, sym_Interface):
+            if isinstance(domain, Interface):
                 ij = [domains.index(domain.minus.domain), domains.index(domain.plus.domain)]
                 if isinstance(self.kernel_expr.test, PlusInterfaceOperator):
                     ij.reverse()
@@ -186,7 +181,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 test_space  = test_space.spaces[i]
                 trial_space = trial_space.spaces[j]
             else:
-                if isinstance(domain, sym_Boundary):
+                if isinstance(domain, Boundary):
                     i = domains.index(domain.domain)
                 else:
                     i = domains.index(domain)
@@ -196,11 +191,11 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._spaces[0].symbolic_space = trial_sym_space
             self._spaces[1].symbolic_space = test_sym_space
 
-        if isinstance(domain, sym_Boundary):
+        if isinstance(domain, Boundary):
             axis      = domain.axis
             test_ext  = domain.ext
             trial_ext = domain.ext
-        elif isinstance(domain, sym_Interface):
+        elif isinstance(domain, Interface):
             axis       = domain.axis
             test_ext   = -1 if isinstance(self.kernel_expr.test,  PlusInterfaceOperator) else 1
             trial_ext  = -1 if isinstance(self.kernel_expr.trial, PlusInterfaceOperator) else 1
@@ -209,7 +204,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             test_ext  = None
             trial_ext = None
 
-        if isinstance(domain, (sym_Boundary, sym_Interface)):
+        if isinstance(domain, (Boundary, Interface)):
 
             #...
             # If process does not own the boundary or interface, do not assemble anything
@@ -371,7 +366,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._matrix = BlockMatrix(trial_space, test_space, global_mats)
 
         elif is_broken:
-            if isinstance(target, sym_Interface):
+            if isinstance(target, Interface):
                 axis        = target.axis
                 test_spans  = self.test_basis.spans
                 trial_spans = self.trial_basis.spans
@@ -452,7 +447,7 @@ class DiscreteLinearForm(BasicDiscrete):
         if test_sym_space.is_broken:
             domains = test_sym_space.domain.interior.args
 
-            if isinstance(domain, sym_Boundary):
+            if isinstance(domain, Boundary):
                 i = domains.index(domain.domain)
             else:
                 i = domains.index(domain)
@@ -460,7 +455,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         self._space.symbolic_space  = test_sym_space
 
-        if not isinstance(domain, sym_Boundary):
+        if not isinstance(domain, Boundary):
             ext  = None
             axis = None
         else:
@@ -664,7 +659,7 @@ class DiscreteFunctional(BasicDiscrete):
         if test_sym_space.is_broken:
             domains = test_sym_space.domain.interior.args
 
-            if isinstance(domain, sym_Boundary):
+            if isinstance(domain, Boundary):
                 i = domains.index(domain.domain)
             else:
                 i = domains.index(domain)
@@ -673,7 +668,7 @@ class DiscreteFunctional(BasicDiscrete):
         self._symbolic_space  = test_sym_space
         self._domain          = domain
 
-        if isinstance(domain, sym_Boundary):
+        if isinstance(domain, Boundary):
             ext        = domain.ext
             axis       = domain.axis
         else:
