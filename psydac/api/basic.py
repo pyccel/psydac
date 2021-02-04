@@ -5,43 +5,22 @@
 
 # TODO: avoid using os.system and use subprocess.call
 
-from collections import OrderedDict
-from collections import namedtuple
-
-from pyccel.ast.core import Nil
-
-from sympde.topology import Domain
-
-from psydac.api.ast.fem  import AST
-from psydac.api.ast.parser import parse
-
-from psydac.api.printing.pycode      import pycode
-from psydac.api.essential_bc         import apply_essential_bc
-from psydac.api.settings             import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
-from psydac.linalg.stencil           import StencilVector, StencilMatrix
-from psydac.linalg.iterative_solvers import cg
-from psydac.fem.splines              import SplineSpace
-from psydac.fem.tensor               import TensorFemSpace
-from psydac.fem.vector               import ProductFemSpace
-from psydac.cad.geometry             import Geometry
-from psydac.mapping.discrete         import SplineMapping, NurbsMapping
-from psydac.api.utilities            import mkdir_p, touch_init_file, random_string, write_code
-
-from sympde.topology.space import ScalarField, VectorField, IndexedVectorField
-from sympy import Add, Mul
-
-import inspect
 import sys
 import os
 import importlib
-import string
-import random
-import numpy as np
 from mpi4py import MPI
+
+from psydac.api.ast.fem         import AST
+from psydac.api.ast.parser      import parse
+from psydac.api.printing.pycode import pycode
+from psydac.api.settings        import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
+from psydac.api.utilities       import mkdir_p, touch_init_file, random_string, write_code
+
+__all__ = ('BasicCodeGen', 'BasicDiscrete')
 
 #==============================================================================
 # TODO have it as abstract class
-class BasicCodeGen(object):
+class BasicCodeGen:
     """ Basic class for any discrete concept that needs code generation """
 
     def __init__(self, expr, **kwargs):
