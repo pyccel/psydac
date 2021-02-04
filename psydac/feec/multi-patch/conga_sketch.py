@@ -245,26 +245,9 @@ def test_conga_2d():
 
 
     #+++++++++++++++++++++++++++++++
-    # . Commuting projectors
+    # . some target functions
     #+++++++++++++++++++++++++++++++
 
-    # create an instance of the H1 projector class
-    # P0 = Projector_H1(V0h)   # todo
-    # P1 = Projector_Hcurl(V1h)
-
-    # P0 = Projector_H1(V0h)
-
-    P0_1 = Projector_H1(V0h_1)
-    P0_2 = Projector_H1(V0h_2)
-
-    n_quads = [5,5]
-    P1_1 = Projector_Hcurl(V1h_1, n_quads)
-    P1_2 = Projector_Hcurl(V1h_2, n_quads)
-
-
-    #+++++++++++++++++++++++++++++++
-    # . test commuting diagram
-    #+++++++++++++++++++++++++++++++
 
     x,y       = domain.coordinates
     solution  = x**2 + y**2
@@ -292,26 +275,22 @@ def test_conga_2d():
     solution_log_1 = lambda xi1, xi2 : solution(*F1(xi1,xi2))
     solution_log_2 = lambda xi1, xi2 : solution_aux(*F2(xi1,xi2))
 
-    # u0_1 = P0_1(fun1)
-    # u0_2 = P0_2(fun1)
+
+    #+++++++++++++++++++++++++++++++
+    # . H1, Hcurl (commuting) projectors
+    #+++++++++++++++++++++++++++++++
+
+    # create an instance of the H1 projector class
+    # P0 = Projector_H1(V0h)   # todo
+    # P1 = Projector_Hcurl(V1h)
+    # u0        = P0(fun1)
+    # u1        = P1((D1fun1, D2fun1))
+
+    P0_1 = Projector_H1(V0h_1)
+    P0_2 = Projector_H1(V0h_2)
 
     u0_1 = P0_1(solution_log_1)
     u0_2 = P0_2(solution_log_2)
-
-
-    u1_1 = P1_1((D1fun1, D2fun1))
-    u1_2 = P1_2((D1fun1, D2fun1))
-
-    # print("u0_1: ", u0_1)
-    # print("u0_1.space: ", u0_1.space)
-    # # print("u0_1.coeffs: ", u0_1.coeffs)
-    # print("u0_1.coeffs.space: ", u0_1.coeffs.space)
-    # print("V0h.vector_space: ", V0h.vector_space)
-    # print("V0h.vector_space.spaces[0]: ", V0h.vector_space.spaces[0])
-    # print("V0h_vector_space.spaces[0]:", V0h_vector_space.spaces[0])
-
-    #print(V0h.vector_space)
-    #print(V0h_vector_space)
 
     # Create empty vector FEM field, then copy coefficients from scalar fields
     u0 = VectorFemField(V0h)
@@ -319,16 +298,72 @@ def test_conga_2d():
     u0.coeffs[1][:] = u0_2.coeffs[:]
     u0.coeffs.update_ghost_regions()
 
-    #u1 = BlockVector( V1h.vector_space, [u1_1, u1_2] )
+    n_quads = [5,5]
+    P1_1 = Projector_Hcurl(V1h_1, n_quads)
+    P1_2 = Projector_Hcurl(V1h_2, n_quads)
 
-    # later:
-    # u0        = P0(fun1)
-    # u1        = P1((D1fun1, D2fun1))
+    u1_1 = P1_1((D1fun1, D2fun1))
+    u1_2 = P1_2((D1fun1, D2fun1))
 
-    Pconf_0 = ConformingProjection(V0h_1, V0h_2, domain_h_1, domain_h_2, V0h, domain_h)
 
-    # u0_conf   = Pconf_0(u0)
-    u0c = Pconf_0(u0)
+
+
+    #+++++++++++++++++++++++++++++++
+    # . conf projection operators
+    #+++++++++++++++++++++++++++++++
+
+    test_Pconf = False
+
+    if test_Pconf:
+
+        # projection from broken multipatch space to conforming subspace (using the same basis)
+        Pconf_0 = ConformingProjection(V0h_1, V0h_2, domain_h_1, domain_h_2, V0h, domain_h)
+        # u0_conf   = Pconf_0(u0)
+        u0c = Pconf_0(u0)
+
+
+
+    #+++++++++++++++++++++++++++++++
+    # . Differential operators
+    #   on conforming and broken spaces
+    #+++++++++++++++++++++++++++++++
+
+    test_D0 = True
+
+    # "broken grad" operator, coincides with the grad on the conforming subspace of V0h
+    # later: broken_D0 = Gradient_2D(V0h, V1h)   # on multi-patch domains we should maybe provide the "BrokenGradient"
+
+    if test_D0:
+
+        # building multi-patch gradient by hand (later would be nice to have it as an operator between multi-patch spaces)
+        D0_1 = Gradient_2D(V0h_1, V1h_1)
+        D0_2 = Gradient_2D(V0h_2, V1h_2)
+
+        du0_1 = D0_1(u0_1)
+        du0_2 = D0_2(u0_2)
+
+        # Create empty multi-patch FEM field, then copy coefficients from single-patch fields
+        du0 = VectorFemField(V1h)
+
+        # patch 1
+        du0.coeffs[0][0][:] = du0_1[0].coeffs[:]
+        du0.coeffs[0][1][:] = du0_1[1].coeffs[:]
+        du0.coeffs.update_ghost_regions()
+
+        # patch 2
+        du0.coeffs[1][0][:] = du0_2[0].coeffs[:]
+        du0.coeffs[1][1][:] = du0_2[1].coeffs[:]
+        du0.coeffs.update_ghost_regions()
+
+        # > this should allow to define a multi-patch operator: broken_D0
+
+    test_conga_D0 = False
+    if test_conga_D0:
+
+        # Conga grad operator (on the broken V0h)
+        conga_D0 = ComposedLinearOperator(broken_D0,Pconf_0)
+
+
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # VISUALIZATION  adapted from examples/poisson_2d_multi_patch.py
@@ -343,15 +378,39 @@ def test_conga_2d():
 
     pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
     num     = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0.fields, etas)]
-    num_c   = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0c.fields, etas)]
     ex      = [np.array( [[solution( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
+    if test_Pconf:
+        num_c   = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0c.fields, etas)]
+
+    elif test_D0:
+        num_du_x = 2*[None]
+        num_du_y = 2*[None]
+
+        for k in [0,1]:
+            # patch k
+            eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
+            for i, x1i in enumerate(eta_1[:, 0]):
+                for j, x2j in enumerate(eta_2[0, :]):
+                    num_du_x[k][i, j], num_du_y[k][i, j] = \
+                        push_2d_hcurl(du0.fields[k][0], du0.fields[k][1], x1i, x2j, F[k])
+
+                        # [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(du0.fields[0], etas)]
+            #
+            #         Ex_values[i, j], Ey_values[i, j] = \
+            #             push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, mapping)
+
 
     pcoords  = np.concatenate(pcoords, axis=1)
     num      = np.concatenate(num,     axis=1)
-    num_c    = np.concatenate(num_c,     axis=1)
     ex       = np.concatenate(ex,      axis=1)
-
     err      = abs(num - ex)
+
+    if test_Pconf:
+        num_c    = np.concatenate(num_c,     axis=1)
+
+    elif test_D0:
+        num_du_x = np.concatenate(num_du_x,     axis=1)
+        num_du_y = np.concatenate(num_du_y,     axis=1)
 
     xx = pcoords[:,:,0]
     yy = pcoords[:,:,1]
@@ -402,15 +461,32 @@ def test_conga_2d():
     ax.set_ylabel( r'$y$', rotation='horizontal' )
     ax.set_title ( r'$u_h(x,y)$' )
 
-    ax = fig.add_subplot(1, 3, 3)
-    cp3 = ax.contourf(xx, yy, num_c, 50, cmap='jet')
-    # cp3 = ax.contourf(xx, yy, err, 50, cmap='jet')
-    cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
 
-    ax.set_xlabel( r'$x$', rotation='horizontal' )
-    ax.set_ylabel( r'$y$', rotation='horizontal' )
-    ax.set_title ( r'$u_c(x,y)$' )
-    # ax.set_title ( r'$u_h(x,y) - u_{ex}(x,y)$' )
+    if test_Pconf:
+        ax = fig.add_subplot(1, 3, 3)
+        cp3 = ax.contourf(xx, yy, num_c, 50, cmap='jet')
+        # cp3 = ax.contourf(xx, yy, err, 50, cmap='jet')
+        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
+
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_title ( r'$u_c(x,y)$' )
+        # ax.set_title ( r'$u_h(x,y) - u_{ex}(x,y)$' )
+
+
+    elif test_D0:
+
+        ax = fig.add_subplot(1, 3, 3)
+        cp3 = ax.contourf(xx, yy, num_du_x, 50, cmap='jet')
+        # cp3 = ax.contourf(xx, yy, err, 50, cmap='jet')
+        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
+
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_title ( r'$du_x(x,y)$' )
+
+
+
     plt.show()
 
 
@@ -422,9 +498,9 @@ def test_conga_2d():
 
 
 
-
-
-
+    #+++++++++++++++++++++++++++++++
+    # . test commuting diagram
+    #+++++++++++++++++++++++++++++++
 
 
 
