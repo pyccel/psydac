@@ -241,9 +241,7 @@ class AST(object):
         trials = expand_hdiv_hcurl(trials)
         fields = expand_hdiv_hcurl(fields)
 
-        atoms_types = (ScalarTestFunction,
-                       VectorTestFunction,
-                       IndexedTestTrial)
+        atoms_types = (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)
 
         nderiv = 1
         if isinstance(terminal_expr, (ImmutableDenseMatrix, Matrix)):
@@ -251,15 +249,34 @@ class AST(object):
             atomic_expr_field = {f:[] for f in fields}
             for i_row in range(0, n_rows):
                 for i_col in range(0, n_cols):
-                    d      = get_max_logical_partial_derivatives(terminal_expr[i_row,i_col])
-                    nderiv = max(nderiv, max(d.values()))
-                    atoms  = _atomic(terminal_expr[i_row, i_col], cls=atoms_types+_logical_partial_derivatives)
-        else:
-            d      = get_max_logical_partial_derivatives(terminal_expr)
-            nderiv = max(nderiv, max(d.values()))
-            atoms  = _atomic(terminal_expr, cls=atoms_types+_logical_partial_derivatives)
+                    d           = get_max_logical_partial_derivatives(terminal_expr[i_row,i_col])
+                    nderiv      = max(nderiv, max(d.values()))
+                    atoms       = _atomic(terminal_expr[i_row, i_col], cls=atoms_types+_logical_partial_derivatives)
+                    #--------------------------------------------------------------------
+                    # TODO [YG, 05.02.2021]: create 'get_test_function' and use it below:
+#                    field_atoms = [a for a in atoms if get_test_function(a) in fields]
+                    field_atoms = []
+                    #--------------------------------------------------------------------
+                    for f in field_atoms:
+                        a = _atomic(f, cls=atoms_types)
+                        assert len(a) == 1
+                        atomic_expr_field[a[0]].append(f)
 
+        else:
+            d           = get_max_logical_partial_derivatives(terminal_expr)
+            nderiv      = max(nderiv, max(d.values()))
+            atoms       = _atomic(terminal_expr, cls=atoms_types+_logical_partial_derivatives)
+            #--------------------------------------------------------------------
+            # TODO [YG, 05.02.2021]: create 'get_test_function' and use it below:
+#            field_atoms = [a for a in atoms if get_test_function(a) in fields]
+            field_atoms = []
+            #--------------------------------------------------------------------
             atomic_expr_field = {f:[] for f in fields}
+            for f in field_atoms:
+                a = _atomic(f, cls=atoms_types)
+                assert len(a) == 1
+                atomic_expr_field[a[0]].append(f)
+
             terminal_expr     = Matrix([[terminal_expr]])
 
         d_tests  = {v: {'global': GlobalTensorQuadratureTestBasis (v), 'span': GlobalSpan(v)} for v in tests }
