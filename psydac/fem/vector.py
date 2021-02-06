@@ -152,8 +152,19 @@ class ProductFemSpace( FemSpace ):
     Product of FEM space
     """
 
+    def __new__(cls, *args, **kwargs):
+
+        if len(args) == 1:
+            return args[0]
+        else:
+            return FemSpace.__new__(cls)
+
     def __init__( self, *args, **kwargs ):
         """."""
+
+        if len(args) == 1:
+            return
+
         self._spaces = tuple(args)
 
         # ... make sure that all spaces have the same parametric dimension
@@ -252,6 +263,8 @@ class ProductFemSpace( FemSpace ):
     def comm( self ):
         return self.spaces[0].comm
 
+    def __len__(self):
+        return len(self.spaces)
 
 # TODO still experimental
 #===============================================================================

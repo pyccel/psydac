@@ -196,7 +196,7 @@ class ExprKernel(SplBasic):
         expr = self.expr
         dim  = Vh.ldim
         if isinstance(Vh, ProductFemSpace):
-            size = Vh.shape
+            size = len(Vh)
         else:
             size = 1
         

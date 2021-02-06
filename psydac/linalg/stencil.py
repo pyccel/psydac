@@ -1286,6 +1286,10 @@ class StencilInterfaceMatrix(Matrix):
         assert isinstance( W, StencilVectorSpace )
         assert W.pads == V.pads
 
+        if pads is not None:
+            for p,vp in zip(pads, V.pads):
+                assert p<=vp
+
         self._pads     = pads or tuple(V.pads)
         dims           = [e-s+2*p+1 for s,e,p in zip(W.starts, W.ends, W.pads)]
         dims[dim]      = 3*W.pads[dim] + 1
@@ -1294,8 +1298,8 @@ class StencilInterfaceMatrix(Matrix):
         self._domain   = V
         self._codomain = W
         self._dim      = dim
-        self._d_start  = s_d - self._pads[dim]
-        self._c_start  = s_c - self._pads[dim]
+        self._d_start  = s_d
+        self._c_start  = s_c
         self._ndim     = len( dims )
 
         # Flag ghost regions as not up-to-date (conservative choice)

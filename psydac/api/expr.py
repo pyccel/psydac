@@ -108,7 +108,6 @@ class DiscreteExpr(BasicCodeGen):
         
         if fields:
             nderiv = self.interface.max_nderiv
-            print(fields)
             fields = [kwargs[F.name] for F in fields]
             grid  = args
             
@@ -126,7 +125,7 @@ class DiscreteExpr(BasicCodeGen):
                     spans   = list(map(list, zip(*spans)))
                     basis   = [b for bs in basis for b in bs]
                     spans   = [s for sp in spans for s in sp]
-                    coeffs  = coeffs + tuple(F.coeffs[i] for i in range(Vh.shape))
+                    coeffs  = coeffs + tuple(F.coeffs[i] for i in range(len(Vh)))
                 else:
                     
                     basis_values = CollocationBasisValues(grid, Vh, nderiv=nderiv)
@@ -134,7 +133,6 @@ class DiscreteExpr(BasicCodeGen):
                     spans   = basis_values.spans
                     degrees = Vh.degree
                     coeffs  = coeffs + (F.coeffs,)
-                
 
             args = grid + coeffs + (*degrees, *basis, *spans)
             

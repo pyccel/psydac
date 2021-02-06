@@ -242,8 +242,6 @@ def test_conga_2d():
         V1h_1 = BlockVectorSpace(V1h.spaces[0], V1h.spaces[1])  # V1h on domain 1
         V1h_2 = BlockVectorSpace(V1h.spaces[2], V1h.spaces[3])  # V1h on domain 2
 
-
-
     #+++++++++++++++++++++++++++++++
     # . some target functions
     #+++++++++++++++++++++++++++++++

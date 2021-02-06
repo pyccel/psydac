@@ -877,7 +877,7 @@ class Parser(object):
                 if isinstance(self._target, Interface):
                     axis = self._target.axis
                     lhs_starts[axis] = pads[axis]
-                    lhs_ends[axis]   = 2*pads[axis] + 1
+                    lhs_ends[axis]   = pads[axis] + degrees[axis] + 1
 
                 for k2 in range(lhs.shape[1]):
                     if expr.expr[k1,k2]:
