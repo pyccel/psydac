@@ -153,7 +153,8 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         self._is_rational_mapping = is_rational_mapping
         # ...
-        self._spaces = args[1]
+
+        self._domain = domain_h
 
         kwargs['discrete_space']      = self.spaces
         kwargs['mapping']             = self.spaces[0].symbolic_mapping
@@ -164,10 +165,12 @@ class DiscreteBilinearForm(BasicDiscrete):
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
         # ...
-        target = self.kernel_expr.target
-        domain = domain_h.domain
-
+        self._target = self.kernel_expr.target
+        self._domain = domain_h.domain
         self._matrix = kwargs.pop('matrix', None)
+
+        domain = self.domain
+        target = self.target
 
         # ...
         if len(domain)>1:
@@ -220,6 +223,14 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._args = self.construct_arguments()
 
     @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def target(self):
+        return self._target
+
+    @property
     def spaces(self):
         return self._spaces
 
@@ -253,6 +264,10 @@ class DiscreteBilinearForm(BasicDiscrete):
             consts  = ()
             for key in self._free_args:
                 v = kwargs[key]
+                if len(self.domain)>1 and isinstance(v, VectorFemField):
+                    i,j = get_space_indices_from_target(self.domain, self.target)
+                    assert i==j
+                    v = v[i]
                 if isinstance(v, FemField):
                     space   = v.space
                     basis_v = BasisValues( v.space, nderiv = self.max_nderiv)
@@ -328,7 +343,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         trial_degree    = np.array(self.trial_basis.space.degree)
         test_space      = self.test_basis.space.vector_space
         trial_space     = self.trial_basis.space.vector_space
-        domain          = self.spaces[0].symbolic_domain
+        domain          = self.domain
         is_broken       = len(domain)>1
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
@@ -431,7 +446,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         self._is_rational_mapping = is_rational_mapping
 
-        self._space = args[1]
+        self._space  = args[1]
 
         kwargs['discrete_space']      = self.space
         kwargs['mapping']             = self.space.symbolic_mapping
@@ -442,10 +457,12 @@ class DiscreteLinearForm(BasicDiscrete):
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
         # ...
-        target     = self.kernel_expr.target
-        domain     = domain_h.domain
+        self._target     = self.kernel_expr.target
+        self._domain     = domain_h.domain
+        self._vector     = kwargs.pop('vector', None)
 
-        self._vector = kwargs.pop('vector', None)
+        domain = self.domain
+        target = self.target
 
         if len(domain)>1:
             i = self.get_space_indices_from_target(domain, target )
@@ -482,8 +499,15 @@ class DiscreteLinearForm(BasicDiscrete):
         grid             = QuadratureGrid( test_space, axis=axis, ext=ext )
         self._grid       = grid
         self._test_basis = BasisValues( test_space, nderiv = self.max_nderiv, grid=grid, ext=ext)
-
         self._args = self.construct_arguments()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def target(self):
+        return self._target
 
     @property
     def space(self):
@@ -515,6 +539,9 @@ class DiscreteLinearForm(BasicDiscrete):
             consts  = ()
             for key in self._free_args:
                 v = kwargs[key]
+                if len(self.domain)>1 and isinstance(v, VectorFemField):
+                    i = get_space_indices_from_target(self.domain, self.target)
+                    v = v[i]
                 if isinstance(v, FemField):
                     space   = v.space
                     basis_v = BasisValues( v.space, nderiv = self.max_nderiv)
@@ -583,7 +610,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         expr        = self.kernel_expr.expr
         target      = self.kernel_expr.target
-        domain      = self.space.symbolic_domain
+        domain      = self.domain.domain
         is_broken   = len(domain)>1
 
         if self._vector is None and (is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix))):
@@ -667,9 +694,8 @@ class DiscreteFunctional(BasicDiscrete):
 
         # ...
         self._vector = kwargs.pop('vector', None)
-        domain     = self.kernel_expr.target
+        domain       = self.kernel_expr.target
         # ...
-
 
         test_sym_space   = self._space.symbolic_space
         if test_sym_space.is_broken:
