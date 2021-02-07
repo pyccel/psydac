@@ -457,8 +457,8 @@ class DiscreteLinearForm(BasicDiscrete):
             ext  = None
             axis = None
         else:
-            ext  = domain.ext
-            axis = domain.axis
+            ext  = target.ext
+            axis = target.axis
 
             #...
             # If process does not own the boundary or interface, do not assemble anything

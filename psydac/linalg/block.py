@@ -238,6 +238,8 @@ class BlockVector( Vector ):
             if not vi.ghost_regions_in_sync:
                 vi.update_ghost_regions(direction=direction)
 
+        # Flag ghost regions as up-to-date
+        self._sync = True
     # ...
     @property
     def n_blocks( self ):
