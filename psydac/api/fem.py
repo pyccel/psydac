@@ -154,7 +154,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._is_rational_mapping = is_rational_mapping
         # ...
 
-        self._domain = domain_h
+        self._spaces = args[1]
 
         kwargs['discrete_space']      = self.spaces
         kwargs['mapping']             = self.spaces[0].symbolic_mapping
@@ -610,7 +610,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         expr        = self.kernel_expr.expr
         target      = self.kernel_expr.target
-        domain      = self.domain.domain
+        domain      = self.domain
         is_broken   = len(domain)>1
 
         if self._vector is None and (is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix))):
