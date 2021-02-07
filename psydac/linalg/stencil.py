@@ -665,9 +665,7 @@ class StencilMatrix( Matrix ):
                     kk     = [slice(None,diag) for diag in ndiags]
                     ii_kk  = tuple( list(ii) + kk )
 
-                    v1 = x[jj]
-                    v2 = mat[ii_kk]
-                    out[ii] = np.dot( v2.flat, v1.flat )
+                    out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
             new_nrows[d] += er
 
     # ...
@@ -1334,21 +1332,23 @@ class StencilInterfaceMatrix(Matrix):
             out = StencilVector( self.codomain )
 
         # Shortcuts
-        ssc = self.codomain.starts
-        eec = self.codomain.ends
-        ssd = self.domain.starts
-        eed = self.domain.ends
-        dim = self.dim
+        ssc   = self.codomain.starts
+        eec   = self.codomain.ends
+        ssd   = self.domain.starts
+        eed   = self.domain.ends
+        dpads = self.domain.pads
+        dim   = self.dim
 
         c_start = self.c_start
         d_start = self.d_start
-        pp      = self.pads
+        pads    = self.pads
 
         # Number of rows in matrix (along each dimension)
         nrows        = [ed-s+1 for s,ed in zip(ssd, eed)]
-        nrows[dim]   = self._pads[dim] + 1
+        nrows_extra  = [0 if ec<=ed else ec-ed for ec,ed in zip(eec,eed)]
+        nrows[dim]   = self._pads[dim] + 1 - nrows_extra[dim]
 
-        self._dot(self._data, v._data, out._data, nrows, dim, d_start, c_start, pp)
+        self._dot(self._data, v._data, out._data, nrows, nrows_extra, dpads, pads, dim, d_start, c_start)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -1356,24 +1356,46 @@ class StencilInterfaceMatrix(Matrix):
 
     # ...
     @staticmethod
-    def _dot(mat, v, out, nrows, dim, d_start, c_start, pads):
+    def _dot(mat, v, out, nrows, nrows_extra, dpads, pads, dim, d_start, c_start):
 
         # Index for k=i-j
         ndim = len(v.shape)
         kk = [slice(None)]*ndim
+        diff = [xp-p for xp,p in zip(dpads, pads)]
 
-        shift_d      = [0]*ndim
-        shift_d[dim] = d_start
-        shift_d      = tuple(shift_d)
+        diff[dim] += d_start
 
         for xx in np.ndindex( *nrows ):
-            ii    = [ p+x for p,x in zip(pads,xx) ]
+            ii    = [ p+x for p,x in zip(dpads,xx) ]
+            jj    = tuple( slice(d+x,d+x+2*p+1) for x,p,d in zip(xx,pads,diff) )
             ii_kk = tuple( ii + kk )
-            jj    = tuple( slice(s+x,s+x+2*p+1) for x,p,s in zip(xx,pads,shift_d) )
-
             ii[dim] += c_start
             out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
 
+
+        new_nrows = nrows.copy()
+        for d,er in enumerate(nrows_extra):
+
+            rows = new_nrows.copy()
+            del rows[d]
+
+            for n in range(er):
+                for xx in np.ndindex(*rows):
+                    xx = list(xx)
+                    xx.insert(d, nrows[d]+n)
+
+                    ii     = [x+xp for x,xp in zip(xx, dpads)]
+                    ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
+                    jj     = tuple( slice(x+d, x+d+2*p+1-e) for x,p,d,e in zip(xx, pads, diff, ee) )
+
+                    ndiags = [2*p + 1-e for p,e in zip(pads,ee)]
+                    kk     = [slice(None,diag) for diag in ndiags]
+                    ii_kk  = tuple( list(ii) + kk )
+
+                    ii[dim] += c_start
+
+                    out[ii] = np.dot( mat[ii_kk].flat, v[jj].flat )
+            new_nrows[d] += er
     # ...
     def toarray( self, *, with_pads=False ):
 
@@ -1530,14 +1552,13 @@ class StencilInterfaceMatrix(Matrix):
             return slice(start, stop, index.step)
         else:
             return index + shift
-
     #...
     def _tocoo_no_pads( self ):
         # Shortcuts
         nr = self.codomain.npts
         nc = self.domain.npts
         ss = self.codomain.starts
-        pp = self.pads
+        pp = self.codomain.pads
         nd = len(pp)
         dim = self.dim
         c_start = self.c_start
@@ -1560,7 +1581,7 @@ class StencilInterfaceMatrix(Matrix):
                 ll = index[nd:]  # l=p+k
 
                 ii = [s+x for s,x in zip(ss,xx)]
-                jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nc,pp)]
+                jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nc,self.pads)]
 
                 ii[dim] += c_start
                 jj[dim] += d_start
@@ -1576,91 +1597,6 @@ class StencilInterfaceMatrix(Matrix):
                     (data,(rows,cols)),
                     shape = [np.prod(nr),np.prod(nc)],
                     dtype = self.domain.dtype)
-
-        return M
-
-    def _tocoo_parallel_with_pads( self ):
-
-        # If necessary, update ghost regions
-        if not self.ghost_regions_in_sync:
-            self.update_ghost_regions()
-
-        # Shortcuts
-        nr = self._codomain.npts
-        nc = self._domain.npts
-        nd = self._ndim
-
-        ss = self._codomain.starts
-        ee = self._codomain.ends
-        pp = self._pads
-        pc = self._codomain.pads
-        pd = self._domain.pads
-        cc = self._codomain.periods
-
-        ravel_multi_index = np.ravel_multi_index
-
-        # COO storage
-        rows = []
-        cols = []
-        data = []
-
-        # List of rows (to avoid duplicate updates)
-        I_list = []
-
-        # Shape of row and diagonal spaces
-        xx_dims = self._data.shape[:nd]
-        ll_dims = self._data.shape[nd:]
-
-        # Cycle over rows (x = p + i - s)
-        for xx in np.ndindex( *xx_dims ):
-
-            # Compute row multi-index with simple shift
-            ii = [s + x - p for (s, x, p) in zip(ss, xx, pc)]
-
-            # Apply periodicity where appropriate
-            ii = [i - n if (c and i >= n and i - n < s) else
-                  i + n if (c and i <  0 and i + n > e) else i
-                  for (i, s, e, n, c) in zip(ii, ss, ee, nr, cc)]
-
-            # Compute row flat index
-            # Exclude values outside global limits of matrix
-            try:
-                I = ravel_multi_index( ii, dims=nr, order='C' )
-            except ValueError:
-                continue
-
-            # If I is a new row, append it to list of rows
-            # DO NOT update same row twice!
-            if I not in I_list:
-                I_list.append( I )
-            else:
-                continue
-
-            # Cycle over diagonals (l = p + k)
-            for ll in np.ndindex( *ll_dims ):
-
-                # Compute column multi-index (k = j - i)
-                jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nc,pp)]
-
-                # Compute column flat index
-                J = ravel_multi_index( jj, dims=nc, order='C' )
-
-                # Extract matrix value
-                value = self._data[(*xx, *ll)]
-
-                # Append information to COO arrays
-                rows.append( I )
-                cols.append( J )
-                data.append( value )
-
-        # Create Scipy COO matrix
-        M = coo_matrix(
-                (data,(rows,cols)),
-                shape = [np.prod(nr), np.prod(nc)],
-                dtype = self._domain.dtype
-        )
-
-        M.eliminate_zeros()
 
         return M
 

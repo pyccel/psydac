@@ -127,6 +127,9 @@ class BlockVector( Vector ):
             # but in the future we would like 'empty' vectors of the same space.
             self._blocks = [Vi.zeros() for Vi in V.spaces]
 
+        # TODO: distinguish between different directions
+        self._sync  = False
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -144,31 +147,43 @@ class BlockVector( Vector ):
 
     #...
     def copy( self ):
-        return BlockVector( self._space, [b.copy() for b in self._blocks] )
+        w = BlockVector( self._space, [b.copy() for b in self._blocks] )
+        w._sync    = self._sync
+        return w
 
     #...
     def __neg__( self ):
-        return BlockVector( self._space, [-b for b in self._blocks] )
+        w = BlockVector( self._space, [-b for b in self._blocks] )
+        w._sync    = self._sync
+        return w
 
     #...
     def __mul__( self, a ):
-        return BlockVector( self._space, [b*a for b in self._blocks] )
+        w = BlockVector( self._space, [b*a for b in self._blocks] )
+        w._sync    = self._sync
+        return w
 
     #...
     def __rmul__( self, a ):
-        return BlockVector( self._space, [a*b for b in self._blocks] )
+        w = BlockVector( self._space, [a*b for b in self._blocks] )
+        w._sync    = self._sync
+        return w
 
     #...
     def __add__( self, v ):
         assert isinstance( v, BlockVector )
         assert v._space is self._space
-        return BlockVector( self._space, [b1+b2 for b1,b2 in zip( self._blocks, v._blocks )] )
+        w = BlockVector( self._space, [b1+b2 for b1,b2 in zip( self._blocks, v._blocks )] )
+        w._sync = self._sync and v._sync
+        return w
 
     #...
     def __sub__( self, v ):
         assert isinstance( v, BlockVector )
         assert v._space is self._space
-        return BlockVector( self._space, [b1-b2 for b1,b2 in zip( self._blocks, v._blocks )] )
+        w = BlockVector( self._space, [b1-b2 for b1,b2 in zip( self._blocks, v._blocks )] )
+        w._sync = self._sync and v._sync
+        return w
 
     #...
     def __imul__( self, a ):
@@ -182,6 +197,7 @@ class BlockVector( Vector ):
         assert v._space is self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 += b2
+        self._sync = self._sync and v._sync
         return self
 
     #...
@@ -190,13 +206,8 @@ class BlockVector( Vector ):
         assert v._space is self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 -= b2
+        self._sync = self._sync and v._sync
         return self
-
-    # ...
-    def update_ghost_regions( self, *, direction=None ):
-        for vi in self.blocks:
-            if not vi.ghost_regions_in_sync:
-                vi.update_ghost_regions(direction=direction)
 
     #--------------------------------------
     # Other properties/methods
@@ -208,6 +219,24 @@ class BlockVector( Vector ):
     def __setitem__( self, key, value ):
         assert value.space == self.space[key]
         self._blocks[key] = value
+
+    # ...
+    @property
+    def ghost_regions_in_sync( self ):
+        return self._sync
+
+    # ...
+    # NOTE: this property must be set collectively
+    @ghost_regions_in_sync.setter
+    def ghost_regions_in_sync( self, value ):
+        assert isinstance( value, bool )
+        self._sync = value
+
+    # ...
+    def update_ghost_regions( self, *, direction=None ):
+        for vi in self.blocks:
+            if not vi.ghost_regions_in_sync:
+                vi.update_ghost_regions(direction=direction)
 
     # ...
     @property
