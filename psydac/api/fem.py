@@ -341,7 +341,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             pads = test_degree
 
-        if is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix)) and not self._matrix:
+        if self._matrix is None and (is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix))):
             self._matrix = BlockMatrix(self.spaces[0].vector_space,
                                        self.spaces[1].vector_space)
 
@@ -586,7 +586,7 @@ class DiscreteLinearForm(BasicDiscrete):
         domain      = self.space.symbolic_domain
         is_broken   = len(domain)>1
 
-        if is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix)) and not self._vector:
+        if self._vector is None and (is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix))):
             self._vector = BlockVector(self.space.vector_space)
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case system of equations

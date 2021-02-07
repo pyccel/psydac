@@ -1372,7 +1372,6 @@ class StencilInterfaceMatrix(Matrix):
             ii[dim] += c_start
             out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
 
-
         new_nrows = nrows.copy()
         for d,er in enumerate(nrows_extra):
 
