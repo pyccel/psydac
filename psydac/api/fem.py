@@ -369,7 +369,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
                     if matrix[k1,k2]:
                         global_mats[k1,k2] = matrix[k1,k2]
-                    if not i == j: # assembling in an interface (type(target) == Interface)
+                    elif not i == j: # assembling in an interface (type(target) == Interface)
                         axis        = target.axis
                         test_spans  = self.test_basis.spans
                         trial_spans = self.trial_basis.spans
