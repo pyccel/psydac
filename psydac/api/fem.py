@@ -164,6 +164,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._domain = domain_h.domain
         self._matrix = kwargs.pop('matrix', None)
 
+        domain = self.domain
+        target = self.target
+
         # ...
         if len(domain)>1:
             i,j = self.get_space_indices_from_target(domain, target )
@@ -186,7 +189,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             test_ext  = None
             trial_ext = None
 
-        if isinstance(target, (Boundary, nterface)):
+        if isinstance(target, (Boundary, Interface)):
             #...
             # If process does not own the boundary or interface, do not assemble anything
             if isinstance(test_space.vector_space, BlockVectorSpace):
@@ -566,7 +569,7 @@ class DiscreteLinearForm(BasicDiscrete):
         domains = domain.interior.args
         if isinstance(target, Interface):
             raise NotImplementedError("TODO")
-        elif isinstance(target, _Boundary):
+        elif isinstance(target, Boundary):
             i = domains.index(target.domain)
         else:
             i = domains.index(target)
