@@ -36,7 +36,7 @@ Uninstall
 
 - **Whichever the install mode**::
 
-    python3 -m pip uninstall spl
+    python3 -m pip uninstall psydac
     
 .. |build-devel| image:: https://travis-ci.com/pyccel/psydac.svg?branch=devel
     :alt: devel status
