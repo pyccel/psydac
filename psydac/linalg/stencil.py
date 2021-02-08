@@ -1369,7 +1369,9 @@ class StencilInterfaceMatrix(Matrix):
             ii    = [ p+x for p,x in zip(dpads,xx) ]
             jj    = tuple( slice(d+x,d+x+2*p+1) for x,p,d in zip(xx,pads,diff) )
             ii_kk = tuple( ii + kk )
+
             ii[dim] += c_start
+
             out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
 
         new_nrows = nrows.copy()

@@ -382,7 +382,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                         axis        = target.axis
                         test_spans  = self.test_basis.spans
                         trial_spans = self.trial_basis.spans
-                        s_d = trial_spans[k2][axis][0] - trial_degree[k1][axis]
+                        s_d = trial_spans[k2][axis][0] - trial_degree[k2][axis]
                         s_c = test_spans[k1][axis][0] - test_degree[k1][axis]
                         if self._func != do_nothing:
                             global_mats[k1,k2] = StencilInterfaceMatrix(trial_space.spaces[k2], test_space.spaces[k1],

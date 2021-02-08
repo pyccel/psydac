@@ -642,6 +642,7 @@ def discretize(a, *args, **kwargs):
             if not mapping is None:
                 a       = LogicalExpr (a)
             kernel_expr = TerminalExpr(a)
+
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 
