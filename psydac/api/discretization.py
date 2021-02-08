@@ -4,6 +4,7 @@
 #         nderiv has not been changed. shall we add quad_order too?
 
 from collections import namedtuple
+from collections import OrderedDict
 
 from sympy import Expr as sym_Expr
 import numpy as np
