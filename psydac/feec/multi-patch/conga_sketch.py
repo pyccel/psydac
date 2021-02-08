@@ -35,6 +35,8 @@ from psydac.linalg.identity import IdentityLinearOperator #, IdentityStencilMatr
 from psydac.fem.basic   import FemField
 from psydac.fem.vector import ProductFemSpace, VectorFemField
 
+from psydac.feec.pull_push     import push_2d_hcurl, push_2d_l2
+
 from psydac.feec.derivatives import Gradient_2D
 from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
 
@@ -349,13 +351,16 @@ def test_conga_2d():
         du0 = VectorFemField(V1h)
 
         # patch 1
-        du0.coeffs[0][0][:] = du0_1[0].coeffs[:]
-        du0.coeffs[0][1][:] = du0_1[1].coeffs[:]
+
+
+        #du0_1.fields[0].coeffs[:]
+        du0.coeffs[0][0][:] = du0_1.fields[0].coeffs[:]
+        du0.coeffs[0][1][:] = du0_1.fields[1].coeffs[:]
         du0.coeffs.update_ghost_regions()
 
         # patch 2
-        du0.coeffs[1][0][:] = du0_2[0].coeffs[:]
-        du0.coeffs[1][1][:] = du0_2[1].coeffs[:]
+        du0.coeffs[1][0][:] = du0_2.fields[0].coeffs[:]
+        du0.coeffs[1][1][:] = du0_2.fields[1].coeffs[:]
         du0.coeffs.update_ghost_regions()
 
         # > this should allow to define a multi-patch operator: broken_D0
@@ -390,12 +395,15 @@ def test_conga_2d():
         num_du_y = 2*[None]
 
         for k in [0,1]:
+
+            print("type(du0.fields[k]) = ", type(du0.fields[k]))
+
             # patch k
             eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
             for i, x1i in enumerate(eta_1[:, 0]):
                 for j, x2j in enumerate(eta_2[0, :]):
                     num_du_x[k][i, j], num_du_y[k][i, j] = \
-                        push_2d_hcurl(du0.fields[k][0], du0.fields[k][1], x1i, x2j, F[k])
+                        push_2d_hcurl(du0.fields[k].fields[0], du0.fields[k].fields[1], x1i, x2j, F[k])
 
                         # [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(du0.fields[0], etas)]
             #
