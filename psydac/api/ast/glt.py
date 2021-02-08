@@ -464,8 +464,8 @@ class GltKernel(SplBasic):
         # ...
 
         # call eval field
-        for i,eval_field in enumerate(self.eval_fields):
-            args = (degrees[i] , spans[i] , basis[i] , fields_val[i])
+        for i, eval_field in enumerate(self.eval_fields):
+            args = (*degrees, *spans, *basis, fields_coeffs[i], fields_val[i])
             args = eval_field.build_arguments(args)
             body = [FunctionCall(eval_field.func, args)] + body
 

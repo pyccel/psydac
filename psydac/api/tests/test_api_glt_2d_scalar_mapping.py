@@ -97,7 +97,6 @@ def test_api_glt_poisson_2d_dir_collela():
     assert(np.allclose([error], [0.04655602895206486]))
 
 #==============================================================================
-@pytest.mark.xfail
 def test_api_glt_poisson_2d_dir_quarter_annulus():
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
 

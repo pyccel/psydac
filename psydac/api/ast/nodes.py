@@ -3,28 +3,25 @@
 from collections import OrderedDict
 from itertools import product
 
-from sympy import Basic,Expr
-from sympy.core.singleton import Singleton
-from sympy.core.compatibility import with_metaclass
-from sympy.core.containers import Tuple
+from sympy import Basic, Expr
 from sympy import AtomicExpr
+from sympy import Function
 from sympy import Mul
+from sympy.core.singleton     import Singleton
+from sympy.core.containers    import Tuple
+from sympy.core.compatibility import with_metaclass
 
-from sympde.topology import ScalarTestFunction, VectorTestFunction
-from sympde.topology import IndexedTestTrial, ScalarFunctionSpace
-from sympde.topology import ScalarField, VectorField
-from sympde.topology import IndexedVectorField
-from sympde.topology import dx1, dx2, dx3
-from sympde.topology import Mapping
 from sympde.topology import elements_of
-from sympde.topology import SymbolicWeightedVolume
+from sympde.topology import ScalarTestFunction, VectorTestFunction
 from sympde.topology import VectorFunctionSpace
+from sympde.topology import IndexedTestTrial
 from sympde.topology import H1SpaceType, L2SpaceType, UndefinedSpaceType
+from sympde.topology import Mapping
+from sympde.topology import dx1, dx2, dx3
+from sympde.topology import get_atom_logical_derivatives
 
 from pyccel.ast.core import AugAssign, Assign
 from pyccel.ast.core import _atomic
-
-from sympde.topology.derivatives import get_atom_logical_derivatives
 
 #==============================================================================
 # TODO move it
@@ -34,8 +31,6 @@ def random_string( n ):
     chars    = string.ascii_lowercase + string.digits
     selector = random.SystemRandom()
     return ''.join( selector.choice( chars ) for _ in range( n ) )
-
-from sympy import Function
 
 class ZerosLike(Function):
     @property
@@ -1192,9 +1187,7 @@ class BasisAtom(AtomicNode):
     """
     """
     def __new__(cls, expr):
-        types = (IndexedTestTrial, VectorTestFunction,
-                 ScalarTestFunction, IndexedVectorField,
-                 ScalarField, VectorField)
+        types = (IndexedTestTrial, VectorTestFunction, ScalarTestFunction)
 
         ls = _atomic(expr, cls=types)
         if not(len(ls) == 1):
