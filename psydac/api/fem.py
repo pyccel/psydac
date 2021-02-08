@@ -399,6 +399,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         else: # case of single equation
             if is_broken: # multi-patch
                 i,j = self.get_space_indices_from_target(domain, target )
+                global_mats[i,j] = None
                 if self._matrix[i,j]:
                     global_mats[i,j] = self._matrix[i,j]
                 elif not i == j: # assembling in an interface (type(target) == Interface)
