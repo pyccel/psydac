@@ -360,7 +360,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             self._matrix = BlockMatrix(self.spaces[0].vector_space,
                                        self.spaces[1].vector_space)
 
-        if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case system of equations
+        if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case of system of equations
 
             if is_broken: #multi patch
                 i,j = self.get_space_indices_from_target(domain, target )
@@ -396,10 +396,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                     element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*(2*pads[k1,k2]+1)))
                     matrix[k1,k2]        = global_mats[k1,k2]
 
-        else: # case of single equation
+        else: # case of scalar equation
             if is_broken: # multi-patch
                 i,j = self.get_space_indices_from_target(domain, target )
-                global_mats[i,j] = None
                 if self._matrix[i,j]:
                     global_mats[i,j] = self._matrix[i,j]
                 elif not i == j: # assembling in an interface (type(target) == Interface)
@@ -414,7 +413,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     global_mats[i,j] = StencilMatrix(trial_space, test_space)
 
                 element_mats[i,j]  = np.empty((*(test_degree+1),*(2*pads+1)))
-                self._matrix[i,j]  = global_mats[i,j]
+                if (i,j) in global_mats:self._matrix[i,j] = global_mats[i,j]
             else: # single patch
                 if self._matrix:
                     global_mats[0,0] = self._matrix
