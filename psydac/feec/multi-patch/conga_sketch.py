@@ -5,6 +5,11 @@ from mpi4py import MPI
 import numpy as np
 import matplotlib.pyplot as plt
 
+# checking import path...
+# import sympde
+# print(sympde.__file__)
+# exit()
+
 from sympde.calculus import grad, dot, inner, rot, div
 from sympde.calculus import laplace, bracket, convect
 from sympde.calculus import jump, avg, Dn, minus, plus
