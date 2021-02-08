@@ -1,10 +1,9 @@
 import re
 import string
 import random
-import numpy as np
 
 from sympy import Symbol, IndexedBase, Indexed, Idx
-from sympy import Add, Mul, Pow, Function, Matrix, Tuple
+from sympy import Mul, Pow, Function, Tuple
 from sympy import sqrt as sympy_sqrt, Range
 from sympy.utilities.iterables import cartes
 
@@ -12,8 +11,6 @@ from sympde.topology.space       import ScalarTestFunction
 from sympde.topology.space       import VectorTestFunction
 from sympde.topology.space       import IndexedTestTrial
 from sympde.topology.space       import element_of
-from sympde.topology             import ScalarField
-from sympde.topology             import VectorField, IndexedVectorField
 from sympde.topology             import Mapping
 from sympde.topology             import Boundary
 from sympde.topology.derivatives import _partial_derivatives
@@ -24,7 +21,6 @@ from sympde.topology.derivatives import get_atom_logical_derivatives
 from sympde.topology.derivatives import get_index_logical_derivatives
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
-from sympde.core                 import Cross_3d
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
@@ -33,8 +29,6 @@ from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Product
 from pyccel.ast.core import _atomic
 from pyccel.ast.core import Comment
-
-from psydac.api.printing.pycode import pycode  # TODO: remove
 
 #==============================================================================
 def random_string( n ):
@@ -53,34 +47,6 @@ def is_mapping(expr):
         return True
 
     elif isinstance(expr, Mapping):
-        return True
-
-    return False
-
-#==============================================================================
-def is_scalar_field(expr):
-
-    if isinstance(expr, _partial_derivatives):
-        return is_scalar_field(expr.args[0])
-
-    elif isinstance(expr, _logical_partial_derivatives):
-        return is_scalar_field(expr.args[0])
-
-    elif isinstance(expr, ScalarField):
-        return True
-
-    return False
-
-#==============================================================================
-def is_vector_field(expr):
-
-    if isinstance(expr, _partial_derivatives):
-        return is_vector_field(expr.args[0])
-
-    elif isinstance(expr, _logical_partial_derivatives):
-        return is_vector_field(expr.args[0])
-
-    elif isinstance(expr, (VectorField, IndexedVectorField)):
         return True
 
     return False

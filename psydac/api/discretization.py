@@ -3,13 +3,10 @@
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add quad_order too?
 
-# TODO: avoid using os.system and use subprocess.call
-
-from collections import OrderedDict
 from collections import namedtuple
 
-from pyccel.ast.core import Nil
-from pyccel.epyccel  import get_source_function
+from sympy import Expr as sym_Expr
+import numpy as np
 
 from sympde.expr     import BasicForm as sym_BasicForm
 from sympde.expr     import BilinearForm as sym_BilinearForm
@@ -17,10 +14,9 @@ from sympde.expr     import LinearForm as sym_LinearForm
 from sympde.expr     import Functional as sym_Functional
 from sympde.expr     import Integral
 from sympde.expr     import Equation as sym_Equation
-from sympde.expr     import Boundary as sym_Boundary, Interface as sym_Interface
 from sympde.expr     import Norm as sym_Norm
 from sympde.expr     import TerminalExpr
-from sympde.topology import Domain, Boundary
+from sympde.topology import Domain, Interface
 from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
@@ -28,8 +24,8 @@ from sympde.topology import ProductSpace
 from sympde.topology import Mapping, IdentityMapping, LogicalExpr
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology.basic import Union
-from gelato.expr     import GltExpr as sym_GltExpr
-from sympy           import Expr    as sym_Expr
+
+from gelato.expr import GltExpr as sym_GltExpr
 
 from psydac.api.basic                import BasicDiscrete
 from psydac.api.fem                  import DiscreteBilinearForm
@@ -38,32 +34,20 @@ from psydac.api.fem                  import DiscreteFunctional
 from psydac.api.fem                  import DiscreteSumForm
 from psydac.api.glt                  import DiscreteGltExpr
 from psydac.api.expr                 import DiscreteExpr
-
 from psydac.api.essential_bc         import apply_essential_bc
 from psydac.linalg.iterative_solvers import cg
 from psydac.fem.splines              import SplineSpace
 from psydac.fem.tensor               import TensorFemSpace
 from psydac.fem.vector               import ProductFemSpace
 from psydac.cad.geometry             import Geometry
-from psydac.mapping.discrete         import SplineMapping, NurbsMapping
+from psydac.mapping.discrete         import NurbsMapping
 from psydac.feec.global_projectors   import Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2
+from psydac.feec.derivatives         import Derivative_1D, Gradient_2D, Gradient_3D
+from psydac.feec.derivatives         import ScalarCurl_2D, VectorCurl_2D, Curl_3D
+from psydac.feec.derivatives         import Divergence_2D, Divergence_3D
+from psydac.feec.pull_push           import *
 
-from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
-from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
-from psydac.feec.derivatives import Divergence_2D, Divergence_3D
-
-from psydac.feec.pull_push import *
-
-import inspect
-import sys
-import os
-import importlib
-import string
-import random
-import numpy as np
-from mpi4py import MPI
-
-
+__all__ = ('discretize',)
 
 #==============================================================================
 LinearSystem = namedtuple('LinearSystem', ['lhs', 'rhs'])
@@ -485,7 +469,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
             interiors = interiors.args
             interfaces = domain_h.domain.interfaces
 
-            if isinstance(interfaces, sym_Interface):
+            if isinstance(interfaces, Interface):
                 interfaces = [interfaces]
             elif isinstance(interfaces, Union):
                 interfaces = interfaces.args

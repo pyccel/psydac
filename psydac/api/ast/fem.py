@@ -5,7 +5,6 @@ from itertools   import groupby
 
 from sympy import Basic
 from sympy import Matrix, ImmutableDenseMatrix
-from sympy import symbols
 from sympy.core.containers import Tuple
 
 from sympde.expr                 import LinearForm
@@ -14,23 +13,18 @@ from sympde.expr                 import Functional
 from sympde.topology.basic       import Boundary, Interface
 from sympde.topology             import H1SpaceType, HcurlSpaceType
 from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology             import ScalarField
-from sympde.topology             import VectorField, IndexedVectorField
 from sympde.topology.space       import ScalarTestFunction
 from sympde.topology.space       import VectorTestFunction
 from sympde.topology.space       import IndexedTestTrial
-from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_logical_partial_derivatives
 from sympde.topology.mapping     import InterfaceMapping
 from sympde.calculus.core        import is_zero
 
-from pyccel.ast.core          import _atomic
+from pyccel.ast.core import _atomic
 
 from .nodes import GlobalTensorQuadrature
 from .nodes import LocalTensorQuadrature
-from .nodes import LocalTensorQuadratureTestBasis
-from .nodes import LocalTensorQuadratureTrialBasis
 from .nodes import GlobalTensorQuadratureTestBasis
 from .nodes import GlobalTensorQuadratureTrialBasis
 from .nodes import LengthElement, LengthQuadrature
@@ -42,8 +36,6 @@ from .nodes import BlockStencilVectorLocalBasis
 from .nodes import BlockStencilVectorGlobalBasis
 from .nodes import GlobalElementBasis
 from .nodes import LocalElementBasis
-from .nodes import TensorQuadratureTestBasis, TensorQuadratureTrialBasis
-from .nodes import TensorTestBasis,TensorTrialBasis
 from .nodes import GlobalSpan
 from .nodes import CoefficientBasis
 from .nodes import MatrixLocalBasis, MatrixGlobalBasis
@@ -61,6 +53,7 @@ from .nodes import index_dof_trial
 
 from psydac.api.ast.utilities import variables
 from psydac.api.utilities     import flatten
+
 #==============================================================================
 def convert(dtype):
     """
@@ -75,6 +68,7 @@ def convert(dtype):
         return 2
     elif isinstance(dtype, L2SpaceType):
         return 3
+
 #==============================================================================
 def regroup(tests):
     """
@@ -104,6 +98,7 @@ def regroup(tests):
         else:
             groups += [(d,g)]
     return groups
+
 #==============================================================================
 def expand(args):
     """
@@ -119,6 +114,7 @@ def expand(args):
         else:
             raise NotImplementedError("TODO")
     return tuple(new_args)
+
 #==============================================================================
 def expand_hdiv_hcurl(args):
     """
@@ -139,33 +135,6 @@ def expand_hdiv_hcurl(args):
     return tuple(new_args)
 
 #==============================================================================
-def is_scalar_field(expr):
-
-    if isinstance(expr, _partial_derivatives):
-        return is_scalar_field(expr.args[0])
-
-    elif isinstance(expr, _logical_partial_derivatives):
-        return is_scalar_field(expr.args[0])
-
-    elif isinstance(expr, ScalarField):
-        return True
-
-    return False
-
-#==============================================================================
-def is_vector_field(expr):
-
-    if isinstance(expr, _partial_derivatives):
-        return is_vector_field(expr.args[0])
-
-    elif isinstance(expr, _logical_partial_derivatives):
-        return is_vector_field(expr.args[0])
-
-    elif isinstance(expr, (VectorField, IndexedVectorField)):
-        return True
-
-    return False
-#==============================================================================
 class Block(Basic):
     """
     This class represents a Block of statements
@@ -181,6 +150,7 @@ class Block(Basic):
     @property
     def body(self):
         return self._args[0]
+
 #==============================================================================
 class DefNode(Basic):
     """
@@ -271,12 +241,7 @@ class AST(object):
         trials = expand_hdiv_hcurl(trials)
         fields = expand_hdiv_hcurl(fields)
 
-        atoms_types = (ScalarTestFunction,
-                       VectorTestFunction,
-                       ScalarField,
-                       VectorField, 
-                       IndexedVectorField,
-                       IndexedTestTrial)
+        atoms_types = (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)
 
         nderiv = 1
         if isinstance(terminal_expr, (ImmutableDenseMatrix, Matrix)):
@@ -284,52 +249,40 @@ class AST(object):
             atomic_expr_field = {f:[] for f in fields}
             for i_row in range(0, n_rows):
                 for i_col in range(0, n_cols):
-                    d            = get_max_logical_partial_derivatives(terminal_expr[i_row,i_col])
-                    nderiv       = max(nderiv, max(d.values()))
-                    atoms        = _atomic(terminal_expr[i_row, i_col], cls=atoms_types+_logical_partial_derivatives)
-                    fields_atoms = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
-                    for f in fields_atoms:
+                    d           = get_max_logical_partial_derivatives(terminal_expr[i_row,i_col])
+                    nderiv      = max(nderiv, max(d.values()))
+                    atoms       = _atomic(terminal_expr[i_row, i_col], cls=atoms_types+_logical_partial_derivatives)
+                    #--------------------------------------------------------------------
+                    # TODO [YG, 05.02.2021]: create 'get_test_function' and use it below:
+#                    field_atoms = [a for a in atoms if get_test_function(a) in fields]
+                    field_atoms = []
+                    #--------------------------------------------------------------------
+                    for f in field_atoms:
                         a = _atomic(f, cls=atoms_types)
                         assert len(a) == 1
                         atomic_expr_field[a[0]].append(f)
-        else:
-            d            = get_max_logical_partial_derivatives(terminal_expr)
-            nderiv       = max(nderiv, max(d.values()))
-            atoms        = _atomic(terminal_expr, cls=atoms_types+_logical_partial_derivatives)
-            fields_atoms  = [atom for atom in atoms if is_scalar_field(atom) or is_vector_field(atom)]
 
+        else:
+            d           = get_max_logical_partial_derivatives(terminal_expr)
+            nderiv      = max(nderiv, max(d.values()))
+            atoms       = _atomic(terminal_expr, cls=atoms_types+_logical_partial_derivatives)
+            #--------------------------------------------------------------------
+            # TODO [YG, 05.02.2021]: create 'get_test_function' and use it below:
+#            field_atoms = [a for a in atoms if get_test_function(a) in fields]
+            field_atoms = []
+            #--------------------------------------------------------------------
             atomic_expr_field = {f:[] for f in fields}
-            for f in fields_atoms:
+            for f in field_atoms:
                 a = _atomic(f, cls=atoms_types)
                 assert len(a) == 1
                 atomic_expr_field[a[0]].append(f)
 
             terminal_expr     = Matrix([[terminal_expr]])
 
-        d_tests = {}
-        for v in tests:
-            d = {}
-            d['global'] = GlobalTensorQuadratureTestBasis(v)
-            d['span']   = GlobalSpan(v)
-            d_tests[v]  = d
-        # ...
+        d_tests  = {v: {'global': GlobalTensorQuadratureTestBasis (v), 'span': GlobalSpan(v)} for v in tests }
+        d_trials = {u: {'global': GlobalTensorQuadratureTrialBasis(u), 'span': GlobalSpan(u)} for u in trials}
+        d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f), 'span': GlobalSpan(f)} for f in fields}
 
-        # ...
-        d_trials = {}
-        for u in trials:
-            d = {}
-            d['global'] = GlobalTensorQuadratureTrialBasis(u)
-            d['span']   = GlobalSpan(u)
-            d_trials[u] = d
-        # ...
-
-        d_fields = {}
-        for f in fields:
-            d = {}
-            d['global'] = GlobalTensorQuadratureTestBasis(f)
-            d['span']   = GlobalSpan(f)
-            d_fields[f] = d
-            
         if is_broken:
             if is_bilinear:
                 space_domain = spaces[0].domain
