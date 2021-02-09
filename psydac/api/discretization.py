@@ -229,7 +229,7 @@ class DiscreteEquation(BasicDiscrete):
 
                 from sympde.expr import integral
                 from sympde.expr import find
-                from sympde.topology import element_of #, ScalarTestFunction
+                from sympde.topology import element_of #, ScalarFunction
 
                 # Extract trial functions from model equation
                 u = self.expr.trial_functions
@@ -245,7 +245,7 @@ class DiscreteEquation(BasicDiscrete):
                 test_dict = dict(zip(u, v))
 
                 # TODO: use dot product for vector quantities
-#                product  = lambda f, g: (f * g if isinstance(g, ScalarTestFunction) else dot(f, g))
+#                product  = lambda f, g: (f * g if isinstance(g, ScalarFunction) else dot(f, g))
                 product  = lambda f, g: f * g
 
                 # Construct variational formulation that performs L2 projection

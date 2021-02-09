@@ -17,9 +17,9 @@ from pyccel.ast.core import If, Is, Return
 from pyccel.ast.core import _atomic
 
 from sympde.core                 import Constant
-from sympde.topology.space       import ScalarTestFunction
-from sympde.topology.space       import VectorTestFunction
-from sympde.topology.space       import IndexedTestTrial
+from sympde.topology.space       import ScalarFunction
+from sympde.topology.space       import VectorFunction
+from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
@@ -46,7 +46,7 @@ def is_scalar_field(expr):
     elif isinstance(expr, _logical_partial_derivatives):
         return is_scalar_field(expr.args[0])
 
-    elif isinstance(expr, ScalarTestFunction):
+    elif isinstance(expr, ScalarFunction):
         return True
 
     return False
@@ -60,7 +60,7 @@ def is_vector_field(expr):
     elif isinstance(expr, _logical_partial_derivatives):
         return is_vector_field(expr.args[0])
 
-    elif isinstance(expr, (VectorTestFunction, IndexedTestTrial)):
+    elif isinstance(expr, (VectorFunction, IndexedVectorFunction)):
         return True
 
     return False
@@ -69,9 +69,9 @@ def is_vector_field(expr):
 def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
 
     cls = (_partial_derivatives,
-           ScalarTestFunction,
-           VectorTestFunction,
-           IndexedTestTrial)
+           ScalarFunction,
+           VectorFunction,
+           IndexedVectorFunction)
 
     if not isinstance(atom, cls):
         raise TypeError('atom must be of type {}'.format(str(cls)))
@@ -85,13 +85,13 @@ def compute_atoms_expr(atom, basis, indices, loc_indices, dim):
         orders[atom.grad_index] = p_indices[atom.coordinate]
         
 
-    if isinstance(a, IndexedTestTrial):
+    if isinstance(a, IndexedVectorFunction):
         ind = a.indices[0]
     args = []
     for i in range(dim):
-        if isinstance(a, IndexedTestTrial):
+        if isinstance(a, IndexedVectorFunction):
             args.append(basis[ind+i*dim][loc_indices[i],orders[i],indices[i]])
-        elif isinstance(a, ScalarTestFunction):
+        elif isinstance(a, ScalarFunction):
             args.append(basis[i][loc_indices[i],orders[i],indices[i]])
         else:
             raise NotImplementedError('TODO')
@@ -256,8 +256,8 @@ class ExprKernel(SplBasic):
         # ...
         atoms_types = (_partial_derivatives,
                        _logical_partial_derivatives,
-                       ScalarTestFunction,
-                       VectorTestFunction, IndexedTestTrial,
+                       ScalarFunction,
+                       VectorFunction, IndexedVectorFunction,
                        SymbolicDeterminant,
                        Symbol)
 
@@ -269,8 +269,8 @@ class ExprKernel(SplBasic):
         atomic_expr_field        = [atom for atom in atoms if is_scalar_field(atom)]
         atomic_expr_vector_field = [atom for atom in atoms if is_vector_field(atom)]
 
-        self._fields = tuple(expr.atoms(ScalarTestFunction))
-        self._vector_fields = tuple(expr.atoms(VectorTestFunction))
+        self._fields = tuple(expr.atoms(ScalarFunction))
+        self._vector_fields = tuple(expr.atoms(VectorFunction))
         # ...
         fields_str        = tuple(SymbolicExpr(f).name for f in atomic_expr_field)
         vector_fields_str = tuple(SymbolicExpr(f).name for f in atomic_expr_vector_field)

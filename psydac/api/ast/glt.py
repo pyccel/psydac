@@ -23,9 +23,9 @@ from pyccel.ast.core import _atomic
 
 from pyccel.ast.numpyext import Zeros
 
-from sympde.topology.space       import ScalarTestFunction
-from sympde.topology.space       import VectorTestFunction
-from sympde.topology.space       import IndexedTestTrial
+from sympde.topology.space       import ScalarFunction
+from sympde.topology.space       import VectorFunction
+from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_partial_derivatives
@@ -270,9 +270,9 @@ class GltKernel(SplBasic):
 
         atoms_types = (_partial_derivatives,
                        _logical_partial_derivatives,
-                       ScalarTestFunction,
-                       VectorTestFunction,
-                       IndexedTestTrial,
+                       ScalarFunction,
+                       VectorFunction,
+                       IndexedVectorFunction,
                        SymbolicDeterminant)
 
         atoms  = _atomic(expr, cls=atoms_types)
@@ -280,8 +280,8 @@ class GltKernel(SplBasic):
 
         # ...
 #        atomic_expr_mapping      = [atom for atom in atoms if is_mapping(atom)]
-        atomic_expr_field        = [atom for atom in atoms if atom.atoms(ScalarTestFunction)]
-        atomic_expr_vector_field = [atom for atom in atoms if atom.atoms(VectorTestFunction)]
+        atomic_expr_field        = [atom for atom in atoms if atom.atoms(ScalarFunction)]
+        atomic_expr_vector_field = [atom for atom in atoms if atom.atoms(VectorFunction)]
         # ...
 
         # ...
@@ -295,7 +295,7 @@ class GltKernel(SplBasic):
         atomic_expr_field_logical = tuple(f.subs(d_subs) for f in atomic_expr_field)
         fields_str         = tuple(sorted(SymbolicExpr(f).name for f in atomic_expr_field))
         fields_logical_str = tuple(sorted(SymbolicExpr(f).name for f in atomic_expr_field_logical))
-        field_atoms        = tuple(expr.atoms(ScalarTestFunction))
+        field_atoms        = tuple(expr.atoms(ScalarFunction))
         # ...
 
         # ... create EvalArrayField
@@ -308,7 +308,7 @@ class GltKernel(SplBasic):
                 g_names = set([f.name for f in group])
                 fields_expressions = []
                 for e in atomic_expr_field:
-                    fs = e.atoms(ScalarTestFunction)
+                    fs = e.atoms(ScalarFunction)
                     f_names = set([f.name for f in fs])
                     if f_names & g_names:
                         fields_expressions += [e]

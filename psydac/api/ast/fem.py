@@ -13,9 +13,9 @@ from sympde.expr                 import Functional
 from sympde.topology.basic       import Boundary, Interface
 from sympde.topology             import H1SpaceType, HcurlSpaceType
 from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology.space       import ScalarTestFunction
-from sympde.topology.space       import VectorTestFunction
-from sympde.topology.space       import IndexedTestTrial
+from sympde.topology.space       import ScalarFunction
+from sympde.topology.space       import VectorFunction
+from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.derivatives import _logical_partial_derivatives
 from sympde.topology.derivatives import get_max_logical_partial_derivatives
 from sympde.topology.mapping     import InterfaceMapping
@@ -75,7 +75,7 @@ def regroup(tests):
     This function regourps the test/trial functions by their Function Space
 
     """
-    tests  = [i.base if isinstance(i, IndexedTestTrial) else i for i in tests]
+    tests  = [i.base if isinstance(i, IndexedVectorFunction) else i for i in tests]
     new_tests = []
     for i in tests:
         if i not in new_tests:
@@ -90,7 +90,7 @@ def regroup(tests):
     grs = [(list(g.values())[0],tuple(g.keys())) for g in grs]
     groups = []
     for d,g in grs:
-        if isinstance(d, (HcurlSpaceType, HdivSpaceType)) and isinstance(g[0], VectorTestFunction):
+        if isinstance(d, (HcurlSpaceType, HdivSpaceType)) and isinstance(g[0], VectorFunction):
             dim = g[0].space.ldim
             for i in range(dim):
                 s = [u[i] for u in g]
@@ -107,9 +107,9 @@ def expand(args):
     """
     new_args = []
     for i in args:
-        if isinstance(i, (ScalarTestFunction, IndexedTestTrial)):
+        if isinstance(i, (ScalarFunction, IndexedVectorFunction)):
             new_args += [i]
-        elif isinstance(i, VectorTestFunction):
+        elif isinstance(i, VectorFunction):
             new_args += [i[k] for k in  range(i.space.ldim)]
         else:
             raise NotImplementedError("TODO")
@@ -123,9 +123,9 @@ def expand_hdiv_hcurl(args):
     """
     new_args = []
     for i in args:
-        if isinstance(i, (ScalarTestFunction, IndexedTestTrial)):
+        if isinstance(i, (ScalarFunction, IndexedVectorFunction)):
             new_args += [i]
-        elif isinstance(i, VectorTestFunction):
+        elif isinstance(i, VectorFunction):
             if isinstance(i.space.kind, (HcurlSpaceType, HdivSpaceType)):
                 new_args += [i[k] for k in  range(i.space.ldim)]
             else:
@@ -228,7 +228,7 @@ class AST(object):
 
         elif isinstance(expr, Functional):
             is_functional       = True
-            fields              = tuple(expr.atoms(ScalarTestFunction, VectorTestFunction))
+            fields              = tuple(expr.atoms(ScalarFunction, VectorFunction))
             mapping             = spaces.symbolic_mapping
             is_rational_mapping = spaces.is_rational_mapping
             spaces              = spaces.symbolic_space
@@ -241,7 +241,7 @@ class AST(object):
         trials = expand_hdiv_hcurl(trials)
         fields = expand_hdiv_hcurl(fields)
 
-        atoms_types = (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)
+        atoms_types = (ScalarFunction, VectorFunction, IndexedVectorFunction)
 
         nderiv = 1
         if isinstance(terminal_expr, (ImmutableDenseMatrix, Matrix)):
@@ -453,7 +453,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     # sort tests and trials by their space type
     test_groups  = regroup(tests)
     trial_groups = regroup(trials)
-    # expand every VectorTestFunction into IndexedTestFunctions
+    # expand every VectorFunction into IndexedVectorFunctions
     ex_tests     = expand(tests)
     ex_trials    = expand(trials)
 
@@ -629,7 +629,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     # sort tests by their space type
     groups = regroup(tests)
-    # expand every VectorTestFunction into IndexedTestFunctions
+    # expand every VectorFunction into IndexedVectorFunctions
     ex_tests = expand(tests)
     # ... 
     #=========================================================begin kernel======================================================
