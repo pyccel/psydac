@@ -282,8 +282,8 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     derham_h = discretize(derham, domain_h, degree=[degree, degree], periodic=[periodic, periodic])
 
     # Discrete bilinear forms
-    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
-    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2), backend=PSYDAC_BACKEND_GPYCCEL)
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1)) #, backend=PSYDAC_BACKEND_GPYCCEL)
+    a2_h = discretize(a2, domain_h, (derham_h.V2, derham_h.V2)) #, backend=PSYDAC_BACKEND_GPYCCEL)
 
     # Mass matrices (StencilMatrix objects)
     M1 = a1_h.assemble()
@@ -294,7 +294,7 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     # Discretize and assemble penalization matrix
     if not periodic:
-        a1_bc_h = discretize(a1_bc, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
+        a1_bc_h = discretize(a1_bc, domain_h, (derham_h.V1, derham_h.V1)) #, backend=PSYDAC_BACKEND_GPYCCEL)
         M1_bc   = a1_bc_h.assemble()
 
     # Transpose of derivative matrix
@@ -394,6 +394,14 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
         ax1.set_aspect('equal')
         fig1.tight_layout()
         fig1.show()
+
+        # print("type(E) = ", type(E))
+        # print("type(E.fields) = ", type(E.fields))
+        # print("type(E.fields[0]) = ", type(E.fields[0]))
+
+        # exit()
+
+
 
         # ...
         # Plot initial conditions
