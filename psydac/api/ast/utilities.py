@@ -7,9 +7,9 @@ from sympy import Mul, Pow, Function, Tuple
 from sympy import sqrt as sympy_sqrt, Range
 from sympy.utilities.iterables import cartes
 
-from sympde.topology.space       import ScalarTestFunction
-from sympde.topology.space       import VectorTestFunction
-from sympde.topology.space       import IndexedTestTrial
+from sympde.topology.space       import ScalarFunction
+from sympde.topology.space       import VectorFunction
+from sympde.topology.space       import IndexedVectorFunction
 from sympde.topology.space       import element_of
 from sympde.topology             import Mapping
 from sympde.topology             import Boundary
@@ -65,13 +65,13 @@ def logical2physical(expr):
 #==============================================================================
 def _get_name(atom):
     atom_name = None
-    if isinstance( atom, ScalarTestFunction ):
+    if isinstance( atom, ScalarFunction ):
         atom_name = str(atom.name)
 
-    elif isinstance( atom, VectorTestFunction ):
+    elif isinstance( atom, VectorFunction ):
         atom_name = str(atom.name)
 
-    elif isinstance( atom, IndexedTestTrial ):
+    elif isinstance( atom, IndexedVectorFunction ):
         atom_name = str(atom.base.name)
 
     else:
@@ -130,9 +130,9 @@ def compute_atoms_expr(atomic_exprs, indices_quad, indices_test,
     """
 
     cls = (_partial_derivatives,
-           VectorTestFunction,
-           ScalarTestFunction,
-           IndexedTestTrial)
+           VectorFunction,
+           ScalarFunction,
+           IndexedVectorFunction)
     
     dim  = len(indices_test)
 
@@ -257,9 +257,9 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
     map_stmts = []
 
     cls = (_partial_derivatives,
-           ScalarTestFunction,
-           IndexedTestTrial,
-           VectorTestFunction)
+           ScalarFunction,
+           IndexedVectorFunction,
+           VectorFunction)
 
     # If there is a mapping, compute [dx(u), dy(u), dz(u)] as functions
     # of [dx1(u), dx2(u), dx3(u)], and store results into intermediate
@@ -311,12 +311,12 @@ def compute_atoms_expr_field(atomic_exprs, indices_quad,
     for atom in new_atoms:
 
         # Extract field, compute name of coefficient variable, and get base
-        if atom.atoms(ScalarTestFunction):
-            field      = atom.atoms(ScalarTestFunction).pop()
+        if atom.atoms(ScalarFunction):
+            field      = atom.atoms(ScalarFunction).pop()
             field_name = 'coeff_' + SymbolicExpr(field).name
             base       = field
-        elif atom.atoms(VectorTestFunction):
-            field      = atom.atoms(IndexedTestTrial).pop()
+        elif atom.atoms(VectorFunction):
+            field      = atom.atoms(IndexedVectorFunction).pop()
             field_name = 'coeff_' + SymbolicExpr(field).name
             base       = field.base
         else:
