@@ -70,11 +70,11 @@ class ConformingProjection( LinearOperator ):
         u, v = elements_of(V0, names='u, v')
         expr   = u*v  # dot(u,v)
 
-        kappa  = 1000 # 10**20
+        kappa  = 10**6
         I = domain.interfaces  # note: interfaces does not include the boundary 
         expr_I = kappa*( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
-        a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
+        a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))  # + integral(domain.boundary, u*v))
 
         ah = discretize(a, domain_h, [V0h, V0h])    # ... or (V0h, V0h)?
 
@@ -181,7 +181,7 @@ def test_conga_2d():
 
 
     # multi-patch de Rham sequence:
-    derham  = Derham(domain, ["H1", "Hcurl"])
+    derham  = Derham(domain, ["H1", "Hcurl", "L2"])
 
 
 
@@ -201,10 +201,6 @@ def test_conga_2d():
 
     # broken multipatch spaces
     V0h = discretize(derham.V0, domain_h, degree=degree)
-    V1h = discretize(derham.V1, domain_h, degree=degree)
-
-    assert isinstance(V1h, ProductFemSpace)
-    assert isinstance(V1h.vector_space, BlockVectorSpace)
 
     # local construction
 
@@ -217,7 +213,7 @@ def test_conga_2d():
     V0hs = [  discretize(derh.V0, dom_h, degree=degree)
                   for dom_h, derh in zip(domains_h, derhams)]
 
-    V1hs = [  discretize(derh.V1, dom_h, degree=degree)
+    V1hs = [  discretize(derh.V1, dom_h, degree=degree, basis='M')
                   for dom_h, derh in zip(domains_h, derhams)]
 
 
@@ -262,7 +258,7 @@ def test_conga_2d():
     n_quads = [5,5]
     P0s = [Projector_H1(V) for V in V0hs]
     P1s = [Projector_Hcurl(V, n_quads) for V in V1hs]
-    D0s = [Gradient_2D(V0, V1) for V0, V1 in zip(V0hs, V1hs)]
+
 
     # I. multipatch V0 projection
 
@@ -301,13 +297,14 @@ def test_conga_2d():
 
     E_hs = [P(sol) for P, sol, in zip(P1s, E_sol_log)]
 
-    E1 = VectorFemField(V1h)
+    V1h = discretize(derham.V1, domain_h, degree=degree)
+    V1h_M = discretize(derham.V1, domain_h, degree=degree, basis='M')
+
+    E1 = VectorFemField(V1h_M)
     for k in range(2):
         for d in range(2):
             E1.coeffs[k][d][:] = E_hs[k].fields[d].coeffs[:]   # patch k, component d
     E1.coeffs.update_ghost_regions()
-
-
 
 
     # IV.  multipatch (broken) grad operator
@@ -315,9 +312,12 @@ def test_conga_2d():
     # shorter:
     # grad_u0 = D0(u0)
 
+    D0s = [Gradient_2D(V0, V1) for V0, V1 in zip(V0hs, V1hs)]
     du_hs = [D0(u) for D0, u in zip(D0s, u_hs)]
 
-    grad_u0 = VectorFemField(V1h)
+
+
+    grad_u0 = VectorFemField(V1h_M)
     for k in range(2):
         for d in range(2):
             grad_u0.coeffs[k][d][:] = du_hs[k].fields[d].coeffs[:]      # patch k, component d
@@ -325,6 +325,8 @@ def test_conga_2d():
 
 
 
+    assert isinstance(V1h, ProductFemSpace)
+    assert isinstance(V1h.vector_space, BlockVectorSpace)
 
     # for later: this should allow to define a multi-patch operator: broken_D0
 
