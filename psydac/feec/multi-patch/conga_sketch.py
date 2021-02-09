@@ -148,11 +148,10 @@ class ComposedLinearOperator( LinearOperator ):
 
 def test_conga_2d():
     """
-    assembles a conforming projection on the conforming subspace,
-    and the corresponding gradient operator on the broken multipatch space
+    - assembles several multipatch operators and a conforming projection
 
-    performs two tests:
-      - commuting diagram
+    - performs several tests:
+      - ...
       -
 
     """
@@ -171,15 +170,14 @@ def test_conga_2d():
     domain_1     = mapping_1(A)
     domain_2     = mapping_2(B)
 
-    # local (single patch) de Rham sequences:
-    derham_1  = Derham(domain_1, ["H1", "Hcurl"])
-    derham_2  = Derham(domain_2, ["H1", "Hcurl"])
-
     domain = domain_1.join(domain_2, name = 'domain',
                 bnd_minus = domain_1.get_boundary(axis=1, ext=1),
                 bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
 
     mappings  = {A.interior:mapping_1, B.interior:mapping_2}
+
+    mappings_obj = [mapping_1, mapping_2]
+    F = [f.get_callable_mapping() for f in mappings_obj]
 
 
     # multi-patch de Rham sequence:
@@ -196,7 +194,7 @@ def test_conga_2d():
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     
-    ## derham for later
+    ## for later  ?
     # derham_h = discretize(derham, domain_h, degree=degree)      # build them by hand if this doesn't work
     # V0h       = derham_h.V0
     # V1h       = derham_h.V1
@@ -210,48 +208,29 @@ def test_conga_2d():
 
     # local construction
 
-    domain_h_1 = discretize(domain_1, ncells=ncells, comm=comm)
-    domain_h_2 = discretize(domain_2, ncells=ncells, comm=comm)
-
-    V0h_1 = discretize(derham_1.V0, domain_h_1, degree=degree)
-    V0h_2 = discretize(derham_2.V0, domain_h_2, degree=degree)
-    V1h_1 = discretize(derham_1.V1, domain_h_1, degree=degree)
-    V1h_2 = discretize(derham_2.V1, domain_h_2, degree=degree)
-
     domains = [domain_1, domain_2]
     domains_h = [discretize(dom, ncells=ncells, comm=comm) for dom in domains]
     derhams  = [Derham(dom, ["H1", "Hcurl"]) for dom in domains]
     derhams_h = [discretize(derh, dom_h, degree=degree)
                  for dom_h, derh in zip(domains_h, derhams)]
 
-    patch_V0s_h = [  discretize(derh.V0, dom_h, degree=degree)
+    V0hs = [  discretize(derh.V0, dom_h, degree=degree)
                   for dom_h, derh in zip(domains_h, derhams)]
 
-    # patch_V0h = derhams_h[0].V0
-    # print("*-*:", patch_V0h)
-    #
-    # patch_V0h = patch_V0s_h[0]
-    # print("*+*:", patch_V0h)
-    # exit()
+    V1hs = [  discretize(derh.V1, dom_h, degree=degree)
+                  for dom_h, derh in zip(domains_h, derhams)]
 
-
-    V0h_vector_space = BlockVectorSpace(V0h_1.vector_space, V0h_2.vector_space)
-    V1h_vector_space = BlockVectorSpace(V1h_1.vector_space, V1h_2.vector_space)
-
-    # print("V0h_vector_space: ", V0h_vector_space)
-    # print("V0h.vector_space: ", V0h.vector_space)
-    # print("%%%%%%%%% %%%%%%%%% %%%%%%%%%")
-
-    if 0:
-        # alternative (but with vector spaces)
-        V0h_1 = V0h.spaces[0]  # V0h on domain 1
-        V0h_2 = V0h.spaces[1]  # V0h on domain 2
-        V1h_1 = BlockVectorSpace(V1h.spaces[0], V1h.spaces[1])  # V1h on domain 1
-        V1h_2 = BlockVectorSpace(V1h.spaces[2], V1h.spaces[3])  # V1h on domain 2
 
     #+++++++++++++++++++++++++++++++
     # . some target functions
     #+++++++++++++++++++++++++++++++
+
+    # fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
+    # D1fun1  = lambda xi1, xi2 : np.cos(xi1)*np.sin(xi2)
+    # D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
+    # fun2    = lambda xi1, xi2 : .5*np.sin(xi1)*np.sin(xi2)
+
+
 
     x,y       = domain.coordinates
     u_sol  = x**2 + y**2
@@ -263,172 +242,89 @@ def test_conga_2d():
     E_sol_x = lambdify(domain.coordinates, E_sol_x)
     E_sol_y = lambdify(domain.coordinates, E_sol_y)
 
-    # fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
-    # D1fun1  = lambda xi1, xi2 : np.cos(xi1)*np.sin(xi2)
-    # D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
-    # fun2    = lambda xi1, xi2 : .5*np.sin(xi1)*np.sin(xi2)
-
-    # pull-backs for projections
-    # F1 = mapping_1.get_callable_mapping()
-    # F2 = mapping_2.get_callable_mapping()
-    # F = [F1, F2]
-
-    mappings_obj = [mapping_1, mapping_2]
-    F = [f.get_callable_mapping() for f in mappings_obj]
-
-    # discontinuous target
-    disc_sol_log = [
-        lambda xi1, xi2 : u_sol(*F1(xi1,xi2)),
-        lambda xi1, xi2 : 0,
-        ]
-
     # pull-backs of u and E
     u_sol_log = [lambda xi1, xi2 : u_sol(*f(xi1,xi2)) for f in F]
 
     # list: E_sol_log[k][d] : xi1, xi2 -> E_x(xi1, xi2) on patch k
     E_sol_log = [pull_2d_hcurl([E_sol_x,E_sol_y], f) for f in mappings_obj]
 
-    # E_sol_x_log, E_sol_y_log = [lambda xi1, xi2 : E_sol_x(*f(xi1,xi2)) for f in F]
-    # E_sol_y_log = [lambda xi1, xi2 : E_sol_y(*f(xi1,xi2)) for f in F]
-
-
-    # stop: need to apply V1 pull back transformation
-
-    # E_sol_x_log =[lambda xi1, xi2 : E_sol_x(*f(xi1,xi2)) for f in F]
-    # E_sol_y_log =[lambda xi1, xi2 : E_sol_y(*f(xi1,xi2)) for f in F]
-
-    # solution_log_2 = lambda xi1, xi2 : solution_aux(*F2(xi1,xi2))
-
+    # discontinuous target
+    v_sol_log = [
+        lambda xi1, xi2 : u_sol(*F[0](xi1,xi2)),
+        lambda xi1, xi2 : 0,
+        ]
 
     #+++++++++++++++++++++++++++++++
     # . H1, Hcurl (commuting) projectors
     #+++++++++++++++++++++++++++++++
 
-    # todo:
-    # create multipatch projectors like:
-    # P0 = Projector_H1(V0h)
-    # P1 = Projector_Hcurl(V1h)
-    # u0        = P0(u_sol_log)
-    # E1        = P1((E_sol_x_log, E_sol_y_log))
-
-    # for now, by hand:
-
-    # list of patches
-    V0hs = [V0h_1, V0h_2]
-    V1hs = [V1h_1, V1h_2]
-
     # list of projection operators
     n_quads = [5,5]
     P0s = [Projector_H1(V) for V in V0hs]
     P1s = [Projector_Hcurl(V, n_quads) for V in V1hs]
+    D0s = [Gradient_2D(V0, V1) for V0, V1 in zip(V0hs, V1hs)]
 
+    # I. multipatch V0 projection
 
-    # P0_1 = Projector_H1(V0h_1)
-    # P0_2 = Projector_H1(V0h_2)
-    # u0_1 = P0_1(solution_log_1)
-    # u0_2 = P0_2(solution_log_2)
-    # P1_1 = Projector_Hcurl(V1h_1, n_quads)
-    # P1_2 = Projector_Hcurl(V1h_2, n_quads)
-    # u1_1 = P1_1((D1fun1, D2fun1)) # not tested
-    # u1_2 = P1_2((D1fun1, D2fun1))
+    # shorter:
+    # P0 = Projector_H1(V0h)
+    # u0 = P0(u)  -- or  P0(u_sol_log) ?
 
-
-
-    # I.
-    # u0 = P0(u)
-
+    # approx of u (continuous)
     u_hs = [P(sol) for P, sol in zip(P0s, u_sol_log)]
-
-    # Create empty vector FEM field, then copy coefficients from scalar fields
     u0 = VectorFemField(V0h)
-    # u0.coeffs[0][:] = u0_1.coeffs[:]
-    # u0.coeffs[1][:] = u0_2.coeffs[:]
-    # patch k
     for k in range(2):
-        u0.coeffs[k][:] = u_hs[k].coeffs[:]
+        u0.coeffs[k][:] = u_hs[k].coeffs[:]         # patch k
     u0.coeffs.update_ghost_regions()
 
+    # approx of v (discontinuous)
+    v_hs = [P(sol) for P, sol in zip(P0s, v_sol_log)]
+    v0 = VectorFemField(V0h)
+    for k in range(2):
+        v0.coeffs[k][:] = v_hs[k].coeffs[:]         # patch k
+    v0.coeffs.update_ghost_regions()
 
-    # II.
-    # E1 = P1(E)
+
+    # II. conf projection V0 -> V0
+
+    # projection from broken multipatch space to conforming subspace (using the same basis)
+    Pconf_0 = ConformingProjection(V0hs[0], V0hs[1], domains_h[0], domains_h[1], V0h, domain_h)
+
+    v0c = Pconf_0(v0)
+
+
+    # III. multipatch V1 projection
+
+    # shorter:
+    # P1 = Projector_Hcurl(V1h)
+    # E1 = P1(E)  -- or  P1((E_sol_x_log, E_sol_y_log)) ?
 
     E_hs = [P(sol) for P, sol, in zip(P1s, E_sol_log)]
 
-    # Create empty multi-patch FEM field, then copy coefficients from single-patch fields
     E1 = VectorFemField(V1h)
-    # patch k, component d
     for k in range(2):
         for d in range(2):
-            E1.coeffs[k][d][:] = E_hs[k].fields[d].coeffs[:]
+            E1.coeffs[k][d][:] = E_hs[k].fields[d].coeffs[:]   # patch k, component d
     E1.coeffs.update_ghost_regions()
 
 
 
 
-    # III.
-    # grad_u0 = D0(u0)   --   (multipatch = broken grad)
+    # IV.  multipatch (broken) grad operator
 
-    D0s = [Gradient_2D(V0, V1) for V0, V1 in zip(V0hs, V1hs)]
+    # shorter:
+    # grad_u0 = D0(u0)
+
     du_hs = [D0(u) for D0, u in zip(D0s, u_hs)]
 
-    # Create empty multi-patch FEM field, then copy coefficients from single-patch fields
     grad_u0 = VectorFemField(V1h)
-    # patch k, component d
     for k in range(2):
         for d in range(2):
-            grad_u0.coeffs[k][d][:] = du_hs[k].fields[d].coeffs[:]
+            grad_u0.coeffs[k][d][:] = du_hs[k].fields[d].coeffs[:]      # patch k, component d
     grad_u0.coeffs.update_ghost_regions()
 
 
 
-
-
-
-    #+++++++++++++++++++++++++++++++
-    # . conf projection operators
-    #+++++++++++++++++++++++++++++++
-
-    # projection from broken multipatch space to conforming subspace (using the same basis)
-    # Pconf_0 = ConformingProjection(V0h_1, V0h_2, domain_h_1, domain_h_2, V0h, domain_h)
-    Pconf_0 = ConformingProjection(V0hs[0], V0hs[1], domains_h[0], domains_h[1], V0h, domain_h)
-
-    # u0_conf   = Pconf_0(u0)
-    u0c = Pconf_0(u0)
-
-
-
-    #+++++++++++++++++++++++++++++++
-    # . Differential operators
-    #   on conforming and broken spaces
-    #+++++++++++++++++++++++++++++++
-
-    # "broken grad" operator, coincides with the grad on the conforming subspace of V0h
-    # later: broken_D0 = Gradient_2D(V0h, V1h)   # on multi-patch domains we should maybe provide the "BrokenGradient"
-
-    # building multi-patch gradient by hand (later would be nice to have it as an operator between multi-patch spaces)
-    # D0_1 = Gradient_2D(V0h_1, V1h_1)
-    # D0_2 = Gradient_2D(V0h_2, V1h_2)
-    # du0_1 = D0_1(u0_1)
-    # du0_2 = D0_2(u0_2)
-
-
-    # Create empty multi-patch FEM field, then copy coefficients from single-patch fields
-    # E = VectorFemField(V1h)
-    # # patch k, component d
-    # for k in range(2):
-    #     for d in range(2):
-    #         E.coeffs[k][d][:] = du_hs[k].fields[d].coeffs[:]
-    # E.coeffs.update_ghost_regions()
-
-    # patch 1
-    # E.coeffs[0][0][:] = du0_1.fields[0].coeffs[:]
-    # E.coeffs[0][1][:] = du0_1.fields[1].coeffs[:]
-    # E.coeffs.update_ghost_regions()
-
-    # patch 2
-    # E.coeffs[1][0][:] = du0_2.fields[0].coeffs[:]
-    # E.coeffs[1][1][:] = du0_2.fields[1].coeffs[:]
-    # E.coeffs.update_ghost_regions()
 
     # for later: this should allow to define a multi-patch operator: broken_D0
 
@@ -440,44 +336,10 @@ def test_conga_2d():
 
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    # VISUALIZATION  adapted from examples/poisson_2d_multi_patch.py
+    # VISUALIZATION
+    #   adapted from examples/poisson_2d_multi_patch.py and
+    #   and psydac/api/tests/test_api_feec_2d.py
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-    # k = 0
-    # print("type(E) = ", type(E))
-    # print("E.fields = ", E.fields)
-    # print("E.coeffs = ", E.coeffs)
-    # # print("E.fields[0].coeffs = ", E.fields[0].coeffs)
-    # # print("E.fields[0].spaces = ", E.fields[0].spaces)
-    # # print("E.spaces = ", E.spaces)
-    # print("E.space.spaces = ", E.space.spaces)
-    # exit()
-    # print("type(E[0]) = ", type(E[0]))
-    # print("type(E.fields) = ", type(E.fields))
-    # print("type(E.fields[k]) = ", type(E.fields[k]))
-    # print("type(E.fields[k][0]) = ", type(E.fields[k][0]))
-
-    # print("type(mappings[k]) = ", type(mappings[k]))
-
-    # print( push_2d_hcurl(E.fields[k][0], E.fields[k][1], 0, 0, mappings_1) )
-
-    hand_test = False
-    if hand_test:
-        spaces = E1.space.spaces
-        v      = E1.coeffs
-        print("type(v[0]) = ", type(v[0]))
-        print("type(v[1]) = ", type(v[1]))
-        E1_1 = VectorFemField(spaces[0], v[0])
-        # E_field_1 = VectorFemSpace(spaces[0], v[0])
-        E_2 = VectorFemField(spaces[1], v[1])
-        print("pushed_value = ", push_2d_hcurl(E1_1.fields[0], E1_1.fields[1], 0.5, 0.5, mapping_1) )
-
-
-
-
-
-
-
 
 
     # needed for evaluation of physical (push-forward) fields:
@@ -485,7 +347,6 @@ def test_conga_2d():
     grad_u0s = [VectorFemField(sp, c) for sp, c in zip(grad_u0.space.spaces, grad_u0.coeffs)]
 
     # todo: do we have E_hs == E1s, and grad_u0s == du_hs ?
-    # exit()
 
     N = 20
 
@@ -512,9 +373,14 @@ def test_conga_2d():
     u0_vals  = np.concatenate(u0_vals,     axis=1)
     u_err = abs(u_vals - u0_vals)
 
-    # conf proj of u0
-    u0c_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0c.fields, etas)]
-    u0c_vals = np.concatenate(u0c_vals,     axis=1)
+    # v, v0 and conf proj v0c
+    v_vals  = [np.array( [[phi(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v_sol_log,etas)]
+    # v_vals  = [np.array( [[v_sol( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
+    v_vals  = np.concatenate(v_vals,     axis=1)
+    v0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v0.fields, etas)]
+    v0_vals  = np.concatenate(v0_vals,     axis=1)
+    v0c_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v0c.fields, etas)]
+    v0c_vals = np.concatenate(v0c_vals,     axis=1)
 
     # E1 and grad_u0
     E1_x_vals = 2*[None]
@@ -551,15 +417,12 @@ def test_conga_2d():
     # plots
 
 
-
-
     xx = pcoords[:,:,0]
     yy = pcoords[:,:,1]
 
+    # plot one patch grid
     plotted_patch = 1
-
-    if plotted_patch is not None:
-        assert plotted_patch in [0, 1]
+    if plotted_patch in [0, 1]:
 
         #patch_derham = derhams_h[plotted_patch]
         grid_x1 = derhams_h[plotted_patch].V0.breaks[0]
@@ -578,6 +441,44 @@ def test_conga_2d():
         gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
         gridlines_x2 = (x[::N, :].T, y[::N, :].T)
         gridlines = (gridlines_x1, gridlines_x2)
+
+
+
+    # plot v, v_h and v_hc
+
+    fig = plt.figure(figsize=(17., 4.8))
+    fig.suptitle(r'approximation of some $v$', fontsize=14)
+
+    ax = fig.add_subplot(1, 3, 1)
+
+    if plotted_patch is not None:
+        ax.plot(*gridlines_x1, color='k')
+        ax.plot(*gridlines_x2, color='k')
+
+    cp = ax.contourf(xx, yy, v_vals, 50, cmap='jet')
+    cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
+    ax.set_xlabel( r'$x$', rotation='horizontal' )
+    ax.set_ylabel( r'$y$', rotation='horizontal' )
+    ax.set_title ( r'$v^{ex}(x,y)$' )
+
+
+    ax = fig.add_subplot(1, 3, 2)
+    cp2 = ax.contourf(xx, yy, v0_vals, 50, cmap='jet')
+    cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
+
+    ax.set_xlabel( r'$x$', rotation='horizontal' )
+    ax.set_ylabel( r'$y$', rotation='horizontal' )
+    ax.set_title ( r'$v^h(x,y)$' )
+
+    ax = fig.add_subplot(1, 3, 3)
+    cp3 = ax.contourf(xx, yy, v0c_vals, 50, cmap='jet')
+    cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
+
+    ax.set_xlabel( r'$x$', rotation='horizontal' )
+    ax.set_ylabel( r'$y$', rotation='horizontal' )
+    ax.set_title ( r'$P^c v^h(x,y)$' )
+
+    plt.show()
 
 
 
@@ -616,6 +517,8 @@ def test_conga_2d():
     ax.set_title ( r'$|(u^{ex}-u^h)(x,y)|$' )
 
     plt.show()
+
+
 
 
     # plot E_x and E1_x
@@ -748,18 +651,9 @@ def test_conga_2d():
     exit()
 
 
-    # stop ici : repeat V1 fields for _y
 
 
-
-
-
-    #+++++++++++++++++++++++++++++++
-    # . test commuting diagram
-    #+++++++++++++++++++++++++++++++
-
-
-
+    #############     continue below, but needs a lot of cleaning....
 
 
 
@@ -795,8 +689,15 @@ def test_conga_2d():
     # I0 = IdentityLinearOperator(V0h)
     I0 = IdentityLinearOperator(V0h.vector_space)
 
+    # local (single patch) de Rham sequences:
+    derham_1  = Derham(domain_1, ["H1", "Hcurl"])
+    derham_2  = Derham(domain_2, ["H1", "Hcurl"])
+
+    domain_h_1 = discretize(domain_1, ncells=ncells, comm=comm)
+    domain_h_2 = discretize(domain_2, ncells=ncells, comm=comm)
 
     # mass matrix of V1   (mostly taken from psydac/api/tests/test_api_feec_3d.py)
+
 
     if 0:
         # this would be nice but doesn't work:
@@ -826,6 +727,13 @@ def test_conga_2d():
     # "broken grad" operator, coincides with the grad on the conforming subspace of V0h
     # later: broken_D0 = Gradient_2D(V0h, V1h)   # on multi-patch domains we should maybe provide the "BrokenGradient"
     # or broken_D0 = derham_h.D0 ?
+
+    # Note: here we should use the lists V0hs, V1hs defined above
+
+    V0h_1 = discretize(derham_1.V0, domain_h_1, degree=degree)
+    V0h_2 = discretize(derham_2.V0, domain_h_2, degree=degree)
+    V1h_1 = discretize(derham_1.V1, domain_h_1, degree=degree)
+    V1h_2 = discretize(derham_2.V1, domain_h_2, degree=degree)
 
     D0_1 = Gradient_2D(V0h_1, V1h_1)
     D0_2 = Gradient_2D(V0h_2, V1h_2)
