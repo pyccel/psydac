@@ -44,7 +44,7 @@ from psydac.utilities.utils    import refine_array_1d
 
 from psydac.feec.multipatch.operators import ConformingProjection, BrokenGradient_2D, ComposedLinearOperator
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1, Multipatch_Projector_Hcurl
-from psydac.feec.multipatch.operators import get_vector_patch_fields
+from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector_patch_fields
 
 comm = MPI.COMM_WORLD
 
@@ -149,7 +149,7 @@ def test_conga_2d():
 
     # discontinuous target
     v_sol_log = [
-        lambda xi1, xi2 : u_sol(*F[0](xi1,xi2)),
+        lambda xi1, xi2 : 1, # u_sol(*F[0](xi1,xi2)),
         lambda xi1, xi2 : 0,
         ]
 
@@ -186,7 +186,7 @@ def test_conga_2d():
 
     # V. Conga grad operator (on the broken V0h)
     conga_D0 = ComposedLinearOperator(bD0,Pconf_0)
-
+    cDv0 = conga_D0(v0)
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # VISUALIZATION
@@ -219,7 +219,10 @@ def test_conga_2d():
         E_y_vals = np.concatenate(E_y_vals,     axis=1)
 
         # u0
-        u0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0.fields, etas)]
+        u0s = get_scalar_patch_fields(u0, V0hs)
+
+        u0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0s, etas)]
+        # u0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0.fields, etas)]
         u0_vals  = np.concatenate(u0_vals,     axis=1)
         u_err = abs(u_vals - u0_vals)
 
@@ -232,6 +235,21 @@ def test_conga_2d():
             v0_vals  = np.concatenate(v0_vals,     axis=1)
             v0c_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v0c.fields, etas)]
             v0c_vals = np.concatenate(v0c_vals,     axis=1)
+
+            cDv0_x_vals = 2*[None]
+            cDv0_y_vals = 2*[None]
+            cDv0s = get_vector_patch_fields(cDv0, V1hs)
+            for k in [0,1]:
+                # patch k
+                eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
+                cDv0_x_vals[k] = np.empty_like(eta_1)
+                cDv0_y_vals[k] = np.empty_like(eta_1)
+                for i, x1i in enumerate(eta_1[:, 0]):
+                    for j, x2j in enumerate(eta_2[0, :]):
+                        cDv0_x_vals[k][i, j], cDv0_y_vals[k][i, j] = \
+                            push_2d_hcurl(cDv0s[k].fields[0], cDv0s[k].fields[1], x1i, x2j, mappings_obj[k])
+            cDv0_x_vals = np.concatenate(cDv0_x_vals,     axis=1)
+            cDv0_y_vals = np.concatenate(cDv0_y_vals,     axis=1)
 
         # E1 and grad_u0
         E1_x_vals = 2*[None]
@@ -299,6 +317,7 @@ def test_conga_2d():
 
         # plot v, v_h and v_hc
         if test_Pc:
+
             fig = plt.figure(figsize=(17., 4.8))
             fig.suptitle(r'approximation of some $v$', fontsize=14)
 
@@ -333,6 +352,41 @@ def test_conga_2d():
 
             plt.show()
 
+            # show v0 and cDv0
+
+            fig = plt.figure(figsize=(17., 4.8))
+            fig.suptitle(r'discontinuous $v^h$ and its conforming gradient', fontsize=14)
+
+            ax = fig.add_subplot(1, 3, 1)
+
+            if plotted_patch is not None:
+                ax.plot(*gridlines_x1, color='k')
+                ax.plot(*gridlines_x2, color='k')
+
+            cp = ax.contourf(xx, yy, v0_vals, 50, cmap='jet')
+            cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
+            ax.set_xlabel( r'$x$', rotation='horizontal' )
+            ax.set_ylabel( r'$y$', rotation='horizontal' )
+            ax.set_title ( r'$v^h(x,y)$' )
+
+
+            ax = fig.add_subplot(1, 3, 2)
+            cp2 = ax.contourf(xx, yy, cDv0_x_vals, 50, cmap='jet')
+            cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
+
+            ax.set_xlabel( r'$x$', rotation='horizontal' )
+            ax.set_ylabel( r'$y$', rotation='horizontal' )
+            ax.set_title ( r'$(D^0P^c v^h)_x(x,y)$' )
+
+            ax = fig.add_subplot(1, 3, 3)
+            cp3 = ax.contourf(xx, yy, cDv0_y_vals, 50, cmap='jet')
+            cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
+
+            ax.set_xlabel( r'$x$', rotation='horizontal' )
+            ax.set_ylabel( r'$y$', rotation='horizontal' )
+            ax.set_title ( r'$(D^0P^c v^h)_y(x,y)$' )
+
+            plt.show()
 
 
         # plot u and u_h
