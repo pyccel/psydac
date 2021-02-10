@@ -101,6 +101,75 @@ class ConformingProjection( LinearOperator ):
 
         return self(f).coeffs
 
+
+#===============================================================================
+class BrokenMass_V0( LinearOperator ):
+    """
+    Broken mass matrix, seen as a LinearOperator
+    """
+    def __init__( self, V0h, domain_h):
+
+        V0 = V0h.symbolic_space
+        domain = V0.domain
+        # domain_h = V0h.domain  # would be nice
+        self._domain   = V0h
+        self._codomain = V0h
+        u, v = elements_of(V0, names='u, v')
+        expr   = u*v  # dot(u,v)
+        a = BilinearForm((u,v), integral(domain, expr))
+        ah = discretize(a, domain_h, [V0h, V0h])
+        self._M = ah.assemble() #.toarray()
+
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    def __call__( self, f ):
+        Mf_coeffs = self.dot(f.coeffs)
+        return VectorFemField(self.domain, coeffs=Mf_coeffs)
+
+    def dot( self, f_coeffs, out=None ):
+        return self._M.dot(f_coeffs)
+
+
+#===============================================================================
+class BrokenMass_V1( LinearOperator ):
+    """
+    Broken mass matrix in V1, seen as a LinearOperator
+    """
+    def __init__( self, V1h, domain_h):
+
+        V1 = V1h.symbolic_space
+        domain = V1.domain
+        # domain_h = V0h.domain  # would be nice
+        self._domain   = V1h
+        self._codomain = V1h
+        u, v = elements_of(V1, names='u, v')
+        expr   = dot(u,v)
+        a = BilinearForm((u,v), integral(domain, expr))
+        ah = discretize(a, domain_h, [V1h, V1h])
+        self._M = ah.assemble() #.toarray()
+
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    def __call__( self, f ):
+        Mf_coeffs = self.dot(f.coeffs)
+        return VectorFemField(self.domain, coeffs=Mf_coeffs)
+
+    def dot( self, f_coeffs, out=None ):
+        return self._M.dot(f_coeffs)
+
+
 class ComposedLinearOperator( LinearOperator ):
 
     def __init__( self, B, A ):
@@ -180,7 +249,6 @@ class BrokenGradient_2D( LinearOperator ):
         f = VectorFemField(self.domain, coeffs=u_coeffs)
 
         return self(f).coeffs
-
 
 
 class Multipatch_Projector_Hcurl:

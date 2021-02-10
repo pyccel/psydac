@@ -42,6 +42,7 @@ from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
 
 from psydac.utilities.utils    import refine_array_1d
 
+from psydac.feec.multipatch.operators import BrokenMass_V0, BrokenMass_V1
 from psydac.feec.multipatch.operators import ConformingProjection, BrokenGradient_2D, ComposedLinearOperator
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1, Multipatch_Projector_Hcurl
 from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector_patch_fields
@@ -122,6 +123,15 @@ def test_conga_2d():
                   for dom_h, derh in zip(domains_h, derhams)]
 
 
+    # Mass matrix for multipatch space V1
+
+    M0 = BrokenMass_V0(V0h, domain_h)
+    M1 = BrokenMass_V1(V1h, domain_h)
+
+
+
+
+
     #+++++++++++++++++++++++++++++++
     # . some target functions
     #+++++++++++++++++++++++++++++++
@@ -187,6 +197,15 @@ def test_conga_2d():
     # V. Conga grad operator (on the broken V0h)
     conga_D0 = ComposedLinearOperator(bD0,Pconf_0)
     cDv0 = conga_D0(v0)
+
+    # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
+    conga_D0_transp = ComposedLinearOperator(Pconf_0,broken_D0.T)
+
+
+    I0 = IdentityLinearOperator(V0h.vector_space)
+
+
+
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # VISUALIZATION
