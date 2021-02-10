@@ -193,20 +193,20 @@ def test_conga_2d():
     degree=[2,2]
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
-    
-    ## for later  ?
+
+    ## this should eventually work:
     # derham_h = discretize(derham, domain_h, degree=degree)      # build them by hand if this doesn't work
     # V0h       = derham_h.V0
     # V1h       = derham_h.V1
 
     # broken multipatch spaces
     V0h = discretize(derham.V0, domain_h, degree=degree)
+    V1h = discretize(derham.V1, domain_h, degree=degree, basis='M')
 
-    # local construction
-
+    # local construction (list of patches)
     domains = [domain_1, domain_2]
     domains_h = [discretize(dom, ncells=ncells, comm=comm) for dom in domains]
-    derhams  = [Derham(dom, ["H1", "Hcurl"]) for dom in domains]
+    derhams  = [Derham(dom, ["H1", "Hcurl", "L2"]) for dom in domains]
     derhams_h = [discretize(derh, dom_h, degree=degree)
                  for dom_h, derh in zip(domains_h, derhams)]
 
@@ -297,10 +297,7 @@ def test_conga_2d():
 
     E_hs = [P(sol) for P, sol, in zip(P1s, E_sol_log)]
 
-    V1h = discretize(derham.V1, domain_h, degree=degree)
-    V1h_M = discretize(derham.V1, domain_h, degree=degree, basis='M')
-
-    E1 = VectorFemField(V1h_M)
+    E1 = VectorFemField(V1h)
     for k in range(2):
         for d in range(2):
             E1.coeffs[k][d][:] = E_hs[k].fields[d].coeffs[:]   # patch k, component d
@@ -317,7 +314,7 @@ def test_conga_2d():
 
 
 
-    grad_u0 = VectorFemField(V1h_M)
+    grad_u0 = VectorFemField(V1h)
     for k in range(2):
         for d in range(2):
             grad_u0.coeffs[k][d][:] = du_hs[k].fields[d].coeffs[:]      # patch k, component d
