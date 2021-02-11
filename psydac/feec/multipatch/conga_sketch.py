@@ -43,6 +43,7 @@ from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
 from psydac.utilities.utils    import refine_array_1d
 
 from psydac.feec.multipatch.operators import BrokenMass_V0, BrokenMass_V1
+from psydac.feec.multipatch.operators import IdLinearOperator, SumLinearOperator, MultLinearOperator
 from psydac.feec.multipatch.operators import ConformingProjection, BrokenGradient_2D, ComposedLinearOperator
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1, Multipatch_Projector_Hcurl
 from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector_patch_fields
@@ -188,22 +189,64 @@ def test_conga_2d():
     P1 = Multipatch_Projector_Hcurl(V1hs, V1h, nquads=[5,5])
     E1 = P1(E_sol_log)
 
-    # IV.  multipatch (broken) grad operator
+    # IV.  multipatch (broken) grad operator on V0h
 
-    bD0 = BrokenGradient_2D(V0hs, V1hs, V0h, V1h)
+    bD0 = BrokenGradient_2D(V0hs, V1hs, V0h, V1h, as_mat=True)
     grad_u0 = bD0(u0)
 
 
-    # V. Conga grad operator (on the broken V0h)
-    conga_D0 = ComposedLinearOperator(bD0,Pconf_0)
-    cDv0 = conga_D0(v0)
+
+    # V. Conga grad operator on V0h
+
+    cD0 = ComposedLinearOperator(bD0,Pconf_0)
+    cDv0 = cD0(v0)
 
     # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-    conga_D0_transp = ComposedLinearOperator(Pconf_0,broken_D0.T)
+    bD0_T = BrokenGradient_2D(V0hs, V1hs, V0h, V1h, as_mat=True, transpose=True)
+    cD0_T = ComposedLinearOperator(Pconf_0,bD0_T)
+
+    I0 = IdLinearOperator(V0h)
+    # I0 = IdentityLinearOperator(V0h.vector_space)
 
 
-    I0 = IdentityLinearOperator(V0h.vector_space)
+    #+++++++++++++++++++++++++++++++
+    # . Conga Poisson solver
+    #+++++++++++++++++++++++++++++++
 
+
+    x,y = domain.coordinates
+    solution = x**2 + y**2
+    f        = -4
+
+    v = element_of(derham.V0, 'v')
+    l = LinearForm(v,  integral(domain, f*v))
+    b = discretize(l, domain_h, V0h)
+
+    cD0T_M1_cD0 = ComposedLinearOperator( cD0_T, ComposedLinearOperator( M1, cD0 ) )
+    # A = cD0T_M1_cD0 + (I0 - Pconf_0)
+    minus_cP0 = MultLinearOperator(-1,Pconf_0)
+    print(I0.domain)
+    print(I0.codomain)
+    print(minus_cP0.domain)
+    print(minus_cP0.codomain)
+    I_minus_cP0 = SumLinearOperator( I0, minus_cP0 )
+    print(cD0_T.domain)
+    print(cD0T_M1_cD0.domain)
+    print(cD0T_M1_cD0.codomain)
+    print(I_minus_cP0.domain)
+    print(I_minus_cP0.codomain)
+
+    A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0 )
+    ## discard for now, needs operators working on coeffs:
+    ## sol_h, info = pcg( A, b, pc="jacobi", tol=1e-6, verbose=True )
+
+    # sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=1e-6, verbose=True )  # doesn't cv
+    #
+
+    #
+    # # todo: plot the solution for visual check
+    #
+    # print(l2_error)
 
 
 
@@ -614,9 +657,6 @@ def test_conga_2d():
     # I0_1 = IdentityMatrix(V0h_1)
     # I0_2 = IdentityMatrix(V0h_2)
     # I0 = BlockMatrix(V0h, V0h, blocks=[[I0_1, None],[None, I0_2]])
-
-    # I0 = IdentityLinearOperator(V0h)
-    I0 = IdentityLinearOperator(V0h.vector_space)
 
     # local (single patch) de Rham sequences:
     derham_1  = Derham(domain_1, ["H1", "Hcurl"])

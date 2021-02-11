@@ -31,9 +31,6 @@ class ConformingProjection( LinearOperator ):
 
     proj.dot(v) returns the conforming projection of v, computed by solving linear system
 
-    Parameters
-    ----------
-    todo
 
     """
     def __init__( self, V0h_1, V0h_2, domain_h_1, domain_h_2, V0h, domain_h):
@@ -89,7 +86,7 @@ class ConformingProjection( LinearOperator ):
         b  = BlockVector(self.codomain.vector_space, blocks=[b1, b2])
 
         # sol_coeffs, info = cg( self._A, b, tol=1e-13, verbose=True )
-        sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=1e-6, verbose=True )  # doesn't cv
+        sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=1e-6, verbose=True )
         #
         # sol_coeffs = self._solver.solve( b )
 
@@ -200,25 +197,112 @@ class ComposedLinearOperator( LinearOperator ):
 
         return  self._B.dot(self._A.dot(f_coeffs))
 
+class IdLinearOperator( LinearOperator ):
+
+    def __init__( self, V ):
+        self._domain   = V
+        self._codomain = V
+
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    def __call__( self, f ):
+        return f
+
+    def dot( self, f_coeffs, out=None ):
+        return f_coeffs
+
+
+class SumLinearOperator( LinearOperator ):
+
+    def __init__( self, B, A ):
+        assert isinstance(A, LinearOperator)
+        assert isinstance(B, LinearOperator)
+        assert B.domain == A.domain
+        assert B.codomain == A.codomain
+        self._domain   = A.domain
+        self._codomain = A.codomain
+        self._A = A
+        self._B = B
+
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    def __call__( self, f ):
+        return  self._B(f) + self._A(f)
+
+    def dot( self, f_coeffs, out=None ):
+        return  self._B.dot(f_coeffs) + self._A.dot(f_coeffs)
+
+class MultLinearOperator( LinearOperator ):
+
+    def __init__( self, c, A ):
+
+        assert isinstance(A, LinearOperator)
+        self._domain   = A.domain
+        self._codomain = A.codomain
+
+        self._A = A
+        self._c = c
+
+    @property
+    def domain( self ):
+        return self._domain
+
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    def __call__( self, f ):
+
+        return  self._c * self._A(f)
+
+    def dot( self, f_coeffs, out=None ):
+
+        return  self._c * self._A.dot(f_coeffs)
+
+
 
 class BrokenGradient_2D( LinearOperator ):
 
-    def __init__( self, V0hs, V1hs, V0h, V1h ):
+    def __init__( self, V0hs, V1hs, V0h, V1h, as_mat=False, transpose=False ):
 
         # V0hs is the list of single patch spaces
         # V0h is the multipatch space
         # same for V1
         # todo: provide only V0h and V1h (remove redundancy)
 
-        self._domain = V0h
-        self._codomain = V1h
         self._V0hs = V0hs
         self._V1hs = V1hs
 
         self._npatches = len(V0hs)
         assert self._npatches == len(V1hs)
 
+        self._as_mat = as_mat
+
         self._D0s = [Gradient_2D(V0, V1) for V0, V1 in zip(V0hs, V1hs)]
+        if as_mat and transpose:
+            self._mats = [D0._matrix.T for D0 in self._D0s]
+            self._domain = V1h
+            self._codomain = V0h
+
+        else:
+            self._mats = [D0._matrix for D0 in self._D0s]
+            self._domain = V0h
+            self._codomain = V1h
+
+        assert self._npatches == 2
+        # self.mat = BlockMatrix(V0h.vector_space, V1h.vector_space, blocks=[[self._mats[0], None],[None, self._mats[1]]])
 
     @property
     def domain( self ):
@@ -230,26 +314,45 @@ class BrokenGradient_2D( LinearOperator ):
 
     def __call__( self, u0 ):
         # u0 should be a multipatch V0 field
-
-        # creating a list of single patch fields with proper spaces and copying the coefficients,
-        # because the TensorFemSpace class does not have an __eq__ magic method
-        u0s = get_scalar_patch_fields(u0, self._V0hs)
-        grad_u0s = [D0(u) for D0, u in zip(self._D0s, u0s)]
-
         V1h = self._codomain
         grad_u0 = VectorFemField(V1h)
-        for k in range(self._npatches):
-            for d in range(2):
-                grad_u0.coeffs[k][d][:] = grad_u0s[k].fields[d].coeffs[:]      # patch k, component d
+
+        if self._as_mat:
+            grad_u0_cs = [mat.dot(c) for mat, c in zip(self._mats, u0.coeffs)]
+
+            # print("type(grad_u0_cs[0]) = ", type(grad_u0_cs[0]))
+            # print("type(grad_u0_cs[0]._blocks[0]) = ", type(grad_u0_cs[0]._blocks[0]))
+            # print("type(grad_u0.coeffs[0]) = ", type(grad_u0.coeffs[0]))
+            for k in range(self._npatches):
+                for b1, b2 in zip(grad_u0.coeffs[k]._blocks, grad_u0_cs[k]._blocks):
+                    # for d in range(2):
+                    b1[:] = b2[:]
+                # grad_u0.coeffs[k][:] = grad_u0_cs[k]._blocks
+                # w = BlockVector( self._space, [b.copy() for b in self._blocks] )
+                # grad_u0.coeffs[k] = grad_u0_cs[k].copy()
+
+        else:
+            # creating a list of single patch fields with proper spaces and copying the coefficients,
+            # because the TensorFemSpace class does not have an __eq__ magic method
+            u0s = get_scalar_patch_fields(u0, self._V0hs)
+            grad_u0s = [D0(u) for D0, u in zip(self._D0s, u0s)]
+
+            for k in range(self._npatches):
+                for d in range(2):
+                    grad_u0.coeffs[k][d][:] = grad_u0s[k].fields[d].coeffs[:]      # patch k, component d
+
         grad_u0.coeffs.update_ghost_regions()
         return grad_u0
 
     def dot( self, u_coeffs, out=None ):
 
+        # if self._as_mat:
+        #     f_coeffs = self._mat.dot(u_coeffs)
+        # else:
         f = VectorFemField(self.domain, coeffs=u_coeffs)
+        f_coeffs = self(f).coeffs
 
-        return self(f).coeffs
-
+        return f_coeffs
 
 class Multipatch_Projector_Hcurl:
 
