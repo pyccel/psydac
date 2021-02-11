@@ -130,7 +130,6 @@ class ConformingProjection( FemLinearOperator ):
 
         b1 = self._lh_1.assemble(f1=f1)
         b2 = self._lh_2.assemble(f2=f2)
-        #b  = BlockVector(self.codomain.vector_space, blocks=[b1, b2])
         b  = BlockVector(self.codomain, blocks=[b1, b2])
         sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=1e-6, verbose=True )
 
@@ -138,9 +137,7 @@ class ConformingProjection( FemLinearOperator ):
 
     def dot( self, f_coeffs, out=None ):
         # coeffs layer
-
-        f = VectorFemField(self.domain, coeffs=f_coeffs)
-
+        f = VectorFemField(self.fem_domain, coeffs=f_coeffs)
         return self(f).coeffs
 
 
@@ -278,35 +275,25 @@ class MultLinearOperator( FemLinearOperator ):
 
 class BrokenGradient_2D( FemLinearOperator ):
 
-    def __init__( self, V0hs, V1hs, V0h, V1h, transpose=False ):
+    def __init__( self, V0hs, V1hs, V0h, V1h ):
 
         # V0hs is the list of single patch spaces
         # V0h is the multipatch space
         # same for V1
         # todo: provide only V0h and V1h (remove redundancy)
 
-        if transpose:
-            fem_domain = V1h
-            fem_codomain = V0h
-        else:
-            fem_domain = V0h
-            fem_codomain = V1h
-
         FemLinearOperator.__init__(
-            self, fem_domain=fem_domain, fem_codomain=fem_codomain
+            self, fem_domain=V0h, fem_codomain=V1h
         )
 
-        self._V0hs = V0hs
-        self._V1hs = V1hs
+        self._V0hs = V0hs  # needed ?
+        self._V1hs = V1hs  # needed ?
 
         self._npatches = len(V0hs)
         assert self._npatches == len(V1hs)
 
         self._D0s = [Gradient_2D(V0, V1) for V0, V1 in zip(V0hs, V1hs)]
-        if transpose:
-            self._mats = [D0._matrix.T for D0 in self._D0s]
-        else:
-            self._mats = [D0._matrix for D0 in self._D0s]
+        self._mats = [D0._matrix for D0 in self._D0s]
 
     def __call__( self, u0 ):
         # fem layer
@@ -334,9 +321,60 @@ class BrokenGradient_2D( FemLinearOperator ):
     def dot( self, u_coeffs, out=None ):
         # coeffs layer
         # todo: remove the fem field layer here (but I'm not sure how)
-        f = VectorFemField(self.fem_domain, coeffs=u_coeffs)
-        f_coeffs = self(f).coeffs
-        return f_coeffs
+        u0 = VectorFemField(self.fem_domain, coeffs=u_coeffs)
+        E_coeffs = self(u0).coeffs
+        return E_coeffs
+
+class BrokenTransposedGradient_2D( FemLinearOperator ):
+
+    def __init__( self, V0hs, V1hs, V0h, V1h):
+
+        # V0hs is the list of single patch spaces
+        # V0h is the multipatch space
+        # same for V1
+        # todo: provide only V0h and V1h (remove redundancy)
+
+        FemLinearOperator.__init__(
+            self, fem_domain=V1h, fem_codomain=V0h
+        )
+
+        self._V0hs = V0hs  # needed ?
+        self._V1hs = V1hs  # needed ?
+
+        self._npatches = len(V0hs)
+        assert self._npatches == len(V1hs)
+
+        self._D0s = [Gradient_2D(V0, V1) for V0, V1 in zip(V0hs, V1hs)]  # needed ?
+        self._mats = [D0._matrix.T for D0 in self._D0s]
+
+    def __call__( self, E1 ):
+        # fem layer
+        # return u0 with coeffs = D0_T E1.coeffs
+        # E1 should be a multipatch V1 field
+
+        # heavy but seems to be needed because of discrepancy between multipatch V1h and list of single patch operators....
+        E1s_coeffs = [BlockVector(mat.domain) for mat in self._mats]
+
+        for k in range(self._npatches):
+            for E1s_c, E1_c in zip(E1s_coeffs, E1.coeffs):
+                print("type(E1s_c) = ", type(E1s_c))
+                E1s_c._blocks[:] = E1_c[:]
+
+        u0s_coeffs = [mat.dot(E1s_c) for mat, E1s_c in zip(self._mats, E1s_coeffs)]
+        # back to the multi-patch field
+        u0 = VectorFemField(self.fem_codomain)
+        for u_c, us_c,  in zip(u0.coeffs, u0s_coeffs):
+            u_c[:] = us_c[:]
+        u0.coeffs.update_ghost_regions()
+        return u0
+
+    def dot( self, E_coeffs, out=None ):
+        # coeffs layer
+        # todo: remove the fem field layer here (but I'm not sure how)
+        E1 = VectorFemField(self.fem_domain, coeffs=E_coeffs)
+        E_coeffs = self(E1).coeffs
+        return E_coeffs
+
 
 class Multipatch_Projector_Hcurl:
 

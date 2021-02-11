@@ -44,7 +44,8 @@ from psydac.utilities.utils    import refine_array_1d
 
 from psydac.feec.multipatch.operators import BrokenMass_V0, BrokenMass_V1
 from psydac.feec.multipatch.operators import IdLinearOperator, SumLinearOperator, MultLinearOperator
-from psydac.feec.multipatch.operators import ConformingProjection, BrokenGradient_2D, ComposedLinearOperator
+from psydac.feec.multipatch.operators import BrokenGradient_2D, BrokenTransposedGradient_2D
+from psydac.feec.multipatch.operators import ConformingProjection, ComposedLinearOperator
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1, Multipatch_Projector_Hcurl
 from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector_patch_fields
 
@@ -177,11 +178,11 @@ def test_conga_2d():
 
     # II. conf projection V0 -> V0
 
-    test_Pc = True
+    Pconf_0 = ConformingProjection(V0hs[0], V0hs[1], domains_h[0], domains_h[1], V0h, domain_h)
+    test_Pc = False
 
     if test_Pc:
         # projection from broken multipatch space to conforming subspace (using the same basis)
-        Pconf_0 = ConformingProjection(V0hs[0], V0hs[1], domains_h[0], domains_h[1], V0h, domain_h)
         v0c = Pconf_0(v0)
 
     # III. multipatch V1 projection
@@ -202,7 +203,7 @@ def test_conga_2d():
     cDv0 = cD0(v0)
 
     # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-    bD0_T = BrokenGradient_2D(V0hs, V1hs, V0h, V1h, transpose=True)
+    bD0_T = BrokenTransposedGradient_2D(V0hs, V1hs, V0h, V1h)
     cD0_T = ComposedLinearOperator(Pconf_0,bD0_T)
 
     I0 = IdLinearOperator(V0h)
@@ -220,28 +221,40 @@ def test_conga_2d():
 
     v = element_of(derham.V0, 'v')
     l = LinearForm(v,  integral(domain, f*v))
-    b = discretize(l, domain_h, V0h)
+    lh = discretize(l, domain_h, V0h)
+    b = lh.assemble()
 
     cD0T_M1_cD0 = ComposedLinearOperator( cD0_T, ComposedLinearOperator( M1, cD0 ) )
     # A = cD0T_M1_cD0 + (I0 - Pconf_0)
     minus_cP0 = MultLinearOperator(-1,Pconf_0)
-    print(I0.domain)
-    print(I0.codomain)
-    print(minus_cP0.domain)
-    print(minus_cP0.codomain)
     I_minus_cP0 = SumLinearOperator( I0, minus_cP0 )
-    print(cD0_T.domain)
-    print(cD0T_M1_cD0.domain)
-    print(cD0T_M1_cD0.codomain)
-    print(I_minus_cP0.domain)
-    print(I_minus_cP0.codomain)
-
     A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0 )
-    ## discard for now, needs operators working on coeffs:
-    ## sol_h, info = pcg( A, b, pc="jacobi", tol=1e-6, verbose=True )
+
+
+    D0b = bD0.dot(b)
+    sol_h, info = pcg( A, b, pc="jacobi", tol=1e-6, verbose=True )
 
     # sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=1e-6, verbose=True )  # doesn't cv
     #
+
+    #
+    #     self._lh_1 = discretize(l1, domain_h_1, V0h_1)
+    #     self._lh_2 = discretize(l2, domain_h_2, V0h_2)
+    #
+    # def __call__( self, f ):
+    #     # Fem field layer
+    #
+    #     # f = VectorFemField(self.fem_domain, coeffs=f_coeffs)
+    #     f1,f2 = f.fields
+    #
+    #     b1 = self._lh_1.assemble(f1=f1)
+    #     b2 = self._lh_2.assemble(f2=f2)
+    #     #b  = BlockVector(self.codomain.vector_space, blocks=[b1, b2])
+    #     b  = BlockVector(self.codomain, blocks=[b1, b2])
+    #     sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=1e-6, verbose=True )
+
+
+
 
     #
     # # todo: plot the solution for visual check
