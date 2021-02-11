@@ -191,7 +191,7 @@ def test_conga_2d():
 
     # IV.  multipatch (broken) grad operator on V0h
 
-    bD0 = BrokenGradient_2D(V0hs, V1hs, V0h, V1h, as_mat=True)
+    bD0 = BrokenGradient_2D(V0hs, V1hs, V0h, V1h)
     grad_u0 = bD0(u0)
 
 
@@ -202,7 +202,7 @@ def test_conga_2d():
     cDv0 = cD0(v0)
 
     # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-    bD0_T = BrokenGradient_2D(V0hs, V1hs, V0h, V1h, as_mat=True, transpose=True)
+    bD0_T = BrokenGradient_2D(V0hs, V1hs, V0h, V1h, transpose=True)
     cD0_T = ComposedLinearOperator(Pconf_0,bD0_T)
 
     I0 = IdLinearOperator(V0h)
