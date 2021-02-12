@@ -262,11 +262,13 @@ class FemField:
 
     # ...
     def __add__(self, other):
+        assert isinstance(other, FemField)
         assert self._space is other._space
         return FemField(self._space, coeffs = self._coeffs + other._coeffs)
 
     # ...
     def __sub__(self, other):
+        assert isinstance(other, FemField)
         assert self._space is other._space
         return FemField(self._space, coeffs = self._coeffs - other._coeffs)
 
@@ -277,12 +279,14 @@ class FemField:
 
     # ...
     def __iadd__(self, other):
+        assert isinstance(other, FemField)
         assert self._space is other._space
         self._coeffs += other._coeffs
         return self
 
     # ...
     def __isub__(self, other):
+        assert isinstance(other, FemField)
         assert self._space is other._space
         self._coeffs -= other._coeffs
         return self
