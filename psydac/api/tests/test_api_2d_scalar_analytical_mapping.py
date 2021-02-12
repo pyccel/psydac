@@ -11,11 +11,9 @@ from sympde.expr.expr     import integral
 from sympde.expr.expr     import Norm
 from sympde.expr.equation import find, EssentialBC
 
-from psydac.fem.basic import FemField
 from psydac.api.discretization import discretize
 
 #==============================================================================
-
 def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     #+++++++++++++++++++++++++++++++
@@ -50,9 +48,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
     l2norm_h = discretize(l2norm, domain_h, Vh)
     h1norm_h = discretize(h1norm, domain_h, Vh)
 
-    x  = equation_h.solve()
-
-    uh = FemField( Vh , x)
+    uh = equation_h.solve()
 
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
@@ -60,7 +56,6 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
     return l2_error, h1_error
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_analytical_mapping_0():
 
     domain  = Square('A',bounds1=(0., 1.), bounds2=(0, np.pi))
@@ -77,15 +72,12 @@ def test_poisson_2d_analytical_mapping_0():
     expected_l2_error = 1.0930839536997034e-09
     expected_h1_error = 1.390398663745195e-08
 
-
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
-
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
-
 def teardown_module():
     from sympy.core import cache
     cache.clear_cache()
@@ -93,4 +85,3 @@ def teardown_module():
 def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
-

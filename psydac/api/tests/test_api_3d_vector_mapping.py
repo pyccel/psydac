@@ -12,7 +12,6 @@ from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
-from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 
 # ... get the mesh directory
@@ -35,8 +34,6 @@ def run_vector_poisson_3d_dir(filename, solution, f):
 
     x,y,z = domain.coordinates
 
-    F = element_of(V, name='F')
-
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
@@ -48,7 +45,7 @@ def run_vector_poisson_3d_dir(filename, solution, f):
     expr = dot(f, v)
     l = LinearForm(v, int_0(expr))
 
-    error = Matrix([F[0]-solution[0], F[1]-solution[1], F[2]-solution[2]])
+    error  = Matrix([u[0]-solution[0], u[1]-solution[1], u[2]-solution[2]])
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
@@ -74,16 +71,12 @@ def run_vector_poisson_3d_dir(filename, solution, f):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, x )
+    uh = equation_h.solve()
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    l2_error = l2norm_h.assemble(u = uh)
+    h1_error = h1norm_h.assemble(u = uh)
     # ...
 
     return l2_error, h1_error

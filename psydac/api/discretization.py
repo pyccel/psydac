@@ -36,6 +36,7 @@ from psydac.api.glt                  import DiscreteGltExpr
 from psydac.api.expr                 import DiscreteExpr
 from psydac.api.essential_bc         import apply_essential_bc
 from psydac.linalg.iterative_solvers import cg
+from psydac.fem.basic                import FemField
 from psydac.fem.splines              import SplineSpace
 from psydac.fem.tensor               import TensorFemSpace
 from psydac.fem.vector               import ProductFemSpace
@@ -262,14 +263,16 @@ class DiscreteEquation(BasicDiscrete):
                 loc_settings = settings.copy()
                 loc_settings['solver'] = 'cg'
                 loc_settings.pop('info',False)
-                X = equation_h.solve(**loc_settings)
+                uh = equation_h.solve(**loc_settings)
 
                 # Use inhomogeneous solution as initial guess to solver
-                settings['x0'] = X
+                settings['x0'] = uh.coeffs
 
         #----------------------------------------------------------------------
 
-        return driver_solve(self.linear_system, **settings)
+        X = driver_solve(self.linear_system, **settings)
+
+        return FemField(self.trial_space, coeffs=X)
 
 #==============================================================================
 class DiscreteDerham(BasicDiscrete):

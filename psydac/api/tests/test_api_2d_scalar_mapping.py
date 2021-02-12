@@ -31,7 +31,6 @@ from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
-from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 
 # ... get the mesh directory
@@ -128,8 +127,7 @@ def run_poisson_2d(filename, solution, f, dir_zero_boundary,
     #+++++++++++++++++++++++++++++++
 
     # Solve linear system
-    X  = equation_h.solve()
-    uh = FemField(Vh, X)
+    uh = equation_h.solve()
 
     # Compute error norms
     l2_error = l2norm_h.assemble(u=uh)
@@ -205,8 +203,7 @@ def run_laplace_2d(filename, solution, f, dir_zero_boundary,
     #+++++++++++++++++++++++++++++++
 
     # Solve linear system
-    X  = equation_h.solve()
-    uh = FemField(Vh, X)
+    uh = equation_h.solve()
 
     # Compute error norms
     l2_error = l2norm_h.assemble(u=uh)
@@ -282,8 +279,7 @@ def run_biharmonic_2d_dir(filename, solution, f, dir_zero_boundary,
     #+++++++++++++++++++++++++++++++
 
     # Solve linear system
-    X  = equation_h.solve()
-    uh = FemField(Vh, X)
+    uh = equation_h.solve()
 
     # Compute error norms
     l2_error = l2norm_h.assemble(u=uh)
