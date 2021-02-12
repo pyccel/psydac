@@ -78,8 +78,10 @@ def conga_poisson_2d():
 
     else:
 
-        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
+        # A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+        # B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
+        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi))
+        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi, 2*np.pi))
         mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
         mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
@@ -104,7 +106,13 @@ def conga_poisson_2d():
     # . Discrete space
     #+++++++++++++++++++++++++++++++
 
-    ncells=[2**2, 2**2]
+    ## todo: strange behaviour, should be checked...
+    ## for nc = 2 it's roughly correct
+    ## for nc = 3 the solution vanishes on the interface...
+    ## for nc = 4, 5 the solution is 0
+
+    nc = 2
+    ncells=[nc**2, nc**2]
     degree=[2,2]
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
@@ -153,11 +161,11 @@ def conga_poisson_2d():
     x,y       = domain.coordinates
     if cartesian:
         phi_exact = x*(1-x)*y*(1-y)
-        f         = -2*(y*(1-y)+x*(1-x))
+        f         = 2*(y*(1-y)+x*(1-x))
 
     else:
         phi_exact = (x**2 + y**2 - 1/4)*(x**2 + y**2 - 1)
-        f         = (x+y)*(2*(x**2 + y**2)-5/4) + 8*(x**2 + y**2)
+        f         = -(x+y)*(2*(x**2 + y**2)-5/4) - 8*(x**2 + y**2)
 
     # u_solution  = x**2 + y**2
 
@@ -167,113 +175,75 @@ def conga_poisson_2d():
 
     from sympy import lambdify
     phi_ex = lambdify(domain.coordinates, phi_exact)
+    f_ex = lambdify(domain.coordinates, f)
     u_ex_x = lambdify(domain.coordinates, u_exact_x)
     u_ex_y = lambdify(domain.coordinates, u_exact_y)
 
     # pull-back of phi_ex
     phi_ex_log = [lambda xi1, xi2 : phi_ex(*f(xi1,xi2)) for f in F]
-
-    # list: E_sol_log[k][d] : xi1, xi2 -> E_x(xi1, xi2) on patch k
-    # E_sol_log = [pull_2d_hcurl([E_sol_x,E_sol_y], f) for f in mappings_obj]
-
-    # discontinuous target
-    # v_sol_log = [
-    #     lambda xi1, xi2 : 1, # u_sol(*F[0](xi1,xi2)),
-    #     lambda xi1, xi2 : 0,
-    #     ]
+    f_log = [lambda xi1, xi2 : f_ex(*f(xi1,xi2)) for f in F]
 
     #+++++++++++++++++++++++++++++++
-    # . Multipatch H1, Hcurl (commuting) projectors
+    # . Multipatch operators
     #+++++++++++++++++++++++++++++++
 
-    # I. multipatch V0 projection
+    # I. broken multipatch projection on V0h
 
-    P0 = Multipatch_Projector_H1(V0hs, V0h)
-    phi = P0(phi_ex_log)
+    bP0 = Multipatch_Projector_H1(V0hs, V0h)
 
-    # u0 = P0(u_sol_log)
-    # v0 = P0(v_sol_log)
+
+    poisson_solve = True
+
+    if poisson_solve:
+        phi_ref = bP0(phi_ex_log)
+    else:
+        phi_ref = bP0(f_log)
 
     # II. conf projection V0 -> V0
 
-    Pconf_0 = ConformingProjection(V0hs[0], V0hs[1], domains_h[0], domains_h[1], V0h, domain_h, verbose=False)
-    # test_Pc = False
+    cP0 = ConformingProjection(V0hs[0], V0hs[1], domains_h[0], domains_h[1], V0h, domain_h, verbose=False, homogeneous_bc=True)
 
-    # if test_Pc:
-        # projection from broken multipatch space to conforming subspace (using the same basis)
-        # v0c = Pconf_0(v0)
-
-    # validation of M1 matrix
-
-    # P1 = Multipatch_Projector_Hcurl(V1hs, V1h, nquads=[5,5])
-
-    # from sympy import Tuple
-    # EE = Tuple(E_solution_x, E_solution_y)
-    # E1 = ortho_proj_Hcurl(EE, V1h, domain_h, M1)
-
-    # multipatch (broken) grad operator on V0h
-
+    # III broken multipatch grad operator on V0h
     bD0 = BrokenGradient_2D(V0hs, V1hs, V0h, V1h)
-    # grad_u0 = bD0(u0)
 
-    # V. Conga grad operator on V0h
+    # IV. Conga grad operator on V0h
+    cD0 = ComposedLinearOperator(bD0,cP0)
 
-    cD0 = ComposedLinearOperator(bD0,Pconf_0)
-    # cDv0 = cD0(v0)
-
-    # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
+    # V. Transpose of the Conga grad operator (using the symmetry of Pconf_0)
     bD0_T = BrokenTransposedGradient_2D(V0hs, V1hs, V0h, V1h)
-    cD0_T = ComposedLinearOperator(Pconf_0,bD0_T)
+    cD0_T = ComposedLinearOperator(cP0, bD0_T)
+
 
     I0 = IdLinearOperator(V0h)
-    # I0 = IdentityLinearOperator(V0h.vector_space)
 
-
-    #+++++++++++++++++++++++++++++++
-    # . Conga Poisson solver
-    #+++++++++++++++++++++++++++++++
-
-
-    # x,y = domain.coordinates
-    # solution = x**2 + y**2
-
-    # f        = -4
 
     v = element_of(derham.V0, 'v')
     l = LinearForm(v,  integral(domain, f*v))
     lh = discretize(l, domain_h, V0h)
     b = lh.assemble()
 
+
+    # Conga Poisson matrix is
+    # A = (cD0)^T * M1 * cD0 + (I0 - Pc)^2
+
     cD0T_M1_cD0 = ComposedLinearOperator( cD0_T, ComposedLinearOperator( M1, cD0 ) )
-    # A = cD0T_M1_cD0 + (I0 - Pconf_0)
-    minus_cP0 = MultLinearOperator(-1,Pconf_0)
+    minus_cP0 = MultLinearOperator(-1,cP0)
     I_minus_cP0 = SumLinearOperator( I0, minus_cP0 )
-    A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0 )
+    I_minus_cP0_squared = ComposedLinearOperator(I_minus_cP0, I_minus_cP0)
+    A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0) #_squared )
 
-    solve_poisson = False
-    if solve_poisson:
-        # then the desired 'solution' is phi, the solution of the Poisson equation
+    if poisson_solve:
+        phi_coeffs, info = cg( A, b, tol=5e-3, verbose=True )
 
-        sol_coeffs, info = cg( A, b, tol=1e-3, verbose=True )
-        sol_h = VectorFemField(V0h, coeffs=sol_coeffs)
-        sol_h = Pconf_0(sol_h)
-        sol_exact = phi_exact
     else:
-        # not solving Poisson, just checking direct equation
-        # so the desired 'solution' is f, the source term
+        # then just approximating the rhs
+        phi_coeffs, info = cg( M0.mat(), b, tol=1e-6, verbose=True )
 
-        # \int grad P u -> f ?
-        # sol_coeffs = A.dot(u0.coeffs)
+    phi_h = VectorFemField(V0h, coeffs=phi_coeffs)
+    phi_h = cP0(phi_h)
 
-        b = cD0T_M1_cD0.dot(phi.coeffs)
-        sol_coeffs, info = pcg(M0.mat(), b, pc="jacobi", tol=1e-10)
-        sol_h = VectorFemField(V0h, coeffs=sol_coeffs)
-        sol_exact = f
-        #sol_h = Pconf_0(sol_h)
-
-    sol_ex = lambdify(domain.coordinates, sol_exact)
-
-
+    # sol_exact = phi_exact
+    # sol_ex = lambdify(domain.coordinates, sol_exact)
 
 
 
@@ -299,14 +269,19 @@ def conga_poisson_2d():
 
 
         # solution
-        sol_vals  = [np.array( [[sol_ex( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
-        sol_vals  = np.concatenate(sol_vals,     axis=1)
+        compare_with_phi_ex = False
+        if compare_with_phi_ex:
+            phi_ref_vals  = [np.array( [[phi_ex( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
+        else:
+            phis_ref = get_scalar_patch_fields(phi_ref, V0hs)
+            phi_ref_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(phis_ref, etas)]
+        phi_ref_vals  = np.concatenate(phi_ref_vals,     axis=1)
 
         # Poisson sol_h
-        sols_h = get_scalar_patch_fields(sol_h, V0hs)
-        sol_h_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(sols_h, etas)]
-        sol_h_vals  = np.concatenate(sol_h_vals,     axis=1)
-        sol_err = abs(sol_vals - sol_h_vals)
+        phis_h = get_scalar_patch_fields(phi_h, V0hs)
+        phi_h_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(phis_h, etas)]
+        phi_h_vals  = np.concatenate(phi_h_vals,     axis=1)
+        phi_err = abs(phi_ref_vals - phi_h_vals)
 
 
 
@@ -350,7 +325,7 @@ def conga_poisson_2d():
             ax.plot(*gridlines_x1, color='k')
             ax.plot(*gridlines_x2, color='k')
 
-        cp = ax.contourf(xx, yy, sol_vals, 50, cmap='jet')
+        cp = ax.contourf(xx, yy, phi_ref_vals, 50, cmap='jet')
         # cp = ax.contourf(xx, yy, sol_vals, 50, cmap='jet')
         cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
         ax.set_xlabel( r'$x$', rotation='horizontal' )
@@ -360,7 +335,7 @@ def conga_poisson_2d():
 
 
         ax = fig.add_subplot(1, 3, 2)
-        cp2 = ax.contourf(xx, yy, sol_h_vals, 50, cmap='jet')
+        cp2 = ax.contourf(xx, yy, phi_h_vals, 50, cmap='jet')
         cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
 
         ax.set_xlabel( r'$x$', rotation='horizontal' )
@@ -369,7 +344,7 @@ def conga_poisson_2d():
         # ax.set_title ( r'$\phi^h(x,y)$' )
 
         ax = fig.add_subplot(1, 3, 3)
-        cp3 = ax.contourf(xx, yy, sol_err, 50, cmap='jet')
+        cp3 = ax.contourf(xx, yy, phi_err, 50, cmap='jet')
         cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
 
         ax.set_xlabel( r'$x$', rotation='horizontal' )
