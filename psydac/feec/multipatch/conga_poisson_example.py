@@ -78,10 +78,10 @@ def conga_poisson_2d():
 
     else:
 
-        # A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-        # B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
-        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi))
-        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi, 2*np.pi))
+        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
+        # A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi))
+        # B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi, 2*np.pi))
         mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
         mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
