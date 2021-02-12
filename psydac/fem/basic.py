@@ -243,3 +243,46 @@ class FemField:
     def divergence(self, *eta):
         """Evaluate divergence of vector field at location identified by logical coordinates eta."""
         return self._space.eval_field_divergence(self, *eta)
+
+    # ...
+    def copy(self):
+        return FemField(self.space, coeffs = self.coeffs.copy())
+
+    # ...
+    def __neg__(self):
+        return FemField(self.space, coeffs = -self.coeffs)
+
+    # ...
+    def __mul__(self, a):
+        return FemField(self.space, coeffs = self.coeffs * a)
+
+    # ...
+    def __rmul__(self, a):
+        return FemField(self.space, coeffs = a * self.coeffs)
+
+    # ...
+    def __add__(self, other):
+        assert self.space is other.space
+        return FemField(self.space, coeffs = self.coeffs + other.coeffs)
+
+    # ...
+    def __sub__(self, other):
+        assert self.space is other.space
+        return FemField(self.space, coeffs = self.coeffs - other.coeffs)
+
+    # ...
+    def __imul__(self, a):
+        self.coeffs *= a
+        return self
+
+    # ...
+    def __iadd__(self, other):
+        assert self.space is other.space
+        self.coeffs += other.coeffs
+        return self
+
+    # ...
+    def __isub__(self, other):
+        assert self.space is other.space
+        self.coeffs -= other.coeffs
+        return self
