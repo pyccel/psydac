@@ -67,6 +67,10 @@ class VectorFemSpace( FemSpace ):
         """Returns the topological associated vector space."""
         return self._vector_space
 
+    @property
+    def is_product(self):
+        return True
+
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
