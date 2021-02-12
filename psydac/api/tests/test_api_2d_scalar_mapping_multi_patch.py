@@ -15,7 +15,6 @@ from sympde.expr.expr     import integral
 from sympde.expr.expr     import Norm
 from sympde.expr.equation import find, EssentialBC
 
-from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 
 #==============================================================================
@@ -71,12 +70,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
     l2norm_h = discretize(l2norm, domain_h, Vh)
     h1norm_h = discretize(h1norm, domain_h, Vh)
 
-    x  = equation_h.solve()
-
-    uh = FemField( Vh )
-
-    for i in range(len(uh.coeffs[:])):
-        uh.coeffs[i][:,:] = x[i][:,:]
+    uh = equation_h.solve()
 
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)

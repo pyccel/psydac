@@ -1,8 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from mpi4py import MPI
-from sympy import pi, cos, sin, symbols
-from sympy.utilities.lambdify import implemented_function
+from sympy import pi, sin, symbols
 import pytest
 
 from sympde.calculus import grad, dot
@@ -16,9 +15,7 @@ from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
 
-from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
-
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
 
 x,y,z = symbols('x1, x2, x3')
@@ -106,8 +103,7 @@ def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary,
     #+++++++++++++++++++++++++++++++
 
     # Solve linear system
-    x  = equation_h.solve()
-    uh = FemField( Vh, x )
+    uh = equation_h.solve()
 
     # Compute error norms
     l2_error = l2norm_h.assemble(u=uh)
@@ -183,8 +179,7 @@ def run_laplace_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary,
     #+++++++++++++++++++++++++++++++
 
     # Solve linear system
-    x  = equation_h.solve()
-    uh = FemField( Vh, x )
+    uh = equation_h.solve()
 
     # Compute error norms
     l2_error = l2norm_h.assemble(u=uh)
@@ -258,8 +253,7 @@ def run_biharmonic_2d_dir(solution, f, dir_zero_boundary, ncells, degree, comm=N
     #+++++++++++++++++++++++++++++++
 
     # Solve linear system
-    x  = equation_h.solve()
-    uh = FemField( Vh, x )
+    uh = equation_h.solve()
 
     # Compute error norms
     l2_error = l2norm_h.assemble(u=uh)
