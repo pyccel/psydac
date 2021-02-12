@@ -119,16 +119,21 @@ def conga_operators_2d():
 
     ## and also as list of patches:
     domains = [domain_1, domain_2]
+    derhams = [Derham(dom, ["H1", "Hcurl", "L2"]) for dom in domains]
+
     domains_h = [discretize(dom, ncells=ncells, comm=comm) for dom in domains]
-    derhams  = [Derham(dom, ["H1", "Hcurl", "L2"]) for dom in domains]
     derhams_h = [discretize(derh, dom_h, degree=degree)
                  for dom_h, derh in zip(domains_h, derhams)]
 
-    V0hs = [  discretize(derh.V0, dom_h, degree=degree)
-                  for dom_h, derh in zip(domains_h, derhams)]
 
-    V1hs = [  discretize(derh.V1, dom_h, degree=degree, basis='M')
-                  for dom_h, derh in zip(domains_h, derhams)]
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # TODO [YG, 12.02.2021]: Multi-patch de Rham sequence should provide this!
+    V0h._spaces = tuple(derh_h.V0 for derh_h in derhams_h)
+    V1h._spaces = tuple(derh_h.V1 for derh_h in derhams_h)
+
+    V0h._vector_space = BlockVectorSpace(*[V.vector_space for V in V0h.spaces])
+    V1h._vector_space = BlockVectorSpace(*[V.vector_space for V in V1h.spaces])
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
     # Mass matrix for multipatch space V1
@@ -177,31 +182,31 @@ def conga_operators_2d():
 
     # I. multipatch V0 projection
 
-    P0 = Multipatch_Projector_H1(V0hs, V0h)
+    P0 = Multipatch_Projector_H1(V0h)
     u0 = P0(u_sol_log)
     v0 = P0(v_sol_log)
 
     # II. conf projection V0 -> V0
     # projection from broken multipatch space to conforming subspace (using the same basis)
 
-    Pconf_0 = ConformingProjection(V0hs[0], V0hs[1], domains_h[0], domains_h[1], V0h, domain_h, verbose=False)
+    Pconf_0 = ConformingProjection(V0h, domain_h, verbose=False)
     v0c = Pconf_0(v0)
 
     # III. multipatch V1 projection
 
-    P1 = Multipatch_Projector_Hcurl(V1hs, V1h, nquads=[5,5])
+    P1 = Multipatch_Projector_Hcurl(V1h, nquads=[5,5])
     E1 = P1(E_sol_log)
 
     # IV.  multipatch (broken) grad operator on V0h
 
-    bD0 = BrokenGradient_2D(V0hs, V1hs, V0h, V1h)
+    bD0 = BrokenGradient_2D(V0h, V1h)
     grad_u0 = bD0(u0)
 
 
 
     # V. Conga grad operator on V0h
 
-    cD0 = ComposedLinearOperator(bD0,Pconf_0)
+    cD0 = ComposedLinearOperator(bD0, Pconf_0)
     cDv0 = cD0(v0)
 
 
@@ -272,14 +277,14 @@ def conga_operators_2d():
         E_y_vals = np.concatenate(E_y_vals,     axis=1)
 
         # u0
-        u0s = get_scalar_patch_fields(u0, V0hs)
+        u0s = get_scalar_patch_fields(u0, V0h)
         u0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0s, etas)]
         # u0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0.fields, etas)]
         u0_vals  = np.concatenate(u0_vals,     axis=1)
         u_err = abs(u_vals - u0_vals)
 
         # Poisson sol_h
-        # sols_h = get_scalar_patch_fields(sol_h, V0hs)
+        # sols_h = get_scalar_patch_fields(sol_h, V0h)
         # sol_h_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(sols_h, etas)]
         # sol_h_vals  = np.concatenate(sol_h_vals,     axis=1)
         # sol_err = abs(sol_vals - sol_h_vals)
@@ -296,7 +301,7 @@ def conga_operators_2d():
 
         cDv0_x_vals = 2*[None]
         cDv0_y_vals = 2*[None]
-        cDv0s = get_vector_patch_fields(cDv0, V1hs)
+        cDv0s = get_vector_patch_fields(cDv0, V1h)
         for k in [0,1]:
             # patch k
             eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
@@ -315,8 +320,8 @@ def conga_operators_2d():
         grad_u0_x_vals = 2*[None]
         grad_u0_y_vals = 2*[None]
 
-        E1s = get_vector_patch_fields(E1, V1hs)
-        grad_u0s = get_vector_patch_fields(grad_u0, V1hs)
+        E1s = get_vector_patch_fields(E1, V1h)
+        grad_u0s = get_vector_patch_fields(grad_u0, V1h)
         for k in [0,1]:
             # patch k
             eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')

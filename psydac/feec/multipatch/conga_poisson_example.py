@@ -51,7 +51,7 @@ from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector
 
 comm = MPI.COMM_WORLD
 
-
+#==============================================================================
 def conga_poisson_2d():
     """
     - assembles several multipatch operators and a conforming projection
@@ -131,16 +131,20 @@ def conga_poisson_2d():
 
     ## and also as list of patches:
     domains = [domain_1, domain_2]
+    derhams = [Derham(dom, ["H1", "Hcurl", "L2"]) for dom in domains]
+
     domains_h = [discretize(dom, ncells=ncells, comm=comm) for dom in domains]
-    derhams  = [Derham(dom, ["H1", "Hcurl", "L2"]) for dom in domains]
     derhams_h = [discretize(derh, dom_h, degree=degree)
                  for dom_h, derh in zip(domains_h, derhams)]
 
-    V0hs = [  discretize(derh.V0, dom_h, degree=degree)
-                  for dom_h, derh in zip(domains_h, derhams)]
 
-    V1hs = [  discretize(derh.V1, dom_h, degree=degree, basis='M')
-                  for dom_h, derh in zip(domains_h, derhams)]
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # TODO [YG, 12.02.2021]: Multi-patch de Rham sequence should provide this!
+    V0h._spaces = tuple(derh_h.V0 for derh_h in derhams_h)
+    V1h._spaces = tuple(derh_h.V1 for derh_h in derhams_h)
+    V0h._vector_space = BlockVectorSpace(*[V.vector_space for V in V0h.spaces])
+    V1h._vector_space = BlockVectorSpace(*[V.vector_space for V in V1h.spaces])
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
     # Mass matrix for multipatch space V1
@@ -189,7 +193,7 @@ def conga_poisson_2d():
 
     # I. broken multipatch projection on V0h
 
-    bP0 = Multipatch_Projector_H1(V0hs, V0h)
+    bP0 = Multipatch_Projector_H1(V0h)
 
 
     poisson_solve = True
@@ -201,16 +205,16 @@ def conga_poisson_2d():
 
     # II. conf projection V0 -> V0
 
-    cP0 = ConformingProjection(V0hs[0], V0hs[1], domains_h[0], domains_h[1], V0h, domain_h, verbose=False, homogeneous_bc=True)
+    cP0 = ConformingProjection(V0h, domain_h, verbose=False, homogeneous_bc=True)
 
     # III broken multipatch grad operator on V0h
-    bD0 = BrokenGradient_2D(V0hs, V1hs, V0h, V1h)
+    bD0 = BrokenGradient_2D(V0h, V1h)
 
     # IV. Conga grad operator on V0h
-    cD0 = ComposedLinearOperator(bD0,cP0)
+    cD0 = ComposedLinearOperator(bD0, cP0)
 
     # V. Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-    bD0_T = BrokenTransposedGradient_2D(V0hs, V1hs, V0h, V1h)
+    bD0_T = BrokenTransposedGradient_2D(V0h, V1h)
     cD0_T = ComposedLinearOperator(cP0, bD0_T)
 
 
@@ -273,12 +277,12 @@ def conga_poisson_2d():
         if compare_with_phi_ex:
             phi_ref_vals  = [np.array( [[phi_ex( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
         else:
-            phis_ref = get_scalar_patch_fields(phi_ref, V0hs)
+            phis_ref = get_scalar_patch_fields(phi_ref, V0h)
             phi_ref_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(phis_ref, etas)]
         phi_ref_vals  = np.concatenate(phi_ref_vals,     axis=1)
 
         # Poisson sol_h
-        phis_h = get_scalar_patch_fields(phi_h, V0hs)
+        phis_h = get_scalar_patch_fields(phi_h, V0h)
         phi_h_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(phis_h, etas)]
         phi_h_vals  = np.concatenate(phi_h_vals,     axis=1)
         phi_err = abs(phi_ref_vals - phi_h_vals)
