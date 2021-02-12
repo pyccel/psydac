@@ -9,7 +9,6 @@ from psydac.fem.vector      import ProductFemSpace
 from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.identity import IdentityLinearOperator, IdentityStencilMatrix as IdentityMatrix
 from psydac.fem.basic       import FemField
-from psydac.fem.vector      import VectorFemField
 
 __all__ = (
     'd_matrix',
@@ -185,7 +184,7 @@ class Gradient_2D(DiffOperator):
         coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
-        return VectorFemField(self.codomain, coeffs=coeffs)
+        return FemField(self.codomain, coeffs=coeffs)
 
 #====================================================================================================
 class Gradient_3D(DiffOperator):
@@ -245,7 +244,7 @@ class Gradient_3D(DiffOperator):
         coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
-        return VectorFemField(self.codomain, coeffs=coeffs)
+        return FemField(self.codomain, coeffs=coeffs)
 
 #====================================================================================================
 class ScalarCurl_2D(DiffOperator):
@@ -301,7 +300,7 @@ class ScalarCurl_2D(DiffOperator):
    
     def __call__(self, u):
 
-        assert isinstance(u, VectorFemField)
+        assert isinstance(u, FemField)
         assert u.space == self.domain
         
         coeffs = self.matrix.dot(u.coeffs)
@@ -365,7 +364,7 @@ class VectorCurl_2D(DiffOperator):
         coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
-        return VectorFemField(self.codomain, coeffs=coeffs)
+        return FemField(self.codomain, coeffs=coeffs)
 
 #====================================================================================================
 class Curl_3D(DiffOperator):
@@ -430,13 +429,13 @@ class Curl_3D(DiffOperator):
    
     def __call__(self, u):
 
-        assert isinstance(u, VectorFemField)
+        assert isinstance(u, FemField)
         assert u.space == self.domain
         
         coeffs = self.matrix.dot(u.coeffs)
         coeffs.update_ghost_regions()
 
-        return VectorFemField(self.codomain, coeffs=coeffs)
+        return FemField(self.codomain, coeffs=coeffs)
 
 #====================================================================================================
 class Divergence_2D(DiffOperator):
@@ -492,7 +491,7 @@ class Divergence_2D(DiffOperator):
 
     def __call__(self, u):
 
-        assert isinstance(u, VectorFemField)
+        assert isinstance(u, FemField)
         assert u.space == self.domain
 
         coeffs = self.matrix.dot(u.coeffs)
@@ -556,7 +555,7 @@ class Divergence_3D(DiffOperator):
 
     def __call__(self, u):
 
-        assert isinstance(u, VectorFemField)
+        assert isinstance(u, FemField)
         assert u.space == self.domain
 
         coeffs = self.matrix.dot(u.coeffs)

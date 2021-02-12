@@ -11,7 +11,7 @@ from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
 
-from psydac.fem.vector         import VectorFemField
+from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 
 #==============================================================================
@@ -67,7 +67,7 @@ def run_vector_poisson_3d_dir(solution, f, ncells, degree):
     # ...
 
     # ...
-    phi = VectorFemField( Vh, x )
+    phi = FemField( Vh, x )
     # ...
 
     # ... compute norms

@@ -13,7 +13,6 @@ from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
 
 from psydac.fem.basic          import FemField
-from psydac.fem.vector         import VectorFemField
 from psydac.api.discretization import discretize
 from psydac.feec.pull_push     import push_3d_hcurl, push_3d_hdiv
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
@@ -141,7 +140,7 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
 
     # study of fields
     b_history = [array_to_stencil(bi, derham_h.V2.vector_space) for bi in b_history]
-    b_fields  = [VectorFemField(derham_h.V2, bi).fields for bi in b_history]
+    b_fields  = [FemField(derham_h.V2, bi).fields for bi in b_history]
 
     bx_fields = [bi[0] for bi in b_fields]
     by_fields = [bi[1] for bi in b_fields]
@@ -225,7 +224,7 @@ def run_maxwell_3d_stencil(logical_domain, mapping, e_ex, b_ex, ncells, degree, 
     e_history, b_history = splitting_integrator_stencil(e0_coeff, b0_coeff, M1, M2, CURL, dt, niter)
 
     # study of fields
-    b_fields  = [VectorFemField(derham_h.V2, bi).fields for bi in b_history]
+    b_fields  = [FemField(derham_h.V2, bi).fields for bi in b_history]
 
     bx_fields = [bi[0] for bi in b_fields]
     by_fields = [bi[1] for bi in b_fields]

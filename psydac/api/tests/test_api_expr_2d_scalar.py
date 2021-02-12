@@ -9,7 +9,7 @@ from sympde.topology import VectorFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import Square
 
-from psydac.fem.vector         import VectorFemField
+from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 
 #==============================================================================
@@ -37,7 +37,7 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     # ... dsicretize the bilinear form
     exprh = discretize(expr, domain_h, Vh)
     
-    Fh = VectorFemField(Vh) 
+    Fh = FemField(Vh)
    
     x = np.linspace(0., 1., 101)
     y = np.linspace(0., 1., 101)

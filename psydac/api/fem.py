@@ -28,7 +28,6 @@ from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 from psydac.fem.vector       import ProductFemSpace
 from psydac.fem.basic        import FemField
-from psydac.fem.vector       import VectorFemField
 
 __all__ = (
     'DiscreteBilinearForm',
@@ -258,33 +257,27 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def assemble(self, *, reset=True, **kwargs):
         if self._free_args:
-            args = self._args
-            basis   = ()
-            spans   = ()
-            degrees = ()
-            coeffs  = ()
-            consts  = ()
+            basis   = []
+            spans   = []
+            degrees = []
+            coeffs  = []
+            consts  = []
             for key in self._free_args:
                 v = kwargs[key]
                 if isinstance(v, FemField):
-                    space   = v.space
-                    basis_v = BasisValues( v.space, nderiv = self.max_nderiv)
-                    bs, d,s = construct_test_space_arguments(basis_v)
-                    basis   += tuple(bs)
-                    spans   += tuple(s)
-                    degrees += tuple(d)
-                    coeffs  += (v._coeffs._data,)
-                elif isinstance(v, VectorFemField):
-                    space     = v.space
-                    basis_v   = BasisValues( v.space, nderiv = self.max_nderiv)
-                    bs, d,s   = construct_test_space_arguments(basis_v)
-                    basis   += tuple(bs)
-                    spans   += tuple(s)
-                    degrees += tuple(d)
-                    coeffs  += tuple(e._data for e in v.coeffs[:])
+                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv)
+                    bs, d, s = construct_test_space_arguments(basis_v)
+                    basis   += bs
+                    spans   += s
+                    degrees += d
+                    if v.space.is_product:
+                        coeffs += (e._data for e in v.coeffs)
+                    else:
+                        coeffs += (v.coeffs._data, )
                 else:
-                    consts  += (v,)
-            args = self.args + basis + spans + degrees + coeffs + consts
+                    consts += (v, )
+
+            args = (*self.args, *basis, *spans, *degrees, *coeffs, *consts)
 
         else:
             args = self._args
@@ -509,33 +502,27 @@ class DiscreteLinearForm(BasicDiscrete):
 
     def assemble(self, *, reset=True, **kwargs):
         if self._free_args:
-            args = self._args
-            basis   = ()
-            spans   = ()
-            degrees = ()
-            coeffs  = ()
-            consts  = ()
+            basis   = []
+            spans   = []
+            degrees = []
+            coeffs  = []
+            consts  = []
             for key in self._free_args:
                 v = kwargs[key]
                 if isinstance(v, FemField):
-                    space   = v.space
-                    basis_v = BasisValues( v.space, nderiv = self.max_nderiv)
-                    bs, d,s = construct_test_space_arguments(basis_v)
-                    basis   += tuple(bs)
-                    spans   += tuple(s)
-                    degrees += tuple(d)
-                    coeffs  += (v._coeffs._data,)
-                elif isinstance(v, VectorFemField):
-                    space   = v.space
-                    basis_v   = BasisValues( v.space, nderiv = self.max_nderiv)
-                    bs, d,s = construct_test_space_arguments(basis_v)
-                    basis   += tuple(bs)
-                    spans   += tuple(s)
-                    degrees += tuple(d)
-                    coeffs  += tuple(e._data for e in v.coeffs[:])
+                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv)
+                    bs, d, s = construct_test_space_arguments(basis_v)
+                    basis   += bs
+                    spans   += s
+                    degrees += d
+                    if v.space.is_product:
+                        coeffs += (e._data for e in v.coeffs)
+                    else:
+                        coeffs += (v.coeffs._data, )
                 else:
-                    consts  += (v,)
-            args = self.args + basis + spans + degrees + coeffs + consts
+                    consts += (v, )
+
+            args = (*self.args, *basis, *spans, *degrees, *coeffs, *consts)
 
         else:
             args = self._args
@@ -732,24 +719,21 @@ class DiscreteFunctional(BasicDiscrete):
         return args
 
     def assemble(self, **kwargs):
+        args = [*self._args]
 
-        if self._free_args:
-            args = self._args
-            free_args = self._free_args
-            for key in free_args:
-                if isinstance(kwargs[key], FemField):
-                    
-                    args += (kwargs[key]._coeffs._data,)
-                elif isinstance(kwargs[key], VectorFemField) and not self._symbolic_space.is_broken:
-                    args += tuple(e._data for e in kwargs[key].coeffs[:])
-                elif isinstance(kwargs[key], VectorFemField) and self._symbolic_space.is_broken:
-                    index = self._symbolic_space.domain.interior.args.index(self._domain)
-                    args += (kwargs[key].coeffs[index]._data, )
-
+        for key in self._free_args:
+            v = kwargs[key]
+            if isinstance(v, FemField):
+                if v.space.is_product:
+                    if self._symbolic_space.is_broken:
+                        index = self._symbolic_space.domain.interior.args.index(self._domain)
+                        args += (v.coeffs[index]._data, )
+                    else:
+                        args += (e._data for e in v.coeffs)
                 else:
-                    args += (kwargs[key], )
-        else:
-            args = self._args
+                    args += (v.coeffs._data, )
+            else:
+                args += (v, )
 
         self._vector[:] = 0
         self._func(*args)
