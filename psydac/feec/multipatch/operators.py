@@ -299,6 +299,7 @@ class BrokenGradient_2D( FemLinearOperator ):
             self, fem_domain=V0h, fem_codomain=V1h
         )
 
+        # 'new' flag to try better implementations (doesn't work yet)
         self._new = False
 
         self._V0hs = V0hs  # needed ?
