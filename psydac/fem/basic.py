@@ -246,43 +246,43 @@ class FemField:
 
     # ...
     def copy(self):
-        return FemField(self.space, coeffs = self.coeffs.copy())
+        return FemField(self._space, coeffs = self._coeffs.copy())
 
     # ...
     def __neg__(self):
-        return FemField(self.space, coeffs = -self.coeffs)
+        return FemField(self._space, coeffs = -self._coeffs)
 
     # ...
     def __mul__(self, a):
-        return FemField(self.space, coeffs = self.coeffs * a)
+        return FemField(self._space, coeffs = self._coeffs * a)
 
     # ...
     def __rmul__(self, a):
-        return FemField(self.space, coeffs = a * self.coeffs)
+        return FemField(self._space, coeffs = a * self._coeffs)
 
     # ...
     def __add__(self, other):
-        assert self.space is other.space
-        return FemField(self.space, coeffs = self.coeffs + other.coeffs)
+        assert self._space is other._space
+        return FemField(self._space, coeffs = self._coeffs + other._coeffs)
 
     # ...
     def __sub__(self, other):
-        assert self.space is other.space
-        return FemField(self.space, coeffs = self.coeffs - other.coeffs)
+        assert self._space is other._space
+        return FemField(self._space, coeffs = self._coeffs - other._coeffs)
 
     # ...
     def __imul__(self, a):
-        self.coeffs *= a
+        self._coeffs *= a
         return self
 
     # ...
     def __iadd__(self, other):
-        assert self.space is other.space
-        self.coeffs += other.coeffs
+        assert self._space is other._space
+        self._coeffs += other._coeffs
         return self
 
     # ...
     def __isub__(self, other):
-        assert self.space is other.space
-        self.coeffs -= other.coeffs
+        assert self._space is other._space
+        self._coeffs -= other._coeffs
         return self
