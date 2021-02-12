@@ -1,39 +1,22 @@
 import pytest
-
-from sympy.core.containers import Tuple
-from sympy import Matrix
-from sympy import Function
-from sympy import pi, cos, sin, exp
-
-from sympde.core import Constant
-from sympde.calculus import grad, dot, inner, rot, div
-from sympde.calculus import laplace, bracket, convect
-from sympde.calculus import jump, avg, Dn, minus, plus
-#from sympde.topology import dx
-from sympde.topology import ScalarFunctionSpace
-from sympde.topology import element_of, elements_of
-from sympde.topology import InteriorDomain, Union
-from sympde.topology import Boundary, NormalVector
-from sympde.topology import Domain
-from sympde.topology import trace_1
-from sympde.topology import Square
-from sympde.topology import ElementDomain
-from sympde.topology import Area
-from sympde.topology import IdentityMapping, PolarMapping
-
-from sympde.expr.expr import LinearExpr
-from sympde.expr.expr import LinearForm, BilinearForm
-from sympde.expr.expr import integral
-from sympde.expr.expr import Functional, Norm
-from sympde.expr.expr import linearize
-from sympde.expr.evaluation import TerminalExpr
-from psydac.api.discretization import discretize
-from sympde.expr     import find, EssentialBC
-from psydac.fem.vector                  import VectorFemField
-from psydac.fem.basic                   import FemField
 import numpy as np
-
 from mpi4py import MPI
+from sympy  import pi, sin
+
+from sympde.calculus      import grad, dot
+from sympde.calculus      import minus, plus
+from sympde.topology      import ScalarFunctionSpace
+from sympde.topology      import elements_of
+from sympde.topology      import NormalVector
+from sympde.topology      import Square
+from sympde.topology      import IdentityMapping, PolarMapping
+from sympde.expr.expr     import LinearForm, BilinearForm
+from sympde.expr.expr     import integral
+from sympde.expr.expr     import Norm
+from sympde.expr.equation import find, EssentialBC
+
+from psydac.fem.basic          import FemField
+from psydac.api.discretization import discretize
 
 #==============================================================================
 
@@ -90,7 +73,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     x  = equation_h.solve()
 
-    uh = VectorFemField( Vh )
+    uh = FemField( Vh )
 
     for i in range(len(uh.coeffs[:])):
         uh.coeffs[i][:,:] = x[i][:,:]

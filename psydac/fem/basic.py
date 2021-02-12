@@ -20,6 +20,7 @@ class FemSpace( metaclass=ABCMeta ):
     A unique basis is associated to a FemSpace, i.e. FemSpace = Span( basis )
 
     """
+
     #-----------------------------------------
     # Abstract interface: read-only attributes
     #-----------------------------------------
@@ -54,6 +55,15 @@ class FemSpace( metaclass=ABCMeta ):
     @abstractmethod
     def vector_space( self ):
         """Topologically associated vector space."""
+
+    @property
+    @abstractmethod
+    def is_product( self ):
+        """
+        Boolean flag that describes whether the space is a product space.
+        If True, an element of this space can be decomposed into separate fields.
+
+        """
 
     #---------------------------------------
     # Abstract interface: evaluation methods
@@ -180,8 +190,15 @@ class FemField:
         else:
             coeffs = space.vector_space.zeros()
 
+        # Case of a vector field, element of a ProductSpace
+        if space.is_product:
+            fields = tuple(FemField(V, c) for V, c in zip(space.spaces, coeffs))
+        else:
+            fields = tuple()
+
         self._space  = space
         self._coeffs = coeffs
+        self._fields = fields
 
     # ...
     @property
@@ -203,6 +220,15 @@ class FemField:
         """
         return self._coeffs
         
+    # ...
+    @property
+    def fields(self):
+        return self._fields
+
+    # ...
+    def __getitem__(self, key):
+        return self._fields[key]
+
     # ...
     def __call__( self, *eta ):
         """Evaluate field at location identified by logical coordinates eta."""

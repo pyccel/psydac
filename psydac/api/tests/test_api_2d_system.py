@@ -15,7 +15,6 @@ from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
 from psydac.fem.basic          import FemField
-from psydac.fem.vector         import VectorFemField
 from psydac.api.discretization import discretize
 
 #==============================================================================
@@ -92,7 +91,7 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     # ...
 
     # ...
-    Fh = VectorFemField( Wh )
+    Fh = FemField( Wh )
     Fh.coeffs[0][:,:] = x[0][:,:]
     Fh.coeffs[1][:,:] = x[1][:,:]
     # ...

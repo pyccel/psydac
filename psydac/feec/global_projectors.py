@@ -7,7 +7,6 @@ from psydac.linalg.block          import BlockVector
 from psydac.core.bsplines         import quadrature_grid
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
-from psydac.fem.vector            import VectorFemField
 
 #==============================================================================
 class Projector_H1:
@@ -214,7 +213,7 @@ class Projector_Hcurl:
 
         Returns
         -------
-        field : VectorFemField
+        field : FemField
             Field obtained by projection (element of the H(curl)-conforming
             finite element space). This is also a real-valued vector function
             in the logical domain.
@@ -224,12 +223,12 @@ class Projector_Hcurl:
 
         self.rhs.update_ghost_regions()
 
-        coeffs    = BlockVector(self.space.vector_space)
+        coeffs = BlockVector(self.space.vector_space)
         for i in range(self.dim):
             coeffs[i] = kronecker_solve(solvers = self.mats[i], rhs = self.rhs[i])
 
         coeffs.update_ghost_regions()
-        return VectorFemField(self.space, coeffs=coeffs)
+        return FemField(self.space, coeffs=coeffs)
 
 #==============================================================================
 class Projector_Hdiv:
@@ -357,7 +356,7 @@ class Projector_Hdiv:
 
         Returns
         -------
-        field : VectorFemField
+        field : FemField
             Field obtained by projection (element of the H(div)-conforming
             finite element space). This is also a real-valued vector function
             in the logical domain.
@@ -373,7 +372,7 @@ class Projector_Hdiv:
             coeffs[i] = kronecker_solve(solvers = self.mats[i], rhs = self.rhs[i])
 
         coeffs.update_ghost_regions()
-        return VectorFemField(self.space, coeffs=coeffs)
+        return FemField(self.space, coeffs=coeffs)
 
 #==============================================================================
 class Projector_L2:
