@@ -82,7 +82,7 @@ class ConformingProjection( FemLinearOperator ):
 
 
     """
-    def __init__( self, V0h_1, V0h_2, domain_h_1, domain_h_2, V0h, domain_h):
+    def __init__( self, V0h_1, V0h_2, domain_h_1, domain_h_2, V0h, domain_h, homogeneous_bc=False, verbose=False):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
@@ -94,16 +94,23 @@ class ConformingProjection( FemLinearOperator ):
 
         V0 = V0h.symbolic_space
         domain = V0.domain
+        self._verbose = verbose
+
         # domain_h = V0h.domain  # would be nice
 
         u, v = elements_of(V0, names='u, v')
         expr   = u*v  # dot(u,v)
 
-        kappa  = 10**6
+        kappa  = 10**4
         I = domain.interfaces  # note: interfaces does not include the boundary
         expr_I = kappa*( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
-        a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))  # + integral(domain.boundary, u*v))
+        if homogeneous_bc:
+            B = domain.boundary
+            expr_B = kappa*( u*v )
+            a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I) + integral(B, expr_B))
+        else:
+            a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
 
         ah = discretize(a, domain_h, [V0h, V0h])    # ... or (V0h, V0h)?
 
@@ -131,7 +138,7 @@ class ConformingProjection( FemLinearOperator ):
         b1 = self._lh_1.assemble(f1=f1)
         b2 = self._lh_2.assemble(f2=f2)
         b  = BlockVector(self.codomain, blocks=[b1, b2])
-        sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=1e-6, verbose=True )
+        sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=1e-6, verbose=self._verbose )
 
         return VectorFemField(self.fem_codomain, coeffs=sol_coeffs)
 
@@ -163,6 +170,9 @@ class BrokenMass_V0( FemLinearOperator ):
         ah = discretize(a, domain_h, [V0h, V0h])
         self._M = ah.assemble() #.toarray()
 
+    def mat(self):
+        return self._M
+
     def __call__( self, f ):
         # Fem layer
         Mf_coeffs = self.dot(f.coeffs)
@@ -191,6 +201,9 @@ class BrokenMass_V1( FemLinearOperator ):
         a = BilinearForm((u,v), integral(domain, expr))
         ah = discretize(a, domain_h, [V1h, V1h])
         self._M = ah.assemble() #.toarray()
+
+    def mat(self):
+        return self._M
 
     def __call__( self, f ):
         Mf_coeffs = self.dot(f.coeffs)
@@ -286,6 +299,8 @@ class BrokenGradient_2D( FemLinearOperator ):
             self, fem_domain=V0h, fem_codomain=V1h
         )
 
+        self._new = False
+
         self._V0hs = V0hs  # needed ?
         self._V1hs = V1hs  # needed ?
 
@@ -298,32 +313,43 @@ class BrokenGradient_2D( FemLinearOperator ):
     def __call__( self, u0 ):
         # fem layer
         # u0 should be a multipatch V0 field
-        grad_u0 = VectorFemField(self.fem_codomain)
-        grad_u0_cs = [mat.dot(c) for mat, c in zip(self._mats, u0.coeffs)]
 
-        for k in range(self._npatches):
-            for b1, b2 in zip(grad_u0.coeffs[k]._blocks, grad_u0_cs[k]._blocks):
-                b1[:] = b2[:]
+        if self._new:
+            return VectorFemField(self.fem_codomain, coeffs = self.dot(u0.coeffs))
 
-        # other option, using the gradient operators instead of the matrices:
-        #     # creating a list of single patch fields with proper spaces and copying the coefficients,
-        #     # because the TensorFemSpace class does not have an __eq__ magic method
-        #     u0s = get_scalar_patch_fields(u0, self._V0hs)
-        #     grad_u0s = [D0(u) for D0, u in zip(self._D0s, u0s)]
-        #
-        #     for k in range(self._npatches):
-        #         for d in range(2):
-        #             grad_u0.coeffs[k][d][:] = grad_u0s[k].fields[d].coeffs[:]      # patch k, component d
+        else:
+            grad_u0 = VectorFemField(self.fem_codomain)
+            grad_u0_cs = [mat.dot(c) for mat, c in zip(self._mats, u0.coeffs)]
 
-        grad_u0.coeffs.update_ghost_regions()
-        return grad_u0
+            for k in range(self._npatches):
+                for b1, b2 in zip(grad_u0.coeffs[k]._blocks, grad_u0_cs[k]._blocks):
+                    b1[:] = b2[:]
+
+            # other option, using the gradient operators instead of the matrices:
+            #     # creating a list of single patch fields with proper spaces and copying the coefficients,
+            #     # because the TensorFemSpace class does not have an __eq__ magic method
+            #     u0s = get_scalar_patch_fields(u0, self._V0hs)
+            #     grad_u0s = [D0(u) for D0, u in zip(self._D0s, u0s)]
+            #
+            #     for k in range(self._npatches):
+            #         for d in range(2):
+            #             grad_u0.coeffs[k][d][:] = grad_u0s[k].fields[d].coeffs[:]      # patch k, component d
+
+            grad_u0.coeffs.update_ghost_regions()
+
+            return grad_u0
 
     def dot( self, u_coeffs, out=None ):
         # coeffs layer
-        # todo: remove the fem field layer here (but I'm not sure how)
-        u0 = VectorFemField(self.fem_domain, coeffs=u_coeffs)
-        E_coeffs = self(u0).coeffs
-        return E_coeffs
+        if self._new:
+            # self._block_mat = BlockMatrix(self.domain, self.codomain, blocks = ...)
+            blocks = [mat.dot(c) for mat, c in zip(self._mats, u_coeffs)]
+            return BlockVector(self.codomain, blocks=blocks)
+        else:
+
+            u0 = VectorFemField(self.fem_domain, coeffs=u_coeffs)
+            E_coeffs = self(u0).coeffs
+            return E_coeffs
 
 class BrokenTransposedGradient_2D( FemLinearOperator ):
 
@@ -357,7 +383,6 @@ class BrokenTransposedGradient_2D( FemLinearOperator ):
 
         for k in range(self._npatches):
             for E1s_c, E1_c in zip(E1s_coeffs, E1.coeffs):
-                print("type(E1s_c) = ", type(E1s_c))
                 E1s_c._blocks[:] = E1_c[:]
 
         u0s_coeffs = [mat.dot(E1s_c) for mat, E1s_c in zip(self._mats, E1s_coeffs)]
@@ -374,6 +399,28 @@ class BrokenTransposedGradient_2D( FemLinearOperator ):
         E1 = VectorFemField(self.fem_domain, coeffs=E_coeffs)
         E_coeffs = self(E1).coeffs
         return E_coeffs
+
+
+from sympy import Tuple
+
+# def multipatch_Moments_Hcurl(f, V1h, domain_h):
+def ortho_proj_Hcurl(EE, V1h, domain_h, M1):
+    """
+    return vector of moments of E against V1h basis
+    """
+    assert isinstance(EE, Tuple)
+    V1 = V1h.symbolic_space
+    v = element_of(V1, name='v')
+    # x,y = V1.domain.coordinates
+    # EE = Tuple(2*x, 2*y)
+    # print("in op:", type(EE))
+    l = LinearForm(v, integral(V1.domain, dot(v,EE)))
+    lh = discretize(l, domain_h, V1h)
+    b = lh.assemble()
+    sol_coeffs, info = pcg(M1.mat(), b, pc="jacobi", tol=1e-10)
+
+    return VectorFemField(V1h, coeffs=sol_coeffs)
+
 
 
 class Multipatch_Projector_Hcurl:
@@ -444,64 +491,3 @@ def get_vector_patch_fields(E, V1hs):
     return Es
 
 
-
-
-
-#
-# #====================================================================================================
-# class BrokenGradient_2D(DiffOperator):
-#     """
-#     Broken Gradient operator in 2D multipatch domains.
-#
-#     Parameters
-#     ----------
-#     H1 : 2D TensorFemSpace
-#         Domain of gradient operator.
-#
-#     Hcurl : 2D ProductFemSpace
-#         Codomain of gradient operator.
-#
-#     """
-#     def __init__(self, H1, Hcurl):
-#
-#         # assert isinstance(   H1,  TensorFemSpace); assert    H1.ldim == 2
-#         # assert isinstance(Hcurl, ProductFemSpace); assert Hcurl.ldim == 2
-#         #
-#         # assert Hcurl.spaces[0].periodic == H1.periodic
-#         # assert Hcurl.spaces[1].periodic == H1.periodic
-#         #
-#         # assert tuple(Hcurl.spaces[0].degree) == (H1.degree[0]-1, H1.degree[1]  )
-#         # assert tuple(Hcurl.spaces[1].degree) == (H1.degree[0]  , H1.degree[1]-1)
-#
-#         # 1D differentiation matrices (from B-spline of degree p to M-spline of degree p-1)
-#         Dx, Dy = [d_matrix(N.nbasis, N.degree, N.periodic) for N in H1.spaces]
-#
-#         # 1D identity matrices for B-spline coefficients
-#         Ix, Iy = [IdentityMatrix(N.vector_space) for N in H1.spaces]
-#
-#         # Tensor-product spaces of coefficients - domain
-#         B_B = H1.vector_space
-#
-#         # Tensor-product spaces of coefficients - codomain
-#         (M_B, B_M) = Hcurl.vector_space.spaces
-#
-#         # Build Gradient matrix block by block
-#         blocks = [[KroneckerStencilMatrix(B_B, M_B, *(Dx, Iy))],
-#                   [KroneckerStencilMatrix(B_B, B_M, *(Ix, Dy))]]
-#         matrix = BlockMatrix(BlockVectorSpace(H1.vector_space), Hcurl.vector_space, blocks=blocks)
-#
-#         # Store data in object
-#         self._domain   = H1
-#         self._codomain = Hcurl
-#         self._matrix   = block_tostencil(matrix)
-#
-#     def __call__(self, u):
-#
-#         assert isinstance(u, FemField)
-#         assert u.space == self.domain
-#
-#         coeffs = self.matrix.dot(u.coeffs)
-#         coeffs.update_ghost_regions()
-#
-#         return VectorFemField(self.codomain, coeffs=coeffs)
-#

@@ -52,7 +52,7 @@ from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector
 comm = MPI.COMM_WORLD
 
 
-def test_conga_2d():
+def conga_operators_2d():
     """
     - assembles several multipatch operators and a conforming projection
 
@@ -70,8 +70,14 @@ def test_conga_2d():
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
-    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    cartesian = False
+
+    if cartesian:
+        mapping_1 = IdentityMapping('M1', 2)
+        mapping_2 = IdentityMapping('M2',2)
+    else:
+        mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+        mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
     domain_1     = mapping_1(A)
     domain_2     = mapping_2(B)
@@ -144,14 +150,14 @@ def test_conga_2d():
     # fun2    = lambda xi1, xi2 : .5*np.sin(xi1)*np.sin(xi2)
 
     x,y       = domain.coordinates
-    u_sol  = x**2 + y**2
-    E_sol_x = 2*x
-    E_sol_y = 2*y
+    u_solution  = x**2 + y**2
+    E_solution_x = 2*x
+    E_solution_y = 2*y
 
     from sympy import lambdify
-    u_sol = lambdify(domain.coordinates, u_sol)
-    E_sol_x = lambdify(domain.coordinates, E_sol_x)
-    E_sol_y = lambdify(domain.coordinates, E_sol_y)
+    u_sol = lambdify(domain.coordinates, u_solution)
+    E_sol_x = lambdify(domain.coordinates, E_solution_x)
+    E_sol_y = lambdify(domain.coordinates, E_solution_y)
 
     # pull-backs of u and E
     u_sol_log = [lambda xi1, xi2 : u_sol(*f(xi1,xi2)) for f in F]
@@ -165,7 +171,6 @@ def test_conga_2d():
         lambda xi1, xi2 : 0,
         ]
 
-
     #+++++++++++++++++++++++++++++++
     # . Multipatch H1, Hcurl (commuting) projectors
     #+++++++++++++++++++++++++++++++
@@ -177,13 +182,10 @@ def test_conga_2d():
     v0 = P0(v_sol_log)
 
     # II. conf projection V0 -> V0
+    # projection from broken multipatch space to conforming subspace (using the same basis)
 
-    Pconf_0 = ConformingProjection(V0hs[0], V0hs[1], domains_h[0], domains_h[1], V0h, domain_h)
-    test_Pc = False
-
-    if test_Pc:
-        # projection from broken multipatch space to conforming subspace (using the same basis)
-        v0c = Pconf_0(v0)
+    Pconf_0 = ConformingProjection(V0hs[0], V0hs[1], domains_h[0], domains_h[1], V0h, domain_h, verbose=False)
+    v0c = Pconf_0(v0)
 
     # III. multipatch V1 projection
 
@@ -202,64 +204,36 @@ def test_conga_2d():
     cD0 = ComposedLinearOperator(bD0,Pconf_0)
     cDv0 = cD0(v0)
 
+
     # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-    bD0_T = BrokenTransposedGradient_2D(V0hs, V1hs, V0h, V1h)
-    cD0_T = ComposedLinearOperator(Pconf_0,bD0_T)
 
-    I0 = IdLinearOperator(V0h)
-    # I0 = IdentityLinearOperator(V0h.vector_space)
-
-
-    #+++++++++++++++++++++++++++++++
-    # . Conga Poisson solver
-    #+++++++++++++++++++++++++++++++
-
-
-    x,y = domain.coordinates
-    solution = x**2 + y**2
-    f        = -4
-
-    v = element_of(derham.V0, 'v')
-    l = LinearForm(v,  integral(domain, f*v))
-    lh = discretize(l, domain_h, V0h)
-    b = lh.assemble()
-
-    cD0T_M1_cD0 = ComposedLinearOperator( cD0_T, ComposedLinearOperator( M1, cD0 ) )
-    # A = cD0T_M1_cD0 + (I0 - Pconf_0)
-    minus_cP0 = MultLinearOperator(-1,Pconf_0)
-    I_minus_cP0 = SumLinearOperator( I0, minus_cP0 )
-    A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0 )
-
-
-    D0b = bD0.dot(b)
-    sol_h, info = pcg( A, b, pc="jacobi", tol=1e-6, verbose=True )
-
-    # sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=1e-6, verbose=True )  # doesn't cv
+    # bD0_T = BrokenTransposedGradient_2D(V0hs, V1hs, V0h, V1h)
+    # cD0_T = ComposedLinearOperator(Pconf_0,bD0_T)
     #
-
+    # I0 = IdLinearOperator(V0h)
+    # # I0 = IdentityLinearOperator(V0h.vector_space)
     #
-    #     self._lh_1 = discretize(l1, domain_h_1, V0h_1)
-    #     self._lh_2 = discretize(l2, domain_h_2, V0h_2)
     #
-    # def __call__( self, f ):
-    #     # Fem field layer
+    # #+++++++++++++++++++++++++++++++
+    # # . Conga Poisson solver
+    # #+++++++++++++++++++++++++++++++
     #
-    #     # f = VectorFemField(self.fem_domain, coeffs=f_coeffs)
-    #     f1,f2 = f.fields
     #
-    #     b1 = self._lh_1.assemble(f1=f1)
-    #     b2 = self._lh_2.assemble(f2=f2)
-    #     #b  = BlockVector(self.codomain.vector_space, blocks=[b1, b2])
-    #     b  = BlockVector(self.codomain, blocks=[b1, b2])
-    #     sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=1e-6, verbose=True )
-
-
-
-
+    # x,y = domain.coordinates
+    # solution = x**2 + y**2
     #
-    # # todo: plot the solution for visual check
+    # f        = -4
     #
-    # print(l2_error)
+    # v = element_of(derham.V0, 'v')
+    # l = LinearForm(v,  integral(domain, f*v))
+    # lh = discretize(l, domain_h, V0h)
+    # b = lh.assemble()
+    #
+    # cD0T_M1_cD0 = ComposedLinearOperator( cD0_T, ComposedLinearOperator( M1, cD0 ) )
+    # # A = cD0T_M1_cD0 + (I0 - Pconf_0)
+    # minus_cP0 = MultLinearOperator(-1,Pconf_0)
+    # I_minus_cP0 = SumLinearOperator( I0, minus_cP0 )
+    # A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0 )
 
 
 
@@ -287,6 +261,10 @@ def test_conga_2d():
         u_vals  = [np.array( [[u_sol( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
         u_vals  = np.concatenate(u_vals,     axis=1)
 
+        # Poisson sol
+        # sol_vals  = [np.array( [[sol( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
+        # sol_vals  = np.concatenate(sol_vals,     axis=1)
+
         # E exact
         E_x_vals = [np.array( [[E_sol_x( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
         E_y_vals = [np.array( [[E_sol_y( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
@@ -295,36 +273,41 @@ def test_conga_2d():
 
         # u0
         u0s = get_scalar_patch_fields(u0, V0hs)
-
         u0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0s, etas)]
         # u0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0.fields, etas)]
         u0_vals  = np.concatenate(u0_vals,     axis=1)
         u_err = abs(u_vals - u0_vals)
 
-        if test_Pc:
-            # v, v0 and conf proj v0c
-            v_vals  = [np.array( [[phi(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v_sol_log,etas)]
-            # v_vals  = [np.array( [[v_sol( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
-            v_vals  = np.concatenate(v_vals,     axis=1)
-            v0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v0.fields, etas)]
-            v0_vals  = np.concatenate(v0_vals,     axis=1)
-            v0c_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v0c.fields, etas)]
-            v0c_vals = np.concatenate(v0c_vals,     axis=1)
+        # Poisson sol_h
+        # sols_h = get_scalar_patch_fields(sol_h, V0hs)
+        # sol_h_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(sols_h, etas)]
+        # sol_h_vals  = np.concatenate(sol_h_vals,     axis=1)
+        # sol_err = abs(sol_vals - sol_h_vals)
 
-            cDv0_x_vals = 2*[None]
-            cDv0_y_vals = 2*[None]
-            cDv0s = get_vector_patch_fields(cDv0, V1hs)
-            for k in [0,1]:
-                # patch k
-                eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
-                cDv0_x_vals[k] = np.empty_like(eta_1)
-                cDv0_y_vals[k] = np.empty_like(eta_1)
-                for i, x1i in enumerate(eta_1[:, 0]):
-                    for j, x2j in enumerate(eta_2[0, :]):
-                        cDv0_x_vals[k][i, j], cDv0_y_vals[k][i, j] = \
-                            push_2d_hcurl(cDv0s[k].fields[0], cDv0s[k].fields[1], x1i, x2j, mappings_obj[k])
-            cDv0_x_vals = np.concatenate(cDv0_x_vals,     axis=1)
-            cDv0_y_vals = np.concatenate(cDv0_y_vals,     axis=1)
+
+        # v, v0 and conf proj v0c
+        v_vals  = [np.array( [[phi(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v_sol_log,etas)]
+        # v_vals  = [np.array( [[v_sol( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
+        v_vals  = np.concatenate(v_vals,     axis=1)
+        v0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v0.fields, etas)]
+        v0_vals  = np.concatenate(v0_vals,     axis=1)
+        v0c_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v0c.fields, etas)]
+        v0c_vals = np.concatenate(v0c_vals,     axis=1)
+
+        cDv0_x_vals = 2*[None]
+        cDv0_y_vals = 2*[None]
+        cDv0s = get_vector_patch_fields(cDv0, V1hs)
+        for k in [0,1]:
+            # patch k
+            eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
+            cDv0_x_vals[k] = np.empty_like(eta_1)
+            cDv0_y_vals[k] = np.empty_like(eta_1)
+            for i, x1i in enumerate(eta_1[:, 0]):
+                for j, x2j in enumerate(eta_2[0, :]):
+                    cDv0_x_vals[k][i, j], cDv0_y_vals[k][i, j] = \
+                        push_2d_hcurl(cDv0s[k].fields[0], cDv0s[k].fields[1], x1i, x2j, mappings_obj[k])
+        cDv0_x_vals = np.concatenate(cDv0_x_vals,     axis=1)
+        cDv0_y_vals = np.concatenate(cDv0_y_vals,     axis=1)
 
         # E1 and grad_u0
         E1_x_vals = 2*[None]
@@ -359,9 +342,7 @@ def test_conga_2d():
         gu_y_err = abs(grad_u0_y_vals - E1_y_vals)
 
 
-
         # plots
-
 
         xx = pcoords[:,:,0]
         yy = pcoords[:,:,1]
@@ -389,79 +370,116 @@ def test_conga_2d():
             gridlines = (gridlines_x1, gridlines_x2)
 
 
+        # plot poisson solutions
+
+        # fig = plt.figure(figsize=(17., 4.8))
+        # fig.suptitle(r'approximation of some $v$', fontsize=14)
+        #
+        # ax = fig.add_subplot(1, 3, 1)
+        #
+        # if plotted_patch is not None:
+        #     ax.plot(*gridlines_x1, color='k')
+        #     ax.plot(*gridlines_x2, color='k')
+        #
+        # cp = ax.contourf(xx, yy, u0_vals, 50, cmap='jet')
+        # # cp = ax.contourf(xx, yy, sol_vals, 50, cmap='jet')
+        # cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
+        # ax.set_xlabel( r'$x$', rotation='horizontal' )
+        # ax.set_ylabel( r'$y$', rotation='horizontal' )
+        # ax.set_title ( r'$u^h(x,y)$' )
+        # # ax.set_title ( r'$\phi^{ex}(x,y)$' )
+        #
+        #
+        # ax = fig.add_subplot(1, 3, 2)
+        # cp2 = ax.contourf(xx, yy, sol_h_vals, 50, cmap='jet')
+        # cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
+        #
+        # ax.set_xlabel( r'$x$', rotation='horizontal' )
+        # ax.set_ylabel( r'$y$', rotation='horizontal' )
+        # ax.set_title ( r'$\Delta_h u^h(x,y)$' )
+        # # ax.set_title ( r'$\phi^h(x,y)$' )
+        #
+        # ax = fig.add_subplot(1, 3, 3)
+        # cp3 = ax.contourf(xx, yy, sol_err, 50, cmap='jet')
+        # cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
+        #
+        # ax.set_xlabel( r'$x$', rotation='horizontal' )
+        # ax.set_ylabel( r'$y$', rotation='horizontal' )
+        # ax.set_title ( r'$|(\phi^{ex}-\phi^h)(x,y)|$' )
+        #
+        # plt.show()
 
         # plot v, v_h and v_hc
-        if test_Pc:
 
-            fig = plt.figure(figsize=(17., 4.8))
-            fig.suptitle(r'approximation of some $v$', fontsize=14)
+        fig = plt.figure(figsize=(17., 4.8))
+        fig.suptitle(r'approximation of some $v$', fontsize=14)
 
-            ax = fig.add_subplot(1, 3, 1)
+        ax = fig.add_subplot(1, 3, 1)
 
-            if plotted_patch is not None:
-                ax.plot(*gridlines_x1, color='k')
-                ax.plot(*gridlines_x2, color='k')
+        if plotted_patch is not None:
+            ax.plot(*gridlines_x1, color='k')
+            ax.plot(*gridlines_x2, color='k')
 
-            cp = ax.contourf(xx, yy, v_vals, 50, cmap='jet')
-            cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-            ax.set_xlabel( r'$x$', rotation='horizontal' )
-            ax.set_ylabel( r'$y$', rotation='horizontal' )
-            ax.set_title ( r'$v^{ex}(x,y)$' )
-
-
-            ax = fig.add_subplot(1, 3, 2)
-            cp2 = ax.contourf(xx, yy, v0_vals, 50, cmap='jet')
-            cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
-
-            ax.set_xlabel( r'$x$', rotation='horizontal' )
-            ax.set_ylabel( r'$y$', rotation='horizontal' )
-            ax.set_title ( r'$v^h(x,y)$' )
-
-            ax = fig.add_subplot(1, 3, 3)
-            cp3 = ax.contourf(xx, yy, v0c_vals, 50, cmap='jet')
-            cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
-
-            ax.set_xlabel( r'$x$', rotation='horizontal' )
-            ax.set_ylabel( r'$y$', rotation='horizontal' )
-            ax.set_title ( r'$P^c v^h(x,y)$' )
-
-            plt.show()
-
-            # show v0 and cDv0
-
-            fig = plt.figure(figsize=(17., 4.8))
-            fig.suptitle(r'discontinuous $v^h$ and its conforming gradient', fontsize=14)
-
-            ax = fig.add_subplot(1, 3, 1)
-
-            if plotted_patch is not None:
-                ax.plot(*gridlines_x1, color='k')
-                ax.plot(*gridlines_x2, color='k')
-
-            cp = ax.contourf(xx, yy, v0_vals, 50, cmap='jet')
-            cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-            ax.set_xlabel( r'$x$', rotation='horizontal' )
-            ax.set_ylabel( r'$y$', rotation='horizontal' )
-            ax.set_title ( r'$v^h(x,y)$' )
+        cp = ax.contourf(xx, yy, v_vals, 50, cmap='jet')
+        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_title ( r'$v^{ex}(x,y)$' )
 
 
-            ax = fig.add_subplot(1, 3, 2)
-            cp2 = ax.contourf(xx, yy, cDv0_x_vals, 50, cmap='jet')
-            cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
+        ax = fig.add_subplot(1, 3, 2)
+        cp2 = ax.contourf(xx, yy, v0_vals, 50, cmap='jet')
+        cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
 
-            ax.set_xlabel( r'$x$', rotation='horizontal' )
-            ax.set_ylabel( r'$y$', rotation='horizontal' )
-            ax.set_title ( r'$(D^0P^c v^h)_x(x,y)$' )
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_title ( r'$v^h(x,y)$' )
 
-            ax = fig.add_subplot(1, 3, 3)
-            cp3 = ax.contourf(xx, yy, cDv0_y_vals, 50, cmap='jet')
-            cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
+        ax = fig.add_subplot(1, 3, 3)
+        cp3 = ax.contourf(xx, yy, v0c_vals, 50, cmap='jet')
+        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
 
-            ax.set_xlabel( r'$x$', rotation='horizontal' )
-            ax.set_ylabel( r'$y$', rotation='horizontal' )
-            ax.set_title ( r'$(D^0P^c v^h)_y(x,y)$' )
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_title ( r'$P^c v^h(x,y)$' )
 
-            plt.show()
+        plt.show()
+
+        # show v0 and cDv0
+
+        fig = plt.figure(figsize=(17., 4.8))
+        fig.suptitle(r'discontinuous $v^h$ and its Conga gradient', fontsize=14)
+
+        ax = fig.add_subplot(1, 3, 1)
+
+        if plotted_patch is not None:
+            ax.plot(*gridlines_x1, color='k')
+            ax.plot(*gridlines_x2, color='k')
+
+        cp = ax.contourf(xx, yy, v0_vals, 50, cmap='jet')
+        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_title ( r'$v^h(x,y)$' )
+
+
+        ax = fig.add_subplot(1, 3, 2)
+        cp2 = ax.contourf(xx, yy, cDv0_x_vals, 50, cmap='jet')
+        cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
+
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_title ( r'$(D^0P^c v^h)_x(x,y)$' )
+
+        ax = fig.add_subplot(1, 3, 3)
+        cp3 = ax.contourf(xx, yy, cDv0_y_vals, 50, cmap='jet')
+        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
+
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_title ( r'$(D^0P^c v^h)_y(x,y)$' )
+
+        plt.show()
 
 
         # plot u and u_h
@@ -569,7 +587,7 @@ def test_conga_2d():
         # show grad_u0_x and E1_x
 
         fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'commuting diagram property ?', fontsize=14)
+        fig.suptitle(r'commuting diagram property (x component)', fontsize=14)
 
         ax = fig.add_subplot(1, 3, 1)
         cp = ax.contourf(xx, yy, grad_u0_x_vals, 50, cmap='jet')
@@ -601,7 +619,7 @@ def test_conga_2d():
         # show grad_u0_y and E1_y
 
         fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'commuting diagram property ?', fontsize=14)
+        fig.suptitle(r'commuting diagram property (y component)', fontsize=14)
 
         ax = fig.add_subplot(1, 3, 1)
         cp = ax.contourf(xx, yy, grad_u0_y_vals, 50, cmap='jet')
@@ -712,24 +730,7 @@ def test_conga_2d():
 
     # Note: here we should use the lists V0hs, V1hs defined above
 
-    V0h_1 = discretize(derham_1.V0, domain_h_1, degree=degree)
-    V0h_2 = discretize(derham_2.V0, domain_h_2, degree=degree)
-    V1h_1 = discretize(derham_1.V1, domain_h_1, degree=degree)
-    V1h_2 = discretize(derham_2.V1, domain_h_2, degree=degree)
-
-    D0_1 = Gradient_2D(V0h_1, V1h_1)
-    D0_2 = Gradient_2D(V0h_2, V1h_2)
-    
     broken_D0 = BlockMatrix(V0h.vector_space, V1h.vector_space, blocks=[[D0_1, None],[None, D0_2]])
-    
-    # projection from broken multipatch space to conforming subspace
-    Pconf_0 = ConformingProjection(V0h)
-
-    # Conga grad operator (on the broken V0h)
-    D0 = ComposedLinearOperator(broken_D0,Pconf_0)
-
-    # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-    D0_transp = ComposedLinearOperator(Pconf_0,broken_D0.T)
 
 
     # plot ?
@@ -798,5 +799,5 @@ def test_conga_2d():
 
 if __name__ == '__main__':
 
-    test_conga_2d()
+    conga_operators_2d()
 
