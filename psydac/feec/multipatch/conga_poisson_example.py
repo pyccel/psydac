@@ -106,11 +106,6 @@ def conga_poisson_2d():
     # . Discrete space
     #+++++++++++++++++++++++++++++++
 
-    ## todo: strange behaviour, should be checked...
-    ## for nc = 2 it's roughly correct
-    ## for nc = 3 the solution vanishes on the interface...
-    ## for nc = 4, 5 the solution is 0
-
     nc = 2
     ncells=[nc**2, nc**2]
     degree=[2,2]
@@ -205,7 +200,8 @@ def conga_poisson_2d():
 
     # II. conf projection V0 -> V0
 
-    cP0 = ConformingProjection(V0h, domain_h, verbose=False, homogeneous_bc=True)
+    ## note: there are problems (eg at the interface) when the conforming projection is not accurate (low penalization or high tolerance)
+    cP0 = ConformingProjection(V0h, domain_h, verbose=False, homogeneous_bc=True, kappa=1e8, tol=1e-10)
 
     # III broken multipatch grad operator on V0h
     bD0 = BrokenGradient_2D(V0h, V1h)

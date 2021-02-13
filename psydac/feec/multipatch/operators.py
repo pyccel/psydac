@@ -82,7 +82,7 @@ class ConformingProjection( FemLinearOperator ):
 
 
     """
-    def __init__(self, V0h, domain_h, homogeneous_bc=False, verbose=False):
+    def __init__(self, V0h, domain_h, homogeneous_bc=False, kappa=1e10, tol=1e-12, verbose=False):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
@@ -101,7 +101,7 @@ class ConformingProjection( FemLinearOperator ):
         u, v = elements_of(V0, names='u, v')
         expr   = u*v  # dot(u,v)
 
-        kappa  = 10**10
+        kappa  = kappa
         I = domain.interfaces  # note: interfaces does not include the boundary
         expr_I = kappa*( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
@@ -116,6 +116,7 @@ class ConformingProjection( FemLinearOperator ):
 
         self._A = ah.assemble() #.toarray()
         self._solver = SparseSolver( self._A.tosparse() )
+        self._tol = tol
 
         #---------------------------------------------------------
         V0h_1, V0h_2 = V0h.spaces
@@ -148,7 +149,7 @@ class ConformingProjection( FemLinearOperator ):
         b1 = self._lh_1.assemble(f1=f1)
         b2 = self._lh_2.assemble(f2=f2)
         b  = BlockVector(self.codomain, blocks=[b1, b2])
-        sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=1e-12, verbose=self._verbose )
+        sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=self._tol, verbose=self._verbose )
 
         return VectorFemField(self.fem_codomain, coeffs=sol_coeffs)
 
