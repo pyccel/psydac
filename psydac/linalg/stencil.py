@@ -1357,7 +1357,6 @@ class StencilInterfaceMatrix(Matrix):
     # ...
     @staticmethod
     def _dot(mat, v, out, nrows, nrows_extra, dpads, pads, dim, d_start, c_start):
-
         # Index for k=i-j
         ndim = len(v.shape)
         kk = [slice(None)]*ndim
@@ -1371,7 +1370,6 @@ class StencilInterfaceMatrix(Matrix):
             ii_kk = tuple( ii + kk )
 
             ii[dim] += c_start
-
             out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
 
         new_nrows = nrows.copy()
@@ -1392,10 +1390,8 @@ class StencilInterfaceMatrix(Matrix):
                     ndiags = [2*p + 1-e for p,e in zip(pads,ee)]
                     kk     = [slice(None,diag) for diag in ndiags]
                     ii_kk  = tuple( list(ii) + kk )
-
                     ii[dim] += c_start
-
-                    out[ii] = np.dot( mat[ii_kk].flat, v[jj].flat )
+                    out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
             new_nrows[d] += er
     # ...
     def toarray( self, *, with_pads=False ):
@@ -1419,7 +1415,9 @@ class StencilInterfaceMatrix(Matrix):
 
     #...
     def copy( self ):
-        M = StencilMatrix( self.domain, self.codomain, self._pads )
+        M = StencilInterfaceMatrix( self._domain, self._codomain,
+                                    self._d_start, self._c_start,
+                                    self._dim, self._pads )
         M._data[:] = self._data[:]
         return M
 
@@ -1429,14 +1427,18 @@ class StencilInterfaceMatrix(Matrix):
 
     #...
     def __mul__( self, a ):
-        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w = StencilInterfaceMatrix( self._domain, self._codomain,
+                                    self._d_start, self._c_start,
+                                    self._dim, self._pads )
         w._data = self._data * a
         w._sync = self._sync
         return w
 
     #...
     def __rmul__( self, a ):
-        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w = StencilInterfaceMatrix( self._domain, self._codomain,
+                                    self._d_start, self._c_start,
+                                    self._dim, self._pads )
         w._data = a * self._data
         w._sync = self._sync
         return w
@@ -1571,7 +1573,6 @@ class StencilInterfaceMatrix(Matrix):
         rows = []
         cols = []
         data = []
-
         # Range of data owned by local process (no ghost regions)
         local = tuple( [slice(p,-p) for p in pp] + [slice(None)] * nd )
         for (index,value) in np.ndenumerate( self._data[local] ):

@@ -12,14 +12,26 @@ def array_to_stencil(x, Xh):
 
     if isinstance(Xh, BlockVectorSpace):
         u = BlockVector(Xh)
-        starts = [np.array(V.starts) for V in Xh.spaces]
-        ends   = [np.array(V.ends)   for V in Xh.spaces]
+        if isinstance(Xh.spaces[0], BlockVectorSpace):
+            for d in range(len(Xh.spaces)):
+                starts = [np.array(V.starts) for V in Xh.spaces[d].spaces]
+                ends   = [np.array(V.ends)   for V in Xh.spaces[d].spaces]
 
-        for i in range(len(starts)):
-            g = tuple(slice(s,e+1) for s,e in zip(starts[i], ends[i]))
-            shape = tuple(ends[i]-starts[i]+1)
-            u[i][g] = x[:np.product(shape)].reshape(shape)
-            x       = x[np.product(shape):]
+                for i in range(len(starts)):
+                    g = tuple(slice(s,e+1) for s,e in zip(starts[i], ends[i]))
+                    shape = tuple(ends[i]-starts[i]+1)
+                    u[d][i][g] = x[:np.product(shape)].reshape(shape)
+                    x       = x[np.product(shape):]
+
+        else:
+            starts = [np.array(V.starts) for V in Xh.spaces]
+            ends   = [np.array(V.ends)   for V in Xh.spaces]
+
+            for i in range(len(starts)):
+                g = tuple(slice(s,e+1) for s,e in zip(starts[i], ends[i]))
+                shape = tuple(ends[i]-starts[i]+1)
+                u[i][g] = x[:np.product(shape)].reshape(shape)
+                x       = x[np.product(shape):]
 
     elif isinstance(Xh, StencilVectorSpace):
 
@@ -32,4 +44,5 @@ def array_to_stencil(x, Xh):
     else:
         raise ValueError('Xh must be a StencilVectorSpace or a BlockVectorSpace')
 
+    u.update_ghost_regions()
     return u
