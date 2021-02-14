@@ -194,6 +194,8 @@ class DiscreteBilinearForm(BasicDiscrete):
             # If process does not own the boundary or interface, do not assemble anything
             if isinstance(test_space.vector_space, BlockVectorSpace):
                 vector_space = test_space.vector_space.spaces[0]
+                if isinstance(test_space.vector_space, BlockVectorSpace):
+                    vector_space = test_space.vector_space.spaces[0]
             else:
                 vector_space = test_space.vector_space
 
@@ -475,6 +477,8 @@ class DiscreteLinearForm(BasicDiscrete):
             # If process does not own the boundary or interface, do not assemble anything
             if isinstance(self.space.vector_space, BlockVectorSpace):
                 vector_space = self.space.vector_space.spaces[0]
+                if isinstance(test_space.vector_space, BlockVectorSpace):
+                    vector_space = test_space.vector_space.spaces[0]
             else:
                 vector_space = self.space.vector_space
 
