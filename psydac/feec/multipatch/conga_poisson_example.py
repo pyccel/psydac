@@ -69,6 +69,12 @@ def conga_poisson_2d():
 
     cartesian = True
 
+    nc = 2
+    cp_kappa = 1e2
+    cp_tol = 1e-4
+    poisson_tol = 5e-3
+
+
     if cartesian:
 
         A = Square('A',bounds1=(0, 1), bounds2=(0, 0.5))
@@ -78,10 +84,10 @@ def conga_poisson_2d():
 
     else:
 
-        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
-        # A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi))
-        # B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi, 2*np.pi))
+        # A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+        # B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
+        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi))
+        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi, 2*np.pi))
         mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
         mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
@@ -106,7 +112,6 @@ def conga_poisson_2d():
     # . Discrete space
     #+++++++++++++++++++++++++++++++
 
-    nc = 2
     ncells=[nc**2, nc**2]
     degree=[2,2]
 
@@ -201,7 +206,7 @@ def conga_poisson_2d():
     # II. conf projection V0 -> V0
 
     ## note: there are problems (eg at the interface) when the conforming projection is not accurate (low penalization or high tolerance)
-    cP0 = ConformingProjection(V0h, domain_h, verbose=False, homogeneous_bc=True, kappa=1e8, tol=1e-10)
+    cP0 = ConformingProjection(V0h, domain_h, verbose=False, homogeneous_bc=True, kappa=cp_kappa, tol=cp_tol)
 
     # III broken multipatch grad operator on V0h
     bD0 = BrokenGradient_2D(V0h, V1h)
@@ -233,7 +238,7 @@ def conga_poisson_2d():
     A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0) #_squared )
 
     if poisson_solve:
-        phi_coeffs, info = cg( A, b, tol=5e-3, verbose=True )
+        phi_coeffs, info = cg( A, b, tol=poisson_tol, verbose=True )
 
     else:
         # then just approximating the rhs
@@ -317,7 +322,7 @@ def conga_poisson_2d():
         # plot poisson solutions
 
         fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'approximation of some $v$', fontsize=14)
+        fig.suptitle(r'Solution of Poisson problem $\Delta \phi = f$', fontsize=14)
 
         ax = fig.add_subplot(1, 3, 1)
 
@@ -330,7 +335,7 @@ def conga_poisson_2d():
         cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
         ax.set_xlabel( r'$x$', rotation='horizontal' )
         ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$u^h(x,y)$' )
+        ax.set_title ( r'$\phi(x,y)$' )
         # ax.set_title ( r'$\phi^{ex}(x,y)$' )
 
 
@@ -340,7 +345,7 @@ def conga_poisson_2d():
 
         ax.set_xlabel( r'$x$', rotation='horizontal' )
         ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$\Delta_h u^h(x,y)$' )
+        ax.set_title ( r'$\phi^h(x,y)$' )
         # ax.set_title ( r'$\phi^h(x,y)$' )
 
         ax = fig.add_subplot(1, 3, 3)
@@ -349,7 +354,7 @@ def conga_poisson_2d():
 
         ax.set_xlabel( r'$x$', rotation='horizontal' )
         ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$|(\phi^{ex}-\phi^h)(x,y)|$' )
+        ax.set_title ( r'$|(\phi-\phi^h)(x,y)|$' )
 
         plt.show()
 

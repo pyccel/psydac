@@ -107,7 +107,8 @@ class ConformingProjection( FemLinearOperator ):
 
         if homogeneous_bc:
             B = domain.boundary
-            expr_B = kappa*( u*v )
+            kappa_B = 1e20
+            expr_B = kappa_B*( u*v )
             a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I) + integral(B, expr_B))
         else:
             a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
