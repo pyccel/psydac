@@ -3,7 +3,7 @@
 from psydac.fem.basic   import FemField
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
-from psydac.fem.vector  import ProductFemSpace, VectorFemField
+from psydac.fem.vector  import ProductFemSpace
 
 from numpy import linspace
 
@@ -29,7 +29,7 @@ def test_product_space_2d():
     # ...
 
     V = ProductFemSpace(Vx, Vy)
-    F = VectorFemField(V)
+    F = FemField(V)
 
 def test_product_space_3d():
     print ('>>> test_product_space_3d')
@@ -64,7 +64,7 @@ def test_product_space_3d():
     # ...
 
     V = ProductFemSpace(Vx, Vy, Vz)
-    F = VectorFemField(V)
+    F = FemField(V)
 
 
 ###############################################

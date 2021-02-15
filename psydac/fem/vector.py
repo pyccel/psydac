@@ -8,7 +8,6 @@ from psydac.fem.basic      import FemSpace, FemField
 
 from numpy import unique, asarray, allclose
 
-
 #===============================================================================
 class VectorFemSpace( FemSpace ):
     """
@@ -66,6 +65,10 @@ class VectorFemSpace( FemSpace ):
     def vector_space(self):
         """Returns the topological associated vector space."""
         return self._vector_space
+
+    @property
+    def is_product(self):
+        return True
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -215,9 +218,8 @@ class ProductFemSpace( FemSpace ):
         return self._vector_space
 
     @property
-    def fields( self ):
-        """Dictionary containing all FemField objects associated to this space."""
-        raise NotImplementedError( "ProductFemSpace not yet operational" )
+    def is_product(self):
+        return True
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -265,57 +267,3 @@ class ProductFemSpace( FemSpace ):
 
     def __len__(self):
         return len(self.spaces)
-
-# TODO still experimental
-#===============================================================================
-class VectorFemField:
-    """
-    Element of a finite element product space V.
-
-    Parameters
-    ----------
-    space : ProductFemSpace
-        Finite element product space to which this field belongs.
-
-    """
-    def __init__( self, space, coeffs=None ):
-
-        assert isinstance( space, ProductFemSpace )
-
-        if coeffs is not None:
-            assert isinstance( coeffs, Vector )
-            assert space.vector_space is coeffs.space
-        else:
-            coeffs = space.vector_space.zeros()
-
-        self._space  = space
-        self._coeffs = coeffs
-        self._fields = [FemField(s, coeff) for s,coeff in zip(self.space.spaces, self.coeffs)]
-
-    # ...
-    @property
-    def space( self ):
-        """Finite element space to which this field belongs."""
-        return self._space
-
-    # ...
-    @property
-    def coeffs( self ):
-        """
-        Coefficients that uniquely identify this field as a linear combination of
-        the elements of the basis of a Finite element space.
-
-        Coefficients are stored into one element of the vector space in
-        'self.space.vector_space', which is topologically associated to
-        the finite element space.
-
-        """
-        return self._coeffs
-
-    @property
-    def fields( self ):
-        return self._fields
-
-    def __call__( self , *eta):
-        return tuple(f( *eta ) for f in self.fields)
-

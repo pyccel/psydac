@@ -87,9 +87,7 @@ def run_field_test(filename, f):
 
     # Solve linear system
     # uh is the L2-projection of the analytical field "f"
-
-    x  = equation_h.solve()
-    uh = FemField( Vh, x )
+    uh = equation_h.solve()
 
     #+++++++++++++++++++++++++++++++
     l1   = LinearForm( v, integral(domain, F*v))
@@ -162,15 +160,14 @@ def run_non_linear_poisson(filename, comm=None):
     l2norm_du_h  = discretize(l2norm_du , Omega_h, Vh)
 
     # First guess: zero solution
-    u_h  = FemField(Vh)
+    u_h = FemField(Vh)
 
     # Newton iteration
     for n in range(N):
 
         print()
         print('==== iteration {} ===='.format(n))
-        X = equation_h.solve(u=u_h)
-        du_h = FemField(Vh, X)
+        du_h = equation_h.solve(u=u_h)
 
         # Compute L2 norm of increment
         l2_du = l2norm_du_h.assemble(du=du_h)
@@ -181,7 +178,7 @@ def run_non_linear_poisson(filename, comm=None):
             break
 
         # update field
-        u_h.coeffs[:,:] += X[:,:]
+        u_h += du_h
 
     # Compute L2 error norm from solution field
     l2_error = l2norm_err_h.assemble(u=u_h)

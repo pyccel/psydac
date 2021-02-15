@@ -15,7 +15,6 @@ from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
 from psydac.fem.basic          import FemField
-from psydac.fem.vector         import VectorFemField
 from psydac.api.discretization import discretize
 
 #==============================================================================
@@ -37,7 +36,7 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     G = element_of(V, name='G')
 
     u,v = [element_of(W, name=i) for i in ['u', 'v']]
-    p,q = [      element_of(V, name=i) for i in ['p', 'q']]
+    p,q = [element_of(V, name=i) for i in ['p', 'q']]
 
     int_0 = lambda expr: integral(domain , expr)
 
@@ -75,7 +74,7 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
 #    Xh = Wh * Vh
 #    Wh, Vh = Xh.spaces
 
-    # ... dsicretize the equation using Dirichlet bc
+    # ... discretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh])
     # ...
 
@@ -88,18 +87,22 @@ def run_system_1_2d_dir(Fe, Ge, f0, f1, ncells, degree):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
+    Xh = equation_h.solve()
     # ...
 
+    # TODO [YG, 12.02.2021]: Fh and Gh are temporary FEM fields needed because
+    #   the blocks in Xh.coeffs have been flattened. Once this assumption is
+    #   removed, just assemble the error norms passing F = Xh[0] and G = Xh[1].
+
     # ...
-    Fh = VectorFemField( Wh )
-    Fh.coeffs[0][:,:] = x[0][:,:]
-    Fh.coeffs[1][:,:] = x[1][:,:]
+    Fh = FemField( Wh )
+    Fh.coeffs[0][:,:] = Xh.coeffs[0][:,:]
+    Fh.coeffs[1][:,:] = Xh.coeffs[1][:,:]
     # ...
 
     # ...
     Gh = FemField( Vh )
-    Gh.coeffs[:,:] = x[2][:,:]
+    Gh.coeffs[:,:] = Xh.coeffs[2][:,:]
     # ...
 
     # ... compute norms

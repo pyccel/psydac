@@ -15,7 +15,6 @@ from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
 from psydac.fem.basic          import FemField
-from psydac.fem.vector         import VectorFemField
 from psydac.api.discretization import discretize
 from psydac.linalg.utilities   import array_to_stencil
 
@@ -159,7 +158,7 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
     M_inv = linalg.inv(M_1)
     x = M_inv.dot(rhs_1)
     
-    phi1 = VectorFemField(V1h)
+    phi1 = FemField(V1h)
     phi2 = FemField(V2h)
 
     
