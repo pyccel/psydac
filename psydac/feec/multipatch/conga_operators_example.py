@@ -33,7 +33,7 @@ from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.identity import IdentityLinearOperator #, IdentityStencilMatrix as IdentityMatrix
 
 from psydac.fem.basic   import FemField
-from psydac.fem.vector import ProductFemSpace, VectorFemSpace, VectorFemField
+from psydac.fem.vector import ProductFemSpace, VectorFemSpace
 
 from psydac.feec.pull_push     import push_2d_hcurl, pull_2d_hcurl  #, push_2d_l2
 

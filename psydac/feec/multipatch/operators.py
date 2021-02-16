@@ -17,7 +17,7 @@ from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
 from psydac.linalg.iterative_solvers import cg, pcg
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.fem.basic   import FemField
-from psydac.fem.vector import ProductFemSpace, VectorFemSpace, VectorFemField
+from psydac.fem.vector import ProductFemSpace, VectorFemSpace
 
 from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
 from psydac.feec.derivatives import Gradient_2D
@@ -143,8 +143,6 @@ class ConformingProjection( FemLinearOperator ):
     # ...
     def __call__( self, f ):
         # Fem field layer
-
-        # f = VectorFemField(self.fem_domain, coeffs=f_coeffs)
         f1,f2 = f.fields
 
         b1 = self._lh_1.assemble(f1=f1)
@@ -152,12 +150,12 @@ class ConformingProjection( FemLinearOperator ):
         b  = BlockVector(self.codomain, blocks=[b1, b2])
         sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=self._tol, verbose=self._verbose )
 
-        return VectorFemField(self.fem_codomain, coeffs=sol_coeffs)
+        return FemField(self.fem_codomain, coeffs=sol_coeffs)
 
     # ...
     def dot( self, f_coeffs, out=None ):
         # coeffs layer
-        f = VectorFemField(self.fem_domain, coeffs=f_coeffs)
+        f = FemField(self.fem_domain, coeffs=f_coeffs)
         return self(f).coeffs
 
 #===============================================================================
@@ -188,7 +186,7 @@ class BrokenMass_V0( FemLinearOperator ):
     def __call__( self, f ):
         # Fem layer
         Mf_coeffs = self.dot(f.coeffs)
-        return VectorFemField(self.fem_domain, coeffs=Mf_coeffs)
+        return FemField(self.fem_domain, coeffs=Mf_coeffs)
 
     def dot( self, f_coeffs, out=None ):
         # coeffs layer
@@ -219,7 +217,7 @@ class BrokenMass_V1( FemLinearOperator ):
 
     def __call__( self, f ):
         Mf_coeffs = self.dot(f.coeffs)
-        return VectorFemField(self.fem_domain, coeffs=Mf_coeffs)
+        return FemField(self.fem_domain, coeffs=Mf_coeffs)
 
     def dot( self, f_coeffs, out=None ):
         return self._M.dot(f_coeffs)
@@ -353,7 +351,7 @@ def ortho_proj_Hcurl(EE, V1h, domain_h, M1):
     b = lh.assemble()
     sol_coeffs, info = pcg(M1.mat(), b, pc="jacobi", tol=1e-10)
 
-    return VectorFemField(V1h, coeffs=sol_coeffs)
+    return FemField(V1h, coeffs=sol_coeffs)
 
 #==============================================================================
 class Multipatch_Projector_Hcurl:
@@ -375,7 +373,7 @@ class Multipatch_Projector_Hcurl:
         E1_coeffs = BlockVector(self._V1h.vector_space, \
                 blocks = [E1j.coeffs for E1j in E1s])
 
-        return VectorFemField(self._V1h, coeffs = E1_coeffs)
+        return FemField(self._V1h, coeffs = E1_coeffs)
 
 #==============================================================================
 class Multipatch_Projector_H1:
@@ -396,11 +394,11 @@ class Multipatch_Projector_H1:
         u0_coeffs = BlockVector(self._V0h.vector_space, \
                 blocks = [u0j.coeffs for u0j in u0s])
 
-        return VectorFemField(self._V0h, coeffs = u0_coeffs)
+        return FemField(self._V0h, coeffs = u0_coeffs)
 
 #==============================================================================
 def get_scalar_patch_fields(u, V0h):
     return [FemField(V, coeffs=c) for V, c in zip(V0h.spaces, u.coeffs)]
 
 def get_vector_patch_fields(E, V1h):
-    return [VectorFemField(V, coeffs=c) for V, c in zip(V1h.spaces, E.coeffs)]
+    return [FemField(V, coeffs=c) for V, c in zip(V1h.spaces, E.coeffs)]

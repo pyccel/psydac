@@ -33,7 +33,7 @@ from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.identity import IdentityLinearOperator #, IdentityStencilMatrix as IdentityMatrix
 
 from psydac.fem.basic   import FemField
-from psydac.fem.vector import ProductFemSpace, VectorFemSpace, VectorFemField
+from psydac.fem.vector import ProductFemSpace, VectorFemSpace
 
 from psydac.feec.pull_push     import push_2d_hcurl, pull_2d_hcurl  #, push_2d_l2
 
@@ -70,8 +70,8 @@ def conga_poisson_2d():
     cartesian = True
 
     nc = 2
-    cp_kappa = 1e2
-    cp_tol = 1e-4
+    cp_kappa = 1e3
+    cp_tol = 1e-8
     poisson_tol = 5e-3
 
 
@@ -244,7 +244,7 @@ def conga_poisson_2d():
         # then just approximating the rhs
         phi_coeffs, info = cg( M0.mat(), b, tol=1e-6, verbose=True )
 
-    phi_h = VectorFemField(V0h, coeffs=phi_coeffs)
+    phi_h = FemField(V0h, coeffs=phi_coeffs)
     phi_h = cP0(phi_h)
 
     # sol_exact = phi_exact
