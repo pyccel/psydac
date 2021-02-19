@@ -174,7 +174,7 @@ class DiscreteEquation(BasicDiscrete):
             if self.bc:
                 # TODO change it: now apply_bc can be called on a list/tuple
                 for bc in self.bc:
-                    apply_essential_bc(self.test_space, bc, M)
+                    apply_essential_bc(self.test_space, M, bc)
         else:
             M = self.linear_system.lhs
 
@@ -183,7 +183,7 @@ class DiscreteEquation(BasicDiscrete):
             if self.bc:
                 # TODO change it: now apply_bc can be called on a list/tuple
                 for bc in self.bc:
-                    apply_essential_bc(self.test_space, bc, rhs)
+                    apply_essential_bc(self.test_space, rhs, bc)
 
         else:
             rhs = self.linear_system.rhs

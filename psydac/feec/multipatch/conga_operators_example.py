@@ -141,10 +141,6 @@ def conga_operators_2d():
     M0 = BrokenMass_V0(V0h, domain_h)
     M1 = BrokenMass_V1(V1h, domain_h)
 
-
-
-
-
     #+++++++++++++++++++++++++++++++
     # . some target functions
     #+++++++++++++++++++++++++++++++

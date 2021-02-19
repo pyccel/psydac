@@ -24,6 +24,18 @@ from psydac.feec.derivatives import Gradient_2D
 
 from psydac.feec.derivatives import DiffOperator
 
+from psydac.api.essential_bc import *
+from sympde.topology      import Boundary, Interface
+
+def get_space_indices_from_target(domain, target):
+    domains = domain.interior.args
+    if isinstance(target, Interface):
+        raise NotImplementedError("TODO")
+    elif isinstance(target, Boundary):
+        i = domains.index(target.domain)
+    else:
+        i = domains.index(target)
+    return i
 
 #===============================================================================
 class FemLinearOperator( LinearOperator ):
@@ -82,7 +94,7 @@ class ConformingProjection( FemLinearOperator ):
 
 
     """
-    def __init__(self, V0h, domain_h, homogeneous_bc=False, kappa=1e10, tol=1e-12, verbose=False):
+    def __init__(self, V0h, domain_h, explicit=True ,homogeneous_bc=False, kappa=1e10, tol=1e-12, verbose=False):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
@@ -94,7 +106,9 @@ class ConformingProjection( FemLinearOperator ):
 
         V0 = V0h.symbolic_space
         domain = V0.domain
-        self._verbose = verbose
+        self._verbose  = verbose
+        self._explicit = explicit
+        self._domain   = domain
 
         # domain_h = V0h.domain  # would be nice
 
@@ -116,32 +130,72 @@ class ConformingProjection( FemLinearOperator ):
         ah = discretize(a, domain_h, [V0h, V0h])    # ... or (V0h, V0h)?
 
         self._A = ah.assemble() #.toarray()
-        self._solver = SparseSolver( self._A.tosparse() )
-        self._tol = tol
 
-        #---------------------------------------------------------
-        V0h_1, V0h_2 = V0h.spaces
+        if explicit:
+            spaces = self._A.domain.spaces
+            sp1    = spaces[0]
+            sp2    = spaces[1]
 
-        V0_1 = V0h_1.symbolic_space
-        V0_2 = V0h_2.symbolic_space
+            s1 = sp1.starts[I.axis]
+            e1 = sp1.ends[I.axis]
 
-        v1, f1 = elements_of(V0_1, names='v1, f1')
-        v2, f2 = elements_of(V0_2, names='v2, f2')
+            s2 = sp2.starts[I.axis]
+            e2 = sp2.ends[I.axis]
 
-        l1 = LinearForm(v1, integral(V0_1.domain, f1*v1))
-        l2 = LinearForm(v2, integral(V0_2.domain, f2*v2))
+            d1     = V0h.spaces[0].degree[I.axis]
+            d2     = V0h.spaces[1].degree[I.axis]
 
-        # TODO [YG, 12.02.2021]: Extract discrete domain of each patch
-        #                        from multi-patch discrete domain.
-        # Question [MCP]: possible to extract discrete domain from discrete space ?
-        domain_h_1 = discretize(V0_1.domain, ncells = domain_h.ncells)
-        domain_h_2 = discretize(V0_2.domain, ncells = domain_h.ncells)
+            self._A[0,0][:,:,:,:] = 0
+            self._A[1,1][:,:,:,:] = 0
+            self._A[0,1][:,:,:,:] = 0
+            self._A[1,0][:,:,:,:] = 0
 
-        self._lh_1 = discretize(l1, domain_h_1, V0h_1)
-        self._lh_2 = discretize(l2, domain_h_2, V0h_2)
+            self._A[0,0][:,:,0,0]  = 1
+            self._A[1,1][:,:,0,0]  = 1
+
+            self._A[0,0][:,e1,0,0] = 1/2
+            self._A[1,1][:,s2,0,0] = 1/2
+
+            self._A[0,1][:,d1,0,-d2] = 1/2
+            self._A[1,0][:,s2,0, d1] = 1/2
+
+            for b in domain.boundary:
+                i = get_space_indices_from_target(domain, b)
+                for j in range(len(domain)):
+                    apply_essential_bc(V0h.spaces[i], self._A[i,j], axis=b.axis, ext=b.ext)
+
+        if not explicit:
+            self._solver = SparseSolver( self._A.tosparse() )
+            self._tol = tol
+
+            #---------------------------------------------------------
+            V0h_1, V0h_2 = V0h.spaces
+
+            V0_1 = V0h_1.symbolic_space
+            V0_2 = V0h_2.symbolic_space
+
+            v1, f1 = elements_of(V0_1, names='v1, f1')
+            v2, f2 = elements_of(V0_2, names='v2, f2')
+
+            l1 = LinearForm(v1, integral(V0_1.domain, f1*v1))
+            l2 = LinearForm(v2, integral(V0_2.domain, f2*v2))
+
+            # TODO [YG, 12.02.2021]: Extract discrete domain of each patch
+            #                        from multi-patch discrete domain.
+            # Question [MCP]: possible to extract discrete domain from discrete space ?
+            domain_h_1 = discretize(V0_1.domain, ncells = domain_h.ncells)
+            domain_h_2 = discretize(V0_2.domain, ncells = domain_h.ncells)
+
+            self._lh_1 = discretize(l1, domain_h_1, V0h_1)
+            self._lh_2 = discretize(l2, domain_h_2, V0h_2)
 
     # ...
     def __call__( self, f ):
+
+        if self._explicit:
+            coeffs = self._A.dot(f.coeffs)
+            return FemField(self.fem_codomain, coeffs=coeffs)
+
         # Fem field layer
         f1,f2 = f.fields
 
