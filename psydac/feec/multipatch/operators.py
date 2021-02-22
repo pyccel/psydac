@@ -24,19 +24,6 @@ from psydac.feec.derivatives import Gradient_2D
 
 from psydac.feec.derivatives import DiffOperator
 
-from psydac.api.essential_bc import *
-from sympde.topology      import Boundary, Interface
-
-def get_space_indices_from_target(domain, target):
-    domains = domain.interior.args
-    if isinstance(target, Interface):
-        raise NotImplementedError("TODO")
-    elif isinstance(target, Boundary):
-        i = domains.index(target.domain)
-    else:
-        i = domains.index(target)
-    return i
-
 #===============================================================================
 class FemLinearOperator( LinearOperator ):
     """
@@ -94,7 +81,7 @@ class ConformingProjection( FemLinearOperator ):
 
 
     """
-    def __init__(self, V0h, domain_h, explicit=True ,homogeneous_bc=False, kappa=1e10, tol=1e-12, verbose=False):
+    def __init__(self, V0h, domain_h, explicit=True , kappa=1e10, tol=1e-12, verbose=False):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
@@ -119,13 +106,7 @@ class ConformingProjection( FemLinearOperator ):
         I = domain.interfaces  # note: interfaces does not include the boundary
         expr_I = kappa*( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
-        if homogeneous_bc:
-            B = domain.boundary
-            kappa_B = 1e20
-            expr_B = kappa_B*( u*v )
-            a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I) + integral(B, expr_B))
-        else:
-            a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
+        a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
 
         ah = discretize(a, domain_h, [V0h, V0h])    # ... or (V0h, V0h)?
 
@@ -158,11 +139,6 @@ class ConformingProjection( FemLinearOperator ):
 
             self._A[0,1][:,d1,0,-d2] = 1/2
             self._A[1,0][:,s2,0, d1] = 1/2
-
-            for b in domain.boundary:
-                i = get_space_indices_from_target(domain, b)
-                for j in range(len(domain)):
-                    apply_essential_bc(V0h.spaces[i], self._A[i,j], axis=b.axis, ext=b.ext)
 
         if not explicit:
             self._solver = SparseSolver( self._A.tosparse() )

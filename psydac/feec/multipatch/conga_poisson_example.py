@@ -51,6 +51,19 @@ from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector
 
 comm = MPI.COMM_WORLD
 
+from psydac.api.essential_bc import *
+from sympde.topology      import Boundary, Interface
+
+def get_space_indices_from_target(domain, target):
+    domains = domain.interior.args
+    if isinstance(target, Interface):
+        raise NotImplementedError("TODO")
+    elif isinstance(target, Boundary):
+        i = domains.index(target.domain)
+    else:
+        i = domains.index(target)
+    return i
+
 #==============================================================================
 def conga_poisson_2d():
     """
@@ -67,27 +80,24 @@ def conga_poisson_2d():
     # . Domain
     #+++++++++++++++++++++++++++++++
 
-    cartesian = True
+    cartesian = False
 
     nc = 2
     cp_kappa = 1e3
     cp_tol = 1e-8
-    poisson_tol = 5e-3
-
+    poisson_tol = 5e-13
 
     if cartesian:
-
-        A = Square('A',bounds1=(0, 1), bounds2=(0, 0.5))
-        B = Square('B',bounds1=(0, 1), bounds2=(0.5, 1))
+        A = Square('A',bounds1=(0.5, 1), bounds2=(0, 0.5))
+        B = Square('B',bounds1=(0.5, 1), bounds2=(0.5, 1))
         mapping_1 = IdentityMapping('M1', 2)
         mapping_2 = IdentityMapping('M2', 2)
 
     else:
-
-        # A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-        # B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
-        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi))
-        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi, 2*np.pi))
+        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
+#        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi))
+#        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi, 2*np.pi))
         mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
         mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
@@ -162,16 +172,10 @@ def conga_poisson_2d():
     # D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
     # fun2    = lambda xi1, xi2 : .5*np.sin(xi1)*np.sin(xi2)
 
+    from sympy import cos, sin
     x,y       = domain.coordinates
-    if cartesian:
-        phi_exact = x*(1-x)*y*(1-y)
-        f         = 2*(y*(1-y)+x*(1-x))
-
-    else:
-        phi_exact = (x**2 + y**2 - 1/4)*(x**2 + y**2 - 1)
-        f         = -(x+y)*(2*(x**2 + y**2)-5/4) - 8*(x**2 + y**2)
-
-    # u_solution  = x**2 + y**2
+    phi_exact = sin(x)*cos(y)
+    f         = 2*phi_exact
 
     # affine field, for testing
     u_exact_x = 2*x
@@ -179,7 +183,7 @@ def conga_poisson_2d():
 
     from sympy import lambdify
     phi_ex = lambdify(domain.coordinates, phi_exact)
-    f_ex = lambdify(domain.coordinates, f)
+    f_ex   = lambdify(domain.coordinates, f)
     u_ex_x = lambdify(domain.coordinates, u_exact_x)
     u_ex_y = lambdify(domain.coordinates, u_exact_y)
 
@@ -206,7 +210,7 @@ def conga_poisson_2d():
     # II. conf projection V0 -> V0
 
     ## note: there are problems (eg at the interface) when the conforming projection is not accurate (low penalization or high tolerance)
-    cP0 = ConformingProjection(V0h, domain_h, verbose=False, homogeneous_bc=True, kappa=cp_kappa, tol=cp_tol)
+    cP0 = ConformingProjection(V0h, domain_h, verbose=False, kappa=cp_kappa, tol=cp_tol)
 
     # III broken multipatch grad operator on V0h
     bD0 = BrokenGradient_2D(V0h, V1h)
@@ -218,34 +222,49 @@ def conga_poisson_2d():
     bD0_T = BrokenTransposedGradient_2D(V0h, V1h)
     cD0_T = ComposedLinearOperator(cP0, bD0_T)
 
-
     I0 = IdLinearOperator(V0h)
 
+    v  = element_of(derham.V0, 'v')
+    u  = element_of(derham.V0, 'u')
 
-    v = element_of(derham.V0, 'v')
-    l = LinearForm(v,  integral(domain, f*v))
+    l  = LinearForm(v,  integral(domain, f*v))
     lh = discretize(l, domain_h, V0h)
-    b = lh.assemble()
+    b  = lh.assemble()
 
+    # boundary conditions
+    a0 = BilinearForm((u,v), integral(domain.boundary, u*v))
+    l0 = LinearForm(v, integral(domain.boundary, phi_exact*v))
+
+    a0_h = discretize(a0, domain_h, [V0h, V0h])
+    l0_h = discretize(l0, domain_h, V0h)
+
+    x0, info = cg(a0_h.assemble(), l0_h.assemble(), tol=poisson_tol)
 
     # Conga Poisson matrix is
     # A = (cD0)^T * M1 * cD0 + (I0 - Pc)^2
 
     cD0T_M1_cD0 = ComposedLinearOperator( cD0_T, ComposedLinearOperator( M1, cD0 ) )
-    minus_cP0 = MultLinearOperator(-1,cP0)
+    minus_cP0   = MultLinearOperator(-1,cP0)
     I_minus_cP0 = SumLinearOperator( I0, minus_cP0 )
     I_minus_cP0_squared = ComposedLinearOperator(I_minus_cP0, I_minus_cP0)
     A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0) #_squared )
 
+    b = b-A.dot(x0)
+    for bn in domain.boundary:
+        i = get_space_indices_from_target(domain, bn)
+        for j in range(len(domain)):
+            apply_essential_bc(V0h.spaces[i], cP0._A[i,j], axis=bn.axis, ext=bn.ext)
+        apply_essential_bc(V0h.spaces[i], b[i], axis=bn.axis, ext=bn.ext)
+
     if poisson_solve:
         phi_coeffs, info = cg( A, b, tol=poisson_tol, verbose=True )
-
     else:
         # then just approximating the rhs
         phi_coeffs, info = cg( M0.mat(), b, tol=1e-6, verbose=True )
 
+
     phi_h = FemField(V0h, coeffs=phi_coeffs)
-    phi_h = cP0(phi_h)
+    phi_h = FemField(V0h, coeffs=cP0(phi_h).coeffs+x0)
 
     # sol_exact = phi_exact
     # sol_ex = lambdify(domain.coordinates, sol_exact)
