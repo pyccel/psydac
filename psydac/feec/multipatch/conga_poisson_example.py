@@ -139,23 +139,6 @@ def conga_poisson_2d():
     assert isinstance(V1h, ProductFemSpace)
     assert isinstance(V1h.vector_space, BlockVectorSpace)
 
-    ## and also as list of patches:
-    domains = [domain_1, domain_2]
-    derhams = [Derham(dom, ["H1", "Hcurl", "L2"]) for dom in domains]
-
-    domains_h = [discretize(dom, ncells=ncells, comm=comm) for dom in domains]
-    derhams_h = [discretize(derh, dom_h, degree=degree)
-                 for dom_h, derh in zip(domains_h, derhams)]
-
-
-    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    # TODO [YG, 12.02.2021]: Multi-patch de Rham sequence should provide this!
-    V0h._spaces = tuple(derh_h.V0 for derh_h in derhams_h)
-    V1h._spaces = tuple(derh_h.V1 for derh_h in derhams_h)
-    V0h._vector_space = BlockVectorSpace(*[V.vector_space for V in V0h.spaces])
-    V1h._vector_space = BlockVectorSpace(*[V.vector_space for V in V1h.spaces])
-    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 
     # Mass matrix for multipatch space V1
 
@@ -310,8 +293,6 @@ def conga_poisson_2d():
         phi_err = abs(phi_ref_vals - phi_h_vals)
 
 
-
-
         # plots
 
         xx = pcoords[:,:,0]
@@ -322,8 +303,8 @@ def conga_poisson_2d():
         if plotted_patch in [0, 1]:
 
             #patch_derham = derhams_h[plotted_patch]
-            grid_x1 = derhams_h[plotted_patch].V0.breaks[0]
-            grid_x2 = derhams_h[plotted_patch].V0.breaks[1]
+            grid_x1 = V0h.spaces[plotted_patch].breaks[0]
+            grid_x2 = V0h.spaces[plotted_patch].breaks[1]
 
             print("grid_x1 = ", grid_x1)
 
