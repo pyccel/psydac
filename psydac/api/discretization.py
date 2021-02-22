@@ -33,6 +33,7 @@ from psydac.api.fem                  import DiscreteBilinearForm
 from psydac.api.fem                  import DiscreteLinearForm
 from psydac.api.fem                  import DiscreteFunctional
 from psydac.api.fem                  import DiscreteSumForm
+from psydac.api.feec                 import DiscreteDerham
 from psydac.api.glt                  import DiscreteGltExpr
 from psydac.api.expr                 import DiscreteExpr
 from psydac.api.essential_bc         import apply_essential_bc
@@ -44,11 +45,6 @@ from psydac.fem.tensor               import TensorFemSpace
 from psydac.fem.vector               import ProductFemSpace
 from psydac.cad.geometry             import Geometry
 from psydac.mapping.discrete         import NurbsMapping
-from psydac.feec.global_projectors   import Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2
-from psydac.feec.derivatives         import Derivative_1D, Gradient_2D, Gradient_3D
-from psydac.feec.derivatives         import ScalarCurl_2D, VectorCurl_2D, Curl_3D
-from psydac.feec.derivatives         import Divergence_2D, Divergence_3D
-from psydac.feec.pull_push           import *
 
 __all__ = ('discretize',)
 
@@ -276,158 +272,17 @@ class DiscreteEquation(BasicDiscrete):
 
         return FemField(self.trial_space, coeffs=X)
 
-#==============================================================================
-class DiscreteDerham(BasicDiscrete):
-    """ Represent the discrete De Rham sequence.
-    """
-    def __init__(self, mapping, *spaces):
-
-        dim           = len(spaces) - 1
-        self._dim     = dim
-        self._spaces  = spaces
-        self._mapping = mapping
-
-        if dim not in [1,2,3]:
-            raise ValueError('dimension {} is not available'.format(dim))
-
-    @property
-    def dim(self):
-        return self._dim
-
-    @property
-    def V0(self):
-        return self._spaces[0]
-
-    @property
-    def V1(self):
-        return self._spaces[1]
-
-    @property
-    def V2(self):
-        return self._spaces[2]
-
-    @property
-    def V3(self):
-        return self._spaces[3]
-
-    @property
-    def spaces(self):
-        return self._spaces
-
-    @property
-    def mapping(self):
-        return self._mapping
-
-    @property
-    def derivatives_as_matrices(self):
-        return tuple(V.diff.matrix for V in self.spaces[:-1])
-
-    @property
-    def derivatives_as_operators(self):
-        return tuple(V.diff for V in self.spaces[:-1])
-
-    def projectors(self, *, kind='global', nquads=None):
-
-        if not (kind == 'global'):
-            raise NotImplementedError('only global projectors are available')
-
-        if self.dim == 1:
-            P0 = Projector_H1(self.V0)
-            P1 = Projector_L2(self.V1, nquads)
-            if self.mapping:
-                P0_m = lambda f: P0(pull_1d_h1(f, self.mapping))
-                P1_m = lambda f: P1(pull_1d_l2(f, self.mapping))
-                return P0_m, P1_m
-            return P0, P1
-
-        elif self.dim == 2:
-            P0 = Projector_H1(self.V0)
-            P2 = Projector_L2(self.V2, nquads)
-
-            kind = self.V1.symbolic_space.kind
-            if isinstance(kind, HcurlSpaceType):
-                P1 = Projector_Hcurl(self.V1, nquads)
-            elif isinstance(kind, HdivSpaceType):
-                P1 = Projector_Hdiv(self.V1, nquads)
-            else:
-                raise TypeError('projector of space type {} is not available'.format(kind))
-
-            if self.mapping:
-                P0_m = lambda f:P0(pull_2d_h1(f, self.mapping))
-                P2_m = lambda f:P2(pull_2d_l2(f, self.mapping))
-                if isinstance(kind, HcurlSpaceType):
-                    P1_m = lambda f:P1(pull_2d_hcurl(f, self.mapping))
-                elif isinstance(kind, HdivSpaceType):
-                    P1_m = lambda f:P1(pull_2d_hdiv(f, self.mapping))
-                return P0_m, P1_m, P2_m
-            return P0, P1, P2
-
-        elif self.dim == 3:
-            P0 = Projector_H1(self.V0)
-            P1 = Projector_Hcurl(self.V1, nquads)
-            P2 = Projector_Hdiv(self.V2, nquads)
-            P3 = Projector_L2(self.V3, nquads)
-            if self.mapping:
-                P0_m = lambda f:P0(pull_3d_h1(f, self.mapping))
-                P1_m = lambda f:P1(pull_3d_hcurl(f, self.mapping))
-                P2_m = lambda f:P2(pull_3d_hdiv(f, self.mapping))
-                P3_m = lambda f:P3(pull_3d_l2(f, self.mapping))
-                return P0_m, P1_m, P2_m, P3_m
-            return P0, P1, P2, P3
-
 #==============================================================================           
-def discretize_derham(Complex, domain_h, *args, **kwargs):
+def discretize_derham(derham, domain_h, *args, **kwargs):
 
-    ldim     = Complex.shape
-    spaces   = Complex.spaces
-    mapping  = spaces[0].domain.mapping
-    d_spaces = [None]*(ldim+1)
+    ldim     = derham.shape
+    mapping  = derham.spaces[0].domain.mapping
 
-    if ldim == 1:
+    bases  = ['B'] + ldim * ['M']
+    spaces = [discretize_space(V, domain_h, *args, basis=basis, **kwargs) \
+            for V, basis in zip(derham.spaces, bases)]
 
-        d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
-        d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
-
-        D0 = Derivative_1D(d_spaces[0], d_spaces[1])
-
-        d_spaces[0].diff = d_spaces[0].grad = D0
-        
-    elif ldim == 2:
-
-        d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
-        d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
-        d_spaces[2] = discretize_space(spaces[2], domain_h, *args, basis='M', **kwargs)
-
-        if isinstance(spaces[1].kind, HcurlSpaceType):
-            D0 =   Gradient_2D(d_spaces[0], d_spaces[1])
-            D1 = ScalarCurl_2D(d_spaces[1], d_spaces[2])
-
-            d_spaces[0].diff = d_spaces[0].grad = D0
-            d_spaces[1].diff = d_spaces[1].curl = D1
-            
-        else:
-            D0 = VectorCurl_2D(d_spaces[0], d_spaces[1])
-            D1 = Divergence_2D(d_spaces[1], d_spaces[2])
-
-            d_spaces[0].diff = d_spaces[0].rot = D0
-            d_spaces[1].diff = d_spaces[1].div = D1
-
-    elif ldim == 3:
-
-        d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
-        d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
-        d_spaces[2] = discretize_space(spaces[2], domain_h, *args, basis='M', **kwargs)
-        d_spaces[3] = discretize_space(spaces[3], domain_h, *args, basis='M', **kwargs)
-
-        D0 =   Gradient_3D(d_spaces[0], d_spaces[1])
-        D1 =       Curl_3D(d_spaces[1], d_spaces[2])  
-        D2 = Divergence_3D(d_spaces[2], d_spaces[3])
-
-        d_spaces[0].diff = d_spaces[0].grad = D0
-        d_spaces[1].diff = d_spaces[1].curl = D1
-        d_spaces[2].diff = d_spaces[2].div  = D2
-
-    return DiscreteDerham(mapping, *d_spaces)
+    return DiscreteDerham(mapping, *spaces)
 
 #==============================================================================
 def reduce_space_degrees(V, Vh, basis='B'):
