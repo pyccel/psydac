@@ -210,7 +210,7 @@ def conga_poisson_2d():
     # II. conf projection V0 -> V0
 
     ## note: there are problems (eg at the interface) when the conforming projection is not accurate (low penalization or high tolerance)
-    cP0 = ConformingProjection(V0h, domain_h, verbose=False, kappa=cp_kappa, tol=cp_tol)
+    cP0 = ConformingProjection(V0h, domain_h)
 
     # III broken multipatch grad operator on V0h
     bD0 = BrokenGradient_2D(V0h, V1h)

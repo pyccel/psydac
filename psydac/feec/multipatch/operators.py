@@ -81,7 +81,7 @@ class ConformingProjection( FemLinearOperator ):
 
 
     """
-    def __init__(self, V0h, domain_h, explicit=True , kappa=1e10, tol=1e-12, verbose=False):
+    def __init__(self, V0h, domain_h):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
@@ -91,96 +91,55 @@ class ConformingProjection( FemLinearOperator ):
         # self._domain   = self._fem_domain.vector_space
         # self._codomain = self._fem_codomain.vector_space
 
-        V0 = V0h.symbolic_space
-        domain = V0.domain
-        self._verbose  = verbose
-        self._explicit = explicit
-        self._domain   = domain
+        V0             = V0h.symbolic_space
+        domain         = V0.domain
 
         # domain_h = V0h.domain  # would be nice
 
         u, v = elements_of(V0, names='u, v')
         expr   = u*v  # dot(u,v)
 
-        kappa  = kappa
-        I = domain.interfaces  # note: interfaces does not include the boundary
-        expr_I = kappa*( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
+        I      = domain.interfaces  # note: interfaces does not include the boundary
+        expr_I = ( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
 
-        ah = discretize(a, domain_h, [V0h, V0h])    # ... or (V0h, V0h)?
+        ah = discretize(a, domain_h, [V0h, V0h])
 
-        self._A = ah.assemble() #.toarray()
+        self._A = ah.assemble()
 
-        if explicit:
-            spaces = self._A.domain.spaces
-            sp1    = spaces[0]
-            sp2    = spaces[1]
+        spaces = self._A.domain.spaces
+        sp1    = spaces[0]
+        sp2    = spaces[1]
 
-            s1 = sp1.starts[I.axis]
-            e1 = sp1.ends[I.axis]
+        s1 = sp1.starts[I.axis]
+        e1 = sp1.ends[I.axis]
 
-            s2 = sp2.starts[I.axis]
-            e2 = sp2.ends[I.axis]
+        s2 = sp2.starts[I.axis]
+        e2 = sp2.ends[I.axis]
 
-            d1     = V0h.spaces[0].degree[I.axis]
-            d2     = V0h.spaces[1].degree[I.axis]
+        d1     = V0h.spaces[0].degree[I.axis]
+        d2     = V0h.spaces[1].degree[I.axis]
 
-            self._A[0,0][:,:,:,:] = 0
-            self._A[1,1][:,:,:,:] = 0
-            self._A[0,1][:,:,:,:] = 0
-            self._A[1,0][:,:,:,:] = 0
+        self._A[0,0][:,:,:,:] = 0
+        self._A[1,1][:,:,:,:] = 0
+        self._A[0,1][:,:,:,:] = 0
+        self._A[1,0][:,:,:,:] = 0
 
-            self._A[0,0][:,:,0,0]  = 1
-            self._A[1,1][:,:,0,0]  = 1
+        self._A[0,0][:,:,0,0]  = 1
+        self._A[1,1][:,:,0,0]  = 1
 
-            self._A[0,0][:,e1,0,0] = 1/2
-            self._A[1,1][:,s2,0,0] = 1/2
+        self._A[0,0][:,e1,0,0] = 1/2
+        self._A[1,1][:,s2,0,0] = 1/2
 
-            self._A[0,1][:,d1,0,-d2] = 1/2
-            self._A[1,0][:,s2,0, d1] = 1/2
-
-        if not explicit:
-            self._solver = SparseSolver( self._A.tosparse() )
-            self._tol = tol
-
-            #---------------------------------------------------------
-            V0h_1, V0h_2 = V0h.spaces
-
-            V0_1 = V0h_1.symbolic_space
-            V0_2 = V0h_2.symbolic_space
-
-            v1, f1 = elements_of(V0_1, names='v1, f1')
-            v2, f2 = elements_of(V0_2, names='v2, f2')
-
-            l1 = LinearForm(v1, integral(V0_1.domain, f1*v1))
-            l2 = LinearForm(v2, integral(V0_2.domain, f2*v2))
-
-            # TODO [YG, 12.02.2021]: Extract discrete domain of each patch
-            #                        from multi-patch discrete domain.
-            # Question [MCP]: possible to extract discrete domain from discrete space ?
-            domain_h_1 = discretize(V0_1.domain, ncells = domain_h.ncells)
-            domain_h_2 = discretize(V0_2.domain, ncells = domain_h.ncells)
-
-            self._lh_1 = discretize(l1, domain_h_1, V0h_1)
-            self._lh_2 = discretize(l2, domain_h_2, V0h_2)
+        self._A[0,1][:,d1,0,-d2] = 1/2
+        self._A[1,0][:,s2,0, d1] = 1/2
 
     # ...
     def __call__( self, f ):
 
-        if self._explicit:
-            coeffs = self._A.dot(f.coeffs)
-            return FemField(self.fem_codomain, coeffs=coeffs)
-
-        # Fem field layer
-        f1,f2 = f.fields
-
-        b1 = self._lh_1.assemble(f1=f1)
-        b2 = self._lh_2.assemble(f2=f2)
-        b  = BlockVector(self.codomain, blocks=[b1, b2])
-        sol_coeffs, info = pcg( self._A, b, pc="jacobi", tol=self._tol, verbose=self._verbose )
-
-        return FemField(self.fem_codomain, coeffs=sol_coeffs)
+        coeffs = self._A.dot(f.coeffs)
+        return FemField(self.fem_codomain, coeffs=coeffs)
 
     # ...
     def dot( self, f_coeffs, out=None ):
