@@ -231,15 +231,6 @@ def conga_poisson_2d():
     lh = discretize(l, domain_h, V0h)
     b  = lh.assemble()
 
-    # boundary conditions
-    a0 = BilinearForm((u,v), integral(domain.boundary, u*v))
-    l0 = LinearForm(v, integral(domain.boundary, phi_exact*v))
-
-    a0_h = discretize(a0, domain_h, [V0h, V0h])
-    l0_h = discretize(l0, domain_h, V0h)
-
-    x0, info = cg(a0_h.assemble(), l0_h.assemble(), tol=poisson_tol)
-
     # Conga Poisson matrix is
     # A = (cD0)^T * M1 * cD0 + (I0 - Pc)^2
 
@@ -249,12 +240,23 @@ def conga_poisson_2d():
     I_minus_cP0_squared = ComposedLinearOperator(I_minus_cP0, I_minus_cP0)
     A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0) #_squared )
 
+    # apply boundary conditions
+    a0 = BilinearForm((u,v), integral(domain.boundary, u*v))
+    l0 = LinearForm(v, integral(domain.boundary, phi_exact*v))
+
+    a0_h = discretize(a0, domain_h, [V0h, V0h])
+    l0_h = discretize(l0, domain_h, V0h)
+
+    x0, info = cg(a0_h.assemble(), l0_h.assemble(), tol=poisson_tol)
+
     b = b-A.dot(x0)
     for bn in domain.boundary:
         i = get_space_indices_from_target(domain, bn)
         for j in range(len(domain)):
             apply_essential_bc(V0h.spaces[i], cP0._A[i,j], axis=bn.axis, ext=bn.ext)
         apply_essential_bc(V0h.spaces[i], b[i], axis=bn.axis, ext=bn.ext)
+
+    # ...
 
     if poisson_solve:
         phi_coeffs, info = cg( A, b, tol=poisson_tol, verbose=True )
