@@ -23,7 +23,8 @@ from sympde.topology import IdentityMapping, PolarMapping
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
 
-from psydac.api.discretization import discretize
+#from psydac.api.discretization import discretize
+from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
 
 from psydac.linalg.basic import LinearOperator
 # ProductSpace
@@ -104,40 +105,11 @@ def conga_operators_2d():
     degree=[2,2]
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
+    derham_h = discretize(derham, domain_h, degree=degree)
+    V0h = derham_h.V0
+    V1h = derham_h.V1
 
-    ## this should eventually work:
-    # derham_h = discretize(derham, domain_h, degree=degree)      # build them by hand if this doesn't work
-    # V0h       = derham_h.V0
-    # V1h       = derham_h.V1
-
-    ## meanwhile, we define the broken multipatch spaces individually:
-    V0h = discretize(derham.V0, domain_h, degree=degree)
-    V1h = discretize(derham.V1, domain_h, degree=degree, basis='M')
-
-    assert isinstance(V1h, ProductFemSpace)
-    assert isinstance(V1h.vector_space, BlockVectorSpace)
-
-    ## and also as list of patches:
-    domains = [domain_1, domain_2]
-    derhams = [Derham(dom, ["H1", "Hcurl", "L2"]) for dom in domains]
-
-    domains_h = [discretize(dom, ncells=ncells, comm=comm) for dom in domains]
-    derhams_h = [discretize(derh, dom_h, degree=degree)
-                 for dom_h, derh in zip(domains_h, derhams)]
-
-
-    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    # TODO [YG, 12.02.2021]: Multi-patch de Rham sequence should provide this!
-    V0h._spaces = tuple(derh_h.V0 for derh_h in derhams_h)
-    V1h._spaces = tuple(derh_h.V1 for derh_h in derhams_h)
-
-    V0h._vector_space = BlockVectorSpace(*[V.vector_space for V in V0h.spaces])
-    V1h._vector_space = BlockVectorSpace(*[V.vector_space for V in V1h.spaces])
-    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-    # Mass matrix for multipatch space V1
-
+    # Mass matrices for multipatch spaces (block-diagonal)
     M0 = BrokenMass_V0(V0h, domain_h)
     M1 = BrokenMass_V1(V1h, domain_h)
 
@@ -185,7 +157,7 @@ def conga_operators_2d():
     # II. conf projection V0 -> V0
     # projection from broken multipatch space to conforming subspace (using the same basis)
 
-    Pconf_0 = ConformingProjection(V0h, domain_h, verbose=False)
+    Pconf_0 = ConformingProjection(V0h, domain_h)#, verbose=False)
     v0c = Pconf_0(v0)
 
     # III. multipatch V1 projection
@@ -353,8 +325,8 @@ def conga_operators_2d():
         if plotted_patch in [0, 1]:
 
             #patch_derham = derhams_h[plotted_patch]
-            grid_x1 = derhams_h[plotted_patch].V0.breaks[0]
-            grid_x2 = derhams_h[plotted_patch].V0.breaks[1]
+            grid_x1 = V0h.spaces[plotted_patch].breaks[0]
+            grid_x2 = V0h.spaces[plotted_patch].breaks[1]
 
             print("grid_x1 = ", grid_x1)
 

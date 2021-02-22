@@ -23,7 +23,8 @@ from sympde.topology import IdentityMapping, PolarMapping
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
 
-from psydac.api.discretization import discretize
+#from psydac.api.discretization import discretize
+from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
 
 from psydac.linalg.basic import LinearOperator
 # ProductSpace
@@ -126,25 +127,13 @@ def conga_poisson_2d():
     degree=[2,2]
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
+    derham_h = discretize(derham, domain_h, degree=degree)
+    V0h = derham_h.V0
+    V1h = derham_h.V1
 
-    ## this should eventually work:
-    # derham_h = discretize(derham, domain_h, degree=degree)      # build them by hand if this doesn't work
-    # V0h       = derham_h.V0
-    # V1h       = derham_h.V1
-
-    ## meanwhile, we define the broken multipatch spaces individually:
-    V0h = discretize(derham.V0, domain_h, degree=degree)
-    V1h = discretize(derham.V1, domain_h, degree=degree, basis='M')
-
-    assert isinstance(V1h, ProductFemSpace)
-    assert isinstance(V1h.vector_space, BlockVectorSpace)
-
-
-    # Mass matrix for multipatch space V1
-
+    # Mass matrices for broken spaces (block-diagonal)
     M0 = BrokenMass_V0(V0h, domain_h)
     M1 = BrokenMass_V1(V1h, domain_h)
-
 
     #+++++++++++++++++++++++++++++++
     # . some target functions
