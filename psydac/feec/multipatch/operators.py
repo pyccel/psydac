@@ -62,6 +62,13 @@ class FemLinearOperator( LinearOperator ):
     def fem_codomain( self ):
         return self._fem_codomain
 
+    @property
+    def T(self):
+        return self.transpose()
+
+    # ...
+    def transpose(self):
+        raise NotImplementedError('Class does not provide a transpose() method')
 
     #-------------------------------------
     # Deferred methods
@@ -303,6 +310,9 @@ class BrokenGradient_2D(FemLinearOperator):
     def __call__(self, u0):
         return FemField(self.fem_codomain, coeffs = self.dot(u0.coeffs))
 
+    def transpose(self):
+        return BrokenTransposedGradient_2D(self.fem_domain, self.fem_codomain)
+
 #==============================================================================
 class BrokenTransposedGradient_2D( FemLinearOperator ):
 
@@ -320,6 +330,9 @@ class BrokenTransposedGradient_2D( FemLinearOperator ):
 
     def __call__(self, u0):
         return FemField(self.fem_codomain, coeffs = self.dot(u0.coeffs))
+
+    def transpose(self):
+        return BrokenGradient_2D(self.fem_codomain, self.fem_domain)
 
 #==============================================================================
 from sympy import Tuple
