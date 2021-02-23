@@ -101,8 +101,9 @@ def conga_operators_2d():
     # . Discrete space
     #+++++++++++++++++++++++++++++++
 
-    ncells=[2**2, 2**2]
-    degree=[2,2]
+    ncells = [2**2, 2**2]
+    degree = [2, 2]
+    nquads = [d + 1 for d in degree]
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     derham_h = discretize(derham, domain_h, degree=degree)
@@ -112,6 +113,12 @@ def conga_operators_2d():
     # Mass matrices for multipatch spaces (block-diagonal)
     M0 = BrokenMass_V0(V0h, domain_h)
     M1 = BrokenMass_V1(V1h, domain_h)
+
+    # Projectors for broken spaces
+    P0, P1, P2 = derham_h.projectors(nquads=nquads)
+
+    # Broken derivative operators
+    bD0, bD1 = derham_h.broken_derivatives_as_operators
 
     #+++++++++++++++++++++++++++++++
     # . some target functions
@@ -150,7 +157,6 @@ def conga_operators_2d():
 
     # I. multipatch V0 projection
 
-    P0 = Multipatch_Projector_H1(V0h)
     u0 = P0(u_sol_log)
     v0 = P0(v_sol_log)
 
@@ -162,15 +168,11 @@ def conga_operators_2d():
 
     # III. multipatch V1 projection
 
-    P1 = Multipatch_Projector_Hcurl(V1h, nquads=[5,5])
     E1 = P1(E_sol_log)
 
     # IV.  multipatch (broken) grad operator on V0h
 
-    bD0 = BrokenGradient_2D(V0h, V1h)
     grad_u0 = bD0(u0)
-
-
 
     # V. Conga grad operator on V0h
 

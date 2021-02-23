@@ -123,8 +123,9 @@ def conga_poisson_2d():
     # . Discrete space
     #+++++++++++++++++++++++++++++++
 
-    ncells=[nc**2, nc**2]
-    degree=[2,2]
+    ncells = [nc**2, nc**2]
+    degree = [2, 2]
+    nquads = [d + 1 for d in degree]
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     derham_h = discretize(derham, domain_h, degree=degree)
@@ -134,6 +135,15 @@ def conga_poisson_2d():
     # Mass matrices for broken spaces (block-diagonal)
     M0 = BrokenMass_V0(V0h, domain_h)
     M1 = BrokenMass_V1(V1h, domain_h)
+
+    # Projectors for broken spaces
+    bP0, bP1, bP2 = derham_h.projectors(nquads=nquads)
+
+    # Broken derivative operators
+    bD0, bD1 = derham_h.broken_derivatives_as_operators
+
+    # Transposed operator(s)
+    bD0_T = bD0.transpose()
 
     #+++++++++++++++++++++++++++++++
     # . some target functions
@@ -167,11 +177,6 @@ def conga_poisson_2d():
     # . Multipatch operators
     #+++++++++++++++++++++++++++++++
 
-    # I. broken multipatch projection on V0h
-
-    bP0 = Multipatch_Projector_H1(V0h)
-
-
     poisson_solve = True
 
     if poisson_solve:
@@ -179,19 +184,14 @@ def conga_poisson_2d():
     else:
         phi_ref = bP0(f_log)
 
-    # II. conf projection V0 -> V0
-
+    # Conforming projection V0 -> V0
     ## note: there are problems (eg at the interface) when the conforming projection is not accurate (low penalization or high tolerance)
     cP0 = ConformingProjection(V0h, domain_h)
 
-    # III broken multipatch grad operator on V0h
-    bD0 = BrokenGradient_2D(V0h, V1h)
-
-    # IV. Conga grad operator on V0h
+    # Conga grad operator on V0h
     cD0 = ComposedLinearOperator(bD0, cP0)
 
-    # V. Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-    bD0_T = BrokenTransposedGradient_2D(V0h, V1h)
+    # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
     cD0_T = ComposedLinearOperator(cP0, bD0_T)
 
     I0 = IdLinearOperator(V0h)
