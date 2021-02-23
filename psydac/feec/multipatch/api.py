@@ -33,12 +33,14 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
                 raise ValueError('Sequence must be specified in 2D case')
 
             elif tuple(sequence) == ('h1', 'hcurl', 'l2'):
+                self._sequence = tuple(sequence)
                 self._broken_diff_ops = (
                     BrokenGradient_2D(self.V0, self.V1),
                     None,
                 )
 
             elif tuple(sequence) == ('h1', 'hdiv', 'l2'):
+                self._sequence = tuple(sequence)
                 raise NotImplementedError('2D sequence with H-div not available yet')
 
             else:
