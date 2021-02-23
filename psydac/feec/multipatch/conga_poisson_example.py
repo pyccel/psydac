@@ -46,7 +46,7 @@ from psydac.utilities.utils    import refine_array_1d
 from psydac.feec.multipatch.operators import BrokenMass_V0, BrokenMass_V1, ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import IdLinearOperator, SumLinearOperator, MultLinearOperator
 from psydac.feec.multipatch.operators import BrokenGradient_2D, BrokenTransposedGradient_2D
-from psydac.feec.multipatch.operators import ConformingProjection, ComposedLinearOperator
+from psydac.feec.multipatch.operators import ConformingProjection_V0, ComposedLinearOperator
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1, Multipatch_Projector_Hcurl
 from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector_patch_fields
 
@@ -186,7 +186,7 @@ def conga_poisson_2d():
 
     # Conforming projection V0 -> V0
     ## note: there are problems (eg at the interface) when the conforming projection is not accurate (low penalization or high tolerance)
-    cP0 = ConformingProjection(V0h, domain_h)
+    cP0 = ConformingProjection_V0(V0h, domain_h)
 
     # Conga grad operator on V0h
     cD0 = ComposedLinearOperator(bD0, cP0)

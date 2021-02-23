@@ -80,7 +80,7 @@ class FemLinearOperator( LinearOperator ):
 
 
 #===============================================================================
-class ConformingProjection( FemLinearOperator ):
+class ConformingProjection_V0( FemLinearOperator ):
     """
     Conforming projection from global broken space to conforming global space
 

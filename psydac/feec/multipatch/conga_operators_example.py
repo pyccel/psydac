@@ -46,7 +46,7 @@ from psydac.utilities.utils    import refine_array_1d
 from psydac.feec.multipatch.operators import BrokenMass_V0, BrokenMass_V1
 from psydac.feec.multipatch.operators import IdLinearOperator, SumLinearOperator, MultLinearOperator
 from psydac.feec.multipatch.operators import BrokenGradient_2D, BrokenTransposedGradient_2D
-from psydac.feec.multipatch.operators import ConformingProjection, ComposedLinearOperator
+from psydac.feec.multipatch.operators import ConformingProjection_V0, ComposedLinearOperator
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1, Multipatch_Projector_Hcurl
 from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector_patch_fields
 
@@ -163,7 +163,7 @@ def conga_operators_2d():
     # II. conf projection V0 -> V0
     # projection from broken multipatch space to conforming subspace (using the same basis)
 
-    Pconf_0 = ConformingProjection(V0h, domain_h)#, verbose=False)
+    Pconf_0 = ConformingProjection_V0(V0h, domain_h)#, verbose=False)
     v0c = Pconf_0(v0)
 
     # III. multipatch V1 projection
