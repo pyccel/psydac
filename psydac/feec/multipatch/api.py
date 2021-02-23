@@ -7,6 +7,8 @@ from psydac.feec.multipatch.operators import BrokenGradient_2D
 from psydac.feec.multipatch.operators import Multipatch_Projector_Hcurl
 from psydac.feec.multipatch.operators import Multipatch_Projector_Hcurl
 
+__all__ = ('DiscreteDerhamMultipatch', 'discretize')
+
 #==============================================================================
 class DiscreteDerhamMultipatch(DiscreteDerham):
 
@@ -65,13 +67,16 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
         return tuple(b_diff.matrix for b_diff in self._broken_diff_ops)
 
     #--------------------------------------------------------------------------
-    def projectors(self, *, nquads=None):
+    def projectors(self, *, kind='global', nquads=None):
+
+        if not (kind == 'global'):
+            raise NotImplementedError('only global projectors are available')
 
         if self.dim == 1:
-            # TODO
+            pass # TODO
 #            P0 = Multipatch_Projector_H1(self.V0)
 #            P1 = Multipatch_Projector_L2(self.V1, nquads=nquads)
-            return P0, P1
+#            return P0, P1
 
         elif self.dim == 2:
             P0 = Multipatch_Projector_H1(self.V0)
@@ -79,19 +84,19 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
             if self.sequence[1] == 'hcurl':
                 P1 = Multipatch_Projector_Hcurl(self.V1, nquads=nquads)
             else:
-                # TODO: Multipatch_Projector_Hdiv(self.V1, nquads=nquads)
+                P1 = None # TODO: Multipatch_Projector_Hdiv(self.V1, nquads=nquads)
                 raise NotImplementedError('2D sequence with H-div not available yet')
 
-            P2 = None  # TODO: Multipatch_Projector_Hcurl(self.V1, nquads=nquads)
+            P2 = None # TODO: Multipatch_Projector_Hcurl(self.V1, nquads=nquads)
             return P0, P1, P2
 
         elif self.dim == 3:
-            # TODO
+            pass # TODO
 #            P0 = Multipatch_Projector_H1   (self.V0)
 #            P1 = Multipatch_Projector_Hcurl(self.V1, nquads=nquads)
 #            P2 = Multipatch_Projector_Hdiv (self.V2, nquads=nquads)
 #            P3 = Multipatch_Projector_L2   (self.V3, nquads=nquads)
-            return P0, P1, P2, P3
+#            return P0, P1, P2, P3
 
 #==============================================================================
 def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
