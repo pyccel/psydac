@@ -4,7 +4,7 @@ from psydac.api.discretization        import discretize as discretize_single_pat
 from psydac.api.discretization        import discretize_space
 from psydac.api.discretization        import DiscreteDerham
 from psydac.feec.multipatch.operators import BrokenGradient_2D
-from psydac.feec.multipatch.operators import Multipatch_Projector_Hcurl
+from psydac.feec.multipatch.operators import Multipatch_Projector_H1
 from psydac.feec.multipatch.operators import Multipatch_Projector_Hcurl
 
 __all__ = ('DiscreteDerhamMultipatch', 'discretize')
