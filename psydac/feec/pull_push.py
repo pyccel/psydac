@@ -347,10 +347,7 @@ def pull_3d_l2(func_ini, mapping):
 # 1D PUSH-FORWARD
 #==============================================================================
 def push_1d_h1(func, xi1):
-
-    value     = func(xi1)
-
-    return value
+    return func(xi1)
 
 def push_1d_l2(func, xi1, mapping):
 
@@ -365,10 +362,7 @@ def push_1d_l2(func, xi1, mapping):
 # 2D PUSH-FORWARDS
 #==============================================================================
 def push_2d_h1(func, xi1, xi2):
-
-    value     = func(xi1, xi2)
-
-    return value
+    return func(xi1, xi2)
 
 def push_2d_hcurl(a1, a2, xi1, xi2, mapping):
 
@@ -415,10 +409,7 @@ def push_2d_l2(func, xi1, xi2, mapping):
 # 3D PUSH-FORWARDS
 #==============================================================================
 def push_3d_h1(func, xi1, xi2, xi3):
-
-    value     = func(xi1, xi2, xi3)
-
-    return value
+    return func(xi1, xi2, xi3)
 
 def push_3d_hcurl(a1, a2, a3, xi1, xi2, xi3, mapping):
 
