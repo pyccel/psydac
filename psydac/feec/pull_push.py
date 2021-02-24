@@ -18,13 +18,13 @@ __all__ = (
     #
     # Push-forward operators
     # ----------------------
-#   'push_1d_h1',
+    'push_1d_h1',
     'push_1d_l2',
     'push_2d_h1',
     'push_2d_hcurl',
     'push_2d_hdiv',
     'push_2d_l2',
-#   'push_3d_h1',
+    'push_3d_h1',
     'push_3d_hcurl',
     'push_3d_hdiv',
     'push_3d_l2',
@@ -337,8 +337,21 @@ def pull_3d_l2(func_ini, mapping):
     return fun
 
 #==============================================================================
+# PUSH-FORWARD operators:
+#   These push-forward operators take logical coordinates,
+#   so they just transform the values of the field.
+#   For H1 push-forward there is no transform, so no mapping is involved.
+#==============================================================================
+
+#==============================================================================
 # 1D PUSH-FORWARD
 #==============================================================================
+def push_1d_h1(func, xi1):
+
+    value     = func(xi1)
+
+    return value
+
 def push_1d_l2(func, xi1, mapping):
 
     mapping    = mapping.get_callable_mapping()
@@ -351,9 +364,8 @@ def push_1d_l2(func, xi1, mapping):
 #==============================================================================
 # 2D PUSH-FORWARDS
 #==============================================================================
-def push_2d_h1(func, xi1, xi2, mapping):
+def push_2d_h1(func, xi1, xi2):
 
-    F = mapping.get_callable_mapping()
     value     = func(xi1, xi2)
 
     return value
@@ -402,6 +414,12 @@ def push_2d_l2(func, xi1, xi2, mapping):
 #==============================================================================
 # 3D PUSH-FORWARDS
 #==============================================================================
+def push_3d_h1(func, xi1, xi2, xi3):
+
+    value     = func(xi1, xi2, xi3)
+
+    return value
+
 def push_3d_hcurl(a1, a2, a3, xi1, xi2, xi3, mapping):
 
     mapping    = mapping.get_callable_mapping()
