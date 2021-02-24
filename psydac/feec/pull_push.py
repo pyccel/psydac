@@ -20,7 +20,7 @@ __all__ = (
     # ----------------------
 #   'push_1d_h1',
     'push_1d_l2',
-#   'pull_2d_h1',
+    'push_2d_h1',
     'push_2d_hcurl',
     'push_2d_hdiv',
     'push_2d_l2',
@@ -350,6 +350,14 @@ def push_1d_l2(func, xi1, mapping):
 
 #==============================================================================
 # 2D PUSH-FORWARDS
+#==============================================================================
+def push_2d_h1(func, xi1, xi2, mapping):
+
+    F = mapping.get_callable_mapping()
+    value     = func(xi1, xi2)
+
+    return value
+
 #==============================================================================
 def push_2d_hcurl(a1, a2, xi1, xi2, mapping):
 
