@@ -10,51 +10,20 @@ import matplotlib.pyplot as plt
 # print(sympde.__file__)
 # exit()
 
-from sympde.calculus import grad, dot, inner, rot, div
-from sympde.calculus import laplace, bracket, convect
-from sympde.calculus import jump, avg, Dn, minus, plus
-
 from sympde.topology import Derham
-# from sympde.topology import ProductSpace
-from sympde.topology import element_of, elements_of
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
-
-from sympde.expr.expr import LinearForm, BilinearForm
-from sympde.expr.expr import integral
 
 #from psydac.api.discretization import discretize
 from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
 
-from psydac.linalg.basic import LinearOperator
-# ProductSpace
-from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
-from psydac.linalg.iterative_solvers import cg, pcg
-from psydac.linalg.direct_solvers import SparseSolver
-from psydac.linalg.identity import IdentityLinearOperator #, IdentityStencilMatrix as IdentityMatrix
-
-from psydac.fem.basic   import FemField
-from psydac.fem.vector import ProductFemSpace, VectorFemSpace
-
 from psydac.feec.pull_push     import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
-
-from psydac.feec.derivatives import Gradient_2D
-from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
 
 from psydac.utilities.utils    import refine_array_1d
 
 from psydac.feec.multipatch.operators import BrokenMass_V0, BrokenMass_V1
-# <<<<<<< HEAD
-# from psydac.feec.multipatch.operators import IdLinearOperator, SumLinearOperator, MultLinearOperator
-# from psydac.feec.multipatch.operators import BrokenGradient_2D, BrokenTransposedGradient_2D
-# from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, ComposedLinearOperator
-# from psydac.feec.multipatch.operators import Multipatch_Projector_H1, Multipatch_Projector_Hcurl
-# from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector_patch_fields
-# =======
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, DummyConformingProjection_V1, ComposedLinearOperator
-# from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector_patch_fields
 from psydac.feec.multipatch.operators import get_grid_vals_V0, get_grid_vals_V1, get_grid_vals_V2
-# >>>>>>> [feec-multipatch] add dummy test for conforming projection in V1
 
 comm = MPI.COMM_WORLD
 
