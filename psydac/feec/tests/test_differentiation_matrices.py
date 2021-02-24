@@ -3,8 +3,9 @@ import pytest
 
 from psydac.core.bsplines    import make_knots
 from psydac.fem.basic        import FemField
-from psydac.fem.tensor       import SplineSpace, TensorFemSpace
-from psydac.fem.vector       import ProductFemSpace, VectorFemField
+from psydac.fem.splines      import SplineSpace
+from psydac.fem.tensor       import TensorFemSpace
+from psydac.fem.vector       import ProductFemSpace
 
 from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
@@ -193,7 +194,7 @@ def test_ScalarCurl_2D(domain, ncells, degree, periodic):
 
     # ...
     # Create random field in V1
-    u1 = VectorFemField(V1)
+    u1 = FemField(V1)
 
     s1, s2 = V1.vector_space[0].starts
     e1, e2 = V1.vector_space[0].ends
@@ -324,7 +325,7 @@ def test_Curl_3D(domain, ncells, degree, periodic):
 
     # ...
     # Create random field in V1
-    u1 = VectorFemField(V1)
+    u1 = FemField(V1)
 
     s1, s2, s3 = V1.vector_space[0].starts
     e1, e2, e3 = V1.vector_space[0].ends
@@ -401,7 +402,7 @@ def test_Divergence_2D(domain, ncells, degree, periodic):
 
     # ...
     # Create random field in V1
-    u1 = VectorFemField(V1)
+    u1 = FemField(V1)
 
     s1, s2 = V1.vector_space[0].starts
     e1, e2 = V1.vector_space[0].ends
@@ -471,7 +472,7 @@ def test_Divergence_3D(domain, ncells, degree, periodic):
 
     # ...
     # Create random field in V2
-    u2 = VectorFemField(V2)
+    u2 = FemField(V2)
 
     s1, s2, s3 = V2.vector_space[0].starts
     e1, e2, e3 = V2.vector_space[0].ends

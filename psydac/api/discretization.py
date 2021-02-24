@@ -36,6 +36,7 @@ from psydac.api.glt                  import DiscreteGltExpr
 from psydac.api.expr                 import DiscreteExpr
 from psydac.api.essential_bc         import apply_essential_bc
 from psydac.linalg.iterative_solvers import cg
+from psydac.fem.basic                import FemField
 from psydac.fem.splines              import SplineSpace
 from psydac.fem.tensor               import TensorFemSpace
 from psydac.fem.vector               import ProductFemSpace
@@ -227,7 +228,7 @@ class DiscreteEquation(BasicDiscrete):
 
                 from sympde.expr import integral
                 from sympde.expr import find
-                from sympde.topology import element_of #, ScalarTestFunction
+                from sympde.topology import element_of #, ScalarFunction
 
                 # Extract trial functions from model equation
                 u = self.expr.trial_functions
@@ -243,7 +244,7 @@ class DiscreteEquation(BasicDiscrete):
                 test_dict = dict(zip(u, v))
 
                 # TODO: use dot product for vector quantities
-#                product  = lambda f, g: (f * g if isinstance(g, ScalarTestFunction) else dot(f, g))
+#                product  = lambda f, g: (f * g if isinstance(g, ScalarFunction) else dot(f, g))
                 product  = lambda f, g: f * g
 
                 # Construct variational formulation that performs L2 projection
@@ -262,14 +263,16 @@ class DiscreteEquation(BasicDiscrete):
                 loc_settings = settings.copy()
                 loc_settings['solver'] = 'cg'
                 loc_settings.pop('info',False)
-                X = equation_h.solve(**loc_settings)
+                uh = equation_h.solve(**loc_settings)
 
                 # Use inhomogeneous solution as initial guess to solver
-                settings['x0'] = X
+                settings['x0'] = uh.coeffs
 
         #----------------------------------------------------------------------
 
-        return driver_solve(self.linear_system, **settings)
+        X = driver_solve(self.linear_system, **settings)
+
+        return FemField(self.trial_space, coeffs=X)
 
 #==============================================================================
 class DiscreteDerham(BasicDiscrete):

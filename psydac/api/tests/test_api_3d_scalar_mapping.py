@@ -15,7 +15,6 @@ from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
 
-from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 
 # ... get the mesh directory
@@ -38,8 +37,6 @@ def run_poisson_3d_dir(filename, solution, f, comm=None):
 
     x,y,z = domain.coordinates
 
-    F = element_of(V, name='F')
-
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
@@ -51,7 +48,7 @@ def run_poisson_3d_dir(filename, solution, f, comm=None):
     expr = f*v
     l = LinearForm(v, int_0(expr))
 
-    error = F - solution
+    error  = u - solution
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
@@ -77,16 +74,12 @@ def run_poisson_3d_dir(filename, solution, f, comm=None):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, x )
+    uh = equation_h.solve()
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    l2_error = l2norm_h.assemble(u = uh)
+    h1_error = h1norm_h.assemble(u = uh)
     # ...
 
     return l2_error, h1_error
@@ -110,8 +103,6 @@ def run_poisson_3d_dirneu(filename, solution, f, boundary, comm=None):
 
     x,y,z = domain.coordinates
 
-    F = element_of(V, name='F')
-
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
@@ -132,7 +123,7 @@ def run_poisson_3d_dirneu(filename, solution, f, boundary, comm=None):
     expr = l0(v) + l_B_neumann(v)
     l = LinearForm(v, expr)
 
-    error = F-solution
+    error  = u - solution
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
@@ -160,16 +151,12 @@ def run_poisson_3d_dirneu(filename, solution, f, boundary, comm=None):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, x )
+    uh = equation_h.solve()
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    l2_error = l2norm_h.assemble(u = uh)
+    h1_error = h1norm_h.assemble(u = uh)
     # ...
 
     return l2_error, h1_error
@@ -208,7 +195,7 @@ def run_laplace_3d_neu(filename, solution, f, comm=None):
     expr = l0(v) + l_B_neumann(v)
     l = LinearForm(v, expr)
 
-    error = F-solution
+    error  = u - solution
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
@@ -233,16 +220,12 @@ def run_laplace_3d_neu(filename, solution, f, comm=None):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = FemField( Vh, x )
+    uh = equation_h.solve()
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    l2_error = l2norm_h.assemble(u = uh)
+    h1_error = h1norm_h.assemble(u = uh)
     # ...
 
     return l2_error, h1_error

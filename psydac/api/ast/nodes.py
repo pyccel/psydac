@@ -12,9 +12,9 @@ from sympy.core.containers    import Tuple
 from sympy.core.compatibility import with_metaclass
 
 from sympde.topology import elements_of
-from sympde.topology import ScalarTestFunction, VectorTestFunction
+from sympde.topology import ScalarFunction, VectorFunction
 from sympde.topology import VectorFunctionSpace
-from sympde.topology import IndexedTestTrial
+from sympde.topology import IndexedVectorFunction
 from sympde.topology import H1SpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology import Mapping
 from sympde.topology import dx1, dx2, dx3
@@ -243,12 +243,12 @@ class EvalMapping(BaseNode):
         mapping_atoms  = components.arguments
         basis          = q_basis
         target         = basis.target
-        if isinstance(target, IndexedTestTrial):
+        if isinstance(target, IndexedVectorFunction):
             space          = target.base.space
         else:
             space      = target.space
         weight,        = elements_of(space, names='weight')
-        if isinstance(target, VectorTestFunction):
+        if isinstance(target, VectorFunction):
             target = target[0]
 
         l_coeffs    = []
@@ -482,7 +482,7 @@ class GlobalTensorQuadratureBasis(ArrayNode):
     _free_indices = [index_element, index_quad, index_dof]
 
     def __new__(cls, target):
-        if not isinstance(target, (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)):
+        if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
         return Basic.__new__(cls, target)
 
@@ -493,7 +493,7 @@ class GlobalTensorQuadratureBasis(ArrayNode):
     @property
     def unique_scalar_space(self):
         unique_scalar_space = True
-        if isinstance(self.target, IndexedTestTrial):
+        if isinstance(self.target, IndexedVectorFunction):
             return True
         space = self.target.space
         if isinstance(space, VectorFunctionSpace):
@@ -502,7 +502,7 @@ class GlobalTensorQuadratureBasis(ArrayNode):
 
     @property
     def is_scalar(self):
-        return isinstance(self.target, (ScalarTestFunction, IndexedTestTrial))
+        return isinstance(self.target, (ScalarFunction, IndexedVectorFunction))
 
 #==============================================================================
 class LocalTensorQuadratureBasis(ArrayNode):
@@ -513,7 +513,7 @@ class LocalTensorQuadratureBasis(ArrayNode):
     _free_indices = [index_dof]
 
     def __new__(cls, target):
-        if not isinstance(target, (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)):
+        if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
         return Basic.__new__(cls, target)
 
@@ -524,7 +524,7 @@ class LocalTensorQuadratureBasis(ArrayNode):
     @property
     def unique_scalar_space(self):
         unique_scalar_space = True
-        if isinstance(self.target, IndexedTestTrial):
+        if isinstance(self.target, IndexedVectorFunction):
             return True
         space = self.target.space
         if isinstance(space, VectorFunctionSpace):
@@ -533,7 +533,7 @@ class LocalTensorQuadratureBasis(ArrayNode):
 
     @property
     def is_scalar(self):
-        return isinstance(self.target, (ScalarTestFunction, IndexedTestTrial))
+        return isinstance(self.target, (ScalarFunction, IndexedVectorFunction))
 #==============================================================================
 class TensorQuadratureBasis(ArrayNode):
     """
@@ -543,7 +543,7 @@ class TensorQuadratureBasis(ArrayNode):
     _free_indices = [index_quad]
 
     def __new__(cls, target):
-        if not isinstance(target, (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)):
+        if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
 
         return Basic.__new__(cls, target)
@@ -555,7 +555,7 @@ class TensorQuadratureBasis(ArrayNode):
     @property
     def unique_scalar_space(self):
         unique_scalar_space = True
-        if isinstance(self.target, IndexedTestTrial):
+        if isinstance(self.target, IndexedVectorFunction):
             return True
         space = self.target.space
         if isinstance(space, VectorFunctionSpace):
@@ -564,13 +564,13 @@ class TensorQuadratureBasis(ArrayNode):
 
     @property
     def is_scalar(self):
-        return isinstance(self.target, (ScalarTestFunction, IndexedTestTrial))
+        return isinstance(self.target, (ScalarFunction, IndexedVectorFunction))
 #==============================================================================
 class CoefficientBasis(ScalarNode):
     """
     """
     def __new__(cls, target):
-        ls = target.atoms(ScalarTestFunction, VectorTestFunction, Mapping)
+        ls = target.atoms(ScalarFunction, VectorFunction, Mapping)
         if not len(ls) == 1:
             raise TypeError('Expecting a scalar/vector test function or a Mapping')
         return Basic.__new__(cls, target)
@@ -955,7 +955,7 @@ class GlobalSpan(ArrayNode):
     _positions = {index_element: 0}
 
     def __new__(cls, target):
-        if not isinstance(target, (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)):
+        if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
 
         return Basic.__new__(cls, target)
@@ -969,7 +969,7 @@ class Span(ScalarNode):
     """
     """
     def __new__(cls, target):
-        if not isinstance(target, (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)):
+        if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
 
         return Basic.__new__(cls, target)
@@ -983,7 +983,7 @@ class Pads(ScalarNode):
     """
     def __new__(cls, tests, trials):
         for target in tests + trials:
-            if not isinstance(target, (ScalarTestFunction, VectorTestFunction, IndexedTestTrial)):
+            if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
                 raise TypeError('Expecting a scalar/vector test function')
         return Basic.__new__(cls, tests, trials)
 
@@ -1187,7 +1187,7 @@ class BasisAtom(AtomicNode):
     """
     """
     def __new__(cls, expr):
-        types = (IndexedTestTrial, VectorTestFunction, ScalarTestFunction)
+        types = (IndexedVectorFunction, VectorFunction, ScalarFunction)
 
         ls = _atomic(expr, cls=types)
         if not(len(ls) == 1):
@@ -1441,7 +1441,7 @@ class SplitArray(BaseNode):
 
 #==============================================================================
 def construct_logical_expressions(u, nderiv):
-    if isinstance(u, IndexedTestTrial):
+    if isinstance(u, IndexedVectorFunction):
         dim = u.base.space.ldim
     else:
         dim = u.space.ldim
@@ -1455,7 +1455,7 @@ def construct_logical_expressions(u, nderiv):
     indices = [ijk for ijk in indices if sum(ijk) <= nderiv]
 
     args = []
-    u = [u] if isinstance(u, (ScalarTestFunction, IndexedTestTrial)) else [u[i] for i in range(dim)]
+    u = [u] if isinstance(u, (ScalarFunction, IndexedVectorFunction)) else [u[i] for i in range(dim)]
     for ijk in indices:
         for atom in u:
             for n,op in zip(ijk, ops):

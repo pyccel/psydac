@@ -4,7 +4,7 @@ from sympy import symbols, Range
 from sympy import Tuple
 
 from sympde.topology             import Mapping
-from sympde.topology             import ScalarTestFunction
+from sympde.topology             import ScalarFunction
 from sympde.topology             import SymbolicExpr
 from sympde.topology.space       import element_of
 from sympde.topology.derivatives import _logical_partial_derivatives
@@ -93,7 +93,7 @@ class EvalArrayField(SplBasic):
         dim = space.ldim
         mapping = self.mapping
 
-        field_atoms = self.fields.atoms(ScalarTestFunction)
+        field_atoms = self.fields.atoms(ScalarFunction)
         fields_str = sorted([SymbolicExpr(f).name for f in self.fields])
 
         # ... declarations

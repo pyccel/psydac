@@ -1,28 +1,19 @@
 # -*- coding: UTF-8 -*-
 
-from sympy import Tuple, Matrix
-from sympy import pi, cos, sin
-
-from sympde.core import Constant
-from sympde.calculus import grad, dot, inner, cross, rot, curl, div
-from sympde.calculus import laplace, hessian
-from sympde.topology import (dx, dy, dz)
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
-from sympde.topology import element_of
-from sympde.topology import Boundary, NormalVector, TangentVector
-from sympde.topology import Domain, Line, Square, Cube
-from sympde.topology import Trace, trace_0, trace_1
-from sympde.topology import Union
-from sympde.expr import BilinearForm, LinearForm, integral
-from sympde.expr import Norm
-from sympde.expr import find, EssentialBC
-
-from psydac.fem.vector  import VectorFemField
-from psydac.api.discretization import discretize
-
-from numpy import linspace, zeros, allclose
-
 import os
+from sympy import Tuple, Matrix
+from sympy import pi, sin
+
+from sympde.calculus import grad, dot, inner
+from sympde.topology import VectorFunctionSpace
+from sympde.topology import element_of
+from sympde.topology import Domain
+from sympde.topology import Union
+from sympde.expr     import BilinearForm, LinearForm, integral
+from sympde.expr     import Norm
+from sympde.expr     import find, EssentialBC
+
+from psydac.api.discretization import discretize
 
 # ... get the mesh directory
 try:
@@ -44,8 +35,6 @@ def run_vector_poisson_2d_dir(filename, solution, f):
 
     x,y = domain.coordinates
 
-    F = element_of(V, name='F')
-
     v = element_of(V, name='v')
     u = element_of(V, name='u')
 
@@ -57,7 +46,7 @@ def run_vector_poisson_2d_dir(filename, solution, f):
     expr = dot(f, v)
     l = LinearForm(v, int_0(expr))
 
-    error = Matrix([F[0]-solution[0], F[1]-solution[1]])
+    error  = Matrix([u[0]-solution[0], u[1]-solution[1]])
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
 
@@ -83,16 +72,12 @@ def run_vector_poisson_2d_dir(filename, solution, f):
     # ...
 
     # ... solve the discrete equation
-    x = equation_h.solve()
-    # ...
-
-    # ...
-    phi = VectorFemField( Vh, x )
+    uh = equation_h.solve()
     # ...
 
     # ... compute norms
-    l2_error = l2norm_h.assemble(F=phi)
-    h1_error = h1norm_h.assemble(F=phi)
+    l2_error = l2norm_h.assemble(u = uh)
+    h1_error = h1norm_h.assemble(u = uh)
     # ...
 
     return l2_error, h1_error

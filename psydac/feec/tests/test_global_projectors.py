@@ -1,10 +1,11 @@
 import numpy as np
 import pytest
 
-from psydac.core.bsplines    import make_knots
-from psydac.fem.basic        import FemField
-from psydac.fem.tensor       import SplineSpace, TensorFemSpace
-from psydac.fem.vector       import ProductFemSpace, VectorFemField
+from psydac.core.bsplines          import make_knots
+from psydac.fem.basic              import FemField
+from psydac.fem.splines            import SplineSpace
+from psydac.fem.tensor             import TensorFemSpace
+from psydac.fem.vector             import ProductFemSpace
 from psydac.feec.global_projectors import Projector_H1, Projector_L2
 
 #==============================================================================
