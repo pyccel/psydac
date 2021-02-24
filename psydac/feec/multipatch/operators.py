@@ -154,6 +154,94 @@ class ConformingProjection_V0( FemLinearOperator ):
         f = FemField(self.fem_domain, coeffs=f_coeffs)
         return self(f).coeffs
 
+
+#===============================================================================
+class ConformingProjection_V1( FemLinearOperator ):
+    """
+    Conforming projection from global broken space to conforming global space
+
+    proj.dot(v) returns the conforming projection of v, computed by solving linear system
+
+
+    """
+    def __init__(self, V1h, domain_h):
+
+        FemLinearOperator.__init__(self, fem_domain=V1h)
+
+        V1             = V1h.symbolic_space
+        domain         = V1.domain
+
+        u, v = elements_of(V1, names='u, v')
+        expr   = dot(u,v)
+
+        I      = domain.interfaces  # note: interfaces does not include the boundary
+        expr_I = dot( plus(u)-minus(u) , plus(v)-minus(v) )   # this penalization is for an H1-conforming space
+
+        a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
+
+        ah = discretize(a, domain_h, [V1h, V1h])
+
+        self._A = ah.assemble()
+
+        for b1 in self._A.blocks:
+            for b2 in b1:
+                if b2 is None:continue
+                for b3 in b2.blocks:
+                    for A in b3:
+                        if A is None:continue
+                        A[:,:,:,:] = 0
+
+        self._A[0,0][0,0][:,:,0,0] = 1
+        self._A[0,0][1,1][:,:,0,0] = 1
+
+        self._A[1,1][0,0][:,:,0,0] = 1
+        self._A[1,1][1,1][:,:,0,0] = 1
+
+        spaces = self._A.domain.spaces
+        sp1    = spaces[0]
+        sp2    = spaces[1]
+
+        s11 = sp1.spaces[0].starts[I.axis]
+        e11 = sp1.spaces[0].ends[I.axis]
+        s12 = sp1.spaces[1].starts[I.axis]
+        e12 = sp1.spaces[1].ends[I.axis]
+
+        s21 = sp2.spaces[0].starts[I.axis]
+        e21 = sp2.spaces[0].ends[I.axis]
+        s22 = sp2.spaces[1].starts[I.axis]
+        e22 = sp2.spaces[1].ends[I.axis]
+
+        d11     = V1h.spaces[0].spaces[0].degree[I.axis]
+        d12     = V1h.spaces[0].spaces[1].degree[I.axis]
+
+        d21     = V1h.spaces[1].spaces[0].degree[I.axis]
+        d22     = V1h.spaces[1].spaces[1].degree[I.axis]
+
+        self._A[0,0][0,0][:,e11,0,0] = 1/2
+        self._A[0,0][1,1][:,e12,0,0] = 1/2
+
+        self._A[1,1][0,0][:,s21,0,0] = 1/2
+        self._A[1,1][1,1][:,s22,0,0] = 1/2
+
+
+        self._A[0,1][0,0][:,d11,0,-d21] = 1/2
+        self._A[0,1][1,1][:,d12,0,-d22] = 1/2
+
+        self._A[1,0][0,0][:,s21,0, d11] = 1/2
+        self._A[1,0][1,1][:,s22,0, d12] = 1/2
+
+    # ...
+    def __call__( self, f ):
+
+        coeffs = self._A.dot(f.coeffs)
+        return FemField(self.fem_codomain, coeffs=coeffs)
+
+    # ...
+    def dot( self, f_coeffs, out=None ):
+        # coeffs layer
+        f = FemField(self.fem_domain, coeffs=f_coeffs)
+        return self(f).coeffs
+
 #===============================================================================
 class BrokenMass_V0( FemLinearOperator ):
     """
