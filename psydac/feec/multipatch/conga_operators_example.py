@@ -59,6 +59,35 @@ from psydac.feec.multipatch.operators import get_grid_vals_V0, get_grid_vals_V1,
 comm = MPI.COMM_WORLD
 
 
+def my_small_plot(
+        title, vals, titles,
+        xx, yy,
+        gridlines_x1=None,
+        gridlines_x2=None,
+):
+
+    n_plots = len(vals)
+    assert n_plots == len(titles)
+    #fig = plt.figure(figsize=(17., 4.8))
+    fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
+    fig.suptitle(title, fontsize=14)
+
+    for np in range(n_plots):
+        ax = fig.add_subplot(1, n_plots, np+1)
+
+        if gridlines_x1 is not None:
+            ax.plot(*gridlines_x1, color='k')
+            ax.plot(*gridlines_x2, color='k')
+
+        cp = ax.contourf(xx, yy, vals[np], 50, cmap='jet')
+        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_title ( titles[np] )
+
+    plt.show()
+
+
 def conga_operators_2d():
     """
     - assembles several multipatch operators and a conforming projection
@@ -232,10 +261,8 @@ def conga_operators_2d():
         N = 20
 
         etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
-
         mappings = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
-
-        pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
+        pcoords  = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
         pcoords  = np.concatenate(pcoords, axis=1)
 
         xx = pcoords[:,:,0]
@@ -254,101 +281,33 @@ def conga_operators_2d():
             gridlines_x2 = (x[::N, :].T, y[::N, :].T)
             gridlines = (gridlines_x1, gridlines_x2)
 
-
-        # v, v0 and conf proj v0c
-        # todo: best with a H1 push-forward...
-        # v_vals  = [np.array( [[phi(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v_sol_log,etas)]
-        # # or: v_vals  = [np.array( [[v_sol( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
-        # v_vals  = np.concatenate(v_vals,     axis=1)
-
-        # v0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v0.fields, etas)]
-        # v0_vals  = np.concatenate(v0_vals,     axis=1)
-        # v0c_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(v0c.fields, etas)]
-        # v0c_vals = np.concatenate(v0c_vals,     axis=1)
-
-
-
         # I - 1. qualitative assessment of conf Projection in V0, with discontinuous v
 
         # plot v, v0 and v0c
-
         v_vals   = get_grid_vals_V0(v_sol_log, None, etas, mappings_obj)
         v0_vals  = get_grid_vals_V0(v0, V0h, etas, mappings_obj)
         v0c_vals = get_grid_vals_V0(v0c, V0h, etas, mappings_obj)
 
+        my_small_plot(
+            title=r'broken and conforming approximation of some $v$',
+            vals=[v_vals, v0_vals, v0c_vals],
+            titles=[r'$v^{ex}(x,y)$', r'$v^h(x,y)$', r'$P^{0,c} v^h(x,y)$'],
+            xx=xx, yy=yy,
+            gridlines_x1=gridlines_x1,
+            gridlines_x2=gridlines_x2,
+        )
 
-        fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'broken and conforming approximation of some $v$', fontsize=14)
-
-        ax = fig.add_subplot(1, 3, 1)
-
-        if plotted_patch is not None:
-            ax.plot(*gridlines_x1, color='k')
-            ax.plot(*gridlines_x2, color='k')
-
-        cp = ax.contourf(xx, yy, v_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$v^{ex}(x,y)$' )
-
-
-        ax = fig.add_subplot(1, 3, 2)
-        cp2 = ax.contourf(xx, yy, v0_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$v^h(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 3)
-        cp3 = ax.contourf(xx, yy, v0c_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$P^{0,c} v^h(x,y)$' )
-
-        plt.show()
-
-        # show v0 and cDv0
-
+        # plot v0 and cDv0
         cDv0_x_vals, cDv0_y_vals = get_grid_vals_V1(cDv0, V1h, etas, mappings_obj)
 
-        fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'discontinuous $v^h$ and its Conga gradient $D^0 = D^{0,b}P^{0,c}$', fontsize=14)
-
-        ax = fig.add_subplot(1, 3, 1)
-
-        if plotted_patch is not None:
-            ax.plot(*gridlines_x1, color='k')
-            ax.plot(*gridlines_x2, color='k')
-
-        cp = ax.contourf(xx, yy, v0_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$v^h(x,y)$' )
-
-
-        ax = fig.add_subplot(1, 3, 2)
-        cp2 = ax.contourf(xx, yy, cDv0_x_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$(D^0 v^h)_x(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 3)
-        cp3 = ax.contourf(xx, yy, cDv0_y_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$(D^0 v^h)_y(x,y)$' )
-
-        plt.show()
-
+        my_small_plot(
+            title=r'discontinuous $v^h$ and its Conga gradient $D^0 = D^{0,b}P^{0,c}$',
+            vals=[v0_vals, cDv0_x_vals, cDv0_y_vals],
+            titles=[r'$v^h(x,y)$', r'$(D^0 v^h)_x(x,y)$' , r'$(D^0 v^h)_y(x,y)$' ],
+            xx=xx, yy=yy,
+            gridlines_x1=gridlines_x1,
+            gridlines_x2=gridlines_x2,
+        )
 
         # I - 2. qualitative assessment of conf Projection in V1, with discontinuous G
 
@@ -357,81 +316,24 @@ def conga_operators_2d():
         G1c_x_vals, G1c_y_vals = get_grid_vals_V1(G1c, V1h, etas, mappings_obj)
 
         # plot G, G1 and G1c, x component
-
-        fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'broken and conforming approximation of some $v$', fontsize=14)
-
-        ax = fig.add_subplot(1, 3, 1)
-
-        if plotted_patch is not None:
-            ax.plot(*gridlines_x1, color='k')
-            ax.plot(*gridlines_x2, color='k')
-
-        cp = ax.contourf(xx, yy, G_x_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$G^{ex}_x(x,y)$' )
-
-
-        ax = fig.add_subplot(1, 3, 2)
-        cp2 = ax.contourf(xx, yy, G1_x_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$G^h_x(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 3)
-        cp3 = ax.contourf(xx, yy, G1c_x_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$(P^{1,c}G)_x v^h(x,y)$' )
-
-        plt.show()
+        my_small_plot(
+            title=r'broken and conforming approximation of some $v$',
+            vals=[G_x_vals,G1_x_vals,G1c_x_vals],
+            titles=[r'$G^{ex}_x(x,y)$',r'$G^h_x(x,y)$',r'$(P^{1,c}G)_x v^h(x,y)$'],
+            xx=xx,
+            yy=yy,
+        )
 
         # plot G, G1 and G1c, y component
-
-        fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'broken and conforming approximation of some $v$', fontsize=14)
-
-        ax = fig.add_subplot(1, 3, 1)
-
-        if plotted_patch is not None:
-            ax.plot(*gridlines_x1, color='k')
-            ax.plot(*gridlines_x2, color='k')
-
-        cp = ax.contourf(xx, yy, G_x_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$G^{ex}_y(x,y)$' )
-
-
-        ax = fig.add_subplot(1, 3, 2)
-        cp2 = ax.contourf(xx, yy, G1_x_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$G^h_y(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 3)
-        cp3 = ax.contourf(xx, yy, G1c_x_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$(P^{1,c}G)_y v^h(x,y)$' )
-
-        plt.show()
-
-
+        my_small_plot(
+            title=r'broken and conforming approx of some $G$, y component',
+            vals=[G_x_vals, G1_x_vals, G1c_x_vals],
+            titles=[r'$G^{ex}_y(x,y)$', r'$G^h_y(x,y)$', r'$(P^{1,c}G)_y v^h(x,y)$'],
+            xx=xx,
+            yy=yy,
+        )
 
         # todo: plot G1, broken_curl G1 and conga_curl G1
-
 
 
         # II. visual check of commuting diag properties
@@ -443,221 +345,57 @@ def conga_operators_2d():
         u0_vals = get_grid_vals_V0(u0, V0h, etas, mappings_obj)
         u_err   = abs(u_vals - u0_vals)
 
-        # u_vals  = [np.array( [[u_sol( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
-        # u_vals  = np.concatenate(u_vals,     axis=1)
-        # u0s = get_scalar_patch_fields(u0, V0h)
-        # u0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0s, etas)]
-        # # u0_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(u0.fields, etas)]
-        # u0_vals  = np.concatenate(u0_vals,     axis=1)
-
-        fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'approximation of a potential $u$', fontsize=14)
-
-        ax = fig.add_subplot(1, 3, 1)
-
-        if plotted_patch is not None:
-            ax.plot(*gridlines_x1, color='k')
-            ax.plot(*gridlines_x2, color='k')
-
-        cp = ax.contourf(xx, yy, u_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$u^{ex}(x,y)$' )
-
-
-        ax = fig.add_subplot(1, 3, 2)
-        cp2 = ax.contourf(xx, yy, u0_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$u^h(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 3)
-        cp3 = ax.contourf(xx, yy, u_err, 50, cmap='jet')
-        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$|(u^{ex}-u^h)(x,y)|$' )
-
-        plt.show()
-
+        my_small_plot(
+            title=r'approximation of a potential $u$',
+            vals=[u_vals, u0_vals, u_err],
+            titles=[r'$u^{ex}(x,y)$', r'$u^h(x,y)$', r'$|(u^{ex}-u^h)(x,y)|$'],
+            xx=xx,
+            yy=yy,
+        )
 
         # plot (compare) E1 and grad_u0
 
         E_x_vals, E_y_vals   = get_grid_vals_V1(E_sol_log, None, etas, mappings_obj)
         E1_x_vals, E1_y_vals = get_grid_vals_V1(E1, V1h, etas, mappings_obj)
-        grad_u0_x_vals, grad_u0_y_vals = get_grid_vals_V1(grad_u0, V1h, etas, mappings_obj)
 
         E_x_err = abs(E_x_vals - E1_x_vals)
         E_y_err = abs(E_y_vals - E1_y_vals)
 
+        my_small_plot(
+            title=r'approximation of a field $E$, $x$ component',
+            vals=[E_x_vals, E1_x_vals, E_x_err],
+            titles=[r'$E^{ex}_x(x,y)$', r'$E^h_x(x,y)$', r'$|(E^{ex}-E^h)_x(x,y)|$'],
+            xx=xx,
+            yy=yy,
+        )
+
+        my_small_plot(
+            title=r'approximation of a field $E$, $y$ component',
+            vals=[E_y_vals, E1_y_vals, E_y_err],
+            titles=[r'$E^{ex}_y(x,y)$', r'$E^h_y(x,y)$', r'$|(E^{ex}-E^h)_y(x,y)|$'],
+            xx=xx,
+            yy=yy,
+        )
+
+        grad_u0_x_vals, grad_u0_y_vals = get_grid_vals_V1(grad_u0, V1h, etas, mappings_obj)
         gu_x_err = abs(grad_u0_x_vals - E1_x_vals)
         gu_y_err = abs(grad_u0_y_vals - E1_y_vals)
 
+        my_small_plot(
+            title=r'commuting diagram property ($x$ component)',
+            vals=[grad_u0_x_vals, E1_x_vals, gu_x_err],
+            titles=[r'$(D^0u^h)_x(x,y)$' , r'$E^h_x(x,y)$', r'$|(D^0u^h - E^h)_x(x,y)|$'],
+            xx=xx,
+            yy=yy,
+        )
 
-        # E_x_vals = [np.array( [[E_sol_x( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
-        # E_y_vals = [np.array( [[E_sol_y( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
-        # E_x_vals = np.concatenate(E_x_vals,     axis=1)
-        # E_y_vals = np.concatenate(E_y_vals,     axis=1)
-
-
-        # E1_x_vals = 2*[None]
-        # E1_y_vals = 2*[None]
-        # grad_u0_x_vals = 2*[None]
-        # grad_u0_y_vals = 2*[None]
-        #
-        # E1s = get_vector_patch_fields(E1, V1h)
-        # grad_u0s = get_vector_patch_fields(grad_u0, V1h)
-        # for k in [0,1]:
-        #     # patch k
-        #     eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
-        #     E1_x_vals[k] = np.empty_like(eta_1)
-        #     E1_y_vals[k] = np.empty_like(eta_1)
-        #     grad_u0_x_vals[k] = np.empty_like(eta_1)
-        #     grad_u0_y_vals[k] = np.empty_like(eta_1)
-        #     for i, x1i in enumerate(eta_1[:, 0]):
-        #         for j, x2j in enumerate(eta_2[0, :]):
-        #             E1_x_vals[k][i, j], E1_y_vals[k][i, j] = \
-        #                 push_2d_hcurl(E1s[k].fields[0], E1s[k].fields[1], x1i, x2j, mappings_obj[k])
-        #             grad_u0_x_vals[k][i, j], grad_u0_y_vals[k][i, j] = \
-        #                 push_2d_hcurl(grad_u0s[k].fields[0], grad_u0s[k].fields[1], x1i, x2j, mappings_obj[k])
-        #
-        # E1_x_vals = np.concatenate(E1_x_vals,     axis=1)
-        # E1_y_vals = np.concatenate(E1_y_vals,     axis=1)
-        #
-        # grad_u0_x_vals = np.concatenate(grad_u0_x_vals,     axis=1)
-        # grad_u0_y_vals = np.concatenate(grad_u0_y_vals,     axis=1)
-        #
-
-        # plot E_x and E1_x
-
-        fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'approximation of a field $E$, $x$ component', fontsize=14)
-
-        ax = fig.add_subplot(1, 3, 1)
-        cp = ax.contourf(xx, yy, E_x_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$E^{ex}_x(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 2)
-        cp2 = ax.contourf(xx, yy, E1_x_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$E^h_x(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 3)
-        cp3 = ax.contourf(xx, yy, E_x_err, 50, cmap='jet')
-        # cp3 = ax.contourf(xx, yy, err, 50, cmap='jet')
-        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$|(E^{ex}-E^h)_x(x,y)|$' )
-
-        plt.show()
-
-        # plot E_y and E1_y
-
-        fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'approximation of a field $E$, $y$ component', fontsize=14)
-
-        ax = fig.add_subplot(1, 3, 1)
-        cp = ax.contourf(xx, yy, E_y_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$E^{ex}_y(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 2)
-        cp2 = ax.contourf(xx, yy, E1_y_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$E^h_y(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 3)
-        cp3 = ax.contourf(xx, yy, E_y_err, 50, cmap='jet')
-        # cp3 = ax.contourf(xx, yy, err, 50, cmap='jet')
-        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$|(E^{ex}-E^h)_y(x,y)|$' )
-
-        plt.show()
-
-
-        # show grad_u0_x and E1_x
-
-        fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'commuting diagram property (x component)', fontsize=14)
-
-        ax = fig.add_subplot(1, 3, 1)
-        cp = ax.contourf(xx, yy, grad_u0_x_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$(D^0u^h)_x(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 2)
-        cp2 = ax.contourf(xx, yy, E1_x_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$E^h_x(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 3)
-        cp3 = ax.contourf(xx, yy, gu_x_err, 50, cmap='jet')
-        # cp3 = ax.contourf(xx, yy, err, 50, cmap='jet')
-        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$|(D^0u^h - E^h)_x(x,y)|$' )
-
-        plt.show()
-
-
-        # show grad_u0_y and E1_y
-
-        fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'commuting diagram property (y component)', fontsize=14)
-
-        ax = fig.add_subplot(1, 3, 1)
-        cp = ax.contourf(xx, yy, grad_u0_y_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$(D^0u^h)_y(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 2)
-        cp2 = ax.contourf(xx, yy, E1_y_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$E^h_y(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 3)
-        cp3 = ax.contourf(xx, yy, gu_y_err, 50, cmap='jet')
-        # cp3 = ax.contourf(xx, yy, err, 50, cmap='jet')
-        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$|(D^0u^h - E^h)_y(x,y)|$' )
-
-        plt.show()
-
+        my_small_plot(
+            title=r'commuting diagram property ($y$ component)',
+            vals=[grad_u0_y_vals, E1_y_vals, gu_y_err],
+            titles=[r'$(D^0u^h)_y(x,y)$' , r'$E^h_y(x,y)$', r'$|(D^0u^h - E^h)_y(x,y)|$'],
+            xx=xx,
+            yy=yy,
+        )
 
     print(" done. ")
     exit()
