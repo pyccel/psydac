@@ -22,7 +22,6 @@ from psydac.linalg.utilities   import array_to_stencil
 from psydac.linalg.iterative_solvers import pcg
 
 #==============================================================================
-
 def run_system_1_2d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Square()
@@ -85,7 +84,8 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     l2_error = l2norm_F_h.assemble(F=Fh)
 
     return l2_error
-    
+
+#==============================================================================
 def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
     # ... abstract model
     domain = Square()
@@ -173,8 +173,10 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
     l2_error = l2norm_F_h.assemble(F=phi1)
     return l2_error
 
+#==============================================================================
 def run_system_3_2d_dir(uex, f, alpha, ncells, degree):
 
+    # ... abstract model
     domain = Square('A')
     B_dirichlet_0 = domain.boundary
 
@@ -233,7 +235,6 @@ def run_system_3_2d_dir(uex, f, alpha, ncells, degree):
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
-
 def test_api_system_1_2d_dir_1():
     from sympy import symbols
     x1, x2 = symbols('x1, x2')
@@ -244,6 +245,7 @@ def test_api_system_1_2d_dir_1():
     l2_error = run_system_1_2d_dir(f0,u, ncells=[2**3,2**3], degree=[2,2])
     assert l2_error-0.00030070020628128664<1e-13
 
+#------------------------------------------------------------------------------
 def test_api_system_2_2d_dir_1():
 
     from sympy import symbols
@@ -259,6 +261,7 @@ def test_api_system_2_2d_dir_1():
     assert l2_error-0.020113712082281063<1e-13
     #TODO verify convergence rate
 
+#------------------------------------------------------------------------------
 def test_api_system_3_2d_dir_1():
     from sympy import symbols
     x,y,z    = symbols('x1, x2, x3')
@@ -270,4 +273,16 @@ def test_api_system_3_2d_dir_1():
 
     l2_error = run_system_3_2d_dir(uex, f, alpha, ncells=[2**3,2**3], degree=[2,2])
     assert abs(l2_error-0.0029394893438220502)<1e-13
+
+#==============================================================================
+# CLEAN UP SYMPY NAMESPACE
+#==============================================================================
+
+def teardown_module():
+    from sympy.core import cache
+    cache.clear_cache()
+
+def teardown_function():
+    from sympy.core import cache
+    cache.clear_cache()
 
