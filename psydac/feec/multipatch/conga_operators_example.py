@@ -75,7 +75,7 @@ def conga_operators_2d():
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
-    cartesian = False
+    cartesian = True
 
     if cartesian:
         mapping_1 = IdentityMapping('M1', 2)
@@ -179,8 +179,8 @@ def conga_operators_2d():
         ]
 
     G_sol_log = [
-        [lambda xi1, xi2 : d for d in [0,1]],
-        [lambda xi1, xi2 : 1-d for d in [0,1]],
+        [lambda xi1, xi2 : 1 for d in [0,1]],
+        [lambda xi1, xi2 : 0 for d in [0,1]],
         ]
 
     # note: in other tests, the target functions are given directly as lambda functions -- what is best ?
