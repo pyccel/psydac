@@ -168,18 +168,14 @@ class DiscreteEquation(BasicDiscrete):
         if assemble_lhs:
             M = self.lhs.assemble(**kwargs)
             if self.bc:
-                # TODO change it: now apply_bc can be called on a list/tuple
-                for bc in self.bc:
-                    apply_essential_bc(self.test_space, M, bc)
+                apply_essential_bc(M, *self.bc)
         else:
             M = self.linear_system.lhs
 
         if assemble_rhs:
             rhs = self.rhs.assemble(**kwargs)
             if self.bc:
-                # TODO change it: now apply_bc can be called on a list/tuple
-                for bc in self.bc:
-                    apply_essential_bc(self.test_space, rhs, bc)
+                apply_essential_bc(rhs, *self.bc)
 
         else:
             rhs = self.linear_system.rhs
