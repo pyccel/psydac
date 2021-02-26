@@ -594,7 +594,7 @@ def get_grid_vals_V0(u, V0h, etas, mappings_obj):
             uk_field = u.fields[k]
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
-                u_vals[k][i, j] = push_2d_h1(uk_field, x1i, x2j, mappings_obj[k])
+                u_vals[k][i, j] = push_2d_h1(uk_field, x1i, x2j)
 
     u_vals  = np.concatenate(u_vals, axis=1)
 
