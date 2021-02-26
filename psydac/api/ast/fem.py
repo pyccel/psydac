@@ -527,7 +527,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         args['f_coeffs']       = flatten(list(g_coeffs.values()))
         args['field_basis']    = tuple(d_fields[f]['global'] for f in fields)
         args['fields_degrees'] = lengths_fields.values()
-        args['fields']         = fields
+        fields                 = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
+        args['fields']         = tuple(dict.fromkeys(fields))
 
     if constants:
         args['constants'] = constants
@@ -688,7 +689,8 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         args['f_coeffs']       = flatten(list(g_coeffs.values()))
         args['field_basis']    = tuple(d_fields[f]['global'] for f in fields)
         args['fields_degrees'] = lengths_fields.values()
-        args['fields']         = fields
+        fields                 = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
+        args['fields']         = tuple(dict.fromkeys(fields))
 
     if constants:
         args['constants'] = constants
@@ -758,14 +760,14 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     #TODO move to EvalField
     coeffs   = [CoefficientBasis(i) for i in expand(fields)]
     l_coeffs = [MatrixLocalBasis(i) for i in expand(fields)]
-    g_coeffs = [MatrixGlobalBasis(i,i) for i in expand(fields)]
+    g_coeffs = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
 
     geo      = GeometryExpressions(mapping, nderiv)
 
     g_span   = OrderedDict((v,d_fields[v]['span']) for v in fields)
     g_basis  = OrderedDict((v,d_fields[v]['global'])  for v in fields)
 
-    lengths_tests   = OrderedDict((v,LengthDofTest(v)) for v in fields)
+    lengths_fields  = OrderedDict((f,LengthDofTest(f)) for f in fields)
 
     l_vec   = LocalElementBasis()
     g_vec   = GlobalElementBasis()
@@ -778,20 +780,28 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     ind_quad      = index_quad.set_length(quad_length)
     ind_element   = index_element.set_length(el_length)
 
-    ind_dof_test  = index_dof_test.set_length(lengths_tests[fields[0]]+1)
+    ind_dof_test  = index_dof_test.set_length(lengths_fields[fields[0]]+1)
     # ...........................................................................................
     eval_mapping = EvalMapping(ind_quad, ind_dof_test, g_basis[fields[0]], g_basis[fields[0]], mapping, geo, space, fields, nderiv, mask, is_rational_mapping)
-    eval_field   = EvalField(atomic_expr[fields[0]], ind_quad, ind_dof_test, g_basis[fields[0]], g_basis[fields[0]], coeffs, l_coeffs, g_coeffs, fields, mapping, pads, nderiv, mask)
+
+    eval_fields = []
+    for f in fields:
+        f_ex         = expand([f])
+        coeffs       = [CoefficientBasis(i)    for i in f_ex]
+        l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
+        ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
+        eval_field   = EvalField(atomic_expr[f], ind_quad, ind_dof_test, d_fields[f]['global'], d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, pads, nderiv, mask)
+        eval_fields  += [eval_field]
 
     #=========================================================begin kernel======================================================
     # ... loop over tests functions
 
-    loop   = Loop((l_quad, geo), ind_quad, eval_field.inits)
+    loop   = Loop((l_quad, geo), ind_quad, flatten([eval_field.inits for eval_field in eval_fields]))
     loop   = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
 
     # ... loop over tests functions to evaluate the fields
 
-    stmts  = Block([eval_mapping, eval_field, Reset(l_vec), loop])
+    stmts  = Block([eval_mapping, *eval_fields, Reset(l_vec), loop])
 
     #=========================================================end kernel=========================================================
     # ... loop over global elements
@@ -808,7 +818,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     args['spans'] = g_span.values()
     args['quads'] = g_quad
 
-    args['tests_degrees'] = lengths_tests
+    args['tests_degrees'] = lengths_fields
 
     args['quads_degree'] = lengths
     args['global_pads']  = pads
@@ -818,8 +828,9 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     if eval_mapping:
         args['mapping'] = eval_mapping.coeffs
 
-    args['f_coeffs'] = g_coeffs
-    args['fields']   = fields
+    args['f_coeffs'] = flatten(list(g_coeffs.values()))
+    fields           = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
+    args['fields']   = tuple(dict.fromkeys(fields))
  
     if constants:
         args['constants'] = constants

@@ -760,7 +760,6 @@ class DiscreteFunctional(BasicDiscrete):
 
     def assemble(self, **kwargs):
         args = [*self._args]
-
         for key in self._free_args:
             v = kwargs[key]
             if isinstance(v, FemField):

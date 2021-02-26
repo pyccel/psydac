@@ -1,11 +1,12 @@
 # -*- coding: UTF-8 -*-
 
 import numpy as np
-from sympy import pi, cos, sin, Matrix
+from sympy import pi, cos, sin, Matrix, Tuple
 from scipy import linalg
 from scipy.sparse.linalg import spsolve
 
-from sympde.calculus import grad, dot, inner, div
+from sympde.calculus import grad, dot, inner, div, curl, cross
+from sympde.topology import NormalVector
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import element_of
@@ -17,6 +18,8 @@ from sympde.expr import find, EssentialBC
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
 from psydac.linalg.utilities   import array_to_stencil
+
+from psydac.linalg.iterative_solvers import pcg
 
 #==============================================================================
 
@@ -170,6 +173,63 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
     l2_error = l2norm_F_h.assemble(F=phi1)
     return l2_error
 
+def run_system_3_2d_dir(uex, f, alpha, ncells, degree):
+
+    domain = Square('A')
+    B_dirichlet_0 = domain.boundary
+
+    V  = VectorFunctionSpace('V', domain, kind='hcurl')
+
+    u  = element_of(V, name='u')
+    v  = element_of(V, name='v')
+    F  = element_of(V, name='F')
+
+    # Bilinear form a: V x V --> R
+    a   = BilinearForm((u, v), integral(domain, curl(u)*curl(v) + alpha*dot(u,v)))
+
+    nn   = NormalVector('nn')
+    a_bc = BilinearForm((u, v), integral(domain.boundary, 1e30 * cross(u, nn) * cross(v, nn)))
+
+
+    # Linear form l: V --> R
+    l = LinearForm(v, integral(domain, dot(f,v)))
+
+    # l2 error
+    error   = Matrix([F[0]-uex[0],F[1]-uex[1]])
+    l2norm  = Norm(error, domain, kind='l2')
+
+    #+++++++++++++++++++++++++++++++
+    # 2. Discretization
+    #+++++++++++++++++++++++++++++++
+
+    # Create computational domain from topological domain
+    domain_h = discretize(domain, ncells=ncells)
+
+    # Discrete spaces
+    Vh = discretize(V, domain_h, degree=degree)
+
+    # Discretize bi-linear and linear form
+    a_h    = discretize(a, domain_h, [Vh, Vh])
+    a_bc_h = discretize(a_bc, domain_h, [Vh, Vh])
+
+    l_h          = discretize(l, domain_h, Vh)
+    l2_norm_h    = discretize(l2norm, domain_h, Vh)
+
+    M = a_h.assemble() + a_bc_h.assemble()
+    b = l_h.assemble()
+
+    #+++++++++++++++++++++++++++++++
+    # 3. Solution
+    #+++++++++++++++++++++++++++++++
+
+    # Solve linear system
+    sol, info  = pcg(M ,b, pc='jacobi', tol=1e-8)
+
+    uh       = FemField( Vh, sol )
+    l2_error = l2_norm_h.assemble(F=uh)
+
+    return l2_error
+
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
@@ -199,4 +259,15 @@ def test_api_system_2_2d_dir_1():
     assert l2_error-0.020113712082281063<1e-13
     #TODO verify convergence rate
 
+def test_api_system_3_2d_dir_1():
+    from sympy import symbols
+    x,y,z    = symbols('x1, x2, x3')
+
+    alpha    = 1.
+    uex      = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+    f        = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                     alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+
+    l2_error = run_system_3_2d_dir(uex, f, alpha, ncells=[2**3,2**3], degree=[2,2])
+    assert abs(l2_error-0.0029394893438220502)<1e-13
 

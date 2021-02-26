@@ -376,7 +376,7 @@ class Parser(object):
         constants  = args.pop('constants', None)
 
         f_coeffs   = args.pop('f_coeffs',    None)
-        
+
         if f_coeffs:
             f_span     = args.pop('f_span',      [])
             f_basis    = args.pop('field_basis', [])
