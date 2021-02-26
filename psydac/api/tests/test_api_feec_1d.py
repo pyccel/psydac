@@ -162,9 +162,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
             from psydac.api.essential_bc import apply_essential_bc
             M0_dir   = M0.copy()
             D0_T_dir = D0_T.copy()
-            for bc in bcs:
-                apply_essential_bc(derham_h.V0, bc, M0_dir)
-                apply_essential_bc(derham_h.V0, bc, D0_T_dir)
+            apply_essential_bc(  M0_dir, *bcs)
+            apply_essential_bc(D0_T_dir, *bcs)
 
             # Make sure that we have ones on the diagonal of the mass matrix,
             # in order to use a Jacobi preconditioner
