@@ -52,8 +52,8 @@ from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector
 
 comm = MPI.COMM_WORLD
 
-from psydac.api.essential_bc import *
-from sympde.topology      import Boundary, Interface
+from psydac.api.essential_bc import apply_essential_bc_stencil
+from sympde.topology         import Boundary, Interface
 
 def get_space_indices_from_target(domain, target):
     domains = domain.interior.args
@@ -225,8 +225,8 @@ def conga_poisson_2d():
     for bn in domain.boundary:
         i = get_space_indices_from_target(domain, bn)
         for j in range(len(domain)):
-            apply_essential_bc(V0h.spaces[i], cP0._A[i,j], axis=bn.axis, ext=bn.ext)
-        apply_essential_bc(V0h.spaces[i], b[i], axis=bn.axis, ext=bn.ext)
+            apply_essential_bc_stencil(cP0._A[i,j], axis=bn.axis, ext=bn.ext, order=0)
+        apply_essential_bc_stencil(b[i], axis=bn.axis, ext=bn.ext, order=0)
 
     # ...
 
