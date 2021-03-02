@@ -1,22 +1,29 @@
 # -*- coding: UTF-8 -*-
 
 import numpy as np
-from sympy import pi, cos, sin, Matrix
+from sympy import pi, cos, sin, Matrix, Tuple
 from scipy import linalg
 from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import gmres as sp_gmres
+from scipy.sparse.linalg import bicg as sp_bicg
+from scipy.sparse.linalg import bicgstab as sp_bicgstab
 
 from sympde.calculus import grad, dot, inner, div
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
-from sympde.topology import element_of
+from sympde.topology import element_of, elements_of
 from sympde.topology import Square
 from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
 from psydac.fem.basic          import FemField
+from psydac.fem.vector         import ProductFemSpace
 from psydac.api.discretization import discretize
 from psydac.linalg.utilities   import array_to_stencil
+
+from psydac.linalg.iterative_solvers import bicg
+from psydac.linalg.block import BlockVector
 
 #==============================================================================
 
@@ -82,8 +89,10 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
     l2_error = l2norm_F_h.assemble(F=Fh)
 
     return l2_error
-    
-def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
+
+#==============================================================================
+def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
+
     # ... abstract model
     domain = Square()
 
@@ -91,84 +100,84 @@ def run_system_2_2d_dir(f1, f2,u1, u2, ncells, degree):
     V2 = ScalarFunctionSpace('V2', domain, kind='L2')
     X  = ProductSpace(V1, V2)
 
-    x,y = domain.coordinates
+    u, v = elements_of(V1, names='u, v')
+    p, q = elements_of(V2, names='p, q')
 
-    F = element_of(V1, name='F')
-
-    u,v = [element_of(V1, name=i) for i in ['u', 'v']]
-    p,q = [element_of(V2, name=i) for i in ['p', 'q']]
-
+    x, y  = domain.coordinates
     int_0 = lambda expr: integral(domain , expr)
 
-    
-    a  = BilinearForm(((u,p),(v,q)), int_0(inner(grad(u),grad(v)) + div(u)*q - p*div(v)) )
-    l  = LinearForm((v,q), int_0(f1*v[0]+f2*v[1]+q))
-    
+    a  = BilinearForm(((u, p),(v,q)), int_0(inner(grad(u), grad(v)) + div(u)*q - p*div(v)) )
+    l  = LinearForm((v, q), int_0(dot(f, v)))
     bc = EssentialBC(u, 0, domain.boundary)
-    equation = find([u,p], forall=[v,q], lhs=a((u,p),(v,q)), rhs=l(v,q), bc=bc)
 
-    error = Matrix([F[0]-u1, F[1]-u2])
-    l2norm_F = Norm(error, domain, kind='l2')
+    equation = find((u, p), forall=(v, q), lhs=a((u, p), (v, q)), rhs=l(v, q), bc=bc)
+
+    error_u = [ue[0]-u[0], ue[1]-u[1]]
+    error_p = pe - p
+
+    l2norm_u = Norm(error_u, domain, kind='l2')
+    l2norm_p = Norm(error_p, domain, kind='l2')
 
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells)
+
     # ... discrete spaces
     V1h = discretize(V1, domain_h, degree=degree)
     V2h = discretize(V2, domain_h, degree=degree)
-
     Xh  = discretize(X , domain_h, degree=degree)
-    
-    s11,s12 = V1h.spaces[0].vector_space.starts
-    e11,e12 = V1h.spaces[0].vector_space.ends
-    s21,s22 = V1h.spaces[1].vector_space.starts
-    e21,e22 = V1h.spaces[1].vector_space.ends
-    s31,s32 = V2h.vector_space.starts
-    e31,e32 = V2h.vector_space.ends
-    
-    # ... dsicretize the equation using Dirichlet bc
-    ah = discretize(equation, domain_h, [Xh, Xh], symbolic_space=[X, X])
 
-    # ... discretize norms
-    l2norm_F_h = discretize(l2norm_F, domain_h, V1h)
+    # ... discretize the equation using Dirichlet bc
+    equation_h = discretize(equation, domain_h, [Xh, Xh])
 
-    ah.assemble()
+    # ... discretize error norms
+    l2norm_uh = discretize(l2norm_u, domain_h, V1h)
+    l2norm_ph = discretize(l2norm_p, domain_h, V2h)
 
-    M     = ah.linear_system.lhs
-    M[0,0][0,:,0,0] = 1.
-    M[0,0][:,0,0,0] = 1.
-    M[0,0][e11,:,0,0] = 1.
-    M[0,0][:,e12,0,0] = 1.
-    M[1,1][0,:,0,0] = 1.
-    M[1,1][:,0,0,0] = 1.
-    M[1,1][e21,:,0,0] = 1.
-    M[1,1][:,e22,0,0] = 1.
-    M = M.toarray()
-    
-    rhs   = ah.linear_system.rhs.toarray()
+    # ... assemble linear system
+    equation_h.assemble()
 
-    M_1   = np.zeros((len(rhs)+1,len(rhs)+1))
-    rhs_1 = np.zeros(len(rhs)+1)
-    v2h_s = (e11+1)*(e12+1)+(e21+1)*(e22+1)
 
-    M_1[:-1,:-1] = M
-    M_1[-1,v2h_s:-1]  = rhs[v2h_s:]
-    M_1[v2h_s:-1,-1]  = rhs[v2h_s:]
-    rhs_1[:v2h_s]   = rhs[:v2h_s] 
+    # ... solve linear system
+    if scipy:
+        # Select Scipy's sparse iterative solver among 3 available
+        sp_solver = [sp_gmres, sp_bicg, sp_bicgstab][2]
+        As = equation_h.linear_system.lhs.tosparse()
+        bs = equation_h.linear_system.rhs.toarray()
+        xs, info = sp_solver(As, bs, atol=1e-12)
+        x = array_to_stencil(xs, Xh.vector_space)
+        print('\n', info)
 
-    M_inv = linalg.inv(M_1)
-    x = M_inv.dot(rhs_1)
-    
-    phi1 = FemField(V1h)
-    phi2 = FemField(V2h)
+    else:
+        # Use Psydac's bi-conjugate gradient solver
+        A = equation_h.linear_system.lhs
+        b = equation_h.linear_system.rhs
+        x, info = bicg(A, A.T, b, tol=1e-12)
+        print('\n', info)
 
-    
-    phi1.coeffs[0][s11:e11+1, s12:e12+1] = x[:(e11+1)*(e12+1)].reshape((e11+1-s11, e12+1-s12))
-    phi1.coeffs[1][s21:e21+1, s22:e22+1] = x[(e11+1)*(e12+1):v2h_s].reshape((e21+1-s21, e22+1-s22))
-    phi2.coeffs[s31:e31+1, s32:e32+1]    = x[v2h_s:-1].reshape((e31-s31+1, e32-s32+1))
-    
-        # ... compute norms
-    l2_error = l2norm_F_h.assemble(F=phi1)
-    return l2_error
+    # Numerical solution: velocity field
+    # TODO: allow this: uh = FemField(V1h, coeffs=x[0:2]) or similar
+    uh = FemField(V1h)
+    uh.coeffs[0] = x[0]
+    uh.coeffs[1] = x[1]
+
+    # Numerical solution: pressure field
+    # TODO: allow this: uh = FemField(V2h, coeffs=x[2])
+    ph = FemField(V2h)
+    ph.coeffs[:] = x[2][:]
+
+    # Compute norms
+    l2_error_u = l2norm_uh.assemble(u = uh)
+    l2_error_p = l2norm_ph.assemble(p = ph)
+
+    # Average value of the pressure (should be 0)
+    domain_area = V2h.integral(lambda x1, x2: 1.0)
+    p_avg = V2h.integral(ph) / domain_area
+
+    print('l2_error(u) = {}'.format(l2_error_u))
+    print('l2_error(p) = {}'.format(l2_error_p))
+    print('average(p)  = {}'.format(p_avg))
+
+    return locals()
 
 ###############################################################################
 #            SERIAL TESTS
@@ -184,19 +193,42 @@ def test_api_system_1_2d_dir_1():
     l2_error = run_system_1_2d_dir(f0,u, ncells=[2**3,2**3], degree=[2,2])
     assert l2_error-0.00030070020628128664<1e-13
 
-def test_api_system_2_2d_dir_1():
+#------------------------------------------------------------------------------
+def test_stokes_2d_dir():
 
+    # ... Exact solution
     from sympy import symbols
     x1, x2 = symbols('x1, x2')
  
     f1 = -x1**2*(x1 - 1)**2*(24*x2 - 12) - 4*x2*(x1**2 + 4*x1*(x1 - 1) + (x1 - 1)**2)*(2*x2**2 - 3*x2 + 1) - 2*pi*cos(2*pi*x1)
     f2 = 4*x1*(2*x1**2 - 3*x1 + 1)*(x2**2 + 4*x2*(x2 - 1) + (x2 - 1)**2) + x2**2*(24*x1 - 12)*(x2 - 1)**2 + 2*pi*cos(2*pi*x2)
+    f  = Tuple(f1, f2)
+
     u1 = x1**2*(-x1 + 1)**2*(4*x2**3 - 6*x2**2 + 2*x2)
     u2 =-x2**2*(-x2 + 1)**2*(4*x1**3 - 6*x1**2 + 2*x1)
-    p  = sin(2*pi*x1) - sin(2*pi*x2)
-    
-    l2_error = run_system_2_2d_dir(f1, f2, u1, u2, ncells=[2**4,2**4], degree=[2,2])
-    assert l2_error-0.020113712082281063<1e-13
+    ue = Tuple(u1, u2)
+    pe = -sin(2*pi*x1) + sin(2*pi*x2)
+    # ...
+
+    # ... Check that exact solution is correct
+    from sympde.calculus import laplace, grad
+    from sympde.expr import TerminalExpr
+
+    kwargs = dict(dim=2, logical=True)
+    a = TerminalExpr(-laplace(ue), **kwargs)
+    b = TerminalExpr(    grad(pe), **kwargs)
+    c = TerminalExpr(   Matrix(f), **kwargs)
+    err = (a.T + b - c).simplify()
+
+    assert err[0] == 0
+    assert err[1] == 0
+    # ...
+
+    # Run test
+    namespace = run_stokes_2d_dir(f, ue, pe, ncells=[2**3, 2**3], degree=[2, 2], scipy=False)
+
+    # Check error on velocity and pressure fields
+    assert abs(namespace['l2_error_u'] - 1.86072381490785e-5) < 1e-13
+    assert abs(namespace['l2_error_p'] - 2.44281724609567e-2) < 1e-13
+
     #TODO verify convergence rate
-
-
