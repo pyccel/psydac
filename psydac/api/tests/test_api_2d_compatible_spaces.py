@@ -5,6 +5,7 @@ from sympy import pi, cos, sin, Matrix, Tuple
 from scipy import linalg
 from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import gmres as sp_gmres
+from scipy.sparse.linalg import minres as sp_minres
 from scipy.sparse.linalg import bicg as sp_bicg
 from scipy.sparse.linalg import bicgstab as sp_bicgstab
 
@@ -140,10 +141,10 @@ def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
     # ... solve linear system
     if scipy:
         # Select Scipy's sparse iterative solver among 3 available
-        sp_solver = [sp_gmres, sp_bicg, sp_bicgstab][2]
+        sp_solver = [sp_gmres, sp_minres, sp_bicg, sp_bicgstab][1]
         As = equation_h.linear_system.lhs.tosparse()
         bs = equation_h.linear_system.rhs.toarray()
-        xs, info = sp_solver(As, bs, atol=1e-12)
+        xs, info = sp_solver(As, bs, tol=1e-12)
         x = array_to_stencil(xs, Xh.vector_space)
         print('\n', info)
 
