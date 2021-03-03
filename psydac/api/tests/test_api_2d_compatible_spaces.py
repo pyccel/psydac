@@ -195,7 +195,7 @@ def test_api_system_1_2d_dir_1():
     assert l2_error-0.00030070020628128664<1e-13
 
 #------------------------------------------------------------------------------
-def test_stokes_2d_dir():
+def test_stokes_2d_dir_1():
 
     # ... Exact solution
     from sympy import symbols
@@ -233,3 +233,32 @@ def test_stokes_2d_dir():
     assert abs(namespace['l2_error_p'] - 2.44281724609567e-2) < 1e-13
 
     #TODO verify convergence rate
+
+#------------------------------------------------------------------------------
+def test_stokes_2d_dir_2():
+
+    # ... Exact solution
+    from sympy import symbols
+    x1, x2 = symbols('x1, x2')
+
+    u1 =  2000 * x1**2 * (1-x1)**2 * x2 * (1-x2) * (1-2*x2)
+    u2 = -2000 * x2**2 * (1-x2)**2 * x1 * (1-x1) * (1-2*x1)
+    ue = Tuple(u1, u2)
+    pe = x1**2 + x2**2 - 2/3
+    # ...
+
+    # Verify that div(u) = 0
+    assert (u1.diff(x1) + u2.diff(x2)).simplify() == 0
+
+    # ... Compute right-hand side
+    from sympde.calculus import laplace, grad
+    from sympde.expr import TerminalExpr
+
+    kwargs = dict(dim=2, logical=True)
+    a = TerminalExpr(-laplace(ue), **kwargs)
+    b = TerminalExpr(    grad(pe), **kwargs)
+    f = (a.T + b).simplify()
+    # ...
+
+    # Run test
+    namespace = run_stokes_2d_dir(f, ue, pe, ncells=[2**3, 2**3], degree=[4, 4], scipy=True)
