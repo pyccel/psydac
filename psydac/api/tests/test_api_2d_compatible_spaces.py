@@ -107,7 +107,7 @@ def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
     x, y  = domain.coordinates
     int_0 = lambda expr: integral(domain , expr)
 
-    a  = BilinearForm(((u, p),(v,q)), int_0(inner(grad(u), grad(v)) + div(u)*q - p*div(v)) )
+    a  = BilinearForm(((u, p), (v, q)), int_0(inner(grad(u), grad(v)) - div(u)*q - p*div(v)) )
     l  = LinearForm((v, q), int_0(dot(f, v)))
     bc = EssentialBC(u, 0, domain.boundary)
 
