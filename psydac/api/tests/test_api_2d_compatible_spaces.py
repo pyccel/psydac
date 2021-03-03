@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 import numpy as np
-from sympy import pi, cos, sin, Matrix, Tuple
+from sympy import pi, cos, sin, Matrix, Tuple, lambdify
 from scipy import linalg
 from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import gmres as sp_gmres
@@ -113,12 +113,6 @@ def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
 
     equation = find((u, p), forall=(v, q), lhs=a((u, p), (v, q)), rhs=l(v, q), bc=bc)
 
-    error_u = [ue[0]-u[0], ue[1]-u[1]]
-    error_p = pe - p
-
-    l2norm_u = Norm(error_u, domain, kind='l2')
-    l2norm_p = Norm(error_p, domain, kind='l2')
-
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells)
 
@@ -129,10 +123,6 @@ def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
 
     # ... discretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh])
-
-    # ... discretize error norms
-    l2norm_uh = discretize(l2norm_u, domain_h, V1h)
-    l2norm_ph = discretize(l2norm_p, domain_h, V2h)
 
     # ... assemble linear system
     equation_h.assemble()
@@ -166,16 +156,33 @@ def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
     ph = FemField(V2h)
     ph.coeffs[:] = x[2][:]
 
-    # Compute norms
-    l2_error_u = l2norm_uh.assemble(u = uh)
-    l2_error_p = l2norm_ph.assemble(p = ph)
+    # Compute norms of exact solution
+    x1, x2 = domain.coordinates
+    ue_1 = lambdify([x1, x2], ue[0])
+    ue_2 = lambdify([x1, x2], ue[1])
+    pe_c = lambdify([x1, x2], pe   )
+    l2_norm_ue = np.sqrt(V1h.spaces[0].integral(lambda *x: ue_1(*x)**2 + ue_2(*x)**2))
+    l2_norm_pe = np.sqrt(V2h.integral(lambda *x: pe_c(*x)**2))
 
     # Average value of the pressure (should be 0)
     domain_area = V2h.integral(lambda x1, x2: 1.0)
     p_avg = V2h.integral(ph) / domain_area
 
-    print('l2_error(u) = {}'.format(l2_error_u))
-    print('l2_error(p) = {}'.format(l2_error_p))
+    # L2 error norm of the velocity field
+    error_u   = [ue[0]-u[0], ue[1]-u[1]]
+    l2norm_u  = Norm(error_u, domain, kind='l2')
+    l2norm_uh = discretize(l2norm_u, domain_h, V1h)
+
+    # L2 error norm of the pressure, after removing the average value from the field
+    l2norm_p  = Norm(pe - (p - p_avg), domain, kind='l2')
+    l2norm_ph = discretize(l2norm_p, domain_h, V2h)
+
+    # Compute error norms
+    l2_error_u = l2norm_uh.assemble(u = uh)
+    l2_error_p = l2norm_ph.assemble(p = ph)
+
+    print('Relative l2_error(u) = {}'.format(l2_error_u / l2_norm_ue))
+    print('Relative l2_error(p) = {}'.format(l2_error_p / l2_norm_pe))
     print('average(p)  = {}'.format(p_avg))
 
     return locals()
