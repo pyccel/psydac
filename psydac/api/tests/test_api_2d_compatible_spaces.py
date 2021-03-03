@@ -124,8 +124,8 @@ def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
 
     # ... discrete spaces
     V1h = discretize(V1, domain_h, degree=degree)
-    V2h = discretize(V2, domain_h, degree=degree)
-    Xh  = discretize(X , domain_h, degree=degree)
+    V2h = discretize(V2, domain_h, degree=degree, basis='M')
+    Xh  = discretize(X , domain_h, degree=degree, basis='M')
 
     # ... discretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh])
