@@ -120,7 +120,6 @@ def apply_essential_bc_BlockVector(a, bc):
     if bc.index_component:
         for i_loc in bc.index_component:
             i = bc.position + i_loc
-
             apply_essential_bc(a[i], bc)
     else:
         var = bc.variable

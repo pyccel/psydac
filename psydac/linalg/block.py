@@ -254,6 +254,13 @@ class BlockVector( Vector ):
     def toarray( self ):
         return np.concatenate( [bi.toarray() for bi in self._blocks] )
 
+    def toarray_local( self ):
+        """ Convert to petsc Nest vector.
+        """
+
+        blocks    = [v.toarray_local() for v in self._blocks]
+        return np.block([blocks])[0]
+
     def topetsc( self ):
         """ Convert to petsc Nest vector.
         """
@@ -261,7 +268,8 @@ class BlockVector( Vector ):
         blocks    = [v.topetsc() for v in self._blocks]
         cart      = self._space.spaces[0].cart
         petsccart = cart.topetsc()
-        return petsccart.petsc.Vec(),createNest(blocks, comm=cart.comm)
+        vec       = petsccart.petsc.Vec().createNest(blocks, comm=cart.comm)
+        return vec
 
 #===============================================================================
 class BlockLinearOperator( LinearOperator ):

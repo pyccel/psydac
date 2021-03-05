@@ -893,61 +893,6 @@ class StencilMatrix( Matrix ):
         return self.transpose()
 
     # ...
-    def tocoo_local( self ):
-
-        # Shortcuts
-        sc = self._codomain.starts
-        ec = self._codomain.ends
-        pc = self._codomain.pads
-
-        sd = self._domain.starts
-        ed = self._domain.ends
-        pd = self._domain.pads
-
-        nd = self._ndim
-
-        nr = [e-s+1 +2*p for s,e,p in zip(sc, ec, pc)]
-        nc = [e-s+1 +2*p for s,e,p in zip(sd, ed, pd)]
-
-        ravel_multi_index = np.ravel_multi_index
-
-        # COO storage
-        rows = []
-        cols = []
-        data = []
-
-        local = tuple( [slice(p,-p) for p in pc] + [slice(None)] * nd )
-
-        dd = [pdi-ppi for pdi,ppi in zip(pd, self._pads)]
-
-        for (index, value) in np.ndenumerate( self._data[local] ):
-
-            # index = [i1-s1, i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
-
-            xx = index[:nd]  # ii is local
-            ll = index[nd:]  # l=p+k
-
-            ii = [x+p for x,p in zip(xx, pc)]
-            jj = [(l+i+d) for (i,l,d) in zip(xx,ll,dd)]
-
-            I = ravel_multi_index( ii, dims=nr, order='C' )
-            J = ravel_multi_index( jj, dims=nc, order='C' )
-
-            rows.append( I )
-            cols.append( J )
-            data.append( value )
-
-        M = coo_matrix(
-                (data,(rows,cols)),
-                shape = [np.prod(nr),np.prod(nc)],
-                dtype = self._domain.dtype
-        )
-
-        M.eliminate_zeros()
-
-        return M
-
-    # ...
     def topetsc( self ):
         """ Convert to petsc data structure.
         """
@@ -1063,6 +1008,59 @@ class StencilMatrix( Matrix ):
         else:
             return index + shift
 
+    def tocoo_local( self ):
+
+        # Shortcuts
+        sc = self._codomain.starts
+        ec = self._codomain.ends
+        pc = self._codomain.pads
+
+        sd = self._domain.starts
+        ed = self._domain.ends
+        pd = self._domain.pads
+
+        nd = self._ndim
+
+        nr = [e-s+1 +2*p for s,e,p in zip(sc, ec, pc)]
+        nc = [e-s+1 +2*p for s,e,p in zip(sd, ed, pd)]
+
+        ravel_multi_index = np.ravel_multi_index
+
+        # COO storage
+        rows = []
+        cols = []
+        data = []
+
+        local = tuple( [slice(p,-p) for p in pc] + [slice(None)] * nd )
+
+        dd = [pdi-ppi for pdi,ppi in zip(pd, self._pads)]
+
+        for (index, value) in np.ndenumerate( self._data[local] ):
+
+            # index = [i1-s1, i2-s2, ..., p1+j1-i1, p2+j2-i2, ...]
+
+            xx = index[:nd]  # ii is local
+            ll = index[nd:]  # l=p+k
+
+            ii = [x+p for x,p in zip(xx, pc)]
+            jj = [(l+i+d)%n for (i,l,d,n) in zip(xx,ll,dd,nc)]
+
+            I = ravel_multi_index( ii, dims=nr, order='C' )
+            J = ravel_multi_index( jj, dims=nc, order='C' )
+
+            rows.append( I )
+            cols.append( J )
+            data.append( value )
+
+        M = coo_matrix(
+                (data,(rows,cols)),
+                shape = [np.prod(nr),np.prod(nc)],
+                dtype = self._domain.dtype
+        )
+
+        M.eliminate_zeros()
+
+        return M
     #...
     def _tocoo_no_pads( self ):
 

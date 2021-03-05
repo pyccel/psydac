@@ -265,5 +265,3 @@ class ProductFemSpace( FemSpace ):
     def comm( self ):
         return self.spaces[0].comm
 
-    def __len__(self):
-        return len(self.spaces)

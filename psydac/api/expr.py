@@ -125,7 +125,7 @@ class DiscreteExpr(BasicCodeGen):
                     spans   = list(map(list, zip(*spans)))
                     basis   = [b for bs in basis for b in bs]
                     spans   = [s for sp in spans for s in sp]
-                    coeffs  = coeffs + tuple(F.coeffs[i] for i in range(len(Vh)))
+                    coeffs  = coeffs + tuple(F.coeffs[i] for i in range(len(Vh.spaces)))
                 else:
                     
                     basis_values = CollocationBasisValues(grid, Vh, nderiv=nderiv)
