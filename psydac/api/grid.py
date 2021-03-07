@@ -158,9 +158,6 @@ class BasisValues():
                 boundary_basis = basis_ders_on_quad_grid(
                         space.knots, space.degree, points, nderiv, space.basis)
 
-                if space.basis == 'M':
-                    boundary_basis[...] = 0.
-
                 self._basis[i][axis] = self._basis[i][axis].copy()
                 self._basis[i][axis][0:1, :, 0:nderiv+1, 0:1] = boundary_basis
                 if ext == 1:
