@@ -764,11 +764,15 @@ class DiscreteFunctional(BasicDiscrete):
             v = kwargs[key]
             if isinstance(v, FemField):
                 if v.space.is_product:
+                    coeffs = v.coeffs
                     if self._symbolic_space.is_broken:
                         index = self._symbolic_space.domain.interior.args.index(self._domain)
-                        args += (v.coeffs[index]._data, )
+                        coeffs = coeffs[index]
+
+                    if isinstance(coeffs, StencilVector):
+                        args += (coeffs._data, )
                     else:
-                        args += (e._data for e in v.coeffs)
+                        args += (e._data for e in coeffs)
                 else:
                     args += (v.coeffs._data, )
             else:
