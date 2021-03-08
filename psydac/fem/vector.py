@@ -165,10 +165,10 @@ class ProductFemSpace( FemSpace ):
     def __init__( self, *spaces):
         """."""
 
-        if len(args) == 1:
+        if len(spaces) == 1:
             return
 
-        self._spaces = tuple(args)
+        self._spaces = tuple(spaces)
 
         # ... make sure that all spaces have the same parametric dimension
         ldims = [V.ldim for V in self.spaces]
