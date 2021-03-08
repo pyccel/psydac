@@ -17,7 +17,7 @@ class VectorFemSpace( FemSpace ):
 
     def __init__( self, *spaces ):
         """."""
-        self._spaces = tuple(spaces)
+        self._spaces = spaces
 
         # ... make sure that all spaces have the same parametric dimension
         ldims = [V.ldim for V in self.spaces]
@@ -107,7 +107,7 @@ class VectorFemSpace( FemSpace ):
     @property
     def nbasis(self):
         dims = [V.nbasis for V in self.spaces]
-        # TODO: check if we should compute the product, or return a tuple
+        # TODO: check if we should return a tuple
         return sum(dims)
 
     @property
@@ -168,7 +168,7 @@ class ProductFemSpace( FemSpace ):
         if len(spaces) == 1:
             return
 
-        self._spaces = tuple(spaces)
+        self._spaces = spaces
 
         # ... make sure that all spaces have the same parametric dimension
         ldims = [V.ldim for V in self.spaces]
