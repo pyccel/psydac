@@ -179,7 +179,7 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_block_2d_array_to_stencil( n1, n2, p1, p2, P1, P2 ):
+def test_block_2d_array_to_stencil_1( n1, n2, p1, p2, P1, P2 ):
 
     # Create vector spaces, and stencil vectors
     V1 = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
@@ -201,7 +201,38 @@ def test_block_2d_array_to_stencil( n1, n2, p1, p2, P1, P2 ):
 
     assert np.allclose( xa , v.toarray() )
 
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [8,16] )
+@pytest.mark.parametrize( 'n2', [8,12] )
+@pytest.mark.parametrize( 'p1', [1,2,3] )
+@pytest.mark.parametrize( 'p2', [1,2,3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
 
+def test_block_2d_array_to_stencil_2( n1, n2, p1, p2, P1, P2 ):
+
+    # Create vector spaces, and stencil vectors
+    V1 = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    V2 = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+
+    W = BlockVectorSpace(V1, V2)
+    W = BlockVectorSpace(W, W)
+
+    x = BlockVector(W)
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x[0][0][i1,i2] = 2.0*random() + 1.0
+            x[0][1][i1,i2] = 5.0*random() - 1.0
+            x[1][0][i1,i2] = 2.0*random() + 1.0
+            x[1][1][i1,i2] = 5.0*random() - 1.0
+    x.update_ghost_regions()
+
+    xa = x.toarray()
+    v  = array_to_stencil(xa, W)
+
+    assert np.allclose( xa , v.toarray() )
 #===============================================================================
 # PARALLEL TESTS
 #===============================================================================

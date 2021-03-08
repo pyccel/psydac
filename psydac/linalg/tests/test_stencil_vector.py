@@ -143,8 +143,10 @@ def test_stencil_vector_2d_serial_dot( n1, n2, p1, p2, P1=True, P2=False ):
 @pytest.mark.parametrize( 'n2', [1,5] )
 @pytest.mark.parametrize( 'p1', [1,2] )
 @pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
 
-def test_stencil_2d_array_to_stencil( n1, n2, p1, p2, P1=True, P2=False ):
+def test_stencil_2d_array_to_stencil( n1, n2, p1, p2, P1, P2 ):
 
     V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
     x = StencilVector( V )
@@ -157,6 +159,7 @@ def test_stencil_2d_array_to_stencil( n1, n2, p1, p2, P1=True, P2=False ):
     v  = array_to_stencil(xa, V)
 
     assert np.allclose( xa , v.toarray() )
+
 #===============================================================================
 # PARALLEL TESTS
 #===============================================================================
