@@ -15,9 +15,9 @@ class VectorFemSpace( FemSpace ):
 
     """
 
-    def __init__( self, *args, **kwargs ):
+    def __init__( self, *spaces ):
         """."""
-        self._spaces = tuple(args)
+        self._spaces = tuple(spaces)
 
         # ... make sure that all spaces have the same parametric dimension
         ldims = [V.ldim for V in self.spaces]
@@ -157,8 +157,8 @@ class ProductFemSpace( FemSpace ):
 
     def __new__(cls, *spaces):
 
-        if len(args) == 1:
-            return args[0]
+        if len(spaces) == 1:
+            return spaces[0]
         else:
             return FemSpace.__new__(cls)
 
@@ -191,7 +191,7 @@ class ProductFemSpace( FemSpace ):
         # ...
 
         # ...
-        v_spaces = [V.vector_space for V in self.spaces]
+        v_spaces           = [V.vector_space for V in self.spaces]
         self._vector_space = BlockVectorSpace(*v_spaces)
         # ...
 
