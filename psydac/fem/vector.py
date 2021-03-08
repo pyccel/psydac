@@ -155,14 +155,14 @@ class ProductFemSpace( FemSpace ):
     Product of FEM space
     """
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *spaces):
 
         if len(args) == 1:
             return args[0]
         else:
             return FemSpace.__new__(cls)
 
-    def __init__( self, *args, **kwargs ):
+    def __init__( self, *spaces):
         """."""
 
         if len(args) == 1:
