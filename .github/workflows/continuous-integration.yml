@@ -11,11 +11,12 @@ on:
 
 jobs:
   build:
-
+    name: ${{ matrix.os }} - Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+#        python-version: [3.6, 3.7, 3.8]
         include:
         - os: ubuntu-18.04
           python-version: 3.6
@@ -25,8 +26,6 @@ jobs:
 
         - os: ubuntu-20.04
           python-version: 3.8
-
-#        python-version: [3.6, 3.7, 3.8]
 
     steps:
     - uses: actions/checkout@v2
