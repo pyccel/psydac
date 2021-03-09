@@ -329,6 +329,29 @@ def reduce_space_degrees(V, Vh, basis='B'):
 #==============================================================================
 # TODO knots
 def discretize_space(V, domain_h, *args, **kwargs):
+    """
+    This function creates the discretized space starting from the symbolic space.
+
+    Parameters
+    ----------
+
+    V : <FunctionSpace>
+        the symbolic space
+
+    domain_h   : <Geometry>
+        the discretized domain
+
+    Returns
+    -------
+    Vh : <FemSpace>
+        represents the discrete fem space
+
+    """
+
+#    we have two two cases, the case where we have a geometry file,
+#    and the case where we have either an analytical mapping or without the mapping.
+#    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
+#    we then create the compatible spaces if needed with the suitable basis functions.
 
     degree              = kwargs.pop('degree', None)
     comm                = domain_h.comm
