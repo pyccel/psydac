@@ -64,7 +64,7 @@ install_requires = [
     #
     # python3 -m pip install requirements.txt
     # python3 -m pip install .
-#    'mpi4py',
+    'mpi4py',
     'h5py',
 ]
 
