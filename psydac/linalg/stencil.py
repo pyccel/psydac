@@ -108,22 +108,24 @@ class StencilVectorSpace( VectorSpace ):
         """
         return StencilVector( self )
         
-    # ...
-    def __eq__(self, V):
-    
-        if self.parallel and V.parallel:
-            cond = self._dtype == V._dtype
-            cond = cond and self._cart ==  V._cart
-            return cond
-            
-        elif not self.parallel and not V.parallel:
-            cond = self.npts == V.npts
-            cond = cond and self.pads == V.pads
-            cond = cond and self.periods == V.periods
-            cond = cond and self.dtype == V.dtype
-            return cond
-        else:
-            return False
+# NOTE [YG, 09.03.2021]: the equality comparison "==" is removed because we
+# prefer using the identity comparison "is" as far as possible.
+#    # ...
+#    def __eq__(self, V):
+#
+#        if self.parallel and V.parallel:
+#            cond = self._dtype == V._dtype
+#            cond = cond and self._cart ==  V._cart
+#            return cond
+#
+#        elif not self.parallel and not V.parallel:
+#            cond = self.npts == V.npts
+#            cond = cond and self.pads == V.pads
+#            cond = cond and self.periods == V.periods
+#            cond = cond and self.dtype == V.dtype
+#            return cond
+#        else:
+#            return False
 
     #--------------------------------------
     # Other properties/methods
@@ -207,7 +209,7 @@ class StencilVector( Vector ):
     def dot( self, v ):
 
         assert isinstance( v, StencilVector )
-        assert v._space == self._space
+        assert v._space is self._space
 
         res = self._dot(self._data, v._data , self.pads)
         if self._space.parallel:
@@ -253,7 +255,7 @@ class StencilVector( Vector ):
     #...
     def __add__( self, v ):
         assert isinstance( v, StencilVector )
-        assert v._space == self._space
+        assert v._space is self._space
         w = StencilVector( self._space )
         w._data = self._data  +  v._data
         w._sync = self._sync and v._sync
@@ -262,7 +264,7 @@ class StencilVector( Vector ):
     #...
     def __sub__( self, v ):
         assert isinstance( v, StencilVector )
-        assert v._space == self._space
+        assert v._space is self._space
         w = StencilVector( self._space )
         w._data = self._data  -  v._data
         w._sync = self._sync and v._sync
@@ -276,7 +278,7 @@ class StencilVector( Vector ):
     #...
     def __iadd__( self, v ):
         assert isinstance( v, StencilVector )
-        assert v._space == self._space
+        assert v._space is self._space
         self._data += v._data
         self._sync  = v._sync and self._sync
         return self
@@ -284,7 +286,7 @@ class StencilVector( Vector ):
     #...
     def __isub__( self, v ):
         assert isinstance( v, StencilVector )
-        assert v._space == self._space
+        assert v._space is self._space
         self._data -= v._data
         self._sync  = v._sync and self._sync
         return self
@@ -601,7 +603,7 @@ class StencilMatrix( Matrix ):
     def dot( self, v, out=None ):
 
         assert isinstance( v, StencilVector )
-        assert v.space == self.domain
+        assert v.space is self.domain
 
         # Necessary if vector space is distributed across processes
         if not v.ghost_regions_in_sync:
@@ -609,7 +611,7 @@ class StencilMatrix( Matrix ):
 
         if out is not None:
             assert isinstance( out, StencilVector )
-            assert out.space == self.codomain
+            assert out.space is self.codomain
         else:
             out = StencilVector( self.codomain )
 
@@ -739,8 +741,8 @@ class StencilMatrix( Matrix ):
     #...
     def __add__(self, m):
         assert isinstance(m, StencilMatrix)
-        assert m._domain   == self._domain
-        assert m._codomain == self._codomain
+        assert m._domain   is self._domain
+        assert m._codomain is self._codomain
         assert m._pads     == self._pads
         w = StencilMatrix(self._domain, self._codomain, self._pads)
         w._data = self._data  +  m._data
@@ -750,8 +752,8 @@ class StencilMatrix( Matrix ):
     #...
     def __sub__(self, m):
         assert isinstance(m, StencilMatrix)
-        assert m._domain   == self._domain
-        assert m._codomain == self._codomain
+        assert m._domain   is self._domain
+        assert m._codomain is self._codomain
         assert m._pads     == self._pads
         w = StencilMatrix(self._domain, self._codomain, self._pads)
         w._data = self._data  -  m._data
@@ -766,8 +768,8 @@ class StencilMatrix( Matrix ):
     #...
     def __iadd__(self, m):
         assert isinstance(m, StencilMatrix)
-        assert m._domain   == self._domain
-        assert m._codomain == self._codomain
+        assert m._domain   is self._domain
+        assert m._codomain is self._codomain
         assert m._pads     == self._pads
         self._data += m._data
         self._sync  = m._sync and self._sync
@@ -776,8 +778,8 @@ class StencilMatrix( Matrix ):
     #...
     def __isub__(self, m):
         assert isinstance(m, StencilMatrix)
-        assert m._domain   == self._domain
-        assert m._codomain == self._codomain
+        assert m._domain   is self._domain
+        assert m._codomain is self._codomain
         assert m._pads     == self._pads
         self._data -= m._data
         self._sync  = m._sync and self._sync
@@ -1317,7 +1319,7 @@ class StencilInterfaceMatrix(Matrix):
     def dot( self, v, out=None ):
 
         assert isinstance( v, StencilVector )
-        assert v.space == self.domain
+        assert v.space is self.domain
 
         # Necessary if vector space is distributed across processes
         if not v.ghost_regions_in_sync:

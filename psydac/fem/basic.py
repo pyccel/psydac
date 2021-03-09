@@ -186,7 +186,7 @@ class FemField:
 
         if coeffs is not None:
             assert isinstance( coeffs, Vector )
-            assert space.vector_space == coeffs.space
+            assert space.vector_space is coeffs.space
         else:
             coeffs = space.vector_space.zeros()
 

@@ -118,8 +118,7 @@ class BlockVector( Vector ):
         if blocks:
             # Verify that vectors belong to correct spaces and store them
             assert isinstance( blocks, (list, tuple) )
-            # assert all( (Vi is bi.space) for Vi,bi in zip( V.spaces, blocks ) )    #  DEBUG
-            assert all( (Vi == bi.space) for Vi,bi in zip( V.spaces, blocks ) )
+            assert all( (Vi is bi.space) for Vi,bi in zip( V.spaces, blocks ) )
 
             self._blocks = list( blocks )
         else:
@@ -347,14 +346,14 @@ class BlockLinearOperator( LinearOperator ):
         else:
             assert isinstance(v, BlockVector)
 
-        assert v.space == self.domain
+        assert v.space is self.domain
 
         if out is not None:
             if self.n_block_rows == 1:
                 assert isinstance(out, Vector)
             else:
                 assert isinstance(out, BlockVector)
-            assert out.space == self.codomain
+            assert out.space is self.codomain
             out *= 0.0
         else:
             out = self.codomain.zeros()
@@ -431,15 +430,15 @@ class BlockLinearOperator( LinearOperator ):
 
         # Check domain of rhs
         if self.n_block_cols == 1:
-            assert value.domain == self.domain
+            assert value.domain is self.domain
         else:
-            assert value.domain == self.domain[j]
+            assert value.domain is self.domain[j]
 
         # Check codomain of rhs
         if self.n_block_rows == 1:
-            assert value.codomain == self.codomain
+            assert value.codomain is self.codomain
         else:
-            assert value.codomain == self.codomain[i]
+            assert value.codomain is self.codomain[i]
 
         self._blocks[i,j] = value
 
@@ -519,8 +518,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def __add__(self, M):
         assert isinstance(M, BlockMatrix)
-        assert M.  domain == self.  domain
-        assert M.codomain == self.codomain
+        assert M.  domain is self.  domain
+        assert M.codomain is self.codomain
         blocks  = {}
         for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
             Bij = self[ij]
@@ -533,8 +532,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def __sub__(self, M):
         assert isinstance(M, BlockMatrix)
-        assert M.  domain == self.  domain
-        assert M.codomain == self.codomain
+        assert M.  domain is self.  domain
+        assert M.codomain is self.codomain
         blocks  = {}
         for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
             Bij = self[ij]
@@ -553,8 +552,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def __iadd__(self, M):
         assert isinstance(M, BlockMatrix)
-        assert M.  domain == self.  domain
-        assert M.codomain == self.codomain
+        assert M.  domain is self.  domain
+        assert M.codomain is self.codomain
 
         for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
 
@@ -573,8 +572,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def __isub__(self, M):
         assert isinstance(M, BlockMatrix)
-        assert M.  domain == self.  domain
-        assert M.codomain == self.codomain
+        assert M.  domain is self.  domain
+        assert M.codomain is self.codomain
 
         for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
 
