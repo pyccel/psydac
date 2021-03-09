@@ -31,7 +31,6 @@ jobs:
         sudo apt-get install gfortran
         sudo apt-get install openmpi-bin libopenmpi-dev
         sudo apt-get install libhdf5-openmpi-dev
-        sudo apt-get install python3-mpi4py
         ompi_info
         h5pcc -showconfig -echo || true
 
