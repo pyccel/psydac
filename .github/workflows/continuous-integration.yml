@@ -48,9 +48,9 @@ jobs:
       id: pip-cache
       with:
         path: ${{ steps.pip-cache-dir.outputs.dir }}
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        key: ${{ runner.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
-          ${{ runner.os }}-pip-
+          ${{ runner.os }}-${{ matrix.python-version }}-pip-
 
     - name: Install Python dependencies
 #      if: steps.pip-cache.outputs.cache-hit != 'true'
