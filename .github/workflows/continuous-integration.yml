@@ -12,11 +12,17 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.8]
+        include:
+        - os: ubuntu-18.04
+          python-version: [3.6, 3.7]
+
+        - os: ubuntu-20.04
+          python-version: [3.8]
+
 #        python-version: [3.6, 3.7, 3.8]
 
     steps:
@@ -50,9 +56,9 @@ jobs:
       id: pip-cache
       with:
         path: ${{ steps.pip-cache-dir.outputs.dir }}
-        key: ${{ runner.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
+        key: ${{ matrix.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
-          ${{ runner.os }}-${{ matrix.python-version }}-pip-
+          ${{ matrix.os }}-${{ matrix.python-version }}-pip-
 
     - name: Install Python dependencies - wheel, numpy, mpi4py
       run: |
