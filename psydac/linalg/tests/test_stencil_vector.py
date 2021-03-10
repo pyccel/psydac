@@ -4,6 +4,7 @@ import pytest
 import numpy as np
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
+from psydac.linalg.utilities import array_to_stencil
 
 #===============================================================================
 # SERIAL TESTS
@@ -136,6 +137,28 @@ def test_stencil_vector_2d_serial_dot( n1, n2, p1, p2, P1=True, P2=False ):
 
     assert z1 == z_exact
     assert z2 == z_exact
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [1,7] )
+@pytest.mark.parametrize( 'n2', [1,5] )
+@pytest.mark.parametrize( 'p1', [1,2] )
+@pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+
+def test_stencil_2d_array_to_stencil( n1, n2, p1, p2, P1, P2 ):
+
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    x = StencilVector( V )
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x[i1,i2] = 10*i1 + i2
+
+    xa = x.toarray()
+    v  = array_to_stencil(xa, V)
+
+    assert np.allclose( xa , v.toarray() )
 
 #===============================================================================
 # PARALLEL TESTS

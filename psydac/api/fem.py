@@ -39,7 +39,7 @@ __all__ = (
 #==============================================================================
 def get_quad_order(Vh):
     if isinstance(Vh, ProductFemSpace):
-        Vh = Vh.spaces[0]
+        return get_quad_order(Vh.spaces[0])
     return tuple([g.weights.shape[1] for g in Vh.quad_grids])
 
 def collect_spaces(space, *args):
@@ -147,55 +147,40 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         self._is_rational_mapping = is_rational_mapping
         # ...
+
         self._spaces = args[1]
-        trial_space  = self.spaces[0]
-        test_space   = self.spaces[1]
 
         kwargs['discrete_space']      = self.spaces
         kwargs['mapping']             = self.spaces[0].symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
-        quad_order                    = kwargs.pop('quad_order', get_quad_order(test_space))
+        quad_order                    = kwargs.pop('quad_order', get_quad_order(self.spaces[1]))
 
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
-        domain       = self.kernel_expr.target
+        # ...
+        self._target = self.kernel_expr.target
+        self._domain = domain_h.domain
         self._matrix = kwargs.pop('matrix', None)
 
-        if self._matrix is None:
-            if isinstance(test_space, ProductFemSpace):
-                self._matrix = BlockMatrix(trial_space.vector_space, test_space.vector_space)
-            elif isinstance(trial_space, ProductFemSpace):
-                self._matrix = BlockMatrix(trial_space.vector_space, test_space.vector_space)
+        domain = self.domain
+        target = self.target
 
-        test_sym_space   = test_space.symbolic_space
-        trial_sym_space  = trial_space.symbolic_space
-        if test_sym_space.is_broken:
-            domains = test_sym_space.domain.interior.args
-            if isinstance(domain, Interface):
-                ij = [domains.index(domain.minus.domain), domains.index(domain.plus.domain)]
-                if isinstance(self.kernel_expr.test, PlusInterfaceOperator):
-                    ij.reverse()
-                i,j = ij
-                test_space  = test_space.spaces[i]
-                trial_space = trial_space.spaces[j]
-            else:
-                if isinstance(domain, Boundary):
-                    i = domains.index(domain.domain)
-                else:
-                    i = domains.index(domain)
-                test_space  = test_space.spaces[i]
-                trial_space = trial_space.spaces[i]
-            self._spaces    = (trial_space, test_space)
-            self._spaces[0].symbolic_space = trial_sym_space
-            self._spaces[1].symbolic_space = test_sym_space
+        # ...
+        if len(domain)>1:
+            i,j = self.get_space_indices_from_target(domain, target )
+            test_space  = self.spaces[0].spaces[i]
+            trial_space = self.spaces[1].spaces[j]
+        else:
+            trial_space  = self.spaces[0]
+            test_space   = self.spaces[1]
 
-        if isinstance(domain, Boundary):
-            axis      = domain.axis
-            test_ext  = domain.ext
-            trial_ext = domain.ext
-        elif isinstance(domain, Interface):
-            axis       = domain.axis
+        if isinstance(target, Boundary):
+            axis      = target.axis
+            test_ext  = target.ext
+            trial_ext = target.ext
+        elif isinstance(target, Interface):
+            axis       = target.axis
             test_ext   = -1 if isinstance(self.kernel_expr.test,  PlusInterfaceOperator) else 1
             trial_ext  = -1 if isinstance(self.kernel_expr.trial, PlusInterfaceOperator) else 1
         else:
@@ -203,12 +188,13 @@ class DiscreteBilinearForm(BasicDiscrete):
             test_ext  = None
             trial_ext = None
 
-        if isinstance(domain, (Boundary, Interface)):
-
+        if isinstance(target, (Boundary, Interface)):
             #...
             # If process does not own the boundary or interface, do not assemble anything
             if isinstance(test_space.vector_space, BlockVectorSpace):
                 vector_space = test_space.vector_space.spaces[0]
+                if isinstance(test_space.vector_space, BlockVectorSpace):
+                    vector_space = test_space.vector_space.spaces[0]
             else:
                 vector_space = test_space.vector_space
 
@@ -230,6 +216,14 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
 
         self._args = self.construct_arguments()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def target(self):
+        return self._target
 
     @property
     def spaces(self):
@@ -264,6 +258,10 @@ class DiscreteBilinearForm(BasicDiscrete):
             consts  = []
             for key in self._free_args:
                 v = kwargs[key]
+                if len(self.domain)>1 and isinstance(v, VectorFemField):
+                    i,j = get_space_indices_from_target(self.domain, self.target)
+                    assert i==j
+                    v = v[i]
                 if isinstance(v, FemField):
                     basis_v  = BasisValues(v.space, nderiv = self.max_nderiv)
                     bs, d, s = construct_test_space_arguments(basis_v)
@@ -288,15 +286,31 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._func(*args)
         return self._matrix
 
+    def get_space_indices_from_target(self, domain, target):
+        domains = domain.interior.args
+        if isinstance(target, Interface):
+            ij = [domains.index(target.minus.domain), domains.index(target.plus.domain)]
+            if isinstance(self.kernel_expr.test, PlusInterfaceOperator):
+                ij.reverse()
+            i,j = ij
+        else:
+            if isinstance(target, Boundary):
+                i = domains.index(target.domain)
+                j = i
+            else:
+                i = domains.index(target)
+                j = i
+        return i,j
+
     def construct_arguments(self):
 
-        test_basis, test_degrees, spans = construct_test_space_arguments(self.test_basis)
+        test_basis, test_degrees, spans   = construct_test_space_arguments(self.test_basis)
         trial_basis, trial_degrees        = construct_trial_space_arguments(self.trial_basis)
         n_elements, quads, quad_degrees   = construct_quad_grids_arguments(self.grid)
 
-        pads                    = self.spaces[0].vector_space.pads
+        pads                      = self.test_basis.space.vector_space.pads
         element_mats, global_mats = self.allocate_matrices()
-        self._global_matrices   = [M._data for M in global_mats]
+        self._global_matrices     = [M._data for M in global_mats]
 
         if self.mapping:
             mapping = [e._coeffs._data for e in self.mapping._fields]
@@ -309,19 +323,17 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def allocate_matrices(self):
 
-        spaces          = self.spaces
+        global_mats     = OrderedDict()
+        element_mats    = OrderedDict()
+
         expr            = self.kernel_expr.expr
         target          = self.kernel_expr.target
-        global_mats     = OrderedDict()
-        element_mats      = OrderedDict()
-        test_space      = spaces[1].vector_space
-        trial_space     = spaces[0].vector_space
-        test_degree     = np.array(spaces[1].degree)
-        trial_degree    = np.array(spaces[0].degree)
-        test_sym_space  = spaces[1].symbolic_space
-        trial_sym_space = spaces[0].symbolic_space
-        is_broken       = test_sym_space.is_broken
-        domain          = test_sym_space.domain.interior.args if is_broken else test_sym_space.domain.interior
+        test_degree     = np.array(self.test_basis.space.degree)
+        trial_degree    = np.array(self.trial_basis.space.degree)
+        test_space      = self.test_basis.space.vector_space
+        trial_space     = self.trial_basis.space.vector_space
+        domain          = self.domain
+        is_broken       = len(domain)>1
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
             pads         = np.empty((len(test_degree),len(trial_degree),len(test_degree[0])), dtype=int)
@@ -333,67 +345,72 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             pads = test_degree
 
-        if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
+        if self._matrix is None and (is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix))):
+            self._matrix = BlockMatrix(self.spaces[0].vector_space,
+                                       self.spaces[1].vector_space)
+
+        if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case of system of equations
+
+            if is_broken: #multi patch
+                i,j = self.get_space_indices_from_target(domain, target )
+                if not self._matrix[i,j]:
+                    self._matrix[i,j] = BlockMatrix(trial_space, test_space)
+                matrix = self._matrix[i,j]
+            else: # single patch
+                matrix = self._matrix
 
             shape = expr.shape
-            for i in range(shape[0]):
-                for j in range(shape[1]):
-                    if expr[i,j].is_zero:
+            for k1 in range(shape[0]):
+                for k2 in range(shape[1]):
+                    if expr[k1,k2].is_zero:
                         continue
-                    elif is_broken:
-                        ii = shape[0]*domain.index(target) + i
-                        jj = shape[1]*domain.index(target) + j
-                        if self._matrix and self._matrix[ii,jj]:
-                            global_mats[ii,jj] = self._matrix[ii,jj]
-                        else:
-                            global_mats[ii,jj] = StencilMatrix(trial_space.spaces[j], test_space.spaces[i], pads = tuple(pads[i,j]))
-                        element_mats[ii,jj]  = np.empty((*(test_degree[i]+1),*(2*pads[i,j]+1)))
 
+                    if matrix[k1,k2]:
+                        global_mats[k1,k2] = matrix[k1,k2]
+                    elif not i == j: # assembling in an interface (type(target) == Interface)
+                        axis        = target.axis
+                        test_spans  = self.test_basis.spans
+                        trial_spans = self.trial_basis.spans
+                        s_d = trial_spans[k2][axis][0] - trial_degree[k2][axis]
+                        s_c = test_spans[k1][axis][0] - test_degree[k1][axis]
+                        if self._func != do_nothing:
+                            global_mats[k1,k2] = StencilInterfaceMatrix(trial_space.spaces[k2], test_space.spaces[k1],
+                                                                        s_d, s_c,
+                                                                        axis, pads=tuple(pads[k1,k2]))
                     else:
-                        if self._matrix and self._matrix[i,j]:
-                            global_mats[i,j] = self._matrix[i,j]
-                        else:
-                            global_mats[i,j] = StencilMatrix(trial_space.spaces[j], test_space.spaces[i], pads = tuple(pads[i,j]))
-                        element_mats[i,j]  = np.empty((*(test_degree[i]+1),*(2*pads[i,j]+1)))
+                        global_mats[k1,k2] = StencilMatrix(trial_space.spaces[k2],
+                                                                test_space.spaces[k1],
+                                                                pads = tuple(pads[k1,k2]))
 
-            self._matrix = BlockMatrix(trial_space, test_space, global_mats)
+                    element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*(2*pads[k1,k2]+1)))
+                    matrix[k1,k2]        = global_mats[k1,k2]
 
-        elif is_broken:
-            if isinstance(target, Interface):
-                axis        = target.axis
-                test_spans  = self.test_basis.spans
-                trial_spans = self.trial_basis.spans
-                ij = [domain.index(target.minus.domain),domain.index(target.plus.domain)]
-                if isinstance(self.kernel_expr.test, PlusInterfaceOperator):
-                    ij.reverse()
-                ii, jj = ij
-                if self._matrix[ii,jj]:
-                    global_mats[ii,jj] = self._matrix[ii,jj]
-                elif self._func != do_nothing:
-                    global_mats[ii,jj] = StencilInterfaceMatrix(trial_space, test_space, trial_spans[0][axis][0], test_spans[0][axis][0], axis)
-                element_mats[ii,jj]  = np.empty((*(test_degree+1),*(2*trial_degree+1)))
-            else:
-                if isinstance(target, Boundary):
-                    i = domain.index(target.domain)
-                else:
-                    i = domain.index(target)
-                j = i
+        else: # case of scalar equation
+            if is_broken: # multi-patch
+                i,j = self.get_space_indices_from_target(domain, target )
                 if self._matrix[i,j]:
                     global_mats[i,j] = self._matrix[i,j]
+                elif not i == j: # assembling in an interface (type(target) == Interface)
+                    axis        = target.axis
+                    test_spans  = self.test_basis.spans
+                    trial_spans = self.trial_basis.spans
+                    s_d = trial_spans[0][axis][0] - trial_degree[axis]
+                    s_c = test_spans[0][axis][0] - test_degree[axis]
+                    if self._func != do_nothing:
+                        global_mats[i,j] = StencilInterfaceMatrix(trial_space, test_space, s_d, s_c, axis)
                 else:
                     global_mats[i,j] = StencilMatrix(trial_space, test_space)
 
-                element_mats[i,j]  = np.empty((*(test_degree+1),*(2*trial_degree+1)))
-            for ij in global_mats:
-                self._matrix[ij]  = global_mats[ij]
-        else:
-            if self._matrix:
-                global_mats[0,0] = self._matrix
-            else:
-                global_mats[0,0] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
+                element_mats[i,j]  = np.empty((*(test_degree+1),*(2*pads+1)))
+                if (i,j) in global_mats:self._matrix[i,j] = global_mats[i,j]
+            else: # single patch
+                if self._matrix:
+                    global_mats[0,0] = self._matrix
+                else:
+                    global_mats[0,0] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
 
-            element_mats[0,0]  = np.empty((*(test_degree+1),*(2*pads+1)))
-            self._matrix     = global_mats[0,0]
+                element_mats[0,0]  = np.empty((*(test_degree+1),*(2*pads+1)))
+                self._matrix       = global_mats[0,0]
         return element_mats.values(), global_mats.values()
 
 
@@ -418,7 +435,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         self._is_rational_mapping = is_rational_mapping
 
-        self._space = args[1]
+        self._space  = args[1]
 
         kwargs['discrete_space']      = self.space
         kwargs['mapping']             = self.space.symbolic_mapping
@@ -429,36 +446,32 @@ class DiscreteLinearForm(BasicDiscrete):
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
         # ...
-        domain     = self.kernel_expr.target
+        self._target     = self.kernel_expr.target
+        self._domain     = domain_h.domain
+        self._vector     = kwargs.pop('vector', None)
 
-        self._vector = kwargs.pop('vector', None)
-        if self._vector is None:
-            if isinstance(self._space, ProductFemSpace):
-                self._vector = BlockVector(self._space.vector_space)
+        domain = self.domain
+        target = self.target
 
-        test_sym_space   = self._space.symbolic_space
-        if test_sym_space.is_broken:
-            domains = test_sym_space.domain.interior.args
+        if len(domain)>1:
+            i = self.get_space_indices_from_target(domain, target )
+            test_space  = self._space.spaces[i]
+        else:
+            test_space  = self._space
 
-            if isinstance(domain, Boundary):
-                i = domains.index(domain.domain)
-            else:
-                i = domains.index(domain)
-            self._space  = self._space.spaces[i]
-
-        self._space.symbolic_space  = test_sym_space
-
-        if not isinstance(domain, Boundary):
+        if not isinstance(target, Boundary):
             ext  = None
             axis = None
         else:
-            ext  = domain.ext
-            axis = domain.axis
+            ext  = target.ext
+            axis = target.axis
 
             #...
             # If process does not own the boundary or interface, do not assemble anything
             if isinstance(self.space.vector_space, BlockVectorSpace):
                 vector_space = self.space.vector_space.spaces[0]
+                if isinstance(test_space.vector_space, BlockVectorSpace):
+                    vector_space = test_space.vector_space.spaces[0]
             else:
                 vector_space = self.space.vector_space
 
@@ -474,11 +487,18 @@ class DiscreteLinearForm(BasicDiscrete):
                     self._func = do_nothing
             #...
 
-        grid             = QuadratureGrid( self.space, axis=axis, ext=ext )
+        grid             = QuadratureGrid( test_space, axis=axis, ext=ext )
         self._grid       = grid
-        self._test_basis = BasisValues( self.space, nderiv = self.max_nderiv, grid=grid, ext=ext)
-
+        self._test_basis = BasisValues( test_space, nderiv = self.max_nderiv, grid=grid, ext=ext)
         self._args = self.construct_arguments()
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def target(self):
+        return self._target
 
     @property
     def space(self):
@@ -509,6 +529,9 @@ class DiscreteLinearForm(BasicDiscrete):
             consts  = []
             for key in self._free_args:
                 v = kwargs[key]
+                if len(self.domain)>1 and isinstance(v, VectorFemField):
+                    i = get_space_indices_from_target(self.domain, self.target)
+                    v = v[i]
                 if isinstance(v, FemField):
                     basis_v  = BasisValues(v.space, nderiv = self.max_nderiv)
                     bs, d, s = construct_test_space_arguments(basis_v)
@@ -533,6 +556,16 @@ class DiscreteLinearForm(BasicDiscrete):
         self._func(*args)
         return self._vector
 
+    def get_space_indices_from_target(self, domain, target):
+        domains = domain.interior.args
+        if isinstance(target, Interface):
+            raise NotImplementedError("TODO")
+        elif isinstance(target, Boundary):
+            i = domains.index(target.domain)
+        else:
+            i = domains.index(target)
+        return i
+
     def construct_arguments(self):
 
         tests_basis, tests_degrees, spans = construct_test_space_arguments(self.test_basis)
@@ -553,53 +586,61 @@ class DiscreteLinearForm(BasicDiscrete):
         return args
 
     def allocate_matrices(self):
-        space       = self.space
-        expr        = self.kernel_expr.expr
-        global_mats = OrderedDict()
-        element_mats  = OrderedDict()
-        test_space  = space.vector_space
-        test_degree = np.array(space.degree)
 
+        global_mats   = OrderedDict()
+        element_mats  = OrderedDict()
+
+        test_space  = self.test_basis.space.vector_space
+        test_degree = np.array(self.test_basis.space.degree)
+
+        expr        = self.kernel_expr.expr
         target      = self.kernel_expr.target
-        sym_space   = space.symbolic_space
-        is_broken   = sym_space.is_broken
-        domain      = sym_space.domain.interior.args if is_broken else sym_space.domain.interior
-        if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
+        domain      = self.domain
+        is_broken   = len(domain)>1
+
+        if self._vector is None and (is_broken or isinstance( expr, (ImmutableDenseMatrix, Matrix))):
+            self._vector = BlockVector(self.space.vector_space)
+
+        if isinstance(expr, (ImmutableDenseMatrix, Matrix)): # case system of equations
+
+            if is_broken: #multi patch
+                i = self.get_space_indices_from_target(domain, target )
+                if not self._vector[i]:
+                    self._vector[i] = BlockVector(test_space)
+                vector = self._vector[i]
+            else: # single patch
+                vector = self._vector
+
             expr = expr[:]
             for i in range(len(expr)):
                 if expr[i].is_zero:
                     continue
                 else:
-                    if  self._vector[i]:
-                        global_mats[i] = self._vector[i]
+                    if  vector[i]:
+                        global_mats[i] = vector[i]
                     else:
                         global_mats[i] = StencilVector(test_space.spaces[i])
                     element_mats[i] = np.empty([*(test_degree[i]+1)])
 
-            for i in global_mats:
-                self._vector[i] = global_mats[i]
-        elif is_broken:
-            if isinstance(target, Boundary):
-                i = domain.index(target.domain)
-            else:
-                i = domain.index(target)
-
-            if self._vector[i]:
-                global_mats[i] = self._vector[i]
-            else:
-                global_mats[i] = StencilVector(test_space)
-
-            element_mats[i] = np.empty([*(test_degree+1)])
-
-            for i in global_mats:
-                self._vector[i] = global_mats[i]
+                vector[i] = global_mats[i]
         else:
-            if self._vector:
-                global_mats[0] = self._vector
+            if is_broken:
+                i = self.get_space_indices_from_target(domain, target )
+                if self._vector[i]:
+                    global_mats[i] = self._vector[i]
+                else:
+                    global_mats[i] = StencilVector(test_space)
+
+                element_mats[i] = np.empty([*(test_degree+1)])
+                self._vector[i] = global_mats[i]
             else:
-                global_mats[0] = StencilVector(test_space)
-                self._vector   = global_mats[0]
-            element_mats[0]  = np.empty([*(test_degree+1)])
+                if self._vector:
+                    global_mats[0] = self._vector
+                else:
+                    global_mats[0] = StencilVector(test_space)
+                    self._vector   = global_mats[0]
+                element_mats[0]  = np.empty([*(test_degree+1)])
+
         self._global_mats = list(global_mats.values())
         return element_mats.values(), global_mats.values()
 
@@ -638,9 +679,8 @@ class DiscreteFunctional(BasicDiscrete):
 
         # ...
         self._vector = kwargs.pop('vector', None)
-        domain     = self.kernel_expr.target
+        domain       = self.kernel_expr.target
         # ...
-
 
         test_sym_space   = self._space.symbolic_space
         if test_sym_space.is_broken:
@@ -720,16 +760,19 @@ class DiscreteFunctional(BasicDiscrete):
 
     def assemble(self, **kwargs):
         args = [*self._args]
-
         for key in self._free_args:
             v = kwargs[key]
             if isinstance(v, FemField):
                 if v.space.is_product:
+                    coeffs = v.coeffs
                     if self._symbolic_space.is_broken:
                         index = self._symbolic_space.domain.interior.args.index(self._domain)
-                        args += (v.coeffs[index]._data, )
+                        coeffs = coeffs[index]
+
+                    if isinstance(coeffs, StencilVector):
+                        args += (coeffs._data, )
                     else:
-                        args += (e._data for e in v.coeffs)
+                        args += (e._data for e in coeffs)
                 else:
                     args += (v.coeffs._data, )
             else:

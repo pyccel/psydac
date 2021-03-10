@@ -4,6 +4,7 @@
 #         nderiv has not been changed. shall we add quad_order too?
 
 from collections import namedtuple
+from collections import OrderedDict
 
 from sympy import Expr as sym_Expr
 import numpy as np
@@ -32,9 +33,11 @@ from psydac.api.fem                  import DiscreteBilinearForm
 from psydac.api.fem                  import DiscreteLinearForm
 from psydac.api.fem                  import DiscreteFunctional
 from psydac.api.fem                  import DiscreteSumForm
+from psydac.api.feec                 import DiscreteDerham
 from psydac.api.glt                  import DiscreteGltExpr
 from psydac.api.expr                 import DiscreteExpr
 from psydac.api.essential_bc         import apply_essential_bc
+from psydac.api.utilities            import flatten
 from psydac.linalg.iterative_solvers import cg
 from psydac.fem.basic                import FemField
 from psydac.fem.splines              import SplineSpace
@@ -42,11 +45,6 @@ from psydac.fem.tensor               import TensorFemSpace
 from psydac.fem.vector               import ProductFemSpace
 from psydac.cad.geometry             import Geometry
 from psydac.mapping.discrete         import NurbsMapping
-from psydac.feec.global_projectors   import Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2
-from psydac.feec.derivatives         import Derivative_1D, Gradient_2D, Gradient_3D
-from psydac.feec.derivatives         import ScalarCurl_2D, VectorCurl_2D, Curl_3D
-from psydac.feec.derivatives         import Divergence_2D, Divergence_3D
-from psydac.feec.pull_push           import *
 
 __all__ = ('discretize',)
 
@@ -270,192 +268,114 @@ class DiscreteEquation(BasicDiscrete):
 
         return FemField(self.trial_space, coeffs=X)
 
-#==============================================================================
-class DiscreteDerham(BasicDiscrete):
-    """ Represent the discrete De Rham sequence.
-    """
-    def __init__(self, mapping, *spaces):
-
-        dim           = len(spaces) - 1
-        self._dim     = dim
-        self._spaces  = spaces
-        self._mapping = mapping
-
-        if dim not in [1,2,3]:
-            raise ValueError('dimension {} is not available'.format(dim))
-
-    @property
-    def dim(self):
-        return self._dim
-
-    @property
-    def V0(self):
-        return self._spaces[0]
-
-    @property
-    def V1(self):
-        return self._spaces[1]
-
-    @property
-    def V2(self):
-        return self._spaces[2]
-
-    @property
-    def V3(self):
-        return self._spaces[3]
-
-    @property
-    def spaces(self):
-        return self._spaces
-
-    @property
-    def mapping(self):
-        return self._mapping
-
-    @property
-    def derivatives_as_matrices(self):
-        return tuple(V.diff.matrix for V in self.spaces[:-1])
-
-    @property
-    def derivatives_as_operators(self):
-        return tuple(V.diff for V in self.spaces[:-1])
-
-    def projectors(self, *, kind='global', nquads=None):
-
-        if not (kind == 'global'):
-            raise NotImplementedError('only global projectors are available')
-
-        if self.dim == 1:
-            P0 = Projector_H1(self.V0)
-            P1 = Projector_L2(self.V1, nquads)
-            if self.mapping:
-                P0_m = lambda f: P0(pull_1d_h1(f, self.mapping))
-                P1_m = lambda f: P1(pull_1d_l2(f, self.mapping))
-                return P0_m, P1_m
-            return P0, P1
-
-        elif self.dim == 2:
-            P0 = Projector_H1(self.V0)
-            P2 = Projector_L2(self.V2, nquads)
-
-            kind = self.V1.symbolic_space.kind
-            if isinstance(kind, HcurlSpaceType):
-                P1 = Projector_Hcurl(self.V1, nquads)
-            elif isinstance(kind, HdivSpaceType):
-                P1 = Projector_Hdiv(self.V1, nquads)
-            else:
-                raise TypeError('projector of space type {} is not available'.format(kind))
-
-            if self.mapping:
-                P0_m = lambda f:P0(pull_2d_h1(f, self.mapping))
-                P2_m = lambda f:P2(pull_2d_l2(f, self.mapping))
-                if isinstance(kind, HcurlSpaceType):
-                    P1_m = lambda f:P1(pull_2d_hcurl(f, self.mapping))
-                elif isinstance(kind, HdivSpaceType):
-                    P1_m = lambda f:P1(pull_2d_hdiv(f, self.mapping))
-                return P0_m, P1_m, P2_m
-            return P0, P1, P2
-
-        elif self.dim == 3:
-            P0 = Projector_H1(self.V0)
-            P1 = Projector_Hcurl(self.V1, nquads)
-            P2 = Projector_Hdiv(self.V2, nquads)
-            P3 = Projector_L2(self.V3, nquads)
-            if self.mapping:
-                P0_m = lambda f:P0(pull_3d_h1(f, self.mapping))
-                P1_m = lambda f:P1(pull_3d_hcurl(f, self.mapping))
-                P2_m = lambda f:P2(pull_3d_hdiv(f, self.mapping))
-                P3_m = lambda f:P3(pull_3d_l2(f, self.mapping))
-                return P0_m, P1_m, P2_m, P3_m
-            return P0, P1, P2, P3
-
 #==============================================================================           
-def discretize_derham(Complex, domain_h, *args, **kwargs):
+def discretize_derham(derham, domain_h, *args, **kwargs):
 
-    ldim     = Complex.shape
-    spaces   = Complex.spaces
-    mapping  = spaces[0].domain.mapping
-    d_spaces = [None]*(ldim+1)
+    ldim     = derham.shape
+    mapping  = derham.spaces[0].domain.mapping
 
-    if ldim == 1:
+    bases  = ['B'] + ldim * ['M']
+    spaces = [discretize_space(V, domain_h, *args, basis=basis, **kwargs) \
+            for V, basis in zip(derham.spaces, bases)]
 
-        d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
-        d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
-
-        D0 = Derivative_1D(d_spaces[0], d_spaces[1])
-
-        d_spaces[0].diff = d_spaces[0].grad = D0
-        
-    elif ldim == 2:
-
-        d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
-        d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
-        d_spaces[2] = discretize_space(spaces[2], domain_h, *args, basis='M', **kwargs)
-
-        if isinstance(spaces[1].kind, HcurlSpaceType):
-            D0 =   Gradient_2D(d_spaces[0], d_spaces[1])
-            D1 = ScalarCurl_2D(d_spaces[1], d_spaces[2])
-
-            d_spaces[0].diff = d_spaces[0].grad = D0
-            d_spaces[1].diff = d_spaces[1].curl = D1
-            
-        else:
-            D0 = VectorCurl_2D(d_spaces[0], d_spaces[1])
-            D1 = Divergence_2D(d_spaces[1], d_spaces[2])
-
-            d_spaces[0].diff = d_spaces[0].rot = D0
-            d_spaces[1].diff = d_spaces[1].div = D1
-
-    elif ldim == 3:
-
-        d_spaces[0] = discretize_space(spaces[0], domain_h, *args, basis='B', **kwargs)
-        d_spaces[1] = discretize_space(spaces[1], domain_h, *args, basis='M', **kwargs)
-        d_spaces[2] = discretize_space(spaces[2], domain_h, *args, basis='M', **kwargs)
-        d_spaces[3] = discretize_space(spaces[3], domain_h, *args, basis='M', **kwargs)
-
-        D0 =   Gradient_3D(d_spaces[0], d_spaces[1])
-        D1 =       Curl_3D(d_spaces[1], d_spaces[2])  
-        D2 = Divergence_3D(d_spaces[2], d_spaces[3])
-
-        d_spaces[0].diff = d_spaces[0].grad = D0
-        d_spaces[1].diff = d_spaces[1].curl = D1
-        d_spaces[2].diff = d_spaces[2].div  = D2
-
-    return DiscreteDerham(mapping, *d_spaces)
+    return DiscreteDerham(mapping, *spaces)
 
 #==============================================================================
-# TODO multi patch
+def reduce_space_degrees(V, Vh, basis='B'):
+
+    if isinstance(V.kind, HcurlSpaceType):
+        if V.ldim == 2:
+            spaces = [Vh.reduce_degree(axes=[0], basis=basis),
+                      Vh.reduce_degree(axes=[1], basis=basis)]
+        elif V.ldim == 3:
+            spaces = [Vh.reduce_degree(axes=[0], basis=basis),
+                      Vh.reduce_degree(axes=[1], basis=basis),
+                      Vh.reduce_degree(axes=[2], basis=basis)]
+        else:
+            raise NotImplementedError('TODO')
+
+        Vh = ProductFemSpace(*spaces)
+    elif isinstance(V.kind, HdivSpaceType):
+
+        if V.ldim == 2:
+            spaces = [Vh.reduce_degree(axes=[1], basis=basis),
+                      Vh.reduce_degree(axes=[0], basis=basis)]
+        elif V.ldim == 3:
+            spaces = [Vh.reduce_degree(axes=[1,2], basis=basis),
+                      Vh.reduce_degree(axes=[0,2], basis=basis),
+                      Vh.reduce_degree(axes=[0,1], basis=basis)]
+        else:
+            raise NotImplementedError('TODO')
+
+        Vh = ProductFemSpace(*spaces)
+
+    elif isinstance(V.kind, L2SpaceType):
+        if V.ldim == 1:
+            Vh = Vh.reduce_degree(axes=[0], basis=basis)
+        elif V.ldim == 2:
+            Vh = Vh.reduce_degree(axes=[0,1], basis=basis)
+        elif V.ldim == 3:
+            Vh = Vh.reduce_degree(axes=[0,1,2], basis=basis)
+
+    elif not isinstance(V.kind,  (H1SpaceType, UndefinedSpaceType)):
+        raise NotImplementedError('TODO')
+
+    if isinstance(V, VectorFunctionSpace):
+        if isinstance(V.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
+            Vh = ProductFemSpace(*[Vh]*V.ldim)
+
+    return Vh
+
+#==============================================================================
 # TODO knots
 def discretize_space(V, domain_h, *args, **kwargs):
+    """
+    This function creates the discretized space starting from the symbolic space.
+
+    Parameters
+    ----------
+
+    V : <FunctionSpace>
+        the symbolic space
+
+    domain_h   : <Geometry>
+        the discretized domain
+
+    Returns
+    -------
+    Vh : <FemSpace>
+        represents the discrete fem space
+
+    """
+
+#    we have two two cases, the case where we have a geometry file,
+#    and the case where we have either an analytical mapping or without the mapping.
+#    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
+#    we then create the compatible spaces if needed with the suitable basis functions.
 
     degree              = kwargs.pop('degree', None)
-    basis               = kwargs.pop('basis', 'B')
     comm                = domain_h.comm
-    kind                = V.kind
     ldim                = V.ldim
     periodic            = kwargs.pop('periodic', [False]*ldim)
-
+    basis               = kwargs.pop('basis', 'B')
     is_rational_mapping = False
-    
-    if isinstance(V, ProductSpace):
-        kwargs['basis'] = basis
-        basis = 'B'
-    else:
-        basis = basis
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
     # TODO how to give a name to the mapping?
+
+    g_spaces = OrderedDict()
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
         if len(domain_h.mappings.values()) > 1:
             raise NotImplementedError('Multipatch not yet available')
 
-        mapping = list(domain_h.mappings.values())[0]
+        interiors = [domain_h.domain.interior]
+        mappings  = [domain_h.mappings[inter.name] for inter in interiors]
+        spaces    = [m.space for m in mappings]
+        g_spaces  = OrderedDict(zip(interiors, spaces))
 
-        g_spaces = [mapping.space]
-        is_rational_mapping = isinstance( mapping, NurbsMapping )
-
-        symbolic_mapping = Mapping('M', domain_h.pdim)
+        is_rational_mapping = all(isinstance( mapping, NurbsMapping ) for mapping in mappings)
+        symbolic_mapping    = Mapping('M', domain_h.pdim)
 
         if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
@@ -488,7 +408,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
             else:
                 symbolic_mapping = domain_h.domain.mapping.mappings
 
-        g_spaces = []
+
         for i,interior in enumerate(interiors):
             ncells     = domain_h.ncells
             min_coords = interior.min_coords
@@ -502,7 +422,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
                      for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
             # Create 1D finite element spaces and precompute quadrature data
-
             spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
             Vh     = None
             if i>0:
@@ -518,7 +437,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
                     if index<i:
                         nprocs = None
                         if comm is not None:
-                            nprocs = g_spaces[index].vector_space.cart.nprocs
+                            nprocs = g_spaces[interiors[index]].vector_space.cart.nprocs
                         Vh = TensorFemSpace( *spaces, comm=comm, nprocs=nprocs, reverse_axis=e.axis)
                         break
                 else:
@@ -529,76 +448,28 @@ def discretize_space(V, domain_h, *args, **kwargs):
             if Vh is None:
                 raise ValueError('Unable to discretize the space')
 
-            if isinstance(kind, L2SpaceType):
+            g_spaces[interior] = Vh
 
-                if ldim == 1:
-                    Vh = Vh.reduce_degree(axes=[0], basis=basis)
-                elif ldim == 2:
-                    Vh = Vh.reduce_degree(axes=[0,1], basis=basis)
-                elif ldim == 3:
-                    Vh = Vh.reduce_degree(axes=[0,1,2], basis=basis)
+    for inter in g_spaces:
+        Vh = g_spaces[inter]
+        if isinstance(V, ProductSpace):
+            spaces = [reduce_space_degrees(Vi, Vh, basis=basis) for Vi in V.spaces]
+            spaces = [Vh.spaces if isinstance(Vh, ProductFemSpace) else Vh for Vh in spaces]
+            spaces = flatten(spaces)
+            Vh     = ProductFemSpace(*spaces)
+        else:
+            Vh = reduce_space_degrees(V, Vh, basis=basis)
 
-            g_spaces.append(Vh)
-    # Product and Vector spaces are constructed here
+        setattr(Vh, 'symbolic_domain', inter)
+        setattr(Vh, 'symbolic_space', V)
+        g_spaces[inter] = Vh
 
-    if V.shape > 1:
-        new_spaces = []
-        for Vh in g_spaces:
-            if isinstance(V, VectorFunctionSpace):
-
-                if isinstance(kind, (H1SpaceType, L2SpaceType,  UndefinedSpaceType)):
-                    spaces = [Vh for i in range(V.shape)]
-
-                elif isinstance(kind, HcurlSpaceType):
-                    if ldim == 2:
-                        spaces = [Vh.reduce_degree(axes=[0], basis=basis),
-                                  Vh.reduce_degree(axes=[1], basis=basis)]
-                    elif ldim == 3:
-                        spaces = [Vh.reduce_degree(axes=[0], basis=basis),
-                                  Vh.reduce_degree(axes=[1], basis=basis),
-                                  Vh.reduce_degree(axes=[2], basis=basis)]
-                    else:
-                        raise NotImplementedError('TODO')
-
-                elif isinstance(kind, HdivSpaceType):
- 
-                    if ldim == 2:
-                        spaces = [Vh.reduce_degree(axes=[1], basis=basis),
-                                  Vh.reduce_degree(axes=[0], basis=basis)]
-                    elif ldim == 3:
-                        spaces = [Vh.reduce_degree(axes=[1,2], basis=basis),
-                                  Vh.reduce_degree(axes=[0,2], basis=basis),
-                                  Vh.reduce_degree(axes=[0,1], basis=basis)]
-                    else:
-                        raise NotImplementedError('TODO')
-
-            elif isinstance(V, ProductSpace):
-                spaces = []
-                for Vi in V.spaces:
-                    space = discretize_space(Vi, domain_h, *args, degree=degree,**kwargs)
-
-                    if isinstance(space, ProductFemSpace):
-                        spaces += list(space.spaces)
-                    else:
-                        spaces += [space]
-            else:
-                raise TypeError('space must be of type VectorSpace or ProductSpace got {}'.format(V))
-            new_spaces += spaces
-
-    else:
-        new_spaces = g_spaces
-
-    if len(new_spaces) == 1:
-        Vh = new_spaces[0]
-        setattr(Vh, 'shape', 1)
-    else:
-        Vh = ProductFemSpace(*new_spaces)
-        setattr(Vh, 'shape', len(new_spaces))
-
+    Vh = ProductFemSpace(*g_spaces.values())
     # add symbolic_mapping as a member to the space object
     setattr(Vh, 'symbolic_mapping', symbolic_mapping)
     setattr(Vh, 'is_rational_mapping', is_rational_mapping)
     setattr(Vh, 'symbolic_space', V)
+    setattr(Vh, 'symbolic_domain', domain_h.domain)
 
     return Vh
 
@@ -633,6 +504,7 @@ def discretize(a, *args, **kwargs):
             if not mapping is None:
                 a       = LogicalExpr (a)
             kernel_expr = TerminalExpr(a)
+
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)
 

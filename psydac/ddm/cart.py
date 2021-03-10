@@ -222,6 +222,13 @@ class CartDecomposition():
     def subcomm( self ):
         return self._subcomm
 
+# NOTE [YG, 09.03.2021]: the equality comparison "==" is removed because we
+# prefer using the identity comparison "is" as far as possible.
+#    def __eq__( self, a):
+#        a = (a.npts, a.pads, a.periods, a.comm)
+#        b = (self.npts, self.pads, self.periods, self.comm)
+#        return a == b
+
     #---------------------------------------------------------------------------
     def topetsc( self ):
         """ Convert the cart to a petsc cart.

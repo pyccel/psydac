@@ -51,7 +51,7 @@ jobs:
     - name: Get pip cache dir
       id: pip-cache-dir
       run: |
-        echo "::set-output name=dir::$(pip cache dir)"
+        echo "::set-output name=dir::$(python -m pip cache dir)"
 
     - name: pip cache
       uses: actions/cache@v2

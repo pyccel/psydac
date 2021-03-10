@@ -376,7 +376,7 @@ class Parser(object):
         constants  = args.pop('constants', None)
 
         f_coeffs   = args.pop('f_coeffs',    None)
-        
+
         if f_coeffs:
             f_span     = args.pop('f_span',      [])
             f_basis    = args.pop('field_basis', [])
@@ -877,7 +877,7 @@ class Parser(object):
                 if isinstance(self._target, Interface):
                     axis = self._target.axis
                     lhs_starts[axis] = pads[axis]
-                    lhs_ends[axis]   = 2*pads[axis] + 1
+                    lhs_ends[axis]   = pads[axis] + degrees[axis] + 1
 
                 for k2 in range(lhs.shape[1]):
                     if expr.expr[k1,k2]:
