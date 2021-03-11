@@ -107,7 +107,7 @@ class VectorFemSpace( FemSpace ):
     @property
     def nbasis(self):
         dims = [V.nbasis for V in self.spaces]
-        # TODO: check if we should return a tuple
+        # TODO [MCP, 08.03.2021]: check if we should return a tuple
         return sum(dims)
 
     @property
@@ -241,7 +241,7 @@ class ProductFemSpace( FemSpace ):
     @property
     def nbasis(self):
         dims = [V.nbasis for V in self.spaces]
-        # TODO: check if we should compute the product, or return a tuple
+        # TODO [MCP, 08.03.2021]: check if we should return a tuple
         return sum(dims)
 
     @property
