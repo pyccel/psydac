@@ -30,7 +30,7 @@ class FemLinearOperator( LinearOperator ):
     Linear operator, with an additional Fem layer
     """
 
-    def __init__( self, fem_domain=None, fem_codomain=None):
+    def __init__( self, fem_domain=None, fem_codomain=None, matrix=None):
         assert fem_domain
         self._fem_domain   = fem_domain
         if fem_codomain:
@@ -39,6 +39,8 @@ class FemLinearOperator( LinearOperator ):
             self._fem_codomain = fem_domain
         self._domain   = self._fem_domain.vector_space
         self._codomain = self._fem_codomain.vector_space
+
+        self._matrix = matrix
 
     @property
     def domain( self ):
@@ -63,12 +65,35 @@ class FemLinearOperator( LinearOperator ):
         return self._fem_codomain
 
     @property
+    def matrix( self ):
+        return self._matrix
+
+    @property
     def T(self):
         return self.transpose()
 
     # ...
     def transpose(self):
         raise NotImplementedError('Class does not provide a transpose() method')
+
+    # ...
+    def __call__( self, f ):
+        if self._matrix:
+            coeffs = self._matrix.dot(f.coeffs)
+            return FemField(self.fem_codomain, coeffs=coeffs)
+        else:
+            raise NotImplementedError('Class does not provide a __call__ method without a matrix')
+
+    # ...
+    def dot( self, f_coeffs, out=None ):
+        # coeffs layer
+        if self._matrix:
+            f = FemField(self.fem_domain, coeffs=f_coeffs)
+            return self(f).coeffs
+        else:
+            raise NotImplementedError('Class does not provide a dot method without a matrix')
+
+
 
     #-------------------------------------
     # Deferred methods
@@ -336,6 +361,37 @@ class BrokenMass_V1( FemLinearOperator ):
     def dot( self, f_coeffs, out=None ):
         return self._M.dot(f_coeffs)
 
+
+#===============================================================================
+class BrokenMass_V2( FemLinearOperator ):
+    """
+    Broken mass matrix, seen as a LinearOperator
+    """
+    def __init__( self, V2h, domain_h):
+
+        FemLinearOperator.__init__(self, fem_domain=V2h)
+
+        V2 = V2h.symbolic_space
+        domain = V2.domain
+        # domain_h = V0h.domain  # would be nice
+        u, v = elements_of(V2, names='u, v')
+        expr   = u*v  # dot(u,v)
+        a = BilinearForm((u,v), integral(domain, expr))
+        ah = discretize(a, domain_h, [V2h, V2h])
+        self._M = ah.assemble() #.toarray()
+
+    def mat(self):
+        return self._M
+
+    def __call__( self, f ):
+        # Fem layer
+        Mf_coeffs = self.dot(f.coeffs)
+        return FemField(self.fem_domain, coeffs=Mf_coeffs)
+
+    def dot( self, f_coeffs, out=None ):
+        # coeffs layer
+        return self._M.dot(f_coeffs)
+
 #==============================================================================
 class ComposedLinearOperator( FemLinearOperator ):
 
@@ -481,7 +537,7 @@ from sympy import Tuple
 # def multipatch_Moments_Hcurl(f, V1h, domain_h):
 def ortho_proj_Hcurl(EE, V1h, domain_h, M1):
     """
-    return vector of moments of E against V1h basis
+    return orthogonal projection of E on V1h, given M1 the mass matrix
     """
     assert isinstance(EE, Tuple)
     V1 = V1h.symbolic_space
@@ -643,3 +699,32 @@ def get_grid_vals_V2(B, V2h, etas, mappings_obj):
 
     B_vals  = np.concatenate(B_vals, axis=1)
     return B_vals
+
+
+def my_small_plot(
+        title, vals, titles,
+        xx, yy,
+        gridlines_x1=None,
+        gridlines_x2=None,
+):
+
+    n_plots = len(vals)
+    assert n_plots == len(titles)
+    #fig = plt.figure(figsize=(17., 4.8))
+    fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
+    fig.suptitle(title, fontsize=14)
+
+    for np in range(n_plots):
+        ax = fig.add_subplot(1, n_plots, np+1)
+
+        if gridlines_x1 is not None:
+            ax.plot(*gridlines_x1, color='k')
+            ax.plot(*gridlines_x2, color='k')
+
+        cp = ax.contourf(xx, yy, vals[np], 50, cmap='jet')
+        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
+        ax.set_xlabel( r'$x$', rotation='horizontal' )
+        ax.set_ylabel( r'$y$', rotation='horizontal' )
+        ax.set_title ( titles[np] )
+
+    plt.show()

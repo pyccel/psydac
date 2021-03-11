@@ -21,7 +21,7 @@ from psydac.linalg.iterative_solvers import pcg
 
 #==============================================================================
 
-def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None):
+def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, return_sol=False):
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -84,7 +84,11 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None):
 
     l2_error = l2norm_h.assemble(F=uh)
 
-    return l2_error
+    if return_sol:
+        res = l2_error, uh
+    else:
+        res = l2_error
+    return res
 
 #------------------------------------------------------------------------------
 

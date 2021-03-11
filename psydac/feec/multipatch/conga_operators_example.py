@@ -24,37 +24,10 @@ from psydac.utilities.utils    import refine_array_1d
 from psydac.feec.multipatch.operators import BrokenMass_V0, BrokenMass_V1
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, DummyConformingProjection_V1, ComposedLinearOperator
 from psydac.feec.multipatch.operators import get_grid_vals_V0, get_grid_vals_V1, get_grid_vals_V2
+from psydac.feec.multipatch.operators import my_small_plot
 
 comm = MPI.COMM_WORLD
 
-
-def my_small_plot(
-        title, vals, titles,
-        xx, yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
-):
-
-    n_plots = len(vals)
-    assert n_plots == len(titles)
-    #fig = plt.figure(figsize=(17., 4.8))
-    fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
-    fig.suptitle(title, fontsize=14)
-
-    for np in range(n_plots):
-        ax = fig.add_subplot(1, n_plots, np+1)
-
-        if gridlines_x1 is not None:
-            ax.plot(*gridlines_x1, color='k')
-            ax.plot(*gridlines_x2, color='k')
-
-        cp = ax.contourf(xx, yy, vals[np], 50, cmap='jet')
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( titles[np] )
-
-    plt.show()
 
 
 def conga_operators_2d():
