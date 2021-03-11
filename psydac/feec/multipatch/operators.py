@@ -2,7 +2,7 @@
 from mpi4py import MPI
 
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 from sympde.topology import element_of, elements_of
 from sympde.calculus import grad, dot, inner, rot, div
@@ -107,25 +107,14 @@ class FemLinearOperator( LinearOperator ):
 class ConformingProjection_V0( FemLinearOperator ):
     """
     Conforming projection from global broken space to conforming global space
-
-    proj.dot(v) returns the conforming projection of v, computed by solving linear system
-
-
+    Defined by averaging of interface dofs
     """
     def __init__(self, V0h, domain_h):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
-        # self._fem_domain   = V0h
-        # self._fem_codomain = V0h
-        #
-        # self._domain   = self._fem_domain.vector_space
-        # self._codomain = self._fem_codomain.vector_space
-
         V0             = V0h.symbolic_space
         domain         = V0.domain
-
-        # domain_h = V0h.domain  # would be nice
 
         u, v = elements_of(V0, names='u, v')
         expr   = u*v  # dot(u,v)
@@ -166,17 +155,19 @@ class ConformingProjection_V0( FemLinearOperator ):
         self._A[0,1][:,d1,0,-d2] = 1/2
         self._A[1,0][:,s2,0, d1] = 1/2
 
-    # ...
-    def __call__( self, f ):
+        self._matrix = self._A
 
-        coeffs = self._A.dot(f.coeffs)
-        return FemField(self.fem_codomain, coeffs=coeffs)
-
-    # ...
-    def dot( self, f_coeffs, out=None ):
-        # coeffs layer
-        f = FemField(self.fem_domain, coeffs=f_coeffs)
-        return self(f).coeffs
+    # # ...
+    # def __call__( self, f ):
+    #
+    #     coeffs = self._A.dot(f.coeffs)
+    #     return FemField(self.fem_codomain, coeffs=coeffs)
+    #
+    # # ...
+    # def dot( self, f_coeffs, out=None ):
+    #     # coeffs layer
+    #     f = FemField(self.fem_domain, coeffs=f_coeffs)
+    #     return self(f).coeffs
 
 
 #===============================================================================
@@ -254,17 +245,19 @@ class ConformingProjection_V1( FemLinearOperator ):
         self._A[1,0][0,0][:,s21,0, d11] = 1/2
         self._A[1,0][1,1][:,s22,0, d12] = 1/2
 
-    # ...
-    def __call__( self, f ):
+        self._matrix = self._A
 
-        coeffs = self._A.dot(f.coeffs)
-        return FemField(self.fem_codomain, coeffs=coeffs)
-
-    # ...
-    def dot( self, f_coeffs, out=None ):
-        # coeffs layer
-        f = FemField(self.fem_domain, coeffs=f_coeffs)
-        return self(f).coeffs
+    # # ...
+    # def __call__( self, f ):
+    #
+    #     coeffs = self._A.dot(f.coeffs)
+    #     return FemField(self.fem_codomain, coeffs=coeffs)
+    #
+    # # ...
+    # def dot( self, f_coeffs, out=None ):
+    #     # coeffs layer
+    #     f = FemField(self.fem_domain, coeffs=f_coeffs)
+    #     return self(f).coeffs
 
 class DummyConformingProjection_V1( FemLinearOperator ):
 
@@ -282,19 +275,20 @@ class DummyConformingProjection_V1( FemLinearOperator ):
 
         dummy_ph = discretize(dummy_p, domain_h, [V1h, V1h])
 
-        self._P = dummy_ph.assemble()
+        self._matrix = dummy_ph.assemble()
 
-    # ...
-    def __call__( self, f ):
 
-        coeffs = self._P.dot(f.coeffs)
-        return FemField(self.fem_codomain, coeffs=coeffs)
-
-    # ...
-    def dot( self, f_coeffs, out=None ):
-        # coeffs layer
-        f = FemField(self.fem_domain, coeffs=f_coeffs)
-        return self(f).coeffs
+    # # ...
+    # def __call__( self, f ):
+    #
+    #     coeffs = self._P.dot(f.coeffs)
+    #     return FemField(self.fem_codomain, coeffs=coeffs)
+    #
+    # # ...
+    # def dot( self, f_coeffs, out=None ):
+    #     # coeffs layer
+    #     f = FemField(self.fem_domain, coeffs=f_coeffs)
+    #     return self(f).coeffs
 
 
 #===============================================================================
@@ -306,6 +300,7 @@ class BrokenMass( FemLinearOperator ):
 
         FemLinearOperator.__init__(self, fem_domain=Vh)
 
+        print( "type(Vh) = ", type(Vh) )
         V = Vh.symbolic_space
         domain = V.domain
         # domain_h = V0h.domain  # would be nice
@@ -316,19 +311,19 @@ class BrokenMass( FemLinearOperator ):
             expr   = dot(u,v)
         a = BilinearForm((u,v), integral(domain, expr))
         ah = discretize(a, domain_h, [Vh, Vh])
-        self._M = ah.assemble() #.toarray()
+        self._matrix = ah.assemble() #.toarray()
 
-    def mat(self):
-        return self._M
-
-    def __call__( self, f ):
-        # Fem layer
-        Mf_coeffs = self.dot(f.coeffs)
-        return FemField(self.fem_domain, coeffs=Mf_coeffs)
-
-    def dot( self, f_coeffs, out=None ):
-        # coeffs layer
-        return self._M.dot(f_coeffs)
+    # def mat(self):
+    #     return self._M
+    #
+    # def __call__( self, f ):
+    #     # Fem layer
+    #     Mf_coeffs = self.dot(f.coeffs)
+    #     return FemField(self.fem_domain, coeffs=Mf_coeffs)
+    #
+    # def dot( self, f_coeffs, out=None ):
+    #     # coeffs layer
+    #     return self._M.dot(f_coeffs)
 
 
 #==============================================================================
@@ -341,14 +336,31 @@ class ComposedLinearOperator( FemLinearOperator ):
         FemLinearOperator.__init__(
             self, fem_domain=A.fem_domain, fem_codomain=B.fem_codomain
         )
-        self._A = A
-        self._B = B
+        if A._matrix and B._matrix:
+            print("In ComposedLinearOperator:")
+            print( "type(A._matrix) = ", type(A._matrix) )
+            print( "type(B._matrix) = ", type(B._matrix) )
+            print( A._matrix.shape )
+            self._matrix = B._matrix * A._matrix
+            print( "type(self._matrix) = ", type(self._matrix) )
+            print( self._matrix.shape )
+
+        else:
+            self._matrix = None
+            self._A = A
+            self._B = B
 
     def __call__( self, f ):
-        return self._B(self._A(f))
+        if self._matrix:
+            return FemLinearOperator.__call__(self, f)
+        else:
+            return self._B(self._A(f))
 
     def dot( self, f_coeffs, out=None ):
-        return self._B.dot(self._A.dot(f_coeffs))
+        if self._matrix:
+            return FemLinearOperator.dot(self, f_coeffs, out)
+        else:
+            return self._B.dot(self._A.dot(f_coeffs))
 
 #==============================================================================
 class IdLinearOperator( FemLinearOperator ):

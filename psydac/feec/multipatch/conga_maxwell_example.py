@@ -88,8 +88,11 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
     # Mass matrices for broken spaces (block-diagonal)
     # TODO: (MCP 10.03.2021) define them as Hodge FemLinearOperators
 
+    print("M0...")
     M0 = BrokenMass(V0h, domain_h, is_scalar=True)
+    print("M1...")
     M1 = BrokenMass(V1h, domain_h, is_scalar=False)
+    print("M2...")
     M2 = BrokenMass(V2h, domain_h, is_scalar=True)
 
     # Projectors for broken spaces

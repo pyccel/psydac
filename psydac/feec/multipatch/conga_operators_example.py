@@ -3,7 +3,6 @@
 from mpi4py import MPI
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 # checking import path...
 # import sympde
@@ -167,7 +166,10 @@ def conga_operators_2d():
     # - in V0 with a discontinuous v
     v0 = P0(v_sol_log)
     v0c = Pconf_0(v0)   # should be H1-conforming (ie, continuous)
-    cDv0 = bD0(v0c)
+    # cDv0 = bD0(v0c)
+
+    D0 = ComposedLinearOperator(bD0, Pconf_0)
+    cDv0 = D0(v0)
 
     # - in V1 with a discontinuous field G
     G1 = P1(G_sol_log)
@@ -186,6 +188,7 @@ def conga_operators_2d():
     # - for the (scalar) curl:  D1 P1 A = P2 curl A
     A1 = P1(A_sol_log)
     curl_A1 = bD1(A1)
+
     # using B = curl A
     B2 = P2(B_sol_log)
 
