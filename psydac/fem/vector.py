@@ -8,7 +8,6 @@ from psydac.fem.basic      import FemSpace, FemField
 
 from numpy import unique, asarray, allclose
 
-
 #===============================================================================
 class VectorFemSpace( FemSpace ):
     """
@@ -16,9 +15,9 @@ class VectorFemSpace( FemSpace ):
 
     """
 
-    def __init__( self, *args, **kwargs ):
+    def __init__( self, *spaces ):
         """."""
-        self._spaces = tuple(args)
+        self._spaces = spaces
 
         # ... make sure that all spaces have the same parametric dimension
         ldims = [V.ldim for V in self.spaces]
@@ -108,7 +107,7 @@ class VectorFemSpace( FemSpace ):
     @property
     def nbasis(self):
         dims = [V.nbasis for V in self.spaces]
-        # TODO: check if we should compute the product, or return a tuple
+        # TODO: check if we should return a tuple
         return sum(dims)
 
     @property
@@ -156,9 +155,20 @@ class ProductFemSpace( FemSpace ):
     Product of FEM space
     """
 
-    def __init__( self, *args, **kwargs ):
+    def __new__(cls, *spaces):
+
+        if len(spaces) == 1:
+            return spaces[0]
+        else:
+            return FemSpace.__new__(cls)
+
+    def __init__( self, *spaces):
         """."""
-        self._spaces = tuple(args)
+
+        if len(spaces) == 1:
+            return
+
+        self._spaces = spaces
 
         # ... make sure that all spaces have the same parametric dimension
         ldims = [V.ldim for V in self.spaces]
@@ -181,7 +191,7 @@ class ProductFemSpace( FemSpace ):
         # ...
 
         # ...
-        v_spaces = [V.vector_space for V in self.spaces]
+        v_spaces           = [V.vector_space for V in self.spaces]
         self._vector_space = BlockVectorSpace(*v_spaces)
         # ...
 
@@ -254,3 +264,4 @@ class ProductFemSpace( FemSpace ):
     @property
     def comm( self ):
         return self.spaces[0].comm
+

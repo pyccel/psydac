@@ -22,7 +22,7 @@ def run_system_1_1d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Line()
 
-    V1 = VectorFunctionSpace('V1', domain, kind='Hdiv')
+    V1 = VectorFunctionSpace('V1', domain, kind='H1')
     V2 = ScalarFunctionSpace('V2', domain, kind='L2')
     X  = ProductSpace(V1, V2)
 

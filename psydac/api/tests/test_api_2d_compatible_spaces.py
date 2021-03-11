@@ -9,7 +9,8 @@ from scipy.sparse.linalg import minres as sp_minres
 from scipy.sparse.linalg import bicg as sp_bicg
 from scipy.sparse.linalg import bicgstab as sp_bicgstab
 
-from sympde.calculus import grad, dot, inner, div
+from sympde.calculus import grad, dot, inner, div, curl, cross
+from sympde.topology import NormalVector
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import element_of, elements_of
@@ -22,12 +23,9 @@ from psydac.fem.basic          import FemField
 from psydac.fem.vector         import ProductFemSpace
 from psydac.api.discretization import discretize
 from psydac.linalg.utilities   import array_to_stencil
-
-from psydac.linalg.iterative_solvers import bicg
-from psydac.linalg.block import BlockVector
+from psydac.linalg.iterative_solvers import pcg, bicg
 
 #==============================================================================
-
 def run_system_1_2d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Square()
@@ -93,7 +91,6 @@ def run_system_1_2d_dir(f0, sol, ncells, degree):
 
 #==============================================================================
 def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
-
     # ... abstract model
     domain = Square()
 
@@ -148,8 +145,8 @@ def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
     # Numerical solution: velocity field
     # TODO: allow this: uh = FemField(V1h, coeffs=x[0:2]) or similar
     uh = FemField(V1h)
-    uh.coeffs[0] = x[0]
-    uh.coeffs[1] = x[1]
+    uh.coeffs[0][:] = x[0][:]
+    uh.coeffs[1][:] = x[1][:]
 
     # Numerical solution: pressure field
     # TODO: allow this: uh = FemField(V2h, coeffs=x[2])
@@ -187,10 +184,68 @@ def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
 
     return locals()
 
+#==============================================================================
+def run_system_3_2d_dir(uex, f, alpha, ncells, degree):
+
+    # ... abstract model
+    domain = Square('A')
+    B_dirichlet_0 = domain.boundary
+
+    V  = VectorFunctionSpace('V', domain, kind='hcurl')
+
+    u  = element_of(V, name='u')
+    v  = element_of(V, name='v')
+    F  = element_of(V, name='F')
+
+    # Bilinear form a: V x V --> R
+    a   = BilinearForm((u, v), integral(domain, curl(u)*curl(v) + alpha*dot(u,v)))
+
+    nn   = NormalVector('nn')
+    a_bc = BilinearForm((u, v), integral(domain.boundary, 1e30 * cross(u, nn) * cross(v, nn)))
+
+
+    # Linear form l: V --> R
+    l = LinearForm(v, integral(domain, dot(f,v)))
+
+    # l2 error
+    error   = Matrix([F[0]-uex[0],F[1]-uex[1]])
+    l2norm  = Norm(error, domain, kind='l2')
+
+    #+++++++++++++++++++++++++++++++
+    # 2. Discretization
+    #+++++++++++++++++++++++++++++++
+
+    # Create computational domain from topological domain
+    domain_h = discretize(domain, ncells=ncells)
+
+    # Discrete spaces
+    Vh = discretize(V, domain_h, degree=degree)
+
+    # Discretize bi-linear and linear form
+    a_h    = discretize(a, domain_h, [Vh, Vh])
+    a_bc_h = discretize(a_bc, domain_h, [Vh, Vh])
+
+    l_h          = discretize(l, domain_h, Vh)
+    l2_norm_h    = discretize(l2norm, domain_h, Vh)
+
+    M = a_h.assemble() + a_bc_h.assemble()
+    b = l_h.assemble()
+
+    #+++++++++++++++++++++++++++++++
+    # 3. Solution
+    #+++++++++++++++++++++++++++++++
+
+    # Solve linear system
+    sol, info  = pcg(M ,b, pc='jacobi', tol=1e-8)
+
+    uh       = FemField( Vh, sol )
+    l2_error = l2_norm_h.assemble(F=uh)
+
+    return l2_error
+
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
-
 def test_api_system_1_2d_dir_1():
     from sympy import symbols
     x1, x2 = symbols('x1, x2')
@@ -269,3 +324,28 @@ def test_stokes_2d_dir_2():
 
     # Run test
     namespace = run_stokes_2d_dir(f, ue, pe, ncells=[2**3, 2**3], degree=[4, 4], scipy=True)
+
+#------------------------------------------------------------------------------
+def test_api_system_3_2d_dir_1():
+    from sympy import symbols
+    x,y,z    = symbols('x1, x2, x3')
+
+    alpha    = 1.
+    uex      = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+    f        = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                     alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+
+    l2_error = run_system_3_2d_dir(uex, f, alpha, ncells=[2**3,2**3], degree=[2,2])
+    assert abs(l2_error-0.0029394893438220502)<1e-13
+
+#==============================================================================
+# CLEAN UP SYMPY NAMESPACE
+#==============================================================================
+
+def teardown_module():
+    from sympy.core import cache
+    cache.clear_cache()
+
+def teardown_function():
+    from sympy.core import cache
+    cache.clear_cache()

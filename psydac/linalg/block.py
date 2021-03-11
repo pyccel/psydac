@@ -119,11 +119,15 @@ class BlockVector( Vector ):
             # Verify that vectors belong to correct spaces and store them
             assert isinstance( blocks, (list, tuple) )
             assert all( (Vi is bi.space) for Vi,bi in zip( V.spaces, blocks ) )
+
             self._blocks = list( blocks )
         else:
             # TODO: Each block is a 'zeros' vector of the correct space for now,
             # but in the future we would like 'empty' vectors of the same space.
             self._blocks = [Vi.zeros() for Vi in V.spaces]
+
+        # TODO: distinguish between different directions
+        self._sync  = False
 
     #--------------------------------------
     # Abstract interface
@@ -142,31 +146,43 @@ class BlockVector( Vector ):
 
     #...
     def copy( self ):
-        return BlockVector( self._space, [b.copy() for b in self._blocks] )
+        w = BlockVector( self._space, [b.copy() for b in self._blocks] )
+        w._sync    = self._sync
+        return w
 
     #...
     def __neg__( self ):
-        return BlockVector( self._space, [-b for b in self._blocks] )
+        w = BlockVector( self._space, [-b for b in self._blocks] )
+        w._sync    = self._sync
+        return w
 
     #...
     def __mul__( self, a ):
-        return BlockVector( self._space, [b*a for b in self._blocks] )
+        w = BlockVector( self._space, [b*a for b in self._blocks] )
+        w._sync    = self._sync
+        return w
 
     #...
     def __rmul__( self, a ):
-        return BlockVector( self._space, [a*b for b in self._blocks] )
+        w = BlockVector( self._space, [a*b for b in self._blocks] )
+        w._sync    = self._sync
+        return w
 
     #...
     def __add__( self, v ):
         assert isinstance( v, BlockVector )
         assert v._space is self._space
-        return BlockVector( self._space, [b1+b2 for b1,b2 in zip( self._blocks, v._blocks )] )
+        w = BlockVector( self._space, [b1+b2 for b1,b2 in zip( self._blocks, v._blocks )] )
+        w._sync = self._sync and v._sync
+        return w
 
     #...
     def __sub__( self, v ):
         assert isinstance( v, BlockVector )
         assert v._space is self._space
-        return BlockVector( self._space, [b1-b2 for b1,b2 in zip( self._blocks, v._blocks )] )
+        w = BlockVector( self._space, [b1-b2 for b1,b2 in zip( self._blocks, v._blocks )] )
+        w._sync = self._sync and v._sync
+        return w
 
     #...
     def __imul__( self, a ):
@@ -180,6 +196,7 @@ class BlockVector( Vector ):
         assert v._space is self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 += b2
+        self._sync = self._sync and v._sync
         return self
 
     #...
@@ -188,13 +205,8 @@ class BlockVector( Vector ):
         assert v._space is self._space
         for b1,b2 in zip( self._blocks, v._blocks ):
             b1 -= b2
+        self._sync = self._sync and v._sync
         return self
-
-    # ...
-    def update_ghost_regions( self, *, direction=None ):
-        for vi in self.blocks:
-            if not vi.ghost_regions_in_sync:
-                vi.update_ghost_regions(direction=direction)
 
     #--------------------------------------
     # Other properties/methods
@@ -209,6 +221,26 @@ class BlockVector( Vector ):
 
     # ...
     @property
+    def ghost_regions_in_sync( self ):
+        return self._sync
+
+    # ...
+    # NOTE: this property must be set collectively
+    @ghost_regions_in_sync.setter
+    def ghost_regions_in_sync( self, value ):
+        assert isinstance( value, bool )
+        self._sync = value
+
+    # ...
+    def update_ghost_regions( self, *, direction=None ):
+        for vi in self.blocks:
+            if not vi.ghost_regions_in_sync:
+                vi.update_ghost_regions(direction=direction)
+
+        # Flag ghost regions as up-to-date
+        self._sync = True
+    # ...
+    @property
     def n_blocks( self ):
         return len( self._blocks )
 
@@ -221,6 +253,13 @@ class BlockVector( Vector ):
     def toarray( self ):
         return np.concatenate( [bi.toarray() for bi in self._blocks] )
 
+    def toarray_local( self ):
+        """ Convert to petsc Nest vector.
+        """
+
+        blocks    = [v.toarray_local() for v in self._blocks]
+        return np.block([blocks])[0]
+
     def topetsc( self ):
         """ Convert to petsc Nest vector.
         """
@@ -228,7 +267,8 @@ class BlockVector( Vector ):
         blocks    = [v.topetsc() for v in self._blocks]
         cart      = self._space.spaces[0].cart
         petsccart = cart.topetsc()
-        return petsccart.petsc.Vec(),createNest(blocks, comm=cart.comm)
+        vec       = petsccart.petsc.Vec().createNest(blocks, comm=cart.comm)
+        return vec
 
 #===============================================================================
 class BlockLinearOperator( LinearOperator ):
@@ -306,14 +346,14 @@ class BlockLinearOperator( LinearOperator ):
         else:
             assert isinstance(v, BlockVector)
 
-        assert v.space == self.domain
+        assert v.space is self.domain
 
         if out is not None:
             if self.n_block_rows == 1:
                 assert isinstance(out, Vector)
             else:
                 assert isinstance(out, BlockVector)
-            assert out.space == self.codomain
+            assert out.space is self.codomain
             out *= 0.0
         else:
             out = self.codomain.zeros()
@@ -390,15 +430,15 @@ class BlockLinearOperator( LinearOperator ):
 
         # Check domain of rhs
         if self.n_block_cols == 1:
-            assert value.domain == self.domain
+            assert value.domain is self.domain
         else:
-            assert value.domain == self.domain[j]
+            assert value.domain is self.domain[j]
 
         # Check codomain of rhs
         if self.n_block_rows == 1:
-            assert value.codomain == self.codomain
+            assert value.codomain is self.codomain
         else:
-            assert value.codomain == self.codomain[i]
+            assert value.codomain is self.codomain[i]
 
         self._blocks[i,j] = value
 
@@ -478,8 +518,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def __add__(self, M):
         assert isinstance(M, BlockMatrix)
-        assert M.  domain == self.  domain
-        assert M.codomain == self.codomain
+        assert M.  domain is self.  domain
+        assert M.codomain is self.codomain
         blocks  = {}
         for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
             Bij = self[ij]
@@ -492,8 +532,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def __sub__(self, M):
         assert isinstance(M, BlockMatrix)
-        assert M.  domain == self.  domain
-        assert M.codomain == self.codomain
+        assert M.  domain is self.  domain
+        assert M.codomain is self.codomain
         blocks  = {}
         for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
             Bij = self[ij]
@@ -512,8 +552,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def __iadd__(self, M):
         assert isinstance(M, BlockMatrix)
-        assert M.  domain == self.  domain
-        assert M.codomain == self.codomain
+        assert M.  domain is self.  domain
+        assert M.codomain is self.codomain
 
         for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
 
@@ -532,8 +572,8 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     # ...
     def __isub__(self, M):
         assert isinstance(M, BlockMatrix)
-        assert M.  domain == self.  domain
-        assert M.codomain == self.codomain
+        assert M.  domain is self.  domain
+        assert M.codomain is self.codomain
 
         for ij in set(self._blocks.keys()) | set(M._blocks.keys()):
 
