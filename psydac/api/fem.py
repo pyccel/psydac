@@ -399,7 +399,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     if self._func != do_nothing:
                         global_mats[i,j] = StencilInterfaceMatrix(trial_space, test_space, s_d, s_c, axis)
                 else:
-                    global_mats[i,j] = StencilMatrix(trial_space, test_space)
+                    global_mats[i,j] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
 
                 element_mats[i,j]  = np.empty((*(test_degree+1),*(2*pads+1)))
                 if (i,j) in global_mats:self._matrix[i,j] = global_mats[i,j]
