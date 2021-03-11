@@ -168,7 +168,7 @@ def conga_operators_2d():
     v0c = Pconf_0(v0)   # should be H1-conforming (ie, continuous)
     # cDv0 = bD0(v0c)
 
-    D0 = ComposedLinearOperator(bD0, Pconf_0)
+    D0 = ComposedLinearOperator([bD0, Pconf_0])
     cDv0 = D0(v0)
 
     # - in V1 with a discontinuous field G

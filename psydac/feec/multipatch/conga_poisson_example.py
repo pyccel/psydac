@@ -188,12 +188,6 @@ def conga_poisson_2d():
     ## note: there are problems (eg at the interface) when the conforming projection is not accurate (low penalization or high tolerance)
     cP0 = ConformingProjection_V0(V0h, domain_h)
 
-    # Conga grad operator on V0h
-    cD0 = ComposedLinearOperator(bD0, cP0)
-
-    # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-    cD0_T = ComposedLinearOperator(cP0, bD0_T)
-
     I0 = IdLinearOperator(V0h)
 
     v  = element_of(derham.V0, 'v')
@@ -206,11 +200,20 @@ def conga_poisson_2d():
     # Conga Poisson matrix is
     # A = (cD0)^T * M1 * cD0 + (I0 - Pc)^2
 
-    cD0T_M1_cD0 = ComposedLinearOperator( cD0_T, ComposedLinearOperator( M1, cD0 ) )
-    minus_cP0   = MultLinearOperator(-1,cP0)
-    I_minus_cP0 = SumLinearOperator( I0, minus_cP0 )
-    I_minus_cP0_squared = ComposedLinearOperator(I_minus_cP0, I_minus_cP0)
-    A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0) #_squared )
+    old = True
+    if old:
+        # Conga grad operator on V0h
+        cD0 = ComposedLinearOperator([bD0, cP0])
+        # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
+        cD0_T = ComposedLinearOperator([cP0, bD0_T])
+        cD0T_M1_cD0 = ComposedLinearOperator( [cD0_T, ComposedLinearOperator( [M1, cD0] )] )
+        minus_cP0   = MultLinearOperator(-1,cP0)
+        I_minus_cP0 = SumLinearOperator( I0, minus_cP0 )
+        I_minus_cP0_squared = ComposedLinearOperator([I_minus_cP0, I_minus_cP0])
+        A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0) #_squared )
+    else:
+        cD0T_M1_cD0 = ComposedLinearOperator([cP0, bD0.transpose(), M1, bD0, cP0])
+        A = (I0-cP0) + cD0T_M1_cD0
 
     # apply boundary conditions
     a0 = BilinearForm((u,v), integral(domain.boundary, u*v))

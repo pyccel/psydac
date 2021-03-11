@@ -93,15 +93,116 @@ class FemLinearOperator( LinearOperator ):
         else:
             raise NotImplementedError('Class does not provide a dot method without a matrix')
 
+    # ...
+    def __mul__(self, c):
+        return MultLinearOperator(a, self)
+
+    # ...
+    def __add__(self, C):
+        assert isinstance(C, FemLinearOperator)
+        return SumLinearOperator(C, self)
+
+    # ...
+    def __sub__(self, C):
+        assert isinstance(C, FemLinearOperator)
+        return SumLinearOperator(C, -self)
+
+    # ...
+    def __neg__(self):
+        return MultLinearOperator(-1, self)
 
 
-    #-------------------------------------
-    # Deferred methods
-    #-------------------------------------
-    #
-    # @abstractmethod
-    # def dot( self, v, out=None ):
-    #     pass
+#==============================================================================
+class ComposedLinearOperator( FemLinearOperator ):
+    """
+    operator L = L_1 .. L_n
+    with L_i = self._operators[i-1]
+    (so, the last one is applied first, like in a product)
+    """
+    def __init__( self, operators ):
+        n = len(operators)
+        assert all([isinstance(operators[i], FemLinearOperator) for i in range(n)])
+        assert all([operators[i].fem_domain == operators[i+1].fem_codomain for i in range(n-1)])
+        FemLinearOperator.__init__(
+            self, fem_domain=operators[-1].fem_domain, fem_codomain=operators[0].fem_codomain
+        )
+        self._operators = operators
+        self._n = n
+
+        # no matrix product, because it could break the Stencil Matrix structure
+
+    def __call__( self, f ):
+        # print("call of composed linop...")
+        # k = 0
+        # print("len(f[k].fields) = ", len(f[k].fields))
+        v = self._operators[-1](f)
+        # print("len(v[k].fields) = ", len(v[k].fields))
+        for i in range(2, self._n+1):
+            v = self._operators[-i](v)
+            # k = 0
+            # print("len(v[k].fields) = ", len(v[k].fields))
+        return v
+
+    def dot( self, f_coeffs, out=None ):
+        v_coeffs = self._operators[-1].dot(f_coeffs)
+        for i in range(2, self._n):
+            v_coeffs = self._operators[-i].dot(v_coeffs)
+        return v_coeffs
+
+
+#==============================================================================
+class IdLinearOperator( FemLinearOperator ):
+
+    def __init__( self, V ):
+        FemLinearOperator.__init__(self, fem_domain=V)
+
+    def __call__( self, f ):
+        return f
+
+    def dot( self, f_coeffs, out=None ):
+        return f_coeffs
+
+#==============================================================================
+class SumLinearOperator( FemLinearOperator ):
+
+    def __init__( self, B, A ):
+        assert isinstance(A, FemLinearOperator)
+        assert isinstance(B, FemLinearOperator)
+        assert B.fem_domain == A.fem_domain
+        assert B.fem_codomain == A.fem_codomain
+        FemLinearOperator.__init__(
+            self, fem_domain=A.fem_domain, fem_codomain=A.fem_codomain
+        )
+        self._A = A
+        self._B = B
+
+    def __call__( self, f ):
+        # fem layer
+        return  self._B(f) + self._A(f)
+
+    def dot( self, f_coeffs, out=None ):
+        # coeffs layer
+        return  self._B.dot(f_coeffs) + self._A.dot(f_coeffs)
+
+#==============================================================================
+class MultLinearOperator( FemLinearOperator ):
+
+    def __init__( self, c, A ):
+        assert isinstance(A, FemLinearOperator)
+        FemLinearOperator.__init__(
+            self, fem_domain=A.fem_domain, fem_codomain=A.fem_codomain
+        )
+        self._A = A
+        self._c = c
+
+    def __call__( self, f ):
+        # fem layer
+        return self._c * self._A(f)
+
+    def dot( self, f_coeffs, out=None ):
+        # coeffs layer
+        return self._c * self._A.dot(f_coeffs)
+
 
 #===============================================================================
 class ConformingProjection_V0( FemLinearOperator ):
@@ -300,7 +401,6 @@ class BrokenMass( FemLinearOperator ):
 
         FemLinearOperator.__init__(self, fem_domain=Vh)
 
-        print( "type(Vh) = ", type(Vh) )
         V = Vh.symbolic_space
         domain = V.domain
         # domain_h = V0h.domain  # would be nice
@@ -325,97 +425,6 @@ class BrokenMass( FemLinearOperator ):
     #     # coeffs layer
     #     return self._M.dot(f_coeffs)
 
-
-#==============================================================================
-class ComposedLinearOperator( FemLinearOperator ):
-
-    def __init__( self, B, A ):
-        assert isinstance(A, FemLinearOperator)
-        assert isinstance(B, FemLinearOperator)
-        assert B.fem_domain == A.fem_codomain
-        FemLinearOperator.__init__(
-            self, fem_domain=A.fem_domain, fem_codomain=B.fem_codomain
-        )
-        if A._matrix and B._matrix:
-            print("In ComposedLinearOperator:")
-            print( "type(A._matrix) = ", type(A._matrix) )
-            print( "type(B._matrix) = ", type(B._matrix) )
-            print( A._matrix.shape )
-            self._matrix = B._matrix * A._matrix
-            print( "type(self._matrix) = ", type(self._matrix) )
-            print( self._matrix.shape )
-
-        else:
-            self._matrix = None
-            self._A = A
-            self._B = B
-
-    def __call__( self, f ):
-        if self._matrix:
-            return FemLinearOperator.__call__(self, f)
-        else:
-            return self._B(self._A(f))
-
-    def dot( self, f_coeffs, out=None ):
-        if self._matrix:
-            return FemLinearOperator.dot(self, f_coeffs, out)
-        else:
-            return self._B.dot(self._A.dot(f_coeffs))
-
-#==============================================================================
-class IdLinearOperator( FemLinearOperator ):
-
-    def __init__( self, V ):
-        FemLinearOperator.__init__(self, fem_domain=V)
-
-    def __call__( self, f ):
-        # fem layer
-        return f
-
-    def dot( self, f_coeffs, out=None ):
-        # coeffs layer
-        return f_coeffs
-
-#==============================================================================
-class SumLinearOperator( FemLinearOperator ):
-
-    def __init__( self, B, A ):
-        assert isinstance(A, FemLinearOperator)
-        assert isinstance(B, FemLinearOperator)
-        assert B.fem_domain == A.fem_domain
-        assert B.fem_codomain == A.fem_codomain
-        FemLinearOperator.__init__(
-            self, fem_domain=A.fem_domain, fem_codomain=A.fem_codomain
-        )
-        self._A = A
-        self._B = B
-
-    def __call__( self, f ):
-        # fem layer
-        return  self._B(f) + self._A(f)
-
-    def dot( self, f_coeffs, out=None ):
-        # coeffs layer
-        return  self._B.dot(f_coeffs) + self._A.dot(f_coeffs)
-
-#==============================================================================
-class MultLinearOperator( FemLinearOperator ):
-
-    def __init__( self, c, A ):
-        assert isinstance(A, FemLinearOperator)
-        FemLinearOperator.__init__(
-            self, fem_domain=A.fem_domain, fem_codomain=A.fem_codomain
-        )
-        self._A = A
-        self._c = c
-
-    def __call__( self, f ):
-        # fem layer
-        return self._c * self._A(f)
-
-    def dot( self, f_coeffs, out=None ):
-        # coeffs layer
-        return self._c * self._A.dot(f_coeffs)
 
 #==============================================================================
 class BrokenGradient_2D(FemLinearOperator):
@@ -493,9 +502,6 @@ def ortho_proj_Hcurl(EE, V1h, domain_h, M1):
     assert isinstance(EE, Tuple)
     V1 = V1h.symbolic_space
     v = element_of(V1, name='v')
-    # x,y = V1.domain.coordinates
-    # EE = Tuple(2*x, 2*y)
-    # print("in op:", type(EE))
     l = LinearForm(v, integral(V1.domain, dot(v,EE)))
     lh = discretize(l, domain_h, V1h)
     b = lh.assemble()
@@ -584,7 +590,6 @@ from psydac.feec.pull_push     import push_2d_h1, push_2d_hcurl, push_2d_l2
 
 def get_grid_vals_V0(u, V0h, etas, mappings_obj):
     # get the physical field values, given the logical fem field and the logical grid
-    # us = get_scalar_patch_fields(u, V0h)   # todo: u.fields should also work
     n_patches = len(mappings_obj)
     # works but less general...
     # u_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(us, etas)]
@@ -598,7 +603,7 @@ def get_grid_vals_V0(u, V0h, etas, mappings_obj):
             uk_field = u[k]
         else:
             # then field is a fem field
-            uk_field = u.fields[k]
+            uk_field = u.fields[k]   # todo (MCP): try with u[k].fields
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
                 u_vals[k][i, j] = push_2d_h1(uk_field, x1i, x2j)
@@ -610,7 +615,6 @@ def get_grid_vals_V0(u, V0h, etas, mappings_obj):
 
 def get_grid_vals_V1(E, V1h, etas, mappings_obj):
     # get the physical field values, given the logical field and logical grid
-    # Es = get_vector_patch_fields(E, V1h)  # todo: try with E[k].fields
     n_patches = len(mappings_obj)
     E_x_vals = n_patches*[None]
     E_y_vals = n_patches*[None]
