@@ -26,7 +26,7 @@ from psydac.linalg.utilities   import array_to_stencil
 from psydac.linalg.iterative_solvers import pcg, bicg
 
 #==============================================================================
-def run_system_1_2d_dir(f0, sol, ncells, degree):
+def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
     # ... abstract model
     domain = Square()
 
@@ -185,7 +185,7 @@ def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
     return locals()
 
 #==============================================================================
-def run_system_3_2d_dir(uex, f, alpha, ncells, degree):
+def run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells, degree):
 
     # ... abstract model
     domain = Square('A')
@@ -246,14 +246,14 @@ def run_system_3_2d_dir(uex, f, alpha, ncells, degree):
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
-def test_api_system_1_2d_dir_1():
+def test_poisson_mixed_form_2d_dir_1():
     from sympy import symbols
     x1, x2 = symbols('x1, x2')
 
     f0 =  -2*x1*(1-x1) -2*x2*(1-x2)
     u  = x1*(1-x1)*x2*(1-x2)
 
-    l2_error = run_system_1_2d_dir(f0,u, ncells=[2**3,2**3], degree=[2,2])
+    l2_error = run_poisson_mixed_form_2d_dir(f0, u, ncells=[2**3, 2**3], degree=[2, 2])
     assert l2_error-0.00030070020628128664<1e-13
 
 #------------------------------------------------------------------------------
@@ -326,7 +326,7 @@ def test_stokes_2d_dir_2():
     namespace = run_stokes_2d_dir(f, ue, pe, ncells=[2**3, 2**3], degree=[4, 4], scipy=True)
 
 #------------------------------------------------------------------------------
-def test_api_system_3_2d_dir_1():
+def test_maxwell_time_harmonic_2d_dir_1():
     from sympy import symbols
     x,y,z    = symbols('x1, x2, x3')
 
@@ -335,7 +335,7 @@ def test_api_system_3_2d_dir_1():
     f        = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                      alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
-    l2_error = run_system_3_2d_dir(uex, f, alpha, ncells=[2**3,2**3], degree=[2,2])
+    l2_error = run_maxwell_time_harmonic_2d_dir(uex, f, alpha, ncells=[2**3,2**3], degree=[2,2])
     assert abs(l2_error-0.0029394893438220502)<1e-13
 
 #==============================================================================
