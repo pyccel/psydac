@@ -52,7 +52,7 @@ from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
 
 from psydac.utilities.utils    import refine_array_1d
 
-from psydac.feec.multipatch.operators import BrokenMass_V0, BrokenMass_V1, BrokenMass_V2, ortho_proj_Hcurl
+from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import IdLinearOperator, SumLinearOperator, MultLinearOperator
 from psydac.feec.multipatch.operators import BrokenGradient_2D, BrokenTransposedGradient_2D
 from psydac.feec.multipatch.operators import ConformingProjection_V1, ComposedLinearOperator
@@ -67,7 +67,7 @@ from sympde.topology      import Boundary, Interface
 
 
 #==============================================================================
-def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None):
+def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, return_sol=False):
     """
     - assemble and solve a Maxwell problem on a multipatch domain, using Conga approach
     - this problem is adapted from the single patch test_api_system_3_2d_dir_1
@@ -87,9 +87,10 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None):
 
     # Mass matrices for broken spaces (block-diagonal)
     # TODO: (MCP 10.03.2021) define them as Hodge FemLinearOperators
-    M0 = BrokenMass_V0(V0h, domain_h)
-    M1 = BrokenMass_V1(V1h, domain_h)
-    M2 = BrokenMass_V2(V2h, domain_h)
+
+    M0 = BrokenMass(V0h, domain_h, is_scalar=True)
+    M1 = BrokenMass(V1h, domain_h, is_scalar=False)
+    M2 = BrokenMass(V2h, domain_h, is_scalar=True)
 
     # Projectors for broken spaces
     # bP0, bP1, bP2 = derham_h.projectors(nquads=nquads)

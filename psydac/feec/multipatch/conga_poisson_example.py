@@ -43,7 +43,7 @@ from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
 
 from psydac.utilities.utils    import refine_array_1d
 
-from psydac.feec.multipatch.operators import BrokenMass_V0, BrokenMass_V1, ortho_proj_Hcurl
+from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import IdLinearOperator, SumLinearOperator, MultLinearOperator
 from psydac.feec.multipatch.operators import BrokenGradient_2D, BrokenTransposedGradient_2D
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ComposedLinearOperator
@@ -133,8 +133,8 @@ def conga_poisson_2d():
     V1h = derham_h.V1
 
     # Mass matrices for broken spaces (block-diagonal)
-    M0 = BrokenMass_V0(V0h, domain_h)
-    M1 = BrokenMass_V1(V1h, domain_h)
+    M0 = BrokenMass(V0h, domain_h, is_scalar=True)
+    M1 = BrokenMass(V1h, domain_h, is_scalar=False)
 
     # Projectors for broken spaces
     bP0, bP1, bP2 = derham_h.projectors(nquads=nquads)

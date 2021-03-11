@@ -298,25 +298,24 @@ class DummyConformingProjection_V1( FemLinearOperator ):
 
 
 #===============================================================================
-class BrokenMass_V0( FemLinearOperator ):
+class BrokenMass( FemLinearOperator ):
     """
-    Broken mass matrix, seen as a LinearOperator
+    Broken mass matrix for a scalar space (seen as a LinearOperator... to be improved)
     """
-    def __init__( self, V0h, domain_h):
+    def __init__( self, Vh, domain_h, is_scalar):
 
-        FemLinearOperator.__init__(self, fem_domain=V0h)
-        # self._fem_domain   = V0h
-        # self._fem_codomain = V0h
-        # self._domain   = self._fem_domain.vector_space
-        # self._codomain = self._fem_codomain.vector_space
+        FemLinearOperator.__init__(self, fem_domain=Vh)
 
-        V0 = V0h.symbolic_space
-        domain = V0.domain
+        V = Vh.symbolic_space
+        domain = V.domain
         # domain_h = V0h.domain  # would be nice
-        u, v = elements_of(V0, names='u, v')
-        expr   = u*v  # dot(u,v)
+        u, v = elements_of(V, names='u, v')
+        if is_scalar:
+            expr   = u*v
+        else:
+            expr   = dot(u,v)
         a = BilinearForm((u,v), integral(domain, expr))
-        ah = discretize(a, domain_h, [V0h, V0h])
+        ah = discretize(a, domain_h, [Vh, Vh])
         self._M = ah.assemble() #.toarray()
 
     def mat(self):
@@ -331,66 +330,6 @@ class BrokenMass_V0( FemLinearOperator ):
         # coeffs layer
         return self._M.dot(f_coeffs)
 
-#===============================================================================
-class BrokenMass_V1( FemLinearOperator ):
-    """
-    Broken mass matrix in V1, seen as a LinearOperator
-    """
-    def __init__( self, V1h, domain_h):
-
-        FemLinearOperator.__init__(self, fem_domain=V1h)
-
-        V1 = V1h.symbolic_space
-        domain = V1.domain
-        # domain_h = V0h.domain  # would be nice
-        # self._domain   = V1h
-        # self._codomain = V1h
-        u, v = elements_of(V1, names='u, v')
-        expr   = dot(u,v)
-        a = BilinearForm((u,v), integral(domain, expr))
-        ah = discretize(a, domain_h, [V1h, V1h])
-        self._M = ah.assemble() #.toarray()
-
-    def mat(self):
-        return self._M
-
-    def __call__( self, f ):
-        Mf_coeffs = self.dot(f.coeffs)
-        return FemField(self.fem_domain, coeffs=Mf_coeffs)
-
-    def dot( self, f_coeffs, out=None ):
-        return self._M.dot(f_coeffs)
-
-
-#===============================================================================
-class BrokenMass_V2( FemLinearOperator ):
-    """
-    Broken mass matrix, seen as a LinearOperator
-    """
-    def __init__( self, V2h, domain_h):
-
-        FemLinearOperator.__init__(self, fem_domain=V2h)
-
-        V2 = V2h.symbolic_space
-        domain = V2.domain
-        # domain_h = V0h.domain  # would be nice
-        u, v = elements_of(V2, names='u, v')
-        expr   = u*v  # dot(u,v)
-        a = BilinearForm((u,v), integral(domain, expr))
-        ah = discretize(a, domain_h, [V2h, V2h])
-        self._M = ah.assemble() #.toarray()
-
-    def mat(self):
-        return self._M
-
-    def __call__( self, f ):
-        # Fem layer
-        Mf_coeffs = self.dot(f.coeffs)
-        return FemField(self.fem_domain, coeffs=Mf_coeffs)
-
-    def dot( self, f_coeffs, out=None ):
-        # coeffs layer
-        return self._M.dot(f_coeffs)
 
 #==============================================================================
 class ComposedLinearOperator( FemLinearOperator ):

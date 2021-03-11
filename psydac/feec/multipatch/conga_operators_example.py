@@ -21,7 +21,7 @@ from psydac.feec.pull_push     import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
 
 from psydac.utilities.utils    import refine_array_1d
 
-from psydac.feec.multipatch.operators import BrokenMass_V0, BrokenMass_V1
+from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, DummyConformingProjection_V1, ComposedLinearOperator
 from psydac.feec.multipatch.operators import get_grid_vals_V0, get_grid_vals_V1, get_grid_vals_V2
 from psydac.feec.multipatch.operators import my_small_plot
@@ -88,8 +88,8 @@ def conga_operators_2d():
     V1h = derham_h.V1
 
     # Mass matrices for multipatch spaces (block-diagonal)
-    M0 = BrokenMass_V0(V0h, domain_h)
-    M1 = BrokenMass_V1(V1h, domain_h)
+    M0 = BrokenMass(V0h, domain_h, is_scalar=True)
+    M1 = BrokenMass(V1h, domain_h, is_scalar=False)
 
     # Projectors for broken spaces
     # - image is a discrete field in the multipatch (broken) space V0, V1 or V2
