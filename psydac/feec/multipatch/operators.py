@@ -145,7 +145,7 @@ class ComposedLinearOperator( FemLinearOperator ):
 
     def dot( self, f_coeffs, out=None ):
         v_coeffs = self._operators[-1].dot(f_coeffs)
-        for i in range(2, self._n):
+        for i in range(2, self._n+1):
             v_coeffs = self._operators[-i].dot(v_coeffs)
         return v_coeffs
 
