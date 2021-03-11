@@ -49,6 +49,7 @@ from psydac.feec.multipatch.operators import BrokenGradient_2D, BrokenTransposed
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ComposedLinearOperator
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1, Multipatch_Projector_Hcurl
 from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector_patch_fields
+from psydac.feec.multipatch.operators import my_small_plot
 
 comm = MPI.COMM_WORLD
 
@@ -197,11 +198,34 @@ def conga_poisson_2d():
     lh = discretize(l, domain_h, V0h)
     b  = lh.assemble()
 
+
+
+    plot_debug = False
+
+    if plot_debug:
+        N = 20
+        from psydac.feec.multipatch.operators import get_grid_vals_V0, get_grid_vals_V1, get_grid_vals_V2
+        etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
+        mappings = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
+        pcoords  = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
+        pcoords  = np.concatenate(pcoords, axis=1)
+        xx = pcoords[:,:,0]
+        yy = pcoords[:,:,1]
+
     # Conga Poisson matrix is
     # A = (cD0)^T * M1 * cD0 + (I0 - Pc)^2
 
+
     old = True
     if old:
+
+        # cD0T_M1_cD0 = ComposedLinearOperator( cD0_T, ComposedLinearOperator( M1, cD0 ) )
+        # minus_cP0   = MultLinearOperator(-1,cP0)
+        #
+        # I_minus_cP0 = SumLinearOperator( I0, minus_cP0 )
+        # I_minus_cP0_squared = ComposedLinearOperator(I_minus_cP0, I_minus_cP0)
+        # A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0) #_squared )
+
         # Conga grad operator on V0h
         cD0 = ComposedLinearOperator([bD0, cP0])
         # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
@@ -211,6 +235,24 @@ def conga_poisson_2d():
         I_minus_cP0 = SumLinearOperator( I0, minus_cP0 )
         I_minus_cP0_squared = ComposedLinearOperator([I_minus_cP0, I_minus_cP0])
         A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0) #_squared )
+
+
+        if plot_debug:
+            phi = cD0T_M1_cD0(phi_ref)
+            phi2 = minus_cP0(phi_ref)
+            phi3 = A(phi_ref)
+            phi_vals = get_grid_vals_V0(phi, V0h, etas, mappings_obj)
+            phi2_vals = get_grid_vals_V0(phi2, V0h, etas, mappings_obj)
+            phi3_vals = get_grid_vals_V0(phi3, V0h, etas, mappings_obj)
+            #ux_vals, uy_vals = get_grid_vals_V1(u, V1h, etas, mappings_obj)
+            my_small_plot(
+                title=r'1',
+                vals=[phi_vals, phi2_vals, phi3_vals],
+                titles=[r'$\phi$', r'$\phi2$', r'$\phi3$'],
+                xx=xx, yy=yy,
+            )
+            exit()
+
     else:
         cD0T_M1_cD0 = ComposedLinearOperator([cP0, bD0.transpose(), M1, bD0, cP0])
         A = (I0-cP0) + cD0T_M1_cD0
