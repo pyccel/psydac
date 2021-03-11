@@ -438,12 +438,6 @@ class BrokenGradient_2D(FemLinearOperator):
         self._matrix = BlockMatrix(self.domain, self.codomain, \
                 blocks={(i, i): D0i._matrix for i, D0i in enumerate(D0s)})
 
-    def dot(self, u0_coeffs, out = None):
-        return self._matrix.dot(u0_coeffs, out=out)
-
-    def __call__(self, u0):
-        return FemField(self.fem_codomain, coeffs = self.dot(u0.coeffs))
-
     def transpose(self):
         return BrokenTransposedGradient_2D(self.fem_domain, self.fem_codomain)
 
@@ -458,12 +452,6 @@ class BrokenTransposedGradient_2D( FemLinearOperator ):
 
         self._matrix = BlockMatrix(self.domain, self.codomain, \
                 blocks={(i, i): D0i._matrix.T for i, D0i in enumerate(D0s)})
-
-    def dot(self, u0_coeffs, out = None):
-        return self._matrix.dot(u0_coeffs, out=out)
-
-    def __call__(self, u0):
-        return FemField(self.fem_codomain, coeffs = self.dot(u0.coeffs))
 
     def transpose(self):
         return BrokenGradient_2D(self.fem_codomain, self.fem_domain)
@@ -480,15 +468,37 @@ class BrokenScalarCurl_2D(FemLinearOperator):
         self._matrix = BlockMatrix(self.domain, self.codomain, \
                 blocks={(i, i): D1i._matrix for i, D1i in enumerate(D1s)})
 
-    def dot(self, E1_coeffs, out = None):
-        return self._matrix.dot(E1_coeffs, out=out)
-
-    def __call__(self, E1):
-        return FemField(self.fem_codomain, coeffs = self.dot(E1.coeffs))
+    # def dot(self, E1_coeffs, out = None):
+    #     return self._matrix.dot(E1_coeffs, out=out)
+    #
+    # def __call__(self, E1):
+    #     return FemField(self.fem_codomain, coeffs = self.dot(E1.coeffs))
 
     def transpose(self):
-        raise NotImplementedError
-        # return BrokenTransposedGradient_2D(self.fem_domain, self.fem_codomain)
+        return BrokenTransposedScalarCurl_2D(V1h=self.fem_domain, V2h=self.fem_codomain)
+
+
+#==============================================================================
+class BrokenTransposedScalarCurl_2D( FemLinearOperator ):
+
+    def __init__( self, V1h, V2h):
+
+        FemLinearOperator.__init__(self, fem_domain=V2h, fem_codomain=V1h)
+
+        D1s = [ScalarCurl_2D(V1, V2) for V1, V2 in zip(V1h.spaces, V2h.spaces)]
+
+        self._matrix = BlockMatrix(self.domain, self.codomain, \
+                blocks={(i, i): D1i._matrix.T for i, D1i in enumerate(D1s)})
+
+    # def dot(self, u1_coeffs, out = None):
+    #     return self._matrix.dot(u1_coeffs, out=out)
+
+    # def __call__(self, u0):
+    #     return FemField(self.fem_codomain, coeffs = self.dot(u0.coeffs))
+
+    def transpose(self):
+        return BrokenScalarCurl_2D(V1h=self.fem_codomain, V2h=self.fem_domain)
+
 
 
 #==============================================================================

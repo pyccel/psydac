@@ -216,7 +216,7 @@ def conga_poisson_2d():
     # A = (cD0)^T * M1 * cD0 + (I0 - Pc)^2
 
 
-    old = True
+    old = False
     if old:
 
         # cD0T_M1_cD0 = ComposedLinearOperator( cD0_T, ComposedLinearOperator( M1, cD0 ) )

@@ -99,7 +99,7 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
     # bP0, bP1, bP2 = derham_h.projectors(nquads=nquads)
 
     # Broken derivative operators
-    bD0, bD1, bD2 = derham_h.broken_derivatives_as_operators
+    bD0, bD1 = derham_h.broken_derivatives_as_operators
 
     # Transposed operator(s)
     bD1_T = bD1.transpose()
