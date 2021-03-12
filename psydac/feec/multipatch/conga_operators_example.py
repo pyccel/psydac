@@ -272,7 +272,7 @@ def conga_operators_2d():
         # plot G, G1 and G1c, y component
         my_small_plot(
             title=r'broken and conforming approx of some $G$, y component',
-            vals=[G_x_vals, G1_x_vals, G1c_x_vals],
+            vals=[G_y_vals, G1_y_vals, G1c_y_vals],
             titles=[r'$G^{ex}_y(x,y)$', r'$G^h_y(x,y)$', r'$(P^{1,c}G)_y v^h(x,y)$'],
             xx=xx,
             yy=yy,
