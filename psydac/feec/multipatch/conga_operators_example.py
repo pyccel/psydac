@@ -243,7 +243,7 @@ def conga_operators_2d():
         )
 
         # plot v0 and cDv0
-        cDv0_x_vals, cDv0_y_vals = get_grid_vals_V1(cDv0, V1h, etas, mappings_obj)
+        cDv0_x_vals, cDv0_y_vals = get_grid_vals_vector(cDv0, etas, mappings_obj)
 
         my_small_plot(
             title=r'discontinuous $v^h$ and its Conga gradient $D^0 = D^{0,b}P^{0,c}$',
