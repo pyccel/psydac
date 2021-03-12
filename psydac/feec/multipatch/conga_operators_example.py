@@ -22,7 +22,7 @@ from psydac.utilities.utils    import refine_array_1d
 
 from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, DummyConformingProjection_V1, ComposedLinearOperator
-from psydac.feec.multipatch.operators import get_grid_vals_V0, get_grid_vals_V1, get_grid_vals_V2
+from psydac.feec.multipatch.operators import get_grid_vals_scalar, get_grid_vals_vector
 from psydac.feec.multipatch.operators import my_small_plot
 
 comm = MPI.COMM_WORLD
@@ -229,9 +229,9 @@ def conga_operators_2d():
         # I - 1. qualitative assessment of conf Projection in V0, with discontinuous v
 
         # plot v, v0 and v0c
-        v_vals   = get_grid_vals_V0(v_sol_log, None, etas, mappings_obj)
-        v0_vals  = get_grid_vals_V0(v0, V0h, etas, mappings_obj)
-        v0c_vals = get_grid_vals_V0(v0c, V0h, etas, mappings_obj)
+        v_vals   = get_grid_vals_scalar(v_sol_log, etas, mappings_obj)
+        v0_vals  = get_grid_vals_scalar(v0, etas, mappings_obj)
+        v0c_vals = get_grid_vals_scalar(v0c, etas, mappings_obj)
 
         my_small_plot(
             title=r'broken and conforming approximation of some $v$',
@@ -256,9 +256,9 @@ def conga_operators_2d():
 
         # I - 2. qualitative assessment of conf Projection in V1, with discontinuous G
 
-        G_x_vals, G_y_vals     = get_grid_vals_V1(G_sol_log, None, etas, mappings_obj)
-        G1_x_vals, G1_y_vals   = get_grid_vals_V1(G1, V1h, etas, mappings_obj)
-        G1c_x_vals, G1c_y_vals = get_grid_vals_V1(G1c, V1h, etas, mappings_obj)
+        G_x_vals, G_y_vals     = get_grid_vals_vector(G_sol_log, etas, mappings_obj)
+        G1_x_vals, G1_y_vals   = get_grid_vals_vector(G1, etas, mappings_obj)
+        G1c_x_vals, G1c_y_vals = get_grid_vals_vector(G1c, etas, mappings_obj)
 
         # plot G, G1 and G1c, x component
         my_small_plot(
@@ -286,8 +286,8 @@ def conga_operators_2d():
 
         # plot u and u0 = u_h
 
-        u_vals  = get_grid_vals_V0(u_sol_log, None, etas, mappings_obj)
-        u0_vals = get_grid_vals_V0(u0, V0h, etas, mappings_obj)
+        u_vals  = get_grid_vals_scalar(u_sol_log, etas, mappings_obj)
+        u0_vals = get_grid_vals_scalar(u0, etas, mappings_obj)
         u_err   = abs(u_vals - u0_vals)
 
         my_small_plot(
@@ -300,8 +300,8 @@ def conga_operators_2d():
 
         # plot (compare) E1 and grad_u0
 
-        E_x_vals, E_y_vals   = get_grid_vals_V1(E_sol_log, None, etas, mappings_obj)
-        E1_x_vals, E1_y_vals = get_grid_vals_V1(E1, V1h, etas, mappings_obj)
+        E_x_vals, E_y_vals   = get_grid_vals_vector(E_sol_log, etas, mappings_obj)
+        E1_x_vals, E1_y_vals = get_grid_vals_vector(E1, etas, mappings_obj)
 
         E_x_err = abs(E_x_vals - E1_x_vals)
         E_y_err = abs(E_y_vals - E1_y_vals)
@@ -322,7 +322,7 @@ def conga_operators_2d():
             yy=yy,
         )
 
-        grad_u0_x_vals, grad_u0_y_vals = get_grid_vals_V1(grad_u0, V1h, etas, mappings_obj)
+        grad_u0_x_vals, grad_u0_y_vals = get_grid_vals_vector(grad_u0, etas, mappings_obj)
         gu_x_err = abs(grad_u0_x_vals - E1_x_vals)
         gu_y_err = abs(grad_u0_y_vals - E1_y_vals)
 

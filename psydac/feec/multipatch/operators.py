@@ -95,7 +95,11 @@ class FemLinearOperator( LinearOperator ):
 
     # ...
     def __mul__(self, c):
-        return MultLinearOperator(a, self)
+        return MultLinearOperator(c, self)
+
+    # ...
+    def __rmul__(self, c):
+        return MultLinearOperator(c, self)
 
     # ...
     def __add__(self, C):
@@ -598,8 +602,8 @@ def get_vector_patch_fields(E, V1h):
 
 from psydac.feec.pull_push     import push_2d_h1, push_2d_hcurl, push_2d_l2
 
-def get_grid_vals_V0(u, V0h, etas, mappings_obj):
-    # get the physical field values, given the logical fem field and the logical grid
+def get_grid_vals_scalar(u, etas, mappings_obj):
+    # get the physical field values, given the logical field and the logical grid
     n_patches = len(mappings_obj)
     # works but less general...
     # u_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(us, etas)]
@@ -607,13 +611,11 @@ def get_grid_vals_V0(u, V0h, etas, mappings_obj):
     for k in range(n_patches):
         eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
         u_vals[k] = np.empty_like(eta_1)
-        # todo: don't pass V0h but check type
-        if V0h is None:
+        if isinstance(u,FemField):
+            uk_field = u.fields[k]   # todo (MCP): try with u[k].fields?
+        else:
             # then field is just callable
             uk_field = u[k]
-        else:
-            # then field is a fem field
-            uk_field = u.fields[k]   # todo (MCP): try with u[k].fields
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
                 u_vals[k][i, j] = push_2d_h1(uk_field, x1i, x2j)
@@ -623,7 +625,7 @@ def get_grid_vals_V0(u, V0h, etas, mappings_obj):
     return u_vals
 
 
-def get_grid_vals_V1(E, V1h, etas, mappings_obj):
+def get_grid_vals_vector(E, etas, mappings_obj):
     # get the physical field values, given the logical field and logical grid
     n_patches = len(mappings_obj)
     E_x_vals = n_patches*[None]
@@ -632,15 +634,13 @@ def get_grid_vals_V1(E, V1h, etas, mappings_obj):
         eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
         E_x_vals[k] = np.empty_like(eta_1)
         E_y_vals[k] = np.empty_like(eta_1)
-        # todo: don't pass V1h but check type
-        if V1h is None:
+        if isinstance(E,FemField):
+            Ek_field_0 = E[k].fields[0]   # or E.fields[k][0] ?
+            Ek_field_1 = E[k].fields[1]
+        else:
             # then E field is just callable
             Ek_field_0 = E[k][0]
             Ek_field_1 = E[k][1]
-        else:
-            # then E is a fem field
-            Ek_field_0 = E[k].fields[0]   # or E.fields[k][0] ?
-            Ek_field_1 = E[k].fields[1]
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
                 E_x_vals[k][i, j], E_y_vals[k][i, j] = \
@@ -648,22 +648,6 @@ def get_grid_vals_V1(E, V1h, etas, mappings_obj):
     E_x_vals = np.concatenate(E_x_vals, axis=1)
     E_y_vals = np.concatenate(E_y_vals, axis=1)
     return E_x_vals, E_y_vals
-
-def get_grid_vals_V2(B, V2h, etas, mappings_obj):
-    # get the physical field values, given the logical fem field and the logical grid
-    #Bs = get_scalar_patch_fields(B, V2h)  # todo: B.fields should also work
-    n_patches = len(mappings_obj)
-    B_vals = n_patches*[None]
-    for k in range(n_patches):
-        eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
-        B_vals[k] = np.empty_like(eta_1)
-        for i, x1i in enumerate(eta_1[:, 0]):
-            for j, x2j in enumerate(eta_2[0, :]):
-                B_vals[k][i, j] = \
-                    push_2d_l2(Bs[k], x1i, x2j, mappings_obj[k])
-
-    B_vals  = np.concatenate(B_vals, axis=1)
-    return B_vals
 
 
 def my_small_plot(

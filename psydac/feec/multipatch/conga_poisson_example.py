@@ -204,7 +204,7 @@ def conga_poisson_2d():
 
     if plot_debug:
         N = 20
-        from psydac.feec.multipatch.operators import get_grid_vals_V0, get_grid_vals_V1, get_grid_vals_V2
+        from psydac.feec.multipatch.operators import get_grid_vals_scalar
         etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
         mappings = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
         pcoords  = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
@@ -241,10 +241,9 @@ def conga_poisson_2d():
             phi = cD0T_M1_cD0(phi_ref)
             phi2 = minus_cP0(phi_ref)
             phi3 = A(phi_ref)
-            phi_vals = get_grid_vals_V0(phi, V0h, etas, mappings_obj)
-            phi2_vals = get_grid_vals_V0(phi2, V0h, etas, mappings_obj)
-            phi3_vals = get_grid_vals_V0(phi3, V0h, etas, mappings_obj)
-            #ux_vals, uy_vals = get_grid_vals_V1(u, V1h, etas, mappings_obj)
+            phi_vals = get_grid_vals_scalar(phi, etas, mappings_obj)
+            phi2_vals = get_grid_vals_scalar(phi2, etas, mappings_obj)
+            phi3_vals = get_grid_vals_scalar(phi3, etas, mappings_obj)
             my_small_plot(
                 title=r'1',
                 vals=[phi_vals, phi2_vals, phi3_vals],

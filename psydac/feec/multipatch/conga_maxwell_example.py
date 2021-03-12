@@ -53,11 +53,11 @@ from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
 from psydac.utilities.utils    import refine_array_1d
 
 from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
-from psydac.feec.multipatch.operators import IdLinearOperator, SumLinearOperator, MultLinearOperator
+from psydac.feec.multipatch.operators import FemLinearOperator, IdLinearOperator, SumLinearOperator, MultLinearOperator
 from psydac.feec.multipatch.operators import BrokenGradient_2D, BrokenTransposedGradient_2D
 from psydac.feec.multipatch.operators import ConformingProjection_V1, ComposedLinearOperator
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1, Multipatch_Projector_Hcurl
-from psydac.feec.multipatch.operators import get_grid_vals_V0, get_grid_vals_V1, get_grid_vals_V2
+from psydac.feec.multipatch.operators import get_grid_vals_scalar, get_grid_vals_vector
 from psydac.feec.multipatch.operators import my_small_plot
 
 comm = MPI.COMM_WORLD
@@ -106,40 +106,45 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
 
     cP1 = ConformingProjection_V1(V1h, domain_h)
 
-
-    # todo (MCP): simplify using matrices
-
-    # Conga grad operator on V0h
-    cD1 = ComposedLinearOperator(bD1, cP1)
-
-    # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-    cD1_T = ComposedLinearOperator(cP1, bD1_T)
-
     I1 = IdLinearOperator(V1h)
 
-    cD1T_M2_cD1 = ComposedLinearOperator( cD1_T, ComposedLinearOperator( M2, cD1 ) )
-    alpha_M1   = MultLinearOperator(alpha,M1)
-    A_aux = SumLinearOperator( cD1T_M2_cD1, alpha_M1)
-    minus_cP1   = MultLinearOperator(-1,cP1)
-    I_minus_cP1 = SumLinearOperator( I1, minus_cP1 )
-    I_minus_cP1_squared = ComposedLinearOperator(I_minus_cP1, I_minus_cP1)
 
-    A1 = SumLinearOperator( A_aux, I_minus_cP1) #_squared )
+
+    # old = False
+    # if old:
+    #
+    #     # Conga grad operator on V0h
+    #     cD1 = ComposedLinearOperator([bD1, cP1])
+    #
+    #     # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
+    #     cD1_T = ComposedLinearOperator([cP1, bD1_T])
+    #
+    #
+    #     cD1T_M2_cD1 = ComposedLinearOperator( [cD1_T, ComposedLinearOperator( [M2, cD1 ])] )
+    #     alpha_M1   = MultLinearOperator(alpha,M1)
+    #     A_aux = SumLinearOperator( cD1T_M2_cD1, alpha_M1)
+    #     minus_cP1   = MultLinearOperator(-1,cP1)
+    #     I_minus_cP1 = SumLinearOperator( I1, minus_cP1 )
+    #     I_minus_cP1_squared = ComposedLinearOperator(I_minus_cP1, I_minus_cP1)
+    #
+    #     A1 = SumLinearOperator( A_aux, I_minus_cP1) #_squared )
+    # else:
+
+    A1 = ComposedLinearOperator([I1-cP1,I1-cP1]) + ComposedLinearOperator([cP1, bD1.transpose(), M2, bD1, cP1]) + alpha * M1
 
     # boundary conditions
-    u, v, F  = elements_of(V, names='u, v, F')
+    u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
     nn  = NormalVector('nn')
     # error   = Matrix([F[0]-uex[0],F[1]-uex[1]])
     # kappa        = 10**8*degree[0]**2*ncells[0]
     penalization = 10**7
     boundary = domain.boundary
 
-    # todo (MCP): simplify
     expr_b = penalization * cross(u, nn) * cross(v, nn)
     a_b = BilinearForm((u,v), integral(boundary, expr_b))
     a_b_h = discretize(a_b, domain_h, [V1h, V1h])
     A_b = FemLinearOperator(fem_domain=V1h, fem_codomain=V1h, matrix=a_b_h.assemble())
-    A = SumLinearOperator(A1, A_b)
+    A = A1 + A_b
 
     expr   = dot(f,v)
     expr_b = penalization * cross(uex, nn) * cross(v, nn)
@@ -154,7 +159,8 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
 
     # Solve linear system
 
-    u_coeffs, info = pcg( A, b, pc='jacobi', tol=maxwell_tol, verbose=True )
+    # u_coeffs, info = pcg( A, b, pc='jacobi', tol=maxwell_tol, verbose=True )
+    u_coeffs, info = cg( A, b, tol=maxwell_tol, verbose=True )
 
     uh = FemField(V1h, coeffs=u_coeffs)
 
@@ -195,14 +201,28 @@ if __name__ == '__main__':
                      alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
 
+    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
+    mappings_obj = [mapping_1, mapping_2]
+
+    uex_x = lambdify(domain.coordinates, uex[0])
+    uex_y = lambdify(domain.coordinates, uex[1])
+    uex_log = [pull_2d_hcurl([uex_x,uex_y], f) for f in mappings_obj]
+
+
+
     ## call solver
 
+    # Nitsche
     # l2_error, uh = run_maxwell_2d(uex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)
 
+    # Conga
     l2_error, uh = run_conga_maxwell_2d(uex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)
+
 
     print("max2d: ", l2_error)
     # print("conga_max2d: ", conga_l2_error)
+
+
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # VISUALIZATION
@@ -210,20 +230,13 @@ if __name__ == '__main__':
     #   and psydac/api/tests/test_api_feec_2d.py
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
+    # for the plots
     N = 20
-
-    mappings  = [mapping_1, mapping_2]
     etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
-
-    # mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
-    mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for M in mappings]
+    mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
 
     pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings_lambda, etas)]
     pcoords  = np.concatenate(pcoords, axis=1)
-
-
-    # plots
 
     xx = pcoords[:,:,0]
     yy = pcoords[:,:,1]
@@ -253,9 +266,16 @@ if __name__ == '__main__':
         gridlines_x1 = None
         gridlines_x2 = None
 
-    u_x_vals, u_y_vals   = get_grid_vals_V1(uex, None, etas, mappings)
-    uh_x_vals, uh_y_vals = get_grid_vals_V1(uh, V1h, etas, mappings)
+    u_x_vals, u_y_vals   = get_grid_vals_vector(uex_log, etas, mappings_obj)
+    my_small_plot(
+        title=r'exact solution',
+        vals=[u_x_vals, u_y_vals],
+        titles=[r'$u^{ex}_x(x,y)$', r'$u^{ex}_y(x,y)$'],
+        xx=xx,
+        yy=yy,
+    )
 
+    uh_x_vals, uh_y_vals = get_grid_vals_vector(uh, etas, mappings_obj)
     u_x_err = abs(u_x_vals - uh_x_vals)
     u_y_err = abs(u_y_vals - uh_y_vals)
 
