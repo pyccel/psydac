@@ -337,18 +337,26 @@ class ConformingProjection_V1( FemLinearOperator ):
         d21     = V1h.spaces[1].spaces[0].degree[I.axis]
         d22     = V1h.spaces[1].spaces[1].degree[I.axis]
 
-        self._A[0,0][0,0][:,e11,0,0] = 1/2
-        self._A[0,0][1,1][:,e12,0,0] = 1/2
+        if I.axis == 1:
+            self._A[0,0][0,0][:,e11,0,0] = 1/2
+        else:
+            self._A[0,0][1,1][:,e12,0,0] = 1/2
 
-        self._A[1,1][0,0][:,s21,0,0] = 1/2
-        self._A[1,1][1,1][:,s22,0,0] = 1/2
+        if I.axis == 1:
+            self._A[1,1][0,0][:,s21,0,0] = 1/2
+        else:
+            self._A[1,1][1,1][:,s22,0,0] = 1/2
 
 
-        self._A[0,1][0,0][:,d11,0,-d21] = 1/2
-        self._A[0,1][1,1][:,d12,0,-d22] = 1/2
+        if I.axis == 1:
+            self._A[0,1][0,0][:,d11,0,-d21] = 1/2
+        else:
+            self._A[0,1][1,1][:,d12,0,-d22] = 1/2
 
-        self._A[1,0][0,0][:,s21,0, d11] = 1/2
-        self._A[1,0][1,1][:,s22,0, d12] = 1/2
+        if I.axis == 1:
+            self._A[1,0][0,0][:,s21,0, d11] = 1/2
+        else:
+            self._A[1,0][1,1][:,s22,0, d12] = 1/2
 
         self._matrix = self._A
 
