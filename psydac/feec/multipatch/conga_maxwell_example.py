@@ -73,7 +73,7 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
     - this problem is adapted from the single patch test_api_system_3_2d_dir_1
     """
 
-    maxwell_tol = 5e-13
+    maxwell_tol = 5e-3
     nquads = [d + 1 for d in degree]
 
     # multipatch de Rham sequence:
@@ -108,29 +108,7 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
 
     I1 = IdLinearOperator(V1h)
 
-
-
-    # old = False
-    # if old:
-    #
-    #     # Conga grad operator on V0h
-    #     cD1 = ComposedLinearOperator([bD1, cP1])
-    #
-    #     # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-    #     cD1_T = ComposedLinearOperator([cP1, bD1_T])
-    #
-    #
-    #     cD1T_M2_cD1 = ComposedLinearOperator( [cD1_T, ComposedLinearOperator( [M2, cD1 ])] )
-    #     alpha_M1   = MultLinearOperator(alpha,M1)
-    #     A_aux = SumLinearOperator( cD1T_M2_cD1, alpha_M1)
-    #     minus_cP1   = MultLinearOperator(-1,cP1)
-    #     I_minus_cP1 = SumLinearOperator( I1, minus_cP1 )
-    #     I_minus_cP1_squared = ComposedLinearOperator(I_minus_cP1, I_minus_cP1)
-    #
-    #     A1 = SumLinearOperator( A_aux, I_minus_cP1) #_squared )
-    # else:
-
-    A1 = ComposedLinearOperator([I1-cP1,I1-cP1]) + ComposedLinearOperator([cP1, bD1.transpose(), M2, bD1, cP1]) + alpha * M1
+    A1 = 1e10*ComposedLinearOperator([I1-cP1,I1-cP1]) + ComposedLinearOperator([cP1, bD1.transpose(), M2, bD1, cP1]) + alpha * M1
 
     # boundary conditions
     u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
@@ -163,6 +141,7 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
     u_coeffs, info = cg( A, b, tol=maxwell_tol, verbose=True )
 
     uh = FemField(V1h, coeffs=u_coeffs)
+    uh = cP1(uh)
 
     # error
     error   = Matrix([F[0]-uex[0],F[1]-uex[1]])
