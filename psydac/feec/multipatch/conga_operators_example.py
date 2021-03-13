@@ -4,26 +4,22 @@ from mpi4py import MPI
 
 import numpy as np
 
-# checking import path...
-# import sympde
-# print(sympde.__file__)
-# exit()
-
 from sympde.topology import Derham
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
 
-#from psydac.api.discretization import discretize
 from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
 
 from psydac.feec.pull_push     import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
 
 from psydac.utilities.utils    import refine_array_1d
 
+from psydac.feec.multipatch.fem_linear_operators import ComposedLinearOperator
 from psydac.feec.multipatch.operators import BrokenMass
-from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, DummyConformingProjection_V1, ComposedLinearOperator
+from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1
 from psydac.feec.multipatch.operators import get_grid_vals_scalar, get_grid_vals_vector
 from psydac.feec.multipatch.operators import my_small_plot
+
 
 comm = MPI.COMM_WORLD
 
@@ -98,15 +94,10 @@ def conga_operators_2d():
 
     # Conforming projection operators
     Pconf_0 = ConformingProjection_V0(V0h, domain_h)#, verbose=False)
-    # Pconf_1 = DummyConformingProjection_V1(V1h, domain_h)#, verbose=False)
     Pconf_1 = ConformingProjection_V1(V1h, domain_h)#, verbose=False)
 
     # Broken derivative operators
     bD0, bD1 = derham_h.broken_derivatives_as_operators
-
-    # Conga derivative operators (not needed in this example file)
-    # cD0 = ComposedLinearOperator(bD0, Pconf_0)
-    # cD1 = ComposedLinearOperator(bD1, Pconf_1)
 
     #+++++++++++++++++++++++++++++++
     # . some target functions

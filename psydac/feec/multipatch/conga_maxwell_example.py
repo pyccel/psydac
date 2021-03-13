@@ -5,10 +5,7 @@ from mpi4py import MPI
 import numpy as np
 import matplotlib.pyplot as plt
 
-# checking import path...
-# import sympde
-# print(sympde.__file__)
-# exit()
+from scipy.sparse.linalg import spsolve
 
 from sympy import pi, cos, sin, Matrix, Tuple
 from sympy import symbols
@@ -16,13 +13,9 @@ from sympy import lambdify
 
 from sympde.calculus import grad, dot, inner, rot, div, curl, cross
 from sympde.topology import NormalVector
-from sympde.calculus import laplace, bracket, convect
-from sympde.calculus import jump, avg, Dn, minus, plus
 from sympde.expr import Norm
 
 from sympde.topology import Derham
-# from sympde.topology import ProductSpace
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import element_of, elements_of
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
@@ -30,40 +23,25 @@ from sympde.topology import IdentityMapping, PolarMapping
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
 
-#from psydac.api.discretization import discretize
 from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
 
-from psydac.api.tests.test_api_2d_system_mapping_multipatch import run_maxwell_2d
-
-from psydac.linalg.basic import LinearOperator
-# ProductSpace
-from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
 from psydac.linalg.iterative_solvers import cg, pcg
-from psydac.linalg.direct_solvers import SparseSolver
-from psydac.linalg.identity import IdentityLinearOperator #, IdentityStencilMatrix as IdentityMatrix
+from psydac.linalg.utilities import array_to_stencil
 
 from psydac.fem.basic   import FemField
-from psydac.fem.vector import ProductFemSpace, VectorFemSpace
 
-from psydac.feec.pull_push     import push_2d_hcurl, pull_2d_hcurl  #, push_2d_l2
-
-from psydac.feec.derivatives import Gradient_2D
-from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
+from psydac.feec.pull_push     import push_2d_hcurl, pull_2d_hcurl
 
 from psydac.utilities.utils    import refine_array_1d
 
+from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
+from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
 from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
-from psydac.feec.multipatch.operators import FemLinearOperator, IdLinearOperator, SumLinearOperator, MultLinearOperator
-from psydac.feec.multipatch.operators import BrokenGradient_2D, BrokenTransposedGradient_2D
-from psydac.feec.multipatch.operators import ConformingProjection_V1, ComposedLinearOperator
-from psydac.feec.multipatch.operators import Multipatch_Projector_H1, Multipatch_Projector_Hcurl
+from psydac.feec.multipatch.operators import ConformingProjection_V1
 from psydac.feec.multipatch.operators import get_grid_vals_scalar, get_grid_vals_vector
 from psydac.feec.multipatch.operators import my_small_plot
 
 comm = MPI.COMM_WORLD
-
-from psydac.api.essential_bc import *
-from sympde.topology      import Boundary, Interface
 
 
 #==============================================================================
@@ -73,6 +51,7 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
     - this problem is adapted from the single patch test_api_system_3_2d_dir_1
     """
 
+    use_scipy = True
     maxwell_tol = 5e-3
     nquads = [d + 1 for d in degree]
 
@@ -81,31 +60,15 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     derham_h = discretize(derham, domain_h, degree=degree)
-    V0h = derham_h.V0
     V1h = derham_h.V1
     V2h = derham_h.V2
 
     # Mass matrices for broken spaces (block-diagonal)
-    # TODO: (MCP 10.03.2021) define them as Hodge FemLinearOperators
-
-    print("M0...")
-    M0 = BrokenMass(V0h, domain_h, is_scalar=True)
-    print("M1...")
     M1 = BrokenMass(V1h, domain_h, is_scalar=False)
-    print("M2...")
     M2 = BrokenMass(V2h, domain_h, is_scalar=True)
 
-    # Projectors for broken spaces
-    # bP0, bP1, bP2 = derham_h.projectors(nquads=nquads)
-
-    # Broken derivative operators
     bD0, bD1 = derham_h.broken_derivatives_as_operators
-
-    # Transposed operator(s)
-    bD1_T = bD1.transpose()
-
     cP1 = ConformingProjection_V1(V1h, domain_h)
-
     I1 = IdLinearOperator(V1h)
 
     A1 = 1e10*ComposedLinearOperator([I1-cP1,I1-cP1]) + ComposedLinearOperator([cP1, bD1.transpose(), M2, bD1, cP1]) + alpha * M1
@@ -113,15 +76,13 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
     # boundary conditions
     u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
     nn  = NormalVector('nn')
-    # error   = Matrix([F[0]-uex[0],F[1]-uex[1]])
-    # kappa        = 10**8*degree[0]**2*ncells[0]
     penalization = 10**7
     boundary = domain.boundary
-
     expr_b = penalization * cross(u, nn) * cross(v, nn)
     a_b = BilinearForm((u,v), integral(boundary, expr_b))
     a_b_h = discretize(a_b, domain_h, [V1h, V1h])
     A_b = FemLinearOperator(fem_domain=V1h, fem_codomain=V1h, matrix=a_b_h.assemble())
+
     A = A1 + A_b
 
     expr   = dot(f,v)
@@ -137,8 +98,16 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
 
     # Solve linear system
 
-    # u_coeffs, info = pcg( A, b, pc='jacobi', tol=maxwell_tol, verbose=True )
-    u_coeffs, info = cg( A, b, tol=maxwell_tol, verbose=True )
+    if use_scipy:
+        print("solving with scipy...")
+        A = A.to_sparse_matrix()
+        b = b.toarray()     # todo MCP: why not 'to_array', for consistency with array_to_stencil ?
+
+        x   = spsolve(A, b)
+        u_coeffs   = array_to_stencil(x, V1h.vector_space)
+
+    else:
+        u_coeffs, info = cg( A, b, tol=maxwell_tol, verbose=True )
 
     uh = FemField(V1h, coeffs=u_coeffs)
     uh = cP1(uh)
@@ -225,8 +194,8 @@ if __name__ == '__main__':
     if plotted_patch in [0, 1]:
 
         #patch_derham = derhams_h[plotted_patch]
-        grid_x1 = V0h.spaces[plotted_patch].breaks[0]
-        grid_x2 = V0h.spaces[plotted_patch].breaks[1]
+        grid_x1 = V2h.spaces[plotted_patch].breaks[0]
+        grid_x2 = V2h.spaces[plotted_patch].breaks[1]
 
         print("grid_x1 = ", grid_x1)
 

@@ -1,21 +1,15 @@
-# small script written to test Conga operators on multipatch domains, using the piecewise (broken) de Rham sequences available on every space
+# coding: utf-8
+
+# small script to test a Conga Poisson solver on a multipatch domains,
 
 from mpi4py import MPI
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-# checking import path...
-# import sympde
-# print(sympde.__file__)
-# exit()
-
-from sympde.calculus import grad, dot, inner, rot, div
-from sympde.calculus import laplace, bracket, convect
-from sympde.calculus import jump, avg, Dn, minus, plus
+from scipy.sparse.linalg import spsolve
 
 from sympde.topology import Derham
-# from sympde.topology import ProductSpace
 from sympde.topology import element_of, elements_of
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
@@ -23,33 +17,16 @@ from sympde.topology import IdentityMapping, PolarMapping
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
 
-#from psydac.api.discretization import discretize
-from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
-
-from psydac.linalg.basic import LinearOperator
-# ProductSpace
-from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
 from psydac.linalg.iterative_solvers import cg, pcg
-from psydac.linalg.direct_solvers import SparseSolver
-from psydac.linalg.identity import IdentityLinearOperator #, IdentityStencilMatrix as IdentityMatrix
-
-from psydac.fem.basic   import FemField
-from psydac.fem.vector import ProductFemSpace, VectorFemSpace
-
-from psydac.feec.pull_push     import push_2d_hcurl, pull_2d_hcurl  #, push_2d_l2
-
-from psydac.feec.derivatives import Gradient_2D
-from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl
-
+from psydac.linalg.utilities import array_to_stencil
 from psydac.utilities.utils    import refine_array_1d
+from psydac.fem.basic   import FemField
 
-from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
-from psydac.feec.multipatch.operators import IdLinearOperator, SumLinearOperator, MultLinearOperator
-from psydac.feec.multipatch.operators import BrokenGradient_2D, BrokenTransposedGradient_2D
-from psydac.feec.multipatch.operators import ConformingProjection_V0, ComposedLinearOperator
-from psydac.feec.multipatch.operators import Multipatch_Projector_H1, Multipatch_Projector_Hcurl
+from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator, SumLinearOperator, MultLinearOperator, ComposedLinearOperator
+from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
+from psydac.feec.multipatch.operators import BrokenMass
+from psydac.feec.multipatch.operators import ConformingProjection_V0
 from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector_patch_fields
-from psydac.feec.multipatch.operators import my_small_plot
 
 comm = MPI.COMM_WORLD
 
@@ -83,11 +60,10 @@ def conga_poisson_2d():
     #+++++++++++++++++++++++++++++++
 
     cartesian = False
+    use_scipy = True
+    poisson_tol = 5e-13
 
     nc = 2
-    cp_kappa = 1e3
-    cp_tol = 1e-8
-    poisson_tol = 5e-13
 
     if cartesian:
         A = Square('A',bounds1=(0.5, 1), bounds2=(0, 0.5))
@@ -110,15 +86,13 @@ def conga_poisson_2d():
                 bnd_minus = domain_1.get_boundary(axis=1, ext=1),
                 bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
 
+    # todo (MCP): improve/clarify how mappings are used below: as dicts, lists ?
     mappings  = {A.interior:mapping_1, B.interior:mapping_2}
-
     mappings_obj = [mapping_1, mapping_2]
     F = [f.get_callable_mapping() for f in mappings_obj]
 
-
     # multipatch de Rham sequence:
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-
 
     #+++++++++++++++++++++++++++++++
     # . Discrete space
@@ -142,9 +116,6 @@ def conga_poisson_2d():
 
     # Broken derivative operators
     bD0, bD1 = derham_h.broken_derivatives_as_operators
-
-    # Transposed operator(s)
-    bD0_T = bD0.transpose()
 
     #+++++++++++++++++++++++++++++++
     # . some target functions
@@ -178,12 +149,7 @@ def conga_poisson_2d():
     # . Multipatch operators
     #+++++++++++++++++++++++++++++++
 
-    poisson_solve = True
-
-    if poisson_solve:
-        phi_ref = bP0(phi_ex_log)
-    else:
-        phi_ref = bP0(f_log)
+    phi_ref = bP0(phi_ex_log)
 
     # Conforming projection V0 -> V0
     ## note: there are problems (eg at the interface) when the conforming projection is not accurate (low penalization or high tolerance)
@@ -198,63 +164,11 @@ def conga_poisson_2d():
     lh = discretize(l, domain_h, V0h)
     b  = lh.assemble()
 
-
-
-    plot_debug = False
-
-    if plot_debug:
-        N = 20
-        from psydac.feec.multipatch.operators import get_grid_vals_scalar
-        etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
-        mappings = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
-        pcoords  = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
-        pcoords  = np.concatenate(pcoords, axis=1)
-        xx = pcoords[:,:,0]
-        yy = pcoords[:,:,1]
-
     # Conga Poisson matrix is
     # A = (cD0)^T * M1 * cD0 + (I0 - Pc)^2
 
-
-    old = False
-    if old:
-
-        # cD0T_M1_cD0 = ComposedLinearOperator( cD0_T, ComposedLinearOperator( M1, cD0 ) )
-        # minus_cP0   = MultLinearOperator(-1,cP0)
-        #
-        # I_minus_cP0 = SumLinearOperator( I0, minus_cP0 )
-        # I_minus_cP0_squared = ComposedLinearOperator(I_minus_cP0, I_minus_cP0)
-        # A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0) #_squared )
-
-        # Conga grad operator on V0h
-        cD0 = ComposedLinearOperator([bD0, cP0])
-        # Transpose of the Conga grad operator (using the symmetry of Pconf_0)
-        cD0_T = ComposedLinearOperator([cP0, bD0_T])
-        cD0T_M1_cD0 = ComposedLinearOperator( [cD0_T, ComposedLinearOperator( [M1, cD0] )] )
-        minus_cP0   = MultLinearOperator(-1,cP0)
-        I_minus_cP0 = SumLinearOperator( I0, minus_cP0 )
-        I_minus_cP0_squared = ComposedLinearOperator([I_minus_cP0, I_minus_cP0])
-        A = SumLinearOperator( cD0T_M1_cD0, I_minus_cP0) #_squared )
-
-
-        if plot_debug:
-            phi = cD0T_M1_cD0(phi_ref)
-            phi2 = minus_cP0(phi_ref)
-            phi3 = A(phi_ref)
-            phi_vals = get_grid_vals_scalar(phi, etas, mappings_obj)
-            phi2_vals = get_grid_vals_scalar(phi2, etas, mappings_obj)
-            phi3_vals = get_grid_vals_scalar(phi3, etas, mappings_obj)
-            my_small_plot(
-                title=r'1',
-                vals=[phi_vals, phi2_vals, phi3_vals],
-                titles=[r'$\phi$', r'$\phi2$', r'$\phi3$'],
-                xx=xx, yy=yy,
-            )
-            exit()
-
-    else:
-        cD0T_M1_cD0 = ComposedLinearOperator([cP0, bD0.transpose(), M1, bD0, cP0])
-        A = (I0-cP0) + cD0T_M1_cD0
+    cD0T_M1_cD0 = ComposedLinearOperator([cP0, bD0.transpose(), M1, bD0, cP0])
+    A = (I0-cP0) + cD0T_M1_cD0
 
     # apply boundary conditions
     a0 = BilinearForm((u,v), integral(domain.boundary, u*v))
@@ -274,11 +188,16 @@ def conga_poisson_2d():
 
     # ...
 
-    if poisson_solve:
-        phi_coeffs, info = cg( A, b, tol=poisson_tol, verbose=True )
+    if use_scipy:
+        print("solving Poisson with scipy...")
+        A = A.to_sparse_matrix()
+        b = b.toarray()
+
+        x = spsolve(A, b)
+        phi_coeffs = array_to_stencil(x, V0h.vector_space)
+
     else:
-        # then just approximating the rhs
-        phi_coeffs, info = cg( M0.mat(), b, tol=1e-6, verbose=True )
+        phi_coeffs, info = cg( A, b, tol=poisson_tol, verbose=True )
 
 
     phi_h = FemField(V0h, coeffs=phi_coeffs)

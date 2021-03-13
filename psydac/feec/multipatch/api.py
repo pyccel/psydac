@@ -1,3 +1,5 @@
+# coding: utf-8
+
 from sympde.topology import Derham
 
 from psydac.api.discretization        import discretize as discretize_single_patch
