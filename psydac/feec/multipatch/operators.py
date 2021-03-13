@@ -1,8 +1,13 @@
+# coding: utf-8
+
+# Conga operators on piecewise (broken) de Rham sequences
 
 from mpi4py import MPI
 
 import numpy as np
 import matplotlib.pyplot as plt
+
+from scipy.sparse import eye as sparse_id
 
 from sympde.topology import element_of, elements_of
 from sympde.calculus import grad, dot, inner, rot, div
@@ -23,190 +28,7 @@ from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl, Project
 from psydac.feec.derivatives import Gradient_2D, ScalarCurl_2D
 
 from psydac.feec.derivatives import DiffOperator
-
-#===============================================================================
-class FemLinearOperator( LinearOperator ):
-    """
-    Linear operator, with an additional Fem layer
-    """
-
-    def __init__( self, fem_domain=None, fem_codomain=None, matrix=None):
-        assert fem_domain
-        self._fem_domain   = fem_domain
-        if fem_codomain:
-            self._fem_codomain = fem_codomain
-        else:
-            self._fem_codomain = fem_domain
-        self._domain   = self._fem_domain.vector_space
-        self._codomain = self._fem_codomain.vector_space
-
-        self._matrix = matrix
-
-    @property
-    def domain( self ):
-        # if self._domain is None:
-        #     return self._fem_domain.vector_space
-        # else:
-        return self._domain
-
-    @property
-    def codomain( self ):
-        # if self._codomain is None:
-        #     return self._fem_codomain.vector_space
-        # else:
-        return self._codomain
-
-    @property
-    def fem_domain( self ):
-        return self._fem_domain
-
-    @property
-    def fem_codomain( self ):
-        return self._fem_codomain
-
-    @property
-    def matrix( self ):
-        return self._matrix
-
-    @property
-    def T(self):
-        return self.transpose()
-
-    # ...
-    def transpose(self):
-        raise NotImplementedError('Class does not provide a transpose() method')
-
-    # ...
-    def __call__( self, f ):
-        if self._matrix:
-            coeffs = self._matrix.dot(f.coeffs)
-            return FemField(self.fem_codomain, coeffs=coeffs)
-        else:
-            raise NotImplementedError('Class does not provide a __call__ method without a matrix')
-
-    # ...
-    def dot( self, f_coeffs, out=None ):
-        # coeffs layer
-        if self._matrix:
-            f = FemField(self.fem_domain, coeffs=f_coeffs)
-            return self(f).coeffs
-        else:
-            raise NotImplementedError('Class does not provide a dot method without a matrix')
-
-    # ...
-    def __mul__(self, c):
-        return MultLinearOperator(c, self)
-
-    # ...
-    def __rmul__(self, c):
-        return MultLinearOperator(c, self)
-
-    # ...
-    def __add__(self, C):
-        assert isinstance(C, FemLinearOperator)
-        return SumLinearOperator(C, self)
-
-    # ...
-    def __sub__(self, C):
-        assert isinstance(C, FemLinearOperator)
-        return SumLinearOperator(C, -self)
-
-    # ...
-    def __neg__(self):
-        return MultLinearOperator(-1, self)
-
-
-#==============================================================================
-class ComposedLinearOperator( FemLinearOperator ):
-    """
-    operator L = L_1 .. L_n
-    with L_i = self._operators[i-1]
-    (so, the last one is applied first, like in a product)
-    """
-    def __init__( self, operators ):
-        n = len(operators)
-        assert all([isinstance(operators[i], FemLinearOperator) for i in range(n)])
-        assert all([operators[i].fem_domain == operators[i+1].fem_codomain for i in range(n-1)])
-        FemLinearOperator.__init__(
-            self, fem_domain=operators[-1].fem_domain, fem_codomain=operators[0].fem_codomain
-        )
-        self._operators = operators
-        self._n = n
-
-        # no matrix product, because it could break the Stencil Matrix structure
-
-    def __call__( self, f ):
-        # print("call of composed linop...")
-        # k = 0
-        # print("len(f[k].fields) = ", len(f[k].fields))
-        v = self._operators[-1](f)
-        # print("len(v[k].fields) = ", len(v[k].fields))
-        for i in range(2, self._n+1):
-            v = self._operators[-i](v)
-            # k = 0
-            # print("len(v[k].fields) = ", len(v[k].fields))
-        return v
-
-    def dot( self, f_coeffs, out=None ):
-        v_coeffs = self._operators[-1].dot(f_coeffs)
-        for i in range(2, self._n+1):
-            v_coeffs = self._operators[-i].dot(v_coeffs)
-        return v_coeffs
-
-
-#==============================================================================
-class IdLinearOperator( FemLinearOperator ):
-
-    def __init__( self, V ):
-        FemLinearOperator.__init__(self, fem_domain=V)
-
-    def __call__( self, f ):
-        return f
-
-    def dot( self, f_coeffs, out=None ):
-        return f_coeffs
-
-#==============================================================================
-class SumLinearOperator( FemLinearOperator ):
-
-    def __init__( self, B, A ):
-        assert isinstance(A, FemLinearOperator)
-        assert isinstance(B, FemLinearOperator)
-        assert B.fem_domain == A.fem_domain
-        assert B.fem_codomain == A.fem_codomain
-        FemLinearOperator.__init__(
-            self, fem_domain=A.fem_domain, fem_codomain=A.fem_codomain
-        )
-        self._A = A
-        self._B = B
-
-    def __call__( self, f ):
-        # fem layer
-        return  self._B(f) + self._A(f)
-
-    def dot( self, f_coeffs, out=None ):
-        # coeffs layer
-        return  self._B.dot(f_coeffs) + self._A.dot(f_coeffs)
-
-#==============================================================================
-class MultLinearOperator( FemLinearOperator ):
-
-    def __init__( self, c, A ):
-        assert isinstance(A, FemLinearOperator)
-        FemLinearOperator.__init__(
-            self, fem_domain=A.fem_domain, fem_codomain=A.fem_codomain
-        )
-        self._A = A
-        self._c = c
-
-    def __call__( self, f ):
-        # fem layer
-        return self._c * self._A(f)
-
-    def dot( self, f_coeffs, out=None ):
-        # coeffs layer
-        return self._c * self._A.dot(f_coeffs)
-
+from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 #===============================================================================
 class ConformingProjection_V0( FemLinearOperator ):
@@ -261,18 +83,6 @@ class ConformingProjection_V0( FemLinearOperator ):
         self._A[1,0][:,s2,0, d1] = 1/2
 
         self._matrix = self._A
-
-    # # ...
-    # def __call__( self, f ):
-    #
-    #     coeffs = self._A.dot(f.coeffs)
-    #     return FemField(self.fem_codomain, coeffs=coeffs)
-    #
-    # # ...
-    # def dot( self, f_coeffs, out=None ):
-    #     # coeffs layer
-    #     f = FemField(self.fem_domain, coeffs=f_coeffs)
-    #     return self(f).coeffs
 
 
 #===============================================================================
@@ -360,54 +170,13 @@ class ConformingProjection_V1( FemLinearOperator ):
 
         self._matrix = self._A
 
-    # # ...
-    # def __call__( self, f ):
-    #
-    #     coeffs = self._A.dot(f.coeffs)
-    #     return FemField(self.fem_codomain, coeffs=coeffs)
-    #
-    # # ...
-    # def dot( self, f_coeffs, out=None ):
-    #     # coeffs layer
-    #     f = FemField(self.fem_domain, coeffs=f_coeffs)
-    #     return self(f).coeffs
-
-class DummyConformingProjection_V1( FemLinearOperator ):
-
-    def __init__(self, V1h, domain_h):
-
-        FemLinearOperator.__init__(self, fem_domain=V1h)
-
-        V1             = V1h.symbolic_space
-        domain         = V1.domain
-
-        u, v = elements_of(V1, names='u, v')
-        expr   = dot(u,v)
-
-        dummy_p = BilinearForm((u,v), integral(domain, expr))
-
-        dummy_ph = discretize(dummy_p, domain_h, [V1h, V1h])
-
-        self._matrix = dummy_ph.assemble()
-
-
-    # # ...
-    # def __call__( self, f ):
-    #
-    #     coeffs = self._P.dot(f.coeffs)
-    #     return FemField(self.fem_codomain, coeffs=coeffs)
-    #
-    # # ...
-    # def dot( self, f_coeffs, out=None ):
-    #     # coeffs layer
-    #     f = FemField(self.fem_domain, coeffs=f_coeffs)
-    #     return self(f).coeffs
-
 
 #===============================================================================
 class BrokenMass( FemLinearOperator ):
     """
     Broken mass matrix for a scalar space (seen as a LinearOperator... to be improved)
+    # TODO: (MCP 10.03.2021) define them as Hodge FemLinearOperators
+
     """
     def __init__( self, Vh, domain_h, is_scalar):
 
@@ -425,18 +194,6 @@ class BrokenMass( FemLinearOperator ):
         ah = discretize(a, domain_h, [Vh, Vh])
         self._matrix = ah.assemble() #.toarray()
 
-    # def mat(self):
-    #     return self._M
-    #
-    # def __call__( self, f ):
-    #     # Fem layer
-    #     Mf_coeffs = self.dot(f.coeffs)
-    #     return FemField(self.fem_domain, coeffs=Mf_coeffs)
-    #
-    # def dot( self, f_coeffs, out=None ):
-    #     # coeffs layer
-    #     return self._M.dot(f_coeffs)
-
 
 #==============================================================================
 class BrokenGradient_2D(FemLinearOperator):
@@ -451,6 +208,7 @@ class BrokenGradient_2D(FemLinearOperator):
                 blocks={(i, i): D0i._matrix for i, D0i in enumerate(D0s)})
 
     def transpose(self):
+        # todo (MCP): define as the dual differential operator
         return BrokenTransposedGradient_2D(self.fem_domain, self.fem_codomain)
 
 #==============================================================================
@@ -466,6 +224,7 @@ class BrokenTransposedGradient_2D( FemLinearOperator ):
                 blocks={(i, i): D0i._matrix.T for i, D0i in enumerate(D0s)})
 
     def transpose(self):
+        # todo (MCP): discard
         return BrokenGradient_2D(self.fem_codomain, self.fem_domain)
 
 
@@ -479,12 +238,6 @@ class BrokenScalarCurl_2D(FemLinearOperator):
 
         self._matrix = BlockMatrix(self.domain, self.codomain, \
                 blocks={(i, i): D1i._matrix for i, D1i in enumerate(D1s)})
-
-    # def dot(self, E1_coeffs, out = None):
-    #     return self._matrix.dot(E1_coeffs, out=out)
-    #
-    # def __call__(self, E1):
-    #     return FemField(self.fem_codomain, coeffs = self.dot(E1.coeffs))
 
     def transpose(self):
         return BrokenTransposedScalarCurl_2D(V1h=self.fem_domain, V2h=self.fem_codomain)
@@ -501,12 +254,6 @@ class BrokenTransposedScalarCurl_2D( FemLinearOperator ):
 
         self._matrix = BlockMatrix(self.domain, self.codomain, \
                 blocks={(i, i): D1i._matrix.T for i, D1i in enumerate(D1s)})
-
-    # def dot(self, u1_coeffs, out = None):
-    #     return self._matrix.dot(u1_coeffs, out=out)
-
-    # def __call__(self, u0):
-    #     return FemField(self.fem_codomain, coeffs = self.dot(u0.coeffs))
 
     def transpose(self):
         return BrokenScalarCurl_2D(V1h=self.fem_codomain, V2h=self.fem_domain)
