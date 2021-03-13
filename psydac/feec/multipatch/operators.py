@@ -17,17 +17,13 @@ from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
 
 from psydac.api.discretization import discretize
-from psydac.linalg.basic import LinearOperator
 from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
 from psydac.linalg.iterative_solvers import cg, pcg
-from psydac.linalg.direct_solvers import SparseSolver
 from psydac.fem.basic   import FemField
-from psydac.fem.vector import ProductFemSpace, VectorFemSpace
 
 from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl, Projector_L2
 from psydac.feec.derivatives import Gradient_2D, ScalarCurl_2D
 
-from psydac.feec.derivatives import DiffOperator
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 #===============================================================================
@@ -346,14 +342,6 @@ class Multipatch_Projector_L2:
 
 #==============================================================================
 # some plotting utilities
-
-def get_scalar_patch_fields(u, V0h):
-    # todo: discard now?
-    return [FemField(V, coeffs=c) for V, c in zip(V0h.spaces, u.coeffs)]
-
-def get_vector_patch_fields(E, V1h):
-    # todo: discard now?
-    return [FemField(V, coeffs=c) for V, c in zip(V1h.spaces, E.coeffs)]
 
 from psydac.feec.pull_push     import push_2d_h1, push_2d_hcurl, push_2d_l2
 

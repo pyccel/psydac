@@ -215,14 +215,6 @@ if __name__ == '__main__':
         gridlines_x2 = None
 
     u_x_vals, u_y_vals   = get_grid_vals_vector(uex_log, etas, mappings_obj)
-    my_small_plot(
-        title=r'exact solution',
-        vals=[u_x_vals, u_y_vals],
-        titles=[r'$u^{ex}_x(x,y)$', r'$u^{ex}_y(x,y)$'],
-        xx=xx,
-        yy=yy,
-    )
-
     uh_x_vals, uh_y_vals = get_grid_vals_vector(uh, etas, mappings_obj)
     u_x_err = abs(u_x_vals - uh_x_vals)
     u_y_err = abs(u_y_vals - uh_y_vals)
@@ -230,7 +222,17 @@ if __name__ == '__main__':
     my_small_plot(
         title=r'approximation of solution $u$, $x$ component',
         vals=[u_x_vals, uh_x_vals, u_x_err],
-        titles=[r'$u^{ex}_x(x,y)$', r'$E^h_x(x,y)$', r'$|(E^{ex}-E^h)_x(x,y)|$'],
+        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+        xx=xx,
+        yy=yy,
+        gridlines_x1=gridlines_x1,
+        gridlines_x2=gridlines_x2,
+    )
+
+    my_small_plot(
+        title=r'approximation of solution $u$, $y$ component',
+        vals=[u_y_vals, uh_y_vals, u_y_err],
+        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
         xx=xx,
         yy=yy,
         gridlines_x1=gridlines_x1,

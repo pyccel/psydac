@@ -22,11 +22,12 @@ from psydac.linalg.utilities import array_to_stencil
 from psydac.utilities.utils    import refine_array_1d
 from psydac.fem.basic   import FemField
 
-from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator, SumLinearOperator, MultLinearOperator, ComposedLinearOperator
+from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator, ComposedLinearOperator
 from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
 from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0
-from psydac.feec.multipatch.operators import get_scalar_patch_fields, get_vector_patch_fields
+from psydac.feec.multipatch.operators import get_grid_vals_scalar
+from psydac.feec.multipatch.operators import my_small_plot
 
 comm = MPI.COMM_WORLD
 
@@ -149,7 +150,7 @@ def conga_poisson_2d():
     # . Multipatch operators
     #+++++++++++++++++++++++++++++++
 
-    phi_ref = bP0(phi_ex_log)
+    # phi_ref = bP0(phi_ex_log)
 
     # Conforming projection V0 -> V0
     ## note: there are problems (eg at the interface) when the conforming projection is not accurate (low penalization or high tolerance)
@@ -203,10 +204,6 @@ def conga_poisson_2d():
     phi_h = FemField(V0h, coeffs=phi_coeffs)
     phi_h = FemField(V0h, coeffs=cP0(phi_h).coeffs+x0)
 
-    # sol_exact = phi_exact
-    # sol_ex = lambdify(domain.coordinates, sol_exact)
-
-
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # VISUALIZATION
@@ -221,32 +218,12 @@ def conga_poisson_2d():
         N = 20
 
         etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
-
         mappings = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
-        # solution = lambdify(domain.coordinates, solution)
 
         pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
         pcoords  = np.concatenate(pcoords, axis=1)
 
-
-        # solution
-        compare_with_phi_ex = False
-        if compare_with_phi_ex:
-            phi_ref_vals  = [np.array( [[phi_ex( *f(e1,e2) ) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings,etas)]
-        else:
-            phis_ref = get_scalar_patch_fields(phi_ref, V0h)
-            phi_ref_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(phis_ref, etas)]
-        phi_ref_vals  = np.concatenate(phi_ref_vals,     axis=1)
-
-        # Poisson sol_h
-        phis_h = get_scalar_patch_fields(phi_h, V0h)
-        phi_h_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(phis_h, etas)]
-        phi_h_vals  = np.concatenate(phi_h_vals,     axis=1)
-        phi_err = abs(phi_ref_vals - phi_h_vals)
-
-
         # plots
-
         xx = pcoords[:,:,0]
         yy = pcoords[:,:,1]
 
@@ -275,45 +252,18 @@ def conga_poisson_2d():
 
         # plot poisson solutions
 
-        fig = plt.figure(figsize=(17., 4.8))
-        fig.suptitle(r'Solution of Poisson problem $\Delta \phi = f$', fontsize=14)
+        phi_ref_vals = get_grid_vals_scalar(phi_ex_log, etas, mappings_obj)
+        phi_h_vals = get_grid_vals_scalar(phi_h, etas, mappings_obj)
+        phi_err = abs(phi_ref_vals - phi_h_vals)
 
-        ax = fig.add_subplot(1, 3, 1)
-
-        if plotted_patch is not None:
-            ax.plot(*gridlines_x1, color='k')
-            ax.plot(*gridlines_x2, color='k')
-
-        cp = ax.contourf(xx, yy, phi_ref_vals, 50, cmap='jet')
-        # cp = ax.contourf(xx, yy, sol_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$\phi(x,y)$' )
-        # ax.set_title ( r'$\phi^{ex}(x,y)$' )
-
-
-        ax = fig.add_subplot(1, 3, 2)
-        cp2 = ax.contourf(xx, yy, phi_h_vals, 50, cmap='jet')
-        cbar = fig.colorbar(cp2, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$\phi^h(x,y)$' )
-        # ax.set_title ( r'$\phi^h(x,y)$' )
-
-        ax = fig.add_subplot(1, 3, 3)
-        cp3 = ax.contourf(xx, yy, phi_err, 50, cmap='jet')
-        cbar = fig.colorbar(cp3, ax=ax,  pad=0.05)
-
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( r'$|(\phi-\phi^h)(x,y)|$' )
-
-        plt.show()
-
-
-    exit()
+        my_small_plot(
+            title=r'Solution of Poisson problem $\Delta \phi = f$',
+            vals=[phi_ref_vals, phi_h_vals, phi_err],
+            titles=[r'$\phi^{ex}(x,y)$', r'$\phi^h(x,y)$', r'$|(\phi-\phi^h)(x,y)|$'],
+            xx=xx, yy=yy,
+            gridlines_x1=gridlines_x1,
+            gridlines_x2=gridlines_x2,
+        )
 
 
 
