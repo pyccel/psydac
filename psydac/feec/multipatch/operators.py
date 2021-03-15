@@ -29,16 +29,14 @@ from psydac.feec.derivatives import Gradient_2D, ScalarCurl_2D
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 
-# todo: rename to patch_index, target > face
-
-def get_space_indices_from_target(domain, target):
+def get_patch_index_from_face(domain, face):
     domains = domain.interior.args
-    if isinstance(target, Interface):
-        raise NotImplementedError("TODO")
-    elif isinstance(target, Boundary):
-        i = domains.index(target.domain)
+    if isinstance(face, Interface):
+        raise NotImplementedError("This face is an interface, it has several indices -- I am a machine, I cannot choose. Help.")
+    elif isinstance(face, Boundary):
+        i = domains.index(face.domain)
     else:
-        i = domains.index(target)
+        i = domains.index(face)
     return i
 
 
@@ -97,7 +95,7 @@ class ConformingProjection_V0( FemLinearOperator ):
 
         if hom_bc:
             for bn in domain.boundary:
-                i = get_space_indices_from_target(domain, bn)
+                i = get_patch_index_from_face(domain, bn)
                 for j in range(len(domain)):
                     apply_essential_bc_stencil(self._A[i,j], axis=bn.axis, ext=bn.ext, order=0)
 

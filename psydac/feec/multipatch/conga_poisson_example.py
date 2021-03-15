@@ -26,23 +26,12 @@ from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator, Compos
 from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
 from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0
-from psydac.feec.multipatch.operators import get_grid_vals_scalar
+from psydac.feec.multipatch.operators import get_patch_index_from_face, get_grid_vals_scalar
 from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
 
 comm = MPI.COMM_WORLD
 
 from psydac.api.essential_bc import apply_essential_bc_stencil
-from sympde.topology         import Boundary, Interface
-
-def get_space_indices_from_target(domain, target):
-    domains = domain.interior.args
-    if isinstance(target, Interface):
-        raise NotImplementedError("TODO")
-    elif isinstance(target, Boundary):
-        i = domains.index(target.domain)
-    else:
-        i = domains.index(target)
-    return i
 
 #==============================================================================
 def conga_poisson_2d():
@@ -182,7 +171,7 @@ def conga_poisson_2d():
 
     b = b-A.dot(x0)
     for bn in domain.boundary:
-        i = get_space_indices_from_target(domain, bn)
+        i = get_patch_index_from_face(domain, bn)
         for j in range(len(domain)):
             apply_essential_bc_stencil(cP0._A[i,j], axis=bn.axis, ext=bn.ext, order=0)
         apply_essential_bc_stencil(b[i], axis=bn.axis, ext=bn.ext, order=0)
