@@ -78,7 +78,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree):
     cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=True)    # todo (MCP): add option hom_bc=True for hom bc
     I1 = IdLinearOperator(V1h)
 
-    A = 1e10*ComposedLinearOperator([I1-cP1,I1-cP1]) + ComposedLinearOperator([cP1, bD1.transpose(), M2, bD1, cP1])
+    A = ComposedLinearOperator([I1-cP1,I1-cP1]) + ComposedLinearOperator([cP1, bD1.transpose(), M2, bD1, cP1])
 
     # Find eigenmodes and eigenvalues with scipy.sparse
     A = A.to_sparse_matrix()

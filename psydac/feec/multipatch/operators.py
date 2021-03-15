@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 from scipy.sparse import eye as sparse_id
 
+from sympde.topology import Boundary, Interface
 from sympde.topology import element_of, elements_of
 from sympde.calculus import grad, dot, inner, rot, div
 from sympde.calculus import laplace, bracket, convect
@@ -17,6 +18,7 @@ from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
 
 from psydac.api.discretization import discretize
+from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
 from psydac.linalg.iterative_solvers import cg, pcg
 from psydac.fem.basic   import FemField
@@ -26,13 +28,28 @@ from psydac.feec.derivatives import Gradient_2D, ScalarCurl_2D
 
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
+
+# todo: rename to patch_index, target > face
+
+def get_space_indices_from_target(domain, target):
+    domains = domain.interior.args
+    if isinstance(target, Interface):
+        raise NotImplementedError("TODO")
+    elif isinstance(target, Boundary):
+        i = domains.index(target.domain)
+    else:
+        i = domains.index(target)
+    return i
+
+
 #===============================================================================
 class ConformingProjection_V0( FemLinearOperator ):
     """
     Conforming projection from global broken space to conforming global space
     Defined by averaging of interface dofs
     """
-    def __init__(self, V0h, domain_h):
+    # todo (MCP, 15.03.2021): extend to single patch case
+    def __init__(self, V0h, domain_h, hom_bc=False):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
@@ -77,6 +94,12 @@ class ConformingProjection_V0( FemLinearOperator ):
 
         self._A[0,1][:,d1,0,-d2] = 1/2
         self._A[1,0][:,s2,0, d1] = 1/2
+
+        if hom_bc:
+            for bn in domain.boundary:
+                i = get_space_indices_from_target(domain, bn)
+                for j in range(len(domain)):
+                    apply_essential_bc_stencil(self._A[i,j], axis=bn.axis, ext=bn.ext, order=0)
 
         self._matrix = self._A
 
@@ -172,43 +195,43 @@ class ConformingProjection_V1( FemLinearOperator ):
             # todo (MCP): set boundary dofs to 0 -- but repeating the above yields an error:
             # AttributeError: 'Union' object has no attribute 'axis'
 
-            I      = domain.boundary
-            s11 = sp1.spaces[0].starts[I.axis]
-            e11 = sp1.spaces[0].ends[I.axis]
-            s12 = sp1.spaces[1].starts[I.axis]
-            e12 = sp1.spaces[1].ends[I.axis]
+            for I in domain.boundary:
+                s11 = sp1.spaces[0].starts[I.axis]
+                e11 = sp1.spaces[0].ends[I.axis]
+                s12 = sp1.spaces[1].starts[I.axis]
+                e12 = sp1.spaces[1].ends[I.axis]
 
-            s21 = sp2.spaces[0].starts[I.axis]
-            e21 = sp2.spaces[0].ends[I.axis]
-            s22 = sp2.spaces[1].starts[I.axis]
-            e22 = sp2.spaces[1].ends[I.axis]
+                s21 = sp2.spaces[0].starts[I.axis]
+                e21 = sp2.spaces[0].ends[I.axis]
+                s22 = sp2.spaces[1].starts[I.axis]
+                e22 = sp2.spaces[1].ends[I.axis]
 
-            d11     = V1h.spaces[0].spaces[0].degree[I.axis]
-            d12     = V1h.spaces[0].spaces[1].degree[I.axis]
+                d11     = V1h.spaces[0].spaces[0].degree[I.axis]
+                d12     = V1h.spaces[0].spaces[1].degree[I.axis]
 
-            d21     = V1h.spaces[1].spaces[0].degree[I.axis]
-            d22     = V1h.spaces[1].spaces[1].degree[I.axis]
+                d21     = V1h.spaces[1].spaces[0].degree[I.axis]
+                d22     = V1h.spaces[1].spaces[1].degree[I.axis]
 
-            if I.axis == 1:
-                self._A[0,0][0,0][:,e11,0,0] = 0
-            else:
-                self._A[0,0][1,1][:,e12,0,0] = 0
+                if I.axis == 1:
+                    self._A[0,0][0,0][:,e11,0,0] = 0
+                else:
+                    self._A[0,0][1,1][:,e12,0,0] = 0
 
-            if I.axis == 1:
-                self._A[1,1][0,0][:,s21,0,0] = 0
-            else:
-                self._A[1,1][1,1][:,s22,0,0] = 0
+                if I.axis == 1:
+                    self._A[1,1][0,0][:,s21,0,0] = 0
+                else:
+                    self._A[1,1][1,1][:,s22,0,0] = 0
 
 
-            if I.axis == 1:
-                self._A[0,1][0,0][:,d11,0,-d21] = 0
-            else:
-                self._A[0,1][1,1][:,d12,0,-d22] = 0
+                if I.axis == 1:
+                    self._A[0,1][0,0][:,d11,0,-d21] = 0
+                else:
+                    self._A[0,1][1,1][:,d12,0,-d22] = 0
 
-            if I.axis == 1:
-                self._A[1,0][0,0][:,s21,0, d11] = 0
-            else:
-                self._A[1,0][1,1][:,s22,0, d12] = 0
+                if I.axis == 1:
+                    self._A[1,0][0,0][:,s21,0, d11] = 0
+                else:
+                    self._A[1,0][1,1][:,s22,0, d12] = 0
 
         self._matrix = self._A
 
