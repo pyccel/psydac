@@ -38,7 +38,7 @@ from psydac.api.glt                  import DiscreteGltExpr
 from psydac.api.expr                 import DiscreteExpr
 from psydac.api.essential_bc         import apply_essential_bc
 from psydac.api.utilities            import flatten
-from psydac.linalg.iterative_solvers import cg
+from psydac.linalg.iterative_solvers import cg, pcg, bicg
 from psydac.fem.basic                import FemField
 from psydac.fem.splines              import SplineSpace
 from psydac.fem.tensor               import TensorFemSpace
@@ -63,15 +63,17 @@ def driver_solve(L, **kwargs):
 
     name        = kwargs.pop('solver')
     return_info = kwargs.pop('info', False)
+
     if name == 'cg':
         x, info = cg( M, rhs, **kwargs )
-        if return_info:
-            return x, info
-        else:
-            return x
+    elif name == 'pcg':
+        x, info = pcg( M, rhs, **kwargs )
+    elif name == 'bicg':
+        x, info = bicg( M, M.T, rhs, **kwargs )
     else:
-        raise NotImplementedError('Only cg solver is available')
+        raise NotImplementedError("Solver '{}' is not available".format(name))
 
+    return (x, info) if return_info else x
 
 #==============================================================================
 class DiscreteEquation(BasicDiscrete):
@@ -256,7 +258,8 @@ class DiscreteEquation(BasicDiscrete):
                 # Find inhomogeneous solution (use CG as system is symmetric)
                 loc_settings = settings.copy()
                 loc_settings['solver'] = 'cg'
-                loc_settings.pop('info',False)
+                loc_settings.pop('info', False)
+                loc_settings.pop('pc'  , False)
                 uh = equation_h.solve(**loc_settings)
 
                 # Use inhomogeneous solution as initial guess to solver
@@ -264,9 +267,15 @@ class DiscreteEquation(BasicDiscrete):
 
         #----------------------------------------------------------------------
 
-        X = driver_solve(self.linear_system, **settings)
+        if settings.get('info', False):
+            X, info = driver_solve(self.linear_system, **settings)
+            uh = FemField(self.trial_space, coeffs=X)
+            return uh, info
 
-        return FemField(self.trial_space, coeffs=X)
+        else:
+            X  = driver_solve(self.linear_system, **settings)
+            uh = FemField(self.trial_space, coeffs=X)
+            return uh
 
 #==============================================================================           
 def discretize_derham(derham, domain_h, *args, **kwargs):
