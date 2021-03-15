@@ -27,7 +27,7 @@ from psydac.feec.multipatch.api import discretize  # TODO: when possible, use li
 from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0
 from psydac.feec.multipatch.operators import get_grid_vals_scalar
-from psydac.feec.multipatch.operators import my_small_plot
+from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
 
 comm = MPI.COMM_WORLD
 
@@ -211,60 +211,22 @@ def conga_poisson_2d():
     #   and psydac/api/tests/test_api_feec_2d.py
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    plot_fields = True
+    N=20
+    etas, xx, yy = get_plotting_grid(mappings, N)
+    gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(V0h, N, mappings, plotted_patch=1)
 
-    if plot_fields:
+    phi_ref_vals = get_grid_vals_scalar(phi_ex_log, etas, mappings) #_obj)
+    phi_h_vals = get_grid_vals_scalar(phi_h, etas, mappings) #
+    phi_err = abs(phi_ref_vals - phi_h_vals)
 
-        N = 20
-
-        etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
-        mappings = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
-
-        pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
-        pcoords  = np.concatenate(pcoords, axis=1)
-
-        # plots
-        xx = pcoords[:,:,0]
-        yy = pcoords[:,:,1]
-
-        # plot one patch grid
-        plotted_patch = 1
-        if plotted_patch in [0, 1]:
-
-            #patch_derham = derhams_h[plotted_patch]
-            grid_x1 = V0h.spaces[plotted_patch].breaks[0]
-            grid_x2 = V0h.spaces[plotted_patch].breaks[1]
-
-            print("grid_x1 = ", grid_x1)
-
-            x1 = refine_array_1d(grid_x1, N)
-            x2 = refine_array_1d(grid_x2, N)
-
-            x1, x2 = np.meshgrid(x1, x2, indexing='ij')
-            x, y = F[plotted_patch](x1, x2)
-
-            print("x1 = ", x1)
-
-            gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
-            gridlines_x2 = (x[::N, :].T, y[::N, :].T)
-            gridlines = (gridlines_x1, gridlines_x2)
-
-
-        # plot poisson solutions
-
-        phi_ref_vals = get_grid_vals_scalar(phi_ex_log, etas, mappings_obj)
-        phi_h_vals = get_grid_vals_scalar(phi_h, etas, mappings_obj)
-        phi_err = abs(phi_ref_vals - phi_h_vals)
-
-        my_small_plot(
-            title=r'Solution of Poisson problem $\Delta \phi = f$',
-            vals=[phi_ref_vals, phi_h_vals, phi_err],
-            titles=[r'$\phi^{ex}(x,y)$', r'$\phi^h(x,y)$', r'$|(\phi-\phi^h)(x,y)|$'],
-            xx=xx, yy=yy,
-            gridlines_x1=gridlines_x1,
-            gridlines_x2=gridlines_x2,
-        )
-
+    my_small_plot(
+        title=r'Solution of Poisson problem $\Delta \phi = f$',
+        vals=[phi_ref_vals, phi_h_vals, phi_err],
+        titles=[r'$\phi^{ex}(x,y)$', r'$\phi^h(x,y)$', r'$|(\phi-\phi^h)(x,y)|$'],
+        xx=xx, yy=yy,
+        gridlines_x1=gridlines_x1,
+        gridlines_x2=gridlines_x2,
+    )
 
 
 if __name__ == '__main__':

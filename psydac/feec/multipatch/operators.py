@@ -166,6 +166,86 @@ class ConformingProjection_V1( FemLinearOperator ):
 
         self._matrix = self._A
 
+#===============================================================================
+class HomogeneousDirichletProjection_V1( FemLinearOperator ):
+    """
+    Projection to homogeneous subspace in broken space
+    """
+
+    def __init__(self, V1h, domain_h):
+
+        FemLinearOperator.__init__(self, fem_domain=V1h)
+
+        V1             = V1h.symbolic_space
+        domain         = V1.domain
+
+        u, v = elements_of(V1, names='u, v')
+        expr   = dot(u,v)
+
+        I      = domain.boundary
+        expr_I = 0  # dot( plus(u)-minus(u) , plus(v)-minus(v) )   # this penalization is for an H1-conforming space
+
+        a = BilinearForm((u,v), integral(I, expr_I))
+        ah = discretize(a, domain_h, [V1h, V1h])
+        self._A = ah.assemble()
+
+        # for b1 in self._A.blocks:
+        #     for b2 in b1:
+        #         if b2 is None:continue
+        #         for b3 in b2.blocks:
+        #             for A in b3:
+        #                 if A is None:continue
+        #                 A[:,:,:,:] = 0
+
+        self._A[0,0][0,0][:,:,0,0] = 1
+        self._A[0,0][1,1][:,:,0,0] = 1
+
+        self._A[1,1][0,0][:,:,0,0] = 1
+        self._A[1,1][1,1][:,:,0,0] = 1
+
+        spaces = self._A.domain.spaces
+        sp1    = spaces[0]
+        sp2    = spaces[1]
+
+        s11 = sp1.spaces[0].starts[I.axis]
+        e11 = sp1.spaces[0].ends[I.axis]
+        s12 = sp1.spaces[1].starts[I.axis]
+        e12 = sp1.spaces[1].ends[I.axis]
+
+        s21 = sp2.spaces[0].starts[I.axis]
+        e21 = sp2.spaces[0].ends[I.axis]
+        s22 = sp2.spaces[1].starts[I.axis]
+        e22 = sp2.spaces[1].ends[I.axis]
+
+        d11     = V1h.spaces[0].spaces[0].degree[I.axis]
+        d12     = V1h.spaces[0].spaces[1].degree[I.axis]
+
+        d21     = V1h.spaces[1].spaces[0].degree[I.axis]
+        d22     = V1h.spaces[1].spaces[1].degree[I.axis]
+
+        if I.axis == 1:
+            self._A[0,0][0,0][:,e11,0,0] = 1/2
+        else:
+            self._A[0,0][1,1][:,e12,0,0] = 1/2
+
+        if I.axis == 1:
+            self._A[1,1][0,0][:,s21,0,0] = 1/2
+        else:
+            self._A[1,1][1,1][:,s22,0,0] = 1/2
+
+
+        if I.axis == 1:
+            self._A[0,1][0,0][:,d11,0,-d21] = 1/2
+        else:
+            self._A[0,1][1,1][:,d12,0,-d22] = 1/2
+
+        if I.axis == 1:
+            self._A[1,0][0,0][:,s21,0, d11] = 1/2
+        else:
+            self._A[1,0][1,1][:,s22,0, d12] = 1/2
+
+        self._matrix = self._A
+
 
 #===============================================================================
 class BrokenMass( FemLinearOperator ):
@@ -343,13 +423,15 @@ class Multipatch_Projector_L2:
 #==============================================================================
 # some plotting utilities
 
-from psydac.feec.pull_push     import push_2d_h1, push_2d_hcurl, push_2d_l2
+from psydac.feec.pull_push     import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
-def get_grid_vals_scalar(u, etas, mappings_obj):
+
+# d,M in mappings.items()
+
+def get_grid_vals_scalar(u, etas, mappings, space_kind='h1'):  #_obj):
     # get the physical field values, given the logical field and the logical grid
-    n_patches = len(mappings_obj)
-    # works but less general...
-    # u_vals = [np.array( [[phi( e1,e2 ) for e2 in eta[1]] for e1 in eta[0]] ) for phi,eta in zip(us, etas)]
+    n_patches = len(mappings)
+    mappings_list = list(mappings.values())
     u_vals = n_patches*[None]
     for k in range(n_patches):
         eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
@@ -359,18 +441,24 @@ def get_grid_vals_scalar(u, etas, mappings_obj):
         else:
             # then field is just callable
             uk_field = u[k]
+        if space_kind == 'h1':
+            # todo (MCP): add 2d_hcurl_vector
+            push_field = lambda eta1, eta2: push_2d_h1(uk_field, eta1, eta2)
+        else:
+            push_field = lambda eta1, eta2: push_2d_l2(uk_field, eta1, eta2, mapping=mappings_list[k])
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
-                u_vals[k][i, j] = push_2d_h1(uk_field, x1i, x2j)
+                u_vals[k][i, j] = push_field(x1i, x2j)
 
     u_vals  = np.concatenate(u_vals, axis=1)
 
     return u_vals
 
 
-def get_grid_vals_vector(E, etas, mappings_obj):
+def get_grid_vals_vector(E, etas, mappings, space_kind='hcurl'):
     # get the physical field values, given the logical field and logical grid
-    n_patches = len(mappings_obj)
+    n_patches = len(mappings)
+    mappings_list = list(mappings.values())
     E_x_vals = n_patches*[None]
     E_y_vals = n_patches*[None]
     for k in range(n_patches):
@@ -384,14 +472,60 @@ def get_grid_vals_vector(E, etas, mappings_obj):
             # then E field is just callable
             Ek_field_0 = E[k][0]
             Ek_field_1 = E[k][1]
+        if space_kind == 'hcurl':
+            # todo (MCP): specify 2d_hcurl_scalar in push functions
+            push_field = lambda eta1, eta2: push_2d_hcurl(Ek_field_0, Ek_field_1, eta1, eta2, mapping=mappings_list[k])
+        else:
+            push_field = lambda eta1, eta2: push_2d_hdiv(Ek_field_0, Ek_field_1, eta1, eta2, mapping=mappings_list[k])
+
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
-                E_x_vals[k][i, j], E_y_vals[k][i, j] = \
-                    push_2d_hcurl(Ek_field_0, Ek_field_1, x1i, x2j, mappings_obj[k])
+                E_x_vals[k][i, j], E_y_vals[k][i, j] = push_field(x1i, x2j)
     E_x_vals = np.concatenate(E_x_vals, axis=1)
     E_y_vals = np.concatenate(E_y_vals, axis=1)
     return E_x_vals, E_y_vals
 
+
+from psydac.utilities.utils    import refine_array_1d
+from sympy import lambdify
+
+
+def get_plotting_grid(mappings, N):
+
+    etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
+    mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
+
+    pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings_lambda, etas)]
+    pcoords  = np.concatenate(pcoords, axis=1)
+
+    xx = pcoords[:,:,0]
+    yy = pcoords[:,:,1]
+
+    return etas, xx, yy
+
+def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
+    # get gridlines for one patch grid
+
+    F = [M.get_callable_mapping() for d,M in mappings.items()]
+
+    if plotted_patch in range(len(mappings)):
+        grid_x1 = Vh.spaces[plotted_patch].breaks[0]
+        grid_x2 = Vh.spaces[plotted_patch].breaks[1]
+
+        x1 = refine_array_1d(grid_x1, N)
+        x2 = refine_array_1d(grid_x2, N)
+
+        x1, x2 = np.meshgrid(x1, x2, indexing='ij')
+        x, y = F[plotted_patch](x1, x2)
+
+        gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
+        gridlines_x2 = (x[::N, :].T, y[::N, :].T)
+        # gridlines = (gridlines_x1, gridlines_x2)
+    else:
+        gridlines_x1 = None
+        gridlines_x2 = None
+
+    return gridlines_x1, gridlines_x2
 
 def my_small_plot(
         title, vals, titles,

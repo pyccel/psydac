@@ -18,7 +18,7 @@ from psydac.feec.multipatch.fem_linear_operators import ComposedLinearOperator
 from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1
 from psydac.feec.multipatch.operators import get_grid_vals_scalar, get_grid_vals_vector
-from psydac.feec.multipatch.operators import my_small_plot
+from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
 
 
 comm = MPI.COMM_WORLD
@@ -59,10 +59,10 @@ def conga_operators_2d():
                 bnd_minus = domain_1.get_boundary(axis=1, ext=1),
                 bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
 
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
+    mappings  = {A.interior:mapping_1, B.interior:mapping_2}  # Q (MCP): purpose of a dict ?
+    mappings_list = list(mappings.values())
 
-    mappings_obj = [mapping_1, mapping_2]
-    F = [f.get_callable_mapping() for f in mappings_obj]
+    F = [f.get_callable_mapping() for f in mappings_list]
 
 
     # multipatch de Rham sequence:
@@ -127,13 +127,13 @@ def conga_operators_2d():
 
     # pull-backs of u and E
     # u_sol_log = [lambda xi1, xi2 : u_sol(*f(xi1,xi2)) for f in F]
-    u_sol_log = [pull_2d_h1(u_sol, f) for f in mappings_obj]
-    E_sol_log = [pull_2d_hcurl([E_sol_x,E_sol_y], f) for f in mappings_obj]
+    u_sol_log = [pull_2d_h1(u_sol, f) for f in mappings_list]
+    E_sol_log = [pull_2d_hcurl([E_sol_x,E_sol_y], f) for f in mappings_list]
     # this gives a list of list of functions : E_sol_log[k][d] : xi1, xi2 -> E_d(xi1, xi2) on the logical patch k
 
     # pull-backs of A and B
-    A_sol_log = [pull_2d_hcurl([A_sol_x,A_sol_y], f) for f in mappings_obj]
-    B_sol_log = [pull_2d_l2(B_sol, f) for f in mappings_obj]
+    A_sol_log = [pull_2d_hcurl([A_sol_x,A_sol_y], f) for f in mappings_list]
+    B_sol_log = [pull_2d_l2(B_sol, f) for f in mappings_list]
 
     # discontinuous targets (scalar, and vector-valued)
     v_sol_log = [
@@ -190,6 +190,131 @@ def conga_operators_2d():
     #   and psydac/api/tests/test_api_feec_2d.py
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+    N=20
+    etas, xx, yy = get_plotting_grid(mappings, N)
+    gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(V0h, N, mappings, plotted_patch=1)
+
+    # I - 1. qualitative assessment of conf Projection in V0, with discontinuous v
+
+    # plot v, v0 and v0c
+    v_vals   = get_grid_vals_scalar(v_sol_log, etas, mappings)
+    v0_vals  = get_grid_vals_scalar(v0, etas, mappings)
+    v0c_vals = get_grid_vals_scalar(v0c, etas, mappings)
+
+    my_small_plot(
+        title=r'broken and conforming approximation of some $v$',
+        vals=[v_vals, v0_vals, v0c_vals],
+        titles=[r'$v^{ex}(x,y)$', r'$v^h(x,y)$', r'$P^{0,c} v^h(x,y)$'],
+        xx=xx, yy=yy,
+        gridlines_x1=gridlines_x1,
+        gridlines_x2=gridlines_x2,
+    )
+
+    # plot v0 and cDv0
+    cDv0_x_vals, cDv0_y_vals = get_grid_vals_vector(cDv0, etas, mappings)
+
+    my_small_plot(
+        title=r'discontinuous $v^h$ and its Conga gradient $D^0 = D^{0,b}P^{0,c}$',
+        vals=[v0_vals, cDv0_x_vals, cDv0_y_vals],
+        titles=[r'$v^h(x,y)$', r'$(D^0 v^h)_x(x,y)$' , r'$(D^0 v^h)_y(x,y)$' ],
+        xx=xx, yy=yy,
+        gridlines_x1=gridlines_x1,
+        gridlines_x2=gridlines_x2,
+    )
+
+    # I - 2. qualitative assessment of conf Projection in V1, with discontinuous G
+
+    G_x_vals, G_y_vals     = get_grid_vals_vector(G_sol_log, etas, mappings)
+    G1_x_vals, G1_y_vals   = get_grid_vals_vector(G1, etas, mappings)
+    G1c_x_vals, G1c_y_vals = get_grid_vals_vector(G1c, etas, mappings)
+
+    # plot G, G1 and G1c, x component
+    my_small_plot(
+        title=r'broken and conforming approximation of some $v$',
+        vals=[G_x_vals,G1_x_vals,G1c_x_vals],
+        titles=[r'$G^{ex}_x(x,y)$',r'$G^h_x(x,y)$',r'$(P^{1,c}G)_x v^h(x,y)$'],
+        xx=xx,
+        yy=yy,
+    )
+
+    # plot G, G1 and G1c, y component
+    my_small_plot(
+        title=r'broken and conforming approx of some $G$, y component',
+        vals=[G_y_vals, G1_y_vals, G1c_y_vals],
+        titles=[r'$G^{ex}_y(x,y)$', r'$G^h_y(x,y)$', r'$(P^{1,c}G)_y v^h(x,y)$'],
+        xx=xx,
+        yy=yy,
+    )
+
+    # todo: plot G1, broken_curl G1 and conga_curl G1
+
+
+    # II. visual check of commuting diag properties
+    # - for the gradient:  D0 P0 u = P1 grad u (P1 E)
+
+    # plot u and u0 = u_h
+
+    u_vals  = get_grid_vals_scalar(u_sol_log, etas, mappings)
+    u0_vals = get_grid_vals_scalar(u0, etas, mappings)
+    u_err   = abs(u_vals - u0_vals)
+
+    my_small_plot(
+        title=r'approximation of a potential $u$',
+        vals=[u_vals, u0_vals, u_err],
+        titles=[r'$u^{ex}(x,y)$', r'$u^h(x,y)$', r'$|(u^{ex}-u^h)(x,y)|$'],
+        xx=xx,
+        yy=yy,
+    )
+
+    # plot (compare) E1 and grad_u0
+
+    E_x_vals, E_y_vals   = get_grid_vals_vector(E_sol_log, etas, mappings)
+    E1_x_vals, E1_y_vals = get_grid_vals_vector(E1, etas, mappings)
+
+    E_x_err = abs(E_x_vals - E1_x_vals)
+    E_y_err = abs(E_y_vals - E1_y_vals)
+
+    my_small_plot(
+        title=r'approximation of a field $E$, $x$ component',
+        vals=[E_x_vals, E1_x_vals, E_x_err],
+        titles=[r'$E^{ex}_x(x,y)$', r'$E^h_x(x,y)$', r'$|(E^{ex}-E^h)_x(x,y)|$'],
+        xx=xx,
+        yy=yy,
+    )
+
+    my_small_plot(
+        title=r'approximation of a field $E$, $y$ component',
+        vals=[E_y_vals, E1_y_vals, E_y_err],
+        titles=[r'$E^{ex}_y(x,y)$', r'$E^h_y(x,y)$', r'$|(E^{ex}-E^h)_y(x,y)|$'],
+        xx=xx,
+        yy=yy,
+    )
+
+    grad_u0_x_vals, grad_u0_y_vals = get_grid_vals_vector(grad_u0, etas, mappings)
+    gu_x_err = abs(grad_u0_x_vals - E1_x_vals)
+    gu_y_err = abs(grad_u0_y_vals - E1_y_vals)
+
+    my_small_plot(
+        title=r'commuting diagram property ($x$ component)',
+        vals=[grad_u0_x_vals, E1_x_vals, gu_x_err],
+        titles=[r'$(D^0u^h)_x(x,y)$' , r'$E^h_x(x,y)$', r'$|(D^0u^h - E^h)_x(x,y)|$'],
+        xx=xx,
+        yy=yy,
+    )
+
+    my_small_plot(
+        title=r'commuting diagram property ($y$ component)',
+        vals=[grad_u0_y_vals, E1_y_vals, gu_y_err],
+        titles=[r'$(D^0u^h)_y(x,y)$' , r'$E^h_y(x,y)$', r'$|(D^0u^h - E^h)_y(x,y)|$'],
+        xx=xx,
+        yy=yy,
+    )
+
+    print(" done. ")
+    exit()
+
+
+
     plot_fields = True
 
     if plot_fields:
@@ -217,124 +342,6 @@ def conga_operators_2d():
             gridlines_x2 = (x[::N, :].T, y[::N, :].T)
             gridlines = (gridlines_x1, gridlines_x2)
 
-        # I - 1. qualitative assessment of conf Projection in V0, with discontinuous v
-
-        # plot v, v0 and v0c
-        v_vals   = get_grid_vals_scalar(v_sol_log, etas, mappings_obj)
-        v0_vals  = get_grid_vals_scalar(v0, etas, mappings_obj)
-        v0c_vals = get_grid_vals_scalar(v0c, etas, mappings_obj)
-
-        my_small_plot(
-            title=r'broken and conforming approximation of some $v$',
-            vals=[v_vals, v0_vals, v0c_vals],
-            titles=[r'$v^{ex}(x,y)$', r'$v^h(x,y)$', r'$P^{0,c} v^h(x,y)$'],
-            xx=xx, yy=yy,
-            gridlines_x1=gridlines_x1,
-            gridlines_x2=gridlines_x2,
-        )
-
-        # plot v0 and cDv0
-        cDv0_x_vals, cDv0_y_vals = get_grid_vals_vector(cDv0, etas, mappings_obj)
-
-        my_small_plot(
-            title=r'discontinuous $v^h$ and its Conga gradient $D^0 = D^{0,b}P^{0,c}$',
-            vals=[v0_vals, cDv0_x_vals, cDv0_y_vals],
-            titles=[r'$v^h(x,y)$', r'$(D^0 v^h)_x(x,y)$' , r'$(D^0 v^h)_y(x,y)$' ],
-            xx=xx, yy=yy,
-            gridlines_x1=gridlines_x1,
-            gridlines_x2=gridlines_x2,
-        )
-
-        # I - 2. qualitative assessment of conf Projection in V1, with discontinuous G
-
-        G_x_vals, G_y_vals     = get_grid_vals_vector(G_sol_log, etas, mappings_obj)
-        G1_x_vals, G1_y_vals   = get_grid_vals_vector(G1, etas, mappings_obj)
-        G1c_x_vals, G1c_y_vals = get_grid_vals_vector(G1c, etas, mappings_obj)
-
-        # plot G, G1 and G1c, x component
-        my_small_plot(
-            title=r'broken and conforming approximation of some $v$',
-            vals=[G_x_vals,G1_x_vals,G1c_x_vals],
-            titles=[r'$G^{ex}_x(x,y)$',r'$G^h_x(x,y)$',r'$(P^{1,c}G)_x v^h(x,y)$'],
-            xx=xx,
-            yy=yy,
-        )
-
-        # plot G, G1 and G1c, y component
-        my_small_plot(
-            title=r'broken and conforming approx of some $G$, y component',
-            vals=[G_y_vals, G1_y_vals, G1c_y_vals],
-            titles=[r'$G^{ex}_y(x,y)$', r'$G^h_y(x,y)$', r'$(P^{1,c}G)_y v^h(x,y)$'],
-            xx=xx,
-            yy=yy,
-        )
-
-        # todo: plot G1, broken_curl G1 and conga_curl G1
-
-
-        # II. visual check of commuting diag properties
-        # - for the gradient:  D0 P0 u = P1 grad u (P1 E)
-
-        # plot u and u0 = u_h
-
-        u_vals  = get_grid_vals_scalar(u_sol_log, etas, mappings_obj)
-        u0_vals = get_grid_vals_scalar(u0, etas, mappings_obj)
-        u_err   = abs(u_vals - u0_vals)
-
-        my_small_plot(
-            title=r'approximation of a potential $u$',
-            vals=[u_vals, u0_vals, u_err],
-            titles=[r'$u^{ex}(x,y)$', r'$u^h(x,y)$', r'$|(u^{ex}-u^h)(x,y)|$'],
-            xx=xx,
-            yy=yy,
-        )
-
-        # plot (compare) E1 and grad_u0
-
-        E_x_vals, E_y_vals   = get_grid_vals_vector(E_sol_log, etas, mappings_obj)
-        E1_x_vals, E1_y_vals = get_grid_vals_vector(E1, etas, mappings_obj)
-
-        E_x_err = abs(E_x_vals - E1_x_vals)
-        E_y_err = abs(E_y_vals - E1_y_vals)
-
-        my_small_plot(
-            title=r'approximation of a field $E$, $x$ component',
-            vals=[E_x_vals, E1_x_vals, E_x_err],
-            titles=[r'$E^{ex}_x(x,y)$', r'$E^h_x(x,y)$', r'$|(E^{ex}-E^h)_x(x,y)|$'],
-            xx=xx,
-            yy=yy,
-        )
-
-        my_small_plot(
-            title=r'approximation of a field $E$, $y$ component',
-            vals=[E_y_vals, E1_y_vals, E_y_err],
-            titles=[r'$E^{ex}_y(x,y)$', r'$E^h_y(x,y)$', r'$|(E^{ex}-E^h)_y(x,y)|$'],
-            xx=xx,
-            yy=yy,
-        )
-
-        grad_u0_x_vals, grad_u0_y_vals = get_grid_vals_vector(grad_u0, etas, mappings_obj)
-        gu_x_err = abs(grad_u0_x_vals - E1_x_vals)
-        gu_y_err = abs(grad_u0_y_vals - E1_y_vals)
-
-        my_small_plot(
-            title=r'commuting diagram property ($x$ component)',
-            vals=[grad_u0_x_vals, E1_x_vals, gu_x_err],
-            titles=[r'$(D^0u^h)_x(x,y)$' , r'$E^h_x(x,y)$', r'$|(D^0u^h - E^h)_x(x,y)|$'],
-            xx=xx,
-            yy=yy,
-        )
-
-        my_small_plot(
-            title=r'commuting diagram property ($y$ component)',
-            vals=[grad_u0_y_vals, E1_y_vals, gu_y_err],
-            titles=[r'$(D^0u^h)_y(x,y)$' , r'$E^h_y(x,y)$', r'$|(D^0u^h - E^h)_y(x,y)|$'],
-            xx=xx,
-            yy=yy,
-        )
-
-    print(" done. ")
-    exit()
 
 
 

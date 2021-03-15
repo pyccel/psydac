@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import eigs
 
 from sympy import pi, cos, sin, Matrix, Tuple
 from sympy import symbols
@@ -39,7 +40,7 @@ from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultL
 from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import ConformingProjection_V1
 from psydac.feec.multipatch.operators import get_grid_vals_scalar, get_grid_vals_vector
-from psydac.feec.multipatch.operators import my_small_plot
+from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
 
 comm = MPI.COMM_WORLD
 
@@ -122,8 +123,10 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
 
 from psydac.api.tests.test_api_2d_compatible_spaces import test_api_system_3_2d_dir_1
 
-if __name__ == '__main__':
-
+def run_maxwell_2d_time_harmonic():
+    """
+    curl-curl problem with 0 order term and source
+    """
 
     bounds1   = (0.5, 1.)
     bounds2_A = (0, np.pi/2)
@@ -150,26 +153,22 @@ if __name__ == '__main__':
 
 
     mappings  = {A.interior:mapping_1, B.interior:mapping_2}
-    mappings_obj = [mapping_1, mapping_2]
+    mappings_list = list(mappings.values())
 
     uex_x = lambdify(domain.coordinates, uex[0])
     uex_y = lambdify(domain.coordinates, uex[1])
-    uex_log = [pull_2d_hcurl([uex_x,uex_y], f) for f in mappings_obj]
+    uex_log = [pull_2d_hcurl([uex_x,uex_y], f) for f in mappings_list]
 
 
 
     ## call solver
-
-    # Nitsche
-    # l2_error, uh = run_maxwell_2d(uex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)
-
-    # Conga
     l2_error, uh = run_conga_maxwell_2d(uex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)
+    # else:
+    #     # Nitsche
+    #     l2_error, uh = run_system_3_2d_dir(uex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)
 
 
     print("max2d: ", l2_error)
-    # print("conga_max2d: ", conga_l2_error)
-
 
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -178,44 +177,13 @@ if __name__ == '__main__':
     #   and psydac/api/tests/test_api_feec_2d.py
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    # for the plots
-    N = 20
-    etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
-    mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
+    N=20
+    etas, xx, yy = get_plotting_grid(mappings, N)
+    gridlines_x1 = None
+    gridlines_x2 = None
 
-    pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings_lambda, etas)]
-    pcoords  = np.concatenate(pcoords, axis=1)
-
-    xx = pcoords[:,:,0]
-    yy = pcoords[:,:,1]
-
-    # plot one patch grid
-    plotted_patch = -1
-    if plotted_patch in [0, 1]:
-
-        #patch_derham = derhams_h[plotted_patch]
-        grid_x1 = V2h.spaces[plotted_patch].breaks[0]
-        grid_x2 = V2h.spaces[plotted_patch].breaks[1]
-
-        print("grid_x1 = ", grid_x1)
-
-        x1 = refine_array_1d(grid_x1, N)
-        x2 = refine_array_1d(grid_x2, N)
-
-        x1, x2 = np.meshgrid(x1, x2, indexing='ij')
-        x, y = F[plotted_patch](x1, x2)
-
-        print("x1 = ", x1)
-
-        gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
-        gridlines_x2 = (x[::N, :].T, y[::N, :].T)
-        gridlines = (gridlines_x1, gridlines_x2)
-    else:
-        gridlines_x1 = None
-        gridlines_x2 = None
-
-    u_x_vals, u_y_vals   = get_grid_vals_vector(uex_log, etas, mappings_obj)
-    uh_x_vals, uh_y_vals = get_grid_vals_vector(uh, etas, mappings_obj)
+    u_x_vals, u_y_vals   = get_grid_vals_vector(uex_log, etas, mappings)
+    uh_x_vals, uh_y_vals = get_grid_vals_vector(uh, etas, mappings)
     u_x_err = abs(u_x_vals - uh_x_vals)
     u_y_err = abs(u_y_vals - uh_y_vals)
 
@@ -239,3 +207,7 @@ if __name__ == '__main__':
         gridlines_x2=gridlines_x2,
     )
 
+
+if __name__ == '__main__':
+
+    run_maxwell_2d_time_harmonic()
