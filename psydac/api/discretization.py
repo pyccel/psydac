@@ -17,11 +17,14 @@ from sympde.expr     import Integral
 from sympde.expr     import Equation as sym_Equation
 from sympde.expr     import Norm as sym_Norm
 from sympde.expr     import TerminalExpr
+from sympde.calculus import dot
 from sympde.topology import Domain, Interface
 from sympde.topology import Line, Square, Cube
 from sympde.topology import BasicFunctionSpace
-from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace, Derham
+from sympde.topology import ScalarFunctionSpace, ScalarFunction
+from sympde.topology import VectorFunctionSpace, VectorFunction
 from sympde.topology import ProductSpace
+from sympde.topology import Derham
 from sympde.topology import Mapping, IdentityMapping, LogicalExpr
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology.basic import Union
@@ -239,9 +242,8 @@ class DiscreteEquation(BasicDiscrete):
                 # we will select the correct test function using a dictionary.
                 test_dict = dict(zip(u, v))
 
-                # TODO: use dot product for vector quantities
-#                product  = lambda f, g: (f * g if isinstance(g, ScalarFunction) else dot(f, g))
-                product  = lambda f, g: f * g
+                # Compute product of (u, v) using dot product for vector quantities
+                product  = lambda f, g: (f * g if isinstance(g, ScalarFunction) else dot(f, g))
 
                 # Construct variational formulation that performs L2 projection
                 # of boundary conditions onto the correct space
