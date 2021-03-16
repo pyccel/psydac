@@ -45,7 +45,7 @@ from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_
 comm = MPI.COMM_WORLD
 
 
-def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree):
+def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, show_all=False):
     """
     Maxwell eigenproblem solver, see eg
     Buffa, Perugia & Warburton, The Mortar-Discontinuous Galerkin Method for the 2D Maxwell Eigenproblem JSC 2009.
@@ -93,19 +93,37 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree):
     D1_t = ComposedLinearOperator([cP1, bD1.transpose()])
     I1 = IdLinearOperator(V1h)
 
+    print("using jump penalization factor alpha = ", alpha )
+
     # A = ComposedLinearOperator([I1-cP1,I1-cP1]) + ComposedLinearOperator([cP1, bD1.transpose(), M2, bD1, cP1])
     A = ( ComposedLinearOperator([D1_t, M2, D1])
-        + 1000*ComposedLinearOperator([I1-cP1,M1, I1-cP1])
-        + 1000*ComposedLinearOperator([M1, D0, D0_t, M1])
+        + alpha*ComposedLinearOperator([I1-cP1,M1, I1-cP1])
         )
+
+        # + M1
+
+        #
+        # + 1000*ComposedLinearOperator([M1, D0, D0_t, M1])
 
     # Find eigenmodes and eigenvalues with scipy.sparse.eigsh (symmetric matrices)
     A = A.to_sparse_matrix()
     M1 = M1.to_sparse_matrix()
-    eigenvalues, eigenvectors = eigsh(A, k=nb_eigs, M=M1, sigma=4.5)
+
+    # from eigsh docstring:
+    #   ncv = number of Lanczos vectors generated ncv must be greater than k and smaller than n;
+    #   it is recommended that ncv > 2*k. Default: min(n, max(2*k + 1, 20))
+    ncv = 4*nb_eigs
+    # search mode: normal and buckling give a lot of zero eigenmodes. Cayley seems best for Maxwell.
+    # mode='normal'
+    mode='cayley'
+    # mode='buckling'
+    eigenvalues, eigenvectors = eigsh(A, k=nb_eigs, M=M1, sigma=6, mode=mode, which='LM', ncv=ncv)
 
     # plotting
     etas, xx, yy = get_plotting_grid(mappings, N=20)
+
+    first_Pemodes_vals = []
+    first_Pemodes_titles = []
 
     for k_eig in range(nb_eigs):
         evalue  = eigenvalues[k_eig]
@@ -121,27 +139,46 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree):
 
         eh_x_vals, eh_y_vals = get_grid_vals_vector(emode, etas, mappings)
         cPeh_x_vals, cPeh_y_vals = get_grid_vals_vector(cP_emode, etas, mappings)
-        jumps_eh_vals = abs(eh_x_vals-cPeh_x_vals)**2 + abs(eh_y_vals-cPeh_y_vals)**2
+        Peh_abs_vals = np.sqrt(abs(cPeh_x_vals)**2 + abs(cPeh_y_vals)**2)
+        jumps_eh_vals = np.sqrt(abs(eh_x_vals-cPeh_x_vals)**2 + abs(eh_y_vals-cPeh_y_vals)**2)
         curl_eh_vals = get_grid_vals_scalar(curl_emode, etas, mappings)
 
-        my_small_plot(
-            title='mode k='+repr(k_eig)+'  --  norm = '+ repr(norm_emode) + '  --  eigenvalue = '+repr(evalue),
-            vals=[eh_x_vals, eh_y_vals, jumps_eh_vals, curl_eh_vals],
-            titles=[r'$e^h_{k,x}$', r'$e^h_{k,y}$', r'$|(I-P^1_c) e^h_k|^2$', r'curl$(e^h_k)$'],
-            xx=xx,
-            yy=yy,
-        )
+        if show_all:
+            my_small_plot(
+                title='mode k='+repr(k_eig)+'  --  norm = '+ repr(norm_emode) + '  --  eigenvalue = '+repr(evalue),
+                vals=[eh_x_vals, eh_y_vals, Peh_abs_vals, jumps_eh_vals, curl_eh_vals],
+                titles=[r'$e^h_{k,x}$', r'$e^h_{k,y}$', r'$|P^1_c e^h_k|$', r'$|(I-P^1_c) e^h_k|$', r'curl$(e^h_k)$'],
+                xx=xx,
+                yy=yy,
+            )
+
+        if k_eig < 8:
+            first_Pemodes_vals.append(Peh_abs_vals)
+            first_Pemodes_titles.append(r'$\sigma=$'+'{0:0.2f}'.format(np.real(evalue)))
+        else:
+            print('warning: not plotting eigenmode for k = ' + repr(k_eig))
+
+    my_small_plot(
+        title=r'Amplitude $|P^1_c e^h_k|$ of some eigenmodes found',
+        vals=first_Pemodes_vals,
+        titles=first_Pemodes_titles,
+        xx=xx,
+        yy=yy,
+    )
 
 if __name__ == '__main__':
 
+    nc = 2**3
+    h = 1/nc
+    deg = 3
+    # jump penalization factor from Buffa, Perugia and Warburton
+    DG_alpha = 10*(deg+1)**2/h
 
-    # aa = np.ones(10)
-    # bb = np.ones(10)
-    # cc = np.dot(aa,bb)
-    # print(aa.shape, type(aa))
-    # print(bb.shape, type(bb))
-    # print(cc.shape, type(cc))
-    # print("cc = ", cc)
+    # a = [76.753, 7.4143254, 986.654352]
+    # title = ' '
+    # for i in a:
+    #     title += '{0:0.2f}'.format(i)+' '
+    # print( 'Got '+title)
     # exit()
 
-    run_maxwell_2d_eigenproblem(nb_eigs=8, ncells=[2**4, 2**4], degree=[2,2])
+    run_maxwell_2d_eigenproblem(nb_eigs=8, ncells=[nc, nc], degree=[deg,deg], alpha=DG_alpha)
