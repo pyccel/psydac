@@ -1,11 +1,12 @@
 # -*- coding: UTF-8 -*-
 
+import pytest
 import numpy as np
-from sympy import pi, cos, sin, Matrix, Tuple, lambdify
-from scipy import linalg
+from sympy import pi, cos, sin, sqrt, Matrix, Tuple, lambdify
 from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import gmres as sp_gmres
 from scipy.sparse.linalg import minres as sp_minres
+from scipy.sparse.linalg import cg as sp_cg
 from scipy.sparse.linalg import bicg as sp_bicg
 from scipy.sparse.linalg import bicgstab as sp_bicgstab
 
@@ -90,10 +91,9 @@ def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
     return l2_error
 
 #==============================================================================
-def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
-    # ... abstract model
-    domain = Square()
+def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=False):
 
+    # ... abstract model
     V1 = VectorFunctionSpace('V1', domain, kind='H1')
     V2 = ScalarFunctionSpace('V2', domain, kind='L2')
     X  = ProductSpace(V1, V2)
@@ -106,7 +106,11 @@ def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
 
     a  = BilinearForm(((u, p), (v, q)), int_0(inner(grad(u), grad(v)) - div(u)*q - p*div(v)) )
     l  = LinearForm((v, q), int_0(dot(f, v)))
-    bc = EssentialBC(u, 0, domain.boundary)
+
+    if homogeneous:
+        bc = EssentialBC(u, 0, domain.boundary)
+    else:
+        bc = EssentialBC(u, ue, domain.boundary)
 
     equation = find((u, p), forall=(v, q), lhs=a((u, p), (v, q)), rhs=l(v, q), bc=bc)
 
@@ -120,27 +124,47 @@ def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
 
     # ... discretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh])
+    print()
 
-    # ... assemble linear system
-    equation_h.assemble()
-
-
-    # ... solve linear system
+    # ... solve linear system using scipy.sparse.linalg or psydac
     if scipy:
-        # Select Scipy's sparse iterative solver among 3 available
-        sp_solver = [sp_gmres, sp_minres, sp_bicg, sp_bicgstab][1]
-        As = equation_h.linear_system.lhs.tosparse()
-        bs = equation_h.linear_system.rhs.toarray()
-        xs, info = sp_solver(As, bs, tol=1e-12)
-        x = array_to_stencil(xs, Xh.vector_space)
-        print('\n', info)
+
+        tol = 1e-11
+        equation_h.assemble()
+        A0 = equation_h.linear_system.lhs.tosparse()
+        b0 = equation_h.linear_system.rhs.toarray()
+
+        if not homogeneous:
+            a1 = BilinearForm(((u, p), (v, q)), integral(domain.boundary, dot(u, v)))
+            l1 = LinearForm((v, q), integral(domain.boundary, dot(ue, v)))
+
+            a1_h = discretize(a1, domain_h, [Xh, Xh])
+            l1_h = discretize(l1, domain_h, Xh)
+
+            A1 = a1_h.assemble().tosparse()
+            b1 = l1_h.assemble().toarray()
+
+            x1, info = sp_minres(A1, b1, tol=tol)
+            print('Boundary solution with scipy.sparse: success = {}'.format(info == 0))
+
+            x0, info = sp_minres(A0, b0 - A0.dot(x1), tol=tol)
+            print('Interior solution with scipy.sparse: success = {}'.format(info == 0))
+
+            # Solution is sum of boundary and interior contributions
+            x = x0 + x1
+
+        else:
+            x, info = sp_minres(A0, b0, tol=tol)
+            print('Solution with scipy.sparse: success = {}'.format(info == 0))
+
+        # Convert to stencil format
+        x = array_to_stencil(x, Xh.vector_space)
 
     else:
-        # Use Psydac's bi-conjugate gradient solver
-        A = equation_h.linear_system.lhs
-        b = equation_h.linear_system.rhs
-        x, info = bicg(A, A.T, b, tol=1e-12)
-        print('\n', info)
+
+        phi_h, info = equation_h.solve(info=True)
+        x = phi_h.coeffs
+        print(info)
 
     # Numerical solution: velocity field
     # TODO: allow this: uh = FemField(V1h, coeffs=x[0:2]) or similar
@@ -178,9 +202,10 @@ def run_stokes_2d_dir(f, ue, pe, *, ncells, degree, scipy=False):
     l2_error_u = l2norm_uh.assemble(u = uh)
     l2_error_p = l2norm_ph.assemble(p = ph)
 
+    print()
     print('Relative l2_error(u) = {}'.format(l2_error_u / l2_norm_ue))
     print('Relative l2_error(p) = {}'.format(l2_error_p / l2_norm_pe))
-    print('average(p)  = {}'.format(p_avg))
+    print('Average(p) = {}'.format(p_avg))
 
     return locals()
 
@@ -257,21 +282,25 @@ def test_poisson_mixed_form_2d_dir_1():
     assert l2_error-0.00030070020628128664<1e-13
 
 #------------------------------------------------------------------------------
-def test_stokes_2d_dir_1():
+@pytest.mark.parametrize('scipy', (True, False))
+def test_stokes_2d_dir_homogeneous(scipy):
 
     # ... Exact solution
-    from sympy import symbols
-    x1, x2 = symbols('x1, x2')
+    domain = Square()
+    x, y   = domain.coordinates
  
-    f1 = -x1**2*(x1 - 1)**2*(24*x2 - 12) - 4*x2*(x1**2 + 4*x1*(x1 - 1) + (x1 - 1)**2)*(2*x2**2 - 3*x2 + 1) - 2*pi*cos(2*pi*x1)
-    f2 = 4*x1*(2*x1**2 - 3*x1 + 1)*(x2**2 + 4*x2*(x2 - 1) + (x2 - 1)**2) + x2**2*(24*x1 - 12)*(x2 - 1)**2 + 2*pi*cos(2*pi*x2)
-    f  = Tuple(f1, f2)
+    fx = -x**2*(x - 1)**2*(24*y - 12) - 4*y*(x**2 + 4*x*(x - 1) + (x - 1)**2)*(2*y**2 - 3*y + 1) - 2*pi*cos(2*pi*x)
+    fy = 4*x*(2*x**2 - 3*x + 1)*(y**2 + 4*y*(y - 1) + (y - 1)**2) + y**2*(24*x - 12)*(y - 1)**2 + 2*pi*cos(2*pi*y)
+    f  = Tuple(fx, fy)
 
-    u1 = x1**2*(-x1 + 1)**2*(4*x2**3 - 6*x2**2 + 2*x2)
-    u2 =-x2**2*(-x2 + 1)**2*(4*x1**3 - 6*x1**2 + 2*x1)
-    ue = Tuple(u1, u2)
-    pe = -sin(2*pi*x1) + sin(2*pi*x2)
+    ux = x**2*(-x + 1)**2*(4*y**3 - 6*y**2 + 2*y)
+    uy =-y**2*(-y + 1)**2*(4*x**3 - 6*x**2 + 2*x)
+    ue = Tuple(ux, uy)
+    pe = -sin(2*pi*x) + sin(2*pi*y)
     # ...
+
+    # Verify that div(u) = 0
+    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
 
     # ... Check that exact solution is correct
     from sympde.calculus import laplace, grad
@@ -288,29 +317,30 @@ def test_stokes_2d_dir_1():
     # ...
 
     # Run test
-    namespace = run_stokes_2d_dir(f, ue, pe, ncells=[2**3, 2**3], degree=[2, 2], scipy=False)
+    namespace = run_stokes_2d_dir(domain, f, ue, pe,
+            homogeneous=True, ncells=[2**3, 2**3], degree=[2, 2], scipy=scipy)
 
-    # Check error on velocity and pressure fields
-    assert abs(namespace['l2_error_u'] - 1.86072381490785e-5) < 1e-13
-    assert abs(namespace['l2_error_p'] - 2.44281724609567e-2) < 1e-13
-
-    #TODO verify convergence rate
+    # Check that expected absolute error on velocity and pressure fields
+    # is obtained with at least 8 digits of accuracy
+    assert abs(1 - namespace['l2_error_u'] / 1.860723830885487e-05) < 1e-8
+    assert abs(1 - namespace['l2_error_p'] / 0.024428172461038290 ) < 1e-8
 
 #------------------------------------------------------------------------------
-def test_stokes_2d_dir_2():
+@pytest.mark.parametrize('scipy', (True, False))
+def test_stokes_2d_dir_non_homogeneous(scipy):
 
     # ... Exact solution
-    from sympy import symbols
-    x1, x2 = symbols('x1, x2')
+    domain = Square()
+    x, y   = domain.coordinates
 
-    u1 =  2000 * x1**2 * (1-x1)**2 * x2 * (1-x2) * (1-2*x2)
-    u2 = -2000 * x2**2 * (1-x2)**2 * x1 * (1-x1) * (1-2*x1)
-    ue = Tuple(u1, u2)
-    pe = x1**2 + x2**2 - 2/3
+    ux =  sin(pi * x) * cos(pi * y)
+    uy = -cos(pi * x) * sin(pi * y)
+    ue = Tuple(ux, uy)
+    pe = cos(2*pi * (x + y)) * sin(2*pi * (x - y))
     # ...
 
     # Verify that div(u) = 0
-    assert (u1.diff(x1) + u2.diff(x2)).simplify() == 0
+    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
 
     # ... Compute right-hand side
     from sympde.calculus import laplace, grad
@@ -320,10 +350,20 @@ def test_stokes_2d_dir_2():
     a = TerminalExpr(-laplace(ue), **kwargs)
     b = TerminalExpr(    grad(pe), **kwargs)
     f = (a.T + b).simplify()
+
+    fx = -ux.diff(x, 2) - ux.diff(y, 2) + pe.diff(x)
+    fy = -uy.diff(x, 2) - uy.diff(y, 2) + pe.diff(y)
+    f  = Tuple(fx, fy)
     # ...
 
     # Run test
-    namespace = run_stokes_2d_dir(f, ue, pe, ncells=[2**3, 2**3], degree=[4, 4], scipy=True)
+    namespace = run_stokes_2d_dir(domain, f, ue, pe,
+            homogeneous=False, ncells=[10, 10], degree=[3, 3], scipy=scipy)
+
+    # Check that expected absolute error on velocity and pressure fields
+    # is obtained with at least 8 digits of accuracy
+    assert abs(1 - namespace['l2_error_u'] / 8.658427958128542e-06) < 1e-8
+    assert abs(1 - namespace['l2_error_p'] / 0.007600728271522273 ) < 1e-8
 
 #------------------------------------------------------------------------------
 def test_maxwell_time_harmonic_2d_dir_1():
