@@ -45,7 +45,7 @@ from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_
 comm = MPI.COMM_WORLD
 
 
-def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, show_all=False):
+def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, cartesian=True, show_all=False):
     """
     Maxwell eigenproblem solver, see eg
     Buffa, Perugia & Warburton, The Mortar-Discontinuous Galerkin Method for the 2D Maxwell Eigenproblem JSC 2009.
@@ -54,10 +54,16 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, show_all=False):
     :return: eigenvalues and eigenmodes
     """
 
-    OmegaLog1 = Square('OmegaLog1',bounds1=(0., 1.), bounds2=(0., 0.5))
-    OmegaLog2 = Square('OmegaLog2',bounds1=(0., 1.), bounds2=(0.5, 1.))
-    mapping_1 = IdentityMapping('M1',2)
-    mapping_2 = IdentityMapping('M2',2)
+    if cartesian:
+        OmegaLog1 = Square('OmegaLog1',bounds1=(0., 1.), bounds2=(0., 0.5))
+        OmegaLog2 = Square('OmegaLog2',bounds1=(0., 1.), bounds2=(0.5, 1.))
+        mapping_1 = IdentityMapping('M1', 2)
+        mapping_2 = IdentityMapping('M2',2)
+    else:
+        OmegaLog1 = Square('OmegaLog1',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+        OmegaLog2 = Square('OmegaLog2',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
+        mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+        mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
     domain_1     = mapping_1(OmegaLog1)
     domain_2     = mapping_2(OmegaLog2)
 
@@ -181,4 +187,4 @@ if __name__ == '__main__':
     # print( 'Got '+title)
     # exit()
 
-    run_maxwell_2d_eigenproblem(nb_eigs=8, ncells=[nc, nc], degree=[deg,deg], alpha=DG_alpha)
+    run_maxwell_2d_eigenproblem(nb_eigs=8, ncells=[nc, nc], degree=[deg,deg], alpha=DG_alpha, cartesian=False, show_all=False)

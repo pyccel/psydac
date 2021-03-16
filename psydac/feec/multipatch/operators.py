@@ -46,7 +46,10 @@ class ConformingProjection_V0( FemLinearOperator ):
     Conforming projection from global broken space to conforming global space
     Defined by averaging of interface dofs
     """
-    # todo (MCP, 15.03.2021): extend to single patch case
+    # todo (MCP, 16.03.2021):
+    #   - extend to several interfaces
+    #   - avoid discretizing a bilinear form
+    #   - allow single patch case
     def __init__(self, V0h, domain_h, hom_bc=False):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
@@ -61,6 +64,7 @@ class ConformingProjection_V0( FemLinearOperator ):
         expr_I = ( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
+
 
         ah = discretize(a, domain_h, [V0h, V0h])
 
@@ -109,8 +113,11 @@ class ConformingProjection_V1( FemLinearOperator ):
 
     proj.dot(v) returns the conforming projection of v, computed by solving linear system
 
-
     """
+    # todo (MCP, 16.03.2021):
+    #   - extend to several interfaces
+    #   - avoid discretizing a bilinear form
+    #   - allow single patch case
     def __init__(self, V1h, domain_h, hom_bc=False):
 
         FemLinearOperator.__init__(self, fem_domain=V1h)
@@ -143,10 +150,6 @@ class ConformingProjection_V1( FemLinearOperator ):
 
         self._A[1,1][0,0][:,:,0,0] = 1
         self._A[1,1][1,1][:,:,0,0] = 1
-
-        # todo (MCP):
-        #  - replace above with Id matrix
-        #  - clearer implementation
 
         spaces = self._A.domain.spaces
         sp1    = spaces[0]
@@ -203,6 +206,7 @@ class BrokenMass( FemLinearOperator ):
     """
     Broken mass matrix for a scalar space (seen as a LinearOperator... to be improved)
     # TODO: (MCP 10.03.2021) define them as Hodge FemLinearOperators
+    # TODO: (MCP 16.03.2021) define also the inverse Hodge
 
     """
     def __init__( self, Vh, domain_h, is_scalar):
