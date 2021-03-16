@@ -321,9 +321,9 @@ def test_stokes_2d_dir_homogeneous(scipy):
             homogeneous=True, ncells=[2**3, 2**3], degree=[2, 2], scipy=scipy)
 
     # Check that expected absolute error on velocity and pressure fields
-    # is obtained with at least 8 digits of accuracy
-    assert abs(1 - namespace['l2_error_u'] / 1.860723830885487e-05) < 1e-8
-    assert abs(1 - namespace['l2_error_p'] / 0.024428172461038290 ) < 1e-8
+    # is obtained with at least 7 digits of accuracy
+    assert abs(1 - namespace['l2_error_u'] / 1.860723830885487e-05) < 1e-7
+    assert abs(1 - namespace['l2_error_p'] / 0.024428172461038290 ) < 1e-7
 
 #------------------------------------------------------------------------------
 @pytest.mark.parametrize('scipy', (True, False))
@@ -361,9 +361,9 @@ def test_stokes_2d_dir_non_homogeneous(scipy):
             homogeneous=False, ncells=[10, 10], degree=[3, 3], scipy=scipy)
 
     # Check that expected absolute error on velocity and pressure fields
-    # is obtained with at least 8 digits of accuracy
-    assert abs(1 - namespace['l2_error_u'] / 8.658427958128542e-06) < 1e-8
-    assert abs(1 - namespace['l2_error_p'] / 0.007600728271522273 ) < 1e-8
+    # is obtained with at least 7 digits of accuracy
+    assert abs(1 - namespace['l2_error_u'] / 8.658427958128542e-06) < 1e-7
+    assert abs(1 - namespace['l2_error_p'] / 0.007600728271522273 ) < 1e-7
 
 #------------------------------------------------------------------------------
 def test_maxwell_time_harmonic_2d_dir_1():
