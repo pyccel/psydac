@@ -190,49 +190,13 @@ class ConformingProjection_V1( FemLinearOperator ):
             self._A[1,0][1,1][:,s22,0, d12] = 1/2
 
         if hom_bc:
-            # todo (MCP): set boundary dofs to 0 -- but repeating the above yields an error:
-            # AttributeError: 'Union' object has no attribute 'axis'
-
-            for I in domain.boundary:
-                s11 = sp1.spaces[0].starts[I.axis]
-                e11 = sp1.spaces[0].ends[I.axis]
-                s12 = sp1.spaces[1].starts[I.axis]
-                e12 = sp1.spaces[1].ends[I.axis]
-
-                s21 = sp2.spaces[0].starts[I.axis]
-                e21 = sp2.spaces[0].ends[I.axis]
-                s22 = sp2.spaces[1].starts[I.axis]
-                e22 = sp2.spaces[1].ends[I.axis]
-
-                d11     = V1h.spaces[0].spaces[0].degree[I.axis]
-                d12     = V1h.spaces[0].spaces[1].degree[I.axis]
-
-                d21     = V1h.spaces[1].spaces[0].degree[I.axis]
-                d22     = V1h.spaces[1].spaces[1].degree[I.axis]
-
-                if I.axis == 1:
-                    self._A[0,0][0,0][:,e11,0,0] = 0
-                else:
-                    self._A[0,0][1,1][:,e12,0,0] = 0
-
-                if I.axis == 1:
-                    self._A[1,1][0,0][:,s21,0,0] = 0
-                else:
-                    self._A[1,1][1,1][:,s22,0,0] = 0
-
-
-                if I.axis == 1:
-                    self._A[0,1][0,0][:,d11,0,-d21] = 0
-                else:
-                    self._A[0,1][1,1][:,d12,0,-d22] = 0
-
-                if I.axis == 1:
-                    self._A[1,0][0,0][:,s21,0, d11] = 0
-                else:
-                    self._A[1,0][1,1][:,s22,0, d12] = 0
+            for bn in domain.boundary:
+                i = get_patch_index_from_face(domain, bn)
+                for j in range(len(domain)):
+                    apply_essential_bc_stencil(self._A[i,j][1-bn.axis,1-bn.axis], axis=bn.axis, ext=bn.ext, order=0)
 
         self._matrix = self._A
-
+        # exit()
 
 #===============================================================================
 class BrokenMass( FemLinearOperator ):

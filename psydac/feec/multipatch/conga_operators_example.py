@@ -94,7 +94,7 @@ def conga_operators_2d():
 
     # Conforming projection operators
     Pconf_0 = ConformingProjection_V0(V0h, domain_h, hom_bc=True)#, verbose=False)
-    Pconf_1 = ConformingProjection_V1(V1h, domain_h, hom_bc=False)#, verbose=False)
+    Pconf_1 = ConformingProjection_V1(V1h, domain_h, hom_bc=True)#, verbose=False)
 
     # Broken derivative operators
     bD0, bD1 = derham_h.broken_derivatives_as_operators
@@ -142,8 +142,8 @@ def conga_operators_2d():
         ]
 
     G_sol_log = [
-        [lambda xi1, xi2 : 1 for d in [0,1]],
         [lambda xi1, xi2 : 0 for d in [0,1]],
+        [lambda xi1, xi2 : 1 for d in [0,1]],
         ]
 
     # note: in other tests, the target functions are given directly as lambda functions -- what is best ?
