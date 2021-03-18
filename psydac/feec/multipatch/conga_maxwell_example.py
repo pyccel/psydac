@@ -44,7 +44,6 @@ from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_
 
 comm = MPI.COMM_WORLD
 
-
 #==============================================================================
 def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, return_sol=False):
     """

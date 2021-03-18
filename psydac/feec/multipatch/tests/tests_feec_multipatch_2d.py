@@ -31,7 +31,11 @@ comm = MPI.COMM_WORLD
 #==============================================================================
 def run_poisson_2d(solution, f, domain, ncells, degree, tol=1e-9, use_scipy=False):
 
-    # multipatch de Rham sequence:
+    #+++++++++++++++++++++++++++++++
+    # 1. Abstract model
+    #+++++++++++++++++++++++++++++++
+
+    # Multipatch de Rham sequence:
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
 
     v  = element_of(derham.V0, 'v')
@@ -39,7 +43,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, tol=1e-9, use_scipy=Fals
 
     l  = LinearForm(v,  integral(domain, f*v))
 
-    # l2 projection of boundary conditions
+    # L2 projection of boundary conditions
     ab = BilinearForm((u,v), integral(domain.boundary, u*v))
     lb = LinearForm(v, integral(domain.boundary, solution*v))
 
@@ -69,7 +73,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, tol=1e-9, use_scipy=Fals
     h1norm_h = discretize(h1norm, domain_h, V0h)
 
     #+++++++++++++++++++++++++++++++
-    # 3. Solution
+    # 3. Assembly
     #+++++++++++++++++++++++++++++++
 
     # Mass matrices for broken spaces (block-diagonal)
@@ -95,6 +99,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, tol=1e-9, use_scipy=Fals
     A = (I0-cP0) + cD0T_M1_cD0
 
 
+    # Boundary conditions
     x0, info = cg(abh.assemble(), lbh.assemble(), tol=tol)
 
     b = b-A.dot(x0)
@@ -105,7 +110,10 @@ def run_poisson_2d(solution, f, domain, ncells, degree, tol=1e-9, use_scipy=Fals
         apply_essential_bc_stencil(b[i], axis=bn.axis, ext=bn.ext, order=0)
 
 
-    # Solve linear system
+    #+++++++++++++++++++++++++++++++
+    # 3. Solution
+    #+++++++++++++++++++++++++++++++
+
     if use_scipy:
         A = A.to_sparse_matrix()
         b = b.toarray()

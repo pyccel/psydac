@@ -114,10 +114,6 @@ def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
     spaces = [discretize_space(V, domain_h, *args, basis=basis, **kwargs) \
             for V, basis in zip(derham.spaces, bases)]
 
-    # print( "bases = ...")
-    # print(bases)
-
-
     return DiscreteDerhamMultipatch(
         mapping  = mapping,
         spaces   = spaces,

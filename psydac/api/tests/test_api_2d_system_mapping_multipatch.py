@@ -84,11 +84,7 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, return_sol=
 
     l2_error = l2norm_h.assemble(F=uh)
 
-    if return_sol:
-        res = l2_error, uh
-    else:
-        res = l2_error
-    return res
+    return l2_error
 
 #------------------------------------------------------------------------------
 
@@ -122,8 +118,6 @@ def test_maxwell_2d_2_patch_dirichlet_0():
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
 
-
-test_maxwell_2d_2_patch_dirichlet_0()
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
