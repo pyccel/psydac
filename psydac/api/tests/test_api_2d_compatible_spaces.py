@@ -107,6 +107,9 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
     a  = BilinearForm(((u, p), (v, q)), int_0(inner(grad(u), grad(v)) - div(u)*q - p*div(v)) )
     l  = LinearForm((v, q), int_0(dot(f, v)))
 
+    # Dirichlet boundary conditions are given in the form u = g where g may be
+    # just 0 (hence homogeneous BCs are prescribed) or a symbolic expression
+    # g(x, y) that represents the boundary data. Here we use the exact solution
     if homogeneous:
         bc = EssentialBC(u, 0, domain.boundary)
     else:
