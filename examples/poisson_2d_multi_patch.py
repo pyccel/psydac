@@ -33,7 +33,6 @@ from sympde.expr.evaluation    import TerminalExpr
 from sympde.expr               import find, EssentialBC
 
 from psydac.api.discretization import discretize
-from psydac.fem.vector         import VectorFemField
 from psydac.fem.basic          import FemField
 from psydac.utilities.utils    import refine_array_1d
 
@@ -57,7 +56,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     I = domain.interfaces
 
-    kappa  = 10**9
+    kappa  = 10**3
 
    # expr_I =(
    #         - dot(grad(plus(u)),nn)*minus(v)  + dot(grad(minus(v)),nn)*plus(u) - kappa*plus(u)*minus(v)
@@ -95,19 +94,9 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
     timing   = {}
 
     t0       = time.time()
-    equation_h.assemble()
-    t1       = time.time()
-    timing['assembly'] = t1-t0
-
-    t0       = time.time()
-    x, info  = equation_h.solve(info=True)
+    uh, info  = equation_h.solve(info=True, tol=1e-14)
     t1       = time.time()
     timing['solution'] = t1-t0
-
-    uh = VectorFemField( Vh )
-
-    for i in range(len(uh.coeffs[:])):
-        uh.coeffs[i][:,:] = x[i][:,:]
 
     t0 = time.time()
     l2_error = l2norm_h.assemble(u=uh)
@@ -121,12 +110,12 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 if __name__ == '__main__':
 
     mapping_1 = IdentityMapping('M1', 2)
-    mapping_2 = PolarMapping   ('M2', 2, c1 = 0., c2 = 0., rmin = 0., rmax=1.)
+    mapping_2 = PolarMapping   ('M2', 2, c1 = 0., c2 = 0.5, rmin = 0., rmax=1.)
     mapping_3 = AffineMapping  ('M3', 2, c1 = 0., c2 = np.pi, a11 = -1, a22 = -1, a21 = 0, a12 = 0)
 
-    A = Square('A',bounds1=(0.5, 1.), bounds2=(-1., 0.))
+    A = Square('A',bounds1=(0.5, 1.), bounds2=(-1., 0.5))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, np.pi))
-    C = Square('C',bounds1=(0.5, 1.), bounds2=(np.pi, np.pi + 1))
+    C = Square('C',bounds1=(0.5, 1.), bounds2=(np.pi-0.5, np.pi + 1))
 
     D1     = mapping_1(A)
     D2     = mapping_2(B)
@@ -143,7 +132,7 @@ if __name__ == '__main__':
     mappings  = {A.interior:mapping_1, B.interior:mapping_2, C.interior:mapping_3}
 
     x,y       = domain.coordinates
-    solution  = x**2 + y**2
+    solution  = x**2 + (y-0.5)**2
     f         = -4
 
     ne     = [2**2,2**2]
@@ -158,7 +147,6 @@ if __name__ == '__main__':
     print( '> L2 error      :: {:.2e}'.format( l2_error ) )
     print( '> H1 error      :: {:.2e}'.format( h1_error ) )
     print( '' )
-    print( '> Assembly time :: {:.2e}'.format( timing['assembly'] ) )
     print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
     print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
     N = 20
