@@ -463,6 +463,7 @@ class DiscreteGltExpr(GltBasicCodeGen):
         # ...
 
         # ...
+        kwargs['domain']  = domain_h.domain
         kwargs['mapping'] = self.spaces[0].symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
 
@@ -487,19 +488,19 @@ class DiscreteGltExpr(GltBasicCodeGen):
     # TODO add comm and treate parallel case
     def _create_ast(self, expr, tag, **kwargs):
 
-        mapping             = kwargs.pop('mapping', None)
+        domain              = kwargs.pop('domain', None)
         backend             = kwargs.pop('backend', PSYDAC_BACKEND_PYTHON)
         is_rational_mapping = kwargs.pop('is_rational_mapping', None)
         # ...
         kernel = GltKernel( expr, self.spaces,
                             name = 'kernel_{}'.format(tag),
-                            mapping = mapping,
+                            domain = domain,
                             is_rational_mapping = is_rational_mapping,
                             backend = backend, **kwargs )
 
         interface = GltInterface( kernel,
                                   name = 'interface_{}'.format(tag),
-                                  mapping = mapping,
+                                  domain = domain,
                                   is_rational_mapping = is_rational_mapping,
                                   backend = backend , **kwargs)
         # ...

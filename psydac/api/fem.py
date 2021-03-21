@@ -177,12 +177,14 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         if isinstance(target, Boundary):
             axis      = target.axis
-            test_ext  = target.ext
-            trial_ext = target.ext
+            ext       = target.ext
+            test_ext  = ext
+            trial_ext = ext
         elif isinstance(target, Interface):
             axis       = target.axis
             test_ext   = -1 if isinstance(self.kernel_expr.test,  PlusInterfaceOperator) else 1
             trial_ext  = -1 if isinstance(self.kernel_expr.trial, PlusInterfaceOperator) else 1
+            assert test_ext == -trial_ext
         else:
             axis      = None
             test_ext  = None
@@ -210,10 +212,12 @@ class DiscreteBilinearForm(BasicDiscrete):
                     self._func = do_nothing
             #...
 
-        grid              = QuadratureGrid( test_space, axis, test_ext )
-        self._grid        = grid
-        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
-        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
+        test_grid   = QuadratureGrid( test_space, axis, test_ext )
+        trial_grid  = QuadratureGrid( trial_space, axis, trial_ext )
+
+        self._grid        = test_grid if test_ext == 1 else trial_grid
+        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
+        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
 
         self._args = self.construct_arguments()
 

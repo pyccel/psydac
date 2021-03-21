@@ -7,7 +7,7 @@ import numpy as np
 from sympde.calculus import dot, div
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import element_of
-from sympde.topology import Square
+from sympde.topology import Square, IdentityMapping
 
 from psydac.fem.basic          import FemField
 from psydac.api.discretization import discretize
@@ -16,7 +16,9 @@ from psydac.api.discretization import discretize
 def run_poisson_2d_dir(ncells, degree, comm=None):
 
     # ... abstract model
-    domain = Square()
+    domain  = Square()
+    mapping = IdentityMapping('M',2)
+    domain  = mapping(domain)
 
     V = VectorFunctionSpace('V', domain)
 
@@ -25,7 +27,6 @@ def run_poisson_2d_dir(ncells, degree, comm=None):
     x,y = domain.coordinates
     
     expr = x*y+ pi*div(F) + dot(F, F)
-
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     # ...
