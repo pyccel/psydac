@@ -111,7 +111,7 @@ def conga_operators_2d():
     P0, P1, P2 = derham_h.projectors(nquads=nquads)
 
     # Conforming projection operators
-    Pconf_0 = ConformingProjection_V0(V0h, domain_h, hom_bc=False)#, verbose=False)
+    Pconf_0 = ConformingProjection_V0(V0h, domain_h, hom_bc=True)#, verbose=False)
     Pconf_1 = ConformingProjection_V1(V1h, domain_h, hom_bc=False)#, verbose=False)
 
     # Broken derivative operators

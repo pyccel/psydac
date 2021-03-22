@@ -536,18 +536,17 @@ def my_small_plot(
     fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
     fig.suptitle(title, fontsize=14)
 
-    for np in range(n_plots):
-        ax = fig.add_subplot(1, n_plots, np+1)
+    for i in range(n_plots):
+        ax = fig.add_subplot(1, n_plots, i+1)
 
         if gridlines_x1 is not None:
             ax.plot(*gridlines_x1, color='k')
             ax.plot(*gridlines_x2, color='k')
-
-        cp = ax.contourf(xx, yy, vals[np], 50, cmap='jet')
+        cp = ax.contourf(xx, yy, vals[i], 50, cmap='jet', extend='both')
         cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
         ax.set_xlabel( r'$x$', rotation='horizontal' )
         ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( titles[np] )
+        ax.set_title ( titles[i] )
 
     plt.show()
 
