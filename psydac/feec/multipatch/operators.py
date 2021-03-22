@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 
 from scipy.sparse import eye as sparse_id
 
+from sympde.topology import Square
+from sympde.topology import IdentityMapping, PolarMapping
 from sympde.topology import Boundary, Interface
 from sympde.topology import element_of, elements_of
 from sympde.calculus import grad, dot, inner, rot, div
@@ -548,3 +550,50 @@ def my_small_plot(
         ax.set_title ( titles[np] )
 
     plt.show()
+
+def union(domains, name):
+    assert len(domains)>1
+    domain = domains[0]
+    for p in domains[1:]:
+        domain = domain.join(p, name=name)
+    return domain
+
+def set_interfaces(domain, interfaces):
+    for I in interfaces:
+        domain = domain.join(domain, domain.name, bnd_minus=I[0], bnd_plus=I[1])
+    return domain
+
+def get_annulus_fourpatches(r_min, r_max):
+
+    dom_log_1 = Square('dom1',bounds1=(r_min, r_max), bounds2=(0, np.pi/2))
+    dom_log_2 = Square('dom2',bounds1=(r_min, r_max), bounds2=(np.pi/2, np.pi))
+    dom_log_3 = Square('dom3',bounds1=(r_min, r_max), bounds2=(np.pi, np.pi*3/2))
+    dom_log_4 = Square('dom4',bounds1=(r_min, r_max), bounds2=(np.pi*3/2, np.pi*2))
+
+    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_3 = PolarMapping('M3',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_4 = PolarMapping('M4',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+
+    domain_1     = mapping_1(dom_log_1)
+    domain_2     = mapping_2(dom_log_2)
+    domain_3     = mapping_3(dom_log_3)
+    domain_4     = mapping_4(dom_log_4)
+
+    interfaces = [
+        [domain_1.get_boundary(axis=1, ext=1), domain_2.get_boundary(axis=1, ext=-1)],
+        [domain_2.get_boundary(axis=1, ext=1), domain_3.get_boundary(axis=1, ext=-1)],
+        [domain_3.get_boundary(axis=1, ext=1), domain_4.get_boundary(axis=1, ext=-1)],
+        [domain_4.get_boundary(axis=1, ext=1), domain_1.get_boundary(axis=1, ext=-1)]
+        ]
+    domain = union([domain_1, domain_2, domain_3, domain_4], name = 'domain')
+    domain = set_interfaces(domain, interfaces)
+
+    mappings  = {
+        dom_log_1.interior:mapping_1,
+        dom_log_2.interior:mapping_2,
+        dom_log_3.interior:mapping_3,
+        dom_log_4.interior:mapping_4
+    }  # Q (MCP): purpose of a dict ?
+
+    return domain, mappings

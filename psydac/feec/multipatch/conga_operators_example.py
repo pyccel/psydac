@@ -19,7 +19,7 @@ from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1
 from psydac.feec.multipatch.operators import get_grid_vals_scalar, get_grid_vals_vector
 from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
-
+from psydac.feec.multipatch.operators import get_annulus_fourpatches, union, set_interfaces
 
 comm = MPI.COMM_WORLD
 
@@ -40,38 +40,48 @@ def conga_operators_2d():
     # . Domain
     #+++++++++++++++++++++++++++++++
 
-    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, 1))
-    B = Square('B',bounds1=(0.5, 1.), bounds2=(1, 2))
-    C = Square('C',bounds1=(0.5, 1.), bounds2=(2, 3))
+    # cartesian = False
+    # if cartesian:
+    #     mapping_1 = IdentityMapping('M1', 2)
+    #     mapping_2 = IdentityMapping('M2', 2)
+    #     mapping_3 = IdentityMapping('M3', 2)
+    #     mapping_4 = IdentityMapping('M4', 2)
+    # else:
+    #     mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    #     mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    #     mapping_3 = PolarMapping('M3',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    #     mapping_4 = PolarMapping('M4',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    #
+    # dom_log_1 = Square('dom1',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+    # dom_log_2 = Square('dom2',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
+    # dom_log_3 = Square('dom3',bounds1=(0.5, 1.), bounds2=(np.pi, np.pi*3/2))
+    # dom_log_4 = Square('dom4',bounds1=(0.5, 1.), bounds2=(np.pi*3/2, np.pi*2))
+    #
+    # domain_1     = mapping_1(dom_log_1)
+    # domain_2     = mapping_2(dom_log_2)
+    # domain_3     = mapping_3(dom_log_3)
+    # domain_4     = mapping_4(dom_log_4)
+    #
+    # interfaces = [
+    #     [domain_1.get_boundary(axis=1, ext=1), domain_2.get_boundary(axis=1, ext=-1)],
+    #     [domain_2.get_boundary(axis=1, ext=1), domain_3.get_boundary(axis=1, ext=-1)],
+    #     [domain_3.get_boundary(axis=1, ext=1), domain_4.get_boundary(axis=1, ext=-1)],
+    #     [domain_4.get_boundary(axis=1, ext=1), domain_1.get_boundary(axis=1, ext=-1)]
+    #     ]
+    # domain = union([domain_1, domain_2, domain_3, domain_4], name = 'domain')
+    # domain = set_interfaces(domain, interfaces)
+    #
+    # mappings  = {
+    #     dom_log_1.interior:mapping_1,
+    #     dom_log_2.interior:mapping_2,
+    #     dom_log_3.interior:mapping_3,
+    #     dom_log_4.interior:mapping_4
+    # }  # Q (MCP): purpose of a dict ?
 
-    cartesian = True
-
-    if cartesian:
-        mapping_1 = IdentityMapping('M1', 2)
-        mapping_2 = IdentityMapping('M2', 2)
-        mapping_3 = IdentityMapping('M3', 2)
-    else:
-        mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-        mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-        mapping_3 = PolarMapping('M3',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-
-    domain_1     = mapping_1(A)
-    domain_2     = mapping_2(B)
-    domain_3     = mapping_3(C)
-
-    domain = domain_1.join(domain_2, name = 'd1d2',
-                bnd_minus = domain_1.get_boundary(axis=1, ext=1),
-                bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
-
-    domain = domain.join(domain_3, name = 'domain',
-                bnd_minus = domain_2.get_boundary(axis=1, ext=1),
-                bnd_plus  = domain_3.get_boundary(axis=1, ext=-1))
-
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2, C.interior:mapping_3}  # Q (MCP): purpose of a dict ?
+    domain, mappings = get_annulus_fourpatches(r_min=0.5, r_max=1)
     mappings_list = list(mappings.values())
 
     F = [f.get_callable_mapping() for f in mappings_list]
-
 
     # multipatch de Rham sequence:
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
