@@ -40,26 +40,34 @@ def conga_operators_2d():
     # . Domain
     #+++++++++++++++++++++++++++++++
 
-    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-    B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
+    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, 1))
+    B = Square('B',bounds1=(0.5, 1.), bounds2=(1, 2))
+    C = Square('C',bounds1=(0.5, 1.), bounds2=(2, 3))
 
     cartesian = True
 
     if cartesian:
         mapping_1 = IdentityMapping('M1', 2)
-        mapping_2 = IdentityMapping('M2',2)
+        mapping_2 = IdentityMapping('M2', 2)
+        mapping_3 = IdentityMapping('M3', 2)
     else:
         mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
         mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+        mapping_3 = PolarMapping('M3',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
     domain_1     = mapping_1(A)
     domain_2     = mapping_2(B)
+    domain_3     = mapping_3(C)
 
-    domain = domain_1.join(domain_2, name = 'domain',
+    domain = domain_1.join(domain_2, name = 'd1d2',
                 bnd_minus = domain_1.get_boundary(axis=1, ext=1),
                 bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
 
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2}  # Q (MCP): purpose of a dict ?
+    domain = domain.join(domain_3, name = 'domain',
+                bnd_minus = domain_2.get_boundary(axis=1, ext=1),
+                bnd_plus  = domain_3.get_boundary(axis=1, ext=-1))
+
+    mappings  = {A.interior:mapping_1, B.interior:mapping_2, C.interior:mapping_3}  # Q (MCP): purpose of a dict ?
     mappings_list = list(mappings.values())
 
     F = [f.get_callable_mapping() for f in mappings_list]
@@ -93,8 +101,8 @@ def conga_operators_2d():
     P0, P1, P2 = derham_h.projectors(nquads=nquads)
 
     # Conforming projection operators
-    Pconf_0 = ConformingProjection_V0(V0h, domain_h, hom_bc=True)#, verbose=False)
-    Pconf_1 = ConformingProjection_V1(V1h, domain_h, hom_bc=True)#, verbose=False)
+    Pconf_0 = ConformingProjection_V0(V0h, domain_h, hom_bc=False)#, verbose=False)
+    Pconf_1 = ConformingProjection_V1(V1h, domain_h, hom_bc=False)#, verbose=False)
 
     # Broken derivative operators
     bD0, bD1 = derham_h.broken_derivatives_as_operators
@@ -118,12 +126,12 @@ def conga_operators_2d():
     # TODO: use non polynomial fields to check commuting diagram properties...
 
     from sympy import lambdify
-    u_sol = lambdify(domain.coordinates, u_solution)
+    u_sol   = lambdify(domain.coordinates, u_solution)
     E_sol_x = lambdify(domain.coordinates, E_solution_x)
     E_sol_y = lambdify(domain.coordinates, E_solution_y)
     A_sol_x = lambdify(domain.coordinates, A_solution_x)
     A_sol_y = lambdify(domain.coordinates, A_solution_y)
-    B_sol = lambdify(domain.coordinates, B_solution)
+    B_sol   = lambdify(domain.coordinates, B_solution)
 
     # pull-backs of u and E
     # u_sol_log = [lambda xi1, xi2 : u_sol(*f(xi1,xi2)) for f in F]
@@ -136,15 +144,9 @@ def conga_operators_2d():
     B_sol_log = [pull_2d_l2(B_sol, f) for f in mappings_list]
 
     # discontinuous targets (scalar, and vector-valued)
-    v_sol_log = [
-        lambda xi1, xi2 : 1, # u_sol(*F[0](xi1,xi2)),
-        lambda xi1, xi2 : 0,
-        ]
+    v_sol_log = [(lambda y:lambda xi1, xi2 : y)(i) for i in range(len(domain))]
 
-    G_sol_log = [
-        [lambda xi1, xi2 : 0 for d in [0,1]],
-        [lambda xi1, xi2 : 1 for d in [0,1]],
-        ]
+    G_sol_log = [[(lambda y:lambda xi1, xi2 : y)(i) for d in [0,1]] for i in range(len(domain))]
 
     # note: in other tests, the target functions are given directly as lambda functions -- what is best ?
     # fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
@@ -155,16 +157,16 @@ def conga_operators_2d():
     # I. check the qualitative properties of the Conforming Projections
 
     # - in V0 with a discontinuous v
-    v0 = P0(v_sol_log)
-    v0c = Pconf_0(v0)   # should be H1-conforming (ie, continuous)
-    # cDv0 = bD0(v0c)
+    v0   = P0(v_sol_log)
+    v0c  = Pconf_0(v0)   # should be H1-conforming (ie, continuous)
+    cDv0 = bD0(v0c)
 
     D0 = ComposedLinearOperator([bD0, Pconf_0])
     cDv0 = D0(v0)
 
     # - in V1 with a discontinuous field G
-    G1 = P1(G_sol_log)
-    G1c = Pconf_1(G1)  # should be curl-conforming
+    G1   = P1(G_sol_log)
+    G1c  = Pconf_1(G1)  # should be curl-conforming
     cDG1 = bD1(G1c)
 
 
@@ -223,6 +225,7 @@ def conga_operators_2d():
     )
 
     # I - 2. qualitative assessment of conf Projection in V1, with discontinuous G
+
 
     G_x_vals, G_y_vals     = get_grid_vals_vector(G_sol_log, etas, mappings)
     G1_x_vals, G1_y_vals   = get_grid_vals_vector(G1, etas, mappings)

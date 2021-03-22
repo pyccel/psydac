@@ -60,10 +60,10 @@ class ConformingProjection_V0( FemLinearOperator ):
         u, v = elements_of(V0, names='u, v')
         expr   = u*v  # dot(u,v)
 
-        I      = domain.interfaces  # note: interfaces does not include the boundary
+        Interfaces  = domain.interfaces  # note: interfaces does not include the boundary
         expr_I = ( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
-        a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
+        a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
 
 
         ah = discretize(a, domain_h, [V0h, V0h])
@@ -71,36 +71,58 @@ class ConformingProjection_V0( FemLinearOperator ):
         self._A = ah.assemble()
 
         spaces = self._A.domain.spaces
-        sp1    = spaces[0]
-        sp2    = spaces[1]
 
-        s1 = sp1.starts[I.axis]
-        e1 = sp1.ends[I.axis]
+        if isinstance(Interfaces, Interface):
+            Interfaces = (Interfaces, )
 
-        s2 = sp2.starts[I.axis]
-        e2 = sp2.ends[I.axis]
+        for b1 in self._A.blocks:
+            for A in b1:
+                if A is None:continue
+                A[:,:,:,:] = 0
 
-        d1     = V0h.spaces[0].degree[I.axis]
-        d2     = V0h.spaces[1].degree[I.axis]
+        indices = [slice(None,None)]*domain.dim + [0]*domain.dim
 
-        self._A[0,0][:,:,:,:] = 0
-        self._A[1,1][:,:,:,:] = 0
-        self._A[0,1][:,:,:,:] = 0
-        self._A[1,0][:,:,:,:] = 0
+        for i in range(len(self._A.blocks)):
+            self._A[i,i][tuple(indices)]  = 1
 
-        self._A[0,0][:,:,0,0]  = 1
-        self._A[1,1][:,:,0,0]  = 1
+        for I in Interfaces:
 
-        self._A[0,0][:,e1,0,0] = 1/2
-        self._A[1,1][:,s2,0,0] = 1/2
+            i_minus = get_patch_index_from_face(domain, I.minus)
+            i_plus  = get_patch_index_from_face(domain, I.plus )
 
-        self._A[0,1][:,d1,0,-d2] = 1/2
-        self._A[1,0][:,s2,0, d1] = 1/2
+            sp_minus = spaces[i_minus]
+            sp_plus  = spaces[i_plus]
+
+            s_minus = sp_minus.starts[I.axis]
+            e_minus = sp_minus.ends[I.axis]
+
+            s_plus = sp_plus.starts[I.axis]
+            e_plus = sp_plus.ends[I.axis]
+
+            d_minus = V0h.spaces[i_minus].degree[I.axis]
+            d_plus  = V0h.spaces[i_plus].degree[I.axis]
+
+            indices = [slice(None,None)]*domain.dim + [0]*domain.dim
+
+            indices[I.axis] = e_minus
+            self._A[i_minus,i_minus][tuple(indices)] = 1/2
+
+            indices[I.axis] = s_plus
+            self._A[i_plus,i_plus][tuple(indices)] = 1/2
+
+            indices[I.axis] = d_minus
+            indices[domain.dim + I.axis] = -d_plus
+            self._A[i_minus,i_plus][tuple(indices)] = 1/2
+
+            indices[I.axis] = s_plus
+            indices[domain.dim + I.axis] = d_minus
+            self._A[i_plus,i_minus][tuple(indices)] = 1/2
 
         if hom_bc:
             for bn in domain.boundary:
                 i = get_patch_index_from_face(domain, bn)
                 for j in range(len(domain)):
+                    if self._A[i,j] is None:continue
                     apply_essential_bc_stencil(self._A[i,j], axis=bn.axis, ext=bn.ext, order=0)
 
         self._matrix = self._A
@@ -128,10 +150,10 @@ class ConformingProjection_V1( FemLinearOperator ):
         u, v = elements_of(V1, names='u, v')
         expr   = dot(u,v)
 
-        I      = domain.interfaces  # note: interfaces does not include the boundary
+        Interfaces      = domain.interfaces  # note: interfaces does not include the boundary
         expr_I = dot( plus(u)-minus(u) , plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
-        a = BilinearForm((u,v), integral(domain, expr) + integral(I, expr_I))
+        a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
 
         ah = discretize(a, domain_h, [V1h, V1h])
 
@@ -145,52 +167,69 @@ class ConformingProjection_V1( FemLinearOperator ):
                         if A is None:continue
                         A[:,:,:,:] = 0
 
-        self._A[0,0][0,0][:,:,0,0] = 1
-        self._A[0,0][1,1][:,:,0,0] = 1
-
-        self._A[1,1][0,0][:,:,0,0] = 1
-        self._A[1,1][1,1][:,:,0,0] = 1
-
         spaces = self._A.domain.spaces
-        sp1    = spaces[0]
-        sp2    = spaces[1]
 
-        s11 = sp1.spaces[0].starts[I.axis]
-        e11 = sp1.spaces[0].ends[I.axis]
-        s12 = sp1.spaces[1].starts[I.axis]
-        e12 = sp1.spaces[1].ends[I.axis]
+        if isinstance(Interfaces, Interface):
+            Interfaces = (Interfaces, )
 
-        s21 = sp2.spaces[0].starts[I.axis]
-        e21 = sp2.spaces[0].ends[I.axis]
-        s22 = sp2.spaces[1].starts[I.axis]
-        e22 = sp2.spaces[1].ends[I.axis]
+        indices = [slice(None,None)]*domain.dim + [0]*domain.dim
 
-        d11     = V1h.spaces[0].spaces[0].degree[I.axis]
-        d12     = V1h.spaces[0].spaces[1].degree[I.axis]
+        for i in range(len(self._A.blocks)):
+            self._A[i,i][0,0][tuple(indices)]  = 1
+            self._A[i,i][1,1][tuple(indices)]  = 1
 
-        d21     = V1h.spaces[1].spaces[0].degree[I.axis]
-        d22     = V1h.spaces[1].spaces[1].degree[I.axis]
+        for I in Interfaces:
 
-        if I.axis == 1:
-            self._A[0,0][0,0][:,e11,0,0] = 1/2
-        else:
-            self._A[0,0][1,1][:,e12,0,0] = 1/2
+            i_minus = get_patch_index_from_face(domain, I.minus)
+            i_plus  = get_patch_index_from_face(domain, I.plus )
 
-        if I.axis == 1:
-            self._A[1,1][0,0][:,s21,0,0] = 1/2
-        else:
-            self._A[1,1][1,1][:,s22,0,0] = 1/2
+            indices = [slice(None,None)]*domain.dim + [0]*domain.dim
 
+            sp1    = spaces[i_minus]
+            sp2    = spaces[i_plus]
 
-        if I.axis == 1:
-            self._A[0,1][0,0][:,d11,0,-d21] = 1/2
-        else:
-            self._A[0,1][1,1][:,d12,0,-d22] = 1/2
+            s11 = sp1.spaces[0].starts[I.axis]
+            e11 = sp1.spaces[0].ends[I.axis]
+            s12 = sp1.spaces[1].starts[I.axis]
+            e12 = sp1.spaces[1].ends[I.axis]
 
-        if I.axis == 1:
-            self._A[1,0][0,0][:,s21,0, d11] = 1/2
-        else:
-            self._A[1,0][1,1][:,s22,0, d12] = 1/2
+            s21 = sp2.spaces[0].starts[I.axis]
+            e21 = sp2.spaces[0].ends[I.axis]
+            s22 = sp2.spaces[1].starts[I.axis]
+            e22 = sp2.spaces[1].ends[I.axis]
+
+            d11     = V1h.spaces[i_minus].spaces[0].degree[I.axis]
+            d12     = V1h.spaces[i_minus].spaces[1].degree[I.axis]
+
+            d21     = V1h.spaces[i_plus].spaces[0].degree[I.axis]
+            d22     = V1h.spaces[i_plus].spaces[1].degree[I.axis]
+
+            s_minus = [s11, s12]
+            e_minus = [e11, e12]
+
+            s_plus = [s21, s22]
+            e_plus = [e21, e22]
+
+            d_minus = [d11, d12]
+            d_plus  = [d21, d22]
+
+            for k in range(domain.dim):
+                if k == I.axis:continue
+
+                indices[I.axis] = e_minus[k]
+                self._A[i_minus,i_minus][k,k][tuple(indices)] = 1/2
+
+                indices[I.axis] = s_plus[k]
+                self._A[i_plus,i_plus][k,k][tuple(indices)] = 1/2
+
+                indices[I.axis] = d_minus[k]
+                indices[domain.dim + I.axis] = -d_plus[k]
+                self._A[i_minus,i_plus][k,k][tuple(indices)] = 1/2
+
+                indices[I.axis] = s_plus[k]
+                indices[domain.dim + I.axis] = d_minus[k]
+
+                self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2
 
         if hom_bc:
             for bn in domain.boundary:
