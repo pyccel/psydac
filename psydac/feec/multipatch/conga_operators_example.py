@@ -19,7 +19,7 @@ from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1
 from psydac.feec.multipatch.operators import get_grid_vals_scalar, get_grid_vals_vector
 from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
-from psydac.feec.multipatch.operators import get_annulus_fourpatches, union, set_interfaces
+from psydac.feec.multipatch.operators import get_annulus_fourpatches, get_pretzel
 
 comm = MPI.COMM_WORLD
 
@@ -78,7 +78,8 @@ def conga_operators_2d():
     #     dom_log_4.interior:mapping_4
     # }  # Q (MCP): purpose of a dict ?
 
-    domain, mappings = get_annulus_fourpatches(r_min=0.5, r_max=1)
+    # domain, mappings = get_annulus_fourpatches(r_min=0.5, r_max=1)
+    domain, mappings = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=2)
     mappings_list = list(mappings.values())
 
     F = [f.get_callable_mapping() for f in mappings_list]
@@ -112,7 +113,7 @@ def conga_operators_2d():
 
     # Conforming projection operators
     Pconf_0 = ConformingProjection_V0(V0h, domain_h, hom_bc=True)#, verbose=False)
-    Pconf_1 = ConformingProjection_V1(V1h, domain_h, hom_bc=False)#, verbose=False)
+    Pconf_1 = ConformingProjection_V1(V1h, domain_h, hom_bc=True)#, verbose=False)
 
     # Broken derivative operators
     bD0, bD1 = derham_h.broken_derivatives_as_operators
@@ -221,6 +222,9 @@ def conga_operators_2d():
         gridlines_x1=gridlines_x1,
         gridlines_x2=gridlines_x2,
     )
+
+    print("ok, stop here (juyg-43356)")
+    exit()
 
     # plot v0 and cDv0
     cDv0_x_vals, cDv0_y_vals = get_grid_vals_vector(cDv0, etas, mappings)
