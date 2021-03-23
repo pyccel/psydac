@@ -4,22 +4,20 @@ from mpi4py import MPI
 
 import numpy as np
 
-from sympde.topology import Derham
-from sympde.topology import Square
-from sympde.topology import IdentityMapping, PolarMapping
+from collections import OrderedDict
 
-from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
+from sympde.topology import Derham
+from psydac.feec.multipatch.api import discretize
 
 from psydac.feec.pull_push     import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
-
 from psydac.utilities.utils    import refine_array_1d
 
 from psydac.feec.multipatch.fem_linear_operators import ComposedLinearOperator
 from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1
-from psydac.feec.multipatch.operators import get_grid_vals_scalar, get_grid_vals_vector
-from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
-from psydac.feec.multipatch.operators import get_annulus_fourpatches, get_pretzel
+from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
+from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
+from psydac.feec.multipatch.multipatch_utilities import get_annulus_fourpatches, get_pretzel
 
 comm = MPI.COMM_WORLD
 
@@ -79,7 +77,8 @@ def conga_operators_2d():
     # }  # Q (MCP): purpose of a dict ?
 
     # domain, mappings = get_annulus_fourpatches(r_min=0.5, r_max=1)
-    domain, mappings = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=2)
+    domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=4)
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
 
     F = [f.get_callable_mapping() for f in mappings_list]
@@ -155,9 +154,12 @@ def conga_operators_2d():
     B_sol_log = [pull_2d_l2(B_sol, f) for f in mappings_list]
 
     # discontinuous targets (scalar, and vector-valued)
-    v_sol_log = [(lambda y:lambda xi1, xi2 : y)(i) for i in range(len(domain))]
+    nb_patches = len(domain)
+    # v_sol_log = [(lambda y:lambda xi1, xi2 : y)(i) for i in range(len(domain))]
+    v_sol_log = [lambda xi1, xi2, ii=i : ii for i in range(nb_patches)]
 
-    G_sol_log = [[(lambda y:lambda xi1, xi2 : y)(i) for d in [0,1]] for i in range(len(domain))]
+    # G_sol_log = [[(lambda y:lambda xi1, xi2 : y)(i) for d in [0,1]] for i in range(len(domain))]
+    G_sol_log = [[lambda xi1, xi2, ii=i : ii for d in [0,1]] for i in range(nb_patches)]
 
     # note: in other tests, the target functions are given directly as lambda functions -- what is best ?
     # fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
@@ -203,7 +205,7 @@ def conga_operators_2d():
     #   and psydac/api/tests/test_api_feec_2d.py
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    N=20
+    N=3
     etas, xx, yy = get_plotting_grid(mappings, N)
     gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(V0h, N, mappings, plotted_patch=1)
 
@@ -213,6 +215,8 @@ def conga_operators_2d():
     v_vals   = get_grid_vals_scalar(v_sol_log, etas, mappings)
     v0_vals  = get_grid_vals_scalar(v0, etas, mappings)
     v0c_vals = get_grid_vals_scalar(v0c, etas, mappings)
+
+    print(v_vals)
 
     my_small_plot(
         title=r'broken and conforming approximation of some $v$',
