@@ -3,10 +3,10 @@
 # Copyright 2018 Jalal Lakhlili, Yaman Güçlü
 
 import numpy as np
-from collections        import OrderedDict
-from scipy.sparse       import bmat
+from collections  import OrderedDict
+from scipy.sparse import bmat, lil_matrix
 
-from psydac.linalg.basic   import VectorSpace, Vector, LinearOperator, Matrix
+from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, Matrix
 
 __all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix']
 
@@ -480,10 +480,24 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     def tosparse( self ):
         """ Convert to Scipy sparse matrix.
         """
+        # Shortcuts
+        nrows = self.n_block_rows
+        ncols = self.n_block_cols
+
+        # Utility functions: get domain of blocks on column j, get codomain of blocks on row i
+        block_domain   = (lambda j: self.domain  [j]) if ncols > 1 else (lambda j: self.domain)
+        block_codomain = (lambda i: self.codomain[i]) if nrows > 1 else (lambda i: self.codomain)
+
         # Convert all blocks to Scipy sparse format
-        blocks_sparse = [[None for j in range( self.n_block_cols )] for i in range( self.n_block_rows )]
-        for (i,j), Mij in self._blocks.items():
-            blocks_sparse[i][j] = Mij.tosparse()
+        blocks_sparse = [[None for j in range(ncols)] for i in range(nrows)]
+        for i in range(nrows):
+            for j in range(ncols):
+                if (i, j) in self._blocks:
+                    blocks_sparse[i][j] = self._blocks[i, j].tosparse()
+                else:
+                    m = block_codomain(i).dimension
+                    n = block_domain  (j).dimension
+                    blocks_sparse[i][j] = lil_matrix((m, n))
 
         # Create sparse matrix from sparse blocks
         M = bmat( blocks_sparse )
