@@ -5,7 +5,7 @@ from mpi4py import MPI
 import numpy as np
 
 from sympde.topology import Square
-from sympde.topology import IdentityMapping, PolarMapping, AffineMapping
+from sympde.topology import IdentityMapping, PolarMapping, AffineMapping, TransposedPolarMapping
 
 
 def union(domains, name):
@@ -92,9 +92,9 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
     domain_1  = mapping_1(dom_log_1)
 
     # shifted left to match dom_log_2
-    dom_log_10 = Square('dom10',bounds1=(r_min, r_max), bounds2=(0, np.pi/2))
-    mapping_10 = PolarMapping('M10',2, c1= -h, c2= h, rmin = 0., rmax=1.)
-    domain_10  = mapping_10(dom_log_10)
+    # dom_log_10 = Square('dom10',bounds1=(r_min, r_max), bounds2=(0, np.pi/2))
+    # mapping_10 = PolarMapping('M10',2, c1= -h, c2= h, rmin = 0., rmax=1.)
+    # domain_10  = mapping_10(dom_log_10)
 
     dom_log_2 = Square('dom2',bounds1=(r_min, r_max), bounds2=(np.pi/2, np.pi))
     mapping_2 = PolarMapping('M2',2, c1= -h, c2= h, rmin = 0., rmax=1.)
@@ -112,46 +112,127 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
     mapping_5 = get_2D_rotation_mapping('M5', c1=h/2, c2=cr , alpha=np.pi/2)
     domain_5  = mapping_5(dom_log_5)
 
-    # shifted left to match dom_log_5
-    dom_log_50 = Square('dom50',bounds1=(-hr,hr) , bounds2=(-h/2, h/2))
-    mapping_50 = get_2D_rotation_mapping('M50', c1=-3*h/2, c2=cr , alpha=np.pi/2)
-    domain_50 = mapping_50(dom_log_50)
-
     dom_log_6 = Square('dom6',bounds1=(-hr,hr) , bounds2=(-h/2, h/2))
     mapping_6 = get_2D_rotation_mapping('M6', c1=-h/2, c2=cr , alpha=np.pi/2)
     domain_6  = mapping_6(dom_log_6)
 
-    dom_log_7 = Square('dom7',bounds1=(-h, h), bounds2=(-r_max, -r_min))
-    mapping_7 = IdentityMapping('M7',2)
+    dom_log_7 = Square('dom7',bounds1=(-hr, hr), bounds2=(-h/2, h/2))
+    mapping_7 = get_2D_rotation_mapping('M7', c1=-cr, c2=h/2 , alpha=np.pi)
     domain_7  = mapping_7(dom_log_7)
 
-    dom_log_8 = Square('dom8',bounds1=(r_min, r_max), bounds2=(-h, h))
-    mapping_8 = IdentityMapping('M8',2)
+    dom_log_8 = Square('dom8',bounds1=(-hr, hr), bounds2=(-h/2, h/2))
+    mapping_8 = get_2D_rotation_mapping('M8', c1=-cr, c2=-h/2 , alpha=np.pi)
     domain_8  = mapping_8(dom_log_8)
 
+    dom_log_9 = Square('dom9',bounds1=(-hr,hr) , bounds2=(-h/2, h/2))
+    mapping_9 = get_2D_rotation_mapping('M9', c1=-h/2, c2=-cr , alpha=np.pi*3/2)
+    domain_9  = mapping_9(dom_log_9)
+
+    dom_log_10 = Square('dom10',bounds1=(-hr,hr) , bounds2=(-h/2, h/2))
+    mapping_10 = get_2D_rotation_mapping('M10', c1=h/2, c2=cr , alpha=np.pi*3/2)
+    domain_10  = mapping_10(dom_log_10)
+
+    dom_log_11 = Square('dom11',bounds1=(-hr, hr), bounds2=(-h/2, h/2))
+    mapping_11 = get_2D_rotation_mapping('M11', c1=cr, c2=-h/2 , alpha=0)
+    domain_11  = mapping_11(dom_log_11)
+
+    dom_log_12 = Square('dom12',bounds1=(-hr, hr), bounds2=(-h/2, h/2))
+    mapping_12 = get_2D_rotation_mapping('M12', c1=cr, c2=h/2 , alpha=0)
+    domain_12  = mapping_12(dom_log_12)
+
+    dom_log_13 = Square('dom13',bounds1=(np.pi*3/2, np.pi*2), bounds2=(r_min, r_max))
+    mapping_13 = TransposedPolarMapping('M13',2, c1= -r_max, c2= r_max, rmin = 0., rmax=1.)
+    domain_13  = mapping_13(dom_log_13)
+
+    dom_log_14 = Square('dom14',bounds1=(np.pi, np.pi*3/2), bounds2=(r_min, r_max))
+    mapping_14 = TransposedPolarMapping('M14',2, c1= r_max, c2= r_max, rmin = 0., rmax=1.)
+    domain_14  = mapping_14(dom_log_14)
+
+    # shifted left to match dom_log_5
+    # dom_log_50 = Square('dom50',bounds1=(-hr,hr) , bounds2=(-h/2, h/2))
+    # mapping_50 = get_2D_rotation_mapping('M50', c1=-3*h/2, c2=cr , alpha=np.pi/2)
+    # domain_50 = mapping_50(dom_log_50)
+
+
     if debug_option == 1:
-        domain = union([domain_1, domain_2, domain_3, domain_4,
-                        domain_5, domain_6, domain_7, domain_8], name = 'domain')
+        domain = union([domain_1, domain_5, domain_6,
+                        domain_2, domain_7, domain_8,
+                        domain_3, domain_9, domain_10,
+                        domain_4,  domain_11, domain_12,
+                        domain_13, domain_14,
+                        ], name = 'domain')
 
         interfaces = [
             [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1)],
             [domain_5.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1)],
             [domain_6.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1)],
-            [domain_2.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1)],
-            [domain_3.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1)],
-            [domain_4.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1)]
+            [domain_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1)],
+            [domain_7.get_boundary(axis=1, ext=+1), domain_8.get_boundary(axis=1, ext=-1)],
+            [domain_8.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1)],
+            [domain_3.get_boundary(axis=1, ext=+1), domain_9.get_boundary(axis=1, ext=-1)],
+            [domain_9.get_boundary(axis=1, ext=+1), domain_10.get_boundary(axis=1, ext=-1)],
+            [domain_10.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1)],
+            [domain_4.get_boundary(axis=1, ext=+1), domain_11.get_boundary(axis=1, ext=-1)],
+            [domain_11.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=-1)],
+            [domain_12.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1)],
+            [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1)],
+            [domain_13.get_boundary(axis=0, ext=-1), domain_7.get_boundary(axis=0, ext=-1)],
+            [domain_.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1)],
+            [domain_13.get_boundary(axis=0, ext=-1), domain_7.get_boundary(axis=0, ext=-1)],
             ]
 
-        mappings  = {
-            dom_log_1.interior:mapping_1,
-            dom_log_2.interior:mapping_2,
-            dom_log_3.interior:mapping_3,
-            dom_log_4.interior:mapping_4,
-            dom_log_5.interior:mapping_5,
-            dom_log_6.interior:mapping_6,
-            dom_log_7.interior:mapping_7,
-            dom_log_8.interior:mapping_8
-        }  # Q (MCP): purpose of a dict ?
+        # mappings  = {
+        #     dom_log_1.interior:mapping_1,
+        #     dom_log_2.interior:mapping_2,
+        #     dom_log_3.interior:mapping_3,
+        #     dom_log_4.interior:mapping_4,
+        #     dom_log_5.interior:mapping_5,
+        #     dom_log_6.interior:mapping_6,
+        #     dom_log_7.interior:mapping_7,
+        #     dom_log_8.interior:mapping_8
+        # }  # Q (MCP): purpose of a dict ?
+
+    elif debug_option == 18:
+        domain = union([domain_6,
+                        domain_13,
+                        ], name = 'domain')
+
+        interfaces = [
+            [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1)],
+            ]
+
+    elif debug_option == 19:
+        domain = union([domain_6,
+                        domain_13,
+                        ], name = 'domain')
+
+        interfaces = [
+            [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=-1)],
+            ]
+
+    elif debug_option == 20:
+        domain = union([domain_1, domain_5, domain_12,
+                        domain_14,
+                        ], name = 'domain')
+
+        interfaces = [
+            [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1)],
+            [domain_12.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1)],
+            [domain_5.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=-1)],
+            [domain_14.get_boundary(axis=0, ext=+1), domain_12.get_boundary(axis=0, ext=-1)],
+            ]
+
+    elif debug_option == 21:
+        domain = union([domain_2, domain_6, domain_7,
+                        domain_13,
+                        ], name = 'domain')
+
+        interfaces = [
+            [domain_6.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1)],
+            [domain_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1)],
+            [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1)],
+            #[domain_13.get_boundary(axis=0, ext=+1), domain_7.get_boundary(axis=0, ext=-1)],
+            ]
 
     elif debug_option == 2:
         domain = union([

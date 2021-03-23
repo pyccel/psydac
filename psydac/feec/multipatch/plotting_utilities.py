@@ -140,8 +140,8 @@ def my_small_plot(
         ax = fig.add_subplot(1, n_plots, i+1)
         for k in range(n_patches):
             #if k != 2: continue
-            ax.contourf(xx[k], yy[k], vals[i][k], 50, cmap='jet', extend='both', vmin=vmin, vmax=vmax)
-        # cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
+            cp = ax.contourf(xx[k], yy[k], vals[i][k], 50, cmap='jet', extend='both', vmin=vmin, vmax=vmax)
+        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
         # fig.colorbar()
         if gridlines_x1 is not None:
             ax.plot(*gridlines_x1, color='k')

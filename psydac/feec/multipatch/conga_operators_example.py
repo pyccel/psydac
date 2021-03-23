@@ -17,7 +17,7 @@ from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
-from psydac.feec.multipatch.multipatch_utilities import get_annulus_fourpatches, get_pretzel
+from psydac.feec.multipatch.multipatch_domain_utilities import get_annulus_fourpatches, get_pretzel
 
 comm = MPI.COMM_WORLD
 
@@ -77,7 +77,7 @@ def conga_operators_2d():
     # }  # Q (MCP): purpose of a dict ?
 
     # domain, mappings = get_annulus_fourpatches(r_min=0.5, r_max=1)
-    domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=4)
+    domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=19)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
 
@@ -205,7 +205,7 @@ def conga_operators_2d():
     #   and psydac/api/tests/test_api_feec_2d.py
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    N=10
+    N=20
     etas, xx, yy = get_plotting_grid(mappings, N)
     gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(V0h, N, mappings, plotted_patch=1)
 
@@ -216,11 +216,11 @@ def conga_operators_2d():
     v0_vals  = get_grid_vals_scalar(v0, etas, mappings)
     v0c_vals = get_grid_vals_scalar(v0c, etas, mappings)
 
-    for k in range(nb_patches):
-        print("patch k = ", k)
-        print("etas: ", etas[k])
-        print("xx : ", xx[k])
-        print("v_vals : ", v_vals[k])
+    # for k in range(nb_patches):
+    #     print("patch k = ", k)
+    #     print("etas: ", etas[k])
+    #     print("xx : ", xx[k])
+    #     print("v_vals : ", v_vals[k])
 
     my_small_plot(
         title=r'broken and conforming approximation of some $v$',
