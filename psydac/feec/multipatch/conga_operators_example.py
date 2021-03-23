@@ -205,7 +205,7 @@ def conga_operators_2d():
     #   and psydac/api/tests/test_api_feec_2d.py
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    N=3
+    N=10
     etas, xx, yy = get_plotting_grid(mappings, N)
     gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(V0h, N, mappings, plotted_patch=1)
 
@@ -216,7 +216,11 @@ def conga_operators_2d():
     v0_vals  = get_grid_vals_scalar(v0, etas, mappings)
     v0c_vals = get_grid_vals_scalar(v0c, etas, mappings)
 
-    print(v_vals)
+    for k in range(nb_patches):
+        print("patch k = ", k)
+        print("etas: ", etas[k])
+        print("xx : ", xx[k])
+        print("v_vals : ", v_vals[k])
 
     my_small_plot(
         title=r'broken and conforming approximation of some $v$',

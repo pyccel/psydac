@@ -37,7 +37,7 @@ def get_grid_vals_scalar(u, etas, mappings, space_kind='h1'):  #_obj):
             for j, x2j in enumerate(eta_2[0, :]):
                 u_vals[k][i, j] = push_field(x1i, x2j)
 
-    u_vals  = np.concatenate(u_vals, axis=1)
+    # u_vals  = np.concatenate(u_vals, axis=1)
 
     return u_vals
 
@@ -79,14 +79,18 @@ from sympy import lambdify
 
 def get_plotting_grid(mappings, N):
 
+    nb_patches = len(mappings)
     etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
     mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
 
     pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings_lambda, etas)]
-    pcoords  = np.concatenate(pcoords, axis=1)
 
-    xx = pcoords[:,:,0]
-    yy = pcoords[:,:,1]
+    # pcoords  = np.concatenate(pcoords, axis=1)
+    # xx = pcoords[:,:,0]
+    # yy = pcoords[:,:,1]
+
+    xx = [pcoords[k][:,:,0] for k in range(nb_patches)]
+    yy = [pcoords[k][:,:,1] for k in range(nb_patches)]
 
     return etas, xx, yy
 
@@ -123,18 +127,25 @@ def my_small_plot(
 
     n_plots = len(vals)
     assert n_plots == len(titles)
+    n_patches = len(xx)
+    assert n_patches == len(yy)
     #fig = plt.figure(figsize=(17., 4.8))
     fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
     fig.suptitle(title, fontsize=14)
 
     for i in range(n_plots):
+        vmin = np.min(vals[i])
+        vmax = np.max(vals[i])
+        assert n_patches == len(vals[i])
         ax = fig.add_subplot(1, n_plots, i+1)
-
+        for k in range(n_patches):
+            #if k != 2: continue
+            ax.contourf(xx[k], yy[k], vals[i][k], 50, cmap='jet', extend='both', vmin=vmin, vmax=vmax)
+        # cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
+        # fig.colorbar()
         if gridlines_x1 is not None:
             ax.plot(*gridlines_x1, color='k')
             ax.plot(*gridlines_x2, color='k')
-        cp = ax.contourf(xx, yy, vals[i], 50, cmap='jet', extend='both')
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
         ax.set_xlabel( r'$x$', rotation='horizontal' )
         ax.set_ylabel( r'$y$', rotation='horizontal' )
         ax.set_title ( titles[i] )
