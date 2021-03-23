@@ -231,8 +231,8 @@ def conga_operators_2d():
         gridlines_x2=gridlines_x2,
     )
 
-    print("ok, stop here (juyg-43356)")
-    exit()
+    # print("ok, stop here (juyg-43356)")
+    # exit()
 
     # plot v0 and cDv0
     cDv0_x_vals, cDv0_y_vals = get_grid_vals_vector(cDv0, etas, mappings)
@@ -281,7 +281,8 @@ def conga_operators_2d():
 
     u_vals  = get_grid_vals_scalar(u_sol_log, etas, mappings)
     u0_vals = get_grid_vals_scalar(u0, etas, mappings)
-    u_err   = abs(u_vals - u0_vals)
+    u_err = [abs(u1 - u2) for u1, u2 in zip(u_vals, u0_vals)]
+    # u_err   = abs(u_vals - u0_vals)
 
     my_small_plot(
         title=r'approximation of a potential $u$',
@@ -296,8 +297,10 @@ def conga_operators_2d():
     E_x_vals, E_y_vals   = get_grid_vals_vector(E_sol_log, etas, mappings)
     E1_x_vals, E1_y_vals = get_grid_vals_vector(E1, etas, mappings)
 
-    E_x_err = abs(E_x_vals - E1_x_vals)
-    E_y_err = abs(E_y_vals - E1_y_vals)
+    E_x_err = [abs(e1 - e2) for e1, e2 in zip(E_x_vals, E1_x_vals)]
+    E_y_err = [abs(e1 - e2) for e1, e2 in zip(E_y_vals, E1_y_vals)]
+    # E_x_err = abs(E_x_vals - E1_x_vals)
+    # E_y_err = abs(E_y_vals - E1_y_vals)
 
     my_small_plot(
         title=r'approximation of a field $E$, $x$ component',
@@ -316,8 +319,10 @@ def conga_operators_2d():
     )
 
     grad_u0_x_vals, grad_u0_y_vals = get_grid_vals_vector(grad_u0, etas, mappings)
-    gu_x_err = abs(grad_u0_x_vals - E1_x_vals)
-    gu_y_err = abs(grad_u0_y_vals - E1_y_vals)
+    gu_x_err = [abs(e1 - e2) for e1, e2 in zip(grad_u0_x_vals, E1_x_vals)]
+    gu_y_err = [abs(e1 - e2) for e1, e2 in zip(grad_u0_y_vals, E1_y_vals)]
+    # gu_x_err = abs(grad_u0_x_vals - E1_x_vals)
+    # gu_y_err = abs(grad_u0_y_vals - E1_y_vals)
 
     my_small_plot(
         title=r'commuting diagram property ($x$ component)',
@@ -334,39 +339,6 @@ def conga_operators_2d():
         xx=xx,
         yy=yy,
     )
-
-    print(" done. ")
-    exit()
-
-
-
-    plot_fields = True
-
-    if plot_fields:
-
-        N = 20
-
-        etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
-        mappings = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
-        pcoords  = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings, etas)]
-        pcoords  = np.concatenate(pcoords, axis=1)
-
-        xx = pcoords[:,:,0]
-        yy = pcoords[:,:,1]
-
-        # to plot a patch grid
-        plotted_patch = 1
-        if plotted_patch in [0, 1]:
-            grid_x1 = V0h.spaces[plotted_patch].breaks[0]
-            grid_x2 = V0h.spaces[plotted_patch].breaks[1]
-            x1 = refine_array_1d(grid_x1, N)
-            x2 = refine_array_1d(grid_x2, N)
-            x1, x2 = np.meshgrid(x1, x2, indexing='ij')
-            x, y = F[plotted_patch](x1, x2)
-            gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
-            gridlines_x2 = (x[::N, :].T, y[::N, :].T)
-            gridlines = (gridlines_x1, gridlines_x2)
-
 
 
 

@@ -26,8 +26,8 @@ from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator, Compos
 from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
 from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0
-from psydac.feec.multipatch.operators import get_patch_index_from_face, get_grid_vals_scalar
-from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
+from psydac.feec.multipatch.operators import get_patch_index_from_face
+from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals_scalar, get_patch_knots_gridlines, my_small_plot
 
 comm = MPI.COMM_WORLD
 
@@ -206,7 +206,7 @@ def conga_poisson_2d():
 
     phi_ref_vals = get_grid_vals_scalar(phi_ex_log, etas, mappings) #_obj)
     phi_h_vals = get_grid_vals_scalar(phi_h, etas, mappings) #
-    phi_err = abs(phi_ref_vals - phi_h_vals)
+    phi_err = [abs(pr - ph) for pr, ph in zip(phi_ref_vals, phi_h_vals)]
 
     my_small_plot(
         title=r'Solution of Poisson problem $\Delta \phi = f$',

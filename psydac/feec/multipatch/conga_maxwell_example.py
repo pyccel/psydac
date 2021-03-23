@@ -39,8 +39,8 @@ from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLin
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
 from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import ConformingProjection_V1
-from psydac.feec.multipatch.operators import get_grid_vals_scalar, get_grid_vals_vector
-from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
+from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
+from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
 
 comm = MPI.COMM_WORLD
 
@@ -183,8 +183,10 @@ def run_maxwell_2d_time_harmonic():
 
     u_x_vals, u_y_vals   = get_grid_vals_vector(uex_log, etas, mappings)
     uh_x_vals, uh_y_vals = get_grid_vals_vector(uh, etas, mappings)
-    u_x_err = abs(u_x_vals - uh_x_vals)
-    u_y_err = abs(u_y_vals - uh_y_vals)
+    u_x_err = [abs(u1 - u2) for u1, u2 in zip(u_x_vals, uh_x_vals)]
+    u_y_err = [abs(u1 - u2) for u1, u2 in zip(u_y_vals, uh_y_vals)]
+    # u_x_err = abs(u_x_vals - uh_x_vals)
+    # u_y_err = abs(u_y_vals - uh_y_vals)
 
     my_small_plot(
         title=r'approximation of solution $u$, $x$ component',

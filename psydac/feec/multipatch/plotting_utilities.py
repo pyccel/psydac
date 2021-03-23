@@ -68,8 +68,8 @@ def get_grid_vals_vector(E, etas, mappings, space_kind='hcurl'):
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
                 E_x_vals[k][i, j], E_y_vals[k][i, j] = push_field(x1i, x2j)
-    E_x_vals = np.concatenate(E_x_vals, axis=1)
-    E_y_vals = np.concatenate(E_y_vals, axis=1)
+    # E_x_vals = np.concatenate(E_x_vals, axis=1)
+    # E_y_vals = np.concatenate(E_y_vals, axis=1)
     return E_x_vals, E_y_vals
 
 
