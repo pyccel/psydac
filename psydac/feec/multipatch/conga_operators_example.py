@@ -205,7 +205,7 @@ def conga_operators_2d():
     #   and psydac/api/tests/test_api_feec_2d.py
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    N=20
+    N=40
     etas, xx, yy = get_plotting_grid(mappings, N)
     gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(V0h, N, mappings, plotted_patch=1)
 
@@ -216,17 +216,13 @@ def conga_operators_2d():
     v0_vals  = get_grid_vals_scalar(v0, etas, mappings)
     v0c_vals = get_grid_vals_scalar(v0c, etas, mappings)
 
-    # for k in range(nb_patches):
-    #     print("patch k = ", k)
-    #     print("etas: ", etas[k])
-    #     print("xx : ", xx[k])
-    #     print("v_vals : ", v_vals[k])
-
     my_small_plot(
         title=r'broken and conforming approximation of some $v$',
         vals=[v_vals, v0_vals, v0c_vals],
         titles=[r'$v^{ex}(x,y)$', r'$v^h(x,y)$', r'$P^{0,c} v^h(x,y)$'],
         xx=xx, yy=yy,
+        surface_plot=True,
+        cmap='jet'
     )
 
         # gridlines_x1=gridlines_x1,
@@ -241,9 +237,13 @@ def conga_operators_2d():
         vals=[v0_vals, cDv0_x_vals, cDv0_y_vals],
         titles=[r'$v^h(x,y)$', r'$(D^0 v^h)_x(x,y)$' , r'$(D^0 v^h)_y(x,y)$' ],
         xx=xx, yy=yy,
-        gridlines_x1=gridlines_x1,
-        gridlines_x2=gridlines_x2,
+        surface_plot=True,
     )
+        # gridlines_x1=gridlines_x1,
+        # gridlines_x2=gridlines_x2,
+
+    print(" ok stop for now -- confP1 will be checked later ")
+    exit()
 
     # I - 2. qualitative assessment of conf Projection in V1, with discontinuous G
 

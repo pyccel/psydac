@@ -79,16 +79,11 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
 
     smaller = True
 
-    print("building domain: hr = ", hr, ", h = ", h)
+    # print("building domain: hr = ", hr, ", h = ", h)
 
     dom_log_1 = Square('dom1',bounds1=(r_min, r_max), bounds2=(0, np.pi/2))
     mapping_1 = PolarMapping('M1',2, c1= h, c2= h, rmin = 0., rmax=1.)
     domain_1  = mapping_1(dom_log_1)
-
-    # shifted left to match dom_log_2
-    # dom_log_10 = Square('dom10',bounds1=(r_min, r_max), bounds2=(0, np.pi/2))
-    # mapping_10 = PolarMapping('M10',2, c1= -h, c2= h, rmin = 0., rmax=1.)
-    # domain_10  = mapping_10(dom_log_10)
 
     dom_log_2 = Square('dom2',bounds1=(r_min, r_max), bounds2=(np.pi/2, np.pi))
     mapping_2 = PolarMapping('M2',2, c1= -h, c2= h, rmin = 0., rmax=1.)
@@ -157,12 +152,6 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
     dom_log_15 = Square('dom15', bounds1=(-r_min-h, r_min+h), bounds2=(0, h))
     mapping_15 = IdentityMapping('M15', 2)
     domain_15  = mapping_15(dom_log_15)
-
-    # shifted left to match dom_log_5
-    # dom_log_50 = Square('dom50',bounds1=(-hr,hr) , bounds2=(-h/2, h/2))
-    # mapping_50 = get_2D_rotation_mapping('M50', c1=-3*h/2, c2=cr , alpha=np.pi/2)
-    # domain_50 = mapping_50(dom_log_50)
-
 
     if debug_option == 0:
         if smaller:
@@ -242,64 +231,17 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
             [domain_12.get_boundary(axis=0, ext=-1), domain_15.get_boundary(axis=0, ext=+1)],
             ]
 
-        # mappings  = {
-        #     dom_log_1.interior:mapping_1,
-        #     dom_log_2.interior:mapping_2,
-        #     dom_log_3.interior:mapping_3,
-        #     dom_log_4.interior:mapping_4,
-        #     dom_log_5.interior:mapping_5,
-        #     dom_log_6.interior:mapping_6,
-        #     dom_log_7.interior:mapping_7,
-        #     dom_log_8.interior:mapping_8
-        # }  # Q (MCP): purpose of a dict ?
-
-    elif debug_option == 18:
-        domain = union([domain_6,
-                        domain_13,
-                        ], name = 'domain')
-        # good
-        interfaces = [
-            [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1)],
-            ]
-
-    elif debug_option == 19:
-        domain = union([domain_6,
-                        domain_13,
-                        ], name = 'domain')
-        # wrong
-        interfaces = [
-            [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=-1)],
-            ]
-
-    elif debug_option == 20:
-        domain = union([domain_7,
-                        domain_13,
-                        ], name = 'domain')
-        # wrong
-        interfaces = [
-            [domain_7.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1)],
-            ]
-
-    elif debug_option == 21:
-        domain = union([domain_7,
-                        domain_13,
-                        ], name = 'domain')
-        # good
-        interfaces = [
-            [domain_7.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=-1)],
-            ]
-
-    elif debug_option == 22:
-        domain = union([domain_1, domain_5, domain_12,
-                        domain_14,
+    elif debug_option == 2:
+        domain = union([domain_1, domain_5, domain_14,
+                        domain_12,
                         ], name = 'domain')
 
         interfaces = [
-            [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1)],
-            [domain_12.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1)],
-            [domain_5.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=-1)],
-            [domain_14.get_boundary(axis=0, ext=+1), domain_12.get_boundary(axis=0, ext=-1)],
-            ]
+                [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1)],
+                [domain_5.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=-1)],
+                [domain_12.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=+1)],
+                [domain_12.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1)],
+        ]
 
     elif debug_option == 23:
         domain = union([domain_5, domain_14,
@@ -415,10 +357,9 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
 
     domain = set_interfaces(domain, interfaces)
 
-    print("int: ", domain.interior)
-    print("bound: ", domain.boundary)
-    print("len(bound): ", len(domain.boundary))
-    print("interfaces: ", domain.interfaces)
+    # print("int: ", domain.interior)
+    # print("bound: ", domain.boundary)
+    # print("len(bound): ", len(domain.boundary))
+    # print("interfaces: ", domain.interfaces)
 
-    # return domain, mappings
     return domain

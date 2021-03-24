@@ -126,13 +126,16 @@ def my_small_plot(
         xx, yy,
         gridlines_x1=None,
         gridlines_x2=None,
+        surface_plot=False,
+        cmap='viridis',
 ):
+    # cmap = 'jet' is nice too, but not so uniform. 'plasma' or 'magma' are uniform also.
 
     n_plots = len(vals)
     assert n_plots == len(titles)
     n_patches = len(xx)
     assert n_patches == len(yy)
-    #fig = plt.figure(figsize=(17., 4.8))
+
     fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
     fig.suptitle(title, fontsize=14)
 
@@ -143,10 +146,8 @@ def my_small_plot(
         assert n_patches == len(vals[i])
         ax = fig.add_subplot(1, n_plots, i+1)
         for k in range(n_patches):
-            # ax.contourf(xx[k], yy[k], vals[i][k], 50, cmap='jet', extend='both', vmin=vmin, vmax=vmax)
-            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap='jet', extend='both') #, vmin=vmin, vmax=vmax)
-        # cbar = fig.colorbar(cm.ScalarMappable(colors.Normalize(vmin=vmin, vmax=vmax), cmap='jet'), ax=ax,  pad=0.05)
-        cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap='jet'), ax=ax,  pad=0.05)
+            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap, extend='both')
+        cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
         if gridlines_x1 is not None:
             ax.plot(*gridlines_x1, color='k')
             ax.plot(*gridlines_x2, color='k')
@@ -155,3 +156,26 @@ def my_small_plot(
         ax.set_title ( titles[i] )
 
     plt.show()
+
+    if surface_plot:
+        fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
+        fig.suptitle(title+' -- surface', fontsize=14)
+
+        for i in range(n_plots):
+            vmin = np.min(vals[i])
+            vmax = np.max(vals[i])
+            cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
+            assert n_patches == len(vals[i])
+            ax = fig.add_subplot(1, n_plots, i+1, projection='3d')
+            for k in range(n_patches):
+                ax.plot_surface(xx[k], yy[k], vals[i][k], norm=cnorm, rstride=10, cstride=10, cmap=cmap,
+                           linewidth=0, antialiased=False)
+            cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
+            if gridlines_x1 is not None:
+                ax.plot(*gridlines_x1, color='k')
+                ax.plot(*gridlines_x2, color='k')
+            ax.set_xlabel( r'$x$', rotation='horizontal' )
+            ax.set_ylabel( r'$y$', rotation='horizontal' )
+            ax.set_title ( titles[i] )
+
+        plt.show()
