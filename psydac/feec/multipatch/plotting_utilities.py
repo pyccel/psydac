@@ -139,11 +139,14 @@ def my_small_plot(
     for i in range(n_plots):
         vmin = np.min(vals[i])
         vmax = np.max(vals[i])
+        cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
         assert n_patches == len(vals[i])
         ax = fig.add_subplot(1, n_plots, i+1)
         for k in range(n_patches):
-            ax.contourf(xx[k], yy[k], vals[i][k], 50, cmap='jet', extend='both', vmin=vmin, vmax=vmax)
-        cbar = fig.colorbar(cm.ScalarMappable(colors.Normalize(vmin=vmin, vmax=vmax), cmap='jet'), ax=ax,  pad=0.05)
+            # ax.contourf(xx[k], yy[k], vals[i][k], 50, cmap='jet', extend='both', vmin=vmin, vmax=vmax)
+            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap='jet', extend='both') #, vmin=vmin, vmax=vmax)
+        # cbar = fig.colorbar(cm.ScalarMappable(colors.Normalize(vmin=vmin, vmax=vmax), cmap='jet'), ax=ax,  pad=0.05)
+        cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap='jet'), ax=ax,  pad=0.05)
         if gridlines_x1 is not None:
             ax.plot(*gridlines_x1, color='k')
             ax.plot(*gridlines_x2, color='k')
