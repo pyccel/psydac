@@ -16,7 +16,6 @@ def union(domains, name):
     return domain
 
 def set_interfaces(domain, interfaces):
-    # todo (MCP): add a check that the two faces coincide
     for I in interfaces:
         domain = domain.join(domain, domain.name, bnd_minus=I[0], bnd_plus=I[1])
     return domain
@@ -148,6 +147,10 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
     mapping_14 = TransposedPolarMapping('M14',2, c1= r_max, c2= r_max, rmin = 0., rmax=1.)
     domain_14  = mapping_14(dom_log_14)
 
+    dom_log_15 = Square('dom15', bounds1=(-r_min-h, r_min+h), bounds2=(0, h))
+    mapping_15 = IdentityMapping('M15', 2)
+    domain_15  = mapping_15(dom_log_15)
+
     # shifted left to match dom_log_5
     # dom_log_50 = Square('dom50',bounds1=(-hr,hr) , bounds2=(-h/2, h/2))
     # mapping_50 = get_2D_rotation_mapping('M50', c1=-3*h/2, c2=cr , alpha=np.pi/2)
@@ -159,7 +162,7 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
                         domain_2, domain_7, domain_8,
                         domain_3, domain_9, domain_10,
                         domain_4,  domain_11, domain_12,
-                        domain_13, domain_14,
+                        domain_15,
                         ], name = 'domain')
 
         interfaces = [
@@ -175,10 +178,8 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
             [domain_4.get_boundary(axis=1, ext=+1), domain_11.get_boundary(axis=1, ext=-1)],
             [domain_11.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=-1)],
             [domain_12.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1)],
-            [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1)],
-            [domain_13.get_boundary(axis=0, ext=-1), domain_7.get_boundary(axis=0, ext=-1)],
-            [domain_.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1)],
-            [domain_13.get_boundary(axis=0, ext=-1), domain_7.get_boundary(axis=0, ext=-1)],
+            [domain_7.get_boundary(axis=0, ext=-1), domain_15.get_boundary(axis=0, ext=-1)],
+            [domain_12.get_boundary(axis=0, ext=-1), domain_15.get_boundary(axis=0, ext=+1)],
             ]
 
         # mappings  = {
