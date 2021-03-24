@@ -77,7 +77,7 @@ def conga_operators_2d():
     # }  # Q (MCP): purpose of a dict ?
 
     # domain, mappings = get_annulus_fourpatches(r_min=0.5, r_max=1)
-    domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=21)
+    domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
 
@@ -227,12 +227,11 @@ def conga_operators_2d():
         vals=[v_vals, v0_vals, v0c_vals],
         titles=[r'$v^{ex}(x,y)$', r'$v^h(x,y)$', r'$P^{0,c} v^h(x,y)$'],
         xx=xx, yy=yy,
-        gridlines_x1=gridlines_x1,
-        gridlines_x2=gridlines_x2,
     )
 
-#    print("ok, stop here (juyg-43356)")
-#    exit()
+        # gridlines_x1=gridlines_x1,
+        # gridlines_x2=gridlines_x2,
+
 
     # plot v0 and cDv0
     cDv0_x_vals, cDv0_y_vals = get_grid_vals_vector(cDv0, etas, mappings)

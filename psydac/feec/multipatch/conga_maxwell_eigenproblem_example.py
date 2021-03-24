@@ -4,6 +4,7 @@ from mpi4py import MPI
 
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import OrderedDict
 
 from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import eigsh
@@ -24,7 +25,7 @@ from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
-from psydac.feec.multipatch.multipatch_domain_utilities import get_annulus_fourpatches
+from psydac.feec.multipatch.multipatch_domain_utilities import get_annulus_fourpatches, get_pretzel
 
 comm = MPI.COMM_WORLD
 
@@ -40,7 +41,8 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, cartesian=True, 
     full_annulus = True
 
     if full_annulus:
-        domain, mappings = get_annulus_fourpatches(r_min=0.5, r_max=1)
+        domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
+        # domain = get_annulus_fourpatches(r_min=0.5, r_max=1)
 
     else:
         if cartesian:
@@ -61,7 +63,9 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, cartesian=True, 
                     bnd_minus = domain_1.get_boundary(axis=1, ext=1),
                     bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
 
-        mappings  = {OmegaLog1.interior:mapping_1, OmegaLog2.interior:mapping_2}
+        # mappings  = {OmegaLog1.interior:mapping_1, OmegaLog2.interior:mapping_2}
+
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
 
     # mappings_list = list(mappings.values())
     # x,y    = domain.coordinates

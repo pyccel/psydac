@@ -7,6 +7,8 @@ from mpi4py import MPI
 import numpy as np
 import matplotlib.pyplot as plt
 
+from collections import OrderedDict
+
 from scipy.sparse.linalg import spsolve
 
 from sympde.topology import Derham
@@ -28,6 +30,7 @@ from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0
 from psydac.feec.multipatch.operators import get_patch_index_from_face
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals_scalar, get_patch_knots_gridlines, my_small_plot
+from psydac.feec.multipatch.multipatch_domain_utilities import get_annulus_fourpatches, get_pretzel
 
 comm = MPI.COMM_WORLD
 
@@ -49,37 +52,44 @@ def conga_poisson_2d():
     # . Domain
     #+++++++++++++++++++++++++++++++
 
+    pretzel = True
     cartesian = False
     use_scipy = True
     poisson_tol = 5e-13
 
     nc = 2
 
-    if cartesian:
-        A = Square('A',bounds1=(0.5, 1), bounds2=(0, 0.5))
-        B = Square('B',bounds1=(0.5, 1), bounds2=(0.5, 1))
-        mapping_1 = IdentityMapping('M1', 2)
-        mapping_2 = IdentityMapping('M2', 2)
-
+    if pretzel:
+        domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
     else:
-        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
-#        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi))
-#        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi, 2*np.pi))
-        mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-        mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+        if cartesian:
+            A = Square('A',bounds1=(0.5, 1), bounds2=(0, 0.5))
+            B = Square('B',bounds1=(0.5, 1), bounds2=(0.5, 1))
+            mapping_1 = IdentityMapping('M1', 2)
+            mapping_2 = IdentityMapping('M2', 2)
 
-    domain_1     = mapping_1(A)
-    domain_2     = mapping_2(B)
+        else:
+            A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+            B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
+    #        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi))
+    #        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi, 2*np.pi))
+            mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+            mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
-    domain = domain_1.join(domain_2, name = 'domain',
-                bnd_minus = domain_1.get_boundary(axis=1, ext=1),
-                bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
+        domain_1     = mapping_1(A)
+        domain_2     = mapping_2(B)
 
-    # todo (MCP): improve/clarify how mappings are used below: as dicts, lists ?
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
-    mappings_obj = [mapping_1, mapping_2]
-    F = [f.get_callable_mapping() for f in mappings_obj]
+        domain = domain_1.join(domain_2, name = 'domain',
+                    bnd_minus = domain_1.get_boundary(axis=1, ext=1),
+                    bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
+
+        # mappings  = {A.interior:mapping_1, B.interior:mapping_2}
+
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+
+    mappings_list = list(mappings.values())
+    F = [f.get_callable_mapping() for f in mappings_list]
+
 
     # multipatch de Rham sequence:
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])

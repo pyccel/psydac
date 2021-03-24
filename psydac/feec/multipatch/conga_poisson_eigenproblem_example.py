@@ -2,6 +2,8 @@
 
 from mpi4py import MPI
 
+from collections import OrderedDict
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -39,8 +41,9 @@ from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLin
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
 from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import ConformingProjection_V0
-from psydac.feec.multipatch.operators import get_grid_vals_scalar, get_grid_vals_vector
-from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
+from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
+from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
+from psydac.feec.multipatch.multipatch_domain_utilities import get_annulus_fourpatches, get_pretzel
 
 comm = MPI.COMM_WORLD
 
@@ -49,27 +52,30 @@ def run_poisson_2d_eigenproblem(nb_eigs, ncells, degree):
     """
     Poisson (ie, Laplace) eigenproblem solver
 
-    :param nb_eigs: nb of eigenmodes to be computed
+    :param nb_eigs:  of eigenmodnbes to be computed
     :return: eigenvalues and eigenmodes
     """
+    pretzel = True
 
-    # OmegaLog1 = Square('OmegaLog1',bounds1=(0., 0.5), bounds2=(0., 1.))
-    # OmegaLog2 = Square('OmegaLog2',bounds1=(0.5, 1.), bounds2=(0., 1.))
-    OmegaLog1 = Square('OmegaLog1',bounds1=(0., 1.), bounds2=(0., 0.5))
-    OmegaLog2 = Square('OmegaLog2',bounds1=(0., 1.), bounds2=(0.5, 1.))
-    mapping_1 = IdentityMapping('M1',2)
-    mapping_2 = IdentityMapping('M2',2)
-    domain_1     = mapping_1(OmegaLog1)
-    domain_2     = mapping_2(OmegaLog2)
+    if pretzel:
+        domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
+    else:
+        OmegaLog1 = Square('OmegaLog1',bounds1=(0., 1.), bounds2=(0., 0.5))
+        OmegaLog2 = Square('OmegaLog2',bounds1=(0., 1.), bounds2=(0.5, 1.))
+        mapping_1 = IdentityMapping('M1',2)
+        mapping_2 = IdentityMapping('M2',2)
+        domain_1     = mapping_1(OmegaLog1)
+        domain_2     = mapping_2(OmegaLog2)
 
-    domain = domain_1.join(domain_2, name = 'domain',
-                bnd_minus = domain_1.get_boundary(axis=1, ext=1),
-                bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
+        domain = domain_1.join(domain_2, name = 'domain',
+                    bnd_minus = domain_1.get_boundary(axis=1, ext=1),
+                    bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
 
-    x,y    = domain.coordinates
+        # mappings  = {OmegaLog1.interior:mapping_1, OmegaLog2.interior:mapping_2}
 
-    mappings  = {OmegaLog1.interior:mapping_1, OmegaLog2.interior:mapping_2}
-    mappings_list = list(mappings.values())
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+
+    # x,y    = domain.coordinates
 
     nquads = [d + 1 for d in degree]
 
