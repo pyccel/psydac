@@ -6,6 +6,7 @@ from mpi4py import MPI
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import cm
 
 from psydac.fem.basic   import FemField
 
@@ -118,6 +119,8 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 
     return gridlines_x1, gridlines_x2
 
+from matplotlib import colors
+
 def my_small_plot(
         title, vals, titles,
         xx, yy,
@@ -139,10 +142,8 @@ def my_small_plot(
         assert n_patches == len(vals[i])
         ax = fig.add_subplot(1, n_plots, i+1)
         for k in range(n_patches):
-            #if k != 2: continue
-            cp = ax.contourf(xx[k], yy[k], vals[i][k], 50, cmap='jet', extend='both', vmin=vmin, vmax=vmax)
-        cbar = fig.colorbar(cp, ax=ax,  pad=0.05)
-        # fig.colorbar()
+            ax.contourf(xx[k], yy[k], vals[i][k], 50, cmap='jet', extend='both') #, vmin=vmin, vmax=vmax)
+        cbar = fig.colorbar(cm.ScalarMappable(colors.Normalize(vmin=vmin, vmax=vmax), cmap='jet'), ax=ax,  pad=0.05)
         if gridlines_x1 is not None:
             ax.plot(*gridlines_x1, color='k')
             ax.plot(*gridlines_x2, color='k')
