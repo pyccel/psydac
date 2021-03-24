@@ -26,10 +26,8 @@ from psydac.feec.pull_push     import push_2d_hcurl, pull_2d_hcurl
 
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
-from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
+from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V1
-from psydac.feec.multipatch.operators import get_grid_vals_scalar, get_grid_vals_vector
-from psydac.feec.multipatch.operators import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
 
 from scipy.sparse.linalg import cg
 comm = MPI.COMM_WORLD

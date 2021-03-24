@@ -81,39 +81,63 @@ class ConformingProjection_V0( FemLinearOperator ):
         for i in range(len(self._A.blocks)):
             self._A[i,i][tuple(indices)]  = 1
 
-        if Interfaces is not None:
+#        if Interfaces is not None:
 
-          for I in Interfaces:
+        for I in Interfaces:
 
+            axis = I.axis
             i_minus = get_patch_index_from_face(domain, I.minus)
             i_plus  = get_patch_index_from_face(domain, I.plus )
 
             sp_minus = spaces[i_minus]
             sp_plus  = spaces[i_plus]
 
-            s_minus = sp_minus.starts[I.axis]
-            e_minus = sp_minus.ends[I.axis]
+            s_minus = sp_minus.starts[axis]
+            e_minus = sp_minus.ends[axis]
 
-            s_plus = sp_plus.starts[I.axis]
-            e_plus = sp_plus.ends[I.axis]
+            s_plus = sp_plus.starts[axis]
+            e_plus = sp_plus.ends[axis]
 
-            d_minus = V0h.spaces[i_minus].degree[I.axis]
-            d_plus  = V0h.spaces[i_plus].degree[I.axis]
+            d_minus = V0h.spaces[i_minus].degree[axis]
+            d_plus  = V0h.spaces[i_plus].degree[axis]
 
             indices = [slice(None,None)]*domain.dim + [0]*domain.dim
 
-            indices[I.axis] = e_minus
+            if I.minus.ext == 1:
+                indices[axis] = e_minus
+            else:
+                indices[axis] = s_minus
             self._A[i_minus,i_minus][tuple(indices)] = 1/2
 
-            indices[I.axis] = s_plus
+            if I.plus.ext == 1:
+                indices[axis] = e_plus
+            else:
+                indices[axis] = s_plus
+
             self._A[i_plus,i_plus][tuple(indices)] = 1/2
 
-            indices[I.axis] = d_minus
-            indices[domain.dim + I.axis] = -d_plus
+            if I.minus.ext == 1:
+                indices[axis] = d_minus
+            else:
+                indices[axis] = s_minus
+
+            if I.plus.ext == 1:
+                indices[domain.dim + axis] = d_plus
+            else:
+                indices[domain.dim + axis] = -d_plus
+
             self._A[i_minus,i_plus][tuple(indices)] = 1/2
 
-            indices[I.axis] = s_plus
-            indices[domain.dim + I.axis] = d_minus
+            if I.plus.ext == 1:
+                indices[axis] = d_plus
+            else:
+                indices[axis] = s_plus
+
+            if I.minus.ext == 1:
+                indices[domain.dim + axis] = d_minus
+            else:
+                indices[domain.dim + axis] = -d_minus
+
             self._A[i_plus,i_minus][tuple(indices)] = 1/2
 
         if hom_bc:

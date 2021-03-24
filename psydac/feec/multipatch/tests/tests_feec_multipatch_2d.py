@@ -22,8 +22,7 @@ from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator, Compos
 from psydac.feec.multipatch.api                  import discretize
 from psydac.feec.multipatch.operators            import BrokenMass
 from psydac.feec.multipatch.operators            import ConformingProjection_V0
-from psydac.feec.multipatch.operators            import get_patch_index_from_face, get_grid_vals_scalar
-from psydac.feec.multipatch.operators            import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
+from psydac.feec.multipatch.operators            import get_patch_index_from_face
 
 from psydac.api.essential_bc import apply_essential_bc_stencil
 
