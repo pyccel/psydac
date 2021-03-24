@@ -196,7 +196,7 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
         domain = union([domain_6,
                         domain_13,
                         ], name = 'domain')
-
+        # good
         interfaces = [
             [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1)],
             ]
@@ -205,12 +205,30 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
         domain = union([domain_6,
                         domain_13,
                         ], name = 'domain')
-
+        # wrong
         interfaces = [
             [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=-1)],
             ]
 
     elif debug_option == 20:
+        domain = union([domain_7,
+                        domain_13,
+                        ], name = 'domain')
+        # wrong
+        interfaces = [
+            [domain_7.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1)],
+            ]
+
+    elif debug_option == 21:
+        domain = union([domain_7,
+                        domain_13,
+                        ], name = 'domain')
+        # should be good, but wrong ??
+        interfaces = [
+            [domain_7.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=-1)],
+            ]
+
+    elif debug_option == 22:
         domain = union([domain_1, domain_5, domain_12,
                         domain_14,
                         ], name = 'domain')
@@ -222,7 +240,7 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
             [domain_14.get_boundary(axis=0, ext=+1), domain_12.get_boundary(axis=0, ext=-1)],
             ]
 
-    elif debug_option == 21:
+    elif debug_option == 23:
         domain = union([domain_2, domain_6, domain_7,
                         domain_13,
                         ], name = 'domain')
@@ -231,7 +249,7 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
             [domain_6.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1)],
             [domain_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1)],
             [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1)],
-            #[domain_13.get_boundary(axis=0, ext=+1), domain_7.get_boundary(axis=0, ext=-1)],
+            [domain_7.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=-1)],
             ]
 
     elif debug_option == 2:
