@@ -16,6 +16,7 @@ from sympde.topology import element_of, elements_of
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
 
+from sympde.expr.expr import Norm
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
 
@@ -57,8 +58,6 @@ def conga_poisson_2d():
     use_scipy = True
     poisson_tol = 5e-13
 
-    nc = 2
-
     if pretzel:
         domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
     else:
@@ -90,7 +89,6 @@ def conga_poisson_2d():
     mappings_list = list(mappings.values())
     F = [f.get_callable_mapping() for f in mappings_list]
 
-
     # multipatch de Rham sequence:
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
 
@@ -98,7 +96,7 @@ def conga_poisson_2d():
     # . Discrete space
     #+++++++++++++++++++++++++++++++
 
-    ncells = [nc**2, nc**2]
+    ncells = [2**2, 2**2]
     degree = [2, 2]
     nquads = [d + 1 for d in degree]
 
@@ -160,6 +158,11 @@ def conga_poisson_2d():
     v  = element_of(derham.V0, 'v')
     u  = element_of(derham.V0, 'u')
 
+    error  = u - phi_exact
+
+    l2norm = Norm(error, domain, kind='l2')
+    h1norm = Norm(error, domain, kind='h1')
+
     l  = LinearForm(v,  integral(domain, f*v))
     lh = discretize(l, domain_h, V0h)
     b  = lh.assemble()
@@ -204,6 +207,16 @@ def conga_poisson_2d():
     phi_h = FemField(V0h, coeffs=phi_coeffs)
     phi_h = FemField(V0h, coeffs=cP0(phi_h).coeffs+x0)
 
+
+    l2norm_h = discretize(l2norm, domain_h, V0h)
+    h1norm_h = discretize(h1norm, domain_h, V0h)
+
+
+    l2_error = l2norm_h.assemble(u=phi_h)
+    h1_error = h1norm_h.assemble(u=phi_h)
+
+    print( '> L2 error      :: {:.2e}'.format( l2_error ) )
+    print( '> H1 error      :: {:.2e}'.format( h1_error ) )
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # VISUALIZATION
