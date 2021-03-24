@@ -171,9 +171,6 @@ def my_small_plot(
                 ax.plot_surface(xx[k], yy[k], vals[i][k], norm=cnorm, rstride=10, cstride=10, cmap=cmap,
                            linewidth=0, antialiased=False)
             cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
-            if gridlines_x1 is not None:
-                ax.plot(*gridlines_x1, color='k')
-                ax.plot(*gridlines_x2, color='k')
             ax.set_xlabel( r'$x$', rotation='horizontal' )
             ax.set_ylabel( r'$y$', rotation='horizontal' )
             ax.set_title ( titles[i] )

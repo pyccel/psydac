@@ -183,7 +183,8 @@ def conga_poisson_2d():
     for bn in domain.boundary:
         i = get_patch_index_from_face(domain, bn)
         for j in range(len(domain)):
-            apply_essential_bc_stencil(cP0._A[i,j], axis=bn.axis, ext=bn.ext, order=0)
+            if not cP0._A[i,j] is None:
+                apply_essential_bc_stencil(cP0._A[i,j], axis=bn.axis, ext=bn.ext, order=0)
         apply_essential_bc_stencil(b[i], axis=bn.axis, ext=bn.ext, order=0)
 
     # ...
@@ -225,6 +226,8 @@ def conga_poisson_2d():
         xx=xx, yy=yy,
         gridlines_x1=gridlines_x1,
         gridlines_x2=gridlines_x2,
+        surface_plot=True,
+        cmap='jet',
     )
 
 
