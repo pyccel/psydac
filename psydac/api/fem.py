@@ -169,8 +169,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         # ...
         if len(domain)>1:
             i,j = self.get_space_indices_from_target(domain, target )
-            test_space  = self.spaces[0].spaces[i]
-            trial_space = self.spaces[1].spaces[j]
+            trial_space  = self.spaces[0].spaces[j]
+            test_space = self.spaces[1].spaces[i]
         else:
             trial_space  = self.spaces[0]
             test_space   = self.spaces[1]
@@ -297,10 +297,11 @@ class DiscreteBilinearForm(BasicDiscrete):
     def get_space_indices_from_target(self, domain, target):
         domains = domain.interior.args
         if isinstance(target, Interface):
-            ij = [domains.index(target.minus.domain), domains.index(target.plus.domain)]
-            if isinstance(self.kernel_expr.test, PlusInterfaceOperator):
-                ij.reverse()
-            i,j = ij
+            test       = self.kernel_expr.test
+            trial      = self.kernel_expr.trial
+            test_target  =  target.plus if isinstance(test, PlusInterfaceOperator) else target.minus
+            trial_target = target.plus if isinstance(trial, PlusInterfaceOperator) else target.minus
+            i,j = [domains.index(test_target.domain), domains.index(trial_target.domain)]
         else:
             if isinstance(target, Boundary):
                 i = domains.index(target.domain)

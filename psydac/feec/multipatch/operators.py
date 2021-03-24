@@ -81,8 +81,6 @@ class ConformingProjection_V0( FemLinearOperator ):
         for i in range(len(self._A.blocks)):
             self._A[i,i][tuple(indices)]  = 1
 
-#        if Interfaces is not None:
-
         for I in Interfaces:
 
             axis = I.axis
@@ -103,42 +101,64 @@ class ConformingProjection_V0( FemLinearOperator ):
 
             indices = [slice(None,None)]*domain.dim + [0]*domain.dim
 
-            if I.minus.ext == 1:
+            minus_ext = I.minus.ext
+            plus_ext = I.plus.ext
+
+            if minus_ext == 1:
                 indices[axis] = e_minus
             else:
                 indices[axis] = s_minus
             self._A[i_minus,i_minus][tuple(indices)] = 1/2
 
-            if I.plus.ext == 1:
+            if plus_ext == 1:
                 indices[axis] = e_plus
             else:
                 indices[axis] = s_plus
 
             self._A[i_plus,i_plus][tuple(indices)] = 1/2
 
-            if I.minus.ext == 1:
-                indices[axis] = d_minus
+            if plus_ext != minus_ext:
+
+                if minus_ext == 1:
+                    indices[axis] = d_minus
+                else:
+                    indices[axis] = s_minus
+
+                if plus_ext == 1:
+                    indices[domain.dim + axis] = d_plus
+                else:
+                    indices[domain.dim + axis] = -d_plus
+
+                self._A[i_minus,i_plus][tuple(indices)] = 1/2
+
+                if plus_ext == 1:
+                    indices[axis] = d_plus
+                else:
+                    indices[axis] = s_plus
+
+                if minus_ext == 1:
+                    indices[domain.dim + axis] = d_minus
+                else:
+                    indices[domain.dim + axis] = -d_minus
+
+                self._A[i_plus,i_minus][tuple(indices)] = 1/2
             else:
-                indices[axis] = s_minus
 
-            if I.plus.ext == 1:
-                indices[domain.dim + axis] = d_plus
-            else:
-                indices[domain.dim + axis] = -d_plus
+                if minus_ext == 1:
+                    indices[axis] = d_minus
+                else:
+                    indices[axis] = s_minus
 
-            self._A[i_minus,i_plus][tuple(indices)] = 1/2
+                indices[domain.dim + axis] = 0
 
-            if I.plus.ext == 1:
-                indices[axis] = d_plus
-            else:
-                indices[axis] = s_plus
+                self._A[i_minus,i_plus][tuple(indices)] = 1/2
 
-            if I.minus.ext == 1:
-                indices[domain.dim + axis] = d_minus
-            else:
-                indices[domain.dim + axis] = -d_minus
+                if plus_ext == 1:
+                    indices[axis] = d_plus
+                else:
+                    indices[axis] = s_plus
 
-            self._A[i_plus,i_minus][tuple(indices)] = 1/2
+                self._A[i_plus,i_minus][tuple(indices)] = 1/2
 
         if hom_bc:
             for bn in domain.boundary:
@@ -148,8 +168,6 @@ class ConformingProjection_V0( FemLinearOperator ):
                     apply_essential_bc_stencil(self._A[i,j], axis=bn.axis, ext=bn.ext, order=0)
 
         self._matrix = self._A
-
-
 #===============================================================================
 class ConformingProjection_V1( FemLinearOperator ):
     """

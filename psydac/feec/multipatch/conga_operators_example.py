@@ -231,8 +231,8 @@ def conga_operators_2d():
         gridlines_x2=gridlines_x2,
     )
 
-    print("ok, stop here (juyg-43356)")
-    exit()
+#    print("ok, stop here (juyg-43356)")
+#    exit()
 
     # plot v0 and cDv0
     cDv0_x_vals, cDv0_y_vals = get_grid_vals_vector(cDv0, etas, mappings)
