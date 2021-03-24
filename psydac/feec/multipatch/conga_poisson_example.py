@@ -140,8 +140,8 @@ def conga_poisson_2d():
     u_ex_y = lambdify(domain.coordinates, u_exact_y)
 
     # pull-back of phi_ex
-    phi_ex_log = [lambda xi1, xi2 : phi_ex(*f(xi1,xi2)) for f in F]
-    f_log = [lambda xi1, xi2 : f_ex(*f(xi1,xi2)) for f in F]
+    phi_ex_log = [lambda xi1, xi2,ff=f : phi_ex(*ff(xi1,xi2)) for f in F]
+    f_log = [lambda xi1, xi2,ff=f : f_ex(*ff(xi1,xi2)) for f in F]
 
     #+++++++++++++++++++++++++++++++
     # . Multipatch operators
@@ -228,8 +228,8 @@ def conga_poisson_2d():
     etas, xx, yy = get_plotting_grid(mappings, N)
     gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(V0h, N, mappings, plotted_patch=1)
 
-    phi_ref_vals = get_grid_vals_scalar(phi_ex_log, etas, mappings) #_obj)
-    phi_h_vals = get_grid_vals_scalar(phi_h, etas, mappings) #
+    phi_ref_vals = get_grid_vals_scalar(phi_ex_log, etas, domain, list(mappings.values())) #_obj)
+    phi_h_vals   = get_grid_vals_scalar(phi_h, etas, domain, list(mappings.values())) #
     phi_err = [abs(pr - ph) for pr, ph in zip(phi_ref_vals, phi_h_vals)]
 
     my_small_plot(

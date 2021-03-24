@@ -16,11 +16,10 @@ from psydac.fem.basic   import FemField
 
 from psydac.feec.pull_push     import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
-def get_grid_vals_scalar(u, etas, mappings, space_kind='h1'):  #_obj):
+def get_grid_vals_scalar(u, etas, domain, mappings_list, space_kind='h1'):  #_obj):
     # get the physical field values, given the logical field and the logical grid
-    n_patches = len(mappings)
-    mappings_list = list(mappings.values())
-    u_vals = n_patches*[None]
+    n_patches = len(domain)
+    u_vals    = n_patches*[None]
     for k in range(n_patches):
         eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
         u_vals[k] = np.empty_like(eta_1)
@@ -29,6 +28,7 @@ def get_grid_vals_scalar(u, etas, mappings, space_kind='h1'):  #_obj):
         else:
             # then field is just callable
             uk_field = u[k]
+
         if space_kind == 'h1':
             # todo (MCP): add 2d_hcurl_vector
             push_field = lambda eta1, eta2: push_2d_h1(uk_field, eta1, eta2)
