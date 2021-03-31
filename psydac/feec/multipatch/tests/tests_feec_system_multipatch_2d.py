@@ -148,7 +148,7 @@ def test_maxwell_2d_2_patch_dirichlet_0():
 
     domain = D1.join(D2, name = 'domain',
                 bnd_minus = D1.get_boundary(axis=1, ext=1),
-                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1), direction=1)
 
     x,y    = domain.coordinates
     alpha    = 1.

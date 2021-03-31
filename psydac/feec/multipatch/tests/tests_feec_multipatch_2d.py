@@ -154,7 +154,7 @@ def test_poisson_2d_2_patch_dirichlet_0():
 
     domain = D1.join(D2, name = 'domain',
                 bnd_minus = D1.get_boundary(axis=1, ext=1),
-                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1), direction=1)
 
     x,y = domain.coordinates
     solution = x**2 + y**2
@@ -185,7 +185,7 @@ def test_poisson_2d_2_patch_dirichlet_1():
 
     domain = D1.join(D2, name = 'domain',
                 bnd_minus = D1.get_boundary(axis=1, ext=1),
-                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1), direction=1)
 
     x,y = domain.coordinates
     solution = sin(pi*x)*sin(pi*y)
@@ -216,7 +216,7 @@ def test_poisson_2d_2_patch_dirichlet_2():
 
     D1D2        = D1.join(D2, name = 'AB',
                 bnd_minus = D1.get_boundary(axis=1, ext=1),
-                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1), direction=1)
 
     #D1D2D3       = D1D2.join(D3, name = 'ABC',
     #            bnd_minus = D2.get_boundary(axis=1, ext=1),

@@ -5,27 +5,31 @@
 from mpi4py import MPI
 
 import numpy as np
-from sympde.topology import Boundary, Interface
-from sympde.topology import element_of, elements_of
-from sympde.calculus import grad, dot, inner, rot, div
-from sympde.calculus import laplace, bracket, convect
-from sympde.calculus import jump, avg, Dn, minus, plus
+from sympde.topology  import Boundary, Interface, Union
+from sympde.topology  import element_of, elements_of
+from sympde.calculus  import grad, dot, inner, rot, div
+from sympde.calculus  import laplace, bracket, convect
+from sympde.calculus  import jump, avg, Dn, minus, plus
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
 
-from psydac.api.discretization import discretize
-from psydac.api.essential_bc import apply_essential_bc_stencil
-from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
+from psydac.api.discretization       import discretize
+from psydac.api.essential_bc         import apply_essential_bc_stencil
+from psydac.linalg.block             import BlockVectorSpace, BlockVector, BlockMatrix
+from psydac.linalg.stencil           import StencilVector, StencilMatrix, StencilInterfaceMatrix
 from psydac.linalg.iterative_solvers import cg, pcg
-from psydac.fem.basic   import FemField
+from psydac.fem.basic                import FemField
 
-from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl, Projector_L2
-from psydac.feec.derivatives import Gradient_2D, ScalarCurl_2D
-
+from psydac.feec.global_projectors               import Projector_H1, Projector_Hcurl, Projector_L2
+from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
-
 def get_patch_index_from_face(domain, face):
+    if domain.mapping:
+        domain = domain.logical_domain
+    if face.mapping:
+        face = face.logical_domain
+
     domains = domain.interior.args
     if isinstance(face, Interface):
         raise NotImplementedError("This face is an interface, it has several indices -- I am a machine, I cannot choose. Help.")
@@ -35,7 +39,79 @@ def get_patch_index_from_face(domain, face):
         i = domains.index(face)
     return i
 
+def get_interface_from_corners(corner1, corner2, domain):
+    interface = []
+    interfaces = domain.interfaces
 
+    if not isinstance(interfaces, Union):
+        interfaces = (interfaces,)
+
+    for i in interfaces:
+        if i.plus.domain in [corner1.domain, corner2.domain]:
+            if i.minus.domain in [corner1.domain, corner2.domain]:
+                interface.append(i)
+
+    bd1 = corner1.boundaries
+    bd2 = corner2.boundaries
+
+    new_interface = []
+
+    for i in interface:
+        if i.minus in bd1+bd2:
+            if i.plus in bd2+bd1:
+                new_interface.append(i)
+
+    if len(new_interface) == 1:
+        return new_interface[0]
+    if len(new_interface)>1:
+        raise ValueError('found more than one interface for the corners {} and {}'.format(corner1, corner2))
+    return None
+
+
+def get_row_col_index(corner1, corner2, interface, V1, V2):
+    start = V1.vector_space.starts
+    end   = V1.vector_space.ends
+    degree = V2.degree
+    start_end = (start, end)
+
+    row    = [None]*len(start)
+    col    = [0]*len(start)
+
+    assert corner1.boundaries[0].axis == corner2.boundaries[0].axis
+
+    for bd in corner1.boundaries:
+        row[bd.axis] = start_end[(bd.ext+1)//2][bd.axis]
+
+    if interface is None and corner1.domain != corner2.domain:
+        bd = corner1.boundaries[0]
+        if bd.ext == 1:row[bd.axis] = degree[bd.axis]
+
+    if interface is None:
+        return row+col
+
+    axis = interface.axis
+
+    if interface.minus.domain == corner1.domain:
+        if interface.minus.ext == -1:row[axis] = 0
+        else:row[axis] = degree[axis]
+    else:
+        if interface.plus.ext == -1:row[axis] = 0
+        else:row[axis] = degree[axis]
+
+    if interface.minus.ext == interface.plus.ext:
+        pass
+    elif interface.minus.domain == corner1.domain:
+        if interface.minus.ext == -1:
+            col[axis] =  degree[axis]
+        else:
+            col[axis] =  -degree[axis]
+    else:
+        if interface.plus.ext == -1:
+            col[axis] =  degree[axis]
+        else:
+            col[axis] =  -degree[axis]
+
+    return row+col
 #===============================================================================
 class ConformingProjection_V0( FemLinearOperator ):
     """
@@ -43,15 +119,15 @@ class ConformingProjection_V0( FemLinearOperator ):
     Defined by averaging of interface dofs
     """
     # todo (MCP, 16.03.2021):
-    #   - extend to several interfaces
     #   - avoid discretizing a bilinear form
     #   - allow case without interfaces (single or multipatch)
     def __init__(self, V0h, domain_h, hom_bc=False):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
-        V0             = V0h.symbolic_space
-        domain         = V0.domain
+        V0                      = V0h.symbolic_space
+        domain                  = V0.domain
+        self.symbolic_domain    = domain
 
         u, v = elements_of(V0, names='u, v')
         expr   = u*v  # dot(u,v)
@@ -60,7 +136,6 @@ class ConformingProjection_V0( FemLinearOperator ):
         expr_I = ( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
-
 
         ah = discretize(a, domain_h, [V0h, V0h])
 
@@ -117,8 +192,22 @@ class ConformingProjection_V0( FemLinearOperator ):
 
             self._A[i_plus,i_plus][tuple(indices)] = 1/2
 
-            if plus_ext != minus_ext:
+            if plus_ext == minus_ext:
+                if minus_ext == 1:
+                    indices[axis] = d_minus
+                else:
+                    indices[axis] = s_minus
 
+                self._A[i_minus,i_plus][tuple(indices)] = 1/2
+
+                if plus_ext == 1:
+                    indices[axis] = d_plus
+                else:
+                    indices[axis] = s_plus
+
+                self._A[i_plus,i_minus][tuple(indices)] = 1/2
+
+            else:
                 if minus_ext == 1:
                     indices[axis] = d_minus
                 else:
@@ -142,32 +231,64 @@ class ConformingProjection_V0( FemLinearOperator ):
                     indices[domain.dim + axis] = -d_minus
 
                 self._A[i_plus,i_minus][tuple(indices)] = 1/2
-            else:
 
-                if minus_ext == 1:
-                    indices[axis] = d_minus
-                else:
-                    indices[axis] = s_minus
 
-                indices[domain.dim + axis] = 0
+        domain = domain.logical_domain
+        for c in domain.corners:
+            if len(c) == 2:continue
+            for b1 in c.corners:
+                i = get_patch_index_from_face(domain, b1.domain)
+                for b2 in c.corners:
+                    j = get_patch_index_from_face(domain, b2.domain)
+                    interface = get_interface_from_corners(b1, b2, domain)
+                    index = get_row_col_index(b1, b2, interface, V0h.spaces[i], V0h.spaces[j])
+                    if self._A[i,j] is None:
+                        trial_space = V0h.spaces[j].vector_space
+                        test_space  = V0h.spaces[i].vector_space
+                        c1  = b1.coordinates
+                        c2  = b2.coordinates
+                        bd  = b1.boundaries[0]
+                        s_c = V0h.spaces[i].quad_grids[bd.axis].spans[-1 if bd.ext==1 else 0] - V0h.spaces[i].degree[bd.axis]
+                        flip = [-1 if d1!=d2 else 1 for d1,d2 in zip(c1, c2)]
+                        self._A[i,j] = StencilInterfaceMatrix(trial_space, test_space, s_c, s_c, bd.axis, flip=flip)
+                    self._A[i,j][tuple(index)] = 1/len(c)
 
-                self._A[i_minus,i_plus][tuple(indices)] = 1/2
-
-                if plus_ext == 1:
-                    indices[axis] = d_plus
-                else:
-                    indices[axis] = s_plus
-
-                self._A[i_plus,i_minus][tuple(indices)] = 1/2
+        self._matrix = self._A
 
         if hom_bc:
             for bn in domain.boundary:
-                i = get_patch_index_from_face(domain, bn)
-                for j in range(len(domain)):
-                    if self._A[i,j] is None:continue
-                    apply_essential_bc_stencil(self._A[i,j], axis=bn.axis, ext=bn.ext, order=0)
+                self.set_homogenous_bc(bn)
 
-        self._matrix = self._A
+    def set_homogenous_bc(self, boundary, rhs=None):
+        domain = self.symbolic_domain
+
+        if domain.mapping:
+            domain = domain.logical_domain
+        if boundary.mapping:
+            boundary = boundary.logical_domain
+
+        corners = domain.corners
+        i = get_patch_index_from_face(domain, boundary)
+        if rhs:
+            apply_essential_bc_stencil(rhs[i], axis=boundary.axis, ext=boundary.ext, order=0)
+        for j in range(len(domain)):
+            if self._A[i,j] is None:continue
+            apply_essential_bc_stencil(self._A[i,j], axis=boundary.axis, ext=boundary.ext, order=0)
+
+        Vh = self.fem_domain
+        for c in corners:
+            faces = [f for b in c.corners for f in b.boundaries]
+            if len(c) == 2:continue
+            if boundary in faces:
+                for b1 in c.corners:
+                    i = get_patch_index_from_face(domain, b1.domain)
+                    for b2 in c.corners:
+                        j = get_patch_index_from_face(domain, b2.domain)
+                        interface = get_interface_from_corners(b1, b2, domain)
+                        index = get_row_col_index(b1, b2, interface, Vh.spaces[i], Vh.spaces[j])
+                        self._A[i,j][tuple(index)] = 0.
+                    if rhs:rhs[i][tuple(index[:2])]
+
 #===============================================================================
 class ConformingProjection_V1( FemLinearOperator ):
     """
