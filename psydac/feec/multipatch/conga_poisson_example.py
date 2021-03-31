@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 
 from collections import OrderedDict
 
-from scipy.sparse.linalg import spsolve
+import scipy.sparse.linalg as scipy_solvers
 
-from sympde.topology import Derham
+from sympde.topology import Derham, Union
 from sympde.topology import element_of, elements_of
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
@@ -59,7 +59,7 @@ def conga_poisson_2d():
     poisson_tol = 5e-13
 
     if pretzel:
-        domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
+        domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=2)
     else:
         if cartesian:
             A = Square('A',bounds1=(0.5, 1), bounds2=(0, 0.5))
@@ -82,8 +82,6 @@ def conga_poisson_2d():
                     bnd_minus = domain_1.get_boundary(axis=1, ext=1),
                     bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
 
-        # mappings  = {A.interior:mapping_1, B.interior:mapping_2}
-
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
 
     mappings_list = list(mappings.values())
@@ -96,7 +94,7 @@ def conga_poisson_2d():
     # . Discrete space
     #+++++++++++++++++++++++++++++++
 
-    ncells = [2**2, 2**2]
+    ncells = [5, 5]
     degree = [2, 2]
     nquads = [d + 1 for d in degree]
 
@@ -141,7 +139,7 @@ def conga_poisson_2d():
 
     # pull-back of phi_ex
     phi_ex_log = [lambda xi1, xi2,ff=f : phi_ex(*ff(xi1,xi2)) for f in F]
-    f_log = [lambda xi1, xi2,ff=f : f_ex(*ff(xi1,xi2)) for f in F]
+    f_log      = [lambda xi1, xi2,ff=f : f_ex(*ff(xi1,xi2)) for f in F]
 
     #+++++++++++++++++++++++++++++++
     # . Multipatch operators
@@ -174,22 +172,27 @@ def conga_poisson_2d():
     A = (I0-cP0) + cD0T_M1_cD0
 
     # apply boundary conditions
-    a0 = BilinearForm((u,v), integral(domain.boundary, u*v))
-    l0 = LinearForm(v, integral(domain.boundary, phi_exact*v))
+    boundary = domain.boundary
+
+    a0 = BilinearForm((u,v), integral(boundary, u*v))
+    l0 = LinearForm(v, integral(boundary, phi_exact*v))
 
     a0_h = discretize(a0, domain_h, [V0h, V0h])
     l0_h = discretize(l0, domain_h, V0h)
 
     x0, info = cg(a0_h.assemble(), l0_h.assemble(), tol=poisson_tol)
 
-    b = b-A.dot(x0)
-    for bn in domain.boundary:
-        i = get_patch_index_from_face(domain, bn)
-        for j in range(len(domain)):
-            if not cP0._A[i,j] is None:
-                apply_essential_bc_stencil(cP0._A[i,j], axis=bn.axis, ext=bn.ext, order=0)
-        apply_essential_bc_stencil(b[i], axis=bn.axis, ext=bn.ext, order=0)
+#    x0[1][0,6] = 0.8753804911443419
+#    print(x0[0][0,0])
+#    print(x0[1][0,6])
+#    print(x0[2][6,6])
 
+    b = b - A.dot(x0)
+
+    for bn in domain.boundary:
+        cP0.set_homogenous_bc(bn, rhs=b)
+
+#    np.savetxt('p_conf_poi.txt',cP0._A.toarray())
     # ...
 
     if use_scipy:
@@ -197,16 +200,15 @@ def conga_poisson_2d():
         A = A.to_sparse_matrix()
         b = b.toarray()
 
-        x = spsolve(A, b)
+        x = scipy_solvers.spsolve(A, b)
         phi_coeffs = array_to_stencil(x, V0h.vector_space)
 
     else:
         phi_coeffs, info = cg( A, b, tol=poisson_tol, verbose=True )
 
+    phi_coeffs = cP0.dot(phi_coeffs) + x0
 
     phi_h = FemField(V0h, coeffs=phi_coeffs)
-    phi_h = FemField(V0h, coeffs=cP0(phi_h).coeffs+x0)
-
 
     l2norm_h = discretize(l2norm, domain_h, V0h)
     h1norm_h = discretize(h1norm, domain_h, V0h)
@@ -232,6 +234,7 @@ def conga_poisson_2d():
     phi_h_vals   = get_grid_vals_scalar(phi_h, etas, domain, list(mappings.values())) #
     phi_err = [abs(pr - ph) for pr, ph in zip(phi_ref_vals, phi_h_vals)]
 
+    print([np.array(a).max() for a in phi_err])
     my_small_plot(
         title=r'Solution of Poisson problem $\Delta \phi = f$',
         vals=[phi_ref_vals, phi_h_vals, phi_err],
@@ -242,7 +245,6 @@ def conga_poisson_2d():
         surface_plot=True,
         cmap='jet',
     )
-
 
 if __name__ == '__main__':
 

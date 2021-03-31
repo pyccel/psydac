@@ -78,7 +78,9 @@ def conga_operators_2d():
 
     # domain, mappings = get_annulus_fourpatches(r_min=0.5, r_max=1)
     domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
+
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    print(mappings)
     mappings_list = list(mappings.values())
 
     F = [f.get_callable_mapping() for f in mappings_list]
@@ -91,7 +93,7 @@ def conga_operators_2d():
     # . Discrete space
     #+++++++++++++++++++++++++++++++
 
-    ncells = [2**2, 2**2]
+    ncells = [2**3, 2**3]
     degree = [2, 2]
     nquads = [d + 1 for d in degree]
 
@@ -174,6 +176,8 @@ def conga_operators_2d():
     v0c  = Pconf_0(v0)   # should be H1-conforming (ie, continuous)
     cDv0 = bD0(v0c)
 
+    print(abs(v0c.coeffs.toarray()-Pconf_0._A.toarray().dot(v0.coeffs.toarray())).max(),'#####')
+
     D0 = ComposedLinearOperator([bD0, Pconf_0])
     cDv0 = D0(v0)
 
@@ -212,9 +216,9 @@ def conga_operators_2d():
     # I - 1. qualitative assessment of conf Projection in V0, with discontinuous v
 
     # plot v, v0 and v0c
-    v_vals   = get_grid_vals_scalar(v_sol_log, etas, mappings)
-    v0_vals  = get_grid_vals_scalar(v0, etas, mappings)
-    v0c_vals = get_grid_vals_scalar(v0c, etas, mappings)
+    v_vals   = get_grid_vals_scalar(v_sol_log, etas, domain, mappings)
+    v0_vals  = get_grid_vals_scalar(v0, etas, domain,mappings)
+    v0c_vals = get_grid_vals_scalar(v0c, etas, domain, mappings)
 
     my_small_plot(
         title=r'broken and conforming approximation of some $v$',
