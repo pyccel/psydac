@@ -3,39 +3,19 @@
 from mpi4py import MPI
 
 from collections import OrderedDict
-
 import numpy as np
-import matplotlib.pyplot as plt
 
-from scipy.sparse.linalg import spsolve
-from scipy.sparse.linalg import eigs
-
-from sympy import pi, cos, sin, Matrix, Tuple
-from sympy import symbols
-from sympy import lambdify
-
-from sympde.calculus import grad, dot, inner, rot, div, curl, cross
-from sympde.topology import NormalVector
-from sympde.expr import Norm
+from scipy.sparse.linalg import eigs, eigsh
 
 from sympde.topology import Derham
-from sympde.topology import element_of, elements_of
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
 
-from sympde.expr.expr import LinearForm, BilinearForm
-from sympde.expr.expr import integral
-
 from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
 
-from psydac.linalg.iterative_solvers import cg, pcg
 from psydac.linalg.utilities import array_to_stencil
 
 from psydac.fem.basic   import FemField
-
-from psydac.feec.pull_push     import push_2d_hcurl, pull_2d_hcurl
-
-from psydac.utilities.utils    import refine_array_1d
 
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
@@ -48,7 +28,7 @@ from psydac.feec.multipatch.multipatch_domain_utilities import get_annulus_fourp
 comm = MPI.COMM_WORLD
 
 
-def run_poisson_2d_eigenproblem(nb_eigs, ncells, degree):
+def run_poisson_2d_eigenproblem(nb_eigs, ncells, degree, show_all=False):
     """
     Poisson (ie, Laplace) eigenproblem solver
 
@@ -89,6 +69,7 @@ def run_poisson_2d_eigenproblem(nb_eigs, ncells, degree):
     # V2h = derham_h.V2
 
     # Mass matrices for broken spaces (block-diagonal)
+    M0 = BrokenMass(V0h, domain_h, is_scalar=True)
     M1 = BrokenMass(V1h, domain_h, is_scalar=False)
     bD0, bD1 = derham_h.broken_derivatives_as_operators
 
@@ -99,13 +80,21 @@ def run_poisson_2d_eigenproblem(nb_eigs, ncells, degree):
 
     # Find eigenmodes and eigenvalues with scipy.sparse
     A = A.to_sparse_matrix()
-    eigenvalues, eigenvectors = eigs(A, k=nb_eigs, which='SM' )   # 'SM' = smallest magnitude
+    M0 = M0.to_sparse_matrix()
+    # eigenvalues, eigenvectors = eigs(A, k=nb_eigs, which='SM' )   # 'SM' = smallest magnitude
+    ncv = 4*nb_eigs
+    # mode='cayley'
+    mode='normal'
+    eigenvalues, eigenvectors = eigsh(A, k=nb_eigs, M=M0, sigma=1, mode=mode, which='LM', ncv=ncv)
 
     print(type(eigenvalues))
     print(type(eigenvectors))
     print(eigenvectors.shape)
     # plotting
     etas, xx, yy = get_plotting_grid(mappings, N=20)
+
+    first_Pemodes_vals = []
+    first_Pemodes_titles = []
 
     for k_eig in range(nb_eigs):
         evalue  = eigenvalues[k_eig]
@@ -115,14 +104,33 @@ def run_poisson_2d_eigenproblem(nb_eigs, ncells, degree):
 
         uh_vals = get_grid_vals_scalar(emode, etas, mappings)
 
-        my_small_plot(
-            title='mode nb k='+repr(k_eig)+'  --  eigenvalue = '+repr(evalue),
-            vals=[uh_vals],
-            titles=[r'$u^h_{k}(x,y)$'],
-            xx=xx,
-            yy=yy,
-        )
+        if show_all:
+            my_small_plot(
+                title='mode nb k='+repr(k_eig)+'  --  eigenvalue = '+repr(evalue),
+                vals=[uh_vals],
+                titles=[r'$u^h_{k}(x,y)$'],
+                xx=xx,
+                yy=yy,
+                cmap='magma',
+                surface_plot=True,
+            )
+
+        if k_eig < 8:
+            first_Pemodes_vals.append(uh_vals)
+            first_Pemodes_titles.append(r'$\sigma=$'+'{0:0.2f}'.format(np.real(evalue)))
+        else:
+            print('warning: not plotting eigenmode for k = ' + repr(k_eig))
+
+    my_small_plot(
+        title=r'Amplitude $|P^1_c e^h_k|$ of some eigenmodes found',
+        vals=first_Pemodes_vals,
+        titles=first_Pemodes_titles,
+        xx=xx,
+        yy=yy,
+        cmap='magma',
+        surface_plot=True,
+    )
 
 if __name__ == '__main__':
 
-    run_poisson_2d_eigenproblem(nb_eigs=6, ncells=[2**4, 2**4], degree=[2,2])
+    run_poisson_2d_eigenproblem(nb_eigs=20, ncells=[2**4, 2**4], degree=[2,2], show_all=True)
