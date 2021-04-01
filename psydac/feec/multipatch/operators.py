@@ -261,7 +261,7 @@ class ConformingProjection_V0( FemLinearOperator ):
 
     def set_homogenous_bc(self, boundary, rhs=None):
         domain = self.symbolic_domain
-
+        Vh = self.fem_domain
         if domain.mapping:
             domain = domain.logical_domain
         if boundary.mapping:
@@ -275,7 +275,6 @@ class ConformingProjection_V0( FemLinearOperator ):
             if self._A[i,j] is None:continue
             apply_essential_bc_stencil(self._A[i,j], axis=boundary.axis, ext=boundary.ext, order=0)
 
-        Vh = self.fem_domain
         for c in corners:
             faces = [f for b in c.corners for f in b.boundaries]
             if len(c) == 2:continue
@@ -287,7 +286,8 @@ class ConformingProjection_V0( FemLinearOperator ):
                         interface = get_interface_from_corners(b1, b2, domain)
                         index = get_row_col_index(b1, b2, interface, Vh.spaces[i], Vh.spaces[j])
                         self._A[i,j][tuple(index)] = 0.
-                    if rhs:rhs[i][tuple(index[:2])]
+
+                        if i==j and rhs:rhs[i][tuple(index[:2])] = 0.
 
 #===============================================================================
 class ConformingProjection_V1( FemLinearOperator ):

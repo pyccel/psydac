@@ -58,29 +58,7 @@ def conga_poisson_2d():
     use_scipy = True
     poisson_tol = 5e-13
 
-    if pretzel:
-        domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=2)
-    else:
-        if cartesian:
-            A = Square('A',bounds1=(0.5, 1), bounds2=(0, 0.5))
-            B = Square('B',bounds1=(0.5, 1), bounds2=(0.5, 1))
-            mapping_1 = IdentityMapping('M1', 2)
-            mapping_2 = IdentityMapping('M2', 2)
-
-        else:
-            A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-            B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
-    #        A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi))
-    #        B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi, 2*np.pi))
-            mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-            mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-
-        domain_1     = mapping_1(A)
-        domain_2     = mapping_2(B)
-
-        domain = domain_1.join(domain_2, name = 'domain',
-                    bnd_minus = domain_1.get_boundary(axis=1, ext=1),
-                    bnd_plus  = domain_2.get_boundary(axis=1, ext=-1))
+    domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
 
@@ -94,7 +72,7 @@ def conga_poisson_2d():
     # . Discrete space
     #+++++++++++++++++++++++++++++++
 
-    ncells = [5, 5]
+    ncells = [2**2, 2**2]
     degree = [2, 2]
     nquads = [d + 1 for d in degree]
 
@@ -149,7 +127,8 @@ def conga_poisson_2d():
 
     # Conforming projection V0 -> V0
     ## note: there are problems (eg at the interface) when the conforming projection is not accurate (low penalization or high tolerance)
-    cP0 = ConformingProjection_V0(V0h, domain_h)
+    cP0     = ConformingProjection_V0(V0h, domain_h)
+    cP0_hom = ConformingProjection_V0(V0h, domain_h, hom_bc=True)
 
     I0 = IdLinearOperator(V0h)
 
@@ -169,32 +148,26 @@ def conga_poisson_2d():
     # A = (cD0)^T * M1 * cD0 + (I0 - Pc)^2
 
     cD0T_M1_cD0 = ComposedLinearOperator([cP0, bD0.transpose(), M1, bD0, cP0])
-    A = (I0-cP0) + cD0T_M1_cD0
+    A = ComposedLinearOperator([(I0-cP0),(I0-cP0)]) + cD0T_M1_cD0
 
     # apply boundary conditions
-    boundary = domain.boundary
+    boundary = Union(*[j for i in domain.interior for j in i.boundary])
 
-    a0 = BilinearForm((u,v), integral(boundary, u*v))
-    l0 = LinearForm(v, integral(boundary, phi_exact*v))
+    a0 = BilinearForm((u,v), integral(domain, u*v))
+    l0 = LinearForm(v, integral(domain, phi_exact*v))
 
     a0_h = discretize(a0, domain_h, [V0h, V0h])
     l0_h = discretize(l0, domain_h, V0h)
 
     x0, info = cg(a0_h.assemble(), l0_h.assemble(), tol=poisson_tol)
 
-#    x0[1][0,6] = 0.8753804911443419
-#    print(x0[0][0,0])
-#    print(x0[1][0,6])
-#    print(x0[2][6,6])
+    x0 = cP0.dot(x0)-cP0_hom.dot(x0)
 
     b = b - A.dot(x0)
-
     for bn in domain.boundary:
-        cP0.set_homogenous_bc(bn, rhs=b)
+        cP0.set_homogenous_bc(bn)
 
-#    np.savetxt('p_conf_poi.txt',cP0._A.toarray())
     # ...
-
     if use_scipy:
         print("solving Poisson with scipy...")
         A = A.to_sparse_matrix()

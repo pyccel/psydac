@@ -77,10 +77,10 @@ def conga_operators_2d():
     # }  # Q (MCP): purpose of a dict ?
 
     # domain, mappings = get_annulus_fourpatches(r_min=0.5, r_max=1)
-    domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
+    domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=2)
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-    print(mappings)
+
     mappings_list = list(mappings.values())
 
     F = [f.get_callable_mapping() for f in mappings_list]
@@ -93,7 +93,7 @@ def conga_operators_2d():
     # . Discrete space
     #+++++++++++++++++++++++++++++++
 
-    ncells = [2**3, 2**3]
+    ncells = [4, 4]
     degree = [2, 2]
     nquads = [d + 1 for d in degree]
 
@@ -113,7 +113,7 @@ def conga_operators_2d():
     P0, P1, P2 = derham_h.projectors(nquads=nquads)
 
     # Conforming projection operators
-    Pconf_0 = ConformingProjection_V0(V0h, domain_h, hom_bc=True)#, verbose=False)
+    Pconf_0 = ConformingProjection_V0(V0h, domain_h)#, verbose=False)
     Pconf_1 = ConformingProjection_V1(V1h, domain_h, hom_bc=True)#, verbose=False)
 
     # Broken derivative operators
@@ -175,8 +175,6 @@ def conga_operators_2d():
     v0   = P0(v_sol_log)
     v0c  = Pconf_0(v0)   # should be H1-conforming (ie, continuous)
     cDv0 = bD0(v0c)
-
-    print(abs(v0c.coeffs.toarray()-Pconf_0._A.toarray().dot(v0.coeffs.toarray())).max(),'#####')
 
     D0 = ComposedLinearOperator([bD0, Pconf_0])
     cDv0 = D0(v0)
