@@ -194,7 +194,7 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
                 [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
                 [domain_5.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1),1],
                 [domain_6.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1],
-#                [domain_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1),1],
+                [domain_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1),1],
                 [domain_7.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1),1],
                 [domain_3.get_boundary(axis=1, ext=+1), domain_9.get_boundary(axis=1, ext=-1),1],
                 [domain_9.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),1],
@@ -203,7 +203,7 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
                 [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1),-1],
                 [domain_7.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=-1),1],
                 [domain_5.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=-1), 1],
-#                [domain_12.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=+1), -1],
+                [domain_12.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=+1), -1],
                 ]
 
         else:
@@ -260,10 +260,12 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
             ]
 
     elif debug_option == 2:
-        domain = union([domain_1, domain_14,domain_12
+        domain = union([domain_1, domain_14,domain_12, domain_5,
                         ], name = 'domain')
 
         interfaces = [
+                [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
+                [domain_5.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=-1), 1],
                 [domain_12.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=+1),-1],
                 [domain_12.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1),1],
         ]

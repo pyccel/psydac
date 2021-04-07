@@ -150,6 +150,9 @@ def conga_poisson_2d():
     cD0T_M1_cD0 = ComposedLinearOperator([cP0, bD0.transpose(), M1, bD0, cP0])
     A = ComposedLinearOperator([(I0-cP0),(I0-cP0)]) + cD0T_M1_cD0
 
+    cD0T_M1_cD0_hom = ComposedLinearOperator([cP0_hom, bD0.transpose(), M1, bD0, cP0_hom])
+    A_hom = ComposedLinearOperator([(I0-cP0_hom),(I0-cP0_hom)]) + cD0T_M1_cD0_hom
+
     # apply boundary conditions
     boundary = Union(*[j for i in domain.interior for j in i.boundary])
 
@@ -164,22 +167,19 @@ def conga_poisson_2d():
     x0 = cP0.dot(x0)-cP0_hom.dot(x0)
 
     b = b - A.dot(x0)
-    for bn in domain.boundary:
-        cP0.set_homogenous_bc(bn)
-
     # ...
     if use_scipy:
         print("solving Poisson with scipy...")
-        A = A.to_sparse_matrix()
+        A_hom = A_hom.to_sparse_matrix()
         b = b.toarray()
 
-        x = scipy_solvers.spsolve(A, b)
+        x = scipy_solvers.spsolve(A_hom, b)
         phi_coeffs = array_to_stencil(x, V0h.vector_space)
 
     else:
-        phi_coeffs, info = cg( A, b, tol=poisson_tol, verbose=True )
+        phi_coeffs, info = cg( A_hom, b, tol=poisson_tol, verbose=True )
 
-    phi_coeffs = cP0.dot(phi_coeffs) + x0
+    phi_coeffs = cP0_hom.dot(phi_coeffs) + x0
 
     phi_h = FemField(V0h, coeffs=phi_coeffs)
 

@@ -68,7 +68,7 @@ def get_interface_from_corners(corner1, corner2, domain):
     return None
 
 
-def get_row_col_index(corner1, corner2, interface, V1, V2):
+def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
     start = V1.vector_space.starts
     end   = V1.vector_space.ends
     degree = V2.degree
@@ -83,7 +83,7 @@ def get_row_col_index(corner1, corner2, interface, V1, V2):
         row[bd.axis] = start_end[(bd.ext+1)//2][bd.axis]
 
     if interface is None and corner1.domain != corner2.domain:
-        bd = corner1.boundaries[0]
+        bd = [i for i in corner1.boundaries if i.axis==axis][0]
         if bd.ext == 1:row[bd.axis] = degree[bd.axis]
 
     if interface is None:
@@ -112,6 +112,44 @@ def get_row_col_index(corner1, corner2, interface, V1, V2):
             col[axis] =  -degree[axis]
 
     return row+col
+
+#===============================================================================
+def allocate_matrix(corners, test_space, trial_space):
+
+    bi, bj = list(zip(*corners))
+    permutation = np.arange(bi[0].domain.dim)
+
+    flips = []
+    k = 0
+    while k<len(bi):
+        c1 = np.array(bi[k].coordinates)
+        c2 = np.array(bj[k].coordinates)[permutation]
+        flips.append(np.array([-1 if d1!=d2 else 1 for d1,d2 in zip(c1, c2)]))
+
+        if np.sum(abs(flips[0]-flips[-1])) != 0:
+            prod = [f1*f2 for f1,f2 in zip(flips[0], flips[-1])]
+            while -1 in prod:
+                i1 = prod.index(-1)
+                if -1 in prod[i1+1:]:
+                    i2 = i1+1 + prod[i1+1:].index(-1)
+                    prod = prod[i2+1:]
+                    permutation[i1], permutation[i2] = permutation[i2], permutation[i1]
+                    k = -1
+                    flips = []
+                else:
+                    break
+
+        k +=1
+
+    assert all(abs(flips[0] - i).sum()==0 for i in flips)
+    cs    = list(zip(*[i.coordinates for i in bi]))
+    axis  = [all(i[0]==j for j in i) for i in cs].index(True)
+    ext   = 1 if cs[axis][0]==1 else -1
+    s     = test_space.quad_grids[axis].spans[-1 if ext==1 else 0] - test_space.degree[axis]
+
+    mat  = StencilInterfaceMatrix(trial_space.vector_space, test_space.vector_space, s, s, axis, flip=flips[0], permutation=list(permutation))
+    return mat
+
 #===============================================================================
 class ConformingProjection_V0( FemLinearOperator ):
     """
@@ -232,8 +270,18 @@ class ConformingProjection_V0( FemLinearOperator ):
 
                 self._A[i_plus,i_minus][tuple(indices)] = 1/2
 
-
         domain = domain.logical_domain
+        corner_blocks = {}
+        for c in domain.corners:
+            for b1 in c.corners:
+                i = get_patch_index_from_face(domain, b1.domain)
+                for b2 in c.corners:
+                    j = get_patch_index_from_face(domain, b2.domain)
+                    if (i,j) in corner_blocks:
+                        corner_blocks[i,j] += [(b1, b2)]
+                    else:
+                        corner_blocks[i,j] = [(b1, b2)]
+
         for c in domain.corners:
             if len(c) == 2:continue
             for b1 in c.corners:
@@ -241,16 +289,12 @@ class ConformingProjection_V0( FemLinearOperator ):
                 for b2 in c.corners:
                     j = get_patch_index_from_face(domain, b2.domain)
                     interface = get_interface_from_corners(b1, b2, domain)
-                    index = get_row_col_index(b1, b2, interface, V0h.spaces[i], V0h.spaces[j])
+                    axis = None
                     if self._A[i,j] is None:
-                        trial_space = V0h.spaces[j].vector_space
-                        test_space  = V0h.spaces[i].vector_space
-                        c1  = b1.coordinates
-                        c2  = b2.coordinates
-                        bd  = b1.boundaries[0]
-                        s_c = V0h.spaces[i].quad_grids[bd.axis].spans[-1 if bd.ext==1 else 0] - V0h.spaces[i].degree[bd.axis]
-                        flip = [-1 if d1!=d2 else 1 for d1,d2 in zip(c1, c2)]
-                        self._A[i,j] = StencilInterfaceMatrix(trial_space, test_space, s_c, s_c, bd.axis, flip=flip)
+                        self._A[i,j] = allocate_matrix(corner_blocks[i,j], V0h.spaces[i], V0h.spaces[j])
+
+                    if i!=j and self._A[i,j]:axis=self._A[i,j]._dim
+                    index = get_row_col_index(b1, b2, interface, axis, V0h.spaces[i], V0h.spaces[j])
                     self._A[i,j][tuple(index)] = 1/len(c)
 
         self._matrix = self._A
@@ -284,7 +328,9 @@ class ConformingProjection_V0( FemLinearOperator ):
                     for b2 in c.corners:
                         j = get_patch_index_from_face(domain, b2.domain)
                         interface = get_interface_from_corners(b1, b2, domain)
-                        index = get_row_col_index(b1, b2, interface, Vh.spaces[i], Vh.spaces[j])
+                        axis = None
+                        if i!=j:axis = self._A[i,j].dim
+                        index = get_row_col_index(b1, b2, interface, axis, Vh.spaces[i], Vh.spaces[j])
                         self._A[i,j][tuple(index)] = 0.
 
                         if i==j and rhs:rhs[i][tuple(index[:2])] = 0.
