@@ -129,17 +129,6 @@ class FemAssemblyGrid:
                 weights.append( glob_weights[k] )
                 indices.append( k )
                 ne += 1
-        #-------------------------------------------
-        # LOCAL GRID, PROPER (WITHOUT GHOST REGIONS)
-        #-------------------------------------------
-
-        # Local indices of first/last elements in proper domain
-        if space.periodic:
-            local_element_start = spans.index( degree + start )
-            local_element_end   = spans.index( degree + end   )
-        else:
-            local_element_start = spans.index( degree if start == 0   else 1 + start )
-            local_element_end   = spans.index( end if end   == n-1 else 1 + end   )
 
         #-------------------------------------------
         # DATA STORAGE IN OBJECT
@@ -155,6 +144,18 @@ class FemAssemblyGrid:
         self._indices      = np.array( indices )
         self._quad_rule_x  = u
         self._quad_rule_w  = w
+
+        #-------------------------------------------
+        # LOCAL GRID, PROPER (WITHOUT GHOST REGIONS)
+        #-------------------------------------------
+
+        # Local indices of first/last elements in proper domain
+        if space.periodic:
+            local_element_start = self._spans.searchsorted( degree + start )
+            local_element_end   = self._spans.searchsorted( degree + end   )
+        else:
+            local_element_start = self._spans.searchsorted( degree if start == 0   else 1 + start)
+            local_element_end   = self._spans.searchsorted( end if end   == n-1 else 1 + end )
 
         # Local index of start/end elements of domain partitioning
         self._local_element_start = local_element_start
