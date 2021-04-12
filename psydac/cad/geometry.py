@@ -17,13 +17,15 @@ import yamlloader
 import os
 import string
 import random
+import igakit
+
 from mpi4py import MPI
 
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.mapping.discrete import SplineMapping, NurbsMapping
 
-from sympde.topology import Domain, Line, Square, Cube, NCubeInterior
+from sympde.topology       import Domain, Line, Square, Cube, NCubeInterior
 from sympde.topology.basic import Union
 
 #==============================================================================
@@ -326,3 +328,115 @@ class Geometry( object ):
 
         # Close HDF5 file
         h5.close()
+
+#==============================================================================
+def export_geo(filename, patch, periodic=None, comm=None ):
+    yml = OrderedDict()
+    yml['ldim'] = patch.dim
+    yml['pdim'] = patch.points.ndim
+
+    patches_info = []
+    i_mapping    = 0
+    i            = 0
+
+    rational = not abs(patch.weights-1).sum()<1e-15
+
+    patch_name = 'patch_{}'.format(i)
+    name       = '{}'.format( patch_name )
+    mapping_id = 'mapping_{}'.format( i_mapping  )
+    dtype      = 'NurbsMapping' if rational else 'SplineMapping'
+
+    patches_info += [{'name': name , 'mapping_id':mapping_id, 'type':dtype}]
+
+    yml['patches'] = patches_info
+    # ...
+
+    # Create HDF5 file (in parallel mode if MPI communicator size > 1)
+    if not(comm is None) and comm.size > 1:
+        kwargs = dict( driver='mpio', comm=comm )
+    else:
+        kwargs = {}
+
+    h5 = h5py.File( filename, mode='w', **kwargs )
+
+    # ...
+    # Dump geometry metadata to string in YAML file format
+    geom = yaml.dump( data   = yml,
+                     Dumper = yamlloader.ordereddict.Dumper )
+
+    # Write geometry metadata as fixed-length array of ASCII characters
+    h5['geometry.yml'] = np.array( geom, dtype='S' )
+    # ...
+
+    # ... topology
+    if patch.dim == 1:
+        bounds1 = (patch.breaks(0)[0], patch.breaks(0)[-1])
+        domain  = Line(patch_name, bounds1=bounds1)
+
+    elif patch.dim == 2:
+        bounds1 = (patch.breaks(0)[0], patch.breaks(0)[-1])
+        bounds2 = (patch.breaks(1)[0], patch.breaks(1)[-1])
+        domain  = Square(patch_name, bounds1=bounds1, bounds2=bounds2)
+
+    elif patch.dim == 3:
+        bounds1 = (patch.breaks(0)[0], patch.breaks(0)[-1])
+        bounds2 = (patch.breaks(1)[0], patch.breaks(1)[-1])
+        bounds3 = (patch.breaks(2)[0], patch.breaks(2)[-1])
+        domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
+
+    topo_yml = domain.todict()
+
+    # Dump geometry metadata to string in YAML file format
+    geom = yaml.dump( data   = topo_yml,
+                     Dumper = yamlloader.ordereddict.Dumper )
+    # Write topology metadata as fixed-length array of ASCII characters
+    h5['topology.yml'] = np.array( geom, dtype='S' )
+
+    group = h5.create_group( yml['patches'][i]['mapping_id'] )
+    group.attrs['degree'     ] = patch.degree
+    group.attrs['rational'   ] = rational
+    group.attrs['periodic'   ] = tuple( False for d in range( patch.dim ) ) if periodic is None else periodic
+    for d in range( patch.dim ):
+        group['knots_{}'.format( d )] = patch.knots[d]
+    group['points'] = patch.points
+    if rational:
+        group['weights'] = patch.weights
+
+    h5.close()
+
+#==============================================================================
+def refine(nrb, ncells=None, degree=None , periodic=None):
+
+    nrb = nrb.clone()
+    if ncells is not None:
+
+        for axis in range(0,nrb.dim):
+            ub = nrb.knots[axis][0]
+            ue = nrb.knots[axis][-1]
+            knots = list(np.linspace(ub,ue,ncells[axis]+2)[1:-1])
+            for k in nrb.knots[axis]:
+                if k in knots:
+                    knots.remove(k)
+            nrb.refine(axis, knots)
+
+    if degree is not None:
+        for axis in range(0,nrb.dim):
+            d = degree[axis] - nrb.degree[axis]
+            nrb.elevate(axis, times=d)
+
+    return nrb
+
+#==============================================================================
+def create_geometry_file(nrb, filename, ncells, degree, periodic=None):
+
+    assert isinstance(nrb, igakit.nurbs.NURBS)
+    import os.path
+
+    nrb = refine(nrb, ncells=[i-1 for i in ncells], degree=degree)
+    # ...
+
+    extension = os.path.splitext(filename)[1]
+    if not extension == '.h5':
+        raise ValueError('> Only h5 extension is allowed for filename')
+
+    export_geo(filename, nrb, periodic=periodic)
