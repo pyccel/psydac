@@ -148,16 +148,15 @@ def conga_poisson_2d():
     # A = (cD0)^T * M1 * cD0 + (I0 - Pc)^2
 
     cD0T_M1_cD0 = ComposedLinearOperator([cP0, bD0.transpose(), M1, bD0, cP0])
-    A = ComposedLinearOperator([(I0-cP0),(I0-cP0)]) + cD0T_M1_cD0
+    A = ComposedLinearOperator([(I0-cP0), M0, (I0-cP0)]) + cD0T_M1_cD0
 
     cD0T_M1_cD0_hom = ComposedLinearOperator([cP0_hom, bD0.transpose(), M1, bD0, cP0_hom])
-    A_hom = ComposedLinearOperator([(I0-cP0_hom),(I0-cP0_hom)]) + cD0T_M1_cD0_hom
+    A_hom = ComposedLinearOperator([(I0-cP0_hom), M0, (I0-cP0_hom)]) + cD0T_M1_cD0_hom
 
     # apply boundary conditions
     boundary = Union(*[j for i in domain.interior for j in i.boundary])
-
-    a0 = BilinearForm((u,v), integral(domain, u*v))
-    l0 = LinearForm(v, integral(domain, phi_exact*v))
+    a0 = BilinearForm((u,v), integral(boundary, u*v))
+    l0 = LinearForm(v, integral(boundary, phi_exact*v))
 
     a0_h = discretize(a0, domain_h, [V0h, V0h])
     l0_h = discretize(l0, domain_h, V0h)
@@ -165,6 +164,12 @@ def conga_poisson_2d():
     x0, info = cg(a0_h.assemble(), l0_h.assemble(), tol=poisson_tol)
 
     x0 = cP0.dot(x0)-cP0_hom.dot(x0)
+    # x0 = x0 - cP0_hom.dot(x0)   # should also work since x0 is continuous
+
+    ## other option: get the lifted boundary solution by direct interpolation of the boundary data:
+    # bP0, bP1, bP2 = derham_h.projectors(nquads=nquads)
+    # lambdify bP0
+    # x0 = bP0(phi_exact)
 
     b = b - A.dot(x0)
     # ...
