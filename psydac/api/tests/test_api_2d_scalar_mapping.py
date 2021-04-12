@@ -315,26 +315,6 @@ def test_poisson_2d_identity_dir0_1234():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
-def test_pipe():
-
-    filename = os.path.join(mesh_dir, 'pipe.h5')
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
-
-    dir_zero_boundary    = get_boundaries()
-    dir_nonzero_boundary = get_boundaries(1, 2, 3, 4)
-    neumann_boundary     = get_boundaries()
-
-    l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary, comm=MPI.COMM_WORLD)
-
-    expected_l2_error =  0.00021808678604159413
-    expected_h1_error =  0.013023570720357957
-
-    print(l2_error, h1_error)
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-test_pipe()
 #------------------------------------------------------------------------------
 def test_poisson_2d_identity_dir0_234_neu0_1():
 
@@ -950,6 +930,28 @@ def test_poisson_2d_circle_dir0():
 
     expected_l2_error = 0.0015245737751297718
     expected_h1_error = 0.06653900724243668
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+#==============================================================================
+# 2D Poisson's equation on pipe
+#==============================================================================
+def test_poisson_2d_pipe_diri_1234():
+
+    filename = os.path.join(mesh_dir, 'pipe.h5')
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
+
+    dir_zero_boundary    = get_boundaries()
+    dir_nonzero_boundary = get_boundaries(1, 2, 3, 4)
+    neumann_boundary     = get_boundaries()
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+
+    expected_l2_error =  0.0009958323057358508
+    expected_h1_error =  0.04036540423678278
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
