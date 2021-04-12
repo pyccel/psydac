@@ -98,7 +98,7 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
     hr = dr/2
     cr = h +(r_max+r_min)/2
 
-    smaller = True
+    smaller = True # todo (MCP): use only the 'smaller' pretzel and discard other case
 
     # print("building domain: hr = ", hr, ", h = ", h)
 
@@ -362,21 +362,6 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
         mappings  = {
             dom_log_6.interior:mapping_6,
             dom_log_2.interior:mapping_2,
-        }  # Q (MCP): purpose of a dict ?
-
-    elif debug_option == 50:
-        domain = union([
-            domain_6,
-            domain_50,
-        ], name = 'domain')
-
-        interfaces = [
-            [domain_6.get_boundary(axis=1, ext=+1), domain_50.get_boundary(axis=1, ext=-1)],
-            ]
-
-        mappings  = {
-            dom_log_6.interior:mapping_6,
-            dom_log_50.interior:mapping_50,
         }  # Q (MCP): purpose of a dict ?
 
     else:

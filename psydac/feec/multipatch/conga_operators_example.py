@@ -79,6 +79,11 @@ def conga_operators_2d():
     # domain, mappings = get_annulus_fourpatches(r_min=0.5, r_max=1)
     domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=2)
 
+    print("int: ", domain.interior)
+    print("bound: ", domain.boundary)
+    print("len(bound): ", len(domain.boundary))
+    print("interfaces: ", domain.interfaces)
+
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
 
     mappings_list = list(mappings.values())
@@ -207,7 +212,7 @@ def conga_operators_2d():
     #   and psydac/api/tests/test_api_feec_2d.py
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    N=40
+    N=80
     etas, xx, yy = get_plotting_grid(mappings, N)
     gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(V0h, N, mappings, plotted_patch=1)
 
@@ -216,39 +221,43 @@ def conga_operators_2d():
 
     # I - 1. qualitative assessment of conf Projection in V0, with discontinuous v
 
-    # plot v, v0 and v0c
-    v_vals   = grid_vals_h1(v_sol_log)
-    v0_vals  = grid_vals_h1(v0)
-    v0c_vals = grid_vals_h1(v0c)
+    only_cP1_test = True
 
-    my_small_plot(
-        title=r'broken and conforming approximation of some $v$',
-        vals=[v_vals, v0_vals, v0c_vals],
-        titles=[r'$v^{ex}(x,y)$', r'$v^h(x,y)$', r'$P^{0,c} v^h(x,y)$'],
-        xx=xx, yy=yy,
-        surface_plot=True,
-        cmap='jet'
-    )
+    if not only_cP1_test:
 
-        # gridlines_x1=gridlines_x1,
-        # gridlines_x2=gridlines_x2,
+        # plot v, v0 and v0c
+        v_vals   = grid_vals_h1(v_sol_log)
+        v0_vals  = grid_vals_h1(v0)
+        v0c_vals = grid_vals_h1(v0c)
+
+        my_small_plot(
+            title=r'broken and conforming approximation of some $v$',
+            vals=[v_vals, v0_vals, v0c_vals],
+            titles=[r'$v^{ex}(x,y)$', r'$v^h(x,y)$', r'$P^{0,c} v^h(x,y)$'],
+            xx=xx, yy=yy,
+            surface_plot=True,
+            cmap='jet'
+        )
+
+            # gridlines_x1=gridlines_x1,
+            # gridlines_x2=gridlines_x2,
 
 
-    # plot v0 and cDv0
-    cDv0_x_vals, cDv0_y_vals = grid_vals_hcurl(cDv0)
+        # plot v0 and cDv0
+        cDv0_x_vals, cDv0_y_vals = grid_vals_hcurl(cDv0)
 
-    my_small_plot(
-        title=r'discontinuous $v^h$ and its Conga gradient $D^0 = D^{0,b}P^{0,c}$',
-        vals=[v0_vals, cDv0_x_vals, cDv0_y_vals],
-        titles=[r'$v^h(x,y)$', r'$(D^0 v^h)_x(x,y)$' , r'$(D^0 v^h)_y(x,y)$' ],
-        xx=xx, yy=yy,
-        surface_plot=True,
-    )
-        # gridlines_x1=gridlines_x1,
-        # gridlines_x2=gridlines_x2,
+        my_small_plot(
+            title=r'discontinuous $v^h$ and its Conga gradient $D^0 = D^{0,b}P^{0,c}$',
+            vals=[v0_vals, cDv0_x_vals, cDv0_y_vals],
+            titles=[r'$v^h(x,y)$', r'$(D^0 v^h)_x(x,y)$' , r'$(D^0 v^h)_y(x,y)$' ],
+            xx=xx, yy=yy,
+            surface_plot=True,
+        )
+            # gridlines_x1=gridlines_x1,
+            # gridlines_x2=gridlines_x2,
 
-    # print(" ok stop for now -- confP1 will be checked later ")
-    # exit()
+        # print(" ok stop for now -- confP1 will be checked later ")
+        # exit()
 
     # I - 2. qualitative assessment of conf Projection in V1, with discontinuous G
 
@@ -275,7 +284,30 @@ def conga_operators_2d():
         yy=yy,
     )
 
+    # plot G1x, G1y, and confP1 approx
+    my_small_plot(
+        title=r'broken and conforming approximation: comp x',
+        vals=[G1_x_vals,G1c_x_vals],
+        titles=[r'$G^h_x(x,y)$',r'$(P^{1,c}G)_x v^h(x,y)$'],
+        xx=xx,
+        yy=yy,
+        surface_plot=True,
+    )
+
+    # plot G1x, G1y, and confP1 approx
+    my_small_plot(
+        title=r'broken and conforming approximation: comp y',
+        vals=[G1_y_vals,G1c_y_vals],
+        titles=[r'$G^h_y(x,y)$',r'$(P^{1,c}G)_y v^h(x,y)$'],
+        xx=xx,
+        yy=yy,
+        surface_plot=True,
+    )
+
     # todo: plot G1, broken_curl G1 and conga_curl G1
+
+    print(" ok, confP1 done now")
+    exit()
 
 
     # II. visual check of commuting diag properties
