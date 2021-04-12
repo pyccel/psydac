@@ -66,8 +66,8 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, cartesian=True, 
         # mappings  = {OmegaLog1.interior:mapping_1, OmegaLog2.interior:mapping_2}
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings_list = list(mappings.values())
 
-    # mappings_list = list(mappings.values())
     # x,y    = domain.coordinates
     # nquads = [d + 1 for d in degree]
 
@@ -121,6 +121,9 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, cartesian=True, 
     # plotting
     etas, xx, yy = get_plotting_grid(mappings, N=20)
 
+    grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
+    grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+
     first_Pemodes_vals = []
     first_Pemodes_titles = []
 
@@ -136,12 +139,12 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, cartesian=True, 
         cP_emode = cP1(emode)
         curl_emode = D1(emode)
 
-        eh_x_vals, eh_y_vals = get_grid_vals_vector(emode, etas, mappings)
-        cPeh_x_vals, cPeh_y_vals = get_grid_vals_vector(cP_emode, etas, mappings)
+        eh_x_vals, eh_y_vals = grid_vals_hcurl(emode)
+        cPeh_x_vals, cPeh_y_vals = grid_vals_hcurl(cP_emode)
         Peh_abs_vals = [np.sqrt(abs(Pex)**2 + abs(Pey)**2) for Pex, Pey in zip(cPeh_x_vals, cPeh_y_vals)]
         jumps_eh_vals = [np.sqrt(abs(ex-Pex)**2 + abs(ey-Pey)**2)
                          for ex, Pex, ey, Pey in zip (eh_x_vals, cPeh_x_vals, eh_y_vals, cPeh_y_vals)]
-        curl_eh_vals = get_grid_vals_scalar(curl_emode, etas, mappings)
+        curl_eh_vals = grid_vals_h1(curl_emode)
 
         if show_all:
             my_small_plot(

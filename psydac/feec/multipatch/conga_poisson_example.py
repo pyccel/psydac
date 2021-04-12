@@ -208,8 +208,14 @@ def conga_poisson_2d():
     etas, xx, yy = get_plotting_grid(mappings, N)
     gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(V0h, N, mappings, plotted_patch=1)
 
-    phi_ref_vals = get_grid_vals_scalar(phi_ex_log, etas, domain, list(mappings.values())) #_obj)
-    phi_h_vals   = get_grid_vals_scalar(phi_h, etas, domain, list(mappings.values())) #
+    grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
+
+    # phi_ref_vals = get_grid_vals_scalar(phi_ex_log, etas, domain, list(mappings.values())) #_obj)
+    # phi_h_vals   = get_grid_vals_scalar(phi_h, etas, domain, list(mappings.values())) #
+
+
+    phi_ref_vals = grid_vals_h1(phi_ex_log)
+    phi_h_vals   = grid_vals_h1(phi_h)
     phi_err = [abs(pr - ph) for pr, ph in zip(phi_ref_vals, phi_h_vals)]
 
     print([np.array(a).max() for a in phi_err])

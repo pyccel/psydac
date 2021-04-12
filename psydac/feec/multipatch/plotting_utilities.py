@@ -16,9 +16,12 @@ from psydac.fem.basic   import FemField
 
 from psydac.feec.pull_push     import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
-def get_grid_vals_scalar(u, etas, domain, mappings_list, space_kind='h1'):  #_obj):
+# todo (MCP, april 12): merge get_grid_vals_scalar and get_grid_vals_vector into a single function
+
+def get_grid_vals_scalar(u, etas, mappings_list, space_kind='h1'):  #_obj):
     # get the physical field values, given the logical field and the logical grid
-    n_patches = len(domain)
+    # n_patches = len(domain)
+    n_patches = len(mappings_list)
     u_vals    = n_patches*[None]
     for k in range(n_patches):
         eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
@@ -43,10 +46,10 @@ def get_grid_vals_scalar(u, etas, domain, mappings_list, space_kind='h1'):  #_ob
     return u_vals
 
 
-def get_grid_vals_vector(E, etas, mappings, space_kind='hcurl'):
+def get_grid_vals_vector(E, etas, mappings_list, space_kind='hcurl'):
     # get the physical field values, given the logical field and logical grid
-    n_patches = len(mappings)
-    mappings_list = list(mappings.values())
+    n_patches = len(mappings_list)
+    # mappings_list = list(mappings.values())
     E_x_vals = n_patches*[None]
     E_y_vals = n_patches*[None]
     for k in range(n_patches):

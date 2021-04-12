@@ -54,6 +54,7 @@ def run_poisson_2d_eigenproblem(nb_eigs, ncells, degree, show_all=False):
         # mappings  = {OmegaLog1.interior:mapping_1, OmegaLog2.interior:mapping_2}
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings_list = list(mappings.values())
 
     # x,y    = domain.coordinates
 
@@ -92,6 +93,7 @@ def run_poisson_2d_eigenproblem(nb_eigs, ncells, degree, show_all=False):
     print(eigenvectors.shape)
     # plotting
     etas, xx, yy = get_plotting_grid(mappings, N=20)
+    grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
 
     first_Pemodes_vals = []
     first_Pemodes_titles = []
@@ -102,7 +104,7 @@ def run_poisson_2d_eigenproblem(nb_eigs, ncells, degree, show_all=False):
         emode = FemField(V0h, coeffs=emode_c)
         emode = cP0(emode)
 
-        uh_vals = get_grid_vals_scalar(emode, etas, mappings)
+        uh_vals = grid_vals_h1(emode)
 
         if show_all:
             my_small_plot(

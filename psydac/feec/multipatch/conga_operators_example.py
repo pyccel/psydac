@@ -211,12 +211,15 @@ def conga_operators_2d():
     etas, xx, yy = get_plotting_grid(mappings, N)
     gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(V0h, N, mappings, plotted_patch=1)
 
+    grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
+    grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+
     # I - 1. qualitative assessment of conf Projection in V0, with discontinuous v
 
     # plot v, v0 and v0c
-    v_vals   = get_grid_vals_scalar(v_sol_log, etas, domain, mappings)
-    v0_vals  = get_grid_vals_scalar(v0, etas, domain,mappings)
-    v0c_vals = get_grid_vals_scalar(v0c, etas, domain, mappings)
+    v_vals   = grid_vals_h1(v_sol_log)
+    v0_vals  = grid_vals_h1(v0)
+    v0c_vals = grid_vals_h1(v0c)
 
     my_small_plot(
         title=r'broken and conforming approximation of some $v$',
@@ -232,7 +235,7 @@ def conga_operators_2d():
 
 
     # plot v0 and cDv0
-    cDv0_x_vals, cDv0_y_vals = get_grid_vals_vector(cDv0, etas, mappings)
+    cDv0_x_vals, cDv0_y_vals = grid_vals_hcurl(cDv0)
 
     my_small_plot(
         title=r'discontinuous $v^h$ and its Conga gradient $D^0 = D^{0,b}P^{0,c}$',
@@ -244,15 +247,15 @@ def conga_operators_2d():
         # gridlines_x1=gridlines_x1,
         # gridlines_x2=gridlines_x2,
 
-    print(" ok stop for now -- confP1 will be checked later ")
-    exit()
+    # print(" ok stop for now -- confP1 will be checked later ")
+    # exit()
 
     # I - 2. qualitative assessment of conf Projection in V1, with discontinuous G
 
 
-    G_x_vals, G_y_vals     = get_grid_vals_vector(G_sol_log, etas, mappings)
-    G1_x_vals, G1_y_vals   = get_grid_vals_vector(G1, etas, mappings)
-    G1c_x_vals, G1c_y_vals = get_grid_vals_vector(G1c, etas, mappings)
+    G_x_vals, G_y_vals     = grid_vals_hcurl(G_sol_log)
+    G1_x_vals, G1_y_vals   = grid_vals_hcurl(G1)
+    G1c_x_vals, G1c_y_vals = grid_vals_hcurl(G1c)
 
     # plot G, G1 and G1c, x component
     my_small_plot(
@@ -280,8 +283,8 @@ def conga_operators_2d():
 
     # plot u and u0 = u_h
 
-    u_vals  = get_grid_vals_scalar(u_sol_log, etas, mappings)
-    u0_vals = get_grid_vals_scalar(u0, etas, mappings)
+    u_vals  = grid_vals_h1(u_sol_log)
+    u0_vals = grid_vals_h1(u0)
     u_err = [abs(u1 - u2) for u1, u2 in zip(u_vals, u0_vals)]
     # u_err   = abs(u_vals - u0_vals)
 
@@ -295,8 +298,8 @@ def conga_operators_2d():
 
     # plot (compare) E1 and grad_u0
 
-    E_x_vals, E_y_vals   = get_grid_vals_vector(E_sol_log, etas, mappings)
-    E1_x_vals, E1_y_vals = get_grid_vals_vector(E1, etas, mappings)
+    E_x_vals, E_y_vals   = grid_vals_hcurl(E_sol_log)
+    E1_x_vals, E1_y_vals = grid_vals_hcurl(E1)
 
     E_x_err = [abs(e1 - e2) for e1, e2 in zip(E_x_vals, E1_x_vals)]
     E_y_err = [abs(e1 - e2) for e1, e2 in zip(E_y_vals, E1_y_vals)]
@@ -319,7 +322,7 @@ def conga_operators_2d():
         yy=yy,
     )
 
-    grad_u0_x_vals, grad_u0_y_vals = get_grid_vals_vector(grad_u0, etas, mappings)
+    grad_u0_x_vals, grad_u0_y_vals = grid_vals_hcurl(grad_u0)
     gu_x_err = [abs(e1 - e2) for e1, e2 in zip(grad_u0_x_vals, E1_x_vals)]
     gu_y_err = [abs(e1 - e2) for e1, e2 in zip(grad_u0_y_vals, E1_y_vals)]
     # gu_x_err = abs(grad_u0_x_vals - E1_x_vals)

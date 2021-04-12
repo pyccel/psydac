@@ -5,6 +5,8 @@ from mpi4py import MPI
 import numpy as np
 import matplotlib.pyplot as plt
 
+from collections import OrderedDict
+
 from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import eigs
 
@@ -150,8 +152,8 @@ def run_maxwell_2d_time_harmonic():
     f        = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                      alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
-
-    mappings  = {A.interior:mapping_1, B.interior:mapping_2}
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    # mappings  = {A.interior:mapping_1, B.interior:mapping_2}
     mappings_list = list(mappings.values())
 
     uex_x = lambdify(domain.coordinates, uex[0])
@@ -178,11 +180,12 @@ def run_maxwell_2d_time_harmonic():
 
     N=20
     etas, xx, yy = get_plotting_grid(mappings, N)
+    grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
     gridlines_x1 = None
     gridlines_x2 = None
 
-    u_x_vals, u_y_vals   = get_grid_vals_vector(uex_log, etas, mappings)
-    uh_x_vals, uh_y_vals = get_grid_vals_vector(uh, etas, mappings)
+    u_x_vals, u_y_vals   = grid_vals_hcurl(uex_log)
+    uh_x_vals, uh_y_vals = grid_vals_hcurl(uh)
     u_x_err = [abs(u1 - u2) for u1, u2 in zip(u_x_vals, uh_x_vals)]
     u_y_err = [abs(u1 - u2) for u1, u2 in zip(u_y_vals, uh_y_vals)]
     # u_x_err = abs(u_x_vals - uh_x_vals)
