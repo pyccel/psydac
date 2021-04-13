@@ -4,7 +4,6 @@
 # the topology i.e. connectivity, boundaries
 # For the moment, it is used as a container, that can be loaded from a file
 # (hdf5)
-
 from itertools import product
 from collections import OrderedDict
 from collections import abc
@@ -17,7 +16,7 @@ import yamlloader
 import os
 import string
 import random
-import igakit
+
 
 from mpi4py import MPI
 
@@ -429,6 +428,7 @@ def refine(nrb, ncells=None, degree=None , periodic=None):
 #==============================================================================
 def create_geometry_file(nrb, filename, ncells, degree, periodic=None):
 
+    import igakit
     assert isinstance(nrb, igakit.nurbs.NURBS)
     import os.path
 
@@ -440,3 +440,103 @@ def create_geometry_file(nrb, filename, ncells, degree, periodic=None):
         raise ValueError('> Only h5 extension is allowed for filename')
 
     export_geo(filename, nrb, periodic=periodic)
+
+#==============================================================================
+class geopdes(object):
+    def __init__(self):
+        self._list_begin_line = []
+
+        self._n_lines_per_patch = 0
+
+    def read(self, filename):
+
+        f = open(filename)
+        lines = f.readlines()
+        f.close()
+
+        _lines = []
+        for line in lines:
+            if line[0].strip() != "#":
+                _lines.append(line)
+        lines = _lines
+        data = self._read_header(lines[0])
+        n_dim = data[0]
+        r_dim = data[1]
+        n_patchs = data[2]
+
+        self._n_lines_per_patch = n_dim + n_dim + n_dim + 1
+
+        self._list_begin_line = self._get_begin_line(lines, n_patchs)
+
+
+        nrb = self._read_patch(lines, 1)
+
+        return nrb
+
+    def _read_header(self, line):
+        chars = line.split(" ")
+        data  = []
+        for c in chars:
+            try:
+                data.append(int(c))
+            except:
+                pass
+        return data
+
+    def _extract_patch_line(self, lines, i_patch):
+        text = "PATCH " + str(i_patch)
+        for i_line,line in enumerate(lines):
+            r = line.find(text)
+            if r != -1:
+                return i_line
+        return None
+
+    def _get_begin_line(self, lines, n_patchs):
+        list_begin_line = []
+        for i_patch in range(0, n_patchs):
+            r = self._extract_patch_line(lines, i_patch+1)
+            if r is not None:
+                list_begin_line.append(r)
+            else:
+                raise ValueError(" could not parse the input file")
+        return list_begin_line
+
+    def _read_line(self, line):
+        chars = line.split(" ")
+        data  = []
+        for c in chars:
+            try:
+                data.append(int(c))
+            except:
+                try:
+                    data.append(float(c))
+                except:
+                    pass
+        return data
+
+    def _read_patch(self, lines, i_patch):
+
+        from igakit.nurbs import NURBS
+
+        i_begin_line = self._list_begin_line[i_patch-1]
+        data_patch = []
+        for i in range(i_begin_line+1, i_begin_line+self._n_lines_per_patch+1):
+            data_patch.append(self._read_line(lines[i]))
+        degree = data_patch[0]
+        shape  = data_patch[1]
+
+        xl     = [np.array(i) for i in data_patch[2:2+len(degree)] ]
+        xp     = [np.array(i) for i in data_patch[2+len(degree):2+2*len(degree)] ]
+        w      = np.array(data_patch[2+2*len(degree)])
+
+        X = [i.reshape(shape, order='F') for i in xp]
+        W = w.reshape(shape, order='F')
+
+        points = np.zeros((*shape, 3))
+        for i in range(len(shape)):
+            points[..., i] = X[i]
+
+        knots = xl
+
+        cad_nrb = NURBS(knots, control=points, weights=W)
+        return cad_nrb
