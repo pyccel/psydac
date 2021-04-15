@@ -275,7 +275,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *basis, *spans, *degrees, *coeffs, *consts)
+            args = (*self.args, *consts, *basis, *spans, *degrees, *coeffs)
 
         else:
             args = self._args
@@ -545,7 +545,7 @@ class DiscreteLinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *basis, *spans, *degrees, *coeffs, *consts)
+            args = (*self.args, *consts, *basis, *spans, *degrees, *coeffs)
 
         else:
             args = self._args
