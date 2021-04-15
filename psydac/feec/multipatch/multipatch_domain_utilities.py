@@ -260,7 +260,11 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
             ]
 
     elif debug_option == 2:
-        domain = union([domain_1, domain_14,domain_12, domain_5,
+        domain = union([
+                        domain_1,
+                        domain_14,
+                        domain_12,
+                        domain_5,
                         ], name = 'domain')
 
         interfaces = [

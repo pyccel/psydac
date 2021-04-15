@@ -353,6 +353,7 @@ class ConformingProjection_V1( FemLinearOperator ):
 
         V1             = V1h.symbolic_space
         domain         = V1.domain
+        self.symbolic_domain  = domain
 
         u, v = elements_of(V1, names='u, v')
         expr   = dot(u,v)
@@ -423,33 +424,83 @@ class ConformingProjection_V1( FemLinearOperator ):
                 d_minus = [d11, d12]
                 d_plus  = [d21, d22]
 
+                minus_ext = I.minus.ext
+                plus_ext = I.plus.ext
+
+                axis = I.axis
                 for k in range(domain.dim):
                     if k == I.axis:continue
 
-                    indices[I.axis] = e_minus[k]
+                    if minus_ext == 1:
+                        indices[axis] = e_minus[axis]
+                    else:
+                        indices[axis] = s_minus[axis]
                     self._A[i_minus,i_minus][k,k][tuple(indices)] = 1/2
 
-                    indices[I.axis] = s_plus[k]
+                    if plus_ext == 1:
+                        indices[axis] = e_plus[axis]
+                    else:
+                        indices[axis] = s_plus[axis]
+
                     self._A[i_plus,i_plus][k,k][tuple(indices)] = 1/2
 
-                    indices[I.axis] = d_minus[k]
-                    indices[domain.dim + I.axis] = -d_plus[k]
-                    self._A[i_minus,i_plus][k,k][tuple(indices)] = 1/2
+                    if plus_ext == minus_ext:
+                        if minus_ext == 1:
+                            indices[axis] = d_minus[axis]
+                        else:
+                            indices[axis] = s_minus[axis]
 
-                    indices[I.axis] = s_plus[k]
-                    indices[domain.dim + I.axis] = d_minus[k]
+                        self._A[i_minus,i_plus][k,k][tuple(indices)] = 1/2
 
-                    self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2
+                        if plus_ext == 1:
+                            indices[axis] = d_plus[axis]
+                        else:
+                            indices[axis] = s_plus[axis]
+
+                        self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2
+
+                    else:
+                        if minus_ext == 1:
+                            indices[axis] = d_minus[axis]
+                        else:
+                            indices[axis] = s_minus[axis]
+
+                        if plus_ext == 1:
+                            indices[domain.dim + axis] = d_plus[axis]
+                        else:
+                            indices[domain.dim + axis] = -d_plus[axis]
+
+                        self._A[i_minus,i_plus][k,k][tuple(indices)] = 1/2
+
+                        if plus_ext == 1:
+                            indices[axis] = d_plus[axis]
+                        else:
+                            indices[axis] = s_plus[axis]
+
+                        if minus_ext == 1:
+                            indices[domain.dim + axis] = d_minus[axis]
+                        else:
+                            indices[domain.dim + axis] = -d_minus[axis]
+
+                        self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2
+
 
         if hom_bc:
             for bn in domain.boundary:
-                i = get_patch_index_from_face(domain, bn)
-                for j in range(len(domain)):
-                    if self._A[i,j] is None:continue
-                    apply_essential_bc_stencil(self._A[i,j][1-bn.axis,1-bn.axis], axis=bn.axis, ext=bn.ext, order=0)
+                self.set_homogenous_bc(bn)
 
         self._matrix = self._A
-        # exit()
+
+    def set_homogenous_bc(self, boundary):
+        domain = self.symbolic_domain
+        Vh = self.fem_domain
+
+        i = get_patch_index_from_face(domain, boundary)
+        axis = boundary.axis
+        ext  = boundary.ext
+        for j in range(len(domain)):
+            if self._A[i,j] is None:continue
+            apply_essential_bc_stencil(self._A[i,j][1-axis,1-axis], axis=axis, ext=ext, order=0)
 
 #===============================================================================
 class BrokenMass( FemLinearOperator ):
