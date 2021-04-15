@@ -80,7 +80,6 @@ def test_multiple_fields():
     assert abs(A.dot(x).dot(x) - 1) < 1e-12
 
     # Test vector b
-    b_arr = b.toarray()
     assert abs(b.toarray().sum() - 1) < 1e-12
 
     print("PASSED")
