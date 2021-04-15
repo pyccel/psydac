@@ -166,7 +166,7 @@ def conga_operators_2d():
     v_sol_log = [lambda xi1, xi2, ii=i : ii for i in range(nb_patches)]
 
     # G_sol_log = [[(lambda y:lambda xi1, xi2 : y)(i) for d in [0,1]] for i in range(len(domain))]
-    G_sol_log = [[lambda xi1, xi2, ii=i : ii for i in [0,1]] for i in range(nb_patches)]
+    G_sol_log = [[lambda xi1, xi2, ii=i : ii+1 for d in [0,1]] for i in range(nb_patches)]
 
     # note: in other tests, the target functions are given directly as lambda functions -- what is best ?
     # fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
@@ -190,6 +190,10 @@ def conga_operators_2d():
     cDG1 = bD1(G1c)
 
 
+#    print(G1c.coeffs[0][0].toarray().reshape((5,6)).T, G1c.coeffs[1][0].toarray().reshape((5,6)).T, sep='\n')
+#    print(G1c.coeffs[0][1].toarray().reshape((6,5)).T, G1c.coeffs[1][1].toarray().reshape((6,5)).T, sep='\n')
+
+#    raise
     # II. check the commuting diag properties
 
     # - for the gradient:  D0 P0 u = P1 grad u

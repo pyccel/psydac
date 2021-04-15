@@ -168,6 +168,7 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
 
     dom_log_14 = Square('dom14',bounds1=(np.pi, np.pi*3/2), bounds2=(r_min, r_max))
     mapping_14 = TransposedPolarMapping('M14',2, c1= r_max, c2= r_max, rmin = 0., rmax=1.)
+    #mapping_14 = get_2D_rotation_mapping('M14', c1=-2*np.pi, c2=0 , alpha=0)
     domain_14  = mapping_14(dom_log_14)
 
     dom_log_15 = Square('dom15', bounds1=(-r_min-h, r_min+h), bounds2=(0, h))
@@ -261,17 +262,17 @@ def get_pretzel(h, r_min, r_max, debug_option=1):
 
     elif debug_option == 2:
         domain = union([
-                        domain_1,
+                        #domain_1,
                         domain_14,
                         domain_12,
-                        domain_5,
+                       # domain_5,
                         ], name = 'domain')
 
         interfaces = [
-                [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
-                [domain_5.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=-1), 1],
+             #   [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
+             #   [domain_5.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=-1), 1],
                 [domain_12.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=+1),-1],
-                [domain_12.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1),1],
+            #    [domain_12.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1),1],
         ]
 
     elif debug_option == 23:

@@ -432,57 +432,57 @@ class ConformingProjection_V1( FemLinearOperator ):
                     if k == I.axis:continue
 
                     if minus_ext == 1:
-                        indices[axis] = e_minus[axis]
+                        indices[axis] = e_minus[k]
                     else:
-                        indices[axis] = s_minus[axis]
+                        indices[axis] = s_minus[k]
                     self._A[i_minus,i_minus][k,k][tuple(indices)] = 1/2
 
                     if plus_ext == 1:
-                        indices[axis] = e_plus[axis]
+                        indices[axis] = e_plus[k]
                     else:
-                        indices[axis] = s_plus[axis]
+                        indices[axis] = s_plus[k]
 
                     self._A[i_plus,i_plus][k,k][tuple(indices)] = 1/2
 
                     if plus_ext == minus_ext:
                         if minus_ext == 1:
-                            indices[axis] = d_minus[axis]
+                            indices[axis] = d_minus[k]
                         else:
-                            indices[axis] = s_minus[axis]
+                            indices[axis] = s_minus[k]
 
-                        self._A[i_minus,i_plus][k,k][tuple(indices)] = 1/2
+                        self._A[i_minus,i_plus][k,k][tuple(indices)] = 1/2*I.direction
 
                         if plus_ext == 1:
-                            indices[axis] = d_plus[axis]
+                            indices[axis] = d_plus[k]
                         else:
-                            indices[axis] = s_plus[axis]
+                            indices[axis] = s_plus[k]
 
-                        self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2
+                        self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2*I.direction
 
                     else:
                         if minus_ext == 1:
-                            indices[axis] = d_minus[axis]
+                            indices[axis] = d_minus[k]
                         else:
-                            indices[axis] = s_minus[axis]
+                            indices[axis] = s_minus[k]
 
                         if plus_ext == 1:
-                            indices[domain.dim + axis] = d_plus[axis]
+                            indices[domain.dim + axis] = d_plus[k]
                         else:
-                            indices[domain.dim + axis] = -d_plus[axis]
+                            indices[domain.dim + axis] = -d_plus[k]
 
-                        self._A[i_minus,i_plus][k,k][tuple(indices)] = 1/2
+                        self._A[i_minus,i_plus][k,k][tuple(indices)] = 1/2*I.direction
 
                         if plus_ext == 1:
-                            indices[axis] = d_plus[axis]
+                            indices[axis] = d_plus[k]
                         else:
-                            indices[axis] = s_plus[axis]
+                            indices[axis] = s_plus[k]
 
                         if minus_ext == 1:
-                            indices[domain.dim + axis] = d_minus[axis]
+                            indices[domain.dim + axis] = d_minus[k]
                         else:
-                            indices[domain.dim + axis] = -d_minus[axis]
+                            indices[domain.dim + axis] = -d_minus[k]
 
-                        self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2
+                        self._A[i_plus,i_minus][k,k][tuple(indices)] = 1/2*I.direction
 
 
         if hom_bc:
