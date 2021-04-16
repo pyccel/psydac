@@ -5,7 +5,7 @@ import numpy as np
 
 from sympde.topology import Domain, Line, Square, Cube
 
-from psydac.cad.geometry             import Geometry
+from psydac.cad.geometry             import Geometry, create_geometry_file
 from psydac.cad.cad                  import elevate, refine
 from psydac.cad.gallery              import quart_circle, circle
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
@@ -143,6 +143,47 @@ def test_geometry_2d_4():
     geo.export('circle.h5')
 
 #==============================================================================
+@pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
+@pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
+def test_create_geometry_file(ncells, degree):
+
+    # create pipe geometry
+    from igakit.cad import circle, ruled, bilinear, join
+    C0      = circle(center=(-1,0),angle=(-np.pi/3,0))
+    C1      = circle(radius=2,center=(-1,0),angle=(-np.pi/3,0))
+    annulus = ruled(C0,C1).transpose()
+    square  = bilinear(np.array([[[0,0],[0,3]],[[1,0],[1,3]]]) )
+    pipe    = join(annulus, square, axis=1)
+
+    new_pipe = create_geometry_file("pipe.h5", pipe, ncells=ncells, degree=degree, return_nrb=True)
+
+   # read the geometry
+    geo = Geometry(filename='pipe.h5')
+    domain = geo.domain
+
+    min_coords = domain.logical_domain.min_coords
+    max_coords = domain.logical_domain.max_coords
+
+    assert abs(min_coords[0] - pipe.breaks(0)[0])<1e-15
+    assert abs(min_coords[1] - pipe.breaks(1)[0])<1e-15
+
+    assert abs(max_coords[0] - pipe.breaks(0)[-1])<1e-15
+    assert abs(max_coords[1] - pipe.breaks(1)[-1])<1e-15
+
+    mapping = geo.mappings[domain.logical_domain.name]
+
+    assert isinstance(mapping, NurbsMapping)
+
+    space  = mapping.space
+    knots  = space.knots
+    degree = space.degree
+
+    assert all(np.allclose(pk,k, 1e-15, 1e-15) for pk,k in zip(new_pipe.knots, knots))
+    assert degree == list(new_pipe.degree)
+
+    assert np.allclose(new_pipe.weights.flatten(), mapping._weights_field.coeffs.toarray(), 1e-15, 1e-15)
+
+#==============================================================================
 @pytest.mark.xfail
 def test_geometry_1():
 
@@ -167,7 +208,8 @@ def teardown_module():
         'quart_circle.h5',
         'quart_circle_0.h5',
         'quart_circle_1.h5',
-        'circle.h5'
+        'circle.h5',
+        'pipe.h5',
     ]
     for fname in filenames:
         if os.path.exists(fname):

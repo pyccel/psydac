@@ -127,16 +127,8 @@ class Geometry( object ):
         return self._domain
 
     @property
-    def limits(self):
-        return self._limits
-
-    @property
     def mappings(self):
         return self._mappings
-
-    @property
-    def boundaries(self):
-        return self.domain.boundaries
 
     def __len__(self):
         return len(self.domain)
@@ -330,6 +322,23 @@ class Geometry( object ):
 
 #==============================================================================
 def export_geo(filename, patch, periodic=None, comm=None ):
+
+    """
+    This function exports an hdf5 geometry file from a single patch nurb object 
+
+    Parameters
+    ----------
+
+    filename : <str>
+        the filename of the exported geometry
+
+    patch   : <igakit.nurbs.NURBS>
+        igakit geometry nurbs object that represent one patch
+
+    comm : <MPI.COMM>
+        mpi communicator
+    """
+
     yml = OrderedDict()
     yml['ldim'] = patch.dim
     yml['pdim'] = patch.points.ndim
@@ -404,18 +413,42 @@ def export_geo(filename, patch, periodic=None, comm=None ):
     h5.close()
 
 #==============================================================================
-def refine(nrb, ncells=None, degree=None , periodic=None):
+def refine(nrb, ncells=None, degree=None):
+    """
+    This function refines the nurbs object
 
+    Parameters
+    ----------
+
+    nrb : <igakit.nurbs.NURBS>
+        geometry nurbs object
+
+    ncells   : <list>
+        total number of cells in each direction
+
+    degree : <list>
+        degree in each direction
+
+    Returns
+    -------
+    nrb : <igakit.nurbs.NURBS>
+        the refined geometry nurbs object
+
+    """
     nrb = nrb.clone()
     if ncells is not None:
 
         for axis in range(0,nrb.dim):
-            ub = nrb.knots[axis][0]
-            ue = nrb.knots[axis][-1]
-            knots = list(np.linspace(ub,ue,ncells[axis]+2)[1:-1])
-            for k in nrb.knots[axis]:
-                if k in knots:
-                    knots.remove(k)
+            ub = nrb.breaks(axis)[0]
+            ue = nrb.breaks(axis)[-1]
+            knots = np.linspace(ub,ue,ncells[axis]+2)
+            index = nrb.knots[axis].searchsorted(knots)
+            nrb_knots = nrb.knots[axis][index]
+            for m,(nrb_k, k) in enumerate(zip(nrb_knots, knots)):
+                if abs(k-nrb_k)<1e-15:
+                    knots[m] = np.nan
+
+            knots = knots[~np.isnan(knots)]
             nrb.refine(axis, knots)
 
     if degree is not None:
@@ -426,8 +459,37 @@ def refine(nrb, ncells=None, degree=None , periodic=None):
     return nrb
 
 #==============================================================================
-def create_geometry_file(nrb, filename, ncells, degree, periodic=None):
+def create_geometry_file(filename, nrb, ncells, degree, periodic=None, return_nrb=None):
+    """
+    This function creates an hdf5 geometry file from a single patch nurb object 
 
+    Parameters
+    ----------
+
+    filename : <str>
+        the filename of the exported geometry
+
+    nrb   : <igakit.nurbs.NURBS>
+        igakit geometry nurbs object that represent one patch
+
+    ncells   : <list>
+        total number of cells in each direction
+
+    degree : <list>
+        degree in each direction
+
+    periodic : <list>
+        periodicity in each direction
+
+    return_nrb : <bool>
+        return the refined nurb object if set to True
+
+    Returns
+    -------
+    nrb : <igakit.nurbs.NURBS>
+        the refined geometry nurbs object
+
+    """
     import igakit
     assert isinstance(nrb, igakit.nurbs.NURBS)
     import os.path
@@ -435,108 +497,122 @@ def create_geometry_file(nrb, filename, ncells, degree, periodic=None):
     nrb = refine(nrb, ncells=[i-1 for i in ncells], degree=degree)
     # ...
 
-    extension = os.path.splitext(filename)[1]
+    extension = os.path.splitext(filename)[-1]
     if not extension == '.h5':
         raise ValueError('> Only h5 extension is allowed for filename')
 
     export_geo(filename, nrb, periodic=periodic)
 
-#==============================================================================
-class geopdes(object):
-    def __init__(self):
-        self._list_begin_line = []
-
-        self._n_lines_per_patch = 0
-
-    def read(self, filename):
-
-        f = open(filename)
-        lines = f.readlines()
-        f.close()
-
-        _lines = []
-        for line in lines:
-            if line[0].strip() != "#":
-                _lines.append(line)
-        lines = _lines
-        data = self._read_header(lines[0])
-        n_dim = data[0]
-        r_dim = data[1]
-        n_patchs = data[2]
-
-        self._n_lines_per_patch = n_dim + n_dim + n_dim + 1
-
-        self._list_begin_line = self._get_begin_line(lines, n_patchs)
-
-
-        nrb = self._read_patch(lines, 1)
-
+    if return_nrb:
         return nrb
 
-    def _read_header(self, line):
-        chars = line.split(" ")
-        data  = []
-        for c in chars:
+#==============================================================================
+def geopdes(filename):
+    """
+    This function reads a geopdes geometry file and convert it to igakit nurbs object
+
+    Parameters
+    ----------
+
+    filename : <str>
+        the filename of the geometry file
+
+    Returns
+    -------
+    nrb : <igakit.nurbs.NURBS>
+        the geometry nurbs object
+
+    """
+    extension = os.path.splitext(filename)[-1]
+    if not extension == '.txt':
+        raise ValueError('> Expected .txt extension')
+
+    f = open(filename)
+    lines = f.readlines()
+    f.close()
+
+    lines = [line for line in lines if line[0].strip() != "#"]
+
+    data     = read_header(lines[0])
+    n_dim    = data[0]
+    r_dim    = data[1]
+    n_patchs = data[2]
+
+    n_lines_per_patch = 3*n_dim + 1
+
+    list_begin_line = get_begin_line(lines, n_patchs)
+
+    nrb = read_patch(lines, 1, n_lines_per_patch, list_begin_line)
+
+    return nrb
+
+def read_header(line):
+    chars = line.split(" ")
+    data  = []
+    for c in chars:
+        try:
+            data.append(int(c))
+        except:
+            pass
+    return data
+
+def extract_patch_line(lines, i_patch):
+    text = "PATCH " + str(i_patch)
+    for i_line,line in enumerate(lines):
+        r = line.find(text)
+        if r != -1:
+            return i_line
+    return None
+
+def get_begin_line(lines, n_patchs):
+    list_begin_line = []
+    for i_patch in range(0, n_patchs):
+        r = extract_patch_line(lines, i_patch+1)
+        if r is not None:
+            list_begin_line.append(r)
+        else:
+            raise ValueError(" could not parse the input file")
+    return list_begin_line
+
+def read_line(line):
+    chars = line.split(" ")
+    data  = []
+    for c in chars:
+        try:
+            data.append(int(c))
+        except:
             try:
-                data.append(int(c))
+                data.append(float(c))
             except:
                 pass
-        return data
+    return data
 
-    def _extract_patch_line(self, lines, i_patch):
-        text = "PATCH " + str(i_patch)
-        for i_line,line in enumerate(lines):
-            r = line.find(text)
-            if r != -1:
-                return i_line
-        return None
+def read_patch(lines, i_patch, n_lines_per_patch, list_begin_line):
 
-    def _get_begin_line(self, lines, n_patchs):
-        list_begin_line = []
-        for i_patch in range(0, n_patchs):
-            r = self._extract_patch_line(lines, i_patch+1)
-            if r is not None:
-                list_begin_line.append(r)
-            else:
-                raise ValueError(" could not parse the input file")
-        return list_begin_line
+    from igakit.nurbs import NURBS
 
-    def _read_line(self, line):
-        chars = line.split(" ")
-        data  = []
-        for c in chars:
-            try:
-                data.append(int(c))
-            except:
-                try:
-                    data.append(float(c))
-                except:
-                    pass
-        return data
+    i_begin_line = list_begin_line[i_patch-1]
+    data_patch = []
 
-    def _read_patch(self, lines, i_patch):
+    for i in range(i_begin_line+1, i_begin_line + n_lines_per_patch+1):
+        data_patch.append(read_line(lines[i]))
 
-        from igakit.nurbs import NURBS
+    degree = data_patch[0]
+    shape  = data_patch[1]
 
-        i_begin_line = self._list_begin_line[i_patch-1]
-        data_patch = []
-        for i in range(i_begin_line+1, i_begin_line+self._n_lines_per_patch+1):
-            data_patch.append(self._read_line(lines[i]))
-        degree = data_patch[0]
-        shape  = data_patch[1]
+    xl     = [np.array(i) for i in data_patch[2:2+len(degree)] ]
+    xp     = [np.array(i) for i in data_patch[2+len(degree):2+2*len(degree)] ]
+    w      = np.array(data_patch[2+2*len(degree)])
 
-        xl     = [np.array(i) for i in data_patch[2:2+len(degree)] ]
-        xp     = [np.array(i) for i in data_patch[2+len(degree):2+2*len(degree)] ]
-        w      = np.array(data_patch[2+2*len(degree)])
+    X = [i.reshape(shape, order='F') for i in xp]
+    W = w.reshape(shape, order='F')
 
-        X = [i.reshape(shape, order='F') for i in xp]
-        W = w.reshape(shape, order='F')
+    points = np.zeros((*shape, 3))
+    for i in range(len(shape)):
+        points[..., i] = X[i]
 
-        points = np.zeros((*shape, 3))
-        for i in range(len(shape)):
-            points[..., i] = X[i]
+    knots = xl
 
-        knots = xl
+    nrb = NURBS(knots, control=points, weights=W)
+    return nrb
 
-        cad_nrb = NURBS(knots, control=points, weights=W)
-        return cad_nrb
