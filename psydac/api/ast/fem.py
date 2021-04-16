@@ -440,15 +440,17 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     ind_dof_test  = index_dof_test.set_length(LengthDofTest(tests[0])+1)
     # ...........................................................................................
     eval_mapping = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], mapping, geo, spaces[1], tests, nderiv, mask, is_rational_mapping)
-    g_stmts      = [eval_mapping]
 
+    eval_fields = []
     for f in fields:
         f_ex         = expand([f])
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
         ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
         eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, pads, nderiv, mask)
-        g_stmts     += [eval_field]
+        eval_fields += [eval_field]
+
+    g_stmts = [eval_mapping, *eval_fields]
 
     # sort tests and trials by their space type
     test_groups  = regroup(tests)
@@ -474,8 +476,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
             for v in sub_tests+sub_trials:
                 stmts += construct_logical_expressions(v, nderiv)
 
-            if atomic_expr_field:
-                stmts += list(eval_field.inits)
+            # Instructions needed to retrieve the precomputed values of the
+            # fields (and their derivatives) at a single quadrature point
+            stmts += flatten([eval_field.inits for eval_field in eval_fields])
 
             loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
             loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr), ElementOf(l_sub_mats), loop)
@@ -616,17 +619,17 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0])+1)
     # ...........................................................................................
     eval_mapping = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], mapping, geo, space, tests, nderiv, mask, is_rational_mapping)
-    g_stmts = [eval_mapping]
 
+    eval_fields = []
     for f in fields:
         f_ex         = expand([f])
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
         ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
         eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, pads, nderiv, mask)
-        g_stmts     += [eval_field]
-    # ...
+        eval_fields += [eval_field]
 
+    g_stmts = [eval_mapping, *eval_fields]
 
     # sort tests by their space type
     groups = regroup(tests)
@@ -646,8 +649,9 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         for v in group:
             stmts += construct_logical_expressions(v, nderiv)
 
-        if atomic_expr_field:
-            stmts += list(eval_field.inits)
+        # Instructions needed to retrieve the precomputed values of the
+        # fields (and their derivatives) at a single quadrature point
+        stmts += flatten([eval_field.inits for eval_field in eval_fields])
 
         loop  = Loop((l_quad, *q_basis.values(), geo), ind_quad, stmts=stmts, mask=mask)
         loop = Reduce('+', ComputeKernelExpr(sub_terminal_expr), ElementOf(l_sub_vecs), loop)
