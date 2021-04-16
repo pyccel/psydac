@@ -324,7 +324,7 @@ class Geometry( object ):
 def export_geo(filename, patch, periodic=None, comm=None ):
 
     """
-    This function exports an hdf5 geometry file from a single patch nurb object 
+    This function exports an hdf5 geometry file from a single patch nurb object
 
     Parameters
     ----------
@@ -415,7 +415,9 @@ def export_geo(filename, patch, periodic=None, comm=None ):
 #==============================================================================
 def refine(nrb, ncells=None, degree=None):
     """
-    This function refines the nurbs object
+    This function refines the nurbs object.
+    It contructs a new grid based on the number of cells, and it adds the new break points to the nrb grid.
+    It also elevates the degree of the nrb object based on the new degree
 
     Parameters
     ----------
@@ -461,7 +463,7 @@ def refine(nrb, ncells=None, degree=None):
 #==============================================================================
 def create_geometry_file(filename, nrb, ncells, degree, periodic=None, return_nrb=None):
     """
-    This function creates an hdf5 geometry file from a single patch nurb object 
+    This function creates an hdf5 geometry file from a single patch nurb object
 
     Parameters
     ----------
