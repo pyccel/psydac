@@ -155,7 +155,7 @@ def test_create_geometry_file(ncells, degree):
     square  = bilinear(np.array([[[0,0],[0,3]],[[1,0],[1,3]]]) )
     pipe    = join(annulus, square, axis=1)
 
-    filename = "pipe_{}_{}.h5".format(ncells[0], degree[0])
+    filename = "pipe.h5"
     new_pipe = create_geometry_file(filename, pipe, ncells=ncells, degree=degree, return_nrb=True)
 
    # read the geometry
@@ -210,6 +210,7 @@ def teardown_module():
         'quart_circle_0.h5',
         'quart_circle_1.h5',
         'circle.h5',
+        'pipe.h5',
     ]
     for fname in filenames:
         if os.path.exists(fname):
