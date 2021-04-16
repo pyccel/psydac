@@ -378,18 +378,18 @@ def export_geo(filename, patch, periodic=None, comm=None ):
 
     # ... topology
     if patch.dim == 1:
-        bounds1 = (patch.breaks(0)[0], patch.breaks(0)[-1])
+        bounds1 = (float(patch.breaks(0)[0]), float(patch.breaks(0)[-1]))
         domain  = Line(patch_name, bounds1=bounds1)
 
     elif patch.dim == 2:
-        bounds1 = (patch.breaks(0)[0], patch.breaks(0)[-1])
-        bounds2 = (patch.breaks(1)[0], patch.breaks(1)[-1])
+        bounds1 = (float(patch.breaks(0)[0]), float(patch.breaks(0)[-1]))
+        bounds2 = (float(patch.breaks(1)[0]), float(patch.breaks(1)[-1]))
         domain  = Square(patch_name, bounds1=bounds1, bounds2=bounds2)
 
     elif patch.dim == 3:
-        bounds1 = (patch.breaks(0)[0], patch.breaks(0)[-1])
-        bounds2 = (patch.breaks(1)[0], patch.breaks(1)[-1])
-        bounds3 = (patch.breaks(2)[0], patch.breaks(2)[-1])
+        bounds1 = (float(patch.breaks(0)[0]), float(patch.breaks(0)[-1]))
+        bounds2 = (float(patch.breaks(1)[0]), float(patch.breaks(1)[-1]))
+        bounds3 = (float(patch.breaks(2)[0]), float(patch.breaks(2)[-1]))
         domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
 
     topo_yml = domain.todict()
