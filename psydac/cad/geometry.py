@@ -462,6 +462,8 @@ def refine(nrb, ncells=None, degree=None):
     if degree is not None:
         for axis in range(0,nrb.dim):
             d = degree[axis] - nrb.degree[axis]
+            if d<0:
+                raise ValueError('The degree {} must be >= {}'.format(degree, nrb.degree))
             nrb.elevate(axis, times=d)
 
     return nrb
