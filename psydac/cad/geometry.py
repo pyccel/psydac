@@ -416,8 +416,9 @@ def export_geo(filename, patch, periodic=None, comm=None ):
 def refine(nrb, ncells=None, degree=None):
     """
     This function refines the nurbs object.
-    It contructs a new grid based on the number of cells, and it adds the new break points to the nrb grid.
-    It also elevates the degree of the nrb object based on the new degree
+    It contructs a new grid based on the new number of cells, and it adds the new break points to the nrb grid,
+    such that the total number of cells is equal to the new number of cells.
+    It also elevates the degree of the nrb object based on the new degree.
 
     Parameters
     ----------
@@ -450,8 +451,13 @@ def refine(nrb, ncells=None, degree=None):
                 if abs(k-nrb_k)<1e-15:
                     knots[m] = np.nan
 
-            knots = knots[~np.isnan(knots)]
-            nrb.refine(axis, knots)
+            knots   = knots[~np.isnan(knots)]
+            indices = np.round(np.linspace(0, len(knots) - 1, ncells[axis]+1-len(nrb.breaks(axis))+1)).astype(int)
+
+            knots = knots[indices]
+
+            if len(knots)>0:
+                nrb.refine(axis, knots)
 
     if degree is not None:
         for axis in range(0,nrb.dim):
