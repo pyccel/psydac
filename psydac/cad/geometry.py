@@ -321,33 +321,33 @@ class Geometry( object ):
         h5.close()
 
 #==============================================================================
-def export_geo(filename, patch, periodic=None, comm=None ):
+def export_geo(filename, nurbs, periodic=None, comm=None ):
 
     """
-    This function exports an hdf5 geometry file from a single patch nurb object
+    Export a single-patch igakit NURBS object to a Psydac geometry file in HDF5 format
 
     Parameters
     ----------
 
     filename : <str>
-        the filename of the exported geometry
+        Name of output geometry file, e.g. 'geo.h5'
 
-    patch   : <igakit.nurbs.NURBS>
-        igakit geometry nurbs object that represent one patch
+    nurbs   : <igakit.nurbs.NURBS>
+        igakit geometry nurbs object
 
     comm : <MPI.COMM>
         mpi communicator
     """
 
     yml = OrderedDict()
-    yml['ldim'] = patch.dim
-    yml['pdim'] = patch.points.ndim
+    yml['ldim'] = nurbs.dim
+    yml['pdim'] = nurbs.points.ndim
 
     patches_info = []
     i_mapping    = 0
     i            = 0
 
-    rational = not abs(patch.weights-1).sum()<1e-15
+    rational = not abs(nurbs.weights-1).sum()<1e-15
 
     patch_name = 'patch_{}'.format(i)
     name       = '{}'.format( patch_name )
@@ -377,19 +377,19 @@ def export_geo(filename, patch, periodic=None, comm=None ):
     # ...
 
     # ... topology
-    if patch.dim == 1:
-        bounds1 = (float(patch.breaks(0)[0]), float(patch.breaks(0)[-1]))
+    if nurbs.dim == 1:
+        bounds1 = (float(nurbs.breaks(0)[0]), float(nurbs.breaks(0)[-1]))
         domain  = Line(patch_name, bounds1=bounds1)
 
-    elif patch.dim == 2:
-        bounds1 = (float(patch.breaks(0)[0]), float(patch.breaks(0)[-1]))
-        bounds2 = (float(patch.breaks(1)[0]), float(patch.breaks(1)[-1]))
+    elif nurbs.dim == 2:
+        bounds1 = (float(nurbs.breaks(0)[0]), float(nurbs.breaks(0)[-1]))
+        bounds2 = (float(nurbs.breaks(1)[0]), float(nurbs.breaks(1)[-1]))
         domain  = Square(patch_name, bounds1=bounds1, bounds2=bounds2)
 
-    elif patch.dim == 3:
-        bounds1 = (float(patch.breaks(0)[0]), float(patch.breaks(0)[-1]))
-        bounds2 = (float(patch.breaks(1)[0]), float(patch.breaks(1)[-1]))
-        bounds3 = (float(patch.breaks(2)[0]), float(patch.breaks(2)[-1]))
+    elif nurbs.dim == 3:
+        bounds1 = (float(nurbs.breaks(0)[0]), float(nurbs.breaks(0)[-1]))
+        bounds2 = (float(nurbs.breaks(1)[0]), float(nurbs.breaks(1)[-1]))
+        bounds3 = (float(nurbs.breaks(2)[0]), float(nurbs.breaks(2)[-1]))
         domain  = Cube(patch_name, bounds1=bounds1, bounds2=bounds2, bounds3=bounds3)
 
     topo_yml = domain.todict()
@@ -401,14 +401,14 @@ def export_geo(filename, patch, periodic=None, comm=None ):
     h5['topology.yml'] = np.array( geom, dtype='S' )
 
     group = h5.create_group( yml['patches'][i]['mapping_id'] )
-    group.attrs['degree'     ] = patch.degree
+    group.attrs['degree'     ] = nurbs.degree
     group.attrs['rational'   ] = rational
-    group.attrs['periodic'   ] = tuple( False for d in range( patch.dim ) ) if periodic is None else periodic
-    for d in range( patch.dim ):
-        group['knots_{}'.format( d )] = patch.knots[d]
-    group['points'] = patch.points
+    group.attrs['periodic'   ] = tuple( False for d in range( nurbs.dim ) ) if periodic is None else periodic
+    for d in range( nurbs.dim ):
+        group['knots_{}'.format( d )] = nurbs.knots[d]
+    group['points'] = nurbs.points
     if rational:
-        group['weights'] = patch.weights
+        group['weights'] = nurbs.weights
 
     h5.close()
 
@@ -418,6 +418,7 @@ def refine(nrb, ncells=None, degree=None):
     This function refines the nurbs object.
     It contructs a new grid based on the new number of cells, and it adds the new break points to the nrb grid,
     such that the total number of cells is equal to the new number of cells.
+    We use knot insertion to construct the new knot sequence , so the geometry is identical to the previous one.
     It also elevates the degree of the nrb object based on the new degree.
 
     Parameters
