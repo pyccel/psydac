@@ -195,7 +195,7 @@ def test_export_nurbs_to_hdf5(ncells, degree):
 def test_import_geopdes_to_nurbs(ncells, degree):
 
 
-    filename = os.path.join(base_dir, "data/geo_Lshaped_C1.txt")
+    filename = os.path.join(base_dir, "geo_Lshaped_C1.txt")
     L_shaped = import_geopdes_to_nurbs(filename)
 
     # refine the nurbs object
