@@ -96,6 +96,7 @@ def setup_package():
           ext_modules=ext_modules,
           install_requires=install_requires,
           include_package_data=True,
+          package_data = {'':['*.txt']},
           zip_safe=True,
           dependency_links=dependency_links,
           entry_points=entry_points,
