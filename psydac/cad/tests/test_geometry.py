@@ -5,7 +5,8 @@ import numpy as np
 
 from sympde.topology import Domain, Line, Square, Cube
 
-from psydac.cad.geometry             import Geometry, create_geometry_file
+from psydac.cad.geometry             import Geometry, export_nurbs_to_hdf5, refine_nurbs
+from psydac.cad.geometry             import import_geopdes_to_nurbs
 from psydac.cad.cad                  import elevate, refine
 from psydac.cad.gallery              import quart_circle, circle
 from psydac.mapping.discrete         import SplineMapping, NurbsMapping
@@ -145,7 +146,7 @@ def test_geometry_2d_4():
 #==============================================================================
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
-def test_create_geometry_file(ncells, degree):
+def test_export_nurbs_to_hdf5(ncells, degree):
 
     # create pipe geometry
     from igakit.cad import circle, ruled, bilinear, join
@@ -155,8 +156,11 @@ def test_create_geometry_file(ncells, degree):
     square  = bilinear(np.array([[[0,0],[0,3]],[[1,0],[1,3]]]) )
     pipe    = join(annulus, square, axis=1)
 
+    # refine the nurbs object
+    new_pipe = refine_nurbs(pipe, ncells=ncells, degree=degree)
+
     filename = "pipe.h5"
-    new_pipe = create_geometry_file(filename, pipe, ncells=ncells, degree=degree, return_nrb=True)
+    export_nurbs_to_hdf5(filename, new_pipe)
 
    # read the geometry
     geo = Geometry(filename=filename)
@@ -183,6 +187,43 @@ def test_create_geometry_file(ncells, degree):
     assert degree == list(new_pipe.degree)
 
     assert np.allclose(new_pipe.weights.flatten(), mapping._weights_field.coeffs.toarray(), 1e-15, 1e-15)
+
+@pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
+@pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
+def test_import_geopdes_to_nurbs(ncells, degree):
+
+    L_shaped = import_geopdes_to_nurbs("data/geo_Lshaped_C1.txt")
+
+    # refine the nurbs object
+    L_shaped = refine_nurbs(L_shaped, ncells=ncells, degree=degree)
+
+    filename = "L_shaped.h5"
+    export_nurbs_to_hdf5(filename, L_shaped)
+
+   # read the geometry
+    geo = Geometry(filename=filename)
+    domain = geo.domain
+
+    min_coords = domain.logical_domain.min_coords
+    max_coords = domain.logical_domain.max_coords
+
+    assert abs(min_coords[0] - L_shaped.breaks(0)[0])<1e-15
+    assert abs(min_coords[1] - L_shaped.breaks(1)[0])<1e-15
+
+    assert abs(max_coords[0] - L_shaped.breaks(0)[-1])<1e-15
+    assert abs(max_coords[1] - L_shaped.breaks(1)[-1])<1e-15
+
+    mapping = geo.mappings[domain.logical_domain.name]
+
+    space  = mapping.space
+    knots  = space.knots
+    degree = space.degree
+
+    assert all(np.allclose(pk,k, 1e-15, 1e-15) for pk,k in zip(L_shaped.knots, knots))
+    assert degree == list(L_shaped.degree)
+
+    if isinstance(mapping, NurbsMapping):
+        assert np.allclose(L_shaped.weights.flatten(), mapping._weights_field.coeffs.toarray(), 1e-15, 1e-15)
 
 #==============================================================================
 @pytest.mark.xfail
@@ -211,6 +252,7 @@ def teardown_module():
         'quart_circle_1.h5',
         'circle.h5',
         'pipe.h5',
+        'L_shaped.h5'
     ]
     for fname in filenames:
         if os.path.exists(fname):
