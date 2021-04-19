@@ -2,6 +2,7 @@
 #
 import pytest
 import numpy as np
+import os
 
 from sympde.topology import Domain, Line, Square, Cube
 
@@ -14,6 +15,7 @@ from psydac.mapping.discrete_gallery import discrete_mapping
 from psydac.fem.splines              import SplineSpace
 from psydac.fem.tensor               import TensorFemSpace
 
+base_dir = os.path.dirname(os.path.realpath(__file__))
 #==============================================================================
 def test_geometry_2d_1():
 
@@ -192,7 +194,9 @@ def test_export_nurbs_to_hdf5(ncells, degree):
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
 def test_import_geopdes_to_nurbs(ncells, degree):
 
-    L_shaped = import_geopdes_to_nurbs("data/geo_Lshaped_C1.txt")
+
+    filename = os.path.join(base_dir, "data/geo_Lshaped_C1.txt")
+    L_shaped = import_geopdes_to_nurbs(filename)
 
     # refine the nurbs object
     L_shaped = refine_nurbs(L_shaped, ncells=ncells, degree=degree)
