@@ -472,19 +472,19 @@ def kronecker_solve_3d_par( A1, A2, A3, rhs, out=None ):
         for i2 in range(e2-s2+1):
             X_loc_1[:] = X[:, i2, i3]  # need 1D contiguous copy
             subcomm_1.Allgatherv( X_loc_1, [X_glob_1, sizes1, disps1, mpi_type] )
-            Y[:, i2, i3] = A1.solve( X_glob_1 )[s1:e1+1]
+            Y[:, i2, i3] = A1.solve( X_glob_1, out=X_glob_1 )[s1:e1+1]
 
     for i3 in range(e3-s3+1):
         for i1 in range(e1-s1+1):
             Y_loc_2[:] = Y[i1, :, i3]  # need 1D contiguous copy
             subcomm_2.Allgatherv( Y_loc_2, [Y_glob_2, sizes2, disps2, mpi_type] )
-            Y[i1, :, i3] = A2.solve( Y_glob_2 )[s2:e2+1]
+            Y[i1, :, i3] = A2.solve( Y_glob_2, out=Y_glob_2 )[s2:e2+1]
 
     for i2 in range(e2-s2+1):
         for i1 in range(e1-s1+1):
             Y_loc_3 = Y[i1, i2, :]  # 1D contiguous slice
             subcomm_3.Allgatherv( Y_loc_3, [Y_glob_3, sizes3, disps3, mpi_type] )
-            Y[i1, i2, :] = A3.solve( Y_glob_3 )[s3:e3+1]
+            Y[i1, i2, :] = A3.solve( Y_glob_3, out=Y_glob_3 )[s3:e3+1]
 
     # ...
     out.update_ghost_regions()

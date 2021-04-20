@@ -84,7 +84,14 @@ class BandedSolver ( DirectSolver ):
 
         else :
             assert out.shape == rhs.shape
-            out[:], self._sinfo = dgbtrs(self._bmat, self._l, self._u, rhs, self._ipiv)
+
+            # support in-place operations
+            if id(rhs) != id(out):
+                rhs[:] = out
+
+            # TODO: handle non-contiguous views?
+            
+            _, self._sinfo = dgbtrs(self._bmat, self._l, self._u, rhs, self._ipiv, overwrite_b=True)
 
         return out
 
@@ -123,6 +130,8 @@ class SparseSolver ( DirectSolver ):
 
         else:
             assert out.shape == rhs.shape
+
+            # currently no in-place solve exposed
             out[:] = self._splu.solve( rhs )
 
         return out
