@@ -17,7 +17,7 @@ spec.loader.exec_module(mod)
 
 NAME    = 'psydac'
 VERSION = mod.__version__
-AUTHOR  = 'Ahmed Ratnani, Jalal Lakhlili, Yaman Güçlü'
+AUTHOR  = 'Ahmed Ratnani, Jalal Lakhlili, Yaman Güçlü, Said Hadjout'
 EMAIL   = 'ratnaniahmed@gmail.com'
 URL     = 'http://www.ahmed.ratnani.org'
 DESCR   = 'Python package for BSplines/NURBS'
@@ -96,6 +96,7 @@ def setup_package():
           ext_modules=ext_modules,
           install_requires=install_requires,
           include_package_data=True,
+          package_data = {'':['*.txt']},
           zip_safe=True,
           dependency_links=dependency_links,
           entry_points=entry_points,
