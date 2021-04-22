@@ -119,7 +119,7 @@ def conga_operators_2d():
 
     # Conforming projection operators
     Pconf_0 = ConformingProjection_V0(V0h, domain_h)#, verbose=False)
-    Pconf_1 = ConformingProjection_V1(V1h, domain_h, hom_bc=True)#, verbose=False)
+    Pconf_1 = ConformingProjection_V1(V1h, domain_h)# hom_bc=True)#, verbose=False)
 
     # Broken derivative operators
     bD0, bD1 = derham_h.broken_derivatives_as_operators
@@ -189,11 +189,6 @@ def conga_operators_2d():
     G1c  = Pconf_1(G1)  # should be curl-conforming
     cDG1 = bD1(G1c)
 
-
-#    print(G1c.coeffs[0][0].toarray().reshape((5,6)).T, G1c.coeffs[1][0].toarray().reshape((5,6)).T, sep='\n')
-#    print(G1c.coeffs[0][1].toarray().reshape((6,5)).T, G1c.coeffs[1][1].toarray().reshape((6,5)).T, sep='\n')
-
-#    raise
     # II. check the commuting diag properties
 
     # - for the gradient:  D0 P0 u = P1 grad u

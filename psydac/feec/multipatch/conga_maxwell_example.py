@@ -43,6 +43,7 @@ from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import ConformingProjection_V1
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
+from psydac.feec.multipatch.multipatch_domain_utilities import get_pretzel
 
 comm = MPI.COMM_WORLD
 
@@ -105,8 +106,8 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
         A = A.to_sparse_matrix()
         b = b.toarray()     # todo MCP: why not 'to_array', for consistency with array_to_stencil ?
 
-        x   = spsolve(A, b)
-        u_coeffs   = array_to_stencil(x, V1h.vector_space)
+        x        = spsolve(A, b)
+        u_coeffs = array_to_stencil(x, V1h.vector_space)
 
     else:
         u_coeffs, info = cg( A, b, tol=maxwell_tol, verbose=True )
@@ -115,55 +116,35 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
     uh = cP1(uh)
 
     # error
-    error   = Matrix([F[0]-uex[0],F[1]-uex[1]])
-    l2_norm = Norm(error, domain, kind='l2')
+    error       = Matrix([F[0]-uex[0],F[1]-uex[1]])
+    l2_norm     = Norm(error, domain, kind='l2')
     l2_norm_h   = discretize(l2_norm, domain_h, V1h)
-    l2_error = l2_norm_h.assemble(F=uh)
+    l2_error    = l2_norm_h.assemble(F=uh)
 
     return l2_error, uh
-
-from psydac.api.tests.test_api_2d_compatible_spaces import test_api_system_3_2d_dir_1
 
 def run_maxwell_2d_time_harmonic():
     """
     curl-curl problem with 0 order term and source
     """
 
-    bounds1   = (0.5, 1.)
-    bounds2_A = (0, np.pi/2)
-    bounds2_B = (np.pi/2, np.pi)
-
-    A = Square('A',bounds1=bounds1, bounds2=bounds2_A)
-    B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
-
-    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-
-    D1     = mapping_1(A)
-    D2     = mapping_2(B)
-
-    domain = D1.join(D2, name = 'domain',
-                bnd_minus = D1.get_boundary(axis=1, ext=1),
-                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+    domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
 
     x,y    = domain.coordinates
-    alpha    = 1.
-    uex      = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
-    f        = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+    alpha  = 1.
+    uex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+    f      = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                      alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-    # mappings  = {A.interior:mapping_1, B.interior:mapping_2}
     mappings_list = list(mappings.values())
 
     uex_x = lambdify(domain.coordinates, uex[0])
     uex_y = lambdify(domain.coordinates, uex[1])
     uex_log = [pull_2d_hcurl([uex_x,uex_y], f) for f in mappings_list]
 
-
-
     ## call solver
-    l2_error, uh = run_conga_maxwell_2d(uex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)
+    l2_error, uh = run_conga_maxwell_2d(uex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2,2], return_sol=True)
     # else:
     #     # Nitsche
     #     l2_error, uh = run_system_3_2d_dir(uex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)

@@ -1593,7 +1593,7 @@ class StencilInterfaceMatrix(Matrix):
         # Range of data owned by local process (no ghost regions)
         local = tuple( [slice(p,-p) for p in pp] + [slice(None)] * nd )
         for (index,value) in np.ndenumerate( self._data[local] ):
-            if value>1e-15:
+            if value:
                 # index = [i1, i2, ..., p1+j1-i1, p2+j2-i2, ...]
 
                 xx = index[:nd]  # x=i-s
