@@ -399,7 +399,7 @@ def kronecker_solve_2d_par( A1, A2, rhs, out=None ):
     return out
 
 #==============================================================================
-def kronecker_solve_3d_par( A1, A2, A3, rhs, out=None ):
+def kronecker_solve_3d_par_old( A1, A2, A3, rhs, out=None ):
     """
     Solve linear system Ax=b with A=kron(A3,A2,A1).
 
@@ -485,6 +485,185 @@ def kronecker_solve_3d_par( A1, A2, A3, rhs, out=None ):
             Y_loc_3 = Y[i1, i2, :]  # 1D contiguous slice
             subcomm_3.Allgatherv( Y_loc_3, [Y_glob_3, sizes3, disps3, mpi_type] )
             Y[i1, i2, :] = A3.solve( Y_glob_3, out=Y_glob_3 )[s3:e3+1]
+
+    # ...
+    out.update_ghost_regions()
+    # ...
+
+    return out
+
+def kronecker_solve_3d_par( A1, A2, A3, rhs, out=None ):
+    """
+    Solve linear system Ax=b with A=kron(A3,A2,A1).
+
+    Parameters
+    ----------
+    A1 : LinearSolver
+        Solve linear system A1 x1 = b1: x1=A1.solve(b1).
+
+    A2 : LinearSolver
+        Solve linear system A2 x2 = b2: x2=A2.solve(b2).
+
+    A3 : LinearSolver
+        Solve linear system A3 x3 = b3: x3=A3.solve(b3).
+
+    rhs : StencilVector 3D
+        Right hand side vector of linear system Ax=b.
+
+    """
+    assert isinstance( A1 , LinearSolver  )
+    assert isinstance( A2 , LinearSolver  )
+    assert isinstance( A3 , LinearSolver  )
+    assert isinstance( rhs, StencilVector )
+
+    if out is not None:
+        assert isinstance( out, StencilVector )
+        assert out.space is rhs.space
+    else:
+        out = StencilVector( rhs.space )
+
+    # To understand the following, here is a tiny explaination. Consider two processes like this:
+    #
+    # Pr1 | Pr2
+    # 0 1 | 2 3
+    # 4 5 | 6 7
+    # 8 9 | A B 
+    # C D | E F
+    #
+    # i.e. Pr1 has 0 1 4 5 8 9 C D; Pr2 has 2 3 6 7 A B E F
+    #
+    # We now would like to get each line on at least one process. So, we do an AlltoAll like this:
+    #
+    # Pr1 | Pr2
+    # 0 1 | 2 3 | to Pr1
+    # 4 5 | 6 7 | to Pr1
+    # ------------------
+    # 8 9 | A B | to Pr2
+    # C D | E F | to Pr2
+    #
+    # But the data is transported per process, i.e. we get in this order:
+    # 0 1 4 5 2 3 6 7 on Pr1
+    # 8 9 C D A B E F on Pr2
+    #
+    # so we still need to re-order (i.e. partially transpose) locally to finally get what we want.
+    #
+
+    # ...
+    V = rhs.space
+
+    s1, s2, s3 = V.starts
+    e1, e2, e3 = V.ends
+    n1, n2, n3 = V.npts
+
+    subcomm_1 = V.cart.subcomm[0]
+    subcomm_2 = V.cart.subcomm[1]
+    subcomm_3 = V.cart.subcomm[2]
+
+    disps1 = V.cart.global_starts[0]
+    disps2 = V.cart.global_starts[1]
+    disps3 = V.cart.global_starts[2]
+
+    sizes1 = V.cart.global_ends[0] - V.cart.global_starts[0] + 1
+    sizes2 = V.cart.global_ends[1] - V.cart.global_starts[1] + 1
+    sizes3 = V.cart.global_ends[2] - V.cart.global_starts[2] + 1
+
+    # TODO: make MPI type available through property
+    mpi_type = V._mpi_type
+    # ...
+
+    # ...
+    # 3D slices
+    X = rhs[s1:e1+1, s2:e2+1, s3:e3+1]
+    Y = out[s1:e1+1, s2:e2+1, s3:e3+1]
+
+    # local chunk size
+    l1 = e1-s1+1
+    l2 = e2-s2+1
+    l3 = e3-s3+1
+
+    # slice size (i.e. divide local chunk by communicator size again)
+    def roundcomm(num, comm):
+        return num // comm.size + (comm.rank < (num % comm.size))
+    s1 = roundcomm(l2*l3, subcomm_1)
+    s2 = roundcomm(l1*l3, subcomm_2)
+    s3 = roundcomm(l1*l2, subcomm_3)
+
+    def makedists(source, target, comm, keepd, shortd, longd, cartdisps, cartsizes):
+        # creates the sizes and disps arrays used for MPI. We need a new one for each direction
+
+        # source (parts of stripes)
+        share = keepd // comm.size
+        addmax = keepd % comm.size
+        sourcesizes = np.full((comm.size,), share, dtype=int)
+        sourcesizes[:addmax] += 1
+        sourcedisps = np.zeros((comm.size+1,), dtype=int)
+        np.cumsum(sourcesizes, out=sourcedisps[1:])
+        size = sourcedisps[-1]
+        sourcedisps = sourcedisps[:-1]
+
+        locald = sourcesizes[comm.rank]
+
+        sourcesizes *= shortd
+        sourcedisps *= shortd
+
+        # target (blocked stripes)
+        targetsizes = np.array(cartsizes) * locald
+        targetdisps = np.array(cartdisps) * locald
+
+        return [source[:size], (sourcesizes, sourcedisps), mpi_type], [target[:size], (targetsizes, targetdisps), mpi_type], locald
+    
+    def solve_onedir_serial(target, solver, nrhs, dimrhs):
+        # reshape and call solver
+        view = target[:dimrhs*nrhs].reshape((dimrhs,nrhs), order='F')
+        solver.solve(view, out=view)
+
+    # does the MPI distribute, solve, and distribute back for one dimension
+    def solve_onedir_par(source, target, solver, comm, keepd, shortd, longd, cartdisps, cartsizes):
+        sourceargs, targetargs, locald = makedists(source, target, comm, keepd, shortd, longd, cartdisps, cartsizes)
+
+        # parts of stripes -> blocked stripes
+        comm.Alltoallv(sourceargs, targetargs)
+
+        # blocked stripes -> ordered stripes
+        preview = source[:longd*locald].reshape((locald,longd))
+        for disp, size in zip(cartdisps, cartsizes):
+            preview[:,disp:(disp+size)] = target[disp*locald:(disp+size)*locald].reshape((locald,size))
+
+        # actual solve
+        solve_onedir_serial(source, solver, locald, longd)
+
+        # ordered stripes -> blocked stripes
+        preview = source[:longd*locald].reshape((locald,longd))
+        for disp, size in zip(cartdisps, cartsizes):
+            target[disp*locald:(disp+size)*locald] = preview[:,disp:(disp+size)].flat
+
+        # blocked stripes -> parts of stripes
+        comm.Alltoallv(targetargs, sourceargs)
+
+    # we need this to avoid the padding (or shall we send the padding as well?)
+    tempsize = max(l1*l2*l3,s1*n1,s2*n2,s3*n3)
+    temp1 = np.zeros(tempsize)
+    temp2 = np.zeros(tempsize)
+
+    # TODO check array order...
+
+    # (1,2,3)
+    temp1[:l1*l2*l3] = X.flat
+
+    solve_onedir_par(temp1, temp2, A3, subcomm_3, l1*l2, l3, n3, disps3, sizes3)
+
+    # (1,2,3) -> (3,1,2)
+    temp2[:l1*l2*l3] = temp1[:l1*l2*l3].reshape((l1,l2,l3)).transpose((2,0,1)).flat
+
+    solve_onedir_par(temp2, temp1, A2, subcomm_2, l1*l3, l2, n2, disps2, sizes2)
+
+    # (3,1,2) -> (2,3,1)
+    temp1[:l1*l2*l3] = temp2[:l1*l2*l3].reshape((l3,l1,l2)).transpose((2,0,1)).flat
+
+    solve_onedir_par(temp1, temp2, A1, subcomm_1, l2*l3, l1, n1, disps1, sizes1)
+
+    # (2,3,1) -> (1,2,3)
+    Y[:] = temp1[:l1*l2*l3].reshape((l2,l3,l1)).transpose((2,0,1))
 
     # ...
     out.update_ghost_regions()
