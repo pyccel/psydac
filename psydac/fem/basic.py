@@ -237,17 +237,25 @@ class FemField:
 
     # ...
     def __call__( self, *eta , weights=None):
-        """Evaluate field at location identified by logical coordinates eta."""
+        """Evaluate weighted field at location identified by logical coordinates eta."""
         return self._space.eval_field( self, *eta , weights=weights)
 
     # ...
     def gradient( self, *eta , weights=None):
         """Evaluate gradient of field at location identified by logical coordinates eta."""
+
+        if weights is not None:
+            raise NotImplementedError('gradient evaluation is not available for a weighted field')
+
         return self._space.eval_field_gradient( self, *eta , weights=weights)
         
     # ...
     def divergence(self, *eta, weights=None):
         """Evaluate divergence of vector field at location identified by logical coordinates eta."""
+
+        if weights is not None:
+            raise NotImplementedError('gradient evaluation is not available for a weighted field')
+
         return self._space.eval_field_divergence(self, *eta, weights=weights)
 
     # ...
