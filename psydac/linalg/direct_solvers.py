@@ -86,7 +86,7 @@ class BandedSolver ( DirectSolver ):
             assert out.shape == rhs.shape
 
             # support in-place operations
-            if id(rhs) != id(out):
+            if rhs is not out:
                 rhs[:] = out
 
             # TODO: handle non-contiguous views?
