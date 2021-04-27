@@ -82,7 +82,7 @@ class FemSpace( metaclass=ABCMeta ):
             Evaluation point(s) in logical domain.
 
         weights : StencilVector, optional
-            Weights of the basis functions, they belong to the same space of the field space coefficients.
+            Weights of the basis functions, such that weights.space == field.coeffs.space.
 
         Returns
         -------
@@ -105,7 +105,7 @@ class FemSpace( metaclass=ABCMeta ):
             Evaluation point(s) in logical domain.
 
         weights : StencilVector, optional
-            Weights of the basis functions, they belong to the same space of the field space coefficients.
+            Weights of the basis functions, such that weights.space == field.coeffs.space.
 
         Returns
         -------

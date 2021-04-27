@@ -144,6 +144,8 @@ class TensorFemSpace( FemSpace ):
         assert isinstance( field, FemField )
         assert field.space is self
         assert len( eta ) == self.ldim
+        if weights:
+            assert weights.space == field.coeffs.space
 
         bases = []
         index = []
