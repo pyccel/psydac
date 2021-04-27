@@ -239,7 +239,12 @@ class SplineSpace( FemSpace ):
         if self.basis == 'M':
             basis *= self._scaling_array[index]
 
-        return np.dot( field.coeffs[index], basis )
+        coeffs = field.coeffs[index].copy()
+
+        if weights:
+            coeffs *= wieghts[index]
+
+        return np.dot( coeffs, basis )
 
     # ...
     def eval_field_gradient( self, field, *eta , weights=None):
