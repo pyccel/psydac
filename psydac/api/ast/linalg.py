@@ -116,6 +116,8 @@ class LinearOperatorDot(SplBasic):
 
         for dim in range(ndim):
 
+            if nrows_extra[dim] == 0:continue
+
             v1 = [i+j+d for i,j,d in zip(indices1, indices2, diff)]
             v2 = [i+j for i,j in zip(indices1, gpads)]
             v1[dim] += nrows[dim]
