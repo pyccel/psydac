@@ -81,6 +81,9 @@ class FemSpace( metaclass=ABCMeta ):
         eta : list of float or numpy.ndarray
             Evaluation point(s) in logical domain.
 
+        weights : StencilVector, optional
+            Weights of the basis functions, they belong to the same space of the field space coefficients.
+
         Returns
         -------
         value : float or numpy.ndarray
@@ -100,6 +103,9 @@ class FemSpace( metaclass=ABCMeta ):
 
         eta : list of float or numpy.ndarray
             Evaluation point(s) in logical domain.
+
+        weights : StencilVector, optional
+            Weights of the basis functions, they belong to the same space of the field space coefficients.
 
         Returns
         -------
