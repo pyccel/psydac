@@ -606,6 +606,8 @@ class StencilMatrix( Matrix ):
 
         self._args = args
 
+        self._func = self._dot
+
         if backend is None:
             backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
 
@@ -643,7 +645,7 @@ class StencilMatrix( Matrix ):
         self._args['x']   = v._data
         self._args['out'] = out._data
 
-        self._dot(**self._args)
+        self._func(**self._args)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -1275,7 +1277,8 @@ class StencilMatrix( Matrix ):
         self._args.pop('nrows_extra')
         self._args.pop('gpads')
         self._args.pop('pads')
-        self._dot = dot.func
+        self._func = dot.func
+
 #===============================================================================
 # TODO [YG, 28.01.2021]:
 # - Check if StencilMatrix should be subclassed
