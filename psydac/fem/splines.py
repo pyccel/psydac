@@ -226,7 +226,7 @@ class SplineSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field( self, field, *eta ):
+    def eval_field( self, field, *eta , weights=None):
 
         assert isinstance( field, FemField )
         assert field.space is self
@@ -242,7 +242,7 @@ class SplineSpace( FemSpace ):
         return np.dot( field.coeffs[index], basis )
 
     # ...
-    def eval_field_gradient( self, field, *eta ):
+    def eval_field_gradient( self, field, *eta , weights=None):
 
         assert isinstance( field, FemField )
         assert field.space is self
