@@ -230,17 +230,17 @@ class FemField:
         return self._fields[key]
 
     # ...
-    def __call__( self, *eta ):
+    def __call__( self, *eta , **kwargs):
         """Evaluate field at location identified by logical coordinates eta."""
-        return self._space.eval_field( self, *eta )
+        return self._space.eval_field( self, *eta , **kwargs)
 
     # ...
-    def gradient( self, *eta ):
+    def gradient( self, *eta , **kwargs):
         """Evaluate gradient of field at location identified by logical coordinates eta."""
         return self._space.eval_field_gradient( self, *eta )
         
     # ...
-    def divergence(self, *eta):
+    def divergence(self, *eta, **kwargs):
         """Evaluate divergence of vector field at location identified by logical coordinates eta."""
         return self._space.eval_field_divergence(self, *eta)
 

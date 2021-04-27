@@ -139,7 +139,7 @@ class TensorFemSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field( self, field, *eta ):
+    def eval_field( self, field, *eta , weights=None):
 
         assert isinstance( field, FemField )
         assert field.space is self
@@ -183,6 +183,8 @@ class TensorFemSpace( FemSpace ):
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
         coeffs = field.coeffs[index].copy()
+        if weights:
+            coeffs *= weights[index]
 
         # Evaluation of multi-dimensional spline
         # TODO: optimize
@@ -207,7 +209,7 @@ class TensorFemSpace( FemSpace ):
         return res
 
     # ...
-    def eval_field_gradient( self, field, *eta ):
+    def eval_field_gradient( self, field, *eta ,  weights=None):
 
         assert isinstance( field, FemField )
         assert field.space is self

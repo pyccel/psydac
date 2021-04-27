@@ -191,8 +191,8 @@ def test_export_nurbs_to_hdf5(ncells, degree):
 
     assert np.allclose(new_pipe.weights.flatten(), mapping._weights_field.coeffs.toarray(), 1e-15, 1e-15)
 
-    eta1 = refine_array_1d( new_pipe.breaks(0), 20 )
-    eta2 = refine_array_1d( new_pipe.breaks(1), 20 )
+    eta1 = refine_array_1d( new_pipe.breaks(0), 10 )
+    eta2 = refine_array_1d( new_pipe.breaks(1), 10 )
 
     pcoords1 = np.array( [[new_pipe(e1,e2) for e2 in eta2] for e1 in eta1] )
     pcoords2 = np.array( [[mapping([e1,e2]) for e2 in eta2] for e1 in eta1] )
