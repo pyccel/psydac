@@ -69,7 +69,7 @@ class FemSpace( metaclass=ABCMeta ):
     # Abstract interface: evaluation methods
     #---------------------------------------
     @abstractmethod
-    def eval_field( self, field, *eta ):
+    def eval_field( self, field, *eta , weights=None):
         """
         Evaluate field at location(s) eta.
 
@@ -89,7 +89,7 @@ class FemSpace( metaclass=ABCMeta ):
         """
 
     @abstractmethod
-    def eval_field_gradient( self, field, *eta ):
+    def eval_field_gradient( self, field, *eta , weights=None):
         """
         Evaluate field gradient at location(s) eta.
 
@@ -230,19 +230,19 @@ class FemField:
         return self._fields[key]
 
     # ...
-    def __call__( self, *eta , **kwargs):
+    def __call__( self, *eta , weights=None):
         """Evaluate field at location identified by logical coordinates eta."""
-        return self._space.eval_field( self, *eta , **kwargs)
+        return self._space.eval_field( self, *eta , weights=weights)
 
     # ...
-    def gradient( self, *eta , **kwargs):
+    def gradient( self, *eta , weights=None):
         """Evaluate gradient of field at location identified by logical coordinates eta."""
-        return self._space.eval_field_gradient( self, *eta )
+        return self._space.eval_field_gradient( self, *eta , weights=weights)
         
     # ...
-    def divergence(self, *eta, **kwargs):
+    def divergence(self, *eta, weights=None):
         """Evaluate divergence of vector field at location identified by logical coordinates eta."""
-        return self._space.eval_field_divergence(self, *eta)
+        return self._space.eval_field_divergence(self, *eta, weights=weights)
 
     # ...
     def copy(self):
