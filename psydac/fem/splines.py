@@ -242,7 +242,7 @@ class SplineSpace( FemSpace ):
         coeffs = field.coeffs[index].copy()
 
         if weights:
-            coeffs *= wieghts[index]
+            coeffs *= weights[index]
 
         return np.dot( coeffs, basis )
 
