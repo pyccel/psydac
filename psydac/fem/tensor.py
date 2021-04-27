@@ -209,7 +209,7 @@ class TensorFemSpace( FemSpace ):
         return res
 
     # ...
-    def eval_field_gradient( self, field, *eta ,  weights=None):
+    def eval_field_gradient( self, field, *eta , weights=None):
 
         assert isinstance( field, FemField )
         assert field.space is self
