@@ -596,9 +596,6 @@ class StencilMatrix( Matrix ):
         nrows_extra = [0 if ec<=ed else ec-ed for ec,ed in zip(W.ends,V.ends)]
 
         args                 = OrderedDict()
-        args['mat']          = self._data
-        args['x']            = None
-        args['out']          = None
         args['nrows']        = nrows
         args['nrows_extra']  = nrows_extra
         args['gpads']        = V.pads
@@ -642,10 +639,7 @@ class StencilMatrix( Matrix ):
         else:
             out = StencilVector( self.codomain )
 
-        self._args['x']   = v._data
-        self._args['out'] = out._data
-
-        self._func(**self._args)
+        self._func(self._data, v._data, out._data, **self._args)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
