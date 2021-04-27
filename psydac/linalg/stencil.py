@@ -2,12 +2,15 @@
 #
 # Copyright 2018 Yaman Güçlü
 
+import os
+from collections import OrderedDict
+
 import numpy as np
 from scipy.sparse import coo_matrix
 from mpi4py import MPI
 
-from psydac.linalg.basic import VectorSpace, Vector, Matrix
-from psydac.ddm.cart     import find_mpi_type, CartDecomposition, CartDataExchanger
+from psydac.linalg.basic   import VectorSpace, Vector, Matrix
+from psydac.ddm.cart       import find_mpi_type, CartDecomposition, CartDataExchanger
 
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
 
@@ -557,7 +560,7 @@ class StencilMatrix( Matrix ):
         Codomain of the new linear operator.
 
     """
-    def __init__( self, V, W, pads=None ):
+    def __init__( self, V, W, pads=None , backend=None):
 
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
@@ -587,6 +590,28 @@ class StencilMatrix( Matrix ):
         # Flag ghost regions as not up-to-date (conservative choice)
         self._sync = False
 
+        # prepare the arguments
+        # Number of rows in matrix (along each dimension)
+        nrows       = [ed-s+1 for s,ed in zip(V.starts, V.ends)]
+        nrows_extra = [0 if ec<=ed else ec-ed for ec,ed in zip(W.ends,V.ends)]
+
+        args                 = OrderedDict()
+        args['mat']          = self._data
+        args['x']            = None
+        args['out']          = None
+        args['nrows']        = nrows
+        args['nrows_extra']  = nrows_extra
+        args['gpads']        = V.pads
+        args['pads']         = self._pads
+
+        self._args = args
+
+        if backend is None:
+            backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
+
+        if backend:
+            self.set_backend(backend)
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -615,19 +640,10 @@ class StencilMatrix( Matrix ):
         else:
             out = StencilVector( self.codomain )
 
-        # Shortcuts
-        ssc   = self.codomain.starts
-        eec   = self.codomain.ends
-        ssd   = self.domain.starts
-        eed   = self.domain.ends
-        pads  = self.pads
-        xpads = self.domain.pads
+        self._args['x']   = v._data
+        self._args['out'] = out._data
 
-        # Number of rows in matrix (along each dimension)
-        nrows       = [ed-s+1 for s,ed in zip(ssd, eed)]
-        nrows_extra = [0 if ec<=ed else ec-ed for ec,ed in zip(eec,eed)]
-
-        self._dot(self._data, v._data, out._data, nrows, nrows_extra, xpads, pads)
+        self._dot(**self._args)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -635,15 +651,16 @@ class StencilMatrix( Matrix ):
 
     # ...
     @staticmethod
-    def _dot(mat, x, out, nrows, nrows_extra, xpads, pads):
+    def _dot(mat, x, out, nrows, nrows_extra, gpads, pads):
 
         # Index for k=i-j
         ndim = len(x.shape)
         kk   = [slice(None)]*ndim
-        diff = [xp-p for xp,p in zip(xpads, pads)]
+        # pads are <= gpads
+        diff = [gp-p for gp,p in zip(gpads, pads)]
         for xx in np.ndindex( *nrows ):
 
-            ii    = tuple( xp+x for xp,x in zip(xpads,xx) )
+            ii    = tuple( xp+x for xp,x in zip(gpads,xx) )
             jj    = tuple( slice(d+x,d+x+2*p+1) for x,p,d in zip(xx,pads,diff) )
             ii_kk = tuple( list(ii) + kk )
 
@@ -660,7 +677,7 @@ class StencilMatrix( Matrix ):
                     xx = list(xx)
                     xx.insert(d, nrows[d]+n)
 
-                    ii     = tuple(x+xp for x,xp in zip(xx, xpads))
+                    ii     = tuple(x+xp for x,xp in zip(xx, gpads))
                     ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
                     jj     = tuple( slice(x+d, x+d+2*p+1-e) for x,p,d,e in zip(xx, pads, diff, ee) )
                     ndiags = [2*p + 1-e for p,e in zip(pads,ee)]
@@ -1246,6 +1263,19 @@ class StencilMatrix( Matrix ):
             idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
             self._data[idx_ghost] = 0
 
+    def set_backend(self, backend):
+        from psydac.api.ast.linalg import LinearOperatorDot
+        dot = LinearOperatorDot(self._ndim,
+                                backend=backend,
+                                nrows=self._args['nrows'],
+                                nrows_extra=self._args['nrows_extra'],
+                                gpads=self._args['gpads'],
+                                pads=self._args['pads'])
+        self._args.pop('nrows')
+        self._args.pop('nrows_extra')
+        self._args.pop('gpads')
+        self._args.pop('pads')
+        self._dot = dot.func
 #===============================================================================
 # TODO [YG, 28.01.2021]:
 # - Check if StencilMatrix should be subclassed
@@ -1653,4 +1683,5 @@ class StencilInterfaceMatrix(Matrix):
 
 
 #===============================================================================
+from psydac.api.settings   import PSYDAC_BACKENDS
 del VectorSpace, Vector, Matrix
