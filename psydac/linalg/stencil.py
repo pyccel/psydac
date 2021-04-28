@@ -1275,24 +1275,41 @@ class StencilMatrix( Matrix ):
         from psydac.api.ast.linalg import LinearOperatorDot
 
         if self.domain.parallel:
-            dot = LinearOperatorDot(self._ndim,
-                                    backend=backend,
-                                    gpads=self._args['gpads'],
-                                    pads=self._args['pads'])
+            if self.domain == self.codomain:
+                # In this case nrows_extra[i] == 0 for all i
+                dot = LinearOperatorDot(self._ndim,
+                                backend=backend,
+                                nrows_extra = self._args['nrows_extra'],
+                                gpads=self._args['gpads'],
+                                pads=self._args['pads'])
 
-            nrows = self._args.pop('nrows')
-            nrows_extra = self._args.pop('nrows_extra')
+                nrows = self._args.pop('nrows')
 
-            self._args.pop('gpads')
-            self._args.pop('pads')
+                self._args.pop('nrows_extra')
+                self._args.pop('gpads')
+                self._args.pop('pads')
 
-            for i in range(len(nrows)):
-                self._args['n{i}'.format(i=i+1)] = nrows[i]
+                for i in range(len(nrows)):
+                    self._args['n{i}'.format(i=i+1)] = nrows[i]
 
-            for i in range(len(nrows)):
-                self._args['ne{i}'.format(i=i+1)] = nrows_extra[i]
+            else:
+                dot = LinearOperatorDot(self._ndim,
+                                        backend=backend,
+                                        gpads=self._args['gpads'],
+                                        pads=self._args['pads'])
 
-            self._func = dot.func
+                nrows = self._args.pop('nrows')
+                nrows_extra = self._args.pop('nrows_extra')
+
+                self._args.pop('gpads')
+                self._args.pop('pads')
+
+                for i in range(len(nrows)):
+                    self._args['n{i}'.format(i=i+1)] = nrows[i]
+
+                for i in range(len(nrows)):
+                    self._args['ne{i}'.format(i=i+1)] = nrows_extra[i]
+
         else:
             dot = LinearOperatorDot(self._ndim,
                                     backend=backend,
@@ -1304,7 +1321,8 @@ class StencilMatrix( Matrix ):
             self._args.pop('nrows_extra')
             self._args.pop('gpads')
             self._args.pop('pads')
-            self._func = dot.func
+
+        self._func = dot.func
 
 #===============================================================================
 # TODO [YG, 28.01.2021]:
