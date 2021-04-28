@@ -1273,17 +1273,38 @@ class StencilMatrix( Matrix ):
 
     def set_backend(self, backend):
         from psydac.api.ast.linalg import LinearOperatorDot
-        dot = LinearOperatorDot(self._ndim,
-                                backend=backend,
-                                nrows=self._args['nrows'],
-                                nrows_extra=self._args['nrows_extra'],
-                                gpads=self._args['gpads'],
-                                pads=self._args['pads'])
-        self._args.pop('nrows')
-        self._args.pop('nrows_extra')
-        self._args.pop('gpads')
-        self._args.pop('pads')
-        self._func = dot.func
+
+        if self.domain.parallel:
+            dot = LinearOperatorDot(self._ndim,
+                                    backend=backend,
+                                    gpads=self._args['gpads'],
+                                    pads=self._args['pads'])
+
+            nrows = self._args.pop('nrows')
+            nrows_extra = self._args.pop('nrows_extra')
+
+            self._args.pop('gpads')
+            self._args.pop('pads')
+
+            for i in range(len(nrows)):
+                self._args['n{i}'.format(i=i+1)] = nrows[i]
+
+            for i in range(len(nrows)):
+                self._args['ne{i}'.format(i=i+1)] = nrows_extra[i]
+
+            self._func = dot.func
+        else:
+            dot = LinearOperatorDot(self._ndim,
+                                    backend=backend,
+                                    nrows=self._args['nrows'],
+                                    nrows_extra=self._args['nrows_extra'],
+                                    gpads=self._args['gpads'],
+                                    pads=self._args['pads'])
+            self._args.pop('nrows')
+            self._args.pop('nrows_extra')
+            self._args.pop('gpads')
+            self._args.pop('pads')
+            self._func = dot.func
 
 #===============================================================================
 # TODO [YG, 28.01.2021]:
