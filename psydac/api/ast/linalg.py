@@ -185,6 +185,8 @@ class LinearOperatorDot(SplBasic):
             if backend['name'] == 'pyccel':
                 a = [String(str(i)) for i in build_types_decorator(func_args)]
                 decorators = {'types': Function('types')(*a)}
+            elif backend['name'] == 'numba':
+                decorators = {'njit': Symbol('njit')}
             elif backend['name'] == 'pythran':
                 header = build_pythran_types_header(name, func_args)
 
@@ -219,7 +221,7 @@ class LinearOperatorDot(SplBasic):
         if backend and backend['name'] == 'pyccel':
             imports = 'from pyccel.decorators import types'
         elif backend and backend['name'] == 'numba':
-            imports = 'from numba import jit'
+            imports = 'from numba import njit'
 
         if MPI.COMM_WORLD.rank == 0:
             modname = 'dependencies_{}'.format(tag)

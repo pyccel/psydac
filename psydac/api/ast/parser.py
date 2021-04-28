@@ -444,7 +444,7 @@ class Parser(object):
             a = [String(str(i)) for i in build_types_decorator(arguments)]
             decorators = {'types': Function('types')(*a)}
         elif self.backend['name'] == 'numba':
-            decorators = {'jit': Symbol('jit')}
+            decorators = {'njit': Symbol('njit')}
         elif self.backend['name'] == 'pythran':
             header = build_pythran_types_header(name, arguments)
         else:
