@@ -48,12 +48,13 @@ class LinearOperatorDot(SplBasic):
         return SplBasic.__new__(cls, 'dot', name='lo_dot', prefix='lo_dot')
 
     def __init__(self, ndim, **kwargs):
-        code             = self._initialize(ndim, **kwargs)
+
+        backend = dict(kwargs.pop('backend'))
+        code             = self._initialize(ndim, backend=backend, **kwargs)
         self._arguments = dict((str(a.name),a) for a in code.arguments)
         self._code      = code
         self._folder    = self._initialize_folder()
 
-        backend = kwargs.pop('backend')
         self._generate_code(backend=backend)
         self._compile(backend=backend)
 

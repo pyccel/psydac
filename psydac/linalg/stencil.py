@@ -596,10 +596,10 @@ class StencilMatrix( Matrix ):
         nrows_extra = [0 if ec<=ed else ec-ed for ec,ed in zip(W.ends,V.ends)]
 
         args                 = OrderedDict()
-        args['nrows']        = nrows
-        args['nrows_extra']  = nrows_extra
-        args['gpads']        = V.pads
-        args['pads']         = self._pads
+        args['nrows']        = tuple(nrows)
+        args['nrows_extra']  = tuple(nrows_extra)
+        args['gpads']        = tuple(V.pads)
+        args['pads']         = tuple(self._pads)
 
         self._args = args
 
@@ -1278,7 +1278,7 @@ class StencilMatrix( Matrix ):
             if self.domain == self.codomain:
                 # In this case nrows_extra[i] == 0 for all i
                 dot = LinearOperatorDot(self._ndim,
-                                backend=backend,
+                                backend=frozenset(backend.items()),
                                 nrows_extra = self._args['nrows_extra'],
                                 gpads=self._args['gpads'],
                                 pads=self._args['pads'])
@@ -1294,7 +1294,7 @@ class StencilMatrix( Matrix ):
 
             else:
                 dot = LinearOperatorDot(self._ndim,
-                                        backend=backend,
+                                        backend=frozenset(backend.items()),
                                         gpads=self._args['gpads'],
                                         pads=self._args['pads'])
 
@@ -1312,7 +1312,7 @@ class StencilMatrix( Matrix ):
 
         else:
             dot = LinearOperatorDot(self._ndim,
-                                    backend=backend,
+                                    backend=frozenset(backend.items()),
                                     nrows=self._args['nrows'],
                                     nrows_extra=self._args['nrows_extra'],
                                     gpads=self._args['gpads'],
