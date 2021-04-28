@@ -69,7 +69,7 @@ class FemSpace( metaclass=ABCMeta ):
     # Abstract interface: evaluation methods
     #---------------------------------------
     @abstractmethod
-    def eval_field( self, field, *eta ):
+    def eval_field( self, field, *eta , weights=None):
         """
         Evaluate field at location(s) eta.
 
@@ -81,6 +81,9 @@ class FemSpace( metaclass=ABCMeta ):
         eta : list of float or numpy.ndarray
             Evaluation point(s) in logical domain.
 
+        weights : StencilVector, optional
+            Weights of the basis functions, such that weights.space == field.coeffs.space.
+
         Returns
         -------
         value : float or numpy.ndarray
@@ -89,7 +92,7 @@ class FemSpace( metaclass=ABCMeta ):
         """
 
     @abstractmethod
-    def eval_field_gradient( self, field, *eta ):
+    def eval_field_gradient( self, field, *eta , weights=None):
         """
         Evaluate field gradient at location(s) eta.
 
@@ -100,6 +103,9 @@ class FemSpace( metaclass=ABCMeta ):
 
         eta : list of float or numpy.ndarray
             Evaluation point(s) in logical domain.
+
+        weights : StencilVector, optional
+            Weights of the basis functions, such that weights.space == field.coeffs.space.
 
         Returns
         -------
@@ -230,19 +236,23 @@ class FemField:
         return self._fields[key]
 
     # ...
-    def __call__( self, *eta ):
-        """Evaluate field at location identified by logical coordinates eta."""
-        return self._space.eval_field( self, *eta )
+    def __call__( self, *eta , weights=None):
+        """Evaluate weighted field at location identified by logical coordinates eta."""
+        return self._space.eval_field( self, *eta , weights=weights)
 
     # ...
-    def gradient( self, *eta ):
-        """Evaluate gradient of field at location identified by logical coordinates eta."""
-        return self._space.eval_field_gradient( self, *eta )
+    def gradient( self, *eta , weights=None):
+        """Evaluate gradient of weighted field at location identified by logical coordinates eta."""
+
+        if weights is not None:
+            raise NotImplementedError('gradient evaluation is not available for a weighted field')
+
+        return self._space.eval_field_gradient( self, *eta , weights=weights)
         
     # ...
-    def divergence(self, *eta):
-        """Evaluate divergence of vector field at location identified by logical coordinates eta."""
-        return self._space.eval_field_divergence(self, *eta)
+    def divergence(self, *eta, weights=None):
+        """Evaluate divergence of weighted vector field at location identified by logical coordinates eta."""
+        return self._space.eval_field_divergence(self, *eta, weights=weights)
 
     # ...
     def copy(self):
