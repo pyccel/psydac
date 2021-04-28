@@ -21,7 +21,7 @@ from pyccel.ast.core import FunctionCall
 from pyccel.ast.core import Import
 from pyccel.ast.utilities import build_types_decorator
 
-from fastcache import lru_cache
+from functools import lru_cache
 
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.fem.splines import SplineSpace
@@ -221,10 +221,9 @@ class LinearOperatorDot(SplBasic):
         elif backend and backend['name'] == 'numba':
             imports = 'from numba import jit'
 
-        code = '{imports}\n{code}'.format(imports=imports, code=pycode.pycode(self.code))
-
         if MPI.COMM_WORLD.rank == 0:
             modname = 'dependencies_{}'.format(tag)
+            code = '{imports}\n{code}'.format(imports=imports, code=pycode.pycode(self.code))
             write_code(modname+ '.py', code, folder = self.folder)
         else:
             modname = None
