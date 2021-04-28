@@ -732,7 +732,7 @@ class StencilMatrix( Matrix ):
         M = StencilMatrix( self.domain, self.codomain, self._pads )
         M._data[:] = self._data[:]
         M._func    = self._func
-        M._args    = self._arga
+        M._args    = self._args
         return M
 
     #...
