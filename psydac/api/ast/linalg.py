@@ -20,8 +20,10 @@ from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
 from pyccel.ast.core import Import
 from pyccel.ast.utilities import build_types_decorator
-from psydac.api.ast.utilities import variables, math_atoms_as_str
 
+from fastcache import lru_cache
+
+from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
@@ -39,6 +41,7 @@ def variable_to_sympy(x):
         x = Symbol(x.name, integer=True)
     return x
 
+@lru_cache(maxsize=32)
 class LinearOperatorDot(SplBasic):
 
     def __new__(cls, ndim, **kwargs):
