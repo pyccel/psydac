@@ -382,6 +382,7 @@ class KroneckerLinearSolver( LinearSolver ):
         solver_passes = [None] * self._ndim
 
         tempsize = self._localsize
+        self._allserial = True
         for i in range(self._ndim):
             # decide for each direction individually, if we should use a serial or a parallel/distributed sovler
             # useful e.g. if we have little data in some directions (and thus no data distributed there)
@@ -393,6 +394,9 @@ class KroneckerLinearSolver( LinearSolver ):
                 # TODO: also implement a pass using Alltoall, in case that the data is regular enough
                 # for the parallel case, use Alltoallv
                 solver_passes[i] = KroneckerSolverParallelPass(self._solvers[i], self._space._mpi_type, i, self._space.cart, mglobals[i], nglobals[i], nlocals[i], self._localsize)
+
+                # we have a parallel solve pass now, so we are not completely local any more
+                self._allserial = False
             
             # update memory requirements
             tempsize = max(tempsize, solver_passes[i].required_memory())
@@ -436,10 +440,14 @@ class KroneckerLinearSolver( LinearSolver ):
     
     def _allocate_temps( self ):
         """
-        Allocates all temporary data.
+        Allocates all temporary data needed for the solve operation.
         """
         temp1 = np.empty((self._tempsize,))
-        temp2 = np.empty((self._tempsize,))
+        if self._ndim <= 1 and self._allserial:
+            # if ndim==1 and we have no parallelism, we can avoid allocating a second temp array
+            temp2 = None
+        else:
+            temp2 = np.empty((self._tempsize,))
         return temp1, temp2
     
     @property
@@ -531,6 +539,8 @@ class KroneckerLinearSolver( LinearSolver ):
 class KroneckerSolverSerialPass:
     """
     Solves several linear equations at the same time, given that the data is already in memory.
+
+    Not intended for outside use.
     """
     def __init__(self, solver, nglobal, mglobal):
         self._numrhs = mglobal
@@ -540,21 +550,28 @@ class KroneckerSolverSerialPass:
         self._view = None
     
     def required_memory(self):
-        return self._numrhs * self._dimrhs
+        return self._datasize
 
-    def solve_pass(self, memory, ignored):
+    def solve_pass(self, workmem, tempmem):
         # reshape necessary memory in column-major
-        view = memory[:self._datasize].reshape((self._dimrhs,self._numrhs), order='F')
+        view = workmem[:self._datasize]
+        view.shape = (self._numrhs,self._dimrhs)
+
+        # the solvers want the FORTRAN-contiguous format
+        # (TODO: push this into the DirectSolver?)
+        view_T = view.transpose()
 
         # call solver in in-place mode
-        self._solver.solve(view, out=view)
+        self._solver.solve(view_T, out=view_T)
 
 class KroneckerSolverParallelPass:
     """
     Solves several linear equations at the same time, using an Alltoallv operation to distribute the data.
+
+    Not intended for outside use.
     """
 
-    # To understand the following, here is a tiny explaination. Consider two processes like this:
+    # To understand the following, here is a short explaination. Consider two processes like this:
     #
     # Pr1 | Pr2
     # 0 1 | 2 3
@@ -638,22 +655,22 @@ class KroneckerSolverParallelPass:
             targetpart.shape = (self._mlocal,end-start)
             targetpart[:] = blocked_view[:,start:end]
 
-    def solve_pass(self, source, target):
+    def solve_pass(self, workmem, tempmem):
         # preparation
-        sourceargs = [source[:self._localsize], self._source_transfer, self._mpi_type]
-        targetargs = [target[:self._datasize], self._target_transfer, self._mpi_type]
+        sourceargs = [workmem[:self._localsize], self._source_transfer, self._mpi_type]
+        targetargs = [tempmem[:self._datasize], self._target_transfer, self._mpi_type]
 
         # parts of stripes -> blocked stripes
         self._comm.Alltoallv(sourceargs, targetargs)
 
         # blocked stripes -> ordered stripes
-        self._order_blocked(source, target)
+        self._order_blocked(workmem, tempmem)
 
         # actual solve (source contains the data)
-        self._serialsolver.solve_pass(source, target)
+        self._serialsolver.solve_pass(workmem, tempmem)
 
         # ordered stripes -> blocked stripes
-        self._unorder_blocked(source, target)
+        self._unorder_blocked(workmem, tempmem)
 
         # blocked stripes -> parts of stripes
         self._comm.Alltoallv(targetargs, sourceargs)
