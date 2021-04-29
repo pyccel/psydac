@@ -27,7 +27,7 @@ class DirectSolver( LinearSolver ):
         pass
 
     @abstractmethod
-    def solve( self, rhs, out=None ):
+    def solve( self, rhs, out=None, transposed=False ):
         pass
 
 #===============================================================================
@@ -75,12 +75,12 @@ class BandedSolver ( DirectSolver ):
         return self._space
 
     #...
-    def solve( self, rhs, out=None ):
+    def solve( self, rhs, out=None, transposed=False ):
 
         assert rhs.shape[0] == self._bmat.shape[1]
 
         if out is None:
-            out, self._sinfo = dgbtrs(self._bmat, self._l, self._u, rhs, self._ipiv)
+            out, self._sinfo = dgbtrs(self._bmat, self._l, self._u, rhs, self._ipiv, trans=transposed)
 
         else :
             assert out.shape == rhs.shape
@@ -91,7 +91,7 @@ class BandedSolver ( DirectSolver ):
 
             # TODO: handle non-contiguous views?
             
-            _, self._sinfo = dgbtrs(self._bmat, self._l, self._u, rhs, self._ipiv, overwrite_b=True)
+            _, self._sinfo = dgbtrs(self._bmat, self._l, self._u, rhs, self._ipiv, overwrite_b=True, trans=transposed)
 
         return out
 
@@ -121,18 +121,18 @@ class SparseSolver ( DirectSolver ):
         return self._space
 
     #...
-    def solve( self, rhs, out=None ):
+    def solve( self, rhs, out=None, transposed=False ):
 
         assert rhs.shape[0] == self._splu.shape[1]
 
         if out is None:
-            out = self._splu.solve( rhs )
+            out = self._splu.solve( rhs, trans='T' if transposed else 'N' )
 
         else:
             assert out.shape == rhs.shape
 
             # currently no in-place solve exposed
-            out[:] = self._splu.solve( rhs )
+            out[:] = self._splu.solve( rhs, trans='T' if transposed else 'N' )
 
         return out
 
