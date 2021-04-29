@@ -337,6 +337,11 @@ class KroneckerLinearSolver( LinearSolver ):
     
     solvers : list of LinearSolver
         The components of A in each dimension.
+    
+    Attributes
+    ----------
+    space : StencilVectorSpace
+        The space our vectors to solve live in.
     """
     def __init__(self, V, solvers):
         assert isinstance( V, StencilVectorSpace )
@@ -391,7 +396,7 @@ class KroneckerLinearSolver( LinearSolver ):
                 # serial solve
                 solver_passes[i] = KroneckerSolverSerialPass(self._solvers[i], nglobals[i], mglobals[i])
             else:
-                # TODO: also implement a pass using Alltoall, in case that the data is regular enough
+                # TODO: also implement a pass using Alltoall (not Alltoallv), in case that the data is regular enough
                 # for the parallel case, use Alltoallv
                 solver_passes[i] = KroneckerSolverParallelPass(self._solvers[i], self._space._mpi_type, i, self._space.cart, mglobals[i], nglobals[i], nlocals[i], self._localsize)
 
@@ -406,17 +411,20 @@ class KroneckerLinearSolver( LinearSolver ):
         self._tempsize = tempsize
 
     def _setup_permutations(self):
-        # permutation and shape for reordering
+        """
+        Creates the permutations and matrix shapes which occur during reordering
+        the data for the Kronecker solve operations.
+        """
 
         # we want for the permutations:
         # a) re-order as little as possible
-        # b) all permutations should, when applied in the right order, lead to 
+        # b) concatenating all permutations should give us the identity
         #
         # so we can do:
         # if we have (1,...,n) in the beginning, then do:
-        # (1,...,n,n-1) first (i.e. swap -1th with -2nd component)
-        # (1,...,n,n-1,n-2) second (i.e. swap -1th with -3rd component)
-        # (1,...,n,n-2,n-1,n3) third
+        # first reorder (1,...,n,n-1) (i.e. swap -1th with -2nd component)
+        # second reorder(1,...,n,n-1,n-2) (i.e. swap -1th with -3rd component)
+        # third reorder (1,...,n,n-2,n-1,n3)
         # until we get to (n, 2, ..., n-1, 1)
         # combining all these permutations, we have: (2,3,...,n-1,n,1)
         # the inverse of this last permutation is (n,1,2,...,n-1)
@@ -541,6 +549,19 @@ class KroneckerSolverSerialPass:
     Solves several linear equations at the same time, given that the data is already in memory.
 
     Not intended for outside use.
+
+    Parameters
+    ----------
+    solver : DirectSolver
+        The internally used solver class.
+    
+    nglobal : int
+        The length of the dimension which we want to solve for.
+    
+    mglobal : int
+        The number of right-hand sizes we want to solve. Equals the product of the
+        number of dimensions which we do NOT want to solve for (when squashing all these dimensions into a single one).
+        I.e. mglobal*nglobal is the total data size.
     """
     def __init__(self, solver, nglobal, mglobal):
         self._numrhs = mglobal
@@ -550,9 +571,26 @@ class KroneckerSolverSerialPass:
         self._view = None
     
     def required_memory(self):
+        """
+        Returns the required memory for this operation. Minimum size for the workmem and tempmem parameters.
+        """
         return self._datasize
 
     def solve_pass(self, workmem, tempmem, transposed):
+        """
+        Solves the data available in workmem, assuming that all data is available locally.
+
+        Parameters
+        ----------
+        workmem : ndarray
+            The data which is used for solving. All columns to be solved are ordered contiguously.
+        
+        tempmem : ndarray
+            Ignored, it exists for compatibility with the parallel solver.
+        
+        transposed : bool
+            True, if and only if we want to solve against the transposed matrix instead.
+        """
         # reshape necessary memory in column-major
         view = workmem[:self._datasize]
         view.shape = (self._numrhs,self._dimrhs)
@@ -568,7 +606,42 @@ class KroneckerSolverParallelPass:
     """
     Solves several linear equations at the same time, using an Alltoallv operation to distribute the data.
 
+    The parameters use the form of n and m; here n denotes the length of the dimension we want to solve for,
+    and m is the length of all other dimensions, multiplied with each other. These n and m are then suffixed
+    with local and global, denoting how much of them we have (or want to have) locally. I.e.
+    nglobal is the dimension of the columns we want to solve, nlocal is the part we have on our local processor.
+    mglobal is the number of right-hand sides to solve in the whole communicator, and mlocal is the number of
+    right-hand sides we will solve on our local processor.
+
     Not intended for outside use.
+
+    Parameters
+    ----------
+    solver : DirectSolver
+        The internally used solver class.
+    
+    mpi_type : MPI type
+        The MPI type of the space. Used for the Alltoallv.
+    
+    i : int
+        The index of the dimension.
+    
+    cart : CartDecomposition
+        The cartesian decomposition we use.
+
+    mglobal : int
+        The number of right-hand sizes we want to solve. Equals the product of the
+        number of dimensions which we do NOT want to solve for (when squashing all these dimensions into a single one).
+        I.e. mglobal*nglobal is the total data size in our communicator (not on the whole grid though).
+    
+    nglobal : int
+        The length of the dimension which we want to solve. (the real length, not the one we have on this process)
+    
+    nlocal : int
+        The length of the part of the dimension to solve which is located on this process already.
+
+    localsize : int
+        The size of data on our local process. Equals mlocal * nlocal (given that we know the former).
     """
 
     # To understand the following, here is a short explaination. Consider two processes like this:
@@ -598,6 +671,8 @@ class KroneckerSolverParallelPass:
     # 0 1 2 3 4 5 6 7 on Pr1
     # 8 9 A B C D E F on Pr2
     #
+
+    # NOTE: in case someone wants to create an Alltoall (not Alltoallv) pass class, this class is a good starting point, though simplifications will be needed
     
     def __init__(self, solver, mpi_type, i, cart, mglobal, nglobal, nlocal, localsize):
         self._nglobal = nglobal
@@ -608,7 +683,10 @@ class KroneckerSolverParallelPass:
         cartstart = cart.global_starts[i]
         cartsize = cartend - cartstart
 
-        # source MPI
+        # source MPI sizes and disps
+        # distribute the data like
+        # (N+1, N+1, ..., N+1, N, N, ...)
+        # where N = floor(mglobaldata / comm.size)
         mlocal_pre = mglobal // comm.size
         mlocal_add = mglobal % comm.size
         sourcesizes = np.full((comm.size,), mlocal_pre, dtype=int)
@@ -616,11 +694,13 @@ class KroneckerSolverParallelPass:
         mlocal = sourcesizes[comm.rank]
         sourcesizes *= nlocal
 
+        # disps, created from the sizes
         sourcedisps = np.zeros((comm.size+1,), dtype=int)
         np.cumsum(sourcesizes, out=sourcedisps[1:])
         sourcedisps = sourcedisps[:-1]
 
-        # target MPI (mlocal is the same over all processes in the communicator)
+        # target MPI sizes and disps
+        # (mlocal is the same over all processes in the communicator)
         targetsizes = cartsize * mlocal
         targetdisps = cartstart * mlocal
 
@@ -637,6 +717,9 @@ class KroneckerSolverParallelPass:
         self._serialsolver = KroneckerSolverSerialPass(solver, nglobal, mlocal)
 
     def required_memory(self):
+        """
+        Returns the required memory for this operation. Minimum size for the workmem and tempmem parameters.
+        """
         return max(self._datasize, self._localsize)
 
     def _order_blocked(self, source, target):
@@ -656,6 +739,20 @@ class KroneckerSolverParallelPass:
             targetpart[:] = blocked_view[:,start:end]
 
     def solve_pass(self, workmem, tempmem, transposed):
+        """
+        Solves the data available in workmem in a distributed manner, using MPI.
+
+        Parameters
+        ----------
+        workmem : ndarray
+            The data which is used for solving. All columns to be solved are ordered contiguously.
+        
+        tempmem : ndarray
+            Temporary array of the same size as workmem.
+        
+        transposed : bool
+            True, if and only if we want to solve against the transposed matrix instead.
+        """
         # preparation
         sourceargs = [workmem[:self._localsize], self._source_transfer, self._mpi_type]
         targetargs = [tempmem[:self._datasize], self._target_transfer, self._mpi_type]
@@ -676,328 +773,7 @@ class KroneckerSolverParallelPass:
         self._comm.Alltoallv(targetargs, sourceargs)
 
 #==============================================================================
-def kronecker_solve_2d_par( A1, A2, rhs, out=None ):
-    """
-    Solve linear system Ax=b with A=kron(A2,A1).
-
-    Parameters
-    ----------
-    A1 : LinearSolver
-        Solve linear system A1 x1 = b1: x1=A1.solve(b1).
-
-    A2 : LinearSolver
-        Solve linear system A2 x2 = b2: x2=A2.solve(b2).
-
-    rhs : StencilVector 2D
-        Right hand side vector of linear system Ax=b.
-
-    """
-    assert isinstance( A1 , LinearSolver  )
-    assert isinstance( A2 , LinearSolver  )
-    assert isinstance( rhs, StencilVector )
-
-    if out is not None:
-        assert isinstance( out, StencilVector )
-        assert out.space is rhs.space
-    else:
-        out = StencilVector( rhs.space )
-
-    # ...
-    V = rhs.space
-
-    s1, s2 = V.starts
-    e1, e2 = V.ends
-    n1, n2 = V.npts
-
-    subcomm_1 = V.cart.subcomm[0]
-    subcomm_2 = V.cart.subcomm[1]
-
-    disps1 = V.cart.global_starts[0]
-    disps2 = V.cart.global_starts[1]
-
-    sizes1 = V.cart.global_ends[0] - V.cart.global_starts[0] + 1
-    sizes2 = V.cart.global_ends[1] - V.cart.global_starts[1] + 1
-
-    # TODO: make MPI type available through property
-    mpi_type = V._mpi_type
-    # ...
-
-    # ...
-    # 2D slices
-    X = rhs[s1:e1+1,s2:e2+1]
-    Y = out[s1:e1+1,s2:e2+1]
-
-    # 1D global arrays
-    X_glob_1 = np.zeros( n1 )
-    Y_glob_2 = np.zeros( n2 )
-    # ...
-
-    for i2 in range(e2-s2+1):
-        X_loc = X[:,i2].copy()  # need 1D contiguous copy
-        subcomm_1.Allgatherv( X_loc, [X_glob_1, sizes1, disps1, mpi_type] )
-        Y[:,i2] = A1.solve( X_glob_1 )[s1:e1+1]
-
-    for i1 in range(e1-s1+1):
-        Y_loc = Y[i1,:]  # 1D contiguous slice
-        subcomm_2.Allgatherv( Y_loc, [Y_glob_2, sizes2, disps2, mpi_type] )
-        Y[i1,:] = A2.solve( Y_glob_2 )[s2:e2+1]
-
-    # ...
-    out.update_ghost_regions()
-    # ...
-
-    return out
-
-#==============================================================================
-def kronecker_solve_3d_par_old( A1, A2, A3, rhs, out=None ):
-    """
-    Solve linear system Ax=b with A=kron(A3,A2,A1).
-
-    Parameters
-    ----------
-    A1 : LinearSolver
-        Solve linear system A1 x1 = b1: x1=A1.solve(b1).
-
-    A2 : LinearSolver
-        Solve linear system A2 x2 = b2: x2=A2.solve(b2).
-
-    A3 : LinearSolver
-        Solve linear system A3 x3 = b3: x3=A3.solve(b3).
-
-    rhs : StencilVector 3D
-        Right hand side vector of linear system Ax=b.
-
-    """
-    assert isinstance( A1 , LinearSolver  )
-    assert isinstance( A2 , LinearSolver  )
-    assert isinstance( A3 , LinearSolver  )
-    assert isinstance( rhs, StencilVector )
-
-    if out is not None:
-        assert isinstance( out, StencilVector )
-        assert out.space is rhs.space
-    else:
-        out = StencilVector( rhs.space )
-
-    # ...
-    V = rhs.space
-
-    s1, s2, s3 = V.starts
-    e1, e2, e3 = V.ends
-    n1, n2, n3 = V.npts
-
-    subcomm_1 = V.cart.subcomm[0]
-    subcomm_2 = V.cart.subcomm[1]
-    subcomm_3 = V.cart.subcomm[2]
-
-    disps1 = V.cart.global_starts[0]
-    disps2 = V.cart.global_starts[1]
-    disps3 = V.cart.global_starts[2]
-
-    sizes1 = V.cart.global_ends[0] - V.cart.global_starts[0] + 1
-    sizes2 = V.cart.global_ends[1] - V.cart.global_starts[1] + 1
-    sizes3 = V.cart.global_ends[2] - V.cart.global_starts[2] + 1
-
-    # TODO: make MPI type available through property
-    mpi_type = V._mpi_type
-    # ...
-
-    # ...
-    # 3D slices
-    X = rhs[s1:e1+1, s2:e2+1, s3:e3+1]
-    Y = out[s1:e1+1, s2:e2+1, s3:e3+1]
-
-    # 1D local arrays
-    X_loc_1 = np.zeros(X.shape[0])
-    Y_loc_2 = np.zeros(Y.shape[1])
-    # Y_loc_3 is not needed
-
-    # 1D global arrays
-    X_glob_1 = np.zeros( n1 )
-    Y_glob_2 = np.zeros( n2 )
-    Y_glob_3 = np.zeros( n3 )
-    # ...
-
-    for i3 in range(e3-s3+1):
-        for i2 in range(e2-s2+1):
-            X_loc_1[:] = X[:, i2, i3]  # need 1D contiguous copy
-            subcomm_1.Allgatherv( X_loc_1, [X_glob_1, sizes1, disps1, mpi_type] )
-            Y[:, i2, i3] = A1.solve( X_glob_1, out=X_glob_1 )[s1:e1+1]
-
-    for i3 in range(e3-s3+1):
-        for i1 in range(e1-s1+1):
-            Y_loc_2[:] = Y[i1, :, i3]  # need 1D contiguous copy
-            subcomm_2.Allgatherv( Y_loc_2, [Y_glob_2, sizes2, disps2, mpi_type] )
-            Y[i1, :, i3] = A2.solve( Y_glob_2, out=Y_glob_2 )[s2:e2+1]
-
-    for i2 in range(e2-s2+1):
-        for i1 in range(e1-s1+1):
-            Y_loc_3 = Y[i1, i2, :]  # 1D contiguous slice
-            subcomm_3.Allgatherv( Y_loc_3, [Y_glob_3, sizes3, disps3, mpi_type] )
-            Y[i1, i2, :] = A3.solve( Y_glob_3, out=Y_glob_3 )[s3:e3+1]
-
-    # ...
-    out.update_ghost_regions()
-    # ...
-
-    return out
-
-def kronecker_solve_3d_par( A1, A2, A3, rhs, out=None ):
-    """
-    Solve linear system Ax=b with A=kron(A3,A2,A1).
-
-    Soon to be replaced by the KroneckerLinearSolver from above.
-
-    Parameters
-    ----------
-    A1 : LinearSolver
-        Solve linear system A1 x1 = b1: x1=A1.solve(b1).
-
-    A2 : LinearSolver
-        Solve linear system A2 x2 = b2: x2=A2.solve(b2).
-
-    A3 : LinearSolver
-        Solve linear system A3 x3 = b3: x3=A3.solve(b3).
-
-    rhs : StencilVector 3D
-        Right hand side vector of linear system Ax=b.
-
-    """
-    assert isinstance( A1 , LinearSolver  )
-    assert isinstance( A2 , LinearSolver  )
-    assert isinstance( A3 , LinearSolver  )
-    assert isinstance( rhs, StencilVector )
-
-    if out is not None:
-        assert isinstance( out, StencilVector )
-        assert out.space is rhs.space
-    else:
-        out = StencilVector( rhs.space )
-
-    # ...
-    V = rhs.space
-
-    s1, s2, s3 = V.starts
-    e1, e2, e3 = V.ends
-    n1, n2, n3 = V.npts
-
-    subcomm_1 = V.cart.subcomm[0]
-    subcomm_2 = V.cart.subcomm[1]
-    subcomm_3 = V.cart.subcomm[2]
-
-    disps1 = V.cart.global_starts[0]
-    disps2 = V.cart.global_starts[1]
-    disps3 = V.cart.global_starts[2]
-
-    sizes1 = V.cart.global_ends[0] - V.cart.global_starts[0] + 1
-    sizes2 = V.cart.global_ends[1] - V.cart.global_starts[1] + 1
-    sizes3 = V.cart.global_ends[2] - V.cart.global_starts[2] + 1
-
-    # TODO: make MPI type available through property
-    mpi_type = V._mpi_type
-    # ...
-
-    # ...
-    # 3D slices
-    X = rhs[s1:e1+1, s2:e2+1, s3:e3+1]
-    Y = out[s1:e1+1, s2:e2+1, s3:e3+1]
-
-    # local chunk size
-    l1 = e1-s1+1
-    l2 = e2-s2+1
-    l3 = e3-s3+1
-
-    # slice size (i.e. divide local chunk by communicator size again)
-    def roundcomm(num, comm):
-        return num // comm.size + (comm.rank < (num % comm.size))
-    s1 = roundcomm(l2*l3, subcomm_1)
-    s2 = roundcomm(l1*l3, subcomm_2)
-    s3 = roundcomm(l1*l2, subcomm_3)
-
-    def makedists(source, target, comm, keepd, shortd, longd, cartdisps, cartsizes):
-        # creates the sizes and disps arrays used for MPI. We need a new one for each direction
-
-        # source (parts of stripes)
-        share = keepd // comm.size # keepd == l1*l2; locald == l1*l2/commsize; shortd == l3; longd == n3
-        addmax = keepd % comm.size
-        sourcesizes = np.full((comm.size,), share, dtype=int)
-        sourcesizes[:addmax] += 1
-        # keepd=7, comm.size=3
-        # 2+1 2 2
-        locald = sourcesizes[comm.rank]
-        sourcesizes *= shortd
-        sourcedisps = np.zeros((comm.size+1,), dtype=int)
-        np.cumsum(sourcesizes, out=sourcedisps[1:])
-        size = sourcedisps[-1]
-        sourcedisps = sourcedisps[:-1]
-
-        # target (blocked stripes)
-        targetsizes = np.array(cartsizes) * locald
-        targetdisps = np.array(cartdisps) * locald
-
-        return [source[:size], (sourcesizes, sourcedisps), mpi_type], [target[:longd*locald], (targetsizes, targetdisps), mpi_type], locald
-    
-    def solve_onedir_serial(target, solver, nrhs, dimrhs):
-        # reshape and call solver
-        view = target[:dimrhs*nrhs].reshape((dimrhs,nrhs), order='F')
-        solver.solve(view, out=view)
-
-    # does the MPI distribute, solve, and distribute back for one dimension
-    def solve_onedir_par(source, target, solver, comm, keepd, shortd, longd, cartdisps, cartsizes):
-        sourceargs, targetargs, locald = makedists(source, target, comm, keepd, shortd, longd, cartdisps, cartsizes)
-
-        # parts of stripes -> blocked stripes
-        comm.Alltoallv(sourceargs, targetargs)
-
-        # blocked stripes -> ordered stripes
-        preview = source[:longd*locald].reshape((locald,longd))
-        for disp, size in zip(cartdisps, cartsizes):
-            preview[:,disp:(disp+size)] = target[disp*locald:(disp+size)*locald].reshape((locald,size))
-
-        # actual solve
-        solve_onedir_serial(source, solver, locald, longd)
-
-        # ordered stripes -> blocked stripes
-        preview = source[:longd*locald].reshape((locald,longd))
-        for disp, size in zip(cartdisps, cartsizes):
-            target[disp*locald:(disp+size)*locald] = preview[:,disp:(disp+size)].flat
-
-        # blocked stripes -> parts of stripes
-        comm.Alltoallv(targetargs, sourceargs)
-
-    # we need this to avoid the padding (or shall we send the padding as well?)
-    tempsize = max(l1*l2*l3,s1*n1,s2*n2,s3*n3)
-    temp1 = np.empty(tempsize)
-    temp2 = np.empty(tempsize)
-
-    # TODO check array order...
-
-    # (1,2,3)
-    temp1[:l1*l2*l3] = X.flat
-
-    solve_onedir_par(temp1, temp2, A3, subcomm_3, l1*l2, l3, n3, disps3, sizes3)
-
-    # (1,2,3) -> (3,1,2)
-    temp2[:l1*l2*l3] = temp1[:l1*l2*l3].reshape((l1,l2,l3)).transpose((2,0,1)).flat
-
-    solve_onedir_par(temp2, temp1, A2, subcomm_2, l1*l3, l2, n2, disps2, sizes2)
-
-    # (3,1,2) -> (2,3,1)
-    temp1[:l1*l2*l3] = temp2[:l1*l2*l3].reshape((l3,l1,l2)).transpose((2,0,1)).flat
-
-    solve_onedir_par(temp1, temp2, A1, subcomm_1, l2*l3, l1, n1, disps1, sizes1)
-
-    # (2,3,1) -> (1,2,3)
-    Y[:] = temp1[:l1*l2*l3].reshape((l2,l3,l1)).transpose((2,0,1))
-
-    # ...
-    out.update_ghost_regions()
-    # ...
-
-    return out
-
-#==============================================================================
-def kronecker_solve( solvers, rhs, out=None ):
+def kronecker_solve( solvers, rhs, out=None, transposed=False ):
     """
     Solve linear system Ax=b with A=kron( A_n, A_{n-1}, ..., A_2, A_1 ), given
     $n$ separate linear solvers $L_n$ for the 1D problems $A_n x_n = b_n$:
@@ -1013,6 +789,7 @@ def kronecker_solve( solvers, rhs, out=None ):
         Right hand side vector of linear system Ax=b.
 
     """
+    # all these feasability checks are again performed in the KroneckerLinearSolver class
     assert hasattr( solvers, '__iter__' )
     for solver in solvers:
         assert isinstance( solver, LinearSolver  )
@@ -1026,9 +803,6 @@ def kronecker_solve( solvers, rhs, out=None ):
     else:
         out = StencilVector( rhs.space )
 
-    space = rhs.space
-
-    kronsolver = KroneckerLinearSolver(space, solvers)
-    kronsolver.solve(rhs, out=out)
-    return out
+    kronsolver = KroneckerLinearSolver(rhs.space, solvers)
+    return kronsolver.solve(rhs, transposed=transposed)
 
