@@ -6,9 +6,9 @@ import numpy as np
 from collections  import OrderedDict
 from scipy.sparse import bmat, lil_matrix
 
-from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, Matrix
+from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
 
-__all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix']
+__all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix', 'BlockLinearSolver']
 
 #===============================================================================
 class BlockVectorSpace( VectorSpace ):
@@ -645,3 +645,104 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         petsccart = cart.topetsc()
 
         return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
+
+#===============================================================================
+class BlockLinearSolver( LinearSolver ):
+    """
+    Linear solver that can be written as blocks of other LinearSolvers.
+    The space of this solver has to be of the type BlockVectorSpace.
+
+    Parameters
+    ----------
+    V : psydac.linalg.block.BlockVectorSpace
+        Space of the new blocked linear solver.
+
+    blocks : dict | list | tuple
+        LinearSolver objects (optional).
+
+        a) 'blocks' can be dictionary with
+            . key   = tuple (i, i), where i is an integer >= 0 (compatibility with the other block operators)
+            . value = corresponding LinearSolver Lii
+
+        b) 'blocks' can be list of LinearSolvers (or tuple of these) where blocks[i]
+            is the LinearSolver Lii (if None, we assume null operator)
+
+    """
+    def __init__( self, V, blocks=None ):
+
+        assert isinstance( V, BlockVectorSpace )
+
+        self._space   = V
+        self._nblocks = V.n_blocks
+
+        # Store blocks in list (hence they can be manually changed later)
+        self._blocks   = [None] * self._nblocks
+
+        if blocks:
+
+            if isinstance( blocks, dict ):
+                for (i,j), Lij in blocks.items():
+                    assert i == j
+                    self[i] = Lij
+
+            elif isinstance( blocks, (list, tuple) ):
+                for i, L in enumerate( blocks ):
+                    self[i] = L
+
+            else:
+                raise ValueError( "Blocks can only be given as dict or 1D list/tuple." )
+
+    #--------------------------------------
+    # Abstract interface
+    #--------------------------------------
+    @property
+    def space( self ):
+        return self._space
+
+    # ...
+    def solve( self, v, out=None, transposed=False ):
+        assert isinstance(v, BlockVector)
+        assert v.space is self.space
+        if out is not None:
+            assert isinstance(out, BlockVector)
+            out *= 0.0
+        else:
+            out = self.space.zeros()
+
+        v.update_ghost_regions()
+
+        for i, L in enumerate(self._blocks):
+            L.solve(v[i], out=out[i], transposed=transposed)
+
+        return out
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+    @property
+    def blocks( self ):
+        """ Immutable 1D view (tuple) of the linear solvers,
+            including the empty blocks as 'None' objects.
+        """
+        return tuple(self._blocks)
+    # ...
+    @property
+    def n_blocks( self ):
+        return self._nblocks
+
+    # ...
+    def __getitem__( self, key ):
+        assert 0 <= key < self._nblocks
+
+        return self._blocks.get( key, None )
+
+    # ...
+    def __setitem__( self, key, value ):
+        assert 0 <= key < self._nblocks
+
+        assert isinstance( value, LinearSolver )
+
+        # Check domain of rhs
+        assert value.space is self.space[key]
+
+        self._blocks[key] = value

@@ -1,9 +1,9 @@
 # -*- coding: UTF-8 -*-
 
 from psydac.linalg.utilities      import array_to_stencil
-from psydac.linalg.kron           import kronecker_solve
+from psydac.linalg.kron           import KroneckerLinearSolver
 from psydac.linalg.stencil        import StencilVector
-from psydac.linalg.block          import BlockVector
+from psydac.linalg.block          import BlockLinearSolver, BlockVector
 from psydac.core.bsplines         import quadrature_grid
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
@@ -50,11 +50,12 @@ class Projector_H1:
             raise ValueError('H1 projector of dimension {} not available'.format(dim))
 
         # Store attributes in object
-        self.space = H1
-        self.N     = N
-        self.func  = func
-        self.args  = args
-        self.rhs   = rhs
+        self.space  = H1
+        self.N      = N
+        self.func   = func
+        self.args   = args
+        self.rhs    = rhs
+        self.solver = KroneckerLinearSolver(H1.vector_space, self.N)
 
     #--------------------------------------------------------------------------
     def __call__(self, fun):
@@ -81,12 +82,7 @@ class Projector_H1:
         # build the rhs
         self.func(*self.args, fun)
 
-        if len(self.N)==1:
-            rhs = self.rhs.toarray()
-            coeffs = array_to_stencil(self.N[0].solve(rhs), self.space.vector_space)
-            coeffs.update_ghost_regions()
-        else:
-            coeffs = kronecker_solve(solvers = self.N, rhs = self.rhs)
+        coeffs = self.solver.solve(self.rhs)
 
         return FemField(self.space, coeffs=coeffs)
 
@@ -195,6 +191,9 @@ class Projector_Hcurl:
         else:
             raise NotImplementedError('Hcurl projector is only available in 2D or 3D.')
 
+        solverblocks =  [KroneckerLinearSolver(block.vector_space, self.mats[i]) for i, block in enumerate(Hcurl.spaces)]
+        self.solver = BlockLinearSolver(Hcurl.vector_space, blocks=solverblocks)
+
     #--------------------------------------------------------------------------
     def __call__(self, fun):
         r"""
@@ -221,13 +220,8 @@ class Projector_Hcurl:
         # build the rhs
         self.func(*self.args, *fun)
 
-        self.rhs.update_ghost_regions()
-
-        coeffs = BlockVector(self.space.vector_space)
-        for i in range(self.dim):
-            coeffs[i] = kronecker_solve(solvers = self.mats[i], rhs = self.rhs[i])
-
-        coeffs.update_ghost_regions()
+        coeffs = self.solver.solve(self.rhs)
+        
         return FemField(self.space, coeffs=coeffs)
 
 #==============================================================================
@@ -337,6 +331,9 @@ class Projector_Hdiv:
         else:
             raise NotImplementedError('Hdiv projector is only available in 2D or 3D.')
 
+        solverblocks =  [KroneckerLinearSolver(block.vector_space, self.mats[i]) for i, block in enumerate(Hdiv.spaces)]
+        self.solver = BlockLinearSolver(Hdiv.vector_space, blocks=solverblocks)
+
     #--------------------------------------------------------------------------
     def __call__(self, fun):
         r"""
@@ -364,14 +361,8 @@ class Projector_Hdiv:
         # build the rhs
         self.func(*self.args, *fun)
 
-        self.rhs.update_ghost_regions()
+        coeffs = self.solver.solve(self.rhs)
 
-        coeffs    = BlockVector(self.space.vector_space)
-
-        for i in range(self.dim):
-            coeffs[i] = kronecker_solve(solvers = self.mats[i], rhs = self.rhs[i])
-
-        coeffs.update_ghost_regions()
         return FemField(self.space, coeffs=coeffs)
 
 #==============================================================================
@@ -424,9 +415,10 @@ class Projector_L2:
         elif len(self.D) == 2:  self.func = evaluate_dofs_2d_2form
         elif len(self.D) == 3:  self.func = evaluate_dofs_3d_3form
         else:
-            raise ValueError('L2 projector of dimension {} not available'.format(str(len(self.N))))
+            raise ValueError('L2 projector of dimension {} not available'.format(str(len(self.D))))
 
         self.args  = (*quad_x, *quad_w, self.rhs._data[slices])
+        self.solver = KroneckerLinearSolver(L2.vector_space, self.D)
 
     #--------------------------------------------------------------------------
     def __call__(self, fun):
@@ -454,12 +446,7 @@ class Projector_L2:
         # build the rhs
         self.func(*self.args, fun)
 
-        if len(self.D) == 1:
-            rhs = self.rhs.toarray()
-            coeffs = array_to_stencil(self.D[0].solve(rhs), self.space.vector_space)
-            coeffs.update_ghost_regions()
-        else:
-            coeffs = kronecker_solve(solvers = self.D, rhs = self.rhs)
+        coeffs = self.solver.solve(self.rhs)
 
         return FemField(self.space, coeffs=coeffs)
 

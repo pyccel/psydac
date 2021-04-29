@@ -2,12 +2,15 @@
 #
 import pytest
 import numpy as np
+import scipy.sparse as spa
 from random import random
 
-from psydac.linalg.stencil   import StencilVectorSpace, StencilVector, StencilMatrix
-from psydac.linalg.block     import BlockVectorSpace, BlockVector
-from psydac.linalg.block     import BlockLinearOperator, BlockMatrix
-from psydac.linalg.utilities import array_to_stencil
+from psydac.linalg.direct_solvers import SparseSolver
+from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
+from psydac.linalg.block          import BlockVectorSpace, BlockVector
+from psydac.linalg.block          import BlockLinearOperator, BlockLinearSolver, BlockMatrix
+from psydac.linalg.utilities      import array_to_stencil
+from psydac.linalg.kron           import KroneckerLinearSolver
 
 #===============================================================================
 # SERIAL TESTS
@@ -81,6 +84,98 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
     # Compute matrix-vector products for each block
     y1 = M1.dot(x1) + M2.dot(x2)
     y2 = M3.dot(x1)
+
+    # Check data in 1D array
+    assert np.allclose( Y1.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Y1.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
+    assert np.allclose( Y2.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Y2.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
+    assert np.allclose( Y3.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Y3.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [8,16] )
+@pytest.mark.parametrize( 'n2', [8,12] )
+@pytest.mark.parametrize( 'p1', [1,2,3] )
+@pytest.mark.parametrize( 'p2', [1,2,3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+def test_block_linear_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
+
+    # Create vector spaces, stencil matrices, and stencil vectors
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+
+    # Fill in stencil matrices based on diagonal index
+    m11 = np.zeros((n1, n1))
+    m12 = np.zeros((n2, n2))
+    for j in range(n1):
+        for i in range(-p1,p1+1):
+            m11[j, max(0, min(n1-1, j+i))] = 10*j+i
+    for j in range(n2):
+        for i in range(-p2,p2+1):
+            m12[j, max(0, min(n2-1, j+i))] = 20*j+5*i+2.
+    
+    m21 = np.zeros((n1, n1))
+    m22 = np.zeros((n2, n2))
+    for j in range(n1):
+        for i in range(-p1,p1+1):
+            m21[j, max(0, min(n1-1, j+i))] = 10*j**2+i**3
+    for j in range(n2):
+        for i in range(-p2,p2+1):
+            m22[j, max(0, min(n2-1, j+i))] = 20*j**2+i**3+2.
+    
+    M11 = SparseSolver( spa.csc_matrix(m11) )
+    M12 = SparseSolver( spa.csc_matrix(m12) )
+    M21 = SparseSolver( spa.csc_matrix(m21) )
+    M22 = SparseSolver( spa.csc_matrix(m22) )
+    M1 = KroneckerLinearSolver(V, [M11,M12])
+    M2 = KroneckerLinearSolver(V, [M21,M22])
+    x1 = StencilVector( V )
+    x2 = StencilVector( V )
+
+    W = BlockVectorSpace(V, V)
+
+    # Construct a BlockLinearSolver object containing M1, M2 using 3 ways
+    #     |M1  0 |
+    # L = |      |
+    #     |0   M2|
+
+    dict_blocks = {(0,0):M1, (1,1):M2}
+    list_blocks = [M1, M2]
+
+    L1 = BlockLinearSolver( W, blocks=dict_blocks )
+    L2 = BlockLinearSolver( W, blocks=list_blocks )
+
+    L3 = BlockLinearSolver( W )
+    L3[0] = M1
+    L3[1] = M2
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        x1[i1] = 2.0*random() - 1.0
+        x2[i1] = 5.0*random() - 1.0
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    # Construct a BlockVector object containing x1 and x2
+    #     |x1|
+    # X = |  |
+    #     |x2|
+
+    X = BlockVector(W)
+    X[0] = x1
+    X[1] = x2
+
+    # Compute BlockLinearOperator product
+    Y1 = L1.solve(X)
+    Y2 = L2.solve(X)
+    Y3 = L3.solve(X)
+
+    # Compute matrix-vector products for each block
+    y1 = M1.solve(x1)
+    y2 = M2.solve(x2)
 
     # Check data in 1D array
     assert np.allclose( Y1.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
@@ -315,6 +410,111 @@ def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
     # Check data in 1D array
     assert np.allclose( Y.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
     assert np.allclose( Y.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [8,16] )
+@pytest.mark.parametrize( 'n2', [8,32] )
+@pytest.mark.parametrize( 'p1', [1,3] )
+@pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parallel
+def test_block_linear_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
+    from mpi4py       import MPI
+    from psydac.ddm.cart import CartDecomposition
+
+    comm = MPI.COMM_WORLD
+    cart = CartDecomposition(
+        npts    = [n1,n2],
+        pads    = [p1,p2],
+        periods = [P1,P2],
+        reorder = reorder,
+        comm    = comm
+    )
+
+    # Create vector spaces, stencil matrices, and stencil vectors
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+
+    # Fill in stencil matrices based on diagonal index
+    m11 = np.zeros((n1, n1))
+    m12 = np.zeros((n2, n2))
+    for j in range(n1):
+        for i in range(-p1,p1+1):
+            m11[j, max(0, min(n1-1, j+i))] = 10*j+i
+    for j in range(n2):
+        for i in range(-p2,p2+1):
+            m12[j, max(0, min(n2-1, j+i))] = 20*j+5*i+2.
+    
+    m21 = np.zeros((n1, n1))
+    m22 = np.zeros((n2, n2))
+    for j in range(n1):
+        for i in range(-p1,p1+1):
+            m21[j, max(0, min(n1-1, j+i))] = 10*j**2+i**3
+    for j in range(n2):
+        for i in range(-p2,p2+1):
+            m22[j, max(0, min(n2-1, j+i))] = 20*j**2+i**3+2.
+    
+    M11 = SparseSolver( spa.csc_matrix(m11) )
+    M12 = SparseSolver( spa.csc_matrix(m12) )
+    M21 = SparseSolver( spa.csc_matrix(m21) )
+    M22 = SparseSolver( spa.csc_matrix(m22) )
+    M1 = KroneckerLinearSolver(V, [M11,M12])
+    M2 = KroneckerLinearSolver(V, [M21,M22])
+    x1 = StencilVector( V )
+    x2 = StencilVector( V )
+
+    W = BlockVectorSpace(V, V)
+
+    # Construct a BlockLinearSolver object containing M1, M2 using 3 ways
+    #     |M1  0 |
+    # L = |      |
+    #     |0   M2|
+
+    dict_blocks = {(0,0):M1, (1,1):M2}
+    list_blocks = [M1, M2]
+
+    L1 = BlockLinearSolver( W, blocks=dict_blocks )
+    L2 = BlockLinearSolver( W, blocks=list_blocks )
+
+    L3 = BlockLinearSolver( W )
+    L3[0] = M1
+    L3[1] = M2
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        x1[i1] = 2.0*random() - 1.0
+        x2[i1] = 5.0*random() - 1.0
+    x1.update_ghost_regions()
+    x2.update_ghost_regions()
+
+    # Construct a BlockVector object containing x1 and x2
+    #     |x1|
+    # X = |  |
+    #     |x2|
+
+    X = BlockVector(W)
+    X[0] = x1
+    X[1] = x2
+
+    # Compute BlockLinearOperator product
+    Y1 = L1.solve(X)
+    Y2 = L2.solve(X)
+    Y3 = L3.solve(X)
+
+    # Compute matrix-vector products for each block
+    y1 = M1.solve(x1)
+    y2 = M2.solve(x2)
+
+    # Check data in 1D array
+    assert np.allclose( Y1.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Y1.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
+    assert np.allclose( Y2.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Y2.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
+
+    assert np.allclose( Y3.blocks[0].toarray(), y1.toarray(), rtol=1e-14, atol=1e-14 )
+    assert np.allclose( Y3.blocks[1].toarray(), y2.toarray(), rtol=1e-14, atol=1e-14 )
 
 #===============================================================================
 # SCRIPT FUNCTIONALITY
