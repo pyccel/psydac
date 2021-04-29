@@ -8,7 +8,7 @@ from psydac.linalg.basic   import LinearOperator, LinearSolver, Matrix
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 
 __all__ = ['KroneckerStencilMatrix',
-#           'KroneckerStencilMatrix_2D',
+           'KroneckerLinearSolver',
            'kronecker_solve_2d_par',
            'kronecker_solve_3d_par',
            'kronecker_solve']
