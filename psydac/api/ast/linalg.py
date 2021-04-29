@@ -187,7 +187,6 @@ class LinearOperatorDot(SplBasic):
                 decorators = {'types': Function('types')(*a)}
             elif backend['name'] == 'numba':
                 decorators = {'njit': Symbol('njit')}
-
             elif backend['name'] == 'pythran':
                 header = build_pythran_types_header(name, func_args)
 
