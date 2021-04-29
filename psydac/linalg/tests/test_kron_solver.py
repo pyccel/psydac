@@ -70,24 +70,28 @@ def random_vectordata(seed, npts):
     return np.fromfunction(lambda *point: sum([10**i*d+seed for i,d in enumerate(point)]), npts)
 
 def compare_solve(seed, comm, npts, pads, periods, direct_solver, transposed=False, verbose=False):
-    rank = comm.Get_rank()
+    if comm is None:
+        rank = -1
+    else:
+        rank = comm.Get_rank()
 
     if verbose:
         print(f'[{rank}] Test start', flush=True)
 
-    # ... nD MPI cart
-    cart = CartDecomposition(
-        npts    = npts,
-        pads    = pads,
-        periods = periods,
-        reorder = True,
-        comm    = comm
-    )
-
     # vector spaces
-    V = StencilVectorSpace(cart)
+    if comm is None:
+        V = StencilVectorSpace(npts, pads, periods)
+    else:
+        cart = CartDecomposition(
+            npts    = npts,
+            pads    = pads,
+            periods = periods,
+            reorder = True,
+            comm    = comm
+        )
+        V = StencilVectorSpace(cart)
     Vs = [StencilVectorSpace([n], [p], [P]) for n,p,P in zip(npts, pads, periods)]
-    localslice = tuple([slice(s, e+1) for s, e in zip(cart.starts, cart.ends)])
+    localslice = tuple([slice(s, e+1) for s, e in zip(V.starts, V.ends)])
 
     if verbose:
         print(f'[{rank}] Vector spaces built', flush=True)
@@ -110,13 +114,16 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, transposed=Fal
 
     # solve in two different ways
     X_glob = kron_solve_seq_ref(Y_glob, A, transposed)
-    X = KroneckerLinearSolver(V, solvers).solve(Y, transposed=transposed)
+    Xout = StencilVector(V)
+
+    X = KroneckerLinearSolver(V, solvers).solve(Y, out=Xout, transposed=transposed)
+    assert X is Xout
 
     if verbose:
         print(f'[{rank}] Systems solved', flush=True)
 
     # debug output
-    if verbose:
+    if verbose and comm is not None:
         for i in range(comm.Get_size()):
             if rank == i:
                 print(f'[{rank}] Output for rank {rank}')
@@ -129,6 +136,14 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, transposed=Fal
     assert np.allclose( X[localslice], X_glob[localslice], rtol=1e-8, atol=1e-8 )
 
 # right now, the maximum tested number for MPI_COMM_WORLD.size is 4; it failed with size 8 for now.
+
+# tests without MPI
+
+@pytest.mark.parametrize( 'seed', [0, 2] )
+@pytest.mark.parametrize( 'params', [([8], [2], [False]), ([8,9], [2,3], [False,True])] )
+@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
+def test_kron_solver_nompi(seed, params, direct_solver):
+    compare_solve(seed, None, params[0], params[1], params[2], direct_solver, transposed=False, verbose=False)
 
 # low-dimensional tests
 
