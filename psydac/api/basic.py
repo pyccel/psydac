@@ -191,7 +191,7 @@ class BasicCodeGen:
         if self.backend['name'] == 'pyccel':
             code = 'from pyccel.decorators import types'
         elif self.backend['name'] == 'numba':
-            code = 'from numba import jit'
+            code = 'from numba import njit'
 
         ast = self.ast
         expr = parse(ast.expr, settings={'dim': ast.dim, 'nderiv': ast.nderiv, 'mapping':ast.mapping, 'target':ast.domain}, backend=self.backend)
