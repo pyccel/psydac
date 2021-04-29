@@ -457,7 +457,7 @@ class KroneckerLinearSolver( LinearSolver ):
         """
         return self._space
 
-    def solve( self, rhs, out=None ):
+    def solve( self, rhs, out=None, transposed=False ):
         """
         Solves Ax=b where A is a Kronecker product matrix (and represented as such),
         and b is a suitable vector.
@@ -476,12 +476,12 @@ class KroneckerLinearSolver( LinearSolver ):
         outslice = out[self._slice]
 
         # call the actual kernel
-        self._solve_nd(inslice, outslice)
+        self._solve_nd(inslice, outslice, transposed)
         
         out.update_ghost_regions()
         return out
  
-    def _solve_nd(self, inslice, outslice):
+    def _solve_nd(self, inslice, outslice, transposed):
         """
         The internal solve loop. Can handle arbitrary dimensions.
         """
@@ -494,14 +494,14 @@ class KroneckerLinearSolver( LinearSolver ):
         # internal passes
         for i in range(self._ndim - 1):
             # solve direction
-            self._solver_passes[i].solve_pass(temp1, temp2)
+            self._solver_passes[i].solve_pass(temp1, temp2, transposed)
 
             # reorder and swap
             self._reorder_temp_to_temp(temp1, temp2, i)
             temp1, temp2 = temp2, temp1
         
         # last pass
-        self._solver_passes[-1].solve_pass(temp1, temp2)
+        self._solver_passes[-1].solve_pass(temp1, temp2, transposed)
 
         # copy to output
         self._reorder_temp_to_outslice(temp1, outslice)
@@ -552,7 +552,7 @@ class KroneckerSolverSerialPass:
     def required_memory(self):
         return self._datasize
 
-    def solve_pass(self, workmem, tempmem):
+    def solve_pass(self, workmem, tempmem, transposed):
         # reshape necessary memory in column-major
         view = workmem[:self._datasize]
         view.shape = (self._numrhs,self._dimrhs)
@@ -562,7 +562,7 @@ class KroneckerSolverSerialPass:
         view_T = view.transpose()
 
         # call solver in in-place mode
-        self._solver.solve(view_T, out=view_T)
+        self._solver.solve(view_T, out=view_T, transposed=transposed)
 
 class KroneckerSolverParallelPass:
     """
@@ -655,7 +655,7 @@ class KroneckerSolverParallelPass:
             targetpart.shape = (self._mlocal,end-start)
             targetpart[:] = blocked_view[:,start:end]
 
-    def solve_pass(self, workmem, tempmem):
+    def solve_pass(self, workmem, tempmem, transposed):
         # preparation
         sourceargs = [workmem[:self._localsize], self._source_transfer, self._mpi_type]
         targetargs = [tempmem[:self._datasize], self._target_transfer, self._mpi_type]
@@ -667,7 +667,7 @@ class KroneckerSolverParallelPass:
         self._order_blocked(workmem, tempmem)
 
         # actual solve (source contains the data)
-        self._serialsolver.solve_pass(workmem, tempmem)
+        self._serialsolver.solve_pass(workmem, tempmem, transposed)
 
         # ordered stripes -> blocked stripes
         self._unorder_blocked(workmem, tempmem)

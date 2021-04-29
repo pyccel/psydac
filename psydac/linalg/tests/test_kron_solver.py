@@ -12,13 +12,15 @@ from psydac.linalg.kron            import KroneckerLinearSolver
 from psydac.linalg.direct_solvers  import SparseSolver, BandedSolver
 
 # ... solve AX==Y on the conventional way, where A=\bigotimes_i A_i
-def kron_solve_seq_ref(Y, A):
+def kron_solve_seq_ref(Y, A, transposed):
 
     # ...
     assert len(A) > 0
     preC = A[0].tosparse().tocsr()
     for i in range(1, len(A)):
         preC = kron(preC, A[i].tosparse().tocsr())
+    if transposed:
+        preC = preC.T
     C = csc_matrix(preC)
 
     C_op  = splu(C)
@@ -57,7 +59,7 @@ def random_matrix(seed, space):
     p = space.pads[0]
 
     # for now, take matrices like this (as in the other tests)
-    A[:,-p:0   ] = -1
+    A[:,-p:0   ] = 1
     A[:, 0 :1   ] = (seed+10)*p
     A[:, 1 :p+1] = -1
 
@@ -67,7 +69,7 @@ def random_vectordata(seed, npts):
     # for now, take vectors like this (as in the other tests)
     return np.fromfunction(lambda *point: sum([10**i*d+seed for i,d in enumerate(point)]), npts)
 
-def compare_solve(seed, comm, npts, pads, periods, direct_solver, verbose=False):
+def compare_solve(seed, comm, npts, pads, periods, direct_solver, transposed=False, verbose=False):
     rank = comm.Get_rank()
 
     if verbose:
@@ -107,8 +109,8 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, verbose=False)
         print(f'[{rank}] RHS vector built', flush=True)
 
     # solve in two different ways
-    X_glob = kron_solve_seq_ref(Y_glob, A)
-    X = KroneckerLinearSolver(V, solvers).solve(Y)
+    X_glob = kron_solve_seq_ref(Y_glob, A, transposed)
+    X = KroneckerLinearSolver(V, solvers).solve(Y, transposed=transposed)
 
     if verbose:
         print(f'[{rank}] Systems solved', flush=True)
@@ -126,7 +128,8 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, verbose=False)
     # compare for equality
     assert np.allclose( X[localslice], X_glob[localslice], rtol=1e-8, atol=1e-8 )
 
-# right now, the maximum number of MPI_COMM_WORLD.size is 8.
+# right now, the maximum tested number for MPI_COMM_WORLD.size is 4; it failed with size 8 for now.
+
 # low-dimensional tests
 
 @pytest.mark.parametrize( 'seed', [0, 2] )
@@ -135,7 +138,7 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, verbose=False)
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
 def test_kron_solver_1d_ser(seed, n1, p1, P1, direct_solver):
-    compare_solve(seed, MPI.COMM_SELF, [n1], [p1], [P1], direct_solver, False)
+    compare_solve(seed, MPI.COMM_SELF, [n1], [p1], [P1], direct_solver, transposed=False, verbose=False)
 
 @pytest.mark.parametrize( 'seed', [0, 2] )
 @pytest.mark.parametrize( 'n1', [8, 9, 16, 17] )
@@ -145,7 +148,7 @@ def test_kron_solver_1d_ser(seed, n1, p1, P1, direct_solver):
 @pytest.mark.parallel
 def test_kron_solver_1d_par(seed, n1, p1, P1, direct_solver):
     # we take n1*p1 here to prevent MPI topology problems
-    compare_solve(seed, MPI.COMM_WORLD, [n1*p1], [p1], [P1], direct_solver, False)
+    compare_solve(seed, MPI.COMM_WORLD, [n1*p1], [p1], [P1], direct_solver, transposed=False, verbose=False)
 
 @pytest.mark.parametrize( 'seed', [0, 2] )
 @pytest.mark.parametrize( 'n1', [5, 8, 16, 17] )
@@ -156,7 +159,7 @@ def test_kron_solver_1d_par(seed, n1, p1, P1, direct_solver):
 @pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
 def test_kron_solver_2d_ser(seed, n1, n2, p1, p2, P1, P2, direct_solver):
-    compare_solve(seed, MPI.COMM_SELF, [n1,n2], [p1,p2], [P1,P2], direct_solver, False)
+    compare_solve(seed, MPI.COMM_SELF, [n1,n2], [p1,p2], [P1,P2], direct_solver, transposed=False, verbose=False)
 
 @pytest.mark.parametrize( 'seed', [0, 2] )
 @pytest.mark.parametrize( 'n1', [5, 8, 16, 17] )
@@ -168,7 +171,30 @@ def test_kron_solver_2d_ser(seed, n1, n2, p1, p2, P1, P2, direct_solver):
 @pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
 @pytest.mark.parallel
 def test_kron_solver_2d_par(seed, n1, n2, p1, p2, P1, P2, direct_solver):
-    compare_solve(seed, MPI.COMM_WORLD, [n1,n2], [p1,p2], [P1,P2], direct_solver, False)
+    compare_solve(seed, MPI.COMM_WORLD, [n1,n2], [p1,p2], [P1,P2], direct_solver, transposed=False, verbose=False)
+
+@pytest.mark.parametrize( 'seed', [0, 2] )
+@pytest.mark.parametrize( 'n1', [5, 8, 16, 17] )
+@pytest.mark.parametrize( 'n2', [4, 9] )
+@pytest.mark.parametrize( 'p1', [1, 2] )
+@pytest.mark.parametrize( 'p2', [1, 2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
+def test_kron_solver_2d_transposed_ser(seed, n1, n2, p1, p2, P1, P2, direct_solver):
+    compare_solve(seed, MPI.COMM_SELF, [n1,n2], [p1,p2], [P1,P2], direct_solver, transposed=True, verbose=False)
+
+@pytest.mark.parametrize( 'seed', [0, 2] )
+@pytest.mark.parametrize( 'n1', [5, 8, 16, 17] )
+@pytest.mark.parametrize( 'n2', [4, 9] )
+@pytest.mark.parametrize( 'p1', [1, 2] )
+@pytest.mark.parametrize( 'p2', [1, 2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
+@pytest.mark.parallel
+def test_kron_solver_2d_transposed_par(seed, n1, n2, p1, p2, P1, P2, direct_solver):
+    compare_solve(seed, MPI.COMM_WORLD, [n1,n2], [p1,p2], [P1,P2], direct_solver, transposed=True, verbose=False)
 
 @pytest.mark.parametrize( 'seed', [0, 2] )
 @pytest.mark.parametrize( 'n1', [5, 8, 16, 17] )
@@ -178,7 +204,7 @@ def test_kron_solver_2d_par(seed, n1, n2, p1, p2, P1, P2, direct_solver):
 @pytest.mark.parametrize( 'p2', [1, 2] )
 @pytest.mark.parametrize( 'p3', [1, 2] )
 def test_kron_solver_3d_ser(seed, n1, n2, n3, p1, p2, p3, P1=False, P2=True, P3=False, direct_solver=matrix_to_sparse):
-    compare_solve(seed, MPI.COMM_SELF, [n1,n2,n3], [p1,p2,p3], [P1,P2,P3], direct_solver, False)
+    compare_solve(seed, MPI.COMM_SELF, [n1,n2,n3], [p1,p2,p3], [P1,P2,P3], direct_solver, transposed=False, verbose=False)
 
 @pytest.mark.parametrize( 'seed', [0, 2] )
 @pytest.mark.parametrize( 'n1', [5, 8, 16, 17] )
@@ -189,7 +215,7 @@ def test_kron_solver_3d_ser(seed, n1, n2, n3, p1, p2, p3, P1=False, P2=True, P3=
 @pytest.mark.parametrize( 'p3', [1, 2] )
 @pytest.mark.parallel
 def test_kron_solver_3d_par(seed, n1, n2, n3, p1, p2, p3, P1=False, P2=True, P3=False, direct_solver=matrix_to_sparse):
-    compare_solve(seed, MPI.COMM_WORLD, [n1,n2,n3], [p1,p2,p3], [P1,P2,P3], direct_solver, False)
+    compare_solve(seed, MPI.COMM_WORLD, [n1,n2,n3], [p1,p2,p3], [P1,P2,P3], direct_solver, transposed=False, verbose=False)
 
 # higher-dimensional tests
 
@@ -200,7 +226,7 @@ def test_kron_solver_nd_ser(seed, dim):
         npts_base = 4
     else:
         npts_base = 2
-    compare_solve(seed, MPI.COMM_SELF, [npts_base]*dim, [1]*dim, [False]*dim, matrix_to_sparse, False)
+    compare_solve(seed, MPI.COMM_SELF, [npts_base]*dim, [1]*dim, [False]*dim, matrix_to_sparse, transposed=False, verbose=False)
 
 @pytest.mark.parametrize( 'seed', [0, 2] )
 @pytest.mark.parametrize( 'dim', [4,5,6] )
@@ -211,9 +237,9 @@ def test_kron_solver_nd_par(seed, dim):
         npts_base = 4
     else:
         npts_base = 2
-    compare_solve(seed, MPI.COMM_WORLD, [npts_base]*dim, [1]*dim, [False]*dim, matrix_to_sparse, False)
+    compare_solve(seed, MPI.COMM_WORLD, [npts_base]*dim, [1]*dim, [False]*dim, matrix_to_sparse, transposed=False, verbose=False)
 
 if __name__ == '__main__':
     # showcase testcase
-    compare_solve(0, MPI.COMM_WORLD, [4,4,5], [1,2,3], [False,True,False], matrix_to_bandsolver, True)
-    #compare_solve(0, MPI.COMM_WORLD, [2]*10, [1]*10, [False]*10, matrix_to_sparse, True)
+    compare_solve(0, MPI.COMM_WORLD, [4,4,5], [1,2,3], [False,True,False], matrix_to_bandsolver, transposed=False, verbose=True)
+    #compare_solve(0, MPI.COMM_WORLD, [2]*10, [1]*10, [False]*10, matrix_to_sparse, verbose=True)
