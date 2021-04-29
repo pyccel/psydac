@@ -13,6 +13,7 @@ from pyccel.ast.core import For
 from pyccel.ast.core import Slice, String
 
 from pyccel.ast.datatypes import NativeInteger
+from pyccel.ast.core import ValuedArgument
 from pyccel.ast.core import Assign
 from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Product
@@ -186,7 +187,7 @@ class LinearOperatorDot(SplBasic):
                 a = [String(str(i)) for i in build_types_decorator(func_args)]
                 decorators = {'types': Function('types')(*a)}
             elif backend['name'] == 'numba':
-                decorators = {'njit': Symbol('njit')}
+                decorators = {'njit': Function('njit')(ValuedArgument(Symbol('fastmath'), backend['fastmath']))}
             elif backend['name'] == 'pythran':
                 header = build_pythran_types_header(name, func_args)
 
