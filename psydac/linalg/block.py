@@ -700,19 +700,19 @@ class BlockLinearSolver( LinearSolver ):
         return self._space
 
     # ...
-    def solve( self, v, out=None, transposed=False ):
-        assert isinstance(v, BlockVector)
-        assert v.space is self.space
+    def solve( self, rhs, out=None, transposed=False ):
+        assert isinstance(rhs, BlockVector)
+        assert rhs.space is self.space
         if out is not None:
             assert isinstance(out, BlockVector)
             out *= 0.0
         else:
             out = self.space.zeros()
 
-        v.update_ghost_regions()
+        rhs.update_ghost_regions()
 
         for i, L in enumerate(self._blocks):
-            L.solve(v[i], out=out[i], transposed=transposed)
+            L.solve(rhs[i], out=out[i], transposed=transposed)
 
         return out
 
