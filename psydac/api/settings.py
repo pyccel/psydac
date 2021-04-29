@@ -27,7 +27,7 @@ PSYDAC_BACKEND_PGPYCCEL = {'name':     'pyccel',
                       'folder': '__pgpyccel__',
                        'tag':'pgpyccel'}
                       
-PSYDAC_BACKEND_NUMBA = {'name': 'numba','tag':'numba'}
+PSYDAC_BACKEND_NUMBA = {'name': 'numba','tag':'numba', 'fastmath':True}
 
 PSYDAC_BACKEND_PYTHRAN = {'name':'pythran','tag':'pythran'}
 # ...
