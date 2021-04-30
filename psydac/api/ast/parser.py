@@ -14,7 +14,7 @@ from sympy.core.containers import Tuple
 from pyccel.ast.utilities import build_types_decorator
 from pyccel.ast.core      import Assign, Product, AugAssign, For
 from pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
-from pyccel.ast.core      import Slice, String
+from pyccel.ast.core      import Slice, String, ValuedArgument
 from pyccel.ast.core      import EmptyNode, Import
 from pyccel.ast.core      import CodeBlock, FunctionDef
 
@@ -444,7 +444,7 @@ class Parser(object):
             a = [String(str(i)) for i in build_types_decorator(arguments)]
             decorators = {'types': Function('types')(*a)}
         elif self.backend['name'] == 'numba':
-            decorators = {'jit': Symbol('jit')}
+            decorators = {'njit': Function('njit')(ValuedArgument(Symbol('fastmath'), self.backend['fastmath']))}
         elif self.backend['name'] == 'pythran':
             header = build_pythran_types_header(name, arguments)
         else:

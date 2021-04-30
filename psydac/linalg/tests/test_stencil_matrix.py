@@ -5,6 +5,7 @@ import numpy as np
 from random import random
 
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
+from psydac.api.settings   import *
 
 #===============================================================================
 # SERIAL TESTS
@@ -763,6 +764,172 @@ def test_stencil_matrix_3d_serial_transpose_1( n1, n2, n3, p1, p2, p3, P1, P2, P
     # Check data
     assert abs(Ts - Ts_exact).max() < 1e-14
 
+
+#===============================================================================
+# BACKENDS TESTS
+#===============================================================================
+
+@pytest.mark.parametrize( 'n1', [5,15] )
+@pytest.mark.parametrize( 'n2', [5,12] )
+@pytest.mark.parametrize( 'p1', [2,3] )
+@pytest.mark.parametrize( 'p2', [2,3] )
+@pytest.mark.parametrize( 'P1', [False] )
+@pytest.mark.parametrize( 'P2', [False] )
+@pytest.mark.parametrize( 'backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
+
+def test_stencil_matrix_2d_serial_backend_dot_1( n1, n2, p1, p2, P1, P2 , backend):
+
+    # Create vector space, stencil matrix, and stencil vector
+    V1 = StencilVectorSpace( [n1-1,n2], [p1, p2], [P1,P2] )
+    V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
+    M1 = StencilMatrix( V1, V2 ,pads=(p1,p2), backend=backend)
+    M2 = StencilMatrix( V2, V1 ,pads=(p1,p2), backend=backend)
+    x1 = StencilVector( V1 )
+    x2 = StencilVector( V2 )
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    M1[0:n1-1, 0:n2-1, :, :] = np.random.random((n1-1, n2-1, 2*p1+1, 2*p2+1))
+    M2[0:n1-1, 0:n2, :, :] = np.random.random((n1-1, n2, 2*p1+1, 2*p2+1))
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1-1):
+        for i2 in range(n2):
+            x1[i1,i2] = 2.0*random() - 1.0
+    x1.update_ghost_regions()
+
+    for i1 in range(n1-1):
+        for i2 in range(n2-1):
+            x2[i1,i2] = 2.0*random() - 1.0
+    x2.update_ghost_regions()
+
+    # Compute matrix-vector product
+    y1 = M1.dot(x1)
+    y2 = M2.dot(x2)
+
+    # Convert stencil objects to Numpy arrays
+    M1a = M1.toarray()
+    x1a = x1.toarray()
+    y1a = y1.toarray()
+
+    M2a = M2.toarray()
+    x2a = x2.toarray()
+    y2a = y2.toarray()
+
+    # Exact result using Numpy dot product
+    y1a_exact = np.dot( M1a, x1a )
+    y2a_exact = np.dot( M2a, x2a )
+
+    # Check data in 1D array
+
+    assert np.allclose( y1a, y1a_exact, rtol=1e-13, atol=1e-13 )
+    assert np.allclose( y2a, y2a_exact, rtol=1e-13, atol=1e-13 )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [5,15] )
+@pytest.mark.parametrize( 'n2', [5,12] )
+@pytest.mark.parametrize( 'p1', [2,3] )
+@pytest.mark.parametrize( 'p2', [2,3] )
+@pytest.mark.parametrize( 'P1', [True] )
+@pytest.mark.parametrize( 'P2', [True] )
+@pytest.mark.parametrize( 'backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
+
+def test_stencil_matrix_2d_serial_backend_dot_2( n1, n2, p1, p2, P1, P2 , backend):
+
+    # Create vector space, stencil matrix, and stencil vector
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    M = StencilMatrix( V, V , pads=(p1-1, p2-1), backend=backend)
+    x = StencilVector( V )
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    for k1 in range(-p1+1,p1):
+        for k2 in range(-p2+1,p2):
+            M[:,:,k1,k2] = 10*k1+k2
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x[i1,i2] = 2.0*random() - 1.0
+    x.update_ghost_regions()
+
+    # Compute matrix-vector product
+    y = M.dot(x)
+
+    # Convert stencil objects to Numpy arrays
+    Ma = M.toarray()
+    xa = x.toarray()
+    ya = y.toarray()
+
+    # Exact result using Numpy dot product
+    ya_exact = np.dot( Ma, xa )
+
+    # Check data in 1D array
+    assert np.allclose( ya, ya_exact, rtol=1e-13, atol=1e-13 )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [5,15] )
+@pytest.mark.parametrize( 'n2', [5,12] )
+@pytest.mark.parametrize( 'p1', [2,3] )
+@pytest.mark.parametrize( 'p2', [2,3] )
+@pytest.mark.parametrize( 'P1', [False] )
+@pytest.mark.parametrize( 'P2', [False] )
+@pytest.mark.parametrize( 'backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
+
+def test_stencil_matrix_2d_serial_dot_4( n1, n2, p1, p2, P1, P2 , backend):
+
+    # Create vector space, stencil matrix, and stencil vector
+    V1 = StencilVectorSpace( [n1-1,n2], [p1, p2], [P1,P2] )
+    V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
+    M1 = StencilMatrix( V1, V2 ,pads=(p1-1,p2), backend=backend)
+    M2 = StencilMatrix( V2, V1 ,pads=(p1-1,p2), backend=backend)
+    x1 = StencilVector( V1 )
+    x2 = StencilVector( V2 )
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    M1[0:n1-1, 0:n2-1, :, :] = np.random.random((n1-1, n2-1, 2*p1-1, 2*p2+1))
+    M2[0:n1-1, 0:n2, :, :] = np.random.random((n1-1, n2, 2*p1-1, 2*p2+1))
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M1.remove_spurious_entries()
+    M2.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1-1):
+        for i2 in range(n2):
+            x1[i1,i2] = 2.0*random() - 1.0
+    x1.update_ghost_regions()
+
+    for i1 in range(n1-1):
+        for i2 in range(n2-1):
+            x2[i1,i2] = 2.0*random() - 1.0
+    x2.update_ghost_regions()
+
+    # Compute matrix-vector product
+    y1 = M1.dot(x1)
+    y2 = M2.dot(x2)
+
+    # Convert stencil objects to Numpy arrays
+    M1a = M1.toarray()
+    x1a = x1.toarray()
+    y1a = y1.toarray()
+
+    M2a = M2.toarray()
+    x2a = x2.toarray()
+    y2a = y2.toarray()
+
+    # Exact result using Numpy dot product
+    y1a_exact = np.dot( M1a, x1a )
+    y2a_exact = np.dot( M2a, x2a )
+
+    # Check data in 1D array
+
+    assert np.allclose( y1a, y1a_exact, rtol=1e-13, atol=1e-13 )
+    assert np.allclose( y2a, y2a_exact, rtol=1e-13, atol=1e-13 )
+
 #===============================================================================
 # PARALLEL TESTS
 #===============================================================================
@@ -1194,6 +1361,133 @@ def test_stencil_matrix_2d_parallel_transpose( n1, n2, p1, p2, P1, P2, reorder )
     # Check data
     assert abs(Ts - Ts_exact).max() < 1e-14
 
+#===============================================================================
+# PARALLEL BACKENDS TESTS
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [20,67] )
+@pytest.mark.parametrize( 'p1', [1,2,3] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parametrize( 'reverse_axis', [None, 0] )
+@pytest.mark.parametrize( 'backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
+@pytest.mark.parallel
+
+def test_stencil_matrix_1d_parallel_backend_dot( n1, p1, P1, reorder, reverse_axis , backend):
+
+    from mpi4py       import MPI
+    from psydac.ddm.cart import CartDecomposition
+
+    comm = MPI.COMM_WORLD
+    cart = CartDecomposition(
+        npts    = [n1,],
+        pads    = [p1,],
+        periods = [P1,],
+        reorder = reorder,
+        comm    = comm,
+        reverse_axis=reverse_axis
+    )
+
+    V = StencilVectorSpace( cart )
+    M = StencilMatrix( V, V , backend=backend)
+    x = StencilVector( V )
+
+    s1, = V.starts
+    e1, = V.ends
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    for k1 in range(-p1,p1+1):
+        M[:,k1] = k1
+
+    # If domain is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(x.starts[0],x.ends[0]+1):
+        x[i1] = 2.0*random() - 1.0
+    x.update_ghost_regions()
+
+    # Compute matrix-vector product
+    y = M.dot( x )
+
+    assert isinstance( y, StencilVector )
+    assert y.space is x.space
+
+    # Convert stencil objects to Scipy sparse matrix and 1D Numpy arrays
+    Ms = M.tosparse()
+    xa = x.toarray( with_pads=True )
+    ya = y.toarray()
+
+    # Exact result using Scipy sparse dot product
+    ya_exact = Ms.dot( xa )
+
+    # Check data in 1D array
+    assert np.allclose( ya, ya_exact, rtol=1e-14, atol=1e-14 )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [ 8,21] )
+@pytest.mark.parametrize( 'n2', [13,32] )
+@pytest.mark.parametrize( 'p1', [1,3] )
+@pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parametrize( 'reverse_axis', [None, 0, 1] )
+@pytest.mark.parametrize( 'backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
+@pytest.mark.parallel
+
+def test_stencil_matrix_2d_parallel_backend_dot( n1, n2, p1, p2, P1, P2, reorder , reverse_axis, backend):
+
+    from mpi4py       import MPI
+    from psydac.ddm.cart import CartDecomposition
+
+    comm = MPI.COMM_WORLD
+    cart = CartDecomposition(
+        npts    = [n1,n2],
+        pads    = [p1,p2],
+        periods = [P1,P2],
+        reorder = reorder,
+        comm    = comm,
+        reverse_axis = reverse_axis
+    )
+
+    # Create vector space, stencil matrix, and stencil vector
+    V = StencilVectorSpace( cart )
+    M = StencilMatrix( V, V , backend=backend)
+    x = StencilVector( V )
+
+    s1,s2 = V.starts
+    e1,e2 = V.ends
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            M[:,:,k1,k2] = 10*k1+k2
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(s1,e1+1):
+        for i2 in range(s2,e2+1):
+            x[i1,i2] = 2.0*random() - 1.0
+    x.update_ghost_regions()
+
+    # Compute matrix-vector product
+    y = M.dot(x)
+
+    assert isinstance( y, StencilVector )
+    assert y.space is x.space
+
+    # Convert stencil objects to Numpy arrays
+    Ma = M.toarray()
+    xa = x.toarray( with_pads=True )
+    ya = y.toarray()
+
+    # Exact result using Numpy dot product
+    ya_exact = np.dot( Ma, xa )
+
+    # Check data in 1D array
+    assert np.allclose( ya, ya_exact, rtol=1e-13, atol=1e-13 )
 #===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================

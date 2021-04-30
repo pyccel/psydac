@@ -223,7 +223,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
         self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
 
-        self._args = self.construct_arguments()
+        self._args = self.construct_arguments(backend=kwargs.pop('backend', None))
 
     @property
     def domain(self):
@@ -283,7 +283,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *basis, *spans, *degrees, *coeffs, *consts)
+            args = (*self.args, *consts, *basis, *spans, *degrees, *coeffs)
 
         else:
             args = self._args
@@ -315,14 +315,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                 j = i
         return i,j
 
-    def construct_arguments(self):
+    def construct_arguments(self, backend=None):
 
         test_basis, test_degrees, spans   = construct_test_space_arguments(self.test_basis)
         trial_basis, trial_degrees        = construct_trial_space_arguments(self.trial_basis)
         n_elements, quads, quad_degrees   = construct_quad_grids_arguments(self.grid)
 
         pads                      = self.test_basis.space.vector_space.pads
-        element_mats, global_mats = self.allocate_matrices()
+        element_mats, global_mats = self.allocate_matrices(backend)
         self._global_matrices     = [M._data for M in global_mats]
 
         if self.mapping:
@@ -334,7 +334,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         args = (*test_basis, *trial_basis, *spans, *quads, *test_degrees, *trial_degrees, *n_elements, *quad_degrees, *pads, *element_mats, *self._global_matrices, *mapping)
         return args
 
-    def allocate_matrices(self):
+    def allocate_matrices(self, backend=None):
 
         global_mats     = OrderedDict()
         element_mats    = OrderedDict()
@@ -396,7 +396,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                     else:
                         global_mats[k1,k2] = StencilMatrix(trial_space.spaces[k2],
                                                                 test_space.spaces[k1],
-                                                                pads = tuple(pads[k1,k2]))
+                                                                pads = tuple(pads[k1,k2]),
+                                                                backend=backend)
 
                     element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*(2*pads[k1,k2]+1)))
                     matrix[k1,k2]        = global_mats[k1,k2]
@@ -417,7 +418,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                     if self._func != do_nothing:
                         global_mats[i,j] = StencilInterfaceMatrix(trial_space, test_space, s_d, s_c, axis, flip=flip)
                 else:
-                    global_mats[i,j] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
+
+                    global_mats[i,j] = StencilMatrix(trial_space, test_space, pads=tuple(pads), backend=backend)
 
                 element_mats[i,j]  = np.empty((*(test_degree+1),*(2*pads+1)))
                 if (i,j) in global_mats:self._matrix[i,j] = global_mats[i,j]
@@ -425,7 +427,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 if self._matrix:
                     global_mats[0,0] = self._matrix
                 else:
-                    global_mats[0,0] = StencilMatrix(trial_space, test_space, pads=tuple(pads))
+                    global_mats[0,0] = StencilMatrix(trial_space, test_space, pads=tuple(pads), backend=backend)
 
                 element_mats[0,0]  = np.empty((*(test_degree+1),*(2*pads+1)))
                 self._matrix       = global_mats[0,0]
@@ -563,7 +565,7 @@ class DiscreteLinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *basis, *spans, *degrees, *coeffs, *consts)
+            args = (*self.args, *consts, *basis, *spans, *degrees, *coeffs)
 
         else:
             args = self._args

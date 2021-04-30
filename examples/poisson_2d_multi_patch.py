@@ -197,4 +197,3 @@ if __name__ == '__main__':
     ax.set_ylabel( r'$y$', rotation='horizontal' )
     ax.set_title ( r'$\phi(x,y) - \phi_{ex}(x,y)$' )
     plt.show()
-

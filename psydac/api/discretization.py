@@ -381,8 +381,9 @@ def discretize_space(V, domain_h, *args, **kwargs):
         if len(domain_h.mappings.values()) > 1:
             raise NotImplementedError('Multipatch not yet available')
 
-        interiors = [domain_h.domain.logical_domain.interior]
-        mappings  = [domain_h.mappings[inter.name] for inter in interiors]
+        interiors = [domain_h.domain.interior]
+        mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
+
         spaces    = [m.space for m in mappings]
         g_spaces  = OrderedDict(zip(interiors, spaces))
 

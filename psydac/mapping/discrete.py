@@ -325,7 +325,7 @@ class NurbsMapping( SplineMapping ):
     def __call__( self, eta ):
         map_W = self._weights_field
         w = map_W( *eta )
-        Xd = [map_Xd( *eta ) for map_Xd in self._fields]
+        Xd = [map_Xd( *eta , weights=map_W.coeffs) for map_Xd in self._fields]
         return np.asarray( Xd ) / w
 
     def jac_mat( self, eta ):
