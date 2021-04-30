@@ -402,7 +402,7 @@ class KroneckerLinearSolver( LinearSolver ):
         targetview = target[:self._localsize]
         targetview.shape = self._shapes[i+1]
 
-        targetview[:] = np.transpose(sourceview, self._perm)
+        targetview[:] = sourceview.transpose(self._perm)
     
     def _reorder_temp_to_outslice(self, source, outslice):
         """
@@ -412,7 +412,7 @@ class KroneckerLinearSolver( LinearSolver ):
         sourceview = source[:self._localsize]
         sourceview.shape = self._shapes[-1]
 
-        outslice[:] = np.transpose(sourceview, self._perm)
+        outslice[:] = sourceview.transpose(self._perm)
 
 class KroneckerSolverSerialPass:
     """
