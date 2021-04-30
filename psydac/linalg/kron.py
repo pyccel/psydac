@@ -291,35 +291,20 @@ class KroneckerLinearSolver( LinearSolver ):
         the data for the Kronecker solve operations.
         """
 
-        # we want for the permutations:
-        # a) re-order as little as possible
-        # b) concatenating all permutations should give us the identity
-        #
-        # so we can do:
-        # if we have (1,...,n) in the beginning, then do:
-        # first reorder (1,...,n,n-1) (i.e. swap -1th with -2nd component)
-        # second reorder(1,...,n,n-1,n-2) (i.e. swap -1th with -3rd component)
-        # third reorder (1,...,n,n-2,n-1,n3)
-        # until we get to (n, 2, ..., n-1, 1)
-        # combining all these permutations, we have: (2,3,...,n-1,n,1)
-        # the inverse of this last permutation is (n,1,2,...,n-1)
+        # we use a single permutation for all steps
+        # it is: (n, 1, 2, ..., n-1)
+        self._perm = np.arange(self._ndim)
+        self._perm[1:] = self._perm[:-1]
+        self._perm[0] = self._ndim - 1
 
-        # this way, we avoid too large strides
-        self._perm = [None] * self._ndim
-        for i in range(self._ndim - 1):
-            # permutation which swaps -i-2 with -1
-            self._perm[i] = np.arange(self._ndim)
-            self._perm[i][-i-2], self._perm[i][-1] = self._perm[i][-1], self._perm[i][-i-2]
-        # last permutation
-        self._perm[-1] = np.arange(self._ndim)
-        self._perm[-1][1:] = self._perm[-1][:-1]
-        self._perm[-1][0] = self._ndim - 1
+        # side note: we tried out other permutations:
+        # swapping one dimension with the last one each time showed a bad performance...
 
         # re-order the shapes based on the permutations
         self._shapes = [None] * self._ndim
         self._shapes[0] = self._nlocals
         for i in range(1, self._ndim):
-            self._shapes[i] = self._shapes[i-1][self._perm[i-1]]
+            self._shapes[i] = self._shapes[i-1][self._perm]
     
     def _allocate_temps( self ):
         """
@@ -339,6 +324,13 @@ class KroneckerLinearSolver( LinearSolver ):
         Returns the space associated to this solver (i.e. where the information about the cartesian distribution is taken from).
         """
         return self._space
+
+    @property
+    def solvers(self):
+        """
+        Returns an immutable view onto references to the one-dimensional sovlers.
+        """
+        return tuple(self._solvers)
 
     def solve( self, rhs, out=None, transposed=False ):
         """
@@ -392,6 +384,7 @@ class KroneckerLinearSolver( LinearSolver ):
     def _inslice_to_temp(self, inslice, target):
         """
         Copies data to an internal, 1-dimensional temporary array.
+        Does not allocate any new array.
         """
         targetview = target[:self._localsize]
         targetview.shape = inslice.shape
@@ -401,6 +394,7 @@ class KroneckerLinearSolver( LinearSolver ):
     def _reorder_temp_to_temp(self, source, target, i):
         """
         Reorders the dimensions of the temporary arrays, and copies data from one to another.
+        Does not allocate any new array.
         """
         sourceview = source[:self._localsize]
         sourceview.shape = self._shapes[i]
@@ -408,16 +402,17 @@ class KroneckerLinearSolver( LinearSolver ):
         targetview = target[:self._localsize]
         targetview.shape = self._shapes[i+1]
 
-        targetview[:] = sourceview.transpose(self._perm[i])
+        targetview[:] = np.transpose(sourceview, self._perm)
     
     def _reorder_temp_to_outslice(self, source, outslice):
         """
         Reorders the dimensions of the temporary array for a final time, and copies it to the output.
+        Does not allocate any new array.
         """
         sourceview = source[:self._localsize]
         sourceview.shape = self._shapes[-1]
 
-        outslice[:] = sourceview.transpose(self._perm[-1])
+        outslice[:] = np.transpose(sourceview, self._perm)
 
 class KroneckerSolverSerialPass:
     """
@@ -597,21 +592,29 @@ class KroneckerSolverParallelPass:
         """
         return max(self._datasize, self._localsize)
 
-    def _order_blocked(self, source, target):
-        blocked_view = source[:self._datasize]
+    def _blocked_to_contiguous(self, blocked, contiguous):
+        """
+        Copies from a blocked view to a contiguous view.
+        Equals roughly a partial transpose, if the block sizes in the cartesian grid are the same.
+        """
+        blocked_view = blocked[:self._datasize]
         blocked_view.shape = (self._mlocal,self._nglobal)
         for start, end in zip(self._cartstart, self._cartend):
-            targetpart = target[start*self._mlocal:end*self._mlocal]
-            targetpart.shape = (self._mlocal,end-start)
-            blocked_view[:,start:end] = targetpart
+            contiguouspart = contiguous[start*self._mlocal:end*self._mlocal]
+            contiguouspart.shape = (self._mlocal,end-start)
+            blocked_view[:,start:end] = contiguouspart
     
-    def _unorder_blocked(self, source, target):
-        blocked_view = source[:self._datasize]
+    def _contiguous_to_blocked(self, blocked, contiguous):
+        """
+        Copies from a contiguous view to a blocked view.
+        Equals roughly a partial transpose, if the block sizes in the cartesian grid are the same.
+        """
+        blocked_view = blocked[:self._datasize]
         blocked_view.shape = (self._mlocal,self._nglobal)
         for start, end in zip(self._cartstart, self._cartend):
-            targetpart = target[start*self._mlocal:end*self._mlocal]
-            targetpart.shape = (self._mlocal,end-start)
-            targetpart[:] = blocked_view[:,start:end]
+            contiguouspart = contiguous[start*self._mlocal:end*self._mlocal]
+            contiguouspart.shape = (self._mlocal,end-start)
+            contiguouspart[:] = blocked_view[:,start:end]
 
     def solve_pass(self, workmem, tempmem, transposed):
         """
@@ -636,13 +639,13 @@ class KroneckerSolverParallelPass:
         self._comm.Alltoallv(sourceargs, targetargs)
 
         # blocked stripes -> ordered stripes
-        self._order_blocked(workmem, tempmem)
+        self._blocked_to_contiguous(workmem, tempmem)
 
         # actual solve (source contains the data)
         self._serialsolver.solve_pass(workmem, tempmem, transposed)
 
         # ordered stripes -> blocked stripes
-        self._unorder_blocked(workmem, tempmem)
+        self._contiguous_to_blocked(workmem, tempmem)
 
         # blocked stripes -> parts of stripes
         self._comm.Alltoallv(targetargs, sourceargs)
