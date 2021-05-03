@@ -135,7 +135,56 @@ def compare_solve(seed, comm, npts, pads, periods, direct_solver, transposed=Fal
     # compare for equality
     assert np.allclose( X[localslice], X_glob[localslice], rtol=1e-8, atol=1e-8 )
 
-# right now, the maximum tested number for MPI_COMM_WORLD.size is 4; it failed with size 8 for now.
+# tests of the direct solvers
+
+@pytest.mark.parametrize( 'seed', [0,2,10] )
+@pytest.mark.parametrize( 'n', [8, 16, 17, 64] )
+@pytest.mark.parametrize( 'p', [1, 3] )
+@pytest.mark.parametrize( 'P', [True, False] )
+@pytest.mark.parametrize( 'nrhs', [1,3] )
+@pytest.mark.parametrize( 'direct_solver', [matrix_to_bandsolver, matrix_to_sparse] )
+@pytest.mark.parametrize( 'transposed', [True, False] )
+def test_direct_solvers(seed, n, p, P, nrhs, direct_solver, transposed):
+    # space (V)
+    V = StencilVectorSpace([n], [p], [P])
+
+    # bulid matrices (A)
+    A = random_matrix(seed+1, V)
+    solver = direct_solver(A)
+
+    # vector to solve for (Y)
+    Y_glob = np.stack([random_vectordata(seed + i, [n]) for i in range(nrhs)], axis=0).T
+
+    # ref solve
+    preC = A.tosparse().tocsc()
+    if transposed:
+        preC = preC.T
+    C = csc_matrix(preC)
+
+    C_op  = splu(C)
+
+    X_glob = C_op.solve(Y_glob)
+
+    # new vector allocation
+    X_glob2 = solver.solve(Y_glob, transposed=transposed)
+
+    # solve with out vector
+    X_glob3 = Y_glob.T.copy().T
+    X_glob4 = solver.solve(Y_glob, out=X_glob3, transposed=transposed)
+
+    # solve in-place
+    X_glob5 = Y_glob.T.copy().T
+    X_glob6 = solver.solve(X_glob5, out=X_glob5, transposed=transposed)
+
+    # compare results
+    assert X_glob4 is X_glob3
+    assert X_glob6 is X_glob5
+
+    assert np.allclose( X_glob, X_glob2, rtol=1e-8, atol=1e-8 )
+    assert np.allclose( X_glob, X_glob3, rtol=1e-8, atol=1e-8 )
+    assert np.allclose( X_glob, X_glob5, rtol=1e-8, atol=1e-8 )
+
+# right now, the maximum tested number for MPI_COMM_WORLD.size is 4; some test sizes failed with size 8 for now.
 
 # tests without MPI
 

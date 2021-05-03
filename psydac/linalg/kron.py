@@ -424,7 +424,7 @@ class KroneckerLinearSolver( LinearSolver ):
 
     class KroneckerSolverSerialPass:
         """
-        Solves several linear equations at the same time,
+        Solves a linear equation for several right-hand sides at the same time,
         given that the data is already in memory.
 
         Parameters
@@ -484,7 +484,7 @@ class KroneckerLinearSolver( LinearSolver ):
 
     class KroneckerSolverParallelPass:
         """
-        Solves several linear equations at the same time,
+        Solves a linear equation for several right-hand sides at the same time,
         using an Alltoallv operation to distribute the data.
 
         The parameters use the form of n and m; here n denotes the
