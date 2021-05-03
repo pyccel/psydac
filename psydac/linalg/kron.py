@@ -273,13 +273,11 @@ class KroneckerLinearSolver( LinearSolver ):
 
             if not self._parallel or self._space.cart.subcomm[i].size <= 1:
                 # serial solve
-                solver_passes[i]
-                    = KroneckerLinearSolver.KroneckerSolverSerialPass(
+                solver_passes[i] = KroneckerLinearSolver.KroneckerSolverSerialPass(
                         self._solvers[i], nglobals[i], mglobals[i])
             else:
                 # for the parallel case, use Alltoallv
-                solver_passes[i]
-                    = KroneckerLinearSolver.KroneckerSolverParallelPass(
+                solver_passes[i] = KroneckerLinearSolver.KroneckerSolverParallelPass(
                         self._solvers[i], self._space._mpi_type, i,
                         self._space.cart, mglobals[i], nglobals[i], nlocals[i], self._localsize)
 
