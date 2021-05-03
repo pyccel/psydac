@@ -267,7 +267,7 @@ class KroneckerLinearSolver( LinearSolver ):
         self._allserial = True
         for i in range(self._ndim):
             # decide for each direction individually, if we should
-            # use a serial or a parallel/distributed sovler
+            # use a serial or a parallel/distributed solver
             # useful e.g. if we have little data in some directions
             # (and thus no data distributed there)
 
@@ -336,7 +336,7 @@ class KroneckerLinearSolver( LinearSolver ):
     @property
     def solvers(self):
         """
-        Returns an immutable view onto references to the one-dimensional sovlers.
+        Returns an immutable view onto references to the one-dimensional solvers.
         """
         return tuple(self._solvers)
 
@@ -436,7 +436,7 @@ class KroneckerLinearSolver( LinearSolver ):
             The length of the dimension which we want to solve for.
         
         mglobal : int
-            The number of right-hand sizes we want to solve. Equals the product of the
+            The number of right-hand sides we want to solve. Equals the product of the
             number of dimensions which we do NOT want to solve for
             (when squashing all these dimensions into a single one).
             I.e. mglobal*nglobal is the total data size.
@@ -461,7 +461,9 @@ class KroneckerLinearSolver( LinearSolver ):
             Parameters
             ----------
             workmem : ndarray
-                The data which is used for solving. All columns to be solved are ordered contiguously.
+                The data which is to be solved. It is a one-dimensional ndarray
+                which contains all columns contiguously ordered in memory one after another.
+                Its minimum size is also given by `self.required_mem()`.
             
             tempmem : ndarray
                 Ignored, it exists for compatibility with the parallel solver.
@@ -511,7 +513,7 @@ class KroneckerLinearSolver( LinearSolver ):
             The cartesian decomposition we use.
 
         mglobal : int
-            The number of right-hand sizes we want to solve. Equals the product of the
+            The number of right-hand sides we want to solve. Equals the product of the
             number of dimensions which we do NOT want to solve for
             (when squashing all these dimensions into a single one).
             I.e. mglobal*nglobal is the total data size in our communicator (not on the whole grid though).

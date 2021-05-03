@@ -87,11 +87,11 @@ class BandedSolver ( DirectSolver ):
 
             # support in-place operations
             if rhs is not out:
-                rhs[:] = out
+                out[:] = rhs
 
             # TODO: handle non-contiguous views?
             
-            _, self._sinfo = dgbtrs(self._bmat, self._l, self._u, rhs, self._ipiv, overwrite_b=True, trans=transposed)
+            _, self._sinfo = dgbtrs(self._bmat, self._l, self._u, out, self._ipiv, overwrite_b=True, trans=transposed)
 
         return out
 
