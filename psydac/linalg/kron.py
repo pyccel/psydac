@@ -205,7 +205,8 @@ class KroneckerLinearSolver( LinearSolver ):
     Parameters
     ----------
     V : StencilVectorSpace
-        The space b will live in; i.e. which gives us information about the distribution of the right-hand sides.
+        The space b will live in; i.e. which gives us information about
+        the distribution of the right-hand sides.
     
     solvers : list of LinearSolver
         The components of A in each dimension.
@@ -244,7 +245,8 @@ class KroneckerLinearSolver( LinearSolver ):
     
     def _setup_solvers( self ):
         """
-        Computes the distribution of elements and sets up the solvers (which potentially utilize MPI).
+        Computes the distribution of elements and sets up the solvers
+        (which potentially utilize MPI).
         """
         # slice sizes
         starts = np.array(self._space.starts)
@@ -264,16 +266,22 @@ class KroneckerLinearSolver( LinearSolver ):
         tempsize = self._localsize
         self._allserial = True
         for i in range(self._ndim):
-            # decide for each direction individually, if we should use a serial or a parallel/distributed sovler
-            # useful e.g. if we have little data in some directions (and thus no data distributed there)
+            # decide for each direction individually, if we should
+            # use a serial or a parallel/distributed sovler
+            # useful e.g. if we have little data in some directions
+            # (and thus no data distributed there)
 
             if not self._parallel or self._space.cart.subcomm[i].size <= 1:
                 # serial solve
-                solver_passes[i] = KroneckerSolverSerialPass(self._solvers[i], nglobals[i], mglobals[i])
+                solver_passes[i]
+                    = KroneckerLinearSolver.KroneckerSolverSerialPass(
+                        self._solvers[i], nglobals[i], mglobals[i])
             else:
-                # TODO: also implement a pass using Alltoall (not Alltoallv), in case that the data is regular enough
                 # for the parallel case, use Alltoallv
-                solver_passes[i] = KroneckerSolverParallelPass(self._solvers[i], self._space._mpi_type, i, self._space.cart, mglobals[i], nglobals[i], nlocals[i], self._localsize)
+                solver_passes[i]
+                    = KroneckerLinearSolver.KroneckerSolverParallelPass(
+                        self._solvers[i], self._space._mpi_type, i,
+                        self._space.cart, mglobals[i], nglobals[i], nlocals[i], self._localsize)
 
                 # we have a parallel solve pass now, so we are not completely local any more
                 self._allserial = False
@@ -312,7 +320,8 @@ class KroneckerLinearSolver( LinearSolver ):
         """
         temp1 = np.empty((self._tempsize,))
         if self._ndim <= 1 and self._allserial:
-            # if ndim==1 and we have no parallelism, we can avoid allocating a second temp array
+            # if ndim==1 and we have no parallelism,
+            # we can avoid allocating a second temp array
             temp2 = None
         else:
             temp2 = np.empty((self._tempsize,))
@@ -321,7 +330,8 @@ class KroneckerLinearSolver( LinearSolver ):
     @property
     def space( self ):
         """
-        Returns the space associated to this solver (i.e. where the information about the cartesian distribution is taken from).
+        Returns the space associated to this solver (i.e. where the information
+        about the cartesian distribution is taken from).
         """
         return self._space
 
@@ -414,241 +424,262 @@ class KroneckerLinearSolver( LinearSolver ):
 
         outslice[:] = sourceview.transpose(self._perm)
 
-class KroneckerSolverSerialPass:
-    """
-    Solves several linear equations at the same time, given that the data is already in memory.
-
-    Not intended for outside use.
-
-    Parameters
-    ----------
-    solver : DirectSolver
-        The internally used solver class.
-    
-    nglobal : int
-        The length of the dimension which we want to solve for.
-    
-    mglobal : int
-        The number of right-hand sizes we want to solve. Equals the product of the
-        number of dimensions which we do NOT want to solve for (when squashing all these dimensions into a single one).
-        I.e. mglobal*nglobal is the total data size.
-    """
-    def __init__(self, solver, nglobal, mglobal):
-        self._numrhs = mglobal
-        self._dimrhs = nglobal
-        self._datasize = nglobal*mglobal
-        self._solver = solver
-        self._view = None
-    
-    def required_memory(self):
+    class KroneckerSolverSerialPass:
         """
-        Returns the required memory for this operation. Minimum size for the workmem and tempmem parameters.
-        """
-        return self._datasize
-
-    def solve_pass(self, workmem, tempmem, transposed):
-        """
-        Solves the data available in workmem, assuming that all data is available locally.
+        Solves several linear equations at the same time,
+        given that the data is already in memory.
 
         Parameters
         ----------
-        workmem : ndarray
-            The data which is used for solving. All columns to be solved are ordered contiguously.
+        solver : DirectSolver
+            The internally used solver class.
         
-        tempmem : ndarray
-            Ignored, it exists for compatibility with the parallel solver.
+        nglobal : int
+            The length of the dimension which we want to solve for.
         
-        transposed : bool
-            True, if and only if we want to solve against the transposed matrix instead.
+        mglobal : int
+            The number of right-hand sizes we want to solve. Equals the product of the
+            number of dimensions which we do NOT want to solve for
+            (when squashing all these dimensions into a single one).
+            I.e. mglobal*nglobal is the total data size.
         """
-        # reshape necessary memory in column-major
-        view = workmem[:self._datasize]
-        view.shape = (self._numrhs,self._dimrhs)
+        def __init__(self, solver, nglobal, mglobal):
+            self._numrhs = mglobal
+            self._dimrhs = nglobal
+            self._datasize = nglobal*mglobal
+            self._solver = solver
+            self._view = None
+        
+        def required_memory(self):
+            """
+            Returns the required memory for this operation. Minimum size for the workmem and tempmem parameters.
+            """
+            return self._datasize
 
-        # the solvers want the FORTRAN-contiguous format
-        # (TODO: push this into the DirectSolver?)
-        view_T = view.transpose()
+        def solve_pass(self, workmem, tempmem, transposed):
+            """
+            Solves the data available in workmem, assuming that all data is available locally.
 
-        # call solver in in-place mode
-        self._solver.solve(view_T, out=view_T, transposed=transposed)
+            Parameters
+            ----------
+            workmem : ndarray
+                The data which is used for solving. All columns to be solved are ordered contiguously.
+            
+            tempmem : ndarray
+                Ignored, it exists for compatibility with the parallel solver.
+            
+            transposed : bool
+                True, if and only if we want to solve against the transposed matrix instead.
+            """
+            # reshape necessary memory in column-major
+            view = workmem[:self._datasize]
+            view.shape = (self._numrhs,self._dimrhs)
 
-class KroneckerSolverParallelPass:
-    """
-    Solves several linear equations at the same time, using an Alltoallv operation to distribute the data.
+            # the solvers want the FORTRAN-contiguous format
+            # (TODO: push this into the DirectSolver?)
+            view_T = view.transpose()
 
-    The parameters use the form of n and m; here n denotes the length of the dimension we want to solve for,
-    and m is the length of all other dimensions, multiplied with each other. These n and m are then suffixed
-    with local and global, denoting how much of them we have (or want to have) locally. I.e.
-    nglobal is the dimension of the columns we want to solve, nlocal is the part we have on our local processor.
-    mglobal is the number of right-hand sides to solve in the whole communicator, and mlocal is the number of
-    right-hand sides we will solve on our local processor.
+            # call solver in in-place mode
+            self._solver.solve(view_T, out=view_T, transposed=transposed)
 
-    Not intended for outside use.
-
-    Parameters
-    ----------
-    solver : DirectSolver
-        The internally used solver class.
-    
-    mpi_type : MPI type
-        The MPI type of the space. Used for the Alltoallv.
-    
-    i : int
-        The index of the dimension.
-    
-    cart : CartDecomposition
-        The cartesian decomposition we use.
-
-    mglobal : int
-        The number of right-hand sizes we want to solve. Equals the product of the
-        number of dimensions which we do NOT want to solve for (when squashing all these dimensions into a single one).
-        I.e. mglobal*nglobal is the total data size in our communicator (not on the whole grid though).
-    
-    nglobal : int
-        The length of the dimension which we want to solve. (the real length, not the one we have on this process)
-    
-    nlocal : int
-        The length of the part of the dimension to solve which is located on this process already.
-
-    localsize : int
-        The size of data on our local process. Equals mlocal * nlocal (given that we know the former).
-    """
-
-    # To understand the following, here is a short explaination. Consider two processes like this:
-    #
-    # Pr1 | Pr2
-    # 0 1 | 2 3
-    # 4 5 | 6 7
-    # 8 9 | A B 
-    # C D | E F
-    #
-    # i.e. Pr1 has 0 1 4 5 8 9 C D; Pr2 has 2 3 6 7 A B E F
-    #
-    # We now would like to get each line on at least one process. So, we do an AlltoAll like this:
-    #
-    # Pr1 | Pr2
-    # 0 1 | 2 3 | to Pr1
-    # 4 5 | 6 7 | to Pr1
-    # ------------------
-    # 8 9 | A B | to Pr2
-    # C D | E F | to Pr2
-    #
-    # But the data is transported per process, i.e. we get in this order:
-    # 0 1 4 5 2 3 6 7 on Pr1
-    # 8 9 C D A B E F on Pr2
-    #
-    # so we still need to re-order (i.e. partially transpose) locally to finally get what we want.
-    # 0 1 2 3 4 5 6 7 on Pr1
-    # 8 9 A B C D E F on Pr2
-    #
-
-    # NOTE: in case someone wants to create an Alltoall (not Alltoallv) pass class, this class is a good starting point, though simplifications will be needed
-    
-    def __init__(self, solver, mpi_type, i, cart, mglobal, nglobal, nlocal, localsize):
-        self._nglobal = nglobal
-
-        # cartesian distribution
-        comm = cart.subcomm[i]
-        cartend = cart.global_ends[i] + 1
-        cartstart = cart.global_starts[i]
-        cartsize = cartend - cartstart
-
-        # source MPI sizes and disps
-        # distribute the data like
-        # (N+1, N+1, ..., N+1, N, N, ...)
-        # where N = floor(mglobaldata / comm.size)
-        mlocal_pre = mglobal // comm.size
-        mlocal_add = mglobal % comm.size
-        sourcesizes = np.full((comm.size,), mlocal_pre, dtype=int)
-        sourcesizes[:mlocal_add] += 1
-        mlocal = sourcesizes[comm.rank]
-        sourcesizes *= nlocal
-
-        # disps, created from the sizes
-        sourcedisps = np.zeros((comm.size+1,), dtype=int)
-        np.cumsum(sourcesizes, out=sourcedisps[1:])
-        sourcedisps = sourcedisps[:-1]
-
-        # target MPI sizes and disps
-        # (mlocal is the same over all processes in the communicator)
-        targetsizes = cartsize * mlocal
-        targetdisps = cartstart * mlocal
-
-        # setting all arguments to keep
-        self._mlocal = mlocal
-        self._localsize = localsize
-        self._datasize = mlocal * nglobal
-        self._source_transfer = (sourcesizes, sourcedisps)
-        self._target_transfer = (targetsizes, targetdisps)
-        self._mpi_type = mpi_type
-        self._cartstart = cartstart
-        self._cartend = cartend
-        self._comm = comm
-        self._serialsolver = KroneckerSolverSerialPass(solver, nglobal, mlocal)
-
-    def required_memory(self):
+    class KroneckerSolverParallelPass:
         """
-        Returns the required memory for this operation. Minimum size for the workmem and tempmem parameters.
-        """
-        return max(self._datasize, self._localsize)
+        Solves several linear equations at the same time,
+        using an Alltoallv operation to distribute the data.
 
-    def _blocked_to_contiguous(self, blocked, contiguous):
-        """
-        Copies from a blocked view to a contiguous view.
-        Equals roughly a partial transpose, if the block sizes in the cartesian grid are the same.
-        """
-        blocked_view = blocked[:self._datasize]
-        blocked_view.shape = (self._mlocal,self._nglobal)
-        for start, end in zip(self._cartstart, self._cartend):
-            contiguouspart = contiguous[start*self._mlocal:end*self._mlocal]
-            contiguouspart.shape = (self._mlocal,end-start)
-            blocked_view[:,start:end] = contiguouspart
-    
-    def _contiguous_to_blocked(self, blocked, contiguous):
-        """
-        Copies from a contiguous view to a blocked view.
-        Equals roughly a partial transpose, if the block sizes in the cartesian grid are the same.
-        """
-        blocked_view = blocked[:self._datasize]
-        blocked_view.shape = (self._mlocal,self._nglobal)
-        for start, end in zip(self._cartstart, self._cartend):
-            contiguouspart = contiguous[start*self._mlocal:end*self._mlocal]
-            contiguouspart.shape = (self._mlocal,end-start)
-            contiguouspart[:] = blocked_view[:,start:end]
-
-    def solve_pass(self, workmem, tempmem, transposed):
-        """
-        Solves the data available in workmem in a distributed manner, using MPI.
+        The parameters use the form of n and m; here n denotes the
+        length of the dimension we want to solve for, and m is the
+        length of all other dimensions, multiplied with each other.
+        These n and m are then suffixed with local and global,
+        denoting how much of them we have (or want to have) locally.
+        So, nglobal is the dimension of the columns we want to solve,
+        nlocal is the part we have on our local processor. mglobal is
+        the number of right-hand sides to solve in the whole communicator,
+        and mlocal is the number of right-hand sides we will solve on our
+        local processor.
 
         Parameters
         ----------
-        workmem : ndarray
-            The data which is used for solving. All columns to be solved are ordered contiguously.
+        solver : DirectSolver
+            The internally used solver class.
         
-        tempmem : ndarray
-            Temporary array of the same size as workmem.
+        mpi_type : MPI type
+            The MPI type of the space. Used for the Alltoallv.
         
-        transposed : bool
-            True, if and only if we want to solve against the transposed matrix instead.
+        i : int
+            The index of the dimension.
+        
+        cart : CartDecomposition
+            The cartesian decomposition we use.
+
+        mglobal : int
+            The number of right-hand sizes we want to solve. Equals the product of the
+            number of dimensions which we do NOT want to solve for
+            (when squashing all these dimensions into a single one).
+            I.e. mglobal*nglobal is the total data size in our communicator (not on the whole grid though).
+        
+        nglobal : int
+            The length of the dimension which we want to solve.
+            (the total length, not the one we have on this process)
+        
+        nlocal : int
+            The length of the part of the dimension to solve which is located on this process already.
+
+        localsize : int
+            The size of data on our local process.
+            Equals mlocal * nlocal (given that we know the former).
         """
-        # preparation
-        sourceargs = [workmem[:self._localsize], self._source_transfer, self._mpi_type]
-        targetargs = [tempmem[:self._datasize], self._target_transfer, self._mpi_type]
 
-        # parts of stripes -> blocked stripes
-        self._comm.Alltoallv(sourceargs, targetargs)
+        # To understand the following, here is a short explaination. Consider two processes like this:
+        #
+        # Pr1 | Pr2
+        # 0 1 | 2 3
+        # 4 5 | 6 7
+        # 8 9 | A B 
+        # C D | E F
+        #
+        # i.e. Pr1 has 0 1 4 5 8 9 C D; Pr2 has 2 3 6 7 A B E F
+        #
+        # We now would like to get each line on at least one process. So, we do an AlltoAll like this:
+        #
+        # Pr1 | Pr2
+        # 0 1 | 2 3 | to Pr1
+        # 4 5 | 6 7 | to Pr1
+        # ------------------
+        # 8 9 | A B | to Pr2
+        # C D | E F | to Pr2
+        #
+        # But the data is transported per process, i.e. we get in this order:
+        # 0 1 4 5 2 3 6 7 on Pr1
+        # 8 9 C D A B E F on Pr2
+        #
+        # so we still need to re-order (i.e. partially transpose) locally to finally get what we want.
+        # 0 1 2 3 4 5 6 7 on Pr1
+        # 8 9 A B C D E F on Pr2
+        #
 
-        # blocked stripes -> ordered stripes
-        self._blocked_to_contiguous(workmem, tempmem)
+        # NOTE: ideas for future improvements, if this is too slow:
+        #
+        # * Use MPI composite Datatypes (i.e. MPI contiguous and vector).
+        #       This may improve performance, depending on the implementation
+        #       (therefore, a library-level switch or similar would be an option here).
+        #       Mainly, we could push what happens in _blocked_to_contiguous and
+        #       _contiguous_to_blocked methods into the MPI implementation.
+        #
+        # * Use Alltoall instead of Alltoallv, when applicable, since it might be faster as well.
+        #       This if for example the case, if the cartesian communicator (cart argument)
+        #       assigns the same number of data points to all processes.
+        #       (i.e. global_ends[i] - global_starts[i] is constant)
+        #       Then, we only need mlocal to be constant (except the last element) as well.
+        #
+        
+        def __init__(self, solver, mpi_type, i, cart, mglobal, nglobal, nlocal, localsize):
+            self._nglobal = nglobal
 
-        # actual solve (source contains the data)
-        self._serialsolver.solve_pass(workmem, tempmem, transposed)
+            # cartesian distribution
+            comm = cart.subcomm[i]
+            cartend = cart.global_ends[i] + 1
+            cartstart = cart.global_starts[i]
+            cartsize = cartend - cartstart
 
-        # ordered stripes -> blocked stripes
-        self._contiguous_to_blocked(workmem, tempmem)
+            # source MPI sizes and disps
+            # distribute the data like
+            # (N+1, N+1, ..., N+1, N, N, ...)
+            # where N = floor(mglobaldata / comm.size)
+            mlocal_pre = mglobal // comm.size
+            mlocal_add = mglobal % comm.size
+            sourcesizes = np.full((comm.size,), mlocal_pre, dtype=int)
+            sourcesizes[:mlocal_add] += 1
+            mlocal = sourcesizes[comm.rank]
+            sourcesizes *= nlocal
 
-        # blocked stripes -> parts of stripes
-        self._comm.Alltoallv(targetargs, sourceargs)
+            # disps, created from the sizes
+            sourcedisps = np.zeros((comm.size+1,), dtype=int)
+            np.cumsum(sourcesizes, out=sourcedisps[1:])
+            sourcedisps = sourcedisps[:-1]
+
+            # target MPI sizes and disps
+            # (mlocal is the same over all processes in the communicator)
+            targetsizes = cartsize * mlocal
+            targetdisps = cartstart * mlocal
+
+            # setting all arguments to keep
+            self._mlocal = mlocal
+            self._localsize = localsize
+            self._datasize = mlocal * nglobal
+            self._source_transfer = (sourcesizes, sourcedisps)
+            self._target_transfer = (targetsizes, targetdisps)
+            self._mpi_type = mpi_type
+            self._cartstart = cartstart
+            self._cartend = cartend
+            self._comm = comm
+            self._serialsolver = KroneckerLinearSolver.KroneckerSolverSerialPass(solver, nglobal, mlocal)
+
+        def required_memory(self):
+            """
+            Returns the required memory for this operation. Minimum size for the workmem and tempmem parameters.
+            """
+            return max(self._datasize, self._localsize)
+
+        def _blocked_to_contiguous(self, blocked, contiguous):
+            """
+            Copies from a blocked view to a contiguous view.
+            Equals roughly a partial transpose, if the block sizes in the cartesian grid are the same.
+            """
+            blocked_view = blocked[:self._datasize]
+            blocked_view.shape = (self._mlocal,self._nglobal)
+            for start, end in zip(self._cartstart, self._cartend):
+                contiguouspart = contiguous[start*self._mlocal:end*self._mlocal]
+                contiguouspart.shape = (self._mlocal,end-start)
+                blocked_view[:,start:end] = contiguouspart
+        
+        def _contiguous_to_blocked(self, blocked, contiguous):
+            """
+            Copies from a contiguous view to a blocked view.
+            Equals roughly a partial transpose, if the block sizes in the cartesian grid are the same.
+            """
+            blocked_view = blocked[:self._datasize]
+            blocked_view.shape = (self._mlocal,self._nglobal)
+            for start, end in zip(self._cartstart, self._cartend):
+                contiguouspart = contiguous[start*self._mlocal:end*self._mlocal]
+                contiguouspart.shape = (self._mlocal,end-start)
+                contiguouspart[:] = blocked_view[:,start:end]
+
+        def solve_pass(self, workmem, tempmem, transposed):
+            """
+            Solves the data available in workmem in a distributed manner, using MPI_Alltoallv.
+
+            Parameters
+            ----------
+            workmem : ndarray
+                The data which is used for solving.
+                All columns to be solved are ordered contiguously.
+                Its minimum size is given by `self.required_mem()`
+            
+            tempmem : ndarray
+                Temporary array of the same minimum size as workmem.
+            
+            transposed : bool
+                True, if and only if we want to solve against the transposed matrix instead.
+            """
+            # preparation
+            sourceargs = [workmem[:self._localsize], self._source_transfer, self._mpi_type]
+            targetargs = [tempmem[:self._datasize], self._target_transfer, self._mpi_type]
+
+            # parts of stripes -> blocked stripes
+            self._comm.Alltoallv(sourceargs, targetargs)
+
+            # blocked stripes -> ordered stripes
+            self._blocked_to_contiguous(workmem, tempmem)
+
+            # actual solve (source contains the data)
+            self._serialsolver.solve_pass(workmem, tempmem, transposed)
+
+            # ordered stripes -> blocked stripes
+            self._contiguous_to_blocked(workmem, tempmem)
+
+            # blocked stripes -> parts of stripes
+            self._comm.Alltoallv(targetargs, sourceargs)
 
 #==============================================================================
 def kronecker_solve( solvers, rhs, out=None, transposed=False ):
