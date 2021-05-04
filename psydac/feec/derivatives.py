@@ -41,26 +41,31 @@ def block_tostencil(M):
 #====================================================================================================
 class KroneckerDifferentialOperator(LinearOperator):
     """
-    Represents a differential operator in a specific direction. Can be negated.
+    Represents a differential operator in a specific direction. Can be negated and transposed.
 
     Parameters
     ----------
     V : StencilVectorSpace
-        The domain of the operator.
+        The domain of the operator. (or codomain if transposed)
     
     W : StencilVectorSpace
-        The codomain of the operator. Has to be compatible with the domain,
-        i.e. it has to be equal to it, except for the differentiation direction.
+        The codomain of the operator. (or domain, if transposed)
+        Has to be compatible with the domain, i.e. it has to
+        be equal to it, except for the differentiation direction.
     
     diffdir : int
         The differentiation direction.
     
-    sign : bool
-        If true, this operator is multiplied by -1 after execution.
-        (if false, nothing happens)
+    negative : bool
+        If True, this operator is multiplied by -1 after execution.
+        (if False, nothing happens)
+    
+    transposed : bool
+        If True, this operator represents the transposed differential operator.
+        Note that then V is the codomain and W is the domain.
     """
 
-    def __init__(self, V, W, diffdir, negative=False):
+    def __init__(self, V, W, diffdir, negative=False, transposed=False):
         assert isinstance(V, StencilVectorSpace)
         assert isinstance(W, StencilVectorSpace)
         assert V.ndim == W.ndim
@@ -78,32 +83,86 @@ class KroneckerDifferentialOperator(LinearOperator):
         assert all([vn==wn+1 if not vwp and diffdir==i else vn==wn
             for i, (vn, wn, vwp) in enumerate(zip(V.npts, W.npts, V.periods))])
 
-        self._domain = V
-        self._codomain = W
+        self._spaceV = V
+        self._spaceW = W
         self._diffdir = diffdir
+        self._negative = negative
+        self._transposed = transposed
 
-        self._sign = negative
-
-        # prepare the slices (they are of the right size then, we checked this already)
-        # identity
+        if self._transposed:
+            self._domain = W
+            self._codomain = V
+        else:
+            self._domain = V
+            self._codomain = W
+        
+        # the local area in the codomain without padding
         self._idslice = [slice(pad, e-s+1+pad) for pad, s, e
             in zip(self._codomain.pads, self._codomain.starts, self._codomain.ends)]
-        
-        # differentiation slice
-        diff_pad = self._codomain.pads[diffdir]
-        diff_s = self._codomain.starts[diffdir]
-        diff_e = self._codomain.ends[diffdir]
-        diff_partslice = slice(diff_pad+1, diff_e-diff_s+1+diff_pad+1)
-        self._diffslice = [diff_partslice if i==diffdir else self._idslice[i]
-                                for i in range(V.ndim)]
 
-        # defined differentiation lambda based on the sign parameter
-        if self._sign:
-            self._do_diff = lambda v,out: np.subtract(v._data[self._idslice],
-                                v._data[self._diffslice], out=out._data[self._idslice])
+        if self._transposed:
+            self._prepare_diff_t()
         else:
-            self._do_diff = lambda v,out: np.subtract(v._data[self._diffslice],
-                                v._data[self._idslice], out=out._data[self._idslice])
+            self._prepare_diff()
+
+    def _prepare_diff(self):
+        # prepare the slices (they are of the right size then, we checked this already)
+        # identity slice
+        idslice = self._idslice
+        
+        # differentiation slice (moved by one in the direction of differentiation)
+        diff_pad = self._codomain.pads[self._diffdir]
+        diff_s = self._codomain.starts[self._diffdir]
+        diff_e = self._codomain.ends[self._diffdir]
+        diff_partslice = slice(diff_pad+1, diff_e-diff_s+1+diff_pad+1)
+        diffslice = [diff_partslice if i==self._diffdir else idslice[i]
+                            for i in range(self._domain.ndim)]
+
+        # defined differentiation lambda based on the parameter negative (or sign)
+        if self._negative:
+            self._do_diff = lambda v,out: np.subtract(v._data[idslice],
+                                v._data[diffslice], out=out._data[idslice])
+        else:
+            self._do_diff = lambda v,out: np.subtract(v._data[diffslice],
+                                v._data[idslice], out=out._data[idslice])
+
+    def _prepare_diff_t(self):
+        # prepare the slices (they are of the right size then, we checked this already)
+        # identity slice
+        idslice = self._idslice
+        
+        # differentiation part slices (moved by one in the direction of differentiation)
+        # for in-place transposed, we have to split up a bit
+
+        def make_diffslice(partslice):
+            return [partslice if i==self._diffdir else idslice[i]
+                            for i in range(self._domain.ndim)]
+
+        diff_pad = self._codomain.pads[self._diffdir]
+        diff_s = self._codomain.starts[self._diffdir]
+        diff_e = self._codomain.ends[self._diffdir]
+
+        # we have one line where we only copy (or negate, if self._negate is True)
+        diffslice_copy = make_diffslice(slice(diff_pad, diff_pad+1))
+
+        # for the rest, we subtract as normal (and take into account that idslice is truncated now)
+        diffslice_sub_cod = make_diffslice(slice(diff_pad+1, diff_e-diff_s+1+diff_pad))
+        diffslice_sub_dom = make_diffslice(slice(diff_pad, diff_e-diff_s+1+diff_pad-1))
+
+        # then, there is one line where we only negate (or copy) which is in the ghost region
+        # (therefore, we ignore it)
+
+        # defined differentiation lambda based on the parameter negative (or sign)
+        if self._negative:
+            def difffun(v, out):
+                out._data[diffslice_copy] = v._data[diffslice_copy]
+                np.subtract(v._data[diffslice_sub_cod], v._data[diffslice_sub_dom], out._data[diffslice_sub_cod])
+            self._do_diff = difffun
+        else:
+            def difffun(v, out):
+                np.negative(v._data[diffslice_copy], out=out._data[diffslice_copy])
+                np.subtract(v._data[diffslice_sub_dom], v._data[diffslice_sub_cod], out._data[diffslice_sub_cod])
+            self._do_diff = difffun
 
     @property
     def domain(self):
@@ -167,16 +226,22 @@ class KroneckerDifferentialOperator(LinearOperator):
         periodic_d = self._domain.periods[self._diffdir]
         p_d = self._domain.pads[self._diffdir]
         n_d = self._domain.npts[self._diffdir]
-        m_d = n_d if periodic_d else n_d - 1
+        m_d = self._codomain.npts[self._diffdir]
 
         V1_d = StencilVectorSpace([n_d], [p_d], [periodic_d])
         V2_d = StencilVectorSpace([m_d], [p_d], [periodic_d])
         M  = StencilMatrix(V1_d, V2_d)
 
-        sign = -1. if self._sign else 1.
-        for i in range(m_d):
-            M._data[p_d+i, p_d]   = -1. * sign
-            M._data[p_d+i, p_d+1] =  1. * sign
+        # handle sign and transposition already here for now...
+        sign = -1. if self._negative else 1.
+        if self._transposed:
+            for i in range(n_d):
+                M._data[p_d+i, p_d]   = -1. * sign
+                M._data[p_d+i+1, p_d-1] =  1. * sign
+        else:
+            for i in range(m_d):
+                M._data[p_d+i, p_d]   = -1. * sign
+                M._data[p_d+i, p_d+1] =  1. * sign
 
         # identity matrices
         def make_id(i):
@@ -188,6 +253,32 @@ class KroneckerDifferentialOperator(LinearOperator):
         # combine to Kronecker matrix
         mats = [M if i == self._diffdir else make_id(i) for i in range(self._domain.ndim)]
         return KroneckerStencilMatrix(self._domain, self._codomain, *mats)
+    
+    def transpose(self):
+        """
+        Transposes this operator. Creates and returns a new object.
+
+        Returns
+        -------
+        out : KroneckerDifferentialOperator
+            The transposed operator.
+        """
+        return KroneckerDifferentialOperator(self._spaceV, self._spaceW,
+                self._diffdir, negative=self._negative, transposed=not self._transposed)
+
+    @property
+    def T(self):
+        """
+        Short-hand for transposing this operator. Creates and returns a new object.
+        """
+        return self.transpose()
+    
+    def __neg__(self):
+        """
+        Negates this operator. Creates and returns a new object.
+        """
+        return KroneckerDifferentialOperator(self._spaceV, self._spaceW,
+                self._diffdir, negative=not self._negative, transposed=self._transposed)
 
 #====================================================================================================
 class DiffOperator:

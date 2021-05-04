@@ -19,7 +19,7 @@ from mpi4py                  import MPI
 # these tests test the KroneckerDifferentialOperator structurally.
 # They do not check, if it really computes the derivatives
 # (this is done in the gradient etc. tests below already)
-def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, direction, sign, seed):
+def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, direction, negative, transposed, seed, matrix_assembly=False):
     # determinize tests
     np.random.seed(seed)
 
@@ -34,7 +34,17 @@ def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, 
     # reduced space
     V1 = V0.reduce_degree(axes=[direction], basis='M')
 
-    diffop = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, sign)
+    diffop = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative=negative, transposed=transposed)
+
+    # some boundary, and transposed handling
+    vstarts = np.array(V0.vector_space.pads, dtype=int)
+    starts = np.array(V1.vector_space.pads, dtype=int)
+    counts = np.array(V1.vector_space.ends, dtype=int) - np.array(V1.vector_space.starts, dtype=int) + 1
+    diffadd = np.zeros((len(ncells),), dtype=int)
+    diffadd[direction] = 1
+
+    if transposed:
+        V0, V1 = V1, V0
 
     localslice = [slice(p,-p) for p in V1.vector_space.pads]
 
@@ -46,21 +56,17 @@ def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, 
     # compute reference solution (do it element-wise for now...)
     # (but we only test small domains here)
     ref = V1.vector_space.zeros()
-    vstarts = np.array(V0.vector_space.pads, dtype=int)
-    starts = np.array(V1.vector_space.pads, dtype=int)
-    counts = np.array(V1.vector_space.ends, dtype=int) - np.array(V1.vector_space.starts, dtype=int) + 1
-    diffadd = np.zeros((len(ncells),), dtype=int)
-    diffadd[direction] = 1
 
     outslice = [slice(s, s+c) for s,c in zip(starts, counts)]
     idslice = [slice(s, s+c) for s,c in zip(vstarts, counts)]
     diffslice = [slice(s+d, s+c+d) for s,c,d in zip(vstarts, counts, diffadd)]
-    if sign:
-        for ii in np.ndindex(*counts):
-            ref._data[outslice] = v._data[idslice] - v._data[diffslice]
+    if transposed:
+        ref._data[diffslice] += v._data[outslice]
+        ref._data[idslice] -= v._data[outslice]
     else:
-        for ii in np.ndindex(*counts):
-            ref._data[outslice] = v._data[diffslice] - v._data[idslice]
+        ref._data[outslice] = v._data[diffslice] - v._data[idslice]
+    if negative:
+        ref._data[localslice] = -ref._data[localslice]
     ref.update_ghost_regions()
 
     # compute and compare
@@ -76,10 +82,12 @@ def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, 
     assert res2 is out
     assert np.allclose(ref._data[localslice], res2._data[localslice])
     
-    # case three: tokronstencil().dot(v)
-    # (i.e. test matrix conversion)
-    res3 = diffop.tokronstencil().dot(v)
-    assert np.allclose(ref._data[localslice], res3._data[localslice])
+    # flag to skip matrix assembly if the takes too long or fails
+    if matrix_assembly:
+        # case three: tokronstencil().tostencil().dot(v)
+        # (i.e. test matrix conversion)
+        res3 = diffop.tokronstencil().tostencil().dot(v)
+        assert np.allclose(ref._data[localslice], res3._data[localslice])
 
 @pytest.mark.xfail
 def test_kronecker_differential_operator_invalid_wrongsized1():
@@ -92,7 +100,7 @@ def test_kronecker_differential_operator_invalid_wrongsized1():
     ncells = [8, 8]
     degree = [3, 3]
     direction = 0
-    sign = False
+    negative = False
 
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
 
@@ -105,7 +113,7 @@ def test_kronecker_differential_operator_invalid_wrongsized1():
     # reduced space
     V1 = V0.reduce_degree(axes=[1], basis='M')
 
-    _ = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, sign)
+    _ = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative)
 
 @pytest.mark.xfail
 def test_kronecker_differential_operator_invalid_wrongspace2():
@@ -115,7 +123,7 @@ def test_kronecker_differential_operator_invalid_wrongspace2():
     ncells = [8, 8]
     degree = [3, 3]
     direction = 0
-    sign = False
+    negative = False
 
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
 
@@ -130,27 +138,80 @@ def test_kronecker_differential_operator_invalid_wrongspace2():
     # reduced space
     V1 = TensorFemSpace(*Ms)
 
-    _ = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, sign)
+    _ = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative)
+
+def test_kronecker_differential_operator_interface():
+    # interface tests, to see if negation and transposition work as their methods suggest
+
+    periodic = [False, False]
+    domain = [(0,1),(0,1)]
+    ncells = [8, 8]
+    degree = [3, 3]
+    direction = 0
+    negative = False
+
+    breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
+
+    Ns = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
+                                  for d, g, p in zip(degree, breaks, periodic)]
+    
+    # original space
+    V0 = TensorFemSpace(*Ns)
+
+    # reduced space
+    V1 = V0.reduce_degree(axes=[0], basis='M')
+
+    def compare(lo1, lo2):
+        m1 = lo1.tokronstencil().tostencil()
+        m2 = lo2.tokronstencil().tostencil()
+        m1.update_ghost_regions()
+        m2.update_ghost_regions()
+        assert np.allclose(m1._data, m2._data)
+
+    diff = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, False, False)
+    diffT = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, False, True)
+    diffN = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, True, False)
+    diffNT = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, True, True)
+
+    compare(diff.T, diff.transpose())
+
+    compare(diff.T, diffT)
+    compare(-diff, diffN)
+    compare(-diff.T, diffNT)
+
+    compare(diffT.T, diff)
+    compare(-diffT, diffNT)
+    compare(-diffT.T, diffN)
+
+    compare(diffN.T, diffNT)
+    compare(-diffN, diff)
+    compare(-diffN.T, diffT)
+
+    compare(diffNT.T, diffN)
+    compare(-diffNT, diffT)
+    compare(-diffNT.T, diff)
 
 @pytest.mark.parametrize('domain', [(0, 1), (-2, 3)])
 @pytest.mark.parametrize('ncells', [11, 37])
 @pytest.mark.parametrize('degree', [2, 3, 4, 5])
 @pytest.mark.parametrize('periodic', [True, False])
 @pytest.mark.parametrize('direction', [0])
-@pytest.mark.parametrize('sign', [True, False])
+@pytest.mark.parametrize('negative', [True, False])
+@pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
-def test_kronecker_differential_operator_1d_ser(domain, ncells, degree, periodic, direction, sign, seed):
-    run_kronecker_differential_operator(None, [domain], [ncells], [degree], [periodic], direction, sign, seed)
+def test_kronecker_differential_operator_1d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_kronecker_differential_operator(None, [domain], [ncells], [degree], [periodic], direction, negative, transposed, seed, True)
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              
 @pytest.mark.parametrize('ncells', [(10, 9), (27, 15)])              
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) 
 @pytest.mark.parametrize('direction', [0,1])
-@pytest.mark.parametrize('sign', [True, False])
+@pytest.mark.parametrize('negative', [True, False])
+@pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
-def test_kronecker_differential_operator_2d_ser(domain, ncells, degree, periodic, direction, sign, seed):
-    run_kronecker_differential_operator(None, domain, ncells, degree, periodic, direction, sign, seed) 
+def test_kronecker_differential_operator_2d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_kronecker_differential_operator(None, domain, ncells, degree, periodic, direction, negative, transposed, seed, True) 
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  
 @pytest.mark.parametrize('ncells', [(4, 5, 7)])                       
@@ -159,32 +220,35 @@ def test_kronecker_differential_operator_2d_ser(domain, ncells, degree, periodic
                                       (False,  True, False),
                                       (False, False,  True)])
 @pytest.mark.parametrize('direction', [0,1,2])
-@pytest.mark.parametrize('sign', [True, False])
+@pytest.mark.parametrize('negative', [True, False])
+@pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
-def test_kronecker_differential_operator_3d_ser(domain, ncells, degree, periodic, direction, sign, seed):
-    run_kronecker_differential_operator(None, domain, ncells, degree, periodic, direction, sign, seed) 
+def test_kronecker_differential_operator_3d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_kronecker_differential_operator(None, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
 
 @pytest.mark.parametrize('domain', [(0, 1), (-2, 3)])
 @pytest.mark.parametrize('ncells', [11, 37])
 @pytest.mark.parametrize('degree', [2, 3, 4, 5])
 @pytest.mark.parametrize('periodic', [True, False])
 @pytest.mark.parametrize('direction', [0])
-@pytest.mark.parametrize('sign', [True, False])
+@pytest.mark.parametrize('negative', [True, False])
+@pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parallel
-def test_kronecker_differential_operator_1d_par(domain, ncells, degree, periodic, direction, sign, seed):
-    run_kronecker_differential_operator(None, [domain], [ncells], [degree], [periodic], direction, sign, seed)
+def test_kronecker_differential_operator_1d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_kronecker_differential_operator(None, [domain], [ncells], [degree], [periodic], direction, negative, transposed, seed)
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              
 @pytest.mark.parametrize('ncells', [(10, 11), (27, 15)])              
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) 
 @pytest.mark.parametrize('direction', [0,1])
-@pytest.mark.parametrize('sign', [True, False])
+@pytest.mark.parametrize('negative', [True, False])
+@pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parallel
-def test_kronecker_differential_operator_2d_par(domain, ncells, degree, periodic, direction, sign, seed):
-    run_kronecker_differential_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, sign, seed) 
+def test_kronecker_differential_operator_2d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_kronecker_differential_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  
 @pytest.mark.parametrize('ncells', [(5, 5, 7)])                       
@@ -193,11 +257,12 @@ def test_kronecker_differential_operator_2d_par(domain, ncells, degree, periodic
                                       (False,  True, False),
                                       (False, False,  True)])
 @pytest.mark.parametrize('direction', [0,1,2])
-@pytest.mark.parametrize('sign', [True, False])
+@pytest.mark.parametrize('negative', [True, False])
+@pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [3])
 @pytest.mark.parallel
-def test_kronecker_differential_operator_3d_par(domain, ncells, degree, periodic, direction, sign, seed):
-    run_kronecker_differential_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, sign, seed) 
+def test_kronecker_differential_operator_3d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_kronecker_differential_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
 
 # (higher dimensions are not tested here for now)
 
