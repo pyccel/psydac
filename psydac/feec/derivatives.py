@@ -2,16 +2,17 @@
 
 import numpy as np
 
-from psydac.linalg.stencil  import StencilMatrix, StencilVectorSpace
+from psydac.linalg.stencil  import StencilVector, StencilMatrix, StencilVectorSpace
 from psydac.linalg.kron     import KroneckerStencilMatrix
-from psydac.linalg.block    import BlockVectorSpace, BlockVector, BlockLinearOperator, BlockMatrix
+from psydac.linalg.block    import BlockVectorSpace, BlockVector, BlockLinearOperator, BlockLinearOperator
 from psydac.fem.vector      import ProductFemSpace
 from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.identity import IdentityLinearOperator, IdentityStencilMatrix as IdentityMatrix
 from psydac.fem.basic       import FemField
+from psydac.linalg.basic    import LinearOperator
 
 __all__ = (
-    'd_matrix',
+    'KroneckerDifferentialOperator',
     'DiffOperator',
     'Derivative_1D',
     'Gradient_2D',
@@ -26,8 +27,8 @@ __all__ = (
 #====================================================================================================
 def block_tostencil(M):
     """
-    Convert a BlockMatrix that contains KroneckerStencilMatrix objects
-    to a BlockMatrix that contains StencilMatrix objects
+    Convert a BlockLinearOperator that contains KroneckerStencilMatrix objects
+    to a BlockLinearOperator that contains StencilMatrix objects
     """
     blocks = [list(b) for b in M.blocks]
     for i1,b in enumerate(blocks):
@@ -35,42 +36,158 @@ def block_tostencil(M):
             if mat is None:
                 continue
             blocks[i1][i2] = mat.tostencil()
-    return BlockMatrix(M.domain, M.codomain, blocks=blocks)
+    return BlockLinearOperator(M.domain, M.codomain, blocks=blocks)
 
 #====================================================================================================
-def d_matrix(n, p, periodic):
+class KroneckerDifferentialOperator(LinearOperator):
     """
-    Create a 1D incidence matrix of shape (n, n) in the periodic case, and (n, n-1) otherwise.
-    The incidence matrix has values -1 on the main diagonal, and +1 on the diagonal above it.
+    Represents a differential operator in a specific direction. Can be negated.
 
     Parameters
     ----------
-    n : int
-        Number of degrees of freedom.
-
-    p : int
-        Padding size.
-
-    periodic : bool
-        True if matrix is periodic, False otherwise.
-
-    Results
-    -------
-    M : psydac.linalg.stencil.StencilMatrix
-        1D incidence matrix of shape (n, n) in the periodic case, and (n, n-1) otherwise.
-
+    V : StencilVectorSpace
+        The domain of the operator.
+    
+    W : StencilVectorSpace
+        The codomain of the operator. Has to be compatible with the domain,
+        i.e. it has to be equal to it, except for the differentiation direction.
+    
+    diffdir : int
+        The differentiation direction.
+    
+    sign : bool
+        If true, this operator is multiplied by -1 after execution.
+        (if false, nothing happens)
     """
-    m = n if periodic else n - 1
 
-    V1 = StencilVectorSpace([n], [p], [periodic])
-    V2 = StencilVectorSpace([m], [p], [periodic])
-    M  = StencilMatrix(V1, V2)
+    def __init__(self, V, W, diffdir, negative=False):
+        assert isinstance(V, StencilVectorSpace)
+        assert isinstance(W, StencilVectorSpace)
+        assert V.ndim == W.ndim
+        assert all([vp==wp for vp, wp in zip(V.periods, W.periods)])
+        assert V.parallel == W.parallel
+        assert V.dtype is W.dtype
+        assert diffdir >= 0 and diffdir < V.ndim
 
-    for i in range(m):
-        M._data[p+i, p]   = -1.
-        M._data[p+i, p+1] =  1.
+        # no need for the pads to conform, but we want them to be there at least
+        # (we need them to perform the diff operation in-place)
+        assert all([pad > 0 for pad in V.pads])
+        assert all([pad > 0 for pad in W.pads])
 
-    return M
+        # check that the number of points conforms
+        assert all([vn==wn+1 if not vwp and diffdir==i else vn==wn
+            for i, (vn, wn, vwp) in enumerate(zip(V.npts, W.npts, V.periods))])
+
+        self._domain = V
+        self._codomain = W
+        self._diffdir = diffdir
+
+        self._sign = negative
+
+        # prepare the slices (they are of the right size then, we checked this already)
+        # identity
+        self._idslice = [slice(pad, e-s+1+pad) for pad, s, e
+            in zip(self._codomain.pads, self._codomain.starts, self._codomain.ends)]
+        
+        # differentiation slice
+        diff_pad = self._codomain.pads[diffdir]
+        diff_s = self._codomain.starts[diffdir]
+        diff_e = self._codomain.ends[diffdir]
+        diff_partslice = slice(diff_pad+1, diff_e-diff_s+1+diff_pad+1)
+        self._diffslice = [diff_partslice if i==diffdir else self._idslice[i]
+                                for i in range(V.ndim)]
+
+        # defined differentiation lambda based on the sign parameter
+        if self._sign:
+            self._do_diff = lambda v,out: np.subtract(v._data[self._idslice],
+                                v._data[self._diffslice], out=out._data[self._idslice])
+        else:
+            self._do_diff = lambda v,out: np.subtract(v._data[self._diffslice],
+                                v._data[self._idslice], out=out._data[self._idslice])
+
+    @property
+    def domain(self):
+        return self._domain
+    
+    @property
+    def codomain(self):
+        return self._codomain
+
+    def dot(self, v, out=None):
+        """
+        Applies the differential operator on the given StencilVector.
+
+        This operator will allocate temporary memory,
+        when used on a vector in-place (i.e. if `v is out`);
+        though this should not happen anyways due to `domain is not codomain`.
+
+        Parameters
+        ----------
+        v : StencilVector
+            The input StencilVector. Has to be in the domain space.
+        
+        out : StencilVector | NoneType
+            The output StencilVector, or None. If given, it has to be in the codomain space.
+        
+        Returns
+        -------
+        out : StencilVector
+            Either a new allocation (if `out is None`), or a reference to the parameter `out`.
+        """
+        assert isinstance(v, StencilVector)
+
+        # setup, space checks
+        v.update_ghost_regions()
+
+        assert v.space is self._domain
+
+        if out is None:
+            out = self._codomain.zeros()
+        
+        assert isinstance(out, StencilVector)
+        assert out.space is self._codomain
+
+        # apply the differentiation
+        self._do_diff(v, out)
+        
+        # update out ghost regions
+        out.update_ghost_regions()
+        return out
+    
+    def tokronstencil(self):
+        """
+        Converts this KroneckerDerivativeOperator into a KroneckerStencilMatrix.
+
+        Returns
+        -------
+        out : KroneckerStencilMatrix
+            The resulting KroneckerStencilMatrix.
+        """
+        # build derivative stencil matrix
+        periodic_d = self._domain.periods[self._diffdir]
+        p_d = self._domain.pads[self._diffdir]
+        n_d = self._domain.npts[self._diffdir]
+        m_d = n_d if periodic_d else n_d - 1
+
+        V1_d = StencilVectorSpace([n_d], [p_d], [periodic_d])
+        V2_d = StencilVectorSpace([m_d], [p_d], [periodic_d])
+        M  = StencilMatrix(V1_d, V2_d)
+
+        sign = -1. if self._sign else 1.
+        for i in range(m_d):
+            M._data[p_d+i, p_d]   = -1. * sign
+            M._data[p_d+i, p_d+1] =  1. * sign
+
+        # identity matrices
+        def make_id(i):
+            n_i = self._domain.npts[i]
+            p_i = self._domain.pads[i]
+            periodic_i = self._domain.periods[i]
+            return IdentityMatrix(StencilVectorSpace([n_i], [p_i], [periodic_i]))
+
+        # combine to Kronecker matrix
+        mats = [M if i == self._diffdir else make_id(i) for i in range(self._domain.ndim)]
+        return KroneckerStencilMatrix(self._domain, self._codomain, *mats)
 
 #====================================================================================================
 class DiffOperator:
@@ -86,6 +203,15 @@ class DiffOperator:
     @property
     def codomain(self):
         return self._codomain
+    
+    def __call__(self, u):
+        assert isinstance(u, FemField)
+        assert u.space == self.domain
+
+        coeffs = self.matrix.dot(u.coeffs)
+        coeffs.update_ghost_regions()
+
+        return FemField(self.codomain, coeffs=coeffs)
 
 #====================================================================================================
 class Derivative_1D(DiffOperator):
@@ -108,26 +234,9 @@ class Derivative_1D(DiffOperator):
         assert H1.periodic[0] == L2.periodic[0]
         assert H1.degree[0] == L2.degree[0] + 1
 
-        # 1D spline space
-        N = H1.spaces[0]
-
-        # 1D differentiation matrix (from B-spline of degree p to M-spline of degree p-1)
-        Dx = d_matrix(N.nbasis, N.degree, N.periodic)
-
         self._domain   = H1
         self._codomain = L2
-        self._matrix   = KroneckerStencilMatrix(H1.vector_space, L2.vector_space, Dx)
-        self._matrix   = self._matrix.tostencil()
-
-    def __call__(self, u):
-
-        assert isinstance(u, FemField)
-        assert u.space == self.domain
-
-        coeffs = self.matrix.dot(u.coeffs)
-        coeffs.update_ghost_regions()
-
-        return FemField(self.codomain, coeffs=coeffs)
+        self._matrix   = KroneckerDifferentialOperator(H1.vector_space, L2.vector_space, 0)
 
 #====================================================================================================
 class Gradient_2D(DiffOperator):
@@ -154,12 +263,6 @@ class Gradient_2D(DiffOperator):
         assert tuple(Hcurl.spaces[0].degree) == (H1.degree[0]-1, H1.degree[1]  )
         assert tuple(Hcurl.spaces[1].degree) == (H1.degree[0]  , H1.degree[1]-1)
 
-        # 1D differentiation matrices (from B-spline of degree p to M-spline of degree p-1)
-        Dx, Dy = [d_matrix(N.nbasis, N.degree, N.periodic) for N in H1.spaces]
-
-        # 1D identity matrices for B-spline coefficients
-        Ix, Iy = [IdentityMatrix(N.vector_space) for N in H1.spaces]
-
         # Tensor-product spaces of coefficients - domain
         B_B = H1.vector_space
 
@@ -167,24 +270,14 @@ class Gradient_2D(DiffOperator):
         (M_B, B_M) = Hcurl.vector_space.spaces
 
         # Build Gradient matrix block by block
-        blocks = [[KroneckerStencilMatrix(B_B, M_B, *(Dx, Iy))],
-                  [KroneckerStencilMatrix(B_B, B_M, *(Ix, Dy))]]
-        matrix = BlockMatrix(BlockVectorSpace(H1.vector_space), Hcurl.vector_space, blocks=blocks)
+        blocks = [[KroneckerDifferentialOperator(B_B, M_B, 0)],
+                  [KroneckerDifferentialOperator(B_B, B_M, 1)]]
+        matrix = BlockLinearOperator(BlockVectorSpace(H1.vector_space), Hcurl.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
         self._codomain = Hcurl
-        self._matrix   = block_tostencil(matrix)
-
-    def __call__(self, u):
-
-        assert isinstance(u, FemField)
-        assert u.space == self.domain
-
-        coeffs = self.matrix.dot(u.coeffs)
-        coeffs.update_ghost_regions()
-
-        return FemField(self.codomain, coeffs=coeffs)
+        self._matrix   = matrix
 
 #====================================================================================================
 class Gradient_3D(DiffOperator):
@@ -213,12 +306,6 @@ class Gradient_3D(DiffOperator):
         assert tuple(Hcurl.spaces[1].degree) == (H1.degree[0]  , H1.degree[1]-1, H1.degree[2]  )
         assert tuple(Hcurl.spaces[2].degree) == (H1.degree[0]  , H1.degree[1]  , H1.degree[2]-1)
 
-        # 1D differentiation matrices (from B-spline of degree p to M-spline of degree p-1)
-        Dx, Dy, Dz = [d_matrix(N.nbasis, N.degree, N.periodic) for N in H1.spaces]
-
-        # 1D identity matrices for B-spline coefficients
-        Ix, Iy, Iz = [IdentityMatrix(N.vector_space) for N in H1.spaces]
-
         # Tensor-product spaces of coefficients - domain
         B_B_B = H1.vector_space
 
@@ -226,25 +313,15 @@ class Gradient_3D(DiffOperator):
         (M_B_B, B_M_B, B_B_M) = Hcurl.vector_space.spaces
 
         # Build Gradient matrix block by block
-        blocks = [[KroneckerStencilMatrix(B_B_B, M_B_B, *(Dx, Iy, Iz))],
-                  [KroneckerStencilMatrix(B_B_B, B_M_B, *(Ix, Dy, Iz))],
-                  [KroneckerStencilMatrix(B_B_B, B_B_M, *(Ix, Iy, Dz))]]
-        matrix = BlockMatrix(BlockVectorSpace(H1.vector_space), Hcurl.vector_space, blocks=blocks)
+        blocks = [[KroneckerDifferentialOperator(B_B_B, M_B_B, 0)],
+                  [KroneckerDifferentialOperator(B_B_B, B_M_B, 1)],
+                  [KroneckerDifferentialOperator(B_B_B, B_B_M, 2)]]
+        matrix = BlockLinearOperator(BlockVectorSpace(H1.vector_space), Hcurl.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
         self._codomain = Hcurl
-        self._matrix   = block_tostencil(matrix)
-
-    def __call__(self, u):
-
-        assert isinstance(u, FemField)
-        assert u.space == self.domain
-
-        coeffs = self.matrix.dot(u.coeffs)
-        coeffs.update_ghost_regions()
-
-        return FemField(self.codomain, coeffs=coeffs)
+        self._matrix   = matrix
 
 #====================================================================================================
 class ScalarCurl_2D(DiffOperator):
@@ -271,17 +348,6 @@ class ScalarCurl_2D(DiffOperator):
         assert tuple(Hcurl.spaces[0].degree) == (L2.degree[0]  , L2.degree[1]+1)
         assert tuple(Hcurl.spaces[1].degree) == (L2.degree[0]+1, L2.degree[1]  )
 
-        # 1D spline spaces
-        N_basis = [Hcurl.spaces[1].spaces[0], Hcurl.spaces[0].spaces[1]]
-        D_basis = L2.spaces
-
-        # 1D differentiation matrices (from B-spline of degree p to M-spline of degree p-1)
-        Dx, Dy = [d_matrix(N.nbasis, N.degree, N.periodic) for N in N_basis]
-
-        # 1D identity matrices for M-spline coefficients
-        # NOTE: We keep the same padding of the parent space N
-        Jx, Jy = [IdentityMatrix(D.vector_space) for D in D_basis]
-
         # Tensor-product spaces of coefficients - domain
         (M_B, B_M) = Hcurl.vector_space.spaces
 
@@ -289,24 +355,14 @@ class ScalarCurl_2D(DiffOperator):
         M_M = L2.vector_space
 
         # Build Curl matrix block by block
-        f = KroneckerStencilMatrix
-        blocks = [[f(M_B, M_M, *(-Jx, Dy)), f(B_M, M_M, *(Dx, Jy))]]
-        matrix = BlockMatrix(Hcurl.vector_space, BlockVectorSpace(L2.vector_space), blocks=blocks)
+        blocks = [[KroneckerDifferentialOperator(M_B, M_M, 1, True),
+                  KroneckerDifferentialOperator(B_M, M_M, 0)]]
+        matrix = BlockLinearOperator(Hcurl.vector_space, BlockVectorSpace(L2.vector_space), blocks=blocks)
 
         # Store data in object
         self._domain   = Hcurl
         self._codomain = L2
-        self._matrix   = block_tostencil(matrix)
-   
-    def __call__(self, u):
-
-        assert isinstance(u, FemField)
-        assert u.space == self.domain
-        
-        coeffs = self.matrix.dot(u.coeffs)
-        coeffs.update_ghost_regions()
-
-        return FemField(self.codomain, coeffs=coeffs)
+        self._matrix   = matrix
 
 #====================================================================================================
 class VectorCurl_2D(DiffOperator):
@@ -334,12 +390,6 @@ class VectorCurl_2D(DiffOperator):
         assert tuple(Hdiv.spaces[0].degree) == (H1.degree[0]  , H1.degree[1]-1)
         assert tuple(Hdiv.spaces[1].degree) == (H1.degree[0]-1, H1.degree[1]  )
 
-        # 1D differentiation matrices (from B-spline of degree p to M-spline of degree p-1)
-        Dx, Dy = [d_matrix(N.nbasis, N.degree, N.periodic) for N in H1.spaces]
-
-        # 1D identity matrices for B-spline coefficients
-        Ix, Iy = [IdentityMatrix(N.vector_space) for N in H1.spaces]
-
         # Tensor-product spaces of coefficients - domain
         B_B = H1.vector_space
 
@@ -347,24 +397,14 @@ class VectorCurl_2D(DiffOperator):
         (B_M, M_B) = Hdiv.vector_space.spaces
 
         # Build Curl matrix block by block
-        blocks = [[KroneckerStencilMatrix(B_B, B_M, *( Ix, Dy))],
-                  [KroneckerStencilMatrix(B_B, M_B, *(-Dx, Iy))]]
-        matrix = BlockMatrix(BlockVectorSpace(H1.vector_space), Hdiv.vector_space, blocks=blocks)
+        blocks = [[KroneckerDifferentialOperator(B_B, B_M, 1)],
+                  [KroneckerDifferentialOperator(B_B, M_B, 0, True)]]
+        matrix = BlockLinearOperator(BlockVectorSpace(H1.vector_space), Hdiv.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
         self._codomain = Hdiv
-        self._matrix   = block_tostencil(matrix)
-
-    def __call__(self, u):
-
-        assert isinstance(u, FemField)
-        assert u.space == self.domain
-
-        coeffs = self.matrix.dot(u.coeffs)
-        coeffs.update_ghost_regions()
-
-        return FemField(self.codomain, coeffs=coeffs)
+        self._matrix   = matrix
 
 #====================================================================================================
 class Curl_3D(DiffOperator):
@@ -389,21 +429,20 @@ class Curl_3D(DiffOperator):
         assert Hcurl.spaces[1].periodic == Hdiv.spaces[1].periodic
         assert Hcurl.spaces[2].periodic == Hdiv.spaces[2].periodic
 
-        # TODO: checking the degree would be nice here
+        print(Hcurl.spaces[0].degree)
+        print(Hcurl.spaces[1].degree)
+        print(Hcurl.spaces[2].degree)
+        print(Hdiv.spaces[0].degree)
+        print(Hdiv.spaces[1].degree)
+        print(Hdiv.spaces[2].degree)
 
-        # 1D spline spaces
-        N_basis = [ Hdiv.spaces[i].spaces[i] for i in range(3)]
-        D_basis = [Hcurl.spaces[i].spaces[i] for i in range(3)]
-
-        # 1D differentiation matrices (from B-spline of degree p to M-spline of degree p-1)
-        Dx, Dy, Dz = [d_matrix(N.nbasis, N.degree, N.periodic) for N in N_basis]
-
-        # 1D identity matrices for B-spline coefficients
-        Ix, Iy, Iz = [IdentityMatrix(N.vector_space) for N in N_basis]
-
-        # 1D identity matrices for M-spline coefficients
-        # NOTE: We keep the same padding of the parent space N
-        Jx, Jy, Jz = [IdentityMatrix(D.vector_space) for D in D_basis]
+        Hdiv0, Hdiv1, Hdiv2 = Hdiv.spaces
+        assert tuple(Hcurl.spaces[1].degree) == (Hdiv0.degree[0]  , Hdiv0.degree[1]  , Hdiv0.degree[2]+1)
+        assert tuple(Hcurl.spaces[2].degree) == (Hdiv0.degree[0]  , Hdiv0.degree[1]+1, Hdiv0.degree[2]  )
+        assert tuple(Hcurl.spaces[0].degree) == (Hdiv1.degree[0]  , Hdiv1.degree[1]  , Hdiv1.degree[2]+1)
+        assert tuple(Hcurl.spaces[2].degree) == (Hdiv1.degree[0]+1, Hdiv1.degree[1]  , Hdiv1.degree[2]  )
+        assert tuple(Hcurl.spaces[0].degree) == (Hdiv2.degree[0]  , Hdiv2.degree[1]+1, Hdiv2.degree[2]  )
+        assert tuple(Hcurl.spaces[1].degree) == (Hdiv2.degree[0]+1, Hdiv2.degree[1]  , Hdiv2.degree[2]  )
 
         # Tensor-product spaces of coefficients - domain
         (M_B_B, B_M_B, B_B_M) = Hcurl.vector_space.spaces
@@ -413,29 +452,18 @@ class Curl_3D(DiffOperator):
 
         # ...
         # Build Curl matrix block by block
-        f = KroneckerStencilMatrix
+        f = KroneckerDifferentialOperator
+        blocks = [[          None           , f(B_M_B, B_M_M, 2, True) , f(B_B_M, B_M_M, 1, False)],
+                  [f(M_B_B, M_B_M, 2, False),           None           , f(B_B_M, M_B_M, 0, True) ],
+                  [f(M_B_B, M_M_B, 1, True) , f(B_M_B, M_M_B, 0, False),           None           ]]
 
-        blocks = [[              None             , f(B_M_B, B_M_M, *(Ix, Jy, -Dz)), f(B_B_M, B_M_M, *( Ix, Dy, Jz))],
-                  [f(M_B_B, M_B_M, *(Jx,  Iy, Dz)),               None             , f(B_B_M, M_B_M, *(-Dx, Iy, Jz))],
-                  [f(M_B_B, M_M_B, *(Jx, -Dy, Iz)), f(B_M_B, M_M_B, *(Dx, Jy,  Iz)),               None             ]]
-
-        matrix = BlockMatrix(Hcurl.vector_space, Hdiv.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(Hcurl.vector_space, Hdiv.vector_space, blocks=blocks)
         # ...
 
         # Store data in object
         self._domain   = Hcurl
         self._codomain = Hdiv
-        self._matrix   = block_tostencil(matrix)
-   
-    def __call__(self, u):
-
-        assert isinstance(u, FemField)
-        assert u.space == self.domain
-        
-        coeffs = self.matrix.dot(u.coeffs)
-        coeffs.update_ghost_regions()
-
-        return FemField(self.codomain, coeffs=coeffs)
+        self._matrix   = matrix
 
 #====================================================================================================
 class Divergence_2D(DiffOperator):
@@ -462,17 +490,6 @@ class Divergence_2D(DiffOperator):
         assert tuple(Hdiv.spaces[0].degree) == (L2.degree[0]+1, L2.degree[1]  )
         assert tuple(Hdiv.spaces[1].degree) == (L2.degree[0]  , L2.degree[1]+1)
 
-        # 1D spline spaces
-        N_basis = [Hdiv.spaces[i].spaces[i] for i in range(2)]
-        D_basis = L2.spaces
-
-        # 1D differentiation matrices (from B-spline of degree p to M-spline of degree p-1)
-        Dx, Dy = [d_matrix(N.nbasis, N.degree, N.periodic) for N in N_basis]
-
-        # 1D identity matrices for M-spline coefficients
-        # NOTE: We keep the same padding of the parent space N
-        Jx, Jy = [IdentityMatrix(D.vector_space) for D in D_basis]
-
         # Tensor-product spaces of coefficients - domain
         (B_M, M_B) = Hdiv.vector_space.spaces
 
@@ -481,23 +498,13 @@ class Divergence_2D(DiffOperator):
 
         # Build Divergence matrix block by block
         f = KroneckerStencilMatrix
-        blocks = [[f(B_M, M_M, *(Dx, Jy)), f(M_B, M_M, *(Jx, Dy))]]
-        matrix = BlockMatrix(Hdiv.vector_space, BlockVectorSpace(L2.vector_space), blocks=blocks) 
+        blocks = [[KroneckerDifferentialOperator(B_M, M_M, 0), KroneckerDifferentialOperator(M_B, M_M, 1)]]
+        matrix = BlockLinearOperator(Hdiv.vector_space, BlockVectorSpace(L2.vector_space), blocks=blocks) 
 
         # Store data in object
         self._domain   = Hdiv
         self._codomain = L2
-        self._matrix   = block_tostencil(matrix)
-
-    def __call__(self, u):
-
-        assert isinstance(u, FemField)
-        assert u.space == self.domain
-
-        coeffs = self.matrix.dot(u.coeffs)
-        coeffs.update_ghost_regions()
-
-        return FemField(self.codomain, coeffs=coeffs)
+        self._matrix   = matrix
 
 #====================================================================================================
 class Divergence_3D(DiffOperator):
@@ -526,17 +533,6 @@ class Divergence_3D(DiffOperator):
         assert tuple(Hdiv.spaces[1].degree) == (L2.degree[0]  , L2.degree[1]+1, L2.degree[2]  )
         assert tuple(Hdiv.spaces[2].degree) == (L2.degree[0]  , L2.degree[1]  , L2.degree[2]+1)
 
-        # 1D spline spaces
-        N_basis = [Hdiv.spaces[i].spaces[i] for i in range(3)]
-        D_basis = L2.spaces
-
-        # 1D differentiation matrices (from B-spline of degree p to M-spline of degree p-1)
-        Dx, Dy, Dz = [d_matrix(N.nbasis, N.degree, N.periodic) for N in N_basis]
-
-        # 1D identity matrices for M-spline coefficients
-        # NOTE: We keep the same padding of the parent space N
-        Jx, Jy, Jz = [IdentityMatrix(D.vector_space) for D in D_basis]
-
         # Tensor-product spaces of coefficients - domain
         (B_M_M, M_B_M, M_M_B) = Hdiv.vector_space.spaces
 
@@ -544,21 +540,12 @@ class Divergence_3D(DiffOperator):
         M_M_M = L2.vector_space
 
         # Build Divergence matrix block by block
-        f = KroneckerStencilMatrix
-        blocks = [[f(B_M_M, M_M_M, *(Dx, Jy, Jz)), f(M_B_M, M_M_M, *(Jx, Dy, Jz)), f(M_M_B, M_M_M, *(Jx, Jy, Dz))]]
-        matrix = BlockMatrix(Hdiv.vector_space, BlockVectorSpace(L2.vector_space), blocks=blocks) 
+        blocks = [[KroneckerDifferentialOperator(B_M_M, M_M_M, 0),
+                   KroneckerDifferentialOperator(M_B_M, M_M_M, 1),
+                   KroneckerDifferentialOperator(M_M_B, M_M_M, 2)]]
+        matrix = BlockLinearOperator(Hdiv.vector_space, BlockVectorSpace(L2.vector_space), blocks=blocks) 
 
         # Store data in object
         self._domain   = Hdiv
         self._codomain = L2
-        self._matrix   = block_tostencil(matrix)
-
-    def __call__(self, u):
-
-        assert isinstance(u, FemField)
-        assert u.space == self.domain
-
-        coeffs = self.matrix.dot(u.coeffs)
-        coeffs.update_ghost_regions()
-
-        return FemField(self.codomain, coeffs=coeffs)
+        self._matrix   = matrix
