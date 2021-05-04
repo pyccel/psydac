@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 import scipy.sparse as spa
-from random import random
+from random import random, seed
 
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
@@ -23,6 +23,8 @@ from psydac.linalg.kron           import KroneckerLinearSolver
 @pytest.mark.parametrize( 'P2', [True, False] )
 
 def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
+    # set seed for reproducability
+    seed(n1*n2*p1*p2)
 
     # Create vector spaces, stencil matrices, and stencil vectors
     V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
@@ -62,8 +64,9 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
-        x1[i1] = 2.0*random() - 1.0
-        x2[i1] = 5.0*random() - 1.0
+        for i2 in range(n2):
+            x1[i1,i2] = 2.0*random() - 1.0
+            x2[i1,i2] = 5.0*random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -103,6 +106,8 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 def test_block_linear_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
+    # set seed for reproducability
+    seed(n1*n2*p1*p2)
 
     # Create vector spaces, stencil matrices, and stencil vectors
     V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
@@ -142,7 +147,7 @@ def test_block_linear_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
     # L = |      |
     #     |0   M2|
 
-    dict_blocks = {(0,0):M1, (1,1):M2}
+    dict_blocks = {0:M1, 1:M2}
     list_blocks = [M1, M2]
 
     L1 = BlockLinearSolver( W, blocks=dict_blocks )
@@ -168,12 +173,12 @@ def test_block_linear_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
     X[0] = x1
     X[1] = x2
 
-    # Compute BlockLinearOperator product
+    # Compute BlockLinearSolver product
     Y1 = L1.solve(X)
     Y2 = L2.solve(X)
     Y3 = L3.solve(X)
 
-    # Compute matrix-vector products for each block
+    # Solve linear equations for each block
     y1 = M1.solve(x1)
     y2 = M2.solve(x2)
 
@@ -196,6 +201,8 @@ def test_block_linear_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'P2', [True, False] )
 
 def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
+    # set seed for reproducability
+    seed(n1*n2*p1*p2)
 
     # Create vector spaces, stencil matrices, and stencil vectors
     V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
@@ -275,6 +282,8 @@ def test_block_matrix( n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'P2', [True, False] )
 
 def test_block_2d_array_to_stencil_1( n1, n2, p1, p2, P1, P2 ):
+    # set seed for reproducability
+    seed(n1*n2*p1*p2)
 
     # Create vector spaces, and stencil vectors
     V1 = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
@@ -305,6 +314,8 @@ def test_block_2d_array_to_stencil_1( n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parametrize( 'P2', [True, False] )
 
 def test_block_2d_array_to_stencil_2( n1, n2, p1, p2, P1, P2 ):
+    # set seed for reproducability
+    seed(n1*n2*p1*p2)
 
     # Create vector spaces, and stencil vectors
     V1 = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
@@ -341,6 +352,8 @@ def test_block_2d_array_to_stencil_2( n1, n2, p1, p2, P1, P2 ):
 @pytest.mark.parallel
 
 def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
+    # set seed for reproducability
+    seed(n1*n2*p1*p2)
 
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
@@ -421,6 +434,9 @@ def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
 @pytest.mark.parametrize( 'reorder', [True, False] )
 @pytest.mark.parallel
 def test_block_linear_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
+    # set seed for reproducability
+    seed(n1*n2*p1*p2)
+
     from mpi4py       import MPI
     from psydac.ddm.cart import CartDecomposition
 
@@ -434,7 +450,10 @@ def test_block_linear_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
     )
 
     # Create vector spaces, stencil matrices, and stencil vectors
-    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    V = StencilVectorSpace( cart )
+
+    s1,s2 = V.starts
+    e1,e2 = V.ends
 
     # Fill in stencil matrices based on diagonal index
     m11 = np.zeros((n1, n1))
@@ -471,7 +490,7 @@ def test_block_linear_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
     # L = |      |
     #     |0   M2|
 
-    dict_blocks = {(0,0):M1, (1,1):M2}
+    dict_blocks = {0:M1, 1:M2}
     list_blocks = [M1, M2]
 
     L1 = BlockLinearSolver( W, blocks=dict_blocks )
@@ -482,9 +501,10 @@ def test_block_linear_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
     L3[1] = M2
 
     # Fill in vector with random values, then update ghost regions
-    for i1 in range(n1):
-        x1[i1] = 2.0*random() - 1.0
-        x2[i1] = 5.0*random() - 1.0
+    for i1 in range(s1,e1+1):
+        for i2 in range(s2,e2+1):
+            x1[i1,i2] = 2.0*random() - 1.0
+            x2[i1,i2] = 5.0*random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -497,12 +517,12 @@ def test_block_linear_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
     X[0] = x1
     X[1] = x2
 
-    # Compute BlockLinearOperator product
+    # Compute BlockLinearSolver product
     Y1 = L1.solve(X)
     Y2 = L2.solve(X)
     Y3 = L3.solve(X)
 
-    # Compute matrix-vector products for each block
+    # Solve linear equations for each block
     y1 = M1.solve(x1)
     y2 = M2.solve(x2)
 

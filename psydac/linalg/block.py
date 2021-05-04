@@ -661,7 +661,7 @@ class BlockLinearSolver( LinearSolver ):
         LinearSolver objects (optional).
 
         a) 'blocks' can be dictionary with
-            . key   = tuple (i, i), where i is an integer >= 0 (compatibility with the other block operators)
+            . key   = integer i >= 0
             . value = corresponding LinearSolver Lii
 
         b) 'blocks' can be list of LinearSolvers (or tuple of these) where blocks[i]
@@ -675,15 +675,14 @@ class BlockLinearSolver( LinearSolver ):
         self._space   = V
         self._nblocks = V.n_blocks
 
-        # Store blocks in list (hence they can be manually changed later)
+        # Store blocks in list (hence, they can be manually changed later)
         self._blocks   = [None] * self._nblocks
 
         if blocks:
 
             if isinstance( blocks, dict ):
-                for (i,j), Lij in blocks.items():
-                    assert i == j
-                    self[i] = Lij
+                for i, L in blocks.items():
+                    self[i] = L
 
             elif isinstance( blocks, (list, tuple) ):
                 for i, L in enumerate( blocks ):
