@@ -22,7 +22,6 @@ from pyccel.ast.core import Product
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
 from pyccel.ast.core import Import
-from pyccel.ast.utilities import build_pyccel_types_decorator
 
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.ast.utilities import build_pyccel_types_decorator
