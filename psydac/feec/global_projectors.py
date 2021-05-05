@@ -3,7 +3,7 @@
 from psydac.linalg.utilities      import array_to_stencil
 from psydac.linalg.kron           import KroneckerLinearSolver
 from psydac.linalg.stencil        import StencilVector
-from psydac.linalg.block          import BlockLinearSolver, BlockVector
+from psydac.linalg.block          import BlockDiagonalSolver, BlockVector
 from psydac.core.bsplines         import quadrature_grid
 from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
@@ -192,7 +192,7 @@ class Projector_Hcurl:
             raise NotImplementedError('Hcurl projector is only available in 2D or 3D.')
 
         solverblocks =  [KroneckerLinearSolver(block.vector_space, self.mats[i]) for i, block in enumerate(Hcurl.spaces)]
-        self.solver = BlockLinearSolver(Hcurl.vector_space, blocks=solverblocks)
+        self.solver = BlockDiagonalSolver(Hcurl.vector_space, blocks=solverblocks)
 
     #--------------------------------------------------------------------------
     def __call__(self, fun):
@@ -332,7 +332,7 @@ class Projector_Hdiv:
             raise NotImplementedError('Hdiv projector is only available in 2D or 3D.')
 
         solverblocks =  [KroneckerLinearSolver(block.vector_space, self.mats[i]) for i, block in enumerate(Hdiv.spaces)]
-        self.solver = BlockLinearSolver(Hdiv.vector_space, blocks=solverblocks)
+        self.solver = BlockDiagonalSolver(Hdiv.vector_space, blocks=solverblocks)
 
     #--------------------------------------------------------------------------
     def __call__(self, fun):

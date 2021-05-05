@@ -8,7 +8,7 @@ from scipy.sparse import bmat, lil_matrix
 
 from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
 
-__all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix', 'BlockLinearSolver']
+__all__ = ['BlockVectorSpace', 'BlockVector', 'BlockLinearOperator', 'BlockMatrix', 'BlockDiagonalSolver']
 
 #===============================================================================
 class BlockVectorSpace( VectorSpace ):
@@ -647,9 +647,11 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         return petsccart.petsc.Mat().createNest(blocks, comm=cart.comm)
 
 #===============================================================================
-class BlockLinearSolver( LinearSolver ):
+class BlockDiagonalSolver( LinearSolver ):
     """
-    Linear solver that can be written as blocks of other LinearSolvers.
+    A LinearSolver that can be written as blocks of other LinearSolvers,
+    i.e. it can be seen as a solver for linear equations with block-diagonal matrices.
+    
     The space of this solver has to be of the type BlockVectorSpace.
 
     Parameters

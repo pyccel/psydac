@@ -8,7 +8,7 @@ from random import random, seed
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.stencil        import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block          import BlockVectorSpace, BlockVector
-from psydac.linalg.block          import BlockLinearOperator, BlockLinearSolver, BlockMatrix
+from psydac.linalg.block          import BlockLinearOperator, BlockDiagonalSolver, BlockMatrix
 from psydac.linalg.utilities      import array_to_stencil
 from psydac.linalg.kron           import KroneckerLinearSolver
 
@@ -105,7 +105,7 @@ def test_block_linear_operator_serial_dot( n1, n2, p1, p2, P1, P2  ):
 @pytest.mark.parametrize( 'p2', [1,2,3] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
-def test_block_linear_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
+def test_block_diagonal_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
     # set seed for reproducability
     seed(n1*n2*p1*p2)
 
@@ -142,7 +142,7 @@ def test_block_linear_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
 
     W = BlockVectorSpace(V, V)
 
-    # Construct a BlockLinearSolver object containing M1, M2 using 3 ways
+    # Construct a BlockDiagonalSolver object containing M1, M2 using 3 ways
     #     |M1  0 |
     # L = |      |
     #     |0   M2|
@@ -150,10 +150,10 @@ def test_block_linear_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
     dict_blocks = {0:M1, 1:M2}
     list_blocks = [M1, M2]
 
-    L1 = BlockLinearSolver( W, blocks=dict_blocks )
-    L2 = BlockLinearSolver( W, blocks=list_blocks )
+    L1 = BlockDiagonalSolver( W, blocks=dict_blocks )
+    L2 = BlockDiagonalSolver( W, blocks=list_blocks )
 
-    L3 = BlockLinearSolver( W )
+    L3 = BlockDiagonalSolver( W )
     L3[0] = M1
     L3[1] = M2
 
@@ -173,7 +173,7 @@ def test_block_linear_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
     X[0] = x1
     X[1] = x2
 
-    # Compute BlockLinearSolver product
+    # Compute BlockDiagonalSolver product
     Y1 = L1.solve(X)
     Y2 = L2.solve(X)
     Y3 = L3.solve(X)
@@ -433,7 +433,7 @@ def test_block_linear_operator_parallel_dot( n1, n2, p1, p2, P1, P2, reorder ):
 @pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parametrize( 'reorder', [True, False] )
 @pytest.mark.parallel
-def test_block_linear_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
+def test_block_diagonal_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
     # set seed for reproducability
     seed(n1*n2*p1*p2)
 
@@ -485,7 +485,7 @@ def test_block_linear_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
 
     W = BlockVectorSpace(V, V)
 
-    # Construct a BlockLinearSolver object containing M1, M2 using 3 ways
+    # Construct a BlockDiagonalSolver object containing M1, M2 using 3 ways
     #     |M1  0 |
     # L = |      |
     #     |0   M2|
@@ -493,10 +493,10 @@ def test_block_linear_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
     dict_blocks = {0:M1, 1:M2}
     list_blocks = [M1, M2]
 
-    L1 = BlockLinearSolver( W, blocks=dict_blocks )
-    L2 = BlockLinearSolver( W, blocks=list_blocks )
+    L1 = BlockDiagonalSolver( W, blocks=dict_blocks )
+    L2 = BlockDiagonalSolver( W, blocks=list_blocks )
 
-    L3 = BlockLinearSolver( W )
+    L3 = BlockDiagonalSolver( W )
     L3[0] = M1
     L3[1] = M2
 
@@ -517,7 +517,7 @@ def test_block_linear_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
     X[0] = x1
     X[1] = x2
 
-    # Compute BlockLinearSolver product
+    # Compute BlockDiagonalSolver product
     Y1 = L1.solve(X)
     Y2 = L2.solve(X)
     Y3 = L3.solve(X)
