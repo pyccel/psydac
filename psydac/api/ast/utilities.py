@@ -29,6 +29,7 @@ from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Product
 from pyccel.ast.core import _atomic
 from pyccel.ast.core import Comment
+from pyccel.ast.core import String
 
 #==============================================================================
 def random_string( n ):
@@ -813,11 +814,35 @@ def variables(names, dtype, **args):
     else:
         raise TypeError('Expecting a string')
 
+#==============================================================================
+def build_pyccel_types_decorator(args, order=None):
+    """
+    builds a types decorator from a list of arguments (of FunctionDef)
+    """
+    types = []
+    for a in args:
+        if isinstance(a, Variable):
+            dtype = a.dtype.name.lower()
 
+        elif isinstance(a, IndexedVariable):
+            dtype = a.dtype.name.lower()
 
+        else:
+            raise TypeError('unexpected type for {}'.format(a))
+
+        if a.rank > 0:
+            shape = [':' for i in range(0, a.rank)]
+            shape = ','.join(i for i in shape)
+            dtype = '{dtype}[{shape}]'.format(dtype=dtype, shape=shape)
+            if order and a.rank > 1:
+                dtype = "{dtype}(order={ordering})".format(dtype=dtype, ordering=order)
+
+        dtype = String(dtype)
+        types.append(dtype)
+
+    return types
 
 #==============================================================================
-
 def build_pythran_types_header(name, args, order=None):
     """
     builds a types decorator from a list of arguments (of FunctionDef)
