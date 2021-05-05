@@ -144,8 +144,9 @@ def test_block_diagonal_solver_serial_dot( n1, n2, p1, p2, P1, P2  ):
 
     # Fill in vector with random values, then update ghost regions
     for i1 in range(n1):
-        x1[i1] = 2.0*random() - 1.0
-        x2[i1] = 5.0*random() - 1.0
+        for i2 in range(n2):
+            x1[i1,i2] = 2.0*random() - 1.0
+            x2[i1,i2] = 5.0*random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
@@ -521,9 +522,10 @@ def test_block_diagonal_solver_parallel_dot( n1, n2, p1, p2, P1, P2, reorder  ):
     W = BlockVectorSpace(V, V)
 
     # Fill in vector with random values, then update ghost regions
-    for i1 in range(n1):
-        x1[i1] = 2.0*random() - 1.0
-        x2[i1] = 5.0*random() - 1.0
+    for i1 in range(s1,e1+1):
+        for i2 in range(s2,e2+1):
+            x1[i1,i2] = 2.0*random() - 1.0
+            x2[i1,i2] = 5.0*random() - 1.0
     x1.update_ghost_regions()
     x2.update_ghost_regions()
 
