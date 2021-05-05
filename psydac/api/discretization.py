@@ -25,7 +25,7 @@ from sympde.topology import ScalarFunctionSpace, ScalarFunction
 from sympde.topology import VectorFunctionSpace, VectorFunction
 from sympde.topology import ProductSpace
 from sympde.topology import Derham
-from sympde.topology import Mapping, IdentityMapping, LogicalExpr
+from sympde.topology import LogicalExpr
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology.basic import Union
 
@@ -369,7 +369,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
     ldim                = V.ldim
     periodic            = kwargs.pop('periodic', [False]*ldim)
     basis               = kwargs.pop('basis', 'B')
-    is_rational_mapping = False
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
@@ -384,9 +383,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
         mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
         spaces    = [m.space for m in mappings]
         g_spaces  = OrderedDict(zip(interiors, spaces))
-
-        is_rational_mapping = all(isinstance( mapping, NurbsMapping ) for mapping in mappings)
-        symbolic_mapping    = Mapping('M', domain_h.pdim)
 
         if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
@@ -407,18 +403,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 interfaces = []
         else:
             interiors = [interiors]
-
-        if domain_h.domain.mapping is None:
-            if len(interiors) == 1:
-                symbolic_mapping = IdentityMapping('M_{}'.format(interiors[0].name), ldim)
-            else:
-                symbolic_mapping = {D:IdentityMapping('M_{}'.format(D.name), ldim) for D in interiors}
-        else:
-            if len(interiors) == 1:
-                symbolic_mapping = domain_h.domain.mapping
-            else:
-                symbolic_mapping = domain_h.domain.mapping.mappings
-
 
         for i,interior in enumerate(interiors):
             ncells     = domain_h.ncells
@@ -471,16 +455,12 @@ def discretize_space(V, domain_h, *args, **kwargs):
         else:
             Vh = reduce_space_degrees(V, Vh, basis=basis)
 
-        setattr(Vh, 'symbolic_domain', inter)
-        setattr(Vh, 'symbolic_space', V)
-        g_spaces[inter] = Vh
+        Vh._symbolic_space = V
+        g_spaces[inter]    = Vh
 
     Vh = ProductFemSpace(*g_spaces.values())
-    # add symbolic_mapping as a member to the space object
-    setattr(Vh, 'symbolic_mapping', symbolic_mapping)
-    setattr(Vh, 'is_rational_mapping', is_rational_mapping)
-    setattr(Vh, 'symbolic_space', V)
-    setattr(Vh, 'symbolic_domain', domain_h.domain)
+
+    Vh._symbolic_space      = V
 
     return Vh
 
@@ -515,6 +495,8 @@ def discretize(a, *args, **kwargs):
             if not mapping is None:
                 a       = LogicalExpr (a)
             kernel_expr = TerminalExpr(a)
+
+        kwargs['mapping'] = mapping
 
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)

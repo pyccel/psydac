@@ -151,7 +151,6 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._spaces = args[1]
 
         kwargs['discrete_space']      = self.spaces
-        kwargs['mapping']             = self.spaces[0].symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
         quad_order                    = kwargs.pop('quad_order', get_quad_order(self.spaces[1]))
@@ -250,6 +249,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         return self._args
 
     def assemble(self, *, reset=True, **kwargs):
+
         if self._free_args:
             basis   = []
             spans   = []
@@ -318,6 +318,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
         else:
             mapping = []
+
         args = (*test_basis, *trial_basis, *spans, *quads, *test_degrees, *trial_degrees, *n_elements, *quad_degrees, *pads, *element_mats, *self._global_matrices, *mapping)
         return args
 
@@ -439,7 +440,6 @@ class DiscreteLinearForm(BasicDiscrete):
         self._space  = args[1]
 
         kwargs['discrete_space']      = self.space
-        kwargs['mapping']             = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
         quad_order                    = kwargs.pop('quad_order', get_quad_order(self.space))
@@ -671,7 +671,6 @@ class DiscreteFunctional(BasicDiscrete):
         self._space = args[1]
 
         kwargs['discrete_space']      = self.space
-        kwargs['mapping']             = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
         quad_order                    = kwargs.pop('quad_order', get_quad_order(self.space))

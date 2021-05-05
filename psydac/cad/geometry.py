@@ -184,11 +184,11 @@ class Geometry( object ):
                 tensor_space = TensorFemSpace( *spaces, comm=comm )
                 if dtype == 'SplineMapping':
                     mapping = SplineMapping.from_control_points( tensor_space,
-                                                                 patch['points'] )
+                                                                 patch['points'][..., :pdim] )
 
                 elif dtype == 'NurbsMapping':
                     mapping = NurbsMapping.from_control_points_weights( tensor_space,
-                                                                        patch['points'],
+                                                                        patch['points'][..., :pdim],
                                                                         patch['weights'] )
 
                 mapping.set_name( item['name'] )
@@ -349,7 +349,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
 
     yml = OrderedDict()
     yml['ldim'] = nurbs.dim
-    yml['pdim'] = nurbs.points.ndim
+    yml['pdim'] = nurbs.dim
 
     patches_info = []
     i_mapping    = 0
@@ -414,7 +414,8 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     group.attrs['periodic'   ] = tuple( False for d in range( nurbs.dim ) ) if periodic is None else periodic
     for d in range( nurbs.dim ):
         group['knots_{}'.format( d )] = nurbs.knots[d]
-    group['points'] = nurbs.points
+
+    group['points'] = nurbs.points[...,:nurbs.dim]
     if rational:
         group['weights'] = nurbs.weights
 

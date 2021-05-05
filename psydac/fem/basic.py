@@ -9,7 +9,6 @@ be used to specify the used data structure for example.
 from abc import ABCMeta, abstractmethod
 
 from psydac.linalg.basic import Vector
-
 #===============================================================================
 # ABSTRACT BASE CLASS: FINITE ELEMENT SPACE
 #===============================================================================
@@ -56,6 +55,7 @@ class FemSpace( metaclass=ABCMeta ):
     def vector_space( self ):
         """Topologically associated vector space."""
 
+
     @property
     @abstractmethod
     def is_product( self ):
@@ -64,6 +64,11 @@ class FemSpace( metaclass=ABCMeta ):
         If True, an element of this space can be decomposed into separate fields.
 
         """
+
+    @property
+    @abstractmethod
+    def symbolic_space( self ):
+        """Symbolic space."""
 
     #---------------------------------------
     # Abstract interface: evaluation methods
@@ -113,6 +118,26 @@ class FemSpace( metaclass=ABCMeta ):
             Value(s) of field gradient at location(s) eta.
 
         """
+
+    # ...
+    def __mul__(self, a):
+        if a.is_product:
+            spaces = a.spaces
+        else:
+            spaces = [a]
+        space = ProductFemSpace(*self.spaces, *spaces)
+        space._symbolic_space =  self.symbolic_space*a.symbolic_space
+        return space
+
+    # ...
+    def __rmul__(self, a):
+        if a.is_product:
+            spaces = a.spaces
+        else:
+            spaces = [a]
+        space = ProductFemSpace(*spaces, *self.spaces)
+        space._symbolic_space =  a.symbolic_space * self.symbolic_space
+        return space
 
 #---------------------------------------
 # OLD STUFF
@@ -300,3 +325,5 @@ class FemField:
         assert self._space is other._space
         self._coeffs -= other._coeffs
         return self
+
+from .vector import ProductFemSpace

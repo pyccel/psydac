@@ -287,5 +287,8 @@ class BasicDiscrete(BasicCodeGen):
         discrete_space      = kwargs.pop('discrete_space', None)
         kernel_expr         = kwargs['kernel_expr']
         quad_order          = kwargs.pop('quad_order', None)
+        is_rational_mapping = kwargs.pop('is_rational_mapping', None)
+        mapping             = kwargs.pop('mapping', None)
 
-        return AST(expr, kernel_expr, discrete_space, tag, quad_order=quad_order)
+        return AST(expr, kernel_expr, discrete_space, tag, quad_order=quad_order,
+                    mapping=mapping, is_rational_mapping=is_rational_mapping)

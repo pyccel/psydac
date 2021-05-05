@@ -111,6 +111,9 @@ class SplineSpace( FemSpace ):
         self._interpolation_ready = False
         self._histopolation_ready = False
 
+        self._symbolic_space      = None
+        # ...
+
     # ...
     @property
     def histopolation_grid(self):
@@ -222,6 +225,10 @@ class SplineSpace( FemSpace ):
     @property
     def is_product(self):
         return False
+
+    @property
+    def symbolic_space( self ):
+        return self._symbolic_space
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods

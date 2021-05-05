@@ -110,6 +110,9 @@ class TensorFemSpace( FemSpace ):
                 self._global_element_starts[dimension] = element_starts
                 self._global_element_ends  [dimension] = element_ends
 
+        self._symbolic_space      = None
+        # ...
+
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
@@ -135,6 +138,10 @@ class TensorFemSpace( FemSpace ):
     @property
     def is_product(self):
         return False
+
+    @property
+    def symbolic_space( self ):
+        return self._symbolic_space
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods

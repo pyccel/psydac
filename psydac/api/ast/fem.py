@@ -13,6 +13,7 @@ from sympde.expr                 import Functional
 from sympde.topology.basic       import Boundary, Interface
 from sympde.topology             import H1SpaceType, HcurlSpaceType
 from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
+from sympde.topology             import IdentityMapping
 from sympde.topology.space       import ScalarFunction
 from sympde.topology.space       import VectorFunction
 from sympde.topology.space       import IndexedVectorFunction
@@ -183,7 +184,7 @@ class AST(object):
     into a DefNode
 
     """
-    def __init__(self, expr, terminal_expr, spaces, tag=None, **kwargs):
+    def __init__(self, expr, terminal_expr, spaces, tag=None, mapping=None, is_rational_mapping=None, **kwargs):
         # ... compute terminal expr
         # TODO check that we have one single domain/interface/boundary
 
@@ -211,8 +212,6 @@ class AST(object):
             is_linear           = True
             tests               = expr.test_functions
             fields              = expr.fields
-            mapping             = spaces.symbolic_mapping
-            is_rational_mapping = spaces.is_rational_mapping
             spaces              = spaces.symbolic_space
             is_broken           = spaces.is_broken
 
@@ -221,16 +220,12 @@ class AST(object):
             tests               = expr.test_functions
             trials              = expr.trial_functions
             fields              = expr.fields
-            mapping             = spaces[0].symbolic_mapping
-            is_rational_mapping = spaces[0].is_rational_mapping
             spaces              = [V.symbolic_space for V in spaces]
             is_broken           = spaces[0].is_broken
 
         elif isinstance(expr, Functional):
             is_functional       = True
             fields              = tuple(expr.atoms(ScalarFunction, VectorFunction))
-            mapping             = spaces.symbolic_mapping
-            is_rational_mapping = spaces.is_rational_mapping
             spaces              = spaces.symbolic_space
             is_broken           = spaces.is_broken
 
@@ -284,18 +279,26 @@ class AST(object):
         d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f), 'span': GlobalSpan(f)} for f in fields}
 
         if is_broken:
-            if is_bilinear:
-                space_domain = spaces[0].domain
-            else:
-                space_domain = spaces.domain
-
             if isinstance(domain, Interface):
-                mapping = InterfaceMapping(mapping[domain.minus.domain], mapping[domain.plus.domain])
-            elif isinstance(domain, Boundary):
-                mapping = mapping[domain.domain]
-            else:
-                mapping = mapping[domain]
+                if mapping is None:
+                    mapping_minus = IdentityMapping('M_{}'.format(domain.minus.domain.name), dim)
+                    mapping_plus  = IdentityMapping('M_{}'.format(domain.plus.domain.name), dim)
+                else:
+                    mapping_minus = mapping.mappings[domain.minus.domain]
+                    mapping_plus  = mapping.mappings[domain.plus.domain]
 
+                mapping = InterfaceMapping(mapping_minus, mapping_plus)
+            elif isinstance(domain, Boundary) and mapping:
+                mapping = mapping.mappings[domain.domain]
+            elif mapping:
+                mapping = mapping.mappings[domain]
+
+        if mapping is None:
+            if isinstance(domain, Boundary):
+                name = domain.domain.name
+            else:
+                name = domain.name
+            mapping = IdentityMapping('M_{}'.format(name), dim)
 
         if is_linear:
             ast = _create_ast_linear_form(terminal_expr, atomic_expr_field, 

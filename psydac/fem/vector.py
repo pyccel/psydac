@@ -4,6 +4,7 @@
 
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace
+from psydac.linalg.block   import BlockVectorSpace
 from psydac.fem.basic      import FemSpace, FemField
 
 from numpy import unique, asarray, allclose
@@ -39,6 +40,9 @@ class VectorFemSpace( FemSpace ):
         self._ncells = ncells[0]
         # ...
 
+        # ...
+        self._symbolic_space      = None
+
         # TODO serial case
         self._vector_space = None
 
@@ -69,6 +73,10 @@ class VectorFemSpace( FemSpace ):
     @property
     def is_product(self):
         return True
+
+    @property
+    def symbolic_space( self ):
+        return self._symbolic_space
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -147,9 +155,7 @@ class VectorFemSpace( FemSpace ):
         txt += '> nbasis :: ({dims})\n'.format(dims=dims)
         return txt
 
-# TODO still experimental
 #===============================================================================
-from psydac.linalg.block import BlockVectorSpace
 class ProductFemSpace( FemSpace ):
     """
     Product of FEM space
@@ -195,6 +201,8 @@ class ProductFemSpace( FemSpace ):
         self._vector_space = BlockVectorSpace(*v_spaces)
         # ...
 
+        self._symbolic_space      = None
+        # ...
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------
@@ -220,6 +228,10 @@ class ProductFemSpace( FemSpace ):
     @property
     def is_product(self):
         return True
+
+    @property
+    def symbolic_space( self ):
+        return self._symbolic_space
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -264,4 +276,3 @@ class ProductFemSpace( FemSpace ):
     @property
     def comm( self ):
         return self.spaces[0].comm
-
