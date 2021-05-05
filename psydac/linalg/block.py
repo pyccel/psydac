@@ -651,7 +651,7 @@ class BlockDiagonalSolver( LinearSolver ):
     """
     A LinearSolver that can be written as blocks of other LinearSolvers,
     i.e. it can be seen as a solver for linear equations with block-diagonal matrices.
-    
+
     The space of this solver has to be of the type BlockVectorSpace.
 
     Parameters
@@ -698,21 +698,51 @@ class BlockDiagonalSolver( LinearSolver ):
     #--------------------------------------
     @property
     def space( self ):
+        """
+        The space this BlockDiagonalSolver works on.
+        """
         return self._space
 
     # ...
     def solve( self, rhs, out=None, transposed=False ):
+        """
+        Solves the linear system for the given right-hand side rhs.
+        An out vector can be supplied, otherwise a new vector will be allocated.
+
+        This operation supports in-place operations, given that the underlying solvers
+        do as well.
+
+        Parameters
+        ----------
+        rhs : BlockVector
+            The input right-hand side.
+        
+        out : BlockVector | NoneType
+            The output vector, or None.
+        
+        transposed : Bool
+            If true, and supported by the underlying solvers,
+            rhs is solved against the transposed right-hand sides.
+        
+        Returns
+        -------
+        out : BlockVector
+            Either `out`, if given as input parameter, or a newly-allocated vector.
+            In all cases, it holds the result of the computation.
+        """
         assert isinstance(rhs, BlockVector)
         assert rhs.space is self.space
-        if out is not None:
-            assert isinstance(out, BlockVector)
-            out *= 0.0
-        else:
+        if out is None:
             out = self.space.zeros()
+        
+        assert isinstance(out, BlockVector)
+        assert out.space is self.space
 
         rhs.update_ghost_regions()
 
         for i, L in enumerate(self._blocks):
+            if L is None:
+                raise NotImplementedError('All solvers have to be defined.')
             L.solve(rhs[i], out=out[i], transposed=transposed)
 
         return out
@@ -729,6 +759,9 @@ class BlockDiagonalSolver( LinearSolver ):
     # ...
     @property
     def n_blocks( self ):
+        """
+        The number of blocks in the matrix.
+        """
         return self._nblocks
 
     # ...
