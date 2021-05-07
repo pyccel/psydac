@@ -21,6 +21,7 @@ from sympde.topology.derivatives import get_atom_logical_derivatives
 from sympde.topology.derivatives import get_index_logical_derivatives
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
+from sympde.core                 import Constant
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
@@ -822,19 +823,31 @@ def build_pyccel_types_decorator(args, order=None):
     types = []
     for a in args:
         if isinstance(a, Variable):
+            rank  = a.rank
             dtype = a.dtype.name.lower()
 
         elif isinstance(a, IndexedVariable):
+            rank  = a.rank
             dtype = a.dtype.name.lower()
+
+        elif isinstance(a, Constant):
+            rank = 0
+            if a.is_integer:
+                dtype = 'int'
+            elif a.is_complex:
+                dtype = 'complex'
+            elif a.is_real:
+                dtype = 'float'
+            else:
+                dtype = 'float' # default value
 
         else:
             raise TypeError('unexpected type for {}'.format(a))
 
-        if a.rank > 0:
-            shape = [':' for i in range(0, a.rank)]
-            shape = ','.join(i for i in shape)
+        if rank > 0:
+            shape = ','.join(':' * rank)
             dtype = '{dtype}[{shape}]'.format(dtype=dtype, shape=shape)
-            if order and a.rank > 1:
+            if order and rank > 1:
                 dtype = "{dtype}(order={ordering})".format(dtype=dtype, ordering=order)
 
         dtype = String(dtype)
