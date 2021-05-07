@@ -30,7 +30,7 @@ from psydac.feec.multipatch.multipatch_domain_utilities import get_annulus_fourp
 comm = MPI.COMM_WORLD
 
 
-def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, cartesian=True, show_all=False):
+def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, cartesian=True, use_pretzel=True, compute_kernel=False, show_all=False):
     """
     Maxwell eigenproblem solver, see eg
     Buffa, Perugia & Warburton, The Mortar-Discontinuous Galerkin Method for the 2D Maxwell Eigenproblem JSC 2009.
@@ -38,17 +38,17 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, cartesian=True, 
     :param nb_eigs: nb of eigenmodes to be computed
     :return: eigenvalues and eigenmodes
     """
-    full_annulus = True
 
-    if full_annulus:
-        domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
+    if use_pretzel:
+        # domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
+        domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=1)
         # domain = get_annulus_fourpatches(r_min=0.5, r_max=1)
 
     else:
         if cartesian:
-            OmegaLog1 = Square('OmegaLog1',bounds1=(0., 1.), bounds2=(0., 0.5))
-            OmegaLog2 = Square('OmegaLog2',bounds1=(0., 1.), bounds2=(0.5, 1.))
-            mapping_1 = IdentityMapping('M1', 2)
+            OmegaLog1 = Square('OmegaLog1',bounds1=(0., np.pi), bounds2=(0., np.pi/2))
+            OmegaLog2 = Square('OmegaLog2',bounds1=(0., np.pi), bounds2=(np.pi/2, np.pi))
+            mapping_1 = IdentityMapping('M1',2)
             mapping_2 = IdentityMapping('M2',2)
         else:
             OmegaLog1 = Square('OmegaLog1',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
@@ -108,15 +108,24 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha, cartesian=True, 
     A = A.to_sparse_matrix()
     M1 = M1.to_sparse_matrix()
 
+    if compute_kernel:
+        sigma = 0
+        mode = 'normal'
+        which = 'LM'
+    else:
+        sigma = 4
+        mode='cayley'
+        # mode='buckling'
+        which = 'LM'
+
     # from eigsh docstring:
     #   ncv = number of Lanczos vectors generated ncv must be greater than k and smaller than n;
     #   it is recommended that ncv > 2*k. Default: min(n, max(2*k + 1, 20))
     ncv = 4*nb_eigs
     # search mode: normal and buckling give a lot of zero eigenmodes. Cayley seems best for Maxwell.
     # mode='normal'
-    mode='cayley'
-    # mode='buckling'
-    eigenvalues, eigenvectors = eigsh(A, k=nb_eigs, M=M1, sigma=6, mode=mode, which='LM', ncv=ncv)
+
+    eigenvalues, eigenvectors = eigsh(A, k=nb_eigs, M=M1, sigma=sigma, mode=mode, which=which, ncv=ncv)
 
     # plotting
     etas, xx, yy = get_plotting_grid(mappings, N=20)
@@ -184,4 +193,4 @@ if __name__ == '__main__':
     # print( 'Got '+title)
     # exit()
 
-    run_maxwell_2d_eigenproblem(nb_eigs=8, ncells=[nc, nc], degree=[deg,deg], alpha=DG_alpha, cartesian=False, show_all=True)
+    run_maxwell_2d_eigenproblem(nb_eigs=8, ncells=[nc, nc], degree=[deg,deg], alpha=DG_alpha, cartesian=True, use_pretzel=False, show_all=True)
