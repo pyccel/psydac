@@ -74,7 +74,7 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
     cP1 = ConformingProjection_V1(V1h, domain_h)
     I1 = IdLinearOperator(V1h)
 
-    A1 = 1e10*ComposedLinearOperator([I1-cP1,I1-cP1]) + ComposedLinearOperator([cP1, bD1.transpose(), M2, bD1, cP1]) + alpha * M1
+    A1 = alpha * M1 + ComposedLinearOperator([I1-cP1, M1, I1-cP1]) + ComposedLinearOperator([cP1, bD1.transpose(), M2, bD1, cP1])
 
     # boundary conditions
     u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
@@ -131,7 +131,7 @@ def run_maxwell_2d_time_harmonic():
     domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=0)
 
     x,y    = domain.coordinates
-    alpha  = 1.
+    alpha  = -1
     uex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
     f      = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                      alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
