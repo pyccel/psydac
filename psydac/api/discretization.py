@@ -79,6 +79,65 @@ def driver_solve(L, **kwargs):
     return (x, info) if return_info else x
 
 #==============================================================================
+def l2_boundary_projection(equation):
+    """
+    Create an auxiliary equation (weak formulation) that solves for the
+    boundary trace of the solution by performing an L2 projection of
+    inhomogeneous essential boundary conditions.
+
+    Return None if no inhomogeneous essential BCs are imposed on the solution.
+
+    Parameters
+    ----------
+    equation : sympde.expr.Equation
+        Weak formulation of PDE of interest, which might have additional BCs.
+
+    Returns
+    -------
+    eqn_bc : sympde.expr.Equation
+        Weak formulation that performs L2 projection of inhomogeneous essential
+        boundary conditions onto the trial space. None if not needed
+
+    """
+    if not equation.bc:
+        return None
+
+    # Inhomogeneous Dirichlet boundary conditions
+    idbcs = [i for i in equation.bc if i.rhs != 0]
+
+    if not idbcs:
+        return None
+
+    from sympde.expr import integral
+    from sympde.expr import find
+    from sympde.topology import element_of #, ScalarFunction
+
+    # Extract trial functions from model equation
+    u = equation.trial_functions
+
+    # Create test functions in same space of trial functions
+    # TODO: check if we should generate random names
+    V = ProductSpace(*[ui.space for ui in u])
+    v = element_of(V, name='v:{}'.format(len(u)))
+
+    # In a system, each essential boundary condition is applied to
+    # only one component (bc.variable) of the state vector. Hence
+    # we will select the correct test function using a dictionary.
+    test_dict = dict(zip(u, v))
+
+    # Compute product of (u, v) using dot product for vector quantities
+    product  = lambda f, g: (f * g if isinstance(g, ScalarFunction) else dot(f, g))
+
+    # Construct variational formulation that performs L2 projection
+    # of boundary conditions onto the correct space
+    factor   = lambda bc : bc.lhs.xreplace(test_dict)
+    lhs_expr = sum(integral(i.boundary, product(i.lhs, factor(i))) for i in idbcs)
+    rhs_expr = sum(integral(i.boundary, product(i.rhs, factor(i))) for i in idbcs)
+    eqn_bc   = find(u, forall=v, lhs=lhs_expr, rhs=rhs_expr)
+
+    return eqn_bc
+
+#==============================================================================
 class DiscreteEquation(BasicDiscrete):
 
     def __init__(self, expr, *args, **kwargs):
@@ -129,11 +188,21 @@ class DiscreteEquation(BasicDiscrete):
         self._rhs = discretize(expr.rhs, *newargs, **kwargs)
         # ...
 
+        # ...
+        # Create boundary equation (None if not needed)
+        eqn_bc   = l2_boundary_projection(expr)
+        eqn_bc_h = discretize(eqn_bc, domain, [trial_space, trial_space]) \
+                   if eqn_bc else None
+        # ...
+
         self._bc = bc
         self._linear_system = None
+        self._free_args_lhs = {}
+        self._free_args_rhs = {}
         self._domain        = domain
         self._trial_space   = trial_space
         self._test_space    = test_space
+        self._boundary_equation = eqn_bc_h
 
     @property
     def expr(self):
@@ -167,41 +236,65 @@ class DiscreteEquation(BasicDiscrete):
     def linear_system(self):
         return self._linear_system
 
+    @property
+    def boundary_equation(self):
+        return self._boundary_equation
+
+    @property
+    def free_args_lhs(self):
+        """Free arguments for assemblying left-hand-side matrix."""
+        return self._free_args_lhs
+
+    @property
+    def free_args_rhs(self):
+        """Free arguments for assemblying right-hand-side vector."""
+        return self._free_args_rhs
+
+    #--------------------------------------------------------------------------
     def assemble(self, **kwargs):
-        assemble_lhs = kwargs.pop('assemble_lhs', True)
-        assemble_rhs = kwargs.pop('assemble_rhs', True)
+
+        # Determine free arguments for matrix and vector assembly
+        free_args_lhs = {k : v for (k, v) in kwargs.items() if k in self.lhs.free_args}
+        free_args_rhs = {k : v for (k, v) in kwargs.items() if k in self.rhs.free_args}
+
+        # Decide if we should assemble
+        if self.linear_system is None:
+            assemble_lhs = True
+            assemble_rhs = True
+        else:
+            assemble_lhs = (free_args_lhs != self.free_args_lhs)
+            assemble_rhs = (free_args_rhs != self.free_args_rhs)
+
+        # Matrix (left-hand side)
         if assemble_lhs:
-            M = self.lhs.assemble(**kwargs)
+            A = self.lhs.assemble(reset=True, **free_args_lhs)
             if self.bc:
-                apply_essential_bc(M, *self.bc)
+                apply_essential_bc(A, *self.bc)
         else:
-            M = self.linear_system.lhs
+            A = self.linear_system.lhs
 
+        # Vector (right-hand side)
         if assemble_rhs:
-            rhs = self.rhs.assemble(**kwargs)
+            b = self.rhs.assemble(reset=True, **free_args_rhs)
             if self.bc:
-                apply_essential_bc(rhs, *self.bc)
-
+                apply_essential_bc(b, *self.bc)
         else:
-            rhs = self.linear_system.rhs
+            b = self.linear_system.rhs
 
-        self._linear_system = LinearSystem(M, rhs)
+        # Store linear system
+        self._linear_system = LinearSystem(A, b)
 
+        # Store free arguments
+        self._free_args_lhs = free_args_lhs
+        self._free_args_rhs = free_args_rhs
+
+    #--------------------------------------------------------------------------
     def solve(self, **kwargs):
-
-        rhs = kwargs.pop('rhs', None)
-        if rhs:
-            kwargs['assemble_rhs'] = False
 
         self.assemble(**kwargs)
 
         free_args = set(self.lhs.free_args + self.rhs.free_args)
         for e in free_args: kwargs.pop(e, None)
-
-        if rhs:
-            L = self.linear_system
-            L = LinearSystem(L.lhs, rhs)
-            self._linear_system = L
 
         settings = {k:kwargs[k] if k in kwargs else it for k,it in _default_solver.items()}
         settings.update({it[0]:it[1] for it in kwargs.items() if it[0] not in settings})
@@ -217,56 +310,17 @@ class DiscreteEquation(BasicDiscrete):
         # initial guess when the model equation is to be solved by an
         # iterative method. Our current method of solution does not
         # modify the initial guess at the boundary.
+        if self.boundary_equation:
 
-        if self.bc:
+            # Find inhomogeneous solution (use CG as system is symmetric)
+            loc_settings = settings.copy()
+            loc_settings['solver'] = 'cg'
+            loc_settings.pop('info', False)
+            loc_settings.pop('pc'  , False)
+            uh = self.boundary_equation.solve(**loc_settings)
 
-            # Inhomogeneous Dirichlet boundary conditions
-            idbcs = [i for i in self.bc if i.rhs != 0]
-
-            if idbcs:
-
-                from sympde.expr import integral
-                from sympde.expr import find
-                from sympde.topology import element_of #, ScalarFunction
-
-                # Extract trial functions from model equation
-                u = self.expr.trial_functions
-
-                # Create test functions in same space of trial functions
-                # TODO: check if we should generate random names
-                V = ProductSpace(*[ui.space for ui in u])
-                v = element_of(V, name='v:{}'.format(len(u)))
-
-                # In a system, each essential boundary condition is applied to
-                # only one component (bc.variable) of the state vector. Hence
-                # we will select the correct test function using a dictionary.
-                test_dict = dict(zip(u, v))
-
-                # Compute product of (u, v) using dot product for vector quantities
-                product  = lambda f, g: (f * g if isinstance(g, ScalarFunction) else dot(f, g))
-
-                # Construct variational formulation that performs L2 projection
-                # of boundary conditions onto the correct space
-                factor   = lambda bc : bc.lhs.xreplace(test_dict)
-                lhs_expr = sum(integral(i.boundary, product(i.lhs, factor(i))) for i in idbcs)
-                rhs_expr = sum(integral(i.boundary, product(i.rhs, factor(i))) for i in idbcs)
-                equation = find(u, forall=v, lhs=lhs_expr, rhs=rhs_expr)
-
-                # Discretize weak form
-                domain_h   = self.domain
-                Vh         = self.trial_space
-                equation_h = discretize(equation, domain_h, [Vh, Vh])
-
-                # Find inhomogeneous solution (use CG as system is symmetric)
-                loc_settings = settings.copy()
-                loc_settings['solver'] = 'cg'
-                loc_settings.pop('info', False)
-                loc_settings.pop('pc'  , False)
-                uh = equation_h.solve(**loc_settings)
-
-                # Use inhomogeneous solution as initial guess to solver
-                settings['x0'] = uh.coeffs
-
+            # Use inhomogeneous solution as initial guess to solver
+            settings['x0'] = uh.coeffs
         #----------------------------------------------------------------------
 
         if settings.get('info', False):

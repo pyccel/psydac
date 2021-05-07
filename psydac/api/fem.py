@@ -845,8 +845,8 @@ class DiscreteSumForm(BasicDiscrete):
     def free_args(self):
         return self._free_args
 
-    def assemble(self, **kwargs):
-        M = self.forms[0].assemble(**kwargs)
+    def assemble(self, *, reset=True, **kwargs):
+        M = self.forms[0].assemble(reset=reset, **kwargs)
         for form in self.forms[1:]:
             M = form.assemble(reset=False, **kwargs)
         return M
