@@ -1,3 +1,5 @@
+import pytest
+
 from sympde.topology import Line, Square
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
@@ -8,9 +10,19 @@ from sympde.expr     import integral
 
 from psydac.api.discretization import discretize
 from psydac.fem.basic          import FemField
+from psydac.api.settings       import PSYDAC_BACKENDS
 
 #==============================================================================
-def test_field_and_constant():
+@pytest.fixture(params=[None, 'numba', 'pyccel-gcc'])
+def backend(request):
+    return request.param
+
+#==============================================================================
+def test_field_and_constant(backend):
+
+    # If 'backend' is specified, accelerate Python code by passing **kwargs
+    # to discretization of bilinear forms, linear forms and functionals.
+    kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
 
     domain = Square()
     V = ScalarFunctionSpace('V', domain)
@@ -27,8 +39,8 @@ def test_field_and_constant():
     degree = (3, 3)
     domain_h = discretize(domain, ncells=ncells)
     Vh = discretize(V, domain_h, degree=degree)
-    ah = discretize(a, domain_h, [Vh, Vh])
-    lh = discretize(l, domain_h, Vh)
+    ah = discretize(a, domain_h, [Vh, Vh], **kwargs)
+    lh = discretize(l, domain_h,      Vh , **kwargs)
 
     fh = FemField(Vh)
     fh.coeffs[:] = 1
@@ -47,7 +59,11 @@ def test_field_and_constant():
     print("PASSED")
 
 #==============================================================================
-def test_multiple_fields():
+def test_multiple_fields(backend):
+
+    # If 'backend' is specified, accelerate Python code by passing **kwargs
+    # to discretization of bilinear forms, linear forms and functionals.
+    kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
 
     domain = Line()
     V = ScalarFunctionSpace('V', domain)
@@ -65,8 +81,8 @@ def test_multiple_fields():
     degree = (3,)
     domain_h = discretize(domain, ncells=ncells)
     Vh = discretize(V, domain_h, degree=degree)
-    ah = discretize(a, domain_h, [Vh, Vh])
-    lh = discretize(l, domain_h, Vh)
+    ah = discretize(a, domain_h, [Vh, Vh], **kwargs)
+    lh = discretize(l, domain_h,      Vh , **kwargs)
 
     fh = FemField(Vh)
     fh.coeffs[:] = 1
