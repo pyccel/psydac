@@ -441,6 +441,16 @@ class BlockLinearOperator( LinearOperator ):
             assert value.codomain is self.codomain[i]
 
         self._blocks[i,j] = value
+    
+    # ...
+    def transpose(self):
+        blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
+        return BlockLinearOperator(self.codomain, self.domain, blocks=blocks)
+
+    # ...
+    @property
+    def T(self):
+        return self.transpose()
 
 #===============================================================================
 class BlockMatrix( BlockLinearOperator, Matrix ):
@@ -622,11 +632,6 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     def transpose(self):
         blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
         return BlockMatrix(self.codomain, self.domain, blocks=blocks)
-
-    # ...
-    @property
-    def T(self):
-        return self.transpose()
 
     # ...
     def topetsc( self ):
