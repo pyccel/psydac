@@ -21,6 +21,7 @@ from sympde.topology.derivatives import get_atom_logical_derivatives
 from sympde.topology.derivatives import get_index_logical_derivatives
 from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
+from sympde.core                 import Constant
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
@@ -29,6 +30,7 @@ from pyccel.ast.core import AugAssign
 from pyccel.ast.core import Product
 from pyccel.ast.core import _atomic
 from pyccel.ast.core import Comment
+from pyccel.ast.core import String
 
 #==============================================================================
 def random_string( n ):
@@ -813,11 +815,47 @@ def variables(names, dtype, **args):
     else:
         raise TypeError('Expecting a string')
 
+#==============================================================================
+def build_pyccel_types_decorator(args, order=None):
+    """
+    builds a types decorator from a list of arguments (of FunctionDef)
+    """
+    types = []
+    for a in args:
+        if isinstance(a, Variable):
+            rank  = a.rank
+            dtype = a.dtype.name.lower()
 
+        elif isinstance(a, IndexedVariable):
+            rank  = a.rank
+            dtype = a.dtype.name.lower()
 
+        elif isinstance(a, Constant):
+            rank = 0
+            if a.is_integer:
+                dtype = 'int'
+            elif a.is_complex:
+                dtype = 'complex'
+            elif a.is_real:
+                dtype = 'float'
+            else:
+                dtype = 'float' # default value
+
+        else:
+            raise TypeError('unexpected type for {}'.format(a))
+
+        if rank > 0:
+            shape = ','.join(':' * rank)
+            dtype = '{dtype}[{shape}]'.format(dtype=dtype, shape=shape)
+            if order and rank > 1:
+                dtype = "{dtype}(order={ordering})".format(dtype=dtype, ordering=order)
+
+        dtype = String(dtype)
+        types.append(dtype)
+
+    return types
 
 #==============================================================================
-
 def build_pythran_types_header(name, args, order=None):
     """
     builds a types decorator from a list of arguments (of FunctionDef)

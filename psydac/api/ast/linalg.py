@@ -3,6 +3,9 @@
 import sys
 import os
 import importlib
+from functools import lru_cache
+
+from mpi4py import MPI
 
 from sympy import Mul, Tuple
 from sympy import Mod, Abs, Range, Symbol
@@ -11,7 +14,6 @@ from sympy import Function
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
 from pyccel.ast.core import Slice, String
-
 from pyccel.ast.datatypes import NativeInteger
 from pyccel.ast.core import ValuedArgument
 from pyccel.ast.core import Assign
@@ -20,23 +22,18 @@ from pyccel.ast.core import Product
 from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
 from pyccel.ast.core import Import
-from pyccel.ast.utilities import build_types_decorator
-
-from functools import lru_cache
 
 from psydac.api.ast.utilities import variables, math_atoms_as_str
+from psydac.api.ast.utilities import build_pyccel_types_decorator
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor  import TensorFemSpace
 from psydac.fem.vector  import ProductFemSpace
-
 from psydac.api.ast.basic import SplBasic
 from psydac.api.printing import pycode
-
 from psydac.api.settings        import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
 from psydac.api.utilities       import mkdir_p, touch_init_file, random_string, write_code
 
-from mpi4py import MPI
-
+#==============================================================================
 def variable_to_sympy(x):
     if isinstance(x, Variable) and isinstance(x.dtype, NativeInteger):
         x = Symbol(x.name, integer=True)
@@ -184,7 +181,7 @@ class LinearOperatorDot(SplBasic):
 
         if backend:
             if backend['name'] == 'pyccel':
-                a = [String(str(i)) for i in build_types_decorator(func_args)]
+                a = [String(str(i)) for i in build_pyccel_types_decorator(func_args)]
                 decorators = {'types': Function('types')(*a)}
             elif backend['name'] == 'numba':
                 decorators = {'njit': Function('njit')(ValuedArgument(Symbol('fastmath'), backend['fastmath']))}
@@ -320,7 +317,7 @@ class VectorDot(SplBasic):
         header = None
 
         if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_types_decorator(func_args), 'external':[]}
+            decorators = {'types': build_pyccel_types_decorator(func_args), 'external':[]}
         elif self.backend['name'] == 'numba':
             decorators = {'jit':[]}
         elif self.backend['name'] == 'pythran':
