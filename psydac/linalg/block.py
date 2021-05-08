@@ -442,6 +442,25 @@ class BlockLinearOperator( LinearOperator ):
 
         self._blocks[i,j] = value
     
+    def transform(self, operation):
+        """
+        Applies an operation on each block in this BlockLinearOperator.
+
+        Parameters
+        ----------
+        operation : LinearOperator -> LinearOperator
+            The operation which transforms each block.
+        """
+        blocks = {ij: operation(Bij) for ij, Bij in self._blocks.items()}
+        return BlockLinearOperator(self.domain, self.codomain, blocks=blocks)
+    
+    def tomatrix(self):
+        """
+        Returns a BlockMatrix with the same blocks as this BlockLinearOperator.
+        Does only work, if all blocks are matrices (i.e. type Matrix) as well.
+        """
+        return BlockMatrix(self.domain, self.codomain, blocks=self._blocks)
+
     # ...
     def transpose(self):
         blocks = {(j, i): b.transpose() for (i, j), b in self._blocks.items()}
