@@ -101,7 +101,7 @@ class KroneckerDifferentialOperator(LinearOperator):
             in zip(self._codomain.pads, self._codomain.starts, self._codomain.ends)]
 
         if self._transposed:
-            self._prepare_diff_t()
+            self._prepare_diff_t2()
         else:
             self._prepare_diff()
 
@@ -115,6 +115,27 @@ class KroneckerDifferentialOperator(LinearOperator):
         diff_s = self._codomain.starts[self._diffdir]
         diff_e = self._codomain.ends[self._diffdir]
         diff_partslice = slice(diff_pad+1, diff_e-diff_s+1+diff_pad+1)
+        diffslice = [diff_partslice if i==self._diffdir else idslice[i]
+                            for i in range(self._domain.ndim)]
+
+        # defined differentiation lambda based on the parameter negative (or sign)
+        if self._negative:
+            self._do_diff = lambda v,out: np.subtract(v._data[idslice],
+                                v._data[diffslice], out=out._data[idslice])
+        else:
+            self._do_diff = lambda v,out: np.subtract(v._data[diffslice],
+                                v._data[idslice], out=out._data[idslice])
+    
+    def _prepare_diff_t2(self):
+        # prepare the slices (they are of the right size then, we checked this already)
+        # identity slice
+        idslice = self._idslice
+        
+        # differentiation slice (moved by one in the direction of differentiation)
+        diff_pad = self._codomain.pads[self._diffdir]
+        diff_s = self._codomain.starts[self._diffdir]
+        diff_e = self._codomain.ends[self._diffdir]
+        diff_partslice = slice(diff_pad-1, diff_e-diff_s+1+diff_pad-1)
         diffslice = [diff_partslice if i==self._diffdir else idslice[i]
                             for i in range(self._domain.ndim)]
 
@@ -196,9 +217,8 @@ class KroneckerDifferentialOperator(LinearOperator):
         assert isinstance(v, StencilVector)
 
         # setup, space checks
-        v.update_ghost_regions()
-
         assert v.space is self._domain
+        v.update_ghost_regions()
 
         if out is None:
             out = self._codomain.zeros()
@@ -210,7 +230,8 @@ class KroneckerDifferentialOperator(LinearOperator):
         self._do_diff(v, out)
         
         # update out ghost regions
-        out.update_ghost_regions()
+        # (we only need this for the direction in which we differentiate)
+        out.update_ghost_regions(direction=self._diffdir)
         return out
     
     def tokronstencil(self):
@@ -235,6 +256,8 @@ class KroneckerDifferentialOperator(LinearOperator):
         # handle sign and transposition already here for now...
         sign = -1. if self._negative else 1.
         if self._transposed:
+            # this extra "1" here is needed, otherwise tests fail here
+            M._data[p_d, p_d-1] =  1. * sign
             for i in range(n_d):
                 M._data[p_d+i, p_d]   = -1. * sign
                 M._data[p_d+i+1, p_d-1] =  1. * sign
