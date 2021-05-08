@@ -48,7 +48,7 @@ def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, 
     diffadd = np.zeros((len(ncells),), dtype=int)
     diffadd[direction] = 1
 
-    localslice = [slice(p,-p) for p in V1.vector_space.pads]
+    localslice = tuple([slice(p,-p) for p in V1.vector_space.pads])
 
     # random vector, scaled-up data (with fixed seed)
     v = V0.vector_space.zeros()
@@ -59,9 +59,9 @@ def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, 
     # (but we only test small domains here)
     ref = V1.vector_space.zeros()
 
-    outslice = [slice(s, s+c) for s,c in zip(pads, counts)]
-    idslice = [slice(s, s+c) for s,c in zip(vpads, counts)]
-    diffslice = [slice(s+d, s+c+d) for s,c,d in zip(vpads, counts, diffadd)]
+    outslice = tuple([slice(s, s+c) for s,c in zip(pads, counts)])
+    idslice = tuple([slice(s, s+c) for s,c in zip(vpads, counts)])
+    diffslice = tuple([slice(s+d, s+c+d) for s,c,d in zip(vpads, counts, diffadd)])
     if transposed:
         ref._data[idslice] -= v._data[outslice]
         ref._data[diffslice] += v._data[outslice]
@@ -74,7 +74,7 @@ def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, 
         ref_restslice[direction] = slice(vpads[direction], vpads[direction] + 1)
         v_restslice = [c for c in outslice]
         v_restslice[direction] = slice(pads[direction] - 1, pads[direction])
-        ref._data[ref_restslice] += v._data[v_restslice]
+        ref._data[tuple(ref_restslice)] += v._data[tuple(v_restslice)]
     else:
         ref._data[outslice] = v._data[diffslice] - v._data[idslice]
     if negative:

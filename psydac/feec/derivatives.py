@@ -97,8 +97,8 @@ class KroneckerDifferentialOperator(LinearOperator):
             self._codomain = W
         
         # the local area in the codomain without padding
-        self._idslice = [slice(pad, e-s+1+pad) for pad, s, e
-            in zip(self._codomain.pads, self._codomain.starts, self._codomain.ends)]
+        self._idslice = tuple([slice(pad, e-s+1+pad) for pad, s, e
+            in zip(self._codomain.pads, self._codomain.starts, self._codomain.ends)])
 
         # prepare the slices (they are of the right size then, we checked this already)
         # identity slice
@@ -115,8 +115,8 @@ class KroneckerDifferentialOperator(LinearOperator):
         else:
             diff_partslice = slice(diff_pad+1, diff_e-diff_s+1+diff_pad+1)
         
-        diffslice = [diff_partslice if i==self._diffdir else idslice[i]
-                            for i in range(self._domain.ndim)]
+        diffslice = tuple([diff_partslice if i==self._diffdir else idslice[i]
+                            for i in range(self._domain.ndim)])
         
 
         # define differentiation lambda based on the parameter negative (or sign)
