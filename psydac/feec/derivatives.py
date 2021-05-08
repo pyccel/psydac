@@ -100,90 +100,32 @@ class KroneckerDifferentialOperator(LinearOperator):
         self._idslice = [slice(pad, e-s+1+pad) for pad, s, e
             in zip(self._codomain.pads, self._codomain.starts, self._codomain.ends)]
 
+        # prepare the slices (they are of the right size then, we checked this already)
+        # identity slice
+        idslice = self._idslice
+        
+        # differentiation slice (moved by one in the direction of differentiation)
+        diff_pad = self._codomain.pads[self._diffdir]
+        diff_s = self._codomain.starts[self._diffdir]
+        diff_e = self._codomain.ends[self._diffdir]
+
+        # the diffslice depends on the transposition
         if self._transposed:
-            self._prepare_diff_t2()
+            diff_partslice = slice(diff_pad-1, diff_e-diff_s+1+diff_pad-1)
         else:
-            self._prepare_diff()
-
-    def _prepare_diff(self):
-        # prepare the slices (they are of the right size then, we checked this already)
-        # identity slice
-        idslice = self._idslice
+            diff_partslice = slice(diff_pad+1, diff_e-diff_s+1+diff_pad+1)
         
-        # differentiation slice (moved by one in the direction of differentiation)
-        diff_pad = self._codomain.pads[self._diffdir]
-        diff_s = self._codomain.starts[self._diffdir]
-        diff_e = self._codomain.ends[self._diffdir]
-        diff_partslice = slice(diff_pad+1, diff_e-diff_s+1+diff_pad+1)
         diffslice = [diff_partslice if i==self._diffdir else idslice[i]
                             for i in range(self._domain.ndim)]
+        
 
-        # defined differentiation lambda based on the parameter negative (or sign)
+        # define differentiation lambda based on the parameter negative (or sign)
         if self._negative:
             self._do_diff = lambda v,out: np.subtract(v._data[idslice],
                                 v._data[diffslice], out=out._data[idslice])
         else:
             self._do_diff = lambda v,out: np.subtract(v._data[diffslice],
                                 v._data[idslice], out=out._data[idslice])
-    
-    def _prepare_diff_t2(self):
-        # prepare the slices (they are of the right size then, we checked this already)
-        # identity slice
-        idslice = self._idslice
-        
-        # differentiation slice (moved by one in the direction of differentiation)
-        diff_pad = self._codomain.pads[self._diffdir]
-        diff_s = self._codomain.starts[self._diffdir]
-        diff_e = self._codomain.ends[self._diffdir]
-        diff_partslice = slice(diff_pad-1, diff_e-diff_s+1+diff_pad-1)
-        diffslice = [diff_partslice if i==self._diffdir else idslice[i]
-                            for i in range(self._domain.ndim)]
-
-        # defined differentiation lambda based on the parameter negative (or sign)
-        if self._negative:
-            self._do_diff = lambda v,out: np.subtract(v._data[idslice],
-                                v._data[diffslice], out=out._data[idslice])
-        else:
-            self._do_diff = lambda v,out: np.subtract(v._data[diffslice],
-                                v._data[idslice], out=out._data[idslice])
-
-    def _prepare_diff_t(self):
-        # prepare the slices (they are of the right size then, we checked this already)
-        # identity slice
-        idslice = self._idslice
-        
-        # differentiation part slices (moved by one in the direction of differentiation)
-        # for in-place transposed, we have to split up a bit
-
-        def make_diffslice(partslice):
-            return [partslice if i==self._diffdir else idslice[i]
-                            for i in range(self._domain.ndim)]
-
-        diff_pad = self._codomain.pads[self._diffdir]
-        diff_s = self._codomain.starts[self._diffdir]
-        diff_e = self._codomain.ends[self._diffdir]
-
-        # we have one line where we only copy (or negate, if self._negate is True)
-        diffslice_copy = make_diffslice(slice(diff_pad, diff_pad+1))
-
-        # for the rest, we subtract as normal (and take into account that idslice is truncated now)
-        diffslice_sub_cod = make_diffslice(slice(diff_pad+1, diff_e-diff_s+1+diff_pad))
-        diffslice_sub_dom = make_diffslice(slice(diff_pad, diff_e-diff_s+1+diff_pad-1))
-
-        # then, there is one line where we only negate (or copy) which is in the ghost region
-        # (therefore, we ignore it)
-
-        # defined differentiation lambda based on the parameter negative (or sign)
-        if self._negative:
-            def difffun(v, out):
-                out._data[diffslice_copy] = v._data[diffslice_copy]
-                np.subtract(v._data[diffslice_sub_cod], v._data[diffslice_sub_dom], out._data[diffslice_sub_cod])
-            self._do_diff = difffun
-        else:
-            def difffun(v, out):
-                np.negative(v._data[diffslice_copy], out=out._data[diffslice_copy])
-                np.subtract(v._data[diffslice_sub_dom], v._data[diffslice_sub_cod], out._data[diffslice_sub_cod])
-            self._do_diff = difffun
 
     @property
     def domain(self):
@@ -243,28 +185,26 @@ class KroneckerDifferentialOperator(LinearOperator):
         out : KroneckerStencilMatrix
             The resulting KroneckerStencilMatrix.
         """
-        # build derivative stencil matrix
-        periodic_d = self._domain.periods[self._diffdir]
-        p_d = self._domain.pads[self._diffdir]
-        n_d = self._domain.npts[self._diffdir]
-        m_d = self._codomain.npts[self._diffdir]
+        # build derivative stencil matrix (don't care for transposition here)
+        # hence, use spaceV and spaceW instead of domain, codomain
+        periodic_d = self._spaceV.periods[self._diffdir]
+        p_d = self._spaceV.pads[self._diffdir]
+        n_d = self._spaceV.npts[self._diffdir]
+        m_d = self._spaceW.npts[self._diffdir]
 
         V1_d = StencilVectorSpace([n_d], [p_d], [periodic_d])
         V2_d = StencilVectorSpace([m_d], [p_d], [periodic_d])
         M  = StencilMatrix(V1_d, V2_d)
 
-        # handle sign and transposition already here for now...
+        # handle sign already here for now...
         sign = -1. if self._negative else 1.
+        for i in range(m_d):
+            M._data[p_d+i, p_d]   = -1. * sign
+            M._data[p_d+i, p_d+1] =  1. * sign
+        
+        # now transpose, if needed
         if self._transposed:
-            # this extra "1" here is needed, otherwise tests fail here
-            M._data[p_d, p_d-1] =  1. * sign
-            for i in range(n_d):
-                M._data[p_d+i, p_d]   = -1. * sign
-                M._data[p_d+i+1, p_d-1] =  1. * sign
-        else:
-            for i in range(m_d):
-                M._data[p_d+i, p_d]   = -1. * sign
-                M._data[p_d+i, p_d+1] =  1. * sign
+            M = M.T
 
         # identity matrices
         def make_id(i):

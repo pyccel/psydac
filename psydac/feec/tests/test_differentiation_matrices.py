@@ -58,7 +58,6 @@ def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, 
     # compute reference solution (do it element-wise for now...)
     # (but we only test small domains here)
     ref = V1.vector_space.zeros()
-    print(v._data)
 
     outslice = [slice(s, s+c) for s,c in zip(pads, counts)]
     idslice = [slice(s, s+c) for s,c in zip(vpads, counts)]
@@ -66,7 +65,6 @@ def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, 
     if transposed:
         ref._data[idslice] -= v._data[outslice]
         ref._data[diffslice] += v._data[outslice]
-        print(ref._data)
 
         # we need to account for the ghost region write which diffslice does,
         # i.e. the part which might be sent to another process, or even swapped to the other side
@@ -77,13 +75,11 @@ def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, 
         v_restslice = [c for c in outslice]
         v_restslice[direction] = slice(pads[direction] - 1, pads[direction])
         ref._data[ref_restslice] += v._data[v_restslice]
-        print(ref._data)
     else:
         ref._data[outslice] = v._data[diffslice] - v._data[idslice]
     if negative:
         ref._data[localslice] = -ref._data[localslice]
     ref.update_ghost_regions()
-    print(ref._data)
 
     # compute and compare
 
@@ -105,6 +101,13 @@ def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, 
         # (i.e. test matrix conversion)
         res3 = diffop.tokronstencil().tostencil().dot(v)
         assert np.allclose(ref._data[localslice], res3._data[localslice])
+
+def compare_diff_operators_by_matrixassembly(lo1, lo2):
+    m1 = lo1.tokronstencil().tostencil()
+    m2 = lo2.tokronstencil().tostencil()
+    m1.update_ghost_regions()
+    m2.update_ghost_regions()
+    assert np.allclose(m1._data, m2._data)
 
 @pytest.mark.xfail
 def test_kronecker_differential_operator_invalid_wrongsized1():
@@ -157,7 +160,7 @@ def test_kronecker_differential_operator_invalid_wrongspace2():
 
     _ = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative)
 
-def test_kronecker_differential_operator_interface():
+def test_kronecker_differential_operator_transposition_correctness():
     # interface tests, to see if negation and transposition work as their methods suggest
 
     periodic = [False, False]
@@ -178,35 +181,55 @@ def test_kronecker_differential_operator_interface():
     # reduced space
     V1 = V0.reduce_degree(axes=[0], basis='M')
 
-    def compare(lo1, lo2):
-        m1 = lo1.tokronstencil().tostencil()
-        m2 = lo2.tokronstencil().tostencil()
-        m1.update_ghost_regions()
-        m2.update_ghost_regions()
-        assert np.allclose(m1._data, m2._data)
+    diff = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, False, False)
+
+    # compare, if the transpose is actually correct
+    M = diff.tokronstencil().tostencil()
+    MT = diff.T.tokronstencil().tostencil()
+    assert np.allclose(M.T._data, MT._data)
+    assert np.allclose(M._data, MT.T._data)
+
+def test_kronecker_differential_operator_interface():
+    # interface tests, to see if negation and transposition work as their methods suggest
+
+    periodic = [False, False]
+    domain = [(0,1),(0,1)]
+    ncells = [8, 8]
+    degree = [3, 3]
+    direction = 0
+
+    breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
+
+    Ns = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
+                                  for d, g, p in zip(degree, breaks, periodic)]
+    
+    # original space
+    V0 = TensorFemSpace(*Ns)
+
+    # reduced space
+    V1 = V0.reduce_degree(axes=[0], basis='M')
 
     diff = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, False, False)
     diffT = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, False, True)
     diffN = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, True, False)
     diffNT = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, True, True)
 
-    compare(diff.T, diff.transpose())
+    # compare all with all by assembling matrices
+    compare_diff_operators_by_matrixassembly(diff.T, diffT)
+    compare_diff_operators_by_matrixassembly(-diff, diffN)
+    compare_diff_operators_by_matrixassembly(-diff.T, diffNT)
 
-    compare(diff.T, diffT)
-    compare(-diff, diffN)
-    compare(-diff.T, diffNT)
+    compare_diff_operators_by_matrixassembly(diffT.T, diff)
+    compare_diff_operators_by_matrixassembly(-diffT, diffNT)
+    compare_diff_operators_by_matrixassembly(-diffT.T, diffN)
 
-    compare(diffT.T, diff)
-    compare(-diffT, diffNT)
-    compare(-diffT.T, diffN)
+    compare_diff_operators_by_matrixassembly(diffN.T, diffNT)
+    compare_diff_operators_by_matrixassembly(-diffN, diff)
+    compare_diff_operators_by_matrixassembly(-diffN.T, diffT)
 
-    compare(diffN.T, diffNT)
-    compare(-diffN, diff)
-    compare(-diffN.T, diffT)
-
-    compare(diffNT.T, diffN)
-    compare(-diffNT, diffT)
-    compare(-diffNT.T, diff)
+    compare_diff_operators_by_matrixassembly(diffNT.T, diffN)
+    compare_diff_operators_by_matrixassembly(-diffNT, diffT)
+    compare_diff_operators_by_matrixassembly(-diffNT.T, diff)
 
 @pytest.mark.parametrize('domain', [(0, 1), (-2, 3)])
 @pytest.mark.parametrize('ncells', [11, 37])
