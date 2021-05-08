@@ -85,7 +85,6 @@ def run_kronecker_differential_operator(comm, domain, ncells, degree, periodic, 
 
     # case one: dot(v, out=None)
     res1 = diffop.dot(v)
-    print(res1._data)
     assert np.allclose(ref._data[localslice], res1._data[localslice])
 
     # case two: dot(v, out=w)
