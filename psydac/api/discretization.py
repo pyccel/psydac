@@ -197,8 +197,6 @@ class DiscreteEquation(BasicDiscrete):
 
         self._bc = bc
         self._linear_system = None
-        self._free_args_lhs = {}
-        self._free_args_rhs = {}
         self._domain        = domain
         self._trial_space   = trial_space
         self._test_space    = test_space
@@ -240,34 +238,16 @@ class DiscreteEquation(BasicDiscrete):
     def boundary_equation(self):
         return self._boundary_equation
 
-    @property
-    def free_args_lhs(self):
-        """Free arguments for assemblying left-hand-side matrix."""
-        return self._free_args_lhs
-
-    @property
-    def free_args_rhs(self):
-        """Free arguments for assemblying right-hand-side vector."""
-        return self._free_args_rhs
-
     #--------------------------------------------------------------------------
     def assemble(self, **kwargs):
 
-        # Determine free arguments for matrix and vector assembly
-        free_args_lhs = {k : v for (k, v) in kwargs.items() if k in self.lhs.free_args}
-        free_args_rhs = {k : v for (k, v) in kwargs.items() if k in self.rhs.free_args}
-
         # Decide if we should assemble
-        if self.linear_system is None:
-            assemble_lhs = True
-            assemble_rhs = True
-        else:
-            assemble_lhs = (free_args_lhs != self.free_args_lhs)
-            assemble_rhs = (free_args_rhs != self.free_args_rhs)
+        assemble_lhs = not self.linear_system or self.lhs.free_args
+        assemble_rhs = not self.linear_system or self.rhs.free_args
 
         # Matrix (left-hand side)
         if assemble_lhs:
-            A = self.lhs.assemble(reset=True, **free_args_lhs)
+            A = self.lhs.assemble(reset=True, **kwargs)
             if self.bc:
                 apply_essential_bc(A, *self.bc)
         else:
@@ -275,7 +255,7 @@ class DiscreteEquation(BasicDiscrete):
 
         # Vector (right-hand side)
         if assemble_rhs:
-            b = self.rhs.assemble(reset=True, **free_args_rhs)
+            b = self.rhs.assemble(reset=True, **kwargs)
             if self.bc:
                 apply_essential_bc(b, *self.bc)
         else:
@@ -283,10 +263,6 @@ class DiscreteEquation(BasicDiscrete):
 
         # Store linear system
         self._linear_system = LinearSystem(A, b)
-
-        # Store free arguments
-        self._free_args_lhs = free_args_lhs
-        self._free_args_rhs = free_args_rhs
 
     #--------------------------------------------------------------------------
     def solve(self, **kwargs):
