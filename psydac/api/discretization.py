@@ -90,13 +90,13 @@ def l2_boundary_projection(equation):
     Parameters
     ----------
     equation : sympde.expr.Equation
-        Weak formulation of PDE of interest, which might have additional BCs.
+        Weak formulation of PDE of interest, which may have essential BCs.
 
     Returns
     -------
     eqn_bc : sympde.expr.Equation
         Weak formulation that performs L2 projection of inhomogeneous essential
-        boundary conditions onto the trial space. None if not needed
+        boundary conditions onto the trial space. None if not needed.
 
     """
     if not equation.bc:
