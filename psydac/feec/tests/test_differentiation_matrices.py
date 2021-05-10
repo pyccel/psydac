@@ -132,7 +132,7 @@ def test_kronecker_differential_operator_invalid_wrongsized1():
     # reduced space
     V1 = V0.reduce_degree(axes=[1], basis='M')
 
-    _ = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative)
+    _ = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
 
 @pytest.mark.xfail
 def test_kronecker_differential_operator_invalid_wrongspace2():
@@ -157,7 +157,7 @@ def test_kronecker_differential_operator_invalid_wrongspace2():
     # reduced space
     V1 = TensorFemSpace(*Ms)
 
-    _ = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative)
+    _ = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
 
 def test_kronecker_differential_operator_transposition_correctness():
     # interface tests, to see if negation and transposition work as their methods suggest
@@ -180,7 +180,7 @@ def test_kronecker_differential_operator_transposition_correctness():
     # reduced space
     V1 = V0.reduce_degree(axes=[0], basis='M')
 
-    diff = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, False, False)
+    diff = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=False)
 
     # compare, if the transpose is actually correct
     M = diff.tokronstencil().tostencil()
@@ -208,10 +208,10 @@ def test_kronecker_differential_operator_interface():
     # reduced space
     V1 = V0.reduce_degree(axes=[0], basis='M')
 
-    diff = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, False, False)
-    diffT = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, False, True)
-    diffN = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, True, False)
-    diffNT = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, True, True)
+    diff = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=False)
+    diffT = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=True)
+    diffN = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative=True, transposed=False)
+    diffNT = KroneckerDifferentialOperator(V0.vector_space, V1.vector_space, direction, negative=True, transposed=True)
 
     # compare all with all by assembling matrices
     compare_diff_operators_by_matrixassembly(diff.T, diffT)

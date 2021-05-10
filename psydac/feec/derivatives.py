@@ -65,7 +65,7 @@ class KroneckerDifferentialOperator(LinearOperator):
         Note that then V is the codomain and W is the domain.
     """
 
-    def __init__(self, V, W, diffdir, negative=False, transposed=False):
+    def __init__(self, V, W, diffdir, *, negative=False, transposed=False):
         assert isinstance(V, StencilVectorSpace)
         assert isinstance(W, StencilVectorSpace)
         assert V.ndim == W.ndim
@@ -168,12 +168,9 @@ class KroneckerDifferentialOperator(LinearOperator):
         assert isinstance(out, StencilVector)
         assert out.space is self._codomain
 
-        # apply the differentiation
+        # apply the differentiation and return the result
         self._do_diff(v, out)
-        
-        # update out ghost regions
-        # (we only need this for the direction in which we differentiate)
-        out.update_ghost_regions(direction=self._diffdir)
+
         return out
     
     def tokronstencil(self):
@@ -263,7 +260,6 @@ class DiffOperator:
         assert u.space == self.domain
 
         coeffs = self.matrix.dot(u.coeffs)
-        coeffs.update_ghost_regions()
 
         return FemField(self.codomain, coeffs=coeffs)
 
@@ -326,7 +322,7 @@ class Gradient_2D(DiffOperator):
         # Build Gradient matrix block by block
         blocks = [[KroneckerDifferentialOperator(B_B, M_B, 0)],
                   [KroneckerDifferentialOperator(B_B, B_M, 1)]]
-        matrix = BlockLinearOperator(BlockVectorSpace(H1.vector_space), Hcurl.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(H1.vector_space, Hcurl.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
@@ -370,7 +366,7 @@ class Gradient_3D(DiffOperator):
         blocks = [[KroneckerDifferentialOperator(B_B_B, M_B_B, 0)],
                   [KroneckerDifferentialOperator(B_B_B, B_M_B, 1)],
                   [KroneckerDifferentialOperator(B_B_B, B_B_M, 2)]]
-        matrix = BlockLinearOperator(BlockVectorSpace(H1.vector_space), Hcurl.vector_space, blocks=blocks)
+        matrix = BlockLinearOperator(H1.vector_space, Hcurl.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
@@ -409,9 +405,9 @@ class ScalarCurl_2D(DiffOperator):
         M_M = L2.vector_space
 
         # Build Curl matrix block by block
-        blocks = [[KroneckerDifferentialOperator(M_B, M_M, 1, True),
+        blocks = [[-KroneckerDifferentialOperator(M_B, M_M, 1),
                   KroneckerDifferentialOperator(B_M, M_M, 0)]]
-        matrix = BlockLinearOperator(Hcurl.vector_space, BlockVectorSpace(L2.vector_space), blocks=blocks)
+        matrix = BlockLinearOperator(Hcurl.vector_space, L2.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = Hcurl
@@ -452,8 +448,8 @@ class VectorCurl_2D(DiffOperator):
 
         # Build Curl matrix block by block
         blocks = [[KroneckerDifferentialOperator(B_B, B_M, 1)],
-                  [KroneckerDifferentialOperator(B_B, M_B, 0, True)]]
-        matrix = BlockLinearOperator(BlockVectorSpace(H1.vector_space), Hdiv.vector_space, blocks=blocks)
+                  [-KroneckerDifferentialOperator(B_B, M_B, 0)]]
+        matrix = BlockLinearOperator(H1.vector_space, Hdiv.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
@@ -483,13 +479,6 @@ class Curl_3D(DiffOperator):
         assert Hcurl.spaces[1].periodic == Hdiv.spaces[1].periodic
         assert Hcurl.spaces[2].periodic == Hdiv.spaces[2].periodic
 
-        print(Hcurl.spaces[0].degree)
-        print(Hcurl.spaces[1].degree)
-        print(Hcurl.spaces[2].degree)
-        print(Hdiv.spaces[0].degree)
-        print(Hdiv.spaces[1].degree)
-        print(Hdiv.spaces[2].degree)
-
         Hdiv0, Hdiv1, Hdiv2 = Hdiv.spaces
         assert tuple(Hcurl.spaces[1].degree) == (Hdiv0.degree[0]  , Hdiv0.degree[1]  , Hdiv0.degree[2]+1)
         assert tuple(Hcurl.spaces[2].degree) == (Hdiv0.degree[0]  , Hdiv0.degree[1]+1, Hdiv0.degree[2]  )
@@ -507,9 +496,9 @@ class Curl_3D(DiffOperator):
         # ...
         # Build Curl matrix block by block
         f = KroneckerDifferentialOperator
-        blocks = [[          None           , f(B_M_B, B_M_M, 2, True) , f(B_B_M, B_M_M, 1, False)],
-                  [f(M_B_B, M_B_M, 2, False),           None           , f(B_B_M, M_B_M, 0, True) ],
-                  [f(M_B_B, M_M_B, 1, True) , f(B_M_B, M_M_B, 0, False),           None           ]]
+        blocks = [[ None               , -f(B_M_B, B_M_M, 2) ,  f(B_B_M, B_M_M, 1)],
+                  [ f(M_B_B, M_B_M, 2) ,  None,                -f(B_B_M, M_B_M, 0)],
+                  [-f(M_B_B, M_M_B, 1) ,  f(B_M_B, M_M_B, 0) ,  None              ]]
 
         matrix = BlockLinearOperator(Hcurl.vector_space, Hdiv.vector_space, blocks=blocks)
         # ...
@@ -553,7 +542,7 @@ class Divergence_2D(DiffOperator):
         # Build Divergence matrix block by block
         f = KroneckerStencilMatrix
         blocks = [[KroneckerDifferentialOperator(B_M, M_M, 0), KroneckerDifferentialOperator(M_B, M_M, 1)]]
-        matrix = BlockLinearOperator(Hdiv.vector_space, BlockVectorSpace(L2.vector_space), blocks=blocks) 
+        matrix = BlockLinearOperator(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
 
         # Store data in object
         self._domain   = Hdiv
@@ -597,7 +586,7 @@ class Divergence_3D(DiffOperator):
         blocks = [[KroneckerDifferentialOperator(B_M_M, M_M_M, 0),
                    KroneckerDifferentialOperator(M_B_M, M_M_M, 1),
                    KroneckerDifferentialOperator(M_M_B, M_M_M, 2)]]
-        matrix = BlockLinearOperator(Hdiv.vector_space, BlockVectorSpace(L2.vector_space), blocks=blocks) 
+        matrix = BlockLinearOperator(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
 
         # Store data in object
         self._domain   = Hdiv
