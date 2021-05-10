@@ -495,10 +495,10 @@ class Curl_3D(DiffOperator):
 
         # ...
         # Build Curl matrix block by block
-        f = KroneckerDifferentialOperator
-        blocks = [[ None               , -f(B_M_B, B_M_M, 2) ,  f(B_B_M, B_M_M, 1)],
-                  [ f(M_B_B, M_B_M, 2) ,  None,                -f(B_B_M, M_B_M, 0)],
-                  [-f(M_B_B, M_M_B, 1) ,  f(B_M_B, M_M_B, 0) ,  None              ]]
+        D = KroneckerDifferentialOperator
+        blocks = [[       None         , -D(B_M_B, B_M_M, 2) ,  D(B_B_M, B_M_M, 1)],
+                  [ D(M_B_B, M_B_M, 2) ,        None,          -D(B_B_M, M_B_M, 0)],
+                  [-D(M_B_B, M_M_B, 1) ,  D(B_M_B, M_M_B, 0) ,        None        ]]
 
         matrix = BlockLinearOperator(Hcurl.vector_space, Hdiv.vector_space, blocks=blocks)
         # ...
