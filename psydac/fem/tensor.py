@@ -35,10 +35,11 @@ class TensorFemSpace( FemSpace ):
         assert all( isinstance( s, SplineSpace ) for s in args )
         self._spaces = tuple(args)
 
-        npts    = [V.nbasis   for V in self.spaces]
-        pads    = [V.degree   for V in self.spaces]
-        periods = [V.periodic for V in self.spaces]
-        basis   = [V.basis    for V in self.spaces]
+        npts         = [V.nbasis       for V in self.spaces]
+        pads         = [V.degree       for V in self.spaces]
+        periods      = [V.periodic     for V in self.spaces]
+        multiplicity = [V.multiplicity for V in self.spaces]
+        basis        = [V.basis        for V in self.spaces]
 
         if 'comm' in kwargs and not( kwargs['comm'] is None ):
             # parallel case
@@ -51,6 +52,7 @@ class TensorFemSpace( FemSpace ):
                 npts         = npts,
                 pads         = pads,
                 periods      = periods,
+                multiplicity = multiplicity,
                 reorder      = True,
                 comm         = comm,
                 nprocs       = nprocs,
@@ -66,7 +68,7 @@ class TensorFemSpace( FemSpace ):
 
         else:
             # serial case
-            self._vector_space = StencilVectorSpace(npts, pads, periods)
+            self._vector_space = StencilVectorSpace(npts, pads, periods, multiplicity=multiplicity)
 
         # Shortcut
         v = self._vector_space

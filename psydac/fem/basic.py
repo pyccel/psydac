@@ -121,22 +121,38 @@ class FemSpace( metaclass=ABCMeta ):
 
     # ...
     def __mul__(self, a):
-        if a.is_product:
-            spaces = a.spaces
+
+        if self.is_product:
+            spaces = list(self.spaces)
         else:
-            spaces = [a]
-        space = ProductFemSpace(*self.spaces, *spaces)
-        space._symbolic_space =  self.symbolic_space*a.symbolic_space
+            spaces = [self]
+
+        if a.is_product:
+            spaces += a.spaces
+        else:
+            spaces += [a]
+
+        space = ProductFemSpace(*spaces)
+        if a.symbolic_space and self.symbolic_space:
+            space._symbolic_space =  self.symbolic_space*a.symbolic_space
         return space
 
     # ...
     def __rmul__(self, a):
         if a.is_product:
-            spaces = a.spaces
+            spaces = list(a.spaces)
         else:
             spaces = [a]
-        space = ProductFemSpace(*spaces, *self.spaces)
-        space._symbolic_space =  a.symbolic_space * self.symbolic_space
+
+        if self.is_product:
+            spaces += list(self.spaces)
+        else:
+            spaces += [self]
+
+        space = ProductFemSpace(*spaces)
+
+        if a.symbolic_space and self.symbolic_space:
+            space._symbolic_space =  a.symbolic_space * self.symbolic_space
         return space
 
 #---------------------------------------

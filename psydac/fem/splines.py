@@ -71,6 +71,10 @@ class SplineSpace( FemSpace ):
         if grid is None:
             grid = breakpoints(knots, degree)
 
+        assert len(grid)>2
+
+        multiplicity = (abs(knots[:3*degree+3]-grid[1])<1e-17).tolist().count(True)
+
         # TODO: verify that user-provided knots make sense in periodic case
 
         # Number of basis function in space (= cardinality)
@@ -93,6 +97,7 @@ class SplineSpace( FemSpace ):
         self._pads          = pads or degree
         self._knots         = knots
         self._periodic      = periodic
+        self._multiplicity  = multiplicity
         self._dirichlet     = dirichlet
         self._basis         = basis
         self._nbasis        = nbasis
@@ -315,6 +320,10 @@ class SplineSpace( FemSpace ):
         return self._knots
 
     @property
+    def multiplicity( self ):
+        return self._multiplicity
+
+    @property
     def breaks( self ):
         """ List of breakpoints.
         """
@@ -421,3 +430,20 @@ class SplineSpace( FemSpace ):
         txt += '> nbasis :: {dim} \n'.format( dim=self.nbasis )
         txt += '> degree :: {degree}'.format( degree=self.degree )
         return txt
+
+    def draw(self):
+        from scipy.interpolate import BSpline
+        import matplotlib.pyplot as plt
+        n = self.nbasis
+        d = self.degree
+        knots = self.knots
+        fig, ax = plt.subplots()
+        xx = np.linspace(knots[0], knots[-1], 200)
+        for i in range(n):
+            c = [0]*n
+            c[i] = 1
+            spl = BSpline(knots, c, d)
+            ax.plot(xx, spl(xx), label='N{}'.format(i))
+        ax.grid(True)
+        plt.show()
+

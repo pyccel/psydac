@@ -369,6 +369,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
     ldim                = V.ldim
     periodic            = kwargs.pop('periodic', [False]*ldim)
     basis               = kwargs.pop('basis', 'B')
+    knots               = kwargs.pop('knots', None)
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
@@ -412,12 +413,17 @@ def discretize_space(V, domain_h, *args, **kwargs):
             assert(isinstance( degree, (list, tuple) ))
             assert( len(degree) == ldim )
 
-            # Create uniform grid
-            grids = [np.linspace(xmin, xmax, num=ne + 1)
-                     for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
+            if knots is None:
+                # Create uniform grid
+                grids = [np.linspace(xmin, xmax, num=ne + 1)
+                         for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
-            # Create 1D finite element spaces and precompute quadrature data
-            spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
+                # Create 1D finite element spaces and precompute quadrature data
+                spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
+            else:
+                 # Create 1D finite element spaces and precompute quadrature data
+                spaces = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree, knots[interior.name], periodic)]
+
             Vh     = None
             if i>0:
                 for e in interfaces:
