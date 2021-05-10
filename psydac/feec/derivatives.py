@@ -4,7 +4,7 @@ import numpy as np
 
 from psydac.linalg.stencil  import StencilVector, StencilMatrix, StencilVectorSpace
 from psydac.linalg.kron     import KroneckerStencilMatrix
-from psydac.linalg.block    import BlockVectorSpace, BlockVector, BlockLinearOperator, BlockLinearOperator
+from psydac.linalg.block    import BlockVector, BlockLinearOperator, BlockLinearOperator
 from psydac.fem.vector      import ProductFemSpace
 from psydac.fem.tensor      import TensorFemSpace
 from psydac.linalg.identity import IdentityLinearOperator, IdentityStencilMatrix as IdentityMatrix
