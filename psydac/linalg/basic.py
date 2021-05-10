@@ -219,7 +219,7 @@ class LinearSolver( metaclass=ABCMeta ):
         pass
 
     @abstractmethod
-    def solve( self, rhs, out=None ):
+    def solve( self, rhs, out=None, transposed=False ):
         pass
 
 #===============================================================================
