@@ -15,10 +15,12 @@ from sympde.expr.expr import integral
 
 from psydac.api.discretization       import discretize
 from psydac.api.essential_bc         import apply_essential_bc_stencil
+from psydac.api.settings             import PSYDAC_BACKENDS
 from psydac.linalg.block             import BlockVectorSpace, BlockVector, BlockMatrix
 from psydac.linalg.stencil           import StencilVector, StencilMatrix, StencilInterfaceMatrix
 from psydac.linalg.iterative_solvers import cg, pcg
 from psydac.fem.basic                import FemField
+
 
 from psydac.feec.global_projectors               import Projector_H1, Projector_Hcurl, Projector_L2
 from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D
@@ -523,8 +525,9 @@ class BrokenMass( FemLinearOperator ):
         else:
             expr   = dot(u,v)
         a = BilinearForm((u,v), integral(domain, expr))
-        ah = discretize(a, domain_h, [Vh, Vh])
+        ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['pyccel-gcc'])
         self._matrix = ah.assemble() #.toarray()
+
 
 
 #==============================================================================
