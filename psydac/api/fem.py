@@ -384,8 +384,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                                                                 pads = tuple(pads[k1,k2]),
                                                                 backend=backend)
 
-                    element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*(2*pads[k1,k2]+1)))
                     matrix[k1,k2]        = global_mats[k1,k2]
+                    m                    = matrix[k1,k2].domain.multiplicity
+                    element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*(pads[k1,k2]+1+m*pads[k1,k2])))
 
         else: # case of scalar equation
             if is_broken: # multi-patch
@@ -403,7 +404,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     global_mats[i,j] = StencilMatrix(trial_space, test_space, backend=backend)
 
-                element_mats[i,j]  = np.empty((*(test_degree+1),*(2*pads+1)))
+                m                  = global_mats[i,j].domain.multiplicity
+                element_mats[i,j]  = np.empty((*(test_degree+1),*(pads+1 + m*pads)))
                 if (i,j) in global_mats:self._matrix[i,j] = global_mats[i,j]
             else: # single patch
                 if self._matrix:
@@ -411,7 +413,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     global_mats[0,0] = StencilMatrix(trial_space, test_space, pads=tuple(pads), backend=backend)
 
-                element_mats[0,0]  = np.empty((*(test_degree+1),*(2*pads+1)))
+                m                  = global_mats[0,0].domain.multiplicity
+                element_mats[0,0]  = np.empty((*(test_degree+1),*(pads+1 +m*pads)))
                 self._matrix       = global_mats[0,0]
         return element_mats.values(), global_mats.values()
 
@@ -572,7 +575,13 @@ class DiscreteLinearForm(BasicDiscrete):
         tests_basis, tests_degrees, spans = construct_test_space_arguments(self.test_basis)
         n_elements, quads, quads_degree   = construct_quad_grids_arguments(self.grid)
 
-        global_pads   = self.space.vector_space.pads
+        if self.space.is_product:
+            global_pads   = []
+            for s in self.space.spaces:
+                global_pads += [[p*m for p,m in zip(s.vector_space.pads, s.vector_space.multiplicity)]]
+            global_pads = global_pads[0]
+        else:
+            global_pads = [p*m for p,m in zip(self.space.vector_space.pads, self.space.vector_space.multiplicity)]
 
         element_mats, global_mats = self.allocate_matrices()
         self._global_matrices   = [M._data for M in global_mats]

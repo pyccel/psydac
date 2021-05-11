@@ -202,7 +202,7 @@ class StencilVector( Vector ):
 
         assert isinstance( V, StencilVectorSpace )
 
-        sizes = [e-s+2*p+1 for s,e,p in zip(V.starts, V.ends, V.pads)]
+        sizes = [e-s+1 + 2*m*p for s,e,p,m in zip(V.starts, V.ends, V.pads, V.multiplicity)]
         self._sizes = tuple(sizes)
         self._ndim  = len(V.starts)
         self._data  = np.zeros( sizes, dtype=V.dtype )
@@ -361,7 +361,7 @@ class StencilVector( Vector ):
     # ...
     def toarray_local( self ):
         """ return the local array without the padding"""
-        idx = tuple( slice(p,-p) for p in self.pads )
+        idx = tuple( slice(m*p,-m*p) for p,m in zip(self.pads,self.space.multiplicity) )
         return self._data[idx].flatten(order='F')
 
     # ...
@@ -581,14 +581,13 @@ class StencilMatrix( Matrix ):
                 assert p<=vp
         
         self._pads     = pads or tuple(V.pads)
-        dims           = [e-s+2*p+1 for s,e,p in zip(W.starts, W.ends, W.pads)]
-        diags          = [2*p+1 for p in self._pads]
+        dims           = [e-s+2*p+1 for s,e,p,m in zip(W.starts, W.ends, W.pads, W.multiplicity)]
+        diags          = [p+1+p*m for p,m in zip(self._pads, V.multiplicity)]
         self._data     = np.zeros( dims+diags, dtype=W.dtype )
         self._domain   = V
         self._codomain = W
         self._ndim     = len( dims )
         self._backend  = backend
-
 
         # Parallel attributes
         if V.parallel:
@@ -604,13 +603,14 @@ class StencilMatrix( Matrix ):
 
         # prepare the arguments
         # Number of rows in matrix (along each dimension)
-        nd  = [(e-s+1)//m for s,e,m in zip(V.starts, V.ends, V.multiplicity)]
-        nc  = [(e-s+1)//m for s,e,m in zip(W.starts, W.ends, W.multiplicity)]
+        nd  = [ej-sj+1+2*p*mj for sj,ej,mj,p in zip(V.starts, V.ends, V.multiplicity, self._pads)]
+        nc  = [(ei-si)*mj+p*mj+p+1 for si,ei,mj,p in zip(W.starts, W.ends, V.multiplicity, self._pads)]
+        ne  = [max(0,ni-nj) for ni,nj in zip(nc, nd)]
 
-        ne = [max(0,ni-nj)  for ni,nj in zip(nc,nd)]
+        newends = [ei if n==0 else (ej-sj - p + mj*p)//mj+si for si,ei,sj,ej,mj,p,n in zip(W.starts,W.ends, V.starts,V.ends,V.multiplicity,self._pads,ne)]
 
-        nrows = [(n-ne)*n for n,ne,m in zip(nc, ne, W.multiplicity)]
-        nrows_extra = [(e-s+1)-n for n,e,s in zip(nrows, W.starts, W.ends)]
+        nrows       = [e-s+1 for s,e  in zip(W.starts, newends)]
+        nrows_extra = [(e-s+1)-n for n,s,e in zip(nrows, W.starts, W.ends)]
 
         args                 = OrderedDict()
         args['nrows']        = nrows
@@ -677,7 +677,7 @@ class StencilMatrix( Matrix ):
         for xx in np.ndindex( *nrows ):
 
             ii    = tuple( xp+x for xp,x in zip(gpads, xx) )
-            jj    = tuple( slice(d+x//mi*mj,d+x//mi*mj+2*p+1) for x,mi,mj,p,d in zip(xx,cm,dm,pads,diff) )
+            jj    = tuple( slice(d+x//mi*mj,d+x//mi*mj+p+1+mj*p) for x,mi,mj,p,d in zip(xx,cm,dm,pads,diff) )
             ii_kk = tuple( list(ii) + kk )
 
             out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
@@ -695,8 +695,8 @@ class StencilMatrix( Matrix ):
 
                     ii     = tuple(x+xp for x,xp in zip(gpads, xx))
                     ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
-                    jj     = tuple( slice(x+d//mi*mj, x+d+2*p+1-e) for x,mi,mj,p,d,e in zip(xx, cm, dm, pads, diff, ee) )
-                    ndiags = [2*p + 1-e for p,e in zip(pads,ee)]
+                    jj     = tuple( slice(x+d//mi*mj, x+d+p+1+mj*p-e) for x,mi,mj,p,d,e in zip(xx, cm, dm, pads, diff, ee) )
+                    ndiags = [p + 1 +mj*p-e for p,mj,e in zip(pads,dm,ee)]
                     kk     = [slice(None,diag) for diag in ndiags]
                     ii_kk  = tuple( list(ii) + kk )
 
@@ -1145,7 +1145,7 @@ class StencilMatrix( Matrix ):
             ii = [s+x for s,x in zip(ss,xx)]
             di = [i//m for i,m in zip(ii,cm)]
 
-            jj = [(i*m+l-p)%n for (i,m,l,n,p) in zip(di,dm, ll,nc,self._pads)]
+            jj = [(i*m+l-m*p)%n for (i,m,l,n,p) in zip(di,dm,ll,nc,self._pads)]
 
             I = ravel_multi_index( ii, dims=nr, order='F' )
             J = ravel_multi_index( jj, dims=nc, order='F' )
