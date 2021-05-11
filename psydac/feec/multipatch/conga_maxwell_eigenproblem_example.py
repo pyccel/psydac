@@ -24,19 +24,12 @@ from psydac.fem.basic   import FemField
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
 from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
-from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1
+from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, time_count
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 
 comm = MPI.COMM_WORLD
-
-import time
-def time_count(t_stamp=None):
-    new_t_stamp = time.time()
-    if t_stamp:
-        print('time elapsed: ', new_t_stamp - t_stamp)
-    return new_t_stamp
 
 def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
                                 domain_name='square',
@@ -156,13 +149,13 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
         harmonic_field = 2
 
         if harmonic_field == 1:
-            # 'diverging' harmonic field: hf = (-(sin theta)/r , (cos theta)/r) = (-y/r**2, x/r**2)
-            hf_x = -y/(x**2 + y**2)
-            hf_y =  x/(x**2 + y**2)
-        else:
-            # 'rotating' harmonic field: hf = (-(sin theta)/r , (cos theta)/r) = (-y/r**2, x/r**2)
+            # 'diverging' harmonic field: hf = ((cos theta)/r , (sin theta)/r) = (-y/r**2, x/r**2)
             hf_x = x/(x**2 + y**2)
             hf_y = y/(x**2 + y**2)
+        else:
+            # 'rotating' harmonic field: hf = (-(sin theta)/r , (cos theta)/r) = (-y/r**2, x/r**2)
+            hf_x = -y/(x**2 + y**2)
+            hf_y =  x/(x**2 + y**2)
 
         from sympy import lambdify
         hf_x   = lambdify(domain.coordinates, hf_x)
@@ -359,7 +352,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
 
 if __name__ == '__main__':
 
-    nc = 2**2 # 5
+    nc = 2**4 # 5
     h = 1/nc
     deg = 2
     # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
@@ -385,6 +378,9 @@ if __name__ == '__main__':
             0.124355372484E+02,
             ]
         nb_eigs=7  # need a bit more, to get rid of grad-div eigenmodes
+
+    # possible domain shapes:
+    assert domain_name in ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus']
 
     run_maxwell_2d_eigenproblem(
         nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], alpha=alpha,

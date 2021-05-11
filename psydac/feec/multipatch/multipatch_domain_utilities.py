@@ -81,7 +81,7 @@ def get_2D_rotation_mapping(name='no_name', c1=0., c2=0., alpha=np.pi/2):
         a21=np.sin(alpha), a22=np.cos(alpha),
     )
 
-def build_multipatch_domain(domain_name='square', n_patches=2):   # old name: get_pretzel(h, r_min, r_max, debug_option=1):
+def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max=None):   # old name: get_pretzel(h, r_min, r_max, debug_option=1):
     """
     design several multipatch domain, including pretzel-like shapes
     :param domain_name:
@@ -201,15 +201,19 @@ def build_multipatch_domain(domain_name='square', n_patches=2):   # old name: ge
                 [domain_3.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
                 [domain_5.get_boundary(axis=1, ext=+1), domain_8.get_boundary(axis=1, ext=-1),1],
             ]
+        else:
+            raise NotImplementedError
 
     elif domain_name in ['pretzel', 'pretzel_annulus']:
         # pretzel-shaped domain with quarter-annuli and quadrangles -- setting parameters
-        h=0.5  # offset from axes of quarter-annuli
-        r_min=1 # smaller radius of quarter-annuli
-        r_max=1.5  # larger radius of quarter-annuli
+        if r_min is None:
+            r_min=1 # smaller radius of quarter-annuli
+        if r_max is None:
+            r_max=1.5  # larger radius of quarter-annuli
         assert 0 < r_min
         assert r_min < r_max
         dr = r_max - r_min
+        h = dr  # offset from axes of quarter-annuli
         hr = dr/2
         cr = h +(r_max+r_min)/2
 
@@ -262,11 +266,11 @@ def build_multipatch_domain(domain_name='square', n_patches=2):   # old name: ge
         domain_12  = mapping_12(dom_log_12)
 
         dom_log_13 = Square('dom13',bounds1=(np.pi*3/2, np.pi*2), bounds2=(r_min, r_max))
-        mapping_13 = TransposedPolarMapping('M13',2, c1= -r_max, c2= r_max, rmin = 0., rmax=1.)
+        mapping_13 = TransposedPolarMapping('M13',2, c1= -r_min-h, c2= r_min+h, rmin = 0., rmax=1.)
         domain_13  = mapping_13(dom_log_13)
 
         dom_log_14 = Square('dom14',bounds1=(np.pi, np.pi*3/2), bounds2=(r_min, r_max))
-        mapping_14 = TransposedPolarMapping('M14',2, c1= r_max, c2= r_max, rmin = 0., rmax=1.)
+        mapping_14 = TransposedPolarMapping('M14',2, c1= r_min+h, c2= r_min+h, rmin = 0., rmax=1.)
         #mapping_14 = get_2D_rotation_mapping('M14', c1=-2*np.pi, c2=0 , alpha=0)
         domain_14  = mapping_14(dom_log_14)
 
@@ -362,8 +366,10 @@ def build_multipatch_domain(domain_name='square', n_patches=2):   # old name: ge
 
     elif domain_name == 'annulus':
         # regular annulus
-        r_min=0.5 # smaller radius
-        r_max=1.  # larger radius
+        if r_min is None:
+            r_min=0.5 # smaller radius
+        if r_max is None:
+            r_max=1.  # larger radius
 
         if n_patches == 3:
             OmegaLog1 = Square('OmegaLog1',bounds1=(r_min, r_max), bounds2=(0., np.pi/2))
@@ -386,7 +392,7 @@ def build_multipatch_domain(domain_name='square', n_patches=2):   # old name: ge
                 [domain_3.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1),1],
             ]
 
-        if n_patches == 4:
+        elif n_patches == 4:
             OmegaLog1 = Square('OmegaLog1',bounds1=(r_min, r_max), bounds2=(0., np.pi/2))
             mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
             domain_1     = mapping_1(OmegaLog1)
@@ -411,6 +417,8 @@ def build_multipatch_domain(domain_name='square', n_patches=2):   # old name: ge
                 [domain_3.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),1],
                 [domain_4.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1),1],
             ]
+        else:
+            raise NotImplementedError
 
     else:
         raise NotImplementedError

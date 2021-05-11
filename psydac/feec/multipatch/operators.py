@@ -26,6 +26,13 @@ from psydac.feec.global_projectors               import Projector_H1, Projector_
 from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
+import time
+def time_count(t_stamp=None):
+    new_t_stamp = time.time()
+    if t_stamp:
+        print('time elapsed: ', new_t_stamp - t_stamp)
+    return new_t_stamp
+
 def get_patch_index_from_face(domain, face):
     if domain.mapping:
         domain = domain.logical_domain

@@ -185,6 +185,7 @@ def my_small_plot(
 def my_small_streamplot(
         title, vals_x, vals_y,
         xx, yy,
+        amplification=1,
 ):
 
     n_patches = len(xx)
@@ -207,7 +208,7 @@ def my_small_streamplot(
         # start_y = np.linspace(yy[k].min(), yy[k].max(), 10)
         # start_points = list(zip(start_x, start_y))
         plt.quiver(xx[k][::sk, ::sk], yy[k][::sk, ::sk], vals_x[k][::sk, ::sk], vals_y[k][::sk, ::sk],
-                   scale=1/0.05, width=0.002) # width=) units='width', pivot='mid',
+                   scale=1/(amplification*0.05), width=0.002) # width=) units='width', pivot='mid',
         # plt.streamplot(xx[k], yy[k], vals_x[k], vals_y[k], start_points=start_points)
         # plt.plot(start_x, start_y, 'ok')
 
