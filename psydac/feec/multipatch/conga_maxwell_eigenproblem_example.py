@@ -26,7 +26,7 @@ from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultL
 from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
-from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
+from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 
 comm = MPI.COMM_WORLD
@@ -76,6 +76,45 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
     V0h = derham_h.V0
     V1h = derham_h.V1
     V2h = derham_h.V2
+
+
+    TEST_DEBUG = False
+
+    if TEST_DEBUG:
+        # TEST V PLOT
+        etas, xx, yy = get_plotting_grid(mappings, N=20)
+
+        t_stamp = time_count(t_stamp)
+        print("assembling commuting projection operators...")
+
+        P0, P1, P2 = derham_h.projectors(nquads=nquads)
+
+        t_stamp = time_count(t_stamp)
+
+        hf_x = x/(x**2 + y**2)
+        hf_y = y/(x**2 + y**2)
+
+        from sympy import lambdify
+        hf_x   = lambdify(domain.coordinates, hf_x)
+        hf_y   = lambdify(domain.coordinates, hf_y)
+        hf_log = [pull_2d_hcurl([hf_x,hf_y], f) for f in mappings_list]
+
+        hf = P1(hf_log)
+
+        grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+
+        hf_x_vals, hf_y_vals = grid_vals_hcurl(hf)
+
+        my_small_streamplot(
+            title=('test plot'),
+            vals_x=hf_x_vals,
+            vals_y=hf_y_vals,
+            xx=xx,
+            yy=yy,
+        )
+        print('OKOKOKOKOK')
+        exit()
+
 
 
     t_stamp = time_count(t_stamp)
@@ -276,6 +315,14 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
                 yy=yy,
             )
 
+            my_small_streamplot(
+                title=('mode k:'+repr(k_eig)+' -- eigenvalue: '+repr(evalue)+' -- is curl_curl: '+is_curl_curl),
+                vals_x=eh_x_vals,
+                vals_y=eh_y_vals,
+                xx=xx,
+                yy=yy,
+            )
+
         k_eig += 1
 
     my_small_plot(
@@ -312,9 +359,9 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
 
 if __name__ == '__main__':
 
-    nc = 2**5
+    nc = 2**2 # 5
     h = 1/nc
-    deg = 3
+    deg = 2
     # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
     DG_alpha = 10*(deg+1)**2/h
     alpha = DG_alpha

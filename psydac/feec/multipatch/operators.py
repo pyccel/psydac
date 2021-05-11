@@ -177,7 +177,7 @@ class ConformingProjection_V0( FemLinearOperator ):
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
 
-        ah = discretize(a, domain_h, [V0h, V0h])
+        ah = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS['numba'])
 
         self._A = ah.assemble()
 
@@ -365,7 +365,7 @@ class ConformingProjection_V1( FemLinearOperator ):
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
 
-        ah = discretize(a, domain_h, [V1h, V1h])
+        ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS['numba'])
 
         self._A = ah.assemble()
 
@@ -525,7 +525,7 @@ class BrokenMass( FemLinearOperator ):
         else:
             expr   = dot(u,v)
         a = BilinearForm((u,v), integral(domain, expr))
-        ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['pyccel-gcc'])
+        ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['numba'])   # 'pyccel-gcc'])
         self._matrix = ah.assemble() #.toarray()
 
 
@@ -607,7 +607,7 @@ def ortho_proj_Hcurl(EE, V1h, domain_h, M1):
     V1 = V1h.symbolic_space
     v = element_of(V1, name='v')
     l = LinearForm(v, integral(V1.domain, dot(v,EE)))
-    lh = discretize(l, domain_h, V1h)
+    lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
     b = lh.assemble()
     sol_coeffs, info = pcg(M1.mat(), b, pc="jacobi", tol=1e-10)
 
