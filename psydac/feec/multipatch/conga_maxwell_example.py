@@ -42,7 +42,7 @@ from psydac.utilities.utils    import refine_array_1d
 
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
-from psydac.feec.multipatch.operators import BrokenMass, ConformingProjection_V1 #ortho_proj_Hcurl
+from psydac.feec.multipatch.operators import BrokenMass, ConformingProjection_V1, ConformingProjection_V0 #ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import time_count
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
@@ -541,7 +541,7 @@ if __name__ == '__main__':
         nc = 2**4
         deg = 2
 
-        domain_name = 'pretzel_debug'
+        # domain_name = 'pretzel_debug'
         nc = 2
 
     elif test_case == 'manufactured_sol':
@@ -558,7 +558,8 @@ if __name__ == '__main__':
     else:
         np_suffix = ''
 
-    load_dir = './tmp_matrices/'+domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'/'
+    # load_dir = './tmp_matrices/'+domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'/'
+    load_dir = None
     if load_dir and not os.path.exists(load_dir):
         print("discarding load_dir, since I cannot find it")
         load_dir = None
