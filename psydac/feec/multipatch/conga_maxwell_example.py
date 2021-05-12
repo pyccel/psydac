@@ -174,50 +174,18 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
         A_m = A1_m
 
     t_stamp = time_count(t_stamp)
-    print('playing with sympy...' )
-    # from sympy.vector import directional_derivative
-    # from sympde.calculus import Grad, Rot, Curl, Div
+    print('**********>>>>>>    Projecting a constant on the space V0h...' )
 
     x,y    = domain.coordinates
-    # J_x = -y
-    # J_y =  x
-    #
-    # f = Tuple(J_x, J_y)
-    # r0 = 2.1
-    # dr = 0.1
-    # y0 = 0.5
-    # ax = 2.6/r0
-    # J_x = -(y-y0) * exp( - (( (x/ax)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
-    # J_y =  (x/ax) * exp( - (( (x/ax)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
-    # J_x = -(y-y0) #* exp( - (( (x/ax)**2 + (y-y0)**2 - r0**2 )/dr)**2 )   # /(x**2 + y**2)
-    # J_y =  (x/ax) #* exp( - (( (x/ax)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
-    #
-    # J_x = x
+    # J_x = x  # - y
     # J_y = y
-
-    # J_x = exp( - y**2 )
-    # J_y = exp( - x**2 )
-    # J_x = - y
-    # J_y = x
     # f = Tuple(J_x, J_y)
-
-    # print(type(f))
-    # print(f)
-    # df = -2 #
-    # df = div(f)
-    # print(type(df))
-    # print(df)
-
-    J_x = x  # - y
-    J_y = y
-    f = Tuple(J_x, J_y)
-    df = div(f)
+    test_f = 2 # div(f)
     phi  = element_of(V0h.symbolic_space, name='phi')
-    df_l = LinearForm(phi, integral(domain, df*phi))
+    df_l = LinearForm(phi, integral(domain, test_f*phi))
     print("TerminalExpr -->")
     print(TerminalExpr(df_l, domain))
     print("<-- ")
-    # hm, there seems to be an error in the discretization of the linear form. When projecting a constant, I
     # print("df_l = ", df_l)
     df_lh = discretize(df_l, domain_h, V0h)
     b  = df_lh.assemble()
@@ -226,9 +194,9 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
     dfh = FemField(V0h, coeffs=array_to_stencil(dfh_c, V0h.vector_space))
     dfh_vals = grid_vals_h1(dfh)
     my_small_plot(
-        title=r'L2 proj of div f',
-        vals=[dfh_vals, np.abs(dfh_vals)],
-        titles=[r'$div fh$', r'$|div fh|$'],  # , r'$div_h J$' ],
+        title=r'L2 proj of test_f = 2:',
+        vals=[dfh_vals],
+        titles=[r'test_f_h$'],  # , r'$div_h J$' ],
         surface_plot=True,
         xx=xx, yy=yy,
     )
@@ -562,11 +530,11 @@ if __name__ == '__main__':
     n_patches = None
 
     if test_case=='circling_J':
-        domain_name = 'pretzel'
+        # domain_name = 'pretzel'
         # domain_name = 'square'
         # n_patches = 6
-        # domain_name = 'annulus'
-        # n_patches = 4
+        domain_name = 'annulus'
+        n_patches = 4
 
         nc = 2**4
         deg = 2
