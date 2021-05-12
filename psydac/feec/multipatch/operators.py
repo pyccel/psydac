@@ -26,6 +26,14 @@ from psydac.feec.global_projectors               import Projector_H1, Projector_
 from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
+DEBUG_BCK = False   ## DEBUG
+# DEBUG_BCK = True   ## DEBUG
+
+if DEBUG_BCK:
+    print("WITH numba backends")
+else:
+    print("WITHOUT numba backends")
+
 import time
 def time_count(t_stamp=None):
     new_t_stamp = time.time()
@@ -184,7 +192,11 @@ class ConformingProjection_V0( FemLinearOperator ):
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
 
-        ah = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS['numba'])
+        if DEBUG_BCK:
+            ah = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS['numba'])
+        else:
+            ah = discretize(a, domain_h, [V0h, V0h])
+
 
         self._A = ah.assemble()
 
@@ -372,7 +384,10 @@ class ConformingProjection_V1( FemLinearOperator ):
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
 
-        ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS['numba'])
+        if DEBUG_BCK:
+            ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS['numba'])
+        else:
+            ah = discretize(a, domain_h, [V1h, V1h])
 
         self._A = ah.assemble()
 
@@ -532,7 +547,12 @@ class BrokenMass( FemLinearOperator ):
         else:
             expr   = dot(u,v)
         a = BilinearForm((u,v), integral(domain, expr))
-        ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['numba'])   # 'pyccel-gcc'])
+        if DEBUG_BCK:
+            ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['numba'])   # 'pyccel-gcc'])
+        else:
+        # print("-- no numba in BrokenMass --")
+            ah = discretize(a, domain_h, [Vh, Vh])   # 'pyccel-gcc'])
+
         self._matrix = ah.assemble() #.toarray()
 
 
@@ -614,7 +634,10 @@ def ortho_proj_Hcurl(EE, V1h, domain_h, M1):
     V1 = V1h.symbolic_space
     v = element_of(V1, name='v')
     l = LinearForm(v, integral(V1.domain, dot(v,EE)))
-    lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
+    if DEBUG_BCK:
+        lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
+    else:
+        lh = discretize(l, domain_h, V1h)
     b = lh.assemble()
     sol_coeffs, info = pcg(M1.mat(), b, pc="jacobi", tol=1e-10)
 

@@ -15,9 +15,10 @@ from psydac.utilities.utils    import refine_array_1d
 from psydac.feec.multipatch.fem_linear_operators import ComposedLinearOperator
 from psydac.feec.multipatch.operators import BrokenMass
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1
+from psydac.feec.multipatch.operators import time_count
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_patch_knots_gridlines, my_small_plot
-from psydac.feec.multipatch.multipatch_domain_utilities import get_annulus_fourpatches, get_pretzel
+from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 
 comm = MPI.COMM_WORLD
 
@@ -77,7 +78,13 @@ def conga_operators_2d():
     # }  # Q (MCP): purpose of a dict ?
 
     # domain, mappings = get_annulus_fourpatches(r_min=0.5, r_max=1)
-    domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=2)
+    # domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=2)
+
+    r_min = 0.5
+    r_max = 1
+    domain_name = 'pretzel'
+
+    domain = build_multipatch_domain(domain_name=domain_name, r_min=r_min, r_max=r_max)
 
     print("int: ", domain.interior)
     print("bound: ", domain.boundary)
@@ -102,27 +109,41 @@ def conga_operators_2d():
     degree = [2, 2]
     nquads = [d + 1 for d in degree]
 
+    t_stamp = time_count()
+    print('# AA...' )
+
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     derham_h = discretize(derham, domain_h, degree=degree)
     V0h = derham_h.V0
     V1h = derham_h.V1
 
+    t_stamp = time_count(t_stamp)
+    print('# Mass...' )
     # Mass matrices for multipatch spaces (block-diagonal)
     M0 = BrokenMass(V0h, domain_h, is_scalar=True)
     M1 = BrokenMass(V1h, domain_h, is_scalar=False)
 
+    t_stamp = time_count(t_stamp)
+    print('# Comm Proj...' )
     # Projectors for broken spaces
     # - image is a discrete field in the multipatch (broken) space V0, V1 or V2
     # - when applied to a conforming field, the resulting discrete field actually belongs to the conforming discrete subspace
     # - they should commute with the differential operators (the broken or Conga ones, since these two coincide on conforming fields)
     P0, P1, P2 = derham_h.projectors(nquads=nquads)
 
+    t_stamp = time_count(t_stamp)
+    print('# Conf Proj...' )
     # Conforming projection operators
     Pconf_0 = ConformingProjection_V0(V0h, domain_h)#, verbose=False)
     Pconf_1 = ConformingProjection_V1(V1h, domain_h)# hom_bc=True)#, verbose=False)
 
+    t_stamp = time_count(t_stamp)
+    print('# broken derivatives...' )
     # Broken derivative operators
     bD0, bD1 = derham_h.broken_derivatives_as_operators
+
+    t_stamp = time_count(t_stamp)
+    print('# CCC ...' )
 
     #+++++++++++++++++++++++++++++++
     # . some target functions

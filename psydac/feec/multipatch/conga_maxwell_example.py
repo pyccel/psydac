@@ -10,7 +10,7 @@ from collections import OrderedDict
 from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import eigs
 
-from sympy import pi, cos, sin, Matrix, Tuple, Max
+from sympy import pi, cos, sin, Matrix, Tuple, Max, exp
 from sympy import symbols
 from sympy import lambdify
 
@@ -72,6 +72,26 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
     V1h = derham_h.V1
     V2h = derham_h.V2
 
+    DEBUG_f = False
+    if DEBUG_f:
+        print('assembling rhs DEBUG...' )
+        u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
+
+        print( type(f) )
+        print(f)
+        expr   = dot(f,v)
+        if hom_bc:
+            l = LinearForm(v, integral(domain, expr))
+        else:
+            expr_b = penalization * cross(uex, nn) * cross(v, nn)
+            l = LinearForm(v, integral(domain, expr) + integral(boundary, expr_b))
+
+        lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
+        b  = lh.assemble()
+
+        print("end debug")
+        exit()
+
     t_stamp = time_count(t_stamp)
     print('assembling the mass matrices...' )
     # Mass matrices for broken spaces (block-diagonal)
@@ -90,10 +110,12 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
     print('getting A operator...' )
     A1 = alpha * M1 + ComposedLinearOperator([I1-cP1, M1, I1-cP1]) + ComposedLinearOperator([cP1, bD1.transpose(), M2, bD1, cP1])
 
+    u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
+
     if not hom_bc:
         # boundary conditions
         # todo: clean the non-homogeneous case
-        u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
+        # u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
         nn  = NormalVector('nn')
         penalization = 10**7
         boundary = domain.boundary
@@ -115,7 +137,7 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, comm=None, retur
         expr_b = penalization * cross(uex, nn) * cross(v, nn)
         l = LinearForm(v, integral(domain, expr) + integral(boundary, expr_b))
 
-    lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
+    lh = discretize(l, domain_h, V1h) #, backend=PSYDAC_BACKENDS['numba'])
     b  = lh.assemble()
 
     #+++++++++++++++++++++++++++++++
@@ -191,7 +213,7 @@ def run_maxwell_2d_time_harmonic(test_case='manufactured_sol', nc=4, deg=2):
         mappings_list = list(mappings.values())
         x,y    = domain.coordinates
 
-        omega = 1  # ?
+        omega = 4  # ?
         alpha  = -omega**2
         # 'rotating' (divergence-free) J field:
         #   J = j(r) * (-sin theta, cos theta)  ___?
@@ -200,16 +222,23 @@ def run_maxwell_2d_time_harmonic(test_case='manufactured_sol', nc=4, deg=2):
         dr = 0.1
         y0 = 0.5
         ax = 2.6/r0
-        J_x = -(y-y0) * Max(dr**2 - (((x/ax)**2 + (y-y0)**2)**.5-r0)**2, 0)   # /(x**2 + y**2)
-        J_y =  (x/ax) * Max(dr**2 - (((x/ax)**2 + (y-y0)**2)**.5-r0)**2, 0)
+
+        # gives an error:
+        # NotImplementedError: Cannot translate to Sympy:
+        # Max(0, 0.01 - 4.41*(0.476190476190476*((1.0*x1*sin(x2) + 0.5)**2 + 0.652366863905326*(1.0*x1*cos(x2) + 1)**2)**0.5 - 1)**2)
+        # J_x = -(y-y0) * Max(dr**2 - (((x/ax)**2 + (y-y0)**2)**.5-r0)**2, 0)   # /(x**2 + y**2)
+        # J_y =  (x/ax) * Max(dr**2 - (((x/ax)**2 + (y-y0)**2)**.5-r0)**2, 0)
+
+        # also gives an error:
+        # "numba.core.errors.TypingError: Failed in nopython mode pipeline (step: nopython frontend)
+        # NameError: name 'sqrt' is not defined"
+        # J_x = -(y-y0) * exp( - ((( (x/ax)**2 + (y-y0)**2 )**.5-r0 )/dr)**2 )   # /(x**2 + y**2)
+        # J_y =  (x/ax) * exp( - ((((x/ax)**2 + (y-y0)**2)**.5-r0)/dr)**2 )
+
+        J_x = -(y-y0) * exp( - (( (x/ax)**2 + (y-y0)**2 - r0**2 )/dr)**2 )   # /(x**2 + y**2)
+        J_y =  (x/ax) * exp( - (( (x/ax)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
         f = Tuple(J_x, J_y)
 
-        # J_x = -Max(y, 0.) # /(x**2 + y**2)
-        # J_y =  Max(x, 0.)
-
-        lamJ_x   = lambdify(domain.coordinates, J_x)
-        lamJ_y   = lambdify(domain.coordinates, J_y)
-        J_log = [pull_2d_hcurl([lamJ_x,lamJ_y], M) for M in mappings_list]
 
         uex = None
 
@@ -217,59 +246,65 @@ def run_maxwell_2d_time_harmonic(test_case='manufactured_sol', nc=4, deg=2):
         raise NotImplementedError
 
 
-        # nc = 2**5
-        # ncells=[nc, nc]
-        # degree=[2,2]
-        #
-        # mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-        # mappings_list = list(mappings.values())
-        # x,y    = domain.coordinates
-        # nquads = [d + 1 for d in degree]
-        #
-        #
-        #
-        # # for plotting
-        # etas, xx, yy = get_plotting_grid(mappings, N=40)
-        # grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
-        # grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
-        #
-        # vis_J = True
-        # if vis_J:
-        #     # multipatch de Rham sequence:
-        #     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-        #
-        #     domain_h = discretize(domain, ncells=ncells, comm=comm)
-        #     derham_h = discretize(derham, domain_h, degree=degree)
-        #     # V1h = derham_h.V1
-        #     # V2h = derham_h.V2
-        #
-        #     print("assembling projection operators...")
-        #     P0, P1, P2 = derham_h.projectors(nquads=nquads)
-        #
-        #     J = P1(J_log)
-        #
-        #     J_x_vals, J_y_vals = grid_vals_hcurl(J)
-        #
-        #     my_small_plot(
-        #         title=r'diverging harmonic field and Conga curl',
-        #         vals=[np.abs(J_x_vals), np.abs(J_y_vals)],
-        #         titles=[r'$|J_x|$', r'$|J_y|$'],  # , r'$div_h J$' ],
-        #         surface_plot=True,
-        #         xx=xx, yy=yy,
-        #     )
-        #
-        #     my_small_streamplot(
-        #         title=('J'),
-        #         vals_x=J_x_vals,
-        #         vals_y=J_y_vals,
-        #         xx=xx,
-        #         yy=yy,
-        #         amplification=20,
-        #     )
-        #
-        # #exit()
-        # uex = None
+    vis_J = False
+    if vis_J:
 
+        nc = 2**5
+        ncells=[nc, nc]
+        degree=[2,2]
+
+        # for plotting J:
+        lamJ_x   = lambdify(domain.coordinates, J_x)
+        lamJ_y   = lambdify(domain.coordinates, J_y)
+        J_log = [pull_2d_hcurl([lamJ_x,lamJ_y], M) for M in mappings_list]
+
+        mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+        mappings_list = list(mappings.values())
+        x,y    = domain.coordinates
+        nquads = [d + 1 for d in degree]
+
+        # for plotting
+        etas, xx, yy = get_plotting_grid(mappings, N=40)
+        grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
+        grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+
+        # multipatch de Rham sequence:
+        derham  = Derham(domain, ["H1", "Hcurl", "L2"])
+
+        domain_h = discretize(domain, ncells=ncells, comm=comm)
+        derham_h = discretize(derham, domain_h, degree=degree)
+        # V1h = derham_h.V1
+        # V2h = derham_h.V2
+
+        print("assembling projection operators...")
+        P0, P1, P2 = derham_h.projectors(nquads=nquads)
+
+        J = P1(J_log)
+
+        J_x_vals, J_y_vals = grid_vals_hcurl(J)
+
+        my_small_plot(
+            title=r'diverging harmonic field and Conga curl',
+            vals=[np.abs(J_x_vals), np.abs(J_y_vals)],
+            titles=[r'$|J_x|$', r'$|J_y|$'],  # , r'$div_h J$' ],
+            surface_plot=True,
+            xx=xx, yy=yy,
+        )
+
+        my_small_streamplot(
+            title=('J'),
+            vals_x=J_x_vals,
+            vals_y=J_y_vals,
+            xx=xx,
+            yy=yy,
+            amplification=.5, #20,
+        )
+
+        exit()
+
+
+    # f      = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+    #                  alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
     ## call solver
     l2_error, uh = run_conga_maxwell_2d(uex, f, alpha, domain, ncells=[nc, nc], degree=[deg,deg], return_sol=True)
@@ -278,7 +313,7 @@ def run_maxwell_2d_time_harmonic(test_case='manufactured_sol', nc=4, deg=2):
     #     # Nitsche
     #     l2_error, uh = run_system_3_2d_dir(uex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)
 
-    if l2_error:
+    if uex:
         print("max2d: ", l2_error)
 
 
@@ -294,37 +329,70 @@ def run_maxwell_2d_time_harmonic(test_case='manufactured_sol', nc=4, deg=2):
     gridlines_x1 = None
     gridlines_x2 = None
 
-    u_x_vals, u_y_vals   = grid_vals_hcurl(uex_log)
     uh_x_vals, uh_y_vals = grid_vals_hcurl(uh)
-    u_x_err = [abs(u1 - u2) for u1, u2 in zip(u_x_vals, uh_x_vals)]
-    u_y_err = [abs(u1 - u2) for u1, u2 in zip(u_y_vals, uh_y_vals)]
-    # u_x_err = abs(u_x_vals - uh_x_vals)
-    # u_y_err = abs(u_y_vals - uh_y_vals)
+    if uex:
+        u_x_vals, u_y_vals   = grid_vals_hcurl(uex_log)
+        u_x_err = [abs(u1 - u2) for u1, u2 in zip(u_x_vals, uh_x_vals)]
+        u_y_err = [abs(u1 - u2) for u1, u2 in zip(u_y_vals, uh_y_vals)]
+        # u_x_err = abs(u_x_vals - uh_x_vals)
+        # u_y_err = abs(u_y_vals - uh_y_vals)
 
-    my_small_plot(
-        title=r'approximation of solution $u$, $x$ component',
-        vals=[u_x_vals, uh_x_vals, u_x_err],
-        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+        my_small_plot(
+            title=r'approximation of solution $u$, $x$ component',
+            vals=[u_x_vals, uh_x_vals, u_x_err],
+            titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+            xx=xx,
+            yy=yy,
+            gridlines_x1=gridlines_x1,
+            gridlines_x2=gridlines_x2,
+        )
+
+        my_small_plot(
+            title=r'approximation of solution $u$, $y$ component',
+            vals=[u_y_vals, uh_y_vals, u_y_err],
+            titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+            xx=xx,
+            yy=yy,
+            gridlines_x1=gridlines_x1,
+            gridlines_x2=gridlines_x2,
+        )
+    else:
+
+        my_small_plot(
+            title=r'approximate solution $u$',
+            vals=[uh_x_vals, uh_y_vals],
+            titles=[r'$u^h_x(x,y)$', r'$u^h_y(x,y)$'],
+            xx=xx,
+            yy=yy,
+            gridlines_x1=gridlines_x1,
+            gridlines_x2=gridlines_x2,
+        )
+
+    my_small_streamplot(
+        title=('solution'),
+        vals_x=uh_x_vals,
+        vals_y=uh_y_vals,
         xx=xx,
         yy=yy,
-        gridlines_x1=gridlines_x1,
-        gridlines_x2=gridlines_x2,
+        amplification=2, #20,
     )
 
-    my_small_plot(
-        title=r'approximation of solution $u$, $y$ component',
-        vals=[u_y_vals, uh_y_vals, u_y_err],
-        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-        xx=xx,
-        yy=yy,
-        gridlines_x1=gridlines_x1,
-        gridlines_x2=gridlines_x2,
-    )
+
+    # todo:
+    # - compute pretzel eigenvalues
+    # - use sparse matrices (faster ?)
+    # - see whether solution is orthogonal to harmonic forms ? (why should it be ?)
+    # - add orthogonality constraint ?
+    # - check 0 divergence property of Jh and Eh ?
+    #
 
 
 if __name__ == '__main__':
 
-    nc = 2**1
+    nc = 2**6
     deg = 2
 
     run_maxwell_2d_time_harmonic(test_case='pretzel_J', nc=nc, deg=deg)
+
+
+
