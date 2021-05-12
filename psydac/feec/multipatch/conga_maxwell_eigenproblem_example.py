@@ -382,7 +382,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
 
 if __name__ == '__main__':
 
-    nc = 2**4
+    nc = 2 # 2**4
     h = 1/nc
     deg = 2
     # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
@@ -396,7 +396,7 @@ if __name__ == '__main__':
     load_dir = None
 
     # domain_name = 'curved_L_shape'
-    domain_name = 'annulus'
+    domain_name = 'pretzel' #_debug'
 
     if domain_name == 'square':
         n_patches = 6
@@ -411,7 +411,7 @@ if __name__ == '__main__':
             0.124355372484E+02,
             ]
         nb_eigs=7  # need a bit more, to get rid of grad-div eigenmodes
-    if domain_name == 'pretzel':
+    if domain_name in ['pretzel', 'pretzel_debug']:
         # radii used in the pretzel_J source test case
         nb_eigs = 4
         r_min = 1
@@ -427,7 +427,7 @@ if __name__ == '__main__':
 
 
     # possible domain shapes:
-    assert domain_name in ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus']
+    assert domain_name in ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug']
 
     if load_dir and not os.path.exists(load_dir):
         print(' -- note: discarding absent load directory')

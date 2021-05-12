@@ -204,7 +204,7 @@ def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max
         else:
             raise NotImplementedError
 
-    elif domain_name in ['pretzel', 'pretzel_annulus']:
+    elif domain_name in ['pretzel', 'pretzel_annulus', 'pretzel_debug']:
         # pretzel-shaped domain with quarter-annuli and quadrangles -- setting parameters
         if r_min is None:
             r_min=1 # smaller radius of quarter-annuli
@@ -224,6 +224,11 @@ def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max
         dom_log_2 = Square('dom2',bounds1=(r_min, r_max), bounds2=(np.pi/2, np.pi))
         mapping_2 = PolarMapping('M2',2, c1= -h, c2= h, rmin = 0., rmax=1.)
         domain_2  = mapping_2(dom_log_2)
+
+        # for debug:
+        dom_log_10 = Square('dom10',bounds1=(r_min, r_max), bounds2=(np.pi/2, np.pi))
+        mapping_10 = PolarMapping('M10',2, c1= h, c2= h, rmin = 0., rmax=1.)
+        domain_10  = mapping_10(dom_log_10)
 
         dom_log_3 = Square('dom3',bounds1=(r_min, r_max), bounds2=(np.pi, np.pi*3/2))
         mapping_3 = PolarMapping('M3',2, c1= -h, c2= 0, rmin = 0., rmax=1.)
@@ -335,8 +340,20 @@ def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max
                 [domain_4.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=-1),1],
                 [domain_12.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1),1],
                 ]
+
+        elif domain_name == 'pretzel_debug':
+            domain = union([
+                            domain_1,
+                            domain_10,
+                            ], name = 'domain')
+
+            interfaces = [
+                [domain_1.get_boundary(axis=1, ext=+1), domain_10.get_boundary(axis=1, ext=-1),1],
+                ]
+
         else:
             raise NotImplementedError
+
 
     elif domain_name == 'curved_L_shape':
         # Curved L-shape benchmark domain of Monique Dauge, see 2DomD in https://perso.univ-rennes1.fr/monique.dauge/core/index.html

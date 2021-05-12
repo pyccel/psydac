@@ -183,13 +183,16 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
     test_f = 2 # div(f)
     phi  = element_of(V0h.symbolic_space, name='phi')
     df_l = LinearForm(phi, integral(domain, test_f*phi))
+    df_lh = discretize(df_l, domain_h, V0h)
+    b  = df_lh.assemble()
     print("TerminalExpr -->")
     print(TerminalExpr(df_l, domain))
     print("<-- ")
-    # print("df_l = ", df_l)
-    df_lh = discretize(df_l, domain_h, V0h)
-    b  = df_lh.assemble()
+    print("domain.interior = ", domain.interior)
+    print("b[0] = ", b[0])
     b_c = b.toarray()
+    # print("df_l = ", df_l)
+
     dfh_c = M0_minv.dot(b_c)
     dfh = FemField(V0h, coeffs=array_to_stencil(dfh_c, V0h.vector_space))
     dfh_vals = grid_vals_h1(dfh)
@@ -530,14 +533,16 @@ if __name__ == '__main__':
     n_patches = None
 
     if test_case=='circling_J':
-        # domain_name = 'pretzel'
+        domain_name = 'pretzel'
         # domain_name = 'square'
         # n_patches = 6
-        domain_name = 'annulus'
-        n_patches = 4
-
+        # domain_name = 'annulus'
+        # n_patches = 4
         nc = 2**4
         deg = 2
+
+        domain_name = 'pretzel_debug'
+        nc = 2
 
     elif test_case == 'manufactured_sol':
         domain_name = 'square'
