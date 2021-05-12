@@ -9,6 +9,7 @@ from collections import OrderedDict
 
 from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import eigsh
+from scipy.linalg import null_space
 from scipy.sparse.linalg import inv
 from scipy.sparse import save_npz, load_npz
 
@@ -246,7 +247,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
             xx=xx, yy=yy,
         )
 
-    print('Finding eigenmodes and eigenvalues with scipy.sparse.eigsh ... ')
+    print('Finding eigenmodes and eigenvalues ... ')
 
     if compute_kernel:
         sigma = 0
@@ -266,7 +267,14 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
     # mode='normal'
 
     t_stamp = time_count(t_stamp)
-    print('computing eigenvalues and eigenvectors...' )
+    print('A_m.shape = ', A_m.shape)
+
+    # if compute_kernel:
+    #     print("using null_space ... ")
+        ## note: doing eigenvectors = null_space(A_m.todense()) is way too slow
+        # eigenvalues = np.zeros(len(eigenvectors))
+    # else:
+    print('computing eigenvalues and eigenvectors with scipy.sparse.eigsh...' )
     eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M1_m, sigma=sigma, mode=mode, which=which, ncv=ncv)
 
     grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
@@ -374,7 +382,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
 
 if __name__ == '__main__':
 
-    nc = 2**2 # 5
+    nc = 2**4
     h = 1/nc
     deg = 2
     # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
@@ -385,9 +393,10 @@ if __name__ == '__main__':
     n_patches = None
     ref_sigmas = None
     save_dir = None
+    load_dir = None
 
     # domain_name = 'curved_L_shape'
-    domain_name = 'pretzel'
+    domain_name = 'annulus'
 
     if domain_name == 'square':
         n_patches = 6
@@ -407,11 +416,22 @@ if __name__ == '__main__':
         nb_eigs = 4
         r_min = 1
         r_max = 2
-        save_dir = './tmp_matrices/pretzel_nc'+repr(nc)+'_deg'+repr(deg)+'/'
-        load_dir = save_dir
+        # note: nc = 2**5 and deg = 2 gives a matrix too big for super_lu factorization...
+
+    if n_patches:
+        np_suffix = '_'+repr(n_patches)
+    else:
+        np_suffix = ''
+    save_dir = './tmp_matrices/'+domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'/'
+    load_dir = save_dir
+
 
     # possible domain shapes:
     assert domain_name in ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus']
+
+    if load_dir and not os.path.exists(load_dir):
+        print(' -- note: discarding absent load directory')
+        load_dir = None
 
     run_maxwell_2d_eigenproblem(
         nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], alpha=alpha,
