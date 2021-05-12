@@ -2,6 +2,7 @@
 
 from mpi4py import MPI
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import OrderedDict
@@ -9,6 +10,7 @@ from collections import OrderedDict
 from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import eigsh
 from scipy.sparse.linalg import inv
+from scipy.sparse import save_npz, load_npz
 
 from sympde.topology import Derham
 from sympde.topology import Square
@@ -34,6 +36,8 @@ comm = MPI.COMM_WORLD
 def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
                                 domain_name='square',
                                 n_patches=2,
+                                load_dir=None,
+                                save_dir=None,
                                 compute_kernel=False,
                                 test_harmonic_field=False,
                                 ref_sigmas=None,
@@ -49,8 +53,15 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
     assert len(ncells) == 2 and ncells[0] == ncells[1]
     assert len(degree) == 2 and degree[0] == degree[1]
 
-    t_stamp = time_count()
+    print("Running Maxwell eigenproblem solver.")
+    if load_dir:
+        print(" -- will load matrices from " + load_dir)
+    elif save_dir:
+        print(" -- will save matrices in " + save_dir)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
 
+    t_stamp = time_count()
     print("building domain and spaces...")
     domain = build_multipatch_domain(domain_name=domain_name, n_patches=n_patches)
 
@@ -105,41 +116,97 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
             xx=xx,
             yy=yy,
         )
-        print('OKOKOKOKOK')
-        exit()
-
-
 
     t_stamp = time_count(t_stamp)
+    if load_dir:
+        print("loading sparse matrices...")
+        M0_m = load_npz(load_dir+'M0_m.npz')
+        M1_m = load_npz(load_dir+'M1_m.npz')
+        M2_m = load_npz(load_dir+'M2_m.npz')
+        M0_minv = load_npz(load_dir+'M0_minv.npz')
+        cP0_m = load_npz(load_dir+'cP0_m.npz')
+        cP1_m = load_npz(load_dir+'cP1_m.npz')
+        D0_m = load_npz(load_dir+'D0_m.npz')
+        D1_m = load_npz(load_dir+'D1_m.npz')
+        I1_m = load_npz(load_dir+'I1_m.npz')
+        if save_dir:
+            print("(warning: save_dir argument is discarded)")
+    else:
 
-    # Mass matrices for broken spaces (block-diagonal)
-    print("assembling mass matrix operators...")
-    M0 = BrokenMass(V0h, domain_h, is_scalar=True)
-    M1 = BrokenMass(V1h, domain_h, is_scalar=False)
-    M2 = BrokenMass(V2h, domain_h, is_scalar=True)
+        # Mass matrices for broken spaces (block-diagonal)
+        print("assembling mass matrix operators...")
+        M0 = BrokenMass(V0h, domain_h, is_scalar=True)
+        M1 = BrokenMass(V1h, domain_h, is_scalar=False)
+        M2 = BrokenMass(V2h, domain_h, is_scalar=True)
 
+        t_stamp = time_count(t_stamp)
+        print("assembling broken derivative operators...")
+
+        bD0, bD1 = derham_h.broken_derivatives_as_operators
+
+        t_stamp = time_count(t_stamp)
+        print("assembling conf projection operators...")
+
+        cP0 = ConformingProjection_V0(V0h, domain_h, hom_bc=True)
+        cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=True)
+
+        t_stamp = time_count(t_stamp)
+        print("assembling conga derivative operators...")
+
+        D0 = ComposedLinearOperator([bD0,cP0])
+        D1 = ComposedLinearOperator([bD1,cP1])
+        I1 = IdLinearOperator(V1h)
+
+        # Note: we could also assemble A as a psydac operator
+        # D0_t = ComposedLinearOperator([cP0, bD0.transpose()])
+        # D1_t = ComposedLinearOperator([cP1, bD1.transpose()])
+        # A = (  ComposedLinearOperator([M1, D0, M0_inv, D0_t, M1])
+        #     + alpha*ComposedLinearOperator([I1-cP1,M1, I1-cP1])
+        #     + ComposedLinearOperator([D1_t, M2, D1])
+        #     )
+
+        # and then convert to use eigensolver from scipy.sparse
+        # A_m = A.to_sparse_matrix()
+
+        t_stamp = time_count(t_stamp)
+        print("converting in sparse matrices...")
+        M0_m = M0.to_sparse_matrix()
+        M1_m = M1.to_sparse_matrix()
+        M2_m = M2.to_sparse_matrix()
+        cP0_m = cP0.to_sparse_matrix()
+        cP1_m = cP1.to_sparse_matrix()
+        D0_m = D0.to_sparse_matrix()  # also possible as matrix product bD0 * cP0
+        D1_m = D1.to_sparse_matrix()
+        I1_m = I1.to_sparse_matrix()
+
+        M0_minv = inv(M0_m.tocsc())  # todo: assemble patch-wise M0_inv, as Hodge operator
+
+        if save_dir:
+            t_stamp = time_count(t_stamp)
+            print("saving sparse matrices to file...")
+            save_npz(save_dir+'M0_m.npz', M0_m)
+            save_npz(save_dir+'M1_m.npz', M1_m)
+            save_npz(save_dir+'M2_m.npz', M2_m)
+            save_npz(save_dir+'M0_minv.npz', M0_minv)
+            save_npz(save_dir+'cP0_m.npz', cP0_m)
+            save_npz(save_dir+'cP1_m.npz', cP1_m)
+            save_npz(save_dir+'D0_m.npz', D0_m)
+            save_npz(save_dir+'D1_m.npz', D1_m)
+            save_npz(save_dir+'I1_m.npz', I1_m)
+
+
+    ## building Hodge Laplacian matrix
     t_stamp = time_count(t_stamp)
-    print("assembling broken derivative operators...")
-
-    bD0, bD1 = derham_h.broken_derivatives_as_operators
-
-    t_stamp = time_count(t_stamp)
-    print("assembling conf projection operators...")
-
-    cP0 = ConformingProjection_V0(V0h, domain_h, hom_bc=True)
-    cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=True)
-
-    t_stamp = time_count(t_stamp)
-    print("assembling conga derivative operators...")
-
-    D0 = ComposedLinearOperator([bD0,cP0])
-    # D0_t = ComposedLinearOperator([cP0, bD0.transpose()])
-    D1 = ComposedLinearOperator([bD1,cP1])
-    # D1_t = ComposedLinearOperator([cP1, bD1.transpose()])
-    I1 = IdLinearOperator(V1h)
+    print("computing (sparse) Hodge-Laplacian matrix...")
+    div_aux_m = D0_m.transpose() * M1_m  # note: the matrix of the (weak) div operator is:   - M0_minv * div_aux_m
+    jump_penal_m = I1_m-cP1_m
+    A_m = ( div_aux_m.transpose() * M0_minv * div_aux_m
+        + alpha * jump_penal_m.transpose() * M1_m * jump_penal_m
+        + D1_m.transpose() * M2_m * D1_m
+        )
 
     if test_harmonic_field:
-        print("testing harmonic field...")
+        print("testing harmonic field (for debugging purposes)...")
 
         t_stamp = time_count(t_stamp)
         print("assembling projection operators...")
@@ -178,52 +245,6 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
             surface_plot=True,
             xx=xx, yy=yy,
         )
-
-    as_psydac_operator = False
-    if as_psydac_operator:
-
-        raise NotImplementedError
-        A = (
-                ComposedLinearOperator([M1, D0, M0_inv, D0_t, M1])
-            + alpha*ComposedLinearOperator([I1-cP1,M1, I1-cP1])
-            + ComposedLinearOperator([D1_t, M2, D1])
-            )
-
-        # convert anyhow, to use eigensolver from scipy.sparse
-        A_m = A.to_sparse_matrix()
-        M1_m = M1.to_sparse_matrix()
-
-    else:
-
-        t_stamp = time_count(t_stamp)
-        print("converting in sparse matrices...")
-        M0_m = M0.to_sparse_matrix()
-        M1_m = M1.to_sparse_matrix()
-        M2_m = M2.to_sparse_matrix()
-        cP0_m = cP0.to_sparse_matrix()
-        cP1_m = cP1.to_sparse_matrix()
-        D0_m = D0.to_sparse_matrix()  # also possible as matrix product bD0 * cP0
-        D1_m = D1.to_sparse_matrix()
-        I1_m = I1.to_sparse_matrix()
-
-        M0_minv = inv(M0_m.tocsc())  # todo: assemble patch-wise M0_inv, as Hodge operator
-
-        ## building Hodge Laplacian matrix
-        t_stamp = time_count(t_stamp)
-        print("computing (sparse) Hodge-Laplacian matrix...")
-        div_aux_m = D0_m.transpose() * M1_m  # note: the matrix of the (weak) div operator is:   - M0_minv * div_aux_m
-        jump_penal_m = I1_m-cP1_m
-        A_m = ( div_aux_m.transpose() * M0_minv * div_aux_m
-            + alpha * jump_penal_m.transpose() * M1_m * jump_penal_m
-            + D1_m.transpose() * M2_m * D1_m
-            )
-
-    # A = ComposedLinearOperator([I1-cP1,I1-cP1]) + ComposedLinearOperator([cP1, bD1.transpose(), M2, bD1, cP1])
-
-        # + M1
-
-        #
-        # + 1000*ComposedLinearOperator([M1, D0, D0_t, M1])
 
     print('Finding eigenmodes and eigenvalues with scipy.sparse.eigsh ... ')
 
@@ -273,11 +294,12 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
             norm_emode = np.dot(emode_sp,Me)
             print('norm of computed eigenmode: ', norm_emode)
 
-            emode_c = array_to_stencil(emode_sp/norm_emode, V1h.vector_space)
-            emode = FemField(V1h, coeffs=emode_c)
-
-            cP_emode = cP1(emode)
-            curl_emode = D1(emode)
+            emode = FemField(V1h, coeffs=array_to_stencil(emode_sp/norm_emode, V1h.vector_space))
+            cP_emode = FemField(V1h, coeffs=array_to_stencil(cP1_m.dot(emode_sp), V1h.vector_space))
+            curl_emode = FemField(V2h, coeffs=array_to_stencil(D1_m.dot(emode_sp), V2h.vector_space))
+            # psydac version (ok if operators are there):
+            # cP_emode_c = cP1(emode)
+            # curl_emode = D1(emode)
 
             eh_x_vals, eh_y_vals = grid_vals_hcurl(emode)
             cPeh_x_vals, cPeh_y_vals = grid_vals_hcurl(cP_emode)
@@ -347,12 +369,12 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
         for k in range(n_errs):
             errors.append(abs(first_evalues[k]-ref_sigmas[k]))
 
-    print('errors from reference eigenvalues: ')
-    print(errors)
+        print('errors from reference eigenvalues: ')
+        print(errors)
 
 if __name__ == '__main__':
 
-    nc = 2**4 # 5
+    nc = 2**2 # 5
     h = 1/nc
     deg = 2
     # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
@@ -362,8 +384,10 @@ if __name__ == '__main__':
     nb_eigs = 8
     n_patches = None
     ref_sigmas = None
+    save_dir = None
 
-    domain_name = 'curved_L_shape'
+    # domain_name = 'curved_L_shape'
+    domain_name = 'pretzel'
 
     if domain_name == 'square':
         n_patches = 6
@@ -378,11 +402,18 @@ if __name__ == '__main__':
             0.124355372484E+02,
             ]
         nb_eigs=7  # need a bit more, to get rid of grad-div eigenmodes
+    if domain_name == 'pretzel':
+        # radii used in the pretzel_J source test case
+        nb_eigs = 4
+        r_min = 1
+        r_max = 2
+        save_dir = './tmp_matrices/pretzel_nc'+repr(nc)+'_deg'+repr(deg)+'/'
+        load_dir = save_dir
 
     # possible domain shapes:
     assert domain_name in ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus']
 
     run_maxwell_2d_eigenproblem(
         nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], alpha=alpha,
-        domain_name=domain_name, n_patches=n_patches,
-        ref_sigmas=ref_sigmas, compute_kernel=True, show_all=True)
+        domain_name=domain_name, n_patches=n_patches, save_dir=save_dir, load_dir=load_dir,
+        ref_sigmas=ref_sigmas, compute_kernel=True, show_all=False)
