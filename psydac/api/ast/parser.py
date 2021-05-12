@@ -1246,6 +1246,16 @@ class Parser(object):
         args = list(zip(*args))
         return args
 
+    def _visit_TensorIntDiv(self, expr, **kwargs):
+        args = [self._visit(a, **kwargs) for a in expr.args]
+        arg1 = args[0]
+        arg2 = args[1]
+        newargs = []
+        for i,j in zip(arg1, arg2):
+            newargs.append(i//j)
+            
+        return tuple(newargs)
+        
     # ....................................................
     def _visit_Expr(self, expr, **kwargs):
         return SymbolicExpr(expr)
@@ -1278,6 +1288,18 @@ class Parser(object):
     def _visit_IndexDofTest(self, expr, **kwargs):
         dim = self.dim
         target = variables('i_basis_1:%d'%(dim+1), dtype='int')
+        self.insert_variables(*target)
+        return target
+    # ....................................................
+    def _visit_IndexOuterDofTest(self, expr, **kwargs):
+        dim = self.dim
+        target = variables('outer_i_basis_1:%d'%(dim+1), dtype='int')
+        self.insert_variables(*target)
+        return target
+    # ....................................................
+    def _visit_IndexInnerDofTest(self, expr, **kwargs):
+        dim = self.dim
+        target = variables('inner_i_basis_1:%d'%(dim+1), dtype='int')
         self.insert_variables(*target)
         return target
     # ....................................................
@@ -1318,6 +1340,33 @@ class Parser(object):
         target = variables(names, dtype='int')
         self.insert_variables(*target)
         return target
+    # ....................................................
+    def _visit_LengthOuterDofTest(self, expr, **kwargs):
+        dim = self.dim
+        target = expr.target
+        if target:
+            target = '_' + str(SymbolicExpr(target))
+        else:
+            target = ''
+
+        names = 'test_outer{}_p1:{}'.format(target, dim+1)
+        target = variables(names, dtype='int')
+        self.insert_variables(*target)
+        return target
+    # ....................................................
+    def _visit_LengthInnerDofTest(self, expr, **kwargs):
+        dim = self.dim
+        target = expr.target
+        if target:
+            target = '_' + str(SymbolicExpr(target))
+        else:
+            target = ''
+
+        names = 'test_inner{}_p1:{}'.format(target, dim+1)
+        target = variables(names, dtype='int')
+        self.insert_variables(*target)
+        return target
+
     # ....................................................
     def _visit_LengthDofTrial(self, expr, **kwargs):
         dim = self.dim

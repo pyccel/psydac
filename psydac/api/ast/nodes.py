@@ -80,6 +80,19 @@ class LengthDofTrial(LengthNode):
 
 class LengthDofTest(LengthNode):
     pass
+
+class LengthOuterDofTest(LengthNode):
+    pass
+    
+class LengthInnerDofTest(LengthNode):
+    pass
+    
+class TensorExpression(Expr):
+    def __new__(cls, *args):
+        return Expr.__new__(cls, *args)
+
+class TensorIntDiv(TensorExpression):
+    pass
 #==============================================================================
 class IndexNode(Basic):
     """Base class representing one index of an iterator"""
@@ -111,16 +124,25 @@ class IndexDofTrial(IndexDof):
 class IndexDofTest(IndexDof):
     pass
 
+class IndexOuterDofTest(IndexDof):
+    pass
+
+class IndexInnerDofTest(IndexDof):
+    pass
+
 class IndexDerivative(IndexNode):
     def __new__(cls, length=None):
         return Basic.__new__(cls)
 
-index_element   = IndexElement()
-index_quad      = IndexQuadrature()
-index_dof       = IndexDof()
-index_dof_test  = IndexDofTest()
-index_dof_trial = IndexDofTrial()
-index_deriv     = IndexDerivative()
+index_element        = IndexElement()
+index_quad           = IndexQuadrature()
+index_dof            = IndexDof()
+index_dof_test       = IndexDofTest()
+index_dof_trial      = IndexDofTrial()
+index_deriv          = IndexDerivative()
+index_outer_dof_test = IndexOuterDofTest()
+index_inner_dof_test = IndexInnerDofTest()
+
 #==============================================================================
 class RankNode(with_metaclass(Singleton, Basic)):
     """Base class representing a rank of an iterator"""
@@ -452,7 +474,9 @@ class TensorQuadrature(ScalarNode):
     """
     """
     pass
-
+#==============================================================================
+class LocalTensorIndex(ScalarNode):
+    pass
 #==============================================================================
 class MatrixQuadrature(MatrixNode):
     """
@@ -473,6 +497,9 @@ class WeightedVolumeQuadrature(ScalarNode):
     """
     pass
 
+class TensorBasisIndex(ScalarNode):
+    indices = [index_dof]
+    pass
 #==============================================================================
 class GlobalTensorQuadratureBasis(ArrayNode):
     """
@@ -1464,7 +1491,6 @@ def construct_logical_expressions(u, nderiv):
             args.append(atom)
     return [ComputeLogicalBasis(i) for i in args]
 
-
 #==============================================================================
 class GeometryExpressions(Basic):
     """
@@ -1550,6 +1576,9 @@ def construct_itergener(a, index):
         generator = ProductGenerator(a.expr, index)
         element   = a.atom
 
+    elif isinstance(a, TensorBasisIndex):
+        generator = TensorGenerator(a, index)
+        element   = LocalTensorIndex()
     else:
         raise TypeError('{} not available'.format(type(a)))
     # ...
@@ -1589,6 +1618,9 @@ def construct_itergener(a, index):
         iterator = TensorIterator(element)
 
     elif isinstance(element, Span):
+        iterator = TensorIterator(element)
+
+    elif isinstance(element, LocalTensorIndex):
         iterator = TensorIterator(element)
 
     elif isinstance(element, CoefficientBasis):

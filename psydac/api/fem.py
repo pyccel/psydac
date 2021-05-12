@@ -37,11 +37,6 @@ __all__ = (
 )
 
 #==============================================================================
-def get_quad_order(Vh):
-    if isinstance(Vh, ProductFemSpace):
-        return get_quad_order(Vh.spaces[0])
-    return tuple([g.weights.shape[1] for g in Vh.quad_grids])
-
 def collect_spaces(space, *args):
     """
     This function collect the arguments used in the assembly function
@@ -153,12 +148,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         kwargs['discrete_space']      = self.spaces
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
-        quad_order                    = kwargs.pop('quad_order', get_quad_order(self.spaces[1]))
-
-        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
         # ...
-        self._target = self.kernel_expr.target
+        self._target = kernel_expr[0].target
         self._domain = domain_h.domain
         self._matrix = kwargs.pop('matrix', None)
 
@@ -187,6 +179,15 @@ class DiscreteBilinearForm(BasicDiscrete):
             test_ext  = None
             trial_ext = None
 
+            #...
+
+        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
+
+        grid              = QuadratureGrid( test_space, axis, test_ext )
+        self._grid        = grid
+        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
+        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
+
         if isinstance(target, (Boundary, Interface)):
             #...
             # If process does not own the boundary or interface, do not assemble anything
@@ -207,12 +208,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                 npts = vector_space.npts[axis]
                 if end + 1 != npts:
                     self._func = do_nothing
-            #...
-
-        grid              = QuadratureGrid( test_space, axis, test_ext )
-        self._grid        = grid
-        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
-        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
 
         self._args = self.construct_arguments(backend=kwargs.pop('backend', None))
 

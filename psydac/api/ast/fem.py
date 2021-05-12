@@ -30,6 +30,7 @@ from .nodes import GlobalTensorQuadratureTestBasis
 from .nodes import GlobalTensorQuadratureTrialBasis
 from .nodes import LengthElement, LengthQuadrature
 from .nodes import LengthDofTrial, LengthDofTest
+from .nodes import LengthOuterDofTest, LengthInnerDofTest
 from .nodes import Reset
 from .nodes import BlockStencilMatrixLocalBasis
 from .nodes import BlockStencilMatrixGlobalBasis
@@ -51,9 +52,14 @@ from .nodes import index_quad
 from .nodes import index_element
 from .nodes import index_dof_test
 from .nodes import index_dof_trial
+from .nodes import index_outer_dof_test
+from .nodes import index_inner_dof_test
+from .nodes import TensorIntDiv, TensorBasisIndex
 
 from psydac.api.ast.utilities import variables
 from psydac.api.utilities     import flatten
+from psydac.linalg.block      import BlockVectorSpace
+from psydac.fem.vector        import ProductFemSpace
 
 #==============================================================================
 def convert(dtype):
@@ -117,25 +123,6 @@ def expand(args):
     return tuple(new_args)
 
 #==============================================================================
-def expand_hdiv_hcurl(args):
-    """
-    This function expands vector functions of type hdiv and hculr into indexed functions
-
-    """
-    new_args = []
-    for i in args:
-        if isinstance(i, (ScalarFunction, IndexedVectorFunction)):
-            new_args += [i]
-        elif isinstance(i, VectorFunction):
-            if isinstance(i.space.kind, (HcurlSpaceType, HdivSpaceType)):
-                new_args += [i[k] for k in  range(i.space.ldim)]
-            else:
-                new_args += [i]
-        else:
-            raise NotImplementedError("TODO")
-    return tuple(new_args)
-
-#==============================================================================
 class Block(Basic):
     """
     This class represents a Block of statements
@@ -177,6 +164,70 @@ class DefNode(Basic):
     def body(self):
         return self._args[3]
 
+
+#==============================================================================
+def expand_hdiv_hcurl(args, *extra_args):
+    """
+    This function expands vector functions of type hdiv and hculr into indexed functions
+
+    """
+    new_args         = []
+    for i,a in enumerate(args):
+        if isinstance(a, ScalarFunction):
+            new_args += [a]
+        elif isinstance(a, VectorFunction):
+            if isinstance(a.space.kind, (HcurlSpaceType, HdivSpaceType)):
+                new_args += [a[k] for k in  range(a.space.ldim)]
+            else:
+                new_args += [a]
+        else:
+            raise NotImplementedError("TODO")
+
+    new_extra_args = []
+    for e_args in extra_args:
+        new_e_args = []
+        for i,a in enumerate(args):
+            if isinstance(a, ScalarFunction):
+                new_e_args += [e_args[i]]
+            elif isinstance(a, VectorFunction):
+                if isinstance(a.space.kind, (HcurlSpaceType, HdivSpaceType)):
+                    new_e_args += e_args[i]
+                else:
+                    new_e_args += [e_args[i][0]]
+            else:
+                raise NotImplementedError("TODO")
+
+        new_extra_args.append(new_e_args)
+    if extra_args:
+        args = [tuple(new_args)] + new_extra_args
+        return args
+    return tuple(new_args)
+    
+#==============================================================================
+def get_multiplicity(space):
+    def recursive_func(space):
+        if isinstance(space, BlockVectorSpace):
+            multiplicity = [recursive_func(s) for s in space.spaces]
+        else:
+            multiplicity = list(space.multiplicity)
+        return multiplicity
+
+    multiplicity = recursive_func(space)
+    if not isinstance(multiplicity[0], list):
+        multiplicity = [multiplicity]
+    return multiplicity
+#==============================================================================
+def get_degrees(space):
+    degrees = list(space.degree)
+    if not isinstance(degrees[0], (list, tuple)):
+        degrees = [degrees]
+    return degrees
+#==============================================================================
+def get_quad_order(Vh):
+    if isinstance(Vh, ProductFemSpace):
+        return get_quad_order(Vh.spaces[0])
+    return tuple([g.weights.shape[1] for g in Vh.quad_grids])
+
 #==============================================================================
 class AST(object):
     """
@@ -188,11 +239,17 @@ class AST(object):
         # ... compute terminal expr
         # TODO check that we have one single domain/interface/boundary
 
-        is_bilinear   = False
-        is_linear     = False
-        is_functional = False
-        tests         = ()
-        trials        = ()
+        is_bilinear         = False
+        is_linear           = False
+        is_functional       = False
+        tests               = ()
+        trials              = ()
+        multiplicity_tests  = ()
+        multiplicity_trials = ()
+        multiplicity_fields = ()
+        tests_degrees       = ()
+        trials_degrees      = ()
+        fields_degrees      = ()
         # ...
 
         domain        = terminal_expr.target
@@ -212,29 +269,40 @@ class AST(object):
             is_linear           = True
             tests               = expr.test_functions
             fields              = expr.fields
+            is_broken           = spaces.symbolic_space.is_broken
+            quad_order          = get_quad_order(spaces)
+            tests_degrees        = get_degrees(spaces)
+            multiplicity_tests  = get_multiplicity(spaces.vector_space)
             spaces              = spaces.symbolic_space
-            is_broken           = spaces.is_broken
-
         elif isinstance(expr, BilinearForm):
             is_bilinear         = True
             tests               = expr.test_functions
             trials              = expr.trial_functions
             fields              = expr.fields
+            quad_order          = get_quad_order(spaces[0])
+            tests_degrees        = get_degrees(spaces[0])
+            trials_degrees       = get_degrees(spaces[1])
+            is_broken           = spaces[0].symbolic_space.is_broken
+            multiplicity_tests  = get_multiplicity(spaces[1].vector_space)
+            multiplicity_trials = get_multiplicity(spaces[0].vector_space)
             spaces              = [V.symbolic_space for V in spaces]
-            is_broken           = spaces[0].is_broken
 
         elif isinstance(expr, Functional):
             is_functional       = True
             fields              = tuple(expr.atoms(ScalarFunction, VectorFunction))
+            is_broken           = spaces.symbolic_space.is_broken
+            quad_order          = get_quad_order(spaces)
+            fields_degrees      = get_degrees(spaces)
+            multiplicity_fields = get_multiplicity(spaces.vector_space)
             spaces              = spaces.symbolic_space
-            is_broken           = spaces.is_broken
-
         else:
             raise NotImplementedError('TODO')
 
-        tests  = expand_hdiv_hcurl(tests)
-        trials = expand_hdiv_hcurl(trials)
-        fields = expand_hdiv_hcurl(fields)
+        tests,  tests_degrees, multiplicity_tests  = expand_hdiv_hcurl(tests, tests_degrees, multiplicity_tests)
+        trials, trials_degrees,multiplicity_trials = expand_hdiv_hcurl(trials, trials_degrees, multiplicity_trials)
+        fields, fields_degrees, multiplicity_fields = expand_hdiv_hcurl(fields, fields_degrees, multiplicity_fields)
+
+        kwargs['quad_order']     = quad_order
 
         atoms_types = (ScalarFunction, VectorFunction, IndexedVectorFunction)
 
@@ -274,9 +342,20 @@ class AST(object):
 
             terminal_expr     = Matrix([[terminal_expr]])
 
-        d_tests  = {v: {'global': GlobalTensorQuadratureTestBasis (v), 'span': GlobalSpan(v)} for v in tests }
-        d_trials = {u: {'global': GlobalTensorQuadratureTrialBasis(u), 'span': GlobalSpan(u)} for u in trials}
-        d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f), 'span': GlobalSpan(f)} for f in fields}
+        d_tests  = {v: {'global': GlobalTensorQuadratureTestBasis (v), 
+                        'span': GlobalSpan(v),
+                        'multiplicity':multiplicity_tests[i],
+                        'degrees': tests_degrees[i]} for i,v in enumerate(tests) }
+
+        d_trials = {u: {'global': GlobalTensorQuadratureTrialBasis(u), 
+                        'span': GlobalSpan(u),
+                        'multiplicity':multiplicity_trials[i],
+                        'degrees':trials_degrees[i]} for i,u in enumerate(trials)}
+
+        d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f), 
+                        'span': GlobalSpan(f),
+                        'multiplicity':multiplicity_fields[i],
+                        'degrees':fields_degrees[i]} for i,f in enumerate(fields)}
 
         if is_broken:
             if isinstance(domain, Interface):
@@ -305,7 +384,8 @@ class AST(object):
                                           tests, d_tests,
                                           fields, d_fields, constants,
                                           nderiv, domain.dim,
-                                          mapping, is_rational_mapping, spaces, mask, tag, **kwargs)
+                                          mapping, is_rational_mapping, spaces, mask, tag, 
+                                          **kwargs)
 
         elif is_bilinear:
             ast = _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
@@ -313,13 +393,15 @@ class AST(object):
                                             trials, d_trials,
                                             fields, d_fields, constants,
                                             nderiv, domain.dim, 
-                                            mapping, is_rational_mapping, spaces, mask, tag, **kwargs)
+                                            mapping, is_rational_mapping, spaces, mask, tag, 
+                                            **kwargs)
 
         elif is_functional:
             ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
                                               fields, d_fields, constants,
                                               nderiv, domain.dim, 
-                                              mapping, is_rational_mapping, spaces, mask, tag, **kwargs)
+                                              mapping, is_rational_mapping, spaces, mask, tag, 
+                                              **kwargs)
         else:
             raise NotImplementedError('TODO')
         # ...
@@ -354,7 +436,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                               tests,  d_tests,
                               trials, d_trials,
                               fields, d_fields, constants,
-                              nderiv, dim, mapping, is_rational_mapping, spaces, mask, tag, **kwargs):
+                              nderiv, dim, mapping, is_rational_mapping, spaces, mask, tag,
+                              **kwargs):
     """
     This function creates the assembly function of a bilinearform
 
@@ -417,18 +500,23 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     pads       = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     g_quad     = GlobalTensorQuadrature()
     l_quad     = LocalTensorQuadrature()
-    quad_order = kwargs.pop('quad_order', None)
+
+
+    quad_order    = kwargs.pop('quad_order', None)
+
     geo        = GeometryExpressions(mapping, nderiv)
     g_coeffs   = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
     l_mats     = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim, tag)
     g_mats     = BlockStencilMatrixGlobalBasis(trials, tests, pads, terminal_expr, l_mats.tag)
 
     # ...........................................................................................
-    g_span          = OrderedDict((u,d_tests[u]['span']) for u in tests)
-    f_span          = OrderedDict((f,d_fields[f]['span']) for f in fields)
-    lengths_trials  = OrderedDict((u,LengthDofTrial(u)) for u in trials)
-    lengths_tests   = OrderedDict((v,LengthDofTest(v)) for v in tests)
-    lengths_fields  = OrderedDict((f,LengthDofTest(f)) for f in fields)
+    g_span              = OrderedDict((u,d_tests[u]['span']) for u in tests)
+    f_span              = OrderedDict((f,d_fields[f]['span']) for f in fields)
+    lengths_trials      = OrderedDict((u,LengthDofTrial(u)) for u in trials)
+    lengths_tests       = OrderedDict((v,LengthDofTest(v)) for v in tests)
+    lengths_outer_tests = OrderedDict((v,LengthOuterDofTest(v)) for v in tests)
+    lengths_inner_tests = OrderedDict((v,LengthInnerDofTest(v)) for v in tests)
+    lengths_fields      = OrderedDict((f,LengthDofTest(f)) for f in fields)
     # ...........................................................................................
     quad_length     = LengthQuadrature()
     el_length       = LengthElement()
@@ -474,6 +562,10 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
             q_basis_tests  = OrderedDict((v,d_tests[v]['global'])  for v in sub_tests)
             q_basis_trials = OrderedDict((u,d_trials[u]['global']) for u in sub_trials)
+            m_tests        = OrderedDict((v,d_tests[v]['multiplicity'])  for v in sub_tests)
+            m_trials       = OrderedDict((u,d_trials[u]['multiplicity'])  for u in sub_trials)
+            tests_degree   = OrderedDict((v,d_tests[v]['degrees'])  for v in sub_tests)
+            trials_degrees = OrderedDict((u,d_trials[u]['degrees'])  for u in sub_trials)
 
             stmts = []
             for v in sub_tests+sub_trials:
@@ -487,19 +579,34 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
             loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr), ElementOf(l_sub_mats), loop)
 
             # ... loop over trials
-            length = lengths_trials[sub_trials[0]]
-            ind_dof_trial = index_dof_trial.set_length(length+1)
+            length = Tuple(*[d+1 for d in trials_degrees[sub_trials[0]]])
+            ind_dof_trial = index_dof_trial.set_length(length)
             loop  = Loop((), ind_dof_trial, [loop])
 
-            # ... loop over tests
-            length = lengths_tests[sub_tests[0]]
-            ind_dof_test = index_dof_test.set_length(length+1)
-            loop  = Loop((), ind_dof_test, [loop])
-            # ...
+            if all(a==1 for a in m_tests[sub_tests[0]]) and False:
+                # ... loop over tests
+                length = lengths_tests[sub_tests[0]]
+                ind_dof_test = index_dof_test.set_length(length+1)
+                loop  = Loop((), ind_dof_test, [loop])
+                # ...
 
-            body  = (Reset(l_sub_mats), loop)
-            stmts = Block(body)
-            g_stmts += [stmts]
+                body  = (Reset(l_sub_mats), loop)
+                stmts = Block(body)
+                g_stmts += [stmts]
+            else:
+               # ... loop over tests
+                multiplicity = Tuple(*m_tests[sub_tests[0]])
+                length = Tuple(*[d+1 for d in tests_degree[sub_tests[0]]])
+                length = TensorIntDiv(length, multiplicity)
+                ind_outer_dof_test = index_outer_dof_test.set_length(length)
+                ind_inner_dof_test = index_inner_dof_test.set_length(multiplicity)
+                loop  = Loop((TensorBasisIndex()), ind_inner_dof_test, [loop])
+                loop  = Loop((), ind_outer_dof_test, [loop])
+                # ...
+
+                body  = (Reset(l_sub_mats), loop)
+                stmts = Block(body)
+                g_stmts += [stmts] 
 
     #=========================================================end kernel=========================================================
 
