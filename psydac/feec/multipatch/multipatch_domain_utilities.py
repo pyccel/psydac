@@ -209,7 +209,7 @@ def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max
         if r_min is None:
             r_min=1 # smaller radius of quarter-annuli
         if r_max is None:
-            r_max=1.5  # larger radius of quarter-annuli
+            r_max=2  # larger radius of quarter-annuli
         assert 0 < r_min
         assert r_min < r_max
         dr = r_max - r_min

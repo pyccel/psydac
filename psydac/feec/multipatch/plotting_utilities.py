@@ -131,6 +131,7 @@ def my_small_plot(
         gridlines_x2=None,
         surface_plot=False,
         cmap='viridis',
+        save_fig=None,
 ):
     # cmap = 'jet' is nice too, but not so uniform. 'plasma' or 'magma' are uniform also.
 
@@ -158,7 +159,10 @@ def my_small_plot(
         ax.set_ylabel( r'$y$', rotation='horizontal' )
         ax.set_title ( titles[i] )
 
-    plt.show()
+    if save_fig:
+        plt.savefig(save_fig, bbox_inches='tight')
+    else:
+        plt.show()
 
     if surface_plot:
         fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
@@ -178,16 +182,26 @@ def my_small_plot(
             ax.set_ylabel( r'$y$', rotation='horizontal' )
             ax.set_title ( titles[i] )
 
-        plt.show()
+        if save_fig:
+            ext = save_fig[-4:]
+            if ext[0] != '.':
+                print('WARNING: extension unclear for file_name '+save_fig)
+            save_fig_surf = save_fig[:-4]+'_surf'+ext
+            plt.savefig(save_fig_surf, bbox_inches='tight')
+        else:
+            plt.show()
 
 
 
 def my_small_streamplot(
         title, vals_x, vals_y,
-        xx, yy,
+        xx, yy, skip=2,
         amplification=1,
+        save_fig=None,
 ):
-
+    """
+    :param skip: every skip-th data point will be skipped
+    """
     n_patches = len(xx)
     assert n_patches == len(yy)
 
@@ -195,38 +209,14 @@ def my_small_streamplot(
     fig.suptitle(title, fontsize=14)
 
     delta = 0.25
-    x = y = np.arange(-3.0, 3.01, delta)
-    X, Y = np.meshgrid(x, y)
-    # print('X=', X)
-    # print('Y=', Y)
-    sk = 2 # skip each sk data points
+    # x = y = np.arange(-3.0, 3.01, delta)
+    # X, Y = np.meshgrid(x, y)
     for k in range(n_patches):
-        # print( 'xx[k] = ', xx[k] )
-        # print( 'yy[k] = ', yy[k] )
-        # print( min(xx) )
-        # start_x = np.linspace(xx[k].min(), xx[k].max(), 10)
-        # start_y = np.linspace(yy[k].min(), yy[k].max(), 10)
-        # start_points = list(zip(start_x, start_y))
-        plt.quiver(xx[k][::sk, ::sk], yy[k][::sk, ::sk], vals_x[k][::sk, ::sk], vals_y[k][::sk, ::sk],
+        plt.quiver(xx[k][::skip, ::skip], yy[k][::skip, ::skip], vals_x[k][::skip, ::skip], vals_y[k][::skip, ::skip],
                    scale=1/(amplification*0.05), width=0.002) # width=) units='width', pivot='mid',
-        # plt.streamplot(xx[k], yy[k], vals_x[k], vals_y[k], start_points=start_points)
-        # plt.plot(start_x, start_y, 'ok')
 
-        # exit()
-    # for i in range(n_plots):
-    #     vmin = np.min(vals[i])
-    #     vmax = np.max(vals[i])
-    #     cnorm = colors.Normalize(vmin=vmin, vmax=vmax)
-    #     assert n_patches == len(vals[i])
-    #     ax = fig.add_subplot(1, n_plots, i+1)
-    #     for k in range(n_patches):
-    #         ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap, extend='both')
-    #     cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
-    #     if gridlines_x1 is not None:
-    #         ax.plot(*gridlines_x1, color='k')
-    #         ax.plot(*gridlines_x2, color='k')
-    #     ax.set_xlabel( r'$x$', rotation='horizontal' )
-    #     ax.set_ylabel( r'$y$', rotation='horizontal' )
-    #     ax.set_title ( titles[i] )
+    if save_fig:
+        plt.savefig(save_fig, bbox_inches='tight')
+    else:
+        plt.show()
 
-    plt.show()

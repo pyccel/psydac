@@ -50,9 +50,60 @@ from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_
 
 comm = MPI.COMM_WORLD
 
+# small helper function (useful ?)
+def tmp_plot_source(J_x,J_y, domain):
+
+    nc = 2**5
+    ncells=[nc, nc]
+    degree=[2,2]
+
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings_list = list(mappings.values())
+    # x,y    = domain.coordinates
+    lamJ_x   = lambdify(domain.coordinates, J_x)
+    lamJ_y   = lambdify(domain.coordinates, J_y)
+    J_log = [pull_2d_hcurl([lamJ_x,lamJ_y], M) for M in mappings_list]
+
+    etas, xx, yy = get_plotting_grid(mappings, N=40)
+    grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
+    grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+
+    # multipatch de Rham sequence:
+    derham  = Derham(domain, ["H1", "Hcurl", "L2"])
+
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    derham_h = discretize(derham, domain_h, degree=degree)
+    # V1h = derham_h.V1
+    # V2h = derham_h.V2
+
+    print("assembling projection operators...")
+    nquads = [2*d + 1 for d in degree]
+    P0, P1, P2 = derham_h.projectors(nquads=nquads)
+
+    J = P1(J_log)
+
+    J_x_vals, J_y_vals = grid_vals_hcurl(J)
+
+    my_small_plot(
+        title=r'diverging harmonic field and Conga curl',
+        vals=[np.abs(J_x_vals), np.abs(J_y_vals)],
+        titles=[r'$|J_x|$', r'$|J_y|$'],  # , r'$div_h J$' ],
+        surface_plot=True,
+        xx=xx, yy=yy,
+    )
+
+    my_small_streamplot(
+        title=('J'),
+        vals_x=J_x_vals,
+        vals_y=J_y_vals,
+        xx=xx,
+        yy=yy,
+        amplification=.5, #20,
+    )
 
 #==============================================================================
-def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, save_dir=None, load_dir=None, comm=None, return_sol=False):
+def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, save_dir=None, load_dir=None, comm=None,
+                         plot_source=False, plot_sol=False, plot_source_div=False, return_sol=False):
     """
     - assemble and solve a Maxwell problem on a multipatch domain, using Conga approach
     - this problem is adapted from the single patch test_api_system_3_2d_dir_1
@@ -60,6 +111,10 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
     print("Running Maxwell source problem solver.")
     if load_dir:
         print(" -- will load matrices from " + load_dir)
+    elif save_dir:
+        print(" -- will save matrices in " + save_dir)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
 
     hom_bc = (uex is None)
     use_scipy = True
@@ -82,7 +137,7 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
     domain_h = discretize(domain, ncells=ncells, comm=comm)
 
     t_stamp = time_count(t_stamp)
-    print('creating de Rham seq...' )
+    print('discretizing the de Rham seq with degree = '+repr(degree)+'...' )
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
     derham_h = discretize(derham, domain_h, degree=degree) #, backend=PSYDAC_BACKENDS['numba'])
     V0h = derham_h.V0
@@ -131,8 +186,20 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
         D0_m = D0.to_sparse_matrix()  # also possible as matrix product bD0 * cP0
         D1_m = D1.to_sparse_matrix()
         I1_m = I1.to_sparse_matrix()
-
         M0_minv = inv(M0_m.tocsc())  # todo: for large problems, assemble patch-wise M0_inv, as Hodge operator
+
+        if save_dir:
+            t_stamp = time_count(t_stamp)
+            print("saving sparse matrices to file...")
+            save_npz(save_dir+'M0_m.npz', M0_m)
+            save_npz(save_dir+'M1_m.npz', M1_m)
+            save_npz(save_dir+'M2_m.npz', M2_m)
+            save_npz(save_dir+'M0_minv.npz', M0_minv)
+            save_npz(save_dir+'cP0_m.npz', cP0_m)
+            save_npz(save_dir+'cP1_m.npz', cP1_m)
+            save_npz(save_dir+'D0_m.npz', D0_m)
+            save_npz(save_dir+'D1_m.npz', D1_m)
+            save_npz(save_dir+'I1_m.npz', I1_m)
 
     t_stamp = time_count(t_stamp)
     print('building A operator...' )
@@ -173,39 +240,24 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
     else:
         A_m = A1_m
 
-    t_stamp = time_count(t_stamp)
-    print('**********>>>>>>    Projecting a constant on the space V0h...' )
-
-    x,y    = domain.coordinates
-    # J_x = x  # - y
-    # J_y = y
-    # f = Tuple(J_x, J_y)
-    test_f = 2 # div(f)
-    phi  = element_of(V0h.symbolic_space, name='phi')
-    df_l = LinearForm(phi, integral(domain, test_f*phi))
-    df_lh = discretize(df_l, domain_h, V0h)
-    b  = df_lh.assemble()
-    print("TerminalExpr -->")
-    print(TerminalExpr(df_l, domain))
-    print("<-- ")
-    print("domain.interior = ", domain.interior)
-    print("b[0] = ", b[0])
-    b_c = b.toarray()
-    # print("df_l = ", df_l)
-
-    dfh_c = M0_minv.dot(b_c)
-    dfh = FemField(V0h, coeffs=array_to_stencil(dfh_c, V0h.vector_space))
-    dfh_vals = grid_vals_h1(dfh)
-    my_small_plot(
-        title=r'L2 proj of test_f = 2:',
-        vals=[dfh_vals],
-        titles=[r'test_f_h$'],  # , r'$div_h J$' ],
-        surface_plot=True,
-        xx=xx, yy=yy,
-    )
-
-    exit()
-
+    if plot_source_div:
+        # actually plotting the projected divergence of f
+        div_f = div(f)
+        phi  = element_of(V0h.symbolic_space, name='phi')
+        df_l = LinearForm(phi, integral(domain, div_f*phi))
+        df_lh = discretize(df_l, domain_h, V0h)
+        b  = df_lh.assemble()
+        b_c = b.toarray()
+        dfh_c = M0_minv.dot(b_c)
+        dfh = FemField(V0h, coeffs=array_to_stencil(dfh_c, V0h.vector_space))
+        dfh_vals = grid_vals_h1(dfh)
+        my_small_plot(
+            title=r'L2 proj of div f:',
+            vals=[dfh_vals],
+            titles=[r'div f_h$'],  # , r'$div_h J$' ],
+            surface_plot=False,
+            xx=xx, yy=yy,
+        )
 
     t_stamp = time_count(t_stamp)
     print('assembling rhs...' )
@@ -219,39 +271,54 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
     lh = discretize(l, domain_h, V1h) #, backend=PSYDAC_BACKENDS['numba'])
     b  = lh.assemble()
 
-    b_c = b.toarray()
-    # representation of discrete source:
-    fh_c = spsolve(M1_m, b_c)
-    print("|| div fh || = ", div_norm(fh_c))
-    fh = FemField(V1h, coeffs=array_to_stencil(fh_c, V1h.vector_space))
+    if plot_source:
+        # representation of discrete source:
+        b_c = b.toarray()
+        fh_c = spsolve(M1_m, b_c)
+        fh_norm = np.dot(fh_c,M1_m.dot(fh_c))
+        print("|| fh || = ", fh_norm)
+        print("|| div fh ||/|| fh || = ", div_norm(fh_c)/fh_norm)
 
-    plot_fh = True
-    if plot_fh:
+        div_fh = FemField(V0h, coeffs=array_to_stencil(div_m.dot(fh_c), V0h.vector_space))
+        fh = FemField(V1h, coeffs=array_to_stencil(fh_c, V1h.vector_space))
+
+        div_fh_vals = grid_vals_h1(div_fh)
         fh_x_vals, fh_y_vals = grid_vals_hcurl(fh)
-
         my_small_plot(
             title=r'discrete source term for Maxwell curl-curl problem',
-            vals=[np.abs(fh_x_vals), np.abs(fh_y_vals)],
-            titles=[r'$|fh_x|$', r'$|fh_y|$'],  # , r'$div_h J$' ],
+            vals=[np.abs(fh_x_vals), np.abs(fh_y_vals), np.abs(div_fh_vals)],
+            titles=[r'$|fh_x|$', r'$|fh_y|$', r'$|div_h fh|$'],  # , r'$div_h J$' ],
             surface_plot=False,
             xx=xx, yy=yy,
         )
 
-    # correct with P1^T
-    fh_c = spsolve(M1_m, cP1_m.transpose().dot(b_c))
-    print("|| div fh || = ", div_norm(fh_c))
-    fh = FemField(V1h, coeffs=array_to_stencil(fh_c, V1h.vector_space))
-
-    if plot_fh:
-        fh_x_vals, fh_y_vals = grid_vals_hcurl(fh)
-
-        my_small_plot(
-            title=r'discrete corrected source term for Maxwell curl-curl problem',
-            vals=[np.abs(fh_x_vals), np.abs(fh_y_vals)],
-            titles=[r'$|fh_x|$', r'$|fh_y|$'],  # , r'$div_h J$' ],
-            surface_plot=False,
+        my_small_streamplot(
+            title='source J',
+            vals_x=fh_x_vals,
+            vals_y=fh_y_vals,
             xx=xx, yy=yy,
+            amplification=.05
         )
+
+        # show source corrected with P1^T  -- this doesn't seem to change much, a bit strange -- need to check
+        plot_corrected_f = False
+        if plot_corrected_f:
+            fh_c = spsolve(M1_m, cP1_m.transpose().dot(b_c))
+            print("|| fh || = ", np.dot(fh_c,M1_m.dot(fh_c)))
+            print("|| div fh || = ", div_norm(fh_c))
+            div_fh = FemField(V0h, coeffs=array_to_stencil(div_m.dot(fh_c), V0h.vector_space))
+            fh = FemField(V1h, coeffs=array_to_stencil(fh_c, V1h.vector_space))
+
+            div_fh_vals = grid_vals_h1(div_fh)
+            fh_x_vals, fh_y_vals = grid_vals_hcurl(fh)
+
+            my_small_plot(
+                title=r'discrete CORRECTED source term for Maxwell curl-curl problem',
+                vals=[np.abs(fh_x_vals), np.abs(fh_y_vals), np.abs(div_fh_vals)],
+                titles=[r'$|fh_x|$', r'$|fh_y|$', r'$|div_h fh|$'],  # , r'$div_h J$' ],
+                surface_plot=False,
+                xx=xx, yy=yy,
+            )
 
     #+++++++++++++++++++++++++++++++
     # 3. Solution
@@ -263,13 +330,12 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
         t_stamp = time_count(t_stamp)
         print("getting sparse matrix...")
         # A = A.to_sparse_matrix()
-        b = b.toarray()     # todo MCP: why not 'to_array', for consistency with array_to_stencil ?
+        b = b.toarray()     # why not 'to_array', for consistency with array_to_stencil ?
 
         t_stamp = time_count(t_stamp)
         print("solving with scipy...")
         Eh_c = spsolve(A_m, b)
         E_coeffs = array_to_stencil(Eh_c, V1h.vector_space)
-
 
     else:
         assert not load_dir
@@ -278,17 +344,12 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
 
         E_coeffs, info = cg( A, b, tol=maxwell_tol, verbose=True )
 
-    # Eh = FemField(V1h, coeffs=E_coeffs)
-    # Eh = cP1(Eh)
+    # projected solution
     Eh = FemField(V1h, coeffs=array_to_stencil(cP1_m.dot(Eh_c), V1h.vector_space))
 
-    print("|| div Eh || = ", div_norm(Eh_c))
-    # divEh_norm = np.dot(divEh_c,M0_m.dot(divEh_c))
-    # print("divEh_norm = ", divEh_norm)
     Eh_norm = np.dot(Eh_c,M1_m.dot(Eh_c))
-    print("Eh_norm = ", Eh_norm)
-    # divEh_c = div_m.dot(Eh_c)
-    # divEh = FemField(V0h, coeffs=array_to_stencil(divEh_c, V0h.vector_space))  # to plot maybe
+    print("|| Eh || = ", Eh_norm)
+    print("|| div Eh || / || Eh || = ", div_norm(Eh_c)/Eh_norm)
 
     if uex is not None:
         # error
@@ -299,34 +360,74 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
     else:
         l2_error = None
 
-    return l2_error, Eh
+    if return_sol:
+        return l2_error, Eh
+    else:
+        if l2_error is None:
+            print("Warning: I have no error and I'm not returning the solution !! ")
+        return l2_error
 
 
 
 
 
 
-
-
-
-def run_maxwell_2d_time_harmonic(test_case='manufactured_sol', domain_name='square', n_patches=None, nc=4, deg=2, load_dir=None, save_dir=None):
+def run_maxwell_2d_time_harmonic():
     """
     curl-curl problem with 0 order term and source
     """
-    h = 1/nc
-    deg = 2
-    # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
-    gamma_jump = 10*(deg+1)**2/h
 
-    if domain_name == 'square' and n_patches is None:
-        n_patches = 2
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # test_case selection with domain
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    test_case='circling_J'
+    n_patches = None
+
+    plot_source = True
+    plot_sol = True
+
+    if test_case=='circling_J':
+        domain_name = 'pretzel'
+        # domain_name = 'square'; n_patches = 6
+        # domain_name = 'annulus'; n_patches = 4
+        nc = 2**6; deg = 3
+        # nc = 2**5; deg = 3
+
+        # domain_name = 'pretzel_debug'
+        # nc = 2
+
+    elif test_case == 'manufactured_sol':
+        domain_name = 'square'; n_patches = 6
+        nc = 2**4
+        deg = 2
+
+    else:
+        raise NotImplementedError
+
+    if n_patches:
+        np_suffix = '_'+repr(n_patches)
+    else:
+        np_suffix = ''
+
+    fem_name = domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
+    save_dir = './tmp_matrices/'+fem_name+'/'
+    load_dir = save_dir
+    if load_dir and not os.path.exists(load_dir):
+        print("discarding load_dir, since I cannot find it")
+        load_dir = None
+
+    domain = build_multipatch_domain(domain_name=domain_name, n_patches=n_patches)
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings_list = list(mappings.values())
+    x,y    = domain.coordinates
+
+
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # source definition
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     if test_case == 'manufactured_sol':
-
-        domain = build_multipatch_domain(domain_name=domain_name, n_patches=n_patches)
-        mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-        mappings_list = list(mappings.values())
-        x,y    = domain.coordinates
 
         omega = 1  # ?
         alpha  = -omega**2
@@ -339,114 +440,79 @@ def run_maxwell_2d_time_harmonic(test_case='manufactured_sol', domain_name='squa
 
     elif test_case == 'circling_J':
 
-        if domain_name == 'pretzel':
-            r_min = 1
-            r_max = 2
-        else:
-            r_min = r_max = None
-
-        domain = build_multipatch_domain(domain_name=domain_name, r_min=r_min, r_max=r_max, n_patches=n_patches)
-        mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-        mappings_list = list(mappings.values())
-        x,y    = domain.coordinates
-
-        omega = 4  # ?
-        alpha  = -omega**2
         # 'rotating' (divergence-free) J field:
-        #   J = j(r) * (-sin theta, cos theta)  ___?
-        # with j(r) = max(dr-(r-r0)**2,0): supported in [r0-dr, r0+dr]
-        r0 = 2.1
-        dr = 0.1
-        y0 = 0.5
-        ax = 2.6/r0
+        #   J = j(r) * (-sin theta, cos theta)
 
-        # gives an error:
-        # NotImplementedError: Cannot translate to Sympy:
-        # Max(0, 0.01 - 4.41*(0.476190476190476*((1.0*x1*sin(x2) + 0.5)**2 + 0.652366863905326*(1.0*x1*cos(x2) + 1)**2)**0.5 - 1)**2)
-        # J_x = -(y-y0) * Max(dr**2 - (((x/ax)**2 + (y-y0)**2)**.5-r0)**2, 0)   # /(x**2 + y**2)
-        # J_y =  (x/ax) * Max(dr**2 - (((x/ax)**2 + (y-y0)**2)**.5-r0)**2, 0)
+        if domain_name=='square':
+            r0 = np.pi/4
+            dr = 0.1
+            x0 = np.pi/2
+            y0 = np.pi/2
+            omega = 43/2
+            alpha  = -omega**2  # not a square eigenvalue
+            J_factor = 100
+        else:
+            # for pretzel
 
-        # also gives an error:
-        # "numba.core.errors.TypingError: Failed in nopython mode pipeline (step: nopython frontend)
-        # NameError: name 'sqrt' is not defined"
-        # J_x = -(y-y0) * exp( - ((( (x/ax)**2 + (y-y0)**2 )**.5-r0 )/dr)**2 )   # /(x**2 + y**2)
-        # J_y =  (x/ax) * exp( - ((((x/ax)**2 + (y-y0)**2)**.5-r0)/dr)**2 )
+            omega = 8  # ?
+            alpha  = -omega**2
 
-        # J_x = -y/(x**2 + y**2)
-        # J_y =  x/(x**2 + y**2)
+            source_option = 2
 
-        J_x = -(y-y0) * exp( - (( (x/ax)**2 + (y-y0)**2 - r0**2 )/dr)**2 )   # /(x**2 + y**2)
-        J_y =  (x/ax) * exp( - (( (x/ax)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
+            if source_option==1:
+                # big circle:
+                r0 = 2.4
+                dr = 0.05
+                x0 = 0
+                y0 = 0.5
+                J_factor = 10
+
+            elif source_option==2:
+                # small circle in corner:
+                r0 = 1
+                dr = 0.2
+                x0 = 1.5
+                y0 = 1.5
+                J_factor = 10
+
+            elif source_option==3:
+                # small circle in corner, seems less interesting
+                r0 = 0.0
+                dr = 0.05
+                x0 = 0.9
+                y0 = 0.9
+                J_factor = 10
+            else:
+                raise NotImplementedError
+
+        # note: some other currents give sympde or numba errors, see below [1]
+        J_x = -J_factor * (y-y0) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )   # /(x**2 + y**2)
+        J_y =  J_factor * (x-x0) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
+
         f = Tuple(J_x, J_y)
 
+        vis_J = False
+        if vis_J:
+            tmp_plot_source(J_x,J_y, domain)
 
         uex = None
 
     else:
         raise NotImplementedError
 
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # calling solver
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    vis_J = False
-    if vis_J:
+    # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
+    h = 1/nc
+    gamma_jump = 10*(deg+1)**2/h
 
-        nc = 2**5
-        ncells=[nc, nc]
-        degree=[2,2]
-
-        # for plotting J:
-        lamJ_x   = lambdify(domain.coordinates, J_x)
-        lamJ_y   = lambdify(domain.coordinates, J_y)
-        J_log = [pull_2d_hcurl([lamJ_x,lamJ_y], M) for M in mappings_list]
-
-        mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
-        mappings_list = list(mappings.values())
-        x,y    = domain.coordinates
-        nquads = [d + 1 for d in degree]
-
-        # for plotting
-        etas, xx, yy = get_plotting_grid(mappings, N=40)
-        grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
-        grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
-
-        # multipatch de Rham sequence:
-        derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-
-        domain_h = discretize(domain, ncells=ncells, comm=comm)
-        derham_h = discretize(derham, domain_h, degree=degree)
-        # V1h = derham_h.V1
-        # V2h = derham_h.V2
-
-        print("assembling projection operators...")
-        P0, P1, P2 = derham_h.projectors(nquads=nquads)
-
-        J = P1(J_log)
-
-        J_x_vals, J_y_vals = grid_vals_hcurl(J)
-
-        my_small_plot(
-            title=r'diverging harmonic field and Conga curl',
-            vals=[np.abs(J_x_vals), np.abs(J_y_vals)],
-            titles=[r'$|J_x|$', r'$|J_y|$'],  # , r'$div_h J$' ],
-            surface_plot=True,
-            xx=xx, yy=yy,
-        )
-
-        my_small_streamplot(
-            title=('J'),
-            vals_x=J_x_vals,
-            vals_y=J_y_vals,
-            xx=xx,
-            yy=yy,
-            amplification=.5, #20,
-        )
-
-        exit()
-
-    ## call solver
     l2_error, uh = run_conga_maxwell_2d(
         uex, f, alpha, domain, gamma_jump=gamma_jump,
         ncells=[nc, nc], degree=[deg,deg],
-        save_dir=save_dir, load_dir=load_dir, return_sol=True
+        save_dir=save_dir, load_dir=load_dir, return_sol=True,
+        plot_source=plot_source, plot_sol=plot_sol,
     )
 
     # else:
@@ -497,80 +563,49 @@ def run_maxwell_2d_time_harmonic(test_case='manufactured_sol', domain_name='squa
             gridlines_x2=gridlines_x2,
         )
     else:
-
+        Eh_abs_vals = [np.sqrt(abs(ex)**2 + abs(ey)**2) for ex, ey in zip(uh_x_vals, uh_y_vals)]
         my_small_plot(
-            title=r'approximate solution $u$',
-            vals=[uh_x_vals, uh_y_vals],
-            titles=[r'$u^h_x(x,y)$', r'$u^h_y(x,y)$'],
+            title=r'approximate solution $E$ for $\omega = $'+repr(omega),
+            vals=[uh_x_vals, uh_y_vals, Eh_abs_vals],
+            titles=[r'$u^h_x$', r'$u^h_y$', r'$|u^h|$'],
             xx=xx,
             yy=yy,
+            surface_plot=True,
             gridlines_x1=gridlines_x1,
             gridlines_x2=gridlines_x2,
+            save_fig='Eh_'+fem_name+'.png',
         )
 
     my_small_streamplot(
-        title=('solution'),
+        title=('solution E'),
         vals_x=uh_x_vals,
         vals_y=uh_y_vals,
+        skip=1,
         xx=xx,
         yy=yy,
-        amplification=2, #20,
+        amplification=1,
+        save_fig='Eh_vf_'+fem_name+'.png',
     )
 
-
-    # todo:
-    # - compute pretzel eigenvalues
-    # - use sparse matrices (faster ?)
-    # - see whether solution is orthogonal to harmonic forms ? (why should it be ?)
-    # - add orthogonality constraint ?
-    # - check 0 divergence property of Jh and Eh ?
-    #
 
 if __name__ == '__main__':
 
-
-    test_case='circling_J'
-    n_patches = None
-
-    if test_case=='circling_J':
-        domain_name = 'pretzel'
-        # domain_name = 'square'
-        # n_patches = 6
-        # domain_name = 'annulus'
-        # n_patches = 4
-        nc = 2**4
-        deg = 2
-
-        # domain_name = 'pretzel_debug'
-        nc = 2
-
-    elif test_case == 'manufactured_sol':
-        domain_name = 'square'
-        n_patches = 6
-        nc = 2**4
-        deg = 2
-
-    else:
-        raise NotImplementedError
-
-    if n_patches:
-        np_suffix = '_'+repr(n_patches)
-    else:
-        np_suffix = ''
-
-    # load_dir = './tmp_matrices/'+domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'/'
-    load_dir = None
-    if load_dir and not os.path.exists(load_dir):
-        print("discarding load_dir, since I cannot find it")
-        load_dir = None
-
-    save_dir = None  # todo: allow to save matrices
-
-    run_maxwell_2d_time_harmonic(
-        test_case=test_case,
-        domain_name=domain_name, n_patches=n_patches,
-        load_dir=load_dir, save_dir=save_dir, nc=nc, deg=deg
-    )
+    run_maxwell_2d_time_harmonic()
 
 
 
+
+
+# [1]: errors given by other currents:
+#
+# J_x = -(y-y0) * Max(dr**2 - (((x/ax)**2 + (y-y0)**2)**.5-r0)**2, 0)   # /(x**2 + y**2)
+# J_y =  (x/ax) * Max(dr**2 - (((x/ax)**2 + (y-y0)**2)**.5-r0)**2, 0)
+# gives the error:
+# NotImplementedError: Cannot translate to Sympy:
+# Max(0, 0.01 - 4.41*(0.476190476190476*((1.0*x1*sin(x2) + 0.5)**2 + 0.652366863905326*(1.0*x1*cos(x2) + 1)**2)**0.5 - 1)**2)
+#
+# J_x = -(y-y0) * exp( - ((( (x/ax)**2 + (y-y0)**2 )**.5-r0 )/dr)**2 )   # /(x**2 + y**2)
+# J_y =  (x/ax) * exp( - ((((x/ax)**2 + (y-y0)**2)**.5-r0)/dr)**2 )
+# gives the error:
+# "numba.core.errors.TypingError: Failed in nopython mode pipeline (step: nopython frontend)
+# NameError: name 'sqrt' is not defined"

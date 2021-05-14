@@ -8,10 +8,12 @@ import matplotlib.pyplot as plt
 from collections import OrderedDict
 
 from scipy.sparse.linalg import spsolve
-from scipy.sparse.linalg import eigsh
-from scipy.linalg import null_space
+from scipy.sparse.linalg import LinearOperator, eigsh, minres, gmres
+
 from scipy.sparse.linalg import inv
 from scipy.sparse import save_npz, load_npz
+
+# from scikits.umfpack import splu    # import error
 
 from sympde.topology import Derham
 from sympde.topology import Square
@@ -39,7 +41,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
                                 n_patches=2,
                                 load_dir=None,
                                 save_dir=None,
-                                compute_kernel=False,
+                                sigma=None,
                                 test_harmonic_field=False,
                                 ref_sigmas=None,
                                 show_all=False):
@@ -53,8 +55,10 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
 
     assert len(ncells) == 2 and ncells[0] == ncells[1]
     assert len(degree) == 2 and degree[0] == degree[1]
+    assert sigma is not None
 
-    print("Running Maxwell eigenproblem solver.")
+    print("Running Maxwell eigenproblem solver")
+    print("Looking for {nb_eigs} eigenvalues close to sigma={sigma}".format(nb_eigs=nb_eigs, sigma=sigma))
     if load_dir:
         print(" -- will load matrices from " + load_dir)
     elif save_dir:
@@ -63,20 +67,21 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
             os.makedirs(save_dir)
 
     t_stamp = time_count()
-    print("building domain and spaces...")
+    print('building and discretizing the domain with ncells = '+repr(ncells)+'...' )
+    # print("building domain and spaces...")
     domain = build_multipatch_domain(domain_name=domain_name, n_patches=n_patches)
-
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
     x,y    = domain.coordinates
     nquads = [d + 1 for d in degree]
     # plotting
     etas, xx, yy = get_plotting_grid(mappings, N=20)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
 
+    t_stamp = time_count(t_stamp)
+    print('discretizing the de Rham seq with degree = '+repr(degree)+'...' )
     # multipatch de Rham sequence:
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
     derham_h = discretize(derham, domain_h, degree=degree)
     V0h = derham_h.V0
     V1h = derham_h.V1
@@ -249,13 +254,14 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
 
     print('Finding eigenmodes and eigenvalues ... ')
 
-    if compute_kernel:
-        sigma = 0
+    if sigma == 0:
+        # computing kernel
         mode = 'normal'
         which = 'LM'
+        # note: using scipy.linalg.null_space with A_m.todense() is way too slow
     else:
-        sigma = 2
-        mode='cayley'
+        mode = 'normal'
+        # mode='cayley'
         # mode='buckling'
         which = 'LM'
 
@@ -269,20 +275,38 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
     t_stamp = time_count(t_stamp)
     print('A_m.shape = ', A_m.shape)
 
-    # if compute_kernel:
-    #     print("using null_space ... ")
-        ## note: doing eigenvectors = null_space(A_m.todense()) is way too slow
-        # eigenvalues = np.zeros(len(eigenvectors))
-    # else:
     print('computing eigenvalues and eigenvectors with scipy.sparse.eigsh...' )
-    eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M1_m, sigma=sigma, mode=mode, which=which, ncv=ncv)
+    if A_m.shape[0] < 20000:
+        print('(with super_lu decomposition)')
+        eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M1_m, sigma=sigma, mode=mode, which=which, ncv=ncv)
+
+    else:
+        # from https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigsh.html:
+        # the user can supply the matrix or operator OPinv, which gives x = OPinv @ b = [A - sigma * M]^-1 @ b.
+        # > here, minres: MINimum RESidual iteration to solve Ax=b
+        # suggested in https://github.com/scipy/scipy/issues/4170
+        OP = A_m - sigma*M1_m
+        print('(with minres iterative solver for A_m - sigma*M1_m)')
+        OPinv = LinearOperator(matvec=lambda v: minres(OP, v, tol=1e-10)[0], shape=M1_m.shape, dtype=M1_m.dtype)
+        # print('(with gmres iterative solver for A_m - sigma*M1_m)')
+        # OPinv = LinearOperator(matvec=lambda v: gmres(OP, v, tol=1e-7)[0], shape=M1_m.shape, dtype=M1_m.dtype)
+        # print('(with spsolve solver for A_m - sigma*M1_m)')
+        # OPinv = LinearOperator(matvec=lambda v: spsolve(OP, v, use_umfpack=True), shape=M1_m.shape, dtype=M1_m.dtype)
+
+        # lu = splu(OP)
+        # OPinv = LinearOperator(matvec=lambda v: lu.solve(v), shape=M1_m.shape, dtype=M1_m.dtype)
+        eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M1_m, sigma=sigma, mode=mode, which=which, ncv=ncv, tol=1e-10, OPinv=OPinv)
+
+    t_stamp = time_count(t_stamp)
+    print("done. eigenvalues found: " + repr(eigenvalues))
 
     grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
     grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
 
-    first_Pemodes_vals = []
-    first_Pemodes_titles = []
-    first_evalues = []
+    curl_Pemodes_vals = []
+    curl_Pemodes_titles = []
+    curl_evalues = []
+    other_evalues = []
 
     k_eig = 0
     nb_eigs_found = 0   # we only look for curl-curl eigenmodes
@@ -295,31 +319,32 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
         ampl_aux_div_emode = np.dot(aux_div_emode, aux_div_emode)/np.dot(emode_sp,emode_sp)
         print('rel amplitude of aux_div_emode: ', repr(ampl_aux_div_emode))
 
+        # normalize mode in L2
+        Me = M1_m.dot(emode_sp)
+        norm_emode = np.dot(emode_sp,Me)
+        print('norm of computed eigenmode: ', norm_emode)
+
+        emode = FemField(V1h, coeffs=array_to_stencil(emode_sp/norm_emode, V1h.vector_space))
+        cP_emode = FemField(V1h, coeffs=array_to_stencil(cP1_m.dot(emode_sp), V1h.vector_space))
+        curl_emode = FemField(V2h, coeffs=array_to_stencil(D1_m.dot(emode_sp), V2h.vector_space))
+        # psydac version (ok if operators are there):
+        # cP_emode_c = cP1(emode)
+        # curl_emode = D1(emode)
+
+        eh_x_vals, eh_y_vals = grid_vals_hcurl(emode)
+        cPeh_x_vals, cPeh_y_vals = grid_vals_hcurl(cP_emode)
+        Peh_abs_vals = [np.sqrt(abs(Pex)**2 + abs(Pey)**2) for Pex, Pey in zip(cPeh_x_vals, cPeh_y_vals)]
+        jumps_eh_vals = [np.sqrt(abs(ex-Pex)**2 + abs(ey-Pey)**2)
+                         for ex, Pex, ey, Pey in zip (eh_x_vals, cPeh_x_vals, eh_y_vals, cPeh_y_vals)]
+        curl_eh_vals = grid_vals_h1(curl_emode)
+
         if ampl_aux_div_emode < 1e-5:
             print('seems to be a curl-curl eigenmode.')
-            # normalize mode in L2
-            Me = M1_m.dot(emode_sp)
-            norm_emode = np.dot(emode_sp,Me)
-            print('norm of computed eigenmode: ', norm_emode)
-
-            emode = FemField(V1h, coeffs=array_to_stencil(emode_sp/norm_emode, V1h.vector_space))
-            cP_emode = FemField(V1h, coeffs=array_to_stencil(cP1_m.dot(emode_sp), V1h.vector_space))
-            curl_emode = FemField(V2h, coeffs=array_to_stencil(D1_m.dot(emode_sp), V2h.vector_space))
-            # psydac version (ok if operators are there):
-            # cP_emode_c = cP1(emode)
-            # curl_emode = D1(emode)
-
-            eh_x_vals, eh_y_vals = grid_vals_hcurl(emode)
-            cPeh_x_vals, cPeh_y_vals = grid_vals_hcurl(cP_emode)
-            Peh_abs_vals = [np.sqrt(abs(Pex)**2 + abs(Pey)**2) for Pex, Pey in zip(cPeh_x_vals, cPeh_y_vals)]
-            jumps_eh_vals = [np.sqrt(abs(ex-Pex)**2 + abs(ey-Pey)**2)
-                             for ex, Pex, ey, Pey in zip (eh_x_vals, cPeh_x_vals, eh_y_vals, cPeh_y_vals)]
-            curl_eh_vals = grid_vals_h1(curl_emode)
 
             if nb_eigs_found < 8:
-                first_Pemodes_vals.append(Peh_abs_vals)
-                first_Pemodes_titles.append(r'$\sigma=$'+'{0:0.2f}'.format(np.real(evalue)))
-                first_evalues.append(np.real(evalue))
+                curl_Pemodes_vals.append(Peh_abs_vals)
+                curl_Pemodes_titles.append(r'$\sigma=$'+'{0:0.2f}'.format(np.real(evalue)))
+                curl_evalues.append(np.real(evalue))
             else:
                 print('warning: not plotting eigenmode for nb_eigs_found = ' + repr(nb_eigs_found))
 
@@ -327,6 +352,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
             is_curl_curl = 'Yes'
         else:
             print('does not seem to be a curl-curl eigenmode.')
+            other_evalues.append(np.real(evalue))
             is_curl_curl = 'No'
 
         if show_all:
@@ -349,9 +375,9 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
         k_eig += 1
 
     my_small_plot(
-        title=r'Amplitude $|P^1_c e^h_k|$ of some eigenmodes found',
-        vals=first_Pemodes_vals,
-        titles=first_Pemodes_titles,
+        title=r'Amplitude $|P^1_c e^h_k|$ of some curl eigenmodes for ncells = {nc} and degree = {deg}'.format(nc=ncells[0],deg=degree[0]),
+        vals=curl_Pemodes_vals,
+        titles=curl_Pemodes_titles,
         xx=xx,
         yy=yy,
     )
@@ -368,25 +394,30 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
     nb_dofs = len(emode_sp)
     print(' -- nb of DOFS: ' + repr(nb_dofs))
 
-    print('computed eigenvalues: ')
-    print(first_evalues)
+    print('computed eigenvalues for curl curl operator: ')
+    print(curl_evalues)
+
+    print('other eigenvalues (for grad div) operator: ')
+    print(other_evalues)
 
     if ref_sigmas is not None:
         errors = []
-        n_errs = min(len(ref_sigmas), len(first_evalues))
+        n_errs = min(len(ref_sigmas), len(curl_evalues))
         for k in range(n_errs):
-            errors.append(abs(first_evalues[k]-ref_sigmas[k]))
+            errors.append(abs(curl_evalues[k]-ref_sigmas[k]))
 
         print('errors from reference eigenvalues: ')
         print(errors)
 
 if __name__ == '__main__':
 
-    nc = 2 # 2**4
+    #nc = 2**5; deg = 2
+    nc = 2**4
     h = 1/nc
-    deg = 2
+    deg = 3
     # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
     DG_alpha = 10*(deg+1)**2/h
+    # DG_alpha = 10*(deg)**2/h
     alpha = DG_alpha
 
     nb_eigs = 8
@@ -400,9 +431,12 @@ if __name__ == '__main__':
 
     if domain_name == 'square':
         n_patches = 6
+        sigma = 0
     elif domain_name == 'annulus':
         n_patches = 4
+        sigma = 0
     elif domain_name == 'curved_L_shape':
+        sigma = 0
         ref_sigmas = [
             0.181857115231E+01,
             0.349057623279E+01,
@@ -411,12 +445,13 @@ if __name__ == '__main__':
             0.124355372484E+02,
             ]
         nb_eigs=7  # need a bit more, to get rid of grad-div eigenmodes
-    if domain_name in ['pretzel', 'pretzel_debug']:
+    elif domain_name in ['pretzel', 'pretzel_debug']:
         # radii used in the pretzel_J source test case
-        nb_eigs = 4
-        r_min = 1
-        r_max = 2
+        nb_eigs = 2
+        sigma = 64
         # note: nc = 2**5 and deg = 2 gives a matrix too big for super_lu factorization...
+    else:
+        raise NotImplementedError
 
     if n_patches:
         np_suffix = '_'+repr(n_patches)
@@ -424,7 +459,6 @@ if __name__ == '__main__':
         np_suffix = ''
     save_dir = './tmp_matrices/'+domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'/'
     load_dir = save_dir
-
 
     # possible domain shapes:
     assert domain_name in ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug']
@@ -436,4 +470,5 @@ if __name__ == '__main__':
     run_maxwell_2d_eigenproblem(
         nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], alpha=alpha,
         domain_name=domain_name, n_patches=n_patches, save_dir=save_dir, load_dir=load_dir,
-        ref_sigmas=ref_sigmas, compute_kernel=True, show_all=False)
+        ref_sigmas=ref_sigmas, sigma=sigma, show_all=True
+    )
