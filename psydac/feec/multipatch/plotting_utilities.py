@@ -132,6 +132,7 @@ def my_small_plot(
         surface_plot=False,
         cmap='viridis',
         save_fig=None,
+        dpi='figure',
 ):
     # cmap = 'jet' is nice too, but not so uniform. 'plasma' or 'magma' are uniform also.
 
@@ -150,7 +151,7 @@ def my_small_plot(
         assert n_patches == len(vals[i])
         ax = fig.add_subplot(1, n_plots, i+1)
         for k in range(n_patches):
-            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap, extend='both')
+            ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap) #, extend='both')
         cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
         if gridlines_x1 is not None:
             ax.plot(*gridlines_x1, color='k')
@@ -160,7 +161,8 @@ def my_small_plot(
         ax.set_title ( titles[i] )
 
     if save_fig:
-        plt.savefig(save_fig, bbox_inches='tight')
+        print('saving contour plot in file '+save_fig)
+        plt.savefig(save_fig, bbox_inches='tight',dpi=dpi)
     else:
         plt.show()
 
@@ -187,7 +189,8 @@ def my_small_plot(
             if ext[0] != '.':
                 print('WARNING: extension unclear for file_name '+save_fig)
             save_fig_surf = save_fig[:-4]+'_surf'+ext
-            plt.savefig(save_fig_surf, bbox_inches='tight')
+            print('saving surface plot in file '+save_fig_surf)
+            plt.savefig(save_fig_surf, bbox_inches='tight', dpi=dpi)
         else:
             plt.show()
 
@@ -198,6 +201,7 @@ def my_small_streamplot(
         xx, yy, skip=2,
         amplification=1,
         save_fig=None,
+        dpi='figure',
 ):
     """
     :param skip: every skip-th data point will be skipped
@@ -216,7 +220,8 @@ def my_small_streamplot(
                    scale=1/(amplification*0.05), width=0.002) # width=) units='width', pivot='mid',
 
     if save_fig:
-        plt.savefig(save_fig, bbox_inches='tight')
+        print('saving vector field (stream) plot in file '+save_fig)
+        plt.savefig(save_fig, bbox_inches='tight', dpi=dpi)
     else:
         plt.show()
 

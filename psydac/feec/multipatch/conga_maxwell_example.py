@@ -48,6 +48,8 @@ from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 
+from psydac.feec.multipatch.conga_maxwell_eigenproblem_example import get_fem_name, get_load_dir
+
 comm = MPI.COMM_WORLD
 
 # small helper function (useful ?)
@@ -102,7 +104,7 @@ def tmp_plot_source(J_x,J_y, domain):
     )
 
 #==============================================================================
-def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, save_dir=None, load_dir=None, comm=None,
+def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, save_dir=None, load_dir=None, comm=None,
                          plot_source=False, plot_sol=False, plot_source_div=False, return_sol=False):
     """
     - assemble and solve a Maxwell problem on a multipatch domain, using Conga approach
@@ -116,7 +118,7 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
-    hom_bc = (uex is None)
+    hom_bc = (E_ex is None)
     use_scipy = True
     maxwell_tol = 5e-3
     nquads = [d + 1 for d in degree]
@@ -265,7 +267,7 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
     if hom_bc:
         l = LinearForm(v, integral(domain, expr))
     else:
-        expr_b = penalization * cross(uex, nn) * cross(v, nn)
+        expr_b = penalization * cross(E_ex, nn) * cross(v, nn)
         l = LinearForm(v, integral(domain, expr) + integral(boundary, expr_b))
 
     lh = discretize(l, domain_h, V1h) #, backend=PSYDAC_BACKENDS['numba'])
@@ -351,9 +353,9 @@ def run_conga_maxwell_2d(uex, f, alpha, domain, ncells, degree, gamma_jump=1, sa
     print("|| Eh || = ", Eh_norm)
     print("|| div Eh || / || Eh || = ", div_norm(Eh_c)/Eh_norm)
 
-    if uex is not None:
+    if E_ex is not None:
         # error
-        error       = Matrix([F[0]-uex[0],F[1]-uex[1]])
+        error       = Matrix([F[0]-E_ex[0],F[1]-E_ex[1]])
         l2_norm     = Norm(error, domain, kind='l2')
         l2_norm_h   = discretize(l2_norm, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
         l2_error    = l2_norm_h.assemble(F=Eh)
@@ -405,14 +407,8 @@ def run_maxwell_2d_time_harmonic():
     else:
         raise NotImplementedError
 
-    if n_patches:
-        np_suffix = '_'+repr(n_patches)
-    else:
-        np_suffix = ''
-
-    fem_name = domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
-    save_dir = './tmp_matrices/'+fem_name+'/'
-    load_dir = save_dir
+    fem_name = get_fem_name(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg) #domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
+    save_dir = load_dir = get_load_dir(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)  # './tmp_matrices/'+fem_name+'/'
     if load_dir and not os.path.exists(load_dir):
         print("discarding load_dir, since I cannot find it")
         load_dir = None
@@ -431,12 +427,12 @@ def run_maxwell_2d_time_harmonic():
 
         omega = 1  # ?
         alpha  = -omega**2
-        uex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+        E_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
         f      = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                          alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
-        uex_x = lambdify(domain.coordinates, uex[0])
-        uex_y = lambdify(domain.coordinates, uex[1])
-        uex_log = [pull_2d_hcurl([uex_x,uex_y], f) for f in mappings_list]
+        E_ex_x = lambdify(domain.coordinates, E_ex[0])
+        E_ex_y = lambdify(domain.coordinates, E_ex[1])
+        E_ex_log = [pull_2d_hcurl([E_ex_x,E_ex_y], f) for f in mappings_list]
 
     elif test_case == 'circling_J':
 
@@ -495,7 +491,7 @@ def run_maxwell_2d_time_harmonic():
         if vis_J:
             tmp_plot_source(J_x,J_y, domain)
 
-        uex = None
+        E_ex = None
 
     else:
         raise NotImplementedError
@@ -509,7 +505,7 @@ def run_maxwell_2d_time_harmonic():
     gamma_jump = 10*(deg+1)**2/h
 
     l2_error, uh = run_conga_maxwell_2d(
-        uex, f, alpha, domain, gamma_jump=gamma_jump,
+        E_ex, f, alpha, domain, gamma_jump=gamma_jump,
         ncells=[nc, nc], degree=[deg,deg],
         save_dir=save_dir, load_dir=load_dir, return_sol=True,
         plot_source=plot_source, plot_sol=plot_sol,
@@ -517,9 +513,9 @@ def run_maxwell_2d_time_harmonic():
 
     # else:
     #     # Nitsche
-    #     l2_error, uh = run_system_3_2d_dir(uex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)
+    #     l2_error, uh = run_system_3_2d_dir(E_ex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)
 
-    if uex:
+    if E_ex:
         print("max2d: ", l2_error)
 
 
@@ -535,17 +531,15 @@ def run_maxwell_2d_time_harmonic():
     gridlines_x1 = None
     gridlines_x2 = None
 
-    uh_x_vals, uh_y_vals = grid_vals_hcurl(uh)
-    if uex:
-        u_x_vals, u_y_vals   = grid_vals_hcurl(uex_log)
-        u_x_err = [abs(u1 - u2) for u1, u2 in zip(u_x_vals, uh_x_vals)]
-        u_y_err = [abs(u1 - u2) for u1, u2 in zip(u_y_vals, uh_y_vals)]
-        # u_x_err = abs(u_x_vals - uh_x_vals)
-        # u_y_err = abs(u_y_vals - uh_y_vals)
+    Eh_x_vals, Eh_y_vals = grid_vals_hcurl(uh)
+    if E_ex:
+        E_x_vals, E_y_vals   = grid_vals_hcurl(E_ex_log)
+        E_x_err = [abs(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
+        E_y_err = [abs(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
 
         my_small_plot(
             title=r'approximation of solution $u$, $x$ component',
-            vals=[u_x_vals, uh_x_vals, u_x_err],
+            vals=[E_x_vals, Eh_x_vals, E_x_err],
             titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
             xx=xx,
             yy=yy,
@@ -555,7 +549,7 @@ def run_maxwell_2d_time_harmonic():
 
         my_small_plot(
             title=r'approximation of solution $u$, $y$ component',
-            vals=[u_y_vals, uh_y_vals, u_y_err],
+            vals=[E_y_vals, Eh_y_vals, E_y_err],
             titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
             xx=xx,
             yy=yy,
@@ -563,11 +557,11 @@ def run_maxwell_2d_time_harmonic():
             gridlines_x2=gridlines_x2,
         )
     else:
-        Eh_abs_vals = [np.sqrt(abs(ex)**2 + abs(ey)**2) for ex, ey in zip(uh_x_vals, uh_y_vals)]
+        Eh_abs_vals = [np.sqrt(abs(ex)**2 + abs(ey)**2) for ex, ey in zip(Eh_x_vals, Eh_y_vals)]
         my_small_plot(
-            title=r'approximate solution $E$ for $\omega = $'+repr(omega),
-            vals=[uh_x_vals, uh_y_vals, Eh_abs_vals],
-            titles=[r'$u^h_x$', r'$u^h_y$', r'$|u^h|$'],
+            title=r'discrete field $E_h$ for $\omega = $'+repr(omega),
+            vals=[Eh_x_vals, Eh_y_vals, Eh_abs_vals],
+            titles=[r'$E^h_x$', r'$E^h_y$', r'$|E^h|$'],
             xx=xx,
             yy=yy,
             surface_plot=True,
@@ -578,8 +572,8 @@ def run_maxwell_2d_time_harmonic():
 
     my_small_streamplot(
         title=('solution E'),
-        vals_x=uh_x_vals,
-        vals_y=uh_y_vals,
+        vals_x=Eh_x_vals,
+        vals_y=Eh_y_vals,
         skip=1,
         xx=xx,
         yy=yy,

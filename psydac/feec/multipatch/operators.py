@@ -27,7 +27,7 @@ from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 DEBUG_BCK = False   ## DEBUG
-# DEBUG_BCK = True   ## DEBUG
+DEBUG_BCK = True   ## DEBUG
 
 if DEBUG_BCK:
     print("WITH numba backends")

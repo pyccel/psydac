@@ -36,15 +36,37 @@ from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_
 
 comm = MPI.COMM_WORLD
 
+# ---------------------------------------------------------------------------------------------------------------
+# small utility for saving/loading sparse matrices, plots...
+def get_fem_name(domain_name=None,n_patches=None,nc=None,deg=None):
+    assert domain_name and nc and deg
+    if n_patches:
+        np_suffix = '_'+repr(n_patches)
+    else:
+        np_suffix = ''
+
+    return domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
+
+def get_load_dir(domain_name=None,n_patches=None,nc=None,deg=None):
+    fem_name = get_fem_name(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)
+    return './tmp_matrices/'+fem_name+'/'
+
+
+# ---------------------------------------------------------------------------------------------------------------
 def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
                                 domain_name='square',
                                 n_patches=2,
                                 load_dir=None,
                                 save_dir=None,
+                                plot_dir='',
+                                fem_name='',
                                 sigma=None,
                                 test_harmonic_field=False,
                                 ref_sigmas=None,
-                                show_all=False):
+                                show_all=False,
+                                ext_plots=False,
+                                dpi='figure',
+                                dpi_vf='figure'):
     """
     Maxwell eigenproblem solver, see eg
     Buffa, Perugia & Warburton, The Mortar-Discontinuous Galerkin Method for the 2D Maxwell Eigenproblem JSC 2009.
@@ -86,7 +108,9 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
     V0h = derham_h.V0
     V1h = derham_h.V1
     V2h = derham_h.V2
-
+    print("V0h.nbasis = ", V0h.nbasis)
+    print("V1h.nbasis = ", V1h.nbasis)
+    print("V2h.nbasis = ", V2h.nbasis)
 
     TEST_DEBUG = False
 
@@ -137,6 +161,8 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
         I1_m = load_npz(load_dir+'I1_m.npz')
         if save_dir:
             print("(warning: save_dir argument is discarded)")
+
+        print("loaded: M1_m.shape = " + repr(M1_m.shape))
     else:
 
         # Mass matrices for broken spaces (block-diagonal)
@@ -276,7 +302,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
     print('A_m.shape = ', A_m.shape)
 
     print('computing eigenvalues and eigenvectors with scipy.sparse.eigsh...' )
-    if A_m.shape[0] < 20000:
+    if A_m.shape[0] < 17000:   # max value for super_lu is >= 13200
         print('(with super_lu decomposition)')
         eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M1_m, sigma=sigma, mode=mode, which=which, ncv=ncv)
 
@@ -356,31 +382,61 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
             is_curl_curl = 'No'
 
         if show_all:
+            if fem_name:
+                fig_name=plot_dir+'HL_emode_k='+repr(k_eig)+'_'+fem_name+'.png'
+                fig_name_vf=plot_dir+'HL_emode_k='+repr(k_eig)+'_vf_'+fem_name+'.png'
+            else:
+                fig_name=None
+                fig_name_vf=None
+
+            print('len(Peh_abs_vals) = ',len(Peh_abs_vals))
+            if ext_plots:
+                title=('mode k:'+repr(k_eig)+' -- eigenvalue: '+repr(evalue)+' -- is curl_curl: '+is_curl_curl)
+                vals=[eh_x_vals, eh_y_vals, Peh_abs_vals, jumps_eh_vals, curl_eh_vals]
+                titles=[r'$e^h_{k,x}$', r'$e^h_{k,y}$', r'$|P^1_c e^h_k|$', r'$|(I-P^1_c) e^h_k|$', r'curl$(e^h_k)$']
+            else:
+                # lambda is std notation for eigenvalue
+                title=('eigenmode for $\lambda_{k,h}$ = '+repr(evalue))
+                vals=[Peh_abs_vals,]
+                titles=[r'$|P^1_c e_{k,h}|$',]
+
             my_small_plot(
-                title=('mode k:'+repr(k_eig)+' -- eigenvalue: '+repr(evalue)+' -- is curl_curl: '+is_curl_curl),
-                vals=[eh_x_vals, eh_y_vals, Peh_abs_vals, jumps_eh_vals, curl_eh_vals],
-                titles=[r'$e^h_{k,x}$', r'$e^h_{k,y}$', r'$|P^1_c e^h_k|$', r'$|(I-P^1_c) e^h_k|$', r'curl$(e^h_k)$'],
+                title=title,
+                vals=vals,
+                titles=titles,
                 xx=xx,
                 yy=yy,
+                cmap='magma',
+                save_fig=fig_name,
+                dpi=dpi
             )
 
             my_small_streamplot(
-                title=('mode k:'+repr(k_eig)+' -- eigenvalue: '+repr(evalue)+' -- is curl_curl: '+is_curl_curl),
+                title=title,
                 vals_x=eh_x_vals,
                 vals_y=eh_y_vals,
                 xx=xx,
                 yy=yy,
+                save_fig=fig_name_vf,
+                dpi=dpi_vf
             )
 
         k_eig += 1
 
+    if fem_name:
+        fig_name=plot_dir+'HL_emodes_'+fem_name+'.png'
+    else:
+        fig_name=None
     my_small_plot(
         title=r'Amplitude $|P^1_c e^h_k|$ of some curl eigenmodes for ncells = {nc} and degree = {deg}'.format(nc=ncells[0],deg=degree[0]),
         vals=curl_Pemodes_vals,
         titles=curl_Pemodes_titles,
         xx=xx,
         yy=yy,
+        cmap='magma',
+        save_fig=fig_name,
     )
+
 
     t_stamp = time_count(t_stamp)
     print('done -- summary: ')
@@ -411,64 +467,120 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
 
 if __name__ == '__main__':
 
-    #nc = 2**5; deg = 2
-    nc = 2**4
-    h = 1/nc
-    deg = 3
-    # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
-    DG_alpha = 10*(deg+1)**2/h
-    # DG_alpha = 10*(deg)**2/h
-    alpha = DG_alpha
-
-    nb_eigs = 8
-    n_patches = None
-    ref_sigmas = None
-    save_dir = None
-    load_dir = None
+    # from scipy.sparse import rand
+    # A = rand(m=14300, n=14300)
+    # A = rand(m=15300, n=15300)
+    # A = rand(m=22000, n=22000)
+    # res = eigsh(A, 1, sigma=50);
+    # print(res)
+    # exit()
 
     # domain_name = 'curved_L_shape'
-    domain_name = 'pretzel' #_debug'
+    domain_name = 'pretzel'  #_debug'
 
-    if domain_name == 'square':
-        n_patches = 6
-        sigma = 0
-    elif domain_name == 'annulus':
-        n_patches = 4
-        sigma = 0
-    elif domain_name == 'curved_L_shape':
-        sigma = 0
-        ref_sigmas = [
-            0.181857115231E+01,
-            0.349057623279E+01,
-            0.100656015004E+02,
-            0.101118862307E+02,
-            0.124355372484E+02,
-            ]
-        nb_eigs=7  # need a bit more, to get rid of grad-div eigenmodes
-    elif domain_name in ['pretzel', 'pretzel_debug']:
-        # radii used in the pretzel_J source test case
-        nb_eigs = 2
-        sigma = 64
-        # note: nc = 2**5 and deg = 2 gives a matrix too big for super_lu factorization...
-    else:
-        raise NotImplementedError
+    # valid parameters for curved_L_shape (V1 dofs around 10.000)
+    # nc = 40; deg = 3
+    # nc = 40; deg = 3
+    # nc = 40; deg = 5
+    # (nc, deg = 50, 2 is too large for super_lu)
 
-    if n_patches:
-        np_suffix = '_'+repr(n_patches)
-    else:
-        np_suffix = ''
-    save_dir = './tmp_matrices/'+domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'/'
-    load_dir = save_dir
+    # valid parameters for pretzel (V1 dofs around 10.000)
+    #nc = 2**4; deg = 2  # OK
+    # nc = 20; deg = 2  # OK
+    # nc = 20; deg = 4  # OK -- V1 dofs: 12144
+    # nc = 20; deg = 5  # OK -- V1 dofs: 13200
+    # nc = 20; deg = 8  # OK --
+    nc=20
+    nc=8
+    # for deg in [2,3,4,5,6,7]:
+    # for deg in [4,5,6,7]:
+    for deg in [3]:
 
-    # possible domain shapes:
-    assert domain_name in ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug']
+        # (nc, deg = 30, 2 is too large for super_lu)
 
-    if load_dir and not os.path.exists(load_dir):
-        print(' -- note: discarding absent load directory')
+        # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
+        h = 1/nc
+        DG_alpha = 10*(deg+1)**2/h
+        # DG_alpha = 10*(deg)**2/h
+        alpha = DG_alpha
+
+        show_all = False
+        plot_all = True
+        dpi = 400
+        dpi_vf = 200
+        # show_all = True
+        # plot_all = False
+
+        nb_eigs = 8
+        n_patches = None
+        ref_sigmas = None
+        save_dir = None
         load_dir = None
 
-    run_maxwell_2d_eigenproblem(
-        nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], alpha=alpha,
-        domain_name=domain_name, n_patches=n_patches, save_dir=save_dir, load_dir=load_dir,
-        ref_sigmas=ref_sigmas, sigma=sigma, show_all=True
-    )
+        if domain_name == 'square':
+            n_patches = 6
+            sigma = 0
+        elif domain_name == 'annulus':
+            n_patches = 4
+            sigma = 0
+        elif domain_name == 'curved_L_shape':
+            sigma = 0
+            ref_sigmas = [
+                0.181857115231E+01,
+                0.349057623279E+01,
+                0.100656015004E+02,
+                0.101118862307E+02,
+                0.124355372484E+02,
+                ]
+            nb_eigs=7  # need a bit more, to get rid of grad-div eigenmodes
+        elif domain_name in ['pretzel', 'pretzel_debug']:
+            # radii used in the pretzel_J source test case
+            sigma = 0
+            if sigma == 0 and domain_name == 'pretzel':
+                nb_eigs = 8
+                ref_sigmas = [
+                    0,
+                    0,
+                    0,
+                    0.1795447761871659,
+                    0.19922705025897117,
+                    0.699286528403241,
+                    0.8709410737744409,
+                    1.1945444491250097,
+                ]
+            else:
+                nb_eigs = 5
+            # note: nc = 2**5 and deg = 2 gives a matrix too big for super_lu factorization...
+        else:
+            raise NotImplementedError
+
+
+        fem_name = get_fem_name(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg) #domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
+        save_dir = load_dir = get_load_dir(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)  # './tmp_matrices/'+fem_name+'/'
+        # save_dir = './tmp_matrices/'+domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'/'
+        # load_dir = save_dir
+        plot_dir = './plots/'+fem_name+'/'
+        if not os.path.exists(plot_dir):
+            os.makedirs(plot_dir)
+
+        if plot_all:
+            show_all=True
+            # will also use above value of fem_name
+        else:
+            # reset fem_name to disable plots
+            fem_name = ''
+
+        # possible domain shapes:
+        assert domain_name in ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug']
+
+        if load_dir and not os.path.exists(load_dir):
+            print(' -- note: discarding absent load directory')
+            load_dir = None
+
+        run_maxwell_2d_eigenproblem(
+            nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], alpha=alpha,
+            domain_name=domain_name, n_patches=n_patches,
+            save_dir=save_dir, load_dir=load_dir, plot_dir=plot_dir, fem_name=fem_name,
+            ref_sigmas=ref_sigmas, sigma=sigma, show_all=show_all, dpi=dpi, dpi_vf=dpi_vf,
+        )
+
