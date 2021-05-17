@@ -260,32 +260,46 @@ class CartDecomposition():
 
         if reorder:
             (rank_source, rank_dest) = (rank_dest, rank_source)
-
-        # Mesh info info along given direction
-        s = self._starts[direction]
-        e = self._ends  [direction]
-        p = self._pads  [direction]
-
-        # Shape of send/recv subarrays
+        
         buf_shape = np.array( self._shape )
-        buf_shape[direction] = p
-
-        # Start location of send/recv subarrays
         send_starts = np.zeros( self._ndims, dtype=int )
         recv_starts = np.zeros( self._ndims, dtype=int )
-        if disp > 0:
-            recv_starts[direction] = 0
-            send_starts[direction] = e-s+1
-        elif disp < 0:
-            recv_starts[direction] = e-s+1+p
-            send_starts[direction] = p
+        
+        if rank_source < 0 or rank_dest < 0:
+            # non-periodic case; where we can skip some areas
+            skip = True
+
+            # set everything to zero
+            buf_shape[:] = 0
+            send_starts[:] = 0
+            recv_starts[:] = 0
+        else:
+            skip = False
+
+            # Mesh info info along given direction
+            s = self._starts[direction]
+            e = self._ends  [direction]
+            p = self._pads  [direction]
+
+            # Shape of send/recv subarrays
+            buf_shape = np.array( self._shape )
+            buf_shape[direction] = p
+
+            # Start location of send/recv subarrays
+            if disp > 0:
+                recv_starts[direction] = 0
+                send_starts[direction] = e-s+1
+            elif disp < 0:
+                recv_starts[direction] = e-s+1+p
+                send_starts[direction] = p
 
         # Store all information into dictionary
         info = {'rank_dest'  : rank_dest,
                 'rank_source': rank_source,
                 'buf_shape'  : tuple(  buf_shape  ),
                 'send_starts': tuple( send_starts ),
-                'recv_starts': tuple( recv_starts )}
+                'recv_starts': tuple( recv_starts ),
+                'skip'       : skip}
 
         return info
         
@@ -353,10 +367,13 @@ class CartDecomposition():
         cart._global_starts = [None]*cart._ndims
         cart._global_ends   = [None]*cart._ndims
         for axis in range( cart._ndims ):
-            n =     cart.npts[axis]
-            d = cart._dims[axis]
-            cart._global_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
-            cart._global_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
+            # keep the old decomposition
+            cart._global_starts[axis] = self._global_starts[axis].copy()
+            cart._global_ends  [axis] = self._global_ends[axis].copy()
+
+            # adjust only the end of the last interval
+            m = cart._npts[axis]
+            cart._global_ends[axis][-1] = m-1
 
         return cart
 
@@ -506,18 +523,20 @@ class CartDataExchanger:
         # Start receiving data (MPI_IRECV)
         for disp in [-1,1]:
             info     = cart.get_shift_info( direction, disp )
-            recv_typ = self.get_recv_type ( direction, disp )
-            recv_buf = (array, 1, recv_typ)
-            recv_req = comm.Irecv( recv_buf, info['rank_source'], tag(disp) )
-            requests.append( recv_req )
+            if not info['skip']:
+                recv_typ = self.get_recv_type ( direction, disp )
+                recv_buf = (array, 1, recv_typ)
+                recv_req = comm.Irecv( recv_buf, info['rank_source'], tag(disp) )
+                requests.append( recv_req )
 
         # Start sending data (MPI_ISEND)
         for disp in [-1,1]:
             info     = cart.get_shift_info( direction, disp )
-            send_typ = self.get_send_type ( direction, disp )
-            send_buf = (array, 1, send_typ)
-            send_req = comm.Isend( send_buf, info['rank_dest'], tag(disp) )
-            requests.append( send_req )
+            if not info['skip']:
+                send_typ = self.get_send_type ( direction, disp )
+                send_buf = (array, 1, send_typ)
+                send_req = comm.Isend( send_buf, info['rank_dest'], tag(disp) )
+                requests.append( send_req )
 
         # Wait for end of data exchange (MPI_WAITALL)
         MPI.Request.Waitall( requests )
@@ -584,20 +603,26 @@ class CartDataExchanger:
             for disp in [-1, 1]:
                 info = cart.get_shift_info( direction, disp )
 
-                buf_shape   = list( info[ 'buf_shape' ] ) + coeff_shape
-                send_starts = list( info['send_starts'] ) + coeff_start
-                recv_starts = list( info['recv_starts'] ) + coeff_start
+                if info['skip']:
+                    send_types[direction,disp] = MPI.DATATYPE_NULL
+                    recv_types[direction,disp] = MPI.DATATYPE_NULL
 
-                send_types[direction,disp] = mpi_type.Create_subarray(
-                    sizes    = data_shape ,
-                    subsizes =  buf_shape ,
-                    starts   = send_starts,
-                ).Commit()
+                else:
 
-                recv_types[direction,disp] = mpi_type.Create_subarray(
-                    sizes    = data_shape ,
-                    subsizes =  buf_shape ,
-                    starts   = recv_starts,
-                ).Commit()
+                    buf_shape   = list( info[ 'buf_shape' ] ) + coeff_shape
+                    send_starts = list( info['send_starts'] ) + coeff_start
+                    recv_starts = list( info['recv_starts'] ) + coeff_start
+
+                    send_types[direction,disp] = mpi_type.Create_subarray(
+                        sizes    = data_shape ,
+                        subsizes =  buf_shape ,
+                        starts   = send_starts,
+                    ).Commit()
+
+                    recv_types[direction,disp] = mpi_type.Create_subarray(
+                        sizes    = data_shape ,
+                        subsizes =  buf_shape ,
+                        starts   = recv_starts,
+                    ).Commit()
 
         return send_types, recv_types

@@ -56,18 +56,19 @@ def run_cart_2d( verbose=False , nprocs=None, reverse_axis=None):
     # Create object in charge of exchanging data between subdomains
     synchronizer = CartDataExchanger( cart, u.dtype, coeff_shape=[2] )
 
-    # Print some info
-    if rank == 0:
-        print( "" )
+    if verbose:
+        # Print some info
+        if rank == 0:
+            print( "" )
 
-    for k in range(size):
-        if k == rank:
-            print( "Proc. # {}".format( rank ) )
-            print( "---------" )
-            print( ". s1:e1 = {:2d}:{:2d}".format( s1,e1 ) )
-            print( ". s2:e2 = {:2d}:{:2d}".format( s2,e2 ) )
-            print( "", flush=True )
-        comm.Barrier()
+        for k in range(size):
+            if k == rank:
+                print( "Proc. # {}".format( rank ) )
+                print( "---------" )
+                print( ". s1:e1 = {:2d}:{:2d}".format( s1,e1 ) )
+                print( ". s2:e2 = {:2d}:{:2d}".format( s2,e2 ) )
+                print( "", flush=True )
+            comm.Barrier()
 
     #---------------------------------------------------------------------------
     # TEST
