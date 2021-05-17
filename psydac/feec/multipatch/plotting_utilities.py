@@ -7,7 +7,6 @@ from mpi4py import MPI
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
-
 from psydac.fem.basic   import FemField
 
 
@@ -125,19 +124,27 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 from matplotlib import colors
 
 def my_small_plot(
-        title, vals, titles,
-        xx, yy,
+        title, vals, titles=None,
+        xx=None, yy=None,
         gridlines_x1=None,
         gridlines_x2=None,
         surface_plot=False,
         cmap='viridis',
         save_fig=None,
         dpi='figure',
+        show_xylabel=True,
 ):
+    # titles is discarded if only one plot
     # cmap = 'jet' is nice too, but not so uniform. 'plasma' or 'magma' are uniform also.
-
+    # cmap = 'hsv' is good for singular fields, for its rapid color change
+    assert xx and yy
     n_plots = len(vals)
-    assert n_plots == len(titles)
+    if n_plots > 1:
+        assert n_plots == len(titles)
+    else:
+        if titles:
+            print('Warning [my_small_plot]: will discard argument titles for a single plot')
+
     n_patches = len(xx)
     assert n_patches == len(yy)
 
@@ -156,9 +163,11 @@ def my_small_plot(
         if gridlines_x1 is not None:
             ax.plot(*gridlines_x1, color='k')
             ax.plot(*gridlines_x2, color='k')
-        ax.set_xlabel( r'$x$', rotation='horizontal' )
-        ax.set_ylabel( r'$y$', rotation='horizontal' )
-        ax.set_title ( titles[i] )
+        if show_xylabel:
+            ax.set_xlabel( r'$x$', rotation='horizontal' )
+            ax.set_ylabel( r'$y$', rotation='horizontal' )
+        if n_plots > 1:
+            ax.set_title ( titles[i] )
 
     if save_fig:
         print('saving contour plot in file '+save_fig)
@@ -180,8 +189,9 @@ def my_small_plot(
                 ax.plot_surface(xx[k], yy[k], vals[i][k], norm=cnorm, rstride=10, cstride=10, cmap=cmap,
                            linewidth=0, antialiased=False)
             cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
-            ax.set_xlabel( r'$x$', rotation='horizontal' )
-            ax.set_ylabel( r'$y$', rotation='horizontal' )
+            if show_xylabel:
+                ax.set_xlabel( r'$x$', rotation='horizontal' )
+                ax.set_ylabel( r'$y$', rotation='horizontal' )
             ax.set_title ( titles[i] )
 
         if save_fig:

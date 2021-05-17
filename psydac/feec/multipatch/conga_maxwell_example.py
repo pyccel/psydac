@@ -90,6 +90,7 @@ def tmp_plot_source(J_x,J_y, domain):
         title=r'diverging harmonic field and Conga curl',
         vals=[np.abs(J_x_vals), np.abs(J_y_vals)],
         titles=[r'$|J_x|$', r'$|J_y|$'],  # , r'$div_h J$' ],
+        cmap='hsv',
         surface_plot=True,
         xx=xx, yy=yy,
     )
@@ -103,9 +104,11 @@ def tmp_plot_source(J_x,J_y, domain):
         amplification=.5, #20,
     )
 
+
+
 #==============================================================================
 def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, save_dir=None, load_dir=None, comm=None,
-                         plot_source=False, plot_sol=False, plot_source_div=False, return_sol=False):
+                         plot_dir='', fem_name=None, plot_source=False, plot_sol=False, plot_source_div=False, return_sol=False):
     """
     - assemble and solve a Maxwell problem on a multipatch domain, using Conga approach
     - this problem is adapted from the single patch test_api_system_3_2d_dir_1
@@ -243,7 +246,7 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
         A_m = A1_m
 
     if plot_source_div:
-        # actually plotting the projected divergence of f
+        # plotting the projected divergence of f
         div_f = div(f)
         phi  = element_of(V0h.symbolic_space, name='phi')
         df_l = LinearForm(phi, integral(domain, div_f*phi))
@@ -257,6 +260,7 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
             title=r'L2 proj of div f:',
             vals=[dfh_vals],
             titles=[r'div f_h$'],  # , r'$div_h J$' ],
+            cmap='hsv',
             surface_plot=False,
             xx=xx, yy=yy,
         )
@@ -276,51 +280,75 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
     if plot_source:
         # representation of discrete source:
         b_c = b.toarray()
-        fh_c = spsolve(M1_m, b_c)
+        fh_c = spsolve(M1_m.tocsc(), b_c)
         fh_norm = np.dot(fh_c,M1_m.dot(fh_c))
         print("|| fh || = ", fh_norm)
         print("|| div fh ||/|| fh || = ", div_norm(fh_c)/fh_norm)
 
-        div_fh = FemField(V0h, coeffs=array_to_stencil(div_m.dot(fh_c), V0h.vector_space))
+        if fem_name:
+            fig_name=plot_dir+'Jh.png'  # +'_'+fem_name+'.png'
+            fig_name_vf=plot_dir+'Jh_vf.png'   # +'_vf_'+fem_name+'.png'
+        else:
+            fig_name=None
+            fig_name_vf=None
+
         fh = FemField(V1h, coeffs=array_to_stencil(fh_c, V1h.vector_space))
 
-        div_fh_vals = grid_vals_h1(div_fh)
         fh_x_vals, fh_y_vals = grid_vals_hcurl(fh)
-        my_small_plot(
-            title=r'discrete source term for Maxwell curl-curl problem',
-            vals=[np.abs(fh_x_vals), np.abs(fh_y_vals), np.abs(div_fh_vals)],
-            titles=[r'$|fh_x|$', r'$|fh_y|$', r'$|div_h fh|$'],  # , r'$div_h J$' ],
-            surface_plot=False,
-            xx=xx, yy=yy,
-        )
+        plot_full_fh=False
+        if plot_full_fh:
+            div_fh = FemField(V0h, coeffs=array_to_stencil(div_m.dot(fh_c), V0h.vector_space))
+            div_fh_vals = grid_vals_h1(div_fh)
+            my_small_plot(
+                title=r'discrete source term for Maxwell curl-curl problem',
+                vals=[np.abs(fh_x_vals), np.abs(fh_y_vals), np.abs(div_fh_vals)],
+                titles=[r'$|fh_x|$', r'$|fh_y|$', r'$|div_h fh|$'],  # , r'$div_h J$' ],
+                cmap='hsv',
+                surface_plot=False,
+                xx=xx, yy=yy,
+            )
+        else:
+            abs_fh_vals = [np.sqrt(abs(fx)**2 + abs(fy)**2) for fx, fy in zip(fh_x_vals, fh_y_vals)]
+            my_small_plot(
+                title=r'source term $J_h$',
+                vals=[abs_fh_vals],
+                titles=[r'$|J_h|$'],  # , r'$div_h J$' ],
+                surface_plot=False,
+                xx=xx, yy=yy,
+                cmap='plasma',
+                dpi=400,
+                save_fig=fig_name,
+            )
 
         my_small_streamplot(
             title='source J',
             vals_x=fh_x_vals,
             vals_y=fh_y_vals,
             xx=xx, yy=yy,
-            amplification=.05
+            amplification=.05,
+            save_fig=fig_name_vf,
         )
 
         # show source corrected with P1^T  -- this doesn't seem to change much, a bit strange -- need to check
         plot_corrected_f = False
         if plot_corrected_f:
-            fh_c = spsolve(M1_m, cP1_m.transpose().dot(b_c))
+            fh_c = spsolve(M1_m.tocsc(), cP1_m.transpose().dot(b_c))
             print("|| fh || = ", np.dot(fh_c,M1_m.dot(fh_c)))
             print("|| div fh || = ", div_norm(fh_c))
-            div_fh = FemField(V0h, coeffs=array_to_stencil(div_m.dot(fh_c), V0h.vector_space))
             fh = FemField(V1h, coeffs=array_to_stencil(fh_c, V1h.vector_space))
 
-            div_fh_vals = grid_vals_h1(div_fh)
             fh_x_vals, fh_y_vals = grid_vals_hcurl(fh)
-
-            my_small_plot(
-                title=r'discrete CORRECTED source term for Maxwell curl-curl problem',
-                vals=[np.abs(fh_x_vals), np.abs(fh_y_vals), np.abs(div_fh_vals)],
-                titles=[r'$|fh_x|$', r'$|fh_y|$', r'$|div_h fh|$'],  # , r'$div_h J$' ],
-                surface_plot=False,
-                xx=xx, yy=yy,
-            )
+            if plot_full_fh:
+                div_fh = FemField(V0h, coeffs=array_to_stencil(div_m.dot(fh_c), V0h.vector_space))
+                div_fh_vals = grid_vals_h1(div_fh)
+                my_small_plot(
+                    title=r'discrete CORRECTED source term for Maxwell curl-curl problem',
+                    vals=[np.abs(fh_x_vals), np.abs(fh_y_vals), np.abs(div_fh_vals)],
+                    titles=[r'$|fh_x|$', r'$|fh_y|$', r'$|div_h fh|$'],  # , r'$div_h J$' ],
+                    cmap='hsv',
+                    surface_plot=False,
+                    xx=xx, yy=yy,
+                )
 
     #+++++++++++++++++++++++++++++++
     # 3. Solution
@@ -336,7 +364,7 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
 
         t_stamp = time_count(t_stamp)
         print("solving with scipy...")
-        Eh_c = spsolve(A_m, b)
+        Eh_c = spsolve(A_m.tocsc(), b)
         E_coeffs = array_to_stencil(Eh_c, V1h.vector_space)
 
     else:
@@ -393,8 +421,8 @@ def run_maxwell_2d_time_harmonic():
         domain_name = 'pretzel'
         # domain_name = 'square'; n_patches = 6
         # domain_name = 'annulus'; n_patches = 4
-        nc = 2**6; deg = 3
-        # nc = 2**5; deg = 3
+        # nc = 8; deg = 3
+        nc = 20; deg = 7
 
         # domain_name = 'pretzel_debug'
         # nc = 2
@@ -412,6 +440,10 @@ def run_maxwell_2d_time_harmonic():
     if load_dir and not os.path.exists(load_dir):
         print("discarding load_dir, since I cannot find it")
         load_dir = None
+
+    plot_dir = './plots/'+fem_name+'/'
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
 
     domain = build_multipatch_domain(domain_name=domain_name, n_patches=n_patches)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
@@ -508,7 +540,7 @@ def run_maxwell_2d_time_harmonic():
         E_ex, f, alpha, domain, gamma_jump=gamma_jump,
         ncells=[nc, nc], degree=[deg,deg],
         save_dir=save_dir, load_dir=load_dir, return_sol=True,
-        plot_source=plot_source, plot_sol=plot_sol,
+        plot_source=plot_source, plot_sol=plot_sol, plot_dir=plot_dir, fem_name=fem_name,
     )
 
     # else:
@@ -557,28 +589,39 @@ def run_maxwell_2d_time_harmonic():
             gridlines_x2=gridlines_x2,
         )
     else:
+
+        if fem_name:
+            fig_name=plot_dir+'Eh.png'  # +'_'+fem_name+'.png'
+            fig_name_vf=plot_dir+'Eh_vf.png'   # +'_vf_'+fem_name+'.png'
+        else:
+            fig_name=None
+            fig_name_vf=None
+
         Eh_abs_vals = [np.sqrt(abs(ex)**2 + abs(ey)**2) for ex, ey in zip(Eh_x_vals, Eh_y_vals)]
         my_small_plot(
             title=r'discrete field $E_h$ for $\omega = $'+repr(omega),
-            vals=[Eh_x_vals, Eh_y_vals, Eh_abs_vals],
-            titles=[r'$E^h_x$', r'$E^h_y$', r'$|E^h|$'],
+            vals=[Eh_abs_vals], #[Eh_x_vals, Eh_y_vals, Eh_abs_vals],
+            titles=[r'$|E^h|$'], #[r'$E^h_x$', r'$E^h_y$', r'$|E^h|$'],
             xx=xx,
             yy=yy,
-            surface_plot=True,
+            surface_plot=False,
             gridlines_x1=gridlines_x1,
             gridlines_x2=gridlines_x2,
-            save_fig='Eh_'+fem_name+'.png',
+            save_fig=fig_name,
+            cmap='hsv',
+            dpi = 400,
         )
 
     my_small_streamplot(
-        title=('solution E'),
+        title=r'discrete field $E_h$ for $\omega = $'+repr(omega),
         vals_x=Eh_x_vals,
         vals_y=Eh_y_vals,
         skip=1,
         xx=xx,
         yy=yy,
         amplification=1,
-        save_fig='Eh_vf_'+fem_name+'.png',
+        save_fig=fig_name_vf,
+        dpi = 200,
     )
 
 

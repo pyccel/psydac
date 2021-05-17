@@ -44,7 +44,6 @@ def get_fem_name(domain_name=None,n_patches=None,nc=None,deg=None):
         np_suffix = '_'+repr(n_patches)
     else:
         np_suffix = ''
-
     return domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
 
 def get_load_dir(domain_name=None,n_patches=None,nc=None,deg=None):
@@ -383,8 +382,8 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
 
         if show_all:
             if fem_name:
-                fig_name=plot_dir+'HL_emode_k='+repr(k_eig)+'_'+fem_name+'.png'
-                fig_name_vf=plot_dir+'HL_emode_k='+repr(k_eig)+'_vf_'+fem_name+'.png'
+                fig_name=plot_dir+'HL_emode_k='+repr(k_eig)+'.png'  # +'_'+fem_name+'.png'
+                fig_name_vf=plot_dir+'HL_emode_k='+repr(k_eig)+'_vf.png'   # +'_vf_'+fem_name+'.png'
             else:
                 fig_name=None
                 fig_name_vf=None
@@ -406,9 +405,10 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
                 titles=titles,
                 xx=xx,
                 yy=yy,
-                cmap='magma',
+                cmap='hsv',
                 save_fig=fig_name,
-                dpi=dpi
+                dpi=dpi,
+                show_xylabel=False,
             )
 
             my_small_streamplot(
@@ -424,7 +424,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
         k_eig += 1
 
     if fem_name:
-        fig_name=plot_dir+'HL_emodes_'+fem_name+'.png'
+        fig_name=plot_dir+'HL_emodes.png'  # _'+fem_name+'.png'
     else:
         fig_name=None
     my_small_plot(
@@ -435,6 +435,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
         yy=yy,
         cmap='magma',
         save_fig=fig_name,
+        show_xylabel=False,
     )
 
 
@@ -491,10 +492,11 @@ if __name__ == '__main__':
     # nc = 20; deg = 5  # OK -- V1 dofs: 13200
     # nc = 20; deg = 8  # OK --
     nc=20
-    nc=8
+    # nc=8
     # for deg in [2,3,4,5,6,7]:
     # for deg in [4,5,6,7]:
-    for deg in [3]:
+    for deg in [7]:
+    # for deg in [3]:
 
         # (nc, deg = 30, 2 is too large for super_lu)
 
