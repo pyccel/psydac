@@ -24,8 +24,6 @@ def test_stencil_matrix_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
     assert M.shape == (n1*n2, n1*n2)
 
 #===============================================================================
-# SERIAL TESTS
-#===============================================================================
 @pytest.mark.parametrize( 'n1', [7,15] )
 @pytest.mark.parametrize( 'n2', [8,12] )
 @pytest.mark.parametrize( 'p1', [1,2,3] )
