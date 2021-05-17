@@ -1,18 +1,19 @@
 # -*- coding: UTF-8 -*-
 
 import numpy as np
+import scipy.sparse as spa
 
 from psydac.linalg.stencil  import StencilVector, StencilMatrix, StencilVectorSpace
 from psydac.linalg.kron     import KroneckerStencilMatrix
-from psydac.linalg.block    import BlockVector, BlockLinearOperator
+from psydac.linalg.block    import BlockVector, BlockMatrix
 from psydac.fem.vector      import ProductFemSpace
 from psydac.fem.tensor      import TensorFemSpace
-from psydac.linalg.identity import IdentityLinearOperator, IdentityStencilMatrix as IdentityMatrix
+from psydac.linalg.identity import IdentityStencilMatrix, IdentityMatrix
 from psydac.fem.basic       import FemField
-from psydac.linalg.basic    import LinearOperator
+from psydac.linalg.basic    import Matrix
 
 __all__ = (
-    'KroneckerDifferentialOperator',
+    'KroneckerDirectionalDerivativeOperator',
     'DiffOperator',
     'Derivative_1D',
     'Gradient_2D',
@@ -27,8 +28,8 @@ __all__ = (
 #====================================================================================================
 def block_tostencil(M):
     """
-    Convert a BlockLinearOperator that contains KroneckerStencilMatrix objects
-    to a BlockLinearOperator that contains StencilMatrix objects
+    Convert a BlockMatrix that contains KroneckerStencilMatrix objects
+    to a BlockMatrix that contains StencilMatrix objects
     """
     blocks = [list(b) for b in M.blocks]
     for i1,b in enumerate(blocks):
@@ -36,12 +37,12 @@ def block_tostencil(M):
             if mat is None:
                 continue
             blocks[i1][i2] = mat.tostencil()
-    return BlockLinearOperator(M.domain, M.codomain, blocks=blocks)
+    return BlockMatrix(M.domain, M.codomain, blocks=blocks)
 
 #====================================================================================================
-class KroneckerDifferentialOperator(LinearOperator):
+class KroneckerDirectionalDerivativeOperator(Matrix):
     """
-    Represents a differential operator in a specific direction. Can be negated and transposed.
+    Represents a derivative operator in a specific direction. Can be negated and transposed.
 
     Parameters
     ----------
@@ -61,7 +62,7 @@ class KroneckerDifferentialOperator(LinearOperator):
         (if False, nothing happens)
     
     transposed : bool
-        If True, this operator represents the transposed differential operator.
+        If True, this operator represents the transposed derivative operator.
         Note that then V is the codomain and W is the domain.
     """
 
@@ -137,11 +138,10 @@ class KroneckerDifferentialOperator(LinearOperator):
 
     def dot(self, v, out=None):
         """
-        Applies the differential operator on the given StencilVector.
+        Applies the derivative operator on the given StencilVector.
 
-        This operator will allocate temporary memory,
-        when used on a vector in-place (i.e. if `v is out`);
-        though this should not happen anyways due to `domain is not codomain`.
+        This operation will not allocate any temporary memory.
+        (unless used in-place, i.e. `v is out`)
 
         Parameters
         ----------
@@ -160,7 +160,7 @@ class KroneckerDifferentialOperator(LinearOperator):
 
         # setup, space checks
         assert v.space is self._domain
-        v.update_ghost_regions()
+        v.update_ghost_regions(direction=self._diffdir)
 
         if out is None:
             out = self._codomain.zeros()
@@ -195,9 +195,8 @@ class KroneckerDifferentialOperator(LinearOperator):
 
         # handle sign already here for now...
         sign = -1. if self._negative else 1.
-        for i in range(m_d):
-            M._data[p_d+i, p_d]   = -1. * sign
-            M._data[p_d+i, p_d+1] =  1. * sign
+        M._data[p_d:p_d+m_d, p_d]   = -1. * sign
+        M._data[p_d:p_d+m_d, p_d+1] =  1. * sign
         
         # now transpose, if needed
         if self._transposed:
@@ -208,7 +207,7 @@ class KroneckerDifferentialOperator(LinearOperator):
             n_i = self._domain.npts[i]
             p_i = self._domain.pads[i]
             periodic_i = self._domain.periods[i]
-            return IdentityMatrix(StencilVectorSpace([n_i], [p_i], [periodic_i]))
+            return IdentityStencilMatrix(StencilVectorSpace([n_i], [p_i], [periodic_i]))
 
         # combine to Kronecker matrix
         mats = [M if i == self._diffdir else make_id(i) for i in range(self._domain.ndim)]
@@ -220,10 +219,10 @@ class KroneckerDifferentialOperator(LinearOperator):
 
         Returns
         -------
-        out : KroneckerDifferentialOperator
+        out : KroneckerDirectionalDerivativeOperator
             The transposed operator.
         """
-        return KroneckerDifferentialOperator(self._spaceV, self._spaceW,
+        return KroneckerDirectionalDerivativeOperator(self._spaceV, self._spaceW,
                 self._diffdir, negative=self._negative, transposed=not self._transposed)
 
     @property
@@ -237,8 +236,143 @@ class KroneckerDifferentialOperator(LinearOperator):
         """
         Negates this operator. Creates and returns a new object.
         """
-        return KroneckerDifferentialOperator(self._spaceV, self._spaceW,
+        return KroneckerDirectionalDerivativeOperator(self._spaceV, self._spaceW,
                 self._diffdir, negative=not self._negative, transposed=self._transposed)
+    
+    def toarray(self, *, with_pads=False):
+        """
+        Transforms this operator into a dense matrix.
+
+        Parameters
+        ----------
+        with_pads : Bool
+            If true, the paddings will be contained in the matrix as well.
+        """
+        return self.tosparse(with_pads=with_pads).todense()
+
+    def tosparse(self, *, with_pads=False):
+        """
+        Transforms this operator into a sparse matrix in CSR format (if not transposed),
+        or CSC format (if transposed).
+
+        Parameters
+        ----------
+        with_pads : Bool
+            If true, the paddings will be contained in the matrix as well.
+        """
+        # again, we do the transposition later
+
+        # compute the shape
+        if with_pads:
+            pads = self._spaceV.pads
+            padslice = [slice(p,-p) for p in pads]
+        else:
+            pads = np.zeros(self._spaceV.ndims, dtype=int)
+            padslice = [slice(None)] * self._spaceV.ndims
+
+        # dimensions with and without padding
+        spaceVdims = self._spaceV.ends - self._spaceV.starts + 1
+        spaceWdims = self._spaceW.ends - self._spaceW.starts + 1
+        spaceVsize = np.prod(spaceVdims)
+        spaceWsize = np.prod(spaceWdims)
+        spaceVdimsP = spaceVdims + 2*pads
+        # spaceWdimsP = spaceWdims + 2*pads
+        spaceVsizeP = np.prod(spaceVdims)
+        spaceWsizeP = np.prod(spaceWdims)
+        shape = (spaceVsizeP, spaceWsizeP)
+        shapeT = (spaceWsizeP, spaceVsizeP)
+
+        # compute CSR parameters
+        # per row, we have only 1 and -1 as entries
+        data = np.empty((2*spaceVsize,), dtype=float)
+        sign = -1 if self._negative else 1
+        data[::2] = -sign
+        data[1::2] = sign
+
+        # i.e. two non-zero entries per row (except for paddings)
+        if with_pads:
+            arr = np.zeros(spaceWsizeP, dtype=int)
+            arrview = arr[:-1]
+            arrview.shape = spaceWdims
+            arrview[padslice] = 2
+            indptr = np.empty(spaceWsizeP+1, dtype=int)
+            np.cumsum(arr, out=indptr[1:])
+            indptr[0] = 0
+        else:
+            indptr = np.arange(0, spaceWsize+1, 2)
+
+        # compute indices (depends on the differentiation direction)
+        indices = np.empty((2*spaceVsize,), dtype=int)
+        # diagonal indices
+        if with_pads:
+            arr = np.zeros(spaceWsizeP, dtype=int)
+            arrview = arr[:-1]
+            arrview.shape = spaceWdims
+            arrview[padslice] = 1
+            np.cumsum(arr, out=indices[::2])
+        else:
+            indices[::2] = np.arange(0, spaceVsize)
+
+        # off-diagonal indices
+        # (this is the only part where the Kronecker product comes into play)
+        offset = np.prod(spaceVdimsP[self._diffdir+1:])
+        step = np.prod(spaceVdimsP[:self._diffdir])
+        baseblock = np.arange(0, spaceWdims[self._diffdir])
+        numblocks = spaceVsize // spaceVdims[self._diffdir]
+        tiled = baseblock[np.newaxis, :] + (np.arange(0, numblocks) * step + offset)[:, np.newaxis]
+        indices[1::2] = tiled.reshape((-1,))
+
+        if self._spaceV.periods[self._diffdir] and not with_pads:
+            # handle periodic case without padding, where we have to put the
+            blockoffset = np.prod(spaceVdims[:self._diffdir]) * (spaceVdims[self._diffdir] - 1)
+            blockstep = np.prod(spaceVdims[:self._diffdir]) * spaceVdims[self._diffdir]
+
+            data[blockoffset::blockstep], data[blockoffset+1::blockstep] = data[blockoffset+1::blockstep], data[blockoffset::blockstep]
+
+        # now transpose (i.e. CSC instead of CSR, if we transpose)
+        if self._transposed:
+            return spa.csc_matrix((data, indices, indptr), shape=shapeT)
+        else:
+            return spa.csr_matrix((data, indices, indptr), shape=shape)
+
+    def copy(self):
+        """
+        Create an identical copy of this operator. Creates and returns a new object.
+        """
+        return KroneckerDirectionalDerivativeOperator(self._spaceV, self._spaceW,
+                self._diffdir, negative=self._negative, transposed=self._transposed)
+    
+    # other methods from the Matrix abstract class
+    # (mostly delegating work to the KroneckerStencilMatrix)
+    # (i.e. these are not really meant to be used in practice)
+
+    def __mul__(self, a):
+        return self.tokronstencil() * a
+
+    def __rmul__(self, a):
+        return self.tokronstencil() * a
+
+    def __add__(self, m):
+        return self.tokronstencil() + m
+
+    def __sub__(self, m):
+        return self.tokronstencil() - m
+
+    # we cannot allow in-place operations
+    # (except with an explicit neutral element, if there was one)
+
+    def __imul__(self, a):
+        if isinstance(a, IdentityMatrix): return
+        if a == 1: return
+        raise NotImplementedError("Not supported for this class.")
+
+    def __iadd__(self, m):
+        if m == 0: return
+        raise NotImplementedError("Not supported for this class.")
+
+    def __isub__(self, m):
+        if m == 0: return
+        raise NotImplementedError("Not supported for this class.")
 
 #====================================================================================================
 class DiffOperator:
@@ -286,7 +420,7 @@ class Derivative_1D(DiffOperator):
 
         self._domain   = H1
         self._codomain = L2
-        self._matrix   = KroneckerDifferentialOperator(H1.vector_space, L2.vector_space, 0)
+        self._matrix   = KroneckerDirectionalDerivativeOperator(H1.vector_space, L2.vector_space, 0)
 
 #====================================================================================================
 class Gradient_2D(DiffOperator):
@@ -320,9 +454,9 @@ class Gradient_2D(DiffOperator):
         (M_B, B_M) = Hcurl.vector_space.spaces
 
         # Build Gradient matrix block by block
-        blocks = [[KroneckerDifferentialOperator(B_B, M_B, 0)],
-                  [KroneckerDifferentialOperator(B_B, B_M, 1)]]
-        matrix = BlockLinearOperator(H1.vector_space, Hcurl.vector_space, blocks=blocks)
+        blocks = [[KroneckerDirectionalDerivativeOperator(B_B, M_B, 0)],
+                  [KroneckerDirectionalDerivativeOperator(B_B, B_M, 1)]]
+        matrix = BlockMatrix(H1.vector_space, Hcurl.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
@@ -363,10 +497,10 @@ class Gradient_3D(DiffOperator):
         (M_B_B, B_M_B, B_B_M) = Hcurl.vector_space.spaces
 
         # Build Gradient matrix block by block
-        blocks = [[KroneckerDifferentialOperator(B_B_B, M_B_B, 0)],
-                  [KroneckerDifferentialOperator(B_B_B, B_M_B, 1)],
-                  [KroneckerDifferentialOperator(B_B_B, B_B_M, 2)]]
-        matrix = BlockLinearOperator(H1.vector_space, Hcurl.vector_space, blocks=blocks)
+        blocks = [[KroneckerDirectionalDerivativeOperator(B_B_B, M_B_B, 0)],
+                  [KroneckerDirectionalDerivativeOperator(B_B_B, B_M_B, 1)],
+                  [KroneckerDirectionalDerivativeOperator(B_B_B, B_B_M, 2)]]
+        matrix = BlockMatrix(H1.vector_space, Hcurl.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
@@ -405,9 +539,9 @@ class ScalarCurl_2D(DiffOperator):
         M_M = L2.vector_space
 
         # Build Curl matrix block by block
-        blocks = [[-KroneckerDifferentialOperator(M_B, M_M, 1),
-                  KroneckerDifferentialOperator(B_M, M_M, 0)]]
-        matrix = BlockLinearOperator(Hcurl.vector_space, L2.vector_space, blocks=blocks)
+        blocks = [[-KroneckerDirectionalDerivativeOperator(M_B, M_M, 1),
+                  KroneckerDirectionalDerivativeOperator(B_M, M_M, 0)]]
+        matrix = BlockMatrix(Hcurl.vector_space, L2.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = Hcurl
@@ -447,9 +581,9 @@ class VectorCurl_2D(DiffOperator):
         (B_M, M_B) = Hdiv.vector_space.spaces
 
         # Build Curl matrix block by block
-        blocks = [[KroneckerDifferentialOperator(B_B, B_M, 1)],
-                  [-KroneckerDifferentialOperator(B_B, M_B, 0)]]
-        matrix = BlockLinearOperator(H1.vector_space, Hdiv.vector_space, blocks=blocks)
+        blocks = [[KroneckerDirectionalDerivativeOperator(B_B, B_M, 1)],
+                  [-KroneckerDirectionalDerivativeOperator(B_B, M_B, 0)]]
+        matrix = BlockMatrix(H1.vector_space, Hdiv.vector_space, blocks=blocks)
 
         # Store data in object
         self._domain   = H1
@@ -495,12 +629,12 @@ class Curl_3D(DiffOperator):
 
         # ...
         # Build Curl matrix block by block
-        D = KroneckerDifferentialOperator
+        D = KroneckerDirectionalDerivativeOperator
         blocks = [[       None         , -D(B_M_B, B_M_M, 2) ,  D(B_B_M, B_M_M, 1)],
                   [ D(M_B_B, M_B_M, 2) ,        None,          -D(B_B_M, M_B_M, 0)],
                   [-D(M_B_B, M_M_B, 1) ,  D(B_M_B, M_M_B, 0) ,        None        ]]
 
-        matrix = BlockLinearOperator(Hcurl.vector_space, Hdiv.vector_space, blocks=blocks)
+        matrix = BlockMatrix(Hcurl.vector_space, Hdiv.vector_space, blocks=blocks)
         # ...
 
         # Store data in object
@@ -541,8 +675,8 @@ class Divergence_2D(DiffOperator):
 
         # Build Divergence matrix block by block
         f = KroneckerStencilMatrix
-        blocks = [[KroneckerDifferentialOperator(B_M, M_M, 0), KroneckerDifferentialOperator(M_B, M_M, 1)]]
-        matrix = BlockLinearOperator(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
+        blocks = [[KroneckerDirectionalDerivativeOperator(B_M, M_M, 0), KroneckerDirectionalDerivativeOperator(M_B, M_M, 1)]]
+        matrix = BlockMatrix(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
 
         # Store data in object
         self._domain   = Hdiv
@@ -583,10 +717,10 @@ class Divergence_3D(DiffOperator):
         M_M_M = L2.vector_space
 
         # Build Divergence matrix block by block
-        blocks = [[KroneckerDifferentialOperator(B_M_M, M_M_M, 0),
-                   KroneckerDifferentialOperator(M_B_M, M_M_M, 1),
-                   KroneckerDifferentialOperator(M_M_B, M_M_M, 2)]]
-        matrix = BlockLinearOperator(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
+        blocks = [[KroneckerDirectionalDerivativeOperator(B_M_M, M_M_M, 0),
+                   KroneckerDirectionalDerivativeOperator(M_B_M, M_M_M, 1),
+                   KroneckerDirectionalDerivativeOperator(M_M_B, M_M_M, 2)]]
+        matrix = BlockMatrix(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
 
         # Store data in object
         self._domain   = Hdiv
