@@ -89,47 +89,37 @@ class FemAssemblyGrid:
         indices = []
         ne      = 0
 
+        if pad==degree:
+            current_glob_spans  = glob_spans
+        elif pad-degree == 1:
+            elevated_T          = elevate_knots(T, degree, True)
+            current_glob_spans  = elements_spans( elevated_T, pad )
+        else:
+            raise NotImplementedError('TODO')
+
         # a) Periodic case only, left-most process in 1D domain
         if space.periodic:
-
-            if degree<pad:
-                if pad-degree == 1:
-                    elevated_T          = elevate_knots(T, degree, True)
-                    elevated_glob_spans = elements_spans( elevated_T, pad )
-                else:
-                    raise NotImplementedError('TODO')
-
-                for k in range( nc ):
-                    gk = elevated_glob_spans[k]
-                    if start <= gk-n and gk-n-pad <= end:
-                        spans  .append( glob_spans[k]-n )
-                        basis  .append( glob_basis  [k] )
-                        points .append( glob_points [k] )
-                        weights.append( glob_weights[k] )
-                        indices.append( k )
-                        ne += 1
-            else:
-                for k in range( nc ):
-                    gk = glob_spans[k]
-                    if start <= gk-n and gk-n-degree <= end:
-                        spans  .append( glob_spans[k]-n )
-                        basis  .append( glob_basis  [k] )
-                        points .append( glob_points [k] )
-                        weights.append( glob_weights[k] )
-                        indices.append( k )
-                        ne += 1
-
+            for k in range( nc ):
+                gk = current_glob_spans[k]
+                if start <= gk-n and gk-n-pad <= end:
+                    spans  .append( glob_spans[k]-n )
+                    basis  .append( glob_basis  [k] )
+                    points .append( glob_points [k] )
+                    weights.append( glob_weights[k] )
+                    indices.append( k )
+                    ne += 1
+        
         # b) All cases
         for k in range( nc ):
-            gk = glob_spans[k]
-            if start <= gk and gk-degree <= end:
+            gk = current_glob_spans[k]
+            if start <= gk and gk-pad <= end:
                 spans  .append( glob_spans  [k] )
                 basis  .append( glob_basis  [k] )
                 points .append( glob_points [k] )
                 weights.append( glob_weights[k] )
                 indices.append( k )
                 ne += 1
-
+        
         #-------------------------------------------
         # DATA STORAGE IN OBJECT
         #-------------------------------------------
