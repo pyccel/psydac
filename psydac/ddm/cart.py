@@ -591,16 +591,22 @@ class CartDataExchanger:
                 send_starts = list( info['send_starts'] ) + coeff_start
                 recv_starts = list( info['recv_starts'] ) + coeff_start
 
-                send_types[direction,disp] = mpi_type.Create_subarray(
-                    sizes    = data_shape ,
-                    subsizes =  buf_shape ,
-                    starts   = send_starts,
-                ).Commit()
+                if info['rank_dest'] >= 0:
+                    send_types[direction,disp] = mpi_type.Create_subarray(
+                        sizes    = data_shape ,
+                        subsizes =  buf_shape ,
+                        starts   = send_starts,
+                    ).Commit()
+                else:
+                    send_types[direction,disp] = MPI.DATATYPE_NULL
 
-                recv_types[direction,disp] = mpi_type.Create_subarray(
-                    sizes    = data_shape ,
-                    subsizes =  buf_shape ,
-                    starts   = recv_starts,
-                ).Commit()
+                if info['rank_source'] >= 0:
+                    recv_types[direction,disp] = mpi_type.Create_subarray(
+                        sizes    = data_shape ,
+                        subsizes =  buf_shape ,
+                        starts   = recv_starts,
+                    ).Commit()
+                else:
+                    recv_types[direction,disp] = MPI.DATATYPE_NULL
 
         return send_types, recv_types
