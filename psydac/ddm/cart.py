@@ -514,6 +514,12 @@ class CartDataExchanger:
             recv_req = comm.Irecv( recv_buf, info['rank_source'], tag(disp) )
             requests.append( recv_req )
 
+            if info['rank_source'] < 0:
+                # copy data instead
+                targetslice = [slice(s,s+b) for s,b in zip(info['recv_starts'], info['buf_shape'])]
+                dataslice = [slice(None) for _ in array.shape[len(targetslice):]]
+                array[tuple(targetslice + dataslice)] = 0
+
         # Start sending data (MPI_ISEND)
         for disp in [-1,1]:
             info     = cart.get_shift_info( direction, disp )
