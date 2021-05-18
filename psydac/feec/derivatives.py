@@ -241,24 +241,24 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
     
     def toarray(self):
         """
-        Transforms this operator into a dense matrix.
+        Transforms this operator into a dense matrix. Includes padding in both domain and codomain.
 
-        Parameters
-        ----------
-        with_pads : Bool
-            If true, the paddings will be contained in the matrix as well.
+        Returns
+        -------
+        out : CSRMatrix | CSCMatrix
+            The resulting matrix.
         """
         return self.tosparse().todense()
 
     def tosparse(self):
         """
         Transforms this operator into a sparse matrix in CSR format (if not transposed),
-        or CSC format (if transposed).
+        or CSC format (if transposed). Includes padding in both domain and codomain.
 
-        Parameters
-        ----------
-        with_pads : Bool
-            If true, the paddings will be contained in the matrix as well.
+        Returns
+        -------
+        out : CSRMatrix | CSCMatrix
+            The resulting matrix.
         """
         # again, we do the transposition later
 
@@ -272,7 +272,7 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
         spaceVsize = np.prod(spaceVdims)
         spaceWsize = np.prod(spaceWdims)
 
-        # dimensions with padding (equals without padding, if with_pads==False)
+        # dimensions with padding
         spaceVdimsP = spaceVdims + 2*pads
         spaceWdimsP = spaceWdims + 2*pads
         spaceVsizeP = np.prod(spaceVdimsP)
@@ -281,9 +281,6 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
         # shape of the output array
         shapeT = (spaceVsizeP, spaceWsizeP)
         shape = (spaceWsizeP, spaceVsizeP)
-
-        print(f'{spaceVdims} {spaceVsize} {spaceVdimsP} {spaceVsizeP}')
-        print(f'{spaceWdims} {spaceWsize} {spaceWdimsP} {spaceWsizeP}')
 
         # compute CSR parameters
         # per (non-padded) row, we have only 1 and -1 as entries
