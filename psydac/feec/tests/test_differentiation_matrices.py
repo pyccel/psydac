@@ -102,13 +102,10 @@ def run_kronecker_directional_derivative_operator(comm, domain, ncells, degree, 
         res3 = matrix.dot(v)
         assert np.allclose(ref._data[localslice], res3._data[localslice])
 
-        assert np.array_equal(matrix.tosparse(with_pads=True).toarray(), diffop.tosparse(with_pads=True).toarray())
+        print(matrix.tosparse(with_pads=True))
+        print(diffop.tosparse())
 
-        if not (diffop._spaceV.parallel):
-            assert np.array_equal(matrix.tosparse(with_pads=False).toarray(), diffop.tosparse(with_pads=False).toarray())
-        else:
-            with pytest.raises(AssertionError):
-                diffop.tosparse(with_pads=False)
+        assert np.array_equal(matrix.tosparse(with_pads=True).toarray(), diffop.tosparse().toarray())
 
 def compare_diff_operators_by_matrixassembly(lo1, lo2):
     m1 = lo1.tokronstencil().tostencil()

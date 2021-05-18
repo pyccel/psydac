@@ -239,7 +239,7 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
         return KroneckerDirectionalDerivativeOperator(self._spaceV, self._spaceW,
                 self._diffdir, negative=not self._negative, transposed=self._transposed)
     
-    def toarray(self, *, with_pads=False):
+    def toarray(self):
         """
         Transforms this operator into a dense matrix.
 
@@ -248,9 +248,9 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
         with_pads : Bool
             If true, the paddings will be contained in the matrix as well.
         """
-        return self.tosparse(with_pads=with_pads).todense()
+        return self.tosparse().todense()
 
-    def tosparse(self, *, with_pads=False):
+    def tosparse(self):
         """
         Transforms this operator into a sparse matrix in CSR format (if not transposed),
         or CSC format (if transposed).
@@ -262,16 +262,9 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
         """
         # again, we do the transposition later
 
-        # in the case where we would have to wrap around, we fail
-        assert not (not with_pads and self._spaceV.parallel)
-
         # compute the shape
-        if with_pads:
-            pads = np.array(self._spaceV.pads)
-            padslice = [slice(p,-p) for p in pads]
-        else:
-            pads = np.zeros(self._spaceV.ndims, dtype=int)
-            padslice = [slice(None)] * self._spaceV.ndims
+        pads = np.array(self._spaceV.pads)
+        padslice = [slice(p,-p) for p in pads]
 
         # dimensions without padding
         spaceVdims = np.array(self._spaceV.ends) - np.array(self._spaceV.starts) + 1
@@ -286,64 +279,48 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
         spaceWsizeP = np.prod(spaceWdimsP)
 
         # shape of the output array
-        shape = (spaceVsizeP, spaceWsizeP)
-        shapeT = (spaceWsizeP, spaceVsizeP)
+        shapeT = (spaceVsizeP, spaceWsizeP)
+        shape = (spaceWsizeP, spaceVsizeP)
 
         print(f'{spaceVdims} {spaceVsize} {spaceVdimsP} {spaceVsizeP}')
         print(f'{spaceWdims} {spaceWsize} {spaceWdimsP} {spaceWsizeP}')
 
         # compute CSR parameters
-        # per row, we have only 1 and -1 as entries
-        data = np.empty((2*spaceVsize,), dtype=float)
+        # per (non-padded) row, we have only 1 and -1 as entries
+        data = np.empty((2*spaceVsize,), dtype=self._spaceV._dtype)
         sign = -1 if self._negative else 1
         data[::2] = -sign
         data[1::2] = sign
 
         # i.e. two non-zero entries per row (except for paddings)
-        if with_pads:
-            arr = np.zeros(spaceWsizeP, dtype=int)
-            arrview = arr[:]
-            arrview.shape = spaceWdimsP
-            arrview[padslice] = 2
-            indptr = np.empty(spaceWsizeP+1, dtype=int)
-            np.cumsum(arr, out=indptr[1:])
-            indptr[0] = 0
-        else:
-            indptr = np.arange(0, spaceWsize+1, 2)
+        arr = np.zeros(spaceWsizeP, dtype=int)
+        arrview = arr[:]
+        arrview.shape = spaceWdimsP
+        arrview[padslice] = 2
+        indptr = np.empty(spaceWsizeP+1, dtype=int)
+        np.cumsum(arr, out=indptr[1:])
+        indptr[0] = 0
 
         # compute indices (depends on the differentiation direction)
         indices = np.empty((2*spaceVsize,), dtype=int)
         # diagonal indices
-        if with_pads:
-            arr = np.arange(0, spaceVsizeP)
-            arrview = arr[:]
-            arrview.shape = spaceVdimsP
-            indview = indices[::2]
-            indview.shape = spaceVdims
-            indview[:] = arrview[padslice]
-        else:
-            indices[::2] = np.arange(0, spaceVsize)
+        diagidx = np.arange(0, spaceVsizeP)
+        diagidxview = diagidx[:]
+        diagidxview.shape = spaceVdimsP
+        indview = indices[::2]
+        indview.shape = spaceVdims
+        indview[:] = diagidxview[padslice]
 
         # off-diagonal indices
         # (this is the only part where the Kronecker product comes into play)
-        offset = np.prod(spaceVdimsP[self._diffdir+1:])
+        offset = np.prod(spaceVdimsP[self._diffdir+1:]) + np.ravel_multi_index(pads, spaceVdimsP)
         step = np.prod(spaceVdimsP[:self._diffdir])
         baseblock = np.arange(0, spaceVdims[self._diffdir])
         numblocks = spaceVsize // spaceVdims[self._diffdir]
         tiled = baseblock[np.newaxis, :] + (np.arange(0, numblocks) * step + offset)[:, np.newaxis]
         indices[1::2] = tiled.reshape((-1,))
 
-        if not with_pads:
-            # handle case without padding, where we have to put the
-            blockoffset = 2 * np.prod(spaceVdims[:self._diffdir]) * (spaceVdims[self._diffdir] - 1)
-            blockstep = 2 * np.prod(spaceVdims[:self._diffdir]) * spaceVdims[self._diffdir]
-
-            # swap data and diagonal indices
-            data[blockoffset::blockstep], data[blockoffset+1::blockstep] = data[blockoffset+1::blockstep], data[blockoffset::blockstep]
-            indices[blockoffset+1::blockstep] = indices[blockoffset::blockstep]
-
-            # correct the rest of the indices (put it into the first index of the block)
-            indices[blockoffset::blockstep] = np.arange(0, numblocks) * step + offset
+        print(f'{data} {indptr} {indices}')
 
         # now transpose if needed (i.e. CSC instead of CSR, if we transpose)
         if self._transposed:
