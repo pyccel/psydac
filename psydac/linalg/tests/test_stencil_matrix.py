@@ -1526,6 +1526,63 @@ def test_stencil_matrix_2d_parallel_backend_dot( n1, n2, p1, p2, P1, P2, reorder
 
     # Check data in 1D array
     assert np.allclose( ya, ya_exact, rtol=1e-13, atol=1e-13 )
+
+@pytest.mark.parametrize( 'n1', [ 8,21] )
+@pytest.mark.parametrize( 'n2', [13,32] )
+@pytest.mark.parametrize( 'p1', [1,3] )
+@pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'P1', [True, False] )
+@pytest.mark.parametrize( 'P2', [True, False] )
+@pytest.mark.parametrize( 'reorder', [True, False] )
+@pytest.mark.parametrize( 'reverse_axis', [None, 0, 1] )
+@pytest.mark.parametrize( 'reduce_axes', [[0], [1], [0,1]] )
+@pytest.mark.parallel
+
+def test_stencil_matrix_2d_parallel_reduce( n1, n2, p1, p2, P1, P2, reorder , reverse_axis, reduce_axes):
+    from mpi4py       import MPI
+    from psydac.ddm.cart import CartDecomposition
+
+    comm = MPI.COMM_WORLD
+    cart = CartDecomposition(
+        npts    = [n1,n2],
+        pads    = [p1,p2],
+        periods = [P1,P2],
+        reorder = reorder,
+        comm    = comm,
+        reverse_axis = reverse_axis
+    )
+    cartr = cart.remove_last_element(reduce_axes)
+
+    # Create vector space, stencil matrix, and stencil vector
+    V = StencilVectorSpace( cart )
+    W = StencilVectorSpace( cartr )
+    M = StencilMatrix( V, W )
+    x = StencilVector( V )
+
+    s1,s2 = V.starts
+    e1,e2 = V.ends
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    for k1 in range(-p1,p1+1):
+        for k2 in range(-p2,p2+1):
+            M[:,:,k1,k2] = 10*k1+k2
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+    M.update_ghost_regions()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(s1,e1+1):
+        for i2 in range(s2,e2+1):
+            x[i1,i2] = 2.0*random() - 1.0
+    x.update_ghost_regions()
+
+    # Compute matrix-vector product
+    y = M.dot(x)
+    y.update_ghost_regions()
+
+    # no more assertions here
+
 #===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================

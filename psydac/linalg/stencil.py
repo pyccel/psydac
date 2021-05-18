@@ -565,6 +565,7 @@ class StencilMatrix( Matrix ):
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
         assert W.pads == V.pads
+        assert W.dtype is V.dtype
 
         if pads is not None:
             for p,vp in zip(pads, V.pads):
@@ -579,11 +580,11 @@ class StencilMatrix( Matrix ):
         self._ndim     = len( dims )
 
         # Parallel attributes
-        if V.parallel:
+        if W.parallel:
             # Create data exchanger for ghost regions
             self._synchronizer = CartDataExchanger(
-                cart        = V.cart,
-                dtype       = V.dtype,
+                cart        = W.cart,
+                dtype       = W.dtype,
                 coeff_shape = diags
             )
 
@@ -659,7 +660,7 @@ class StencilMatrix( Matrix ):
             ii    = tuple( xp+x for xp,x in zip(gpads,xx) )
             jj    = tuple( slice(d+x,d+x+2*p+1) for x,p,d in zip(xx,pads,diff) )
             ii_kk = tuple( list(ii) + kk )
-
+            print(f'{out.shape} {ii} {x.shape} {mat.shape} {ii_kk} {jj}')
             out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
 
         new_nrows = nrows.copy()
