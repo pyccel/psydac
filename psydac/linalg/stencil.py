@@ -4,6 +4,7 @@
 
 import os
 from collections import OrderedDict
+import warnings
 
 import numpy as np
 from scipy.sparse import coo_matrix
@@ -767,6 +768,11 @@ class StencilMatrix( Matrix ):
         assert m._domain   is self._domain
         assert m._codomain is self._codomain
         assert m._pads     == self._pads
+
+        if m._backend is not self._backend:
+            msg = 'Adding two matrices with different backends is ambiguous - defaulting to backend of first addend'
+            warnings.warn(msg, category=RuntimeWarning)
+        
         w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend)
         w._data = self._data  +  m._data
         w._func = self._func
@@ -780,6 +786,11 @@ class StencilMatrix( Matrix ):
         assert m._domain   is self._domain
         assert m._codomain is self._codomain
         assert m._pads     == self._pads
+
+        if m._backend is not self._backend:
+            msg = 'Subtracting two matrices with different backends is ambiguous - defaulting to backend of the matrix we subtract from'
+            warnings.warn(msg, category=RuntimeWarning)
+
         w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend)
         w._data = self._data  -  m._data
         w._func = self._func
