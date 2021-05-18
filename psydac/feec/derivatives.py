@@ -252,23 +252,23 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
 
     def tosparse(self):
         """
-        Transforms this operator into a sparse matrix in CSR format (if not transposed),
-        or CSC format (if transposed). Includes padding in both domain and codomain.
+        Transforms this operator into a sparse matrix in CSR format.
+        Includes padding in both domain and codomain.
 
         Returns
         -------
-        out : CSRMatrix | CSCMatrix
+        out : CSRMatrix
             The resulting matrix.
         """
         # again, we do the transposition later
 
         # compute the shape
-        pads = np.array(self._spaceV.pads)
+        pads = np.array(self.domain.pads)
         padslice = [slice(p,-p) for p in pads]
 
         # dimensions without padding
-        spaceVdims = np.array(self._spaceV.ends) - np.array(self._spaceV.starts) + 1
-        spaceWdims = np.array(self._spaceW.ends) - np.array(self._spaceW.starts) + 1
+        spaceVdims = np.array(self.domain.ends) - np.array(self.domain.starts) + 1
+        spaceWdims = np.array(self.codomain.ends) - np.array(self.codomain.starts) + 1
         spaceVsize = np.prod(spaceVdims)
         spaceWsize = np.prod(spaceWdims)
 
@@ -279,15 +279,18 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
         spaceWsizeP = np.prod(spaceWdimsP)
 
         # shape of the output array
-        shapeT = (spaceVsizeP, spaceWsizeP)
-        shape = (spaceWsizeP, spaceVsizeP)
+        shape = (spaceVsizeP, spaceWsizeP)
+
+        # transposed handling
+        diagpos = 1 if self._transposed else 0
+        offpos = 0 if self._transposed else 1
 
         # compute CSR parameters
         # per (non-padded) row, we have only 1 and -1 as entries
-        data = np.empty((2*spaceVsize,), dtype=self._spaceV._dtype)
+        data = np.empty((2*spaceWsize,), dtype=self.domain._dtype)
         sign = -1 if self._negative else 1
-        data[::2] = -sign
-        data[1::2] = sign
+        data[diagpos::2] = -sign
+        data[offpos::2] = sign
 
         # i.e. two non-zero entries per row (except for paddings)
         arr = np.zeros(spaceWsizeP, dtype=int)
@@ -299,31 +302,36 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
         indptr[0] = 0
 
         # compute indices (depends on the differentiation direction)
-        indices = np.empty((2*spaceVsize,), dtype=int)
+        indices = np.empty((2*spaceWsize,), dtype=int)
         # diagonal indices
-        diagidx = np.arange(0, spaceVsizeP)
+        diagidx = np.arange(0, spaceWsizeP)
         diagidxview = diagidx[:]
-        diagidxview.shape = spaceVdimsP
-        indview = indices[::2]
-        indview.shape = spaceVdims
+        diagidxview.shape = spaceWdimsP
+        indview = indices[diagpos::2]
+        indview.shape = spaceWdims
         indview[:] = diagidxview[padslice]
 
         # off-diagonal indices
         # (this is the only part where the Kronecker product comes into play)
-        offset = np.prod(spaceVdimsP[self._diffdir+1:]) + np.ravel_multi_index(pads, spaceVdimsP)
+        offset = np.prod(spaceVdimsP[self._diffdir+1:])
         step = np.prod(spaceVdimsP[:self._diffdir])
-        baseblock = np.arange(0, spaceVdims[self._diffdir])
-        numblocks = spaceVsize // spaceVdims[self._diffdir]
+
+        if self._transposed:
+            offset = -offset
+            step = -step
+
+        offset += np.ravel_multi_index(pads, spaceVdimsP)
+
+        baseblock = np.arange(0, spaceWdims[self._diffdir])
+        numblocks = spaceWsize // spaceWdims[self._diffdir]
         tiled = baseblock[np.newaxis, :] + (np.arange(0, numblocks) * step + offset)[:, np.newaxis]
-        indices[1::2] = tiled.reshape((-1,))
+        indices[offpos::2] = tiled.reshape((-1,))
 
         print(f'{data} {indptr} {indices}')
+        print(f'{data.shape} {indptr.shape} {indices.shape} {shape}')
 
         # now transpose if needed (i.e. CSC instead of CSR, if we transpose)
-        if self._transposed:
-            return spa.csc_matrix((data, indices, indptr), shape=shapeT)
-        else:
-            return spa.csr_matrix((data, indices, indptr), shape=shape)
+        return spa.csr_matrix((data, indices, indptr), shape=shape)
 
     def copy(self):
         """
