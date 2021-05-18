@@ -113,7 +113,6 @@ def compare_diff_operators_by_matrixassembly(lo1, lo2):
     m2.update_ghost_regions()
     assert np.allclose(m1._data, m2._data)
 
-@pytest.mark.xfail
 def test_kronecker_directional_derivative_operator_invalid_wrongsized1():
     # test if we detect incorrectly-sized spaces
     # i.e. V0.vector_space.npts != V1.vector_space.npts
@@ -137,9 +136,9 @@ def test_kronecker_directional_derivative_operator_invalid_wrongsized1():
     # reduced space
     V1 = V0.reduce_degree(axes=[1], basis='M')
 
-    _ = KroneckerDirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
+    with pytest.raises(AssertionError):
+        _ = KroneckerDirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
 
-@pytest.mark.xfail
 def test_kronecker_directional_derivative_operator_invalid_wrongspace2():
     # test, if it fails when the pads are not the same
     periodic = [False, False]
@@ -162,7 +161,8 @@ def test_kronecker_directional_derivative_operator_invalid_wrongspace2():
     # reduced space
     V1 = TensorFemSpace(*Ms)
 
-    _ = KroneckerDirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
+    with pytest.raises(AssertionError):
+        _ = KroneckerDirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
 
 def test_kronecker_directional_derivative_operator_transposition_correctness():
     # interface tests, to see if negation and transposition work as their methods suggest
