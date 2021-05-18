@@ -104,10 +104,10 @@ def run_directional_derivative_operator(comm, domain, ncells, degree, periodic, 
 
         # compare matrix assembly (in non-parallel case at least)
         if not diffop.domain.parallel:
-            assert np.array_equal(diffop.toarray(with_pads=False), matrix.toarray(with_pads=False))
+            assert np.array_equal(diffop.toarray_nopads(), matrix.toarray(with_pads=False))
 
     # case four: tosparse().dot(v._data)
-    res4 = diffop.tosparse(with_pads=True).dot(v._data.flatten())
+    res4 = diffop.tosparse().dot(v._data.flatten())
     assert np.allclose(ref._data[localslice], res4.reshape(ref._data.shape)[localslice])
 
 def compare_diff_operators_by_matrixassembly(lo1, lo2):
@@ -176,7 +176,6 @@ def test_directional_derivative_operator_transposition_correctness():
     ncells = [8, 8]
     degree = [3, 3]
     direction = 0
-    negative = False
 
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
 
@@ -196,6 +195,11 @@ def test_directional_derivative_operator_transposition_correctness():
     MT = diff.T.tokronstencil().tostencil()
     assert np.allclose(M.T._data, MT._data)
     assert np.allclose(M._data, MT.T._data)
+
+    M = diff.tosparse()
+    MT = diff.T.tosparse()
+    assert np.allclose(M.T.todense(), MT.todense())
+    assert np.allclose(M.todense(), MT.T.todense())
 
 def test_directional_derivative_operator_interface():
     # interface tests, to see if negation and transposition work as their methods suggest

@@ -240,25 +240,55 @@ class DirectionalDerivativeOperator(Matrix):
         return DirectionalDerivativeOperator(self._spaceV, self._spaceW,
                 self._diffdir, negative=not self._negative, transposed=self._transposed)
     
-    def toarray(self, *, with_pads=True):
+    def toarray(self):
         """
         Transforms this operator into a dense matrix.
-        Includes padding in both domain and codomain which is optional, if the domain is serial,
-        but mandatory if the domain is parallel.
-
-        Parameters
-        ----------
-        with_pads : Bool
-            If true, then padding in domain and codomain direction is included. Enabled by default.
+        Includes padding in both domain and codomain.
 
         Returns
         -------
         out : ndarray
             The resulting matrix.
         """
-        return self.tosparse(with_pads=with_pads).todense()
+        return self.tosparse().todense()
+    
+    def toarray_nopads(self):
+        """
+        Transforms this operator into a dense matrix.
+        Does not include padding. Does only work is the domain is not parallel.
 
-    def tosparse(self, *, with_pads=True):
+        Returns
+        -------
+        out : ndarray
+            The resulting matrix.
+        """
+        return self.tosparse_nopads().todense()
+    
+    def tosparse(self):
+        """
+        Transforms this operator into a sparse matrix in COO format.
+        Includes padding in both domain and codomain.
+
+        Returns
+        -------
+        out : COOMatrix
+            The resulting matrix.
+        """
+        return self._tosparse(True)
+    
+    def tosparse_nopads(self):
+        """
+        Transforms this operator into a sparse matrix in COO format.
+        Does not include padding. Does only work is the domain is not parallel.
+
+        Returns
+        -------
+        out : COOMatrix
+            The resulting matrix.
+        """
+        return self._tosparse(False)
+
+    def _tosparse(self, with_pads):
         """
         Transforms this operator into a sparse matrix in COO format.
         Includes padding in both domain and codomain which is optional, if the domain is serial,
