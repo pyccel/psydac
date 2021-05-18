@@ -84,7 +84,8 @@ def test_SplineInterpolation1D_cosine( ncells, degree, periodic ):
 @pytest.mark.parametrize( "deg1", range(1,5) )
 @pytest.mark.parametrize( "deg2", range(1,5) )
 
-def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
+def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2, verbose=False ):
+    np.random.seed(2)
 
     # Communicator, size, rank
     mpi_comm = MPI.COMM_WORLD
@@ -154,21 +155,22 @@ def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
     l2_error  = np.sqrt( tensor_space.integral( integrand ) )
 
     # Print some information to terminal
-    for i in range( mpi_size ):
-        if i == mpi_rank:
-            print( '--------------------------------------------------' )
-            print( ' RANK = {}'.format( mpi_rank ) )
-            print( '--------------------------------------------------' )
-            print( '> Degree        :: [{:2d},{:2d}]'.format( deg1, deg2 ) )
-            print( '> Ncells        :: [{:2d},{:2d}]'.format(  nc1,  nc2 ) )
-            print( '> Nbasis        :: [{:2d},{:2d}]'.format(   n1,   n2 ) )
-            print( '> Starts        :: [{:2d},{:2d}]'.format(   s1,   s2 ) )
-            print( '> Ends          :: [{:2d},{:2d}]'.format(   e1,   e2 ) )
-            print( '> Interp. error :: {:.2e}'.format( interp_error ) )
-            print( '> L2 error      :: {:.2e}'.format( l2_error ) )
-            print( '', flush=True )
-            time.sleep( 0.1 )
-        mpi_comm.Barrier()
+    if verbose:
+        for i in range( mpi_size ):
+            if i == mpi_rank:
+                print( '--------------------------------------------------' )
+                print( ' RANK = {}'.format( mpi_rank ) )
+                print( '--------------------------------------------------' )
+                print( '> Degree        :: [{:2d},{:2d}]'.format( deg1, deg2 ) )
+                print( '> Ncells        :: [{:2d},{:2d}]'.format(  nc1,  nc2 ) )
+                print( '> Nbasis        :: [{:2d},{:2d}]'.format(   n1,   n2 ) )
+                print( '> Starts        :: [{:2d},{:2d}]'.format(   s1,   s2 ) )
+                print( '> Ends          :: [{:2d},{:2d}]'.format(   e1,   e2 ) )
+                print( '> Interp. error :: {:.2e}'.format( interp_error ) )
+                print( '> L2 error      :: {:.2e}'.format( l2_error ) )
+                print( '', flush=True )
+                time.sleep( 0.1 )
+            mpi_comm.Barrier()
 
     # Verify that error is only caused by finite precision arithmetic
     assert interp_error < 1.0e-13
@@ -178,4 +180,4 @@ def test_SplineInterpolation2D_parallel_exact( nc1, nc2, deg1, deg2 ):
 # SCRIPT FUNCTIONALITY
 #===============================================================================
 if __name__ == '__main__':
-    test_SplineInterpolation2D_parallel_exact( 10, 16, 3, 5 )
+    test_SplineInterpolation2D_parallel_exact( 10, 16, 3, 5, verbose=True )
