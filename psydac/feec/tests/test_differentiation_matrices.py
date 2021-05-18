@@ -102,9 +102,13 @@ def run_kronecker_directional_derivative_operator(comm, domain, ncells, degree, 
         res3 = matrix.dot(v)
         assert np.allclose(ref._data[localslice], res3._data[localslice])
 
+        # compare matrix assembly (in non-parallel case at least)
+        if not diffop.domain.parallel:
+            assert np.array_equal(diffop.toarray(with_pads=False), matrix.toarray(with_pads=False))
+
     # case four: tosparse().dot(v._data)
-    res4 = diffop.tosparse().dot(v._data)
-    assert np.allclose(ref._data[localslice], res4[localslice])
+    res4 = diffop.tosparse(with_pads=True).dot(v._data.flatten())
+    assert np.allclose(ref._data[localslice], res4.reshape(ref._data.shape)[localslice])
 
 def compare_diff_operators_by_matrixassembly(lo1, lo2):
     m1 = lo1.tokronstencil().tostencil()
@@ -292,7 +296,7 @@ def test_kronecker_directional_derivative_operator_1d_par(domain, ncells, degree
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parallel
 def test_kronecker_directional_derivative_operator_2d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
-    run_kronecker_directional_derivative_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed, True) 
+    run_kronecker_directional_derivative_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  
 @pytest.mark.parametrize('ncells', [(5, 5, 7)])                       

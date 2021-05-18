@@ -140,8 +140,8 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
         """
         Applies the derivative operator on the given StencilVector.
 
-        This operation will not allocate any temporary memory.
-        (unless used in-place, i.e. `v is out`)
+        This operation will not allocate any temporary memory
+        unless used in-place. (i.e. only if `v is out`)
 
         Parameters
         ----------
@@ -239,99 +239,89 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
         return KroneckerDirectionalDerivativeOperator(self._spaceV, self._spaceW,
                 self._diffdir, negative=not self._negative, transposed=self._transposed)
     
-    def toarray(self):
+    def toarray(self, *, with_pads=True):
         """
-        Transforms this operator into a dense matrix. Includes padding in both domain and codomain.
+        Transforms this operator into a dense matrix.
+        Includes padding in both domain and codomain which is optional, if the domain is serial,
+        but mandatory if the domain is parallel.
+
+        Parameters
+        ----------
+        with_pads : Bool
+            If true, then padding in domain and codomain direction is included. Enabled by default.
 
         Returns
         -------
-        out : CSRMatrix | CSCMatrix
+        out : ndarray
             The resulting matrix.
         """
-        return self.tosparse().todense()
+        return self.tosparse(with_pads=with_pads).todense()
 
-    def tosparse(self):
+    def tosparse(self, *, with_pads=True):
         """
-        Transforms this operator into a sparse matrix in CSR format.
-        Includes padding in both domain and codomain.
+        Transforms this operator into a sparse matrix in COO format.
+        Includes padding in both domain and codomain which is optional, if the domain is serial,
+        but mandatory if the domain is parallel.
+
+        Parameters
+        ----------
+        with_pads : Bool
+            If true, then padding in domain and codomain direction is included. Enabled by default.
 
         Returns
         -------
-        out : CSRMatrix
+        out : COOMatrix
             The resulting matrix.
         """
         # again, we do the transposition later
 
-        # compute the shape
-        pads = np.array(self.domain.pads)
-        padslice = [slice(p,-p) for p in pads]
+        # avoid this case (no pads, but parallel)
+        assert not (self.domain.parallel and not with_pads)
 
-        # dimensions without padding
-        spaceVdims = np.array(self.domain.ends) - np.array(self.domain.starts) + 1
-        spaceWdims = np.array(self.codomain.ends) - np.array(self.codomain.starts) + 1
-        spaceVsize = np.prod(spaceVdims)
-        spaceWsize = np.prod(spaceWdims)
-
-        # dimensions with padding
-        spaceVdimsP = spaceVdims + 2*pads
-        spaceWdimsP = spaceWdims + 2*pads
-        spaceVsizeP = np.prod(spaceVdimsP)
-        spaceWsizeP = np.prod(spaceWdimsP)
-
-        # shape of the output array
-        shape = (spaceVsizeP, spaceWsizeP)
-
-        # transposed handling
-        diagpos = 1 if self._transposed else 0
-        offpos = 0 if self._transposed else 1
-
-        # compute CSR parameters
-        # per (non-padded) row, we have only 1 and -1 as entries
-        data = np.empty((2*spaceWsize,), dtype=self.domain._dtype)
+        # begin with a 1×1 matrix
+        matrix = spa.identity(1, format='coo')
         sign = -1 if self._negative else 1
-        data[diagpos::2] = -sign
-        data[offpos::2] = sign
 
-        # i.e. two non-zero entries per row (except for paddings)
-        arr = np.zeros(spaceWsizeP, dtype=int)
-        arrview = arr[:]
-        arrview.shape = spaceWdimsP
-        arrview[padslice] = 2
-        indptr = np.empty(spaceWsizeP+1, dtype=int)
-        np.cumsum(arr, out=indptr[1:])
-        indptr[0] = 0
+        # then, iterate over all dimensions
+        for d in range(self._spaceV.ndim):
+            # domain and codomain sizes...
+            domain_local = self._spaceV.ends[d] - self._spaceV.starts[d] + 1
+            codomain_local = self._spaceW.ends[d] - self._spaceW.starts[d] + 1
 
-        # compute indices (depends on the differentiation direction)
-        indices = np.empty((2*spaceWsize,), dtype=int)
-        # diagonal indices
-        diagidx = np.arange(0, spaceWsizeP)
-        diagidxview = diagidx[:]
-        diagidxview.shape = spaceWdimsP
-        indview = indices[diagpos::2]
-        indview.shape = spaceWdims
-        indview[:] = diagidxview[padslice]
+            if with_pads:
+                # ... potentially with pads
+                domain_local += 2 * self._spaceV.pads[d]
+                codomain_local += 2 * self._spaceW.pads[d]
 
-        # off-diagonal indices
-        # (this is the only part where the Kronecker product comes into play)
-        offset = np.prod(spaceVdimsP[self._diffdir+1:])
-        step = np.prod(spaceVdimsP[:self._diffdir])
+            if self._diffdir == d:
+                # if we are at the differentiation direction, construct differentiation matrix
+                maindiag = np.ones(domain_local) * (-sign)
+                adddiag = np.ones(domain_local) * sign
 
+                # handle special case with not self.domain.parallel and not with_pads and periodic
+                if self.domain.periods[d] and not self.domain.parallel and not with_pads:
+                    # then: add element to other side of the array
+                    adddiagcirc = np.array([sign])
+                    offsets = (-codomain_local+1, 0, 1)
+                    diags = (adddiagcirc, maindiag, adddiag)
+                else:
+                    # else, just take main and off diagonal
+                    offsets = (0,1)
+                    diags = (maindiag, adddiag)
+                
+                addmatrix = spa.diags(diags, offsets=offsets, shape=(codomain_local, domain_local), format='coo')
+            else:
+                # avoid using padding, if possible
+                addmatrix = spa.identity(domain_local)
+            
+            # finally, take the Kronecker product
+            matrix = spa.kron(matrix, addmatrix)
+        
+        # now, we may transpose (this should be very cheap)
         if self._transposed:
-            offset = -offset
-            step = -step
+            matrix = matrix.T
 
-        offset += np.ravel_multi_index(pads, spaceVdimsP)
-
-        baseblock = np.arange(0, spaceWdims[self._diffdir])
-        numblocks = spaceWsize // spaceWdims[self._diffdir]
-        tiled = baseblock[np.newaxis, :] + (np.arange(0, numblocks) * step + offset)[:, np.newaxis]
-        indices[offpos::2] = tiled.reshape((-1,))
-
-        print(f'{data} {indptr} {indices}')
-        print(f'{data.shape} {indptr.shape} {indices.shape} {shape}')
-
-        # now transpose if needed (i.e. CSC instead of CSR, if we transpose)
-        return spa.csr_matrix((data, indices, indptr), shape=shape)
+        return matrix
 
     def copy(self):
         """
