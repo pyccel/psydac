@@ -13,7 +13,7 @@ from psydac.fem.basic       import FemField
 from psydac.linalg.basic    import Matrix
 
 __all__ = (
-    'KroneckerDirectionalDerivativeOperator',
+    'DirectionalDerivativeOperator',
     'DiffOperator',
     'Derivative_1D',
     'Gradient_2D',
@@ -40,9 +40,10 @@ def block_tostencil(M):
     return BlockMatrix(M.domain, M.codomain, blocks=blocks)
 
 #====================================================================================================
-class KroneckerDirectionalDerivativeOperator(Matrix):
+class DirectionalDerivativeOperator(Matrix):
     """
-    Represents a derivative operator in a specific direction. Can be negated and transposed.
+    Represents a matrix-free derivative operator in a specific cardinal direction.
+    Can be negated and transposed.
 
     Parameters
     ----------
@@ -219,10 +220,10 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
 
         Returns
         -------
-        out : KroneckerDirectionalDerivativeOperator
+        out : DirectionalDerivativeOperator
             The transposed operator.
         """
-        return KroneckerDirectionalDerivativeOperator(self._spaceV, self._spaceW,
+        return DirectionalDerivativeOperator(self._spaceV, self._spaceW,
                 self._diffdir, negative=self._negative, transposed=not self._transposed)
 
     @property
@@ -236,7 +237,7 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
         """
         Negates this operator. Creates and returns a new object.
         """
-        return KroneckerDirectionalDerivativeOperator(self._spaceV, self._spaceW,
+        return DirectionalDerivativeOperator(self._spaceV, self._spaceW,
                 self._diffdir, negative=not self._negative, transposed=self._transposed)
     
     def toarray(self, *, with_pads=True):
@@ -327,7 +328,7 @@ class KroneckerDirectionalDerivativeOperator(Matrix):
         """
         Create an identical copy of this operator. Creates and returns a new object.
         """
-        return KroneckerDirectionalDerivativeOperator(self._spaceV, self._spaceW,
+        return DirectionalDerivativeOperator(self._spaceV, self._spaceW,
                 self._diffdir, negative=self._negative, transposed=self._transposed)
     
     # other methods from the Matrix abstract class
@@ -408,7 +409,7 @@ class Derivative_1D(DiffOperator):
 
         self._domain   = H1
         self._codomain = L2
-        self._matrix   = KroneckerDirectionalDerivativeOperator(H1.vector_space, L2.vector_space, 0)
+        self._matrix   = DirectionalDerivativeOperator(H1.vector_space, L2.vector_space, 0)
 
 #====================================================================================================
 class Gradient_2D(DiffOperator):
@@ -442,8 +443,8 @@ class Gradient_2D(DiffOperator):
         (M_B, B_M) = Hcurl.vector_space.spaces
 
         # Build Gradient matrix block by block
-        blocks = [[KroneckerDirectionalDerivativeOperator(B_B, M_B, 0)],
-                  [KroneckerDirectionalDerivativeOperator(B_B, B_M, 1)]]
+        blocks = [[DirectionalDerivativeOperator(B_B, M_B, 0)],
+                  [DirectionalDerivativeOperator(B_B, B_M, 1)]]
         matrix = BlockMatrix(H1.vector_space, Hcurl.vector_space, blocks=blocks)
 
         # Store data in object
@@ -485,9 +486,9 @@ class Gradient_3D(DiffOperator):
         (M_B_B, B_M_B, B_B_M) = Hcurl.vector_space.spaces
 
         # Build Gradient matrix block by block
-        blocks = [[KroneckerDirectionalDerivativeOperator(B_B_B, M_B_B, 0)],
-                  [KroneckerDirectionalDerivativeOperator(B_B_B, B_M_B, 1)],
-                  [KroneckerDirectionalDerivativeOperator(B_B_B, B_B_M, 2)]]
+        blocks = [[DirectionalDerivativeOperator(B_B_B, M_B_B, 0)],
+                  [DirectionalDerivativeOperator(B_B_B, B_M_B, 1)],
+                  [DirectionalDerivativeOperator(B_B_B, B_B_M, 2)]]
         matrix = BlockMatrix(H1.vector_space, Hcurl.vector_space, blocks=blocks)
 
         # Store data in object
@@ -527,8 +528,8 @@ class ScalarCurl_2D(DiffOperator):
         M_M = L2.vector_space
 
         # Build Curl matrix block by block
-        blocks = [[-KroneckerDirectionalDerivativeOperator(M_B, M_M, 1),
-                  KroneckerDirectionalDerivativeOperator(B_M, M_M, 0)]]
+        blocks = [[-DirectionalDerivativeOperator(M_B, M_M, 1),
+                  DirectionalDerivativeOperator(B_M, M_M, 0)]]
         matrix = BlockMatrix(Hcurl.vector_space, L2.vector_space, blocks=blocks)
 
         # Store data in object
@@ -569,8 +570,8 @@ class VectorCurl_2D(DiffOperator):
         (B_M, M_B) = Hdiv.vector_space.spaces
 
         # Build Curl matrix block by block
-        blocks = [[KroneckerDirectionalDerivativeOperator(B_B, B_M, 1)],
-                  [-KroneckerDirectionalDerivativeOperator(B_B, M_B, 0)]]
+        blocks = [[DirectionalDerivativeOperator(B_B, B_M, 1)],
+                  [-DirectionalDerivativeOperator(B_B, M_B, 0)]]
         matrix = BlockMatrix(H1.vector_space, Hdiv.vector_space, blocks=blocks)
 
         # Store data in object
@@ -617,7 +618,7 @@ class Curl_3D(DiffOperator):
 
         # ...
         # Build Curl matrix block by block
-        D = KroneckerDirectionalDerivativeOperator
+        D = DirectionalDerivativeOperator
         blocks = [[       None         , -D(B_M_B, B_M_M, 2) ,  D(B_B_M, B_M_M, 1)],
                   [ D(M_B_B, M_B_M, 2) ,        None,          -D(B_B_M, M_B_M, 0)],
                   [-D(M_B_B, M_M_B, 1) ,  D(B_M_B, M_M_B, 0) ,        None        ]]
@@ -663,7 +664,7 @@ class Divergence_2D(DiffOperator):
 
         # Build Divergence matrix block by block
         f = KroneckerStencilMatrix
-        blocks = [[KroneckerDirectionalDerivativeOperator(B_M, M_M, 0), KroneckerDirectionalDerivativeOperator(M_B, M_M, 1)]]
+        blocks = [[DirectionalDerivativeOperator(B_M, M_M, 0), DirectionalDerivativeOperator(M_B, M_M, 1)]]
         matrix = BlockMatrix(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
 
         # Store data in object
@@ -705,9 +706,9 @@ class Divergence_3D(DiffOperator):
         M_M_M = L2.vector_space
 
         # Build Divergence matrix block by block
-        blocks = [[KroneckerDirectionalDerivativeOperator(B_M_M, M_M_M, 0),
-                   KroneckerDirectionalDerivativeOperator(M_B_M, M_M_M, 1),
-                   KroneckerDirectionalDerivativeOperator(M_M_B, M_M_M, 2)]]
+        blocks = [[DirectionalDerivativeOperator(B_M_M, M_M_M, 0),
+                   DirectionalDerivativeOperator(M_B_M, M_M_M, 1),
+                   DirectionalDerivativeOperator(M_M_B, M_M_M, 2)]]
         matrix = BlockMatrix(Hdiv.vector_space, L2.vector_space, blocks=blocks) 
 
         # Store data in object

@@ -7,7 +7,7 @@ from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.vector       import ProductFemSpace
 
-from psydac.feec.derivatives import KroneckerDirectionalDerivativeOperator
+from psydac.feec.derivatives import DirectionalDerivativeOperator
 from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
 from psydac.feec.derivatives import Divergence_2D, Divergence_3D
@@ -16,10 +16,10 @@ from mpi4py                  import MPI
 
 #==============================================================================
 
-# these tests test the KroneckerDirectionalDerivativeOperator structurally.
+# these tests test the DirectionalDerivativeOperator structurally.
 # They do not check, if it really computes the derivatives
 # (this is done in the gradient etc. tests below already)
-def run_kronecker_directional_derivative_operator(comm, domain, ncells, degree, periodic, direction, negative, transposed, seed, matrix_assembly=False):
+def run_directional_derivative_operator(comm, domain, ncells, degree, periodic, direction, negative, transposed, seed, matrix_assembly=False):
     # determinize tests
     np.random.seed(seed)
 
@@ -34,7 +34,7 @@ def run_kronecker_directional_derivative_operator(comm, domain, ncells, degree, 
     # reduced space
     V1 = V0.reduce_degree(axes=[direction], basis='M')
 
-    diffop = KroneckerDirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative, transposed=transposed)
+    diffop = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative, transposed=transposed)
 
     # some boundary, and transposed handling
     vpads = np.array(V0.vector_space.pads, dtype=int)
@@ -117,7 +117,7 @@ def compare_diff_operators_by_matrixassembly(lo1, lo2):
     m2.update_ghost_regions()
     assert np.allclose(m1._data, m2._data)
 
-def test_kronecker_directional_derivative_operator_invalid_wrongsized1():
+def test_directional_derivative_operator_invalid_wrongsized1():
     # test if we detect incorrectly-sized spaces
     # i.e. V0.vector_space.npts != V1.vector_space.npts
     # (NOTE: if periodic was [True,True], this test would most likely pass)
@@ -141,9 +141,9 @@ def test_kronecker_directional_derivative_operator_invalid_wrongsized1():
     V1 = V0.reduce_degree(axes=[1], basis='M')
 
     with pytest.raises(AssertionError):
-        _ = KroneckerDirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
+        _ = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
 
-def test_kronecker_directional_derivative_operator_invalid_wrongspace2():
+def test_directional_derivative_operator_invalid_wrongspace2():
     # test, if it fails when the pads are not the same
     periodic = [False, False]
     domain = [(0,1),(0,1)]
@@ -166,9 +166,9 @@ def test_kronecker_directional_derivative_operator_invalid_wrongspace2():
     V1 = TensorFemSpace(*Ms)
 
     with pytest.raises(AssertionError):
-        _ = KroneckerDirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
+        _ = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
 
-def test_kronecker_directional_derivative_operator_transposition_correctness():
+def test_directional_derivative_operator_transposition_correctness():
     # interface tests, to see if negation and transposition work as their methods suggest
 
     periodic = [False, False]
@@ -189,7 +189,7 @@ def test_kronecker_directional_derivative_operator_transposition_correctness():
     # reduced space
     V1 = V0.reduce_degree(axes=[0], basis='M')
 
-    diff = KroneckerDirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=False)
+    diff = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=False)
 
     # compare, if the transpose is actually correct
     M = diff.tokronstencil().tostencil()
@@ -197,7 +197,7 @@ def test_kronecker_directional_derivative_operator_transposition_correctness():
     assert np.allclose(M.T._data, MT._data)
     assert np.allclose(M._data, MT.T._data)
 
-def test_kronecker_directional_derivative_operator_interface():
+def test_directional_derivative_operator_interface():
     # interface tests, to see if negation and transposition work as their methods suggest
 
     periodic = [False, False]
@@ -217,10 +217,10 @@ def test_kronecker_directional_derivative_operator_interface():
     # reduced space
     V1 = V0.reduce_degree(axes=[0], basis='M')
 
-    diff = KroneckerDirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=False)
-    diffT = KroneckerDirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=True)
-    diffN = KroneckerDirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=True, transposed=False)
-    diffNT = KroneckerDirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=True, transposed=True)
+    diff = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=False)
+    diffT = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=True)
+    diffN = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=True, transposed=False)
+    diffNT = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=True, transposed=True)
 
     # compare all with all by assembling matrices
     compare_diff_operators_by_matrixassembly(diff.T, diffT)
@@ -247,8 +247,8 @@ def test_kronecker_directional_derivative_operator_interface():
 @pytest.mark.parametrize('negative', [True, False])
 @pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
-def test_kronecker_directional_derivative_operator_1d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
-    run_kronecker_directional_derivative_operator(None, [domain], [ncells], [degree], [periodic], direction, negative, transposed, seed, True)
+def test_directional_derivative_operator_1d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_directional_derivative_operator(None, [domain], [ncells], [degree], [periodic], direction, negative, transposed, seed, True)
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              
 @pytest.mark.parametrize('ncells', [(10, 9), (27, 15)])              
@@ -258,8 +258,8 @@ def test_kronecker_directional_derivative_operator_1d_ser(domain, ncells, degree
 @pytest.mark.parametrize('negative', [True, False])
 @pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
-def test_kronecker_directional_derivative_operator_2d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
-    run_kronecker_directional_derivative_operator(None, domain, ncells, degree, periodic, direction, negative, transposed, seed, True) 
+def test_directional_derivative_operator_2d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_directional_derivative_operator(None, domain, ncells, degree, periodic, direction, negative, transposed, seed, True) 
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  
 @pytest.mark.parametrize('ncells', [(4, 5, 7)])                       
@@ -271,8 +271,8 @@ def test_kronecker_directional_derivative_operator_2d_ser(domain, ncells, degree
 @pytest.mark.parametrize('negative', [True, False])
 @pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
-def test_kronecker_directional_derivative_operator_3d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
-    run_kronecker_directional_derivative_operator(None, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
+def test_directional_derivative_operator_3d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_directional_derivative_operator(None, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
 
 @pytest.mark.parametrize('domain', [(0, 1), (-2, 3)])
 @pytest.mark.parametrize('ncells', [11, 37])
@@ -283,8 +283,8 @@ def test_kronecker_directional_derivative_operator_3d_ser(domain, ncells, degree
 @pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parallel
-def test_kronecker_directional_derivative_operator_1d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
-    run_kronecker_directional_derivative_operator(None, [domain], [ncells], [degree], [periodic], direction, negative, transposed, seed, True)
+def test_directional_derivative_operator_1d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_directional_derivative_operator(None, [domain], [ncells], [degree], [periodic], direction, negative, transposed, seed, True)
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              
 @pytest.mark.parametrize('ncells', [(10, 11), (27, 15)])              
@@ -295,8 +295,8 @@ def test_kronecker_directional_derivative_operator_1d_par(domain, ncells, degree
 @pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [1,3])
 @pytest.mark.parallel
-def test_kronecker_directional_derivative_operator_2d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
-    run_kronecker_directional_derivative_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
+def test_directional_derivative_operator_2d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_directional_derivative_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
 
 @pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  
 @pytest.mark.parametrize('ncells', [(5, 5, 7)])                       
@@ -309,8 +309,8 @@ def test_kronecker_directional_derivative_operator_2d_par(domain, ncells, degree
 @pytest.mark.parametrize('transposed', [True, False])
 @pytest.mark.parametrize('seed', [3])
 @pytest.mark.parallel
-def test_kronecker_directional_derivative_operator_3d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
-    run_kronecker_directional_derivative_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
+def test_directional_derivative_operator_3d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_directional_derivative_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
 
 # (higher dimensions are not tested here for now)
 
