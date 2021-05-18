@@ -1,5 +1,7 @@
 # -*- coding: UTF-8 -*-
 
+import numpy as np
+
 from psydac.linalg.utilities      import array_to_stencil
 from psydac.linalg.kron           import KroneckerLinearSolver
 from psydac.linalg.stencil        import StencilVector
@@ -9,7 +11,77 @@ from psydac.utilities.quadratures import gauss_legendre
 from psydac.fem.basic             import FemField
 
 #==============================================================================
-class Projector_H1:
+class GlobalProjector:
+    pass
+
+class TEST:
+    def __init__(self, space, *, nquads=None):
+        self._dim = space.ldim
+        self._space = space
+        self._rhs = space.vector_space.zeros()
+
+        #if isinstance(self._space, )
+        self._tensorspaces = [self._space]
+
+        space.init_interpolation()
+        space.init_histopolation()
+
+        structure = self._space_structure()
+
+        if nquads:
+            assert len(nquads) == self._dim
+            uw = [gauss_legendre( k-1 ) for k in nquads]
+            uw = [(u[::-1], w[::-1]) for u,w in uw]
+        else:
+            uw = [(V.quad_grids[i].quad_rule_x,V.quad_grids[i].quad_rule_w) for i,V in enumerate(self._tensorspaces)]
+
+        for tensorspace, struct in zip(self._tensorspaces, structure):
+            tensorspace.init_histopolation()
+            tensorspace.init_interpolation()
+
+            interpolator = []
+            quadgrid = []
+            for splinespace, hi in zip(tensorspace.spaces, struct):
+                if hi == 'H':
+                    interpolator += [splinespace._histopolator]
+                    quadgrid += []
+                elif hi == 'I':
+                    interpolator += [splinespace._interpolator]
+                    quadgrid += [splinespace.greville]
+                else:
+                    raise NotImplementedError()
+
+    def _space_structure(self):
+        return []
+
+    def _setup_restrictor_function(self):
+        pass
+
+    @property
+    def dim(self):
+        return self._dim
+    
+    @property
+    def space(self):
+        return self._space
+
+    @property
+    def interpolator(self):
+        return self._interpolator
+    
+    @property
+    def restrictor(self):
+        return self._restrictor
+    
+    def __call__(self, fun):
+        self._restrictor(self._rhs, fun)
+
+        coeffs = self._interpolator.solve(self._rhs)
+
+        return FemField(self._space, coeffs=coeffs)
+
+#==============================================================================
+class Projector_H1(GlobalProjector):
     """
     Projector from H1 to an H1-conforming finite element space (i.e. a finite
     dimensional subspace of H1) constructed with tensor-product B-splines in 1,
@@ -37,10 +109,17 @@ class Projector_H1:
         rhs = StencilVector(H1.vector_space)
 
         # Construct arguments for computing degrees of freedom
-        n_basis = [V.nbasis for V in H1.spaces]
-        intp_x  = [V.greville for V in H1.spaces]
+        global_n_basis = [V.nbasis for V in H1.spaces]
+        global_intp_x  = [V.greville for V in H1.spaces]
         slices  = tuple(slice(p,-p) for p in H1.degree)
-        args    = (*n_basis, *intp_x, rhs._data[slices])
+
+        if H1.vector_space.parallel:
+            cart = H1.vector_space.cart
+            intp_x = [global_intp_x[i][s:e+2] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
+        else:
+            intp_x = global_intp_x
+        
+        args    = (*intp_x, rhs._data[slices])
 
         # Select correct function for computing degrees of freedom
         if   dim == 1:  func = evaluate_dofs_1d_0form
@@ -56,6 +135,11 @@ class Projector_H1:
         self.args   = args
         self.rhs    = rhs
         self.solver = KroneckerLinearSolver(H1.vector_space, self.N)
+
+        global_lint_x = [intp_dir[:, np.newaxis] for intp_dir in global_intp_x]
+        global_lint_w = [np.ones_like(intp_dir)[:, np.newaxis] for intp_dir in global_intp_x]
+        self.grid_x = [global_lint_x]
+        self.grid_w = [global_lint_w]
 
     #--------------------------------------------------------------------------
     def __call__(self, fun):
@@ -87,7 +171,7 @@ class Projector_H1:
         return FemField(self.space, coeffs=coeffs)
 
 #==============================================================================
-class Projector_Hcurl:
+class Projector_Hcurl(GlobalProjector):
     """
     Projector from H(curl) to an H(curl)-conforming finite element space, i.e.
     a finite dimensional subspace of H(curl), constructed with tensor-product
@@ -145,22 +229,30 @@ class Projector_Hcurl:
             self.mats[2] = [Ns[0]._interpolator, Ns[1]._interpolator, Ds[2]._histopolator]
 
             # Interpolation points
-            intp_x = [V.greville for V in Ns]
+            global_intp_x = [V.greville for V in Ns]
 
             # Quadrature points and weights
             quads = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(Ds, uw)]
-            quad_x, quad_w = list(zip(*quads))
+            global_quad_x, global_quad_w = list(zip(*quads))
 
             # Arrays of degrees of freedom (to be computed) as slices of RHS vector
             slices = tuple(slice(p, -p) for p in Hcurl.spaces[0].vector_space.pads)
             dofs   = [x._data[slices] for x in self.rhs]
 
+            global_lint_x = [intp_dir[:, np.newaxis] for intp_dir in global_intp_x]
+            global_lint_w = [np.ones_like(intp_dir)[:, np.newaxis] for intp_dir in global_intp_x]
+
             # Store data in object
-            self.args = (*intp_x, *quad_x, *quad_w, *dofs)
             self.func = evaluate_dofs_3d_1form
             self.Ns = Ns
             self.Ds = Ds
-
+            
+            self.grid_x = [[global_quad_x[0], global_lint_x[1], global_lint_x[2]],
+                           [global_lint_x[0], global_quad_x[1], global_lint_x[2]],
+                           [global_lint_x[0], global_lint_x[1], global_quad_x[2]]]
+            self.grid_w = [[global_quad_w[0], global_lint_w[1], global_lint_w[2]],
+                           [global_lint_w[0], global_quad_w[1], global_lint_w[2]],
+                           [global_lint_w[0], global_lint_w[1], global_quad_w[2]]]
         elif dim == 2:
 
             # 1D spline spaces (B-splines of degree p and M-splines of degree p-1)
@@ -172,24 +264,44 @@ class Projector_Hcurl:
             self.mats[1] = [Ns[0]._interpolator, Ds[1]._histopolator]
 
             # Interpolation points
-            intp_x = [V.greville for V in Ns]
+            global_intp_x = [V.greville for V in Ns]
 
             # Quadrature points and weights
             quads = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(Ds, uw)]
-            quad_x, quad_w = list(zip(*quads))
+            global_quad_x, global_quad_w = list(zip(*quads))
 
             # Arrays of degrees of freedom (to be computed) as slices of RHS vector
             slices = tuple(slice(p, -p) for p in Hcurl.spaces[0].vector_space.pads)
             dofs   = [x._data[slices] for x in self.rhs]
 
+            global_lint_x = [intp_dir[:, np.newaxis] for intp_dir in global_intp_x]
+            global_lint_w = [np.ones_like(intp_dir)[:, np.newaxis] for intp_dir in global_intp_x]
+
             # Store data in object
-            self.args = (*intp_x, *quad_x, *quad_w, *dofs)
             self.func = evaluate_dofs_2d_1form_hcurl
             self.Ns = Ns
             self.Ds = Ds
 
+            self.grid_x = [[global_quad_x[0], global_lint_x[1]],
+                           [global_lint_x[0], global_quad_x[1]]]
+            self.grid_w = [[global_quad_w[0], global_lint_w[1]],
+                           [global_lint_w[0], global_quad_w[1]]]
+
         else:
             raise NotImplementedError('Hcurl projector is only available in 2D or 3D.')
+
+        assert all([block.parallel for block in Hcurl.vector_space.spaces])
+        if Hcurl.vector_space.spaces[0].parallel:
+            cart = Hcurl.vector_space.spaces[0].cart
+            intp_x = [global_intp_x[i][s:e+2] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
+            quad_x = [global_quad_x[i][s:e+1,:] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
+            quad_w = [global_quad_w[i][s:e+1,:] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
+        else:
+            intp_x = global_intp_x
+            quad_x = global_quad_x
+            quad_w = global_quad_w
+        
+        self.args = (*intp_x, *quad_x, *quad_w, *dofs)
 
         solverblocks =  [KroneckerLinearSolver(block.vector_space, self.mats[i]) for i, block in enumerate(Hcurl.spaces)]
         self.solver = BlockDiagonalSolver(Hcurl.vector_space, blocks=solverblocks)
@@ -225,7 +337,7 @@ class Projector_Hcurl:
         return FemField(self.space, coeffs=coeffs)
 
 #==============================================================================
-class Projector_Hdiv:
+class Projector_Hdiv(GlobalProjector):
     """
     Projector from H(div) to an H(div)-conforming finite element space, i.e. a
     finite dimensional subspace of H(div), constructed with tensor-product
@@ -286,21 +398,30 @@ class Projector_Hdiv:
             self.mats[2] = [Ds[0]._histopolator, Ds[1]._histopolator, Ns[2]._interpolator]
 
             # Interpolation points
-            intp_x = [V.greville for V in Ns]
+            global_intp_x = [V.greville for V in Ns]
 
             # Quadrature points and weights
             quads  = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(Ds, uw)]
-            quad_x, quad_w = list(zip(*quads))
+            global_quad_x, global_quad_w = list(zip(*quads))
 
             # Arrays of degrees of freedom (to be computed) as slices of RHS vector
             slices = tuple(slice(p,-p) for p in Hdiv.spaces[0].vector_space.pads)
             dofs   = [x._data[slices] for x in self.rhs]
 
+            global_lint_x = [intp_dir[:, np.newaxis] for intp_dir in global_intp_x]
+            global_lint_w = [np.ones_like(intp_dir)[:, np.newaxis] for intp_dir in global_intp_x]
+
             # Store data in object
-            self.args = (*intp_x, *quad_x, *quad_w, *dofs)
             self.func = evaluate_dofs_3d_2form
             self.Ns = Ns
             self.Ds = Ds
+
+            self.grid_x = [[global_lint_x[0], global_quad_x[1], global_quad_x[2]],
+                           [global_quad_x[0], global_lint_x[1], global_quad_x[2]],
+                           [global_quad_x[0], global_quad_x[1], global_lint_x[2]]]
+            self.grid_w = [[global_lint_w[0], global_quad_w[1], global_quad_w[2]],
+                           [global_quad_w[0], global_lint_w[1], global_quad_w[2]],
+                           [global_quad_w[0], global_quad_w[1], global_lint_w[2]]]
 
         elif dim == 2:
             # 1D spline spaces (B-splines of degree p and M-splines of degree p-1)
@@ -312,24 +433,44 @@ class Projector_Hdiv:
             self.mats[1] = [Ds[0]._histopolator, Ns[1]._interpolator]
 
             # Interpolation points
-            intp_x = [V.greville for V in Ns]
+            global_intp_x = [V.greville for V in Ns]
 
             # Quadrature points and weights
             quads  = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(Ds, uw)]
-            quad_x, quad_w = list(zip(*quads))
+            global_quad_x, global_quad_w = list(zip(*quads))
 
             # Arrays of degrees of freedom (to be computed) as slices of RHS vector
             slices = tuple(slice(p,-p) for p in Hdiv.spaces[0].vector_space.pads)
             dofs   = [x._data[slices] for x in self.rhs]
 
+            global_lint_x = [intp_dir[:, np.newaxis] for intp_dir in global_intp_x]
+            global_lint_w = [np.ones_like(intp_dir)[:, np.newaxis] for intp_dir in global_intp_x]
+
             # Store data in object
-            self.args = (*intp_x, *quad_x, *quad_w, *dofs)
             self.func = evaluate_dofs_2d_1form_hdiv
             self.Ns = Ns
             self.Ds = Ds
 
+            self.grid_x = [[global_lint_x[0], global_quad_x[1]],
+                           [global_quad_x[0], global_lint_x[1]]]
+            self.grid_w = [[global_lint_w[0], global_quad_w[1]],
+                           [global_quad_w[0], global_lint_w[1]]]
+
         else:
             raise NotImplementedError('Hdiv projector is only available in 2D or 3D.')
+
+        assert all([block.parallel for block in Hdiv.vector_space.spaces])
+        if Hdiv.vector_space.spaces[0].parallel:
+            cart = Hdiv.vector_space.spaces[0].cart
+            intp_x = [global_intp_x[i][s:e+2] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
+            quad_x = [global_quad_x[i][s:e+1,:] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
+            quad_w = [global_quad_w[i][s:e+1,:] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
+        else:
+            intp_x = global_intp_x
+            quad_x = global_quad_x
+            quad_w = global_quad_w
+        
+        self.args = (*intp_x, *quad_x, *quad_w, *dofs)
 
         solverblocks =  [KroneckerLinearSolver(block.vector_space, self.mats[i]) for i, block in enumerate(Hdiv.spaces)]
         self.solver = BlockDiagonalSolver(Hdiv.vector_space, blocks=solverblocks)
@@ -366,7 +507,7 @@ class Projector_Hdiv:
         return FemField(self.space, coeffs=coeffs)
 
 #==============================================================================
-class Projector_L2:
+class Projector_L2(GlobalProjector):
     """
     Projector from L2 to an L2-conforming finite element space (i.e. a finite
     dimensional subspace of L2) constructed with tensor-product M-splines in 1,
@@ -400,7 +541,7 @@ class Projector_L2:
             uw = [(V.quad_rule_x,V.quad_rule_w) for V in L2.quad_grids]
 
         quads = [quadrature_grid(V.histopolation_grid, u, w) for V,(u,w) in zip(L2.spaces, uw)]
-        quad_x, quad_w = list(zip(*quads))
+        global_quad_x, global_quad_w = list(zip(*quads))
 
         L2.init_histopolation()
 
@@ -417,8 +558,18 @@ class Projector_L2:
         else:
             raise ValueError('L2 projector of dimension {} not available'.format(str(len(self.D))))
 
+        if L2.vector_space.parallel:
+            cart = L2.vector_space.cart
+            quad_x = [global_quad_x[i][s:e+1,:] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
+            quad_w = [global_quad_w[i][s:e+1,:] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
+        else:
+            quad_x = global_quad_x
+            quad_w = global_quad_w
+
         self.args  = (*quad_x, *quad_w, self.rhs._data[slices])
         self.solver = KroneckerLinearSolver(L2.vector_space, self.D)
+        self.grid_x = [global_quad_x]
+        self.grid_w = [global_quad_w]
 
     #--------------------------------------------------------------------------
     def __call__(self, fun):
@@ -454,10 +605,11 @@ class Projector_L2:
 # 1D DEGREES OF FREEDOM
 #==============================================================================
 
-# TODO: cleanup
-def evaluate_dofs_1d_0form(n1, points_1, F, f):
+def evaluate_dofs_1d_0form(intp_x1, F, f):
+    (n1,) = F.shape
+
     for i1 in range(n1):
-        F[i1] = f(points_1[i1])
+        F[i1] = f(intp_x1[i1])
         
 #------------------------------------------------------------------------------
 def evaluate_dofs_1d_1form(
@@ -479,11 +631,12 @@ def evaluate_dofs_1d_1form(
 # 2D DEGREES OF FREEDOM
 #==============================================================================
 
-# TODO: cleanup
-def evaluate_dofs_2d_0form(n1, n2, points_1, points_2, F, f):
+def evaluate_dofs_2d_0form(intp_x1, intp_x2, F, f):
+    n1, n2 = F.shape
+
     for i1 in range(n1):
         for i2 in range(n2):
-            F[i1,i2] = f(points_1[i1], points_2[i2])
+            F[i1, i2] = f(intp_x1[i1], intp_x2[i2])
 
 #------------------------------------------------------------------------------
 def evaluate_dofs_2d_1form_hcurl(
@@ -561,12 +714,13 @@ def evaluate_dofs_2d_2form(
 # 3D DEGREES OF FREEDOM
 #==============================================================================
 
-# TODO: cleanup
-def evaluate_dofs_3d_0form(n1, n2, n3, points_1, points_2, points_3, F, f):
+def evaluate_dofs_3d_0form(intp_x1, intp_x2, intp_x3, F, f):
+    n1, n2, n3 = F.shape
+
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
-                F[i1, i2, i3] = f(points_1[i1], points_2[i2], points_3[i3])
+                F[i1, i2, i3] = f(intp_x1[i1], intp_x2[i2], intp_x3[i3])
 
 #------------------------------------------------------------------------------
 def evaluate_dofs_3d_1form(
