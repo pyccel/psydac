@@ -95,10 +95,10 @@ class Vector( metaclass=ABCMeta ):
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
-    def __div__( self, a ):
+    def __truediv__( self, a ):
         return self * (1.0 / a)
 
-    def __idiv__( self, a ):
+    def __itruediv__( self, a ):
         self *= 1.0 / a
         return self
 
@@ -190,11 +190,11 @@ class Matrix( LinearOperator ):
     #-------------------------------------
     # Methods with default implementation
     #-------------------------------------
-    def __div__(self, a):
+    def __truediv__(self, a):
         """ Divide by scalar. """
         return self * (1.0 / a)
 
-    def __idiv__(self, a):
+    def __itruediv__(self, a):
         """ Divide by scalar, in place. """
         self *= 1.0 / a
         return self
