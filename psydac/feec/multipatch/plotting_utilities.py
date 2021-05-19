@@ -75,13 +75,69 @@ def get_grid_vals_vector(E, etas, mappings_list, space_kind='hcurl'):
     # E_y_vals = np.concatenate(E_y_vals, axis=1)
     return E_x_vals, E_y_vals
 
+def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
+    # get approximate weights for a physical quadrature, namely
+    #  |J_F(xi1, xi2)| * log_weight   with uniform log_weight = h1*h2     for (xi1, xi2) in the logical grid,
+    # in the same format as the fields value in get_grid_vals_scalar and get_grid_vals_vector
+
+    n_patches = len(mappings_list)
+    quad_weights    = n_patches*[None]
+    for k in range(n_patches):
+        eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
+        quad_weights[k] = np.empty_like(eta_1)
+        one_field = lambda xi1, xi2: 1
+
+        N0 = eta_1.shape[0]
+        N1 = eta_1.shape[1]
+
+        log_weight = patch_logvols[k]/(N0*N1)
+        for i, x1i in enumerate(eta_1[:, 0]):
+            for j, x2j in enumerate(eta_2[0, :]):
+                quad_weights[k][i, j] = push_2d_l2(one_field, x1i, x2j, mapping=mappings_list[k]) * log_weight
+
+    return quad_weights
 
 from psydac.utilities.utils    import refine_array_1d
 from sympy import lambdify
 
 
-def get_plotting_grid(mappings, N):
+def get_plotting_grid(mappings, N, centered_nodes=False, return_patch_logvols=False):
+    # if centered_nodes == False, returns a regular grid with (N+1)x(N+1) nodes, starting and ending at patch boundaries
+    # (useful for plotting the full patches)
+    # if centered_nodes == True, returns the grid consisting of the NxN centers of the latter
+    # (useful for quadratures and to avoid evaluating at patch boundaries)
+    # if return_patch_logvols == True, return the logival volume (area) of the patches
+    nb_patches = len(mappings)
+    grid_min_coords = [np.array(D.min_coords) for D in mappings]
+    grid_max_coords = [np.array(D.max_coords) for D in mappings]
+    if return_patch_logvols:
+        patch_logvols = [(D.max_coords[1]-D.min_coords[1])*(D.max_coords[0]-D.min_coords[0]) for D in mappings]
+    else:
+        patch_logvols = None
+    if centered_nodes:
+        for k in range(nb_patches):
+            for dim in range(2):
+                h_grid = (grid_max_coords[k][dim] - grid_min_coords[k][dim])/N
+                grid_max_coords[k][dim] -= h_grid/2
+                grid_min_coords[k][dim] += h_grid/2
+        N_cells = N-1
+    else:
+        N_cells = N
+    # etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
+    etas = [[refine_array_1d( bounds, N_cells ) for bounds in zip(grid_min_coords[k], grid_max_coords[k])] for k in range(nb_patches)]
+    mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]
 
+    pcoords = [np.array( [[f(e1,e2) for e2 in eta[1]] for e1 in eta[0]] ) for f,eta in zip(mappings_lambda, etas)]
+
+    xx = [pcoords[k][:,:,0] for k in range(nb_patches)]
+    yy = [pcoords[k][:,:,1] for k in range(nb_patches)]
+
+    if return_patch_logvols:
+        return etas, xx, yy, patch_logvols
+    else:
+        return etas, xx, yy
+
+def get_diag_grid(mappings, N):
     nb_patches = len(mappings)
     etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
     mappings_lambda = [lambdify(M.logical_coordinates, M.expressions) for d,M in mappings.items()]

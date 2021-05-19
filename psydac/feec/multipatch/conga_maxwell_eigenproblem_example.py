@@ -46,9 +46,10 @@ def get_fem_name(domain_name=None,n_patches=None,nc=None,deg=None):
         np_suffix = ''
     return domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
 
-def get_load_dir(domain_name=None,n_patches=None,nc=None,deg=None):
+def get_load_dir(domain_name=None,n_patches=None,nc=None,deg=None,data='matrices'):
+    assert data in ['matrices','solutions']
     fem_name = get_fem_name(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)
-    return './tmp_matrices/'+fem_name+'/'
+    return './saved_'+data+'/'+fem_name+'/'
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -485,6 +486,7 @@ if __name__ == '__main__':
     # nc = 40; deg = 5
     # (nc, deg = 50, 2 is too large for super_lu)
 
+    plot_dir_suffix = ''
     # valid parameters for pretzel (V1 dofs around 10.000)
     #nc = 2**4; deg = 2  # OK
     # nc = 20; deg = 2  # OK
@@ -493,9 +495,11 @@ if __name__ == '__main__':
     # nc = 20; deg = 8  # OK --
     nc=20
     # nc=8
+    # nc=40
     # for deg in [2,3,4,5,6,7]:
     # for deg in [4,5,6,7]:
-    for deg in [7]:
+
+    for deg in [5]:
     # for deg in [3]:
 
         # (nc, deg = 30, 2 is too large for super_lu)
@@ -537,7 +541,8 @@ if __name__ == '__main__':
             nb_eigs=7  # need a bit more, to get rid of grad-div eigenmodes
         elif domain_name in ['pretzel', 'pretzel_debug']:
             # radii used in the pretzel_J source test case
-            sigma = 0
+            sigma = 64
+            plot_dir_suffix = '_sigma_64'
             if sigma == 0 and domain_name == 'pretzel':
                 nb_eigs = 8
                 ref_sigmas = [
@@ -551,7 +556,7 @@ if __name__ == '__main__':
                     1.1945444491250097,
                 ]
             else:
-                nb_eigs = 5
+                nb_eigs = 20
             # note: nc = 2**5 and deg = 2 gives a matrix too big for super_lu factorization...
         else:
             raise NotImplementedError
@@ -561,7 +566,8 @@ if __name__ == '__main__':
         save_dir = load_dir = get_load_dir(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)  # './tmp_matrices/'+fem_name+'/'
         # save_dir = './tmp_matrices/'+domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'/'
         # load_dir = save_dir
-        plot_dir = './plots/'+fem_name+'/'
+
+        plot_dir = './plots/'+fem_name+plot_dir_suffix+'/'
         if not os.path.exists(plot_dir):
             os.makedirs(plot_dir)
 

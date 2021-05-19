@@ -11,6 +11,8 @@ from collections import OrderedDict
 from scipy.sparse.linalg import spsolve, inv
 from scipy.sparse import save_npz, load_npz
 
+from tempfile import TemporaryFile
+
 from sympy import pi, cos, sin, Matrix, Tuple, Max, exp
 from sympy import symbols
 from sympy import lambdify
@@ -44,7 +46,7 @@ from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLin
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
 from psydac.feec.multipatch.operators import BrokenMass, ConformingProjection_V1, ConformingProjection_V0 #ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import time_count
-from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
+from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector, get_grid_quad_weights
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 
@@ -66,7 +68,8 @@ def tmp_plot_source(J_x,J_y, domain):
     lamJ_y   = lambdify(domain.coordinates, J_y)
     J_log = [pull_2d_hcurl([lamJ_x,lamJ_y], M) for M in mappings_list]
 
-    etas, xx, yy = get_plotting_grid(mappings, N=40)
+    etas, xx, yy = get_plotting_grid(mappings, N=20)
+
     grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
     grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
 
@@ -108,7 +111,8 @@ def tmp_plot_source(J_x,J_y, domain):
 
 #==============================================================================
 def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, save_dir=None, load_dir=None, comm=None,
-                         plot_dir='', fem_name=None, plot_source=False, plot_sol=False, plot_source_div=False, return_sol=False):
+                         E_ref_x_vals=None, E_ref_y_vals=None, E_ref_filename='', plot_dir='', fem_name=None, plot_source=False, plot_sol=False,
+                         plot_source_div=False, N_diag=20, N_vis=20, return_sol=False):
     """
     - assemble and solve a Maxwell problem on a multipatch domain, using Conga approach
     - this problem is adapted from the single patch test_api_system_3_2d_dir_1
@@ -132,9 +136,28 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
     mappings_list = list(mappings.values())
     # x,y    = domain.coordinates
     nquads = [d + 1 for d in degree]
-    etas, xx, yy = get_plotting_grid(mappings, N=40)
+    etas, xx, yy = get_plotting_grid(mappings, N=N_vis)
     grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
     grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+    gridlines_x1 = None  # for plotting a patch grid
+    gridlines_x2 = None
+
+    ## DEBUG
+    DEBUG_weight = False
+    if DEBUG_weight:
+        for k in range(3):
+            eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
+            N0 = eta_1.shape[0]
+            N1 = eta_1.shape[1]
+            # L0 = M.max_coords[0]-M.min_coords[0]
+            # L1 = M.max_coords[1]-M.min_coords[1]
+            L0 = etas[k][0][-1]-etas[k][0][0]
+            L1 = etas[k][1][-1]-etas[k][1][0]
+
+            print(k, "N0, N1 = ", N0, N1, "L0, L1 = ", L0, L1)
+
+        exit()
+
 
     # multipatch de Rham sequence:
     t_stamp = time_count(t_stamp)
@@ -151,6 +174,7 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
 
     t_stamp = time_count(t_stamp)
     if load_dir:
+        # todo: improve this with small interface: load matrix if present, otherwise assemble it and save
         print("loading sparse matrices...")
         M0_m = load_npz(load_dir+'M0_m.npz')
         M1_m = load_npz(load_dir+'M1_m.npz')
@@ -224,7 +248,7 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
     div_m = - M0_minv * D0_m.transpose() * M1_m
     def div_norm(u_c):
         du_c = div_m.dot(u_c)
-        return np.dot(du_c,M0_m.dot(du_c))
+        return np.dot(du_c,M0_m.dot(du_c))**0.5
 
     u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
 
@@ -281,7 +305,7 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
         # representation of discrete source:
         b_c = b.toarray()
         fh_c = spsolve(M1_m.tocsc(), b_c)
-        fh_norm = np.dot(fh_c,M1_m.dot(fh_c))
+        fh_norm = np.dot(fh_c,M1_m.dot(fh_c))**0.5
         print("|| fh || = ", fh_norm)
         print("|| div fh ||/|| fh || = ", div_norm(fh_c)/fh_norm)
 
@@ -333,7 +357,7 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
         plot_corrected_f = False
         if plot_corrected_f:
             fh_c = spsolve(M1_m.tocsc(), cP1_m.transpose().dot(b_c))
-            print("|| fh || = ", np.dot(fh_c,M1_m.dot(fh_c)))
+            print("|| fh || = ", np.dot(fh_c,M1_m.dot(fh_c)))**0.5
             print("|| div fh || = ", div_norm(fh_c))
             fh = FemField(V1h, coeffs=array_to_stencil(fh_c, V1h.vector_space))
 
@@ -375,70 +399,216 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
         E_coeffs, info = cg( A, b, tol=maxwell_tol, verbose=True )
 
     # projected solution
-    Eh = FemField(V1h, coeffs=array_to_stencil(cP1_m.dot(Eh_c), V1h.vector_space))
+    PEh_c = cP1_m.dot(Eh_c)
+    Eh = FemField(V1h, coeffs=array_to_stencil(PEh_c, V1h.vector_space))
 
-    Eh_norm = np.dot(Eh_c,M1_m.dot(Eh_c))
+    Eh_norm = np.dot(Eh_c,M1_m.dot(Eh_c))**0.5
     print("|| Eh || = ", Eh_norm)
     print("|| div Eh || / || Eh || = ", div_norm(Eh_c)/Eh_norm)
 
+
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # VISUALIZATION and error measure
+    #   adapted from examples/poisson_2d_multi_patch.py and
+    #   and psydac/api/tests/test_api_feec_2d.py
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    # etas, xx, yy = get_plotting_grid(mappings, N_diag, )
+    # grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+
+    Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
+    if E_ex:
+        E_x_vals, E_y_vals   = grid_vals_hcurl(E_ex_log)
+        E_x_err = [abs(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
+        E_y_err = [abs(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
+
+        my_small_plot(
+            title=r'approximation of solution $u$, $x$ component',
+            vals=[E_x_vals, Eh_x_vals, E_x_err],
+            titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+            xx=xx,
+            yy=yy,
+            gridlines_x1=gridlines_x1,
+            gridlines_x2=gridlines_x2,
+        )
+
+        my_small_plot(
+            title=r'approximation of solution $u$, $y$ component',
+            vals=[E_y_vals, Eh_y_vals, E_y_err],
+            titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+            xx=xx,
+            yy=yy,
+            gridlines_x1=gridlines_x1,
+            gridlines_x2=gridlines_x2,
+        )
+    else:
+
+        if fem_name:
+            fig_name=plot_dir+'Eh.png'  # +'_'+fem_name+'.png'
+            fig_name_vf=plot_dir+'Eh_vf.png'   # +'_vf_'+fem_name+'.png'
+        else:
+            fig_name=None
+            fig_name_vf=None
+
+        Eh_abs_vals = [np.sqrt(abs(ex)**2 + abs(ey)**2) for ex, ey in zip(Eh_x_vals, Eh_y_vals)]
+        my_small_plot(
+            title=r'discrete field $E_h$', # for $\omega = $'+repr(omega),
+            vals=[Eh_abs_vals], #[Eh_x_vals, Eh_y_vals, Eh_abs_vals],
+            titles=[r'$|E^h|$'], #[r'$E^h_x$', r'$E^h_y$', r'$|E^h|$'],
+            xx=xx,
+            yy=yy,
+            surface_plot=False,
+            gridlines_x1=gridlines_x1,
+            gridlines_x2=gridlines_x2,
+            save_fig=fig_name,
+            cmap='hsv',
+            dpi = 400,
+        )
+
+    my_small_streamplot(
+        title=r'discrete field $E_h$',  # for $\omega = $'+repr(omega),
+        vals_x=Eh_x_vals,
+        vals_y=Eh_y_vals,
+        skip=1,
+        xx=xx,
+        yy=yy,
+        amplification=1,
+        save_fig=fig_name_vf,
+        dpi = 200,
+    )
+
+    # measure L2 error
+    t_stamp = time_count(t_stamp)
+    print("computing L2 error:")
     if E_ex is not None:
+        print("computing L2 error with explicit (exact) solution...")
         # error
         error       = Matrix([F[0]-E_ex[0],F[1]-E_ex[1]])
         l2_norm     = Norm(error, domain, kind='l2')
         l2_norm_h   = discretize(l2_norm, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
-        l2_error    = l2_norm_h.assemble(F=Eh)
+        l2_error     = l2_norm_h.assemble(F=Eh)
+
     else:
-        l2_error = None
+        # approx l2 error measure on diag grid (cell-centered)
+        etas_cdiag, xx_cdiag, yy_cdiag, patch_logvols = get_plotting_grid(mappings, N=N_diag, centered_nodes=True, return_patch_logvols=True)
+        # grid_vals_h1_cdiag = lambda v: get_grid_vals_scalar(v, etas_cdiag, mappings_list, space_kind='h1')
+        grid_vals_hcurl_cdiag = lambda v: get_grid_vals_vector(v, etas_cdiag, mappings_list, space_kind='hcurl')
+        Eh_x_vals_cdiag, Eh_y_vals_cdiag = grid_vals_hcurl_cdiag(Eh)
+        if E_ref_x_vals is not None:
+            print("computing approx l2 error with reference discrete solution on diag grid...")
+            assert E_ref_y_vals is not None
+            quad_weights = get_grid_quad_weights(etas_cdiag, patch_logvols, mappings_list)
+            if fem_name:
+                fig_name=plot_dir+'Eh_errors.png'
+            else:
+                fig_name=None
+            Eh_errors_cdiag = [np.sqrt( (u1-v1)**2 + (u2-v2)**2 )
+                               for u1, v1, u2, v2 in zip(Eh_x_vals_cdiag, E_ref_x_vals, Eh_y_vals_cdiag, E_ref_y_vals)]
+            l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag, quad_weights)]))**0.5
+            my_small_plot(
+                title=r'error $|E_h-E^{\rm ref}_h|$', # for $\omega = $'+repr(omega),
+                vals=[Eh_errors_cdiag], #[Eh_x_vals, Eh_y_vals, Eh_abs_vals],
+                titles=[r'$|E^h|$'], #[r'$E^h_x$', r'$E^h_y$', r'$|E^h|$'],
+                xx=xx_cdiag,
+                yy=yy_cdiag,
+                surface_plot=False,
+                gridlines_x1=gridlines_x1,
+                gridlines_x2=gridlines_x2,
+                save_fig=fig_name,
+                cmap='cividis',
+                dpi = 400,
+            )
+        else:
+            print("no ref solution to compare with!")
+            l2_error = None
+            if not os.path.isfile(E_ref_filename):
+                print("saving solution values in new file (for future needs)"+E_ref_filename)
+                with open(E_ref_filename, 'wb') as f:
+                    np.savez(f, x_vals=Eh_x_vals_cdiag, y_vals=Eh_y_vals_cdiag)
+
+    t_stamp = time_count(t_stamp)
+    print("done -- summary: ")
+    print("using jump penalization factor alpha = ", alpha )
+    print('nb of spline cells per patch: ' + repr(ncells))
+    print('degree: ' + repr(degree))
+    nb_dofs = len(Eh_c)
+    print(' -- nb of DOFS (V1h): ' + repr(nb_dofs))
+    if l2_error is None :
+        print("Sorry, no error to show :( ")
+    else:
+        print("Measured L2 error: ", l2_error)
 
     if return_sol:
-        return l2_error, Eh
+        return nb_dofs, l2_error, Eh
     else:
         if l2_error is None:
             print("Warning: I have no error and I'm not returning the solution !! ")
-        return l2_error
+        return nb_dofs, l2_error
 
 
 
 
 
 
-def run_maxwell_2d_time_harmonic():
+
+def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_name='pretzel'):
     """
     curl-curl problem with 0 order term and source
     """
+
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # test_case selection with domain
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    test_case='circling_J'
+    # test_case='ring_J'
     n_patches = None
 
     plot_source = True
     plot_sol = True
 
-    if test_case=='circling_J':
-        domain_name = 'pretzel'
-        # domain_name = 'square'; n_patches = 6
-        # domain_name = 'annulus'; n_patches = 4
-        # nc = 8; deg = 3
-        nc = 20; deg = 7
+    if domain_name == 'square':
+        n_patches = 6
 
-        # domain_name = 'pretzel_debug'
-        # nc = 2
+    # domain_name = 'pretzel'
+    # domain_name = 'annulus'; n_patches = 4
+    #nc = 16; deg = 3
+    # nc = 20; deg = 3
+    # nc = 20; deg = 8
 
-    elif test_case == 'manufactured_sol':
-        domain_name = 'square'; n_patches = 6
-        nc = 2**4
-        deg = 2
+    # ref solution (discrete):
+    # nc_ref = 8; deg_ref = 3
+    nc_ref = 20; deg_ref = 8
+    # nc_ref =nc; deg_ref = deg
+
+    N_diag = 100 # diagnostics resolution, per patch
+    E_ref_fn = 'E_ref_'+test_case+'_N'+repr(N_diag)+'.npz'
+    E_ref_filename = get_load_dir(domain_name=domain_name,n_patches=n_patches,nc=nc_ref,deg=deg_ref,data='solutions')+E_ref_fn
+    E_ex = None  # exact solution void by default
+    E_ref_x_vals = None
+    E_ref_y_vals = None
+    if os.path.isfile(E_ref_filename):
+        print("getting ref solution values from file "+E_ref_filename)
+        with open(E_ref_filename, 'rb') as f:
+            E_ref_vals = np.load(f)
+            # check form of ref values
+            # assert 'x_vals' in E_ref_vals; assert 'y_vals' in E_ref_vals
+            E_ref_x_vals = E_ref_vals['x_vals']
+            E_ref_y_vals = E_ref_vals['y_vals']
+            assert isinstance(E_ref_x_vals, (list, np.ndarray)) and isinstance(E_ref_y_vals, (list, np.ndarray))
 
     else:
-        raise NotImplementedError
+        print("-- ref solution file '"+E_ref_filename+"' does not exist, ...")
+        solutions_dir = get_load_dir(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg,data='solutions')
+        E_ref_filename = solutions_dir+E_ref_fn
+        print("... so I will save the present solution instead, in file '"+E_ref_filename+"' --")
+        if not os.path.exists(solutions_dir):
+            os.makedirs(solutions_dir)
 
-    fem_name = get_fem_name(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg) #domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
-    save_dir = load_dir = get_load_dir(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)  # './tmp_matrices/'+fem_name+'/'
-    if load_dir and not os.path.exists(load_dir):
-        print("discarding load_dir, since I cannot find it")
+    fem_name = get_fem_name(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)
+    save_dir = load_dir = get_load_dir(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg,data='matrices')
+    if load_dir and not os.path.exists(load_dir+'M0_m.npz'):
+        print("discarding load_dir, since I cannot find it (or empty)")
         load_dir = None
 
     plot_dir = './plots/'+fem_name+'/'
@@ -455,7 +625,8 @@ def run_maxwell_2d_time_harmonic():
     # source definition
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    if test_case == 'manufactured_sol':
+    if test_case == 'manu_sol':
+        # use a manufactured solution, with ad-hoc (inhomogeneous) bc
 
         omega = 1  # ?
         alpha  = -omega**2
@@ -466,7 +637,7 @@ def run_maxwell_2d_time_harmonic():
         E_ex_y = lambdify(domain.coordinates, E_ex[1])
         E_ex_log = [pull_2d_hcurl([E_ex_x,E_ex_y], f) for f in mappings_list]
 
-    elif test_case == 'circling_J':
+    elif test_case == 'ring_J':
 
         # 'rotating' (divergence-free) J field:
         #   J = j(r) * (-sin theta, cos theta)
@@ -523,8 +694,6 @@ def run_maxwell_2d_time_harmonic():
         if vis_J:
             tmp_plot_source(J_x,J_y, domain)
 
-        E_ex = None
-
     else:
         raise NotImplementedError
 
@@ -536,98 +705,42 @@ def run_maxwell_2d_time_harmonic():
     h = 1/nc
     gamma_jump = 10*(deg+1)**2/h
 
-    l2_error, uh = run_conga_maxwell_2d(
+    ndofs, l2_error, Eh = run_conga_maxwell_2d(
         E_ex, f, alpha, domain, gamma_jump=gamma_jump,
         ncells=[nc, nc], degree=[deg,deg],
+        N_diag=N_diag, E_ref_x_vals=E_ref_x_vals, E_ref_y_vals=E_ref_y_vals, E_ref_filename=E_ref_filename,
         save_dir=save_dir, load_dir=load_dir, return_sol=True,
         plot_source=plot_source, plot_sol=plot_sol, plot_dir=plot_dir, fem_name=fem_name,
     )
 
     # else:
     #     # Nitsche
-    #     l2_error, uh = run_system_3_2d_dir(E_ex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)
+    #     l2_error, Eh = run_system_3_2d_dir(E_ex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)
 
-    if E_ex:
-        print("max2d: ", l2_error)
+    # if l2_error is None :
+    #     print("Sorry, no error to show :( ")
+    # else:
+    #     print("Measured L2 error: ", l2_error)
 
-
-    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    # VISUALIZATION
-    #   adapted from examples/poisson_2d_multi_patch.py and
-    #   and psydac/api/tests/test_api_feec_2d.py
-    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-    N=20
-    etas, xx, yy = get_plotting_grid(mappings, N)
-    grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
-    gridlines_x1 = None
-    gridlines_x2 = None
-
-    Eh_x_vals, Eh_y_vals = grid_vals_hcurl(uh)
-    if E_ex:
-        E_x_vals, E_y_vals   = grid_vals_hcurl(E_ex_log)
-        E_x_err = [abs(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
-        E_y_err = [abs(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
-
-        my_small_plot(
-            title=r'approximation of solution $u$, $x$ component',
-            vals=[E_x_vals, Eh_x_vals, E_x_err],
-            titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
-            xx=xx,
-            yy=yy,
-            gridlines_x1=gridlines_x1,
-            gridlines_x2=gridlines_x2,
-        )
-
-        my_small_plot(
-            title=r'approximation of solution $u$, $y$ component',
-            vals=[E_y_vals, Eh_y_vals, E_y_err],
-            titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-            xx=xx,
-            yy=yy,
-            gridlines_x1=gridlines_x1,
-            gridlines_x2=gridlines_x2,
-        )
-    else:
-
-        if fem_name:
-            fig_name=plot_dir+'Eh.png'  # +'_'+fem_name+'.png'
-            fig_name_vf=plot_dir+'Eh_vf.png'   # +'_vf_'+fem_name+'.png'
-        else:
-            fig_name=None
-            fig_name_vf=None
-
-        Eh_abs_vals = [np.sqrt(abs(ex)**2 + abs(ey)**2) for ex, ey in zip(Eh_x_vals, Eh_y_vals)]
-        my_small_plot(
-            title=r'discrete field $E_h$ for $\omega = $'+repr(omega),
-            vals=[Eh_abs_vals], #[Eh_x_vals, Eh_y_vals, Eh_abs_vals],
-            titles=[r'$|E^h|$'], #[r'$E^h_x$', r'$E^h_y$', r'$|E^h|$'],
-            xx=xx,
-            yy=yy,
-            surface_plot=False,
-            gridlines_x1=gridlines_x1,
-            gridlines_x2=gridlines_x2,
-            save_fig=fig_name,
-            cmap='hsv',
-            dpi = 400,
-        )
-
-    my_small_streamplot(
-        title=r'discrete field $E_h$ for $\omega = $'+repr(omega),
-        vals_x=Eh_x_vals,
-        vals_y=Eh_y_vals,
-        skip=1,
-        xx=xx,
-        yy=yy,
-        amplification=1,
-        save_fig=fig_name_vf,
-        dpi = 200,
-    )
+    return ndofs, l2_error
 
 
 if __name__ == '__main__':
 
-    run_maxwell_2d_time_harmonic()
+    results = []
+    test_case='ring_J'
+    domain_name='pretzel'
+    deg = 4
+    for nc in [4, 8, 12, 16, 20]:
+        print(2*'\n'+'-- running time_harmonic maxwell for test '+test_case+' on '+domain_name+' with deg = '+repr(deg)+', nc = '+repr(nc)+' -- '+2*'\n')
+        ndofs, l2_error = run_maxwell_2d_time_harmonic(nc=nc, deg=deg, test_case=test_case, domain_name=domain_name)
+        results.append([nc, ndofs, l2_error])
+
+    print(2*'\n'+'-- run completed -- '+2*'\n')
+    print('results (ncells / ndofs / l2_errors):')
+    for nc, ndofs, err in results:
+        print(repr(nc)+' '+repr(ndofs)+' '+repr(err)+' ')
+    print(2*'\n'+' -- '+2*'\n')
 
 
 
