@@ -200,7 +200,7 @@ def test_directional_derivative_operator_transposition_correctness():
     sparseMT = diff.T.tosparse().tocoo()
 
     sparseM_T = sparseM.T.tocoo()
-    sparseMT_T = sparseMT.tocoo()
+    sparseMT_T = sparseMT.T.tocoo()
 
     assert np.array_equal( sparseMT.col , sparseM_T.col  )
     assert np.array_equal( sparseMT.row , sparseM_T.row  )
