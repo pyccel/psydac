@@ -250,7 +250,7 @@ class DirectionalDerivativeOperator(Matrix):
         out : ndarray
             The resulting matrix.
         """
-        return self.tosparse().todense()
+        return self.tosparse().toarray()
     
     def toarray_nopads(self):
         """
@@ -262,7 +262,7 @@ class DirectionalDerivativeOperator(Matrix):
         out : ndarray
             The resulting matrix.
         """
-        return self.tosparse_nopads().todense()
+        return self.tosparse_nopads().toarray()
     
     def tosparse(self):
         """

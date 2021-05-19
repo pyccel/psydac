@@ -198,8 +198,8 @@ def test_directional_derivative_operator_transposition_correctness():
 
     M = diff.tosparse()
     MT = diff.T.tosparse()
-    assert np.allclose(M.T.todense(), MT.todense())
-    assert np.allclose(M.todense(), MT.T.todense())
+    assert np.allclose(M.T.toarray(), MT.toarray())
+    assert np.allclose(M.toarray(), MT.T.toarray())
 
 def test_directional_derivative_operator_interface():
     # interface tests, to see if negation and transposition work as their methods suggest
