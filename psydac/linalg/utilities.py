@@ -9,7 +9,7 @@ __all__ = ['array_to_stencil']
 
 def array_to_stencil(x, Xh):
     """ converts a numpy array to StencilVector or BlockVector format"""
-
+    yyy = x
     if isinstance(Xh, BlockVectorSpace):
         u = BlockVector(Xh)
         if isinstance(Xh.spaces[0], BlockVectorSpace):

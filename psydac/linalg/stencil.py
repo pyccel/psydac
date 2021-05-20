@@ -203,6 +203,7 @@ class StencilVector( Vector ):
         assert isinstance( V, StencilVectorSpace )
 
         sizes = [e-s+1 + 2*m*p for s,e,p,m in zip(V.starts, V.ends, V.pads, V.multiplicity)]
+
         self._sizes = tuple(sizes)
         self._ndim  = len(V.starts)
         self._data  = np.zeros( sizes, dtype=V.dtype )
@@ -224,7 +225,7 @@ class StencilVector( Vector ):
         assert isinstance( v, StencilVector )
         assert v._space is self._space
 
-        res = self._dot(self._data, v._data , self.pads)
+        res = self._dot(self._data, v._data , self.space.pads, self.space.multiplicity)
         if self._space.parallel:
             res = self._space.cart.comm_cart.allreduce( res, op=MPI.SUM )
 
@@ -232,9 +233,9 @@ class StencilVector( Vector ):
 
     #...
     @staticmethod
-    def _dot(v1, v2, pads):
+    def _dot(v1, v2, pads, multiplicity):
         ndim = len(v1.shape)
-        index = tuple( slice(p,-p) for p in pads)
+        index = tuple( slice(m*p,-m*p) for p,m in zip(pads, multiplicity))
         return np.dot(v1[index].flat, v2[index].flat)
 
     #...
@@ -361,13 +362,13 @@ class StencilVector( Vector ):
     # ...
     def toarray_local( self ):
         """ return the local array without the padding"""
-        idx = tuple( slice(m*p,-m*p) for p,m in zip(self.pads,self.space.multiplicity) )
-        return self._data[idx].flatten(order='F')
+        idx = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.multiplicity) )
+        return self._data[idx].flatten( order='C')
 
     # ...
     def _toarray_parallel_no_pads( self ):
         a         = np.zeros( self.space.npts )
-        idx_from  = tuple( slice(p,-p) for p in self.pads )
+        idx_from  = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.multiplicity) )
         idx_to    = tuple( slice(s,e+1) for s,e in zip(self.starts,self.ends) )
         a[idx_to] = self._data[idx_from]
         return a.reshape(-1)
@@ -375,13 +376,14 @@ class StencilVector( Vector ):
     # ...
     def _toarray_parallel_with_pads( self ):
 
+        pads = [m*p for m,p in zip(self.space.multiplicity, self.pads)]
         # Step 0: create extended n-dimensional array with zero values
-        shape = tuple( n+2*p for n,p in zip( self.space.npts, self.pads ) )
+        shape = tuple( n+2*p for n,p in zip( self.space.npts, pads ) )
         a = np.zeros( shape )
 
         # Step 1: write extended data chunk (local to process) onto array
         idx = tuple( slice(s,e+2*p+1) for s,e,p in
-            zip( self.starts, self.ends, self.pads ) )
+            zip( self.starts, self.ends, pads) )
         a[idx] = self._data
 
         # Step 2: if necessary, apply periodic boundary conditions to array
@@ -395,7 +397,7 @@ class StencilVector( Vector ):
 
             if periodic:
 
-                p = self.pads[direction]
+                p = pads[direction]
 
                 # Left-most process: copy data from left to right
                 if coord == 0:
@@ -422,7 +424,7 @@ class StencilVector( Vector ):
                     a[idx_to] = a[idx_from]
 
         # Step 3: remove ghost regions from global array
-        idx = tuple( slice(p,-p) for p in self.pads )
+        idx = tuple( slice(p,-p) for p in pads )
         out = a[idx]
 
         # Step 4: return flattened array
@@ -445,7 +447,7 @@ class StencilVector( Vector ):
         gvec.setLGMap(lgmap)
         gvec.setUp()
 
-        idx = tuple( slice(p,-p) for p in self.pads )
+        idx = tuple( slice(m*p,-m*p) for m,p in zip(self.pads, self.space.multiplicity) )
         gvec.setArray(self._data[idx])
 
         return gvec
@@ -504,7 +506,7 @@ class StencilVector( Vector ):
 
         ndim     = self._space.ndim
         periodic = self._space.periods[direction]
-        p        = self._space.pads   [direction]
+        p        = self._space.pads   [direction]*self._space.multiplicity[direction]
 
         idx_front = [slice(None)]*direction
         idx_back  = [slice(None)]*(ndim-direction-1)
@@ -541,13 +543,13 @@ class StencilVector( Vector ):
         if not isinstance( key, tuple ):
             key = (key,)
         index = []
-        for (i,s,p) in zip(key, self.starts, self.pads):
+        for (i,s,p,m) in zip(key, self.starts, self.pads,self.space.multiplicity):
             if isinstance(i, slice):
-                start = None if i.start is None else i.start - s + p
-                stop  = None if i.stop  is None else i.stop  - s + p
+                start = None if i.start is None else i.start - s + m*p
+                stop  = None if i.stop  is None else i.stop  - s + m*p
                 l = slice(start, stop, i.step)
             else:
-                l = i - s + p
+                l = i - s + m*p
             index.append(l)
         return tuple(index)
 
@@ -581,7 +583,7 @@ class StencilMatrix( Matrix ):
                 assert p<=vp
         
         self._pads     = pads or tuple(V.pads)
-        dims           = [e-s+2*p+1 for s,e,p,m in zip(W.starts, W.ends, W.pads, W.multiplicity)]
+        dims           = [e-s+2*mi*p+1 for s,e,p,mi in zip(W.starts, W.ends, W.pads, W.multiplicity)]
         diags          = [p+1+p*m for p,m in zip(self._pads, V.multiplicity)]
         self._data     = np.zeros( dims+diags, dtype=W.dtype )
         self._domain   = V
@@ -603,14 +605,12 @@ class StencilMatrix( Matrix ):
 
         # prepare the arguments
         # Number of rows in matrix (along each dimension)
-        nd  = [ej-sj+1+2*p*mj for sj,ej,mj,p in zip(V.starts, V.ends, V.multiplicity, self._pads)]
-        nc  = [(ei-si)*mj+p*mj+p+1 for si,ei,mj,p in zip(W.starts, W.ends, V.multiplicity, self._pads)]
-        ne  = [max(0,ni-nj) for ni,nj in zip(nc, nd)]
 
-        newends = [ei if n==0 else (ej-sj - p + mj*p)//mj+si for si,ei,sj,ej,mj,p,n in zip(W.starts,W.ends, V.starts,V.ends,V.multiplicity,self._pads,ne)]
+        nd  = [(ej-sj+2*gp*mj-mj*p-gp)//mj*mi+1 for sj,ej,mj,mi,p,gp in zip(V.starts, V.ends, V.multiplicity, W.multiplicity, self._pads, V.pads)]
+        nc  = [ei-si+1 for si,ei,mj,p in zip(W.starts, W.ends, V.multiplicity, self._pads)]
 
-        nrows       = [e-s+1 for s,e  in zip(W.starts, newends)]
-        nrows_extra = [(e-s+1)-n for n,s,e in zip(nrows, W.starts, W.ends)]
+        nrows        = [min(ni,nj) for ni,nj  in zip(nc, nd)]
+        nrows_extra  = [max(0,ni-nj) for ni,nj in zip(nc, nd)]
 
         args                 = OrderedDict()
         args['nrows']        = nrows
@@ -627,8 +627,8 @@ class StencilMatrix( Matrix ):
         if backend is None:
             backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
 
-        if backend:
-            self.set_backend(backend)
+#        if backend:
+#            self.set_backend(backend)
 
     #--------------------------------------
     # Abstract interface
@@ -676,7 +676,7 @@ class StencilMatrix( Matrix ):
         diff = [gp-p for gp,p in zip(gpads, pads)]
         for xx in np.ndindex( *nrows ):
 
-            ii    = tuple( xp+x for xp,x in zip(gpads, xx) )
+            ii    = tuple( mi*pi+x for mi,pi,x in zip(cm, gpads, xx) )
             jj    = tuple( slice(d+x//mi*mj,d+x//mi*mj+p+1+mj*p) for x,mi,mj,p,d in zip(xx,cm,dm,pads,diff) )
             ii_kk = tuple( list(ii) + kk )
 
@@ -693,7 +693,7 @@ class StencilMatrix( Matrix ):
                     xx = list(xx)
                     xx.insert(d, nrows[d]+n)
 
-                    ii     = tuple(x+xp for x,xp in zip(gpads, xx))
+                    ii     = tuple(mi*pi + x for mi,pi,x in zip(cm, gpads, xx))
                     ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
                     jj     = tuple( slice(x+d//mi*mj, x+d+p+1+mj*p-e) for x,mi,mj,p,d,e in zip(xx, cm, dm, pads, diff, ee) )
                     ndiags = [p + 1 +mj*p-e for p,mj,e in zip(pads,dm,ee)]
@@ -1040,12 +1040,12 @@ class StencilMatrix( Matrix ):
 
         index = []
 
-        for i,s,p in zip( ii, self._codomain.starts, self._codomain.pads ):
-            x = self._shift_index( i, p-s )
+        for i,s,p,m in zip( ii, self._codomain.starts, self._codomain.pads, self._codomain.multiplicity ):
+            x = self._shift_index( i, m*p-s )
             index.append( x )
 
-        for k,p in zip( kk, self._pads ):
-            l = self._shift_index( k, p )
+        for k,p,m in zip( kk, self._pads, self._domain.multiplicity ):
+            l = self._shift_index( k, m*p )
             index.append( l )
 
         return tuple(index)
@@ -1097,8 +1097,8 @@ class StencilMatrix( Matrix ):
             ii = [x+p for x,p in zip(xx, pc)]
             jj = [(l+i+d)%n for (i,l,d,n) in zip(xx,ll,dd,nc)]
 
-            I = ravel_multi_index( ii, dims=nr, order='F' )
-            J = ravel_multi_index( jj, dims=nc, order='F' )
+            I = ravel_multi_index( ii, dims=nr,  order='C' )
+            J = ravel_multi_index( jj, dims=nc,  order='C' )
 
             rows.append( I )
             cols.append( J )
@@ -1133,7 +1133,7 @@ class StencilMatrix( Matrix ):
         data = []
 
         # Range of data owned by local process (no ghost regions)
-        local = tuple( [slice(p,-p) for p in pp] + [slice(None)] * nd )
+        local = tuple( [slice(mi*p,-mi*p) for p,mi in zip(pp, cm)] + [slice(None)] * nd )
 
         for (index,value) in np.ndenumerate( self._data[local] ):
 
@@ -1147,8 +1147,8 @@ class StencilMatrix( Matrix ):
 
             jj = [(i*m+l-m*p)%n for (i,m,l,n,p) in zip(di,dm,ll,nc,self._pads)]
 
-            I = ravel_multi_index( ii, dims=nr, order='F' )
-            J = ravel_multi_index( jj, dims=nc, order='F' )
+            I = ravel_multi_index( ii, dims=nr,  order='C' )
+            J = ravel_multi_index( jj, dims=nc,  order='C' )
 
             rows.append( I )
             cols.append( J )
@@ -1211,7 +1211,7 @@ class StencilMatrix( Matrix ):
             # Compute row flat index
             # Exclude values outside global limits of matrix
             try:
-                I = ravel_multi_index( ii, dims=nr, order='C' )
+                I = ravel_multi_index( ii, dims=nr,  order='C' )
             except ValueError:
                 continue
 
@@ -1229,7 +1229,7 @@ class StencilMatrix( Matrix ):
                 jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nc,pp)]
 
                 # Compute column flat index
-                J = ravel_multi_index( jj, dims=nc, order='C' )
+                J = ravel_multi_index( jj, dims=nc,  order='C' )
 
                 # Extract matrix value
                 value = self._data[(*xx, *ll)]
@@ -1350,6 +1350,8 @@ class StencilMatrix( Matrix ):
             self._args.pop('gpads')
             self._args.pop('pads')
 
+        self._args.pop('dm')
+        self._args.pop('cm')
         self._func = dot.func
 
 #===============================================================================
@@ -1694,8 +1696,8 @@ class StencilInterfaceMatrix(Matrix):
                 ii[dim] += c_start
                 jj[dim] += d_start
 
-                I = ravel_multi_index( ii, dims=nr, order='C' )
-                J = ravel_multi_index( jj, dims=nc, order='C' )
+                I = ravel_multi_index( ii, dims=nr,  order='C' )
+                J = ravel_multi_index( jj, dims=nc,  order='C' )
 
                 rows.append( I )
                 cols.append( J )

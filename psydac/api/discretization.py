@@ -373,7 +373,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
-    # TODO how to give a name to the mapping?
 
     g_spaces = OrderedDict()
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
@@ -488,11 +487,13 @@ def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
 #==============================================================================
 def discretize(a, *args, **kwargs):
 
-    if isinstance(a, sym_BasicForm):
+    if isinstance(a, (sym_BasicForm, sym_GltExpr, sym_Expr)):
         domain_h = args[0]
         assert( isinstance(domain_h, Geometry) )
         mapping     = domain_h.domain.mapping
+        kwargs['mapping'] = mapping
 
+    if isinstance(a, sym_BasicForm):
         if isinstance(a, sym_Norm):
             kernel_expr = TerminalExpr(a)
             if not mapping is None:
@@ -501,8 +502,6 @@ def discretize(a, *args, **kwargs):
             if not mapping is None:
                 a       = LogicalExpr (a)
             kernel_expr = TerminalExpr(a)
-
-        kwargs['mapping'] = mapping
 
         if len(kernel_expr) > 1:
             return DiscreteSumForm(a, kernel_expr, *args, **kwargs)

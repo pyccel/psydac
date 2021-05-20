@@ -123,6 +123,14 @@ class VectorFemSpace( FemSpace ):
         return [V.degree for V in self.spaces]
 
     @property
+    def multiplicity(self):
+        return [V.multiplicity for V in self.spaces]
+
+    @property
+    def pads(self):
+        return [V.pads for V in self.spaces]
+
+    @property
     def ncells(self):
         return self._ncells
 
@@ -259,6 +267,14 @@ class ProductFemSpace( FemSpace ):
     @property
     def degree(self):
         return [V.degree for V in self.spaces]
+
+    @property
+    def multiplicity(self):
+        return [V.multiplicity for V in self.spaces]
+
+    @property
+    def pads(self):
+        return [V.pads for V in self.spaces]
 
     @property
     def ncells(self):

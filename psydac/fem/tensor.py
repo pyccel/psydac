@@ -347,6 +347,14 @@ class TensorFemSpace( FemSpace ):
         return [V.degree for V in self.spaces]
 
     @property
+    def multiplicity(self):
+        return [V.multiplicity for V in self.spaces]
+
+    @property
+    def pads(self):
+        return self.vector_space.pads
+
+    @property
     def ncells(self):
         return [V.ncells for V in self.spaces]
 

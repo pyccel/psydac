@@ -61,7 +61,7 @@ class CartDecomposition():
         (optional: default is MPI_COMM_WORLD).
 
     """
-    def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, nprocs=None, reverse_axis=None ):
+    def __init__( self, npts, pads, periods, reorder, multiplicity=None, comm=MPI.COMM_WORLD, nprocs=None, reverse_axis=None ):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
@@ -73,11 +73,12 @@ class CartDecomposition():
         assert isinstance( comm, MPI.Comm )
 
         # Store input arguments
-        self._npts    = tuple( npts    )
-        self._pads    = tuple( pads    )
-        self._periods = tuple( periods )
-        self._reorder = reorder
-        self._comm    = comm
+        self._npts         = tuple( npts    )
+        self._pads         = tuple( pads    )
+        self._periods      = tuple( periods )
+        self._multiplicity = tuple(multiplicity) if multiplicity else (1,)*len(npts)
+        self._reorder      = reorder
+        self._comm         = comm
 
         # ...
         self._ndims = len( npts )
@@ -170,6 +171,10 @@ class CartDecomposition():
     @property
     def periods( self ):
         return self._periods
+
+    @property
+    def multiplicity( self ):
+        return self._multiplicity
 
     @property
     def reorder( self ):

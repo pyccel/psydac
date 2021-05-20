@@ -83,24 +83,33 @@ def construct_test_space_arguments(basis_values):
     test_basis     = basis_values.basis
     spans          = basis_values.spans
     test_degrees   = space.degree
+    pads           = space.pads
+    multiplicity   = space.multiplicity
 
     test_basis, test_degrees, spans = collect_spaces(space.symbolic_space, test_basis, test_degrees, spans)
 
     test_basis    = flatten(test_basis)
     test_degrees  = flatten(test_degrees)
     spans         = flatten(spans)
-    return test_basis, test_degrees, spans
+    pads          = flatten(pads)
+    multiplicity  = flatten(multiplicity)
+    pads          = [p*m for p,m in zip(pads, multiplicity)]
+    return test_basis, test_degrees, spans, pads
 
 def construct_trial_space_arguments(basis_values):
     space          = basis_values.space
     trial_basis    = basis_values.basis
     trial_degrees  = space.degree
-
+    pads           = space.pads
+    multiplicity   = space.multiplicity
     trial_basis, trial_degrees = collect_spaces(space.symbolic_space, trial_basis, trial_degrees)
 
     trial_basis    = flatten(trial_basis)
     trial_degrees = flatten(trial_degrees)
-    return trial_basis, trial_degrees
+    pads          = flatten(pads)
+    multiplicity  = flatten(multiplicity)
+    pads          = [p*m for p,m in zip(pads, multiplicity)]
+    return trial_basis, trial_degrees, pads
 
 def construct_quad_grids_arguments(grid):
     points         = grid.points
@@ -139,18 +148,22 @@ class DiscreteBilinearForm(BasicDiscrete):
         is_rational_mapping = False
         if not( mapping is None ):
             is_rational_mapping = isinstance( mapping, NurbsMapping )
+            kwargs['mapping_space'] = mapping.space
 
         self._is_rational_mapping = is_rational_mapping
         # ...
 
         self._spaces = args[1]
-
-        kwargs['discrete_space']      = self.spaces
-        kwargs['is_rational_mapping'] = is_rational_mapping
-        kwargs['comm']                = domain_h.comm
-
         # ...
-        self._target = kernel_expr[0].target
+
+        if isinstance(kernel_expr, (tuple, list)):
+            if len(kernel_expr) == 1:
+                kernel_expr = kernel_expr[0]
+            else:
+                raise ValueError('> Expecting only one kernel')
+
+        self._kernel_expr = kernel_expr
+        self._target = kernel_expr.target
         self._domain = domain_h.domain
         self._matrix = kwargs.pop('matrix', None)
 
@@ -179,15 +192,20 @@ class DiscreteBilinearForm(BasicDiscrete):
             test_ext  = None
             trial_ext = None
 
-            #...
+        #...
 
+        kwargs['is_rational_mapping'] = is_rational_mapping
+        kwargs['comm']                = domain_h.comm
+        kwargs['discrete_space']      = (trial_space, test_space)
         BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
+        #...
         grid              = QuadratureGrid( test_space, axis, test_ext )
         self._grid        = grid
         self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
         self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
 
+        #...
         if isinstance(target, (Boundary, Interface)):
             #...
             # If process does not own the boundary or interface, do not assemble anything
@@ -249,6 +267,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             basis   = []
             spans   = []
             degrees = []
+            pads    = []
             coeffs  = []
             consts  = []
             for key in self._free_args:
@@ -259,10 +278,11 @@ class DiscreteBilinearForm(BasicDiscrete):
                     v = v[i]
                 if isinstance(v, FemField):
                     basis_v  = BasisValues(v.space, nderiv = self.max_nderiv)
-                    bs, d, s = construct_test_space_arguments(basis_v)
+                    bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
                     degrees += d
+                    pads    += p
                     if v.space.is_product:
                         coeffs += (e._data for e in v.coeffs)
                     else:
@@ -270,7 +290,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *consts, *basis, *spans, *degrees, *coeffs)
+            args = (*self.args, *consts, *basis, *spans, *degrees, *pads, *coeffs)
 
         else:
             args = self._args
@@ -299,9 +319,9 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def construct_arguments(self, backend=None):
 
-        test_basis, test_degrees, spans   = construct_test_space_arguments(self.test_basis)
-        trial_basis, trial_degrees        = construct_trial_space_arguments(self.trial_basis)
-        n_elements, quads, quad_degrees   = construct_quad_grids_arguments(self.grid)
+        test_basis, test_degrees, spans, pads  = construct_test_space_arguments(self.test_basis)
+        trial_basis, trial_degrees, pads       = construct_trial_space_arguments(self.trial_basis)
+        n_elements, quads, quad_degrees        = construct_quad_grids_arguments(self.grid)
 
         pads                      = self.test_basis.space.vector_space.pads
         element_mats, global_mats = self.allocate_matrices(backend)
@@ -432,20 +452,21 @@ class DiscreteLinearForm(BasicDiscrete):
         is_rational_mapping = False
         if not( mapping is None ):
             is_rational_mapping = isinstance( mapping, NurbsMapping )
+            kwargs['mapping_space'] = mapping.space
 
         self._is_rational_mapping = is_rational_mapping
 
         self._space  = args[1]
 
-        kwargs['discrete_space']      = self.space
-        kwargs['is_rational_mapping'] = is_rational_mapping
-        kwargs['comm']                = domain_h.comm
-        quad_order                    = kwargs.pop('quad_order', get_quad_order(self.space))
-
-        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
+        if isinstance(kernel_expr, (tuple, list)):
+            if len(kernel_expr) == 1:
+                kernel_expr = kernel_expr[0]
+            else:
+                raise ValueError('> Expecting only one kernel')
 
         # ...
-        self._target     = self.kernel_expr.target
+        self._kernel_expr = kernel_expr
+        self._target     = kernel_expr.target
         self._domain     = domain_h.domain
         self._vector     = kwargs.pop('vector', None)
 
@@ -457,6 +478,11 @@ class DiscreteLinearForm(BasicDiscrete):
             test_space  = self._space.spaces[i]
         else:
             test_space  = self._space
+
+        kwargs['discrete_space']      = test_space
+        kwargs['is_rational_mapping'] = is_rational_mapping
+        kwargs['comm']                = domain_h.comm
+        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         if not isinstance(target, Boundary):
             ext  = None
@@ -524,6 +550,7 @@ class DiscreteLinearForm(BasicDiscrete):
             basis   = []
             spans   = []
             degrees = []
+            pads    = []
             coeffs  = []
             consts  = []
             for key in self._free_args:
@@ -533,10 +560,11 @@ class DiscreteLinearForm(BasicDiscrete):
                     v = v[i]
                 if isinstance(v, FemField):
                     basis_v  = BasisValues(v.space, nderiv = self.max_nderiv)
-                    bs, d, s = construct_test_space_arguments(basis_v)
+                    bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
                     degrees += d
+                    pads    += p
                     if v.space.is_product:
                         coeffs += (e._data for e in v.coeffs)
                     else:
@@ -544,7 +572,7 @@ class DiscreteLinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *consts, *basis, *spans, *degrees, *coeffs)
+            args = (*self.args, *consts, *basis, *spans, *degrees, *pads, *coeffs)
 
         else:
             args = self._args
@@ -567,16 +595,10 @@ class DiscreteLinearForm(BasicDiscrete):
 
     def construct_arguments(self):
 
-        tests_basis, tests_degrees, spans = construct_test_space_arguments(self.test_basis)
-        n_elements, quads, quads_degree   = construct_quad_grids_arguments(self.grid)
+        tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
+        n_elements, quads, quads_degree         = construct_quad_grids_arguments(self.grid)
 
-        if self.space.is_product:
-            global_pads   = []
-            for s in self.space.spaces:
-                global_pads += [[p*m for p,m in zip(s.vector_space.pads, s.vector_space.multiplicity)]]
-            global_pads = global_pads[0]
-        else:
-            global_pads = [p*m for p,m in zip(self.space.vector_space.pads, self.space.vector_space.multiplicity)]
+        global_pads   = self.space.vector_space.pads
 
         element_mats, global_mats = self.allocate_matrices()
         self._global_matrices   = [M._data for M in global_mats]
@@ -669,19 +691,20 @@ class DiscreteFunctional(BasicDiscrete):
         is_rational_mapping = False
         if not( mapping is None ):
             is_rational_mapping = isinstance( mapping, NurbsMapping )
+            kwargs['mapping_space'] = mapping.space
 
         self._is_rational_mapping = is_rational_mapping
 
         self._space = args[1]
 
-        kwargs['discrete_space']      = self.space
-        kwargs['is_rational_mapping'] = is_rational_mapping
-        kwargs['comm']                = domain_h.comm
-        quad_order                    = kwargs.pop('quad_order', get_quad_order(self.space))
-
-        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
+        if isinstance(kernel_expr, (tuple, list)):
+            if len(kernel_expr) == 1:
+                kernel_expr = kernel_expr[0]
+            else:
+                raise ValueError('> Expecting only one kernel')
 
         # ...
+        self._kernel_expr = kernel_expr
         self._vector = kwargs.pop('vector', None)
         domain       = self.kernel_expr.target
         # ...
@@ -705,6 +728,12 @@ class DiscreteFunctional(BasicDiscrete):
         else:
             ext        = None
             axis       = None
+
+        kwargs['discrete_space']      = self._space
+        kwargs['is_rational_mapping'] = is_rational_mapping
+        kwargs['comm']                = domain_h.comm
+
+        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
 
         # ...
         grid             = QuadratureGrid( self.space,  axis=axis, ext=ext)
@@ -734,17 +763,19 @@ class DiscreteFunctional(BasicDiscrete):
         tests_basis = [[bs[s:e+1] for s,e,bs in zip(sk,ek,basis)] for basis in self.test_basis.basis]
         spans       = [[sp[s:e+1] for s,e,sp in zip(sk,ek,spans)] for spans in self.test_basis.spans]
 
-        space         = self.space
         tests_degrees = self.space.degree
 
-        tests_basis, tests_degrees, spans = collect_spaces(space.symbolic_space, tests_basis, tests_degrees, spans)
+        tests_basis, tests_degrees, spans = collect_spaces(self.space.symbolic_space, tests_basis, tests_degrees, spans)
+
+        global_pads   = flatten(self.test_basis.space.pads)
+        multiplicity  = flatten(self.test_basis.space.multiplicity)
+        global_pads   = [p*m for p,m in zip(global_pads, multiplicity)]
 
         tests_basis   = flatten(tests_basis)
         tests_degrees = flatten(tests_degrees)
         spans         = flatten(spans)
         quads         = flatten(list(zip(points, weights)))
         quads_degree  = flatten(self.grid.quad_order)
-        global_pads   = self.space.vector_space.pads
 
         element_mats, vector = np.empty((1,)), np.empty((1,))
 

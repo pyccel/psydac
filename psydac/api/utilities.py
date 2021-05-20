@@ -1,6 +1,7 @@
 # coding: utf-8
 
 from sympy.core.containers import Tuple
+from sympy import Matrix, ImmutableDenseMatrix
 
 import inspect
 import sys
@@ -14,8 +15,8 @@ import numpy as np
 def flatten(args):
     ls = []
     def rec_flatten(args, ls):
-        if isinstance(args, (list, tuple, Tuple)):
-            for i in args:
+        if isinstance(args, (list, tuple, Tuple, Matrix, ImmutableDenseMatrix)):
+            for i in tuple(args):
                 rec_flatten(i,ls)
         else:
             ls.append(args)

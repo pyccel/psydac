@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from collections import OrderedDict
-from itertools   import groupby
+from itertools   import groupby, product
 
 from sympy import Basic
 from sympy import Matrix, ImmutableDenseMatrix
@@ -54,7 +54,8 @@ from .nodes import index_dof_test
 from .nodes import index_dof_trial
 from .nodes import index_outer_dof_test
 from .nodes import index_inner_dof_test
-from .nodes import TensorIntDiv, TensorBasisIndex
+from .nodes import TensorIntDiv, TensorAssignExpr
+from .nodes import TensorAdd, TensorMul
 
 from psydac.api.ast.utilities import variables
 from psydac.api.utilities     import flatten
@@ -145,8 +146,8 @@ class DefNode(Basic):
     DefNode represents a function definition where it contains the arguments and the body
 
     """
-    def __new__(cls, name, arguments, local_variables, body):
-        return Basic.__new__(cls, name, arguments, local_variables, body)
+    def __new__(cls, name, arguments, local_variables, body, kind):
+        return Basic.__new__(cls, name, arguments, local_variables, body, kind)
 
     @property
     def name(self):
@@ -164,9 +165,11 @@ class DefNode(Basic):
     def body(self):
         return self._args[3]
 
-
+    @property
+    def kind(self):
+        return self._args[4]
 #==============================================================================
-def expand_hdiv_hcurl(args, *extra_args):
+def expand_hdiv_hcurl(args):
     """
     This function expands vector functions of type hdiv and hculr into indexed functions
 
@@ -183,28 +186,10 @@ def expand_hdiv_hcurl(args, *extra_args):
         else:
             raise NotImplementedError("TODO")
 
-    new_extra_args = []
-    for e_args in extra_args:
-        new_e_args = []
-        for i,a in enumerate(args):
-            if isinstance(a, ScalarFunction):
-                new_e_args += [e_args[i]]
-            elif isinstance(a, VectorFunction):
-                if isinstance(a.space.kind, (HcurlSpaceType, HdivSpaceType)):
-                    new_e_args += e_args[i]
-                else:
-                    new_e_args += [e_args[i][0]]
-            else:
-                raise NotImplementedError("TODO")
-
-        new_extra_args.append(new_e_args)
-    if extra_args:
-        args = [tuple(new_args)] + new_extra_args
-        return args
     return tuple(new_args)
     
 #==============================================================================
-def get_multiplicity(space):
+def get_multiplicity(funcs, space):
     def recursive_func(space):
         if isinstance(space, BlockVectorSpace):
             multiplicity = [recursive_func(s) for s in space.spaces]
@@ -215,13 +200,37 @@ def get_multiplicity(space):
     multiplicity = recursive_func(space)
     if not isinstance(multiplicity[0], list):
         multiplicity = [multiplicity]
-    return multiplicity
+
+    funcs = expand(funcs)
+    assert len(funcs) == len(multiplicity)
+    new_multiplicity = []
+    for i in range(len(funcs)):
+        if isinstance(funcs[i], ScalarFunction):
+            new_multiplicity.append(multiplicity[i])
+        elif isinstance(funcs[i].base.space.kind, (HcurlSpaceType, HdivSpaceType)):
+            new_multiplicity.append(multiplicity[i])
+        else:
+            if i+1==len(funcs) or isinstance(funcs[i+1], ScalarFunction) or funcs[i].base != funcs[i+1].base:
+                new_multiplicity.append(multiplicity[i])
+    return new_multiplicity
 #==============================================================================
-def get_degrees(space):
+def get_degrees(funcs, space):
     degrees = list(space.degree)
     if not isinstance(degrees[0], (list, tuple)):
         degrees = [degrees]
-    return degrees
+
+    funcs = expand(funcs)
+    assert len(funcs) == len(degrees)
+    new_degrees = []
+    for i in range(len(funcs)):
+        if isinstance(funcs[i], ScalarFunction):
+            new_degrees.append(degrees[i])
+        elif isinstance(funcs[i].base.space.kind, (HcurlSpaceType, HdivSpaceType)):
+            new_degrees.append(degrees[i])
+        else:
+            if i+1==len(funcs) or isinstance(funcs[i+1], ScalarFunction) or funcs[i].base != funcs[i+1].base:
+                new_degrees.append(degrees[i])
+    return new_degrees
 #==============================================================================
 def get_quad_order(Vh):
     if isinstance(Vh, ProductFemSpace):
@@ -271,20 +280,20 @@ class AST(object):
             fields              = expr.fields
             is_broken           = spaces.symbolic_space.is_broken
             quad_order          = get_quad_order(spaces)
-            tests_degrees        = get_degrees(spaces)
-            multiplicity_tests  = get_multiplicity(spaces.vector_space)
+            tests_degrees       = get_degrees(tests, spaces)
+            multiplicity_tests  = get_multiplicity(tests, spaces.vector_space)
             spaces              = spaces.symbolic_space
         elif isinstance(expr, BilinearForm):
             is_bilinear         = True
             tests               = expr.test_functions
             trials              = expr.trial_functions
             fields              = expr.fields
-            quad_order          = get_quad_order(spaces[0])
-            tests_degrees        = get_degrees(spaces[0])
-            trials_degrees       = get_degrees(spaces[1])
             is_broken           = spaces[0].symbolic_space.is_broken
-            multiplicity_tests  = get_multiplicity(spaces[1].vector_space)
-            multiplicity_trials = get_multiplicity(spaces[0].vector_space)
+            quad_order          = get_quad_order(spaces[0])
+            tests_degrees       = get_degrees(tests, spaces[0])
+            trials_degrees      = get_degrees(trials, spaces[1])
+            multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
+            multiplicity_trials = get_multiplicity(trials, spaces[0].vector_space)
             spaces              = [V.symbolic_space for V in spaces]
 
         elif isinstance(expr, Functional):
@@ -292,15 +301,15 @@ class AST(object):
             fields              = tuple(expr.atoms(ScalarFunction, VectorFunction))
             is_broken           = spaces.symbolic_space.is_broken
             quad_order          = get_quad_order(spaces)
-            fields_degrees      = get_degrees(spaces)
-            multiplicity_fields = get_multiplicity(spaces.vector_space)
+            fields_degrees      = get_degrees(fields, spaces)
+            multiplicity_fields = get_multiplicity(fields, spaces.vector_space)
             spaces              = spaces.symbolic_space
         else:
             raise NotImplementedError('TODO')
 
-        tests,  tests_degrees, multiplicity_tests  = expand_hdiv_hcurl(tests, tests_degrees, multiplicity_tests)
-        trials, trials_degrees,multiplicity_trials = expand_hdiv_hcurl(trials, trials_degrees, multiplicity_trials)
-        fields, fields_degrees, multiplicity_fields = expand_hdiv_hcurl(fields, fields_degrees, multiplicity_fields)
+        tests  = expand_hdiv_hcurl(tests)
+        trials = expand_hdiv_hcurl(trials)
+        fields = expand_hdiv_hcurl(fields)
 
         kwargs['quad_order']     = quad_order
 
@@ -352,10 +361,15 @@ class AST(object):
                         'multiplicity':multiplicity_trials[i],
                         'degrees':trials_degrees[i]} for i,u in enumerate(trials)}
 
-        d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f), 
-                        'span': GlobalSpan(f),
-                        'multiplicity':multiplicity_fields[i],
-                        'degrees':fields_degrees[i]} for i,f in enumerate(fields)}
+        if isinstance(expr, Functional):
+            d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f), 
+                            'span': GlobalSpan(f),
+                            'multiplicity':multiplicity_fields[i],
+                            'degrees':fields_degrees[i]} for i,f in enumerate(fields)}
+
+        else:
+            d_fields = {f: {'global': GlobalTensorQuadratureTestBasis (f), 
+                            'span': GlobalSpan(f)} for i,f in enumerate(fields)}
 
         if is_broken:
             if isinstance(domain, Interface):
@@ -504,14 +518,11 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     quad_order    = kwargs.pop('quad_order', None)
 
-    geo        = GeometryExpressions(mapping, nderiv)
-    g_coeffs   = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
-    l_mats     = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim, tag)
-    g_mats     = BlockStencilMatrixGlobalBasis(trials, tests, pads, terminal_expr, l_mats.tag)
-
     # ...........................................................................................
     g_span              = OrderedDict((u,d_tests[u]['span']) for u in tests)
     f_span              = OrderedDict((f,d_fields[f]['span']) for f in fields)
+    m_trials            = OrderedDict((u,d_trials[u]['multiplicity'])  for u in trials)
+    m_tests             = OrderedDict((v,d_tests[v]['multiplicity'])   for v in tests)
     lengths_trials      = OrderedDict((u,LengthDofTrial(u)) for u in trials)
     lengths_tests       = OrderedDict((v,LengthDofTest(v)) for v in tests)
     lengths_outer_tests = OrderedDict((v,LengthOuterDofTest(v)) for v in tests)
@@ -521,6 +532,12 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     quad_length     = LengthQuadrature()
     el_length       = LengthElement()
     lengths         = [el_length, quad_length]
+    # ...........................................................................................
+    geo        = GeometryExpressions(mapping, nderiv)
+    g_coeffs   = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
+    l_mats     = BlockStencilMatrixLocalBasis(trials, tests, m_trials, terminal_expr, dim, tag)
+    g_mats     = BlockStencilMatrixGlobalBasis(trials, tests, pads, m_tests, terminal_expr, l_mats.tag)
+    # ...........................................................................................
 
     if quad_order is not None:
         ind_quad      = index_quad.set_length(Tuple(*quad_order))
@@ -530,7 +547,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     ind_element   = index_element.set_length(el_length)
     ind_dof_test  = index_dof_test.set_length(LengthDofTest(tests[0])+1)
     # ...........................................................................................
-    eval_mapping = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], mapping, geo, spaces[1], tests, nderiv, mask, is_rational_mapping)
+    mapping_space = kwargs.pop('mapping_space', None)
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], 
+                    mapping, geo, spaces[1], mapping_space, tests, nderiv, mask, is_rational_mapping)
 
     eval_fields = []
     for f in fields:
@@ -538,7 +557,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
         ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
-        eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, pads, nderiv, mask)
+        eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], 
+                       d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields += [eval_field]
 
     g_stmts = [eval_mapping, *eval_fields]
@@ -556,58 +576,87 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
             tests_indices     = [ex_tests.index(i) for i in expand(sub_tests)]
             trials_indices    = [ex_trials.index(i) for i in expand(sub_trials)]
             sub_terminal_expr = terminal_expr[tests_indices,trials_indices]
-            l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials, sub_tests, sub_terminal_expr, dim, l_mats.tag)
+
             if is_zero(sub_terminal_expr):
                 continue
 
-            q_basis_tests  = OrderedDict((v,d_tests[v]['global'])  for v in sub_tests)
-            q_basis_trials = OrderedDict((u,d_trials[u]['global']) for u in sub_trials)
-            m_tests        = OrderedDict((v,d_tests[v]['multiplicity'])  for v in sub_tests)
+            q_basis_tests  = OrderedDict((v,d_tests[v]['global'])         for v in sub_tests)
+            q_basis_trials = OrderedDict((u,d_trials[u]['global'])        for u in sub_trials)
+            m_tests        = OrderedDict((v,d_tests[v]['multiplicity'])   for v in sub_tests)
             m_trials       = OrderedDict((u,d_trials[u]['multiplicity'])  for u in sub_trials)
-            tests_degree   = OrderedDict((v,d_tests[v]['degrees'])  for v in sub_tests)
-            trials_degrees = OrderedDict((u,d_trials[u]['degrees'])  for u in sub_trials)
+            tests_degree   = OrderedDict((v,d_tests[v]['degrees'])        for v in sub_tests)
+            trials_degrees = OrderedDict((u,d_trials[u]['degrees'])       for u in sub_trials)
 
-            stmts = []
-            for v in sub_tests+sub_trials:
-                stmts += construct_logical_expressions(v, nderiv)
+            l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials, sub_tests, m_trials, sub_terminal_expr, dim, l_mats.tag)
 
-            # Instructions needed to retrieve the precomputed values of the
-            # fields (and their derivatives) at a single quadrature point
-            stmts += flatten([eval_field.inits for eval_field in eval_fields])
-
-            loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
-            loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr), ElementOf(l_sub_mats), loop)
-
-            # ... loop over trials
-            length = Tuple(*[d+1 for d in trials_degrees[sub_trials[0]]])
-            ind_dof_trial = index_dof_trial.set_length(length)
-            loop  = Loop((), ind_dof_trial, [loop])
 
             if all(a==1 for a in m_tests[sub_tests[0]]) and False:
+
+                stmts = []
+                for v in sub_tests+sub_trials:
+                    stmts += construct_logical_expressions(v, nderiv)
+
+                # Instructions needed to retrieve the precomputed values of the
+                # fields (and their derivatives) at a single quadrature point
+                stmts += flatten([eval_field.inits for eval_field in eval_fields])
+            
+                loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
+                loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr), ElementOf(l_sub_mats), loop)
+
+                # ... loop over trials
+                length = Tuple(*[d+1 for d in trials_degrees[sub_trials[0]]])
+                ind_dof_trial = index_dof_trial.set_length(length)
+                loop1  = Loop((), ind_dof_trial, [loop])
+            
                 # ... loop over tests
                 length = lengths_tests[sub_tests[0]]
                 ind_dof_test = index_dof_test.set_length(length+1)
-                loop  = Loop((), ind_dof_test, [loop])
+                loop  = Loop((), ind_dof_test, [loop1])
                 # ...
 
                 body  = (Reset(l_sub_mats), loop)
                 stmts = Block(body)
                 g_stmts += [stmts]
+
             else:
-               # ... loop over tests
-                multiplicity = Tuple(*m_tests[sub_tests[0]])
-                length = Tuple(*[d+1 for d in tests_degree[sub_tests[0]]])
-                length = TensorIntDiv(length, multiplicity)
-                ind_outer_dof_test = index_outer_dof_test.set_length(length)
-                ind_inner_dof_test = index_inner_dof_test.set_length(multiplicity)
-                loop  = Loop((TensorBasisIndex()), ind_inner_dof_test, [loop])
-                loop  = Loop((), ind_outer_dof_test, [loop])
-                # ...
+                g_stmts += [Reset(l_sub_mats)]
+                mask_inner = [[False, True] for i in range(dim)]
+                for mask_inner_i in product(*mask_inner):
+                    mask_inner_i = Tuple(*mask_inner_i)
+                    not_mask_inner_i = Tuple(*[not i for i in mask_inner_i])
+                    stmts = []
+                    for v in sub_tests+sub_trials:
+                        stmts += construct_logical_expressions(v, nderiv)
 
-                body  = (Reset(l_sub_mats), loop)
-                stmts = Block(body)
-                g_stmts += [stmts] 
+                    # Instructions needed to retrieve the precomputed values of the
+                    # fields (and their derivatives) at a single quadrature point
+                    stmts += flatten([eval_field.inits for eval_field in eval_fields])
 
+                    multiplicity = Tuple(*m_tests[sub_tests[0]])
+                    length = Tuple(*[(d+1)%m if T else (d+1)//m for d,m,T in zip(tests_degree[sub_tests[0]], multiplicity, mask_inner_i)])
+                    ind_outer_dof_test = index_outer_dof_test.set_length(length)
+                    outer = Tuple(*[d//m for d,m in zip(tests_degree[sub_tests[0]], multiplicity)])
+                    outer = TensorAdd(TensorMul(ind_outer_dof_test, not_mask_inner_i),TensorMul(outer, mask_inner_i))
+
+                    l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials, sub_tests, m_trials, sub_terminal_expr, dim, l_mats.tag, outer=outer)
+                    loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
+                    loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr), ElementOf(l_sub_mats), loop)
+
+                    # ... loop over trials
+                    length_t = Tuple(*[d+1 for d in trials_degrees[sub_trials[0]]])
+                    ind_dof_trial = index_dof_trial.set_length(length_t)
+                    loop  = Loop((), ind_dof_trial, [loop])
+ 
+                    rem_length = Tuple(*[(d+1)-(d+1)%m for d,m in zip(tests_degree[sub_tests[0]], multiplicity)])
+                    ind_inner_dof_test = index_inner_dof_test.set_length(multiplicity)
+                    expr1 = TensorAdd(TensorMul(ind_outer_dof_test, multiplicity),ind_inner_dof_test)
+                    expr2 = TensorAdd(rem_length, ind_outer_dof_test)
+                    expr  = TensorAssignExpr(TensorAdd(TensorMul(expr1,not_mask_inner_i),TensorMul(expr2, mask_inner_i)), index_dof_test)
+                    loop  = Loop((expr,), ind_inner_dof_test, [loop], mask=mask_inner_i)
+                    loop  = Loop((), ind_outer_dof_test, [loop])
+
+                    g_stmts += [loop] 
+                
     #=========================================================end kernel=========================================================
 
     # ... loop over global elements
@@ -640,6 +689,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         args['f_coeffs']       = flatten(list(g_coeffs.values()))
         args['field_basis']    = tuple(d_fields[f]['global'] for f in fields)
         args['fields_degrees'] = lengths_fields.values()
+        args['f_pads']         = [f.pads for f in eval_fields]
         fields                 = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
         args['fields']         = tuple(dict.fromkeys(fields))
 
@@ -647,7 +697,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         args['constants'] = constants
 
     local_vars = []
-    node = DefNode('assembly', args, local_vars, body)
+    node = DefNode('assembly', args, local_vars, body, 'bilinearform')
 
     return node
 
@@ -712,8 +762,11 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     geo      = GeometryExpressions(mapping, nderiv)
     g_coeffs = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
 
+    m_tests = OrderedDict((v,d_tests[v]['multiplicity'])   for v in tests)
     l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr, tag)
-    g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, terminal_expr,l_vecs.tag)
+    g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, m_tests, terminal_expr,l_vecs.tag)
+
+
 
     g_span          = OrderedDict((v,d_tests[v]['span']) for v in tests)
     f_span          = OrderedDict((f,d_fields[f]['span']) for f in fields)
@@ -728,7 +781,9 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     ind_element   = index_element.set_length(el_length)
     ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0])+1)
     # ...........................................................................................
-    eval_mapping = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], mapping, geo, space, tests, nderiv, mask, is_rational_mapping)
+    mapping_space = kwargs.pop('mapping_space', None)
+    eval_mapping  = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], mapping,geo, space,
+                   mapping_space, tests, nderiv, mask, is_rational_mapping)
 
     eval_fields = []
     for f in fields:
@@ -736,7 +791,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
         ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
-        eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, pads, nderiv, mask)
+        eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields += [eval_field]
 
     g_stmts = [eval_mapping, *eval_fields]
@@ -803,6 +858,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         args['f_coeffs']       = flatten(list(g_coeffs.values()))
         args['field_basis']    = tuple(d_fields[f]['global'] for f in fields)
         args['fields_degrees'] = lengths_fields.values()
+        args['f_pads']         = [f.pads for f in eval_fields]
         fields                 = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
         args['fields']         = tuple(dict.fromkeys(fields))
 
@@ -810,7 +866,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         args['constants'] = constants
 
     local_vars = []
-    node = DefNode('assembly', args, local_vars, body)
+    node = DefNode('assembly', args, local_vars, body, 'linearform')
 
     return node
 
@@ -896,7 +952,9 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
 
     ind_dof_test  = index_dof_test.set_length(lengths_fields[fields[0]]+1)
     # ...........................................................................................
-    eval_mapping = EvalMapping(ind_quad, ind_dof_test, g_basis[fields[0]], g_basis[fields[0]], mapping, geo, space, fields, nderiv, mask, is_rational_mapping)
+    mapping_space = kwargs.pop('mapping_space', None)
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, g_basis[fields[0]], g_basis[fields[0]], mapping, 
+                    geo, space, mapping_space, fields, nderiv, mask, is_rational_mapping)
 
     eval_fields = []
     for f in fields:
@@ -904,7 +962,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
         ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
-        eval_field   = EvalField(atomic_expr[f], ind_quad, ind_dof_test, d_fields[f]['global'], d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, pads, nderiv, mask)
+        eval_field   = EvalField(atomic_expr[f], ind_quad, ind_dof_test, d_fields[f]['global'], d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields  += [eval_field]
 
     #=========================================================begin kernel======================================================
@@ -935,7 +993,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     args['tests_degrees'] = lengths_fields
 
     args['quads_degree'] = lengths
-    args['global_pads']  = pads
+    args['global_pads']  = [f.pads for f in eval_fields]
 
     args['mats']  = [l_vec, g_vec]
 
@@ -950,6 +1008,6 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         args['constants'] = constants
 
     local_vars = []
-    node = DefNode('assembly', args, local_vars, body)
+    node = DefNode('assembly', args, local_vars, body, 'functionalform')
 
     return node

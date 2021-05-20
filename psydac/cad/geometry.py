@@ -422,7 +422,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     h5.close()
 
 #==============================================================================
-def refine_nurbs(nrb, ncells=None, degree=None):
+def refine_nurbs(nrb, ncells=None, degree=None, multiplicity=[1,1], tol=1e-9):
     """
     This function refines the nurbs object.
     It contructs a new grid based on the new number of cells, and it adds the new break points to the nrb grid,
@@ -442,6 +442,12 @@ def refine_nurbs(nrb, ncells=None, degree=None):
     degree : <list>
         degree in each direction
 
+    multiplicity : <list>
+        multiplicity of each knot in the knot sequence in each direction
+
+    tol : <float>
+        tolerance
+
     Returns
     -------
     nrb : <igakit.nurbs.NURBS>
@@ -458,7 +464,7 @@ def refine_nurbs(nrb, ncells=None, degree=None):
             index = nrb.knots[axis].searchsorted(knots)
             nrb_knots = nrb.knots[axis][index]
             for m,(nrb_k, k) in enumerate(zip(nrb_knots, knots)):
-                if abs(k-nrb_k)<1e-15:
+                if abs(k-nrb_k)<tol:
                     knots[m] = np.nan
 
             knots   = knots[~np.isnan(knots)]
@@ -476,6 +482,13 @@ def refine_nurbs(nrb, ncells=None, degree=None):
                 raise ValueError('The degree {} must be >= {}'.format(degree, nrb.degree))
             nrb.elevate(axis, times=d)
 
+    for axis in range(nrb.dim):
+        decimals = abs(np.floor(np.log10(np.abs(tol))).astype(int))
+        knots, counts = np.unique(nrb.knots[axis].round(decimals=decimals), return_counts=True)
+        counts = multiplicity[axis] - counts
+        counts[counts<0] = 0
+        knots = np.repeat(knots, counts)
+        nrb = nrb.refine(axis, knots)
     return nrb
 #==============================================================================
 def import_geopdes_to_nurbs(filename):
