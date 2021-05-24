@@ -115,7 +115,7 @@ class Projector_H1(GlobalProjector):
 
         if H1.vector_space.parallel:
             cart = H1.vector_space.cart
-            intp_x = [global_intp_x[i][s:e+2] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
+            intp_x = [global_intp_x[i][s:e+1] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
         else:
             intp_x = global_intp_x
         
@@ -293,7 +293,7 @@ class Projector_Hcurl(GlobalProjector):
         assert all([block.parallel for block in Hcurl.vector_space.spaces])
         if Hcurl.vector_space.spaces[0].parallel:
             cart = Hcurl.vector_space.spaces[0].cart
-            intp_x = [global_intp_x[i][s:e+2] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
+            intp_x = [global_intp_x[i][s:e+1] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
             quad_x = [global_quad_x[i][s:e+1,:] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
             quad_w = [global_quad_w[i][s:e+1,:] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
         else:
@@ -462,7 +462,7 @@ class Projector_Hdiv(GlobalProjector):
         assert all([block.parallel for block in Hdiv.vector_space.spaces])
         if Hdiv.vector_space.spaces[0].parallel:
             cart = Hdiv.vector_space.spaces[0].cart
-            intp_x = [global_intp_x[i][s:e+2] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
+            intp_x = [global_intp_x[i][s:e+1] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
             quad_x = [global_quad_x[i][s:e+1,:] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
             quad_w = [global_quad_w[i][s:e+1,:] for i,(s,e) in enumerate(zip(cart.starts, cart.ends))]
         else:
