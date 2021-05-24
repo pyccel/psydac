@@ -333,7 +333,7 @@ class StencilVector( Vector ):
         return txt
 
     # ...
-    def toarray( self, *, with_pads=False ):
+    def toarray( self, *, order='C', with_pads=False ):
         """
         Return a numpy 1D array corresponding to the given StencilVector,
         with or without pads.
@@ -352,29 +352,29 @@ class StencilVector( Vector ):
         # In parallel case, call different functions based on 'with_pads' flag
         if self.space.parallel:
             if with_pads:
-                return self._toarray_parallel_with_pads()
+                return self._toarray_parallel_with_pads(order=order)
             else:
-                return self._toarray_parallel_no_pads()
+                return self._toarray_parallel_no_pads(order=order)
 
         # In serial case, ignore 'with_pads' flag
-        return self.toarray_local()
+        return self.toarray_local(order=order)
 
     # ...
-    def toarray_local( self ):
+    def toarray_local( self , order='C'):
         """ return the local array without the padding"""
         idx = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.multiplicity) )
-        return self._data[idx].flatten( order='C')
+        return self._data[idx].flatten( order=order)
 
     # ...
-    def _toarray_parallel_no_pads( self ):
+    def _toarray_parallel_no_pads( self, order='C' ):
         a         = np.zeros( self.space.npts )
         idx_from  = tuple( slice(m*p,-m*p) for p,m in zip(self.pads, self.space.multiplicity) )
         idx_to    = tuple( slice(s,e+1) for s,e in zip(self.starts,self.ends) )
         a[idx_to] = self._data[idx_from]
-        return a.reshape(-1)
+        return a.flatten( order=order)
 
     # ...
-    def _toarray_parallel_with_pads( self ):
+    def _toarray_parallel_with_pads( self, order='C' ):
 
         pads = [m*p for m,p in zip(self.space.multiplicity, self.pads)]
         # Step 0: create extended n-dimensional array with zero values
@@ -428,8 +428,7 @@ class StencilVector( Vector ):
         out = a[idx]
 
         # Step 4: return flattened array
-#        return out.flatten()
-        return out.reshape(-1)
+        return out.flatten( order=order)
 
     def topetsc( self ):
         """ Convert to petsc data structure.
@@ -704,22 +703,22 @@ class StencilMatrix( Matrix ):
             new_nrows[d] += er
 
     # ...
-    def toarray( self, *, with_pads=False ):
+    def toarray( self, *, order='C', with_pads=False ):
 
         if self.codomain.parallel and with_pads:
-            coo = self._tocoo_parallel_with_pads()
+            coo = self._tocoo_parallel_with_pads(order=order)
         else:
-            coo = self._tocoo_no_pads()
+            coo = self._tocoo_no_pads(order=order)
 
         return coo.toarray()
 
     # ...
-    def tosparse( self, *, with_pads=False ):
+    def tosparse( self, *, order='C', with_pads=False ):
 
         if self.codomain.parallel and with_pads:
-            coo = self._tocoo_parallel_with_pads()
+            coo = self._tocoo_parallel_with_pads(order=order)
         else:
-            coo = self._tocoo_no_pads()
+            coo = self._tocoo_no_pads(order=order)
 
         return coo
 
@@ -1047,7 +1046,6 @@ class StencilMatrix( Matrix ):
         for k,p,m in zip( kk, self._pads, self._domain.multiplicity ):
             l = self._shift_index( k, m*p )
             index.append( l )
-
         return tuple(index)
 
     # ...
@@ -1060,7 +1058,7 @@ class StencilMatrix( Matrix ):
         else:
             return index + shift
 
-    def tocoo_local( self ):
+    def tocoo_local( self, order='C' ):
 
         # Shortcuts
         sc = self._codomain.starts
@@ -1097,8 +1095,8 @@ class StencilMatrix( Matrix ):
             ii = [x+p for x,p in zip(xx, pc)]
             jj = [(l+i+d)%n for (i,l,d,n) in zip(xx,ll,dd,nc)]
 
-            I = ravel_multi_index( ii, dims=nr,  order='C' )
-            J = ravel_multi_index( jj, dims=nc,  order='C' )
+            I = ravel_multi_index( ii, dims=nr,  order=order )
+            J = ravel_multi_index( jj, dims=nc,  order=order )
 
             rows.append( I )
             cols.append( J )
@@ -1114,7 +1112,7 @@ class StencilMatrix( Matrix ):
 
         return M
     #...
-    def _tocoo_no_pads( self ):
+    def _tocoo_no_pads( self , order='C'):
 
         # Shortcuts
         nr = self._codomain.npts
@@ -1147,8 +1145,8 @@ class StencilMatrix( Matrix ):
 
             jj = [(i*m+l-m*p)%n for (i,m,l,n,p) in zip(di,dm,ll,nc,self._pads)]
 
-            I = ravel_multi_index( ii, dims=nr,  order='C' )
-            J = ravel_multi_index( jj, dims=nc,  order='C' )
+            I = ravel_multi_index( ii, dims=nr,  order=order )
+            J = ravel_multi_index( jj, dims=nc,  order=order )
 
             rows.append( I )
             cols.append( J )
@@ -1165,7 +1163,7 @@ class StencilMatrix( Matrix ):
         return M
 
     #...
-    def _tocoo_parallel_with_pads( self ):
+    def _tocoo_parallel_with_pads( self , order='C'):
 
         # If necessary, update ghost regions
         if not self.ghost_regions_in_sync:
@@ -1211,7 +1209,7 @@ class StencilMatrix( Matrix ):
             # Compute row flat index
             # Exclude values outside global limits of matrix
             try:
-                I = ravel_multi_index( ii, dims=nr,  order='C' )
+                I = ravel_multi_index( ii, dims=nr,  order=order )
             except ValueError:
                 continue
 
@@ -1229,7 +1227,7 @@ class StencilMatrix( Matrix ):
                 jj = [(i+l-p) % n for (i,l,n,p) in zip(ii,ll,nc,pp)]
 
                 # Compute column flat index
-                J = ravel_multi_index( jj, dims=nc,  order='C' )
+                J = ravel_multi_index( jj, dims=nc,  order=order )
 
                 # Extract matrix value
                 value = self._data[(*xx, *ll)]

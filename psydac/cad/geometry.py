@@ -422,7 +422,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     h5.close()
 
 #==============================================================================
-def refine_nurbs(nrb, ncells=None, degree=None, multiplicity=[1,1], tol=1e-9):
+def refine_nurbs(nrb, ncells=None, degree=None, multiplicity=None, tol=1e-9):
     """
     This function refines the nurbs object.
     It contructs a new grid based on the new number of cells, and it adds the new break points to the nrb grid,
@@ -454,6 +454,10 @@ def refine_nurbs(nrb, ncells=None, degree=None, multiplicity=[1,1], tol=1e-9):
         the refined geometry nurbs object
 
     """
+
+    if multiplicity is None:
+        multiplicity = [1]*nrb.dim
+
     nrb = nrb.clone()
     if ncells is not None:
 
@@ -490,6 +494,79 @@ def refine_nurbs(nrb, ncells=None, degree=None, multiplicity=[1,1], tol=1e-9):
         knots = np.repeat(knots, counts)
         nrb = nrb.refine(axis, knots)
     return nrb
+
+def refine_knots(knots, ncells, degree, multiplicity=None, tol=1e-9):
+    """
+    This function refines the knot sequence.
+    It contructs a new grid based on the new number of cells, and it adds the new break points to the nrb grid,
+    such that the total number of cells is equal to the new number of cells.
+    We use knot insertion to construct the new knot sequence , so the geometry is identical to the previous one.
+    It also elevates the degree of the nrb object based on the new degree.
+
+    Parameters
+    ----------
+
+    knots : <list>
+        list of knot sequences in each direction
+
+    ncells   : <list>
+        total number of cells in each direction
+
+    degree : <list>
+        degree in each direction
+
+    multiplicity : <list>
+        multiplicity of each knot in the knot sequence in each direction
+
+    tol : <float>
+        tolerance
+
+    Returns
+    -------
+    knots : <list>
+        the refined knot sequences in each direction
+    """
+    from igakit.nurbs import NURBS
+    dim = len(ncells)
+
+    if multiplicity is None:
+        multiplicity = [1]*dim
+
+    assert len(knots) == dim
+
+    nrb = NURBS(knots)
+    for axis in range(dim):
+        ub = nrb.breaks(axis)[0]
+        ue = nrb.breaks(axis)[-1]
+        knots = np.linspace(ub,ue,ncells[axis]+1)
+        index = nrb.knots[axis].searchsorted(knots)
+        nrb_knots = nrb.knots[axis][index]
+        for m,(nrb_k, k) in enumerate(zip(nrb_knots, knots)):
+            if abs(k-nrb_k)<tol:
+                knots[m] = np.nan
+
+        knots   = knots[~np.isnan(knots)]
+        indices = np.round(np.linspace(0, len(knots) - 1, ncells[axis]+1-len(nrb.breaks(axis)))).astype(int)
+
+        knots = knots[indices]
+
+        if len(knots)>0:
+            nrb.refine(axis, knots)
+
+    for axis in range(dim):
+        d = degree[axis] - nrb.degree[axis]
+        if d<0:
+            raise ValueError('The degree {} must be >= {}'.format(degree, nrb.degree))
+        nrb.elevate(axis, times=d)
+
+    for axis in range(dim):
+        decimals = abs(np.floor(np.log10(np.abs(tol))).astype(int))
+        knots, counts = np.unique(nrb.knots[axis].round(decimals=decimals), return_counts=True)
+        counts = multiplicity[axis] - counts
+        counts[counts<0] = 0
+        knots = np.repeat(knots, counts)
+        nrb = nrb.refine(axis, knots)
+    return nrb.knots
 #==============================================================================
 def import_geopdes_to_nurbs(filename):
     """

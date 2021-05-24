@@ -206,67 +206,9 @@ class DiscreteEquation(BasicDiscrete):
         settings = {k:kwargs[k] if k in kwargs else it for k,it in _default_solver.items()}
         settings.update({it[0]:it[1] for it in kwargs.items() if it[0] not in settings})
 
-        #----------------------------------------------------------------------
-        # [YG, 18/11/2019]
-        #
-        # Impose inhomogeneous Dirichlet boundary conditions through
-        # L2 projection on the boundary. This requires setting up a
-        # new variational formulation and solving the resulting linear
-        # system to obtain a solution that does not live in the space
-        # of homogeneous solutions. Such a solution is then used as
-        # initial guess when the model equation is to be solved by an
-        # iterative method. Our current method of solution does not
-        # modify the initial guess at the boundary.
-
-        if self.bc:
-
-            # Inhomogeneous Dirichlet boundary conditions
-            idbcs = [i for i in self.bc if i.rhs != 0]
-
-            if idbcs:
-
-                from sympde.expr import integral
-                from sympde.expr import find
-                from sympde.topology import element_of #, ScalarFunction
-
-                # Extract trial functions from model equation
-                u = self.expr.trial_functions
-
-                # Create test functions in same space of trial functions
-                # TODO: check if we should generate random names
-                V = ProductSpace(*[ui.space for ui in u])
-                v = element_of(V, name='v:{}'.format(len(u)))
-
-                # In a system, each essential boundary condition is applied to
-                # only one component (bc.variable) of the state vector. Hence
-                # we will select the correct test function using a dictionary.
-                test_dict = dict(zip(u, v))
-
-                # Compute product of (u, v) using dot product for vector quantities
-                product  = lambda f, g: (f * g if isinstance(g, ScalarFunction) else dot(f, g))
-
-                # Construct variational formulation that performs L2 projection
-                # of boundary conditions onto the correct space
-                factor   = lambda bc : bc.lhs.xreplace(test_dict)
-                lhs_expr = sum(integral(i.boundary, product(i.lhs, factor(i))) for i in idbcs)
-                rhs_expr = sum(integral(i.boundary, product(i.rhs, factor(i))) for i in idbcs)
-                equation = find(u, forall=v, lhs=lhs_expr, rhs=rhs_expr)
-
-                # Discretize weak form
-                domain_h   = self.domain
-                Vh         = self.trial_space
-                equation_h = discretize(equation, domain_h, [Vh, Vh])
-
-                # Find inhomogeneous solution (use CG as system is symmetric)
-                loc_settings = settings.copy()
-                loc_settings['solver'] = 'cg'
-                loc_settings.pop('info', False)
-                loc_settings.pop('pc'  , False)
-                uh = equation_h.solve(**loc_settings)
-
-                # Use inhomogeneous solution as initial guess to solver
-                settings['x0'] = uh.coeffs
-
+        if self.bc and [i for i in self.bc if i.rhs != 0]:
+            x0 = self.compute_dirichlet_bd_conditions(**settings)
+            settings['x0'] = x0.coeffs
         #----------------------------------------------------------------------
 
         if settings.get('info', False):
@@ -279,6 +221,63 @@ class DiscreteEquation(BasicDiscrete):
             uh = FemField(self.trial_space, coeffs=X)
             return uh
 
+    def compute_dirichlet_bd_conditions(self, **settings):
+
+        #----------------------------------------------------------------------
+        # [YG, 18/11/2019]
+        #
+        # Impose inhomogeneous Dirichlet boundary conditions through
+        # L2 projection on the boundary. This requires setting up a
+        # new variational formulation and solving the resulting linear
+        # system to obtain a solution that does not live in the space
+        # of homogeneous solutions. Such a solution is then used as
+        # initial guess when the model equation is to be solved by an
+        # iterative method. Our current method of solution does not
+        # modify the initial guess at the boundary.
+
+        # Inhomogeneous Dirichlet boundary conditions
+        idbcs = [i for i in self.bc if i.rhs != 0]
+
+        from sympde.expr import integral
+        from sympde.expr import find
+        from sympde.topology import element_of #, ScalarFunction
+
+        # Extract trial functions from model equation
+        u = self.expr.trial_functions
+
+        # Create test functions in same space of trial functions
+        # TODO: check if we should generate random names
+        V = ProductSpace(*[ui.space for ui in u])
+        v = element_of(V, name='v:{}'.format(len(u)))
+
+        # In a system, each essential boundary condition is applied to
+        # only one component (bc.variable) of the state vector. Hence
+        # we will select the correct test function using a dictionary.
+        test_dict = dict(zip(u, v))
+
+        # Compute product of (u, v) using dot product for vector quantities
+        product  = lambda f, g: (f * g if isinstance(g, ScalarFunction) else dot(f, g))
+
+        # Construct variational formulation that performs L2 projection
+        # of boundary conditions onto the correct space
+        factor   = lambda bc : bc.lhs.xreplace(test_dict)
+        lhs_expr = sum(integral(i.boundary, product(i.lhs, factor(i))) for i in idbcs)
+        rhs_expr = sum(integral(i.boundary, product(i.rhs, factor(i))) for i in idbcs)
+        equation = find(u, forall=v, lhs=lhs_expr, rhs=rhs_expr)
+
+        # Discretize weak form
+        domain_h   = self.domain
+        Vh         = self.trial_space
+        equation_h = discretize(equation, domain_h, [Vh, Vh])
+
+        # Find inhomogeneous solution (use CG as system is symmetric)
+        loc_settings = settings.copy()
+        loc_settings['solver'] = 'cg'
+        loc_settings.pop('info', False)
+        loc_settings.pop('pc'  , False)
+        uh = equation_h.solve(**loc_settings)
+
+        return uh
 #==============================================================================           
 def discretize_derham(derham, domain_h, *args, **kwargs):
 
