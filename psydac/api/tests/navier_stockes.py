@@ -15,7 +15,7 @@ from sympde.topology import NormalVector
 from sympde.topology import ScalarFunctionSpace, VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import element_of, elements_of
-from sympde.topology import Square
+from sympde.topology import Square, Union
 from sympde.expr     import BilinearForm, LinearForm, integral
 from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
@@ -34,6 +34,21 @@ from sympde.calculus import laplace, grad, Transpose
 from sympde.expr     import TerminalExpr
 
 from scipy.sparse.linalg import minres
+#==============================================================================
+def get_boundaries(*args):
+
+    if not args:
+        return ()
+    else:
+        assert all(1 <= a <= 4 for a in args)
+        assert len(set(args)) == len(args)
+
+    boundaries = {1: {'axis': 0, 'ext': -1},
+                  2: {'axis': 0, 'ext':  1},
+                  3: {'axis': 1, 'ext': -1},
+                  4: {'axis': 1, 'ext':  1}}
+
+    return tuple(boundaries[i] for i in args)
 #==============================================================================
 def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
 
@@ -58,7 +73,8 @@ def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
     a = BilinearForm(((du,dp),(v, q)), integral(domain, dot(Transpose(grad(du))*u, v) + dot(Transpose(grad(u))*du, v) + inner(grad(du), grad(v)) - div(du)*q - dp*div(v)) )
     l = LinearForm((v, q), integral(domain, dot(Transpose(grad(u))*u, v) + inner(grad(u), grad(v)) - div(u)*q - p*div(v) - dot(f, v)) )
 
-    bc = EssentialBC(du, ue, domain.boundary)
+    boundary = Union(*[domain.get_boundary(**kw) for kw in get_boundaries(1,2)])
+    bc = EssentialBC(du, ue, boundary)
     equation = find((du, dp), forall=(v, q), lhs=a((du, dp), (v, q)), rhs=l(v, q), bc=bc)
 
     # Define (abstract) norms
@@ -125,7 +141,7 @@ def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
         du_h[0].coeffs[:] = x[0][:]
         du_h[1].coeffs[:] = x[1][:]
         dp_h.coeffs[:]    = x[2][:]
-        dp_h.coeffs[:]    = dp_h.coeffs[:] - V2h.integral(dp_h)/V2h.nbasis
+        dp_h.coeffs[:]    = dp_h.coeffs[:]
 
         # update field
         u_h -= du_h
@@ -143,13 +159,9 @@ def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
             print('CONVERGED')
             break
 
-    p_h.coeffs[:] = p_h.coeffs[:] - V2h.integral(p_h)/V2h.nbasis
-
-
     l2_error_u = l2norm_u_h.assemble(u=u_h)
     l2_error_p = l2norm_p_h.assemble(p=p_h)
 
-    print('average of pressure = {}'.format(V2h.integral(p_h)))
     return l2_error_u, l2_error_p
 
 ###############################################################################
@@ -194,12 +206,11 @@ def test_navier_stokes_2d(scipy=True):
     # Run test
     l2_error_u, l2_error_p = run_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3, 2**3], degree=[2, 2])
 
-    print(l2_error_u, l2_error_p)
-
     # Check that expected absolute error on velocity and pressure fields
-    assert abs(0.00020505551976430275 - l2_error_u ) < 1e-7
-    assert abs(0.567767282247512 - l2_error_p  ) < 1e-7
+    assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
+    assert abs(0.004127752838826402 - l2_error_p  ) < 1e-7
 
+test_navier_stokes_2d()
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
