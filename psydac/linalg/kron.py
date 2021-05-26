@@ -252,6 +252,7 @@ class KroneckerLinearSolver( LinearSolver ):
         self._space = V
         self._solvers = solvers
         self._parallel = self._space.parallel
+        self._dtype = self._space._dtype
         if self._parallel:
             self._mpi_type = V._mpi_type
         else:
@@ -340,13 +341,13 @@ class KroneckerLinearSolver( LinearSolver ):
         """
         Allocates all temporary data needed for the solve operation.
         """
-        temp1 = np.empty((self._tempsize,))
+        temp1 = np.empty((self._tempsize,), dtype=self._dtype)
         if self._ndim <= 1 and self._allserial:
             # if ndim==1 and we have no parallelism,
             # we can avoid allocating a second temp array
             temp2 = None
         else:
-            temp2 = np.empty((self._tempsize,))
+            temp2 = np.empty((self._tempsize,), dtype=self._dtype)
         return temp1, temp2
     
     @property
