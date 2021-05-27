@@ -80,7 +80,8 @@ class BandedSolver ( DirectSolver ):
         assert rhs.shape[0] == self._bmat.shape[1]
 
         if out is None:
-            out, self._sinfo = dgbtrs(self._bmat, self._l, self._u, rhs, self._ipiv, trans=transposed)
+            preout, self._sinfo = dgbtrs(self._bmat, self._l, self._u, rhs.T, self._ipiv, trans=transposed)
+            out = preout.T
 
         else :
             assert out.shape == rhs.shape
@@ -91,7 +92,8 @@ class BandedSolver ( DirectSolver ):
 
             # TODO: handle non-contiguous views?
             
-            _, self._sinfo = dgbtrs(self._bmat, self._l, self._u, out, self._ipiv, overwrite_b=True, trans=transposed)
+            # we want FORTRAN-contiguous data (default is assumed to be C contiguous)
+            _, self._sinfo = dgbtrs(self._bmat, self._l, self._u, out.T, self._ipiv, overwrite_b=True, trans=transposed)
 
         return out
 
@@ -126,13 +128,13 @@ class SparseSolver ( DirectSolver ):
         assert rhs.shape[0] == self._splu.shape[1]
 
         if out is None:
-            out = self._splu.solve( rhs, trans='T' if transposed else 'N' )
+            out = self._splu.solve( rhs.T, trans='T' if transposed else 'N' ).T
 
         else:
             assert out.shape == rhs.shape
 
             # currently no in-place solve exposed
-            out[:] = self._splu.solve( rhs, trans='T' if transposed else 'N' )
+            out[:] = self._splu.solve( rhs.T, trans='T' if transposed else 'N' ).T
 
         return out
 

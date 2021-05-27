@@ -500,12 +500,8 @@ class KroneckerLinearSolver( LinearSolver ):
             view = workmem[:self._datasize]
             view.shape = (self._numrhs,self._dimrhs)
 
-            # the solvers want the FORTRAN-contiguous format
-            # (TODO: push this into the DirectSolver?)
-            view_T = view.transpose()
-
             # call solver in in-place mode
-            self._solver.solve(view_T, out=view_T, transposed=transposed)
+            self._solver.solve(view, out=view, transposed=transposed)
 
     class KroneckerSolverParallelPass:
         """
@@ -739,4 +735,3 @@ def kronecker_solve( solvers, rhs, out=None, transposed=False ):
 
     kronsolver = KroneckerLinearSolver(rhs.space, solvers)
     return kronsolver.solve(rhs, out=out, transposed=transposed)
-
