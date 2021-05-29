@@ -4,30 +4,41 @@ This module provides iterative solvers and precondionners.
 
 """
 from math import sqrt
+from psydac.linalg.basic import LinearSolver, LinearOperator, Vector
 
-__all__ = ['cg', 'pcg', 'bicg', 'jacobi', 'weighted_jacobi']
+__all__ = ['cg', 'bicg', 'jacobi', 'weighted_jacobi']
 
 # ...
-def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
+def cg(A, b, x0=None, out=None, pc=None, tol=1e-6, maxiter=1000, verbose=False):
     """
-    Conjugate gradient algorithm for solving linear system Ax=b.
-    Implementation from [1], page 137.
+    (Preconditioned) Conjugate Gradient ((P)CG) solves the symetric positive definte
+    system Ax = b. Optionally, it supports a preconditioner.
+    Then, it assumes that pc(r) returns the solution to Ps = r,
+    where P is positive definite.
+
+    The first version was implemented from [1], page 137.
 
     Parameters
     ----------
     A : psydac.linalg.basic.LinearOperator
-        Left-hand-side matrix A of linear system; individual entries A[i,j]
-        can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
-        function (i.e. matrix-vector product A*p).
+        Left-hand-side matrix A of the linear system.
 
     b : psydac.linalg.basic.Vector
-        Right-hand-side vector of linear system. Individual entries b[i] need
-        not be accessed, but b has 'shape' attribute and provides 'copy()' and
-        'dot(p)' functions (dot(p) is the vector inner product b*p ); moreover,
-        scalar multiplication and sum operations are available.
+        Right-hand-side vector of the linear system.
 
     x0 : psydac.linalg.basic.Vector
         First guess of solution for iterative solver (optional).
+    
+    out: psydac.linalg.basic.Vector
+        Output vector (optional).
+    
+    pc: NoneType | str | psydac.linalg.basic.LinearSolver | Callable
+        Preconditioner for A, it should approximate the inverse of A.
+        Can either be:
+        * None, i.e. not pre-conditioning (this saves one vector and a norm computation per round)
+        * Either 'jacobi' or 'weighted_jacobi'. Obsolete (supply a callable instead, if possible)
+        * A LinearSolver object (in which case the out parameter is used)
+        * A callable with two parameters (A, r), where A is the LinearOperator from above, and r is the residual.
 
     tol : float
         Absolute tolerance for L2-norm of residual r = A*x - b.
@@ -54,131 +65,59 @@ def cg( A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False ):
     [1] A. Maister, Numerik linearer Gleichungssysteme, Springer ed. 2015.
 
     """
-    n = A.shape[0]
-
-    assert( A.shape == (n,n) )
-    assert( b.shape == (n, ) )
-
-    # First guess of solution
-    if x0 is None:
-        x  = b.copy()
-        x *= 0.0
-    else:
-        assert( x0.shape == (n,) )
-        x = x0.copy()
-
-    # First values
-    v  = A.dot(x)
-    r  = b - v
-    am = r.dot( r )
-    p  = r.copy()
-
-    tol_sqr = tol**2
-
-    if verbose:
-        print( "CG solver:" )
-        print( "+---------+---------------------+")
-        print( "+ Iter. # | L2-norm of residual |")
-        print( "+---------+---------------------+")
-        template = "| {:7d} | {:19.2e} |"
-        print( template.format( 1, sqrt( am ) ) )
-
-    # Iterate to convergence
-    for m in range( 2, maxiter+1 ):
-
-        if am < tol_sqr:
-            m -= 1
-            break
-
-        v   = A.dot(p, out=v)
-        l   = am / v.dot( p )
-        x  += l*p
-        r  -= l*v
-        am1 = r.dot( r )
-        p  *= (am1/am)
-        p  += r
-        am  = am1
-
-        if verbose:
-            print( template.format( m, sqrt( am ) ) )
-
-    if verbose:
-        print( "+---------+---------------------+")
-
-    # Convergence information
-    info = {'niter': m, 'success': am < tol_sqr, 'res_norm': sqrt( am ) }
-
-    return x, info
-# ...
-
-# ...
-def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
-    """
-    Preconditioned Conjugate Gradient (PCG) solves the symetric positive definte
-    system Ax = b. It assumes that pc(r) returns the solution to Ps = r,
-    where P is positive definite.
-
-    Parameters
-    ----------
-    A : psydac.linalg.stencil.StencilMatrix
-        Left-hand-side matrix A of linear system
-
-    b : psydac.linalg.stencil.StencilVector
-        Right-hand-side vector of linear system.
-
-    pc: string
-        Preconditioner for A, it should approximate the inverse of A.
-        "jacobi" and "weighted_jacobi" are available in this module.
-
-    x0 : psydac.linalg.basic.Vector
-        First guess of solution for iterative solver (optional).
-
-    tol : float
-        Absolute tolerance for L2-norm of residual r = A*x - b.
-
-    maxiter: int
-        Maximum number of iterations.
-
-    verbose : bool
-        If True, L2-norm of residual r is printed at each iteration.
-
-    Returns
-    -------
-    x : psydac.linalg.basic.Vector
-        Converged solution.
-
-    """
     from math import sqrt
 
-    n = A.shape[0]
+    assert isinstance(A, LinearOperator)
+    assert isinstance(b, Vector)
+    assert A.domain is A.codomain
+    assert b.space is A.domain
 
-    assert( A.shape == (n,n) )
-    assert( b.shape == (n, ) )
+    if x0 is not None and out is not None and x0 is not out:
+        # there is no x0.copyto(out) method right now, so we'll have to fail here for now
+        raise NotImplementedError('Needs implementation of copyto')
 
-    # First guess of solution
-    if x0 is None:
-        x  = b.copy()
-        x *= 0.0
+    if out is None:
+        x = b.space.zeros()
     else:
-        assert( x0.shape == (n,) )
+        assert isinstance(out, Vector)
+        assert out.space is b.space
+        x = out
+        x *= 0.0
+    
+    # First guess of solution
+    if x0 is not out: # includes now x0 is not None
+        assert isinstance(x0, Vector)
+        assert x0.space is b.space
         x = x0.copy()
 
     # Preconditioner
-    psolve = globals()[pc]
+    if pc is None:
+        psolve = lambda r: r
+    elif isinstance(pc, str):
+        psolve = globals()[pc]
+    elif isinstance(pc, LinearSolver):
+        s = b.space.zeros()
+        psolve = lambda r: pc.solve(r, out=s)
+    elif hasattr(pc, '__call__'):
+        psolve = lambda r: pc(A, r)
 
-    # First values
+    # First values (implicitly, allocate r and p)
     v = A.dot(x)
     r = b - v
     nrmr_sqr = r.dot(r)
 
-    s  = psolve(A, r)
-    am = s.dot(r)
+    s  = psolve(r)
+    am = nrmr_sqr if pc is None else s.dot(r)
     p  = s.copy()
 
     tol_sqr = tol**2
 
     if verbose:
-        print( "Pre-conditioned CG solver:" )
+        if pc is None:
+            print( "CG solver:" )
+        else:
+            print( "Pre-conditioned CG solver:" )
+            print( f'Pre-conditioner: {pc}' )
         print( "+---------+---------------------+")
         print( "+ Iter. # | L2-norm of residual |")
         print( "+---------+---------------------+")
@@ -198,9 +137,9 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         r -= l*v
 
         nrmr_sqr = r.dot(r)
-        s = psolve(A, r)
+        s = psolve(r)
 
-        am1 = s.dot(r)
+        am1 = nrmr_sqr if pc is None else s.dot(r)
         p  *= (am1/am)
         p  += s
         am  = am1

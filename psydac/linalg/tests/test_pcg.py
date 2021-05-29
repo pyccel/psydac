@@ -4,9 +4,9 @@ import pytest
 #===============================================================================
 @pytest.mark.parametrize( 'n', [8, 16] )
 @pytest.mark.parametrize( 'p', [2, 3] )
-def test_pcg(n, p):
+def test_cg(n, p):
     """
-    Test preconditioned Conjugate Gradient algorithm on tridiagonal linear system.
+    Test (preconditioned and non-preconditioned) Conjugate Gradient algorithm on tridiagonal linear system.
 
     Parameters
     ----------
@@ -14,7 +14,7 @@ def test_pcg(n, p):
         Dimension of linear system (number of rows = number of columns).
 
     """
-    from psydac.linalg.iterative_solvers import pcg
+    from psydac.linalg.iterative_solvers import cg, jacobi, weighted_jacobi
     from psydac.linalg.stencil import StencilVectorSpace, StencilMatrix, StencilVector
     #---------------------------------------------------------------------------
     # PARAMETERS
@@ -55,10 +55,14 @@ def test_pcg(n, p):
     b = A.dot(xe)
 
     # Solve linear system using PCG
-    x1, info1 = pcg( A, b, pc= "jacobi", tol=1e-12 )
-    x2, info2 = pcg( A, b, pc= "weighted_jacobi", tol=1e-12 )
+    x0, info0 = cg( A, b, pc= None, tol=1e-12 )
+    x1, info1 = cg( A, b, pc= jacobi, tol=1e-12 )
+    x2, info2 = cg( A, b, pc= weighted_jacobi, tol=1e-12 )
 
     # Verify correctness of calculation: L2-norm of error
+    err0 = x0-xe
+    err_norm0 = np.linalg.norm(err0.toarray())
+
     err1 = x1-xe
     err_norm1 = np.linalg.norm(err1.toarray())
 
@@ -91,5 +95,5 @@ def test_pcg(n, p):
     #---------------------------------------------------------------------------
     # PYTEST
     #---------------------------------------------------------------------------
-    assert err_norm1 < tol and err_norm2 < tol
+    assert err_norm0 < tol and err_norm1 < tol and err_norm2 < tol
 
