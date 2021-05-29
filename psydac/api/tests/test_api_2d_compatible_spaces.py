@@ -24,7 +24,7 @@ from psydac.fem.basic          import FemField
 from psydac.fem.vector         import ProductFemSpace
 from psydac.api.discretization import discretize
 from psydac.linalg.utilities   import array_to_stencil
-from psydac.linalg.iterative_solvers import bicg, jacobi
+from psydac.linalg.iterative_solvers import cg, bicg, jacobi
 
 #==============================================================================
 def run_poisson_mixed_form_2d_dir(f0, sol, ncells, degree):
