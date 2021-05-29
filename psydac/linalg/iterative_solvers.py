@@ -4,6 +4,7 @@ This module provides iterative solvers and precondionners.
 
 """
 from math import sqrt
+from psydac.linalg.basic import LinearSolver
 
 __all__ = ['cg', 'pcg', 'bicg', 'jacobi', 'weighted_jacobi']
 
@@ -164,14 +165,24 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         x = x0.copy()
 
     # Preconditioner
-    psolve = globals()[pc]
+    if pc is None:
+        # for now, call the cg method here
+        return cg(A, b, x0=x0, tol=tol, maxiter=maxiter, verbose=verbose)
+    elif isinstance(pc, str):
+        pcfun = globals()[pc]
+        psolve = lambda r: pcfun(A, r)
+    elif isinstance(pc, LinearSolver):
+        s = b.space.zeros()
+        psolve = lambda r: pc.solve(r, out=s)
+    elif hasattr(pc, '__call__'):
+        psolve = lambda r: pc(A, r)
 
     # First values
     v = A.dot(x)
     r = b - v
     nrmr_sqr = r.dot(r)
 
-    s  = psolve(A, r)
+    s  = psolve(r)
     am = s.dot(r)
     p  = s.copy()
 
@@ -198,7 +209,7 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         r -= l*v
 
         nrmr_sqr = r.dot(r)
-        s = psolve(A, r)
+        s = psolve(r)
 
         am1 = s.dot(r)
         p  *= (am1/am)
