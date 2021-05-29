@@ -1,14 +1,14 @@
 # coding: utf-8
 #
-from psydac.linalg.basic   import LinearOperator, Matrix, Vector, VectorSpace
+from psydac.linalg.basic   import LinearOperator, Matrix, Vector, VectorSpace, IdentityElement
 from psydac.linalg.stencil import StencilMatrix
 
 from numpy        import eye as dense_id
 from scipy.sparse import eye as sparse_id
 
-__all__ = ['IdentityLinearOperator', 'IdentityMatrix']
+__all__ = ['IdentityLinearOperator', 'IdentityMatrix', 'IdentityStencilMatrix']
 
-class IdentityLinearOperator(LinearOperator):
+class IdentityLinearOperator(LinearOperator, IdentityElement):
 
     def __init__(self, V):
         assert isinstance( V, VectorSpace )
@@ -28,10 +28,14 @@ class IdentityLinearOperator(LinearOperator):
     def dot( self, v, out=None ):
         assert isinstance( v, Vector )
         assert v.space is self.domain
-        # find a way to handle out not None
+
+        if out is not None:
+            # find a way to handle out not None
+            raise NotImplementedError()
+
         return v
 
-class IdentityMatrix( Matrix, IdentityLinearOperator ):
+class IdentityMatrix( Matrix, IdentityLinearOperator, IdentityElement ):
 
     #-------------------------------------
     # Deferred methods
@@ -42,7 +46,7 @@ class IdentityMatrix( Matrix, IdentityLinearOperator ):
     def tosparse( self ):
         return sparse_id(*self.shape)
 
-class IdentityStencilMatrix( StencilMatrix ):
+class IdentityStencilMatrix( StencilMatrix, IdentityElement ):
     def __init__(self, V, p=None):
         assert V.ndim == 1
         n = V.npts[0]
@@ -59,6 +63,10 @@ class IdentityStencilMatrix( StencilMatrix ):
     def dot( self, v, out=None ):
         assert isinstance( v, Vector )
         assert v.space is self.domain
-        # find a way to handle out not None
+        
+        if out is not None:
+            # find a way to handle out not None
+            raise NotImplementedError()
+
         return v
 
