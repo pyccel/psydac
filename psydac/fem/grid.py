@@ -45,7 +45,7 @@ class FemAssemblyGrid:
         points (default: 1).
 
     """
-    def __init__( self, space, start, end, *, quad_order=None, nderiv=1 , pad=None):
+    def __init__( self, space, start, end, *, quad_order=None, nderiv=1 ):
 
         T      = space.knots           # knots sequence
         degree = space.degree          # spline degree
@@ -53,7 +53,7 @@ class FemAssemblyGrid:
         grid   = space.breaks          # breakpoints
         nc     = space.ncells          # number of cells in domain (nc=len(grid)-1)
         k      = quad_order or degree  # polynomial order for which the mass matrix is exact
-        pad    = pad or degree         # padding to add in the periodic case
+        pad    = space.pads            # padding to add
 
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )
@@ -92,7 +92,7 @@ class FemAssemblyGrid:
         if pad==degree:
             current_glob_spans  = glob_spans
         elif pad-degree == 1:
-            elevated_T          = elevate_knots(T, degree, True)
+            elevated_T          = elevate_knots(T, degree, space.periodic)
             current_glob_spans  = elements_spans( elevated_T, pad )
         else:
             raise NotImplementedError('TODO')
