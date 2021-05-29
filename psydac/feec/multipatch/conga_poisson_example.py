@@ -29,7 +29,7 @@ from psydac.feec.multipatch.api import discretize  # TODO: when possible, use li
 from psydac.linalg.basic import LinearOperator
 # ProductSpace
 from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
-from psydac.linalg.iterative_solvers import cg, pcg
+from psydac.linalg.iterative_solvers import cg
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.identity import IdentityLinearOperator #, IdentityStencilMatrix as IdentityMatrix
 

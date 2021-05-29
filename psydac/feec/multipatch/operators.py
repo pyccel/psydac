@@ -14,7 +14,7 @@ from sympde.expr.expr import integral
 from psydac.api.discretization import discretize
 from psydac.linalg.basic import LinearOperator
 from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
-from psydac.linalg.iterative_solvers import cg, pcg
+from psydac.linalg.iterative_solvers import cg, jacobi
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.fem.basic   import FemField
 from psydac.fem.vector import ProductFemSpace, VectorFemSpace
@@ -492,7 +492,7 @@ def ortho_proj_Hcurl(EE, V1h, domain_h, M1):
     l = LinearForm(v, integral(V1.domain, dot(v,EE)))
     lh = discretize(l, domain_h, V1h)
     b = lh.assemble()
-    sol_coeffs, info = pcg(M1.mat(), b, pc="jacobi", tol=1e-10)
+    sol_coeffs, info = cg(M1.mat(), b, pc=jacobi, tol=1e-10)
 
     return FemField(V1h, coeffs=sol_coeffs)
 

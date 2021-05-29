@@ -12,7 +12,7 @@ from sympde.expr     import Equation
 from psydac.api.basic                import BasicDiscrete
 from psydac.api.essential_bc         import apply_essential_bc
 from psydac.fem.basic                import FemField
-from psydac.linalg.iterative_solvers import cg, pcg, bicg
+from psydac.linalg.iterative_solvers import cg, bicg
 
 __all__ = ('DiscreteEquation',)
 
@@ -35,7 +35,7 @@ def driver_solve(L, **kwargs):
     if name == 'cg':
         x, info = cg( M, rhs, **kwargs )
     elif name == 'pcg':
-        x, info = pcg( M, rhs, **kwargs )
+        x, info = cg( M, rhs, **kwargs )
     elif name == 'bicg':
         x, info = bicg( M, M.T, rhs, **kwargs )
     else:

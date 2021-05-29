@@ -22,11 +22,10 @@ def step_ampere_1d(dt, e, b, M0, M1, D0, D0_T, *, pc=None, tol=1e-7, verbose=Fal
 
     """
     options = dict(tol=tol, verbose=verbose)
+    from psydac.linalg.iterative_solvers import cg as isolve
     if pc:
-        from psydac.linalg.iterative_solvers import pcg as isolve
         options['pc'] = pc
-    else:
-        from psydac.linalg.iterative_solvers import cg as isolve
+        
 
   # b += 0
     e += dt * isolve(M0, D0_T.dot((M1.dot(b))), **options)[0]
