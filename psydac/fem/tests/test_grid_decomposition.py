@@ -1,0 +1,37 @@
+import pytest
+
+import numpy as np
+
+from psydac.fem.splines import SplineSpace
+from psydac.fem.grid import FemAssemblyGrid
+
+@pytest.mark.parametrize('periodic', [False, True])
+@pytest.mark.parametrize('degree', [2, 3])
+@pytest.mark.parametrize('pad', [3])
+@pytest.mark.parametrize('localsizes', [[100], [10,80,10], [2]*50, [1,4,9,16,25,36,9]])
+def test_grid_decomposition(periodic, degree, pad, localsizes, gridcnt=100):
+    # this test shall verify that the FemAssemblyGrid is broken into the correct parts
+    splinespace = SplineSpace(degree, grid=np.linspace(0, 1, gridcnt+1), periodic=periodic, pads=pad)
+
+    n = splinespace.ncells
+
+    start = 0
+    for size in localsizes:
+        end = start + size - 1
+        grid = FemAssemblyGrid(splinespace, start, end)
+
+        if periodic:
+            offset = pad
+        else:
+            offset = min(pad, start)
+
+        realstart = start - offset
+        assert len(grid.indices) == size + offset
+        assert np.array_equal(grid.indices, [(i+n)%n for i in range(realstart, end+1)])
+
+        assert np.array_equal(grid.indices, (grid.spans - degree + n) % n)
+
+        start = end + 1
+
+if __name__ == '__main__':
+    test_grid_decomposition(True, 3, 2, [10, 80, 10])
