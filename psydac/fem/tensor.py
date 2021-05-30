@@ -36,7 +36,8 @@ class TensorFemSpace( FemSpace ):
         self._spaces = tuple(args)
 
         npts    = [V.nbasis   for V in self.spaces]
-        pads    = [V.degree   for V in self.spaces]
+        pads    = [V._pads    for V in self.spaces]
+        degree  = [V.degree   for V in self.spaces]
         periods = [V.periodic for V in self.spaces]
         basis   = [V.basis    for V in self.spaces]
 
@@ -71,9 +72,11 @@ class TensorFemSpace( FemSpace ):
         # Shortcut
         v = self._vector_space
 
+        self._quad_order = kwargs.pop('quad_order', [sp.degree for sp in self.spaces])
+
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree)
-                                  for V,s,e in zip( self.spaces, v.starts, v.ends ) )
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, pad=p, quad_order=q)
+                                  for V,s,e,p,q in zip( self.spaces, v.starts, v.ends, v.pads, self._quad_order ) )
 
         # Determine portion of logical domain local to process
         self._element_starts = tuple( g.indices[g.local_element_start] for g in self.quad_grids )
@@ -344,6 +347,10 @@ class TensorFemSpace( FemSpace ):
     @property
     def spaces( self ):
         return self._spaces
+    
+    @property
+    def quad_order( self ):
+        return self._quad_order
 
     @property
     def quad_grids( self ):
@@ -503,7 +510,7 @@ class TensorFemSpace( FemSpace ):
                 global_starts[axis][0] = 0
 
         cart = v._cart.reduce_grid(global_starts, global_ends)
-        V    = TensorFemSpace(*spaces, cart=cart)
+        V    = TensorFemSpace(*spaces, cart=cart, quad_order=self._quad_order)
         return V
 
     # ...
@@ -611,31 +618,11 @@ class TensorFemSpace( FemSpace ):
         periods = [V.periodic for V in spaces]
         # create new Tensor Vector
         if v.cart:
-
-            tensor_vec = TensorFemSpace(*spaces, comm=v.cart.comm)
             red_cart = v.cart.remove_last_element(axes)
-            v = StencilVectorSpace(red_cart)
-            tensor_vec._vector_space = v
+            tensor_vec = TensorFemSpace(*spaces, cart=red_cart, quad_order=self._quad_order)
         else:
-            tensor_vec = TensorFemSpace(*spaces)
-            v = self._vector_space
-            tensor_vec._vector_space = StencilVectorSpace(npts, v.pads, v.periods)
-            v = tensor_vec._vector_space
-
-        tensor_vec._spaces = tuple(spaces)
-
-       # Compute extended 1D quadrature grids (local to process) along each direction
-       
-        tensor_vec._quad_grids = tuple( FemAssemblyGrid( V,s,e,quad_order=q, pad=q )
-                                  for V,s,e,q in zip( spaces, v.starts, v.ends, self.degree ) )
-
-        tensor_vec._element_starts, tensor_vec._element_ends =  self._element_starts, self._element_ends
-
-        # Compute limits of eta_0, eta_1, eta_2, etc... in subdomain local to process
-        tensor_vec._eta_limits = tuple( (space.breaks[s], space.breaks[e+1])
-        for s,e,space in zip( self._element_starts, self._element_ends, spaces ) )
-
-        # Store flag: object NOT YET prepared for interpolation
+            tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order)
+        
         tensor_vec._interpolation_ready = False
 
         return tensor_vec
