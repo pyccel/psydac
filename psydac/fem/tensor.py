@@ -72,7 +72,9 @@ class TensorFemSpace( FemSpace ):
         # Shortcut
         v = self._vector_space
 
-        self._quad_order = kwargs.pop('quad_order', [sp.degree for sp in self.spaces])
+        self._quad_order = kwargs.pop('quad_order', None)
+        if self._quad_order is None:
+            self._quad_order = [sp.degree for sp in self.spaces]
 
         # Compute extended 1D quadrature grids (local to process) along each direction
         self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, pad=p, quad_order=q)
