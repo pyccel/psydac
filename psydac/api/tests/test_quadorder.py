@@ -41,5 +41,4 @@ def test_custom_quad_order(test_quad_order):
     _ = discretize(a, domain_h, [Vh, Vh], quad_order=test_quad_order, backend=PSYDAC_BACKEND_PYTHON).assemble()
     _ = discretize(l, domain_h,      Vh , quad_order=test_quad_order, backend=PSYDAC_BACKEND_PYTHON).assemble()
 
-    for space in Vh.spaces:
-        assert np.array_equal(space.quad_order, test_quad_order)
+    assert np.array_equal(Vh.quad_order, test_quad_order)
