@@ -16,27 +16,29 @@ from psydac.fem.vector import ProductFemSpace
 #==============================================================================
 class GlobalProjector:
     def __init__(self, space, nquads = None):
-        self.space = space
-        self.rhs = space.vector_space.zeros()
+        self._space = space
+        self._rhs = space.vector_space.zeros()
 
         if isinstance(space, TensorFemSpace):
             tensorspaces = [space]
-            rhsblocks = [self.rhs]
+            rhsblocks = [self._rhs]
         elif isinstance(space, ProductFemSpace):
             tensorspaces = space.spaces
-            rhsblocks = self.rhs.blocks
+            rhsblocks = self._rhs.blocks
         else:
             # no SplineSpace support for now
             raise NotImplementedError()
         
         # from now on, we only deal with tensorspaces, i.e. a list of TensorFemSpace instances
         
-        self.dim    = tensorspaces[0].ldim
-        self.blockcount = len(tensorspaces)
+        self._dim    = tensorspaces[0].ldim
+        assert all([self._dim == tspace.ldim for tspace in tensorspaces])
+
+        self._blockcount = len(tensorspaces)
 
         # set up quadrature weights
         if nquads:
-            assert len(nquads) == self.dim
+            assert len(nquads) == self._dim
             uw = [gauss_legendre( k-1 ) for k in nquads]
             uw = [(u[::-1], w[::-1]) for u,w in uw]
         else:
@@ -45,12 +47,15 @@ class GlobalProjector:
         # retrieve projection space structure
         # this is a 2D Python array (first level: block, second level: tensor direction)
         # which indicates where to use histopolation and where interpolation
-        structure = self._structure(self.dim)
+        structure = self._structure(self._dim)
 
-        # check for the existence of interpolation/histopolation...
+        # check the layout of the array, and for the existence of interpolation/histopolation...
+        assert len(structure) == self._blockcount
+
         has_i = False
         has_h = False
         for block in structure:
+            assert len(block) == self._dim
             for cell in block:
                 if cell == 'I': has_i = True
                 if cell == 'H': has_h = True
@@ -61,20 +66,20 @@ class GlobalProjector:
             if has_h: space.init_histopolation()
 
         # retrieve the restriction function
-        self.func = self._function(self.dim)
+        func = self._function(self._dim)
 
         # construct arguments for the function
         # TODO: verify that histopolation and interpolation behave EXACTLY the same for all blocks, including their distribution in MPI
         # (this is currently not checked anywhere)
-        intp_x = [None] * self.dim if has_i else []
-        quad_x = [None] * self.dim if has_h else []
-        quad_w = [None] * self.dim if has_h else []
-        dofs = [None] * self.blockcount
+        intp_x = [None] * self._dim if has_i else []
+        quad_x = [None] * self._dim if has_h else []
+        quad_w = [None] * self._dim if has_h else []
+        dofs = [None] * self._blockcount
 
         # in the meanwhile, also store all grids in a canonical format
         # (and fetch the interpolation/histopolation solvers)
-        self.grid_x = []
-        self.grid_w = []
+        self._grid_x = []
+        self._grid_w = []
         solverblocks = []
         for i,block in enumerate(structure):
             # do for each block (i.e. each TensorFemSpace):
@@ -113,26 +118,126 @@ class GlobalProjector:
                 block_w += [local_w]
 
             # finish block, build solvers, get dataslice to project to
-            self.grid_x += [block_x]
-            self.grid_w += [block_w]
+            self._grid_x += [block_x]
+            self._grid_w += [block_w]
 
             solverblocks += [KroneckerLinearSolver(tensorspaces[i].vector_space, solvercells)]
 
             dataslice = tuple(slice(p, -p) for p in tensorspaces[i].vector_space.pads)
             dofs[i] = rhsblocks[i]._data[dataslice]
         
-        self.args = (*intp_x, *quad_x, *quad_w, *dofs)
+        # finish arguments and create a lambda
+        args = (*intp_x, *quad_x, *quad_w, *dofs)
+        self._func = lambda *fun: func(*args, *fun)
 
         # build a BlockDiagonalSolver, if necessary
         if len(solverblocks) == 1:
-            self.solver = solverblocks[0]
+            self._solver = solverblocks[0]
         else:
-            self.solver = BlockDiagonalSolver(self.space.vector_space, blocks=solverblocks)
+            self._solver = BlockDiagonalSolver(self._space.vector_space, blocks=solverblocks)
     
-    def _structure(self, ndim):
+    @property
+    def space(self):
+        """
+        The space to which this Projector projects.
+        """
+        return self._space
+    
+    @property
+    def dim(self):
+        """
+        The dimension of the underlying TensorFemSpaces.
+        """
+        return self._dim
+    
+    @property
+    def blockcount(self):
+        """
+        The number of blocks. In case that self.space is a TensorFemSpace, this is 1,
+        otherwise it denotes the number of blocks in the ProductFemSpace.
+        """
+        return self._blockcount
+    
+    @property
+    def grid_x(self):
+        """
+        The local interpolation/histopolation grids which is used; it denotes the position of the interpolation/quadrature points.
+        All the grids are stored inside a two-dimensional array; the outer dimension denotes the block, the inner the tensor space direction.
+        """
+        return self._grid_x
+    
+    @property
+    def grid_w(self):
+        """
+        The local interpolation/histopolation grids which is used; it denotes the weights of the quadrature points (in the case of interpolation, this will return the weight 1 for the given positions).
+        All the grids are stored inside a two-dimensional array; the outer dimension denotes the block, the inner the tensor space direction.
+        """
+        return self._grid_w
+    
+    @property
+    def func(self):
+        """
+        The function which is used for projecting a given callable (or list thereof) to the DOFs in the target space.
+        """
+        return self._func
+    
+    @property
+    def solver(self):
+        """
+        The solver used for transforming the DOFs in the target space into spline coefficients.
+        """
+        return self._solver
+    
+    def set_func(self, func):
+        """
+        Sets a new function for projecting a callable (or a list thereof) to the DOFs in the target space.
+
+        Parameters
+        ----------
+        func : callable
+            The new function to be used.
+        """
+        self._func = func
+    
+    def _structure(self, dim):
+        """
+        Has to be implemented by a subclass. Returns a 2-dimensional array
+        which contains strings which either say 'I' or 'H', e.g.
+        [['H', 'I', 'I'], ['I', 'H', 'I'], ['I', 'I', 'H']] for the 3-dimensional Hcurl space.
+
+        The inner array dimension has to conform to the dim parameter,
+        the outer with the number of blocks of the target space.
+
+        Parameters
+        ----------
+        dim : int
+            The dimension of the underlying TensorFemSpaces.
+        
+        Returns
+        -------
+        structure : array
+            The described structure matrix.
+        """
         raise NotImplementedError()
     
-    def _function(self, ndim):
+    def _function(self, dim):
+        """
+        Has to be implemented by a subclass. Returns a function which accepts the arguments
+        in the order *intp_x, *quad_x, *quad_w, *dofs (see __init__ function) and then
+        evaluates a given callable using these arguments.
+
+        (this can and most likely will be replaced, if we construct the functions somewhere else, e.g. with code generation)
+
+        Parameters
+        ----------
+        dim : int
+            The dimension of the underlying TensorFemSpaces.
+        
+        Returns
+        -------
+        func : callable
+            The described function.
+        """
         raise NotImplementedError()
     
     def __call__(self, fun):
@@ -157,15 +262,15 @@ class GlobalProjector:
             in the logical domain.
         """
         # build the rhs
-        if self.blockcount > 1 or isinstance(fun, list) or isinstance(fun, tuple):
+        if self._blockcount > 1 or isinstance(fun, list) or isinstance(fun, tuple):
             # (we also support 1-tuples as argument for scalar spaces)
-            self.func(*self.args, *fun)
+            self._func(*fun)
         else:
-            self.func(*self.args, fun)
+            self._func(fun)
 
-        coeffs = self.solver.solve(self.rhs)
+        coeffs = self._solver.solve(self._rhs)
 
-        return FemField(self.space, coeffs=coeffs)
+        return FemField(self._space, coeffs=coeffs)
 
 #==============================================================================
 class Projector_H1(GlobalProjector):
