@@ -72,9 +72,13 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
     Pp = opP(Vp)
     Ps = opP(Vs)
 
+    # only take as many functions as necessary
+    assert Pp.blockcount == Ps.blockcount
+    realfuncs = funcs[:Pp.blockcount]
+
     # project in serial and parallel
-    resp = Pp(funcs).coeffs
-    ress = Ps(funcs).coeffs
+    resp = Pp(realfuncs).coeffs
+    ress = Ps(realfuncs).coeffs
 
     # block vector decomposition
     if isinstance(resp, BlockVector):
@@ -110,7 +114,8 @@ def test_projection_parallel_1d(domain, ncells, degree, periodic, funcs, reduce)
 @pytest.mark.parametrize('ncells', [(27, 15)])              
 @pytest.mark.parametrize('degree', [(4, 5)])                 
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)])
-@pytest.mark.parametrize('funcs', [[np.sin, np.cos], [np.exp, np.exp]])
+@pytest.mark.parametrize('funcs', [[lambda x,y: np.sin(x)*np.sin(y), lambda x,y: np.cos(x)*np.cos(y)],
+                                    [lambda x,y: np.exp(x)*np.exp(y), lambda x,y: np.exp(x) + np.exp(y)]])
 @pytest.mark.parametrize('reduce', [0,1,2,3])
 @pytest.mark.parallel
 def test_projection_parallel_2d(domain, ncells, degree, periodic, funcs, reduce):
@@ -122,7 +127,8 @@ def test_projection_parallel_2d(domain, ncells, degree, periodic, funcs, reduce)
 @pytest.mark.parametrize('periodic', [( True, False, False),          
                                       (False,  True, False),
                                       (False, False,  True)])
-@pytest.mark.parametrize('funcs', [[np.sin, np.cos, np.sin], [np.exp, np.exp, np.exp]])
+@pytest.mark.parametrize('funcs', [[lambda x,y,z: np.sin(x)*np.cos(y)*np.cos(z), lambda x,y,z: np.cos(x)*np.sin(y)*np.cos(z), lambda x,y,z: np.cos(x)*np.cos(y)*np.sin(z)],
+                                    [lambda x,y,z: np.exp(x)*np.exp(y)*np.exp(z), lambda x,y,z: np.exp(x) + np.exp(y) + np.exp(z), lambda x,y,z: x*y*z]])
 @pytest.mark.parametrize('reduce', [0,1,2,3])
 @pytest.mark.parallel
 def test_projection_parallel_3d(domain, ncells, degree, periodic, funcs, reduce):
