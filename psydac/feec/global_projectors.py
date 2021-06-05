@@ -108,7 +108,9 @@ class GlobalProjector:
                     # histopolation case
                     if quad_x[j] is None:
                         u, w = uw[j]
-                        quad_x[j], quad_w[j] = quadrature_grid(V.histopolation_grid, u, w)[s:e+1]
+                        global_quad_x, global_quad_w = quadrature_grid(V.histopolation_grid, u, w)
+                        quad_x[j] = global_quad_x[s:e+1]
+                        quad_w[j] = global_quad_w[s:e+1]
                     local_x, local_w = quad_x[j], quad_w[j]
                     solvercells += [V._histopolator]
                 else:
