@@ -4,7 +4,7 @@ from psydac.linalg.basic   import LinearOperator, Matrix, Vector, VectorSpace, N
 from psydac.linalg.stencil import StencilMatrix
 
 from numpy        import zeros as dense_null
-from scipy.sparse import zeros as sparse_null
+from scipy.sparse import coo_matrix as sparse_null
 
 __all__ = ['NullLinearOperator', 'NullMatrix', 'NullStencilMatrix']
 
@@ -28,39 +28,104 @@ class NullLinearOperator(LinearOperator, NullElement):
         return self._W
 
     def dot( self, v, out=None ):
+        """
+        Returns a zero vector. If out is not None, then out is zeroed and returned (otherwise, a new vector is created).
+
+        Parameters
+        ----------
+        v : Vector
+            Ignored. (it is not even checked if v is a Vector at all)
+        
+        out : Vector | None
+            Output vector. Has to be either none, or a vector from any space. Behavior is described above.
+        
+        Returns
+        -------
+        Described above.
+        """
         # no need to care for v
 
         if out is not None:
-            # find a way to handle out not None
-            raise NotImplementedError()
+            assert isinstance(out, Vector)
+            out *= 0.0
+            return out
 
         return self.codomain.zeros()
 
-class NullMatrix( Matrix, IdentityLinearOperator, NullElement ):
+class NullMatrix( Matrix, NullLinearOperator, NullElement ):
 
     #-------------------------------------
     # Deferred methods
     #-------------------------------------
     def toarray( self ):
-        return dense_null(*self.shape)
+        if hasattr(self.codomain, 'dtype'):
+            return dense_null(*self.shape, dtype=self.codomain.dtype)
+        else:
+            return dense_null(*self.shape)
 
     def tosparse( self ):
-        return sparse_null(*self.shape)
+        if hasattr(self.codomain, 'dtype'):
+            return sparse_null(*self.shape, dtype=self.codomain.dtype)
+        else:
+            return sparse_null(*self.shape)
+    
+    def copy(self):
+        return NullMatrix(self.domain, self.codomain)
+
+    def __neg__(self):
+        return self
+
+    def __mul__(self, a):
+        return self
+
+    def __rmul__(self, a):
+        return self
+
+    def __add__(self, m):
+        return m
+
+    def __sub__(self, m):
+        return -m
+
+    def __imul__(self, a):
+        return self
+
+    def __iadd__(self, m):
+        raise NotImplementedError()
+
+    def __isub__(self, m):
+        raise NotImplementedError()
 
 class NullStencilMatrix( StencilMatrix, NullElement ):
-    def __init__(self, V, W, p=None):
-        super().__init__(V, V, W, pads=(p,))
+    def __init__(self, V, W, pads=None):
+        super().__init__(V, W, pads=pads)
 
     #-------------------------------------
     # Deferred methods
     #-------------------------------------
 
     def dot( self, v, out=None ):
+        """
+        Returns a zero vector. If out is not None, then out is zeroed and returned (otherwise, a new vector is created).
+
+        Parameters
+        ----------
+        v : Vector
+            Ignored. (it is not even checked if v is a Vector at all)
+        
+        out : Vector | None
+            Output vector. Has to be either none, or a vector from any space. Behavior is described above.
+        
+        Returns
+        -------
+        Described above.
+        """
         # no need to care for v
 
         if out is not None:
-            # find a way to handle out not None
-            raise NotImplementedError()
+            assert isinstance(out, Vector)
+            out *= 0.0
+            return out
             
         return self.codomain.zeros()
 
