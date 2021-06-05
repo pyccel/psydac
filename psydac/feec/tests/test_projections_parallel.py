@@ -97,7 +97,7 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
         subslice = tuple(slice(s,e+1) for s,e in zip(p.space.starts, p.space.ends))
 
         # compare
-        assert np.allclose(p._data[slicep], s._data[slices][subslice])
+        assert np.allclose(p._data[slicep], s._data[slices][subslice], 1e-12, 1e-12)
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [(0, 1)])
