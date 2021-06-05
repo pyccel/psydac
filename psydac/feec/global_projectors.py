@@ -42,7 +42,9 @@ class GlobalProjector:
             uw = [gauss_legendre( k-1 ) for k in nquads]
             uw = [(u[::-1], w[::-1]) for u,w in uw]
         else:
-            uw = [(V.quad_grids[i].quad_rule_x,V.quad_grids[i].quad_rule_w) for i,V in enumerate(tensorspaces)]
+            # for now, we assume that all tensorspaces have the same quad_grids
+            # (this seems to be the case at the moment, but maybe checking it might be a good idea nontheless...)
+            uw = [(quad_grid.quad_rule_x,quad_grid.quad_rule_w) for quad_grid in tensorspaces[0].quad_grids]
         
         # retrieve projection space structure
         # this is a 2D Python array (first level: block, second level: tensor direction)
@@ -266,6 +268,7 @@ class GlobalProjector:
         # build the rhs
         if self._blockcount > 1 or isinstance(fun, list) or isinstance(fun, tuple):
             # (we also support 1-tuples as argument for scalar spaces)
+            assert self._blockcount == len(fun)
             self._func(*fun)
         else:
             self._func(fun)
