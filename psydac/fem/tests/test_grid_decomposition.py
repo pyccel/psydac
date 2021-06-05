@@ -16,6 +16,7 @@ def test_grid_decomposition(periodic, degree, pad, localsizes, gridcnt=100):
     n = splinespace.ncells
 
     start = 0
+    total = []
     for size in localsizes:
         end = start + size - 1
         grid = FemAssemblyGrid(splinespace, start, end)
@@ -26,12 +27,24 @@ def test_grid_decomposition(periodic, degree, pad, localsizes, gridcnt=100):
             offset = min(pad, start)
 
         realstart = start - offset
+
+        # check correctness of local indices
         assert len(grid.indices) == size + offset
         assert np.array_equal(grid.indices, [(i+n)%n for i in range(realstart, end+1)])
 
         assert np.array_equal(grid.indices, (grid.spans - degree + n) % n)
 
+        total += [grid.indices[i] for i in range(grid.local_element_start, grid.local_element_end+1)]
+
         start = end + 1
+    
+    # check that each spline is sent to exactly one quadrature element
+    if periodic:
+        elem_num = gridcnt
+    else:
+        elem_num = gridcnt - degree + 1
+    
+    assert np.array_equal(sorted(total), [i for i in range(elem_num)])
 
 if __name__ == '__main__':
     test_grid_decomposition(True, 3, 2, [10, 80, 10])
