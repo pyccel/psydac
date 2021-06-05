@@ -40,10 +40,9 @@ class Projector_H1(GlobalProjector):
         N = [V._interpolator for V in H1.spaces]
 
         # Empty vector to store right-hand side of linear system
-        rhs = StencilVector(H1.vector_space)
+        rhs = H1.vector_space.zeros()
 
         # Construct arguments for computing degrees of freedom
-        global_n_basis = [V.nbasis for V in H1.spaces]
         global_intp_x  = [V.greville for V in H1.spaces]
         slices  = tuple(slice(p,-p) for p in H1.degree)
 
@@ -65,6 +64,7 @@ class Projector_H1(GlobalProjector):
         # Store attributes in object
         self.space  = H1
         self.N      = N
+        self.mats   = [N]
         self.func   = func
         self.args   = args
         self.rhs    = rhs
@@ -143,7 +143,7 @@ class Projector_Hcurl(GlobalProjector):
             uw = [(V.quad_grids[i].quad_rule_x,V.quad_grids[i].quad_rule_w) for i,V in enumerate(Hcurl.spaces)]
 
         self.space  = Hcurl
-        self.rhs    = BlockVector(Hcurl.vector_space)
+        self.rhs    = Hcurl.vector_space.zeros()
         self.dim    = dim
         self.mats   = [None]*dim
 
@@ -312,7 +312,7 @@ class Projector_Hdiv(GlobalProjector):
             uw = [(V.quad_grids[i].quad_rule_x,V.quad_grids[i].quad_rule_w) for i,V in enumerate(Hdiv.spaces)]
 
         self.space  = Hdiv
-        self.rhs    = BlockVector(Hdiv.vector_space)
+        self.rhs    = Hdiv.vector_space.zeros()
         self.dim    = dim
         self.mats   = [None]*dim
 
@@ -481,9 +481,10 @@ class Projector_L2(GlobalProjector):
 
         # Histopolation matrices for D-splines in each direction
         self.D = [V._histopolator for V in L2.spaces]
+        self.mats = [self.D]
 
         self.space = L2
-        self.rhs   = StencilVector(L2.vector_space)
+        self.rhs   = L2.vector_space.zeros()
         slices     = tuple(slice(p+1,-p-1) for p in L2.degree)
 
         if   len(self.D) == 1:  self.func = evaluate_dofs_1d_1form
