@@ -144,8 +144,14 @@ class FemAssemblyGrid:
             local_element_start = self._spans.searchsorted( degree + start )
             local_element_end   = self._spans.searchsorted( degree + end   )
         else:
-            local_element_start = self._spans.searchsorted( degree if start == 0   else 1 + start)
-            local_element_end   = self._spans.searchsorted( end if end   == n-1 else 1 + end )
+            if end+1 >= degree:
+                local_element_start = self._spans.searchsorted( degree if start == 0   else 1 + start)
+                local_element_end   = self._spans.searchsorted( end if end   == n-1 else 1 + end )
+            else:
+                # in this edge case: no local elements for now
+                local_element_start = 1
+                local_element_end = 0
+                
 
         # Local index of start/end elements of domain partitioning
         self._local_element_start = local_element_start
