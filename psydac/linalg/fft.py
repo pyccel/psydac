@@ -44,10 +44,10 @@ class DistributedFFTBase(LinearOperator):
         
         def solve(self, rhs, out=None, transposed=False):
             if out is None:
-                out = np.empty_like(v)
+                out = np.empty_like(rhs)
             
-            if out is not v:
-                out[:] = v
+            if out is not rhs:
+                out[:] = rhs
             
             self._function(out)
 
