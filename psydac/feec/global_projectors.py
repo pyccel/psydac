@@ -15,6 +15,36 @@ from psydac.fem.vector import ProductFemSpace
 
 #==============================================================================
 class GlobalProjector:
+    """
+    A global projector to some TensorFemSpace or ProductFemSpace object.
+    It is constructed over a tensor-product grid in the
+    logical domain. The vertices of this grid are obtained as the tensor
+    product of the 1D splines' Greville points along each direction.
+
+    This projector matches the "geometric" degrees of freedom of
+    discrete n-forms (where n depends on the underlying space).
+    This is done by projecting each component of the vector field
+    independently, by combining 1D histopolation with 1D interpolation.
+
+    This class can currently not be instantiated directly (use a subclass instead).
+
+    Parameters
+    ----------
+    space : ProductFemSpace | TensorFemSpace
+        Some finite element space, codomain of the projection
+        operator. The exact structure where to use histopolation and where interpolation
+        has to be given by a subclass of the GlobalProjector class.
+        As of now, it is implicitly assumed for a ProductFemSpace, that for each direction
+        that all spaces with interpolation are the same, and all spaces with histopolation are the same
+        (i.e. yield the same quadrature/interpolation points etc.); so use with care on an arbitrary ProductFemSpace.
+        It is right now only intended to be used with ProductFemSpaces or TensorFemSpaces from DeRham complex objects.
+
+    nquads : list(int) | tuple(int)
+        Number of quadrature points along each direction, to be used in Gauss
+        quadrature rule for computing the (approximated) degrees of freedom.
+        This parameter is ignored, if the projector only uses interpolation (and no histopolation).
+    """
+
     def __init__(self, space, nquads = None):
         self._space = space
         self._rhs = space.vector_space.zeros()
