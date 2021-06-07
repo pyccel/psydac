@@ -42,7 +42,7 @@ class DistributedFFTBase(LinearOperator):
         def space(self):
             return np.ndarray
         
-        def solve(self, v, out=None, transposed=False):
+        def solve(self, rhs, out=None, transposed=False):
             if out is None:
                 out = np.empty_like(v)
             
