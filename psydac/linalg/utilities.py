@@ -1,9 +1,8 @@
 # coding: utf-8
 
+import numpy as np
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.linalg.block   import BlockVector, BlockVectorSpace
-
-import numpy as np
 
 __all__ = ['array_to_stencil']
 
@@ -52,3 +51,4 @@ def petsc_to_stencil(x, Xh):
     x = x.array
     u = array_to_stencil(x, Xh)
     return u
+

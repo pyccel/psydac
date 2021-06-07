@@ -15,6 +15,15 @@ from psydac.ddm.cart       import find_mpi_type, CartDecomposition, CartDataExch
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
 
 #===============================================================================
+def compute_diag_len(p, md, mc, return_padding=False):
+    n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
+    ep = np.minimum(0, n-p)
+    n = n-ep + p+1
+    if return_padding:
+        return n.astype('int'), (-ep).astype('int')
+    else:
+        return n.astype('int')
+#===============================================================================
 class StencilVectorSpace( VectorSpace ):
     """
     Vector space for n-dimensional stencil format. Two different initializations
@@ -580,10 +589,10 @@ class StencilMatrix( Matrix ):
         if pads is not None:
             for p,vp in zip(pads, V.pads):
                 assert p<=vp
-        
+
         self._pads     = pads or tuple(V.pads)
         dims           = [e-s+2*mi*p+1 for s,e,p,mi in zip(W.starts, W.ends, W.pads, W.multiplicity)]
-        diags          = [p+1+p*m for p,m in zip(self._pads, V.multiplicity)]
+        diags          = [compute_diag_len(p, md, mc) for p,md,mc in zip(self._pads, V.multiplicity, W.multiplicity)]
         self._data     = np.zeros( dims+diags, dtype=W.dtype )
         self._domain   = V
         self._codomain = W
@@ -612,7 +621,7 @@ class StencilMatrix( Matrix ):
         nrows_extra  = [max(0,ni-nj) for ni,nj in zip(nc, nd)]
 
         args                 = OrderedDict()
-        args['nrows']        = nrows
+        args['nrows']        = tuple(nrows)
         args['nrows_extra']  = tuple(nrows_extra)
         args['gpads']        = tuple(V.pads)
         args['pads']         = tuple(self._pads)
@@ -701,6 +710,77 @@ class StencilMatrix( Matrix ):
 
                     out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
             new_nrows[d] += er
+
+    # ...
+    def transpose( self ):
+        """ Create new StencilMatrix Mt, where domain and codomain are swapped
+            with respect to original matrix M, and Mt_{ij} = M_{ji}.
+        """
+        # For clarity rename self
+        M = self
+
+        # If necessary, update ghost regions of original matrix M
+        if not M.ghost_regions_in_sync:
+            M.update_ghost_regions()
+
+        # Create new matrix where domain and codomain are swapped
+        Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend)
+
+        ssc   = self.codomain.starts
+        eec   = self.codomain.ends
+        ssd   = self.domain.starts
+        eed   = self.domain.ends
+        pads  = self.pads
+        xpads = self.domain.pads
+
+        dm    = self.domain.multiplicity
+        cm    = self.codomain.multiplicity
+
+        # Number of rows in the transposed matrix (along each dimension)
+        nrows       = [e-s+1 for s,e in zip(ssd, eed)]
+        ncols       = [e-s+2*m*p+1 for s,e,m,p in zip(ssc, eec, cm, pads)]
+
+        # Call low-level '_transpose' function (works on Numpy arrays directly)
+        self._transpose(M._data, Mt._data, nrows, ncols, xpads, pads, dm, cm)
+
+        return Mt
+
+    @staticmethod
+    def _transpose( M, Mt, nrows, ncols, gpads, pads, dm, cm):
+
+        # NOTE:
+        #  . Array M  index by [i1, i2, ..., k1, k2, ...]
+        #  . Array Mt index by [j1, j2, ..., l1, l2, ...]
+
+        #M[i,j-i+p]
+        #Mt[j,i-j+p]
+        pp     = pads
+        ndiags, starts = list(zip(*[compute_diag_len(p,mi,mj, return_padding=True) for p,mi,mj in zip(pp,cm,dm)]))
+        nn             = [compute_diag_len(p,mj,mi) for p,mi,mj in zip(pp,cm,dm)]
+
+        diff   = [gp-p for gp,p in zip(gpads, pp)]
+        ndim   = len(nrows)
+
+        ssl   = [s-p+p//max(1,mj//mi)+ (mi//mj if mi!=mj else 0) for s,p,mi,mj in zip(starts,pp,cm,dm)]
+        ssi   = [(mj*p-mj*(p//mi) if mi<=mj else 0) + (mi//mj if mi>mj else 0) for mi,mj,p,d in zip(cm, dm, pp, diff)]
+        ssk   = [n-1 + (-p+mj*(p//mi) if mi<=mj else 0) + (-1 if mi>mj else 0) for mj,mi,n,p in zip(dm, cm, nn, pp)]
+
+        for xx in np.ndindex( *nrows ):
+
+            jj = tuple(m*p + x for m,p,x in zip(dm, gpads, xx) )
+
+            for ll in np.ndindex( *ndiags ):
+
+                ii = tuple( s + mi*(x//mj) + l + d for mj,mi,x,l,d,s in zip(dm,cm, xx, ll, diff, ssi))
+                kk = tuple( s + x%mj-mj*(l//mi) for mj,mi,l,x,s in zip(dm, cm, ll, xx, ssk))
+
+                ll = tuple(l+s for l,s in zip(ll, ssl))
+
+                if all(k<n  and k>-1 for k,n in zip(kk,nn)) and\
+                   all(l<n for l,n in zip(ll, ndiags)) and\
+                   all(i<n for i,n in zip(ii, ncols)):
+
+                    Mt[(*jj, *ll)] = M[(*ii, *kk)]
 
     # ...
     def toarray( self, *, order='C', with_pads=False ):
@@ -907,38 +987,6 @@ class StencilMatrix( Matrix ):
         self._sync = True
 
     # ...
-    def transpose( self ):
-        """ Create new StencilMatrix Mt, where domain and codomain are swapped
-            with respect to original matrix M, and Mt_{ij} = M_{ji}.
-        """
-        # For clarity rename self
-        M = self
-
-        # If necessary, update ghost regions of original matrix M
-        if not M.ghost_regions_in_sync:
-            M.update_ghost_regions()
-
-        # Create new matrix where domain and codomain are swapped
-        Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend)
-
-        ssc   = self.codomain.starts
-        eec   = self.codomain.ends
-        ssd   = self.domain.starts
-        eed   = self.domain.ends
-        pads  = self.pads
-        xpads = self.domain.pads
-
-        # Number of rows in the transposed matrix (along each dimension)
-        ee          = tuple(min(e1,e2) for e1,e2 in zip(eec, eed))
-        nrows       = [ec-s+1 for s,ec in zip(ssc, ee)]
-        nrows_extra = [0 if ed<=ec else ed-ec for ec,ed in zip(eec,eed)]
-
-        # Call low-level '_transpose' function (works on Numpy arrays directly)
-        self._transpose(M._data, Mt._data, nrows, nrows_extra, xpads, pads)
-
-        return Mt
-
-    # ...
     @property
     def T(self):
         return self.transpose()
@@ -980,55 +1028,7 @@ class StencilMatrix( Matrix ):
     #--------------------------------------
     # Private methods
     #--------------------------------------
-    @staticmethod
-    def _transpose( M, Mt, nrows, nrows_extra, xpads, pads ):
 
-        # NOTE:
-        #  . Array M  index by [i1, i2, ..., k1, k2, ...]
-        #  . Array Mt index by [j1, j2, ..., l1, l2, ...]
-
-        #M[i,j-i+p]
-        #Mt[j,i-j+p]
-
-        pp     = pads
-        ndiags = [2*p + 1 for p in pp]
-        diff   = [xp-p for xp,p in zip(xpads, pp)]
-        ndim   = len(nrows)
-
-        for xx in np.ndindex( *nrows ):
-
-            jj = tuple(xp + x for xp, x in zip(xpads, xx) )
-
-            for ll in np.ndindex( *ndiags ):
-
-                ii = tuple(  x + l + d for x, l, d in zip(xx, ll, diff))
-                kk = tuple(2*p - l for p, l in zip(pp, ll))
-
-                Mt[(*jj, *ll)] = M[(*ii, *kk)]
-
-        new_nrows = nrows.copy()
-        for d,er in enumerate(nrows_extra):
-            rows = new_nrows.copy()
-            del rows[d]
-
-            for n in range(er):
-                for xx in np.ndindex(*rows):
-
-                    xx = [*xx]
-                    xx.insert(d, nrows[d]+n)
-
-                    jj     = tuple(xp + x for xp, x in zip(xpads, xx))
-                    ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
-                    ndiags = [2*p + 1-e for p,e in zip(pp, ee)]
-
-                    for ll in np.ndindex( *ndiags ):
-
-                        ii = tuple(  x + l + df for x, l, df in zip(xx, ll, diff))
-                        kk = tuple(2*p - l for p, l in zip(pp, ll))
-
-                        Mt[(*jj, *ll)] = M[(*ii, *kk)]
-
-            new_nrows[d] += er
 
     # ...
     def _getindex( self, key ):
@@ -1115,13 +1115,13 @@ class StencilMatrix( Matrix ):
     def _tocoo_no_pads( self , order='C'):
 
         # Shortcuts
-        nr = self._codomain.npts
-        nd = self._ndim
-        nc = self._domain.npts
-        ss = self._codomain.starts
-        pp = self._codomain.pads
-        dm = self._domain.multiplicity
-        cm = self._codomain.multiplicity
+        nr    = self._codomain.npts
+        nd    = self._ndim
+        nc    = self._domain.npts
+        ss    = self._codomain.starts
+        cpads = self._codomain.pads
+        dm    = self._domain.multiplicity
+        cm    = self._codomain.multiplicity
 
         ravel_multi_index = np.ravel_multi_index
 
@@ -1130,8 +1130,9 @@ class StencilMatrix( Matrix ):
         cols = []
         data = []
 
+        pp = [compute_diag_len(p,mj,mi)-(p+1) for p,mi,mj in zip(self._pads, cm, dm)]
         # Range of data owned by local process (no ghost regions)
-        local = tuple( [slice(mi*p,-mi*p) for p,mi in zip(pp, cm)] + [slice(None)] * nd )
+        local = tuple( [slice(mi*p,-mi*p) for p,mi in zip(cpads, cm)] + [slice(None)] * nd )
 
         for (index,value) in np.ndenumerate( self._data[local] ):
 
@@ -1143,7 +1144,7 @@ class StencilMatrix( Matrix ):
             ii = [s+x for s,x in zip(ss,xx)]
             di = [i//m for i,m in zip(ii,cm)]
 
-            jj = [(i*m+l-m*p)%n for (i,m,l,n,p) in zip(di,dm,ll,nc,self._pads)]
+            jj = [(i*m+l-p)%n for (i,m,l,n,p) in zip(di,dm,ll,nc,pp)]
 
             I = ravel_multi_index( ii, dims=nr,  order=order )
             J = ravel_multi_index( jj, dims=nc,  order=order )

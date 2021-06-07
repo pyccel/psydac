@@ -36,6 +36,10 @@ __all__ = (
     'DiscreteSumForm',
 )
 
+def compute_diag_len(p, md, mc):
+    n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
+    n = n-np.minimum(0, n-p)+p+1
+    return n.astype('int')
 #==============================================================================
 def collect_spaces(space, *args):
     """
@@ -400,8 +404,10 @@ class DiscreteBilinearForm(BasicDiscrete):
                                                                 backend=backend)
 
                     matrix[k1,k2]        = global_mats[k1,k2]
-                    m                    = matrix[k1,k2].domain.multiplicity
-                    element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*(pads[k1,k2]+1+m*pads[k1,k2])))
+                    md                   = matrix[k1,k2].domain.multiplicity
+                    mc                   = matrix[k1,k2].codomain.multiplicity
+                    diag                 = compute_diag_len(pads[k1,k2], md, mc)
+                    element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*diag))
 
         else: # case of scalar equation
             if is_broken: # multi-patch
@@ -419,8 +425,10 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     global_mats[i,j] = StencilMatrix(trial_space, test_space, backend=backend)
 
-                m                  = global_mats[i,j].domain.multiplicity
-                element_mats[i,j]  = np.empty((*(test_degree+1),*(pads+1 + m*pads)))
+                md                  = global_mats[i,j].domain.multiplicity
+                mc                  = global_mats[i,j].codomain.multiplicity
+                diag                = compute_diag_len(pads, md, mc)
+                element_mats[i,j]  = np.empty((*(test_degree+1),*diag))
                 if (i,j) in global_mats:self._matrix[i,j] = global_mats[i,j]
             else: # single patch
                 if self._matrix:
