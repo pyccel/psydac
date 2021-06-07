@@ -76,8 +76,24 @@ class BandedSolver ( DirectSolver ):
 
     #...
     def solve( self, rhs, out=None, transposed=False ):
+        """
+        Solves for the given right-hand side.
 
-        assert rhs.shape[0] == self._bmat.shape[1]
+        Parameters
+        ----------
+        rhs : ndarray
+            The right-hand sides to solve for. The vectors are assumed to be given in C-contiguous order,
+            i.e. if multiple right-hand sides are given, then rhs is a two-dimensional array with the 0-th
+            index denoting the number of the right-hand side, and the 1-st index denoting the element inside
+            a right-hand side.
+        
+        out : ndarray | NoneType
+            Output vector. If given, it has to have the same shape and datatype as rhs.
+        
+        transposed : bool
+            If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
+        """
+        assert rhs.T.shape[0] == self._bmat.shape[1]
 
         if out is None:
             preout, self._sinfo = dgbtrs(self._bmat, self._l, self._u, rhs.T, self._ipiv, trans=transposed)
@@ -85,6 +101,7 @@ class BandedSolver ( DirectSolver ):
 
         else :
             assert out.shape == rhs.shape
+            assert out.dtype == rhs.dtype
 
             # support in-place operations
             if rhs is not out:
@@ -124,14 +141,32 @@ class SparseSolver ( DirectSolver ):
 
     #...
     def solve( self, rhs, out=None, transposed=False ):
+        """
+        Solves for the given right-hand side.
 
-        assert rhs.shape[0] == self._splu.shape[1]
+        Parameters
+        ----------
+        rhs : ndarray
+            The right-hand sides to solve for. The vectors are assumed to be given in C-contiguous order,
+            i.e. if multiple right-hand sides are given, then rhs is a two-dimensional array with the 0-th
+            index denoting the number of the right-hand side, and the 1-st index denoting the element inside
+            a right-hand side.
+        
+        out : ndarray | NoneType
+            Output vector. If given, it has to have the same shape and datatype as rhs.
+        
+        transposed : bool
+            If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
+        """
+        
+        assert rhs.T.shape[0] == self._splu.shape[1]
 
         if out is None:
             out = self._splu.solve( rhs.T, trans='T' if transposed else 'N' ).T
 
         else:
             assert out.shape == rhs.shape
+            assert out.dtype == rhs.dtype
 
             # currently no in-place solve exposed
             out[:] = self._splu.solve( rhs.T, trans='T' if transposed else 'N' ).T
