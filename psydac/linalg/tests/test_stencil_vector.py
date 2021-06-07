@@ -49,6 +49,41 @@ def test_stencil_vector_2d_serial_copy( n1, n2, p1, p2, P1=True, P2=False ):
     assert np.all( z[:,:] == x[:,:] )
 
 #===============================================================================
+@pytest.mark.parametrize( 'n1', [7,15] )
+@pytest.mark.parametrize( 'n2', [8,12] )
+@pytest.mark.parametrize( 'p1', [1,2,3] )
+@pytest.mark.parametrize( 'p2', [1,2,3] )
+
+def test_stencil_vector_2d_basic_ops( n1, n2, p1, p2, P1=True, P2=False ):
+
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P1] )
+    M = StencilVector( V )
+
+    # take random data, but determinize it
+    np.random.seed(2)
+
+    M._data[:] = np.random.random(M._data.shape)
+
+    # we try to go for equality here...
+    assert np.array_equal((M * 2)._data, M._data * 2)
+    assert np.array_equal((M / 2)._data, M._data / 2)
+    assert np.array_equal((M + M)._data, M._data + M._data)
+    assert np.array_equal((M - M)._data, M._data - M._data)
+
+    M1 = M.copy()
+    M1 *= 2
+    M2 = M.copy()
+    M2 /= 2
+    M3 = M.copy()
+    M3 += M
+    M4 = M.copy()
+    M4 -= M
+    assert np.array_equal(M1._data, M._data * 2)
+    assert np.array_equal(M2._data, M._data / 2)
+    assert np.array_equal(M3._data, M._data + M._data)
+    assert np.array_equal(M4._data, M._data - M._data)
+
+#===============================================================================
 @pytest.mark.parametrize( 'n1', [1,7] )
 @pytest.mark.parametrize( 'n2', [1,5] )
 @pytest.mark.parametrize( 'p1', [1,2] )

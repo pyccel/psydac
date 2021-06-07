@@ -29,6 +29,44 @@ def test_stencil_matrix_2d_serial_init( n1, n2, p1, p2, P1=True, P2=False ):
 @pytest.mark.parametrize( 'p1', [1,2,3] )
 @pytest.mark.parametrize( 'p2', [1,2,3] )
 
+def test_stencil_matrix_2d_basic_ops( n1, n2, p1, p2, P1=True, P2=False ):
+
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P1] )
+    M = StencilMatrix( V, V )
+
+    # take random data, but determinize it
+    np.random.seed(2)
+
+    M._data[:] = np.random.random(M._data.shape)
+
+    assert M._data.shape == (n1+2*p1, n2+2*p2, 1+2*p1, 1+2*p2)
+    assert M.shape == (n1*n2, n1*n2)
+
+    # we try to go for equality here...
+    assert np.array_equal((M * 2)._data, M._data * 2)
+    assert np.array_equal((M / 2)._data, M._data / 2)
+    assert np.array_equal((M + M)._data, M._data + M._data)
+    assert np.array_equal((M - M)._data, M._data - M._data)
+
+    M1 = M.copy()
+    M1 *= 2
+    M2 = M.copy()
+    M2 /= 2
+    M3 = M.copy()
+    M3 += M
+    M4 = M.copy()
+    M4 -= M
+    assert np.array_equal(M1._data, M._data * 2)
+    assert np.array_equal(M2._data, M._data / 2)
+    assert np.array_equal(M3._data, M._data + M._data)
+    assert np.array_equal(M4._data, M._data - M._data)
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [7,15] )
+@pytest.mark.parametrize( 'n2', [8,12] )
+@pytest.mark.parametrize( 'p1', [1,2,3] )
+@pytest.mark.parametrize( 'p2', [1,2,3] )
+
 def test_stencil_matrix_2d_serial_toarray( n1, n2, p1, p2, P1=False, P2=True ):
 
     # Select non-zero values based on diagonal index
@@ -834,7 +872,7 @@ def test_stencil_matrix_2d_serial_backend_dot_1( n1, n2, p1, p2, P1, P2 , backen
 @pytest.mark.parametrize( 'p2', [2,3] )
 @pytest.mark.parametrize( 'P1', [True] )
 @pytest.mark.parametrize( 'P2', [True] )
-@pytest.mark.parametrize( 'backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
+@pytest.mark.parametrize( 'backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
 
 def test_stencil_matrix_2d_serial_backend_dot_2( n1, n2, p1, p2, P1, P2 , backend):
 
@@ -870,6 +908,12 @@ def test_stencil_matrix_2d_serial_backend_dot_2( n1, n2, p1, p2, P1, P2 , backen
 
     # Check data in 1D array
     assert np.allclose( ya, ya_exact, rtol=1e-13, atol=1e-13 )
+
+    # tests for backend propagation
+    assert M.backend is backend
+    assert M.T.backend is M.backend
+    assert (M+M).backend is M.backend
+    assert (2*M).backend is M.backend
 
 #===============================================================================
 @pytest.mark.parametrize( 'n1', [5,15] )
@@ -929,6 +973,44 @@ def test_stencil_matrix_2d_serial_dot_4( n1, n2, p1, p2, P1, P2 , backend):
 
     assert np.allclose( y1a, y1a_exact, rtol=1e-13, atol=1e-13 )
     assert np.allclose( y2a, y2a_exact, rtol=1e-13, atol=1e-13 )
+
+#===============================================================================
+@pytest.mark.parametrize( 'n1', [15] )
+@pytest.mark.parametrize( 'n2', [12] )
+@pytest.mark.parametrize( 'p1', [2] )
+@pytest.mark.parametrize( 'p2', [3] )
+@pytest.mark.parametrize( 'P1', [True] )
+@pytest.mark.parametrize( 'P2', [True] )
+@pytest.mark.parametrize( 'backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
+@pytest.mark.parametrize( 'backend2', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
+
+def test_stencil_matrix_2d_serial_backend_switch( n1, n2, p1, p2, P1, P2 , backend, backend2):
+
+    # Create vector space, stencil matrix, and stencil vector
+    V = StencilVectorSpace( [n1,n2], [p1,p2], [P1,P2] )
+    M = StencilMatrix( V, V , pads=(p1-1, p2-1), backend=backend)
+    x = StencilVector( V )
+
+    # Fill in stencil matrix values based on diagonal index (periodic!)
+    for k1 in range(-p1+1,p1):
+        for k2 in range(-p2+1,p2):
+            M[:,:,k1,k2] = 10*k1+k2
+
+    # If any dimension is not periodic, set corresponding periodic corners to zero
+    M.remove_spurious_entries()
+
+    # Fill in vector with random values, then update ghost regions
+    for i1 in range(n1):
+        for i2 in range(n2):
+            x[i1,i2] = 2.0*random() - 1.0
+    x.update_ghost_regions()
+
+    assert M.backend is backend
+    M.dot(x)
+    M.set_backend(backend2)
+
+    assert M.backend is backend2
+    M.dot(x)
 
 #===============================================================================
 # PARALLEL TESTS
@@ -1432,7 +1514,7 @@ def test_stencil_matrix_1d_parallel_backend_dot( n1, p1, P1, reorder, reverse_ax
 @pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parametrize( 'reorder', [True, False] )
 @pytest.mark.parametrize( 'reverse_axis', [None, 0, 1] )
-@pytest.mark.parametrize( 'backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
+@pytest.mark.parametrize( 'backend', [None, PSYDAC_BACKEND_PYTHON, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
 @pytest.mark.parallel
 
 def test_stencil_matrix_2d_parallel_backend_dot( n1, n2, p1, p2, P1, P2, reorder , reverse_axis, backend):
@@ -1488,6 +1570,13 @@ def test_stencil_matrix_2d_parallel_backend_dot( n1, n2, p1, p2, P1, P2, reorder
 
     # Check data in 1D array
     assert np.allclose( ya, ya_exact, rtol=1e-13, atol=1e-13 )
+
+    # tests for backend propagation
+    assert M.backend is backend
+    assert M.T.backend is M.backend
+    assert (M+M).backend is M.backend
+    assert (2*M).backend is M.backend
+
 #===============================================================================
 # SCRIPT FUNCTIONALITY
 #===============================================================================
