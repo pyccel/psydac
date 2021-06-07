@@ -91,7 +91,7 @@ class DistributedFFT(DistributedFFTBase):
         Specifies the number of worker threads. By default set to the number of OpenMP threads, if given.
         See also the documentation of the corresponding scipy.fft.fft parameter.
     """
-    def __init__(self, space, norm='backward', workers=os.environ.get('OMP_NUM_THREADS', None)):
+    def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None)):
         # only allow complex data types
         assert isinstance(space, StencilVectorSpace)
         assert np.dtype(space.dtype).kind == 'c'
@@ -117,7 +117,7 @@ class DistributedIFFT(DistributedFFTBase):
         Specifies the number of worker threads. By default set to the number of OpenMP threads, if given.
         See also the documentation of the corresponding scipy.fft.ifft parameter.
     """
-    def __init__(self, space, norm='backward', workers=os.environ.get('OMP_NUM_THREADS', None)):
+    def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None)):
         # only allow complex data types
         assert isinstance(space, StencilVectorSpace)
         assert np.dtype(space.dtype).kind == 'c'
@@ -143,7 +143,7 @@ class DistributedDCT(DistributedFFTBase):
         Specifies the number of worker threads. By default set to the number of OpenMP threads, if given.
         See also the documentation of the corresponding scipy.fft.dct parameter.
     """
-    def __init__(self, space, norm='backward', workers=os.environ.get('OMP_NUM_THREADS', None)):
+    def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None)):
         super().__init__(space, lambda out: scifft.dct(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm))
 
@@ -165,7 +165,7 @@ class DistributedIDCT(DistributedFFTBase):
         Specifies the number of worker threads. By default set to the number of OpenMP threads, if given.
         See also the documentation of the corresponding scipy.fft.idct parameter.
     """
-    def __init__(self, space, norm='backward', workers=os.environ.get('OMP_NUM_THREADS', None)):
+    def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None)):
         super().__init__(space, lambda out: scifft.idct(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm)) 
 
@@ -187,7 +187,7 @@ class DistributedDST(DistributedFFTBase):
         Specifies the number of worker threads. By default set to the number of OpenMP threads, if given.
         See also the documentation of the corresponding scipy.fft.dst parameter.
     """
-    def __init__(self, space, norm='backward', workers=os.environ.get('OMP_NUM_THREADS', None)):
+    def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None)):
         super().__init__(space, lambda out: scifft.dst(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm))
 
@@ -209,6 +209,6 @@ class DistributedIDST(DistributedFFTBase):
         Specifies the number of worker threads. By default set to the number of OpenMP threads, if given.
         See also the documentation of the corresponding scipy.fft.idst parameter.
     """
-    def __init__(self, space, norm='backward', workers=os.environ.get('OMP_NUM_THREADS', None)):
+    def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None)):
         super().__init__(space, lambda out: scifft.idst(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm)) 
