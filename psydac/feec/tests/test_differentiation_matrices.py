@@ -287,7 +287,7 @@ def test_directional_derivative_operator_3d_ser(domain, ncells, degree, periodic
     run_directional_derivative_operator(None, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
 
 @pytest.mark.parametrize('domain', [(0, 1), (-2, 3)])
-@pytest.mark.parametrize('ncells', [11, 37])
+@pytest.mark.parametrize('ncells', [13, 37])
 @pytest.mark.parametrize('degree', [2, 3, 4, 5])
 @pytest.mark.parametrize('periodic', [True, False])
 @pytest.mark.parametrize('direction', [0])
