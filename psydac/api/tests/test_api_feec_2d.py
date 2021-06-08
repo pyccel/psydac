@@ -1,6 +1,8 @@
 # coding: utf-8
 # Copyright 2021 Yaman Güçlü
 
+import pytest
+
 #==============================================================================
 # TIME STEPPING METHOD
 #==============================================================================
@@ -533,6 +535,8 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # ...
 
     # Error at final time
+
+    # for now: no allreduce needed here, since the spline evaluation already does that for us
     error_Ex = abs(Ex_ex(t, x, y) - Ex_values).max()
     error_Ey = abs(Ey_ex(t, x, y) - Ey_values).max()
     error_Bz = abs(Bz_ex(t, x, y) - Bz_values).max()
@@ -622,6 +626,60 @@ def test_maxwell_2d_periodic():
 
 
 def test_maxwell_2d_dirichlet():
+
+    namespace = run_maxwell_2d_TE(
+        eps      = 0.5,
+        ncells   = 10,
+        degree   = 5,
+        periodic = False,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        verbose = False
+    )
+
+    TOL = 1e-6
+    ref = dict(error_Ex = 3.597840e-03,
+               error_Ey = 3.597840e-03,
+               error_Bz = 4.366314e-03)
+
+    assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
+    assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
+    assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
+
+@pytest.mark.parallel
+def test_maxwell_2d_periodic_par():
+
+    namespace = run_maxwell_2d_TE(
+        eps      = 0.5,
+        ncells   = 12,
+        degree   = 3,
+        periodic = True,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        verbose = False
+    )
+
+    TOL = 1e-6
+    ref = dict(error_Ex = 6.870389e-03,
+               error_Ey = 6.870389e-03,
+               error_Bz = 4.443822e-03)
+
+    assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
+    assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
+    assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
+
+@pytest.mark.parallel
+def test_maxwell_2d_dirichlet_par():
 
     namespace = run_maxwell_2d_TE(
         eps      = 0.5,

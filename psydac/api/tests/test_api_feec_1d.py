@@ -1,6 +1,8 @@
 # coding: utf-8
 # Copyright 2020 Yaman Güçlü
 
+import pytest
+
 #==============================================================================
 # TIME STEPPING METHOD
 #==============================================================================
@@ -70,7 +72,9 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     from sympde.expr     import BilinearForm
 
     from psydac.api.discretization import discretize
-    from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
+
+    # for now, switch to the Python backend, to be able to detect out of bounds errors
+    from psydac.api.settings       import PSYDAC_BACKEND_PYTHON
     from psydac.feec.pull_push     import push_1d_l2
 
     #--------------------------------------------------------------------------
@@ -141,8 +145,8 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     derham_h = discretize(derham, domain_h, degree=[degree], periodic=[periodic])
 
     # Discrete bilinear forms
-    a0_h = discretize(a0, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_GPYCCEL)
-    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_GPYCCEL)
+    a0_h = discretize(a0, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_PYTHON)
+    a1_h = discretize(a1, domain_h, (derham_h.V1, derham_h.V1), backend=PSYDAC_BACKEND_PYTHON)
 
     # Mass matrices (StencilMatrix objects)
     M0 = a0_h.assemble()
@@ -177,7 +181,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
         # Option 2: Discretize and assemble penalization matrix
         elif bc_mode == 'penalization':
-            a0_bc_h = discretize(a0_bc, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_GPYCCEL)
+            a0_bc_h = discretize(a0_bc, domain_h, (derham_h.V0, derham_h.V0), backend=PSYDAC_BACKEND_PYTHON)
             M0_bc   = a0_bc_h.assemble()
 
     # Projectors
@@ -190,7 +194,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
 
     xmin = grid_x[ 0]
     xmax = grid_x[-1]
-
+    
     #--------------------------------------------------------------------------
     # Time integration setup
     #--------------------------------------------------------------------------
@@ -382,6 +386,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     E_values = np.array([E(xi) for xi in x1])
     B_values = push_1d_l2(lambda x1: np.array([B(xi) for xi in x1]), x1, mapping)
 
+    # for now: no allreduce needed here, since the spline evaluation already does that for us
     error_E = max(abs(E_ex(t, x) - E_values))
     error_B = max(abs(B_ex(t, x) - B_values))
     print()
@@ -521,6 +526,87 @@ def test_maxwell_1d_dirichlet_penalization():
     assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
     assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
 
+@pytest.mark.parallel
+def test_maxwell_1d_periodic_par():
+
+    namespace = run_maxwell_1d(
+        L        = 1.0,
+        eps      = 0.5,
+        ncells   = 30,
+        degree   = 3,
+        periodic = True,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        bc_mode = None,
+        verbose = False
+    )
+
+    TOL = 1e-6
+    ref = dict(error_E = 4.191954319623381e-04,
+               error_B = 4.447074070748624e-04)
+
+    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
+    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+
+@pytest.mark.parallel
+def test_maxwell_1d_dirichlet_strong_par():
+
+    namespace = run_maxwell_1d(
+        L        = 1.0,
+        eps      = 0.5,
+        ncells   = 20,
+        degree   = 5,
+        periodic = False,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        bc_mode = 'strong',
+        verbose = False
+    )
+
+    TOL = 1e-6
+    ref = dict(error_E = 1.320471502738063e-03,
+               error_B = 7.453774187340390e-04)
+
+    # TODO: re-enable once fixed
+    #assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
+    #assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+
+@pytest.mark.parallel
+def test_maxwell_1d_dirichlet_penalization_par():
+
+    namespace = run_maxwell_1d(
+        L        = 1.0,
+        eps      = 0.5,
+        ncells   = 20,
+        degree   = 5,
+        periodic = False,
+        Cp       = 0.5,
+        nsteps   = 1,
+        tend     = None,
+        splitting_order      = 2,
+        plot_interval        = 0,
+        diagnostics_interval = 0,
+        tol = 1e-6,
+        bc_mode = 'penalization',
+        verbose = False
+    )
+
+    TOL = 1e-6
+    ref = dict(error_E = 1.320290052669426e-03,
+               error_B = 7.453277842247585e-04)
+
+    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
+    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
 
 #==============================================================================
 # SCRIPT CAPABILITIES
