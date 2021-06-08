@@ -244,7 +244,7 @@ class GlobalProjector(metaclass=ABCMeta):
         structure : array
             The described structure matrix.
         """
-        raise NotImplementedError()
+        pass
     
     @abstractmethod
     def _function(self, dim):
@@ -265,7 +265,7 @@ class GlobalProjector(metaclass=ABCMeta):
         func : callable
             The described function.
         """
-        raise NotImplementedError()
+        pass
     
     def __call__(self, fun):
         """
