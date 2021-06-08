@@ -127,9 +127,13 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
     b : psydac.linalg.stencil.StencilVector
         Right-hand-side vector of linear system.
 
-    pc: string
+    pc: NoneType | str | psydac.linalg.basic.LinearSolver | Callable
         Preconditioner for A, it should approximate the inverse of A.
-        "jacobi" and "weighted_jacobi" are available in this module.
+        Can either be:
+        * None, i.e. not pre-conditioning (this calls the standard `cg` method)
+        * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)
+        * A LinearSolver object (in which case the out parameter is used)
+        * A callable with two parameters (A, r), where A is the LinearOperator from above, and r is the residual.
 
     x0 : psydac.linalg.basic.Vector
         First guess of solution for iterative solver (optional).
