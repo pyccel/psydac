@@ -553,7 +553,9 @@ def test_maxwell_1d_periodic_par():
     assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
     assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
 
+# TODO: remove xfail after bug is fixed
 @pytest.mark.parallel
+@pytest.mark.xfail
 def test_maxwell_1d_dirichlet_strong_par():
 
     namespace = run_maxwell_1d(
@@ -577,9 +579,8 @@ def test_maxwell_1d_dirichlet_strong_par():
     ref = dict(error_E = 1.320471502738063e-03,
                error_B = 7.453774187340390e-04)
 
-    # TODO: re-enable once fixed
-    #assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
-    #assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
+    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
 
 @pytest.mark.parallel
 def test_maxwell_1d_dirichlet_penalization_par():
