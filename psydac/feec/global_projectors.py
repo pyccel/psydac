@@ -13,8 +13,10 @@ from psydac.fem.basic             import FemField
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
 
+from abc import ABCMeta, abstractmethod
+
 #==============================================================================
-class GlobalProjector:
+class GlobalProjector(metaclass=ABCMeta):
     """
     A global projector to some TensorFemSpace or ProductFemSpace object.
     It is constructed over a tensor-product grid in the
@@ -195,7 +197,7 @@ class GlobalProjector:
     @property
     def grid_x(self):
         """
-        The local interpolation/histopolation grids which is used; it denotes the position of the interpolation/quadrature points.
+        The local interpolation/histopolation grids which are used; it denotes the position of the interpolation/quadrature points.
         All the grids are stored inside a two-dimensional array; the outer dimension denotes the block, the inner the tensor space direction.
         """
         return self._grid_x
@@ -203,7 +205,7 @@ class GlobalProjector:
     @property
     def grid_w(self):
         """
-        The local interpolation/histopolation grids which is used; it denotes the weights of the quadrature points (in the case of interpolation, this will return the weight 1 for the given positions).
+        The local interpolation/histopolation grids which are used; it denotes the weights of the quadrature points (in the case of interpolation, this will return the weight 1 for the given positions).
         All the grids are stored inside a two-dimensional array; the outer dimension denotes the block, the inner the tensor space direction.
         """
         return self._grid_w
@@ -222,17 +224,7 @@ class GlobalProjector:
         """
         return self._solver
     
-    def set_func(self, func):
-        """
-        Sets a new function for projecting a callable (or a list thereof) to the DOFs in the target space.
-
-        Parameters
-        ----------
-        func : callable
-            The new function to be used.
-        """
-        self._func = func
-    
+    @abstractmethod
     def _structure(self, dim):
         """
         Has to be implemented by a subclass. Returns a 2-dimensional array
@@ -254,11 +246,12 @@ class GlobalProjector:
         """
         raise NotImplementedError()
     
+    @abstractmethod
     def _function(self, dim):
         """
         Has to be implemented by a subclass. Returns a function which accepts the arguments
-        in the order *intp_x, *quad_x, *quad_w, *dofs (see __init__ function) and then
-        evaluates a given callable using these arguments.
+        in the order (*intp_x, *quad_x, *quad_w, *dofs, *f) (see __init__ function) and then
+        evaluates a given callable using these arguments. Note that the dofs array is modified by the function.
 
         (this can and most likely will be replaced, if we construct the functions somewhere else, e.g. with code generation)
 
