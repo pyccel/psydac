@@ -5,7 +5,7 @@
 from abc   import ABCMeta, abstractmethod
 from numpy import ndarray
 
-__all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'LinearSolver', 'Matrix', 'IdentityElement', 'NullElement']
+__all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'LinearSolver', 'Matrix']
 
 #===============================================================================
 class VectorSpace( metaclass=ABCMeta ):
