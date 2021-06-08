@@ -607,7 +607,7 @@ class TensorFemSpace( FemSpace ):
             space = spaces[axis]
             reduced_space = SplineSpace(
                 degree    = space.degree - 1,
-                pads      = space.degree,
+                pads      = space._pads,
                 grid      = space.breaks,
                 periodic  = space.periodic,
                 dirichlet = space.dirichlet,
@@ -615,9 +615,6 @@ class TensorFemSpace( FemSpace ):
             )
             spaces[axis] = reduced_space
 
-        npts = [V.nbasis for V in spaces]
-        pads = v.pads
-        periods = [V.periodic for V in spaces]
         # create new Tensor Vector
         if v.cart:
             red_cart = v.cart.remove_last_element(axes)
