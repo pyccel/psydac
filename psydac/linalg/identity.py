@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-from psydac.linalg.basic   import LinearOperator, Matrix, Vector, VectorSpace, IdentityElement
+from psydac.linalg.basic   import LinearOperator, Matrix, Vector, VectorSpace
 from psydac.linalg.stencil import StencilMatrix
 
 from numpy        import eye as dense_id
@@ -8,7 +8,7 @@ from scipy.sparse import eye as sparse_id
 
 __all__ = ['IdentityLinearOperator', 'IdentityMatrix', 'IdentityStencilMatrix']
 
-class IdentityLinearOperator(LinearOperator, IdentityElement):
+class IdentityLinearOperator(LinearOperator):
 
     def __init__(self, V):
         assert isinstance( V, VectorSpace )
@@ -54,7 +54,7 @@ class IdentityLinearOperator(LinearOperator, IdentityElement):
 
         return v
 
-class IdentityMatrix( Matrix, IdentityLinearOperator, IdentityElement ):
+class IdentityMatrix( Matrix, IdentityLinearOperator ):
 
     #-------------------------------------
     # Deferred methods
@@ -98,7 +98,7 @@ class IdentityMatrix( Matrix, IdentityLinearOperator, IdentityElement ):
     def __isub__(self, m):
         raise NotImplementedError()
 
-class IdentityStencilMatrix( StencilMatrix, IdentityElement ):
+class IdentityStencilMatrix( StencilMatrix ):
     def __init__(self, V, pads=None):
         assert pads is None or len(pads) == V.ndim
 

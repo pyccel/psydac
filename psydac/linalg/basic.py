@@ -8,20 +8,6 @@ from numpy import ndarray
 __all__ = ['VectorSpace', 'Vector', 'LinearOperator', 'LinearSolver', 'Matrix', 'IdentityElement', 'NullElement']
 
 #===============================================================================
-class IdentityElement(metaclass=ABCMeta):
-    """
-    Dummy type for a general identity element.
-    """
-    pass
-
-#===============================================================================
-class NullElement(metaclass=ABCMeta):
-    """
-    Dummy type for a general null element.
-    """
-    pass
-
-#===============================================================================
 class VectorSpace( metaclass=ABCMeta ):
     """
     Generic vector space V.

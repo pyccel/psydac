@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-from psydac.linalg.basic   import LinearOperator, Matrix, Vector, VectorSpace, NullElement
+from psydac.linalg.basic   import LinearOperator, Matrix, Vector, VectorSpace
 from psydac.linalg.stencil import StencilMatrix
 
 from numpy        import zeros as dense_null
@@ -8,7 +8,7 @@ from scipy.sparse import coo_matrix as sparse_null
 
 __all__ = ['NullLinearOperator', 'NullMatrix', 'NullStencilMatrix']
 
-class NullLinearOperator(LinearOperator, NullElement):
+class NullLinearOperator(LinearOperator):
 
     def __init__(self, V, W):
         assert isinstance( V, VectorSpace )
@@ -52,7 +52,7 @@ class NullLinearOperator(LinearOperator, NullElement):
 
         return self.codomain.zeros()
 
-class NullMatrix( Matrix, NullLinearOperator, NullElement ):
+class NullMatrix( Matrix, NullLinearOperator ):
 
     #-------------------------------------
     # Deferred methods
@@ -96,7 +96,7 @@ class NullMatrix( Matrix, NullLinearOperator, NullElement ):
     def __isub__(self, m):
         raise NotImplementedError()
 
-class NullStencilMatrix( StencilMatrix, NullElement ):
+class NullStencilMatrix( StencilMatrix ):
     def __init__(self, V, W, pads=None):
         super().__init__(V, W, pads=pads)
 
