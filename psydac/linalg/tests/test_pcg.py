@@ -14,8 +14,9 @@ def test_pcg(n, p):
         Dimension of linear system (number of rows = number of columns).
 
     """
-    from psydac.linalg.iterative_solvers import pcg
+    from psydac.linalg.iterative_solvers import pcg, jacobi
     from psydac.linalg.stencil import StencilVectorSpace, StencilMatrix, StencilVector
+    from psydac.linalg.basic import LinearSolver
     #---------------------------------------------------------------------------
     # PARAMETERS
     #---------------------------------------------------------------------------
@@ -54,11 +55,27 @@ def test_pcg(n, p):
     # Manufacture right-hand-side vector from exact solution
     b = A.dot(xe)
 
-    # Solve linear system using PCG
+    class LocallyOnlyJacobiSolver(LinearSolver):
+        @property
+        def space(self):
+            return V
+        
+        def solve(self, rhs, out=None, transposed=False):
+            # (don't care about out or any other parameter here; it's only used locally)
+            return jacobi(A, rhs)
+
+    # Solve linear system using PCG (and CG)
+    # also does an interface test for the Jacobi preconditioner
+    x0, info0 = pcg( A, b, pc= None, tol=1e-12 )
     x1, info1 = pcg( A, b, pc= "jacobi", tol=1e-12 )
+    x1b, info1b = pcg( A, b, pc= jacobi, tol=1e-12 )
+    x1c, info1c = pcg( A, b, pc= LocallyOnlyJacobiSolver(), tol=1e-12 )
     x2, info2 = pcg( A, b, pc= "weighted_jacobi", tol=1e-12 )
 
     # Verify correctness of calculation: L2-norm of error
+    err0 = x0-xe
+    err_norm0 = np.linalg.norm(err0.toarray())
+
     err1 = x1-xe
     err_norm1 = np.linalg.norm(err1.toarray())
 
@@ -82,7 +99,7 @@ def test_pcg(n, p):
     print( "-"*40 )
     print( "L2-norm of error in (PCG + Jacobi) solution = {:.2e}".format(err_norm1))
     print( "L2-norm of error in solution (PCG + weighted Jacobi) solution = {:.2e}".format(err_norm2))
-    if err_norm1 < tol and err_norm2 < tol:
+    if err_norm0 < tol and err_norm1 < tol and err_norm2 < tol:
         print( "PASSED" )
     else:
         print( "FAIL" )
@@ -91,5 +108,6 @@ def test_pcg(n, p):
     #---------------------------------------------------------------------------
     # PYTEST
     #---------------------------------------------------------------------------
-    assert err_norm1 < tol and err_norm2 < tol
+    assert err_norm0 < tol and err_norm1 < tol and err_norm2 < tol
+    assert info1 == info1b and info1 == info1c
 
