@@ -104,7 +104,7 @@ class IdentityStencilMatrix( StencilMatrix ):
 
         super().__init__(V, V, pads=pads)
 
-        idslice = tuple(*((slice(None),) * V.ndim), *self.pads)
+        idslice = (*((slice(None),) * V.ndim), *self.pads)
         self._data[idslice] = 1.
 
     #-------------------------------------
