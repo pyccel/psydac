@@ -53,10 +53,14 @@ class DistributedFFTBase(LinearOperator):
 
             return out
 
-    def __init__(self, space, function):
+    def __init__(self, space, functions):
         assert isinstance(space, StencilVectorSpace)
-        onedimsolver = DistributedFFTBase.OneDimSolver(function)
-        self._isolver = KroneckerLinearSolver(space, [onedimsolver] * space.ndim)
+        if isinstance(functions, list) or isinstance(functions, tuple):
+            solvers = [DistributedFFTBase.OneDimSolver(function) for function in functions]
+        else:
+            onedimsolver = DistributedFFTBase.OneDimSolver(functions)
+            solvers = [onedimsolver] * space.ndim
+        self._isolver = KroneckerLinearSolver(space, solvers)
     
     @property
     def domain(self):
