@@ -16,8 +16,10 @@ class DistributedFFTBase(LinearOperator):
     space : StencilVectorSpace
         The vector space needed for the KroneckerLinearSolver internally.
     
-    function : Callable
-        A callable function with one parameter x which applies some function in-place on x.
+    function : callable | list/tuple of callables
+        A list/tuple of callables function, each with one parameter x which applies some function in-place on x.
+        The function at position i is applied to the i-th tensor direction.
+        If only a single callable is given, it is used for all directions.
     """
 
     # Possible additions for the future:
