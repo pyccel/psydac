@@ -154,7 +154,11 @@ class DiscreteBilinearForm(BasicDiscrete):
         kwargs['mapping']             = self.spaces[0].symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
-        quad_order                    = kwargs.pop('quad_order', get_quad_order(self.spaces[1]))
+        space_quad_order = [qo - 1 for qo in get_quad_order(self.spaces[1])]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(self.spaces[1]))
 
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
@@ -442,7 +446,12 @@ class DiscreteLinearForm(BasicDiscrete):
         kwargs['mapping']             = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
-        quad_order                    = kwargs.pop('quad_order', get_quad_order(self.space))
+
+        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(self.space))
 
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
@@ -674,7 +683,12 @@ class DiscreteFunctional(BasicDiscrete):
         kwargs['mapping']             = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
-        quad_order                    = kwargs.pop('quad_order', get_quad_order(self.space))
+
+        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(self.space))
 
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 

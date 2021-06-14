@@ -6,7 +6,7 @@ from psydac.linalg.stencil import StencilMatrix
 from numpy        import eye as dense_id
 from scipy.sparse import eye as sparse_id
 
-__all__ = ['IdentityLinearOperator', 'IdentityMatrix']
+__all__ = ['IdentityLinearOperator', 'IdentityMatrix', 'IdentityStencilMatrix']
 
 class IdentityLinearOperator(LinearOperator):
 
@@ -26,9 +26,32 @@ class IdentityLinearOperator(LinearOperator):
         return self._V
 
     def dot( self, v, out=None ):
+        """
+        Returns the input vector. If out is None or v is the same vector object as out (`v is out`), v is returned (no copy).
+        In all other cases, v is copied to out, and out is returned.
+
+        Parameters
+        ----------
+        v : Vector
+            The vector to return.
+        
+        out : Vector | None
+            Output vector. Has to be either none, or a vector from the same space as v. Behavior is described above.
+        
+        Returns
+        -------
+        Described above.
+        """
         assert isinstance( v, Vector )
         assert v.space is self.domain
-        # find a way to handle out not None
+
+        if out is not None and out is not v:
+            assert isinstance(out, Vector)
+            assert v.space is out.space
+            out *= 0.0
+            out += v
+            return out
+
         return v
 
 class IdentityMatrix( Matrix, IdentityLinearOperator ):
@@ -37,28 +60,83 @@ class IdentityMatrix( Matrix, IdentityLinearOperator ):
     # Deferred methods
     #-------------------------------------
     def toarray( self ):
-        return dense_id(*self.shape)
+        if hasattr(self.codomain, 'dtype'):
+            return dense_id(*self.shape, dtype=self.codomain.dtype)
+        else:
+            return dense_id(*self.shape)
 
     def tosparse( self ):
-        return sparse_id(*self.shape)
+        if hasattr(self.codomain, 'dtype'):
+            return sparse_id(*self.shape, dtype=self.codomain.dtype)
+        else:
+            return sparse_id(*self.shape)
+    
+    def copy(self):
+        return IdentityMatrix(self.domain)
+
+    def __neg__(self):
+        raise NotImplementedError()
+
+    def __mul__(self, a):
+        raise NotImplementedError()
+
+    def __rmul__(self, a):
+        raise NotImplementedError()
+
+    def __add__(self, m):
+        raise NotImplementedError()
+
+    def __sub__(self, m):
+        raise NotImplementedError()
+
+    def __imul__(self, a):
+        raise NotImplementedError()
+
+    def __iadd__(self, m):
+        raise NotImplementedError()
+
+    def __isub__(self, m):
+        raise NotImplementedError()
 
 class IdentityStencilMatrix( StencilMatrix ):
-    def __init__(self, V, p=None):
-        assert V.ndim == 1
-        n = V.npts[0]
-        p = p or V.pads[0]
+    def __init__(self, V, pads=None):
+        assert pads is None or len(pads) == V.ndim
 
-        super().__init__(V, V, pads=(p,))
+        super().__init__(V, V, pads=pads)
 
-        self._data[:, p] = 1.
+        idslice = (*((slice(None),) * V.ndim), *self.pads)
+        self._data[idslice] = 1.
 
     #-------------------------------------
     # Deferred methods
     #-------------------------------------
 
     def dot( self, v, out=None ):
+        """
+        Returns the input vector. If out is None, or v is the same vector object as out (`v is out`), v is returned (no copy).
+        In all other cases, v is copied to out, and out is returned.
+
+        Parameters
+        ----------
+        v : Vector
+            The vector to return.
+        
+        out : Vector | None
+            Output vector. Has to be either none, or a vector from the same space as v. Behavior is described above.
+        
+        Returns
+        -------
+        Described above.
+        """
         assert isinstance( v, Vector )
         assert v.space is self.domain
-        # find a way to handle out not None
+        
+        if out is not None and out is not v:
+            assert isinstance(out, Vector)
+            assert v.space is out.space
+            out *= 0.0
+            out += v
+            return out
+
         return v
 

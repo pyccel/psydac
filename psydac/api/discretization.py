@@ -134,6 +134,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
     ldim                = V.ldim
     periodic            = kwargs.pop('periodic', [False]*ldim)
     basis               = kwargs.pop('basis', 'B')
+    quad_order          = kwargs.pop('quad_order', None)
     is_rational_mapping = False
 
     # from a discrete geoemtry
@@ -214,12 +215,12 @@ def discretize_space(V, domain_h, *args, **kwargs):
                         nprocs = None
                         if comm is not None:
                             nprocs = g_spaces[interiors[index]].vector_space.cart.nprocs
-                        Vh = TensorFemSpace( *spaces, comm=comm, nprocs=nprocs, reverse_axis=e.axis)
+                        Vh = TensorFemSpace( *spaces, comm=comm, quad_order=quad_order, nprocs=nprocs, reverse_axis=e.axis)
                         break
                 else:
-                    Vh = TensorFemSpace( *spaces, comm=comm)
+                    Vh = TensorFemSpace( *spaces, comm=comm, quad_order=quad_order)
             else:
-                Vh = TensorFemSpace( *spaces, comm=comm)
+                Vh = TensorFemSpace( *spaces, comm=comm, quad_order=quad_order)
 
             if Vh is None:
                 raise ValueError('Unable to discretize the space')
