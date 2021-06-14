@@ -115,7 +115,7 @@ def run_maxwell_3d_scipy(logical_domain, mapping, e_ex, b_ex, ncells, degree, pe
     # Porjectors
     P0, P1, P2, P3  = derham_h.projectors(nquads=[5,5,5])
 
-    CURL     = CURL.tosparse().tocsr()
+    CURL = CURL.transform(lambda block: block.tokronstencil().tostencil()).tomatrix().tosparse().tocsr()
 
     # initial conditions
     e0_1 = lambda x, y, z: e_ex[0](0, x, y, z)

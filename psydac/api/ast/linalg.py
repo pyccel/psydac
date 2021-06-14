@@ -220,6 +220,8 @@ class LinearOperatorDot(SplBasic):
             imports = 'from pyccel.decorators import types'
         elif backend and backend['name'] == 'numba':
             imports = 'from numba import njit'
+        else:
+            imports = ''
 
         if MPI.COMM_WORLD.rank == 0:
             modname = 'dependencies_{}'.format(tag)

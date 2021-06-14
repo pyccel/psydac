@@ -182,6 +182,30 @@ class KroneckerStencilMatrix( Matrix ):
 
                 values        = [mat[i,k] for mat,i,k in zip(mats, ii, kk)]
                 M[(*ii, *kk)] = np.product(values)
+        
+        # handle partly-multiplied rows
+        new_nrows = nrows.copy()
+        for d,er in enumerate(nrows_extra):
+
+            rows = new_nrows.copy()
+            del rows[d]
+
+            for n in range(er):
+                for xx in np.ndindex(*rows):
+                    xx = list(xx)
+                    xx.insert(d, nrows[d]+n)
+
+                    ii     = tuple(x+xp for x,xp in zip(xx, xpads))
+                    ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
+                    jj     = tuple( slice(x+d, x+d+2*p+1-e) for x,p,d,e in zip(xx, pads, diff, ee) )
+                    ndiags = [2*p + 1-e for p,e in zip(pads,ee)]
+                    kk     = [slice(None,diag) for diag in ndiags]
+                    ii_kk  = tuple( list(ii) + kk )
+
+                    for kk in np.ndindex( *ndiags ):
+                        values        = [mat[i,k] for mat,i,k in zip(mats, ii, kk)]
+                        M[(*ii, *kk)] = np.product(values)
+            new_nrows[d] += er
 
     def tosparse(self):
         return reduce(kron, (m.tosparse() for m in self.mats))
