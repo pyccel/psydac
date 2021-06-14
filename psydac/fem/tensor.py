@@ -159,21 +159,7 @@ class TensorFemSpace( FemSpace ):
         if not field.coeffs.ghost_regions_in_sync:
             field.coeffs.update_ghost_regions()
 
-        skip = False
         for (x, xlim, space) in zip( eta, self.eta_lims, self.spaces ):
-
-            domain = space.domain
-
-            if space.periodic:
-                while domain[0] > x:
-                    x += domain[1] - domain[0]
-                while domain[1] <= x:
-                    x -= domain[1] - domain[0]
-            
-            corner = domain[1] == xlim[1] and domain[1] == x
-            if (x >= xlim[1] or x < xlim[0]) and not(corner and not space.periodic):
-                skip = True
-                break
 
             knots  = space.knots
             degree = space.degree
@@ -193,44 +179,39 @@ class TensorFemSpace( FemSpace ):
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
                 basis *= space.scaling_array[span-degree : span+1]
-            
+
+            # Determine local span
+            wrap_x   = space.periodic and x > xlim[1]
+            loc_span = span - space.nbasis if wrap_x else span
+
             bases.append( basis )
-            index.append( slice( span-degree, span+1 ) )
+            index.append( slice( loc_span-degree, loc_span+1 ) )
 
-        if skip:
-            res = -np.inf
-        else:
-            # Get contiguous copy of the spline coefficients required for evaluation
-            index  = tuple( index )
-            coeffs = field.coeffs[index].copy()
+        # Get contiguous copy of the spline coefficients required for evaluation
+        index  = tuple( index )
+        coeffs = field.coeffs[index].copy()
+        if weights:
+            coeffs *= weights[index]
 
-            if weights:
-                coeffs *= weights[index]
+        # Evaluation of multi-dimensional spline
+        # TODO: optimize
 
-            # Evaluation of multi-dimensional spline
-            # TODO: optimize
-            # Option 1: contract indices one by one and store intermediate results
-            #   - Pros: small number of Python iterations = ldim
-            #   - Cons: we create ldim-1 temporary objects of decreasing size
-            #
-            res = coeffs
-            for basis in bases[::-1]:
-                # print(f'{self.vector_space.cart.comm.rank} {eta} {res.shape} {basis.shape}')
-                res = np.tensordot( res, basis, axes=((-1,),(0,)) )
+        # Option 1: contract indices one by one and store intermediate results
+        #   - Pros: small number of Python iterations = ldim
+        #   - Cons: we create ldim-1 temporary objects of decreasing size
+        #
+        res = coeffs
+        for basis in bases[::-1]:
+            res = np.dot( res, basis )
 
-    #        # Option 2: cycle over each element of 'coeffs' (touched only once)
-    #        #   - Pros: no temporary objects are created
-    #        #   - Cons: large number of Python iterations = number of elements in 'coeffs'
-    #        #
-    #        res = 0.0
-    #        for idx,c in np.ndenumerate( coeffs ):
-    #            ndbasis = np.prod( [b[i] for i,b in zip( idx, bases )] )
-    #            res    += c * ndbasis
-
-        if self.vector_space.parallel:
-            # only on one rank, skip should be false
-            mpi_comm = self.vector_space.cart.comm
-            res = mpi_comm.allreduce( res, MPI.MAX )
+#        # Option 2: cycle over each element of 'coeffs' (touched only once)
+#        #   - Pros: no temporary objects are created
+#        #   - Cons: large number of Python iterations = number of elements in 'coeffs'
+#        #
+#        res = 0.0
+#        for idx,c in np.ndenumerate( coeffs ):
+#            ndbasis = np.prod( [b[i] for i,b in zip( idx, bases )] )
+#            res    += c * ndbasis
 
         return res
 
