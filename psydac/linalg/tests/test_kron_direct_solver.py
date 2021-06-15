@@ -153,7 +153,7 @@ def test_direct_solvers(seed, n, p, P, nrhs, direct_solver, transposed):
     solver = direct_solver(A)
 
     # vector to solve for (Y)
-    Y_glob = np.stack([random_vectordata(seed + i, [n]) for i in range(nrhs)], axis=0).T
+    Y_glob = np.stack([random_vectordata(seed + i, [n]) for i in range(nrhs)], axis=0)
 
     # ref solve
     preC = A.tosparse().tocsc()
@@ -163,17 +163,17 @@ def test_direct_solvers(seed, n, p, P, nrhs, direct_solver, transposed):
 
     C_op  = splu(C)
 
-    X_glob = C_op.solve(Y_glob)
+    X_glob = C_op.solve(Y_glob.T).T
 
     # new vector allocation
     X_glob2 = solver.solve(Y_glob, transposed=transposed)
 
     # solve with out vector
-    X_glob3 = Y_glob.T.copy().T
+    X_glob3 = Y_glob.copy()
     X_glob4 = solver.solve(Y_glob, out=X_glob3, transposed=transposed)
 
     # solve in-place
-    X_glob5 = Y_glob.T.copy().T
+    X_glob5 = Y_glob.copy()
     X_glob6 = solver.solve(X_glob5, out=X_glob5, transposed=transposed)
 
     # compare results
