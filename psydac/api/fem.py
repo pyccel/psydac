@@ -36,10 +36,6 @@ __all__ = (
     'DiscreteSumForm',
 )
 
-def compute_diag_len(p, md, mc):
-    n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
-    n = n-np.minimum(0, n-p)+p+1
-    return n.astype('int')
 #==============================================================================
 def collect_spaces(space, *args):
     """
@@ -81,7 +77,18 @@ def collect_spaces(space, *args):
             args = [[e[0]] for e in args]
 
     return args
+#==============================================================================
+def compute_diag_len(p, md, mc):
+    n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
+    n = n-np.minimum(0, n-p)+p+1
+    return n.astype('int')
 
+def get_quad_order(Vh):
+    if isinstance(Vh, ProductFemSpace):
+        return get_quad_order(Vh.spaces[0])
+    return tuple([g.weights.shape[1] for g in Vh.quad_grids])
+
+#==============================================================================
 def construct_test_space_arguments(basis_values):
     space          = basis_values.space
     test_basis     = basis_values.basis
@@ -115,6 +122,7 @@ def construct_trial_space_arguments(basis_values):
     pads          = [p*m for p,m in zip(pads, multiplicity)]
     return trial_basis, trial_degrees, pads
 
+#==============================================================================
 def construct_quad_grids_arguments(grid):
     points         = grid.points
     weights        = grid.weights

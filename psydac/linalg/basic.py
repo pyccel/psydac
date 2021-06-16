@@ -144,11 +144,11 @@ class Matrix( LinearOperator ):
     # Deferred methods
     #-------------------------------------
     @abstractmethod
-    def toarray( self ):
+    def toarray( self, order='C' ):
         """ Convert to Numpy 2D array. """
 
     @abstractmethod
-    def tosparse( self ):
+    def tosparse( self, order='C' ):
         """ Convert to any Scipy sparse matrix format. """
 
     @abstractmethod

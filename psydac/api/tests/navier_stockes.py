@@ -111,7 +111,7 @@ def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
     l2norm_du_h = discretize(l2norm_du, domain_h, V1h, backend=PSYDAC_BACKEND_GPYCCEL)
     l2norm_dp_h = discretize(l2norm_dp, domain_h, V2h, backend=PSYDAC_BACKEND_GPYCCEL)
 
-    x0 = equation_h.compute_dirichlet_bd_conditions()
+    x0 = equation_h.boundary_equation.solve()
 
     # First guess: zero solution
     u_h = FemField(V1h)
