@@ -506,6 +506,7 @@ def greville( knots, degree, periodic ):
         Abscissas of all Greville points.
 
     """
+
     T = knots
     p = degree
     n = len(T)-2*p-1 if periodic else len(T)-p-1
@@ -584,7 +585,7 @@ def elements_spans( knots, degree ):
     return spans
 
 #===============================================================================
-def make_knots( breaks, degree, periodic ):
+def make_knots( breaks, degree, periodic, multiplicity=1 ):
     """
     Create spline knots from breakpoints, with appropriate boundary conditions.
     Let p be spline degree. If domain is periodic, knot sequence is extended
@@ -602,6 +603,9 @@ def make_knots( breaks, degree, periodic ):
 
     periodic : bool
         True if domain is periodic, False otherwise.
+
+    multiplicity: int
+        multiplicity of the knots in the knot sequence
 
     Result
     ------
@@ -621,16 +625,19 @@ def make_knots( breaks, degree, periodic ):
         assert len(breaks) > degree
 
     p = degree
-    T = np.zeros( len(breaks)+2*p )
-    T[p:-p] = breaks
+    T = np.zeros( multiplicity*len(breaks[1:-1])+2+2*p )
+
+    T[p+1:-p-1] = np.repeat(breaks[1:-1], multiplicity)
+    T[p]        = breaks[ 0]
+    T[-p-1]     = breaks[-1]
 
     if periodic:
         period = breaks[-1]-breaks[0]
         T[0:p] = [xi-period for xi in breaks[-p-1:-1 ]]
         T[-p:] = [xi+period for xi in breaks[   1:p+1]]
     else:
-        T[0:p] = breaks[ 0]
-        T[-p:] = breaks[-1]
+        T[0:p+1] = breaks[ 0]
+        T[-p-1:] = breaks[-1]
 
     return T
 
@@ -671,7 +678,6 @@ def elevate_knots(knots, degree, periodic):
     else:
         left  = knots[0]
         right = knots[-1]
-
     return np.array([left, *knots, right])
 
 #==============================================================================

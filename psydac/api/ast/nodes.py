@@ -844,9 +844,13 @@ class BlockStencilMatrixLocalBasis(BlockMatrixNode):
     """
     used to describe local dof over an element as a block stencil matrix
     """
-    def __new__(cls, trials, tests, trials_multiplicity, expr, dim, tag=None, outer=None):
+    def __new__(cls, trials, tests, expr, dim, tag=None, outer=None,
+                     tests_degree=None, trials_degree=None,
+                     tests_multiplicity=None, trials_multiplicity=None):
 
-        pads = Pads(tests, trials)
+        pads = Pads(tests, trials, tests_degree, trials_degree,
+                    tests_multiplicity, trials_multiplicity)
+
         rank = 2*dim
         tag  = tag or random_string( 6 )
         obj  = Basic.__new__(cls, pads, rank, trials_multiplicity, tag, expr)
@@ -1053,7 +1057,8 @@ class Span(ScalarNode):
 class Pads(ScalarNode):
     """
     """
-    def __new__(cls, tests, trials=None):
+    def __new__(cls, tests, trials=None, tests_degree=None, trials_degree=None,
+                    tests_multiplicity=None, trials_multiplicity=None):
         for target in tests:
             if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
                 raise TypeError('Expecting a scalar/vector test function')
@@ -1061,7 +1066,12 @@ class Pads(ScalarNode):
             for target in trials:
                 if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
                     raise TypeError('Expecting a scalar/vector test function')
-        return Basic.__new__(cls, tests, trials)
+        obj = Basic.__new__(cls, tests, trials)
+        obj._tests_degree = tests_degree
+        obj._trials_degree = trials_degree
+        obj._tests_multiplicity = tests_multiplicity
+        obj._trials_multiplicity = trials_multiplicity
+        return obj
 
     @property
     def tests(self):
@@ -1070,6 +1080,22 @@ class Pads(ScalarNode):
     @property
     def trials(self):
         return self._args[1]
+
+    @property
+    def tests_degree(self):
+        return self._tests_degree
+
+    @property
+    def trials_degree(self):
+        return self._trials_degree
+
+    @property
+    def tests_multiplicity(self):
+        return self._tests_multiplicity
+
+    @property
+    def trials_multiplicity(self):
+        return self._trials_multiplicity
 
 #==============================================================================
 class Evaluation(BaseNode):

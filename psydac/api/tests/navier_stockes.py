@@ -74,7 +74,8 @@ def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
     l = LinearForm((v, q), integral(domain, dot(Transpose(grad(u))*u, v) + inner(grad(u), grad(v)) - div(u)*q - p*div(v) - dot(f, v)) )
 
     boundary = Union(*[domain.get_boundary(**kw) for kw in get_boundaries(1,2)])
-    bc = EssentialBC(du, ue, boundary)
+    bc       = EssentialBC(du, ue, boundary)
+
     equation = find((du, dp), forall=(v, q), lhs=a((du, dp), (v, q)), rhs=l(v, q), bc=bc)
 
     # Define (abstract) norms
@@ -90,15 +91,13 @@ def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
     knots1 = np.array([0, 0, 0, 1.0000, 1.0000, 1.0000])
     knots2 = np.array([0, 0, 0, 1.0000, 1.0000, 1.0000])
 
-    knots1,knots2 = refine_knots([knots1, knots2], ncells=ncells, degree=degree, multiplicity=[2,2])
+    knots1, knots2 = refine_knots([knots1, knots2], ncells=ncells, degree=degree, multiplicity=[2,2])
     knots  = {domain.name:[knots1, knots2]}
     
     # ... discrete spaces
     V1h = discretize(V1, domain_h, degree=degree, knots=knots)
     V2h = discretize(V2, domain_h, degree=degree, knots=knots)
     Xh  = V1h*V2h
-
-    x = BlockVector(Xh.vector_space)
 
     # ... discretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh], backend=PSYDAC_BACKEND_GPYCCEL)
@@ -133,9 +132,12 @@ def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
 
         M = a_h.assemble(u=u_h, p=p_h)
         b = l_h.assemble(u=u_h, p=p_h)
+
         apply_essential_bc(M, *equation_h.bc)
         apply_essential_bc(b, *equation_h.bc)
+
         x,info = minres(M.tosparse().tocsr(), b.toarray(), tol=1e-9)
+
         x = array_to_stencil(x, b.space)
 
         du_h[0].coeffs[:] = x[0][:]

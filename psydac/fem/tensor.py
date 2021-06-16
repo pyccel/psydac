@@ -603,9 +603,15 @@ class TensorFemSpace( FemSpace ):
 
         return fields
 
-    def reduce_degree(self, axes, basis='B'):
+    def reduce_degree(self, axes, multiplicity=None, basis='B'):
         if isinstance(axes, int):
             axes = [axes]
+
+        if isinstance(multiplicity, int):
+            multiplicity = [multiplicity]
+
+        if multiplicity is None:
+            multiplicity = [1]*len(axes)
 
         v = self._vector_space
 
@@ -613,10 +619,16 @@ class TensorFemSpace( FemSpace ):
 
         for axis in axes:
             space = spaces[axis]
+            m     = space.multiplicity
+
+            if m > 1:
+                m = m-1
+
             reduced_space = SplineSpace(
                 degree    = space.degree - 1,
                 pads      = space.degree,
                 grid      = space.breaks,
+                multiplicity = m,
                 periodic  = space.periodic,
                 dirichlet = space.dirichlet,
                 basis     = basis
@@ -636,7 +648,7 @@ class TensorFemSpace( FemSpace ):
         else:
             tensor_vec = TensorFemSpace(*spaces)
             v = self._vector_space
-            tensor_vec._vector_space = StencilVectorSpace(npts, v.pads, v.periods)
+            tensor_vec._vector_space = StencilVectorSpace(npts, v.pads, v.periods, multiplicity=tensor_vec.multiplicity)
             v = tensor_vec._vector_space
 
         tensor_vec._spaces = tuple(spaces)

@@ -53,7 +53,7 @@ class SplineSpace( FemSpace ):
         Set to "M" for M-splines (have unit integrals)
 
     """
-    def __init__( self, degree, knots=None, grid=None,
+    def __init__( self, degree, knots=None, grid=None, multiplicity=None,
                   periodic=False, dirichlet=(False, False), basis='B', pads=None ):
 
         if basis not in ['B', 'M']:
@@ -66,7 +66,10 @@ class SplineSpace( FemSpace ):
             raise ValueError('Either knots or grid must be provided.')
 
         if knots is None:
-            knots = make_knots( grid, degree, periodic )
+            if multiplicity is None:
+                multiplicity = 1
+
+            knots = make_knots( grid, degree, periodic, multiplicity )
 
         if grid is None:
             grid = breakpoints(knots, degree)
@@ -434,8 +437,8 @@ class SplineSpace( FemSpace ):
     def draw(self):
         from scipy.interpolate import BSpline
         import matplotlib.pyplot as plt
-        n = self.nbasis
         d = self.degree
+        n = self.nbasis + d*self.periodic
         knots = self.knots
         fig, ax = plt.subplots()
         xx = np.linspace(knots[0], knots[-1], 200)

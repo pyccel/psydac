@@ -1,3 +1,7 @@
+# coding: utf-8
+
+import numpy as np
+
 from collections import OrderedDict
 
 from sympy import IndexedBase, Indexed
@@ -385,20 +389,6 @@ class Parser(object):
             f_pads     = args.pop('f_pads', [])
             f_args     = (*f_basis, *f_span, *f_degrees, *f_pads, *f_coeffs)
 
-        inits = []
-        if l_pads:
-            tests = l_pads.tests
-            trials = l_pads.trials
-            l_pads = self._visit(l_pads , **kwargs)
-            for i,v in enumerate(expand(tests)):
-                for j,u in enumerate(expand(trials)):
-                    test_ln = lengths_tests[v] if v in lengths_tests else lengths_tests[v.base]
-                    trial_ln = lengths_trials[u] if u in lengths_trials else lengths_trials[u.base]
-                    test_ln = self._visit(test_ln, **kwargs)
-                    trial_ln = self._visit(trial_ln, **kwargs)
-                    for stmt in zip(l_pads[i,j], test_ln, trial_ln):
-                        inits += [Assign(stmt[0], Function('max')(tuple(stmt[1:])))]
-
         args = [*tests_basis, *trial_basis, *g_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *lengths, *g_pads]
 
         if isinstance(mats[0], (LocalElementBasis, GlobalElementBasis)):
@@ -427,6 +417,7 @@ class Parser(object):
 
         body = flatten(tuple(self._visit(i, **kwargs) for i in expr.body))
 
+        inits = []
         for k,i in self.shapes.items():
             var = self.variables[k]
             if var in arguments:
@@ -752,8 +743,13 @@ class Parser(object):
         return target
 
     def _visit_Pads(self, expr, **kwargs):
-        dim = self.dim
-        tests  = expand(expr.tests)
+        dim           = self.dim
+        tests         = expand(expr.tests)
+        tests_degree  = expr.tests_degree
+        trials_degree = expr.trials_degree
+        m_tests       = expr.tests_multiplicity
+        m_trials      = expr.trials_multiplicity
+
         if expr.trials is not None:
             trials = expand(expr.trials)
             pads = Matrix.zeros(len(tests),len(trials))
@@ -1111,18 +1107,31 @@ class Parser(object):
             rows = self._visit(index_dof_test)
             outer = self._visit(target.outer) if target.outer else [0]*dim
             cols = self._visit(index_dof_trial)
-            pads = self._visit_Pads(target.pads)
+            pads = target.pads
+            tests  = expand(target._tests)
             trials = expand(target._trials)
 
             targets = self._visit_BlockStencilMatrixLocalBasis(target)
             for i in range(targets.shape[0]):
                 for j in range(targets.shape[1]):
-                    padding  = pads[i,j]
-                    if trials[j] in target.trials_multiplicity:
-                        multiplicity = target.trials_multiplicity[trials[j]]
+                    if trials[j] in pads.trials_multiplicity:
+                        trials_m  = pads.trials_multiplicity[trials[j]]
+                        trials_d  = pads.trials_degree[trials[j]]
                     else:
-                        multiplicity = target.trials_multiplicity[trials[j].base]
-                    indices = tuple(rows) + tuple(cols[k]+(padding[k]-outer[k])*multiplicity[k] for k in range(dim))
+                        trials_m = pads.trials_multiplicity[trials[j].base]
+                        trials_d = pads.trials_degree[trials[j].base]
+
+                    if tests[i] in pads.tests_multiplicity:
+                        tests_m  = pads.tests_multiplicity[tests[i]]
+                        tests_d  = pads.tests_degree[tests[i]]
+                    else:
+                        tests_m = pads.tests_multiplicity[tests[i].base]
+                        tests_d = pads.tests_degree[tests[i].base]
+
+                    pp1     = [max(tests_d[k], trials_d[k]) for k in range(dim)]
+                    pp2     = [int((np.ceil((pp1[k]+1)/tests_m[k])-1)*trials_m[k]) for k in range(dim)]
+                    padding = [p2-min(0,p2-p1) for p1,p2 in zip(pp1, pp2)]
+                    indices = tuple(rows) + tuple(cols[k]+padding[k]-outer[k]*trials_m[k] for k in range(dim))
                     targets[i,j] = targets[i,j][indices]
             return targets
 

@@ -535,7 +535,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     # ...........................................................................................
     geo        = GeometryExpressions(mapping, nderiv)
     g_coeffs   = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
-    l_mats     = BlockStencilMatrixLocalBasis(trials, tests, m_trials, terminal_expr, dim, tag)
+    l_mats     = BlockStencilMatrixLocalBasis(trials, tests, terminal_expr, dim, tag)
     g_mats     = BlockStencilMatrixGlobalBasis(trials, tests, pads, m_tests, terminal_expr, l_mats.tag)
     # ...........................................................................................
 
@@ -587,15 +587,15 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
             tests_degree   = OrderedDict((v,d_tests[v]['degrees'])        for v in sub_tests)
             trials_degrees = OrderedDict((u,d_trials[u]['degrees'])       for u in sub_trials)
 
-            l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials, sub_tests, m_trials, sub_terminal_expr, dim, l_mats.tag)
-
-
             if all(a==1 for a in m_tests[sub_tests[0]]) and False:
 
                 stmts = []
                 for v in sub_tests+sub_trials:
                     stmts += construct_logical_expressions(v, nderiv)
 
+                l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials, sub_tests, sub_terminal_expr, dim, l_mats.tag,
+                                                           tests_degree=tests_degree, trials_degree=trials_degrees,
+                                                           tests_multiplicity=m_tests, trials_multiplicity=m_trials)
                 # Instructions needed to retrieve the precomputed values of the
                 # fields (and their derivatives) at a single quadrature point
                 stmts += flatten([eval_field.inits for eval_field in eval_fields])
@@ -619,7 +619,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 g_stmts += [stmts]
 
             else:
-                g_stmts += [Reset(l_sub_mats)]
+                l_stmts = []
                 mask_inner = [[False, True] for i in range(dim)]
                 for mask_inner_i in product(*mask_inner):
                     mask_inner_i = Tuple(*mask_inner_i)
@@ -638,7 +638,10 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                     outer = Tuple(*[d//m for d,m in zip(tests_degree[sub_tests[0]], multiplicity)])
                     outer = TensorAdd(TensorMul(ind_outer_dof_test, not_mask_inner_i),TensorMul(outer, mask_inner_i))
 
-                    l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials, sub_tests, m_trials, sub_terminal_expr, dim, l_mats.tag, outer=outer)
+                    l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials, sub_tests, sub_terminal_expr, dim, l_mats.tag, outer=outer,
+                                                               tests_degree=tests_degree, trials_degree=trials_degrees,
+                                                              tests_multiplicity=m_tests, trials_multiplicity=m_trials)
+
                     loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
                     loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr), ElementOf(l_sub_mats), loop)
 
@@ -655,8 +658,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                     loop  = Loop((expr,), ind_inner_dof_test, [loop], mask=mask_inner_i)
                     loop  = Loop((), ind_outer_dof_test, [loop])
 
-                    g_stmts += [loop] 
-                
+                    l_stmts += [loop]
+
+                g_stmts += [Reset(l_sub_mats), *l_stmts]
     #=========================================================end kernel=========================================================
 
     # ... loop over global elements

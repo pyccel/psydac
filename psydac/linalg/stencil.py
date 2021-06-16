@@ -682,15 +682,19 @@ class StencilMatrix( Matrix ):
 
         # pads are <= gpads
         diff = [gp-p for gp,p in zip(gpads, pads)]
+        ndiags, starts = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
+        starts = [p*m+p+1-n for p,m,n in zip(gpads, dm, ndiags)]
+
         for xx in np.ndindex( *nrows ):
 
             ii    = tuple( mi*pi+x for mi,pi,x in zip(cm, gpads, xx) )
-            jj    = tuple( slice(d+x//mi*mj,d+x//mi*mj+p+1+mj*p) for x,mi,mj,p,d in zip(xx,cm,dm,pads,diff) )
+            jj    = tuple( slice(s-d+x//mi*mj,s-d+x//mi*mj+n) for x,mi,mj,s,n,d in zip(xx,cm,dm,starts,ndiags,diff) )
             ii_kk = tuple( list(ii) + kk )
 
             out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
 
-        new_nrows = nrows.copy()
+        new_nrows = list(nrows).copy()
+
         for d,er in enumerate(nrows_extra):
 
             rows = new_nrows.copy()
@@ -703,12 +707,11 @@ class StencilMatrix( Matrix ):
 
                     ii     = tuple(mi*pi + x for mi,pi,x in zip(cm, gpads, xx))
                     ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
-                    jj     = tuple( slice(x+d//mi*mj, x+d+p+1+mj*p-e) for x,mi,mj,p,d,e in zip(xx, cm, dm, pads, diff, ee) )
-                    ndiags = [p + 1 +mj*p-e for p,mj,e in zip(pads,dm,ee)]
-                    kk     = [slice(None,diag) for diag in ndiags]
+                    jj     = tuple( slice(s-d+x//mi*mj, s+x//mi*mj-d+n-e) for x,mi,mj,d,e,s,n in zip(xx, cm, dm, diff, ee, starts, ndiags) )
+                    kk     = [slice(None,n-e) for n,e in zip(ndiags, ee)]
                     ii_kk  = tuple( list(ii) + kk )
-
                     out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
+
             new_nrows[d] += er
 
     # ...
@@ -754,16 +757,28 @@ class StencilMatrix( Matrix ):
 
         #M[i,j-i+p]
         #Mt[j,i-j+p]
+
+
         pp     = pads
         ndiags, starts = list(zip(*[compute_diag_len(p,mi,mj, return_padding=True) for p,mi,mj in zip(pp,cm,dm)]))
-        nn             = [compute_diag_len(p,mj,mi) for p,mi,mj in zip(pp,cm,dm)]
+        nn,starts_2    = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pp,cm,dm)]))
 
         diff   = [gp-p for gp,p in zip(gpads, pp)]
         ndim   = len(nrows)
 
-        ssl   = [s-p+p//max(1,mj//mi)+ (mi//mj if mi!=mj else 0) for s,p,mi,mj in zip(starts,pp,cm,dm)]
-        ssi   = [(mj*p-mj*(p//mi) if mi<=mj else 0) + (mi//mj if mi>mj else 0) for mi,mj,p,d in zip(cm, dm, pp, diff)]
-        ssk   = [n-1 + (-p+mj*(p//mi) if mi<=mj else 0) + (-1 if mi>mj else 0) for mj,mi,n,p in zip(dm, cm, nn, pp)]
+        ssl   = [(s if mi>mj else 0) + (s%mi+mi//mj if mi<mj else 0)+(s if mi==mj else 0)\
+                 for s,p,mi,mj in zip(starts,pp,cm,dm)]
+
+        ssi   = [(mi*p-mi*(int(np.ceil((p+1)/mj))-1) if mi>mj else 0)+\
+                 (mi*p-mi*(p//mi)+ d*(mi-1) if mi<mj else 0)+\
+                 (mj*p-mj*(p//mi)+ d*(mi-1) if mi==mj else 0)\
+                  for mi,mj,p,d in zip(cm, dm, pp, diff)]
+
+        ssk   = [n-1\
+                 + (-(p%mj) if mi>mj else 0)\
+                 + (-p+mj*(p//mi) if mi<mj  else 0)\
+                 + (-p+mj*(p//mi) if mi==mj else 0)\
+                 for mi,mj,n,p in zip(cm, dm, nn, pp)]
 
         for xx in np.ndindex( *nrows ):
 
@@ -773,7 +788,6 @@ class StencilMatrix( Matrix ):
 
                 ii = tuple( s + mi*(x//mj) + l + d for mj,mi,x,l,d,s in zip(dm,cm, xx, ll, diff, ssi))
                 kk = tuple( s + x%mj-mj*(l//mi) for mj,mi,l,x,s in zip(dm, cm, ll, xx, ssk))
-
                 ll = tuple(l+s for l,s in zip(ll, ssl))
 
                 if all(k<n  and k>-1 for k,n in zip(kk,nn)) and\

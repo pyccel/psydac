@@ -436,8 +436,10 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     global_mats[0,0] = StencilMatrix(trial_space, test_space, pads=tuple(pads), backend=backend)
 
-                m                  = global_mats[0,0].domain.multiplicity
-                element_mats[0,0]  = np.empty((*(test_degree+1),*(pads+1 +m*pads)))
+                md                 = global_mats[0,0].domain.multiplicity
+                mc                 = global_mats[0,0].codomain.multiplicity
+                diag               = compute_diag_len(pads, md, mc)
+                element_mats[0,0]  = np.empty((*(test_degree+1),*diag))
                 self._matrix       = global_mats[0,0]
         return element_mats.values(), global_mats.values()
 
