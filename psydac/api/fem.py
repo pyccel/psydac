@@ -197,12 +197,15 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_ext = None
 
         #...
-
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
         kwargs['discrete_space']      = (trial_space, test_space)
-        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
+        space_quad_order = [qo - 1 for qo in get_quad_order(self.spaces[1])]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
 
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(self.spaces[1]))
+        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
         #...
         grid              = QuadratureGrid( test_space, axis, test_ext )
         self._grid        = grid
@@ -492,7 +495,14 @@ class DiscreteLinearForm(BasicDiscrete):
         kwargs['discrete_space']      = test_space
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
-        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
+
+        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(self.space))
+
+        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
         if not isinstance(target, Boundary):
             ext  = None
@@ -743,7 +753,13 @@ class DiscreteFunctional(BasicDiscrete):
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
 
-        BasicDiscrete.__init__(self, expr, kernel_expr, **kwargs)
+        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(self.space))
+
+        BasicDiscrete.__init__(self, expr, kernel_expr,  quad_order=quad_order, **kwargs)
 
         # ...
         grid             = QuadratureGrid( self.space,  axis=axis, ext=ext)
@@ -889,8 +905,8 @@ class DiscreteSumForm(BasicDiscrete):
     def free_args(self):
         return self._free_args
 
-    def assemble(self, **kwargs):
-        M = self.forms[0].assemble(**kwargs)
+    def assemble(self, *, reset=True, **kwargs):
+        M = self.forms[0].assemble(reset=reset, **kwargs)
         for form in self.forms[1:]:
             M = form.assemble(reset=False, **kwargs)
         return M

@@ -41,6 +41,7 @@ from gelato.expr import gelatize
 from .basic      import SplBasic
 from .utilities  import random_string
 from .utilities  import build_pythran_types_header, variables
+from .utilities  import build_pyccel_types_decorator
 from .utilities  import is_mapping
 from .utilities  import math_atoms_as_str
 from .evaluation import EvalArrayMapping, EvalArrayField
@@ -559,7 +560,7 @@ class GltKernel(SplBasic):
         decorators = {}
         header = None
         if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_types_decorator(func_args)}
+            decorators = {'types': build_pyccel_types_decorator(func_args)}
         elif self.backend['name'] == 'numba':
             decorators = {'jit':[]}
         elif self.backend['name'] == 'pythran':

@@ -4,6 +4,7 @@
 
 import os
 from collections import OrderedDict
+import warnings
 
 import numpy as np
 from scipy.sparse import coo_matrix
@@ -628,7 +629,8 @@ class StencilMatrix( Matrix ):
         args['dm']           = tuple(V.multiplicity)
         args['cm']           = tuple(W.multiplicity)
 
-        self._args = args
+        self._dotargs_null = args
+        self._args = args.copy()
 
         self._func = self._dot
 
@@ -637,6 +639,7 @@ class StencilMatrix( Matrix ):
 
 #        if backend:
 #            self.set_backend(backend)
+
 
     #--------------------------------------
     # Abstract interface
@@ -824,6 +827,10 @@ class StencilMatrix( Matrix ):
     @property
     def pads( self ):
         return self._pads
+    
+    @property
+    def backend(self):
+        return self._backend
 
     # ...
     @property
@@ -847,7 +854,7 @@ class StencilMatrix( Matrix ):
 
     #...
     def copy( self ):
-        M = StencilMatrix( self.domain, self.codomain, self._pads )
+        M = StencilMatrix( self.domain, self.codomain, self._pads, self._backend )
         M._data[:] = self._data[:]
         M._func    = self._func
         M._args    = self._args
@@ -855,7 +862,7 @@ class StencilMatrix( Matrix ):
 
     #...
     def __mul__( self, a ):
-        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w = StencilMatrix( self._domain, self._codomain, self._pads, self._backend )
         w._data = self._data * a
         w._func = self._func
         w._args = self._args
@@ -864,7 +871,7 @@ class StencilMatrix( Matrix ):
 
     #...
     def __rmul__( self, a ):
-        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w = StencilMatrix( self._domain, self._codomain, self._pads, self._backend )
         w._data = a * self._data
         w._func = self._func
         w._args = self._args
@@ -881,7 +888,12 @@ class StencilMatrix( Matrix ):
         assert m._domain   is self._domain
         assert m._codomain is self._codomain
         assert m._pads     == self._pads
-        w = StencilMatrix(self._domain, self._codomain, self._pads)
+
+        if m._backend is not self._backend:
+            msg = 'Adding two matrices with different backends is ambiguous - defaulting to backend of first addend'
+            warnings.warn(msg, category=RuntimeWarning)
+        
+        w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend)
         w._data = self._data  +  m._data
         w._func = self._func
         w._args = self._args
@@ -894,7 +906,12 @@ class StencilMatrix( Matrix ):
         assert m._domain   is self._domain
         assert m._codomain is self._codomain
         assert m._pads     == self._pads
-        w = StencilMatrix(self._domain, self._codomain, self._pads)
+
+        if m._backend is not self._backend:
+            msg = 'Subtracting two matrices with different backends is ambiguous - defaulting to backend of the matrix we subtract from'
+            warnings.warn(msg, category=RuntimeWarning)
+
+        w = StencilMatrix(self._domain, self._codomain, self._pads, self._backend)
         w._data = self._data  -  m._data
         w._func = self._func
         w._args = self._args
@@ -928,7 +945,7 @@ class StencilMatrix( Matrix ):
 
     #...
     def __abs__( self ):
-        w = StencilMatrix( self._domain, self._codomain, self._pads )
+        w = StencilMatrix( self._domain, self._codomain, self._pads, self._backend )
         w._data = abs(self._data)
         w._func = self._func
         w._args = self._args
@@ -1314,58 +1331,66 @@ class StencilMatrix( Matrix ):
 
     def set_backend(self, backend):
         from psydac.api.ast.linalg import LinearOperatorDot
+        self._backend = backend
+        self._args = self._dotargs_null.copy()
 
-        if self.domain.parallel:
-            if self.domain == self.codomain:
-                # In this case nrows_extra[i] == 0 for all i
-                dot = LinearOperatorDot(self._ndim,
-                                backend=frozenset(backend.items()),
-                                nrows_extra = self._args['nrows_extra'],
-                                gpads=self._args['gpads'],
-                                pads=self._args['pads'])
+        if self._backend is None:
+            self._func = self._dot
 
-                nrows = self._args.pop('nrows')
+        else:
+            if self.domain.parallel:
+                if self.domain == self.codomain:
+                    # In this case nrows_extra[i] == 0 for all i
+                    dot = LinearOperatorDot(self._ndim,
+                                    backend=frozenset(backend.items()),
+                                    nrows_extra = self._args['nrows_extra'],
+                                    gpads=self._args['gpads'],
+                                    pads=self._args['pads'])
 
-                self._args.pop('nrows_extra')
-                self._args.pop('gpads')
-                self._args.pop('pads')
+                    nrows = self._args.pop('nrows')
 
-                for i in range(len(nrows)):
-                    self._args['n{i}'.format(i=i+1)] = nrows[i]
+                    self._args.pop('nrows_extra')
+                    self._args.pop('gpads')
+                    self._args.pop('pads')
+
+                    for i in range(len(nrows)):
+                        self._args['n{i}'.format(i=i+1)] = nrows[i]
+
+                else:
+                    dot = LinearOperatorDot(self._ndim,
+                                            backend=frozenset(backend.items()),
+                                            gpads=self._args['gpads'],
+                                            pads=self._args['pads'])
+
+                    nrows = self._args.pop('nrows')
+                    nrows_extra = self._args.pop('nrows_extra')
+
+                    self._args.pop('gpads')
+                    self._args.pop('pads')
+
+                    for i in range(len(nrows)):
+                        self._args['n{i}'.format(i=i+1)] = nrows[i]
+
+                    for i in range(len(nrows)):
+                        self._args['ne{i}'.format(i=i+1)] = nrows_extra[i]
 
             else:
                 dot = LinearOperatorDot(self._ndim,
                                         backend=frozenset(backend.items()),
+                                        nrows=tuple(self._args['nrows']),
+                                        nrows_extra=self._args['nrows_extra'],
                                         gpads=self._args['gpads'],
                                         pads=self._args['pads'])
-
-                nrows = self._args.pop('nrows')
-                nrows_extra = self._args.pop('nrows_extra')
-
+                self._args.pop('nrows')
+                self._args.pop('nrows_extra')
                 self._args.pop('gpads')
                 self._args.pop('pads')
 
-                for i in range(len(nrows)):
-                    self._args['n{i}'.format(i=i+1)] = nrows[i]
 
-                for i in range(len(nrows)):
-                    self._args['ne{i}'.format(i=i+1)] = nrows_extra[i]
+            self._args.pop('dm')
+            self._args.pop('cm')
+            self._func = dot.func
 
-        else:
-            dot = LinearOperatorDot(self._ndim,
-                                    backend=frozenset(backend.items()),
-                                    nrows=tuple(self._args['nrows']),
-                                    nrows_extra=self._args['nrows_extra'],
-                                    gpads=self._args['gpads'],
-                                    pads=self._args['pads'])
-            self._args.pop('nrows')
-            self._args.pop('nrows_extra')
-            self._args.pop('gpads')
-            self._args.pop('pads')
-
-        self._args.pop('dm')
-        self._args.pop('cm')
-        self._func = dot.func
 
 #===============================================================================
 # TODO [YG, 28.01.2021]:

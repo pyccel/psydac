@@ -14,10 +14,10 @@ from pyccel.ast.core      import For
 from pyccel.ast.core      import Assign
 from pyccel.ast.core      import Slice
 from pyccel.ast.core      import FunctionDef
-from pyccel.ast.utilities import build_types_decorator
 
 from .basic     import SplBasic
 from .utilities import build_pythran_types_header, variables
+from .utilities import build_pyccel_types_decorator
 from .utilities import rationalize_eval_mapping
 from .utilities import compute_atoms_expr_mapping
 from .utilities import compute_atoms_expr_field
@@ -174,7 +174,7 @@ class EvalArrayField(SplBasic):
         decorators = {}
         header = None
         if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_types_decorator(func_args)}
+            decorators = {'types': build_pyccel_types_decorator(func_args)}
         elif self.backend['name'] == 'numba':
             decorators = {'jit':[]}
         elif self.backend['name'] == 'pythran':
@@ -411,7 +411,7 @@ class EvalArrayMapping(SplBasic):
         decorators = {}
         header = None
         if self.backend['name'] == 'pyccel':
-            decorators = {'types': build_types_decorator(func_args)}
+            decorators = {'types': build_pyccel_types_decorator(func_args)}
         elif self.backend['name'] == 'numba':
             decorators = {'jit':[]}
         elif self.backend['name'] == 'pythran':

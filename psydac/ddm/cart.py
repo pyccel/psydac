@@ -358,10 +358,13 @@ class CartDecomposition():
         cart._global_starts = [None]*cart._ndims
         cart._global_ends   = [None]*cart._ndims
         for axis in range( cart._ndims ):
-            n =     cart.npts[axis]
-            d = cart._dims[axis]
-            cart._global_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
-            cart._global_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
+            # keep the old decomposition
+            cart._global_starts[axis] = self._global_starts[axis].copy()
+            cart._global_ends  [axis] = self._global_ends[axis].copy()
+
+            # adjust only the end of the last interval
+            m = cart._npts[axis]
+            cart._global_ends[axis][-1] = m-1
 
         return cart
 

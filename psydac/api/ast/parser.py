@@ -15,7 +15,6 @@ from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
 
 
-from pyccel.ast.utilities import build_types_decorator
 from pyccel.ast.core      import Assign, Product, AugAssign, For
 from pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
 from pyccel.ast.core      import Slice, String, ValuedArgument
@@ -79,6 +78,7 @@ from .fem import expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.utilities     import flatten
 from psydac.api.ast.utilities import build_pythran_types_header
+from psydac.api.ast.utilities import build_pyccel_types_decorator
 
 #==============================================================================
 # TODO move it
@@ -434,7 +434,7 @@ class Parser(object):
         imports = [Import('numpy', imports)]
 
         if self.backend['name'] == 'pyccel':
-            a = [String(str(i)) for i in build_types_decorator(arguments)]
+            a = [String(str(i)) for i in build_pyccel_types_decorator(arguments)]
             decorators = {'types': Function('types')(*a)}
         elif self.backend['name'] == 'numba':
             decorators = {'njit': Function('njit')(ValuedArgument(Symbol('fastmath'), self.backend['fastmath']))}

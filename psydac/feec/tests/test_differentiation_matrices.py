@@ -7,17 +7,337 @@ from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.vector       import ProductFemSpace
 
+from psydac.feec.derivatives import DirectionalDerivativeOperator
 from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
 from psydac.feec.derivatives import ScalarCurl_2D, VectorCurl_2D, Curl_3D
 from psydac.feec.derivatives import Divergence_2D, Divergence_3D
+
+from mpi4py                  import MPI
+
+#==============================================================================
+
+# these tests test the DirectionalDerivativeOperator structurally.
+# They do not check, if it really computes the derivatives
+# (this is done in the gradient etc. tests below already)
+def run_directional_derivative_operator(comm, domain, ncells, degree, periodic, direction, negative, transposed, seed, matrix_assembly=False):
+    # determinize tests
+    np.random.seed(seed)
+
+    breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
+
+    Ns = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
+                                  for d, g, p in zip(degree, breaks, periodic)]
+    
+    # original space
+    V0 = TensorFemSpace(*Ns, comm=comm)
+
+    # reduced space
+    V1 = V0.reduce_degree(axes=[direction], basis='M')
+
+    diffop = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative, transposed=transposed)
+
+    # some boundary, and transposed handling
+    vpads = np.array(V0.vector_space.pads, dtype=int)
+    pads = np.array(V1.vector_space.pads, dtype=int)
+
+    # transpose, if needed
+    if transposed:
+        V0, V1 = V1, V0
+    
+    counts = np.array(V1.vector_space.ends, dtype=int) - np.array(V1.vector_space.starts, dtype=int) + 1
+    diffadd = np.zeros((len(ncells),), dtype=int)
+    diffadd[direction] = 1
+
+    localslice = tuple([slice(p,-p) for p in V1.vector_space.pads])
+
+    # random vector, scaled-up data (with fixed seed)
+    v = V0.vector_space.zeros()
+    v._data[:] = np.random.random(v._data.shape) * 100
+    v.update_ghost_regions()
+
+    # compute reference solution (do it element-wise for now...)
+    # (but we only test small domains here)
+    ref = V1.vector_space.zeros()
+
+    outslice = tuple([slice(s, s+c) for s,c in zip(pads, counts)])
+    idslice = tuple([slice(s, s+c) for s,c in zip(vpads, counts)])
+    diffslice = tuple([slice(s+d, s+c+d) for s,c,d in zip(vpads, counts, diffadd)])
+    if transposed:
+        ref._data[idslice] -= v._data[outslice]
+        ref._data[diffslice] += v._data[outslice]
+
+        # we need to account for the ghost region write which diffslice does,
+        # i.e. the part which might be sent to another process, or even swapped to the other side
+        # since the ghost layers of v are updated, we update the data on the other side
+        # (also update_ghost_regions won't preserve the data we wrote there)
+        ref_restslice = [c for c in idslice]
+        ref_restslice[direction] = slice(vpads[direction], vpads[direction] + 1)
+        v_restslice = [c for c in outslice]
+        v_restslice[direction] = slice(pads[direction] - 1, pads[direction])
+        ref._data[tuple(ref_restslice)] += v._data[tuple(v_restslice)]
+    else:
+        ref._data[outslice] = v._data[diffslice] - v._data[idslice]
+    if negative:
+        ref._data[localslice] = -ref._data[localslice]
+    ref.update_ghost_regions()
+
+    # compute and compare
+
+    # case one: dot(v, out=None)
+    res1 = diffop.dot(v)
+    assert np.allclose(ref._data[localslice], res1._data[localslice])
+
+    # case two: dot(v, out=w)
+    out = V1.vector_space.zeros()
+    res2 = diffop.dot(v, out=out)
+
+    assert res2 is out
+    assert np.allclose(ref._data[localslice], res2._data[localslice])
+    
+    # flag to skip matrix assembly if it takes too long or fails
+    if matrix_assembly:
+        # case three: tokronstencil().tostencil().dot(v)
+        # (i.e. test matrix conversion)
+        matrix = diffop.tokronstencil().tostencil()
+        res3 = matrix.dot(v)
+        assert np.allclose(ref._data[localslice], res3._data[localslice])
+
+        # compare matrix assembly (in non-parallel case at least)
+        if not diffop.domain.parallel:
+            assert np.array_equal(diffop.toarray_nopads(), matrix.toarray(with_pads=False))
+
+    # case four: tosparse().dot(v._data)
+    res4 = diffop.tosparse().dot(v._data.flatten())
+    assert np.allclose(ref._data[localslice], res4.reshape(ref._data.shape)[localslice])
+
+def compare_diff_operators_by_matrixassembly(lo1, lo2):
+    m1 = lo1.tokronstencil().tostencil()
+    m2 = lo2.tokronstencil().tostencil()
+    m1.update_ghost_regions()
+    m2.update_ghost_regions()
+    assert np.allclose(m1._data, m2._data)
+
+def test_directional_derivative_operator_invalid_wrongsized1():
+    # test if we detect incorrectly-sized spaces
+    # i.e. V0.vector_space.npts != V1.vector_space.npts
+    # (NOTE: if periodic was [True,True], this test would most likely pass)
+
+    periodic = [False, False]
+    domain = [(0,1),(0,1)]
+    ncells = [8, 8]
+    degree = [3, 3]
+    direction = 0
+    negative = False
+
+    breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
+
+    Ns = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
+                                  for d, g, p in zip(degree, breaks, periodic)]
+    
+    # original space
+    V0 = TensorFemSpace(*Ns)
+
+    # reduced space
+    V1 = V0.reduce_degree(axes=[1], basis='M')
+
+    with pytest.raises(AssertionError):
+        _ = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
+
+def test_directional_derivative_operator_invalid_wrongspace2():
+    # test, if it fails when the pads are not the same
+    periodic = [False, False]
+    domain = [(0,1),(0,1)]
+    ncells = [8, 8]
+    degree = [3, 3]
+    direction = 0
+    negative = False
+
+    breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
+
+    Ns = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
+                                  for d, g, p in zip(degree, breaks, periodic)]
+    Ms = [SplineSpace(degree=d-1, grid=g, periodic=p, basis='B') \
+                                  for d, g, p in zip(degree, breaks, periodic)]
+    
+    # original space
+    V0 = TensorFemSpace(*Ns)
+
+    # reduced space
+    V1 = TensorFemSpace(*Ms)
+
+    with pytest.raises(AssertionError):
+        _ = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=negative)
+
+def test_directional_derivative_operator_transposition_correctness():
+    # interface tests, to see if negation and transposition work as their methods suggest
+
+    periodic = [False, False]
+    domain = [(0,1),(0,1)]
+    ncells = [8, 8]
+    degree = [3, 3]
+    direction = 0
+
+    breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
+
+    Ns = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
+                                  for d, g, p in zip(degree, breaks, periodic)]
+    
+    # original space
+    V0 = TensorFemSpace(*Ns)
+
+    # reduced space
+    V1 = V0.reduce_degree(axes=[0], basis='M')
+
+    diff = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=False)
+
+    # compare, if the transpose is actually correct
+    M = diff.tokronstencil().tostencil()
+    MT = diff.T.tokronstencil().tostencil()
+    assert np.allclose(M.T._data, MT._data)
+    assert np.allclose(M._data, MT.T._data)
+
+    sparseM = diff.tosparse().tocoo()
+    sparseMT = diff.T.tosparse().tocoo()
+
+    sparseM_T = sparseM.T.tocoo()
+    sparseMT_T = sparseMT.T.tocoo()
+
+    assert np.array_equal( sparseMT.col , sparseM_T.col  )
+    assert np.array_equal( sparseMT.row , sparseM_T.row  )
+    assert np.array_equal( sparseMT.data, sparseM_T.data )
+    assert np.array_equal( sparseM.col , sparseMT_T.col  )
+    assert np.array_equal( sparseM.row , sparseMT_T.row  )
+    assert np.array_equal( sparseM.data, sparseMT_T.data )
+
+def test_directional_derivative_operator_interface():
+    # interface tests, to see if negation and transposition work as their methods suggest
+
+    periodic = [False, False]
+    domain = [(0,1),(0,1)]
+    ncells = [8, 8]
+    degree = [3, 3]
+    direction = 0
+
+    breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
+
+    Ns = [SplineSpace(degree=d, grid=g, periodic=p, basis='B') \
+                                  for d, g, p in zip(degree, breaks, periodic)]
+    
+    # original space
+    V0 = TensorFemSpace(*Ns)
+
+    # reduced space
+    V1 = V0.reduce_degree(axes=[0], basis='M')
+
+    diff = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=False)
+    diffT = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=False, transposed=True)
+    diffN = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=True, transposed=False)
+    diffNT = DirectionalDerivativeOperator(V0.vector_space, V1.vector_space, direction, negative=True, transposed=True)
+
+    # compare all with all by assembling matrices
+    compare_diff_operators_by_matrixassembly(diff.T, diffT)
+    compare_diff_operators_by_matrixassembly(-diff, diffN)
+    compare_diff_operators_by_matrixassembly(-diff.T, diffNT)
+
+    compare_diff_operators_by_matrixassembly(diffT.T, diff)
+    compare_diff_operators_by_matrixassembly(-diffT, diffNT)
+    compare_diff_operators_by_matrixassembly(-diffT.T, diffN)
+
+    compare_diff_operators_by_matrixassembly(diffN.T, diffNT)
+    compare_diff_operators_by_matrixassembly(-diffN, diff)
+    compare_diff_operators_by_matrixassembly(-diffN.T, diffT)
+
+    compare_diff_operators_by_matrixassembly(diffNT.T, diffN)
+    compare_diff_operators_by_matrixassembly(-diffNT, diffT)
+    compare_diff_operators_by_matrixassembly(-diffNT.T, diff)
+
+@pytest.mark.parametrize('domain', [(0, 1), (-2, 3)])
+@pytest.mark.parametrize('ncells', [11, 37])
+@pytest.mark.parametrize('degree', [2, 3, 4, 5])
+@pytest.mark.parametrize('periodic', [True, False])
+@pytest.mark.parametrize('direction', [0])
+@pytest.mark.parametrize('negative', [True, False])
+@pytest.mark.parametrize('transposed', [True, False])
+@pytest.mark.parametrize('seed', [1,3])
+def test_directional_derivative_operator_1d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_directional_derivative_operator(None, [domain], [ncells], [degree], [periodic], direction, negative, transposed, seed, True)
+
+@pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              
+@pytest.mark.parametrize('ncells', [(10, 9), (27, 15)])              
+@pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 
+@pytest.mark.parametrize('periodic', [(True, False), (False, True)]) 
+@pytest.mark.parametrize('direction', [0,1])
+@pytest.mark.parametrize('negative', [True, False])
+@pytest.mark.parametrize('transposed', [True, False])
+@pytest.mark.parametrize('seed', [1,3])
+def test_directional_derivative_operator_2d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_directional_derivative_operator(None, domain, ncells, degree, periodic, direction, negative, transposed, seed, True) 
+
+@pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  
+@pytest.mark.parametrize('ncells', [(4, 5, 7)])                       
+@pytest.mark.parametrize('degree', [(3, 2, 5), (2, 4, 7)])            
+@pytest.mark.parametrize('periodic', [( True, False, False),          
+                                      (False,  True, False),
+                                      (False, False,  True)])
+@pytest.mark.parametrize('direction', [0,1,2])
+@pytest.mark.parametrize('negative', [True, False])
+@pytest.mark.parametrize('transposed', [True, False])
+@pytest.mark.parametrize('seed', [1,3])
+def test_directional_derivative_operator_3d_ser(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_directional_derivative_operator(None, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
+
+@pytest.mark.parametrize('domain', [(0, 1), (-2, 3)])
+@pytest.mark.parametrize('ncells', [29, 37])
+@pytest.mark.parametrize('degree', [2, 3, 4, 5])
+@pytest.mark.parametrize('periodic', [True, False])
+@pytest.mark.parametrize('direction', [0])
+@pytest.mark.parametrize('negative', [True, False])
+@pytest.mark.parametrize('transposed', [True, False])
+@pytest.mark.parametrize('seed', [1,3])
+@pytest.mark.parallel
+def test_directional_derivative_operator_1d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    # TODO: re-enable KroneckerStencilMatrix assembly here (fails right now sometimes when transposing)
+    run_directional_derivative_operator(MPI.COMM_WORLD, [domain], [ncells], [degree], [periodic], direction, negative, transposed, seed)
+
+@pytest.mark.parametrize('domain', [([-2, 3], [6, 8])])              
+@pytest.mark.parametrize('ncells', [(10, 11), (27, 15)])              
+@pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 
+@pytest.mark.parametrize('periodic', [(True, False), (False, True)]) 
+@pytest.mark.parametrize('direction', [0,1])
+@pytest.mark.parametrize('negative', [True, False])
+@pytest.mark.parametrize('transposed', [True, False])
+@pytest.mark.parametrize('seed', [1,3])
+@pytest.mark.parallel
+def test_directional_derivative_operator_2d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    # TODO: re-enable KroneckerStencilMatrix assembly here (fails right now sometimes when transposing)
+    run_directional_derivative_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
+
+@pytest.mark.parametrize('domain', [([-2, 3], [6, 8], [-0.5, 0.5])])  
+@pytest.mark.parametrize('ncells', [(5, 5, 7)])                       
+@pytest.mark.parametrize('degree', [(2, 2, 3)])            
+@pytest.mark.parametrize('periodic', [( True, False, False),          
+                                      (False,  True, False),
+                                      (False, False,  True)])
+@pytest.mark.parametrize('direction', [0,1,2])
+@pytest.mark.parametrize('negative', [True, False])
+@pytest.mark.parametrize('transposed', [True, False])
+@pytest.mark.parametrize('seed', [3])
+@pytest.mark.parallel
+def test_directional_derivative_operator_3d_par(domain, ncells, degree, periodic, direction, negative, transposed, seed):
+    run_directional_derivative_operator(MPI.COMM_WORLD, domain, ncells, degree, periodic, direction, negative, transposed, seed) 
+
+# (higher dimensions are not tested here for now)
 
 #==============================================================================
 @pytest.mark.parametrize('domain', [(0, 1), (-2, 3)])
 @pytest.mark.parametrize('ncells', [11, 37])
 @pytest.mark.parametrize('degree', [2, 3, 4, 5])
 @pytest.mark.parametrize('periodic', [True, False])
+@pytest.mark.parametrize('seed', [1,3])
 
-def test_Derivative_1D(domain, ncells, degree, periodic):
+def test_Derivative_1D(domain, ncells, degree, periodic, seed):
+    # determinize tests
+    np.random.seed(seed)
 
     breaks = np.linspace(*domain, num=ncells+1)
     knots  = make_knots(breaks, degree, periodic)
@@ -58,8 +378,11 @@ def test_Derivative_1D(domain, ncells, degree, periodic):
 @pytest.mark.parametrize('ncells', [(10, 9), (27, 15)])              # 2 cases
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
+@pytest.mark.parametrize('seed', [1,3])
 
-def test_Gradient_2D(domain, ncells, degree, periodic):
+def test_Gradient_2D(domain, ncells, degree, periodic, seed):
+    # determinize tests
+    np.random.seed(seed)
 
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
@@ -114,8 +437,11 @@ def test_Gradient_2D(domain, ncells, degree, periodic):
 @pytest.mark.parametrize('periodic', [( True, False, False),          # 3 cases
                                       (False,  True, False),
                                       (False, False,  True)])
+@pytest.mark.parametrize('seed', [1,3])
 
-def test_Gradient_3D(domain, ncells, degree, periodic):
+def test_Gradient_3D(domain, ncells, degree, periodic, seed):
+    # determinize tests
+    np.random.seed(seed)
 
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
@@ -169,8 +495,11 @@ def test_Gradient_3D(domain, ncells, degree, periodic):
 @pytest.mark.parametrize('ncells', [(10, 9), (27, 15)])              # 2 cases
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
+@pytest.mark.parametrize('seed', [1,3])
 
-def test_ScalarCurl_2D(domain, ncells, degree, periodic):
+def test_ScalarCurl_2D(domain, ncells, degree, periodic, seed):
+    # determinize tests
+    np.random.seed(seed)
 
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
@@ -237,8 +566,11 @@ def test_ScalarCurl_2D(domain, ncells, degree, periodic):
 @pytest.mark.parametrize('ncells', [(10, 9), (27, 15)])              # 2 cases
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
+@pytest.mark.parametrize('seed', [1,3])
 
-def test_VectorCurl_2D(domain, ncells, degree, periodic):
+def test_VectorCurl_2D(domain, ncells, degree, periodic, seed):
+    # determinize tests
+    np.random.seed(seed)
 
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
@@ -297,8 +629,11 @@ def test_VectorCurl_2D(domain, ncells, degree, periodic):
 @pytest.mark.parametrize('periodic', [( True, False, False),          # 3 cases
                                       (False,  True, False),
                                       (False, False,  True)])
+@pytest.mark.parametrize('seed', [1,3])
 
-def test_Curl_3D(domain, ncells, degree, periodic):
+def test_Curl_3D(domain, ncells, degree, periodic, seed):
+    # determinize tests
+    np.random.seed(seed)
 
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
@@ -378,8 +713,11 @@ def test_Curl_3D(domain, ncells, degree, periodic):
 @pytest.mark.parametrize('ncells', [(10, 9), (27, 15)])              # 2 cases
 @pytest.mark.parametrize('degree', [(3, 2), (4, 5)])                 # 2 cases
 @pytest.mark.parametrize('periodic', [(True, False), (False, True)]) # 2 cases
+@pytest.mark.parametrize('seed', [1,3])
 
-def test_Divergence_2D(domain, ncells, degree, periodic):
+def test_Divergence_2D(domain, ncells, degree, periodic, seed):
+    # determinize tests
+    np.random.seed(seed)
 
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
@@ -447,8 +785,11 @@ def test_Divergence_2D(domain, ncells, degree, periodic):
 @pytest.mark.parametrize('periodic', [( True, False, False),          # 3 cases
                                       (False,  True, False),
                                       (False, False,  True)])
+@pytest.mark.parametrize('seed', [1,3])
 
-def test_Divergence_3D(domain, ncells, degree, periodic):
+def test_Divergence_3D(domain, ncells, degree, periodic, seed):
+    # determinize tests
+    np.random.seed(seed)
 
     # Compute breakpoints along each direction
     breaks = [np.linspace(*lims, num=n+1) for lims, n in zip(domain, ncells)]
@@ -518,54 +859,61 @@ def test_Divergence_3D(domain, ncells, degree, periodic):
 #==============================================================================
 if __name__ == '__main__':
 
-    test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=False)
-    test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=True)
+    test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=False, seed=1)
+    test_Derivative_1D(domain=[0, 1], ncells=12, degree=3, periodic=True, seed=1)
 
     test_Gradient_2D(
         domain   = ([0, 1], [0, 1]),
         ncells   = (10, 15),
         degree   = (3, 2),
-        periodic = (False, True)
+        periodic = (False, True),
+        seed     = 1
     )
 
     test_Gradient_3D(
         domain   = ([0, 1], [0, 1], [0, 1]),
         ncells   = (5, 8, 4),
         degree   = (3, 2, 3),
-        periodic = (False, True, True)
+        periodic = (False, True, True),
+        seed     = 1
     )
 
     test_ScalarCurl_2D(
         domain   = ([0, 1], [0, 1]),
         ncells   = (10, 15),
         degree   = (3, 2),
-        periodic = (False, True)
+        periodic = (False, True),
+        seed     = 1
     )
 
     test_VectorCurl_2D(
         domain   = ([0, 1], [0, 1]),
         ncells   = (10, 15),
         degree   = (3, 2),
-        periodic = (False, True)
+        periodic = (False, True),
+        seed     = 1
     )
 
     test_Curl_3D(
         domain   = ([0, 1], [0, 1], [0, 1]),
         ncells   = (5, 8, 4),
         degree   = (3, 2, 3),
-        periodic = (False, True, True)
+        periodic = (False, True, True),
+        seed     = 1
     )
 
     test_Divergence_2D(
         domain   = ([0, 1], [0, 1]),
         ncells   = (10, 15),
         degree   = (3, 2),
-        periodic = (False, True)
+        periodic = (False, True),
+        seed     = 1
     )
 
     test_Divergence_3D(
         domain   = ([0, 1], [0, 1], [0, 1]),
         ncells   = (5, 8, 4),
         degree   = (3, 2, 3),
-        periodic = (False, True, True)
+        periodic = (False, True, True),
+        seed     = 1
     )

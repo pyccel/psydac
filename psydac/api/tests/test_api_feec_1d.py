@@ -161,7 +161,7 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
         if bc_mode == 'strong':
             from psydac.api.essential_bc import apply_essential_bc
             M0_dir   = M0.copy()
-            D0_T_dir = D0_T.copy()
+            D0_T_dir = D0_T.tokronstencil().tostencil().copy()
             apply_essential_bc(  M0_dir, *bcs)
             apply_essential_bc(D0_T_dir, *bcs)
 
