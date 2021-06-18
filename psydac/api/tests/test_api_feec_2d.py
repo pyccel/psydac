@@ -522,28 +522,39 @@ def run_maxwell_2d_TE(*, eps, ncells, degree, periodic, Cp, nsteps, tend,
     #--------------------------------------------------------------------------
     # Post-processing
     #--------------------------------------------------------------------------
+    if MPI.COMM_WORLD.size == 1:
+        # (currently not available in parallel)
+        # ...
+        # TODO: improve
+        for i, x1i in enumerate(x1[:, 0]):
+            for j, x2j in enumerate(x2[0, :]):
 
-    # ...
-    # TODO: improve
-    for i, x1i in enumerate(x1[:, 0]):
-        for j, x2j in enumerate(x2[0, :]):
+                Ex_values[i, j], Ey_values[i, j] = \
+                        push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, mapping)
 
-            Ex_values[i, j], Ey_values[i, j] = \
-                    push_2d_hcurl(E.fields[0], E.fields[1], x1i, x2j, mapping)
+                Bz_values[i, j] = push_2d_l2(B, x1i, x2j, mapping)
+        # ...
 
-            Bz_values[i, j] = push_2d_l2(B, x1i, x2j, mapping)
-    # ...
+        # Error at final time
+        error_Ex = abs(Ex_ex(t, x, y) - Ex_values).max()
+        error_Ey = abs(Ey_ex(t, x, y) - Ey_values).max()
+        error_Bz = abs(Bz_ex(t, x, y) - Bz_values).max()
+        print()
+        print('Max-norm of error on Ex(t,x) at final time: {:.2e}'.format(error_Ex))
+        print('Max-norm of error on Ey(t,x) at final time: {:.2e}'.format(error_Ey))
+        print('Max-norm of error on Bz(t,x) at final time: {:.2e}'.format(error_Bz))
 
-    # Error at final time
-
-    # for now: no allreduce needed here, since the spline evaluation already does that for us
-    error_Ex = abs(Ex_ex(t, x, y) - Ex_values).max()
-    error_Ey = abs(Ey_ex(t, x, y) - Ey_values).max()
-    error_Bz = abs(Bz_ex(t, x, y) - Bz_values).max()
-    print()
-    print('Max-norm of error on Ex(t,x) at final time: {:.2e}'.format(error_Ex))
-    print('Max-norm of error on Ey(t,x) at final time: {:.2e}'.format(error_Ey))
-    print('Max-norm of error on Bz(t,x) at final time: {:.2e}'.format(error_Bz))
+    # compute L2 error as well
+    F = mapping.get_callable_mapping()
+    errx = lambda x1, x2: (push_2d_hcurl(E.fields[0], E.fields[1], x1, x2, mapping)[0] - Ex_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
+    erry = lambda x1, x2: (push_2d_hcurl(E.fields[0], E.fields[1], x1, x2, mapping)[1] - Ey_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
+    errz = lambda x1, x2: (push_2d_l2(B, x1, x2, mapping) - Bz_ex(t, *F(x1, x2)))**2 * np.sqrt(F.metric_det(x1,x2))
+    error_l2_Ex = np.sqrt(derham_h.V1.spaces[0].integral(errx))
+    error_l2_Ey = np.sqrt(derham_h.V1.spaces[1].integral(erry))
+    error_l2_Bz = np.sqrt(derham_h.V0.integral(errz))
+    print('L2 norm of error on Ex(t,x,y) at final time: {:.2e}'.format(error_l2_Ex))
+    print('L2 norm of error on Ey(t,x,y) at final time: {:.2e}'.format(error_l2_Ey))
+    print('L2 norm of error on Bz(t,x,y) at final time: {:.2e}'.format(error_l2_Bz))
 
     if diagnostics_interval:
 
@@ -670,13 +681,13 @@ def test_maxwell_2d_periodic_par():
     )
 
     TOL = 1e-6
-    ref = dict(error_Ex = 6.870389e-03,
-               error_Ey = 6.870389e-03,
-               error_Bz = 4.443822e-03)
+    ref = dict(error_l2_Ex = 4.2115063593622278e-03,
+               error_l2_Ey = 4.2115065915750306e-03,
+               error_l2_Bz = 3.6252141126597646e-03)
 
-    assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
-    assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
-    assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
+    assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
+    assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
+    assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
 
 @pytest.mark.parallel
 def test_maxwell_2d_dirichlet_par():
@@ -697,13 +708,13 @@ def test_maxwell_2d_dirichlet_par():
     )
 
     TOL = 1e-6
-    ref = dict(error_Ex = 3.597840e-03,
-               error_Ey = 3.597840e-03,
-               error_Bz = 4.366314e-03)
+    ref = dict(error_l2_Ex = 1.3223335792411782e-03,
+               error_l2_Ey = 1.3223335792411910e-03,
+               error_l2_Bz = 4.0492562719804193e-03)
 
-    assert abs(namespace['error_Ex'] - ref['error_Ex']) / ref['error_Ex'] <= TOL
-    assert abs(namespace['error_Ey'] - ref['error_Ey']) / ref['error_Ey'] <= TOL
-    assert abs(namespace['error_Bz'] - ref['error_Bz']) / ref['error_Bz'] <= TOL
+    assert abs(namespace['error_l2_Ex'] - ref['error_l2_Ex']) / ref['error_l2_Ex'] <= TOL
+    assert abs(namespace['error_l2_Ey'] - ref['error_l2_Ey']) / ref['error_l2_Ey'] <= TOL
+    assert abs(namespace['error_l2_Bz'] - ref['error_l2_Bz']) / ref['error_l2_Bz'] <= TOL
 
 #==============================================================================
 # SCRIPT CAPABILITIES

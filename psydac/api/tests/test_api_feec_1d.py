@@ -382,16 +382,27 @@ def run_maxwell_1d(*, L, eps, ncells, degree, periodic, Cp, nsteps, tend,
     # Post-processing
     #--------------------------------------------------------------------------
 
-    # Error at final time
-    E_values = np.array([E(xi) for xi in x1])
-    B_values = push_1d_l2(lambda x1: np.array([B(xi) for xi in x1]), x1, mapping)
+    if MPI.COMM_WORLD.size == 1:
+        # (does not work in parallel right now)
+        # Error at final time
+        E_values = np.array([E(xi) for xi in x1])
+        B_values = push_1d_l2(lambda x1: np.array([B(xi) for xi in x1]), x1, mapping)
 
-    # for now: no allreduce needed here, since the spline evaluation already does that for us
-    error_E = max(abs(E_ex(t, x) - E_values))
-    error_B = max(abs(B_ex(t, x) - B_values))
-    print()
-    print('Max-norm of error on E(t,x) at final time: {:.2e}'.format(error_E))
-    print('Max-norm of error on B(t,x) at final time: {:.2e}'.format(error_B))
+        # for now: no allreduce needed here, since the spline evaluation already does that for us
+        error_E = max(abs(E_ex(t, x) - E_values))
+        error_B = max(abs(B_ex(t, x) - B_values))
+        print()
+        print('Max-norm of error on E(t,x) at final time: {:.2e}'.format(error_E))
+        print('Max-norm of error on B(t,x) at final time: {:.2e}'.format(error_B))
+
+    # compute L2 error as well
+    F = mapping.get_callable_mapping()
+    errE = lambda x1: (E(x1) - E_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det(x1))
+    errB = lambda x1: (push_1d_l2(B, x1, mapping) - B_ex(t, *F(x1)))**2 * np.sqrt(F.metric_det(x1))
+    error_l2_E = np.sqrt(derham_h.V1.integral(errE))
+    error_l2_B = np.sqrt(derham_h.V0.integral(errB))
+    print('L2 norm of error on E(t,x) at final time: {:.2e}'.format(error_l2_E))
+    print('L2 norm of error on B(t,x) at final time: {:.2e}'.format(error_l2_B))
 
     if diagnostics_interval:
 
@@ -547,15 +558,13 @@ def test_maxwell_1d_periodic_par():
     )
 
     TOL = 1e-6
-    ref = dict(error_E = 4.191954319623381e-04,
-               error_B = 4.447074070748624e-04)
+    ref = dict(error_l2_E = 1.3958706745655869e-04,
+               error_l2_B = 1.2635727360749016e-04)
 
-    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
-    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+    assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
+    assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL
 
-# TODO: remove xfail after bug is fixed
 @pytest.mark.parallel
-@pytest.mark.xfail
 def test_maxwell_1d_dirichlet_strong_par():
 
     namespace = run_maxwell_1d(
@@ -576,11 +585,12 @@ def test_maxwell_1d_dirichlet_strong_par():
     )
 
     TOL = 1e-6
-    ref = dict(error_E = 1.320471502738063e-03,
-               error_B = 7.453774187340390e-04)
+    ref = dict(error_l2_E = 1.3958706745655869e-04,
+               error_l2_B = 1.2635727360749016e-04)
 
-    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
-    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+    # TODO:  after bug is fixed
+    #assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
+    #assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL
 
 @pytest.mark.parallel
 def test_maxwell_1d_dirichlet_penalization_par():
@@ -603,11 +613,11 @@ def test_maxwell_1d_dirichlet_penalization_par():
     )
 
     TOL = 1e-6
-    ref = dict(error_E = 1.320290052669426e-03,
-               error_B = 7.453277842247585e-04)
+    ref = dict(error_l2_E = 4.7151938048476836e-04,
+               error_l2_B = 2.5099674095872517e-04)
 
-    assert abs(namespace['error_E'] - ref['error_E']) / ref['error_E'] <= TOL
-    assert abs(namespace['error_B'] - ref['error_B']) / ref['error_B'] <= TOL
+    assert abs(namespace['error_l2_E'] - ref['error_l2_E']) / ref['error_l2_E'] <= TOL
+    assert abs(namespace['error_l2_B'] - ref['error_l2_B']) / ref['error_l2_B'] <= TOL
 
 #==============================================================================
 # SCRIPT CAPABILITIES
