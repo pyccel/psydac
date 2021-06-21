@@ -45,7 +45,7 @@ class FemAssemblyGrid:
         points (default: 1).
 
     """
-    def __init__( self, space, start, end, *, quad_order=None, nderiv=1 , pad=None):
+    def __init__( self, space, start, end, *, quad_order=None, nderiv=1 ):
 
         T      = space.knots           # knots sequence
         degree = space.degree          # spline degree
@@ -53,7 +53,7 @@ class FemAssemblyGrid:
         grid   = space.breaks          # breakpoints
         nc     = space.ncells          # number of cells in domain (nc=len(grid)-1)
         k      = quad_order or degree  # polynomial order for which the mass matrix is exact
-        pad    = pad or degree         # padding to add in the periodic case
+        pad    = space.pads            # padding to add
 
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )
@@ -89,47 +89,37 @@ class FemAssemblyGrid:
         indices = []
         ne      = 0
 
+        if pad==degree:
+            current_glob_spans  = glob_spans
+        elif pad-degree == 1:
+            elevated_T          = elevate_knots(T, degree, space.periodic)
+            current_glob_spans  = elements_spans( elevated_T, pad )
+        else:
+            raise NotImplementedError('TODO')
+
         # a) Periodic case only, left-most process in 1D domain
         if space.periodic:
-
-            if degree<pad:
-                if pad-degree == 1:
-                    elevated_T          = elevate_knots(T, degree, True)
-                    elevated_glob_spans = elements_spans( elevated_T, pad )
-                else:
-                    raise NotImplementedError('TODO')
-
-                for k in range( nc ):
-                    gk = elevated_glob_spans[k]
-                    if start <= gk-n and gk-n-pad <= end:
-                        spans  .append( glob_spans[k]-n )
-                        basis  .append( glob_basis  [k] )
-                        points .append( glob_points [k] )
-                        weights.append( glob_weights[k] )
-                        indices.append( k )
-                        ne += 1
-            else:
-                for k in range( nc ):
-                    gk = glob_spans[k]
-                    if start <= gk-n and gk-n-degree <= end:
-                        spans  .append( glob_spans[k]-n )
-                        basis  .append( glob_basis  [k] )
-                        points .append( glob_points [k] )
-                        weights.append( glob_weights[k] )
-                        indices.append( k )
-                        ne += 1
-
+            for k in range( nc ):
+                gk = current_glob_spans[k]
+                if start <= gk-n and gk-n-pad <= end:
+                    spans  .append( glob_spans[k]-n )
+                    basis  .append( glob_basis  [k] )
+                    points .append( glob_points [k] )
+                    weights.append( glob_weights[k] )
+                    indices.append( k )
+                    ne += 1
+        
         # b) All cases
         for k in range( nc ):
-            gk = glob_spans[k]
-            if start <= gk and gk-degree <= end:
+            gk = current_glob_spans[k]
+            if start <= gk and gk-pad <= end:
                 spans  .append( glob_spans  [k] )
                 basis  .append( glob_basis  [k] )
                 points .append( glob_points [k] )
                 weights.append( glob_weights[k] )
                 indices.append( k )
                 ne += 1
-
+        
         #-------------------------------------------
         # DATA STORAGE IN OBJECT
         #-------------------------------------------
@@ -154,8 +144,14 @@ class FemAssemblyGrid:
             local_element_start = self._spans.searchsorted( degree + start )
             local_element_end   = self._spans.searchsorted( degree + end   )
         else:
-            local_element_start = self._spans.searchsorted( degree if start == 0   else 1 + start)
-            local_element_end   = self._spans.searchsorted( end if end   == n-1 else 1 + end )
+            if end+1 >= degree:
+                local_element_start = self._spans.searchsorted( degree if start == 0   else 1 + start)
+                local_element_end   = self._spans.searchsorted( end if end   == n-1 else 1 + end )
+            else:
+                # in this edge case: no local elements for now
+                local_element_start = 1
+                local_element_end = 0
+                
 
         # Local index of start/end elements of domain partitioning
         self._local_element_start = local_element_start
