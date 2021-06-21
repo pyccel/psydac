@@ -215,7 +215,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         assert np.array_equal(quad_order, get_quad_order(self.spaces[1]))
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
         #...
-        grid              = QuadratureGrid( test_space, axis, test_ext )
+        grid              = QuadratureGrid( test_space, axis, test_ext, trial_space=trial_space)
         self._grid        = grid
         self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
         self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)

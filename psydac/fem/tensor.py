@@ -35,12 +35,12 @@ class TensorFemSpace( FemSpace ):
         assert all( isinstance( s, SplineSpace ) for s in args )
         self._spaces = tuple(args)
 
-        npts    = [V.nbasis   for V in self.spaces]
-        pads    = [V._pads    for V in self.spaces]
-        degree  = [V.degree   for V in self.spaces]
+        npts         = [V.nbasis   for V in self.spaces]
+        pads         = [V._pads    for V in self.spaces]
+        degree       = [V.degree   for V in self.spaces]
         multiplicity = [V.multiplicity for V in self.spaces]
-        periods = [V.periodic for V in self.spaces]
-        basis   = [V.basis    for V in self.spaces]
+        periods      = [V.periodic for V in self.spaces]
+        basis        = [V.basis    for V in self.spaces]
 
         if 'comm' in kwargs and not( kwargs['comm'] is None ):
             # parallel case
@@ -48,7 +48,6 @@ class TensorFemSpace( FemSpace ):
             nprocs       = kwargs.pop('nprocs', None)
             reverse_axis = kwargs.pop('reverse_axis', None)
             assert isinstance(comm, MPI.Comm)
-
             cart = CartDecomposition(
                 npts         = npts,
                 pads         = pads,
@@ -92,7 +91,6 @@ class TensorFemSpace( FemSpace ):
 
         # Store flag: object NOT YET prepared for interpolation
         self._interpolation_ready = False
-
         # Compute the local domains for every process
         if v.parallel:
             ndims = cart._ndims
@@ -101,10 +99,11 @@ class TensorFemSpace( FemSpace ):
             for dimension in range( ndims ):
                 periodic = periods[dimension]
                 p = pads[dimension]
+                de = degree[dimension]
                 d = cart._dims[dimension]
-                starts = cart.global_starts[dimension]
-                ends   = cart.global_ends  [dimension]
-                
+                starts = cart.reduced_global_starts[dimension]
+                ends   = cart.reduced_global_ends  [dimension]
+
                 if periodic:
                     element_starts = starts
                     element_ends   = ends
@@ -112,7 +111,7 @@ class TensorFemSpace( FemSpace ):
                     element_starts = np.array( [starts[d]-p+1 for d in range(d)] )
                     element_ends   = np.array( [ends[d]-p+1   for d in range(d)] )
                     element_starts[0] = 0
-                    element_ends [-1] = ends[-1] - p
+                    element_ends [-1] = ends[-1] - de
 
                 self._global_element_starts[dimension] = element_starts
                 self._global_element_ends  [dimension] = element_ends
@@ -646,7 +645,8 @@ class TensorFemSpace( FemSpace ):
 
         # create new Tensor Vector
         if v.cart:
-            red_cart = v.cart.remove_last_element(axes)
+            n_elements = [s1.nbasis-s2.nbasis for s1,s2 in zip(self.spaces, spaces)]
+            red_cart = v.cart.reduce_elements(axes, n_elements)
             tensor_vec = TensorFemSpace(*spaces, cart=red_cart, quad_order=self._quad_order)
         else:
             tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order)

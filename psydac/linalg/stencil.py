@@ -622,6 +622,7 @@ class StencilMatrix( Matrix ):
         nrows_extra  = [max(0,ni-nj) for ni,nj in zip(nc, nd)]
 
         args                 = OrderedDict()
+        args['starts']       = tuple(V.starts)
         args['nrows']        = tuple(nrows)
         args['nrows_extra']  = tuple(nrows_extra)
         args['gpads']        = tuple(V.pads)
@@ -677,7 +678,7 @@ class StencilMatrix( Matrix ):
 
     # ...
     @staticmethod
-    def _dot(mat, x, out, nrows, nrows_extra, gpads, pads, dm, cm):
+    def _dot(mat, x, out, starts, nrows, nrows_extra, gpads, pads, dm, cm):
 
         # Index for k=i-j
         ndim = len(x.shape)
@@ -685,15 +686,15 @@ class StencilMatrix( Matrix ):
 
         # pads are <= gpads
         diff = [gp-p for gp,p in zip(gpads, pads)]
-        ndiags, starts = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
-        starts = [p*m+p+1-n for p,m,n in zip(gpads, dm, ndiags)]
+        ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
+
+        ss1 = [p*m+p+1-n-s%m for p,m,n,s in zip(gpads, dm, ndiags, starts)]
 
         for xx in np.ndindex( *nrows ):
 
             ii    = tuple( mi*pi+x for mi,pi,x in zip(cm, gpads, xx) )
-            jj    = tuple( slice(s-d+x//mi*mj,s-d+x//mi*mj+n) for x,mi,mj,s,n,d in zip(xx,cm,dm,starts,ndiags,diff) )
+            jj    = tuple( slice(s1-d+(x+s%mj)//mi*mj,s1-d+(x+s%mj)//mi*mj+n) for x,mi,mj,s1,s,n,d in zip(xx,cm,dm,ss1,starts,ndiags,diff) )
             ii_kk = tuple( list(ii) + kk )
-
             out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
 
         new_nrows = list(nrows).copy()
@@ -827,10 +828,6 @@ class StencilMatrix( Matrix ):
     @property
     def pads( self ):
         return self._pads
-    
-    @property
-    def backend(self):
-        return self._backend
 
     # ...
     @property
