@@ -93,7 +93,7 @@ class CartDecomposition():
         # Know the number of processes along each direction
 #        self._dims = MPI.Compute_dims( self._size, self._ndims )
 
-        reduced_npts = [(n-p-1)//m + p+1 if not P else n for n,m,p,P in zip(npts, multiplicity, pads, periods)]
+        reduced_npts = [(n-p-1)//m if m>1 else n if not P else n for n,m,p,P in zip(npts, multiplicity, pads, periods)]
 
         if nprocs is None:
             nprocs, block_shape = mpi_compute_dims( self._size, reduced_npts, pads )
@@ -125,9 +125,11 @@ class CartDecomposition():
         for axis in range( self._ndims ):
             n = reduced_npts[axis]
             d = nprocs[axis]
+            p = pads[axis]
+            m = multiplicity[axis]
             self._reduced_global_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
             self._reduced_global_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
-
+            if m>1:self._reduced_global_ends  [axis][-1] += p+1
 
         # Store arrays with all the starts and ends along each direction
         self._global_starts = [None]*self._ndims
@@ -176,7 +178,9 @@ class CartDecomposition():
                 self._shift_info[ axis, disp ] = \
                         self._compute_shift_info( axis, disp )
 
-        self._petsccart = None
+        self._petsccart     = None
+        self._parent_starts = tuple([None]*self._ndims)
+        self._parent_ends   = tuple([None]*self._ndims)
     #---------------------------------------------------------------------------
     # Global properties (same for each process)
     #---------------------------------------------------------------------------
@@ -246,6 +250,14 @@ class CartDecomposition():
     @property
     def ends( self ):
         return self._ends
+
+    @property
+    def parent_starts( self ):
+        return self._starts
+
+    @property
+    def parent_ends( self ):
+        return self._parent_ends
 
     @property
     def coords( self ):
@@ -341,7 +353,7 @@ class CartDecomposition():
         coords          = cart.coords
         nprocs          = cart.nprocs
 
-        cart._multiplicity = [m-1 if m>1 else 1 for m in self.multiplicity]
+        cart._multiplicity = [max(1,m-1) for m in self.multiplicity]
         for axis in axes:
             assert(axis<cart._ndims)
 
@@ -354,7 +366,6 @@ class CartDecomposition():
         for axis in range( self._ndims ):
             n = cart._npts[axis]
             d = nprocs[axis]
-            p = cart._pads[axis]-1
             m = cart._multiplicity[axis]
             r_starts = cart._reduced_global_starts[axis]
             r_ends   = cart._reduced_global_ends  [axis]
@@ -401,16 +412,18 @@ class CartDecomposition():
                         cart._compute_shift_info( axis, disp )
 
         # Store arrays with all the reduced starts and reduced ends along each direction
-        self._reduced_global_starts = [None]*self._ndims
-        self._reduced_global_ends   = [None]*self._ndims
+        cart._reduced_global_starts = [None]*self._ndims
+        cart._reduced_global_ends   = [None]*self._ndims
         for axis in range( self._ndims ):
-            cart._reduced_global_starts[axis] = cart._reduced_global_starts[axis].copy()
-            cart._reduced_global_ends  [axis] = cart._reduced_global_ends  [axis].copy()
+            cart._reduced_global_starts[axis] = self._reduced_global_starts[axis].copy()
+            cart._reduced_global_ends  [axis] = self._reduced_global_ends  [axis].copy()
 
             # adjust only the end of the last interval
             n = cart._npts[axis]
             cart._reduced_global_ends[axis][-1] = n-1
 
+        cart._parent_starts = self.starts
+        cart._parent_ends   = self.ends
         return cart
 
     def reduce_grid(self, global_starts, global_ends):

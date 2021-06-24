@@ -642,7 +642,7 @@ def make_knots( breaks, degree, periodic, multiplicity=1 ):
     return T
 
 #==============================================================================
-def elevate_knots(knots, degree, periodic):
+def elevate_knots(knots, degree, periodic, multiplicity=1):
     """
     Given the knot sequence of a spline space S of degree p, compute the knot
     sequence of a spline space S_0 of degree p+1 such that u' is in S for all
@@ -663,6 +663,9 @@ def elevate_knots(knots, degree, periodic):
     periodic : bool
         True if domain is periodic, False otherwise.
 
+    multiplicity : int
+        multiplicity of the knots.
+
     Returns
     -------
     new_knots : 1D numpy.ndarray
@@ -673,12 +676,13 @@ def elevate_knots(knots, degree, periodic):
     if periodic:
         [T, p] = knots, degree
         period = T[-1-p] - T[p]
-        left   = T[-1-p-(p+1)] - period
-        right  = T[   p+(p+1)] + period
+        left   = [T[-1-p-(p+1)] - period]
+        right  = [T[   p+(p+1)] + period]
     else:
-        left  = knots[0]
-        right = knots[-1]
-    return np.array([left, *knots, right])
+        left  = [knots[0],*knots[:degree+1]]
+        right = [knots[-1],*knots[-degree-1:]]
+        knots = np.repeat(np.unique(knots[degree+1:-degree-1]), multiplicity)
+    return np.array([*left, *knots, *right])
 
 #==============================================================================
 def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):

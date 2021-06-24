@@ -45,15 +45,16 @@ class FemAssemblyGrid:
         points (default: 1).
 
     """
-    def __init__( self, space, start, end, *, quad_order=None, nderiv=1 , pad=None):
+    def __init__( self, space, start, end, *, quad_order=None, nderiv=1 , pad=None, parent_start=None, parent_end=None):
 
-        T      = space.knots           # knots sequence
-        degree = space.degree          # spline degree
-        n      = space.nbasis          # total number of control points
-        grid   = space.breaks          # breakpoints
-        nc     = space.ncells          # number of cells in domain (nc=len(grid)-1)
-        k      = quad_order or degree  # polynomial order for which the mass matrix is exact
-        pad    = pad or degree         # padding to add in the periodic case
+        T            = space.knots           # knots sequence
+        degree       = space.degree          # spline degree
+        n            = space.nbasis          # total number of control points
+        grid         = space.breaks          # breakpoints
+        nc           = space.ncells          # number of cells in domain (nc=len(grid)-1)
+        k            = quad_order or degree  # polynomial order for which the mass matrix is exact
+        pad          = pad or degree         # padding to add in the periodic case
+        multiplicity = space.multiplicity    # multiplicity of the knots
 
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )
@@ -90,39 +91,38 @@ class FemAssemblyGrid:
         ne      = 0
 
         # a) Periodic case only, left-most process in 1D domain
+        if pad==degree:
+            current_glob_spans  = glob_spans
+            current_start = start
+            current_end   = end
+        elif pad-degree == 1:
+            multiplicity  = space.parent_multiplicity
+            elevated_T    = elevate_knots(T, degree, space.periodic, multiplicity=multiplicity)
+            current_start = parent_start
+            current_end   = parent_end
+            current_glob_spans  = elements_spans( elevated_T, pad )
+        else:
+            raise NotImplementedError('TODO')
+
+        # a) Periodic case only, left-most process in 1D domain
         if space.periodic:
+            for k in range( nc ):
+                gk = current_glob_spans[k]
+                if start <= gk-n and gk-n-pad <= end:
+                    spans  .append( glob_spans[k]-n )
+                    basis  .append( glob_basis  [k] )
+                    points .append( glob_points [k] )
+                    weights.append( glob_weights[k] )
+                    indices.append( k )
+                    ne += 1
 
-            if degree<pad:
-                if pad-degree == 1:
-                    elevated_T          = elevate_knots(T, degree, True)
-                    elevated_glob_spans = elements_spans( elevated_T, pad )
-                else:
-                    raise NotImplementedError('TODO')
-
-                for k in range( nc ):
-                    gk = elevated_glob_spans[k]
-                    if start <= gk-n and gk-n-pad <= end:
-                        spans  .append( glob_spans[k]-n )
-                        basis  .append( glob_basis  [k] )
-                        points .append( glob_points [k] )
-                        weights.append( glob_weights[k] )
-                        indices.append( k )
-                        ne += 1
-            else:
-                for k in range( nc ):
-                    gk = glob_spans[k]
-                    if start <= gk-n and gk-n-degree <= end:
-                        spans  .append( glob_spans[k]-n )
-                        basis  .append( glob_basis  [k] )
-                        points .append( glob_points [k] )
-                        weights.append( glob_weights[k] )
-                        indices.append( k )
-                        ne += 1
-
+        m = multiplicity if multiplicity>1 else 0
         # b) All cases
         for k in range( nc ):
-            gk = glob_spans[k]
-            if start <= gk and gk-degree <= end:
+            gk = current_glob_spans[k]
+            gs = glob_spans  [k]
+            if current_start-m <= gk and gk-pad <= current_end:
+                if m>0 and pad-degree==1 and start>gs:continue
                 spans  .append( glob_spans  [k] )
                 basis  .append( glob_basis  [k] )
                 points .append( glob_points [k] )
@@ -130,10 +130,16 @@ class FemAssemblyGrid:
                 indices.append( k )
                 ne += 1
 
+#        if degree == pad:
+#            print(indices,spans, degree, m, current_start, current_end, start, end, glob_spans)
         #-------------------------------------------
         # DATA STORAGE IN OBJECT
         #-------------------------------------------
-
+#        from mpi4py import MPI
+#        if MPI.COMM_WORLD.rank == 1:
+#            print(degree,spans,ne, pad, degree)
+#            print(indices, start, end)
+#            print()
         # Quadrature data on extended distributed domain
         self._num_elements = ne
         self._num_quad_pts = len( u )
@@ -145,7 +151,7 @@ class FemAssemblyGrid:
         self._quad_rule_x  = u
         self._quad_rule_w  = w
 
-        #-------------------------------------------
+        #---------------------- ---------------------
         # LOCAL GRID, PROPER (WITHOUT GHOST REGIONS)
         #-------------------------------------------
 

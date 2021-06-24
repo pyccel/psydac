@@ -69,13 +69,15 @@ class StencilVectorSpace( VectorSpace ):
         self._parallel = False
 
         # Sequential attributes
-        self._starts       = tuple( 0   for n in npts )
-        self._ends         = tuple( n-1 for n in npts )
-        self._pads         = tuple( pads )
-        self._periods      = tuple( periods )
-        self._multiplicity = tuple( multiplicity )
-        self._dtype        = dtype
-        self._ndim         = len( npts )
+        self._starts        = tuple( 0   for n in npts )
+        self._ends          = tuple( n-1 for n in npts )
+        self._pads          = tuple( pads )
+        self._periods       = tuple( periods )
+        self._multiplicity  = tuple( multiplicity )
+        self._dtype         = dtype
+        self._ndim          = len( npts )
+        self._parent_starts = tuple([None]*self._ndim)
+        self._parent_ends   = tuple([None]*self._ndim)
 
         # Global dimensions of vector space
         self._npts   = tuple( npts )
@@ -87,13 +89,15 @@ class StencilVectorSpace( VectorSpace ):
         self._parallel = True
 
         # Sequential attributes
-        self._starts       = cart.starts
-        self._ends         = cart.ends
-        self._pads         = cart.pads
-        self._periods      = cart.periods
-        self._multiplicity = cart.multiplicity
-        self._dtype        = dtype
-        self._ndim         = len(cart.starts)
+        self._starts        = cart.starts
+        self._ends          = cart.ends
+        self._parent_starts = cart.parent_starts
+        self._parent_ends   = cart.parent_ends
+        self._pads          = cart.pads
+        self._periods       = cart.periods
+        self._multiplicity  = cart.multiplicity
+        self._dtype         = dtype
+        self._ndim          = len(cart.starts)
 
         # Global dimensions of vector space
         self._npts   = cart.npts
@@ -145,6 +149,15 @@ class StencilVectorSpace( VectorSpace ):
 #        else:
 #            return False
 
+    def reduce_elements(self, axes, elements):
+        assert not self.parallel
+        npts         = [n-ne for n,ne in zip(self.npts, elements)]
+        multiplicity = [max(1,m-1) for m in self.multiplicity]
+
+        v = StencilVectorSpace(npts=npts, pads=self.pads, periods=self.periods, multiplicity=multiplicity)
+        v._parent_starts = self.starts
+        v._parent_ends   = self.ends
+        return v
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -171,6 +184,16 @@ class StencilVectorSpace( VectorSpace ):
     @property
     def ends( self ):
         return self._ends
+
+    # ...
+    @property
+    def parent_starts( self ):
+        return self._starts
+
+    # ...
+    @property
+    def parent_ends( self ):
+        return self._parent_ends
 
     # ...
     @property
@@ -711,7 +734,7 @@ class StencilMatrix( Matrix ):
 
                     ii     = tuple(mi*pi + x for mi,pi,x in zip(cm, gpads, xx))
                     ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
-                    jj     = tuple( slice(s-d+x//mi*mj, s+x//mi*mj-d+n-e) for x,mi,mj,d,e,s,n in zip(xx, cm, dm, diff, ee, starts, ndiags) )
+                    jj     = tuple( slice(s1-d+(x+s%mj)//mi*mj, s1+(x+s%mj)//mi*mj-d+n-e) for x,mi,mj,d,e,s1,s,n in zip(xx, cm, dm, diff, ee,ss1,starts, ndiags) )
                     kk     = [slice(None,n-e) for n,e in zip(ndiags, ee)]
                     ii_kk  = tuple( list(ii) + kk )
                     out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )

@@ -53,7 +53,7 @@ class SplineSpace( FemSpace ):
         Set to "M" for M-splines (have unit integrals)
 
     """
-    def __init__( self, degree, knots=None, grid=None, multiplicity=None,
+    def __init__( self, degree, knots=None, grid=None, multiplicity=None, parent_multiplicity=None,
                   periodic=False, dirichlet=(False, False), basis='B', pads=None ):
 
         if basis not in ['B', 'M']:
@@ -77,7 +77,8 @@ class SplineSpace( FemSpace ):
         assert len(grid)>2
 
         multiplicity = (abs(knots[:3*degree+3]-grid[1])<1e-17).tolist().count(True)
-
+        if parent_multiplicity is None:
+            parent_multiplicity = 1
         # TODO: verify that user-provided knots make sense in periodic case
 
         # Number of basis function in space (= cardinality)
@@ -110,7 +111,8 @@ class SplineSpace( FemSpace ):
         self._ext_greville  = greville(elevate_knots(knots, degree, periodic), degree+1, periodic)
         self._scaling_array = scaling_array
 
-        self._histopolation_grid = unroll_edges(self.domain, self.ext_greville)
+        self._parent_multiplicity  = parent_multiplicity
+        self._histopolation_grid   = unroll_edges(self.domain, self.ext_greville)
 
         # Create space of spline coefficients
         self._vector_space = StencilVectorSpace([nbasis], [self._pads], [periodic])
@@ -325,6 +327,10 @@ class SplineSpace( FemSpace ):
     @property
     def multiplicity( self ):
         return self._multiplicity
+
+    @property
+    def parent_multiplicity( self ):
+        return self._parent_multiplicity
 
     @property
     def breaks( self ):

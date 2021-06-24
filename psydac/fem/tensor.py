@@ -68,7 +68,7 @@ class TensorFemSpace( FemSpace ):
 
         else:
             # serial case
-            self._vector_space = StencilVectorSpace(npts, pads, periods, multiplicity=multiplicity)
+            self._vector_space = kwargs.pop('vector_space', StencilVectorSpace(npts, pads, periods, multiplicity=multiplicity))
 
         # Shortcut
         v = self._vector_space
@@ -78,8 +78,10 @@ class TensorFemSpace( FemSpace ):
             self._quad_order = [sp.degree for sp in self.spaces]
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, pad=p, quad_order=q)
-                                  for V,s,e,p,q in zip( self.spaces, v.starts, v.ends, v.pads, self._quad_order ) )
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, pad=p, quad_order=q, parent_start=ps, parent_end=pe)
+                                  for V,s,e,ps,pe,p,q in zip( self.spaces, v.starts, v.ends,
+                                                        v.parent_starts, v.parent_ends,
+                                                        v.pads, self._quad_order ) )
 
         # Determine portion of logical domain local to process
         self._element_starts = tuple( g.indices[g.local_element_start] for g in self.quad_grids )
@@ -612,6 +614,7 @@ class TensorFemSpace( FemSpace ):
         return fields
 
     def reduce_degree(self, axes, multiplicity=None, basis='B'):
+
         if isinstance(axes, int):
             axes = [axes]
 
@@ -630,13 +633,16 @@ class TensorFemSpace( FemSpace ):
             m     = space.multiplicity
 
             if m > 1:
-                m = m-1
+                mr = m-1
+            else:
+                mr = 1
 
             reduced_space = SplineSpace(
                 degree    = space.degree - 1,
                 pads      = space._pads,
                 grid      = space.breaks,
-                multiplicity = m,
+                multiplicity = mr,
+                parent_multiplicity=m,
                 periodic  = space.periodic,
                 dirichlet = space.dirichlet,
                 basis     = basis
@@ -644,12 +650,13 @@ class TensorFemSpace( FemSpace ):
             spaces[axis] = reduced_space
 
         # create new Tensor Vector
+        n_elements = [s1.nbasis-s2.nbasis for s1,s2 in zip(self.spaces, spaces)]
         if v.cart:
-            n_elements = [s1.nbasis-s2.nbasis for s1,s2 in zip(self.spaces, spaces)]
             red_cart = v.cart.reduce_elements(axes, n_elements)
             tensor_vec = TensorFemSpace(*spaces, cart=red_cart, quad_order=self._quad_order)
         else:
-            tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order)
+            v = v.reduce_elements(axes, n_elements)
+            tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
         
         tensor_vec._interpolation_ready = False
 

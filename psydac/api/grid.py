@@ -10,6 +10,12 @@ from psydac.core.bsplines          import basis_ders_on_quad_grid
 from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
 from psydac.fem.vector             import ProductFemSpace
+
+def get_points_weights(spaces, axis, e):
+    for s in spaces:
+        if e in s.quad_grids[axis].indices:
+            i = np.where(s.quad_grids[axis].indices==e)[0][0]
+            return s.quad_grids[axis].points[i:i+1], s.quad_grids[axis].weights[i:i+1]
 #==============================================================================
 class QuadratureGrid():
     def __init__( self, V , axis=None, ext=None, trial_space=None):
@@ -23,36 +29,36 @@ class QuadratureGrid():
 
         if isinstance(V, ProductFemSpace):
             V1 = V.spaces[0]
+            spaces = list(V.spaces)
         else:
             V1 = V
-            V  = ProductFemSpace(V)
+            spaces = [V]
 
         if trial_space  and not isinstance(trial_space, ProductFemSpace):
-            trial_space = ProductFemSpace(trial_space)
+            spaces.append(trial_space)
+        elif isinstance(trial_space, ProductFemSpace):
+            spaces = spaces + list(trial_space.spaces)
 
         for i in range(len(V1.spaces)):
-            if trial_space is not None:
-                trial_indices = [reduce(np.union1d,[s.quad_grids[i].indices for s in trial_space.spaces])]
-            else:
-                trial_indices = []
 
-            indices.append(reduce(np.union1d,[s.quad_grids[i].indices for s in V.spaces]+trial_indices))
+            indices.append(reduce(np.union1d,[s.quad_grids[i].indices for s in spaces]))
             n_elements.append(len(indices[-1]))
             local_element_start.append(V1.quad_grids[i].local_element_start)
             local_element_end.append  (V1.quad_grids[i].local_element_end)
             points.append(V1.quad_grids[i].points)
             weights.append(V1.quad_grids[i].weights)
 
-            new_p = np.zeros((1, points[-1].shape[1]))
             for e in np.setdiff1d(indices[-1], V1.quad_grids[i].indices):
                 if e<V1.quad_grids[i].indices[0]:
                     local_element_start[-1] +=1
                     local_element_end  [-1] +=1
-                    points[-1]  = np.concatenate((new_p, points[-1]))
-                    weights[-1] = np.concatenate((new_p, weights[-1]))
+                    p,w = get_points_weights(spaces, i, e)
+                    points[-1]  = np.concatenate((p, points[-1]))
+                    weights[-1] = np.concatenate((w, weights[-1]))
                 elif e>V1.quad_grids[i].indices[-1]:
-                    points[-1]  = np.concatenate((points[-1],new_p))
-                    weights[-1] = np.concatenate((weights[-1],new_p))
+                    p,w = get_points_weights(spaces, i, e)
+                    points[-1]  = np.concatenate((points[-1],p))
+                    weights[-1] = np.concatenate((weights[-1],w))
                 else:
                     raise ValueError("Could not contsruct indices")
 
@@ -189,14 +195,13 @@ class BasisValues():
                 elif ind is not None:
                     for e in np.setdiff1d(ind, g.indices):
                         if e<g.indices[0]:
-                            bs  = np.concatenate((bs[0:1], bs))
+                            bs  = np.concatenate((np.zeros_like(bs[0:1]), bs))
                             sp = np.concatenate((sp[0:1], sp))
                         elif e>g.indices[-1]:
-                            bs  = np.concatenate((bs,bs[-1:]))
+                            bs  = np.concatenate((bs,np.zeros_like(bs[-1:])))
                             sp = np.concatenate((sp,sp[-1:]))
                         else:
                             raise ValueError("Could not contsruct the basis functions")
-
                 spans_i.append(sp)
                 basis_i.append(bs)
 
