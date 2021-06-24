@@ -76,15 +76,15 @@ class QuadratureGrid():
             weights = self.weights
 
             # ...
-            if V.ldim == 1 and isinstance(V, SplineSpace):
-                bounds = {-1: V.domain[0],
-                           1: V.domain[1]}
-            elif isinstance(V, TensorFemSpace):
-                bounds = {-1: V.spaces[axis].domain[0],
-                           1: V.spaces[axis].domain[1]}
+            if V1.ldim == 1 and isinstance(V1, SplineSpace):
+                bounds = {-1: V1.domain[0],
+                           1: V1.domain[1]}
+            elif isinstance(V1, TensorFemSpace):
+                bounds = {-1: V1.spaces[axis].domain[0],
+                           1: V1.spaces[axis].domain[1]}
             else:
                 raise ValueError('Incompatible type(V) = {} in {} dimensions'.format(
-                    type(V), V.ldim))
+                    type(V1), V1.ldim))
 
             points [axis] = np.asarray([[bounds[ext]]])
             weights[axis] = np.asarray([[1.]])

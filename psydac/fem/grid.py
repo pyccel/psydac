@@ -130,16 +130,10 @@ class FemAssemblyGrid:
                 indices.append( k )
                 ne += 1
 
-#        if degree == pad:
-#            print(indices,spans, degree, m, current_start, current_end, start, end, glob_spans)
         #-------------------------------------------
         # DATA STORAGE IN OBJECT
         #-------------------------------------------
-#        from mpi4py import MPI
-#        if MPI.COMM_WORLD.rank == 1:
-#            print(degree,spans,ne, pad, degree)
-#            print(indices, start, end)
-#            print()
+
         # Quadrature data on extended distributed domain
         self._num_elements = ne
         self._num_quad_pts = len( u )
