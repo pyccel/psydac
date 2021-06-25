@@ -42,7 +42,6 @@ class QuadratureGrid():
         for i in range(len(V1.spaces)):
 
             indices.append(reduce(np.union1d,[s.quad_grids[i].indices for s in spaces]))
-            n_elements.append(len(indices[-1]))
             local_element_start.append(V1.quad_grids[i].local_element_start)
             local_element_end.append  (V1.quad_grids[i].local_element_end)
             points.append(V1.quad_grids[i].points)
@@ -62,7 +61,7 @@ class QuadratureGrid():
                 else:
                     raise ValueError("Could not contsruct indices")
 
-        self._n_elements          = n_elements
+        self._n_elements          = [p.shape[0] for p in points]
         self._indices             = indices
         self._local_element_start = local_element_start
         self._local_element_end   = local_element_end

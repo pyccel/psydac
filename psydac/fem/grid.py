@@ -133,7 +133,6 @@ class FemAssemblyGrid:
         #-------------------------------------------
         # DATA STORAGE IN OBJECT
         #-------------------------------------------
-
         # Quadrature data on extended distributed domain
         self._num_elements = ne
         self._num_quad_pts = len( u )

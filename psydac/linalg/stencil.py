@@ -657,9 +657,9 @@ class StencilMatrix( Matrix ):
         self._args = args.copy()
 
         self._func = self._dot
+#        if backend is None:
+#            backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
 
-        if backend is None:
-            backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
 
 #        if backend:
 #            self.set_backend(backend)
@@ -678,7 +678,7 @@ class StencilMatrix( Matrix ):
         return self._codomain
 
     # ...
-    def dot( self, v, out=None ):
+    def dot( self, v, out=None):
 
         assert isinstance( v, StencilVector )
         assert v.space is self.domain
@@ -692,6 +692,7 @@ class StencilMatrix( Matrix ):
             assert out.space is self.codomain
         else:
             out = StencilVector( self.codomain )
+
 
         self._func(self._data, v._data, out._data, **self._args)
 
@@ -709,9 +710,11 @@ class StencilMatrix( Matrix ):
 
         # pads are <= gpads
         diff = [gp-p for gp,p in zip(gpads, pads)]
+
         ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
 
         ss1 = [p*m+p+1-n-s%m for p,m,n,s in zip(gpads, dm, ndiags, starts)]
+
 
         for xx in np.ndindex( *nrows ):
 
