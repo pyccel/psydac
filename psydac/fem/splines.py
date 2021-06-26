@@ -74,9 +74,12 @@ class SplineSpace( FemSpace ):
         if grid is None:
             grid = breakpoints(knots, degree)
 
-        assert len(grid)>2
 
-        multiplicity = (abs(knots[:3*degree+3]-grid[1])<1e-17).tolist().count(True)
+        if len(grid)>2:
+            multiplicity = np.unique(knots[degree+1:-degree-1], return_counts=True)[1].min()
+        else:
+            multiplicity = 1
+
         if parent_multiplicity is None:
             parent_multiplicity = 1
         # TODO: verify that user-provided knots make sense in periodic case
