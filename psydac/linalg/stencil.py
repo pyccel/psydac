@@ -624,11 +624,11 @@ class StencilMatrix( Matrix ):
         self._backend  = backend
 
         # Parallel attributes
-        if V.parallel:
+        if W.parallel:
             # Create data exchanger for ghost regions
             self._synchronizer = CartDataExchanger(
-                cart        = V.cart,
-                dtype       = V.dtype,
+                cart        = W.cart,
+                dtype       = W.dtype,
                 coeff_shape = diags
             )
 

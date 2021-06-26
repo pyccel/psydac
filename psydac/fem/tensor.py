@@ -83,6 +83,7 @@ class TensorFemSpace( FemSpace ):
                                                         v.parent_starts, v.parent_ends,
                                                         v.pads, self._quad_order ) )
 
+
         # Determine portion of logical domain local to process
         self._element_starts = tuple( g.indices[g.local_element_start] for g in self.quad_grids )
         self._element_ends   = tuple( g.indices[g.local_element_end  ] for g in self.quad_grids )
@@ -639,7 +640,7 @@ class TensorFemSpace( FemSpace ):
 
             reduced_space = SplineSpace(
                 degree    = space.degree - 1,
-                pads      = space._pads,
+                pads      = space.pads,
                 grid      = space.breaks,
                 multiplicity = mr,
                 parent_multiplicity=m,

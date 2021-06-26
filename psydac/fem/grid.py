@@ -53,8 +53,9 @@ class FemAssemblyGrid:
         grid         = space.breaks          # breakpoints
         nc           = space.ncells          # number of cells in domain (nc=len(grid)-1)
         k            = quad_order or degree  # polynomial order for which the mass matrix is exact
-        pad          = pad or degree         # padding to add in the periodic case
+        pad          = pad or degree         # padding
         multiplicity = space.multiplicity    # multiplicity of the knots
+
 
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )
@@ -90,7 +91,14 @@ class FemAssemblyGrid:
         indices = []
         ne      = 0
 
-        # a) Periodic case only, left-most process in 1D domain
+        if pad==degree:
+            current_glob_spans  = glob_spans
+        elif pad-degree == 1:
+            elevated_T          = elevate_knots(T, degree, space.periodic)
+            current_glob_spans  = elements_spans( elevated_T, pad )
+        else:
+            raise NotImplementedError('TODO')
+
         if pad==degree:
             current_glob_spans  = glob_spans
             current_start = start
@@ -129,7 +137,7 @@ class FemAssemblyGrid:
                 weights.append( glob_weights[k] )
                 indices.append( k )
                 ne += 1
-
+        
         #-------------------------------------------
         # DATA STORAGE IN OBJECT
         #-------------------------------------------
@@ -153,9 +161,13 @@ class FemAssemblyGrid:
             local_element_start = self._spans.searchsorted( degree + start )
             local_element_end   = self._spans.searchsorted( degree + end   )
         else:
-
-            local_element_start = self._spans.searchsorted( degree if start == 0   else 1 + start)
-            local_element_end   = self._spans.searchsorted( end if end   == n-1 else 1 + end )
+            if end+1 >= degree:
+                local_element_start = self._spans.searchsorted( degree if start == 0   else 1 + start)
+                local_element_end   = self._spans.searchsorted( end if end   == n-1 else 1 + end )
+            else:
+                # in this edge case: no local elements for now
+                local_element_start = 1
+                local_element_end = 0
 
         # Local index of start/end elements of domain partitioning
         self._local_element_start = local_element_start
