@@ -828,6 +828,7 @@ class StencilMatrix( Matrix ):
 
     # ...
     def toarray( self, *, order='C', with_pads=False ):
+        """ Convert to Numpy 2D array. """
 
         if self.codomain.parallel and with_pads:
             coo = self._tocoo_parallel_with_pads(order=order)
@@ -838,6 +839,7 @@ class StencilMatrix( Matrix ):
 
     # ...
     def tosparse( self, *, order='C', with_pads=False ):
+        """ Convert to any Scipy sparse matrix format. """
 
         if self.codomain.parallel and with_pads:
             coo = self._tocoo_parallel_with_pads(order=order)

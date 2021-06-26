@@ -500,15 +500,13 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
-    def toarray( self, order='C' ):
-        """ Convert to 2D Numpy array.
-        """
+    def toarray( self, *, order='C', with_pads=False ):
+        """ Convert to Numpy 2D array. """
         return self.tosparse(order=order).toarray()
 
     # ...
-    def tosparse( self, order='C' ):
-        """ Convert to Scipy sparse matrix.
-        """
+    def tosparse( self, *, order='C', with_pads=False ):
+        """ Convert to any Scipy sparse matrix format. """
         # Shortcuts
         nrows = self.n_block_rows
         ncols = self.n_block_cols

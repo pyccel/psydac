@@ -935,7 +935,7 @@ def test_poisson_2d_circle_dir0():
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    raise
+
 #==============================================================================
 # 2D Poisson's equation on pipe
 #==============================================================================

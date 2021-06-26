@@ -354,11 +354,11 @@ class CartDecomposition():
         nprocs          = cart.nprocs
 
         cart._multiplicity = [max(1,m-1) for m in self.multiplicity]
-        for axis in axes:
-            assert(axis<cart._ndims)
 
-            # set pads and npts
-            cart._npts = tuple(n - ne for n,ne in zip(cart.npts, n_elements))
+        for axis in axes:assert(axis<cart._ndims)
+
+        # set pads and npts
+        cart._npts = tuple(n - ne for n,ne in zip(cart.npts, n_elements))
 
         # Store arrays with all the starts and ends along each direction
         cart._global_starts = [None]*self._ndims
@@ -419,8 +419,9 @@ class CartDecomposition():
             cart._reduced_global_ends  [axis] = self._reduced_global_ends  [axis].copy()
 
             # adjust only the end of the last interval
-            n = cart._npts[axis]
-            cart._reduced_global_ends[axis][-1] = n-1
+            if not cart.periods[axis]:
+                n = cart._npts[axis]
+                cart._reduced_global_ends[axis][-1] = n-1
 
         cart._parent_starts = self.starts
         cart._parent_ends   = self.ends
