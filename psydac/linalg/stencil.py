@@ -771,7 +771,7 @@ class StencilMatrix( Matrix ):
 
         # Number of rows in the transposed matrix (along each dimension)
         nrows       = [e-s+1 for s,e in zip(ssd, eed)]
-        ncols       = [e-s+2*m*p+1 for s,e,m,p in zip(ssc, eec, cm, pads)]
+        ncols       = [e-s+2*m*p+1 for s,e,m,p in zip(ssc, eec, cm, xpads)]
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
         self._transpose(M._data, Mt._data, nrows, ncols, xpads, pads, dm, cm)
@@ -823,7 +823,6 @@ class StencilMatrix( Matrix ):
                 if all(k<n  and k>-1 for k,n in zip(kk,nn)) and\
                    all(l<n for l,n in zip(ll, ndiags)) and\
                    all(i<n for i,n in zip(ii, ncols)):
-
                     Mt[(*jj, *ll)] = M[(*ii, *kk)]
 
     # ...
@@ -1412,6 +1411,7 @@ class StencilMatrix( Matrix ):
                 self._args.pop('pads')
 
 
+            self._args.pop('starts')
             self._args.pop('dm')
             self._args.pop('cm')
             self._func = dot.func

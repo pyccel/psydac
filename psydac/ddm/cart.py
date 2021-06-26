@@ -72,11 +72,13 @@ class CartDecomposition():
         assert isinstance( reorder, bool )
         assert isinstance( comm, MPI.Comm )
 
+        multiplicity = tuple(multiplicity) if multiplicity else (1,)*len(npts)
+
         # Store input arguments
         self._npts         = tuple( npts    )
         self._pads         = tuple( pads    )
         self._periods      = tuple( periods )
-        self._multiplicity = tuple(multiplicity) if multiplicity else (1,)*len(npts)
+        self._multiplicity = multiplicity
         self._reorder      = reorder
         self._comm         = comm
 
@@ -160,10 +162,10 @@ class CartDecomposition():
         self._grids = tuple( range(s,e+1) for s,e in zip( self._starts, self._ends ) )
 
         # Compute shape of local arrays in topology (with ghost regions)
-        self._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( self._starts, self._ends, self._pads, self._multiplicity ) )
+        self._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( self._starts, self._ends, self._pads, multiplicity ) )
 
         # Extended grids with ghost regions
-        self._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( self._starts, self._ends, self._pads, self._multiplicity ) )
+        self._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( self._starts, self._ends, self._pads, multiplicity ) )
 
         # Create (N-1)-dimensional communicators within the Cartesian topology
         self._subcomm = [None]*self._ndims
