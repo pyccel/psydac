@@ -436,11 +436,12 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     global_mats[i,j] = StencilMatrix(trial_space, test_space, backend=backend)
 
-                md                  = global_mats[i,j].domain.multiplicity
-                mc                  = global_mats[i,j].codomain.multiplicity
-                diag                = compute_diag_len(pads, md, mc)
-                element_mats[i,j]  = np.empty((*(test_degree+1),*diag))
-                if (i,j) in global_mats:self._matrix[i,j] = global_mats[i,j]
+                if (i,j) in global_mats:
+                    self._matrix[i,j] = global_mats[i,j]
+                    md                  = global_mats[i,j].domain.multiplicity
+                    mc                  = global_mats[i,j].codomain.multiplicity
+                    diag                = compute_diag_len(pads, md, mc)
+                    element_mats[i,j]  = np.empty((*(test_degree+1),*diag))
             else: # single patch
                 if self._matrix:
                     global_mats[0,0] = self._matrix
