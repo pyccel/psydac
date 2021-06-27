@@ -45,7 +45,7 @@ class FemAssemblyGrid:
         points (default: 1).
 
     """
-    def __init__( self, space, start, end, *, quad_order=None, nderiv=1 , pad=None, parent_start=None, parent_end=None):
+    def __init__( self, space, start, end, *, quad_order=None, nderiv=1, parent_start=None, parent_end=None):
 
         T            = space.knots           # knots sequence
         degree       = space.degree          # spline degree
@@ -53,7 +53,7 @@ class FemAssemblyGrid:
         grid         = space.breaks          # breakpoints
         nc           = space.ncells          # number of cells in domain (nc=len(grid)-1)
         k            = quad_order or degree  # polynomial order for which the mass matrix is exact
-        pad          = pad or degree         # padding
+        pad          = space.pads            # padding
         multiplicity = space.multiplicity    # multiplicity of the knots
 
 
@@ -93,21 +93,13 @@ class FemAssemblyGrid:
 
         if pad==degree:
             current_glob_spans  = glob_spans
-        elif pad-degree == 1:
-            elevated_T          = elevate_knots(T, degree, space.periodic)
-            current_glob_spans  = elements_spans( elevated_T, pad )
-        else:
-            raise NotImplementedError('TODO')
-
-        if pad==degree:
-            current_glob_spans  = glob_spans
             current_start = start
             current_end   = end
         elif pad-degree == 1:
             multiplicity  = space.parent_multiplicity
             elevated_T    = elevate_knots(T, degree, space.periodic, multiplicity=multiplicity)
-            current_start = parent_start
-            current_end   = parent_end
+            current_start = parent_start or start
+            current_end   = parent_end   or end
             current_glob_spans  = elements_spans( elevated_T, pad )
         else:
             raise NotImplementedError('TODO')
@@ -124,7 +116,9 @@ class FemAssemblyGrid:
                     indices.append( k )
                     ne += 1
 
+
         m = multiplicity if multiplicity>1 else 0
+
         # b) All cases
         for k in range( nc ):
             gk = current_glob_spans[k]
