@@ -61,7 +61,7 @@ class CartDecomposition():
         (optional: default is MPI_COMM_WORLD).
 
     """
-    def __init__( self, npts, pads, periods, reorder, multiplicity=None, comm=MPI.COMM_WORLD, nprocs=None, reverse_axis=None ):
+    def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, multiplicity=None, nprocs=None, reverse_axis=None ):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
