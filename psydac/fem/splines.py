@@ -207,6 +207,12 @@ class SplineSpace( FemSpace ):
         """ True if domain is periodic, False otherwise.
         """
         return self._periodic
+    
+    @property
+    def pads( self ):
+        """ Padding for potential parallel assembly.
+        """
+        return self._pads
 
     @property
     def mapping( self ):

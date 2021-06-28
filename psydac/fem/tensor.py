@@ -77,8 +77,8 @@ class TensorFemSpace( FemSpace ):
             self._quad_order = [sp.degree for sp in self.spaces]
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, pad=p, quad_order=q)
-                                  for V,s,e,p,q in zip( self.spaces, v.starts, v.ends, v.pads, self._quad_order ) )
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q)
+                                  for V,s,e,q in zip( self.spaces, v.starts, v.ends, self._quad_order ) )
 
         # Determine portion of logical domain local to process
         self._element_starts = tuple( g.indices[g.local_element_start] for g in self.quad_grids )
@@ -607,7 +607,7 @@ class TensorFemSpace( FemSpace ):
             space = spaces[axis]
             reduced_space = SplineSpace(
                 degree    = space.degree - 1,
-                pads      = space._pads,
+                pads      = space.pads,
                 grid      = space.breaks,
                 periodic  = space.periodic,
                 dirichlet = space.dirichlet,
