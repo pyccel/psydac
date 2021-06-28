@@ -1579,8 +1579,8 @@ def test_stencil_matrix_2d_parallel_backend_dot( n1, n2, p1, p2, P1, P2, reorder
 
 @pytest.mark.parametrize( 'n1', [ 8,21] )
 @pytest.mark.parametrize( 'n2', [13,32] )
-@pytest.mark.parametrize( 'p1', [1,3] )
-@pytest.mark.parametrize( 'p2', [1,2] )
+@pytest.mark.parametrize( 'p1', [3] )
+@pytest.mark.parametrize( 'p2', [2] )
 @pytest.mark.parametrize( 'P1', [True, False] )
 @pytest.mark.parametrize( 'P2', [True, False] )
 @pytest.mark.parametrize( 'reorder', [True, False] )
