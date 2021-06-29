@@ -94,12 +94,18 @@ def apply_essential_bc_BlockMatrix(a, bc):
     assert isinstance(a, BlockMatrix)
     keys = list(a._blocks.keys())
 
-    if bc.index_component:
+    if bc.index_component is not None:
         for i_loc in bc.index_component:
             i = bc.position + i_loc
             js = [ij[1] for ij in keys if ij[0] == i]
             for j in js:
                 apply_essential_bc(a[i, j], bc)
+
+    elif bc.position is not None:
+        i = bc.position
+        js = [ij[1] for ij in keys if ij[0] == i]
+        for j in js:
+            apply_essential_bc(a[i, j], bc)
     else:
         var = bc.variable
         space = var.space

@@ -1098,8 +1098,8 @@ class StencilMatrix( Matrix ):
             x = self._shift_index( i, m*p-s )
             index.append( x )
 
-        for k,p,m in zip( kk, self._pads, self._domain.multiplicity ):
-            l = self._shift_index( k, m*p )
+        for k,p in zip( kk, self._pads ):
+            l = self._shift_index( k, p )
             index.append( l )
         return tuple(index)
 

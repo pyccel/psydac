@@ -30,10 +30,11 @@ from psydac.linalg.stencil     import *
 from psydac.linalg.block       import *
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
 
+from psydac.linalg.iterative_solvers import cg, pcg, bicg
+
 from sympde.calculus import laplace, grad, Transpose
 from sympde.expr     import TerminalExpr
 
-from scipy.sparse.linalg import minres
 #==============================================================================
 def get_boundaries(*args):
 
@@ -136,9 +137,7 @@ def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
         apply_essential_bc(M, *equation_h.bc)
         apply_essential_bc(b, *equation_h.bc)
 
-        x,info = minres(M.tosparse().tocsr(), b.toarray(), tol=1e-9)
-
-        x = array_to_stencil(x, b.space)
+        x,info = bicg(M, M.T, b,tol=1e-9)
 
         du_h[0].coeffs[:] = x[0][:]
         du_h[1].coeffs[:] = x[1][:]
@@ -212,6 +211,7 @@ def test_navier_stokes_2d(scipy=True):
     assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
     assert abs(0.004127752838826402 - l2_error_p  ) < 1e-7
 
+test_navier_stokes_2d()
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================
