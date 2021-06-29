@@ -661,7 +661,6 @@ class StencilMatrix( Matrix ):
             ii    = tuple( xp+x for xp,x in zip(gpads,xx) )
             jj    = tuple( slice(d+x,d+x+2*p+1) for x,p,d in zip(xx,pads,diff) )
             ii_kk = tuple( list(ii) + kk )
-            print(f'{out.shape} {ii} {x.shape} {mat.shape} {ii_kk} {jj}')
             out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
 
         new_nrows = nrows.copy()
