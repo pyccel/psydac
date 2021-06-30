@@ -101,7 +101,7 @@ def apply_essential_bc_BlockMatrix(a, bc):
             for j in js:
                 apply_essential_bc(a[i, j], bc)
 
-    elif bc.position is not None:
+    elif bc.position is not None and not bc.variable.space.is_broken:
         i = bc.position
         js = [ij[1] for ij in keys if ij[0] == i]
         for j in js:

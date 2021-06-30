@@ -657,12 +657,13 @@ class StencilMatrix( Matrix ):
         self._args = args.copy()
 
         self._func = self._dot
-#        if backend is None:
-#            backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
+
+        if backend is None:
+            backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
 
 
-#        if backend:
-#            self.set_backend(backend)
+        if backend:
+            self.set_backend(backend)
 
 
     #--------------------------------------
@@ -713,13 +714,12 @@ class StencilMatrix( Matrix ):
 
         ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
 
-        ss1 = [p*m+p+1-n-s%m for p,m,n,s in zip(gpads, dm, ndiags, starts)]
-
+        bb = [p*m+p+1-n-s%m for p,m,n,s in zip(gpads, dm, ndiags, starts)]
 
         for xx in np.ndindex( *nrows ):
 
-            ii    = tuple( mi*pi+x for mi,pi,x in zip(cm, gpads, xx) )
-            jj    = tuple( slice(s1-d+(x+s%mj)//mi*mj,s1-d+(x+s%mj)//mi*mj+n) for x,mi,mj,s1,s,n,d in zip(xx,cm,dm,ss1,starts,ndiags,diff) )
+            ii    = tuple( mi*pi + x for mi,pi,x in zip(cm, gpads, xx) )
+            jj    = tuple( slice(b-d+(x+s%mj)//mi*mj,b-d+(x+s%mj)//mi*mj+n) for x,mi,mj,b,s,n,d in zip(xx,cm,dm,bb,starts,ndiags,diff) )
             ii_kk = tuple( list(ii) + kk )
             out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
 
@@ -737,7 +737,7 @@ class StencilMatrix( Matrix ):
 
                     ii     = tuple(mi*pi + x for mi,pi,x in zip(cm, gpads, xx))
                     ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
-                    jj     = tuple( slice(s1-d+(x+s%mj)//mi*mj, s1+(x+s%mj)//mi*mj-d+n-e) for x,mi,mj,d,e,s1,s,n in zip(xx, cm, dm, diff, ee,ss1,starts, ndiags) )
+                    jj     = tuple( slice(b-d+(x+s%mj)//mi*mj, b-d+(x+s%mj)//mi*mj+n-e) for x,mi,mj,d,e,b,s,n in zip(xx, cm, dm, diff, ee,bb,starts, ndiags) )
                     kk     = [slice(None,n-e) for n,e in zip(ndiags, ee)]
                     ii_kk  = tuple( list(ii) + kk )
                     out[ii] = np.dot( mat[ii_kk].flat, x[jj].flat )
@@ -1369,13 +1369,21 @@ class StencilMatrix( Matrix ):
                                     backend=frozenset(backend.items()),
                                     nrows_extra = self._args['nrows_extra'],
                                     gpads=self._args['gpads'],
-                                    pads=self._args['pads'])
+                                    pads=self._args['pads'],
+                                    dm = self._args['dm'],
+                                    cm = self._args['cm'])
 
-                    nrows = self._args.pop('nrows')
+                    starts = self._args.pop('starts')
+                    nrows  = self._args.pop('nrows')
 
                     self._args.pop('nrows_extra')
                     self._args.pop('gpads')
                     self._args.pop('pads')
+                    self._args.pop('dm')
+                    self._args.pop('cm')
+
+                    for i in range(len(nrows)):
+                        self._args['s{i}'.format(i=i+1)] = starts[i]
 
                     for i in range(len(nrows)):
                         self._args['n{i}'.format(i=i+1)] = nrows[i]
@@ -1384,13 +1392,21 @@ class StencilMatrix( Matrix ):
                     dot = LinearOperatorDot(self._ndim,
                                             backend=frozenset(backend.items()),
                                             gpads=self._args['gpads'],
-                                            pads=self._args['pads'])
+                                            pads=self._args['pads'],
+                                            dm = self._args['dm'],
+                                            cm = self._args['cm'])
 
-                    nrows = self._args.pop('nrows')
+                    starts      = self._args.pop('starts')
+                    nrows       = self._args.pop('nrows')
                     nrows_extra = self._args.pop('nrows_extra')
 
                     self._args.pop('gpads')
                     self._args.pop('pads')
+                    self._args.pop('dm')
+                    self._args.pop('cm')
+
+                    for i in range(len(nrows)):
+                        self._args['s{i}'.format(i=i+1)] = starts[i]
 
                     for i in range(len(nrows)):
                         self._args['n{i}'.format(i=i+1)] = nrows[i]
@@ -1401,19 +1417,22 @@ class StencilMatrix( Matrix ):
             else:
                 dot = LinearOperatorDot(self._ndim,
                                         backend=frozenset(backend.items()),
+                                        starts = tuple(self._args['starts']),
                                         nrows=tuple(self._args['nrows']),
                                         nrows_extra=self._args['nrows_extra'],
                                         gpads=self._args['gpads'],
-                                        pads=self._args['pads'])
+                                        pads=self._args['pads'],
+                                        dm = self._args['dm'],
+                                        cm = self._args['cm'])
                 self._args.pop('nrows')
                 self._args.pop('nrows_extra')
                 self._args.pop('gpads')
                 self._args.pop('pads')
+                self._args.pop('starts')
+                self._args.pop('dm')
+                self._args.pop('cm')
 
 
-            self._args.pop('starts')
-            self._args.pop('dm')
-            self._args.pop('cm')
             self._func = dot.func
 
 

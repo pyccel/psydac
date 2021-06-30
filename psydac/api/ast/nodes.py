@@ -42,6 +42,20 @@ class Zeros(Function):
     def shape(self):
         return self._args[0]
 
+class FloorDiv(Function):
+    def __new__(cls, a1, a2):
+        if a2 == 1:
+            return a1
+        else:
+            return Basic.__new__(cls, a1, a2)
+
+    @property
+    def a1(self):
+        return self._args[0]
+
+    @property
+    def a2(self):
+        return self._args[1]
 #==============================================================================
 class ArityType(with_metaclass(Singleton, Basic)):
     """Base class representing a form type: bilinear/linear/functional"""
