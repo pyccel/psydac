@@ -586,9 +586,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
             m_trials       = OrderedDict((u,d_trials[u]['multiplicity'])  for u in sub_trials)
             tests_degree   = OrderedDict((v,d_tests[v]['degrees'])        for v in sub_tests)
             trials_degrees = OrderedDict((u,d_trials[u]['degrees'])       for u in sub_trials)
-
-            if all(a==1 for a in m_tests[sub_tests[0]]) and False:
-
+            if all(a==1 for a in m_tests[sub_tests[0]]+m_trials[sub_trials[0]]):
                 stmts = []
                 for v in sub_tests+sub_trials:
                     stmts += construct_logical_expressions(v, nderiv)

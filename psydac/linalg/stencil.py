@@ -825,6 +825,7 @@ class StencilMatrix( Matrix ):
                    all(i<n for i,n in zip(ii, ncols)):
                     Mt[(*jj, *ll)] = M[(*ii, *kk)]
 
+
     # ...
     def toarray( self, *, order='C', with_pads=False ):
         """ Convert to Numpy 2D array. """
@@ -1012,7 +1013,7 @@ class StencilMatrix( Matrix ):
 
                 # Bottom-left corner
                 for i in range( max(nd-p,s), min(nc,e+1) ):
-                    index = tuple( idx_front + [i]              + idx_back +
+                    index = tuple( idx_front + [i]               + idx_back +
                                    idx_front + [slice(nd-i,p+1)] + idx_back )
                     self[index] = 0
 

@@ -482,7 +482,9 @@ def breakpoints( knots, degree ):
         Abscissas of all breakpoints.
 
     """
-    return np.unique( knots[degree:-degree] )
+    knots = np.array(knots)
+    diff  = np.append(True, np.diff(knots[degree:-degree])>1e-15)
+    return knots[degree:-degree][diff]
 
 #==============================================================================
 def greville( knots, degree, periodic ):
@@ -576,7 +578,7 @@ def elements_spans( knots, degree ):
 
     ie = 0
     for ik in range( degree, nk-degree ):
-        if knots[ik] != knots[ik+1]:
+        if knots[ik+1]-knots[ik]>=1e-15:
             spans[ie] = ik
             ie += 1
         if ie == ne:
@@ -673,6 +675,8 @@ def elevate_knots(knots, degree, periodic, multiplicity=1):
 
     """
 
+    knots = np.array(knots)
+
     if periodic:
         [T, p] = knots, degree
         period = T[-1-p] - T[p]
@@ -681,7 +685,14 @@ def elevate_knots(knots, degree, periodic, multiplicity=1):
     else:
         left  = [knots[0],*knots[:degree+1]]
         right = [knots[-1],*knots[-degree-1:]]
-        knots = np.repeat(np.unique(knots[degree+1:-degree-1]), multiplicity)
+
+        diff   = np.append(True, np.diff(knots[degree+1:-degree-1])>1e-15)
+        if len(knots[degree+1:-degree-1])>0:
+            unique = knots[degree+1:-degree-1][diff]
+            knots  = np.repeat(unique, multiplicity)
+        else:
+            knots = knots[degree+1:-degree-1]
+
     return np.array([*left, *knots, *right])
 
 #==============================================================================

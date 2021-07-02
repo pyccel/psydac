@@ -35,6 +35,8 @@ from psydac.linalg.iterative_solvers import cg, pcg, bicg
 from sympde.calculus import laplace, grad, Transpose
 from sympde.expr     import TerminalExpr
 
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
 #==============================================================================
 def get_boundaries(*args):
 
@@ -87,21 +89,22 @@ def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
     l2norm_dp  = Norm(dp     , domain, kind='l2')
 
     # ... create the computational domain from a topological domain
-    domain_h = discretize(domain, ncells=ncells)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
 
     knots1 = np.array([0, 0, 0, 1.0000, 1.0000, 1.0000])
     knots2 = np.array([0, 0, 0, 1.0000, 1.0000, 1.0000])
 
     knots1, knots2 = refine_knots([knots1, knots2], ncells=ncells, degree=degree, multiplicity=[2,2])
     knots  = {domain.name:[knots1, knots2]}
-    
+
     # ... discrete spaces
     V1h = discretize(V1, domain_h, degree=degree, knots=knots)
     V2h = discretize(V2, domain_h, degree=degree, knots=knots)
     Xh  = V1h*V2h
 
     # ... discretize the equation using Dirichlet bc
-    equation_h = discretize(equation, domain_h, [Xh, Xh], backend=PSYDAC_BACKEND_GPYCCEL)
+    equation_h = discretize(equation, domain_h, [Xh, Xh])
+
     a_h        = equation_h.lhs
     l_h        = equation_h.rhs
 
@@ -127,10 +130,11 @@ def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
 
     # Newton iteration
     for n in range(N):
-
-        print()
-        print('==== iteration {} ===='.format(n))
-
+        if comm.rank == 0:
+            print()
+            print('==== iteration {} ===='.format(n))
+        u_h.coeffs.update_ghost_regions()
+        p_h.coeffs.update_ghost_regions()
         M = a_h.assemble(u=u_h, p=p_h)
         b = l_h.assemble(u=u_h, p=p_h)
 
@@ -152,12 +156,14 @@ def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
         l2_error_du = l2norm_du_h.assemble(du=du_h)
         l2_error_dp = l2norm_dp_h.assemble(dp=dp_h)
 
-        print('L2_error_norm(du) = {}'.format(l2_error_du))
-        print('L2_error_norm(dp) = {}'.format(l2_error_dp))
+        if comm.rank == 0:
+            print('L2_error_norm(du) = {}'.format(l2_error_du))
+            print('L2_error_norm(dp) = {}'.format(l2_error_dp))
 
         if abs(l2_error_du+l2_error_dp) <= TOL:
-            print()
-            print('CONVERGED')
+            if comm.rank == 0:
+                print()
+                print('CONVERGED')
             break
 
     l2_error_u = l2norm_u_h.assemble(u=u_h)
@@ -169,7 +175,7 @@ def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
 #            SERIAL TESTS
 ###############################################################################
 #------------------------------------------------------------------------------
-def test_navier_stokes_2d(scipy=True):
+def test_navier_stokes_2d():
 
     # ... Exact solution
     domain = Square()
@@ -186,8 +192,8 @@ def test_navier_stokes_2d(scipy=True):
     assert (ux.diff(x) + uy.diff(y)).simplify() == 0
 
     # ... Compute right-hand side
-    from sympde.calculus import laplace, grad 
-    from sympde.expr     import TerminalExpr 
+    from sympde.calculus import laplace, grad
+    from sympde.expr     import TerminalExpr
 
     kwargs = dict(dim=2, logical=True)
     a = TerminalExpr(-mu*laplace(ue), **kwargs)
@@ -205,13 +211,62 @@ def test_navier_stokes_2d(scipy=True):
     # ...
 
     # Run test
-    l2_error_u, l2_error_p = run_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3, 2**3], degree=[2, 2])
+
+    l2_error_u, l2_error_p = run_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2])
 
     # Check that expected absolute error on velocity and pressure fields
     assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
     assert abs(0.004127752838826402 - l2_error_p  ) < 1e-7
 
-test_navier_stokes_2d()
+###############################################################################
+#            PARALLEL TESTS
+###############################################################################
+
+#==============================================================================
+@pytest.mark.parallel
+def test_navier_stokes_2d_parallel():
+
+    # ... Exact solution
+    domain = Square()
+    x, y   = domain.coordinates
+
+    mu = 1
+    ux = cos(y*pi)
+    uy = x*(x-1)
+    ue = Matrix([[ux], [uy]])
+    pe = sin(pi*y)
+    # ...
+
+    # Verify that div(u) = 0
+    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
+
+    # ... Compute right-hand side
+    from sympde.calculus import laplace, grad
+    from sympde.expr     import TerminalExpr
+
+    kwargs = dict(dim=2, logical=True)
+    a = TerminalExpr(-mu*laplace(ue), **kwargs)
+    b = TerminalExpr(    grad(ue), **kwargs)
+    c = TerminalExpr(    grad(pe), **kwargs)
+    f = (a.T + b.T*ue + c).simplify()
+
+    fx = -mu*(ux.diff(x, 2) + ux.diff(y, 2)) + ux*ux.diff(x) + uy*ux.diff(y) + pe.diff(x)
+    fy = -mu*(uy.diff(x, 2) - uy.diff(y, 2)) + ux*uy.diff(x) + uy*uy.diff(y) + pe.diff(y)
+
+    assert (f[0]-fx).simplify() == 0
+    assert (f[1]-fy).simplify() == 0
+
+    f  = Tuple(fx, fy)
+    # ...
+
+    # Run test
+
+    l2_error_u, l2_error_p = run_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2])
+
+    # Check that expected absolute error on velocity and pressure fields
+    assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
+    assert abs(0.004127752838826402 - l2_error_p  ) < 1e-7
+
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
 #==============================================================================

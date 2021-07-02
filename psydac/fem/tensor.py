@@ -83,7 +83,6 @@ class TensorFemSpace( FemSpace ):
                                                         v.parent_starts, v.parent_ends,
                                                         self._quad_order ) )
 
-
         # Determine portion of logical domain local to process
         self._element_starts = tuple( g.indices[g.local_element_start] for g in self.quad_grids )
         self._element_ends   = tuple( g.indices[g.local_element_end  ] for g in self.quad_grids )
