@@ -1105,7 +1105,7 @@ class Parser(object):
         #improve we shouldn't use index_dof_test
         if isinstance(target, BlockStencilMatrixLocalBasis):
             rows = self._visit(index_dof_test)
-            outer = self._visit(target.outer) if target.outer else [0]*dim
+            outer = self._visit(target.outer) if target.outer else rows
             cols = self._visit(index_dof_trial)
             pads = target.pads
             tests  = expand(target._tests)
