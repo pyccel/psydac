@@ -607,8 +607,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 loop1  = Loop((), ind_dof_trial, [loop])
             
                 # ... loop over tests
-                length = lengths_tests[sub_tests[0]]
-                ind_dof_test = index_dof_test.set_length(length+1)
+                length = Tuple(*[d+1 for d in tests_degree[sub_tests[0]]])
+                ind_dof_test = index_dof_test.set_length(length)
                 loop  = Loop((), ind_dof_test, [loop1])
                 # ...
 
