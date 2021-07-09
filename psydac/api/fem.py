@@ -175,24 +175,35 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_space  = self.spaces[0]
             test_space   = self.spaces[1]
 
+        # ...
+        test_ext  = None
+        trial_ext = None
         if isinstance(target, Boundary):
-            axis      = target.axis
-            ext       = target.ext
-            test_ext  = ext
-            trial_ext = ext
+            axis        = target.axis
+            ext         = target.ext
+            test_ext    = ext
+            trial_ext   = ext
+            test_grid   = QuadratureGrid( test_space, axis, test_ext)
+            trial_grid  = QuadratureGrid( trial_space, axis, trial_ext)
+            self._grid  = (test_grid,)
         elif isinstance(target, Interface):
-            axis       = target.axis
-            test       = self.kernel_expr.test
-            trial      = self.kernel_expr.trial
-            test_target  =  target.plus if isinstance(test, PlusInterfaceOperator) else target.minus
+            axis         = target.axis
+            test         = self.kernel_expr.test
+            trial        = self.kernel_expr.trial
+            test_target  = target.plus if isinstance(test, PlusInterfaceOperator) else target.minus
             trial_target = target.plus if isinstance(trial, PlusInterfaceOperator) else target.minus
-            test_ext   = test_target.ext
-            trial_ext  = trial_target.ext
-
+            test_ext     = test_target.ext
+            trial_ext    = trial_target.ext
+            test_grid    = QuadratureGrid( test_space, axis, test_ext)
+            trial_grid   = QuadratureGrid( trial_space, axis, trial_ext)
+            self._grid   = (test_grid, trial_grid) if test_target==target.minus else (trial_grid, test_grid)
         else:
-            axis      = None
-            test_ext  = None
-            trial_ext = None
+            test_grid   = QuadratureGrid( test_space)
+            trial_grid  = QuadratureGrid( trial_space)
+            self._grid  = (test_grid,)
+
+        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
+        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
 
         if isinstance(target, (Boundary, Interface)):
             #...
@@ -214,14 +225,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                 npts = vector_space.npts[axis]
                 if end + 1 != npts:
                     self._func = do_nothing
-            #...
-
-        test_grid   = QuadratureGrid( test_space, axis, test_ext)
-        trial_grid  = QuadratureGrid( trial_space, axis, trial_ext)
-
-        self._grid        = test_grid if test_ext == 1 else trial_grid
-        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
-        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
 
         self._args = self.construct_arguments(backend=kwargs.pop('backend', None))
 
@@ -319,7 +322,9 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         test_basis, test_degrees, spans   = construct_test_space_arguments(self.test_basis)
         trial_basis, trial_degrees        = construct_trial_space_arguments(self.trial_basis)
-        n_elements, quads, quad_degrees   = construct_quad_grids_arguments(self.grid)
+        n_elements, quads, quad_degrees   = construct_quad_grids_arguments(self.grid[0])
+        if len(self.grid)>1:
+            quads  = [*quads, *self.grid[1].points]
 
         pads                      = self.test_basis.space.vector_space.pads
         element_mats, global_mats = self.allocate_matrices(backend)

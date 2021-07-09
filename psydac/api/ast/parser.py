@@ -397,7 +397,7 @@ class Parser(object):
                     for stmt in zip(l_pads[i,j], test_ln, trial_ln):
                         inits += [Assign(stmt[0], Function('max')(tuple(stmt[1:])))]
 
-        args = [*tests_basis, *trial_basis, *g_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *lengths, *g_pads]
+        args = [*tests_basis, *trial_basis, *g_span, *g_quad, *lengths_tests.values(), *lengths_trials.values(), *lengths, *g_pads]
 
         if isinstance(mats[0], (LocalElementBasis, GlobalElementBasis)):
             mats = [self._visit(mat) for mat in mats]
@@ -566,6 +566,32 @@ class Parser(object):
 
         return OrderedDict([(0,targets)])
 
+    def _visit_PlusGlobalTensorQuadrature(self, expr, **kwargs):
+        dim  = self.dim
+        rank = expr.rank
+
+        names = 'global_x1:%s_plus'%(dim+1)
+        points   = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+
+        # gather by axis
+        self.insert_variables(*points)
+
+        points = tuple(zip(points))
+        return OrderedDict([(0,points)])
+
+
+    # ....................................................
+    def _visit_PlusLocalTensorQuadrature(self, expr, **kwargs):
+        dim  = self.dim
+        rank = expr.rank
+
+        names = 'local_x1:%s_plus'%(dim+1)
+        points   = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+
+        self.insert_variables(*points)
+
+        points = tuple(zip(points))
+        return OrderedDict([(0,points)])
     # ....................................................
     def _visit_TensorQuadrature(self, expr, **kwargs):
         dim = self.dim
@@ -583,6 +609,17 @@ class Parser(object):
 
         return OrderedDict([(0,targets)])
 
+
+    def _visit_PlusTensorQuadrature(self, expr, **kwargs):
+        dim = self.dim
+        names   = 'x1:%s_plus'%(dim+1)
+        points  = variables(names, dtype='real', cls=Variable)
+
+        targets = tuple(zip(points))
+
+        self.insert_variables(*points)
+
+        return OrderedDict([(0,targets)])
 
     # ....................................................
     def _visit_MatrixQuadrature(self, expr, **kwargs):
@@ -981,7 +1018,7 @@ class Parser(object):
         lhs = lhs[:]
 
         temps = []
-        temps, rhs = cse_main.cse(rhs, symbols=cse_main.numbered_symbols(prefix='temp'))
+        #temps, rhs = cse_main.cse(rhs, symbols=cse_main.numbered_symbols(prefix='temp'))
 
         normal_vec_stmts = []
         normal_vectors = expr.expr.atoms(NormalVector)
@@ -992,7 +1029,7 @@ class Parser(object):
             mapping = mapping.minus
             target  = target.minus
             axis    = target.axis
-            ext     = 1
+            ext     = target.ext
         elif isinstance(target, Boundary):
             ext  = target.ext
             axis = target.axis
@@ -1005,7 +1042,7 @@ class Parser(object):
             normalization = values.dot(values)**0.5
             values  = [v for v in values]
             values  = [v1/normalization for v1 in values]
-            normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), values[i]) for i in range(dim)]
+            normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), values[i].simplify()) for i in range(dim)]
 
         if op is None:
             stmts = [Assign(i, j) for i,j in zip(lhs,rhs) if j]

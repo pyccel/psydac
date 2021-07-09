@@ -448,11 +448,23 @@ class LocalTensorQuadrature(ArrayNode):
     _positions = {index_quad: 0}
 
 #==============================================================================
+class PlusLocalTensorQuadrature(LocalTensorQuadrature):
+    pass
+
+#==============================================================================
+class PlusGlobalTensorQuadrature(GlobalTensorQuadrature):
+    pass
+
+#==============================================================================
 class TensorQuadrature(ScalarNode):
     """
     """
     pass
-
+#==============================================================================
+class PlusTensorQuadrature(TensorQuadrature):
+    """
+    """
+    pass
 #==============================================================================
 class MatrixQuadrature(MatrixNode):
     """
@@ -1358,7 +1370,6 @@ class Loop(BaseNode):
         if len(l_quad) == 0:
             return Tuple()
 
-        assert(len(l_quad) == 1)
         l_quad = l_quad[0]
 
         args = [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
@@ -1510,7 +1521,15 @@ def construct_itergener(a, index):
     """
     """
     # ... create generator
-    if isinstance(a, GlobalTensorQuadrature):
+    if isinstance(a, PlusGlobalTensorQuadrature):
+        generator = TensorGenerator(a, index)
+        element   = PlusLocalTensorQuadrature()
+
+    elif isinstance(a, PlusLocalTensorQuadrature):
+        generator = TensorGenerator(a, index)
+        element   = PlusTensorQuadrature()
+
+    elif isinstance(a, GlobalTensorQuadrature):
         generator = TensorGenerator(a, index)
         element   = LocalTensorQuadrature()
 
