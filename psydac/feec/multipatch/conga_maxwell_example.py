@@ -233,10 +233,32 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
     t_stamp = time_count(t_stamp)
     print('building A operator...' )
     jump_penal_m = I1_m-cP1_m
+
+    # matrix of the weak div operator V1h -> V0h
+    # div_m = - M0_minv * D0_m.transpose() * M1_m
+    div_aux_m = D0_m.transpose() * M1_m
+    div_m = - M0_minv * div_aux_m
+
+    # A_m += (
+    #         D1_m.transpose() * M2_m * D1_m
+    #         + alpha * jump_penal_m.transpose() * M1_m * jump_penal_m
+    # )
+
+    # note: with
+    #   alpha * cP1_m.transpose() * M1_m * cP1_m
+    # for the 0-order term, the solution is conforming with any value of gamma_jump.
+    # this may be helful if a strong penalization of the jumps leads to high condition numbers
+    # in any case, different penalization options should be compared at numerical level (accuracy, condition numbers...)
     A1_m = ( alpha * M1_m
         + gamma_jump * jump_penal_m.transpose() * M1_m * jump_penal_m
         + D1_m.transpose() * M2_m * D1_m
         )
+
+    L_option = 0   # beware: RHS needs to be changed for full HL operator
+    if L_option == 1:
+        A1_m += div_aux_m.transpose() * M0_minv * div_aux_m
+    elif L_option == 2:
+        A1_m += (div_aux_m * cP1_m).transpose() * M0_minv * div_aux_m * cP1_m
 
 
     # as psydac operator:
@@ -244,8 +266,6 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
     #   alpha * M1 + gamma_jump * ComposedLinearOperator([I1-cP1, M1, I1-cP1])
     #   + ComposedLinearOperator([cP1, bD1.transpose(), M2, bD1, cP1])
 
-    # matrix of the weak div operator V1h -> V0h
-    div_m = - M0_minv * D0_m.transpose() * M1_m
     def div_norm(u_c):
         du_c = div_m.dot(u_c)
         return np.dot(du_c,M0_m.dot(du_c))**0.5
@@ -300,10 +320,14 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
 
     lh = discretize(l, domain_h, V1h) #, backend=PSYDAC_BACKENDS['numba'])
     b  = lh.assemble()
+    b_c = b.toarray()
+
+    # b_c = correct source ?
+    print("-- correct source -- ")
+    b_c = cP1_m.transpose().dot(b_c)
 
     if plot_source:
         # representation of discrete source:
-        b_c = b.toarray()
         fh_c = spsolve(M1_m.tocsc(), b_c)
         fh_norm = np.dot(fh_c,M1_m.dot(fh_c))**0.5
         print("|| fh || = ", fh_norm)
@@ -357,7 +381,7 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
         plot_corrected_f = False
         if plot_corrected_f:
             fh_c = spsolve(M1_m.tocsc(), cP1_m.transpose().dot(b_c))
-            print("|| fh || = ", np.dot(fh_c,M1_m.dot(fh_c)))**0.5
+            print("|| fh || = ", np.dot(fh_c,M1_m.dot(fh_c))**0.5)
             print("|| div fh || = ", div_norm(fh_c))
             fh = FemField(V1h, coeffs=array_to_stencil(fh_c, V1h.vector_space))
 
@@ -384,11 +408,11 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
         t_stamp = time_count(t_stamp)
         print("getting sparse matrix...")
         # A = A.to_sparse_matrix()
-        b = b.toarray()     # why not 'to_array', for consistency with array_to_stencil ?
+        # b = b.toarray()     # why not 'to_array', for consistency with array_to_stencil ?
 
         t_stamp = time_count(t_stamp)
         print("solving with scipy...")
-        Eh_c = spsolve(A_m.tocsc(), b)
+        Eh_c = spsolve(A_m.tocsc(), b_c)
         E_coeffs = array_to_stencil(Eh_c, V1h.vector_space)
 
     else:
@@ -400,11 +424,19 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
 
     # projected solution
     PEh_c = cP1_m.dot(Eh_c)
-    Eh = FemField(V1h, coeffs=array_to_stencil(PEh_c, V1h.vector_space))
+    jumpEh_c = Eh_c - PEh_c
 
+    Eh = FemField(V1h, coeffs=array_to_stencil(PEh_c, V1h.vector_space))
     Eh_norm = np.dot(Eh_c,M1_m.dot(Eh_c))**0.5
+    jumpEh_norm = np.dot(jumpEh_c,M1_m.dot(jumpEh_c))**0.5
     print("|| Eh || = ", Eh_norm)
     print("|| div Eh || / || Eh || = ", div_norm(Eh_c)/Eh_norm)
+    print("|| (I-P) Eh || / || Eh || = ", jumpEh_norm/Eh_norm)
+
+    jumps_b = jump_penal_m.dot(b_c)
+    b_norm = np.dot(b_c,b_c)**0.5
+    jumps_b_norm = np.dot(jumps_b,jumps_b)**0.5
+    print("|| (I-P) b || / || b || = ", jumps_b_norm/b_norm)
 
 
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -528,7 +560,7 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
 
     t_stamp = time_count(t_stamp)
     print("done -- summary: ")
-    print("using jump penalization factor alpha = ", alpha )
+    print("using jump penalization factor gamma = ", gamma_jump )
     print('nb of spline cells per patch: ' + repr(ncells))
     print('degree: ' + repr(degree))
     nb_dofs = len(Eh_c)
@@ -731,7 +763,7 @@ if __name__ == '__main__':
     test_case='ring_J'
     domain_name='pretzel'
     deg = 4
-    for nc in [4, 8, 12, 16, 20]:
+    for nc in [12]: # [4, 8, 12, 16, 20]:
         print(2*'\n'+'-- running time_harmonic maxwell for test '+test_case+' on '+domain_name+' with deg = '+repr(deg)+', nc = '+repr(nc)+' -- '+2*'\n')
         ndofs, l2_error = run_maxwell_2d_time_harmonic(nc=nc, deg=deg, test_case=test_case, domain_name=domain_name)
         results.append([nc, ndofs, l2_error])
