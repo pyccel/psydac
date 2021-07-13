@@ -53,7 +53,7 @@ def get_load_dir(domain_name=None,n_patches=None,nc=None,deg=None,data='matrices
 
 
 # ---------------------------------------------------------------------------------------------------------------
-def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
+def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
                                 domain_name='square',
                                 n_patches=2,
                                 load_dir=None,
@@ -193,7 +193,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
         # D0_t = ComposedLinearOperator([cP0, bD0.transpose()])
         # D1_t = ComposedLinearOperator([cP1, bD1.transpose()])
         # A = (  ComposedLinearOperator([M1, D0, M0_inv, D0_t, M1])
-        #     + alpha*ComposedLinearOperator([I1-cP1,M1, I1-cP1])
+        #     + gamma_jump*ComposedLinearOperator([I1-cP1,M1, I1-cP1])
         #     + ComposedLinearOperator([D1_t, M2, D1])
         #     )
 
@@ -232,10 +232,18 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
     print("computing (sparse) Hodge-Laplacian matrix...")
     div_aux_m = D0_m.transpose() * M1_m  # note: the matrix of the (weak) div operator is:   - M0_minv * div_aux_m
     jump_penal_m = I1_m-cP1_m
-    A_m = ( div_aux_m.transpose() * M0_minv * div_aux_m
-        + alpha * jump_penal_m.transpose() * M1_m * jump_penal_m
-        + D1_m.transpose() * M2_m * D1_m
-        )
+
+    L_option = 2
+    if L_option == 1:
+        A_m = div_aux_m.transpose() * M0_minv * div_aux_m
+    else:
+        A_m = (div_aux_m * cP1_m).transpose() * M0_minv * div_aux_m * cP1_m
+
+    A_m += (
+            D1_m.transpose() * M2_m * D1_m
+            + gamma_jump * jump_penal_m.transpose() * M1_m * jump_penal_m
+    )
+
 
     if test_harmonic_field:
         print("testing harmonic field (for debugging purposes)...")
@@ -443,7 +451,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, alpha,
     t_stamp = time_count(t_stamp)
     print('done -- summary: ')
 
-    print("using jump penalization factor alpha = ", alpha )
+    print("using jump penalization factor gamma_jump = ", gamma_jump )
     print('nb of spline cells per patch: ' + repr(ncells))
     h = 1/ncells[0]
     print('-- corresponding to h: '+ repr(h))
@@ -477,8 +485,8 @@ if __name__ == '__main__':
     # print(res)
     # exit()
 
-    # domain_name = 'curved_L_shape'
-    domain_name = 'pretzel'  #_debug'
+    domain_name = 'curved_L_shape'
+    # domain_name = 'pretzel'  #_debug'
 
     # valid parameters for curved_L_shape (V1 dofs around 10.000)
     # nc = 40; deg = 3
@@ -493,22 +501,22 @@ if __name__ == '__main__':
     # nc = 20; deg = 4  # OK -- V1 dofs: 12144
     # nc = 20; deg = 5  # OK -- V1 dofs: 13200
     # nc = 20; deg = 8  # OK --
-    nc=20
+    # nc=20
     # nc=8
-    # nc=40
+    nc=40
     # for deg in [2,3,4,5,6,7]:
     # for deg in [4,5,6,7]:
 
-    for deg in [5]:
-    # for deg in [3]:
+    # for deg in [5]:
+    for deg in [3]:
 
         # (nc, deg = 30, 2 is too large for super_lu)
 
         # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
         h = 1/nc
-        DG_alpha = 10*(deg+1)**2/h
-        # DG_alpha = 10*(deg)**2/h
-        alpha = DG_alpha
+        DG_gamma = 10*(deg+1)**2/h
+        # DG_gamma = 10*(deg)**2/h
+        gamma_jump = DG_gamma
 
         show_all = False
         plot_all = True
@@ -586,7 +594,7 @@ if __name__ == '__main__':
             load_dir = None
 
         run_maxwell_2d_eigenproblem(
-            nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], alpha=alpha,
+            nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], gamma_jump=gamma_jump,
             domain_name=domain_name, n_patches=n_patches,
             save_dir=save_dir, load_dir=load_dir, plot_dir=plot_dir, fem_name=fem_name,
             ref_sigmas=ref_sigmas, sigma=sigma, show_all=show_all, dpi=dpi, dpi_vf=dpi_vf,
