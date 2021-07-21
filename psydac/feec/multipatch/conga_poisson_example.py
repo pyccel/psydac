@@ -92,7 +92,7 @@ def conga_poisson_2d():
     M1 = BrokenMass(V1h, domain_h, is_scalar=False)
 
     # Projectors for broken spaces
-    bP0, bP1, bP2 = derham_h.projectors(nquads=nquads)
+    # bP0, bP1, bP2 = derham_h.projectors(nquads=nquads)
 
     # Broken derivative operators
     bD0, bD1 = derham_h.broken_derivatives_as_operators

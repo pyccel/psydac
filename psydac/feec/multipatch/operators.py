@@ -27,12 +27,12 @@ from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 DEBUG_BCK = False   ## DEBUG
-DEBUG_BCK = True   ## DEBUG
+# DEBUG_BCK = True   ## DEBUG
 
 if DEBUG_BCK:
-    print("WITH numba backends")
+    print("psydac/feec/multipatch/operators.py [DEBUG_BCK]: WITH numba backends")
 else:
-    print("WITHOUT numba backends")
+    print("psydac/feec/multipatch/operators.py [DEBUG_BCK]: WITHOUT numba backends")
 
 import time
 def time_count(t_stamp=None):
