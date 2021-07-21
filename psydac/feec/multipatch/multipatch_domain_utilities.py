@@ -81,6 +81,18 @@ def get_2D_rotation_mapping(name='no_name', c1=0., c2=0., alpha=np.pi/2):
         a21=np.sin(alpha), a22=np.cos(alpha),
     )
 
+def flip_axis(name='no_name', c1=0., c2=0.):
+
+    # AffineMapping:
+    # _expressions = {'x': 'c1 + a11*x1 + a12*x2 + a13*x3',
+    #                 'y': 'c2 + a21*x1 + a22*x2 + a23*x3',
+    #                 'z': 'c3 + a31*x1 + a32*x2 + a33*x3'}
+
+    return AffineMapping(
+        name, 2, c1=c1, c2=c2,
+        a11=0, a12=1,
+        a21=1, a22=0,
+    )
 def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max=None):   # old name: get_pretzel(h, r_min, r_max, debug_option=1):
     """
     design several multipatch domain, including pretzel-like shapes
@@ -243,7 +255,7 @@ def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max
         domain_5  = mapping_5(dom_log_5)
 
         dom_log_6 = Square('dom6',bounds1=(-hr,hr) , bounds2=(-h/2, h/2))
-        mapping_6 = get_2D_rotation_mapping('M6', c1=-h/2, c2=cr , alpha=np.pi/2)
+        mapping_6 = flip_axis('M6', c1=-h/2, c2=cr)
         domain_6  = mapping_6(dom_log_6)
 
         dom_log_7 = Square('dom7',bounds1=(-hr, hr), bounds2=(-h/2, h/2))
@@ -267,7 +279,8 @@ def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max
         # domain_11  = mapping_11(dom_log_11)
 
         dom_log_12 = Square('dom12',bounds1=(-hr, hr), bounds2=(-h/2, h/2))
-        mapping_12 = get_2D_rotation_mapping('M12', c1=cr, c2=h/2 , alpha=0)
+#        mapping_12 = get_2D_rotation_mapping('M12', c1=cr, c2=h/2 , alpha=0)
+        mapping_12 = AffineMapping('M12', 2, c1=cr, c2=h/2, a11=1, a22=-1, a21=0, a12=0)
         domain_12  = mapping_12(dom_log_12)
 
         dom_log_13 = Square('dom13',bounds1=(np.pi*3/2, np.pi*2), bounds2=(r_min, r_max))
@@ -299,21 +312,20 @@ def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max
                             ], name = 'domain')
 
             interfaces = [
-                [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
-                [domain_5.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1),1],
-                [domain_6.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1],
-                [domain_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1),1],
-                [domain_7.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1),1],
-                [domain_3.get_boundary(axis=1, ext=+1), domain_9.get_boundary(axis=1, ext=-1),1],
-                [domain_9.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),1],
-                [domain_4.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=-1),1],
-                [domain_12.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1),1],
-                [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=+1),-1],
-                [domain_7.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=-1),1],
+                [domain_1.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),  1],
+                [domain_5.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=1),   1],
+                [domain_6.get_boundary(axis=1, ext=-1), domain_2.get_boundary(axis=1, ext=-1),  1],
+                [domain_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1),  1],
+                [domain_7.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1),  1],
+                [domain_3.get_boundary(axis=1, ext=+1), domain_9.get_boundary(axis=1, ext=-1),  1],
+                [domain_9.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),  1],
+                [domain_4.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=1), 1],
+                [domain_12.get_boundary(axis=1, ext=-1), domain_1.get_boundary(axis=1, ext=-1), 1],
+                [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=1),  1],
+                [domain_7.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=-1), 1],
                 [domain_5.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=-1), 1],
-                [domain_12.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=+1), -1],
+                [domain_12.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=+1),1],
                 ]
-
         elif domain_name == 'pretzel_annulus':
             # only the annulus part of the pretzel (not the inner arcs)
 

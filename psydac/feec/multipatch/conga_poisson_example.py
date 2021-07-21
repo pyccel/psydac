@@ -292,7 +292,6 @@ def nitsche_poisson_2d():
 #             + kappa*minus(u)*minus(v)\
 #             + kappa*plus(u)*plus(v)
 
-
     expr_I =- 0.5*dot(grad(plus(u)),nn)*minus(v)  + 0.5*dot(grad(minus(v)),nn)*plus(u)  - kappa*plus(u)*minus(v)\
             + 0.5*dot(grad(minus(u)),nn)*plus(v)  - 0.5*dot(grad(plus(v)),nn)*minus(u)  - kappa*plus(v)*minus(u)\
             - 0.5*dot(grad(minus(v)),nn)*minus(u) - 0.5*dot(grad(minus(u)),nn)*minus(v) + kappa*minus(u)*minus(v)\
@@ -338,10 +337,6 @@ def nitsche_poisson_2d():
 
     grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
 
-    # phi_ref_vals = get_grid_vals_scalar(phi_ex_log, etas, domain, list(mappings.values())) #_obj)
-    # phi_h_vals   = get_grid_vals_scalar(phi_h, etas, domain, list(mappings.values())) #
-
-
     phi_ref_vals = grid_vals_h1(phi_ex_log)
     phi_h_vals   = grid_vals_h1(phi_h)
     phi_err = [abs(pr - ph) for pr, ph in zip(phi_ref_vals, phi_h_vals)]
@@ -359,5 +354,5 @@ def nitsche_poisson_2d():
     )
 if __name__ == '__main__':
     nitsche_poisson_2d()
-    #conga_poisson_2d()
+#    conga_poisson_2d()
 
