@@ -19,13 +19,17 @@ from sympy import lambdify
 
 from sympde.expr     import TerminalExpr
 from sympde.calculus import grad, dot, inner, rot, div, curl, cross
+from sympde.calculus import minus, plus
 from sympde.topology import NormalVector
-from sympde.expr import Norm
+from sympde.expr     import Norm
 
 from sympde.topology import Derham
 from sympde.topology import element_of, elements_of
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
+from sympde.topology import VectorFunctionSpace
+
+from sympde.expr.equation import find, EssentialBC
 
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
@@ -41,6 +45,9 @@ from psydac.fem.basic   import FemField
 from psydac.feec.pull_push     import push_2d_hcurl, pull_2d_hcurl
 
 from psydac.utilities.utils    import refine_array_1d
+
+from psydac.linalg.iterative_solvers import pcg
+
 
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
@@ -106,7 +113,6 @@ def tmp_plot_source(J_x,J_y, domain):
         yy=yy,
         amplification=.5, #20,
     )
-
 
 
 #==============================================================================
@@ -273,7 +279,7 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
     u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
 
     if not hom_bc:
-        raise NotImplementedError
+        #raise NotImplementedError
         # boundary conditions
         # todo: clean the non-homogeneous case
         # u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
@@ -282,10 +288,9 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
         boundary = domain.boundary
         expr_b = penalization * cross(u, nn) * cross(v, nn)
         a_b = BilinearForm((u,v), integral(boundary, expr_b))
-        a_b_h = discretize(a_b, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS['numba'])
-        A_b = FemLinearOperator(fem_domain=V1h, fem_codomain=V1h, matrix=a_b_h.assemble())
+        a_b_h = discretize(a_b, domain_h, [V1h, V1h])
 
-        A = A1 + A_b
+        A_m = A1_m + a_b_h.assemble().tosparse().tocsr()
     else:
         A_m = A1_m
 
@@ -450,6 +455,10 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
 
     Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
     if E_ex:
+        E_ex_x = lambdify(domain.coordinates, E_ex[0])
+        E_ex_y = lambdify(domain.coordinates, E_ex[1])
+        E_ex_log = [pull_2d_hcurl([E_ex_x,E_ex_y], f) for f in mappings_list]
+
         E_x_vals, E_y_vals   = grid_vals_hcurl(E_ex_log)
         E_x_err = [abs(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
         E_y_err = [abs(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
@@ -578,12 +587,109 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
         return nb_dofs, l2_error
 
 
+def run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells, degree):
 
+    #+++++++++++++++++++++++++++++++
+    # 1. Abstract model
+    #+++++++++++++++++++++++++++++++
 
+    V  = VectorFunctionSpace('V', domain, kind='hcurl')
 
+    u, v, F  = elements_of(V, names='u, v, F')
+    nn  = NormalVector('nn')
 
+    error   = Matrix([F[0]-E_ex[0],F[1]-E_ex[1]])
 
-def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_name='pretzel'):
+    kappa        = 10**10
+    penalization = 10**10
+
+    I        = domain.interfaces
+    boundary = domain.boundary
+
+    # Bilinear form a: V x V --> R
+    eps     = -1
+#    expr_I  = -(0.5*curl(plus(u))*cross(minus(v),nn)       - 0.5*curl(minus(u))*cross(plus(v),nn))\
+#             + eps*(0.5*curl(plus(v))*cross(minus(u),nn)    - 0.5*curl(minus(v))*cross(plus(u),nn))\
+#             + -kappa*cross(plus(u),nn) *cross(minus(v),nn) - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
+#             + -(0.5*curl(minus(u))*cross(minus(v),nn)      + 0.5*curl(plus(u))*cross(plus(v),nn))\
+#             + eps*(0.5*curl(minus(v))*cross(minus(u),nn)   + 0.5*curl(plus(v))*cross(plus(u),nn))\
+#             + kappa*cross(minus(u),nn)*cross(minus(v),nn)  + kappa*cross(plus(u),nn) *cross(plus(v),nn)
+
+    expr_I  =-kappa*cross(plus(u),nn) *cross(minus(v),nn) - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
+            + kappa*cross(minus(u),nn)*cross(minus(v),nn) + kappa*cross(plus(u),nn) *cross(plus(v),nn)
+
+    expr   = curl(u)*curl(v) + alpha*dot(u,v)
+    expr_b = penalization * cross(u, nn) * cross(v, nn)
+
+    a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(boundary, expr_b))
+
+    expr   = dot(f,v)
+    expr_b = penalization * cross(E_ex, nn) * cross(v, nn)
+
+    l = LinearForm(v, integral(domain, expr) + integral(boundary, expr_b))
+
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
+
+    l2norm = Norm(error, domain, kind='l2')
+    #+++++++++++++++++++++++++++++++
+    # 2. Discretization
+    #+++++++++++++++++++++++++++++++
+
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    Vh       = discretize(V, domain_h, degree=degree)
+
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
+    l2norm_h   = discretize(l2norm, domain_h, Vh)
+
+    equation_h.assemble()
+    
+    A = equation_h.linear_system.lhs
+    b = equation_h.linear_system.rhs
+    
+    x, info = pcg(A, b, pc='jacobi', tol=1e-8)
+
+    Eh = FemField( Vh, x )
+
+    l2_error = l2norm_h.assemble(F=Eh)
+    ndofs    = Vh.nbasis
+
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings_list = list(mappings.values())
+    E_ex_x = lambdify(domain.coordinates, E_ex[0])
+    E_ex_y = lambdify(domain.coordinates, E_ex[1])
+    E_ex_log = [pull_2d_hcurl([E_ex_x,E_ex_y], f) for f in mappings_list]
+
+    etas, xx, yy = get_plotting_grid(mappings, N=20)
+    grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+    Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
+
+    E_x_vals, E_y_vals   = grid_vals_hcurl(E_ex_log)
+    E_x_err = [abs(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
+    E_y_err = [abs(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
+
+    my_small_plot(
+        title=r'approximation of solution $u$, $x$ component',
+        vals=[E_x_vals, Eh_x_vals, E_x_err],
+        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+        xx=xx,
+        yy=yy,
+        gridlines_x1=None,
+        gridlines_x2=None,
+    )
+
+    my_small_plot(
+        title=r'approximation of solution $u$, $y$ component',
+        vals=[E_y_vals, Eh_y_vals, E_y_err],
+        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+        xx=xx,
+        yy=yy,
+        gridlines_x1=None,
+        gridlines_x2=None,
+    )
+
+    return ndofs, l2_error, Eh
+
+def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_name='pretzel', nitsche_method=False):
     """
     curl-curl problem with 0 order term and source
     """
@@ -737,35 +843,28 @@ def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_na
     h = 1/nc
     gamma_jump = 10*(deg+1)**2/h
 
-    ndofs, l2_error, Eh = run_conga_maxwell_2d(
-        E_ex, f, alpha, domain, gamma_jump=gamma_jump,
-        ncells=[nc, nc], degree=[deg,deg],
-        N_diag=N_diag, E_ref_x_vals=E_ref_x_vals, E_ref_y_vals=E_ref_y_vals, E_ref_filename=E_ref_filename,
-        save_dir=save_dir, load_dir=load_dir, return_sol=True,
-        plot_source=plot_source, plot_sol=plot_sol, plot_dir=plot_dir, fem_name=fem_name,
-    )
-
-    # else:
-    #     # Nitsche
-    #     l2_error, Eh = run_system_3_2d_dir(E_ex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2], return_sol=True)
-
-    # if l2_error is None :
-    #     print("Sorry, no error to show :( ")
-    # else:
-    #     print("Measured L2 error: ", l2_error)
+    if nitsche_method == True:
+            ndofs, l2_error, Eh = run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells=[nc, nc], degree=[deg,deg])
+    else:
+        ndofs, l2_error, Eh = run_conga_maxwell_2d(
+            E_ex, f, alpha, domain, gamma_jump=gamma_jump,
+            ncells=[nc, nc], degree=[deg,deg],
+            N_diag=N_diag, E_ref_x_vals=E_ref_x_vals, E_ref_y_vals=E_ref_y_vals, E_ref_filename=E_ref_filename,
+            save_dir=save_dir, load_dir=load_dir, return_sol=True,
+            plot_source=plot_source, plot_sol=plot_sol, plot_dir=plot_dir, fem_name=fem_name,
+        )
 
     return ndofs, l2_error
-
-
+ 
 if __name__ == '__main__':
-
     results = []
-    test_case='ring_J'
+    test_case='manu_sol'
     domain_name='pretzel'
-    deg = 4
-    for nc in [12]: # [4, 8, 12, 16, 20]:
+    nitsche_method = True    
+    deg = 2
+    for nc in [2**3]: # [4, 8, 12, 16, 20]:
         print(2*'\n'+'-- running time_harmonic maxwell for test '+test_case+' on '+domain_name+' with deg = '+repr(deg)+', nc = '+repr(nc)+' -- '+2*'\n')
-        ndofs, l2_error = run_maxwell_2d_time_harmonic(nc=nc, deg=deg, test_case=test_case, domain_name=domain_name)
+        ndofs, l2_error = run_maxwell_2d_time_harmonic(nc=nc, deg=deg, test_case=test_case, domain_name=domain_name, nitsche_method=nitsche_method)
         results.append([nc, ndofs, l2_error])
 
     print(2*'\n'+'-- run completed -- '+2*'\n')
@@ -773,8 +872,6 @@ if __name__ == '__main__':
     for nc, ndofs, err in results:
         print(repr(nc)+' '+repr(ndofs)+' '+repr(err)+' ')
     print(2*'\n'+' -- '+2*'\n')
-
-
 
 
 

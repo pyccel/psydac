@@ -319,7 +319,7 @@ def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max
                 [domain_7.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1),  1],
                 [domain_3.get_boundary(axis=1, ext=+1), domain_9.get_boundary(axis=1, ext=-1),  1],
                 [domain_9.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),  1],
-                [domain_4.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=1), 1],
+                [domain_4.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=1),  1],
                 [domain_12.get_boundary(axis=1, ext=-1), domain_1.get_boundary(axis=1, ext=-1), 1],
                 [domain_6.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=1),  1],
                 [domain_7.get_boundary(axis=0, ext=-1), domain_13.get_boundary(axis=0, ext=-1), 1],

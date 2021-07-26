@@ -1014,7 +1014,7 @@ class Parser(object):
         weight  = SymbolicWeightedVolume(mapping)
         weight  = SymbolicExpr(weight)
 
-        rhs = [weight*self._visit(expr, **kwargs) for expr in exprs[:]]
+        rhs = [weight*self._visit(expr, **kwargs).simplify() for expr in exprs[:]]
         lhs = lhs[:]
 
         temps = []
