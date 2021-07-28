@@ -52,7 +52,7 @@ class TensorFemSpace( FemSpace ):
                 npts         = npts,
                 pads         = pads,
                 periods      = periods,
-                multiplicity = multiplicity,
+                shift        = multiplicity,
                 reorder      = True,
                 comm         = comm,
                 nprocs       = nprocs,
@@ -68,7 +68,7 @@ class TensorFemSpace( FemSpace ):
 
         else:
             # serial case
-            self._vector_space = kwargs.pop('vector_space', StencilVectorSpace(npts, pads, periods, multiplicity=multiplicity))
+            self._vector_space = kwargs.pop('vector_space', StencilVectorSpace(npts, pads, periods, shift=multiplicity))
 
         # Shortcut
         v = self._vector_space

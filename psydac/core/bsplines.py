@@ -477,7 +477,7 @@ def breakpoints( knots, degree ,tol=1e-15):
         Polynomial degree of B-splines.
 
     tol: float
-        Minimum tolerance between the break points.
+        Maximum tolerance between the break points.
 
     Returns
     -------
@@ -511,7 +511,6 @@ def greville( knots, degree, periodic ):
         Abscissas of all Greville points.
 
     """
-
     T = knots
     p = degree
     n = len(T)-2*p-1 if periodic else len(T)-p-1
@@ -610,7 +609,8 @@ def make_knots( breaks, degree, periodic, multiplicity=1 ):
         True if domain is periodic, False otherwise.
 
     multiplicity: int
-        multiplicity of the knots in the knot sequence
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
 
     Result
     ------
@@ -626,6 +626,8 @@ def make_knots( breaks, degree, periodic, multiplicity=1 ):
     assert len(breaks) > 1
     assert all( np.diff(breaks) > 0 )
     assert degree > 0
+    assert 1 <= multiplicity and multiplicity <= degree + 1
+
     if periodic:
         assert len(breaks) > degree
 
@@ -647,7 +649,7 @@ def make_knots( breaks, degree, periodic, multiplicity=1 ):
     return T
 
 #==============================================================================
-def elevate_knots(knots, degree, periodic, multiplicity=1):
+def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15):
     """
     Given the knot sequence of a spline space S of degree p, compute the knot
     sequence of a spline space S_0 of degree p+1 such that u' is in S for all
@@ -669,7 +671,11 @@ def elevate_knots(knots, degree, periodic, multiplicity=1):
         True if domain is periodic, False otherwise.
 
     multiplicity : int
-        multiplicity of the knots.
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
+
+    tol: float
+        Maximum tolerance between the break points.
 
     Returns
     -------
@@ -689,7 +695,7 @@ def elevate_knots(knots, degree, periodic, multiplicity=1):
         left  = [knots[0],*knots[:degree+1]]
         right = [knots[-1],*knots[-degree-1:]]
 
-        diff   = np.append(True, np.diff(knots[degree+1:-degree-1])>1e-15)
+        diff   = np.append(True, np.diff(knots[degree+1:-degree-1])>tol)
         if len(knots[degree+1:-degree-1])>0:
             unique = knots[degree+1:-degree-1][diff]
             knots  = np.repeat(unique, multiplicity)
