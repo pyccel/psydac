@@ -61,7 +61,7 @@ class CartDecomposition():
         (optional: default is MPI_COMM_WORLD).
 
     """
-    def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, shift=None, nprocs=None, reverse_axis=None ):
+    def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, shifts=None, nprocs=None, reverse_axis=None ):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
@@ -72,13 +72,13 @@ class CartDecomposition():
         assert isinstance( reorder, bool )
         assert isinstance( comm, MPI.Comm )
 
-        shift = tuple(shift) if shift else (1,)*len(npts)
+        shifts = tuple(shifts) if shifts else (1,)*len(npts)
 
         # Store input arguments
         self._npts         = tuple( npts    )
         self._pads         = tuple( pads    )
         self._periods      = tuple( periods )
-        self._shift = shift
+        self._shifts = shifts
         self._reorder      = reorder
         self._comm         = comm
 
@@ -95,7 +95,7 @@ class CartDecomposition():
         # Know the number of processes along each direction
 #        self._dims = MPI.Compute_dims( self._size, self._ndims )
 
-        reduced_npts = [(n-p-1)//m if m>1 else n if not P else n for n,m,p,P in zip(npts, shift, pads, periods)]
+        reduced_npts = [(n-p-1)//m if m>1 else n if not P else n for n,m,p,P in zip(npts, shifts, pads, periods)]
 
         if nprocs is None:
             nprocs, block_shape = mpi_compute_dims( self._size, reduced_npts, pads )
@@ -128,7 +128,7 @@ class CartDecomposition():
             n = reduced_npts[axis]
             d = nprocs[axis]
             p = pads[axis]
-            m = shift[axis]
+            m = shifts[axis]
             self._reduced_global_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
             self._reduced_global_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
             if m>1:self._reduced_global_ends  [axis][-1] += p+1
@@ -141,7 +141,7 @@ class CartDecomposition():
             n = npts[axis]
             d = nprocs[axis]
             p = pads[axis]
-            m = shift[axis]
+            m = shifts[axis]
             r_starts = self._reduced_global_starts[axis]
             r_ends   = self._reduced_global_ends  [axis]
 
@@ -162,10 +162,10 @@ class CartDecomposition():
         self._grids = tuple( range(s,e+1) for s,e in zip( self._starts, self._ends ) )
 
         # Compute shape of local arrays in topology (with ghost regions)
-        self._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( self._starts, self._ends, self._pads, shift ) )
+        self._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( self._starts, self._ends, self._pads, shifts ) )
 
         # Extended grids with ghost regions
-        self._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( self._starts, self._ends, self._pads, shift ) )
+        self._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( self._starts, self._ends, self._pads, shifts ) )
 
         # Create (N-1)-dimensional communicators within the Cartesian topology
         self._subcomm = [None]*self._ndims
@@ -203,8 +203,8 @@ class CartDecomposition():
         return self._periods
 
     @property
-    def shift( self ):
-        return self._shift
+    def shifts( self ):
+        return self._shifts
 
     @property
     def reorder( self ):
@@ -316,7 +316,7 @@ class CartDecomposition():
         s = self._starts[direction]
         e = self._ends  [direction]
         p = self._pads  [direction]
-        m = self._shift[direction]
+        m = self._shifts[direction]
 
         # Shape of send/recv subarrays
         buf_shape = np.array( self._shape )
@@ -346,7 +346,7 @@ class CartDecomposition():
         if isinstance(axes, int):
             axes = [axes]
 
-        cart = CartDecomposition(self._npts, self._pads, self._periods, self._reorder, shift=self.shift, reverse_axis=self.reverse_axis)
+        cart = CartDecomposition(self._npts, self._pads, self._periods, self._reorder, shifts=self.shifts, reverse_axis=self.reverse_axis)
 
         cart._dims      = self._dims
         cart._comm_cart = self._comm_cart
@@ -355,7 +355,7 @@ class CartDecomposition():
         coords          = cart.coords
         nprocs          = cart.nprocs
 
-        cart._shift = [max(1,m-1) for m in self.shift]
+        cart._shifts = [max(1,m-1) for m in self.shifts]
 
         for axis in axes:assert(axis<cart._ndims)
 
@@ -368,7 +368,7 @@ class CartDecomposition():
         for axis in range( self._ndims ):
             n = cart._npts[axis]
             d = nprocs[axis]
-            m = cart._shift[axis]
+            m = cart._shifts[axis]
             r_starts = cart._reduced_global_starts[axis]
             r_ends   = cart._reduced_global_ends  [axis]
 
@@ -392,10 +392,10 @@ class CartDecomposition():
         cart._indices = product( *cart._grids )
 
         # Compute shape of local arrays in topology (with ghost regions)
-        cart._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shift ) )
+        cart._shape = tuple( e-s+1+2*m*p for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shifts ) )
 
         # Extended grids with ghost regions
-        cart._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shift ) )
+        cart._extended_grids = tuple( range(s-m*p,e+m*p+1) for s,e,p,m in zip( cart._starts, cart._ends, cart._pads, cart._shifts ) )
 
         # N-dimensional global indices with ghost regions
         cart._extended_indices = product( *cart._extended_grids )
