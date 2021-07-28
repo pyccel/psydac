@@ -464,7 +464,7 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
     return Hp
 
 #==============================================================================
-def breakpoints( knots, degree ):
+def breakpoints( knots, degree ,tol=1e-15):
     """
     Determine breakpoints' coordinates.
 
@@ -476,6 +476,9 @@ def breakpoints( knots, degree ):
     degree : int
         Polynomial degree of B-splines.
 
+    tol: float
+        Minimum tolerance between the break points.
+
     Returns
     -------
     breaks : numpy.ndarray (1D)
@@ -483,7 +486,7 @@ def breakpoints( knots, degree ):
 
     """
     knots = np.array(knots)
-    diff  = np.append(True, np.diff(knots[degree:-degree])>1e-15)
+    diff  = np.append(True, np.diff(knots[degree:-degree])>tol)
     return knots[degree:-degree][diff]
 
 #==============================================================================

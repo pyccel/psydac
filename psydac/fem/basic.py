@@ -118,9 +118,9 @@ class FemSpace( metaclass=ABCMeta ):
         """
 
 
-    #-----------------
+    #----------------------
     # Concrete methods
-    #-----------------
+    #----------------------
     def __mul__(self, a):
         from psydac.fem.vector import ProductFemSpace
 
