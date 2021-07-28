@@ -44,6 +44,11 @@ class FemAssemblyGrid:
         Number of basis functions' derivatives to be precomputed at the Gauss
         points (default: 1).
 
+    parent_start: int
+        Index of first 1D parent basis local to process.
+
+    parent_end: int
+        Index of last 1D parent basis local to process.
     """
     def __init__( self, space, start, end, *, quad_order=None, nderiv=1, parent_start=None, parent_end=None):
 
@@ -91,6 +96,9 @@ class FemAssemblyGrid:
         indices = []
         ne      = 0
 
+        # Current start/end represent the parent start/end when the space is a reduction
+        # from a parent space, otherwise we use the provided start/end.
+ 
         if pad==degree:
             current_glob_spans  = glob_spans
             current_start = start
@@ -115,7 +123,6 @@ class FemAssemblyGrid:
                     weights.append( glob_weights[k] )
                     indices.append( k )
                     ne += 1
-
 
         m = multiplicity if multiplicity>1 else 0
 
@@ -146,7 +153,7 @@ class FemAssemblyGrid:
         self._quad_rule_x  = u
         self._quad_rule_w  = w
 
-        #---------------------- ---------------------
+        #-------------------------------------------
         # LOCAL GRID, PROPER (WITHOUT GHOST REGIONS)
         #-------------------------------------------
 
