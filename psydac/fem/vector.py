@@ -40,12 +40,10 @@ class VectorFemSpace( FemSpace ):
         self._ncells = ncells[0]
         # ...
 
-        # ...
-        self._symbolic_space      = None
+        self._symbolic_space   = None
+        self._vector_space     = None
 
         # TODO serial case
-        self._vector_space = None
-
         # TODO parallel case
 
     #--------------------------------------------------------------------------
@@ -204,13 +202,9 @@ class ProductFemSpace( FemSpace ):
         self._ncells = ncells[0]
         # ...
 
-        # ...
-        v_spaces           = [V.vector_space for V in self.spaces]
-        self._vector_space = BlockVectorSpace(*v_spaces)
-        # ...
+        self._vector_space    = BlockVectorSpace(*[V.vector_space for V in self.spaces])
+        self._symbolic_space  = None
 
-        self._symbolic_space      = None
-        # ...
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
     #--------------------------------------------------------------------------

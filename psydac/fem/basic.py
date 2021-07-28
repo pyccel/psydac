@@ -7,7 +7,6 @@ be used to specify the used data structure for example.
 """
 
 from abc import ABCMeta, abstractmethod
-
 from psydac.linalg.basic import Vector
 #===============================================================================
 # ABSTRACT BASE CLASS: FINITE ELEMENT SPACE
@@ -54,7 +53,6 @@ class FemSpace( metaclass=ABCMeta ):
     @abstractmethod
     def vector_space( self ):
         """Topologically associated vector space."""
-
 
     @property
     @abstractmethod
@@ -119,19 +117,16 @@ class FemSpace( metaclass=ABCMeta ):
 
         """
 
-    # ...
+
+    #-----------------
+    # Concrete methods
+    #-----------------
     def __mul__(self, a):
+        from psydac.fem.vector import ProductFemSpace
 
-        if self.is_product:
-            spaces = list(self.spaces)
-        else:
-            spaces = [self]
-
-        if a.is_product:
-            spaces += a.spaces
-        else:
-            spaces += [a]
-
+        spaces = [*(self.spaces if self.is_product else [self]),
+                  *(   a.spaces if    a.is_product else    [a])]
+ 
         space = ProductFemSpace(*spaces)
         if a.symbolic_space and self.symbolic_space:
             space._symbolic_space =  self.symbolic_space*a.symbolic_space
@@ -139,15 +134,10 @@ class FemSpace( metaclass=ABCMeta ):
 
     # ...
     def __rmul__(self, a):
-        if a.is_product:
-            spaces = list(a.spaces)
-        else:
-            spaces = [a]
+        from psydac.fem.vector import ProductFemSpace
 
-        if self.is_product:
-            spaces += list(self.spaces)
-        else:
-            spaces += [self]
+        spaces = [*(   a.spaces if    a.is_product else    [a]),
+                  *(self.spaces if self.is_product else [self]),]
 
         space = ProductFemSpace(*spaces)
 
@@ -342,4 +332,3 @@ class FemField:
         self._coeffs -= other._coeffs
         return self
 
-from .vector import ProductFemSpace
