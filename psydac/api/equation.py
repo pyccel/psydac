@@ -236,11 +236,25 @@ class DiscreteEquation(BasicDiscrete):
 
         self.assemble(**kwargs)
 
+        # Free arguments of current equation
         free_args = set(self.lhs.free_args + self.rhs.free_args)
-        for e in free_args: kwargs.pop(e, None)
 
-        settings = {k:kwargs[k] if k in kwargs else it for k,it in _default_solver.items()}
-        settings.update({it[0]:it[1] for it in kwargs.items() if it[0] not in settings})
+        # Free arguments of boundary equation
+        if self.boundary_equation:
+            bc_eq = self.boundary_equation
+            free_args_bc = set(bc_eq.lhs.free_args + bc_eq.rhs.free_args)
+        else:
+            free_args_bc = set()
+
+        # Global settings passed by the user (not free arguments values)
+        glob_settings = {k:v for k, v in kwargs.items() \
+                if k not in free_args | free_args_bc}
+
+        # Calculate solver settings by overriding the defaults with the
+        # user-provided values
+        settings = _default_solver.copy()
+        settings.update(glob_settings)
+        settings.update({it[0]:it[1] for it in glob_settings.items() if it[0] not in settings})
 
         #----------------------------------------------------------------------
         # [YG, 18/11/2019]
@@ -255,12 +269,17 @@ class DiscreteEquation(BasicDiscrete):
         # modify the initial guess at the boundary.
         if self.boundary_equation:
 
+            # Clean up user-provided **kwargs by removing the solver settings
+            # and the free parameters not belonging to the boundary
+            for e in (free_args - free_args_bc) | settings.keys():
+                kwargs.pop(e, None)
+
             # Find inhomogeneous solution (use CG as system is symmetric)
             loc_settings = settings.copy()
             loc_settings['solver'] = 'cg'
             loc_settings.pop('info', False)
             loc_settings.pop('pc'  , False)
-            uh = self.boundary_equation.solve(**loc_settings)
+            uh = self.boundary_equation.solve(**kwargs, **loc_settings)
 
             # Use inhomogeneous solution as initial guess to solver
             settings['x0'] = uh.coeffs
