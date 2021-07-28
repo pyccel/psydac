@@ -600,23 +600,21 @@ def run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells, degree):
 
     error   = Matrix([F[0]-E_ex[0],F[1]-E_ex[1]])
 
-    kappa        = 10**10
+    kappa        = 10**3
     penalization = 10**10
 
     I        = domain.interfaces
     boundary = domain.boundary
 
     # Bilinear form a: V x V --> R
-    eps     = -1
-#    expr_I  = -(0.5*curl(plus(u))*cross(minus(v),nn)       - 0.5*curl(minus(u))*cross(plus(v),nn))\
-#             + eps*(0.5*curl(plus(v))*cross(minus(u),nn)    - 0.5*curl(minus(v))*cross(plus(u),nn))\
-#             + -kappa*cross(plus(u),nn) *cross(minus(v),nn) - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
-#             + -(0.5*curl(minus(u))*cross(minus(v),nn)      + 0.5*curl(plus(u))*cross(plus(v),nn))\
-#             + eps*(0.5*curl(minus(v))*cross(minus(u),nn)   + 0.5*curl(plus(v))*cross(plus(u),nn))\
-#             + kappa*cross(minus(u),nn)*cross(minus(v),nn)  + kappa*cross(plus(u),nn) *cross(plus(v),nn)
+    expr_I  =  curl(minus(u))*cross(minus(v),nn) - curl(minus(u))*cross(plus(v),nn) \
+              +curl(minus(v))*cross(minus(u),nn) - curl(minus(v))*cross(plus(u),nn) \
+              \
+             -kappa*cross(plus(u),nn) *cross(minus(v),nn)  - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
+             + kappa*cross(minus(u),nn)*cross(minus(v),nn) + kappa*cross(plus(u),nn) *cross(plus(v),nn)
 
-    expr_I  =-kappa*cross(plus(u),nn) *cross(minus(v),nn) - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
-            + kappa*cross(minus(u),nn)*cross(minus(v),nn) + kappa*cross(plus(u),nn) *cross(plus(v),nn)
+#    expr_I  =-kappa*cross(plus(u),nn) *cross(minus(v),nn) - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
+#            + kappa*cross(minus(u),nn)*cross(minus(v),nn) + kappa*cross(plus(u),nn) *cross(plus(v),nn)
 
     expr   = curl(u)*curl(v) + alpha*dot(u,v)
     expr_b = penalization * cross(u, nn) * cross(v, nn)
