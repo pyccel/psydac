@@ -89,7 +89,7 @@ class LinearOperator_StencilToDense( Matrix ):
         return out
 
     # ...
-    def toarray( self, *, order='C' ):
+    def toarray( self, *):
 
         n0     = self.codomain.ncoeff
 
@@ -110,8 +110,8 @@ class LinearOperator_StencilToDense( Matrix ):
         return a
 
     # ...
-    def tosparse( self, *, order='C' ):
-        return self.tocoo(order=order)
+    def tosparse( self, * ):
+        return self.tocoo()
 
     # ...
     def copy(self):
@@ -167,7 +167,7 @@ class LinearOperator_StencilToDense( Matrix ):
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
-    def tocoo( self, *, order='C' ):
+    def tocoo( self, *):
 
         # Extract relevant information from vector spaces
         n0     = self.codomain.ncoeff
@@ -260,7 +260,7 @@ class LinearOperator_DenseToStencil( Matrix ):
         return out
 
     # ...
-    def toarray( self, *, order='C' ):
+    def toarray( self, *):
 
         n0     = self.domain.ncoeff
 
@@ -280,8 +280,8 @@ class LinearOperator_DenseToStencil( Matrix ):
         return a
 
     # ...
-    def tosparse( self, *, order='C' ):
-        return self.tocoo(order=order)
+    def tosparse( self, *):
+        return self.tocoo()
 
     # ...
     def copy(self):
@@ -336,7 +336,7 @@ class LinearOperator_DenseToStencil( Matrix ):
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
-    def tocoo( self, *, order='C' ):
+    def tocoo( self, * ):
 
         # Extract relevant information from vector spaces
         n0     = self.domain.ncoeff
