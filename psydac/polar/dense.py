@@ -259,7 +259,7 @@ class DenseVector( Vector ):
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
-    def toarray( self ):
+    def toarray( self , **kwargs):
         return self._data.copy()
 
     # ...
@@ -318,11 +318,11 @@ class DenseMatrix( Matrix ):
         return out
 
     # ...
-    def toarray( self ):
+    def toarray( self , **kwargs ):
         return self._data.copy()
 
     # ...
-    def tosparse( self ):
+    def tosparse( self , **kwargs ):
         return coo_matrix( self._data )
 
     # ...
