@@ -10,6 +10,8 @@ import numpy as np
 import itertools
 import h5py
 
+from sympde.topology.space import BasicFunctionSpace
+
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.kron    import kronecker_solve
 from psydac.fem.basic      import FemSpace, FemField
@@ -149,6 +151,11 @@ class TensorFemSpace( FemSpace ):
 
     @property
     def symbolic_space( self ):
+        return self._symbolic_space
+
+    @symbolic_space.setter
+    def symbolic_space( self, symbolic_space ):
+        assert isinstance(symbolic_space, BasicFunctionSpace)
         return self._symbolic_space
 
     #--------------------------------------------------------------------------
@@ -632,16 +639,11 @@ class TensorFemSpace( FemSpace ):
             space = spaces[axis]
             m     = space.multiplicity
 
-            if m > 1:
-                mr = m-1
-            else:
-                mr = 1
-
             reduced_space = SplineSpace(
                 degree    = space.degree - 1,
                 pads      = space.pads,
                 grid      = space.breaks,
-                multiplicity = mr,
+                multiplicity= max(1,m-1),
                 parent_multiplicity=m,
                 periodic  = space.periodic,
                 dirichlet = space.dirichlet,

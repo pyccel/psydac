@@ -76,6 +76,11 @@ class VectorFemSpace( FemSpace ):
     def symbolic_space( self ):
         return self._symbolic_space
 
+    @symbolic_space.setter
+    def symbolic_space( self, symbolic_space ):
+        assert isinstance(symbolic_space, BasicFunctionSpace)
+        return self._symbolic_space
+
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
@@ -233,6 +238,11 @@ class ProductFemSpace( FemSpace ):
 
     @property
     def symbolic_space( self ):
+        return self._symbolic_space
+
+    @symbolic_space.setter
+    def symbolic_space( self, symbolic_space ):
+        assert isinstance(symbolic_space, BasicFunctionSpace)
         return self._symbolic_space
 
     #--------------------------------------------------------------------------

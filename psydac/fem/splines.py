@@ -4,6 +4,8 @@
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix, dia_matrix
 
+from sympde.topology.space import BasicFunctionSpace
+
 from psydac.linalg.stencil        import StencilVectorSpace
 from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
 from psydac.fem.basic             import FemSpace, FemField
@@ -39,6 +41,12 @@ class SplineSpace( FemSpace ):
     grid: array_like
         Coordinates of the grid. Used to construct the knots sequence, if not given.
 
+    multiplicity: int
+        Multiplicity of the knots in the knot sequence.
+ 
+    parent_multiplicity: int
+        Multiplicity of the parent knot sequence, if the space is reduced space.
+ 
     periodic : bool
         True if domain is periodic, False otherwise.
         Default: False
@@ -65,10 +73,19 @@ class SplineSpace( FemSpace ):
         if (knots is None) and (grid is None):
             raise ValueError('Either knots or grid must be provided.')
 
-        if knots is None:
-            if multiplicity is None:
-                multiplicity = 1
+        if (multiplicity is not None) and multiplicity<1:
+            raise ValueError('multiplicity should be >=1')
 
+        if (parent_multiplicity is not None) and parent_multiplicity<1:
+            raise ValueError('parent_multiplicity should be >=1')
+
+        if multiplicity is None:multiplicity = 1
+                
+        if parent_multiplicity is None:parent_multiplicity = 1
+
+        assert parent_multiplicity >= multiplicity
+
+        if knots is None:
             knots = make_knots( grid, degree, periodic, multiplicity )
 
         if grid is None:
@@ -81,8 +98,6 @@ class SplineSpace( FemSpace ):
         else:
             multiplicity = max(1,len(knots[degree+1:-degree-1]))
 
-        if parent_multiplicity is None:
-            parent_multiplicity = 1
         # TODO: verify that user-provided knots make sense in periodic case
 
         # Number of basis function in space (= cardinality)
@@ -248,6 +263,11 @@ class SplineSpace( FemSpace ):
 
     @property
     def symbolic_space( self ):
+        return self._symbolic_space
+
+    @symbolic_space.setter
+    def symbolic_space( self, symbolic_space ):
+        assert isinstance(symbolic_space, BasicFunctionSpace)
         return self._symbolic_space
 
     #--------------------------------------------------------------------------

@@ -55,7 +55,7 @@ def get_boundaries(*args):
 #==============================================================================
 def run_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
     """
-        Navier stockes solver for the 2d steady-state problem.
+        Navier Stokes solver for the 2d steady-state problem.
     """
     # Maximum number of Newton iterations and convergence tolerance
     N = 20
