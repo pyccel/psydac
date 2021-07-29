@@ -268,7 +268,7 @@ class SplineSpace( FemSpace ):
     @symbolic_space.setter
     def symbolic_space( self, symbolic_space ):
         assert isinstance(symbolic_space, BasicFunctionSpace)
-        return self._symbolic_space
+        self._symbolic_space = symbolic_space
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods

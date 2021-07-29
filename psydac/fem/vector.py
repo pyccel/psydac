@@ -2,6 +2,8 @@
 
 # TODO: - have a block version for VectorSpace when all component spaces are the same
 
+from sympde.topology.space import BasicFunctionSpace
+
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.block   import BlockVectorSpace
@@ -79,7 +81,7 @@ class VectorFemSpace( FemSpace ):
     @symbolic_space.setter
     def symbolic_space( self, symbolic_space ):
         assert isinstance(symbolic_space, BasicFunctionSpace)
-        return self._symbolic_space
+        self._symbolic_space = symbolic_space
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods

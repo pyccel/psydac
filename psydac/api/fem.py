@@ -415,8 +415,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                                                                 backend=backend)
 
                     matrix[k1,k2]        = global_mats[k1,k2]
-                    md                   = matrix[k1,k2].domain.multiplicity
-                    mc                   = matrix[k1,k2].codomain.multiplicity
+                    md                   = matrix[k1,k2].domain.shifts
+                    mc                   = matrix[k1,k2].codomain.shifts
                     diag                 = compute_diag_len(pads[k1,k2], md, mc)
                     element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*diag))
 
@@ -438,8 +438,8 @@ class DiscreteBilinearForm(BasicDiscrete):
 
                 if (i,j) in global_mats:
                     self._matrix[i,j] = global_mats[i,j]
-                    md                  = global_mats[i,j].domain.multiplicity
-                    mc                  = global_mats[i,j].codomain.multiplicity
+                    md                  = global_mats[i,j].domain.shifts
+                    mc                  = global_mats[i,j].codomain.shifts
                     diag                = compute_diag_len(pads, md, mc)
                     element_mats[i,j]  = np.empty((*(test_degree+1),*diag))
             else: # single patch
@@ -448,8 +448,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     global_mats[0,0] = StencilMatrix(trial_space, test_space, pads=tuple(pads), backend=backend)
 
-                md                 = global_mats[0,0].domain.multiplicity
-                mc                 = global_mats[0,0].codomain.multiplicity
+                md                 = global_mats[0,0].domain.shifts
+                mc                 = global_mats[0,0].codomain.shifts
                 diag               = compute_diag_len(pads, md, mc)
                 element_mats[0,0]  = np.empty((*(test_degree+1),*diag))
                 self._matrix       = global_mats[0,0]

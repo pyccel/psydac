@@ -194,7 +194,7 @@ def get_multiplicity(funcs, space):
         if isinstance(space, BlockVectorSpace):
             multiplicity = [recursive_func(s) for s in space.spaces]
         else:
-            multiplicity = list(space.multiplicity)
+            multiplicity = list(space.shifts)
         return multiplicity
 
     multiplicity = recursive_func(space)
