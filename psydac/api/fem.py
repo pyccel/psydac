@@ -899,7 +899,7 @@ class DiscreteSumForm(BasicDiscrete):
                 ah = DiscreteFunctional(a, e, *args, **kwargs)
                 kwargs['vector'] = ah._vector
             forms.append(ah)
-            free_args.append(ah.free_args)
+            free_args.extend(ah.free_args)
             kwargs['boundary'] = None
 
         self._forms     = forms
