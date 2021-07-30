@@ -375,6 +375,8 @@ class StencilVector( Vector ):
         with_pads : bool
             If True, include pads in output array.
 
+        order: {'C','F'}
+             Memory representation of the data ‘C’ for row-major ordering (C-style), ‘F’ column-major ordering (Fortran-style).
         Returns
         -------
         array : numpy.ndarray
