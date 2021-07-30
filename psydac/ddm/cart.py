@@ -78,7 +78,7 @@ class CartDecomposition():
         self._npts         = tuple( npts    )
         self._pads         = tuple( pads    )
         self._periods      = tuple( periods )
-        self._shifts = shifts
+        self._shifts       = shifts
         self._reorder      = reorder
         self._comm         = comm
 

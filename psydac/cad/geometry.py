@@ -446,7 +446,7 @@ def refine_nurbs(nrb, ncells=None, degree=None, multiplicity=None, tol=1e-9):
         multiplicity of each knot in the knot sequence in each direction
 
     tol : <float>
-        Maximum tolerance accepted between two break points.
+        Minimum distance between two break points.
 
     Returns
     -------
@@ -519,7 +519,7 @@ def refine_knots(knots, ncells, degree, multiplicity=None, tol=1e-9):
         multiplicity of each knot in the knot sequence in each direction
 
     tol : <float>
-        Maximum tolerance accepted between two break points.
+        Minimum distance between two break points.
 
     Returns
     -------

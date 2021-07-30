@@ -477,7 +477,8 @@ def breakpoints( knots, degree ,tol=1e-15):
         Polynomial degree of B-splines.
 
     tol: float
-        Maximum tolerance between the break points.
+        If the distance between two knots is less than tol, we assume 
+        that they are repeated knots which correspond to the same break point.
 
     Returns
     -------
@@ -675,7 +676,8 @@ def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15):
         multiplicity applies to each interior knot.
 
     tol: float
-        Maximum tolerance between the break points.
+        If the distance between two knots is less than tol, we assume 
+        that they are repeated knots which correspond to the same break point.
 
     Returns
     -------
