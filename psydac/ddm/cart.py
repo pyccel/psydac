@@ -342,6 +342,21 @@ class CartDecomposition():
         return info
         
     def reduce_elements( self, axes, n_elements):
+        """ Compute the cart of the reduced space.
+
+        Parameters
+        ----------
+        axes: tuple_like (int)
+            The directions to be Reduced.
+
+        n_elements: tuple_like (int)
+            Number of elements to substract from the space.
+
+        Returns
+        -------
+        v: CartDecomposition
+            The reduced cart.
+        """
 
         if isinstance(axes, int):
             axes = [axes]

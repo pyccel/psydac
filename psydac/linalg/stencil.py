@@ -16,10 +16,26 @@ from psydac.ddm.cart       import find_mpi_type, CartDecomposition, CartDataExch
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
 
 #===============================================================================
-def compute_diag_len(p, md, mc, return_padding=False):
-    n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
-    ep = np.minimum(0, n-p)
-    n = n-ep + p+1
+def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False):
+    """ Compute the diagonal lenght of the stencil matrix for each direction,
+        using the shifts of the domain and the codomain.
+        Parameters
+        ----------
+        pads : tuple-like (int)
+         Padding along each direction
+
+        shifts_domain : tuple_like (int)
+         Shifts of the domain along each direction
+
+        mshifts_codomainc : tuple_like (int)
+         Shifts of the codomain along each direction
+
+        return_padding : bool
+            Return the new padding if True
+        """
+    n = ((np.ceil((pads+1)/shifts_codomain)-1)*shifts_domain).astype('int')
+    ep = np.minimum(0, n-pads)
+    n = n-ep + pads+1
     if return_padding:
         return n.astype('int'), (-ep).astype('int')
     else:
@@ -148,9 +164,24 @@ class StencilVectorSpace( VectorSpace ):
 #        else:
 #            return False
 
-    def reduce_elements(self, axes, elements):
+    def reduce_elements(self, axes, n_elements):
+        """ Compute the reduced space.
+
+        Parameters
+        ----------
+        axes: tuple_like (int)
+            Reduced directions.
+
+        n_elements: tuple_like (int)
+            Number of elements to substract from the space.
+
+        Returns
+        -------
+        v: StencilVectorSpace
+            The reduced space.
+        """
         assert not self.parallel
-        npts         = [n-ne for n,ne in zip(self.npts, elements)]
+        npts         = [n-ne for n,ne in zip(self.npts, n_elements)]
         shifts = [max(1,m-1) for m in self.shifts]
 
         v = StencilVectorSpace(npts=npts, pads=self.pads, periods=self.periods, shifts=shifts)
