@@ -496,7 +496,7 @@ class GeneratorBase(BaseNode):
         dummies = Tuple(*dummies)
 
         if not isinstance(target, (ArrayNode, MatrixNode, Expr)):
-            raise TypeError('expecting an ArrayNode')
+            raise TypeError('expecting ArrayNode, MatrixNode or Expr')
 
         return Basic.__new__(cls, target, dummies)
 

@@ -1627,7 +1627,10 @@ class StencilInterfaceMatrix(Matrix):
                     out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
             new_nrows[d] += er
     # ...
-    def toarray( self, *, order='C', with_pads=False ):
+    def toarray( self, **kwargs ):
+
+        order     = kwargs.pop('order', 'C')
+        with_pads = kwargs.pop('with_pads', False)
 
         if self.codomain.parallel and with_pads:
             coo = self._tocoo_parallel_with_pads()
@@ -1637,7 +1640,10 @@ class StencilInterfaceMatrix(Matrix):
         return coo.toarray()
 
     # ...
-    def tosparse( self, *, order='C', with_pads=False ):
+    def tosparse( self, **kwargs ):
+
+        order     = kwargs.pop('order', 'C')
+        with_pads = kwargs.pop('with_pads', False)
 
         if self.codomain.parallel and with_pads:
             coo = self._tocoo_parallel_with_pads()
