@@ -416,6 +416,8 @@ class StencilVector( Vector ):
             A copy of the data array collapsed into one dimension.
 
         """
+
+
         # In parallel case, call different functions based on 'with_pads' flag
         if self.space.parallel:
             if with_pads:
@@ -861,8 +863,11 @@ class StencilMatrix( Matrix ):
                     Mt[(*jj, *ll)] = M[(*ii, *kk)]
 
     # ...
-    def toarray( self, *, order='C', with_pads=False ):
+    def toarray( self, **kwargs ):
         """ Convert to Numpy 2D array. """
+
+        order     = kwargs.pop('order', 'C')
+        with_pads = kwargs.pop('with_pads', False)
 
         if self.codomain.parallel and with_pads:
             coo = self._tocoo_parallel_with_pads(order=order)
@@ -872,8 +877,11 @@ class StencilMatrix( Matrix ):
         return coo.toarray()
 
     # ...
-    def tosparse( self, *, order='C', with_pads=False ):
+    def tosparse( self, **kwargs ):
         """ Convert to any Scipy sparse matrix format. """
+
+        order     = kwargs.pop('order', 'C')
+        with_pads = kwargs.pop('with_pads', False)
 
         if self.codomain.parallel and with_pads:
             coo = self._tocoo_parallel_with_pads(order=order)
