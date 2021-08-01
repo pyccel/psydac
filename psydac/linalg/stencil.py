@@ -396,7 +396,7 @@ class StencilVector( Vector ):
         return txt
 
     # ...
-    def toarray( self, **kwargs ):
+    def toarray( self, *, order='C', with_pads=False ):
         """
         Return a numpy 1D array corresponding to the given StencilVector,
         with or without pads.
@@ -415,8 +415,8 @@ class StencilVector( Vector ):
 
         """
 
-        order     = kwargs.pop('order', 'C')
-        with_pads = kwargs.pop('with_pads', False)
+#        order     = kwargs.pop('order', 'C')
+#        with_pads = kwargs.pop('with_pads', False)
 
         # In parallel case, call different functions based on 'with_pads' flag
         if self.space.parallel:
