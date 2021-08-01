@@ -39,6 +39,7 @@ class QuadratureGrid():
         elif isinstance(trial_space, ProductFemSpace):
             spaces = spaces + list(trial_space.spaces)
 
+        # calculate the union of the indices in quad_grids, and make sure that all the grids match for each space.
         for i in range(len(V1.spaces)):
 
             indices.append(reduce(np.union1d,[s.quad_grids[i].indices for s in spaces]))
