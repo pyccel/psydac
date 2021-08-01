@@ -548,8 +548,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     ind_dof_test  = index_dof_test.set_length(LengthDofTest(tests[0])+1)
     # ...........................................................................................
     mapping_space = kwargs.pop('mapping_space', None)
-    eval_mapping = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], 
-                    mapping, geo, spaces[1], mapping_space, tests, nderiv, mask, is_rational_mapping)
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'],
+                    mapping, geo, mapping_space, tests, nderiv, mask, is_rational_mapping)
 
     eval_fields = []
     for f in fields:
@@ -558,7 +558,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
         ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
         eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], 
-                       d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
+                                 coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields += [eval_field]
 
     g_stmts = [eval_mapping, *eval_fields]
@@ -784,7 +784,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0])+1)
     # ...........................................................................................
     mapping_space = kwargs.pop('mapping_space', None)
-    eval_mapping  = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'], d_tests[tests[0]]['global'], mapping,geo, space,
+    eval_mapping  = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'], mapping, geo,
                    mapping_space, tests, nderiv, mask, is_rational_mapping)
 
     eval_fields = []
@@ -793,7 +793,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
         ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
-        eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
+        eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields += [eval_field]
 
     g_stmts = [eval_mapping, *eval_fields]
@@ -955,8 +955,8 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     ind_dof_test  = index_dof_test.set_length(lengths_fields[fields[0]]+1)
     # ...........................................................................................
     mapping_space = kwargs.pop('mapping_space', None)
-    eval_mapping = EvalMapping(ind_quad, ind_dof_test, g_basis[fields[0]], g_basis[fields[0]], mapping, 
-                    geo, space, mapping_space, fields, nderiv, mask, is_rational_mapping)
+    eval_mapping = EvalMapping(ind_quad, ind_dof_test, g_basis[fields[0]], mapping,
+                    geo, mapping_space, fields, nderiv, mask, is_rational_mapping)
 
     eval_fields = []
     for f in fields:
@@ -964,7 +964,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
         ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
-        eval_field   = EvalField(atomic_expr[f], ind_quad, ind_dof_test, d_fields[f]['global'], d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
+        eval_field   = EvalField(atomic_expr[f], ind_quad, ind_dof_test, d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields  += [eval_field]
 
     #=========================================================begin kernel======================================================

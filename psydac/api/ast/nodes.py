@@ -43,18 +43,18 @@ class Zeros(Function):
         return self._args[0]
 
 class FloorDiv(Function):
-    def __new__(cls, a1, a2):
-        if a2 == 1:
-            return a1
+    def __new__(cls, arg1, arg2):
+        if arg2 == 1:
+            return arg1
         else:
-            return Basic.__new__(cls, a1, a2)
+            return Basic.__new__(cls, arg1, arg2)
 
     @property
-    def a1(self):
+    def arg1(self):
         return self._args[0]
 
     @property
-    def a2(self):
+    def arg2(self):
         return self._args[1]
 #==============================================================================
 class ArityType(with_metaclass(Singleton, Basic)):
@@ -222,8 +222,43 @@ class EvalField(BaseNode):
     """
        This function computes atomic expressions needed
        to evaluate  EvaluteField/VectorField final expression
+
+        Parameters:
+        ----------
+        atoms: tuple_like (Expr)
+            The atomic expression to be evaluated
+
+        q_index: <IndexQuadrature>
+            Indices used for the quadrature loops
+
+        l_index : <IndexDofTest>
+            Indices used for the basis loops
+
+        q_basis : <GlobalTensorQuadratureTestBasis>
+            The 1d basis function of the tensor-product space
+
+        coeffs  : tuple_like (CoefficientBasis)
+            Coefficient of the basis function
+
+        l_coeffs : tuple_like (MatrixLocalBasis)
+            Local coefficient of the basis functions
+
+        g_coeffs : tuple_like (MatrixGlobalBasis)
+            Global coefficient of the basis functions
+
+        tests   : tuple_like (Variable)
+            The field to be evaluated
+
+        mapping : <Mapping>
+            Sympde Mapping object
+
+        nderiv  : int
+            Maximum number of derivatives
+
+        mask    : int,optional
+            The fixed direction in case of a boundary integral
     """
-    def __new__(cls, atoms, q_index, l_index, q_basis, l_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, nderiv, mask=None):
+    def __new__(cls, atoms, q_index, l_index, q_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, nderiv, mask=None):
 
         stmts_1  = []
         stmts_2  = OrderedDict()
@@ -294,9 +329,41 @@ class RAT(Basic):
 class EvalMapping(BaseNode):
     """
         This function computes atomic expressions needed
-        to evaluate  EvalMapping final expression
+        to evaluate  EvalMapping final expression.
+
+        Parameters:
+        ----------
+        quads: <IndexQuadrature>
+            Indices used for the quadrature loops
+
+        indices_basis : <IndexDofTest>
+            Indices used for the basis loops
+
+        q_basis : <GlobalTensorQuadratureTestBasis>
+            The 1d basis function of the tensor-product space
+
+        mapping : <Mapping>
+            Sympde Mapping object
+
+        components  : <GeometryExpressions>
+            The 1d coefficients of the mapping
+
+        mapping_space : <VectorSpace>
+            The vector space of the mapping
+
+        tests   : tuple_like (Variable)
+            The dummy variable for the test functions
+
+        nderiv  : <int>
+            Maximum number of derivatives
+
+        mask    : int,optional
+            The fixed direction in case of a boundary integral
+
+        is_irational: bool,optional
+            True if the mapping is irational
     """
-    def __new__(cls, quads, indices_basis, q_basis, l_basis, mapping, components, space, mapping_space, tests, nderiv, mask=None, is_rational=None):
+    def __new__(cls, quads, indices_basis, q_basis, mapping, components, mapping_space, tests, nderiv, mask=None, is_rational=None):
         mapping_atoms  = components.arguments
         basis          = q_basis
         target         = basis.target
