@@ -40,6 +40,7 @@ def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False)
         return n.astype('int'), (-ep).astype('int')
     else:
         return n.astype('int')
+
 #===============================================================================
 class StencilVectorSpace( VectorSpace ):
     """
@@ -408,16 +409,13 @@ class StencilVector( Vector ):
 
         order: {'C','F'}
              Memory representation of the data ‘C’ for row-major ordering (C-style), ‘F’ column-major ordering (Fortran-style).
+
         Returns
         -------
         array : numpy.ndarray
             A copy of the data array collapsed into one dimension.
 
         """
-
-#        order     = kwargs.pop('order', 'C')
-#        with_pads = kwargs.pop('with_pads', False)
-
         # In parallel case, call different functions based on 'with_pads' flag
         if self.space.parallel:
             if with_pads:
@@ -863,11 +861,8 @@ class StencilMatrix( Matrix ):
                     Mt[(*jj, *ll)] = M[(*ii, *kk)]
 
     # ...
-    def toarray( self, **kwargs ):
+    def toarray( self, *, order='C', with_pads=False ):
         """ Convert to Numpy 2D array. """
-
-        order     = kwargs.pop('order', 'C')
-        with_pads = kwargs.pop('with_pads', False)
 
         if self.codomain.parallel and with_pads:
             coo = self._tocoo_parallel_with_pads(order=order)
@@ -877,11 +872,8 @@ class StencilMatrix( Matrix ):
         return coo.toarray()
 
     # ...
-    def tosparse( self, **kwargs ):
+    def tosparse( self, *, order='C', with_pads=False ):
         """ Convert to any Scipy sparse matrix format. """
-
-        order     = kwargs.pop('order', 'C')
-        with_pads = kwargs.pop('with_pads', False)
 
         if self.codomain.parallel and with_pads:
             coo = self._tocoo_parallel_with_pads(order=order)
@@ -1627,10 +1619,7 @@ class StencilInterfaceMatrix(Matrix):
                     out[tuple(ii)] = np.dot( mat[ii_kk].flat, v[jj].flat )
             new_nrows[d] += er
     # ...
-    def toarray( self, **kwargs ):
-
-       # order     = kwargs.pop('order', 'C')
-        with_pads = kwargs.pop('with_pads', False)
+    def toarray( self, *, order='C', with_pads=False ):
 
         if self.codomain.parallel and with_pads:
             coo = self._tocoo_parallel_with_pads()
@@ -1640,10 +1629,7 @@ class StencilInterfaceMatrix(Matrix):
         return coo.toarray()
 
     # ...
-    def tosparse( self, **kwargs ):
-
-        #order     = kwargs.pop('order', 'C')
-        with_pads = kwargs.pop('with_pads', False)
+    def tosparse( self, *, order='C', with_pads=False ):
 
         if self.codomain.parallel and with_pads:
             coo = self._tocoo_parallel_with_pads()
