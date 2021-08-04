@@ -4,6 +4,7 @@ This module provides iterative solvers and precondionners.
 
 """
 from math import sqrt
+from psydac.linalg.basic import LinearSolver
 
 __all__ = ['cg', 'pcg', 'bicg', 'jacobi', 'weighted_jacobi']
 
@@ -126,9 +127,13 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
     b : psydac.linalg.stencil.StencilVector
         Right-hand-side vector of linear system.
 
-    pc: string
+    pc: NoneType | str | psydac.linalg.basic.LinearSolver | Callable
         Preconditioner for A, it should approximate the inverse of A.
-        "jacobi" and "weighted_jacobi" are available in this module.
+        Can either be:
+        * None, i.e. not pre-conditioning (this calls the standard `cg` method)
+        * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)
+        * A LinearSolver object (in which case the out parameter is used)
+        * A callable with two parameters (A, r), where A is the LinearOperator from above, and r is the residual.
 
     x0 : psydac.linalg.basic.Vector
         First guess of solution for iterative solver (optional).
@@ -164,14 +169,24 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         x = x0.copy()
 
     # Preconditioner
-    psolve = globals()[pc]
+    if pc is None:
+        # for now, call the cg method here
+        return cg(A, b, x0=x0, tol=tol, maxiter=maxiter, verbose=verbose)
+    elif isinstance(pc, str):
+        pcfun = globals()[pc]
+        psolve = lambda r: pcfun(A, r)
+    elif isinstance(pc, LinearSolver):
+        s = b.space.zeros()
+        psolve = lambda r: pc.solve(r, out=s)
+    elif hasattr(pc, '__call__'):
+        psolve = lambda r: pc(A, r)
 
     # First values
     v = A.dot(x)
     r = b - v
     nrmr_sqr = r.dot(r)
 
-    s  = psolve(A, r)
+    s  = psolve(r)
     am = s.dot(r)
     p  = s.copy()
 
@@ -198,7 +213,7 @@ def pcg(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         r -= l*v
 
         nrmr_sqr = r.dot(r)
-        s = psolve(A, r)
+        s = psolve(r)
 
         am1 = s.dot(r)
         p  *= (am1/am)

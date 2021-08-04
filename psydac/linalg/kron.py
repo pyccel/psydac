@@ -182,6 +182,30 @@ class KroneckerStencilMatrix( Matrix ):
 
                 values        = [mat[i,k] for mat,i,k in zip(mats, ii, kk)]
                 M[(*ii, *kk)] = np.product(values)
+        
+        # handle partly-multiplied rows
+        new_nrows = nrows.copy()
+        for d,er in enumerate(nrows_extra):
+
+            rows = new_nrows.copy()
+            del rows[d]
+
+            for n in range(er):
+                for xx in np.ndindex(*rows):
+                    xx = list(xx)
+                    xx.insert(d, nrows[d]+n)
+
+                    ii     = tuple(x+xp for x,xp in zip(xx, xpads))
+                    ee     = [max(x-l+1,0) for x,l in zip(xx, nrows)]
+                    jj     = tuple( slice(x+d, x+d+2*p+1-e) for x,p,d,e in zip(xx, pads, diff, ee) )
+                    ndiags = [2*p + 1-e for p,e in zip(pads,ee)]
+                    kk     = [slice(None,diag) for diag in ndiags]
+                    ii_kk  = tuple( list(ii) + kk )
+
+                    for kk in np.ndindex( *ndiags ):
+                        values        = [mat[i,k] for mat,i,k in zip(mats, ii, kk)]
+                        M[(*ii, *kk)] = np.product(values)
+            new_nrows[d] += er
 
     def tosparse(self):
         return reduce(kron, (m.tosparse() for m in self.mats))
@@ -228,6 +252,7 @@ class KroneckerLinearSolver( LinearSolver ):
         self._space = V
         self._solvers = solvers
         self._parallel = self._space.parallel
+        self._dtype = self._space._dtype
         if self._parallel:
             self._mpi_type = V._mpi_type
         else:
@@ -316,13 +341,13 @@ class KroneckerLinearSolver( LinearSolver ):
         """
         Allocates all temporary data needed for the solve operation.
         """
-        temp1 = np.empty((self._tempsize,))
+        temp1 = np.empty((self._tempsize,), dtype=self._dtype)
         if self._ndim <= 1 and self._allserial:
             # if ndim==1 and we have no parallelism,
             # we can avoid allocating a second temp array
             temp2 = None
         else:
-            temp2 = np.empty((self._tempsize,))
+            temp2 = np.empty((self._tempsize,), dtype=self._dtype)
         return temp1, temp2
     
     @property
@@ -475,12 +500,8 @@ class KroneckerLinearSolver( LinearSolver ):
             view = workmem[:self._datasize]
             view.shape = (self._numrhs,self._dimrhs)
 
-            # the solvers want the FORTRAN-contiguous format
-            # (TODO: push this into the DirectSolver?)
-            view_T = view.transpose()
-
             # call solver in in-place mode
-            self._solver.solve(view_T, out=view_T, transposed=transposed)
+            self._solver.solve(view, out=view, transposed=transposed)
 
     class KroneckerSolverParallelPass:
         """
@@ -714,4 +735,3 @@ def kronecker_solve( solvers, rhs, out=None, transposed=False ):
 
     kronsolver = KroneckerLinearSolver(rhs.space, solvers)
     return kronsolver.solve(rhs, out=out, transposed=transposed)
-

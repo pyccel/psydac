@@ -154,7 +154,11 @@ class DiscreteBilinearForm(BasicDiscrete):
         kwargs['mapping']             = self.spaces[0].symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
-        quad_order                    = kwargs.pop('quad_order', get_quad_order(self.spaces[1]))
+        space_quad_order = [qo - 1 for qo in get_quad_order(self.spaces[1])]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(self.spaces[1]))
 
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
@@ -466,7 +470,12 @@ class DiscreteLinearForm(BasicDiscrete):
         kwargs['mapping']             = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
-        quad_order                    = kwargs.pop('quad_order', get_quad_order(self.space))
+
+        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(self.space))
 
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
@@ -703,7 +712,12 @@ class DiscreteFunctional(BasicDiscrete):
         kwargs['mapping']             = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
-        quad_order                    = kwargs.pop('quad_order', get_quad_order(self.space))
+
+        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(self.space))
 
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
@@ -871,7 +885,7 @@ class DiscreteSumForm(BasicDiscrete):
                 ah = DiscreteFunctional(a, e, *args, **kwargs)
                 kwargs['vector'] = ah._vector
             forms.append(ah)
-            free_args.append(ah.free_args)
+            free_args.extend(ah.free_args)
             kwargs['boundary'] = None
 
         self._forms     = forms
@@ -886,8 +900,8 @@ class DiscreteSumForm(BasicDiscrete):
     def free_args(self):
         return self._free_args
 
-    def assemble(self, **kwargs):
-        M = self.forms[0].assemble(**kwargs)
+    def assemble(self, *, reset=True, **kwargs):
+        M = self.forms[0].assemble(reset=reset, **kwargs)
         for form in self.forms[1:]:
             M = form.assemble(reset=False, **kwargs)
         return M
