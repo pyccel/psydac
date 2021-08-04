@@ -7,6 +7,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 
+from sympde.expr     import TerminalExpr
+from sympde.calculus import grad, dot, inner, rot, div, curl, cross
+from sympde.calculus import minus, plus
+from sympde.topology import NormalVector
+from sympde.expr     import Norm
+
+from sympde.topology import Derham
+from sympde.topology import element_of, elements_of
+from sympde.topology import Square
+from sympde.topology import IdentityMapping, PolarMapping
+from sympde.topology import VectorFunctionSpace
+
+from sympde.expr.equation import find, EssentialBC
+
+from sympde.expr.expr import LinearForm, BilinearForm
+from sympde.expr.expr import integral
+
 from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import LinearOperator, eigsh, minres, gmres
 
@@ -14,6 +31,8 @@ from scipy.sparse.linalg import inv
 from scipy.sparse import save_npz, load_npz
 
 # from scikits.umfpack import splu    # import error
+
+
 
 from sympde.topology import Derham
 from sympde.topology import Square
@@ -26,6 +45,7 @@ from psydac.linalg.utilities import array_to_stencil
 
 from psydac.fem.basic   import FemField
 
+from psydac.api.settings        import PSYDAC_BACKENDS
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
 from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
@@ -52,6 +72,53 @@ def get_load_dir(domain_name=None,n_patches=None,nc=None,deg=None,data='matrices
     return './saved_'+data+'/'+fem_name+'/'
 
 
+def run_nitsche_maxwell_2d(gamma, domain, ncells, degree):
+
+    from psydac.api.discretization import discretize
+    #+++++++++++++++++++++++++++++++
+    # 1. Abstract model
+    #+++++++++++++++++++++++++++++++
+
+    V  = VectorFunctionSpace('V', domain, kind='hcurl')
+
+    u, v, F  = elements_of(V, names='u, v, F')
+    nn  = NormalVector('nn')
+
+    kappa        = 10**3
+    penalization = 10**10
+
+    I        = domain.interfaces
+    boundary = domain.boundary
+
+    # Bilinear form a: V x V --> R
+    expr_I  =  curl(minus(u))*cross(minus(v),nn) - curl(minus(u))*cross(plus(v),nn) \
+              +curl(minus(v))*cross(minus(u),nn) - curl(minus(v))*cross(plus(u),nn) \
+              \
+             -kappa*cross(plus(u),nn) *cross(minus(v),nn)  - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
+             + kappa*cross(minus(u),nn)*cross(minus(v),nn) + kappa*cross(plus(u),nn) *cross(plus(v),nn)
+
+#    expr_I  =-kappa*cross(plus(u),nn) *cross(minus(v),nn) - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
+#            + kappa*cross(minus(u),nn)*cross(minus(v),nn) + kappa*cross(plus(u),nn) *cross(plus(v),nn)
+
+    expr   = curl(u)*curl(v) + gamma*dot(u,v)
+    expr_b = penalization * cross(u, nn) * cross(v, nn)
+
+    a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(boundary, expr_b))
+    m = BilinearForm((u,v),  integral(domain, curl(u)*curl(v)))
+
+    #+++++++++++++++++++++++++++++++
+    # 2. Discretization
+    #+++++++++++++++++++++++++++++++
+
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    Vh       = discretize(V, domain_h, degree=degree,basis='M')
+
+    a_h = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['numba'])
+    m_h = discretize(m, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['numba'])
+
+    A = a_h.assemble()
+    M = m_h.assemble()
+    return A,M
 # ---------------------------------------------------------------------------------------------------------------
 def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
                                 domain_name='square',
@@ -66,7 +133,8 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
                                 show_all=False,
                                 ext_plots=False,
                                 dpi='figure',
-                                dpi_vf='figure'):
+                                dpi_vf='figure',
+                                nitsche=False,):
     """
     Maxwell eigenproblem solver, see eg
     Buffa, Perugia & Warburton, The Mortar-Discontinuous Galerkin Method for the 2D Maxwell Eigenproblem JSC 2009.
@@ -148,6 +216,12 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
         )
 
     t_stamp = time_count(t_stamp)
+    if nitsche:
+        print("assembling the system with nitsche...")
+        A,M1 = run_nitsche_maxwell_2d(gamma_jump, domain, ncells, degree)
+        A_m  = A.tosparse().tocsr()
+        M1_m = M1.tosparse().tocsr()
+
     if load_dir:
         print("loading sparse matrices...")
         M0_m = load_npz(load_dir+'M0_m.npz')
@@ -226,23 +300,24 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
             save_npz(save_dir+'D1_m.npz', D1_m)
             save_npz(save_dir+'I1_m.npz', I1_m)
 
-
     ## building Hodge Laplacian matrix
     t_stamp = time_count(t_stamp)
+
     print("computing (sparse) Hodge-Laplacian matrix...")
     div_aux_m = D0_m.transpose() * M1_m  # note: the matrix of the (weak) div operator is:   - M0_minv * div_aux_m
-    jump_penal_m = I1_m-cP1_m
 
     L_option = 2
-    if L_option == 1:
+    if L_option == 1 and not nitsche:
         A_m = div_aux_m.transpose() * M0_minv * div_aux_m
-    else:
+    elif not nitsche:
         A_m = (div_aux_m * cP1_m).transpose() * M0_minv * div_aux_m * cP1_m
 
-    A_m += (
-            D1_m.transpose() * M2_m * D1_m
-            + gamma_jump * jump_penal_m.transpose() * M1_m * jump_penal_m
-    )
+    if not nitsche:
+        jump_penal_m = I1_m-cP1_m
+        A_m += (
+                D1_m.transpose() * M2_m * D1_m
+                + gamma_jump * jump_penal_m.transpose() * M1_m * jump_penal_m
+        )
 
 
     if test_harmonic_field:
@@ -310,7 +385,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
     print('A_m.shape = ', A_m.shape)
 
     print('computing eigenvalues and eigenvectors with scipy.sparse.eigsh...' )
-    if A_m.shape[0] < 17000:   # max value for super_lu is >= 13200
+    if A_m.shape[0] < 17000 and False:   # max value for super_lu is >= 13200
         print('(with super_lu decomposition)')
         eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M1_m, sigma=sigma, mode=mode, which=which, ncv=ncv)
 
@@ -597,6 +672,6 @@ if __name__ == '__main__':
             nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], gamma_jump=gamma_jump,
             domain_name=domain_name, n_patches=n_patches,
             save_dir=save_dir, load_dir=load_dir, plot_dir=plot_dir, fem_name=fem_name,
-            ref_sigmas=ref_sigmas, sigma=sigma, show_all=show_all, dpi=dpi, dpi_vf=dpi_vf,
+            ref_sigmas=ref_sigmas, sigma=sigma, show_all=show_all, dpi=dpi, dpi_vf=dpi_vf,nitsche=True
         )
 
