@@ -378,6 +378,9 @@ class EvalMapping(BaseNode):
         if isinstance(target, VectorFunction):
             target = target[0]
 
+        if isinstance(weight, VectorFunction):
+            weight = weight[0]
+
         l_coeffs    = []
         g_coeffs    = []
         values      = set()
