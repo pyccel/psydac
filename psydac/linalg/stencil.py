@@ -17,7 +17,7 @@ __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfa
 
 #===============================================================================
 def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False):
-    """ Compute the diagonal length of the stencil matrix for each direction,
+    """ Compute the diagonal length and the padding of the stencil matrix for each direction,
         using the shifts of the domain and the codomain.
 
         Parameters
@@ -37,10 +37,10 @@ def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False)
         Returns
         -------
         n : (int)
-         Diagonal lenght of the stencil matrix
+         Diagonal length of the stencil matrix
 
         ep : (int)
-          Starting index of the non zero elements 
+          Padding that constitutes the starting index of the non zero elements 
     """
     n = ((np.ceil((pads+1)/shifts_codomain)-1)*shifts_domain).astype('int')
     ep = -np.minimum(0, n-pads)
