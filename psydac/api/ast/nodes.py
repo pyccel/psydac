@@ -360,8 +360,8 @@ class EvalMapping(BaseNode):
         mask    : int,optional
             The fixed direction in case of a boundary integral
 
-        is_irational: bool,optional
-            True if the mapping is irational
+        is_rational: bool,optional
+            True if the mapping is rational
     """
     def __new__(cls, quads, indices_basis, q_basis, mapping, components, mapping_space, tests, nderiv, mask=None, is_rational=None):
         mapping_atoms  = components.arguments
