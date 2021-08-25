@@ -17,7 +17,7 @@ __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfa
 
 #===============================================================================
 def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False):
-    """ Compute the diagonal lenght of the stencil matrix for each direction,
+    """ Compute the diagonal length of the stencil matrix for each direction,
         using the shifts of the domain and the codomain.
 
         Parameters
@@ -28,7 +28,7 @@ def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False)
         shifts_domain : tuple_like (int)
          Shifts of the domain along each direction
 
-        mshifts_codomainc : tuple_like (int)
+        shifts_codomain : tuple_like (int)
          Shifts of the codomain along each direction
 
         return_padding : bool
