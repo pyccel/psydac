@@ -15,17 +15,18 @@
 #      coordinates (r, theta), but with reversed order: hence x1=theta and x2=r
 
 from mpi4py import MPI
-from sympy import pi, cos, sin
+from sympy import pi, cos, sin, symbols
 from sympy.abc import x, y
 import pytest
 import os
+import numpy as np
 
 from sympde.calculus import grad, dot
 from sympde.calculus import laplace
 from sympde.topology import ScalarFunctionSpace
 from sympde.topology import element_of
 from sympde.topology import NormalVector
-from sympde.topology import Domain
+from sympde.topology import Domain,Square
 from sympde.topology import Union
 from sympde.expr import BilinearForm, LinearForm, integral
 from sympde.expr import Norm
@@ -42,7 +43,7 @@ except:
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 # ...
-
+#x,y = symbols('x1, x2')
 #==============================================================================
 def get_boundaries(*args):
 
@@ -75,14 +76,14 @@ def run_poisson_2d(filename, solution, f, dir_zero_boundary,
     B_dirichlet_0 = Union(*[domain.get_boundary(**kw) for kw in dir_zero_boundary])
     B_dirichlet_i = Union(*[domain.get_boundary(**kw) for kw in dir_nonzero_boundary])
     B_neumann     = Union(*[domain.get_boundary(**kw) for kw in neumann_boundary])
-
+    np.set_printoptions(precision=3, linewidth=200)
     V  = ScalarFunctionSpace('V', domain)
     u  = element_of(V, name='u')
     v  = element_of(V, name='v')
     nn = NormalVector('nn')
 
     # Bilinear form a: V x V --> R
-    a = BilinearForm((u, v), integral(domain, dot(grad(u), grad(v))))
+    a = BilinearForm((u, v), integral(domain, dot(grad(u),grad(v))))
 
     # Linear form l: V --> R
     l0 = LinearForm(v, integral(domain, f * v))
@@ -117,11 +118,11 @@ def run_poisson_2d(filename, solution, f, dir_zero_boundary,
 
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
     # Discretize equation using Dirichlet bc
-    equation_h = discretize(equation, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_NUMBA)
+    equation_h = discretize(equation, domain_h, [Vh, Vh])
 
     # Discretize error norms
-    l2norm_h = discretize(l2norm, domain_h, Vh, backend=PSYDAC_BACKEND_NUMBA)
-    h1norm_h = discretize(h1norm, domain_h, Vh, backend=PSYDAC_BACKEND_NUMBA)
+    l2norm_h = discretize(l2norm, domain_h, Vh)
+    h1norm_h = discretize(h1norm, domain_h, Vh)
 
     #+++++++++++++++++++++++++++++++
     # 3. Solution
@@ -130,10 +131,11 @@ def run_poisson_2d(filename, solution, f, dir_zero_boundary,
     # Solve linear system
     uh = equation_h.solve()
 
+
     # Compute error norms
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
-
+    
     return l2_error, h1_error
 
 #==============================================================================
@@ -937,7 +939,7 @@ def test_poisson_2d_circle_dir0():
 #==============================================================================
 # 2D Poisson's equation on pipe
 #==============================================================================
-def test_poisson_2d_pipe_diri_1234():
+def test_poisson_2d_pipe_dir_1234():
 
     filename = os.path.join(mesh_dir, 'pipe.h5')
     solution = sin(pi*x)*sin(pi*y)
@@ -950,12 +952,14 @@ def test_poisson_2d_pipe_diri_1234():
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
             dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
 
-    expected_l2_error =  0.0009958323057358508
-    expected_h1_error =  0.04036540423678278
+    expected_l2_error =  0.0008629074796755705
+    expected_h1_error =  0.038151393401512884
+ 
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
+#test_poisson_2d_pipe_dir_1234()
 #==============================================================================
 # 2D "Laplace-like" equation
 #==============================================================================

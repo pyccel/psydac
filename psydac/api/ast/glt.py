@@ -170,8 +170,11 @@ class GltKernel(SplBasic):
         domain  = self.domain
         mapping = self.mapping
 
+
         # ... discrete values
         Vh, Wh = self.spaces
+
+        domain  = Vh.symbolic_space.domain
 
         n_elements = Vh.ncells
         degrees    = Vh.degree
@@ -184,6 +187,7 @@ class GltKernel(SplBasic):
         # recompute the symbol
         expr = gelatize(form, degrees=degrees, n_elements=n_elements,
                         domain=domain, evaluate=True, human=True, expand=expand_expr)
+
 
         fields = form.fields
         fields = sorted(fields, key=lambda x: str(x.name))

@@ -250,12 +250,6 @@ class BasicDiscrete(BasicCodeGen):
 
     def __init__(self, expr, kernel_expr, **kwargs):
 
-        if isinstance(kernel_expr, (tuple, list)):
-            if len(kernel_expr) == 1:
-                kernel_expr = kernel_expr[0]
-            else:
-                raise ValueError('> Expecting only one kernel')
-
         kwargs['kernel_expr'] = kernel_expr
 
         BasicCodeGen.__init__(self, expr, **kwargs)
@@ -287,5 +281,10 @@ class BasicDiscrete(BasicCodeGen):
         discrete_space      = kwargs.pop('discrete_space', None)
         kernel_expr         = kwargs['kernel_expr']
         quad_order          = kwargs.pop('quad_order', None)
+        is_rational_mapping = kwargs.pop('is_rational_mapping', None)
+        mapping             = kwargs.pop('mapping', None)
+        mapping_space       = kwargs.pop('mapping_space', None)
 
-        return AST(expr, kernel_expr, discrete_space, tag, quad_order=quad_order)
+        return AST(expr, kernel_expr, discrete_space, tag, quad_order=quad_order,
+                    mapping=mapping, is_rational_mapping=is_rational_mapping, mapping_space=mapping_space)
+

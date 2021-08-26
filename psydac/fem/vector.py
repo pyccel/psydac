@@ -2,8 +2,11 @@
 
 # TODO: - have a block version for VectorSpace when all component spaces are the same
 
+from sympde.topology.space import BasicFunctionSpace
+
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace
+from psydac.linalg.block   import BlockVectorSpace
 from psydac.fem.basic      import FemSpace, FemField
 
 from numpy import unique, asarray, allclose
@@ -39,9 +42,10 @@ class VectorFemSpace( FemSpace ):
         self._ncells = ncells[0]
         # ...
 
-        # TODO serial case
-        self._vector_space = None
+        self._symbolic_space   = None
+        self._vector_space     = None
 
+        # TODO serial case
         # TODO parallel case
 
     #--------------------------------------------------------------------------
@@ -69,6 +73,15 @@ class VectorFemSpace( FemSpace ):
     @property
     def is_product(self):
         return True
+
+    @property
+    def symbolic_space( self ):
+        return self._symbolic_space
+
+    @symbolic_space.setter
+    def symbolic_space( self, symbolic_space ):
+        assert isinstance(symbolic_space, BasicFunctionSpace)
+        self._symbolic_space = symbolic_space
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -115,6 +128,14 @@ class VectorFemSpace( FemSpace ):
         return [V.degree for V in self.spaces]
 
     @property
+    def multiplicity(self):
+        return [V.multiplicity for V in self.spaces]
+
+    @property
+    def pads(self):
+        return [V.pads for V in self.spaces]
+
+    @property
     def ncells(self):
         return self._ncells
 
@@ -147,9 +168,7 @@ class VectorFemSpace( FemSpace ):
         txt += '> nbasis :: ({dims})\n'.format(dims=dims)
         return txt
 
-# TODO still experimental
 #===============================================================================
-from psydac.linalg.block import BlockVectorSpace
 class ProductFemSpace( FemSpace ):
     """
     Product of FEM space
@@ -190,10 +209,8 @@ class ProductFemSpace( FemSpace ):
         self._ncells = ncells[0]
         # ...
 
-        # ...
-        v_spaces           = [V.vector_space for V in self.spaces]
-        self._vector_space = BlockVectorSpace(*v_spaces)
-        # ...
+        self._vector_space    = BlockVectorSpace(*[V.vector_space for V in self.spaces])
+        self._symbolic_space  = None
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -220,6 +237,15 @@ class ProductFemSpace( FemSpace ):
     @property
     def is_product(self):
         return True
+
+    @property
+    def symbolic_space( self ):
+        return self._symbolic_space
+
+    @symbolic_space.setter
+    def symbolic_space( self, symbolic_space ):
+        assert isinstance(symbolic_space, BasicFunctionSpace)
+        self._symbolic_space = symbolic_space
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -249,6 +275,14 @@ class ProductFemSpace( FemSpace ):
         return [V.degree for V in self.spaces]
 
     @property
+    def multiplicity(self):
+        return [V.multiplicity for V in self.spaces]
+
+    @property
+    def pads(self):
+        return [V.pads for V in self.spaces]
+
+    @property
     def ncells(self):
         return self._ncells
 
@@ -264,4 +298,3 @@ class ProductFemSpace( FemSpace ):
     @property
     def comm( self ):
         return self.spaces[0].comm
-

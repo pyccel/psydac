@@ -250,14 +250,14 @@ class BlockVector( Vector ):
         return tuple( self._blocks )
 
     # ...
-    def toarray( self ):
-        return np.concatenate( [bi.toarray() for bi in self._blocks] )
+    def toarray( self, order='C' ):
+        return np.concatenate( [bi.toarray(order=order) for bi in self._blocks] )
 
-    def toarray_local( self ):
+    def toarray_local( self, order='C' ):
         """ Convert to petsc Nest vector.
         """
 
-        blocks    = [v.toarray_local() for v in self._blocks]
+        blocks    = [v.toarray_local(order=order) for v in self._blocks]
         return np.block([blocks])[0]
 
     def topetsc( self ):
@@ -500,16 +500,16 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
-    def toarray( self ):
-        """ Convert to 2D Numpy array.
-        """
-        return self.tosparse().toarray()
+    def toarray( self, **kwargs ):
+        """ Convert to Numpy 2D array. """
+        return self.tosparse(**kwargs).toarray()
 
     # ...
-    def tosparse( self ):
-        """ Convert to Scipy sparse matrix.
-        """
+    def tosparse( self, **kwargs ):
+        """ Convert to any Scipy sparse matrix format. """
         # Shortcuts
+
+        order = kwargs.pop('order', 'C')
         nrows = self.n_block_rows
         ncols = self.n_block_cols
 
@@ -522,7 +522,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         for i in range(nrows):
             for j in range(ncols):
                 if (i, j) in self._blocks:
-                    blocks_sparse[i][j] = self._blocks[i, j].tosparse()
+                    blocks_sparse[i][j] = self._blocks[i, j].tosparse(order=order)
                 else:
                     m = block_codomain(i).dimension
                     n = block_domain  (j).dimension

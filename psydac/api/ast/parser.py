@@ -1,3 +1,7 @@
+# coding: utf-8
+
+import numpy as np
+
 from collections import OrderedDict
 
 from sympy import IndexedBase, Indexed
@@ -65,6 +69,7 @@ from .nodes import Loop
 from .nodes import WeightedVolumeQuadrature
 from .nodes import LengthDofTest
 
+from .nodes import index_outer_dof_test
 from .nodes import index_dof_test, index_dof_trial
 from .nodes import index_deriv
 
@@ -381,21 +386,8 @@ class Parser(object):
             f_span     = args.pop('f_span',      [])
             f_basis    = args.pop('field_basis', [])
             f_degrees  = args.pop('fields_degrees', [])
-            f_args     = (*f_basis, *f_span, *f_degrees, *f_coeffs)
-
-        inits = []
-        if l_pads:
-            tests = l_pads.tests
-            trials = l_pads.trials
-            l_pads = self._visit(l_pads , **kwargs)
-            for i,v in enumerate(expand(tests)):
-                for j,u in enumerate(expand(trials)):
-                    test_ln = lengths_tests[v] if v in lengths_tests else lengths_tests[v.base]
-                    trial_ln = lengths_trials[u] if u in lengths_trials else lengths_trials[u.base]
-                    test_ln = self._visit(test_ln, **kwargs)
-                    trial_ln = self._visit(trial_ln, **kwargs)
-                    for stmt in zip(l_pads[i,j], test_ln, trial_ln):
-                        inits += [Assign(stmt[0], Function('max')(tuple(stmt[1:])))]
+            f_pads     = args.pop('f_pads', [])
+            f_args     = (*f_basis, *f_span, *f_degrees, *f_pads, *f_coeffs)
 
         args = [*tests_basis, *trial_basis, *g_span, *g_quad, *lengths_tests.values(), *lengths_trials.values(), *lengths, *g_pads]
 
@@ -425,6 +417,7 @@ class Parser(object):
 
         body = flatten(tuple(self._visit(i, **kwargs) for i in expr.body))
 
+        inits = []
         for k,i in self.shapes.items():
             var = self.variables[k]
             if var in arguments:
@@ -464,7 +457,8 @@ class Parser(object):
     def _visit_EvalField(self, expr, **kwargs):
         g_coeffs   = expr.g_coeffs
         l_coeffs   = expr.l_coeffs
-        tests      = expand_hdiv_hcurl(expr._tests)
+        tests      = list(expr._tests)
+        ex_tests   = list(expand(tests))
         mats       = expr.atoms
         dim        = self._dim
         lhs_slices = [Slice(None,None)]*dim
@@ -472,15 +466,16 @@ class Parser(object):
         inits      = {mat:Assign(mat[lhs_slices], 0.) for mat in mats}
         body       = self._visit(expr.body, **kwargs)
         stmts      = OrderedDict()
-        pads       = expr.pads
+        pads       = self._visit_Pads(expr.pads)
 
         for l_coeff,g_coeff in zip(l_coeffs, g_coeffs):
             basis        = g_coeff.test
+            index        = ex_tests.index(basis)
             basis        = basis if basis in tests else basis.base
             degrees      = self._visit_LengthDofTest(LengthDofTest(basis))
             spans        = flatten(self._visit_Span(Span(basis))[basis])
-            rhs_starts   = [spans[i]-degrees[i] + pads[i] for i in range(dim)]
-            rhs_ends     = [spans[i]+pads[i]+1          for i in range(dim)]
+            rhs_starts   = [spans[i]-degrees[i] + pads[index,0][i] for i in range(dim)]
+            rhs_ends     = [spans[i]+pads[index,0][i]+1          for i in range(dim)]
             rhs_slices   = [Slice(s, e) for s,e in zip(rhs_starts, rhs_ends)]
             l_coeff      = self._visit(l_coeff, **kwargs)
             g_coeff      = self._visit(g_coeff, **kwargs)
@@ -500,13 +495,15 @@ class Parser(object):
         test = coeffs[0].test
         test = test if test in tests else test.base
         lhs_slices = [Slice(None,None)]*dim
+        multiplicity = expr.multiplicity
+        pads         = expr.pads
         for coeff, l_coeff in zip(coeffs, l_coeffs):
             spans   = flatten(self._visit_Span(Span(test))[test])
             degrees = self._visit_LengthDofTest(LengthDofTest(test))
             coeff   = self._visit(coeff)
             l_coeff = self._visit(l_coeff)
-            rhs_starts = [spans[i] for i in range(dim)]
-            rhs_ends   = [spans[i]+degrees[i]+1          for i in range(dim)]
+            rhs_starts = [multiplicity[i]*pads[i] + spans[i]-degrees[i] for i in range(dim)]
+            rhs_ends   = [multiplicity[i]*pads[i] + spans[i]+1          for i in range(dim)]
             rhs_slices = [Slice(s, e) for s,e in zip(rhs_starts, rhs_ends)]
             stmt       = self._visit_Assign(Assign(l_coeff[lhs_slices], coeff[rhs_slices]), **kwargs)
             stmts.append(stmt)
@@ -783,17 +780,31 @@ class Parser(object):
         return target
 
     def _visit_Pads(self, expr, **kwargs):
-        dim = self.dim
-        tests  = expand(expr.tests)
-        trials = expand(expr.trials)
-        pads = Matrix.zeros(len(tests),len(trials))
-        for i in range(pads.shape[0]):
-            for j in range(pads.shape[1]):
+        dim           = self.dim
+        tests         = expand(expr.tests)
+        tests_degree  = expr.tests_degree
+        trials_degree = expr.trials_degree
+        m_tests       = expr.tests_multiplicity
+        m_trials      = expr.trials_multiplicity
+
+        if expr.trials is not None:
+            trials = expand(expr.trials)
+            pads = Matrix.zeros(len(tests),len(trials))
+            for i in range(pads.shape[0]):
+                for j in range(pads.shape[1]):
+                    label1 = SymbolicExpr(tests[i]).name
+                    label2 = SymbolicExpr(trials[j]).name
+                    names  = 'pad_{}_{}_1:{}'.format(label2, label1, str(dim+1))
+                    targets = variables(names, dtype='int')
+                    pads[i,j] = Tuple(*targets)
+                    self.insert_variables(*targets)
+        else:
+            pads = Matrix.zeros(len(tests),1)
+            for i in range(pads.shape[0]):
                 label1 = SymbolicExpr(tests[i]).name
-                label2 = SymbolicExpr(trials[j]).name
-                names  = 'pad_{}_{}_1:{}'.format(label2, label1, str(dim+1))
+                names  = 'pad_{}_1:{}'.format(label1, str(dim+1))
                 targets = variables(names, dtype='int')
-                pads[i,j] = Tuple(*targets)
+                pads[i,0] = Tuple(*targets)
                 self.insert_variables(*targets)
         return pads
     # ....................................................
@@ -895,8 +906,10 @@ class Parser(object):
             dim  = self.dim
             rank = lhs.rank
             pads = lhs.pads
+            multiplicity = lhs.multiplicity
             tests = expand(lhs._tests)
-            tests_2 = expand_hdiv_hcurl(lhs._tests)
+
+            tests_2 = lhs._tests
             lhs = self._visit_BlockStencilMatrixGlobalBasis(lhs)
             rhs = self._visit(expr)
 
@@ -908,9 +921,9 @@ class Parser(object):
                 spans   = self._visit_Span(Span(test))
                 degrees = self._visit_LengthDofTest(LengthDofTest(test))
                 spans   = flatten(*spans.values())
-
-                lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
-                lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
+                m    = multiplicity[test] if test in multiplicity else multiplicity[test.base]
+                lhs_starts = [spans[i]+m[i]*pads[i]-degrees[i] for i in range(dim)]
+                lhs_ends   = [spans[i]+m[i]*pads[i]+1          for i in range(dim)]
                 if isinstance(self._target, Interface):
                     axis = self._target.axis
                     lhs_starts[axis] = pads[axis]
@@ -933,8 +946,9 @@ class Parser(object):
             dim   = self.dim
             rank  = lhs.rank
             pads  = lhs.pads
+            multiplicity = lhs.multiplicity
             tests = expand(lhs._tests)
-            tests_2 = expand_hdiv_hcurl(lhs._tests)
+            tests_2 = lhs._tests
             lhs = self._visit_BlockStencilVectorGlobalBasis(lhs)
             rhs = self._visit(expr)
             pads    = self._visit(pads)
@@ -943,12 +957,13 @@ class Parser(object):
             for k in range(lhs.shape[0]):
                 if expr.expr[k,0]:
                     test = tests[k]
+                    m    = multiplicity[test] if test in multiplicity else multiplicity[test.base]
                     test = test if test in tests_2 else test.base
                     spans   = self._visit_Span(Span(test))
                     spans   = flatten(*spans.values())
                     degrees = self._visit_LengthDofTest(LengthDofTest(test))
-                    lhs_starts = [spans[i]+pads[i]-degrees[i] for i in range(dim)]
-                    lhs_ends   = [spans[i]+pads[i]+1          for i in range(dim)]
+                    lhs_starts = [spans[i]+m[i]*pads[i]-degrees[i] for i in range(dim)]
+                    lhs_ends   = [spans[i]+m[i]*pads[i]+1          for i in range(dim)]
                     lhs_slices = [Slice(s, e) for s,e in zip(lhs_starts, lhs_ends)]
                     lhs[k,0] = lhs[k,0][lhs_slices]
                     rhs[k,0] = rhs[k,0][rhs_slices]
@@ -1131,14 +1146,33 @@ class Parser(object):
         #improve we shouldn't use index_dof_test
         if isinstance(target, BlockStencilMatrixLocalBasis):
             rows = self._visit(index_dof_test)
+            outer = self._visit(target.outer) if target.outer else rows
             cols = self._visit(index_dof_trial)
-            pads = self._visit_Pads(target.pads)
+            pads = target.pads
+            tests  = expand(target._tests)
+            trials = expand(target._trials)
 
             targets = self._visit_BlockStencilMatrixLocalBasis(target)
             for i in range(targets.shape[0]):
                 for j in range(targets.shape[1]):
-                    padding  = pads[i,j]
-                    indices = tuple(rows) + tuple(cols[k]+padding[k]-rows[k] for k in range(dim))
+                    if trials[j] in pads.trials_multiplicity:
+                        trials_m  = pads.trials_multiplicity[trials[j]]
+                        trials_d  = pads.trials_degree[trials[j]]
+                    else:
+                        trials_m = pads.trials_multiplicity[trials[j].base]
+                        trials_d = pads.trials_degree[trials[j].base]
+
+                    if tests[i] in pads.tests_multiplicity:
+                        tests_m  = pads.tests_multiplicity[tests[i]]
+                        tests_d  = pads.tests_degree[tests[i]]
+                    else:
+                        tests_m = pads.tests_multiplicity[tests[i].base]
+                        tests_d = pads.tests_degree[tests[i].base]
+
+                    pp1     = [max(tests_d[k], trials_d[k]) for k in range(dim)]
+                    pp2     = [int((np.ceil((pp1[k]+1)/tests_m[k])-1)*trials_m[k]) for k in range(dim)]
+                    padding = [p2-min(0,p2-p1) for p1,p2 in zip(pp1, pp2)]
+                    indices = tuple(rows) + tuple(cols[k]+padding[k]-outer[k]*trials_m[k] for k in range(dim))
                     targets[i,j] = targets[i,j][indices]
             return targets
 
@@ -1287,10 +1321,45 @@ class Parser(object):
         args = list(zip(*args))
         return args
 
+    def _visit_TensorIntDiv(self, expr, **kwargs):
+        args = [self._visit(a, **kwargs) for a in expr.args]
+        arg1 = args[0]
+        arg2 = args[1]
+        newargs = []
+        for i,j in zip(arg1, arg2):
+            newargs.append(i//j)
+            
+        return tuple(newargs)
+
+    def _visit_TensorAdd(self, expr, **kwargs):
+        args = [self._visit(a, **kwargs) for a in expr.args]
+        arg1 = args[0]
+        arg2 = args[1]
+        newargs = []
+        for i,j in zip(arg1, arg2):
+            newargs.append(i+j)
+            
+        return tuple(newargs)
+
+    def _visit_TensorMul(self, expr, **kwargs):
+        args = [self._visit(a, **kwargs) for a in expr.args]
+        arg1 = args[0]
+        arg2 = args[1]
+        newargs = []
+        for i,j in zip(arg1, arg2):
+            newargs.append(i*j)
+            
+        return tuple(newargs)
+
     # ....................................................
     def _visit_Expr(self, expr, **kwargs):
         return SymbolicExpr(expr)
 
+    def _visit_BooleanTrue(self, expr, **kwargs):
+        return int(True)
+
+    def _visit_BooleanFalse(self, expr, **kwargs):
+        return int(False)
     # ....................................................
     def _visit_IndexElement(self, expr, **kwargs):
         dim    = self.dim
@@ -1319,6 +1388,18 @@ class Parser(object):
     def _visit_IndexDofTest(self, expr, **kwargs):
         dim = self.dim
         target = variables('i_basis_1:%d'%(dim+1), dtype='int')
+        self.insert_variables(*target)
+        return target
+    # ....................................................
+    def _visit_IndexOuterDofTest(self, expr, **kwargs):
+        dim = self.dim
+        target = variables('outer_i_basis_1:%d'%(dim+1), dtype='int')
+        self.insert_variables(*target)
+        return target
+    # ....................................................
+    def _visit_IndexInnerDofTest(self, expr, **kwargs):
+        dim = self.dim
+        target = variables('inner_i_basis_1:%d'%(dim+1), dtype='int')
         self.insert_variables(*target)
         return target
     # ....................................................
@@ -1360,6 +1441,33 @@ class Parser(object):
         self.insert_variables(*target)
         return target
     # ....................................................
+    def _visit_LengthOuterDofTest(self, expr, **kwargs):
+        dim = self.dim
+        target = expr.target
+        if target:
+            target = '_' + str(SymbolicExpr(target))
+        else:
+            target = ''
+
+        names = 'test_outer{}_p1:{}'.format(target, dim+1)
+        target = variables(names, dtype='int')
+        self.insert_variables(*target)
+        return target
+    # ....................................................
+    def _visit_LengthInnerDofTest(self, expr, **kwargs):
+        dim = self.dim
+        target = expr.target
+        if target:
+            target = '_' + str(SymbolicExpr(target))
+        else:
+            target = ''
+
+        names = 'test_inner{}_p1:{}'.format(target, dim+1)
+        target = variables(names, dtype='int')
+        self.insert_variables(*target)
+        return target
+
+    # ....................................................
     def _visit_LengthDofTrial(self, expr, **kwargs):
         dim = self.dim
         target = expr.target
@@ -1394,6 +1502,9 @@ class Parser(object):
             #TODO check if we never pass this condition
             return expr.target
 
+        if not hasattr(expr.target, 'pattern'):
+            return targets
+
         patterns = expr.target.pattern()
         patterns = self._visit_Pattern(patterns)
         args = OrderedDict()
@@ -1422,6 +1533,12 @@ class Parser(object):
         dim       = self.dim
         iterator  = self._visit(expr.iterator)
         generator = self._visit(expr.generator)
+        
+        if isinstance(iterator, (tuple, Tuple, list)):
+            inits = []
+            for i,g in zip(iterator, generator):
+                inits.append([Assign(i,g)])
+            return inits
 
         inits = [()]*dim
         for (i, l_xs),(j, g_xs) in zip(iterator.items(), generator.items()):
@@ -1508,11 +1625,23 @@ class Parser(object):
         body = list(p_inits) + list(geo_stmts) + list(stmts)
         mask = expr.mask
 
-        if mask:
-            axis   = mask.axis
-            index  = indices.pop(axis)
-            length = lengths.pop(axis)
-            init   = inits.pop(axis)
+        if isinstance(mask,(tuple,Tuple,list)):
+            mask_init = []         
+            for axis,T in enumerate(mask):
+                if T:
+                    indices[axis] = None
+                    lengths[axis] = None
+                    mask_init += list(inits[axis])
+                    inits[axis]   = None
+            indices = [i for i in indices if i is not None]
+            lengths = [i for i in lengths if i is not None]
+            inits   = [i for i in inits if i is not None]
+
+        elif mask:
+            axis      = mask.axis
+            index     = indices.pop(axis)
+            length    = lengths.pop(axis)
+            init      = inits.pop(axis)
             mask_init = [Assign(index, 0), *init]
         for index, length, init in zip(indices[::-1], lengths[::-1], inits[::-1]):
 

@@ -2,25 +2,72 @@
 
 import numpy as np
 
+from functools import reduce
+
 from psydac.core.bsplines          import find_span
 from psydac.core.bsplines          import basis_funs_all_ders
 from psydac.core.bsplines          import basis_ders_on_quad_grid
 from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
 from psydac.fem.vector             import ProductFemSpace
+
+def get_points_weights(spaces, axis, e):
+    for s in spaces:
+        if e in s.quad_grids[axis].indices:
+            i = np.where(s.quad_grids[axis].indices==e)[0][0]
+            return s.quad_grids[axis].points[i:i+1], s.quad_grids[axis].weights[i:i+1]
 #==============================================================================
 class QuadratureGrid():
-    def __init__( self, V , axis=None, ext=None):
+    def __init__( self, V , axis=None, ext=None, trial_space=None):
+
+        n_elements          = []
+        indices             = []
+        local_element_start = []
+        local_element_end   = []
+        points              = []
+        weights             = []
 
         if isinstance(V, ProductFemSpace):
-            V = V.spaces[0]
+            V1 = V.spaces[0]
+            spaces = list(V.spaces)
+        else:
+            V1 = V
+            spaces = [V]
 
-        self._fem_grid            = V.quad_grids
-        self._n_elements          = [g.num_elements        for g in V.quad_grids]
-        self._local_element_start = [g.local_element_start for g in V.quad_grids]
-        self._local_element_end   = [g.local_element_end   for g in V.quad_grids]
-        self._points              = [g.points              for g in V.quad_grids]
-        self._weights             = [g.weights             for g in V.quad_grids]
+        if trial_space  and not isinstance(trial_space, ProductFemSpace):
+            spaces.append(trial_space)
+        elif isinstance(trial_space, ProductFemSpace):
+            spaces = spaces + list(trial_space.spaces)
+
+        # calculate the union of the indices in quad_grids, and make sure that all the grids match for each space.
+        for i in range(len(V1.spaces)):
+
+            indices.append(reduce(np.union1d,[s.quad_grids[i].indices for s in spaces]))
+            local_element_start.append(V1.quad_grids[i].local_element_start)
+            local_element_end.append  (V1.quad_grids[i].local_element_end)
+            points.append(V1.quad_grids[i].points)
+            weights.append(V1.quad_grids[i].weights)
+
+            for e in np.setdiff1d(indices[-1], V1.quad_grids[i].indices):
+                if e<V1.quad_grids[i].indices[0]:
+                    local_element_start[-1] +=1
+                    local_element_end  [-1] +=1
+                    p,w = get_points_weights(spaces, i, e)
+                    points[-1]  = np.concatenate((p, points[-1]))
+                    weights[-1] = np.concatenate((w, weights[-1]))
+                elif e>V1.quad_grids[i].indices[-1]:
+                    p,w = get_points_weights(spaces, i, e)
+                    points[-1]  = np.concatenate((points[-1],p))
+                    weights[-1] = np.concatenate((weights[-1],w))
+                else:
+                    raise ValueError("Could not contsruct indices")
+
+        self._n_elements          = [p.shape[0] for p in points]
+        self._indices             = indices
+        self._local_element_start = local_element_start
+        self._local_element_end   = local_element_end
+        self._points              = points
+        self._weights             = weights
         self._axis                = axis
         self._ext                 = ext
 
@@ -30,15 +77,15 @@ class QuadratureGrid():
             weights = self.weights
 
             # ...
-            if V.ldim == 1 and isinstance(V, SplineSpace):
-                bounds = {-1: V.domain[0],
-                           1: V.domain[1]}
-            elif isinstance(V, TensorFemSpace):
-                bounds = {-1: V.spaces[axis].domain[0],
-                           1: V.spaces[axis].domain[1]}
+            if V1.ldim == 1 and isinstance(V1, SplineSpace):
+                bounds = {-1: V1.domain[0],
+                           1: V1.domain[1]}
+            elif isinstance(V1, TensorFemSpace):
+                bounds = {-1: V1.spaces[axis].domain[0],
+                           1: V1.spaces[axis].domain[1]}
             else:
                 raise ValueError('Incompatible type(V) = {} in {} dimensions'.format(
-                    type(V), V.ldim))
+                    type(V1), V1.ldim))
 
             points [axis] = np.asarray([[bounds[ext]]])
             weights[axis] = np.asarray([[1.]])
@@ -47,12 +94,12 @@ class QuadratureGrid():
             self._weights = weights
 
     @property
-    def fem_grid(self):
-        return self._fem_grid
-
-    @property
     def n_elements(self):
         return self._n_elements
+
+    @property
+    def indices(self):
+        return self._indices
 
     @property
     def local_element_start( self ):
@@ -128,12 +175,17 @@ class BasisValues():
 
         spans = []
         basis = []
+        if grid:
+            indices = grid.indices
+        else:
+            indices = [None]*len(V[0].spaces)
+
         for si,Vi in zip(starts,V):
             quad_grids  = Vi.quad_grids
             spans_i     = []
             basis_i     = []
 
-            for sij,g,p,vij in zip(si, quad_grids, Vi.vector_space.pads, Vi.spaces):
+            for sij,g,p,vij,ind in zip(si, quad_grids, Vi.vector_space.pads, Vi.spaces, indices):
                 sp = g.spans-sij
                 bs = g.basis
                 if not trial and vij.periodic and vij.degree <= p:
@@ -141,7 +193,16 @@ class BasisValues():
                     sp                 = sp.copy()
                     bs[0:p-vij.degree] = 0.
                     sp[0:p-vij.degree] = sp[p-vij.degree]
-
+                elif ind is not None:
+                    for e in np.setdiff1d(ind, g.indices):
+                        if e<g.indices[0]:
+                            bs  = np.concatenate((np.zeros_like(bs[0:1]), bs))
+                            sp = np.concatenate((sp[0:1], sp))
+                        elif e>g.indices[-1]:
+                            bs  = np.concatenate((bs,np.zeros_like(bs[-1:])))
+                            sp = np.concatenate((sp,sp[-1:]))
+                        else:
+                            raise ValueError("Could not contsruct the basis functions")
                 spans_i.append(sp)
                 basis_i.append(bs)
 

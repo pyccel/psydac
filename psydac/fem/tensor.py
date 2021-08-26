@@ -10,6 +10,8 @@ import numpy as np
 import itertools
 import h5py
 
+from sympde.topology.space import BasicFunctionSpace
+
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.kron    import kronecker_solve
 from psydac.fem.basic      import FemSpace, FemField
@@ -35,11 +37,12 @@ class TensorFemSpace( FemSpace ):
         assert all( isinstance( s, SplineSpace ) for s in args )
         self._spaces = tuple(args)
 
-        npts    = [V.nbasis   for V in self.spaces]
-        pads    = [V._pads    for V in self.spaces]
-        degree  = [V.degree   for V in self.spaces]
-        periods = [V.periodic for V in self.spaces]
-        basis   = [V.basis    for V in self.spaces]
+        npts         = [V.nbasis   for V in self.spaces]
+        pads         = [V._pads    for V in self.spaces]
+        degree       = [V.degree   for V in self.spaces]
+        multiplicity = [V.multiplicity for V in self.spaces]
+        periods      = [V.periodic for V in self.spaces]
+        basis        = [V.basis    for V in self.spaces]
 
         if 'comm' in kwargs and not( kwargs['comm'] is None ):
             # parallel case
@@ -47,11 +50,11 @@ class TensorFemSpace( FemSpace ):
             nprocs       = kwargs.pop('nprocs', None)
             reverse_axis = kwargs.pop('reverse_axis', None)
             assert isinstance(comm, MPI.Comm)
-
             cart = CartDecomposition(
                 npts         = npts,
                 pads         = pads,
                 periods      = periods,
+                shifts       = multiplicity,
                 reorder      = True,
                 comm         = comm,
                 nprocs       = nprocs,
@@ -67,7 +70,7 @@ class TensorFemSpace( FemSpace ):
 
         else:
             # serial case
-            self._vector_space = StencilVectorSpace(npts, pads, periods)
+            self._vector_space = kwargs.pop('vector_space', StencilVectorSpace(npts, pads, periods, shifts=multiplicity))
 
         # Shortcut
         v = self._vector_space
@@ -77,8 +80,10 @@ class TensorFemSpace( FemSpace ):
             self._quad_order = [sp.degree for sp in self.spaces]
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q)
-                                  for V,s,e,q in zip( self.spaces, v.starts, v.ends, self._quad_order ) )
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q, parent_start=ps, parent_end=pe)
+                                  for V,s,e,ps,pe,q in zip( self.spaces, v.starts, v.ends,
+                                                        v.parent_starts, v.parent_ends,
+                                                        self._quad_order ) )
 
         # Determine portion of logical domain local to process
         self._element_starts = tuple( g.indices[g.local_element_start] for g in self.quad_grids )
@@ -90,7 +95,6 @@ class TensorFemSpace( FemSpace ):
 
         # Store flag: object NOT YET prepared for interpolation
         self._interpolation_ready = False
-
         # Compute the local domains for every process
         if v.parallel:
             ndims = cart._ndims
@@ -99,10 +103,11 @@ class TensorFemSpace( FemSpace ):
             for dimension in range( ndims ):
                 periodic = periods[dimension]
                 p = pads[dimension]
+                de = degree[dimension]
                 d = cart._dims[dimension]
-                starts = cart.global_starts[dimension]
-                ends   = cart.global_ends  [dimension]
-                
+                starts = cart.reduced_global_starts[dimension]
+                ends   = cart.reduced_global_ends  [dimension]
+
                 if periodic:
                     element_starts = starts
                     element_ends   = ends
@@ -110,10 +115,13 @@ class TensorFemSpace( FemSpace ):
                     element_starts = np.array( [starts[d]-p+1 for d in range(d)] )
                     element_ends   = np.array( [ends[d]-p+1   for d in range(d)] )
                     element_starts[0] = 0
-                    element_ends [-1] = ends[-1] - p
+                    element_ends [-1] = ends[-1] - de
 
                 self._global_element_starts[dimension] = element_starts
                 self._global_element_ends  [dimension] = element_ends
+
+        self._symbolic_space      = None
+        # ...
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
@@ -140,6 +148,15 @@ class TensorFemSpace( FemSpace ):
     @property
     def is_product(self):
         return False
+
+    @property
+    def symbolic_space( self ):
+        return self._symbolic_space
+
+    @symbolic_space.setter
+    def symbolic_space( self, symbolic_space ):
+        assert isinstance(symbolic_space, BasicFunctionSpace)
+        self._symbolic_space = symbolic_space
 
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
@@ -341,6 +358,14 @@ class TensorFemSpace( FemSpace ):
     @property
     def degree(self):
         return [V.degree for V in self.spaces]
+
+    @property
+    def multiplicity(self):
+        return [V.multiplicity for V in self.spaces]
+
+    @property
+    def pads(self):
+        return self.vector_space.pads
 
     @property
     def ncells(self):
@@ -595,9 +620,16 @@ class TensorFemSpace( FemSpace ):
 
         return fields
 
-    def reduce_degree(self, axes, basis='B'):
+    def reduce_degree(self, axes, multiplicity=None, basis='B'):
+
         if isinstance(axes, int):
             axes = [axes]
+
+        if isinstance(multiplicity, int):
+            multiplicity = [multiplicity]
+
+        if multiplicity is None:
+            multiplicity = [1]*len(axes)
 
         v = self._vector_space
 
@@ -605,10 +637,14 @@ class TensorFemSpace( FemSpace ):
 
         for axis in axes:
             space = spaces[axis]
+            m     = space.multiplicity
+
             reduced_space = SplineSpace(
                 degree    = space.degree - 1,
                 pads      = space.pads,
                 grid      = space.breaks,
+                multiplicity= max(1,m-1),
+                parent_multiplicity=m,
                 periodic  = space.periodic,
                 dirichlet = space.dirichlet,
                 basis     = basis
@@ -616,11 +652,13 @@ class TensorFemSpace( FemSpace ):
             spaces[axis] = reduced_space
 
         # create new Tensor Vector
+        n_elements = [s1.nbasis-s2.nbasis for s1,s2 in zip(self.spaces, spaces)]
         if v.cart:
-            red_cart = v.cart.remove_last_element(axes)
+            red_cart = v.cart.reduce_elements(axes, n_elements)
             tensor_vec = TensorFemSpace(*spaces, cart=red_cart, quad_order=self._quad_order)
         else:
-            tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order)
+            v = v.reduce_elements(axes, n_elements)
+            tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
         
         tensor_vec._interpolation_ready = False
 
