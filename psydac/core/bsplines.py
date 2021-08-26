@@ -464,7 +464,7 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
     return Hp
 
 #==============================================================================
-def breakpoints( knots, degree ):
+def breakpoints( knots, degree ,tol=1e-15):
     """
     Determine breakpoints' coordinates.
 
@@ -476,13 +476,19 @@ def breakpoints( knots, degree ):
     degree : int
         Polynomial degree of B-splines.
 
+    tol: float
+        If the distance between two knots is less than tol, we assume 
+        that they are repeated knots which correspond to the same break point.
+
     Returns
     -------
     breaks : numpy.ndarray (1D)
         Abscissas of all breakpoints.
 
     """
-    return np.unique( knots[degree:-degree] )
+    knots = np.array(knots)
+    diff  = np.append(True, np.diff(knots[degree:-degree])>tol)
+    return knots[degree:-degree][diff]
 
 #==============================================================================
 def greville( knots, degree, periodic ):
@@ -575,7 +581,7 @@ def elements_spans( knots, degree ):
 
     ie = 0
     for ik in range( degree, nk-degree ):
-        if knots[ik] != knots[ik+1]:
+        if knots[ik+1]-knots[ik]>=1e-15:
             spans[ie] = ik
             ie += 1
         if ie == ne:
@@ -584,7 +590,7 @@ def elements_spans( knots, degree ):
     return spans
 
 #===============================================================================
-def make_knots( breaks, degree, periodic ):
+def make_knots( breaks, degree, periodic, multiplicity=1 ):
     """
     Create spline knots from breakpoints, with appropriate boundary conditions.
     Let p be spline degree. If domain is periodic, knot sequence is extended
@@ -603,6 +609,10 @@ def make_knots( breaks, degree, periodic ):
     periodic : bool
         True if domain is periodic, False otherwise.
 
+    multiplicity: int
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
+
     Result
     ------
     T : numpy.ndarray (1D)
@@ -617,25 +627,30 @@ def make_knots( breaks, degree, periodic ):
     assert len(breaks) > 1
     assert all( np.diff(breaks) > 0 )
     assert degree > 0
+    assert 1 <= multiplicity and multiplicity <= degree + 1
+
     if periodic:
         assert len(breaks) > degree
 
     p = degree
-    T = np.zeros( len(breaks)+2*p )
-    T[p:-p] = breaks
+    T = np.zeros( multiplicity*len(breaks[1:-1])+2+2*p )
+
+    T[p+1:-p-1] = np.repeat(breaks[1:-1], multiplicity)
+    T[p]        = breaks[ 0]
+    T[-p-1]     = breaks[-1]
 
     if periodic:
         period = breaks[-1]-breaks[0]
         T[0:p] = [xi-period for xi in breaks[-p-1:-1 ]]
         T[-p:] = [xi+period for xi in breaks[   1:p+1]]
     else:
-        T[0:p] = breaks[ 0]
-        T[-p:] = breaks[-1]
+        T[0:p+1] = breaks[ 0]
+        T[-p-1:] = breaks[-1]
 
     return T
 
 #==============================================================================
-def elevate_knots(knots, degree, periodic):
+def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15):
     """
     Given the knot sequence of a spline space S of degree p, compute the knot
     sequence of a spline space S_0 of degree p+1 such that u' is in S for all
@@ -656,6 +671,14 @@ def elevate_knots(knots, degree, periodic):
     periodic : bool
         True if domain is periodic, False otherwise.
 
+    multiplicity : int
+        Multiplicity of the knots in the knot sequence, we assume that the same 
+        multiplicity applies to each interior knot.
+
+    tol: float
+        If the distance between two knots is less than tol, we assume 
+        that they are repeated knots which correspond to the same break point.
+
     Returns
     -------
     new_knots : 1D numpy.ndarray
@@ -663,16 +686,25 @@ def elevate_knots(knots, degree, periodic):
 
     """
 
+    knots = np.array(knots)
+
     if periodic:
         [T, p] = knots, degree
         period = T[-1-p] - T[p]
-        left   = T[-1-p-(p+1)] - period
-        right  = T[   p+(p+1)] + period
+        left   = [T[-1-p-(p+1)] - period]
+        right  = [T[   p+(p+1)] + period]
     else:
-        left  = knots[0]
-        right = knots[-1]
+        left  = [knots[0],*knots[:degree+1]]
+        right = [knots[-1],*knots[-degree-1:]]
 
-    return np.array([left, *knots, right])
+        diff   = np.append(True, np.diff(knots[degree+1:-degree-1])>tol)
+        if len(knots[degree+1:-degree-1])>0:
+            unique = knots[degree+1:-degree-1][diff]
+            knots  = np.repeat(unique, multiplicity)
+        else:
+            knots = knots[degree+1:-degree-1]
+
+    return np.array([*left, *knots, *right])
 
 #==============================================================================
 def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):

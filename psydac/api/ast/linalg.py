@@ -3,13 +3,15 @@
 import sys
 import os
 import importlib
-from functools import lru_cache
 
-from mpi4py import MPI
+import numpy as np
+
+from functools import lru_cache
+from mpi4py    import MPI
 
 from sympy import Mul, Tuple
 from sympy import Mod, Abs, Range, Symbol
-from sympy import Function
+from sympy import Function, Integer
 
 from pyccel.ast.core import Variable, IndexedVariable
 from pyccel.ast.core import For
@@ -23,6 +25,7 @@ from pyccel.ast.core import FunctionDef
 from pyccel.ast.core import FunctionCall
 from pyccel.ast.core import Import
 
+from psydac.api.ast.nodes     import FloorDiv
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.ast.utilities import build_pyccel_types_decorator
 from psydac.fem.splines import SplineSpace
@@ -38,6 +41,16 @@ def variable_to_sympy(x):
     if isinstance(x, Variable) and isinstance(x.dtype, NativeInteger):
         x = Symbol(x.name, integer=True)
     return x
+
+#==============================================================================
+def compute_diag_len(p, md, mc, return_padding=False):
+    n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
+    ep = np.minimum(0, n-p)
+    n = n-ep + p+1
+    if return_padding:
+        return n.astype('int'), (-ep).astype('int')
+    else:
+        return n.astype('int')
 
 @lru_cache(maxsize=32)
 class LinearOperatorDot(SplBasic):
@@ -76,9 +89,9 @@ class LinearOperatorDot(SplBasic):
 
         nrows           = kwargs.pop('nrows', variables('n1:%s'%(ndim+1),  'int'))
         nrows_extra     = kwargs.pop('nrows_extra', variables('ne1:%s'%(ndim+1),  'int'))
-        pads            = kwargs.pop('pads', variables('p1:%s'%(ndim+1),  'int'))
-        gpads           = kwargs.pop('gpads', variables('gp1:%s'%(ndim+1), 'int'))
+        starts          = kwargs.pop('starts', variables('s1:%s'%(ndim+1),  'int'))
         indices1        = variables('i1:%s'%(ndim+1),  'int')
+        bb              = variables('b1:%s'%(ndim+1),  'int')
         indices2        = variables('k1:%s'%(ndim+1),  'int')
 
         v               = variables('v','real')
@@ -87,15 +100,24 @@ class LinearOperatorDot(SplBasic):
 
         backend         = kwargs.pop('backend', None)
 
-        body = []
-        ranges = [Range(2*variable_to_sympy(p)+1) for p in pads]
+        pads            = kwargs.pop('pads')
+        gpads           = kwargs.pop('gpads')
+        cm              = kwargs.pop('cm')
+        dm              = kwargs.pop('dm')
+
+        ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
+
+        inits = [Assign(b,p*m+p+1-n-Mod(s,m)) for b,p,m,n,s in zip(bb, gpads, dm, ndiags, starts) if not isinstance(p*m+p+1-n-Mod(s,m),(int,np.int64, Integer))]
+        bb    = [b if not isinstance(p*m+p+1-n-Mod(s,m),(int,np.int64, Integer)) else p*m+p+1-n-Mod(s,m) for b,p,m,n,s in zip(bb, gpads, dm, ndiags, starts)]
+        body  = []
+        ranges = [Range(variable_to_sympy(n)) for n in ndiags]
         target = Product(*ranges)
 
-        diff = [variable_to_sympy(gp)-variable_to_sympy(p) for gp,p in zip(gpads, pads)]
+        diff = [variable_to_sympy(gp-p) for gp,p in zip(gpads, pads)]
 
-        v1 = x[tuple(i+j+d for i,j,d in zip(indices1,indices2, diff))]
-        v2 = mat[tuple(i+j for i,j in zip(indices1,gpads))+ tuple(indices2)]
-        v3 = out[tuple(i+j for i,j in zip(indices1,gpads))]
+        v1 = x[tuple(b-d+FloorDiv((i1+Mod(s,mj)),mi)*mj + i2 for i1,mi,mj,b,s,d,i2 in zip(indices1,cm,dm,bb,starts,diff,indices2))]
+        v2 = mat[tuple(i+m*j for i,j,m in zip(indices1,gpads,cm))+ tuple(indices2)]
+        v3 = out[tuple(i+m*j for i,j,m in zip(indices1,gpads,cm))]
 
         body = [AugAssign(v,'+' ,Mul(v2, v1))]
 
@@ -120,10 +142,11 @@ class LinearOperatorDot(SplBasic):
 
             if nrows_extra[dim] == 0:continue
 
-            v1 = [i+j+d for i,j,d in zip(indices1, indices2, diff)]
-            v2 = [i+j for i,j in zip(indices1, gpads)]
-            v1[dim] += nrows[dim]
+            v1 = [b-d+FloorDiv((i1+(nrows[dim] if dim==x else 0)+Mod(s,mj)),mi)*mj + i2 for x,i1,mi,mj,b,s,d,i2 in zip(range(ndim), indices1,cm,dm,bb,starts,diff,indices2)]
+            v2 = [i+m*j for i,j,m in zip(indices1,gpads,cm)]
+
             v2[dim] += nrows[dim]
+
             v3 = v2
             v1 = x[tuple(v1)]
             v2 = mat[tuple(v2)+ indices2]
@@ -131,9 +154,11 @@ class LinearOperatorDot(SplBasic):
 
             rows = list(nrows)
             rows[dim] = nrows_extra[dim]
-            ranges = [2*variable_to_sympy(p)+1 for p in pads]
+
+            ranges       = [variable_to_sympy(n) for n in ndiags]
             ranges[dim] -= variable_to_sympy(indices1[dim]) + 1
-            ranges =[Range(i) for i in ranges]
+            ranges       = [Range(i) for i in ranges]
+
             target = Product(*ranges)
 
             for_body = [AugAssign(v, '+',Mul(v1,v2))]
@@ -157,19 +182,18 @@ class LinearOperatorDot(SplBasic):
             else:
                 body  += [For(indices1, target, for_body)]
 
+
+        body      = inits + body
         func_args =  (mat, x, out)
+
+        if isinstance(starts[0], Variable):
+            func_args = func_args + tuple(starts)
 
         if isinstance(nrows[0], Variable):
             func_args = func_args + tuple(nrows)
 
         if isinstance(nrows_extra[0], Variable):
             func_args = func_args + tuple(nrows_extra)
-
-        if isinstance(gpads[0], Variable):
-            func_args = func_args + tuple(gpads)
-
-        if isinstance(pads[0],  Variable):
-            func_args = func_args + tuple(pads)
 
         decorators = {}
         header     = None

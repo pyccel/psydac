@@ -94,8 +94,8 @@ def mpi_compute_dims_uniform( mpi_size, npts ):
 
     nprocs = [1]*len( npts )
 
-    mpi_factors   = factorint( mpi_size )
-    npts_factors  = [factorint( n ) for n in npts]
+    mpi_factors   = factorint( int(mpi_size) )
+    npts_factors  = [factorint( int(n) ) for n in npts]
 
     nprocs = [1 for n in npts]
 

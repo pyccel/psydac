@@ -463,7 +463,6 @@ class DiscreteGltExpr(GltBasicCodeGen):
         # ...
 
         # ...
-        kwargs['mapping'] = self.spaces[0].symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping
 
         GltBasicCodeGen.__init__(self, expr, **kwargs)

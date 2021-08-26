@@ -12,7 +12,6 @@ from psydac.fem.grid import FemAssemblyGrid
 def test_grid_decomposition(periodic, degree, pad, localsizes, gridcnt=100):
     # this test shall verify that the FemAssemblyGrid is broken into the correct parts
     splinespace = SplineSpace(degree, grid=np.linspace(0, 1, gridcnt+1), periodic=periodic, pads=pad)
-
     n = splinespace.ncells
 
     start = 0
@@ -29,6 +28,7 @@ def test_grid_decomposition(periodic, degree, pad, localsizes, gridcnt=100):
         realstart = start - offset
 
         # check correctness of local indices
+        print(grid.indices)
         assert len(grid.indices) == size + offset
         assert np.array_equal(grid.indices, [(i+n)%n for i in range(realstart, end+1)])
 

@@ -37,11 +37,6 @@ __all__ = (
 )
 
 #==============================================================================
-def get_quad_order(Vh):
-    if isinstance(Vh, ProductFemSpace):
-        return get_quad_order(Vh.spaces[0])
-    return tuple([g.weights.shape[1] for g in Vh.quad_grids])
-
 def collect_spaces(space, *args):
     """
     This function collect the arguments used in the assembly function
@@ -82,31 +77,52 @@ def collect_spaces(space, *args):
             args = [[e[0]] for e in args]
 
     return args
+#==============================================================================
+def compute_diag_len(p, md, mc):
+    n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
+    n = n-np.minimum(0, n-p)+p+1
+    return n.astype('int')
 
+def get_quad_order(Vh):
+    if isinstance(Vh, ProductFemSpace):
+        return get_quad_order(Vh.spaces[0])
+    return tuple([g.weights.shape[1] for g in Vh.quad_grids])
+
+#==============================================================================
 def construct_test_space_arguments(basis_values):
     space          = basis_values.space
     test_basis     = basis_values.basis
     spans          = basis_values.spans
     test_degrees   = space.degree
+    pads           = space.pads
+    multiplicity   = space.multiplicity
 
     test_basis, test_degrees, spans = collect_spaces(space.symbolic_space, test_basis, test_degrees, spans)
 
     test_basis    = flatten(test_basis)
     test_degrees  = flatten(test_degrees)
     spans         = flatten(spans)
-    return test_basis, test_degrees, spans
+    pads          = flatten(pads)
+    multiplicity  = flatten(multiplicity)
+    pads          = [p*m for p,m in zip(pads, multiplicity)]
+    return test_basis, test_degrees, spans, pads
 
 def construct_trial_space_arguments(basis_values):
     space          = basis_values.space
     trial_basis    = basis_values.basis
     trial_degrees  = space.degree
-
+    pads           = space.pads
+    multiplicity   = space.multiplicity
     trial_basis, trial_degrees = collect_spaces(space.symbolic_space, trial_basis, trial_degrees)
 
     trial_basis    = flatten(trial_basis)
     trial_degrees = flatten(trial_degrees)
-    return trial_basis, trial_degrees
+    pads          = flatten(pads)
+    multiplicity  = flatten(multiplicity)
+    pads          = [p*m for p,m in zip(pads, multiplicity)]
+    return trial_basis, trial_degrees, pads
 
+#==============================================================================
 def construct_quad_grids_arguments(grid):
     points         = grid.points
     weights        = grid.weights
@@ -144,26 +160,22 @@ class DiscreteBilinearForm(BasicDiscrete):
         is_rational_mapping = False
         if not( mapping is None ):
             is_rational_mapping = isinstance( mapping, NurbsMapping )
+            kwargs['mapping_space'] = mapping.space
 
         self._is_rational_mapping = is_rational_mapping
         # ...
 
         self._spaces = args[1]
-
-        kwargs['discrete_space']      = self.spaces
-        kwargs['mapping']             = self.spaces[0].symbolic_mapping
-        kwargs['is_rational_mapping'] = is_rational_mapping
-        kwargs['comm']                = domain_h.comm
-        space_quad_order = [qo - 1 for qo in get_quad_order(self.spaces[1])]
-        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
-
-        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(self.spaces[1]))
-
-        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
-
         # ...
-        self._target = self.kernel_expr.target
+
+        if isinstance(kernel_expr, (tuple, list)):
+            if len(kernel_expr) == 1:
+                kernel_expr = kernel_expr[0]
+            else:
+                raise ValueError('> Expecting only one kernel')
+
+        self._kernel_expr = kernel_expr
+        self._target = kernel_expr.target
         self._domain = domain_h.domain
         self._matrix = kwargs.pop('matrix', None)
 
@@ -192,6 +204,23 @@ class DiscreteBilinearForm(BasicDiscrete):
             test_ext  = None
             trial_ext = None
 
+        #...
+        kwargs['is_rational_mapping'] = is_rational_mapping
+        kwargs['comm']                = domain_h.comm
+        kwargs['discrete_space']      = (trial_space, test_space)
+        space_quad_order = [qo - 1 for qo in get_quad_order(self.spaces[1])]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(self.spaces[1]))
+        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
+        #...
+        grid              = QuadratureGrid( test_space, axis, test_ext, trial_space=trial_space)
+        self._grid        = grid
+        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
+        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
+
+        #...
         if isinstance(target, (Boundary, Interface)):
             #...
             # If process does not own the boundary or interface, do not assemble anything
@@ -212,12 +241,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                 npts = vector_space.npts[axis]
                 if end + 1 != npts:
                     self._func = do_nothing
-            #...
-
-        grid              = QuadratureGrid( test_space, axis, test_ext )
-        self._grid        = grid
-        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
-        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
 
         self._args = self.construct_arguments(backend=kwargs.pop('backend', None))
 
@@ -254,10 +277,12 @@ class DiscreteBilinearForm(BasicDiscrete):
         return self._args
 
     def assemble(self, *, reset=True, **kwargs):
+
         if self._free_args:
             basis   = []
             spans   = []
             degrees = []
+            pads    = []
             coeffs  = []
             consts  = []
             for key in self._free_args:
@@ -267,11 +292,12 @@ class DiscreteBilinearForm(BasicDiscrete):
                     assert i==j
                     v = v[i]
                 if isinstance(v, FemField):
-                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv)
-                    bs, d, s = construct_test_space_arguments(basis_v)
+                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, grid=self.grid)
+                    bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
                     degrees += d
+                    pads    += p
                     if v.space.is_product:
                         coeffs += (e._data for e in v.coeffs)
                     else:
@@ -279,7 +305,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *consts, *basis, *spans, *degrees, *coeffs)
+            args = (*self.args, *consts, *basis, *spans, *degrees, *pads, *coeffs)
 
         else:
             args = self._args
@@ -308,9 +334,9 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def construct_arguments(self, backend=None):
 
-        test_basis, test_degrees, spans   = construct_test_space_arguments(self.test_basis)
-        trial_basis, trial_degrees        = construct_trial_space_arguments(self.trial_basis)
-        n_elements, quads, quad_degrees   = construct_quad_grids_arguments(self.grid)
+        test_basis, test_degrees, spans, pads  = construct_test_space_arguments(self.test_basis)
+        trial_basis, trial_degrees, pads       = construct_trial_space_arguments(self.trial_basis)
+        n_elements, quads, quad_degrees        = construct_quad_grids_arguments(self.grid)
 
         pads                      = self.test_basis.space.vector_space.pads
         element_mats, global_mats = self.allocate_matrices(backend)
@@ -322,6 +348,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
         else:
             mapping = []
+
         args = (*test_basis, *trial_basis, *spans, *quads, *test_degrees, *trial_degrees, *n_elements, *quad_degrees, *pads, *element_mats, *self._global_matrices, *mapping)
         return args
 
@@ -387,8 +414,11 @@ class DiscreteBilinearForm(BasicDiscrete):
                                                                 pads = tuple(pads[k1,k2]),
                                                                 backend=backend)
 
-                    element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*(2*pads[k1,k2]+1)))
                     matrix[k1,k2]        = global_mats[k1,k2]
+                    md                   = matrix[k1,k2].domain.shifts
+                    mc                   = matrix[k1,k2].codomain.shifts
+                    diag                 = compute_diag_len(pads[k1,k2], md, mc)
+                    element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*diag))
 
         else: # case of scalar equation
             if is_broken: # multi-patch
@@ -406,15 +436,22 @@ class DiscreteBilinearForm(BasicDiscrete):
                 else:
                     global_mats[i,j] = StencilMatrix(trial_space, test_space, backend=backend)
 
-                element_mats[i,j]  = np.empty((*(test_degree+1),*(2*pads+1)))
-                if (i,j) in global_mats:self._matrix[i,j] = global_mats[i,j]
+                if (i,j) in global_mats:
+                    self._matrix[i,j] = global_mats[i,j]
+                    md                  = global_mats[i,j].domain.shifts
+                    mc                  = global_mats[i,j].codomain.shifts
+                    diag                = compute_diag_len(pads, md, mc)
+                    element_mats[i,j]  = np.empty((*(test_degree+1),*diag))
             else: # single patch
                 if self._matrix:
                     global_mats[0,0] = self._matrix
                 else:
                     global_mats[0,0] = StencilMatrix(trial_space, test_space, pads=tuple(pads), backend=backend)
 
-                element_mats[0,0]  = np.empty((*(test_degree+1),*(2*pads+1)))
+                md                 = global_mats[0,0].domain.shifts
+                mc                 = global_mats[0,0].codomain.shifts
+                diag               = compute_diag_len(pads, md, mc)
+                element_mats[0,0]  = np.empty((*(test_degree+1),*diag))
                 self._matrix       = global_mats[0,0]
         return element_mats.values(), global_mats.values()
 
@@ -437,26 +474,21 @@ class DiscreteLinearForm(BasicDiscrete):
         is_rational_mapping = False
         if not( mapping is None ):
             is_rational_mapping = isinstance( mapping, NurbsMapping )
+            kwargs['mapping_space'] = mapping.space
 
         self._is_rational_mapping = is_rational_mapping
 
         self._space  = args[1]
 
-        kwargs['discrete_space']      = self.space
-        kwargs['mapping']             = self.space.symbolic_mapping
-        kwargs['is_rational_mapping'] = is_rational_mapping
-        kwargs['comm']                = domain_h.comm
-
-        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
-        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
-
-        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(self.space))
-
-        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
+        if isinstance(kernel_expr, (tuple, list)):
+            if len(kernel_expr) == 1:
+                kernel_expr = kernel_expr[0]
+            else:
+                raise ValueError('> Expecting only one kernel')
 
         # ...
-        self._target     = self.kernel_expr.target
+        self._kernel_expr = kernel_expr
+        self._target     = kernel_expr.target
         self._domain     = domain_h.domain
         self._vector     = kwargs.pop('vector', None)
 
@@ -468,6 +500,18 @@ class DiscreteLinearForm(BasicDiscrete):
             test_space  = self._space.spaces[i]
         else:
             test_space  = self._space
+
+        kwargs['discrete_space']      = test_space
+        kwargs['is_rational_mapping'] = is_rational_mapping
+        kwargs['comm']                = domain_h.comm
+
+        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(self.space))
+
+        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
         if not isinstance(target, Boundary):
             ext  = None
@@ -535,6 +579,7 @@ class DiscreteLinearForm(BasicDiscrete):
             basis   = []
             spans   = []
             degrees = []
+            pads    = []
             coeffs  = []
             consts  = []
             for key in self._free_args:
@@ -543,11 +588,12 @@ class DiscreteLinearForm(BasicDiscrete):
                     i = get_space_indices_from_target(self.domain, self.target)
                     v = v[i]
                 if isinstance(v, FemField):
-                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv)
-                    bs, d, s = construct_test_space_arguments(basis_v)
+                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, grid=self.grid)
+                    bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
                     degrees += d
+                    pads    += p
                     if v.space.is_product:
                         coeffs += (e._data for e in v.coeffs)
                     else:
@@ -555,7 +601,7 @@ class DiscreteLinearForm(BasicDiscrete):
                 else:
                     consts += (v, )
 
-            args = (*self.args, *consts, *basis, *spans, *degrees, *coeffs)
+            args = (*self.args, *consts, *basis, *spans, *degrees, *pads, *coeffs)
 
         else:
             args = self._args
@@ -578,8 +624,8 @@ class DiscreteLinearForm(BasicDiscrete):
 
     def construct_arguments(self):
 
-        tests_basis, tests_degrees, spans = construct_test_space_arguments(self.test_basis)
-        n_elements, quads, quads_degree   = construct_quad_grids_arguments(self.grid)
+        tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
+        n_elements, quads, quads_degree         = construct_quad_grids_arguments(self.grid)
 
         global_pads   = self.space.vector_space.pads
 
@@ -674,25 +720,20 @@ class DiscreteFunctional(BasicDiscrete):
         is_rational_mapping = False
         if not( mapping is None ):
             is_rational_mapping = isinstance( mapping, NurbsMapping )
+            kwargs['mapping_space'] = mapping.space
 
         self._is_rational_mapping = is_rational_mapping
 
         self._space = args[1]
 
-        kwargs['discrete_space']      = self.space
-        kwargs['mapping']             = self.space.symbolic_mapping
-        kwargs['is_rational_mapping'] = is_rational_mapping
-        kwargs['comm']                = domain_h.comm
-
-        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
-        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
-
-        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(self.space))
-
-        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
+        if isinstance(kernel_expr, (tuple, list)):
+            if len(kernel_expr) == 1:
+                kernel_expr = kernel_expr[0]
+            else:
+                raise ValueError('> Expecting only one kernel')
 
         # ...
+        self._kernel_expr = kernel_expr
         self._vector = kwargs.pop('vector', None)
         domain       = self.kernel_expr.target
         # ...
@@ -716,6 +757,18 @@ class DiscreteFunctional(BasicDiscrete):
         else:
             ext        = None
             axis       = None
+
+        kwargs['discrete_space']      = self._space
+        kwargs['is_rational_mapping'] = is_rational_mapping
+        kwargs['comm']                = domain_h.comm
+
+        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(self.space))
+
+        BasicDiscrete.__init__(self, expr, kernel_expr,  quad_order=quad_order, **kwargs)
 
         # ...
         grid             = QuadratureGrid( self.space,  axis=axis, ext=ext)
@@ -745,17 +798,19 @@ class DiscreteFunctional(BasicDiscrete):
         tests_basis = [[bs[s:e+1] for s,e,bs in zip(sk,ek,basis)] for basis in self.test_basis.basis]
         spans       = [[sp[s:e+1] for s,e,sp in zip(sk,ek,spans)] for spans in self.test_basis.spans]
 
-        space         = self.space
         tests_degrees = self.space.degree
 
-        tests_basis, tests_degrees, spans = collect_spaces(space.symbolic_space, tests_basis, tests_degrees, spans)
+        tests_basis, tests_degrees, spans = collect_spaces(self.space.symbolic_space, tests_basis, tests_degrees, spans)
+
+        global_pads   = flatten(self.test_basis.space.pads)
+        multiplicity  = flatten(self.test_basis.space.multiplicity)
+        global_pads   = [p*m for p,m in zip(global_pads, multiplicity)]
 
         tests_basis   = flatten(tests_basis)
         tests_degrees = flatten(tests_degrees)
         spans         = flatten(spans)
         quads         = flatten(list(zip(points, weights)))
         quads_degree  = flatten(self.grid.quad_order)
-        global_pads   = self.space.vector_space.pads
 
         element_mats, vector = np.empty((1,)), np.empty((1,))
 

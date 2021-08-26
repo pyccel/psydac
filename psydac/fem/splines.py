@@ -4,6 +4,8 @@
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix, dia_matrix
 
+from sympde.topology.space import BasicFunctionSpace
+
 from psydac.linalg.stencil        import StencilVectorSpace
 from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
 from psydac.fem.basic             import FemSpace, FemField
@@ -39,6 +41,12 @@ class SplineSpace( FemSpace ):
     grid: array_like
         Coordinates of the grid. Used to construct the knots sequence, if not given.
 
+    multiplicity: int
+        Multiplicity of the knots in the knot sequence.
+ 
+    parent_multiplicity: int
+        Multiplicity of the parent knot sequence, if the space is reduced space.
+ 
     periodic : bool
         True if domain is periodic, False otherwise.
         Default: False
@@ -53,7 +61,7 @@ class SplineSpace( FemSpace ):
         Set to "M" for M-splines (have unit integrals)
 
     """
-    def __init__( self, degree, knots=None, grid=None,
+    def __init__( self, degree, knots=None, grid=None, multiplicity=None, parent_multiplicity=None,
                   periodic=False, dirichlet=(False, False), basis='B', pads=None ):
 
         if basis not in ['B', 'M']:
@@ -65,11 +73,30 @@ class SplineSpace( FemSpace ):
         if (knots is None) and (grid is None):
             raise ValueError('Either knots or grid must be provided.')
 
+        if (multiplicity is not None) and multiplicity<1:
+            raise ValueError('multiplicity should be >=1')
+
+        if (parent_multiplicity is not None) and parent_multiplicity<1:
+            raise ValueError('parent_multiplicity should be >=1')
+
+        if multiplicity is None:multiplicity = 1
+                
+        if parent_multiplicity is None:parent_multiplicity = 1
+
+        assert parent_multiplicity >= multiplicity
+
         if knots is None:
-            knots = make_knots( grid, degree, periodic )
+            knots = make_knots( grid, degree, periodic, multiplicity )
 
         if grid is None:
             grid = breakpoints(knots, degree)
+
+        indices = np.where(np.diff(knots[degree+1:-degree-1])>1e-15)[0]
+
+        if len(indices)>0:
+            multiplicity = np.diff(indices).max()
+        else:
+            multiplicity = max(1,len(knots[degree+1:-degree-1]))
 
         # TODO: verify that user-provided knots make sense in periodic case
 
@@ -93,6 +120,7 @@ class SplineSpace( FemSpace ):
         self._pads          = pads or degree
         self._knots         = knots
         self._periodic      = periodic
+        self._multiplicity  = multiplicity
         self._dirichlet     = dirichlet
         self._basis         = basis
         self._nbasis        = nbasis
@@ -102,7 +130,8 @@ class SplineSpace( FemSpace ):
         self._ext_greville  = greville(elevate_knots(knots, degree, periodic), degree+1, periodic)
         self._scaling_array = scaling_array
 
-        self._histopolation_grid = unroll_edges(self.domain, self.ext_greville)
+        self._parent_multiplicity  = parent_multiplicity
+        self._histopolation_grid   = unroll_edges(self.domain, self.ext_greville)
 
         # Create space of spline coefficients
         self._vector_space = StencilVectorSpace([nbasis], [self._pads], [periodic])
@@ -110,6 +139,9 @@ class SplineSpace( FemSpace ):
         # Store flag: object NOT YET prepared for interpolation / histopolation
         self._interpolation_ready = False
         self._histopolation_ready = False
+
+        self._symbolic_space      = None
+        # ...
 
     # ...
     @property
@@ -229,6 +261,15 @@ class SplineSpace( FemSpace ):
     def is_product(self):
         return False
 
+    @property
+    def symbolic_space( self ):
+        return self._symbolic_space
+
+    @symbolic_space.setter
+    def symbolic_space( self, symbolic_space ):
+        assert isinstance(symbolic_space, BasicFunctionSpace)
+        self._symbolic_space = symbolic_space
+
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
@@ -312,6 +353,14 @@ class SplineSpace( FemSpace ):
         """ Knot sequence.
         """
         return self._knots
+
+    @property
+    def multiplicity( self ):
+        return self._multiplicity
+
+    @property
+    def parent_multiplicity( self ):
+        return self._parent_multiplicity
 
     @property
     def breaks( self ):
@@ -420,3 +469,20 @@ class SplineSpace( FemSpace ):
         txt += '> nbasis :: {dim} \n'.format( dim=self.nbasis )
         txt += '> degree :: {degree}'.format( degree=self.degree )
         return txt
+
+    def draw(self):
+        from scipy.interpolate import BSpline
+        import matplotlib.pyplot as plt
+        d = self.degree
+        n = self.nbasis + d*self.periodic
+        knots = self.knots
+        fig, ax = plt.subplots()
+        xx = np.linspace(knots[0], knots[-1], 200)
+        for i in range(n):
+            c = [0]*n
+            c[i] = 1
+            spl = BSpline(knots, c, d)
+            ax.plot(xx, spl(xx), label='N{}'.format(i))
+        ax.grid(True)
+        plt.show()
+

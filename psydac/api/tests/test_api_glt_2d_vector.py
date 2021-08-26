@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
 
+import pytest
 import numpy as np
 from scipy.linalg import eig as eig_solver
 
@@ -71,6 +72,7 @@ def run_vector_poisson_2d_dir(ncells, degree):
     return error
 
 #==============================================================================
+@pytest.mark.xfail
 def test_api_glt_vector_poisson_2d_dir_1():
 
     error = run_vector_poisson_2d_dir(ncells=[2**3,2**3], degree=[2,2])

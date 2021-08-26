@@ -89,7 +89,7 @@ class LinearOperator_StencilToDense( Matrix ):
         return out
 
     # ...
-    def toarray( self ):
+    def toarray( self , **kwargs ):
 
         n0     = self.codomain.ncoeff
 
@@ -110,7 +110,7 @@ class LinearOperator_StencilToDense( Matrix ):
         return a
 
     # ...
-    def tosparse( self ):
+    def tosparse( self , **kwargs ):
         return self.tocoo()
 
     # ...
@@ -260,7 +260,7 @@ class LinearOperator_DenseToStencil( Matrix ):
         return out
 
     # ...
-    def toarray( self ):
+    def toarray( self , **kwargs ):
 
         n0     = self.domain.ncoeff
 
@@ -280,7 +280,7 @@ class LinearOperator_DenseToStencil( Matrix ):
         return a
 
     # ...
-    def tosparse( self ):
+    def tosparse( self , **kwargs ):
         return self.tocoo()
 
     # ...

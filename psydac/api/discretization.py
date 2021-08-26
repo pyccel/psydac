@@ -21,7 +21,7 @@ from sympde.topology import BasicFunctionSpace
 from sympde.topology import VectorFunctionSpace
 from sympde.topology import ProductSpace
 from sympde.topology import Derham
-from sympde.topology import Mapping, IdentityMapping, LogicalExpr
+from sympde.topology import LogicalExpr
 from sympde.topology import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType, UndefinedSpaceType
 from sympde.topology.basic import Union
 
@@ -134,12 +134,12 @@ def discretize_space(V, domain_h, *args, **kwargs):
     ldim                = V.ldim
     periodic            = kwargs.pop('periodic', [False]*ldim)
     basis               = kwargs.pop('basis', 'B')
+    knots               = kwargs.pop('knots', None)
     quad_order          = kwargs.pop('quad_order', None)
     is_rational_mapping = False
 
     # from a discrete geoemtry
     # TODO improve condition on mappings
-    # TODO how to give a name to the mapping?
 
     g_spaces = OrderedDict()
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
@@ -150,9 +150,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
         mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
         spaces    = [m.space for m in mappings]
         g_spaces  = OrderedDict(zip(interiors, spaces))
-
-        is_rational_mapping = all(isinstance( mapping, NurbsMapping ) for mapping in mappings)
-        symbolic_mapping    = Mapping('M', domain_h.pdim)
 
         if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
@@ -174,18 +171,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
         else:
             interiors = [interiors]
 
-        if domain_h.domain.mapping is None:
-            if len(interiors) == 1:
-                symbolic_mapping = IdentityMapping('M_{}'.format(interiors[0].name), ldim)
-            else:
-                symbolic_mapping = {D:IdentityMapping('M_{}'.format(D.name), ldim) for D in interiors}
-        else:
-            if len(interiors) == 1:
-                symbolic_mapping = domain_h.domain.mapping
-            else:
-                symbolic_mapping = domain_h.domain.mapping.mappings
-
-
         for i,interior in enumerate(interiors):
             ncells     = domain_h.ncells
             min_coords = interior.min_coords
@@ -194,12 +179,17 @@ def discretize_space(V, domain_h, *args, **kwargs):
             assert(isinstance( degree, (list, tuple) ))
             assert( len(degree) == ldim )
 
-            # Create uniform grid
-            grids = [np.linspace(xmin, xmax, num=ne + 1)
-                     for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
+            if knots is None:
+                # Create uniform grid
+                grids = [np.linspace(xmin, xmax, num=ne + 1)
+                         for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
-            # Create 1D finite element spaces and precompute quadrature data
-            spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
+                # Create 1D finite element spaces and precompute quadrature data
+                spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
+            else:
+                 # Create 1D finite element spaces and precompute quadrature data
+                spaces = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree, knots[interior.name], periodic)]
+
             Vh     = None
             if i>0:
                 for e in interfaces:
@@ -237,16 +227,12 @@ def discretize_space(V, domain_h, *args, **kwargs):
         else:
             Vh = reduce_space_degrees(V, Vh, basis=basis)
 
-        setattr(Vh, 'symbolic_domain', inter)
-        setattr(Vh, 'symbolic_space', V)
-        g_spaces[inter] = Vh
+        Vh.symbolic_space = V
+        g_spaces[inter]    = Vh
 
     Vh = ProductFemSpace(*g_spaces.values())
-    # add symbolic_mapping as a member to the space object
-    setattr(Vh, 'symbolic_mapping', symbolic_mapping)
-    setattr(Vh, 'is_rational_mapping', is_rational_mapping)
-    setattr(Vh, 'symbolic_space', V)
-    setattr(Vh, 'symbolic_domain', domain_h.domain)
+
+    Vh.symbolic_space      = V
 
     return Vh
 
@@ -268,11 +254,13 @@ def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
 #==============================================================================
 def discretize(a, *args, **kwargs):
 
-    if isinstance(a, sym_BasicForm):
+    if isinstance(a, (sym_BasicForm, sym_GltExpr, sym_Expr)):
         domain_h = args[0]
         assert( isinstance(domain_h, Geometry) )
         mapping     = domain_h.domain.mapping
+        kwargs['mapping'] = mapping
 
+    if isinstance(a, sym_BasicForm):
         if isinstance(a, sym_Norm):
             kernel_expr = TerminalExpr(a)
             if not mapping is None:

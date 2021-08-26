@@ -66,6 +66,9 @@ class PythonCodePrinter(PyccelPythonCodePrinter):
     def _print_PlusInterfaceOperator(self, expr):
         return self._print(expr.args[0])
 
+    def _print_FloorDiv(self, expr):
+        return "(({})//({}))".format(self._print(expr.arg1), self._print(expr.arg2))
+
     # .........................................................
     #        SYMPY objects
     # .........................................................
