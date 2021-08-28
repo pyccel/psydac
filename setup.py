@@ -56,7 +56,7 @@ install_requires = [
 
     # Our packages from PyPi
     'sympde==0.11',
-    'pyccel==0.10.1',
+    'pyccel>=0.10.1',
     'gelato==0.11',
 
     # In addition, we depend on mpi4py and h5py (MPI version).
