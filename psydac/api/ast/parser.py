@@ -15,11 +15,11 @@ from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
 
 
-from pyccel.ast.core      import Assign, Product, AugAssign, For
-from pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
-from pyccel.ast.core      import Slice, String, ValuedArgument
-from pyccel.ast.core      import EmptyNode, Import
-from pyccel.ast.core      import CodeBlock, FunctionDef
+from psydac.pyccel.ast.core      import Assign, Product, AugAssign, For
+from psydac.pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
+from psydac.pyccel.ast.core      import Slice, String, ValuedArgument
+from psydac.pyccel.ast.core      import EmptyNode, Import
+from psydac.pyccel.ast.core      import CodeBlock, FunctionDef
 
 
 from sympde.topology import (dx1, dx2, dx3)

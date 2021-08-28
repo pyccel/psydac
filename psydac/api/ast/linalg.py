@@ -13,17 +13,17 @@ from sympy import Mul, Tuple
 from sympy import Mod, Abs, Range, Symbol
 from sympy import Function, Integer
 
-from pyccel.ast.core import Variable, IndexedVariable
-from pyccel.ast.core import For
-from pyccel.ast.core import Slice, String
-from pyccel.ast.datatypes import NativeInteger
-from pyccel.ast.core import ValuedArgument
-from pyccel.ast.core import Assign
-from pyccel.ast.core import AugAssign
-from pyccel.ast.core import Product
-from pyccel.ast.core import FunctionDef
-from pyccel.ast.core import FunctionCall
-from pyccel.ast.core import Import
+from psydac.pyccel.ast.core import Variable, IndexedVariable
+from psydac.pyccel.ast.core import For
+from psydac.pyccel.ast.core import Slice, String
+from psydac.pyccel.ast.datatypes import NativeInteger
+from psydac.pyccel.ast.core import ValuedArgument
+from psydac.pyccel.ast.core import Assign
+from psydac.pyccel.ast.core import AugAssign
+from psydac.pyccel.ast.core import Product
+from psydac.pyccel.ast.core import FunctionDef
+from psydac.pyccel.ast.core import FunctionCall
+from psydac.pyccel.ast.core import Import
 
 from psydac.api.ast.nodes     import FloorDiv
 from psydac.api.ast.utilities import variables, math_atoms_as_str

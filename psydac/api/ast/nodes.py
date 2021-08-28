@@ -20,8 +20,8 @@ from sympde.topology import Mapping
 from sympde.topology import dx1, dx2, dx3
 from sympde.topology import get_atom_logical_derivatives
 
-from pyccel.ast.core import AugAssign, Assign
-from pyccel.ast.core import _atomic
+from psydac.pyccel.ast.core import AugAssign, Assign
+from psydac.pyccel.ast.core import _atomic
 
 #==============================================================================
 # TODO move it

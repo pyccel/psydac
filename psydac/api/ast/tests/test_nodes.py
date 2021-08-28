@@ -5,9 +5,9 @@ from sympy import Mul
 from sympy import symbols
 from sympy import cos
 
-from pyccel.ast.core import AugAssign
+from psydac.pyccel.ast.core import AugAssign
 # TODO remove
-from pyccel.codegen.printing.pycode import pycode
+from psydac.pyccel.codegen.printing.pycode import pycode
 
 from sympde.calculus import grad, dot
 from sympde.topology import dx, dy

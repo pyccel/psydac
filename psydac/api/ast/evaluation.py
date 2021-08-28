@@ -9,11 +9,11 @@ from sympde.topology             import SymbolicExpr
 from sympde.topology.space       import element_of
 from sympde.topology.derivatives import _logical_partial_derivatives
 
-from pyccel.ast.core      import IndexedVariable
-from pyccel.ast.core      import For
-from pyccel.ast.core      import Assign
-from pyccel.ast.core      import Slice
-from pyccel.ast.core      import FunctionDef
+from psydac.pyccel.ast.core      import IndexedVariable
+from psydac.pyccel.ast.core      import For
+from psydac.pyccel.ast.core      import Assign
+from psydac.pyccel.ast.core      import Slice
+from psydac.pyccel.ast.core      import FunctionDef
 
 from .basic     import SplBasic
 from .utilities import build_pythran_types_header, variables

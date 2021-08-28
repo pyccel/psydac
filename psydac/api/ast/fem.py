@@ -22,7 +22,7 @@ from sympde.topology.derivatives import get_max_logical_partial_derivatives
 from sympde.topology.mapping     import InterfaceMapping
 from sympde.calculus.core        import is_zero
 
-from pyccel.ast.core import _atomic
+from psydac.pyccel.ast.core import _atomic
 
 from .nodes import GlobalTensorQuadrature
 from .nodes import LocalTensorQuadrature
