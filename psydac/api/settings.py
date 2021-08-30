@@ -1,5 +1,11 @@
 # coding: utf-8
 
+# ... Determine Pyccel version: compiler names changed with version 1.3.0
+import pyccel
+pyccel_version = tuple(map(int, pyccel.__version__.split('.')))
+pyccel_legacy  = pyccel_version < (1, 3, 0)
+# ...
+
 
 PSYDAC_DEFAULT_FOLDER = '__psydac__'
 
@@ -7,19 +13,19 @@ PSYDAC_DEFAULT_FOLDER = '__psydac__'
 PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python'}
 
 PSYDAC_BACKEND_GPYCCEL = {'name':     'pyccel',
-                      'compiler': 'gfortran',
+                      'compiler': 'gfortran' if pyccel_legacy else 'GNU',
                       'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math',
                       'folder': '__gpyccel__',
                       'tag':'gpyccel'}
 
 PSYDAC_BACKEND_IPYCCEL = {'name':     'pyccel',
-                      'compiler': 'ifort',
+                      'compiler': 'ifort' if pyccel_legacy else 'intel',
                       'flags':    '-O3',
                       'folder': '__ipyccel__',
                       'tag':'ipyccel'}
 
 PSYDAC_BACKEND_PGPYCCEL = {'name':     'pyccel',
-                      'compiler': 'pgfortran',
+                      'compiler': 'pgfortran' if pyccel_legacy else 'PGI',
                       'flags':    '-O3',
                       'folder': '__pgpyccel__',
                        'tag':'pgpyccel'}
