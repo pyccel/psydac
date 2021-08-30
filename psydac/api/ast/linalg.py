@@ -121,7 +121,9 @@ class LinearOperatorDot(SplBasic):
 
         body = [AugAssign(v,'+' ,Mul(v2, v1))]
 
-        if ndim>1 and backend and backend['name'] == 'numba':
+        # Decompose fused loop over Cartesian product of multiple ranges
+        # into nested loops, each over a single range
+        if ndim > 1:
             for i,j in zip(indices2[::-1], target.args[::-1]):
                 body = [For(i,j, body)]
         else:
@@ -132,11 +134,13 @@ class LinearOperatorDot(SplBasic):
         ranges = [Range(variable_to_sympy(i)) for i in nrows]
         target = Product(*ranges)
 
-        if ndim>1 and backend and backend['name'] == 'numba':
+        # Decompose fused loop over Cartesian product of multiple ranges
+        # into nested loops, each over a single range
+        if ndim > 1:
             for i,j in zip(indices1[::-1], target.args[::-1]):
                 body = [For(i,j, body)]
         else:
-            body = [For(indices1,target,body)]
+            body = [For(indices1, target, body)]
 
         for dim in range(ndim):
 
@@ -163,7 +167,9 @@ class LinearOperatorDot(SplBasic):
 
             for_body = [AugAssign(v, '+',Mul(v1,v2))]
 
-            if ndim>1 and backend and backend['name'] == 'numba':
+            # Decompose fused loop over Cartesian product of multiple ranges
+            # into nested loops, each over a single range
+            if ndim > 1:
                 for i,j in zip(indices2[::-1], target.args[::-1]):
                     for_body = [For(i,j, for_body)]
             else:
@@ -175,12 +181,14 @@ class LinearOperatorDot(SplBasic):
             ranges = [Range(variable_to_sympy(i)) for i in rows]
             target = Product(*ranges)
 
-            if ndim>1 and backend and backend['name'] == 'numba':
+            # Decompose fused loop over Cartesian product of multiple ranges
+            # into nested loops, each over a single range
+            if ndim > 1:
                 for i,j in zip(indices1[::-1], target.args[::-1]):
                     for_body = [For(i,j, for_body)]
                 body += for_body
             else:
-                body  += [For(indices1, target, for_body)]
+                body += [For(indices1, target, for_body)]
 
 
         body      = inits + body
@@ -197,11 +205,7 @@ class LinearOperatorDot(SplBasic):
 
         decorators = {}
         header     = None
-
-        if backend and backend['name'] == 'numba':
-            imports = []
-        else:
-            imports = [Import('itertools', 'product')]
+        imports    = []
 
         if backend:
             if backend['name'] == 'pyccel':
