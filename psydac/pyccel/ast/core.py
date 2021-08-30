@@ -16,7 +16,7 @@ from sympy import preorder_traversal
 from sympy.simplify.radsimp   import fraction
 from sympy.core.compatibility import with_metaclass
 from sympy.core.assumptions   import StdFactKB
-from sympy.core.singleton     import Singleton, S
+from sympy.core.singleton     import S
 from sympy.core.function      import Function, Application
 from sympy.core.function      import Derivative, UndefinedFunction as sp_UndefinedFunction
 from sympy.core.function      import _coeff_isneg
@@ -32,6 +32,7 @@ from sympy.utilities.iterables          import iterable
 from sympy.utilities.misc               import filldedent
 
 
+from .singleton import Singleton
 from .basic     import Basic, PyccelAstNode
 from .builtins  import Enumerate, Len, List, Map, Range, Zip, PythonTuple, PythonBool, PythonInt
 from .datatypes import (datatype, DataType, CustomDataType, NativeSymbol,
@@ -1373,7 +1374,7 @@ class SymbolicAssign(Basic):
 # smaller that could be used, that would be preferable. We only use them as
 # tokens.
 
-class NativeOp(with_metaclass(Singleton, Basic)):
+class NativeOp(metaclass=Singleton):
 
     """Base type for native operands."""
 
