@@ -140,7 +140,7 @@ class PythonCodePrinter(SympyPythonCodePrinter):
         return code
 
     def _print_For(self, expr):
-        iter   = self._print(expr.iterable)
+        itrbl  = self._print(expr.iterable)
         target = expr.target
         if not isinstance(target,(list, tuple, Tuple)):
             target = [target]
@@ -148,7 +148,7 @@ class PythonCodePrinter(SympyPythonCodePrinter):
         body   = self._print(expr.body)
         body   = self._indent_codestring(body)
         code   = ('for {0} in {1}:\n'
-                '{2}\n').format(target,iter,body)
+                '{2}\n').format(target, itrbl, body)
 
         return code
 

@@ -206,7 +206,7 @@ class UnionType(Basic):
         return self._args[0]
 
 
-def DataTypeFactory(name, argnames=["_name"],
+def DataTypeFactory(name, argnames=("_name"),
                     BaseClass=CustomDataType,
                     prefix=None,
                     alias=None,

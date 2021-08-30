@@ -1094,14 +1094,14 @@ class Norm(Function, PyccelAstNode):
     def dtype(self):
         return 'real'
 
-
-    def shape(self, sh):
-        if self.dim is not None:
-            sh = list(sh)
-            del sh[self.dim]
-            return tuple(sh)
-        else:
-            return ()
+#    [YG, 30.08.2021] Codacy complains because shape should be property
+#    def shape(self, sh):
+#        if self.dim is not None:
+#            sh = list(sh)
+#            del sh[self.dim]
+#            return tuple(sh)
+#        else:
+#            return ()
 
     @property
     def rank(self):
