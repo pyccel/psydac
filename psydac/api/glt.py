@@ -339,7 +339,7 @@ class GltBasicCodeGen(object):
         # ... convert python to fortran using pyccel
         compiler       = self.backend['compiler']
         fflags         = self.backend['flags']
-        accelerators   = self.backend['accelerators']
+        accelerator    = self.backend['accelerator']
         _PYCCEL_FOLDER = self.backend['folder']
         # ...
 
@@ -354,7 +354,7 @@ class GltBasicCodeGen(object):
         f2py_module = epyccel( package,
                                compiler    = compiler,
                                fflags      = fflags,
-                               accelerators= accelerators,
+                               accelerator = accelerator,
                                comm        = self.comm,
                                bcast       = False,
                                folder      = _PYCCEL_FOLDER )
