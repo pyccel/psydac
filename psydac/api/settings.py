@@ -9,21 +9,18 @@ PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python'}
 PSYDAC_BACKEND_GPYCCEL = {'name':     'pyccel',
                       'compiler': 'gfortran',
                       'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math',
-                      'accelerator': None,
                       'folder': '__gpyccel__',
                       'tag':'gpyccel'}
 
 PSYDAC_BACKEND_IPYCCEL = {'name':     'pyccel',
                       'compiler': 'ifort',
                       'flags':    '-O3',
-                      'accelerator': None,
                       'folder': '__ipyccel__',
                       'tag':'ipyccel'}
 
 PSYDAC_BACKEND_PGPYCCEL = {'name':     'pyccel',
                       'compiler': 'pgfortran',
                       'flags':    '-O3',
-                      'accelerator': None,
                       'folder': '__pgpyccel__',
                        'tag':'pgpyccel'}
                       

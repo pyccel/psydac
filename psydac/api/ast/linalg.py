@@ -273,7 +273,6 @@ class LinearOperatorDot(SplBasic):
         # ... convert python to fortran using pyccel
         compiler       = backend['compiler']
         fflags         = backend['flags']
-        accelerator    = backend['accelerator']
         _PYCCEL_FOLDER = backend['folder']
 
         from pyccel.epyccel import epyccel
@@ -281,7 +280,6 @@ class LinearOperatorDot(SplBasic):
         fmod = epyccel(mod,
                        compiler    = compiler,
                        fflags      = fflags,
-                       accelerator = accelerator,
                        comm        = MPI.COMM_WORLD,
                        bcast       = True,
                        folder      = _PYCCEL_FOLDER,
