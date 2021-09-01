@@ -23,14 +23,14 @@ from sympde.topology             import LogicalExpr
 from sympde.topology             import SymbolicExpr
 from sympde.core                 import Constant
 
-from pyccel.ast.core import Variable, IndexedVariable
-from pyccel.ast.core import For
-from pyccel.ast.core import Assign
-from pyccel.ast.core import AugAssign
-from pyccel.ast.core import Product
-from pyccel.ast.core import _atomic
-from pyccel.ast.core import Comment
-from pyccel.ast.core import String
+from psydac.pyccel.ast.core import Variable, IndexedVariable
+from psydac.pyccel.ast.core import For
+from psydac.pyccel.ast.core import Assign
+from psydac.pyccel.ast.core import AugAssign
+from psydac.pyccel.ast.core import Product
+from psydac.pyccel.ast.core import _atomic
+from psydac.pyccel.ast.core import Comment
+from psydac.pyccel.ast.core import String
 
 #==============================================================================
 def random_string( n ):

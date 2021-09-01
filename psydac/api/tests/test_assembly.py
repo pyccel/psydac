@@ -46,8 +46,8 @@ def test_field_and_constant(backend):
     fh.coeffs[:] = 1
 
     # Assembly call should not crash if correct arguments are used
-    A = ah.assemble(c=1, f=fh)
-    b = lh.assemble(f=fh, c=1)
+    A = ah.assemble(c=1.0, f=fh)
+    b = lh.assemble(f=fh, c=1.0)
 
     # Test matrix A
     x = fh.coeffs

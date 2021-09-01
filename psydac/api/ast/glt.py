@@ -8,20 +8,20 @@ from sympy import simplify, expand
 from sympy import Range
 from sympy.core.numbers import ImaginaryUnit
 
-from pyccel.ast.core import IndexedVariable
-from pyccel.ast.core import For
-from pyccel.ast.core import Assign
-from pyccel.ast.core import Slice
-from pyccel.ast.core import FunctionDef
-from pyccel.ast.core import FunctionCall
-from pyccel.ast.core import Import
-from pyccel.ast.core import DottedName
-from pyccel.ast.core import Nil
-from pyccel.ast.core import Len
-from pyccel.ast.core import If, Is, Return
-from pyccel.ast.core import _atomic
+from psydac.pyccel.ast.core import IndexedVariable
+from psydac.pyccel.ast.core import For
+from psydac.pyccel.ast.core import Assign
+from psydac.pyccel.ast.core import Slice
+from psydac.pyccel.ast.core import FunctionDef
+from psydac.pyccel.ast.core import FunctionCall
+from psydac.pyccel.ast.core import Import
+from psydac.pyccel.ast.core import DottedName
+from psydac.pyccel.ast.core import Nil
+from psydac.pyccel.ast.core import Len
+from psydac.pyccel.ast.core import If, Is, Return
+from psydac.pyccel.ast.core import _atomic
 
-from pyccel.ast.numpyext import Zeros
+from psydac.pyccel.ast.numpyext import Zeros
 
 from sympde.topology.space       import ScalarFunction
 from sympde.topology.space       import VectorFunction
