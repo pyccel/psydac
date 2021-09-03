@@ -84,27 +84,32 @@ def run_nitsche_maxwell_2d(gamma, domain, ncells, degree):
     u, v, F  = elements_of(V, names='u, v, F')
     nn  = NormalVector('nn')
 
-    kappa        = 10**3
-    penalization = 10**10
-
     I        = domain.interfaces
     boundary = domain.boundary
 
-    # Bilinear form a: V x V --> R
-    expr_I  =  curl(minus(u))*cross(minus(v),nn) - curl(minus(u))*cross(plus(v),nn) \
-              +curl(minus(v))*cross(minus(u),nn) - curl(minus(v))*cross(plus(u),nn) \
-              \
-             -kappa*cross(plus(u),nn) *cross(minus(v),nn)  - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
-             + kappa*cross(minus(u),nn)*cross(minus(v),nn) + kappa*cross(plus(u),nn) *cross(plus(v),nn)
+    kappa   = 10**3
+    k       = 1
 
-#    expr_I  =-kappa*cross(plus(u),nn) *cross(minus(v),nn) - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
-#            + kappa*cross(minus(u),nn)*cross(minus(v),nn) + kappa*cross(plus(u),nn) *cross(plus(v),nn)
+    jump = lambda w:plus(w)-minus(w)
+    avr  = lambda w:(curl(plus(w)) + curl(minus(w)))/2
+
+#    # Bilinear form a: V x V --> R
+#    expr_I  = cross(nn, jump(v))*curl(minus(u))\
+#              +k*cross(nn, jump(u))*curl(minus(v))\
+#              +kappa*cross(jump(u), nn)*cross(jump(v), nn)
+
+    expr_I  =   cross(nn, jump(v))*avr(u)\
+               +k*cross(nn, jump(u))*avr(v)\
+               +kappa*cross(nn, jump(u))*cross(nn, jump(v))
+
+#    expr_I  = kappa*cross(nn, jump(u))*cross(nn, jump(v))
 
     expr   = curl(u)*curl(v) + gamma*dot(u,v)
-    expr_b = penalization * cross(u, nn) * cross(v, nn)
+    expr_b = -cross(nn, v) * curl(u) -k*cross(nn, u)*curl(v)  + kappa*cross(nn, u)*cross(nn, v)
 
     a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(boundary, expr_b))
-    m = BilinearForm((u,v),  integral(domain, curl(u)*curl(v)))
+
+    m = BilinearForm((u,v),  integral(domain, dot(u,v)))
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
@@ -113,8 +118,8 @@ def run_nitsche_maxwell_2d(gamma, domain, ncells, degree):
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     Vh       = discretize(V, domain_h, degree=degree,basis='M')
 
-    a_h = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['numba'])
-    m_h = discretize(m, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['numba'])
+    a_h = discretize(a, domain_h, [Vh, Vh])
+    m_h = discretize(m, domain_h, [Vh, Vh])
 
     A = a_h.assemble()
     M = m_h.assemble()
@@ -218,7 +223,7 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
     t_stamp = time_count(t_stamp)
     if nitsche:
         print("assembling the system with nitsche...")
-        A,M1 = run_nitsche_maxwell_2d(gamma_jump, domain, ncells, degree)
+        A,M1 = run_nitsche_maxwell_2d(sigma, domain, ncells, degree)
         A_m  = A.tosparse().tocsr()
         M1_m = M1.tosparse().tocsr()
 
@@ -385,10 +390,10 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
     print('A_m.shape = ', A_m.shape)
 
     print('computing eigenvalues and eigenvectors with scipy.sparse.eigsh...' )
-    if A_m.shape[0] < 17000 and False:   # max value for super_lu is >= 13200
+    if A_m.shape[0] < 17000:   # max value for super_lu is >= 13200
         print('(with super_lu decomposition)')
-        eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M1_m, sigma=sigma, mode=mode, which=which, ncv=ncv)
-
+        eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M1_m, sigma=ref_sigmas[len(ref_sigmas)//2], mode=mode, which=which, ncv=ncv)
+        print(eigenvalues)
     else:
         # from https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigsh.html:
         # the user can supply the matrix or operator OPinv, which gives x = OPinv @ b = [A - sigma * M]^-1 @ b.
@@ -578,12 +583,12 @@ if __name__ == '__main__':
     # nc = 20; deg = 8  # OK --
     # nc=20
     # nc=8
-    nc=40
+    nc=10
     # for deg in [2,3,4,5,6,7]:
     # for deg in [4,5,6,7]:
 
     # for deg in [5]:
-    for deg in [3]:
+    for deg in [4]:
 
         # (nc, deg = 30, 2 is too large for super_lu)
 
@@ -600,7 +605,7 @@ if __name__ == '__main__':
         # show_all = True
         # plot_all = False
 
-        nb_eigs = 8
+        nb_eigs = 16
         n_patches = None
         ref_sigmas = None
         save_dir = None
@@ -621,13 +626,13 @@ if __name__ == '__main__':
                 0.101118862307E+02,
                 0.124355372484E+02,
                 ]
-            nb_eigs=7  # need a bit more, to get rid of grad-div eigenmodes
+            nb_eigs=14  # need a bit more, to get rid of grad-div eigenmodes
         elif domain_name in ['pretzel', 'pretzel_debug']:
             # radii used in the pretzel_J source test case
             sigma = 64
             plot_dir_suffix = '_sigma_64'
             if sigma == 0 and domain_name == 'pretzel':
-                nb_eigs = 8
+                nb_eigs = 16
                 ref_sigmas = [
                     0,
                     0,
@@ -639,7 +644,7 @@ if __name__ == '__main__':
                     1.1945444491250097,
                 ]
             else:
-                nb_eigs = 20
+                nb_eigs = 30
             # note: nc = 2**5 and deg = 2 gives a matrix too big for super_lu factorization...
         else:
             raise NotImplementedError
@@ -672,6 +677,6 @@ if __name__ == '__main__':
             nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], gamma_jump=gamma_jump,
             domain_name=domain_name, n_patches=n_patches,
             save_dir=save_dir, load_dir=load_dir, plot_dir=plot_dir, fem_name=fem_name,
-            ref_sigmas=ref_sigmas, sigma=sigma, show_all=show_all, dpi=dpi, dpi_vf=dpi_vf,nitsche=True
+            ref_sigmas=ref_sigmas, sigma=sigma, show_all=show_all, dpi=dpi, dpi_vf=dpi_vf,nitsche=False
         )
 

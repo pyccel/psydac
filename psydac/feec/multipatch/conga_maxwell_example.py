@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 from collections import OrderedDict
 
-from scipy.sparse.linalg import spsolve, inv
+from scipy.sparse.linalg import spsolve, inv, minres
 from scipy.sparse import save_npz, load_npz
 
 from tempfile import TemporaryFile
@@ -460,9 +460,10 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
         E_ex_log = [pull_2d_hcurl([E_ex_x,E_ex_y], f) for f in mappings_list]
 
         E_x_vals, E_y_vals   = grid_vals_hcurl(E_ex_log)
-        E_x_err = [abs(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
-        E_y_err = [abs(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
+        E_x_err = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
+        E_y_err = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
 
+        print('maximum errors :', abs(np.array(E_x_err)).max(), abs(np.array(E_y_err)).max())
         my_small_plot(
             title=r'approximation of solution $u$, $x$ component',
             vals=[E_x_vals, Eh_x_vals, E_x_err],
@@ -600,29 +601,35 @@ def run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells, degree):
 
     error   = Matrix([F[0]-E_ex[0],F[1]-E_ex[1]])
 
-    kappa        = 10**3
-    penalization = 10**10
+    kappa        = 10**4
 
     I        = domain.interfaces
     boundary = domain.boundary
 
-    # Bilinear form a: V x V --> R
-    expr_I  =  curl(minus(u))*cross(minus(v),nn) - curl(minus(u))*cross(plus(v),nn) \
-              +curl(minus(v))*cross(minus(u),nn) - curl(minus(v))*cross(plus(u),nn) \
-              \
-             -kappa*cross(plus(u),nn) *cross(minus(v),nn)  - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
-             + kappa*cross(minus(u),nn)*cross(minus(v),nn) + kappa*cross(plus(u),nn) *cross(plus(v),nn)
+    k       = 1
 
-#    expr_I  =-kappa*cross(plus(u),nn) *cross(minus(v),nn) - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
-#            + kappa*cross(minus(u),nn)*cross(minus(v),nn) + kappa*cross(plus(u),nn) *cross(plus(v),nn)
+    jump = lambda w:plus(w)-minus(w)
+    avr  = lambda w:(plus(w) + minus(w))/2
+
+#    # Bilinear form a: V x V --> R
+#    expr_I  = cross(nn, jump(v))*curl(minus(u)) \
+#              +k*cross(nn, jump(u))*curl(minus(v)) \
+#              +kappa*cross(jump(u), nn)*cross(jump(v), nn)
+
+
+    expr_I  =   cross(nn, jump(v))*curl(avr(u))\
+               +k*cross(nn, jump(u))*curl(avr(v))\
+               +kappa*cross(nn, jump(u))*cross(nn, jump(v))
+
+#    expr_I  = kappa*cross(nn, jump(u))*cross(nn, jump(v))
 
     expr   = curl(u)*curl(v) + alpha*dot(u,v)
-    expr_b = penalization * cross(u, nn) * cross(v, nn)
+    expr_b = -cross(nn, v) * curl(u) -k*cross(nn, u)*curl(v)  + kappa*cross(nn, u)*cross(nn, v)
 
     a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(boundary, expr_b))
 
     expr   = dot(f,v)
-    expr_b = penalization * cross(E_ex, nn) * cross(v, nn)
+    expr_b = -cross(nn, v) * curl(E_ex) -k*cross(nn, E_ex)*curl(v) + kappa * cross(nn, E_ex) * cross(nn, v)
 
     l = LinearForm(v, integral(domain, expr) + integral(boundary, expr_b))
 
@@ -634,18 +641,20 @@ def run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells, degree):
     #+++++++++++++++++++++++++++++++
 
     domain_h = discretize(domain, ncells=ncells, comm=comm)
-    Vh       = discretize(V, domain_h, degree=degree)
+    Vh       = discretize(V, domain_h, degree=degree, basis='M')
 
     equation_h = discretize(equation, domain_h, [Vh, Vh])
+
     l2norm_h   = discretize(l2norm, domain_h, Vh)
 
     equation_h.assemble()
     
     A = equation_h.linear_system.lhs
     b = equation_h.linear_system.rhs
-    
-    x, info = pcg(A, b, pc='jacobi', tol=1e-8)
 
+    x = spsolve(A.tosparse().tocsr(), b.toarray())
+
+    x  = array_to_stencil(x, Vh.vector_space)
     Eh = FemField( Vh, x )
 
     l2_error = l2norm_h.assemble(F=Eh)
@@ -653,6 +662,7 @@ def run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells, degree):
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
+
     E_ex_x = lambdify(domain.coordinates, E_ex[0])
     E_ex_y = lambdify(domain.coordinates, E_ex[1])
     E_ex_log = [pull_2d_hcurl([E_ex_x,E_ex_y], f) for f in mappings_list]
@@ -662,9 +672,10 @@ def run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells, degree):
     Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
 
     E_x_vals, E_y_vals   = grid_vals_hcurl(E_ex_log)
-    E_x_err = [abs(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
-    E_y_err = [abs(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
+    E_x_err = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
+    E_y_err = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
 
+    print('maximum errors :', abs(np.array(E_x_err)).max(), abs(np.array(E_y_err)).max())
     my_small_plot(
         title=r'approximation of solution $u$, $x$ component',
         vals=[E_x_vals, Eh_x_vals, E_x_err],
@@ -754,6 +765,7 @@ def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_na
     domain = build_multipatch_domain(domain_name=domain_name, n_patches=n_patches)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
+
     x,y    = domain.coordinates
 
 
@@ -764,7 +776,7 @@ def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_na
     if test_case == 'manu_sol':
         # use a manufactured solution, with ad-hoc (inhomogeneous) bc
 
-        omega = 1  # ?
+        omega = 1.5  # ?
         alpha  = -omega**2
         E_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
         f      = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
@@ -857,7 +869,7 @@ def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_na
 if __name__ == '__main__':
     results = []
     test_case='manu_sol'
-    domain_name='pretzel'
+    domain_name='curved_L_shape'
     nitsche_method = True    
     deg = 2
     for nc in [2**3]: # [4, 8, 12, 16, 20]:
