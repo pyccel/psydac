@@ -867,15 +867,51 @@ def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_na
     return ndofs, l2_error
  
 if __name__ == '__main__':
-    results = []
+
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+        description     = "Solve 2D eigenvalue problem of the Time Harmonic Maxwell equations."
+    )
+
+    parser.add_argument('ncells',
+        type = int,
+        help = 'Number of cells in domain'
+    )
+
+    parser.add_argument('degree',
+        type = int,
+        help = 'Polynomial spline degree'
+    )
+
+    parser.add_argument( '--mode',
+        choices = ['conga', 'nitsche'],
+        default = 'conga',
+        help    = 'Maxwell solver'
+    )
+
+    parser.add_argument( '--domain',
+        choices = ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug'],
+        default = 'curved_L_shape',
+        help    = 'Domain'
+    )
+
+    # Read input arguments
+    args        = parser.parse_args()
+    deg         = args.degree
+    nc          = args.ncells
+    domain_name = args.domain
+    mode        = args.mode
+
     test_case='manu_sol'
-    domain_name='curved_L_shape'
-    nitsche_method = True    
-    deg = 2
-    for nc in [2**3]: # [4, 8, 12, 16, 20]:
-        print(2*'\n'+'-- running time_harmonic maxwell for test '+test_case+' on '+domain_name+' with deg = '+repr(deg)+', nc = '+repr(nc)+' -- '+2*'\n')
-        ndofs, l2_error = run_maxwell_2d_time_harmonic(nc=nc, deg=deg, test_case=test_case, domain_name=domain_name, nitsche_method=nitsche_method)
-        results.append([nc, ndofs, l2_error])
+
+    nitsche_method = mode == 'nitsche'
+
+    print(2*'\n'+'-- running time_harmonic maxwell with the '+mode+' method for test '+test_case+' on '+domain_name+' with deg = '+repr(deg)+', nc = '+repr(nc)+' -- '+2*'\n')
+    ndofs, l2_error = run_maxwell_2d_time_harmonic(nc=nc, deg=deg, test_case=test_case, domain_name=domain_name, nitsche_method=nitsche_method)
+    results = []
+    results.append([nc, ndofs, l2_error])
 
     print(2*'\n'+'-- run completed -- '+2*'\n')
     print('results (ncells / ndofs / l2_errors):')
