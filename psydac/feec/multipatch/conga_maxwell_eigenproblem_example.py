@@ -72,7 +72,7 @@ def get_load_dir(domain_name=None,n_patches=None,nc=None,deg=None,data='matrices
     return './saved_'+data+'/'+fem_name+'/'
 
 # ---------------------------------------------------------------------------------------------------------------
-def run_nitsche_maxwell_2d(gamma, domain, ncells, degree):
+def run_nitsche_maxwell_2d(gamma, domain, ncells, degree, kappa=None, k=None):
 
     from psydac.api.discretization import discretize
     #+++++++++++++++++++++++++++++++
@@ -87,8 +87,8 @@ def run_nitsche_maxwell_2d(gamma, domain, ncells, degree):
     I        = domain.interfaces
     boundary = domain.boundary
 
-    kappa   = 10**3
-    k       = 1
+    kappa   = 10**3 if kappa is None else kappa*ncells[0]
+    k       = 1     if k     is None else k
 
     jump = lambda w:plus(w)-minus(w)
     avr  = lambda w:(curl(plus(w)) + curl(minus(w)))/2
@@ -138,7 +138,8 @@ def run_maxwell_2d_eigenproblem_nitsche(nb_eigs, ncells, degree, gamma_jump,
                                 show_all=False,
                                 ext_plots=False,
                                 dpi='figure',
-                                dpi_vf='figure'):
+                                dpi_vf='figure',
+                                kappa=None, k=None):
     """
     Maxwell eigenproblem solver, see eg
     Buffa, Perugia & Warburton, The Mortar-Discontinuous Galerkin Method for the 2D Maxwell Eigenproblem JSC 2009.
@@ -148,8 +149,13 @@ def run_maxwell_2d_eigenproblem_nitsche(nb_eigs, ncells, degree, gamma_jump,
     """
  
     assert sigma is not None
+    assert k     is not None
 
-    print("Running Maxwell eigenproblem solver with the nitsche method")
+    mode =  {-1:'Non Symmetric Interior Penalty',
+              0:'Incomplete Interior Penalty',
+              1:'Symmetric Interior Penalty'}[k]
+
+    print("Running Maxwell eigenproblem solver with the " + mode + " method")
     print("Looking for {nb_eigs} eigenvalues close to sigma={sigma}".format(nb_eigs=nb_eigs, sigma=sigma))
 
     t_stamp = time_count()
@@ -214,7 +220,7 @@ def run_maxwell_2d_eigenproblem_nitsche(nb_eigs, ncells, degree, gamma_jump,
     t_stamp = time_count(t_stamp)
 
     print("assembling the system ...")
-    A    = run_nitsche_maxwell_2d(sigma, domain, ncells, degree)
+    A    = run_nitsche_maxwell_2d(sigma, domain, ncells, degree, kappa=kappa, k=k)
     A_m  = A.tosparse().tocsr()
 
     # Mass matrices for broken spaces (block-diagonal)
@@ -518,7 +524,8 @@ def run_maxwell_2d_eigenproblem_conga(nb_eigs, ncells, degree, gamma_jump,
                                 show_all=False,
                                 ext_plots=False,
                                 dpi='figure',
-                                dpi_vf='figure'):
+                                dpi_vf='figure',
+                                kappa=None, k=None):
     """
     Maxwell eigenproblem solver, see eg
     Buffa, Perugia & Warburton, The Mortar-Discontinuous Galerkin Method for the 2D Maxwell Eigenproblem JSC 2009.
@@ -946,16 +953,29 @@ if __name__ == '__main__':
         help = 'Polynomial spline degree'
     )
 
+    parser.add_argument( '--domain',
+        choices = ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug'],
+        default = 'curved_L_shape',
+        help    = 'Domain'
+    )
+
     parser.add_argument( '--mode',
         choices = ['conga', 'nitsche'],
         default = 'conga',
         help    = 'Maxwell solver'
     )
 
-    parser.add_argument( '--domain',
-        choices = ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug'],
-        default = 'curved_L_shape',
-        help    = 'Domain'
+    parser.add_argument( '--k',
+        type    = int,
+        choices = [-1, 0, 1],
+        default = 1,
+        help    = 'Nitsche method (NIP, IIP, IP)'
+    )
+
+    parser.add_argument( '--kappa',
+        type    = int,
+        default = 10,
+        help    = 'Nitsche stabilization term'
     )
 
     # Read input arguments
@@ -964,6 +984,8 @@ if __name__ == '__main__':
     nc          = args.ncells
     domain_name = args.domain
     mode        = args.mode
+    kappa       = args.kappa
+    k           = args.k
     
     if mode == 'conga':
         run_maxwell_2d_eigenproblem =  run_maxwell_2d_eigenproblem_conga
@@ -1085,6 +1107,6 @@ if __name__ == '__main__':
         nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], gamma_jump=gamma_jump,
         domain_name=domain_name, n_patches=n_patches,
         save_dir=save_dir, load_dir=load_dir, plot_dir=plot_dir, fem_name=fem_name,
-        ref_sigmas=ref_sigmas, sigma=sigma, show_all=show_all, dpi=dpi, dpi_vf=dpi_vf
+        ref_sigmas=ref_sigmas, sigma=sigma, show_all=show_all, dpi=dpi, dpi_vf=dpi_vf, kappa=kappa, k=k
     )
 

@@ -588,7 +588,7 @@ def run_conga_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, gamma_jump=1, s
         return nb_dofs, l2_error
 
 
-def run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells, degree):
+def run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, kappa=None, k=None):
 
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
@@ -601,12 +601,11 @@ def run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells, degree):
 
     error   = Matrix([F[0]-E_ex[0],F[1]-E_ex[1]])
 
-    kappa        = 10**4
+    kappa   = 10**3 if kappa is None else kappa*ncells[0]
+    k       = 1     if k     is None else k
 
     I        = domain.interfaces
     boundary = domain.boundary
-
-    k       = 1
 
     jump = lambda w:plus(w)-minus(w)
     avr  = lambda w:(plus(w) + minus(w))/2
@@ -698,7 +697,7 @@ def run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells, degree):
 
     return ndofs, l2_error, Eh
 
-def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_name='pretzel', nitsche_method=False):
+def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_name='pretzel', nitsche_method=False, kappa=None, k=None):
     """
     curl-curl problem with 0 order term and source
     """
@@ -854,7 +853,7 @@ def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_na
     gamma_jump = 10*(deg+1)**2/h
 
     if nitsche_method == True:
-            ndofs, l2_error, Eh = run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells=[nc, nc], degree=[deg,deg])
+            ndofs, l2_error, Eh = run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells=[nc, nc], degree=[deg,deg], kappa=kappa, k=k)
     else:
         ndofs, l2_error, Eh = run_conga_maxwell_2d(
             E_ex, f, alpha, domain, gamma_jump=gamma_jump,
@@ -885,16 +884,29 @@ if __name__ == '__main__':
         help = 'Polynomial spline degree'
     )
 
+    parser.add_argument( '--domain',
+        choices = ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug'],
+        default = 'curved_L_shape',
+        help    = 'Domain'
+    )
+
     parser.add_argument( '--mode',
         choices = ['conga', 'nitsche'],
         default = 'conga',
         help    = 'Maxwell solver'
     )
 
-    parser.add_argument( '--domain',
-        choices = ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug'],
-        default = 'curved_L_shape',
-        help    = 'Domain'
+    parser.add_argument( '--k',
+        type    = int,
+        choices = [-1, 0, 1],
+        default = 1,
+        help    = 'Nitsche method (NIP, IIP, IP)'
+    )
+
+    parser.add_argument( '--kappa',
+        type    = int,
+        default = 10,
+        help    = 'Nitsche stabilization term'
     )
 
     # Read input arguments
@@ -903,13 +915,19 @@ if __name__ == '__main__':
     nc          = args.ncells
     domain_name = args.domain
     mode        = args.mode
+    kappa       = args.kappa
+    k           = args.k
 
     test_case='manu_sol'
 
     nitsche_method = mode == 'nitsche'
+    if nitsche_method:
+        mode =  {-1:'Non Symmetric Interior Penalty',
+                  0:'Incomplete Interior Penalty',
+                  1:'Symmetric Interior Penalty'}[k]
 
     print(2*'\n'+'-- running time_harmonic maxwell with the '+mode+' method for test '+test_case+' on '+domain_name+' with deg = '+repr(deg)+', nc = '+repr(nc)+' -- '+2*'\n')
-    ndofs, l2_error = run_maxwell_2d_time_harmonic(nc=nc, deg=deg, test_case=test_case, domain_name=domain_name, nitsche_method=nitsche_method)
+    ndofs, l2_error = run_maxwell_2d_time_harmonic(nc=nc, deg=deg, test_case=test_case, domain_name=domain_name, nitsche_method=nitsche_method, kappa=kappa, k=k)
     results = []
     results.append([nc, ndofs, l2_error])
 
