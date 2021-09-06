@@ -44,7 +44,7 @@ from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_
 comm = MPI.COMM_WORLD
 
 #==============================================================================
-def solve_poisson_2d(conga=True, domain=None, ncells=None, degree=None, nb_eigs=None):
+def solve_poisson_2d(conga=True, domain=None, ncells=None, degree=None, nb_eigs=None, strong_penalization=True):
     """
     solves a Poisson problem (source or eigenvalue) with a Conga or a Nitsche method
     """
@@ -86,37 +86,26 @@ def solve_poisson_2d(conga=True, domain=None, ncells=None, degree=None, nb_eigs=
     bD0, bD1 = derham_h.broken_derivatives_as_operators
 
     #+++++++++++++++++++++++++++++++
-    # . some target functions
+    # . exact solution and source
     #+++++++++++++++++++++++++++++++
-
-    # fun1    = lambda xi1, xi2 : np.sin(xi1)*np.sin(xi2)
-    # D1fun1  = lambda xi1, xi2 : np.cos(xi1)*np.sin(xi2)
-    # D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
-    # fun2    = lambda xi1, xi2 : .5*np.sin(xi1)*np.sin(xi2)
 
     from sympy import cos, sin
     x,y       = domain.coordinates
     phi_exact = sin(x)*cos(y)
     f         = 2*phi_exact
 
-    # affine field, for testing
-    u_exact_x = 2*x
-    u_exact_y = 2*y
-
     from sympy import lambdify
     phi_ex = lambdify(domain.coordinates, phi_exact)
     f_ex   = lambdify(domain.coordinates, f)
-    u_ex_x = lambdify(domain.coordinates, u_exact_x)
-    u_ex_y = lambdify(domain.coordinates, u_exact_y)
 
-    # pull-back of phi_ex
+    # V0 pull-backs on logical domain
     phi_ex_log = [lambda xi1, xi2,ff=f : phi_ex(*ff(xi1,xi2)) for f in F]
     f_log      = [lambda xi1, xi2,ff=f : f_ex(*ff(xi1,xi2)) for f in F]
 
     v  = element_of(derham.V0, 'v')
     u  = element_of(derham.V0, 'u')
 
-    error  = u - phi_exact
+    error  = u - phi_exact  # u is phi ....
 
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
@@ -124,19 +113,25 @@ def solve_poisson_2d(conga=True, domain=None, ncells=None, degree=None, nb_eigs=
     l2norm_h = discretize(l2norm, domain_h, V0h)
     h1norm_h = discretize(h1norm, domain_h, V0h)
 
-    # RHS
+    # RHS (L2 projection here)
     l  = LinearForm(v,  integral(domain, f*v))
     lh = discretize(l, domain_h, V0h)
     b  = lh.assemble()
 
+    poisson_tol = 5e-13
+
     if conga:
-        # jump penalization factor from Buffa, Perugia and Warburton
-        nc = ncells[0]
-        deg = degree[0]
-        h = 1/nc
-        DG_gamma = 10*(deg+1)**2/h
-        # DG_gamma = 10*(deg)**2/h
-        gamma_jump = DG_gamma
+
+        if strong_penalization:
+            # jump penalization factor from Buffa, Perugia and Warburton
+            nc = ncells[0]
+            deg = degree[0]
+            h = 1/nc
+            DG_gamma = 10*(deg+1)**2/h
+            # DG_gamma = 10*(deg)**2/h
+            gamma_jump = DG_gamma
+        else:
+            gamma_jump = 1
 
         #+++++++++++++++++++++++++++++++
         # . Multipatch operators
@@ -304,14 +299,21 @@ def solve_poisson_2d(conga=True, domain=None, ncells=None, degree=None, nb_eigs=
 
 if __name__ == '__main__':
 
+    ## main parameters ------------------------------------------------------------------------------------------------
+
     nc = 2**2
     deg = 2
 
+    # nb of computed eigenvalues -- if 0, solve the source problem
     nb_eigs = 10
 
+    ## chose method:
     method = 'Conga'
     # method = 'Nitsche'
 
+    strong_penalization = True # only for Conga for now
+
+    ## chose domain:
     # domain_name = 'pretzel'
     domain_name = 'curved_L_shape'
 
@@ -322,21 +324,16 @@ if __name__ == '__main__':
     else:
         raise ValueError(method)
 
-
     #+++++++++++++++++++++++++++++++
     # . Domain
     #+++++++++++++++++++++++++++++++
 
-    pretzel = True
-    cartesian = False
-    use_scipy = True
-    poisson_tol = 5e-13
-
-    ncells = [nc, nc]
-    degree = [deg, deg]
-
     domain = build_multipatch_domain(domain_name=domain_name, n_patches=None)
 
-    solve_poisson_2d(conga=conga, domain=domain, ncells=ncells, degree=degree, nb_eigs=nb_eigs)
+    solve_poisson_2d(
+        nb_eigs=nb_eigs,
+        conga=conga, strong_penalization=strong_penalization,
+        domain=domain, ncells=[nc, nc], degree=[deg, deg],
+    )
 
 
