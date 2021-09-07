@@ -58,17 +58,29 @@ comm = MPI.COMM_WORLD
 
 # ---------------------------------------------------------------------------------------------------------------
 # small utility for saving/loading sparse matrices, plots...
-def get_fem_name(domain_name=None,n_patches=None,nc=None,deg=None):
+def get_fem_name(nitsche_method=None, k=None, domain_name=None,n_patches=None,nc=None,deg=None):
     assert domain_name and nc and deg
+    assert nitsche_method is not None
+    if nitsche_method:
+        if k==1:
+            method = 'nitsche_SIP'
+        elif k==-1:
+            method = 'nitsche_NIP'
+        elif k==0:
+            method = 'nitsche_IIP'
+        else:
+            raise NotImplementedError
+    else:
+        method = 'conga'
     if n_patches:
         np_suffix = '_'+repr(n_patches)
     else:
         np_suffix = ''
-    return domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
+    return domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'_'+method
 
-def get_load_dir(domain_name=None,n_patches=None,nc=None,deg=None,data='matrices'):
+def get_load_dir(nitsche_method=False, k=None, domain_name=None,n_patches=None,nc=None,deg=None,data='matrices'):
     assert data in ['matrices','solutions']
-    fem_name = get_fem_name(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)
+    fem_name = get_fem_name(nitsche_method=nitsche_method, k=k, domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)
     return './saved_'+data+'/'+fem_name+'/'
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -987,9 +999,11 @@ if __name__ == '__main__':
     kappa       = args.kappa
     k           = args.k
     
+    nitsche_method = mode == 'nitsche'
     if mode == 'conga':
         run_maxwell_2d_eigenproblem =  run_maxwell_2d_eigenproblem_conga
     else:
+        assert nitsche_method
         run_maxwell_2d_eigenproblem = run_maxwell_2d_eigenproblem_nitsche
 
     # from scipy.sparse import rand
@@ -1080,7 +1094,7 @@ if __name__ == '__main__':
         raise NotImplementedError
 
 
-    fem_name = get_fem_name(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg) #domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
+    fem_name = get_fem_name(nitsche_method=nitsche_method, k=k, domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg) #domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
     save_dir = load_dir = get_load_dir(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)  # './tmp_matrices/'+fem_name+'/'
     # save_dir = './tmp_matrices/'+domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'/'
     # load_dir = save_dir

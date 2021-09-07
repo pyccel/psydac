@@ -702,7 +702,6 @@ def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_na
     curl-curl problem with 0 order term and source
     """
 
-
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # test_case selection with domain
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -751,7 +750,7 @@ def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_na
         if not os.path.exists(solutions_dir):
             os.makedirs(solutions_dir)
 
-    fem_name = get_fem_name(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)
+    fem_name = get_fem_name(nitsche_method=nitsche_method, k=k,domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)
     save_dir = load_dir = get_load_dir(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg,data='matrices')
     if load_dir and not os.path.exists(load_dir+'M0_m.npz'):
         print("discarding load_dir, since I cannot find it (or empty)")
