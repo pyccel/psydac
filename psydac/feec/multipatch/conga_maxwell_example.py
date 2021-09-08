@@ -628,7 +628,7 @@ def run_nitsche_maxwell_2d(E_ex, f, alpha, domain, ncells, degree, kappa=None, k
     a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(boundary, expr_b))
 
     expr   = dot(f,v)
-    expr_b = -cross(nn, v) * curl(E_ex) -k*cross(nn, E_ex)*curl(v) + kappa * cross(nn, E_ex) * cross(nn, v)
+    expr_b = -k*cross(nn, E_ex)*curl(v) + kappa * cross(nn, E_ex) * cross(nn, v)
 
     l = LinearForm(v, integral(domain, expr) + integral(boundary, expr_b))
 
