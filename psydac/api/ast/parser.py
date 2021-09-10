@@ -1003,14 +1003,17 @@ class Parser(object):
         target         = self._target
         dim            = self._dim
 
-        if isinstance(target, Interface):
-            mapping = mapping.minus
-
-        for vec in normal_vectors:
+        if normal_vectors:
             axis    = target.axis
             ext     = target.ext if isinstance(target, Boundary) else 1
 
-            J_inv   = LogicalExpr(mapping.jacobian_inv_expr, mapping=mapping, dim=dim, subs=True)
+        if isinstance(target, Interface):
+            target  = target.minus
+            mapping = mapping.minus
+
+        for vec in normal_vectors:
+
+            J_inv   = LogicalExpr(mapping.jacobian_inv_expr, mapping(target))
             J_inv   = SymbolicExpr(J_inv)
             values  = ext * J_inv[axis, :]
             normalization = values.dot(values)**0.5

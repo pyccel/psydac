@@ -40,7 +40,6 @@ def driver_solve(L, **kwargs):
         x, info = bicg( M, M.T, rhs, **kwargs )
     else:
         raise NotImplementedError("Solver '{}' is not available".format(name))
-
     return (x, info) if return_info else x
 
 #==============================================================================

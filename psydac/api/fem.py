@@ -488,9 +488,9 @@ class DiscreteLinearForm(BasicDiscrete):
 
         # ...
         self._kernel_expr = kernel_expr
-        self._target     = kernel_expr.target
-        self._domain     = domain_h.domain
-        self._vector     = kwargs.pop('vector', None)
+        self._target      = kernel_expr.target
+        self._domain      = domain_h.domain
+        self._vector      = kwargs.pop('vector', None)
 
         domain = self.domain
         target = self.target
