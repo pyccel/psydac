@@ -93,128 +93,124 @@ def flip_axis(name='no_name', c1=0., c2=0.):
         a11=0, a12=1,
         a21=1, a22=0,
     )
-def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max=None):   # old name: get_pretzel(h, r_min, r_max, debug_option=1):
+def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     """
     design several multipatch domain, including pretzel-like shapes
     :param domain_name:
-    :param n_patches: for some domains, we can use different numbers of patches
     :return: domain (with interfaces and mappings)
     """
 
-    if domain_name == 'square':
-        # domain is the reference square [0,pi]x[0,pi]
-        # with 8 patches we also have a (square) hole in the middle
-        if n_patches == 2:
-            # mp structure:
-            # 2
-            # 1
-            OmegaLog1 = Square('OmegaLog1',bounds1=(0., np.pi), bounds2=(0., np.pi/2))
-            mapping_1 = IdentityMapping('M1',2)
-            domain_1     = mapping_1(OmegaLog1)
+    if domain_name == 'square_2':
+        # reference square [0,pi]x[0,pi] with 2 patches
+        # mp structure:
+        # 2
+        # 1
+        OmegaLog1 = Square('OmegaLog1',bounds1=(0., np.pi), bounds2=(0., np.pi/2))
+        mapping_1 = IdentityMapping('M1',2)
+        domain_1     = mapping_1(OmegaLog1)
 
-            OmegaLog2 = Square('OmegaLog2',bounds1=(0., np.pi), bounds2=(np.pi/2, np.pi))
-            mapping_2 = IdentityMapping('M2',2)
-            domain_2     = mapping_2(OmegaLog2)
+        OmegaLog2 = Square('OmegaLog2',bounds1=(0., np.pi), bounds2=(np.pi/2, np.pi))
+        mapping_2 = IdentityMapping('M2',2)
+        domain_2     = mapping_2(OmegaLog2)
 
-            domain = union([domain_1,
-                            domain_2], name = 'domain')
+        domain = union([domain_1,
+                        domain_2], name = 'domain')
 
-            interfaces = [
-                [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1]
-            ]
+        interfaces = [
+            [domain_1.get_boundary(axis=1, ext=+1), domain_2.get_boundary(axis=1, ext=-1),1]
+        ]
 
-        elif n_patches == 6:
-            # mp structure:
-            # 5 6
-            # 3 4
-            # 1 2
-            OmegaLog1 = Square('OmegaLog1',bounds1=(0., np.pi/2), bounds2=(0., np.pi/3))
-            mapping_1 = IdentityMapping('M1',2)
-            domain_1     = mapping_1(OmegaLog1)
+    elif domain_name == 'square_6':
 
-            OmegaLog2 = Square('OmegaLog2',bounds1=(np.pi/2, np.pi), bounds2=(0., np.pi/3))
-            mapping_2 = IdentityMapping('M2',2)
-            domain_2     = mapping_2(OmegaLog2)
+        # mp structure:
+        # 5 6
+        # 3 4
+        # 1 2
+        OmegaLog1 = Square('OmegaLog1',bounds1=(0., np.pi/2), bounds2=(0., np.pi/3))
+        mapping_1 = IdentityMapping('M1',2)
+        domain_1     = mapping_1(OmegaLog1)
 
-            OmegaLog3 = Square('OmegaLog3',bounds1=(0., np.pi/2), bounds2=(np.pi/3, np.pi*2/3))
-            mapping_3 = IdentityMapping('M3',2)
-            domain_3     = mapping_3(OmegaLog3)
+        OmegaLog2 = Square('OmegaLog2',bounds1=(np.pi/2, np.pi), bounds2=(0., np.pi/3))
+        mapping_2 = IdentityMapping('M2',2)
+        domain_2     = mapping_2(OmegaLog2)
 
-            OmegaLog4 = Square('OmegaLog4',bounds1=(np.pi/2, np.pi), bounds2=(np.pi/3, np.pi*2/3))
-            mapping_4 = IdentityMapping('M4',2)
-            domain_4     = mapping_4(OmegaLog4)
+        OmegaLog3 = Square('OmegaLog3',bounds1=(0., np.pi/2), bounds2=(np.pi/3, np.pi*2/3))
+        mapping_3 = IdentityMapping('M3',2)
+        domain_3     = mapping_3(OmegaLog3)
 
-            OmegaLog5 = Square('OmegaLog5',bounds1=(0., np.pi/2), bounds2=(np.pi*2/3, np.pi))
-            mapping_5 = IdentityMapping('M5',2)
-            domain_5     = mapping_5(OmegaLog5)
+        OmegaLog4 = Square('OmegaLog4',bounds1=(np.pi/2, np.pi), bounds2=(np.pi/3, np.pi*2/3))
+        mapping_4 = IdentityMapping('M4',2)
+        domain_4     = mapping_4(OmegaLog4)
 
-            OmegaLog6 = Square('OmegaLog6',bounds1=(np.pi/2, np.pi), bounds2=(np.pi*2/3, np.pi))
-            mapping_6 = IdentityMapping('M6',2)
-            domain_6     = mapping_6(OmegaLog6)
+        OmegaLog5 = Square('OmegaLog5',bounds1=(0., np.pi/2), bounds2=(np.pi*2/3, np.pi))
+        mapping_5 = IdentityMapping('M5',2)
+        domain_5     = mapping_5(OmegaLog5)
 
-            domain = union([domain_1, domain_2, domain_3, domain_4, domain_5, domain_6], name = 'domain')
+        OmegaLog6 = Square('OmegaLog6',bounds1=(np.pi/2, np.pi), bounds2=(np.pi*2/3, np.pi))
+        mapping_6 = IdentityMapping('M6',2)
+        domain_6     = mapping_6(OmegaLog6)
 
-            interfaces = [
-                [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
-                [domain_3.get_boundary(axis=0, ext=+1), domain_4.get_boundary(axis=0, ext=-1),1],
-                [domain_5.get_boundary(axis=0, ext=+1), domain_6.get_boundary(axis=0, ext=-1),1],
-                [domain_1.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1),1],
-                [domain_3.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
-                [domain_2.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),1],
-                [domain_4.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1),1],
-            ]
+        domain = union([domain_1, domain_2, domain_3, domain_4, domain_5, domain_6], name = 'domain')
 
-        elif n_patches == 8:
-            # square domain with a hole:
-            # 6 7 8
-            # 4 * 5
-            # 1 2 3
-            OmegaLog1 = Square('OmegaLog1',bounds1=(0., np.pi/3), bounds2=(0., np.pi/3))
-            mapping_1 = IdentityMapping('M1',2)
-            domain_1     = mapping_1(OmegaLog1)
+        interfaces = [
+            [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
+            [domain_3.get_boundary(axis=0, ext=+1), domain_4.get_boundary(axis=0, ext=-1),1],
+            [domain_5.get_boundary(axis=0, ext=+1), domain_6.get_boundary(axis=0, ext=-1),1],
+            [domain_1.get_boundary(axis=1, ext=+1), domain_3.get_boundary(axis=1, ext=-1),1],
+            [domain_3.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
+            [domain_2.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),1],
+            [domain_4.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1),1],
+        ]
 
-            OmegaLog2 = Square('OmegaLog2',bounds1=(np.pi/3, np.pi*2/3), bounds2=(0., np.pi/3))
-            mapping_2 = IdentityMapping('M2',2)
-            domain_2     = mapping_2(OmegaLog2)
+    elif domain_name == 'square_8':
+        # square domain with a hole:
+        # 6 7 8
+        # 4 * 5
+        # 1 2 3
+        OmegaLog1 = Square('OmegaLog1',bounds1=(0., np.pi/3), bounds2=(0., np.pi/3))
+        mapping_1 = IdentityMapping('M1',2)
+        domain_1     = mapping_1(OmegaLog1)
 
-            OmegaLog3 = Square('OmegaLog3',bounds1=(np.pi*2/3, np.pi), bounds2=(0., np.pi/3))
-            mapping_3 = IdentityMapping('M3',2)
-            domain_3     = mapping_3(OmegaLog3)
+        OmegaLog2 = Square('OmegaLog2',bounds1=(np.pi/3, np.pi*2/3), bounds2=(0., np.pi/3))
+        mapping_2 = IdentityMapping('M2',2)
+        domain_2     = mapping_2(OmegaLog2)
 
-            OmegaLog4 = Square('OmegaLog4',bounds1=(0., np.pi/3), bounds2=(np.pi/3, np.pi*2/3))
-            mapping_4 = IdentityMapping('M4',2)
-            domain_4     = mapping_4(OmegaLog4)
+        OmegaLog3 = Square('OmegaLog3',bounds1=(np.pi*2/3, np.pi), bounds2=(0., np.pi/3))
+        mapping_3 = IdentityMapping('M3',2)
+        domain_3     = mapping_3(OmegaLog3)
 
-            OmegaLog5 = Square('OmegaLog5',bounds1=(np.pi*2/3, np.pi), bounds2=(np.pi/3, np.pi*2/3))
-            mapping_5 = IdentityMapping('M5',2)
-            domain_5     = mapping_5(OmegaLog5)
+        OmegaLog4 = Square('OmegaLog4',bounds1=(0., np.pi/3), bounds2=(np.pi/3, np.pi*2/3))
+        mapping_4 = IdentityMapping('M4',2)
+        domain_4     = mapping_4(OmegaLog4)
 
-            OmegaLog6 = Square('OmegaLog6',bounds1=(0., np.pi/3), bounds2=(np.pi*2/3, np.pi))
-            mapping_6 = IdentityMapping('M6',2)
-            domain_6     = mapping_6(OmegaLog6)
+        OmegaLog5 = Square('OmegaLog5',bounds1=(np.pi*2/3, np.pi), bounds2=(np.pi/3, np.pi*2/3))
+        mapping_5 = IdentityMapping('M5',2)
+        domain_5     = mapping_5(OmegaLog5)
 
-            OmegaLog7 = Square('OmegaLog7',bounds1=(np.pi/3, np.pi*2/3), bounds2=(np.pi*2/3, np.pi))
-            mapping_7 = IdentityMapping('M7',2)
-            domain_7     = mapping_7(OmegaLog7)
+        OmegaLog6 = Square('OmegaLog6',bounds1=(0., np.pi/3), bounds2=(np.pi*2/3, np.pi))
+        mapping_6 = IdentityMapping('M6',2)
+        domain_6     = mapping_6(OmegaLog6)
 
-            OmegaLog8 = Square('OmegaLog8',bounds1=(np.pi*2/3, np.pi), bounds2=(np.pi*2/3, np.pi))
-            mapping_8 = IdentityMapping('M8',2)
-            domain_8     = mapping_8(OmegaLog8)
+        OmegaLog7 = Square('OmegaLog7',bounds1=(np.pi/3, np.pi*2/3), bounds2=(np.pi*2/3, np.pi))
+        mapping_7 = IdentityMapping('M7',2)
+        domain_7     = mapping_7(OmegaLog7)
 
-            domain = union([domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8], name = 'domain')
+        OmegaLog8 = Square('OmegaLog8',bounds1=(np.pi*2/3, np.pi), bounds2=(np.pi*2/3, np.pi))
+        mapping_8 = IdentityMapping('M8',2)
+        domain_8     = mapping_8(OmegaLog8)
 
-            interfaces = [
-                [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
-                [domain_2.get_boundary(axis=0, ext=+1), domain_3.get_boundary(axis=0, ext=-1),1],
-                [domain_6.get_boundary(axis=0, ext=+1), domain_7.get_boundary(axis=0, ext=-1),1],
-                [domain_7.get_boundary(axis=0, ext=+1), domain_8.get_boundary(axis=0, ext=-1),1],
-                [domain_1.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),1],
-                [domain_4.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1),1],
-                [domain_3.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
-                [domain_5.get_boundary(axis=1, ext=+1), domain_8.get_boundary(axis=1, ext=-1),1],
-            ]
-        else:
-            raise NotImplementedError
+        domain = union([domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8], name = 'domain')
+
+        interfaces = [
+            [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
+            [domain_2.get_boundary(axis=0, ext=+1), domain_3.get_boundary(axis=0, ext=-1),1],
+            [domain_6.get_boundary(axis=0, ext=+1), domain_7.get_boundary(axis=0, ext=-1),1],
+            [domain_7.get_boundary(axis=0, ext=+1), domain_8.get_boundary(axis=0, ext=-1),1],
+            [domain_1.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),1],
+            [domain_4.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1),1],
+            [domain_3.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
+            [domain_5.get_boundary(axis=1, ext=+1), domain_8.get_boundary(axis=1, ext=-1),1],
+        ]
 
     elif domain_name in ['pretzel', 'pretzel_annulus', 'pretzel_debug']:
         # pretzel-shaped domain with quarter-annuli and quadrangles -- setting parameters
@@ -393,14 +389,14 @@ def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max
             [domain_3.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
         ]
 
-    elif domain_name == 'annulus':
+    elif domain_name in ['annulus_3', 'annulus_4']:
         # regular annulus
         if r_min is None:
             r_min=0.5 # smaller radius
         if r_max is None:
             r_max=1.  # larger radius
 
-        if n_patches == 3:
+        if domain_name == 'annulus_3':
             OmegaLog1 = Square('OmegaLog1',bounds1=(r_min, r_max), bounds2=(0., np.pi/2))
             mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
             domain_1     = mapping_1(OmegaLog1)
@@ -421,7 +417,7 @@ def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max
                 [domain_3.get_boundary(axis=1, ext=+1), domain_1.get_boundary(axis=1, ext=-1),1],
             ]
 
-        elif n_patches == 4:
+        elif domain_name == 'annulus_4':
             OmegaLog1 = Square('OmegaLog1',bounds1=(r_min, r_max), bounds2=(0., np.pi/2))
             mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
             domain_1     = mapping_1(OmegaLog1)
@@ -460,3 +456,82 @@ def build_multipatch_domain(domain_name='square', n_patches=2, r_min=None, r_max
     # print("interfaces: ", domain.interfaces)
 
     return domain
+
+
+def get_ref_eigenvalues(domain_name, operator):
+    # return ref_eigenvalues for the given operator and domain
+    # and 'sigma' value, around which discrete eigenvalues will be searched by eigenvalue solver such as eigsh
+    # (Note: eigsh may yield a singular error if sigma is an exact discrete eigenvalue)
+
+    assert operator in ['curl_curl', 'hodge_laplacian']
+    ref_sigmas = []
+
+    if domain_name in ['square_2','square_6']:
+        # todo
+        if operator == 'curl_curl':
+            ref_sigmas = [
+                1,
+                2,
+                2,
+                ]
+            raise NotImplementedError
+        else:
+            ref_sigmas = [
+                1,
+                2,
+                2,
+                ]
+            raise NotImplementedError
+    elif domain_name in ['annulus_3','annulus_4']:
+        if operator == 'curl_curl':
+            ref_sigmas = [
+                1,
+                2,
+                2,
+                ]
+            raise NotImplementedError
+        else:
+            ref_sigmas = [
+                1,
+                2,
+                2,
+                ]
+            raise NotImplementedError
+
+    elif domain_name == 'curved_L_shape':
+        if operator == 'curl_curl':
+            # sigma = 10
+            ref_sigmas = [
+                0.181857115231E+01,
+                0.349057623279E+01,
+                0.100656015004E+02,
+                0.101118862307E+02,
+                0.124355372484E+02,
+                ]
+        elif operator == 'hodge_laplacian':
+            raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+    elif domain_name == 'pretzel':
+        if operator == 'curl_curl':
+            raise NotImplementedError
+        elif operator == 'hodge_laplacian':
+            ref_sigmas = [
+                0,
+                0,
+                0,
+                0.1795447761871659,
+                0.19922705025897117,
+                0.699286528403241,
+                0.8709410737744409,
+                1.1945444491250097,
+            ]
+        else:
+            raise NotImplementedError
+    else:
+        raise NotImplementedError
+
+    sigma = ref_sigmas[len(ref_sigmas)//2]
+
+    return sigma, ref_sigmas
