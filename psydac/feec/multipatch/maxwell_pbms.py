@@ -94,7 +94,7 @@ def get_load_dir(method=None, domain_name=None,nc=None,deg=None,data='matrices')
 def nitsche_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=None, k=None):
     """
     computes
-        A_m the k-IP matrix of the curl-curl operator with penalization parameter gamma
+        K_m the k-IP matrix of the curl-curl operator with penalization parameter gamma
         (as defined eg in Buffa, Houston & Perugia, JCAM 2007)
         and M_m the mass matrix
 
@@ -200,10 +200,10 @@ def nitsche_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=N
             save_npz(save_dir+'M_m.npz', M_m)
 
     if operator == 'curl_curl':
-        A_m = CC_m + k*CS_m + gamma_h*JP_m
+        K_m = CC_m + k*CS_m + gamma_h*JP_m
     else:
         raise NotImplementedError
-    return A_m, M_m
+    return K_m, M_m
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -349,45 +349,42 @@ def get_elementary_conga_matrices(domain, ncells, degree):
 def conga_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=None):
     """
     computes:
-        A_m the matrix of the CONGA A operator, with penalization parameter gamma
+        K_m the CONGA matrix of the discrete operator, with penalization parameter gamma
         (as defined eg in Campos Pinto and Güçlü, preprint 2021)
         with:
-            A = curl curl
+            K = curl curl
         or
-            A = curl curl + grad div
+            K = curl curl + grad div
         as specified by operator
+
         and M_m the mass matrix
 
     :return: matrices in sparse format
     """
-    ## building Hodge Laplacian matrix
 
     M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, D0_m, D1_m, I1_m = get_elementary_conga_matrices(domain, ncells, degree)
 
     # t_stamp = time_count()
+    print('computing Conga {0} matrix with penalization gamma_h = {1}'.format(operator, gamma_h))
 
+    # curl_curl matrix (left-multiplied by M1_m) :
     jump_penal_m = I1_m-cP1_m
-    A_m = (
+    K_m = (
             D1_m.transpose() * M2_m * D1_m
             + gamma_h * jump_penal_m.transpose() * M1_m * jump_penal_m
     )
 
-    if operator == 'curl_curl':
-        print('computing Conga curl-curl matrix with penalization gamma_h = {}'.format(gamma_h))
-
-    elif operator == 'hodge_laplacian':
-        print("computing Conga Hodge-Laplacian matrix...")
+    if operator == 'hodge_laplacian':
         div_aux_m = D0_m.transpose() * M1_m  # note: the matrix of the (weak) div operator is:   - M0_minv * div_aux_m
 
+        # todo: check which operator to use...
         L_option = 2
         if L_option == 1:
-            A_m += div_aux_m.transpose() * M0_minv * div_aux_m
+            K_m += div_aux_m.transpose() * M0_minv * div_aux_m
         else:
-            A_m += (div_aux_m * cP1_m).transpose() * M0_minv * div_aux_m * cP1_m
-    else:
-        raise NotImplementedError
+            K_m += (div_aux_m * cP1_m).transpose() * M0_minv * div_aux_m * cP1_m
 
-    return A_m, M1_m
+    return K_m, M1_m
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -444,7 +441,12 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
     return eigenvalues, eigenvectors
 
 
-def get_source_and_solution(source_type, gamma, domain, refsol_params=None):
+def get_source_and_solution(source_type, eta, domain, refsol_params=None):
+    """
+    get source and ref solution of time-Harmonic Maxwell equation
+        curl curl E + eta E = J
+    """
+
 
     assert refsol_params
     nc_ref, deg_ref, N_diag, method_ref = refsol_params
@@ -456,8 +458,8 @@ def get_source_and_solution(source_type, gamma, domain, refsol_params=None):
         # use a manufactured solution, with ad-hoc (inhomogeneous) bc
 
         E_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
-        f      = Tuple(gamma*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
-                         gamma*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+        f      = Tuple(eta*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                         eta*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
         E_ex_x = lambdify(domain.coordinates, E_ex[0])
         E_ex_y = lambdify(domain.coordinates, E_ex[1])
         E_ex_log = [pull_2d_hcurl([E_ex_x,E_ex_y], f) for f in mappings_list]
@@ -600,7 +602,7 @@ if __name__ == '__main__':
 
     parser.add_argument( '--eta',
         type    = int,
-        default = -1,
+        default = -64,
         help    = 'Constant parameter for zero-order term in source problem. Corresponds to -omega^2 for Maxwell harmonic'
     )
 
@@ -642,7 +644,7 @@ if __name__ == '__main__':
     V0h = derham_h.V0
     V1h = derham_h.V1
     V2h = derham_h.V2
-    # todo: avoid building these spaces again
+    # todo: avoid building these spaces again below
 
     # diag grid (cell-centered)
     N_diag = 100
@@ -661,10 +663,13 @@ if __name__ == '__main__':
 
     # build operator matrices
     if method == 'conga':
-        A_m, M_m = conga_operators_2d(domain, ncells=ncells, degree=degree, operator=operator, gamma_h=gamma_h)
+        K_m, M_m = conga_operators_2d(domain, ncells=ncells, degree=degree, operator=operator, gamma_h=gamma_h)
+        # todo -- check:
+        # K_m = gamma_jump * jump_penal_m.transpose() * M1_m * jump_penal_m
+        # + D1_m.transpose() * M2_m * D1_m
     else:
         assert method == 'nitsche'
-        A_m, M_m = nitsche_operators_2d(domain, ncells=ncells, degree=degree, operator=operator, gamma_h=gamma_h, k=k)
+        K_m, M_m = nitsche_operators_2d(domain, ncells=ncells, degree=degree, operator=operator, gamma_h=gamma_h, k=k)
 
     if problem == 'eigen_pbm':
 
@@ -673,7 +678,7 @@ if __name__ == '__main__':
         sigma, ref_sigmas = get_ref_eigenvalues(domain_name, operator)
         nb_eigs = max(10, len(ref_sigmas))
 
-        eigenvalues, eigenvectors = get_eigenvalues(nb_eigs, sigma, A_m, M_m)
+        eigenvalues, eigenvectors = get_eigenvalues(nb_eigs, sigma, K_m, M_m)
 
         if operator == 'curl_curl':
             # discard zero eigenvalues
@@ -709,7 +714,7 @@ if __name__ == '__main__':
         deg_ref = 8
         method_ref = 'conga'
         source_type = 'ring_J' #'manu_sol'
-        f, E_ref_vals = get_source_and_solution(source_type=source_type, gamma=gamma, domain=domain, refsol_params=[nc_ref, deg_ref, N_diag, method_ref])
+        f, E_ref_vals = get_source_and_solution(source_type=source_type, eta=eta, domain=domain, refsol_params=[nc_ref, deg_ref, N_diag, method_ref])
 
         if E_ref_vals is None:
             solutions_dir = get_load_dir(method=method, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
@@ -739,61 +744,61 @@ if __name__ == '__main__':
         b  = lh.assemble()
         b_c = b.toarray()
 
-    plot_source = True
-    if plot_source:
-        # representation of discrete source:
-        fh_c = spsolve(M_m.tocsc(), b_c)
-        # fh_norm = np.dot(fh_c,M_m.dot(fh_c))**0.5
-        # print("|| fh || = ", fh_norm)
-        # print("|| div fh ||/|| fh || = ", div_norm(fh_c)/fh_norm)
+        plot_source = True
+        if plot_source:
+            # representation of discrete source:
+            fh_c = spsolve(M_m.tocsc(), b_c)
+            # fh_norm = np.dot(fh_c,M_m.dot(fh_c))**0.5
+            # print("|| fh || = ", fh_norm)
+            # print("|| div fh ||/|| fh || = ", div_norm(fh_c)/fh_norm)
 
-        # if fem_name:
-        #     fig_name=plot_dir+'Jh.png'  # +'_'+fem_name+'.png'
-        #     fig_name_vf=plot_dir+'Jh_vf.png'   # +'_vf_'+fem_name+'.png'
-        # else:
-        fig_name=None
-        fig_name_vf=None
+            # if fem_name:
+            #     fig_name=plot_dir+'Jh.png'  # +'_'+fem_name+'.png'
+            #     fig_name_vf=plot_dir+'Jh_vf.png'   # +'_vf_'+fem_name+'.png'
+            # else:
+            fig_name=None
+            fig_name_vf=None
 
-        fh = FemField(V1h, coeffs=array_to_stencil(fh_c, V1h.vector_space))
+            fh = FemField(V1h, coeffs=array_to_stencil(fh_c, V1h.vector_space))
 
-        fh_x_vals, fh_y_vals = grid_vals_hcurl(fh)
-        plot_full_fh=False
-        if plot_full_fh:
-            div_fh = FemField(V0h, coeffs=array_to_stencil(div_m.dot(fh_c), V0h.vector_space))
-            div_fh_vals = grid_vals_h1(div_fh)
-            my_small_plot(
-                title=r'discrete source term for Maxwell curl-curl problem',
-                vals=[np.abs(fh_x_vals), np.abs(fh_y_vals), np.abs(div_fh_vals)],
-                titles=[r'$|fh_x|$', r'$|fh_y|$', r'$|div_h fh|$'],  # , r'$div_h J$' ],
-                cmap='hsv',
-                surface_plot=False,
+            fh_x_vals, fh_y_vals = grid_vals_hcurl(fh)
+            plot_full_fh=False
+            if plot_full_fh:
+                div_fh = FemField(V0h, coeffs=array_to_stencil(div_m.dot(fh_c), V0h.vector_space))
+                div_fh_vals = grid_vals_h1(div_fh)
+                my_small_plot(
+                    title=r'discrete source term for Maxwell curl-curl problem',
+                    vals=[np.abs(fh_x_vals), np.abs(fh_y_vals), np.abs(div_fh_vals)],
+                    titles=[r'$|fh_x|$', r'$|fh_y|$', r'$|div_h fh|$'],  # , r'$div_h J$' ],
+                    cmap='hsv',
+                    surface_plot=False,
+                    xx=xx, yy=yy,
+                )
+            else:
+                abs_fh_vals = [np.sqrt(abs(fx)**2 + abs(fy)**2) for fx, fy in zip(fh_x_vals, fh_y_vals)]
+                my_small_plot(
+                    title=r'source term $J_h$',
+                    vals=[abs_fh_vals],
+                    titles=[r'$|J_h|$'],  # , r'$div_h J$' ],
+                    surface_plot=False,
+                    xx=xx, yy=yy,
+                    cmap='plasma',
+                    dpi=400,
+                    save_fig=fig_name,
+                )
+
+            my_small_streamplot(
+                title='source J',
+                vals_x=fh_x_vals,
+                vals_y=fh_y_vals,
                 xx=xx, yy=yy,
-            )
-        else:
-            abs_fh_vals = [np.sqrt(abs(fx)**2 + abs(fy)**2) for fx, fy in zip(fh_x_vals, fh_y_vals)]
-            my_small_plot(
-                title=r'source term $J_h$',
-                vals=[abs_fh_vals],
-                titles=[r'$|J_h|$'],  # , r'$div_h J$' ],
-                surface_plot=False,
-                xx=xx, yy=yy,
-                cmap='plasma',
-                dpi=400,
-                save_fig=fig_name,
+                amplification=.05,
+                save_fig=fig_name_vf,
             )
 
-        my_small_streamplot(
-            title='source J',
-            vals_x=fh_x_vals,
-            vals_y=fh_y_vals,
-            xx=xx, yy=yy,
-            amplification=.05,
-            save_fig=fig_name_vf,
-        )
 
-
-
-
+        # equation operator:
+        A_m = K_m + eta * M_m
 
 
         t_stamp = time_count(t_stamp)
