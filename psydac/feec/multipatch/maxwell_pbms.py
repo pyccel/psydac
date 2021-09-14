@@ -345,13 +345,12 @@ def conga_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=Non
     if not hom_bc:
         # then we also need the matrix of the non-homogeneous operator
         D1_m = bD1_m * cP1_m
-        jump_penal_m = I1_m-cP1_m
-        K_m = (
-                D1_m.transpose() * M2_m * D1_m
-                + gamma_h * jump_penal_m.transpose() * M1_m * jump_penal_m
+        # jump_penal_m = I1_m-cP1_m
+        K_bc_m = (
+                D1_hom_m.transpose() * M2_m * D1_m
         )
     else:
-        K_m = None
+        K_bc_m = None
 
     if operator == 'hodge_laplacian':
         D0_hom_m = bD0_m * cP0_hom_m
@@ -359,12 +358,13 @@ def conga_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=Non
         K_hom_m += div_aux_m.transpose() * M0_minv * div_aux_m
 
         if not hom_bc:
-            # todo: check the theory for the non-homogeneous case
+            raise NotImplementedError
+            # todo: this is not correct -- find proper formulation for the non-homogeneous case
             D0_m = bD0_m * cP0_m
             div_aux_m = D0_m.transpose() * M1_m  # note: the matrix of the (weak) div operator is:   - M0_minv * div_aux_m
-            K_m += div_aux_m.transpose() * M0_minv * div_aux_m
+            K_bc_m += div_aux_m.transpose() * M0_minv * div_aux_m
 
-    return K_hom_m, K_m, M1_m
+    return K_hom_m, K_bc_m, M1_m
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -680,7 +680,7 @@ if __name__ == '__main__':
 
     # build operator matrices
     if method == 'conga':
-        K_hom_m, K_m, M_m = conga_operators_2d(domain, ncells=ncells, degree=degree, operator=operator, gamma_h=gamma_h, hom_bc=hom_bc)
+        K_hom_m, K_bc_m, M_m = conga_operators_2d(domain, ncells=ncells, degree=degree, operator=operator, gamma_h=gamma_h, hom_bc=hom_bc)
     else:
         assert method == 'nitsche'
         assert hom_bc   # todo: treat the non hom_bc case
@@ -728,7 +728,7 @@ if __name__ == '__main__':
 
         # equation operator in full and homogeneous spaces:
         A_hom_m = K_hom_m + eta * M_m
-        A_m = K_m + eta * M_m
+        A_bc_m = K_bc_m + eta * M_m
 
         # source and ref solution
         nc_ref = 20
@@ -817,7 +817,7 @@ if __name__ == '__main__':
                 dpi=400,
             )
 
-            b_c = b_c - A_m.dot(Ebc_c)
+            b_c = b_c - A_bc_m.dot(Ebc_c)
 
 
         plot_source = True
@@ -875,7 +875,7 @@ if __name__ == '__main__':
 
         t_stamp = time_count(t_stamp)
         print("solving with scipy...")
-        Eh_c = spsolve(A_m.tocsc(), b_c)
+        Eh_c = spsolve(A_hom_m.tocsc(), b_c)
         # E_coeffs = array_to_stencil(Eh_c, V1h.vector_space)
 
         if not hom_bc:
