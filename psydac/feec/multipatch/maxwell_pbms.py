@@ -684,7 +684,7 @@ if __name__ == '__main__':
     else:
         assert method == 'nitsche'
         assert hom_bc   # todo: treat the non hom_bc case
-        K_m, M_m = nitsche_operators_2d(domain, ncells=ncells, degree=degree, operator=operator, gamma_h=gamma_h, k=k)
+        K_hom_m, M_m = nitsche_operators_2d(domain, ncells=ncells, degree=degree, operator=operator, gamma_h=gamma_h, k=k)
 
     if problem == 'eigen_pbm':
 
@@ -725,6 +725,10 @@ if __name__ == '__main__':
     elif problem == 'source_pbm':
 
         print("***  Solving source problem  *** ")
+
+        # equation operator in full and homogeneous spaces:
+        A_hom_m = K_hom_m + eta * M_m
+        A_m = K_m + eta * M_m
 
         # source and ref solution
         nc_ref = 20
@@ -769,25 +773,51 @@ if __name__ == '__main__':
             Eh_bc = P1(E_bc_log)
             Ebc_c = Eh_bc.coeffs.toarray()
 
+            # debug: plot
+            Ebc_x_vals, Ebc_y_vals = grid_vals_hcurl(Eh_bc)
+            my_small_plot(
+                title=r'full E for bc',
+                vals=[Ebc_x_vals, Ebc_y_vals],
+                titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
+                surface_plot=False,
+                xx=xx, yy=yy,
+                cmap='plasma',
+                dpi=400,
+            )
+
             # removing internal dofs -- a bit heavy but ok...
             M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m = get_elementary_conga_matrices(domain, ncells, degree)
+            Ebc_c_tmp = Ebc_c
             Ebc_c = cP1_m.dot(Ebc_c)-cP1_hom_m.dot(Ebc_c)
 
-            b_c = b_c - K_m.dot(Ebc_c)
+            Eh_bc = FemField(V1h, coeffs=array_to_stencil(Ebc_c, V1h.vector_space))
+            # debug: plot
+            Ebc_x_vals, Ebc_y_vals = grid_vals_hcurl(Eh_bc)
+            my_small_plot(
+                title=r'E bc',
+                vals=[Ebc_x_vals, Ebc_y_vals],
+                titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
+                surface_plot=False,
+                xx=xx, yy=yy,
+                cmap='plasma',
+                dpi=400,
+            )
 
+            Ebc_c_tmp -= Ebc_c
+            Eh_debug = FemField(V1h, coeffs=array_to_stencil(Ebc_c_tmp, V1h.vector_space))
+            # debug: plot
+            Ebc_x_vals, Ebc_y_vals = grid_vals_hcurl(Eh_debug)
+            my_small_plot(
+                title=r'E_exact - E_bc',
+                vals=[Ebc_x_vals, Ebc_y_vals],
+                titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
+                surface_plot=False,
+                xx=xx, yy=yy,
+                cmap='plasma',
+                dpi=400,
+            )
 
-            ## debug: plot
-            # Ebc_x_vals, Ebc_y_vals = grid_vals_hcurl(Eh_bc)
-            # my_small_plot(
-            #     title=r'E bc',
-            #     vals=[Ebc_x_vals, Ebc_y_vals],
-            #     titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
-            #     surface_plot=False,
-            #     xx=xx, yy=yy,
-            #     cmap='plasma',
-            #     dpi=400,
-            # )
-
+            b_c = b_c - A_m.dot(Ebc_c)
 
 
         plot_source = True
@@ -841,10 +871,6 @@ if __name__ == '__main__':
                 amplification=.05,
                 save_fig=fig_name_vf,
             )
-
-
-        # equation operator in homogeneous space:
-        A_m = K_hom_m + eta * M_m
 
 
         t_stamp = time_count(t_stamp)
