@@ -91,7 +91,7 @@ def get_load_dir(method=None, domain_name=None,nc=None,deg=None,data='matrices')
 
 
 # ---------------------------------------------------------------------------------------------------------------
-def nitsche_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=None, k=None):
+def nitsche_curl_curl_2d(domain, ncells, degree, operator='curl_curl', gamma_h=None, k=None):
     """
     computes
         K_m the k-IP matrix of the curl-curl operator with penalization parameter gamma
@@ -154,9 +154,6 @@ def nitsche_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=N
         expr_jp_I = cross(nn, jump(u))*cross(nn, jump(v))
         expr_jp_b = cross(nn, u)*cross(nn, v)
 
-
-        # a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(boundary, expr_b))
-
         a_cc = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(boundary, expr_b))
         a_cs = BilinearForm((u,v),  integral(I, expr_Is) + integral(boundary, expr_bs))  # symmetrization terms
         a_jp = BilinearForm((u,v),  integral(I, expr_jp_I) + integral(boundary, expr_jp_b))
@@ -171,12 +168,12 @@ def nitsche_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=N
         domain_h = discretize(domain, ncells=ncells, comm=comm)
         Vh       = discretize(V, domain_h, degree=degree,basis='M')
 
-        # unpenalized curl-curl matrix
+        # unpenalized curl-curl matrix (incomplete)
         a_h = discretize(a_cc, domain_h, [Vh, Vh])
         A = a_h.assemble()
         CC_m  = A.tosparse().tocsr()
 
-        # symmetrization part
+        # symmetrization part (for SIP or NIP curl-curl matrix)
         a_h = discretize(a_cs, domain_h, [Vh, Vh])
         A = a_h.assemble()
         CS_m  = A.tosparse().tocsr()
@@ -186,7 +183,7 @@ def nitsche_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=N
         A = a_h.assemble()
         JP_m  = A.tosparse().tocsr()
 
-        # mass matrix
+        # mass matrix (may coincide with M1_m from derham_h)
         m_h = discretize(m, domain_h, [Vh, Vh])
         M = m_h.assemble()
         M_m  = M.tosparse().tocsr()
@@ -207,7 +204,7 @@ def nitsche_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=N
 
 
 # ---------------------------------------------------------------------------------------------------------------
-def get_elementary_conga_matrices(domain, ncells, degree):
+def get_elementary_conga_matrices(domain_h, derham_h, ncells, degree):
 
     if load_dir:
         print(" -- will load matrices from " + load_dir)
@@ -216,24 +213,23 @@ def get_elementary_conga_matrices(domain, ncells, degree):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
-    t_stamp = time_count()
+    # t_stamp = time_count()
 
-    print('discretizing the domain with ncells = '+repr(ncells)+'...' )
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    # print('discretizing the domain with ncells = '+repr(ncells)+'...' )
+    # domain_h = discretize(domain, ncells=ncells, comm=comm)
 
-    t_stamp = time_count(t_stamp)
-    print('discretizing the de Rham seq with degree = '+repr(degree)+'...' )
+    # t_stamp = time_count(t_stamp)
+    # print('discretizing the de Rham seq with degree = '+repr(degree)+'...' )
     # multipatch de Rham sequence:
-    derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-    derham_h = discretize(derham, domain_h, degree=degree)
+    # derham  = Derham(domain, ["H1", "Hcurl", "L2"])
+    # derham_h = discretize(derham, domain_h, degree=degree)
+
     V0h = derham_h.V0
     V1h = derham_h.V1
     V2h = derham_h.V2
-    print("V0h.nbasis = ", V0h.nbasis)
-    print("V1h.nbasis = ", V1h.nbasis)
-    print("V2h.nbasis = ", V2h.nbasis)
-
-    t_stamp = time_count(t_stamp)
+    # print("V0h.nbasis = ", V0h.nbasis)
+    # print("V1h.nbasis = ", V1h.nbasis)
+    # print("V2h.nbasis = ", V2h.nbasis)
 
     if load_dir:
         print("loading sparse matrices...")
@@ -253,6 +249,7 @@ def get_elementary_conga_matrices(domain, ncells, degree):
     else:
 
         # Mass matrices for broken spaces (block-diagonal)
+        t_stamp = time_count()
         print("assembling mass matrix operators...")
         M0 = BrokenMass(V0h, domain_h, is_scalar=True)
         M1 = BrokenMass(V1h, domain_h, is_scalar=False)
@@ -288,11 +285,12 @@ def get_elementary_conga_matrices(domain, ncells, degree):
         bD0_m = bD0.to_sparse_matrix()  # broken (patch-local) differential
         bD1_m = bD1.to_sparse_matrix()
         I1_m = I1.to_sparse_matrix()
+        time_count(t_stamp)
 
         M0_minv = inv(M0_m.tocsc())  # todo: assemble patch-wise M0_inv, as Hodge operator
 
         if save_dir:
-            t_stamp = time_count(t_stamp)
+            t_stamp = time_count()
             print("saving sparse matrices to file...")
             save_npz(save_dir+'M0_m.npz', M0_m)
             save_npz(save_dir+'M1_m.npz', M1_m)
@@ -305,9 +303,43 @@ def get_elementary_conga_matrices(domain, ncells, degree):
             save_npz(save_dir+'bD0_m.npz', bD0_m)
             save_npz(save_dir+'bD1_m.npz', bD1_m)
             save_npz(save_dir+'I1_m.npz', I1_m)
+            time_count(t_stamp)
 
     # return M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, D0_m, D1_m, I1_m
     return M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m
+
+def conga_curl_curl_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, gamma_h=None, hom_bc=True):
+    """
+    computes
+        K_hom_m (and K_m if not hom_bc)
+        the CONGA stiffness matrix of the vector-valued curl-curl operator in V1, with (and without) homogeneous bc
+    """
+
+    if not hom_bc:
+        assert cP1_m is not None
+    print('computing Conga curl_curl matrix with penalization gamma_h = {}'.format(gamma_h))
+
+    assert operator == 'curl_curl'  # todo: implement (verify) the hodge-laplacian
+
+    # curl_curl matrix (left-multiplied by M1_m) :
+    D1_hom_m = bD1_m * cP1_hom_m
+    jump_penal_hom_m = I1_m-cP1_hom_m
+    K_hom_m = (
+            D1_hom_m.transpose() * M2_m * D1_hom_m
+            + gamma_h * jump_penal_hom_m.transpose() * M1_m * jump_penal_hom_m
+    )
+
+    if not hom_bc:
+        # then we also need the matrix of the non-homogeneous operator -- unpenalized
+        D1_m = bD1_m * cP1_m
+        K_bc_m = (
+                D1_hom_m.transpose() * M2_m * D1_m
+        )
+    else:
+        K_bc_m = None
+
+    return K_hom_m, K_bc_m
+
 
 def conga_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=None, hom_bc=True):
     """
@@ -327,7 +359,7 @@ def conga_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=Non
     """
     assert operator in ['curl_curl', 'hodge_laplacian']
 
-    M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m = get_elementary_conga_matrices(domain, ncells, degree)
+    # M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m = get_elementary_conga_matrices(domain, ncells, degree)
 
     # t_stamp = time_count()
     print('computing Conga {0} matrix with penalization gamma_h = {1}'.format(operator, gamma_h))
@@ -428,7 +460,6 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
 
     """
 
-
     assert refsol_params
     nc_ref, deg_ref, N_diag, method_ref = refsol_params
 
@@ -440,7 +471,7 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
 
     x,y    = domain.coordinates
 
-    if source_type == 'manu_sol':
+    if source_type == 'manu_J':
         # use a manufactured solution, with ad-hoc (inhomogeneous) bc
 
         E_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
@@ -452,12 +483,9 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
         E_ref_x_vals, E_ref_y_vals   = grid_vals_hcurl_cdiag(E_ex_log)
         E_ref_vals = [E_ref_x_vals, E_ref_y_vals]
         # print(E_ex_x)
-        E_bc = [E_ex_x, E_ex_y]
 
-
-        # D1fun1  = lambda xi1, i2 : cos(xi1)*sin(xi2)
-        # print(D1fun1)
-        # exit()
+        # boundary condition: (here we only need to coincide with E_ex on the boundary !)
+        E_bc = E_ex
 
     elif source_type == 'ring_J':
 
@@ -512,13 +540,7 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
 
         f = Tuple(J_x, J_y)
 
-        # vis_J = False
-        # if vis_J:
-        #     tmp_plot_source(J_x,J_y, domain)
         E_ref_filename = get_load_dir(method=method_ref, domain_name=domain_name,nc=nc_ref,deg=deg_ref,data='solutions')+E_ref_fn(source_type, N_diag)
-        # E_ex = None  # exact solution void by default
-        # E_ref_x_vals = None
-        # E_ref_y_vals = None
         if os.path.isfile(E_ref_filename):
             print("getting ref solution values from file "+E_ref_filename)
             with open(E_ref_filename, 'rb') as file:
@@ -531,9 +553,8 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
             E_ref_vals = [E_ref_x_vals, E_ref_y_vals]
         else:
             print("-- no ref solution file '"+E_ref_filename+"', skipping it")
-
     else:
-        raise NotImplementedError
+        raise ValueError(source_type)
 
     return f, E_bc, E_ref_vals
 
@@ -543,7 +564,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         formatter_class = argparse.ArgumentDefaultsHelpFormatter,
-        description     = "Solve 2D curl-curl eigenvalue problem."
+        description     = "Solve 2D curl-curl eigenvalue or source problem."
     )
 
     parser.add_argument('ncells',
@@ -589,8 +610,14 @@ if __name__ == '__main__':
 
     parser.add_argument( '--problem',
         choices = ['eigen_pbm', 'source_pbm'],
-        default = 'eigen_pbm',
+        default = 'source_pbm',
         help    = 'problem to be solved'
+    )
+
+    parser.add_argument( '--source',
+        choices = ['manu_J', 'ring_J'],
+        default = 'manu_J',
+        help    = 'type of source (manufactured or circular J)'
     )
 
     parser.add_argument( '--eta',
@@ -609,6 +636,7 @@ if __name__ == '__main__':
     k           = args.k
     operator    = args.operator
     problem     = args.problem
+    source_type = args.source
     eta         = args.eta
 
     ncells = [nc, nc]
@@ -627,6 +655,17 @@ if __name__ == '__main__':
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
 
+    # plotting and diagnostics
+    # node based grid (to better see the smoothness)
+    N_diag = 100
+    etas, xx, yy = get_plotting_grid(mappings, N=N_diag)
+    grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+
+    # cell-centered grid to compute approx L2 norm
+    etas_cdiag, xx_cdiag, yy_cdiag, patch_logvols = get_plotting_grid(mappings, N=N_diag, centered_nodes=True, return_patch_logvols=True)
+    # grid_vals_h1_cdiag = lambda v: get_grid_vals_scalar(v, etas_cdiag, mappings_list, space_kind='h1')
+    grid_vals_hcurl_cdiag = lambda v: get_grid_vals_vector(v, etas_cdiag, mappings_list, space_kind='hcurl')
+
     print('discretizing the domain with ncells = '+repr(ncells)+'...' )
     domain_h = discretize(domain, ncells=ncells, comm=comm)
 
@@ -637,13 +676,11 @@ if __name__ == '__main__':
     V0h = derham_h.V0
     V1h = derham_h.V1
     V2h = derham_h.V2
-    # todo: avoid building these spaces again below
 
-    # diag grid (cell-centered)
-    N_diag = 100
-    etas_cdiag, xx_cdiag, yy_cdiag, patch_logvols = get_plotting_grid(mappings, N=N_diag, centered_nodes=True, return_patch_logvols=True)
-    # grid_vals_h1_cdiag = lambda v: get_grid_vals_scalar(v, etas_cdiag, mappings_list, space_kind='h1')
-    grid_vals_hcurl_cdiag = lambda v: get_grid_vals_vector(v, etas_cdiag, mappings_list, space_kind='hcurl')
+    if method == 'conga':
+        M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m = get_elementary_conga_matrices(domain_h, derham_h, ncells, degree)
+    else:
+        M0_m = M1_m = M2_m = M0_minv = cP0_m = cP1_m = cP0_hom_m = cP1_hom_m = bD0_m = bD1_m = I1_m = None
 
     # jump penalization factor:
     # todo: study different penalization regimes
@@ -663,7 +700,7 @@ if __name__ == '__main__':
         deg_ref = 8
         method_ref = 'conga'
         # source_type = 'ring_J'
-        source_type = 'manu_sol'
+        # source_type = 'manu_sol'
 
         f, E_bc, E_ref_vals = get_source_and_solution(source_type=source_type, eta=eta, domain=domain, refsol_params=[nc_ref, deg_ref, N_diag, method_ref])
 
@@ -676,15 +713,23 @@ if __name__ == '__main__':
 
         hom_bc = (E_bc is None)
     else:
+        # eigenpbm is with homogeneous bc
+        E_bc = None
         hom_bc = True
+
+    assert operator == 'curl_curl'
 
     # build operator matrices
     if method == 'conga':
-        K_hom_m, K_bc_m, M_m = conga_operators_2d(domain, ncells=ncells, degree=degree, operator=operator, gamma_h=gamma_h, hom_bc=hom_bc)
+        K_hom_m, K_bc_m = conga_curl_curl_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m, gamma_h=gamma_h, hom_bc=hom_bc)
+        M_m = M1_m
+    elif method == 'nitsche':
+        # note: we could probably pass derham.V1 and derham_h.V1 to the function below, to avoid re-discretizing the space again...
+        K_hom_m, M_m = nitsche_curl_curl_2d(domain, ncells=ncells, degree=degree, operator=operator, gamma_h=gamma_h, k=k)
+        # no lifting of bc (for now):
+        K_bc_m = None
     else:
-        assert method == 'nitsche'
-        assert hom_bc   # todo: treat the non hom_bc case
-        K_hom_m, M_m = nitsche_operators_2d(domain, ncells=ncells, degree=degree, operator=operator, gamma_h=gamma_h, k=k)
+        raise ValueError(method)
 
     if problem == 'eigen_pbm':
 
@@ -726,99 +771,89 @@ if __name__ == '__main__':
 
         print("***  Solving source problem  *** ")
 
-        # equation operator in full and homogeneous spaces:
+        # equation operator in homogeneous spaces
         A_hom_m = K_hom_m + eta * M_m
-        A_bc_m = K_bc_m + eta * M_m
 
-        # source and ref solution
-        nc_ref = 20
-        deg_ref = 8
-        method_ref = 'conga'
-        # source_type = 'ring_J'
-        source_type = 'manu_sol'
-
-        f, E_bc, E_ref_vals = get_source_and_solution(source_type=source_type, eta=eta, domain=domain, refsol_params=[nc_ref, deg_ref, N_diag, method_ref])
-
-        if E_ref_vals is None:
-            solutions_dir = get_load_dir(method=method, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
-            E_ref_filename = solutions_dir+E_ref_fn(source_type, N_diag)
-            print("-- no ref solution, so I will save the present solution instead, in file '"+E_ref_filename+"' --")
-            if not os.path.exists(solutions_dir):
-                os.makedirs(solutions_dir)
-
-        # discrete spaces
-        u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
-
-        # regular (node based) plotting
-        etas, xx, yy = get_plotting_grid(mappings, N=N_diag)
-        grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+        lift_E_bc = (method == 'conga' and not hom_bc)
+        if lift_E_bc:
+            # equation operator for bc lifting
+            assert K_bc_m is not None
+            A_bc_m = K_bc_m + eta * M_m
+        else:
+            A_bc_m = None
 
         # assembling RHS
+        u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
         expr = dot(f,v)
-        l = LinearForm(v, integral(domain, expr))
+        if method == 'nitsche' and not hom_bc:
+            nn  = NormalVector('nn')
+            boundary = domain.boundary
+            expr_b = -k*cross(nn, E_bc)*curl(v) + gamma_h * cross(nn, E_bc) * cross(nn, v)
+            l = LinearForm(v, integral(domain, expr) + integral(boundary, expr_b))
+        else:
+            l = LinearForm(v, integral(domain, expr))
+
         lh = discretize(l, domain_h, V1h) #, backend=PSYDAC_BACKENDS['numba'])
         b  = lh.assemble()
         b_c = b.toarray()
 
-        if hom_bc:
-            Ebc_c = None
-        else:
+        if lift_E_bc:
+            # lift boundary condition
+            debug_plot = False
 
             # Projector on broken space
             # todo: we should probably apply P1 on E_bc -- it's a bit weird to call it on the list of (pulled back) logical fields.
             nquads = [d + 1 for d in degree]
             P0, P1, P2 = derham_h.projectors(nquads=nquads)
-            E_bc_log = [pull_2d_hcurl(E_bc, f) for f in mappings_list]
-            # note: here we only need the boundary dofs of E_bc (and Eh_bc)
+            E_bc_x = lambdify(domain.coordinates, E_bc[0])
+            E_bc_y = lambdify(domain.coordinates, E_bc[1])
+            E_bc_log = [pull_2d_hcurl([E_bc_x, E_bc_y], f) for f in mappings_list]
+            # note: we only need the boundary dofs of E_bc (and Eh_bc)
             Eh_bc = P1(E_bc_log)
             Ebc_c = Eh_bc.coeffs.toarray()
 
-            # debug: plot
-            Ebc_x_vals, Ebc_y_vals = grid_vals_hcurl(Eh_bc)
-            my_small_plot(
-                title=r'full E for bc',
-                vals=[Ebc_x_vals, Ebc_y_vals],
-                titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
-                surface_plot=False,
-                xx=xx, yy=yy,
-                cmap='plasma',
-                dpi=400,
-            )
+            if debug_plot:
+                Ebc_x_vals, Ebc_y_vals = grid_vals_hcurl(Eh_bc)
+                my_small_plot(
+                    title=r'full E for bc',
+                    vals=[Ebc_x_vals, Ebc_y_vals],
+                    titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
+                    surface_plot=False,
+                    xx=xx, yy=yy,
+                    cmap='plasma',
+                    dpi=400,
+                )
+                Ebc_c_tmp = Ebc_c
 
-            # removing internal dofs -- a bit heavy but ok...
-            M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m = get_elementary_conga_matrices(domain, ncells, degree)
-            Ebc_c_tmp = Ebc_c
+            # removing internal dofs
             Ebc_c = cP1_m.dot(Ebc_c)-cP1_hom_m.dot(Ebc_c)
-
-            Eh_bc = FemField(V1h, coeffs=array_to_stencil(Ebc_c, V1h.vector_space))
-            # debug: plot
-            Ebc_x_vals, Ebc_y_vals = grid_vals_hcurl(Eh_bc)
-            my_small_plot(
-                title=r'E bc',
-                vals=[Ebc_x_vals, Ebc_y_vals],
-                titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
-                surface_plot=False,
-                xx=xx, yy=yy,
-                cmap='plasma',
-                dpi=400,
-            )
-
-            Ebc_c_tmp -= Ebc_c
-            Eh_debug = FemField(V1h, coeffs=array_to_stencil(Ebc_c_tmp, V1h.vector_space))
-            # debug: plot
-            Ebc_x_vals, Ebc_y_vals = grid_vals_hcurl(Eh_debug)
-            my_small_plot(
-                title=r'E_exact - E_bc',
-                vals=[Ebc_x_vals, Ebc_y_vals],
-                titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
-                surface_plot=False,
-                xx=xx, yy=yy,
-                cmap='plasma',
-                dpi=400,
-            )
-
             b_c = b_c - A_bc_m.dot(Ebc_c)
 
+            if debug_plot:
+                Eh_bc = FemField(V1h, coeffs=array_to_stencil(Ebc_c, V1h.vector_space))
+                # debug: plot
+                Ebc_x_vals, Ebc_y_vals = grid_vals_hcurl(Eh_bc)
+                my_small_plot(
+                    title=r'E bc',
+                    vals=[Ebc_x_vals, Ebc_y_vals],
+                    titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
+                    surface_plot=False,
+                    xx=xx, yy=yy,
+                    cmap='plasma',
+                    dpi=400,
+                )
+                Ebc_c_tmp -= Ebc_c
+                Eh_debug = FemField(V1h, coeffs=array_to_stencil(Ebc_c_tmp, V1h.vector_space))
+                Ebc_x_vals, Ebc_y_vals = grid_vals_hcurl(Eh_debug)
+                my_small_plot(
+                    title=r'E_exact - E_bc',
+                    vals=[Ebc_x_vals, Ebc_y_vals],
+                    titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
+                    surface_plot=False,
+                    xx=xx, yy=yy,
+                    cmap='plasma',
+                    dpi=400,
+                )
 
         plot_source = True
         if plot_source:
@@ -878,7 +913,7 @@ if __name__ == '__main__':
         Eh_c = spsolve(A_hom_m.tocsc(), b_c)
         # E_coeffs = array_to_stencil(Eh_c, V1h.vector_space)
 
-        if not hom_bc:
+        if lift_E_bc:
             # add the lifted boundary condition
             Eh_c += Ebc_c
 
