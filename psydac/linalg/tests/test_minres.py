@@ -4,9 +4,9 @@ import pytest
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 
-def test_bicg_tridiagonal( n ):
+def test_minres_tridiagonal( n ):
     """
-    Test generic Biconjugate Gradient algorithm on tridiagonal linear system.
+    Test generic MINRES algorithm on tridiagonal linear system.
 
     Parameters
     ----------
@@ -14,16 +14,16 @@ def test_bicg_tridiagonal( n ):
         Dimension of linear system (number of rows = number of columns).
 
     """
-    from psydac.linalg.iterative_solvers import bicg
+    from psydac.linalg.iterative_solvers import minres
 
     #---------------------------------------------------------------------------
     # PARAMETERS
     #---------------------------------------------------------------------------
 
     # Build generic non-singular matrix
-    # Here tridiagonal matrix with values [-1, 3, -2] on diagonals
-    A = np.diag([-1.0]*(n-1),-1) + np.diag([3.0]*n,0) + np.diag([-2.0]*(n-1),1)
-    A = np.diag([-1.0]*(n-1),-1) + np.diag([2.0]*n,0) + np.diag([-1.0]*(n-1),1)
+    sdiag = np.random.random( n - 1 )
+    diag  = np.random.random( n )
+    A = np.diag(sdiag,-1) + np.diag(diag,0) + np.diag(sdiag,1)
 
     # Build exact solution: here with random values in [-1,1]
     xe = 2.0 * np.random.random( n ) - 1.0
@@ -38,7 +38,7 @@ def test_bicg_tridiagonal( n ):
     # Title
     print()
     print( "="*80 )
-    print( "SERIAL TEST: solve linear system A*x = b using biconjugate gradient" )
+    print( "SERIAL TEST: solve linear system A*x = b using minres" )
     print( "="*80 )
     print()
 
@@ -46,11 +46,11 @@ def test_bicg_tridiagonal( n ):
     b = A.dot( xe )
 
     # Solve linear system using BiCG
-    x, info = bicg( A, A.transpose(), b, tol=1e-13, verbose=True )
+    x, info = minres( A, b, tol=1e-13, verbose=True )
 
     # Verify correctness of calculation: L2-norm of error
-    err = x-xe
-    err_norm = np.linalg.norm( err )
+    res = A.dot(x)-b
+    res_norm = np.linalg.norm( res )
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -65,8 +65,8 @@ def test_bicg_tridiagonal( n ):
     print()
 
     print( "-"*40 )
-    print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
-    if err_norm < tol:
+    print( "L2-norm of error in solution = {:.2e}".format( res_norm ) )
+    if res_norm < tol:
         print( "PASSED" )
     else:
         print( "FAIL" )
@@ -75,4 +75,4 @@ def test_bicg_tridiagonal( n ):
     #---------------------------------------------------------------------------
     # PYTEST
     #---------------------------------------------------------------------------
-    assert err_norm < tol
+    assert res_norm < tol

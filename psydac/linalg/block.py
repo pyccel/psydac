@@ -44,6 +44,9 @@ class BlockVectorSpace( VectorSpace ):
         # Store spaces in a Tuple, because they will not be changed
         self._spaces = tuple(spaces)
 
+        assert all(s.dtype==spaces[0].dtype for s in spaces)
+        self._dtype  = spaces[0].dtype
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -87,6 +90,10 @@ class BlockVectorSpace( VectorSpace ):
     @property
     def pads( self ):
         return self._spaces[0].pads
+
+    @property
+    def dtype( self ):
+        return self._dtype
 
     @property
     def n_blocks( self ):
@@ -211,6 +218,11 @@ class BlockVector( Vector ):
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
+
+    @property
+    def dtype( self ):
+        return self.space.dtype
+
     def __getitem__( self, key ):
         return self._blocks[key]
 
@@ -393,6 +405,10 @@ class BlockLinearOperator( LinearOperator ):
     def n_block_cols( self ):
         return self._ncols
 
+    @property
+    def dtype( self ):
+        return self.domain.dtype
+
     # ...
     def update_ghost_regions( self ):
         for Lij in self._blocks.values():
@@ -471,6 +487,8 @@ class BlockLinearOperator( LinearOperator ):
     def T(self):
         return self.transpose()
 
+    def create_right_vec(self):
+        return BlockVector(self.domain)
 #===============================================================================
 class BlockMatrix( BlockLinearOperator, Matrix ):
     """
