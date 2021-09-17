@@ -59,7 +59,7 @@ def test_cg_tridiagonal( n ):
     print( 'A  =', A, sep='\n' )
     print( 'b  =', b )
     print( 'x  =', x )
-    print( 'xe =', x )
+    print( 'xe =', xe )
     print( 'info =', info )
     print()
 

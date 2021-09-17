@@ -464,7 +464,7 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
     return Hp
 
 #==============================================================================
-def breakpoints( knots, degree ,tol=1e-9):
+def breakpoints( knots, degree ,tol=1e-15):
     """
     Determine breakpoints' coordinates.
 
@@ -487,7 +487,6 @@ def breakpoints( knots, degree ,tol=1e-9):
 
     """
     knots = np.array(knots)
-
     diff  = np.append(True, abs(np.diff(knots[degree:-degree]))>tol)
     return knots[degree:-degree][diff]
 
@@ -582,7 +581,7 @@ def elements_spans( knots, degree ):
 
     ie = 0
     for ik in range( degree, nk-degree ):
-        if knots[ik+1]-knots[ik]>=1e-9:
+        if knots[ik+1]-knots[ik]>=1e-15:
             spans[ie] = ik
             ie += 1
         if ie == ne:
