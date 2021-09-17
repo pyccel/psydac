@@ -362,7 +362,7 @@ class TransposeOperator(SplBasic):
             dec     = '@types({})'.format(','.join(self._args_dtype))
         elif backend and backend['name'] == 'numba':
             imports = 'from numba import njit'
-            imports = '@njit(fastmath={})'.format(backend['fastmath'])
+            dec     = '@njit(fastmath={})'.format(backend['fastmath'])
         else:
             imports = ''
 
