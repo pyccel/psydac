@@ -66,6 +66,9 @@ comm = MPI.COMM_WORLD
 def E_ref_fn(source_type, N_diag):
     return 'E_ref_'+source_type+'_N'+repr(N_diag)+'.npz'
 
+def Eh_coeffs_fn(source_type, N_diag):
+    return 'Eh_coeffs_'+source_type+'_N'+repr(N_diag)+'.npz'
+
 def get_fem_name(method=None, k=None, domain_name=None,nc=None,deg=None):
     assert domain_name and nc and deg
     assert method is not None
@@ -656,8 +659,9 @@ if __name__ == '__main__':
     mappings_list = list(mappings.values())
 
     # plotting and diagnostics
+    N_diag = 100  # should match the grid resolution of the stored E_ref...
+
     # node based grid (to better see the smoothness)
-    N_diag = 100
     etas, xx, yy = get_plotting_grid(mappings, N=N_diag)
     grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
 
@@ -691,25 +695,38 @@ if __name__ == '__main__':
     else:
         gamma_h = 10**3
 
+    # E_ref saved/loaded as point values on cdiag grid (mostly for error measure)
+    save_E_ref = False
+    E_ref_filename = None
+
+    # Eh saved/loaded as numpy array of FEM coefficients (mostly for further diagnostics)
+    save_Eh = False
+    Eh = None
+
     if problem == 'source_pbm':
 
         print("***  Defining the source and ref solution *** ")
 
         # source and ref solution
-        nc_ref = 20
-        deg_ref = 8
+        nc_ref = 30
+        deg_ref = 6
         method_ref = 'conga'
         # source_type = 'ring_J'
         # source_type = 'manu_sol'
 
         f, E_bc, E_ref_vals = get_source_and_solution(source_type=source_type, eta=eta, domain=domain, refsol_params=[nc_ref, deg_ref, N_diag, method_ref])
 
+        solutions_dir = get_load_dir(method=method, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
         if E_ref_vals is None:
-            solutions_dir = get_load_dir(method=method, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
             E_ref_filename = solutions_dir+E_ref_fn(source_type, N_diag)
             print("-- no ref solution, so I will save the present solution instead, in file '"+E_ref_filename+"' --")
+            save_E_ref = True
             if not os.path.exists(solutions_dir):
                 os.makedirs(solutions_dir)
+
+        save_Eh = True
+        Eh_filename = solutions_dir+Eh_coeffs_fn(source_type, N_diag)
+        print("-- I will also save the present solution coefficients in file '"+Eh_filename+"' --")
 
         hom_bc = (E_bc is None)
     else:
@@ -922,17 +939,68 @@ if __name__ == '__main__':
         # jumpEh_c = Eh_c - PEh_c
         # Eh = FemField(V1h, coeffs=array_to_stencil(PEh_c, V1h.vector_space))
         Eh = FemField(V1h, coeffs=array_to_stencil(Eh_c, V1h.vector_space))
-        Eh_x_vals, Eh_y_vals = grid_vals_hcurl_cdiag(Eh)
 
-        xx = xx_cdiag
-        yy = yy_cdiag
+        if save_Eh:
+            if os.path.isfile(Eh_filename):
+                print('(solution coeff array is already saved, no need to save it again)')
+            else:
+                print("saving solution coeffs in new file (for future needs)"+Eh_filename)
+                with open(Eh_filename, 'wb') as file:
+                    np.savez(file, array_coeffs=Eh_c)
 
-        # if fem_name:
+        #+++++++++++++++++++++++++++++++
+        # plotting and diagnostics
+        #+++++++++++++++++++++++++++++++
+
+        # set some names to save figures:
         #     fig_name=plot_dir+'Eh.png'  # +'_'+fem_name+'.png'
         #     fig_name_vf=plot_dir+'Eh_vf.png'   # +'_vf_'+fem_name+'.png'
         # else:
         fig_name=None
         fig_name_vf=None
+
+        # smooth plotting with node-valued grid
+        Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
+        my_small_streamplot(
+            title=r'discrete field $E_h$',  # for $\omega = $'+repr(omega),
+            vals_x=Eh_x_vals,
+            vals_y=Eh_y_vals,
+            skip=1,
+            xx=xx,
+            yy=yy,
+            amplification=1,
+            save_fig=fig_name_vf,
+            dpi = 200,
+        )
+
+        Eh_abs_vals = [np.sqrt(abs(ex)**2 + abs(ey)**2) for ex, ey in zip(Eh_x_vals, Eh_y_vals)]
+        my_small_plot(
+            title=r'amplitude of discrete field $E_h$', # for $\omega = $'+repr(omega),
+            vals=[Eh_abs_vals], #[Eh_x_vals, Eh_y_vals, Eh_abs_vals],
+            titles=[r'$|E^h|$'], #[r'$E^h_x$', r'$E^h_y$', r'$|E^h|$'],
+            xx=xx,
+            yy=yy,
+            surface_plot=False,
+            # gridlines_x1=gridlines_x1,
+            # gridlines_x2=gridlines_x2,
+            save_fig=fig_name,
+            cmap='hsv',
+            dpi = 400,
+        )
+
+        # error measure with centered-valued grid
+        Eh_x_vals, Eh_y_vals = grid_vals_hcurl_cdiag(Eh)
+
+        if save_E_ref:
+            if os.path.isfile(E_ref_filename):
+                print('(ref solution is already saved, no need to save it again)')
+            else:
+                print("saving solution values (on cdiag grid) in new file (for future needs)"+E_ref_filename)
+                with open(E_ref_filename, 'wb') as file:
+                    np.savez(file, x_vals=Eh_x_vals, y_vals=Eh_y_vals)
+
+        xx = xx_cdiag
+        yy = yy_cdiag
 
         if E_ref_vals:
             E_x_vals, E_y_vals = E_ref_vals
@@ -964,25 +1032,6 @@ if __name__ == '__main__':
             # gridlines_x1=gridlines_x1,
             # gridlines_x2=gridlines_x2,
         )
-
-        my_small_streamplot(
-            title=r'discrete field $E_h$',  # for $\omega = $'+repr(omega),
-            vals_x=Eh_x_vals,
-            vals_y=Eh_y_vals,
-            skip=1,
-            xx=xx,
-            yy=yy,
-            amplification=1,
-            save_fig=fig_name_vf,
-            dpi = 200,
-        )
-
-
-
-
-
-
-
 
     else:
         raise NotImplementedError
