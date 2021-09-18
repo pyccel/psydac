@@ -570,6 +570,11 @@ def minres(A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
           - 'success'  = (boolean) whether convergence criteria have been met
           - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
 
+    Notes
+    -----
+    This is an adaptation of the MINRES Solver in Scipy, where the method is modified to accept Psydac data structures,
+    https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/minres.py
+
     References
     ----------
     Solution of sparse indefinite systems of linear equations,
@@ -774,6 +779,10 @@ def lsmr(A, At, b, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim
     maxiter: int
         Maximum number of iterations.
 
+    conlim : float
+        lsmr terminates if an estimate of cond(A) exceeds
+        conlim.
+
     verbose : bool
         If True, 2-norm of residual r is printed at each iteration.
 
@@ -787,6 +796,11 @@ def lsmr(A, At, b, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim
           - 'niter'    = (int) number of iterations
           - 'success'  = (boolean) whether convergence criteria have been met
           - 'res_norm' = (float) 2-norm of residual vector r = A*x - b.
+
+    Notes
+    -----
+    This is an adaptation of the LSMR Solver in Scipy, where the method is modified to accept Psydac data structures,
+    https://github.com/scipy/scipy/blob/v1.7.1/scipy/sparse/linalg/isolve/lsmr.py
 
     References
     ----------
