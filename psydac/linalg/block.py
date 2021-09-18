@@ -43,8 +43,7 @@ class BlockVectorSpace( VectorSpace ):
 
         # Store spaces in a Tuple, because they will not be changed
         self._spaces = tuple(spaces)
-
-        assert all(s.dtype==spaces[0].dtype for s in spaces)
+        assert all(np.dtype(s.dtype)==np.dtype(spaces[0].dtype) for s in spaces)
         self._dtype  = spaces[0].dtype
 
     #--------------------------------------
