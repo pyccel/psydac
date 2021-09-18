@@ -36,7 +36,7 @@ def unroll_edges(domain, xgrid):
         return np.array([*xgrid, xgrid[0] + (xB-xA)])
 
 #============================================================================================================================
-def animate_field(fields, domain, mapping, res=(10,10), vrange=None, cmap=None, interval=35, progress=False, figsize=(14,4)):
+def animate_field(fields, domain, mapping, res=(150,150), vrange=None, cmap=None, interval=35, progress=False, figsize=(14,4)):
     """Animate a sequence of scalar fields over a geometry."""
     from matplotlib import animation
     from psydac.utilities.utils import refine_array_1d

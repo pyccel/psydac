@@ -8,7 +8,7 @@ from psydac.linalg.block   import BlockVector, BlockMatrix
 __all__ = ('apply_essential_bc',)
 
 #==============================================================================
-def apply_essential_bc(a, *bcs):
+def apply_essential_bc(a, *bcs, **kwargs):
 
     if isinstance(a, (StencilVector, StencilMatrix, StencilInterfaceMatrix)):
         for bc in bcs:
@@ -16,7 +16,8 @@ def apply_essential_bc(a, *bcs):
             apply_essential_bc_stencil(a,
                 axis  = bc.boundary.axis,
                 ext   = bc.boundary.ext,
-                order = bc.order
+                order = bc.order,
+                **kwargs
             )
 
     elif isinstance(a, BlockVector):
@@ -27,7 +28,7 @@ def apply_essential_bc(a, *bcs):
     elif isinstance(a, BlockMatrix):
         for bc in bcs:
             check_boundary_type(bc)
-            apply_essential_bc_BlockMatrix(a, bc)
+            apply_essential_bc_BlockMatrix(a, bc, **kwargs)
 
     else:
         raise TypeError('Cannot apply essential BCs to object of type {}'\
@@ -41,7 +42,7 @@ def check_boundary_type(bc):
                 .format(type(bc)))
 
 #==============================================================================
-def apply_essential_bc_stencil(a, *, axis, ext, order):
+def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
 
     if isinstance(a, StencilVector):
         V = a.space
@@ -78,17 +79,20 @@ def apply_essential_bc_stencil(a, *, axis, ext, order):
         s = V.starts[axis]
         index = [(s + order if j == axis else slice(None)) for j in range(n)]
         a[tuple(index)] = 0.0
+        if isinstance(a, StencilMatrix) and identity:
+            a[tuple(index[:n//2])+(0,)*(n//2)] = 1.
 
     elif ext == 1 and V.ends[axis] == V.npts[axis] - 1:
         e = V.ends[axis]
         index = [(e - order if j == axis else slice(None)) for j in range(n)]
         a[tuple(index)] = 0.0
-
+        if isinstance(a, StencilMatrix) and identity:
+            a[tuple(index[:n//2])+(0,)*(n//2)] = 1.
     else:
         pass
 
 #==============================================================================
-def apply_essential_bc_BlockMatrix(a, bc):
+def apply_essential_bc_BlockMatrix(a, bc, identity=False):
     """ Apply homogeneous dirichlet boundary conditions in nD """
 
     assert isinstance(a, BlockMatrix)
@@ -99,13 +103,13 @@ def apply_essential_bc_BlockMatrix(a, bc):
             i = bc.position + i_loc
             js = [ij[1] for ij in keys if ij[0] == i]
             for j in js:
-                apply_essential_bc(a[i, j], bc)
+                apply_essential_bc(a[i, j], bc, identity=(identity and i==j))
 
     elif bc.position is not None and not bc.variable.space.is_broken:
         i = bc.position
         js = [ij[1] for ij in keys if ij[0] == i]
         for j in js:
-            apply_essential_bc(a[i, j], bc)
+            apply_essential_bc(a[i, j], bc, identity=(identity and i==j))
     else:
         var = bc.variable
         space = var.space
@@ -115,7 +119,7 @@ def apply_essential_bc_BlockMatrix(a, bc):
             i  = domains.index(bd)
             js = [ij[1] for ij in keys if ij[0] == i]
             for j in js:
-                apply_essential_bc(a[i, j], bc)
+                apply_essential_bc(a[i, j], bc, identity=(identity and i==j))
 
 #==============================================================================
 def apply_essential_bc_BlockVector(a, bc):

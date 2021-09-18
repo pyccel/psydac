@@ -12,7 +12,7 @@ from sympde.expr     import Equation
 from psydac.api.basic                import BasicDiscrete
 from psydac.api.essential_bc         import apply_essential_bc
 from psydac.fem.basic                import FemField
-from psydac.linalg.iterative_solvers import cg, pcg, bicg
+from psydac.linalg.iterative_solvers import cg, pcg, bicg, minres, lsmr
 
 __all__ = ('DiscreteEquation',)
 
@@ -33,11 +33,15 @@ def driver_solve(L, **kwargs):
     return_info = kwargs.pop('info', False)
 
     if name == 'cg':
-        x, info = cg( M, rhs, **kwargs )
+        x, info = cg    ( M,      rhs, **kwargs )
     elif name == 'pcg':
-        x, info = pcg( M, rhs, **kwargs )
+        x, info = pcg   ( M,      rhs, **kwargs )
+    elif name == 'minres':
+        x, info = minres( M,      rhs, **kwargs )
     elif name == 'bicg':
-        x, info = bicg( M, M.T, rhs, **kwargs )
+        x, info = bicg  ( M, M.T, rhs, **kwargs )
+    elif name == 'lsmr':
+        x, info = lsmr  ( M, M.T, rhs, **kwargs )
     else:
         raise NotImplementedError("Solver '{}' is not available".format(name))
     return (x, info) if return_info else x

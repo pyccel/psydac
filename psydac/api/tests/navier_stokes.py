@@ -54,10 +54,20 @@ def get_boundaries(*args):
 
     return tuple(boundaries[i] for i in args)
 
+def scipy_solver(M, b):
+    x  = spsolve(M.tosparse().tocsr(), b.toarray())
+    x  = array_to_stencil(x, b.space)
+    return x,0
+
+def psydac_solver(M, b):
+    return lsmr(M, M.T, b, maxiter=10000, tol=1e-10)
+
 #==================================================================================
-def run_navier_stokes_2d_2(filename, dt_h, nt, newton_tol=1e-5, max_newton_iter=50):
+def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max_newton_iter=50, scipy=True):
     """
         Time dependent Navier Stokes solver in a 2d domain.
+        this example was taken from the pyiga library
+        https://github.com/c-f-h/pyiga/blob/master/notebooks/solve-navier-stokes.ipynb
     """
     domain  = Domain.from_file(filename)
 
@@ -89,13 +99,13 @@ def run_navier_stokes_2d_2(filename, dt_h, nt, newton_tol=1e-5, max_newton_iter=
     Re = 1e4
 
     # define the linearized navier stokes
-    a = BilinearForm(((du,dp),(v, q)), integral(domain, dt**-1*dot(du,v) + dot(Transpose(grad(du))*u, v) + dot(Transpose(grad(u))*du, v) 
-                                                      + Re**-1*inner(grad(du), grad(v)) - div(du)*q - dp*div(v) + 1e-10*dp*q) )
-    l = LinearForm((v, q),             integral(domain, dt**-1*dot(u,v)-dt**-1*dot(u0,v) + dot(Transpose(grad(u))*u, v) 
-                                                      + Re**-1*inner(grad(u), grad(v)) - div(u)*q - p*div(v) + 1e-10*p*q) )
+    a = BilinearForm(((du,dp),(v, q)), integral(domain, dot(du,v) + dt*dot(Transpose(grad(du))*u, v) + dt*dot(Transpose(grad(u))*du, v)
+                                                      + dt*Re**-1*inner(grad(du), grad(v)) - dt*div(du)*q - dt*dp*div(v) + dt*1e-10*dp*q) )
+    l = LinearForm((v, q),             integral(domain, dot(u,v)-dot(u0,v) + dt*dot(Transpose(grad(u))*u, v)
+                                                      + dt*Re**-1*inner(grad(u), grad(v)) - dt*div(u)*q - dt*p*div(v) + dt*1e-10*p*q) )
 
     # use the stokes equation to compute the initial solution
-    a_stokes = BilinearForm(((du,dp),(v, q)), integral(domain, Re**-1*inner(grad(du), grad(v)) + div(du)*q + dp*div(v) + 1e-10*dp*q) )
+    a_stokes = BilinearForm(((du,dp),(v, q)), integral(domain, Re**-1*inner(grad(du), grad(v)) - div(du)*q - dp*div(v) + 1e-10*dp*q) )
     l_stokes = LinearForm((v, q), integral(domain, dot(v,Tuple(0,0)) ))
 
     equation        = find((du, dp), forall=(v, q), lhs=a((du, dp), (v, q)), rhs=l(v, q), bc=bc)
@@ -148,7 +158,8 @@ def run_navier_stokes_2d_2(filename, dt_h, nt, newton_tol=1e-5, max_newton_iter=
     solutions[-1][1].coeffs[:,:] = u_h[1].coeffs[:,:]
     Tf = dt_h*(nt+1)
     t  = 0
-    from time import time
+
+    solver = scipy_solver if scipy else psydac_solver
 
     while t<Tf:
         t += dt_h
@@ -167,10 +178,10 @@ def run_navier_stokes_2d_2(filename, dt_h, nt, newton_tol=1e-5, max_newton_iter=
             M = a_h.assemble(u=u_h, p=p_h, dt=dt_h)
             b = l_h.assemble(u=u_h, p=p_h, u0=u0_h, dt=dt_h)
 
-            apply_essential_bc(M, *equation_h.bc)
+            apply_essential_bc(M, *equation_h.bc, identity=True)
             apply_essential_bc(b, *equation_h.bc)
 
-            x,info = lsmr(M, M.T, b, maxiter=10000, tol=1e-7)
+            x,info = solver(M, b)
 
             du_h[0].coeffs[:] = x[0][:]
             du_h[1].coeffs[:] = x[1][:]
@@ -210,7 +221,7 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
     """
     # Maximum number of Newton iterations and convergence tolerance
     N = 20
-    TOL = 1e-12
+    TOL = 1e-4
 
     # ... abstract model
     V1 = VectorFunctionSpace('V1', domain, kind='H1')
@@ -348,11 +359,10 @@ def test_navier_stokes_2d():
     from sympde.calculus import laplace, grad
     from sympde.expr     import TerminalExpr
 
-    kwargs = dict(dim=2, logical=True)
-    a = TerminalExpr(-mu*laplace(ue), **kwargs)
-    b = TerminalExpr(    grad(ue), **kwargs)
-    c = TerminalExpr(    grad(pe), **kwargs)
-    f = (a.T + b.T*ue + c).simplify()
+    a = TerminalExpr(-mu*laplace(ue), domain)
+    b = TerminalExpr(    grad(ue), domain)
+    c = TerminalExpr(    grad(pe), domain)
+    f = (a + b.T*ue + c).simplify()
 
     fx = -mu*(ux.diff(x, 2) + ux.diff(y, 2)) + ux*ux.diff(x) + uy*ux.diff(y) + pe.diff(x)
     fy = -mu*(uy.diff(x, 2) - uy.diff(y, 2)) + ux*uy.diff(x) + uy*uy.diff(y) + pe.diff(y)
@@ -365,7 +375,7 @@ def test_navier_stokes_2d():
 
     # Run test
 
-    l2_error_u, l2_error_p = run_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2])
+    l2_error_u, l2_error_p = run_steady_state_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2])
 
     # Check that expected absolute error on velocity and pressure fields
     assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
@@ -397,11 +407,10 @@ def test_navier_stokes_2d_parallel():
     from sympde.calculus import laplace, grad
     from sympde.expr     import TerminalExpr
 
-    kwargs = dict(dim=2, logical=True)
-    a = TerminalExpr(-mu*laplace(ue), **kwargs)
-    b = TerminalExpr(    grad(ue), **kwargs)
-    c = TerminalExpr(    grad(pe), **kwargs)
-    f = (a.T + b.T*ue + c).simplify()
+    a = TerminalExpr(-mu*laplace(ue), domain)
+    b = TerminalExpr(    grad(ue), domain)
+    c = TerminalExpr(    grad(pe), domain)
+    f = (a + b.T*ue + c).simplify()
 
     fx = -mu*(ux.diff(x, 2) + ux.diff(y, 2)) + ux*ux.diff(x) + uy*ux.diff(y) + pe.diff(x)
     fy = -mu*(uy.diff(x, 2) - uy.diff(y, 2)) + ux*uy.diff(x) + uy*uy.diff(y) + pe.diff(y)
@@ -414,7 +423,7 @@ def test_navier_stokes_2d_parallel():
 
     # Run test
 
-    l2_error_u, l2_error_p = run_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2])
+    l2_error_u, l2_error_p = run_steady_state_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2])
 
     # Check that expected absolute error on velocity and pressure fields
     assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
@@ -440,13 +449,14 @@ if __name__ == '__main__':
     from time       import time
     filename = '../../../mesh/bent_pipe.h5'
 
-    nt   = 50
+    Tf   = 3.
     dt_h = 0.05
-    solutions, p_h, domain, domain_h = run_navier_stokes_2d_2(filename, dt_h=dt_h, nt=nt)
+    nt   = Tf//dt_h
+    solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, scipy=False)
 
     domain = domain.logical_domain
     mapping = domain_h.mappings['patch_0']
 
     anim = animate_field(solutions, domain, mapping, res=(150,150), progress=True)
-    anim.save('animated_fields.mp4', writer=animation.FFMpegWriter(fps=60))
+    anim.save('animated_fields_{}_{}.mp4'.format(str(Tf).replace('.','_'), str(dt_h).replace('.','_')), writer=animation.FFMpegWriter(fps=60))
     
