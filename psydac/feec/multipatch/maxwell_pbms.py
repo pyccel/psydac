@@ -503,6 +503,16 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
             omega = 43/2
             # alpha  = -omega**2  # not a square eigenvalue
             J_factor = 100
+
+        elif domain_name in ['curved_L_shape']:
+            r0 = np.pi/4
+            dr = 0.1
+            x0 = np.pi/2
+            y0 = np.pi/2
+            omega = 43/2
+            # alpha  = -omega**2  # not a square eigenvalue
+            J_factor = 100
+
         else:
             # for pretzel
 
@@ -581,7 +591,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument( '--domain',
-        choices = ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug'],
+        choices = ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_f', 'pretzel_annulus', 'pretzel_debug'],
         default = 'curved_L_shape',
         help    = 'Domain'
     )

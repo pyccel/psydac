@@ -212,8 +212,9 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             [domain_5.get_boundary(axis=1, ext=+1), domain_8.get_boundary(axis=1, ext=-1),1],
         ]
 
-    elif domain_name in ['pretzel', 'pretzel_annulus', 'pretzel_debug']:
+    elif domain_name in ['pretzel', 'pretzel_f', 'pretzel_annulus', 'pretzel_debug']:
         # pretzel-shaped domain with quarter-annuli and quadrangles -- setting parameters
+        # note: 'pretzel_f' is a bit finer than 'pretzel', to have a roughly uniform resolution (patches of approx same size)
         if r_min is None:
             r_min=1 # smaller radius of quarter-annuli
         if r_max is None:
@@ -229,9 +230,25 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         mapping_1 = PolarMapping('M1',2, c1= h, c2= h, rmin = 0., rmax=1.)
         domain_1  = mapping_1(dom_log_1)
 
+        dom_log_1_1 = Square('dom1_1',bounds1=(r_min, r_max), bounds2=(0, np.pi/4))
+        mapping_1_1 = PolarMapping('M1_1',2, c1= h, c2= h, rmin = 0., rmax=1.)
+        domain_1_1  = mapping_1_1(dom_log_1_1)
+
+        dom_log_1_2 = Square('dom1_2',bounds1=(r_min, r_max), bounds2=(np.pi/4, np.pi/2))
+        mapping_1_2 = PolarMapping('M1_2',2, c1= h, c2= h, rmin = 0., rmax=1.)
+        domain_1_2  = mapping_1_2(dom_log_1_2)
+
         dom_log_2 = Square('dom2',bounds1=(r_min, r_max), bounds2=(np.pi/2, np.pi))
         mapping_2 = PolarMapping('M2',2, c1= -h, c2= h, rmin = 0., rmax=1.)
         domain_2  = mapping_2(dom_log_2)
+
+        dom_log_2_1 = Square('dom2_1',bounds1=(r_min, r_max), bounds2=(np.pi/2, np.pi*3/4))
+        mapping_2_1 = PolarMapping('M2_1',2, c1= -h, c2= h, rmin = 0., rmax=1.)
+        domain_2_1  = mapping_2_1(dom_log_2_1)
+
+        dom_log_2_2 = Square('dom2_2',bounds1=(r_min, r_max), bounds2=(np.pi*3/4, np.pi))
+        mapping_2_2 = PolarMapping('M2_2',2, c1= -h, c2= h, rmin = 0., rmax=1.)
+        domain_2_2  = mapping_2_2(dom_log_2_2)
 
         # for debug:
         dom_log_10 = Square('dom10',bounds1=(r_min, r_max), bounds2=(np.pi/2, np.pi))
@@ -242,9 +259,25 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         mapping_3 = PolarMapping('M3',2, c1= -h, c2= 0, rmin = 0., rmax=1.)
         domain_3  = mapping_3(dom_log_3)
 
+        dom_log_3_1 = Square('dom3_1',bounds1=(r_min, r_max), bounds2=(np.pi, np.pi*5/4))
+        mapping_3_1 = PolarMapping('M3_1',2, c1= -h, c2= 0, rmin = 0., rmax=1.)
+        domain_3_1  = mapping_3_1(dom_log_3_1)
+
+        dom_log_3_2 = Square('dom3_2',bounds1=(r_min, r_max), bounds2=(np.pi*5/4, np.pi*3/2))
+        mapping_3_2 = PolarMapping('M3_2',2, c1= -h, c2= 0, rmin = 0., rmax=1.)
+        domain_3_2  = mapping_3_2(dom_log_3_2)
+
         dom_log_4 = Square('dom4',bounds1=(r_min, r_max), bounds2=(np.pi*3/2, np.pi*2))
         mapping_4 = PolarMapping('M4',2, c1= h, c2= 0, rmin = 0., rmax=1.)
         domain_4  = mapping_4(dom_log_4)
+
+        dom_log_4_1 = Square('dom4_1',bounds1=(r_min, r_max), bounds2=(np.pi*3/2, np.pi*7/4))
+        mapping_4_1 = PolarMapping('M4_1',2, c1= h, c2= 0, rmin = 0., rmax=1.)
+        domain_4_1  = mapping_4_1(dom_log_4_1)
+
+        dom_log_4_2 = Square('dom4_2',bounds1=(r_min, r_max), bounds2=(np.pi*7/4, np.pi*2))
+        mapping_4_2 = PolarMapping('M4_2',2, c1= h, c2= 0, rmin = 0., rmax=1.)
+        domain_4_2  = mapping_4_2(dom_log_4_2)
 
         dom_log_5 = Square('dom5',bounds1=(-hr,hr) , bounds2=(-h/2, h/2))
         mapping_5 = get_2D_rotation_mapping('M5', c1=h/2, c2=cr , alpha=np.pi/2)
@@ -266,6 +299,15 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         mapping_9 = get_2D_rotation_mapping('M9', c1=0, c2=h-cr , alpha=np.pi*3/2)
         domain_9  = mapping_9(dom_log_9)
 
+        dom_log_9_1 = Square('dom9_1',bounds1=(-hr,hr) , bounds2=(-h, 0))
+        mapping_9_1 = get_2D_rotation_mapping('M9_1', c1=0, c2=h-cr , alpha=np.pi*3/2)
+        domain_9_1  = mapping_9_1(dom_log_9_1)
+
+        dom_log_9_2 = Square('dom9_2',bounds1=(-hr,hr) , bounds2=(0, h))
+        mapping_9_2 = get_2D_rotation_mapping('M9_2', c1=0, c2=h-cr , alpha=np.pi*3/2)
+        domain_9_2  = mapping_9_2(dom_log_9_2)
+
+
         # dom_log_10 = Square('dom10',bounds1=(-hr,hr) , bounds2=(-h/2, h/2))
         # mapping_10 = get_2D_rotation_mapping('M10', c1=h/2, c2=h-cr , alpha=np.pi*3/2)
         # domain_10  = mapping_10(dom_log_10)
@@ -283,10 +325,25 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         mapping_13 = TransposedPolarMapping('M13',2, c1= -r_min-h, c2= r_min+h, rmin = 0., rmax=1.)
         domain_13  = mapping_13(dom_log_13)
 
+        dom_log_13_1 = Square('dom13_1',bounds1=(np.pi*3/2, np.pi*7/4), bounds2=(r_min, r_max))
+        mapping_13_1 = TransposedPolarMapping('M13_1',2, c1= -r_min-h, c2= r_min+h, rmin = 0., rmax=1.)
+        domain_13_1  = mapping_13_1(dom_log_13_1)
+
+        dom_log_13_2 = Square('dom13_2',bounds1=(np.pi*7/4, np.pi*2), bounds2=(r_min, r_max))
+        mapping_13_2 = TransposedPolarMapping('M13_2',2, c1= -r_min-h, c2= r_min+h, rmin = 0., rmax=1.)
+        domain_13_2  = mapping_13_2(dom_log_13_2)
+
         dom_log_14 = Square('dom14',bounds1=(np.pi, np.pi*3/2), bounds2=(r_min, r_max))
         mapping_14 = TransposedPolarMapping('M14',2, c1= r_min+h, c2= r_min+h, rmin = 0., rmax=1.)
-        #mapping_14 = get_2D_rotation_mapping('M14', c1=-2*np.pi, c2=0 , alpha=0)
         domain_14  = mapping_14(dom_log_14)
+
+        dom_log_14_1 = Square('dom14_1',bounds1=(np.pi, np.pi*5/4), bounds2=(r_min, r_max))      # STOP ICI: check domain
+        mapping_14_1 = TransposedPolarMapping('M14_1',2, c1= r_min+h, c2= r_min+h, rmin = 0., rmax=1.)
+        domain_14_1  = mapping_14_1(dom_log_14_1)
+
+        dom_log_14_2 = Square('dom14_2',bounds1=(np.pi*5/4, np.pi*3/2), bounds2=(r_min, r_max))
+        mapping_14_2 = TransposedPolarMapping('M14_2',2, c1= r_min+h, c2= r_min+h, rmin = 0., rmax=1.)
+        domain_14_2  = mapping_14_2(dom_log_14_2)
 
         # dom_log_15 = Square('dom15', bounds1=(-r_min-h, r_min+h), bounds2=(0, h))
         # mapping_15 = IdentityMapping('M15', 2)
@@ -322,6 +379,54 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
                 [domain_5.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=-1), 1],
                 [domain_12.get_boundary(axis=0, ext=-1), domain_14.get_boundary(axis=0, ext=+1),1],
                 ]
+
+        elif domain_name == 'pretzel_f':
+            domain = union([
+                            domain_1_1,
+                            domain_1_2,
+                            domain_2_1,
+                            domain_2_2,
+                            domain_3_1,
+                            domain_3_2,
+                            domain_4_1,
+                            domain_4_2,
+                            domain_5,
+                            domain_6,
+                            domain_7,
+                            domain_9_1,
+                            domain_9_2,
+                            domain_12,
+                            domain_13_1,
+                            domain_13_2,
+                            domain_14_1,
+                            domain_14_2,
+                            ], name = 'domain')
+
+            interfaces = [
+                [domain_1_1.get_boundary(axis=1, ext=+1), domain_1_2.get_boundary(axis=1, ext=-1), 1],
+                [domain_1_2.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),   1],
+                [domain_5.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=1),   1],
+                [domain_6.get_boundary(axis=1, ext=-1), domain_2_1.get_boundary(axis=1, ext=-1),  1],
+                [domain_2_1.get_boundary(axis=1, ext=+1), domain_2_2.get_boundary(axis=1, ext=-1),  1],
+                [domain_2_2.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1),  1],
+                [domain_7.get_boundary(axis=1, ext=+1), domain_3_1.get_boundary(axis=1, ext=-1),  1],
+                [domain_3_1.get_boundary(axis=1, ext=+1), domain_3_2.get_boundary(axis=1, ext=-1),  1],
+                [domain_3_2.get_boundary(axis=1, ext=+1), domain_9_1.get_boundary(axis=1, ext=-1),  1],
+                [domain_9_1.get_boundary(axis=1, ext=+1), domain_9_2.get_boundary(axis=1, ext=-1),  1],
+                [domain_9_2.get_boundary(axis=1, ext=+1), domain_4_1.get_boundary(axis=1, ext=-1),  1],
+                [domain_4_1.get_boundary(axis=1, ext=+1), domain_4_2.get_boundary(axis=1, ext=-1),  1],
+                [domain_4_2.get_boundary(axis=1, ext=+1), domain_12.get_boundary(axis=1, ext=1),  1],
+                [domain_12.get_boundary(axis=1, ext=-1), domain_1_1.get_boundary(axis=1, ext=-1), 1],
+                [domain_6.get_boundary(axis=0, ext=-1), domain_13_2.get_boundary(axis=0, ext=1),  1],
+                [domain_13_2.get_boundary(axis=0, ext=-1), domain_13_1.get_boundary(axis=0, ext=1),  1],
+                [domain_7.get_boundary(axis=0, ext=-1), domain_13_1.get_boundary(axis=0, ext=-1), 1],
+                [domain_5.get_boundary(axis=0, ext=-1), domain_14_1.get_boundary(axis=0, ext=-1), 1],
+                [domain_14_1.get_boundary(axis=0, ext=+1), domain_14_2.get_boundary(axis=0, ext=-1), 1],
+                [domain_12.get_boundary(axis=0, ext=-1), domain_14_2.get_boundary(axis=0, ext=+1),1],
+                ]
+
+        # reste: 13 et 14
+
         elif domain_name == 'pretzel_annulus':
             # only the annulus part of the pretzel (not the inner arcs)
 

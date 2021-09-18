@@ -34,61 +34,18 @@ def conga_operators_2d():
 
     """
 
-
-    #+++++++++++++++++++++++++++++++
-    # . Domain
-    #+++++++++++++++++++++++++++++++
-
-    # cartesian = False
-    # if cartesian:
-    #     mapping_1 = IdentityMapping('M1', 2)
-    #     mapping_2 = IdentityMapping('M2', 2)
-    #     mapping_3 = IdentityMapping('M3', 2)
-    #     mapping_4 = IdentityMapping('M4', 2)
-    # else:
-    #     mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    #     mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    #     mapping_3 = PolarMapping('M3',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    #     mapping_4 = PolarMapping('M4',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    #
-    # dom_log_1 = Square('dom1',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
-    # dom_log_2 = Square('dom2',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
-    # dom_log_3 = Square('dom3',bounds1=(0.5, 1.), bounds2=(np.pi, np.pi*3/2))
-    # dom_log_4 = Square('dom4',bounds1=(0.5, 1.), bounds2=(np.pi*3/2, np.pi*2))
-    #
-    # domain_1     = mapping_1(dom_log_1)
-    # domain_2     = mapping_2(dom_log_2)
-    # domain_3     = mapping_3(dom_log_3)
-    # domain_4     = mapping_4(dom_log_4)
-    #
-    # interfaces = [
-    #     [domain_1.get_boundary(axis=1, ext=1), domain_2.get_boundary(axis=1, ext=-1)],
-    #     [domain_2.get_boundary(axis=1, ext=1), domain_3.get_boundary(axis=1, ext=-1)],
-    #     [domain_3.get_boundary(axis=1, ext=1), domain_4.get_boundary(axis=1, ext=-1)],
-    #     [domain_4.get_boundary(axis=1, ext=1), domain_1.get_boundary(axis=1, ext=-1)]
-    #     ]
-    # domain = union([domain_1, domain_2, domain_3, domain_4], name = 'domain')
-    # domain = set_interfaces(domain, interfaces)
-    #
-    # mappings  = {
-    #     dom_log_1.interior:mapping_1,
-    #     dom_log_2.interior:mapping_2,
-    #     dom_log_3.interior:mapping_3,
-    #     dom_log_4.interior:mapping_4
-    # }  # Q (MCP): purpose of a dict ?
-
-    # domain, mappings = get_annulus_fourpatches(r_min=0.5, r_max=1)
-    # domain = get_pretzel(h=0.5, r_min=1, r_max=1.5, debug_option=2)
-
     r_min = 0.5
     r_max = 1
-    domain_name = 'pretzel'
+    # domain_name = 'pretzel'
+    domain_name = 'pretzel_f'
 
     domain = build_multipatch_domain(domain_name=domain_name, r_min=r_min, r_max=r_max)
 
-    print("int: ", domain.interior)
-    print("bound: ", domain.boundary)
-    print("len(bound): ", len(domain.boundary))
+    print("nb of patches: ", len(domain.interior))
+    print("interiors (patches): ", domain.interior)
+    print("nb of boundaries: ", len(domain.boundary))
+    print("boundaries: ", domain.boundary)
+    print("nb of interfaces: ", len(domain.interfaces))
     print("interfaces: ", domain.interfaces)
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
@@ -100,12 +57,14 @@ def conga_operators_2d():
     # multipatch de Rham sequence:
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
 
+    only_P0check = True
 
     #+++++++++++++++++++++++++++++++
     # . Discrete space
     #+++++++++++++++++++++++++++++++
 
-    ncells = [4, 4]
+    # ncells = [4, 4]
+    ncells = [2, 2]
     degree = [2, 2]
     nquads = [d + 1 for d in degree]
 
@@ -116,12 +75,6 @@ def conga_operators_2d():
     derham_h = discretize(derham, domain_h, degree=degree)
     V0h = derham_h.V0
     V1h = derham_h.V1
-
-    t_stamp = time_count(t_stamp)
-    print('# Mass...' )
-    # Mass matrices for multipatch spaces (block-diagonal)
-    M0 = BrokenMass(V0h, domain_h, is_scalar=True)
-    M1 = BrokenMass(V1h, domain_h, is_scalar=False)
 
     t_stamp = time_count(t_stamp)
     print('# Comm Proj...' )
@@ -137,13 +90,21 @@ def conga_operators_2d():
     Pconf_0 = ConformingProjection_V0(V0h, domain_h)#, verbose=False)
     Pconf_1 = ConformingProjection_V1(V1h, domain_h)# hom_bc=True)#, verbose=False)
 
-    t_stamp = time_count(t_stamp)
-    print('# broken derivatives...' )
-    # Broken derivative operators
-    bD0, bD1 = derham_h.broken_derivatives_as_operators
+    if only_P0check:
+        pass
+    else:
+        t_stamp = time_count(t_stamp)
+        print('# Mass...' )
+        # Mass matrices for multipatch spaces (block-diagonal)
+        M0 = BrokenMass(V0h, domain_h, is_scalar=True)
+        M1 = BrokenMass(V1h, domain_h, is_scalar=False)
+
+        t_stamp = time_count(t_stamp)
+        print('# broken derivatives...' )
+        # Broken derivative operators
+        bD0, bD1 = derham_h.broken_derivatives_as_operators
 
     t_stamp = time_count(t_stamp)
-    print('# CCC ...' )
 
     #+++++++++++++++++++++++++++++++
     # . some target functions
@@ -195,11 +156,37 @@ def conga_operators_2d():
     # D2fun1  = lambda xi1, xi2 : np.sin(xi1)*np.cos(xi2)
     # fun2    = lambda xi1, xi2 : .5*np.sin(xi1)*np.sin(xi2)
 
+    # for the plots:
+    N=20
+    etas, xx, yy = get_plotting_grid(mappings, N)
+    gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(V0h, N, mappings, plotted_patch=1)
+
+    grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
+    grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+
     # I. check the qualitative properties of the Conforming Projections
 
     # - in V0 with a discontinuous v
     v0   = P0(v_sol_log)
     v0c  = Pconf_0(v0)   # should be H1-conforming (ie, continuous)
+
+    if only_P0check:
+        # plot v, v0 and v0c
+        v_vals   = grid_vals_h1(v_sol_log)
+        v0_vals  = grid_vals_h1(v0)
+        v0c_vals = grid_vals_h1(v0c)
+
+        my_small_plot(
+            title=r'broken and conforming approximation of some $v$',
+            vals=[v_vals, v0_vals, v0c_vals],
+            titles=[r'$v^{ex}(x,y)$', r'$v^h(x,y)$', r'$P^{0,c} v^h(x,y)$'],
+            xx=xx, yy=yy,
+            surface_plot=True,
+            cmap='jet'
+        )
+
+        exit()
+
     cDv0 = bD0(v0c)
 
     D0 = ComposedLinearOperator([bD0, Pconf_0])
@@ -231,13 +218,6 @@ def conga_operators_2d():
     #   adapted from examples/poisson_2d_multi_patch.py and
     #   and psydac/api/tests/test_api_feec_2d.py
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-    N=80
-    etas, xx, yy = get_plotting_grid(mappings, N)
-    gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(V0h, N, mappings, plotted_patch=1)
-
-    grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
-    grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
 
     # I - 1. qualitative assessment of conf Projection in V0, with discontinuous v
 
