@@ -1073,9 +1073,6 @@ class StencilMatrix( Matrix ):
     def T(self):
         return self.transpose()
 
-    def create_right_vec(self):
-        return StencilVector(self.domain)
-
     # ...
     def topetsc( self ):
         """ Convert to petsc data structure.

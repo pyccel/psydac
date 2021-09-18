@@ -823,7 +823,7 @@ def lsmr(A, At, b, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim
     normb = sqrt(b.dot(b))
     if x0 is None:
         if not isinstance(A, np.ndarray):
-            x = A.create_right_vec()
+            x = A.domain.zeros()
         else:
             x = np.zeros(n, dtype=A.dtype)
         beta = normb

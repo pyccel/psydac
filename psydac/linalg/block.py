@@ -487,8 +487,6 @@ class BlockLinearOperator( LinearOperator ):
     def T(self):
         return self.transpose()
 
-    def create_right_vec(self):
-        return BlockVector(self.domain)
 #===============================================================================
 class BlockMatrix( BlockLinearOperator, Matrix ):
     """
