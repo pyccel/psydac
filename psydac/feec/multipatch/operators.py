@@ -26,14 +26,6 @@ from psydac.feec.global_projectors               import Projector_H1, Projector_
 from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
-DEBUG_BCK = False   ## DEBUG
-# DEBUG_BCK = True   ## DEBUG
-
-if DEBUG_BCK:
-    print("psydac/feec/multipatch/operators.py [DEBUG_BCK]: WITH numba backends")
-else:
-    print("psydac/feec/multipatch/operators.py [DEBUG_BCK]: WITHOUT numba backends")
-
 import time
 def time_count(t_stamp=None):
     new_t_stamp = time.time()
@@ -168,7 +160,7 @@ def allocate_matrix(corners, test_space, trial_space):
     return mat
 
 #===============================================================================
-class ConformingProjection_V0( FemLinearOperator ):
+class ConformingProjection_V0( FemLinearOperator):
     """
     Conforming projection from global broken space to conforming global space
     Defined by averaging of interface dofs
@@ -176,7 +168,7 @@ class ConformingProjection_V0( FemLinearOperator ):
     # todo (MCP, 16.03.2021):
     #   - avoid discretizing a bilinear form
     #   - allow case without interfaces (single or multipatch)
-    def __init__(self, V0h, domain_h, hom_bc=False):
+    def __init__(self, V0h, domain_h, hom_bc=False, backend_language='python'):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
@@ -191,12 +183,7 @@ class ConformingProjection_V0( FemLinearOperator ):
         expr_I = ( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
-
-        if DEBUG_BCK:
-            ah = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS['numba'])
-        else:
-            ah = discretize(a, domain_h, [V0h, V0h])
-
+        ah = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS[backend_language])
 
         self._A = ah.assemble()
 
@@ -368,7 +355,7 @@ class ConformingProjection_V1( FemLinearOperator ):
     #   - extend to several interfaces
     #   - avoid discretizing a bilinear form
     #   - allow case without interfaces (single or multipatch)
-    def __init__(self, V1h, domain_h, hom_bc=False):
+    def __init__(self, V1h, domain_h, hom_bc=False, backend_language='python'):
 
         FemLinearOperator.__init__(self, fem_domain=V1h)
 
@@ -383,11 +370,7 @@ class ConformingProjection_V1( FemLinearOperator ):
         expr_I = dot( plus(u)-minus(u) , plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
-
-        if DEBUG_BCK:
-            ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS['numba'])
-        else:
-            ah = discretize(a, domain_h, [V1h, V1h])
+        ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend_language])
 
         self._A = ah.assemble()
 
@@ -534,7 +517,7 @@ class BrokenMass( FemLinearOperator ):
     # TODO: (MCP 16.03.2021) define also the inverse Hodge
 
     """
-    def __init__( self, Vh, domain_h, is_scalar):
+    def __init__( self, Vh, domain_h, is_scalar, backend_language='python'):
 
         FemLinearOperator.__init__(self, fem_domain=Vh)
 
@@ -547,11 +530,7 @@ class BrokenMass( FemLinearOperator ):
         else:
             expr   = dot(u,v)
         a = BilinearForm((u,v), integral(domain, expr))
-        if DEBUG_BCK:
-            ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['numba'])   # 'pyccel-gcc'])
-        else:
-        # print("-- no numba in BrokenMass --")
-            ah = discretize(a, domain_h, [Vh, Vh])   # 'pyccel-gcc'])
+        ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])   # 'pyccel-gcc'])
 
         self._matrix = ah.assemble() #.toarray()
 
@@ -626,7 +605,7 @@ class BrokenTransposedScalarCurl_2D( FemLinearOperator ):
 from sympy import Tuple
 
 # def multipatch_Moments_Hcurl(f, V1h, domain_h):
-def ortho_proj_Hcurl(EE, V1h, domain_h, M1):
+def ortho_proj_Hcurl(EE, V1h, domain_h, M1, backend_language='python'):
     """
     return orthogonal projection of E on V1h, given M1 the mass matrix
     """
@@ -634,10 +613,7 @@ def ortho_proj_Hcurl(EE, V1h, domain_h, M1):
     V1 = V1h.symbolic_space
     v = element_of(V1, name='v')
     l = LinearForm(v, integral(V1.domain, dot(v,EE)))
-    if DEBUG_BCK:
-        lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
-    else:
-        lh = discretize(l, domain_h, V1h)
+    lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
     b = lh.assemble()
     sol_coeffs, info = pcg(M1.mat(), b, pc="jacobi", tol=1e-10)
 

@@ -112,7 +112,7 @@ def get_load_dir(method=None, domain_name=None,nc=None,deg=None,data='matrices')
 
 
 # ---------------------------------------------------------------------------------------------------------------
-def nitsche_curl_curl_2d(domain, V, ncells, degree, gamma_h=None, k=None, load_dir=None):
+def nitsche_curl_curl_2d(domain_h, Vh, gamma_h=None, k=None, load_dir=None, backend_language='python'):
     """
     computes
         K_m the k-IP matrix of the curl-curl operator with penalization parameter gamma
@@ -142,7 +142,8 @@ def nitsche_curl_curl_2d(domain, V, ncells, degree, gamma_h=None, k=None, load_d
         # 1. Abstract model
         #+++++++++++++++++++++++++++++++
 
-        # V  = VectorFunctionSpace('V', domain, kind='hcurl')
+        V = Vh.symbolic_space
+        domain = V.domain
 
         u, v, F  = elements_of(V, names='u, v, F')
         nn  = NormalVector('nn')
@@ -175,21 +176,21 @@ def nitsche_curl_curl_2d(domain, V, ncells, degree, gamma_h=None, k=None, load_d
         # 2. Discretization
         #+++++++++++++++++++++++++++++++
 
-        domain_h = discretize(domain, ncells=ncells, comm=comm)
-        Vh       = discretize(V, domain_h, degree=degree,basis='M')
+        # domain_h = discretize(domain, ncells=ncells, comm=comm)
+        # Vh       = discretize(V, domain_h, degree=degree,basis='M')
 
         # unpenalized curl-curl matrix (incomplete)
-        a_h = discretize(a_cc, domain_h, [Vh, Vh])
+        a_h = discretize(a_cc, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
         A = a_h.assemble()
         CC_m  = A.tosparse().tocsr()
 
         # symmetrization part (for SIP or NIP curl-curl matrix)
-        a_h = discretize(a_cs, domain_h, [Vh, Vh])
+        a_h = discretize(a_cs, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
         A = a_h.assemble()
         CS_m  = A.tosparse().tocsr()
 
         # jump penalization matrix
-        a_h = discretize(a_jp, domain_h, [Vh, Vh])
+        a_h = discretize(a_jp, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
         A = a_h.assemble()
         JP_m  = A.tosparse().tocsr()
 
@@ -200,6 +201,7 @@ def nitsche_curl_curl_2d(domain, V, ncells, degree, gamma_h=None, k=None, load_d
         save_npz(load_dir+'CC_m.npz', CC_m)
         save_npz(load_dir+'CS_m.npz', CS_m)
         save_npz(load_dir+'JP_m.npz', JP_m)
+        time_count(t_stamp)
 
     K_m = CC_m + k*CS_m + gamma_h*JP_m
 
@@ -207,7 +209,7 @@ def nitsche_curl_curl_2d(domain, V, ncells, degree, gamma_h=None, k=None, load_d
 
 
 # ---------------------------------------------------------------------------------------------------------------
-def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None):
+def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_language='python'):
 
     if os.path.exists(load_dir):
         print(" -- load directory " + load_dir + " found -- will load the CONGA matrices from there...")
@@ -236,9 +238,9 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None):
         # Mass matrices for broken spaces (block-diagonal)
         t_stamp = time_count()
         print("assembling mass matrix operators...")
-        M0 = BrokenMass(V0h, domain_h, is_scalar=True)
-        M1 = BrokenMass(V1h, domain_h, is_scalar=False)
-        M2 = BrokenMass(V2h, domain_h, is_scalar=True)
+        M0 = BrokenMass(V0h, domain_h, is_scalar=True, backend_language=backend_language)
+        M1 = BrokenMass(V1h, domain_h, is_scalar=False, backend_language=backend_language)
+        M2 = BrokenMass(V2h, domain_h, is_scalar=True, backend_language=backend_language)
 
         t_stamp = time_count(t_stamp)
         print("assembling broken derivative operators...")
@@ -247,10 +249,10 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None):
         t_stamp = time_count(t_stamp)
         print("assembling conf projection operators...")
         # todo: disable the non-hom-bc operators for hom-bc pretzel test cases...
-        cP0 = ConformingProjection_V0(V0h, domain_h, hom_bc=False)
-        cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=False)
-        cP0_hom = ConformingProjection_V0(V0h, domain_h, hom_bc=True)
-        cP1_hom = ConformingProjection_V1(V1h, domain_h, hom_bc=True)
+        cP0 = ConformingProjection_V0(V0h, domain_h, hom_bc=False, backend_language=backend_language)
+        cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=False, backend_language=backend_language)
+        cP0_hom = ConformingProjection_V0(V0h, domain_h, hom_bc=True, backend_language=backend_language)
+        cP1_hom = ConformingProjection_V1(V1h, domain_h, hom_bc=True, backend_language=backend_language)
 
         # t_stamp = time_count(t_stamp)
         # print("assembling conga derivative operators...")
@@ -650,6 +652,11 @@ if __name__ == '__main__':
     ncells = [nc, nc]
     degree = [deg,deg]
 
+    if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
+        backend_language='numba'
+    else:
+        backend_language='python'
+
     fem_name = get_fem_name(method=method, k=k, domain_name=domain_name,nc=nc,deg=deg) #domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
 
     print('--------------------------------------------------------------------------------------------------------------')
@@ -681,7 +688,7 @@ if __name__ == '__main__':
     t_stamp = time_count(t_stamp)
     print('discretizing the de Rham seq with degree = '+repr(degree)+'...' )
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-    derham_h = discretize(derham, domain_h, degree=degree) #, backend=PSYDAC_BACKENDS['numba'])
+    derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
     V0h = derham_h.V0
     V1h = derham_h.V1
     V2h = derham_h.V2
@@ -692,7 +699,7 @@ if __name__ == '__main__':
     #     print(' -- note: discarding absent load directory')
     #     load_dir = None
     M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m = get_elementary_conga_matrices(
-        domain_h, derham_h, load_dir=load_dir
+        domain_h, derham_h, load_dir=load_dir, backend_language=backend_language
     )
 
     # jump penalization factor:
@@ -755,7 +762,7 @@ if __name__ == '__main__':
         K_hom_m, K_bc_m = conga_curl_curl_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m, gamma_h=gamma_h, hom_bc=hom_bc)
     elif method == 'nitsche':
         load_dir = get_load_dir(method='nitsche', domain_name=domain_name, nc=nc, deg=deg)
-        K_hom_m = nitsche_curl_curl_2d(domain, V=derham.V1, ncells=ncells, degree=degree, gamma_h=gamma_h, k=k, load_dir=load_dir)
+        K_hom_m = nitsche_curl_curl_2d(domain_h, Vh=V1h, gamma_h=gamma_h, k=k, load_dir=load_dir, backend_language=backend_language)
         # no lifting of bc (for now):
         K_bc_m = None
     else:
@@ -829,7 +836,7 @@ if __name__ == '__main__':
             u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
             expr = dot(f,v)
             l = LinearForm(v, integral(domain, expr))
-            lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
+            lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
             b  = lh.assemble()
             b_c = b.toarray()
 
@@ -856,14 +863,14 @@ if __name__ == '__main__':
                 # nitsche symmetrization term:
                 expr_bs = cross(nn, E_bc)*curl(v)
                 ls = LinearForm(v, integral(boundary, expr_bs))
-                lsh = discretize(ls, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
+                lsh = discretize(ls, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
                 bs  = lsh.assemble()
                 bs_c = bs.toarray()
 
                 # nitsche penalization term:
                 expr_bp = cross(nn, E_bc) * cross(nn, v)
                 lp = LinearForm(v, integral(boundary, expr_bp))
-                lph = discretize(ls, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
+                lph = discretize(ls, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
                 bp  = lph.assemble()
                 bp_c = bp.toarray()
 
