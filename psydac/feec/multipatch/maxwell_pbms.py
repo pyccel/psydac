@@ -456,6 +456,7 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
 
     # bc solution: describe the bc on boundary. Inside domain, values should not matter. Homogeneous bc will be used if None
     E_bc = None
+    E_ex = None
 
     x,y    = domain.coordinates
 
@@ -554,7 +555,7 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
     else:
         raise ValueError(source_type)
 
-    return f, E_bc, E_ref_vals
+    return f, E_bc, E_ref_vals, E_ex
 
 if __name__ == '__main__':
 
@@ -667,7 +668,10 @@ if __name__ == '__main__':
     mappings_list = list(mappings.values())
 
     # plotting and diagnostics
-    N_diag = 100  # should match the grid resolution of the stored E_ref...
+    if domain_name == 'curved_L_shape':
+        N_diag = 200
+    else:
+        N_diag = 100  # should match the grid resolution of the stored E_ref...
 
     # node based grid (to better see the smoothness)
     etas, xx, yy = get_plotting_grid(mappings, N=N_diag)
@@ -678,7 +682,8 @@ if __name__ == '__main__':
     # grid_vals_h1_cdiag = lambda v: get_grid_vals_scalar(v, etas_cdiag, mappings_list, space_kind='h1')
     grid_vals_hcurl_cdiag = lambda v: get_grid_vals_vector(v, etas_cdiag, mappings_list, space_kind='hcurl')
 
-    plot_dir = './plots/'+fem_name+'/'
+    # todo: add some identifiers for secondary parameters (eg gamma_h, proj_sol ...)
+    plot_dir = './plots/'+source_type+'_'+fem_name+'/'
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
@@ -730,7 +735,7 @@ if __name__ == '__main__':
         # source_type = 'ring_J'
         # source_type = 'manu_sol'
 
-        f, E_bc, E_ref_vals = get_source_and_solution(source_type=source_type, eta=eta, domain=domain, refsol_params=[nc_ref, deg_ref, N_diag, method_ref])
+        f, E_bc, E_ref_vals, E_ex = get_source_and_solution(source_type=source_type, eta=eta, domain=domain, refsol_params=[nc_ref, deg_ref, N_diag, method_ref])
 
         solutions_dir = get_load_dir(method=method, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
         if E_ref_vals is None:
@@ -982,15 +987,19 @@ if __name__ == '__main__':
                     cmap='plasma',
                     dpi=400,
                 )
-
+            if domain_name in ['pretzel','pretzel_f']:
+                vf_amp = .1
+            else:
+                vf_amp = .05
             my_small_streamplot(
                 title='source J',
                 vals_x=fh_x_vals,
                 vals_y=fh_y_vals,
+                skip=10,
                 xx=xx, yy=yy,
                 save_fig=plot_dir+'Jh_vf.png',
                 hide_plot=hide_plots,
-                amplification=.05,
+                amplification=vf_amp,
             )
 
 
@@ -1026,14 +1035,18 @@ if __name__ == '__main__':
 
         # smooth plotting with node-valued grid
         Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
+        if domain_name in ['pretzel','pretzel_f']:
+            vf_amp = 2
+        else:
+            vf_amp = 1
         my_small_streamplot(
             title=r'discrete field $E_h$',  # for $\omega = $'+repr(omega),
             vals_x=Eh_x_vals,
             vals_y=Eh_y_vals,
-            skip=1,
+            skip=10,
             xx=xx,
             yy=yy,
-            amplification=1,
+            amplification=vf_amp,
             save_fig=plot_dir+'Eh_vf.png',
             hide_plot=hide_plots,
             dpi = 200,
@@ -1077,6 +1090,20 @@ if __name__ == '__main__':
             l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag, quad_weights)]))**0.5
             err_message = 'error for nc = {0} with gamma_h = {1} and proj_sol = {2}: {3}\n'.format(nc, gamma_h, proj_sol, l2_error)
             print(err_message)
+
+            debug_err = True
+            if debug_err and E_ex is not None:
+
+                P0, P1, P2 = derham_h.projectors(nquads=nquads)
+                E_x = lambdify(domain.coordinates, E_ex[0])
+                E_y = lambdify(domain.coordinates, E_ex[1])
+                E_log = [pull_2d_hcurl([E_x, E_y], f) for f in mappings_list]
+                Ex_h = P1(E_log)
+                Ex_c = Ex_h.coeffs.toarray()
+                err_c = Ex_c-Eh_c
+                err_norm = np.dot(err_c,M1_m.dot(err_c))**0.5
+                print('--- ** --- check: L2 error in V1h: {}'.format(err_norm))
+
             error_filename = error_fn(source_type=source_type, method=method, k=k, domain_name=domain_name,deg=deg)
             if not os.path.exists(error_filename):
                 open(error_filename, 'w')
