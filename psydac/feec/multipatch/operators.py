@@ -26,8 +26,8 @@ from psydac.feec.global_projectors               import Projector_H1, Projector_
 from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
-# DEBUG_BCK = False   ## DEBUG
-DEBUG_BCK = True   ## DEBUG
+DEBUG_BCK = False   ## DEBUG
+# DEBUG_BCK = True   ## DEBUG
 
 if DEBUG_BCK:
     print("psydac/feec/multipatch/operators.py [DEBUG_BCK]: WITH numba backends")

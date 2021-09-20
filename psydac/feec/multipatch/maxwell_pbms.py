@@ -55,7 +55,7 @@ from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLin
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
 from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, time_count
-from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
+from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector, get_grid_quad_weights
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain, get_ref_eigenvalues
 
@@ -63,15 +63,19 @@ comm = MPI.COMM_WORLD
 
 # ---------------------------------------------------------------------------------------------------------------
 # small utility for saving/loading sparse matrices, plots...
+def rhs_fn(source_type):
+    return 'rhs_'+source_type+'.npz'
+
 def E_ref_fn(source_type, N_diag):
     return 'E_ref_'+source_type+'_N'+repr(N_diag)+'.npz'
 
 def Eh_coeffs_fn(source_type, N_diag):
     return 'Eh_coeffs_'+source_type+'_N'+repr(N_diag)+'.npz'
 
-def get_fem_name(method=None, k=None, domain_name=None,nc=None,deg=None):
-    assert domain_name and nc and deg
-    assert method is not None
+def error_fn(source_type=None, method=None, k=None, domain_name=None,deg=None):
+    return 'errors/error_'+domain_name+'_'+'_deg'+repr(deg)+get_method_name(method, k)+'_'+source_type+'.txt'
+
+def get_method_name(method=None, k=None):
     if method == 'nitsche':
         method_name = method
         if k==1:
@@ -85,10 +89,16 @@ def get_fem_name(method=None, k=None, domain_name=None,nc=None,deg=None):
     else:
         method_name = method
         assert method == 'conga'
+    return method_name
+
+def get_fem_name(method=None, k=None, domain_name=None,nc=None,deg=None):
+    assert domain_name and nc and deg
+    assert method is not None
+    method_name = get_method_name(method, k)
     return domain_name+'_nc'+repr(nc)+'_deg'+repr(deg)+'_'+method_name
 
 def get_load_dir(method=None, domain_name=None,nc=None,deg=None,data='matrices'):
-    assert data in ['matrices','solutions']
+    assert data in ['matrices','solutions','rhs']
     fem_name = get_fem_name(method=method, domain_name=domain_name,nc=nc,deg=deg)
     return './saved_'+data+'/'+fem_name+'/'
 
@@ -609,6 +619,16 @@ if __name__ == '__main__':
         help    = 'type of Nitsche IP method (NIP, IIP, SIP)'
     )
 
+    parser.add_argument( '--proj_sol',
+        action  = 'store_true',
+        help    = 'whether cP1 is applied to solution of source problem'
+    )
+
+    parser.add_argument( '--hide_plots',
+        action  = 'store_true',
+        help    = 'whether plots are hidden (and saved)'
+    )
+
     parser.add_argument( '--gamma',
         type    = float,
         default = -1,
@@ -647,10 +667,12 @@ if __name__ == '__main__':
     method      = args.method
     gamma       = args.gamma
     k           = args.k
+    proj_sol    = args.proj_sol
     operator    = args.operator
     problem     = args.problem
     source_type = args.source
     eta         = args.eta
+    hide_plots  = args.hide_plots
 
     ncells = [nc, nc]
     degree = [deg,deg]
@@ -679,6 +701,10 @@ if __name__ == '__main__':
     etas_cdiag, xx_cdiag, yy_cdiag, patch_logvols = get_plotting_grid(mappings, N=N_diag, centered_nodes=True, return_patch_logvols=True)
     # grid_vals_h1_cdiag = lambda v: get_grid_vals_scalar(v, etas_cdiag, mappings_list, space_kind='h1')
     grid_vals_hcurl_cdiag = lambda v: get_grid_vals_vector(v, etas_cdiag, mappings_list, space_kind='hcurl')
+
+    plot_dir = './plots/'+fem_name+'/'
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
 
     print('discretizing the domain with ncells = '+repr(ncells)+'...' )
     domain_h = discretize(domain, ncells=ncells, comm=comm)
@@ -719,7 +745,7 @@ if __name__ == '__main__':
 
         # source and ref solution
         nc_ref = 30
-        deg_ref = 6
+        deg_ref = 8
         method_ref = 'conga'
         # source_type = 'ring_J'
         # source_type = 'manu_sol'
@@ -730,13 +756,17 @@ if __name__ == '__main__':
         if E_ref_vals is None:
             E_ref_filename = solutions_dir+E_ref_fn(source_type, N_diag)
             print("-- no ref solution, so I will save the present solution instead, in file '"+E_ref_filename+"' --")
+            # ok but why saving this only if no ref solution available ?
             save_E_ref = True
             if not os.path.exists(solutions_dir):
                 os.makedirs(solutions_dir)
 
-        save_Eh = True
+        # disabled for now -- if with want to save the coeffs we need to store more parameters (gamma, proj_sol, etc...)
+        save_Eh = False
         Eh_filename = solutions_dir+Eh_coeffs_fn(source_type, N_diag)
         print("-- I will also save the present solution coefficients in file '"+Eh_filename+"' --")
+        if not os.path.exists(solutions_dir):
+            os.makedirs(solutions_dir)
 
         hom_bc = (E_bc is None)
     else:
@@ -810,19 +840,34 @@ if __name__ == '__main__':
             A_bc_m = None
 
         # assembling RHS
-        u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
-        expr = dot(f,v)
-        if method == 'nitsche' and not hom_bc:
-            nn  = NormalVector('nn')
-            boundary = domain.boundary
-            expr_b = -k*cross(nn, E_bc)*curl(v) + gamma_h * cross(nn, E_bc) * cross(nn, v)
-            l = LinearForm(v, integral(domain, expr) + integral(boundary, expr_b))
-        else:
-            l = LinearForm(v, integral(domain, expr))
+        rhs_save_dir = get_load_dir(method=method, domain_name=domain_name,nc=nc,deg=deg,data='rhs')
+        if not os.path.exists(rhs_save_dir):
+            os.makedirs(rhs_save_dir)
 
-        lh = discretize(l, domain_h, V1h) #, backend=PSYDAC_BACKENDS['numba'])
-        b  = lh.assemble()
-        b_c = b.toarray()
+        rhs_filename = rhs_save_dir+rhs_fn(source_type)
+        if os.path.isfile(rhs_filename):
+            print("getting rhs array from file "+rhs_filename)
+            with open(rhs_filename, 'rb') as file:
+                b_c = np.load(rhs_filename)['b_c']
+        else:
+            print("-- no rhs file '"+rhs_filename+" -- so I will assemble the source")
+
+            u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
+            expr = dot(f,v)
+            if method == 'nitsche' and not hom_bc:
+                nn  = NormalVector('nn')
+                boundary = domain.boundary
+                expr_b = -k*cross(nn, E_bc)*curl(v) + gamma_h * cross(nn, E_bc) * cross(nn, v)
+                l = LinearForm(v, integral(domain, expr) + integral(boundary, expr_b))
+            else:
+                l = LinearForm(v, integral(domain, expr))
+
+            lh = discretize(l, domain_h, V1h) #, backend=PSYDAC_BACKENDS['numba'])
+            b  = lh.assemble()
+            b_c = b.toarray()
+            print("saving rhs array (for future needs) in file "+rhs_filename)
+            with open(rhs_filename, 'wb') as file:
+                np.savez(file, b_c=b_c)
 
         if lift_E_bc:
             # lift boundary condition
@@ -847,6 +892,8 @@ if __name__ == '__main__':
                     titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
                     surface_plot=False,
                     xx=xx, yy=yy,
+                    save_fig=plot_dir+'full_Ebc.png',
+                    hide_plot=hide_plots,
                     cmap='plasma',
                     dpi=400,
                 )
@@ -858,7 +905,6 @@ if __name__ == '__main__':
 
             if debug_plot:
                 Eh_bc = FemField(V1h, coeffs=array_to_stencil(Ebc_c, V1h.vector_space))
-                # debug: plot
                 Ebc_x_vals, Ebc_y_vals = grid_vals_hcurl(Eh_bc)
                 my_small_plot(
                     title=r'E bc',
@@ -866,6 +912,8 @@ if __name__ == '__main__':
                     titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
                     surface_plot=False,
                     xx=xx, yy=yy,
+                    save_fig=plot_dir+'Ebc.png',
+                    hide_plot=hide_plots,
                     cmap='plasma',
                     dpi=400,
                 )
@@ -878,6 +926,8 @@ if __name__ == '__main__':
                     titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
                     surface_plot=False,
                     xx=xx, yy=yy,
+                    save_fig=plot_dir+'diff_Ebc.png',
+                    hide_plot=hide_plots,
                     cmap='plasma',
                     dpi=400,
                 )
@@ -889,13 +939,6 @@ if __name__ == '__main__':
             # fh_norm = np.dot(fh_c,M_m.dot(fh_c))**0.5
             # print("|| fh || = ", fh_norm)
             # print("|| div fh ||/|| fh || = ", div_norm(fh_c)/fh_norm)
-
-            # if fem_name:
-            #     fig_name=plot_dir+'Jh.png'  # +'_'+fem_name+'.png'
-            #     fig_name_vf=plot_dir+'Jh_vf.png'   # +'_vf_'+fem_name+'.png'
-            # else:
-            fig_name=None
-            fig_name_vf=None
 
             fh = FemField(V1h, coeffs=array_to_stencil(fh_c, V1h.vector_space))
 
@@ -909,6 +952,8 @@ if __name__ == '__main__':
                     vals=[np.abs(fh_x_vals), np.abs(fh_y_vals), np.abs(div_fh_vals)],
                     titles=[r'$|fh_x|$', r'$|fh_y|$', r'$|div_h fh|$'],  # , r'$div_h J$' ],
                     cmap='hsv',
+                    save_fig=plot_dir+'full_Jh.png',
+                    hide_plot=hide_plots,
                     surface_plot=False,
                     xx=xx, yy=yy,
                 )
@@ -920,9 +965,10 @@ if __name__ == '__main__':
                     titles=[r'$|J_h|$'],  # , r'$div_h J$' ],
                     surface_plot=False,
                     xx=xx, yy=yy,
+                    save_fig=plot_dir+'Jh.png',
+                    hide_plot=hide_plots,
                     cmap='plasma',
                     dpi=400,
-                    save_fig=fig_name,
                 )
 
             my_small_streamplot(
@@ -930,8 +976,9 @@ if __name__ == '__main__':
                 vals_x=fh_x_vals,
                 vals_y=fh_y_vals,
                 xx=xx, yy=yy,
+                save_fig=plot_dir+'Jh_vf.png',
+                hide_plot=hide_plots,
                 amplification=.05,
-                save_fig=fig_name_vf,
             )
 
 
@@ -939,13 +986,16 @@ if __name__ == '__main__':
         print("solving with scipy...")
         Eh_c = spsolve(A_hom_m.tocsc(), b_c)
         # E_coeffs = array_to_stencil(Eh_c, V1h.vector_space)
-
+        print("... done.")
+        time_count(t_stamp)
         if lift_E_bc:
             # add the lifted boundary condition
             Eh_c += Ebc_c
 
+
         # projected solution
-        # PEh_c = cP1_m.dot(Eh_c)
+        if proj_sol:
+            Eh_c = cP1_m.dot(Eh_c)
         # jumpEh_c = Eh_c - PEh_c
         # Eh = FemField(V1h, coeffs=array_to_stencil(PEh_c, V1h.vector_space))
         Eh = FemField(V1h, coeffs=array_to_stencil(Eh_c, V1h.vector_space))
@@ -954,20 +1004,13 @@ if __name__ == '__main__':
             if os.path.isfile(Eh_filename):
                 print('(solution coeff array is already saved, no need to save it again)')
             else:
-                print("saving solution coeffs in new file (for future needs)"+Eh_filename)
+                print("saving solution coeffs (for future needs) in new file "+Eh_filename)
                 with open(Eh_filename, 'wb') as file:
                     np.savez(file, array_coeffs=Eh_c)
 
         #+++++++++++++++++++++++++++++++
         # plotting and diagnostics
         #+++++++++++++++++++++++++++++++
-
-        # set some names to save figures:
-        #     fig_name=plot_dir+'Eh.png'  # +'_'+fem_name+'.png'
-        #     fig_name_vf=plot_dir+'Eh_vf.png'   # +'_vf_'+fem_name+'.png'
-        # else:
-        fig_name=None
-        fig_name_vf=None
 
         # smooth plotting with node-valued grid
         Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
@@ -979,7 +1022,8 @@ if __name__ == '__main__':
             xx=xx,
             yy=yy,
             amplification=1,
-            save_fig=fig_name_vf,
+            save_fig=plot_dir+'Eh_vf.png',
+            hide_plot=hide_plots,
             dpi = 200,
         )
 
@@ -993,7 +1037,8 @@ if __name__ == '__main__':
             surface_plot=False,
             # gridlines_x1=gridlines_x1,
             # gridlines_x2=gridlines_x2,
-            save_fig=fig_name,
+            save_fig=plot_dir+'Eh.png',
+            hide_plot=hide_plots,
             cmap='hsv',
             dpi = 400,
         )
@@ -1014,9 +1059,22 @@ if __name__ == '__main__':
 
         if E_ref_vals:
             E_x_vals, E_y_vals = E_ref_vals
+            quad_weights = get_grid_quad_weights(etas_cdiag, patch_logvols, mappings_list)
+            Eh_errors_cdiag = [np.sqrt( (u1-v1)**2 + (u2-v2)**2 )
+                               for u1, v1, u2, v2 in zip(Eh_x_vals, E_x_vals, Eh_y_vals, E_y_vals)]
+            l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag, quad_weights)]))**0.5
+            err_message = 'error for nc = {0} with gamma_h = {1} and proj_sol = {2}: {3}\n'.format(nc, gamma_h, proj_sol, l2_error)
+            print(err_message)
+            error_filename = error_fn(source_type=source_type, method=method, k=k, domain_name=domain_name,deg=deg)
+            if not os.path.exists(error_filename):
+                open(error_filename, 'w')
+            with open(error_filename, 'a') as a_writer:
+                a_writer.write(err_message)
+
         else:
             E_x_vals = Eh_x_vals
             E_y_vals = Eh_y_vals
+
 
         E_x_err = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
         E_y_err = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
@@ -1029,6 +1087,8 @@ if __name__ == '__main__':
             titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
             xx=xx,
             yy=yy,
+            save_fig=plot_dir+'err_Ex.png',
+            hide_plot=hide_plots,
             # gridlines_x1=gridlines_x1,
             # gridlines_x2=gridlines_x2,
         )
@@ -1039,6 +1099,8 @@ if __name__ == '__main__':
             titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
             xx=xx,
             yy=yy,
+            save_fig=plot_dir+'err_Ey.png',
+            hide_plot=hide_plots,
             # gridlines_x1=gridlines_x1,
             # gridlines_x2=gridlines_x2,
         )

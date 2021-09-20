@@ -187,6 +187,7 @@ def my_small_plot(
         surface_plot=False,
         cmap='viridis',
         save_fig=None,
+        hide_plot=False,
         dpi='figure',
         show_xylabel=True,
 ):
@@ -228,7 +229,8 @@ def my_small_plot(
     if save_fig:
         print('saving contour plot in file '+save_fig)
         plt.savefig(save_fig, bbox_inches='tight',dpi=dpi)
-    else:
+
+    if not hide_plot:
         plt.show()
 
     if surface_plot:
@@ -267,6 +269,7 @@ def my_small_streamplot(
         xx, yy, skip=2,
         amplification=1,
         save_fig=None,
+        hide_plot=False,
         dpi='figure',
 ):
     """
@@ -288,6 +291,7 @@ def my_small_streamplot(
     if save_fig:
         print('saving vector field (stream) plot in file '+save_fig)
         plt.savefig(save_fig, bbox_inches='tight', dpi=dpi)
-    else:
+
+    if not hide_plot:
         plt.show()
 
