@@ -63,8 +63,13 @@ comm = MPI.COMM_WORLD
 
 # ---------------------------------------------------------------------------------------------------------------
 # small utility for saving/loading sparse matrices, plots...
-def rhs_fn(source_type):
-    return 'rhs_'+source_type+'.npz'
+def rhs_fn(source_type,nbc=False):
+    if nbc:
+        # additional terms for nitsche bc
+        fn = 'rhs_'+source_type+'_nbc.npz'
+    else:
+        fn = 'rhs_'+source_type+'.npz'
+    return fn
 
 def E_ref_fn(source_type, N_diag):
     return 'E_ref_'+source_type+'_N'+repr(N_diag)+'.npz'
@@ -93,23 +98,25 @@ def get_method_name(method=None, k=None):
 
 def get_fem_name(method=None, k=None, domain_name=None,nc=None,deg=None):
     assert domain_name and nc and deg
-    assert method is not None
-    method_name = get_method_name(method, k)
-    return domain_name+'_nc'+repr(nc)+'_deg'+repr(deg)+'_'+method_name
+    fn = domain_name+'_nc'+repr(nc)+'_deg'+repr(deg)
+    if method is not None:
+        fn += '_'+get_method_name(method, k)
+    return fn
 
 def get_load_dir(method=None, domain_name=None,nc=None,deg=None,data='matrices'):
     assert data in ['matrices','solutions','rhs']
-    fem_name = get_fem_name(method=method, domain_name=domain_name,nc=nc,deg=deg)
+    if method is None:
+        assert data == 'rhs'
+    fem_name = get_fem_name(domain_name=domain_name,method=method, nc=nc,deg=deg)
     return './saved_'+data+'/'+fem_name+'/'
 
 
 # ---------------------------------------------------------------------------------------------------------------
-def nitsche_curl_curl_2d(domain, ncells, degree, operator='curl_curl', gamma_h=None, k=None):
+def nitsche_curl_curl_2d(domain, V, ncells, degree, gamma_h=None, k=None, load_dir=None):
     """
     computes
         K_m the k-IP matrix of the curl-curl operator with penalization parameter gamma
         (as defined eg in Buffa, Houston & Perugia, JCAM 2007)
-        and M_m the mass matrix
 
     :param k: parameter for SIP/NIP/IIP
     :return: matrices in sparse format
@@ -117,31 +124,25 @@ def nitsche_curl_curl_2d(domain, ncells, degree, operator='curl_curl', gamma_h=N
     from psydac.api.discretization import discretize
     assert gamma_h is not None
 
-    if load_dir:
-        print(" -- will load matrices from " + load_dir)
-    elif save_dir:
-        print(" -- will save matrices in " + save_dir)
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+    if os.path.exists(load_dir):
+        print(" -- load directory " + load_dir + " found -- will load the Nitsche matrices from there...")
 
-    if load_dir:
-        print("loading sparse matrices...")
         # unpenalized curl-curl matrix (main part and symmetrization term)
         CC_m = load_npz(load_dir+'CC_m.npz')
         CS_m = load_npz(load_dir+'CS_m.npz')
         # jump penalization matrix
         JP_m = load_npz(load_dir+'JP_m.npz')
-        # mass matrix
-        M_m = load_npz(load_dir+'M_m.npz')
 
     else:
+        print(" -- load directory " + load_dir + " not found -- will assemble the Nitsche matrices...")
+
         t_stamp = time_count()
-        print('computing IP curl-curl matrix with penalization gamma_h = {}'.format(gamma_h))
+        print('computing IP curl-curl matrix with k = {0} and penalization gamma_h = {1}'.format(k, gamma_h))
         #+++++++++++++++++++++++++++++++
         # 1. Abstract model
         #+++++++++++++++++++++++++++++++
 
-        V  = VectorFunctionSpace('V', domain, kind='hcurl')
+        # V  = VectorFunctionSpace('V', domain, kind='hcurl')
 
         u, v, F  = elements_of(V, names='u, v, F')
         nn  = NormalVector('nn')
@@ -152,8 +153,7 @@ def nitsche_curl_curl_2d(domain, ncells, degree, operator='curl_curl', gamma_h=N
         jump = lambda w:plus(w)-minus(w)
         avr_curl = lambda w:(curl(plus(w)) + curl(minus(w)))/2
 
-        #    # Bilinear form a: V x V --> R
-        assert operator == 'curl_curl'  # todo: write hodge-laplacian case
+        # Bilinear forms a: V x V --> R
 
         # note (MCP): the IP formulation involves the tangential jumps [v]_T = n^- x v^- + n^+ x v^+
         # here this t-jump corresponds to -cross(nn, jump(v))
@@ -170,9 +170,6 @@ def nitsche_curl_curl_2d(domain, ncells, degree, operator='curl_curl', gamma_h=N
         a_cc = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(boundary, expr_b))
         a_cs = BilinearForm((u,v),  integral(I, expr_Is) + integral(boundary, expr_bs))  # symmetrization terms
         a_jp = BilinearForm((u,v),  integral(I, expr_jp_I) + integral(boundary, expr_jp_b))
-
-        expr_m = dot(u, v)
-        m = BilinearForm((u,v), integral(domain, expr_m))
 
         #+++++++++++++++++++++++++++++++
         # 2. Discretization
@@ -196,56 +193,26 @@ def nitsche_curl_curl_2d(domain, ncells, degree, operator='curl_curl', gamma_h=N
         A = a_h.assemble()
         JP_m  = A.tosparse().tocsr()
 
-        # mass matrix (may coincide with M1_m from derham_h)
-        m_h = discretize(m, domain_h, [Vh, Vh])
-        M = m_h.assemble()
-        M_m  = M.tosparse().tocsr()
+        print(" -- now saving these matrices in " + load_dir)
+        os.makedirs(load_dir)
+        t_stamp = time_count(t_stamp)
+        print("saving sparse matrices to file...")
+        save_npz(load_dir+'CC_m.npz', CC_m)
+        save_npz(load_dir+'CS_m.npz', CS_m)
+        save_npz(load_dir+'JP_m.npz', JP_m)
 
-        if save_dir:
-            t_stamp = time_count(t_stamp)
-            print("saving sparse matrices to file...")
-            save_npz(save_dir+'CC_m.npz', CC_m)
-            save_npz(save_dir+'CS_m.npz', CS_m)
-            save_npz(save_dir+'JP_m.npz', JP_m)
-            save_npz(save_dir+'M_m.npz', M_m)
+    K_m = CC_m + k*CS_m + gamma_h*JP_m
 
-    if operator == 'curl_curl':
-        K_m = CC_m + k*CS_m + gamma_h*JP_m
-    else:
-        raise NotImplementedError
-    return K_m, M_m
+    return K_m
 
 
 # ---------------------------------------------------------------------------------------------------------------
-def get_elementary_conga_matrices(domain_h, derham_h, ncells, degree):
+def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None):
 
-    if load_dir:
-        print(" -- will load matrices from " + load_dir)
-    elif save_dir:
-        print(" -- will save matrices in " + save_dir)
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+    if os.path.exists(load_dir):
+        print(" -- load directory " + load_dir + " found -- will load the CONGA matrices from there...")
 
-    # t_stamp = time_count()
-
-    # print('discretizing the domain with ncells = '+repr(ncells)+'...' )
-    # domain_h = discretize(domain, ncells=ncells, comm=comm)
-
-    # t_stamp = time_count(t_stamp)
-    # print('discretizing the de Rham seq with degree = '+repr(degree)+'...' )
-    # multipatch de Rham sequence:
-    # derham  = Derham(domain, ["H1", "Hcurl", "L2"])
-    # derham_h = discretize(derham, domain_h, degree=degree)
-
-    V0h = derham_h.V0
-    V1h = derham_h.V1
-    V2h = derham_h.V2
-    # print("V0h.nbasis = ", V0h.nbasis)
-    # print("V1h.nbasis = ", V1h.nbasis)
-    # print("V2h.nbasis = ", V2h.nbasis)
-
-    if load_dir:
-        print("loading sparse matrices...")
+        # print("loading sparse matrices...")
         M0_m = load_npz(load_dir+'M0_m.npz')
         M1_m = load_npz(load_dir+'M1_m.npz')
         M2_m = load_npz(load_dir+'M2_m.npz')
@@ -258,8 +225,13 @@ def get_elementary_conga_matrices(domain_h, derham_h, ncells, degree):
         bD1_m = load_npz(load_dir+'bD1_m.npz')
         I1_m = load_npz(load_dir+'I1_m.npz')
 
-        print("loaded: M1_m.shape = " + repr(M1_m.shape))
+        # print('loaded.')
     else:
+        print(" -- load directory " + load_dir + " not found -- will assemble the CONGA matrices...")
+
+        V0h = derham_h.V0
+        V1h = derham_h.V1
+        V2h = derham_h.V2
 
         # Mass matrices for broken spaces (block-diagonal)
         t_stamp = time_count()
@@ -274,6 +246,7 @@ def get_elementary_conga_matrices(domain_h, derham_h, ncells, degree):
 
         t_stamp = time_count(t_stamp)
         print("assembling conf projection operators...")
+        # todo: disable the non-hom-bc operators for hom-bc pretzel test cases...
         cP0 = ConformingProjection_V0(V0h, domain_h, hom_bc=False)
         cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=False)
         cP0_hom = ConformingProjection_V0(V0h, domain_h, hom_bc=True)
@@ -302,23 +275,25 @@ def get_elementary_conga_matrices(domain_h, derham_h, ncells, degree):
 
         M0_minv = inv(M0_m.tocsc())  # todo: assemble patch-wise M0_inv, as Hodge operator
 
-        if save_dir:
-            t_stamp = time_count()
-            print("saving sparse matrices to file...")
-            save_npz(save_dir+'M0_m.npz', M0_m)
-            save_npz(save_dir+'M1_m.npz', M1_m)
-            save_npz(save_dir+'M2_m.npz', M2_m)
-            save_npz(save_dir+'M0_minv.npz', M0_minv)
-            save_npz(save_dir+'cP0_m.npz', cP0_m)
-            save_npz(save_dir+'cP1_m.npz', cP1_m)
-            save_npz(save_dir+'cP0_hom_m.npz', cP0_hom_m)
-            save_npz(save_dir+'cP1_hom_m.npz', cP1_hom_m)
-            save_npz(save_dir+'bD0_m.npz', bD0_m)
-            save_npz(save_dir+'bD1_m.npz', bD1_m)
-            save_npz(save_dir+'I1_m.npz', I1_m)
-            time_count(t_stamp)
+        print(" -- now saving these matrices in " + load_dir)
+        os.makedirs(load_dir)
 
-    # return M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, D0_m, D1_m, I1_m
+        t_stamp = time_count()
+        save_npz(load_dir+'M0_m.npz', M0_m)
+        save_npz(load_dir+'M1_m.npz', M1_m)
+        save_npz(load_dir+'M2_m.npz', M2_m)
+        save_npz(load_dir+'M0_minv.npz', M0_minv)
+        save_npz(load_dir+'cP0_m.npz', cP0_m)
+        save_npz(load_dir+'cP1_m.npz', cP1_m)
+        save_npz(load_dir+'cP0_hom_m.npz', cP0_hom_m)
+        save_npz(load_dir+'cP1_hom_m.npz', cP1_hom_m)
+        save_npz(load_dir+'bD0_m.npz', bD0_m)
+        save_npz(load_dir+'bD1_m.npz', bD1_m)
+        save_npz(load_dir+'I1_m.npz', I1_m)
+        time_count(t_stamp)
+
+    print('ok, got the matrices. Some shapes are: \n M0_m = {0}\n M1_m = {1}\n M2_m = {2}'.format(M0_m.shape,M1_m.shape,M2_m.shape))
+
     return M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m
 
 def conga_curl_curl_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, gamma_h=None, hom_bc=True):
@@ -356,6 +331,8 @@ def conga_curl_curl_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
 
 def conga_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=None, hom_bc=True):
     """
+    OBSOLETE -- to update for single hodge_laplacian operator
+
     computes:
         K_hom_m and K_m the CONGA stiffness matrix of 'operator' in V1 with and without homogeneous bc
         (stiffness = left-multiplied by M1_m),
@@ -366,13 +343,9 @@ def conga_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=Non
             K = curl curl + grad div    (if operator == 'hodge_laplacian')
         as defined in Campos Pinto and Güçlü (preprint 2021)
 
-        and M_m = M1_m the mass matrix in V1
-
     :return: matrices in sparse format
     """
     assert operator in ['curl_curl', 'hodge_laplacian']
-
-    # M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m = get_elementary_conga_matrices(domain, ncells, degree)
 
     # t_stamp = time_count()
     print('computing Conga {0} matrix with penalization gamma_h = {1}'.format(operator, gamma_h))
@@ -409,7 +382,7 @@ def conga_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=Non
             div_aux_m = D0_m.transpose() * M1_m  # note: the matrix of the (weak) div operator is:   - M0_minv * div_aux_m
             K_bc_m += div_aux_m.transpose() * M0_minv * div_aux_m
 
-    return K_hom_m, K_bc_m, M1_m
+    return K_hom_m, K_bc_m
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -678,10 +651,6 @@ if __name__ == '__main__':
     degree = [deg,deg]
 
     fem_name = get_fem_name(method=method, k=k, domain_name=domain_name,nc=nc,deg=deg) #domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
-    save_dir = load_dir = get_load_dir(method=method, domain_name=domain_name,nc=nc,deg=deg)  # './tmp_matrices/'+fem_name+'/'
-    if load_dir and not os.path.exists(load_dir):
-        print(' -- note: discarding absent load directory')
-        load_dir = None
 
     print('--------------------------------------------------------------------------------------------------------------')
     t_stamp = time_count()
@@ -717,10 +686,14 @@ if __name__ == '__main__':
     V1h = derham_h.V1
     V2h = derham_h.V2
 
-    if method == 'conga':
-        M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m = get_elementary_conga_matrices(domain_h, derham_h, ncells, degree)
-    else:
-        M0_m = M1_m = M2_m = M0_minv = cP0_m = cP1_m = cP0_hom_m = cP1_hom_m = bD0_m = bD1_m = I1_m = None
+    # getting CONGA matrices -- also needed with nitsche method (M1_m, and some other for post-processing)
+    load_dir = get_load_dir(method='conga', domain_name=domain_name, nc=nc, deg=deg)
+    # if load_dir and not os.path.exists(load_dir):
+    #     print(' -- note: discarding absent load directory')
+    #     load_dir = None
+    M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m = get_elementary_conga_matrices(
+        domain_h, derham_h, load_dir=load_dir
+    )
 
     # jump penalization factor:
     # todo: study different penalization regimes
@@ -763,10 +736,11 @@ if __name__ == '__main__':
 
         # disabled for now -- if with want to save the coeffs we need to store more parameters (gamma, proj_sol, etc...)
         save_Eh = False
-        Eh_filename = solutions_dir+Eh_coeffs_fn(source_type, N_diag)
-        print("-- I will also save the present solution coefficients in file '"+Eh_filename+"' --")
-        if not os.path.exists(solutions_dir):
-            os.makedirs(solutions_dir)
+        if save_Eh:
+            Eh_filename = solutions_dir+Eh_coeffs_fn(source_type, N_diag)
+            print("-- I will also save the present solution coefficients in file '"+Eh_filename+"' --")
+            if not os.path.exists(solutions_dir):
+                os.makedirs(solutions_dir)
 
         hom_bc = (E_bc is None)
     else:
@@ -779,10 +753,9 @@ if __name__ == '__main__':
     # build operator matrices
     if method == 'conga':
         K_hom_m, K_bc_m = conga_curl_curl_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m, gamma_h=gamma_h, hom_bc=hom_bc)
-        M_m = M1_m
     elif method == 'nitsche':
-        # note: we could probably pass derham.V1 and derham_h.V1 to the function below, to avoid re-discretizing the space again...
-        K_hom_m, M_m = nitsche_curl_curl_2d(domain, ncells=ncells, degree=degree, operator=operator, gamma_h=gamma_h, k=k)
+        load_dir = get_load_dir(method='nitsche', domain_name=domain_name, nc=nc, deg=deg)
+        K_hom_m = nitsche_curl_curl_2d(domain, V=derham.V1, ncells=ncells, degree=degree, gamma_h=gamma_h, k=k, load_dir=load_dir)
         # no lifting of bc (for now):
         K_bc_m = None
     else:
@@ -797,7 +770,7 @@ if __name__ == '__main__':
         sigma, ref_sigmas = get_ref_eigenvalues(domain_name, operator)
         nb_eigs = max(10, len(ref_sigmas))
 
-        eigenvalues, eigenvectors = get_eigenvalues(nb_eigs, sigma, K_hom_m, M_m)
+        eigenvalues, eigenvectors = get_eigenvalues(nb_eigs, sigma, K_hom_m, M1_m)
 
         if operator == 'curl_curl':
             # discard zero eigenvalues
@@ -829,45 +802,77 @@ if __name__ == '__main__':
         print("***  Solving source problem  *** ")
 
         # equation operator in homogeneous spaces
-        A_hom_m = K_hom_m + eta * M_m
+        A_hom_m = K_hom_m + eta * M1_m
 
         lift_E_bc = (method == 'conga' and not hom_bc)
         if lift_E_bc:
             # equation operator for bc lifting
             assert K_bc_m is not None
-            A_bc_m = K_bc_m + eta * M_m
+            A_bc_m = K_bc_m + eta * M1_m
         else:
             A_bc_m = None
 
         # assembling RHS
-        rhs_save_dir = get_load_dir(method=method, domain_name=domain_name,nc=nc,deg=deg,data='rhs')
-        if not os.path.exists(rhs_save_dir):
-            os.makedirs(rhs_save_dir)
+        rhs_load_dir = get_load_dir(domain_name=domain_name,nc=nc,deg=deg,data='rhs')
+        if not os.path.exists(rhs_load_dir):
+            os.makedirs(rhs_load_dir)
 
-        rhs_filename = rhs_save_dir+rhs_fn(source_type)
+        rhs_filename = rhs_load_dir+rhs_fn(source_type)
         if os.path.isfile(rhs_filename):
             print("getting rhs array from file "+rhs_filename)
             with open(rhs_filename, 'rb') as file:
-                b_c = np.load(rhs_filename)['b_c']
+                content = np.load(rhs_filename)
+            b_c = content['b_c']
         else:
             print("-- no rhs file '"+rhs_filename+" -- so I will assemble the source")
 
             u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
             expr = dot(f,v)
-            if method == 'nitsche' and not hom_bc:
-                nn  = NormalVector('nn')
-                boundary = domain.boundary
-                expr_b = -k*cross(nn, E_bc)*curl(v) + gamma_h * cross(nn, E_bc) * cross(nn, v)
-                l = LinearForm(v, integral(domain, expr) + integral(boundary, expr_b))
-            else:
-                l = LinearForm(v, integral(domain, expr))
-
-            lh = discretize(l, domain_h, V1h) #, backend=PSYDAC_BACKENDS['numba'])
+            l = LinearForm(v, integral(domain, expr))
+            lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
             b  = lh.assemble()
             b_c = b.toarray()
-            print("saving rhs array (for future needs) in file "+rhs_filename)
+
+            print("saving this rhs arrays (for future needs) in file "+rhs_filename)
             with open(rhs_filename, 'wb') as file:
                 np.savez(file, b_c=b_c)
+
+        if method == 'nitsche' and not hom_bc:
+            print("(non hom.) bc with nitsche: need some additional rhs arrays.")
+            # need additional terms for the bc with nitsche
+            rhs_filename = rhs_load_dir+rhs_fn(source_type, nbc=True)
+            if os.path.isfile(rhs_filename):
+                print("getting them from file "+rhs_filename)
+                with open(rhs_filename, 'rb') as file:
+                    content = np.load(rhs_filename)
+                bs_c = content['bs_c']
+                bp_c = content['bp_c']  # penalization term
+            else:
+                print("-- no rhs file '"+rhs_filename+" -- so I will assemble them...")
+                nn  = NormalVector('nn')
+                boundary = domain.boundary
+                # expr_b = -k*cross(nn, E_bc)*curl(v) + gamma_h * cross(nn, E_bc) * cross(nn, v)
+
+                # nitsche symmetrization term:
+                expr_bs = cross(nn, E_bc)*curl(v)
+                ls = LinearForm(v, integral(boundary, expr_bs))
+                lsh = discretize(ls, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
+                bs  = lsh.assemble()
+                bs_c = bs.toarray()
+
+                # nitsche penalization term:
+                expr_bp = cross(nn, E_bc) * cross(nn, v)
+                lp = LinearForm(v, integral(boundary, expr_bp))
+                lph = discretize(ls, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
+                bp  = lph.assemble()
+                bp_c = bp.toarray()
+
+                print("saving these rhs arrays (for future needs) in file "+rhs_filename)
+                with open(rhs_filename, 'wb') as file:
+                    np.savez(file, bs_c=bs_c, bp_c=bp_c)
+
+            # full rhs for nitsche method with non-hom. bc
+            b_c += -k * bs_c + gamma_h * bp_c
 
         if lift_E_bc:
             # lift boundary condition
@@ -935,8 +940,8 @@ if __name__ == '__main__':
         plot_source = True
         if plot_source:
             # representation of discrete source:
-            fh_c = spsolve(M_m.tocsc(), b_c)
-            # fh_norm = np.dot(fh_c,M_m.dot(fh_c))**0.5
+            fh_c = spsolve(M1_m.tocsc(), b_c)
+            # fh_norm = np.dot(fh_c,M1_m.dot(fh_c))**0.5
             # print("|| fh || = ", fh_norm)
             # print("|| div fh ||/|| fh || = ", div_norm(fh_c)/fh_norm)
 
