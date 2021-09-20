@@ -43,7 +43,7 @@ from sympde.topology import Derham
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
 
-from psydac.feec.multipatch.api import discretize  # TODO: when possible, use line above
+from psydac.feec.multipatch.api import discretize
 from psydac.feec.pull_push     import pull_2d_hcurl
 
 from psydac.linalg.utilities import array_to_stencil
@@ -209,7 +209,7 @@ def nitsche_curl_curl_2d(domain_h, Vh, gamma_h=None, k=None, load_dir=None, back
 
 
 # ---------------------------------------------------------------------------------------------------------------
-def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_language='python'):
+def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_language='python', discard_non_hom_matrices=False):
 
     if os.path.exists(load_dir):
         print(" -- load directory " + load_dir + " found -- will load the CONGA matrices from there...")
@@ -249,10 +249,15 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
         t_stamp = time_count(t_stamp)
         print("assembling conf projection operators...")
         # todo: disable the non-hom-bc operators for hom-bc pretzel test cases...
-        cP0 = ConformingProjection_V0(V0h, domain_h, hom_bc=False, backend_language=backend_language)
-        cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=False, backend_language=backend_language)
         cP0_hom = ConformingProjection_V0(V0h, domain_h, hom_bc=True, backend_language=backend_language)
         cP1_hom = ConformingProjection_V1(V1h, domain_h, hom_bc=True, backend_language=backend_language)
+        if discard_non_hom_matrices:
+            print('WARNING: discarding the non-homogeneous cP0 and cP1 projection operators!')
+            cP0 = cP0_hom
+            cP1 = cP1_hom
+        else:
+            cP0 = ConformingProjection_V0(V0h, domain_h, hom_bc=False, backend_language=backend_language)
+            cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=False, backend_language=backend_language)
 
         # t_stamp = time_count(t_stamp)
         # print("assembling conga derivative operators...")
@@ -557,6 +562,9 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
 
     return f, E_bc, E_ref_vals, E_ex
 
+# --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * ---
+# --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * ---
+
 if __name__ == '__main__':
 
     import argparse
@@ -653,10 +661,11 @@ if __name__ == '__main__':
     ncells = [nc, nc]
     degree = [deg,deg]
 
-    if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
+    if domain_name in ['pretzel', 'pretzel_f'] and nc > 16:
         backend_language='numba'
     else:
         backend_language='python'
+    print('[note: using '+backend_language+ 'backends in discretize functions]')
 
     fem_name = get_fem_name(method=method, k=k, domain_name=domain_name,nc=nc,deg=deg) #domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
 
@@ -704,7 +713,8 @@ if __name__ == '__main__':
     #     print(' -- note: discarding absent load directory')
     #     load_dir = None
     M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m = get_elementary_conga_matrices(
-        domain_h, derham_h, load_dir=load_dir, backend_language=backend_language
+        domain_h, derham_h, load_dir=load_dir, backend_language=backend_language,
+        discard_non_hom_matrices=(source_type=='ring_J')
     )
 
     # jump penalization factor:
@@ -977,7 +987,7 @@ if __name__ == '__main__':
             else:
                 abs_fh_vals = [np.sqrt(abs(fx)**2 + abs(fy)**2) for fx, fy in zip(fh_x_vals, fh_y_vals)]
                 my_small_plot(
-                    title=r'source term $J_h$',
+                    title=r'current source $J_h$ (amplitude)',
                     vals=[abs_fh_vals],
                     titles=[r'$|J_h|$'],  # , r'$div_h J$' ],
                     surface_plot=False,
@@ -992,7 +1002,7 @@ if __name__ == '__main__':
             else:
                 vf_amp = .05
             my_small_streamplot(
-                title='source J',
+                title=r'current source $J_h$ (vector field)',
                 vals_x=fh_x_vals,
                 vals_y=fh_y_vals,
                 skip=10,
@@ -1040,7 +1050,7 @@ if __name__ == '__main__':
         else:
             vf_amp = 1
         my_small_streamplot(
-            title=r'discrete field $E_h$',  # for $\omega = $'+repr(omega),
+            title=r'solution electric field $E_h$ (vector field)',  # for $\omega = $'+repr(omega),
             vals_x=Eh_x_vals,
             vals_y=Eh_y_vals,
             skip=10,
@@ -1054,7 +1064,7 @@ if __name__ == '__main__':
 
         Eh_abs_vals = [np.sqrt(abs(ex)**2 + abs(ey)**2) for ex, ey in zip(Eh_x_vals, Eh_y_vals)]
         my_small_plot(
-            title=r'amplitude of discrete field $E_h$', # for $\omega = $'+repr(omega),
+            title=r'solution electric field $E_h$ (amplitude)', # for $\omega = $'+repr(omega),
             vals=[Eh_abs_vals], #[Eh_x_vals, Eh_y_vals, Eh_abs_vals],
             titles=[r'$|E^h|$'], #[r'$E^h_x$', r'$E^h_y$', r'$|E^h|$'],
             xx=xx,

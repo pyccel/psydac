@@ -183,6 +183,8 @@ class ConformingProjection_V0( FemLinearOperator):
         expr_I = ( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
+        print('[[ forcing python backend for ConformingProjection_V0]] ')
+        backend_language = 'python'
         ah = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS[backend_language])
 
         self._A = ah.assemble()
@@ -370,6 +372,8 @@ class ConformingProjection_V1( FemLinearOperator ):
         expr_I = dot( plus(u)-minus(u) , plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
+        print('[[ forcing python backend for ConformingProjection_V1]] ')
+        backend_language = 'python'
         ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend_language])
 
         self._A = ah.assemble()
