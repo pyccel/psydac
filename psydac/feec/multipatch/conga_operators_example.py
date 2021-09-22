@@ -12,8 +12,12 @@ from psydac.feec.multipatch.api import discretize
 from psydac.feec.pull_push     import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
 from psydac.utilities.utils    import refine_array_1d
 
+from psydac.linalg.utilities import array_to_stencil
+
+from psydac.fem.basic   import FemField
+
 from psydac.feec.multipatch.fem_linear_operators import ComposedLinearOperator
-from psydac.feec.multipatch.operators import BrokenMass
+from psydac.feec.multipatch.operators import BrokenMass, get_K0_and_K0_inv
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1
 from psydac.feec.multipatch.operators import time_count
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
@@ -63,8 +67,8 @@ def conga_operators_2d():
     # . Discrete space
     #+++++++++++++++++++++++++++++++
 
-    # ncells = [4, 4]
-    ncells = [2, 2]
+    ncells = [4, 4]
+    # ncells = [2, 2]
     degree = [2, 2]
     nquads = [d + 1 for d in degree]
 
@@ -170,6 +174,21 @@ def conga_operators_2d():
     v0   = P0(v_sol_log)
     v0c  = Pconf_0(v0)   # should be H1-conforming (ie, continuous)
 
+
+    print('******     DEBUG   start   ****************************')
+    K0, K0_inv = get_K0_and_K0_inv(V0h)
+    cP0 = Pconf_0.to_sparse_matrix()
+
+    v0_bc = v0.coeffs.toarray()
+    v0_2c = K0_inv @ (cP0 @ (K0 @ v0_bc))
+
+    v0_2 = FemField(V0h, coeffs=array_to_stencil(v0_2c, V0h.vector_space))
+
+    print('******     DEBUG   end   ****************************')
+
+    print('more shapes are: \n K0 = {0}\n K0_inv = {1}\n'.format(K0.shape,K0_inv.shape))
+
+
     if only_P0check:
         # plot v, v0 and v0c
         v_vals   = grid_vals_h1(v_sol_log)
@@ -180,6 +199,21 @@ def conga_operators_2d():
             title=r'broken and conforming approximation of some $v$',
             vals=[v_vals, v0_vals, v0c_vals],
             titles=[r'$v^{ex}(x,y)$', r'$v^h(x,y)$', r'$P^{0,c} v^h(x,y)$'],
+            xx=xx, yy=yy,
+            surface_plot=True,
+            cmap='jet'
+        )
+
+
+        # plot v, v0 and v0c
+        v_vals   = grid_vals_h1(v_sol_log)
+        v02_vals = grid_vals_h1(v0_2)
+        v0c_vals = grid_vals_h1(v0c)
+
+        my_small_plot(
+            title=r'broken and conforming approximation of some $v$',
+            vals=[v_vals, v02_vals, v0c_vals],
+            titles=[r'$v^{ex}(x,y)$', r'$P^{0,2c}v^h(x,y)$', r'$P^{0,c} v^h(x,y)$'],
             xx=xx, yy=yy,
             surface_plot=True,
             cmap='jet'

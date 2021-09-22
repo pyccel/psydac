@@ -5,6 +5,10 @@
 from mpi4py import MPI
 
 import numpy as np
+
+from scipy.sparse import kron, block_diag
+from scipy.sparse.linalg import inv
+
 from sympde.topology  import Boundary, Interface, Union
 from sympde.topology  import element_of, elements_of
 from sympde.calculus  import grad, dot, inner, rot, div
@@ -12,6 +16,8 @@ from sympde.calculus  import laplace, bracket, convect
 from sympde.calculus  import jump, avg, Dn, minus, plus
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
+
+from psydac.core.bsplines         import collocation_matrix
 
 from psydac.api.discretization       import discretize
 from psydac.api.essential_bc         import apply_essential_bc_stencil
@@ -27,10 +33,16 @@ from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 import time
-def time_count(t_stamp=None):
+def time_count(t_stamp=None, msg=None):
     new_t_stamp = time.time()
+    if msg is None:
+        msg = ''
+    else:
+        msg = '['+msg+']'
     if t_stamp:
-        print('time elapsed: ', new_t_stamp - t_stamp)
+        print('time elapsed '+msg+': '+repr(new_t_stamp - t_stamp))
+    elif len(msg) > 0:
+        print('time stamp set for '+msg)
     return new_t_stamp
 
 def get_patch_index_from_face(domain, face):
@@ -187,7 +199,8 @@ class ConformingProjection_V0( FemLinearOperator):
         backend_language = 'python'
         ah = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS[backend_language])
 
-        self._A = ah.assemble()
+        # self._A = ah.assemble()
+        self._A = ah.forms[0]._matrix
 
         spaces = self._A.domain.spaces
 
@@ -362,12 +375,13 @@ class ConformingProjection_V1( FemLinearOperator ):
         FemLinearOperator.__init__(self, fem_domain=V1h)
 
         V1             = V1h.symbolic_space
+
         domain         = V1.domain
         self.symbolic_domain  = domain
-
+        #
         u, v = elements_of(V1, names='u, v')
         expr   = dot(u,v)
-
+        #
         Interfaces      = domain.interfaces  # note: interfaces does not include the boundary
         expr_I = dot( plus(u)-minus(u) , plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
@@ -375,8 +389,11 @@ class ConformingProjection_V1( FemLinearOperator ):
         print('[[ forcing python backend for ConformingProjection_V1]] ')
         backend_language = 'python'
         ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend_language])
-
-        self._A = ah.assemble()
+        #
+        # # self._A = ah.assemble()
+        self._A = ah.forms[0]._matrix
+        # C1 = V1h.vector_space
+        # self._A = BlockMatrix(C1, C1)
 
         for b1 in self._A.blocks:
             for b2 in b1:
@@ -513,6 +530,44 @@ class ConformingProjection_V1( FemLinearOperator ):
             if self._A[i,j] is None:continue
             apply_essential_bc_stencil(self._A[i,j][1-axis,1-axis], axis=axis, ext=ext, order=0)
 
+
+#===============================================================================
+def get_K0_and_K0_inv(V0h):
+    """
+    compute the change of basis matrices K0 and K0^{-1} in V0h, with
+        K0_ij = sigma^0_i(B_j) = B_jx(n_ix) * B_jy(n_iy)
+    where sigma_i is the geometric (interpolation) dof
+    and B_j is the tensor-product B-spline
+    """
+
+    V0 = V0h.symbolic_space   # VOh is ProductFemSpace
+    domain = V0.domain
+    K0_blocks = []
+    K0_inv_blocks = []
+    for k, D in enumerate(domain.interior):
+        V0_k = V0h.spaces[k]  # fem space on patch k: (TensorFemSpace)
+        K0_k_factors = [None,None]
+        for d in [0,1]:
+            V0_kd = V0_k.spaces[d]   # 1d fem space alond dim d (SplineSpace)
+            K0_k_factors[d] = collocation_matrix(
+                knots    = V0_kd.knots,
+                degree   = V0_kd.degree,
+                periodic = V0_kd.periodic,
+                normalization = V0_kd.basis,
+                xgrid    = V0_kd.greville
+            )
+        K0_k = kron(*K0_k_factors)
+        K0_k.eliminate_zeros()
+        K0_inv_k = inv(K0_k.tocsc())
+        K0_inv_k.eliminate_zeros()
+        K0_blocks.append(K0_k)
+        K0_inv_blocks.append(K0_inv_k)
+    K0 = block_diag(K0_blocks)
+    K0_inv = block_diag(K0_inv_blocks)
+    return K0, K0_inv
+
+
+
 #===============================================================================
 class BrokenMass( FemLinearOperator ):
     """
@@ -537,6 +592,8 @@ class BrokenMass( FemLinearOperator ):
         ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])   # 'pyccel-gcc'])
 
         self._matrix = ah.assemble() #.toarray()
+
+## todo:
 
 
 

@@ -53,7 +53,7 @@ from psydac.fem.basic   import FemField
 from psydac.api.settings        import PSYDAC_BACKENDS
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
-from psydac.feec.multipatch.operators import BrokenMass, ortho_proj_Hcurl
+from psydac.feec.multipatch.operators import BrokenMass, get_K0_and_K0_inv, ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, time_count
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector, get_grid_quad_weights
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
@@ -78,7 +78,7 @@ def Eh_coeffs_fn(source_type, N_diag):
     return 'Eh_coeffs_'+source_type+'_N'+repr(N_diag)+'.npz'
 
 def error_fn(source_type=None, method=None, k=None, domain_name=None,deg=None):
-    return 'errors/error_'+domain_name+'_'+'_deg'+repr(deg)+get_method_name(method, k)+'_'+source_type+'.txt'
+    return 'errors/error_'+domain_name+'_'+source_type+'_'+'_deg'+repr(deg)+'_'+get_method_name(method, k)+'.txt'
 
 def get_method_name(method=None, k=None):
     if method == 'nitsche':
@@ -235,8 +235,24 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
         V1h = derham_h.V1
         V2h = derham_h.V2
 
-        # Mass matrices for broken spaces (block-diagonal)
         t_stamp = time_count()
+        print("assembling conf projection operators for V1...")
+        # todo: disable the non-hom-bc operators for hom-bc pretzel test cases...
+        cP1_hom = ConformingProjection_V1(V1h, domain_h, hom_bc=True, backend_language=backend_language)
+        t_stamp = time_count(t_stamp)
+        print("assembling conf projection operators for V0...")
+        cP0_hom = ConformingProjection_V0(V0h, domain_h, hom_bc=True, backend_language=backend_language)
+        t_stamp = time_count(t_stamp)
+        if discard_non_hom_matrices:
+            print('WARNING: discarding the non-homogeneous cP0 and cP1 projection operators!')
+            cP0 = cP0_hom
+            cP1 = cP1_hom
+        else:
+            cP0 = ConformingProjection_V0(V0h, domain_h, hom_bc=False, backend_language=backend_language)
+            cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=False, backend_language=backend_language)
+
+        # Mass matrices for broken spaces (block-diagonal)
+        t_stamp = time_count(t_stamp)
         print("assembling mass matrix operators...")
         M0 = BrokenMass(V0h, domain_h, is_scalar=True, backend_language=backend_language)
         M1 = BrokenMass(V1h, domain_h, is_scalar=False, backend_language=backend_language)
@@ -245,19 +261,6 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
         t_stamp = time_count(t_stamp)
         print("assembling broken derivative operators...")
         bD0, bD1 = derham_h.broken_derivatives_as_operators
-
-        t_stamp = time_count(t_stamp)
-        print("assembling conf projection operators...")
-        # todo: disable the non-hom-bc operators for hom-bc pretzel test cases...
-        cP0_hom = ConformingProjection_V0(V0h, domain_h, hom_bc=True, backend_language=backend_language)
-        cP1_hom = ConformingProjection_V1(V1h, domain_h, hom_bc=True, backend_language=backend_language)
-        if discard_non_hom_matrices:
-            print('WARNING: discarding the non-homogeneous cP0 and cP1 projection operators!')
-            cP0 = cP0_hom
-            cP1 = cP1_hom
-        else:
-            cP0 = ConformingProjection_V0(V0h, domain_h, hom_bc=False, backend_language=backend_language)
-            cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=False, backend_language=backend_language)
 
         # t_stamp = time_count(t_stamp)
         # print("assembling conga derivative operators...")
@@ -300,6 +303,11 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
         time_count(t_stamp)
 
     print('ok, got the matrices. Some shapes are: \n M0_m = {0}\n M1_m = {1}\n M2_m = {2}'.format(M0_m.shape,M1_m.shape,M2_m.shape))
+
+    print('**********************************')
+    V0h = derham_h.V0
+    K0, K0_inv = get_K0_and_K0_inv(V0h)
+    print('more shapes are: \n K0 = {0}\n K0_inv = {1}\n'.format(K0.shape,K0_inv.shape))
 
     return M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m
 
@@ -661,20 +669,22 @@ if __name__ == '__main__':
     ncells = [nc, nc]
     degree = [deg,deg]
 
-    if domain_name in ['pretzel', 'pretzel_f'] and nc > 16:
+    if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
         backend_language='numba'
     else:
         backend_language='python'
-    print('[note: using '+backend_language+ 'backends in discretize functions]')
+    print('[note: using '+backend_language+ ' backends in discretize functions]')
 
     fem_name = get_fem_name(method=method, k=k, domain_name=domain_name,nc=nc,deg=deg) #domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
 
     print('--------------------------------------------------------------------------------------------------------------')
+    t_overstamp = time_count()  # full run
     t_stamp = time_count()
     print('building the multipatch domain...' )
     domain = build_multipatch_domain(domain_name=domain_name)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
+    time_count(t_stamp)
 
     # plotting and diagnostics
     if domain_name == 'curved_L_shape':
@@ -699,7 +709,7 @@ if __name__ == '__main__':
     print('discretizing the domain with ncells = '+repr(ncells)+'...' )
     domain_h = discretize(domain, ncells=ncells, comm=comm)
 
-    t_stamp = time_count(t_stamp)
+    t_stamp = time_count()
     print('discretizing the de Rham seq with degree = '+repr(degree)+'...' )
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
     derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
@@ -719,16 +729,18 @@ if __name__ == '__main__':
 
     # jump penalization factor:
     # todo: study different penalization regimes
-    if gamma > 0:
+    if gamma >= 0:
+        # penalization increases as h -> 0
         h = 1/nc
         # gamma_h = 10*(deg+1)**2/h  # DG std (see eg Buffa, Perugia and Warburton)
         gamma_h = gamma/h
     else:
-        gamma_h = 10**3
+        # fixed (positive) penalization
+        gamma_h = -gamma
 
-    # E_ref saved/loaded as point values on cdiag grid (mostly for error measure)
-    save_E_ref = False
-    E_ref_filename = None
+    # E_vals saved/loaded as point values on cdiag grid (mostly for error measure)
+    save_E_vals = False
+    E_vals_filename = None
 
     # Eh saved/loaded as numpy array of FEM coefficients (mostly for further diagnostics)
     save_Eh = False
@@ -739,22 +751,23 @@ if __name__ == '__main__':
         print("***  Defining the source and ref solution *** ")
 
         # source and ref solution
-        nc_ref = 30
+        nc_ref = 32
         deg_ref = 8
         method_ref = 'conga'
         # source_type = 'ring_J'
         # source_type = 'manu_sol'
 
         f, E_bc, E_ref_vals, E_ex = get_source_and_solution(source_type=source_type, eta=eta, domain=domain, refsol_params=[nc_ref, deg_ref, N_diag, method_ref])
+        if E_ref_vals is None:
+            print('-- no ref solution found')
+
+        # todo: discard if same as E_ref
 
         solutions_dir = get_load_dir(method=method, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
-        if E_ref_vals is None:
-            E_ref_filename = solutions_dir+E_ref_fn(source_type, N_diag)
-            print("-- no ref solution, so I will save the present solution instead, in file '"+E_ref_filename+"' --")
-            # ok but why saving this only if no ref solution available ?
-            save_E_ref = True
-            if not os.path.exists(solutions_dir):
-                os.makedirs(solutions_dir)
+        E_vals_filename = solutions_dir+E_ref_fn(source_type, N_diag)
+        save_E_vals = True
+        if not os.path.exists(solutions_dir):
+            os.makedirs(solutions_dir)
 
         # disabled for now -- if with want to save the coeffs we need to store more parameters (gamma, proj_sol, etc...)
         save_Eh = False
@@ -1026,6 +1039,7 @@ if __name__ == '__main__':
 
         # projected solution
         if proj_sol:
+            print("  (projecting the final solution with cP1_m)  ")
             Eh_c = cP1_m.dot(Eh_c)
         # jumpEh_c = Eh_c - PEh_c
         # Eh = FemField(V1h, coeffs=array_to_stencil(PEh_c, V1h.vector_space))
@@ -1080,30 +1094,38 @@ if __name__ == '__main__':
 
         # error measure with centered-valued grid
         Eh_x_vals, Eh_y_vals = grid_vals_hcurl_cdiag(Eh)
+        print(type(Eh_x_vals))
+        try:
+            print(len(Eh_x_vals))
+            print(type(Eh_x_vals[0]))
+            print(Eh_x_vals[0])
+        except:
+            print("?? no len -- failed")
 
-        if save_E_ref:
-            if os.path.isfile(E_ref_filename):
-                print('(ref solution is already saved, no need to save it again)')
-            else:
-                print("saving solution values (on cdiag grid) in new file (for future needs)"+E_ref_filename)
-                with open(E_ref_filename, 'wb') as file:
-                    np.savez(file, x_vals=Eh_x_vals, y_vals=Eh_y_vals)
+        if save_E_vals:
+            print("saving solution values (on cdiag grid) in new file (for future needs)"+E_vals_filename)
+            with open(E_vals_filename, 'wb') as file:
+                np.savez(file, x_vals=Eh_x_vals, y_vals=Eh_y_vals)
 
         xx = xx_cdiag
         yy = yy_cdiag
 
         if E_ref_vals:
+            only_last_patch = True
             E_x_vals, E_y_vals = E_ref_vals
             quad_weights = get_grid_quad_weights(etas_cdiag, patch_logvols, mappings_list)
             Eh_errors_cdiag = [np.sqrt( (u1-v1)**2 + (u2-v2)**2 )
                                for u1, v1, u2, v2 in zip(Eh_x_vals, E_x_vals, Eh_y_vals, E_y_vals)]
-            l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag, quad_weights)]))**0.5
-            err_message = 'error for nc = {0} with gamma_h = {1} and proj_sol = {2}: {3}\n'.format(nc, gamma_h, proj_sol, l2_error)
-            print(err_message)
+            if only_last_patch:
+                l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag[-1:], quad_weights[-1:])]))**0.5
+            else:
+                l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag, quad_weights)]))**0.5
+            err_message = 'error for method = '+method+' with nc = {0}, deg = {1}, gamma = {2}, gamma_h = {3} and proj_sol = {4}: {5}\n'.format(nc, deg, gamma, gamma_h, proj_sol, l2_error)
+            print('\n** '+err_message)
 
-            debug_err = True
-            if debug_err and E_ex is not None:
-
+            check_err = True
+            if check_err and E_ex is not None:
+                # since Ex is available, compute also the auxiliary error || Eh - P1 E || with M1 mass matrix
                 P0, P1, P2 = derham_h.projectors(nquads=nquads)
                 E_x = lambdify(domain.coordinates, E_ex[0])
                 E_y = lambdify(domain.coordinates, E_ex[1])
@@ -1157,7 +1179,8 @@ if __name__ == '__main__':
     else:
         raise NotImplementedError
 
-    print("OK OK")
+    print(" -- OK run done -- ")
+    time_count(t_overstamp, msg='full run')
     exit()
 
     show_all = False
