@@ -17,7 +17,7 @@ from sympde.calculus  import jump, avg, Dn, minus, plus
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
 
-from psydac.core.bsplines         import collocation_matrix
+from psydac.core.bsplines         import collocation_matrix, histopolation_matrix
 
 from psydac.api.discretization       import discretize
 from psydac.api.essential_bc         import apply_essential_bc_stencil
@@ -567,6 +567,59 @@ def get_K0_and_K0_inv(V0h):
     return K0, K0_inv
 
 
+#===============================================================================
+def get_K1_and_K1_inv(V1h):
+    """
+    compute the change of basis matrices K1 and K1^{-1} in Hcurl space V1h, with
+        K1_ij = sigma^1_i(B_j)
+            = int_{e_ix}(M_jx) * B_jy(n_iy)   if i = horizontal edge [e_ix, n_iy] and j = (M_jx o B_jy)  x-oriented MoB spline
+            or
+            = B_jx(n_ix) * int_{e_iy}(M_jy)   if i = vertical edge [n_ix, e_iy]  and  j = (B_jx o M_jy)  y-oriented BoM spline
+        (above, 'o' denotes tensor-product for functions)
+    """
+
+    V1 = V1h.symbolic_space   # V1h is ProductFemSpace
+    domain = V1.domain
+    K1_blocks = []
+    K1_inv_blocks = []
+    for k, D in enumerate(domain.interior):
+
+        V1_k = V1h.spaces[k]  # fem space on patch k: (ProductFemSpace (of TensorFemSpace (s))
+        K1_k_blocks = []
+        for c in [0,1]:    # dim of component
+            V1_kc = V1_k.spaces[c]   # fem space for comp. dc (TensorFemSpace)
+            K1_kc_factors = [None,None]
+            for d in [0,1]:    # dim of variable
+                V1_kcd = V1_kc.spaces[d]   # 1d fem space for comp c alond dim d (SplineSpace)
+                if c == d:
+                    K1_kc_factors[d] = histopolation_matrix(
+                        knots    = V1_kcd.knots,
+                        degree   = V1_kcd.degree,
+                        periodic = V1_kcd.periodic,
+                        normalization = V1_kcd.basis,
+                        xgrid    = V1_kcd.ext_greville
+                    )
+                else:
+                    K1_kc_factors[d] = collocation_matrix(
+                        knots    = V1_kcd.knots,
+                        degree   = V1_kcd.degree,
+                        periodic = V1_kcd.periodic,
+                        normalization = V1_kcd.basis,
+                        xgrid    = V1_kcd.greville
+                    )
+            K1_kc = kron(*K1_kc_factors)
+            K1_kc.eliminate_zeros()
+            K1_k_blocks.append(K1_kc)
+        K1_k = block_diag(K1_k_blocks)
+        K1_k.eliminate_zeros()
+        K1_inv_k = inv(K1_k.tocsc())
+        K1_inv_k.eliminate_zeros()
+        K1_blocks.append(K1_k)
+        K1_inv_blocks.append(K1_inv_k)
+    K1 = block_diag(K1_blocks)
+    K1_inv = block_diag(K1_inv_blocks)
+    return K1, K1_inv
+
 
 #===============================================================================
 class BrokenMass( FemLinearOperator ):
@@ -593,7 +646,7 @@ class BrokenMass( FemLinearOperator ):
 
         self._matrix = ah.assemble() #.toarray()
 
-## todo:
+    ## todo: assemble the block-diagonal inverse mass matrix from this one
 
 
 

@@ -17,7 +17,7 @@ from psydac.linalg.utilities import array_to_stencil
 from psydac.fem.basic   import FemField
 
 from psydac.feec.multipatch.fem_linear_operators import ComposedLinearOperator
-from psydac.feec.multipatch.operators import BrokenMass, get_K0_and_K0_inv
+from psydac.feec.multipatch.operators import BrokenMass, get_K0_and_K0_inv, get_K1_and_K1_inv
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1
 from psydac.feec.multipatch.operators import time_count
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector
@@ -41,7 +41,9 @@ def conga_operators_2d():
     r_min = 0.5
     r_max = 1
     # domain_name = 'pretzel'
-    domain_name = 'pretzel_f'
+    # domain_name = 'pretzel_f'
+    # domain_name = 'curved_L_shape'
+    domain_name = 'square_8'
 
     domain = build_multipatch_domain(domain_name=domain_name, r_min=r_min, r_max=r_max)
 
@@ -61,7 +63,7 @@ def conga_operators_2d():
     # multipatch de Rham sequence:
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
 
-    only_P0check = True
+    only_cP_check = True
 
     #+++++++++++++++++++++++++++++++
     # . Discrete space
@@ -94,7 +96,7 @@ def conga_operators_2d():
     Pconf_0 = ConformingProjection_V0(V0h, domain_h)#, verbose=False)
     Pconf_1 = ConformingProjection_V1(V1h, domain_h)# hom_bc=True)#, verbose=False)
 
-    if only_P0check:
+    if only_cP_check:
         pass
     else:
         t_stamp = time_count(t_stamp)
@@ -175,7 +177,7 @@ def conga_operators_2d():
     v0c  = Pconf_0(v0)   # should be H1-conforming (ie, continuous)
 
 
-    print('******     DEBUG   start   ****************************')
+    print('******     check K0:   ****************************')
     K0, K0_inv = get_K0_and_K0_inv(V0h)
     cP0 = Pconf_0.to_sparse_matrix()
 
@@ -184,12 +186,10 @@ def conga_operators_2d():
 
     v0_2 = FemField(V0h, coeffs=array_to_stencil(v0_2c, V0h.vector_space))
 
-    print('******     DEBUG   end   ****************************')
-
     print('more shapes are: \n K0 = {0}\n K0_inv = {1}\n'.format(K0.shape,K0_inv.shape))
 
 
-    if only_P0check:
+    if only_cP_check:
         # plot v, v0 and v0c
         v_vals   = grid_vals_h1(v_sol_log)
         v0_vals  = grid_vals_h1(v0)
@@ -219,6 +219,69 @@ def conga_operators_2d():
             cmap='jet'
         )
 
+
+        G1   = P1(G_sol_log)
+        G1c  = Pconf_1(G1)  # should be curl-conforming
+
+
+        print('******     check K1:   ****************************')
+        K1, K1_inv = get_K1_and_K1_inv(V1h)
+        cP1 = Pconf_1.to_sparse_matrix()
+
+        print('V1h shapes: \n cP1 = {0}, K1 = {1}\n K1_inv = {2}\n'.format(cP1.shape, K0.shape,K0_inv.shape))
+
+        G1_bc = G1.coeffs.toarray()   # broken
+        G1_2c = K1_inv @ (cP1 @ (K1 @ G1_bc))
+
+        G1_2 = FemField(V1h, coeffs=array_to_stencil(G1_2c, V1h.vector_space))
+
+        # plotting
+        G_x_vals, G_y_vals     = grid_vals_hcurl(G_sol_log)
+        G1_x_vals, G1_y_vals   = grid_vals_hcurl(G1)
+        G1c_x_vals, G1c_y_vals = grid_vals_hcurl(G1c)
+        G1c2_x_vals, G1c2_y_vals = grid_vals_hcurl(G1_2)
+
+        # # plot G, G1 and G1c, x component
+        # my_small_plot(
+        #     title=r'broken and conforming approximation of some $v$',
+        #     vals=[G_x_vals,G1_x_vals,G1c_x_vals],
+        #     titles=[r'$G^{ex}_x(x,y)$',r'$G^h_x(x,y)$',r'$(P^{1,c}G)_x v^h(x,y)$'],
+        #     xx=xx,
+        #     yy=yy,
+        # )
+        #
+        # # plot G, G1 and G1c, y component
+        # my_small_plot(
+        #     title=r'broken and conforming approx of some $G$, y component',
+        #     vals=[G_y_vals, G1_y_vals, G1c_y_vals],
+        #     titles=[r'$G^{ex}_y(x,y)$', r'$G^h_y(x,y)$', r'$(P^{1,c}G)_y v^h(x,y)$'],
+        #     xx=xx,
+        #     yy=yy,
+        # )
+        #
+        # plot G1x, G1y, and confP1 approx
+        my_small_plot(
+            title=r'broken and conforming approximation: comp x',
+            vals=[G1_x_vals,G1c_x_vals,G1c2_x_vals],
+            titles=[r'$G^h_x(x,y)$',r'$(P^{1,c}G)_x v^h(x,y)$', 'new P1 x'],
+            xx=xx,
+            yy=yy,
+            surface_plot=True,
+        )
+
+        # plot G1x, G1y, and confP1 approx
+        my_small_plot(
+            title=r'broken and conforming approximation: comp y',
+            vals=[G1_y_vals,G1c_y_vals,G1c2_y_vals],
+            titles=[r'$G^h_y(x,y)$',r'$(P^{1,c}G)_y v^h(x,y)$', 'new P1 y'],
+            xx=xx,
+            yy=yy,
+            surface_plot=True,
+        )
+
+        print('******     DEBUG   end   ****************************')
+
+
         exit()
 
     cDv0 = bD0(v0c)
@@ -227,8 +290,6 @@ def conga_operators_2d():
     cDv0 = D0(v0)
 
     # - in V1 with a discontinuous field G
-    G1   = P1(G_sol_log)
-    G1c  = Pconf_1(G1)  # should be curl-conforming
     cDG1 = bD1(G1c)
 
     # II. check the commuting diag properties
