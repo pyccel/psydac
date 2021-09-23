@@ -532,7 +532,7 @@ class ConformingProjection_V1( FemLinearOperator ):
 
 
 #===============================================================================
-def get_K0_and_K0_inv(V0h):
+def get_K0_and_K0_inv(V0h, uniform_patches=False):
     """
     compute the change of basis matrices K0 and K0^{-1} in V0h, with
         K0_ij = sigma^0_i(B_j) = B_jx(n_ix) * B_jy(n_iy)
@@ -545,21 +545,27 @@ def get_K0_and_K0_inv(V0h):
     K0_blocks = []
     K0_inv_blocks = []
     for k, D in enumerate(domain.interior):
-        V0_k = V0h.spaces[k]  # fem space on patch k: (TensorFemSpace)
-        K0_k_factors = [None,None]
-        for d in [0,1]:
-            V0_kd = V0_k.spaces[d]   # 1d fem space alond dim d (SplineSpace)
-            K0_k_factors[d] = collocation_matrix(
-                knots    = V0_kd.knots,
-                degree   = V0_kd.degree,
-                periodic = V0_kd.periodic,
-                normalization = V0_kd.basis,
-                xgrid    = V0_kd.greville
-            )
-        K0_k = kron(*K0_k_factors)
-        K0_k.eliminate_zeros()
-        K0_inv_k = inv(K0_k.tocsc())
-        K0_inv_k.eliminate_zeros()
+        if uniform_patches and k > 0:
+            K0_k = K0_blocks[0].copy()
+            K0_inv_k = K0_inv_blocks[0].copy()
+
+        else:
+            V0_k = V0h.spaces[k]  # fem space on patch k: (TensorFemSpace)
+            K0_k_factors = [None,None]
+            for d in [0,1]:
+                V0_kd = V0_k.spaces[d]   # 1d fem space alond dim d (SplineSpace)
+                K0_k_factors[d] = collocation_matrix(
+                    knots    = V0_kd.knots,
+                    degree   = V0_kd.degree,
+                    periodic = V0_kd.periodic,
+                    normalization = V0_kd.basis,
+                    xgrid    = V0_kd.greville
+                )
+            K0_k = kron(*K0_k_factors)
+            K0_k.eliminate_zeros()
+            K0_inv_k = inv(K0_k.tocsc())
+            K0_inv_k.eliminate_zeros()
+
         K0_blocks.append(K0_k)
         K0_inv_blocks.append(K0_inv_k)
     K0 = block_diag(K0_blocks)
@@ -568,7 +574,7 @@ def get_K0_and_K0_inv(V0h):
 
 
 #===============================================================================
-def get_K1_and_K1_inv(V1h):
+def get_K1_and_K1_inv(V1h, uniform_patches=False):
     """
     compute the change of basis matrices K1 and K1^{-1} in Hcurl space V1h, with
         K1_ij = sigma^1_i(B_j)
@@ -583,39 +589,45 @@ def get_K1_and_K1_inv(V1h):
     K1_blocks = []
     K1_inv_blocks = []
     for k, D in enumerate(domain.interior):
+        if uniform_patches and k > 0:
+            K1_k = K1_blocks[0].copy()
+            K1_inv_k = K1_inv_blocks[0].copy()
 
-        V1_k = V1h.spaces[k]  # fem space on patch k: (ProductFemSpace (of TensorFemSpace (s))
-        K1_k_blocks = []
-        for c in [0,1]:    # dim of component
-            V1_kc = V1_k.spaces[c]   # fem space for comp. dc (TensorFemSpace)
-            K1_kc_factors = [None,None]
-            for d in [0,1]:    # dim of variable
-                V1_kcd = V1_kc.spaces[d]   # 1d fem space for comp c alond dim d (SplineSpace)
-                if c == d:
-                    K1_kc_factors[d] = histopolation_matrix(
-                        knots    = V1_kcd.knots,
-                        degree   = V1_kcd.degree,
-                        periodic = V1_kcd.periodic,
-                        normalization = V1_kcd.basis,
-                        xgrid    = V1_kcd.ext_greville
-                    )
-                else:
-                    K1_kc_factors[d] = collocation_matrix(
-                        knots    = V1_kcd.knots,
-                        degree   = V1_kcd.degree,
-                        periodic = V1_kcd.periodic,
-                        normalization = V1_kcd.basis,
-                        xgrid    = V1_kcd.greville
-                    )
-            K1_kc = kron(*K1_kc_factors)
-            K1_kc.eliminate_zeros()
-            K1_k_blocks.append(K1_kc)
-        K1_k = block_diag(K1_k_blocks)
-        K1_k.eliminate_zeros()
-        K1_inv_k = inv(K1_k.tocsc())
-        K1_inv_k.eliminate_zeros()
+        else:
+            V1_k = V1h.spaces[k]  # fem space on patch k: (ProductFemSpace (of TensorFemSpace (s))
+            K1_k_blocks = []
+            for c in [0,1]:    # dim of component
+                V1_kc = V1_k.spaces[c]   # fem space for comp. dc (TensorFemSpace)
+                K1_kc_factors = [None,None]
+                for d in [0,1]:    # dim of variable
+                    V1_kcd = V1_kc.spaces[d]   # 1d fem space for comp c alond dim d (SplineSpace)
+                    if c == d:
+                        K1_kc_factors[d] = histopolation_matrix(
+                            knots    = V1_kcd.knots,
+                            degree   = V1_kcd.degree,
+                            periodic = V1_kcd.periodic,
+                            normalization = V1_kcd.basis,
+                            xgrid    = V1_kcd.ext_greville
+                        )
+                    else:
+                        K1_kc_factors[d] = collocation_matrix(
+                            knots    = V1_kcd.knots,
+                            degree   = V1_kcd.degree,
+                            periodic = V1_kcd.periodic,
+                            normalization = V1_kcd.basis,
+                            xgrid    = V1_kcd.greville
+                        )
+                K1_kc = kron(*K1_kc_factors)
+                K1_kc.eliminate_zeros()
+                K1_k_blocks.append(K1_kc)
+            K1_k = block_diag(K1_k_blocks)
+            K1_k.eliminate_zeros()
+            K1_inv_k = inv(K1_k.tocsc())
+            K1_inv_k.eliminate_zeros()
+
         K1_blocks.append(K1_k)
         K1_inv_blocks.append(K1_inv_k)
+
     K1 = block_diag(K1_blocks)
     K1_inv = block_diag(K1_inv_blocks)
     return K1, K1_inv

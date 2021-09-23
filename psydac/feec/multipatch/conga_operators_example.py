@@ -178,7 +178,7 @@ def conga_operators_2d():
 
 
     print('******     check K0:   ****************************')
-    K0, K0_inv = get_K0_and_K0_inv(V0h)
+    K0, K0_inv = get_K0_and_K0_inv(V0h, uniform_patches=True)
     cP0 = Pconf_0.to_sparse_matrix()
 
     v0_bc = v0.coeffs.toarray()
@@ -225,7 +225,7 @@ def conga_operators_2d():
 
 
         print('******     check K1:   ****************************')
-        K1, K1_inv = get_K1_and_K1_inv(V1h)
+        K1, K1_inv = get_K1_and_K1_inv(V1h, uniform_patches=True)
         cP1 = Pconf_1.to_sparse_matrix()
 
         print('V1h shapes: \n cP1 = {0}, K1 = {1}\n K1_inv = {2}\n'.format(cP1.shape, K0.shape,K0_inv.shape))

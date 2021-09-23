@@ -53,7 +53,7 @@ from psydac.fem.basic   import FemField
 from psydac.api.settings        import PSYDAC_BACKENDS
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
-from psydac.feec.multipatch.operators import BrokenMass, get_K0_and_K0_inv, ortho_proj_Hcurl
+from psydac.feec.multipatch.operators import BrokenMass, get_K0_and_K0_inv, get_K1_and_K1_inv
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, time_count
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector, get_grid_quad_weights
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
@@ -80,7 +80,7 @@ def Eh_coeffs_fn(source_type, N_diag):
 def error_fn(source_type=None, method=None, k=None, domain_name=None,deg=None):
     return 'errors/error_'+domain_name+'_'+source_type+'_'+'_deg'+repr(deg)+'_'+get_method_name(method, k)+'.txt'
 
-def get_method_name(method=None, k=None):
+def get_method_name(method=None, k=None, geo_cproj=None):
     if method == 'nitsche':
         method_name = method
         if k==1:
@@ -91,16 +91,22 @@ def get_method_name(method=None, k=None):
             method_name += '_IIP'
         else:
             assert k is None
-    else:
+    elif method == 'conga':
         method_name = method
-        assert method == 'conga'
+        if geo_cproj is not None:
+            if geo_cproj:
+                method_name += '_GSP'  # Geometric-Spline-Proje
+            else:
+                method_name += '_BSP'  # B-Spline-Projection
+    else:
+        raise ValueError(method)
     return method_name
 
-def get_fem_name(method=None, k=None, domain_name=None,nc=None,deg=None):
+def get_fem_name(method=None, k=None, geo_cproj=None, domain_name=None,nc=None,deg=None):
     assert domain_name and nc and deg
     fn = domain_name+'_nc'+repr(nc)+'_deg'+repr(deg)
     if method is not None:
-        fn += '_'+get_method_name(method, k)
+        fn += '_'+get_method_name(method, k, geo_cproj)
     return fn
 
 def get_load_dir(method=None, domain_name=None,nc=None,deg=None,data='matrices'):
@@ -209,7 +215,7 @@ def nitsche_curl_curl_2d(domain_h, Vh, gamma_h=None, k=None, load_dir=None, back
 
 
 # ---------------------------------------------------------------------------------------------------------------
-def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_language='python', discard_non_hom_matrices=False):
+def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_language='python', geo_cproj=False, discard_non_hom_matrices=False):
 
     if os.path.exists(load_dir):
         print(" -- load directory " + load_dir + " found -- will load the CONGA matrices from there...")
@@ -304,10 +310,20 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
 
     print('ok, got the matrices. Some shapes are: \n M0_m = {0}\n M1_m = {1}\n M2_m = {2}'.format(M0_m.shape,M1_m.shape,M2_m.shape))
 
+    if geo_cproj:
+        print(' [note: using the geometric conf projections ]')
+        V0h = derham_h.V0
+        K0, K0_inv = get_K0_and_K0_inv(V0h, uniform_patches=True)
+        V1h = derham_h.V1
+        K1, K1_inv = get_K1_and_K1_inv(V1h, uniform_patches=True)
+        cP0_hom_m = K0_inv @ cP0_hom_m @ K0     # use a different name for the resulting projection matrices ?
+        cP1_hom_m = K1_inv @ cP1_hom_m @ K1
+        cP0_m = K0_inv @ cP0_m @ K0
+        cP1_m = K1_inv @ cP1_m @ K1
+
+        print('  -- some more shapes: \n K0 = {0}\n K1_inv = {1}\n'.format(K0.shape,K1_inv.shape))
+
     print('**********************************')
-    V0h = derham_h.V0
-    K0, K0_inv = get_K0_and_K0_inv(V0h)
-    print('more shapes are: \n K0 = {0}\n K0_inv = {1}\n'.format(K0.shape,K0_inv.shape))
 
     return M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m
 
@@ -627,6 +643,11 @@ if __name__ == '__main__':
         help    = 'penalization term (Nitsche or conga)'
     )
 
+    parser.add_argument( '--geo_cproj',
+        action  = 'store_true',
+        help    = 'whether cP is applied with the geometric (interpolation/histopolation) splines'
+    )
+
     parser.add_argument( '--operator',
         choices = ['curl_curl', 'hodge_laplacian'],
         default = 'curl_curl',
@@ -660,8 +681,9 @@ if __name__ == '__main__':
     gamma       = args.gamma
     k           = args.k
     proj_sol    = args.proj_sol
-    operator    = args.operator
+    operator    = args.operator  # only curl_curl for now
     problem     = args.problem
+    geo_cproj   = args.geo_cproj
     source_type = args.source
     eta         = args.eta
     hide_plots  = args.hide_plots
@@ -675,12 +697,10 @@ if __name__ == '__main__':
         backend_language='python'
     print('[note: using '+backend_language+ ' backends in discretize functions]')
 
-    fem_name = get_fem_name(method=method, k=k, domain_name=domain_name,nc=nc,deg=deg) #domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
-
     print('--------------------------------------------------------------------------------------------------------------')
     t_overstamp = time_count()  # full run
     t_stamp = time_count()
-    print('building the multipatch domain...' )
+    print('building the multipatch domain "'+domain_name+'"...' )
     domain = build_multipatch_domain(domain_name=domain_name)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
@@ -702,6 +722,7 @@ if __name__ == '__main__':
     grid_vals_hcurl_cdiag = lambda v: get_grid_vals_vector(v, etas_cdiag, mappings_list, space_kind='hcurl')
 
     # todo: add some identifiers for secondary parameters (eg gamma_h, proj_sol ...)
+    fem_name = get_fem_name(method=method, geo_cproj=geo_cproj, k=k, domain_name=domain_name,nc=nc,deg=deg)
     plot_dir = './plots/'+source_type+'_'+fem_name+'/'
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
@@ -723,7 +744,7 @@ if __name__ == '__main__':
     #     print(' -- note: discarding absent load directory')
     #     load_dir = None
     M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m = get_elementary_conga_matrices(
-        domain_h, derham_h, load_dir=load_dir, backend_language=backend_language,
+        domain_h, derham_h, load_dir=load_dir, backend_language=backend_language, geo_cproj=geo_cproj,
         discard_non_hom_matrices=(source_type=='ring_J')
     )
 
@@ -1094,13 +1115,6 @@ if __name__ == '__main__':
 
         # error measure with centered-valued grid
         Eh_x_vals, Eh_y_vals = grid_vals_hcurl_cdiag(Eh)
-        print(type(Eh_x_vals))
-        try:
-            print(len(Eh_x_vals))
-            print(type(Eh_x_vals[0]))
-            print(Eh_x_vals[0])
-        except:
-            print("?? no len -- failed")
 
         if save_E_vals:
             print("saving solution values (on cdiag grid) in new file (for future needs)"+E_vals_filename)
@@ -1111,16 +1125,22 @@ if __name__ == '__main__':
         yy = yy_cdiag
 
         if E_ref_vals:
-            only_last_patch = True
+            only_last_patch = False
             E_x_vals, E_y_vals = E_ref_vals
             quad_weights = get_grid_quad_weights(etas_cdiag, patch_logvols, mappings_list)
             Eh_errors_cdiag = [np.sqrt( (u1-v1)**2 + (u2-v2)**2 )
                                for u1, v1, u2, v2 in zip(Eh_x_vals, E_x_vals, Eh_y_vals, E_y_vals)]
             if only_last_patch:
+                print('WARNING ** WARNING : measuring error on last patch only !!' )
+                warning_msg = ' [on last patch]'
                 l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag[-1:], quad_weights[-1:])]))**0.5
             else:
+                warning_msg = ''
                 l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag, quad_weights)]))**0.5
-            err_message = 'error for method = '+method+' with nc = {0}, deg = {1}, gamma = {2}, gamma_h = {3} and proj_sol = {4}: {5}\n'.format(nc, deg, gamma, gamma_h, proj_sol, l2_error)
+
+            err_message = 'error'+warning_msg+' for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5}: {6}\n'.format(
+                        get_method_name(method, k, geo_cproj), nc, deg, gamma, gamma_h, proj_sol, l2_error
+            )
             print('\n** '+err_message)
 
             check_err = True
@@ -1182,25 +1202,6 @@ if __name__ == '__main__':
     print(" -- OK run done -- ")
     time_count(t_overstamp, msg='full run')
     exit()
-
-    show_all = False
-    plot_all = True
-    dpi = 400
-    dpi_vf = 200
-    # show_all = True
-    # plot_all = False
-    plot_dir_suffix = ''
-    plot_dir = './plots/'+fem_name+plot_dir_suffix+'/'
-    if not os.path.exists(plot_dir):
-        os.makedirs(plot_dir)
-
-    if plot_all:
-        show_all=True
-        # will also use above value of fem_name
-    else:
-        # reset fem_name to disable plots
-        fem_name = ''
-
 
 
 
