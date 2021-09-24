@@ -63,15 +63,23 @@ class DistributedFFTBase(LinearOperator):
             onedimsolver = DistributedFFTBase.OneDimSolver(functions)
             solvers = [onedimsolver] * space.ndim
         self._isolver = KroneckerLinearSolver(space, solvers)
-    
+
+    # ...
     @property
     def domain(self):
         return self._isolver.space
-    
+
+    # ...
     @property
     def codomain(self):
         return self._isolver.space
-    
+
+    # ...
+    @property
+    def dtype( self ):
+        return self._isolver.dtype
+
+    # ...
     def dot(self, v, out=None):
         # just call the KroneckerLinearSolver
         return self._isolver.solve(v, out=out)
