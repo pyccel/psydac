@@ -80,7 +80,7 @@ def Eh_coeffs_fn(source_type, N_diag):
 def error_fn(source_type=None, method=None, k=None, domain_name=None,deg=None):
     return 'errors/error_'+domain_name+'_'+source_type+'_'+'_deg'+repr(deg)+'_'+get_method_name(method, k)+'.txt'
 
-def get_method_name(method=None, k=None, geo_cproj=None):
+def get_method_name(method=None, k=None, geo_cproj=None, penal_regime=None):
     if method == 'nitsche':
         method_name = method
         if k==1:
@@ -100,6 +100,9 @@ def get_method_name(method=None, k=None, geo_cproj=None):
                 method_name += '_BSP'  # B-Spline-Projection
     else:
         raise ValueError(method)
+    if penal_regime is not None:
+        method_name += '_pr'+repr(penal_regime)
+
     return method_name
 
 def get_fem_name(method=None, k=None, geo_cproj=None, domain_name=None,nc=None,deg=None):
@@ -151,7 +154,7 @@ def nitsche_curl_curl_2d(domain_h, Vh, gamma_h=None, k=None, load_dir=None, back
         V = Vh.symbolic_space
         domain = V.domain
 
-        u, v, F  = elements_of(V, names='u, v, F')
+        u, v  = elements_of(V, names='u, v')
         nn  = NormalVector('nn')
 
         I        = domain.interfaces
@@ -490,11 +493,18 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
     x,y    = domain.coordinates
 
     if source_type == 'manu_J':
-        # use a manufactured solution, with ad-hoc (inhomogeneous) bc
+        # use a manufactured solution, with ad-hoc (homogeneous or inhomogeneous) bc
+        if domain_name in ['square_2', 'square_6', 'square_8']:
+            theta = 1
+        else:
+            theta = pi
 
-        E_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
-        f      = Tuple(eta*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
-                         eta*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+            # E_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+            # f      = Tuple(eta*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+            #                  eta*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+        E_ex   = Tuple(sin(theta*y), sin(theta*x)*cos(theta*y))
+        f      = Tuple(eta*sin(theta*y) - theta**2*sin(theta*y)*cos(theta*x) + theta**2*sin(theta*y),
+                         eta*sin(theta*x)*cos(theta*y) + theta**2*sin(theta*x)*cos(theta*y))
         E_ex_x = lambdify(domain.coordinates, E_ex[0])
         E_ex_y = lambdify(domain.coordinates, E_ex[1])
         E_ex_log = [pull_2d_hcurl([E_ex_x,E_ex_y], f) for f in mappings_list]
@@ -609,7 +619,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument( '--domain',
-        choices = ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_f', 'pretzel_annulus', 'pretzel_debug'],
+        choices = ['square_2', 'square_6', 'square_8', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_f', 'pretzel_annulus', 'pretzel_debug'],
         default = 'curved_L_shape',
         help    = 'Domain'
     )
@@ -639,8 +649,15 @@ if __name__ == '__main__':
 
     parser.add_argument( '--gamma',
         type    = float,
-        default = -1,
-        help    = 'penalization term (Nitsche or conga)'
+        default = 10,
+        help    = 'penalization factor (Nitsche or conga)'
+    )
+
+    parser.add_argument( '--penal_regime',
+        type    = int,
+        choices = [0, 1, 2],
+        default = 1,
+        help    = 'penalization regime (Nitsche or conga)'
     )
 
     parser.add_argument( '--geo_cproj',
@@ -673,20 +690,21 @@ if __name__ == '__main__':
     )
 
     # Read input arguments
-    args        = parser.parse_args()
-    deg         = args.degree
-    nc          = args.ncells
-    domain_name = args.domain
-    method      = args.method
-    gamma       = args.gamma
-    k           = args.k
-    proj_sol    = args.proj_sol
-    operator    = args.operator  # only curl_curl for now
-    problem     = args.problem
-    geo_cproj   = args.geo_cproj
-    source_type = args.source
-    eta         = args.eta
-    hide_plots  = args.hide_plots
+    args         = parser.parse_args()
+    deg          = args.degree
+    nc           = args.ncells
+    domain_name  = args.domain
+    method       = args.method
+    k            = args.k
+    geo_cproj    = args.geo_cproj
+    gamma        = args.gamma
+    penal_regime = args.penal_regime
+    proj_sol     = args.proj_sol
+    operator     = args.operator  # only curl_curl for now
+    problem      = args.problem
+    source_type  = args.source
+    eta          = args.eta
+    hide_plots   = args.hide_plots
 
     ncells = [nc, nc]
     degree = [deg,deg]
@@ -711,6 +729,20 @@ if __name__ == '__main__':
         N_diag = 200
     else:
         N_diag = 100  # should match the grid resolution of the stored E_ref...
+
+    # jump penalization factor:
+    assert gamma >= 0
+
+    h = 1/nc
+    if penal_regime == 0:
+        # constant penalization
+        gamma_h = gamma
+    elif penal_regime == 1:
+        gamma_h = gamma/h
+    elif penal_regime == 2:
+        gamma_h = gamma * (deg+1)**2 /h  # DG std (see eg Buffa, Perugia and Warburton)
+    else:
+        raise ValueError(penal_regime)
 
     # node based grid (to better see the smoothness)
     etas, xx, yy = get_plotting_grid(mappings, N=N_diag)
@@ -737,6 +769,7 @@ if __name__ == '__main__':
     V0h = derham_h.V0
     V1h = derham_h.V1
     V2h = derham_h.V2
+    nquads = [d + 1 for d in degree]
 
     # getting CONGA matrices -- also needed with nitsche method (M1_m, and some other for post-processing)
     load_dir = get_load_dir(method='conga', domain_name=domain_name, nc=nc, deg=deg)
@@ -748,18 +781,10 @@ if __name__ == '__main__':
         discard_non_hom_matrices=(source_type=='ring_J')
     )
 
-    # jump penalization factor:
-    # todo: study different penalization regimes
-    if gamma >= 0:
-        # penalization increases as h -> 0
-        h = 1/nc
-        # gamma_h = 10*(deg+1)**2/h  # DG std (see eg Buffa, Perugia and Warburton)
-        gamma_h = gamma/h
-    else:
-        # fixed (positive) penalization
-        gamma_h = -gamma
-
     # E_vals saved/loaded as point values on cdiag grid (mostly for error measure)
+    f = None
+    E_ex = None
+    E_ref_vals = None
     save_E_vals = False
     E_vals_filename = None
 
@@ -781,6 +806,9 @@ if __name__ == '__main__':
         f, E_bc, E_ref_vals, E_ex = get_source_and_solution(source_type=source_type, eta=eta, domain=domain, refsol_params=[nc_ref, deg_ref, N_diag, method_ref])
         if E_ref_vals is None:
             print('-- no ref solution found')
+
+        # print("[[ FORCING: discard E_bc ]]")
+        # E_bc = None
 
         # todo: discard if same as E_ref
 
@@ -882,7 +910,7 @@ if __name__ == '__main__':
         else:
             print("-- no rhs file '"+rhs_filename+" -- so I will assemble the source")
 
-            u, v, F  = elements_of(V1h.symbolic_space, names='u, v, F')
+            v  = element_of(V1h.symbolic_space, name='v')
             expr = dot(f,v)
             l = LinearForm(v, integral(domain, expr))
             lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
@@ -907,6 +935,8 @@ if __name__ == '__main__':
                 print("-- no rhs file '"+rhs_filename+" -- so I will assemble them...")
                 nn  = NormalVector('nn')
                 boundary = domain.boundary
+                v  = element_of(V1h.symbolic_space, name='v')
+
                 # expr_b = -k*cross(nn, E_bc)*curl(v) + gamma_h * cross(nn, E_bc) * cross(nn, v)
 
                 # nitsche symmetrization term:
@@ -919,7 +949,7 @@ if __name__ == '__main__':
                 # nitsche penalization term:
                 expr_bp = cross(nn, E_bc) * cross(nn, v)
                 lp = LinearForm(v, integral(boundary, expr_bp))
-                lph = discretize(ls, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
+                lph = discretize(lp, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
                 bp  = lph.assemble()
                 bp_c = bp.toarray()
 
@@ -928,15 +958,16 @@ if __name__ == '__main__':
                     np.savez(file, bs_c=bs_c, bp_c=bp_c)
 
             # full rhs for nitsche method with non-hom. bc
-            b_c += -k * bs_c + gamma_h * bp_c
+            b_c = b_c - k * bs_c + gamma_h * bp_c
+
 
         if lift_E_bc:
-            # lift boundary condition
-            debug_plot = False
+            t_stamp = time_count(t_stamp)
+            print('lifting the boundary condition...')
+            debug_plot = True
 
             # Projector on broken space
             # todo: we should probably apply P1 on E_bc -- it's a bit weird to call it on the list of (pulled back) logical fields.
-            nquads = [d + 1 for d in degree]
             P0, P1, P2 = derham_h.projectors(nquads=nquads)
             E_bc_x = lambdify(domain.coordinates, E_bc[0])
             E_bc_y = lambdify(domain.coordinates, E_bc[1])
@@ -994,7 +1025,10 @@ if __name__ == '__main__':
                 )
 
         plot_source = True
+        # plot_source = False
         if plot_source:
+            t_stamp = time_count(t_stamp)
+            print('plotting the source...')
             # representation of discrete source:
             fh_c = spsolve(M1_m.tocsc(), b_c)
             # fh_norm = np.dot(fh_c,M1_m.dot(fh_c))**0.5
@@ -1067,6 +1101,7 @@ if __name__ == '__main__':
         Eh = FemField(V1h, coeffs=array_to_stencil(Eh_c, V1h.vector_space))
 
         if save_Eh:
+            # MCP: I think this should be discarded....
             if os.path.isfile(Eh_filename):
                 print('(solution coeff array is already saved, no need to save it again)')
             else:
@@ -1138,8 +1173,8 @@ if __name__ == '__main__':
                 warning_msg = ''
                 l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag, quad_weights)]))**0.5
 
-            err_message = 'error'+warning_msg+' for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5}: {6}\n'.format(
-                        get_method_name(method, k, geo_cproj), nc, deg, gamma, gamma_h, proj_sol, l2_error
+            err_message = 'diag_grid error'+warning_msg+' for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5}: {6}\n'.format(
+                        get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
             )
             print('\n** '+err_message)
 
@@ -1154,13 +1189,29 @@ if __name__ == '__main__':
                 Ex_c = Ex_h.coeffs.toarray()
                 err_c = Ex_c-Eh_c
                 err_norm = np.dot(err_c,M1_m.dot(err_c))**0.5
-                print('--- ** --- check: L2 error in V1h: {}'.format(err_norm))
+                print('--- ** --- check: L2 discrete-error (in V1h): {}'.format(err_norm))
+
+                # also assembling the L2 error with Psydac quadrature
+                print(" -- * --  also computing L2 error with explicit (exact) solution, using Psydac quadratures...")
+                F  = element_of(V1h.symbolic_space, name='F')
+                error       = Matrix([F[0]-E_ex[0],F[1]-E_ex[1]])
+                l2_norm     = Norm(error, domain, kind='l2')
+                l2_norm_h   = discretize(l2_norm, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
+                l2_error     = l2_norm_h.assemble(F=Eh)
+                err_message_2 = 'l2_psydac error for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5}: {6}\n'.format(
+                        get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
+                )
+                print('\n** '+err_message_2)
+            else:
+                err_message_2 = ''
 
             error_filename = error_fn(source_type=source_type, method=method, k=k, domain_name=domain_name,deg=deg)
             if not os.path.exists(error_filename):
                 open(error_filename, 'w')
             with open(error_filename, 'a') as a_writer:
                 a_writer.write(err_message)
+                if err_message_2:
+                    a_writer.write(err_message_2)
 
         else:
             E_x_vals = Eh_x_vals
@@ -1201,6 +1252,7 @@ if __name__ == '__main__':
 
     print(" -- OK run done -- ")
     time_count(t_overstamp, msg='full run')
+    print()
     exit()
 
 

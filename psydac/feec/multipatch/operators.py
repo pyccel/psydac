@@ -539,6 +539,8 @@ def get_K0_and_K0_inv(V0h, uniform_patches=False):
     where sigma_i is the geometric (interpolation) dof
     and B_j is the tensor-product B-spline
     """
+    if uniform_patches:
+        print(' [[WARNING -- hack in get_K0_and_K0_inv: using copies of 1st-patch matrices in every patch ]] ')
 
     V0 = V0h.symbolic_space   # VOh is ProductFemSpace
     domain = V0.domain
@@ -583,6 +585,8 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
             = B_jx(n_ix) * int_{e_iy}(M_jy)   if i = vertical edge [n_ix, e_iy]  and  j = (B_jx o M_jy)  y-oriented BoM spline
         (above, 'o' denotes tensor-product for functions)
     """
+    if uniform_patches:
+        print(' [[WARNING -- hack in get_K1_and_K1_inv: using copies of 1st-patch matrices in every patch ]] ')
 
     V1 = V1h.symbolic_space   # V1h is ProductFemSpace
     domain = V1.domain
