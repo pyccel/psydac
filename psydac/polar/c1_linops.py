@@ -49,6 +49,11 @@ class LinearOperator_StencilToDense( Matrix ):
         return self._codomain
 
     # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
+
+    # ...
     def dot( self, v, out=None ):
 
         assert isinstance( v, StencilVector )
@@ -227,6 +232,11 @@ class LinearOperator_DenseToStencil( Matrix ):
     @property
     def codomain( self ):
         return self._codomain
+
+    # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
 
     # ...
     def dot( self, v, out=None ):
