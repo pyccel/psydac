@@ -642,9 +642,14 @@ if __name__ == '__main__':
         help    = 'whether cP1 is applied to solution of source problem'
     )
 
+    parser.add_argument( '--no_plots',
+        action  = 'store_true',
+        help    = 'whether plots are done'
+    )
+
     parser.add_argument( '--hide_plots',
         action  = 'store_true',
-        help    = 'whether plots are hidden (and saved)'
+        help    = 'whether plots are hidden'
     )
 
     parser.add_argument( '--gamma',
@@ -704,7 +709,10 @@ if __name__ == '__main__':
     problem      = args.problem
     source_type  = args.source
     eta          = args.eta
+    no_plots     = args.no_plots
     hide_plots   = args.hide_plots
+
+    do_plots = not no_plots
 
     ncells = [nc, nc]
     degree = [deg,deg]
@@ -1026,7 +1034,7 @@ if __name__ == '__main__':
 
         plot_source = True
         # plot_source = False
-        if plot_source:
+        if do_plots and plot_source:
             t_stamp = time_count(t_stamp)
             print('plotting the source...')
             # representation of discrete source:
@@ -1113,40 +1121,41 @@ if __name__ == '__main__':
         # plotting and diagnostics
         #+++++++++++++++++++++++++++++++
 
-        # smooth plotting with node-valued grid
-        Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
-        if domain_name in ['pretzel','pretzel_f']:
-            vf_amp = 2
-        else:
-            vf_amp = 1
-        my_small_streamplot(
-            title=r'solution electric field $E_h$ (vector field)',  # for $\omega = $'+repr(omega),
-            vals_x=Eh_x_vals,
-            vals_y=Eh_y_vals,
-            skip=10,
-            xx=xx,
-            yy=yy,
-            amplification=vf_amp,
-            save_fig=plot_dir+'Eh_vf.png',
-            hide_plot=hide_plots,
-            dpi = 200,
-        )
+        if do_plots:
+            # smooth plotting with node-valued grid
+            Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
+            if domain_name in ['pretzel','pretzel_f']:
+                vf_amp = 2
+            else:
+                vf_amp = 1
+            my_small_streamplot(
+                title=r'solution electric field $E_h$ (vector field)',  # for $\omega = $'+repr(omega),
+                vals_x=Eh_x_vals,
+                vals_y=Eh_y_vals,
+                skip=10,
+                xx=xx,
+                yy=yy,
+                amplification=vf_amp,
+                save_fig=plot_dir+'Eh_vf.png',
+                hide_plot=hide_plots,
+                dpi = 200,
+            )
 
-        Eh_abs_vals = [np.sqrt(abs(ex)**2 + abs(ey)**2) for ex, ey in zip(Eh_x_vals, Eh_y_vals)]
-        my_small_plot(
-            title=r'solution electric field $E_h$ (amplitude)', # for $\omega = $'+repr(omega),
-            vals=[Eh_abs_vals], #[Eh_x_vals, Eh_y_vals, Eh_abs_vals],
-            titles=[r'$|E^h|$'], #[r'$E^h_x$', r'$E^h_y$', r'$|E^h|$'],
-            xx=xx,
-            yy=yy,
-            surface_plot=False,
-            # gridlines_x1=gridlines_x1,
-            # gridlines_x2=gridlines_x2,
-            save_fig=plot_dir+'Eh.png',
-            hide_plot=hide_plots,
-            cmap='hsv',
-            dpi = 400,
-        )
+            Eh_abs_vals = [np.sqrt(abs(ex)**2 + abs(ey)**2) for ex, ey in zip(Eh_x_vals, Eh_y_vals)]
+            my_small_plot(
+                title=r'solution electric field $E_h$ (amplitude)', # for $\omega = $'+repr(omega),
+                vals=[Eh_abs_vals], #[Eh_x_vals, Eh_y_vals, Eh_abs_vals],
+                titles=[r'$|E^h|$'], #[r'$E^h_x$', r'$E^h_y$', r'$|E^h|$'],
+                xx=xx,
+                yy=yy,
+                surface_plot=False,
+                # gridlines_x1=gridlines_x1,
+                # gridlines_x2=gridlines_x2,
+                save_fig=plot_dir+'Eh.png',
+                hide_plot=hide_plots,
+                cmap='hsv',
+                dpi = 400,
+            )
 
         # error measure with centered-valued grid
         Eh_x_vals, Eh_y_vals = grid_vals_hcurl_cdiag(Eh)
@@ -1179,18 +1188,7 @@ if __name__ == '__main__':
             print('\n** '+err_message)
 
             check_err = True
-            if check_err and E_ex is not None:
-                # since Ex is available, compute also the auxiliary error || Eh - P1 E || with M1 mass matrix
-                P0, P1, P2 = derham_h.projectors(nquads=nquads)
-                E_x = lambdify(domain.coordinates, E_ex[0])
-                E_y = lambdify(domain.coordinates, E_ex[1])
-                E_log = [pull_2d_hcurl([E_x, E_y], f) for f in mappings_list]
-                Ex_h = P1(E_log)
-                Ex_c = Ex_h.coeffs.toarray()
-                err_c = Ex_c-Eh_c
-                err_norm = np.dot(err_c,M1_m.dot(err_c))**0.5
-                print('--- ** --- check: L2 discrete-error (in V1h): {}'.format(err_norm))
-
+            if E_ex is not None:
                 # also assembling the L2 error with Psydac quadrature
                 print(" -- * --  also computing L2 error with explicit (exact) solution, using Psydac quadratures...")
                 F  = element_of(V1h.symbolic_space, name='F')
@@ -1198,10 +1196,22 @@ if __name__ == '__main__':
                 l2_norm     = Norm(error, domain, kind='l2')
                 l2_norm_h   = discretize(l2_norm, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
                 l2_error     = l2_norm_h.assemble(F=Eh)
-                err_message_2 = 'l2_psydac error for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5}: {6}\n'.format(
+                err_message_2 = 'l2_psydac error for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5} [*] : {6}\n'.format(
                         get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
                 )
                 print('\n** '+err_message_2)
+                if check_err:
+                    # since Ex is available, compute also the auxiliary error || Eh - P1 E || with M1 mass matrix
+                    P0, P1, P2 = derham_h.projectors(nquads=nquads)
+                    E_x = lambdify(domain.coordinates, E_ex[0])
+                    E_y = lambdify(domain.coordinates, E_ex[1])
+                    E_log = [pull_2d_hcurl([E_x, E_y], f) for f in mappings_list]
+                    Ex_h = P1(E_log)
+                    Ex_c = Ex_h.coeffs.toarray()
+                    err_c = Ex_c-Eh_c
+                    err_norm = np.dot(err_c,M1_m.dot(err_c))**0.5
+                    print('--- ** --- check: L2 discrete-error (in V1h): {}'.format(err_norm))
+
             else:
                 err_message_2 = ''
 
@@ -1217,35 +1227,32 @@ if __name__ == '__main__':
             E_x_vals = Eh_x_vals
             E_y_vals = Eh_y_vals
 
+        if do_plots:
+            E_x_err = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
+            E_y_err = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
+            my_small_plot(
+                title=r'approximation of solution $u$, $x$ component',
+                vals=[E_x_vals, Eh_x_vals, E_x_err],
+                titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+                xx=xx,
+                yy=yy,
+                save_fig=plot_dir+'err_Ex.png',
+                hide_plot=hide_plots,
+                # gridlines_x1=gridlines_x1,
+                # gridlines_x2=gridlines_x2,
+            )
 
-        E_x_err = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
-        E_y_err = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
-        # print(E_x_vals)
-        # print(Eh_x_vals)
-        # print(E_x_err)
-        my_small_plot(
-            title=r'approximation of solution $u$, $x$ component',
-            vals=[E_x_vals, Eh_x_vals, E_x_err],
-            titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
-            xx=xx,
-            yy=yy,
-            save_fig=plot_dir+'err_Ex.png',
-            hide_plot=hide_plots,
-            # gridlines_x1=gridlines_x1,
-            # gridlines_x2=gridlines_x2,
-        )
-
-        my_small_plot(
-            title=r'approximation of solution $u$, $y$ component',
-            vals=[E_y_vals, Eh_y_vals, E_y_err],
-            titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-            xx=xx,
-            yy=yy,
-            save_fig=plot_dir+'err_Ey.png',
-            hide_plot=hide_plots,
-            # gridlines_x1=gridlines_x1,
-            # gridlines_x2=gridlines_x2,
-        )
+            my_small_plot(
+                title=r'approximation of solution $u$, $y$ component',
+                vals=[E_y_vals, Eh_y_vals, E_y_err],
+                titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+                xx=xx,
+                yy=yy,
+                save_fig=plot_dir+'err_Ey.png',
+                hide_plot=hide_plots,
+                # gridlines_x1=gridlines_x1,
+                # gridlines_x2=gridlines_x2,
+            )
 
     else:
         raise NotImplementedError
