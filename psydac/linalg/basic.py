@@ -22,6 +22,13 @@ class VectorSpace( metaclass=ABCMeta ):
 
         """
 
+    @property
+    @abstractmethod
+    def dtype( self ):
+        """
+        The data type of the space elements.
+        """
+
     @abstractmethod
     def zeros( self ):
         """
@@ -50,6 +57,11 @@ class Vector( metaclass=ABCMeta ):
     @property
     @abstractmethod
     def space( self ):
+        pass
+
+    @property
+    @abstractmethod
+    def dtype( self ):
         pass
 
     @abstractmethod
@@ -126,6 +138,11 @@ class LinearOperator( metaclass=ABCMeta ):
     @property
     @abstractmethod
     def codomain( self ):
+        pass
+
+    @property
+    @abstractmethod
+    def dtype( self ):
         pass
 
     @abstractmethod

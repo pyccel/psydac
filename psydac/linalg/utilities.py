@@ -56,12 +56,16 @@ def petsc_to_stencil(x, Xh):
 def _sym_ortho(a, b):
     """
     Stable implementation of Givens rotation.
+    This function was taken from the scipy repository
+    https://github.com/scipy/scipy/blob/master/scipy/sparse/linalg/isolve/lsqr.py
+
     Notes
     -----
     The routine 'SymOrtho' was added for numerical stability. This is
     recommended by S.-C. Choi in [1]_.  It removes the unpleasant potential of
     ``1/eps`` in some important places (see, for example text following
     "Compute the next plane rotation Qk" in minres.py).
+
     References
     ----------
     .. [1] S.-C. Choi, "Iterative Methods for Singular Linear Equations

@@ -474,8 +474,8 @@ def bicg(A, At, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         #-----------------------
         # MATRIX-VECTOR PRODUCTS
         #-----------------------
-        v  = A .dot(p )
-        vs = At.dot(ps)
+        v  = A .dot(p , out=v)
+        vs = At.dot(ps, out=vs)
         #-----------------------
 
         # c := (r, rs)
@@ -750,13 +750,15 @@ def lsmr(A, At, b, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim
     allowed: m = n, m > n, or m < n. ``b`` is a vector of length m.
     The matrix A may be dense or sparse (usually sparse).
 
-
     Parameters
     ----------
     A : psydac.linalg.basic.LinearOperator
         Left-hand-side matrix A of linear system; individual entries A[i,j]
         can't be accessed, but A has 'shape' attribute and provides 'dot(p)'
         function (i.e. matrix-vector product A*p).
+
+    At : psydac.linalg.basic.LinearOperator
+        Matrix transpose of A, with 'shape' attribute and 'dot(p)' function.
 
     b : psydac.linalg.basic.Vector
         Right-hand-side vector of linear system. Individual entries b[i] need

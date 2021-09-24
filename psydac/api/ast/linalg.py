@@ -359,6 +359,7 @@ class TransposeOperator(SplBasic):
         tag = random_string( 8 )
         if backend and backend['name'] == 'pyccel':
             imports = 'from pyccel.decorators import types'
+            # Add @types decorator due the  minimum required Pyccel version 0.10.1
             dec     = '@types({})'.format(','.join(self._args_dtype))
         elif backend and backend['name'] == 'numba':
             imports = 'from numba import njit'

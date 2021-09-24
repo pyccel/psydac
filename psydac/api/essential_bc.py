@@ -43,6 +43,28 @@ def check_boundary_type(bc):
 
 #==============================================================================
 def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
+    """ This function applies the homogeneous boundary condition to the Stencil objects,
+        by setting the boundary degrees of freedom to zero in the StencilVector,
+        and the corresponding rows in the StencilMatrix/StencilInterfaceMatrix to zeros.
+        If the identity keyword argument is set to True, the boundary diagonal terms are set to 1.
+
+    Parameters
+    ----------
+    a : LinearOperator/Vector
+        The LinearOperator/Vector that will be modified.
+
+    axis : int
+        Axis of the boundary.
+
+    ext : int
+        Extremity of the boundary.
+
+    order : int
+        order of the boundary condition.
+
+    identity : bool
+        If true, set the diagonal terms to 1
+    """
 
     if isinstance(a, StencilVector):
         V = a.space

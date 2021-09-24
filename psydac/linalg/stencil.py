@@ -143,6 +143,11 @@ class StencilVectorSpace( VectorSpace ):
         return np.prod( self._npts )
 
     # ...
+    @property
+    def dtype( self ):
+        return self._dtype
+
+    # ...
     def zeros( self ):
         """
         Get a copy of the null element of the StencilVectorSpace V.
@@ -154,7 +159,7 @@ class StencilVectorSpace( VectorSpace ):
 
         """
         return StencilVector( self )
-        
+
 # NOTE [YG, 09.03.2021]: the equality comparison "==" is removed because we
 # prefer using the identity comparison "is" as far as possible.
 #    # ...
@@ -252,11 +257,6 @@ class StencilVectorSpace( VectorSpace ):
 
     # ...
     @property
-    def dtype( self ):
-        return self._dtype
-
-    # ...
-    @property
     def ndim( self ):
         return self._ndim
 
@@ -291,6 +291,11 @@ class StencilVector( Vector ):
     @property
     def space( self ):
         return self._space
+
+    #...
+    @property
+    def dtype( self ):
+        return self.space.dtype
 
     #...
     def dot( self, v ):
@@ -394,10 +399,6 @@ class StencilVector( Vector ):
     @property
     def pads(self):
         return self._space.pads
-
-    @property
-    def dtype( self ):
-        return self.space.dtype
 
     # ...
     def __str__(self):
@@ -707,8 +708,8 @@ class StencilMatrix( Matrix ):
         self._args         = args.copy()
         self._func         = self._dot
 
-        self._tranpose_args_null = self._prepare_tranpose_args()
-        self._tranpose_args      = self._tranpose_args_null.copy()
+        self._transpose_args_null = self._prepare_transpose_args()
+        self._transpose_args      = self._transpose_args_null.copy()
         self._transpose_func     = self._transpose
 
         if backend is None:
@@ -730,6 +731,11 @@ class StencilMatrix( Matrix ):
     @property
     def codomain( self ):
         return self._codomain
+
+    # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
 
     # ...
     def dot( self, v, out=None):
@@ -813,7 +819,7 @@ class StencilMatrix( Matrix ):
         Mt = StencilMatrix(M.codomain, M.domain, pads=self._pads, backend=self._backend)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
-        self._transpose_func(M._data, Mt._data, **self._tranpose_args)
+        self._transpose_func(M._data, Mt._data, **self._transpose_args)
         return Mt
 
     @staticmethod
@@ -883,10 +889,6 @@ class StencilMatrix( Matrix ):
     @property
     def backend( self ):
         return self._backend
-
-    @property
-    def dtype( self ):
-        return self.domain.dtype
 
     # ...
     def __getitem__(self, key):
@@ -1381,9 +1383,9 @@ class StencilMatrix( Matrix ):
             self._data[idx_ghost] = 0
 
     # ...
-    def _prepare_tranpose_args(self):
+    def _prepare_transpose_args(self):
 
-        #prepare the arguments for the tranpose method
+        #prepare the arguments for the transpose method
         V     = self.domain
         W     = self.codomain
         ssc   = W.starts
@@ -1439,7 +1441,7 @@ class StencilMatrix( Matrix ):
         from psydac.api.ast.linalg import LinearOperatorDot, TransposeOperator
         self._backend        = backend
         self._args           = self._dotargs_null.copy()
-        self._tranpose_args  = self._tranpose_args_null.copy()
+        self._transpose_args  = self._transpose_args_null.copy()
 
         if self._backend is None:
             self._func           = self._dot
@@ -1448,50 +1450,26 @@ class StencilMatrix( Matrix ):
             transpose            = TransposeOperator(self._ndim, backend=frozenset(backend.items()))
             self._transpose_func = transpose.func
 
-            nrows   = self._tranpose_args.pop('nrows')
-            ncols   = self._tranpose_args.pop('ncols')
-            gpads   = self._tranpose_args.pop('gpads')
-            pads    = self._tranpose_args.pop('pads')
-            dm      = self._tranpose_args.pop('dm') 
-            cm      = self._tranpose_args.pop('cm')
-            ndiags  = self._tranpose_args.pop('ndiags')
-            ndiagsT = self._tranpose_args.pop('ndiagsT')
-            si      = self._tranpose_args.pop('si')
-            sk      = self._tranpose_args.pop('sk')
-            sl      = self._tranpose_args.pop('sl')
+            nrows   = self._transpose_args.pop('nrows')
+            ncols   = self._transpose_args.pop('ncols')
+            gpads   = self._transpose_args.pop('gpads')
+            pads    = self._transpose_args.pop('pads')
+            dm      = self._transpose_args.pop('dm')
+            cm      = self._transpose_args.pop('cm')
+            ndiags  = self._transpose_args.pop('ndiags')
+            ndiagsT = self._transpose_args.pop('ndiagsT')
+            si      = self._transpose_args.pop('si')
+            sk      = self._transpose_args.pop('sk')
+            sl      = self._transpose_args.pop('sl')
 
-            for i in range(len(nrows)):
-                self._tranpose_args['n{i}'.format(i=i+1)] = nrows[i]
+            args_names = ['n{i}', 'nc{i}', 'gp{i}', 'p{i}', 'dm{i}',\
+                          'cm{i}', 'nd{i}', 'ndT{i}', 'si{i}' , 'sk{i}', 'sl{i}']
 
-            for i in range(len(nrows)):
-                self._tranpose_args['nc{i}'.format(i=i+1)] = ncols[i]
+            args_vals  = [nrows, ncols, gpads, pads, dm, cm, ndiags, ndiagsT, si, sk, sl]
 
-            for i in range(len(nrows)):
-                self._tranpose_args['gp{i}'.format(i=i+1)] = gpads[i]
-
-            for i in range(len(nrows)):
-                self._tranpose_args['p{i}'.format(i=i+1)] = pads[i]
-
-            for i in range(len(nrows)):
-                self._tranpose_args['dm{i}'.format(i=i+1)] = dm[i]
-
-            for i in range(len(nrows)):
-                self._tranpose_args['cm{i}'.format(i=i+1)] = cm[i]
-
-            for i in range(len(nrows)):
-                self._tranpose_args['nd{i}'.format(i=i+1)] = ndiags[i]
-
-            for i in range(len(nrows)):
-                self._tranpose_args['ndT{i}'.format(i=i+1)] = ndiagsT[i]
-
-            for i in range(len(nrows)):
-                self._tranpose_args['si{i}'.format(i=i+1)] = si[i]
-
-            for i in range(len(nrows)):
-                self._tranpose_args['sk{i}'.format(i=i+1)] = sk[i]
-
-            for i in range(len(nrows)):
-                self._tranpose_args['sl{i}'.format(i=i+1)] = sl[i]
+            for arg_name, arg_val in zip(args_names, args_vals):
+                for i in range(len(nrows)):
+                    self._transpose_args[arg_name.format(i=i+1)] = arg_val[i]
 
             if self.domain.parallel:
                 if self.domain == self.codomain:

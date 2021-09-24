@@ -4,7 +4,7 @@
 
 import numpy as np
 
-#============================================================================================================================
+#===============================================================================
 def refine_array_1d( x, n ):
 
     xr = []
@@ -14,7 +14,7 @@ def refine_array_1d( x, n ):
 
     return xr
 
-#============================================================================================================================
+#===============================================================================
 def unroll_edges(domain, xgrid):
     """If necessary, "unroll" intervals that cross boundary of periodic domain.
     """
@@ -35,7 +35,7 @@ def unroll_edges(domain, xgrid):
     elif xgrid[-1] != xB:
         return np.array([*xgrid, xgrid[0] + (xB-xA)])
 
-#============================================================================================================================
+#===============================================================================
 def animate_field(fields, domain, mapping, res=(150,150), vrange=None, cmap=None, interval=35, progress=False, figsize=(14,4)):
     """Animate a sequence of scalar fields over a geometry."""
     from matplotlib import animation

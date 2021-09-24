@@ -23,7 +23,6 @@ def test_bicg_tridiagonal( n ):
     # Build generic non-singular matrix
     # Here tridiagonal matrix with values [-1, 3, -2] on diagonals
     A = np.diag([-1.0]*(n-1),-1) + np.diag([3.0]*n,0) + np.diag([-2.0]*(n-1),1)
-    A = np.diag([-1.0]*(n-1),-1) + np.diag([2.0]*n,0) + np.diag([-1.0]*(n-1),1)
 
     # Build exact solution: here with random values in [-1,1]
     xe = 2.0 * np.random.random( n ) - 1.0

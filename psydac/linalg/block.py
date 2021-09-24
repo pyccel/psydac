@@ -59,6 +59,11 @@ class BlockVectorSpace( VectorSpace ):
         return sum( Vi.dimension for Vi in self._spaces )
 
     # ...
+    @property
+    def dtype( self ):
+        return self._dtype
+
+    # ...
     def zeros( self ):
         """
         Get a copy of the null element of the product space V = [V1, V2, ...]
@@ -89,10 +94,6 @@ class BlockVectorSpace( VectorSpace ):
     @property
     def pads( self ):
         return self._spaces[0].pads
-
-    @property
-    def dtype( self ):
-        return self._dtype
 
     @property
     def n_blocks( self ):
@@ -141,6 +142,11 @@ class BlockVector( Vector ):
     @property
     def space( self ):
         return self._space
+
+    #...
+    @property
+    def dtype( self ):
+        return self.space.dtype
 
     #...
     def dot( self, v ):
@@ -217,10 +223,6 @@ class BlockVector( Vector ):
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
-
-    @property
-    def dtype( self ):
-        return self.space.dtype
 
     def __getitem__( self, key ):
         return self._blocks[key]
@@ -350,6 +352,11 @@ class BlockLinearOperator( LinearOperator ):
         return self._codomain
 
     # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
+
+    # ...
     def dot( self, v, out=None ):
 
         if self.n_block_cols == 1:
@@ -403,10 +410,6 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def n_block_cols( self ):
         return self._ncols
-
-    @property
-    def dtype( self ):
-        return self.domain.dtype
 
     # ...
     def update_ghost_regions( self ):

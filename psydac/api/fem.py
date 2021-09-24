@@ -624,7 +624,7 @@ class DiscreteLinearForm(BasicDiscrete):
         domains = domain.interior.args
 
         if isinstance(target, Interface):
-            raise NotImplementedError("TODO")
+            raise NotImplementedError("Index of an interface is not defined in the LinearForm")
         elif isinstance(target, Boundary):
             i = domains.index(target.domain)
         else:
