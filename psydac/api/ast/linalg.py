@@ -41,10 +41,13 @@ from psydac.api.utilities       import mkdir_p, touch_init_file, random_string, 
 def variable_to_sympy(x):
     if isinstance(x, Variable) and isinstance(x.dtype, NativeInteger):
         x = Symbol(x.name, integer=True)
+    elif isinstance(x, (int, Integer, np.int64)):
+        x = Integer(int(x))
     return x
 
 #==============================================================================
 def compute_diag_len(p, md, mc, return_padding=False):
+    p,md,mc = int(p),int(md),int(mc)
     n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
     ep = np.minimum(0, n-p)
     n = n-ep + p+1
@@ -103,13 +106,14 @@ class LinearOperatorDot(SplBasic):
 
         pads            = kwargs.pop('pads')
         gpads           = kwargs.pop('gpads')
-        cm              = kwargs.pop('cm')
-        dm              = kwargs.pop('dm')
+        cm              = [Integer(int(i)) for i in kwargs.pop('cm')]
+        dm              = [Integer(int(i)) for i in kwargs.pop('dm')]
 
         ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
+        ndiags    = [Integer(i) for i in ndiags]
 
         inits = [Assign(b,p*m+p+1-n-Mod(s,m)) for b,p,m,n,s in zip(bb, gpads, dm, ndiags, starts) if not isinstance(p*m+p+1-n-Mod(s,m),(int,np.int64, Integer))]
-        bb    = [b if not isinstance(p*m+p+1-n-Mod(s,m),(int,np.int64, Integer)) else p*m+p+1-n-Mod(s,m) for b,p,m,n,s in zip(bb, gpads, dm, ndiags, starts)]
+        bb    = [b if not isinstance(p*m+p+1-n-Mod(s,m),(int, np.int64, Integer)) else p*m+p+1-n-Mod(s,m) for b,p,m,n,s in zip(bb, gpads, dm, ndiags, starts)]
         body  = []
         ranges = [Range(variable_to_sympy(n)) for n in ndiags]
         target = Product(*ranges)

@@ -38,6 +38,7 @@ from psydac.linalg.iterative_solvers import cg, pcg, bicg, lsmr
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
+
 #==============================================================================
 def get_boundaries(*args):
 
@@ -63,7 +64,7 @@ def psydac_solver(M, b):
     return lsmr(M, M.T, b, maxiter=10000, tol=1e-10)
 
 #==================================================================================
-def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max_newton_iter=50, scipy=True):
+def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, Re = 1e4, newton_tol=1e-4, max_newton_iter=50, scipy=True):
     """
         Time dependent Navier Stokes solver in a 2d domain.
         this example was taken from the pyiga library
@@ -90,13 +91,10 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
     dt = Constant(name='dt')
 
     # boundaries
-    boundary_h = Union(*[domain.get_boundary(**kw) for kw in get_boundaries(3,4)])
-    boundary   = Union(*[domain.get_boundary(**kw) for kw in get_boundaries(1)])
-    ue         = Tuple(40*y*(0.5-y)*exp(-100*(y-0.25)**2), 0)
+    boundary_h = Union(*[domain.get_boundary(**kw) for kw in get_boundaries(3)])
+    boundary   = Union(*[domain.get_boundary(**kw) for kw in get_boundaries(4)])
+    ue         = Tuple(6*y*(0.41-y)*(2.2-x)/(2.2*0.41**2), 0)
     bc         = [EssentialBC(du, ue, boundary), EssentialBC(du, 0, boundary_h)]
-
-    # Reynolds number
-    Re = 1e4
 
     # define the linearized navier stokes
     a = BilinearForm(((du,dp),(v, q)), integral(domain, dot(du,v) + dt*dot(Transpose(grad(du))*u, v) + dt*dot(Transpose(grad(u))*du, v)
@@ -427,7 +425,7 @@ def test_navier_stokes_2d_parallel():
 
     # Check that expected absolute error on velocity and pressure fields
     assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
-    assert abs(0.004127752838826402 - l2_error_p  ) < 1e-7
+    assert abs(0.004127752838826402   - l2_error_p  ) < 1e-7
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
@@ -447,16 +445,22 @@ if __name__ == '__main__':
 
     from matplotlib import animation
     from time       import time
-    filename = '../../../mesh/bent_pipe.h5'
+#    filename = '../../../mesh/bent_pipe.h5'
+#    filename = '../../../mesh/refined_plate_with_circular_obstacle.h5'
+#    filename = '../../../mesh/refined_30_30_plate_with_circular_obstacle.h5'
+    filename = '../../../mesh/refined_30_30_3_plate_with_circular_obstacle.h5'
+    filename = '../../../mesh/refined_30_30_3_m2_ref_plate_with_circular_obstacle.h5'
+    
 
-    Tf   = 3.
+    Tf   = 0.5
     dt_h = 0.05
     nt   = Tf//dt_h
-    solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, scipy=False)
+    Re   = 100
+    solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, Re = Re, scipy=True)
 
     domain = domain.logical_domain
     mapping = domain_h.mappings['patch_0']
 
-    anim = animate_field(solutions, domain, mapping, res=(150,150), progress=True)
-    anim.save('animated_fields_{}_{}.mp4'.format(str(Tf).replace('.','_'), str(dt_h).replace('.','_')), writer=animation.FFMpegWriter(fps=60))
+    anim = animate_field(solutions, domain, mapping, res=(200,200), progress=True)
+    anim.save('animated_fieldsbh_3_m2_{}_{}_Re_1000.mp4'.format(str(Tf).replace('.','_'), str(dt_h).replace('.','_')), writer=animation.FFMpegWriter(fps=60))
     

@@ -46,13 +46,16 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
 
     if isinstance(a, StencilVector):
         V = a.space
-        n = V.ndim
+        ni = V.ndim
+        nj = 0
     elif isinstance(a, StencilMatrix):
         V = a.codomain
-        n = V.ndim * 2
+        ni = V.ndim
+        nj = ni
     elif isinstance(a, StencilInterfaceMatrix):
         V = a.codomain
-        n = V.ndim * 2
+        ni = V.ndim
+        nj = n
         if axis == a._dim:
             return
     else:
@@ -77,17 +80,39 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
 
     if ext == -1 and V.starts[axis] == 0:
         s = V.starts[axis]
-        index = [(s + order if j == axis else slice(None)) for j in range(n)]
+        index = [(s + order if j == axis else slice(V.starts[j], V.ends[j]+1)) for j in range(ni)]
+        index = index + [slice(None) for j in range(nj)]
         a[tuple(index)] = 0.0
         if isinstance(a, StencilMatrix) and identity:
-            a[tuple(index[:n//2])+(0,)*(n//2)] = 1.
+            index = index[:ni]+[0]*nj
+            for i,m in enumerate(a.domain.shifts):
+                newindex = index.copy()
+                if i==axis:continue
+                b = newindex[i].start
+                e = newindex[i].stop
+                for j in range(m):
+                    newindex[i]        = slice(b+j,e,m)
+                    newindex[ni+i]   = (b+j)%m
+                    a[tuple(newindex)] = 1.
 
     elif ext == 1 and V.ends[axis] == V.npts[axis] - 1:
         e = V.ends[axis]
-        index = [(e - order if j == axis else slice(None)) for j in range(n)]
+        index = [(e - order if j == axis else slice(V.starts[j], V.ends[j]+1)) for j in range(ni)]
+        index = index + [slice(None) for j in range(nj)]
+        if ext ==1 and axis == 1:
+            index[0] = slice(6,V.ends[0]-6)
         a[tuple(index)] = 0.0
         if isinstance(a, StencilMatrix) and identity:
-            a[tuple(index[:n//2])+(0,)*(n//2)] = 1.
+            index = index[:ni]+[0]*nj
+            for i,m in enumerate(a.domain.shifts):
+                newindex = index.copy()
+                if i==axis:continue
+                b = newindex[i].start
+                e = newindex[i].stop
+                for j in range(m):
+                    newindex[i]        = slice(b+j,e,m)
+                    newindex[ni+i]   = (b+j)%m
+                    a[tuple(newindex)] = 1.
     else:
         pass
 

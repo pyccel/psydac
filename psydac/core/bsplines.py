@@ -464,7 +464,7 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
     return Hp
 
 #==============================================================================
-def breakpoints( knots, degree ,tol=1e-15):
+def breakpoints( knots, degree ,tol=1e-9):
     """
     Determine breakpoints' coordinates.
 
@@ -581,7 +581,7 @@ def elements_spans( knots, degree ):
 
     ie = 0
     for ik in range( degree, nk-degree ):
-        if knots[ik+1]-knots[ik]>=1e-15:
+        if knots[ik+1]-knots[ik]>=1e-9:
             spans[ie] = ik
             ie += 1
         if ie == ne:
@@ -650,7 +650,7 @@ def make_knots( breaks, degree, periodic, multiplicity=1 ):
     return T
 
 #==============================================================================
-def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15):
+def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-9):
     """
     Given the knot sequence of a spline space S of degree p, compute the knot
     sequence of a spline space S_0 of degree p+1 such that u' is in S for all
