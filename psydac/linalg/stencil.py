@@ -1615,6 +1615,11 @@ class StencilInterfaceMatrix(Matrix):
         return self._codomain
 
     # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
+
+    # ...
     def dot( self, v, out=None ):
 
         assert isinstance( v, StencilVector )
