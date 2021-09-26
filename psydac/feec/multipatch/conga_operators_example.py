@@ -176,6 +176,7 @@ def conga_operators_2d():
     v0   = P0(v_sol_log)
     v0c  = Pconf_0(v0)   # should be H1-conforming (ie, continuous)
 
+    M0, M0_inv = get_K0_and_K0_inv(V0h, uniform_patches=True)
 
     print('******     check K0:   ****************************')
     K0, K0_inv = get_K0_and_K0_inv(V0h, uniform_patches=True)

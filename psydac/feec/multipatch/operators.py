@@ -638,6 +638,72 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
 
 
 #===============================================================================
+def get_M_and_M_inv(Vh, domain_h, is_scalar, backend_language='python'):
+    """
+    compute the mass matrix M and M^{-1} in multipatch space Vh
+    """
+    from pprint import pprint
+
+    V = Vh.symbolic_space   # VOh is ProductFemSpace
+    domain = V.domain
+    M_blocks = []
+    M_inv_blocks = []
+
+    print('type(domain_h) = ', type(domain_h))
+
+    print('type(domain_h._patches) = ', type(domain_h._patches))
+    print('len(domain_h._patches) = ', len(domain_h._patches))
+
+    mappings = domain_h.mappings
+    print('type(mappings) = ', type(mappings))
+    print('len(mappings) = ', len(mappings))
+
+    mappings_list = list(mappings.values())
+    print('len(mappings_list) = ', len(mappings_list))
+
+    print('type(mappings_list[0]) = ', type(mappings_list[0]))
+
+    for k, Dh in enumerate(mappings):
+        print('k = ', k)
+        print('type(Dh) = ', type(Dh))
+        print('Dh = ', Dh)
+
+    exit()
+
+    for k, D in enumerate(domain.interior):
+        V_k = Vh.spaces[k]  # fem space on patch k: (TensorFemSpace)
+        print(type(domain_h))
+
+        pprint(dir(domain_h))
+
+
+        print(len(domain_h._patches))
+        exit()
+        Dh_k = domain_h.spaces[k]  # fem space on patch k: (TensorFemSpace)
+        u, v = elements_of(V_k, names='u, v')
+        if is_scalar:
+            expr   = u*v
+        else:
+            expr   = dot(u,v)
+        a_k = BilinearForm((u,v), integral(D, expr))
+        a_kh = discretize(a_k, Dh, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])   # 'pyccel-gcc'])
+
+        self._matrix = ah.assemble() #.toarray()
+
+
+        M0_k = kron(*K0_k_factors)
+        K0_k.eliminate_zeros()
+        K0_inv_k = inv(K0_k.tocsc())
+        K0_inv_k.eliminate_zeros()
+
+        K0_blocks.append(K0_k)
+        K0_inv_blocks.append(K0_inv_k)
+    K0 = block_diag(K0_blocks)
+    K0_inv = block_diag(K0_inv_blocks)
+    return K0, K0_inv
+
+
+#===============================================================================
 class BrokenMass( FemLinearOperator ):
     """
     Broken mass matrix for a scalar space (seen as a LinearOperator... to be improved)
