@@ -162,11 +162,9 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
             [domain_4.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1),1],
         ]
 
-    elif domain_name == 'square_8':
-        # square domain with a hole:
-        # 6 7 8
-        # 4 * 5
-        # 1 2 3
+    elif domain_name in ['square_8', 'square_9']:
+        # square with third-length patches, with or without a hole:
+
         OmegaLog1 = Square('OmegaLog1',bounds1=(0., np.pi/3), bounds2=(0., np.pi/3))
         mapping_1 = IdentityMapping('M1',2)
         domain_1     = mapping_1(OmegaLog1)
@@ -199,18 +197,57 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
         mapping_8 = IdentityMapping('M8',2)
         domain_8     = mapping_8(OmegaLog8)
 
-        domain = union([domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8], name = 'domain')
+        # center domain
+        OmegaLog9 = Square('OmegaLog9',bounds1=(np.pi/3, np.pi*2/3), bounds2=(np.pi/3, np.pi*2/3))
+        mapping_9 = IdentityMapping('M9',2)
+        domain_9     = mapping_9(OmegaLog9)
 
-        interfaces = [
-            [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
-            [domain_2.get_boundary(axis=0, ext=+1), domain_3.get_boundary(axis=0, ext=-1),1],
-            [domain_6.get_boundary(axis=0, ext=+1), domain_7.get_boundary(axis=0, ext=-1),1],
-            [domain_7.get_boundary(axis=0, ext=+1), domain_8.get_boundary(axis=0, ext=-1),1],
-            [domain_1.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),1],
-            [domain_4.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1),1],
-            [domain_3.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
-            [domain_5.get_boundary(axis=1, ext=+1), domain_8.get_boundary(axis=1, ext=-1),1],
-        ]
+        if domain_name == 'square_8':
+            # square domain with a hole:
+            # 6 7 8
+            # 4 * 5
+            # 1 2 3
+
+
+            domain = union([domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8], name = 'domain')
+
+            interfaces = [
+                [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
+                [domain_2.get_boundary(axis=0, ext=+1), domain_3.get_boundary(axis=0, ext=-1),1],
+                [domain_6.get_boundary(axis=0, ext=+1), domain_7.get_boundary(axis=0, ext=-1),1],
+                [domain_7.get_boundary(axis=0, ext=+1), domain_8.get_boundary(axis=0, ext=-1),1],
+                [domain_1.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),1],
+                [domain_4.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1),1],
+                [domain_3.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
+                [domain_5.get_boundary(axis=1, ext=+1), domain_8.get_boundary(axis=1, ext=-1),1],
+            ]
+
+        elif domain_name == 'square_9':
+            # square domain with no hole:
+            # 6 7 8
+            # 4 9 5
+            # 1 2 3
+
+
+            domain = union([domain_1, domain_2, domain_3, domain_4, domain_5, domain_6, domain_7, domain_8, domain_9], name = 'domain')
+
+            interfaces = [
+                [domain_1.get_boundary(axis=0, ext=+1), domain_2.get_boundary(axis=0, ext=-1),1],
+                [domain_2.get_boundary(axis=0, ext=+1), domain_3.get_boundary(axis=0, ext=-1),1],
+                [domain_4.get_boundary(axis=0, ext=+1), domain_9.get_boundary(axis=0, ext=-1),1],
+                [domain_9.get_boundary(axis=0, ext=+1), domain_5.get_boundary(axis=0, ext=-1),1],
+                [domain_6.get_boundary(axis=0, ext=+1), domain_7.get_boundary(axis=0, ext=-1),1],
+                [domain_7.get_boundary(axis=0, ext=+1), domain_8.get_boundary(axis=0, ext=-1),1],
+                [domain_1.get_boundary(axis=1, ext=+1), domain_4.get_boundary(axis=1, ext=-1),1],
+                [domain_4.get_boundary(axis=1, ext=+1), domain_6.get_boundary(axis=1, ext=-1),1],
+                [domain_2.get_boundary(axis=1, ext=+1), domain_9.get_boundary(axis=1, ext=-1),1],
+                [domain_9.get_boundary(axis=1, ext=+1), domain_7.get_boundary(axis=1, ext=-1),1],
+                [domain_3.get_boundary(axis=1, ext=+1), domain_5.get_boundary(axis=1, ext=-1),1],
+                [domain_5.get_boundary(axis=1, ext=+1), domain_8.get_boundary(axis=1, ext=-1),1],
+            ]
+
+        else:
+            raise ValueError(domain_name)
 
     elif domain_name in ['pretzel', 'pretzel_f', 'pretzel_annulus', 'pretzel_debug']:
         # pretzel-shaped domain with quarter-annuli and quadrangles -- setting parameters

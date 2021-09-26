@@ -53,7 +53,7 @@ from psydac.fem.basic   import FemField
 from psydac.api.settings        import PSYDAC_BACKENDS
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
-from psydac.feec.multipatch.operators import BrokenMass, get_K0_and_K0_inv, get_K1_and_K1_inv
+from psydac.feec.multipatch.operators import BrokenMass, get_K0_and_K0_inv, get_K1_and_K1_inv #, get_M_and_M_inv
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, time_count
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector, get_grid_quad_weights
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
@@ -494,7 +494,7 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
 
     if source_type == 'manu_J':
         # use a manufactured solution, with ad-hoc (homogeneous or inhomogeneous) bc
-        if domain_name in ['square_2', 'square_6', 'square_8']:
+        if domain_name in ['square_2', 'square_6', 'square_8', 'square_9']:
             theta = 1
         else:
             theta = pi
@@ -513,14 +513,19 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
         # print(E_ex_x)
 
         # boundary condition: (here we only need to coincide with E_ex on the boundary !)
-        E_bc = E_ex
+        if domain_name in ['square_2', 'square_6', 'square_9']:
+            E_bc = None
+        else:
+            ## for domain square_8:
+            # E_bc = Tuple(sin(theta*y) * (1+(x-pi/3)*(x-2*pi/3)*(y-pi/3)*(y-2*pi/3)), sin(theta*x)*cos(theta*y) * (1+(x-pi/3)*(x-2*pi/3)*(y-pi/3)*(y-2*pi/3)))
+            E_bc = E_ex
 
     elif source_type == 'ring_J':
 
         # 'rotating' (divergence-free) J field:
         #   J = j(r) * (-sin theta, cos theta)
 
-        if domain_name in ['square_2', 'square_6', 'square_8']:
+        if domain_name in ['square_2', 'square_6', 'square_8', 'square_9']:
             r0 = np.pi/4
             dr = 0.1
             x0 = np.pi/2
@@ -619,7 +624,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument( '--domain',
-        choices = ['square_2', 'square_6', 'square_8', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_f', 'pretzel_annulus', 'pretzel_debug'],
+        choices = ['square_2', 'square_6', 'square_8', 'square_9', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_f', 'pretzel_annulus', 'pretzel_debug'],
         default = 'curved_L_shape',
         help    = 'Domain'
     )
@@ -972,7 +977,7 @@ if __name__ == '__main__':
         if lift_E_bc:
             t_stamp = time_count(t_stamp)
             print('lifting the boundary condition...')
-            debug_plot = True
+            debug_plot = False
 
             # Projector on broken space
             # todo: we should probably apply P1 on E_bc -- it's a bit weird to call it on the list of (pulled back) logical fields.
@@ -1000,6 +1005,7 @@ if __name__ == '__main__':
                 Ebc_c_tmp = Ebc_c
 
             # removing internal dofs
+            # print("WARNING:    DONT REMOVE INTERNAL DOFS FOR E_BC _____________________________________________________")
             Ebc_c = cP1_m.dot(Ebc_c)-cP1_hom_m.dot(Ebc_c)
             b_c = b_c - A_bc_m.dot(Ebc_c)
 
