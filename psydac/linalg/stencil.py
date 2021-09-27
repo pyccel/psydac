@@ -1462,12 +1462,11 @@ class StencilMatrix( Matrix ):
             sk      = self._transpose_args.pop('sk')
             sl      = self._transpose_args.pop('sl')
 
-            args_names = ['n{i}', 'nc{i}', 'gp{i}', 'p{i}', 'dm{i}',\
-                          'cm{i}', 'nd{i}', 'ndT{i}', 'si{i}' , 'sk{i}', 'sl{i}']
+            args = OrderedDict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads ),
+                                ('dm{i}', dm),('cm{i}', cm),('nd{i}', ndiags),
+                                ('ndT{i}', ndiagsT),('si{i}', si),('sk{i}', sk),('sl{i}', sl)])
 
-            args_vals  = [nrows, ncols, gpads, pads, dm, cm, ndiags, ndiagsT, si, sk, sl]
-
-            for arg_name, arg_val in zip(args_names, args_vals):
+            for arg_name, arg_val in args.items():
                 for i in range(len(nrows)):
                     self._transpose_args[arg_name.format(i=i+1)] = arg_val[i]
 

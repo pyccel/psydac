@@ -50,20 +50,21 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
 
     Parameters
     ----------
-    a : LinearOperator/Vector
-        The LinearOperator/Vector that will be modified.
+    a : StencilVector, StencilMatrix or StencilInterfaceMatrix
+        The Matrix or the Vector that will be modified.
 
     axis : int
         Axis of the boundary.
 
     ext : int
-        Extremity of the boundary.
+        Extremity of the boundary, it takes the value of -1 or 1.
 
     order : int
-        order of the boundary condition.
+        All function derivatives up to `order` are set to zero
+        on the specified boundary. `order >= 0` is required.
 
     identity : bool
-        If true, set the diagonal terms to 1
+        If true, the diagonal terms corresponding to boundary coefficients are set to 1.
     """
 
     if isinstance(a, StencilVector):
