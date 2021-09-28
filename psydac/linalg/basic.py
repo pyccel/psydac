@@ -69,6 +69,10 @@ class Vector( metaclass=ABCMeta ):
         pass
 
     @abstractmethod
+    def toarray( self, **kwargs ):
+        """ Convert to Numpy 1D array. """
+
+    @abstractmethod
     def copy( self ):
         pass
 
