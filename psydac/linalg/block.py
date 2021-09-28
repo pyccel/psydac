@@ -44,7 +44,7 @@ class BlockVectorSpace( VectorSpace ):
         # Store spaces in a Tuple, because they will not be changed
         self._spaces = tuple(spaces)
 
-        if all(np.dtype(s.dtype)==np.dtype(spaces[0].dtype) for s in spaces)
+        if all(np.dtype(s.dtype)==np.dtype(spaces[0].dtype) for s in spaces):
             self._dtype  = spaces[0].dtype
         else:
             self._dtype = tuple(s.dtype for s in spaces)
