@@ -487,7 +487,7 @@ def breakpoints( knots, degree ,tol=1e-15):
 
     """
     knots = np.array(knots)
-    diff  = np.append(True, np.diff(knots[degree:-degree])>tol)
+    diff  = np.append(True, abs(np.diff(knots[degree:-degree]))>tol)
     return knots[degree:-degree][diff]
 
 #==============================================================================

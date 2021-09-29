@@ -19,13 +19,20 @@ class NullLinearOperator(LinearOperator):
     #-------------------------------------
     # Deferred methods
     #-------------------------------------
+
     @property
     def domain( self ):
         return self._V
 
+    # ...
     @property
     def codomain( self ):
         return self._W
+
+    # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
 
     def dot( self, v, out=None ):
         """

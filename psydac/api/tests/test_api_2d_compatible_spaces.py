@@ -309,10 +309,9 @@ def test_stokes_2d_dir_homogeneous(scipy):
     from sympde.calculus import laplace, grad
     from sympde.expr import TerminalExpr
 
-    kwargs = dict(dim=2, logical=True)
-    a = TerminalExpr(-laplace(ue), **kwargs)
-    b = TerminalExpr(    grad(pe), **kwargs)
-    c = TerminalExpr(   Matrix(f), **kwargs)
+    a = TerminalExpr(-laplace(ue), domain)
+    b = TerminalExpr(    grad(pe), domain)
+    c = TerminalExpr(   Matrix(f), domain)
     err = (a.T + b - c).simplify()
 
     assert err[0] == 0
@@ -350,8 +349,8 @@ def test_stokes_2d_dir_non_homogeneous(scipy):
     from sympde.expr import TerminalExpr
 
     kwargs = dict(dim=2, logical=True)
-    a = TerminalExpr(-laplace(ue), **kwargs)
-    b = TerminalExpr(    grad(pe), **kwargs)
+    a = TerminalExpr(-laplace(ue), domain)
+    b = TerminalExpr(    grad(pe), domain)
     f = (a.T + b).simplify()
 
     fx = -ux.diff(x, 2) - ux.diff(y, 2) + pe.diff(x)

@@ -1003,14 +1003,21 @@ class Parser(object):
         target         = self._target
         dim            = self._dim
 
-        if isinstance(target, Interface):
-            mapping = mapping.minus
-
-        for vec in normal_vectors:
+        if normal_vectors:
             axis    = target.axis
             ext     = target.ext if isinstance(target, Boundary) else 1
 
-            J_inv   = LogicalExpr(mapping.jacobian_inv_expr, mapping=mapping, dim=dim, subs=True)
+        vars_plus = []
+        if isinstance(target, Interface):
+            target    = target.minus
+            mapping   = mapping.minus
+            # This is a hack, it must be deleted after merging PR #107
+            plus_coordinates = [Symbol(x.name+'_plus') for x in target.coordinates]
+            vars_plus = [Assign(xplus,x) for xplus,x in zip(plus_coordinates,target.coordinates)]
+
+        for vec in normal_vectors:
+
+            J_inv   = LogicalExpr(mapping.jacobian_inv_expr, mapping(target))
             J_inv   = SymbolicExpr(J_inv)
             values  = ext * J_inv[axis, :]
             normalization = values.dot(values)**0.5
@@ -1025,7 +1032,8 @@ class Parser(object):
 
         temps = tuple(Assign(a,b) for a,b in temps)
         stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
-        stmts = tuple(normal_vec_stmts) + temps + stmts
+        stmts = tuple(vars_plus) + tuple(normal_vec_stmts) + temps + stmts
+
         math_functions = math_atoms_as_str(list(exprs)+normal_vec_stmts, 'numpy')
         math_functions = tuple(m for m in math_functions if m not in self._math_functions)
         self._math_functions = math_functions + self._math_functions
@@ -1093,8 +1101,8 @@ class Parser(object):
 
     # ....................................................
     def _visit_PhysicalGeometryValue(self, expr, **kwargs):
-        mapping = self.mapping
-        expr = LogicalExpr(mapping, expr.expr)
+        target  = self._target
+        expr = LogicalExpr(expr.expr, mapping(target))
 
         return SymbolicExpr(expr)
 
