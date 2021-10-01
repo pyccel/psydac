@@ -638,9 +638,10 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
 
 
 #===============================================================================
-def get_M_and_M_inv(Vh, domain_h, is_scalar, backend_language='python'):
+def get_M_and_M_inv(Vh, subdomains_h, is_scalar, backend_language='python'):
     """
     compute the mass matrix M and M^{-1} in multipatch space Vh
+    DOES NOT WORK -- SHOULD WE HAVE THE POSSIBILITY OF DOING THAT ?
     """
     from pprint import pprint
 
@@ -649,58 +650,60 @@ def get_M_and_M_inv(Vh, domain_h, is_scalar, backend_language='python'):
     M_blocks = []
     M_inv_blocks = []
 
-    print('type(domain_h) = ', type(domain_h))
+    # print('type(domain_h) = ', type(domain_h))
+    #
+    # print('type(domain_h._patches) = ', type(domain_h._patches))
+    # print('len(domain_h._patches) = ', len(domain_h._patches))
+    #
+    # mappings = domain_h.mappings
+    # print('type(mappings) = ', type(mappings))
+    # print('len(mappings) = ', len(mappings))
+    #
+    # mappings_list = list(mappings.values())
+    # print('len(mappings_list) = ', len(mappings_list))
+    #
+    # print('type(mappings_list[0]) = ', type(mappings_list[0]))
 
-    print('type(domain_h._patches) = ', type(domain_h._patches))
-    print('len(domain_h._patches) = ', len(domain_h._patches))
+    for k, Dh_k in enumerate(subdomains_h):
 
-    mappings = domain_h.mappings
-    print('type(mappings) = ', type(mappings))
-    print('len(mappings) = ', len(mappings))
-
-    mappings_list = list(mappings.values())
-    print('len(mappings_list) = ', len(mappings_list))
-
-    print('type(mappings_list[0]) = ', type(mappings_list[0]))
-
-    for k, Dh in enumerate(mappings):
         print('k = ', k)
-        print('type(Dh) = ', type(Dh))
-        print('Dh = ', Dh)
+        print('type(Dh_k) = ', type(Dh_k))
+        # print('Dh = ', Dh)
+        D_k = domain.interior[k]
 
-    exit()
+    # exit()
 
-    for k, D in enumerate(domain.interior):
-        V_k = Vh.spaces[k]  # fem space on patch k: (TensorFemSpace)
-        print(type(domain_h))
+    # for k, D in enumerate(domain.interior):
 
-        pprint(dir(domain_h))
+        V_k = V.spaces[k]
+        Vh_k = Vh.spaces[k]
 
-
-        print(len(domain_h._patches))
-        exit()
-        Dh_k = domain_h.spaces[k]  # fem space on patch k: (TensorFemSpace)
+        # print(type(domain_h))
+        #
+        # pprint(dir(domain_h))
+        #
+        #
+        # print(len(domain_h._patches))
+        # exit()
+        # Dh_k = domain_h.spaces[k]  # fem space on patch k: (TensorFemSpace)
         u, v = elements_of(V_k, names='u, v')
         if is_scalar:
             expr   = u*v
         else:
             expr   = dot(u,v)
-        a_k = BilinearForm((u,v), integral(D, expr))
-        a_kh = discretize(a_k, Dh, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])   # 'pyccel-gcc'])
+        a_k = BilinearForm((u,v), integral(D_k, expr))
+        a_kh = discretize(a_k, Dh_k, [Vh_k, Vh_k], backend=PSYDAC_BACKENDS[backend_language])   # 'pyccel-gcc'])
 
-        self._matrix = ah.assemble() #.toarray()
+        M_k = a_kh.assemble().toarray()
+        M_k.eliminate_zeros()
+        M_inv_k = inv(M_k.tocsc())
+        M_inv_k.eliminate_zeros()
 
-
-        M0_k = kron(*K0_k_factors)
-        K0_k.eliminate_zeros()
-        K0_inv_k = inv(K0_k.tocsc())
-        K0_inv_k.eliminate_zeros()
-
-        K0_blocks.append(K0_k)
-        K0_inv_blocks.append(K0_inv_k)
-    K0 = block_diag(K0_blocks)
-    K0_inv = block_diag(K0_inv_blocks)
-    return K0, K0_inv
+        M_blocks.append(M_k)
+        M_inv_blocks.append(M_inv_k)
+    M = block_diag(M_blocks)
+    M_inv = block_diag(M_inv_blocks)
+    return M, M_inv
 
 
 #===============================================================================
@@ -727,6 +730,23 @@ class BrokenMass( FemLinearOperator ):
         ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])   # 'pyccel-gcc'])
 
         self._matrix = ah.assemble() #.toarray()
+
+    def get_sparse_inverse_matrix(self):
+        # warning: may not work with vector-valued spaces (to be checked)
+
+        M = self._matrix
+        nrows = M.n_block_rows
+        ncols = M.n_block_cols
+
+        inv_M_blocks = []
+        for i in range(nrows):
+            Mii = M[i,i].tosparse()
+            inv_Mii = inv(Mii.tocsc())
+            inv_Mii.eliminate_zeros()
+            inv_M_blocks.append(inv_Mii)
+
+        inv_M = block_diag(inv_M_blocks)
+        return inv_M
 
     ## todo: assemble the block-diagonal inverse mass matrix from this one
 
