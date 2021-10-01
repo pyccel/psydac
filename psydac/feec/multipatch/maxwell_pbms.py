@@ -18,7 +18,8 @@ from sympde.topology import NormalVector
 from sympde.expr     import Norm
 
 from sympde.topology import Derham
-from sympde.topology import element_of, elements_of
+from sympde.topology import element_of, elements_of, Domain
+
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
 from sympde.topology import VectorFunctionSpace
@@ -53,7 +54,7 @@ from psydac.fem.basic   import FemField
 from psydac.api.settings        import PSYDAC_BACKENDS
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
 from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
-from psydac.feec.multipatch.operators import BrokenMass, get_K0_and_K0_inv, get_K1_and_K1_inv #, get_M_and_M_inv
+from psydac.feec.multipatch.operators import BrokenMass, get_K0_and_K0_inv, get_K1_and_K1_inv, get_M_and_M_inv
 from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, time_count
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector, get_grid_quad_weights
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
@@ -244,7 +245,21 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
         V1h = derham_h.V1
         V2h = derham_h.V2
 
+        # Mass matrices for broken spaces (block-diagonal)
         t_stamp = time_count()
+        print("assembling mass matrix operators...")
+
+        M0 = BrokenMass(V0h, domain_h, is_scalar=True, backend_language=backend_language)
+        M1 = BrokenMass(V1h, domain_h, is_scalar=False, backend_language=backend_language)
+        M2 = BrokenMass(V2h, domain_h, is_scalar=True, backend_language=backend_language)
+
+        t_stamp = time_count(t_stamp)
+        print('----------     inv M0')
+        # M0_m = M0.to_sparse_matrix()
+        # M0_minv = inv(M0_m.tocsc())  # todo: assemble patch-wise M0_inv, as Hodge operator
+        M0_minv = M0.get_sparse_inverse_matrix()
+
+        t_stamp = time_count(t_stamp)
         print("assembling conf projection operators for V1...")
         # todo: disable the non-hom-bc operators for hom-bc pretzel test cases...
         cP1_hom = ConformingProjection_V1(V1h, domain_h, hom_bc=True, backend_language=backend_language)
@@ -259,13 +274,6 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
         else:
             cP0 = ConformingProjection_V0(V0h, domain_h, hom_bc=False, backend_language=backend_language)
             cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=False, backend_language=backend_language)
-
-        # Mass matrices for broken spaces (block-diagonal)
-        t_stamp = time_count(t_stamp)
-        print("assembling mass matrix operators...")
-        M0 = BrokenMass(V0h, domain_h, is_scalar=True, backend_language=backend_language)
-        M1 = BrokenMass(V1h, domain_h, is_scalar=False, backend_language=backend_language)
-        M2 = BrokenMass(V2h, domain_h, is_scalar=True, backend_language=backend_language)
 
         t_stamp = time_count(t_stamp)
         print("assembling broken derivative operators...")
@@ -290,14 +298,13 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
         bD0_m = bD0.to_sparse_matrix()  # broken (patch-local) differential
         bD1_m = bD1.to_sparse_matrix()
         I1_m = I1.to_sparse_matrix()
-        time_count(t_stamp)
+        t_stamp = time_count(t_stamp)
 
-        M0_minv = inv(M0_m.tocsc())  # todo: assemble patch-wise M0_inv, as Hodge operator
 
         print(" -- now saving these matrices in " + load_dir)
         os.makedirs(load_dir)
 
-        t_stamp = time_count()
+        t_stamp = time_count(t_stamp)
         save_npz(load_dir+'M0_m.npz', M0_m)
         save_npz(load_dir+'M1_m.npz', M1_m)
         save_npz(load_dir+'M2_m.npz', M2_m)
@@ -515,9 +522,9 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
         # boundary condition: (here we only need to coincide with E_ex on the boundary !)
         if domain_name in ['square_2', 'square_6', 'square_9']:
             E_bc = None
+        # elif domain_name == 'square_8':
+        #     E_bc = Tuple(sin(theta*y) * (1+(x-pi/3)*(x-2*pi/3)*(y-pi/3)*(y-2*pi/3)), sin(theta*x)*cos(theta*y) * (1+(x-pi/3)*(x-2*pi/3)*(y-pi/3)*(y-2*pi/3)))
         else:
-            ## for domain square_8:
-            # E_bc = Tuple(sin(theta*y) * (1+(x-pi/3)*(x-2*pi/3)*(y-pi/3)*(y-2*pi/3)), sin(theta*x)*cos(theta*y) * (1+(x-pi/3)*(x-2*pi/3)*(y-pi/3)*(y-2*pi/3)))
             E_bc = E_ex
 
     elif source_type == 'ring_J':
@@ -694,7 +701,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument( '--eta',
-        type    = int,
+        type    = float,
         default = -64,
         help    = 'Constant parameter for zero-order term in source problem. Corresponds to -omega^2 for Maxwell harmonic'
     )
@@ -898,14 +905,14 @@ if __name__ == '__main__':
 
         print("***  Solving source problem  *** ")
 
-        # equation operator in homogeneous spaces
-        A_hom_m = K_hom_m + eta * M1_m
+        # equation operator in homogeneous spaces // or in full space for nitsche... (we should improve the notation)
+        A_hom_m = K_hom_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
 
         lift_E_bc = (method == 'conga' and not hom_bc)
         if lift_E_bc:
             # equation operator for bc lifting
             assert K_bc_m is not None
-            A_bc_m = K_bc_m + eta * M1_m
+            A_bc_m = K_bc_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_m
         else:
             A_bc_m = None
 
@@ -1002,7 +1009,6 @@ if __name__ == '__main__':
                     cmap='plasma',
                     dpi=400,
                 )
-                Ebc_c_tmp = Ebc_c
 
             # removing internal dofs
             # print("WARNING:    DONT REMOVE INTERNAL DOFS FOR E_BC _____________________________________________________")
@@ -1023,13 +1029,21 @@ if __name__ == '__main__':
                     cmap='plasma',
                     dpi=400,
                 )
-                Ebc_c_tmp -= Ebc_c
-                Eh_debug = FemField(V1h, coeffs=array_to_stencil(Ebc_c_tmp, V1h.vector_space))
-                Ebc_x_vals, Ebc_y_vals = grid_vals_hcurl(Eh_debug)
+
+                E_ex_x = lambdify(domain.coordinates, E_ex[0])
+                E_ex_y = lambdify(domain.coordinates, E_ex[1])
+                E_ex_log = [pull_2d_hcurl([E_ex_x, E_ex_y], f) for f in mappings_list]
+                # note: we only need the boundary dofs of E_bc (and Eh_bc)
+                Eh_ex = P1(E_ex_log)
+                E_ex_c = Eh_ex.coeffs.toarray()
+
+                E_diff_c = E_ex_c - Ebc_c
+                Edh = FemField(V1h, coeffs=array_to_stencil(E_diff_c, V1h.vector_space))
+                Ed_x_vals, Ed_y_vals = grid_vals_hcurl(Edh)
                 my_small_plot(
                     title=r'E_exact - E_bc',
-                    vals=[Ebc_x_vals, Ebc_y_vals],
-                    titles=[r'Eb x', r'Eb y'],  # , r'$div_h J$' ],
+                    vals=[Ed_x_vals, Ed_y_vals],
+                    titles=[r'(E_{ex}-E_{bc})_x', r'(E_{ex}-E_{bc})_y'],  # , r'$div_h J$' ],
                     surface_plot=False,
                     xx=xx, yy=yy,
                     save_fig=plot_dir+'diff_Ebc.png',
@@ -1094,6 +1108,9 @@ if __name__ == '__main__':
                 amplification=vf_amp,
             )
 
+        # if method == 'conga':
+        #     print("filter source for conga pbm...")
+            # b_c = (cP1_hom_m.transpose()).dot(b_c)
 
         t_stamp = time_count(t_stamp)
         print("solving with scipy...")
@@ -1101,16 +1118,20 @@ if __name__ == '__main__':
         # E_coeffs = array_to_stencil(Eh_c, V1h.vector_space)
         print("... done.")
         time_count(t_stamp)
+
+        if proj_sol:
+            if method == 'conga':
+                print("  (projecting the homogeneous Conga solution with cP1_hom_m)  ")
+                Eh_c = cP1_hom_m.dot(Eh_c)
+            else:
+                print("  (projecting the Nitsche solution with cP1_m)  ")
+                Eh_c = cP1_hom_m.dot(Eh_c)
+
         if lift_E_bc:
-            # add the lifted boundary condition
+            print("lifting the solution with E_bc  ")
             Eh_c += Ebc_c
 
 
-        # projected solution
-        if proj_sol:
-            print("  (projecting the final solution with cP1_m)  ")
-            Eh_c = cP1_m.dot(Eh_c)
-        # jumpEh_c = Eh_c - PEh_c
         # Eh = FemField(V1h, coeffs=array_to_stencil(PEh_c, V1h.vector_space))
         Eh = FemField(V1h, coeffs=array_to_stencil(Eh_c, V1h.vector_space))
 
