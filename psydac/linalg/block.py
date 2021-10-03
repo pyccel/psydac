@@ -239,6 +239,12 @@ class BlockVector( Vector ):
 
         # Flag ghost regions as up-to-date
         self._sync = True
+
+    # ...
+    def update_assembly_ghost_regions( self ):
+        for vi in self.blocks:
+            vi.update_assembly_ghost_regions()
+
     # ...
     @property
     def n_blocks( self ):
@@ -397,6 +403,10 @@ class BlockLinearOperator( LinearOperator ):
     def update_ghost_regions( self ):
         for Lij in self._blocks.values():
             Lij.update_ghost_regions()
+
+    def update_assembly_ghost_regions( self ):
+        for Lij in self._blocks.values():
+            Lij.update_assembly_ghost_regions()
 
     # ...
     def remove_spurious_entries( self ):

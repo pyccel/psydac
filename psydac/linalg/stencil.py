@@ -105,7 +105,9 @@ class StencilVectorSpace( VectorSpace ):
         self._parent_ends   = tuple([None]*self._ndim)
 
         # Global dimensions of vector space
-        self._npts   = tuple( npts )
+        self._npts       = tuple( npts )
+        # Local dimensions of vector space
+        self._local_npts = tuple( npts )
 
     # ...
     def _init_parallel( self, cart, dtype=float ):
@@ -125,12 +127,14 @@ class StencilVectorSpace( VectorSpace ):
         self._ndim          = len(cart.starts)
 
         # Global dimensions of vector space
-        self._npts   = cart.npts
+        self._npts       = cart.npts
+        # Local dimensions of vector space
+        self._local_npts = tuple( e-s+1 for s,e in zip(cart.starts, cart.ends) )
 
         # Parallel attributes
         self._cart         = cart
         self._mpi_type     = find_mpi_type( dtype )
-        self._synchronizer = CartDataExchanger( cart, dtype )
+        self._synchronizer = CartDataExchanger( cart, dtype , assembly=True)
 
     #--------------------------------------
     # Abstract interface
@@ -214,6 +218,11 @@ class StencilVectorSpace( VectorSpace ):
     @property
     def npts( self ):
         return self._npts
+
+    # ...
+    @property
+    def local_npts( self ):
+        return self._local_npts
 
     # ...
     @property
@@ -575,6 +584,24 @@ class StencilVector( Vector ):
         self._sync = True
 
     # ...
+    def update_assembly_ghost_regions( self ):
+        """
+        Update ghost regions before performing non-local access to vector
+        elements (e.g. in matrix-vector product).
+
+        Parameters
+        ----------
+        direction : int
+            Single direction along which to operate (if not specified, all of them).
+
+        """
+        if self.space.parallel:
+            # PARALLEL CASE: fill in ghost regions with data from neighbors
+            self.space._synchronizer.update_assembly_ghost_regions( self._data )
+        else:
+            # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
+            self._update_assembly_ghost_regions_serial()
+    # ...
     def _update_ghost_regions_serial( self, direction=None ):
 
         if direction is None:
@@ -584,7 +611,8 @@ class StencilVector( Vector ):
 
         ndim     = self._space.ndim
         periodic = self._space.periods[direction]
-        p        = self._space.pads   [direction]*self._space.shifts[direction]
+        p        = self._space.pads   [direction]
+        m        = self._space.shifts[direction]
 
         idx_front = [slice(None)]*direction
         idx_back  = [slice(None)]*(ndim-direction-1)
@@ -610,6 +638,24 @@ class StencilVector( Vector ):
             # Set right ghost region to zero
             idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
             self._data[idx_ghost] = 0
+
+    def _update_assembly_ghost_regions_serial( self ):
+
+        ndim     = self._space.ndim
+        for direction in range(ndim):
+
+            periodic = self._space.periods[direction]
+            p        = self._space.pads   [direction]
+            m        = self._space.shifts[direction]
+
+            if periodic:
+                idx_front = [slice(None)]*direction
+                idx_back  = [slice(None)]*(ndim-direction-1)
+
+                # Copy data from left to right
+                idx_from = tuple( idx_front + [slice( m*p-p, m*p)] + idx_back )
+                idx_to   = tuple( idx_front + [slice(-m*p-p,-m*p)] + idx_back )
+                self._data[idx_to] += self._data[idx_from]
 
     #--------------------------------------
     # Private methods
@@ -675,7 +721,8 @@ class StencilMatrix( Matrix ):
             self._synchronizer = CartDataExchanger(
                 cart        = W.cart,
                 dtype       = W.dtype,
-                coeff_shape = diags
+                coeff_shape = diags,
+                assembly    = True
             )
 
         # Flag ghost regions as not up-to-date (conservative choice)
@@ -1093,6 +1140,20 @@ class StencilMatrix( Matrix ):
         # Flag ghost regions as up-to-date
         self._sync = True
 
+    def update_assembly_ghost_regions( self ):
+        """
+        Update ghost regions after the assembly algorithm.
+        """
+        ndim     = self._codomain.ndim
+        parallel = self._codomain.parallel
+
+        if self._codomain.parallel:
+            # PARALLEL CASE: fill in ghost regions with data from neighbors
+            self._synchronizer.update_assembly_ghost_regions( self._data )
+        else:
+            # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
+            self._update_assembly_ghost_regions_serial()
+
     # ...
     @property
     def T(self):
@@ -1405,6 +1466,79 @@ class StencilMatrix( Matrix ):
             idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
             self._data[idx_ghost] = 0
 
+
+    def _update_assembly_ghost_regions_serial( self ):
+
+        ndim     = self._codomain.ndim
+        for direction in range(ndim):
+
+            periodic = self._codomain.periods[direction]
+            p        = self._codomain.pads   [direction]
+            m        = self._codomain.shifts[direction]
+
+            if periodic:
+                idx_front = [slice(None)]*direction
+                idx_back  = [slice(None)]*(ndim-direction-1)
+
+                # Copy data from left to right
+                idx_from = tuple( idx_front + [slice( m*p-p, m*p)] + idx_back )
+                idx_to   = tuple( idx_front + [slice(-m*p-p,-m*p)] + idx_back )
+                self._data[idx_to] += self._data[idx_from]
+    # ...
+    def _prepare_transpose_args(self):
+
+        #prepare the arguments for the transpose method
+        V     = self.domain
+        W     = self.codomain
+        ssc   = W.starts
+        eec   = W.ends
+        ssd   = V.starts
+        eed   = V.ends
+        pads    = self._pads
+        gpads = V.pads
+
+        dm    = V.shifts
+        cm    = W.shifts
+
+        # Number of rows in the transposed matrix (along each dimension)
+        nrows       = [e-s+1 for s,e in zip(ssd, eed)]
+        ncols       = [e-s+2*m*p+1 for s,e,m,p in zip(ssc, eec, cm, gpads)]
+
+        pp = pads
+        ndiags, starts = list(zip(*[compute_diag_len(p,mi,mj, return_padding=True) for p,mi,mj in zip(pp,cm,dm)]))
+        ndiagsT, _     = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pp,cm,dm)]))
+
+        diff   = [gp-p for gp,p in zip(gpads, pp)]
+
+        sl   = [(s if mi>mj else 0) + (s%mi+mi//mj if mi<mj else 0)+(s if mi==mj else 0)\
+                 for s,p,mi,mj in zip(starts,pp,cm,dm)]
+
+        si   = [(mi*p-mi*(int(np.ceil((p+1)/mj))-1) if mi>mj else 0)+\
+                 (mi*p-mi*(p//mi)+ d*(mi-1) if mi<mj else 0)+\
+                 (mj*p-mj*(p//mi)+ d*(mi-1) if mi==mj else 0)\
+                  for mi,mj,p,d in zip(cm, dm, pp, diff)]
+
+        sk   = [n-1\
+                 + (-(p%mj) if mi>mj else 0)\
+                 + (-p+mj*(p//mi) if mi<mj  else 0)\
+                 + (-p+mj*(p//mi) if mi==mj else 0)\
+                 for mi,mj,n,p in zip(cm, dm, ndiagsT, pp)]
+
+        args = OrderedDict()
+        args['nrows']   = tuple(nrows)
+        args['ncols']   = tuple(ncols)
+        args['gpads']   = tuple(gpads)
+        args['pads']    = tuple(pads)
+        args['dm']      = tuple(dm)
+        args['cm']      = tuple(cm)
+        args['ndiags']  = tuple(ndiags)
+        args['ndiagsT'] = tuple(ndiagsT)
+        args['si']      = tuple(si)
+        args['sk']      = tuple(sk)
+        args['sl']      = tuple(sl)
+        return args
+
+    # ...
     def set_backend(self, backend):
         from psydac.api.ast.linalg import LinearOperatorDot
         self._backend = backend

@@ -130,7 +130,7 @@ class FemAssemblyGrid:
         for k in range( nc ):
             gk = current_glob_spans[k]
             gs = glob_spans  [k]
-            if current_start-m <= gk and gk-pad <= current_end:
+            if current_start-m <= gk and gk <= current_end:
                 if m>0 and pad-degree==1 and start>gs:continue
                 spans  .append( glob_spans  [k] )
                 basis  .append( glob_basis  [k] )
@@ -159,12 +159,12 @@ class FemAssemblyGrid:
 
         # Local indices of first/last elements in proper domain
         if space.periodic:
-            local_element_start = self._spans.searchsorted( degree + start )
-            local_element_end   = self._spans.searchsorted( degree + end   )
+            local_element_start = 0
+            local_element_end   = ne-1
         else:
             if end+1 >= degree:
-                local_element_start = self._spans.searchsorted( degree if start == 0   else 1 + start)
-                local_element_end   = self._spans.searchsorted( end if end   == n-1 else 1 + end )
+                local_element_start = 0
+                local_element_end   = ne-1
             else:
                 # in this edge case: no local elements for now
                 local_element_start = 1
