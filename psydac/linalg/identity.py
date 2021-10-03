@@ -14,17 +14,24 @@ class IdentityLinearOperator(LinearOperator):
         assert isinstance( V, VectorSpace )
         self._V  = V
 
-    #-------------------------------------
-    # Deferred methods
-    #-------------------------------------
+    #--------------------------------------
+    # Abstract interface
+    #--------------------------------------
     @property
     def domain( self ):
         return self._V
 
+    # ...
     @property
     def codomain( self ):
         return self._V
 
+    # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
+
+    # ...
     def dot( self, v, out=None ):
         """
         Returns the input vector. If out is None or v is the same vector object as out (`v is out`), v is returned (no copy).

@@ -4,9 +4,9 @@ import pytest
 #===============================================================================
 @pytest.mark.parametrize( 'n', [5, 10, 13] )
 
-def test_cg_tridiagonal( n ):
+def test_lsmr_tridiagonal( n ):
     """
-    Test generic Conjugate Gradient algorithm on tridiagonal linear system.
+    Test generic LSMR algorithm on tridiagonal linear system.
 
     Parameters
     ----------
@@ -14,21 +14,22 @@ def test_cg_tridiagonal( n ):
         Dimension of linear system (number of rows = number of columns).
 
     """
-    from psydac.linalg.iterative_solvers import cg
+    from psydac.linalg.iterative_solvers import lsmr
 
     #---------------------------------------------------------------------------
     # PARAMETERS
     #---------------------------------------------------------------------------
 
-    # Build matrix: must be symmetric and positive definite
-    # Here tridiagonal matrix with values [-1,+2,-1] on diagonals
-    A = np.diag([-1.0]*(n-1),-1) + np.diag([2.0]*n,0) + np.diag([-1.0]*(n-1),1)
+    # Build generic non-singular matrix
+    sdiag = np.random.random( n - 1 )
+    diag  = np.random.random( n )
+    A = np.diag(sdiag,-1) + np.diag(diag,0) + np.diag(sdiag,1)
 
     # Build exact solution: here with random values in [-1,1]
     xe = 2.0 * np.random.random( n ) - 1.0
 
     # Tolerance for success: L2-norm of error in solution
-    tol = 1e-13
+    tol = 1e-10
 
     #---------------------------------------------------------------------------
     # TEST
@@ -37,19 +38,19 @@ def test_cg_tridiagonal( n ):
     # Title
     print()
     print( "="*80 )
-    print( "SERIAL TEST: solve linear system A*x = b using conjugate gradient" )
+    print( "SERIAL TEST: solve linear system A*x = b using lsmr" )
     print( "="*80 )
     print()
 
     # Manufacture right-hand-side vector from exact solution
     b = A.dot( xe )
 
-    # Solve linear system using CG
-    x, info = cg( A, b, tol=1e-13, verbose=True )
+    # Solve linear system using BiCG
+    x, info = lsmr( A, A.T, b, tol=1e-13, verbose=True )
 
     # Verify correctness of calculation: L2-norm of error
-    err = x-xe
-    err_norm = np.linalg.norm( err )
+    res = A.dot(x)-b
+    res_norm = np.linalg.norm( res )
 
     #---------------------------------------------------------------------------
     # TERMINAL OUTPUT
@@ -64,8 +65,8 @@ def test_cg_tridiagonal( n ):
     print()
 
     print( "-"*40 )
-    print( "L2-norm of error in solution = {:.2e}".format( err_norm ) )
-    if err_norm < tol:
+    print( "L2-norm of error in solution = {:.2e}".format( res_norm ) )
+    if res_norm < tol:
         print( "PASSED" )
     else:
         print( "FAIL" )
@@ -74,4 +75,4 @@ def test_cg_tridiagonal( n ):
     #---------------------------------------------------------------------------
     # PYTEST
     #---------------------------------------------------------------------------
-    assert err_norm < tol
+    assert res_norm < tol

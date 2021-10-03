@@ -45,6 +45,11 @@ class KroneckerStencilMatrix( Matrix ):
 
     # ...
     @property
+    def dtype( self ):
+        return self.domain.dtype
+
+    # ...
+    @property
     def ndim( self ):
         return self._ndim
         

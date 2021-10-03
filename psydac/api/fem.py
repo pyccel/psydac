@@ -317,6 +317,10 @@ class DiscreteBilinearForm(BasicDiscrete):
         return self._matrix
 
     def get_space_indices_from_target(self, domain, target):
+        if domain.mapping:
+            domain = domain.logical_domain
+        if target.mapping:
+            target = target.logical_domain
         domains = domain.interior.args
         if isinstance(target, Interface):
             ij = [domains.index(target.minus.domain), domains.index(target.plus.domain)]
@@ -488,9 +492,9 @@ class DiscreteLinearForm(BasicDiscrete):
 
         # ...
         self._kernel_expr = kernel_expr
-        self._target     = kernel_expr.target
-        self._domain     = domain_h.domain
-        self._vector     = kwargs.pop('vector', None)
+        self._target      = kernel_expr.target
+        self._domain      = domain_h.domain
+        self._vector      = kwargs.pop('vector', None)
 
         domain = self.domain
         target = self.target
@@ -613,9 +617,14 @@ class DiscreteLinearForm(BasicDiscrete):
         return self._vector
 
     def get_space_indices_from_target(self, domain, target):
+        if domain.mapping:
+            domain = domain.logical_domain
+        if target.mapping:
+            target = target.logical_domain
         domains = domain.interior.args
+
         if isinstance(target, Interface):
-            raise NotImplementedError("TODO")
+            raise NotImplementedError("Index of an interface is not defined for the LinearForm")
         elif isinstance(target, Boundary):
             i = domains.index(target.domain)
         else:
@@ -740,12 +749,7 @@ class DiscreteFunctional(BasicDiscrete):
 
         test_sym_space   = self._space.symbolic_space
         if test_sym_space.is_broken:
-            domains = test_sym_space.domain.interior.args
-
-            if isinstance(domain, Boundary):
-                i = domains.index(domain.domain)
-            else:
-                i = domains.index(domain)
+            i = self.get_space_indices_from_target(test_sym_space.domain, domain)
             self._space  = self._space.spaces[i]
 
         self._symbolic_space  = test_sym_space
@@ -788,6 +792,21 @@ class DiscreteFunctional(BasicDiscrete):
     @property
     def test_basis(self):
         return self._test_basis
+
+    def get_space_indices_from_target(self, domain, target):
+        if domain.mapping:
+            domain = domain.logical_domain
+        if target.mapping:
+            target = target.logical_domain
+
+        domains = domain.interior.args
+        if isinstance(target, Interface):
+            raise NotImplementedError("Index of an interface is not defined for the FunctionalForm")
+        elif isinstance(target, Boundary):
+            i = domains.index(target.domain)
+        else:
+            i = domains.index(target)
+        return i
 
     def construct_arguments(self):
         sk          = self.grid.local_element_start
@@ -836,7 +855,8 @@ class DiscreteFunctional(BasicDiscrete):
                 if v.space.is_product:
                     coeffs = v.coeffs
                     if self._symbolic_space.is_broken:
-                        index = self._symbolic_space.domain.interior.args.index(self._domain)
+                        index = self.get_space_indices_from_target(self._symbolic_space.domain,
+                                                                   self._domain)
                         coeffs = coeffs[index]
 
                     if isinstance(coeffs, StencilVector):

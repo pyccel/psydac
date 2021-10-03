@@ -22,6 +22,13 @@ class VectorSpace( metaclass=ABCMeta ):
 
         """
 
+    @property
+    @abstractmethod
+    def dtype( self ):
+        """
+        The data type of the space elements.
+        """
+
     @abstractmethod
     def zeros( self ):
         """
@@ -52,9 +59,18 @@ class Vector( metaclass=ABCMeta ):
     def space( self ):
         pass
 
+    @property
+    @abstractmethod
+    def dtype( self ):
+        pass
+
     @abstractmethod
     def dot( self, v ):
         pass
+
+    @abstractmethod
+    def toarray( self, **kwargs ):
+        """ Convert to Numpy 1D array. """
 
     @abstractmethod
     def copy( self ):
@@ -126,6 +142,11 @@ class LinearOperator( metaclass=ABCMeta ):
     @property
     @abstractmethod
     def codomain( self ):
+        pass
+
+    @property
+    @abstractmethod
+    def dtype( self ):
         pass
 
     @abstractmethod

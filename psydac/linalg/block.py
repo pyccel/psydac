@@ -44,6 +44,11 @@ class BlockVectorSpace( VectorSpace ):
         # Store spaces in a Tuple, because they will not be changed
         self._spaces = tuple(spaces)
 
+        if all(np.dtype(s.dtype)==np.dtype(spaces[0].dtype) for s in spaces):
+            self._dtype  = spaces[0].dtype
+        else:
+            self._dtype = tuple(s.dtype for s in spaces)
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -55,6 +60,11 @@ class BlockVectorSpace( VectorSpace ):
 
         """
         return sum( Vi.dimension for Vi in self._spaces )
+
+    # ...
+    @property
+    def dtype( self ):
+        return self._dtype
 
     # ...
     def zeros( self ):
@@ -137,6 +147,11 @@ class BlockVector( Vector ):
         return self._space
 
     #...
+    @property
+    def dtype( self ):
+        return self.space.dtype
+
+    #...
     def dot( self, v ):
 
         assert isinstance( v, BlockVector )
@@ -211,6 +226,7 @@ class BlockVector( Vector ):
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
+
     def __getitem__( self, key ):
         return self._blocks[key]
 
@@ -343,6 +359,11 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def codomain( self ):
         return self._codomain
+
+    # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
 
     # ...
     def dot( self, v, out=None ):
