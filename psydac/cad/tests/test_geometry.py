@@ -17,35 +17,35 @@ from psydac.fem.tensor               import TensorFemSpace
 from psydac.utilities.utils          import refine_array_1d
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
-#==============================================================================
-def test_geometry_2d_1():
+##==============================================================================
+#def test_geometry_2d_1():
 
-    # create an identity mapping
-    mapping = discrete_mapping('identity', ncells=[1,1], degree=[2,2])
+#    # create an identity mapping
+#    mapping = discrete_mapping('identity', ncells=[1,1], degree=[2,2])
 
-    # create a topological domain
-    domain = Square(name='Omega')
+#    # create a topological domain
+#    domain = Square(name='Omega')
 
-    # associate the mapping to the topological domain
-    mappings = {'Omega': mapping}
+#    # associate the mapping to the topological domain
+#    mappings = {'Omega': mapping}
 
-    # create a geometry from a topological domain and the dict of mappings
-    geo = Geometry(domain=domain, mappings=mappings)
+#    # create a geometry from a topological domain and the dict of mappings
+#    geo = Geometry(domain=domain, mappings=mappings)
 
-    # export the geometry
-    geo.export('geo.h5')
+#    # export the geometry
+#    geo.export('geo.h5')
 
-    # read it again
-    geo_0 = Geometry(filename='geo.h5')
+#    # read it again
+#    geo_0 = Geometry(filename='geo.h5')
 
-    # export it again
-    geo_0.export('geo_0.h5')
+#    # export it again
+#    geo_0.export('geo_0.h5')
 
-    # create a geometry from a discrete mapping
-    geo_1 = Geometry.from_discrete_mapping(mapping)
+#    # create a geometry from a discrete mapping
+#    geo_1 = Geometry.from_discrete_mapping(mapping)
 
-    # export it
-    geo_1.export('geo_1.h5')
+#    # export it
+#    geo_1.export('geo_1.h5')
 
 #==============================================================================
 def test_geometry_2d_2():
