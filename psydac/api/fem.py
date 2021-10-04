@@ -314,6 +314,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             reset_arrays(*self.global_matrices)
 
         self._func(*args)
+        self._matrix.update_assembly_ghost_regions()
         return self._matrix
 
     def get_space_indices_from_target(self, domain, target):
@@ -614,6 +615,7 @@ class DiscreteLinearForm(BasicDiscrete):
             reset_arrays(*self.global_matrices)
 
         self._func(*args)
+        self._vector.update_assembly_ghost_regions()
         return self._vector
 
     def get_space_indices_from_target(self, domain, target):
@@ -647,6 +649,7 @@ class DiscreteLinearForm(BasicDiscrete):
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
         else:
             mapping   = []
+
         args = (*tests_basis, *spans, *quads, *tests_degrees, *n_elements, *quads_degree, *global_pads, *element_mats, *self._global_matrices, *mapping)
         return args
 

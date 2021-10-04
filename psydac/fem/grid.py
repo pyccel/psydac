@@ -61,7 +61,6 @@ class FemAssemblyGrid:
         pad          = space.pads            # padding
         multiplicity = space.multiplicity    # multiplicity of the knots
 
-
         # Gauss-legendre quadrature rule
         u, w = gauss_legendre( k )
 
@@ -101,8 +100,8 @@ class FemAssemblyGrid:
  
         if pad==degree:
             current_glob_spans  = glob_spans
-            current_start = start
-            current_end   = end
+            current_start       = start
+            current_end         = end
         elif pad-degree == 1:
             multiplicity  = space.parent_multiplicity
             elevated_T    = elevate_knots(T, degree, space.periodic, multiplicity=multiplicity)
@@ -113,16 +112,16 @@ class FemAssemblyGrid:
             raise NotImplementedError('TODO')
 
         # a) Periodic case only, left-most process in 1D domain
-        if space.periodic:
-            for k in range( nc ):
-                gk = current_glob_spans[k]
-                if start <= gk-n and gk-n-pad <= end:
-                    spans  .append( glob_spans[k]-n )
-                    basis  .append( glob_basis  [k] )
-                    points .append( glob_points [k] )
-                    weights.append( glob_weights[k] )
-                    indices.append( k )
-                    ne += 1
+#        if space.periodic:
+#            for k in range( nc ):
+#                gk = glob_spans[k]
+#                if start <= gk-n and gk-n-pad <= end:
+#                    spans  .append( glob_spans[k]-n )
+#                    basis  .append( glob_basis  [k] )
+#                    points .append( glob_points [k] )
+#                    weights.append( glob_weights[k] )
+#                    indices.append( k )
+#                    ne += 1
 
         m = multiplicity if multiplicity>1 else 0
 
@@ -130,7 +129,7 @@ class FemAssemblyGrid:
         for k in range( nc ):
             gk = current_glob_spans[k]
             gs = glob_spans  [k]
-            if current_start-m <= gk and gk <= current_end:
+            if current_start-m <= gk-pad*space.periodic and gk-pad*space.periodic <= current_end:
                 if m>0 and pad-degree==1 and start>gs:continue
                 spans  .append( glob_spans  [k] )
                 basis  .append( glob_basis  [k] )
@@ -173,7 +172,6 @@ class FemAssemblyGrid:
         # Local index of start/end elements of domain partitioning
         self._local_element_start = local_element_start
         self._local_element_end   = local_element_end
-
     # ...
     @property
     def num_elements( self ):

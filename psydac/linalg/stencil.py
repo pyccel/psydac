@@ -103,6 +103,7 @@ class StencilVectorSpace( VectorSpace ):
         self._ndim          = len( npts )
         self._parent_starts = tuple([None]*self._ndim)
         self._parent_ends   = tuple([None]*self._ndim)
+        self._reduced       = [False]*self._ndim
 
         # Global dimensions of vector space
         self._npts       = tuple( npts )
@@ -120,6 +121,7 @@ class StencilVectorSpace( VectorSpace ):
         self._ends          = cart.ends
         self._parent_starts = cart.parent_starts
         self._parent_ends   = cart.parent_ends
+        self._reduced       = cart.reduced
         self._pads          = cart.pads
         self._periods       = cart.periods
         self._shifts        = cart.shifts
@@ -200,12 +202,13 @@ class StencilVectorSpace( VectorSpace ):
             The reduced space.
         """
         assert not self.parallel
-        npts         = [n-ne for n,ne in zip(self.npts, n_elements)]
+        npts   = [n-ne for n,ne in zip(self.npts, n_elements)]
         shifts = [max(1,m-1) for m in self.shifts]
 
         v = StencilVectorSpace(npts=npts, pads=self.pads, periods=self.periods, shifts=shifts)
         v._parent_starts = self.starts
         v._parent_ends   = self.ends
+        v._reduced       = tuple(a in axes for a in range(self._ndim))
         return v
     #--------------------------------------
     # Other properties/methods
@@ -248,6 +251,10 @@ class StencilVectorSpace( VectorSpace ):
     @property
     def parent_ends( self ):
         return self._parent_ends
+
+    @property
+    def reduced( self ):
+        return self._reduced
 
     # ...
     @property
@@ -652,14 +659,15 @@ class StencilVector( Vector ):
             periodic = self._space.periods[direction]
             p        = self._space.pads   [direction]
             m        = self._space.shifts[direction]
+            r        = self._space.reduced[direction]
 
             if periodic:
                 idx_front = [slice(None)]*direction
                 idx_back  = [slice(None)]*(ndim-direction-1)
 
                 # Copy data from left to right
-                idx_from = tuple( idx_front + [slice( m*p-p, m*p)] + idx_back )
-                idx_to   = tuple( idx_front + [slice(-m*p-p,-m*p)] + idx_back )
+                idx_to   = tuple( idx_front + [slice( m*p, m*p+p)] + idx_back )
+                idx_from = tuple( idx_front + [ slice(-m*p,-m*p+p) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
                 self._data[idx_to] += self._data[idx_from]
 
     #--------------------------------------
@@ -1457,10 +1465,9 @@ class StencilMatrix( Matrix ):
                 idx_back  = [slice(None)]*(ndim-direction-1)
 
                 # Copy data from left to right
-                idx_from = tuple( idx_front + [slice( m*p-p, m*p)] + idx_back )
-                idx_to   = tuple( idx_front + [slice(-m*p-p,-m*p)] + idx_back )
+                idx_to   = tuple( idx_front + [slice( m*p, m*p+p)] + idx_back )
+                idx_from = tuple( idx_front + [ slice(-m*p,-m*p+p) if (-m*p+p)!=0 else slice(-m*p,None)] + idx_back )
                 self._data[idx_to] += self._data[idx_from]
-
     # ...
     def _prepare_transpose_args(self):
 
@@ -1912,6 +1919,9 @@ class StencilInterfaceMatrix(Matrix):
 
         # Flag ghost regions as up-to-date
         self._sync = True
+
+    def update_assembly_ghost_regions( self ):
+        pass
 
     #--------------------------------------
     # Private methods
