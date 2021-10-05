@@ -29,11 +29,11 @@ from sympde.expr.equation import find, EssentialBC
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
 
-from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import spsolve, spilu, cg, lgmres
 from scipy.sparse.linalg import LinearOperator, eigsh, minres, gmres
 
 from scipy.sparse.linalg import inv
-from scipy.linalg        import eig
+from scipy.linalg        import eig, norm
 from scipy.sparse import save_npz, load_npz
 
 # from scikits.umfpack import splu    # import error
@@ -730,7 +730,8 @@ if __name__ == '__main__':
     degree = [deg,deg]
 
     if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
-        backend_language='numba'
+        # backend_language='numba'
+        backend_language='python'
     else:
         backend_language='python'
     print('[note: using '+backend_language+ ' backends in discretize functions]')
@@ -818,7 +819,7 @@ if __name__ == '__main__':
 
         # source and ref solution
         nc_ref = 32
-        deg_ref = 8
+        deg_ref = 6
         method_ref = 'conga'
         # source_type = 'ring_J'
         # source_type = 'manu_sol'
@@ -1113,9 +1114,36 @@ if __name__ == '__main__':
             # b_c = (cP1_hom_m.transpose()).dot(b_c)
 
         t_stamp = time_count(t_stamp)
-        print("solving with scipy...")
-        Eh_c = spsolve(A_hom_m.tocsc(), b_c)
+
+        # print("solving with scipy spsolve...")   #todo: use for small problems [[ or: try catch ??]]
+        # Eh_c = spsolve(A_hom_m.tocsc(), b_c)
+
+        ## for large problems:
+        print("solving with scipy lgmres...")
+        A_hom_csc = A_hom_m.tocsc()
+        print(" -- with approximate inverse using ILU decomposition... ")
+        A_hom_spilu = spilu(A_hom_csc) #, fill_factor=20)  # drop_tol=1e-6
+        print('**** A: ',  A_hom_m.shape )
+
+        preconditioner = LinearOperator(
+            A_hom_m.shape, lambda x: A_hom_spilu.solve(x)
+        )
+        nb_iter = 0
+        def f2_iter(x):
+            global nb_iter
+            print('lgmres -- iter = ', nb_iter, 'residual= ', norm(A_hom_m.dot(x)-b_c))
+            nb_iter = nb_iter + 1
+        tol = 1e-10
+        Eh_c, info = lgmres(A_hom_csc, b_c, x0=None, tol=tol, atol=tol, M=preconditioner, callback=f2_iter)
+                      # inner_m=30, outer_k=3, outer_v=None,
+                      #                                           store_outer_Av=True)
+        print('info:', info)
+        # cg(A_hom_csc, b_c, tol=1e-08, atol=1e-08)
+
         # E_coeffs = array_to_stencil(Eh_c, V1h.vector_space)
+
+        print('**** cP1:',  cP1_hom_m.shape )
+        print('**** Eh:',  Eh_c.shape )
         print("... done.")
         time_count(t_stamp)
 
@@ -1124,8 +1152,8 @@ if __name__ == '__main__':
                 print("  (projecting the homogeneous Conga solution with cP1_hom_m)  ")
                 Eh_c = cP1_hom_m.dot(Eh_c)
             else:
-                print("  (projecting the Nitsche solution with cP1_m)  ")
-                Eh_c = cP1_hom_m.dot(Eh_c)
+                print("  (projecting the Nitsche solution with cP1_m -- NOTE: THIS IS NONSTANDARD! )  ")
+                Eh_c = cP1_m.dot(Eh_c)
 
         if lift_E_bc:
             print("lifting the solution with E_bc  ")
