@@ -608,6 +608,58 @@ class CartDataExchanger:
 
         comm.Barrier()
 
+    def update_ghost_regions_all_directions_non_blocking( self, array, disp ):
+
+        """
+        Update ghost regions for all directions in a numpy array with dimensions compatible with
+        CartDecomposition (and coeff_shape) provided at initialization
+        using non blocking communications.
+
+        Parameters
+        ----------
+        array : numpy.ndarray
+            Multidimensional array corresponding to local subdomain in
+            decomposed tensor grid, including padding.
+
+        """
+
+
+
+        assert isinstance( array, np.ndarray )
+        assert disp in [-1,1]
+
+        # Shortcuts
+        cart = self._cart
+        comm = self._comm
+
+        # Choose non-negative invertible function tag(disp) >= 0
+        # NOTES:
+        #   . different values of disp must return different tags!
+        #   . tag at receiver must match message tag at sender
+        tag = lambda disp: 42+disp*(direction+1)
+
+        # Requests' handles
+        requests = []
+
+        for direction in range(cart._ndims):
+            # Start sending data (MPI_ISEND)
+            info     = cart.get_shift_info( direction, disp )
+            send_typ = self.get_send_type ( direction, disp )
+            send_buf = (array, 1, send_typ)
+            send_req = comm.Isend( send_buf, info['rank_dest'], tag(disp) )
+            requests.append( send_req )
+
+
+            # Start receiving data (MPI_IRECV)
+            info     = cart.get_shift_info( direction, disp )
+            recv_typ = self.get_recv_type ( direction, disp )
+            recv_buf = (array, 1, recv_typ)
+            recv_req = comm.Irecv( recv_buf, info['rank_source'], tag(disp) )
+            requests.append( recv_req )
+
+            # Wait for end of data exchange (MPI_WAITALL)
+            MPI.Request.Waitall( requests )
+
     #---------------------------------------------------------------------------
     # Private methods
     #---------------------------------------------------------------------------
