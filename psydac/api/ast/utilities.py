@@ -834,10 +834,10 @@ def build_pyccel_types_decorator(args, order=None):
             rank = 0
             if a.is_integer:
                 dtype = 'int'
-            elif a.is_complex:
-                dtype = 'complex'
             elif a.is_real:
                 dtype = 'float'
+            elif a.is_complex:
+                dtype = 'complex'
             else:
                 dtype = 'float' # default value
 
