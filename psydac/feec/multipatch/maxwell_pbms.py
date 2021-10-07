@@ -131,7 +131,6 @@ def nitsche_curl_curl_2d(domain_h, Vh, gamma_h=None, k=None, load_dir=None, back
     :param k: parameter for SIP/NIP/IIP
     :return: matrices in sparse format
     """
-    from psydac.api.discretization import discretize
     assert gamma_h is not None
 
     if os.path.exists(load_dir):
