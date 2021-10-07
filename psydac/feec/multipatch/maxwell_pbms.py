@@ -906,7 +906,11 @@ if __name__ == '__main__':
         print("***  Solving source problem  *** ")
 
         # equation operator in homogeneous spaces // or in full space for nitsche... (todo: improve the notation and call that A_m // and A_bc_m the operator for the lifted bc if needed)
-        A_hom_m = K_hom_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
+        if method == 'conga':
+            A_hom_m = K_hom_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
+        else:
+            assert method == 'nitsche'
+            A_hom_m = K_hom_m + eta * M1_m
 
         lift_E_bc = (method == 'conga' and not hom_bc)
         if lift_E_bc:
@@ -1011,7 +1015,6 @@ if __name__ == '__main__':
                 )
 
             # removing internal dofs
-            # print("WARNING:    DONT REMOVE INTERNAL DOFS FOR E_BC _____________________________________________________")
             Ebc_c = cP1_m.dot(Ebc_c)-cP1_hom_m.dot(Ebc_c)
             b_c = b_c - A_bc_m.dot(Ebc_c)
 
