@@ -760,7 +760,7 @@ def run_maxwell_2d_time_harmonic(nc=None, deg=None, test_case='ring_J',domain_na
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
-    domain = build_multipatch_domain(domain_name=domain_name, n_patches=n_patches)
+    domain = build_multipatch_domain(domain_name=domain_name)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
 
