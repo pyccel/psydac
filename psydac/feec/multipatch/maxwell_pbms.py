@@ -333,8 +333,6 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
 
         print('  -- some more shapes: \n K0 = {0}\n K1_inv = {1}\n'.format(K0.shape,K1_inv.shape))
 
-    print('**********************************')
-
     return M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m
 
 def conga_curl_curl_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, gamma_h=None, hom_bc=True):
@@ -347,7 +345,7 @@ def conga_curl_curl_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
     if not hom_bc:
         assert cP1_m is not None
     print('computing Conga curl_curl matrix with penalization gamma_h = {}'.format(gamma_h))
-
+    t_stamp = time_count()
     assert operator == 'curl_curl'  # todo: implement (verify) the hodge-laplacian
 
     # curl_curl matrix (left-multiplied by M1_m) :
@@ -366,7 +364,7 @@ def conga_curl_curl_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
         )
     else:
         K_bc_m = None
-
+    t_stamp = time_count()
     return K_hom_m, K_bc_m
 
 
@@ -736,6 +734,7 @@ if __name__ == '__main__':
         backend_language='python'
     print('[note: using '+backend_language+ ' backends in discretize functions]')
 
+    print()
     print('--------------------------------------------------------------------------------------------------------------')
     t_overstamp = time_count()  # full run
     t_stamp = time_count()
@@ -906,7 +905,7 @@ if __name__ == '__main__':
 
         print("***  Solving source problem  *** ")
 
-        # equation operator in homogeneous spaces // or in full space for nitsche... (we should improve the notation)
+        # equation operator in homogeneous spaces // or in full space for nitsche... (todo: improve the notation and call that A_m // and A_bc_m the operator for the lifted bc if needed)
         A_hom_m = K_hom_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
 
         lift_E_bc = (method == 'conga' and not hom_bc)
@@ -1115,36 +1114,37 @@ if __name__ == '__main__':
 
         t_stamp = time_count(t_stamp)
 
-        # print("solving with scipy spsolve...")   #todo: use for small problems [[ or: try catch ??]]
-        # Eh_c = spsolve(A_hom_m.tocsc(), b_c)
+        try:
+            print("trying direct solve with scipy spsolve...")   #todo: use for small problems [[ or: try catch ??]]
+            Eh_c = spsolve(A_hom_m.tocsc(), b_c)
+        except:
+            ## for large problems:
+            print("did not work -- trying with scipy lgmres...")
+            A_hom_csc = A_hom_m.tocsc()
+            print(" -- with approximate inverse using ILU decomposition -- ")
+            A_hom_spilu = spilu(A_hom_csc)
+            # A_hom_spilu = spilu(A_hom_csc, fill_factor=100, drop_tol=1e-6)  # better preconditionning, if matrix not too large
+            # print('**** A: ',  A_hom_m.shape )
 
-        ## for large problems:
-        print("solving with scipy lgmres...")
-        A_hom_csc = A_hom_m.tocsc()
-        print(" -- with approximate inverse using ILU decomposition... ")
-        A_hom_spilu = spilu(A_hom_csc) #, fill_factor=20)  # drop_tol=1e-6
-        print('**** A: ',  A_hom_m.shape )
-
-        preconditioner = LinearOperator(
-            A_hom_m.shape, lambda x: A_hom_spilu.solve(x)
-        )
-        nb_iter = 0
-        def f2_iter(x):
-            global nb_iter
-            print('lgmres -- iter = ', nb_iter, 'residual= ', norm(A_hom_m.dot(x)-b_c))
-            nb_iter = nb_iter + 1
-        tol = 1e-10
-        Eh_c, info = lgmres(A_hom_csc, b_c, x0=None, tol=tol, atol=tol, M=preconditioner, callback=f2_iter)
+            preconditioner = LinearOperator(
+                A_hom_m.shape, lambda x: A_hom_spilu.solve(x)
+            )
+            nb_iter = 0
+            def f2_iter(x):
+                global nb_iter
+                print('lgmres -- iter = ', nb_iter, 'residual= ', norm(A_hom_m.dot(x)-b_c))
+                nb_iter = nb_iter + 1
+            tol = 1e-10
+            Eh_c, info = lgmres(A_hom_csc, b_c, x0=None, tol=tol, atol=tol, M=preconditioner, callback=f2_iter)
                       # inner_m=30, outer_k=3, outer_v=None,
                       #                                           store_outer_Av=True)
-        print('info:', info)
-        # cg(A_hom_csc, b_c, tol=1e-08, atol=1e-08)
+            print(' -- convergence info:', info)
 
         # E_coeffs = array_to_stencil(Eh_c, V1h.vector_space)
 
-        print('**** cP1:',  cP1_hom_m.shape )
-        print('**** Eh:',  Eh_c.shape )
-        print("... done.")
+        # print('**** cP1:',  cP1_hom_m.shape )
+        # print('**** Eh:',  Eh_c.shape )
+        print("... solver done.")
         time_count(t_stamp)
 
         if proj_sol:
