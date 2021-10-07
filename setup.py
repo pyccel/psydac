@@ -53,6 +53,7 @@ install_requires = [
     'pytest>=4.5',
     'pyyaml',
     'yamlloader',
+    'packaging',
 
     # Our packages from PyPi
     'sympde==0.12',
