@@ -11,7 +11,7 @@ from functools import lru_cache
 from mpi4py    import MPI
 
 from sympy import Mul, Tuple
-from sympy import Mod, Abs, Range, Symbol, Max
+from sympy import Mod as sy_Mod, Abs, Range, Symbol, Max
 from sympy import Function, Integer
 
 from psydac.pyccel.ast.core import Variable, IndexedVariable
@@ -52,6 +52,12 @@ def compute_diag_len(p, md, mc, return_padding=False):
         return n.astype('int'), (-ep).astype('int')
     else:
         return n.astype('int')
+
+def Mod(a,b):
+    if b == 1:
+        return Integer(0)
+    else:
+        return sy_Mod(a,b)
 
 @lru_cache(maxsize=32)
 class LinearOperatorDot(SplBasic):
