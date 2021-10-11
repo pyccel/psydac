@@ -33,6 +33,7 @@ from scipy.sparse.linalg import spsolve, spilu, cg, lgmres
 from scipy.sparse.linalg import LinearOperator, eigsh, minres, gmres
 
 from scipy.sparse.linalg import inv
+from scipy.sparse.linalg import norm as spnorm
 from scipy.linalg        import eig, norm
 from scipy.sparse import save_npz, load_npz
 
@@ -96,7 +97,7 @@ def get_method_name(method=None, k=None, geo_cproj=None, penal_regime=None):
         method_name = method
         if geo_cproj is not None:
             if geo_cproj:
-                method_name += '_GSP'  # Geometric-Spline-Proje
+                method_name += '_GSP'  # Geometric-Spline-Projection
             else:
                 method_name += '_BSP'  # B-Spline-Projection
     else:
@@ -106,23 +107,25 @@ def get_method_name(method=None, k=None, geo_cproj=None, penal_regime=None):
 
     return method_name
 
-def get_fem_name(method=None, k=None, geo_cproj=None, domain_name=None,nc=None,deg=None):
+def get_fem_name(method=None, k=None, DG_full=False, geo_cproj=None, domain_name=None,nc=None,deg=None):
     assert domain_name and nc and deg
     fn = domain_name+'_nc'+repr(nc)+'_deg'+repr(deg)
+    if DG_full:
+        fn += '_fDG'
     if method is not None:
         fn += '_'+get_method_name(method, k, geo_cproj)
     return fn
 
-def get_load_dir(method=None, domain_name=None,nc=None,deg=None,data='matrices'):
+def get_load_dir(method=None, DG_full=False, domain_name=None,nc=None,deg=None,data='matrices'):
     assert data in ['matrices','solutions','rhs']
     if method is None:
         assert data == 'rhs'
-    fem_name = get_fem_name(domain_name=domain_name,method=method, nc=nc,deg=deg)
+    fem_name = get_fem_name(domain_name=domain_name,method=method, nc=nc,deg=deg, DG_full=DG_full)
     return './saved_'+data+'/'+fem_name+'/'
 
 
 # ---------------------------------------------------------------------------------------------------------------
-def nitsche_curl_curl_2d(domain_h, Vh, gamma_h=None, k=None, load_dir=None, backend_language='python'):
+def nitsche_curl_curl_2d(domain_h, Vh, gamma_h=None, k=None, load_dir=None, backend_language='python', need_mass_matrix=False):
     """
     computes
         K_m the k-IP matrix of the curl-curl operator with penalization parameter gamma
@@ -133,6 +136,9 @@ def nitsche_curl_curl_2d(domain_h, Vh, gamma_h=None, k=None, load_dir=None, back
     """
     assert gamma_h is not None
 
+    M_m = None
+    got_mass_matrix = (not need_mass_matrix)
+
     if os.path.exists(load_dir):
         print(" -- load directory " + load_dir + " found -- will load the Nitsche matrices from there...")
 
@@ -141,14 +147,21 @@ def nitsche_curl_curl_2d(domain_h, Vh, gamma_h=None, k=None, load_dir=None, back
         CS_m = load_npz(load_dir+'CS_m.npz')
         # jump penalization matrix
         JP_m = load_npz(load_dir+'JP_m.npz')
-
+        # mass matrix
+        if need_mass_matrix:
+            try:
+                M_m = load_npz(load_dir+'M_m.npz')
+                got_mass_matrix = True
+            except:
+                print(" -- (mass matrix not found)")
     else:
         print(" -- load directory " + load_dir + " not found -- will assemble the Nitsche matrices...")
 
         t_stamp = time_count()
         print('computing IP curl-curl matrix with k = {0} and penalization gamma_h = {1}'.format(k, gamma_h))
+
         #+++++++++++++++++++++++++++++++
-        # 1. Abstract model
+        # Abstract IP model
         #+++++++++++++++++++++++++++++++
 
         V = Vh.symbolic_space
@@ -203,22 +216,33 @@ def nitsche_curl_curl_2d(domain_h, Vh, gamma_h=None, k=None, load_dir=None, back
         A = a_h.assemble()
         JP_m  = A.tosparse().tocsr()
 
-        print(" -- now saving these matrices in " + load_dir)
+        print(" -- now saving these matrices in " + load_dir + "...")
         os.makedirs(load_dir)
         t_stamp = time_count(t_stamp)
-        print("saving sparse matrices to file...")
         save_npz(load_dir+'CC_m.npz', CC_m)
         save_npz(load_dir+'CS_m.npz', CS_m)
         save_npz(load_dir+'JP_m.npz', JP_m)
         time_count(t_stamp)
 
+    if not got_mass_matrix:
+        print(" -- assembling the mass matrix (and saving to file)...")
+        V = Vh.symbolic_space
+        domain = V.domain
+        u, v  = elements_of(V, names='u, v')
+        expr   = dot(u,v)
+        a_m  = BilinearForm((u,v),  integral(domain, expr))
+        m_h = discretize(a_m, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
+        M = m_h.assemble()
+        M_m  = M.tosparse().tocsr()
+        save_npz(load_dir+'M_m.npz', M_m)
+
     K_m = CC_m + k*CS_m + gamma_h*JP_m
 
-    return K_m
+    return K_m, M_m
 
 
 # ---------------------------------------------------------------------------------------------------------------
-def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_language='python', geo_cproj=False, discard_non_hom_matrices=False):
+def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_language='python', discard_non_hom_matrices=False):
 
     if os.path.exists(load_dir):
         print(" -- load directory " + load_dir + " found -- will load the CONGA matrices from there...")
@@ -319,22 +343,22 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
 
     print('ok, got the matrices. Some shapes are: \n M0_m = {0}\n M1_m = {1}\n M2_m = {2}'.format(M0_m.shape,M1_m.shape,M2_m.shape))
 
-    if geo_cproj:
-        print(' [note: using the geometric conf projections ]')
-        V0h = derham_h.V0
-        K0, K0_inv = get_K0_and_K0_inv(V0h, uniform_patches=True)
-        V1h = derham_h.V1
-        K1, K1_inv = get_K1_and_K1_inv(V1h, uniform_patches=True)
-        cP0_hom_m = K0_inv @ cP0_hom_m @ K0     # use a different name for the resulting projection matrices ?
-        cP1_hom_m = K1_inv @ cP1_hom_m @ K1
-        cP0_m = K0_inv @ cP0_m @ K0
-        cP1_m = K1_inv @ cP1_m @ K1
+    V0h = derham_h.V0
+    K0, K0_inv = get_K0_and_K0_inv(V0h, uniform_patches=True)
+    V1h = derham_h.V1
+    K1, K1_inv = get_K1_and_K1_inv(V1h, uniform_patches=True)
 
-        print('  -- some more shapes: \n K0 = {0}\n K1_inv = {1}\n'.format(K0.shape,K1_inv.shape))
+    print('  -- some more shapes: \n K0 = {0}\n K1_inv = {1}\n'.format(K0.shape,K1_inv.shape))
 
-    return M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m
+    M_mats = [M0_m, M1_m, M2_m, M0_minv]
+    P_mats = [cP0_m, cP1_m, cP0_hom_m, cP1_hom_m]
+    D_mats = [bD0_m, bD1_m]
+    IK_mats = [I1_m, K0, K0_inv, K1, K1_inv]
 
-def conga_curl_curl_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, gamma_h=None, hom_bc=True):
+    return M_mats, P_mats, D_mats, IK_mats
+
+
+def conga_curl_curl_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, epsilon=1, gamma_h=None, hom_bc=True):
     """
     computes
         K_hom_m (and K_m if not hom_bc)
@@ -345,14 +369,15 @@ def conga_curl_curl_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
         assert cP1_m is not None
     print('computing Conga curl_curl matrix with penalization gamma_h = {}'.format(gamma_h))
     t_stamp = time_count()
-    assert operator == 'curl_curl'  # todo: implement (verify) the hodge-laplacian
+    assert operator == 'curl_curl'  # todo: implement also the hodge-laplacian ?
 
     # curl_curl matrix (left-multiplied by M1_m) :
     D1_hom_m = bD1_m * cP1_hom_m
     jump_penal_hom_m = I1_m-cP1_hom_m
+    # print(" warning -- WIP on K_hom_m -- 8767654659747644864")
     K_hom_m = (
-            D1_hom_m.transpose() * M2_m * D1_hom_m
-            + gamma_h * jump_penal_hom_m.transpose() * M1_m * jump_penal_hom_m
+                  (1/epsilon) * D1_hom_m.transpose() * M2_m * D1_hom_m
+                + gamma_h * jump_penal_hom_m.transpose() * M1_m * jump_penal_hom_m
     )
 
     if not hom_bc:
@@ -363,7 +388,8 @@ def conga_curl_curl_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
         )
     else:
         K_bc_m = None
-    t_stamp = time_count()
+    time_count(t_stamp)
+
     return K_hom_m, K_bc_m
 
 
@@ -524,6 +550,14 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
         else:
             E_bc = E_ex
 
+    elif source_type == 'dp_J':
+        # div-free J
+        f = Tuple(10*sin(y), -10*sin(x))
+
+    elif source_type == 'cf_J':
+        # curl-free J
+        f = Tuple(10*sin(x), -10*sin(y))
+
     elif source_type == 'ring_J':
 
         # 'rotating' (divergence-free) J field:
@@ -646,6 +680,11 @@ if __name__ == '__main__':
         help    = 'type of Nitsche IP method (NIP, IIP, SIP)'
     )
 
+    parser.add_argument( '--DG_full',
+        action  = 'store_true',
+        help    = 'whether DG (Nitsche) method is used with full polynomials spaces'
+    )
+
     parser.add_argument( '--proj_sol',
         action  = 'store_true',
         help    = 'whether cP1 is applied to solution of source problem'
@@ -685,6 +724,12 @@ if __name__ == '__main__':
         help    = 'second order differential operator'
     )
 
+    parser.add_argument( '--epsilon',
+        type    = float,
+        default = 1,
+        help    = 'inverse parameter for curl-curl term in source problem'
+    )
+
     parser.add_argument( '--problem',
         choices = ['eigen_pbm', 'source_pbm'],
         default = 'source_pbm',
@@ -692,7 +737,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument( '--source',
-        choices = ['manu_J', 'ring_J'],
+        choices = ['manu_J', 'ring_J', 'df_J', 'cf_J'],
         default = 'manu_J',
         help    = 'type of source (manufactured or circular J)'
     )
@@ -710,6 +755,7 @@ if __name__ == '__main__':
     domain_name  = args.domain
     method       = args.method
     k            = args.k
+    DG_full      = args.DG_full
     geo_cproj    = args.geo_cproj
     gamma        = args.gamma
     penal_regime = args.penal_regime
@@ -718,6 +764,7 @@ if __name__ == '__main__':
     problem      = args.problem
     source_type  = args.source
     eta          = args.eta
+    epsilon      = args.epsilon
     no_plots     = args.no_plots
     hide_plots   = args.hide_plots
 
@@ -732,6 +779,9 @@ if __name__ == '__main__':
     else:
         backend_language='python'
     print('[note: using '+backend_language+ ' backends in discretize functions]')
+
+    if DG_full:
+        raise NotImplementedError("DG_full spaces not implemented yet (eval error in sympde/topology/mapping.py)")
 
     print()
     print('--------------------------------------------------------------------------------------------------------------')
@@ -773,7 +823,7 @@ if __name__ == '__main__':
     grid_vals_hcurl_cdiag = lambda v: get_grid_vals_vector(v, etas_cdiag, mappings_list, space_kind='hcurl')
 
     # todo: add some identifiers for secondary parameters (eg gamma_h, proj_sol ...)
-    fem_name = get_fem_name(method=method, geo_cproj=geo_cproj, k=k, domain_name=domain_name,nc=nc,deg=deg)
+    fem_name = get_fem_name(method=method, DG_full=DG_full, geo_cproj=geo_cproj, k=k, domain_name=domain_name,nc=nc,deg=deg)
     plot_dir = './plots/'+source_type+'_'+fem_name+'/'
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
@@ -790,15 +840,72 @@ if __name__ == '__main__':
     V2h = derham_h.V2
     nquads = [d + 1 for d in degree]
 
-    # getting CONGA matrices -- also needed with nitsche method (M1_m, and some other for post-processing)
+    if DG_full:
+        V_dg  = VectorFunctionSpace('V_dg', domain, kind='h1')
+        Vh_dg = discretize(V_dg, domain_h, degree=degree) #, basis='M')
+        print('Vh_dg.degree = ', Vh_dg.degree)
+        print('V1h.degree = ', V1h.degree)
+
+    else:
+        Vh_dg = V1h
+
+    # getting CONGA matrices -- also needed with nitsche method ????  (M1_m, and some other for post-processing)
     load_dir = get_load_dir(method='conga', domain_name=domain_name, nc=nc, deg=deg)
-    # if load_dir and not os.path.exists(load_dir):
-    #     print(' -- note: discarding absent load directory')
-    #     load_dir = None
-    M0_m, M1_m, M2_m, M0_minv, cP0_m, cP1_m, cP0_hom_m, cP1_hom_m, bD0_m, bD1_m, I1_m = get_elementary_conga_matrices(
-        domain_h, derham_h, load_dir=load_dir, backend_language=backend_language, geo_cproj=geo_cproj,
+    M_mats, P_mats, D_mats, IK_mats = get_elementary_conga_matrices(
+        domain_h, derham_h, load_dir=load_dir, backend_language=backend_language,
         discard_non_hom_matrices=(source_type=='ring_J')
     )
+    [M0_m, M1_m, M2_m, M0_minv] = M_mats
+    [bsp_P0_m, bsp_P1_m, bsp_P0_hom_m, bsp_P1_hom_m] = P_mats  # BSpline-based conf Projections
+    [bD0_m, bD1_m] = D_mats
+    [I1_m, K0, K0_inv, K1, K1_inv] = IK_mats
+
+    gsp_P0_hom_m = K0_inv @ bsp_P0_hom_m @ K0
+    gsp_P1_hom_m = K1_inv @ bsp_P1_hom_m @ K1
+    gsp_P0_m = K0_inv @ bsp_P0_m @ K0
+    gsp_P1_m = K1_inv @ bsp_P1_m @ K1
+
+    if geo_cproj:
+        print(' [* GSP-conga: using Geometric Spline conf Projections ]')
+        cP0_hom_m = gsp_P0_hom_m
+        cP0_m     = gsp_P0_m
+        cP1_hom_m = gsp_P1_hom_m
+        cP1_m     = gsp_P1_m
+    else:
+        print(' [* BSP-conga: using B-Spline conf Projections ]')
+        cP0_hom_m = bsp_P0_hom_m
+        cP0_m     = bsp_P0_m
+        cP1_hom_m = bsp_P1_hom_m
+        cP1_m     = bsp_P1_m
+
+    # weak divergence matrices V1h -> V0h
+    pw_div_m = - M0_minv @ bD0_m.transpose() @ M1_m   # patch-wise weak divergence
+    bsp_D0_m = bD0_m @ bsp_P0_hom_m  # bsp-conga gradient on homogeneous space
+    bsp_div_m = - M0_minv @ bsp_D0_m.transpose() @ M1_m   # gsp-conga divergence
+    gsp_D0_m = bD0_m @ gsp_P0_hom_m  # gsp-conga gradient on homogeneous space
+    gsp_div_m = - M0_minv @ gsp_D0_m.transpose() @ M1_m   # bsp-conga divergence
+
+    def div_norm(u_c, type=None):
+        if type is None:
+            if geo_cproj:
+                type = 'gsp'
+            else:
+                type = 'bsp'
+        if type=='gsp':
+            du_c = gsp_div_m.dot(u_c)
+        elif type=='bsp':
+            du_c = bsp_div_m.dot(u_c)
+        elif type=='pw':
+            du_c = pw_div_m.dot(u_c)
+        else:
+            print("WARNING: invalid value for weak divergence type (returning -1)")
+            return -1
+
+        return np.dot(du_c,M0_m.dot(du_c))**0.5
+
+    def curl_norm(u_c):
+        du_c = (bD1_m @ cP1_m).dot(u_c)
+        return np.dot(du_c,M2_m.dot(du_c))**0.5
 
     # E_vals saved/loaded as point values on cdiag grid (mostly for error measure)
     f = None
@@ -831,7 +938,7 @@ if __name__ == '__main__':
 
         # todo: discard if same as E_ref
 
-        solutions_dir = get_load_dir(method=method, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
+        solutions_dir = get_load_dir(method=method, DG_full=DG_full, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
         E_vals_filename = solutions_dir+E_ref_fn(source_type, N_diag)
         save_E_vals = True
         if not os.path.exists(solutions_dir):
@@ -853,16 +960,28 @@ if __name__ == '__main__':
 
     assert operator == 'curl_curl'
 
-    # build operator matrices
+    # ------------------------------------------------------------------------------------------
+    #   curl-curl operator matrix
+    # ------------------------------------------------------------------------------------------
+
     if method == 'conga':
-        K_hom_m, K_bc_m = conga_curl_curl_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m, gamma_h=gamma_h, hom_bc=hom_bc)
+        K_hom_m, K_bc_m = conga_curl_curl_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
+                                             epsilon=epsilon, gamma_h=gamma_h, hom_bc=hom_bc)
+
     elif method == 'nitsche':
-        load_dir = get_load_dir(method='nitsche', domain_name=domain_name, nc=nc, deg=deg)
-        K_hom_m = nitsche_curl_curl_2d(domain_h, Vh=V1h, gamma_h=gamma_h, k=k, load_dir=load_dir, backend_language=backend_language)
+        load_dir = get_load_dir(method='nitsche', DG_full=DG_full, domain_name=domain_name, nc=nc, deg=deg)
+        K_hom_m, M_m = nitsche_curl_curl_2d(domain_h, Vh=Vh_dg, gamma_h=gamma_h, k=k, load_dir=load_dir,
+                                            need_mass_matrix=DG_full, backend_language=backend_language)
+        if not DG_full:
+            M_m = M1_m
         # no lifting of bc (for now):
         K_bc_m = None
     else:
         raise ValueError(method)
+
+    if not DG_full:
+        div_K = bsp_D0_m.transpose() @ K_hom_m
+        print('****   [[[ spnorm(div_K) ]]] :', spnorm(div_K))
 
     if problem == 'eigen_pbm':
 
@@ -903,24 +1022,33 @@ if __name__ == '__main__':
     elif problem == 'source_pbm':
 
         print("***  Solving source problem  *** ")
+        # print(" with 1/epsilon = ", repr(1/epsilon))
 
-        # equation operator in homogeneous spaces // or in full space for nitsche... (todo: improve the notation and call that A_m // and A_bc_m the operator for the lifted bc if needed)
+        # ------------------------------------------------------------------------------------------
+        #   equation operator matrix
+        # ------------------------------------------------------------------------------------------
+
+        #  in homogeneous spaces // or in full space for nitsche... (todo: improve the notation and call that A_m // and A_bc_m the operator for the lifted bc if needed)
         if method == 'conga':
+            # A_hom_m = (1/epsilon) * K_hom_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
             A_hom_m = K_hom_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
         else:
             assert method == 'nitsche'
-            A_hom_m = K_hom_m + eta * M1_m
+            A_hom_m = (1/epsilon) * K_hom_m + eta * M_m
 
         lift_E_bc = (method == 'conga' and not hom_bc)
         if lift_E_bc:
             # equation operator for bc lifting
             assert K_bc_m is not None
-            A_bc_m = K_bc_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_m
+            A_bc_m = (1/epsilon) * K_bc_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_m
         else:
             A_bc_m = None
 
-        # assembling RHS
-        rhs_load_dir = get_load_dir(domain_name=domain_name,nc=nc,deg=deg,data='rhs')
+        # ------------------------------------------------------------------------------------------
+        #   assembling RHS
+        # ------------------------------------------------------------------------------------------
+
+        rhs_load_dir = get_load_dir(domain_name=domain_name,nc=nc,deg=deg,DG_full=DG_full,data='rhs')
         if not os.path.exists(rhs_load_dir):
             os.makedirs(rhs_load_dir)
 
@@ -933,16 +1061,31 @@ if __name__ == '__main__':
         else:
             print("-- no rhs file '"+rhs_filename+" -- so I will assemble the source")
 
-            v  = element_of(V1h.symbolic_space, name='v')
-            expr = dot(f,v)
-            l = LinearForm(v, integral(domain, expr))
-            lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
-            b  = lh.assemble()
-            b_c = b.toarray()
+            if source_type == 'cf_J':
+                # J_h = P1-geometric projection of J
+                P0, P1, P2 = derham_h.projectors(nquads=nquads)
+                f_x = lambdify(domain.coordinates, f[0])
+                f_y = lambdify(domain.coordinates, f[1])
+                f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
+                f_h = P1(f_log)
+                f_c = f_h.coeffs.toarray()
+                b_c = M1_m.dot(f_c)
+            else:
+                # J_h = L2 projection of J
+                v  = element_of(V1h.symbolic_space, name='v')
+                expr = dot(f,v)
+                l = LinearForm(v, integral(domain, expr))
+                lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
+                b  = lh.assemble()
+                b_c = b.toarray()
 
             print("saving this rhs arrays (for future needs) in file "+rhs_filename)
             with open(rhs_filename, 'wb') as file:
                 np.savez(file, b_c=b_c)
+
+        # if method == 'conga':
+        #     print("FILTERING RHS (FOR CONGA)")
+        #     b_c = cP1_hom_m.transpose().dot(b_c)
 
         if method == 'nitsche' and not hom_bc:
             print("(non hom.) bc with nitsche: need some additional rhs arrays.")
@@ -981,7 +1124,7 @@ if __name__ == '__main__':
                     np.savez(file, bs_c=bs_c, bp_c=bp_c)
 
             # full rhs for nitsche method with non-hom. bc
-            b_c = b_c - k * bs_c + gamma_h * bp_c
+            b_c = b_c + (1/epsilon) * (-k * bs_c + gamma_h * bp_c)
 
 
         if lift_E_bc:
@@ -1054,17 +1197,25 @@ if __name__ == '__main__':
                     dpi=400,
                 )
 
+        print(' [[ source divergence: ')
+        fh_c = spsolve(M1_m.tocsc(), b_c)
+        fh_norm = np.dot(fh_c,M1_m.dot(fh_c))**0.5
+        print("|| fh || = ", fh_norm)
+        print("|| pw_div fh || / || fh ||  = ", div_norm(fh_c, type='pw')/fh_norm)
+        print("|| bsp_div fh || / || fh || = ", div_norm(fh_c, type='bsp')/fh_norm)
+        print("|| gsp_div fh || / || fh || = ", div_norm(fh_c, type='gsp')/fh_norm)
+        print(' ]] ')
+
+        print(' [[ source curl: ')
+        print("|| curl fh || / || fh ||  = ", curl_norm(fh_c)/fh_norm)
+        print(' ]] ')
+
         plot_source = True
         # plot_source = False
         if do_plots and plot_source:
             t_stamp = time_count(t_stamp)
             print('plotting the source...')
             # representation of discrete source:
-            fh_c = spsolve(M1_m.tocsc(), b_c)
-            # fh_norm = np.dot(fh_c,M1_m.dot(fh_c))**0.5
-            # print("|| fh || = ", fh_norm)
-            # print("|| div fh ||/|| fh || = ", div_norm(fh_c)/fh_norm)
-
             fh = FemField(V1h, coeffs=array_to_stencil(fh_c, V1h.vector_space))
 
             fh_x_vals, fh_y_vals = grid_vals_hcurl(fh)
@@ -1110,12 +1261,11 @@ if __name__ == '__main__':
                 amplification=vf_amp,
             )
 
-        # if method == 'conga':
-        #     print("filter source for conga pbm...")
-            # b_c = (cP1_hom_m.transpose()).dot(b_c)
+        # ------------------------------------------------------------------------------------------
+        #   solving the matrix equation
+        # ------------------------------------------------------------------------------------------
 
         t_stamp = time_count(t_stamp)
-
         try:
             print("trying direct solve with scipy spsolve...")   #todo: use for small problems [[ or: try catch ??]]
             Eh_c = spsolve(A_hom_m.tocsc(), b_c)
@@ -1178,6 +1328,20 @@ if __name__ == '__main__':
         # plotting and diagnostics
         #+++++++++++++++++++++++++++++++
 
+        compute_div = True
+        if compute_div:
+            print(' [[ field divergence: ')
+            Eh_norm = np.dot(Eh_c,M1_m.dot(Eh_c))**0.5
+            print("|| Eh || = ", Eh_norm)
+            print("|| pw_div Eh || / || Eh ||  = ", div_norm(Eh_c, type='pw')/Eh_norm)
+            print("|| bsp_div Eh || / || Eh || = ", div_norm(Eh_c, type='bsp')/Eh_norm)
+            print("|| gsp_div Eh || / || Eh || = ", div_norm(Eh_c, type='bsp')/Eh_norm)
+            print(' ]] ')
+
+            print(' [[ field curl: ')
+            print("|| curl Eh || / || Eh ||  = ", curl_norm(Eh_c)/Eh_norm)
+            print(' ]] ')
+
         if do_plots:
             # smooth plotting with node-valued grid
             Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
@@ -1225,64 +1389,64 @@ if __name__ == '__main__':
         xx = xx_cdiag
         yy = yy_cdiag
 
-        if E_ref_vals:
-            only_last_patch = False
+        if E_ref_vals is None:
+            E_x_vals = np.zeros_like(Eh_x_vals)
+            E_y_vals = np.zeros_like(Eh_y_vals)
+        else:
             E_x_vals, E_y_vals = E_ref_vals
-            quad_weights = get_grid_quad_weights(etas_cdiag, patch_logvols, mappings_list)
-            Eh_errors_cdiag = [np.sqrt( (u1-v1)**2 + (u2-v2)**2 )
-                               for u1, v1, u2, v2 in zip(Eh_x_vals, E_x_vals, Eh_y_vals, E_y_vals)]
-            if only_last_patch:
-                print('WARNING ** WARNING : measuring error on last patch only !!' )
-                warning_msg = ' [on last patch]'
-                l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag[-1:], quad_weights[-1:])]))**0.5
-            else:
-                warning_msg = ''
-                l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag, quad_weights)]))**0.5
 
-            err_message = 'diag_grid error'+warning_msg+' for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5}: {6}\n'.format(
-                        get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
+        only_last_patch = False
+        quad_weights = get_grid_quad_weights(etas_cdiag, patch_logvols, mappings_list)
+        Eh_errors_cdiag = [np.sqrt( (u1-v1)**2 + (u2-v2)**2 )
+                           for u1, v1, u2, v2 in zip(Eh_x_vals, E_x_vals, Eh_y_vals, E_y_vals)]
+        if only_last_patch:
+            print('WARNING ** WARNING : measuring error on last patch only !!' )
+            warning_msg = ' [on last patch]'
+            l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag[-1:], quad_weights[-1:])]))**0.5
+        else:
+            warning_msg = ''
+            l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag, quad_weights)]))**0.5
+
+        err_message = 'diag_grid error'+warning_msg+' for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5}: {6}\n'.format(
+                    get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
+        )
+        print('\n** '+err_message)
+
+        check_err = True
+        if E_ex is not None:
+            # also assembling the L2 error with Psydac quadrature
+            print(" -- * --  also computing L2 error with explicit (exact) solution, using Psydac quadratures...")
+            F  = element_of(V1h.symbolic_space, name='F')
+            error       = Matrix([F[0]-E_ex[0],F[1]-E_ex[1]])
+            l2_norm     = Norm(error, domain, kind='l2')
+            l2_norm_h   = discretize(l2_norm, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
+            l2_error     = l2_norm_h.assemble(F=Eh)
+            err_message_2 = 'l2_psydac error for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5} [*] : {6}\n'.format(
+                    get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
             )
-            print('\n** '+err_message)
-
-            check_err = True
-            if E_ex is not None:
-                # also assembling the L2 error with Psydac quadrature
-                print(" -- * --  also computing L2 error with explicit (exact) solution, using Psydac quadratures...")
-                F  = element_of(V1h.symbolic_space, name='F')
-                error       = Matrix([F[0]-E_ex[0],F[1]-E_ex[1]])
-                l2_norm     = Norm(error, domain, kind='l2')
-                l2_norm_h   = discretize(l2_norm, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
-                l2_error     = l2_norm_h.assemble(F=Eh)
-                err_message_2 = 'l2_psydac error for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5} [*] : {6}\n'.format(
-                        get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
-                )
-                print('\n** '+err_message_2)
-                if check_err:
-                    # since Ex is available, compute also the auxiliary error || Eh - P1 E || with M1 mass matrix
-                    P0, P1, P2 = derham_h.projectors(nquads=nquads)
-                    E_x = lambdify(domain.coordinates, E_ex[0])
-                    E_y = lambdify(domain.coordinates, E_ex[1])
-                    E_log = [pull_2d_hcurl([E_x, E_y], f) for f in mappings_list]
-                    Ex_h = P1(E_log)
-                    Ex_c = Ex_h.coeffs.toarray()
-                    err_c = Ex_c-Eh_c
-                    err_norm = np.dot(err_c,M1_m.dot(err_c))**0.5
-                    print('--- ** --- check: L2 discrete-error (in V1h): {}'.format(err_norm))
-
-            else:
-                err_message_2 = ''
-
-            error_filename = error_fn(source_type=source_type, method=method, k=k, domain_name=domain_name,deg=deg)
-            if not os.path.exists(error_filename):
-                open(error_filename, 'w')
-            with open(error_filename, 'a') as a_writer:
-                a_writer.write(err_message)
-                if err_message_2:
-                    a_writer.write(err_message_2)
+            print('\n** '+err_message_2)
+            if check_err:
+                # since Ex is available, compute also the auxiliary error || Eh - P1 E || with M1 mass matrix
+                P0, P1, P2 = derham_h.projectors(nquads=nquads)
+                E_x = lambdify(domain.coordinates, E_ex[0])
+                E_y = lambdify(domain.coordinates, E_ex[1])
+                E_log = [pull_2d_hcurl([E_x, E_y], f) for f in mappings_list]
+                Ex_h = P1(E_log)
+                Ex_c = Ex_h.coeffs.toarray()
+                err_c = Ex_c-Eh_c
+                err_norm = np.dot(err_c,M1_m.dot(err_c))**0.5
+                print('--- ** --- check: L2 discrete-error (in V1h): {}'.format(err_norm))
 
         else:
-            E_x_vals = Eh_x_vals
-            E_y_vals = Eh_y_vals
+            err_message_2 = ''
+
+        error_filename = error_fn(source_type=source_type, method=method, k=k, domain_name=domain_name,deg=deg)
+        if not os.path.exists(error_filename):
+            open(error_filename, 'w')
+        with open(error_filename, 'a') as a_writer:
+            a_writer.write(err_message)
+            if err_message_2:
+                a_writer.write(err_message_2)
 
         if do_plots:
             E_x_err = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
