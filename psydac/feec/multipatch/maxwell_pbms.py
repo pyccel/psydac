@@ -1,4 +1,19 @@
-# small script written to test Conga operators on multipatch domains, using the piecewise (broken) de Rham sequences available on every space
+# script written to test Nitsche (DG) and Conga operators on multipatch domains.
+# solving source problem of the form
+#       A u = f
+# or eigenvalue problem
+#       A u = sigma u
+# with
+#       A u = eta * u  +  mu * curl curl u  -  nu * grad div
+#
+# BC's are of the form
+#       n x u = g
+# with g = 0 for eigenvalue problem, and g = n x E_ex for source problem
+#
+# Discrete spaces:
+#  - Conga uses piecewise (broken) de Rham sequences V0h -> V1h -> V2H available on every space
+#  - DG may use space V1h from same sequence, or another Vh (WIP)
+
 
 from mpi4py import MPI
 
@@ -124,122 +139,6 @@ def get_load_dir(method=None, DG_full=False, domain_name=None,nc=None,deg=None,d
     return './saved_'+data+'/'+fem_name+'/'
 
 
-# ---------------------------------------------------------------------------------------------------------------
-def nitsche_curl_curl_2d(domain_h, Vh, gamma_h=None, k=None, load_dir=None, backend_language='python', need_mass_matrix=False):
-    """
-    computes
-        K_m the k-IP matrix of the curl-curl operator with penalization parameter gamma
-        (as defined eg in Buffa, Houston & Perugia, JCAM 2007)
-
-    :param k: parameter for SIP/NIP/IIP
-    :return: matrices in sparse format
-    """
-    assert gamma_h is not None
-
-    M_m = None
-    got_mass_matrix = (not need_mass_matrix)
-
-    if os.path.exists(load_dir):
-        print(" -- load directory " + load_dir + " found -- will load the Nitsche matrices from there...")
-
-        # unpenalized curl-curl matrix (main part and symmetrization term)
-        CC_m = load_npz(load_dir+'CC_m.npz')
-        CS_m = load_npz(load_dir+'CS_m.npz')
-        # jump penalization matrix
-        JP_m = load_npz(load_dir+'JP_m.npz')
-        # mass matrix
-        if need_mass_matrix:
-            try:
-                M_m = load_npz(load_dir+'M_m.npz')
-                got_mass_matrix = True
-            except:
-                print(" -- (mass matrix not found)")
-    else:
-        print(" -- load directory " + load_dir + " not found -- will assemble the Nitsche matrices...")
-
-        t_stamp = time_count()
-        print('computing IP curl-curl matrix with k = {0} and penalization gamma_h = {1}'.format(k, gamma_h))
-
-        #+++++++++++++++++++++++++++++++
-        # Abstract IP model
-        #+++++++++++++++++++++++++++++++
-
-        V = Vh.symbolic_space
-        domain = V.domain
-
-        u, v  = elements_of(V, names='u, v')
-        nn  = NormalVector('nn')
-
-        I        = domain.interfaces
-        boundary = domain.boundary
-
-        jump = lambda w:plus(w)-minus(w)
-        avr_curl = lambda w:(curl(plus(w)) + curl(minus(w)))/2
-
-        # Bilinear forms a: V x V --> R
-
-        # note (MCP): the IP formulation involves the tangential jumps [v]_T = n^- x v^- + n^+ x v^+
-        # here this t-jump corresponds to -cross(nn, jump(v))
-        expr   = curl(u)*curl(v)
-        expr_I =   cross(nn, jump(v))*avr_curl(u)
-        expr_b = -cross(nn, v) * curl(u)
-        expr_Is =  cross(nn, jump(u))*avr_curl(v)   # symmetrization terms
-        expr_bs = -cross(nn, u)*curl(v)
-
-        # jump penalization terms:
-        expr_jp_I = cross(nn, jump(u))*cross(nn, jump(v))
-        expr_jp_b = cross(nn, u)*cross(nn, v)
-
-        a_cc = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(boundary, expr_b))
-        a_cs = BilinearForm((u,v),  integral(I, expr_Is) + integral(boundary, expr_bs))  # symmetrization terms
-        a_jp = BilinearForm((u,v),  integral(I, expr_jp_I) + integral(boundary, expr_jp_b))
-
-        #+++++++++++++++++++++++++++++++
-        # 2. Discretization
-        #+++++++++++++++++++++++++++++++
-
-        # domain_h = discretize(domain, ncells=ncells, comm=comm)
-        # Vh       = discretize(V, domain_h, degree=degree,basis='M')
-
-        # unpenalized curl-curl matrix (incomplete)
-        a_h = discretize(a_cc, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
-        A = a_h.assemble()
-        CC_m  = A.tosparse().tocsr()
-
-        # symmetrization part (for SIP or NIP curl-curl matrix)
-        a_h = discretize(a_cs, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
-        A = a_h.assemble()
-        CS_m  = A.tosparse().tocsr()
-
-        # jump penalization matrix
-        a_h = discretize(a_jp, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
-        A = a_h.assemble()
-        JP_m  = A.tosparse().tocsr()
-
-        print(" -- now saving these matrices in " + load_dir + "...")
-        os.makedirs(load_dir)
-        t_stamp = time_count(t_stamp)
-        save_npz(load_dir+'CC_m.npz', CC_m)
-        save_npz(load_dir+'CS_m.npz', CS_m)
-        save_npz(load_dir+'JP_m.npz', JP_m)
-        time_count(t_stamp)
-
-    if not got_mass_matrix:
-        print(" -- assembling the mass matrix (and saving to file)...")
-        V = Vh.symbolic_space
-        domain = V.domain
-        u, v  = elements_of(V, names='u, v')
-        expr   = dot(u,v)
-        a_m  = BilinearForm((u,v),  integral(domain, expr))
-        m_h = discretize(a_m, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
-        M = m_h.assemble()
-        M_m  = M.tosparse().tocsr()
-        save_npz(load_dir+'M_m.npz', M_m)
-
-    K_m = CC_m + k*CS_m + gamma_h*JP_m
-
-    return K_m, M_m
-
 
 # ---------------------------------------------------------------------------------------------------------------
 def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_language='python', discard_non_hom_matrices=False):
@@ -358,11 +257,14 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
     return M_mats, P_mats, D_mats, IK_mats
 
 
-def conga_curl_curl_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, epsilon=1, gamma_h=None, hom_bc=True):
+def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, hom_bc=True):
     """
     computes
-        K_hom_m (and K_m if not hom_bc)
-        the CONGA stiffness matrix of the vector-valued curl-curl operator in V1, with (and without) homogeneous bc
+        CC_m: the (unpenalized) CONGA (stiffness) matrix of the curl-curl operator in V1, with homogeneous bc
+        CC_bc_m: similar matrix for the lifted BC
+        JP_m: the jump penalization matrix
+
+    :return: matrices in sparse format
     """
 
     if not hom_bc:
@@ -371,31 +273,148 @@ def conga_curl_curl_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
     t_stamp = time_count()
     assert operator == 'curl_curl'  # todo: implement also the hodge-laplacian ?
 
-    # curl_curl matrix (left-multiplied by M1_m) :
+    # curl_curl matrix (stiffness, i.e. left-multiplied by M1_m) :
     D1_hom_m = bD1_m * cP1_hom_m
-    jump_penal_hom_m = I1_m-cP1_hom_m
-    # print(" warning -- WIP on K_hom_m -- 8767654659747644864")
-    K_hom_m = (
-                  (1/epsilon) * D1_hom_m.transpose() * M2_m * D1_hom_m
-                + gamma_h * jump_penal_hom_m.transpose() * M1_m * jump_penal_hom_m
-    )
+    CC_m = D1_hom_m.transpose() * M2_m * D1_hom_m
 
     if not hom_bc:
-        # then we also need the matrix of the non-homogeneous operator -- unpenalized
+        # then we also need the matrix of the non-homogeneous operator
         D1_m = bD1_m * cP1_m
-        K_bc_m = (
+        CC_bc_m = (
                 D1_hom_m.transpose() * M2_m * D1_m
         )
     else:
-        K_bc_m = None
+        CC_bc_m = None
+
+    # jump penalization
+    jump_penal_hom_m = I1_m-cP1_hom_m
+    JP_m = jump_penal_hom_m.transpose() * M1_m * jump_penal_hom_m
     time_count(t_stamp)
 
-    return K_hom_m, K_bc_m
+    return CC_m, CC_bc_m, JP_m
 
-
-def conga_operators_2d(domain, ncells, degree, operator='curl_curl', gamma_h=None, hom_bc=True):
+# ---------------------------------------------------------------------------------------------------------------
+def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='python', need_mass_matrix=False):
     """
-    OBSOLETE -- to update for single hodge_laplacian operator
+    computes
+        CC_m the k-IP (stiffness) matrix of the curl-curl operator
+        JP_m the jump penalization matrix
+        M_m the mass matrix (if needed)
+
+    Ref for the penalized curl-curl matrix: Buffa, Houston & Perugia, JCAM 2007
+
+    :param k: parameter for SIP/NIP/IIP
+    :return: matrices in sparse format
+    """
+    M_m = None
+    got_mass_matrix = (not need_mass_matrix)
+
+    if os.path.exists(load_dir):
+        print(" -- load directory " + load_dir + " found -- will load the Nitsche matrices from there...")
+
+        # unpenalized curl-curl matrix (main part and symmetrization term)
+        IC_m = load_npz(load_dir+'IC_m.npz')
+        CS_m = load_npz(load_dir+'CS_m.npz')
+        # jump penalization matrix
+        JP_m = load_npz(load_dir+'JP_m.npz')
+        # mass matrix
+        if need_mass_matrix:
+            try:
+                M_m = load_npz(load_dir+'M_m.npz')
+                got_mass_matrix = True
+            except:
+                print(" -- (mass matrix not found)")
+    else:
+        print(" -- load directory " + load_dir + " not found -- will assemble the Nitsche matrices...")
+
+        t_stamp = time_count()
+        print('computing IP curl-curl matrix with k = {0}'.format(k))
+
+        #+++++++++++++++++++++++++++++++
+        # Abstract IP model
+        #+++++++++++++++++++++++++++++++
+
+        V = Vh.symbolic_space
+        domain = V.domain
+
+        u, v  = elements_of(V, names='u, v')
+        nn  = NormalVector('nn')
+
+        I        = domain.interfaces
+        boundary = domain.boundary
+
+        jump = lambda w:plus(w)-minus(w)
+        avr_curl = lambda w:(curl(plus(w)) + curl(minus(w)))/2
+
+        # Bilinear forms a: V x V --> R
+
+        # note (MCP): the IP formulation involves the tangential jumps [v]_T = n^- x v^- + n^+ x v^+
+        # here this t-jump corresponds to -cross(nn, jump(v))
+        expr   = curl(u)*curl(v)
+        expr_I =   cross(nn, jump(v))*avr_curl(u)
+        expr_b = -cross(nn, v) * curl(u)
+        expr_Is =  cross(nn, jump(u))*avr_curl(v)   # symmetrization terms
+        expr_bs = -cross(nn, u)*curl(v)
+
+        # jump penalization terms:
+        expr_jp_I = cross(nn, jump(u))*cross(nn, jump(v))
+        expr_jp_b = cross(nn, u)*cross(nn, v)
+
+        a_cc = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(boundary, expr_b))
+        a_cs = BilinearForm((u,v),  integral(I, expr_Is) + integral(boundary, expr_bs))  # symmetrization terms
+        a_jp = BilinearForm((u,v),  integral(I, expr_jp_I) + integral(boundary, expr_jp_b))
+
+        #+++++++++++++++++++++++++++++++
+        # 2. Discretization
+        #+++++++++++++++++++++++++++++++
+
+        # domain_h = discretize(domain, ncells=ncells, comm=comm)
+        # Vh       = discretize(V, domain_h, degree=degree,basis='M')
+
+        # incomplete curl-curl matrix
+        a_h = discretize(a_cc, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
+        A = a_h.assemble()
+        IC_m  = A.tosparse().tocsr()
+
+        # symmetrization part (for SIP or NIP curl-curl matrix)
+        a_h = discretize(a_cs, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
+        A = a_h.assemble()
+        CS_m  = A.tosparse().tocsr()
+
+        # jump penalization matrix
+        a_h = discretize(a_jp, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
+        A = a_h.assemble()
+        JP_m  = A.tosparse().tocsr()
+
+        print(" -- now saving these matrices in " + load_dir + "...")
+        os.makedirs(load_dir)
+        t_stamp = time_count(t_stamp)
+        save_npz(load_dir+'IC_m.npz', IC_m)
+        save_npz(load_dir+'CS_m.npz', CS_m)
+        save_npz(load_dir+'JP_m.npz', JP_m)
+        time_count(t_stamp)
+
+    if not got_mass_matrix:
+        print(" -- assembling the mass matrix (and saving to file)...")
+        V = Vh.symbolic_space
+        domain = V.domain
+        u, v  = elements_of(V, names='u, v')
+        expr   = dot(u,v)
+        a_m  = BilinearForm((u,v),  integral(domain, expr))
+        m_h = discretize(a_m, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
+        M = m_h.assemble()
+        M_m  = M.tosparse().tocsr()
+        save_npz(load_dir+'M_m.npz', M_m)
+
+    CC_m = IC_m + k*CS_m
+    # K_m = CC_m + k*CS_m + gamma_h*JP_m
+
+    return CC_m, JP_m, M_m
+
+
+def conga_operators_OBSOLETE_2d(domain, ncells, degree, operator='curl_curl', gamma_h=None, hom_bc=True):
+    """
+     -- to update for single hodge_laplacian operator
 
     computes:
         K_hom_m and K_m the CONGA stiffness matrix of 'operator' in V1 with and without homogeneous bc
@@ -724,12 +743,6 @@ if __name__ == '__main__':
         help    = 'second order differential operator'
     )
 
-    parser.add_argument( '--epsilon',
-        type    = float,
-        default = 1,
-        help    = 'inverse parameter for curl-curl term in source problem'
-    )
-
     parser.add_argument( '--problem',
         choices = ['eigen_pbm', 'source_pbm'],
         default = 'source_pbm',
@@ -744,8 +757,20 @@ if __name__ == '__main__':
 
     parser.add_argument( '--eta',
         type    = float,
-        default = -64,
-        help    = 'Constant parameter for zero-order term in source problem. Corresponds to -omega^2 for Maxwell harmonic'
+        default = 0,
+        help    = 'factor of zero-order term in operator. Corresponds to -omega^2 for Maxwell harmonic'
+    )
+
+    parser.add_argument( '--mu',
+        type    = float,
+        default = 1,
+        help    = 'factor of curl curl term in operator'
+    )
+
+    parser.add_argument( '--nu',
+        type    = float,
+        default = 0,
+        help    = 'factor of -grad div term in operator'
     )
 
     # Read input arguments
@@ -764,7 +789,8 @@ if __name__ == '__main__':
     problem      = args.problem
     source_type  = args.source
     eta          = args.eta
-    epsilon      = args.epsilon
+    mu           = args.mu
+    nu           = args.nu
     no_plots     = args.no_plots
     hide_plots   = args.hide_plots
 
@@ -936,7 +962,7 @@ if __name__ == '__main__':
         # print("[[ FORCING: discard E_bc ]]")
         # E_bc = None
 
-        # todo: discard if same as E_ref
+        # todo: discard if same as E_ref ?
 
         solutions_dir = get_load_dir(method=method, DG_full=DG_full, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
         E_vals_filename = solutions_dir+E_ref_fn(source_type, N_diag)
@@ -961,27 +987,51 @@ if __name__ == '__main__':
     assert operator == 'curl_curl'
 
     # ------------------------------------------------------------------------------------------
-    #   curl-curl operator matrix
+    #   operator matrices
     # ------------------------------------------------------------------------------------------
 
     if method == 'conga':
-        K_hom_m, K_bc_m = conga_curl_curl_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
-                                             epsilon=epsilon, gamma_h=gamma_h, hom_bc=hom_bc)
+        CC_m, CC_bc_m, JP_m = conga_operators_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
+                                                 hom_bc=hom_bc)
+        # K_hom_m, K_bc_m = conga_curl_curl_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
+        #                                      epsilon=epsilon, gamma_h=gamma_h, hom_bc=hom_bc)
+        M_m = M1_m
 
     elif method == 'nitsche':
         load_dir = get_load_dir(method='nitsche', DG_full=DG_full, domain_name=domain_name, nc=nc, deg=deg)
-        K_hom_m, M_m = nitsche_curl_curl_2d(domain_h, Vh=Vh_dg, gamma_h=gamma_h, k=k, load_dir=load_dir,
-                                            need_mass_matrix=DG_full, backend_language=backend_language)
+        # K_hom_m, M_m = nitsche_curl_curl_2d(domain_h, Vh=Vh_dg, gamma_h=gamma_h, k=k, load_dir=load_dir,
+        #                                     need_mass_matrix=DG_full, backend_language=backend_language)
+        CC_m, JP_m, M_m = nitsche_operators_2d(domain_h, Vh=Vh_dg, k=k, load_dir=load_dir,
+                                               need_mass_matrix=DG_full, backend_language=backend_language)
+
         if not DG_full:
             M_m = M1_m
-        # no lifting of bc (for now):
-        K_bc_m = None
+        CC_bc_m = None # we don't lift the BC with Nitsche
     else:
         raise ValueError(method)
 
-    if not DG_full:
-        div_K = bsp_D0_m.transpose() @ K_hom_m
-        print('****   [[[ spnorm(div_K) ]]] :', spnorm(div_K))
+    GD_m = M_m ## todo
+    nu = 0
+
+    A_m = mu*CC_m - nu*GD_m + gamma_h*JP_m
+    if method == 'conga':
+        # note: this filtering of M1_m is important (in particular in the presence of BCs)
+        A_m += eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
+    else:
+        A_m += eta * M_m
+
+    # lifting of BC
+    lift_E_bc = (problem == 'source_pbm' and method == 'conga' and not hom_bc)
+    if lift_E_bc:
+        # operator for bc lifting
+        assert CC_bc_m is not None
+        A_bc_m = eta * cP1_hom_m.transpose() @ M1_m @ cP1_m + mu*CC_bc_m
+    else:
+        A_bc_m = None
+
+    # if not DG_full:
+    #     div_CC = bsp_D0_m.transpose() @ CC_m
+    #     print('****   [[[ spnorm(div_CC) ]]] :', spnorm(div_CC))
 
     if problem == 'eigen_pbm':
 
@@ -992,8 +1042,9 @@ if __name__ == '__main__':
         sigma, ref_sigmas = get_ref_eigenvalues(domain_name, operator)
         nb_eigs = max(10, len(ref_sigmas))
 
-        eigenvalues, eigenvectors = get_eigenvalues(nb_eigs, sigma, K_hom_m, M1_m)
+        eigenvalues, eigenvectors = get_eigenvalues(nb_eigs, sigma, A_m, M_m)
 
+        # todo: clean the 'operator' variable
         if operator == 'curl_curl':
             # discard zero eigenvalues
             n = 0
@@ -1025,24 +1076,16 @@ if __name__ == '__main__':
         # print(" with 1/epsilon = ", repr(1/epsilon))
 
         # ------------------------------------------------------------------------------------------
-        #   equation operator matrix
-        # ------------------------------------------------------------------------------------------
+        #   equation operator matrix   /// ALREADY DONE
+         # ------------------------------------------------------------------------------------------
 
         #  in homogeneous spaces // or in full space for nitsche... (todo: improve the notation and call that A_m // and A_bc_m the operator for the lifted bc if needed)
-        if method == 'conga':
-            # A_hom_m = (1/epsilon) * K_hom_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
-            A_hom_m = K_hom_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
-        else:
-            assert method == 'nitsche'
-            A_hom_m = (1/epsilon) * K_hom_m + eta * M_m
-
-        lift_E_bc = (method == 'conga' and not hom_bc)
-        if lift_E_bc:
-            # equation operator for bc lifting
-            assert K_bc_m is not None
-            A_bc_m = (1/epsilon) * K_bc_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_m
-        else:
-            A_bc_m = None
+        # if method == 'conga':
+        #     # A_hom_m = (1/epsilon) * K_hom_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
+        #     A_hom_m = K_hom_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
+        # else:
+        #     assert method == 'nitsche'
+        #     A_hom_m = (1/epsilon) * K_hom_m + eta * M_m
 
         # ------------------------------------------------------------------------------------------
         #   assembling RHS
@@ -1124,7 +1167,7 @@ if __name__ == '__main__':
                     np.savez(file, bs_c=bs_c, bp_c=bp_c)
 
             # full rhs for nitsche method with non-hom. bc
-            b_c = b_c + (1/epsilon) * (-k * bs_c + gamma_h * bp_c)
+            b_c = b_c + mu*(-k*bs_c) + gamma_h*bp_c
 
 
         if lift_E_bc:
@@ -1268,26 +1311,26 @@ if __name__ == '__main__':
         t_stamp = time_count(t_stamp)
         try:
             print("trying direct solve with scipy spsolve...")   #todo: use for small problems [[ or: try catch ??]]
-            Eh_c = spsolve(A_hom_m.tocsc(), b_c)
+            Eh_c = spsolve(A_m.tocsc(), b_c)
         except:
             ## for large problems:
             print("did not work -- trying with scipy lgmres...")
-            A_hom_csc = A_hom_m.tocsc()
+            A_csc = A_m.tocsc()
             print(" -- with approximate inverse using ILU decomposition -- ")
-            A_hom_spilu = spilu(A_hom_csc)
+            A_spilu = spilu(A_csc)
             # A_hom_spilu = spilu(A_hom_csc, fill_factor=100, drop_tol=1e-6)  # better preconditionning, if matrix not too large
             # print('**** A: ',  A_hom_m.shape )
 
             preconditioner = LinearOperator(
-                A_hom_m.shape, lambda x: A_hom_spilu.solve(x)
+                A_m.shape, lambda x: A_spilu.solve(x)
             )
             nb_iter = 0
             def f2_iter(x):
                 global nb_iter
-                print('lgmres -- iter = ', nb_iter, 'residual= ', norm(A_hom_m.dot(x)-b_c))
+                print('lgmres -- iter = ', nb_iter, 'residual= ', norm(A_m.dot(x)-b_c))
                 nb_iter = nb_iter + 1
             tol = 1e-10
-            Eh_c, info = lgmres(A_hom_csc, b_c, x0=None, tol=tol, atol=tol, M=preconditioner, callback=f2_iter)
+            Eh_c, info = lgmres(A_csc, b_c, x0=None, tol=tol, atol=tol, M=preconditioner, callback=f2_iter)
                       # inner_m=30, outer_k=3, outer_v=None,
                       #                                           store_outer_Av=True)
             print(' -- convergence info:', info)
