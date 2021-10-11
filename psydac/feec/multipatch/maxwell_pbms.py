@@ -320,14 +320,24 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
     """
     M_m = None
     got_mass_matrix = (not need_mass_matrix)
+    got_GD_matrices = False
 
     if os.path.exists(load_dir):
         print(" -- load directory " + load_dir + " found -- will load the Nitsche matrices from there...")
 
         # unpenalized curl-curl matrix (main part and symmetrization term)
-        IC_m = load_npz(load_dir+'IC_m.npz')
-        CS_m = load_npz(load_dir+'CS_m.npz')
-        # jump penalization matrix
+        IC_m = load_npz(load_dir+'ICC_m.npz')
+        CCS_m = load_npz(load_dir+'CCS_m.npz')
+
+        # unpenalized grad-div matrix (main part and symmetrization term)
+        try:
+            IGD_m = load_npz(load_dir+'IGD_m.npz')
+            GDS_m = load_npz(load_dir+'GDS_m.npz')
+            got_GD_matrices = True
+        except:
+            print(" -- (GD matrices not found)")
+
+        # jump penalization matrix (for Hcurl discretization)
         JP_m = load_npz(load_dir+'JP_m.npz')
         # mass matrix
         if need_mass_matrix:
@@ -357,23 +367,31 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
 
         jump = lambda w:plus(w)-minus(w)
         avr_curl = lambda w:(curl(plus(w)) + curl(minus(w)))/2
+        # avr_div = lambda w:(div(plus(w)) + div(minus(w)))/2
 
         # Bilinear forms a: V x V --> R
 
-        # note (MCP): the IP formulation involves the tangential jumps [v]_T = n^- x v^- + n^+ x v^+
-        # here this t-jump corresponds to -cross(nn, jump(v))
-        expr   = curl(u)*curl(v)
-        expr_I =   cross(nn, jump(v))*avr_curl(u)
-        expr_b = -cross(nn, v) * curl(u)
-        expr_Is =  cross(nn, jump(u))*avr_curl(v)   # symmetrization terms
-        expr_bs = -cross(nn, u)*curl(v)
+        # note (MCP): IP formulations involve tangential jumps [v]_T = n^- x v^- + n^+ x v^+
+        # and normal jump  [v]_N = n^- . v^- + n^+ . v^+
+        # here nn = n^- and jump(v) = v^+ - v^-
+        # so that
+        # [v]_T = -cross(nn, jump(v))
+        # [v]_N = -dot(nn,jump(v))
 
-        # jump penalization terms:
+        # curl-curl bilinear form
+        expr_cc    =  curl(u)*curl(v)
+        expr_cc_I  =  cross(nn, jump(v))*avr_curl(u)
+        expr_cc_b  = -cross(nn, v      )*curl(u)
+
+        expr_cc_Is =  cross(nn, jump(u))*avr_curl(v)   # symmetrization terms
+        expr_cc_bs = -cross(nn, u      )*curl(v)
+
+        a_cc = BilinearForm((u,v),  integral(domain, expr_cc) + integral(I, expr_cc_I) + integral(boundary, expr_cc_b))
+        a_cc_s = BilinearForm((u,v),  integral(I, expr_cc_Is) + integral(boundary, expr_cc_bs))  # symmetrization terms
+
+        # tangential jump penalization
         expr_jp_I = cross(nn, jump(u))*cross(nn, jump(v))
         expr_jp_b = cross(nn, u)*cross(nn, v)
-
-        a_cc = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(boundary, expr_b))
-        a_cs = BilinearForm((u,v),  integral(I, expr_Is) + integral(boundary, expr_bs))  # symmetrization terms
         a_jp = BilinearForm((u,v),  integral(I, expr_jp_I) + integral(boundary, expr_jp_b))
 
         #+++++++++++++++++++++++++++++++
@@ -386,12 +404,12 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
         # incomplete curl-curl matrix
         a_h = discretize(a_cc, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
         A = a_h.assemble()
-        IC_m  = A.tosparse().tocsr()
+        ICC_m  = A.tosparse().tocsr()
 
         # symmetrization part (for SIP or NIP curl-curl matrix)
-        a_h = discretize(a_cs, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
+        a_h = discretize(a_cc_s, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
         A = a_h.assemble()
-        CS_m  = A.tosparse().tocsr()
+        CCS_m  = A.tosparse().tocsr()
 
         # jump penalization matrix
         a_h = discretize(a_jp, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
@@ -401,9 +419,55 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
         print(" -- now saving these matrices in " + load_dir + "...")
         os.makedirs(load_dir)
         t_stamp = time_count(t_stamp)
-        save_npz(load_dir+'IC_m.npz', IC_m)
-        save_npz(load_dir+'CS_m.npz', CS_m)
+        save_npz(load_dir+'ICC_m.npz', ICC_m)
+        save_npz(load_dir+'CCS_m.npz', CCS_m)
         save_npz(load_dir+'JP_m.npz', JP_m)
+        time_count(t_stamp)
+
+    if not got_GD_matrices:
+
+        #+++++++++++++++++++++++++++++++
+        # Abstract IP model
+        #+++++++++++++++++++++++++++++++
+
+        V = Vh.symbolic_space
+        domain = V.domain
+
+        u, v  = elements_of(V, names='u, v')
+        nn  = NormalVector('nn')
+
+        I        = domain.interfaces
+        boundary = domain.boundary
+
+        jump = lambda w:plus(w)-minus(w)
+        avr_div = lambda w:(div(plus(w)) + div(minus(w)))/2
+
+        # grad-div bilinear form
+        expr_gd   = -div(u)*div(v)
+        expr_gd_I = -dot(nn, jump(v))*avr_div(u)
+        expr_gd_b =  dot(nn, v      )*div(u)
+
+        expr_gd_Is = -dot(nn, jump(u))*avr_div(v)   # symmetrization terms
+        expr_gd_bs =  dot(nn, u      )*div(v)
+
+        a_gd  = BilinearForm((u,v),  integral(domain, expr_gd) + integral(I, expr_gd_I) + integral(boundary, expr_gd_b))
+        a_gd_s = BilinearForm((u,v),  integral(I, expr_gd_Is) + integral(boundary, expr_gd_bs))  # symmetrization terms
+
+        # incomplete grad-div matrix
+        a_h = discretize(a_gd, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
+        A = a_h.assemble()
+        IGD_m  = A.tosparse().tocsr()
+
+        # symmetrization part (for SIP or NIP grad-div matrix)
+        a_h = discretize(a_gd_s, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])
+        A = a_h.assemble()
+        GDS_m  = A.tosparse().tocsr()
+
+        print(" -- now saving these matrices in " + load_dir + "...")
+        os.makedirs(load_dir)
+        t_stamp = time_count(t_stamp)
+        save_npz(load_dir+'IGD_m.npz', IGD_m)
+        save_npz(load_dir+'GDS_m.npz', GDS_m)
         time_count(t_stamp)
 
     if not got_mass_matrix:
@@ -418,72 +482,14 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
         M_m  = M.tosparse().tocsr()
         save_npz(load_dir+'M_m.npz', M_m)
 
-    CC_m = IC_m + k*CS_m
+    CC_m = ICC_m + k*CCS_m
     # K_m = CC_m + k*CS_m + gamma_h*JP_m
-    raise NotImplementedError
-    GD_m = None
+    # raise NotImplementedError
+    GD_m = IGD_m + k*GDS_m
 
     return CC_m, GD_m, JP_m, M_m
 
-
-def conga_operators_OBSOLETE_2d(domain, ncells, degree, operator='curl_curl', gamma_h=None, hom_bc=True):
-    """
-     -- to update for single hodge_laplacian operator
-
-    computes:
-        K_hom_m and K_m the CONGA stiffness matrix of 'operator' in V1 with and without homogeneous bc
-        (stiffness = left-multiplied by M1_m),
-        with penalization parameter gamma
-        with:
-            K = curl curl               (if operator == 'curl_curl')
-        or
-            K = curl curl + grad div    (if operator == 'hodge_laplacian')
-        as defined in Campos Pinto and Güçlü (preprint 2021)
-
-    :return: matrices in sparse format
-    """
-    assert operator in ['curl_curl', 'hodge_laplacian']
-
-    # t_stamp = time_count()
-    print('computing Conga {0} matrix with penalization gamma_h = {1}'.format(operator, gamma_h))
-
-    assert operator == 'curl_curl'  # todo: implement (verify) the hodge-laplacian
-
-    # curl_curl matrix (left-multiplied by M1_m) :
-    D1_hom_m = bD1_m * cP1_hom_m
-    jump_penal_hom_m = I1_m-cP1_hom_m
-    K_hom_m = (
-            D1_hom_m.transpose() * M2_m * D1_hom_m
-            + gamma_h * jump_penal_hom_m.transpose() * M1_m * jump_penal_hom_m
-    )
-
-    if not hom_bc:
-        # then we also need the matrix of the non-homogeneous operator
-        D1_m = bD1_m * cP1_m
-        # jump_penal_m = I1_m-cP1_m
-        K_bc_m = (
-                D1_hom_m.transpose() * M2_m * D1_m
-        )
-    else:
-        K_bc_m = None
-
-    if operator == 'hodge_laplacian':
-        D0_hom_m = bD0_m * cP0_hom_m
-        div_aux_m = D0_hom_m.transpose() * M1_m  # note: the matrix of the (weak) div operator is:   - M0_minv * div_aux_m
-        K_hom_m += div_aux_m.transpose() * M0_minv * div_aux_m
-
-        if not hom_bc:
-            raise NotImplementedError
-            # todo: this is not correct -- find proper formulation for the non-homogeneous case
-            D0_m = bD0_m * cP0_m
-            div_aux_m = D0_m.transpose() * M1_m  # note: the matrix of the (weak) div operator is:   - M0_minv * div_aux_m
-            K_bc_m += div_aux_m.transpose() * M0_minv * div_aux_m
-
-    return K_hom_m, K_bc_m
-
-
 # ---------------------------------------------------------------------------------------------------------------
-
 
 def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
     print('-----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  -----  ----- ')
