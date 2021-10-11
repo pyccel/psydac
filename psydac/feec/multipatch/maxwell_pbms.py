@@ -80,12 +80,16 @@ comm = MPI.COMM_WORLD
 
 # ---------------------------------------------------------------------------------------------------------------
 # small utility for saving/loading sparse matrices, plots...
-def rhs_fn(source_type,nbc=False):
+def rhs_fn(source_type, nbc=False, eta=None, mu=None, nu=None):
+    fn = 'rhs_'+source_type
+    if source_type == 'manu_J':
+        assert (eta is not None) and (mu is not None) and (nu is not None)
+        fn += '_eta'+repr(eta)+'_mu'+repr(mu)+'_nu'+repr(nu)
     if nbc:
         # additional terms for nitsche bc
-        fn = 'rhs_'+source_type+'_nbc.npz'
+        fn += '_nbc.npz'
     else:
-        fn = 'rhs_'+source_type+'.npz'
+        fn += '.npz'
     return fn
 
 def E_ref_fn(source_type, N_diag):
@@ -274,24 +278,32 @@ def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
     assert operator == 'curl_curl'  # todo: implement also the hodge-laplacian ?
 
     # curl_curl matrix (stiffness, i.e. left-multiplied by M1_m) :
-    D1_hom_m = bD1_m * cP1_hom_m
-    CC_m = D1_hom_m.transpose() * M2_m * D1_hom_m
+    D1_hom_m = bD1_m @ cP1_hom_m
+    CC_m = D1_hom_m.transpose() @ M2_m @ D1_hom_m
+
+    # grad_div matrix (stiffness, i.e. left-multiplied by M1_m) :
+    # D0_hom_m = bD0_m @ cP0_hom_m   # matrix of conga gradient
+    # div_aux_m = D0_hom_m.transpose() @ M1_m  # the matrix of the (weak) div operator is  - M0_minv * div_aux_m
+    # GD_m = - div_aux_m.transpose() * M0_minv * div_aux_m
+    pre_GD_m = - M1_m @ bD0_m @ cP0_hom_m @ M0_minv @ cP0_hom_m.transpose() @ bD0_m.transpose() @ M1_m
+    GD_m = cP1_hom_m.transpose() @ pre_GD_m @ cP1_hom_m
 
     if not hom_bc:
         # then we also need the matrix of the non-homogeneous operator
         D1_m = bD1_m * cP1_m
-        CC_bc_m = (
-                D1_hom_m.transpose() * M2_m * D1_m
-        )
+        CC_bc_m = D1_hom_m.transpose() * M2_m * D1_m
+        GD_bc_m = cP1_hom_m.transpose() @ pre_GD_m @ cP1_m
+
     else:
         CC_bc_m = None
+        GD_bc_m = None
 
     # jump penalization
     jump_penal_hom_m = I1_m-cP1_hom_m
     JP_m = jump_penal_hom_m.transpose() * M1_m * jump_penal_hom_m
     time_count(t_stamp)
 
-    return CC_m, CC_bc_m, JP_m
+    return CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m
 
 # ---------------------------------------------------------------------------------------------------------------
 def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='python', need_mass_matrix=False):
@@ -408,8 +420,10 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
 
     CC_m = IC_m + k*CS_m
     # K_m = CC_m + k*CS_m + gamma_h*JP_m
+    raise NotImplementedError
+    GD_m = None
 
-    return CC_m, JP_m, M_m
+    return CC_m, GD_m, JP_m, M_m
 
 
 def conga_operators_OBSOLETE_2d(domain, ncells, degree, operator='curl_curl', gamma_h=None, hom_bc=True):
@@ -522,7 +536,7 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
     return eigenvalues, eigenvectors
 
 
-def get_source_and_solution(source_type, eta, domain, refsol_params=None):
+def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None):
     """
     get source and ref solution of time-Harmonic Maxwell equation
         curl curl E + eta E = J
@@ -544,16 +558,23 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
     if source_type == 'manu_J':
         # use a manufactured solution, with ad-hoc (homogeneous or inhomogeneous) bc
         if domain_name in ['square_2', 'square_6', 'square_8', 'square_9']:
-            theta = 1
+            t = 1
         else:
-            theta = pi
+            t = pi
 
             # E_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
             # f      = Tuple(eta*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
             #                  eta*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
-        E_ex   = Tuple(sin(theta*y), sin(theta*x)*cos(theta*y))
-        f      = Tuple(eta*sin(theta*y) - theta**2*sin(theta*y)*cos(theta*x) + theta**2*sin(theta*y),
-                         eta*sin(theta*x)*cos(theta*y) + theta**2*sin(theta*x)*cos(theta*y))
+
+        # todo: use eta, mu, nu in rhs filename !
+        # print('E_ex, f: **[[ ', eta, mu, nu, ' ]]**')
+        E_ex   = Tuple(sin(t*y), sin(t*x)*cos(t*y))
+        # f      = Tuple(eta*sin(t*y) - t**2*sin(t*y)*cos(t*x) + t**2*sin(t*y),
+        #                  eta*sin(t*x)*cos(t*y) + t**2*sin(t*x)*cos(t*y))
+        f      = Tuple(
+            sin(t*y) * (eta + t**2 *(mu - cos(t*x)*(mu-nu))),
+            sin(t*x) * cos(t*y) * (eta + t**2 *(mu+nu) )
+        )
         E_ex_x = lambdify(domain.coordinates, E_ex[0])
         E_ex_y = lambdify(domain.coordinates, E_ex[1])
         E_ex_log = [pull_2d_hcurl([E_ex_x,E_ex_y], f) for f in mappings_list]
@@ -564,8 +585,6 @@ def get_source_and_solution(source_type, eta, domain, refsol_params=None):
         # boundary condition: (here we only need to coincide with E_ex on the boundary !)
         if domain_name in ['square_2', 'square_6', 'square_9']:
             E_bc = None
-        # elif domain_name == 'square_8':
-        #     E_bc = Tuple(sin(theta*y) * (1+(x-pi/3)*(x-2*pi/3)*(y-pi/3)*(y-2*pi/3)), sin(theta*x)*cos(theta*y) * (1+(x-pi/3)*(x-2*pi/3)*(y-pi/3)*(y-2*pi/3)))
         else:
             E_bc = E_ex
 
@@ -955,7 +974,8 @@ if __name__ == '__main__':
         # source_type = 'ring_J'
         # source_type = 'manu_sol'
 
-        f, E_bc, E_ref_vals, E_ex = get_source_and_solution(source_type=source_type, eta=eta, domain=domain, refsol_params=[nc_ref, deg_ref, N_diag, method_ref])
+        f, E_bc, E_ref_vals, E_ex = get_source_and_solution(source_type=source_type, eta=eta, mu=mu, nu=nu, domain=domain,
+                                                            refsol_params=[nc_ref, deg_ref, N_diag, method_ref])
         if E_ref_vals is None:
             print('-- no ref solution found')
 
@@ -991,7 +1011,7 @@ if __name__ == '__main__':
     # ------------------------------------------------------------------------------------------
 
     if method == 'conga':
-        CC_m, CC_bc_m, JP_m = conga_operators_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
+        CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m = conga_operators_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
                                                  hom_bc=hom_bc)
         # K_hom_m, K_bc_m = conga_curl_curl_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
         #                                      epsilon=epsilon, gamma_h=gamma_h, hom_bc=hom_bc)
@@ -1001,7 +1021,7 @@ if __name__ == '__main__':
         load_dir = get_load_dir(method='nitsche', DG_full=DG_full, domain_name=domain_name, nc=nc, deg=deg)
         # K_hom_m, M_m = nitsche_curl_curl_2d(domain_h, Vh=Vh_dg, gamma_h=gamma_h, k=k, load_dir=load_dir,
         #                                     need_mass_matrix=DG_full, backend_language=backend_language)
-        CC_m, JP_m, M_m = nitsche_operators_2d(domain_h, Vh=Vh_dg, k=k, load_dir=load_dir,
+        CC_m, GD_m, JP_m, M_m = nitsche_operators_2d(domain_h, Vh=Vh_dg, k=k, load_dir=load_dir,
                                                need_mass_matrix=DG_full, backend_language=backend_language)
 
         if not DG_full:
@@ -1010,8 +1030,8 @@ if __name__ == '__main__':
     else:
         raise ValueError(method)
 
-    GD_m = M_m ## todo
-    nu = 0
+    # GD_m = M_m ## todo
+    # nu = 0
 
     A_m = mu*CC_m - nu*GD_m + gamma_h*JP_m
     if method == 'conga':
@@ -1095,7 +1115,7 @@ if __name__ == '__main__':
         if not os.path.exists(rhs_load_dir):
             os.makedirs(rhs_load_dir)
 
-        rhs_filename = rhs_load_dir+rhs_fn(source_type)
+        rhs_filename = rhs_load_dir+rhs_fn(source_type,eta=eta,mu=mu,nu=nu)
         if os.path.isfile(rhs_filename):
             print("getting rhs array from file "+rhs_filename)
             with open(rhs_filename, 'rb') as file:
@@ -1133,7 +1153,7 @@ if __name__ == '__main__':
         if method == 'nitsche' and not hom_bc:
             print("(non hom.) bc with nitsche: need some additional rhs arrays.")
             # need additional terms for the bc with nitsche
-            rhs_filename = rhs_load_dir+rhs_fn(source_type, nbc=True)
+            rhs_filename = rhs_load_dir+rhs_fn(source_type, nbc=True, eta=eta,mu=mu,nu=nu)
             if os.path.isfile(rhs_filename):
                 print("getting them from file "+rhs_filename)
                 with open(rhs_filename, 'rb') as file:
