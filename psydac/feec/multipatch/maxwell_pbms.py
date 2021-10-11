@@ -831,8 +831,8 @@ if __name__ == '__main__':
         backend_language='python'
     print('[note: using '+backend_language+ ' backends in discretize functions]')
 
-    if DG_full:
-        raise NotImplementedError("DG_full spaces not implemented yet (eval error in sympde/topology/mapping.py)")
+    # if DG_full:
+    #     raise NotImplementedError("DG_full spaces not implemented yet (eval error in sympde/topology/mapping.py)")
 
     print()
     print('--------------------------------------------------------------------------------------------------------------')
@@ -892,8 +892,8 @@ if __name__ == '__main__':
     nquads = [d + 1 for d in degree]
 
     if DG_full:
-        V_dg  = VectorFunctionSpace('V_dg', domain, kind='h1')
-        Vh_dg = discretize(V_dg, domain_h, degree=degree) #, basis='M')
+        V_dg  = VectorFunctionSpace('V_dg', domain, kind='H1')
+        Vh_dg = discretize(V_dg, domain_h, degree=degree, basis='M')
         print('Vh_dg.degree = ', Vh_dg.degree)
         print('V1h.degree = ', V1h.degree)
 
