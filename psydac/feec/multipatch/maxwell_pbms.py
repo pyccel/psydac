@@ -181,20 +181,17 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
 
         t_stamp = time_count(t_stamp)
         print('----------     inv M0')
-        # M0_m = M0.to_sparse_matrix()
-        # M0_minv = inv(M0_m.tocsc())  # todo: assemble patch-wise M0_inv, as Hodge operator
         M0_minv = M0.get_sparse_inverse_matrix()
 
         t_stamp = time_count(t_stamp)
         print("assembling conf projection operators for V1...")
-        # todo: disable the non-hom-bc operators for hom-bc pretzel test cases...
         cP1_hom = ConformingProjection_V1(V1h, domain_h, hom_bc=True, backend_language=backend_language)
         t_stamp = time_count(t_stamp)
         print("assembling conf projection operators for V0...")
         cP0_hom = ConformingProjection_V0(V0h, domain_h, hom_bc=True, backend_language=backend_language)
         t_stamp = time_count(t_stamp)
         if discard_non_hom_matrices:
-            print('WARNING: discarding the non-homogeneous cP0 and cP1 projection operators!')
+            print(' -- WARNING: for homogeneous bc, we discard the non-homogeneous cP0 and cP1 projection operators -- ')
             cP0 = cP0_hom
             cP1 = cP1_hom
         else:
@@ -266,6 +263,8 @@ def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
     computes
         CC_m: the (unpenalized) CONGA (stiffness) matrix of the curl-curl operator in V1, with homogeneous bc
         CC_bc_m: similar matrix for the lifted BC
+        GD_m: stiffness matrix for grad div operator
+        GD_bc_m: grad div operator for lifted BC (does not work / todo: improve)
         JP_m: the jump penalization matrix
 
     :return: matrices in sparse format
@@ -275,7 +274,6 @@ def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
         assert cP1_m is not None
     print('computing Conga curl_curl matrix with penalization gamma_h = {}'.format(gamma_h))
     t_stamp = time_count()
-    assert operator == 'curl_curl'  # todo: implement also the hodge-laplacian ?
 
     # curl_curl matrix (stiffness, i.e. left-multiplied by M1_m) :
     D1_hom_m = bD1_m @ cP1_hom_m
@@ -306,10 +304,13 @@ def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
     return CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m
 
 # ---------------------------------------------------------------------------------------------------------------
-def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='python', need_mass_matrix=False):
+def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='python',
+                         need_GD_matrix=False,
+                         need_mass_matrix=False):
     """
     computes
         CC_m the k-IP (stiffness) matrix of the curl-curl operator
+        GD_m the k-IP (stiffness) matrix of the grad-div operator, if needed  [[ not verified -- and not allowed by SymPDE yet ]]
         JP_m the jump penalization matrix
         M_m the mass matrix (if needed)
 
@@ -320,7 +321,8 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
     """
     M_m = None
     got_mass_matrix = (not need_mass_matrix)
-    got_GD_matrices = False
+    GD_m = None
+    got_GD_matrices = (not need_GD_matrix)
 
     if os.path.exists(load_dir):
         print(" -- load directory " + load_dir + " found -- will load the Nitsche matrices from there...")
@@ -330,15 +332,17 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
         CCS_m = load_npz(load_dir+'CCS_m.npz')
 
         # unpenalized grad-div matrix (main part and symmetrization term)
-        try:
-            IGD_m = load_npz(load_dir+'IGD_m.npz')
-            GDS_m = load_npz(load_dir+'GDS_m.npz')
-            got_GD_matrices = True
-        except:
-            print(" -- (GD matrices not found)")
+        if need_GD_matrix:
+            try:
+                IGD_m = load_npz(load_dir+'IGD_m.npz')
+                GDS_m = load_npz(load_dir+'GDS_m.npz')
+                got_GD_matrices = True
+            except:
+                print(" -- (GD matrices not found)")
 
         # jump penalization matrix (for Hcurl discretization)
         JP_m = load_npz(load_dir+'JP_m.npz')
+
         # mass matrix
         if need_mass_matrix:
             try:
@@ -762,12 +766,6 @@ if __name__ == '__main__':
         help    = 'whether cP is applied with the geometric (interpolation/histopolation) splines'
     )
 
-    parser.add_argument( '--operator',
-        choices = ['curl_curl', 'hodge_laplacian'],
-        default = 'curl_curl',
-        help    = 'second order differential operator'
-    )
-
     parser.add_argument( '--problem',
         choices = ['eigen_pbm', 'source_pbm'],
         default = 'source_pbm',
@@ -810,7 +808,6 @@ if __name__ == '__main__':
     gamma        = args.gamma
     penal_regime = args.penal_regime
     proj_sol     = args.proj_sol
-    operator     = args.operator  # only curl_curl for now
     problem      = args.problem
     source_type  = args.source
     eta          = args.eta
@@ -833,13 +830,34 @@ if __name__ == '__main__':
 
     # if DG_full:
     #     raise NotImplementedError("DG_full spaces not implemented yet (eval error in sympde/topology/mapping.py)")
+    t_overstamp = time_count()  # full run
+    t_stamp = time_count()
 
     print()
     print('--------------------------------------------------------------------------------------------------------------')
-    t_overstamp = time_count()  # full run
-    t_stamp = time_count()
-    print('building the multipatch domain "'+domain_name+'"...' )
+    print(' solving '+problem)
+    if problem == 'source_pbm':
+        print('     A u = f')
+    else:
+        print('     A u = sigma * u')
+    print(' with ')
+    print(' - operator:     A u = ({0}) * u + ({1}) * curl curl u - ({2}) * grad div u'.format(eta, mu, nu))
+    print(' - domain:       '+domain_name)
+    if problem == 'source_pbm':
+        print(' - source:       '+source_type)
+    print(' - method:       '+get_method_name(method, k, geo_cproj))
+    print()
+        #
     domain = build_multipatch_domain(domain_name=domain_name)
+    #
+    print(' - nb patches:             '+repr(len(domain.interior)))
+    print(' - nb of cells per patch:  '+repr(ncells))
+    print(' - spline degree:          '+repr(degree))
+    fem_name = get_fem_name(method=method, DG_full=DG_full, geo_cproj=geo_cproj, k=k, domain_name=domain_name,nc=nc,deg=deg)
+    print(' [full scheme:   '+fem_name+' ]')
+    print('--------------------------------------------------------------------------------------------------------------')
+    print()
+
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
     time_count(t_stamp)
@@ -892,8 +910,10 @@ if __name__ == '__main__':
     nquads = [d + 1 for d in degree]
 
     if DG_full:
-        V_dg  = VectorFunctionSpace('V_dg', domain, kind='H1')
-        Vh_dg = discretize(V_dg, domain_h, degree=degree, basis='M')
+        V_dg  = VectorFunctionSpace('V_dg', domain, kind='Hcurl')
+        W_dg  = VectorFunctionSpace('W_dg', domain, kind='H1')  # discretization hack
+        Vh_dg = discretize(W_dg, domain_h, degree=degree, basis='B') # should be full-degree
+        Vh_dg.symbolic_space = V_dg  # so that it's defined by 1-form push-forwards
         print('Vh_dg.degree = ', Vh_dg.degree)
         print('V1h.degree = ', V1h.degree)
 
@@ -1010,8 +1030,6 @@ if __name__ == '__main__':
         E_bc = None
         hom_bc = True
 
-    assert operator == 'curl_curl'
-
     # ------------------------------------------------------------------------------------------
     #   operator matrices
     # ------------------------------------------------------------------------------------------
@@ -1019,15 +1037,12 @@ if __name__ == '__main__':
     if method == 'conga':
         CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m = conga_operators_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
                                                  hom_bc=hom_bc)
-        # K_hom_m, K_bc_m = conga_curl_curl_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
-        #                                      epsilon=epsilon, gamma_h=gamma_h, hom_bc=hom_bc)
         M_m = M1_m
 
     elif method == 'nitsche':
         load_dir = get_load_dir(method='nitsche', DG_full=DG_full, domain_name=domain_name, nc=nc, deg=deg)
-        # K_hom_m, M_m = nitsche_curl_curl_2d(domain_h, Vh=Vh_dg, gamma_h=gamma_h, k=k, load_dir=load_dir,
-        #                                     need_mass_matrix=DG_full, backend_language=backend_language)
         CC_m, GD_m, JP_m, M_m = nitsche_operators_2d(domain_h, Vh=Vh_dg, k=k, load_dir=load_dir,
+                                               need_GD_matrix=(nu != 0),
                                                need_mass_matrix=DG_full, backend_language=backend_language)
 
         if not DG_full:
@@ -1036,15 +1051,24 @@ if __name__ == '__main__':
     else:
         raise ValueError(method)
 
-    # GD_m = M_m ## todo
-    # nu = 0
-
     A_m = mu*CC_m - nu*GD_m + gamma_h*JP_m
+
     if method == 'conga':
         # note: this filtering of M1_m is important (in particular in the presence of BCs)
         A_m += eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
     else:
         A_m += eta * M_m
+
+    # norm of various operators (scheme dependent)
+    def curl_curl_norm(u_c):
+        du_c = CC_m.dot(u_c)
+        #print("norm((bD1_m @ cP1_hom_m).dot(u_c)) = ", norm((bD1_m @ cP1_hom_m).dot(u_c)))
+        du_c = CC_m.dot(u_c)
+        return np.dot(du_c,M1_m.dot(du_c))**0.5
+
+    def grad_div_norm(u_c):
+        du_c = GD_m.dot(u_c)
+        return np.dot(du_c,M1_m.dot(du_c))**0.5
 
     # lifting of BC
     lift_E_bc = (problem == 'source_pbm' and method == 'conga' and not hom_bc)
@@ -1065,6 +1089,7 @@ if __name__ == '__main__':
         if hom_bc:
             print('     (with homogeneous bc)')
 
+        # todo: update this function
         sigma, ref_sigmas = get_ref_eigenvalues(domain_name, operator)
         nb_eigs = max(10, len(ref_sigmas))
 
@@ -1099,19 +1124,6 @@ if __name__ == '__main__':
     elif problem == 'source_pbm':
 
         print("***  Solving source problem  *** ")
-        # print(" with 1/epsilon = ", repr(1/epsilon))
-
-        # ------------------------------------------------------------------------------------------
-        #   equation operator matrix   /// ALREADY DONE
-         # ------------------------------------------------------------------------------------------
-
-        #  in homogeneous spaces // or in full space for nitsche... (todo: improve the notation and call that A_m // and A_bc_m the operator for the lifted bc if needed)
-        # if method == 'conga':
-        #     # A_hom_m = (1/epsilon) * K_hom_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
-        #     A_hom_m = K_hom_m + eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
-        # else:
-        #     assert method == 'nitsche'
-        #     A_hom_m = (1/epsilon) * K_hom_m + eta * M_m
 
         # ------------------------------------------------------------------------------------------
         #   assembling RHS
@@ -1279,6 +1291,13 @@ if __name__ == '__main__':
         print("|| curl fh || / || fh ||  = ", curl_norm(fh_c)/fh_norm)
         print(' ]] ')
 
+        print(' [[ more info on source: ')
+        print("norm((bD1_m @ cP1_m).dot(fh_c))     = ", norm((bD1_m @ cP1_m).dot(fh_c)))
+        print("norm((bD1_m @ cP1_hom_m).dot(fh_c)) = ", norm((bD1_m @ cP1_hom_m).dot(fh_c)))
+        print("|| curl curl fh || = ", curl_curl_norm(fh_c))
+        print("|| grad div fh ||  = ", grad_div_norm(fh_c))
+        print(' ]] ')
+
         plot_source = True
         # plot_source = False
         if do_plots and plot_source:
@@ -1410,6 +1429,12 @@ if __name__ == '__main__':
             print(' [[ field curl: ')
             print("|| curl Eh || / || Eh ||  = ", curl_norm(Eh_c)/Eh_norm)
             print(' ]] ')
+
+            print(' [[ more info on solution: ')
+            print("|| curl curl Eh || = ", curl_curl_norm(Eh_c))
+            print("|| grad div Eh ||  = ", grad_div_norm(Eh_c))
+            print(' ]] ')
+
 
         if do_plots:
             # smooth plotting with node-valued grid
