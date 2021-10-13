@@ -44,13 +44,15 @@ from sympde.expr.equation import find, EssentialBC
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
 
+
 from scipy.sparse.linalg import spsolve, spilu, cg, lgmres
 from scipy.sparse.linalg import LinearOperator, eigsh, minres, gmres
+
 
 from scipy.sparse.linalg import inv
 from scipy.sparse.linalg import norm as spnorm
 from scipy.linalg        import eig, norm
-from scipy.sparse import save_npz, load_npz
+from scipy.sparse import save_npz, load_npz, bmat
 
 # from scikits.umfpack import splu    # import error
 
@@ -80,15 +82,21 @@ comm = MPI.COMM_WORLD
 
 # ---------------------------------------------------------------------------------------------------------------
 # small utility for saving/loading sparse matrices, plots...
-def rhs_fn(source_type, nbc=False, eta=None, mu=None, nu=None):
-    fn = 'rhs_'+source_type
+def rhs_fn(source_type, nbc=False, eta=None, mu=None, nu=None, dc_pbm=False, npz_suffix=True, prefix=True):
+    if prefix:
+        fn = 'rhs_'
+    else:
+        fn = ''
+    fn += source_type
+    if dc_pbm:
+        fn += '_dc_pbm'
     if source_type == 'manu_J':
         assert (eta is not None) and (mu is not None) and (nu is not None)
         fn += '_eta'+repr(eta)+'_mu'+repr(mu)+'_nu'+repr(nu)
     if nbc:
         # additional terms for nitsche bc
-        fn += '_nbc.npz'
-    else:
+        fn += '_nbc'
+    if npz_suffix:
         fn += '.npz'
     return fn
 
@@ -546,11 +554,16 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
     return eigenvalues, eigenvectors
 
 
-def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None):
+def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None, dc_pbm=False):
     """
     get source and ref solution of time-Harmonic Maxwell equation
-        curl curl E + eta E = J
+        eta * E + mu * curl curl E - nu * grad div E = f
+    with u in H_0(curl)
 
+    if dc_pbm, we solve a divergence-constrained mixed problem of the form
+        grad p + mu * curl curl u = f
+        div u = 0
+    with p in H^1_0, u in H_0(curl)
     """
 
     assert refsol_params
@@ -561,7 +574,9 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
 
     # bc solution: describe the bc on boundary. Inside domain, values should not matter. Homogeneous bc will be used if None
     E_bc = None
+
     E_ex = None
+    p_ex = None  # for dc_pbm
 
     x,y    = domain.coordinates
 
@@ -572,19 +587,23 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
         else:
             t = pi
 
-            # E_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
-            # f      = Tuple(eta*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
-            #                  eta*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+        if dc_pbm:
+            c = 2 # parameter
 
-        # todo: use eta, mu, nu in rhs filename !
-        # print('E_ex, f: **[[ ', eta, mu, nu, ' ]]**')
-        E_ex   = Tuple(sin(t*y), sin(t*x)*cos(t*y))
-        # f      = Tuple(eta*sin(t*y) - t**2*sin(t*y)*cos(t*x) + t**2*sin(t*y),
-        #                  eta*sin(t*x)*cos(t*y) + t**2*sin(t*x)*cos(t*y))
-        f      = Tuple(
-            sin(t*y) * (eta + t**2 *(mu - cos(t*x)*(mu-nu))),
-            sin(t*x) * cos(t*y) * (eta + t**2 *(mu+nu) )
-        )
+            E_ex = Tuple(sin(t*y)*cos(t*x), -sin(t*x)*cos(t*y))
+            p_ex = sin(c*t*x) * sin(c*t*y)
+            f    = Tuple(
+                c*t*cos(c*t*x)*sin(c*t*y) + mu*2*t**2 * ( sin(t*y)*cos(t*x)),
+                c*t*sin(c*t*x)*cos(c*t*y) + mu*2*t**2 * (-sin(t*x)*cos(t*y))
+            )
+
+        else:
+            E_ex   = Tuple(sin(t*y), sin(t*x)*cos(t*y))
+            f      = Tuple(
+                sin(t*y) * (eta + t**2 *(mu - cos(t*x)*(mu-nu))),
+                sin(t*x) * cos(t*y) * (eta + t**2 *(mu+nu) )
+            )
+
         E_ex_x = lambdify(domain.coordinates, E_ex[0])
         E_ex_y = lambdify(domain.coordinates, E_ex[1])
         E_ex_log = [pull_2d_hcurl([E_ex_x,E_ex_y], f) for f in mappings_list]
@@ -598,7 +617,7 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
         else:
             E_bc = E_ex
 
-    elif source_type == 'dp_J':
+    elif source_type == 'df_J':
         # div-free J
         f = Tuple(10*sin(y), -10*sin(x))
 
@@ -685,7 +704,7 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
     else:
         raise ValueError(source_type)
 
-    return f, E_bc, E_ref_vals, E_ex
+    return f, E_bc, E_ref_vals, E_ex, p_ex
 
 # --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * ---
 # --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * ---
@@ -796,6 +815,11 @@ if __name__ == '__main__':
         help    = 'factor of -grad div term in operator'
     )
 
+    parser.add_argument( '--dc_pbm',
+        action  = 'store_true',
+        help    = 'curl-curl pbm with div-free constraint and Lagrange multiplier p [[shunts most of the rest]]'
+    )
+
     # Read input arguments
     args         = parser.parse_args()
     deg          = args.degree
@@ -813,6 +837,7 @@ if __name__ == '__main__':
     eta          = args.eta
     mu           = args.mu
     nu           = args.nu
+    dc_pbm       = args.dc_pbm
     no_plots     = args.no_plots
     hide_plots   = args.hide_plots
 
@@ -820,6 +845,9 @@ if __name__ == '__main__':
 
     ncells = [nc, nc]
     degree = [deg,deg]
+
+    if dc_pbm and problem=='eigen_pbm':
+        raise NotImplementedError
 
     if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
         # backend_language='numba'
@@ -835,13 +863,21 @@ if __name__ == '__main__':
 
     print()
     print('--------------------------------------------------------------------------------------------------------------')
-    print(' solving '+problem)
-    if problem == 'source_pbm':
-        print('     A u = f')
+    if dc_pbm:
+        print(' solving div-constrained problem')
+        print('     grad p + curl curl u = f')
+        print('                    div u = 0')
+        print(' with: ')
     else:
-        print('     A u = sigma * u')
-    print(' with ')
-    print(' - operator:     A u = ({0}) * u + ({1}) * curl curl u - ({2}) * grad div u'.format(eta, mu, nu))
+        print(' solving '+problem)
+        if problem == 'source_pbm':
+            print('     A u = f')
+        elif problem == 'eigen_pbm':
+            print('     A u = sigma * u')
+        else:
+            raise ValueError(problem)
+        print(' with: ')
+        print(' - operator:     A u = ({0}) * u + ({1}) * curl curl u - ({2}) * grad div u'.format(eta, mu, nu))
     print(' - domain:       '+domain_name)
     if problem == 'source_pbm':
         print(' - source:       '+source_type)
@@ -893,7 +929,8 @@ if __name__ == '__main__':
 
     # todo: add some identifiers for secondary parameters (eg gamma_h, proj_sol ...)
     fem_name = get_fem_name(method=method, DG_full=DG_full, geo_cproj=geo_cproj, k=k, domain_name=domain_name,nc=nc,deg=deg)
-    plot_dir = './plots/'+source_type+'_'+fem_name+'/'
+    rhs_name = rhs_fn(source_type,eta=eta,mu=mu,nu=nu,dc_pbm=dc_pbm,npz_suffix=False,prefix=False)
+    plot_dir = './plots/'+rhs_name+'_'+fem_name+'/'
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
@@ -1000,8 +1037,9 @@ if __name__ == '__main__':
         # source_type = 'ring_J'
         # source_type = 'manu_sol'
 
-        f, E_bc, E_ref_vals, E_ex = get_source_and_solution(source_type=source_type, eta=eta, mu=mu, nu=nu, domain=domain,
-                                                            refsol_params=[nc_ref, deg_ref, N_diag, method_ref])
+        f, E_bc, E_ref_vals, E_ex, p_ex = get_source_and_solution(source_type=source_type, eta=eta, mu=mu, nu=nu, domain=domain,
+                                                             refsol_params=[nc_ref, deg_ref, N_diag, method_ref], dc_pbm=dc_pbm)
+
         if E_ref_vals is None:
             print('-- no ref solution found')
 
@@ -1053,11 +1091,24 @@ if __name__ == '__main__':
 
     A_m = mu*CC_m - nu*GD_m + gamma_h*JP_m
 
-    if method == 'conga':
-        # note: this filtering of M1_m is important (in particular in the presence of BCs)
-        A_m += eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
+    if eta != 0:
+        # zero-order term
+        if method == 'conga':
+            # note: this filtering of M1_m is important (in particular in the presence of BCs)
+            A_m += eta * cP1_hom_m.transpose() @ M1_m @ cP1_hom_m
+        else:
+            A_m += eta * M_m
+
+    if dc_pbm:
+        # building operator for divergence-constrained pbm
+        assert method == 'conga'
+        I0_m = IdLinearOperator(V0h).to_sparse_matrix()
+        jump_penal_V0_hom_m = I0_m-cP0_hom_m
+        JP0_m = jump_penal_V0_hom_m.transpose() * M0_m * jump_penal_V0_hom_m
+        G_m = M1_m @ bD0_m @ cP0_hom_m # stiffness matrix of gradient operator, with penalization
+        DCA_m = bmat([[A_m, G_m], [G_m.transpose(), gamma_h * JP0_m]])
     else:
-        A_m += eta * M_m
+        DCA_m = None
 
     # norm of various operators (scheme dependent)
     def curl_curl_norm(u_c):
@@ -1071,7 +1122,7 @@ if __name__ == '__main__':
         return np.dot(du_c,M1_m.dot(du_c))**0.5
 
     # lifting of BC
-    lift_E_bc = (problem == 'source_pbm' and method == 'conga' and not hom_bc)
+    lift_E_bc = (problem == 'source_pbm' and method == 'conga' and not hom_bc and not dc_pbm)
     if lift_E_bc:
         # operator for bc lifting
         assert CC_bc_m is not None
@@ -1133,7 +1184,7 @@ if __name__ == '__main__':
         if not os.path.exists(rhs_load_dir):
             os.makedirs(rhs_load_dir)
 
-        rhs_filename = rhs_load_dir+rhs_fn(source_type,eta=eta,mu=mu,nu=nu)
+        rhs_filename = rhs_load_dir+rhs_fn(source_type,eta=eta,mu=mu,nu=nu,dc_pbm=dc_pbm)
         if os.path.isfile(rhs_filename):
             print("getting rhs array from file "+rhs_filename)
             with open(rhs_filename, 'rb') as file:
@@ -1171,7 +1222,7 @@ if __name__ == '__main__':
         if method == 'nitsche' and not hom_bc:
             print("(non hom.) bc with nitsche: need some additional rhs arrays.")
             # need additional terms for the bc with nitsche
-            rhs_filename = rhs_load_dir+rhs_fn(source_type, nbc=True, eta=eta,mu=mu,nu=nu)
+            rhs_filename = rhs_load_dir+rhs_fn(source_type, nbc=True, eta=eta,mu=mu,nu=nu,dc_pbm=dc_pbm)
             if os.path.isfile(rhs_filename):
                 print("getting them from file "+rhs_filename)
                 with open(rhs_filename, 'rb') as file:
@@ -1353,32 +1404,47 @@ if __name__ == '__main__':
         #   solving the matrix equation
         # ------------------------------------------------------------------------------------------
 
+        if dc_pbm:
+            AA_m = DCA_m.tocsc()
+
+            print("building block RHS for divergence-constrained problem")
+            bp_c = np.zeros(V0h.nbasis)
+            bb_c = np.block([b_c, bp_c])
+        else:
+            AA_m = A_m.tocsc()
+            bb_c = b_c
+
         t_stamp = time_count(t_stamp)
         try:
             print("trying direct solve with scipy spsolve...")   #todo: use for small problems [[ or: try catch ??]]
-            Eh_c = spsolve(A_m.tocsc(), b_c)
-        except:
-            ## for large problems:
-            print("did not work -- trying with scipy lgmres...")
-            A_csc = A_m.tocsc()
-            print(" -- with approximate inverse using ILU decomposition -- ")
-            A_spilu = spilu(A_csc)
-            # A_hom_spilu = spilu(A_hom_csc, fill_factor=100, drop_tol=1e-6)  # better preconditionning, if matrix not too large
-            # print('**** A: ',  A_hom_m.shape )
+            sol_c = spsolve(AA_m, bb_c)
 
-            preconditioner = LinearOperator(
-                A_m.shape, lambda x: A_spilu.solve(x)
-            )
+        except Exception as e:
+            print("did not work (Exception: {})-- trying with scipy lgmres...".format(e))
+            print(" -- with approximate inverse using ILU decomposition -- ")
+            # A_csc = A_m.tocsc()
+            AA_spilu = spilu(AA_m)
+            # AA_spilu = spilu(AA_m, fill_factor=100, drop_tol=1e-6)  # better preconditionning, if matrix not too large
+            # print('**** AA: ',  AA_m.shape )
+
+            preconditioner = LinearOperator( AA_m.shape, lambda x: AA_spilu.solve(x) )
             nb_iter = 0
             def f2_iter(x):
                 global nb_iter
-                print('lgmres -- iter = ', nb_iter, 'residual= ', norm(A_m.dot(x)-b_c))
+                print('lgmres -- iter = ', nb_iter, 'residual= ', norm(AA_m.dot(x)-bb_c))
                 nb_iter = nb_iter + 1
             tol = 1e-10
-            Eh_c, info = lgmres(A_csc, b_c, x0=None, tol=tol, atol=tol, M=preconditioner, callback=f2_iter)
+            sol_c, info = lgmres(AA_m, bb_c, x0=None, tol=tol, atol=tol, M=preconditioner, callback=f2_iter)
                       # inner_m=30, outer_k=3, outer_v=None,
                       #                                           store_outer_Av=True)
             print(' -- convergence info:', info)
+
+        if dc_pbm:
+            Eh_c = sol_c[:V1h.nbasis]
+            ph_c = sol_c[V1h.nbasis:]
+        else:
+            Eh_c = sol_c
+            ph_c = np.zeros(V0h.nbasis)
 
         # E_coeffs = array_to_stencil(Eh_c, V1h.vector_space)
 
@@ -1402,6 +1468,9 @@ if __name__ == '__main__':
 
         # Eh = FemField(V1h, coeffs=array_to_stencil(PEh_c, V1h.vector_space))
         Eh = FemField(V1h, coeffs=array_to_stencil(Eh_c, V1h.vector_space))
+
+        if dc_pbm:
+            ph_c = FemField(V0h, coeffs=array_to_stencil(ph_c, V0h.vector_space))
 
         if save_Eh:
             # MCP: I think this should be discarded....
