@@ -100,8 +100,12 @@ def rhs_fn(source_type, nbc=False, eta=None, mu=None, nu=None, dc_pbm=False, npz
         fn += '.npz'
     return fn
 
-def E_ref_fn(source_type, N_diag):
-    return 'E_ref_'+source_type+'_N'+repr(N_diag)+'.npz'
+def E_ref_fn(source_type, N_diag, dc_pbm=False):
+    fn = 'E_ref_'+source_type+'_N'+repr(N_diag)
+    if dc_pbm:
+        fn += '_dc_pbm'
+    fn += '.npz'
+    return fn
 
 def Eh_coeffs_fn(source_type, N_diag):
     return 'Eh_coeffs_'+source_type+'_N'+repr(N_diag)+'.npz'
@@ -783,9 +787,14 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
         J_x = -J_factor * (y-y0) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )   # /(x**2 + y**2)
         J_y =  J_factor * (x-x0) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
 
+        if dc_pbm:
+            # J just above is div-free, for the divergence-constrained problem we add a gradient term (with hom. bc) in the source
+            J_x += J_factor * (x-x0) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
+            J_y += J_factor * (y-y0) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
+
         f = Tuple(J_x, J_y)
 
-        E_ref_filename = get_load_dir(method=method_ref, domain_name=domain_name,nc=nc_ref,deg=deg_ref,data='solutions')+E_ref_fn(source_type, N_diag)
+        E_ref_filename = get_load_dir(method=method_ref, domain_name=domain_name,nc=nc_ref,deg=deg_ref,data='solutions')+E_ref_fn(source_type, N_diag, dc_pbm=dc_pbm)
         if os.path.isfile(E_ref_filename):
             print("getting ref solution values from file "+E_ref_filename)
             with open(E_ref_filename, 'rb') as file:
@@ -1135,7 +1144,7 @@ if __name__ == '__main__':
         # todo: discard if same as E_ref ?
 
         solutions_dir = get_load_dir(method=method, DG_full=DG_full, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
-        E_vals_filename = solutions_dir+E_ref_fn(source_type, N_diag)
+        E_vals_filename = solutions_dir+E_ref_fn(source_type, N_diag, dc_pbm=dc_pbm)
         save_E_vals = True
         if not os.path.exists(solutions_dir):
             os.makedirs(solutions_dir)
