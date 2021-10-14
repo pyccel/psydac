@@ -312,13 +312,17 @@ def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
     return CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m
 
 # ---------------------------------------------------------------------------------------------------------------
-def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='python',
+def nitsche_operators_2d(domain_h, Vh, Qh=None, k=None, load_dir=None, backend_language='python',
+                         need_D_matrix=False,
+                         need_JPQ_matrix=False,
                          need_GD_matrix=False,
                          need_mass_matrix=False):
     """
     computes
         CC_m the k-IP (stiffness) matrix of the curl-curl operator
         GD_m the k-IP (stiffness) matrix of the grad-div operator, if needed  [[ not verified -- and not allowed by SymPDE yet ]]
+        D_m the k-IP (stiffness) matrix of the div operator : V -> Q, if needed
+        JPQ_m the jump penalization matrix in Q (H1 scalar space), if needed
         JP_m the jump penalization matrix
         M_m the mass matrix (if needed)
 
@@ -331,6 +335,10 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
     got_mass_matrix = (not need_mass_matrix)
     GD_m = None
     got_GD_matrices = (not need_GD_matrix)
+    D_m = None
+    got_D_matrix = (not need_D_matrix)
+    JPQ_m = None
+    got_JPQ_matrix = (not need_JPQ_matrix)
 
     if os.path.exists(load_dir):
         print(" -- load directory " + load_dir + " found -- will load the Nitsche matrices from there...")
@@ -346,10 +354,26 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
                 GDS_m = load_npz(load_dir+'GDS_m.npz')
                 got_GD_matrices = True
             except:
-                print(" -- (GD matrices not found)")
+                print(" -- (IGD and GDS matrices not found)")
+
+        # unpenalized div matrix
+        if need_D_matrix:
+            try:
+                D_m = load_npz(load_dir+'D_m.npz')
+                got_D_matrix = True
+            except:
+                print(" -- (D matrix not found)")
 
         # jump penalization matrix (for Hcurl discretization)
         JP_m = load_npz(load_dir+'JP_m.npz')
+
+        # JPQ matrix (for H1 scalar space)
+        if need_JPQ_matrix:
+            try:
+                JPQ_m = load_npz(load_dir+'JPQ_m.npz')
+                got_JPQ_matrix = True
+            except:
+                print(" -- (JPQ matrix not found)")
 
         # mass matrix
         if need_mass_matrix:
@@ -358,6 +382,7 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
                 got_mass_matrix = True
             except:
                 print(" -- (mass matrix not found)")
+
     else:
         print(" -- load directory " + load_dir + " not found -- will assemble the Nitsche matrices...")
 
@@ -482,6 +507,79 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
         save_npz(load_dir+'GDS_m.npz', GDS_m)
         time_count(t_stamp)
 
+    if not got_D_matrix:
+
+        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        # IP model for < div v, q >  bilinear form on V x Q
+        # with stiffness matrix of shape dim_V x dim_Q
+        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+        V = Vh.symbolic_space
+        Q = Qh.symbolic_space
+        domain = V.domain
+
+        v  = element_of(V, name='v')
+        q  = element_of(Q, name='q')
+        nn  = NormalVector('nn')
+
+        I        = domain.interfaces
+        boundary = domain.boundary
+
+        jump = lambda w:plus(w)-minus(w)
+        avr = lambda w:(plus(w) + minus(w))/2
+
+        expr_d   = -dot(v,grad(q))
+        expr_d_I = -dot(nn, avr(v))*jump(q)   # nn is n- so (q-n- + q+n+) is -nn*jump(q)
+        expr_d_b =  dot(nn,     v )*q
+
+        # a_d  = BilinearForm((v,q),  integral(domain, expr_d) + integral(I, expr_d_I) + integral(boundary, expr_d_b))
+
+        a_d  = BilinearForm((v,q),  integral(domain, expr_d)) # test
+        # no symmetrization terms here
+
+        # div matrix
+        a_h = discretize(a_d, domain_h, [Vh, Qh], backend=PSYDAC_BACKENDS[backend_language])
+        A = a_h.assemble()
+        D_m  = A.tosparse().tocsr()
+
+        print(" -- now saving this matrix in " + load_dir + "...")
+        os.makedirs(load_dir)
+        t_stamp = time_count(t_stamp)
+        save_npz(load_dir+'D_m.npz', G_m)
+        time_count(t_stamp)
+
+    if not got_JPQ_matrix:
+
+        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        # IP matrix on Q (H1 scalar space)
+        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+        Q = Qh.symbolic_space
+        domain = Q.domain
+
+        p,q  = elements_of(Q, names='p,q')
+
+        I        = domain.interfaces
+        boundary = domain.boundary
+
+        jump = lambda w:plus(w)-minus(w)
+
+        # jump penalization
+        expr_jp_I = jump(p)*jump(q)
+        expr_jp_b = p*q
+        a_jp = BilinearForm((p,q),  integral(I, expr_jp_I) + integral(boundary, expr_jp_b))
+
+        # jump penalization matrix
+        a_h = discretize(a_jp, domain_h, [Qh, Qh], backend=PSYDAC_BACKENDS[backend_language])
+        A = a_h.assemble()
+        JPQ_m  = A.tosparse().tocsr()
+
+        print(" -- now saving this matrix in " + load_dir + "...")
+        os.makedirs(load_dir)
+        t_stamp = time_count(t_stamp)
+        save_npz(load_dir+'JPQ_m.npz', JPQ_m)
+        time_count(t_stamp)
+
     if not got_mass_matrix:
         print(" -- assembling the mass matrix (and saving to file)...")
         V = Vh.symbolic_space
@@ -499,7 +597,7 @@ def nitsche_operators_2d(domain_h, Vh, k=None, load_dir=None, backend_language='
     # raise NotImplementedError
     GD_m = IGD_m + k*GDS_m
 
-    return CC_m, GD_m, JP_m, M_m
+    return CC_m, GD_m, D_m, JP_m, JPQ_m, M_m
 
 # ---------------------------------------------------------------------------------------------------------------
 
@@ -946,18 +1044,7 @@ if __name__ == '__main__':
     V2h = derham_h.V2
     nquads = [d + 1 for d in degree]
 
-    if DG_full:
-        V_dg  = VectorFunctionSpace('V_dg', domain, kind='Hcurl')
-        W_dg  = VectorFunctionSpace('W_dg', domain, kind='H1')  # discretization hack
-        Vh_dg = discretize(W_dg, domain_h, degree=degree, basis='B') # should be full-degree
-        Vh_dg.symbolic_space = V_dg  # so that it's defined by 1-form push-forwards
-        print('Vh_dg.degree = ', Vh_dg.degree)
-        print('V1h.degree = ', V1h.degree)
-
-    else:
-        Vh_dg = V1h
-
-    # getting CONGA matrices -- also needed with nitsche method ????  (M1_m, and some other for post-processing)
+    # getting CONGA matrices -- may also needed with nitsche method, depending on the options ?  (eg M1_m)
     load_dir = get_load_dir(method='conga', domain_name=domain_name, nc=nc, deg=deg)
     M_mats, P_mats, D_mats, IK_mats = get_elementary_conga_matrices(
         domain_h, derham_h, load_dir=load_dir, backend_language=backend_language,
@@ -1072,14 +1159,32 @@ if __name__ == '__main__':
     #   operator matrices
     # ------------------------------------------------------------------------------------------
 
+
     if method == 'conga':
         CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m = conga_operators_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
                                                  hom_bc=hom_bc)
         M_m = M1_m
 
     elif method == 'nitsche':
+        # define the DG spaces
+        if DG_full:
+            V_dg  = VectorFunctionSpace('V_dg', domain, kind='Hcurl')
+            W_dg  = VectorFunctionSpace('W_dg', domain, kind='H1')  # discretization hack
+            Vh_dg = discretize(W_dg, domain_h, degree=degree, basis='B') # should be full-degree
+            Vh_dg.symbolic_space = V_dg  # so that it's defined by 1-form push-forwards        ####  -> but doesnt work (13 oct)
+            print('Vh_dg.degree = ', Vh_dg.degree)
+            print('V1h.degree = ', V1h.degree)
+        else:
+            Vh_dg = V1h
+
+        if dc_pbm:
+            Qh_dg = V0h
+        else:
+            Qh_dg = None
+
         load_dir = get_load_dir(method='nitsche', DG_full=DG_full, domain_name=domain_name, nc=nc, deg=deg)
-        CC_m, GD_m, JP_m, M_m = nitsche_operators_2d(domain_h, Vh=Vh_dg, k=k, load_dir=load_dir,
+        CC_m, GD_m, D_m, JP_m, JPQ_m, M_m = nitsche_operators_2d(domain_h, Vh=Vh_dg, Qh=Qh_dg, k=k, load_dir=load_dir,
+                                               need_D_matrix=dc_pbm, need_JPQ_matrix=dc_pbm,
                                                need_GD_matrix=(nu != 0),
                                                need_mass_matrix=DG_full, backend_language=backend_language)
 
@@ -1101,11 +1206,14 @@ if __name__ == '__main__':
 
     if dc_pbm:
         # building operator for divergence-constrained pbm
-        assert method == 'conga'
-        I0_m = IdLinearOperator(V0h).to_sparse_matrix()
-        jump_penal_V0_hom_m = I0_m-cP0_hom_m
-        JP0_m = jump_penal_V0_hom_m.transpose() * M0_m * jump_penal_V0_hom_m
-        G_m = M1_m @ bD0_m @ cP0_hom_m # stiffness matrix of gradient operator, with penalization
+        if method == 'conga':
+            I0_m = IdLinearOperator(V0h).to_sparse_matrix()
+            jump_penal_V0_hom_m = I0_m-cP0_hom_m
+            JP0_m = jump_penal_V0_hom_m.transpose() * M0_m * jump_penal_V0_hom_m
+            G_m = M1_m @ bD0_m @ cP0_hom_m # stiffness matrix of gradient operator, with penalization
+        else:
+            JP0_m = JPQ_m
+            G_m = -D_m.transpose()
         DCA_m = bmat([[A_m, G_m], [G_m.transpose(), gamma_h * JP0_m]])
     else:
         DCA_m = None
