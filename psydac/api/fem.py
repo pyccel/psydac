@@ -214,8 +214,6 @@ class DiscreteBilinearForm(BasicDiscrete):
             # If process does not own the boundary or interface, do not assemble anything
             if isinstance(test_space.vector_space, BlockVectorSpace):
                 vector_space = test_space.vector_space.spaces[0]
-                if isinstance(test_space.vector_space, BlockVectorSpace):
-                    vector_space = test_space.vector_space.spaces[0]
             else:
                 vector_space = test_space.vector_space
 
@@ -358,6 +356,12 @@ class DiscreteBilinearForm(BasicDiscrete):
         is_broken       = len(domain)>1
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
+            if not isinstance(test_degree[0],(list, tuple, np.ndarray)):
+                test_degree = [test_degree]
+
+            if not isinstance(trial_degree[0],(list, tuple, np.ndarray)):
+                trial_degree = [trial_degree]
+
             pads         = np.empty((len(test_degree),len(trial_degree),len(test_degree[0])), dtype=int)
             for i in range(len(test_degree)):
                 for j in range(len(trial_degree)):
@@ -387,6 +391,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                     if expr[k1,k2].is_zero:
                         continue
 
+                    ts_space = test_space.spaces[k1] if isinstance(test_space, BlockVectorSpace) else test_space
+                    tr_space = trial_space.spaces[k2] if isinstance(trial_space, BlockVectorSpace) else trial_space
                     if matrix[k1,k2]:
                         global_mats[k1,k2] = matrix[k1,k2]
                     elif not i == j: # assembling in an interface (type(target) == Interface)
@@ -398,15 +404,15 @@ class DiscreteBilinearForm(BasicDiscrete):
                         flip = [target.direction]*domain.dim
                         flip[axis] = 1
                         if self._func != do_nothing:
-                            global_mats[k1,k2] = StencilInterfaceMatrix(trial_space.spaces[k2], test_space.spaces[k1],
+                            global_mats[k1,k2] = StencilInterfaceMatrix(tr_space, ts_space,
                                                                         s_d, s_c,
                                                                         axis, pads=tuple(pads[k1,k2]), 
                                                                         flip=flip)
                     else:
-                        global_mats[k1,k2] = StencilMatrix(trial_space.spaces[k2],
-                                                                test_space.spaces[k1],
-                                                                pads = tuple(pads[k1,k2]),
-                                                                backend=backend)
+                        global_mats[k1,k2] = StencilMatrix(tr_space,
+                                                           ts_space,
+                                                           pads = tuple(pads[k1,k2]),
+                                                           backend=backend)
 
                     element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*(2*pads[k1,k2]+1)))
                     matrix[k1,k2]        = global_mats[k1,k2]
