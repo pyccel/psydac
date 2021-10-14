@@ -634,8 +634,6 @@ class CartDataExchanger:
         # Wait for end of data exchange (MPI_WAITALL)
         MPI.Request.Waitall( requests )
 
-        comm.Barrier()
-
     def update_assembly_ghost_regions( self, array ):
         """
         Update ghost regions after the assembly algorithm in a numpy array with dimensions compatible with
@@ -702,7 +700,6 @@ class CartDataExchanger:
                 idx_to   = tuple(slice(s-p,s+b-p) for s,b,p in zip(info['recv_starts'],info['buf_shape'],pads))
                 array[idx_to] += array[idx_from]
 
-        comm.Barrier()
 
     def update_ghost_regions_all_directions_non_blocking( self, array, disp ):
 
