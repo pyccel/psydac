@@ -532,9 +532,8 @@ def nitsche_operators_2d(domain_h, Vh, Qh=None, k=None, load_dir=None, backend_l
         expr_d_I = -dot(nn, avr(v))*jump(q)   # nn is n- so (q-n- + q+n+) is -nn*jump(q)
         expr_d_b =  dot(nn,     v )*q
 
-        # a_d  = BilinearForm((v,q),  integral(domain, expr_d) + integral(I, expr_d_I) + integral(boundary, expr_d_b))
-
-        a_d  = BilinearForm((v,q),  integral(domain, expr_d)) # test
+        a_d  = BilinearForm((v,q),  integral(domain, expr_d) + integral(I, expr_d_I) + integral(boundary, expr_d_b))
+        # a_d  = BilinearForm((v,q),  integral(domain, expr_d)) # test
         # no symmetrization terms here
 
         # div matrix
