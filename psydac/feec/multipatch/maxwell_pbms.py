@@ -63,7 +63,7 @@ from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
 
 from psydac.feec.multipatch.api import discretize
-from psydac.feec.pull_push     import pull_2d_hcurl
+from psydac.feec.pull_push     import pull_2d_h1, pull_2d_hcurl
 
 from psydac.linalg.utilities import array_to_stencil
 
@@ -82,7 +82,7 @@ comm = MPI.COMM_WORLD
 
 # ---------------------------------------------------------------------------------------------------------------
 # small utility for saving/loading sparse matrices, plots...
-def rhs_fn(source_type, nbc=False, eta=None, mu=None, nu=None, dc_pbm=False, npz_suffix=True, prefix=True):
+def rhs_fn(source_type, nbc=False, eta=None, mu=None, nu=None, dc_pbm=False, npz_suffix=True, prefix=True, P1_source=False):
     if prefix:
         fn = 'rhs_'
     else:
@@ -90,6 +90,8 @@ def rhs_fn(source_type, nbc=False, eta=None, mu=None, nu=None, dc_pbm=False, npz
     fn += source_type
     if dc_pbm:
         fn += '_dc_pbm'
+    if P1_source:
+        fn += '_P1s'
     if source_type == 'manu_J':
         assert (eta is not None) and (mu is not None) and (nu is not None)
         fn += '_eta'+repr(eta)+'_mu'+repr(mu)+'_nu'+repr(nu)
@@ -270,7 +272,7 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
     return M_mats, P_mats, D_mats, IK_mats
 
 
-def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, hom_bc=True):
+def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, hom_bc=True, need_GD_matrix=False):
     """
     computes
         CC_m: the (unpenalized) CONGA (stiffness) matrix of the curl-curl operator in V1, with homogeneous bc
@@ -291,19 +293,25 @@ def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
     D1_hom_m = bD1_m @ cP1_hom_m
     CC_m = D1_hom_m.transpose() @ M2_m @ D1_hom_m
 
-    # grad_div matrix (stiffness, i.e. left-multiplied by M1_m) :
-    # D0_hom_m = bD0_m @ cP0_hom_m   # matrix of conga gradient
-    # div_aux_m = D0_hom_m.transpose() @ M1_m  # the matrix of the (weak) div operator is  - M0_minv * div_aux_m
-    # GD_m = - div_aux_m.transpose() * M0_minv * div_aux_m
-    pre_GD_m = - M1_m @ bD0_m @ cP0_hom_m @ M0_minv @ cP0_hom_m.transpose() @ bD0_m.transpose() @ M1_m
-    GD_m = cP1_hom_m.transpose() @ pre_GD_m @ cP1_hom_m
+    if need_GD_matrix:
+        print('computing also Conga grad-div matrix...')
+        # grad_div matrix (stiffness, i.e. left-multiplied by M1_m) :
+        # D0_hom_m = bD0_m @ cP0_hom_m   # matrix of conga gradient
+        # div_aux_m = D0_hom_m.transpose() @ M1_m  # the matrix of the (weak) div operator is  - M0_minv * div_aux_m
+        # GD_m = - div_aux_m.transpose() * M0_minv * div_aux_m
+        pre_GD_m = - M1_m @ bD0_m @ cP0_hom_m @ M0_minv @ cP0_hom_m.transpose() @ bD0_m.transpose() @ M1_m
+        GD_m = cP1_hom_m.transpose() @ pre_GD_m @ cP1_hom_m
+    else:
+        GD_m = None
 
     if not hom_bc:
         # then we also need the matrix of the non-homogeneous operator
         D1_m = bD1_m * cP1_m
         CC_bc_m = D1_hom_m.transpose() * M2_m * D1_m
-        GD_bc_m = cP1_hom_m.transpose() @ pre_GD_m @ cP1_m
-
+        if need_GD_matrix:
+            GD_bc_m = cP1_hom_m.transpose() @ pre_GD_m @ cP1_m
+        else:
+            GD_bc_m = None
     else:
         CC_bc_m = None
         GD_bc_m = None
@@ -679,6 +687,9 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
     E_ex = None
     p_ex = None  # for dc_pbm
 
+    grad_phi = None # debug dc_pbm
+    phi = None  # debug dc_pbm
+
     x,y    = domain.coordinates
 
     if source_type == 'manu_J':
@@ -726,7 +737,7 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
         # curl-free J
         f = Tuple(10*sin(x), -10*sin(y))
 
-    elif source_type == 'ring_J':
+    elif source_type in ['ring_J', 'sring_J']:
 
         # 'rotating' (divergence-free) J field:
         #   J = j(r) * (-sin theta, cos theta)
@@ -767,30 +778,44 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
 
             elif source_option==2:
                 # small circle in corner:
+                if source_type == 'ring_J':
+                    dr = 0.2
+                else:
+                    # smaller ring
+                    dr = 0.1
+                    assert source_type == 'sring_J'
                 r0 = 1
-                dr = 0.2
                 x0 = 1.5
                 y0 = 1.5
                 J_factor = 10
 
-            elif source_option==3:
-                # small circle in corner, seems less interesting
-                r0 = 0.0
-                dr = 0.05
-                x0 = 0.9
-                y0 = 0.9
-                J_factor = 10
+            # elif source_option==3:
+            #     # small circle in corner, seems less interesting
+            #     r0 = 0.0
+            #     dr = 0.05
+            #     x0 = 0.9
+            #     y0 = 0.9
+            #     J_factor = 10
             else:
                 raise NotImplementedError
 
         # note: some other currents give sympde or numba errors, see below [1]
-        J_x = -J_factor * (y-y0) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )   # /(x**2 + y**2)
-        J_y =  J_factor * (x-x0) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
+        phi = J_factor * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
+
+        # previous J:
+        # J_x = -J_factor * (y-y0) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )   # /(x**2 + y**2)
+        # J_y =  J_factor * (x-x0) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
+        J_x = - (y-y0) * phi
+        J_y =   (x-x0) * phi
 
         if dc_pbm:
             # J just above is div-free, for the divergence-constrained problem we add a gradient term (with hom. bc) in the source
-            J_x += J_factor * (x-x0) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
-            J_y += J_factor * (y-y0) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
+            # phi = J_factor * (( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr**2) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
+            dx_phi = - 2*(x-x0) * (( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr**2) * phi
+            dy_phi = - 2*(y-y0) * (( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr**2) * phi
+            J_x += dx_phi
+            J_y += dy_phi
+            grad_phi = Tuple(dx_phi, dy_phi)
 
         f = Tuple(J_x, J_y)
 
@@ -810,7 +835,7 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
     else:
         raise ValueError(source_type)
 
-    return f, E_bc, E_ref_vals, E_ex, p_ex
+    return f, E_bc, E_ref_vals, E_ex, p_ex, phi, grad_phi
 
 # --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * ---
 # --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * ---
@@ -898,9 +923,19 @@ if __name__ == '__main__':
     )
 
     parser.add_argument( '--source',
-        choices = ['manu_J', 'ring_J', 'df_J', 'cf_J'],
+        choices = ['manu_J', 'ring_J', 'sring_J', 'df_J', 'cf_J'],
         default = 'manu_J',
         help    = 'type of source (manufactured or circular J)'
+    )
+
+    parser.add_argument( '--P1_source',
+        action  = 'store_true',
+        help    = 'approximate the source in V1h with commuting projection P1, instead of L2 projection'
+    )
+
+    parser.add_argument( '--save_E_vals',
+        action  = 'store_true',
+        help    = 'save the values of E on cdiag grid, for further comparisons'
     )
 
     parser.add_argument( '--eta',
@@ -923,8 +958,14 @@ if __name__ == '__main__':
 
     parser.add_argument( '--dc_pbm',
         action  = 'store_true',
-        help    = 'curl-curl pbm with div-free constraint and Lagrange multiplier p [[shunts most of the rest]]'
+        help    = 'curl-curl pbm with div-free constraint and Lagrange multiplier p [[WIP -- shunts some of the rest]]'
     )
+
+    parser.add_argument( '--P1_dc',
+        action  = 'store_true',
+        help    = 'variant for div-free constraint (for Conga, apply it on cP1_hom @ sol)'
+    )
+
 
     # Read input arguments
     args         = parser.parse_args()
@@ -940,12 +981,15 @@ if __name__ == '__main__':
     proj_sol     = args.proj_sol
     problem      = args.problem
     source_type  = args.source
+    P1_source    = args.P1_source
     eta          = args.eta
     mu           = args.mu
     nu           = args.nu
     dc_pbm       = args.dc_pbm
+    P1_dc        = args.P1_dc
     no_plots     = args.no_plots
     hide_plots   = args.hide_plots
+    save_E_vals  = args.save_E_vals
 
     do_plots = not no_plots
 
@@ -970,10 +1014,9 @@ if __name__ == '__main__':
     print()
     print('--------------------------------------------------------------------------------------------------------------')
     if dc_pbm:
-        print(' solving div-constrained problem')
-        print('     grad p + curl curl u = f')
-        print('                    div u = 0')
-        print(' with: ')
+        print(' solving div-constrained source problem')
+        print('     grad p + A u = f')
+        print('            div u = 0')
     else:
         print(' solving '+problem)
         if problem == 'source_pbm':
@@ -982,8 +1025,8 @@ if __name__ == '__main__':
             print('     A u = sigma * u')
         else:
             raise ValueError(problem)
-        print(' with: ')
-        print(' - operator:     A u = ({0}) * u + ({1}) * curl curl u - ({2}) * grad div u'.format(eta, mu, nu))
+    print(' with: ')
+    print(' - operator:     A u = ({0}) * u + ({1}) * curl curl u - ({2}) * grad div u'.format(eta, mu, nu))
     print(' - domain:       '+domain_name)
     if problem == 'source_pbm':
         print(' - source:       '+source_type)
@@ -1030,12 +1073,12 @@ if __name__ == '__main__':
 
     # cell-centered grid to compute approx L2 norm
     etas_cdiag, xx_cdiag, yy_cdiag, patch_logvols = get_plotting_grid(mappings, N=N_diag, centered_nodes=True, return_patch_logvols=True)
-    # grid_vals_h1_cdiag = lambda v: get_grid_vals_scalar(v, etas_cdiag, mappings_list, space_kind='h1')
+    grid_vals_h1_cdiag = lambda v: get_grid_vals_scalar(v, etas_cdiag, mappings_list, space_kind='h1')
     grid_vals_hcurl_cdiag = lambda v: get_grid_vals_vector(v, etas_cdiag, mappings_list, space_kind='hcurl')
 
     # todo: add some identifiers for secondary parameters (eg gamma_h, proj_sol ...)
     fem_name = get_fem_name(method=method, DG_full=DG_full, geo_cproj=geo_cproj, k=k, domain_name=domain_name,nc=nc,deg=deg)
-    rhs_name = rhs_fn(source_type,eta=eta,mu=mu,nu=nu,dc_pbm=dc_pbm,npz_suffix=False,prefix=False)
+    rhs_name = rhs_fn(source_type,eta=eta,mu=mu,nu=nu,dc_pbm=dc_pbm,P1_source=P1_source,npz_suffix=False,prefix=False)
     plot_dir = './plots/'+rhs_name+'_'+fem_name+'/'
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
@@ -1056,7 +1099,7 @@ if __name__ == '__main__':
     load_dir = get_load_dir(method='conga', domain_name=domain_name, nc=nc, deg=deg)
     M_mats, P_mats, D_mats, IK_mats = get_elementary_conga_matrices(
         domain_h, derham_h, load_dir=load_dir, backend_language=backend_language,
-        discard_non_hom_matrices=(source_type=='ring_J')
+        discard_non_hom_matrices=(source_type in ['ring_J', 'sring_J'])
     )
     [M0_m, M1_m, M2_m, M0_minv] = M_mats
     [bsp_P0_m, bsp_P1_m, bsp_P0_hom_m, bsp_P1_hom_m] = P_mats  # BSpline-based conf Projections
@@ -1114,11 +1157,10 @@ if __name__ == '__main__':
     f = None
     E_ex = None
     E_ref_vals = None
-    save_E_vals = False
     E_vals_filename = None
 
-    # Eh saved/loaded as numpy array of FEM coefficients (mostly for further diagnostics)
-    save_Eh = False
+    # Eh saved/loaded as numpy array of FEM coefficients ?
+    # save_Eh = False
     Eh = None
 
     if problem == 'source_pbm':
@@ -1132,30 +1174,26 @@ if __name__ == '__main__':
         # source_type = 'ring_J'
         # source_type = 'manu_sol'
 
-        f, E_bc, E_ref_vals, E_ex, p_ex = get_source_and_solution(source_type=source_type, eta=eta, mu=mu, nu=nu, domain=domain,
+        f, E_bc, E_ref_vals, E_ex, p_ex, phi, grad_phi = get_source_and_solution(source_type=source_type, eta=eta, mu=mu, nu=nu, domain=domain,
                                                              refsol_params=[nc_ref, deg_ref, N_diag, method_ref], dc_pbm=dc_pbm)
 
         if E_ref_vals is None:
             print('-- no ref solution found')
 
-        # print("[[ FORCING: discard E_bc ]]")
-        # E_bc = None
-
-        # todo: discard if same as E_ref ?
-
-        solutions_dir = get_load_dir(method=method, DG_full=DG_full, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
-        E_vals_filename = solutions_dir+E_ref_fn(source_type, N_diag, dc_pbm=dc_pbm)
-        save_E_vals = True
-        if not os.path.exists(solutions_dir):
-            os.makedirs(solutions_dir)
-
-        # disabled for now -- if with want to save the coeffs we need to store more parameters (gamma, proj_sol, etc...)
-        save_Eh = False
-        if save_Eh:
-            Eh_filename = solutions_dir+Eh_coeffs_fn(source_type, N_diag)
-            print("-- I will also save the present solution coefficients in file '"+Eh_filename+"' --")
+        if save_E_vals:
+            solutions_dir = get_load_dir(method=method, DG_full=DG_full, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
+            E_vals_filename = solutions_dir+E_ref_fn(source_type, N_diag, dc_pbm=dc_pbm)
+            print( "for further comparisons, will save E_vals in "+E_vals_filename)
             if not os.path.exists(solutions_dir):
                 os.makedirs(solutions_dir)
+
+        # disabled for now -- if with want to save the coeffs we need to store more parameters (gamma, proj_sol, etc...)
+        # save_Eh = False
+        # if save_Eh:
+        #     Eh_filename = solutions_dir+Eh_coeffs_fn(source_type, N_diag)
+        #     print("-- I will also save the present solution coefficients in file '"+Eh_filename+"' --")
+        #     if not os.path.exists(solutions_dir):
+        #         os.makedirs(solutions_dir)
 
         hom_bc = (E_bc is None)
     else:
@@ -1170,7 +1208,7 @@ if __name__ == '__main__':
 
     if method == 'conga':
         CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m = conga_operators_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
-                                                 hom_bc=hom_bc)
+                                                 hom_bc=hom_bc, need_GD_matrix=(nu != 0))
         M_m = M1_m
 
     elif method == 'nitsche':
@@ -1202,7 +1240,7 @@ if __name__ == '__main__':
     else:
         raise ValueError(method)
 
-    A_m = mu*CC_m - nu*GD_m + gamma_h*JP_m
+    A_m = mu*CC_m + gamma_h*JP_m
 
     if eta != 0:
         # zero-order term
@@ -1212,17 +1250,25 @@ if __name__ == '__main__':
         else:
             A_m += eta * M_m
 
+    if nu != 0:
+        A_m -= nu*GD_m
+
     if dc_pbm:
         # building operator for divergence-constrained pbm
         if method == 'conga':
             I0_m = IdLinearOperator(V0h).to_sparse_matrix()
             jump_penal_V0_hom_m = I0_m-cP0_hom_m
             JP0_m = jump_penal_V0_hom_m.transpose() * M0_m * jump_penal_V0_hom_m
+
             G_m = M1_m @ bD0_m @ cP0_hom_m # stiffness matrix of gradient operator, with penalization
+            if P1_dc:
+                print(" [P1_dc]: filtering the gradient operator ")
+                G_m = cP1_hom_m.transpose() @ G_m
         else:
+            # try with Nitsche:
             JP0_m = JPQ_m
             G_m = -D_m.transpose()
-        DCA_m = bmat([[A_m, G_m], [G_m.transpose(), gamma_h * JP0_m]])
+        DCA_m = bmat([[A_m, G_m], [-G_m.transpose(), gamma_h * JP0_m]])
     else:
         DCA_m = None
 
@@ -1234,8 +1280,13 @@ if __name__ == '__main__':
         return np.dot(du_c,M1_m.dot(du_c))**0.5
 
     def grad_div_norm(u_c):
-        du_c = GD_m.dot(u_c)
-        return np.dot(du_c,M1_m.dot(du_c))**0.5
+        if nu != 0:
+            du_c = GD_m.dot(u_c)
+            return np.dot(du_c,M1_m.dot(du_c))**0.5
+        else:
+            print("-- cannot compute grad_div_norm")
+            return -1
+
 
     # lifting of BC
     lift_E_bc = (problem == 'source_pbm' and method == 'conga' and not hom_bc and not dc_pbm)
@@ -1300,7 +1351,7 @@ if __name__ == '__main__':
         if not os.path.exists(rhs_load_dir):
             os.makedirs(rhs_load_dir)
 
-        rhs_filename = rhs_load_dir+rhs_fn(source_type,eta=eta,mu=mu,nu=nu,dc_pbm=dc_pbm)
+        rhs_filename = rhs_load_dir+rhs_fn(source_type,eta=eta,mu=mu,nu=nu,dc_pbm=dc_pbm, P1_source=P1_source)
         if os.path.isfile(rhs_filename):
             print("getting rhs array from file "+rhs_filename)
             with open(rhs_filename, 'rb') as file:
@@ -1309,8 +1360,8 @@ if __name__ == '__main__':
         else:
             print("-- no rhs file '"+rhs_filename+" -- so I will assemble the source")
 
-            if source_type == 'cf_J':
-                # J_h = P1-geometric projection of J
+            if P1_source:
+                # J_h = P1-geometric (commuting) projection of J
                 P0, P1, P2 = derham_h.projectors(nquads=nquads)
                 f_x = lambdify(domain.coordinates, f[0])
                 f_y = lambdify(domain.coordinates, f[1])
@@ -1318,6 +1369,7 @@ if __name__ == '__main__':
                 f_h = P1(f_log)
                 f_c = f_h.coeffs.toarray()
                 b_c = M1_m.dot(f_c)
+
             else:
                 # J_h = L2 projection of J
                 v  = element_of(V1h.symbolic_space, name='v')
@@ -1338,7 +1390,7 @@ if __name__ == '__main__':
         if method == 'nitsche' and not hom_bc:
             print("(non hom.) bc with nitsche: need some additional rhs arrays.")
             # need additional terms for the bc with nitsche
-            rhs_filename = rhs_load_dir+rhs_fn(source_type, nbc=True, eta=eta,mu=mu,nu=nu,dc_pbm=dc_pbm)
+            rhs_filename = rhs_load_dir+rhs_fn(source_type, nbc=True, eta=eta,mu=mu,nu=nu,dc_pbm=dc_pbm, P1_source=P1_source)
             if os.path.isfile(rhs_filename):
                 print("getting them from file "+rhs_filename)
                 with open(rhs_filename, 'rb') as file:
@@ -1530,17 +1582,30 @@ if __name__ == '__main__':
             AA_m = A_m.tocsc()
             bb_c = b_c
 
+        print('REF RUN: SAVING b_c in ref_b_c and AA_m in ref_AA_m...')
         t_stamp = time_count(t_stamp)
-        try:
+
+        bc_filename = 'ref_bb_c'
+        with open(bc_filename, 'wb') as file:
+            np.savez(file, ref_bb_c=bb_c)
+        AA_filename = 'ref_AA_m'
+        with open(bc_filename, 'wb') as file:
+            np.savez(file, ref_AA_m=AA_m)
+
+        t_stamp = time_count(t_stamp)
+        try_solve = False
+        if try_solve:
+        # try:
             print("trying direct solve with scipy spsolve...")   #todo: use for small problems [[ or: try catch ??]]
             sol_c = spsolve(AA_m, bb_c)
-
-        except Exception as e:
-            print("did not work (Exception: {})-- trying with scipy lgmres...".format(e))
-            print(" -- with approximate inverse using ILU decomposition -- ")
+        #
+        # except Exception as e:
+        else:
+            # print("did not work (Exception: {})-- trying with scipy lgmres...".format(e))
+            print(" -- solving with approximate inverse using ILU decomposition -- ")
             # A_csc = A_m.tocsc()
             AA_spilu = spilu(AA_m)
-            # AA_spilu = spilu(AA_m, fill_factor=100, drop_tol=1e-6)  # better preconditionning, if matrix not too large
+            # AA_spilu = spilu(AA_m, fill_factor=15, drop_tol=5e-5)  # better preconditionning, if matrix not too large
             # print('**** AA: ',  AA_m.shape )
 
             preconditioner = LinearOperator( AA_m.shape, lambda x: AA_spilu.solve(x) )
@@ -1586,16 +1651,16 @@ if __name__ == '__main__':
         Eh = FemField(V1h, coeffs=array_to_stencil(Eh_c, V1h.vector_space))
 
         if dc_pbm:
-            ph_c = FemField(V0h, coeffs=array_to_stencil(ph_c, V0h.vector_space))
+            ph = FemField(V0h, coeffs=array_to_stencil(ph_c, V0h.vector_space))
 
-        if save_Eh:
-            # MCP: I think this should be discarded....
-            if os.path.isfile(Eh_filename):
-                print('(solution coeff array is already saved, no need to save it again)')
-            else:
-                print("saving solution coeffs (for future needs) in new file "+Eh_filename)
-                with open(Eh_filename, 'wb') as file:
-                    np.savez(file, array_coeffs=Eh_c)
+        # if save_Eh:
+        #     # MCP: I think this should be discarded....
+        #     if os.path.isfile(Eh_filename):
+        #         print('(solution coeff array is already saved, no need to save it again)')
+        #     else:
+        #         print("saving solution coeffs (for future needs) in new file "+Eh_filename)
+        #         with open(Eh_filename, 'wb') as file:
+        #             np.savez(file, array_coeffs=Eh_c)
 
         #+++++++++++++++++++++++++++++++
         # plotting and diagnostics
@@ -1658,15 +1723,127 @@ if __name__ == '__main__':
             )
 
         # error measure with centered-valued grid
+        quad_weights = get_grid_quad_weights(etas_cdiag, patch_logvols, mappings_list)
         Eh_x_vals, Eh_y_vals = grid_vals_hcurl_cdiag(Eh)
+        xx = xx_cdiag
+        yy = yy_cdiag
 
         if save_E_vals:
             print("saving solution values (on cdiag grid) in new file (for future needs)"+E_vals_filename)
             with open(E_vals_filename, 'wb') as file:
                 np.savez(file, x_vals=Eh_x_vals, y_vals=Eh_y_vals)
 
-        xx = xx_cdiag
-        yy = yy_cdiag
+        if dc_pbm and source_type in ['ring_J', 'sring_J']:
+
+            # visual diff between grad p and grad phi
+            P0, P1, P2 = derham_h.projectors(nquads=nquads)
+
+            # grad phi
+            phi = lambdify(domain.coordinates, phi)
+            phi_log = [pull_2d_h1(phi, m) for m in mappings_list]
+            phi_h = P0(phi_log)
+            phi_c = phi_h.coeffs.toarray()
+            dphi_c = bD0_m @ phi_c
+            dphi_h = FemField(V1h, coeffs=array_to_stencil(dphi_c, V1h.vector_space))  # grad phi (in source)
+
+            # grad phi (in source)
+            f2_x = lambdify(domain.coordinates, grad_phi[0])
+            f2_y = lambdify(domain.coordinates, grad_phi[1])
+            f2_log = [pull_2d_hcurl([f2_x, f2_y], m) for m in mappings_list]
+            f2_h = P1(f2_log)
+            # f2_c = f2_h.coeffs.toarray()
+            # # b2_c = M1_m.dot(f2_c)
+            # f2_h = FemField(V1h, coeffs=array_to_stencil(f2_c, V1h.vector_space))  # grad phi (in source)
+
+            dp_c =  bD0_m @ cP0_m @ ph_c
+            dp_h = FemField(V1h, coeffs=array_to_stencil(dp_c, V1h.vector_space))  # grad p (in sol)
+            dp_x_vals, dp_y_vals = grid_vals_hcurl_cdiag(dp_h)
+            dphi_x_vals, dphi_y_vals = grid_vals_hcurl_cdiag(dphi_h)
+            f2_x_vals, f2_y_vals = grid_vals_hcurl_cdiag(f2_h)
+
+            # compare dp and dphi
+            dp_x_err = [(u1 - u2) for u1, u2 in zip(dphi_x_vals, dp_x_vals)]
+            dp_y_err = [(u1 - u2) for u1, u2 in zip(dphi_y_vals, dp_y_vals)]
+            my_small_plot(
+                title=r'approximation of term $\nabla \phi$, $x$ component',
+                vals=[dphi_x_vals, dp_x_vals, dp_x_err],
+                titles=[r'$d_x \phi$', r'$d_x p$', r'diff'],
+                xx=xx,
+                yy=yy,
+                save_fig=plot_dir+'err_dpx.png',
+                hide_plot=hide_plots,
+                surface_plot=True
+                # gridlines_x1=gridlines_x1,
+                # gridlines_x2=gridlines_x2,
+            )
+            my_small_plot(
+                title=r'approximation of term $\nabla \phi$, $y$ component',
+                vals=[dphi_y_vals, dp_y_vals, dp_y_err],
+                titles=[r'$d_y \phi$', r'$d_x p$', r'diff'],
+                xx=xx,
+                yy=yy,
+                save_fig=plot_dir+'err_dpy.png',
+                hide_plot=hide_plots,
+                surface_plot=True
+                # gridlines_x1=gridlines_x1,
+                # gridlines_x2=gridlines_x2,
+            )
+            dp_errors_cdiag = [np.sqrt( (e1)**2 + (e2)**2 )
+                       for e1, e2 in zip(dp_x_err, dp_y_err)]
+            l2_error = (np.sum([J_F * err**2 for err, J_F in zip(dp_errors_cdiag, quad_weights)]))**0.5
+
+            err_message = '(grad p - grad phi) error: {}\n'.format(l2_error)
+            print('\n** '+err_message)
+
+            # compare dphi and f2
+            dp_x_err = [(u1 - u2) for u1, u2 in zip(f2_x_vals, dp_x_vals)]
+            dp_y_err = [(u1 - u2) for u1, u2 in zip(f2_y_vals, dp_y_vals)]
+            my_small_plot(
+                title=r'approximation of term $f_2$, $x$ component',
+                vals=[f2_x_vals, dp_x_vals, dp_x_err],
+                titles=[r'$f_{2,x}$', r'$d_x p$', r'diff'],
+                xx=xx,
+                yy=yy,
+                save_fig=plot_dir+'err_f2x.png',
+                hide_plot=hide_plots,
+                surface_plot=True
+                # gridlines_x1=gridlines_x1,
+                # gridlines_x2=gridlines_x2,
+            )
+            my_small_plot(
+                title=r'approximation of term $f_2$, $y$ component',
+                vals=[f2_y_vals, dp_y_vals, dp_y_err],
+                titles=[r'$f_{2,y}$', r'$d_x p$', r'diff'],
+                xx=xx,
+                yy=yy,
+                save_fig=plot_dir+'err_f2y.png',
+                hide_plot=hide_plots,
+                surface_plot=True
+                # gridlines_x1=gridlines_x1,
+                # gridlines_x2=gridlines_x2,
+            )
+            dp_errors_cdiag = [np.sqrt( (e1)**2 + (e2)**2 )
+                       for e1, e2 in zip(dp_x_err, dp_y_err)]
+            l2_error = (np.sum([J_F * err**2 for err, J_F in zip(dp_errors_cdiag, quad_weights)]))**0.5
+
+            err_message = '(grad p - f_2) error: {}\n'.format(l2_error)
+            print('\n** '+err_message)
+
+            # plot phi:
+            phi_vals = grid_vals_h1_cdiag(phi_h)
+            my_small_plot(
+                title=r'discrete $\phi_h$',
+                vals=[phi_vals],
+                titles=[r'$\phi$'],
+                xx=xx,
+                yy=yy,
+                save_fig=plot_dir+'phi.png',
+                hide_plot=hide_plots,
+                surface_plot=True
+                # gridlines_x1=gridlines_x1,
+                # gridlines_x2=gridlines_x2,
+            )
+
 
         if E_ref_vals is None:
             E_x_vals = np.zeros_like(Eh_x_vals)
@@ -1675,7 +1852,6 @@ if __name__ == '__main__':
             E_x_vals, E_y_vals = E_ref_vals
 
         only_last_patch = False
-        quad_weights = get_grid_quad_weights(etas_cdiag, patch_logvols, mappings_list)
         Eh_errors_cdiag = [np.sqrt( (u1-v1)**2 + (u2-v2)**2 )
                            for u1, v1, u2, v2 in zip(Eh_x_vals, E_x_vals, Eh_y_vals, E_y_vals)]
         if only_last_patch:
@@ -1753,6 +1929,8 @@ if __name__ == '__main__':
                 # gridlines_x1=gridlines_x1,
                 # gridlines_x2=gridlines_x2,
             )
+
+
 
     else:
         raise NotImplementedError

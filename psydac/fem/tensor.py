@@ -74,9 +74,9 @@ class TensorFemSpace( FemSpace ):
 
         self._quad_order = kwargs.pop('quad_order', None)
         if self._quad_order is None:
-            # self._quad_order = [sp.degree for sp in self.spaces]    ##### previous
-            self._quad_order = [4*sp.degree for sp in self.spaces]    ##### MCP HACK for higher quad order
-            print(" MCP quad_order hack: ", self._quad_order)
+            self._quad_order = [sp.degree for sp in self.spaces]    ##### previous
+            # self._quad_order = [2*sp.degree for sp in self.spaces]    ##### MCP HACK for higher quad order
+            # print(" MCP quad_order hack: ", self._quad_order)
 
         # Compute extended 1D quadrature grids (local to process) along each direction
         self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q)
