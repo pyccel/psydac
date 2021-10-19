@@ -364,9 +364,15 @@ class TransposeOperator(SplBasic):
         code = self._code
         tag = random_string( 8 )
         if backend and backend['name'] == 'pyccel':
-            imports = 'from pyccel.decorators import types'
-            # Add @types decorator due the  minimum required Pyccel version 0.10.1
-            dec     = '@types({})'.format(','.join(self._args_dtype))
+            import pyccel
+            from packaging import version
+            if version.parse(pyccel.__version__) < version.parse('1.1.0'):
+                # Add @types decorator due the  minimum required Pyccel version 0.10.1
+                imports = 'from pyccel.decorators import types'
+                dec     = '@types({})'.format(','.join(self._args_dtype))
+            else:
+                imports = ''
+                dec     = ''
         elif backend and backend['name'] == 'numba':
             imports = 'from numba import njit'
             dec     = '@njit(fastmath={})'.format(backend['fastmath'])
