@@ -633,12 +633,13 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 stmts = Block(body)
                 g_stmts += [stmts]
 
-                ln = Tuple(*[d-1 for d in tests_degree[sub_tests[0]]])
-                start_expr =  TensorMax(TensorMul(TensorAdd(TensorMul(ind_element, Tuple(*[-1]*dim)), ln), Tuple(*b0s)),Tuple(*[S.Zero]*dim))
-                start_expr = TensorAssignExpr(Tuple(*bs[sub_tests[0]]), start_expr)
-                end_expr = TensorMax(TensorMul(TensorAdd(TensorMul(Tuple(*[-1]*dim), ind_element.length), TensorAdd(ind_element, Tuple(*tests_degree[sub_tests[0]]))), Tuple(*e0s)), Tuple(*[S.Zero]*dim))
-                end_expr = TensorAssignExpr(Tuple(*es[sub_tests[0]]), end_expr)
-                g_stmts_texpr += [start_expr, end_expr]
+                if is_parallel:
+                    ln = Tuple(*[d-1 for d in tests_degree[sub_tests[0]]])
+                    start_expr =  TensorMax(TensorMul(TensorAdd(TensorMul(ind_element, Tuple(*[-1]*dim)), ln), Tuple(*b0s)),Tuple(*[S.Zero]*dim))
+                    start_expr = TensorAssignExpr(Tuple(*bs[sub_tests[0]]), start_expr)
+                    end_expr = TensorMax(TensorMul(TensorAdd(TensorMul(Tuple(*[-1]*dim), ind_element.length), TensorAdd(ind_element, Tuple(*tests_degree[sub_tests[0]]))), Tuple(*e0s)), Tuple(*[S.Zero]*dim))
+                    end_expr = TensorAssignExpr(Tuple(*es[sub_tests[0]]), end_expr)
+                    g_stmts_texpr += [start_expr, end_expr]
 
             else:
                 l_stmts = []
