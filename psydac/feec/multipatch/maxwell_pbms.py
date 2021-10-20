@@ -119,6 +119,10 @@ def E_ref_fn(source_type, N_diag, Psource='L2s', dc_pbm=False):
     fn += '.npz'
     return fn
 
+def hf_fn():  # domain_name):
+    fn = 'hf.npz'
+    return fn
+
 def Eh_coeffs_fn(source_type, N_diag):
     return 'Eh_coeffs_'+source_type+'_N'+repr(N_diag)+'.npz'
 
@@ -747,6 +751,39 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
         # curl-free J
         f = Tuple(10*sin(x), -10*sin(y))
 
+    elif source_type == 'dipcurl_J':
+        # here, f will be the curl of a dipole + phi_0 - phi_1 (two blobs) that correspond to a scalar current density
+        # the solution of the curl-curl problem with free-divergence constraint
+        #   curl curl u = curl j
+        #
+        # then corresponds to a magnetic density,
+        # see Beirão da Veiga, Brezzi, Dassi, Marini and Russo, Virtual Element approx of 2D magnetostatic pbms, CMAME 327 (2017)
+
+        x_0 = 2.0
+        y_0 = 2.0
+        ds2_0 = (0.02)**2
+        sigma_0 = (x-x_0)**2 + (y-y_0)**2
+        phi_0 = exp(-sigma_0**2/(2*ds2_0))
+        dx_sig_0 = 2*(x-x_0)
+        dy_sig_0 = 2*(y-y_0)
+        dx_phi_0 = - dx_sig_0 * sigma_0 / ds2_0 * phi_0
+        dy_phi_0 = - dy_sig_0 * sigma_0 / ds2_0 * phi_0
+
+        x_1 = 1.0
+        y_1 = 1.0
+        ds2_1 = (0.02)**2
+        sigma_1 = (x-x_1)**2 + (y-y_1)**2
+        phi_1 = exp(-sigma_1**2/(2*ds2_1))
+        dx_sig_1 = 2*(x-x_1)
+        dy_sig_1 = 2*(y-y_1)
+        dx_phi_1 = - dx_sig_1 * sigma_1 / ds2_1 * phi_1
+        dy_phi_1 = - dy_sig_1 * sigma_1 / ds2_1 * phi_1
+
+        f_x =   dy_phi_0 - dy_phi_1
+        f_y = - dx_phi_0 + dx_phi_1
+        f = Tuple(f_x, f_y)  # todo: rename the J's as f, throughout doc
+
+
     elif source_type == 'ellip_J':
 
         # divergence-free J field along an ellipse curve
@@ -947,9 +984,24 @@ if __name__ == '__main__':
         help    = 'whether plots are done'
     )
 
+    parser.add_argument( '--skip_err_u',
+        action  = 'store_true',
+        help    = 'skip the errors on u/E'
+    )
+
+    parser.add_argument( '--skip_vf',
+        action  = 'store_true',
+        help    = 'skip vector field plots'
+    )
+
     parser.add_argument( '--hide_plots',
         action  = 'store_true',
         help    = 'whether plots are hidden'
+    )
+
+    parser.add_argument( '--show_curl_u',
+        action  = 'store_true',
+        help    = 'whether to plot the curl of u'
     )
 
     parser.add_argument( '--gamma',
@@ -977,7 +1029,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument( '--source',
-        choices = ['manu_J', 'ellip_J', 'ring_J', 'sring_J', 'df_J', 'cf_J'],
+        choices = ['manu_J', 'dipcurl_J', 'ellip_J', 'ring_J', 'sring_J', 'df_J', 'cf_J'],
         default = 'manu_J',
         help    = 'type of source (manufactured or circular J)'
     )
@@ -1011,6 +1063,18 @@ if __name__ == '__main__':
         help    = 'factor of -grad div term in operator'
     )
 
+    parser.add_argument( '--sigma',
+        type    = float,
+        default = 0,
+        help    = 'ref value around which eigenvalues are sought'
+    )
+
+    parser.add_argument( '--nb_eigs',
+        type    = int,
+        default = 20,
+        help    = 'number of eigenvalues to find'
+    )
+
     parser.add_argument( '--c_grad',
         type    = float,
         default = 1,
@@ -1041,6 +1105,8 @@ if __name__ == '__main__':
     penal_regime = args.penal_regime
     proj_sol     = args.proj_sol
     problem      = args.problem
+    nb_eigs      = args.nb_eigs
+    sigma        = args.sigma
     source_type  = args.source
     Psource      = args.Psource
     eta          = args.eta
@@ -1051,6 +1117,9 @@ if __name__ == '__main__':
     P1_dc        = args.P1_dc
     no_plots     = args.no_plots
     hide_plots   = args.hide_plots
+    skip_vf      = args.skip_vf
+    show_curl_u  = args.show_curl_u
+    skip_err_u   = args.skip_err_u
     save_E_vals  = args.save_E_vals
 
     do_plots = not no_plots
@@ -1092,6 +1161,9 @@ if __name__ == '__main__':
     print(' - domain:       '+domain_name)
     if problem == 'source_pbm':
         print(' - source:       '+source_type)
+    else:
+        print(' - nb of eigs:   '+repr(nb_eigs))
+        print(' - around sigma: '+repr(sigma))
     print(' - method:       '+get_method_name(method, k, geo_cproj))
     print()
         #
@@ -1129,9 +1201,31 @@ if __name__ == '__main__':
     else:
         raise ValueError(penal_regime)
 
+    # harmonic fields storage
+    need_harmonic_fields = (problem == 'source_pbm') and dc_pbm and (eta == 0) and (domain_name in ['pretzel_f', 'pretzel'])
+    keep_harmonic_fields = (problem == 'eigen_pbm') and (sigma == 0) and (domain_name in ['pretzel', 'pretzel_f'])
+    if need_harmonic_fields or keep_harmonic_fields:
+        load_dir = get_load_dir(method=method, domain_name=domain_name, nc=nc, deg=deg, data='matrices')
+        hf_filename = load_dir+hf_fn()
+        if keep_harmonic_fields:
+            if not os.path.exists(load_dir):
+                os.makedirs(load_dir)
+        if need_harmonic_fields:
+            if os.path.isfile(hf_filename):
+                print("getting harmonic fields (coefs) from file "+hf_filename)
+                with open(hf_filename, 'rb') as file:
+                    content = np.load(hf_filename)
+                harmonic_fields = []
+                for i in range(3):
+                    # load coefs of the 3 discrete harmonic fields for the pretzel
+                    harmonic_fields.append( content['hf_'+repr(i)] )
+                    # print(type(harmonic_fields[i]))
+                    # print(harmonic_fields[i].shape)
+
     # node based grid (to better see the smoothness)
     etas, xx, yy = get_plotting_grid(mappings, N=N_diag)
     grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+    grid_vals_l2 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='l2')
 
     # cell-centered grid to compute approx L2 norm
     etas_cdiag, xx_cdiag, yy_cdiag, patch_logvols = get_plotting_grid(mappings, N=N_diag, centered_nodes=True, return_patch_logvols=True)
@@ -1157,9 +1251,11 @@ if __name__ == '__main__':
     V2h = derham_h.V2
     nquads = [4*(d + 1) for d in degree]
     P0, P1, P2 = derham_h.projectors(nquads=nquads)
+    # print(V1h.nbasis)
+    # exit()
 
     # getting CONGA matrices -- may also needed with nitsche method, depending on the options ?  (eg M1_m)
-    load_dir = get_load_dir(method='conga', domain_name=domain_name, nc=nc, deg=deg)
+    load_dir = get_load_dir(method='conga', domain_name=domain_name, nc=nc, deg=deg, data='matrices')
     M_mats, P_mats, D_mats, IK_mats = get_elementary_conga_matrices(
         domain_h, derham_h, load_dir=load_dir, backend_language=backend_language,
         discard_non_hom_matrices=(source_type in ['ellip_J', 'ring_J', 'sring_J'])
@@ -1324,6 +1420,7 @@ if __name__ == '__main__':
 
     if dc_pbm:
         # building operator for divergence-constrained pbm
+
         if method == 'conga':
             I0_m = IdLinearOperator(V0h).to_sparse_matrix()
             jump_penal_V0_hom_m = I0_m-cP0_hom_m
@@ -1337,7 +1434,18 @@ if __name__ == '__main__':
             # try with Nitsche ?
             JP0_m = JPQ_m
             G_m = -D_m.transpose()
-        DCA_m = bmat([[A_m, G_m], [-G_m.transpose(), gamma_h * JP0_m]])
+
+        if need_harmonic_fields:
+            tilde_hf = []
+            for i in range(3):
+                # print(type(harmonic_fields[i]))
+                # print(harmonic_fields[i].shape)
+                hi_c = harmonic_fields[i]  # coefs the of the i-th harmonic field, in the B/M spline basis of V1h
+                tilde_hf.append( M_m @ hi_c )
+            HC_m = bmat(tilde_hf)
+            DCA_m = bmat([[A_m, G_m, HC_m.transpose()], [-G_m.transpose(), gamma_h * JP0_m, None], [-HC_m, None, None]])
+        else:
+            DCA_m = bmat([[A_m, G_m], [-G_m.transpose(), gamma_h * JP0_m]])
     else:
         DCA_m = None
 
@@ -1380,10 +1488,16 @@ if __name__ == '__main__':
         # sigma, ref_sigmas = get_ref_eigenvalues(domain_name, operator)
         # nb_eigs = max(10, len(ref_sigmas))
         ref_sigmas = []
-        sigma = 50
-        nb_eigs = 20
+        # sigma = 50
+        # nb_eigs = 20
+
 
         eigenvalues, eigenvectors = get_eigenvalues(nb_eigs, sigma, A_m, M_m)
+
+        if keep_harmonic_fields:
+            print("saving the 3 harmonic fields (coefs) in file "+hf_filename)
+            with open(hf_filename, 'wb') as file:
+                np.savez(file, hf_0=eigenvectors[:,0], hf_1=eigenvectors[:,1], hf_2=eigenvectors[:,2])
 
         eig_filter = False
         if eig_filter:
@@ -1626,20 +1740,17 @@ if __name__ == '__main__':
                     cmap='plasma',
                     dpi=400,
                 )
-            if domain_name in ['pretzel','pretzel_f']:
-                vf_amp = 1
-            else:
-                vf_amp = .5
-            my_small_streamplot(
-                title=r'current source $J_h$ (vector field)',
-                vals_x=fh_x_vals,
-                vals_y=fh_y_vals,
-                skip=10,
-                xx=xx, yy=yy,
-                save_fig=plot_dir+'Jh_vf.png',
-                hide_plot=hide_plots,
-                amplification=vf_amp,
-            )
+            if not skip_vf:
+                my_small_streamplot(
+                    title=r'current source $J_h$ (vector field)',
+                    vals_x=fh_x_vals,
+                    vals_y=fh_y_vals,
+                    skip=10,
+                    xx=xx, yy=yy,
+                    save_fig=plot_dir+'Jh_vf.png',
+                    hide_plot=hide_plots,
+                    amp_factor=2,
+                )
 
             if phi is not None:
 
@@ -1661,7 +1772,7 @@ if __name__ == '__main__':
                     yy=yy_cdiag,
                     save_fig=plot_dir+'abs_bcp.png',
                     hide_plot=hide_plots,
-                    surface_plot=True
+                    surface_plot=False
                     # gridlines_x1=gridlines_x1,
                     # gridlines_x2=gridlines_x2,
                 )
@@ -1675,7 +1786,7 @@ if __name__ == '__main__':
                     yy=yy_cdiag,
                     save_fig=plot_dir+'phi.png',
                     hide_plot=hide_plots,
-                    surface_plot=True
+                    surface_plot=False
                     # gridlines_x1=gridlines_x1,
                     # gridlines_x2=gridlines_x2,
                 )
@@ -1690,7 +1801,11 @@ if __name__ == '__main__':
 
             print("building block RHS for divergence-constrained problem")
             bp_c = np.zeros(V0h.nbasis)
-            bb_c = np.block([b_c, bp_c])
+            if need_harmonic_fields:
+                bh_c = np.zeros(3)  # coefs of the harmonic part of the solution
+                bb_c = np.block([b_c, bp_c, bh_c])
+            else:
+                bb_c = np.block([b_c, bp_c])
         else:
             AA_m = A_m.tocsc()
             bb_c = b_c
@@ -1707,7 +1822,7 @@ if __name__ == '__main__':
                 np.savez(file, ref_AA_m=AA_m)
 
         t_stamp = time_count(t_stamp)
-        try_solve = False
+        try_solve = True
         if try_solve:
         # try:
             print("trying direct solve with scipy spsolve...")   #todo: use for small problems [[ or: try catch ??]]
@@ -1734,9 +1849,17 @@ if __name__ == '__main__':
                       #                                           store_outer_Av=True)
             print(' -- convergence info:', info)
 
+        hh_c = np.zeros(V1h.nbasis)
         if dc_pbm:
             Eh_c = sol_c[:V1h.nbasis]
-            ph_c = sol_c[V1h.nbasis:]
+            ph_c = sol_c[V1h.nbasis:V1h.nbasis+V0h.nbasis]
+            if need_harmonic_fields:
+                # compute the harmonic part (h) of the solution
+                hh_hc = sol_c[V1h.nbasis+V0h.nbasis:]  # coefs of the harmonic part, in the basis of the harmonic fields
+                assert len(hh_hc) == 3
+                for i in range(3):
+                    hi_c = harmonic_fields[i]  # coefs the of the i-th harmonic field, in the B/M spline basis of V1h
+                    hh_c += hh_hc[i]*hi_c
         else:
             Eh_c = sol_c
             ph_c = np.zeros(V0h.nbasis)
@@ -1761,11 +1884,11 @@ if __name__ == '__main__':
             Eh_c += Ebc_c
 
 
-        # Eh = FemField(V1h, coeffs=array_to_stencil(PEh_c, V1h.vector_space))
         Eh = FemField(V1h, coeffs=array_to_stencil(Eh_c, V1h.vector_space))
 
         if dc_pbm:
             ph = FemField(V0h, coeffs=array_to_stencil(ph_c, V0h.vector_space))
+            hh = FemField(V1h, coeffs=array_to_stencil(hh_c, V1h.vector_space))
 
         # if save_Eh:
         #     # MCP: I think this should be discarded....
@@ -1819,39 +1942,79 @@ if __name__ == '__main__':
                 cmap='hsv',
                 dpi = 400,
             )
+            if not skip_vf:
+                my_small_streamplot(
+                    title=r'solution $E_h$ (vector field) for $\eta = $'+repr(eta),
+                    vals_x=Eh_x_vals,
+                    vals_y=Eh_y_vals,
+                    skip=10,
+                    xx=xx,
+                    yy=yy,
+                    amp_factor=2,
+                    # save_fig=plot_dir+'Eh_vf.png',
+                    save_fig=plot_dir+'Eh_vf_eta='+repr(eta)+'.png',
+                    hide_plot=hide_plots,
+                    dpi = 200,
+                )
+            if need_harmonic_fields:
+                hh_x_vals, hh_y_vals = grid_vals_hcurl(hh)
+                hh_abs_vals = [np.sqrt(abs(ex)**2 + abs(ey)**2) for ex, ey in zip(hh_x_vals, hh_y_vals)]
+                my_small_plot(
+                    title=r'harmonic part of solution $h_h$ (amplitude)',
+                    vals=[hh_abs_vals], #[Eh_x_vals, Eh_y_vals, Eh_abs_vals],
+                    titles=[r'$|h^h|$'], #[r'$E^h_x$', r'$E^h_y$', r'$|E^h|$'],
+                    xx=xx,
+                    yy=yy,
+                    surface_plot=False,
+                    # gridlines_x1=gridlines_x1,
+                    # gridlines_x2=gridlines_x2,
+                    # save_fig=plot_dir+'Eh.png',
+                    save_fig=plot_dir+'hh.png',
+                    hide_plot=hide_plots,
+                    cmap='hsv',
+                    dpi = 400,
+                )
+                if not skip_vf:
+                    my_small_streamplot(
+                        title=r'harmonic part of solution $h_h$ (vector field)',
+                        vals_x=hh_x_vals,
+                        vals_y=hh_y_vals,
+                        skip=10,
+                        xx=xx,
+                        yy=yy,
+                        amp_factor=2,
+                        # save_fig=plot_dir+'Eh_vf.png',
+                        save_fig=plot_dir+'hh_vf.png',
+                        hide_plot=hide_plots,
+                        dpi = 200,
+                    )
 
-            if domain_name in ['pretzel','pretzel_f']:
-                vf_amp = 50
-            else:
-                vf_amp = 1
-            my_small_streamplot(
-                title=r'solution $E_h$ (vector field) for $\eta = $'+repr(eta),
-                vals_x=Eh_x_vals,
-                vals_y=Eh_y_vals,
-                skip=10,
+
+        if do_plots and show_curl_u:
+            curl_u_c = (bD1_m @ cP1_m).dot(Eh_c)
+            curl_uh = FemField(V2h, coeffs=array_to_stencil(curl_u_c, V2h.vector_space))
+            curl_u_vals = grid_vals_l2(curl_uh)
+            my_small_plot(
+                title=r'$\nabla \times u_h$',
+                vals=[curl_u_vals],
+                titles=[r'$\nabla \times u_h$'],
                 xx=xx,
                 yy=yy,
-                amplification=vf_amp,
-                # save_fig=plot_dir+'Eh_vf.png',
-                save_fig=plot_dir+'Eh_vf_eta='+repr(eta)+'.png',
+                save_fig=plot_dir+'curl_u.png',
                 hide_plot=hide_plots,
-                dpi = 200,
+                surface_plot=False
+                # gridlines_x1=gridlines_x1,
+                # gridlines_x2=gridlines_x2,
             )
 
-            # exit()
+        exit()
 
         # error measure with centered-valued grid
         quad_weights = get_grid_quad_weights(etas_cdiag, patch_logvols, mappings_list)
-        Eh_x_vals, Eh_y_vals = grid_vals_hcurl_cdiag(Eh)
         xx = xx_cdiag
         yy = yy_cdiag
 
-        if save_E_vals:
-            print("saving solution values (on cdiag grid) in new file (for future needs)"+E_vals_filename)
-            with open(E_vals_filename, 'wb') as file:
-                np.savez(file, x_vals=Eh_x_vals, y_vals=Eh_y_vals)
-
-        check_grad_phi = True
+        check_grad_phi = False
         if check_grad_phi and do_plots and (phi is not None) and dc_pbm and source_type in ['ellip_J', 'ring_J', 'sring_J']:
 
             # visual diff between grad p and grad phi
@@ -1962,95 +2125,102 @@ if __name__ == '__main__':
             err_message = '(grad p - f_2) error: {}\n'.format(l2_error)
             print('\n** '+err_message)
 
+        Eh_x_vals, Eh_y_vals = grid_vals_hcurl_cdiag(Eh)
+        if save_E_vals:
+            print("saving solution values (on cdiag grid) in new file (for future needs)"+E_vals_filename)
+            with open(E_vals_filename, 'wb') as file:
+                np.savez(file, x_vals=Eh_x_vals, y_vals=Eh_y_vals)
 
-        if E_ref_vals is None:
-            E_x_vals = np.zeros_like(Eh_x_vals)
-            E_y_vals = np.zeros_like(Eh_y_vals)
-        else:
-            E_x_vals, E_y_vals = E_ref_vals
+        if not skip_err_u:
 
-        only_last_patch = False
-        Eh_errors_cdiag = [np.sqrt( (u1-v1)**2 + (u2-v2)**2 )
-                           for u1, v1, u2, v2 in zip(E_x_vals, Eh_x_vals, E_y_vals, Eh_y_vals)]
-        E_amps_cdiag = [np.sqrt( (u1)**2 + (u2)**2 )
-                           for u1, u2 in zip(E_x_vals, E_y_vals)]
+            if E_ref_vals is None:
+                E_x_vals = np.zeros_like(Eh_x_vals)
+                E_y_vals = np.zeros_like(Eh_y_vals)
+            else:
+                E_x_vals, E_y_vals = E_ref_vals
 
-        if only_last_patch:
-            print('WARNING ** WARNING : measuring error on last patch only !!' )
-            warning_msg = ' [on last patch]'
-            l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag[-1:], quad_weights[-1:])]))**0.5
-        else:
-            warning_msg = ''
-            l2_norm_E = (np.sum([J_F * val**2 for val, J_F in zip(E_amps_cdiag, quad_weights)]))**0.5
-            l2_error  = (np.sum([J_F * val**2 for val, J_F in zip(Eh_errors_cdiag, quad_weights)]))**0.5
+            only_last_patch = False
+            Eh_errors_cdiag = [np.sqrt( (u1-v1)**2 + (u2-v2)**2 )
+                               for u1, v1, u2, v2 in zip(E_x_vals, Eh_x_vals, E_y_vals, Eh_y_vals)]
+            E_amps_cdiag = [np.sqrt( (u1)**2 + (u2)**2 )
+                               for u1, u2 in zip(E_x_vals, E_y_vals)]
 
-        err_message = 'grid diag '+warning_msg+' for method={0} with nc={1}, deg={2}, gamma_h={3}, proj_sol={4}: abs_error={5}, rel_error={6}\n'.format(
-                    get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma_h, proj_sol, l2_error, l2_error/l2_norm_E
-        )
-        print('\n** '+err_message)
+            if only_last_patch:
+                print('WARNING ** WARNING : measuring error on last patch only !!' )
+                warning_msg = ' [on last patch]'
+                l2_error = (np.sum([J_F * err**2 for err, J_F in zip(Eh_errors_cdiag[-1:], quad_weights[-1:])]))**0.5
+            else:
+                warning_msg = ''
+                l2_norm_E = (np.sum([J_F * val**2 for val, J_F in zip(E_amps_cdiag, quad_weights)]))**0.5
+                l2_error  = (np.sum([J_F * val**2 for val, J_F in zip(Eh_errors_cdiag, quad_weights)]))**0.5
 
-        check_err = True
-        if E_ex is not None:
-            # also assembling the L2 error with Psydac quadrature
-            print(" -- * --  also computing L2 error with explicit (exact) solution, using Psydac quadratures...")
-            F  = element_of(V1h.symbolic_space, name='F')
-            error       = Matrix([F[0]-E_ex[0],F[1]-E_ex[1]])
-            l2_norm     = Norm(error, domain, kind='l2')
-            l2_norm_h   = discretize(l2_norm, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
-            l2_error     = l2_norm_h.assemble(F=Eh)
-            err_message_2 = 'l2_psydac error for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5} [*] : {6}\n'.format(
-                    get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
+            err_message = 'grid diag '+warning_msg+' for method={0} with nc={1}, deg={2}, gamma_h={3}, proj_sol={4}: abs_error={5}, rel_error={6}\n'.format(
+                        get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma_h, proj_sol, l2_error, l2_error/l2_norm_E
             )
-            print('\n** '+err_message_2)
-            if check_err:
-                # since Ex is available, compute also the auxiliary error || Eh - P1 E || with M1 mass matrix
-                # P0, P1, P2 = derham_h.projectors(nquads=nquads)
-                E_x = lambdify(domain.coordinates, E_ex[0])
-                E_y = lambdify(domain.coordinates, E_ex[1])
-                E_log = [pull_2d_hcurl([E_x, E_y], f) for f in mappings_list]
-                Ex_h = P1(E_log)
-                Ex_c = Ex_h.coeffs.toarray()
-                err_c = Ex_c-Eh_c
-                err_norm = np.dot(err_c,M1_m.dot(err_c))**0.5
-                print('--- ** --- check: L2 discrete-error (in V1h): {}'.format(err_norm))
+            print('\n** '+err_message)
 
-        else:
-            err_message_2 = ''
+            check_err = True
+            if E_ex is not None:
+                # also assembling the L2 error with Psydac quadrature
+                print(" -- * --  also computing L2 error with explicit (exact) solution, using Psydac quadratures...")
+                F  = element_of(V1h.symbolic_space, name='F')
+                error       = Matrix([F[0]-E_ex[0],F[1]-E_ex[1]])
+                l2_norm     = Norm(error, domain, kind='l2')
+                l2_norm_h   = discretize(l2_norm, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
+                l2_error     = l2_norm_h.assemble(F=Eh)
+                err_message_2 = 'l2_psydac error for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5} [*] : {6}\n'.format(
+                        get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
+                )
+                print('\n** '+err_message_2)
+                if check_err:
+                    # since Ex is available, compute also the auxiliary error || Eh - P1 E || with M1 mass matrix
+                    # P0, P1, P2 = derham_h.projectors(nquads=nquads)
+                    E_x = lambdify(domain.coordinates, E_ex[0])
+                    E_y = lambdify(domain.coordinates, E_ex[1])
+                    E_log = [pull_2d_hcurl([E_x, E_y], f) for f in mappings_list]
+                    Ex_h = P1(E_log)
+                    Ex_c = Ex_h.coeffs.toarray()
+                    err_c = Ex_c-Eh_c
+                    err_norm = np.dot(err_c,M1_m.dot(err_c))**0.5
+                    print('--- ** --- check: L2 discrete-error (in V1h): {}'.format(err_norm))
 
-        error_filename = error_fn(source_type=source_type, method=method, k=k, domain_name=domain_name,deg=deg)
-        if not os.path.exists(error_filename):
-            open(error_filename, 'w')
-        with open(error_filename, 'a') as a_writer:
-            a_writer.write(err_message)
-            if err_message_2:
-                a_writer.write(err_message_2)
+            else:
+                err_message_2 = ''
 
-        if do_plots:
-            E_x_err = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
-            E_y_err = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
-            my_small_plot(
-                title=r'approximation of solution $u$, $x$ component',
-                vals=[E_x_vals, Eh_x_vals, E_x_err],
-                titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
-                xx=xx,
-                yy=yy,
-                save_fig=plot_dir+'err_Ex.png',
-                hide_plot=hide_plots,
-                # gridlines_x1=gridlines_x1,
-                # gridlines_x2=gridlines_x2,
-            )
+            error_filename = error_fn(source_type=source_type, method=method, k=k, domain_name=domain_name,deg=deg)
+            if not os.path.exists(error_filename):
+                open(error_filename, 'w')
+            with open(error_filename, 'a') as a_writer:
+                a_writer.write(err_message)
+                if err_message_2:
+                    a_writer.write(err_message_2)
 
-            my_small_plot(
-                title=r'approximation of solution $u$, $y$ component',
-                vals=[E_y_vals, Eh_y_vals, E_y_err],
-                titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-                xx=xx,
-                yy=yy,
-                save_fig=plot_dir+'err_Ey.png',
-                hide_plot=hide_plots,
-                # gridlines_x1=gridlines_x1,
-                # gridlines_x2=gridlines_x2,
-            )
+            if do_plots:
+                E_x_err = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
+                E_y_err = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
+                my_small_plot(
+                    title=r'approximation of solution $u$, $x$ component',
+                    vals=[E_x_vals, Eh_x_vals, E_x_err],
+                    titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+                    xx=xx,
+                    yy=yy,
+                    save_fig=plot_dir+'err_Ex.png',
+                    hide_plot=hide_plots,
+                    # gridlines_x1=gridlines_x1,
+                    # gridlines_x2=gridlines_x2,
+                )
+
+                my_small_plot(
+                    title=r'approximation of solution $u$, $y$ component',
+                    vals=[E_y_vals, Eh_y_vals, E_y_err],
+                    titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+                    xx=xx,
+                    yy=yy,
+                    save_fig=plot_dir+'err_Ey.png',
+                    hide_plot=hide_plots,
+                    # gridlines_x1=gridlines_x1,
+                    # gridlines_x2=gridlines_x2,
+                )
 
 
 

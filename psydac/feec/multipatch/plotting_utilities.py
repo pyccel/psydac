@@ -267,7 +267,7 @@ def my_small_plot(
 def my_small_streamplot(
         title, vals_x, vals_y,
         xx, yy, skip=2,
-        amplification=1,
+        amp_factor=1,
         save_fig=None,
         hide_plot=False,
         dpi='figure',
@@ -284,9 +284,12 @@ def my_small_streamplot(
     delta = 0.25
     # x = y = np.arange(-3.0, 3.01, delta)
     # X, Y = np.meshgrid(x, y)
+    max_val = max(np.max(vals_x), np.max(vals_y))
+    #print('max_val = {}'.format(max_val))
+    vf_amp = amp_factor/max_val
     for k in range(n_patches):
         plt.quiver(xx[k][::skip, ::skip], yy[k][::skip, ::skip], vals_x[k][::skip, ::skip], vals_y[k][::skip, ::skip],
-                   scale=1/(amplification*0.05), width=0.002) # width=) units='width', pivot='mid',
+                   scale=1/(vf_amp*0.05), width=0.002) # width=) units='width', pivot='mid',
 
     if save_fig:
         print('saving vector field (stream) plot in file '+save_fig)
