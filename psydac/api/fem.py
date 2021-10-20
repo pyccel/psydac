@@ -220,26 +220,29 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
         self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
 
+        if isinstance(test_space.vector_space, BlockVectorSpace):
+            vector_space = test_space.vector_space.spaces[0]
+            if isinstance(test_space.vector_space, BlockVectorSpace):
+                vector_space = test_space.vector_space.spaces[0]
+        else:
+            vector_space = test_space.vector_space
+
+        starts = vector_space.starts
+        ends   = vector_space.ends
+        npts   = vector_space.npts
+
+        self._starts = tuple(0 if i==0   else 1 for i in starts)
+        self._ends   = tuple(0 if i+1==n else 1 for i,n in zip(ends, npts))
         #...
         if isinstance(target, (Boundary, Interface)):
             #...
             # If process does not own the boundary or interface, do not assemble anything
-            if isinstance(test_space.vector_space, BlockVectorSpace):
-                vector_space = test_space.vector_space.spaces[0]
-                if isinstance(test_space.vector_space, BlockVectorSpace):
-                    vector_space = test_space.vector_space.spaces[0]
-            else:
-                vector_space = test_space.vector_space
-
             if test_ext == -1:
-                start = vector_space.starts[axis]
-                if start != 0:
+                if self._starts[axis] != 0:
                     self._func = do_nothing
 
             elif test_ext == 1:
-                end  = vector_space.ends[axis]
-                npts = vector_space.npts[axis]
-                if end + 1 != npts:
+                if self._ends[axis] != 0:
                     self._func = do_nothing
 
         self._args = self.construct_arguments(backend=kwargs.pop('backend', None))
@@ -310,6 +313,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             args = self._args
 
+        args = args + self._starts + self._ends
         if reset:
             reset_arrays(*self.global_matrices)
 

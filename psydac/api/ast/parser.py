@@ -5,11 +5,11 @@ import numpy as np
 from collections import OrderedDict
 
 from sympy import IndexedBase, Indexed
-from sympy import Mul, Matrix
+from sympy import Mul, Matrix, Expr
 from sympy import Add
 from sympy import Abs
 from sympy import Symbol, Idx
-from sympy import Max, Range
+from sympy import Range
 from sympy import Basic, Function
 from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
@@ -93,6 +93,10 @@ class Shape(Basic):
     @property
     def arg(self):
         return self._args[0]
+
+
+class Max(Expr):
+    pass
 
 def is_scalar_array(var):
     indices = var.indices
@@ -382,6 +386,8 @@ class Parser(object):
 
         f_coeffs   = args.pop('f_coeffs',    None)
 
+        starts = args.pop('starts', [])
+        ends   = args.pop('ends', [])
         if f_coeffs:
             f_span     = args.pop('f_span',      [])
             f_basis    = args.pop('field_basis', [])
@@ -414,6 +420,8 @@ class Parser(object):
             f_args     = [self._visit(i, **kwargs) for i in f_args]
             f_args     = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in f_args]
             arguments += flatten(f_args)
+
+        arguments += starts + ends
 
         body = flatten(tuple(self._visit(i, **kwargs) for i in expr.body))
 
@@ -1318,6 +1326,16 @@ class Parser(object):
             
         return tuple(newargs)
 
+    def _visit_TensorMax(self, expr, **kwargs):
+        args = [self._visit(a, **kwargs) for a in expr.args]
+        arg1 = args[0]
+        arg2 = args[1]
+        newargs = []
+        for i,j in zip(arg1, arg2):
+            newargs.append(Max(i,j))
+
+        return tuple(newargs)
+
     # ....................................................
     def _visit_Expr(self, expr, **kwargs):
         return SymbolicExpr(expr)
@@ -1549,7 +1567,8 @@ class Parser(object):
         t_iterations = [TensorIteration(i,j)
                         for i,j in zip(t_iterator, t_generator)]
 
-        indices, lengths = list(self._visit(expr.index)), list(self._visit(expr.index.length))
+        indices = list(self._visit(expr.index))
+        starts, stops, lengths = list(self._visit(expr.index.start)), list(self._visit(expr.index.stop)), list(self._visit(expr.index.length))
         for i,j in zip(flatten(indices), flatten(lengths)):
             self.indices[str(i)] = j
 
@@ -1597,23 +1616,26 @@ class Parser(object):
             for axis,T in enumerate(mask):
                 if T:
                     indices[axis] = None
-                    lengths[axis] = None
+                    starts [axis] = None
+                    stops  [axis] = None
                     mask_init += list(inits[axis])
                     inits[axis]   = None
             indices = [i for i in indices if i is not None]
-            lengths = [i for i in lengths if i is not None]
+            starts  = [i for i in starts if i is not None]
+            stops   = [i for i in stops if i is not None]
             inits   = [i for i in inits if i is not None]
 
         elif mask:
             axis      = mask.axis
             index     = indices.pop(axis)
-            length    = lengths.pop(axis)
+            starts    = starts.pop(axis)
+            stops     = stops.pop(axis)
             init      = inits.pop(axis)
             mask_init = [Assign(index, 0), *init]
-        for index, length, init in zip(indices[::-1], lengths[::-1], inits[::-1]):
+        for index, s, e, init in zip(indices[::-1], starts[::-1], stops[::-1], inits[::-1]):
 
             body = list(init) + body
-            body = [For(index, Range(length), body)]
+            body = [For(index, Range(s, e), body)]
         # ...
         # remove the list and return the For Node only
 
