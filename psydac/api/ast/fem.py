@@ -3,7 +3,7 @@
 from collections import OrderedDict
 from itertools   import groupby, product
 
-from sympy import Basic
+from sympy import Basic, S
 from sympy import Matrix, ImmutableDenseMatrix
 from sympy.core.containers import Tuple
 
@@ -13,7 +13,7 @@ from sympde.expr                 import Functional
 from sympde.topology.basic       import Boundary, Interface
 from sympde.topology             import H1SpaceType, HcurlSpaceType
 from sympde.topology             import HdivSpaceType, L2SpaceType, UndefinedSpaceType
-from sympde.topology             import IdentityMapping
+from sympde.topology             import IdentityMapping, SymbolicExpr
 from sympde.topology.space       import ScalarFunction
 from sympde.topology.space       import VectorFunction
 from sympde.topology.space       import IndexedVectorFunction
@@ -55,7 +55,7 @@ from .nodes import index_dof_trial
 from .nodes import index_outer_dof_test
 from .nodes import index_inner_dof_test
 from .nodes import TensorIntDiv, TensorAssignExpr
-from .nodes import TensorAdd, TensorMul
+from .nodes import TensorAdd, TensorMul, TensorMax
 
 from psydac.api.ast.utilities import variables
 from psydac.api.utilities     import flatten
@@ -282,6 +282,7 @@ class AST(object):
             quad_order          = get_quad_order(spaces)
             tests_degrees       = get_degrees(tests, spaces)
             multiplicity_tests  = get_multiplicity(tests, spaces.vector_space)
+            is_parallel         = spaces.vector_space.parallel
             spaces              = spaces.symbolic_space
         elif isinstance(expr, BilinearForm):
             is_bilinear         = True
@@ -294,6 +295,7 @@ class AST(object):
             trials_degrees      = get_degrees(trials, spaces[1])
             multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
             multiplicity_trials = get_multiplicity(trials, spaces[0].vector_space)
+            is_parallel         = spaces[0].vector_space.parallel
             spaces              = [V.symbolic_space for V in spaces]
 
         elif isinstance(expr, Functional):
@@ -303,6 +305,7 @@ class AST(object):
             quad_order          = get_quad_order(spaces)
             fields_degrees      = get_degrees(fields, spaces)
             multiplicity_fields = get_multiplicity(fields, spaces.vector_space)
+            is_parallel         = spaces.vector_space.parallel
             spaces              = spaces.symbolic_space
         else:
             raise NotImplementedError('TODO')
@@ -394,11 +397,11 @@ class AST(object):
             mapping = IdentityMapping('M_{}'.format(name), dim)
 
         if is_linear:
-            ast = _create_ast_linear_form(terminal_expr, atomic_expr_field, 
+            ast = _create_ast_linear_form(terminal_expr, atomic_expr_field,
                                           tests, d_tests,
                                           fields, d_fields, constants,
                                           nderiv, domain.dim,
-                                          mapping, is_rational_mapping, spaces, mask, tag, 
+                                          mapping, is_rational_mapping, spaces, mask, tag,
                                           **kwargs)
 
         elif is_bilinear:
@@ -406,15 +409,15 @@ class AST(object):
                                             tests, d_tests,
                                             trials, d_trials,
                                             fields, d_fields, constants,
-                                            nderiv, domain.dim, 
-                                            mapping, is_rational_mapping, spaces, mask, tag, 
+                                            nderiv, domain.dim,
+                                            mapping, is_rational_mapping, spaces, mask, tag, is_parallel,
                                             **kwargs)
 
         elif is_functional:
             ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
                                               fields, d_fields, constants,
-                                              nderiv, domain.dim, 
-                                              mapping, is_rational_mapping, spaces, mask, tag, 
+                                              nderiv, domain.dim,
+                                              mapping, is_rational_mapping, spaces, mask, tag,
                                               **kwargs)
         else:
             raise NotImplementedError('TODO')
@@ -450,7 +453,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                               tests,  d_tests,
                               trials, d_trials,
                               fields, d_fields, constants,
-                              nderiv, dim, mapping, is_rational_mapping, spaces, mask, tag,
+                              nderiv, dim, mapping, is_rational_mapping, spaces, mask, tag, is_parallel,
                               **kwargs):
     """
     This function creates the assembly function of a bilinearform
@@ -503,6 +506,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     tag   : <str>
         tag to be added to variable names
 
+    is_parallel   : <bool>
+        True if the domain is distributed
+
 
     Returns
     -------
@@ -511,10 +517,11 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     """
 
-    pads       = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
+    pads      = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
+    b0s       = variables(('b01, b02, b03'), dtype='int')[:dim]
+    e0s       = variables(('e01, e02, e03'), dtype='int')[:dim]
     g_quad     = GlobalTensorQuadrature()
     l_quad     = LocalTensorQuadrature()
-
 
     quad_order    = kwargs.pop('quad_order', None)
 
@@ -540,12 +547,12 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     # ...........................................................................................
 
     if quad_order is not None:
-        ind_quad      = index_quad.set_length(Tuple(*quad_order))
+        ind_quad      = index_quad.set_range(stop=Tuple(*quad_order))
     else:
-        ind_quad      = index_quad.set_length(quad_length)
+        ind_quad      = index_quad.set_range(stop=quad_length)
 
-    ind_element   = index_element.set_length(el_length)
-    ind_dof_test  = index_dof_test.set_length(LengthDofTest(tests[0])+1)
+    ind_element   = index_element.set_range(stop=el_length)
+    ind_dof_test  = index_dof_test.set_range(stop=LengthDofTest(tests[0])+1)
     # ...........................................................................................
     mapping_space = kwargs.pop('mapping_space', None)
     eval_mapping = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'],
@@ -556,12 +563,13 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         f_ex         = expand([f])
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
-        ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
+        ind_dof_test = index_dof_test.set_range(stop=lengths_fields[f]+1)
         eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], 
                                  coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields += [eval_field]
 
     g_stmts = [eval_mapping, *eval_fields]
+    g_stmts_texpr = []
 
     # sort tests and trials by their space type
     test_groups  = regroup(tests)
@@ -586,6 +594,13 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
             m_trials       = OrderedDict((u,d_trials[u]['multiplicity'])  for u in sub_trials)
             tests_degree   = OrderedDict((v,d_tests[v]['degrees'])        for v in sub_tests)
             trials_degrees = OrderedDict((u,d_trials[u]['degrees'])       for u in sub_trials)
+            bs             = OrderedDict()
+            es             = OrderedDict()
+            for v in sub_tests:
+                v_str = str(SymbolicExpr(v))
+                bs[v] = variables(('b_{v}_1, b_{v}_2, b_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
+                es[v] = variables(('e_{v}_1, e_{v}_2, e_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
+
             if all(a==1 for a in m_tests[sub_tests[0]]+m_trials[sub_trials[0]]):
                 stmts = []
                 for v in sub_tests+sub_trials:
@@ -603,18 +618,27 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
                 # ... loop over trials
                 length = Tuple(*[d+1 for d in trials_degrees[sub_trials[0]]])
-                ind_dof_trial = index_dof_trial.set_length(length)
+                ind_dof_trial = index_dof_trial.set_range(stop=length)
                 loop1  = Loop((), ind_dof_trial, [loop])
-            
+
                 # ... loop over tests
                 length = Tuple(*[d+1 for d in tests_degree[sub_tests[0]]])
-                ind_dof_test = index_dof_test.set_length(length)
+                ends   = Tuple(*[d+1-e for d,e in zip(tests_degree[sub_tests[0]], es[sub_tests[0]])])
+                starts = Tuple(*bs[sub_tests[0]])
+                ind_dof_test = index_dof_test.set_range(start=starts, stop=ends, length=length)
                 loop  = Loop((), ind_dof_test, [loop1])
                 # ...
 
                 body  = (Reset(l_sub_mats), loop)
                 stmts = Block(body)
                 g_stmts += [stmts]
+
+                ln = Tuple(*[d-1 for d in tests_degree[sub_tests[0]]])
+                start_expr =  TensorMax(TensorMul(TensorAdd(TensorMul(ind_element, Tuple(*[-1]*dim)), ln), Tuple(*b0s)),Tuple(*[S.Zero]*dim))
+                start_expr = TensorAssignExpr(Tuple(*bs[sub_tests[0]]), start_expr)
+                end_expr = TensorMax(TensorMul(TensorAdd(TensorMul(Tuple(*[-1]*dim), ind_element.length), TensorAdd(ind_element, Tuple(*tests_degree[sub_tests[0]]))), Tuple(*e0s)), Tuple(*[S.Zero]*dim))
+                end_expr = TensorAssignExpr(Tuple(*es[sub_tests[0]]), end_expr)
+                g_stmts_texpr += [start_expr, end_expr]
 
             else:
                 l_stmts = []
@@ -632,7 +656,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
                     multiplicity = Tuple(*m_tests[sub_tests[0]])
                     length = Tuple(*[(d+1)%m if T else (d+1)//m for d,m,T in zip(tests_degree[sub_tests[0]], multiplicity, mask_inner_i)])
-                    ind_outer_dof_test = index_outer_dof_test.set_length(length)
+                    ind_outer_dof_test = index_outer_dof_test.set_range(stop=length)
                     outer = Tuple(*[d//m for d,m in zip(tests_degree[sub_tests[0]], multiplicity)])
                     outer = TensorAdd(TensorMul(ind_outer_dof_test, not_mask_inner_i),TensorMul(outer, mask_inner_i))
 
@@ -645,14 +669,14 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
                     # ... loop over trials
                     length_t = Tuple(*[d+1 for d in trials_degrees[sub_trials[0]]])
-                    ind_dof_trial = index_dof_trial.set_length(length_t)
+                    ind_dof_trial = index_dof_trial.set_range(stop=length_t)
                     loop  = Loop((), ind_dof_trial, [loop])
  
                     rem_length = Tuple(*[(d+1)-(d+1)%m for d,m in zip(tests_degree[sub_tests[0]], multiplicity)])
-                    ind_inner_dof_test = index_inner_dof_test.set_length(multiplicity)
+                    ind_inner_dof_test = index_inner_dof_test.set_range(stop=multiplicity)
                     expr1 = TensorAdd(TensorMul(ind_outer_dof_test, multiplicity),ind_inner_dof_test)
                     expr2 = TensorAdd(rem_length, ind_outer_dof_test)
-                    expr  = TensorAssignExpr(TensorAdd(TensorMul(expr1,not_mask_inner_i),TensorMul(expr2, mask_inner_i)), index_dof_test)
+                    expr  = TensorAssignExpr(index_dof_test, TensorAdd(TensorMul(expr1,not_mask_inner_i),TensorMul(expr2, mask_inner_i)))
                     loop  = Loop((expr,), ind_inner_dof_test, [loop], mask=mask_inner_i)
                     loop  = Loop((), ind_outer_dof_test, [loop])
 
@@ -662,7 +686,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     #=========================================================end kernel=========================================================
 
     # ... loop over global elements
-    loop  = Loop((g_quad, *g_span.values(), *f_span.values()),
+    loop  = Loop((g_quad, *g_span.values(), *f_span.values(), *g_stmts_texpr),
                   ind_element, stmts=g_stmts, mask=mask)
 
     body = [Reduce('+', l_mats, g_mats, loop)]
@@ -697,6 +721,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     if constants:
         args['constants'] = constants
+
+    args['starts'] = b0s
+    args['ends']   = e0s
 
     local_vars = []
     node = DefNode('assembly', args, local_vars, body, 'bilinearform')
@@ -779,9 +806,9 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     el_length   = LengthElement()
     lengths     = [el_length,quad_length]
 
-    ind_quad      = index_quad.set_length(quad_length)
-    ind_element   = index_element.set_length(el_length)
-    ind_dof_test = index_dof_test.set_length(LengthDofTest(tests[0])+1)
+    ind_quad      = index_quad.set_range(stop=quad_length)
+    ind_element   = index_element.set_range(stop=el_length)
+    ind_dof_test = index_dof_test.set_range(stop=LengthDofTest(tests[0])+1)
     # ...........................................................................................
     mapping_space = kwargs.pop('mapping_space', None)
     eval_mapping  = EvalMapping(ind_quad, ind_dof_test, d_tests[tests[0]]['global'], mapping, geo,
@@ -792,7 +819,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         f_ex         = expand([f])
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
-        ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
+        ind_dof_test = index_dof_test.set_range(stop=lengths_fields[f]+1)
         eval_field   = EvalField(atomic_expr_field[f], ind_quad, ind_dof_test, d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields += [eval_field]
 
@@ -825,7 +852,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     # ... loop over tests
         length   = lengths_tests[group[0]]
-        ind_dof_test = index_dof_test.set_length(length+1)
+        ind_dof_test = index_dof_test.set_range(stop=length+1)
         loop  = Loop((), ind_dof_test, [loop])
         # ...
         body  = (Reset(l_sub_vecs), loop)
@@ -949,10 +976,10 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     el_length   = LengthElement()
     lengths     = [el_length, quad_length]
 
-    ind_quad      = index_quad.set_length(quad_length)
-    ind_element   = index_element.set_length(el_length)
+    ind_quad      = index_quad.set_range(stop=quad_length)
+    ind_element   = index_element.set_range(stop=el_length)
 
-    ind_dof_test  = index_dof_test.set_length(lengths_fields[fields[0]]+1)
+    ind_dof_test  = index_dof_test.set_range(stop=lengths_fields[fields[0]]+1)
     # ...........................................................................................
     mapping_space = kwargs.pop('mapping_space', None)
     eval_mapping = EvalMapping(ind_quad, ind_dof_test, g_basis[fields[0]], mapping,
@@ -963,7 +990,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         f_ex         = expand([f])
         coeffs       = [CoefficientBasis(i)    for i in f_ex]
         l_coeffs     = [MatrixLocalBasis(i)    for i in f_ex]
-        ind_dof_test = index_dof_test.set_length(lengths_fields[f]+1)
+        ind_dof_test = index_dof_test.set_range(stop=lengths_fields[f]+1)
         eval_field   = EvalField(atomic_expr[f], ind_quad, ind_dof_test, d_fields[f]['global'], coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields  += [eval_field]
 
