@@ -243,7 +243,7 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
     boundary = Union(*[domain.get_boundary(**kw) for kw in get_boundaries(1,2)])
     bc       = EssentialBC(du, ue, boundary)
 
-    equation = find((du, dp), forall=(v, q), lhs=a((du, dp), (v, q)), rhs=l(v, q), bc=bc)
+    equation = find((du, dp), forall=(v, q), lhs=a((du, dp), (v, q)), rhs=l(v, q))
 
     # Define (abstract) norms
     l2norm_u   = Norm(Matrix([u[0]-ue[0],u[1]-ue[1]]), domain, kind='l2')
@@ -255,22 +255,24 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
     # ... create the computational domain from a topological domain
     domain_h = discretize(domain, ncells=ncells, comm=comm)
 
-    knots1 = np.array([0, 0, 0, 1.0000, 1.0000, 1.0000])
-    knots2 = np.array([0, 0, 0, 1.0000, 1.0000, 1.0000])
+    breaks1 = np.linspace(0, 1, ncells[0]+1)
+    breaks2 = np.linspace(0, 1, ncells[1]+1)
 
-    knots1, knots2 = refine_knots([knots1, knots2], ncells=ncells, degree=degree, multiplicity=[2,2])
-    knots  = {domain.name:[knots1, knots2]}
+    knots1 = make_knots(breaks1, degree=degree[0], multiplicity=multiplicity[0])
+    knots2 = make_knots(breaks2, degree=degree[1], multiplicity=multiplicity[1])
+
+    knots  = [knots1, knots2]
 
     # ... discrete spaces
-    V1h = discretize(V1, domain_h, degree=degree, knots=knots)
-    V2h = discretize(V2, domain_h, degree=degree, knots=knots)
-    Xh  = V1h*V2h
+    X   = V1*V2
+#    Xh  = discretize(X, domain_h, degree=degree, knots=knots, space_type='TH')
+
+    Xh  = discretize(X, domain_h, degree=degree, knots=knots, sequence='TH', 'N', 'RT', 'DR' )
+
+    V1h, V2h = Xh.spaces
 
     # ... discretize the equation using Dirichlet bc
     equation_h = discretize(equation, domain_h, [Xh, Xh])
-
-    a_h        = equation_h.lhs
-    l_h        = equation_h.rhs
 
     # Discretize norms
     l2norm_u_h = discretize(l2norm_u, domain_h, V1h, backend=PSYDAC_BACKEND_GPYCCEL)
@@ -294,23 +296,14 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
 
     # Newton iteration
     for n in range(N):
-        if comm.rank == 0:
-            print()
-            print('==== iteration {} ===='.format(n))
-        u_h.coeffs.update_ghost_regions()
-        p_h.coeffs.update_ghost_regions()
-        M = a_h.assemble(u=u_h, p=p_h)
-        b = l_h.assemble(u=u_h, p=p_h)
+        print('==== iteration {} ===='.format(n))
 
-        apply_essential_bc(M, *equation_h.bc)
-        apply_essential_bc(b, *equation_h.bc)
+        equation_h.assemble(u=u_h, p=p_h)
+        xh, info   = equation_h.solve(solver='bicg', tol=1e-9, info=True)
 
-        x,info = bicg(M, M.T, b,tol=1e-9)
-
-        du_h[0].coeffs[:] = x[0][:]
-        du_h[1].coeffs[:] = x[1][:]
-        dp_h.coeffs[:]    = x[2][:]
-        dp_h.coeffs[:]    = dp_h.coeffs[:]
+        du_h[0].coeffs[:] = xh[0].coeffs[:]
+        du_h[1].coeffs[:] = xh[1].coeffs[:]
+        dp_h.coeffs[:]    = xh[2].coeffs[:]
 
         # update field
         u_h -= du_h
@@ -320,14 +313,12 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree):
         l2_error_du = l2norm_du_h.assemble(du=du_h)
         l2_error_dp = l2norm_dp_h.assemble(dp=dp_h)
 
-        if comm.rank == 0:
-            print('L2_error_norm(du) = {}'.format(l2_error_du))
-            print('L2_error_norm(dp) = {}'.format(l2_error_dp))
+        print('L2_error_norm(du) = {}'.format(l2_error_du))
+        print('L2_error_norm(dp) = {}'.format(l2_error_dp))
 
-        if abs(l2_error_du+l2_error_dp) <= TOL:
-            if comm.rank == 0:
-                print()
-                print('CONVERGED')
+        if abs(l2_error_du)<= TOL and abs(l2_error_dp) <= TOL:
+            print()
+            print('CONVERGED')
             break
 
     l2_error_u = l2norm_u_h.assemble(u=u_h)
