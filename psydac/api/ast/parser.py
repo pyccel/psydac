@@ -381,7 +381,22 @@ class Parser(object):
 
         mats = args.pop('mats')
         
-        map_coeffs = args.pop('mapping', None)
+        map_coeffs  = args.pop('mapping', None)
+        map_degrees = args.pop('mapping_degrees', None)
+        map_basis   = args.pop('mapping_basis', None)
+        map_span    = args.pop('mapping_spans', None)
+
+        if map_coeffs:
+            map_coeffs  = map_coeffs
+            map_degrees = [map_degrees]
+            map_basis   = [map_basis]
+            map_span    = [map_span]
+        else:
+            map_coeffs  = []
+            map_degrees = []
+            map_basis   = []
+            map_span    = []
+
         constants  = args.pop('constants', None)
 
         f_coeffs   = args.pop('f_coeffs',    None)
@@ -395,7 +410,7 @@ class Parser(object):
             f_pads     = args.pop('f_pads', [])
             f_args     = (*f_basis, *f_span, *f_degrees, *f_pads, *f_coeffs)
 
-        args = [*tests_basis, *trial_basis, *g_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *lengths, *g_pads]
+        args = [*tests_basis, *trial_basis, *map_basis, *g_span, *map_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *map_degrees, *lengths, *g_pads, *map_coeffs]
 
         if isinstance(mats[0], (LocalElementBasis, GlobalElementBasis)):
             mats = [self._visit(mat) for mat in mats]
@@ -407,11 +422,9 @@ class Parser(object):
             mats      = flatten(mats)
 
         args = [self._visit(i, **kwargs) for i in args]
+
         args = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in args]
         arguments = flatten(args) + mats
-
-        if map_coeffs:
-            arguments += [self._visit(i, **kwargs) for i in map_coeffs]
 
         if constants:
             arguments += [self._visit(i, **kwargs) for i in constants]
@@ -499,9 +512,7 @@ class Parser(object):
         l_coeffs = expr.local_coeffs
         stmts   = []
         dim = self._dim
-        tests = expr._tests
         test = coeffs[0].test
-        test = test if test in tests else test.base
         lhs_slices = [Slice(None,None)]*dim
         multiplicity = expr.multiplicity
         pads         = expr.pads
@@ -540,17 +551,19 @@ class Parser(object):
         names = 'global_x1:%s'%(dim+1)
         points   = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
-        names = 'global_w1:%s'%(dim+1)
-        weights  = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+        weights = []
+        if expr.weights:
+            names = 'global_w1:%s'%(dim+1)
+            weights  = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
-        # gather by axis
-        
-        targets = tuple(zip(points, weights))
+            # gather by axis
+            targets = tuple(zip(points, weights))
+        else:
+            targets = tuple(zip(points))
 
         self.insert_variables(*points, *weights)
 
         return OrderedDict([(0,targets)])
-
 
     # ....................................................
     def _visit_LocalTensorQuadrature(self, expr, **kwargs):
@@ -560,12 +573,15 @@ class Parser(object):
         names = 'local_x1:%s'%(dim+1)
         points   = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
-        names = 'local_w1:%s'%(dim+1)
-        weights  = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+        weights = []
+        if expr.weights:
+            names = 'local_w1:%s'%(dim+1)
+            weights  = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
-        # gather by axis
-        
-        targets = tuple(zip(points, weights))
+            # gather by axis
+            targets = tuple(zip(points, weights))
+        else:
+            targets = tuple(zip(points))
 
         self.insert_variables(*points, *weights)
 
@@ -577,12 +593,15 @@ class Parser(object):
         names   = 'x1:%s'%(dim+1)
         points  = variables(names, dtype='real', cls=Variable)
 
-        names   = 'w1:%s'%(dim+1)
-        weights = variables(names, dtype='real', cls=Variable)
+        weights = []
+        if expr.weights:
+            names   = 'w1:%s'%(dim+1)
+            weights = variables(names, dtype='real', cls=Variable)
 
-        # gather by axis
-        
-        targets = tuple(zip(points, weights))
+            # gather by axis
+            targets = tuple(zip(points, weights))
+        else:
+            target  = tuple(zip(points))
 
         self.insert_variables(*points, *weights)
 
@@ -997,8 +1016,11 @@ class Parser(object):
         exprs   = expr.expr
         mapping = self.mapping
 
-        weight  = SymbolicWeightedVolume(mapping)
-        weight  = SymbolicExpr(weight)
+        if expr.weights:
+            weight  = SymbolicWeightedVolume(mapping)
+            weight  = SymbolicExpr(weight)
+        else:
+            weight  = 1
 
         rhs = [weight*self._visit(expr, **kwargs) for expr in exprs[:]]
         lhs = lhs[:]

@@ -123,10 +123,13 @@ def construct_trial_space_arguments(basis_values):
     return trial_basis, trial_degrees, pads
 
 #==============================================================================
-def construct_quad_grids_arguments(grid):
+def construct_quad_grids_arguments(grid, weights=True):
     points         = grid.points
-    weights        = grid.weights
-    quads          = flatten(list(zip(points, weights)))
+    if weights:
+        weights        = grid.weights
+        quads          = flatten(list(zip(points, weights)))
+    else:
+        quads = flatten(list(zip(points)))
 
     quads_degree   = flatten(grid.quad_order)
     n_elements     = grid.n_elements
@@ -215,10 +218,10 @@ class DiscreteBilinearForm(BasicDiscrete):
         assert np.array_equal(quad_order, get_quad_order(self.spaces[1]))
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
         #...
-        grid              = QuadratureGrid( test_space, axis, test_ext, trial_space=trial_space)
-        self._grid        = grid
-        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
-        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
+        grid                = QuadratureGrid( test_space, axis, test_ext, trial_space=trial_space)
+        self._grid          = grid
+        self._test_basis    = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
+        self._trial_basis   = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
 
         if isinstance(test_space.vector_space, BlockVectorSpace):
             vector_space = test_space.vector_space.spaces[0]
@@ -296,7 +299,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     assert i==j
                     v = v[i]
                 if isinstance(v, FemField):
-                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, grid=self.grid)
+                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid)
                     bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
@@ -345,20 +348,27 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         test_basis, test_degrees, spans, pads  = construct_test_space_arguments(self.test_basis)
         trial_basis, trial_degrees, pads       = construct_trial_space_arguments(self.trial_basis)
-        n_elements, quads, quad_degrees        = construct_quad_grids_arguments(self.grid)
+        n_elements, quads, quad_degrees        = construct_quad_grids_arguments(self.grid, weights=False)
 
         pads                      = self.test_basis.space.vector_space.pads
         element_mats, global_mats = self.allocate_matrices(backend)
         self._global_matrices     = [M._data for M in global_mats]
 
         if self.mapping:
-            mapping = [e._coeffs._data for e in self.mapping._fields]
+            mapping    = [e._coeffs._data for e in self.mapping._fields]
+            space      = self.mapping._fields[0].space
+            map_degree = space.degree
+            map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
+            map_basis  = [q.basis for q in space.quad_grids]
             if self.is_rational_mapping:
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
         else:
-            mapping = []
+            mapping    = []
+            map_degree = []
+            map_span   = []
+            map_basis  = []
 
-        args = (*test_basis, *trial_basis, *spans, *quads, *test_degrees, *trial_degrees, *n_elements, *quad_degrees, *pads, *element_mats, *self._global_matrices, *mapping)
+        args = (*test_basis, *trial_basis, *map_basis, *spans, *map_span, *quads, *test_degrees, *trial_degrees, *map_degree, *n_elements, *quad_degrees, *pads, *mapping, *element_mats, *self._global_matrices)
         return args
 
     def allocate_matrices(self, backend=None):
@@ -597,7 +607,7 @@ class DiscreteLinearForm(BasicDiscrete):
                     i = get_space_indices_from_target(self.domain, self.target)
                     v = v[i]
                 if isinstance(v, FemField):
-                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, grid=self.grid)
+                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid)
                     bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
@@ -639,7 +649,7 @@ class DiscreteLinearForm(BasicDiscrete):
     def construct_arguments(self):
 
         tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
-        n_elements, quads, quads_degree         = construct_quad_grids_arguments(self.grid)
+        n_elements, quads, quads_degree         = construct_quad_grids_arguments(self.grid, weights=False)
 
         global_pads   = self.space.vector_space.pads
 
@@ -647,12 +657,19 @@ class DiscreteLinearForm(BasicDiscrete):
         self._global_matrices   = [M._data for M in global_mats]
 
         if self.mapping:
-            mapping   = [e._coeffs._data for e in self.mapping._fields]
+            mapping    = [e._coeffs._data for e in self.mapping._fields]
+            space      = self.mapping._fields[0].space
+            map_degree = space.degree
+            map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
+            map_basis  = [q.basis for q in space.quad_grids]
             if self.is_rational_mapping:
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
         else:
-            mapping   = []
-        args = (*tests_basis, *spans, *quads, *tests_degrees, *n_elements, *quads_degree, *global_pads, *element_mats, *self._global_matrices, *mapping)
+            mapping    = []
+            map_degree = []
+            map_span   = []
+            map_basis  = []
+        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, *element_mats, *self._global_matrices)
         return args
 
     def allocate_matrices(self):
@@ -782,7 +799,7 @@ class DiscreteFunctional(BasicDiscrete):
         # ...
         grid             = QuadratureGrid( self.space,  axis=axis, ext=ext)
         self._grid       = grid
-        self._test_basis = BasisValues( self.space, nderiv = self.max_nderiv, grid=grid, ext=ext)
+        self._test_basis = BasisValues( self.space, nderiv = self.max_nderiv, trial=True, grid=grid, ext=ext)
 
         self._args = self.construct_arguments()
 
@@ -842,13 +859,20 @@ class DiscreteFunctional(BasicDiscrete):
             self._vector = vector
 
         if self.mapping:
-            mapping = [e._coeffs._data for e in self.mapping._fields]
+            mapping    = [e._coeffs._data for e in self.mapping._fields]
+            space      = self.mapping._fields[0].space
+            map_degree = space.degree
+            map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
+            map_basis  = [q.basis for q in space.quad_grids]
             if self.is_rational_mapping:
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
         else:
-            mapping = []
+            mapping    = []
+            map_degree = []
+            map_span   = []
+            map_basis  = []
 
-        args = (*tests_basis, *spans, *quads, *tests_degrees, *n_elements, *quads_degree, *global_pads, element_mats, self._vector, *mapping)
+        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, element_mats, self._vector)
 
         return args
 
