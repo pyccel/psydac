@@ -366,9 +366,6 @@ class EvalMapping(BaseNode):
         mapping_space : <VectorSpace>
             The vector space of the mapping
 
-        tests   : tuple_like (Variable)
-            The dummy variable for the test functions
-
         nderiv  : <int>
             Maximum number of derivatives
 
@@ -378,7 +375,7 @@ class EvalMapping(BaseNode):
         is_rational: bool,optional
             True if the mapping is rational
     """
-    def __new__(cls, quads, indices_basis, q_basis, mapping, components, mapping_space, tests, nderiv, mask=None, is_rational=None):
+    def __new__(cls, quads, indices_basis, q_basis, mapping, components, mapping_space, nderiv, mask=None, is_rational=None):
         mapping_atoms  = components.arguments
         basis          = q_basis
         target         = basis.target
@@ -449,7 +446,6 @@ class EvalMapping(BaseNode):
         loop   = Loop((), quads, stmts=[loop, *rationalization], mask=mask)
 
         obj    = Basic.__new__(cls, loop, l_coeffs, g_coeffs, values, multiplicity, pads)
-        obj._tests = tests
         return obj
 
     @property
@@ -595,6 +591,13 @@ class GlobalTensorQuadrature(ArrayNode):
     _positions = {index_element: 0, index_quad: 1}
     _free_indices = [index_element]
 
+    def __init__(self, weights=True):
+        self._weights = weights
+
+    @property
+    def weights( self ):
+        return self._weights
+
 #==============================================================================
 class LocalTensorQuadrature(ArrayNode):
     # TODO add set_positions
@@ -603,11 +606,22 @@ class LocalTensorQuadrature(ArrayNode):
     _rank = 1
     _positions = {index_quad: 0}
 
+    def __init__(self, weights=True):
+        self._weights = weights
+
+    @property
+    def weights( self ):
+        return self._weights
 #==============================================================================
 class TensorQuadrature(ScalarNode):
     """
     """
-    pass
+    def __init__(self, weights=True):
+        self._weights = weights
+
+    @property
+    def weights( self ):
+        return self._weights
 #==============================================================================
 class MatrixQuadrature(MatrixNode):
     """
@@ -1241,13 +1255,16 @@ class ComputePhysicalBasis(ComputePhysical):
 class ComputeKernelExpr(ComputeNode):
     """
     """
-    def __new__(cls, expr):
-        return Basic.__new__(cls, expr)
+    def __new__(cls, expr, weights=True):
+        return Basic.__new__(cls, expr, weights)
 
     @property
     def expr(self):
         return self._args[0]
 
+    @property
+    def weights(self):
+        return self._args[1]
 #==============================================================================
 class ComputeLogical(ComputeNode):
     """
@@ -1561,8 +1578,9 @@ class Loop(BaseNode):
 
         assert(len(l_quad) == 1)
         l_quad = l_quad[0]
-
-        args = [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
+        args   = []
+        if l_quad.weights:
+            args = [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
         return Tuple(*args)
 
 #==============================================================================
