@@ -28,6 +28,7 @@ from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 from psydac.fem.vector       import ProductFemSpace
 from psydac.fem.basic        import FemField
+from psydac.core.bsplines    import basis_ders_on_quad_grid
 
 __all__ = (
     'DiscreteBilinearForm',
@@ -360,6 +361,19 @@ class DiscreteBilinearForm(BasicDiscrete):
             map_degree = space.degree
             map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
             map_basis  = [q.basis for q in space.quad_grids]
+            if self.grid.axis is not None:
+                axis   = self.grid.axis
+                nderiv = self.max_nderiv
+                space  = space.spaces[axis]
+                points = self.grid.points[axis]
+                boundary_basis = basis_ders_on_quad_grid(
+                        space.knots, space.degree, points, nderiv, space.basis)
+
+                map_basis[axis] = map_basis[axis].copy()
+                map_basis[axis][0:1, :, 0:nderiv+1, 0:1] = boundary_basis
+                if self.grid.ext == 1:
+                    map_span[axis]    = map_span[axis].copy()
+                    map_span[axis][0] = map_span[axis][-1]
             if self.is_rational_mapping:
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
         else:
@@ -662,6 +676,19 @@ class DiscreteLinearForm(BasicDiscrete):
             map_degree = space.degree
             map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
             map_basis  = [q.basis for q in space.quad_grids]
+            if self.grid.axis is not None:
+                axis   = self.grid.axis
+                nderiv = self.max_nderiv
+                space  = space.spaces[axis]
+                points = self.grid.points[axis]
+                boundary_basis = basis_ders_on_quad_grid(
+                        space.knots, space.degree, points, nderiv, space.basis)
+
+                map_basis[axis] = map_basis[axis].copy()
+                map_basis[axis][0:1, :, 0:nderiv+1, 0:1] = boundary_basis
+                if self.grid.ext == 1:
+                    map_span[axis]    = map_span[axis].copy()
+                    map_span[axis][0] = map_span[axis][-1]
             if self.is_rational_mapping:
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
         else:
@@ -864,6 +891,20 @@ class DiscreteFunctional(BasicDiscrete):
             map_degree = space.degree
             map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
             map_basis  = [q.basis for q in space.quad_grids]
+            if self.grid.axis is not None:
+                axis   = self.grid.axis
+                nderiv = self.max_nderiv
+                space  = space.spaces[axis]
+                points = self.grid.points[axis]
+                boundary_basis = basis_ders_on_quad_grid(
+                        space.knots, space.degree, points, nderiv, space.basis)
+
+                map_basis[axis] = map_basis[axis].copy()
+                map_basis[axis][0:1, :, 0:nderiv+1, 0:1] = boundary_basis
+                if self.grid.ext == 1:
+                    map_span[axis]    = map_span[axis].copy()
+                    map_span[axis][0] = map_span[axis][-1]
+
             if self.is_rational_mapping:
                 mapping = [*mapping, self.mapping._weights_field._coeffs._data]
         else:
