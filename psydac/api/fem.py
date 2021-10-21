@@ -888,7 +888,8 @@ class DiscreteFunctional(BasicDiscrete):
             mapping    = [e._coeffs._data for e in self.mapping._fields]
             space      = self.mapping._fields[0].space
             map_degree = space.degree
-            map_span   = [q.spans[q.local_element_start:q.local_element_end+1] for q in space.quad_grids]
+            map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
+            map_span   = [span[q.local_element_start:q.local_element_end+1] for q,span in zip(space.quad_grids, map_span)]
             map_basis  = [q.basis[q.local_element_start:q.local_element_end+1] for q in space.quad_grids]
 
             if self.is_rational_mapping:
