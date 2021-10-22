@@ -81,7 +81,7 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
                           Vh.reduce_degree(axes=[0], multiplicity=multiplicity[1:], basis=basis)]
             elif V.ldim == 3:
                 spaces = [Vh.reduce_degree(axes=[1,2], multiplicity=multiplicity[1:], basis=basis),
-                          Vh.reduce_degree(axes=[0,2], multiplicity=[multiplicity[0], multiplicit[2]], basis=basis),
+                          Vh.reduce_degree(axes=[0,2], multiplicity=[multiplicity[0], multiplicity[2]], basis=basis),
                           Vh.reduce_degree(axes=[0,1], multiplicity=multiplicity[:2], basis=basis)]
             else:
                 raise NotImplementedError('TODO')
