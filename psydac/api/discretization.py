@@ -58,6 +58,33 @@ def discretize_derham(derham, domain_h, *args, **kwargs):
 
 #==============================================================================
 def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
+    """ Reduce the tensor fem space degree along some directions.
+
+    Parameters
+    ----------
+    V : FunctionSpace
+        The symbolic space.
+
+    Vh : TensorFemSpace
+        The tensor product fem space.
+
+    basis: str
+        The basis function of the reduced spaces, it can be either 'B' for b-spline basis or 'M' for M-spline basis
+
+    sequence: str
+        The sequence used to reduce the space.
+        It can take one the following values:
+          'DR': for the Derham Sequence.
+          'TH': for Taylor-Hood elements
+          'N' : for the Nedelec elements.
+          'RT': for the Ravier Thomas elements.
+
+    Results
+    -------
+    Vh : TensorFemSpace, ProductFemSpace
+      The reduced space
+
+    """
     multiplicity = Vh.multiplicity
     if isinstance(V.kind, HcurlSpaceType):
         if sequence == 'DR':

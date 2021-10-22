@@ -47,7 +47,7 @@ def decompose_spaces(Xh):
     Results
     -------
     Vh : <list, FemSpace>
-         List of fem spaces that corresponds to their symbolic function spaces.
+         List of fem spaces.
     """
     from sympde.topology.space import VectorFunctionSpace
     from psydac.fem.vector     import ProductFemSpace
