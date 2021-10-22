@@ -34,7 +34,23 @@ def unroll_edges(domain, xgrid):
 
     elif xgrid[-1] != xB:
         return np.array([*xgrid, xgrid[0] + (xB-xA)])
-
+#===============================================================================
+def decompose_spaces(Xh):
+    from sympde.topology.space import VectorFunctionSpace
+    from psydac.fem.vector     import ProductFemSpace
+    V = Xh.symbolic_space
+    spaces = Xh.spaces
+    Vh    = []
+    for Vi in V.spaces:
+        if isinstance(Vi, VectorFunctionSpace):
+            Vh.append(ProductFemSpace(*spaces[:Vi.ldim]))
+            Vh[-1].symbolic_space = Vi
+            spaces = spaces[Vi.ldim:]
+        else:
+            Vh.append(spaces[0])
+            Vh[-1].symbolic_space = Vi
+            spaces = spaces[1:]
+    return Vh
 #===============================================================================
 def animate_field(fields, domain, mapping, res=(150,150), vrange=None, cmap=None, interval=35, progress=False, figsize=(14,4)):
     """Animate a sequence of scalar fields over a geometry."""

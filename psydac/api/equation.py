@@ -237,7 +237,7 @@ class DiscreteEquation(BasicDiscrete):
     #--------------------------------------------------------------------------
     def solve(self, **kwargs):
 
-        self.assemble(**kwargs)
+        if kwargs.pop('reassemble', True):self.assemble(**kwargs)
 
         # Free arguments of current equation
         free_args = set(self.lhs.free_args + self.rhs.free_args)

@@ -57,41 +57,57 @@ def discretize_derham(derham, domain_h, *args, **kwargs):
     return DiscreteDerham(mapping, *spaces)
 
 #==============================================================================
-def reduce_space_degrees(V, Vh, basis='B'):
-
+def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
+    multiplicity = Vh.multiplicity
     if isinstance(V.kind, HcurlSpaceType):
-        if V.ldim == 2:
-            spaces = [Vh.reduce_degree(axes=[0], basis=basis),
-                      Vh.reduce_degree(axes=[1], basis=basis)]
-        elif V.ldim == 3:
-            spaces = [Vh.reduce_degree(axes=[0], basis=basis),
-                      Vh.reduce_degree(axes=[1], basis=basis),
-                      Vh.reduce_degree(axes=[2], basis=basis)]
+        if sequence == 'DR':
+            if V.ldim == 2:
+                spaces = [Vh.reduce_degree(axes=[0], multiplicity=multiplicity[0:1], basis=basis),
+                          Vh.reduce_degree(axes=[1], multiplicity=multiplicity[1:], basis=basis)]
+            elif V.ldim == 3:
+                spaces = [Vh.reduce_degree(axes=[0], multiplicity=multiplicity[0:1], basis=basis),
+                          Vh.reduce_degree(axes=[1], multiplicity=multiplicity[1:2], basis=basis),
+                          Vh.reduce_degree(axes=[2], multiplicity=multiplicity[2:], basis=basis)]
+            else:
+                raise NotImplementedError('TODO')
         else:
-            raise NotImplementedError('TODO')
+            raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
 
         Vh = ProductFemSpace(*spaces)
     elif isinstance(V.kind, HdivSpaceType):
-
-        if V.ldim == 2:
-            spaces = [Vh.reduce_degree(axes=[1], basis=basis),
-                      Vh.reduce_degree(axes=[0], basis=basis)]
-        elif V.ldim == 3:
-            spaces = [Vh.reduce_degree(axes=[1,2], basis=basis),
-                      Vh.reduce_degree(axes=[0,2], basis=basis),
-                      Vh.reduce_degree(axes=[0,1], basis=basis)]
+        if sequence == 'DR':
+            if V.ldim == 2:
+                spaces = [Vh.reduce_degree(axes=[1], multiplicity=multiplicity[:1], basis=basis),
+                          Vh.reduce_degree(axes=[0], multiplicity=multiplicity[1:], basis=basis)]
+            elif V.ldim == 3:
+                spaces = [Vh.reduce_degree(axes=[1,2], multiplicity=multiplicity[1:], basis=basis),
+                          Vh.reduce_degree(axes=[0,2], multiplicity=[multiplicity[0], multiplicit[2]], basis=basis),
+                          Vh.reduce_degree(axes=[0,1], multiplicity=multiplicity[:2], basis=basis)]
+            else:
+                raise NotImplementedError('TODO')
         else:
-            raise NotImplementedError('TODO')
-
+            raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
         Vh = ProductFemSpace(*spaces)
 
     elif isinstance(V.kind, L2SpaceType):
-        if V.ldim == 1:
-            Vh = Vh.reduce_degree(axes=[0], basis=basis)
-        elif V.ldim == 2:
-            Vh = Vh.reduce_degree(axes=[0,1], basis=basis)
-        elif V.ldim == 3:
-            Vh = Vh.reduce_degree(axes=[0,1,2], basis=basis)
+        if sequence == 'DR':
+            if V.ldim == 1:
+                Vh = Vh.reduce_degree(axes=[0], multiplicity=multiplicity, basis=basis)
+            elif V.ldim == 2:
+                Vh = Vh.reduce_degree(axes=[0,1], multiplicity=multiplicity, basis=basis)
+            elif V.ldim == 3:
+                Vh = Vh.reduce_degree(axes=[0,1,2], multiplicity=multiplicity, basis=basis)
+        elif sequence == 'TH':
+            multiplicity = [max(1,m-1) for m in multiplicity]
+            if V.ldim == 1:
+                Vh = Vh.reduce_degree(axes=[0], multiplicity=multiplicity, basis=basis)
+            elif V.ldim == 2:
+                Vh = Vh.reduce_degree(axes=[0,1], multiplicity=multiplicity, basis=basis)
+            elif V.ldim == 3:
+                Vh = Vh.reduce_degree(axes=[0,1,2], multiplicity=multiplicity, basis=basis)
+
+        else:
+            raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
 
     elif not isinstance(V.kind,  (H1SpaceType, UndefinedSpaceType)):
         raise NotImplementedError('TODO')
@@ -136,13 +152,16 @@ def discretize_space(V, domain_h, *args, **kwargs):
     basis               = kwargs.pop('basis', 'B')
     knots               = kwargs.pop('knots', None)
     quad_order          = kwargs.pop('quad_order', None)
+    sequence            = kwargs.pop('sequence', 'DR')
     is_rational_mapping = False
 
-    # from a discrete geoemtry
-    # TODO improve condition on mappings
+    assert sequence in ['DR', 'TH', 'N', 'RT']
+    if sequence in ['TH', 'N', 'RT']:
+        assert isinstance(V, ProductSpace) and len(V.spaces) == 2
 
     g_spaces = OrderedDict()
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
+        # from a discrete geoemtry
         if len(domain_h.mappings.values()) > 1:
             raise NotImplementedError('Multipatch not yet available')
 
@@ -188,6 +207,9 @@ def discretize_space(V, domain_h, *args, **kwargs):
                 spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
             else:
                  # Create 1D finite element spaces and precompute quadrature data
+                if isinstance(knots, (list, tuple)):
+                    assert len(interiors) == 1
+                    knots = {interior.name:knots}
                 spaces = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree, knots[interior.name], periodic)]
 
             Vh     = None
@@ -220,12 +242,12 @@ def discretize_space(V, domain_h, *args, **kwargs):
     for inter in g_spaces:
         Vh = g_spaces[inter]
         if isinstance(V, ProductSpace):
-            spaces = [reduce_space_degrees(Vi, Vh, basis=basis) for Vi in V.spaces]
+            spaces = [reduce_space_degrees(Vi, Vh, basis=basis, sequence=sequence) for Vi in V.spaces]
             spaces = [Vh.spaces if isinstance(Vh, ProductFemSpace) else Vh for Vh in spaces]
             spaces = flatten(spaces)
             Vh     = ProductFemSpace(*spaces)
         else:
-            Vh = reduce_space_degrees(V, Vh, basis=basis)
+            Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
 
         Vh.symbolic_space = V
         g_spaces[inter]    = Vh
