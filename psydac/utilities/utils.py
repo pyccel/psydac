@@ -36,6 +36,19 @@ def unroll_edges(domain, xgrid):
         return np.array([*xgrid, xgrid[0] + (xB-xA)])
 #===============================================================================
 def decompose_spaces(Xh):
+    """Decompose the flattened fem spaces into 
+       a list of spaces that corresponds to the symbolic function spaces.
+
+    Parameters
+    ----------
+    Xh : ProductFemSpace
+        The discrete space.
+
+    Results
+    -------
+    Vh : <list, FemSpace>
+         List of fem spaces that corresponds to their symbolic function spaces.
+    """
     from sympde.topology.space import VectorFunctionSpace
     from psydac.fem.vector     import ProductFemSpace
     V = Xh.symbolic_space
@@ -50,6 +63,8 @@ def decompose_spaces(Xh):
             Vh.append(spaces[0])
             Vh[-1].symbolic_space = Vi
             spaces = spaces[1:]
+    if len(Vh) == 1:
+        Vh = Vh[0]
     return Vh
 #===============================================================================
 def animate_field(fields, domain, mapping, res=(150,150), vrange=None, cmap=None, interval=35, progress=False, figsize=(14,4)):
