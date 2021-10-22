@@ -620,13 +620,16 @@ class TensorFemSpace( FemSpace ):
 
         return fields
 
-    def reduce_degree(self, axes, multiplicity, basis='B'):
+    def reduce_degree(self, axes, multiplicity=None, basis='B'):
 
         if isinstance(axes, int):
             axes = [axes]
 
         if isinstance(multiplicity, int):
             multiplicity = [multiplicity]
+
+        if multiplicity is None:
+            multiplicity = [self.multiplicity[i] for i in axes]
 
         v = self._vector_space
 
