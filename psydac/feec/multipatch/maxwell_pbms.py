@@ -56,8 +56,6 @@ from scipy.sparse import save_npz, load_npz, bmat
 
 # from scikits.umfpack import splu    # import error
 
-
-
 from sympde.topology import Derham
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
@@ -169,8 +167,6 @@ def get_load_dir(method=None, DG_full=False, domain_name=None,nc=None,deg=None,d
         assert data == 'rhs'
     fem_name = get_fem_name(domain_name=domain_name,method=method, nc=nc,deg=deg, DG_full=DG_full)
     return './saved_'+data+'/'+fem_name+'/'
-
-
 
 # ---------------------------------------------------------------------------------------------------------------
 def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_language='python', discard_non_hom_matrices=False):
@@ -650,27 +646,63 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
 
     t_stamp = time_count()
     print('A_m.shape = ', A_m.shape)
+    try_lgmres = True
+    max_shape_splu = 2000   #17000:   # max value for super_lu is >= 13200
+    nb_iter_OP = 0
+    def f_iter_OP(x):
+        # global nb_iter_OP
+        print('lgmres (OP) -- iter ') #  = ', nb_iter_OP) #, 'residual = ', norm(OP_m.dot(x)-bb_c))
+        # nb_iter_OP += 1
+
     # print('getting sigma = ', sigma)
     # sigma_ref = ref_sigmas[len(ref_sigmas)//2] if nitsche else 0
-    if A_m.shape[0] < 20000: #17000:   # max value for super_lu is >= 13200
-        print('(with super_lu decomposition)')
-        eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M_m, sigma=sigma, mode=mode, which=which, ncv=ncv)
-    else:
-        # from https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigsh.html:
-        # the user can supply the matrix or operator OPinv, which gives x = OPinv @ b = [A - sigma * M]^-1 @ b.
-        # > here, minres: MINimum RESidual iteration to solve Ax=b
-        # suggested in https://github.com/scipy/scipy/issues/4170
-        OP = A_m - sigma*M_m
-        print('(with minres iterative solver for A_m - sigma*M1_m)')
-        OPinv = LinearOperator(matvec=lambda v: minres(OP, v, tol=1e-10)[0], shape=M_m.shape, dtype=M_m.dtype)
-        # print('(with gmres iterative solver for A_m - sigma*M1_m)')
-        # OPinv = LinearOperator(matvec=lambda v: gmres(OP, v, tol=1e-7)[0], shape=M1_m.shape, dtype=M1_m.dtype)
-        # print('(with spsolve solver for A_m - sigma*M1_m)')
-        # OPinv = LinearOperator(matvec=lambda v: spsolve(OP, v, use_umfpack=True), shape=M1_m.shape, dtype=M1_m.dtype)
+    if A_m.shape[0] < max_shape_splu:
+        print('(via sparse LU decomposition)')
+        OPinv = None
+        tol_eigsh = 0
 
-        # lu = splu(OP)
-        # OPinv = LinearOperator(matvec=lambda v: lu.solve(v), shape=M1_m.shape, dtype=M1_m.dtype)
-        eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M_m, sigma=sigma, mode=mode, which=which, ncv=ncv, tol=1e-10, OPinv=OPinv)
+    else:
+
+        OP_m = A_m - sigma*M_m
+        tol_eigsh = 1e-7
+
+        if try_lgmres:
+            print('(via SPILU-preconditioned LGMRES iterative solver for A_m - sigma*M1_m)')
+            OP_spilu = spilu(OP_m, fill_factor=20, drop_tol=5e-5)
+            # spilu(OP_m, fill_factor=15, drop_tol=5e-5)  # better preconditionning, if matrix not too large
+            preconditioner = LinearOperator( OP_m.shape, lambda x: OP_spilu.solve(x) )
+            tol = tol_eigsh
+            OPinv = LinearOperator(
+                # matvec=lambda v: lgmres(OP_m, v, x0=None, tol=tol, atol=tol, M=preconditioner)[0],
+                matvec=lambda v: lgmres(OP_m, v, x0=None, tol=tol, atol=tol, M=preconditioner,
+                                    callback=lambda x: print('cg -- residual = ', norm(OP_m.dot(x)-v))
+                                    )[0],
+                # matvec=lambda v: cg(OP_m, v, x0=None, tol=tol, atol=tol, M=preconditioner,
+                #                     callback=lambda x: print('cg -- residual = ', norm(OP_m.dot(x)-v))
+                #                     )[0],
+                shape=M_m.shape,
+                dtype=M_m.dtype
+            )
+
+
+        else:
+            # from https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigsh.html:
+            # the user can supply the matrix or operator OPinv, which gives x = OPinv @ b = [A - sigma * M]^-1 @ b.
+            # > here, minres: MINimum RESidual iteration to solve Ax=b
+            # suggested in https://github.com/scipy/scipy/issues/4170
+            OP = A_m - sigma*M_m
+            print('(with minres iterative solver for A_m - sigma*M1_m)')
+            OPinv = LinearOperator(matvec=lambda v: minres(OP_m, v, tol=1e-10)[0], shape=M_m.shape, dtype=M_m.dtype)
+            # print('(with gmres iterative solver for A_m - sigma*M1_m)')
+            # OPinv = LinearOperator(matvec=lambda v: gmres(OP, v, tol=1e-7)[0], shape=M1_m.shape, dtype=M1_m.dtype)
+            # print('(with spsolve solver for A_m - sigma*M1_m)')
+            # OPinv = LinearOperator(matvec=lambda v: spsolve(OP, v, use_umfpack=True), shape=M1_m.shape, dtype=M1_m.dtype)
+
+            # lu = splu(OP)
+            # OPinv = LinearOperator(matvec=lambda v: lu.solve(v), shape=M1_m.shape, dtype=M1_m.dtype)
+            # eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M_m, sigma=sigma, mode=mode, which=which, ncv=ncv, tol=1e-10, OPinv=OPinv)
+
+    eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M_m, sigma=sigma, mode=mode, which=which, ncv=ncv, tol=tol_eigsh, OPinv=OPinv)
 
     time_count(t_stamp)
     print("done. eigenvalues found: " + repr(eigenvalues))
@@ -679,14 +711,8 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
 
 def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None, dc_pbm=False, c_grad=1):
     """
-    get source and ref solution of time-Harmonic Maxwell equation
-        eta * E + mu * curl curl E - nu * grad div E = f
-    with u in H_0(curl)
 
-    if dc_pbm, we solve a divergence-constrained mixed problem of the form
-        grad p + mu * curl curl u = f
-        div u = 0
-    with p in H^1_0, u in H_0(curl)
+
     """
 
     assert refsol_params
@@ -759,8 +785,12 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
         # then corresponds to a magnetic density,
         # see Beirão da Veiga, Brezzi, Dassi, Marini and Russo, Virtual Element approx of 2D magnetostatic pbms, CMAME 327 (2017)
 
-        x_0 = 2.0
-        y_0 = 2.0
+        # x_0 = 2.0
+        # y_0 = 2.0
+        # x_0 = 0.3
+        # y_0 = 2.7
+        x_0 = -0.7
+        y_0 = 2.3
         ds2_0 = (0.02)**2
         sigma_0 = (x-x_0)**2 + (y-y_0)**2
         phi_0 = exp(-sigma_0**2/(2*ds2_0))
@@ -769,8 +799,12 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
         dx_phi_0 = - dx_sig_0 * sigma_0 / ds2_0 * phi_0
         dy_phi_0 = - dy_sig_0 * sigma_0 / ds2_0 * phi_0
 
-        x_1 = 1.0
-        y_1 = 1.0
+        # x_1 = 1.0
+        # y_1 = 1.0
+        # x_1 = 0.7
+        # y_1 = 2.3
+        x_1 = -0.3
+        y_1 = 2.7
         ds2_1 = (0.02)**2
         sigma_1 = (x-x_1)**2 + (y-y_1)**2
         phi_1 = exp(-sigma_1**2/(2*ds2_1))
@@ -783,7 +817,6 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
         f_y = - dx_phi_0 + dx_phi_1
         f = Tuple(f_x, f_y)  # todo: rename the J's as f, throughout doc
 
-
     elif source_type == 'ellip_J':
 
         # divergence-free J field along an ellipse curve
@@ -793,17 +826,17 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
             r0 = 1
             x0 = 1.5
             y0 = 1.5
-            s0 = x0-y0
-            t0 = x0+y0
-            s  = x - y
-            t  = x + y
-            a2 = (1/1.7)**2
-            b2 = (1/1.1)**2
+            # s0 = x0-y0
+            # t0 = x0+y0
+            s  = (x-x0) - (y-y0)
+            t  = (x-x0) + (y-y0)
+            aa = (1/1.7)**2
+            bb = (1/1.1)**2
             dsigpsi2 = 0.01
-            sigma = a2*(s-s0)**2 + b2*(t-t0)**2 - 1
+            sigma = aa*s**2 + bb*t**2 - 1
             psi = exp(-sigma**2/(2*dsigpsi2))
-            dx_sig = 2*( a2*(s-s0) + b2*(t-t0))
-            dy_sig = 2*(-a2*(s-s0) + b2*(t-t0))
+            dx_sig = 2*( aa*s + bb*t)
+            dy_sig = 2*(-aa*s + bb*t)
             J_x =   dy_sig * psi
             J_y = - dx_sig * psi
 
@@ -1045,6 +1078,11 @@ if __name__ == '__main__':
         help    = 'save the values of E on cdiag grid, for further comparisons'
     )
 
+    parser.add_argument( '--khf',
+        action  = 'store_true',
+        help    = 'keep (save) the harmonic fields to constrain problems with harmonic kernel'
+    )
+
     parser.add_argument( '--eta',
         type    = float,
         default = 0,
@@ -1121,6 +1159,7 @@ if __name__ == '__main__':
     show_curl_u  = args.show_curl_u
     skip_err_u   = args.skip_err_u
     save_E_vals  = args.save_E_vals
+    khf          = args.khf
 
     do_plots = not no_plots
 
@@ -1203,7 +1242,7 @@ if __name__ == '__main__':
 
     # harmonic fields storage
     need_harmonic_fields = (problem == 'source_pbm') and dc_pbm and (eta == 0) and (domain_name in ['pretzel_f', 'pretzel'])
-    keep_harmonic_fields = (problem == 'eigen_pbm') and (sigma == 0) and (domain_name in ['pretzel', 'pretzel_f'])
+    keep_harmonic_fields = khf # (problem == 'eigen_pbm') and (sigma == 0) and (domain_name in ['pretzel', 'pretzel_f'])
     if need_harmonic_fields or keep_harmonic_fields:
         load_dir = get_load_dir(method=method, domain_name=domain_name, nc=nc, deg=deg, data='matrices')
         hf_filename = load_dir+hf_fn()
@@ -1225,6 +1264,7 @@ if __name__ == '__main__':
     # node based grid (to better see the smoothness)
     etas, xx, yy = get_plotting_grid(mappings, N=N_diag)
     grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+    grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
     grid_vals_l2 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='l2')
 
     # cell-centered grid to compute approx L2 norm
@@ -1372,6 +1412,7 @@ if __name__ == '__main__':
 
 
     if method == 'conga':
+
         CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m = conga_operators_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
                                                  hom_bc=hom_bc, need_GD_matrix=(nu != 0))
         M_m = M1_m
@@ -1438,8 +1479,6 @@ if __name__ == '__main__':
         if need_harmonic_fields:
             tilde_hf = []
             for i in range(3):
-                # print(type(harmonic_fields[i]))
-                # print(harmonic_fields[i].shape)
                 hi_c = harmonic_fields[i]  # coefs the of the i-th harmonic field, in the B/M spline basis of V1h
                 tilde_hf.append( M_m @ hi_c )
             HC_m = bmat(tilde_hf)
