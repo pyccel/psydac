@@ -41,9 +41,9 @@ def conga_operators_2d():
     r_min = 0.5
     r_max = 1
     # domain_name = 'pretzel'
-    # domain_name = 'pretzel_f'
+    domain_name = 'pretzel_f'
     # domain_name = 'curved_L_shape'
-    domain_name = 'square_8'
+    # domain_name = 'square_8'
 
     domain = build_multipatch_domain(domain_name=domain_name, r_min=r_min, r_max=r_max)
 
