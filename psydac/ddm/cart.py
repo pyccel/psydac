@@ -60,6 +60,16 @@ class CartDecomposition():
         MPI communicator that will be used to spawn a new Cartesian communicator
         (optional: default is MPI_COMM_WORLD).
 
+    shifts: list or tuple of int
+        Shifts alon each grid dimension.
+        It takes values bigger or equal to one, which represents the repeated coeffecients.
+
+    nrprocs: list or tuple of int
+       MPI decompotision along each dimension.
+
+    reverse_axis: int
+       Reverse the owenership of the proceses along the specified axis.
+
     """
     def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, shifts=None, nprocs=None, reverse_axis=None ):
 
@@ -101,6 +111,8 @@ class CartDecomposition():
             nprocs, block_shape = mpi_compute_dims( self._size, reduced_npts, pads )
         else:
             assert len(nprocs) == len(npts)
+
+        assert np.product(nprocs) == self._size
 
         self._dims = nprocs
         self._reverse_axis = reverse_axis
