@@ -287,10 +287,12 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, mult
     # First guess: zero solution
     u_h = FemField(V1h)
     p_h = FemField(V2h)
-
+    
     u_h[0].coeffs[:,:] = x0[0].coeffs[:,:]
     u_h[1].coeffs[:,:] = x0[1].coeffs[:,:]
     p_h.coeffs[:,:]    = x0[2].coeffs[:,:]
+
+    #u_h, p_h = split_field(x0, (V1h, V2h))
 
     du_h = FemField(V1h)
     dp_h = FemField(V2h)
@@ -302,9 +304,14 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, mult
         equation_h.assemble(u=u_h, p=p_h)
         xh, info   = equation_h.solve(reassemble=False, solver='bicg', tol=1e-9, info=True)
 
+#        equation_h.set_solver('bicg', tol=1e-9, info=True)
+#        xh, info   = equation_h.solve(u=u_h, p=p_h)
+
         du_h[0].coeffs[:] = xh[0].coeffs[:]
         du_h[1].coeffs[:] = xh[1].coeffs[:]
         dp_h.coeffs[:]    = xh[2].coeffs[:]
+
+        #du_h, dp_h = split_field(xh, (V1h, V2h), out=(du_h, dp_h))
 
         # update field
         u_h -= du_h
