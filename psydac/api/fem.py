@@ -124,17 +124,17 @@ def construct_trial_space_arguments(basis_values):
     return trial_basis, trial_degrees, pads
 
 #==============================================================================
-def construct_quad_grids_arguments(grid, weights=True):
+def construct_quad_grids_arguments(grid, use_weights=True):
     points         = grid.points
-    if weights:
+    if use_weights:
         weights        = grid.weights
         quads          = flatten(list(zip(points, weights)))
     else:
         quads = flatten(list(zip(points)))
 
-    quads_degree   = flatten(grid.quad_order)
-    n_elements     = grid.n_elements
-    return n_elements, quads, quads_degree
+    quads_order   = flatten(grid.quad_order)
+    n_elements    = grid.n_elements
+    return n_elements, quads, quads_order
 
 def reset_arrays(*args):
     for a in args: a[:] = 0.
@@ -348,7 +348,7 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         test_basis, test_degrees, spans, pads  = construct_test_space_arguments(self.test_basis)
         trial_basis, trial_degrees, pads       = construct_trial_space_arguments(self.trial_basis)
-        n_elements, quads, quad_degrees        = construct_quad_grids_arguments(self.grid, weights=False)
+        n_elements, quads, quad_degrees        = construct_quad_grids_arguments(self.grid, use_weights=False)
 
         pads                      = self.test_basis.space.vector_space.pads
         element_mats, global_mats = self.allocate_matrices(backend)
@@ -360,17 +360,19 @@ class DiscreteBilinearForm(BasicDiscrete):
             map_degree = space.degree
             map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
             map_basis  = [q.basis for q in space.quad_grids]
-            if self.grid.axis is not None:
-                axis   = self.grid.axis
+            axis       = self.grid.axis
+            ext        = self.grid.ext
+            points     = self.grid.points
+            if axis is not None:
                 nderiv = self.max_nderiv
                 space  = space.spaces[axis]
-                points = self.grid.points[axis]
+                points = points[axis]
                 boundary_basis = basis_ders_on_quad_grid(
                         space.knots, space.degree, points, nderiv, space.basis)
 
                 map_basis[axis] = map_basis[axis].copy()
                 map_basis[axis][0:1, :, 0:nderiv+1, 0:1] = boundary_basis
-                if self.grid.ext == 1:
+                if ext == 1:
                     map_span[axis]    = map_span[axis].copy()
                     map_span[axis][0] = map_span[axis][-1]
             if self.is_rational_mapping:
@@ -662,7 +664,7 @@ class DiscreteLinearForm(BasicDiscrete):
     def construct_arguments(self):
 
         tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
-        n_elements, quads, quads_degree         = construct_quad_grids_arguments(self.grid, weights=False)
+        n_elements, quads, quads_degree         = construct_quad_grids_arguments(self.grid, use_weights=False)
 
         global_pads   = self.space.vector_space.pads
 
@@ -675,17 +677,19 @@ class DiscreteLinearForm(BasicDiscrete):
             map_degree = space.degree
             map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
             map_basis  = [q.basis for q in space.quad_grids]
-            if self.grid.axis is not None:
-                axis   = self.grid.axis
+            axis       = self.grid.axis
+            ext        = self.grid.ext
+            points     = self.grid.points
+            if axis is not None:
                 nderiv = self.max_nderiv
                 space  = space.spaces[axis]
-                points = self.grid.points[axis]
+                points = points[axis]
                 boundary_basis = basis_ders_on_quad_grid(
                         space.knots, space.degree, points, nderiv, space.basis)
 
                 map_basis[axis] = map_basis[axis].copy()
                 map_basis[axis][0:1, :, 0:nderiv+1, 0:1] = boundary_basis
-                if self.grid.ext == 1:
+                if ext == 1:
                     map_span[axis]    = map_span[axis].copy()
                     map_span[axis][0] = map_span[axis][-1]
             if self.is_rational_mapping:
