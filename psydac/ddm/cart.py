@@ -618,6 +618,7 @@ class CartDataExchanger:
         # Wait for end of data exchange (MPI_WAITALL)
         MPI.Request.Waitall( requests )
 
+        comm.Barrier()
 
     #---------------------------------------------------------------------------
     # Private methods
