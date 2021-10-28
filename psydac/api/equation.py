@@ -165,12 +165,13 @@ class DiscreteEquation(BasicDiscrete):
                    if eqn_bc else None
         # ...
 
-        self._bc = bc
-        self._linear_system = None
-        self._domain        = domain
-        self._trial_space   = trial_space
-        self._test_space    = test_space
+        self._bc                = bc
+        self._linear_system     = None
+        self._domain            = domain
+        self._trial_space       = trial_space
+        self._test_space        = test_space
         self._boundary_equation = eqn_bc_h
+        self._solver_parameters = _default_solver.copy()
 
     @property
     def expr(self):
@@ -208,6 +209,12 @@ class DiscreteEquation(BasicDiscrete):
     def boundary_equation(self):
         return self._boundary_equation
 
+    def set_solver(self, solver, **kwargs):
+        self._solver_parameters.update(solver=solver, **kwargs)
+
+    def get_solver(self):
+        return self._solver_parameters
+
     #--------------------------------------------------------------------------
     def assemble(self, **kwargs):
 
@@ -237,7 +244,7 @@ class DiscreteEquation(BasicDiscrete):
     #--------------------------------------------------------------------------
     def solve(self, **kwargs):
 
-        if kwargs.pop('reassemble', True):self.assemble(**kwargs)
+        self.assemble(**kwargs)
 
         # Free arguments of current equation
         free_args = set(self.lhs.free_args + self.rhs.free_args)
@@ -248,16 +255,6 @@ class DiscreteEquation(BasicDiscrete):
             free_args_bc = set(bc_eq.lhs.free_args + bc_eq.rhs.free_args)
         else:
             free_args_bc = set()
-
-        # Global settings passed by the user (not free arguments values)
-        glob_settings = {k:v for k, v in kwargs.items() \
-                if k not in free_args | free_args_bc}
-
-        # Calculate solver settings by overriding the defaults with the
-        # user-provided values
-        settings = _default_solver.copy()
-        settings.update(glob_settings)
-        settings.update({it[0]:it[1] for it in glob_settings.items() if it[0] not in settings})
 
         #----------------------------------------------------------------------
         # [YG, 18/11/2019]
@@ -270,24 +267,17 @@ class DiscreteEquation(BasicDiscrete):
         # initial guess when the model equation is to be solved by an
         # iterative method. Our current method of solution does not
         # modify the initial guess at the boundary.
+
+        settings = self.get_solver()
         if self.boundary_equation:
 
-            # Clean up user-provided **kwargs by removing the solver settings
-            # and the free parameters not belonging to the boundary
-            for e in (free_args - free_args_bc) | settings.keys():
-                kwargs.pop(e, None)
-
             # Find inhomogeneous solution (use CG as system is symmetric)
-            loc_settings = settings.copy()
-            loc_settings['solver'] = 'cg'
-            loc_settings.pop('info', False)
-            loc_settings.pop('pc'  , False)
-            uh = self.boundary_equation.solve(**kwargs, **loc_settings)
+            self.boundary_equation.set_solver('cg', info=False)
+            uh = self.boundary_equation.solve(**kwargs)
 
             # Use inhomogeneous solution as initial guess to solver
             settings['x0'] = uh.coeffs
         #----------------------------------------------------------------------
-
         if settings.get('info', False):
             X, info = driver_solve(self.linear_system, **settings)
             uh = FemField(self.trial_space, coeffs=X)

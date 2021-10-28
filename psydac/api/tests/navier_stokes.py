@@ -33,7 +33,7 @@ from psydac.linalg.utilities   import array_to_stencil
 from psydac.linalg.stencil     import *
 from psydac.linalg.block       import *
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
-from psydac.utilities.utils    import refine_array_1d, animate_field, decompose_spaces
+from psydac.utilities.utils    import refine_array_1d, animate_field, split_space, split_field
 from psydac.linalg.iterative_solvers import cg, pcg, bicg, lsmr
 
 from mpi4py import MPI
@@ -135,7 +135,8 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
     l2norm_dp_h = discretize(l2norm_dp, domain_h, V2h, backend=PSYDAC_BACKEND_GPYCCEL)
 
     # compute the initial solution
-    x0 = equation_stokes_h.solve(solver='bicg', tol=1e-15)
+    equation_stokes_h.set_solver('bicg', tol=1e-15)
+    x0 = equation_stokes_h.solve()
 
 
     u0_h = FemField(V1h)
@@ -269,7 +270,7 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, mult
     # ... discrete spaces
     Xh  = discretize(X, domain_h, degree=degree, knots=knots, sequence='TH')
 
-    V1h, V2h = decompose_spaces(Xh)
+    V1h, V2h = split_space(Xh)
 
     # ... discretize the equation and equation_b
     equation_b_h = discretize(equation_b, domain_h, [Xh, Xh], backend=PSYDAC_BACKEND_GPYCCEL)
@@ -287,12 +288,8 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, mult
     # First guess: zero solution
     u_h = FemField(V1h)
     p_h = FemField(V2h)
-    
-    u_h[0].coeffs[:,:] = x0[0].coeffs[:,:]
-    u_h[1].coeffs[:,:] = x0[1].coeffs[:,:]
-    p_h.coeffs[:,:]    = x0[2].coeffs[:,:]
 
-    #u_h, p_h = split_field(x0, (V1h, V2h))
+    u_h, p_h = split_field(x0, (V1h, V2h))
 
     du_h = FemField(V1h)
     dp_h = FemField(V2h)
@@ -301,17 +298,10 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, mult
     for n in range(N):
         print('==== iteration {} ===='.format(n))
 
-        equation_h.assemble(u=u_h, p=p_h)
-        xh, info   = equation_h.solve(reassemble=False, solver='bicg', tol=1e-9, info=True)
+        equation_h.set_solver('bicg', tol=1e-9, info=True)
+        xh, info   = equation_h.solve(u=u_h, p=p_h)
 
-#        equation_h.set_solver('bicg', tol=1e-9, info=True)
-#        xh, info   = equation_h.solve(u=u_h, p=p_h)
-
-        du_h[0].coeffs[:] = xh[0].coeffs[:]
-        du_h[1].coeffs[:] = xh[1].coeffs[:]
-        dp_h.coeffs[:]    = xh[2].coeffs[:]
-
-        #du_h, dp_h = split_field(xh, (V1h, V2h), out=(du_h, dp_h))
+        split_field(xh, (V1h, V2h), out=(du_h, dp_h))
 
         # update field
         u_h -= du_h

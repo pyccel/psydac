@@ -35,8 +35,8 @@ def unroll_edges(domain, xgrid):
     elif xgrid[-1] != xB:
         return np.array([*xgrid, xgrid[0] + (xB-xA)])
 #===============================================================================
-def decompose_spaces(Xh):
-    """Decompose the flattened fem spaces into 
+def split_space(Xh):
+    """Split the flattened fem spaces into
        a list of spaces that corresponds to the symbolic function spaces.
 
     Parameters
@@ -66,6 +66,32 @@ def decompose_spaces(Xh):
     if len(Vh) == 1:
         Vh = Vh[0]
     return Vh
+
+#===============================================================================
+def split_field(uh, spaces, out=None):
+    """Split a field into a list of fields that corresponds to the spaces.
+
+    Parameters
+    ----------
+    uh : FemField
+        The fem field.
+
+    Results
+    -------
+    out : <list, FemField>
+         List of fem fields.
+    """
+    from psydac.fem.basic import FemField
+    if out is None:
+        out = [FemField(S) for S in spaces]
+
+    flattened_fields = [f.fields if f.fields else [f] for f in out]
+    flattened_fields = [f for l in flattened_fields for f in l]
+    for f1,f2 in zip(flattened_fields, uh.fields):
+        f1.coeffs[:] = f2.coeffs[:]
+
+    return out
+
 #===============================================================================
 def animate_field(fields, domain, mapping, res=(150,150), vrange=None, cmap=None, interval=35, progress=False, figsize=(14,4)):
     """Animate a sequence of scalar fields over a geometry."""
