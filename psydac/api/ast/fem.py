@@ -536,8 +536,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     pads      = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     b0s       = variables(('b01, b02, b03'), dtype='int')[:dim]
     e0s       = variables(('e01, e02, e03'), dtype='int')[:dim]
-    g_quad    = GlobalTensorQuadrature(False)
-    l_quad    = LocalTensorQuadrature(False)
+    g_quad     = GlobalTensorQuadrature(False)
+    l_quad     = LocalTensorQuadrature(False)
 
     quad_order    = kwargs.pop('quad_order', None)
 

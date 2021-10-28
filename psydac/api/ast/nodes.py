@@ -1734,7 +1734,7 @@ def construct_itergener(a, index):
 
     elif isinstance(a, LocalTensorQuadrature):
         generator = TensorGenerator(a, index)
-        element   = TensorQuadrature(a.weights)
+        element   = TensorQuadrature()
 
     elif isinstance(a, GlobalTensorQuadratureTrialBasis):
         generator = TensorGenerator(a, index)

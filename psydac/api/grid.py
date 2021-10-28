@@ -161,7 +161,7 @@ class BasisValues():
         The spans of the basis functions.
 
     """
-    def __init__( self, V, nderiv , trial=False, grid=None, ext=None):
+    def __init__( self, V, nderiv , trial=False, grid=None, ext=None, bil=False):
 
         self._space = V
         assert grid is not None
@@ -205,8 +205,9 @@ class BasisValues():
                             raise ValueError("Could not contsruct the basis functions")
 
                 if not trial:
-                    bs  = bs.copy()
-                    bs *= w[:, None, None, :]
+                    wshape = w.shape
+                    bs     = bs.copy()
+                    bs     = bs*w.reshape(wshape[0], 1, 1, wshape[1])
                 spans_i.append(sp)
                 basis_i.append(bs)
 

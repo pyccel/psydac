@@ -551,6 +551,7 @@ class Parser(object):
         names = 'global_x1:%s'%(dim+1)
         points   = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
+        weights = []
         if expr.weights:
             names = 'global_w1:%s'%(dim+1)
             weights  = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
@@ -558,7 +559,6 @@ class Parser(object):
             # gather by axis
             targets = tuple(zip(points, weights))
         else:
-            weights = []
             targets = tuple(zip(points))
 
         self.insert_variables(*points, *weights)
@@ -573,6 +573,7 @@ class Parser(object):
         names = 'local_x1:%s'%(dim+1)
         points   = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
+        weights = []
         if expr.weights:
             names = 'local_w1:%s'%(dim+1)
             weights  = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
@@ -580,7 +581,6 @@ class Parser(object):
             # gather by axis
             targets = tuple(zip(points, weights))
         else:
-            weights = []
             targets = tuple(zip(points))
 
         self.insert_variables(*points, *weights)
@@ -593,6 +593,7 @@ class Parser(object):
         names   = 'x1:%s'%(dim+1)
         points  = variables(names, dtype='real', cls=Variable)
 
+        weights = []
         if expr.weights:
             names   = 'w1:%s'%(dim+1)
             weights = variables(names, dtype='real', cls=Variable)
@@ -600,8 +601,7 @@ class Parser(object):
             # gather by axis
             targets = tuple(zip(points, weights))
         else:
-            weights  = []
-            targets  = tuple(zip(points))
+            target  = tuple(zip(points))
 
         self.insert_variables(*points, *weights)
 
