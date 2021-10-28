@@ -35,7 +35,7 @@ def find_mpi_type( dtype ):
 #===============================================================================
 class CartDecomposition():
     """
-    Cartesian decomposition of a tensor-product grid of spline coefficients.
+    Cartesian decomposition of a tensor-product grid of coefficients.
     This is built on top of an MPI communicator with multi-dimensional
     Cartesian topology.
 
@@ -61,14 +61,14 @@ class CartDecomposition():
         (optional: default is MPI_COMM_WORLD).
 
     shifts: list or tuple of int
-        Shifts along each grid dimension.
-        It takes values bigger or equal to one, it represents the multiplicity of each knot.
+        Shifts alon each grid dimension.
+        It takes values bigger or equal to one, which represents the repeated coeffecients.
 
-    nprocs: list or tuple of int
-       MPI decomposition along each dimension.
+    nrprocs: list or tuple of int
+       MPI decompotision along each dimension.
 
     reverse_axis: int
-       Reverse the ownership of the processes along the specified axis.
+       Reverse the owenership of the proceses along the specified axis.
 
     """
     def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, shifts=None, nprocs=None, reverse_axis=None ):
