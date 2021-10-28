@@ -587,7 +587,7 @@ class CartDataExchanger:
 
         # Shortcuts
         cart = self._cart
-        comm = cart._comm_cart
+        comm = self._comm_cart
 
         # Choose non-negative invertible function tag(disp) >= 0
         # NOTES:
