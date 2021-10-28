@@ -95,6 +95,7 @@ class CartDecomposition():
         # ...
         self._ndims = len( npts )
         # ...
+
         # ...
         self._size = comm.Get_size()
         self._rank = comm.Get_rank()
@@ -587,7 +588,7 @@ class CartDataExchanger:
 
         # Shortcuts
         cart = self._cart
-        comm = self._comm_cart
+        comm = self._comm
 
         # Choose non-negative invertible function tag(disp) >= 0
         # NOTES:
