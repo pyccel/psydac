@@ -377,7 +377,6 @@ class AST(object):
         if mapping_space:
             f         = (tests+trials+fields)[0]
             f         = f.duplicate('mapping_'+f.name)
-            f         = expand([f])[0]
             mapping_degrees      = get_degrees([f], mapping_space)
             multiplicity_mapping = get_multiplicity([f], mapping_space.vector_space)
             d_mapping = {f: {'global': GlobalTensorQuadratureTestBasis (f),
