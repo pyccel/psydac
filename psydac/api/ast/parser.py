@@ -1569,7 +1569,6 @@ class Parser(object):
 
         indices = list(self._visit(expr.index))
         starts, stops, lengths = list(self._visit(expr.index.start)), list(self._visit(expr.index.stop)), list(self._visit(expr.index.length))
-
         for i,j in zip(flatten(indices), flatten(lengths)):
             self.indices[str(i)] = j
 
@@ -1622,18 +1621,17 @@ class Parser(object):
                     mask_init += list(inits[axis])
                     inits[axis]   = None
             indices = [i for i in indices if i is not None]
-            starts  = [i for i in starts  if i is not None]
-            stops   = [i for i in stops   if i is not None]
-            inits   = [i for i in inits   if i is not None]
+            starts  = [i for i in starts if i is not None]
+            stops   = [i for i in stops if i is not None]
+            inits   = [i for i in inits if i is not None]
 
         elif mask:
             axis      = mask.axis
             index     = indices.pop(axis)
-            start     = starts.pop(axis)
-            stop      = stops.pop(axis)
+            starts    = starts.pop(axis)
+            stops     = stops.pop(axis)
             init      = inits.pop(axis)
             mask_init = [Assign(index, 0), *init]
-
         for index, s, e, init in zip(indices[::-1], starts[::-1], stops[::-1], inits[::-1]):
 
             body = list(init) + body

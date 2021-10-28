@@ -87,10 +87,6 @@ class BlockVectorSpace( VectorSpace ):
         return self._spaces
 
     @property
-    def parallel( self ):
-        return self._spaces[0].parallel
-
-    @property
     def starts( self ):
         return [s.starts for s in self._spaces]
 
