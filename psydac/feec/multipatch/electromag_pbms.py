@@ -47,11 +47,11 @@
 #
 #   . to solve Poisson's equation with manufactured elliptic solution ring in the pretzel:
 #   $ python3 psydac/feec/multipatch/electromag_pbms.py 8 3 --pbm source_pbm --pbm_space V0 --domain pretzel_f
-#       --source manu_poisson --method conga --gamma 10 --penal_regime 2 --geo_cproj --proj_sol --Psource Ps_cd --skip_errors
+#       --source manu_poisson --method conga --gamma 10 --penal_regime 2 --proj_sol --Psource Ps_cd --skip_errors
 #
 #   . to solve a magnetostatic problem in the pretzel:
 #       $ python3 psydac/feec/multipatch/electromag_pbms.py 8 3 --pbm source_pbm --pbm_space V0xV1 --domain pretzel_f
-#           --source dipcurl_J --method conga --gamma 10 --penal_regime 2 --geo_cproj --proj_sol --Psource Ps_cd --c_grad 0
+#           --source dipcurl_J --method conga --gamma 10 --penal_regime 2 --proj_sol --Psource Ps_cd
 #           --mu 1 --eta 0 --show_curl_u --skip_errors
 #
 #
@@ -124,16 +124,12 @@ comm = MPI.COMM_WORLD
 
 # ---------------------------------------------------------------------------------------------------------------
 # small utility for saving/loading sparse matrices, plots...
-def rhs_fn(source_type, nbc=False, eta=None, mu=None, nu=None, dc_pbm=False, c_grad=1, npz_suffix=True, prefix=True, Psource='Ps_L2'):
+def rhs_fn(source_type, nbc=False, eta=None, mu=None, nu=None, pbm_space='V1', npz_suffix=True, prefix=True, Psource='Ps_L2'):
     if prefix:
         fn = 'rhs_'
     else:
         fn = ''
-    fn += source_type
-    if dc_pbm:
-        fn += '_dc_pbm'
-        if source_type == 'ellip_J':
-            fn += '_c_grad'+repr(c_grad)
+    fn += source_type+'_'+pbm_space
     if Psource == 'Ps_cd':
         fn += '_Ps_cd'
     if source_type == 'manu_J':
@@ -146,10 +142,13 @@ def rhs_fn(source_type, nbc=False, eta=None, mu=None, nu=None, dc_pbm=False, c_g
         fn += '.npz'
     return fn
 
-def u_ref_fn(source_type, N_diag, Psource='Ps_L2', dc_pbm=False):
-    fn = 'u_ref_'+source_type+'_N'+repr(N_diag)
-    if dc_pbm:
-        fn += '_dc_pbm'
+def sol_ref_fn(source_type, N_diag, Psource='Ps_L2', pbm_space='V1'):
+    if pbm_space=='V0':
+        fn = 'p_ref_'+source_type+'_N'+repr(N_diag)
+    else:
+        fn = 'u_ref_'+source_type+'_N'+repr(N_diag)
+        if pbm_space=='_V0xV1':
+            fn += pbm_space
     if Psource == 'Ps_cd':
         fn += '_Ps_cd'
     elif Psource == 'Ps_L2':
@@ -165,10 +164,10 @@ def hf_fn():  # domain_name):
     fn = 'hf.npz'
     return fn
 
-def error_fn(source_type=None, method=None, k=None, domain_name=None,deg=None):
-    return 'errors/error_'+domain_name+'_'+source_type+'_'+'_deg'+repr(deg)+'_'+get_method_name(method, k)+'.txt'
+def error_fn(source_type=None, method=None, conf_proj=None, k=None, domain_name=None,deg=None):
+    return 'errors/error_'+domain_name+'_'+source_type+'_'+'_deg'+repr(deg)+'_'+get_method_name(method, k, conf_proj=conf_proj)+'.txt'
 
-def get_method_name(method=None, k=None, geo_cproj=None, penal_regime=None):
+def get_method_name(method=None, k=None, conf_proj=None, penal_regime=None):
     if method == 'nitsche':
         method_name = method
         if k==1:
@@ -181,11 +180,8 @@ def get_method_name(method=None, k=None, geo_cproj=None, penal_regime=None):
             assert k is None
     elif method == 'conga':
         method_name = method
-        if geo_cproj is not None:
-            if geo_cproj:
-                method_name += '_GSP'  # Geometric-Spline-Projection
-            else:
-                method_name += '_BSP'  # B-Spline-Projection
+        if conf_proj is not None:
+            method_name += '_'+conf_proj
     else:
         raise ValueError(method)
     if penal_regime is not None:
@@ -193,13 +189,13 @@ def get_method_name(method=None, k=None, geo_cproj=None, penal_regime=None):
 
     return method_name
 
-def get_fem_name(method=None, k=None, DG_full=False, geo_cproj=None, domain_name=None,nc=None,deg=None):
+def get_fem_name(method=None, k=None, DG_full=False, conf_proj=None, domain_name=None,nc=None,deg=None):
     assert domain_name and nc and deg
     fn = domain_name+'_nc'+repr(nc)+'_deg'+repr(deg)
     if DG_full:
         fn += '_fDG'
     if method is not None:
-        fn += '_'+get_method_name(method, k, geo_cproj)
+        fn += '_'+get_method_name(method, k, conf_proj)
     return fn
 
 def get_load_dir(method=None, DG_full=False, domain_name=None,nc=None,deg=None,data='matrices'):
@@ -749,32 +745,33 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
     print("done. eigenvalues found: " + repr(eigenvalues))
     return eigenvalues, eigenvectors
 
-
-def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None, dc_pbm=False, c_grad=1):
+def get_source_and_solution(source_type, eta, mu, nu, domain, pbm_space='V1', refsol_params=None):
     """
-
-
+    compute source and reference solution (exact, or reference values) when possible, depending on the source_type
     """
 
     assert refsol_params
-    nc_ref, deg_ref, N_diag, method_ref, Psource_ref, dc_bpm_ref = refsol_params
+    nc_ref, deg_ref, N_diag, method_ref, Psource_ref = refsol_params
 
     # ref solution (values on diag grid)
     p_ref_vals = None
     u_ref_vals = None
 
+    # exact solutions (if available)
+    u_ex = None
+    p_ex = None
+
     # bc solution: describe the bc on boundary. Inside domain, values should not matter. Homogeneous bc will be used if None
     u_bc = None
-
-    u_ex = None
-    p_ex = None  # for dc_pbm
-
-    grad_phi = None # debug dc_pbm
-    phi = None  # debug dc_pbm
+    # only hom bc on p (for now...)
 
     # source terms
     f_vect = None
     f_scal = None
+
+    # auxiliary term (for more diagnostics)
+    grad_phi = None
+    phi = None
 
     x,y    = domain.coordinates
 
@@ -785,7 +782,7 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
         else:
             t = pi
 
-        if dc_pbm:
+        if pbm_space == 'V0xV1':
             c = 2 # parameter
 
             u_ex = Tuple(sin(t*y)*cos(t*x), -sin(t*x)*cos(t*y))
@@ -802,50 +799,80 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
                 sin(t*x) * cos(t*y) * (eta + t**2 *(mu+nu) )
             )
 
-        u_ex_x = lambdify(domain.coordinates, u_ex[0])
-        u_ex_y = lambdify(domain.coordinates, u_ex[1])
-        u_ex_log = [pull_2d_hcurl([u_ex_x,u_ex_y], f_map) for f_map in mappings_list]
-        u_ref_x_vals, u_ref_y_vals   = grid_vals_hcurl_cdiag(u_ex_log)
-        u_ref_vals = [u_ref_x_vals, u_ref_y_vals]
-
         # boundary condition: (here we only need to coincide with u_ex on the boundary !)
         if domain_name in ['square_2', 'square_6', 'square_9']:
             u_bc = None
         else:
             u_bc = u_ex
 
-    # elif source_type == 'df_J':
-    #     # div-free f
-    #     f_vect = Tuple(10*sin(y), -10*sin(x))
-    #
-    # elif source_type == 'cf_J':
-    #     # curl-free J
-    #     f_vect = Tuple(10*sin(x), -10*sin(y))
-
-    elif source_type == 'manu_poisson':
+    elif source_type == 'manutor_poisson':
+        # same as manu_poisson, with arbitrary value for tor
         x0 = 1.5
         y0 = 1.5
         s  = (x-x0) - (y-y0)
         t  = (x-x0) + (y-y0)
-        a = (1/1.7)**2
-        b = (1/1.1)**2
-        # sigma2 = 0.01
-        sigma2 = 0.008
+        a = (1/1.9)**2
+        b = (1/1.2)**2
+        sigma2 = 0.0121
+        tor = 2
+        tau = a*s**2 + b*t**2 - 1
+        phi = exp(-tau**tor/(2*sigma2))
+        dx_tau = 2*( a*s + b*t)
+        dy_tau = 2*(-a*s + b*t)
+        dxx_tau = 2*(a + b)
+        dyy_tau = 2*(a + b)
+        f_scal = -((tor*tau**(tor-1)*dx_tau/(2*sigma2))**2 - (tau**(tor-1)*dxx_tau + (tor-1)*tau**(tor-2)*dx_tau**2)*tor/(2*sigma2)
+                   +(tor*tau**(tor-1)*dy_tau/(2*sigma2))**2 - (tau**(tor-1)*dyy_tau + (tor-1)*tau**(tor-2)*dy_tau**2)*tor/(2*sigma2))*phi
+        p_ex = phi
+
+    elif source_type in ['manu_poisson', 'ellnew_J']:
+
+        x0 = 1.5
+        y0 = 1.5
+        s  = (x-x0) - (y-y0)
+        t  = (x-x0) + (y-y0)
+        a = (1/1.9)**2
+        b = (1/1.2)**2
+        sigma2 = 0.0121
         tau = a*s**2 + b*t**2 - 1
         phi = exp(-tau**2/(2*sigma2))
         dx_tau = 2*( a*s + b*t)
         dy_tau = 2*(-a*s + b*t)
         dxx_tau = 2*(a + b)
         dyy_tau = 2*(a + b)
-        # f = - phi''
-        f_scal = -(  (tau*dx_tau/sigma2)**2 - (tau*dxx_tau + dx_tau**2)/sigma2
-                +(tau*dy_tau/sigma2)**2 - (tau*dyy_tau + dy_tau**2)/sigma2 ) * phi
 
-        p_ex = phi
+        dx_phi = (-tau*dx_tau/sigma2)*phi
+        dy_phi = (-tau*dy_tau/sigma2)*phi
+        grad_phi = Tuple(dx_phi, dy_phi)
 
-        p_ex = lambdify(domain.coordinates, p_ex)
-        p_ex_log = [pull_2d_h1(p_ex, f_map) for f_map in mappings_list]
-        p_ref_vals = grid_vals_h1_cdiag(p_ex_log)
+        if pbm_space == 'V0':
+
+            f_scal = -( (tau*dx_tau/sigma2)**2 - (tau*dxx_tau + dx_tau**2)/sigma2
+                       +(tau*dy_tau/sigma2)**2 - (tau*dyy_tau + dy_tau**2)/sigma2 )*phi
+
+            if domain_name in ['pretzel', 'pretzel_f']:
+                # exact solution of  -p'' = f  with hom. bc's on pretzel domain
+                p_ex = phi
+            else:
+                print("WARNING (87656547) -- I'm not sure we have an exact solution -- check the bc's on the domain "+domain_name)
+                raise NotImplementedError(domain_name)
+
+        else:
+
+            f_x =   dy_tau * phi
+            f_y = - dx_tau * phi
+
+            if pbm_space == 'V0xV1':
+                c_grad = 1
+                print('adding c_grad * grad phi in f, with c_grad = {}'.format(c_grad))
+                # f just above is div-free, for the divergence-constrained problem we add a gradient term (with hom. bc) in the source
+                f_x += c_grad * dx_phi
+                f_y += c_grad * dy_phi
+
+            f_vect = Tuple(f_x, f_y)
+
+            # no u_ex here (depends on mu = -omega^2 ...)
+
 
     elif source_type == 'dipcurl_J':
         # here, f will be the curl of a dipole + phi_0 - phi_1 (two blobs) that correspond to a scalar current density
@@ -855,12 +882,12 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
         # then corresponds to a magnetic density,
         # see Beirão da Veiga, Brezzi, Dassi, Marini and Russo, Virtual Element approx of 2D magnetostatic pbms, CMAME 327 (2017)
 
-        # x_0 = 2.0
-        # y_0 = 2.0
+        x_0 = 1.0
+        y_0 = 1.0
         # x_0 = 0.3
         # y_0 = 2.7
-        x_0 = -0.7
-        y_0 = 2.3
+        # x_0 = -0.7
+        # y_0 = 2.3
         ds2_0 = (0.02)**2
         sigma_0 = (x-x_0)**2 + (y-y_0)**2
         phi_0 = exp(-sigma_0**2/(2*ds2_0))
@@ -869,12 +896,12 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
         dx_phi_0 = - dx_sig_0 * sigma_0 / ds2_0 * phi_0
         dy_phi_0 = - dy_sig_0 * sigma_0 / ds2_0 * phi_0
 
-        # x_1 = 1.0
-        # y_1 = 1.0
+        x_1 = 2.0
+        y_1 = 2.0
         # x_1 = 0.7
         # y_1 = 2.3
-        x_1 = -0.3
-        y_1 = 2.7
+        # x_1 = -0.3
+        # y_1 = 2.7
         ds2_1 = (0.02)**2
         sigma_1 = (x-x_1)**2 + (y-y_1)**2
         phi_1 = exp(-sigma_1**2/(2*ds2_1))
@@ -915,7 +942,8 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
             dx_phi = phi*(-dx_sig*sigma/dsigphi2)
             dy_phi = phi*(-dy_sig*sigma/dsigphi2)
 
-            if dc_pbm:
+            if pbm_space == 'V0xV1':
+                c_grad = 1
                 print('adding c_grad * grad phi in f, with c_grad = {}'.format(c_grad))
                 # f just above is div-free, for the divergence-constrained problem we add a gradient term (with hom. bc) in the source
                 f_x += c_grad * dx_phi
@@ -995,7 +1023,7 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
         f_x = - (y-y0) * phi
         f_y =   (x-x0) * phi
 
-        if dc_pbm:
+        if pbm_space == 'V0xV1':
             # f just above is div-free, for the divergence-constrained problem we add a gradient term (with hom. bc) in the source
             # phi = f_factor * (( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr**2) * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
             dx_phi = - 2*(x-x0) * (( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr**2) * phi
@@ -1009,19 +1037,49 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, refsol_params=None
     else:
         raise ValueError(source_type)
 
-    if u_ex is None:
-        u_ref_filename = get_load_dir(method=method_ref, domain_name=domain_name,nc=nc_ref,deg=deg_ref,data='solutions')+u_ref_fn(source_type, N_diag, Psource=Psource_ref, dc_pbm=dc_bpm_ref)
-        print("no exact solution for this test-case, looking for ref solution values in file "+u_ref_filename+ "...")
-        if os.path.isfile(u_ref_filename):
-            print("-- file found")
-            with open(u_ref_filename, 'rb') as file:
-                u_ref_vals = np.load(file)
-                u_ref_x_vals = u_ref_vals['x_vals']
-                u_ref_y_vals = u_ref_vals['y_vals']
-                assert isinstance(u_ref_x_vals, (list, np.ndarray)) and isinstance(u_ref_y_vals, (list, np.ndarray))
-            u_ref_vals = [u_ref_x_vals, u_ref_y_vals]
+    if pbm_space == 'V0':
+        assert f_scal is not None
+        if p_ex is None:
+            p_ref_filename = get_load_dir(method=method_ref, domain_name=domain_name,nc=nc_ref,deg=deg_ref,data='solutions')+sol_ref_fn(source_type, N_diag, Psource=Psource_ref, pbm_space=pbm_space)
+            print("no exact solution for this test-case, looking for ref solution values in file "+p_ref_filename+ "...")
+            if os.path.isfile(p_ref_filename):
+                print("-- file found")
+                with open(p_ref_filename, 'rb') as file:
+                    ref_vals = np.load(file)
+                    p_ref_vals = ref_vals['vals']
+                    assert isinstance(p_ref_vals, (list, np.ndarray))
+            else:
+                print("-- no file, skipping it")
+
         else:
-            print("-- no file, skipping it")
+            print("using exact solution for this test-case.")
+            p_aux = lambdify(domain.coordinates, p_ex)
+            p_ex_log = [pull_2d_h1(p_aux, f_map) for f_map in mappings_list]
+            p_ref_vals = grid_vals_h1_cdiag(p_ex_log)
+
+    else:
+        assert f_vect is not None
+        if u_ex is None:
+            u_ref_filename = get_load_dir(method=method_ref, domain_name=domain_name,nc=nc_ref,deg=deg_ref,data='solutions')+sol_ref_fn(source_type, N_diag, Psource=Psource_ref, pbm_space=pbm_space)
+            print("no exact solution for this test-case, looking for ref solution values in file "+u_ref_filename+ "...")
+            if os.path.isfile(u_ref_filename):
+                print("-- file found")
+                with open(u_ref_filename, 'rb') as file:
+                    ref_vals = np.load(file)
+                    u_ref_x_vals = ref_vals['x_vals']
+                    u_ref_y_vals = ref_vals['y_vals']
+                    assert isinstance(u_ref_x_vals, (list, np.ndarray)) and isinstance(u_ref_y_vals, (list, np.ndarray))
+                u_ref_vals = [u_ref_x_vals, u_ref_y_vals]
+            else:
+                print("-- no file, skipping it")
+        else:
+            print("using exact solution for this test-case.")
+            u_ex_x = lambdify(domain.coordinates, u_ex[0])
+            u_ex_y = lambdify(domain.coordinates, u_ex[1])
+            u_ex_log = [pull_2d_hcurl([u_ex_x,u_ex_y], f_map) for f_map in mappings_list]
+            u_ref_x_vals, u_ref_y_vals   = grid_vals_hcurl_cdiag(u_ex_log)
+            u_ref_vals = [u_ref_x_vals, u_ref_y_vals]
+
 
     # f_scal, f_vect, u_bc, u_ref_vals, u_ex, p_ex, phi, grad_phi
     return f_scal, f_vect, u_bc, p_ref_vals, u_ref_vals, p_ex, u_ex, phi, grad_phi
@@ -1118,9 +1176,10 @@ if __name__ == '__main__':
         help    = 'penalization regime (Nitsche or conga)'
     )
 
-    parser.add_argument( '--geo_cproj',
-        action  = 'store_true',
-        help    = 'whether cP is applied with the geometric (interpolation/histopolation) splines'
+    parser.add_argument( '--conf_proj',
+        choices = ['BSP', 'GSP'],
+        default = 'GSP',
+        help    = 'type of conforming projection (averaging of interface coefs in B-Spline or Geometric spline basis)'
     )
 
     parser.add_argument( '--pbm',
@@ -1136,7 +1195,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument( '--source',
-        choices = ['manu_J', 'dipcurl_J', 'ellip_J', 'ring_J', 'sring_J', 'manu_poisson'],
+        choices = ['manu_J', 'dipcurl_J', 'ellnew_J', 'ellip_J', 'ring_J', 'sring_J', 'manu_poisson'],
         default = 'manu_J',
         help    = 'type of source'
     )
@@ -1187,17 +1246,6 @@ if __name__ == '__main__':
         help    = 'number of eigenvalues to find'
     )
 
-    parser.add_argument( '--c_grad',
-        type    = float,
-        default = 1,
-        help    = 'factor of grad term in ellip_J source for dc_pbm'
-    )
-
-    parser.add_argument( '--dc_pbm',
-        action  = 'store_true',
-        help    = 'curl-curl pbm with div-free constraint and Lagrange multiplier p [[WIP -- shunts some of the rest]]'
-    )
-
     parser.add_argument( '--P1_dc',
         action  = 'store_true',
         help    = 'variant for div-free constraint (for Conga, apply it on cP1_hom @ sol)'
@@ -1212,7 +1260,7 @@ if __name__ == '__main__':
     method       = args.method
     k            = args.k
     DG_full      = args.DG_full
-    geo_cproj    = args.geo_cproj
+    conf_proj    = args.conf_proj
     gamma        = args.gamma
     penal_regime = args.penal_regime
     proj_sol     = args.proj_sol
@@ -1225,8 +1273,6 @@ if __name__ == '__main__':
     eta          = args.eta
     mu           = args.mu
     nu           = args.nu
-    dc_pbm       = args.dc_pbm
-    c_grad       = args.c_grad
     P1_dc        = args.P1_dc
     no_plots     = args.no_plots
     hide_plots   = args.hide_plots
@@ -1238,28 +1284,29 @@ if __name__ == '__main__':
 
     do_plots = not no_plots
     compute_errors = not skip_errors
+    dpi = 200
 
     ncells = [nc, nc]
     degree = [deg,deg]
 
-    if dc_pbm:
-        print('[ divergence-constrained problem: overwriting a few pbm parameters ]')
-        pbm = 'source_problem'
-        pbm_space = 'V0xV1'
-        nu = 0
+    # if dc_pbm:
+    #     print('[ divergence-constrained problem: overwriting a few pbm parameters ]')
+    #     pbm = 'source_pbm'
+    #     pbm_space = 'V0xV1'
+    #     nu = 0
 
     if pbm_space == 'V0xV1':
         # for now, the only problem considered in V0xV1 is the divergence-constrained source problem
         assert nu == 0
-        assert pbm == 'source_problem'
-        dc_pbm = True
+        assert pbm == 'source_pbm'
+        # dc_pbm = True
 
     if method == 'nitsche':
         assert pbm_space == 'V1'  # other problems not implemented
 
     if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
-        # backend_language='numba'
-        backend_language='python'
+        backend_language='numba'
+        # backend_language='python'
     else:
         backend_language='python'
     print('[note: using '+backend_language+ ' backends in discretize functions]')
@@ -1298,7 +1345,7 @@ if __name__ == '__main__':
     else:
         print(' - nb of eigs:   '+repr(nb_eigs))
         print(' - around sigma: '+repr(sigma))
-    print(' - method:       '+get_method_name(method, k, geo_cproj))
+    print(' - method:       '+get_method_name(method, k, conf_proj))
     print()
 
     domain = build_multipatch_domain(domain_name=domain_name)
@@ -1306,7 +1353,7 @@ if __name__ == '__main__':
     print(' - nb patches:             '+repr(len(domain.interior)))
     print(' - nb of cells per patch:  '+repr(ncells))
     print(' - spline degree:          '+repr(degree))
-    fem_name = get_fem_name(method=method, DG_full=DG_full, geo_cproj=geo_cproj, k=k, domain_name=domain_name,nc=nc,deg=deg)
+    fem_name = get_fem_name(method=method, DG_full=DG_full, conf_proj=conf_proj, k=k, domain_name=domain_name,nc=nc,deg=deg)
     print(' [full scheme:   '+fem_name+' ]')
     print('--------------------------------------------------------------------------------------------------------------')
     print()
@@ -1336,7 +1383,7 @@ if __name__ == '__main__':
         raise ValueError(penal_regime)
 
     # harmonic fields storage
-    need_harmonic_fields = (pbm == 'source_pbm') and dc_pbm and (eta == 0) and (domain_name in ['pretzel_f', 'pretzel'])
+    need_harmonic_fields = (pbm == 'source_pbm') and (pbm_space=='V0xV1') and (eta == 0) and (domain_name in ['pretzel_f', 'pretzel'])
     keep_harmonic_fields = khf # (pbm == 'eigen_pbm') and (sigma == 0) and (domain_name in ['pretzel', 'pretzel_f'])
     if need_harmonic_fields or keep_harmonic_fields:
         load_dir = get_load_dir(method=method, domain_name=domain_name, nc=nc, deg=deg, data='matrices')
@@ -1367,9 +1414,8 @@ if __name__ == '__main__':
     grid_vals_h1_cdiag = lambda v: get_grid_vals_scalar(v, etas_cdiag, mappings_list, space_kind='h1')
     grid_vals_hcurl_cdiag = lambda v: get_grid_vals_vector(v, etas_cdiag, mappings_list, space_kind='hcurl')
 
-    # todo: add some identifiers for secondary parameters (eg gamma_h, proj_sol ...)
-    fem_name = get_fem_name(method=method, DG_full=DG_full, geo_cproj=geo_cproj, k=k, domain_name=domain_name,nc=nc,deg=deg)
-    rhs_name = rhs_fn(source_type,eta=eta,mu=mu,nu=nu,dc_pbm=dc_pbm,c_grad=c_grad,Psource=Psource,npz_suffix=False,prefix=False)
+    fem_name = get_fem_name(method=method, DG_full=DG_full, conf_proj=conf_proj, k=k, domain_name=domain_name,nc=nc,deg=deg)
+    rhs_name = rhs_fn(source_type,eta=eta,mu=mu,nu=nu,pbm_space=pbm_space,Psource=Psource,npz_suffix=False,prefix=False)
     plot_dir = './plots/'+rhs_name+'_'+fem_name+'/'
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
@@ -1393,7 +1439,7 @@ if __name__ == '__main__':
     load_dir = get_load_dir(method='conga', domain_name=domain_name, nc=nc, deg=deg, data='matrices')
     M_mats, P_mats, D_mats, IK_mats = get_elementary_conga_matrices(
         domain_h, derham_h, load_dir=load_dir, backend_language=backend_language,
-        discard_non_hom_matrices=(source_type in ['ellip_J', 'ring_J', 'sring_J'])
+        discard_non_hom_matrices=(source_type in ['ellnew_J', 'ellip_J', 'ring_J', 'sring_J'])
     )
     [M0_m, M1_m, M2_m, M0_minv] = M_mats
     [bsp_P0_m, bsp_P1_m, bsp_P0_hom_m, bsp_P1_hom_m] = P_mats  # BSpline-based conf Projections
@@ -1405,18 +1451,20 @@ if __name__ == '__main__':
     gsp_P0_m = K0_inv @ bsp_P0_m @ K0
     gsp_P1_m = K1_inv @ bsp_P1_m @ K1
 
-    if geo_cproj:
+    if conf_proj == 'GSP':
         print(' [* GSP-conga: using Geometric Spline conf Projections ]')
         cP0_hom_m = gsp_P0_hom_m
         cP0_m     = gsp_P0_m
         cP1_hom_m = gsp_P1_hom_m
         cP1_m     = gsp_P1_m
-    else:
+    elif conf_proj == 'BSP':
         print(' [* BSP-conga: using B-Spline conf Projections ]')
         cP0_hom_m = bsp_P0_hom_m
         cP0_m     = bsp_P0_m
         cP1_hom_m = bsp_P1_hom_m
         cP1_m     = bsp_P1_m
+    else:
+        raise ValueError(conf_proj)
 
     # weak divergence matrices V1h -> V0h
     pw_div_m = - M0_minv @ bD0_m.transpose() @ M1_m   # patch-wise weak divergence
@@ -1427,15 +1475,12 @@ if __name__ == '__main__':
 
     def div_norm(u_c, type=None):
         if type is None:
-            if geo_cproj:
-                type = 'gsp'
-            else:
-                type = 'bsp'
-        if type=='gsp':
+            type = conf_proj
+        if type=='GSP':
             du_c = gsp_div_m.dot(u_c)
-        elif type=='bsp':
+        elif type=='BSP':
             du_c = bsp_div_m.dot(u_c)
-        elif type=='pw':
+        elif type=='PW':
             du_c = pw_div_m.dot(u_c)
         else:
             print("WARNING: invalid value for weak divergence type (returning -1)")
@@ -1470,13 +1515,12 @@ if __name__ == '__main__':
         nc_ref = 8
         deg_ref = 4
         Psource_ref = 'Ps_cd'
-        dc_bpm_ref = True
         # Psource_ref = 'Ps_L2'
         method_ref = 'conga'
 
         f_scal, f_vect, u_bc, p_ref_vals, u_ref_vals, p_ex, u_ex, phi, grad_phi = get_source_and_solution(
             source_type=source_type, eta=eta, mu=mu, nu=nu, domain=domain,
-            refsol_params=[nc_ref, deg_ref, N_diag, method_ref, Psource_ref, dc_bpm_ref], dc_pbm=dc_pbm, c_grad=c_grad
+            refsol_params=[nc_ref, deg_ref, N_diag, method_ref, Psource_ref], pbm_space=pbm_space
         )
 
         if u_ref_vals is None:
@@ -1484,7 +1528,7 @@ if __name__ == '__main__':
 
         if save_u_vals:
             solutions_dir = get_load_dir(method=method, DG_full=DG_full, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
-            u_vals_filename = solutions_dir+u_ref_fn(source_type, N_diag, Psource=Psource, dc_pbm=dc_pbm)
+            u_vals_filename = solutions_dir+sol_ref_fn(source_type, N_diag, Psource=Psource, pbm_space=pbm_space)
             print( "for further comparisons, will save u_vals in "+u_vals_filename)
             if not os.path.exists(solutions_dir):
                 os.makedirs(solutions_dir)
@@ -1502,8 +1546,11 @@ if __name__ == '__main__':
     if method == 'conga':
 
         # operators for V1 and V0xV1 problems
-        CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m = conga_operators_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
+        if pbm_space in ['V1', 'V0xV1']:
+            CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m = conga_operators_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
                                                  hom_bc=hom_bc, need_GD_matrix=(nu != 0))
+        else:
+            CC_m = CC_bc_m = GD_m = GD_bc_m = JP_m = None
 
         if pbm_space in ['V0', 'V0xV1']:
             # operators for V0 and V0xV1 problems
@@ -1514,9 +1561,11 @@ if __name__ == '__main__':
             # if P1_dc:  # todo: rename the filtering option (make it default, but for operator matrix)
             #     print(" [P1_dc]: filtering the gradient operator ")
             #     G_m = cP1_hom_m.transpose() @ G_m
-
+        else:
+            I0_m = JP0_m = G_m = None
 
     elif method == 'nitsche':
+
         # define the DG spaces
         if DG_full:
             V_dg  = VectorFunctionSpace('V_dg', domain, kind='Hcurl')
@@ -1528,14 +1577,14 @@ if __name__ == '__main__':
         else:
             Vh_dg = V1h
 
-        if dc_pbm:
+        if pbm_space=='V0xV1':
             Qh_dg = V0h
         else:
             Qh_dg = None
 
         load_dir = get_load_dir(method='nitsche', DG_full=DG_full, domain_name=domain_name, nc=nc, deg=deg)
         CC_m, GD_m, D_m, JP_m, JPQ_m, M_m = nitsche_operators_2d(domain_h, Vh=Vh_dg, Qh=Qh_dg, k=k, load_dir=load_dir,
-                                               need_D_matrix=dc_pbm, need_JPQ_matrix=dc_pbm,
+                                               need_D_matrix=(pbm_space=='V0xV1'), need_JPQ_matrix=(pbm_space=='V0xV1'),
                                                need_GD_matrix=(nu != 0),
                                                need_mass_matrix=DG_full, backend_language=backend_language)
 
@@ -1588,10 +1637,13 @@ if __name__ == '__main__':
 
     # norm of various operators (scheme dependent)
     def curl_curl_norm(u_c):
-        du_c = CC_m.dot(u_c)
-        #print("norm((bD1_m @ cP1_hom_m).dot(u_c)) = ", norm((bD1_m @ cP1_hom_m).dot(u_c)))
-        du_c = CC_m.dot(u_c)
-        return np.dot(du_c,M1_m.dot(du_c))**0.5
+        if CC_m is not None:
+            #print("norm((bD1_m @ cP1_hom_m).dot(u_c)) = ", norm((bD1_m @ cP1_hom_m).dot(u_c)))
+            du_c = CC_m.dot(u_c)
+            return np.dot(du_c,M1_m.dot(du_c))**0.5
+        else:
+            print("-- cannot compute curl_curl_norm")
+            return -1
 
     def grad_div_norm(u_c):
         if GD_m is not None:
@@ -1670,8 +1722,7 @@ if __name__ == '__main__':
         if not os.path.exists(rhs_load_dir):
             os.makedirs(rhs_load_dir)
 
-        #todo: rename dc_pbm > pbm_space ?
-        rhs_filename = rhs_load_dir+rhs_fn(source_type,eta=eta,mu=mu,nu=nu,dc_pbm=dc_pbm, c_grad=c_grad, Psource=Psource)
+        rhs_filename = rhs_load_dir+rhs_fn(source_type,eta=eta,mu=mu,nu=nu,pbm_space=pbm_space, Psource=Psource)
         if os.path.isfile(rhs_filename):
             print("getting rhs array from file "+rhs_filename)
             with open(rhs_filename, 'rb') as file:
@@ -1721,7 +1772,7 @@ if __name__ == '__main__':
         if method == 'nitsche' and not hom_bc:
             print("(non hom.) bc with nitsche: need some additional rhs arrays.")
             # need additional terms for the bc with nitsche
-            rhs_filename = rhs_load_dir+rhs_fn(source_type, nbc=True, eta=eta,mu=mu,nu=nu,dc_pbm=dc_pbm, c_grad=c_grad, Psource=Psource)
+            rhs_filename = rhs_load_dir+rhs_fn(source_type, nbc=True, eta=eta,mu=mu,nu=nu,pbm_space=pbm_space, Psource=Psource)
             if os.path.isfile(rhs_filename):
                 print("getting them from file "+rhs_filename)
                 with open(rhs_filename, 'rb') as file:
@@ -1784,7 +1835,7 @@ if __name__ == '__main__':
                     save_fig=plot_dir+'full_ubc.png',
                     hide_plot=hide_plots,
                     cmap='plasma',
-                    dpi=400,
+                    dpi=dpi,
                 )
 
             # removing internal dofs
@@ -1803,7 +1854,7 @@ if __name__ == '__main__':
                     save_fig=plot_dir+'ubc.png',
                     hide_plot=hide_plots,
                     cmap='plasma',
-                    dpi=400,
+                    dpi=dpi,
                 )
 
                 u_ex_x = lambdify(domain.coordinates, u_ex[0])
@@ -1825,7 +1876,7 @@ if __name__ == '__main__':
                     save_fig=plot_dir+'diff_ubc.png',
                     hide_plot=hide_plots,
                     cmap='plasma',
-                    dpi=400,
+                    dpi=dpi,
                 )
 
         print(' [[ source divergence: ')
@@ -1833,9 +1884,9 @@ if __name__ == '__main__':
         fh_norm = np.dot(fh_c,M_m.dot(fh_c))**0.5
         print("|| fh || = ", fh_norm)
         if pbm_space in ['V1', 'V0xV1']:
-            print("|| pw_div fh || / || fh ||  = ", div_norm(fh_c, type='pw')/fh_norm)
-            print("|| bsp_div fh || / || fh || = ", div_norm(fh_c, type='bsp')/fh_norm)
-            print("|| gsp_div fh || / || fh || = ", div_norm(fh_c, type='gsp')/fh_norm)
+            print("|| pw_div fh || / || fh ||  = ", div_norm(fh_c, type='PW')/fh_norm)
+            print("|| bsp_div fh || / || fh || = ", div_norm(fh_c, type='BSP')/fh_norm)
+            print("|| gsp_div fh || / || fh || = ", div_norm(fh_c, type='GSP')/fh_norm)
             print(' ]] ')
 
             print(' [[ source curl: ')
@@ -1868,7 +1919,7 @@ if __name__ == '__main__':
                     save_fig=plot_dir+'fh_V0.png',
                     hide_plot=hide_plots,
                     cmap='plasma',
-                    dpi=400,
+                    dpi=dpi,
                 )
 
             else:
@@ -1899,7 +1950,7 @@ if __name__ == '__main__':
                         save_fig=plot_dir+'fh.png',
                         hide_plot=hide_plots,
                         cmap='plasma',
-                        dpi=400,
+                        dpi=dpi,
                     )
                 if not skip_vf:
                     my_small_streamplot(
@@ -1957,7 +2008,7 @@ if __name__ == '__main__':
         #   solving the matrix equation
         # ------------------------------------------------------------------------------------------
 
-        if dc_pbm:
+        if pbm_space=='V0xV1':
             AA_m = DCA_m.tocsc()
 
             print("building block RHS for divergence-constrained problem")
@@ -2035,8 +2086,11 @@ if __name__ == '__main__':
 
         if proj_sol:
             if method == 'conga':
-                print("  (projecting the homogeneous Conga solution with cP1_hom_m)  ")
-                uh_c = cP1_hom_m.dot(uh_c)
+                print("  (projecting the homogeneous Conga solution with cP_hom)  ")
+                if pbm_space in ['V0', 'V0xV1']:
+                    ph_c = cP0_hom_m.dot(ph_c)
+                if pbm_space in ['V1', 'V0xV1']:
+                    uh_c = cP1_hom_m.dot(uh_c)
             else:
                 print("  (projecting the Nitsche solution with cP1_m -- NOTE: THIS IS NONSTANDARD! )  ")
                 uh_c = cP1_m.dot(uh_c)
@@ -2053,14 +2107,14 @@ if __name__ == '__main__':
         # plotting and diagnostics
         #+++++++++++++++++++++++++++++++
 
-        compute_div = True
+        compute_div = False
         if compute_div:
             print(' [[ field divergence: ')
             uh_norm = np.dot(uh_c,M1_m.dot(uh_c))**0.5
             print("|| uh || = ", uh_norm)
-            print("|| pw_div uh || / || uh ||  = ", div_norm(uh_c, type='pw')/uh_norm)
-            print("|| bsp_div uh || / || uh || = ", div_norm(uh_c, type='bsp')/uh_norm)
-            print("|| gsp_div uh || / || uh || = ", div_norm(uh_c, type='bsp')/uh_norm)
+            print("|| pw_div uh || / || uh ||  = ", div_norm(uh_c, type='PW')/uh_norm)
+            print("|| bsp_div uh || / || uh || = ", div_norm(uh_c, type='BSP')/uh_norm)
+            print("|| gsp_div uh || / || uh || = ", div_norm(uh_c, type='GSP')/uh_norm)
             print(' ]] ')
 
             print(' [[ field curl: ')
@@ -2074,7 +2128,8 @@ if __name__ == '__main__':
 
 
         if do_plots:
-
+            t_stamp = time_count()
+            print("doing some plotting...")
             if pbm_space in ['V0', 'V0xV1']:
                 ph_vals = grid_vals_h1(ph)
                 ph_abs_vals = [np.abs(pv) for pv in ph_vals]
@@ -2175,37 +2230,25 @@ if __name__ == '__main__':
                     # gridlines_x2=gridlines_x2,
                 )
 
+            time_count(t_stamp)
+
         # error measure with centered-valued grid
         quad_weights = get_grid_quad_weights(etas_cdiag, patch_logvols, mappings_list)
         xx = xx_cdiag
         yy = yy_cdiag
 
+        # visual diagnostics diff between grad p and grad phi...
         check_grad_phi = False
-        if check_grad_phi and do_plots and (phi is not None) and dc_pbm and source_type in ['ellip_J', 'ring_J', 'sring_J']:
+        if (check_grad_phi and do_plots and (phi is not None) and (pbm_space=='V0xV1')
+                and source_type in ['ellnew_J', 'ellip_J', 'ring_J', 'sring_J']):
 
-            # visual diff between grad p and grad phi
             # grad phi
             phi = lambdify(domain.coordinates, phi)
             phi_log = [pull_2d_h1(phi, m) for m in mappings_list]
             phi_h = P0(phi_log)
 
-            # # plot phi:
-            # phi_vals = grid_vals_h1_cdiag(phi_h)
-            # my_small_plot(
-            #     title=r'discrete $\phi_h$',
-            #     vals=[phi_vals],
-            #     titles=[r'$\phi$'],
-            #     xx=xx,
-            #     yy=yy,
-            #     save_fig=plot_dir+'phi.png',
-            #     hide_plot=hide_plots,
-            #     surface_plot=True
-            #     # gridlines_x1=gridlines_x1,
-            #     # gridlines_x2=gridlines_x2,
-            # )
-
             phi_c = phi_h.coeffs.toarray()
-            dphi_c = c_grad * bD0_m @ phi_c
+            dphi_c = bD0_m @ phi_c
             dphi_h = FemField(V1h, coeffs=array_to_stencil(dphi_c, V1h.vector_space))  # grad phi (in source)
 
             # grad phi (in source)
@@ -2301,8 +2344,10 @@ if __name__ == '__main__':
                 np.savez(file, x_vals=uh_x_vals, y_vals=uh_y_vals)
 
         if compute_errors:
-            err_message_2 = ''
+            t_stamp = time_count()
+            print("measuring some errors...")
 
+            err_message_2 = ''
             if pbm_space == 'V0':
                 assert p_ref_vals is not None
                 p_errs_cdiag = [np.abs(p-q)
@@ -2313,9 +2358,23 @@ if __name__ == '__main__':
                 l2_error  = (np.sum([J_F * val**2 for val, J_F in zip(p_errs_cdiag, quad_weights)]))**0.5
 
                 err_message = 'grid diag for method={0} with nc={1}, deg={2}, gamma_h={3}, proj_sol={4}: abs_error={5}, rel_error={6}\n'.format(
-                            get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma_h, proj_sol, l2_error, l2_error/l2_norm_p
+                            get_method_name(method, k, conf_proj, penal_regime), nc, deg, gamma_h, proj_sol, l2_error, l2_error/l2_norm_p
                 )
                 print('\n** '+err_message)
+
+                ENABLE_L2_ERROR = False   # disabled because of overflow errors
+                if ENABLE_L2_ERROR and p_ex is not None:
+                    # also assembling the L2 error with Psydac quadrature
+                    print(" -- * --  also computing L2 error with explicit (exact) solution, using Psydac quadratures...")
+                    F  = element_of(V0h.symbolic_space, name='F')
+                    error       = F-p_ex
+                    l2_norm     = Norm(error, domain, kind='l2')
+                    l2_norm_h   = discretize(l2_norm, domain_h, V0h, backend=PSYDAC_BACKENDS[backend_language])
+                    l2_error     = l2_norm_h.assemble(F=ph)
+                    err_message_2 = 'l2_psydac error for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5} [*] : {6}\n'.format(
+                            get_method_name(method, k, conf_proj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
+                    )
+                    print('\n** '+err_message_2)
 
             else:
 
@@ -2341,7 +2400,7 @@ if __name__ == '__main__':
                     l2_error  = (np.sum([J_F * val**2 for val, J_F in zip(uh_errors_cdiag, quad_weights)]))**0.5
 
                 err_message = 'grid diag '+warning_msg+' for method={0} with nc={1}, deg={2}, gamma_h={3}, proj_sol={4}: abs_error={5}, rel_error={6}\n'.format(
-                            get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma_h, proj_sol, l2_error, l2_error/l2_norm_u
+                            get_method_name(method, k, conf_proj, penal_regime), nc, deg, gamma_h, proj_sol, l2_error, l2_error/l2_norm_u
                 )
                 print('\n** '+err_message)
 
@@ -2355,7 +2414,7 @@ if __name__ == '__main__':
                     l2_norm_h   = discretize(l2_norm, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
                     l2_error     = l2_norm_h.assemble(F=uh)
                     err_message_2 = 'l2_psydac error for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5} [*] : {6}\n'.format(
-                            get_method_name(method, k, geo_cproj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
+                            get_method_name(method, k, conf_proj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
                     )
                     print('\n** '+err_message_2)
                     if check_err:
@@ -2371,7 +2430,7 @@ if __name__ == '__main__':
                         print('--- ** --- check: L2 discrete-error (in V1h): {}'.format(err_norm))
 
 
-            error_filename = error_fn(source_type=source_type, method=method, k=k, domain_name=domain_name,deg=deg)
+            error_filename = error_fn(source_type=source_type, method=method, k=k, conf_proj=conf_proj, domain_name=domain_name,deg=deg)
             if not os.path.exists(error_filename):
                 open(error_filename, 'w')
             with open(error_filename, 'a') as a_writer:
@@ -2422,6 +2481,7 @@ if __name__ == '__main__':
                         # gridlines_x1=gridlines_x1,
                         # gridlines_x2=gridlines_x2,
                     )
+            time_count(t_stamp)
 
     else:
         raise NotImplementedError
