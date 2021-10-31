@@ -1,3 +1,10 @@
+#  Temporary file to model B.n = 0 bc's in the magnetostatic model -- using the full sequence, (not the hom. one) and modelling the bc through the weak formulation
+#  TODO: merge this into conga-curl branch, by adding a parameter "hom_seq" to decide whether we solve the problem in the hom. seq or in the full one -> think a bit before...
+#
+# python3 psydac/feec/multipatch/electromag_pbms.py 8 3 --pbm eigen_pbm --sigma 0.01 --pbm_space V1 --domain pretzel_f  --method conga --gamma 10 --penal_regime 2 --hide_plots --eta 0 --nu 1 --khf --nb_eigs 10
+#
+# python3 psydac/feec/multipatch/electromag_pbms.py 8 3 --pbm source_pbm   --pbm_space V0xV1 --domain pretzel_f --source dipcurl_J --method conga --gamma 10   --penal_regime 2 --proj_sol --hide_plots --eta 0 --show_curl_u
+
 # ------------------------------------------------------------------------------------------------------------------------
 # script written to test CONGA schemes based on the 2D grad/curl sequence on multipatch domains,
 #
@@ -319,7 +326,7 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
     return M_mats, P_mats, D_mats, IK_mats
 
 
-def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, hom_bc=True, need_GD_matrix=False):
+def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, hom_seq=True, hom_bc=True, need_GD_matrix=False):
     """
     computes
         CC_m: the (unpenalized) CONGA (stiffness) matrix of the curl-curl operator in V1, with homogeneous bc
@@ -337,17 +344,22 @@ def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
     t_stamp = time_count()
 
     # curl_curl matrix (stiffness, i.e. left-multiplied by M1_m) :
-    D1_hom_m = bD1_m @ cP1_hom_m
-    CC_m = D1_hom_m.transpose() @ M2_m @ D1_hom_m
+    if hom_seq:
+        D1_hom_m = bD1_m @ cP1_hom_m
+        CC_m = D1_hom_m.transpose() @ M2_m @ D1_hom_m
+    else:
+        D1_m = bD1_m @ cP1_m
+        CC_m = D1_m.transpose() @ M2_m @ D1_m
 
     if need_GD_matrix:
         print('computing also Conga grad-div matrix...')
         # grad_div matrix (stiffness, i.e. left-multiplied by M1_m) :
-        # D0_hom_m = bD0_m @ cP0_hom_m   # matrix of conga gradient
-        # div_aux_m = D0_hom_m.transpose() @ M1_m  # the matrix of the (weak) div operator is  - M0_minv * div_aux_m
-        # GD_m = - div_aux_m.transpose() * M0_minv * div_aux_m
-        pre_GD_m = - M1_m @ bD0_m @ cP0_hom_m @ M0_minv @ cP0_hom_m.transpose() @ bD0_m.transpose() @ M1_m
-        GD_m = cP1_hom_m.transpose() @ pre_GD_m @ cP1_hom_m
+        if hom_seq:
+            pre_GD_m = - M1_m @ bD0_m @ cP0_hom_m @ M0_minv @ cP0_hom_m.transpose() @ bD0_m.transpose() @ M1_m
+            GD_m = cP1_hom_m.transpose() @ pre_GD_m @ cP1_hom_m # is this filtering needed ?
+        else:
+            pre_GD_m = - M1_m @ bD0_m @ cP0_m @ M0_minv @ cP0_m.transpose() @ bD0_m.transpose() @ M1_m
+            GD_m = cP1_m.transpose() @ pre_GD_m @ cP1_m   # is this filtering needed ?
     else:
         GD_m = None
 
@@ -364,8 +376,12 @@ def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
         GD_bc_m = None
 
     # jump penalization
-    jump_penal_hom_m = I1_m-cP1_hom_m
-    JP_m = jump_penal_hom_m.transpose() * M1_m * jump_penal_hom_m
+    if hom_seq:
+        jump_penal_hom_m = I1_m-cP1_hom_m
+        JP_m = jump_penal_hom_m.transpose() * M1_m * jump_penal_hom_m
+    else:
+        jump_penal_m = I1_m-cP1_m
+        JP_m = jump_penal_m.transpose() * M1_m * jump_penal_m
     time_count(t_stamp)
 
     return CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m
@@ -1248,7 +1264,7 @@ if __name__ == '__main__':
 
     parser.add_argument( '--P1_dc',
         action  = 'store_true',
-        help    = 'variant for div-free constraint (for Conga, apply it on cP1_hom @ sol)'
+        help    = 'variant for div-free constraint [[not clear -- to be checked]]'
     )
 
 
@@ -1543,21 +1559,26 @@ if __name__ == '__main__':
     #   operator matrices
     # ------------------------------------------------------------------------------------------
 
+    # todo (31/10): REWRITE THIS FILE FOR THE INHOMOGENEOUS SEQUENCE -- SO THAT P_HOM SHOULD NEVER BEEN USED...
+
     if method == 'conga':
+
+        # assert not hom_bc  # with inhomogeneous sequence, this option makes little sense (and should probably be thought over)
 
         # operators for V1 and V0xV1 problems
         if pbm_space in ['V1', 'V0xV1']:
             CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m = conga_operators_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
-                                                 hom_bc=hom_bc, need_GD_matrix=(nu != 0))
+                                                 hom_seq=False, hom_bc=hom_bc, need_GD_matrix=(nu != 0))
         else:
             CC_m = CC_bc_m = GD_m = GD_bc_m = JP_m = None
 
         if pbm_space in ['V0', 'V0xV1']:
             # operators for V0 and V0xV1 problems
             I0_m = IdLinearOperator(V0h).to_sparse_matrix()
-            jump_penal_V0_hom_m = I0_m-cP0_hom_m
-            JP0_m = jump_penal_V0_hom_m.transpose() * M0_m * jump_penal_V0_hom_m
-            G_m = bD0_m @ cP0_hom_m # stiffness matrix of gradient operator
+            # jump_penal_V0_hom_m = I0_m-cP0_hom_m
+            jump_penal_V0_m = I0_m-cP0_m
+            JP0_m = jump_penal_V0_m.transpose() * M0_m * jump_penal_V0_m
+            G_m = bD0_m @ cP0_m # stiffness matrix of gradient operator
             # if P1_dc:  # todo: rename the filtering option (make it default, but for operator matrix)
             #     print(" [P1_dc]: filtering the gradient operator ")
             #     G_m = cP1_hom_m.transpose() @ G_m
@@ -1603,6 +1624,7 @@ if __name__ == '__main__':
         A_m = mu*CC_m + gamma_h*JP_m
 
         if eta != 0:
+            assert False  # NO NEED FOR inhom seq
             # zero-order term
             if method == 'conga':
                 # note: this filtering of M1_m is important (in particular in the presence of BCs)
@@ -1619,7 +1641,7 @@ if __name__ == '__main__':
             # stiffness matrix for Gradient operator
             if P1_dc:
                 print(" [P1_dc]: filtering the gradient operator #todo: make default ?")
-                sG_m = cP1_hom_m.transpose() @ M1_m @ G_m
+                sG_m = cP1_m.transpose() @ M1_m @ G_m
             else:
                 sG_m = M1_m @ G_m
 
@@ -1810,6 +1832,7 @@ if __name__ == '__main__':
 
 
         if lift_u_bc:
+            assert False # NO NEED FOR INHOM. SEQ.
             t_stamp = time_count(t_stamp)
             print('lifting the boundary condition...')
             debug_plot = False
@@ -2086,11 +2109,11 @@ if __name__ == '__main__':
 
         if proj_sol:
             if method == 'conga':
-                print("  (projecting the homogeneous Conga solution with cP_hom)  ")
+                print("  (projecting the homogeneous Conga solution with cP)  ")
                 if pbm_space in ['V0', 'V0xV1']:
-                    ph_c = cP0_hom_m.dot(ph_c)
+                    ph_c = cP0_m.dot(ph_c)
                 if pbm_space in ['V1', 'V0xV1']:
-                    uh_c = cP1_hom_m.dot(uh_c)
+                    uh_c = cP1_m.dot(uh_c)
             else:
                 print("  (projecting the Nitsche solution with cP1_m -- NOTE: THIS IS NONSTANDARD! )  ")
                 uh_c = cP1_m.dot(uh_c)
