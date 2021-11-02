@@ -350,6 +350,10 @@ class NurbsMapping( SplineMapping ):
         return self._control_points
 
     @property
+    def weights_field( self ):
+        return self._weights_field
+
+    @property
     def weights( self ):
         return self._weights
 
