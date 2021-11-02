@@ -376,7 +376,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     map_span[axis]    = map_span[axis].copy()
                     map_span[axis][0] = map_span[axis][-1]
             if self.is_rational_mapping:
-                mapping = [*mapping, self.mapping._weights_field._coeffs._data]
+                mapping = [*mapping, self.mapping.weights_field.coeffs._data]
         else:
             mapping    = []
             map_degree = []
@@ -693,7 +693,7 @@ class DiscreteLinearForm(BasicDiscrete):
                     map_span[axis]    = map_span[axis].copy()
                     map_span[axis][0] = map_span[axis][-1]
             if self.is_rational_mapping:
-                mapping = [*mapping, self.mapping._weights_field._coeffs._data]
+                mapping = [*mapping, self.mapping.weights_field.coeffs._data]
         else:
             mapping    = []
             map_degree = []
