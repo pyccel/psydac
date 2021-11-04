@@ -202,7 +202,7 @@ class SplineMapping:
         h5 = h5py.File( filename, mode='w', **kwargs )
 
         # Write geometry metadata as fixed-length array of ASCII characters
-        h5['geometry.yml'] = np.array( geo, dtype='S' )
+        h5['topology.yml'] = np.array( geo, dtype='S' )
 
         # Create group for patch 0
         group = h5.create_group( yml['patches'][0]['name'] )
