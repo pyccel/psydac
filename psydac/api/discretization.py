@@ -58,7 +58,20 @@ def discretize_derham(derham, domain_h, *args, **kwargs):
 
 #==============================================================================
 def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
-    """ Reduce the tensor fem space degree along some directions.
+    """ Reduce the tensor fem space degree along some directions to create compatible spaces.
+
+        For more details see:
+            Buffa, Annalisa & Rivas, Judith & Sangalli, G. & Vazquez, R.G.. (2011).
+            Isogeometric Discrete Differential Forms in Three Dimensions.
+            SIAM J. Numerical Analysis. 49. 818-844. 10.1137/100786708.
+
+            A. Buffa, C. de Falco, G. Sangalli,
+            IsoGeometric Analysis: Stable elements for the 2D Stokes equation
+            Internat. J. Numer. Methods Fluids, 2011.
+
+            A. Bressan, G. Sangalli,
+            Isogeometric discretizations of the Stokes problem: stability analysis by the macroelement technique
+            IMA J. Numer. Anal., 2013.
 
     Parameters
     ----------
@@ -77,7 +90,7 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
           'DR': for the Derham Sequence.
           'TH': for Taylor-Hood elements
           'N' : for the Nedelec elements.
-          'RT': for the Ravier Thomas elements.
+          'RT': for the Raviart-Thomas elements.
 
     Results
     -------
