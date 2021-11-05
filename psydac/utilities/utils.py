@@ -63,8 +63,6 @@ def split_space(Xh):
             Vh.append(spaces[0])
             Vh[-1].symbolic_space = Vi
             spaces = spaces[1:]
-    if len(Vh) == 1:
-        Vh = Vh[0]
     return Vh
 
 #===============================================================================
@@ -88,6 +86,7 @@ def split_field(uh, spaces, out=None):
     flattened_fields = [f.fields if f.fields else [f] for f in out]
     flattened_fields = [f for l in flattened_fields for f in l]
     for f1,f2 in zip(flattened_fields, uh.fields):
+        assert f1.space is f2.space
         f1.coeffs[:] = f2.coeffs[:]
 
     return out
