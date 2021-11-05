@@ -68,12 +68,19 @@ def split_space(Xh):
 #===============================================================================
 def split_field(uh, spaces, out=None):
     """Split a field into a list of fields that corresponds to the spaces.
+       The split field function will allocate new memory if out is not passed.
 
     Parameters
     ----------
     uh : FemField
         The fem field.
 
+    spaces: <list, FemSpace>
+        List of spaces that split the field.
+
+    out: optional, <list, FemField>
+        List of fields to write the results to.
+ 
     Results
     -------
     out : <list, FemField>
