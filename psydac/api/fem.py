@@ -317,7 +317,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             args = self._args
 
-        args = args + [int(i) for i in self._element_loop_starts] + [int(i) for i in self._element_loop_ends]
+        args = args + tuple(int(i) for i in self._element_loop_starts) + tuple(int(i) for i in self._element_loop_ends)
         if reset:
             reset_arrays(*self.global_matrices)
 
