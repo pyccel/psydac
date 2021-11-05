@@ -88,6 +88,7 @@ class BlockVectorSpace( VectorSpace ):
 
     @property
     def parallel( self ):
+        """ Returns True if the memory is distributed."""
         return self._spaces[0].parallel
 
     @property

@@ -235,18 +235,18 @@ class DiscreteBilinearForm(BasicDiscrete):
         ends   = vector_space.ends
         npts   = vector_space.npts
 
-        self._starts = tuple(0 if i==0   else 1 for i in starts)
-        self._ends   = tuple(0 if i+1==n else 1 for i,n in zip(ends, npts))
+        self._element_loop_starts = tuple(i!=0   for i in starts)
+        self._element_loop_ends   = tuple(i+1!=n for i,n in zip(ends, npts))
         #...
         if isinstance(target, (Boundary, Interface)):
             #...
             # If process does not own the boundary or interface, do not assemble anything
             if test_ext == -1:
-                if self._starts[axis] != 0:
+                if self._element_loop_starts[axis]:
                     self._func = do_nothing
 
             elif test_ext == 1:
-                if self._ends[axis] != 0:
+                if self._element_loop_ends[axis]:
                     self._func = do_nothing
 
         self._args = self.construct_arguments(backend=kwargs.pop('backend', None))
@@ -317,7 +317,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             args = self._args
 
-        args = args + self._starts + self._ends
+        args = args + [int(i) for i in self._element_loop_starts] + [int(i) for i in self._element_loop_ends]
         if reset:
             reset_arrays(*self.global_matrices)
 
