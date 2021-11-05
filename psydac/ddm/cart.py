@@ -95,7 +95,6 @@ class CartDecomposition():
         # ...
         self._ndims = len( npts )
         # ...
-
         # ...
         self._size = comm.Get_size()
         self._rank = comm.Get_rank()
@@ -618,7 +617,6 @@ class CartDataExchanger:
         # Wait for end of data exchange (MPI_WAITALL)
         MPI.Request.Waitall( requests )
 
-        comm.Barrier()
 
     #---------------------------------------------------------------------------
     # Private methods
