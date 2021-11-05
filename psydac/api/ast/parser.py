@@ -1359,8 +1359,7 @@ class Parser(object):
         return tuple(newargs)
 
     def _visit_TensorInteger(self, expr, **kwargs):
-        args = [expr.args[0]]*self.dim
-        return tuple(args)
+        return (expr.args[0],)*self.dim
     # ....................................................
     def _visit_Expr(self, expr, **kwargs):
         return SymbolicExpr(expr)

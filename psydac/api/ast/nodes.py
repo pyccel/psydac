@@ -157,7 +157,7 @@ class IndexNode(Expr):
     def length(self):
         return self._length
 
-    def set_range(self, start=TensorInteger(1), stop=None, length=None):
+    def set_range(self, start=TensorInteger(0), stop=None, length=None):
         if length is None:
             length = stop
         obj = type(self)(start=start, stop=stop, length=length)
