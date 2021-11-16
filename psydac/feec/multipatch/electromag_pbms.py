@@ -105,7 +105,7 @@ from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
 
 from psydac.feec.multipatch.api import discretize
-from psydac.feec.pull_push     import pull_2d_h1, pull_2d_hcurl
+from psydac.feec.pull_push     import pull_2d_h1, pull_2d_hcurl, push_2d_hcurl
 
 from psydac.linalg.utilities import array_to_stencil
 
@@ -190,8 +190,8 @@ def get_method_name(method=None, k=None, conf_proj=None, penal_regime=None):
     return method_name
 
 def get_fem_name(method=None, k=None, DG_full=False, conf_proj=None, domain_name=None,nc=None,deg=None):
-    assert domain_name and nc and deg
-    fn = domain_name+'_nc'+repr(nc)+'_deg'+repr(deg)
+    assert domain_name
+    fn = domain_name+(('_nc'+repr(nc)) if nc else '') +(('_deg'+repr(deg)) if deg else '')
     if DG_full:
         fn += '_fDG'
     if method is not None:
@@ -751,11 +751,11 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, pbm_space='V1', re
     """
 
     assert refsol_params
-    nc_ref, deg_ref, N_diag, method_ref, Psource_ref = refsol_params
+    N_diag, method_ref, Psource_ref = refsol_params
 
     # ref solution (values on diag grid)
-    p_ref_vals = None
-    u_ref_vals = None
+    ph_ref = None
+    uh_ref = None
 
     # exact solutions (if available)
     u_ex = None
@@ -825,6 +825,12 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, pbm_space='V1', re
                    +(tor*tau**(tor-1)*dy_tau/(2*sigma2))**2 - (tau**(tor-1)*dyy_tau + (tor-1)*tau**(tor-2)*dy_tau**2)*tor/(2*sigma2))*phi
         p_ex = phi
 
+    elif source_type == 'manu_maxwell':
+        alpha   = eta
+        u_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+        f_vect  = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                        alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+        u_bc = u_ex
     elif source_type in ['manu_poisson', 'ellnew_J']:
 
         x0 = 1.5
@@ -1039,37 +1045,46 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, pbm_space='V1', re
 
     if pbm_space == 'V0':
         assert f_scal is not None
-        if p_ex is None:
-            p_ref_filename = get_load_dir(method=method_ref, domain_name=domain_name,nc=nc_ref,deg=deg_ref,data='solutions')+sol_ref_fn(source_type, N_diag, Psource=Psource_ref, pbm_space=pbm_space)
-            print("no exact solution for this test-case, looking for ref solution values in file "+p_ref_filename+ "...")
-            if os.path.isfile(p_ref_filename):
-                print("-- file found")
-                with open(p_ref_filename, 'rb') as file:
-                    ref_vals = np.load(file)
-                    p_ref_vals = ref_vals['vals']
-                    assert isinstance(p_ref_vals, (list, np.ndarray))
-            else:
-                print("-- no file, skipping it")
+#        if p_ex is None:
+#            p_ref_filename = get_load_dir(method=method_ref, domain_name=domain_name,nc=None,deg=None,data='solutions')+sol_ref_fn(source_type, N_diag, Psource=Psource_ref, pbm_space=pbm_space)
+#            print("no exact solution for this test-case, looking for ref solution values in file "+p_ref_filename+ "...")
+#            if os.path.isfile(p_ref_filename):
+#                print("-- file found")
+#                with open(p_ref_filename, 'rb') as file:
+#                    ref_vals = np.load(file)
+#                    p_ref_vals = ref_vals['vals']
+#                    assert isinstance(p_ref_vals, (list, np.ndarray))
+#            else:
+#                print("-- no file, skipping it")
 
-        else:
-            print("using exact solution for this test-case.")
-            p_aux = lambdify(domain.coordinates, p_ex)
-            p_ex_log = [pull_2d_h1(p_aux, f_map) for f_map in mappings_list]
-            p_ref_vals = grid_vals_h1_cdiag(p_ex_log)
+#        else:
+#            print("using exact solution for this test-case.")
+#            p_aux = lambdify(domain.coordinates, p_ex)
+#            p_ex_log = [pull_2d_h1(p_aux, f_map) for f_map in mappings_list]
+#            p_ref_vals = grid_vals_h1_cdiag(p_ex_log)
 
     else:
         assert f_vect is not None
         if u_ex is None:
-            u_ref_filename = get_load_dir(method=method_ref, domain_name=domain_name,nc=nc_ref,deg=deg_ref,data='solutions')+sol_ref_fn(source_type, N_diag, Psource=Psource_ref, pbm_space=pbm_space)
+            u_ref_filename = get_load_dir(method=method_ref, domain_name=domain_name,nc=None,deg=None,data='solutions')+sol_ref_fn(source_type, N_diag, Psource=Psource_ref, pbm_space=pbm_space)
             print("no exact solution for this test-case, looking for ref solution values in file "+u_ref_filename+ "...")
             if os.path.isfile(u_ref_filename):
                 print("-- file found")
                 with open(u_ref_filename, 'rb') as file:
-                    ref_vals = np.load(file)
-                    u_ref_x_vals = ref_vals['x_vals']
-                    u_ref_y_vals = ref_vals['y_vals']
-                    assert isinstance(u_ref_x_vals, (list, np.ndarray)) and isinstance(u_ref_y_vals, (list, np.ndarray))
-                u_ref_vals = [u_ref_x_vals, u_ref_y_vals]
+                    ncells_degree = np.load(file)
+                    ncells   = [int(i) for i in ncells_degree['ncells_degree'][0]]
+                    degree   = [int(i) for i in ncells_degree['ncells_degree'][1]]
+
+                derham   = Derham(domain, ["H1", "Hcurl", "L2"])
+                domain_h = discretize(domain, ncells=ncells, comm=comm)
+                V1h      = discretize(derham.V1, domain_h, degree=degree, basis='M')
+                uh_ref   = FemField(V1h)
+                for i,Vi in enumerate(V1h.spaces):
+                    for j,Vij in enumerate(Vi.spaces):
+                        filename = u_ref_filename+'_%d_%d'%(i,j)
+                        uij = Vij.import_fields(filename, 'phi')
+                        uh_ref.fields[i].fields[j].coeffs._data = uij[0].coeffs._data
+
             else:
                 print("-- no file, skipping it")
         else:
@@ -1082,9 +1097,7 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, pbm_space='V1', re
 
 
     # f_scal, f_vect, u_bc, u_ref_vals, u_ex, p_ex, phi, grad_phi
-    return f_scal, f_vect, u_bc, p_ref_vals, u_ref_vals, p_ex, u_ex, phi, grad_phi
-
-
+    return f_scal, f_vect, u_bc, ph_ref, uh_ref, p_ex, u_ex, phi, grad_phi
 
 
 # --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * --- * ---
@@ -1195,7 +1208,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument( '--source',
-        choices = ['manu_J', 'dipcurl_J', 'ellnew_J', 'ellip_J', 'ring_J', 'sring_J', 'manu_poisson'],
+        choices = ['manu_J', 'dipcurl_J', 'ellnew_J', 'ellip_J', 'ring_J', 'sring_J', 'manu_poisson', 'manu_maxwell'],
         default = 'manu_J',
         help    = 'type of source'
     )
@@ -1278,7 +1291,7 @@ if __name__ == '__main__':
     hide_plots   = args.hide_plots
     skip_vf      = args.skip_vf
     show_curl_u  = args.show_curl_u
-    skip_errors   = args.skip_errors
+    skip_errors  = args.skip_errors
     save_u_vals  = args.save_u_vals
     khf          = args.khf
 
@@ -1404,15 +1417,15 @@ if __name__ == '__main__':
                     # print(harmonic_fields[i].shape)
 
     # node based grid (to better see the smoothness)
-    etas, xx, yy = get_plotting_grid(mappings, N=N_diag)
+    etas, xx, yy    = get_plotting_grid(mappings, N=N_diag)
     grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
-    grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
-    grid_vals_l2 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='l2')
+    grid_vals_h1    = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
+    grid_vals_l2    = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='l2')
 
     # cell-centered grid to compute approx L2 norm
     etas_cdiag, xx_cdiag, yy_cdiag, patch_logvols = get_plotting_grid(mappings, N=N_diag, centered_nodes=True, return_patch_logvols=True)
-    grid_vals_h1_cdiag = lambda v: get_grid_vals_scalar(v, etas_cdiag, mappings_list, space_kind='h1')
-    grid_vals_hcurl_cdiag = lambda v: get_grid_vals_vector(v, etas_cdiag, mappings_list, space_kind='hcurl')
+    grid_vals_h1_cdiag                            = lambda v: get_grid_vals_scalar(v, etas_cdiag, mappings_list, space_kind='h1')
+    grid_vals_hcurl_cdiag                         = lambda v: get_grid_vals_vector(v, etas_cdiag, mappings_list, space_kind='hcurl')
 
     fem_name = get_fem_name(method=method, DG_full=DG_full, conf_proj=conf_proj, k=k, domain_name=domain_name,nc=nc,deg=deg)
     rhs_name = rhs_fn(source_type,eta=eta,mu=mu,nu=nu,pbm_space=pbm_space,Psource=Psource,npz_suffix=False,prefix=False)
@@ -1466,22 +1479,27 @@ if __name__ == '__main__':
     else:
         raise ValueError(conf_proj)
 
+    print(' weak divergence matrices ')
     # weak divergence matrices V1h -> V0h
-    pw_div_m = - M0_minv @ bD0_m.transpose() @ M1_m   # patch-wise weak divergence
-    bsp_D0_m = bD0_m @ bsp_P0_hom_m  # bsp-conga gradient on homogeneous space
-    bsp_div_m = - M0_minv @ bsp_D0_m.transpose() @ M1_m   # gsp-conga divergence
-    gsp_D0_m = bD0_m @ gsp_P0_hom_m  # gsp-conga gradient on homogeneous space
-    gsp_div_m = - M0_minv @ gsp_D0_m.transpose() @ M1_m   # bsp-conga divergence
 
+    print(' weak divergence matrices ')
     def div_norm(u_c, type=None):
         if type is None:
             type = conf_proj
         if type=='GSP':
-            du_c = gsp_div_m.dot(u_c)
+            du_c = M1_m.dot(u_c)
+            du_c = bD0_m.T.dot(du_c)
+            du_c = gsp_P0_hom_m.T.dot(du_c)
+            du_c = - M0_minv.dot(du_c)
         elif type=='BSP':
-            du_c = bsp_div_m.dot(u_c)
+            du_c = M1_m.dot(u_c)
+            du_c = bD0_m.T.dot(du_c)
+            du_c = bsp_P0_hom_m.T.dot(du_c)
+            du_c = -M0_minv.dot(du_c)
         elif type=='PW':
-            du_c = pw_div_m.dot(u_c)
+            du_c = M1_m.dot(u_c)
+            du_c = bD0_m.transpose().dot(du_c)
+            du_c = - M0_minv.dot(du_c)
         else:
             print("WARNING: invalid value for weak divergence type (returning -1)")
             return -1
@@ -1512,22 +1530,18 @@ if __name__ == '__main__':
         # nc_ref = 32
         # deg_ref = 6
         # nc_ref = 16
-        nc_ref = 8
-        deg_ref = 4
-        Psource_ref = 'Ps_cd'
-        # Psource_ref = 'Ps_L2'
         method_ref = 'conga'
 
-        f_scal, f_vect, u_bc, p_ref_vals, u_ref_vals, p_ex, u_ex, phi, grad_phi = get_source_and_solution(
+        f_scal, f_vect, u_bc, ph_ref, uh_ref, p_ex, u_ex, phi, grad_phi = get_source_and_solution(
             source_type=source_type, eta=eta, mu=mu, nu=nu, domain=domain,
-            refsol_params=[nc_ref, deg_ref, N_diag, method_ref, Psource_ref], pbm_space=pbm_space
+            refsol_params=[N_diag, method, Psource], pbm_space=pbm_space
         )
 
         if u_ref_vals is None:
             print('-- no ref solution found')
 
         if save_u_vals:
-            solutions_dir = get_load_dir(method=method, DG_full=DG_full, domain_name=domain_name,nc=nc,deg=deg,data='solutions')
+            solutions_dir = get_load_dir(method=method, DG_full=DG_full, domain_name=domain_name,nc=None,deg=None,data='solutions')
             u_vals_filename = solutions_dir+sol_ref_fn(source_type, N_diag, Psource=Psource, pbm_space=pbm_space)
             print( "for further comparisons, will save u_vals in "+u_vals_filename)
             if not os.path.exists(solutions_dir):
@@ -1674,7 +1688,6 @@ if __name__ == '__main__':
         ref_sigmas = []
         # sigma = 50
         # nb_eigs = 20
-
 
         eigenvalues, eigenvectors = get_eigenvalues(nb_eigs, sigma, A_m, M_m)
 
@@ -2002,7 +2015,6 @@ if __name__ == '__main__':
                     # gridlines_x1=gridlines_x1,
                     # gridlines_x2=gridlines_x2,
                 )
-
 
         # ------------------------------------------------------------------------------------------
         #   solving the matrix equation
@@ -2340,8 +2352,11 @@ if __name__ == '__main__':
         uh_x_vals, uh_y_vals = grid_vals_hcurl_cdiag(uh)
         if save_u_vals:
             print("saving solution values (on cdiag grid) in new file (for future needs)"+u_vals_filename)
+            for i,F in enumerate(uh.fields):
+                for j,f in enumerate(F.fields):
+                    V1h.spaces[i].spaces[j].export_fields(u_vals_filename+'_%d_%d'%(i,j), phi=f)
             with open(u_vals_filename, 'wb') as file:
-                np.savez(file, x_vals=uh_x_vals, y_vals=uh_y_vals)
+                np.savez(file, ncells_degree=np.array([ncells, degree]))
 
         if compute_errors:
             t_stamp = time_count()
@@ -2355,8 +2370,15 @@ if __name__ == '__main__':
                 p_amps_cdiag = [np.abs(p)
                                    for p in p_ref_vals]
                 l2_norm_p = (np.sum([J_F * val**2 for val, J_F in zip(p_amps_cdiag, quad_weights)]))**0.5
-                l2_error  = (np.sum([J_F * val**2 for val, J_F in zip(p_errs_cdiag, quad_weights)]))**0.5
+#                l2_error  = (np.sum([J_F * val**2 for val, J_F in zip(p_errs_cdiag, quad_weights)]))**0.5
 
+                pex = lambdify(domain.coordinates, p_ex)
+                err = []
+                for V, mapping, F in zip(V0h.spaces, mappings_list, ph.fields):
+                    mapping = mapping.get_callable_mapping()
+                    integrand = lambda x1,x2: (F(x1,x2)-pex(*mapping(x1,x2)))**2 * np.sqrt( mapping._metric_det( x1, x2 ) )
+                    err.append(V.integral( integrand ))
+                l2_error = np.sum(err)**0.5
                 err_message = 'grid diag for method={0} with nc={1}, deg={2}, gamma_h={3}, proj_sol={4}: abs_error={5}, rel_error={6}\n'.format(
                             get_method_name(method, k, conf_proj, penal_regime), nc, deg, gamma_h, proj_sol, l2_error, l2_error/l2_norm_p
                 )
@@ -2377,28 +2399,56 @@ if __name__ == '__main__':
                     print('\n** '+err_message_2)
 
             else:
-
-                if u_ref_vals is None:
-                    u_x_vals = np.zeros_like(uh_x_vals)
-                    u_y_vals = np.zeros_like(uh_y_vals)
-                else:
-                    u_x_vals, u_y_vals = u_ref_vals
+                l2_norm_u = 0
+#                if u_ref_vals is None:
+#                    u_x_vals = np.zeros_like(uh_x_vals)
+#                    u_y_vals = np.zeros_like(uh_y_vals)
+#                else:
+#                    u_x_vals, u_y_vals = u_ref_vals
 
                 only_last_patch = False
-                uh_errors_cdiag = [np.sqrt( (u1-v1)**2 + (u2-v2)**2 )
-                                   for u1, v1, u2, v2 in zip(u_x_vals, uh_x_vals, u_y_vals, uh_y_vals)]
-                u_amps_cdiag = [np.sqrt( (u1)**2 + (u2)**2 )
-                                   for u1, u2 in zip(u_x_vals, u_y_vals)]
+#                uh_errors_cdiag = [np.sqrt( (u1-v1)**2 + (u2-v2)**2 )
+#                                   for u1, v1, u2, v2 in zip(u_x_vals, uh_x_vals, u_y_vals, uh_y_vals)]
+#                u_amps_cdiag = [np.sqrt( (u1)**2 + (u2)**2 )
+#                                   for u1, u2 in zip(u_x_vals, u_y_vals)]
 
                 if only_last_patch:
                     print('WARNING ** WARNING : measuring error on last patch only !!' )
                     warning_msg = ' [on last patch]'
-                    l2_error = (np.sum([J_F * err**2 for err, J_F in zip(uh_errors_cdiag[-1:], quad_weights[-1:])]))**0.5
+#                    l2_error = (np.sum([J_F * err**2 for err, J_F in zip(uh_errors_cdiag[-1:], quad_weights[-1:])]))**0.5
                 else:
                     warning_msg = ''
-                    l2_norm_u = (np.sum([J_F * val**2 for val, J_F in zip(u_amps_cdiag, quad_weights)]))**0.5
-                    l2_error  = (np.sum([J_F * val**2 for val, J_F in zip(uh_errors_cdiag, quad_weights)]))**0.5
+#                    l2_norm_u = (np.sum([J_F * val**2 for val, J_F in zip(u_amps_cdiag, quad_weights)]))**0.5
+#                    l2_error  = (np.sum([J_F * val**2 for val, J_F in zip(uh_errors_cdiag, quad_weights)]))**0.5
 
+                if u_ex is not None:
+                    uex_x = lambdify(domain.coordinates, u_ex[0])
+                    uex_y = lambdify(domain.coordinates, u_ex[1])
+                    err1 = []
+                    err2 = []
+                    for V, mapping, F in zip(V1h.spaces, mappings_list, uh.fields):
+                        cmapping = mapping.get_callable_mapping()
+                        F1 = lambda x1, x2:push_2d_hcurl(*F.fields, x1, x2, mapping)[0]
+                        F2 = lambda x1, x2:push_2d_hcurl(*F.fields, x1, x2, mapping)[1]
+                        integrand1 = lambda x1,x2: (F1(x1,x2)-uex_x(*cmapping(x1,x2)))**2 * np.sqrt( cmapping._metric_det( x1, x2 ) )
+                        integrand2 = lambda x1,x2: (F2(x1,x2)-uex_y(*cmapping(x1,x2)))**2 * np.sqrt( cmapping._metric_det( x1, x2 ) )
+                        err1.append(V.spaces[0].integral( integrand1 ))
+                        err2.append(V.spaces[1].integral( integrand2 ))
+                elif uh_ref:
+                    err1 = []
+                    err2 = []
+                    for V, mapping, F, F_ref in zip(V1h.spaces, mappings_list, uh.fields, uh_ref.fields):
+                        cmapping   = mapping.get_callable_mapping()
+                        F1         = lambda x1, x2:push_2d_hcurl(*F.fields, x1, x2, mapping)[0]
+                        F2         = lambda x1, x2:push_2d_hcurl(*F.fields, x1, x2, mapping)[1]
+                        F1_ref     = lambda x1, x2:push_2d_hcurl(*F_ref.fields, x1, x2, mapping)[0]
+                        F2_ref     = lambda x1, x2:push_2d_hcurl(*F_ref.fields, x1, x2, mapping)[1]
+                        integrand1 = lambda x1, x2:(F1(x1,x2)-F1_ref(x1,x2))**2 * np.sqrt( cmapping._metric_det( x1, x2 ) )
+                        integrand2 = lambda x1, x2:(F2(x1,x2)-F2_ref(x1,x2))**2 * np.sqrt( cmapping._metric_det( x1, x2 ) )
+                        err1.append(V.spaces[0].integral( integrand1 ))
+                        err2.append(V.spaces[1].integral( integrand2 ))
+
+                l2_error = np.sqrt(np.sum(err1) + np.sum(err2))
                 err_message = 'grid diag '+warning_msg+' for method={0} with nc={1}, deg={2}, gamma_h={3}, proj_sol={4}: abs_error={5}, rel_error={6}\n'.format(
                             get_method_name(method, k, conf_proj, penal_regime), nc, deg, gamma_h, proj_sol, l2_error, l2_error/l2_norm_u
                 )
@@ -2408,11 +2458,11 @@ if __name__ == '__main__':
                 if u_ex is not None:
                     # also assembling the L2 error with Psydac quadrature
                     print(" -- * --  also computing L2 error with explicit (exact) solution, using Psydac quadratures...")
-                    F  = element_of(V1h.symbolic_space, name='F')
+                    F           = element_of(V1h.symbolic_space, name='F')
                     error       = Matrix([F[0]-u_ex[0],F[1]-u_ex[1]])
                     l2_norm     = Norm(error, domain, kind='l2')
                     l2_norm_h   = discretize(l2_norm, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
-                    l2_error     = l2_norm_h.assemble(F=uh)
+                    l2_error    = l2_norm_h.assemble(F=uh)
                     err_message_2 = 'l2_psydac error for method = {0} with nc = {1}, deg = {2}, gamma = {3}, gamma_h = {4} and proj_sol = {5} [*] : {6}\n'.format(
                             get_method_name(method, k, conf_proj, penal_regime), nc, deg, gamma, gamma_h, proj_sol, l2_error
                     )
@@ -2429,7 +2479,6 @@ if __name__ == '__main__':
                         err_norm = np.dot(err_c,M1_m.dot(err_c))**0.5
                         print('--- ** --- check: L2 discrete-error (in V1h): {}'.format(err_norm))
 
-
             error_filename = error_fn(source_type=source_type, method=method, k=k, conf_proj=conf_proj, domain_name=domain_name,deg=deg)
             if not os.path.exists(error_filename):
                 open(error_filename, 'w')
@@ -2438,49 +2487,49 @@ if __name__ == '__main__':
                 if err_message_2:
                     a_writer.write(err_message_2)
 
-            if do_plots:
+#            if do_plots:
 
-                if pbm_space == 'V0':
-                    p_errs = [np.abs(p-q)
-                                   for p, q in zip(p_ref_vals, ph_vals)]
-                    my_small_plot(
-                        title=r'approximation of solution $p$',
-                        vals=[p_ref_vals, ph_vals, p_errs],
-                        titles=[r'$p_{ex}$', r'$p_h$', r'$|(p_{ex}-p_h)|$'],
-                        xx=xx,
-                        yy=yy,
-                        save_fig=plot_dir+'err_p.png',
-                        hide_plot=hide_plots,
-                        # gridlines_x1=gridlines_x1,
-                        # gridlines_x2=gridlines_x2,
-                    )
+#                if pbm_space == 'V0':
+#                    p_errs = [np.abs(p-q)
+#                                   for p, q in zip(p_ref_vals, ph_vals)]
+#                    my_small_plot(
+#                        title=r'approximation of solution $p$',
+#                        vals=[p_ref_vals, ph_vals, p_errs],
+#                        titles=[r'$p_{ex}$', r'$p_h$', r'$|(p_{ex}-p_h)|$'],
+#                        xx=xx,
+#                        yy=yy,
+#                        save_fig=plot_dir+'err_p.png',
+#                        hide_plot=hide_plots,
+#                        # gridlines_x1=gridlines_x1,
+#                        # gridlines_x2=gridlines_x2,
+#                    )
 
-                else:
-                    u_x_err = [(u1 - u2) for u1, u2 in zip(u_x_vals, uh_x_vals)]
-                    u_y_err = [(u1 - u2) for u1, u2 in zip(u_y_vals, uh_y_vals)]
-                    my_small_plot(
-                        title=r'approximation of solution $u$, $x$ component',
-                        vals=[u_x_vals, uh_x_vals, u_x_err],
-                        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
-                        xx=xx,
-                        yy=yy,
-                        save_fig=plot_dir+'err_u_x.png',
-                        hide_plot=hide_plots,
-                        # gridlines_x1=gridlines_x1,
-                        # gridlines_x2=gridlines_x2,
-                    )
+#                else:
+#                    u_x_err = [(u1 - u2) for u1, u2 in zip(u_x_vals, uh_x_vals)]
+#                    u_y_err = [(u1 - u2) for u1, u2 in zip(u_y_vals, uh_y_vals)]
+#                    my_small_plot(
+#                        title=r'approximation of solution $u$, $x$ component',
+#                        vals=[u_x_vals, uh_x_vals, u_x_err],
+#                        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+#                        xx=xx,
+#                        yy=yy,
+#                        save_fig=plot_dir+'err_u_x.png',
+#                        hide_plot=hide_plots,
+#                        # gridlines_x1=gridlines_x1,
+#                        # gridlines_x2=gridlines_x2,
+#                    )
 
-                    my_small_plot(
-                        title=r'approximation of solution $u$, $y$ component',
-                        vals=[u_y_vals, uh_y_vals, u_y_err],
-                        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-                        xx=xx,
-                        yy=yy,
-                        save_fig=plot_dir+'err_u_y.png',
-                        hide_plot=hide_plots,
-                        # gridlines_x1=gridlines_x1,
-                        # gridlines_x2=gridlines_x2,
-                    )
+#                    my_small_plot(
+#                        title=r'approximation of solution $u$, $y$ component',
+#                        vals=[u_y_vals, uh_y_vals, u_y_err],
+#                        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+#                        xx=xx,
+#                        yy=yy,
+#                        save_fig=plot_dir+'err_u_y.png',
+#                        hide_plot=hide_plots,
+#                        # gridlines_x1=gridlines_x1,
+#                        # gridlines_x2=gridlines_x2,
+#                    )
             time_count(t_stamp)
 
     else:
@@ -2490,10 +2539,4 @@ if __name__ == '__main__':
     time_count(t_overstamp, msg='full run')
     print()
     exit()
-
-
-
-
-
-
 
