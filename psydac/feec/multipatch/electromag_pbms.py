@@ -208,7 +208,7 @@ def get_load_dir(method=None, DG_full=False, domain_name=None,nc=None,deg=None,d
 # ---------------------------------------------------------------------------------------------------------------
 def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_language='python', discard_non_hom_matrices=False):
 
-    if os.path.exists(load_dir):
+    if os.path.exists(load_dir+'M0_m.npz'):
         print(" -- load directory " + load_dir + " found -- will load the CONGA matrices from there...")
 
         # print("loading sparse matrices...")
@@ -286,7 +286,8 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
 
 
         print(" -- now saving these matrices in " + load_dir)
-        os.makedirs(load_dir)
+        if not os.path.exists(load_dir):
+            os.makedirs(load_dir)
 
         t_stamp = time_count(t_stamp)
         save_npz(load_dir+'M0_m.npz', M0_m)
