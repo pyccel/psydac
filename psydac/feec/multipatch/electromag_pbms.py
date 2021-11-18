@@ -208,7 +208,7 @@ def get_load_dir(method=None, DG_full=False, domain_name=None,nc=None,deg=None,d
 # ---------------------------------------------------------------------------------------------------------------
 def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_language='python', discard_non_hom_matrices=False):
 
-    if os.path.exists(load_dir):
+    if os.path.exists(load_dir+'M0_m.npz'):
         print(" -- load directory " + load_dir + " found -- will load the CONGA matrices from there...")
 
         # print("loading sparse matrices...")
@@ -284,9 +284,9 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
         I1_m = I1.to_sparse_matrix()
         t_stamp = time_count(t_stamp)
 
-
         print(" -- now saving these matrices in " + load_dir)
-        os.makedirs(load_dir)
+        if not os.path.exists(load_dir):
+            os.makedirs(load_dir)
 
         t_stamp = time_count(t_stamp)
         save_npz(load_dir+'M0_m.npz', M0_m)
@@ -705,7 +705,7 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
 
         if try_lgmres:
             print('(via SPILU-preconditioned LGMRES iterative solver for A_m - sigma*M1_m)')
-            OP_spilu = spilu(OP_m, fill_factor=20, drop_tol=5e-5)
+            OP_spilu = spilu(OP_m, fill_factor=18, drop_tol=5e-5)
             # spilu(OP_m, fill_factor=15, drop_tol=5e-5)  # better preconditionning, if matrix not too large
             preconditioner = LinearOperator( OP_m.shape, lambda x: OP_spilu.solve(x) )
             tol = tol_eigsh
@@ -1522,6 +1522,8 @@ if __name__ == '__main__':
     f_vect = None
     u_ex = None
     u_ref_vals = None
+    ph_ref     = None
+    uh_ref     = None
     u_vals_filename = None
 
     if pbm == 'source_pbm':
@@ -1537,7 +1539,7 @@ if __name__ == '__main__':
             refsol_params=[N_diag, method, Psource], pbm_space=pbm_space
         )
 
-        if u_ref_vals is None:
+        if uh_ref is None:
             print('-- no ref solution found')
 
         if save_u_vals:
@@ -2421,6 +2423,8 @@ if __name__ == '__main__':
 #                    l2_norm_u = (np.sum([J_F * val**2 for val, J_F in zip(u_amps_cdiag, quad_weights)]))**0.5
 #                    l2_error  = (np.sum([J_F * val**2 for val, J_F in zip(uh_errors_cdiag, quad_weights)]))**0.5
 
+                err1 = []
+                err2 = []
                 if u_ex is not None:
                     uex_x = lambdify(domain.coordinates, u_ex[0])
                     uex_y = lambdify(domain.coordinates, u_ex[1])
