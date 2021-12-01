@@ -63,11 +63,11 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
         For more details see:
             Buffa, Annalisa & Rivas, Judith & Sangalli, G. & Vazquez, R.G.. (2011).
             Isogeometric Discrete Differential Forms in Three Dimensions.
-            SIAM J. Numerical Analysis. 49. 818-844. 10.1137/100786708.
+            SIAM J. Numerical Analysis. 49. 818-844. 10.1137/100786708. section 4.1.
 
             A. Buffa, C. de Falco, G. Sangalli,
             IsoGeometric Analysis: Stable elements for the 2D Stokes equation
-            Internat. J. Numer. Methods Fluids, 2011.
+            Internat. J. Numer. Methods Fluids, 2011. section 3.
 
             A. Bressan, G. Sangalli,
             Isogeometric discretizations of the Stokes problem: stability analysis by the macroelement technique
