@@ -62,15 +62,15 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
     Reduce the tensor FEM space degree along some directions to create
     compatible spaces. For more details see:
 
-      A. Buffa, J. Rivas, G. Sangalli, and R.G. Vazquez. Isogeometric Discrete
+      [1] : A. Buffa, J. Rivas, G. Sangalli, and R.G. Vazquez. Isogeometric Discrete
       Differential Forms in Three Dimensions. SIAM J. Numer. Anal., 49:818-844,
       2011. DOI:10.1137/100786708. (Section 4.1)
 
-      A. Buffa, C. de Falco, and G. Sangalli. IsoGeometric Analysis: Stable
+      [2] : A. Buffa, C. de Falco, and G. Sangalli. IsoGeometric Analysis: Stable
       elements for the 2D Stokes equation. Int. J. Numer. Meth. Fluids,
       65:1407-1422, 2011. DOI:10.1002/fld.2337. (Section 3)
 
-      A. Bressan, and G. Sangalli. Isogeometric discretizations of the Stokes
+      [3] : A. Bressan, and G. Sangalli. Isogeometric discretizations of the Stokes
       problem: stability analysis by the macroelement technique, IMA J. Numer.
       Anal., 33(2):629-651, 2013. DOI:10.1093/imanum/drr056.
 
@@ -88,10 +88,10 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
     sequence: str
         The sequence used to reduce the space.
         It can take one the following values:
-          'DR': for the Derham Sequence.
-          'TH': for Taylor-Hood elements
-          'N' : for the Nedelec elements.
-          'RT': for the Raviart-Thomas elements.
+          'DR': for the Derham Sequence, as described in [1].
+          'TH': for Taylor-Hood elements, as described in [2].
+          'N' : for the Nedelec elements, as described in [2].
+          'RT': for the Raviart-Thomas elements, as described in [2].
 
     Results
     -------
