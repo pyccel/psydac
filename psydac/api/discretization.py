@@ -80,7 +80,7 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
     'H1' : degree = [[p1,p2],[p1,p2]], multiplicity = [[r1,r2+1],[r1+1,r2]]
     'L2' : degree = [p1-1,p2-1], multiplicity = [r1,r2]
 
-    where p1, p2, p3 indicate the degrees in each direction and r1, r2, r3 indicate the multiplicites in each direction of the space Vh before reduction.
+    where p1, p2, p3 indicate the degrees in each direction and r1, r2, r3 indicate the interior multiplicites in each direction of the space Vh before reduction.
 
     For more details see:
 
