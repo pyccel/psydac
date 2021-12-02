@@ -62,11 +62,13 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
     This function takes a tensor FEM space and reduces some degrees 
     in order to match the symbolic space specified by the argument with a given sequence.
 
-    For example with the 'DR' sequence in 3D, the degrees and the multiplicity of the reduced spaces are specified as follows:
-    'H1'   : degree = [p1,p2,p3], multiplicity = [r1,r2,r3]
-    'Hcurl': degree = [[p1-1,p2,p3], [p1,p2-1,p3], [p1,p2,p3-1]], multiplicity = [[r1,r2,r3],[r1,r2,r3],[r1,r2,r3]]
-    'Hdiv' : degree = [[p1,p2-1,p3-1], [p1-1,p2,p3-1], [p1-1,p2-1,p3]],  multiplicity = [[r1,r2,r3],[r1,r2,r3],[r1,r2,r3]]
-    'L2'   : degree = [p1-1,p2-1,p3-1],  multiplicity = [r1,r2,r3]
+    For example, when p1, p2, p3 indicate the degrees and r1, r2, r3 indicate the interior multiplicites in each direction of the space Vh before reduction,
+    the degrees and the multiplicity of the reduced spaces are specified as follows:
+    with the 'DR' sequence in 3D, the multiplicies are constant and the degrees are: 
+     'H1'   : degree = [p1,p2,p3]
+     'Hcurl': degree = [[p1-1,p2,p3], [p1,p2-1,p3], [p1,p2,p3-1]]
+     'Hdiv' : degree = [[p1,p2-1,p3-1], [p1-1,p2,p3-1], [p1-1,p2-1,p3]]
+     'L2'   : degree = [p1-1,p2-1,p3-1]
 
     with the 'TH' sequence in 2D we have:
      'H1' : degree = [[p1,p2],[p1,p2]], multiplicity = [[r1,r2],[r1,r2]]
@@ -79,8 +81,6 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
     with the 'N' sequence in 2D we have:
     'H1' : degree = [[p1,p2],[p1,p2]], multiplicity = [[r1,r2+1],[r1+1,r2]]
     'L2' : degree = [p1-1,p2-1], multiplicity = [r1,r2]
-
-    where p1, p2, p3 indicate the degrees in each direction and r1, r2, r3 indicate the interior multiplicites in each direction of the space Vh before reduction.
 
     For more details see:
 
