@@ -59,8 +59,30 @@ def discretize_derham(derham, domain_h, *args, **kwargs):
 #==============================================================================
 def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
     """
-    Reduce the tensor FEM space degree along some directions to create
-    compatible spaces. For more details see:
+    This function takes a tensor FEM space and reduces some degrees 
+    in order to match the symbolic space specified by the argument with a given sequence.
+
+    For example with the 'DR' sequence in 3D, the degrees and the multiplicity of the reduced spaces are specified as follows:
+    'H1'   : degree = [p1,p2,p3], multiplicity = [r1,r2,r3]
+    'Hcurl': degree = [[p1-1,p2,p3], [p1,p2-1,p3], [p1,p2,p3-1]], multiplicity = [[r1,r2,r3],[r1,r2,r3],[r1,r2,r3]]
+    'Hdiv' : degree = [[p1,p2-1,p3-1], [p1-1,p2,p3-1], [p1-1,p2-1,p3]],  multiplicity = [[r1,r2,r3],[r1,r2,r3],[r1,r2,r3]]
+    'L2'   : degree = [p1-1,p2-1,p3-1],  multiplicity = [r1,r2,r3]
+
+    with the 'TH' sequence in 2D we have:
+     'H1' : degree = [[p1,p2],[p1,p2]], multiplicity = [[r1,r2],[r1,r2]]
+     'L2' : degree = [p1-1,p2-1], multiplicity = [r1-1,r2-1]
+
+    with the 'RT' sequence in 2D we have:
+    'H1' : degree = [[p1,p2-1],[p1-1,p2]], multiplicity = [[r1,r2],[r1,r2]]
+    'L2' : degree = [p1-1,p2-1], multiplicity = [r1,r2]
+
+    with the 'N' sequence in 2D we have:
+    'H1' : degree = [[p1,p2],[p1,p2]], multiplicity = [[r1,r2+1],[r1+1,r2]]
+    'L2' : degree = [p1-1,p2-1], multiplicity = [r1,r2]
+
+    where p1, p2, p3 indicate the degrees in each direction and r1, r2, r3 indicate the multiplicites in each direction of the space Vh before reduction.
+
+    For more details see:
 
       [1] : A. Buffa, J. Rivas, G. Sangalli, and R.G. Vazquez. Isogeometric Discrete
       Differential Forms in Three Dimensions. SIAM J. Numer. Anal., 49:818-844,
