@@ -177,8 +177,11 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
         else:
             raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
 
-    elif not isinstance(V.kind,  (H1SpaceType, UndefinedSpaceType)):
-        raise NotImplementedError('TODO')
+    elif isinstance(V.kind, (H1Space, UndefinedSpaceType)):
+        Wh = Vh  # Do not reduce space
+
+    else:
+        raise NotImplementedError('Cannot create FEM space with kind = {}'.format(V.kind))
 
     if isinstance(V, VectorFunctionSpace):
         if isinstance(V.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
