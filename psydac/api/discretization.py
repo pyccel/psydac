@@ -177,7 +177,7 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
         else:
             raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
 
-    elif isinstance(V.kind, (H1Space, UndefinedSpaceType)):
+    elif isinstance(V.kind, (H1SpaceType, UndefinedSpaceType)):
         Wh = Vh  # Do not reduce space
 
     else:
