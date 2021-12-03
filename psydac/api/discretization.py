@@ -59,28 +59,33 @@ def discretize_derham(derham, domain_h, *args, **kwargs):
 #==============================================================================
 def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
     """
-    This function takes a tensor FEM space and reduces some degrees 
-    in order to match the symbolic space specified by the argument with a given sequence.
+    This function takes a tensor FEM space Vh and reduces some degrees in order
+    to obtain a tensor FEM space Wh that matches the symbolic space V in a
+    certain sequence of spaces. Where the degree is reduced, Wh employs either
+    a B-spline or an M-spline basis.
 
-    For example, when p1, p2, p3 indicate the degrees and r1, r2, r3 indicate the interior multiplicites in each direction of the space Vh before reduction,
-    the degrees and the multiplicity of the reduced spaces are specified as follows:
-    with the 'DR' sequence in 3D, the multiplicies are constant and the degrees are: 
-     'H1'   : degree = [p1,p2,p3]
-     'Hcurl': degree = [[p1-1,p2,p3], [p1,p2-1,p3], [p1,p2,p3-1]]
-     'Hdiv' : degree = [[p1,p2-1,p3-1], [p1-1,p2,p3-1], [p1-1,p2-1,p3]]
-     'L2'   : degree = [p1-1,p2-1,p3-1]
+    For example let [p1, p2, p3] indicate the degrees and [r1, r2, r3] indicate
+    the interior multiplicites in each direction of the space Vh before
+    reduction. The degrees and multiplicities of the reduced spaces are
+    specified as follows:
+    
+    With the 'DR' sequence in 3D, all multiplicies are [r1, r2, r3] and we have
+     'H1'   : degree = [p1, p2, p3]
+     'Hcurl': degree = [[p1-1, p2, p3], [p1, p2-1, p3], [p1, p2, p3-1]]
+     'Hdiv' : degree = [[p1, p2-1, p3-1], [p1-1, p2, p3-1], [p1-1, p2-1, p3]]
+     'L2'   : degree = [p1-1, p2-1, p3-1]
 
-    with the 'TH' sequence in 2D we have:
-     'H1' : degree = [[p1,p2],[p1,p2]], multiplicity = [[r1,r2],[r1,r2]]
-     'L2' : degree = [p1-1,p2-1], multiplicity = [r1-1,r2-1]
+    With the 'TH' sequence in 2D we have:
+     'H1' : degree = [[p1, p2], [p1, p2]], multiplicity = [[r1, r2], [r1, r2]]
+     'L2' : degree = [p1-1, p2-1], multiplicity = [r1-1, r2-1]
 
-    with the 'RT' sequence in 2D we have:
-    'H1' : degree = [[p1,p2-1],[p1-1,p2]], multiplicity = [[r1,r2],[r1,r2]]
-    'L2' : degree = [p1-1,p2-1], multiplicity = [r1,r2]
+    With the 'RT' sequence in 2D we have:
+    'H1' : degree = [[p1, p2-1], [p1-1, p2]], multiplicity = [[r1,r2], [r1,r2]]
+    'L2' : degree = [p1-1, p2-1], multiplicity = [r1, r2]
 
-    with the 'N' sequence in 2D we have:
-    'H1' : degree = [[p1,p2],[p1,p2]], multiplicity = [[r1,r2+1],[r1+1,r2]]
-    'L2' : degree = [p1-1,p2-1], multiplicity = [r1,r2]
+    With the 'N' sequence in 2D we have:
+    'H1' : degree = [[p1, p2], [p1, p2]], multiplicity = [[r1,r2+1], [r1+1,r2]]
+    'L2' : degree = [p1-1, p2-1], multiplicity = [r1, r2]
 
     For more details see:
 
@@ -105,19 +110,20 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
         The tensor product fem space.
 
     basis: str
-        The basis function of the reduced spaces, it can be either 'B' for b-spline basis or 'M' for M-spline basis
+        The basis function of the reduced spaces, it can be either 'B' for
+        B-spline basis or 'M' for M-spline basis
 
     sequence: str
         The sequence used to reduce the space.
         It can take one the following values:
-          'DR': for the Derham Sequence, as described in [1].
+          'DR': for the de Rham Sequence, as described in [1].
           'TH': for Taylor-Hood elements, as described in [2].
-          'N' : for the Nedelec elements, as described in [2].
-          'RT': for the Raviart-Thomas elements, as described in [2].
+          'N' : for Nedelec elements, as described in [2].
+          'RT': for Raviart-Thomas elements, as described in [2].
 
     Results
     -------
-    Vh : TensorFemSpace, ProductFemSpace
+    Wh : TensorFemSpace, ProductFemSpace
       The reduced space
 
     """
@@ -126,17 +132,17 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
         if sequence == 'DR':
             if V.ldim == 2:
                 spaces = [Vh.reduce_degree(axes=[0], multiplicity=multiplicity[0:1], basis=basis),
-                          Vh.reduce_degree(axes=[1], multiplicity=multiplicity[1:], basis=basis)]
+                          Vh.reduce_degree(axes=[1], multiplicity=multiplicity[1:] , basis=basis)]
             elif V.ldim == 3:
                 spaces = [Vh.reduce_degree(axes=[0], multiplicity=multiplicity[0:1], basis=basis),
                           Vh.reduce_degree(axes=[1], multiplicity=multiplicity[1:2], basis=basis),
-                          Vh.reduce_degree(axes=[2], multiplicity=multiplicity[2:], basis=basis)]
+                          Vh.reduce_degree(axes=[2], multiplicity=multiplicity[2:] , basis=basis)]
             else:
                 raise NotImplementedError('TODO')
         else:
             raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
+        Wh = ProductFemSpace(*spaces)
 
-        Vh = ProductFemSpace(*spaces)
     elif isinstance(V.kind, HdivSpaceType):
         if sequence == 'DR':
             if V.ldim == 2:
@@ -150,25 +156,24 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
                 raise NotImplementedError('TODO')
         else:
             raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
-        Vh = ProductFemSpace(*spaces)
+        Wh = ProductFemSpace(*spaces)
 
     elif isinstance(V.kind, L2SpaceType):
         if sequence == 'DR':
             if V.ldim == 1:
-                Vh = Vh.reduce_degree(axes=[0], multiplicity=multiplicity, basis=basis)
+                Wh = Vh.reduce_degree(axes=[0], multiplicity=multiplicity, basis=basis)
             elif V.ldim == 2:
-                Vh = Vh.reduce_degree(axes=[0,1], multiplicity=multiplicity, basis=basis)
+                Wh = Vh.reduce_degree(axes=[0,1], multiplicity=multiplicity, basis=basis)
             elif V.ldim == 3:
-                Vh = Vh.reduce_degree(axes=[0,1,2], multiplicity=multiplicity, basis=basis)
+                Wh = Vh.reduce_degree(axes=[0,1,2], multiplicity=multiplicity, basis=basis)
         elif sequence == 'TH':
             multiplicity = [max(1,m-1) for m in multiplicity]
             if V.ldim == 1:
-                Vh = Vh.reduce_degree(axes=[0], multiplicity=multiplicity, basis=basis)
+                Wh = Vh.reduce_degree(axes=[0], multiplicity=multiplicity, basis=basis)
             elif V.ldim == 2:
-                Vh = Vh.reduce_degree(axes=[0,1], multiplicity=multiplicity, basis=basis)
+                Wh = Vh.reduce_degree(axes=[0,1], multiplicity=multiplicity, basis=basis)
             elif V.ldim == 3:
-                Vh = Vh.reduce_degree(axes=[0,1,2], multiplicity=multiplicity, basis=basis)
-
+                Wh = Vh.reduce_degree(axes=[0,1,2], multiplicity=multiplicity, basis=basis)
         else:
             raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
 
@@ -177,9 +182,9 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
 
     if isinstance(V, VectorFunctionSpace):
         if isinstance(V.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
-            Vh = ProductFemSpace(*[Vh]*V.ldim)
+            Wh = ProductFemSpace(*[Wh]*V.ldim)
 
-    return Vh
+    return Wh
 
 #==============================================================================
 # TODO knots
