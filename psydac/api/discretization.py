@@ -89,17 +89,17 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
 
     For more details see:
 
-      [1] : A. Buffa, J. Rivas, G. Sangalli, and R.G. Vazquez. Isogeometric Discrete
-      Differential Forms in Three Dimensions. SIAM J. Numer. Anal., 49:818-844,
-      2011. DOI:10.1137/100786708. (Section 4.1)
+      [1] : A. Buffa, J. Rivas, G. Sangalli, and R.G. Vazquez. Isogeometric
+      Discrete Differential Forms in Three Dimensions. SIAM J. Numer. Anal.,
+      49:818-844, 2011. DOI:10.1137/100786708. (Section 4.1)
 
-      [2] : A. Buffa, C. de Falco, and G. Sangalli. IsoGeometric Analysis: Stable
-      elements for the 2D Stokes equation. Int. J. Numer. Meth. Fluids,
+      [2] : A. Buffa, C. de Falco, and G. Sangalli. IsoGeometric Analysis:
+      Stable elements for the 2D Stokes equation. Int. J. Numer. Meth. Fluids,
       65:1407-1422, 2011. DOI:10.1002/fld.2337. (Section 3)
 
-      [3] : A. Bressan, and G. Sangalli. Isogeometric discretizations of the Stokes
-      problem: stability analysis by the macroelement technique, IMA J. Numer.
-      Anal., 33(2):629-651, 2013. DOI:10.1093/imanum/drr056.
+      [3] : A. Bressan, and G. Sangalli. Isogeometric discretizations of the
+      Stokes problem: stability analysis by the macroelement technique. IMA J.
+      Numer. Anal., 33(2):629-651, 2013. DOI:10.1093/imanum/drr056.
 
     Parameters
     ----------
@@ -111,14 +111,14 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
 
     basis: str
         The basis function of the reduced spaces, it can be either 'B' for
-        B-spline basis or 'M' for M-spline basis
+        B-spline basis or 'M' for M-spline basis.
 
     sequence: str
-        The sequence used to reduce the space.
-        It can take one the following values:
-          'DR': for the de Rham Sequence, as described in [1].
+        The sequence used to reduce the space. The available choices are:
+          'DR': for the de Rham sequence, as described in [1],
           'TH': for Taylor-Hood elements, as described in [2].
-          'N' : for Nedelec elements, as described in [2].
+        Not implemented yet:
+          'N' : for Nedelec elements, as described in [2],
           'RT': for Raviart-Thomas elements, as described in [2].
 
     Results
