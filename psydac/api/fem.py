@@ -292,6 +292,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             pads    = []
             coeffs  = []
             consts  = []
+
             for key in self._free_args:
                 v = kwargs[key]
                 if len(self.domain)>1 and isinstance(v, VectorFemField):

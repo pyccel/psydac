@@ -164,8 +164,8 @@ def run_stokes_2d_dir(domain, f, ue, pe, *, homogeneous, ncells, degree, scipy=F
         x = array_to_stencil(x, Xh.vector_space)
 
     else:
-
-        phi_h, info = equation_h.solve(info=True)
+        equation_h.set_solver('cg', info=True)
+        phi_h, info = equation_h.solve()
         x = phi_h.coeffs
         print(info)
 

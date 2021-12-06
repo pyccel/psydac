@@ -629,22 +629,21 @@ class TensorFemSpace( FemSpace ):
             multiplicity = [multiplicity]
 
         if multiplicity is None:
-            multiplicity = [1]*len(axes)
+            multiplicity = [self.multiplicity[i] for i in axes]
 
         v = self._vector_space
 
         spaces = list(self.spaces)
 
-        for axis in axes:
+        for m, axis in zip(multiplicity, axes):
             space = spaces[axis]
-            m     = space.multiplicity
 
             reduced_space = SplineSpace(
                 degree    = space.degree - 1,
                 pads      = space.pads,
                 grid      = space.breaks,
-                multiplicity= max(1,m-1),
-                parent_multiplicity=m,
+                multiplicity= m,
+                parent_multiplicity=space.multiplicity,
                 periodic  = space.periodic,
                 dirichlet = space.dirichlet,
                 basis     = basis
@@ -661,7 +660,6 @@ class TensorFemSpace( FemSpace ):
             tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
         
         tensor_vec._interpolation_ready = False
-
         return tensor_vec
 
     # ...
