@@ -105,7 +105,7 @@ from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
 
 from psydac.feec.multipatch.api import discretize
-from psydac.feec.pull_push     import pull_2d_h1, pull_2d_hcurl, push_2d_hcurl
+from psydac.feec.pull_push     import pull_2d_h1, pull_2d_hcurl, push_2d_hcurl, push_2d_l2
 
 from psydac.linalg.utilities import array_to_stencil
 
@@ -705,7 +705,7 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
 
         if try_lgmres:
             print('(via SPILU-preconditioned LGMRES iterative solver for A_m - sigma*M1_m)')
-            OP_spilu = spilu(OP_m, fill_factor=18, drop_tol=5e-5)
+            OP_spilu = spilu(OP_m, fill_factor=15, drop_tol=5e-5)
             # spilu(OP_m, fill_factor=15, drop_tol=5e-5)  # better preconditionning, if matrix not too large
             preconditioner = LinearOperator( OP_m.shape, lambda x: OP_spilu.solve(x) )
             tol = tol_eigsh
@@ -918,6 +918,7 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, pbm_space='V1', re
 
         f_x =   dy_phi_0 - dy_phi_1
         f_y = - dx_phi_0 + dx_phi_1
+        f_scal = phi_1 - phi_0
         f_vect = Tuple(f_x, f_y)
 
     elif source_type == 'ellip_J':
@@ -2012,6 +2013,7 @@ if __name__ == '__main__':
                     xx=xx_cdiag,
                     yy=yy_cdiag,
                     save_fig=plot_dir+'phi.png',
+                    save_vals = True,
                     hide_plot=hide_plots,
                     surface_plot=False
                     # gridlines_x1=gridlines_x1,
@@ -2178,6 +2180,7 @@ if __name__ == '__main__':
                     # gridlines_x2=gridlines_x2,
                     # save_fig=plot_dir+'uh.png',
                     save_fig=plot_dir+'uh_eta='+repr(eta)+'.png',
+                    save_vals = True,
                     hide_plot=hide_plots,
                     cmap='hsv',
                     dpi = 400,
@@ -2366,12 +2369,11 @@ if __name__ == '__main__':
 
             err_message_2 = ''
             if pbm_space == 'V0':
-                assert p_ref_vals is not None
-                p_errs_cdiag = [np.abs(p-q)
-                                   for p, q in zip(p_ref_vals, ph_vals)]
-                p_amps_cdiag = [np.abs(p)
-                                   for p in p_ref_vals]
-                l2_norm_p = (np.sum([J_F * val**2 for val, J_F in zip(p_amps_cdiag, quad_weights)]))**0.5
+                l2_norm_p = 0
+#                assert p_ref_vals is not None
+#                p_errs_cdiag = [np.abs(p-q) for p, q in zip(p_ref_vals, ph_vals)]
+#                p_amps_cdiag = [np.abs(p)   for p in p_ref_vals]
+#                l2_norm_p = (np.sum([J_F * val**2 for val, J_F in zip(p_amps_cdiag, quad_weights)]))**0.5
 #                l2_error  = (np.sum([J_F * val**2 for val, J_F in zip(p_errs_cdiag, quad_weights)]))**0.5
 
                 pex = lambdify(domain.coordinates, p_ex)
@@ -2425,11 +2427,11 @@ if __name__ == '__main__':
 
                 err1 = []
                 err2 = []
+                curl_err = []
+
                 if u_ex is not None:
                     uex_x = lambdify(domain.coordinates, u_ex[0])
                     uex_y = lambdify(domain.coordinates, u_ex[1])
-                    err1 = []
-                    err2 = []
                     for V, mapping, F in zip(V1h.spaces, mappings_list, uh.fields):
                         cmapping = mapping.get_callable_mapping()
                         F1 = lambda x1, x2:push_2d_hcurl(*F.fields, x1, x2, mapping)[0]
@@ -2439,9 +2441,8 @@ if __name__ == '__main__':
                         err1.append(V.spaces[0].integral( integrand1 ))
                         err2.append(V.spaces[1].integral( integrand2 ))
                 elif uh_ref:
-                    err1 = []
-                    err2 = []
-                    for V, mapping, F, F_ref in zip(V1h.spaces, mappings_list, uh.fields, uh_ref.fields):
+                    f_scal_c = lambdify(domain.coordinates, f_scal)
+                    for V1i, V2i, mapping, F, F_ref, curl_uhi in zip(V1h.spaces, V2h.spaces,mappings_list, uh.fields, uh_ref.fields, curl_uh.fields):
                         cmapping   = mapping.get_callable_mapping()
                         F1         = lambda x1, x2:push_2d_hcurl(*F.fields, x1, x2, mapping)[0]
                         F2         = lambda x1, x2:push_2d_hcurl(*F.fields, x1, x2, mapping)[1]
@@ -2449,12 +2450,15 @@ if __name__ == '__main__':
                         F2_ref     = lambda x1, x2:push_2d_hcurl(*F_ref.fields, x1, x2, mapping)[1]
                         integrand1 = lambda x1, x2:(F1(x1,x2)-F1_ref(x1,x2))**2 * np.sqrt( cmapping._metric_det( x1, x2 ) )
                         integrand2 = lambda x1, x2:(F2(x1,x2)-F2_ref(x1,x2))**2 * np.sqrt( cmapping._metric_det( x1, x2 ) )
-                        err1.append(V.spaces[0].integral( integrand1 ))
-                        err2.append(V.spaces[1].integral( integrand2 ))
+                        integrand3 = lambda x1, x2: (push_2d_l2(curl_uhi, x1, x2, mapping)-f_scal_c(*cmapping(x1,x2)))**2* np.sqrt( cmapping._metric_det( x1, x2 ) )
+                        err1.append(V1i.spaces[0].integral( integrand1 ))
+                        err2.append(V1i.spaces[1].integral( integrand2 ))
+                        curl_err.append(V2i.integral(integrand3))
 
                 l2_error = np.sqrt(np.sum(err1) + np.sum(err2))
-                err_message = 'grid diag '+warning_msg+' for method={0} with nc={1}, deg={2}, gamma_h={3}, proj_sol={4}: abs_error={5}, rel_error={6}\n'.format(
-                            get_method_name(method, k, conf_proj, penal_regime), nc, deg, gamma_h, proj_sol, l2_error, l2_error/l2_norm_u
+                curl_err = np.sqrt(np.sum(curl_err))
+                err_message = 'grid diag '+warning_msg+' for method={0} with nc={1}, deg={2}, gamma_h={3}, proj_sol={4}: abs_error={5}, rel_error={6}, curl_u_err={7}\n'.format(
+                            get_method_name(method, k, conf_proj, penal_regime), nc, deg, gamma_h, proj_sol, l2_error, l2_error/l2_norm_u,curl_err
                 )
                 print('\n** '+err_message)
 

@@ -187,6 +187,7 @@ def my_small_plot(
         surface_plot=False,
         cmap='viridis',
         save_fig=None,
+        save_vals = False,
         hide_plot=False,
         dpi='figure',
         show_xylabel=True,
@@ -205,6 +206,9 @@ def my_small_plot(
     n_patches = len(xx)
     assert n_patches == len(yy)
 
+    if save_vals:
+        np.savez('vals', xx=xx, yy=yy, vals=vals)
+        
     fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
     fig.suptitle(title, fontsize=14)
 
