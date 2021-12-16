@@ -918,7 +918,7 @@ def get_source_and_solution(source_type, eta, mu, nu, domain, pbm_space='V1', re
 
         f_x =   dy_phi_0 - dy_phi_1
         f_y = - dx_phi_0 + dx_phi_1
-        f_scal = phi_1 - phi_0
+        f_scal = phi_0 - phi_1
         f_vect = Tuple(f_x, f_y)
 
     elif source_type == 'ellip_J':
