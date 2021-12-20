@@ -160,8 +160,11 @@ def sol_ref_fn(source_type, N_diag, Psource='Ps_L2', pbm_space='V1'):
     fn += '.npz'
     return fn
 
-def hf_fn():  # domain_name):
-    fn = 'hf.npz'
+def hf_fn(hom_seq=True):  # domain_name):
+    if hom_seq:
+        fn = 'hf.npz'
+    else:
+        fn = 'hf_inhom.npz'
     return fn
 
 def error_fn(source_type=None, method=None, conf_proj=None, k=None, domain_name=None,deg=None):
@@ -189,13 +192,15 @@ def get_method_name(method=None, k=None, conf_proj=None, penal_regime=None):
 
     return method_name
 
-def get_fem_name(method=None, k=None, DG_full=False, conf_proj=None, domain_name=None,nc=None,deg=None):
+def get_fem_name(method=None, k=None, DG_full=False, conf_proj=None, domain_name=None,nc=None,deg=None,hom_seq=True):
     assert domain_name
     fn = domain_name+(('_nc'+repr(nc)) if nc else '') +(('_deg'+repr(deg)) if deg else '')
     if DG_full:
         fn += '_fDG'
     if method is not None:
         fn += '_'+get_method_name(method, k, conf_proj)
+    if not hom_seq:
+        fn += '_inhom'
     return fn
 
 def get_load_dir(method=None, DG_full=False, domain_name=None,nc=None,deg=None,data='matrices'):
@@ -319,7 +324,7 @@ def get_elementary_conga_matrices(domain_h, derham_h, load_dir=None, backend_lan
     return M_mats, P_mats, D_mats, IK_mats
 
 
-def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, hom_bc=True, need_GD_matrix=False):
+def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=None, I1_m=None, hom_seq=True, hom_bc=True, need_GD_matrix=False):
     """
     computes
         CC_m: the (unpenalized) CONGA (stiffness) matrix of the curl-curl operator in V1, with homogeneous bc
@@ -337,17 +342,22 @@ def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
     t_stamp = time_count()
 
     # curl_curl matrix (stiffness, i.e. left-multiplied by M1_m) :
-    D1_hom_m = bD1_m @ cP1_hom_m
-    CC_m = D1_hom_m.transpose() @ M2_m @ D1_hom_m
+    if hom_seq:
+        D1_hom_m = bD1_m @ cP1_hom_m
+        CC_m = D1_hom_m.transpose() @ M2_m @ D1_hom_m
+    else:
+        D1_m = bD1_m @ cP1_m
+        CC_m = D1_m.transpose() @ M2_m @ D1_m
 
     if need_GD_matrix:
         print('computing also Conga grad-div matrix...')
         # grad_div matrix (stiffness, i.e. left-multiplied by M1_m) :
-        # D0_hom_m = bD0_m @ cP0_hom_m   # matrix of conga gradient
-        # div_aux_m = D0_hom_m.transpose() @ M1_m  # the matrix of the (weak) div operator is  - M0_minv * div_aux_m
-        # GD_m = - div_aux_m.transpose() * M0_minv * div_aux_m
-        pre_GD_m = - M1_m @ bD0_m @ cP0_hom_m @ M0_minv @ cP0_hom_m.transpose() @ bD0_m.transpose() @ M1_m
-        GD_m = cP1_hom_m.transpose() @ pre_GD_m @ cP1_hom_m
+        if hom_seq:
+            pre_GD_m = - M1_m @ bD0_m @ cP0_hom_m @ M0_minv @ cP0_hom_m.transpose() @ bD0_m.transpose() @ M1_m
+            GD_m = cP1_hom_m.transpose() @ pre_GD_m @ cP1_hom_m # is this filtering needed ?
+        else:
+            pre_GD_m = - M1_m @ bD0_m @ cP0_m @ M0_minv @ cP0_m.transpose() @ bD0_m.transpose() @ M1_m
+            GD_m = cP1_m.transpose() @ pre_GD_m @ cP1_m   # is this filtering needed ?
     else:
         GD_m = None
 
@@ -364,8 +374,12 @@ def conga_operators_2d(M1_m=None, M2_m=None, cP1_m=None, cP1_hom_m=None, bD1_m=N
         GD_bc_m = None
 
     # jump penalization
-    jump_penal_hom_m = I1_m-cP1_hom_m
-    JP_m = jump_penal_hom_m.transpose() * M1_m * jump_penal_hom_m
+    if hom_seq:
+        jump_penal_hom_m = I1_m-cP1_hom_m
+        JP_m = jump_penal_hom_m.transpose() * M1_m * jump_penal_hom_m
+    else:
+        jump_penal_m = I1_m-cP1_m
+        JP_m = jump_penal_m.transpose() * M1_m * jump_penal_m
     time_count(t_stamp)
 
     return CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m
@@ -1208,6 +1222,11 @@ if __name__ == '__main__':
         help    = 'function space of the problem'
     )
 
+    parser.add_argument( '--inhom_seq',
+        action  = 'store_true',
+        help    = 'use full sequence to solve the problem, not the homogeneous one)'
+    )
+
     parser.add_argument( '--source',
         choices = ['manu_J', 'dipcurl_J', 'ellnew_J', 'ellip_J', 'ring_J', 'sring_J', 'manu_poisson', 'manu_maxwell'],
         default = 'manu_J',
@@ -1294,6 +1313,7 @@ if __name__ == '__main__':
     show_curl_u  = args.show_curl_u
     skip_errors  = args.skip_errors
     save_u_vals  = args.save_u_vals
+    inhom_seq    = args.inhom_seq
     khf          = args.khf
 
     do_plots = not no_plots
@@ -1303,6 +1323,7 @@ if __name__ == '__main__':
     ncells = [nc, nc]
     degree = [deg,deg]
 
+    hom_seq = not inhom_seq
     # if dc_pbm:
     #     print('[ divergence-constrained problem: overwriting a few pbm parameters ]')
     #     pbm = 'source_pbm'
@@ -1333,6 +1354,10 @@ if __name__ == '__main__':
     print()
     print('--------------------------------------------------------------------------------------------------------------')
     print(' solving '+pbm+ 'in space '+pbm_space)
+    if hom_seq:
+        print(' (using the homogeneous sequence)')
+    else:
+        print(' (using the inhomogeneous (full) sequence)')
     if pbm == 'source_pbm':
         print('     AA uu = ff')
     elif pbm == 'eigen_pbm':
@@ -1401,7 +1426,7 @@ if __name__ == '__main__':
     keep_harmonic_fields = khf # (pbm == 'eigen_pbm') and (sigma == 0) and (domain_name in ['pretzel', 'pretzel_f'])
     if need_harmonic_fields or keep_harmonic_fields:
         load_dir = get_load_dir(method=method, domain_name=domain_name, nc=nc, deg=deg, data='matrices')
-        hf_filename = load_dir+hf_fn()
+        hf_filename = load_dir+hf_fn(hom_seq=hom_seq)
         if keep_harmonic_fields:
             if not os.path.exists(load_dir):
                 os.makedirs(load_dir)
@@ -1428,7 +1453,7 @@ if __name__ == '__main__':
     grid_vals_h1_cdiag                            = lambda v: get_grid_vals_scalar(v, etas_cdiag, mappings_list, space_kind='h1')
     grid_vals_hcurl_cdiag                         = lambda v: get_grid_vals_vector(v, etas_cdiag, mappings_list, space_kind='hcurl')
 
-    fem_name = get_fem_name(method=method, DG_full=DG_full, conf_proj=conf_proj, k=k, domain_name=domain_name,nc=nc,deg=deg)
+    fem_name = get_fem_name(method=method, DG_full=DG_full, conf_proj=conf_proj, k=k, domain_name=domain_name,nc=nc,deg=deg,hom_seq=hom_seq)
     rhs_name = rhs_fn(source_type,eta=eta,mu=mu,nu=nu,pbm_space=pbm_space,Psource=Psource,npz_suffix=False,prefix=False)
     plot_dir = './plots/'+rhs_name+'_'+fem_name+'/'
     if not os.path.exists(plot_dir):
@@ -1480,7 +1505,6 @@ if __name__ == '__main__':
     else:
         raise ValueError(conf_proj)
 
-    print(' weak divergence matrices ')
     # weak divergence matrices V1h -> V0h
 
     print(' weak divergence matrices ')
@@ -1560,21 +1584,29 @@ if __name__ == '__main__':
     #   operator matrices
     # ------------------------------------------------------------------------------------------
 
+    # todo (31/10): REWRITE THIS FILE FOR THE INHOMOGENEOUS SEQUENCE -- SO THAT P_HOM SHOULD NEVER BEEN USED...
+
     if method == 'conga':
 
         # operators for V1 and V0xV1 problems
         if pbm_space in ['V1', 'V0xV1']:
             CC_m, CC_bc_m, GD_m, GD_bc_m, JP_m = conga_operators_2d(M1_m=M1_m, M2_m=M2_m, cP1_m=cP1_m, cP1_hom_m=cP1_hom_m, bD1_m=bD1_m, I1_m=I1_m,
-                                                 hom_bc=hom_bc, need_GD_matrix=(nu != 0))
+                                                 hom_seq=hom_seq, hom_bc=hom_bc, need_GD_matrix=(nu != 0))
         else:
             CC_m = CC_bc_m = GD_m = GD_bc_m = JP_m = None
 
         if pbm_space in ['V0', 'V0xV1']:
             # operators for V0 and V0xV1 problems
             I0_m = IdLinearOperator(V0h).to_sparse_matrix()
-            jump_penal_V0_hom_m = I0_m-cP0_hom_m
-            JP0_m = jump_penal_V0_hom_m.transpose() * M0_m * jump_penal_V0_hom_m
-            G_m = bD0_m @ cP0_hom_m # stiffness matrix of gradient operator
+            if hom_seq:
+                jump_penal_V0_hom_m = I0_m-cP0_hom_m
+                JP0_m = jump_penal_V0_hom_m.transpose() * M0_m * jump_penal_V0_hom_m
+                G_m = bD0_m @ cP0_hom_m # stiffness matrix of gradient operator
+            else:
+                jump_penal_V0_m = I0_m-cP0_m
+                JP0_m = jump_penal_V0_m.transpose() * M0_m * jump_penal_V0_m
+                G_m = bD0_m @ cP0_m # stiffness matrix of gradient operator
+
             # if P1_dc:  # todo: rename the filtering option (make it default, but for operator matrix)
             #     print(" [P1_dc]: filtering the gradient operator ")
             #     G_m = cP1_hom_m.transpose() @ G_m
@@ -1636,7 +1668,10 @@ if __name__ == '__main__':
             # stiffness matrix for Gradient operator
             if P1_dc:
                 print(" [P1_dc]: filtering the gradient operator #todo: make default ?")
-                sG_m = cP1_hom_m.transpose() @ M1_m @ G_m
+                if hom_seq:
+                    sG_m = cP1_hom_m.transpose() @ M1_m @ G_m
+                else:
+                    sG_m = cP1_m.transpose() @ M1_m @ G_m
             else:
                 sG_m = M1_m @ G_m
 
@@ -2102,11 +2137,18 @@ if __name__ == '__main__':
 
         if proj_sol:
             if method == 'conga':
+                
                 print("  (projecting the homogeneous Conga solution with cP_hom)  ")
                 if pbm_space in ['V0', 'V0xV1']:
-                    ph_c = cP0_hom_m.dot(ph_c)
+                    if hom_seq:
+                        ph_c = cP0_hom_m.dot(ph_c)
+                    else:
+                        ph_c = cP0_m.dot(ph_c)
                 if pbm_space in ['V1', 'V0xV1']:
-                    uh_c = cP1_hom_m.dot(uh_c)
+                    if hom_seq:
+                        uh_c = cP1_hom_m.dot(uh_c)
+                    else:
+                        uh_c = cP1_m.dot(uh_c)
             else:
                 print("  (projecting the Nitsche solution with cP1_m -- NOTE: THIS IS NONSTANDARD! )  ")
                 uh_c = cP1_m.dot(uh_c)
