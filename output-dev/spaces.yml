@@ -1,0 +1,56 @@
+ndim: 2
+patches:
+    - name: patch_0
+      scalar_spaces:
+
+          - name: V0
+            kind: H1
+            dtype: float
+            rational: False
+            periodic: [True, False]
+            degree: [3, 3]
+            basis: [B, B]
+            knots:
+                - [0.0, 0.1, 0.2, 0.5, 0.8, 0.9, 1.0]
+                - [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+
+          - &id_V1_0
+            name: V1[0]
+            kind: None
+            dtype: float
+            rational: False
+            periodic: [True, False]
+            degree: [2, 3]
+            basis: [M, B]
+            knots:
+                - [0.0, 0.1, 0.2, 0.5, 0.8, 0.9, 1.0]
+                - [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+
+          - &id_V1_1
+            name: V1[1]
+            kind: None
+            dtype: float
+            rational: False
+            periodic: [True, False]
+            degree: [3, 2]
+            basis: [B, M]
+            knots:
+                - [0.0, 0.1, 0.2, 0.5, 0.8, 0.9, 1.0]
+                - [0.0, 0.0,      0.5,      1.0, 1.0]
+
+          - name: V2
+            kind: L2
+            dtype: float
+            rational: False
+            periodic: [True, False]
+            degree: [2, 2]
+            basis: [M, M]
+            knots:
+                - [0.0, 0.1, 0.2, 0.5, 0.8, 0.9, 1.0]
+                - [0.0, 0.0,      0.5,      1.0, 1.0]
+
+      vector_spaces:
+
+          - name: V1
+            kind: Hcurl
+            components: [*id_V1_0, *id_V1_1]
