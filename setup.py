@@ -60,6 +60,9 @@ install_requires = [
     'pyccel>=0.10.1',
     'gelato==0.11',
 
+    # Alternative backend to Pyccel is Numba
+    'numba',
+
     # In addition, we depend on mpi4py and h5py (MPI version).
     # Since h5py must be built from source, we run the commands
     #
@@ -71,6 +74,9 @@ install_requires = [
     # When pyccel is run in parallel with MPI, it uses tblib to pickle
     # tracebacks, which allows mpi4py to broadcast exceptions
     'tblib',
+
+    # IGAKIT - not on PyPI
+    'igakit @ https://bitbucket.org/dalcinl/igakit/get/master.tar.gz',
 ]
 
 dependency_links = []
