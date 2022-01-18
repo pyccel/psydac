@@ -12,7 +12,6 @@ import string
 import random
 import h5py
 import yaml
-import yamlloader
 import os
 import string
 import random
@@ -261,8 +260,7 @@ class Geometry( object ):
 
         # ...
         # Dump geometry metadata to string in YAML file format
-        geo = yaml.dump( data   = yml,
-                         Dumper = yamlloader.ordereddict.Dumper )
+        geo = yaml.dump( data   = yml, sort_keys=False)
 
         # Write geometry metadata as fixed-length array of ASCII characters
         h5['geometry.yml'] = np.array( geo, dtype='S' )
