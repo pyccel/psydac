@@ -235,9 +235,9 @@ class Geometry( object ):
             mapping_id = 'mapping_{}'.format( i_mapping  )
             dtype      = '{}'.format( type( mapping ).__name__ )
 
-            patches_info += [{[('name'       , name       ),
-                                           ('mapping_id' , mapping_id ),
-                                           ('type'       , dtype      )] }]
+            patches_info += [{'name': name,
+                              'mapping_id': mapping_id,
+                               'type': dtype}]
 
             i_mapping += 1
 
@@ -256,7 +256,7 @@ class Geometry( object ):
         else:
             kwargs = {}
 
-        h5 = h5py.File( filename, mode='w', **kwargs )
+        h5 = h5py.File( filename, mode='a', **kwargs )
 
         # ...
         # Dump geometry metadata to string in YAML file format
@@ -370,7 +370,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     else:
         kwargs = {}
 
-    h5 = h5py.File( filename, mode='w', **kwargs )
+    h5 = h5py.File( filename, mode='a', **kwargs )
 
     # ...
     # Dump geometry metadata to string in YAML file format
