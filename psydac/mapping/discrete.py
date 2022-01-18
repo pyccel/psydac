@@ -3,7 +3,6 @@
 # Copyright 2018 Yaman Güçlü
 
 from itertools import product
-from collections import OrderedDict
 import numpy as np
 import string
 import random
@@ -180,12 +179,12 @@ class SplineMapping:
         comm  = space.vector_space.cart.comm
 
         # Create dictionary with geometry metadata
-        yml = OrderedDict()
+        yml = {}
         yml['ldim'] = self.ldim
         yml['pdim'] = self.pdim
-        yml['patches'] = [OrderedDict( [('name' , 'patch_{}'.format( 0 ) ),
+        yml['patches'] = [{ [('name' , 'patch_{}'.format( 0 ) ),
                                         ('type' , 'cad_nurbs'            ),
-                                        ('color', 'None'                 )] )]
+                                        ('color', 'None'                 )] }]
         yml['internal_faces'] = []
         yml['external_faces'] = [[0,i] for i in range( 2*self.ldim )]
         yml['connectivity'  ] = []

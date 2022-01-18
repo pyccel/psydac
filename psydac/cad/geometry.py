@@ -220,7 +220,7 @@ class Geometry( object ):
         # ...
 
         # Create dictionary with geometry metadata
-        yml = OrderedDict()
+        yml = {}
         yml['ldim'] = self.ldim
         yml['pdim'] = self.pdim
 
@@ -235,9 +235,9 @@ class Geometry( object ):
             mapping_id = 'mapping_{}'.format( i_mapping  )
             dtype      = '{}'.format( type( mapping ).__name__ )
 
-            patches_info += [OrderedDict( [('name'       , name       ),
+            patches_info += [{[('name'       , name       ),
                                            ('mapping_id' , mapping_id ),
-                                           ('type'       , dtype      )] )]
+                                           ('type'       , dtype      )] }]
 
             i_mapping += 1
 
@@ -344,7 +344,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     if not extension == '.h5':
         raise ValueError('> Only h5 extension is allowed for filename')
 
-    yml = OrderedDict()
+    yml = {}
     yml['ldim'] = nurbs.dim
     yml['pdim'] = nurbs.dim
 
