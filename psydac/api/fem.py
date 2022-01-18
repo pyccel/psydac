@@ -828,7 +828,6 @@ class DiscreteFunctional(BasicDiscrete):
 
         # ...
         self._kernel_expr = kernel_expr
-        self._vector = kwargs.pop('vector', None)
         domain       = self.kernel_expr.target
         # ...
 
@@ -928,11 +927,6 @@ class DiscreteFunctional(BasicDiscrete):
         quads         = flatten(list(zip(points, weights)))
         quads_degree  = flatten(self.grid.quad_order)
 
-        vector = np.empty((1,))
-
-        if self._vector is None:
-            self._vector = vector
-
         if self.mapping:
             mapping    = [e._coeffs._data for e in self.mapping._fields]
             space      = self.mapping._fields[0].space
@@ -949,7 +943,7 @@ class DiscreteFunctional(BasicDiscrete):
             map_span   = []
             map_basis  = []
 
-        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, self._vector)
+        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping)
         args = tuple(int(a) if isinstance(a, np.int64) else a for a in args)
 
         return args
@@ -975,10 +969,7 @@ class DiscreteFunctional(BasicDiscrete):
             else:
                 args += (v, )
 
-        self._vector[:] = 0
-        self._func(*args)
-
-        v = self._vector[0]
+        v = self._func(*args)
 
         if isinstance(self.expr, sym_Norm):
             if not( self.comm is None ):
@@ -1024,13 +1015,14 @@ class DiscreteSumForm(BasicDiscrete):
                 kwargs['vector'] = ah._vector
             elif isinstance(a, sym_Functional):
                 ah = DiscreteFunctional(a, e, *args, **kwargs)
-                kwargs['vector'] = ah._vector
+
             forms.append(ah)
             free_args.extend(ah.free_args)
             kwargs['boundary'] = None
 
-        self._forms     = forms
-        self._free_args = tuple(set(free_args))
+        self._forms         = forms
+        self._free_args     = tuple(set(free_args))
+        self._is_functional = isinstance(a, sym_Functional)
         # ...
 
     @property
@@ -1041,8 +1033,15 @@ class DiscreteSumForm(BasicDiscrete):
     def free_args(self):
         return self._free_args
 
+    @property
+    def is_functional(self):
+        return self._is_functional
+
     def assemble(self, *, reset=True, **kwargs):
-        M = self.forms[0].assemble(reset=reset, **kwargs)
-        for form in self.forms[1:]:
-            M = form.assemble(reset=False, **kwargs)
+        if self.is_functional:
+            M = self.forms[0].assemble(reset=reset, **kwargs)
+            for form in self.forms[1:]:
+                M = form.assemble(reset=False, **kwargs)
+        else:
+            M = np.sum([form.assemble(**kwargs) for form in self.forms])
         return M

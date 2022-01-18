@@ -18,7 +18,7 @@ from sympy.core.containers import Tuple
 from psydac.pyccel.ast.core      import Assign, Product, AugAssign, For
 from psydac.pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
 from psydac.pyccel.ast.core      import Slice, String, ValuedArgument
-from psydac.pyccel.ast.core      import EmptyNode, Import, While
+from psydac.pyccel.ast.core      import EmptyNode, Import, While, Return
 from psydac.pyccel.ast.core      import CodeBlock, FunctionDef, Comment
 
 
@@ -463,9 +463,8 @@ class Parser(object):
 
         args = [*tests_basis, *trial_basis, *map_basis, *g_span, *map_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *map_degrees, *lengths, *g_pads, *map_coeffs]
 
-        if isinstance(mats[0], (LocalElementBasis, GlobalElementBasis)):
-            mats = [self._visit(mat) for mat in mats]
-        else:
+
+        if mats:
             exprs     = [mat.expr for mat in mats]
 
             mats      = [self._visit(mat) for mat in mats]
@@ -506,7 +505,8 @@ class Parser(object):
         body =  tuple(inits) + body
         name = expr.name
         imports = ('zeros', 'zeros_like') + tuple(self._math_functions)
-        imports = [Import('numpy', imports)] + expr.imports
+        imports = [Import('numpy', imports)] + list(expr.imports)
+        results = [self._visit(a) for a in expr.results]
 
         if self.backend['name'] == 'pyccel':
             a = [String(str(i)) for i in build_pyccel_types_decorator(arguments)]
@@ -519,10 +519,10 @@ class Parser(object):
             decorators = {}
 
         if self.backend['name'] == 'numba':
-            func = FunctionDef(name, arguments, [], body, decorators=decorators)
+            func = FunctionDef(name, arguments, results, body, decorators=decorators)
             stmts = CodeBlock([*imports , func])
         else:
-            func = FunctionDef(name, arguments, [], body, imports=imports, decorators=decorators)
+            func = FunctionDef(name, arguments, results, body, imports=imports, decorators=decorators)
             stmts = func
 
         self.functions[name] = func
@@ -941,17 +941,13 @@ class Parser(object):
     def _visit_Reset(self, expr, **kwargs):
         var = expr.var
         lhs  = self._visit(var, **kwargs)
-        if isinstance(var, GlobalElementBasis):
-            args = 0
-        elif isinstance(var, LocalElementBasis):
+        if isinstance(var, (LocalElementBasis, GlobalElementBasis)):
             return Assign(lhs, 0.)
-        else:
-            expr = var.expr
-            rank = lhs[0,0].rank
-            args  = [Slice(None, None)]*rank
-            return tuple(Assign(a[args], 0.) for a,b in zip(lhs[:], expr[:]) if b)
-        
-        return Assign(lhs[args], 0.)
+
+        expr = var.expr
+        rank = lhs[0,0].rank
+        args  = [Slice(None, None)]*rank
+        return tuple(Assign(a[args], 0.) for a,b in zip(lhs[:], expr[:]) if b)
 
     # ....................................................
     def _visit_Reduce(self, expr, **kwargs):
@@ -981,15 +977,10 @@ class Parser(object):
         lhs  = expr.lhs
         expr = expr.expr
 
-        if isinstance(lhs, GlobalElementBasis):
+        if isinstance(lhs, (GlobalElementBasis, LocalElementBasis)):
             lhs = self._visit(lhs, **kwargs)
             rhs = self._visit(expr, **kwargs)
-            return (AugAssign(lhs[0], op, rhs),)
-
-        elif isinstance(lhs, LocalElementBasis):
-            lhs = self._visit(lhs, **kwargs)
-            rhs = self._visit(expr, **kwargs)
-            return (AugAssign(lhs, op, rhs[0]),)
+            return (AugAssign(lhs, op, rhs),)
 
         elif isinstance(lhs, BlockStencilMatrixLocalBasis):
             lhs = self._visit_BlockStencilMatrixLocalBasis(lhs)
@@ -1394,7 +1385,7 @@ class Parser(object):
     def _visit_GlobalElementBasis(self, expr, **kwargs):
         tag  = expr.tag
         name = 'g_el_{}'.format(tag)
-        var  = IndexedVariable(name, dtype='real', rank=1) 
+        var  = variables(name, dtype='real')
         self.insert_variables(var)
         return var
 
@@ -1477,6 +1468,10 @@ class Parser(object):
 
     def _visit_Expr(self, expr, **kwargs):
         return SymbolicExpr(expr)
+
+    def _visit_Return( self, expr, **kwargs):
+        args = [self._visit(a) for a in expr.expr]
+        return Return(args)
 
     def _visit_NumThreads(self, expr, **kwargs):
         target =  variables('num_threads', dtype='int')

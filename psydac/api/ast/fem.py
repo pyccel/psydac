@@ -5,7 +5,7 @@ from collections import OrderedDict
 from itertools   import groupby, product
 
 from sympy import Basic, S, Function, Integer, StrictLessThan
-from sympy import Matrix, ImmutableDenseMatrix
+from sympy import Matrix, ImmutableDenseMatrix, Float
 from sympy.core.containers import Tuple
 
 from sympde.expr                 import LinearForm
@@ -23,7 +23,7 @@ from sympde.topology.derivatives import get_max_logical_partial_derivatives
 from sympde.topology.mapping     import InterfaceMapping
 from sympde.calculus.core        import is_zero
 
-from psydac.pyccel.ast.core import _atomic, Assign, Import, AugAssign
+from psydac.pyccel.ast.core import _atomic, Assign, Import, AugAssign, Return
 
 from .nodes import GlobalTensorQuadrature
 from .nodes import LocalTensorQuadrature
@@ -183,8 +183,8 @@ class DefNode(Basic):
     DefNode represents a function definition where it contains the arguments and the body
 
     """
-    def __new__(cls, name, arguments, local_variables, body, imports, kind):
-        return Basic.__new__(cls, name, arguments, local_variables, body, imports, kind)
+    def __new__(cls, name, arguments, local_variables, body, imports, results, kind):
+        return Basic.__new__(cls, name, arguments, local_variables, body, imports, results, kind)
 
     @property
     def name(self):
@@ -207,8 +207,12 @@ class DefNode(Basic):
         return self._args[4]
 
     @property
-    def kind(self):
+    def results(self):
         return self._args[5]
+
+    @property
+    def kind(self):
+        return self._args[6]
 #==============================================================================
 def expand_hdiv_hcurl(args):
     """
@@ -853,13 +857,15 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     tests_degree  = OrderedDict((v,d_tests[v]['degrees'])        for v in tests)
 
     local_allocations = []
-    for u in trials:
-        for v in tests:
-            shape = [d+1 for d in d_tests[v]['degrees']]
-            td    = d_tests[v]['degrees']
-            trd   = d_trials[u]['degrees']
+    for u in ex_trials:
+        for v in ex_tests:
+            td    = d_tests[v]['degrees'] if v in d_tests else d_tests[v.base]['degrees']
+            trd   = d_trials[u]['degrees'] if u in d_trials else d_trials[u.base]['degrees']
+            tm    = d_tests[v]['multiplicity'] if v in d_tests else d_tests[v.base]['multiplicity']
+            trm   = d_trials[u]['multiplicity'] if u in d_trials else d_trials[u.base]['multiplicity']
+            shape = [d+1 for d in td]
             pad   = np.array([td, trd]).max(axis=0)
-            diag  = compute_diag_len(pad, d_trials[u]['multiplicity'], d_tests[v]['multiplicity'])
+            diag  = compute_diag_len(pad, trm, tm)
             shape = tuple(Integer(i) for i in (shape + list(diag)))
             mat = Allocate(StencilMatrixLocalBasis(u, v, pads, l_mats.tag), shape)
             local_allocations.append(mat)
@@ -894,7 +900,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     if num_threads>1:
         imports.append(Import('pyccel.stdlib.internal.openmp',('omp_get_thread_num', )))
 
-    node = DefNode('assembly', args, local_vars, body, imports, 'bilinearform')
+    node = DefNode('assembly', args, local_vars, body, imports, (), 'bilinearform')
 
     return node
 
@@ -1136,8 +1142,9 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     tests_degree  = OrderedDict((v,d_tests[v]['degrees']) for v in tests)
 
     local_allocations = []
-    for v in tests:
-        shape = [d+1 for d in d_tests[v]['degrees']]
+    for v in ex_tests:
+        td    = d_tests[v]['degrees'] if v in d_tests else d_tests[v.base]['degrees']
+        shape = [d+1 for d in td]
         shape = tuple(Integer(i) for i in shape)
         vec = Allocate(StencilVectorLocalBasis(v, pads, l_vecs.tag), shape)
         local_allocations.append(vec)
@@ -1173,7 +1180,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     imports    = []
     if num_threads>1:
         imports.append(Import('pyccel.stdlib.internal.openmp',('omp_get_thread_num', )))
-    node = DefNode('assembly', args, local_vars, body, imports, 'linearform')
+    node = DefNode('assembly', args, local_vars, body, imports, (), 'linearform')
 
     return node
 
@@ -1308,7 +1315,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     args['tests_degrees'] = lengths_fields
     args['quads_degree']  = lengths
     args['global_pads']   = [f.pads for f in eval_fields]
-    args['mats']          = [g_vec]
+    args['mats']          = []
 
     if mapping_space:
         args['mapping']         = eval_mapping.coeffs
@@ -1341,9 +1348,9 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         loop  = Loop((g_quad, *g_span.values(), *m_span.values()), ind_element, stmts)
     # ...
 
-    body = (Reduce('+', l_vec, g_vec, loop),)
+    body = (Assign(g_vec, Float(0.)), Reduce('+', l_vec, g_vec, loop), Return([g_vec]))
 
     local_vars = []
-    node = DefNode('assembly', args, local_vars, body, [], 'functionalform')
+    node = DefNode('assembly', args, local_vars, body, (), (g_vec,), 'functionalform')
 
     return node
