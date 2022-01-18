@@ -268,8 +268,7 @@ class Geometry( object ):
 
         # ...
         # Dump geometry metadata to string in YAML file format
-        geo = yaml.dump( data   = topo_yml,
-                         Dumper = yamlloader.ordereddict.Dumper )
+        geo = yaml.dump( data   = topo_yml, sort_keys=False)
         # Write topology metadata as fixed-length array of ASCII characters
         h5['topology.yml'] = np.array( geo, dtype='S' )
         # ...
@@ -375,8 +374,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
 
     # ...
     # Dump geometry metadata to string in YAML file format
-    geom = yaml.dump( data   = yml,
-                     Dumper = yamlloader.ordereddict.Dumper )
+    geom = yaml.dump( data   = yml, sort_keys=False)
 
     # Write geometry metadata as fixed-length array of ASCII characters
     h5['geometry.yml'] = np.array( geom, dtype='S' )
@@ -401,8 +399,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     topo_yml = domain.todict()
 
     # Dump geometry metadata to string in YAML file format
-    geom = yaml.dump( data   = topo_yml,
-                     Dumper = yamlloader.ordereddict.Dumper )
+    geom = yaml.dump( data   = topo_yml, sort_keys=False)
     # Write topology metadata as fixed-length array of ASCII characters
     h5['topology.yml'] = np.array( geom, dtype='S' )
 

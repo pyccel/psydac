@@ -51,8 +51,7 @@ install_requires = [
     'sympy>=1.5',
     'matplotlib',
     'pytest>=4.5',
-    'pyyaml',
-    'yamlloader',
+    'pyyaml>=5.1',
     'packaging',
 
     # Our packages from PyPi

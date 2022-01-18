@@ -10,7 +10,6 @@ import random
 
 import h5py
 import yaml
-import yamlloader
 
 from sympde.topology.mapping  import Mapping
 
@@ -193,8 +192,8 @@ class SplineMapping:
 
         # Dump geometry metadata to string in YAML file format
         geo = yaml.dump(
-            data   = yml,
-            Dumper = yamlloader.ordereddict.Dumper,
+            data      = yml,
+            sort_keys = False,
         )
 
         # Create HDF5 file (in parallel mode if MPI communicator size > 1)
