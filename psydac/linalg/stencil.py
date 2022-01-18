@@ -1491,10 +1491,10 @@ class StencilMatrix( Matrix ):
                     self._args.pop('cm')
 
                     for i in range(len(nrows)):
-                        self._args['s{i}'.format(i=i+1)] = starts[i]
+                        self._args['s{i}'.format(i=i+1)] = int(starts[i])
 
                     for i in range(len(nrows)):
-                        self._args['n{i}'.format(i=i+1)] = nrows[i]
+                        self._args['n{i}'.format(i=i+1)] = int(nrows[i])
 
                 else:
                     dot = LinearOperatorDot(self._ndim,
@@ -1514,13 +1514,13 @@ class StencilMatrix( Matrix ):
                     self._args.pop('cm')
 
                     for i in range(len(nrows)):
-                        self._args['s{i}'.format(i=i+1)] = starts[i]
+                        self._args['s{i}'.format(i=i+1)] = int(starts[i])
 
                     for i in range(len(nrows)):
-                        self._args['n{i}'.format(i=i+1)] = nrows[i]
+                        self._args['n{i}'.format(i=i+1)] = int(nrows[i])
 
                     for i in range(len(nrows)):
-                        self._args['ne{i}'.format(i=i+1)] = nrows_extra[i]
+                        self._args['ne{i}'.format(i=i+1)] = int(nrows_extra[i])
 
             else:
                 dot = LinearOperatorDot(self._ndim,

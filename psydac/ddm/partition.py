@@ -3,10 +3,10 @@ import numpy.ma as ma
 
 from sympy.ntheory import factorint
 
-__all__ = ['mpi_compute_dims']
+__all__ = ['mpi_compute_dims', 'openmp_compute_dims']
 
 #==============================================================================
-def mpi_compute_dims( nnodes, gridsizes, min_blocksizes=None ):
+def mpi_compute_dims(nnodes, gridsizes, min_blocksizes=None):
     """
     With the aim of distributing a multi-dimensional array on an MPI Cartesian
     topology, compute the number of processes along each dimension.
@@ -29,6 +29,66 @@ def mpi_compute_dims( nnodes, gridsizes, min_blocksizes=None ):
     -------
     dims : list of int
         Number of processes along each dimension of MPI Cartesian topology. 
+
+    blocksizes : list of int
+        Nominal block size along each dimension.
+
+    """
+    return compute_dims( nnodes, gridsizes, min_blocksizes=None , mpi=True)
+
+def openmp_compute_dims(nnodes, gridsizes, min_blocksizes=None):
+    """
+    With the aim of distributing a multi-dimensional array on an OpenMP Cartesian
+    topology, compute the number of processes along each dimension.
+
+    Whenever possible, the number of processes is chosen so that the array is
+    decomposed into identical blocks.
+
+    Parameters
+    ----------
+    nnodes : int
+        Number of OpenMP processes in OpenMP Cartesian topology.
+
+    gridsizes : list of int
+        Number of array elements along each dimension.
+
+    min_blocksizes : list of int
+        Minimum acceptable size of a block along each dimension. 
+
+    Returns
+    -------
+    dims : list of int
+        Number of processes along each dimension of OpenMP Cartesian topology. 
+
+    blocksizes : list of int
+        Nominal block size along each dimension.
+
+    """
+    return compute_dims( nnodes, gridsizes, min_blocksizes=None , mpi=False)
+
+def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
+    """
+    With the aim of distributing a multi-dimensional array on a Cartesian
+    topology, compute the number of processes along each dimension.
+
+    Whenever possible, the number of processes is chosen so that the array is
+    decomposed into identical blocks.
+
+    Parameters
+    ----------
+    nnodes : int
+        Number of processes in the Cartesian topology.
+
+    gridsizes : list of int
+        Number of array elements along each dimension.
+
+    min_blocksizes : list of int
+        Minimum acceptable size of a block along each dimension. 
+
+    Returns
+    -------
+    dims : list of int
+        Number of processes along each dimension of the Cartesian topology. 
 
     blocksizes : list of int
         Nominal block size along each dimension.
@@ -62,8 +122,11 @@ def mpi_compute_dims( nnodes, gridsizes, min_blocksizes=None ):
             too_small = any( [s < m for (s,m) in zip( blocksizes, min_blocksizes )] )
 
         # If general decomposition yields blocks too small, raise error
-        if too_small:
+        if too_small and mpi:
             raise ValueError("Cannot compute MPI dimensions with given input values!")
+
+        if too_small and openmp:
+            raise ValueError("Cannot compute OpenMP dimensions with given input values!")
 
     return dims, blocksizes
 

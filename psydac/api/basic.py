@@ -215,8 +215,12 @@ class BasicCodeGen:
         _PYCCEL_FOLDER = self.backend['folder']
 
         from pyccel.epyccel import epyccel
+        accelerators = []
+        if self.ast.num_threads > 1:
+            accelerators=['openmp']
 
         fmod = epyccel(mod,
+                       accelerators = accelerators,
                        compiler    = compiler,
                        fflags      = fflags,
                        comm        = self.comm,
@@ -282,7 +286,8 @@ class BasicDiscrete(BasicCodeGen):
         is_rational_mapping = kwargs.pop('is_rational_mapping', None)
         mapping             = kwargs.pop('mapping', None)
         mapping_space       = kwargs.pop('mapping_space', None)
+        num_threads         = kwargs.pop('num_threads', 1)
 
         return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space, tag=tag, quad_order=quad_order,
-                    mapping=mapping, is_rational_mapping=is_rational_mapping)
+                    mapping=mapping, is_rational_mapping=is_rational_mapping, num_threads=num_threads)
 

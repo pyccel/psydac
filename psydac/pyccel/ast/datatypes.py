@@ -99,7 +99,7 @@ class NativeInteger(DataType):
     _name = 'Int'
 
 class NativeReal(DataType):
-    _name = 'Real'
+    _name = 'Float'
 
 class NativeComplex(DataType):
     _name = 'Complex'

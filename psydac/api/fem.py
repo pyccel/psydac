@@ -217,12 +217,6 @@ class DiscreteBilinearForm(BasicDiscrete):
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
         assert np.array_equal(quad_order, get_quad_order(self.spaces[1]))
-        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
-        #...
-        grid                = QuadratureGrid( test_space, axis, test_ext, trial_space=trial_space)
-        self._grid          = grid
-        self._test_basis    = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
-        self._trial_basis   = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
 
         if isinstance(test_space.vector_space, BlockVectorSpace):
             vector_space = test_space.vector_space.spaces[0]
@@ -231,12 +225,27 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             vector_space = test_space.vector_space
 
+        self._vector_space = vector_space
+        self._num_threads  = 1
+        if vector_space.parallel and vector_space.cart.num_threads>1:
+            self._num_threads = vector_space.cart._num_threads
+
         starts = vector_space.starts
         ends   = vector_space.ends
         npts   = vector_space.npts
 
         self._element_loop_starts = tuple(i!=0   for i in starts)
         self._element_loop_ends   = tuple(i+1!=n for i,n in zip(ends, npts))
+
+        kwargs['num_threads'] = self._num_threads
+        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
+
+        #...
+        grid                = QuadratureGrid( test_space, axis, test_ext, trial_space=trial_space)
+        self._grid          = grid
+        self._test_basis    = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
+        self._trial_basis   = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
+
         #...
         if isinstance(target, (Boundary, Interface)):
             #...
@@ -249,7 +258,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                 if self._element_loop_ends[axis]:
                     self._func = do_nothing
 
-        self._args = self.construct_arguments(backend=kwargs.pop('backend', None))
+        self._args , self._threads_args = self.construct_arguments(backend=kwargs.pop('backend', None))
 
     @property
     def domain(self):
@@ -322,7 +331,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         if reset:
             reset_arrays(*self.global_matrices)
 
-        self._func(*args)
+        self._func(*args, *self._threads_args)
         return self._matrix
 
     def get_space_indices_from_target(self, domain, target):
@@ -352,7 +361,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         n_elements, quads, quad_degrees        = construct_quad_grids_arguments(self.grid, use_weights=False)
 
         pads                      = self.test_basis.space.vector_space.pads
-        element_mats, global_mats = self.allocate_matrices(backend)
+        global_mats               = self.allocate_matrices(backend)
         self._global_matrices     = [M._data for M in global_mats]
 
         if self.mapping:
@@ -384,13 +393,21 @@ class DiscreteBilinearForm(BasicDiscrete):
             map_span   = []
             map_basis  = []
 
-        args = (*test_basis, *trial_basis, *map_basis, *spans, *map_span, *quads, *test_degrees, *trial_degrees, *map_degree, *n_elements, *quad_degrees, *pads, *mapping, *element_mats, *self._global_matrices)
-        return args
+        args = (*test_basis, *trial_basis, *map_basis, *spans, *map_span, *quads, *test_degrees, *trial_degrees, *map_degree, 
+                *n_elements, *quad_degrees, *pads, *mapping, *self._global_matrices)
+
+        threads_args = ()
+
+        if self._num_threads>1:
+            threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
+            threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
+
+        return args, threads_args
 
     def allocate_matrices(self, backend=None):
 
         global_mats     = OrderedDict()
-        element_mats    = OrderedDict()
+        #element_mats    = OrderedDict()
 
         expr            = self.kernel_expr.expr
         target          = self.kernel_expr.target
@@ -453,7 +470,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     md                   = matrix[k1,k2].domain.shifts
                     mc                   = matrix[k1,k2].codomain.shifts
                     diag                 = compute_diag_len(pads[k1,k2], md, mc)
-                    element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*diag))
+                    #element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*diag))
 
         else: # case of scalar equation
             if is_broken: # multi-patch
@@ -476,7 +493,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     md                  = global_mats[i,j].domain.shifts
                     mc                  = global_mats[i,j].codomain.shifts
                     diag                = compute_diag_len(pads, md, mc)
-                    element_mats[i,j]  = np.empty((*(test_degree+1),*diag))
+                    #element_mats[i,j]  = np.empty((*(test_degree+1),*diag))
             else: # single patch
                 if self._matrix:
                     global_mats[0,0] = self._matrix
@@ -486,9 +503,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                 md                 = global_mats[0,0].domain.shifts
                 mc                 = global_mats[0,0].codomain.shifts
                 diag               = compute_diag_len(pads, md, mc)
-                element_mats[0,0]  = np.empty((*(test_degree+1),*diag))
+                #element_mats[0,0]  = np.empty((*(test_degree+1),*diag))
                 self._matrix       = global_mats[0,0]
-        return element_mats.values(), global_mats.values()
+        return  global_mats.values()
 
 
 #==============================================================================
@@ -546,6 +563,20 @@ class DiscreteLinearForm(BasicDiscrete):
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
         assert np.array_equal(quad_order, get_quad_order(self.space))
 
+        if isinstance(self.space.vector_space, BlockVectorSpace):
+            vector_space = self.space.vector_space.spaces[0]
+            if isinstance(test_space.vector_space, BlockVectorSpace):
+                vector_space = test_space.vector_space.spaces[0]
+        else:
+            vector_space = self.space.vector_space
+
+        self._vector_space = vector_space
+        self._num_threads  = 1
+        if vector_space.parallel and vector_space.cart.num_threads>1:
+            self._num_threads = vector_space.cart._num_threads
+
+        kwargs['num_threads'] = self._num_threads
+
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
         if not isinstance(target, Boundary):
@@ -555,15 +586,7 @@ class DiscreteLinearForm(BasicDiscrete):
             ext  = target.ext
             axis = target.axis
 
-            #...
             # If process does not own the boundary or interface, do not assemble anything
-            if isinstance(self.space.vector_space, BlockVectorSpace):
-                vector_space = self.space.vector_space.spaces[0]
-                if isinstance(test_space.vector_space, BlockVectorSpace):
-                    vector_space = test_space.vector_space.spaces[0]
-            else:
-                vector_space = self.space.vector_space
-
             if ext == -1:
                 start = vector_space.starts[axis]
                 if start != 0:
@@ -579,7 +602,8 @@ class DiscreteLinearForm(BasicDiscrete):
         grid             = QuadratureGrid( test_space, axis=axis, ext=ext )
         self._grid       = grid
         self._test_basis = BasisValues( test_space, nderiv = self.max_nderiv, grid=grid, ext=ext)
-        self._args = self.construct_arguments()
+
+        self._args , self._threads_args = self.construct_arguments()
 
     @property
     def domain(self):
@@ -644,7 +668,7 @@ class DiscreteLinearForm(BasicDiscrete):
         if reset:
             reset_arrays(*self.global_matrices)
 
-        self._func(*args)
+        self._func(*args, *self._threads_args)
         return self._vector
 
     def get_space_indices_from_target(self, domain, target):
@@ -669,7 +693,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         global_pads   = self.space.vector_space.pads
 
-        element_mats, global_mats = self.allocate_matrices()
+        global_mats = self.allocate_matrices()
         self._global_matrices   = [M._data for M in global_mats]
 
         if self.mapping:
@@ -700,13 +724,21 @@ class DiscreteLinearForm(BasicDiscrete):
             map_degree = []
             map_span   = []
             map_basis  = []
-        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, *element_mats, *self._global_matrices)
-        return args
+
+        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, *self._global_matrices)
+
+        threads_args = ()
+
+        if self._num_threads>1:
+            threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
+            threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
+
+        return args, threads_args
 
     def allocate_matrices(self):
 
         global_mats   = OrderedDict()
-        element_mats  = OrderedDict()
+        #element_mats  = OrderedDict()
 
         test_space  = self.test_basis.space.vector_space
         test_degree = np.array(self.test_basis.space.degree)
@@ -738,7 +770,7 @@ class DiscreteLinearForm(BasicDiscrete):
                         global_mats[i] = vector[i]
                     else:
                         global_mats[i] = StencilVector(test_space.spaces[i])
-                    element_mats[i] = np.empty([*(test_degree[i]+1)])
+                    #element_mats[i] = np.empty([*(test_degree[i]+1)])
 
                 vector[i] = global_mats[i]
         else:
@@ -749,7 +781,7 @@ class DiscreteLinearForm(BasicDiscrete):
                 else:
                     global_mats[i] = StencilVector(test_space)
 
-                element_mats[i] = np.empty([*(test_degree+1)])
+                #element_mats[i] = np.empty([*(test_degree+1)])
                 self._vector[i] = global_mats[i]
             else:
                 if self._vector:
@@ -757,10 +789,10 @@ class DiscreteLinearForm(BasicDiscrete):
                 else:
                     global_mats[0] = StencilVector(test_space)
                     self._vector   = global_mats[0]
-                element_mats[0]  = np.empty([*(test_degree+1)])
+                #element_mats[0]  = np.empty([*(test_degree+1)])
 
         self._global_mats = list(global_mats.values())
-        return element_mats.values(), global_mats.values()
+        return global_mats.values()
 
 
 #==============================================================================
@@ -825,6 +857,18 @@ class DiscreteFunctional(BasicDiscrete):
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
         assert np.array_equal(quad_order, get_quad_order(self.space))
 
+        if isinstance(self.space.vector_space, BlockVectorSpace):
+            vector_space = self.space.vector_space.spaces[0]
+            if isinstance(test_space.vector_space, BlockVectorSpace):
+                vector_space = test_space.vector_space.spaces[0]
+        else:
+            vector_space = self.space.vector_space
+
+        num_threads  = 1
+        if vector_space.parallel and vector_space.cart.num_threads>1:
+            num_threads = vector_space.cart._num_threads
+
+        kwargs['num_threads'] = num_threads
         BasicDiscrete.__init__(self, expr, kernel_expr,  quad_order=quad_order, **kwargs)
 
         # ...
@@ -884,7 +928,7 @@ class DiscreteFunctional(BasicDiscrete):
         quads         = flatten(list(zip(points, weights)))
         quads_degree  = flatten(self.grid.quad_order)
 
-        element_mats, vector = np.empty((1,)), np.empty((1,))
+        vector = np.empty((1,))
 
         if self._vector is None:
             self._vector = vector
@@ -905,7 +949,8 @@ class DiscreteFunctional(BasicDiscrete):
             map_span   = []
             map_basis  = []
 
-        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, element_mats, self._vector)
+        args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, self._vector)
+        args = tuple(int(a) if isinstance(a, np.int64) else a for a in args)
 
         return args
 

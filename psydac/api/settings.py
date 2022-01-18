@@ -14,19 +14,19 @@ PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python'}
 
 PSYDAC_BACKEND_GPYCCEL = {'name':     'pyccel',
                       'compiler': 'gfortran' if pyccel_legacy else 'GNU',
-                      'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math',
+                      'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math -fno-tree-pre',
                       'folder': '__gpyccel__',
                       'tag':'gpyccel'}
 
 PSYDAC_BACKEND_IPYCCEL = {'name':     'pyccel',
                       'compiler': 'ifort' if pyccel_legacy else 'intel',
-                      'flags':    '-O3',
+                      'flags':    '-O3 -fno-tree-pre',
                       'folder': '__ipyccel__',
                       'tag':'ipyccel'}
 
 PSYDAC_BACKEND_PGPYCCEL = {'name':     'pyccel',
                       'compiler': 'pgfortran' if pyccel_legacy else 'PGI',
-                      'flags':    '-O3',
+                      'flags':    '-O3 -fno-tree-pre',
                       'folder': '__pgpyccel__',
                        'tag':'pgpyccel'}
                       

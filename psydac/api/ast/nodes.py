@@ -38,9 +38,16 @@ class ZerosLike(Function):
         return self._args[0]
 
 class Zeros(Function):
+    def __new__(cls, shape, dtype='float'):
+        return Basic.__new__(cls, shape, dtype)
+
     @property
     def shape(self):
         return self._args[0]
+
+    @property
+    def dtype(self):
+        return self._args[1]
 
 class FloorDiv(Function):
     def __new__(cls, arg1, arg2):
@@ -55,6 +62,38 @@ class FloorDiv(Function):
 
     @property
     def arg2(self):
+        return self._args[1]
+
+class Max(Expr):
+    pass
+
+class Min(Expr):
+    pass
+
+class Allocate(Basic):
+
+    def __new__(cls, arr, shape):
+        return Basic.__new__(cls, arr, shape)
+
+    @property
+    def array(self):
+        return self._args[0]
+
+    @property
+    def shape(self):
+        return self._args[1]
+#==============================================================================
+class VectorAssign(Basic):
+
+    def __new__(cls, lhs, rhs):
+        return Basic.__new__(cls, lhs, rhs)
+
+    @property
+    def lhs(self):
+        return self._args[0]
+
+    @property
+    def rhs(self):
         return self._args[1]
 #==============================================================================
 class ArityType(with_metaclass(Singleton, Basic)):
@@ -72,13 +111,21 @@ class FunctionalArity(ArityType):
 #==============================================================================
 class LengthNode(Expr):
     """Base class representing one length of an iterator"""
-    def __new__(cls, target=None):
-        obj = Basic.__new__(cls, target)
+    def __new__(cls, target=None, index=None):
+        obj = Basic.__new__(cls, target, index)
         return obj
 
     @property
     def target(self):
         return self._args[0]
+
+    @property
+    def index(self):
+        return self._args[1]
+
+    def set_index(self, index):
+        obj = type(self)(target=self.target, index=index)
+        return obj
 
 class LengthElement(LengthNode):
     pass
@@ -100,7 +147,10 @@ class LengthOuterDofTest(LengthNode):
     
 class LengthInnerDofTest(LengthNode):
     pass
-    
+
+class NumThreads(LengthNode):
+    pass
+ 
 class TensorExpression(Expr):
     def __new__(cls, *args):
         return Expr.__new__(cls, *args)
@@ -120,6 +170,21 @@ class TensorMax(TensorExpression):
 class TensorInteger(TensorExpression):
     pass
 
+class Expression(Expr):
+    def __new__(cls, *args):
+        return Expr.__new__(cls, *args)
+
+class AddNode(Expression):
+    pass
+
+class AndNode(Expression):
+    pass
+
+class NotNode(Expression):
+    pass
+
+class StrictLessThanNode(Expression):
+    pass
 #==============================================================================
 class TensorAssignExpr(Basic):
     def __new__(cls, lhs, rhs):
@@ -138,11 +203,12 @@ class TensorAssignExpr(Basic):
 #==============================================================================
 class IndexNode(Expr):
     """Base class representing one index of an iterator"""
-    def __new__(cls, start=0, stop=None, length=None):
+    def __new__(cls, start=0, stop=None, length=None, index=None):
         obj = Basic.__new__(cls)
         obj._start  = start
         obj._stop   = stop
         obj._length = length
+        obj._index  = index
         return obj
 
     @property
@@ -157,12 +223,24 @@ class IndexNode(Expr):
     def length(self):
         return self._length
 
+    @property
+    def index(self):
+        return self._index
+
     def set_range(self, start=TensorInteger(0), stop=None, length=None):
         if length is None:
             length = stop
-        obj = type(self)(start=start, stop=stop, length=length)
+        obj = type(self)(start=start, stop=stop, length=length, index=self.index)
         return obj
 
+    def set_index(self, index):
+        obj = type(self)(start=self.start, stop=self.stop, length=self.length, index=index)
+        return obj
+
+    def _hashable_content(self):
+        args = (self.start, self.stop, self.length, self.index)
+        return tuple([a for a in args if a is not None])
+ 
 class IndexElement(IndexNode):
     pass
 
@@ -184,11 +262,26 @@ class IndexOuterDofTest(IndexDof):
 class IndexInnerDofTest(IndexDof):
     pass
 
+class ThreadId(IndexDof):
+    pass
+
+class ThreadCoordinates(IndexDof):
+    pass
+
+class NeighbourThreadCoordinates(IndexDof):
+    pass
+
 class IndexDerivative(IndexNode):
     def __new__(cls, length=None):
         return Basic.__new__(cls)
 
+    def _hashable_content(self):
+        return type(self).__mro__
+
 index_element        = IndexElement()
+thread_id            = ThreadId(length=NumThreads())
+thread_coords        = ThreadCoordinates()
+neighbour_threads    = NeighbourThreadCoordinates()
 index_quad           = IndexQuadrature()
 index_dof            = IndexDof()
 index_dof_test       = IndexDofTest()
@@ -587,7 +680,7 @@ class MatrixNode(ArrayNode):
 
 class BlockMatrixNode(MatrixNode):
     pass
-#==============================================================================
+
 class GlobalTensorQuadrature(ArrayNode):
     """
     """
@@ -640,6 +733,12 @@ class MatrixQuadrature(MatrixNode):
     def target(self):
         return self._args[0]
 
+#==============================================================================
+class MatrixRankFromCoords(MatrixNode):
+    pass
+#==============================================================================
+class MatrixCoordsFromRank(MatrixNode):
+    pass
 #==============================================================================
 class WeightedVolumeQuadrature(ScalarNode):
     """
@@ -829,6 +928,7 @@ class StencilMatrixLocalBasis(MatrixNode):
     used to describe local dof over an element as a stencil matrix
     """
     def __new__(cls, u, v, pads, tag=None):
+
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
@@ -1147,29 +1247,93 @@ class GlobalSpan(ArrayNode):
     _rank = 1
     _positions = {index_element: 0}
 
-    def __new__(cls, target):
+    def __new__(cls, target, index=None):
         if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
 
-        return Basic.__new__(cls, target)
+        return Basic.__new__(cls, target, index)
 
     @property
     def target(self):
         return self._args[0]
 
+    @property
+    def index(self):
+        return self._args[1]
+
+    def set_index(self, index):
+        return GlobalSpan(self.target, index)
+
+#==============================================================================
+class GlobalThreadStarts(ArrayNode):
+    """
+    """
+    _rank = 1
+    def __new__(cls, index=None):
+        # TODO check target
+        return Basic.__new__(cls, index)
+
+    @property
+    def index(self):
+        return self._args[0]
+
+    def set_index(self, index):
+        return GlobalThreadStarts(index)
+
+#==============================================================================
+class GlobalThreadEnds(ArrayNode):
+    """
+    """
+    _rank = 1
+    def __new__(cls, index=None):
+        # TODO check target
+        return Basic.__new__(cls, index)
+
+    @property
+    def index(self):
+        return self._args[0]
+
+    def set_index(self, index):
+        return GlobalThreadEnds(index)
+#==============================================================================
+class GlobalThreadSpan(ArrayNode):
+    """
+    """
+    _rank = 1
+    def __new__(cls, target, index=None):
+        # TODO check target
+        return Basic.__new__(cls, target, index)
+
+    @property
+    def target(self):
+        return self._args[0]
+
+    @property
+    def index(self):
+        return self._args[1]
+
+    def set_index(self, index):
+        return GlobalThreadSpan(self.target, index)
 #==============================================================================
 class Span(ScalarNode):
     """
     """
-    def __new__(cls, target):
+    def __new__(cls, target, index=None):
         if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
 
-        return Basic.__new__(cls, target)
+        return Basic.__new__(cls, target, index)
 
     @property
     def target(self):
         return self._args[0]
+
+    @property
+    def index(self):
+        return self._args[1]
+
+    def set_index(self, index):
+        return Span(self.target, index)
 
 class Pads(ScalarNode):
     """
@@ -1472,6 +1636,18 @@ class GeometryExpr(Basic):
     def expr(self):
         return self._args[1]
 
+class WhileLoop(BaseNode):
+    def __new__(cls, condition, body):
+        body = tuple(body)
+        return Basic.__new__(cls, condition, body)
+
+    @property
+    def condition(self):
+        return self._args[0]
+
+    @property
+    def body(self):
+        return self._args[1]
 #==============================================================================
 class Loop(BaseNode):
     """
@@ -1491,9 +1667,28 @@ class Loop(BaseNode):
     mask     : <int|None>
         the masked dimension where we fix the index in that dimension
 
+    parallel : <bool|None>
+        specifies whether the loop should be executed in parallel or in serial
+
+    default: <str|None>
+        specifies the default behavior of the variables in a parallel region
+
+    shared : <list|tuple|None>
+        specifies the shared variables in the parallel region
+
+    private: <list|tuple|None>
+        specifies the private variables in the parallel region
+
+    firstprivate: <list|tuple|None>
+        specifies the first private variables in the parallel region
+
+    lastprivate: <list|tuple|None>
+        specifies the last private variables in the parallel region
     """
 
-    def __new__(cls, iterable, index, stmts=None, mask=None):
+    def __new__(cls, iterable, index, stmts=None, mask=None, 
+                    parallel=None, default=None, shared=None, 
+                    private=None, firstprivate=None, lastprivate=None, reduction=None):
         # ...
         if not( isinstance(iterable, (list, tuple, Tuple)) ):
             iterable = [iterable]
@@ -1545,8 +1740,16 @@ class Loop(BaseNode):
         # ...
 
         obj = Basic.__new__(cls, iterable, index, stmts, mask)
-        obj._iterator  = iterator
-        obj._generator = generator
+
+        obj._iterator     = iterator
+        obj._generator    = generator
+        obj._parallel     = parallel
+        obj._default      = default
+        obj._shared       = shared
+        obj._private      = private
+        obj._firstprivate = firstprivate
+        obj._lastprivate  = lastprivate
+        obj._reduction    = reduction
 
         return obj
 
@@ -1573,6 +1776,34 @@ class Loop(BaseNode):
     @property
     def generator(self):
         return self._generator
+
+    @property
+    def parallel(self):
+        return self._parallel
+
+    @property
+    def default(self):
+        return self._default
+
+    @property
+    def shared(self):
+        return self._shared
+
+    @property
+    def private(self):
+        return self._private
+
+    @property
+    def firstprivate(self):
+        return self._firstprivate
+
+    @property
+    def lastprivate(self):
+        return self._lastprivate
+
+    @property
+    def reduction(self):
+        return self._reduction
 
     def get_geometry_stmts(self, mapping):
 

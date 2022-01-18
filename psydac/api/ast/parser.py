@@ -6,8 +6,8 @@ from collections import OrderedDict
 
 from sympy import IndexedBase, Indexed
 from sympy import Mul, Matrix, Expr
-from sympy import Add
-from sympy import Abs
+from sympy import Add, And, StrictLessThan
+from sympy import Abs,Not
 from sympy import Symbol, Idx
 from sympy import Range
 from sympy import Basic, Function
@@ -18,8 +18,8 @@ from sympy.core.containers import Tuple
 from psydac.pyccel.ast.core      import Assign, Product, AugAssign, For
 from psydac.pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
 from psydac.pyccel.ast.core      import Slice, String, ValuedArgument
-from psydac.pyccel.ast.core      import EmptyNode, Import
-from psydac.pyccel.ast.core      import CodeBlock, FunctionDef
+from psydac.pyccel.ast.core      import EmptyNode, Import, While
+from psydac.pyccel.ast.core      import CodeBlock, FunctionDef, Comment
 
 
 from sympde.topology import (dx1, dx2, dx3)
@@ -71,7 +71,7 @@ from .nodes import LengthDofTest
 
 from .nodes import index_outer_dof_test
 from .nodes import index_dof_test, index_dof_trial
-from .nodes import index_deriv
+from .nodes import index_deriv, Max, Min
 
 from .nodes import   Zeros, ZerosLike
 from .fem import expand, expand_hdiv_hcurl
@@ -93,10 +93,6 @@ class Shape(Basic):
     @property
     def arg(self):
         return self._args[0]
-
-
-class Max(Expr):
-    pass
 
 def is_scalar_array(var):
     indices = var.indices
@@ -171,6 +167,7 @@ class Parser(object):
         self.functions        = OrderedDict()
         self.variables        = OrderedDict()
         self.arguments        = OrderedDict()
+        self.allocated        = OrderedDict()
         self._math_functions  = ()
         
 
@@ -252,6 +249,12 @@ class Parser(object):
         raise NotImplementedError('{}'.format(type(expr)))
 
     # ....................................................
+    def _visit_VectorAssign(self, expr, **kwargs):
+        lhs = self._visit(expr.lhs)
+        rhs = self._visit(expr.rhs)
+        return [Assign(l,r) for l,r in zip(lhs, rhs)]
+
+    # ....................................................
     def _visit_Assign(self, expr, **kwargs):
 
         lhs = self._visit(expr.lhs)
@@ -315,6 +318,31 @@ class Parser(object):
                 self.shapes[name] = shape
 
         return expr
+
+    def _visit_Allocate(self, expr, **kwargs):
+        arr = self._visit(expr.array)
+        shape = [self._visit(i) for i in expr.shape]
+        self.allocated[arr.name] = arr
+        return Assign(arr, Zeros(tuple(shape), arr.dtype))
+
+    # ....................................................
+    def _visit_AddNode(self, expr, **kwargs):
+        return self._visit_Add(expr)
+
+    # ....................................................
+    def _visit_AndNode(self, expr, **kwargs):
+        args = [self._visit(a) for a in expr.args]
+        return And(*args)
+
+    def _visit_NotNode(self, expr, **kwargs):
+        return Not(self._visit(expr.args[0]))
+
+    # ....................................................
+    def _visit_StrictLessThanNode(self, expr, **kwargs):
+        a = self._visit(expr.args[0])
+        b = self._visit(expr.args[1])
+        return StrictLessThan(a,b)
+
     # ....................................................
     def _visit_Add(self, expr, **kwargs):
         args = [self._visit(i) for i in expr.args]
@@ -361,6 +389,28 @@ class Parser(object):
         else:
             return CodeBlock(body)
 
+    # ....................................................
+    def _visit_ParallelBlock(self, expr, **kwargs):
+        body         = [self._visit(i) for i in expr.body]
+        body         = list(flatten(body))
+        default      = expr.default
+        shared       = [self._visit(i) for i in expr.shared]
+        private      = [self._visit(i) for i in expr.private]
+        firstprivate = [self._visit(i) for i in expr.firstprivate]
+        lastprivate  = [self._visit(i) for i in expr.lastprivate]
+        shared       = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict)) else i for i in shared])
+        private      = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict)) else i for i in private])
+        firstprivate = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict))else i for i in firstprivate])
+        lastprivate  = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict)) else i for i in lastprivate])
+        txt          = '#$ omp parallel default({}) &\n'.format(default)
+        txt         += '#$ shared({}) &\n'.format(','.join(str(i) for i in shared)) if shared else ''
+        txt         += '#$ private({}) &\n'.format(','.join(str(i) for i in private)) if private else ''
+        txt         += '#$ firstprivate({}) &\n'.format(','.join(str(i) for i in firstprivate)) if firstprivate else ''
+        txt         += '#$ lastprivate({})'.format(','.join(str(i) for i in lastprivate)) if lastprivate else ''
+        cmt          = [Comment(txt.rstrip().rstrip('&'))]
+        endcmt       = [Comment('#$ omp end parallel')]
+        return CodeBlock(cmt + body + endcmt)
+    # ....................................................
     def _visit_DefNode(self, expr, **kwargs):
 
         args   = expr.arguments.copy()
@@ -385,6 +435,7 @@ class Parser(object):
         map_degrees = args.pop('mapping_degrees', None)
         map_basis   = args.pop('mapping_basis', None)
         map_span    = args.pop('mapping_spans', None)
+        thread_args = args.pop('thread_args', None)
 
         if map_coeffs:
             map_coeffs  = map_coeffs
@@ -436,12 +487,15 @@ class Parser(object):
 
         arguments += starts + ends
 
+        if thread_args:
+            arguments += flatten([self._visit(i, **kwargs) for i in thread_args])
+
         body = flatten(tuple(self._visit(i, **kwargs) for i in expr.body))
 
         inits = []
         for k,i in self.shapes.items():
             var = self.variables[k]
-            if var in arguments:
+            if var in arguments or var.name in self.allocated:
                 continue
             if isinstance(i, Shape):
                 inits.append(Assign(var, ZerosLike(i.arg)))
@@ -452,7 +506,7 @@ class Parser(object):
         body =  tuple(inits) + body
         name = expr.name
         imports = ('zeros', 'zeros_like') + tuple(self._math_functions)
-        imports = [Import('numpy', imports)]
+        imports = [Import('numpy', imports)] + expr.imports
 
         if self.backend['name'] == 'pyccel':
             a = [String(str(i)) for i in build_pyccel_types_decorator(arguments)]
@@ -472,7 +526,6 @@ class Parser(object):
             stmts = func
 
         self.functions[name] = func
-
         return stmts
 
     def _visit_EvalField(self, expr, **kwargs):
@@ -607,6 +660,32 @@ class Parser(object):
 
         return OrderedDict([(0,targets)])
 
+    # ....................................................
+    def _visit_GlobalThreadSpan(self, expr, **kwargs):
+        dim    = self.dim
+        rank   = expr.rank
+        target = SymbolicExpr(expr.target)
+        name   = 'thread_spans_{}'.format(target)
+        targets = variables('{}1:{}'.format(name, dim+1), dtype='int', rank=1, cls=IndexedVariable)
+        if expr.index is not None:
+            return targets[expr.index]
+        return targets
+
+    # ....................................................
+    def _visit_GlobalThreadStarts(self, expr, **kwargs):
+        dim    = self.dim
+        targets = variables('global_thread_starts_1:{}'.format(dim+1), dtype='int', rank=1, cls=IndexedVariable)
+        if expr.index is not None:
+            return targets[expr.index]
+        return targets
+
+    # ....................................................
+    def _visit_GlobalThreadEnds(self, expr, **kwargs):
+        dim    = self.dim
+        targets = variables('global_thread_ends_1:{}'.format(dim+1), dtype='int', rank=1, cls=IndexedVariable)
+        if expr.index is not None:
+            return targets[expr.index]
+        return targets
 
     # ....................................................
     def _visit_MatrixQuadrature(self, expr, **kwargs):
@@ -748,6 +827,8 @@ class Parser(object):
 
         names  = 'global_span_{}_1:{}'.format(label, str(dim+1))
         targets = variables(names, dtype='int', rank=rank, cls=IndexedVariable)
+        if expr.index is not None:
+            return targets[expr.index]
 
         self.insert_variables(*targets)
         if not isinstance(targets[0], (tuple, list, Tuple)):
@@ -761,6 +842,9 @@ class Parser(object):
         label  = SymbolicExpr(target).name
         names  = 'span_{}_1:{}'.format(label,str(dim+1))
         targets = variables(names, dtype='int')
+
+        if expr.index is not None:
+            return targets[expr.index]
 
         self.insert_variables(*targets)
         if not isinstance(targets[0], (tuple, list, Tuple)):
@@ -828,6 +912,13 @@ class Parser(object):
         self.insert_variables(var)
         return var
 
+    def _visit_MatrixCoordsFromRank(self, expr, **kwargs):
+        var  = IndexedVariable('coords_from_rank', dtype='int', rank=2)
+        return var
+
+    def _visit_MatrixRankFromCoords(self, expr, **kwargs):
+        var  = IndexedVariable('rank_from_coords', dtype='int', rank=self.dim)
+        return var
     # ....................................................
     def _visit_MatrixLocalBasis(self, expr, **kwargs):
         rank   = self._visit(expr.rank)
@@ -850,8 +941,10 @@ class Parser(object):
     def _visit_Reset(self, expr, **kwargs):
         var = expr.var
         lhs  = self._visit(var, **kwargs)
-        if isinstance(var, (GlobalElementBasis,LocalElementBasis)):
+        if isinstance(var, GlobalElementBasis):
             args = 0
+        elif isinstance(var, LocalElementBasis):
+            return Assign(lhs, 0.)
         else:
             expr = var.expr
             rank = lhs[0,0].rank
@@ -866,9 +959,20 @@ class Parser(object):
         lhs  = expr.lhs
         rhs  = expr.rhs
         loop = expr.loop
+        parallel     = loop.parallel
+        default      = loop.default
+        shared       = loop.shared
+        private      = loop.private
+        firstprivate = loop.firstprivate
+        lastprivate  = loop.lastprivate
+        reduction    = None
+        if parallel:
+            reduction = 'reduction({}:{})'.format(expr.op, self._visit(lhs).name)
 
         stmts = list(loop.stmts) + [Reduction(op, rhs, lhs)]
-        loop  = Loop(loop.iterable, loop.index, stmts=stmts, mask=loop.mask)
+        loop  = Loop(loop.iterable, loop.index, stmts=stmts, mask=loop.mask, parallel=parallel,
+                    default=default, shared=shared, private=private,
+                    firstprivate=firstprivate, lastprivate=lastprivate, reduction=reduction)
         return self._visit(loop, **kwargs)
 
     # ....................................................
@@ -880,12 +984,12 @@ class Parser(object):
         if isinstance(lhs, GlobalElementBasis):
             lhs = self._visit(lhs, **kwargs)
             rhs = self._visit(expr, **kwargs)
-            return (AugAssign(lhs[0], op, rhs[0]),)
+            return (AugAssign(lhs[0], op, rhs),)
 
         elif isinstance(lhs, LocalElementBasis):
             lhs = self._visit(lhs, **kwargs)
             rhs = self._visit(expr, **kwargs)
-            return (AugAssign(lhs[0], op, rhs[0]),)
+            return (AugAssign(lhs, op, rhs[0]),)
 
         elif isinstance(lhs, BlockStencilMatrixLocalBasis):
             lhs = self._visit_BlockStencilMatrixLocalBasis(lhs)
@@ -962,6 +1066,7 @@ class Parser(object):
         else:
             if not( lhs is None ):
                 lhs = self._visit(lhs)
+
             return self._visit(expr, op=op, lhs=lhs)
     # ....................................................
     def _visit_ComputeLogical(self, expr, op=None, lhs=None, **kwargs):
@@ -1184,7 +1289,7 @@ class Parser(object):
             return targets
         elif isinstance(target, LocalElementBasis):
             target = self._visit(target, **kwargs)
-            return (target[0],)
+            return (target,)
 
         else:
             raise NotImplementedError('TODO')
@@ -1296,7 +1401,7 @@ class Parser(object):
     def _visit_LocalElementBasis(self, expr, **kwargs):
         tag  = expr.tag
         name = 'l_el_{}'.format(tag)
-        var  = IndexedVariable(name, dtype='real', rank=1) 
+        var  = variables(name, dtype='real') 
         self.insert_variables(var)
         return var
 
@@ -1361,14 +1466,46 @@ class Parser(object):
     def _visit_TensorInteger(self, expr, **kwargs):
         return (expr.args[0],)*self.dim
     # ....................................................
+
+    def _visit_Max(self, expr, **kwargs):
+        args = [self._visit(i) for i in expr.args]
+        return Max(*args)
+
+    def _visit_Min(self, expr, **kwargs):
+        args = [self._visit(i) for i in expr.args]
+        return Min(*args)
+
     def _visit_Expr(self, expr, **kwargs):
         return SymbolicExpr(expr)
+
+    def _visit_NumThreads(self, expr, **kwargs):
+        target =  variables('num_threads', dtype='int')
+        self.insert_variables(target)
+        return target
 
     def _visit_BooleanTrue(self, expr, **kwargs):
         return int(True)
 
     def _visit_BooleanFalse(self, expr, **kwargs):
         return int(False)
+    # ....................................................
+    def _visit_ThreadId(self, expr, **kwargs):
+        return variables('thread_id', dtype='int')
+    # ...................................................
+    def _visit_NeighbourThreadCoordinates(self, expr, **kwargs):
+        dim    = self.dim
+        target =  variables('next_thread_coords_1:%d'%(dim+1), dtype='int')
+        if expr.index is not None:
+            return target[expr.index]
+        self.insert_variables(*target)
+        return target
+    # ....................................................
+    def _visit_ThreadCoordinates(self, expr, **kwargs):
+        dim    = self.dim
+        target =  variables('thread_coords_1:%d'%(dim+1), dtype='int')
+        if expr.index is not None:
+            return target[expr.index]
+        return target
     # ....................................................
     def _visit_IndexElement(self, expr, **kwargs):
         dim    = self.dim
@@ -1420,6 +1557,8 @@ class Parser(object):
         dim = self.dim
         names = 'n_element_1:%d'%(dim+1)
         target = variables(names, dtype='int', cls=Variable)
+        if expr.index is not None:
+            return target[expr.index]
         self.insert_variables(*target)
         return target
     # ....................................................
@@ -1534,7 +1673,6 @@ class Parser(object):
         # treat dummies and put them in the namespace
         dummies = self._visit(expr.dummies)
         dummies = dummies[0] # TODO add comment
-
         return target[dummies]
 
     # ....................................................
@@ -1542,7 +1680,7 @@ class Parser(object):
         dim       = self.dim
         iterator  = self._visit(expr.iterator)
         generator = self._visit(expr.generator)
-        
+
         if isinstance(iterator, (tuple, Tuple, list)):
             inits = []
             for i,g in zip(iterator, generator):
@@ -1550,6 +1688,7 @@ class Parser(object):
             return inits
 
         inits = [()]*dim
+
         for (i, l_xs),(j, g_xs) in zip(iterator.items(), generator.items()):
             if isinstance(expr.generator.target, GlobalTensorQuadratureBasis):
                 positions = [expr.generator.target.positions[index_deriv]]
@@ -1566,7 +1705,6 @@ class Parser(object):
                     ls += [self._visit(Assign(lhs, g_x))]
                 inits[i] += tuple(ls)
         inits = [flatten(init) for init in inits]
-
         return  inits
 
     # ....................................................
@@ -1579,6 +1717,11 @@ class Parser(object):
 
     def _visit_RAT(self, expr):
         return str(expr)
+
+    def _visit_WhileLoop(self, expr, **kwargs):
+        cond = self._visit(expr.condition)
+        body = [self._visit(a) for a in expr.body]
+        return While(cond, body)
     # ....................................................
     def _visit_Loop(self, expr, **kwargs):
         # we first create iteration statements
@@ -1603,7 +1746,6 @@ class Parser(object):
 
             # indices and lengths are supposed to be repeated here
             # we only take the first occurence
-
             for init in t_iterations:
                 for i in range(self._dim):
                     inits[i] += tuple(init[i])
@@ -1658,19 +1800,49 @@ class Parser(object):
             init      = inits.pop(axis)
             mask_init = [Assign(index, 0), *init]
 
-        for index, s, e, init in zip(indices[::-1], starts[::-1], stops[::-1], inits[::-1]):
+        if expr.parallel:
+            body = list(flatten(inits)) + body
+            for index, s, e in zip(indices[::-1], starts[::-1], stops[::-1]):
+                body = [For(index, Range(s, e), body)]
+        else:
+            for index, s, e, init in zip(indices[::-1], starts[::-1], stops[::-1], inits[::-1]):
 
-            body = list(init) + body
-            body = [For(index, Range(s, e), body)]
+                body = list(init) + body
+                body = [For(index, Range(s, e), body)]
         # ...
         # remove the list and return the For Node only
 
         if mask:
-            body = CodeBlock([*mask_init, *body])
-        elif len(body) > 1:
+            body = [*mask_init, *body]
+
+        if expr.parallel:
+            default      = expr.default
+            shared       = [self._visit(i) for i in expr.shared] if expr.shared  else []
+            private      = [self._visit(i) for i in expr.private] if expr.private  else []
+            firstprivate = [self._visit(i) for i in expr.firstprivate] if expr.firstprivate  else []
+            lastprivate  = [self._visit(i) for i in expr.lastprivate] if expr.lastprivate  else []
+            shared       = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict)) else i for i in shared])
+            private      = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict)) else i for i in private])
+            firstprivate = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict))else i for i in firstprivate])
+            lastprivate  = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict)) else i for i in lastprivate])
+            txt          = '#$ omp parallel default({}) &\n'.format(default)
+            txt         += '#$ shared({}) &\n'.format(','.join(str(i) for i in shared)) if shared else ''
+            txt         += '#$ private({}) &\n'.format(','.join(str(i) for i in private)) if private else ''
+            txt         += '#$ firstprivate({}) &\n'.format(','.join(str(i) for i in firstprivate)) if firstprivate else ''
+            txt         += '#$ lastprivate({})'.format(','.join(str(i) for i in lastprivate)) if lastprivate else ''
+            for_pragmas  = '#$ omp for schedule(static) collapse({})'.format(self._dim)
+            if expr.reduction:
+                for_pragmas = for_pragmas + expr.reduction 
+
+            cmt          = [Comment(txt.rstrip().rstrip('&')), Comment(for_pragmas)]
+            endcmt       = [Comment('#$ omp end parallel')]
+            body         = [*cmt, *body, *endcmt]
+
+        if len(body) > 1:
             body = CodeBlock(body)
         elif len(body) == 1:
             body = body[0]
+
         return body
 
     # ....................................................
