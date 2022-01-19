@@ -34,7 +34,7 @@ def mpi_compute_dims(nnodes, gridsizes, min_blocksizes=None):
         Nominal block size along each dimension.
 
     """
-    return compute_dims( nnodes, gridsizes, min_blocksizes=None , mpi=True)
+    return compute_dims( nnodes, gridsizes, min_blocksizes=min_blocksizes , mpi=True)
 
 def openmp_compute_dims(nnodes, gridsizes, min_blocksizes=None):
     """
@@ -64,7 +64,7 @@ def openmp_compute_dims(nnodes, gridsizes, min_blocksizes=None):
         Nominal block size along each dimension.
 
     """
-    return compute_dims( nnodes, gridsizes, min_blocksizes=None , mpi=False)
+    return compute_dims( nnodes, gridsizes, min_blocksizes=min_blocksizes , mpi=False)
 
 def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
     """
@@ -113,6 +113,7 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
         dims, blocksizes = mpi_compute_dims_general( nnodes, gridsizes )
 
     # If a minimum block size is given, verify that condition is met
+
     if min_blocksizes is not None:
         too_small = any( [s < m for (s,m) in zip( blocksizes, min_blocksizes )] )
 
@@ -125,7 +126,7 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
         if too_small and mpi:
             raise ValueError("Cannot compute MPI dimensions with given input values!")
 
-        if too_small and openmp:
+        if too_small and not mpi:
             raise ValueError("Cannot compute OpenMP dimensions with given input values!")
 
     return dims, blocksizes
