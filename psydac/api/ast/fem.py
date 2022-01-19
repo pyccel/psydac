@@ -1144,7 +1144,9 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     tests_degree  = OrderedDict((v,d_tests[v]['degrees']) for v in tests)
 
     local_allocations = []
-    for v in ex_tests:
+    for i,v in enumerate(ex_tests):
+        if terminal_expr[i,0] == 0:
+            continue
         td    = d_tests[v]['degrees'] if v in d_tests else d_tests[v.base]['degrees']
         shape = [d+1 for d in td]
         shape = tuple(Integer(i) for i in shape)
@@ -1350,7 +1352,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         loop  = Loop((g_quad, *g_span.values(), *m_span.values()), ind_element, stmts)
     # ...
 
-    body = (Assign(g_vec, Float(0.)), Reduce('+', l_vec, g_vec, loop), Return([g_vec]))
+    body = (Assign(g_vec, Float(0.)), Reduce('+', l_vec, g_vec, loop), Return(g_vec))
 
     local_vars = []
     node = DefNode('assembly', args, local_vars, body, (), (g_vec,), 'functionalform')

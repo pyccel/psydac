@@ -1336,6 +1336,8 @@ class Parser(object):
         tests   = expand(tests)
         targets = Matrix.zeros(len(tests), 1)
         for i,v in enumerate(tests):
+            if expr.expr[i,0] == 0:
+                continue
             mat = StencilVectorGlobalBasis(v, pads, tag)
             mat = self._visit_StencilVectorGlobalBasis(mat, **kwargs)
             targets[i,0] = mat
@@ -1471,8 +1473,7 @@ class Parser(object):
         return SymbolicExpr(expr)
 
     def _visit_Return( self, expr, **kwargs):
-        args = [self._visit(a) for a in expr.expr]
-        return Return(args)
+        return Return(self._visit(expr.expr))
 
     def _visit_NumThreads(self, expr, **kwargs):
         target =  variables('num_threads', dtype='int')
