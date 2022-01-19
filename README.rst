@@ -43,13 +43,15 @@ Uninstall
 
 Running tests
 *********
-- **Setup**::
-    
+.. codeblock:: bash
+
    export PSYDAC_MESH_DIR=/path/to/psydac/mesh/
    python -m pytest --pyargs psydac -m "not parallel"
    python /path/to/psydac/mpi_tester.py --pyargs psydac -m "parallel"
    
-.. |build-devel| image:: https://travis-ci.com/pyccel/psydac.svg?branch=devel
+
+   
+ .. |build-devel| image:: https://travis-ci.com/pyccel/psydac.svg?branch=devel
     :alt: devel status
     :scale: 100%
     :target: https://travis-ci.com/pyccel/psydac
