@@ -55,7 +55,7 @@ install_requires = [
     'packaging',
 
     # Our packages from PyPi
-    'sympde==0.12',
+    'sympde>=0.13',
     'pyccel>=0.10.1',
     'gelato==0.11',
 
