@@ -104,6 +104,7 @@ entry_points = {'console_scripts': ['psydac-mesh = psydac.cmd.mesh:main']}
 def setup_package():
     setup(packages=packages,
           ext_modules=ext_modules,
+          python_requires='>=3.7',
           install_requires=install_requires,
           include_package_data=True,
           package_data = {'':['*.txt']},
