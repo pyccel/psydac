@@ -5,7 +5,6 @@
 # For the moment, it is used as a container, that can be loaded from a file
 # (hdf5)
 from itertools import product
-from collections import OrderedDict
 from collections import abc
 import numpy as np
 import string
@@ -46,7 +45,7 @@ class Geometry( object ):
         elif not( domain is None ):
             assert( isinstance( domain, Domain ) )
             assert( not( mappings is None ))
-            assert( isinstance( mappings, (dict, OrderedDict) ) )
+            assert isinstance( mappings, dict)
 
             # ... check sanity
             interior_names = sorted(domain.interior_names)
@@ -58,7 +57,7 @@ class Geometry( object ):
             self._domain   = domain
             self._ldim     = domain.dim
             self._pdim     = domain.dim # TODO must be given => only dim is  defined for a Domain
-            self._mappings = OrderedDict(mappings.items())
+            self._mappings = mappings
 
         else:
             raise ValueError('Wrong input')
@@ -256,7 +255,7 @@ class Geometry( object ):
         else:
             kwargs = {}
 
-        h5 = h5py.File( filename, mode='a', **kwargs )
+        h5 = h5py.File( filename, mode='w', **kwargs )
 
         # ...
         # Dump geometry metadata to string in YAML file format
@@ -370,12 +369,11 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     else:
         kwargs = {}
 
-    h5 = h5py.File( filename, mode='a', **kwargs )
+    h5 = h5py.File( filename, mode='w', **kwargs )
 
     # ...
     # Dump geometry metadata to string in YAML file format
     geom = yaml.dump( data   = yml, sort_keys=False)
-
     # Write geometry metadata as fixed-length array of ASCII characters
     h5['geometry.yml'] = np.array( geom, dtype='S' )
     # ...

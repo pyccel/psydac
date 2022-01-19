@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from os.path import basename
 from ast import dump as ast_dump
 
@@ -166,7 +165,7 @@ class Errors:
         return self._mode
 
     def initialize(self):
-        self.error_info_map = OrderedDict()
+        self.error_info_map = {}
 
         self._target = {}
         self._target['file'] = None
