@@ -223,7 +223,7 @@ class BasicCodeGen:
                        accelerators = accelerators,
                        compiler    = compiler,
                        fflags      = fflags,
-                       comm        = self.comm,
+                       #comm        = self.comm,
                        bcast       = True,
                        folder      = _PYCCEL_FOLDER,
                        verbose     = verbose)

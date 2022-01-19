@@ -398,15 +398,15 @@ class Parser(object):
         private      = [self._visit(i) for i in expr.private]
         firstprivate = [self._visit(i) for i in expr.firstprivate]
         lastprivate  = [self._visit(i) for i in expr.lastprivate]
-        shared       = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict)) else i for i in shared])
-        private      = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict)) else i for i in private])
-        firstprivate = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict))else i for i in firstprivate])
-        lastprivate  = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict)) else i for i in lastprivate])
+        shared       = flatten([list(i.values())[0] if isinstance(i,(dict, OrderedDict)) else i for i in shared])
+        private      = flatten([list(i.values())[0] if isinstance(i,(dict, OrderedDict)) else i for i in private])
+        firstprivate = flatten([list(i.values())[0] if isinstance(i,(dict, OrderedDict))else i for i in firstprivate])
+        lastprivate  = flatten([list(i.values())[0] if isinstance(i,(dict, OrderedDict)) else i for i in lastprivate])
         txt          = '#$ omp parallel default({}) &\n'.format(default)
-        txt         += '#$ shared({}) &\n'.format(','.join(str(i) for i in shared)) if shared else ''
-        txt         += '#$ private({}) &\n'.format(','.join(str(i) for i in private)) if private else ''
-        txt         += '#$ firstprivate({}) &\n'.format(','.join(str(i) for i in firstprivate)) if firstprivate else ''
-        txt         += '#$ lastprivate({})'.format(','.join(str(i) for i in lastprivate)) if lastprivate else ''
+        txt         += '#$ shared({}) &\n'.format(','.join(str(i) for i in shared if i)) if shared else ''
+        txt         += '#$ private({}) &\n'.format(','.join(str(i) for i in private if i)) if private else ''
+        txt         += '#$ firstprivate({}) &\n'.format(','.join(str(i) for i in firstprivate if i)) if firstprivate else ''
+        txt         += '#$ lastprivate({})'.format(','.join(str(i) for i in lastprivate if i)) if lastprivate else ''
         cmt          = [Comment(txt.rstrip().rstrip('&'))]
         endcmt       = [Comment('#$ omp end parallel')]
         return CodeBlock(cmt + body + endcmt)
@@ -462,7 +462,6 @@ class Parser(object):
             f_args     = (*f_basis, *f_span, *f_degrees, *f_pads, *f_coeffs)
 
         args = [*tests_basis, *trial_basis, *map_basis, *g_span, *map_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *map_degrees, *lengths, *g_pads, *map_coeffs]
-
 
         if mats:
             exprs     = [mat.expr for mat in mats]
@@ -1311,6 +1310,8 @@ class Parser(object):
         targets = Matrix.zeros(len(tests), len(trials))
         for i,v in enumerate(tests):
             for j,u in enumerate(trials):
+                if expr.expr[i,j] == 0:
+                    continue
                 mat = StencilMatrixGlobalBasis(u, v, pads, tag)
                 mat = self._visit_StencilMatrixGlobalBasis(mat, **kwargs)
                 targets[i,j] = mat
@@ -1816,15 +1817,15 @@ class Parser(object):
             private      = [self._visit(i) for i in expr.private] if expr.private  else []
             firstprivate = [self._visit(i) for i in expr.firstprivate] if expr.firstprivate  else []
             lastprivate  = [self._visit(i) for i in expr.lastprivate] if expr.lastprivate  else []
-            shared       = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict)) else i for i in shared])
-            private      = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict)) else i for i in private])
-            firstprivate = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict))else i for i in firstprivate])
-            lastprivate  = flatten([list(i.values()) if isinstance(i,(dict, OrderedDict)) else i for i in lastprivate])
+            shared       = flatten([list(i.values())[0] if isinstance(i,(dict, OrderedDict)) else i for i in shared])
+            private      = flatten([list(i.values())[0] if isinstance(i,(dict, OrderedDict)) else i for i in private])
+            firstprivate = flatten([list(i.values())[0] if isinstance(i,(dict, OrderedDict))else i for i in firstprivate])
+            lastprivate  = flatten([list(i.values())[0] if isinstance(i,(dict, OrderedDict)) else i for i in lastprivate])
             txt          = '#$ omp parallel default({}) &\n'.format(default)
-            txt         += '#$ shared({}) &\n'.format(','.join(str(i) for i in shared)) if shared else ''
-            txt         += '#$ private({}) &\n'.format(','.join(str(i) for i in private)) if private else ''
-            txt         += '#$ firstprivate({}) &\n'.format(','.join(str(i) for i in firstprivate)) if firstprivate else ''
-            txt         += '#$ lastprivate({})'.format(','.join(str(i) for i in lastprivate)) if lastprivate else ''
+            txt         += '#$ shared({}) &\n'.format(','.join(str(i) for i in shared if i)) if shared else ''
+            txt         += '#$ private({}) &\n'.format(','.join(str(i) for i in private if i)) if private else ''
+            txt         += '#$ firstprivate({}) &\n'.format(','.join(str(i) for i in firstprivate if i)) if firstprivate else ''
+            txt         += '#$ lastprivate({})'.format(','.join(str(i) for i in lastprivate if i)) if lastprivate else ''
             for_pragmas  = '#$ omp for schedule(static) collapse({})'.format(self._dim)
             if expr.reduction:
                 for_pragmas = for_pragmas + expr.reduction 

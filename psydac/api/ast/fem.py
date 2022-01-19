@@ -857,8 +857,10 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     tests_degree  = OrderedDict((v,d_tests[v]['degrees'])        for v in tests)
 
     local_allocations = []
-    for u in ex_trials:
-        for v in ex_tests:
+    for j,u in enumerate(ex_trials):
+        for i,v in enumerate(ex_tests):
+            if terminal_expr[i,j] == 0:
+                continue
             td    = d_tests[v]['degrees'] if v in d_tests else d_tests[v.base]['degrees']
             trd   = d_trials[u]['degrees'] if u in d_trials else d_trials[u.base]['degrees']
             tm    = d_tests[v]['multiplicity'] if v in d_tests else d_tests[v.base]['multiplicity']
@@ -878,7 +880,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         if mapping_space:
             shared = shared + (*eval_mapping.coeffs,  *list(d_mapping.values())[0]['global'], *list(d_mapping.values())[0]['span'])
         if fields:
-            shared = shared + (*f_span.values(), *args['f_coeffs'], *args['field_basis'], *args['fields'])
+            shared = shared + (*f_span.values(), *args['f_coeffs'], *args['field_basis'])
 
         firstprivate = (*args['tests_degrees'].values(), *args['trials_degrees'].values(), *lengths, *pads, *b0s, *e0s, thread_id.length)
         if mapping_space:
@@ -1157,7 +1159,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         if mapping_space:
             shared = shared + (*eval_mapping.coeffs,  *list(d_mapping.values())[0]['global'], *list(d_mapping.values())[0]['span'])
         if fields:
-            shared = shared + (*f_span.values(), *args['f_coeffs'], *args['field_basis'], *args['fields'])
+            shared = shared + (*f_span.values(), *args['f_coeffs'], *args['field_basis'])
         
         firstprivate = (*args['tests_degrees'].values(), *lengths, *pads, thread_id.length)
 
@@ -1331,7 +1333,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         args['constants'] = constants
 
     if num_threads>1:
-        shared = (*args['tests_basis'], *args['spans'], args['quads'], *args['f_coeffs'], *args['fields'], g_vec)
+        shared = (*args['tests_basis'], *args['spans'], args['quads'], *args['f_coeffs'], g_vec)
         if mapping_space:
             shared = shared + (*eval_mapping.coeffs,  *list(d_mapping.values())[0]['global'], *list(d_mapping.values())[0]['span'])
 

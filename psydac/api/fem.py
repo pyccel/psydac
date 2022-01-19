@@ -563,12 +563,12 @@ class DiscreteLinearForm(BasicDiscrete):
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
         assert np.array_equal(quad_order, get_quad_order(self.space))
 
-        if isinstance(self.space.vector_space, BlockVectorSpace):
-            vector_space = self.space.vector_space.spaces[0]
-            if isinstance(test_space.vector_space, BlockVectorSpace):
-                vector_space = test_space.vector_space.spaces[0]
+        if isinstance(test_space.vector_space, BlockVectorSpace):
+            vector_space = test_space.vector_space.spaces[0]
+            if isinstance(vector_space, BlockVectorSpace):
+                vector_space = vector_space.spaces[0]
         else:
-            vector_space = self.space.vector_space
+            vector_space = test_space.vector_space
 
         self._vector_space = vector_space
         self._num_threads  = 1
@@ -858,8 +858,8 @@ class DiscreteFunctional(BasicDiscrete):
 
         if isinstance(self.space.vector_space, BlockVectorSpace):
             vector_space = self.space.vector_space.spaces[0]
-            if isinstance(test_space.vector_space, BlockVectorSpace):
-                vector_space = test_space.vector_space.spaces[0]
+            if isinstance(vector_space, BlockVectorSpace):
+                vector_space = vector_space.spaces[0]
         else:
             vector_space = self.space.vector_space
 
