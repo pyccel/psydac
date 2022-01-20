@@ -3,7 +3,6 @@
 
 import importlib
 from collections.abc import Iterable
-from collections     import OrderedDict
 
 from sympy import sympify
 from sympy import Add as sp_Add, Mul as sp_Mul, Pow as sp_Pow
@@ -3141,7 +3140,7 @@ class FunctionCall(Basic, PyccelAstNode):
         # add the messing argument in the case of optional arguments
         f_args = func.arguments
         if not len(args) == len(f_args):
-            f_args_dict = OrderedDict((a.name,a) if isinstance(a, ValuedVariable) else (a.name, None) for a in f_args)
+            f_args_dict = dict((a.name,a) if isinstance(a, ValuedVariable) else (a.name, None) for a in f_args)
             keyword_args = []
             for i,a in enumerate(args):
                 if not isinstance(a, ValuedVariable):
@@ -4605,8 +4604,11 @@ class Comment(Basic):
         return self._args[0]
 
     def _sympystr(self, printer):
-        sstr = printer.doprint
-        return '# {0}'.format(sstr(self.text))
+        sstr = printer._print
+        txt  = sstr(self.text)
+        if txt.lstrip()[0] != '#':
+            txt = '#' + txt
+        return txt
 
 
 class SeparatorComment(Comment):

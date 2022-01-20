@@ -3,7 +3,6 @@
 # Copyright 2018 Yaman Güçlü
 
 import os
-from collections import OrderedDict
 import warnings
 
 import numpy as np
@@ -695,7 +694,7 @@ class StencilMatrix( Matrix ):
         nrows        = [min(ni,nj) for ni,nj  in zip(nc, nd)]
         nrows_extra  = [max(0,ni-nj) for ni,nj in zip(nc, nd)]
 
-        args                 = OrderedDict()
+        args                 = {}
         args['starts']       = tuple(V.starts)
         args['nrows']        = tuple(nrows)
         args['nrows_extra']  = tuple(nrows_extra)
@@ -1422,7 +1421,7 @@ class StencilMatrix( Matrix ):
                  + (-p+mj*(p//mi) if mi==mj else 0)\
                  for mi,mj,n,p in zip(cm, dm, ndiagsT, pp)]
 
-        args = OrderedDict()
+        args = {}
         args['nrows']   = tuple(nrows)
         args['ncols']   = tuple(ncols)
         args['gpads']   = tuple(gpads)
@@ -1462,13 +1461,13 @@ class StencilMatrix( Matrix ):
             sk      = self._transpose_args.pop('sk')
             sl      = self._transpose_args.pop('sl')
 
-            args = OrderedDict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads ),
+            args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads ),
                                 ('dm{i}', dm),('cm{i}', cm),('nd{i}', ndiags),
                                 ('ndT{i}', ndiagsT),('si{i}', si),('sk{i}', sk),('sl{i}', sl)])
 
             for arg_name, arg_val in args.items():
                 for i in range(len(nrows)):
-                    self._transpose_args[arg_name.format(i=i+1)] = arg_val[i]
+                    self._transpose_args[arg_name.format(i=i+1)] = np.int64(arg_val[i]) if isinstance(arg_val[i], int) else arg_val[i]
 
             if self.domain.parallel:
                 if self.domain == self.codomain:
@@ -1491,10 +1490,10 @@ class StencilMatrix( Matrix ):
                     self._args.pop('cm')
 
                     for i in range(len(nrows)):
-                        self._args['s{i}'.format(i=i+1)] = starts[i]
+                        self._args['s{i}'.format(i=i+1)] = np.int64(starts[i])
 
                     for i in range(len(nrows)):
-                        self._args['n{i}'.format(i=i+1)] = nrows[i]
+                        self._args['n{i}'.format(i=i+1)] = np.int64(nrows[i])
 
                 else:
                     dot = LinearOperatorDot(self._ndim,
@@ -1514,13 +1513,13 @@ class StencilMatrix( Matrix ):
                     self._args.pop('cm')
 
                     for i in range(len(nrows)):
-                        self._args['s{i}'.format(i=i+1)] = starts[i]
+                        self._args['s{i}'.format(i=i+1)] = np.int64(starts[i])
 
                     for i in range(len(nrows)):
-                        self._args['n{i}'.format(i=i+1)] = nrows[i]
+                        self._args['n{i}'.format(i=i+1)] = np.int64(nrows[i])
 
                     for i in range(len(nrows)):
-                        self._args['ne{i}'.format(i=i+1)] = nrows_extra[i]
+                        self._args['ne{i}'.format(i=i+1)] = np.int64(nrows_extra[i])
 
             else:
                 dot = LinearOperatorDot(self._ndim,

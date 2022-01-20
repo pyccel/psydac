@@ -1,9 +1,7 @@
 # coding: utf-8
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
-#         nderiv has not been changed. shall we add quad_order too?
-
-from collections import OrderedDict
+#         nderiv has not been changed. shall we add nquads too?
 
 from sympy import Expr as sym_Expr
 import numpy as np
@@ -222,7 +220,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
     periodic            = kwargs.pop('periodic', [False]*ldim)
     basis               = kwargs.pop('basis', 'B')
     knots               = kwargs.pop('knots', None)
-    quad_order          = kwargs.pop('quad_order', None)
+    nquads          = kwargs.pop('nquads', None)
     sequence            = kwargs.pop('sequence', 'DR')
     is_rational_mapping = False
 
@@ -230,7 +228,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
     if sequence in ['TH', 'N', 'RT']:
         assert isinstance(V, ProductSpace) and len(V.spaces) == 2
 
-    g_spaces = OrderedDict()
+    g_spaces = {}
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
         # from a discrete geoemtry
         if len(domain_h.mappings.values()) > 1:
@@ -239,7 +237,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         interiors = [domain_h.domain.interior]
         mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
         spaces    = [m.space for m in mappings]
-        g_spaces  = OrderedDict(zip(interiors, spaces))
+        g_spaces  = dict(zip(interiors, spaces))
 
         if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')
@@ -298,12 +296,12 @@ def discretize_space(V, domain_h, *args, **kwargs):
                         nprocs = None
                         if comm is not None:
                             nprocs = g_spaces[interiors[index]].vector_space.cart.nprocs
-                        Vh = TensorFemSpace( *spaces, comm=comm, quad_order=quad_order, nprocs=nprocs, reverse_axis=e.axis)
+                        Vh = TensorFemSpace( *spaces, comm=comm, nquads=nquads, nprocs=nprocs, reverse_axis=e.axis)
                         break
                 else:
-                    Vh = TensorFemSpace( *spaces, comm=comm, quad_order=quad_order)
+                    Vh = TensorFemSpace( *spaces, comm=comm, nquads=nquads)
             else:
-                Vh = TensorFemSpace( *spaces, comm=comm, quad_order=quad_order)
+                Vh = TensorFemSpace( *spaces, comm=comm, nquads=nquads)
 
             if Vh is None:
                 raise ValueError('Unable to discretize the space')
