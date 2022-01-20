@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from itertools import groupby
 
 from sympy import symbols, Symbol, IndexedBase
@@ -303,7 +302,7 @@ class GltKernel(SplBasic):
 
         # ... create EvalArrayField
         self._eval_fields = []
-        self._map_stmts_fields = OrderedDict()
+        self._map_stmts_fields = {}
         if atomic_expr_field:
             keyfunc = lambda F: F.space.name
             data = sorted(field_atoms, key=keyfunc)

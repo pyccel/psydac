@@ -1,6 +1,5 @@
 # -*- coding: UTF-8 -*-
 
-from collections import OrderedDict
 from itertools import product
 
 from sympy import Basic, Expr
@@ -280,7 +279,7 @@ class EvalField(BaseNode):
     def __new__(cls, atoms, q_index, l_index, q_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, nderiv, mask=None):
 
         stmts_1  = []
-        stmts_2  = OrderedDict()
+        stmts_2  = {}
         inits    = []
         mats     = []
 
