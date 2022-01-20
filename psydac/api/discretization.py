@@ -3,8 +3,6 @@
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add quad_order too?
 
-from collections import OrderedDict
-
 from sympy import Expr as sym_Expr
 import numpy as np
 
@@ -230,7 +228,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
     if sequence in ['TH', 'N', 'RT']:
         assert isinstance(V, ProductSpace) and len(V.spaces) == 2
 
-    g_spaces = OrderedDict()
+    g_spaces = {}
     if isinstance(domain_h, Geometry) and all(domain_h.mappings.values()):
         # from a discrete geoemtry
         if len(domain_h.mappings.values()) > 1:
@@ -239,7 +237,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         interiors = [domain_h.domain.interior]
         mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
         spaces    = [m.space for m in mappings]
-        g_spaces  = OrderedDict(zip(interiors, spaces))
+        g_spaces  = dict(zip(interiors, spaces))
 
         if not( comm is None ) and ldim == 1:
             raise NotImplementedError('must create a TensorFemSpace in 1d')

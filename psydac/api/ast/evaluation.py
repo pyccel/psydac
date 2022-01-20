@@ -1,5 +1,3 @@
-from collections import OrderedDict
-
 from sympy import symbols, Range
 from sympy import Tuple
 
@@ -131,8 +129,8 @@ class EvalArrayField(SplBasic):
 
         # ...
         Nj = element_of(space, name='Nj')
-        init_basis = OrderedDict()
-        init_map   = OrderedDict()
+        init_basis = {}
+        init_map   = {}
 
         inits, updates, map_stmts, fields = compute_atoms_expr_field(self.fields, indices_quad, indices_basis,
                                                                basis, Nj, mapping=mapping)
@@ -144,7 +142,7 @@ class EvalArrayField(SplBasic):
         for stmt in map_stmts:
             init_map[str(stmt.lhs)] = stmt
 
-        init_basis = OrderedDict(sorted(init_basis.items()))
+        init_basis = dict(sorted(init_basis.items()))
         body += list(init_basis.values())
         body += updates
         self._map_stmts = init_map
@@ -371,7 +369,7 @@ class EvalArrayMapping(SplBasic):
         # ...
         Nj             = element_of(space, name='Nj')
         body           = []
-        init_basis     = OrderedDict()
+        init_basis     = {}
         atomic_exprs   = self.elements + weights_elements
         inits, updates = compute_atoms_expr_mapping(atomic_exprs, indices_quad,
                                                       indices_basis, basis, Nj)
@@ -379,7 +377,7 @@ class EvalArrayMapping(SplBasic):
             basis_name = str(init.lhs)
             init_basis[basis_name] = init
 
-        init_basis = OrderedDict(sorted(init_basis.items()))
+        init_basis = dict(sorted(init_basis.items()))
         body      += list(init_basis.values())
         body      += updates
         # ...
