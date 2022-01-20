@@ -51,12 +51,11 @@ install_requires = [
     'sympy>=1.5',
     'matplotlib',
     'pytest>=4.5',
-    'pyyaml',
-    'yamlloader',
+    'pyyaml>=5.1',
     'packaging',
 
     # Our packages from PyPi
-    'sympde==0.12',
+    'sympde>=0.13',
     'pyccel>=0.10.1',
     'gelato==0.11',
 
@@ -105,6 +104,7 @@ entry_points = {'console_scripts': ['psydac-mesh = psydac.cmd.mesh:main']}
 def setup_package():
     setup(packages=packages,
           ext_modules=ext_modules,
+          python_requires='>=3.7',
           install_requires=install_requires,
           include_package_data=True,
           package_data = {'':['*.txt']},
