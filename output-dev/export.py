@@ -42,14 +42,6 @@ from psydac.linalg.iterative_solvers import cg, pcg, bicg, lsmr
 from mpi4py import MPI
 # comm = MPI.COMM_WORLD
 
-A = Square('A',bounds1=(0.5, 1.), bounds2=(-1., 0.))
-
-V = ScalarFunctionSpace('V0', A, kind=None)
-ne = [2 ** 2, 2 ** 2]
-degree = [2, 2]
-Ah = discretize(A, ncells=ne, comm=None)
-Vh = discretize(V, Ah, degree=degree)
-uh = FemField(Vh)
 
 import re
 def export(self,**fields):
@@ -126,7 +118,8 @@ def export(self,**fields):
         i = max([int(regexp.search(k).group('id')) for k in fh5.keys() if regexp.search(k) is not None]) + 1
     except:
         i = 0
-    snapshot = fh5.create_group(f'snapshot_{i:0>4}/{patch}/{name_space}')
+    snapshot = fh5.create_group(f'snapshot_{i:0>4}')
+    snapshot.create_group(f'{patch}/{name_space}')
     snapshot.attrs.create('t', data=0., dtype=float)
     snapshot.attrs.create('ts', data=0, dtype=int)
 
@@ -142,6 +135,133 @@ def export(self,**fields):
 
 
 
+class Output_manager():
+    def __init__(self,*spaces):
+
+        self._spaces_info = {}
+        self._spaces      = []
+
+        self._next_snapshot_number = 0
 
 
-# export(Vh,u0=uh)
+        self.add_space(*spaces)
+
+
+
+    def add_space(self, *femspaces):
+        spaces_info = self._spaces_info
+        for femspace in femspaces:
+
+            # To do, use geometry to get the patch number
+            patch = 'patch_0'
+
+            # Space information
+            symbolic_space = femspace.symbolic_space
+            vector_space   = femspace.vector_space
+
+            femspace_name = symbolic_space.name
+            pdim          = symbolic_space.domain.dim
+            ldim          = femspace.ldim
+            kind          = symbolic_space.kind
+            dtype         = str(vector_space.dtype)
+            periodic      = femspace.periodic
+            degree        = [femspace.spaces[i].degree for i in range(ldim)]
+            basis         = [femspace.spaces[i].basis for i in range(ldim)]
+            knots         = [femspace.spaces[i].knots.tolist() for i in range(ldim)]
+
+            new_space = {'name': femspace_name, 'ldim':  ldim,
+                         'kind': str(kind), 'dtype': dtype, 'rational': False,
+                         'periodic': periodic,
+                         'degree': degree, 'basis': basis, 'knots': knots
+                         }
+            if spaces_info == {}:
+                spaces_info = {'ndim' : pdim,
+                               'patches':[{'name' : patch,
+                                           'scalar_spaces': [new_space]}]}
+            else:
+                assert spaces_info['ndim'] == pdim
+                try:
+                    patch_index = [spaces_info['patches'][i]['name']
+                                   for i in range(len(spaces_info['patches']))].index(patch)
+                except ValueError:
+                    patch_index = -1
+
+                if patch_index != -1:
+                    assert all(spaces_info['patches'][patch_index]['scalar_spaces'][i]['name'] != femspace_name
+                               for i in range(len(spaces_info['patches'][patch_index]['scalar_spaces'])))
+
+                    spaces_info['patches'][patch_index]['scalar_spaces'].append(new_space)
+                else:
+                    spaces_info['patches'].append({'name': patch, 'scalar_spaces': [new_space]})
+            self._spaces.append(femspace)
+        self._spaces_info = spaces_info
+
+    def add_fields(self, filename, **fields):
+        assert all(f.space in self._spaces for f in fields.values())
+        # should we restrict to only fields belonging to the same space ?
+
+        # For now, I assume that if something is mpi parallel everything is
+        space_test = list(fields.values())[0].space.vector_space
+        comm = space_test.cart.comm if space_test.parallel else None
+
+        # Create HDF5 file (in parallel mode if MPI communicator size > 1)
+        kwargs = {}
+        if comm is not None:
+            if comm.size > 1:
+                kwargs.update(driver='mpio', comm=comm)
+        fh5 = h5.File(filename, mode='a', **kwargs)
+
+        # Unsure about this
+        #regexp = re.compile('snapshot_(?P<id>\d+)')
+        #try:
+        #    i = max([int(regexp.search(k).group('id')) for k in fh5.keys() if regexp.search(k) is not None]) + 1
+        #except:
+        #     i = 0
+
+        i = self._next_snapshot_number
+
+        snapshot = fh5.create_group(f'snapshot_{i:0>4}')
+        snapshot.attrs.create('t', data=0., dtype=float)
+        snapshot.attrs.create('ts', data=0, dtype=int)
+
+        self._next_snapshot_number += 1
+
+        # Add field coefficients as named datasets
+        for name_field, field in fields.items():
+            name_space = field.space.symbolic_space.name
+            patch = 'patch_0'
+            V = field.space.vector_space
+            index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+            dset = snapshot.create_dataset(f'{patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
+            dset[index] = field.coeffs[index]
+
+        # Close HDF5 file
+        fh5.close()
+
+
+    def export_space_info(self, filename):
+        with open(filename, 'w') as f:
+            yaml.dump(self._spaces_info, f, default_flow_style = None, sort_keys = None)
+
+
+# Test
+A = Square('A',bounds1=(0.5, 1.), bounds2=(-1., 0.))
+
+V = ScalarFunctionSpace('V0', A, kind=None)
+ne = [2 ** 2, 2 ** 2]
+degree = [2, 2]
+Ah = discretize(A, ncells=ne, comm=None)
+Vh = discretize(V, Ah, degree=degree)
+uh = FemField(Vh)
+
+O = Output_manager(Vh)
+O.add_fields('test2.h5',u0 = uh)
+
+V1 = ScalarFunctionSpace('V1', A, kind='L2')
+V1h = discretize(V1, Ah, degree = degree)
+
+O.add_space(V1h)
+O.export_space_info('test2.yml')
+
+O.add_fields('test2.h5', u0 = uh)
+
