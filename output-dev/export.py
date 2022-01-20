@@ -43,6 +43,7 @@ from mpi4py import MPI
 # comm = MPI.COMM_WORLD
 
 A = Square('A',bounds1=(0.5, 1.), bounds2=(-1., 0.))
+
 V = ScalarFunctionSpace('V0', A, kind=None)
 ne = [2 ** 2, 2 ** 2]
 degree = [2, 2]
@@ -59,9 +60,10 @@ def export(self,**fields):
     comm = V.cart.comm if V.parallel else None
 
     # Get space info
-    # To do, use geomtery to get the patch number
+    # To do, use geometry to get the patch number
     patch = 'patch_1'
     #Space information
+
     ldim = self.ldim
 
     symbolic_space = self.symbolic_space
@@ -73,13 +75,13 @@ def export(self,**fields):
     basis = [self.spaces[i].basis for i in range(ldim)]
     knots = [self.spaces[i].knots.tolist() for i in range(ldim)]
 
-    new_space = {'name': name_space, 'kind': str(kind), 'dtype': 'float', 'rational': 'false', 'periodic': periodic,
+    new_space = {'name': name_space, 'kind': str(kind), 'dtype': 'float', 'rational': False, 'periodic': periodic,
                  'degree': degree, 'basis': basis, 'knots': knots
                  }
 
     # YAML
     try:
-        f = open("spaces.yml",'r')
+        f = open("spaces.yml",'r+')
         current = yaml.safe_load(f)
         f.close()
     except:
@@ -124,7 +126,7 @@ def export(self,**fields):
         i = max([int(regexp.search(k).group('id')) for k in fh5.keys() if regexp.search(k) is not None]) + 1
     except:
         i = 0
-    snapshot = fh5.create_group(f'snapshot_{i:0>4}/{patch}')
+    snapshot = fh5.create_group(f'snapshot_{i:0>4}/{patch}/{name_space}')
     snapshot.attrs.create('t', data=0., dtype=float)
     snapshot.attrs.create('ts', data=0, dtype=int)
 
@@ -132,7 +134,6 @@ def export(self,**fields):
     # Add field coefficients as named datasets
     for name_field, field in fields.items():
         dset = snapshot.create_dataset(f'{name_field}', shape=V.npts, dtype=V.dtype)
-        dset.attrs.create('space',data=name_space)
         dset[index] = field.coeffs[index]
 
 
@@ -143,4 +144,4 @@ def export(self,**fields):
 
 
 
-export(Vh,u0=uh)
+# export(Vh,u0=uh)
