@@ -190,10 +190,7 @@ class SplineMapping:
         yml['connectivity'  ] = []
 
         # Dump geometry metadata to string in YAML file format
-        geo = yaml.dump(
-            data      = yml,
-            sort_keys = False,
-        )
+        geo = yaml.dump(data = yml, sort_keys = False)
 
         # Create HDF5 file (in parallel mode if MPI communicator size > 1)
         kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
