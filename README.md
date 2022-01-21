@@ -7,43 +7,43 @@
 ## Requirements
 -----
 
-*  **Python3**:
+*    **Python3**:
    ```bash
    sudo apt-get install python3 python3-dev
    ```
 
-*  **pip3**:
-   ```bash
-   sudo apt-get install python3-pip
-   ```
+*    **pip3**:
+     ```bash
+     sudo apt-get install python3-pip
+     ```
 
-*  All *Python* dependencies can be installed using:
-   ```bash
-   export CC="mpicc"
-   export HDF5_MPI="ON"
-   export HDF5_DIR=/path/to/hdf5/openmpi
-   python3 -m pip install -r requirements.txt
-   ```
+*    All *Python* dependencies can be installed using:
+     ```bash
+     export CC="mpicc"
+     export HDF5_MPI="ON"
+     export HDF5_DIR=/path/to/hdf5/openmpi
+     python3 -m pip install -r requirements.txt
+     ```
 
 ## Installing the library
 -----
 
-*  **Standard mode**:
-   ```bash
-   python3 -m pip install .
-   ```
+*    **Standard mode**:
+     ```bash
+     python3 -m pip install .
+     ```
    
-*  **Development mode**:
-   ```bash
-   python3 -m pip install --user -e .
-   ```
+*    **Development mode**:
+     ```bash
+     python3 -m pip install --user -e .
+     ```
 
 ## Uninstall
 -----
-*  **Whichever the install mode**:
-   ```bash
-   python3 -m pip uninstall psydac
-   ```
+*    **Whichever the install mode**:
+     ```bash
+     python3 -m pip uninstall psydac
+     ```
 
 ## Running tests
 -----
