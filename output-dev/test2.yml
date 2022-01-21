@@ -1,0 +1,26 @@
+ndim: 2
+patches:
+- name: patch_0
+  scalar_spaces:
+  - name: V0
+    ldim: 2
+    kind: UndefinedSpaceType()
+    dtype: <class 'float'>
+    rational: false
+    periodic: [false, false]
+    degree: [2, 2]
+    basis: [B, B]
+    knots:
+    - [0.5, 0.5, 0.5, 0.625, 0.75, 0.875, 1.0, 1.0, 1.0]
+    - [-1.0, -1.0, -1.0, -0.75, -0.5, -0.25, 0.0, 0.0, 0.0]
+  - name: V1
+    ldim: 2
+    kind: L2SpaceType()
+    dtype: <class 'float'>
+    rational: false
+    periodic: [false, false]
+    degree: [1, 1]
+    basis: [B, B]
+    knots:
+    - [0.5, 0.5, 0.625, 0.75, 0.875, 1.0, 1.0]
+    - [-1.0, -1.0, -0.75, -0.5, -0.25, 0.0, 0.0]

@@ -196,7 +196,8 @@ class Output_manager():
             self._spaces.append(femspace)
         self._spaces_info = spaces_info
 
-    def add_fields(self, filename, **fields):
+    def add_fields(self, filename,t , ts, **fields):
+        assert isinstance(filename, str)
         assert all(f.space in self._spaces for f in fields.values())
         # should we restrict to only fields belonging to the same space ?
 
@@ -221,8 +222,8 @@ class Output_manager():
         i = self._next_snapshot_number
 
         snapshot = fh5.create_group(f'snapshot_{i:0>4}')
-        snapshot.attrs.create('t', data=0., dtype=float)
-        snapshot.attrs.create('ts', data=0, dtype=int)
+        snapshot.attrs.create('t', data=t, dtype=float)
+        snapshot.attrs.create('ts', data=ts, dtype=int)
 
         self._next_snapshot_number += 1
 
@@ -255,13 +256,14 @@ Vh = discretize(V, Ah, degree=degree)
 uh = FemField(Vh)
 
 O = Output_manager(Vh)
-O.add_fields('test2.h5',u0 = uh)
+O.add_fields('test2.h5', 0., 0, u0 = uh)
 
 V1 = ScalarFunctionSpace('V1', A, kind='L2')
 V1h = discretize(V1, Ah, degree = degree)
 
 O.add_space(V1h)
+
 O.export_space_info('test2.yml')
 
-O.add_fields('test2.h5', u0 = uh)
+O.add_fields('test2.h5', 1., 1, u0 = uh)
 
