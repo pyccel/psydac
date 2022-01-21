@@ -17,6 +17,8 @@
     sudo apt-get install python3-pip
     ```
 
+*   All *non-Python* dependencies can be installed by following the [instructions for the pyccel library](https://github.com/pyccel/pyccel#Requirements)
+
 *   All *Python* dependencies can be installed using:
     ```bash
     export CC="mpicc"
