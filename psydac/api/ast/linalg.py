@@ -10,12 +10,12 @@ import numpy as np
 from functools import lru_cache
 from mpi4py    import MPI
 
-from sympy import Mul, Tuple
+from sympy import Mul, Tuple, Symbol
 from sympy import Mod as sy_Mod, Abs, Range, Symbol, Max
 from sympy import Function, Integer
 
 from psydac.pyccel.ast.core import Variable, IndexedVariable
-from psydac.pyccel.ast.core import For
+from psydac.pyccel.ast.core import For, Comment
 from psydac.pyccel.ast.core import Slice, String
 from psydac.pyccel.ast.datatypes import NativeInteger
 from psydac.pyccel.ast.core import ValuedArgument
@@ -67,7 +67,7 @@ class LinearOperatorDot(SplBasic):
 
     def __init__(self, ndim, **kwargs):
 
-        backend = dict(kwargs.pop('backend'))
+        backend         = dict(kwargs.pop('backend'))
         code            = self._initialize(ndim, backend=backend, **kwargs)
         self._arguments = dict((str(a.name),a) for a in code.arguments)
         self._code      = code
@@ -112,6 +112,8 @@ class LinearOperatorDot(SplBasic):
         cm              = kwargs.pop('cm')
         dm              = kwargs.pop('dm')
 
+        openmp          = False if backend is None else backend["openmp"]
+
         ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
 
         inits = [Assign(b,p*m+p+1-n-Mod(s,m)) for b,p,m,n,s in zip(bb, gpads, dm, ndiags, starts) if not isinstance(p*m+p+1-n-Mod(s,m),(int,np.int64, Integer))]
@@ -148,6 +150,10 @@ class LinearOperatorDot(SplBasic):
                 body = [For(i,j, body)]
         else:
             body = [For(indices1, target, body)]
+
+        if openmp:
+            pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
+            body   = [Comment(pragma)] + body
 
         nrowscopy = list(nrows).copy()
         nrows     = list(nrows)
@@ -197,24 +203,38 @@ class LinearOperatorDot(SplBasic):
             if ndim > 1:
                 for i,j in zip(indices1[::-1], target.args[::-1]):
                     for_body = [For(i,j, for_body)]
+
+                if openmp:
+                    pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
+                    for_body = [Comment(pragma)] + for_body
+
                 body += for_body
             else:
-                body += [For(indices1, target, for_body)]
+                if openmp:
+                    pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
+                    body  += [Comment(pragma), For(indices1, target, for_body)]
+                else:
+                    body += [For(indices1, target, for_body)]
 
 
             nrows[dim] += nrows_extra[dim]
 
         body      = inits + body
-        func_args =  (mat, x, out)
+        func_args = (mat, x, out)
+        shared    = (mat, x, out)
+        firstprivate = ()
 
         if isinstance(starts[0], Variable):
-            func_args = func_args + tuple(starts)
+            func_args = func_args       + tuple(starts)
+            firstprivate = firstprivate + tuple(starts)
 
         if isinstance(nrowscopy[0], Variable):
-            func_args = func_args + tuple(nrowscopy)
+            func_args    = func_args + tuple(nrowscopy)
+            firstprivate = firstprivate + tuple(nrowscopy)
 
         if isinstance(nrows_extra[0], Variable):
-            func_args = func_args + tuple(nrows_extra)
+            func_args    = func_args + tuple(nrows_extra)
+            firstprivate = firstprivate + tuple(nrows_extra)
 
         decorators = {}
         header     = None
@@ -229,6 +249,12 @@ class LinearOperatorDot(SplBasic):
             elif backend['name'] == 'pythran':
                 header = build_pythran_types_header(name, func_args)
 
+        if openmp:
+            shared  = ','.join(str(a) for a in shared)
+            firstprivate  = ','.join(str(a) for a in firstprivate)
+            pragma1 = "#$omp parallel default(private) shared({}) firstprivate({})\n".format(shared, firstprivate)
+            pragma2 = "#$omp end parallel"
+            body     = [Comment(pragma1)] + body + [Comment(pragma2)]
         func = FunctionDef(self.name, list(func_args), [], body, imports=imports, decorators=decorators)
         return func
 
@@ -291,16 +317,18 @@ class LinearOperatorDot(SplBasic):
         compiler       = backend['compiler']
         fflags         = backend['flags']
         _PYCCEL_FOLDER = backend['folder']
+        accelerators   = ["openmp"] if backend["openmp"] else []
 
         from pyccel.epyccel import epyccel
 
         fmod = epyccel(mod,
-                       compiler    = compiler,
-                       fflags      = fflags,
-                       comm        = MPI.COMM_WORLD,
-                       bcast       = True,
-                       folder      = _PYCCEL_FOLDER,
-                       verbose     = verbose)
+                       accelerators = accelerators,
+                       compiler     = compiler,
+                       fflags       = fflags,
+                       comm         = MPI.COMM_WORLD,
+                       bcast        = True,
+                       folder       = _PYCCEL_FOLDER,
+                       verbose      = verbose)
 
         return fmod
 
@@ -486,8 +514,12 @@ class VectorDot(SplBasic):
 def transpose_1d( M:'float[:,:]', Mt:'float[:,:]', n1:"int64", nc1:"int64", gp1:"int64", p1:"int64",
                   dm1:"int64", cm1:"int64", nd1:"int64", ndT1:"int64", si1:"int64", sk1:"int64", sl1:"int64"):
 
+    #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,nc1,gp1,p1,dm1,cm1,&
+    #$ omp nd1,ndT1,si1,sk1,sl1)
+
     d1 = gp1-p1
 
+    #$ omp for schedule(static)
     for x1 in range(n1):
         j1 = dm1*gp1 + x1
         for l1 in range(nd1):
@@ -497,6 +529,8 @@ def transpose_1d( M:'float[:,:]', Mt:'float[:,:]', n1:"int64", nc1:"int64", gp1:
 
             if k1<ndT1 and k1>-1 and l1<nd1 and i1<nc1:
                 Mt[j1, l1+sl1] = M[i1, k1]
+    #$ omp end parallel
+    return
 
 # ...
 def transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:"int64", n2:"int64", nc1:"int64", nc2:"int64",
@@ -504,9 +538,13 @@ def transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:"int64", n2:"int64
                    cm1:"int64", cm2:"int64", nd1:"int64", nd2:"int64", ndT1:"int64", ndT2:"int64",
                    si1:"int64", si2:"int64", sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
 
+    #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,nc1,nc2,gp1,gp2,p1,p2,dm1,dm2,cm1,&
+    #$ omp cm2,nd1,nd2,ndT1,ndT2,si1,si2,sk1,sk2,sl1,sl2)
+
     d1 = gp1-p1
     d2 = gp2-p2
 
+    #$ omp for schedule(static) collapse(2)
     for x1 in range(n1):
         for x2 in range(n2):
 
@@ -525,6 +563,8 @@ def transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:"int64", n2:"int64
                     if k1<ndT1 and k1>-1 and k2<ndT2 and k2>-1\
                         and l1<nd1 and l2<nd2 and i1<nc1 and i2<nc2:
                         Mt[j1,j2, l1+sl1,l2+sl2] = M[i1,i2, k1,k2]
+    #$ omp end parallel
+    return
 
 # ...
 def transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', n1:"int64", n2:"int64", n3:"int64",
@@ -533,10 +573,12 @@ def transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', n1:"int64", n
                   ndT1:"int64", ndT2:"int64", ndT3:"int64", si1:"int64", si2:"int64", si3:"int64", sk1:"int64", sk2:"int64", sk3:"int64",
                   sl1:"int64", sl2:"int64", sl3:"int64"):
 
+    #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,n3,nc1,nc2,nc3,gp1,gp2,gp3,p1,p2,p3,dm1,dm2,dm3,cm1,&
+    #$ omp cm2,cm3,nd1,nd2,nd3,ndT1,ndT2,ndT3,si1,si2,si3,sk1,sk2,sk3,sl1,sl2,sl3)
     d1 = gp1-p1
     d2 = gp2-p2
     d3 = gp3-p3
-
+    #$ omp for schedule(static) collapse(3)
     for x1 in range(n1):
         for x2 in range(n2):
             for x3 in range(n3):
@@ -560,6 +602,8 @@ def transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', n1:"int64", n
                             if k1<ndT1 and k1>-1 and k2<ndT2 and k2>-1 and k3<ndT3 and k3>-1\
                                 and l1<nd1 and l2<nd2 and l3<nd3 and i1<nc1 and i2<nc2 and i3<nc3:
                                 Mt[j1,j2,j3, l1 + sl1,l2 + sl2,l3 + sl3] = M[i1,i2,i3, k1,k2,k3]
+    #$ omp end parallel
+    return
 
 _transpose  = {1:transpose_1d,2:transpose_2d, 3:transpose_3d}
 _args_dtype = {1:[repr('float[:,:]')]*2 + [repr('int64')]*11,2:[repr('float[:,:,:,:]')]*2 + [repr('int64')]*22, 3:[repr('float[:,:,:,:,:,:]')]*2 + ['int']*33}

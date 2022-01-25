@@ -14,28 +14,28 @@ PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python'}
 
 PSYDAC_BACKEND_GPYCCEL = {'name':     'pyccel',
                       'compiler': 'gfortran' if pyccel_legacy else 'GNU',
-                      'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math -fno-tree-pre',
+                      'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math',
                       'folder': '__gpyccel__',
                       'tag':'gpyccel',
                       'openmp':False}
 
 PSYDAC_BACKEND_IPYCCEL = {'name':     'pyccel',
                       'compiler': 'ifort' if pyccel_legacy else 'intel',
-                      'flags':    '-O3 -fno-tree-pre',
+                      'flags':    '-O3',
                       'folder': '__ipyccel__',
                       'tag':'ipyccel',
                       'openmp':False}
 
 PSYDAC_BACKEND_PGPYCCEL = {'name':     'pyccel',
                       'compiler': 'pgfortran' if pyccel_legacy else 'PGI',
-                      'flags':    '-O3 -fno-tree-pre',
+                      'flags':    '-O3',
                       'folder': '__pgpyccel__',
                        'tag':'pgpyccel',
                        'openmp':False}
                       
-PSYDAC_BACKEND_NUMBA = {'name': 'numba','tag':'numba', 'fastmath':True}
+PSYDAC_BACKEND_NUMBA = {'name': 'numba','tag':'numba', 'fastmath':True, 'openmp':False}
 
-PSYDAC_BACKEND_PYTHRAN = {'name':'pythran','tag':'pythran'}
+PSYDAC_BACKEND_PYTHRAN = {'name':'pythran','tag':'pythran', 'openmp':False}
 # ...
 
 # List of all available backends for accelerating Python code
