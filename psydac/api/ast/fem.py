@@ -308,7 +308,6 @@ class AST(object):
         fields_degrees      = ()
 
         # ...
-
         domain        = terminal_expr.target
         terminal_expr = terminal_expr.expr
         dim           = domain.dim
