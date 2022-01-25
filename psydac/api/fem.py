@@ -115,10 +115,10 @@ def construct_trial_space_arguments(basis_values):
     trial_basis, trial_degrees = collect_spaces(space.symbolic_space, trial_basis, trial_degrees)
 
     trial_basis    = flatten(trial_basis)
-    trial_degrees = flatten(trial_degrees)
-    pads          = flatten(pads)
-    multiplicity  = flatten(multiplicity)
-    pads          = [p*m for p,m in zip(pads, multiplicity)]
+    trial_degrees  = flatten(trial_degrees)
+    pads           = flatten(pads)
+    multiplicity   = flatten(multiplicity)
+    pads           = [p*m for p,m in zip(pads, multiplicity)]
     return trial_basis, trial_degrees, pads
 
 #==============================================================================
@@ -232,8 +232,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         ends   = vector_space.ends
         npts   = vector_space.npts
 
-        self._element_loop_starts = tuple(i!=0   for i in starts)
-        self._element_loop_ends   = tuple(i+1!=n for i,n in zip(ends, npts))
+        self._element_loop_starts = tuple(np.int64(i!=0)   for i in starts)
+        self._element_loop_ends   = tuple(np.int64(i+1!=n) for i,n in zip(ends, npts))
 
         kwargs['num_threads'] = self._num_threads
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
@@ -311,8 +311,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                     bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
-                    degrees += d
-                    pads    += p
+                    degrees += [np.int64(a) for a in d]
+                    pads    += [np.int64(a) for a in p]
                     if v.space.is_product:
                         coeffs += (e._data for e in v.coeffs)
                     else:
@@ -325,7 +325,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         else:
             args = self._args
 
-        args = args + tuple(int(i) for i in self._element_loop_starts) + tuple(int(i) for i in self._element_loop_ends)
+        args = args + self._element_loop_starts + self._element_loop_ends
+
         if reset:
             reset_arrays(*self.global_matrices)
 
@@ -399,6 +400,10 @@ class DiscreteBilinearForm(BasicDiscrete):
         if self._num_threads>1:
             threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
             threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
+
+
+        args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
+        threads_args = tuple(np.int64(a) if isinstance(a, int) else a for a in threads_args)
 
         return args, threads_args
 
@@ -650,8 +655,8 @@ class DiscreteLinearForm(BasicDiscrete):
                     bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
-                    degrees += d
-                    pads    += p
+                    degrees += [np.int64(a) for a in d]
+                    pads    += [np.int64(a) for a in p]
                     if v.space.is_product:
                         coeffs += (e._data for e in v.coeffs)
                     else:
@@ -731,6 +736,9 @@ class DiscreteLinearForm(BasicDiscrete):
         if self._num_threads>1:
             threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
             threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
+
+        args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
+        threads_args = tuple(np.int64(a) if isinstance(a, int) else a for a in threads_args)
 
         return args, threads_args
 
@@ -943,7 +951,7 @@ class DiscreteFunctional(BasicDiscrete):
             map_basis  = []
 
         args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping)
-        args = tuple(int(a) if isinstance(a, np.int64) else a for a in args)
+        args = tuple(np.int64(a) if isinstance(a, int) else a for a in args)
 
         return args
 

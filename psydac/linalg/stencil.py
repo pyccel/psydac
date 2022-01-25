@@ -1467,7 +1467,7 @@ class StencilMatrix( Matrix ):
 
             for arg_name, arg_val in args.items():
                 for i in range(len(nrows)):
-                    self._transpose_args[arg_name.format(i=i+1)] = arg_val[i]
+                    self._transpose_args[arg_name.format(i=i+1)] = np.int64(arg_val[i]) if isinstance(arg_val[i], int) else arg_val[i]
 
             if self.domain.parallel:
                 if self.domain == self.codomain:
@@ -1490,10 +1490,10 @@ class StencilMatrix( Matrix ):
                     self._args.pop('cm')
 
                     for i in range(len(nrows)):
-                        self._args['s{i}'.format(i=i+1)] = int(starts[i])
+                        self._args['s{i}'.format(i=i+1)] = np.int64(starts[i])
 
                     for i in range(len(nrows)):
-                        self._args['n{i}'.format(i=i+1)] = int(nrows[i])
+                        self._args['n{i}'.format(i=i+1)] = np.int64(nrows[i])
 
                 else:
                     dot = LinearOperatorDot(self._ndim,
@@ -1513,13 +1513,13 @@ class StencilMatrix( Matrix ):
                     self._args.pop('cm')
 
                     for i in range(len(nrows)):
-                        self._args['s{i}'.format(i=i+1)] = int(starts[i])
+                        self._args['s{i}'.format(i=i+1)] = np.int64(starts[i])
 
                     for i in range(len(nrows)):
-                        self._args['n{i}'.format(i=i+1)] = int(nrows[i])
+                        self._args['n{i}'.format(i=i+1)] = np.int64(nrows[i])
 
                     for i in range(len(nrows)):
-                        self._args['ne{i}'.format(i=i+1)] = int(nrows_extra[i])
+                        self._args['ne{i}'.format(i=i+1)] = np.int64(nrows_extra[i])
 
             else:
                 dot = LinearOperatorDot(self._ndim,

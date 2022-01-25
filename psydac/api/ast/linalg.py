@@ -483,8 +483,8 @@ class VectorDot(SplBasic):
                            decorators=decorators,header=header)
 
 #========================================================================================================
-def transpose_1d( M:'float[:,:]', Mt:'float[:,:]', n1:int, nc1:int, gp1:int, p1:int,
-                  dm1:int, cm1:int, nd1:int, ndT1:int, si1:int, sk1:int, sl1:int):
+def transpose_1d( M:'float[:,:]', Mt:'float[:,:]', n1:"int64", nc1:"int64", gp1:"int64", p1:"int64",
+                  dm1:"int64", cm1:"int64", nd1:"int64", ndT1:"int64", si1:"int64", sk1:"int64", sl1:"int64"):
 
     d1 = gp1-p1
 
@@ -499,10 +499,10 @@ def transpose_1d( M:'float[:,:]', Mt:'float[:,:]', n1:int, nc1:int, gp1:int, p1:
                 Mt[j1, l1+sl1] = M[i1, k1]
 
 # ...
-def transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:int, n2:int, nc1:int, nc2:int,
-                   gp1:int, gp2:int, p1:int, p2:int, dm1:int, dm2:int,
-                   cm1:int, cm2:int, nd1:int, nd2:int, ndT1:int, ndT2:int,
-                   si1:int, si2:int, sk1:int, sk2:int, sl1:int, sl2:int):
+def transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:"int64", n2:"int64", nc1:"int64", nc2:"int64",
+                   gp1:"int64", gp2:"int64", p1:"int64", p2:"int64", dm1:"int64", dm2:"int64",
+                   cm1:"int64", cm2:"int64", nd1:"int64", nd2:"int64", ndT1:"int64", ndT2:"int64",
+                   si1:"int64", si2:"int64", sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
 
     d1 = gp1-p1
     d2 = gp2-p2
@@ -527,11 +527,11 @@ def transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:int, n2:int, nc1:i
                         Mt[j1,j2, l1+sl1,l2+sl2] = M[i1,i2, k1,k2]
 
 # ...
-def transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', n1:int, n2:int, n3:int,
-                  nc1:int, nc2:int, nc3:int, gp1:int, gp2:int, gp3:int, p1:int, p2:int, p3:int,
-                  dm1:int, dm2:int, dm3:int, cm1:int, cm2:int, cm3:int, nd1:int, nd2:int, nd3:int,
-                  ndT1:int, ndT2:int, ndT3:int, si1:int, si2:int, si3:int, sk1:int, sk2:int, sk3:int,
-                  sl1:int, sl2:int, sl3:int):
+def transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', n1:"int64", n2:"int64", n3:"int64",
+                  nc1:"int64", nc2:"int64", nc3:"int64", gp1:"int64", gp2:"int64", gp3:"int64", p1:"int64", p2:"int64", p3:"int64",
+                  dm1:"int64", dm2:"int64", dm3:"int64", cm1:"int64", cm2:"int64", cm3:"int64", nd1:"int64", nd2:"int64", nd3:"int64",
+                  ndT1:"int64", ndT2:"int64", ndT3:"int64", si1:"int64", si2:"int64", si3:"int64", sk1:"int64", sk2:"int64", sk3:"int64",
+                  sl1:"int64", sl2:"int64", sl3:"int64"):
 
     d1 = gp1-p1
     d2 = gp2-p2
@@ -562,4 +562,4 @@ def transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', n1:int, n2:in
                                 Mt[j1,j2,j3, l1 + sl1,l2 + sl2,l3 + sl3] = M[i1,i2,i3, k1,k2,k3]
 
 _transpose  = {1:transpose_1d,2:transpose_2d, 3:transpose_3d}
-_args_dtype = {1:[repr('float[:,:]')]*2 + ['int']*11,2:[repr('float[:,:,:,:]')]*2 + ['int']*22, 3:[repr('float[:,:,:,:,:,:]')]*2 + ['int']*33}
+_args_dtype = {1:[repr('float[:,:]')]*2 + [repr('int64')]*11,2:[repr('float[:,:,:,:]')]*2 + [repr('int64')]*22, 3:[repr('float[:,:,:,:,:,:]')]*2 + ['int']*33}

@@ -37,7 +37,7 @@ class ZerosLike(Function):
         return self._args[0]
 
 class Zeros(Function):
-    def __new__(cls, shape, dtype='float'):
+    def __new__(cls, shape, dtype='float64'):
         return Basic.__new__(cls, shape, dtype)
 
     @property
