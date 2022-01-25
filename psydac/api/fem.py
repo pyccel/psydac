@@ -395,9 +395,9 @@ class DiscreteBilinearForm(BasicDiscrete):
         args = (*test_basis, *trial_basis, *map_basis, *spans, *map_span, *quads, *test_degrees, *trial_degrees, *map_degree, 
                 *n_elements, *quad_degrees, *pads, *mapping, *self._global_matrices)
 
+        is_pyccel    = backend['name'] == 'pyccel' if backend else False
         threads_args = ()
-
-        if self._num_threads>1:
+        if self._num_threads>1 and is_pyccel:
             threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
             threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
 
@@ -607,7 +607,7 @@ class DiscreteLinearForm(BasicDiscrete):
         self._grid       = grid
         self._test_basis = BasisValues( test_space, nderiv = self.max_nderiv, grid=grid, ext=ext)
 
-        self._args , self._threads_args = self.construct_arguments()
+        self._args , self._threads_args = self.construct_arguments(backend=kwargs.pop('backend', None))
 
     @property
     def domain(self):
@@ -690,7 +690,7 @@ class DiscreteLinearForm(BasicDiscrete):
             i = domains.index(target)
         return i
 
-    def construct_arguments(self):
+    def construct_arguments(self, backend=None):
 
         tests_basis, tests_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
         n_elements, quads, quads_degree         = construct_quad_grids_arguments(self.grid, use_weights=False)
@@ -731,9 +731,9 @@ class DiscreteLinearForm(BasicDiscrete):
 
         args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, *self._global_matrices)
 
+        is_pyccel    = backend['name'] == 'pyccel' if backend else False
         threads_args = ()
-
-        if self._num_threads>1:
+        if self._num_threads>1 and is_pyccel:
             threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
             threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
 

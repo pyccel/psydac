@@ -251,8 +251,8 @@ class LinearOperatorDot(SplBasic):
 
         if openmp:
             shared  = ','.join(str(a) for a in shared)
-            firstprivate  = ','.join(str(a) for a in firstprivate)
-            pragma1 = "#$omp parallel default(private) shared({}) firstprivate({})\n".format(shared, firstprivate)
+            firstprivate  = "firstprivate({})".format(','.join(str(a) for a in firstprivate)) if firstprivate else ""
+            pragma1 = "#$omp parallel default(private) shared({}) {}\n".format(shared, firstprivate)
             pragma2 = "#$omp end parallel"
             body     = [Comment(pragma1)] + body + [Comment(pragma2)]
         func = FunctionDef(self.name, list(func_args), [], body, imports=imports, decorators=decorators)
@@ -434,16 +434,18 @@ class TransposeOperator(SplBasic):
         compiler       = backend['compiler']
         fflags         = backend['flags']
         _PYCCEL_FOLDER = backend['folder']
+        accelerators   = ["openmp"] if backend["openmp"] else []
 
         from pyccel.epyccel import epyccel
 
         fmod = epyccel(mod,
-                       compiler    = compiler,
-                       fflags      = fflags,
-                       comm        = MPI.COMM_WORLD,
-                       bcast       = True,
-                       folder      = _PYCCEL_FOLDER,
-                       verbose     = verbose)
+                       accelerators = accelerators,
+                       compiler     = compiler,
+                       fflags       = fflags,
+                       comm         = MPI.COMM_WORLD,
+                       bcast        = True,
+                       folder       = _PYCCEL_FOLDER,
+                       verbose      = verbose)
 
         return fmod
 
@@ -515,7 +517,7 @@ def transpose_1d( M:'float[:,:]', Mt:'float[:,:]', n1:"int64", nc1:"int64", gp1:
                   dm1:"int64", cm1:"int64", nd1:"int64", ndT1:"int64", si1:"int64", sk1:"int64", sl1:"int64"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,nc1,gp1,p1,dm1,cm1,&
-    #$ omp nd1,ndT1,si1,sk1,sl1)
+    #$ nd1,ndT1,si1,sk1,sl1)
 
     d1 = gp1-p1
 
@@ -539,7 +541,7 @@ def transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:"int64", n2:"int64
                    si1:"int64", si2:"int64", sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,nc1,nc2,gp1,gp2,p1,p2,dm1,dm2,cm1,&
-    #$ omp cm2,nd1,nd2,ndT1,ndT2,si1,si2,sk1,sk2,sl1,sl2)
+    #$ cm2,nd1,nd2,ndT1,ndT2,si1,si2,sk1,sk2,sl1,sl2)
 
     d1 = gp1-p1
     d2 = gp2-p2
@@ -574,7 +576,7 @@ def transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', n1:"int64", n
                   sl1:"int64", sl2:"int64", sl3:"int64"):
 
     #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,n3,nc1,nc2,nc3,gp1,gp2,gp3,p1,p2,p3,dm1,dm2,dm3,cm1,&
-    #$ omp cm2,cm3,nd1,nd2,nd3,ndT1,ndT2,ndT3,si1,si2,si3,sk1,sk2,sk3,sl1,sl2,sl3)
+    #$ cm2,cm3,nd1,nd2,nd3,ndT1,ndT2,ndT3,si1,si2,si3,sk1,sk2,sk3,sl1,sl2,sl3)
     d1 = gp1-p1
     d2 = gp2-p2
     d3 = gp3-p3

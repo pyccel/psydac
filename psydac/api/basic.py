@@ -284,7 +284,8 @@ class BasicDiscrete(BasicCodeGen):
         mapping             = kwargs.pop('mapping', None)
         mapping_space       = kwargs.pop('mapping_space', None)
         num_threads         = kwargs.pop('num_threads', 1)
+        backend             = kwargs.pop('backend', None)
 
         return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space, tag=tag, quad_order=quad_order,
-                    mapping=mapping, is_rational_mapping=is_rational_mapping, num_threads=num_threads)
+                    mapping=mapping, is_rational_mapping=is_rational_mapping, backend=backend, num_threads=num_threads)
 
