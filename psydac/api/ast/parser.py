@@ -2,8 +2,6 @@
 
 import numpy as np
 
-from collections import OrderedDict
-
 from sympy import IndexedBase, Indexed
 from sympy import Mul, Matrix, Expr
 from sympy import Add, And, StrictLessThan
@@ -162,12 +160,12 @@ class Parser(object):
         self.backend   = backend
 
         # TODO improve
-        self.indices          = OrderedDict()
-        self.shapes           = OrderedDict()
-        self.functions        = OrderedDict()
-        self.variables        = OrderedDict()
-        self.arguments        = OrderedDict()
-        self.allocated        = OrderedDict()
+        self.indices          = {}
+        self.shapes           = {}
+        self.functions        = {}
+        self.variables        = {}
+        self.arguments        = {}
+        self.allocated        = {}
         self._math_functions  = ()
         
 
@@ -553,7 +551,7 @@ class Parser(object):
         mats       = [self._visit(mat, **kwargs) for mat in mats]
         inits      = {mat:Assign(mat[lhs_slices], 0.) for mat in mats}
         body       = self._visit(expr.body, **kwargs)
-        stmts      = OrderedDict()
+        stmts      = {}
         pads       = self._visit_Pads(expr.pads)
 
         for l_coeff,g_coeff in zip(l_coeffs, g_coeffs):
@@ -630,7 +628,7 @@ class Parser(object):
 
         self.insert_variables(*points, *weights)
 
-        return OrderedDict([(0,targets)])
+        return {0: targets}
 
     # ....................................................
     def _visit_LocalTensorQuadrature(self, expr, **kwargs):
@@ -652,7 +650,7 @@ class Parser(object):
 
         self.insert_variables(*points, *weights)
 
-        return OrderedDict([(0,targets)])
+        return {0: targets}
 
     # ....................................................
     def _visit_TensorQuadrature(self, expr, **kwargs):
@@ -672,7 +670,7 @@ class Parser(object):
 
         self.insert_variables(*points, *weights)
 
-        return OrderedDict([(0,targets)])
+        return {0: targets}
 
     # ....................................................
     def _visit_GlobalThreadSpan(self, expr, **kwargs):
@@ -765,7 +763,7 @@ class Parser(object):
 
         self.insert_variables(*targets)
 
-        arrays = OrderedDict()
+        arrays = {}
         if unique_scalar_space and not is_scalar:
             for i in range(dim):
                 arrays[target[i]] = tuple(zip(targets))
@@ -804,7 +802,7 @@ class Parser(object):
         targets = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
         self.insert_variables(*targets)
 
-        arrays = OrderedDict()
+        arrays = {}
         if unique_scalar_space and not is_scalar:
             for i in range(dim):
                 arrays[target[i]] = tuple(zip(targets))
@@ -845,7 +843,7 @@ class Parser(object):
         targets = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
         self.insert_variables(*targets)
-        arrays = OrderedDict()
+        arrays = {}
         if unique_scalar_space and not is_scalar:
             for i in range(dim):
                 arrays[target[i]] = tuple(zip(targets))
@@ -871,7 +869,7 @@ class Parser(object):
         self.insert_variables(*targets)
         if not isinstance(targets[0], (tuple, list, Tuple)):
             targets = [targets]
-        target = OrderedDict([(target ,tuple(zip(*targets)))])
+        target = {target: tuple(zip(*targets))}
         return target
     # ....................................................
     def _visit_Span(self, expr, **kwargs):
@@ -888,7 +886,7 @@ class Parser(object):
         if not isinstance(targets[0], (tuple, list, Tuple)):
             targets = [targets]
 
-        target = OrderedDict([(target ,tuple(zip(*targets)))])
+        target = {target: tuple(zip(*targets))}
         return target
 
     def _visit_Pads(self, expr, **kwargs):
@@ -928,7 +926,7 @@ class Parser(object):
 
         ops = [dx1, dx2, dx3][:dim]
         atoms =  _split_test_function(target)
-        args = OrderedDict()
+        args = {}
         for atom in atoms:
             sub_args = [None]*dim
             for i in range(dim):
@@ -1743,7 +1741,7 @@ class Parser(object):
 
         patterns = expr.target.pattern()
         patterns = self._visit_Pattern(patterns)
-        args = OrderedDict()
+        args = {}
         for i,target in targets.items():
             args[i] = []
             for p, xs in zip(patterns, target):

@@ -5,14 +5,12 @@
 # For the moment, it is used as a container, that can be loaded from a file
 # (hdf5)
 from itertools import product
-from collections import OrderedDict
 from collections import abc
 import numpy as np
 import string
 import random
 import h5py
 import yaml
-import yamlloader
 import os
 import string
 import random
@@ -47,7 +45,7 @@ class Geometry( object ):
         elif not( domain is None ):
             assert( isinstance( domain, Domain ) )
             assert( not( mappings is None ))
-            assert( isinstance( mappings, (dict, OrderedDict) ) )
+            assert isinstance( mappings, dict)
 
             # ... check sanity
             interior_names = sorted(domain.interior_names)
@@ -59,7 +57,7 @@ class Geometry( object ):
             self._domain   = domain
             self._ldim     = domain.dim
             self._pdim     = domain.dim # TODO must be given => only dim is  defined for a Domain
-            self._mappings = OrderedDict(mappings.items())
+            self._mappings = mappings
 
         else:
             raise ValueError('Wrong input')
@@ -221,7 +219,7 @@ class Geometry( object ):
         # ...
 
         # Create dictionary with geometry metadata
-        yml = OrderedDict()
+        yml = {}
         yml['ldim'] = self.ldim
         yml['pdim'] = self.pdim
 
@@ -236,9 +234,9 @@ class Geometry( object ):
             mapping_id = 'mapping_{}'.format( i_mapping  )
             dtype      = '{}'.format( type( mapping ).__name__ )
 
-            patches_info += [OrderedDict( [('name'       , name       ),
-                                           ('mapping_id' , mapping_id ),
-                                           ('type'       , dtype      )] )]
+            patches_info += [{'name': name,
+                              'mapping_id': mapping_id,
+                               'type': dtype}]
 
             i_mapping += 1
 
@@ -261,8 +259,7 @@ class Geometry( object ):
 
         # ...
         # Dump geometry metadata to string in YAML file format
-        geo = yaml.dump( data   = yml,
-                         Dumper = yamlloader.ordereddict.Dumper )
+        geo = yaml.dump( data   = yml, sort_keys=False)
 
         # Write geometry metadata as fixed-length array of ASCII characters
         h5['geometry.yml'] = np.array( geo, dtype='S' )
@@ -270,8 +267,7 @@ class Geometry( object ):
 
         # ...
         # Dump geometry metadata to string in YAML file format
-        geo = yaml.dump( data   = topo_yml,
-                         Dumper = yamlloader.ordereddict.Dumper )
+        geo = yaml.dump( data   = topo_yml, sort_keys=False)
         # Write topology metadata as fixed-length array of ASCII characters
         h5['topology.yml'] = np.array( geo, dtype='S' )
         # ...
@@ -347,7 +343,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     if not extension == '.h5':
         raise ValueError('> Only h5 extension is allowed for filename')
 
-    yml = OrderedDict()
+    yml = {}
     yml['ldim'] = nurbs.dim
     yml['pdim'] = nurbs.dim
 
@@ -377,9 +373,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
 
     # ...
     # Dump geometry metadata to string in YAML file format
-    geom = yaml.dump( data   = yml,
-                     Dumper = yamlloader.ordereddict.Dumper )
-
+    geom = yaml.dump( data   = yml, sort_keys=False)
     # Write geometry metadata as fixed-length array of ASCII characters
     h5['geometry.yml'] = np.array( geom, dtype='S' )
     # ...
@@ -403,8 +397,7 @@ def export_nurbs_to_hdf5(filename, nurbs, periodic=None, comm=None ):
     topo_yml = domain.todict()
 
     # Dump geometry metadata to string in YAML file format
-    geom = yaml.dump( data   = topo_yml,
-                     Dumper = yamlloader.ordereddict.Dumper )
+    geom = yaml.dump( data   = topo_yml, sort_keys=False)
     # Write topology metadata as fixed-length array of ASCII characters
     h5['topology.yml'] = np.array( geom, dtype='S' )
 

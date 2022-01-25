@@ -3,8 +3,6 @@
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add quad_order too?
 
-from collections import OrderedDict
-
 import numpy as np
 from sympy import ImmutableDenseMatrix, Matrix
 
@@ -406,8 +404,9 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def allocate_matrices(self, backend=None):
 
-        global_mats     = OrderedDict()
-        #element_mats    = OrderedDict()
+        global_mats     = {}
+        #element_mats    = {}
+
 
         expr            = self.kernel_expr.expr
         target          = self.kernel_expr.target
@@ -737,8 +736,8 @@ class DiscreteLinearForm(BasicDiscrete):
 
     def allocate_matrices(self):
 
-        global_mats   = OrderedDict()
-        #element_mats  = OrderedDict()
+        global_mats   = {}
+        #element_mats  = {}
 
         test_space  = self.test_basis.space.vector_space
         test_degree = np.array(self.test_basis.space.degree)

@@ -3,7 +3,6 @@
 # Copyright 2018 Jalal Lakhlili, Yaman Güçlü
 
 import numpy as np
-from collections  import OrderedDict
 from scipy.sparse import bmat, lil_matrix
 
 from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
@@ -327,12 +326,12 @@ class BlockLinearOperator( LinearOperator ):
 
         self._domain   = V1
         self._codomain = V2
-        self._blocks   = OrderedDict()
+        self._blocks   = {}
 
         self._nrows = V2.n_blocks if isinstance(V2, BlockVectorSpace) else 1
         self._ncols = V1.n_blocks if isinstance(V1, BlockVectorSpace) else 1
 
-        # Store blocks in OrderedDict (hence they can be manually changed later)
+        # Store blocks in dict (hence they can be manually changed later)
         if blocks:
 
             if isinstance( blocks, dict ):

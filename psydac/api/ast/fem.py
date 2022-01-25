@@ -1,7 +1,6 @@
 # -*- coding: UTF-8 -*-
 
 import numpy as np
-from collections import OrderedDict
 from itertools   import groupby, product
 
 from sympy import Basic, S, Function, Integer, StrictLessThan
@@ -105,9 +104,9 @@ def regroup(tests):
 
     spaces = [i.space for i in tests]
     kinds  = [i.kind for i in spaces]
-    funcs  = OrderedDict(zip(tests, kinds))
+    funcs  = dict(zip(tests, kinds))
     funcs  = sorted(funcs.items(), key=lambda x:convert(x[1]))
-    grs = [OrderedDict(g) for k,g in groupby(funcs,key=lambda x:convert(x[1]))]
+    grs = [dict(g) for k,g in groupby(funcs,key=lambda x:convert(x[1]))]
     grs = [(list(g.values())[0],tuple(g.keys())) for g in grs]
     groups = []
     for d,g in grs:
@@ -598,22 +597,22 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     coords_from_rank = MatrixCoordsFromRank()
 
     quad_order    = kwargs.pop('quad_order', None)
-    thread_span   =  OrderedDict((u,d_tests[u]['thread_span']) for u in tests)
+    thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
     # ...........................................................................................
-    g_span              = OrderedDict((u,d_tests[u]['span']) for u in tests)
-    f_span              = OrderedDict((f,d_fields[f]['span']) for f in fields)
+    g_span              = dict((u,d_tests[u]['span']) for u in tests)
+    f_span              = dict((f,d_fields[f]['span']) for f in fields)
     if mapping_space:
-        m_span   = OrderedDict((f,d_mapping[f]['span']) for f in d_mapping)
+        m_span   = dict((f,d_mapping[f]['span']) for f in d_mapping)
     else:
         m_span = {}
 
-    m_trials            = OrderedDict((u,d_trials[u]['multiplicity'])  for u in trials)
-    m_tests             = OrderedDict((v,d_tests[v]['multiplicity'])   for v in tests)
-    lengths_trials      = OrderedDict((u,LengthDofTrial(u)) for u in trials)
-    lengths_tests       = OrderedDict((v,LengthDofTest(v)) for v in tests)
-    lengths_outer_tests = OrderedDict((v,LengthOuterDofTest(v)) for v in tests)
-    lengths_inner_tests = OrderedDict((v,LengthInnerDofTest(v)) for v in tests)
-    lengths_fields      = OrderedDict((f,LengthDofTest(f)) for f in fields)
+    m_trials            = dict((u,d_trials[u]['multiplicity'])  for u in trials)
+    m_tests             = dict((v,d_tests[v]['multiplicity'])   for v in tests)
+    lengths_trials      = dict((u,LengthDofTrial(u)) for u in trials)
+    lengths_tests       = dict((v,LengthDofTest(v)) for v in tests)
+    lengths_outer_tests = dict((v,LengthOuterDofTest(v)) for v in tests)
+    lengths_inner_tests = dict((v,LengthInnerDofTest(v)) for v in tests)
+    lengths_fields      = dict((f,LengthDofTest(f)) for f in fields)
     # ...........................................................................................
     quad_length     = LengthQuadrature()
     el_length       = LengthElement()
@@ -683,14 +682,14 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
             if is_zero(sub_terminal_expr):
                 continue
 
-            q_basis_tests  = OrderedDict((v,d_tests[v]['global'])         for v in sub_tests)
-            q_basis_trials = OrderedDict((u,d_trials[u]['global'])        for u in sub_trials)
-            m_tests        = OrderedDict((v,d_tests[v]['multiplicity'])   for v in sub_tests)
-            m_trials       = OrderedDict((u,d_trials[u]['multiplicity'])  for u in sub_trials)
-            tests_degree   = OrderedDict((v,d_tests[v]['degrees'])        for v in sub_tests)
-            trials_degrees = OrderedDict((u,d_trials[u]['degrees'])       for u in sub_trials)
-            bs             = OrderedDict()
-            es             = OrderedDict()
+            q_basis_tests  = dict((v,d_tests[v]['global'])         for v in sub_tests)
+            q_basis_trials = dict((u,d_trials[u]['global'])        for u in sub_trials)
+            m_tests        = dict((v,d_tests[v]['multiplicity'])   for v in sub_tests)
+            m_trials       = dict((u,d_trials[u]['multiplicity'])  for u in sub_trials)
+            tests_degree   = dict((v,d_tests[v]['degrees'])        for v in sub_tests)
+            trials_degrees = dict((u,d_trials[u]['degrees'])       for u in sub_trials)
+            bs             = dict()
+            es             = dict()
             for v in sub_tests:
                 v_str = str(SymbolicExpr(v))
                 bs[v] = variables(('b_{v}_1, b_{v}_2, b_{v}_3'.format(v=v_str)), dtype='int')[:dim] if is_parallel else [S.Zero]*dim
@@ -842,7 +841,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         body = [Reduce('+', l_mats, g_mats, loop)]
 
     # ...
-    args = OrderedDict()
+    args = {}
     args['tests_basis']  = tuple(d_tests[v]['global'] for v in tests)
     args['trial_basis']  = tuple(d_trials[u]['global'] for u in trials)
 
@@ -887,10 +886,10 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         allocations = [[Allocate(thread_span[u].set_index(i), (Integer(1+num_threads),)) for i in range(dim)] for u in thread_span]
         allocations = [Tuple(*i) for i in allocations]
 
-    m_trials      = OrderedDict((u,d_trials[u]['multiplicity'])  for u in trials)
-    m_tests       = OrderedDict((v,d_tests[v]['multiplicity'])   for v in tests)
-    trials_degree = OrderedDict((u,d_trials[u]['degrees'])       for u in trials)
-    tests_degree  = OrderedDict((v,d_tests[v]['degrees'])        for v in tests)
+    m_trials      = dict((u,d_trials[u]['multiplicity'])  for u in trials)
+    m_tests       = dict((v,d_tests[v]['multiplicity'])   for v in tests)
+    trials_degree = dict((u,d_trials[u]['degrees'])       for u in trials)
+    tests_degree  = dict((v,d_tests[v]['degrees'])        for v in tests)
 
     local_allocations = []
     for j,u in enumerate(ex_trials):
@@ -1012,21 +1011,24 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     coords_from_rank = MatrixCoordsFromRank()
 
     quad_order    = kwargs.pop('quad_order', None)
-    thread_span   =  OrderedDict((u,d_tests[u]['thread_span']) for u in tests)
+    thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
  
-    m_tests = OrderedDict((v,d_tests[v]['multiplicity'])   for v in tests)
+    m_tests = dict((v,d_tests[v]['multiplicity'])   for v in tests)
     l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr, tag)
     g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, m_tests, terminal_expr,l_vecs.tag)
 
-    g_span          = OrderedDict((v,d_tests[v]['span']) for v in tests)
-    f_span          = OrderedDict((f,d_fields[f]['span']) for f in fields)
+    g_span          = dict((v,d_tests[v]['span']) for v in tests)
+    f_span          = dict((f,d_fields[f]['span']) for f in fields)
+
+
     if mapping_space:
-        m_span      = OrderedDict((f,d_mapping[f]['span']) for f in d_mapping)
+        m_span      = dict((f,d_mapping[f]['span']) for f in d_mapping)
     else:
         m_span = {}
 
-    lengths_tests   = OrderedDict((v,LengthDofTest(v)) for v in tests)
-    lengths_fields  = OrderedDict((f,LengthDofTest(f)) for f in fields)
+    lengths_tests   = dict((v,LengthDofTest(v)) for v in tests)
+    lengths_fields  = dict((f,LengthDofTest(f)) for f in fields)
+
     # ...........................................................................................
     quad_length = LengthQuadrature()
     el_length   = LengthElement()
@@ -1167,7 +1169,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         body = [Reduce('+', l_vecs, g_vecs, loop)]
     # ...
 
-    args = OrderedDict()
+    args = dict()
     args['tests_basis']  = tuple(d_tests[v]['global']  for v in tests)
 
     args['spans'] = g_span.values()
@@ -1206,7 +1208,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         allocations = [[Allocate(thread_span[u].set_index(i), (Integer(1+num_threads),)) for i in range(dim)] for u in thread_span]
         allocations = [Tuple(*i) for i in allocations]
 
-    tests_degree  = OrderedDict((v,d_tests[v]['degrees']) for v in tests)
+    tests_degree  = dict((v,d_tests[v]['degrees']) for v in tests)
 
     local_allocations = []
     for i,v in enumerate(ex_tests):
@@ -1322,14 +1324,14 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
 
     geo      = GeometryExpressions(mapping, nderiv)
 
-    g_span   = OrderedDict((v,d_fields[v]['span']) for v in fields)
+    g_span   = dict((v,d_fields[v]['span']) for v in fields)
     if mapping_space:
-        m_span  = OrderedDict((f,d_mapping[f]['span']) for f in d_mapping)
+        m_span  = dict((f,d_mapping[f]['span']) for f in d_mapping)
     else:
         m_span = {}
-    g_basis  = OrderedDict((v,d_fields[v]['global'])  for v in fields)
+    g_basis  = dict((v,d_fields[v]['global'])  for v in fields)
 
-    lengths_fields  = OrderedDict((f,LengthDofTest(f)) for f in fields)
+    lengths_fields  = dict((f,LengthDofTest(f)) for f in fields)
 
     l_vec   = LocalElementBasis()
     g_vec   = GlobalElementBasis()
@@ -1375,7 +1377,8 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     # ... loop over global elements
 
 
-    args = OrderedDict()
+    args = {}
+
     args['tests_basis']  = g_basis.values()
 
     args['spans'] = g_span.values()
