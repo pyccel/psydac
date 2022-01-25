@@ -16,7 +16,8 @@ PSYDAC_BACKEND_GPYCCEL = {'name':     'pyccel',
                       'compiler': 'gfortran' if pyccel_legacy else 'GNU',
                       'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math -fno-tree-pre',
                       'folder': '__gpyccel__',
-                      'tag':'gpyccel'}
+                      'tag':'gpyccel',
+                      'openmp':False}
 
 PSYDAC_BACKEND_IPYCCEL = {'name':     'pyccel',
                       'compiler': 'ifort' if pyccel_legacy else 'intel',

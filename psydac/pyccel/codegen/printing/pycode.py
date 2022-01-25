@@ -208,6 +208,9 @@ class PythonCodePrinter(SympyPythonCodePrinter):
     def _print_ZerosLike(self, expr):
         return 'zeros_like('+ self._print(expr.rhs)+')'
 
+    def _print_Array(self, expr):
+        return 'array('+ self._print(expr.data)+(self._print(expr.dtype) if expr.dtype else '')+')'
+
     def _print_Max(self, expr):
         args = ', '.join(self._print(e) for e in expr.args)
         return 'max({})'.format(args)
@@ -303,6 +306,9 @@ class PythonCodePrinter(SympyPythonCodePrinter):
 
     def _print_PyccelFloorDiv(self, expr):
         return '//'.join(self._print(a) for a in expr.args)
+
+    def _print_floor(self, expr):
+        return 'int({})'.format(self._print(expr.args[0]))
 
     def _print_PyccelAssociativeParenthesis(self, expr):
         return '({})'.format(self._print(expr.args[0]))

@@ -7,7 +7,7 @@ from collections import OrderedDict
 from sympy import IndexedBase, Indexed
 from sympy import Mul, Matrix, Expr
 from sympy import Add, And, StrictLessThan
-from sympy import Abs,Not
+from sympy import Abs, Not, floor
 from sympy import Symbol, Idx
 from sympy import Range
 from sympy import Basic, Function
@@ -54,10 +54,10 @@ from .nodes import ProductIteration
 from .nodes import ProductIterator
 from .nodes import ProductGenerator
 from .nodes import StencilMatrixLocalBasis
-from .nodes import StencilMatrixGlobalBasis
+from .nodes import StencilMatrixGlobalBasis, ScalarLocalBasis
 from .nodes import BlockStencilMatrixLocalBasis
 from .nodes import BlockStencilMatrixGlobalBasis
-from .nodes import BlockStencilVectorLocalBasis
+from .nodes import BlockStencilVectorLocalBasis, BlockScalarLocalBasis
 from .nodes import BlockStencilVectorGlobalBasis
 from .nodes import StencilVectorLocalBasis
 from .nodes import StencilVectorGlobalBasis
@@ -73,7 +73,7 @@ from .nodes import index_outer_dof_test
 from .nodes import index_dof_test, index_dof_trial
 from .nodes import index_deriv, Max, Min
 
-from .nodes import   Zeros, ZerosLike
+from .nodes import Zeros, ZerosLike, Array
 from .fem import expand, expand_hdiv_hcurl
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.utilities     import flatten
@@ -252,8 +252,10 @@ class Parser(object):
     def _visit_VectorAssign(self, expr, **kwargs):
         lhs = self._visit(expr.lhs)
         rhs = self._visit(expr.rhs)
-        return [Assign(l,r) for l,r in zip(lhs, rhs)]
-
+        if expr.op is None:
+            return [Assign(l,r) for l,r in zip(lhs, rhs) if l is not None and r is not None]
+        else:
+            return [AugAssign(l,expr.op, r) for l,r in zip(lhs, rhs) if l is not None and r is not None]
     # ....................................................
     def _visit_Assign(self, expr, **kwargs):
 
@@ -329,6 +331,14 @@ class Parser(object):
     def _visit_AddNode(self, expr, **kwargs):
         return self._visit_Add(expr)
 
+    def _visit_MulNode(self, expr, **kwargs):
+        return self._visit_Mul(expr)
+
+    # ....................................................
+    def _visit_IntDivNode(self, expr, **kwargs):
+        args = [self._visit(a) for a in expr.args]
+        return args[0]//args[1]
+
     # ....................................................
     def _visit_AndNode(self, expr, **kwargs):
         args = [self._visit(a) for a in expr.args]
@@ -378,6 +388,11 @@ class Parser(object):
     def _visit_Tuple(self, expr, **kwargs):
         args = [self._visit(i) for i in expr]
         return Tuple(*args)
+
+    def _visit_Array(self, expr, **kwargs):
+        data  = self._visit(expr.data)
+        dtype = expr.dtype
+        return Array(data, dtype=dtype)
 
     # ....................................................
     def _visit_Block(self, expr, **kwargs):
@@ -503,7 +518,7 @@ class Parser(object):
         inits.append(EmptyNode())
         body =  tuple(inits) + body
         name = expr.name
-        imports = ('zeros', 'zeros_like') + tuple(self._math_functions)
+        imports = ('array','zeros', 'zeros_like','floor') + tuple(self._math_functions)
         imports = [Import('numpy', imports)] + list(expr.imports)
         results = [self._visit(a) for a in expr.results]
 
@@ -682,6 +697,30 @@ class Parser(object):
     def _visit_GlobalThreadEnds(self, expr, **kwargs):
         dim    = self.dim
         targets = variables('global_thread_ends_1:{}'.format(dim+1), dtype='int', rank=1, cls=IndexedVariable)
+        if expr.index is not None:
+            return targets[expr.index]
+        return targets
+
+    # ....................................................
+    def _visit_GlobalThreadSizes(self, expr, **kwargs):
+        dim    = self.dim
+        targets = variables('global_thread_size_1:{}'.format(dim+1), dtype='int')
+        if expr.index is not None:
+            return targets[expr.index]
+        return targets
+
+    # ....................................................
+    def _visit_LocalThreadStarts(self, expr, **kwargs):
+        dim    = self.dim
+        targets = variables('local_thread_starts_1:{}'.format(dim+1), dtype='int', rank=1, cls=IndexedVariable)
+        if expr.index is not None:
+            return targets[expr.index]
+        return targets
+
+    # ....................................................
+    def _visit_LocalThreadEnds(self, expr, **kwargs):
+        dim    = self.dim
+        targets = variables('local_thread_ends_1:{}'.format(dim+1), dtype='int', rank=1, cls=IndexedVariable)
         if expr.index is not None:
             return targets[expr.index]
         return targets
@@ -942,6 +981,10 @@ class Parser(object):
         lhs  = self._visit(var, **kwargs)
         if isinstance(var, (LocalElementBasis, GlobalElementBasis)):
             return Assign(lhs, 0.)
+
+        elif isinstance(var, BlockScalarLocalBasis):
+            expr = var.expr
+            return tuple(Assign(a, 0.) for a,b in zip(lhs[:], expr[:]) if b)
 
         expr = var.expr
         rank = lhs[0,0].rank
@@ -1247,6 +1290,8 @@ class Parser(object):
             targets = self._visit_BlockStencilMatrixLocalBasis(target)
             for i in range(targets.shape[0]):
                 for j in range(targets.shape[1]):
+                    if targets[i,j] is None:
+                        continue
                     if trials[j] in pads.trials_multiplicity:
                         trials_m  = pads.trials_multiplicity[trials[j]]
                         trials_d  = pads.trials_degree[trials[j]]
@@ -1275,12 +1320,17 @@ class Parser(object):
             indices = list(rows)
             for i in range(targets.shape[0]):
                 for j in range(targets.shape[1]):
+                    if targets[i,j] is None:
+                        continue
                     targets[i,j] = targets[i,j][indices]
             return targets
         elif isinstance(target, LocalElementBasis):
             target = self._visit(target, **kwargs)
             return (target,)
 
+        elif isinstance(target, BlockScalarLocalBasis):
+            targets = self._visit(target)
+            return targets
         else:
             raise NotImplementedError('TODO')
 
@@ -1295,6 +1345,9 @@ class Parser(object):
         targets = Matrix.zeros(len(tests), len(trials))
         for i,v in enumerate(tests):
             for j,u in enumerate(trials):
+                if expr.expr[i,j] == 0:
+                    targets[i,j] = None
+                    continue
                 mat = StencilMatrixLocalBasis(u, v, pads[i,j], tag)
                 mat = self._visit_StencilMatrixLocalBasis(mat, **kwargs)
                 targets[i,j] = mat
@@ -1311,6 +1364,7 @@ class Parser(object):
         for i,v in enumerate(tests):
             for j,u in enumerate(trials):
                 if expr.expr[i,j] == 0:
+                    targets[i,j] = None
                     continue
                 mat = StencilMatrixGlobalBasis(u, v, pads, tag)
                 mat = self._visit_StencilMatrixGlobalBasis(mat, **kwargs)
@@ -1324,6 +1378,9 @@ class Parser(object):
         tests   = expand(tests)
         targets = Matrix.zeros(len(tests), 1)
         for i,v in enumerate(tests):
+            if expr.expr[i,0] == 0:
+                targets[i,0] = None
+                continue
             mat = StencilVectorLocalBasis(v, pads, tag)
             mat = self._visit_StencilVectorLocalBasis(mat, **kwargs)
             targets[i,0] = mat
@@ -1337,12 +1394,28 @@ class Parser(object):
         targets = Matrix.zeros(len(tests), 1)
         for i,v in enumerate(tests):
             if expr.expr[i,0] == 0:
+                targets[i,0] = None
                 continue
             mat = StencilVectorGlobalBasis(v, pads, tag)
             mat = self._visit_StencilVectorGlobalBasis(mat, **kwargs)
             targets[i,0] = mat
         return targets
 
+    # .............................................................................
+    def _visit_BlockScalarLocalBasis(self, expr, **kwargs):
+        tag    = expr.tag
+        tests   = expand(expr._tests)
+        trials  = expand(expr._trials) if expr._trials else (None,)
+        targets = Matrix.zeros(len(tests), len(trials))
+        for i,v in enumerate(tests):
+            for j,u in enumerate(trials):
+                if expr.expr[i,j] == 0:
+                    targets[i,j] = None
+                    continue
+                var = ScalarLocalBasis(u, v, tag)
+                var = self._visit_ScalarLocalBasis(var, **kwargs)
+                targets[i,j] = var
+        return targets
 
     # .............................................................................
     def _visit_StencilMatrixLocalBasis(self, expr, **kwargs):
@@ -1395,6 +1468,17 @@ class Parser(object):
     def _visit_LocalElementBasis(self, expr, **kwargs):
         tag  = expr.tag
         name = 'l_el_{}'.format(tag)
+        var  = variables(name, dtype='real') 
+        self.insert_variables(var)
+        return var
+
+    def _visit_ScalarLocalBasis(self, expr, **kwargs):
+        tag  = expr.tag
+        basis = (expr._test,)
+        if expr._trial:
+            basis = (expr._test, expr._trial)
+        name = '_'.join(str(SymbolicExpr(e)) for e in basis)
+        name = 'contribution_{}_{}'.format(name, tag)
         var  = variables(name, dtype='real') 
         self.insert_variables(var)
         return var
@@ -1508,6 +1592,13 @@ class Parser(object):
         dim    = self.dim
         target =  variables('i_element_1:%d'%(dim+1), dtype='int')
         self.insert_variables(*target)
+        return target
+    # ....................................................
+    def _visit_LocalIndexElement(self, expr, **kwargs):
+        dim    = self.dim
+        target =  variables('local_i_element_1:%d'%(dim+1), dtype='int')
+        if expr.index is not None:
+            return target[expr.index]
         return target
     # ....................................................
     def _visit_IndexQuadrature(self, expr, **kwargs):
@@ -1858,6 +1949,9 @@ class Parser(object):
                 x = base[tuple(indices)]
                 args.append(x)
         return args
+
+    def _visit_Comment(self, expr, **kwargs):
+        return expr
 
     # ....................................................
     def _visit_IndexedElement(self, expr, **kwargs):

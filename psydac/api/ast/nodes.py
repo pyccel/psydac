@@ -49,6 +49,18 @@ class Zeros(Function):
     def dtype(self):
         return self._args[1]
 
+class Array(Function):
+    def __new__(cls, data, dtype=None):
+        return Basic.__new__(cls, data, dtype)
+
+    @property
+    def data(self):
+        return self._args[0]
+
+    @property
+    def dtype(self):
+        return self._args[1]
+
 class FloorDiv(Function):
     def __new__(cls, arg1, arg2):
         if arg2 == 1:
@@ -85,8 +97,8 @@ class Allocate(Basic):
 #==============================================================================
 class VectorAssign(Basic):
 
-    def __new__(cls, lhs, rhs):
-        return Basic.__new__(cls, lhs, rhs)
+    def __new__(cls, lhs, rhs, op=None):
+        return Basic.__new__(cls, lhs, rhs, op)
 
     @property
     def lhs(self):
@@ -95,6 +107,10 @@ class VectorAssign(Basic):
     @property
     def rhs(self):
         return self._args[1]
+
+    @property
+    def op(self):
+        return self._args[2]
 #==============================================================================
 class ArityType(with_metaclass(Singleton, Basic)):
     """Base class representing a form type: bilinear/linear/functional"""
@@ -175,6 +191,12 @@ class Expression(Expr):
         return Expr.__new__(cls, *args)
 
 class AddNode(Expression):
+    pass
+
+class MulNode(Expression):
+    pass
+
+class IntDivNode(Expression):
     pass
 
 class AndNode(Expression):
@@ -271,6 +293,9 @@ class ThreadCoordinates(IndexDof):
 class NeighbourThreadCoordinates(IndexDof):
     pass
 
+class LocalIndexElement(IndexDof):
+    pass
+
 class IndexDerivative(IndexNode):
     def __new__(cls, length=None):
         return Basic.__new__(cls)
@@ -289,6 +314,7 @@ index_dof_trial      = IndexDofTrial()
 index_deriv          = IndexDerivative()
 index_outer_dof_test = IndexOuterDofTest()
 index_inner_dof_test = IndexInnerDofTest()
+local_index_element  = LocalIndexElement()
 
 #==============================================================================
 class RankNode(with_metaclass(Singleton, Basic)):
@@ -1016,8 +1042,6 @@ class StencilVectorLocalBasis(MatrixNode):
     def tag(self):
         return self._args[3]
 
-
-
 #==============================================================================
 class StencilVectorGlobalBasis(MatrixNode):
     """
@@ -1049,14 +1073,14 @@ class StencilVectorGlobalBasis(MatrixNode):
     def tag(self):
         return self._args[3]
 
-
-
+#==============================================================================
 class LocalElementBasis(MatrixNode):
     tag  = random_string( 6 )
 
 class GlobalElementBasis(MatrixNode):
     tag  = random_string( 6 )
 
+#==============================================================================
 class BlockStencilMatrixLocalBasis(BlockMatrixNode):
     """
     used to describe local dof over an element as a block stencil matrix
@@ -1155,7 +1179,7 @@ class BlockStencilMatrixGlobalBasis(BlockMatrixNode):
             cond = cond or all(isinstance(space.kind, cls) for space in spaces)
         return cond
 
-
+#==============================================================================
 class BlockStencilVectorLocalBasis(BlockMatrixNode):
     """
     used to describe local dof over an element as a block stencil matrix
@@ -1240,6 +1264,57 @@ class BlockStencilVectorGlobalBasis(BlockMatrixNode):
         for cls in types:
             cond = cond or all(isinstance(space.kind, cls) for space in spaces)
         return cond
+
+#==============================================================================
+class ScalarLocalBasis(ScalarNode):
+    """
+    """
+    def __new__(cls, u=None, v=None, tag=None):
+        tag  = tag or random_string( 6 )
+        obj  = Basic.__new__(cls, tag)
+        obj._test  = v
+        obj._trial = u
+        return obj
+
+    @property
+    def tag(self):
+        return self._args[0]
+
+    @property
+    def trial(self):
+        return self._trial
+
+    @property
+    def test(self):
+        return self._test
+#==============================================================================
+class BlockScalarLocalBasis(ScalarNode):
+    """
+    """
+    def __new__(cls, trials=None, tests=None, expr=None, tag=None):
+
+        tag = tag or random_string( 6 )
+        obj = Basic.__new__(cls, tag)
+        obj._tests  = tests
+        obj._trials = trials
+        obj._expr   = expr
+        return obj
+
+    @property
+    def tag(self):
+        return self._args[0]
+
+    @property
+    def tests(self):
+        return self._tests
+
+    @property
+    def trials(self):
+        return self._trials
+
+    @property
+    def expr(self):
+        return self._expr
 #==============================================================================
 class GlobalSpan(ArrayNode):
     """
@@ -1279,7 +1354,7 @@ class GlobalThreadStarts(ArrayNode):
 
     def set_index(self, index):
         return GlobalThreadStarts(index)
-
+ 
 #==============================================================================
 class GlobalThreadEnds(ArrayNode):
     """
@@ -1295,6 +1370,54 @@ class GlobalThreadEnds(ArrayNode):
 
     def set_index(self, index):
         return GlobalThreadEnds(index)
+
+#==============================================================================
+class GlobalThreadSizes(ArrayNode):
+    """
+    """
+    _rank = 1
+    def __new__(cls, index=None):
+        # TODO check target
+        return Basic.__new__(cls, index)
+
+    @property
+    def index(self):
+        return self._args[0]
+
+    def set_index(self, index):
+        return GlobalThreadSizes(index)
+
+#==============================================================================
+class LocalThreadStarts(ArrayNode):
+    """
+    """
+    _rank = 1
+    def __new__(cls, index=None):
+        # TODO check target
+        return Basic.__new__(cls, index)
+
+    @property
+    def index(self):
+        return self._args[0]
+
+    def set_index(self, index):
+        return LocalThreadStarts(index)
+
+#==============================================================================
+class LocalThreadEnds(ArrayNode):
+    """
+    """
+    _rank = 1
+    def __new__(cls, index=None):
+        # TODO check target
+        return Basic.__new__(cls, index)
+
+    @property
+    def index(self):
+        return self._args[0]
+
+    def set_index(self, index):
+        return LocalThreadEnds(index)
 #==============================================================================
 class GlobalThreadSpan(ArrayNode):
     """

@@ -24,6 +24,7 @@ from sympde.topology.mapping     import InterfaceMapping
 from sympde.calculus.core        import is_zero
 
 from psydac.pyccel.ast.core import _atomic, Assign, Import, AugAssign, Return
+from psydac.pyccel.ast.core import Comment
 
 from .nodes import GlobalTensorQuadrature
 from .nodes import LocalTensorQuadrature
@@ -34,7 +35,7 @@ from .nodes import LengthDofTrial, LengthDofTest
 from .nodes import LengthOuterDofTest, LengthInnerDofTest
 from .nodes import Reset, ProductGenerator
 from .nodes import BlockStencilMatrixLocalBasis, StencilMatrixLocalBasis
-from .nodes import BlockStencilMatrixGlobalBasis
+from .nodes import BlockStencilMatrixGlobalBasis, BlockScalarLocalBasis
 from .nodes import BlockStencilVectorLocalBasis, StencilVectorLocalBasis
 from .nodes import BlockStencilVectorGlobalBasis
 from .nodes import GlobalElementBasis
@@ -56,12 +57,14 @@ from .nodes import index_dof_test
 from .nodes import index_dof_trial
 from .nodes import index_outer_dof_test
 from .nodes import index_inner_dof_test, thread_id, neighbour_threads
-from .nodes import thread_coords
-from .nodes import TensorIntDiv, TensorAssignExpr
+from .nodes import thread_coords, local_index_element
+from .nodes import TensorIntDiv, TensorAssignExpr, TensorInteger
 from .nodes import TensorAdd, TensorMul, TensorMax
-from .nodes import AddNode, AndNode, StrictLessThanNode, WhileLoop, NotNode
-from .nodes import GlobalThreadStarts, GlobalThreadEnds, NumThreads
-from .nodes import Allocate, Min
+from .nodes import IntDivNode, AddNode, MulNode
+from .nodes import AndNode, StrictLessThanNode, WhileLoop, NotNode
+from .nodes import GlobalThreadStarts, GlobalThreadEnds, GlobalThreadSizes, NumThreads
+from .nodes import LocalThreadStarts, LocalThreadEnds
+from .nodes import Allocate, Min, Array
 
 from psydac.api.ast.utilities import variables
 from psydac.api.utilities     import flatten
@@ -616,6 +619,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     el_length       = LengthElement()
     global_thread_s = GlobalThreadStarts()
     global_thread_e = GlobalThreadEnds()
+    global_thread_l = GlobalThreadSizes()
+    local_thread_s  = LocalThreadStarts()
+    local_thread_e  = LocalThreadEnds()
     lengths         = [el_length, quad_length]
     # ...........................................................................................
     geo        = GeometryExpressions(mapping, nderiv)
@@ -629,10 +635,14 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     else:
         ind_quad      = index_quad.set_range(stop=quad_length)
 
-    starts        = Tuple(*[ProductGenerator(global_thread_s.set_index(i), thread_coords.set_index(i)) for i in range(dim)])
-    ends          = Tuple(*[AddNode(ProductGenerator(global_thread_e.set_index(i), thread_coords.set_index(i)), Integer(1)) for i in range(dim)])
-    ind_element   = index_element.set_range(start=starts,stop=ends) if num_threads>1 else index_element.set_range(stop=el_length)
+    g_starts        = Tuple(*[ProductGenerator(global_thread_s.set_index(i), thread_coords.set_index(i)) for i in range(dim)])
+    g_ends          = Tuple(*[AddNode(ProductGenerator(global_thread_e.set_index(i), thread_coords.set_index(i)), Integer(1)) for i in range(dim)])
+    l_starts        = Tuple(*[ProductGenerator(local_thread_s.set_index(i), local_index_element.set_index(i)) for i in range(dim)])
+    l_ends          = Tuple(*[ProductGenerator(local_thread_e.set_index(i), local_index_element.set_index(i)) for i in range(dim)])
 
+    #ind_element   = index_element.set_range(start=g_starts,stop=g_ends) if num_threads>1 else index_element.set_range(stop=el_length)
+    ind_element   = index_element.set_range(start=l_starts,stop=l_ends) if num_threads>1 else index_element.set_range(stop=el_length)
+    l_ind_element = local_index_element.set_range(stop=TensorInteger(2))
     if mapping_space:
         ind_dof_test  = index_dof_test.set_range(stop=Tuple(*[d+1 for d in list(d_mapping.values())[0]['degrees']]))
         # ...........................................................................................
@@ -694,17 +704,19 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 l_sub_mats  = BlockStencilMatrixLocalBasis(sub_trials, sub_tests, sub_terminal_expr, dim, l_mats.tag,
                                                            tests_degree=tests_degree, trials_degree=trials_degrees,
                                                            tests_multiplicity=m_tests, trials_multiplicity=m_trials)
+                l_sub_scalars =  BlockScalarLocalBasis(trials = sub_trials, tests=sub_tests, expr=sub_terminal_expr, tag=l_mats.tag)
+
                 # Instructions needed to retrieve the precomputed values of the
                 # fields (and their derivatives) at a single quadrature point
                 stmts += flatten([eval_field.inits for eval_field in eval_fields])
             
                 loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
-                loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_mats), loop)
+                loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), loop)
 
                 # ... loop over trials
                 length = Tuple(*[d+1 for d in trials_degrees[sub_trials[0]]])
                 ind_dof_trial = index_dof_trial.set_range(stop=length)
-                loop1  = Loop((), ind_dof_trial, [loop])
+                loop1  = Loop((), ind_dof_trial, [Reset(l_sub_scalars),loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
 
                 # ... loop over tests
                 length = Tuple(*[d+1 for d in tests_degree[sub_tests[0]]])
@@ -714,7 +726,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 loop  = Loop((), ind_dof_test, [loop1])
                 # ...
 
-                body  = (Reset(l_sub_mats), loop)
+                body  = (loop,)
                 stmts = Block(body)
                 g_stmts += [stmts]
 
@@ -750,13 +762,15 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                                                                tests_degree=tests_degree, trials_degree=trials_degrees,
                                                               tests_multiplicity=m_tests, trials_multiplicity=m_trials)
 
+                    l_sub_scalars =  BlockScalarLocalBasis(trials = sub_trials, tests=sub_tests, expr=sub_terminal_expr, tag=l_mats.tag)
+
                     loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
-                    loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_mats), loop)
+                    loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), loop)
 
                     # ... loop over trials
                     length_t = Tuple(*[d+1 for d in trials_degrees[sub_trials[0]]])
                     ind_dof_trial = index_dof_trial.set_range(stop=length_t)
-                    loop  = Loop((), ind_dof_trial, [loop])
+                    loop  = Loop((), ind_dof_trial, [Reset(l_sub_scalars), loop, VectorAssign(ElementOf(l_sub_mats), ElementOf(l_sub_scalars))])
  
                     rem_length = Tuple(*[(d+1)-(d+1)%m for d,m in zip(tests_degree[sub_tests[0]], multiplicity)])
                     ind_inner_dof_test = index_inner_dof_test.set_range(stop=multiplicity)
@@ -768,43 +782,65 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
                     l_stmts += [loop]
 
-                g_stmts += [Reset(l_sub_mats), *l_stmts]
+                g_stmts += [*l_stmts]
+
     #=========================================================end kernel=========================================================
-
-
     if num_threads>1:
-        body = [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), num_threads) for j in range(dim)]), 
-                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
+#        body = [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), num_threads) for j in range(dim)]), 
+#                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
 
+        body          = []
         parallel_body = []
         parallel_body += [Assign(thread_id, Function("omp_get_thread_num")())]
         parallel_body += [VectorAssign(thread_coords, Tuple(*[ProductGenerator(coords_from_rank, Tuple((thread_id, i))) for i in range(dim)]))]
 
         for i in range(dim):
-            parallel_body += [Assign(neighbour_threads.set_index(i), ProductGenerator(rank_from_coords, 
-                     Tuple(tuple(AddNode(thread_coords.set_index(j), Integer(i==j)) for j in range(dim)))))]
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            parallel_body += [Assign(global_thread_l.set_index(i), AddNode(AddNode(thr_e, Integer(1)), MulNode(Integer(-1),thr_s)))]
 
-        for u in thread_span:
-            expr1 = [Span(u, index=i) for i in range(dim)]
-            expr2 = [ProductGenerator(thread_span[u].set_index(i),AddNode(neighbour_threads.set_index(i),Min(Integer(0), thread_id.length))) for i in range(dim)]
-            g_stmts += [WhileLoop(NotNode(AndNode(*[StrictLessThanNode(AddNode(p, e1), e2) for p,e1,e2 in zip(pads, expr1, expr2)])), [Assign(thread_id.length, Min(Integer(100), AddNode(thread_id.length,Integer(1))))])]
-            lhs = [ProductGenerator(thread_span[u].set_index(i), Tuple(thread_id)) for i in range(dim)]
-            rhs = TensorAdd(Tuple(*expr1), Tuple(*[Integer(0)]*dim))
-            g_stmts_texpr += [TensorAssignExpr(Tuple(*lhs), rhs)]
-        # ... loop over global elements
+        for i in range(dim):
+            lhs   = local_thread_s.set_index(i)
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            rhs  = Array(Tuple(thr_s, AddNode(thr_s, IntDivNode(global_thread_l.set_index(i), Integer(2)))))
+            parallel_body += [Assign(lhs, rhs)]
+
+        for i in range(dim):
+            lhs = local_thread_e.set_index(i)
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            rhs = Array(Tuple(AddNode(thr_s, IntDivNode(global_thread_l.set_index(i), Integer(2))), AddNode(thr_e,Integer(1))))
+            parallel_body += [Assign(lhs, rhs)]
+
+
+#        for i in range(dim):
+#            parallel_body += [Assign(neighbour_threads.set_index(i), ProductGenerator(rank_from_coords, 
+#                     Tuple(tuple(AddNode(thread_coords.set_index(j), Integer(i==j)) for j in range(dim)))))]
+
+#        for u in thread_span:
+#            expr1 = [Span(u, index=i) for i in range(dim)]
+#            expr2 = [ProductGenerator(thread_span[u].set_index(i),AddNode(neighbour_threads.set_index(i),Min(Integer(0), thread_id.length))) for i in range(dim)]
+#            g_stmts += [WhileLoop(NotNode(AndNode(*[StrictLessThanNode(AddNode(p, e1), e2) for p,e1,e2 in zip(pads, expr1, expr2)])), [Assign(thread_id.length, Min(Integer(100), AddNode(thread_id.length,Integer(1))))])]
+#            lhs = [ProductGenerator(thread_span[u].set_index(i), Tuple(thread_id)) for i in range(dim)]
+#            rhs = TensorAdd(Tuple(*expr1), Tuple(*[Integer(0)]*dim))
+#            g_stmts_texpr += [TensorAssignExpr(Tuple(*lhs), rhs)]
+
+         #... loop over global elements
         loop  = Loop((g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
                       ind_element, stmts=g_stmts, mask=mask)
 
-
-        parallel_body += [Reduce('+', l_mats, g_mats, loop)]
-        parallel_body += [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), thread_id) for j in range(dim)]), 
-                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
+        loop_reduction = Reduce('+', l_mats, g_mats, loop)
+        loop           = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'), loop_reduction])
+        parallel_body += [loop]
+#        parallel_body += [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), thread_id) for j in range(dim)]), 
+#                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
     else:
         # ... loop over global elements
         loop  = Loop((g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
                       ind_element, stmts=g_stmts, mask=mask)
 
         body = [Reduce('+', l_mats, g_mats, loop)]
+
     # ...
     args = OrderedDict()
     args['tests_basis']  = tuple(d_tests[v]['global'] for v in tests)
@@ -982,7 +1018,6 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     l_vecs  = BlockStencilVectorLocalBasis(tests, pads, terminal_expr, tag)
     g_vecs  = BlockStencilVectorGlobalBasis(tests, pads, m_tests, terminal_expr,l_vecs.tag)
 
-
     g_span          = OrderedDict((v,d_tests[v]['span']) for v in tests)
     f_span          = OrderedDict((f,d_fields[f]['span']) for f in fields)
     if mapping_space:
@@ -997,6 +1032,9 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     el_length   = LengthElement()
     global_thread_s = GlobalThreadStarts()
     global_thread_e = GlobalThreadEnds()
+    global_thread_l = GlobalThreadSizes()
+    local_thread_s  = LocalThreadStarts()
+    local_thread_e  = LocalThreadEnds()
     lengths     = [el_length,quad_length]
 
     if quad_order is not None:
@@ -1004,10 +1042,14 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     else:
         ind_quad      = index_quad.set_range(stop=quad_length)
 
-    starts        = Tuple(*[ProductGenerator(global_thread_s.set_index(i), thread_coords.set_index(i)) for i in range(dim)])
-    ends          = Tuple(*[AddNode(ProductGenerator(global_thread_e.set_index(i), thread_coords.set_index(i)), Integer(1)) for i in range(dim)])
-    ind_element   = index_element.set_range(start=starts,stop=ends) if num_threads>1 else index_element.set_range(stop=el_length)
+    g_starts        = Tuple(*[ProductGenerator(global_thread_s.set_index(i), thread_coords.set_index(i)) for i in range(dim)])
+    g_ends          = Tuple(*[AddNode(ProductGenerator(global_thread_e.set_index(i), thread_coords.set_index(i)), Integer(1)) for i in range(dim)])
+    l_starts        = Tuple(*[ProductGenerator(local_thread_s.set_index(i), local_index_element.set_index(i)) for i in range(dim)])
+    l_ends          = Tuple(*[ProductGenerator(local_thread_e.set_index(i), local_index_element.set_index(i)) for i in range(dim)])
 
+#    ind_element   = index_element.set_range(start=g_starts,stop=g_ends) if num_threads>1 else index_element.set_range(stop=el_length)
+    ind_element   = index_element.set_range(start=l_starts,stop=l_ends) if num_threads>1 else index_element.set_range(stop=el_length)
+    l_ind_element = local_index_element.set_range(stop=TensorInteger(2))
     if mapping_space:
         ind_dof_test  = index_dof_test.set_range(stop=Tuple(*[d+1 for d in list(d_mapping.values())[0]['degrees']]))
         # ...........................................................................................
@@ -1040,6 +1082,8 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         tests_indices     = [ex_tests.index(i) for i in expand(group)]
         sub_terminal_expr = terminal_expr[tests_indices,0]
         l_sub_vecs        = BlockStencilVectorLocalBasis(group, pads, sub_terminal_expr, l_vecs.tag)
+        l_sub_scalars     =  BlockScalarLocalBasis(tests=group, expr=sub_terminal_expr, tag=l_vecs.tag)
+
         q_basis = {v:d_tests[v]['global']  for v in group}
         if is_zero(sub_terminal_expr):
             continue
@@ -1052,14 +1096,14 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         stmts += flatten([eval_field.inits for eval_field in eval_fields])
 
         loop  = Loop((l_quad, *q_basis.values(), geo), ind_quad, stmts=stmts, mask=mask)
-        loop = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_vecs), loop)
+        loop = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), loop)
 
     # ... loop over tests
         length   = lengths_tests[group[0]]
         ind_dof_test = index_dof_test.set_range(stop=length+1)
-        loop  = Loop((), ind_dof_test, [loop])
+        loop  = Loop((), ind_dof_test, [Reset(l_sub_scalars),loop, VectorAssign(ElementOf(l_sub_vecs), ElementOf(l_sub_scalars))])
         # ...
-        body  = (Reset(l_sub_vecs), loop)
+        body  = (loop,)
         stmts = Block(body)
         g_stmts += [stmts]
     # ...
@@ -1075,25 +1119,46 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         parallel_body += [VectorAssign(thread_coords, Tuple(*[ProductGenerator(coords_from_rank, Tuple((thread_id, i))) for i in range(dim)]))]
 
         for i in range(dim):
-            parallel_body += [Assign(neighbour_threads.set_index(i), ProductGenerator(rank_from_coords, 
-                     Tuple(tuple(AddNode(thread_coords.set_index(j), Integer(i==j)) for j in range(dim)))))]
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            parallel_body += [Assign(global_thread_l.set_index(i), AddNode(AddNode(thr_e, Integer(1)), MulNode(Integer(-1),thr_s)))]
 
-        g_stmts_texpr = []
-        for u in thread_span:
-            expr1 = [Span(u, index=i) for i in range(dim)]
-            expr2 = [ProductGenerator(thread_span[u].set_index(i),AddNode(neighbour_threads.set_index(i),Min(Integer(0), thread_id.length))) for i in range(dim)]
-            g_stmts += [WhileLoop(NotNode(AndNode(*[StrictLessThanNode(AddNode(p, e1), e2) for p,e1,e2 in zip(pads, expr1, expr2)])), [Assign(thread_id.length, Min(Integer(100), AddNode(thread_id.length,Integer(1))))])]
-            lhs = [ProductGenerator(thread_span[u].set_index(i), Tuple(thread_id)) for i in range(dim)]
-            rhs = TensorAdd(Tuple(*expr1), Tuple(*[Integer(0)]*dim))
-            g_stmts_texpr += [TensorAssignExpr(Tuple(*lhs), rhs)]
+        for i in range(dim):
+            lhs   = local_thread_s.set_index(i)
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            rhs  = Array(Tuple(thr_s, AddNode(thr_s, IntDivNode(global_thread_l.set_index(i), Integer(2)))))
+            parallel_body += [Assign(lhs, rhs)]
+
+        for i in range(dim):
+            lhs = local_thread_e.set_index(i)
+            thr_s = ProductGenerator(global_thread_s.set_index(i), Tuple(thread_coords.set_index(i)))
+            thr_e = ProductGenerator(global_thread_e.set_index(i), Tuple(thread_coords.set_index(i)))
+            rhs = Array(Tuple(AddNode(thr_s, IntDivNode(global_thread_l.set_index(i), Integer(2))), AddNode(thr_e,Integer(1))))
+            parallel_body += [Assign(lhs, rhs)]
+
+#        for i in range(dim):
+#            parallel_body += [Assign(neighbour_threads.set_index(i), ProductGenerator(rank_from_coords, 
+#                     Tuple(tuple(AddNode(thread_coords.set_index(j), Integer(i==j)) for j in range(dim)))))]
+
+#        g_stmts_texpr = []
+#        for u in thread_span:
+#            expr1 = [Span(u, index=i) for i in range(dim)]
+#            expr2 = [ProductGenerator(thread_span[u].set_index(i),AddNode(neighbour_threads.set_index(i),Min(Integer(0), thread_id.length))) for i in range(dim)]
+#            g_stmts += [WhileLoop(NotNode(AndNode(*[StrictLessThanNode(AddNode(p, e1), e2) for p,e1,e2 in zip(pads, expr1, expr2)])), [Assign(thread_id.length, Min(Integer(100), AddNode(thread_id.length,Integer(1))))])]
+#            lhs = [ProductGenerator(thread_span[u].set_index(i), Tuple(thread_id)) for i in range(dim)]
+#            rhs = TensorAdd(Tuple(*expr1), Tuple(*[Integer(0)]*dim))
+#            g_stmts_texpr += [TensorAssignExpr(Tuple(*lhs), rhs)]
 
         # ... loop over global elements
-        loop  = Loop((g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr), ind_element, stmts=g_stmts, mask=mask)
+        loop  = Loop((g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)
         # ...
 
-        parallel_body += [Reduce('+', l_vecs, g_vecs, loop)]
-        parallel_body += [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), thread_id) for j in range(dim)]), 
-                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
+
+        loop_reduction = Reduce('+', l_vecs, g_vecs, loop)
+        loop           = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'),loop_reduction])
+        parallel_body += [loop]
+#        parallel_body += [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), thread_id) for j in range(dim)]), 
+#                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
     else:
         # ... loop over global elements
         loop  = Loop((g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)

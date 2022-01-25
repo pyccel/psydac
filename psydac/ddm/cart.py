@@ -321,7 +321,7 @@ class CartDecomposition():
 
         assert len(shape) == self._ndims
 
-        nthreads , block_shape = openmp_compute_dims( self._num_threads, shape , [2*p+1 for p in self._pads])
+        nthreads , block_shape = openmp_compute_dims( self._num_threads, shape , [2*p for p in self._pads])
 
         # Know coords of all threads
         coords_from_rank = np.array([np.unravel_index(rank, nthreads) for rank in range(self._num_threads)])
