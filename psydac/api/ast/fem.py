@@ -306,7 +306,6 @@ class AST(object):
         tests_degrees       = ()
         trials_degrees      = ()
         fields_degrees      = ()
-        assert num_threads == 4
 
         # ...
 
