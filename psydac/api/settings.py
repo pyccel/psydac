@@ -23,13 +23,15 @@ PSYDAC_BACKEND_IPYCCEL = {'name':     'pyccel',
                       'compiler': 'ifort' if pyccel_legacy else 'intel',
                       'flags':    '-O3 -fno-tree-pre',
                       'folder': '__ipyccel__',
-                      'tag':'ipyccel'}
+                      'tag':'ipyccel',
+                      'openmp':False}
 
 PSYDAC_BACKEND_PGPYCCEL = {'name':     'pyccel',
                       'compiler': 'pgfortran' if pyccel_legacy else 'PGI',
                       'flags':    '-O3 -fno-tree-pre',
                       'folder': '__pgpyccel__',
-                       'tag':'pgpyccel'}
+                       'tag':'pgpyccel',
+                       'openmp':False}
                       
 PSYDAC_BACKEND_NUMBA = {'name': 'numba','tag':'numba', 'fastmath':True}
 
