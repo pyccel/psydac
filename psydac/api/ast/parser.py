@@ -4,7 +4,7 @@ import numpy as np
 
 from sympy import IndexedBase, Indexed
 from sympy import Mul, Matrix, Expr
-from sympy import Add, And, StrictLessThan
+from sympy import Add, And, StrictLessThan, Eq
 from sympy import Abs, Not, floor
 from sympy import Symbol, Idx
 from sympy import Range
@@ -16,7 +16,7 @@ from sympy.core.containers import Tuple
 from psydac.pyccel.ast.core      import Assign, Product, AugAssign, For
 from psydac.pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
 from psydac.pyccel.ast.core      import Slice, String, ValuedArgument
-from psydac.pyccel.ast.core      import EmptyNode, Import, While, Return
+from psydac.pyccel.ast.core      import EmptyNode, Import, While, Return, If
 from psydac.pyccel.ast.core      import CodeBlock, FunctionDef, Comment
 
 
@@ -344,6 +344,9 @@ class Parser(object):
 
     def _visit_NotNode(self, expr, **kwargs):
         return Not(self._visit(expr.args[0]))
+
+    def _visit_EqNode(self, expr, **kwargs):
+        return Eq(self._visit(expr.args[0]), self._visit(expr.args[1]))
 
     # ....................................................
     def _visit_StrictLessThanNode(self, expr, **kwargs):
@@ -1808,6 +1811,14 @@ class Parser(object):
         cond = self._visit(expr.condition)
         body = [self._visit(a) for a in expr.body]
         return While(cond, body)
+
+    def _visit_IfNode(self, expr, **kwargs):
+        args = []
+        for a in expr.args:
+            cond = self._visit(a[0])
+            body = [self._visit(i) for i in a[1]]
+            args += [(cond, body)]
+        return If(*args)
     # ....................................................
     def _visit_Loop(self, expr, **kwargs):
         # we first create iteration statements
@@ -1871,7 +1882,7 @@ class Parser(object):
                     indices[axis] = None
                     starts [axis] = None
                     stops  [axis] = None
-                    mask_init += list(inits[axis])
+                    mask_init    += list(inits[axis])
                     inits[axis]   = None
             indices = [i for i in indices if i is not None]
             starts  = [i for i in starts  if i is not None]
@@ -1958,6 +1969,9 @@ class Parser(object):
     # ....................................................
     # TODO to be removed. usefull for testing
     def _visit_Pass(self, expr, **kwargs):
+        return expr
+
+    def _visit_Continue(self, expr, **kwargs):
         return expr
 
     def _visit_EmptyNode(self ,expr, **kwargs):

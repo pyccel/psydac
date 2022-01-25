@@ -204,6 +204,9 @@ class AndNode(Expression):
 class NotNode(Expression):
     pass
 
+class EqNode(Expression):
+    pass
+
 class StrictLessThanNode(Expression):
     pass
 #==============================================================================
@@ -1758,6 +1761,17 @@ class GeometryExpr(Basic):
     def expr(self):
         return self._args[1]
 
+#==============================================================================
+class IfNode(BaseNode):
+    def __new__(cls, *args):
+        args = tuple(args)
+        return Basic.__new__(cls, args)
+
+    @property
+    def args(self):
+        return self._args[0]
+
+#==============================================================================
 class WhileLoop(BaseNode):
     def __new__(cls, condition, body):
         body = tuple(body)

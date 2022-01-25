@@ -4,7 +4,7 @@ import numpy as np
 from itertools   import groupby, product
 
 from sympy import Basic, S, Function, Integer, StrictLessThan
-from sympy import Matrix, ImmutableDenseMatrix, Float
+from sympy import Matrix, ImmutableDenseMatrix, Float, true
 from sympy.core.containers import Tuple
 
 from sympde.expr                 import LinearForm
@@ -23,7 +23,7 @@ from sympde.topology.mapping     import InterfaceMapping
 from sympde.calculus.core        import is_zero
 
 from psydac.pyccel.ast.core import _atomic, Assign, Import, AugAssign, Return
-from psydac.pyccel.ast.core import Comment
+from psydac.pyccel.ast.core import Comment, Continue
 
 from .nodes import GlobalTensorQuadrature
 from .nodes import LocalTensorQuadrature
@@ -60,7 +60,7 @@ from .nodes import thread_coords, local_index_element
 from .nodes import TensorIntDiv, TensorAssignExpr, TensorInteger
 from .nodes import TensorAdd, TensorMul, TensorMax
 from .nodes import IntDivNode, AddNode, MulNode
-from .nodes import AndNode, StrictLessThanNode, WhileLoop, NotNode
+from .nodes import AndNode, StrictLessThanNode, WhileLoop, NotNode, EqNode, IfNode
 from .nodes import GlobalThreadStarts, GlobalThreadEnds, GlobalThreadSizes, NumThreads
 from .nodes import LocalThreadStarts, LocalThreadEnds
 from .nodes import Allocate, Min, Array
@@ -306,6 +306,7 @@ class AST(object):
         tests_degrees       = ()
         trials_degrees      = ()
         fields_degrees      = ()
+        assert num_threads == 4
 
         # ...
 
@@ -829,7 +830,12 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                       ind_element, stmts=g_stmts, mask=mask)
 
         loop_reduction = Reduce('+', l_mats, g_mats, loop)
-        loop           = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'), loop_reduction])
+        loop           = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'), loop_reduction], mask=mask)
+
+        if mask is not None:
+            empty_loop = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'), Continue()], mask=mask)
+            loop = IfNode((EqNode(thread_coords.set_index(mask.axis), Integer(0)),[loop]),(true, [empty_loop]))
+
         parallel_body += [loop]
 #        parallel_body += [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), thread_id) for j in range(dim)]), 
 #                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
@@ -913,7 +919,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
         shared = (*thread_span.values(), coords_from_rank, rank_from_coords, global_thread_s, global_thread_e,
                   *args['tests_basis'], *args['trial_basis'], *args['spans'], args['quads'], g_mats)
         if mapping_space:
-            shared = shared + (*eval_mapping.coeffs,  *list(d_mapping.values())[0]['global'], *list(d_mapping.values())[0]['span'])
+            shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
         if fields:
             shared = shared + (*f_span.values(), *args['f_coeffs'], *args['field_basis'])
 
@@ -1157,7 +1163,11 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
 
         loop_reduction = Reduce('+', l_vecs, g_vecs, loop)
-        loop           = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'),loop_reduction])
+        loop           = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'),loop_reduction], mask=mask)
+        if mask is not None:
+            empty_loop = Loop((), l_ind_element, stmts=[Comment('#$omp barrier'), Continue()], mask=mask)
+            loop = IfNode((EqNode(thread_coords.set_index(mask.axis), Integer(0)),[loop]),(true, [empty_loop]))
+
         parallel_body += [loop]
 #        parallel_body += [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), thread_id) for j in range(dim)]), 
 #                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
@@ -1226,7 +1236,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         shared = (*thread_span.values(), coords_from_rank, rank_from_coords, global_thread_s, global_thread_e,
                   *args['tests_basis'], *args['spans'], args['quads'], g_vecs)
         if mapping_space:
-            shared = shared + (*eval_mapping.coeffs,  *list(d_mapping.values())[0]['global'], *list(d_mapping.values())[0]['span'])
+            shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
         if fields:
             shared = shared + (*f_span.values(), *args['f_coeffs'], *args['field_basis'])
         
@@ -1405,7 +1415,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     if num_threads>1:
         shared = (*args['tests_basis'], *args['spans'], args['quads'], *args['f_coeffs'], g_vec)
         if mapping_space:
-            shared = shared + (*eval_mapping.coeffs,  *list(d_mapping.values())[0]['global'], *list(d_mapping.values())[0]['span'])
+            shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
 
         firstprivate = (*args['tests_degrees'].values(), *lengths, *args['global_pads'])
 
