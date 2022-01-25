@@ -1038,7 +1038,7 @@ class DiscreteSumForm(BasicDiscrete):
         return self._is_functional
 
     def assemble(self, *, reset=True, **kwargs):
-        if self.is_functional:
+        if not self.is_functional:
             M = self.forms[0].assemble(reset=reset, **kwargs)
             for form in self.forms[1:]:
                 M = form.assemble(reset=False, **kwargs)
