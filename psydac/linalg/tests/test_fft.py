@@ -67,16 +67,15 @@ def method_test(seed, comm, config, dtype, classtype, comparison, verbose=False)
     if verbose:
         print(f'[{rank}] Vector built', flush=True)
 
-    with scifft.set_workers(1):
-        X_glob = comparison(Y_glob)
+    X_glob = comparison(Y_glob)
 
-        compare = classtype(V)
-        X = compare.dot(Y)
+    compare = classtype(V)
+    X = compare.dot(Y)
 
-        if verbose:
-            print(f'[{rank}] Functions have been run', flush=True)
+    if verbose:
+        print(f'[{rank}] Functions have been run', flush=True)
 
-        assert np.allclose(X_glob[localslice], X[localslice], 1e-10, 1e-10)
+    assert np.allclose(X_glob[localslice], X[localslice], 1e-10, 1e-10)
 
 @pytest.mark.parametrize( 'seed', [0, 2] )
 @pytest.mark.parametrize( 'params', [([8], [2], [False]), ([8,9], [2,3], [False,True]), ([8,9,17], [2,3,7], [False,True,False])] )

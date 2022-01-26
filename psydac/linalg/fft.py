@@ -135,6 +135,7 @@ class DistributedIFFT(DistributedFFTBase):
         # only allow complex data types
         assert isinstance(space, StencilVectorSpace)
         assert np.dtype(space.dtype).kind == 'c'
+        workers = int(workers) if workers is not None else None
         
         super().__init__(space, lambda out: scifft.ifft(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm))

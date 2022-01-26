@@ -23,7 +23,6 @@ from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 comm = MPI.COMM_WORLD
 PSYDAC_BACKEND_GPYCCEL = PSYDAC_BACKEND_GPYCCEL.copy()
 PSYDAC_BACKEND_GPYCCEL['openmp'] = True
-os.environ['OMP_NUM_THREADS']    = "2"
 
 #==============================================================================
 try:
@@ -60,6 +59,7 @@ def run_poisson_2d_with_mapping(filename, solution, f, dir_zero_boundary,
     assert isinstance(dir_nonzero_boundary, (list, tuple))
     assert isinstance(    neumann_boundary, (list, tuple))
 
+    os.environ['OMP_NUM_THREADS']    = "2"
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
     #+++++++++++++++++++++++++++++++
@@ -127,6 +127,7 @@ def run_poisson_2d_with_mapping(filename, solution, f, dir_zero_boundary,
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
     
+    del os.environ['OMP_NUM_THREADS']
     return l2_error, h1_error
 
 #==============================================================================
@@ -136,6 +137,7 @@ def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary,
     assert isinstance(dir_zero_boundary   , (list, tuple))
     assert isinstance(dir_nonzero_boundary, (list, tuple))
 
+    os.environ['OMP_NUM_THREADS']    = "2"
     #+++++++++++++++++++++++++++++++
     # 1. Abstract model
     #+++++++++++++++++++++++++++++++
@@ -203,6 +205,7 @@ def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary,
     l2_error = l2norm_h.assemble(u=uh)
     h1_error = h1norm_h.assemble(u=uh)
 
+    del os.environ['OMP_NUM_THREADS']
     return l2_error, h1_error
 
 ###############################################################################
@@ -385,5 +388,3 @@ def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
 
-def delete_env():
-    del os.environ['OMP_NUM_THREADS']
