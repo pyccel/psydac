@@ -20,9 +20,10 @@ from sympde.expr     import find, EssentialBC
 from psydac.api.discretization import discretize
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
-comm = MPI.COMM_WORLD
+#comm = MPI.COMM_WORLD
+PSYDAC_BACKEND_GPYCCEL = PSYDAC_BACKEND_GPYCCEL.copy()
 PSYDAC_BACKEND_GPYCCEL['openmp'] = True
-os.environ['OMP_NUM_THREADS']    = '2'
+os.environ['OMP_NUM_THREADS']    = "2"
 
 #==============================================================================
 try:
@@ -383,3 +384,6 @@ def teardown_module():
 def teardown_function():
     from sympy.core import cache
     cache.clear_cache()
+
+def delete_env():
+    del os.environ['OMP_NUM_THREADS']
