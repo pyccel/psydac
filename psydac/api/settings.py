@@ -14,7 +14,7 @@ PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python', 'openmp':False}
 
 PSYDAC_BACKEND_GPYCCEL = {'name':     'pyccel',
                       'compiler': 'gfortran' if pyccel_legacy else 'GNU',
-                      'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math',
+                      'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math -ffree-line-length-none',
                       'folder': '__gpyccel__',
                       'tag':'gpyccel',
                       'openmp':False}
