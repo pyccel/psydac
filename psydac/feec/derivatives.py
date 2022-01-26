@@ -255,7 +255,7 @@ class DirectionalDerivativeOperator(Matrix):
     def toarray_nopads(self):
         """
         Transforms this operator into a dense matrix.
-        Does not include padding. Does only work is the domain is not parallel.
+        Does not include padding. Does only work if the domain is not parallel.
 
         Returns
         -------
@@ -274,12 +274,12 @@ class DirectionalDerivativeOperator(Matrix):
         out : COOMatrix
             The resulting matrix.
         """
-        return self._tosparse(True)
+        return self._tosparse(False)
     
     def tosparse_nopads(self):
         """
         Transforms this operator into a sparse matrix in COO format.
-        Does not include padding. Does only work is the domain is not parallel.
+        Does not include padding. Does only work if the domain is not parallel.
 
         Returns
         -------
@@ -307,7 +307,7 @@ class DirectionalDerivativeOperator(Matrix):
         # again, we do the transposition later
 
         # avoid this case (no pads, but parallel)
-        assert not (self.domain.parallel and not with_pads)
+        #assert not (self.domain.parallel and not with_pads)
 
         # begin with a 1×1 matrix
         matrix = spa.identity(1, format='coo')

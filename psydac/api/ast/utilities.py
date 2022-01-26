@@ -956,7 +956,7 @@ def math_atoms_as_str(expr, lib='math'):
 
         # Search for square roots
         elif (not sqrt):
-            if isinstance(i, Pow) and (i.exp is S.Half):
+            if isinstance(i, Pow) and ((i.exp is S.Half) or (i.exp == -S.Half)):
                 math_functions.add('sqrt')
                 sqrt = True
 

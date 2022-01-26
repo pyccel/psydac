@@ -5,6 +5,10 @@
 from mpi4py import MPI
 
 import numpy as np
+
+from scipy.sparse import kron, block_diag
+from scipy.sparse.linalg import inv
+
 from sympde.topology  import Boundary, Interface, Union
 from sympde.topology  import element_of, elements_of
 from sympde.calculus  import grad, dot, inner, rot, div
@@ -12,6 +16,8 @@ from sympde.calculus  import laplace, bracket, convect
 from sympde.calculus  import jump, avg, Dn, minus, plus
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
+
+from psydac.core.bsplines         import collocation_matrix, histopolation_matrix
 
 from psydac.api.discretization       import discretize
 from psydac.api.essential_bc         import apply_essential_bc_stencil
@@ -26,19 +32,17 @@ from psydac.feec.global_projectors               import Projector_H1, Projector_
 from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_2D
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
-DEBUG_BCK = False   ## DEBUG
-# DEBUG_BCK = True   ## DEBUG
-
-if DEBUG_BCK:
-    print("psydac/feec/multipatch/operators.py [DEBUG_BCK]: WITH numba backends")
-else:
-    print("psydac/feec/multipatch/operators.py [DEBUG_BCK]: WITHOUT numba backends")
-
 import time
-def time_count(t_stamp=None):
+def time_count(t_stamp=None, msg=None):
     new_t_stamp = time.time()
+    if msg is None:
+        msg = ''
+    else:
+        msg = '['+msg+']'
     if t_stamp:
-        print('time elapsed: ', new_t_stamp - t_stamp)
+        print('time elapsed '+msg+': '+repr(new_t_stamp - t_stamp))
+    elif len(msg) > 0:
+        print('time stamp set for '+msg)
     return new_t_stamp
 
 def get_patch_index_from_face(domain, face):
@@ -168,7 +172,7 @@ def allocate_matrix(corners, test_space, trial_space):
     return mat
 
 #===============================================================================
-class ConformingProjection_V0( FemLinearOperator ):
+class ConformingProjection_V0( FemLinearOperator):
     """
     Conforming projection from global broken space to conforming global space
     Defined by averaging of interface dofs
@@ -176,7 +180,7 @@ class ConformingProjection_V0( FemLinearOperator ):
     # todo (MCP, 16.03.2021):
     #   - avoid discretizing a bilinear form
     #   - allow case without interfaces (single or multipatch)
-    def __init__(self, V0h, domain_h, hom_bc=False):
+    def __init__(self, V0h, domain_h, hom_bc=False, backend_language='python'):
 
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
@@ -191,14 +195,12 @@ class ConformingProjection_V0( FemLinearOperator ):
         expr_I = ( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
+        print('[[ forcing python backend for ConformingProjection_V0]] ')
+        backend_language = 'python'
+        ah = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS[backend_language])
 
-        if DEBUG_BCK:
-            ah = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS['numba'])
-        else:
-            ah = discretize(a, domain_h, [V0h, V0h])
-
-
-        self._A = ah.assemble()
+        # self._A = ah.assemble()
+        self._A = ah.forms[0]._matrix
 
         spaces = self._A.domain.spaces
 
@@ -368,28 +370,30 @@ class ConformingProjection_V1( FemLinearOperator ):
     #   - extend to several interfaces
     #   - avoid discretizing a bilinear form
     #   - allow case without interfaces (single or multipatch)
-    def __init__(self, V1h, domain_h, hom_bc=False):
+    def __init__(self, V1h, domain_h, hom_bc=False, backend_language='python'):
 
         FemLinearOperator.__init__(self, fem_domain=V1h)
 
         V1             = V1h.symbolic_space
+
         domain         = V1.domain
         self.symbolic_domain  = domain
-
+        #
         u, v = elements_of(V1, names='u, v')
         expr   = dot(u,v)
-
+        #
         Interfaces      = domain.interfaces  # note: interfaces does not include the boundary
         expr_I = dot( plus(u)-minus(u) , plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
-
-        if DEBUG_BCK:
-            ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS['numba'])
-        else:
-            ah = discretize(a, domain_h, [V1h, V1h])
-
-        self._A = ah.assemble()
+        print('[[ forcing python backend for ConformingProjection_V1]] ')
+        backend_language = 'python'
+        ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend_language])
+        #
+        # # self._A = ah.assemble()
+        self._A = ah.forms[0]._matrix
+        # C1 = V1h.vector_space
+        # self._A = BlockMatrix(C1, C1)
 
         for b1 in self._A.blocks:
             for b2 in b1:
@@ -526,6 +530,182 @@ class ConformingProjection_V1( FemLinearOperator ):
             if self._A[i,j] is None:continue
             apply_essential_bc_stencil(self._A[i,j][1-axis,1-axis], axis=axis, ext=ext, order=0)
 
+
+#===============================================================================
+def get_K0_and_K0_inv(V0h, uniform_patches=False):
+    """
+    compute the change of basis matrices K0 and K0^{-1} in V0h, with
+        K0_ij = sigma^0_i(B_j) = B_jx(n_ix) * B_jy(n_iy)
+    where sigma_i is the geometric (interpolation) dof
+    and B_j is the tensor-product B-spline
+    """
+    if uniform_patches:
+        print(' [[WARNING -- hack in get_K0_and_K0_inv: using copies of 1st-patch matrices in every patch ]] ')
+
+    V0 = V0h.symbolic_space   # VOh is ProductFemSpace
+    domain = V0.domain
+    K0_blocks = []
+    K0_inv_blocks = []
+    for k, D in enumerate(domain.interior):
+        if uniform_patches and k > 0:
+            K0_k = K0_blocks[0].copy()
+            K0_inv_k = K0_inv_blocks[0].copy()
+
+        else:
+            V0_k = V0h.spaces[k]  # fem space on patch k: (TensorFemSpace)
+            K0_k_factors = [None,None]
+            for d in [0,1]:
+                V0_kd = V0_k.spaces[d]   # 1d fem space alond dim d (SplineSpace)
+                K0_k_factors[d] = collocation_matrix(
+                    knots    = V0_kd.knots,
+                    degree   = V0_kd.degree,
+                    periodic = V0_kd.periodic,
+                    normalization = V0_kd.basis,
+                    xgrid    = V0_kd.greville
+                )
+            K0_k = kron(*K0_k_factors)
+            K0_k.eliminate_zeros()
+            K0_inv_k = inv(K0_k.tocsc())
+            K0_inv_k.eliminate_zeros()
+
+        K0_blocks.append(K0_k)
+        K0_inv_blocks.append(K0_inv_k)
+    K0 = block_diag(K0_blocks)
+    K0_inv = block_diag(K0_inv_blocks)
+    return K0, K0_inv
+
+
+#===============================================================================
+def get_K1_and_K1_inv(V1h, uniform_patches=False):
+    """
+    compute the change of basis matrices K1 and K1^{-1} in Hcurl space V1h, with
+        K1_ij = sigma^1_i(B_j)
+            = int_{e_ix}(M_jx) * B_jy(n_iy)   if i = horizontal edge [e_ix, n_iy] and j = (M_jx o B_jy)  x-oriented MoB spline
+            or
+            = B_jx(n_ix) * int_{e_iy}(M_jy)   if i = vertical edge [n_ix, e_iy]  and  j = (B_jx o M_jy)  y-oriented BoM spline
+        (above, 'o' denotes tensor-product for functions)
+    """
+    if uniform_patches:
+        print(' [[WARNING -- hack in get_K1_and_K1_inv: using copies of 1st-patch matrices in every patch ]] ')
+
+    V1 = V1h.symbolic_space   # V1h is ProductFemSpace
+    domain = V1.domain
+    K1_blocks = []
+    K1_inv_blocks = []
+    for k, D in enumerate(domain.interior):
+        if uniform_patches and k > 0:
+            K1_k = K1_blocks[0].copy()
+            K1_inv_k = K1_inv_blocks[0].copy()
+
+        else:
+            V1_k = V1h.spaces[k]  # fem space on patch k: (ProductFemSpace (of TensorFemSpace (s))
+            K1_k_blocks = []
+            for c in [0,1]:    # dim of component
+                V1_kc = V1_k.spaces[c]   # fem space for comp. dc (TensorFemSpace)
+                K1_kc_factors = [None,None]
+                for d in [0,1]:    # dim of variable
+                    V1_kcd = V1_kc.spaces[d]   # 1d fem space for comp c alond dim d (SplineSpace)
+                    if c == d:
+                        K1_kc_factors[d] = histopolation_matrix(
+                            knots    = V1_kcd.knots,
+                            degree   = V1_kcd.degree,
+                            periodic = V1_kcd.periodic,
+                            normalization = V1_kcd.basis,
+                            xgrid    = V1_kcd.ext_greville
+                        )
+                    else:
+                        K1_kc_factors[d] = collocation_matrix(
+                            knots    = V1_kcd.knots,
+                            degree   = V1_kcd.degree,
+                            periodic = V1_kcd.periodic,
+                            normalization = V1_kcd.basis,
+                            xgrid    = V1_kcd.greville
+                        )
+                K1_kc = kron(*K1_kc_factors)
+                K1_kc.eliminate_zeros()
+                K1_k_blocks.append(K1_kc)
+            K1_k = block_diag(K1_k_blocks)
+            K1_k.eliminate_zeros()
+            K1_inv_k = inv(K1_k.tocsc())
+            K1_inv_k.eliminate_zeros()
+
+        K1_blocks.append(K1_k)
+        K1_inv_blocks.append(K1_inv_k)
+
+    K1 = block_diag(K1_blocks)
+    K1_inv = block_diag(K1_inv_blocks)
+    return K1, K1_inv
+
+
+#===============================================================================
+def get_M_and_M_inv(Vh, subdomains_h, is_scalar, backend_language='python'):
+    """
+    compute the mass matrix M and M^{-1} in multipatch space Vh
+    DOES NOT WORK -- SHOULD WE HAVE THE POSSIBILITY OF DOING THAT ?
+    """
+    from pprint import pprint
+
+    V = Vh.symbolic_space   # VOh is ProductFemSpace
+    domain = V.domain
+    M_blocks = []
+    M_inv_blocks = []
+
+    # print('type(domain_h) = ', type(domain_h))
+    #
+    # print('type(domain_h._patches) = ', type(domain_h._patches))
+    # print('len(domain_h._patches) = ', len(domain_h._patches))
+    #
+    # mappings = domain_h.mappings
+    # print('type(mappings) = ', type(mappings))
+    # print('len(mappings) = ', len(mappings))
+    #
+    # mappings_list = list(mappings.values())
+    # print('len(mappings_list) = ', len(mappings_list))
+    #
+    # print('type(mappings_list[0]) = ', type(mappings_list[0]))
+
+    for k, Dh_k in enumerate(subdomains_h):
+
+        print('k = ', k)
+        print('type(Dh_k) = ', type(Dh_k))
+        # print('Dh = ', Dh)
+        D_k = domain.interior[k]
+
+    # exit()
+
+    # for k, D in enumerate(domain.interior):
+
+        V_k = V.spaces[k]
+        Vh_k = Vh.spaces[k]
+
+        # print(type(domain_h))
+        #
+        # pprint(dir(domain_h))
+        #
+        #
+        # print(len(domain_h._patches))
+        # exit()
+        # Dh_k = domain_h.spaces[k]  # fem space on patch k: (TensorFemSpace)
+        u, v = elements_of(V_k, names='u, v')
+        if is_scalar:
+            expr   = u*v
+        else:
+            expr   = dot(u,v)
+        a_k = BilinearForm((u,v), integral(D_k, expr))
+        a_kh = discretize(a_k, Dh_k, [Vh_k, Vh_k], backend=PSYDAC_BACKENDS[backend_language])   # 'pyccel-gcc'])
+
+        M_k = a_kh.assemble().toarray()
+        M_k.eliminate_zeros()
+        M_inv_k = inv(M_k.tocsc())
+        M_inv_k.eliminate_zeros()
+
+        M_blocks.append(M_k)
+        M_inv_blocks.append(M_inv_k)
+    M = block_diag(M_blocks)
+    M_inv = block_diag(M_inv_blocks)
+    return M, M_inv
+
+
 #===============================================================================
 class BrokenMass( FemLinearOperator ):
     """
@@ -534,7 +714,7 @@ class BrokenMass( FemLinearOperator ):
     # TODO: (MCP 16.03.2021) define also the inverse Hodge
 
     """
-    def __init__( self, Vh, domain_h, is_scalar):
+    def __init__( self, Vh, domain_h, is_scalar, backend_language='python'):
 
         FemLinearOperator.__init__(self, fem_domain=Vh)
 
@@ -547,13 +727,28 @@ class BrokenMass( FemLinearOperator ):
         else:
             expr   = dot(u,v)
         a = BilinearForm((u,v), integral(domain, expr))
-        if DEBUG_BCK:
-            ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['numba'])   # 'pyccel-gcc'])
-        else:
-        # print("-- no numba in BrokenMass --")
-            ah = discretize(a, domain_h, [Vh, Vh])   # 'pyccel-gcc'])
+        ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])   # 'pyccel-gcc'])
 
         self._matrix = ah.assemble() #.toarray()
+
+    def get_sparse_inverse_matrix(self):
+        # warning: may not work with vector-valued spaces (to be checked)
+
+        M = self._matrix
+        nrows = M.n_block_rows
+        ncols = M.n_block_cols
+
+        inv_M_blocks = []
+        for i in range(nrows):
+            Mii = M[i,i].tosparse()
+            inv_Mii = inv(Mii.tocsc())
+            inv_Mii.eliminate_zeros()
+            inv_M_blocks.append(inv_Mii)
+
+        inv_M = block_diag(inv_M_blocks)
+        return inv_M
+
+    ## todo: assemble the block-diagonal inverse mass matrix from this one
 
 
 
@@ -626,7 +821,7 @@ class BrokenTransposedScalarCurl_2D( FemLinearOperator ):
 from sympy import Tuple
 
 # def multipatch_Moments_Hcurl(f, V1h, domain_h):
-def ortho_proj_Hcurl(EE, V1h, domain_h, M1):
+def ortho_proj_Hcurl(EE, V1h, domain_h, M1, backend_language='python'):
     """
     return orthogonal projection of E on V1h, given M1 the mass matrix
     """
@@ -634,10 +829,7 @@ def ortho_proj_Hcurl(EE, V1h, domain_h, M1):
     V1 = V1h.symbolic_space
     v = element_of(V1, name='v')
     l = LinearForm(v, integral(V1.domain, dot(v,EE)))
-    if DEBUG_BCK:
-        lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS['numba'])
-    else:
-        lh = discretize(l, domain_h, V1h)
+    lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
     b = lh.assemble()
     sol_coeffs, info = pcg(M1.mat(), b, pc="jacobi", tol=1e-10)
 

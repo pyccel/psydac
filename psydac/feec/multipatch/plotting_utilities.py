@@ -187,6 +187,8 @@ def my_small_plot(
         surface_plot=False,
         cmap='viridis',
         save_fig=None,
+        save_vals = False,
+        hide_plot=False,
         dpi='figure',
         show_xylabel=True,
 ):
@@ -204,6 +206,9 @@ def my_small_plot(
     n_patches = len(xx)
     assert n_patches == len(yy)
 
+    if save_vals:
+        np.savez('vals', xx=xx, yy=yy, vals=vals)
+        
     fig = plt.figure(figsize=(2.6+4.8*n_plots, 4.8))
     fig.suptitle(title, fontsize=14)
 
@@ -228,7 +233,8 @@ def my_small_plot(
     if save_fig:
         print('saving contour plot in file '+save_fig)
         plt.savefig(save_fig, bbox_inches='tight',dpi=dpi)
-    else:
+
+    if not hide_plot:
         plt.show()
 
     if surface_plot:
@@ -265,8 +271,9 @@ def my_small_plot(
 def my_small_streamplot(
         title, vals_x, vals_y,
         xx, yy, skip=2,
-        amplification=1,
+        amp_factor=1,
         save_fig=None,
+        hide_plot=False,
         dpi='figure',
 ):
     """
@@ -281,13 +288,17 @@ def my_small_streamplot(
     delta = 0.25
     # x = y = np.arange(-3.0, 3.01, delta)
     # X, Y = np.meshgrid(x, y)
+    max_val = max(np.max(vals_x), np.max(vals_y))
+    #print('max_val = {}'.format(max_val))
+    vf_amp = amp_factor/max_val
     for k in range(n_patches):
         plt.quiver(xx[k][::skip, ::skip], yy[k][::skip, ::skip], vals_x[k][::skip, ::skip], vals_y[k][::skip, ::skip],
-                   scale=1/(amplification*0.05), width=0.002) # width=) units='width', pivot='mid',
+                   scale=1/(vf_amp*0.05), width=0.002) # width=) units='width', pivot='mid',
 
     if save_fig:
         print('saving vector field (stream) plot in file '+save_fig)
         plt.savefig(save_fig, bbox_inches='tight', dpi=dpi)
-    else:
+
+    if not hide_plot:
         plt.show()
 

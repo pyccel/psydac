@@ -28,6 +28,7 @@ from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import LinearOperator, eigsh, minres, gmres
 
 from scipy.sparse.linalg import inv
+from scipy.linalg        import eig
 from scipy.sparse import save_npz, load_npz
 
 # from scikits.umfpack import splu    # import error
@@ -58,21 +59,33 @@ comm = MPI.COMM_WORLD
 
 # ---------------------------------------------------------------------------------------------------------------
 # small utility for saving/loading sparse matrices, plots...
-def get_fem_name(domain_name=None,n_patches=None,nc=None,deg=None):
+def get_fem_name(nitsche_method=None, k=None, domain_name=None,n_patches=None,nc=None,deg=None):
     assert domain_name and nc and deg
+    assert nitsche_method is not None
+    if nitsche_method:
+        if k==1:
+            method = 'nitsche_SIP'
+        elif k==-1:
+            method = 'nitsche_NIP'
+        elif k==0:
+            method = 'nitsche_IIP'
+        else:
+            raise NotImplementedError
+    else:
+        method = 'conga'
     if n_patches:
         np_suffix = '_'+repr(n_patches)
     else:
         np_suffix = ''
-    return domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
+    return domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'_'+method
 
-def get_load_dir(domain_name=None,n_patches=None,nc=None,deg=None,data='matrices'):
+def get_load_dir(nitsche_method=False, k=None, domain_name=None,n_patches=None,nc=None,deg=None,data='matrices'):
     assert data in ['matrices','solutions']
-    fem_name = get_fem_name(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)
+    fem_name = get_fem_name(nitsche_method=nitsche_method, k=k, domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)
     return './saved_'+data+'/'+fem_name+'/'
 
-
-def run_nitsche_maxwell_2d(gamma, domain, ncells, degree):
+# ---------------------------------------------------------------------------------------------------------------
+def run_nitsche_maxwell_2d(gamma, domain, ncells, degree, kappa=None, k=None):
 
     from psydac.api.discretization import discretize
     #+++++++++++++++++++++++++++++++
@@ -84,27 +97,33 @@ def run_nitsche_maxwell_2d(gamma, domain, ncells, degree):
     u, v, F  = elements_of(V, names='u, v, F')
     nn  = NormalVector('nn')
 
-    kappa        = 10**3
-    penalization = 10**10
-
     I        = domain.interfaces
     boundary = domain.boundary
 
-    # Bilinear form a: V x V --> R
-    expr_I  =  curl(minus(u))*cross(minus(v),nn) - curl(minus(u))*cross(plus(v),nn) \
-              +curl(minus(v))*cross(minus(u),nn) - curl(minus(v))*cross(plus(u),nn) \
-              \
-             -kappa*cross(plus(u),nn) *cross(minus(v),nn)  - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
-             + kappa*cross(minus(u),nn)*cross(minus(v),nn) + kappa*cross(plus(u),nn) *cross(plus(v),nn)
+    kappa   = 10**3 if kappa is None else kappa*ncells[0]
+    k       = 1     if k     is None else k
 
-#    expr_I  =-kappa*cross(plus(u),nn) *cross(minus(v),nn) - kappa*cross(plus(v),nn) * cross(minus(u),nn)\
-#            + kappa*cross(minus(u),nn)*cross(minus(v),nn) + kappa*cross(plus(u),nn) *cross(plus(v),nn)
+    jump = lambda w:plus(w)-minus(w)
+    avr  = lambda w:(curl(plus(w)) + curl(minus(w)))/2
+
+#    # Bilinear form a: V x V --> R
 
     expr   = curl(u)*curl(v) + gamma*dot(u,v)
-    expr_b = penalization * cross(u, nn) * cross(v, nn)
+
+#    expr_I  = kappa*cross(nn, jump(u))*cross(nn, jump(v))
+#    expr_b =  kappa*cross(nn, u)*cross(nn, v)
+
+#    expr_I  = cross(nn, jump(v))*curl(minus(u))\
+#              +k*cross(nn, jump(u))*curl(minus(v))\
+#              +kappa*cross(jump(u), nn)*cross(jump(v), nn)
+
+    expr_I  =   cross(nn, jump(v))*avr(u)\
+               +k*cross(nn, jump(u))*avr(v)\
+               +kappa*cross(nn, jump(u))*cross(nn, jump(v))
+
+    expr_b = -cross(nn, v) * curl(u) -k*cross(nn, u)*curl(v)  + kappa*cross(nn, u)*cross(nn, v)
 
     a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(boundary, expr_b))
-    m = BilinearForm((u,v),  integral(domain, curl(u)*curl(v)))
 
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
@@ -113,14 +132,13 @@ def run_nitsche_maxwell_2d(gamma, domain, ncells, degree):
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     Vh       = discretize(V, domain_h, degree=degree,basis='M')
 
-    a_h = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['numba'])
-    m_h = discretize(m, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS['numba'])
+    a_h = discretize(a, domain_h, [Vh, Vh])
 
     A = a_h.assemble()
-    M = m_h.assemble()
-    return A,M
+    return A
 # ---------------------------------------------------------------------------------------------------------------
-def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
+
+def run_maxwell_2d_eigenproblem_nitsche(nb_eigs, ncells, degree, gamma_jump,
                                 domain_name='square',
                                 n_patches=2,
                                 load_dir=None,
@@ -134,7 +152,167 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
                                 ext_plots=False,
                                 dpi='figure',
                                 dpi_vf='figure',
-                                nitsche=False,):
+                                kappa=None, k=None):
+    """
+    Maxwell eigenproblem solver, see eg
+    Buffa, Perugia & Warburton, The Mortar-Discontinuous Galerkin Method for the 2D Maxwell Eigenproblem JSC 2009.
+
+    :param nb_eigs: nb of eigenmodes to be computed
+    :return: eigenvalues and eigenmodes
+    """
+ 
+    assert sigma is not None
+    assert k     is not None
+
+    mode =  {-1:'Non Symmetric Interior Penalty',
+              0:'Incomplete Interior Penalty',
+              1:'Symmetric Interior Penalty'}[k]
+
+    print("Running Maxwell eigenproblem solver with the " + mode + " method")
+    print("Looking for {nb_eigs} eigenvalues close to sigma={sigma}".format(nb_eigs=nb_eigs, sigma=sigma))
+
+    t_stamp = time_count()
+    print('building and discretizing the domain with ncells = '+repr(ncells)+'...' )
+    # print("building domain and spaces...")
+    domain = build_multipatch_domain(domain_name=domain_name, n_patches=n_patches)
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings_list = list(mappings.values())
+    x,y    = domain.coordinates
+    nquads = [d + 1 for d in degree]
+    # plotting
+    etas, xx, yy = get_plotting_grid(mappings, N=20)
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
+
+    t_stamp = time_count(t_stamp)
+    print('discretizing the de Rham seq with degree = '+repr(degree)+'...' )
+    # multipatch de Rham sequence:
+    derham  = Derham(domain, ["H1", "Hcurl", "L2"])
+    derham_h = discretize(derham, domain_h, degree=degree)
+    V0h = derham_h.V0
+    V1h = derham_h.V1
+    V2h = derham_h.V2
+    print("V0h.nbasis = ", V0h.nbasis)
+    print("V1h.nbasis = ", V1h.nbasis)
+    print("V2h.nbasis = ", V2h.nbasis)
+
+    TEST_DEBUG = False
+
+    if TEST_DEBUG:
+        # TEST V PLOT
+        etas, xx, yy = get_plotting_grid(mappings, N=20)
+
+        t_stamp = time_count(t_stamp)
+        print("assembling commuting projection operators...")
+
+        P0, P1, P2 = derham_h.projectors(nquads=nquads)
+
+        t_stamp = time_count(t_stamp)
+
+        hf_x = x/(x**2 + y**2)
+        hf_y = y/(x**2 + y**2)
+
+        from sympy import lambdify
+        hf_x   = lambdify(domain.coordinates, hf_x)
+        hf_y   = lambdify(domain.coordinates, hf_y)
+        hf_log = [pull_2d_hcurl([hf_x,hf_y], f) for f in mappings_list]
+
+        hf = P1(hf_log)
+
+        grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+
+        hf_x_vals, hf_y_vals = grid_vals_hcurl(hf)
+
+        my_small_streamplot(
+            title=('test plot'),
+            vals_x=hf_x_vals,
+            vals_y=hf_y_vals,
+            xx=xx,
+            yy=yy,
+        )
+
+    t_stamp = time_count(t_stamp)
+
+    print("assembling the system ...")
+    A    = run_nitsche_maxwell_2d(sigma, domain, ncells, degree, kappa=kappa, k=k)
+    A_m  = A.tosparse().tocsr()
+
+    # Mass matrices for broken spaces (block-diagonal)
+    print("assembling mass matrix operators...")
+    M0 = BrokenMass(V0h, domain_h, is_scalar=True)
+    M1 = BrokenMass(V1h, domain_h, is_scalar=False)
+    M2 = BrokenMass(V2h, domain_h, is_scalar=True)
+
+    t_stamp = time_count(t_stamp)
+    print("assembling broken derivative operators...")
+
+    bD0, bD1 = derham_h.broken_derivatives_as_operators
+
+    t_stamp = time_count(t_stamp)
+    print("assembling conf projection operators...")
+
+    cP0 = ConformingProjection_V0(V0h, domain_h, hom_bc=True)
+    cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=True)
+
+    t_stamp = time_count(t_stamp)
+    print("assembling conga derivative operators...")
+
+    D0 = ComposedLinearOperator([bD0,cP0])
+    D1 = ComposedLinearOperator([bD1,cP1])
+    I1 = IdLinearOperator(V1h)
+
+    # Note: we could also assemble A as a psydac operator
+    # D0_t = ComposedLinearOperator([cP0, bD0.transpose()])
+    # D1_t = ComposedLinearOperator([cP1, bD1.transpose()])
+    # A = (  ComposedLinearOperator([M1, D0, M0_inv, D0_t, M1])
+    #     + gamma_jump*ComposedLinearOperator([I1-cP1,M1, I1-cP1])
+    #     + ComposedLinearOperator([D1_t, M2, D1])
+    #     )
+
+    # and then convert to use eigensolver from scipy.sparse
+    # A_m = A.to_sparse_matrix()
+
+    t_stamp = time_count(t_stamp)
+    print("converting in sparse matrices...")
+    M0_m = M0.to_sparse_matrix()
+    M1_m = M1.to_sparse_matrix()
+    M2_m = M2.to_sparse_matrix()
+    cP0_m = cP0.to_sparse_matrix()
+    cP1_m = cP1.to_sparse_matrix()
+    D0_m = D0.to_sparse_matrix()  # also possible as matrix product bD0 * cP0
+    D1_m = D1.to_sparse_matrix()
+    I1_m = I1.to_sparse_matrix()
+
+    M0_minv = inv(M0_m.tocsc())  # todo: assemble patch-wise M0_inv, as Hodge operator
+
+
+    ## building Hodge Laplacian matrix
+    t_stamp = time_count(t_stamp)
+
+    print("computing (sparse) Hodge-Laplacian matrix...")
+    div_aux_m = D0_m.transpose() * M1_m  # note: the matrix of the (weak) div operator is:   - M0_minv * div_aux_m
+
+    L_option = 2
+
+    compute_eigenvalues(t_stamp, domain, mappings_list, gamma_jump, sigma, ref_sigmas, 
+                        A_m, M1_m, div_aux_m, cP1_m, D1_m, nb_eigs, derham_h, 
+                        ncells, degree, etas, xx, yy, ext_plots, fem_name, test_harmonic_field, nitsche=True)
+
+#----------------------------------------------------------------------------------------------------------------------------------
+def run_maxwell_2d_eigenproblem_conga(nb_eigs, ncells, degree, gamma_jump,
+                                domain_name='square',
+                                n_patches=2,
+                                load_dir=None,
+                                save_dir=None,
+                                plot_dir='',
+                                fem_name='',
+                                sigma=None,
+                                test_harmonic_field=False,
+                                ref_sigmas=None,
+                                show_all=False,
+                                ext_plots=False,
+                                dpi='figure',
+                                dpi_vf='figure',
+                                kappa=None, k=None):
     """
     Maxwell eigenproblem solver, see eg
     Buffa, Perugia & Warburton, The Mortar-Discontinuous Galerkin Method for the 2D Maxwell Eigenproblem JSC 2009.
@@ -143,11 +321,9 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
     :return: eigenvalues and eigenmodes
     """
 
-    assert len(ncells) == 2 and ncells[0] == ncells[1]
-    assert len(degree) == 2 and degree[0] == degree[1]
     assert sigma is not None
 
-    print("Running Maxwell eigenproblem solver")
+    print("Running Maxwell eigenproblem solver with the conga method")
     print("Looking for {nb_eigs} eigenvalues close to sigma={sigma}".format(nb_eigs=nb_eigs, sigma=sigma))
     if load_dir:
         print(" -- will load matrices from " + load_dir)
@@ -216,11 +392,6 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
         )
 
     t_stamp = time_count(t_stamp)
-    if nitsche:
-        print("assembling the system with nitsche...")
-        A,M1 = run_nitsche_maxwell_2d(gamma_jump, domain, ncells, degree)
-        A_m  = A.tosparse().tocsr()
-        M1_m = M1.tosparse().tocsr()
 
     if load_dir:
         print("loading sparse matrices...")
@@ -307,18 +478,29 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
     div_aux_m = D0_m.transpose() * M1_m  # note: the matrix of the (weak) div operator is:   - M0_minv * div_aux_m
 
     L_option = 2
-    if L_option == 1 and not nitsche:
+    if L_option == 1:
         A_m = div_aux_m.transpose() * M0_minv * div_aux_m
-    elif not nitsche:
+    else:
         A_m = (div_aux_m * cP1_m).transpose() * M0_minv * div_aux_m * cP1_m
 
-    if not nitsche:
-        jump_penal_m = I1_m-cP1_m
-        A_m += (
-                D1_m.transpose() * M2_m * D1_m
-                + gamma_jump * jump_penal_m.transpose() * M1_m * jump_penal_m
-        )
 
+    jump_penal_m = I1_m-cP1_m
+    A_m += (
+            D1_m.transpose() * M2_m * D1_m
+            + gamma_jump * jump_penal_m.transpose() * M1_m * jump_penal_m
+    )
+
+    compute_eigenvalues(t_stamp, domain, mappings_list, gamma_jump, sigma, ref_sigmas, 
+                        A_m, M1_m, div_aux_m, cP1_m, D1_m, nb_eigs, derham_h, 
+                        ncells, degree, etas, xx, yy, ext_plots, fem_name, test_harmonic_field, nitsche=False)
+
+def compute_eigenvalues(t_stamp, domain, mappings_list, gamma_jump, sigma, ref_sigmas, 
+                        A_m, M1_m, div_aux_m, cP1_m, D1_m, nb_eigs, derham_h, 
+                        ncells, degree, etas, xx, yy, ext_plots, fem_name, test_harmonic_field, nitsche):
+
+    V0h = derham_h.V0
+    V1h = derham_h.V1
+    V2h = derham_h.V2
 
     if test_harmonic_field:
         print("testing harmonic field (for debugging purposes)...")
@@ -385,10 +567,11 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
     print('A_m.shape = ', A_m.shape)
 
     print('computing eigenvalues and eigenvectors with scipy.sparse.eigsh...' )
-    if A_m.shape[0] < 17000 and False:   # max value for super_lu is >= 13200
+    sigma_ref = ref_sigmas[len(ref_sigmas)//2] if nitsche else 0
+    if A_m.shape[0] < 17000:   # max value for super_lu is >= 13200
         print('(with super_lu decomposition)')
-        eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M1_m, sigma=sigma, mode=mode, which=which, ncv=ncv)
-
+        
+        eigenvalues, eigenvectors = eigsh(A_m, k=nb_eigs, M=M1_m, sigma=sigma_ref, mode=mode, which=which, ncv=ncv)
     else:
         # from https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigsh.html:
         # the user can supply the matrix or operator OPinv, which gives x = OPinv @ b = [A - sigma * M]^-1 @ b.
@@ -433,8 +616,8 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
         norm_emode = np.dot(emode_sp,Me)
         print('norm of computed eigenmode: ', norm_emode)
 
-        emode = FemField(V1h, coeffs=array_to_stencil(emode_sp/norm_emode, V1h.vector_space))
-        cP_emode = FemField(V1h, coeffs=array_to_stencil(cP1_m.dot(emode_sp), V1h.vector_space))
+        emode      = FemField(V1h, coeffs=array_to_stencil(emode_sp/norm_emode, V1h.vector_space))
+        cP_emode   = FemField(V1h, coeffs=array_to_stencil(cP1_m.dot(emode_sp), V1h.vector_space))
         curl_emode = FemField(V2h, coeffs=array_to_stencil(D1_m.dot(emode_sp), V2h.vector_space))
         # psydac version (ok if operators are there):
         # cP_emode_c = cP1(emode)
@@ -552,6 +735,64 @@ def run_maxwell_2d_eigenproblem(nb_eigs, ncells, degree, gamma_jump,
 
 if __name__ == '__main__':
 
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+        description     = "Solve 2D eigenvalue problem of the Time Harmonic Maxwell equations."
+    )
+
+    parser.add_argument('ncells',
+        type = int,
+        help = 'Number of cells in domain'
+    )
+
+    parser.add_argument('degree',
+        type = int,
+        help = 'Polynomial spline degree'
+    )
+
+    parser.add_argument( '--domain',
+        choices = ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug'],
+        default = 'curved_L_shape',
+        help    = 'Domain'
+    )
+
+    parser.add_argument( '--mode',
+        choices = ['conga', 'nitsche'],
+        default = 'conga',
+        help    = 'Maxwell solver'
+    )
+
+    parser.add_argument( '--k',
+        type    = int,
+        choices = [-1, 0, 1],
+        default = 1,
+        help    = 'Nitsche method (NIP, IIP, IP)'
+    )
+
+    parser.add_argument( '--kappa',
+        type    = int,
+        default = 10,
+        help    = 'Nitsche stabilization term'
+    )
+
+    # Read input arguments
+    args        = parser.parse_args()
+    deg         = args.degree
+    nc          = args.ncells
+    domain_name = args.domain
+    mode        = args.mode
+    kappa       = args.kappa
+    k           = args.k
+    
+    nitsche_method = mode == 'nitsche'
+    if mode == 'conga':
+        run_maxwell_2d_eigenproblem =  run_maxwell_2d_eigenproblem_conga
+    else:
+        assert nitsche_method
+        run_maxwell_2d_eigenproblem = run_maxwell_2d_eigenproblem_nitsche
+
     # from scipy.sparse import rand
     # A = rand(m=14300, n=14300)
     # A = rand(m=15300, n=15300)
@@ -560,7 +801,6 @@ if __name__ == '__main__':
     # print(res)
     # exit()
 
-    domain_name = 'curved_L_shape'
     # domain_name = 'pretzel'  #_debug'
 
     # valid parameters for curved_L_shape (V1 dofs around 10.000)
@@ -578,100 +818,96 @@ if __name__ == '__main__':
     # nc = 20; deg = 8  # OK --
     # nc=20
     # nc=8
-    nc=40
-    # for deg in [2,3,4,5,6,7]:
-    # for deg in [4,5,6,7]:
+    #nc=10
 
-    # for deg in [5]:
-    for deg in [3]:
+    # (nc, deg = 30, 2 is too large for super_lu)
 
-        # (nc, deg = 30, 2 is too large for super_lu)
+    # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
+    h = 1/nc
+    DG_gamma = 10*(deg+1)**2/h
+    # DG_gamma = 10*(deg)**2/h
+    gamma_jump = DG_gamma
 
-        # jump penalization factor from Buffa, Perugia and Warburton  >> need to study
-        h = 1/nc
-        DG_gamma = 10*(deg+1)**2/h
-        # DG_gamma = 10*(deg)**2/h
-        gamma_jump = DG_gamma
+    show_all = False
+    plot_all = True
+    dpi = 400
+    dpi_vf = 200
+    # show_all = True
+    # plot_all = False
 
-        show_all = False
-        plot_all = True
-        dpi = 400
-        dpi_vf = 200
-        # show_all = True
-        # plot_all = False
+    nb_eigs = 16
+    n_patches = None
+    ref_sigmas = None
+    save_dir = None
+    load_dir = None
+    nitsche  = False
 
-        nb_eigs = 8
-        n_patches = None
-        ref_sigmas = None
-        save_dir = None
+    if domain_name == 'square':
+        n_patches = 6
+        sigma = 0
+    elif domain_name == 'annulus':
+        n_patches = 4
+        sigma = 0
+    elif domain_name == 'curved_L_shape':
+        sigma = 0
+        ref_sigmas = [
+            0.181857115231E+01,
+            0.349057623279E+01,
+            0.100656015004E+02,
+            0.101118862307E+02,
+            0.124355372484E+02,
+            ]
+        nb_eigs=14  # need a bit more, to get rid of grad-div eigenmodes
+    elif domain_name in ['pretzel', 'pretzel_debug']:
+        # radii used in the pretzel_J source test case
+        sigma = 64
+        plot_dir_suffix = '_sigma_64'
+        if sigma == 0 and domain_name == 'pretzel':
+            nb_eigs = 16
+            ref_sigmas = [
+                0,
+                0,
+                0,
+                0.1795447761871659,
+                0.19922705025897117,
+                0.699286528403241,
+                0.8709410737744409,
+                1.1945444491250097,
+            ]
+        else:
+            nb_eigs = 30
+        # note: nc = 2**5 and deg = 2 gives a matrix too big for super_lu factorization...
+    else:
+        raise NotImplementedError
+
+
+    fem_name = get_fem_name(nitsche_method=nitsche_method, k=k, domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg) #domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
+    save_dir = load_dir = get_load_dir(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)  # './tmp_matrices/'+fem_name+'/'
+    # save_dir = './tmp_matrices/'+domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'/'
+    # load_dir = save_dir
+
+    plot_dir = './plots/'+fem_name+plot_dir_suffix+'/'
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
+
+    if plot_all:
+        show_all=True
+        # will also use above value of fem_name
+    else:
+        # reset fem_name to disable plots
+        fem_name = ''
+
+    # possible domain shapes:
+    assert domain_name in ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug']
+
+    if load_dir and not os.path.exists(load_dir):
+        print(' -- note: discarding absent load directory')
         load_dir = None
 
-        if domain_name == 'square':
-            n_patches = 6
-            sigma = 0
-        elif domain_name == 'annulus':
-            n_patches = 4
-            sigma = 0
-        elif domain_name == 'curved_L_shape':
-            sigma = 0
-            ref_sigmas = [
-                0.181857115231E+01,
-                0.349057623279E+01,
-                0.100656015004E+02,
-                0.101118862307E+02,
-                0.124355372484E+02,
-                ]
-            nb_eigs=7  # need a bit more, to get rid of grad-div eigenmodes
-        elif domain_name in ['pretzel', 'pretzel_debug']:
-            # radii used in the pretzel_J source test case
-            sigma = 64
-            plot_dir_suffix = '_sigma_64'
-            if sigma == 0 and domain_name == 'pretzel':
-                nb_eigs = 8
-                ref_sigmas = [
-                    0,
-                    0,
-                    0,
-                    0.1795447761871659,
-                    0.19922705025897117,
-                    0.699286528403241,
-                    0.8709410737744409,
-                    1.1945444491250097,
-                ]
-            else:
-                nb_eigs = 20
-            # note: nc = 2**5 and deg = 2 gives a matrix too big for super_lu factorization...
-        else:
-            raise NotImplementedError
-
-
-        fem_name = get_fem_name(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg) #domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)
-        save_dir = load_dir = get_load_dir(domain_name=domain_name,n_patches=n_patches,nc=nc,deg=deg)  # './tmp_matrices/'+fem_name+'/'
-        # save_dir = './tmp_matrices/'+domain_name+np_suffix+'_nc'+repr(nc)+'_deg'+repr(deg)+'/'
-        # load_dir = save_dir
-
-        plot_dir = './plots/'+fem_name+plot_dir_suffix+'/'
-        if not os.path.exists(plot_dir):
-            os.makedirs(plot_dir)
-
-        if plot_all:
-            show_all=True
-            # will also use above value of fem_name
-        else:
-            # reset fem_name to disable plots
-            fem_name = ''
-
-        # possible domain shapes:
-        assert domain_name in ['square', 'annulus', 'curved_L_shape', 'pretzel', 'pretzel_annulus', 'pretzel_debug']
-
-        if load_dir and not os.path.exists(load_dir):
-            print(' -- note: discarding absent load directory')
-            load_dir = None
-
-        run_maxwell_2d_eigenproblem(
-            nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], gamma_jump=gamma_jump,
-            domain_name=domain_name, n_patches=n_patches,
-            save_dir=save_dir, load_dir=load_dir, plot_dir=plot_dir, fem_name=fem_name,
-            ref_sigmas=ref_sigmas, sigma=sigma, show_all=show_all, dpi=dpi, dpi_vf=dpi_vf,nitsche=True
-        )
+    run_maxwell_2d_eigenproblem(
+        nb_eigs=nb_eigs, ncells=[nc, nc], degree=[deg,deg], gamma_jump=gamma_jump,
+        domain_name=domain_name, n_patches=n_patches,
+        save_dir=save_dir, load_dir=load_dir, plot_dir=plot_dir, fem_name=fem_name,
+        ref_sigmas=ref_sigmas, sigma=sigma, show_all=show_all, dpi=dpi, dpi_vf=dpi_vf, kappa=kappa, k=k
+    )
 
