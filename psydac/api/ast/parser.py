@@ -597,7 +597,7 @@ class Parser(object):
         self.insert_variables(*points)
 
         points = tuple(zip(points))
-        return OrderedDict([(0,points)])
+        return dict([(0,points)])
 
 
     # ....................................................
@@ -611,7 +611,7 @@ class Parser(object):
         self.insert_variables(*points)
 
         points = tuple(zip(points))
-        return OrderedDict([(0,points)])
+        return dict([(0,points)])
     # ....................................................
     def _visit_TensorQuadrature(self, expr, **kwargs):
         dim = self.dim
@@ -642,7 +642,7 @@ class Parser(object):
 
         self.insert_variables(*points)
 
-        return OrderedDict([(0,targets)])
+        return dict([(0,targets)])
 
     # ....................................................
     def _visit_MatrixQuadrature(self, expr, **kwargs):

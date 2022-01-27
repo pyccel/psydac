@@ -370,14 +370,15 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._global_matrices     = [M._data for M in global_mats]
 
         if self.mapping:
+            assert len(self.grid) == 1
             mapping    = [e._coeffs._data for e in self.mapping._fields]
             space      = self.mapping._fields[0].space
             map_degree = space.degree
             map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
             map_basis  = [q.basis for q in space.quad_grids]
-            axis       = self.grid.axis
-            ext        = self.grid.ext
-            points     = self.grid.points
+            axis       = self.grid[0].axis
+            ext        = self.grid[0].ext
+            points     = self.grid[0].points
             if axis is not None:
                 nderiv = self.max_nderiv
                 space  = space.spaces[axis]
