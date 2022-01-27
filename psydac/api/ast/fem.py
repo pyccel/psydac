@@ -648,7 +648,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 # fields (and their derivatives) at a single quadrature point
                 stmts += flatten([eval_field.inits for eval_field in eval_fields])
             
-                loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
+                loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
                 loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_mats), loop)
 
                 # ... loop over trials
@@ -701,7 +701,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                                                                tests_degree=tests_degree, trials_degree=trials_degrees,
                                                               tests_multiplicity=m_tests, trials_multiplicity=m_trials)
 
-                    loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
+                    loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
                     loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_mats), loop)
 
                     # ... loop over trials

@@ -220,8 +220,6 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_grid  = QuadratureGrid( trial_space)
             self._grid  = (test_grid,)
 
-        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
-        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
 
         #...
         kwargs['is_rational_mapping'] = is_rational_mapping
@@ -234,10 +232,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         assert np.array_equal(quad_order, get_quad_order(self.spaces[1]))
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
         #...
-        grid                = QuadratureGrid( test_space, axis, test_ext, trial_space=trial_space)
-        self._grid          = grid
-        self._test_basis    = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
-        self._trial_basis   = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
+        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
+        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
 
         if isinstance(test_space.vector_space, BlockVectorSpace):
             vector_space = test_space.vector_space.spaces[0]
@@ -363,15 +359,11 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def construct_arguments(self, backend=None):
 
-        test_basis, test_degrees, spans   = construct_test_space_arguments(self.test_basis)
-        trial_basis, trial_degrees        = construct_trial_space_arguments(self.trial_basis)
-        n_elements, quads, quad_degrees   = construct_quad_grids_arguments(self.grid[0])
+        test_basis, test_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
+        trial_basis, trial_degrees, pads      = construct_trial_space_arguments(self.trial_basis)
+        n_elements, quads, quad_degrees       = construct_quad_grids_arguments(self.grid[0], use_weights=False)
         if len(self.grid)>1:
             quads  = [*quads, *self.grid[1].points]
-            
-        test_basis, test_degrees, spans, pads  = construct_test_space_arguments(self.test_basis)
-        trial_basis, trial_degrees, pads       = construct_trial_space_arguments(self.trial_basis)
-        n_elements, quads, quad_degrees        = construct_quad_grids_arguments(self.grid, use_weights=False)
 
         pads                      = self.test_basis.space.vector_space.pads
         element_mats, global_mats = self.allocate_matrices(backend)
@@ -525,7 +517,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                 element_mats[0,0]  = np.empty((*(test_degree+1),*diag))
                 self._matrix       = global_mats[0,0]
         return element_mats.values(), global_mats.values()
-
 
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
