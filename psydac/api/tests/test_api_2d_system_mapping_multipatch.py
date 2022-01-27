@@ -18,6 +18,7 @@ from sympde.expr.equation import find, EssentialBC
 from psydac.api.discretization       import discretize
 from psydac.fem.basic                import FemField
 from psydac.linalg.iterative_solvers import pcg
+from psydac.api.settings             import PSYDAC_BACKEND_NUMBA
 
 #==============================================================================
 
@@ -114,7 +115,7 @@ def test_maxwell_2d_2_patch_dirichlet_0():
                      alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
     l2_error = run_maxwell_2d(uex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2])
-    expected_l2_error = 0.006038532417958093
+    expected_l2_error = 0.006065884265970998
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
 

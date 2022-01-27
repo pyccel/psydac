@@ -311,7 +311,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                     assert i==j
                     v = v[i]
                 if isinstance(v, FemField):
-                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid)
+                    assert len(self.grid) == 1
+                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid[0])
                     bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s

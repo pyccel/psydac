@@ -1062,7 +1062,7 @@ class Parser(object):
         lhs = lhs[:]
 
         temps = []
-        #temps, rhs = cse_main.cse(rhs, symbols=cse_main.numbered_symbols(prefix='temp'))
+        temps, rhs = cse_main.cse(rhs, symbols=cse_main.numbered_symbols(prefix='temp'))
 
         normal_vec_stmts = []
         normal_vectors = expr.expr.atoms(NormalVector)
