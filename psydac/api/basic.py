@@ -212,7 +212,6 @@ class BasicCodeGen:
         # ... convert python to fortran using pyccel
         compiler       = self.backend['compiler']
         fflags         = self.backend['flags']
-        accelerator    = self.backend['accelerator']
         _PYCCEL_FOLDER = self.backend['folder']
 
         from pyccel.epyccel import epyccel
@@ -220,7 +219,6 @@ class BasicCodeGen:
         fmod = epyccel(mod,
                        compiler    = compiler,
                        fflags      = fflags,
-                       accelerator = accelerator,
                        comm        = self.comm,
                        bcast       = True,
                        folder      = _PYCCEL_FOLDER,
@@ -285,6 +283,6 @@ class BasicDiscrete(BasicCodeGen):
         mapping             = kwargs.pop('mapping', None)
         mapping_space       = kwargs.pop('mapping_space', None)
 
-        return AST(expr, kernel_expr, discrete_space, tag, quad_order=quad_order,
-                    mapping=mapping, is_rational_mapping=is_rational_mapping, mapping_space=mapping_space)
+        return AST(expr, kernel_expr, discrete_space, mapping_space=mapping_space, tag=tag, quad_order=quad_order,
+                    mapping=mapping, is_rational_mapping=is_rational_mapping)
 

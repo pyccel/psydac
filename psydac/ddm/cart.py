@@ -35,7 +35,7 @@ def find_mpi_type( dtype ):
 #===============================================================================
 class CartDecomposition():
     """
-    Cartesian decomposition of a tensor-product grid of coefficients.
+    Cartesian decomposition of a tensor-product grid of spline coefficients.
     This is built on top of an MPI communicator with multi-dimensional
     Cartesian topology.
 
@@ -59,6 +59,16 @@ class CartDecomposition():
     comm : mpi4py.MPI.Comm
         MPI communicator that will be used to spawn a new Cartesian communicator
         (optional: default is MPI_COMM_WORLD).
+
+    shifts: list or tuple of int
+        Shifts along each grid dimension.
+        It takes values bigger or equal to one, it represents the multiplicity of each knot.
+
+    nprocs: list or tuple of int
+       MPI decomposition along each dimension.
+
+    reverse_axis: int
+       Reverse the ownership of the processes along the specified axis.
 
     """
     def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, shifts=None, nprocs=None, reverse_axis=None ):
@@ -85,7 +95,6 @@ class CartDecomposition():
         # ...
         self._ndims = len( npts )
         # ...
-
         # ...
         self._size = comm.Get_size()
         self._rank = comm.Get_rank()
@@ -101,6 +110,8 @@ class CartDecomposition():
             nprocs, block_shape = mpi_compute_dims( self._size, reduced_npts, pads )
         else:
             assert len(nprocs) == len(npts)
+
+        assert np.product(nprocs) == self._size
 
         self._dims = nprocs
         self._reverse_axis = reverse_axis
@@ -606,7 +617,6 @@ class CartDataExchanger:
         # Wait for end of data exchange (MPI_WAITALL)
         MPI.Request.Waitall( requests )
 
-        comm.Barrier()
 
     #---------------------------------------------------------------------------
     # Private methods

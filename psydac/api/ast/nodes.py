@@ -1,10 +1,9 @@
 # -*- coding: UTF-8 -*-
 
-from collections import OrderedDict
 from itertools import product
 
 from sympy import Basic, Expr
-from sympy import AtomicExpr
+from sympy import AtomicExpr, S
 from sympy import Function
 from sympy import Mul
 from sympy.core.singleton     import Singleton
@@ -20,8 +19,8 @@ from sympde.topology import Mapping
 from sympde.topology import dx1, dx2, dx3
 from sympde.topology import get_atom_logical_derivatives
 
-from pyccel.ast.core import AugAssign, Assign
-from pyccel.ast.core import _atomic
+from psydac.pyccel.ast.core import AugAssign, Assign
+from psydac.pyccel.ast.core import _atomic
 
 #==============================================================================
 # TODO move it
@@ -113,10 +112,17 @@ class TensorAdd(TensorExpression):
 
 class TensorMul(TensorExpression):
     pass
+
+class TensorMax(TensorExpression):
+    pass
+
+class TensorInteger(TensorExpression):
+    pass
+
 #==============================================================================
 class TensorAssignExpr(Basic):
     def __new__(cls, lhs, rhs):
-        assert isinstance(lhs, Expr)
+        assert isinstance(lhs, (Expr, Tuple))
         assert isinstance(rhs, Expr)
         return Basic.__new__(cls, lhs, rhs)
 
@@ -131,17 +137,29 @@ class TensorAssignExpr(Basic):
 #==============================================================================
 class IndexNode(Expr):
     """Base class representing one index of an iterator"""
-    def __new__(cls, length=None):
+    def __new__(cls, start=0, stop=None, length=None):
         obj = Basic.__new__(cls)
+        obj._start  = start
+        obj._stop   = stop
         obj._length = length
         return obj
+
+    @property
+    def start(self):
+        return self._start
+
+    @property
+    def stop(self):
+        return self._stop
 
     @property
     def length(self):
         return self._length
 
-    def set_length(self, length):
-        obj = type(self)(length)
+    def set_range(self, start=TensorInteger(0), stop=None, length=None):
+        if length is None:
+            length = stop
+        obj = type(self)(start=start, stop=stop, length=length)
         return obj
 
 class IndexElement(IndexNode):
@@ -261,7 +279,7 @@ class EvalField(BaseNode):
     def __new__(cls, atoms, q_index, l_index, q_basis, coeffs, l_coeffs, g_coeffs, tests, mapping, nderiv, mask=None):
 
         stmts_1  = []
-        stmts_2  = OrderedDict()
+        stmts_2  = {}
         inits    = []
         mats     = []
 
@@ -351,9 +369,6 @@ class EvalMapping(BaseNode):
         mapping_space : <VectorSpace>
             The vector space of the mapping
 
-        tests   : tuple_like (Variable)
-            The dummy variable for the test functions
-
         nderiv  : <int>
             Maximum number of derivatives
 
@@ -363,7 +378,7 @@ class EvalMapping(BaseNode):
         is_rational: bool,optional
             True if the mapping is rational
     """
-    def __new__(cls, quads, indices_basis, q_basis, mapping, components, mapping_space, tests, nderiv, mask=None, is_rational=None):
+    def __new__(cls, quads, indices_basis, q_basis, mapping, components, mapping_space, nderiv, mask=None, is_rational=None):
         mapping_atoms  = components.arguments
         basis          = q_basis
         target         = basis.target
@@ -434,7 +449,6 @@ class EvalMapping(BaseNode):
         loop   = Loop((), quads, stmts=[loop, *rationalization], mask=mask)
 
         obj    = Basic.__new__(cls, loop, l_coeffs, g_coeffs, values, multiplicity, pads)
-        obj._tests = tests
         return obj
 
     @property
@@ -580,6 +594,13 @@ class GlobalTensorQuadrature(ArrayNode):
     _positions = {index_element: 0, index_quad: 1}
     _free_indices = [index_element]
 
+    def __init__(self, weights=True):
+        self._weights = weights
+
+    @property
+    def weights( self ):
+        return self._weights
+
 #==============================================================================
 class LocalTensorQuadrature(ArrayNode):
     # TODO add set_positions
@@ -588,6 +609,12 @@ class LocalTensorQuadrature(ArrayNode):
     _rank = 1
     _positions = {index_quad: 0}
 
+    def __init__(self, weights=True):
+        self._weights = weights
+
+    @property
+    def weights( self ):
+        return self._weights
 #==============================================================================
 class PlusLocalTensorQuadrature(LocalTensorQuadrature):
     pass
@@ -600,7 +627,12 @@ class PlusGlobalTensorQuadrature(GlobalTensorQuadrature):
 class TensorQuadrature(ScalarNode):
     """
     """
-    pass
+    def __init__(self, weights=True):
+        self._weights = weights
+
+    @property
+    def weights( self ):
+        return self._weights
 #==============================================================================
 class PlusTensorQuadrature(TensorQuadrature):
     """
@@ -1239,13 +1271,16 @@ class ComputePhysicalBasis(ComputePhysical):
 class ComputeKernelExpr(ComputeNode):
     """
     """
-    def __new__(cls, expr):
-        return Basic.__new__(cls, expr)
+    def __new__(cls, expr, weights=True):
+        return Basic.__new__(cls, expr, weights)
 
     @property
     def expr(self):
         return self._args[0]
 
+    @property
+    def weights(self):
+        return self._args[1]
 #==============================================================================
 class ComputeLogical(ComputeNode):
     """
@@ -1558,8 +1593,9 @@ class Loop(BaseNode):
             return Tuple()
 
         l_quad = l_quad[0]
-
-        args = [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
+        args   = []
+        if l_quad.weights:
+            args = [ComputeLogical(WeightedVolumeQuadrature(l_quad))]
         return Tuple(*args)
 
 #==============================================================================
@@ -1721,7 +1757,7 @@ def construct_itergener(a, index):
 
     elif isinstance(a, LocalTensorQuadrature):
         generator = TensorGenerator(a, index)
-        element   = TensorQuadrature()
+        element   = TensorQuadrature(a.weights)
 
     elif isinstance(a, GlobalTensorQuadratureTrialBasis):
         generator = TensorGenerator(a, index)
@@ -1755,8 +1791,8 @@ def construct_itergener(a, index):
         generator = ProductGenerator(a.expr, index)
         element   = a.atom
     elif isinstance(a, TensorAssignExpr):
-        generator = TensorGenerator(a.lhs, index)
-        element   = a.rhs
+        generator = TensorGenerator(a.rhs, index)
+        element   = a.lhs
     else:
         raise TypeError('{} not available'.format(type(a)))
     # ...
@@ -1807,7 +1843,7 @@ def construct_itergener(a, index):
     elif isinstance(element, MatrixLocalBasis):
         iterator = ProductIterator(element)
 
-    elif isinstance(element, Expr):
+    elif isinstance(element, (Expr, Tuple)):
         iterator = TensorIterator(element)
     else:
         raise TypeError('{} not available'.format(type(element)))

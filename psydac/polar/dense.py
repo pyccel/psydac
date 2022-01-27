@@ -117,6 +117,11 @@ class DenseVectorSpace( VectorSpace ):
         return self._dimension
 
     # ...
+    @property
+    def dtype( self ):
+        return self._dtype
+
+    # ...
     def zeros( self ):
         """
         Get a copy of the null element of the DenseVectorSpace V.
@@ -133,11 +138,7 @@ class DenseVectorSpace( VectorSpace ):
     #-------------------------------------
     # Other properties/methods
     #-------------------------------------
-    @property
-    def dtype( self ):
-        return self._dtype
 
-    # ...
     @property
     def parallel( self ):
         return (self._cart is not None)
@@ -193,6 +194,11 @@ class DenseVector( Vector ):
     @property
     def space( self ):
         return self._space
+
+    # ...
+    @property
+    def dtype( self ):
+        return self.space.dtype
 
     # ...
     def dot( self, v ):
@@ -299,6 +305,11 @@ class DenseMatrix( Matrix ):
     @property
     def codomain( self ):
         return self._codomain
+
+    # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
 
     # ...
     def dot( self, v, out=None ):

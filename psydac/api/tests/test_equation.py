@@ -52,7 +52,7 @@ def test_field_and_constant(backend):
     # Discrete field is set to 1, and constant is set to 3
     fh = FemField(Vh)
     fh.coeffs[:] = 1
-    c_value = 3
+    c_value = 3.0
 
     # Solve call should not crash if correct arguments are used
     xh = equation_h.solve(c=c_value, f=fh)

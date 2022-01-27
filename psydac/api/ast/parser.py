@@ -2,24 +2,22 @@
 
 import numpy as np
 
-from collections import OrderedDict
-
 from sympy import IndexedBase, Indexed
-from sympy import Mul, Matrix
+from sympy import Mul, Matrix, Expr
 from sympy import Add
 from sympy import Abs
 from sympy import Symbol, Idx
-from sympy import Max, Range
+from sympy import Range
 from sympy import Basic, Function
 from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
 
 
-from pyccel.ast.core      import Assign, Product, AugAssign, For
-from pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
-from pyccel.ast.core      import Slice, String, ValuedArgument
-from pyccel.ast.core      import EmptyNode, Import
-from pyccel.ast.core      import CodeBlock, FunctionDef
+from psydac.pyccel.ast.core      import Assign, Product, AugAssign, For
+from psydac.pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
+from psydac.pyccel.ast.core      import Slice, String, ValuedArgument
+from psydac.pyccel.ast.core      import EmptyNode, Import
+from psydac.pyccel.ast.core      import CodeBlock, FunctionDef
 
 
 from sympde.topology import (dx1, dx2, dx3)
@@ -94,6 +92,10 @@ class Shape(Basic):
     def arg(self):
         return self._args[0]
 
+
+class Max(Expr):
+    pass
+
 def is_scalar_array(var):
     indices = var.indices
     for ind in indices:
@@ -162,11 +164,11 @@ class Parser(object):
         self.backend   = backend
 
         # TODO improve
-        self.indices          = OrderedDict()
-        self.shapes           = OrderedDict()
-        self.functions        = OrderedDict()
-        self.variables        = OrderedDict()
-        self.arguments        = OrderedDict()
+        self.indices          = {}
+        self.shapes           = {}
+        self.functions        = {}
+        self.variables        = {}
+        self.arguments        = {}
         self._math_functions  = ()
         
 
@@ -377,11 +379,28 @@ class Parser(object):
 
         mats = args.pop('mats')
         
-        map_coeffs = args.pop('mapping', None)
+        map_coeffs  = args.pop('mapping', None)
+        map_degrees = args.pop('mapping_degrees', None)
+        map_basis   = args.pop('mapping_basis', None)
+        map_span    = args.pop('mapping_spans', None)
+
+        if map_coeffs:
+            map_coeffs  = map_coeffs
+            map_degrees = [map_degrees]
+            map_basis   = [map_basis]
+            map_span    = [map_span]
+        else:
+            map_coeffs  = []
+            map_degrees = []
+            map_basis   = []
+            map_span    = []
+
         constants  = args.pop('constants', None)
 
         f_coeffs   = args.pop('f_coeffs',    None)
 
+        starts = args.pop('starts', [])
+        ends   = args.pop('ends', [])
         if f_coeffs:
             f_span     = args.pop('f_span',      [])
             f_basis    = args.pop('field_basis', [])
@@ -389,7 +408,8 @@ class Parser(object):
             f_pads     = args.pop('f_pads', [])
             f_args     = (*f_basis, *f_span, *f_degrees, *f_pads, *f_coeffs)
 
-        args = [*tests_basis, *trial_basis, *g_span, *g_quad, *lengths_tests.values(), *lengths_trials.values(), *lengths, *g_pads]
+
+        args = [*tests_basis, *trial_basis, *map_basis, *g_span, *map_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *map_degrees, *lengths, *g_pads, *map_coeffs]
 
         if isinstance(mats[0], (LocalElementBasis, GlobalElementBasis)):
             mats = [self._visit(mat) for mat in mats]
@@ -401,11 +421,9 @@ class Parser(object):
             mats      = flatten(mats)
 
         args = [self._visit(i, **kwargs) for i in args]
+
         args = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in args]
         arguments = flatten(args) + mats
-
-        if map_coeffs:
-            arguments += [self._visit(i, **kwargs) for i in map_coeffs]
 
         if constants:
             arguments += [self._visit(i, **kwargs) for i in constants]
@@ -414,6 +432,8 @@ class Parser(object):
             f_args     = [self._visit(i, **kwargs) for i in f_args]
             f_args     = [tuple(arg.values())[0] if isinstance(arg, dict) else arg for arg in f_args]
             arguments += flatten(f_args)
+
+        arguments += starts + ends
 
         body = flatten(tuple(self._visit(i, **kwargs) for i in expr.body))
 
@@ -465,7 +485,7 @@ class Parser(object):
         mats       = [self._visit(mat, **kwargs) for mat in mats]
         inits      = {mat:Assign(mat[lhs_slices], 0.) for mat in mats}
         body       = self._visit(expr.body, **kwargs)
-        stmts      = OrderedDict()
+        stmts      = {}
         pads       = self._visit_Pads(expr.pads)
 
         for l_coeff,g_coeff in zip(l_coeffs, g_coeffs):
@@ -491,9 +511,7 @@ class Parser(object):
         l_coeffs = expr.local_coeffs
         stmts   = []
         dim = self._dim
-        tests = expr._tests
         test = coeffs[0].test
-        test = test if test in tests else test.base
         lhs_slices = [Slice(None,None)]*dim
         multiplicity = expr.multiplicity
         pads         = expr.pads
@@ -532,17 +550,19 @@ class Parser(object):
         names = 'global_x1:%s'%(dim+1)
         points   = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
-        names = 'global_w1:%s'%(dim+1)
-        weights  = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+        if expr.weights:
+            names = 'global_w1:%s'%(dim+1)
+            weights  = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
-        # gather by axis
-        
-        targets = tuple(zip(points, weights))
+            # gather by axis
+            targets = tuple(zip(points, weights))
+        else:
+            weights = []
+            targets = tuple(zip(points))
 
         self.insert_variables(*points, *weights)
 
-        return OrderedDict([(0,targets)])
-
+        return {0: targets}
 
     # ....................................................
     def _visit_LocalTensorQuadrature(self, expr, **kwargs):
@@ -552,16 +572,19 @@ class Parser(object):
         names = 'local_x1:%s'%(dim+1)
         points   = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
-        names = 'local_w1:%s'%(dim+1)
-        weights  = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+        if expr.weights:
+            names = 'local_w1:%s'%(dim+1)
+            weights  = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
-        # gather by axis
-        
-        targets = tuple(zip(points, weights))
+            # gather by axis
+            targets = tuple(zip(points, weights))
+        else:
+            weights = []
+            targets = tuple(zip(points))
 
         self.insert_variables(*points, *weights)
 
-        return OrderedDict([(0,targets)])
+        return {0: targets}
 
     def _visit_PlusGlobalTensorQuadrature(self, expr, **kwargs):
         dim  = self.dim
@@ -595,16 +618,19 @@ class Parser(object):
         names   = 'x1:%s'%(dim+1)
         points  = variables(names, dtype='real', cls=Variable)
 
-        names   = 'w1:%s'%(dim+1)
-        weights = variables(names, dtype='real', cls=Variable)
+        if expr.weights:
+            names   = 'w1:%s'%(dim+1)
+            weights = variables(names, dtype='real', cls=Variable)
 
-        # gather by axis
-        
-        targets = tuple(zip(points, weights))
+            # gather by axis
+            targets = tuple(zip(points, weights))
+        else:
+            weights  = []
+            targets  = tuple(zip(points))
 
         self.insert_variables(*points, *weights)
 
-        return OrderedDict([(0,targets)])
+        return {0: targets}
 
 
     def _visit_PlusTensorQuadrature(self, expr, **kwargs):
@@ -658,7 +684,7 @@ class Parser(object):
 
         self.insert_variables(*targets)
 
-        arrays = OrderedDict()
+        arrays = {}
         if unique_scalar_space and not is_scalar:
             for i in range(dim):
                 arrays[target[i]] = tuple(zip(targets))
@@ -697,7 +723,7 @@ class Parser(object):
         targets = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
         self.insert_variables(*targets)
 
-        arrays = OrderedDict()
+        arrays = {}
         if unique_scalar_space and not is_scalar:
             for i in range(dim):
                 arrays[target[i]] = tuple(zip(targets))
@@ -738,7 +764,7 @@ class Parser(object):
         targets = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
 
         self.insert_variables(*targets)
-        arrays = OrderedDict()
+        arrays = {}
         if unique_scalar_space and not is_scalar:
             for i in range(dim):
                 arrays[target[i]] = tuple(zip(targets))
@@ -762,7 +788,7 @@ class Parser(object):
         self.insert_variables(*targets)
         if not isinstance(targets[0], (tuple, list, Tuple)):
             targets = [targets]
-        target = OrderedDict([(target ,tuple(zip(*targets)))])
+        target = {target: tuple(zip(*targets))}
         return target
     # ....................................................
     def _visit_Span(self, expr, **kwargs):
@@ -776,7 +802,7 @@ class Parser(object):
         if not isinstance(targets[0], (tuple, list, Tuple)):
             targets = [targets]
 
-        target = OrderedDict([(target ,tuple(zip(*targets)))])
+        target = {target: tuple(zip(*targets))}
         return target
 
     def _visit_Pads(self, expr, **kwargs):
@@ -816,7 +842,7 @@ class Parser(object):
 
         ops = [dx1, dx2, dx3][:dim]
         atoms =  _split_test_function(target)
-        args = OrderedDict()
+        args = {}
         for atom in atoms:
             sub_args = [None]*dim
             for i in range(dim):
@@ -1026,8 +1052,11 @@ class Parser(object):
         exprs   = expr.expr
         mapping = self.mapping
 
-        weight  = SymbolicWeightedVolume(mapping)
-        weight  = SymbolicExpr(weight)
+        if expr.weights:
+            weight  = SymbolicWeightedVolume(mapping)
+            weight  = SymbolicExpr(weight)
+        else:
+            weight  = 1
 
         rhs = [weight*self._visit(expr, **kwargs) for expr in exprs[:]]
         lhs = lhs[:]
@@ -1040,6 +1069,11 @@ class Parser(object):
         target         = self._target
         dim            = self._dim
 
+        if normal_vectors:
+            axis    = target.axis
+            ext     = target.ext if isinstance(target, Boundary) else 1
+
+        vars_plus = []
         if isinstance(target, Interface):
             mapping = mapping.minus
             target  = target.minus
@@ -1048,6 +1082,7 @@ class Parser(object):
         elif isinstance(target, Boundary):
             ext  = target.ext
             axis = target.axis
+
 
         for vec in normal_vectors:
 
@@ -1066,7 +1101,8 @@ class Parser(object):
 
         temps = tuple(Assign(a,b) for a,b in temps)
         stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
-        stmts = tuple(normal_vec_stmts) + temps + stmts
+        stmts = tuple(vars_plus) + tuple(normal_vec_stmts) + temps + stmts
+
         math_functions = math_atoms_as_str(list(exprs)+normal_vec_stmts, 'numpy')
         math_functions = tuple(m for m in math_functions if m not in self._math_functions)
         self._math_functions = math_functions + self._math_functions
@@ -1134,8 +1170,8 @@ class Parser(object):
 
     # ....................................................
     def _visit_PhysicalGeometryValue(self, expr, **kwargs):
-        mapping = self.mapping
-        expr = LogicalExpr(mapping, expr.expr)
+        target  = self._target
+        expr = LogicalExpr(expr.expr, mapping(target))
 
         return SymbolicExpr(expr)
 
@@ -1351,6 +1387,18 @@ class Parser(object):
             
         return tuple(newargs)
 
+    def _visit_TensorMax(self, expr, **kwargs):
+        args = [self._visit(a, **kwargs) for a in expr.args]
+        arg1 = args[0]
+        arg2 = args[1]
+        newargs = []
+        for i,j in zip(arg1, arg2):
+            newargs.append(Max(i,j))
+
+        return tuple(newargs)
+
+    def _visit_TensorInteger(self, expr, **kwargs):
+        return (expr.args[0],)*self.dim
     # ....................................................
     def _visit_Expr(self, expr, **kwargs):
         return SymbolicExpr(expr)
@@ -1507,7 +1555,7 @@ class Parser(object):
 
         patterns = expr.target.pattern()
         patterns = self._visit_Pattern(patterns)
-        args = OrderedDict()
+        args = {}
         for i,target in targets.items():
             args[i] = []
             for p, xs in zip(patterns, target):
@@ -1582,7 +1630,9 @@ class Parser(object):
         t_iterations = [TensorIteration(i,j)
                         for i,j in zip(t_iterator, t_generator)]
 
-        indices, lengths = list(self._visit(expr.index)), list(self._visit(expr.index.length))
+        indices = list(self._visit(expr.index))
+        starts, stops, lengths = list(self._visit(expr.index.start)), list(self._visit(expr.index.stop)), list(self._visit(expr.index.length))
+
         for i,j in zip(flatten(indices), flatten(lengths)):
             self.indices[str(i)] = j
 
@@ -1630,23 +1680,27 @@ class Parser(object):
             for axis,T in enumerate(mask):
                 if T:
                     indices[axis] = None
-                    lengths[axis] = None
+                    starts [axis] = None
+                    stops  [axis] = None
                     mask_init += list(inits[axis])
                     inits[axis]   = None
             indices = [i for i in indices if i is not None]
-            lengths = [i for i in lengths if i is not None]
-            inits   = [i for i in inits if i is not None]
+            starts  = [i for i in starts  if i is not None]
+            stops   = [i for i in stops   if i is not None]
+            inits   = [i for i in inits   if i is not None]
 
         elif mask:
             axis      = mask.axis
             index     = indices.pop(axis)
-            length    = lengths.pop(axis)
+            start     = starts.pop(axis)
+            stop      = stops.pop(axis)
             init      = inits.pop(axis)
             mask_init = [Assign(index, 0), *init]
-        for index, length, init in zip(indices[::-1], lengths[::-1], inits[::-1]):
+
+        for index, s, e, init in zip(indices[::-1], starts[::-1], stops[::-1], inits[::-1]):
 
             body = list(init) + body
-            body = [For(index, Range(length), body)]
+            body = [For(index, Range(s, e), body)]
         # ...
         # remove the list and return the For Node only
 

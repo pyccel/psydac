@@ -28,7 +28,7 @@ setup_args = dict(
     name             = NAME,
     version          = VERSION,
     description      = DESCR,
-    long_description = open('README.rst').read(),
+    long_description = open('README.md').read(),
     author           = AUTHOR,
     author_email     = EMAIL,
     license          = LICENSE,
@@ -51,13 +51,16 @@ install_requires = [
     'sympy>=1.5',
     'matplotlib',
     'pytest>=4.5',
-    'pyyaml',
-    'yamlloader',
+    'pyyaml>=5.1',
+    'packaging',
 
     # Our packages from PyPi
-    'sympde==0.11',
-    'pyccel==0.10.1',
+    'sympde>=0.13',
+    'pyccel>=0.10.1',
     'gelato==0.11',
+
+    # Alternative backend to Pyccel is Numba
+    'numba',
 
     # In addition, we depend on mpi4py and h5py (MPI version).
     # Since h5py must be built from source, we run the commands
@@ -66,6 +69,13 @@ install_requires = [
     # python3 -m pip install .
     'mpi4py',
     'h5py',
+
+    # When pyccel is run in parallel with MPI, it uses tblib to pickle
+    # tracebacks, which allows mpi4py to broadcast exceptions
+    'tblib',
+
+    # IGAKIT - not on PyPI
+    'igakit @ https://bitbucket.org/dalcinl/igakit/get/master.tar.gz',
 ]
 
 dependency_links = []
@@ -94,6 +104,7 @@ entry_points = {'console_scripts': ['psydac-mesh = psydac.cmd.mesh:main']}
 def setup_package():
     setup(packages=packages,
           ext_modules=ext_modules,
+          python_requires='>=3.7',
           install_requires=install_requires,
           include_package_data=True,
           package_data = {'':['*.txt']},

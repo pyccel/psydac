@@ -132,11 +132,18 @@ class DirectionalDerivativeOperator(Matrix):
     @property
     def domain(self):
         return self._domain
-    
+
+    # ...
     @property
     def codomain(self):
         return self._codomain
 
+    # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
+
+    # ...
     def dot(self, v, out=None):
         """
         Applies the derivative operator on the given StencilVector.

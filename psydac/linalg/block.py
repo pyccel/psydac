@@ -3,7 +3,6 @@
 # Copyright 2018 Jalal Lakhlili, Yaman Güçlü
 
 import numpy as np
-from collections  import OrderedDict
 from scipy.sparse import bmat, lil_matrix
 
 from psydac.linalg.basic import VectorSpace, Vector, LinearOperator, LinearSolver, Matrix
@@ -44,6 +43,11 @@ class BlockVectorSpace( VectorSpace ):
         # Store spaces in a Tuple, because they will not be changed
         self._spaces = tuple(spaces)
 
+        if all(np.dtype(s.dtype)==np.dtype(spaces[0].dtype) for s in spaces):
+            self._dtype  = spaces[0].dtype
+        else:
+            self._dtype = tuple(s.dtype for s in spaces)
+
     #--------------------------------------
     # Abstract interface
     #--------------------------------------
@@ -55,6 +59,11 @@ class BlockVectorSpace( VectorSpace ):
 
         """
         return sum( Vi.dimension for Vi in self._spaces )
+
+    # ...
+    @property
+    def dtype( self ):
+        return self._dtype
 
     # ...
     def zeros( self ):
@@ -75,6 +84,11 @@ class BlockVectorSpace( VectorSpace ):
     @property
     def spaces( self ):
         return self._spaces
+
+    @property
+    def parallel( self ):
+        """ Returns True if the memory is distributed."""
+        return self._spaces[0].parallel
 
     @property
     def starts( self ):
@@ -135,6 +149,11 @@ class BlockVector( Vector ):
     @property
     def space( self ):
         return self._space
+
+    #...
+    @property
+    def dtype( self ):
+        return self.space.dtype
 
     #...
     def dot( self, v ):
@@ -211,6 +230,7 @@ class BlockVector( Vector ):
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
+
     def __getitem__( self, key ):
         return self._blocks[key]
 
@@ -306,12 +326,12 @@ class BlockLinearOperator( LinearOperator ):
 
         self._domain   = V1
         self._codomain = V2
-        self._blocks   = OrderedDict()
+        self._blocks   = {}
 
         self._nrows = V2.n_blocks if isinstance(V2, BlockVectorSpace) else 1
         self._ncols = V1.n_blocks if isinstance(V1, BlockVectorSpace) else 1
 
-        # Store blocks in OrderedDict (hence they can be manually changed later)
+        # Store blocks in dict (hence they can be manually changed later)
         if blocks:
 
             if isinstance( blocks, dict ):
@@ -337,6 +357,11 @@ class BlockLinearOperator( LinearOperator ):
     @property
     def codomain( self ):
         return self._codomain
+
+    # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
 
     # ...
     def dot( self, v, out=None ):

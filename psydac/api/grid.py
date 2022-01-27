@@ -165,7 +165,7 @@ class BasisValues():
     def __init__( self, V, nderiv , trial=False, grid=None, ext=None):
 
         self._space = V
-
+        assert grid is not None
         if isinstance(V, ProductFemSpace):
             starts = V.vector_space.starts
             V      = V.spaces
@@ -180,12 +180,13 @@ class BasisValues():
         else:
             indices = [None]*len(V[0].spaces)
 
+        weights = grid.weights
         for si,Vi in zip(starts,V):
             quad_grids  = Vi.quad_grids
             spans_i     = []
             basis_i     = []
 
-            for sij,g,p,vij,ind in zip(si, quad_grids, Vi.vector_space.pads, Vi.spaces, indices):
+            for sij,g,w,p,vij,ind in zip(si, quad_grids, weights, Vi.vector_space.pads, Vi.spaces, indices):
                 sp = g.spans-sij
                 bs = g.basis
                 if not trial and vij.periodic and vij.degree <= p:
@@ -203,6 +204,10 @@ class BasisValues():
                             sp = np.concatenate((sp,sp[-1:]))
                         else:
                             raise ValueError("Could not contsruct the basis functions")
+
+                if not trial:
+                    bs  = bs.copy()
+                    bs *= w[:, None, None, :]
                 spans_i.append(sp)
                 basis_i.append(bs)
 

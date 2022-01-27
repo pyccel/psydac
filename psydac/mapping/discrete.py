@@ -3,14 +3,12 @@
 # Copyright 2018 Yaman Güçlü
 
 from itertools import product
-from collections import OrderedDict
 import numpy as np
 import string
 import random
 
 import h5py
 import yaml
-import yamlloader
 
 from sympde.topology.mapping  import Mapping
 
@@ -181,21 +179,18 @@ class SplineMapping:
         comm  = space.vector_space.cart.comm
 
         # Create dictionary with geometry metadata
-        yml = OrderedDict()
+        yml = {}
         yml['ldim'] = self.ldim
         yml['pdim'] = self.pdim
-        yml['patches'] = [OrderedDict( [('name' , 'patch_{}'.format( 0 ) ),
+        yml['patches'] = [{ [('name' , 'patch_{}'.format( 0 ) ),
                                         ('type' , 'cad_nurbs'            ),
-                                        ('color', 'None'                 )] )]
+                                        ('color', 'None'                 )] }]
         yml['internal_faces'] = []
         yml['external_faces'] = [[0,i] for i in range( 2*self.ldim )]
         yml['connectivity'  ] = []
 
         # Dump geometry metadata to string in YAML file format
-        geo = yaml.dump(
-            data   = yml,
-            Dumper = yamlloader.ordereddict.Dumper,
-        )
+        geo = yaml.dump(data = yml, sort_keys = False)
 
         # Create HDF5 file (in parallel mode if MPI communicator size > 1)
         kwargs = dict( driver='mpio', comm=comm ) if comm.size > 1 else {}
@@ -348,6 +343,10 @@ class NurbsMapping( SplineMapping ):
     @property
     def control_points( self ):
         return self._control_points
+
+    @property
+    def weights_field( self ):
+        return self._weights_field
 
     @property
     def weights( self ):

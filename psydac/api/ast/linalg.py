@@ -3,6 +3,7 @@
 import sys
 import os
 import importlib
+import inspect
 
 import numpy as np
 
@@ -10,20 +11,20 @@ from functools import lru_cache
 from mpi4py    import MPI
 
 from sympy import Mul, Tuple
-from sympy import Mod, Abs, Range, Symbol
+from sympy import Mod as sy_Mod, Abs, Range, Symbol, Max
 from sympy import Function, Integer
 
-from pyccel.ast.core import Variable, IndexedVariable
-from pyccel.ast.core import For
-from pyccel.ast.core import Slice, String
-from pyccel.ast.datatypes import NativeInteger
-from pyccel.ast.core import ValuedArgument
-from pyccel.ast.core import Assign
-from pyccel.ast.core import AugAssign
-from pyccel.ast.core import Product
-from pyccel.ast.core import FunctionDef
-from pyccel.ast.core import FunctionCall
-from pyccel.ast.core import Import
+from psydac.pyccel.ast.core import Variable, IndexedVariable
+from psydac.pyccel.ast.core import For
+from psydac.pyccel.ast.core import Slice, String
+from psydac.pyccel.ast.datatypes import NativeInteger
+from psydac.pyccel.ast.core import ValuedArgument
+from psydac.pyccel.ast.core import Assign
+from psydac.pyccel.ast.core import AugAssign
+from psydac.pyccel.ast.core import Product
+from psydac.pyccel.ast.core import FunctionDef
+from psydac.pyccel.ast.core import FunctionCall
+from psydac.pyccel.ast.core import Import
 
 from psydac.api.ast.nodes     import FloorDiv
 from psydac.api.ast.utilities import variables, math_atoms_as_str
@@ -52,6 +53,12 @@ def compute_diag_len(p, md, mc, return_padding=False):
     else:
         return n.astype('int')
 
+def Mod(a,b):
+    if b == 1:
+        return Integer(0)
+    else:
+        return sy_Mod(a,b)
+
 @lru_cache(maxsize=32)
 class LinearOperatorDot(SplBasic):
 
@@ -61,7 +68,7 @@ class LinearOperatorDot(SplBasic):
     def __init__(self, ndim, **kwargs):
 
         backend = dict(kwargs.pop('backend'))
-        code             = self._initialize(ndim, backend=backend, **kwargs)
+        code            = self._initialize(ndim, backend=backend, **kwargs)
         self._arguments = dict((str(a.name),a) for a in code.arguments)
         self._code      = code
         self._folder    = self._initialize_folder()
@@ -121,7 +128,9 @@ class LinearOperatorDot(SplBasic):
 
         body = [AugAssign(v,'+' ,Mul(v2, v1))]
 
-        if ndim>1 and backend and backend['name'] == 'numba':
+        # Decompose fused loop over Cartesian product of multiple ranges
+        # into nested loops, each over a single range
+        if ndim > 1:
             for i,j in zip(indices2[::-1], target.args[::-1]):
                 body = [For(i,j, body)]
         else:
@@ -132,12 +141,16 @@ class LinearOperatorDot(SplBasic):
         ranges = [Range(variable_to_sympy(i)) for i in nrows]
         target = Product(*ranges)
 
-        if ndim>1 and backend and backend['name'] == 'numba':
+        # Decompose fused loop over Cartesian product of multiple ranges
+        # into nested loops, each over a single range
+        if ndim > 1:
             for i,j in zip(indices1[::-1], target.args[::-1]):
                 body = [For(i,j, body)]
         else:
-            body = [For(indices1,target,body)]
+            body = [For(indices1, target, body)]
 
+        nrowscopy = list(nrows).copy()
+        nrows     = list(nrows)
         for dim in range(ndim):
 
             if nrows_extra[dim] == 0:continue
@@ -155,15 +168,19 @@ class LinearOperatorDot(SplBasic):
             rows = list(nrows)
             rows[dim] = nrows_extra[dim]
 
+            
             ranges       = [variable_to_sympy(n) for n in ndiags]
             ranges[dim] -= variable_to_sympy(indices1[dim]) + 1
+            ranges       = [ind if i>=dim else ind - Max(0, variable_to_sympy(d1)+1-variable_to_sympy(r)) for i,(ind,d1,r) in enumerate(zip(ranges, indices1, nrowscopy)) ]
             ranges       = [Range(i) for i in ranges]
 
             target = Product(*ranges)
 
             for_body = [AugAssign(v, '+',Mul(v1,v2))]
 
-            if ndim>1 and backend and backend['name'] == 'numba':
+            # Decompose fused loop over Cartesian product of multiple ranges
+            # into nested loops, each over a single range
+            if ndim > 1:
                 for i,j in zip(indices2[::-1], target.args[::-1]):
                     for_body = [For(i,j, for_body)]
             else:
@@ -175,13 +192,17 @@ class LinearOperatorDot(SplBasic):
             ranges = [Range(variable_to_sympy(i)) for i in rows]
             target = Product(*ranges)
 
-            if ndim>1 and backend and backend['name'] == 'numba':
+            # Decompose fused loop over Cartesian product of multiple ranges
+            # into nested loops, each over a single range
+            if ndim > 1:
                 for i,j in zip(indices1[::-1], target.args[::-1]):
                     for_body = [For(i,j, for_body)]
                 body += for_body
             else:
-                body  += [For(indices1, target, for_body)]
+                body += [For(indices1, target, for_body)]
 
+
+            nrows[dim] += nrows_extra[dim]
 
         body      = inits + body
         func_args =  (mat, x, out)
@@ -189,19 +210,15 @@ class LinearOperatorDot(SplBasic):
         if isinstance(starts[0], Variable):
             func_args = func_args + tuple(starts)
 
-        if isinstance(nrows[0], Variable):
-            func_args = func_args + tuple(nrows)
+        if isinstance(nrowscopy[0], Variable):
+            func_args = func_args + tuple(nrowscopy)
 
         if isinstance(nrows_extra[0], Variable):
             func_args = func_args + tuple(nrows_extra)
 
         decorators = {}
         header     = None
-
-        if backend and backend['name'] == 'numba':
-            imports = []
-        else:
-            imports = [Import('itertools', 'product')]
+        imports    = []
 
         if backend:
             if backend['name'] == 'pyccel':
@@ -273,7 +290,6 @@ class LinearOperatorDot(SplBasic):
         # ... convert python to fortran using pyccel
         compiler       = backend['compiler']
         fflags         = backend['flags']
-        accelerator    = backend['accelerator']
         _PYCCEL_FOLDER = backend['folder']
 
         from pyccel.epyccel import epyccel
@@ -281,7 +297,121 @@ class LinearOperatorDot(SplBasic):
         fmod = epyccel(mod,
                        compiler    = compiler,
                        fflags      = fflags,
-                       accelerator = accelerator,
+                       comm        = MPI.COMM_WORLD,
+                       bcast       = True,
+                       folder      = _PYCCEL_FOLDER,
+                       verbose     = verbose)
+
+        return fmod
+
+@lru_cache(maxsize=32)
+class TransposeOperator(SplBasic):
+
+    def __new__(cls, ndim, **kwargs):
+        return SplBasic.__new__(cls, 'transpose', name='lo_transpose', prefix='lo_transpose')
+
+    def __init__(self, ndim, **kwargs):
+
+        self.ndim        = ndim
+        backend          = dict(kwargs.pop('backend'))
+        self._code       = inspect.getsource(_transpose[ndim])
+        self._args_dtype = _args_dtype[ndim]
+        self._folder     = self._initialize_folder()
+
+        self._generate_code(backend=backend)
+        self._compile(backend=backend)
+
+    @property
+    def func(self):
+        return self._func
+
+    @property
+    def arguments(self):
+        return self._arguments
+
+    @property
+    def code(self):
+        return self._code
+
+    @property
+    def folder(self):
+        return self._folder
+
+    def _initialize_folder(self, folder=None):
+        # ...
+        if folder is None:
+            basedir = os.getcwd()
+            folder = PSYDAC_DEFAULT_FOLDER
+            folder = os.path.join( basedir, folder )
+
+            # ... add __init__ to all directories to be able to
+            touch_init_file('__pycache__')
+            for root, dirs, files in os.walk(folder):
+                touch_init_file(root)
+            # ...
+
+        else:
+            raise NotImplementedError('user output folder not yet available')
+
+        folder = os.path.abspath( folder )
+        mkdir_p(folder)
+        # ...
+
+        return folder
+
+    def _generate_code(self, backend=None):
+        dec  = ''
+        code = self._code
+        tag = random_string( 8 )
+        if backend and backend['name'] == 'pyccel':
+            import pyccel
+            from packaging import version
+            if version.parse(pyccel.__version__) < version.parse('1.1.0'):
+                # Add @types decorator due the  minimum required Pyccel version 0.10.1
+                imports = 'from pyccel.decorators import types'
+                dec     = '@types({})'.format(','.join(self._args_dtype))
+            else:
+                imports = ''
+                dec     = ''
+        elif backend and backend['name'] == 'numba':
+            imports = 'from numba import njit'
+            dec     = '@njit(fastmath={})'.format(backend['fastmath'])
+        else:
+            imports = ''
+
+        if MPI.COMM_WORLD.rank == 0:
+            modname = 'dependencies_{}'.format(tag)
+            code = '{imports}\n{dec}\n{code}'.format(imports=imports, dec=dec, code=code)
+            write_code(modname+ '.py', code, folder = self.folder)
+        else:
+            modname = None
+
+        self._modname =  MPI.COMM_WORLD.bcast( modname, root=0 )
+
+    def _compile(self, backend=None):
+
+        module_name = self._modname
+        sys.path.append(self.folder)
+        package = importlib.import_module( module_name )
+        sys.path.remove(self.folder)
+
+        if backend and backend['name'] == 'pyccel':
+            package = self._compile_pyccel(package, backend)
+
+        self._func = getattr(package, 'transpose_{}d'.format(self.ndim))
+
+    def _compile_pyccel(self, mod, backend, verbose=False):
+
+        # ... convert python to fortran using pyccel
+        compiler       = backend['compiler']
+        fflags         = backend['flags']
+        _PYCCEL_FOLDER = backend['folder']
+
+        from pyccel.epyccel import epyccel
+
+        fmod = epyccel(mod,
+                       compiler    = compiler,
+                       fflags      = fflags,
                        comm        = MPI.COMM_WORLD,
                        bcast       = True,
                        folder      = _PYCCEL_FOLDER,
@@ -351,3 +481,85 @@ class VectorDot(SplBasic):
 
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators,header=header)
+
+#========================================================================================================
+def transpose_1d( M:'float[:,:]', Mt:'float[:,:]', n1:int, nc1:int, gp1:int, p1:int,
+                  dm1:int, cm1:int, nd1:int, ndT1:int, si1:int, sk1:int, sl1:int):
+
+    d1 = gp1-p1
+
+    for x1 in range(n1):
+        j1 = dm1*gp1 + x1
+        for l1 in range(nd1):
+
+            i1 = si1 + cm1*(x1//dm1) + l1 + d1
+            k1 = sk1 + x1%dm1-dm1*(l1//cm1)
+
+            if k1<ndT1 and k1>-1 and l1<nd1 and i1<nc1:
+                Mt[j1, l1+sl1] = M[i1, k1]
+
+# ...
+def transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:int, n2:int, nc1:int, nc2:int,
+                   gp1:int, gp2:int, p1:int, p2:int, dm1:int, dm2:int,
+                   cm1:int, cm2:int, nd1:int, nd2:int, ndT1:int, ndT2:int,
+                   si1:int, si2:int, sk1:int, sk2:int, sl1:int, sl2:int):
+
+    d1 = gp1-p1
+    d2 = gp2-p2
+
+    for x1 in range(n1):
+        for x2 in range(n2):
+
+            j1 = dm1*gp1 + x1
+            j2 = dm2*gp2 + x2
+     
+            for l1 in range(nd1):
+                for l2 in range(nd2):
+
+                    i1 = si1 + cm1*(x1//dm1) + l1 + d1
+                    i2 = si2 + cm2*(x2//dm2) + l2 + d2
+
+                    k1 = sk1 + x1%dm1-dm1*(l1//cm1)
+                    k2 = sk2 + x2%dm2-dm2*(l2//cm2)
+
+                    if k1<ndT1 and k1>-1 and k2<ndT2 and k2>-1\
+                        and l1<nd1 and l2<nd2 and i1<nc1 and i2<nc2:
+                        Mt[j1,j2, l1+sl1,l2+sl2] = M[i1,i2, k1,k2]
+
+# ...
+def transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', n1:int, n2:int, n3:int,
+                  nc1:int, nc2:int, nc3:int, gp1:int, gp2:int, gp3:int, p1:int, p2:int, p3:int,
+                  dm1:int, dm2:int, dm3:int, cm1:int, cm2:int, cm3:int, nd1:int, nd2:int, nd3:int,
+                  ndT1:int, ndT2:int, ndT3:int, si1:int, si2:int, si3:int, sk1:int, sk2:int, sk3:int,
+                  sl1:int, sl2:int, sl3:int):
+
+    d1 = gp1-p1
+    d2 = gp2-p2
+    d3 = gp3-p3
+
+    for x1 in range(n1):
+        for x2 in range(n2):
+            for x3 in range(n3):
+
+                j1 = dm1*gp1 + x1
+                j2 = dm2*gp2 + x2
+                j3 = dm3*gp3 + x3
+
+                for l1 in range(nd1):
+                    for l2 in range(nd2):
+                        for l3 in range(nd3):
+
+                            i1 = si1 + cm1*(x1//dm1) + l1 + d1
+                            i2 = si2 + cm2*(x2//dm2) + l2 + d2
+                            i3 = si3 + cm3*(x3//dm3) + l3 + d3
+
+                            k1 = sk1 + x1%dm1-dm1*(l1//cm1)
+                            k2 = sk2 + x2%dm2-dm2*(l2//cm2)
+                            k3 = sk3 + x3%dm3-dm3*(l3//cm3)
+
+                            if k1<ndT1 and k1>-1 and k2<ndT2 and k2>-1 and k3<ndT3 and k3>-1\
+                                and l1<nd1 and l2<nd2 and l3<nd3 and i1<nc1 and i2<nc2 and i3<nc3:
+                                Mt[j1,j2,j3, l1 + sl1,l2 + sl2,l3 + sl3] = M[i1,i2,i3, k1,k2,k3]
+
+_transpose  = {1:transpose_1d,2:transpose_2d, 3:transpose_3d}
+_args_dtype = {1:[repr('float[:,:]')]*2 + ['int']*11,2:[repr('float[:,:,:,:]')]*2 + ['int']*22, 3:[repr('float[:,:,:,:,:,:]')]*2 + ['int']*33}

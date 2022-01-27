@@ -12,7 +12,7 @@ from sympde.expr     import Equation
 from psydac.api.basic                import BasicDiscrete
 from psydac.api.essential_bc         import apply_essential_bc
 from psydac.fem.basic                import FemField
-from psydac.linalg.iterative_solvers import cg, pcg, bicg
+from psydac.linalg.iterative_solvers import cg, pcg, bicg, minres, lsmr
 
 __all__ = ('DiscreteEquation',)
 
@@ -33,14 +33,17 @@ def driver_solve(L, **kwargs):
     return_info = kwargs.pop('info', False)
 
     if name == 'cg':
-        x, info = cg( M, rhs, **kwargs )
+        x, info = cg    ( M,      rhs, **kwargs )
     elif name == 'pcg':
-        x, info = pcg( M, rhs, **kwargs )
+        x, info = pcg   ( M,      rhs, **kwargs )
+    elif name == 'minres':
+        x, info = minres( M,      rhs, **kwargs )
     elif name == 'bicg':
-        x, info = bicg( M, M.T, rhs, **kwargs )
+        x, info = bicg  ( M, M.T, rhs, **kwargs )
+    elif name == 'lsmr':
+        x, info = lsmr  ( M, M.T, rhs, **kwargs )
     else:
         raise NotImplementedError("Solver '{}' is not available".format(name))
-
     return (x, info) if return_info else x
 
 #==============================================================================
@@ -162,12 +165,13 @@ class DiscreteEquation(BasicDiscrete):
                    if eqn_bc else None
         # ...
 
-        self._bc = bc
-        self._linear_system = None
-        self._domain        = domain
-        self._trial_space   = trial_space
-        self._test_space    = test_space
+        self._bc                = bc
+        self._linear_system     = None
+        self._domain            = domain
+        self._trial_space       = trial_space
+        self._test_space        = test_space
         self._boundary_equation = eqn_bc_h
+        self._solver_parameters = _default_solver.copy()
 
     @property
     def expr(self):
@@ -204,6 +208,12 @@ class DiscreteEquation(BasicDiscrete):
     @property
     def boundary_equation(self):
         return self._boundary_equation
+
+    def set_solver(self, solver, **kwargs):
+        self._solver_parameters.update(solver=solver, **kwargs)
+
+    def get_solver(self):
+        return self._solver_parameters
 
     #--------------------------------------------------------------------------
     def assemble(self, **kwargs):
@@ -246,16 +256,6 @@ class DiscreteEquation(BasicDiscrete):
         else:
             free_args_bc = set()
 
-        # Global settings passed by the user (not free arguments values)
-        glob_settings = {k:v for k, v in kwargs.items() \
-                if k not in free_args | free_args_bc}
-
-        # Calculate solver settings by overriding the defaults with the
-        # user-provided values
-        settings = _default_solver.copy()
-        settings.update(glob_settings)
-        settings.update({it[0]:it[1] for it in glob_settings.items() if it[0] not in settings})
-
         #----------------------------------------------------------------------
         # [YG, 18/11/2019]
         #
@@ -267,24 +267,17 @@ class DiscreteEquation(BasicDiscrete):
         # initial guess when the model equation is to be solved by an
         # iterative method. Our current method of solution does not
         # modify the initial guess at the boundary.
+
+        settings = self.get_solver()
         if self.boundary_equation:
 
-            # Clean up user-provided **kwargs by removing the solver settings
-            # and the free parameters not belonging to the boundary
-            for e in (free_args - free_args_bc) | settings.keys():
-                kwargs.pop(e, None)
-
             # Find inhomogeneous solution (use CG as system is symmetric)
-            loc_settings = settings.copy()
-            loc_settings['solver'] = 'cg'
-            loc_settings.pop('info', False)
-            loc_settings.pop('pc'  , False)
-            uh = self.boundary_equation.solve(**kwargs, **loc_settings)
+            self.boundary_equation.set_solver('cg', info=False)
+            uh = self.boundary_equation.solve(**kwargs)
 
             # Use inhomogeneous solution as initial guess to solver
             settings['x0'] = uh.coeffs
         #----------------------------------------------------------------------
-
         if settings.get('info', False):
             X, info = driver_solve(self.linear_system, **settings)
             uh = FemField(self.trial_space, coeffs=X)

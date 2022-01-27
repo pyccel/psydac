@@ -138,7 +138,7 @@ class FemAssemblyGrid:
                 weights.append( glob_weights[k] )
                 indices.append( k )
                 ne += 1
-        
+
         #-------------------------------------------
         # DATA STORAGE IN OBJECT
         #-------------------------------------------

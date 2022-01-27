@@ -2,7 +2,7 @@ from sympy.core import Symbol
 from sympy.core import S
 from sympy.printing.precedence import precedence
 
-from pyccel.codegen.printing.pycode import PythonCodePrinter as PyccelPythonCodePrinter
+from psydac.pyccel.codegen.printing.pycode import PythonCodePrinter as PyccelPythonCodePrinter
 
 from sympde.topology.derivatives import _partial_derivatives
 from sympde.topology             import SymbolicExpr
