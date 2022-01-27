@@ -421,7 +421,7 @@ class AST(object):
                                             tests, d_tests,
                                             trials, d_trials,
                                             fields, d_fields, constants,
-                                            nderiv, domain.dim, domain
+                                            nderiv, domain.dim, domain,
                                             mapping, d_mapping, is_rational_mapping, spaces, mapping_space,  mask, tag, is_parallel,
                                             **kwargs)
 
