@@ -7,7 +7,6 @@ from sympy import Mul, Matrix, Expr
 from sympy import Add
 from sympy import Abs
 from sympy import Symbol, Idx
-from sympy import Range
 from sympy import Basic, Function
 from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
@@ -18,6 +17,7 @@ from psydac.pyccel.ast.core      import Variable, IndexedVariable, IndexedElemen
 from psydac.pyccel.ast.core      import Slice, String, ValuedArgument
 from psydac.pyccel.ast.core      import EmptyNode, Import
 from psydac.pyccel.ast.core      import CodeBlock, FunctionDef
+from psydac.pyccel.ast.builtins  import Range
 
 
 from sympde.topology import (dx1, dx2, dx3)
@@ -1092,7 +1092,7 @@ class Parser(object):
             normalization = values.dot(values)**0.5
             values  = [v for v in values]
             values  = [v1/normalization for v1 in values]
-            normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), values[i].simplify()) for i in range(dim)]
+            normal_vec_stmts += [Assign(SymbolicExpr(vec[i]), values[i]) for i in range(dim)]
 
         if op is None:
             stmts = [Assign(i, j) for i,j in zip(lhs,rhs) if j]
@@ -1700,6 +1700,7 @@ class Parser(object):
         for index, s, e, init in zip(indices[::-1], starts[::-1], stops[::-1], inits[::-1]):
 
             body = list(init) + body
+            print(s,e)
             body = [For(index, Range(s, e), body)]
         # ...
         # remove the list and return the For Node only
