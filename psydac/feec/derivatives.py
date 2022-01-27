@@ -281,7 +281,7 @@ class DirectionalDerivativeOperator(Matrix):
         out : COOMatrix
             The resulting matrix.
         """
-        return self._tosparse(False)
+        return self._tosparse(True)
     
     def tosparse_nopads(self):
         """
@@ -314,7 +314,7 @@ class DirectionalDerivativeOperator(Matrix):
         # again, we do the transposition later
 
         # avoid this case (no pads, but parallel)
-        #assert not (self.domain.parallel and not with_pads)
+        assert not (self.domain.parallel and not with_pads)
 
         # begin with a 1×1 matrix
         matrix = spa.identity(1, format='coo')
@@ -752,3 +752,4 @@ class Divergence_3D(DiffOperator):
         self._domain   = Hdiv
         self._codomain = L2
         self._matrix   = matrix
+
