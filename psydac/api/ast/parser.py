@@ -1700,7 +1700,6 @@ class Parser(object):
         for index, s, e, init in zip(indices[::-1], starts[::-1], stops[::-1], inits[::-1]):
 
             body = list(init) + body
-            print(s,e)
             body = [For(index, Range(s, e), body)]
         # ...
         # remove the list and return the For Node only
