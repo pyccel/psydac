@@ -4604,7 +4604,7 @@ class Comment(Basic):
         return self._args[0]
 
     def _sympystr(self, printer):
-        sstr = printer.doprint
+        sstr = printer._print
         txt  = sstr(self.text)
         if txt.lstrip()[0] != '#':
             txt = '#' + txt

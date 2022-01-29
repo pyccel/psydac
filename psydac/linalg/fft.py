@@ -109,6 +109,7 @@ class DistributedFFT(DistributedFFTBase):
         # only allow complex data types
         assert isinstance(space, StencilVectorSpace)
         assert np.dtype(space.dtype).kind == 'c'
+        workers = int(workers) if workers is not None else None
 
         super().__init__(space, lambda out: scifft.fft(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm))
@@ -162,6 +163,7 @@ class DistributedDCT(DistributedFFTBase):
         The DCT type to use. (the name of this parameter in the underlying method is actually `type`).
     """
     def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None), ttype=2):
+        workers = int(workers) if workers is not None else None
         super().__init__(space, lambda out: scifft.dct(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm, type=ttype))
 
@@ -187,6 +189,7 @@ class DistributedIDCT(DistributedFFTBase):
         The DCT type to use. (the name of this parameter in the underlying method is actually `type`).
     """
     def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None), ttype=2):
+        workers = int(workers) if workers is not None else None
         super().__init__(space, lambda out: scifft.idct(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm, type=ttype)) 
 
@@ -212,6 +215,7 @@ class DistributedDST(DistributedFFTBase):
         The DCT type to use. (the name of this parameter in the underlying method is actually `type`).
     """
     def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None), ttype=2):
+        workers = int(workers) if workers is not None else None
         super().__init__(space, lambda out: scifft.dst(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm, type=ttype))
 
@@ -237,5 +241,6 @@ class DistributedIDST(DistributedFFTBase):
         The DCT type to use. (the name of this parameter in the underlying method is actually `type`).
     """
     def __init__(self, space, norm=None, workers=os.environ.get('OMP_NUM_THREADS', None), ttype=2):
+        workers = int(workers) if workers is not None else None
         super().__init__(space, lambda out: scifft.idst(
                 out, axis=1, overwrite_x=True, workers=workers, norm=norm, type=ttype)) 
