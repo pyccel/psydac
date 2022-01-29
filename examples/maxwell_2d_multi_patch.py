@@ -1,9 +1,12 @@
 # -*- coding: UTF-8 -*-
 
 import pytest
+import time
 import numpy as np
 from mpi4py import MPI
 from sympy  import pi, sin, cos, Tuple, Matrix
+
+from scipy.sparse.linalg import spsolve, inv
 
 from sympde.calculus      import grad, dot, curl, cross
 from sympde.calculus      import minus, plus
@@ -77,94 +80,51 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     equation_h = discretize(equation, domain_h, [Vh, Vh])
     l2norm_h   = discretize(l2norm, domain_h, Vh)
 
-    equation_h.set_solver('pcg', pc='jacobi', tol=1e-8)
+    equation_h.set_solver('pcg', pc='jacobi', tol=1e-8, info=True)
 
-    uh = equation_h.solve()
+    timing   = {}
+    t0       = time.time()
+    uh, info = equation_h.solve()
+    t1       = time.time()
+    timing['solution'] = t1-t0
 
+    t0 = time.time()
     l2_error = l2norm_h.assemble(F=uh)
+    t1       = time.time()
+    timing['diagnostics'] = t1-t0
 
-    return l2_error, uh
-
-#------------------------------------------------------------------------------
-def test_maxwell_2d_2_patch_dirichlet_0():
-
-    bounds1   = (0.5, 1.)
-    bounds2_A = (0, np.pi/2)
-    bounds2_B = (np.pi/2, np.pi)
-
-    A = Square('A',bounds1=bounds1, bounds2=bounds2_A)
-    B = Square('B',bounds1=bounds1, bounds2=bounds2_B)
-
-    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
-
-    D1     = mapping_1(A)
-    D2     = mapping_2(B)
-
-    domain = D1.join(D2, name = 'domain',
-                bnd_minus = D1.get_boundary(axis=1, ext=1),
-                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
-
-    x,y    = domain.coordinates
-
-    omega = 1.5
-    alpha = -omega**2
-    Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
-    f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
-                  alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
-
-    l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2])
-
-    expected_l2_error = 0.006038566252825904
-
-    assert ( abs(l2_error - expected_l2_error) < 1e-7)
-
-#------------------------------------------------------------------------------
-def test_maxwell_2d_2_patch_dirichlet_1():
-
-    domain = build_pretzel()
-    x,y    = domain.coordinates
-
-    omega = 1.5
-    alpha = -omega**2
-    Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
-    f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
-                  alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
-
-    l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2,2])
-
-    expected_l2_error = 0.030289265934636638
-
-    assert ( abs(l2_error - expected_l2_error) < 1e-7)
-#==============================================================================
-# CLEAN UP SYMPY NAMESPACE
-#==============================================================================
-
-def teardown_module():
-    from sympy.core import cache
-    cache.clear_cache()
-
-def teardown_function():
-    from sympy.core import cache
-    cache.clear_cache()
+    return uh, info, timing, l2_error
 
 if __name__ == '__main__':
 
     from collections                               import OrderedDict
     from sympy                                     import lambdify
+    from psydac.api.tests.build_domain             import build_pretzel
     from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals_vector
     from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
 
     domain    = build_pretzel()
     x,y       = domain.coordinates
-
     omega = 1.5
     alpha = -omega**2
     Eex   = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
     f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                   alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
-    l2_error, Eh = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2,2])
+    ne     = [2**2,2**2]
+    degree = [2,2]
+
+    Eh, info, timing, l2_error = run_maxwell_2d(Eex, f, alpha, domain, ncells=ne, degree=degree)
+
+    # ...
+    print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
+    print( '> Degree        :: [{p1},{p2}]'  .format( p1=degree[0], p2=degree[1] ) )
+    print( '> CG info       :: ',info )
+    print( '> L2 error      :: {:.2e}'.format( l2_error ) )
+    print( '' )
+    print( '> Solution time :: {:.2e}'.format( timing['solution'] ) )
+    print( '> Evaluat. time :: {:.2e}'.format( timing['diagnostics'] ) )
+    N = 20
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
