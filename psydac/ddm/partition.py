@@ -3,69 +3,9 @@ import numpy.ma as ma
 
 from sympy.ntheory import factorint
 
-__all__ = ['mpi_compute_dims', 'openmp_compute_dims']
+__all__ = ['compute_dims']
 
 #==============================================================================
-def mpi_compute_dims(nnodes, gridsizes, min_blocksizes=None):
-    """
-    With the aim of distributing a multi-dimensional array on an MPI Cartesian
-    topology, compute the number of processes along each dimension.
-
-    Whenever possible, the number of processes is chosen so that the array is
-    decomposed into identical blocks.
-
-    Parameters
-    ----------
-    nnodes : int
-        Number of MPI processes in MPI Cartesian topology.
-
-    gridsizes : list of int
-        Number of array elements along each dimension.
-
-    min_blocksizes : list of int
-        Minimum acceptable size of a block along each dimension. 
-
-    Returns
-    -------
-    dims : list of int
-        Number of processes along each dimension of MPI Cartesian topology. 
-
-    blocksizes : list of int
-        Nominal block size along each dimension.
-
-    """
-    return compute_dims( nnodes, gridsizes, min_blocksizes=min_blocksizes , mpi=True)
-
-def openmp_compute_dims(nnodes, gridsizes, min_blocksizes=None):
-    """
-    With the aim of distributing a multi-dimensional array on an OpenMP Cartesian
-    topology, compute the number of processes along each dimension.
-
-    Whenever possible, the number of processes is chosen so that the array is
-    decomposed into identical blocks.
-
-    Parameters
-    ----------
-    nnodes : int
-        Number of OpenMP processes in OpenMP Cartesian topology.
-
-    gridsizes : list of int
-        Number of array elements along each dimension.
-
-    min_blocksizes : list of int
-        Minimum acceptable size of a block along each dimension. 
-
-    Returns
-    -------
-    dims : list of int
-        Number of processes along each dimension of OpenMP Cartesian topology. 
-
-    blocksizes : list of int
-        Nominal block size along each dimension.
-
-    """
-    return compute_dims( nnodes, gridsizes, min_blocksizes=min_blocksizes , mpi=False)
-
 def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
     """
     With the aim of distributing a multi-dimensional array on a Cartesian
@@ -108,9 +48,9 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
 
     # Compute dimensions of MPI Cartesian topology with most appropriate algorithm
     if uniform:
-        dims, blocksizes = mpi_compute_dims_uniform( nnodes, gridsizes )
+        dims, blocksizes = compute_dims_uniform( nnodes, gridsizes )
     else:
-        dims, blocksizes = mpi_compute_dims_general( nnodes, gridsizes )
+        dims, blocksizes = compute_dims_general( nnodes, gridsizes )
 
     # If a minimum block size is given, verify that condition is met
 
@@ -119,20 +59,17 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
 
         # If uniform decomposition yields blocks too small, fall back to general algorithm
         if uniform and too_small:
-            dims, blocksizes = mpi_compute_dims_general( nnodes, gridsizes )
+            dims, blocksizes = compute_dims_general( nnodes, gridsizes )
             too_small = any( [s < m for (s,m) in zip( blocksizes, min_blocksizes )] )
 
         # If general decomposition yields blocks too small, raise error
-        if too_small and mpi:
-            raise ValueError("Cannot compute MPI dimensions with given input values!")
-
-        if too_small and not mpi:
-            raise ValueError("Cannot compute OpenMP dimensions with given input values!")
+        if too_small:
+            raise ValueError("Cannot compute dimensions with given input values!")
 
     return dims, blocksizes
 
 #==============================================================================
-def mpi_compute_dims_general( mpi_size, npts ):
+def compute_dims_general( mpi_size, npts ):
 
     nprocs = [1]*len( npts )
     shape  = [n for n in npts]
@@ -154,7 +91,7 @@ def mpi_compute_dims_general( mpi_size, npts ):
     return nprocs, shape
 
 #==============================================================================
-def mpi_compute_dims_uniform( mpi_size, npts ):
+def compute_dims_uniform( mpi_size, npts ):
 
     nprocs = [1]*len( npts )
 

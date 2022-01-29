@@ -4,7 +4,7 @@ import numpy as np
 from itertools import product
 from mpi4py    import MPI
 
-from psydac.ddm.partition import mpi_compute_dims, openmp_compute_dims
+from psydac.ddm.partition import compute_dims
 
 __all__ = ['find_mpi_type', 'CartDecomposition', 'CartDataExchanger']
 
@@ -109,7 +109,7 @@ class CartDecomposition():
         reduced_npts = [(n-p-1)//m if m>1 else n if not P else n for n,m,p,P in zip(npts, shifts, pads, periods)]
 
         if nprocs is None:
-            nprocs, block_shape = mpi_compute_dims( self._size, reduced_npts, pads )
+            nprocs, block_shape = compute_dims( self._size, reduced_npts, pads )
         else:
             assert len(nprocs) == len(npts)
 
@@ -321,7 +321,7 @@ class CartDecomposition():
 
         assert len(shape) == self._ndims
 
-        nthreads , block_shape = openmp_compute_dims( self._num_threads, shape , [2*p for p in self._pads])
+        nthreads , block_shape = compute_dims( self._num_threads, shape , [2*p for p in self._pads])
 
         # Know coords of all threads
         coords_from_rank = np.array([np.unravel_index(rank, nthreads) for rank in range(self._num_threads)])
@@ -343,11 +343,7 @@ class CartDecomposition():
             d = nthreads[axis]
             thread_global_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
             thread_global_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
-#        print(thread_global_starts, thread_global_ends)
-#        print(coords_from_rank)
-#        print('rank from coords',rank_from_coords)
-#        print(nthreads)
-#        print('####')
+
         return coords_from_rank, rank_from_coords, thread_global_starts, thread_global_ends, self._num_threads
 
     #---------------------------------------------------------------------------
