@@ -752,4 +752,3 @@ class Divergence_3D(DiffOperator):
         self._domain   = Hdiv
         self._codomain = L2
         self._matrix   = matrix
-

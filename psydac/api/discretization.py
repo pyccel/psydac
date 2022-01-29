@@ -236,7 +236,6 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
         interiors = [domain_h.domain.interior]
         mappings  = [domain_h.mappings[inter.logical_domain.name] for inter in interiors]
-
         spaces    = [m.space for m in mappings]
         g_spaces  = dict(zip(interiors, spaces))
 

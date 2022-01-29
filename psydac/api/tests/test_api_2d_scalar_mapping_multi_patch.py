@@ -21,7 +21,6 @@ from psydac.api.discretization     import discretize
 from psydac.api.tests.build_domain import build_pretzel
 
 #==============================================================================
-
 def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     #+++++++++++++++++++++++++++++++
@@ -139,6 +138,7 @@ def test_poisson_2d_2_patch_dirichlet_1():
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
+#------------------------------------------------------------------------------
 def test_poisson_2d_2_patch_dirichlet_2():
 
     mapping_1 = IdentityMapping('M1', 2)
@@ -173,7 +173,7 @@ def test_poisson_2d_2_patch_dirichlet_2():
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
-
+#------------------------------------------------------------------------------
 def test_poisson_2d_2_patch_dirichlet_3():
 
     domain    = build_pretzel()

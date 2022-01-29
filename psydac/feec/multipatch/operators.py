@@ -643,4 +643,3 @@ def get_grid_vals_V2(B, V2h, etas, mappings_obj):
 
     B_vals  = np.concatenate(B_vals, axis=1)
     return B_vals
-

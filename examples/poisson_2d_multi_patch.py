@@ -76,7 +76,6 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
     #+++++++++++++++++++++++++++++++
     # 2. Discretization
     #+++++++++++++++++++++++++++++++
-
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     Vh       = discretize(V, domain_h, degree=degree)
 

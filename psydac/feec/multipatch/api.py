@@ -126,4 +126,3 @@ def discretize(expr, *args, **kwargs):
 
     else:
         return discretize_single_patch(expr, *args, **kwargs)
-

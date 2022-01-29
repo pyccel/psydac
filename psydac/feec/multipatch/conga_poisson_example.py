@@ -358,4 +358,3 @@ if __name__ == '__main__':
 
     conga_poisson_2d()
 
-

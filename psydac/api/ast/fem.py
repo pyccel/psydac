@@ -514,7 +514,6 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     d_mapping : <dict>
         dictionary that contains the symbolic spans and basis values of the mapping
 
-
     is_rational_mapping : <bool>
         takes the value of True if the mapping is rational
 
@@ -529,7 +528,6 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     is_parallel   : <bool>
         True if the domain is distributed
-
 
     Returns
     -------
@@ -676,7 +674,6 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                     end_expr = TensorAssignExpr(Tuple(*es[sub_tests[0]]), end_expr)
                     g_stmts_texpr += [start_expr, end_expr]
 
-
             else:
                 l_stmts = []
                 mask_inner = [[False, True] for i in range(dim)]
@@ -821,7 +818,6 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     tag   : <str>
         tag to be added to variable names
 
-
     Returns
     -------
     node : DefNode
@@ -829,10 +825,8 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     """
     pads     = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
-
     g_quad   = [GlobalTensorQuadrature(False)]
     l_quad   = [LocalTensorQuadrature(False)]
-
     geo      = GeometryExpressions(mapping, nderiv)
     g_coeffs = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
 
@@ -912,7 +906,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         stmts = Block(body)
         g_stmts += [stmts]
     # ...
-    
+
     #=========================================================end kernel=========================================================
     # ... loop over global elements
     loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)
