@@ -321,7 +321,11 @@ class CartDecomposition():
 
         assert len(shape) == self._ndims
 
-        nthreads , block_shape = compute_dims( self._num_threads, shape , [2*p for p in self._pads])
+        try:
+            nthreads , block_shape = compute_dims( self._num_threads, shape , [2*p for p in self._pads])
+        except ValueError:
+            print("Cannot compute dimensions with given input values!")
+            self.comm.Abort(1)
 
         # Know coords of all threads
         coords_from_rank = np.array([np.unravel_index(rank, nthreads) for rank in range(self._num_threads)])
