@@ -11,7 +11,9 @@ from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
 from psydac.fem.basic             import FemSpace, FemField
 from psydac.core.bsplines         import (
         find_span,
+        find_spans,
         basis_funs,
+        basis_funs_array,
         collocation_matrix,
         histopolation_matrix,
         breakpoints,
@@ -273,26 +275,59 @@ class SplineSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field( self, field, *eta , weights=None):
-
+    def eval_field(self, field, eta , weights=None):
+        eta =  np.asarray(eta)
         assert isinstance( field, FemField )
         assert field.space is self
-        assert len( eta ) == 1
+        assert (eta.ndim == 1 or eta.ndim == 0)
 
-        span  =  find_span( self.knots, self.degree, eta[0] )
-        basis = basis_funs( self.knots, self.degree, eta[0], span )
-        index = slice(span-self.degree, span+1)
+        if eta.ndim == 0:
+            eta = eta.reshape((1,))
+
+        spans = np.empty_like(eta, dtype = int)
+        find_spans( self.knots, self.degree, eta, spans)
+
+        basis_array = np.empty((eta.shape[0],self.degree + 1))
+        basis_funs_array( self.knots, self.degree, eta, spans, basis_array)
+        starts = spans-self.degree
+        ends = spans + 1
+        indexes = np.array([np.arange(starts[i],ends[i]) for i in range(eta.shape[0])])
+        if self.basis == 'M':
+            basis_array *= self._scaling_array[indexes]
+
+        coeffs = field.coeffs[indexes].copy()
+
+        if weights:
+            coeffs *= weights[indexes]
+
+
+        # Same as  np.sum(coeffs*basis_array,axis = 1) but faster
+        # However, the floating point error is different:
+        # np.allclose(einsum,sumprod) is True but all(einsum == sumprod) is False
+        return np.einsum('ij,ij->i',coeffs,basis_array)
+
+    def eval_field_leg(self, field, *eta , weights=None):
+        assert isinstance( field, FemField )
+        assert field.space is self
+        assert (len(eta)==1)
+
+        span = find_span( self.knots, self.degree, eta)
+
+        basis_array = np.empty(self.degree + 1)
+
+        basis_funs( self.knots, self.degree, eta, span, basis_array)
+        index = slice(span-self.degree, span + 1)
 
         if self.basis == 'M':
-            basis *= self._scaling_array[index]
+            basis_array *= self._scaling_array[index]
 
         coeffs = field.coeffs[index].copy()
 
         if weights:
             coeffs *= weights[index]
 
-        return np.dot( coeffs, basis )
 
+        return np.dot(coeffs,basis_array)
     # ...
     def eval_field_gradient( self, field, *eta , weights=None):
 
@@ -484,5 +519,6 @@ class SplineSpace( FemSpace ):
             spl = BSpline(knots, c, d)
             ax.plot(xx, spl(xx), label='N{}'.format(i))
         ax.grid(True)
+        ax.legend()
         plt.show()
 

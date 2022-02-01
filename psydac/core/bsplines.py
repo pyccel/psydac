@@ -219,7 +219,8 @@ def basis_funs_1st_der( knots, degree, x, span ):
     """
     # Compute nonzero basis functions and knot differences for splines
     # up to degree deg-1
-    values = basis_funs( knots, degree-1, x, span )
+    values = np.zeros(degree)
+    basis_funs( knots, degree-1, x, span, values)
 
     # Compute derivatives at x using formula based on difference of splines of
     # degree deg-1
@@ -396,7 +397,8 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid):
     # Fill in non-zero matrix values
     for i,x in enumerate( xgrid ):
         span  =  find_span( knots, degree, x )
-        basis = basis_funs( knots, degree, x, span )
+        basis = np.zeros(degree + 1)
+        basis_funs( knots, degree, x, span, basis)
         mat[i,js(span)] = normalize(basis, span)
 
     # Mitigate round-off errors

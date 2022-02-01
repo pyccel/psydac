@@ -72,7 +72,7 @@ class FemSpace( metaclass=ABCMeta ):
     # Abstract interface: evaluation methods
     #---------------------------------------
     @abstractmethod
-    def eval_field( self, field, *eta , weights=None):
+    def eval_field( self, field, eta , weights=None):
         """
         Evaluate field at location(s) eta.
 
