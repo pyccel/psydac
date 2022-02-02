@@ -20,6 +20,7 @@ import numpy as np
 __all__ = ['find_span',
            'find_spans',
            'basis_funs',
+           'basis_funs_array',
            'basis_funs_1st_der',
            'basis_funs_all_ders',
            'collocation_matrix',

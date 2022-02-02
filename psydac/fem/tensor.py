@@ -242,9 +242,14 @@ class TensorFemSpace( FemSpace ):
 
         Parameters
         ----------
+<<<<<<< HEAD
         self : psydac.fem.tensor.TensorFemSpace
 
         refine_factor : tuple of ints, int or None, optional
+=======
+        refine_factor : tuple of ints, int or None, optional
+            Size of the quadrature in all directions. Defaults to self.degree.
+>>>>>>> faster-eval-fields
 
         Returns
         -------
@@ -273,7 +278,7 @@ class TensorFemSpace( FemSpace ):
             if len(refine_factor) == 1:
                 refine_factor = (refine_factor[0],) * self.ldim
             assert (self.ldim == len(refine_factor))
-            quad_order = tuple(d + r for d, r in zip(self.degree, refine_factor))
+            quad_order = refine_factor
         else:
             quad_order = self.degree
 
@@ -315,8 +320,11 @@ class TensorFemSpace( FemSpace ):
 
         Parameters:
         -----------
+<<<<<<< HEAD
         self : psydac.fem.tensor.TensorFemSpace
 
+=======
+>>>>>>> faster-eval-fields
         fields : tuple of psydac.fem.basic.FemField
             Fields to evaluate
 

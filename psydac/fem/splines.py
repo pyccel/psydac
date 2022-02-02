@@ -275,41 +275,12 @@ class SplineSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field(self, field, eta , weights=None):
-        eta =  np.asarray(eta)
-        assert isinstance( field, FemField )
-        assert field.space is self
-        assert (eta.ndim == 1 or eta.ndim == 0)
-
-        if eta.ndim == 0:
-            eta = eta.reshape((1,))
-
-        spans = np.empty_like(eta, dtype = int)
-        find_spans( self.knots, self.degree, eta, spans)
-
-        basis_array = np.empty((eta.shape[0],self.degree + 1))
-        basis_funs_array( self.knots, self.degree, eta, spans, basis_array)
-        starts = spans-self.degree
-        ends = spans + 1
-        indexes = np.array([np.arange(starts[i],ends[i]) for i in range(eta.shape[0])])
-        if self.basis == 'M':
-            basis_array *= self._scaling_array[indexes]
-
-        coeffs = field.coeffs[indexes].copy()
-
-        if weights:
-            coeffs *= weights[indexes]
-
-
-        # Same as  np.sum(coeffs*basis_array,axis = 1) but faster
-        # However, the floating point error is different:
-        # np.allclose(einsum,sumprod) is True but all(einsum == sumprod) is False
-        return np.einsum('ij,ij->i',coeffs,basis_array)
-
-    def eval_field_leg(self, field, *eta , weights=None):
+    def eval_field(self, field, *eta , weights=None):
         assert isinstance( field, FemField )
         assert field.space is self
         assert (len(eta)==1)
+
+        eta = eta[0]
 
         span = find_span( self.knots, self.degree, eta)
 
@@ -326,8 +297,8 @@ class SplineSpace( FemSpace ):
         if weights:
             coeffs *= weights[index]
 
-
         return np.dot(coeffs,basis_array)
+
     # ...
     def eval_field_gradient( self, field, *eta , weights=None):
 

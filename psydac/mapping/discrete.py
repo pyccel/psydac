@@ -123,11 +123,24 @@ class SplineMapping:
         # Create SplineMapping object
         return cls( *fields )
 
-    #--------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     # Abstract interface
-    #--------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     def __call__( self, eta ):
         return [map_Xd( *eta ) for map_Xd in self._fields]
+
+    def build_mesh(self, refine_factor=None):
+        """Evaluation of the mapping on the entire logical domain
+        using a refined grid.
+
+        Parameters
+        ----------
+        refine_factor : int, tuple of ints or None, Optional
+            How much to refine the logical grid.
+
+        """
+
+        return self.space.eval_fields(*self._fields, refine_factor=refine_factor)
 
     def jac_mat( self, eta ):
         return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
@@ -322,6 +335,19 @@ class NurbsMapping( SplineMapping ):
         w = map_W( *eta )
         Xd = [map_Xd( *eta , weights=map_W.coeffs) for map_Xd in self._fields]
         return np.asarray( Xd ) / w
+
+    def build_mesh(self, refine_factor=None):
+        """Evaluation of the mapping on the entire logical domain
+        using a refined grid.
+
+        Parameters
+        ----------
+        refine_factor : int, tuple of ints or None, Optional
+            How much to refine the logical grid.
+
+        """
+
+        return self.space.eval_fields(*self._fields, refine_factor=refine_factor, weights=self._weights_field)
 
     def jac_mat( self, eta ):
         raise NotImplementedError('TODO')
