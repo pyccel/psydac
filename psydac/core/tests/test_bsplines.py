@@ -48,7 +48,8 @@ def test_basis_funs( lims, nc, p, tol=1e-14 ):
     xx = np.linspace( *lims, num=101 )
     for x in xx:
         span  =  find_span( knots, p, x )
-        basis = basis_funs( knots, p, x, span )
+        basis = np.zeros(p+1)
+        basis_funs( knots, p, x, span, basis)
         assert len( basis ) == p+1
         assert np.all( basis >= 0 )
         assert abs( sum( basis ) - 1.0 ) < tol
@@ -93,7 +94,8 @@ def test_basis_funs_all_ders( lims, nc, p, tol=1e-14 ):
         assert ders.dtype == np.dtype( float )
 
         # Test 0th derivative
-        der0 = basis_funs( knots, p, x, span )
+        der0 = np.zeros(p+1)
+        basis_funs( knots, p, x, span, der0)
         assert np.allclose( ders[0,:], der0, rtol=1e-15, atol=1e-15 )
         assert np.all( ders[0,:] >= 0.0 )
 
@@ -186,7 +188,9 @@ if __name__ == '__main__':
     zz = np.zeros( (len(xx), nb) )
     for i,x in enumerate( xx ):
         span = find_span( knots, p, x )
-        yy[i,span-p:span+1] = basis_funs        ( knots, p, x, span )
+        yy_temp = np.zeros(p+1)
+        basis_funs(knots, p, x, span, yy_temp)
+        yy[i,span-p:span+1] = yy_temp
         zz[i,span-p:span+1] = basis_funs_1st_der( knots, p, x, span )
 
     # Check partition of unity on evaluation grid
