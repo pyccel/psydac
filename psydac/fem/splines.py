@@ -11,9 +11,7 @@ from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
 from psydac.fem.basic             import FemSpace, FemField
 from psydac.core.bsplines         import (
         find_span,
-        find_spans,
         basis_funs,
-        basis_funs_array,
         collocation_matrix,
         histopolation_matrix,
         breakpoints,
