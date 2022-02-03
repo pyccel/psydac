@@ -10,4 +10,5 @@ Cython>=0.25
 numba
 mpi4py
 h5py
---no-binary --no-build-isolation h5py
+--no-binary h5py
+--no-build-isolation
