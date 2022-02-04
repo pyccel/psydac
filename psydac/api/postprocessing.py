@@ -6,9 +6,10 @@ import yaml
 import re
 import h5py as h5
 
-from psydac.cad.geometry    import Geometry
+from psydac.cad.geometry import Geometry
 from psydac.utilities.utils import refine_array_1d
-from psydac.fem.basic import FemSpace
+from psydac.fem.basic import FemSpace, FemField
+
 
 # ==============================================================================
 def get_grid_lines_2d(domain_h, V_h, *, refine=1):
@@ -61,28 +62,28 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
 
     # TODO: make this work
     # Get 1D breakpoints in logical domain
-    #eta1, eta2 = domain_h.breaks
+    # eta1, eta2 = domain_h.breaks
 
     # NOTE: temporary solution (V_h should not be passed to this function)
-    V1, V2  = V_h.spaces
+    V1, V2 = V_h.spaces
     eta1 = V1.breaks
     eta2 = V2.breaks
 
     # Refine logical grid
-    eta1_r = refine_array_1d( eta1, refine )
-    eta2_r = refine_array_1d( eta2, refine )
+    eta1_r = refine_array_1d(eta1, refine)
+    eta2_r = refine_array_1d(eta2, refine)
 
     # Compute physical coordinates of lines with eta1=const
     isolines_1 = []
     for e1 in eta1:
         x, y = zip(*[mapping([e1, e2]) for e2 in eta2_r])
-        isolines_1.append( dict(eta1=e1, x=x, y=y) )
+        isolines_1.append(dict(eta1=e1, x=x, y=y))
 
     # Compute physical coordinates of lines with eta2=const
     isolines_2 = []
     for e2 in eta2:
         x, y = zip(*[mapping([e1, e2]) for e1 in eta1_r])
-        isolines_2.append( dict(eta2=e2, x=x, y=y) )
+        isolines_2.append(dict(eta2=e2, x=x, y=y))
 
     return isolines_1, isolines_2
 
@@ -98,15 +99,20 @@ class OutputManager:
         Name of the file in which to save the space information.
     filename_fields : str
         Name of the file in which to save the fields.
-    static : boolean or None, optional
-        Whether to initialize the OuputManager in static mode. If None, nothing will be assumed
-        and the user will have to specify whether to use the static mode when calling ``export_fields``.
-
     Attributes
     ----------
 
 
     """
+
+    space_types_to_str = {
+        'H1SpaceType()': 'h1',
+        'HcurlSpaceType()': 'hcurl',
+        'HdivSpaceType()': 'hdiv',
+        'L2SpaceType()': 'l2',
+        'UndefinedSpaceType()': 'undefined',
+    }
+
     def __init__(self, filename_space, filename_fields):
 
         self._spaces_info = {}
@@ -184,7 +190,7 @@ class OutputManager:
 
         Parameters
         ----------
-        femspaces: Tuple of psydac.fem.basic.FemsSpace
+        femspaces: Tuple of psydac.fem.basic.FemSpace
             Femspaces to add in the scope of this OutputManager instance.
 
         """
@@ -225,7 +231,7 @@ class OutputManager:
         """
         spaces_info = self._spaces_info
 
-        if name is None and dim is None:
+        if name is None:
             symbolic_space = scalar_space.symbolic_space
             scalar_space_name = symbolic_space.name
             pdim = symbolic_space.domain.dim
@@ -245,10 +251,15 @@ class OutputManager:
         basis = [scalar_space.spaces[i].basis for i in range(ldim)]
         knots = [scalar_space.spaces[i].knots.tolist() for i in range(ldim)]
 
-        new_space = {'name': scalar_space_name, 'ldim': ldim,
-                     'kind': str(kind), 'dtype': dtype, 'rational': False,
+        new_space = {'name': scalar_space_name,
+                     'ldim': ldim,
+                     'kind': self.space_types_to_str[str(kind)],
+                     'dtype': dtype,
+                     'rational': False,
                      'periodic': periodic,
-                     'degree': degree, 'basis': basis, 'knots': knots
+                     'degree': degree,
+                     'basis': basis,
+                     'knots': knots
                      }
         if spaces_info == {}:
             spaces_info = {'ndim': pdim,
@@ -296,15 +307,18 @@ class OutputManager:
         scalar_spaces_info = []
         for i, scalar_space in enumerate(vector_space.spaces):
             sc_space_info = self._add_scalar_space(scalar_space,
-                                                   name=name+f'[{i}]',
+                                                   name=name + f'[{i}]',
                                                    dim=dim,
                                                    patch_name=patch_name,
-                                                   kind=kind)
+                                                   kind='UndefinedSpaceType()')
             scalar_spaces_info.append(sc_space_info)
 
         spaces_info = self._spaces_info
 
-        new_vector_space = {'name': name, 'components': scalar_spaces_info}
+        new_vector_space = {'name': name,
+                            'kind': self.space_types_to_str[str(kind)],
+                            'components': scalar_spaces_info,
+                            }
 
         patch_index = [spaces_info['patches'][i]['name']
                        for i in range(len(spaces_info['patches']))].index(patch_name)
@@ -327,7 +341,7 @@ class OutputManager:
 
         Parameters
         ----------
-        fields : dict
+        fields : psydac.fem.basic.FemField dict
             List of named fields
 
         Raises
@@ -355,7 +369,7 @@ class OutputManager:
                 kwargs.update(driver='mpio', comm=comm)
         fh5 = h5.File(self.filename_fields, mode='a', **kwargs)
 
-        if not 'spaces' in fh5.attrs.keys():
+        if 'spaces' not in fh5.attrs.keys():
             fh5.attrs.create('spaces', self.filename_space)
 
         saving_group = self._current_hdf5_group
@@ -368,13 +382,18 @@ class OutputManager:
 
             if field.space.is_product:  # Vector field case
                 for i, field_coeff in enumerate(field.coeffs):
-                    name_field_i = name_field+f'[{i}]'
-                    name_space_i = name_space+f'[{i}]'
+                    name_field_i = name_field + f'[{i}]'
+                    name_space_i = name_space + f'[{i}]'
+
                     Vi = field.space.vector_space.spaces[i]
                     index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
+                    space_group = saving_group.create_group(f'{patch}/{name_space_i}')
+                    space_group.attrs.create('parent_space', data=name_space)
+
                     dset = saving_group.create_dataset(f'{patch}/{name_space_i}/{name_field_i}',
                                                        shape=Vi.npts, dtype=Vi.dtype)
+                    dset.attrs.create('parent_field', data=name_field)
                     dset[index] = field_coeff[index]
             else:
                 V = field.space.vector_space
@@ -391,3 +410,234 @@ class OutputManager:
     def export_space_info(self):
         with open(self.filename_space, 'w') as f:
             yaml.dump(data=self._spaces_info, stream=f, default_flow_style=None, sort_keys=False)
+
+
+class PostProcessManager:
+
+    def __init__(self, geometry_filename, space_filename, fields_filename):
+        self.geometry_file = geometry_filename
+        self.space_file = space_filename
+        self.fields_file = fields_filename
+
+        self._spaces = {}
+        self._fields = {}
+
+    @property
+    def spaces(self):
+        return self._spaces
+
+    @property
+    def fields(self):
+        return self._fields
+
+    def read_space_info(self):
+        return yaml.load(open(self.space_file), Loader=yaml.SafeLoader)
+
+    def reconstruct_scope(self):
+
+        from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace
+        from psydac.api.discretization import discretize
+
+        domain = Domain.from_file(self.geometry_file)
+        domain_h = discretize(domain, filename=self.geometry_file)
+
+        space_info = self.read_space_info()
+
+        pdim = space_info['ndim']
+
+        assert pdim == domain.dim
+        assert space_info['fields'] == self.fields_file
+
+        # -------------------------------------------------
+        # Space reconstruction
+        # -------------------------------------------------
+        for patch in space_info['patches']:
+            if patch['name'] == domain.name:
+                scalar_spaces = patch['scalar_spaces']
+                vector_spaces = patch['vector_spaces']
+
+                already_used_names = []
+
+                for v_sp in vector_spaces:
+                    components = v_sp['components']
+                    temp_v_sp = VectorFunctionSpace(name=v_sp['name'], domain=domain, kind=v_sp['kind'])
+
+                    basis = []
+                    for sc_sp in components:
+                        already_used_names.append(sc_sp['name'])
+                        basis += sc_sp['basis']
+
+                    basis = list(set(basis))
+                    if len(basis) != 1:
+                        raise NotImplementedError("Discretize doesn't support two different bases")
+
+                    temp_kwargs_discretization = {
+                        'degree': [sc_sp['degree'] for sc_sp in components],
+                        'knots': [sc_sp['knots'] for sc_sp in components],
+                        'basis': basis[0],
+                        'periodic': [sc_sp['periodic'] for sc_sp in components]
+                    }
+
+                    self._spaces[v_sp['name']] = discretize(temp_v_sp, domain_h, **temp_kwargs_discretization)
+
+                for sc_sp in scalar_spaces:
+                    if sc_sp['name'] not in already_used_names:
+                        temp_sc_sp = ScalarFunctionSpace(sc_sp['name'], domain, kind=sc_sp['kind'])
+
+                        basis = list(set(sc_sp['basis']))
+                        if len(basis) != 1:
+                            raise NotImplementedError("Discretize doesn't support two different bases")
+
+                        temp_kwargs_discretization = {
+                            'degree': sc_sp['degree'],
+                            'knots': sc_sp['knots'],
+                            'basis': basis[0],
+                            'periodic': sc_sp['periodic'],
+                        }
+
+                        self._spaces[sc_sp['name']] = discretize(temp_sc_sp, domain_h, **temp_kwargs_discretization)
+
+        # -------------------------------------------------
+        # Fields reconstruction
+        # -------------------------------------------------
+        # TODO: Work out parallel case
+        fh5 = h5.File(self.fields_file, 'r')
+
+        # Sanity Check
+        if fh5.attrs['spaces'] != self.space_file:
+            print(f"Unexpected inconsistency between {self.space_file} and {self.fields_file}")
+
+        temp_space_to_field = {}
+
+        for k in fh5.keys():
+            global_group = fh5[k]
+            if k == 'static':
+                for patch in global_group.keys():
+                    patch_group = global_group[patch]
+
+                    if patch == domain.name:
+                        for space_name in fh5[k][patch].keys():
+                            space_group = patch_group[space_name]
+
+                            if 'parent_space' in space_group.attrs.keys():  # VectorSpace/Field case
+                                relevant_space_name = space_group.attrs['parent_space']
+
+                                for field_dset_key in space_group.keys():
+                                    field_dset = space_group[field_dset_key]
+                                    relevant_field_name = field_dset.attrs['parent_field']
+
+                                    coeff = field_dset[...]
+
+                                    # Exceptions to take care of when the dicts are empty
+                                    try:
+                                        temp_space_to_field[k][relevant_space_name][relevant_field_name].append(coeff)
+                                    except KeyError:
+                                        try:
+                                            temp_space_to_field[k][relevant_space_name][relevant_field_name] = [coeff]
+                                        except KeyError:
+                                            try:
+                                                temp_space_to_field[k][relevant_space_name] = {relevant_field_name:
+                                                                                               [coeff]
+                                                                                               }
+                                            except KeyError:
+                                                temp_space_to_field[k] = {relevant_space_name:
+                                                                          {relevant_field_name: [coeff]}
+                                                                          }
+
+                            else:  # Scalar case
+                                V = self._spaces[space_name].vector_space
+                                index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+                                for field_dset_name in space_group.keys():
+                                    new_field = FemField(self._spaces[space_name])
+
+                                    new_field.coeffs[index] = space_group[field_dset_name][index]
+
+                                    try:
+                                        self._fields[k]['fields'][field_dset_name] = new_field
+                                    except KeyError:
+                                        self._fields[k] = {'fields': {field_dset_name: new_field}}
+
+            else:
+                t = global_group.attrs['t']
+                ts = global_group.attrs['ts']
+                regexp = re.compile(r'snapshot_(?P<id>\d+)')
+                snp_number = int(regexp.search(k).group('id'))
+
+                for patch in global_group.keys():
+                    patch_group = global_group[patch]
+
+                    if patch == domain.name:
+                        for space_name in fh5[k][patch].keys():
+                            space_group = patch_group[space_name]
+
+                            if 'parent_space' in space_group.attrs.keys():  # VectorSpace/Field case
+                                relevant_space_name = space_group.attrs['parent_space']
+
+                                for field_dset_key in space_group.keys():
+                                    field_dset = space_group[field_dset_key]
+                                    relevant_field_name = field_dset.attrs['parent_field']
+
+                                    coeff = field_dset[...]
+
+                                    # Exceptions to take care of when the dicts are empty
+                                    try:
+                                        temp_space_to_field[snp_number][relevant_space_name][relevant_field_name] \
+                                            .append(coeff)
+
+                                    except KeyError:
+                                        try:
+                                            temp_space_to_field[snp_number][relevant_space_name] \
+                                                [relevant_field_name] = [coeff]
+
+                                        except KeyError:
+                                            try:
+                                                temp_space_to_field[snp_number][relevant_space_name] = {
+                                                    relevant_field_name: [coeff]
+                                                }
+                                            except KeyError:
+                                                temp_space_to_field[snp_number] = {relevant_space_name:
+                                                                                   {relevant_field_name: [coeff]},
+                                                                                   'time': t,
+                                                                                   'timestep': ts
+                                                                                   }
+
+                            else:  # Scalar case
+                                V = self._spaces[space_name].vector_space
+                                index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+                                for field_dset_name in space_group.keys():
+                                    new_field = FemField(self._spaces[space_name])
+
+                                    new_field.coeffs[index] = space_group[field_dset_name][index]
+
+                                    try:
+                                        self._fields[snp_number]['fields'][field_dset_name] = new_field
+                                    except KeyError:
+                                        self._fields[snp_number] = {'fields': {field_dset_name: new_field},
+                                                                    'time': t,
+                                                                    'timestep': ts,
+                                                                    }
+
+        for k, space_dict in temp_space_to_field.items():
+            for space_name, field_dict in space_dict.items():
+                if space_name != 'time' and space_name != 'timestep':
+                    for field_name, list_coeffs in field_dict.items():
+
+                        new_field = FemField(self._spaces[space_name])
+
+                        for i, coeff in enumerate(list_coeffs):
+                            Vi = self._spaces[space_name].vector_space.spaces[i]
+                            index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
+
+                            new_field.coeffs[i][index] = coeff[index]
+
+                        try:
+                            self._fields[k]['fields'][field_name] = new_field
+                        except KeyError:
+                            if k == 'static':
+                                self._fields[k] = {'fields': {field_name: new_field}}
+                            else:
+                                self._fields[k] = {
+                                    'fields': {field_name: new_field},
+                                    'time': temp_space_to_field[k]['time'],
+                                    'timestep': temp_space_to_field[k]['timestep'],
+                                }

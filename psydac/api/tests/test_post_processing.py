@@ -24,7 +24,7 @@ def test_OuputManager():
 
     Om.set_static().export_fields(uh=uh, vh=vh)
 
-    Om.add_snapshot(t=0., ts=0).export_fields(uh=uh ,vh=vh)
+    Om.add_snapshot(t=0., ts=0).export_fields(uh=uh, vh=vh)
     Om.add_snapshot(t=1., ts=1).export_fields(uh=uh, vh=vh)
 
 
@@ -34,7 +34,7 @@ def test_OuputManager():
                             'patches': [{'name': 'D',
                                          'scalar_spaces': [{'name': 'A',
                                                             'ldim': 2,
-                                                            'kind': 'H1SpaceType()',
+                                                            'kind': 'h1',
                                                             'dtype': "<class 'float'>",
                                                             'rational': False,
                                                             'periodic': [False, False],
@@ -49,7 +49,7 @@ def test_OuputManager():
                                                             },
                                                            {'name': 'B[0]',
                                                             'ldim': 2,
-                                                            'kind': 'UndefinedSpaceType()',
+                                                            'kind': 'undefined',
                                                             'dtype': "<class 'float'>",
                                                             'rational': False,
                                                             'periodic': [False, False],
@@ -64,7 +64,7 @@ def test_OuputManager():
                                                             },
                                                            {'name': 'B[1]',
                                                             'ldim': 2,
-                                                            'kind': 'UndefinedSpaceType()',
+                                                            'kind': 'undefined',
                                                             'dtype': "<class 'float'>",
                                                             'rational': False,
                                                             'periodic': [False, False],
@@ -79,10 +79,11 @@ def test_OuputManager():
                                                             }
                                                            ],
                                          'vector_spaces': [{'name': 'B',
+                                                            'kind': 'undefined',
                                                             'components': [
                                                                 {'name': 'B[0]',
                                                                  'ldim': 2,
-                                                                 'kind': 'UndefinedSpaceType()',
+                                                                 'kind': 'undefined',
                                                                  'dtype': "<class 'float'>",
                                                                  'rational': False,
                                                                  'periodic': [False, False],
@@ -97,7 +98,7 @@ def test_OuputManager():
                                                                  },
                                                                 {'name': 'B[1]',
                                                                  'ldim': 2,
-                                                                 'kind': 'UndefinedSpaceType()',
+                                                                 'kind': 'undefined',
                                                                  'dtype': "<class 'float'>",
                                                                  'rational': False,
                                                                  'periodic': [False, False],
