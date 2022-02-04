@@ -242,14 +242,8 @@ class TensorFemSpace( FemSpace ):
 
         Parameters
         ----------
-<<<<<<< HEAD
-        self : psydac.fem.tensor.TensorFemSpace
-
-        refine_factor : tuple of ints, int or None, optional
-=======
         refine_factor : tuple of ints, int or None, optional
             Size of the quadrature in all directions. Defaults to self.degree.
->>>>>>> faster-eval-fields
 
         Returns
         -------
@@ -320,11 +314,6 @@ class TensorFemSpace( FemSpace ):
 
         Parameters:
         -----------
-<<<<<<< HEAD
-        self : psydac.fem.tensor.TensorFemSpace
-
-=======
->>>>>>> faster-eval-fields
         fields : tuple of psydac.fem.basic.FemField
             Fields to evaluate
 
