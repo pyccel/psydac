@@ -34,7 +34,8 @@ __all__ = ['find_span',
            'basis_integrals',
            'basis_ders_on_quad_grid']
 
-#==============================================================================
+
+# ==============================================================================
 def find_span(knots: 'float[:]', degree: int, x: float):
     """
     Determine the knot span index at location x, given the B-Splines' knot
@@ -61,7 +62,6 @@ def find_span(knots: 'float[:]', degree: int, x: float):
 
     """
 
-
     # Knot index at left/right boundary
     low  = degree
     high = len(knots)-1-degree
@@ -82,8 +82,8 @@ def find_span(knots: 'float[:]', degree: int, x: float):
 
     return span
 
-#==============================================================================
 
+# ==============================================================================
 def find_spans(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]'):
     """Determine the knot span index at locations in x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
