@@ -1270,6 +1270,7 @@ class BlockStencilVectorGlobalBasis(BlockMatrixNode):
 #==============================================================================
 class ScalarLocalBasis(ScalarNode):
     """
+     This is used to describe scalar dof over an element
     """
     def __new__(cls, u=None, v=None, tag=None):
         tag  = tag or random_string( 6 )
@@ -1292,6 +1293,7 @@ class ScalarLocalBasis(ScalarNode):
 #==============================================================================
 class BlockScalarLocalBasis(ScalarNode):
     """
+       This is used to describe a block of scalar dofs over an element
     """
     def __new__(cls, trials=None, tests=None, expr=None, tag=None):
 
@@ -1320,6 +1322,7 @@ class BlockScalarLocalBasis(ScalarNode):
 #==============================================================================
 class GlobalSpan(ArrayNode):
     """
+     This represents the global span array
     """
     _rank = 1
     _positions = {index_element: 0}
@@ -1344,6 +1347,7 @@ class GlobalSpan(ArrayNode):
 #==============================================================================
 class GlobalThreadStarts(ArrayNode):
     """
+     This represents the threads starts over the decomposed domain
     """
     _rank = 1
     def __new__(cls, index=None):
@@ -1360,6 +1364,7 @@ class GlobalThreadStarts(ArrayNode):
 #==============================================================================
 class GlobalThreadEnds(ArrayNode):
     """
+     This represents the threads ends over the decomposed domain
     """
     _rank = 1
     def __new__(cls, index=None):
@@ -1376,6 +1381,7 @@ class GlobalThreadEnds(ArrayNode):
 #==============================================================================
 class GlobalThreadSizes(ArrayNode):
     """
+     This represents the number of elements owned by a thread
     """
     _rank = 1
     def __new__(cls, index=None):
@@ -1392,6 +1398,7 @@ class GlobalThreadSizes(ArrayNode):
 #==============================================================================
 class LocalThreadStarts(ArrayNode):
     """
+     This represents the local threads starts over the decomposed domain
     """
     _rank = 1
     def __new__(cls, index=None):
@@ -1408,6 +1415,7 @@ class LocalThreadStarts(ArrayNode):
 #==============================================================================
 class LocalThreadEnds(ArrayNode):
     """
+     This represents the local threads ends over the decomposed domain
     """
     _rank = 1
     def __new__(cls, index=None):
@@ -1423,6 +1431,7 @@ class LocalThreadEnds(ArrayNode):
 #==============================================================================
 class GlobalThreadSpan(ArrayNode):
     """
+     This represents the span of each thread
     """
     _rank = 1
     def __new__(cls, target, index=None):
@@ -1442,6 +1451,7 @@ class GlobalThreadSpan(ArrayNode):
 #==============================================================================
 class Span(ScalarNode):
     """
+     This represents the span of a basis in an element
     """
     def __new__(cls, target, index=None):
         if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
@@ -1462,6 +1472,7 @@ class Span(ScalarNode):
 
 class Pads(ScalarNode):
     """
+     This represents the global pads
     """
     def __new__(cls, tests, trials=None, tests_degree=None, trials_degree=None,
                     tests_multiplicity=None, trials_multiplicity=None):

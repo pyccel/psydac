@@ -226,7 +226,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._vector_space = vector_space
         self._num_threads  = 1
         if vector_space.parallel and vector_space.cart.num_threads>1:
-            self._num_threads = vector_space.cart._num_threads
+            self._num_threads = vector_space.cart.num_threads
 
         starts = vector_space.starts
         ends   = vector_space.ends
@@ -567,6 +567,9 @@ class DiscreteLinearForm(BasicDiscrete):
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
         assert np.array_equal(quad_order, get_quad_order(self.space))
 
+        # Assuming that all vector spaces (and their Cartesian decomposition,
+        # if any) are compatible with each other, extract the first available
+        # vector space from which (starts, ends, pads) will be read:
         if isinstance(test_space.vector_space, BlockVectorSpace):
             vector_space = test_space.vector_space.spaces[0]
             if isinstance(vector_space, BlockVectorSpace):

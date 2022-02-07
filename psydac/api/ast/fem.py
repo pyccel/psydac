@@ -660,7 +660,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                                  coeffs, l_coeffs, g_coeffs[f], [f], mapping, nderiv, mask)
         eval_fields += [eval_field]
 
-    g_stmts  = []
+    g_stmts = []
     if mapping_space:
         g_stmts.append(eval_mapping)
 
