@@ -331,6 +331,7 @@ class DiscreteBilinearForm(BasicDiscrete):
             args = self._args
 
         args = args + tuple(int(i) for i in self._element_loop_starts) + tuple(int(i) for i in self._element_loop_ends)
+
         if reset:
             reset_arrays(*self.global_matrices)
 
@@ -463,7 +464,9 @@ class DiscreteBilinearForm(BasicDiscrete):
                         trial_spans = self.trial_basis.spans
                         s_d = trial_spans[k2][axis][0] - trial_degree[k2][axis]
                         s_c = test_spans[k1][axis][0] - test_degree[k1][axis]
-                        flip = [target.direction]*domain.dim
+                        direction = target.direction
+                        direction = 1 if direction is None else direction
+                        flip = [direction]*domain.dim
                         flip[axis] = 1
                         if self._func != do_nothing:
                             global_mats[k1,k2] = StencilInterfaceMatrix(tr_space, ts_space,
@@ -492,7 +495,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     test_spans  = self.test_basis.spans
                     trial_spans = self.trial_basis.spans
                     s_d = trial_spans[0][axis][0] - trial_degree[axis]
-                    s_c = test_spans[0][axis][0] - test_degree[axis]
+                    s_c = test_spans[0][axis][0]  - test_degree[axis]
                     flip = [target.direction]*domain.dim
                     flip[axis] = 1
                     if self._func != do_nothing:
@@ -503,10 +506,10 @@ class DiscreteBilinearForm(BasicDiscrete):
 
                 if (i,j) in global_mats:
                     self._matrix[i,j] = global_mats[i,j]
-                    md                  = global_mats[i,j].domain.shifts
-                    mc                  = global_mats[i,j].codomain.shifts
-                    diag                = compute_diag_len(pads, md, mc)
-                    element_mats[i,j]  = np.empty((*(test_degree+1),*diag))
+                    md                = global_mats[i,j].domain.shifts
+                    mc                = global_mats[i,j].codomain.shifts
+                    diag              = compute_diag_len(pads, md, mc)
+                    element_mats[i,j] = np.empty((*(test_degree+1),*diag))
             else: # single patch
                 if self._matrix:
                     global_mats[0,0] = self._matrix
@@ -1027,7 +1030,9 @@ class DiscreteSumForm(BasicDiscrete):
         return self._free_args
 
     def assemble(self, *, reset=True, **kwargs):
-        M = self.forms[0].assemble(reset=reset, **kwargs)
-        for form in self.forms[1:]:
+        if reset and not isinstance(self.forms[0],DiscreteFunctional) :
+            reset_arrays(*[i for M in self.forms for i in M.global_matrices])
+
+        for form in self.forms:
             M = form.assemble(reset=False, **kwargs)
         return M
