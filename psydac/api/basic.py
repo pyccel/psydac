@@ -30,10 +30,12 @@ class BasicCodeGen:
                        or PSYDAC_BACKENDS['python']
 
         namespace = kwargs.pop('namespace', globals())
-        backend   = kwargs.pop('backend', default_backend)
+        backend   = kwargs.pop('backend', None)
         folder    = kwargs.pop('folder', None)
         comm      = kwargs.pop('comm', None)
         root      = kwargs.pop('root', None)
+
+        if backend is None:backend = default_backend
         # ...
         if not( comm is None):
             if root is None:
