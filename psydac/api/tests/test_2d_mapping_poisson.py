@@ -856,7 +856,7 @@ def test_poisson_2d_openmp_collela_dir0_13_diri_24():
 
     # Delete OMP_NUM_THREADS
     del os.environ['OMP_NUM_THREADS']
-s
+
 #------------------------------------------------------------------------------
 def test_poisson_2d_openmp_quarter_annulus_dir0_12_diri_34():
 
@@ -966,7 +966,6 @@ def test_poisson_2d_openmp_pipe_dir_1234():
     expected_l2_error =  0.0008629074796755705
     expected_h1_error =  0.038151393401512884
  
-
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
