@@ -448,13 +448,13 @@ def test_poisson_openmp_2d_dir0_1234():
     dir_nonzero_boundary = get_boundaries()
 
     # Activate multi threading 
-    PSYDAC_BACKEND_GPYCCEL           = PSYDAC_BACKEND_GPYCCEL.copy()
-    PSYDAC_BACKEND_GPYCCEL['openmp'] = True
+    backend           = PSYDAC_BACKEND_GPYCCEL.copy()
+    backend['openmp'] = True
     os.environ['OMP_NUM_THREADS']    = "2"
 
     l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2],
-            comm=MPI.COMM_WORLD, backend=PSYDAC_BACKEND_GPYCCEL)
+            comm=MPI.COMM_WORLD, backend=backend)
 
     expected_l2_error =  0.00021808678604760232
     expected_h1_error =  0.013023570720360362
@@ -541,13 +541,13 @@ def test_poisson_openmp_2d_dir0_1234_parallel():
     dir_nonzero_boundary = get_boundaries()
 
     # Activate multi threading 
-    PSYDAC_BACKEND_GPYCCEL           = PSYDAC_BACKEND_GPYCCEL.copy()
-    PSYDAC_BACKEND_GPYCCEL['openmp'] = True
+    backend           = PSYDAC_BACKEND_GPYCCEL.copy()
+    backend['openmp'] = True
     os.environ['OMP_NUM_THREADS']    = "2"
 
     l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**4, 2**4], degree=[2, 2],
-            comm=MPI.COMM_WORLD, backend=PSYDAC_BACKEND_GPYCCEL)
+            comm=MPI.COMM_WORLD, backend=backend)
 
     expected_l2_error =  2.6130834310749216e-05
     expected_h1_error =  0.00320767625406208
