@@ -33,6 +33,7 @@ from sympde.expr import Norm
 from sympde.expr import find, EssentialBC
 
 from psydac.api.discretization import discretize
+from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
 
 # ... get the mesh directory
 try:
@@ -43,7 +44,6 @@ except:
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 # ...
-#x,y = symbols('x1, x2')
 #==============================================================================
 def get_boundaries(*args):
 
@@ -62,7 +62,7 @@ def get_boundaries(*args):
 
 #==============================================================================
 def run_poisson_2d(filename, solution, f, dir_zero_boundary,
-        dir_nonzero_boundary, neumann_boundary, comm=None):
+        dir_nonzero_boundary, neumann_boundary, backend=None, comm=None):
 
     assert isinstance(   dir_zero_boundary, (list, tuple))
     assert isinstance(dir_nonzero_boundary, (list, tuple))
@@ -116,13 +116,12 @@ def run_poisson_2d(filename, solution, f, dir_zero_boundary,
     # Discrete spaces
     Vh = discretize(V, domain_h)
 
-    from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
     # Discretize equation using Dirichlet bc
-    equation_h = discretize(equation, domain_h, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh], backend=backend)
 
     # Discretize error norms
-    l2norm_h = discretize(l2norm, domain_h, Vh)
-    h1norm_h = discretize(h1norm, domain_h, Vh)
+    l2norm_h = discretize(l2norm, domain_h, Vh, backend=backend)
+    h1norm_h = discretize(h1norm, domain_h, Vh, backend=backend)
 
     #+++++++++++++++++++++++++++++++
     # 3. Solution
@@ -137,159 +136,6 @@ def run_poisson_2d(filename, solution, f, dir_zero_boundary,
     h1_error = h1norm_h.assemble(u=uh)
     
     return l2_error, h1_error
-
-#==============================================================================
-def run_laplace_2d(filename, solution, f, dir_zero_boundary,
-        dir_nonzero_boundary, neumann_boundary, comm=None):
-
-    assert isinstance(   dir_zero_boundary, (list, tuple))
-    assert isinstance(dir_nonzero_boundary, (list, tuple))
-    assert isinstance(    neumann_boundary, (list, tuple))
-
-    #+++++++++++++++++++++++++++++++
-    # 1. Abstract model
-    #+++++++++++++++++++++++++++++++
-    domain = Domain.from_file(filename)
-
-    B_dirichlet_0 = Union(*[domain.get_boundary(**kw) for kw in dir_zero_boundary])
-    B_dirichlet_i = Union(*[domain.get_boundary(**kw) for kw in dir_nonzero_boundary])
-    B_neumann     = Union(*[domain.get_boundary(**kw) for kw in neumann_boundary])
-
-    V  = ScalarFunctionSpace('V', domain)
-    u  = element_of(V, name='u')
-    v  = element_of(V, name='v')
-    nn = NormalVector('nn')
-
-    # Bilinear form a: V x V --> R
-    a = BilinearForm((u, v), integral(domain, dot(grad(u), grad(v)) + u * v))
-
-    # Linear form l: V --> R
-    l0 = LinearForm(v, integral(domain, f * v))
-    if B_neumann:
-        l1 = LinearForm(v, integral(B_neumann, v * dot(grad(solution), nn)))
-        l  = LinearForm(v, l0(v) + l1(v))
-    else:
-        l = l0
-
-    # Dirichlet boundary conditions
-    bc = []
-    if B_dirichlet_0:  bc += [EssentialBC(u,        0, B_dirichlet_0)]
-    if B_dirichlet_i:  bc += [EssentialBC(u, solution, B_dirichlet_i)]
-
-    # Variational model
-    equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
-
-    # Error norms
-    error  = u - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
-
-    #+++++++++++++++++++++++++++++++
-    # 2. Discretization
-    #+++++++++++++++++++++++++++++++
-
-    # Create computational domain from topological domain
-    domain_h = discretize(domain, filename=filename, comm=comm)
-
-    # Discrete spaces
-    Vh = discretize(V, domain_h)
-
-    # Discretize equation using Dirichlet bc
-    equation_h = discretize(equation, domain_h, [Vh, Vh])
-
-    # Discretize error norms
-    l2norm_h = discretize(l2norm, domain_h, Vh)
-    h1norm_h = discretize(h1norm, domain_h, Vh)
-
-    #+++++++++++++++++++++++++++++++
-    # 3. Solution
-    #+++++++++++++++++++++++++++++++
-
-    # Solve linear system
-    uh = equation_h.solve()
-
-    # Compute error norms
-    l2_error = l2norm_h.assemble(u=uh)
-    h1_error = h1norm_h.assemble(u=uh)
-
-    return l2_error, h1_error
-
-#==============================================================================
-def run_biharmonic_2d_dir(filename, solution, f, dir_zero_boundary,
-        dir_nonzero_boundary, comm=None):
-
-    assert isinstance(   dir_zero_boundary, (list, tuple))
-    assert isinstance(dir_nonzero_boundary, (list, tuple))
-
-    #+++++++++++++++++++++++++++++++
-    # 1. Abstract model
-    #+++++++++++++++++++++++++++++++
-    domain = Domain.from_file(filename)
-
-    B_dirichlet_0 = Union(*[domain.get_boundary(**kw) for kw in dir_zero_boundary])
-    B_dirichlet_i = Union(*[domain.get_boundary(**kw) for kw in dir_nonzero_boundary])
-
-    V  = ScalarFunctionSpace('V', domain)
-    u  = element_of(V, name='u')
-    v  = element_of(V, name='v')
-    nn = NormalVector('nn')
-
-    # Bilinear form a: V x V --> R
-    a = BilinearForm((u, v), integral(domain, laplace(u) * laplace(v)))
-
-    # Linear form l: V --> R
-    l = LinearForm(v, integral(domain, f * v))
-
-    # Essential boundary conditions
-    dn = lambda a: dot(grad(a), nn)
-    bc = []
-    if B_dirichlet_0:
-        bc += [EssentialBC(   u , 0, B_dirichlet_0)]
-        bc += [EssentialBC(dn(u), 0, B_dirichlet_0)]
-    if B_dirichlet_i:
-        bc += [EssentialBC(   u ,    solution , B_dirichlet_i)]
-        bc += [EssentialBC(dn(u), dn(solution), B_dirichlet_i)]
-
-    # Variational model
-    equation = find(u, forall=v, lhs=a(u, v), rhs=l(v), bc=bc)
-
-    # Error norms
-    error  = u - solution
-    l2norm = Norm(error, domain, kind='l2')
-    h1norm = Norm(error, domain, kind='h1')
-    h2norm = Norm(error, domain, kind='h2')
-
-    #+++++++++++++++++++++++++++++++
-    # 2. Discretization
-    #+++++++++++++++++++++++++++++++
-
-    # Create computational domain from topological domain
-    domain_h = discretize(domain, filename=filename, comm=comm)
-
-    # Discrete spaces
-    Vh = discretize(V, domain_h)
-
-    # Discretize equation using Dirichlet bc
-    equation_h = discretize(equation, domain_h, [Vh, Vh])
-
-    # Discretize error norms
-    l2norm_h = discretize(l2norm, domain_h, Vh)
-    h1norm_h = discretize(h1norm, domain_h, Vh)
-    h2norm_h = discretize(h2norm, domain_h, Vh)
-
-    #+++++++++++++++++++++++++++++++
-    # 3. Solution
-    #+++++++++++++++++++++++++++++++
-
-    # Solve linear system
-    uh = equation_h.solve()
-
-    # Compute error norms
-    l2_error = l2norm_h.assemble(u=uh)
-    h1_error = h1norm_h.assemble(u=uh)
-    h2_error = h2norm_h.assemble(u=uh)
-
-    return l2_error, h1_error, h2_error
 
 ###############################################################################
 #            SERIAL TESTS
@@ -660,7 +506,6 @@ def test_poisson_2d_collela_dir0_123_neu0_4():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_collela_dir0_234_neui_1():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -681,7 +526,6 @@ def test_poisson_2d_collela_dir0_234_neui_1():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_collela_dir0_134_neui_2():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -702,7 +546,6 @@ def test_poisson_2d_collela_dir0_134_neui_2():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_collela_dir0_124_neui_3():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -723,7 +566,6 @@ def test_poisson_2d_collela_dir0_124_neui_3():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_collela_dir0_123_neui_4():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -744,7 +586,6 @@ def test_poisson_2d_collela_dir0_123_neui_4():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_collela_dir0_123_diri_4():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -765,7 +606,6 @@ def test_poisson_2d_collela_dir0_123_diri_4():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_collela_dir0_13_diri_24():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -786,7 +626,6 @@ def test_poisson_2d_collela_dir0_13_diri_24():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_collela_diri_1234():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
@@ -832,7 +671,6 @@ def test_poisson_2d_quarter_annulus_dir0_1234():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_quarter_annulus_dir0_12_diri_34():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -853,7 +691,6 @@ def test_poisson_2d_quarter_annulus_dir0_12_diri_34():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_quarter_annulus_diri_1234():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -874,7 +711,6 @@ def test_poisson_2d_quarter_annulus_diri_1234():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_quarter_annulus_diri_34_neui_12():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
@@ -959,124 +795,188 @@ def test_poisson_2d_pipe_dir_1234():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
-#test_poisson_2d_pipe_dir_1234()
-#==============================================================================
-# 2D "Laplace-like" equation
-#==============================================================================
-def test_laplace_2d_identity_neu0_1234():
 
-    filename = os.path.join(mesh_dir, 'identity_2d.h5')
-    solution = cos(pi*x)*cos(pi*y)
-    f        = (2.*pi**2 + 1.)*solution
+###############################################################################
+#            OpenMP TESTS
+###############################################################################
 
-    dir_zero_boundary    = get_boundaries()
-    dir_nonzero_boundary = get_boundaries()
-    neumann_boundary     = get_boundaries(1, 2, 3, 4)
-
-    l2_error, h1_error = run_laplace_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
-
-    expected_l2_error =  0.00021728465388208586
-    expected_h1_error =  0.012984852988123631
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-#------------------------------------------------------------------------------
-def test_laplace_2d_collela_neu0_1234():
+def test_poisson_2d_collela_dir0_123_neui_4():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
-    solution = cos(pi*x)*cos(pi*y)
-    f        = (2.*pi**2 + 1.)*solution
+    solution = cos(pi/2 * x) * sin(pi/3 * (1 + y))
+    f        = (13/36)*pi**2 * solution
 
-    dir_zero_boundary    = get_boundaries()
+    dir_zero_boundary    = get_boundaries(1, 2, 3)
     dir_nonzero_boundary = get_boundaries()
-    neumann_boundary     = get_boundaries(1, 2, 3, 4)
+    neumann_boundary     = get_boundaries(4)
 
-    l2_error, h1_error = run_laplace_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+    # Activate multi threading 
+    PSYDAC_BACKEND_GPYCCEL           = PSYDAC_BACKEND_GPYCCEL.copy()
+    PSYDAC_BACKEND_GPYCCEL['openmp'] = True
+    os.environ['OMP_NUM_THREADS']    = "2"
 
-    expected_l2_error =  0.029603335241478155
-    expected_h1_error =  0.4067746760978581
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,
+            comm=MPI.COMM_WORLD, backend=PSYDAC_BACKEND_GPYCCEL)
+
+    expected_l2_error = 0.0026061796931066174
+    expected_h1_error = 0.04400143055955377
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
-#==============================================================================
-# 2D biharmonic equation
-#==============================================================================
-
-def test_biharmonic_2d_identity_dir0_1234():
-
-    filename = os.path.join(mesh_dir, 'identity_2d.h5')
-    solution = (sin(pi*x)*sin(pi*y))**2
-    f        = laplace(laplace(solution))
-
-    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
-    dir_nonzero_boundary = get_boundaries()
-
-    l2_error, h1_error, h2_error = run_biharmonic_2d_dir(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary)
-
-    expected_l2_error = 0.015086415626060034
-    expected_h1_error = 0.08773346232941553
-    expected_h2_error = 1.9368842415954024
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    assert( abs(h2_error - expected_h2_error) < 1.e-7)
+    # Delete OMP_NUM_THREADS
+    del os.environ['OMP_NUM_THREADS']
 
 #------------------------------------------------------------------------------
-
-def test_biharmonic_2d_collela_dir0_1234():
+def test_poisson_2d_collela_dir0_13_diri_24():
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
-    solution = (cos(pi*x/2)*cos(pi*y/2))**2
-    f        = laplace(laplace(solution))
+    solution = sin(pi/3 * (1 + x)) * sin(pi/3 * (1 + y))
+    f        = (2/9)*pi**2 * solution
 
-    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
-    dir_nonzero_boundary = get_boundaries()
+    dir_zero_boundary    = get_boundaries(1, 3)
+    dir_nonzero_boundary = get_boundaries(2, 4)
+    neumann_boundary     = get_boundaries()
 
-    l2_error, h1_error, h2_error = run_biharmonic_2d_dir(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary)
+    # Activate multi threading 
+    PSYDAC_BACKEND_GPYCCEL           = PSYDAC_BACKEND_GPYCCEL.copy()
+    PSYDAC_BACKEND_GPYCCEL['openmp'] = True
+    os.environ['OMP_NUM_THREADS']    = "2"
 
-    expected_l2_error = 0.10977627980052021
-    expected_h1_error = 0.32254511059711766
-    expected_h2_error = 1.87205519824758
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,
+            comm=MPI.COMM_WORLD, backend=PSYDAC_BACKEND_GPYCCEL)
 
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    assert( abs(h2_error - expected_h2_error) < 1.e-7)
+    expected_l2_error = 0.0012801077606328381
+    expected_h1_error = 0.02314405549486328
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
+    # Delete OMP_NUM_THREADS
+    del os.environ['OMP_NUM_THREADS']
 
 #------------------------------------------------------------------------------
-def test_biharmonic_2d_quarter_annulus_dir0_1234():
+def test_poisson_2d_quarter_annulus_dir0_12_diri_34():
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
-    r_in     = 0.5
-    r_out    = 1
-    kappa    = 1 / 0.00643911127175763
-    solution = kappa * (x * y * (x**2 + y**2 - r_in**2) * (x**2 + y**2 - r_out**2))**2
-    f        = laplace(laplace(solution))
+    solution = sin(pi * x) * sin(pi * y)
+    f        = 2*pi**2 * solution
 
-    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
+    dir_zero_boundary    = get_boundaries(1, 2)
+    dir_nonzero_boundary = get_boundaries(3, 4)
+    neumann_boundary     = get_boundaries()
+
+    # Activate multi threading 
+    PSYDAC_BACKEND_GPYCCEL           = PSYDAC_BACKEND_GPYCCEL.copy()
+    PSYDAC_BACKEND_GPYCCEL['openmp'] = True
+    os.environ['OMP_NUM_THREADS']    = "2"
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,
+            comm=MPI.COMM_WORLD, backend=PSYDAC_BACKEND_GPYCCEL)
+
+    expected_l2_error = 0.0005982761090480573
+    expected_h1_error = 0.021271053089631443
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
+    # Delete OMP_NUM_THREADS
+    del os.environ['OMP_NUM_THREADS']
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_quarter_annulus_diri_34_neui_12():
+
+    filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
+    solution = sin(pi*x + pi/4) * sin(pi*y + pi/4)
+    f        = 2*pi**2 * solution
+
+    dir_zero_boundary    = get_boundaries()
+    dir_nonzero_boundary = get_boundaries(3, 4)
+    neumann_boundary     = get_boundaries(1, 2)
+
+    # Activate multi threading 
+    PSYDAC_BACKEND_GPYCCEL           = PSYDAC_BACKEND_GPYCCEL.copy()
+    PSYDAC_BACKEND_GPYCCEL['openmp'] = True
+    os.environ['OMP_NUM_THREADS']    = "2"
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,
+            comm=MPI.COMM_WORLD, backend=PSYDAC_BACKEND_GPYCCEL)
+
+    expected_l2_error = 0.0006527836834289991
+    expected_h1_error = 0.025919435390680808
+
+    assert abs(l2_error - expected_l2_error) < 1.e-7
+    assert abs(h1_error - expected_h1_error) < 1.e-7
+
+    # Delete OMP_NUM_THREADS
+    del os.environ['OMP_NUM_THREADS']
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_circle_dir0():
+
+    filename = os.path.join(mesh_dir, 'circle.h5')
+    solution = (1 - (x**2 + y**2)) * cos(2*pi*x) * cos(2*pi*y)
+    f        = -laplace(solution)
+
+    dir_zero_boundary    = get_boundaries(2) # only boundary is at r = r_max
     dir_nonzero_boundary = get_boundaries()
+    neumann_boundary     = get_boundaries()
 
-    l2_error, h1_error, h2_error = run_biharmonic_2d_dir(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary)
+    # Activate multi threading 
+    PSYDAC_BACKEND_GPYCCEL           = PSYDAC_BACKEND_GPYCCEL.copy()
+    PSYDAC_BACKEND_GPYCCEL['openmp'] = True
+    os.environ['OMP_NUM_THREADS']    = "2"
 
-    expected_l2_error = 0.016730298635551484
-    expected_h1_error = 0.21243295522291714
-    expected_h2_error = 7.572921831391894
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,
+            comm=MPI.COMM_WORLD, backend=PSYDAC_BACKEND_GPYCCEL)
+
+    expected_l2_error = 0.0015245737751297718
+    expected_h1_error = 0.06653900724243668
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    assert( abs(h2_error - expected_h2_error) < 1.e-7)
+    # Delete OMP_NUM_THREADS
+    del os.environ['OMP_NUM_THREADS']
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_pipe_dir_1234():
+
+    filename = os.path.join(mesh_dir, 'pipe.h5')
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
+
+    dir_zero_boundary    = get_boundaries()
+    dir_nonzero_boundary = get_boundaries(1, 2, 3, 4)
+    neumann_boundary     = get_boundaries()
+
+    # Activate multi threading 
+    PSYDAC_BACKEND_GPYCCEL           = PSYDAC_BACKEND_GPYCCEL.copy()
+    PSYDAC_BACKEND_GPYCCEL['openmp'] = True
+    os.environ['OMP_NUM_THREADS']    = "2"
+
+    l2_error, h1_error = run_poisson_2d(filename, solution, f,
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,
+            comm=MPI.COMM_WORLD, backend=PSYDAC_BACKEND_GPYCCEL)
+
+    expected_l2_error =  0.0008629074796755705
+    expected_h1_error =  0.038151393401512884
+ 
+
+    assert( abs(l2_error - expected_l2_error) < 1.e-7)
+    assert( abs(h1_error - expected_h1_error) < 1.e-7)
+
+    # Delete OMP_NUM_THREADS
+    del os.environ['OMP_NUM_THREADS']
 
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################
 
-#==============================================================================
 @pytest.mark.parallel
 def test_poisson_2d_identity_dir0_1234_parallel():
 
