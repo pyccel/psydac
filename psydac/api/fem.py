@@ -472,7 +472,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                             global_mats[k1,k2] = StencilInterfaceMatrix(tr_space, ts_space,
                                                                         s_d, s_c,
                                                                         axis, pads=tuple(pads[k1,k2]), 
-                                                                        flip=flip)
+                                                                        flip=flip,
+                                                                        backend=backend)
                     else:
                         global_mats[k1,k2] = StencilMatrix(tr_space,
                                                            ts_space,
@@ -496,10 +497,14 @@ class DiscreteBilinearForm(BasicDiscrete):
                     trial_spans = self.trial_basis.spans
                     s_d = trial_spans[0][axis][0] - trial_degree[axis]
                     s_c = test_spans[0][axis][0]  - test_degree[axis]
-                    flip = [target.direction]*domain.dim
+                    direction = target.direction
+                    direction = 1 if direction is None else direction
+                    flip = [direction]*domain.dim
                     flip[axis] = 1
                     if self._func != do_nothing:
-                        global_mats[i,j] = StencilInterfaceMatrix(trial_space, test_space, s_d, s_c, axis, flip=flip)
+                        global_mats[i,j] = StencilInterfaceMatrix(trial_space, test_space, 
+                                                                  s_d, s_c, axis, flip=flip,
+                                                                  backend=backend)
                 else:
 
                     global_mats[i,j] = StencilMatrix(trial_space, test_space, pads=tuple(pads), backend=backend)

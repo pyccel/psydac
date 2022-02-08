@@ -107,8 +107,8 @@ class LinearOperatorDot(SplBasic):
 
         pads            = kwargs.pop('pads')
         gpads           = kwargs.pop('gpads')
-        cm              = kwargs.pop('cm', [1]*ndim)
-        dm              = kwargs.pop('dm', [1]*ndim)
+        cm              = kwargs.pop('cm')
+        dm              = kwargs.pop('dm')
         interface       = kwargs.pop('interface', False)
         flip_axis       = kwargs.pop('flip_axis',[1]*ndim)
         interface_axis  = kwargs.pop('interface_axis', None)
@@ -234,7 +234,7 @@ class LinearOperatorDot(SplBasic):
         body      = inits + body
         func_args =  (mat, x, out)
 
-        if isinstance(starts[0], Variable):
+        if not interface and isinstance(starts[0], Variable):
             func_args = func_args + tuple(starts)
 
         if isinstance(nrowscopy[0], Variable):
@@ -295,7 +295,6 @@ class LinearOperatorDot(SplBasic):
         if MPI.COMM_WORLD.rank == 0:
             modname = 'dependencies_{}'.format(tag)
             code = '{imports}\n{code}'.format(imports=imports, code=pycode.pycode(self.code))
-            print(code)
             write_code(modname+ '.py', code, folder = self.folder)
         else:
             modname = None
@@ -306,6 +305,7 @@ class LinearOperatorDot(SplBasic):
 
         module_name = self._modname
         sys.path.append(self.folder)
+        importlib.invalidate_caches()
         package = importlib.import_module( module_name )
         sys.path.remove(self.folder)
 

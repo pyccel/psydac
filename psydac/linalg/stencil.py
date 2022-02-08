@@ -709,11 +709,10 @@ class StencilMatrix( Matrix ):
 
         self._transpose_args_null = self._prepare_transpose_args()
         self._transpose_args      = self._transpose_args_null.copy()
-        self._transpose_func     = self._transpose
+        self._transpose_func      = self._transpose
 
         if backend is None:
             backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
-
 
         if backend:
             self.set_backend(backend)
@@ -1581,7 +1580,7 @@ class StencilInterfaceMatrix(Matrix):
           Padding of the linear operator.
 
     """
-    def __init__( self, V, W, s_d, s_c, dim, *, flip=None, permutation=None, pads=None ):
+    def __init__( self, V, W, s_d, s_c, dim, *, flip=None, permutation=None, pads=None, backend=None ):
 
         assert isinstance( V, StencilVectorSpace )
         assert isinstance( W, StencilVectorSpace )
@@ -1596,14 +1595,44 @@ class StencilInterfaceMatrix(Matrix):
         dims[dim]         = 3*W.pads[dim] + 1
         diags             = [2*p+1 for p in self._pads]
         self._data        = np.zeros( dims+diags, dtype=W.dtype )
-        self._flip        = [1]*len(dims) if flip is None else flip
-        self._permutation = list(range(len(dims))) if  permutation is None else permutation
+        self._flip        = tuple([1]*len(dims) if flip is None else flip)
+        self._permutation = tuple(range(len(dims))) if  permutation is None else tuple(permutation)
         self._domain      = V
         self._codomain    = W
         self._dim         = dim
         self._d_start     = s_d
         self._c_start     = s_c
         self._ndim        = len( dims )
+
+        # Number of rows in matrix (along each dimension)
+        nrows        = [e-s+1 for s,e in zip(V.starts, V.ends)]
+        nrows_extra  = [0 if eci<=edi else eci-edi for eci,edi in zip(W.ends,V.ends)]
+        nrows[dim]   = self._pads[dim] + 1 - nrows_extra[dim]
+
+        args                 = {}
+        args['nrows']        = tuple(nrows)
+        args['nrows_extra']  = tuple(nrows_extra)
+        args['dpads']        = tuple(V.pads)
+        args['pads']         = tuple(self._pads)
+        args['dim']          = dim
+        args['d_start']      = self._d_start
+        args['c_start']      = self._c_start
+        args['flip']         = self._flip
+        args['permutation']  = self._permutation
+
+        self._dotargs_null = args
+        self._args         = args.copy()
+        self._func         = self._dot
+
+        self._transpose_args_null = self._prepare_transpose_args()
+        self._transpose_args      = self._transpose_args_null.copy()
+        self._transpose_func      = self._transpose
+
+#        if backend is None:
+#            backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
+
+#        if backend:
+#            self.set_backend(backend)
 
         # Flag ghost regions as not up-to-date (conservative choice)
         self._sync = False
@@ -1641,26 +1670,7 @@ class StencilInterfaceMatrix(Matrix):
         else:
             out = StencilVector( self.codomain )
 
-        # Shortcuts
-        sc    = self.codomain.starts
-        ec    = self.codomain.ends
-        sd    = self.domain.starts
-        ed    = self.domain.ends
-        dpads = self.domain.pads
-        dim   = self.dim
-        flip  = self._flip
-        permutation = self._permutation
-
-        c_start = self.c_start
-        d_start = self.d_start
-        pads    = self.pads
-
-        # Number of rows in matrix (along each dimension)
-        nrows        = [e-s+1 for s,e in zip(sd, ed)]
-        nrows_extra  = [0 if eci<=edi else eci-edi for eci,edi in zip(ec,ed)]
-        nrows[dim]   = self._pads[dim] + 1 - nrows_extra[dim]
-
-        self._dot(self._data, v._data, out._data, nrows, nrows_extra, dpads, pads, dim, d_start, c_start, flip, permutation)
+        self._func(self._data, v._data, out._data, **self._args)
 
         # IMPORTANT: flag that ghost regions are not up-to-date
         out.ghost_regions_in_sync = False
@@ -1670,13 +1680,12 @@ class StencilInterfaceMatrix(Matrix):
     @staticmethod
     def _dot(mat, v, out, nrows, nrows_extra, dpads, pads, dim, d_start, c_start, flip, permutation):
         # Index for k=i-j
-        ndim = len(v.shape)
-        kk = [slice(None)]*ndim
-        diff = [xp-p for xp,p in zip(dpads, pads)]
-
+        nrows      = list(nrows)
+        ndim       = len(v.shape)
+        kk         = [slice(None)]*ndim
+        diff       = [xp-p for xp,p in zip(dpads, pads)]
+        nn         = v.shape
         diff[dim] += d_start
-        nn  = v.shape
-
         for xx in np.ndindex( *nrows ):
             ii    = [ p+x for p,x in zip(dpads,xx) ]
             jj    = [ slice(d+x,d+x+2*p+1) for x,p,d in zip(xx,pads,diff) ]
@@ -1726,11 +1735,8 @@ class StencilInterfaceMatrix(Matrix):
         Mt = StencilInterfaceMatrix(M.codomain, M.domain, M.c_start, M.d_start, self.dim, flip=self._flip,
                                     permutation=self._permutation, pads=self._pads)
 
-        c_start = self.c_start
-        d_start = self.d_start
-        dim     = self.dim
         # Call low-level '_transpose' function (works on Numpy arrays directly)
-        self._transpose(M._data, Mt._data, d_start, c_start, dim, **self._prepare_transpose_args())
+        self._transpose(M._data, Mt._data, **self._prepare_transpose_args())
         return Mt
 
     @staticmethod
@@ -1793,6 +1799,9 @@ class StencilInterfaceMatrix(Matrix):
         sk   = [n-1 for n in ndiagsT]
 
         args = {}
+        args['d_start'] = self.d_start
+        args['c_start'] = self.c_start
+        args['dim']     = self.dim
         args['nrows']   = tuple(nrows)
         args['ncols']   = tuple(ncols)
         args['gpads']   = tuple(gpads)
@@ -2080,7 +2089,109 @@ class StencilInterfaceMatrix(Matrix):
             idx_ghost = tuple( idx_front + [slice(-p,None)] + idx_back )
             self._data[idx_ghost] = 0
 
+    def set_backend(self, backend):
+        from psydac.api.ast.linalg import LinearOperatorDot, interface_tranpose_operator
+        self._backend         = backend
+        self._args            = self._dotargs_null.copy()
+        self._transpose_args  = self._transpose_args_null.copy()
 
+        if self._backend is None:
+            self._func           = self._dot
+            self._transpose_func = self._transpose
+        else:
+            transpose            = interface_tranpose_operator(self._ndim, backend=frozenset(backend.items()))
+            self._transpose_func = transpose.func
+
+            d_start = self._transpose_args.pop('d_start')
+            c_start = self._transpose_args.pop('c_start')
+            dim     = self._transpose_args.pop('dim')
+            nrows   = self._transpose_args.pop('nrows')
+            ncols   = self._transpose_args.pop('ncols')
+            gpads   = self._transpose_args.pop('gpads')
+            pads    = self._transpose_args.pop('pads')
+            ndiags  = self._transpose_args.pop('ndiags')
+            ndiagsT = self._transpose_args.pop('ndiagsT')
+            si      = self._transpose_args.pop('si')
+            sk      = self._transpose_args.pop('sk')
+            sl      = self._transpose_args.pop('sl')
+
+            args = dict([('n{i}',nrows),('nc{i}', ncols),('gp{i}', gpads),('p{i}',pads )
+                          ,('nd{i}', ndiags),('ndT{i}', ndiagsT),('si{i}', si),
+                          ('sk{i}', sk),('sl{i}', sl)])
+
+            self._transpose_args            = {}
+            self._transpose_args['d_start'] = d_start
+            self._transpose_args['c_start'] = c_start
+            self._transpose_args['dim']     = dim
+
+            for arg_name, arg_val in args.items():
+                for i in range(len(nrows)):
+                    self._transpose_args[arg_name.format(i=i+1)] = arg_val[i]
+
+            if self.domain.parallel:
+                if self.domain == self.codomain:
+                    # In this case nrows_extra[i] == 0 for all i
+                    dot = LinearOperatorDot(self._ndim,
+                                    backend=frozenset(backend.items()),
+                                    nrows_extra = self._args['nrows_extra'],
+                                    gpads=self._args['dpads'],
+                                    pads=self._args['pads'],
+                                    dm = (1,)*self._ndim,
+                                    cm = (1,)*self._ndim,
+                                    interface=True,
+                                    flip_axis=self._flip,
+                                    interface_axis=self._dim,
+                                    d_start=self._d_start,
+                                    c_start=self._c_start)
+
+                    nrows      = self._args.pop('nrows')
+
+                    self._args = {}
+                    for i in range(len(nrows)):
+                        self._args['n{i}'.format(i=i+1)] = nrows[i]
+
+                else:
+                    dot = LinearOperatorDot(self._ndim,
+                                            backend=frozenset(backend.items()),
+                                            gpads=self._args['dpads'],
+                                            pads=self._args['pads'],
+                                            dm = (1,)*self._ndim,
+                                            cm = (1,)*self._ndim,
+                                            interface=True,
+                                            flip_axis=self._flip,
+                                            interface_axis=self._dim,
+                                            d_start=self._d_start,
+                                            c_start=self._c_start)
+
+                    nrows       = self._args.pop('nrows')
+                    nrows_extra = self._args.pop('nrows_extra')
+
+                    self._args = {}
+                    for i in range(len(nrows)):
+                        self._args['n{i}'.format(i=i+1)] = nrows[i]
+
+                    for i in range(len(nrows)):
+                        self._args['ne{i}'.format(i=i+1)] = nrows_extra[i]
+
+            else:
+                dot = LinearOperatorDot(self._ndim,
+                                        backend=frozenset(backend.items()),
+                                        nrows=self._args['nrows'],
+                                        nrows_extra=self._args['nrows_extra'],
+                                        gpads=self._args['dpads'],
+                                        pads=self._args['pads'],
+                                        dm = (1,)*self._ndim,
+                                        cm = (1,)*self._ndim,
+                                        interface=True,
+                                        flip_axis=self._flip,
+                                        interface_axis=self._dim,
+                                        d_start=self._d_start,
+                                        c_start=self._c_start)
+
+                self._args = {}
+
+
+            self._func = dot.func
 #===============================================================================
 from psydac.api.settings   import PSYDAC_BACKENDS
 del VectorSpace, Vector, Matrix
