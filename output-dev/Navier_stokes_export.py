@@ -306,7 +306,6 @@ if __name__ == '__main__':
     import sys
     import glob
     import shutil
-    import subprocess
     from pathlib  import Path
     from datetime import datetime, timezone
 
