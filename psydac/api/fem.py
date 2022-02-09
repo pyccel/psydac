@@ -410,8 +410,6 @@ class DiscreteBilinearForm(BasicDiscrete):
     def allocate_matrices(self, backend=None):
 
         global_mats     = {}
-        #element_mats    = {}
-
 
         expr            = self.kernel_expr.expr
         target          = self.kernel_expr.target
@@ -474,7 +472,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                     md                   = matrix[k1,k2].domain.shifts
                     mc                   = matrix[k1,k2].codomain.shifts
                     diag                 = compute_diag_len(pads[k1,k2], md, mc)
-                    #element_mats[k1,k2]  = np.empty((*(test_degree[k1]+1),*diag))
 
         else: # case of scalar equation
             if is_broken: # multi-patch
@@ -497,7 +494,7 @@ class DiscreteBilinearForm(BasicDiscrete):
                     md                  = global_mats[i,j].domain.shifts
                     mc                  = global_mats[i,j].codomain.shifts
                     diag                = compute_diag_len(pads, md, mc)
-                    #element_mats[i,j]  = np.empty((*(test_degree+1),*diag))
+
             else: # single patch
                 if self._matrix:
                     global_mats[0,0] = self._matrix
@@ -507,7 +504,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                 md                 = global_mats[0,0].domain.shifts
                 mc                 = global_mats[0,0].codomain.shifts
                 diag               = compute_diag_len(pads, md, mc)
-                #element_mats[0,0]  = np.empty((*(test_degree+1),*diag))
                 self._matrix       = global_mats[0,0]
         return  global_mats.values()
 
@@ -748,7 +744,6 @@ class DiscreteLinearForm(BasicDiscrete):
     def allocate_matrices(self):
 
         global_mats   = {}
-        #element_mats  = {}
 
         test_space  = self.test_basis.space.vector_space
         test_degree = np.array(self.test_basis.space.degree)
@@ -780,7 +775,6 @@ class DiscreteLinearForm(BasicDiscrete):
                         global_mats[i] = vector[i]
                     else:
                         global_mats[i] = StencilVector(test_space.spaces[i])
-                    #element_mats[i] = np.empty([*(test_degree[i]+1)])
 
                 vector[i] = global_mats[i]
         else:
@@ -791,7 +785,6 @@ class DiscreteLinearForm(BasicDiscrete):
                 else:
                     global_mats[i] = StencilVector(test_space)
 
-                #element_mats[i] = np.empty([*(test_degree+1)])
                 self._vector[i] = global_mats[i]
             else:
                 if self._vector:
@@ -799,7 +792,6 @@ class DiscreteLinearForm(BasicDiscrete):
                 else:
                     global_mats[0] = StencilVector(test_space)
                     self._vector   = global_mats[0]
-                #element_mats[0]  = np.empty([*(test_degree+1)])
 
         self._global_mats = list(global_mats.values())
         return global_mats.values()
