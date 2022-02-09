@@ -7,18 +7,16 @@ from sympy import Mul, Matrix, Expr
 from sympy import Add, And, StrictLessThan, Eq
 from sympy import Abs, Not, floor
 from sympy import Symbol, Idx
-from sympy import Range
 from sympy import Basic, Function
 from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
-
 
 from psydac.pyccel.ast.core      import Assign, Product, AugAssign, For
 from psydac.pyccel.ast.core      import Variable, IndexedVariable, IndexedElement
 from psydac.pyccel.ast.core      import Slice, String, ValuedArgument
 from psydac.pyccel.ast.core      import EmptyNode, Import, While, Return, If
 from psydac.pyccel.ast.core      import CodeBlock, FunctionDef, Comment
-
+from psydac.pyccel.ast.builtins  import Range
 
 from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import SymbolicExpr
@@ -477,7 +475,8 @@ class Parser(object):
             f_pads     = args.pop('f_pads', [])
             f_args     = (*f_basis, *f_span, *f_degrees, *f_pads, *f_coeffs)
 
-        args = [*tests_basis, *trial_basis, *map_basis, *g_span, *map_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *map_degrees, *lengths, *g_pads, *map_coeffs]
+
+        args = [*tests_basis, *trial_basis, *map_basis, *g_span, *map_span, *g_quad, *lengths_tests.values(), *lengths_trials.values(), *map_degrees, *lengths, *g_pads, *map_coeffs]
 
         if mats:
             exprs     = [mat.expr for mat in mats]
@@ -655,6 +654,32 @@ class Parser(object):
 
         return {0: targets}
 
+    def _visit_PlusGlobalTensorQuadrature(self, expr, **kwargs):
+        dim  = self.dim
+        rank = expr.rank
+
+        names = 'global_x1:%s_plus'%(dim+1)
+        points   = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+
+        # gather by axis
+        self.insert_variables(*points)
+
+        points = tuple(zip(points))
+        return dict([(0,points)])
+
+
+    # ....................................................
+    def _visit_PlusLocalTensorQuadrature(self, expr, **kwargs):
+        dim  = self.dim
+        rank = expr.rank
+
+        names = 'local_x1:%s_plus'%(dim+1)
+        points   = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+
+        self.insert_variables(*points)
+
+        points = tuple(zip(points))
+        return dict([(0,points)])
     # ....................................................
     def _visit_TensorQuadrature(self, expr, **kwargs):
         dim = self.dim
@@ -725,6 +750,17 @@ class Parser(object):
         if expr.index is not None:
             return targets[expr.index]
         return targets
+
+    def _visit_PlusTensorQuadrature(self, expr, **kwargs):
+        dim = self.dim
+        names   = 'x1:%s_plus'%(dim+1)
+        points  = variables(names, dtype='real', cls=Variable)
+
+        targets = tuple(zip(points))
+
+        self.insert_variables(*points)
+
+        return dict([(0,targets)])
 
     # ....................................................
     def _visit_MatrixQuadrature(self, expr, **kwargs):
@@ -1178,11 +1214,14 @@ class Parser(object):
 
         vars_plus = []
         if isinstance(target, Interface):
-            target    = target.minus
-            mapping   = mapping.minus
-            # This is a hack, it must be deleted after merging PR #107
-            plus_coordinates = [Symbol(x.name+'_plus') for x in target.coordinates]
-            vars_plus = [Assign(xplus,x) for xplus,x in zip(plus_coordinates,target.coordinates)]
+            mapping = mapping.minus
+            target  = target.minus
+            axis    = target.axis
+            ext     = target.ext
+        elif isinstance(target, Boundary):
+            ext  = target.ext
+            axis = target.axis
+
 
         for vec in normal_vectors:
 

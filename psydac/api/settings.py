@@ -45,5 +45,5 @@ PSYDAC_BACKENDS = {
     'pyccel-intel': PSYDAC_BACKEND_IPYCCEL,
     'pyccel-pgi'  : PSYDAC_BACKEND_PGPYCCEL,
     'numba'       : PSYDAC_BACKEND_NUMBA,
-    'pythran'     : PSYDAC_BACKEND_PYTHRAN,
+#   'pythran'     : PSYDAC_BACKEND_PYTHRAN,
 }

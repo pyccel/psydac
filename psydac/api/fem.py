@@ -187,24 +187,38 @@ class DiscreteBilinearForm(BasicDiscrete):
         # ...
         if len(domain)>1:
             i,j = self.get_space_indices_from_target(domain, target )
-            test_space  = self.spaces[0].spaces[i]
-            trial_space = self.spaces[1].spaces[j]
+            trial_space  = self.spaces[0].spaces[j]
+            test_space = self.spaces[1].spaces[i]
         else:
             trial_space  = self.spaces[0]
             test_space   = self.spaces[1]
 
+        # ...
+        test_ext  = None
+        trial_ext = None
         if isinstance(target, Boundary):
-            axis      = target.axis
-            test_ext  = target.ext
-            trial_ext = target.ext
+            axis        = target.axis
+            ext         = target.ext
+            test_ext    = ext
+            trial_ext   = ext
+            test_grid   = QuadratureGrid( test_space, axis, test_ext)
+            trial_grid  = QuadratureGrid( trial_space, axis, trial_ext)
+            self._grid  = (test_grid,)
         elif isinstance(target, Interface):
-            axis       = target.axis
-            test_ext   = -1 if isinstance(self.kernel_expr.test,  PlusInterfaceOperator) else 1
-            trial_ext  = -1 if isinstance(self.kernel_expr.trial, PlusInterfaceOperator) else 1
+            axis         = target.axis
+            test         = self.kernel_expr.test
+            trial        = self.kernel_expr.trial
+            test_target  = target.plus if isinstance(test, PlusInterfaceOperator) else target.minus
+            trial_target = target.plus if isinstance(trial, PlusInterfaceOperator) else target.minus
+            test_ext     = test_target.ext
+            trial_ext    = trial_target.ext
+            test_grid    = QuadratureGrid( test_space, axis, test_ext)
+            trial_grid   = QuadratureGrid( trial_space, axis, trial_ext)
+            self._grid   = (test_grid, trial_grid) if test_target==target.minus else (trial_grid, test_grid)
         else:
-            axis      = None
-            test_ext  = None
-            trial_ext = None
+            test_grid   = QuadratureGrid( test_space)
+            trial_grid  = QuadratureGrid( trial_space)
+            self._grid  = (test_grid,)
 
         #...
         kwargs['is_rational_mapping'] = is_rational_mapping
@@ -241,8 +255,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         #...
         grid                = QuadratureGrid( test_space, axis, test_ext, trial_space=trial_space)
         self._grid          = grid
-        self._test_basis    = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=grid, ext=test_ext)
-        self._trial_basis   = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=grid, ext=trial_ext)
+        self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
+        self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
 
         #...
         if isinstance(target, (Boundary, Interface)):
@@ -307,7 +321,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                     assert i==j
                     v = v[i]
                 if isinstance(v, FemField):
-                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid)
+                    assert len(self.grid) == 1
+                    basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid[0])
                     bs, d, s, p = construct_test_space_arguments(basis_v)
                     basis   += bs
                     spans   += s
@@ -340,10 +355,11 @@ class DiscreteBilinearForm(BasicDiscrete):
             target = target.logical_domain
         domains = domain.interior.args
         if isinstance(target, Interface):
-            ij = [domains.index(target.minus.domain), domains.index(target.plus.domain)]
-            if isinstance(self.kernel_expr.test, PlusInterfaceOperator):
-                ij.reverse()
-            i,j = ij
+            test       = self.kernel_expr.test
+            trial      = self.kernel_expr.trial
+            test_target  =  target.plus if isinstance(test, PlusInterfaceOperator) else target.minus
+            trial_target = target.plus if isinstance(trial, PlusInterfaceOperator) else target.minus
+            i,j = [domains.index(test_target.domain), domains.index(trial_target.domain)]
         else:
             if isinstance(target, Boundary):
                 i = domains.index(target.domain)
@@ -355,23 +371,26 @@ class DiscreteBilinearForm(BasicDiscrete):
 
     def construct_arguments(self, backend=None):
 
-        test_basis, test_degrees, spans, pads  = construct_test_space_arguments(self.test_basis)
-        trial_basis, trial_degrees, pads       = construct_trial_space_arguments(self.trial_basis)
-        n_elements, quads, quad_degrees        = construct_quad_grids_arguments(self.grid, use_weights=False)
+        test_basis, test_degrees, spans, pads = construct_test_space_arguments(self.test_basis)
+        trial_basis, trial_degrees, pads      = construct_trial_space_arguments(self.trial_basis)
+        n_elements, quads, quad_degrees       = construct_quad_grids_arguments(self.grid[0], use_weights=False)
+        if len(self.grid)>1:
+            quads  = [*quads, *self.grid[1].points]
 
         pads                      = self.test_basis.space.vector_space.pads
         global_mats               = self.allocate_matrices(backend)
         self._global_matrices     = [M._data for M in global_mats]
 
         if self.mapping:
+            assert len(self.grid) == 1
             mapping    = [e._coeffs._data for e in self.mapping._fields]
             space      = self.mapping._fields[0].space
             map_degree = space.degree
             map_span   = [q.spans-s for q,s in zip(space.quad_grids, space.vector_space.starts)]
             map_basis  = [q.basis for q in space.quad_grids]
-            axis       = self.grid.axis
-            ext        = self.grid.ext
-            points     = self.grid.points
+            axis       = self.grid[0].axis
+            ext        = self.grid[0].ext
+            points     = self.grid[0].points
             if axis is not None:
                 nderiv = self.max_nderiv
                 space  = space.spaces[axis]
@@ -423,6 +442,12 @@ class DiscreteBilinearForm(BasicDiscrete):
         is_broken       = len(domain)>1
 
         if isinstance(expr, (ImmutableDenseMatrix, Matrix)):
+            if not isinstance(test_degree[0],(list, tuple, np.ndarray)):
+                test_degree = [test_degree]
+
+            if not isinstance(trial_degree[0],(list, tuple, np.ndarray)):
+                trial_degree = [trial_degree]
+
             pads         = np.empty((len(test_degree),len(trial_degree),len(test_degree[0])), dtype=int)
             for i in range(len(test_degree)):
                 for j in range(len(trial_degree)):
@@ -452,6 +477,8 @@ class DiscreteBilinearForm(BasicDiscrete):
                     if expr[k1,k2].is_zero:
                         continue
 
+                    ts_space = test_space.spaces[k1] if isinstance(test_space, BlockVectorSpace) else test_space
+                    tr_space = trial_space.spaces[k2] if isinstance(trial_space, BlockVectorSpace) else trial_space
                     if matrix[k1,k2]:
                         global_mats[k1,k2] = matrix[k1,k2]
                     elif not i == j: # assembling in an interface (type(target) == Interface)
@@ -460,15 +487,21 @@ class DiscreteBilinearForm(BasicDiscrete):
                         trial_spans = self.trial_basis.spans
                         s_d = trial_spans[k2][axis][0] - trial_degree[k2][axis]
                         s_c = test_spans[k1][axis][0] - test_degree[k1][axis]
+                        direction = target.direction
+                        direction = 1 if direction is None else direction
+                        flip = [direction]*domain.dim
+                        flip[axis] = 1
                         if self._func != do_nothing:
-                            global_mats[k1,k2] = StencilInterfaceMatrix(trial_space.spaces[k2], test_space.spaces[k1],
+                            global_mats[k1,k2] = StencilInterfaceMatrix(tr_space, ts_space,
                                                                         s_d, s_c,
-                                                                        axis, pads=tuple(pads[k1,k2]))
+                                                                        axis, pads=tuple(pads[k1,k2]), 
+                                                                        flip=flip,
+                                                                        backend=backend)
                     else:
-                        global_mats[k1,k2] = StencilMatrix(trial_space.spaces[k2],
-                                                                test_space.spaces[k1],
-                                                                pads = tuple(pads[k1,k2]),
-                                                                backend=backend)
+                        global_mats[k1,k2] = StencilMatrix(tr_space,
+                                                           ts_space,
+                                                           pads = tuple(pads[k1,k2]),
+                                                           backend=backend)
 
                     matrix[k1,k2]        = global_mats[k1,k2]
                     md                   = matrix[k1,k2].domain.shifts
@@ -485,11 +518,18 @@ class DiscreteBilinearForm(BasicDiscrete):
                     test_spans  = self.test_basis.spans
                     trial_spans = self.trial_basis.spans
                     s_d = trial_spans[0][axis][0] - trial_degree[axis]
-                    s_c = test_spans[0][axis][0] - test_degree[axis]
+                    s_c = test_spans[0][axis][0]  - test_degree[axis]
+                    direction = target.direction
+                    direction = 1 if direction is None else direction
+                    flip = [direction]*domain.dim
+                    flip[axis] = 1
                     if self._func != do_nothing:
-                        global_mats[i,j] = StencilInterfaceMatrix(trial_space, test_space, s_d, s_c, axis)
+                        global_mats[i,j] = StencilInterfaceMatrix(trial_space, test_space, 
+                                                                  s_d, s_c, axis, flip=flip,
+                                                                  backend=backend)
                 else:
-                    global_mats[i,j] = StencilMatrix(trial_space, test_space, backend=backend)
+
+                    global_mats[i,j] = StencilMatrix(trial_space, test_space, pads=tuple(pads), backend=backend)
 
                 if (i,j) in global_mats:
                     self._matrix[i,j] = global_mats[i,j]
@@ -508,7 +548,6 @@ class DiscreteBilinearForm(BasicDiscrete):
                 diag               = compute_diag_len(pads, md, mc)
                 self._matrix       = global_mats[0,0]
         return  global_mats.values()
-
 
 #==============================================================================
 class DiscreteLinearForm(BasicDiscrete):
@@ -681,6 +720,7 @@ class DiscreteLinearForm(BasicDiscrete):
             domain = domain.logical_domain
         if target.mapping:
             target = target.logical_domain
+
         domains = domain.interior.args
 
         if isinstance(target, Interface):
@@ -1045,8 +1085,9 @@ class DiscreteSumForm(BasicDiscrete):
 
     def assemble(self, *, reset=True, **kwargs):
         if not self.is_functional:
-            M = self.forms[0].assemble(reset=reset, **kwargs)
-            for form in self.forms[1:]:
+            if reset :
+                reset_arrays(*[i for M in self.forms for i in M.global_matrices])
+            for form in self.forms:
                 M = form.assemble(reset=False, **kwargs)
         else:
             M = np.sum([form.assemble(**kwargs) for form in self.forms])

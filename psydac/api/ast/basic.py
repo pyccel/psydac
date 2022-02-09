@@ -7,7 +7,7 @@ from sympy import Basic
 class SplBasic(Basic):
 
     def __new__(cls, tag, name=None, prefix=None, debug=False, detailed=False,
-                mapping=None, is_rational_mapping=None):
+                mapping=None, domain=None, is_rational_mapping=None):
 
         if name is None:
             if prefix is None:
@@ -23,6 +23,7 @@ class SplBasic(Basic):
         obj._debug               = debug
         obj._detailed            = detailed
         obj._mapping             = mapping
+        obj._domain              = domain
         obj._is_rational_mapping = is_rational_mapping
         obj._imports = []
 
@@ -55,6 +56,10 @@ class SplBasic(Basic):
     @property
     def detailed(self):
         return self._detailed
+
+    @property
+    def domain(self):
+        return self._domain
 
     @property
     def mapping(self):
