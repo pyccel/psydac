@@ -327,12 +327,15 @@ class CartDecomposition():
             print("Cannot compute dimensions with given input values!")
             self.comm.Abort(1)
 
-        # Know coords of all threads
+        # compute the coords for all threads
         coords_from_rank = np.array([np.unravel_index(rank, nthreads) for rank in range(self._num_threads)])
         rank_from_coords = np.zeros([n+1 for n in nthreads], dtype=int)
         for r in range(self._num_threads):
             c = coords_from_rank[r]
             rank_from_coords[tuple(c)] = r
+
+        # rank_from_coords is not used in the current version of the assembly code
+        # it's used in the commented second version, where we don't use a global barrier, but needs more checks to work
 
         for i in range(self._ndims):
             ind = [slice(None,None)]*self._ndims

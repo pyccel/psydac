@@ -185,30 +185,6 @@ class TensorMax(TensorExpression):
 class TensorInteger(TensorExpression):
     pass
 
-class Expression(Expr):
-    def __new__(cls, *args):
-        return Expr.__new__(cls, *args)
-
-class AddNode(Expression):
-    pass
-
-class MulNode(Expression):
-    pass
-
-class IntDivNode(Expression):
-    pass
-
-class AndNode(Expression):
-    pass
-
-class NotNode(Expression):
-    pass
-
-class EqNode(Expression):
-    pass
-
-class StrictLessThanNode(Expression):
-    pass
 #==============================================================================
 class TensorAssignExpr(Basic):
     def __new__(cls, lhs, rhs):
@@ -653,7 +629,18 @@ class TensorGenerator(GeneratorBase):
 
 #==============================================================================
 class ProductGenerator(GeneratorBase):
-    pass
+    """
+    This class represent an element of an array with arbitrary number of dimensions.
+
+    Parameters
+    ----------
+
+    target : <ArrayNode|MatrixNode>
+        the array object
+
+    dummies : <Tuple|tuple|list>
+        multidimensional index
+    """
 
 #==============================================================================
 class Grid(BaseNode):
@@ -2210,3 +2197,31 @@ def construct_itergener(a, index):
 
     return iterator, generator
 
+#=============================================================================================
+# the Expression class, works with fixed dimension expressions instead of vectorized one,
+# where in some cases we need to treat each dimesion diffrently
+
+class Expression(Expr):
+    def __new__(cls, *args):
+        return Expr.__new__(cls, *args)
+
+class AddNode(Expression):
+    pass
+
+class MulNode(Expression):
+    pass
+
+class IntDivNode(Expression):
+    pass
+
+class AndNode(Expression):
+    pass
+
+class NotNode(Expression):
+    pass
+
+class EqNode(Expression):
+    pass
+
+class StrictLessThanNode(Expression):
+    pass
