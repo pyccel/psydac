@@ -129,6 +129,18 @@ class OutputManager:
         self.is_static = None
         self._current_hdf5_group = None
 
+    @property
+    def current_hdf5_group(self):
+        return self._current_hdf5_group
+
+    @property
+    def space_info(self):
+        return self._spaces_info
+
+    @property
+    def spaces(self):
+        return dict([(name, space) for name, space in zip(self._spaces[1::2], self._spaces[0::2])])
+
     def set_static(self):
         """Set the export to static mode
 
@@ -185,22 +197,22 @@ class OutputManager:
 
         return self
 
-    def add_spaces(self, *femspaces):
+    def add_spaces(self, **femspaces):
         """Add femspaces to the scope of this instance of OutputManager
 
         Parameters
         ----------
-        femspaces: Tuple of psydac.fem.basic.FemSpace
+        femspaces:  sydac.fem.basic.FemSpace dict
             Femspaces to add in the scope of this OutputManager instance.
 
         """
-        assert all(isinstance(femspace, FemSpace) for femspace in femspaces)
-        for femspace in femspaces:
+        assert all(isinstance(femspace, FemSpace) for femspace in femspaces.values())
+        for name, femspace in femspaces.items():
 
             if femspace.is_product:
-                self._add_vector_space(femspace)
+                self._add_vector_space(femspace, name=name)
             else:
-                self._add_scalar_space(femspace)
+                self._add_scalar_space(femspace, name=name)
 
     def _add_scalar_space(self, scalar_space, name=None, dim=None, patch_name=None, kind=None):
         """Add a scalar space to the scope of this instance of OutputManager
@@ -231,9 +243,9 @@ class OutputManager:
         """
         spaces_info = self._spaces_info
 
-        if name is None:
+        if dim is None:
             symbolic_space = scalar_space.symbolic_space
-            scalar_space_name = symbolic_space.name
+            scalar_space_name = name
             pdim = symbolic_space.domain.dim
             patch = symbolic_space.domain.name
             kind = symbolic_space.kind
@@ -284,12 +296,13 @@ class OutputManager:
             else:
                 spaces_info['patches'].append({'name': patch, 'scalar_spaces': [new_space]})
         self._spaces.append(scalar_space)
+        self._spaces.append(name)
 
         self._spaces_info = spaces_info
 
         return new_space
 
-    def _add_vector_space(self, vector_space):
+    def _add_vector_space(self, vector_space, name=None):
         """Add a vector space to the scope of this instance of OutputManager.
 
         Parameters
@@ -299,7 +312,6 @@ class OutputManager:
         """
 
         symbolic_space = vector_space.symbolic_space
-        name = symbolic_space.name
         dim = symbolic_space.domain.dim
         patch_name = symbolic_space.domain.name
         kind = symbolic_space.kind
@@ -330,6 +342,7 @@ class OutputManager:
 
         self._spaces_info = spaces_info
         self._spaces.append(vector_space)
+        self._spaces.append(name)
 
     def export_fields(self, **fields):
         """
@@ -351,9 +364,6 @@ class OutputManager:
         """
         if self.is_static is None:
             raise ValueError('Saving scheme not specified')
-
-        assert all(f.space in self._spaces for f in fields.values())
-        # should we restrict to only fields belonging to the same space ?
 
         # For now, I assume that if something is mpi parallel everything is
         space_test = list(fields.values())[0].space
@@ -377,7 +387,9 @@ class OutputManager:
         # Add field coefficients as named datasets
         for name_field, field in fields.items():
 
-            name_space = field.space.symbolic_space.name
+            i = self._spaces.index(field.space)
+
+            name_space = self._spaces[i+1]
             patch = field.space.symbolic_space.domain.name
 
             if field.space.is_product:  # Vector field case
@@ -421,6 +433,7 @@ class PostProcessManager:
 
         self._spaces = {}
         self._fields = {}
+        self._domain = None
 
     @property
     def spaces(self):
@@ -429,6 +442,10 @@ class PostProcessManager:
     @property
     def fields(self):
         return self._fields
+
+    @property
+    def domain(self):
+        return self._domain
 
     def read_space_info(self):
         return yaml.load(open(self.space_file), Loader=yaml.SafeLoader)
@@ -441,6 +458,7 @@ class PostProcessManager:
         domain = Domain.from_file(self.geometry_file)
         domain_h = discretize(domain, filename=self.geometry_file)
 
+        self._domain = domain_h
         space_info = self.read_space_info()
 
         pdim = space_info['ndim']
