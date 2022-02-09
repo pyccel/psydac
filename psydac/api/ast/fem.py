@@ -515,6 +515,7 @@ class AST(object):
     @property
     def num_threads(self):
         return self._num_threads
+
 #================================================================================================================================
 def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                               tests,  d_tests,
@@ -929,7 +930,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     if add_openmp:
         shared = (*thread_span.values(), coords_from_rank, rank_from_coords, global_thread_s, global_thread_e,
-                  *args['tests_basis'], *args['trial_basis'], *args['spans'], args['quads'], g_mats)
+                  *args['tests_basis'], *args['trial_basis'], *args['spans'], *args['quads'], g_mats)
         if mapping_space:
             shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
         if fields:
@@ -1251,7 +1252,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     if add_openmp:
         shared = (*thread_span.values(), coords_from_rank, rank_from_coords, global_thread_s, global_thread_e,
-                  *args['tests_basis'], *args['spans'], args['quads'], g_vecs)
+                  *args['tests_basis'], *args['spans'], *args['quads'], g_vecs)
         if mapping_space:
             shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
         if fields:
@@ -1428,7 +1429,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         args['constants'] = constants
 
     if num_threads>1:
-        shared = (*args['tests_basis'], *args['spans'], args['quads'], *args['f_coeffs'], g_vec)
+        shared = (*args['tests_basis'], *args['spans'], *args['quads'], *args['f_coeffs'], g_vec)
         if mapping_space:
             shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
 

@@ -475,7 +475,6 @@ class Parser(object):
             f_pads     = args.pop('f_pads', [])
             f_args     = (*f_basis, *f_span, *f_degrees, *f_pads, *f_coeffs)
 
-
         args = [*tests_basis, *trial_basis, *map_basis, *g_span, *map_span, *g_quad, *lengths_tests.values(), *lengths_trials.values(), *map_degrees, *lengths, *g_pads, *map_coeffs]
 
         if mats:

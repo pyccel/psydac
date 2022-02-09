@@ -115,7 +115,7 @@ def test_maxwell_2d_2_patch_dirichlet_0():
 
     l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**3, 2**3], degree=[2,2])
 
-    expected_l2_error = 0.006038566252825904
+    expected_l2_error = 0.012077019124862177
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
 
@@ -133,7 +133,7 @@ def test_maxwell_2d_2_patch_dirichlet_1():
 
     l2_error, Eh      = run_maxwell_2d(Eex, f, alpha, domain, ncells=[2**2, 2**2], degree=[2,2])
 
-    expected_l2_error = 0.030289265934636638
+    expected_l2_error = 1.5941322657006822
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
 #==============================================================================

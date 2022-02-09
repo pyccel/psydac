@@ -253,8 +253,6 @@ class DiscreteBilinearForm(BasicDiscrete):
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
 
         #...
-        grid                = QuadratureGrid( test_space, axis, test_ext, trial_space=trial_space)
-        self._grid          = grid
         self._test_basis  = BasisValues( test_space,  nderiv = self.max_nderiv , trial=False, grid=test_grid, ext=test_ext)
         self._trial_basis = BasisValues( trial_space, nderiv = self.max_nderiv , trial=True, grid=trial_grid, ext=trial_ext)
 
@@ -1090,5 +1088,7 @@ class DiscreteSumForm(BasicDiscrete):
             for form in self.forms:
                 M = form.assemble(reset=False, **kwargs)
         else:
-            M = np.sum([form.assemble(**kwargs) for form in self.forms])
+            M = [form.assemble(**kwargs) for form in self.forms]
+            print(M)
+            M = np.sum(M)
         return M
