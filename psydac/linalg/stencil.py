@@ -1628,11 +1628,11 @@ class StencilInterfaceMatrix(Matrix):
         self._transpose_args      = self._transpose_args_null.copy()
         self._transpose_func      = self._transpose
 
-#        if backend is None:
-#            backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
+        if backend is None:
+            backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
 
-#        if backend:
-#            self.set_backend(backend)
+        if backend:
+            self.set_backend(backend)
 
         # Flag ghost regions as not up-to-date (conservative choice)
         self._sync = False
@@ -1733,10 +1733,10 @@ class StencilInterfaceMatrix(Matrix):
 
         # Create new matrix where domain and codomain are swapped
         Mt = StencilInterfaceMatrix(M.codomain, M.domain, M.c_start, M.d_start, self.dim, flip=self._flip,
-                                    permutation=self._permutation, pads=self._pads)
+                                    permutation=self._permutation, pads=self._pads, backend=self._backend)
 
         # Call low-level '_transpose' function (works on Numpy arrays directly)
-        self._transpose(M._data, Mt._data, **self._prepare_transpose_args())
+        self._transpose_func(M._data, Mt._data, **self._transpose_args)
         return Mt
 
     @staticmethod
@@ -1776,7 +1776,6 @@ class StencilInterfaceMatrix(Matrix):
         pads  = self._pads
         gpads = V.pads
         dim   = self.dim
-
 
         # Number of rows in the transposed matrix (along each dimension)
         nrows       = [e-s+1 for s,e in zip(ssd, eed)]
@@ -2188,7 +2187,6 @@ class StencilInterfaceMatrix(Matrix):
                                         c_start=self._c_start)
 
                 self._args = {}
-
 
             self._func = dot.func
 #===============================================================================

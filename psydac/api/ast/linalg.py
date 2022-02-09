@@ -611,7 +611,7 @@ _transpose  = {1:transpose_1d,2:transpose_2d, 3:transpose_3d}
 transpose_args_dtype = {1:[repr('float[:,:]')]*2 + ['int']*11,2:[repr('float[:,:,:,:]')]*2 + ['int']*22, 3:[repr('float[:,:,:,:,:,:]')]*2 + ['int']*33}
 #========================================================================================================
 def interface_transpose_1d( M:'float[:,:]', Mt:'float[:,:]', d_start:int, c_start:int, dim:int ,n1:int, nc1:int, gp1:int, p1:int,
-                  dm1:int, cm1:int, nd1:int, ndT1:int, si1:int, sk1:int, sl1:int):
+                            nd1:int, ndT1:int, si1:int, sk1:int, sl1:int):
 
     d1 = gp1-p1
     for x1 in range(n1):
@@ -625,9 +625,8 @@ def interface_transpose_1d( M:'float[:,:]', Mt:'float[:,:]', d_start:int, c_star
 
 # ...
 def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:int, c_start:int, dim:int, n1:int, n2:int, nc1:int, nc2:int,
-                   gp1:int, gp2:int, p1:int, p2:int, dm1:int, dm2:int,
-                   cm1:int, cm2:int, nd1:int, nd2:int, ndT1:int, ndT2:int,
-                   si1:int, si2:int, sk1:int, sk2:int, sl1:int, sl2:int):
+                           gp1:int, gp2:int, p1:int, p2:int,nd1:int, nd2:int, ndT1:int, ndT2:int,
+                           si1:int, si2:int, sk1:int, sk2:int, sl1:int, sl2:int):
 
     d1 = gp1-p1
     d2 = gp2-p2
@@ -654,9 +653,8 @@ def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:int
 # ...
 def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', d_start:int, c_start:int, dim:int, n1:int, n2:int, n3:int,
                   nc1:int, nc2:int, nc3:int, gp1:int, gp2:int, gp3:int, p1:int, p2:int, p3:int,
-                  dm1:int, dm2:int, dm3:int, cm1:int, cm2:int, cm3:int, nd1:int, nd2:int, nd3:int,
-                  ndT1:int, ndT2:int, ndT3:int, si1:int, si2:int, si3:int, sk1:int, sk2:int, sk3:int,
-                  sl1:int, sl2:int, sl3:int):
+                  nd1:int, nd2:int, nd3:int,ndT1:int, ndT2:int, ndT3:int, si1:int, si2:int,
+                  si3:int, sk1:int, sk2:int, sk3:int,sl1:int, sl2:int, sl3:int):
 
     d1 = gp1-p1
     d2 = gp2-p2
@@ -692,4 +690,4 @@ def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', d_s
 
 
 interface_transpose            = {1:interface_transpose_1d,2:interface_transpose_2d, 3:interface_transpose_3d}
-interface_transpose_args_dtype = {1:[repr('float[:,:]')]*2 + ['int']*14,2:[repr('float[:,:,:,:]')]*2 + ['int']*25, 3:[repr('float[:,:,:,:,:,:]')]*2 + ['int']*36}
+interface_transpose_args_dtype = {1:[repr('float[:,:]')]*2 + ['int']*12,2:[repr('float[:,:,:,:]')]*2 + ['int']*21, 3:[repr('float[:,:,:,:,:,:]')]*2 + ['int']*30}
