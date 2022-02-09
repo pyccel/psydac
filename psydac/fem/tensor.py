@@ -410,7 +410,7 @@ class TensorFemSpace( FemSpace ):
                 span -= 1
             #-------------------------------------------------#
             basis_0 = np.zeros(degree+1)
-            basis_0 = basis_funs( knots, degree, x, span, basis_0)
+            basis_funs( knots, degree, x, span, basis_0)
             basis_1 = basis_funs_1st_der( knots, degree, x, span )
 
             # If needed, rescale B-splines to get M-splines
