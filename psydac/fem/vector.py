@@ -253,7 +253,12 @@ class ProductFemSpace( FemSpace ):
     def eval_field( self, field, *eta ):
         raise NotImplementedError( "ProductFemSpace not yet operational" )
 
-    # def eval_fields(self, *fields, refine_factor=None, weights=None):
+    def eval_fields(self, *fields, refine_factor=None, weights=None):
+        result = []
+        for i in range(self.ldim):
+            fields_i = list(field.fields[i] for field in fields)
+            result.append(self._spaces[i].eval_fields(*fields_i, refine_factor=refine_factor, weights=weights))
+        return result
 
     # ...
     def eval_field_gradient( self, field, *eta ):
