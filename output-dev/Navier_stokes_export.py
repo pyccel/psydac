@@ -253,26 +253,6 @@ def run_time_dependent_navier_stokes_2d(geometry_file, dt_h, Tf,
 
     Om.export_space_info()
 
-    Pm = PostProcessManager(geometry_file, 'spaces_nv.yml', 'fields_nv.h5')
-    Pm.reconstruct_scope()
-
-    fields_dict = Pm.fields
-    spaces_dict = Pm.spaces
-
-    for k,v in fields_dict.items():
-        if k!='static':
-            for k_field, field in v['fields'].items():
-
-                print(f'snapshot {k}, field {k_field}')
-                if k_field == 'p':
-                    new_p_grid = field.space.eval_fields(field, refine_factor=1)
-                    print(np.allclose(new_p_grid,ph_grids[k]))
-                elif k_field == 'u':  # Because vector Space
-                    new_u_grid_x = field.space.spaces[0].eval_fields(field.fields[0], refine_factor=1)
-                    new_u_grid_y = field.space.spaces[1].eval_fields(field.fields[1], refine_factor=1)
-                    print(f'x : {np.allclose(new_u_grid_x,uh_grids[k][0])}')
-                    print(f'y : {np.allclose(new_u_grid_y, uh_grids[k][1])}')
-
 
 def teardown_module():
     from sympy.core import cache
@@ -349,18 +329,6 @@ if __name__ == '__main__':
     # Path to current Python interpreter
     python_exe = Path(sys.executable).resolve()
 
-    # ... Get information about Psydac library using pip
-    cmd = [python_exe, *'-m pip freeze'.split()]
-    pip = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-
-    cmd = ['grep', 'psydac']
-    grep = subprocess.Popen(cmd, stdin=pip.stdout, stdout=subprocess.PIPE, encoding='utf-8')
-
-    pip.stdout.close()
-    psydac_lib, _ = grep.communicate()
-    psydac_lib    = psydac_lib.strip()
-    # ...
-
     # Command used to run the script
     run_cmd = ' '.join(sys.argv)
 
@@ -371,7 +339,6 @@ if __name__ == '__main__':
     # Save general information to file
 
     print('time    :', timestamp)
-    print('psydac  :', psydac_lib)
     print('python  :', python_exe)
     print('command :', run_cmd)
     print('geometry:', geometry_file)
