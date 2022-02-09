@@ -614,17 +614,13 @@ def interface_transpose_1d( M:'float[:,:]', Mt:'float[:,:]', d_start:int, c_star
                   dm1:int, cm1:int, nd1:int, ndT1:int, si1:int, sk1:int, sl1:int):
 
     d1 = gp1-p1
-    sp1 = 0
-    if c_start>0:
-        sp1 = p1
-
     for x1 in range(n1):
         j1 = gp1 + x1
         for l1 in range(nd1):
-            i1 = si1 + x1 + l1 + d1 + sp1
-            k1 = sk1 -l1 - sp1
-            m1 = l1+sl1+sp1
-            if k1<ndT1 and k1>-1 and m1<nd1+sp1 and i1<nc1:
+            i1 = si1 + x1 + l1 + d1
+            k1 = sk1 -l1
+            m1 = l1+sl1
+            if k1<ndT1 and k1>-1 and m1<nd1 and i1<nc1:
                 Mt[j1,m1] = M[i1,k1]
 
 # ...
@@ -635,12 +631,6 @@ def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:int
 
     d1 = gp1-p1
     d2 = gp2-p2
-    sp1 = 0
-    sp2 = 0
-    if c_start>0 and dim==0:
-        sp1 = p1
-    elif c_start>0 and dim==1:
-        sp2 = p2
 
     for x1 in range(n1):
         for x2 in range(n2):
@@ -649,16 +639,16 @@ def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:int
             for l1 in range(nd1):
                 for l2 in range(nd2):
 
-                    i1 = si1 + x1 + l1 + d1 + sp1
-                    i2 = si2 + x2 + l2 + d2 + sp2
+                    i1 = si1 + x1 + l1 + d1
+                    i2 = si2 + x2 + l2 + d2
 
-                    k1 = sk1 -l1 - sp1
-                    k2 = sk2 -l2 - sp2
+                    k1 = sk1 -l1
+                    k2 = sk2 -l2
 
-                    m1 = l1+sl1+sp1
-                    m2 = l2+sl2+sp2
+                    m1 = l1+sl1
+                    m2 = l2+sl2
                     if k1<ndT1 and k1>-1 and k2<ndT2 and k2>-1\
-                        and m1<nd1+sp1 and m2<nd2+sp2 and i1<nc1 and i2<nc2:
+                        and m1<nd1 and m2<nd2 and i1<nc1 and i2<nc2:
                         Mt[j1,j2, m1,m2] = M[i1,i2, k1,k2]
 
 # ...
@@ -672,17 +662,6 @@ def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', d_s
     d2 = gp2-p2
     d3 = gp3-p3
 
-    sp1 = 0
-    sp2 = 0
-    sp3 = 0
-
-    if c_start>0 and dim==0:
-        sp1 = p1
-    elif c_start>0 and dim==1:
-        sp2 = p2
-    elif c_start>0 and dim==2:
-        sp3 = p3
-
     for x1 in range(n1):
         for x2 in range(n2):
             for x3 in range(n3):
@@ -695,20 +674,20 @@ def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', d_s
                     for l2 in range(nd2):
                         for l3 in range(nd3):
 
-                            i1 = si1 + x1 + l1 + d1 + sp1
-                            i2 = si2 + x2 + l2 + d2 + sp2
-                            i3 = si3 + x3 + l3 + d3 + sp3
+                            i1 = si1 + x1 + l1 + d1
+                            i2 = si2 + x2 + l2 + d2
+                            i3 = si3 + x3 + l3 + d3
 
-                            k1 = sk1 -l1 - sp1
-                            k2 = sk2 -l2 - sp2
-                            k3 = sk3 -l3 - sp3
+                            k1 = sk1 -l1
+                            k2 = sk2 -l2
+                            k3 = sk3 -l3
 
-                            m1 = l1+sl1+sp1
-                            m2 = l2+sl2+sp2
-                            m3 = l3+sl3+sp3
+                            m1 = l1+sl1
+                            m2 = l2+sl2
+                            m3 = l3+sl3
 
                             if k1<ndT1 and k1>-1 and k2<ndT2 and k2>-1 and k3<ndT3 and k3>-1\
-                              and m1<nd1+sp1 and m2<nd2+sp2 and m3<nd3+sp3 and i1<nc1 and i2<nc2 and i3<nc3:
+                              and m1<nd1 and m2<nd2 and m3<nd3 and i1<nc1 and i2<nc2 and i3<nc3:
                                 Mt[j1,j2,j3,m1,m2,m3] = M[i1,i2,i3, k1,k2,k3]
 
 

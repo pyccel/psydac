@@ -119,6 +119,27 @@ def test_poisson_2d_2_patch_dirichlet_1():
 #------------------------------------------------------------------------------
 def test_poisson_2d_2_patch_dirichlet_2():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
+    B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
+
+    domain = A.join(B, name = 'domain',
+                bnd_minus = A.get_boundary(axis=0, ext=1),
+                bnd_plus  = B.get_boundary(axis=0, ext=-1))
+
+    x,y = domain.coordinates
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+
+    expected_l2_error = 0.0010176148331990707
+    expected_h1_error = 0.028398193995821736
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_2_patch_dirichlet_3():
+    A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0, 0.5), bounds2=(0, 1))
 
     M1 = IdentityMapping('M1',2)
@@ -145,7 +166,7 @@ def test_poisson_2d_2_patch_dirichlet_2():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_2_patch_dirichlet_3():
+def test_poisson_2d_2_patch_dirichlet_4():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0, 0.5), bounds2=(0, 1))
 

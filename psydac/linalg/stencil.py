@@ -1752,16 +1752,15 @@ class StencilInterfaceMatrix(Matrix):
         diff       = [gp-p for gp,p in zip(gpads, pads)]
         shfit_pads = [0]*len(diff)
 
-        if c_start>0:shfit_pads[dim] = pads[dim]
         for xx in np.ndindex( *nrows ):
             jj = [p + x for p,x in zip(gpads, xx) ]
             for ll in np.ndindex( *ndiags ):
 
-                ii = [ s + x + l + d+p for x,l,d,s,p in zip(xx, ll, diff, si, shfit_pads)]
-                kk = tuple( s-l-p for l,s,p in zip(ll, sk, shfit_pads))
-                ll = [l+s+p for l,s,p in zip(ll, sl, shfit_pads)]
+                ii = [ s + x + l + d for x,l,d,s in zip(xx, ll, diff, si)]
+                kk = tuple( s-l for l,s in zip(ll, sk))
+                ll = [l+s for l,s in zip(ll, sl)]
                 if all(k<n  and k>-1 for k,n in zip(kk, ndiagsT)) and\
-                   all(l<n+p for l,n,p in zip(ll, ndiags, shfit_pads)) and\
+                   all(l<n for l,n in zip(ll, ndiags)) and\
                    all(i<n for i,n in zip(ii, ncols)):
                     Mt[(*jj, *ll)] = M[(*ii, *kk)]
 
@@ -1792,7 +1791,7 @@ class StencilInterfaceMatrix(Matrix):
         nrows[dim]  = gpads[dim] + 1
         ncols[dim]  = 3*pads[dim] + 1
         ndiags      = list(ndiags)
-        ndiags[dim] = pads[dim] + 1
+        ndiags[dim] = 2*pads[dim] + 1
 
         sl   = starts
         si   = [0]*len(starts)
