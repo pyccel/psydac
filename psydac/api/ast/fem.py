@@ -588,7 +588,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     """
 
-    backend   = kwargs.pop('backend', None)
+    backend   = kwargs.pop('backend')
     is_pyccel = backend['name'] == 'pyccel' if backend else False
     pads      = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
     b0s       = variables(('b01, b02, b03'), dtype='int')[:dim]
@@ -597,6 +597,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     l_quad    = LocalTensorQuadrature(False)
     rank_from_coords = MatrixRankFromCoords()
     coords_from_rank = MatrixCoordsFromRank()
+
+    add_openmp = is_pyccel and backend['openmp'] and num_threads>1
 
     quad_order    = kwargs.pop('quad_order', None)
     thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
@@ -641,8 +643,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     l_starts        = Tuple(*[ProductGenerator(local_thread_s.set_index(i), local_index_element.set_index(i)) for i in range(dim)])
     l_ends          = Tuple(*[ProductGenerator(local_thread_e.set_index(i), local_index_element.set_index(i)) for i in range(dim)])
 
-    #ind_element   = index_element.set_range(start=g_starts,stop=g_ends) if (num_threads>1 and is_pyccel) else index_element.set_range(stop=el_length)
-    ind_element   = index_element.set_range(start=l_starts,stop=l_ends) if (num_threads>1 and is_pyccel) else index_element.set_range(stop=el_length)
+    #ind_element   = index_element.set_range(start=g_starts,stop=g_ends) if add_openmp else index_element.set_range(stop=el_length)
+    ind_element   = index_element.set_range(start=l_starts,stop=l_ends) if add_openmp else index_element.set_range(stop=el_length)
     l_ind_element = local_index_element.set_range(stop=TensorInteger(2))
     if mapping_space:
         ind_dof_test  = index_dof_test.set_range(stop=Tuple(*[d+1 for d in list(d_mapping.values())[0]['degrees']]))
@@ -786,7 +788,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 g_stmts += [*l_stmts]
 
     #=========================================================end kernel=========================================================
-    if num_threads>1 and is_pyccel:
+    if add_openmp:
 #        body = [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), num_threads) for j in range(dim)]), 
 #                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
 
@@ -862,7 +864,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     args['global_pads']  = pads
     args['local_pads']   = Pads(tests, trials)
 
-    if num_threads>1 and is_pyccel:
+    if add_openmp:
         args['thread_args']  = (coords_from_rank, rank_from_coords, global_thread_s, global_thread_e, thread_id.length)
 
     args['mats']  = [g_mats]
@@ -889,7 +891,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     args['ends']   = e0s
 
     allocations = []
-    if num_threads>1 and is_pyccel:
+    if add_openmp:
         allocations = [[Allocate(thread_span[u].set_index(i), (Integer(1+num_threads),)) for i in range(dim)] for u in thread_span]
         allocations = [Tuple(*i) for i in allocations]
 
@@ -916,7 +918,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     body  = allocations + body
 
-    if num_threads>1 and is_pyccel:
+    if add_openmp:
         shared = (*thread_span.values(), coords_from_rank, rank_from_coords, global_thread_s, global_thread_e,
                   *args['tests_basis'], *args['trial_basis'], *args['spans'], args['quads'], g_mats)
         if mapping_space:
@@ -941,7 +943,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     local_vars = []
     imports    = []
-    if num_threads>1 and is_pyccel:
+    if add_openmp:
         imports.append(Import('pyccel.stdlib.internal.openmp',('omp_get_thread_num', )))
 
     node = DefNode('assembly', args, local_vars, body, imports, (), 'bilinearform')
@@ -1017,6 +1019,8 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     geo      = GeometryExpressions(mapping, nderiv)
     g_coeffs = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
 
+    add_openmp = is_pyccel and backend['openmp'] and num_threads>1
+
     rank_from_coords = MatrixRankFromCoords()
     coords_from_rank = MatrixCoordsFromRank()
 
@@ -1059,8 +1063,8 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     l_starts        = Tuple(*[ProductGenerator(local_thread_s.set_index(i), local_index_element.set_index(i)) for i in range(dim)])
     l_ends          = Tuple(*[ProductGenerator(local_thread_e.set_index(i), local_index_element.set_index(i)) for i in range(dim)])
 
-#    ind_element   = index_element.set_range(start=g_starts,stop=g_ends) if (num_threads>1 and is_pyccel) else index_element.set_range(stop=el_length)
-    ind_element   = index_element.set_range(start=l_starts,stop=l_ends) if (num_threads>1 and is_pyccel) else index_element.set_range(stop=el_length)
+#    ind_element   = index_element.set_range(start=g_starts,stop=g_ends) if add_openmp else index_element.set_range(stop=el_length)
+    ind_element   = index_element.set_range(start=l_starts,stop=l_ends) if add_openmp else index_element.set_range(stop=el_length)
     l_ind_element = local_index_element.set_range(stop=TensorInteger(2))
     if mapping_space:
         ind_dof_test  = index_dof_test.set_range(stop=Tuple(*[d+1 for d in list(d_mapping.values())[0]['degrees']]))
@@ -1122,7 +1126,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     
     #=========================================================end kernel=========================================================
 
-    if num_threads>1 and is_pyccel:
+    if add_openmp:
         body = [VectorAssign(Tuple(*[ProductGenerator(thread_span[u].set_index(j), num_threads) for j in range(dim)]), 
                              Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
 
@@ -1214,11 +1218,11 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     if constants:
         args['constants'] = constants
 
-    if num_threads>1 and is_pyccel:
+    if add_openmp:
         args['thread_args']  = (coords_from_rank, rank_from_coords, global_thread_s, global_thread_e, thread_id.length)
 
     allocations = []
-    if num_threads>1 and is_pyccel:
+    if add_openmp:
         allocations = [[Allocate(thread_span[u].set_index(i), (Integer(1+num_threads),)) for i in range(dim)] for u in thread_span]
         allocations = [Tuple(*i) for i in allocations]
 
@@ -1236,7 +1240,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     body  = allocations + body
 
-    if num_threads>1 and is_pyccel:
+    if add_openmp:
         shared = (*thread_span.values(), coords_from_rank, rank_from_coords, global_thread_s, global_thread_e,
                   *args['tests_basis'], *args['spans'], args['quads'], g_vecs)
         if mapping_space:
@@ -1263,7 +1267,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     local_vars = []
     imports    = []
-    if num_threads>1 and is_pyccel:
+    if add_openmp:
         imports.append(Import('pyccel.stdlib.internal.openmp',('omp_get_thread_num', )))
     node = DefNode('assembly', args, local_vars, body, imports, (), 'linearform')
 
@@ -1412,7 +1416,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     args['f_coeffs'] = flatten(list(g_coeffs.values()))
     fields           = tuple(f.base if isinstance(f, IndexedVectorFunction) else f for f in fields)
     args['fields']   = tuple(dict.fromkeys(fields))
- 
+
     if constants:
         args['constants'] = constants
 

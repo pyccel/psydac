@@ -20,6 +20,11 @@ from psydac.api.discretization import discretize
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA
 
 x,y,z = symbols('x1, x2, x3')
+os.environ['OMP_NUM_THREADS'] = "2"
+
+# backend to activate multi threading
+PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP           = PSYDAC_BACKEND_GPYCCEL.copy()
+PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP['openmp'] = True
 #==============================================================================
 def get_boundaries(*args):
 
@@ -116,8 +121,8 @@ def run_poisson_2d(solution, f, dir_zero_boundary, dir_nonzero_boundary,
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
-
-def test_poisson_2d_dir0_1234():
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+def test_poisson_2d_dir0_1234(backend):
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
@@ -126,7 +131,8 @@ def test_poisson_2d_dir0_1234():
     dir_nonzero_boundary = get_boundaries()
 
     l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
-            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2])
+            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2],
+            comm=MPI.COMM_WORLD, backend=backend)
 
     expected_l2_error =  0.00021808678604760232
     expected_h1_error =  0.013023570720360362
@@ -397,80 +403,14 @@ def test_poisson_2d_dir0_1234_user_function():
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
-#------------------------------------------------------------------------------
-def test_poisson_2d_dir0_1234_gpyccel():
-
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
-
-    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
-    dir_nonzero_boundary = get_boundaries()
-
-    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
-            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2], backend=PSYDAC_BACKEND_GPYCCEL)
-
-    expected_l2_error =  0.00021808678604760232
-    expected_h1_error =  0.013023570720360362
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-#------------------------------------------------------------------------------
-def test_poisson_2d_dir0_1234_numba():
-
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
-
-    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
-    dir_nonzero_boundary = get_boundaries()
-
-    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
-            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2],backend=PSYDAC_BACKEND_NUMBA)
-
-    expected_l2_error =  0.00021808678604760232
-    expected_h1_error =  0.013023570720360362
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-###############################################################################
-#            OpenMP TESTS
-###############################################################################
-
-def test_poisson_openmp_2d_dir0_1234():
-
-    x,y,z = symbols('x1, x2, x3')
-
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
-
-    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
-    dir_nonzero_boundary = get_boundaries()
-
-    # Activate multi threading 
-    backend           = PSYDAC_BACKEND_GPYCCEL.copy()
-    backend['openmp'] = True
-    os.environ['OMP_NUM_THREADS']    = "2"
-
-    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
-            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2],
-            comm=MPI.COMM_WORLD, backend=backend)
-
-    expected_l2_error =  0.00021808678604760232
-    expected_h1_error =  0.013023570720360362
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-    # Delete OMP_NUM_THREADS
-    del os.environ['OMP_NUM_THREADS']
 
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################
 
 @pytest.mark.parallel
-def test_poisson_2d_dir0_1234_parallel():
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+def test_poisson_2d_dir0_1234_parallel(backend):
 
     solution = sin(pi*x)*sin(pi*y)
     f        = 2*pi**2*sin(pi*x)*sin(pi*y)
@@ -480,83 +420,13 @@ def test_poisson_2d_dir0_1234_parallel():
 
     l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
             dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2],
-            comm=MPI.COMM_WORLD)
-
-    expected_l2_error =  0.00021808678604760232
-    expected_h1_error =  0.013023570720360362
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-#------------------------------------------------------------------------------
-@pytest.mark.parallel
-def test_poisson_2d_dir0_1234_parallel_pyccel():
-
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
-
-    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
-    dir_nonzero_boundary = get_boundaries()
-
-    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
-            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2],
-            comm=MPI.COMM_WORLD, backend=PSYDAC_BACKEND_GPYCCEL)
-
-    expected_l2_error =  0.00021808678604760232
-    expected_h1_error =  0.013023570720360362
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-#------------------------------------------------------------------------------
-@pytest.mark.parallel
-def test_poisson_2d_dir0_1234_parallel_numba():
-
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
-
-    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
-    dir_nonzero_boundary = get_boundaries()
-
-    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
-            dir_nonzero_boundary, ncells=[2**3, 2**3], degree=[2, 2],
-            comm=MPI.COMM_WORLD, backend=PSYDAC_BACKEND_NUMBA)
-
-    expected_l2_error =  0.00021808678604760232
-    expected_h1_error =  0.013023570720360362
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-#------------------------------------------------------------------------------
-@pytest.mark.parallel
-def test_poisson_openmp_2d_dir0_1234_parallel():
-
-    x,y,z = symbols('x1, x2, x3')
-
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
-
-    dir_zero_boundary    = get_boundaries(1, 2, 3, 4)
-    dir_nonzero_boundary = get_boundaries()
-
-    # Activate multi threading 
-    backend           = PSYDAC_BACKEND_GPYCCEL.copy()
-    backend['openmp'] = True
-    os.environ['OMP_NUM_THREADS']    = "2"
-
-    l2_error, h1_error = run_poisson_2d(solution, f, dir_zero_boundary,
-            dir_nonzero_boundary, ncells=[2**4, 2**4], degree=[2, 2],
             comm=MPI.COMM_WORLD, backend=backend)
 
-    expected_l2_error =  2.6130834310749216e-05
-    expected_h1_error =  0.00320767625406208
+    expected_l2_error =  0.00021808678604760232
+    expected_h1_error =  0.013023570720360362
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-    # Delete OMP_NUM_THREADS
-    del os.environ['OMP_NUM_THREADS']
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE

@@ -395,9 +395,11 @@ class DiscreteBilinearForm(BasicDiscrete):
         args = (*test_basis, *trial_basis, *map_basis, *spans, *map_span, *quads, *test_degrees, *trial_degrees, *map_degree, 
                 *n_elements, *quad_degrees, *pads, *mapping, *self._global_matrices)
 
-        is_pyccel    = backend['name'] == 'pyccel' if backend else False
+        with_openmp  = (backend['name'] == 'pyccel' and backend['openmp']) if backend else False
+        with_openmp  = with_openmp and self._num_threads>1
+
         threads_args = ()
-        if self._num_threads>1 and is_pyccel:
+        if with_openmp:
             threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
             threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
 
@@ -730,9 +732,11 @@ class DiscreteLinearForm(BasicDiscrete):
 
         args = (*tests_basis, *map_basis, *spans, *map_span, *quads, *tests_degrees, *map_degree, *n_elements, *quads_degree, *global_pads, *mapping, *self._global_matrices)
 
-        is_pyccel    = backend['name'] == 'pyccel' if backend else False
+        with_openmp  = (backend['name'] == 'pyccel' and backend['openmp']) if backend else False
+        with_openmp  = with_openmp and self._num_threads>1
+
         threads_args = ()
-        if self._num_threads>1 and is_pyccel:
+        if with_openmp:
             threads_args = self._vector_space.cart.get_shared_memory_subdivision(n_elements)
             threads_args = (threads_args[0], threads_args[1], *threads_args[2], *threads_args[3], threads_args[4])
 

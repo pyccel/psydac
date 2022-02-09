@@ -44,6 +44,10 @@ except:
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 # ...
+os.environ['OMP_NUM_THREADS']    = "2"
+# backend to activate multi threading
+PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP           = PSYDAC_BACKEND_GPYCCEL.copy()
+PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP['openmp'] = True
 #==============================================================================
 def get_boundaries(*args):
 
@@ -566,7 +570,8 @@ def test_poisson_2d_collela_dir0_124_neui_3():
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_collela_dir0_123_neui_4():
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+def test_poisson_2d_collela_dir0_123_neui_4(backend):
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
     solution = cos(pi/2 * x) * sin(pi/3 * (1 + y))
@@ -577,7 +582,7 @@ def test_poisson_2d_collela_dir0_123_neui_4():
     neumann_boundary     = get_boundaries(4)
 
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,comm=MPI.COMM_WORLD, backend=backend)
 
     expected_l2_error = 0.0026061796931066174
     expected_h1_error = 0.04400143055955377
@@ -606,7 +611,8 @@ def test_poisson_2d_collela_dir0_123_diri_4():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_collela_dir0_13_diri_24():
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+def test_poisson_2d_collela_dir0_13_diri_24(backend):
 
     filename = os.path.join(mesh_dir, 'collela_2d.h5')
     solution = sin(pi/3 * (1 + x)) * sin(pi/3 * (1 + y))
@@ -617,7 +623,7 @@ def test_poisson_2d_collela_dir0_13_diri_24():
     neumann_boundary     = get_boundaries()
 
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary, comm=MPI.COMM_WORLD, backend=backend)
 
     expected_l2_error = 0.0012801077606328381
     expected_h1_error = 0.02314405549486328
@@ -671,7 +677,8 @@ def test_poisson_2d_quarter_annulus_dir0_1234():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_quarter_annulus_dir0_12_diri_34():
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+def test_poisson_2d_quarter_annulus_dir0_12_diri_34(backend):
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
     solution = sin(pi * x) * sin(pi * y)
@@ -682,7 +689,7 @@ def test_poisson_2d_quarter_annulus_dir0_12_diri_34():
     neumann_boundary     = get_boundaries()
 
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary, comm=MPI.COMM_WORLD, backend=backend)
 
     expected_l2_error = 0.0005982761090480573
     expected_h1_error = 0.021271053089631443
@@ -711,7 +718,8 @@ def test_poisson_2d_quarter_annulus_diri_1234():
     assert abs(h1_error - expected_h1_error) < 1.e-7
 
 #------------------------------------------------------------------------------
-def test_poisson_2d_quarter_annulus_diri_34_neui_12():
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+def test_poisson_2d_quarter_annulus_diri_34_neui_12(backend):
 
     filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
     solution = sin(pi*x + pi/4) * sin(pi*y + pi/4)
@@ -722,7 +730,7 @@ def test_poisson_2d_quarter_annulus_diri_34_neui_12():
     neumann_boundary     = get_boundaries(1, 2)
 
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary, comm=MPI.COMM_WORLD, backend=backend)
 
     expected_l2_error = 0.0006527836834289991
     expected_h1_error = 0.025919435390680808
@@ -753,7 +761,8 @@ def test_poisson_2d_quarter_annulus_diri_12_neui_34():
 #==============================================================================
 # 2D Poisson's equation on circle
 #==============================================================================
-def test_poisson_2d_circle_dir0():
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+def test_poisson_2d_circle_dir0(backend):
 
     filename = os.path.join(mesh_dir, 'circle.h5')
     solution = (1 - (x**2 + y**2)) * cos(2*pi*x) * cos(2*pi*y)
@@ -764,7 +773,7 @@ def test_poisson_2d_circle_dir0():
     neumann_boundary     = get_boundaries()
 
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary, comm=MPI.COMM_WORLD, backend=backend)
 
     expected_l2_error = 0.0015245737751297718
     expected_h1_error = 0.06653900724243668
@@ -775,7 +784,8 @@ def test_poisson_2d_circle_dir0():
 #==============================================================================
 # 2D Poisson's equation on pipe
 #==============================================================================
-def test_poisson_2d_pipe_dir_1234():
+@pytest.mark.parametrize('backend',  [None, PSYDAC_BACKEND_GPYCCEL, PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL_WITH_OPENMP])
+def test_poisson_2d_pipe_dir_1234(backend):
 
     filename = os.path.join(mesh_dir, 'pipe.h5')
     solution = sin(pi*x)*sin(pi*y)
@@ -786,7 +796,7 @@ def test_poisson_2d_pipe_dir_1234():
     neumann_boundary     = get_boundaries()
 
     l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary)
+            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary, comm=MPI.COMM_WORLD, backend=backend)
 
     expected_l2_error =  0.0008629074796755705
     expected_h1_error =  0.038151393401512884
@@ -794,183 +804,6 @@ def test_poisson_2d_pipe_dir_1234():
 
     assert( abs(l2_error - expected_l2_error) < 1.e-7)
     assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-
-###############################################################################
-#            OpenMP TESTS
-###############################################################################
-
-def test_poisson_2d_openmp_collela_dir0_123_neui_4():
-
-    filename = os.path.join(mesh_dir, 'collela_2d.h5')
-    solution = cos(pi/2 * x) * sin(pi/3 * (1 + y))
-    f        = (13/36)*pi**2 * solution
-
-    dir_zero_boundary    = get_boundaries(1, 2, 3)
-    dir_nonzero_boundary = get_boundaries()
-    neumann_boundary     = get_boundaries(4)
-
-    # Activate multi threading 
-    backend           = PSYDAC_BACKEND_GPYCCEL.copy()
-    backend['openmp'] = True
-    os.environ['OMP_NUM_THREADS']    = "2"
-
-    l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,
-            comm=MPI.COMM_WORLD, backend=backend)
-
-    expected_l2_error = 0.0026061796931066174
-    expected_h1_error = 0.04400143055955377
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-    # Delete OMP_NUM_THREADS
-    del os.environ['OMP_NUM_THREADS']
-
-#------------------------------------------------------------------------------
-def test_poisson_2d_openmp_collela_dir0_13_diri_24():
-
-    filename = os.path.join(mesh_dir, 'collela_2d.h5')
-    solution = sin(pi/3 * (1 + x)) * sin(pi/3 * (1 + y))
-    f        = (2/9)*pi**2 * solution
-
-    dir_zero_boundary    = get_boundaries(1, 3)
-    dir_nonzero_boundary = get_boundaries(2, 4)
-    neumann_boundary     = get_boundaries()
-
-    # Activate multi threading 
-    backend           = PSYDAC_BACKEND_GPYCCEL.copy()
-    backend['openmp'] = True
-    os.environ['OMP_NUM_THREADS']    = "2"
-
-    l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,
-            comm=MPI.COMM_WORLD, backend=backend)
-
-    expected_l2_error = 0.0012801077606328381
-    expected_h1_error = 0.02314405549486328
-
-    assert abs(l2_error - expected_l2_error) < 1.e-7
-    assert abs(h1_error - expected_h1_error) < 1.e-7
-
-    # Delete OMP_NUM_THREADS
-    del os.environ['OMP_NUM_THREADS']
-
-#------------------------------------------------------------------------------
-def test_poisson_2d_openmp_quarter_annulus_dir0_12_diri_34():
-
-    filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
-    solution = sin(pi * x) * sin(pi * y)
-    f        = 2*pi**2 * solution
-
-    dir_zero_boundary    = get_boundaries(1, 2)
-    dir_nonzero_boundary = get_boundaries(3, 4)
-    neumann_boundary     = get_boundaries()
-
-    # Activate multi threading 
-    backend           = PSYDAC_BACKEND_GPYCCEL.copy()
-    backend['openmp'] = True
-    os.environ['OMP_NUM_THREADS']    = "2"
-
-    l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,
-            comm=MPI.COMM_WORLD, backend=backend)
-
-    expected_l2_error = 0.0005982761090480573
-    expected_h1_error = 0.021271053089631443
-
-    assert abs(l2_error - expected_l2_error) < 1.e-7
-    assert abs(h1_error - expected_h1_error) < 1.e-7
-
-    # Delete OMP_NUM_THREADS
-    del os.environ['OMP_NUM_THREADS']
-
-#------------------------------------------------------------------------------
-def test_poisson_2d_openmp_quarter_annulus_diri_34_neui_12():
-
-    filename = os.path.join(mesh_dir, 'quarter_annulus.h5')
-    solution = sin(pi*x + pi/4) * sin(pi*y + pi/4)
-    f        = 2*pi**2 * solution
-
-    dir_zero_boundary    = get_boundaries()
-    dir_nonzero_boundary = get_boundaries(3, 4)
-    neumann_boundary     = get_boundaries(1, 2)
-
-    # Activate multi threading 
-    backend           = PSYDAC_BACKEND_GPYCCEL.copy()
-    backend['openmp'] = True
-    os.environ['OMP_NUM_THREADS']    = "2"
-
-    l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,
-            comm=MPI.COMM_WORLD, backend=backend)
-
-    expected_l2_error = 0.0006527836834289991
-    expected_h1_error = 0.025919435390680808
-
-    assert abs(l2_error - expected_l2_error) < 1.e-7
-    assert abs(h1_error - expected_h1_error) < 1.e-7
-
-    # Delete OMP_NUM_THREADS
-    del os.environ['OMP_NUM_THREADS']
-
-#------------------------------------------------------------------------------
-def test_poisson_2d_openmp_circle_dir0():
-
-    filename = os.path.join(mesh_dir, 'circle.h5')
-    solution = (1 - (x**2 + y**2)) * cos(2*pi*x) * cos(2*pi*y)
-    f        = -laplace(solution)
-
-    dir_zero_boundary    = get_boundaries(2) # only boundary is at r = r_max
-    dir_nonzero_boundary = get_boundaries()
-    neumann_boundary     = get_boundaries()
-
-    # Activate multi threading 
-    backend           = PSYDAC_BACKEND_GPYCCEL.copy()
-    backend['openmp'] = True
-    os.environ['OMP_NUM_THREADS']    = "2"
-
-    l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,
-            comm=MPI.COMM_WORLD, backend=backend)
-
-    expected_l2_error = 0.0015245737751297718
-    expected_h1_error = 0.06653900724243668
-
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-    # Delete OMP_NUM_THREADS
-    del os.environ['OMP_NUM_THREADS']
-
-#------------------------------------------------------------------------------
-def test_poisson_2d_openmp_pipe_dir_1234():
-
-    filename = os.path.join(mesh_dir, 'pipe.h5')
-    solution = sin(pi*x)*sin(pi*y)
-    f        = 2*pi**2*sin(pi*x)*sin(pi*y)
-
-    dir_zero_boundary    = get_boundaries()
-    dir_nonzero_boundary = get_boundaries(1, 2, 3, 4)
-    neumann_boundary     = get_boundaries()
-
-    # Activate multi threading 
-    backend           = PSYDAC_BACKEND_GPYCCEL.copy()
-    backend['openmp'] = True
-    os.environ['OMP_NUM_THREADS']    = "2"
-
-    l2_error, h1_error = run_poisson_2d(filename, solution, f,
-            dir_zero_boundary, dir_nonzero_boundary, neumann_boundary,
-            comm=MPI.COMM_WORLD, backend=backend)
-
-    expected_l2_error =  0.0008629074796755705
-    expected_h1_error =  0.038151393401512884
- 
-    assert( abs(l2_error - expected_l2_error) < 1.e-7)
-    assert( abs(h1_error - expected_h1_error) < 1.e-7)
-
-    # Delete OMP_NUM_THREADS
-    del os.environ['OMP_NUM_THREADS']
 
 ###############################################################################
 #            PARALLEL TESTS
