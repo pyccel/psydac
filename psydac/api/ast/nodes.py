@@ -2198,10 +2198,14 @@ def construct_itergener(a, index):
     return iterator, generator
 
 #=============================================================================================
-# the Expression class, works with fixed dimension expressions instead of vectorized one,
+# the Expression class works with fixed dimension expressions instead of vectorized one,
 # where in some cases we need to treat each dimesion diffrently
 
 class Expression(Expr):
+    """
+    The Expression class gives us the possibility to create specific instructions for some dimension,
+    where the generated code is not in a vectorized form.
+    """
     def __new__(cls, *args):
         return Expr.__new__(cls, *args)
 
