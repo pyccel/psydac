@@ -4604,8 +4604,11 @@ class Comment(Basic):
         return self._args[0]
 
     def _sympystr(self, printer):
-        sstr = printer.doprint
-        return '# {0}'.format(sstr(self.text))
+        sstr = printer._print
+        txt  = sstr(self.text)
+        if txt.lstrip()[0] != '#':
+            txt = '#' + txt
+        return txt
 
 
 class SeparatorComment(Comment):
