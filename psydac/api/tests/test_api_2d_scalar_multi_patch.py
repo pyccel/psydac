@@ -110,8 +110,8 @@ def test_poisson_2d_2_patch_dirichlet_1():
 
     l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.002035229666394183
-    expected_h1_error = 0.056796387991647795
+    expected_l2_error = 0.0010176148331990707
+    expected_h1_error = 0.028398193995821736
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )

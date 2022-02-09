@@ -132,8 +132,8 @@ def test_poisson_2d_2_patch_dirichlet_1():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.017626479960982044
-    expected_h1_error = 0.245058938982964
+    expected_l2_error = 0.008813239980488852
+    expected_h1_error = 0.12252946949143205
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
@@ -217,8 +217,8 @@ def test_poisson_2d_2_patch_dirichlet_parallel_0():
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2],
                                         comm=MPI.COMM_WORLD)
 
-    expected_l2_error = 0.017626479960982044
-    expected_h1_error = 0.245058938982964
+    expected_l2_error = 0.008813239980488852
+    expected_h1_error = 0.12252946949143205
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )

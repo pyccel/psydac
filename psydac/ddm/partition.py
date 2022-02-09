@@ -3,12 +3,12 @@ import numpy.ma as ma
 
 from sympy.ntheory import factorint
 
-__all__ = ['compute_dims']
+__all__ = ['mpi_compute_dims']
 
 #==============================================================================
-def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
+def mpi_compute_dims( nnodes, gridsizes, min_blocksizes=None ):
     """
-    With the aim of distributing a multi-dimensional array on a Cartesian
+    With the aim of distributing a multi-dimensional array on an MPI Cartesian
     topology, compute the number of processes along each dimension.
 
     Whenever possible, the number of processes is chosen so that the array is
@@ -17,7 +17,7 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
     Parameters
     ----------
     nnodes : int
-        Number of processes in the Cartesian topology.
+        Number of MPI processes in MPI Cartesian topology.
 
     gridsizes : list of int
         Number of array elements along each dimension.
@@ -28,7 +28,7 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
     Returns
     -------
     dims : list of int
-        Number of processes along each dimension of the Cartesian topology. 
+        Number of processes along each dimension of MPI Cartesian topology. 
 
     blocksizes : list of int
         Nominal block size along each dimension.
@@ -48,28 +48,27 @@ def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
 
     # Compute dimensions of MPI Cartesian topology with most appropriate algorithm
     if uniform:
-        dims, blocksizes = compute_dims_uniform( nnodes, gridsizes )
+        dims, blocksizes = mpi_compute_dims_uniform( nnodes, gridsizes )
     else:
-        dims, blocksizes = compute_dims_general( nnodes, gridsizes )
+        dims, blocksizes = mpi_compute_dims_general( nnodes, gridsizes )
 
     # If a minimum block size is given, verify that condition is met
-
     if min_blocksizes is not None:
         too_small = any( [s < m for (s,m) in zip( blocksizes, min_blocksizes )] )
 
         # If uniform decomposition yields blocks too small, fall back to general algorithm
         if uniform and too_small:
-            dims, blocksizes = compute_dims_general( nnodes, gridsizes )
+            dims, blocksizes = mpi_compute_dims_general( nnodes, gridsizes )
             too_small = any( [s < m for (s,m) in zip( blocksizes, min_blocksizes )] )
 
         # If general decomposition yields blocks too small, raise error
         if too_small:
-            raise ValueError("Cannot compute dimensions with given input values!")
+            raise ValueError("Cannot compute MPI dimensions with given input values!")
 
     return dims, blocksizes
 
 #==============================================================================
-def compute_dims_general( mpi_size, npts ):
+def mpi_compute_dims_general( mpi_size, npts ):
 
     nprocs = [1]*len( npts )
     shape  = [n for n in npts]
@@ -91,7 +90,7 @@ def compute_dims_general( mpi_size, npts ):
     return nprocs, shape
 
 #==============================================================================
-def compute_dims_uniform( mpi_size, npts ):
+def mpi_compute_dims_uniform( mpi_size, npts ):
 
     nprocs = [1]*len( npts )
 
