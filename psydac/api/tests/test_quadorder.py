@@ -34,11 +34,11 @@ def test_custom_quad_order(test_quad_order):
 
     domain_h = discretize(domain, ncells=ncells)
 
-    # TODO for future (once fixed/solved): remove the quad_order=(10,10) here again
-    Vh = discretize(V, domain_h, degree=degree, quad_order=test_quad_order)
+    # TODO for future (once fixed/solved): remove thenquads=(10,10) here again
+    Vh = discretize(V, domain_h, degree=degree,nquads=test_quad_order)
 
     # NOTE: we _need_ the Python backend here for range checking, otherwise we'd only get segfaults at best
-    _ = discretize(a, domain_h, [Vh, Vh], quad_order=test_quad_order, backend=PSYDAC_BACKEND_PYTHON).assemble()
-    _ = discretize(l, domain_h,      Vh , quad_order=test_quad_order, backend=PSYDAC_BACKEND_PYTHON).assemble()
+    _ = discretize(a, domain_h, [Vh, Vh],nquads=test_quad_order, backend=PSYDAC_BACKEND_PYTHON).assemble()
+    _ = discretize(l, domain_h,      Vh ,nquads=test_quad_order, backend=PSYDAC_BACKEND_PYTHON).assemble()
 
     assert np.array_equal(Vh.quad_order, test_quad_order)

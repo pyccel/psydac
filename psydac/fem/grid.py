@@ -36,7 +36,7 @@ class FemAssemblyGrid:
     end : int
         Index of last 1D basis local to process.
 
-    quad_order : int
+   nquads : int
         Polynomial order for which mass matrix is exact, assuming identity map
         (default: spline degree).
 
@@ -50,14 +50,14 @@ class FemAssemblyGrid:
     parent_end: int
         Index of last 1D parent basis local to process.
     """
-    def __init__( self, space, start, end, *, quad_order=None, nderiv=1, parent_start=None, parent_end=None):
+    def __init__( self, space, start, end, *,nquads=None, nderiv=1, parent_start=None, parent_end=None):
 
         T            = space.knots           # knots sequence
         degree       = space.degree          # spline degree
         n            = space.nbasis          # total number of control points
         grid         = space.breaks          # breakpoints
         nc           = space.ncells          # number of cells in domain (nc=len(grid)-1)
-        k            = quad_order or degree  # polynomial order for which the mass matrix is exact
+        k            =nquads or degree  # polynomial order for which the mass matrix is exact
         pad          = space.pads            # padding
         multiplicity = space.multiplicity    # multiplicity of the knots
 

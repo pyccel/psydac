@@ -327,7 +327,7 @@ class AST(object):
             tests               = expr.test_functions
             fields              = expr.fields
             is_broken           = spaces.symbolic_space.is_broken
-            quad_order          = get_quad_order(spaces)
+           nquads          = get_quad_order(spaces)
             tests_degrees       = get_degrees(tests, spaces)
             multiplicity_tests  = get_multiplicity(tests, spaces.vector_space)
             is_parallel         = spaces.vector_space.parallel
@@ -338,7 +338,7 @@ class AST(object):
             trials              = expr.trial_functions
             fields              = expr.fields
             is_broken           = spaces[0].symbolic_space.is_broken
-            quad_order          = get_quad_order(spaces[0])
+           nquads          = get_quad_order(spaces[0])
             tests_degrees       = get_degrees(tests, spaces[0])
             trials_degrees      = get_degrees(trials, spaces[1])
             multiplicity_tests  = get_multiplicity(tests, spaces[1].vector_space)
@@ -350,7 +350,7 @@ class AST(object):
             is_functional       = True
             fields              = tuple(expr.atoms(ScalarFunction, VectorFunction))
             is_broken           = spaces.symbolic_space.is_broken
-            quad_order          = get_quad_order(spaces)
+           nquads          = get_quad_order(spaces)
             fields_degrees      = get_degrees(fields, spaces)
             multiplicity_fields = get_multiplicity(fields, spaces.vector_space)
             is_parallel         = spaces.vector_space.parallel
@@ -362,7 +362,7 @@ class AST(object):
         trials = expand_hdiv_hcurl(trials)
         fields = expand_hdiv_hcurl(fields)
 
-        kwargs['quad_order']     = quad_order
+        kwargs['quad_order']     =nquads
 
         atoms_types = (ScalarFunction, VectorFunction, IndexedVectorFunction)
 
@@ -600,7 +600,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     add_openmp = is_pyccel and backend['openmp'] and num_threads>1
 
-    quad_order    = kwargs.pop('quad_order', None)
+   nquads    = kwargs.pop('quad_order', None)
     thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
     # ...........................................................................................
     g_span              = dict((u,d_tests[u]['span']) for u in tests)
@@ -633,7 +633,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     g_mats     = BlockStencilMatrixGlobalBasis(trials, tests, pads, m_tests, terminal_expr, l_mats.tag)
     # ...........................................................................................
 
-    if quad_order is not None:
+    ifnquads is not None:
         ind_quad      = index_quad.set_range(stop=Tuple(*quad_order))
     else:
         ind_quad      = index_quad.set_range(stop=quad_length)
@@ -1024,7 +1024,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     rank_from_coords = MatrixRankFromCoords()
     coords_from_rank = MatrixCoordsFromRank()
 
-    quad_order    = kwargs.pop('quad_order', None)
+   nquads    = kwargs.pop('quad_order', None)
     thread_span   =  dict((u,d_tests[u]['thread_span']) for u in tests)
  
     m_tests = dict((v,d_tests[v]['multiplicity'])   for v in tests)
@@ -1053,7 +1053,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     local_thread_e  = LocalThreadEnds()
     lengths     = [el_length,quad_length]
 
-    if quad_order is not None:
+    ifnquads is not None:
         ind_quad      = index_quad.set_range(stop=Tuple(*quad_order))
     else:
         ind_quad      = index_quad.set_range(stop=quad_length)

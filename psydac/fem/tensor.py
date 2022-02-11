@@ -83,7 +83,7 @@ class TensorFemSpace( FemSpace ):
             self._quad_order = [sp.degree for sp in self.spaces]
 
         # Compute extended 1D quadrature grids (local to process) along each direction
-        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q, parent_start=ps, parent_end=pe)
+        self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree,nquads=q, parent_start=ps, parent_end=pe)
                                   for V,s,e,ps,pe,q in zip( self.spaces, v.starts, v.ends,
                                                         v.parent_starts, v.parent_ends,
                                                         self._quad_order ) )
@@ -379,7 +379,7 @@ class TensorFemSpace( FemSpace ):
         return self._spaces
     
     @property
-    def quad_order( self ):
+    defnquads( self ):
         return self._quad_order
 
     @property
@@ -540,7 +540,7 @@ class TensorFemSpace( FemSpace ):
                 global_starts[axis][0] = 0
 
         cart = v._cart.reduce_grid(global_starts, global_ends)
-        V    = TensorFemSpace(*spaces, cart=cart, quad_order=self._quad_order)
+        V    = TensorFemSpace(*spaces, cart=cart,nquads=self._quad_order)
         return V
 
     # ...
@@ -657,10 +657,10 @@ class TensorFemSpace( FemSpace ):
         n_elements = [s1.nbasis-s2.nbasis for s1,s2 in zip(self.spaces, spaces)]
         if v.cart:
             red_cart = v.cart.reduce_elements(axes, n_elements)
-            tensor_vec = TensorFemSpace(*spaces, cart=red_cart, quad_order=self._quad_order)
+            tensor_vec = TensorFemSpace(*spaces, cart=red_cart,nquads=self._quad_order)
         else:
             v = v.reduce_elements(axes, n_elements)
-            tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
+            tensor_vec = TensorFemSpace(*spaces,nquads=self._quad_order, vector_space=v)
         
         tensor_vec._interpolation_ready = False
         return tensor_vec
