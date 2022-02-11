@@ -1,22 +1,20 @@
 # coding: utf-8
 
-# Conga operators on piecewise (broken) de Rham sequences
-
-from mpi4py import MPI
-
 import numpy as np
 import matplotlib.pyplot as plt
+
+from sympy      import lambdify
 from matplotlib import cm
-from psydac.fem.basic   import FemField
+from matplotlib import colors
 
-
-#==============================================================================
-# some plotting utilities
-
+from psydac.utilities.utils    import refine_array_1d
+from psydac.fem.basic          import FemField
 from psydac.feec.pull_push     import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
+from mpi4py import MPI
+#==============================================================================
+# some plotting utilities
 # todo (MCP, april 12): merge get_grid_vals_scalar and get_grid_vals_vector into a single function
-
 def get_grid_vals_scalar(u, etas, mappings_list, space_kind='h1'):  #_obj):
     # get the physical field values, given the logical field and the logical grid
     # n_patches = len(domain)
@@ -44,7 +42,7 @@ def get_grid_vals_scalar(u, etas, mappings_list, space_kind='h1'):  #_obj):
 
     return u_vals
 
-
+#------------------------------------------------------------------------------
 def get_grid_vals_vector(E, etas, mappings_list, space_kind='hcurl'):
     # get the physical field values, given the logical field and logical grid
     n_patches = len(mappings_list)
@@ -75,6 +73,7 @@ def get_grid_vals_vector(E, etas, mappings_list, space_kind='hcurl'):
     # E_y_vals = np.concatenate(E_y_vals, axis=1)
     return E_x_vals, E_y_vals
 
+#------------------------------------------------------------------------------
 def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
     # get approximate weights for a physical quadrature, namely
     #  |J_F(xi1, xi2)| * log_weight   with uniform log_weight = h1*h2     for (xi1, xi2) in the logical grid,
@@ -97,10 +96,7 @@ def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
 
     return quad_weights
 
-from psydac.utilities.utils    import refine_array_1d
-from sympy import lambdify
-
-
+#------------------------------------------------------------------------------
 def get_plotting_grid(mappings, N, centered_nodes=False, return_patch_logvols=False):
     # if centered_nodes == False, returns a regular grid with (N+1)x(N+1) nodes, starting and ending at patch boundaries
     # (useful for plotting the full patches)
@@ -137,6 +133,7 @@ def get_plotting_grid(mappings, N, centered_nodes=False, return_patch_logvols=Fa
     else:
         return etas, xx, yy
 
+#------------------------------------------------------------------------------
 def get_diag_grid(mappings, N):
     nb_patches = len(mappings)
     etas     = [[refine_array_1d( bounds, N ) for bounds in zip(D.min_coords, D.max_coords)] for D in mappings]
@@ -153,6 +150,7 @@ def get_diag_grid(mappings, N):
 
     return etas, xx, yy
 
+#------------------------------------------------------------------------------
 def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     # get gridlines for one patch grid
 
@@ -177,8 +175,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 
     return gridlines_x1, gridlines_x2
 
-from matplotlib import colors
-
+#------------------------------------------------------------------------------
 def my_small_plot(
         title, vals, titles=None,
         xx=None, yy=None,
@@ -266,8 +263,7 @@ def my_small_plot(
         else:
             plt.show()
 
-
-
+#------------------------------------------------------------------------------
 def my_small_streamplot(
         title, vals_x, vals_y,
         xx, yy, skip=2,

@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 from sympy import pi, sin
 
 from sympde.calculus      import grad, dot

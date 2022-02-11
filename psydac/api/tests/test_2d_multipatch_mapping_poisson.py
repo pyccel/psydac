@@ -80,7 +80,6 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
     return l2_error, h1_error, uh
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_2_patch_dirichlet_0():
 
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
@@ -109,7 +108,6 @@ def test_poisson_2d_2_patch_dirichlet_0():
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_2_patch_dirichlet_1():
 
     A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
