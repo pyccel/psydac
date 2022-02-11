@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
-#         nderiv has not been changed. shall we addnquads too?
+#         nderiv has not been changed. shall we add nquads too?
 
 # TODO: avoid using os.system and use subprocess.call
 
@@ -280,7 +280,7 @@ class BasicDiscrete(BasicCodeGen):
     def _create_ast(self, expr,tag, **kwargs):
         discrete_space      = kwargs.pop('discrete_space', None)
         kernel_expr         = kwargs['kernel_expr']
-       nquads          = kwargs.pop('quad_order', None)
+        nquads              = kwargs.pop('quad_order', None)
         is_rational_mapping = kwargs.pop('is_rational_mapping', None)
         mapping             = kwargs.pop('mapping', None)
         mapping_space       = kwargs.pop('mapping_space', None)

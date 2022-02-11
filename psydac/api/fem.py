@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
-#         nderiv has not been changed. shall we addnquads too?
+#         nderiv has not been changed. shall we add nquads too?
 
 import numpy as np
 from sympy import ImmutableDenseMatrix, Matrix
@@ -211,7 +211,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         kwargs['comm']                = domain_h.comm
         kwargs['discrete_space']      = (trial_space, test_space)
         space_quad_order = [qo - 1 for qo in get_quad_order(self.spaces[1])]
-       nquads       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+        nquads       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
         assert np.array_equal(quad_order, get_quad_order(self.spaces[1]))
@@ -560,7 +560,7 @@ class DiscreteLinearForm(BasicDiscrete):
         kwargs['comm']                = domain_h.comm
 
         space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
-       nquads       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+        nquads       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
         assert np.array_equal(quad_order, get_quad_order(self.space))
@@ -857,7 +857,7 @@ class DiscreteFunctional(BasicDiscrete):
         kwargs['comm']                = domain_h.comm
 
         space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
-       nquads       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+        nquads       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
         assert np.array_equal(quad_order, get_quad_order(self.space))

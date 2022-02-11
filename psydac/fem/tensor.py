@@ -78,7 +78,7 @@ class TensorFemSpace( FemSpace ):
         # Shortcut
         v = self._vector_space
 
-        self._quad_order = kwargs.pop('quad_order', None)
+        self._quad_order = kwargs.pop('nquads', None)
         if self._quad_order is None:
             self._quad_order = [sp.degree for sp in self.spaces]
 

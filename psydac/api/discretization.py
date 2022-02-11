@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
-#         nderiv has not been changed. shall we addnquads too?
+#         nderiv has not been changed. shall we add nquads too?
 
 from sympy import Expr as sym_Expr
 import numpy as np
@@ -220,7 +220,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
     periodic            = kwargs.pop('periodic', [False]*ldim)
     basis               = kwargs.pop('basis', 'B')
     knots               = kwargs.pop('knots', None)
-   nquads          = kwargs.pop('quad_order', None)
+    nquads               = kwargs.pop('quad_order', None)
     sequence            = kwargs.pop('sequence', 'DR')
     is_rational_mapping = False
 
