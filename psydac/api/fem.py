@@ -1,7 +1,7 @@
 # coding: utf-8
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
-#         nderiv has not been changed. shall we add quad_order too?
+#         nderiv has not been changed. shall we add nquads too?
 
 import numpy as np
 from sympy import ImmutableDenseMatrix, Matrix
@@ -82,9 +82,9 @@ def compute_diag_len(p, md, mc):
     n = n-np.minimum(0, n-p)+p+1
     return n.astype('int')
 
-def get_quad_order(Vh):
+def get_nquads(Vh):
     if isinstance(Vh, ProductFemSpace):
-        return get_quad_order(Vh.spaces[0])
+        return get_nquads(Vh.spaces[0])
     return tuple([g.weights.shape[1] for g in Vh.quad_grids])
 
 #==============================================================================
@@ -130,7 +130,7 @@ def construct_quad_grids_arguments(grid, use_weights=True):
     else:
         quads = flatten(list(zip(points)))
 
-    quads_order   = flatten(grid.quad_order)
+    quads_order   = flatten(grid.nquads)
     n_elements    = grid.n_elements
     return n_elements, quads, quads_order
 
@@ -210,11 +210,11 @@ class DiscreteBilinearForm(BasicDiscrete):
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
         kwargs['discrete_space']      = (trial_space, test_space)
-        space_quad_order = [qo - 1 for qo in get_quad_order(self.spaces[1])]
-        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+        space_nquads = [qo - 1 for qo in get_nquads(self.spaces[1])]
+        nquads       = [qo + 1 for qo in kwargs.pop('nquads', space_nquads)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(self.spaces[1]))
+        assert np.array_equal(nquads, get_nquads(self.spaces[1]))
 
         if isinstance(test_space.vector_space, BlockVectorSpace):
             vector_space = test_space.vector_space.spaces[0]
@@ -236,7 +236,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         self._element_loop_ends   = tuple(np.int64(i+1!=n) for i,n in zip(ends, npts))
 
         kwargs['num_threads'] = self._num_threads
-        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
+        BasicDiscrete.__init__(self, expr, kernel_expr, nquads=nquads, **kwargs)
 
         #...
         grid                = QuadratureGrid( test_space, axis, test_ext, trial_space=trial_space)
@@ -559,11 +559,11 @@ class DiscreteLinearForm(BasicDiscrete):
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
 
-        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
-        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+        space_nquads = [qo - 1 for qo in get_nquads(self.space)]
+        nquads       = [qo + 1 for qo in kwargs.pop('nquads', space_nquads)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(self.space))
+        assert np.array_equal(nquads, get_nquads(self.space))
 
         # Assuming that all vector spaces (and their Cartesian decomposition,
         # if any) are compatible with each other, extract the first available
@@ -582,7 +582,7 @@ class DiscreteLinearForm(BasicDiscrete):
 
         kwargs['num_threads'] = self._num_threads
 
-        BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
+        BasicDiscrete.__init__(self, expr, kernel_expr, nquads=nquads, **kwargs)
 
         if not isinstance(target, Boundary):
             ext  = None
@@ -856,11 +856,11 @@ class DiscreteFunctional(BasicDiscrete):
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
 
-        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
-        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+        space_nquads = [qo - 1 for qo in get_nquads(self.space)]
+        nquads       = [qo + 1 for qo in kwargs.pop('nquads', space_nquads)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(self.space))
+        assert np.array_equal(nquads, get_nquads(self.space))
 
         if isinstance(self.space.vector_space, BlockVectorSpace):
             vector_space = self.space.vector_space.spaces[0]
@@ -874,7 +874,7 @@ class DiscreteFunctional(BasicDiscrete):
             num_threads = vector_space.cart._num_threads
 
         kwargs['num_threads'] = num_threads
-        BasicDiscrete.__init__(self, expr, kernel_expr,  quad_order=quad_order, **kwargs)
+        BasicDiscrete.__init__(self, expr, kernel_expr,  nquads=nquads, **kwargs)
 
         # ...
         grid             = QuadratureGrid( self.space,  axis=axis, ext=ext)
@@ -931,7 +931,7 @@ class DiscreteFunctional(BasicDiscrete):
         tests_degrees = flatten(tests_degrees)
         spans         = flatten(spans)
         quads         = flatten(list(zip(points, weights)))
-        quads_degree  = flatten(self.grid.quad_order)
+        quads_degree  = flatten(self.grid.nquads)
 
         if self.mapping:
             mapping    = [e._coeffs._data for e in self.mapping._fields]

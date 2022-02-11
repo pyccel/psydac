@@ -121,7 +121,7 @@ class QuadratureGrid():
         return self._weights
 
     @property
-    def quad_order(self):
+    def nquads(self):
         return [w.shape[1] for w in self.weights]
 
     @property
