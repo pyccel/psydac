@@ -161,7 +161,7 @@ class DiscreteEquation(BasicDiscrete):
         # ...
         # Create boundary equation (None if not needed)
         eqn_bc   = l2_boundary_projection(expr)
-        eqn_bc_h = DiscreteEquation(eqn_bc, domain, [trial_space, trial_space]) \
+        eqn_bc_h = DiscreteEquation(eqn_bc, domain, [trial_space, trial_space], **kwargs) \
                    if eqn_bc else None
         # ...
 

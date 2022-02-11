@@ -71,6 +71,9 @@ class PythonCodePrinter(SympyPythonCodePrinter):
     def _print_FunctionDef(self, expr):
         name = self._print(expr.name)
         body = self._print(expr.body)
+
+        if not expr.results:body = body + '\nreturn'
+
         body = self._indent_codestring(body)
         args = ', '.join(self._print(i) for i in expr.arguments)
 
@@ -108,7 +111,9 @@ class PythonCodePrinter(SympyPythonCodePrinter):
 
     def _print_Comment(self, expr):
         txt = self._print(expr.text)
-        return '# {0} '.format(txt)
+        if txt.lstrip()[0] != '#':
+            txt = '#' + txt
+        return txt
 
     def _print_EmptyNode(self, expr):
         return ''
@@ -152,6 +157,16 @@ class PythonCodePrinter(SympyPythonCodePrinter):
 
         return code
 
+    def _print_While(self, expr):
+        test  = self._print(expr.test)
+        body  = self._print(expr.body)
+        body  = body if body else 'continue'
+        body  = self._indent_codestring(body)
+        code  = ('while {0}:\n'
+                '{1}\n').format(test, body)
+
+        return code
+
     def _print_Assign(self, expr):
         lhs = self._print(expr.lhs)
         rhs = self._print(expr.rhs)
@@ -188,10 +203,13 @@ class PythonCodePrinter(SympyPythonCodePrinter):
         return "%s[%s]" % (self._print(expr.base.label), ", ".join(inds))
 
     def _print_Zeros(self, expr):
-        return 'zeros('+ self._print(expr.shape)+')'
+        return 'zeros('+ self._print(expr.shape)+', dtype='+repr(self._print(expr.dtype))+')'
 
     def _print_ZerosLike(self, expr):
         return 'zeros_like('+ self._print(expr.rhs)+')'
+
+    def _print_Array(self, expr):
+        return 'array('+ self._print(expr.data)+(self._print(expr.dtype) if expr.dtype else '')+')'
 
     def _print_Max(self, expr):
         args = ', '.join(self._print(e) for e in expr.args)
@@ -209,6 +227,9 @@ class PythonCodePrinter(SympyPythonCodePrinter):
 
     def _print_Pass(self, expr):
         return 'pass'
+
+    def _print_Continue(self, expr):
+        return 'continue'
 
     def _print_Is(self, expr):
         lhs = self._print(expr.lhs)
@@ -288,6 +309,9 @@ class PythonCodePrinter(SympyPythonCodePrinter):
 
     def _print_PyccelFloorDiv(self, expr):
         return '//'.join(self._print(a) for a in expr.args)
+
+    def _print_floor(self, expr):
+        return 'int({})'.format(self._print(expr.args[0]))
 
     def _print_PyccelAssociativeParenthesis(self, expr):
         return '({})'.format(self._print(expr.args[0]))
