@@ -638,8 +638,11 @@ def transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', n1:"int64", n
 _transpose  = {1:transpose_1d,2:transpose_2d, 3:transpose_3d}
 transpose_args_dtype = {1:[repr('float[:,:]')]*2 + [repr('int64')]*11,2:[repr('float[:,:,:,:]')]*2 + [repr('int64')]*22, 3:[repr('float[:,:,:,:,:,:]')]*2 + [repr('int64')]*33}
 #========================================================================================================
-def interface_transpose_1d( M:'float[:,:]', Mt:'float[:,:]', d_start:"int64", c_start:"int64", dim:"int64" ,n1:"int64", nc1:"int64", gp1:"int64", p1:"int64",
-                            nd1:"int64", ndT1:"int64", si1:"int64", sk1:"int64", sl1:"int64"):
+def interface_transpose_1d( M:'float[:,:]', Mt:'float[:,:]', d_start:"int64",
+                            c_start:"int64", dim:"int64" ,n1:"int64",
+                            nc1:"int64", gp1:"int64", p1:"int64",
+                            nd1:"int64", ndT1:"int64", si1:"int64",
+                            sk1:"int64", sl1:"int64"):
 
     d1 = gp1-p1
     for x1 in range(n1):
@@ -652,9 +655,12 @@ def interface_transpose_1d( M:'float[:,:]', Mt:'float[:,:]', d_start:"int64", c_
                 Mt[j1,m1] = M[i1,k1]
 
 # ...
-def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:"int64", c_start:"int64", dim:"int64", n1:"int64", n2:"int64", nc1:"int64", nc2:"int64",
-                           gp1:"int64", gp2:"int64", p1:"int64", p2:"int64",nd1:"int64", nd2:"int64", ndT1:"int64", ndT2:"int64",
-                           si1:"int64", si2:"int64", sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
+def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:"int64",
+                            c_start:"int64", dim:"int64", n1:"int64", n2:"int64",
+                            nc1:"int64", nc2:"int64", gp1:"int64", gp2:"int64",
+                            p1:"int64", p2:"int64",nd1:"int64", nd2:"int64",
+                            ndT1:"int64", ndT2:"int64", si1:"int64", si2:"int64",
+                            sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
 
     d1 = gp1-p1
     d2 = gp2-p2
@@ -679,10 +685,17 @@ def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:"in
                         Mt[j1,j2, m1,m2] = M[i1,i2, k1,k2]
 
 # ...
-def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', d_start:"int64", c_start:"int64", dim:"int64", n1:"int64", n2:"int64", n3:"int64",
-                  nc1:"int64", nc2:"int64", nc3:"int64", gp1:"int64", gp2:"int64", gp3:"int64", p1:"int64", p2:"int64", p3:"int64",
-                  nd1:"int64", nd2:"int64", nd3:"int64",ndT1:"int64", ndT2:"int64", ndT3:"int64", si1:"int64", si2:"int64",
-                  si3:"int64", sk1:"int64", sk2:"int64", sk3:"int64",sl1:"int64", sl2:"int64", sl3:"int64"):
+def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]',
+                            d_start:"int64", c_start:"int64", dim:"int64",
+                            n1:"int64", n2:"int64", n3:"int64",
+                            nc1:"int64", nc2:"int64", nc3:"int64",
+                            gp1:"int64", gp2:"int64", gp3:"int64",
+                            p1:"int64", p2:"int64", p3:"int64",
+                            nd1:"int64", nd2:"int64", nd3:"int64",
+                            ndT1:"int64", ndT2:"int64", ndT3:"int64",
+                            si1:"int64", si2:"int64", si3:"int64",
+                            sk1:"int64", sk2:"int64", sk3:"int64",
+                            sl1:"int64", sl2:"int64", sl3:"int64"):
 
     d1 = gp1-p1
     d2 = gp2-p2
