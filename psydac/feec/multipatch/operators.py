@@ -9,8 +9,10 @@ import numpy as np
 from scipy.sparse import kron, block_diag
 from scipy.sparse.linalg import inv
 
+
 from sympde.topology  import Boundary, Interface, Union
 from sympde.topology  import element_of, elements_of
+from sympde.topology.space  import ScalarFunction
 from sympde.calculus  import grad, dot, inner, rot, div
 from sympde.calculus  import laplace, bracket, convect
 from sympde.calculus  import jump, avg, Dn, minus, plus
@@ -729,7 +731,7 @@ class BrokenMass( FemLinearOperator ):
         a = BilinearForm((u,v), integral(domain, expr))
         ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])   # 'pyccel-gcc'])
 
-        self._matrix = ah.assemble() #.toarray()
+        self._matrix = ah.assemble()
 
     def get_sparse_inverse_matrix(self):
         # warning: may not work with vector-valued spaces (to be checked)
@@ -750,6 +752,77 @@ class BrokenMass( FemLinearOperator ):
 
     ## todo: assemble the block-diagonal inverse mass matrix from this one
 
+#===============================================================================
+class HodgeOperator( FemLinearOperator ):
+    """
+    change of basis operator: dual basis -> primal basis
+
+    its matrix is the inverse mass matrix of the primal basis, it is only computed on demand
+    """
+    def __init__( self, Vh, domain_h, backend_language='python'):  # is_scalar
+
+        FemLinearOperator.__init__(self, fem_domain=Vh)
+        self._domain_h = domain_h
+        self._backend_language = backend_language
+        self._inv_matrix = None
+        # self._sparse_inv_matrix = None
+
+    def to_sparse_matrix( self ):
+        """
+        the Hodge matrix is the patch-wise inverse of the multi-patch mass matrix
+        it is not stored by default but computed on demand, by local (patch-wise) inversion of the mass matrix
+        """
+        # warning: may not work with vector-valued spaces (to be checked)
+        if self._sparse_matrix or self._matrix:
+            return FemLinearOperator.to_sparse_matrix(self)
+
+        if not self._inv_matrix:
+            self._inv_matrix = self.get_dual_Hodge_matrix()
+
+        M = self._inv_matrix  # mass matrix of the primal basis
+        nrows = M.n_block_rows
+        ncols = M.n_block_cols
+
+        inv_M_blocks = []
+        for i in range(nrows):
+            Mii = M[i,i].tosparse()
+            inv_Mii = inv(Mii.tocsc())
+            inv_Mii.eliminate_zeros()
+            inv_M_blocks.append(inv_Mii)
+
+        inv_M = block_diag(inv_M_blocks)
+        self._sparse_matrix = inv_M
+        return inv_M
+
+    def get_dual_Hodge_matrix( self ):
+        """
+        the dual Hodge matrix is the patch-wise multi-patch mass matrix
+        it is not stored by default but assembled on demand
+        """
+
+        if self._inv_matrix is None:
+            Vh = self.fem_domain
+            assert Vh == self.fem_codomain
+
+            V = Vh.symbolic_space
+            domain = V.domain
+            # domain_h = V0h.domain:  would be nice...
+            u, v = elements_of(V, names='u, v')
+            # print(type(u))
+            # exit()
+            if isinstance(u, ScalarFunction):
+                expr   = u*v
+            else:
+                expr   = dot(u,v)
+            a = BilinearForm((u,v), integral(domain, expr))
+            ah = discretize(a, self._domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[self._backend_language])
+            self._inv_matrix = ah.assemble()
+
+        return self._inv_matrix
+
+    def get_dual_Hodge_sparse_matrix( self ):
+
+        return self.get_dual_Hodge_matrix().tosparse()
 
 
 #==============================================================================

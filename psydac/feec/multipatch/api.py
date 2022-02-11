@@ -10,18 +10,23 @@ from psydac.feec.multipatch.operators import BrokenScalarCurl_2D
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1
 from psydac.feec.multipatch.operators import Multipatch_Projector_Hcurl
 from psydac.feec.multipatch.operators import Multipatch_Projector_L2
+from psydac.feec.multipatch.operators import ConformingProjection_V0
+from psydac.feec.multipatch.operators import ConformingProjection_V1
+from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
+
 
 __all__ = ('DiscreteDerhamMultipatch', 'discretize')
 
 #==============================================================================
 class DiscreteDerhamMultipatch(DiscreteDerham):
 
-    def __init__(self, *, mapping, spaces, sequence=None):
+    def __init__(self, *, mapping, domain_h, spaces, sequence=None):
 
         dim = len(spaces) - 1
         self._dim     = dim
         self._mapping = mapping
         self._spaces  = tuple(spaces)
+        self._domain_h = domain_h
 
         if sequence:
             if len(sequence) != dim + 1:
@@ -74,7 +79,13 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 
     #--------------------------------------------------------------------------
     def projectors(self, *, kind='global', nquads=None):
-
+        """
+        return the patch-wise commuting projectors on the broken multi-patch space
+        notes:
+            - applied to smooth functions they return conforming fields
+            - default 'global projectors' correspond to geometric interpolation/histopolation operators on Greville grids
+            - here 'global' is a patch-level notion, as the interpolation-type problems are solved on each patch independently
+        """
         if not (kind == 'global'):
             raise NotImplementedError('only global projectors are available')
 
@@ -104,6 +115,38 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 #            P3 = Multipatch_Projector_L2   (self.V3, nquads=nquads)
 #            return P0, P1, P2, P3
 
+        #--------------------------------------------------------------------------
+    def conforming_projection(self, space=None, hom_bc=None, backend_language="python"):
+        """
+        return the patch-wise commuting projectors on the broken multi-patch space
+        note: here 'global' is a patch-level notion, as the interpolation-type problems are solved on each patch independently
+        """
+        if hom_bc is None:
+            raise ValueError('please provide a value for "hom_bc" argument')
+
+        cP = None
+        if self.dim == 1:
+            raise NotImplementedError()
+
+        elif self.dim == 2:
+            if space == 'V0':
+                cP = ConformingProjection_V0(self.V0, self._domain_h, hom_bc=hom_bc, backend_language=backend_language)
+            elif space == 'V1':
+                if self.sequence[1] == 'hcurl':
+                    cP = ConformingProjection_V1(self.V1, self._domain_h, hom_bc=hom_bc, backend_language=backend_language)
+                else:
+                    raise NotImplementedError('2D sequence with H-div not available yet')
+
+            elif space == 'V2':
+                cP = IdLinearOperator(self.V2)
+            else:
+                raise ValueError('Invalid value for "space" argument: {}'.format(space))
+
+        elif self.dim == 3:
+            raise NotImplementedError()
+
+        return cP
+
 #==============================================================================
 def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
 
@@ -116,6 +159,7 @@ def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
 
     return DiscreteDerhamMultipatch(
         mapping  = mapping,
+        domain_h = domain_h,
         spaces   = spaces,
         sequence = [V.kind.name for V in derham.spaces]
     )

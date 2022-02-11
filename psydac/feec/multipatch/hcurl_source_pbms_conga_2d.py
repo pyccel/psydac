@@ -2,11 +2,9 @@ from mpi4py import MPI
 
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 from collections import OrderedDict
 
-from sympy import pi, cos, sin, Matrix, Tuple, Max, exp
-from sympy import symbols
+from sympy import pi, cos, sin, Tuple, exp
 from sympy import lambdify
 
 from sympde.expr     import TerminalExpr
@@ -15,16 +13,9 @@ from sympde.calculus import minus, plus
 from sympde.topology import NormalVector
 from sympde.expr     import Norm
 
-from sympde.topology import Derham
 from sympde.topology import element_of, elements_of, Domain
 
-from sympde.topology import Square
-from sympde.topology import IdentityMapping, PolarMapping
-from sympde.topology import VectorFunctionSpace
-
-from sympde.expr.equation import find, EssentialBC
-
-from sympde.expr.expr import LinearForm, BilinearForm
+from sympde.expr.expr import LinearForm
 from sympde.expr.expr import integral
 
 
@@ -36,32 +27,33 @@ from scipy.sparse.linalg import norm as spnorm
 from scipy.linalg        import eig, norm
 from scipy.sparse import save_npz, load_npz, bmat
 
-# from scikits.umfpack import splu    # import error
-
 from sympde.topology import Derham
 from sympde.topology import Square
 from sympde.topology import IdentityMapping, PolarMapping
 
-from psydac.feec.multipatch.api import discretize
-from psydac.feec.pull_push     import pull_2d_h1, pull_2d_hcurl, push_2d_hcurl, push_2d_l2
 
 from psydac.linalg.utilities import array_to_stencil
 
 from psydac.fem.basic   import FemField
 
-from psydac.api.settings        import PSYDAC_BACKENDS
-from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
-from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
-from psydac.feec.multipatch.operators import BrokenMass, get_K0_and_K0_inv, get_K1_and_K1_inv, get_M_and_M_inv
-from psydac.feec.multipatch.operators import ConformingProjection_V0, ConformingProjection_V1, time_count
+from psydac.api.settings import PSYDAC_BACKENDS
+
+from psydac.feec.multipatch.api import discretize
+from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, push_2d_hcurl, push_2d_l2
+
+from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
+from psydac.feec.multipatch.operators import time_count, HodgeOperator
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector, get_grid_quad_weights
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
-from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain, get_ref_eigenvalues
-from psydac.feec.multipatch.electromag_pbms import get_source_and_solution
+from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
+
+from psydac.feec.multipatch.utils_conga_2d import rhs_fn, sol_ref_fn, hf_fn, error_fn, get_method_name, get_fem_name, get_load_dir
 
 comm = MPI.COMM_WORLD
 
-def solve_source_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='python', source_proj='P_geom', source_type='manu_J', eta=-10, mu=1, nu=1, gamma_h=10):
+def solve_source_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
+                     eta=-10, mu=1, nu=1, gamma_h=10,
+                     plot_dir=None, hide_plots=True):
     """
     solver for the problem: find u in H(curl), such that
 
@@ -98,66 +90,61 @@ def solve_source_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='pyt
     ncells = [nc, nc]
     degree = [deg,deg]
 
+    print('building symbolic domain and derham sequence...')
     domain = build_multipatch_domain(domain_name=domain_name)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
 
-    derham  = Derham(domain, ["H1", "Hcurl", "L2"], hom_bc=True)   # the bc's should be a parameter of the continuous deRham sequence
+    derham  = Derham(domain, ["H1", "Hcurl", "L2"])
 
+    if backend_language is None:
+        if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
+            backend_language='numba'
+        else:
+            backend_language='python'
+    print('[note: using '+backend_language+ ' backends in discretize functions]')
+
+    print('building discrete domain and derham sequence...')
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     derham_h = discretize(derham, domain_h, degree=degree, backend=PSYDAC_BACKENDS[backend_language])
 
-    # 'geometric' commuting projection operators in the broken spaces (note: applied to smooth functions they return conforming fields)
+    print('building commuting projection operators...')
     nquads = [4*(d + 1) for d in degree]
     P0, P1, P2 = derham_h.projectors(nquads=nquads)
 
+    print('building multi-patch spaces...')
     # multi-patch (broken) spaces
     V0h = derham_h.V0
     V1h = derham_h.V1
     V2h = derham_h.V2
 
     # multi-patch (broken) linear operators / matrices
-    M0 = V0h.MassMatrix
-    M1 = V1h.MassMatrix
-    M2 = V2h.MassMatrix
-    M0_inv = V0h.InverseMassMatrix
-
-    # was:
-    # M0 = BrokenMass(V0h, domain_h, is_scalar=True, backend_language=backend_language)
-    # M1 = BrokenMass(V1h, domain_h, is_scalar=False, backend_language=backend_language)
-    # M2 = BrokenMass(V2h, domain_h, is_scalar=True, backend_language=backend_language)
-
     # other option: define as Hodge Operators:
-    dH0 = V0h.dualHodge  # dH0 = M0: Hodge operator primal_V0 -> dual_V0
-    dH1 = V1h.dualHodge  # dH1 = M1: Hodge operator primal_V1 -> dual_V1
-    dH2 = V2h.dualHodge  # dH2 = M2: Hodge operator primal_V2 -> dual_V2
-    H0  = V0h.Hodge      # dH0 = M0_inv: Hodge operator dual_V0 -> primal_V0
+    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language)
+    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language)
+    H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language)
+
+    # dH0_m = H0.get_dual_Hodge_sparse_matrix()  # = mass matrix of V0
+    dH1_m = H1.get_dual_Hodge_sparse_matrix()  # = mass matrix of V1
+    dH2_m = H2.get_dual_Hodge_sparse_matrix()  # = mass matrix of V2
+    H0_m  = H0.to_sparse_matrix()              # = inverse mass matrix of V0
 
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0 = V0h.ConformingProjection
-    cP1 = V1h.ConformingProjection
-
-    # was:
-    # cP1 = ConformingProjection_V1(V1h, domain_h, hom_bc=True, backend_language=backend_language)
-
-    # broken (patch-wise) differential operators
-    bD0, bD1 = derham_h.BrokenDerivatives
-
-    # was:
-    # bD0, bD1 = derham_h.broken_derivatives_as_operators
-
-    I1 = IdLinearOperator(V1h)
-
-    # convert to scipy (or compose linear operators ?)
-    M0_m = M0.to_sparse_matrix()  # or: dH0_m  = dH0.to_sparse_matrix() ...
-    M1_m = M1.to_sparse_matrix()
-    M2_m = M2.to_sparse_matrix()
-    M0_inv_m = M0_inv.to_sparse_matrix()
+    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language="python")
+    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language="python")
     cP0_m = cP0.to_sparse_matrix()
     cP1_m = cP1.to_sparse_matrix()
+
+    # broken (patch-wise) differential operators
+    bD0, bD1 = derham_h.broken_derivatives_as_operators
     bD0_m = bD0.to_sparse_matrix()
     bD1_m = bD1.to_sparse_matrix()
+
+    I1 = IdLinearOperator(V1h)
     I1_m = I1.to_sparse_matrix()
+
+    if not os.path.exists(plot_dir):
+        os.makedirs(plot_dir)
 
     def lift_u_bc(u_bc):
         if u_bc is not None:
@@ -165,7 +152,7 @@ def solve_source_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='pyt
             u_bc_x = lambdify(domain.coordinates, u_bc[0])
             u_bc_y = lambdify(domain.coordinates, u_bc[1])
             u_bc_log = [pull_2d_hcurl([u_bc_x, u_bc_y], m) for m in mappings_list]
-            # (btw, it's a bit weird to apply P1 on the list of (pulled back) logical fields -- why not just apply it on u_bc ? otherwise it should maybe be called logical_P1...)
+            # it's a bit weird to apply P1 on the list of (pulled back) logical fields -- why not just apply it on u_bc ?
             uh_bc = P1(u_bc_log)
             ubc_c = uh_bc.coeffs.toarray()
             # removing internal dofs (otherwise ubc_c may already be a very good approximation of uh_c ...)
@@ -176,24 +163,26 @@ def solve_source_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='pyt
 
     # Conga (projection-based) stiffness matrices
     # curl curl:
-    pre_CC_m = bD1_m.transpose() @ M2_m @ bD1_m
+    pre_CC_m = bD1_m.transpose() @ dH2_m @ bD1_m
     CC_m = cP1_m.transpose() @ pre_CC_m @ cP1_m  # Conga stiffness matrix
 
     # grad div:
-    pre_GD_m = M1_m @ bD0_m @ cP0_m @ M0_inv_m @ cP0_m.transpose() @ bD0_m.transpose() @ M1_m
+    pre_GD_m = dH1_m @ bD0_m @ cP0_m @ H0_m @ cP0_m.transpose() @ bD0_m.transpose() @ dH1_m
     GD_m = cP1_m.transpose() @ pre_GD_m @ cP1_m  # Conga stiffness matrix
 
     # jump penalization:
     jump_penal_m = I1_m - cP1_m
-    JP_m = jump_penal_m.transpose() * M1_m * jump_penal_m
+    JP_m = jump_penal_m.transpose() * dH1_m * jump_penal_m
 
-    A_m = mu * CC_m + gamma_h * JP_m + eta * cP1_m.transpose() @ M1_m @ cP1_m
+    A_m = mu * CC_m + gamma_h * JP_m + eta * cP1_m.transpose() @ dH1_m @ cP1_m
 
     # get exact source, bcs, ref solution...
     # note: design of source and solution should also be thought over -- here I'm only copying old function from electromag_pbms.py
+    N_diag = 200
+    method = 'conga'
     f_scal, f_vect, u_bc, ph_ref, uh_ref, p_ex, u_ex, phi, grad_phi = get_source_and_solution(
-        source_type=source_type, eta=eta, mu=mu, domain=domain,
-        # refsol_params=[N_diag, method, Psource],
+        source_type=source_type, eta=eta, mu=mu, domain=domain, domain_name=domain_name,
+        refsol_params=[N_diag, method, source_proj],
     )
 
     # compute approximate source f_h
@@ -204,7 +193,7 @@ def solve_source_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='pyt
         f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
         f_h = P1(f_log)
         f_c = f_h.coeffs.toarray()
-        b_c = M1_m.dot(f_c)
+        b_c = dH1_m.dot(f_c)
 
     elif source_proj == 'P_L2':
         # f_h = L2 projection of f_vect
@@ -222,7 +211,7 @@ def solve_source_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='pyt
 
     if ubc_c is not None:
         # modified source for the homogeneous pbm
-        A_bc_m = cP1_m.transpose() @ ( eta * M1_m + mu * pre_CC_m - nu * pre_GD_m )
+        A_bc_m = cP1_m.transpose() @ ( eta * dH1_m + mu * pre_CC_m - nu * pre_GD_m )
         b_c = b_c - A_bc_m.dot(ubc_c)
 
     # direct solve with scipy spsolve
@@ -237,5 +226,323 @@ def solve_source_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='pyt
 
     uh = FemField(V1h, coeffs=array_to_stencil(uh_c, V1h.vector_space))
 
-    uh.plot()  #...
+    # node based grid (to better see the smoothness)
+    etas, xx, yy    = get_plotting_grid(mappings, N=20)
+    grid_vals_hcurl = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+    grid_vals_h1    = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
+    grid_vals_l2    = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='l2')
 
+    # uh.plot()  #...
+    uh_x_vals, uh_y_vals = grid_vals_hcurl(uh)
+    uh_abs_vals = [np.sqrt(abs(ux)**2 + abs(uy)**2) for ux, uy in zip(uh_x_vals, uh_y_vals)]
+    my_small_plot(
+        title=r'solution $u_h$ (amplitude) for $\eta = $'+repr(eta),
+        vals=[uh_abs_vals],
+        titles=[r'$|u_h|$'],
+        xx=xx,
+        yy=yy,
+        surface_plot=False,
+        save_fig=plot_dir+'uh_eta='+repr(eta)+'.png',
+        save_vals = True,
+        hide_plot=hide_plots,
+        cmap='hsv',
+        dpi = 400,
+    )
+
+
+def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
+                            domain=None, domain_name=None,
+                            refsol_params=None):
+    """
+    compute source and reference solution (exact, or reference values) when possible, depending on the source_type
+    """
+
+    assert refsol_params
+    N_diag, method_ref, source_proj_ref = refsol_params
+
+    # ref solution (values on diag grid)
+    ph_ref = None
+    uh_ref = None
+
+    # exact solutions (if available)
+    u_ex = None
+    p_ex = None
+
+    # bc solution: describe the bc on boundary. Inside domain, values should not matter. Homogeneous bc will be used if None
+    u_bc = None
+    # only hom bc on p (for now...)
+
+    # source terms
+    f_vect = None
+    f_scal = None
+
+    # auxiliary term (for more diagnostics)
+    grad_phi = None
+    phi = None
+
+    x,y    = domain.coordinates
+
+    if source_type == 'manu_J':
+        # use a manufactured solution, with ad-hoc (homogeneous or inhomogeneous) bc
+        if domain_name in ['square_2', 'square_6', 'square_8', 'square_9']:
+            t = 1
+        else:
+            t = pi
+
+        u_ex   = Tuple(sin(t*y), sin(t*x)*cos(t*y))
+        f_vect = Tuple(
+            sin(t*y) * (eta + t**2 *(mu - cos(t*x)*(mu-nu))),
+            sin(t*x) * cos(t*y) * (eta + t**2 *(mu+nu) )
+        )
+
+        # boundary condition: (here we only need to coincide with u_ex on the boundary !)
+        if domain_name in ['square_2', 'square_6', 'square_9']:
+            u_bc = None
+        else:
+            u_bc = u_ex
+
+    elif source_type == 'manutor_poisson':
+        # same as manu_poisson, with arbitrary value for tor
+        x0 = 1.5
+        y0 = 1.5
+        s  = (x-x0) - (y-y0)
+        t  = (x-x0) + (y-y0)
+        a = (1/1.9)**2
+        b = (1/1.2)**2
+        sigma2 = 0.0121
+        tor = 2
+        tau = a*s**2 + b*t**2 - 1
+        phi = exp(-tau**tor/(2*sigma2))
+        dx_tau = 2*( a*s + b*t)
+        dy_tau = 2*(-a*s + b*t)
+        dxx_tau = 2*(a + b)
+        dyy_tau = 2*(a + b)
+        f_scal = -((tor*tau**(tor-1)*dx_tau/(2*sigma2))**2 - (tau**(tor-1)*dxx_tau + (tor-1)*tau**(tor-2)*dx_tau**2)*tor/(2*sigma2)
+                   +(tor*tau**(tor-1)*dy_tau/(2*sigma2))**2 - (tau**(tor-1)*dyy_tau + (tor-1)*tau**(tor-2)*dy_tau**2)*tor/(2*sigma2))*phi
+        p_ex = phi
+
+    elif source_type == 'manu_maxwell':
+        alpha   = eta
+        u_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
+        f_vect  = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
+                        alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
+        u_bc = u_ex
+    elif source_type in ['manu_poisson', 'ellnew_J']:
+
+        x0 = 1.5
+        y0 = 1.5
+        s  = (x-x0) - (y-y0)
+        t  = (x-x0) + (y-y0)
+        a = (1/1.9)**2
+        b = (1/1.2)**2
+        sigma2 = 0.0121
+        tau = a*s**2 + b*t**2 - 1
+        phi = exp(-tau**2/(2*sigma2))
+        dx_tau = 2*( a*s + b*t)
+        dy_tau = 2*(-a*s + b*t)
+        dxx_tau = 2*(a + b)
+        dyy_tau = 2*(a + b)
+
+        dx_phi = (-tau*dx_tau/sigma2)*phi
+        dy_phi = (-tau*dy_tau/sigma2)*phi
+        grad_phi = Tuple(dx_phi, dy_phi)
+
+        f_x =   dy_tau * phi
+        f_y = - dx_tau * phi
+        f_vect = Tuple(f_x, f_y)
+
+
+    elif source_type == 'dipcurl_J':
+        # here, f will be the curl of a dipole + phi_0 - phi_1 (two blobs) that correspond to a scalar current density
+        # the solution of the curl-curl problem with free-divergence constraint
+        #   curl curl u = curl j
+        #
+        # then corresponds to a magnetic density,
+        # see Beirão da Veiga, Brezzi, Dassi, Marini and Russo, Virtual Element approx of 2D magnetostatic pbms, CMAME 327 (2017)
+
+        x_0 = 1.0
+        y_0 = 1.0
+        # x_0 = 0.3
+        # y_0 = 2.7
+        # x_0 = -0.7
+        # y_0 = 2.3
+        ds2_0 = (0.02)**2
+        sigma_0 = (x-x_0)**2 + (y-y_0)**2
+        phi_0 = exp(-sigma_0**2/(2*ds2_0))
+        dx_sig_0 = 2*(x-x_0)
+        dy_sig_0 = 2*(y-y_0)
+        dx_phi_0 = - dx_sig_0 * sigma_0 / ds2_0 * phi_0
+        dy_phi_0 = - dy_sig_0 * sigma_0 / ds2_0 * phi_0
+
+        x_1 = 2.0
+        y_1 = 2.0
+        # x_1 = 0.7
+        # y_1 = 2.3
+        # x_1 = -0.3
+        # y_1 = 2.7
+        ds2_1 = (0.02)**2
+        sigma_1 = (x-x_1)**2 + (y-y_1)**2
+        phi_1 = exp(-sigma_1**2/(2*ds2_1))
+        dx_sig_1 = 2*(x-x_1)
+        dy_sig_1 = 2*(y-y_1)
+        dx_phi_1 = - dx_sig_1 * sigma_1 / ds2_1 * phi_1
+        dy_phi_1 = - dy_sig_1 * sigma_1 / ds2_1 * phi_1
+
+        f_x =   dy_phi_0 - dy_phi_1
+        f_y = - dx_phi_0 + dx_phi_1
+        f_scal = phi_0 - phi_1
+        f_vect = Tuple(f_x, f_y)
+
+    elif source_type == 'ellip_J':
+
+        # divergence-free f field along an ellipse curve
+        if domain_name in ['pretzel', 'pretzel_f']:
+            dr = 0.2
+            r0 = 1
+            x0 = 1.5
+            y0 = 1.5
+            # s0 = x0-y0
+            # t0 = x0+y0
+            s  = (x-x0) - (y-y0)
+            t  = (x-x0) + (y-y0)
+            aa = (1/1.7)**2
+            bb = (1/1.1)**2
+            dsigpsi2 = 0.01
+            sigma = aa*s**2 + bb*t**2 - 1
+            psi = exp(-sigma**2/(2*dsigpsi2))
+            dx_sig = 2*( aa*s + bb*t)
+            dy_sig = 2*(-aa*s + bb*t)
+            f_x =   dy_sig * psi
+            f_y = - dx_sig * psi
+
+            dsigphi2 = 0.01     # this one gives approx 1e-10 at boundary for phi
+            # dsigphi2 = 0.005   # if needed: smaller support for phi, to have a smaller value at boundary
+            phi = exp(-sigma**2/(2*dsigphi2))
+            dx_phi = phi*(-dx_sig*sigma/dsigphi2)
+            dy_phi = phi*(-dy_sig*sigma/dsigphi2)
+
+            grad_phi = Tuple(dx_phi, dy_phi)
+            f_vect = Tuple(f_x, f_y)
+
+        else:
+            raise NotImplementedError
+
+    elif source_type in ['ring_J', 'sring_J']:
+
+        # 'rotating' (divergence-free) f field:
+
+        if domain_name in ['square_2', 'square_6', 'square_8', 'square_9']:
+            r0 = np.pi/4
+            dr = 0.1
+            x0 = np.pi/2
+            y0 = np.pi/2
+            omega = 43/2
+            # alpha  = -omega**2  # not a square eigenvalue
+            f_factor = 100
+
+        elif domain_name in ['curved_L_shape']:
+            r0 = np.pi/4
+            dr = 0.1
+            x0 = np.pi/2
+            y0 = np.pi/2
+            omega = 43/2
+            # alpha  = -omega**2  # not a square eigenvalue
+            f_factor = 100
+
+        else:
+            # for pretzel
+
+            # omega = 8  # ?
+            # alpha  = -omega**2
+
+            source_option = 2
+
+            if source_option==1:
+                # big circle:
+                r0 = 2.4
+                dr = 0.05
+                x0 = 0
+                y0 = 0.5
+                f_factor = 10
+
+            elif source_option==2:
+                # small circle in corner:
+                if source_type == 'ring_J':
+                    dr = 0.2
+                else:
+                    # smaller ring
+                    dr = 0.1
+                    assert source_type == 'sring_J'
+                r0 = 1
+                x0 = 1.5
+                y0 = 1.5
+                f_factor = 10
+
+            else:
+                raise NotImplementedError
+
+        # note: some other currents give sympde or numba errors, see below [1]
+        phi = f_factor * exp( - .5*(( (x-x0)**2 + (y-y0)**2 - r0**2 )/dr)**2 )
+
+        f_x = - (y-y0) * phi
+        f_y =   (x-x0) * phi
+
+        f_vect = Tuple(f_x, f_y)
+
+    else:
+        raise ValueError(source_type)
+
+    assert f_vect is not None
+    if u_ex is None:
+        u_ref_filename = get_load_dir(method=method_ref, domain_name=domain_name,nc=None,deg=None,data='solutions')+sol_ref_fn(source_type, N_diag, source_proj=source_proj_ref)
+        print("no exact solution for this test-case, looking for ref solution values in file {}...".format(u_ref_filename))
+        if os.path.isfile(u_ref_filename):
+            print("-- file found")
+            with open(u_ref_filename, 'rb') as file:
+                ncells_degree = np.load(file)
+                ncells   = [int(i) for i in ncells_degree['ncells_degree'][0]]
+                degree   = [int(i) for i in ncells_degree['ncells_degree'][1]]
+
+            derham   = Derham(domain, ["H1", "Hcurl", "L2"])
+            domain_h = discretize(domain, ncells=ncells, comm=comm)
+            V1h      = discretize(derham.V1, domain_h, degree=degree, basis='M')
+            uh_ref   = FemField(V1h)
+            for i,Vi in enumerate(V1h.spaces):
+                for j,Vij in enumerate(Vi.spaces):
+                    filename = u_ref_filename+'_%d_%d'%(i,j)
+                    uij = Vij.import_fields(filename, 'phi')
+                    uh_ref.fields[i].fields[j].coeffs._data = uij[0].coeffs._data
+
+        else:
+            print("-- no file, skipping it")
+
+    return f_scal, f_vect, u_bc, ph_ref, uh_ref, p_ex, u_ex, phi, grad_phi
+
+
+if __name__ == '__main__':
+
+    quick_run = True
+    # quick_run = False
+
+
+    domain_name = 'pretzel_f'
+    # domain_name = 'curved_L_shape'
+
+    omega = 30 #170 source
+    source_type = 'ellnew_J'
+
+    if quick_run:
+        domain_name = 'curved_L_shape'
+        nc = 16
+        deg = 4
+    else:
+        nc = 8
+        deg = 4
+
+    solve_source_pbm(
+        nc=nc, deg=deg, eta=-omega**2,
+        domain_name=domain_name,
+        source_type=source_type,
+        plot_dir='./plots/tests_february/',
+        hide_plots=False,
+    )

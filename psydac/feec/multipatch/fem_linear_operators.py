@@ -13,7 +13,12 @@ class FemLinearOperator( LinearOperator ):
     Linear operators with an additional Fem layer
     """
 
-    def __init__( self, fem_domain=None, fem_codomain=None, matrix=None):
+    def __init__( self, fem_domain=None, fem_codomain=None, matrix=None, sparse_matrix=None):
+        """
+        we may store the matrix of the linear operator with different formats
+        :param matrix: stencil format
+        :param sparse_matrix: scipy sparse format
+        """
         assert fem_domain
         self._fem_domain   = fem_domain
         if fem_codomain:
@@ -24,6 +29,7 @@ class FemLinearOperator( LinearOperator ):
         self._codomain = self._fem_codomain.vector_space
 
         self._matrix = matrix
+        self._sparse_matrix = sparse_matrix
 
     @property
     def domain( self ):
@@ -55,7 +61,9 @@ class FemLinearOperator( LinearOperator ):
 
     # ...
     def to_sparse_matrix( self ):
-        if self._matrix:
+        if self._sparse_matrix:
+            return self._sparse_matrix
+        elif self._matrix:
             return self._matrix.tosparse()
         else:
             raise NotImplementedError('Class does not provide a get_sparse_matrix() method without a matrix')
