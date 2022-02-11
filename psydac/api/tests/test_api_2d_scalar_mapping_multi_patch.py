@@ -105,7 +105,6 @@ def test_poisson_2d_2_patch_dirichlet_0():
     expected_l2_error = 6.223948817460227e-09
     expected_h1_error = 8.184613465986152e-09
 
-
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
@@ -167,8 +166,8 @@ def test_poisson_2d_2_patch_dirichlet_2():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.00022840567167995628
-    expected_h1_error = 0.003245170573018792
+    expected_l2_error = 0.0019323697521791872
+    expected_h1_error = 0.026714232827734725
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
@@ -183,8 +182,8 @@ def test_poisson_2d_2_patch_dirichlet_3():
 
     l2_error, h1_error, uh = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
 
-    expected_l2_error = 0.00016409185025192247
-    expected_h1_error = 0.0013376450990650606
+    expected_l2_error = 0.009791660112045008
+    expected_h1_error = 0.10671109405333927
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7)
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
