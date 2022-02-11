@@ -17,7 +17,6 @@ from sympy import Function, Integer
 from psydac.pyccel.ast.core import Variable, IndexedVariable
 from psydac.pyccel.ast.core import For, Comment
 from psydac.pyccel.ast.core import Slice, String
-from psydac.pyccel.ast.datatypes import NativeInteger
 from psydac.pyccel.ast.core import ValuedArgument
 from psydac.pyccel.ast.core import Assign
 from psydac.pyccel.ast.core import AugAssign
@@ -26,16 +25,18 @@ from psydac.pyccel.ast.core import FunctionDef
 from psydac.pyccel.ast.core import FunctionCall
 from psydac.pyccel.ast.core import Import
 
+from psydac.pyccel.ast.datatypes import NativeInteger
+
 from psydac.api.ast.nodes     import FloorDiv
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.ast.utilities import build_pyccel_types_decorator
-from psydac.fem.splines import SplineSpace
-from psydac.fem.tensor  import TensorFemSpace
-from psydac.fem.vector  import ProductFemSpace
-from psydac.api.ast.basic import SplBasic
-from psydac.api.printing import pycode
-from psydac.api.settings        import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
-from psydac.api.utilities       import mkdir_p, touch_init_file, random_string, write_code
+from psydac.fem.splines       import SplineSpace
+from psydac.fem.tensor        import TensorFemSpace
+from psydac.fem.vector        import ProductFemSpace
+from psydac.api.ast.basic     import SplBasic
+from psydac.api.printing      import pycode
+from psydac.api.settings      import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
+from psydac.api.utilities     import mkdir_p, touch_init_file, random_string, write_code
 
 #==============================================================================
 def variable_to_sympy(x):
@@ -43,6 +44,11 @@ def variable_to_sympy(x):
         x = Symbol(x.name, integer=True)
     return x
 
+def list_variables(*args, **kwargs):
+    args = variables(*args, **kwargs)
+    if not isinstance(args, tuple):
+        return (args,)
+    return args
 #==============================================================================
 def compute_diag_len(p, md, mc, return_padding=False):
     n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
@@ -59,6 +65,7 @@ def Mod(a,b):
     else:
         return sy_Mod(a,b)
 
+#==============================================================================
 @lru_cache(maxsize=32)
 class LinearOperatorDot(SplBasic):
 
@@ -94,12 +101,12 @@ class LinearOperatorDot(SplBasic):
 
     def _initialize(self, ndim, **kwargs):
 
-        nrows           = kwargs.pop('nrows', variables('n1:%s'%(ndim+1),  'int'))
-        nrows_extra     = kwargs.pop('nrows_extra', variables('ne1:%s'%(ndim+1),  'int'))
-        starts          = kwargs.pop('starts', variables('s1:%s'%(ndim+1),  'int'))
-        indices1        = variables('i1:%s'%(ndim+1),  'int')
-        bb              = variables('b1:%s'%(ndim+1),  'int')
-        indices2        = variables('k1:%s'%(ndim+1),  'int')
+        nrows           = kwargs.pop('nrows', list_variables('n1:%s'%(ndim+1),  'int'))
+        nrows_extra     = kwargs.pop('nrows_extra', list_variables('ne1:%s'%(ndim+1),  'int'))
+        starts          = kwargs.pop('starts', list_variables('s1:%s'%(ndim+1),  'int'))
+        indices1        = list_variables('i1:%s'%(ndim+1),  'int')
+        bb              = list_variables('b1:%s'%(ndim+1),  'int')
+        indices2        = list_variables('k1:%s'%(ndim+1),  'int')
 
         v               = variables('v','real')
         x, out          = variables('x, out','real',cls=IndexedVariable, rank=ndim)
@@ -120,7 +127,6 @@ class LinearOperatorDot(SplBasic):
         bb    = [b if not isinstance(p*m+p+1-n-Mod(s,m),(int,np.int64, Integer)) else p*m+p+1-n-Mod(s,m) for b,p,m,n,s in zip(bb, gpads, dm, ndiags, starts)]
         body  = []
         ranges = [Range(variable_to_sympy(n)) for n in ndiags]
-        target = Product(*ranges)
 
         diff = [variable_to_sympy(gp-p) for gp,p in zip(gpads, pads)]
 
@@ -132,24 +138,17 @@ class LinearOperatorDot(SplBasic):
 
         # Decompose fused loop over Cartesian product of multiple ranges
         # into nested loops, each over a single range
-        if ndim > 1:
-            for i,j in zip(indices2[::-1], target.args[::-1]):
-                body = [For(i,j, body)]
-        else:
-            body = [For(indices2, target, body)]
+        for i,j in zip(indices2[::-1], ranges[::-1]):
+            body = [For(i,j, body)]
 
         body.insert(0,Assign(v, 0.0))
         body.append(Assign(v3,v))
         ranges = [Range(variable_to_sympy(i)) for i in nrows]
-        target = Product(*ranges)
 
         # Decompose fused loop over Cartesian product of multiple ranges
         # into nested loops, each over a single range
-        if ndim > 1:
-            for i,j in zip(indices1[::-1], target.args[::-1]):
-                body = [For(i,j, body)]
-        else:
-            body = [For(indices1, target, body)]
+        for i,j in zip(indices1[::-1], ranges[::-1]):
+            body = [For(i,j, body)]
 
         if openmp:
             pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
@@ -180,42 +179,28 @@ class LinearOperatorDot(SplBasic):
             ranges       = [ind if i>=dim else ind - Max(0, variable_to_sympy(d1)+1-variable_to_sympy(r)) for i,(ind,d1,r) in enumerate(zip(ranges, indices1, nrowscopy)) ]
             ranges       = [Range(i) for i in ranges]
 
-            target = Product(*ranges)
-
             for_body = [AugAssign(v, '+',Mul(v1,v2))]
 
             # Decompose fused loop over Cartesian product of multiple ranges
             # into nested loops, each over a single range
-            if ndim > 1:
-                for i,j in zip(indices2[::-1], target.args[::-1]):
-                    for_body = [For(i,j, for_body)]
-            else:
-                for_body = [For(indices2, target, for_body)]
+            for i,j in zip(indices2[::-1], ranges[::-1]):
+                for_body = [For(i,j, for_body)]
 
             for_body.insert(0,Assign(v, 0.0))
             for_body.append(Assign(v3,v))
 
             ranges = [Range(variable_to_sympy(i)) for i in rows]
-            target = Product(*ranges)
 
             # Decompose fused loop over Cartesian product of multiple ranges
             # into nested loops, each over a single range
-            if ndim > 1:
-                for i,j in zip(indices1[::-1], target.args[::-1]):
-                    for_body = [For(i,j, for_body)]
+            for i,j in zip(indices1[::-1], ranges[::-1]):
+                for_body = [For(i,j, for_body)]
 
-                if openmp:
-                    pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
-                    for_body = [Comment(pragma)] + for_body
+            if openmp:
+                pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
+                for_body = [Comment(pragma)] + for_body
 
-                body += for_body
-            else:
-                if openmp:
-                    pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
-                    body  += [Comment(pragma), For(indices1, target, for_body)]
-                else:
-                    body += [For(indices1, target, for_body)]
-
+            body += for_body
 
             nrows[dim] += nrows_extra[dim]
 

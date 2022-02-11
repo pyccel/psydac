@@ -625,7 +625,29 @@ class GeneratorBase(BaseNode):
 
 #==============================================================================
 class TensorGenerator(GeneratorBase):
-    pass
+    """
+    This class represent an array list of array elements with arbitrary number of dimensions.
+    the length of the list is given by the rank of target.
+
+    Parameters
+    ----------
+
+    target : <ArrayNode|MatrixNode>
+        the array object
+
+    dummies : <Tuple|tuple|list>
+        multidimensional index
+
+    Examples
+    --------
+    >>> T = TensorGenerator(GlobalTensorQuadrature(), index_quad)
+    >>> T
+    TensorGenerator(GlobalTensorQuadrature(), (IndexQuadrature(),))
+    >>> ast = parse(T, settings={'dim':2,'nderiv':2,'target':Square()})
+    >>> ast[0]
+    ((IndexedElement(local_x1, i_quad_1), IndexedElement(local_w1, i_quad_1)),
+     (IndexedElement(local_x2, i_quad_2), IndexedElement(local_w2, i_quad_2)))
+    """
 
 #==============================================================================
 class ProductGenerator(GeneratorBase):
@@ -640,6 +662,15 @@ class ProductGenerator(GeneratorBase):
 
     dummies : <Tuple|tuple|list>
         multidimensional index
+
+    Examples
+    --------
+    >>> P = ProductGenerator(MatrixRankFromCoords(), thread_coords)
+    >>> P
+    ProductGenerator(MatrixRankFromCoords(), (ThreadCoordinates(),))
+    >>> ast = parse(P, settings={'dim':2,'nderiv':2,'target':Square()})
+    >>> ast
+    IndexedElement(rank_from_coords, thread_coords_1, thread_coords_2)
     """
 
 #==============================================================================
@@ -2205,6 +2236,11 @@ class Expression(Expr):
     """
     The Expression class gives us the possibility to create specific instructions for some dimension,
     where the generated code is not in a vectorized form.
+    For example, the class Loop generates 2 for loops in 2D and 3 in 3D,
+    the expressions that are generated are the same for 2D and 3D,
+    because they are written in a way that allows them to be applied in any dimension,
+    with the fixed dimension expression we can specify the generated code for a specific dimension,
+    so the generated code in the second dimension of the 2D loop is diffrent from the one in the first dimension of the 2D loop
     """
     def __new__(cls, *args):
         return Expr.__new__(cls, *args)
