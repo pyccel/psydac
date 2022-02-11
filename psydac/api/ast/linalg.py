@@ -43,12 +43,6 @@ def variable_to_sympy(x):
     if isinstance(x, Variable) and isinstance(x.dtype, NativeInteger):
         x = Symbol(x.name, integer=True)
     return x
-
-def list_variables(*args, **kwargs):
-    args = variables(*args, **kwargs)
-    if not isinstance(args, tuple):
-        return (args,)
-    return args
 #==============================================================================
 def compute_diag_len(p, md, mc, return_padding=False):
     n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
@@ -101,16 +95,16 @@ class LinearOperatorDot(SplBasic):
 
     def _initialize(self, ndim, **kwargs):
 
-        nrows           = kwargs.pop('nrows', list_variables('n1:%s'%(ndim+1),  'int'))
-        nrows_extra     = kwargs.pop('nrows_extra', list_variables('ne1:%s'%(ndim+1),  'int'))
-        starts          = kwargs.pop('starts', list_variables('s1:%s'%(ndim+1),  'int'))
-        indices1        = list_variables('i1:%s'%(ndim+1),  'int')
-        bb              = list_variables('b1:%s'%(ndim+1),  'int')
-        indices2        = list_variables('k1:%s'%(ndim+1),  'int')
+        nrows           = kwargs.pop('nrows', variables('n1:%s'%(ndim+1),  'int'))
+        nrows_extra     = kwargs.pop('nrows_extra', variables('ne1:%s'%(ndim+1),  'int'))
+        starts          = kwargs.pop('starts', variables('s1:%s'%(ndim+1),  'int'))
+        indices1        = variables('i1:%s'%(ndim+1),  'int')
+        bb              = variables('b1:%s'%(ndim+1),  'int')
+        indices2        = variables('k1:%s'%(ndim+1),  'int')
 
         v               = variables('v','real')
-        x, out          = variables('x, out','real',cls=IndexedVariable, rank=ndim)
-        mat             = variables('mat','real',cls=IndexedVariable, rank=2*ndim)
+        x, out          = variables('x, out','real', cls=IndexedVariable, rank=ndim)
+        mat             = variables('mat','real', cls=IndexedVariable, rank=2*ndim)
 
         xshape          = variables('xn1:%s'%(ndim+1),  'int')
         backend         = kwargs.pop('backend', None)

@@ -198,9 +198,8 @@ class DiscreteBilinearForm(BasicDiscrete):
         trial_ext = None
         if isinstance(target, Boundary):
             axis        = target.axis
-            ext         = target.ext
-            test_ext    = ext
-            trial_ext   = ext
+            test_ext    = target.ext
+            trial_ext   = target.ext
             test_grid   = QuadratureGrid( test_space, axis, test_ext)
             trial_grid  = QuadratureGrid( trial_space, axis, trial_ext)
             self._grid  = (test_grid,)

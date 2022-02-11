@@ -37,9 +37,6 @@ def get_grid_vals_scalar(u, etas, mappings_list, space_kind='h1'):  #_obj):
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
                 u_vals[k][i, j] = push_field(x1i, x2j)
-
-    # u_vals  = np.concatenate(u_vals, axis=1)
-
     return u_vals
 
 #------------------------------------------------------------------------------
@@ -69,8 +66,7 @@ def get_grid_vals_vector(E, etas, mappings_list, space_kind='hcurl'):
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
                 E_x_vals[k][i, j], E_y_vals[k][i, j] = push_field(x1i, x2j)
-    # E_x_vals = np.concatenate(E_x_vals, axis=1)
-    # E_y_vals = np.concatenate(E_y_vals, axis=1)
+
     return E_x_vals, E_y_vals
 
 #------------------------------------------------------------------------------
