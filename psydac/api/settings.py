@@ -10,29 +10,32 @@ pyccel_legacy  = pyccel_version < (1, 3, 0)
 PSYDAC_DEFAULT_FOLDER = '__psydac__'
 
 # ... defining PSYDAC backends
-PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python'}
+PSYDAC_BACKEND_PYTHON = {'name': 'python', 'tag':'python', 'openmp':False}
 
 PSYDAC_BACKEND_GPYCCEL = {'name':     'pyccel',
                       'compiler': 'gfortran' if pyccel_legacy else 'GNU',
-                      'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math',
+                      'flags':    '-O3 -march=native -mtune=native  -mavx -ffast-math -ffree-line-length-none',
                       'folder': '__gpyccel__',
-                      'tag':'gpyccel'}
+                      'tag':'gpyccel',
+                      'openmp':False}
 
 PSYDAC_BACKEND_IPYCCEL = {'name':     'pyccel',
                       'compiler': 'ifort' if pyccel_legacy else 'intel',
                       'flags':    '-O3',
                       'folder': '__ipyccel__',
-                      'tag':'ipyccel'}
+                      'tag':'ipyccel',
+                      'openmp':False}
 
 PSYDAC_BACKEND_PGPYCCEL = {'name':     'pyccel',
                       'compiler': 'pgfortran' if pyccel_legacy else 'PGI',
                       'flags':    '-O3',
                       'folder': '__pgpyccel__',
-                       'tag':'pgpyccel'}
+                       'tag':'pgpyccel',
+                       'openmp':False}
                       
-PSYDAC_BACKEND_NUMBA = {'name': 'numba','tag':'numba', 'fastmath':True}
+PSYDAC_BACKEND_NUMBA = {'name': 'numba','tag':'numba', 'fastmath':True, 'openmp':False}
 
-#PSYDAC_BACKEND_PYTHRAN = {'name':'pythran','tag':'pythran'}
+#PSYDAC_BACKEND_PYTHRAN = {'name':'pythran','tag':'pythran', 'openmp':False}
 # ...
 
 # List of all available backends for accelerating Python code
@@ -42,5 +45,5 @@ PSYDAC_BACKENDS = {
     'pyccel-intel': PSYDAC_BACKEND_IPYCCEL,
     'pyccel-pgi'  : PSYDAC_BACKEND_PGPYCCEL,
     'numba'       : PSYDAC_BACKEND_NUMBA,
-#   'pythran'     : PSYDAC_BACKEND_PYTHRAN,
+ #   'pythran'     : PSYDAC_BACKEND_PYTHRAN,
 }

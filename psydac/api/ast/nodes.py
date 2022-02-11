@@ -37,9 +37,28 @@ class ZerosLike(Function):
         return self._args[0]
 
 class Zeros(Function):
+    def __new__(cls, shape, dtype='float64'):
+        return Basic.__new__(cls, shape, dtype)
+
     @property
     def shape(self):
         return self._args[0]
+
+    @property
+    def dtype(self):
+        return self._args[1]
+
+class Array(Function):
+    def __new__(cls, data, dtype=None):
+        return Basic.__new__(cls, data, dtype)
+
+    @property
+    def data(self):
+        return self._args[0]
+
+    @property
+    def dtype(self):
+        return self._args[1]
 
 class FloorDiv(Function):
     def __new__(cls, arg1, arg2):
@@ -55,6 +74,42 @@ class FloorDiv(Function):
     @property
     def arg2(self):
         return self._args[1]
+
+class Max(Expr):
+    pass
+
+class Min(Expr):
+    pass
+
+class Allocate(Basic):
+
+    def __new__(cls, arr, shape):
+        return Basic.__new__(cls, arr, shape)
+
+    @property
+    def array(self):
+        return self._args[0]
+
+    @property
+    def shape(self):
+        return self._args[1]
+#==============================================================================
+class VectorAssign(Basic):
+
+    def __new__(cls, lhs, rhs, op=None):
+        return Basic.__new__(cls, lhs, rhs, op)
+
+    @property
+    def lhs(self):
+        return self._args[0]
+
+    @property
+    def rhs(self):
+        return self._args[1]
+
+    @property
+    def op(self):
+        return self._args[2]
 #==============================================================================
 class ArityType(with_metaclass(Singleton, Basic)):
     """Base class representing a form type: bilinear/linear/functional"""
@@ -71,13 +126,21 @@ class FunctionalArity(ArityType):
 #==============================================================================
 class LengthNode(Expr):
     """Base class representing one length of an iterator"""
-    def __new__(cls, target=None):
-        obj = Basic.__new__(cls, target)
+    def __new__(cls, target=None, index=None):
+        obj = Basic.__new__(cls, target, index)
         return obj
 
     @property
     def target(self):
         return self._args[0]
+
+    @property
+    def index(self):
+        return self._args[1]
+
+    def set_index(self, index):
+        obj = type(self)(target=self.target, index=index)
+        return obj
 
 class LengthElement(LengthNode):
     pass
@@ -99,7 +162,10 @@ class LengthOuterDofTest(LengthNode):
     
 class LengthInnerDofTest(LengthNode):
     pass
-    
+
+class NumThreads(LengthNode):
+    pass
+ 
 class TensorExpression(Expr):
     def __new__(cls, *args):
         return Expr.__new__(cls, *args)
@@ -137,11 +203,12 @@ class TensorAssignExpr(Basic):
 #==============================================================================
 class IndexNode(Expr):
     """Base class representing one index of an iterator"""
-    def __new__(cls, start=0, stop=None, length=None):
+    def __new__(cls, start=0, stop=None, length=None, index=None):
         obj = Basic.__new__(cls)
         obj._start  = start
         obj._stop   = stop
         obj._length = length
+        obj._index  = index
         return obj
 
     @property
@@ -156,12 +223,24 @@ class IndexNode(Expr):
     def length(self):
         return self._length
 
+    @property
+    def index(self):
+        return self._index
+
     def set_range(self, start=TensorInteger(0), stop=None, length=None):
         if length is None:
             length = stop
-        obj = type(self)(start=start, stop=stop, length=length)
+        obj = type(self)(start=start, stop=stop, length=length, index=self.index)
         return obj
 
+    def set_index(self, index):
+        obj = type(self)(start=self.start, stop=self.stop, length=self.length, index=index)
+        return obj
+
+    def _hashable_content(self):
+        args = (self.start, self.stop, self.length, self.index)
+        return tuple([a for a in args if a is not None])
+ 
 class IndexElement(IndexNode):
     pass
 
@@ -183,11 +262,29 @@ class IndexOuterDofTest(IndexDof):
 class IndexInnerDofTest(IndexDof):
     pass
 
+class ThreadId(IndexDof):
+    pass
+
+class ThreadCoordinates(IndexDof):
+    pass
+
+class NeighbourThreadCoordinates(IndexDof):
+    pass
+
+class LocalIndexElement(IndexDof):
+    pass
+
 class IndexDerivative(IndexNode):
     def __new__(cls, length=None):
         return Basic.__new__(cls)
 
+    def _hashable_content(self):
+        return type(self).__mro__
+
 index_element        = IndexElement()
+thread_id            = ThreadId(length=NumThreads())
+thread_coords        = ThreadCoordinates()
+neighbour_threads    = NeighbourThreadCoordinates()
 index_quad           = IndexQuadrature()
 index_dof            = IndexDof()
 index_dof_test       = IndexDofTest()
@@ -195,6 +292,7 @@ index_dof_trial      = IndexDofTrial()
 index_deriv          = IndexDerivative()
 index_outer_dof_test = IndexOuterDofTest()
 index_inner_dof_test = IndexInnerDofTest()
+local_index_element  = LocalIndexElement()
 
 #==============================================================================
 class RankNode(with_metaclass(Singleton, Basic)):
@@ -527,11 +625,53 @@ class GeneratorBase(BaseNode):
 
 #==============================================================================
 class TensorGenerator(GeneratorBase):
-    pass
+    """
+    This class represent an array list of array elements with arbitrary number of dimensions.
+    the length of the list is given by the rank of target.
+
+    Parameters
+    ----------
+
+    target : <ArrayNode|MatrixNode>
+        the array object
+
+    dummies : <Tuple|tuple|list>
+        multidimensional index
+
+    Examples
+    --------
+    >>> T = TensorGenerator(GlobalTensorQuadrature(), index_quad)
+    >>> T
+    TensorGenerator(GlobalTensorQuadrature(), (IndexQuadrature(),))
+    >>> ast = parse(T, settings={'dim':2,'nderiv':2,'target':Square()})
+    >>> ast[0]
+    ((IndexedElement(local_x1, i_quad_1), IndexedElement(local_w1, i_quad_1)),
+     (IndexedElement(local_x2, i_quad_2), IndexedElement(local_w2, i_quad_2)))
+    """
 
 #==============================================================================
 class ProductGenerator(GeneratorBase):
-    pass
+    """
+    This class represent an element of an array with arbitrary number of dimensions.
+
+    Parameters
+    ----------
+
+    target : <ArrayNode|MatrixNode>
+        the array object
+
+    dummies : <Tuple|tuple|list>
+        multidimensional index
+
+    Examples
+    --------
+    >>> P = ProductGenerator(MatrixRankFromCoords(), thread_coords)
+    >>> P
+    ProductGenerator(MatrixRankFromCoords(), (ThreadCoordinates(),))
+    >>> ast = parse(P, settings={'dim':2,'nderiv':2,'target':Square()})
+    >>> ast
+    IndexedElement(rank_from_coords, thread_coords_1, thread_coords_2)
+    """
 
 #==============================================================================
 class Grid(BaseNode):
@@ -586,7 +726,7 @@ class MatrixNode(ArrayNode):
 
 class BlockMatrixNode(MatrixNode):
     pass
-#==============================================================================
+
 class GlobalTensorQuadrature(ArrayNode):
     """
     """
@@ -652,6 +792,12 @@ class MatrixQuadrature(MatrixNode):
     def target(self):
         return self._args[0]
 
+#==============================================================================
+class MatrixRankFromCoords(MatrixNode):
+    pass
+#==============================================================================
+class MatrixCoordsFromRank(MatrixNode):
+    pass
 #==============================================================================
 class WeightedVolumeQuadrature(ScalarNode):
     """
@@ -841,6 +987,7 @@ class StencilMatrixLocalBasis(MatrixNode):
     used to describe local dof over an element as a stencil matrix
     """
     def __new__(cls, u, v, pads, tag=None):
+
         if not isinstance(pads, (list, tuple, Tuple)):
             raise TypeError('Expecting an iterable')
 
@@ -928,8 +1075,6 @@ class StencilVectorLocalBasis(MatrixNode):
     def tag(self):
         return self._args[3]
 
-
-
 #==============================================================================
 class StencilVectorGlobalBasis(MatrixNode):
     """
@@ -961,14 +1106,14 @@ class StencilVectorGlobalBasis(MatrixNode):
     def tag(self):
         return self._args[3]
 
-
-
+#==============================================================================
 class LocalElementBasis(MatrixNode):
     tag  = random_string( 6 )
 
 class GlobalElementBasis(MatrixNode):
     tag  = random_string( 6 )
 
+#==============================================================================
 class BlockStencilMatrixLocalBasis(BlockMatrixNode):
     """
     used to describe local dof over an element as a block stencil matrix
@@ -1067,7 +1212,7 @@ class BlockStencilMatrixGlobalBasis(BlockMatrixNode):
             cond = cond or all(isinstance(space.kind, cls) for space in spaces)
         return cond
 
-
+#==============================================================================
 class BlockStencilVectorLocalBasis(BlockMatrixNode):
     """
     used to describe local dof over an element as a block stencil matrix
@@ -1152,39 +1297,213 @@ class BlockStencilVectorGlobalBasis(BlockMatrixNode):
         for cls in types:
             cond = cond or all(isinstance(space.kind, cls) for space in spaces)
         return cond
+
+#==============================================================================
+class ScalarLocalBasis(ScalarNode):
+    """
+     This is used to describe scalar dof over an element
+    """
+    def __new__(cls, u=None, v=None, tag=None):
+        tag  = tag or random_string( 6 )
+        obj  = Basic.__new__(cls, tag)
+        obj._test  = v
+        obj._trial = u
+        return obj
+
+    @property
+    def tag(self):
+        return self._args[0]
+
+    @property
+    def trial(self):
+        return self._trial
+
+    @property
+    def test(self):
+        return self._test
+#==============================================================================
+class BlockScalarLocalBasis(ScalarNode):
+    """
+       This is used to describe a block of scalar dofs over an element
+    """
+    def __new__(cls, trials=None, tests=None, expr=None, tag=None):
+
+        tag = tag or random_string( 6 )
+        obj = Basic.__new__(cls, tag)
+        obj._tests  = tests
+        obj._trials = trials
+        obj._expr   = expr
+        return obj
+
+    @property
+    def tag(self):
+        return self._args[0]
+
+    @property
+    def tests(self):
+        return self._tests
+
+    @property
+    def trials(self):
+        return self._trials
+
+    @property
+    def expr(self):
+        return self._expr
 #==============================================================================
 class GlobalSpan(ArrayNode):
     """
+     This represents the global span array
     """
     _rank = 1
     _positions = {index_element: 0}
 
-    def __new__(cls, target):
+    def __new__(cls, target, index=None):
         if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
 
-        return Basic.__new__(cls, target)
+        return Basic.__new__(cls, target, index)
 
     @property
     def target(self):
         return self._args[0]
 
+    @property
+    def index(self):
+        return self._args[1]
+
+    def set_index(self, index):
+        return GlobalSpan(self.target, index)
+
+#==============================================================================
+class GlobalThreadStarts(ArrayNode):
+    """
+     This represents the threads starts over the decomposed domain
+    """
+    _rank = 1
+    def __new__(cls, index=None):
+        # TODO check target
+        return Basic.__new__(cls, index)
+
+    @property
+    def index(self):
+        return self._args[0]
+
+    def set_index(self, index):
+        return GlobalThreadStarts(index)
+ 
+#==============================================================================
+class GlobalThreadEnds(ArrayNode):
+    """
+     This represents the threads ends over the decomposed domain
+    """
+    _rank = 1
+    def __new__(cls, index=None):
+        # TODO check target
+        return Basic.__new__(cls, index)
+
+    @property
+    def index(self):
+        return self._args[0]
+
+    def set_index(self, index):
+        return GlobalThreadEnds(index)
+
+#==============================================================================
+class GlobalThreadSizes(ArrayNode):
+    """
+     This represents the number of elements owned by a thread
+    """
+    _rank = 1
+    def __new__(cls, index=None):
+        # TODO check target
+        return Basic.__new__(cls, index)
+
+    @property
+    def index(self):
+        return self._args[0]
+
+    def set_index(self, index):
+        return GlobalThreadSizes(index)
+
+#==============================================================================
+class LocalThreadStarts(ArrayNode):
+    """
+     This represents the local threads starts over the decomposed domain
+    """
+    _rank = 1
+    def __new__(cls, index=None):
+        # TODO check target
+        return Basic.__new__(cls, index)
+
+    @property
+    def index(self):
+        return self._args[0]
+
+    def set_index(self, index):
+        return LocalThreadStarts(index)
+
+#==============================================================================
+class LocalThreadEnds(ArrayNode):
+    """
+     This represents the local threads ends over the decomposed domain
+    """
+    _rank = 1
+    def __new__(cls, index=None):
+        # TODO check target
+        return Basic.__new__(cls, index)
+
+    @property
+    def index(self):
+        return self._args[0]
+
+    def set_index(self, index):
+        return LocalThreadEnds(index)
+#==============================================================================
+class GlobalThreadSpan(ArrayNode):
+    """
+     This represents the span of each thread
+    """
+    _rank = 1
+    def __new__(cls, target, index=None):
+        # TODO check target
+        return Basic.__new__(cls, target, index)
+
+    @property
+    def target(self):
+        return self._args[0]
+
+    @property
+    def index(self):
+        return self._args[1]
+
+    def set_index(self, index):
+        return GlobalThreadSpan(self.target, index)
 #==============================================================================
 class Span(ScalarNode):
     """
+     This represents the span of a basis in an element
     """
-    def __new__(cls, target):
+    def __new__(cls, target, index=None):
         if not isinstance(target, (ScalarFunction, VectorFunction, IndexedVectorFunction)):
             raise TypeError('Expecting a scalar/vector test function')
 
-        return Basic.__new__(cls, target)
+        return Basic.__new__(cls, target, index)
 
     @property
     def target(self):
         return self._args[0]
 
+    @property
+    def index(self):
+        return self._args[1]
+
+    def set_index(self, index):
+        return Span(self.target, index)
+
 class Pads(ScalarNode):
     """
+     This represents the global pads
     """
     def __new__(cls, tests, trials=None, tests_degree=None, trials_degree=None,
                     tests_multiplicity=None, trials_multiplicity=None):
@@ -1485,6 +1804,29 @@ class GeometryExpr(Basic):
         return self._args[1]
 
 #==============================================================================
+class IfNode(BaseNode):
+    def __new__(cls, *args):
+        args = tuple(args)
+        return Basic.__new__(cls, args)
+
+    @property
+    def args(self):
+        return self._args[0]
+
+#==============================================================================
+class WhileLoop(BaseNode):
+    def __new__(cls, condition, body):
+        body = tuple(body)
+        return Basic.__new__(cls, condition, body)
+
+    @property
+    def condition(self):
+        return self._args[0]
+
+    @property
+    def body(self):
+        return self._args[1]
+#==============================================================================
 class Loop(BaseNode):
     """
     class to describe a dimensionless loop of an iterator over a generator.
@@ -1503,9 +1845,28 @@ class Loop(BaseNode):
     mask     : <int|None>
         the masked dimension where we fix the index in that dimension
 
+    parallel : <bool|None>
+        specifies whether the loop should be executed in parallel or in serial
+
+    default: <str|None>
+        specifies the default behavior of the variables in a parallel region
+
+    shared : <list|tuple|None>
+        specifies the shared variables in the parallel region
+
+    private: <list|tuple|None>
+        specifies the private variables in the parallel region
+
+    firstprivate: <list|tuple|None>
+        specifies the first private variables in the parallel region
+
+    lastprivate: <list|tuple|None>
+        specifies the last private variables in the parallel region
     """
 
-    def __new__(cls, iterable, index, stmts=None, mask=None):
+    def __new__(cls, iterable, index, stmts=None, mask=None, 
+                    parallel=None, default=None, shared=None, 
+                    private=None, firstprivate=None, lastprivate=None, reduction=None):
         # ...
         if not( isinstance(iterable, (list, tuple, Tuple)) ):
             iterable = [iterable]
@@ -1557,8 +1918,16 @@ class Loop(BaseNode):
         # ...
 
         obj = Basic.__new__(cls, iterable, index, stmts, mask)
-        obj._iterator  = iterator
-        obj._generator = generator
+
+        obj._iterator     = iterator
+        obj._generator    = generator
+        obj._parallel     = parallel
+        obj._default      = default
+        obj._shared       = shared
+        obj._private      = private
+        obj._firstprivate = firstprivate
+        obj._lastprivate  = lastprivate
+        obj._reduction    = reduction
 
         return obj
 
@@ -1585,6 +1954,34 @@ class Loop(BaseNode):
     @property
     def generator(self):
         return self._generator
+
+    @property
+    def parallel(self):
+        return self._parallel
+
+    @property
+    def default(self):
+        return self._default
+
+    @property
+    def shared(self):
+        return self._shared
+
+    @property
+    def private(self):
+        return self._private
+
+    @property
+    def firstprivate(self):
+        return self._firstprivate
+
+    @property
+    def lastprivate(self):
+        return self._lastprivate
+
+    @property
+    def reduction(self):
+        return self._reduction
 
     def get_geometry_stmts(self, mapping):
 
@@ -1851,3 +2248,40 @@ def construct_itergener(a, index):
 
     return iterator, generator
 
+#=============================================================================================
+# the Expression class works with fixed dimension expressions instead of vectorized one,
+# where in some cases we need to treat each dimesion diffrently
+
+class Expression(Expr):
+    """
+    The Expression class gives us the possibility to create specific instructions for some dimension,
+    where the generated code is not in a vectorized form.
+    For example, the class Loop generates 2 for loops in 2D and 3 in 3D,
+    the expressions that are generated are the same for 2D and 3D,
+    because they are written in a way that allows them to be applied in any dimension,
+    with the fixed dimension expression we can specify the generated code for a specific dimension,
+    so the generated code in the second dimension of the 2D loop is diffrent from the one in the first dimension of the 2D loop
+    """
+    def __new__(cls, *args):
+        return Expr.__new__(cls, *args)
+
+class AddNode(Expression):
+    pass
+
+class MulNode(Expression):
+    pass
+
+class IntDivNode(Expression):
+    pass
+
+class AndNode(Expression):
+    pass
+
+class NotNode(Expression):
+    pass
+
+class EqNode(Expression):
+    pass
+
+class StrictLessThanNode(Expression):
+    pass

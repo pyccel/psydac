@@ -10,14 +10,13 @@ import numpy as np
 from functools import lru_cache
 from mpi4py    import MPI
 
-from sympy import Mul, Tuple
+from sympy import Mul, Tuple, Symbol
 from sympy import Mod as sy_Mod, Abs, Range, Symbol, Max
 from sympy import Function, Integer
 
 from psydac.pyccel.ast.core import Variable, IndexedVariable
-from psydac.pyccel.ast.core import For
+from psydac.pyccel.ast.core import For, Comment
 from psydac.pyccel.ast.core import Slice, String
-from psydac.pyccel.ast.datatypes import NativeInteger
 from psydac.pyccel.ast.core import ValuedArgument
 from psydac.pyccel.ast.core import Assign
 from psydac.pyccel.ast.core import AugAssign
@@ -25,12 +24,18 @@ from psydac.pyccel.ast.core import Product
 from psydac.pyccel.ast.core import FunctionDef
 from psydac.pyccel.ast.core import Import
 
+from psydac.pyccel.ast.datatypes import NativeInteger
+
 from psydac.api.ast.nodes     import FloorDiv
 from psydac.api.ast.utilities import variables, math_atoms_as_str
 from psydac.api.ast.utilities import build_pyccel_types_decorator
+
+from psydac.fem.splines       import SplineSpace
+from psydac.fem.tensor        import TensorFemSpace
+from psydac.fem.vector        import ProductFemSpace
 from psydac.api.ast.basic     import SplBasic
 from psydac.api.printing      import pycode
-from psydac.api.settings      import PSYDAC_DEFAULT_FOLDER
+from psydac.api.settings      import PSYDAC_BACKENDS, PSYDAC_DEFAULT_FOLDER
 from psydac.api.utilities     import mkdir_p, touch_init_file, random_string, write_code
 
 #==============================================================================
@@ -39,6 +44,11 @@ def variable_to_sympy(x):
         x = Symbol(x.name, integer=True)
     return x
 
+def list_variables(*args, **kwargs):
+    args = variables(*args, **kwargs)
+    if not isinstance(args, tuple):
+        return (args,)
+    return args
 #==============================================================================
 def compute_diag_len(p, md, mc, return_padding=False):
     n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
@@ -64,7 +74,7 @@ class LinearOperatorDot(SplBasic):
 
     def __init__(self, ndim, **kwargs):
 
-        backend = dict(kwargs.pop('backend'))
+        backend         = dict(kwargs.pop('backend'))
         code            = self._initialize(ndim, backend=backend, **kwargs)
         self._arguments = dict((str(a.name),a) for a in code.arguments)
         self._code      = code
@@ -91,12 +101,12 @@ class LinearOperatorDot(SplBasic):
 
     def _initialize(self, ndim, **kwargs):
 
-        nrows           = kwargs.pop('nrows', variables('n1:%s'%(ndim+1),  'int'))
-        nrows_extra     = kwargs.pop('nrows_extra', variables('ne1:%s'%(ndim+1),  'int'))
-        starts          = kwargs.pop('starts', variables('s1:%s'%(ndim+1),  'int'))
-        indices1        = variables('i1:%s'%(ndim+1),  'int')
-        bb              = variables('b1:%s'%(ndim+1),  'int')
-        indices2        = variables('k1:%s'%(ndim+1),  'int')
+        nrows           = kwargs.pop('nrows', list_variables('n1:%s'%(ndim+1),  'int'))
+        nrows_extra     = kwargs.pop('nrows_extra', list_variables('ne1:%s'%(ndim+1),  'int'))
+        starts          = kwargs.pop('starts', list_variables('s1:%s'%(ndim+1),  'int'))
+        indices1        = list_variables('i1:%s'%(ndim+1),  'int')
+        bb              = list_variables('b1:%s'%(ndim+1),  'int')
+        indices2        = list_variables('k1:%s'%(ndim+1),  'int')
 
         v               = variables('v','real')
         x, out          = variables('x, out','real',cls=IndexedVariable, rank=ndim)
@@ -115,6 +125,8 @@ class LinearOperatorDot(SplBasic):
         d_start         = kwargs.pop('d_start', None)
         c_start         = kwargs.pop('c_start', None)
 
+        openmp          = False if backend is None else backend["openmp"]
+
         ndiags, _ = list(zip(*[compute_diag_len(p,mj,mi, return_padding=True) for p,mi,mj in zip(pads,cm,dm)]))
 
         inits  = [Assign(b,p*m+p+1-n-Mod(s,m)) for b,p,m,n,s in zip(bb, gpads, dm, ndiags, starts) if not isinstance(p*m+p+1-n-Mod(s,m),(int,np.int64, Integer))]
@@ -126,7 +138,6 @@ class LinearOperatorDot(SplBasic):
         body   = []
 
         ranges = [Range(variable_to_sympy(n)) for n in ndiags]
-        target = Product(*ranges)
 
         diff = [variable_to_sympy(gp-p) for gp,p in zip(gpads, pads)]
 
@@ -150,24 +161,21 @@ class LinearOperatorDot(SplBasic):
 
         # Decompose fused loop over Cartesian product of multiple ranges
         # into nested loops, each over a single range
-        if ndim > 1:
-            for i,j in zip(indices2[::-1], target.args[::-1]):
-                body = [For(i,j, body)]
-        else:
-            body = [For(indices2, target, body)]
+        for i,j in zip(indices2[::-1], ranges[::-1]):
+            body = [For(i,j, body)]
 
         body.insert(0,Assign(v, 0.0))
         body.append(Assign(v3,v))
         ranges = [Range(variable_to_sympy(i)) for i in nrows]
-        target = Product(*ranges)
 
         # Decompose fused loop over Cartesian product of multiple ranges
         # into nested loops, each over a single range
-        if ndim > 1:
-            for i,j in zip(indices1[::-1], target.args[::-1]):
-                body = [For(i,j, body)]
-        else:
-            body = [For(indices1, target, body)]
+        for i,j in zip(indices1[::-1], ranges[::-1]):
+            body = [For(i,j, body)]
+
+        if openmp:
+            pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
+            body   = [Comment(pragma)] + body
 
         nrowscopy = list(nrows).copy()
         nrows     = list(nrows)
@@ -201,47 +209,47 @@ class LinearOperatorDot(SplBasic):
             ranges       = [ind if i>=dim else ind - Max(0, variable_to_sympy(d1)+1-variable_to_sympy(r)) for i,(ind,d1,r) in enumerate(zip(ranges, indices1, nrowscopy)) ]
             ranges       = [Range(i) for i in ranges]
 
-            target = Product(*ranges)
-
             for_body = [AugAssign(v, '+',Mul(v1,v2))]
 
             # Decompose fused loop over Cartesian product of multiple ranges
             # into nested loops, each over a single range
-            if ndim > 1:
-                for i,j in zip(indices2[::-1], target.args[::-1]):
-                    for_body = [For(i,j, for_body)]
-            else:
-                for_body = [For(indices2, target, for_body)]
+            for i,j in zip(indices2[::-1], ranges[::-1]):
+                for_body = [For(i,j, for_body)]
 
             for_body.insert(0,Assign(v, 0.0))
             for_body.append(Assign(v3,v))
 
             ranges = [Range(variable_to_sympy(i)) for i in rows]
-            target = Product(*ranges)
 
             # Decompose fused loop over Cartesian product of multiple ranges
             # into nested loops, each over a single range
-            if ndim > 1:
-                for i,j in zip(indices1[::-1], target.args[::-1]):
-                    for_body = [For(i,j, for_body)]
-                body += for_body
-            else:
-                body += [For(indices1, target, for_body)]
+            for i,j in zip(indices1[::-1], ranges[::-1]):
+                for_body = [For(i,j, for_body)]
 
+            if openmp:
+                pragma = "#$omp for schedule(static) collapse({})".format(str(ndim))
+                for_body = [Comment(pragma)] + for_body
+
+            body += for_body
 
             nrows[dim] += nrows_extra[dim]
 
         body      = inits + body
-        func_args =  (mat, x, out)
+        func_args = (mat, x, out)
+        shared    = (mat, x, out)
+        firstprivate = ()
 
         if not interface and isinstance(starts[0], Variable):
-            func_args = func_args + tuple(starts)
+            func_args = func_args       + tuple(starts)
+            firstprivate = firstprivate + tuple(starts)
 
         if isinstance(nrowscopy[0], Variable):
-            func_args = func_args + tuple(nrowscopy)
+            func_args    = func_args + tuple(nrowscopy)
+            firstprivate = firstprivate + tuple(nrowscopy)
 
         if isinstance(nrows_extra[0], Variable):
-            func_args = func_args + tuple(nrows_extra)
+            func_args    = func_args + tuple(nrows_extra)
+            firstprivate = firstprivate + tuple(nrows_extra)
 
         decorators = {}
         header     = None
@@ -255,6 +263,12 @@ class LinearOperatorDot(SplBasic):
             elif backend['name'] == 'pythran':
                 header = build_pythran_types_header(name, func_args)
 
+        if openmp:
+            shared  = ','.join(str(a) for a in shared)
+            firstprivate  = "firstprivate({})".format(','.join(str(a) for a in firstprivate)) if firstprivate else ""
+            pragma1 = "#$omp parallel default(private) shared({}) {}\n".format(shared, firstprivate)
+            pragma2 = "#$omp end parallel"
+            body     = [Comment(pragma1)] + body + [Comment(pragma2)]
         func = FunctionDef(self.name, list(func_args), [], body, imports=imports, decorators=decorators)
         return func
 
@@ -320,16 +334,18 @@ class LinearOperatorDot(SplBasic):
         compiler       = backend['compiler']
         fflags         = backend['flags']
         _PYCCEL_FOLDER = backend['folder']
+        accelerators   = ["openmp"] if backend["openmp"] else []
 
         from pyccel.epyccel import epyccel
 
         fmod = epyccel(mod,
-                       compiler    = compiler,
-                       fflags      = fflags,
-                       comm        = MPI.COMM_WORLD,
-                       bcast       = True,
-                       folder      = _PYCCEL_FOLDER,
-                       verbose     = verbose)
+                       accelerators = accelerators,
+                       compiler     = compiler,
+                       fflags       = fflags,
+                       comm         = MPI.COMM_WORLD,
+                       bcast        = True,
+                       folder       = _PYCCEL_FOLDER,
+                       verbose      = verbose)
 
         return fmod
 
@@ -435,15 +451,17 @@ class TransposeOperator(SplBasic):
         compiler       = backend['compiler']
         fflags         = backend['flags']
         _PYCCEL_FOLDER = backend['folder']
+        accelerators   = ["openmp"] if backend["openmp"] else []
 
         from pyccel.epyccel import epyccel
         fmod = epyccel(mod,
-                       compiler    = compiler,
-                       fflags      = fflags,
-                       comm        = MPI.COMM_WORLD,
-                       bcast       = True,
-                       folder      = _PYCCEL_FOLDER,
-                       verbose     = verbose)
+                       accelerators = accelerators,
+                       compiler     = compiler,
+                       fflags       = fflags,
+                       comm         = MPI.COMM_WORLD,
+                       bcast        = True,
+                       folder       = _PYCCEL_FOLDER,
+                       verbose      = verbose)
 
         return fmod
 
@@ -529,11 +547,15 @@ class VectorDot(SplBasic):
 tranpose_operator           = lru_cache(maxsize=32)(TransposeOperator)
 interface_tranpose_operator = lru_cache(maxsize=32)(InterfaceTransposeOperator)
 #========================================================================================================
-def transpose_1d( M:'float[:,:]', Mt:'float[:,:]', n1:int, nc1:int, gp1:int, p1:int,
-                  dm1:int, cm1:int, nd1:int, ndT1:int, si1:int, sk1:int, sl1:int):
+def transpose_1d( M:'float[:,:]', Mt:'float[:,:]', n1:"int64", nc1:"int64", gp1:"int64", p1:"int64",
+                  dm1:"int64", cm1:"int64", nd1:"int64", ndT1:"int64", si1:"int64", sk1:"int64", sl1:"int64"):
+
+    #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,nc1,gp1,p1,dm1,cm1,&
+    #$ nd1,ndT1,si1,sk1,sl1)
 
     d1 = gp1-p1
 
+    #$ omp for schedule(static)
     for x1 in range(n1):
         j1 = dm1*gp1 + x1
         for l1 in range(nd1):
@@ -543,16 +565,22 @@ def transpose_1d( M:'float[:,:]', Mt:'float[:,:]', n1:int, nc1:int, gp1:int, p1:
 
             if k1<ndT1 and k1>-1 and l1<nd1 and i1<nc1:
                 Mt[j1, l1+sl1] = M[i1, k1]
+    #$ omp end parallel
+    return
 
 # ...
-def transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:int, n2:int, nc1:int, nc2:int,
-                   gp1:int, gp2:int, p1:int, p2:int, dm1:int, dm2:int,
-                   cm1:int, cm2:int, nd1:int, nd2:int, ndT1:int, ndT2:int,
-                   si1:int, si2:int, sk1:int, sk2:int, sl1:int, sl2:int):
+def transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:"int64", n2:"int64", nc1:"int64", nc2:"int64",
+                   gp1:"int64", gp2:"int64", p1:"int64", p2:"int64", dm1:"int64", dm2:"int64",
+                   cm1:"int64", cm2:"int64", nd1:"int64", nd2:"int64", ndT1:"int64", ndT2:"int64",
+                   si1:"int64", si2:"int64", sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
+
+    #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,nc1,nc2,gp1,gp2,p1,p2,dm1,dm2,cm1,&
+    #$ cm2,nd1,nd2,ndT1,ndT2,si1,si2,sk1,sk2,sl1,sl2)
 
     d1 = gp1-p1
     d2 = gp2-p2
 
+    #$ omp for schedule(static) collapse(2)
     for x1 in range(n1):
         for x2 in range(n2):
 
@@ -571,18 +599,22 @@ def transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', n1:int, n2:int, nc1:i
                     if k1<ndT1 and k1>-1 and k2<ndT2 and k2>-1\
                         and l1<nd1 and l2<nd2 and i1<nc1 and i2<nc2:
                         Mt[j1,j2, l1+sl1,l2+sl2] = M[i1,i2, k1,k2]
+    #$ omp end parallel
+    return
 
 # ...
-def transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', n1:int, n2:int, n3:int,
-                  nc1:int, nc2:int, nc3:int, gp1:int, gp2:int, gp3:int, p1:int, p2:int, p3:int,
-                  dm1:int, dm2:int, dm3:int, cm1:int, cm2:int, cm3:int, nd1:int, nd2:int, nd3:int,
-                  ndT1:int, ndT2:int, ndT3:int, si1:int, si2:int, si3:int, sk1:int, sk2:int, sk3:int,
-                  sl1:int, sl2:int, sl3:int):
+def transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', n1:"int64", n2:"int64", n3:"int64",
+                  nc1:"int64", nc2:"int64", nc3:"int64", gp1:"int64", gp2:"int64", gp3:"int64", p1:"int64", p2:"int64", p3:"int64",
+                  dm1:"int64", dm2:"int64", dm3:"int64", cm1:"int64", cm2:"int64", cm3:"int64", nd1:"int64", nd2:"int64", nd3:"int64",
+                  ndT1:"int64", ndT2:"int64", ndT3:"int64", si1:"int64", si2:"int64", si3:"int64", sk1:"int64", sk2:"int64", sk3:"int64",
+                  sl1:"int64", sl2:"int64", sl3:"int64"):
 
+    #$ omp parallel default(private) shared(Mt,M) firstprivate( n1,n2,n3,nc1,nc2,nc3,gp1,gp2,gp3,p1,p2,p3,dm1,dm2,dm3,cm1,&
+    #$ cm2,cm3,nd1,nd2,nd3,ndT1,ndT2,ndT3,si1,si2,si3,sk1,sk2,sk3,sl1,sl2,sl3)
     d1 = gp1-p1
     d2 = gp2-p2
     d3 = gp3-p3
-
+    #$ omp for schedule(static) collapse(3)
     for x1 in range(n1):
         for x2 in range(n2):
             for x3 in range(n3):
@@ -606,12 +638,14 @@ def transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', n1:int, n2:in
                             if k1<ndT1 and k1>-1 and k2<ndT2 and k2>-1 and k3<ndT3 and k3>-1\
                                 and l1<nd1 and l2<nd2 and l3<nd3 and i1<nc1 and i2<nc2 and i3<nc3:
                                 Mt[j1,j2,j3, l1 + sl1,l2 + sl2,l3 + sl3] = M[i1,i2,i3, k1,k2,k3]
+    #$ omp end parallel
+    return
 
 _transpose  = {1:transpose_1d,2:transpose_2d, 3:transpose_3d}
-transpose_args_dtype = {1:[repr('float[:,:]')]*2 + ['int']*11,2:[repr('float[:,:,:,:]')]*2 + ['int']*22, 3:[repr('float[:,:,:,:,:,:]')]*2 + ['int']*33}
+transpose_args_dtype = {1:[repr('float[:,:]')]*2 + [repr('int64')]*11,2:[repr('float[:,:,:,:]')]*2 + [repr('int64')]*22, 3:[repr('float[:,:,:,:,:,:]')]*2 + [repr('int64')]*33}
 #========================================================================================================
-def interface_transpose_1d( M:'float[:,:]', Mt:'float[:,:]', d_start:int, c_start:int, dim:int ,n1:int, nc1:int, gp1:int, p1:int,
-                            nd1:int, ndT1:int, si1:int, sk1:int, sl1:int):
+def interface_transpose_1d( M:'float[:,:]', Mt:'float[:,:]', d_start:"int64", c_start:"int64", dim:"int64" ,n1:"int64", nc1:"int64", gp1:"int64", p1:"int64",
+                            nd1:"int64", ndT1:"int64", si1:"int64", sk1:"int64", sl1:"int64"):
 
     d1 = gp1-p1
     for x1 in range(n1):
@@ -624,9 +658,9 @@ def interface_transpose_1d( M:'float[:,:]', Mt:'float[:,:]', d_start:int, c_star
                 Mt[j1,m1] = M[i1,k1]
 
 # ...
-def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:int, c_start:int, dim:int, n1:int, n2:int, nc1:int, nc2:int,
-                           gp1:int, gp2:int, p1:int, p2:int,nd1:int, nd2:int, ndT1:int, ndT2:int,
-                           si1:int, si2:int, sk1:int, sk2:int, sl1:int, sl2:int):
+def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:"int64", c_start:"int64", dim:"int64", n1:"int64", n2:"int64", nc1:"int64", nc2:"int64",
+                           gp1:"int64", gp2:"int64", p1:"int64", p2:"int64",nd1:"int64", nd2:"int64", ndT1:"int64", ndT2:"int64",
+                           si1:"int64", si2:"int64", sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
 
     d1 = gp1-p1
     d2 = gp2-p2
@@ -651,10 +685,10 @@ def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:int
                         Mt[j1,j2, m1,m2] = M[i1,i2, k1,k2]
 
 # ...
-def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', d_start:int, c_start:int, dim:int, n1:int, n2:int, n3:int,
-                  nc1:int, nc2:int, nc3:int, gp1:int, gp2:int, gp3:int, p1:int, p2:int, p3:int,
-                  nd1:int, nd2:int, nd3:int,ndT1:int, ndT2:int, ndT3:int, si1:int, si2:int,
-                  si3:int, sk1:int, sk2:int, sk3:int,sl1:int, sl2:int, sl3:int):
+def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', d_start:"int64", c_start:"int64", dim:"int64", n1:"int64", n2:"int64", n3:"int64",
+                  nc1:"int64", nc2:"int64", nc3:"int64", gp1:"int64", gp2:"int64", gp3:"int64", p1:"int64", p2:"int64", p3:"int64",
+                  nd1:"int64", nd2:"int64", nd3:"int64",ndT1:"int64", ndT2:"int64", ndT3:"int64", si1:"int64", si2:"int64",
+                  si3:"int64", sk1:"int64", sk2:"int64", sk3:"int64",sl1:"int64", sl2:"int64", sl3:"int64"):
 
     d1 = gp1-p1
     d2 = gp2-p2
@@ -690,4 +724,4 @@ def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]', d_s
 
 
 interface_transpose            = {1:interface_transpose_1d,2:interface_transpose_2d, 3:interface_transpose_3d}
-interface_transpose_args_dtype = {1:[repr('float[:,:]')]*2 + ['int']*12,2:[repr('float[:,:,:,:]')]*2 + ['int']*21, 3:[repr('float[:,:,:,:,:,:]')]*2 + ['int']*30}
+interface_transpose_args_dtype = {1:[repr('float[:,:]')]*2 + [repr('int64')]*12,2:[repr('float[:,:,:,:]')]*2 + [repr('int64')]*21, 3:[repr('float[:,:,:,:,:,:]')]*2 + [repr('int64')]*30}
