@@ -197,8 +197,8 @@ class ConformingProjection_V0( FemLinearOperator):
         expr_I = ( plus(u)-minus(u) )*( plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
-        print('[[ forcing python backend for ConformingProjection_V0]] ')
-        backend_language = 'python'
+        # print('[[ forcing python backend for ConformingProjection_V0]] ')
+        # backend_language = 'python'
         ah = discretize(a, domain_h, [V0h, V0h], backend=PSYDAC_BACKENDS[backend_language])
 
         # self._A = ah.assemble()
@@ -388,8 +388,8 @@ class ConformingProjection_V1( FemLinearOperator ):
         expr_I = dot( plus(u)-minus(u) , plus(v)-minus(v) )   # this penalization is for an H1-conforming space
 
         a = BilinearForm((u,v), integral(domain, expr) + integral(Interfaces, expr_I))
-        print('[[ forcing python backend for ConformingProjection_V1]] ')
-        backend_language = 'python'
+        # print('[[ forcing python backend for ConformingProjection_V1]] ')
+        # backend_language = 'python'
         ah = discretize(a, domain_h, [V1h, V1h], backend=PSYDAC_BACKENDS[backend_language])
         #
         # # self._A = ah.assemble()
@@ -712,8 +712,7 @@ def get_M_and_M_inv(Vh, subdomains_h, is_scalar, backend_language='python'):
 class BrokenMass( FemLinearOperator ):
     """
     Broken mass matrix for a scalar space (seen as a LinearOperator... to be improved)
-    # TODO: (MCP 10.03.2021) define them as Hodge FemLinearOperators
-    # TODO: (MCP 16.03.2021) define also the inverse Hodge
+    # TODO: (MCP 10.03.2021) define them as Hodge FemLinearOperators, and define also the inverse Hodge   >> DONE (12.02.2022)  >  keep this ????
 
     """
     def __init__( self, Vh, domain_h, is_scalar, backend_language='python'):
@@ -772,7 +771,6 @@ class HodgeOperator( FemLinearOperator ):
         the Hodge matrix is the patch-wise inverse of the multi-patch mass matrix
         it is not stored by default but computed on demand, by local (patch-wise) inversion of the mass matrix
         """
-        # warning: may not work with vector-valued spaces (to be checked)
         if self._sparse_matrix or self._matrix:
             return FemLinearOperator.to_sparse_matrix(self)
 

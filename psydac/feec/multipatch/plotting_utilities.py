@@ -75,6 +75,74 @@ def get_grid_vals_vector(E, etas, mappings_list, space_kind='hcurl'):
     # E_y_vals = np.concatenate(E_y_vals, axis=1)
     return E_x_vals, E_y_vals
 
+def is_vector_valued(u):
+    # small utility function, only tested for FemFields in multi-patch spaces of the 2D grad-curl sequence
+    # todo: a proper interface returning the number of components of a general FemField would be nice
+    return u.fields[0].space.is_product
+
+def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
+    """
+    get the physical field values, given the logical field and the logical grid
+    :param u: FemField
+    :param etas: logical grid
+    :param space_kind: specifies the push-forward for the physical values
+    """
+    n_patches = len(mappings_list)
+    vector_valued = is_vector_valued(u)
+    if vector_valued:
+        # TODO: here we assume 2D !
+        u_vals_components = [n_patches*[None], n_patches*[None]]
+    else:
+        u_vals_components = [n_patches*[None]]
+
+    for k in range(n_patches):
+        eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
+        for vals in u_vals_components:
+            vals[k] = np.empty_like(eta_1)
+        uk_field_1 = None
+        if isinstance(u,FemField):
+            if vector_valued:
+                uk_field_0 = u[k].fields[0]
+                uk_field_1 = u[k].fields[1]
+            else:
+                uk_field_0 = u.fields[k]   # it would be nice to just write u[k].fields[0] here...
+        else:
+            # then u should be callable
+            if vector_valued:
+                uk_field_0 = u[k][0]
+                uk_field_1 = u[k][1]
+            else:
+                uk_field_0 = u[k]
+
+        # computing the pushed-fwd values on the grid
+        if space_kind == 'h1':
+            assert not vector_valued
+            # todo (MCP): add 2d_hcurl_vector
+            push_field = lambda eta1, eta2: push_2d_h1(uk_field_0, eta1, eta2)
+        elif space_kind == 'hcurl':
+            # todo (MCP): specify 2d_hcurl_scalar in push functions
+            push_field = lambda eta1, eta2: push_2d_hcurl(uk_field_0, uk_field_1, eta1, eta2, mapping=mappings_list[k])
+        elif space_kind == 'hdiv':
+            push_field = lambda eta1, eta2: push_2d_hdiv(uk_field_0, uk_field_1, eta1, eta2, mapping=mappings_list[k])
+        elif space_kind == 'l2':
+            assert not vector_valued
+            push_field = lambda eta1, eta2: push_2d_l2(uk_field_0, eta1, eta2, mapping=mappings_list[k])
+        else:
+            raise ValueError('unknown value for space_kind = {}'.format(space_kind))
+
+        for i, x1i in enumerate(eta_1[:, 0]):
+            for j, x2j in enumerate(eta_2[0, :]):
+                if vector_valued:
+                    u_vals_components[0][k][i, j], u_vals_components[1][k][i, j] = push_field(x1i, x2j)
+                else:
+                    u_vals_components[0][k][i, j] = push_field(x1i, x2j)
+
+    # always return a list, even for scalar-valued functions ?
+    if not vector_valued:
+        return u_vals_components[0]
+    else:
+        return u_vals_components
+
 def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
     # get approximate weights for a physical quadrature, namely
     #  |J_F(xi1, xi2)| * log_weight   with uniform log_weight = h1*h2     for (xi1, xi2) in the logical grid,
