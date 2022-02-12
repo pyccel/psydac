@@ -7,6 +7,9 @@ from mpi4py import MPI
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
+from collections import OrderedDict
+
+from psydac.linalg.utilities import array_to_stencil
 from psydac.fem.basic   import FemField
 
 
@@ -246,6 +249,51 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     return gridlines_x1, gridlines_x2
 
 from matplotlib import colors
+
+def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, hide_plot=True):
+    """
+    plot a discrete field (given as a FemField or by its coeffs in numpy or stencil format) on the given domain
+
+    :param Vh: Fem space needed if v is given by its coeffs
+    :param space_kind: type of the push-forward defining the physical Fem Space
+    :param subtitles: in case one would like to have several subplots # todo: then v should be given as a list of fields...
+    """
+    if not space_kind in ['h1', 'hcurl', 'l2']:
+        raise ValueError('invalid value for space_kind = {}'.format(space_kind))
+
+    vh = fem_field
+    if vh is None:
+        if numpy_coeffs is not None:
+            assert stencil_coeffs is None
+            stencil_coeffs = array_to_stencil(numpy_coeffs, Vh.vector_space)
+        vh = FemField(Vh, coeffs=stencil_coeffs)
+
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings_list = list(mappings.values())
+    etas, xx, yy    = get_plotting_grid(mappings, N=20)
+    grid_vals = lambda v: get_grid_vals(v, etas, mappings_list, space_kind=space_kind)
+
+    vh_vals = grid_vals(vh)
+    if is_vector_valued(vh):
+        # then vh_vals[d] contains the values of the d-component of vh (as a patch-indexed list)
+        vh_abs_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2) for v in zip(vh_vals[0],vh_vals[1])]
+    else:
+        # then vh_vals just contains the values of vh (as a patch-indexed list)
+        vh_abs_vals = np.abs(vh_vals)
+
+    my_small_plot(
+        title=title,
+        vals=[vh_abs_vals],
+        titles=subtitles,
+        xx=xx,
+        yy=yy,
+        surface_plot=False,
+        save_fig=filename,
+        save_vals = True,
+        hide_plot=hide_plot,
+        cmap='hsv',
+        dpi = 400,
+    )
 
 def my_small_plot(
         title, vals, titles=None,
