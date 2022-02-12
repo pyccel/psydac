@@ -292,7 +292,7 @@ def solve_hcurl_source_pbm(
     t_stamp = time_count(t_stamp)
     print('getting and plotting the FEM solution from numpy coefs array...')
     title = r'solution $u_h$ (amplitude) for $\eta = $'+repr(eta)
-    params_str = 'eta={}'.format(eta) + '_mu={}'.format(mu) + '_nu={}'.format(nu)+ '_gamma_h={}'.format(gamma_h)
+    params_str = 'eta={}_mu={}_nu={}_gamma_h={}'.format(eta, mu, nu, gamma_h)
     plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title, filename=plot_dir+params_str+'_uh.png', hide_plot=hide_plots)
 
     time_count(t_stamp)
@@ -322,12 +322,13 @@ if __name__ == '__main__':
 
     domain_name = 'pretzel_f'
     # domain_name = 'curved_L_shape'
-    nc = 12
+    nc = 20
     deg = 4
 
     # nc = 2
     # deg = 2
 
+    run_dir = '{}_{}_nc={}_deg={}/'.format(domain_name, source_type, nc, deg)
     solve_hcurl_source_pbm(
         nc=nc, deg=deg,
         eta=eta,
@@ -337,7 +338,7 @@ if __name__ == '__main__':
         source_type=source_type,
         backend_language='numba',
         plot_source=True,
-        plot_dir='./plots/tests_source_february/',
+        plot_dir='./plots/tests_source_february/'+run_dir,
         hide_plots=True,
     )
 

@@ -63,6 +63,7 @@ def solve_h1_source_pbm(
           mu  = 1
 
       - Poisson equation with Laplace operator L = A,
+          eta = 0
           mu  = 1
 
     :param nc: nb of cells per dimension, in each patch
@@ -130,9 +131,9 @@ def solve_h1_source_pbm(
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
     cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language)
-    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language)
     cP0_m = cP0.to_sparse_matrix()
-    cP1_m = cP1.to_sparse_matrix()
+    # cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language)
+    # cP1_m = cP1.to_sparse_matrix()
 
     print('broken differential operators...')
     # broken (patch-wise) differential operators
@@ -145,16 +146,15 @@ def solve_h1_source_pbm(
 
     def lift_u_bc(u_bc):
         if u_bc is not None:
-            print('lifting the boundary condition in V0h...')
+            print('lifting the boundary condition in V0h...  [warning: Not Tested Yet!]')
             # note: for simplicity we apply the full P1 on u_bc, but we only need to set the boundary dofs
-            u_bc_x = lambdify(domain.coordinates, u_bc[0])
-            u_bc_y = lambdify(domain.coordinates, u_bc[1])
-            u_bc_log = [pull_2d_hcurl([u_bc_x, u_bc_y], m) for m in mappings_list]
+            u_bc = lambdify(domain.coordinates, u_bc)
+            u_bc_log = [pull_2d_h1(u_bc, m) for m in mappings_list]
             # it's a bit weird to apply P1 on the list of (pulled back) logical fields -- why not just apply it on u_bc ?
-            uh_bc = P1(u_bc_log)
+            uh_bc = P0(u_bc_log)
             ubc_c = uh_bc.coeffs.toarray()
             # removing internal dofs (otherwise ubc_c may already be a very good approximation of uh_c ...)
-            ubc_c = ubc_c - cP1_m.dot(ubc_c)
+            ubc_c = ubc_c - cP0_m.dot(ubc_c)
         else:
             ubc_c = None
         return ubc_c
@@ -227,7 +227,7 @@ def solve_h1_source_pbm(
 
     print('getting and plotting the FEM solution from numpy coefs array...')
     title = r'solution $\phi_h$ (amplitude)'
-    params_str = 'eta={}'.format(eta) + '_mu={}'.format(mu) + '_gamma_h={}'.format(gamma_h)
+    params_str = 'eta={}_mu={}_gamma_h={}'.format(eta, mu, gamma_h)
     plot_field(numpy_coeffs=uh_c, Vh=V0h, space_kind='h1', domain=domain, title=title, filename=plot_dir+params_str+'_phi_h.png', hide_plot=hide_plots)
 
 
@@ -238,10 +238,10 @@ if __name__ == '__main__':
     quick_run = True
     # quick_run = False
 
-    omega = np.sqrt(4) # source
+    omega = np.sqrt(170) # source
     roundoff = 1e4
     eta = int(-omega**2 * roundoff)/roundoff
-    print(eta)
+    # print(eta)
     # source_type = 'elliptic_J'
     source_type = 'manu_poisson'
 
@@ -261,6 +261,7 @@ if __name__ == '__main__':
     # nc = 2
     # deg = 2
 
+    run_dir = '{}_{}_nc={}_deg={}/'.format(domain_name, source_type, nc, deg)
     solve_h1_source_pbm(
         nc=nc, deg=deg,
         eta=eta,
@@ -269,7 +270,7 @@ if __name__ == '__main__':
         source_type=source_type,
         backend_language='numba',
         plot_source=True,
-        plot_dir='./plots/h1_tests_source_february/',
+        plot_dir='./plots/h1_tests_source_february/'+run_dir,
         hide_plots=True,
     )
 
