@@ -461,6 +461,8 @@ class TransposeOperator(SplBasic):
 
 #==============================================================================
 class InterfaceTransposeOperator(TransposeOperator):
+    """ This class generates the Matrix transpose code for a StencilInterfaceMatrix.
+    """
     def __new__(cls, ndim, **kwargs):
         return SplBasic.__new__(cls, 'interface_transpose', name='lo_interface_transpose', prefix='lo_interface_transpose')
 
@@ -644,7 +646,12 @@ def interface_transpose_1d( M:'float[:,:]', Mt:'float[:,:]', d_start:"int64",
                             nd1:"int64", ndT1:"int64", si1:"int64",
                             sk1:"int64", sl1:"int64"):
 
+    #$ omp parallel default(private) shared(Mt,M) firstprivate( d_start, c_start, dim, n1,nc1,gp1,p1,&
+    #$ nd1,ndT1,si1,sk1,sl1)
+
     d1 = gp1-p1
+
+    #$ omp for schedule(static)
     for x1 in range(n1):
         j1 = gp1 + x1
         for l1 in range(nd1):
@@ -654,6 +661,9 @@ def interface_transpose_1d( M:'float[:,:]', Mt:'float[:,:]', d_start:"int64",
             if k1<ndT1 and k1>-1 and m1<nd1 and i1<nc1:
                 Mt[j1,m1] = M[i1,k1]
 
+    #$ omp end parallel
+    return
+
 # ...
 def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:"int64",
                             c_start:"int64", dim:"int64", n1:"int64", n2:"int64",
@@ -662,9 +672,13 @@ def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:"in
                             ndT1:"int64", ndT2:"int64", si1:"int64", si2:"int64",
                             sk1:"int64", sk2:"int64", sl1:"int64", sl2:"int64"):
 
+
+    #$ omp parallel default(private) shared(Mt,M) firstprivate( d_start, c_start, dim, n1,n2,nc1,nc2,gp1,gp2,p1,p2,&
+    #$ nd1,nd2,ndT1,ndT2,si1,si2,sk1,sk2,sl1,sl2)
     d1 = gp1-p1
     d2 = gp2-p2
 
+    #$ omp for schedule(static) collapse(2)
     for x1 in range(n1):
         for x2 in range(n2):
             j1 = gp1 + x1
@@ -684,6 +698,9 @@ def interface_transpose_2d( M:'float[:,:,:,:]', Mt:'float[:,:,:,:]', d_start:"in
                         and m1<nd1 and m2<nd2 and i1<nc1 and i2<nc2:
                         Mt[j1,j2, m1,m2] = M[i1,i2, k1,k2]
 
+    #$ omp end parallel
+    return
+
 # ...
 def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]',
                             d_start:"int64", c_start:"int64", dim:"int64",
@@ -697,10 +714,13 @@ def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]',
                             sk1:"int64", sk2:"int64", sk3:"int64",
                             sl1:"int64", sl2:"int64", sl3:"int64"):
 
+    #$ omp parallel default(private) shared(Mt,M) firstprivate( d_start, c_start, dim, n1,n2,n3,nc1,nc2,nc3,gp1,gp2,gp3,p1,p2,p3,&
+    #$ nd1,nd2,nd3,ndT1,ndT2,ndT3,si1,si2,si3,sk1,sk2,sk3,sl1,sl2,sl3)
     d1 = gp1-p1
     d2 = gp2-p2
     d3 = gp3-p3
 
+    #$ omp for schedule(static) collapse(3)
     for x1 in range(n1):
         for x2 in range(n2):
             for x3 in range(n3):
@@ -729,6 +749,8 @@ def interface_transpose_3d( M:'float[:,:,:,:,:,:]', Mt:'float[:,:,:,:,:,:]',
                               and m1<nd1 and m2<nd2 and m3<nd3 and i1<nc1 and i2<nc2 and i3<nc3:
                                 Mt[j1,j2,j3,m1,m2,m3] = M[i1,i2,i3, k1,k2,k3]
 
+    #$ omp end parallel
+    return
 
 interface_transpose            = {1:interface_transpose_1d,2:interface_transpose_2d, 3:interface_transpose_3d}
 interface_transpose_args_dtype = {1:[repr('float[:,:]')]*2 + [repr('int64')]*12,2:[repr('float[:,:,:,:]')]*2 + [repr('int64')]*21, 3:[repr('float[:,:,:,:,:,:]')]*2 + [repr('int64')]*30}

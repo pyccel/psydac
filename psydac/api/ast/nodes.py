@@ -727,8 +727,9 @@ class MatrixNode(ArrayNode):
 class BlockMatrixNode(MatrixNode):
     pass
 
+#==============================================================================
 class GlobalTensorQuadrature(ArrayNode):
-    """
+    """This class represents the quadrature points and weights in a domain.
     """
     _rank = 2
     _positions = {index_element: 0, index_quad: 1}
@@ -742,9 +743,13 @@ class GlobalTensorQuadrature(ArrayNode):
         return self._weights
 
 #==============================================================================
-class LocalTensorQuadrature(ArrayNode):
-    # TODO add set_positions
+class PlusLocalTensorQuadrature(LocalTensorQuadrature):
+    """This class represents the element wise quadrature points and weights in the plus boundary of an interface.
     """
+
+#==============================================================================
+class LocalTensorQuadrature(ArrayNode):
+    """ This class represents the element wise quadrature points and weights in a domain.
     """
     _rank = 1
     _positions = {index_quad: 0}
@@ -755,18 +760,16 @@ class LocalTensorQuadrature(ArrayNode):
     @property
     def weights( self ):
         return self._weights
-#==============================================================================
-class PlusLocalTensorQuadrature(LocalTensorQuadrature):
-    pass
 
 #==============================================================================
 class PlusGlobalTensorQuadrature(GlobalTensorQuadrature):
-    pass
+    """This class represents the quadrature points and weights in the plus boundary of an interface.
+    """
 
 #==============================================================================
 class TensorQuadrature(ScalarNode):
-    """
-    """
+    """This class represents the quadrature point and weight in a domain."""
+
     def __init__(self, weights=True):
         self._weights = weights
 
@@ -775,9 +778,9 @@ class TensorQuadrature(ScalarNode):
         return self._weights
 #==============================================================================
 class PlusTensorQuadrature(TensorQuadrature):
+    """This class represents the quadrature point and weight in the plus boundary of an interface.
     """
-    """
-    pass
+
 #==============================================================================
 class MatrixQuadrature(MatrixNode):
     """
