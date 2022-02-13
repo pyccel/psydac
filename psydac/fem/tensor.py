@@ -379,7 +379,7 @@ class TensorFemSpace( FemSpace ):
         return self._spaces
     
     @property
-    defnquads( self ):
+    def nquads( self ):
         return self._quad_order
 
     @property
