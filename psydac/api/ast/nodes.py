@@ -744,7 +744,7 @@ class GlobalTensorQuadrature(ArrayNode):
 
 #==============================================================================
 class PlusGlobalTensorQuadrature(GlobalTensorQuadrature):
-    """This class represents the quadrature points and weights in the plus boundary of an interface.
+    """This class represents the quadrature points and weights in the plus side of an interface.
     """
 
 #==============================================================================
@@ -763,7 +763,7 @@ class LocalTensorQuadrature(ArrayNode):
 
 #==============================================================================
 class PlusLocalTensorQuadrature(LocalTensorQuadrature):
-    """This class represents the element wise quadrature points and weights in the plus boundary of an interface.
+    """This class represents the element wise quadrature points and weights in the plus side of an interface.
     """
 
 #==============================================================================
@@ -779,7 +779,7 @@ class TensorQuadrature(ScalarNode):
 
 #==============================================================================
 class PlusTensorQuadrature(TensorQuadrature):
-    """This class represents the quadrature point and weight in the plus boundary of an interface.
+    """This class represents the quadrature point and weight in the plus side of an interface.
     """
 
 #==============================================================================
