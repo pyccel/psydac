@@ -61,16 +61,16 @@ class FemLinearOperator( LinearOperator ):
 
     # ...
     def to_sparse_matrix( self ):
-        if self._sparse_matrix:
+        if self._sparse_matrix is not None:
             return self._sparse_matrix
-        elif self._matrix:
+        elif self._matrix is not None:
             return self._matrix.tosparse()
         else:
             raise NotImplementedError('Class does not provide a get_sparse_matrix() method without a matrix')
 
     # ...
     def __call__( self, f ):
-        if self._matrix:
+        if self._matrix is not None:
             coeffs = self._matrix.dot(f.coeffs)
             return FemField(self.fem_codomain, coeffs=coeffs)
         else:
@@ -79,7 +79,7 @@ class FemLinearOperator( LinearOperator ):
     # ...
     def dot( self, f_coeffs, out=None ):
         # coeffs layer
-        if self._matrix:
+        if self._matrix is not None:
             f = FemField(self.fem_domain, coeffs=f_coeffs)
             return self(f).coeffs
         else:

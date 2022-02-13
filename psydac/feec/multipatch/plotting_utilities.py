@@ -1,7 +1,5 @@
 # coding: utf-8
 
-# Conga operators on piecewise (broken) de Rham sequences
-
 from mpi4py import MPI
 
 import numpy as np
@@ -18,8 +16,7 @@ from psydac.fem.basic   import FemField
 
 from psydac.feec.pull_push     import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
-# todo (MCP, april 12): merge get_grid_vals_scalar and get_grid_vals_vector into a single function
-
+# todo: remove with the older examples
 def get_grid_vals_scalar(u, etas, mappings_list, space_kind='h1'):  #_obj):
     # get the physical field values, given the logical field and the logical grid
     # n_patches = len(domain)
@@ -47,7 +44,7 @@ def get_grid_vals_scalar(u, etas, mappings_list, space_kind='h1'):  #_obj):
 
     return u_vals
 
-
+# todo: remove with the older examples
 def get_grid_vals_vector(E, etas, mappings_list, space_kind='hcurl'):
     # get the physical field values, given the logical field and logical grid
     n_patches = len(mappings_list)
@@ -93,7 +90,7 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
     n_patches = len(mappings_list)
     vector_valued = is_vector_valued(u)
     if vector_valued:
-        # TODO: here we assume 2D !
+        # WARNING: here we assume 2D !
         u_vals_components = [n_patches*[None], n_patches*[None]]
     else:
         u_vals_components = [n_patches*[None]]

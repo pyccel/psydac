@@ -4,32 +4,25 @@ from mpi4py import MPI
 
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 
 from collections import OrderedDict
 
-from scipy.sparse.linalg import spsolve, inv, minres
+from scipy.sparse.linalg import spsolve, inv
 from scipy.sparse import save_npz, load_npz
 
-from tempfile import TemporaryFile
-
-from sympy import pi, cos, sin, Matrix, Tuple, Max, exp
-from sympy import symbols
+from sympy import pi, cos, sin, Matrix, Tuple, exp
 from sympy import lambdify
 
-from sympde.expr     import TerminalExpr
-from sympde.calculus import grad, dot, inner, rot, div, curl, cross
+from sympde.calculus import dot, div, curl, cross
 from sympde.calculus import minus, plus
 from sympde.topology import NormalVector
 from sympde.expr     import Norm
 
 from sympde.topology import Derham
 from sympde.topology import element_of, elements_of
-from sympde.topology import Square
-from sympde.topology import IdentityMapping, PolarMapping
 from sympde.topology import VectorFunctionSpace
 
-from sympde.expr.equation import find, EssentialBC
+from sympde.expr.equation import find
 
 from sympde.expr.expr import LinearForm, BilinearForm
 from sympde.expr.expr import integral
@@ -37,27 +30,22 @@ from sympde.expr.expr import integral
 from psydac.api.settings        import PSYDAC_BACKENDS
 from psydac.feec.multipatch.api import discretize
 
-from psydac.linalg.iterative_solvers import cg, pcg
+from psydac.linalg.iterative_solvers import cg
 from psydac.linalg.utilities import array_to_stencil
 
 from psydac.fem.basic   import FemField
 
-from psydac.feec.pull_push     import push_2d_hcurl, pull_2d_hcurl
+from psydac.feec.pull_push     import pull_2d_hcurl
 
-from psydac.utilities.utils    import refine_array_1d
-
-from psydac.linalg.iterative_solvers import pcg
-
-
-from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator, IdLinearOperator
-from psydac.feec.multipatch.fem_linear_operators import SumLinearOperator, MultLinearOperator, ComposedLinearOperator
+from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
+from psydac.feec.multipatch.fem_linear_operators import ComposedLinearOperator
 from psydac.feec.multipatch.operators import BrokenMass, ConformingProjection_V1, ConformingProjection_V0 #ortho_proj_Hcurl
 from psydac.feec.multipatch.operators import time_count
 from psydac.feec.multipatch.plotting_utilities import get_grid_vals_scalar, get_grid_vals_vector, get_grid_quad_weights
 from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 
-from psydac.feec.multipatch.conga_maxwell_eigenproblem_example import get_fem_name, get_load_dir
+from psydac.feec.multipatch.older_examples.conga_maxwell_eigenproblem_example import get_fem_name, get_load_dir
 
 comm = MPI.COMM_WORLD
 

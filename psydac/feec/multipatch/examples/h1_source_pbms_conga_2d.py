@@ -4,36 +4,29 @@ import os
 import numpy as np
 from collections import OrderedDict
 
-from sympy import pi, cos, sin, Tuple, exp
 from sympy import lambdify
 
-from sympde.expr     import TerminalExpr
-from sympde.calculus import grad, dot, inner, rot, div, curl, cross
-from sympde.calculus import minus, plus
-from sympde.topology import NormalVector
-from sympde.expr     import Norm
-
-from sympde.topology import element_of, elements_of, Domain
+from sympde.topology import element_of
 
 from sympde.expr.expr import LinearForm
 from sympde.expr.expr import integral
 
 
-from scipy.sparse.linalg import spsolve, spilu, cg, lgmres
+from scipy.sparse.linalg import spsolve
 
 from sympde.topology import Derham
 
 from psydac.api.settings import PSYDAC_BACKENDS
 
 from psydac.feec.multipatch.api import discretize
-from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, push_2d_hcurl, push_2d_l2
+from psydac.feec.pull_push import pull_2d_h1
 
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
 from psydac.feec.multipatch.operators import time_count, HodgeOperator
 from psydac.feec.multipatch.plotting_utilities import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 
-from psydac.feec.multipatch.ppc_test_cases import get_source_and_solution
+from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution
 
 comm = MPI.COMM_WORLD
 

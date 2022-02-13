@@ -116,10 +116,12 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 #            return P0, P1, P2, P3
 
         #--------------------------------------------------------------------------
-    def conforming_projection(self, space=None, hom_bc=None, backend_language="python"):
+    def conforming_projection(self, space=None, hom_bc=None, backend_language="python", storage_fn=None):
         """
         return the patch-wise commuting projectors on the broken multi-patch space
         note: here 'global' is a patch-level notion, as the interpolation-type problems are solved on each patch independently
+
+        :param storage_fn: (optional) filename for storage in sparse matrix format
         """
         if hom_bc is None:
             raise ValueError('please provide a value for "hom_bc" argument')
@@ -130,10 +132,10 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 
         elif self.dim == 2:
             if space == 'V0':
-                cP = ConformingProjection_V0(self.V0, self._domain_h, hom_bc=hom_bc, backend_language=backend_language)
+                cP = ConformingProjection_V0(self.V0, self._domain_h, hom_bc=hom_bc, backend_language=backend_language, storage_fn=storage_fn)
             elif space == 'V1':
                 if self.sequence[1] == 'hcurl':
-                    cP = ConformingProjection_V1(self.V1, self._domain_h, hom_bc=hom_bc, backend_language=backend_language)
+                    cP = ConformingProjection_V1(self.V1, self._domain_h, hom_bc=hom_bc, backend_language=backend_language, storage_fn=storage_fn)
                 else:
                     raise NotImplementedError('2D sequence with H-div not available yet')
 

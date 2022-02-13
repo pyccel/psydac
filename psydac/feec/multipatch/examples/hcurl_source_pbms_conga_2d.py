@@ -4,43 +4,34 @@ import os
 import numpy as np
 from collections import OrderedDict
 
-from sympy import pi, cos, sin, Tuple, exp
 from sympy import lambdify
 
-from sympde.expr     import TerminalExpr
-from sympde.calculus import grad, dot, inner, rot, div, curl, cross
-from sympde.calculus import minus, plus
-from sympde.topology import NormalVector
-from sympde.expr     import Norm
+from scipy.sparse.linalg import spsolve
 
-from sympde.topology import element_of, elements_of, Domain
-
+from sympde.calculus import dot
+from sympde.topology import element_of
 from sympde.expr.expr import LinearForm
 from sympde.expr.expr import integral
-
-
-from scipy.sparse.linalg import spsolve, spilu, cg, lgmres
-
 from sympde.topology import Derham
 
 from psydac.api.settings import PSYDAC_BACKENDS
 
-from psydac.feec.multipatch.api import discretize
-from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, push_2d_hcurl, push_2d_l2
+from psydac.feec.pull_push import pull_2d_hcurl
 
+from psydac.feec.multipatch.api import discretize
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
 from psydac.feec.multipatch.operators import time_count, HodgeOperator
 from psydac.feec.multipatch.plotting_utilities import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-
-from psydac.feec.multipatch.ppc_test_cases import get_source_and_solution
+from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution
 
 comm = MPI.COMM_WORLD
 
 def solve_hcurl_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
         eta=-10., mu=1., nu=1., gamma_h=10.,
-        plot_source=False, plot_dir=None, hide_plots=True
+        plot_source=False, plot_dir=None, hide_plots=True,
+        m_load_dir="",
 ):
     """
     solver for the problem: find u in H(curl), such that
@@ -73,18 +64,20 @@ def solve_hcurl_source_pbm(
     :param gamma_h: jump penalization parameter
     :param source_proj: approximation operator for the source, possible values are 'P_geom' or 'P_L2'
     :param source_type: must be implemented in get_source_and_solution()
+    :param m_load_dir: directory for matrix storage
     """
 
     ncells = [nc, nc]
     degree = [deg,deg]
 
-    if backend_language is None:
-        if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
-            backend_language='numba'
-        else:
-            backend_language='python'
-    print('[note: using '+backend_language+ ' backends in discretize functions]')
-
+    # if backend_language is None:
+    #     if domain_name in ['pretzel', 'pretzel_f'] and nc > 8:
+    #         backend_language='numba'
+    #     else:
+    #         backend_language='python'
+    # print('[note: using '+backend_language+ ' backends in discretize functions]')
+    if not os.path.exists(m_load_dir):
+        os.makedirs(m_load_dir)
 
     print('---------------------------------------------------------------------------------------------------------')
     print('Starting solve_hcurl_source_pbm function with: ')
@@ -137,9 +130,9 @@ def solve_hcurl_source_pbm(
     print('instanciating the Hodge operators...')
     # multi-patch (broken) linear operators / matrices
     # other option: define as Hodge Operators:
-    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language)
-    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language)
-    H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language)
+    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, storage_fn=[m_load_dir+"H0_m.npz", m_load_dir+"dH0_m.npz"])
+    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, storage_fn=[m_load_dir+"H1_m.npz", m_load_dir+"dH1_m.npz"])
+    H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, storage_fn=[m_load_dir+"H2_m.npz", m_load_dir+"dH2_m.npz"])
 
     t_stamp = time_count(t_stamp)
     print('building the dual Hodge matrix dH0_m = M0_m ...')
@@ -166,8 +159,8 @@ def solve_hcurl_source_pbm(
     t_stamp = time_count(t_stamp)
     print('building the conforming Projection operators and matrices...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language)
-    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language)
+    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, storage_fn=m_load_dir+"cP0_hom_m.npz")
+    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, storage_fn=m_load_dir+"cP1_hom_m.npz")
     cP0_m = cP0.to_sparse_matrix()
     cP1_m = cP1.to_sparse_matrix()
 
@@ -329,6 +322,7 @@ if __name__ == '__main__':
     # deg = 2
 
     run_dir = '{}_{}_nc={}_deg={}/'.format(domain_name, source_type, nc, deg)
+    m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
     solve_hcurl_source_pbm(
         nc=nc, deg=deg,
         eta=eta,
@@ -338,8 +332,9 @@ if __name__ == '__main__':
         source_type=source_type,
         backend_language='numba',
         plot_source=True,
-        plot_dir='./plots/tests_source_february/'+run_dir,
+        plot_dir='./plots/tests_source_feb_13/'+run_dir,
         hide_plots=True,
+        m_load_dir=m_load_dir
     )
 
     time_count(t_stamp_full, msg='full program')
