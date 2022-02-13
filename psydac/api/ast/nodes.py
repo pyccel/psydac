@@ -743,8 +743,8 @@ class GlobalTensorQuadrature(ArrayNode):
         return self._weights
 
 #==============================================================================
-class PlusLocalTensorQuadrature(LocalTensorQuadrature):
-    """This class represents the element wise quadrature points and weights in the plus boundary of an interface.
+class PlusGlobalTensorQuadrature(GlobalTensorQuadrature):
+    """This class represents the quadrature points and weights in the plus boundary of an interface.
     """
 
 #==============================================================================
@@ -762,8 +762,8 @@ class LocalTensorQuadrature(ArrayNode):
         return self._weights
 
 #==============================================================================
-class PlusGlobalTensorQuadrature(GlobalTensorQuadrature):
-    """This class represents the quadrature points and weights in the plus boundary of an interface.
+class PlusLocalTensorQuadrature(LocalTensorQuadrature):
+    """This class represents the element wise quadrature points and weights in the plus boundary of an interface.
     """
 
 #==============================================================================
@@ -776,6 +776,7 @@ class TensorQuadrature(ScalarNode):
     @property
     def weights( self ):
         return self._weights
+
 #==============================================================================
 class PlusTensorQuadrature(TensorQuadrature):
     """This class represents the quadrature point and weight in the plus boundary of an interface.
