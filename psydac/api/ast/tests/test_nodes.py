@@ -24,8 +24,8 @@ from psydac.api.ast.nodes import Grid
 from psydac.api.ast.nodes import Element
 from psydac.api.ast.nodes import ProductGenerator
 from psydac.api.ast.nodes import Loop
-from psydac.api.ast.nodes import GlobalTensorQuadrature
-from psydac.api.ast.nodes import LocalTensorQuadrature
+from psydac.api.ast.nodes import GlobalTensorQuadratureGrid
+from psydac.api.ast.nodes import LocalTensorQuadratureGrid
 from psydac.api.ast.nodes import TensorQuadrature
 from psydac.api.ast.nodes import MatrixQuadrature
 from psydac.api.ast.nodes import GlobalTensorQuadratureTestBasis
@@ -79,8 +79,8 @@ expr   = dot(grad(v), grad(u))
 # ...
 grid    = Grid()
 element = Element()
-g_quad  = GlobalTensorQuadrature()
-l_quad  = LocalTensorQuadrature()
+g_quad  = GlobalTensorQuadratureGrid()
+l_quad  = LocalTensorQuadratureGrid()
 quad    = TensorQuadrature()
 
 g_basis   = GlobalTensorQuadratureTrialBasis(u)
