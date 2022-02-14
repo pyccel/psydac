@@ -299,8 +299,14 @@ def solve_mixed_source_pbm(
     title = r'solution $P0 p_h$ (amplitude)'
     plot_field(numpy_coeffs=ph_c, Vh=V0h, space_kind='h1', domain=domain, title=title, filename=plot_dir+params_str+'_ph.png', hide_plot=hide_plots)
     title = r'solution $P1 u_h$ (amplitude)'
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title, filename=plot_dir+params_str+'_uh.png', hide_plot=hide_plots)
-
+    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='amplitude',
+               domain=domain, title=title, filename=plot_dir+params_str+'_uh.png', hide_plot=hide_plots)
+    title = r'solution $P1 u_h$ (vector field)'
+    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='vector_field',
+               domain=domain, title=title, filename=plot_dir+params_str+'_uh_vf.png', hide_plot=hide_plots)
+    title = r'solution $P1 u_h$ (components)'
+    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='components',
+               domain=domain, title=title, filename=plot_dir+params_str+'_uh_xy.png', hide_plot=hide_plots)
 
 if __name__ == '__main__':
 

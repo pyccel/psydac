@@ -247,13 +247,16 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
 
 from matplotlib import colors
 
-def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, hide_plot=True):
+def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None,
+               plot_type='amplitude', space_kind=None, title=None, filename='dummy_plot.png',
+               subtitles=None, N_vis=20, hide_plot=True):
     """
     plot a discrete field (given as a FemField or by its coeffs in numpy or stencil format) on the given domain
 
     :param Vh: Fem space needed if v is given by its coeffs
     :param space_kind: type of the push-forward defining the physical Fem Space
     :param subtitles: in case one would like to have several subplots # todo: then v should be given as a list of fields...
+    :param N_vis: nb of visualization points per patch (per dimension)
     """
     if not space_kind in ['h1', 'hcurl', 'l2']:
         raise ValueError('invalid value for space_kind = {}'.format(space_kind))
@@ -267,30 +270,68 @@ def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, 
 
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
-    etas, xx, yy    = get_plotting_grid(mappings, N=20)
+    etas, xx, yy    = get_plotting_grid(mappings, N=N_vis)
     grid_vals = lambda v: get_grid_vals(v, etas, mappings_list, space_kind=space_kind)
 
     vh_vals = grid_vals(vh)
-    if is_vector_valued(vh):
-        # then vh_vals[d] contains the values of the d-component of vh (as a patch-indexed list)
-        vh_abs_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2) for v in zip(vh_vals[0],vh_vals[1])]
-    else:
-        # then vh_vals just contains the values of vh (as a patch-indexed list)
-        vh_abs_vals = np.abs(vh_vals)
+    if plot_type == 'vector_field' and not is_vector_valued(vh):
+        print("WARNING [plot_field]: vector_field plot is not possible with a scalar field, plotting the amplitude instead")
+        plot_type = 'amplitude'
 
-    my_small_plot(
-        title=title,
-        vals=[vh_abs_vals],
-        titles=subtitles,
-        xx=xx,
-        yy=yy,
-        surface_plot=False,
-        save_fig=filename,
-        save_vals = True,
-        hide_plot=hide_plot,
-        cmap='hsv',
-        dpi = 400,
-    )
+    if plot_type == 'vector_field':
+        if is_vector_valued(vh):
+            my_small_streamplot(
+                title=title,
+                vals_x=vh_vals[0],
+                vals_y=vh_vals[1],
+                skip=2,
+                xx=xx,
+                yy=yy,
+                amp_factor=2,
+                # save_fig=plot_dir+'uh_vf.png',
+                save_fig=filename,
+                hide_plot=hide_plot,
+                dpi = 200,
+            )
+
+    else:
+        # computing plot_vals_list: may have several elements for several plots
+        if plot_type=='amplitude':
+
+            if is_vector_valued(vh):
+                # then vh_vals[d] contains the values of the d-component of vh (as a patch-indexed list)
+                plot_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2) for v in zip(vh_vals[0],vh_vals[1])]
+            else:
+                # then vh_vals just contains the values of vh (as a patch-indexed list)
+                plot_vals = np.abs(vh_vals)
+            plot_vals_list = [plot_vals]
+
+        elif plot_type=='components':
+            if is_vector_valued(vh):
+                # then vh_vals[d] contains the values of the d-component of vh (as a patch-indexed list)
+                plot_vals_list = vh_vals
+                if subtitles is None:
+                    subtitles = ['x-component', 'y-component']
+            else:
+                # then vh_vals just contains the values of vh (as a patch-indexed list)
+                plot_vals_list = [vh_vals]
+        else:
+            raise ValueError(plot_type)
+
+        my_small_plot(
+            title=title,
+            vals=plot_vals_list,
+            titles=subtitles,
+            xx=xx,
+            yy=yy,
+            surface_plot=False,
+            save_fig=filename,
+            save_vals = True,
+            hide_plot=hide_plot,
+            cmap='hsv',
+            dpi = 400,
+        )
+
 
 def my_small_plot(
         title, vals, titles=None,
