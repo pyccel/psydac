@@ -612,7 +612,7 @@ class Parser(object):
         raise NotImplementedError('TODO')
 
     # ....................................................
-    def _visit_GlobalTensorQuadrature(self, expr, **kwargs):
+    def _visit_GlobalTensorQuadratureGrid(self, expr, **kwargs):
         dim  = self.dim
         rank = expr.rank
 
@@ -634,7 +634,7 @@ class Parser(object):
         return {0: targets}
 
     # ....................................................
-    def _visit_LocalTensorQuadrature(self, expr, **kwargs):
+    def _visit_LocalTensorQuadratureGrid(self, expr, **kwargs):
         dim  = self.dim
         rank = expr.rank
 
@@ -655,7 +655,8 @@ class Parser(object):
 
         return {0: targets}
 
-    def _visit_PlusGlobalTensorQuadrature(self, expr, **kwargs):
+    # ....................................................
+    def _visit_PlusGlobalTensorQuadratureGrid(self, expr, **kwargs):
         dim  = self.dim
         rank = expr.rank
 
@@ -668,9 +669,8 @@ class Parser(object):
         points = tuple(zip(points))
         return dict([(0,points)])
 
-
     # ....................................................
-    def _visit_PlusLocalTensorQuadrature(self, expr, **kwargs):
+    def _visit_PlusLocalTensorQuadratureGrid(self, expr, **kwargs):
         dim  = self.dim
         rank = expr.rank
 
@@ -681,6 +681,7 @@ class Parser(object):
 
         points = tuple(zip(points))
         return dict([(0,points)])
+
     # ....................................................
     def _visit_TensorQuadrature(self, expr, **kwargs):
         dim = self.dim
@@ -700,6 +701,18 @@ class Parser(object):
         self.insert_variables(*points, *weights)
 
         return {0: targets}
+
+    # ....................................................
+    def _visit_PlusTensorQuadrature(self, expr, **kwargs):
+        dim = self.dim
+        names   = 'x1:%s_plus'%(dim+1)
+        points  = variables(names, dtype='real', cls=Variable)
+
+        targets = tuple(zip(points))
+
+        self.insert_variables(*points)
+
+        return dict([(0,targets)])
 
     # ....................................................
     def _visit_GlobalThreadSpan(self, expr, **kwargs):
@@ -751,17 +764,6 @@ class Parser(object):
         if expr.index is not None:
             return targets[expr.index]
         return targets
-
-    def _visit_PlusTensorQuadrature(self, expr, **kwargs):
-        dim = self.dim
-        names   = 'x1:%s_plus'%(dim+1)
-        points  = variables(names, dtype='real', cls=Variable)
-
-        targets = tuple(zip(points))
-
-        self.insert_variables(*points)
-
-        return dict([(0,targets)])
 
     # ....................................................
     def _visit_MatrixQuadrature(self, expr, **kwargs):

@@ -728,7 +728,7 @@ class BlockMatrixNode(MatrixNode):
     pass
 
 #==============================================================================
-class GlobalTensorQuadrature(ArrayNode):
+class GlobalTensorQuadratureGrid(ArrayNode):
     """This class represents the quadrature points and weights in a domain.
     """
     _rank = 2
@@ -743,12 +743,12 @@ class GlobalTensorQuadrature(ArrayNode):
         return self._weights
 
 #==============================================================================
-class PlusGlobalTensorQuadrature(GlobalTensorQuadrature):
+class PlusGlobalTensorQuadratureGrid(GlobalTensorQuadratureGrid):
     """This class represents the quadrature points and weights in the plus side of an interface.
     """
 
 #==============================================================================
-class LocalTensorQuadrature(ArrayNode):
+class LocalTensorQuadratureGrid(ArrayNode):
     """ This class represents the element wise quadrature points and weights in a domain.
     """
     _rank = 1
@@ -762,7 +762,7 @@ class LocalTensorQuadrature(ArrayNode):
         return self._weights
 
 #==============================================================================
-class PlusLocalTensorQuadrature(LocalTensorQuadrature):
+class PlusLocalTensorQuadratureGrid(LocalTensorQuadratureGrid):
     """This class represents the element wise quadrature points and weights in the plus side of an interface.
     """
 
@@ -1989,7 +1989,7 @@ class Loop(BaseNode):
 
     def get_geometry_stmts(self, mapping):
 
-        l_quad = list(self.generator.atoms(LocalTensorQuadrature))
+        l_quad = list(self.generator.atoms(LocalTensorQuadratureGrid))
         if len(l_quad) == 0:
             return Tuple()
 
@@ -2144,19 +2144,19 @@ def construct_itergener(a, index):
     """
     """
     # ... create generator
-    if isinstance(a, PlusGlobalTensorQuadrature):
+    if isinstance(a, PlusGlobalTensorQuadratureGrid):
         generator = TensorGenerator(a, index)
-        element   = PlusLocalTensorQuadrature()
+        element   = PlusLocalTensorQuadratureGrid()
 
-    elif isinstance(a, PlusLocalTensorQuadrature):
+    elif isinstance(a, PlusLocalTensorQuadratureGrid):
         generator = TensorGenerator(a, index)
         element   = PlusTensorQuadrature()
 
-    elif isinstance(a, GlobalTensorQuadrature):
+    elif isinstance(a, GlobalTensorQuadratureGrid):
         generator = TensorGenerator(a, index)
-        element   = LocalTensorQuadrature()
+        element   = LocalTensorQuadratureGrid()
 
-    elif isinstance(a, LocalTensorQuadrature):
+    elif isinstance(a, LocalTensorQuadratureGrid):
         generator = TensorGenerator(a, index)
         element   = TensorQuadrature(a.weights)
 
@@ -2199,7 +2199,7 @@ def construct_itergener(a, index):
     # ...
 
     # ... create iterator
-    if isinstance(element, LocalTensorQuadrature):
+    if isinstance(element, LocalTensorQuadratureGrid):
         iterator = TensorIterator(element)
 
     elif isinstance(element, TensorQuadrature):

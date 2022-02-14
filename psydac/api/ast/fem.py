@@ -25,8 +25,8 @@ from sympde.calculus.core        import is_zero
 from psydac.pyccel.ast.core import _atomic, Assign, Import, AugAssign, Return
 from psydac.pyccel.ast.core import Comment, Continue
 
-from .nodes import GlobalTensorQuadrature, PlusGlobalTensorQuadrature
-from .nodes import LocalTensorQuadrature, PlusLocalTensorQuadrature
+from .nodes import GlobalTensorQuadratureGrid, PlusGlobalTensorQuadratureGrid
+from .nodes import LocalTensorQuadratureGrid, PlusLocalTensorQuadratureGrid
 from .nodes import GlobalTensorQuadratureTestBasis
 from .nodes import GlobalTensorQuadratureTrialBasis
 from .nodes import LengthElement, LengthQuadrature
@@ -596,13 +596,13 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     backend    = kwargs.pop('backend')
     is_pyccel  = backend['name'] == 'pyccel' if backend else False
     pads       = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
-    g_quad     = [GlobalTensorQuadrature(False)]
-    l_quad     = [LocalTensorQuadrature(False)]
+    g_quad     = [GlobalTensorQuadratureGrid(False)]
+    l_quad     = [LocalTensorQuadratureGrid(False)]
     b0s        = variables(('b01, b02, b03'), dtype='int')[:dim]
     e0s        = variables(('e01, e02, e03'), dtype='int')[:dim]
     if isinstance(domain, Interface):
-        g_quad.append(PlusGlobalTensorQuadrature(False))
-        l_quad.append(PlusLocalTensorQuadrature(False))
+        g_quad.append(PlusGlobalTensorQuadratureGrid(False))
+        l_quad.append(PlusLocalTensorQuadratureGrid(False))
 
     rank_from_coords = MatrixRankFromCoords()
     coords_from_rank = MatrixCoordsFromRank()
@@ -1024,8 +1024,8 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     backend   = kwargs.pop('backend', None)
     is_pyccel = backend['name'] == 'pyccel' if backend else False
     pads     = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
-    g_quad   = [GlobalTensorQuadrature(False)]
-    l_quad   = [LocalTensorQuadrature(False)]
+    g_quad   = [GlobalTensorQuadratureGrid(False)]
+    l_quad   = [LocalTensorQuadratureGrid(False)]
     geo      = GeometryExpressions(mapping, nderiv)
     g_coeffs = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
 
@@ -1342,8 +1342,8 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     """
 
     pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
-    g_quad = [GlobalTensorQuadrature()]
-    l_quad = [LocalTensorQuadrature()]
+    g_quad = [GlobalTensorQuadratureGrid()]
+    l_quad = [LocalTensorQuadratureGrid()]
 
     #TODO move to EvalField
     coeffs   = [CoefficientBasis(i) for i in expand(fields)]
