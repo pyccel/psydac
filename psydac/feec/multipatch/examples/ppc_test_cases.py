@@ -96,6 +96,7 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
         p_ex = phi
 
     elif source_type == 'manu_maxwell':
+        # used for Maxwell equation with manufactured solution
         alpha   = eta
         u_ex    = Tuple(sin(pi*y), sin(pi*x)*cos(pi*y))
         f_vect  = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
@@ -173,7 +174,7 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
 
         f_x =   dy_phi_0 - dy_phi_1
         f_y = - dx_phi_0 + dx_phi_1
-        f_scal = phi_0 - phi_1
+        f_scal = 0 # phi_0 - phi_1
         f_vect = Tuple(f_x, f_y)
 
     elif source_type == 'old_ellip_J':
