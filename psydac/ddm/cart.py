@@ -4,7 +4,7 @@ import numpy as np
 from itertools import product
 from mpi4py    import MPI
 
-from psydac.ddm.partition import mpi_compute_dims
+from psydac.ddm.partition import compute_dims
 
 __all__ = ['find_mpi_type', 'CartDecomposition', 'CartDataExchanger']
 
@@ -71,7 +71,7 @@ class CartDecomposition():
        Reverse the ownership of the processes along the specified axis.
 
     """
-    def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, shifts=None, nprocs=None, reverse_axis=None ):
+    def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, shifts=None, nprocs=None, reverse_axis=None, num_threads=None ):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
@@ -82,13 +82,15 @@ class CartDecomposition():
         assert isinstance( reorder, bool )
         assert isinstance( comm, MPI.Comm )
 
-        shifts = tuple(shifts) if shifts else (1,)*len(npts)
+        shifts      = tuple(shifts) if shifts else (1,)*len(npts)
+        num_threads = num_threads if num_threads else 1
 
         # Store input arguments
         self._npts         = tuple( npts    )
         self._pads         = tuple( pads    )
         self._periods      = tuple( periods )
         self._shifts       = shifts
+        self._num_threads  = num_threads
         self._reorder      = reorder
         self._comm         = comm
 
@@ -107,7 +109,7 @@ class CartDecomposition():
         reduced_npts = [(n-p-1)//m if m>1 else n if not P else n for n,m,p,P in zip(npts, shifts, pads, periods)]
 
         if nprocs is None:
-            nprocs, block_shape = mpi_compute_dims( self._size, reduced_npts, pads )
+            nprocs, block_shape = compute_dims( self._size, reduced_npts, pads )
         else:
             assert len(nprocs) == len(npts)
 
@@ -218,6 +220,10 @@ class CartDecomposition():
         return self._shifts
 
     @property
+    def num_threads( self ):
+        return self._num_threads
+
+    @property
     def reorder( self ):
         return self._reorder
 
@@ -309,6 +315,43 @@ class CartDecomposition():
     def get_shift_info( self, direction, disp ):
 
         return self._shift_info[ direction, disp ]
+
+    #---------------------------------------------------------------------------
+    def get_shared_memory_subdivision( self, shape ):
+
+        assert len(shape) == self._ndims
+
+        try:
+            nthreads , block_shape = compute_dims( self._num_threads, shape , [2*p for p in self._pads])
+        except ValueError:
+            print("Cannot compute dimensions with given input values!")
+            self.comm.Abort(1)
+
+        # compute the coords for all threads
+        coords_from_rank = np.array([np.unravel_index(rank, nthreads) for rank in range(self._num_threads)])
+        rank_from_coords = np.zeros([n+1 for n in nthreads], dtype=int)
+        for r in range(self._num_threads):
+            c = coords_from_rank[r]
+            rank_from_coords[tuple(c)] = r
+
+        # rank_from_coords is not used in the current version of the assembly code
+        # it's used in the commented second version, where we don't use a global barrier, but needs more checks to work
+
+        for i in range(self._ndims):
+            ind = [slice(None,None)]*self._ndims
+            ind[i] = nthreads[i]
+            rank_from_coords[tuple(ind)] = self._num_threads
+
+        # Store arrays with all the starts and ends along each direction for every thread
+        thread_global_starts = [None]*self._ndims
+        thread_global_ends   = [None]*self._ndims
+        for axis in range( self._ndims ):
+            n = shape[axis]
+            d = nthreads[axis]
+            thread_global_starts[axis] = np.array( [( c   *n)//d   for c in range( d )] )
+            thread_global_ends  [axis] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
+
+        return coords_from_rank, rank_from_coords, thread_global_starts, thread_global_ends, self._num_threads
 
     #---------------------------------------------------------------------------
     def _compute_shift_info( self, direction, disp ):

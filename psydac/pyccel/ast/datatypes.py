@@ -75,9 +75,11 @@ dtype_and_precision_registry = { 'real':('real',default_precision['float']),
                                  'int32':('int',4),
                                  'int64':('int',8),
                                  'int'  :('int', default_precision['int']),
+                                 'int_'  :('int', default_precision['int']), # numba only accepts int_ as datatype instead of int
                                  'pythonint'  :('int', default_precision['int']),
                                  'integer':('int',default_precision['int']),
                                  'bool' :('bool',default_precision['bool']),
+                                 'bool_' :('bool',default_precision['bool']), # numba only accepts bool_ as datatype instead of bool
                                  'pythonbool' :('bool',default_precision['bool'])}
 
 
@@ -93,13 +95,13 @@ class DataType(metaclass=Singleton):
         return str(self.name).lower()
 
 class NativeBool(DataType):
-    _name = 'Bool'
+    _name = 'Bool_'
 
 class NativeInteger(DataType):
-    _name = 'Int'
+    _name = 'Int64'
 
 class NativeReal(DataType):
-    _name = 'Real'
+    _name = 'Float64'
 
 class NativeComplex(DataType):
     _name = 'Complex'
@@ -184,7 +186,9 @@ _Symbol        = NativeSymbol()
 Generic        = NativeGeneric()
 
 dtype_registry = {'bool': Bool,
+                  'bool_': Bool,
                   'int': Int,
+                  'int_': Int,
                   'integer': Int,
                   'real'   : Real,
                   'complex': Cmplx,
