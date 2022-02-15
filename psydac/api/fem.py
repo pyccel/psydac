@@ -204,6 +204,12 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_grid  = QuadratureGrid( trial_space, axis, trial_ext)
             self._grid  = (test_grid,)
         elif isinstance(target, Interface):
+            # this part treats the cases of:
+            # integral(v_minus * u_plus)
+            # integral(v_plus  * u_minus)
+            # the other cases, integral(v_minus * u_minus) and integral(v_plus * u_plus)
+            # are converted to boundary integrals by Sympde
+
             axis         = target.axis
             test         = self.kernel_expr.test
             trial        = self.kernel_expr.trial

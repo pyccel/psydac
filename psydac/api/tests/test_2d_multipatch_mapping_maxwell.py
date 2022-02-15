@@ -152,7 +152,7 @@ if __name__ == '__main__':
 
     from collections                               import OrderedDict
     from sympy                                     import lambdify
-    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals_vector
+    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
     from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
 
     domain    = build_pretzel()
@@ -174,7 +174,7 @@ if __name__ == '__main__':
     Eex_log = [pull_2d_hcurl([Eex_x,Eex_y], f) for f in mappings_list]
 
     etas, xx, yy         = get_plotting_grid(mappings, N=20)
-    grid_vals_hcurl      = lambda v: get_grid_vals_vector(v, etas, mappings_list, space_kind='hcurl')
+    grid_vals_hcurl      = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
 
     Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
     E_x_vals, E_y_vals   = grid_vals_hcurl(Eex_log)

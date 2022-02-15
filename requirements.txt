@@ -8,6 +8,6 @@
 numpy>=1.16
 Cython>=0.25
 numba
-mpi4py==3.0.3
+mpi4py
 h5py
 --no-binary h5py

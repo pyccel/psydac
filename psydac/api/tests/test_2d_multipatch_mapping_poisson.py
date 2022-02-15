@@ -234,7 +234,7 @@ def teardown_function():
 
 if __name__ == '__main__':
 
-    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals_scalar
+    from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
     from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
     from collections                               import OrderedDict
 
@@ -260,7 +260,7 @@ if __name__ == '__main__':
     etas, xx, yy = get_plotting_grid(mappings, N)
     gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(u_h.space, N, mappings, plotted_patch=1)
 
-    grid_vals_h1 = lambda v: get_grid_vals_scalar(v, etas, mappings_list, space_kind='h1')
+    grid_vals_h1 = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='h1')
 
     u_ref_vals = grid_vals_h1(u_ex_log)
     u_h_vals   = grid_vals_h1(u_h)

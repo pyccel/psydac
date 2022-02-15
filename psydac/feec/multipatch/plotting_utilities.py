@@ -1,73 +1,87 @@
 # coding: utf-8
 
+from mpi4py import MPI
+from sympy  import lambdify
+
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib  import cm, colors
+from collections import OrderedDict
 
-from sympy      import lambdify
-from matplotlib import cm
-from matplotlib import colors
+from psydac.linalg.utilities import array_to_stencil
+from psydac.fem.basic        import FemField
+from psydac.utilities.utils  import refine_array_1d
+from psydac.feec.pull_push   import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
-from psydac.utilities.utils    import refine_array_1d
-from psydac.fem.basic          import FemField
-from psydac.feec.pull_push     import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
-
-from mpi4py import MPI
 #==============================================================================
-# some plotting utilities
-# todo (MCP, april 12): merge get_grid_vals_scalar and get_grid_vals_vector into a single function
-def get_grid_vals_scalar(u, etas, mappings_list, space_kind='h1'):  #_obj):
-    # get the physical field values, given the logical field and the logical grid
-    # n_patches = len(domain)
-    n_patches = len(mappings_list)
-    u_vals    = n_patches*[None]
-    for k in range(n_patches):
-        eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
-        u_vals[k] = np.empty_like(eta_1)
-        if isinstance(u,FemField):
-            uk_field = u.fields[k]   # todo (MCP): try with u[k].fields?
-        else:
-            # then field is just callable
-            uk_field = u[k]
-
-        if space_kind == 'h1':
-            # todo (MCP): add 2d_hcurl_vector
-            push_field = lambda eta1, eta2: push_2d_h1(uk_field, eta1, eta2)
-        else:
-            push_field = lambda eta1, eta2: push_2d_l2(uk_field, eta1, eta2, mapping=mappings_list[k])
-        for i, x1i in enumerate(eta_1[:, 0]):
-            for j, x2j in enumerate(eta_2[0, :]):
-                u_vals[k][i, j] = push_field(x1i, x2j)
-    return u_vals
+def is_vector_valued(u):
+    # small utility function, only tested for FemFields in multi-patch spaces of the 2D grad-curl sequence
+    # todo: a proper interface returning the number of components of a general FemField would be nice
+    return u.fields[0].space.is_product
 
 #------------------------------------------------------------------------------
-def get_grid_vals_vector(E, etas, mappings_list, space_kind='hcurl'):
-    # get the physical field values, given the logical field and logical grid
+def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
+    """
+    get the physical field values, given the logical field and the logical grid
+    :param u: FemField
+    :param etas: logical grid
+    :param space_kind: specifies the push-forward for the physical values
+    """
     n_patches = len(mappings_list)
-    # mappings_list = list(mappings.values())
-    E_x_vals = n_patches*[None]
-    E_y_vals = n_patches*[None]
+    vector_valued = is_vector_valued(u) if isinstance(u, FemField) else isinstance(u[0],(list, tuple))
+    if vector_valued:
+        # WARNING: here we assume 2D !
+        u_vals_components = [n_patches*[None], n_patches*[None]]
+    else:
+        u_vals_components = [n_patches*[None]]
+
     for k in range(n_patches):
         eta_1, eta_2 = np.meshgrid(etas[k][0], etas[k][1], indexing='ij')
-        E_x_vals[k] = np.empty_like(eta_1)
-        E_y_vals[k] = np.empty_like(eta_1)
-        if isinstance(E,FemField):
-            Ek_field_0 = E[k].fields[0]   # or E.fields[k][0] ?
-            Ek_field_1 = E[k].fields[1]
+        for vals in u_vals_components:
+            vals[k] = np.empty_like(eta_1)
+        uk_field_1 = None
+        if isinstance(u,FemField):
+            if vector_valued:
+                uk_field_0 = u[k].fields[0]
+                uk_field_1 = u[k].fields[1]
+            else:
+                uk_field_0 = u.fields[k]   # it would be nice to just write u[k].fields[0] here...
         else:
-            # then E field is just callable
-            Ek_field_0 = E[k][0]
-            Ek_field_1 = E[k][1]
-        if space_kind == 'hcurl':
+            # then u should be callable
+            if vector_valued:
+                uk_field_0 = u[k][0]
+                uk_field_1 = u[k][1]
+            else:
+                uk_field_0 = u[k]
+
+        # computing the pushed-fwd values on the grid
+        if space_kind == 'h1':
+            assert not vector_valued
+            # todo (MCP): add 2d_hcurl_vector
+            push_field = lambda eta1, eta2: push_2d_h1(uk_field_0, eta1, eta2)
+        elif space_kind == 'hcurl':
             # todo (MCP): specify 2d_hcurl_scalar in push functions
-            push_field = lambda eta1, eta2: push_2d_hcurl(Ek_field_0, Ek_field_1, eta1, eta2, mapping=mappings_list[k])
+            push_field = lambda eta1, eta2: push_2d_hcurl(uk_field_0, uk_field_1, eta1, eta2, mapping=mappings_list[k])
+        elif space_kind == 'hdiv':
+            push_field = lambda eta1, eta2: push_2d_hdiv(uk_field_0, uk_field_1, eta1, eta2, mapping=mappings_list[k])
+        elif space_kind == 'l2':
+            assert not vector_valued
+            push_field = lambda eta1, eta2: push_2d_l2(uk_field_0, eta1, eta2, mapping=mappings_list[k])
         else:
-            push_field = lambda eta1, eta2: push_2d_hdiv(Ek_field_0, Ek_field_1, eta1, eta2, mapping=mappings_list[k])
+            raise ValueError('unknown value for space_kind = {}'.format(space_kind))
 
         for i, x1i in enumerate(eta_1[:, 0]):
             for j, x2j in enumerate(eta_2[0, :]):
-                E_x_vals[k][i, j], E_y_vals[k][i, j] = push_field(x1i, x2j)
+                if vector_valued:
+                    u_vals_components[0][k][i, j], u_vals_components[1][k][i, j] = push_field(x1i, x2j)
+                else:
+                    u_vals_components[0][k][i, j] = push_field(x1i, x2j)
 
-    return E_x_vals, E_y_vals
+    # always return a list, even for scalar-valued functions ?
+    if not vector_valued:
+        return u_vals_components[0]
+    else:
+        return u_vals_components
 
 #------------------------------------------------------------------------------
 def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
@@ -170,6 +184,52 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
         gridlines_x2 = None
 
     return gridlines_x1, gridlines_x2
+
+#------------------------------------------------------------------------------
+def plot_field(fem_field=None, stencil_coeffs=None, numpy_coeffs=None, Vh=None, domain=None, space_kind=None, title=None, filename='dummy_plot.png', subtitles=None, hide_plot=True):
+    """
+    plot a discrete field (given as a FemField or by its coeffs in numpy or stencil format) on the given domain
+
+    :param Vh: Fem space needed if v is given by its coeffs
+    :param space_kind: type of the push-forward defining the physical Fem Space
+    :param subtitles: in case one would like to have several subplots # todo: then v should be given as a list of fields...
+    """
+    if not space_kind in ['h1', 'hcurl', 'l2']:
+        raise ValueError('invalid value for space_kind = {}'.format(space_kind))
+
+    vh = fem_field
+    if vh is None:
+        if numpy_coeffs is not None:
+            assert stencil_coeffs is None
+            stencil_coeffs = array_to_stencil(numpy_coeffs, Vh.vector_space)
+        vh = FemField(Vh, coeffs=stencil_coeffs)
+
+    mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
+    mappings_list = list(mappings.values())
+    etas, xx, yy    = get_plotting_grid(mappings, N=20)
+    grid_vals = lambda v: get_grid_vals(v, etas, mappings_list, space_kind=space_kind)
+
+    vh_vals = grid_vals(vh)
+    if is_vector_valued(vh):
+        # then vh_vals[d] contains the values of the d-component of vh (as a patch-indexed list)
+        vh_abs_vals = [np.sqrt(abs(v[0])**2 + abs(v[1])**2) for v in zip(vh_vals[0],vh_vals[1])]
+    else:
+        # then vh_vals just contains the values of vh (as a patch-indexed list)
+        vh_abs_vals = np.abs(vh_vals)
+
+    my_small_plot(
+        title=title,
+        vals=[vh_abs_vals],
+        titles=subtitles,
+        xx=xx,
+        yy=yy,
+        surface_plot=False,
+        save_fig=filename,
+        save_vals = True,
+        hide_plot=hide_plot,
+        cmap='hsv',
+        dpi = 400,
+    )
 
 #------------------------------------------------------------------------------
 def my_small_plot(
