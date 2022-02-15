@@ -72,6 +72,7 @@ class QuadratureGrid():
         self._ext                 = ext
 
         if axis is not None:
+            assert ext is not None
             points  = self.points
             weights = self.weights
 
