@@ -2,6 +2,8 @@
 #
 # Copyright 2019 Yaman Güçlü
 
+import numpy as np
+import pyevtk
 import yaml
 import re
 import h5py as h5
@@ -435,6 +437,8 @@ class PostProcessManager:
         self._fields = {}
         self._domain = None
 
+        self._scope_reconstructed = False
+
     @property
     def spaces(self):
         return self._spaces
@@ -659,3 +663,51 @@ class PostProcessManager:
                                     'time': temp_space_to_field[k]['time'],
                                     'timestep': temp_space_to_field[k]['timestep'],
                                 }
+        self._scope_reconstructed = True
+
+    def export_to_vtk(self, filename_pattern, dt=None, lz=4, refine_factor=1, **fields):
+        """Exports all the static fields and some or all
+        of the time dependent fields.
+
+        Parameters
+        ----------
+        filename_pattern: str
+            file pattern of the file
+
+        lz: int (optional)
+            Number of leading zeros in the time indexing of the files.
+
+        fields: dict
+            Dictionnary with the as the fields to export and as values the name under which to export them
+
+        dt: int, list of ints or None (optional)
+            If an int is given, will export every dt^th snapshot.
+            If a list is given instead, will export every snapshot present in the list
+            Finally, if None, will export every time step
+
+        refine_factor: int (optional)
+            Degree of refinement of the grid
+
+        """
+        if not self._scope_reconstructed:
+            self.reconstruct_scope()
+
+        mappings = self._domain.mappings
+
+        if len(mappings.values()) != 1:
+            raise NotImplementedError("Multipatch not supported yet")
+
+        mapping = list(mappings.values())[0]
+
+        # Coordinates of the mesh, C Contiguous arrays
+        x_mesh, y_mesh, z_mesh = mapping.build_mesh(refine_factor=refine_factor)
+
+        mesh_dets = None
+        mesh_jacs = None
+        mesh_inv_jacs = None
+
+        pointData_static = {}
+
+        ldim = mapping.ldim
+
+        pass
