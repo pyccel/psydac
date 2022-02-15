@@ -129,18 +129,37 @@ class SplineMapping:
     def __call__( self, eta ):
         return [map_Xd( *eta ) for map_Xd in self._fields]
 
-    def build_mesh(self, refine_factor=None):
+    def build_mesh(self, refine_factor=1):
         """Evaluation of the mapping on the entire logical domain
         using a refined grid.
 
         Parameters
         ----------
-        refine_factor : int, tuple of ints or None, Optional
+        refine_factor : int, tuple of ints (Optional)
             How much to refine the logical grid.
 
+        Returns
+        -------
+        x_mesh: 3D array of floats
+            X component of the mesh
+        y_mesh: 3D array of floats
+            Y component of the mesh
+        z_mesh: 3D array of floats
+            Z component of the mesh
         """
 
-        return self.space.eval_fields(*self._fields, refine_factor=refine_factor)
+        mesh = self.space.eval_fields(*self._fields, refine_factor=refine_factor)
+
+        if self.ldim == 2:
+            x_mesh = np.ascontiguousarray(mesh[..., 0:1])
+            y_mesh = np.ascontiguousarray(mesh[..., 1:2])
+            z_mesh = np.zeros_like(x_mesh)
+        elif self.ldim == 3:
+            x_mesh = np.ascontiguousarray(mesh[..., 0])
+            y_mesh = np.ascontiguousarray(mesh[..., 1])
+            z_mesh = np.ascontiguousarray(mesh[..., 2])
+
+        return x_mesh, y_mesh, z_mesh
 
     def jac_mat( self, eta ):
         return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
@@ -151,6 +170,112 @@ class SplineMapping:
 
     def metric_det( self, eta ):
         return np.linalg.det( self.metric( eta ) )
+
+    def jac_mat_grid(self, refine_factor=1):
+        from psydac.core.kernels import eval_jacobians_2d, eval_jacobians_3d
+
+        ncells, \
+        pads, \
+        degree, \
+        quad_order, \
+        global_basis, \
+        global_spans = self.space.preprocess(der=1, refine_factor=refine_factor)
+
+        jac_mats = np.zeros((*(tuple(ncells[i] * (quad_order[i] + 1) for i in range(self.ldim))), self.ldim, self.ldim))
+
+        if self.ldim == 3:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+            global_arr_z = self._fields[2].coeffs._data
+
+            eval_jacobians_3d(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
+                              degree[2], quad_order[0], quad_order[1], quad_order[2], global_basis[0], global_basis[1],
+                              global_basis[2], global_spans[0], global_spans[1], global_spans[2], global_arr_x,
+                              global_arr_y, global_arr_z, jac_mats)
+
+        elif self.ldim == 2:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+
+            eval_jacobians_2d(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], quad_order[0],
+                              quad_order[1], global_basis[0], global_basis[1], global_spans[0], global_spans[1],
+                              global_arr_x, global_arr_y, jac_mats)
+
+        else:
+            raise NotImplementedError("TODO")
+
+        return jac_mats
+
+    def inv_jac_mat_grid(self, refine_factor=1):
+        from psydac.core.kernels import eval_jacobians_inv_2d, eval_jacobians_inv_3d
+
+        ncells, \
+        pads, \
+        degree, \
+        quad_order, \
+        global_basis, \
+        global_spans = self.space.preprocess(der=1, refine_factor=refine_factor)
+
+        inv_jac_mats = np.zeros((*(tuple(ncells[i] * (quad_order[i] + 1) for i in range(self.ldim))), self.ldim, self.ldim))
+
+        if self.ldim == 3:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+            global_arr_z = self._fields[2].coeffs._data
+
+            eval_jacobians_inv_3d(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
+                                  degree[2], quad_order[0], quad_order[1], quad_order[2], global_basis[0],
+                                  global_basis[1], global_basis[2], global_spans[0], global_spans[1], global_spans[2],
+                                  global_arr_x, global_arr_y, global_arr_z, inv_jac_mats)
+
+        elif self.ldim == 2:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+
+            eval_jacobians_inv_2d(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], quad_order[0],
+                                  quad_order[1], global_basis[0], global_basis[1], global_spans[0], global_spans[1],
+                                  global_arr_x, global_arr_y, inv_jac_mats)
+
+        else:
+            raise NotImplementedError("TODO")
+
+        return inv_jac_mats
+
+    def metric_det_grid(self, refine_factor=1):
+        from psydac.core.kernels import eval_det_metric_3d, eval_det_metric_2d
+
+        ncells, \
+        pads, \
+        degree, \
+        quad_order, \
+        global_basis, \
+        global_spans = self.space.preprocess(der=1, refine_factor=refine_factor)
+
+        metric_det = np.zeros(tuple(ncells[i] * (quad_order[i] + 1) for i in range(self.ldim)))
+
+        if self.ldim == 3:
+
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+            global_arr_z = self._fields[2].coeffs._data
+
+            eval_det_metric_3d(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
+                               degree[2], quad_order[0], quad_order[1], quad_order[2], global_basis[0], global_basis[1],
+                               global_basis[2], global_spans[0], global_spans[1], global_spans[2], global_arr_x,
+                               global_arr_y, global_arr_z, metric_det)
+
+        elif self.ldim == 2:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+
+            eval_det_metric_2d(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], quad_order[0],
+                               quad_order[1], global_basis[0], global_basis[1], global_spans[0], global_spans[1],
+                               global_arr_x, global_arr_y, metric_det)
+
+        else:
+            raise NotImplementedError("TODO")
+
+        return metric_det
 
     @property
     def ldim( self ):
@@ -336,18 +461,145 @@ class NurbsMapping( SplineMapping ):
         Xd = [map_Xd( *eta , weights=map_W.coeffs) for map_Xd in self._fields]
         return np.asarray( Xd ) / w
 
-    def build_mesh(self, refine_factor=None):
+    def build_mesh(self, refine_factor=1):
         """Evaluation of the mapping on the entire logical domain
         using a refined grid.
 
         Parameters
         ----------
-        refine_factor : int, tuple of ints or None, Optional
+        refine_factor : int, tuple of ints (Optional)
             How much to refine the logical grid.
 
         """
 
-        return self.space.eval_fields(*self._fields, refine_factor=refine_factor, weights=self._weights_field)
+        mesh = self.space.eval_fields(*self._fields, refine_factor=refine_factor, weights=self._weights_field)
+
+        if self.ldim == 2:
+            x_mesh = np.ascontiguousarray(mesh[..., 0:1])
+            y_mesh = np.ascontiguousarray(mesh[..., 1:2])
+            z_mesh = np.zeros_like(x_mesh)
+        elif self.ldim == 3:
+            x_mesh = np.ascontiguousarray(mesh[..., 0])
+            y_mesh = np.ascontiguousarray(mesh[..., 1])
+            z_mesh = np.ascontiguousarray(mesh[..., 2])
+
+        return x_mesh, y_mesh, z_mesh
+
+    def jac_mat_grid(self, refine_factor=1):
+        from psydac.core.kernels import eval_jacobians_2d_weights, eval_jacobians_3d_weights
+
+        ncells, \
+        pads, \
+        degree, \
+        quad_order, \
+        global_basis, \
+        global_spans = self.space.preprocess(der=1, refine_factor=refine_factor)
+
+        global_arr_weights = self._weights_field.coeffs._data
+
+        jac_mats = np.zeros((*(tuple(ncells[i] * (quad_order[i] + 1) for i in range(self.ldim))), self.ldim, self.ldim))
+
+        if self.ldim == 3:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+            global_arr_z = self._fields[2].coeffs._data
+
+            eval_jacobians_3d_weights(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
+                                      degree[2], quad_order[0], quad_order[1], quad_order[2], global_basis[0],
+                                      global_basis[1], global_basis[2], global_spans[0], global_spans[1],
+                                      global_spans[2], global_arr_x, global_arr_y, global_arr_z, global_arr_weights,
+                                      jac_mats)
+
+        elif self.ldim == 2:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+
+            eval_jacobians_2d_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], quad_order[0],
+                                      quad_order[1], global_basis[0], global_basis[1], global_spans[0], global_spans[1],
+                                      global_arr_x, global_arr_y, global_arr_weights, jac_mats)
+
+        else:
+            raise NotImplementedError("TODO")
+
+        return jac_mats
+
+    def inv_jac_mat_grid(self, refine_factor=1):
+        from psydac.core.kernels import eval_jacobians_inv_2d_weights, eval_jacobians_inv_3d_weights
+
+        ncells, \
+        pads, \
+        degree, \
+        quad_order, \
+        global_basis, \
+        global_spans = self.space.preprocess(der=1, refine_factor=refine_factor)
+
+        global_arr_weights = self._weights_field.coeffs._data
+
+        inv_jac_mats = np.zeros(
+            (*(tuple(ncells[i] * (quad_order[i] + 1) for i in range(self.ldim))), self.ldim, self.ldim))
+
+        if self.ldim == 3:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+            global_arr_z = self._fields[2].coeffs._data
+
+            eval_jacobians_inv_3d_weights(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0],
+                                          degree[1], degree[2], quad_order[0], quad_order[1], quad_order[2],
+                                          global_basis[0], global_basis[1], global_basis[2], global_spans[0],
+                                          global_spans[1], global_spans[2], global_arr_x, global_arr_y, global_arr_z,
+                                          global_arr_weights, inv_jac_mats)
+
+        elif self.ldim == 2:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+
+            eval_jacobians_inv_2d_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], quad_order[0],
+                                          quad_order[1], global_basis[0], global_basis[1], global_spans[0],
+                                          global_spans[1], global_arr_x, global_arr_y, global_arr_weights, inv_jac_mats)
+
+        else:
+            raise NotImplementedError("TODO")
+
+        return inv_jac_mats
+
+    def metric_det_grid(self, refine_factor=1):
+        from psydac.core.kernels import eval_det_metric_3d_weights, eval_det_metric_2d_weights
+
+        ncells, \
+        pads, \
+        degree, \
+        quad_order, \
+        global_basis, \
+        global_spans = self.space.preprocess(der=1, refine_factor=refine_factor)
+
+        metric_det = np.zeros(tuple(ncells[i] * (quad_order[i] + 1) for i in range(self.ldim)))
+
+        global_arr_weights = self._weights_field.coeffs._data
+
+        if self.ldim == 3:
+
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+            global_arr_z = self._fields[2].coeffs._data
+
+            eval_det_metric_3d_weights(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
+                                       degree[2], quad_order[0], quad_order[1], quad_order[2], global_basis[0],
+                                       global_basis[1], global_basis[2], global_spans[0], global_spans[1],
+                                       global_spans[2], global_arr_x, global_arr_y, global_arr_z, global_arr_weights,
+                                       metric_det)
+
+        elif self.ldim == 2:
+            global_arr_x = self._fields[0].coeffs._data
+            global_arr_y = self._fields[1].coeffs._data
+
+            eval_det_metric_2d_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], quad_order[0],
+                                       quad_order[1], global_basis[0], global_basis[1], global_spans[0],
+                                       global_spans[1], global_arr_x, global_arr_y, global_arr_weights, metric_det)
+
+        else:
+            raise NotImplementedError("TODO")
+
+        return metric_det
 
     def jac_mat( self, eta ):
         raise NotImplementedError('TODO')
