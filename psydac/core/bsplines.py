@@ -60,14 +60,11 @@ def find_span(knots: 'float[:]', degree: int, x: float):
         Knot span index.
 
     """
-
-
     # Knot index at left/right boundary
     low  = degree
     high = len(knots)-1-degree
 
     # Check if point is exactly on left/right boundary, or outside domain
-
     if x <= knots[low ]: return low
     if x >= knots[high]: return high-1
 
@@ -83,7 +80,6 @@ def find_span(knots: 'float[:]', degree: int, x: float):
     return span
 
 #==============================================================================
-
 def find_spans(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]'):
     """Determine the knot span index at locations in x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -148,15 +144,14 @@ def basis_funs(knots: 'float[:]', degree: int, x: float, span: int, out: 'float[
 
     out[0] = 1.0
     for j in range(0, degree):
-        left[j] = x - knots[span - j]
+        left[j]  = x - knots[span - j]
         right[j] = knots[span + 1 + j] - x
-        saved = 0.0
+        saved    = 0.0
         for r in range(0, j + 1):
-            temp = out[r] / (right[r] + left[j - r])
+            temp   = out[r] / (right[r] + left[j - r])
             out[r] = saved + right[r] * temp
-            saved = left[j - r] * temp
+            saved  = left[j - r] * temp
         out[j + 1] = saved
-
 
 # ==============================================================================
 def basis_funs_array(knots: 'float[:]', degree: int, x: 'float[:]', span: 'int[:]', out: 'float[:,:]'):
@@ -184,10 +179,8 @@ def basis_funs_array(knots: 'float[:]', degree: int, x: 'float[:]', span: 'int[:
     """
 
     n = x.shape[0]
-    temp = np.empty(degree + 1, dtype=float)
     for i in range(n):
-        basis_funs(knots, degree, x[i], span[i], temp)
-        out[i, :] = temp
+        basis_funs(knots, degree, x[i], span[i], out[i, :])
 
 #==============================================================================
 def basis_funs_1st_der( knots, degree, x, span ):
@@ -396,9 +389,9 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid):
         normalize = lambda basis, span: basis * scaling[span-degree: span+1]
 
     # Fill in non-zero matrix values
+    basis = np.zeros(degree + 1)
     for i,x in enumerate( xgrid ):
         span  =  find_span( knots, degree, x )
-        basis = np.zeros(degree + 1)
         basis_funs( knots, degree, x, span, basis)
         mat[i,js(span)] = normalize(basis, span)
 
