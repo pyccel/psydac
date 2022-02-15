@@ -204,7 +204,7 @@ class OutputManager:
 
         Parameters
         ----------
-        femspaces:  sydac.fem.basic.FemSpace dict
+        femspaces:  psydac.fem.basic.FemSpace dict
             Femspaces to add in the scope of this OutputManager instance.
 
         """
@@ -689,9 +689,14 @@ class PostProcessManager:
             Degree of refinement of the grid
 
         """
+        # =================================================
+        # Common to everything
+        # =================================================
+        # Make sure we called reconstruct_scope
         if not self._scope_reconstructed:
             self.reconstruct_scope()
 
+        # Get Mapping
         mappings = self._domain.mappings
 
         if len(mappings.values()) != 1:
@@ -702,12 +707,103 @@ class PostProcessManager:
         # Coordinates of the mesh, C Contiguous arrays
         x_mesh, y_mesh, z_mesh = mapping.build_mesh(refine_factor=refine_factor)
 
-        mesh_dets = None
-        mesh_jacs = None
-        mesh_inv_jacs = None
-
-        pointData_static = {}
-
         ldim = mapping.ldim
 
-        pass
+        # ============================
+        # Static
+        # ============================
+
+        pointData_static = {}
+        smart_eval_dict = {}
+        if 'static' in self._fields.keys():
+            for f_name, field in self._fields['static']['fields'].items():
+                if f_name in fields.keys():
+                    try:
+                        smart_eval_dict[field.space][0].append(field)
+                        smart_eval_dict[field.space][1].append(fields[f_name])
+                    except KeyError:
+                        smart_eval_dict[field.space] = ([field], [fields[f_name]])
+
+            for space, (field_list_to_eval, name_list) in smart_eval_dict.items():
+                pushed_fields = space.pushforward(*field_list_to_eval, mapping=mapping, refine_factor=refine_factor)
+                target_shape = pushed_fields.shape[:-2] + (3 - ldim) * (1,)
+                for i in range(len(name_list)):
+                    if pushed_fields.shape[-2] == 1:
+                        pointData_static[name_list[i]] = np.ascontiguousarray(np.reshape(pushed_fields[..., i],
+                                                                                         newshape=target_shape))
+                    else:
+                        tuple_fields = tuple(
+                            np.ascontiguousarray(np.reshape(pushed_fields[..., j, i], newshape=target_shape))
+                            for j in range(ldim)) + (3-ldim) * (np.zeros(target_shape),)
+                        pointData_static[name_list[i]] = tuple_fields
+
+            # Export static fields to VTK
+            pyevtk.hl.gridToVTK(f'{filename_pattern}_static', x_mesh, y_mesh, z_mesh,
+                                pointData=pointData_static)
+
+        # =================================================
+        # Time Dependent part
+        # =================================================
+
+        # get which snapshots to go through
+        if dt is None:
+            dt = [k for k in self._fields.keys() if k != 'static']
+
+        if isinstance(dt, int):
+            dt = [dt * i for i in range((len(self._fields.keys()) - 1)//dt)]
+
+        smart_eval_dict = {}
+        for i, snapshot in enumerate(dt):
+            for f_name, field in self._fields[snapshot]['fields'].items():
+                if f_name in fields.keys():
+                    try:
+                        smart_eval_dict[field.space][0].append(field)
+                        smart_eval_dict[field.space][1].append(fields[f_name])
+                        smart_eval_dict[field.space][2].append(i)
+                    except KeyError:
+                        smart_eval_dict[field.space] = ([field], [fields[f_name]], [i])
+
+        pointData_full = {}
+
+        for space, (field_list_to_eval, name_list, time_list) in smart_eval_dict.items():
+            pushed_fields = space.pushforward(*field_list_to_eval, mapping=mapping, refine_factor=refine_factor)
+            target_shape = pushed_fields.shape[:-2] + (3 - ldim) * (1,)
+            previous_time = time_list[0]
+            pointData_time = {}
+            for i, name in enumerate(name_list):
+
+                # Check if we are in the same snapshot as before, if yes do nothing,
+                # if not, we save the current pointData under the appropriate timestamp
+                current_time = time_list[i]
+
+                if current_time != previous_time:
+
+                    try:
+                        pointData_full[previous_time].update(pointData_time.copy())
+                    except KeyError:
+                        pointData_full[previous_time] = pointData_time.copy()
+
+                    previous_time = current_time
+
+                # Format the results
+                if pushed_fields.shape[-2] == 1:
+                    pointData_time[name_list[i]] = np.ascontiguousarray(np.reshape(pushed_fields[..., i],
+                                                                                   newshape=target_shape))
+                else:
+                    # Means that this is a vector/product space and we need to turn the
+                    # result into a 3-tuple (x_component, y_component, z_component)
+                    tuple_fields = tuple(
+                        np.ascontiguousarray(np.reshape(pushed_fields[..., j, i], newshape=target_shape))
+                        for j in range(ldim)) + (3 - ldim) * (np.zeros(target_shape),)
+                    pointData_time[name_list[i]] = tuple_fields
+
+                # Check if we are at the end
+                if i == len(name_list) - 1:
+                    try:
+                        pointData_full[current_time].update(pointData_time.copy())
+                    except KeyError:
+                        pointData_full[current_time] = pointData_time.copy()
+
+        for i, pointData_full_i in enumerate(pointData_full.values()):
+            pyevtk.hl.gridToVTK(filename_pattern + '_{0:0{1}d}'.format(i, lz),
+                                x_mesh, y_mesh, z_mesh, pointData=pointData_full_i)
