@@ -362,6 +362,25 @@ class ProductFemSpace( FemSpace ):
 
     # ...
     def pushforward(self, *fields, mapping=None, refine_factor=1):
+        """ Push forward
+
+        Parameters
+        ----------
+        fields: list of psydac.fem.basic.FemField
+
+        mapping: psydac.mapping.SplineMapping
+            Mapping on which to push-forward
+
+        refine_factor: int
+            Degree of refinement of the grid
+
+        Returns
+        -------
+        pushed_fields:
+            push-forwarded fields
+
+        """
+
         from psydac.core.kernels import pushforward_2d_l2, pushforward_3d_l2, pushforward_2d_hdiv, pushforward_3d_hdiv,\
                                         pushforward_2d_hcurl, pushforward_3d_hcurl
 
