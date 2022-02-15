@@ -101,6 +101,7 @@ def post_processing(uh_grids, vh_grids):
                                        'rotation': (vh_grid_x_new, vh_grid_y_new, np.zeros_like(vh_grid_y_new))},
                             fieldData={'time': np.array([float(i)]), 'time step': np.array([i])})
 
+    post.export_to_vtk('example', u='u', v='v')
 
 if __name__ == '__main__':
     uh_grids, vh_grids = example(20)
