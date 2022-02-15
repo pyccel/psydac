@@ -890,20 +890,25 @@ class TensorFemSpace( FemSpace ):
         fig.show()
 
     # ...
-    def pushfoward(self, *fields, mapping, refine_factor=1):
+    def pushforward(self, *fields, mapping=None, refine_factor=1):
         """ Push forward
 
         Parameters
         ----------
-        fields
-        mapping
-        refine_factor
+        fields: list of psydac.fem.basic.FemField
+
+        mapping: psydac.mapping.SplineMapping
+            Mapping on which to push-forward
+
+        refine_factor: int
+            Degree of refinement of the grid
 
         Returns
         -------
+        pushed_fields:
+            push-forwarded fields
 
         """
-        # This is not optimized
         from psydac.core.kernels import pushforward_2d_l2, pushforward_3d_l2
 
         kind = str(self.symbolic_space.kind)
@@ -911,16 +916,21 @@ class TensorFemSpace( FemSpace ):
         # Shape of out_fields = (ncells[0],..., ncells[ldim],len(fields))
         out_fields = self.eval_fields(*fields, refine_factor=refine_factor)
 
-        pushed_fields = np.zeros_like(out_fields)
+        if mapping is None:
+            raise TypeError("pushforward() missing 1 required keyword-only argument: 'mapping'")
 
+        if kind == 'H1SpaceType()':
+            return out_fields
+
+        pushed_fields = np.zeros_like(out_fields)
         if kind == 'L2SpaceType()':
             if self.ldim == 2:
                 pushforward_2d_l2(out_fields, mapping.metric_det_grid(refine_factor=refine_factor), pushed_fields)
+                pushed_fields = np.reshape(pushed_fields, newshape=(*pushed_fields.shape[:-1],
+                                                                    1, pushed_fields.shape[-1]))
             if self.ldim == 3:
                 pushforward_3d_l2(out_fields, mapping.metric_det_grid(refine_factor=refine_factor), pushed_fields)
 
-        elif kind == 'H1SpaceType()':
-            return out_fields
         else:
             raise ValueError(kind)
 
