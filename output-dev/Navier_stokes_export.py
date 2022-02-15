@@ -167,14 +167,11 @@ def run_time_dependent_navier_stokes_2d(geometry_file, dt_h, Tf,
     # OutputManager init
     # =============================================
     Om = OutputManager('spaces_nv.yml', 'fields_nv.h5')
-    Om.add_spaces(V1h, V2h)
+    Om.add_spaces(V1h=V1h, V2h=V2h)
 
     mapping = domain_h.mappings['patch_0']
 
-    mesh_coords = mapping.build_mesh(refine_factor=0)
-    x_mesh = np.ascontiguousarray(mesh_coords[..., 0:1])
-    y_mesh = np.ascontiguousarray(mesh_coords[..., 1:])
-    z_mesh = np.zeros_like(x_mesh)
+    x_mesh, y_mesh, z_mesh = mapping.build_mesh(refine_factor=0)
 
     uh_grids = []
     ph_grids = []
@@ -247,9 +244,9 @@ def run_time_dependent_navier_stokes_2d(geometry_file, dt_h, Tf,
 
         ph_grids.append(ph_grid)
         uh_grids.append((uh_grid_x, uh_grid_y))
-        # pyevtk.hl.gridToVTK(f'bent_pipe_nv_{ts:0>4}', x_mesh, y_mesh, z_mesh,
-        #                   pointData={'Pressure': ph_grid,
-        #                               'velocity': (uh_grid_x, uh_grid_y, uh_grid_z)})
+        pyevtk.hl.gridToVTK(f'bent_pipe_nv_{ts:0>4}', x_mesh, y_mesh, z_mesh,
+                            pointData={'Pressure': ph_grid,
+                                       'velocity': (uh_grid_x, uh_grid_y, uh_grid_z)})
 
     Om.export_space_info()
 
