@@ -361,7 +361,7 @@ class ProductFemSpace( FemSpace ):
         return self.spaces[0].comm
 
     # ...
-    def pushforward(self, *fields, mapping, refine_factor=1):
+    def pushforward(self, *fields, mapping=None, refine_factor=1):
         from psydac.core.kernels import pushforward_2d_l2, pushforward_3d_l2, pushforward_2d_hdiv, pushforward_3d_hdiv,\
                                         pushforward_2d_hcurl, pushforward_3d_hcurl
 
@@ -369,6 +369,13 @@ class ProductFemSpace( FemSpace ):
 
         # Shape of out_fields = (n_0,...,n_ldim, ldim, len(fields))
         out_fields = self.eval_fields(*fields, refine_factor=refine_factor)
+
+        if mapping is None:
+            raise TypeError("pushforward() missing 1 required keyword-only argument: 'mapping'")
+
+        if kind == 'H1SpaceType()':
+            return out_fields
+
         pushed_fields = zeros_like(out_fields)
 
         if kind == 'L2SpaceType()':
@@ -388,7 +395,6 @@ class ProductFemSpace( FemSpace ):
                                                              pushed_fields.shape[-1] // self.ldim))
 
         if kind == 'HdivSpaceType()':
-            print(out_fields.flags, mapping.jac_mat_grid(refine_factor=refine_factor).flags, pushed_fields.flags)
             if self.ldim == 2:
                 pushforward_2d_hdiv(out_fields, mapping.jac_mat_grid(refine_factor=refine_factor), pushed_fields)
             if self.ldim == 3:
