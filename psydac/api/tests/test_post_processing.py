@@ -135,33 +135,36 @@ def test_PostProcess_Manager():
 
     domain = Domain.from_file(geometry_file)
 
-    V1 = ScalarFunctionSpace('V1', domain, kind='h1')
+    V1 = ScalarFunctionSpace('V1', domain, kind='l2')
     V2 = VectorFunctionSpace('V2', domain, kind='hcurl')
+    V3 = VectorFunctionSpace('V3', domain, kind='hdiv')
 
     domainh = discretize(domain, filename=geometry_file)
 
     V1h = discretize(V1, domainh, degree=[4, 3])
     V2h = discretize(V2, domainh, degree=[[3, 2], [2, 3]])
+    V3h = discretize(V3, domainh, degree=[[1, 1], [1, 1]])
 
     uh = FemField(V1h)
     vh = FemField(V2h)
+    wh = FemField(V3h)
 
     # Output Manager Initialization
     output = OutputManager('space_example.yml', 'fields_example.h5')
-    output.add_spaces(V1h=V1h, V2h=V2h)
+    output.add_spaces(V1h=V1h, V2h=V2h, V3=V3h)
     output.set_static().export_fields(u=uh, v=vh)
 
     uh_grids = []
     vh_grids = []
 
-    for i in range(150):
+    for i in range(15):
         uh.coeffs[:] = np.random.random(size=uh.coeffs[:].shape)
 
         vh.coeffs[0][:] = np.random.random(size=vh.coeffs[0][:].shape)
         vh.coeffs[1][:] = np.random.random(size=vh.coeffs[1][:].shape)
 
         # Export to HDF5
-        output.add_snapshot(t=float(i), ts=i).export_fields(u=uh, v=vh)
+        output.add_snapshot(t=float(i), ts=i).export_fields(u=uh, v=vh, w=wh)
 
         # Saving for comparisons
         uh_grid = V1h.eval_fields(uh, refine_factor=2)
@@ -196,6 +199,10 @@ def test_PostProcess_Manager():
         assert np.allclose(uh_grid_new, uh_grids[i])
         assert np.allclose(vh_grid_x_new, vh_grids[i][0])
         assert np.allclose(vh_grid_y_new, vh_grids[i][1])
+
+    post.export_to_vtk('example_None', dt=None, u='u', v='v', w='w')
+    post.export_to_vtk('example_int', dt=5, u='u', v='v', w='w')
+    post.export_to_vtk('example_list', dt=[9,5,6,3], u='u', v='v', w='w')
 
 
 if __name__ == '__main__':
