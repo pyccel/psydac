@@ -1,7 +1,6 @@
 # coding: utf-8
 
 # TODO: - have a block version for VectorSpace when all component spaces are the same
-
 from sympde.topology.space import BasicFunctionSpace
 
 from psydac.linalg.basic   import Vector
@@ -9,7 +8,7 @@ from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.block   import BlockVectorSpace
 from psydac.fem.basic      import FemSpace, FemField
 
-from numpy import unique, asarray, allclose
+from numpy import unique, asarray, allclose, array, moveaxis, ascontiguousarray, zeros_like, reshape
 
 #===============================================================================
 class VectorFemSpace( FemSpace ):
@@ -95,6 +94,17 @@ class VectorFemSpace( FemSpace ):
         raise NotImplementedError( "VectorFemSpace not yet operational" )
 
     # ...
+    def eval_fields(self, *fields, refine_factor=1, weights=None):
+        result = []
+        for i in range(self.ldim):
+            fields_i = list(field.fields[i] for field in fields)
+            result.append(self._spaces[i].eval_fields(*fields_i, refine_factor=refine_factor, weights=weights))
+        result = array(result)
+
+        return ascontiguousarray(moveaxis(result, 0, -2))
+
+
+    # ...
     def eval_field_gradient( self, field, *eta ):
 
         assert isinstance( field, FemField )
@@ -157,6 +167,48 @@ class VectorFemSpace( FemSpace ):
             for ms in degree[1:]:
                 if not( allclose(ns, asarray(ms)) ): return False
             return True
+
+    # ...
+    def pushforward(self, *fields, mapping, refine_factor=1):
+        from psydac.core.kernels import pushforward_2d_l2, pushforward_3d_l2, pushforward_2d_hdiv, pushforward_3d_hdiv,\
+                                        pushforward_2d_hcurl, pushforward_3d_hcurl
+
+        kind = self.symbolic_space.kind
+
+        # Shape of out_fields = (n_0,...,n_ldim, ldim, len(fields))
+        out_fields = self.eval_fields(*fields, refine_factor=refine_factor)
+        pushed_fields = zeros_like(out_fields)
+
+        if kind == 'L2SpaceType()':
+            pushed_fields = reshape(pushed_fields, newshape=(*pushed_fields.shape[:-2],
+                                                             pushed_fields.shape[-1] * pushed_fields.shape[-2]))
+
+            out_fields= reshape(out_fields, newshape=(*pushed_fields.shape[:-2],
+                                                         pushed_fields.shape[-1] * pushed_fields.shape[-2]))
+            if self.ldim == 2:
+                pushforward_2d_l2(out_fields, mapping.metric_det_grid(refine_factor=refine_factor), pushed_fields)
+
+            if self.ldim == 3:
+                pushforward_3d_l2(out_fields, mapping.metric_det_grid(refine_factor=refine_factor), pushed_fields)
+
+            pushed_fields = reshape(pushed_fields, newshape=(*pushed_fields.shape[:-1],
+                                                                self.ldim,
+                                                                pushed_fields.shape[-1] // self.ldim))
+
+        if kind == 'HdivSpaceType()':
+            if self.ldim == 2:
+                pushforward_2d_hdiv(out_fields, mapping.jac_mat_grid(refine_factor=refine_factor), pushed_fields)
+            if self.ldim == 3:
+                pushforward_3d_hdiv(out_fields, mapping.jac_mat_grid(refine_factor=refine_factor), pushed_fields)
+
+        if kind == 'HcurlSpaceType()':
+            if self.ldim == 2:
+                pushforward_2d_hcurl(out_fields, mapping.inv_jac_mat_grid(refine_factor=refine_factor), pushed_fields)
+            if self.ldim == 3:
+                pushforward_3d_hcurl(out_fields, mapping.inv_jac_mat_grid(refine_factor=refine_factor), pushed_fields)
+
+        return pushed_fields
+
 
     def __str__(self):
         """Pretty printing"""
@@ -253,12 +305,14 @@ class ProductFemSpace( FemSpace ):
     def eval_field( self, field, *eta ):
         raise NotImplementedError( "ProductFemSpace not yet operational" )
 
-    def eval_fields(self, *fields, refine_factor=None, weights=None):
+    def eval_fields(self, *fields, refine_factor=1, weights=None):
         result = []
         for i in range(self.ldim):
             fields_i = list(field.fields[i] for field in fields)
             result.append(self._spaces[i].eval_fields(*fields_i, refine_factor=refine_factor, weights=weights))
-        return result
+        result = array(result)
+
+        return ascontiguousarray(moveaxis(result, 0, -2))
 
     # ...
     def eval_field_gradient( self, field, *eta ):
@@ -305,3 +359,45 @@ class ProductFemSpace( FemSpace ):
     @property
     def comm( self ):
         return self.spaces[0].comm
+
+    # ...
+    def pushforward(self, *fields, mapping, refine_factor=1):
+        from psydac.core.kernels import pushforward_2d_l2, pushforward_3d_l2, pushforward_2d_hdiv, pushforward_3d_hdiv,\
+                                        pushforward_2d_hcurl, pushforward_3d_hcurl
+
+        kind = str(self.symbolic_space.kind)
+
+        # Shape of out_fields = (n_0,...,n_ldim, ldim, len(fields))
+        out_fields = self.eval_fields(*fields, refine_factor=refine_factor)
+        pushed_fields = zeros_like(out_fields)
+
+        if kind == 'L2SpaceType()':
+            pushed_fields = reshape(pushed_fields, newshape=(*pushed_fields.shape[:-2],
+                                                             pushed_fields.shape[-1] * pushed_fields.shape[-2]))
+
+            out_fields= reshape(out_fields, newshape=(*pushed_fields.shape[:-2],
+                                                      pushed_fields.shape[-1] * pushed_fields.shape[-2]))
+            if self.ldim == 2:
+                pushforward_2d_l2(out_fields, mapping.metric_det_grid(refine_factor=refine_factor), pushed_fields)
+
+            if self.ldim == 3:
+                pushforward_3d_l2(out_fields, mapping.metric_det_grid(refine_factor=refine_factor), pushed_fields)
+
+            pushed_fields = reshape(pushed_fields, newshape=(*pushed_fields.shape[:-1],
+                                                             self.ldim,
+                                                             pushed_fields.shape[-1] // self.ldim))
+
+        if kind == 'HdivSpaceType()':
+            print(out_fields.flags, mapping.jac_mat_grid(refine_factor=refine_factor).flags, pushed_fields.flags)
+            if self.ldim == 2:
+                pushforward_2d_hdiv(out_fields, mapping.jac_mat_grid(refine_factor=refine_factor), pushed_fields)
+            if self.ldim == 3:
+                pushforward_3d_hdiv(out_fields, mapping.jac_mat_grid(refine_factor=refine_factor), pushed_fields)
+
+        if kind == 'HcurlSpaceType()':
+            if self.ldim == 2:
+                pushforward_2d_hcurl(out_fields, mapping.inv_jac_mat_grid(refine_factor=refine_factor), pushed_fields)
+            if self.ldim == 3:
+                pushforward_3d_hcurl(out_fields, mapping.inv_jac_mat_grid(refine_factor=refine_factor), pushed_fields)
+
+        return pushed_fields
