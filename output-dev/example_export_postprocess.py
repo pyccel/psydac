@@ -56,6 +56,7 @@ def example(n):
     # End of the simulation
     # ---------------------------------------------------------------------------------
 
+
 # -------------------------------------------------------------------------------------
 def post_processing(uh_grids, vh_grids):
     # =================================================================================
@@ -73,10 +74,7 @@ def post_processing(uh_grids, vh_grids):
 
     domain_h = post.domain
     mapping = list(domain_h.mappings.values())[0]
-    mesh = mapping.build_mesh()
-    x_mesh = np.ascontiguousarray(mesh[..., 0])
-    y_mesh = np.ascontiguousarray(mesh[..., 1])
-    z_mesh = np.zeros_like(x_mesh)
+    x_mesh, y_mesh, z_mesh = mapping.build_mesh()
 
     V1h_new = post.spaces['V1h']
     V2h_new = post.spaces['V2h']
@@ -102,6 +100,7 @@ def post_processing(uh_grids, vh_grids):
                             pointData={'increment': uh_grid_new,
                                        'rotation': (vh_grid_x_new, vh_grid_y_new, np.zeros_like(vh_grid_y_new))},
                             fieldData={'time': np.array([float(i)]), 'time step': np.array([i])})
+
 
 if __name__ == '__main__':
     uh_grids, vh_grids = example(20)
