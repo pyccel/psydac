@@ -66,7 +66,7 @@ def method_test(seed, comm, config, dtype, classtype, comparison, verbose=False)
 
     if verbose:
         print(f'[{rank}] Vector built', flush=True)
-    
+
     X_glob = comparison(Y_glob)
 
     compare = classtype(V)

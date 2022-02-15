@@ -9,6 +9,7 @@ from mpi4py import MPI
 import numpy as np
 import itertools
 import h5py
+import os
 
 from sympde.topology.space import BasicFunctionSpace
 
@@ -53,6 +54,7 @@ class TensorFemSpace( FemSpace ):
             comm         = kwargs['comm']
             nprocs       = kwargs.pop('nprocs', None)
             reverse_axis = kwargs.pop('reverse_axis', None)
+            num_threads  = int(os.environ.get('OMP_NUM_THREADS',1))
             assert isinstance(comm, MPI.Comm)
             cart = CartDecomposition(
                 npts         = npts,
@@ -62,7 +64,8 @@ class TensorFemSpace( FemSpace ):
                 reorder      = True,
                 comm         = comm,
                 nprocs       = nprocs,
-                reverse_axis = reverse_axis
+                reverse_axis = reverse_axis,
+                num_threads  = num_threads
             )
 
             self._vector_space = StencilVectorSpace(cart)
