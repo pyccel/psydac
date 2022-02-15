@@ -282,9 +282,7 @@ class SplineSpace( FemSpace ):
 
         span = find_span( self.knots, self.degree, eta)
 
-        basis_array = np.empty(self.degree + 1)
-
-        basis_funs( self.knots, self.degree, eta, span, basis_array)
+        basis_array = basis_funs( self.knots, self.degree, eta, span)
         index = slice(span-self.degree, span + 1)
 
         if self.basis == 'M':
