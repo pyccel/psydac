@@ -392,20 +392,6 @@ def test_navier_stokes_2d():
     filename = os.path.join(mesh_dir, 'bent_pipe.h5')
     solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, newton_tol=1e-10, scipy=True)
 
-    u0_h  , u1_h   = solutions[-1].fields
-
-    u0_h_ref, = u0_h.space.import_fields(os.path.join(data_dir, 'velocity_0.h5'),'u0_h')
-    u1_h_ref, = u1_h.space.import_fields(os.path.join(data_dir, 'velocity_1.h5'),'u1_h')
-
-    u0_h_vals = np.array([[u0_h(x1,x2) for x1 in np.linspace(0,1,100)] for x2 in np.linspace(0,1,100)])
-    u1_h_vals = np.array([[u1_h(x1,x2) for x1 in np.linspace(0,1,100)] for x2 in np.linspace(0,1,100)])
-
-    u0_h_ref_vals = np.array([[u0_h_ref(x1,x2) for x1 in np.linspace(0,1,100)] for x2 in np.linspace(0,1,100)])
-    u1_h_ref_vals = np.array([[u1_h_ref(x1,x2) for x1 in np.linspace(0,1,100)] for x2 in np.linspace(0,1,100)])
-
-    assert abs(u0_h_vals-u0_h_ref_vals).max()<1e-7
-    assert abs(u0_h_vals-u1_h_ref_vals).max()<1e-7
-
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################
