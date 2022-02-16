@@ -521,7 +521,9 @@ class Parser(object):
         name = expr.name
         numpy_imports = ('array', 'zeros', 'zeros_like', 'floor')
         math_imports  = (*self._math_functions,)
-        imports = [Import('numpy', numpy_imports), Import('math', math_imports), *expr.imports]
+        imports = [Import('numpy', numpy_imports)] + \
+                 ([Import('math', math_imports)] if math_imports else []) + \
+                  [*expr.imports]
         results = [self._visit(a) for a in expr.results]
 
         if self.backend['name'] == 'pyccel':
