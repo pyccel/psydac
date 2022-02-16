@@ -1,4 +1,5 @@
 # coding: utf-8
+import os
 
 from sympde.topology import Derham
 
@@ -116,15 +117,34 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 #            return P0, P1, P2, P3
 
         #--------------------------------------------------------------------------
-    def conforming_projection(self, space=None, hom_bc=None, backend_language="python", storage_fn=None):
+    def conforming_projection(self, space=None, hom_bc=None, backend_language="python", load_dir=None):
         """
         return the patch-wise commuting projectors on the broken multi-patch space
         note: here 'global' is a patch-level notion, as the interpolation-type problems are solved on each patch independently
 
-        :param storage_fn: (optional) filename for storage in sparse matrix format
+        :param load_dir: (optional) filename for storage in sparse matrix format
         """
         if hom_bc is None:
             raise ValueError('please provide a value for "hom_bc" argument')
+
+        if isinstance(load_dir, str):
+            if not os.path.exists(load_dir):
+                os.makedirs(load_dir)
+            if space == 'V0':
+                P_name = 'cP0'
+            elif space == 'V1':
+                P_name = 'cP1'
+            elif space == 'V2':
+                P_name = 'cP2'
+            else:
+                raise ValueError(space)
+
+            if hom_bc:
+                storage_fn = load_dir + '/{}_hom_m.npz'.format(P_name)
+            else:
+                storage_fn = load_dir + '/{}_m.npz'.format(P_name)
+        else:
+            storage_fn = None
 
         cP = None
         if self.dim == 1:
@@ -140,7 +160,7 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
                     raise NotImplementedError('2D sequence with H-div not available yet')
 
             elif space == 'V2':
-                cP = IdLinearOperator(self.V2)
+                cP = IdLinearOperator(self.V2)  # no storage needed!
             else:
                 raise ValueError('Invalid value for "space" argument: {}'.format(space))
 

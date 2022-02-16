@@ -185,7 +185,7 @@ class ConformingProjection_V0( FemLinearOperator):
     #   - allow case without interfaces (single or multipatch)
     def __init__(self, V0h, domain_h, hom_bc=False, backend_language='python', storage_fn=None):
         """
-        :param storage_fn: to allow to store/load the operator sparse matrix
+        :param load_dir: to allow to store/load the operator sparse matrix
         """
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
@@ -387,7 +387,7 @@ class ConformingProjection_V1( FemLinearOperator ):
     #   - allow case without interfaces (single or multipatch)
     def __init__(self, V1h, domain_h, hom_bc=False, backend_language='python', storage_fn=None):
         """
-        :param storage_fn: to allow to store/load the operator sparse matrix
+        :param load_dir: to allow to store/load the operator sparse matrix
         """
         FemLinearOperator.__init__(self, fem_domain=V1h)
 
@@ -787,7 +787,7 @@ class HodgeOperator( FemLinearOperator ):
     note: either we use a storage, or these matrices are only computed on demand
     # todo: we compute the sparse matrix when to_sparse_matrix is called -- but never the stencil matrix (should be fixed...)
     """
-    def __init__( self, Vh, domain_h, backend_language='python', storage_fn=None):
+    def __init__( self, Vh, domain_h, backend_language='python', load_dir=None, load_space_index=''):
         """
         :param storage_fn: (optional) storage files for the primal and dual Hodge sparse matrices, in the form:
                            storage_fn = [primal_Hodge_storage_fn, dual_Hodge_storage_fn]
@@ -798,10 +798,12 @@ class HodgeOperator( FemLinearOperator ):
         self._dual_Hodge_matrix = None
         self._dual_Hodge_sparse_matrix = None
 
-        if storage_fn is not None:
-            assert isinstance(storage_fn[0], str) and isinstance(storage_fn[1], str)
-            primal_Hodge_storage_fn = storage_fn[0]
-            dual_Hodge_storage_fn = storage_fn[1]
+        if isinstance(load_dir, str):
+            if not os.path.exists(load_dir):
+                os.makedirs(load_dir)
+            primal_Hodge_storage_fn = load_dir+'/H{}_m.npz'.format(load_space_index)
+            dual_Hodge_storage_fn = load_dir+'/dH{}_m.npz'.format(load_space_index)
+
             primal_Hodge_is_stored = os.path.exists(primal_Hodge_storage_fn)
             dual_Hodge_is_stored = os.path.exists(dual_Hodge_storage_fn)
             if primal_Hodge_is_stored:
@@ -819,10 +821,9 @@ class HodgeOperator( FemLinearOperator ):
                 self.assemble_primal_Hodge_matrix()
                 print("[HodgeOperator] storing primal Hodge sparse matrix in "+primal_Hodge_storage_fn)
                 save_npz(primal_Hodge_storage_fn, self._sparse_matrix)
-
         else:
-            # matrices are not stored, we will need to compute them later
-            self._backend_language = backend_language
+            # matrices are not stored, we will probably compute them later
+            pass
 
     def assemble_primal_Hodge_matrix(self):
 

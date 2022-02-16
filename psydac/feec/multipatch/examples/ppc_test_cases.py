@@ -22,15 +22,57 @@ comm = MPI.COMM_WORLD
 
 # todo [MCP, 12/02/2022]:  add an 'equation' argument to be able to return 'exact solution'
 
+def get_source_and_sol_for_magnetostatic_pbm(
+    source_type=None,
+    domain=None, domain_name=None,
+    refsol_params=None
+):
+    x,y    = domain.coordinates
+    if source_type == 'dipole_J':
+        # we compute two possible source terms:
+        #   . a dipole current j_scal = phi_0 - phi_1   (two blobs)
+        #   . and f_vect = curl j_scal
+        x_0 = 1.0
+        y_0 = 1.0
+        ds2_0 = (0.02)**2
+        sigma_0 = (x-x_0)**2 + (y-y_0)**2
+        phi_0 = exp(-sigma_0**2/(2*ds2_0))
+        dx_sig_0 = 2*(x-x_0)
+        dy_sig_0 = 2*(y-y_0)
+        dx_phi_0 = - dx_sig_0 * sigma_0 / ds2_0 * phi_0
+        dy_phi_0 = - dy_sig_0 * sigma_0 / ds2_0 * phi_0
+
+        x_1 = 2.0
+        y_1 = 2.0
+        ds2_1 = (0.02)**2
+        sigma_1 = (x-x_1)**2 + (y-y_1)**2
+        phi_1 = exp(-sigma_1**2/(2*ds2_1))
+        dx_sig_1 = 2*(x-x_1)
+        dy_sig_1 = 2*(y-y_1)
+        dx_phi_1 = - dx_sig_1 * sigma_1 / ds2_1 * phi_1
+        dy_phi_1 = - dy_sig_1 * sigma_1 / ds2_1 * phi_1
+
+        f_scal = None #
+        j_scal = phi_0 - phi_1
+        f_x    =   dy_phi_0 - dy_phi_1
+        f_y    = - dx_phi_0 + dx_phi_1
+        f_vect = Tuple(f_x, f_y)
+
+    else:
+        raise ValueError(source_type)
+
+    # ref solution in V1h:
+    uh_ref = get_sol_ref_V1h(source_type, domain, domain_name, refsol_params)
+
+    return f_scal, f_vect, j_scal, uh_ref
+
+
 def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
                             domain=None, domain_name=None,
                             refsol_params=None):
     """
     compute source and reference solution (exact, or reference values) when possible, depending on the source_type
     """
-
-    assert refsol_params
-    N_diag, method_ref, source_proj_ref = refsol_params
 
     # ref solution (values on diag grid)
     ph_ref = None
@@ -278,7 +320,20 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
 
     assert f_vect is not None
     if u_ex is None:
-        u_ref_filename = get_load_dir(method=method_ref, domain_name=domain_name,nc=None,deg=None,data='solutions')+sol_ref_fn(source_type, N_diag, source_proj=source_proj_ref)
+        uh_ref = get_sol_ref_V1h(source_type, domain, domain_name, refsol_params)
+
+    return f_scal, f_vect, u_bc, ph_ref, uh_ref, p_ex, u_ex, phi, grad_phi
+
+
+def get_sol_ref_V1h( source_type=None, domain=None, domain_name=None, refsol_params=None ):
+    """
+    get a reference solution as a V1h FemField
+    """
+    uh_ref = None
+    if refsol_params is not None:
+        N_diag, method_ref, source_proj_ref = refsol_params
+        u_ref_filename = ( get_load_dir(method=method_ref, domain_name=domain_name,nc=None,deg=None,data='solutions')
+                         + sol_ref_fn(source_type, N_diag, source_proj=source_proj_ref) )
         print("no exact solution for this test-case, looking for ref solution values in file {}...".format(u_ref_filename))
         if os.path.isfile(u_ref_filename):
             print("-- file found")
@@ -300,4 +355,4 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
         else:
             print("-- no file, skipping it")
 
-    return f_scal, f_vect, u_bc, ph_ref, uh_ref, p_ex, u_ex, phi, grad_phi
+    return uh_ref
