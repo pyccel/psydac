@@ -397,9 +397,14 @@ def test_navier_stokes_2d():
     u0_h_ref, = u0_h.space.import_fields(os.path.join(data_dir, 'velocity_0.h5'),'u0_h')
     u1_h_ref, = u1_h.space.import_fields(os.path.join(data_dir, 'velocity_1.h5'),'u1_h')
 
-    assert abs(u0_h_ref.coeffs[:,:]-u0_h.coeffs[:,:]).max()<1e-15
-    assert abs(u1_h_ref.coeffs[:,:]-u1_h.coeffs[:,:]).max()<1e-15
+    u0_h_vals = np.array([[u0_h(x1,x2) for x1 in np.linspace(0,1,100)] for x2 in np.linspace(0,1,100)])
+    u1_h_vals = np.array([[u1_h(x1,x2) for x1 in np.linspace(0,1,100)] for x2 in np.linspace(0,1,100)])
 
+    u0_h_ref_vals = np.array([[u0_h_ref(x1,x2) for x1 in np.linspace(0,1,100)] for x2 in np.linspace(0,1,100)])
+    u1_h_ref_vals = np.array([[u1_h_ref(x1,x2) for x1 in np.linspace(0,1,100)] for x2 in np.linspace(0,1,100)])
+
+    assert abs(u0_h_vals-u0_h_ref_vals).max()<1e-7
+    assert abs(u0_h_vals-u1_h_ref_vals).max()<1e-7
 
 ###############################################################################
 #            PARALLEL TESTS
