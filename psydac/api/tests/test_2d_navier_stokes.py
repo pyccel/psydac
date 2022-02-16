@@ -390,7 +390,7 @@ def test_navier_stokes_2d():
     dt_h     = 0.05
     nt       = Tf//dt_h
     filename = os.path.join(mesh_dir, 'bent_pipe.h5')
-    solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, scipy=False)
+    solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, scipy=True)
 
     u0_h  , u1_h   = solutions[-1].fields
 
