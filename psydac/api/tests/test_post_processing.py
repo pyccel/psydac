@@ -131,8 +131,8 @@ def test_PostProcess_Manager():
     # =================================================================
     # Part 1: Running a simulation
     # =================================================================
-    geometry_file = mesh_dir+'/identity_2d.h5'
-
+    geometry_file = os.path.join(mesh_dir, 'identity_2d.h5')
+    print(mesh_dir)
     domain = Domain.from_file(geometry_file)
 
     V1 = ScalarFunctionSpace('V1', domain, kind='l2')
@@ -168,7 +168,8 @@ def test_PostProcess_Manager():
 
         # Saving for comparisons
         uh_grid = V1h.eval_fields(uh, refine_factor=2)
-        vh_grid_x, vh_grid_y = V2h.eval_fields(vh, refine_factor=2)
+        vh_grid =  V2h.eval_fields(vh, refine_factor=2)
+        vh_grid_x, vh_grid_y = vh_grid[..., 0, 0], vh_grid[..., 1, 0]
         uh_grids.append(uh_grid)
         vh_grids.append((vh_grid_x, vh_grid_y))
 
@@ -194,7 +195,8 @@ def test_PostProcess_Manager():
         v_new = snapshot['fields']['v']
 
         uh_grid_new = V1h_new.eval_fields(u_new, refine_factor=2)
-        vh_grid_x_new, vh_grid_y_new = V2h_new.eval_fields(v_new, refine_factor=2)
+        vh_grid_new = V2h_new.eval_fields(v_new, refine_factor=2)
+        vh_grid_x_new, vh_grid_y_new = vh_grid_new[..., 0, 0], vh_grid_new[..., 1, 0]
 
         assert np.allclose(uh_grid_new, uh_grids[i])
         assert np.allclose(vh_grid_x_new, vh_grids[i][0])
