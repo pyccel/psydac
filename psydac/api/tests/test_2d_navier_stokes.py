@@ -390,7 +390,7 @@ def test_navier_stokes_2d():
     dt_h     = 0.05
     nt       = Tf//dt_h
     filename = os.path.join(mesh_dir, 'bent_pipe.h5')
-    solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, scipy=True)
+    solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, newton_tol=1e-10, scipy=True)
 
     u0_h  , u1_h   = solutions[-1].fields
 
@@ -399,6 +399,7 @@ def test_navier_stokes_2d():
 
     assert abs(u0_h_ref.coeffs[:,:]-u0_h.coeffs[:,:]).max()<1e-15
     assert abs(u1_h_ref.coeffs[:,:]-u1_h.coeffs[:,:]).max()<1e-15
+
 
 ###############################################################################
 #            PARALLEL TESTS
