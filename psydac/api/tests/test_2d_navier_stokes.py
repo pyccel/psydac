@@ -49,6 +49,13 @@ except:
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 
+# ... get the data directory
+try:
+    data_dir = os.environ['PSYDAC_DATA_DIR']
+
+except:
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    data_dir = os.path.join(base_dir, 'data')
 #==============================================================================
 def get_boundaries(*args):
 
@@ -386,9 +393,6 @@ def test_navier_stokes_2d():
     solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, scipy=False)
 
     u0_h  , u1_h   = solutions[-1].fields
-
-    data_dir = os.path.dirname(os.path.realpath(__file__))
-    data_dir = os.path.join(data_dir, 'data')
 
     u0_h_ref, = u0_h.space.import_fields(os.path.join(data_dir, 'velocity_0.h5'),'u0_h')
     u1_h_ref, = u1_h.space.import_fields(os.path.join(data_dir, 'velocity_1.h5'),'u1_h')
