@@ -168,7 +168,7 @@ class TensorFemSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field( self, field, *eta , weights=None):
+    def eval_field( self, field, *eta, weights=None):
 
         assert isinstance( field, FemField )
         assert field.space is self
@@ -411,7 +411,7 @@ class TensorFemSpace( FemSpace ):
             if x == xlim[1] and x != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
-            basis_0 = basis_funs( knots, degree, x, span, basis_0)
+            basis_0 = basis_funs( knots, degree, x, span)
             basis_1 = basis_funs_1st_der( knots, degree, x, span )
 
             # If needed, rescale B-splines to get M-splines
