@@ -129,18 +129,35 @@ class SplineMapping:
     def __call__( self, eta ):
         return [map_Xd( *eta ) for map_Xd in self._fields]
 
-    def build_mesh(self, refine_factor=None):
+    def build_mesh(self, refine_factor=1):
         """Evaluation of the mapping on the entire logical domain
         using a refined grid.
-
         Parameters
         ----------
-        refine_factor : int, tuple of ints or None, Optional
+        refine_factor : int, tuple of ints (Optional)
             How much to refine the logical grid.
-
+        Returns
+        -------
+        x_mesh: 3D array of floats
+            X component of the mesh
+        y_mesh: 3D array of floats
+            Y component of the mesh
+        z_mesh: 3D array of floats
+            Z component of the mesh
         """
 
-        return self.space.eval_fields(*self._fields, refine_factor=refine_factor)
+        mesh = self.space.eval_fields(*self._fields, refine_factor=refine_factor)
+
+        if self.ldim == 2:
+            x_mesh = np.ascontiguousarray(mesh[..., 0:1])
+            y_mesh = np.ascontiguousarray(mesh[..., 1:2])
+            z_mesh = np.zeros_like(x_mesh)
+        elif self.ldim == 3:
+            x_mesh = np.ascontiguousarray(mesh[..., 0])
+            y_mesh = np.ascontiguousarray(mesh[..., 1])
+            z_mesh = np.ascontiguousarray(mesh[..., 2])
+
+        return x_mesh, y_mesh, z_mesh
 
     def jac_mat( self, eta ):
         return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
@@ -336,18 +353,27 @@ class NurbsMapping( SplineMapping ):
         Xd = [map_Xd( *eta , weights=map_W.coeffs) for map_Xd in self._fields]
         return np.asarray( Xd ) / w
 
-    def build_mesh(self, refine_factor=None):
+    def build_mesh(self, refine_factor=1):
         """Evaluation of the mapping on the entire logical domain
         using a refined grid.
-
         Parameters
         ----------
-        refine_factor : int, tuple of ints or None, Optional
+        refine_factor : int, tuple of ints (Optional)
             How much to refine the logical grid.
-
         """
 
-        return self.space.eval_fields(*self._fields, refine_factor=refine_factor, weights=self._weights_field)
+        mesh = self.space.eval_fields(*self._fields, refine_factor=refine_factor, weights=self._weights_field)
+
+        if self.ldim == 2:
+            x_mesh = np.ascontiguousarray(mesh[..., 0:1])
+            y_mesh = np.ascontiguousarray(mesh[..., 1:2])
+            z_mesh = np.zeros_like(x_mesh)
+        elif self.ldim == 3:
+            x_mesh = np.ascontiguousarray(mesh[..., 0])
+            y_mesh = np.ascontiguousarray(mesh[..., 1])
+            z_mesh = np.ascontiguousarray(mesh[..., 2])
+
+        return x_mesh, y_mesh, z_mesh
 
     def jac_mat( self, eta ):
         raise NotImplementedError('TODO')
