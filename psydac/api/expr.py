@@ -33,6 +33,7 @@ class DiscreteExpr(BasicCodeGen):
 
         # ...
         domain_h = args[0]
+        domain   = domain_h.domain
         assert( isinstance(domain_h, Geometry) )
 
         mapping = list(domain_h.mappings.values())[0]
@@ -48,7 +49,7 @@ class DiscreteExpr(BasicCodeGen):
         # ...
         self._space = args[1]
         # ...
-        kernel_expr = TerminalExpr(expr, dim=self._space.ldim)
+        kernel_expr = TerminalExpr(expr, domain)
         # ...
         kwargs['mapping'] = self.space.symbolic_mapping
         kwargs['is_rational_mapping'] = is_rational_mapping

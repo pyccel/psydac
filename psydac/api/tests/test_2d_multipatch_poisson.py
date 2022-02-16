@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 from sympy import pi, sin
 
 from sympde.calculus      import grad, dot
@@ -6,6 +8,7 @@ from sympde.topology      import Square
 from sympde.topology      import ScalarFunctionSpace
 from sympde.topology      import elements_of
 from sympde.topology      import NormalVector
+from sympde.topology      import IdentityMapping, AffineMapping
 from sympde.expr.expr     import LinearForm, BilinearForm
 from sympde.expr.expr     import integral
 from sympde.expr.expr     import Norm
@@ -14,7 +17,6 @@ from sympde.expr.equation import find, EssentialBC
 from psydac.api.discretization import discretize
 
 #==============================================================================
-
 def run_poisson_2d(solution, f, domain, ncells, degree):
 
     #+++++++++++++++++++++++++++++++
@@ -43,7 +45,6 @@ def run_poisson_2d(solution, f, domain, ncells, degree):
             + 0.5*dot(grad(minus(u)),nn)*plus(v)  - 0.5*dot(grad(plus(v)),nn)*minus(u)  - kappa*plus(v)*minus(u)\
             - 0.5*dot(grad(minus(v)),nn)*minus(u) - 0.5*dot(grad(minus(u)),nn)*minus(v) + kappa*minus(u)*minus(v)\
             + 0.5*dot(grad(plus(v)),nn)*plus(u)   + 0.5*dot(grad(plus(u)),nn)*plus(v)   + kappa*plus(u)*plus(v)
-
 
     expr   = dot(grad(u),grad(v))
 
@@ -75,7 +76,6 @@ def run_poisson_2d(solution, f, domain, ncells, degree):
     return l2_error, h1_error
 
 #------------------------------------------------------------------------------
-
 def test_poisson_2d_2_patch_dirichlet_0():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
@@ -97,6 +97,7 @@ def test_poisson_2d_2_patch_dirichlet_0():
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )
 
+#------------------------------------------------------------------------------
 def test_poisson_2d_2_patch_dirichlet_1():
     A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
     B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
@@ -113,6 +114,81 @@ def test_poisson_2d_2_patch_dirichlet_1():
 
     expected_l2_error = 0.002035229666394183
     expected_h1_error = 0.056796387991647795
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_2_patch_dirichlet_2():
+    A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
+    B = Square('B',bounds1=(0.5, 1.), bounds2=(0, 1))
+
+    domain = A.join(B, name = 'domain',
+                bnd_minus = A.get_boundary(axis=0, ext=1),
+                bnd_plus  = B.get_boundary(axis=0, ext=-1))
+
+    x,y = domain.coordinates
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+
+    expected_l2_error = 0.002035229666394183
+    expected_h1_error = 0.056796387991647795
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_2_patch_dirichlet_3():
+    A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
+    B = Square('B',bounds1=(0, 0.5), bounds2=(0, 1))
+
+    M1 = IdentityMapping('M1',2)
+    M2 = AffineMapping('M2',2, c1=1, c2=0,
+        a11=-1, a12=0,
+        a21=0, a22=1)
+
+    D1 = M1(A)
+    D2 = M2(B)
+    domain = D1.join(D2, name = 'domain',
+                bnd_minus = D1.get_boundary(axis=0, ext=1),
+                bnd_plus  = D2.get_boundary(axis=0, ext=1))
+
+    x,y = domain.coordinates
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+
+    expected_l2_error = 0.0020352296663948295
+    expected_h1_error = 0.05679638799164739
+
+    assert ( abs(l2_error - expected_l2_error) < 1e-7 )
+    assert ( abs(h1_error - expected_h1_error) < 1e-7 )
+
+#------------------------------------------------------------------------------
+def test_poisson_2d_2_patch_dirichlet_4():
+    A = Square('A',bounds1=(0, 0.5), bounds2=(0, 1))
+    B = Square('B',bounds1=(0, 0.5), bounds2=(0, 1))
+
+    M1 = AffineMapping('M1',2, c1=0.5, c2=0.,a11=1,  a22=1, a12=0, a21=0)
+    M2 = AffineMapping('M2',2, c1=0.5, c2=0, a11=-1, a12=0, a21=0, a22=1)
+
+    D1 = M1(A)
+    D2 = M2(B)
+    domain = D1.join(D2, name = 'domain',
+                bnd_minus = D1.get_boundary(axis=0, ext=-1),
+                bnd_plus  = D2.get_boundary(axis=0, ext=-1))
+
+    x,y = domain.coordinates
+    solution = sin(pi*x)*sin(pi*y)
+    f        = 2*pi**2*solution
+
+    l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=[2**2,2**2], degree=[2,2])
+
+    expected_l2_error = 0.0020352296663934746
+    expected_h1_error = 0.05679638799164659
 
     assert ( abs(l2_error - expected_l2_error) < 1e-7 )
     assert ( abs(h1_error - expected_h1_error) < 1e-7 )

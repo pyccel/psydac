@@ -727,8 +727,9 @@ class MatrixNode(ArrayNode):
 class BlockMatrixNode(MatrixNode):
     pass
 
-class GlobalTensorQuadrature(ArrayNode):
-    """
+#==============================================================================
+class GlobalTensorQuadratureGrid(ArrayNode):
+    """This class represents the quadrature points and weights in a domain.
     """
     _rank = 2
     _positions = {index_element: 0, index_quad: 1}
@@ -742,9 +743,13 @@ class GlobalTensorQuadrature(ArrayNode):
         return self._weights
 
 #==============================================================================
-class LocalTensorQuadrature(ArrayNode):
-    # TODO add set_positions
+class PlusGlobalTensorQuadratureGrid(GlobalTensorQuadratureGrid):
+    """This class represents the quadrature points and weights in the plus side of an interface.
     """
+
+#==============================================================================
+class LocalTensorQuadratureGrid(ArrayNode):
+    """ This class represents the element wise quadrature points and weights in a domain.
     """
     _rank = 1
     _positions = {index_quad: 0}
@@ -755,16 +760,28 @@ class LocalTensorQuadrature(ArrayNode):
     @property
     def weights( self ):
         return self._weights
+
+#==============================================================================
+class PlusLocalTensorQuadratureGrid(LocalTensorQuadratureGrid):
+    """This class represents the element wise quadrature points and weights in the plus side of an interface.
+    """
+
 #==============================================================================
 class TensorQuadrature(ScalarNode):
-    """
-    """
+    """This class represents the quadrature point and weight in a domain."""
+
     def __init__(self, weights=True):
         self._weights = weights
 
     @property
     def weights( self ):
         return self._weights
+
+#==============================================================================
+class PlusTensorQuadrature(TensorQuadrature):
+    """This class represents the quadrature point and weight in the plus side of an interface.
+    """
+
 #==============================================================================
 class MatrixQuadrature(MatrixNode):
     """
@@ -1972,11 +1989,10 @@ class Loop(BaseNode):
 
     def get_geometry_stmts(self, mapping):
 
-        l_quad = list(self.generator.atoms(LocalTensorQuadrature))
+        l_quad = list(self.generator.atoms(LocalTensorQuadratureGrid))
         if len(l_quad) == 0:
             return Tuple()
 
-        assert(len(l_quad) == 1)
         l_quad = l_quad[0]
         args   = []
         if l_quad.weights:
@@ -2128,11 +2144,19 @@ def construct_itergener(a, index):
     """
     """
     # ... create generator
-    if isinstance(a, GlobalTensorQuadrature):
+    if isinstance(a, PlusGlobalTensorQuadratureGrid):
         generator = TensorGenerator(a, index)
-        element   = LocalTensorQuadrature()
+        element   = PlusLocalTensorQuadratureGrid()
 
-    elif isinstance(a, LocalTensorQuadrature):
+    elif isinstance(a, PlusLocalTensorQuadratureGrid):
+        generator = TensorGenerator(a, index)
+        element   = PlusTensorQuadrature()
+
+    elif isinstance(a, GlobalTensorQuadratureGrid):
+        generator = TensorGenerator(a, index)
+        element   = LocalTensorQuadratureGrid()
+
+    elif isinstance(a, LocalTensorQuadratureGrid):
         generator = TensorGenerator(a, index)
         element   = TensorQuadrature(a.weights)
 
@@ -2175,7 +2199,7 @@ def construct_itergener(a, index):
     # ...
 
     # ... create iterator
-    if isinstance(element, LocalTensorQuadrature):
+    if isinstance(element, LocalTensorQuadratureGrid):
         iterator = TensorIterator(element)
 
     elif isinstance(element, TensorQuadrature):
