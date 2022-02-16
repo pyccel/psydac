@@ -86,7 +86,7 @@ class VectorFemSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field( self, field, *eta ):
+    def eval_field( self, field, *eta, weights=None):
 
         assert isinstance( field, FemField )
         assert field.space is self
@@ -250,7 +250,7 @@ class ProductFemSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field( self, field, *eta ):
+    def eval_field( self, field, *eta, weights=None):
         raise NotImplementedError( "ProductFemSpace not yet operational" )
 
     # ...
