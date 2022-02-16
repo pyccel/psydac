@@ -23,23 +23,23 @@ from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
 from sympde.core     import Constant
 from sympde.expr     import TerminalExpr
+from sympde.expr     import linearize
 
 from psydac.api.essential_bc   import apply_essential_bc
-from psydac.cad.geometry       import refine_knots
 from psydac.fem.basic          import FemField
 from psydac.fem.vector         import ProductFemSpace
+from psydac.core.bsplines      import make_knots
 from psydac.api.discretization import discretize
 from psydac.linalg.utilities   import array_to_stencil
 from psydac.linalg.stencil     import *
 from psydac.linalg.block       import *
 from psydac.api.settings       import PSYDAC_BACKEND_GPYCCEL
-from psydac.utilities.utils    import refine_array_1d, animate_field
+from psydac.utilities.utils    import refine_array_1d, animate_field, split_space, split_field
 from psydac.linalg.iterative_solvers import cg, pcg, bicg, lsmr
-from sympde.expr.expr import linearize
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
-
+#==============================================================================
 # ... get the mesh directory
 try:
     mesh_dir = os.environ['PSYDAC_MESH_DIR']
@@ -75,7 +75,7 @@ def scipy_solver(M, b):
 def psydac_solver(M, b):
     return lsmr(M, M.T, b, maxiter=10000, tol=1e-6)
 
-#------------------------------------------------------------------------------
+#==============================================================================
 def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max_newton_iter=100, scipy=True):
     """
         Time dependent Navier Stokes solver in a 2d domain.
@@ -223,6 +223,160 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
 
     return solutions, p_h, domain, domain_h
 
+#==============================================================================
+def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, multiplicity):
+    """
+        Navier Stokes solver for the 2d steady-state problem.
+    """
+    # Maximum number of Newton iterations and convergence tolerance
+    N = 20
+    TOL = 1e-4
+
+    # ... abstract model
+    V1 = VectorFunctionSpace('V1', domain, kind='H1')
+    V2 = ScalarFunctionSpace('V2', domain, kind='L2')
+    X  = ProductSpace(V1, V2)
+
+    u, v = elements_of(V1, names='u, v')
+    p, q = elements_of(V2, names='p, q')
+
+    du = element_of(V1, name='du')
+    dp = element_of(V2, name='dp')
+
+    boundary = Union(*[domain.get_boundary(**kw) for kw in get_boundaries(1,2)])
+
+    a_b = BilinearForm(((u,p),(v, q)), integral(boundary, dot(u,v)) )
+    l_b = LinearForm((v, q), integral(boundary, dot(ue, v)) )
+
+    equation_b = find((u, p), forall=(v, q), lhs=a_b((u, p), (v, q)), rhs=l_b(v, q))
+
+    l = LinearForm((v, q), integral(domain, dot(Transpose(grad(u))*u, v) + inner(grad(u), grad(v)) - div(u)*q - p*div(v) - dot(f, v)) )
+    a = linearize(l, (u,p), trials=(du, dp))
+
+    bc       = EssentialBC(du, 0, boundary)
+
+    equation = find((du, dp), forall=(v, q), lhs=a((du, dp), (v, q)), rhs=l(v, q), bc=bc)
+
+    # Define (abstract) norms
+    l2norm_u   = Norm(Matrix([u[0]-ue[0],u[1]-ue[1]]), domain, kind='l2')
+    l2norm_p   = Norm(p-pe  , domain, kind='l2')
+
+    l2norm_du  = Norm(Matrix([du[0],du[1]]), domain, kind='l2')
+    l2norm_dp  = Norm(dp     , domain, kind='l2')
+
+    # ... create the computational domain from a topological domain
+    domain_h = discretize(domain, ncells=ncells, comm=comm)
+
+    breaks1 = np.linspace(0, 1, ncells[0]+1)
+    breaks2 = np.linspace(0, 1, ncells[1]+1)
+
+    knots1 = make_knots(breaks1, degree=degree[0], multiplicity=multiplicity[0], periodic=False)
+    knots2 = make_knots(breaks2, degree=degree[1], multiplicity=multiplicity[1], periodic=False)
+
+    knots  = [knots1, knots2]
+
+    # ... discrete spaces
+    Xh  = discretize(X, domain_h, degree=degree, knots=knots, sequence='TH')
+
+    V1h, V2h = split_space(Xh)
+
+    # ... discretize the equation and equation_b
+    equation_b_h = discretize(equation_b, domain_h, [Xh, Xh], backend=PSYDAC_BACKEND_GPYCCEL)
+    equation_h   = discretize(equation,   domain_h, [Xh, Xh], backend=PSYDAC_BACKEND_GPYCCEL)
+
+    # Discretize norms
+    l2norm_u_h = discretize(l2norm_u, domain_h, V1h, backend=PSYDAC_BACKEND_GPYCCEL)
+    l2norm_p_h = discretize(l2norm_p, domain_h, V2h, backend=PSYDAC_BACKEND_GPYCCEL)
+
+    l2norm_du_h = discretize(l2norm_du, domain_h, V1h, backend=PSYDAC_BACKEND_GPYCCEL)
+    l2norm_dp_h = discretize(l2norm_dp, domain_h, V2h, backend=PSYDAC_BACKEND_GPYCCEL)
+
+    x0 = equation_b_h.solve()
+
+    # First guess: zero solution
+    u_h = FemField(V1h)
+    p_h = FemField(V2h)
+
+    u_h, p_h = split_field(x0, (V1h, V2h))
+
+    du_h = FemField(V1h)
+    dp_h = FemField(V2h)
+
+    # Newton iteration
+    for n in range(N):
+        print('==== iteration {} ===='.format(n))
+
+        equation_h.set_solver('bicg', tol=1e-9, info=True)
+        xh, info   = equation_h.solve(u=u_h, p=p_h)
+
+        split_field(xh, (V1h, V2h), out=(du_h, dp_h))
+
+        # update field
+        u_h -= du_h
+        p_h -= dp_h
+
+        # Compute L2 norm of increment
+        l2_error_du = l2norm_du_h.assemble(du=du_h)
+        l2_error_dp = l2norm_dp_h.assemble(dp=dp_h)
+
+        print('L2_error_norm(du) = {}'.format(l2_error_du))
+        print('L2_error_norm(dp) = {}'.format(l2_error_dp))
+
+        if abs(l2_error_du)<= TOL and abs(l2_error_dp) <= TOL:
+            print()
+            print('CONVERGED')
+            break
+
+    l2_error_u = l2norm_u_h.assemble(u=u_h)
+    l2_error_p = l2norm_p_h.assemble(p=p_h)
+
+    return l2_error_u, l2_error_p
+
+###############################################################################
+#            SERIAL TESTS
+###############################################################################
+def test_st_navier_stokes_2d():
+
+    # ... Exact solution
+    domain = Square()
+    x, y   = domain.coordinates
+
+    mu = 1
+    ux = cos(y*pi)
+    uy = x*(x-1)
+    ue = Matrix([[ux], [uy]])
+    pe = sin(pi*y)
+    # ...
+
+    # Verify that div(u) = 0
+    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
+
+    # ... Compute right-hand side
+    from sympde.calculus import laplace, grad
+    from sympde.expr     import TerminalExpr
+
+    a = TerminalExpr(-mu*laplace(ue), domain)
+    b = TerminalExpr(    grad(ue), domain)
+    c = TerminalExpr(    grad(pe), domain)
+    f = (a + b.T*ue + c).simplify()
+
+    fx = -mu*(ux.diff(x, 2) + ux.diff(y, 2)) + ux*ux.diff(x) + uy*ux.diff(y) + pe.diff(x)
+    fy = -mu*(uy.diff(x, 2) - uy.diff(y, 2)) + ux*uy.diff(x) + uy*uy.diff(y) + pe.diff(y)
+
+    assert (f[0]-fx).simplify() == 0
+    assert (f[1]-fy).simplify() == 0
+
+    f  = Tuple(fx, fy)
+    # ...
+
+    # Run test
+
+    l2_error_u, l2_error_p = run_steady_state_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2], multiplicity=[2,2])
+
+    # Check that expected absolute error on velocity and pressure fields
+    assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
+    assert abs(0.004127752838826402 - l2_error_p  ) < 1e-7
+
 #------------------------------------------------------------------------------
 def test_navier_stokes_2d():
     Tf       = 1.
@@ -241,6 +395,52 @@ def test_navier_stokes_2d():
 
     assert abs(u0_h_ref.coeffs[:,:]-u0_h.coeffs[:,:]).max()<1e-15
     assert abs(u1_h_ref.coeffs[:,:]-u1_h.coeffs[:,:]).max()<1e-15
+
+###############################################################################
+#            PARALLEL TESTS
+###############################################################################
+@pytest.mark.parallel
+def test_st_navier_stokes_2d_parallel():
+
+    # ... Exact solution
+    domain = Square()
+    x, y   = domain.coordinates
+
+    mu = 1
+    ux = cos(y*pi)
+    uy = x*(x-1)
+    ue = Matrix([[ux], [uy]])
+    pe = sin(pi*y)
+    # ...
+
+    # Verify that div(u) = 0
+    assert (ux.diff(x) + uy.diff(y)).simplify() == 0
+
+    # ... Compute right-hand side
+    from sympde.calculus import laplace, grad
+    from sympde.expr     import TerminalExpr
+
+    a = TerminalExpr(-mu*laplace(ue), domain)
+    b = TerminalExpr(    grad(ue), domain)
+    c = TerminalExpr(    grad(pe), domain)
+    f = (a + b.T*ue + c).simplify()
+
+    fx = -mu*(ux.diff(x, 2) + ux.diff(y, 2)) + ux*ux.diff(x) + uy*ux.diff(y) + pe.diff(x)
+    fy = -mu*(uy.diff(x, 2) - uy.diff(y, 2)) + ux*uy.diff(x) + uy*uy.diff(y) + pe.diff(y)
+
+    assert (f[0]-fx).simplify() == 0
+    assert (f[1]-fy).simplify() == 0
+
+    f  = Tuple(fx, fy)
+    # ...
+
+    # Run test
+
+    l2_error_u, l2_error_p = run_steady_state_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2], multiplicity=[2,2])
+
+    # Check that expected absolute error on velocity and pressure fields
+    assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
+    assert abs(0.004127752838826402 - l2_error_p  ) < 1e-7
 
 #==============================================================================
 # CLEAN UP SYMPY NAMESPACE
