@@ -195,9 +195,9 @@ def test_export_nurbs_to_hdf5(ncells, degree):
     eta2 = refine_array_1d( new_pipe.breaks(1), 10 )
 
     pcoords1 = np.array( [[new_pipe(e1,e2) for e2 in eta2] for e1 in eta1] )
-    pcoords2 = np.array( [[mapping([e1,e2]) for e2 in eta2] for e1 in eta1] )
+    pcoords2 = np.array( [[mapping(e1,e2) for e2 in eta2] for e1 in eta1] )
 
-    assert np.allclose(pcoords1[...,:domain.dim], pcoords2, 1e-15, 1e-15)
+    assert np.allclose(pcoords1[..., :domain.dim], pcoords2, 1e-15, 1e-15)
 
 @pytest.mark.parametrize( 'ncells', [[8,8], [12,12], [14,14]] )
 @pytest.mark.parametrize( 'degree', [[2,2], [3,2], [2,3], [3,3], [4,4]] )
