@@ -1,4 +1,15 @@
+# coding: utf-8
+import os
+
 from sympde.topology import Derham
+from sympde.topology  import element_of, elements_of
+from sympde.topology.space  import ScalarFunction
+from sympde.calculus  import grad, dot, inner, rot, div
+from sympde.calculus  import laplace, bracket, convect
+from sympde.calculus  import jump, avg, Dn, minus, plus
+from sympde.expr.expr import LinearForm, BilinearForm, integral
+
+from psydac.api.settings             import PSYDAC_BACKENDS
 
 from psydac.api.discretization        import discretize as discretize_single_patch
 from psydac.api.discretization        import discretize_space
@@ -8,18 +19,23 @@ from psydac.feec.multipatch.operators import BrokenScalarCurl_2D
 from psydac.feec.multipatch.operators import Multipatch_Projector_H1
 from psydac.feec.multipatch.operators import Multipatch_Projector_Hcurl
 from psydac.feec.multipatch.operators import Multipatch_Projector_L2
+from psydac.feec.multipatch.operators import ConformingProjection_V0
+from psydac.feec.multipatch.operators import ConformingProjection_V1
+from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
+
 
 __all__ = ('DiscreteDerhamMultipatch', 'discretize')
 
 #==============================================================================
 class DiscreteDerhamMultipatch(DiscreteDerham):
 
-    def __init__(self, *, mapping, spaces, sequence=None):
+    def __init__(self, *, mapping, domain_h, spaces, sequence=None):
 
         dim = len(spaces) - 1
         self._dim     = dim
         self._mapping = mapping
         self._spaces  = tuple(spaces)
+        self._domain_h = domain_h
 
         if sequence:
             if len(sequence) != dim + 1:
@@ -72,7 +88,13 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 
     #--------------------------------------------------------------------------
     def projectors(self, *, kind='global', nquads=None):
-
+        """
+        return the patch-wise commuting projectors on the broken multi-patch space
+        notes:
+            - applied to smooth functions they return conforming fields
+            - default 'global projectors' correspond to geometric interpolation/histopolation operators on Greville grids
+            - here 'global' is a patch-level notion, as the interpolation-type problems are solved on each patch independently
+        """
         if not (kind == 'global'):
             raise NotImplementedError('only global projectors are available')
 
@@ -102,6 +124,88 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
 #            P3 = Multipatch_Projector_L2   (self.V3, nquads=nquads)
 #            return P0, P1, P2, P3
 
+        #--------------------------------------------------------------------------
+    def conforming_projection(self, space=None, hom_bc=None, backend_language="python", load_dir=None):
+        """
+        return the patch-wise commuting projectors on the broken multi-patch space
+        note: here 'global' is a patch-level notion, as the interpolation-type problems are solved on each patch independently
+
+        :param load_dir: (optional) filename for storage in sparse matrix format
+        """
+        if hom_bc is None:
+            raise ValueError('please provide a value for "hom_bc" argument')
+
+        if isinstance(load_dir, str):
+            if not os.path.exists(load_dir):
+                os.makedirs(load_dir)
+            if space == 'V0':
+                P_name = 'cP0'
+            elif space == 'V1':
+                P_name = 'cP1'
+            elif space == 'V2':
+                P_name = 'cP2'
+            else:
+                raise ValueError(space)
+
+            if hom_bc:
+                storage_fn = load_dir + '/{}_hom_m.npz'.format(P_name)
+            else:
+                storage_fn = load_dir + '/{}_m.npz'.format(P_name)
+        else:
+            storage_fn = None
+
+        cP = None
+        if self.dim == 1:
+            raise NotImplementedError()
+
+        elif self.dim == 2:
+            if space == 'V0':
+                cP = ConformingProjection_V0(self.V0, self._domain_h, hom_bc=hom_bc, backend_language=backend_language, storage_fn=storage_fn)
+            elif space == 'V1':
+                if self.sequence[1] == 'hcurl':
+                    cP = ConformingProjection_V1(self.V1, self._domain_h, hom_bc=hom_bc, backend_language=backend_language, storage_fn=storage_fn)
+                else:
+                    raise NotImplementedError('2D sequence with H-div not available yet')
+
+            elif space == 'V2':
+                cP = IdLinearOperator(self.V2)  # no storage needed!
+            else:
+                raise ValueError('Invalid value for "space" argument: {}'.format(space))
+
+        elif self.dim == 3:
+            raise NotImplementedError()
+
+        return cP
+
+    def get_dual_dofs(self, space=None, f=None, backend_language="python", return_format='stencil_array'):
+        """
+        return the dual dofs tilde_sigma_i(f) = < Lambda_i, f >_{L2} i = 1, .. dim(V^k)) of a given function f, as a stencil array
+        :param return_format: 'stencil_array' or 'numpy_array'
+        """
+        if space == 'V0':
+            Vh = self.V0
+
+        elif space == 'V1':
+            Vh = self.V1
+        elif space == 'V2':
+            Vh = self.V2
+        else:
+            raise NotImplementedError
+        V = Vh.symbolic_space
+        v  = element_of(V, name='v')
+        if isinstance(v, ScalarFunction):
+            expr   = f*v
+        else:
+            expr   = dot(f,v)
+        domain = V.domain
+        l = LinearForm(v, integral(domain, expr))
+        lh = discretize(l, self._domain_h, Vh, backend=PSYDAC_BACKENDS[backend_language])
+        tilde_f  = lh.assemble()
+        if return_format == 'numpy_array':
+            return tilde_f.toarray()
+        else:
+            return tilde_f
+
 #==============================================================================
 def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
 
@@ -114,6 +218,7 @@ def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):
 
     return DiscreteDerhamMultipatch(
         mapping  = mapping,
+        domain_h = domain_h,
         spaces   = spaces,
         sequence = [V.kind.name for V in derham.spaces]
     )
