@@ -1,5 +1,4 @@
 import numpy as np
-import pyevtk.hl
 import pytest
 import os
 
