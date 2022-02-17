@@ -126,17 +126,17 @@ class SplineMapping:
     #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
-    def __call__( self, eta ):
-        return [map_Xd( *eta ) for map_Xd in self._fields]
+    def __call__( self, *eta):
+        return [map_Xd( *eta) for map_Xd in self._fields]
 
-    def jac_mat( self, eta ):
+    def jac_mat( self, *eta):
         return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
 
-    def metric( self, eta ):
+    def metric( self, *eta):
         J = self.jac_mat( eta )
         return np.dot( J.T, J )
 
-    def metric_det( self, eta ):
+    def metric_det( self, *eta):
         return np.linalg.det( self.metric( eta ) )
 
     @property
@@ -317,22 +317,22 @@ class NurbsMapping( SplineMapping ):
     #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
-    def __call__( self, eta ):
+    def __call__( self, *eta):
         map_W = self._weights_field
         w = map_W( *eta )
         Xd = [map_Xd( *eta , weights=map_W.coeffs) for map_Xd in self._fields]
         return np.asarray( Xd ) / w
 
-    def jac_mat( self, eta ):
+    def jac_mat( self, *eta):
         raise NotImplementedError('TODO')
 #        return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
 
-    def metric( self, eta ):
+    def metric( self, *eta):
         raise NotImplementedError('TODO')
 #        J = self.jac_mat( eta )
 #        return np.dot( J.T, J )
 
-    def metric_det( self, eta ):
+    def metric_det( self, *eta):
         raise NotImplementedError('TODO')
 #        return np.linalg.det( self.metric( eta ) )
 
