@@ -2,6 +2,14 @@
 import os
 
 from sympde.topology import Derham
+from sympde.topology  import element_of, elements_of
+from sympde.topology.space  import ScalarFunction
+from sympde.calculus  import grad, dot, inner, rot, div
+from sympde.calculus  import laplace, bracket, convect
+from sympde.calculus  import jump, avg, Dn, minus, plus
+from sympde.expr.expr import LinearForm, BilinearForm, integral
+
+from psydac.api.settings             import PSYDAC_BACKENDS
 
 from psydac.api.discretization        import discretize as discretize_single_patch
 from psydac.api.discretization        import discretize_space
@@ -168,6 +176,35 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
             raise NotImplementedError()
 
         return cP
+
+    def get_dual_dofs(self, space=None, f=None, backend_language="python", return_format='stencil_array'):
+        """
+        return the dual dofs tilde_sigma_i(f) = < Lambda_i, f >_{L2} i = 1, .. dim(V^k)) of a given function f, as a stencil array
+        :param return_format: 'stencil_array' or 'numpy_array'
+        """
+        if space == 'V0':
+            Vh = self.V0
+
+        elif space == 'V1':
+            Vh = self.V1
+        elif space == 'V2':
+            Vh = self.V2
+        else:
+            raise NotImplementedError
+        V = Vh.symbolic_space
+        v  = element_of(V, name='v')
+        if isinstance(v, ScalarFunction):
+            expr   = f*v
+        else:
+            expr   = dot(f,v)
+        domain = V.domain
+        l = LinearForm(v, integral(domain, expr))
+        lh = discretize(l, self._domain_h, Vh, backend=PSYDAC_BACKENDS[backend_language])
+        tilde_f  = lh.assemble()
+        if return_format == 'numpy_array':
+            return tilde_f.toarray()
+        else:
+            return tilde_f
 
 #==============================================================================
 def discretize_derham_multipatch(derham, domain_h, *args, **kwargs):

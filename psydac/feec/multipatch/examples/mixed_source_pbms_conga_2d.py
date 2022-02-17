@@ -17,7 +17,7 @@ from sympde.topology import Derham
 
 from psydac.api.settings import PSYDAC_BACKENDS
 
-from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl
+from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
 
 from psydac.feec.multipatch.api import discretize
 from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
@@ -134,6 +134,23 @@ def solve_magnetostatic_pbm(
     nquads = [4*(d + 1) for d in degree]
     P0, P1, P2 = derham_h.projectors(nquads=nquads)
 
+    # these physical projection operators should probably be in the interface...
+    def P0_phys(f_phys):
+        f = lambdify(domain.coordinates, f_phys)
+        f_log = [pull_2d_h1(f, m) for m in mappings_list]
+        return P0(f_log)
+
+    def P1_phys(f_phys):
+        f_x = lambdify(domain.coordinates, f_phys[0])
+        f_y = lambdify(domain.coordinates, f_phys[1])
+        f_log = [pull_2d_hcurl([f_x, f_y], m) for m in mappings_list]
+        return P1(f_log)
+
+    def P2_phys(f_phys):
+        f = lambdify(domain.coordinates, f_phys)
+        f_log = [pull_2d_l2(f, m) for m in mappings_list]
+        return P2(f_log)
+
     I0_m = IdLinearOperator(V0h).to_sparse_matrix()
     I1_m = IdLinearOperator(V1h).to_sparse_matrix()
 
@@ -244,94 +261,67 @@ def solve_magnetostatic_pbm(
     #   ff_h = (f0_h, f1_h) = (P0_h f_scal, P1_h f_vect)  with projection operators specified by source_proj
     #   and dual-basis coefficients in column array  bb_c = (b0_c, b1_c)
     # note: f1_h may also be defined through the special option 'P_L2_wcurl_J' for magnetostatic problems
-    j2_c = None
+    f0_c = f1_c = j2_c = None
     assert source_proj in ['P_geom', 'P_L2', 'P_L2_wcurl_J']
 
     if f_scal is None:
-        f0_c = np.zeros(V0h.nbasis)
-        b0_c = np.zeros(V0h.nbasis)
+        tilde_f0_c = np.zeros(V0h.nbasis)
     else:
-        print('approximating the V0 source:')
+        print('approximating the V0 source with '+source_proj)
         if source_proj == 'P_geom':
-            print('... with commuting projection')
-            f0 = lambdify(domain.coordinates, f_scal)
-            f0_log = [pull_2d_h1(f0, m) for m in mappings_list]
-            f0_h = P0(f0_log)
+            f0_h = P0_phys(f_scal)
             f0_c = f0_h.coeffs.toarray()
-            b0_c = dH0_m.dot(f0_c)
+            tilde_f0_c = dH0_m.dot(f0_c)
         else:
-            print('... with L2 projection')
-            v  = element_of(V0h.symbolic_space, name='v')
-            l = LinearForm(v, integral(domain, f_scal * v))
-            lh = discretize(l, domain_h, V0h, backend=PSYDAC_BACKENDS[backend_language])
-            b0  = lh.assemble()
-            b0_c = b0.toarray()
-            if plot_source:
-                f0_c = H0_m.dot(b0_c)
+            # L2 proj
+            tilde_f0_c = derham_h.get_dual_dofs(space='V0', f=f_scal, backend_language=backend_language, return_format='numpy_array')
 
     if source_proj == 'P_L2_wcurl_J':
         if j_scal is None:
-            tj2_c = np.zeros(V2h.nbasis)
-            b1_c  = np.zeros(V1h.nbasis)   # we could call that tf1_c
+            tilde_j2_c = np.zeros(V2h.nbasis)
+            tilde_f1_c = np.zeros(V1h.nbasis)
         else:
             print('approximating the V1 source as a weak curl of j_scal')
-            # L2-projecting j_scal in V2h
-            v  = element_of(V2h.symbolic_space, name='v')
-            l = LinearForm(v, integral(domain, j_scal * v))
-            lh = discretize(l, domain_h, V2h, backend=PSYDAC_BACKENDS[backend_language])
-            tj2  = lh.assemble()
-            tj2_c = tj2.toarray()   # = coefs <Lambda^2_i, j_scal>
-            b1_c = C_m.transpose().dot(tj2_c)  #  = the weak curl in V1h
-        if plot_source:
-            j2_c = H2_m.dot(tj2_c)
-            f1_c = H1_m.dot(b1_c)
-
+            tilde_j2_c = derham_h.get_dual_dofs(space='V2', f=j_scal, backend_language=backend_language, return_format='numpy_array')
+            tilde_f1_c = C_m.transpose().dot(tilde_j2_c)
     elif f_vect is None:
-        b1_c  = np.zeros(V1h.nbasis)
-        f1_c  = np.zeros(V1h.nbasis)
-
+        tilde_f1_c  = np.zeros(V1h.nbasis)
     else:
-        print('approximating the V1 source:')
+        print('approximating the V1 source with '+source_proj)
         if source_proj == 'P_geom':
-            print('... with commuting projection')
-            f1_x = lambdify(domain.coordinates, f_vect[0])
-            f1_y = lambdify(domain.coordinates, f_vect[1])
-            f1_log = [pull_2d_hcurl([f1_x, f1_y], m) for m in mappings_list]
-            f1_h = P1(f1_log)
+            f1_h = P1_phys(f_vect)
             f1_c = f1_h.coeffs.toarray()
-            b1_c = dH1_m.dot(f1_c)
-
+            tilde_f1_c = dH1_m.dot(f1_c)
         else:
-            print('... with L2 projection')
             assert source_proj == 'P_L2'
-            v  = element_of(V1h.symbolic_space, name='v')
-            l = LinearForm(v, integral(domain, dot(f_vect,v)))
-            lh = discretize(l, domain_h, V1h, backend=PSYDAC_BACKENDS[backend_language])
-            b1  = lh.assemble()
-            b1_c = b1.toarray()
-            if plot_source:
-                f1_c = H1_m.dot(b1_c)
+            tilde_f1_c = derham_h.get_dual_dofs(space='V1', f=f_vect, backend_language=backend_language, return_format='numpy_array')
 
     if plot_source:
+        if f0_c is None:
+            f0_c = H0_m.dot(tilde_f0_c)
         plot_field(numpy_coeffs=f0_c, plot_type='components', Vh=V0h, space_kind='h1', domain=domain, title='f0_h with P = '+source_proj,
-                   filename=plot_dir+'/f0h_'+source_proj+'.png', hide_plot=hide_plots)
+                   filename=plot_dir+'f0h_'+source_proj+'.png', hide_plot=hide_plots)
+        if f1_c is None:
+            f1_c = H1_m.dot(tilde_f1_c)
         plot_field(numpy_coeffs=f1_c, plot_type='vector_field', Vh=V1h, space_kind='hcurl', domain=domain, title='f1_h with P = '+source_proj,
-                   filename=plot_dir+'/f1h_'+source_proj+'.png', hide_plot=hide_plots)
+                   filename=plot_dir+'f1h_'+source_proj+'.png', hide_plot=hide_plots)
         if source_proj == 'P_L2_wcurl_J':
+            if j2_c is None:
+                j2_c = H2_m.dot(tilde_j2_c)
             plot_field(numpy_coeffs=j2_c, plot_type='components', Vh=V2h, space_kind='l2', domain=domain, title='P_L2 jh in V2h',
-                       filename=plot_dir+'/j2h.png', hide_plot=hide_plots)
+                       filename=plot_dir+'j2h.png', hide_plot=hide_plots)
 
     print("building block RHS")
     if dim_harmonic_space > 0:
-        bh_c = np.zeros(dim_harmonic_space)  # harmonic part of the rhs
-        b_c = np.block([b0_c, b1_c, bh_c])
+        tilde_h_c = np.zeros(dim_harmonic_space)  # harmonic part of the rhs
+        b_c = np.block([tilde_f0_c, tilde_f1_c, tilde_h_c])
     else:
-        b_c = np.block([b0_c, b1_c])
+        b_c = np.block([tilde_f0_c, tilde_f1_c])
 
-    # direct solve with scipy spsolve
+    # direct solve with scipy spsolve ------------------------------
     print('solving source problem with scipy.spsolve...')
     sol_c = spsolve(A_m.asformat('csr'), b_c)
-
+    #   ------------------------------------------------------------
     ph_c = sol_c[:V0h.nbasis]
     uh_c = sol_c[V0h.nbasis:V0h.nbasis+V1h.nbasis]
     hh_c = np.zeros(V1h.nbasis)
@@ -343,7 +333,6 @@ def solve_magnetostatic_pbm(
             hi_c = hf_cs[i]  # coefs the of the i-th harmonic field, in the B/M spline basis of V1h
             hh_c += hh_hbcoefs[i]*hi_c
 
-    # project the homogeneous solution on the conforming problem space
     if project_solution:
         print('projecting the homogeneous solution on the conforming problem space...')
         uh_c = cP1_m.dot(uh_c)
@@ -381,7 +370,6 @@ if __name__ == '__main__':
     source_type = 'dipole_J'
 
     source_proj = 'P_L2_wcurl_J'
-
 
     domain_name = 'pretzel_f'
     dim_harmonic_space = 3
