@@ -55,6 +55,14 @@ python3 -m pytest --pyargs psydac -m "not parallel"
 python3 /path/to/psydac/mpi_tester.py --pyargs psydac -m "parallel"
 ```
 
+## Speeding up psydac's core
+----
+Some of the low-level functions in psydac are currently written in python in a way that can be accelerated by pyccel. Currently, all of those are in `psydac/core/kernels.py`.
+```bash
+cd path/to/psydac/core
+pyccel kernels.py --language fortran
+```
+
 ## Mesh Generation
 -----
 After installation, a command `psydac-mesh` will be available.
