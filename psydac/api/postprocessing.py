@@ -51,7 +51,7 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     # Get mapping over patch (create identity map if needed)
     mapping = list(domain_h.mappings.values())[0]
     if mapping is None:
-        mapping = lambda eta: eta
+        mapping = lambda *eta: eta
 
     # TODO: make this work
     # Get 1D breakpoints in logical domain
@@ -63,19 +63,19 @@ def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     eta2 = V2.breaks
 
     # Refine logical grid
-    eta1_r = refine_array_1d( eta1, refine )
-    eta2_r = refine_array_1d( eta2, refine )
+    eta1_r = refine_array_1d(eta1, refine)
+    eta2_r = refine_array_1d(eta2, refine)
 
     # Compute physical coordinates of lines with eta1=const
     isolines_1 = []
     for e1 in eta1:
-        x, y = zip(*[mapping([e1, e2]) for e2 in eta2_r])
-        isolines_1.append( dict(eta1=e1, x=x, y=y) )
+        x, y = zip(*[mapping(e1, e2) for e2 in eta2_r])
+        isolines_1.append(dict(eta1=e1, x=x, y=y))
 
     # Compute physical coordinates of lines with eta2=const
     isolines_2 = []
     for e2 in eta2:
-        x, y = zip(*[mapping([e1, e2]) for e1 in eta1_r])
-        isolines_2.append( dict(eta2=e2, x=x, y=y) )
+        x, y = zip(*[mapping(e1, e2) for e1 in eta1_r])
+        isolines_2.append(dict(eta2=e2, x=x, y=y))
 
     return isolines_1, isolines_2
