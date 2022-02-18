@@ -102,7 +102,6 @@ def split_field(uh, spaces, out=None):
 def animate_field(fields, domain, mapping, res=(150,150), vrange=None, cmap=None, interval=35, progress=False, figsize=(14,4)):
     """Animate a sequence of scalar fields over a geometry."""
     from matplotlib import animation
-    from psydac.utilities.utils import refine_array_1d
     import matplotlib.pyplot as plt
     import tqdm
 
@@ -111,7 +110,7 @@ def animate_field(fields, domain, mapping, res=(150,150), vrange=None, cmap=None
     ax.set_aspect('equal')
 
     etas    = [refine_array_1d( bounds, r ) for r,bounds in zip(res, zip(domain.min_coords, domain.max_coords))]
-    pcoords = np.array( [[mapping( [e1,e2] ) for e2 in etas[1]] for e1 in etas[0]] )
+    pcoords = np.array( [[mapping( e1,e2 ) for e2 in etas[1]] for e1 in etas[0]] )
     xx      = pcoords[:,:,0]
     yy      = pcoords[:,:,1]
 

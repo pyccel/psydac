@@ -168,7 +168,7 @@ class TensorFemSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field( self, field, *eta , weights=None):
+    def eval_field( self, field, *eta, weights=None):
 
         assert isinstance( field, FemField )
         assert field.space is self
@@ -198,7 +198,7 @@ class TensorFemSpace( FemSpace ):
             if x == xlim[1] and x != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
-            basis = basis_funs(knots, degree, x, span)
+            basis = basis_funs( knots, degree, x, span)
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
@@ -239,7 +239,6 @@ class TensorFemSpace( FemSpace ):
 
         return res
 
-    # ...
     def preprocess(self, der=0, refine_factor=1):
         """Returns all the quantities needed to evaluate fields.
 
@@ -247,7 +246,6 @@ class TensorFemSpace( FemSpace ):
         ----------
         der: int
             Number of derivatives of the basis functions to pre-compute.
-
         refine_factor : tuple of ints, int (Optional)
             Size of the quadrature in all directions. Defaults to 1.
 
@@ -255,22 +253,16 @@ class TensorFemSpace( FemSpace ):
         -------
         ncells : List of ints
             Number of cells in each direction
-
         pads : List of ints
             Padding in each direction
-
         degree : Tuple of ints
             Degree in each direction
-
         quad_order : Tuple of ints
             Number of points on the quadrature grid
-
         global_basis : List of ndarray of floats
             List of the values of the basis functions in each point of quadrature grid  of each cell in each direction
-
         global_spans : List of ndarray of ints
             List of the index of the last non-vanishing basis functions in each cell each direction
-
         """
 
         if isinstance(refine_factor, int):
@@ -297,13 +289,11 @@ class TensorFemSpace( FemSpace ):
 
             # Grids
             glob_points_i, _ = quadrature_grid(grid_i, u, w)
-
             glob_points_i[0, 0] = grid_i[0]
             glob_points_i[-1, -1] = grid_i[-1]
 
-            # Basis functions
+            # Basis functions values and spans
             global_basis_i = basis_ders_on_quad_grid(knots_i, self.degree[i], glob_points_i, der, self.spaces[i].basis)
-
             global_spans_i = elements_spans(knots_i, degree_i)
 
             ncells.append(len(grid_i) - 1)
@@ -317,15 +307,13 @@ class TensorFemSpace( FemSpace ):
         """Evaluate one or several fields on a refined grid derived from the one define by the breakpoints of
         `self.breaks` with or without a weight field.
 
-        Parameters:
+        Parameters
         -----------
         fields : tuple of psydac.fem.basic.FemField
             Fields to evaluate
-
         refine_factor : int, tuple of ints, (Optional)
             Number of point to add to the quadrature grid in each direction. If an `int` is given,
             it is used as the refining factor in each direction.
-
         weights : psydac.fem.basic.FemField
             Weights field.
 
@@ -381,7 +369,7 @@ class TensorFemSpace( FemSpace ):
                                         global_spans[1], global_spans[2], glob_arr_coeffs, global_weight_coeff,
                                         out_fields)
         else:
-            raise NotImplementedError("TODO")
+            raise NotImplementedError("1D not Implemented")
 
         return out_fields
 
@@ -410,8 +398,8 @@ class TensorFemSpace( FemSpace ):
             if x == xlim[1] and x != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
-            basis_0 = basis_funs( knots, degree, x, span)
-            basis_1 = basis_funs_1st_der( knots, degree, x, span )
+            basis_0 = basis_funs(knots, degree, x, span)
+            basis_1 = basis_funs_1st_der(knots, degree, x, span)
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':

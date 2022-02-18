@@ -492,4 +492,3 @@ class SplineSpace( FemSpace ):
         ax.grid(True)
         ax.legend()
         plt.show()
-
