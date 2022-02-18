@@ -125,9 +125,9 @@ class SplineMapping:
 
     # --------------------------------------------------------------------------
     # Abstract interface
-    # --------------------------------------------------------------------------
-    def __call__( self, eta ):
-        return [map_Xd( *eta ) for map_Xd in self._fields]
+    #--------------------------------------------------------------------------
+    def __call__( self, *eta):
+        return [map_Xd( *eta) for map_Xd in self._fields]
 
     def build_mesh(self, refine_factor=1):
         """Evaluation of the mapping on the entire logical domain
@@ -135,7 +135,7 @@ class SplineMapping:
 
         Parameters
         ----------
-        refine_factor : int, tuple of ints (Optional)
+        refine_factor : int, tuple of ints (optional)
             How much to refine the logical grid.
 
         Returns
@@ -158,17 +158,19 @@ class SplineMapping:
             x_mesh = np.ascontiguousarray(mesh[..., 0])
             y_mesh = np.ascontiguousarray(mesh[..., 1])
             z_mesh = np.ascontiguousarray(mesh[..., 2])
+        else:
+            raise NotImplementedError("1D case not implemented")
 
         return x_mesh, y_mesh, z_mesh
 
-    def jac_mat( self, eta ):
+    def jac_mat( self, *eta):
         return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
 
-    def metric( self, eta ):
+    def metric( self, *eta):
         J = self.jac_mat( eta )
         return np.dot( J.T, J )
 
-    def metric_det( self, eta ):
+    def metric_det( self, *eta):
         return np.linalg.det( self.metric( eta ) )
 
     def jac_mat_grid(self, refine_factor=1):
@@ -455,7 +457,7 @@ class NurbsMapping( SplineMapping ):
     #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
-    def __call__( self, eta ):
+    def __call__( self, *eta):
         map_W = self._weights_field
         w = map_W( *eta )
         Xd = [map_Xd( *eta , weights=map_W.coeffs) for map_Xd in self._fields]
@@ -470,6 +472,14 @@ class NurbsMapping( SplineMapping ):
         refine_factor : int, tuple of ints (Optional)
             How much to refine the logical grid.
 
+        Returns
+        -------
+        x_mesh: 3D array of floats
+            X component of the mesh
+        y_mesh: 3D array of floats
+            Y component of the mesh
+        z_mesh: 3D array of floats
+            Z component of the mesh
         """
 
         mesh = self.space.eval_fields(*self._fields, refine_factor=refine_factor, weights=self._weights_field)
@@ -482,9 +492,29 @@ class NurbsMapping( SplineMapping ):
             x_mesh = np.ascontiguousarray(mesh[..., 0])
             y_mesh = np.ascontiguousarray(mesh[..., 1])
             z_mesh = np.ascontiguousarray(mesh[..., 2])
+        else:
+            raise NotImplementedError("1D not Implemented")
 
         return x_mesh, y_mesh, z_mesh
+    
+    # ... 
+    def jac_mat( self, *eta):
+        raise NotImplementedError('TODO')
+#        return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
 
+    # ...
+    def metric( self, *eta):
+        raise NotImplementedError('TODO')
+#        J = self.jac_mat( eta )
+#        return np.dot( J.T, J )
+
+    # ...
+    def metric_det( self, *eta):
+        raise NotImplementedError('TODO')
+#        return np.linalg.det( self.metric( eta ) )
+    
+    
+    # ...
     def jac_mat_grid(self, refine_factor=1):
         from psydac.core.kernels import eval_jacobians_2d_weights, eval_jacobians_3d_weights
 
@@ -522,7 +552,8 @@ class NurbsMapping( SplineMapping ):
             raise NotImplementedError("TODO")
 
         return jac_mats
-
+    
+    # ...
     def inv_jac_mat_grid(self, refine_factor=1):
         from psydac.core.kernels import eval_jacobians_inv_2d_weights, eval_jacobians_inv_3d_weights
 
@@ -561,7 +592,8 @@ class NurbsMapping( SplineMapping ):
             raise NotImplementedError("TODO")
 
         return inv_jac_mats
-
+    
+    # ...
     def metric_det_grid(self, refine_factor=1):
         from psydac.core.kernels import eval_det_metric_3d_weights, eval_det_metric_2d_weights
 
@@ -600,19 +632,7 @@ class NurbsMapping( SplineMapping ):
             raise NotImplementedError("TODO")
 
         return metric_det
-
-    def jac_mat( self, eta ):
-        raise NotImplementedError('TODO')
-#        return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
-
-    def metric( self, eta ):
-        raise NotImplementedError('TODO')
-#        J = self.jac_mat( eta )
-#        return np.dot( J.T, J )
-
-    def metric_det( self, eta ):
-        raise NotImplementedError('TODO')
-#        return np.linalg.det( self.metric( eta ) )
+    
 
     #--------------------------------------------------------------------------
     # Other properties/methods

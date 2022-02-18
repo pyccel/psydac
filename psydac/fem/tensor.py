@@ -168,7 +168,7 @@ class TensorFemSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field( self, field, *eta , weights=None):
+    def eval_field( self, field, *eta, weights=None):
 
         assert isinstance( field, FemField )
         assert field.space is self
@@ -198,8 +198,8 @@ class TensorFemSpace( FemSpace ):
             if x == xlim[1] and x != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
-            basis = np.zeros(degree + 1)
-            basis_funs( knots, degree, x, span, basis)
+            
+            basis = basis_funs( knots, degree, x, span)
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
@@ -239,6 +239,140 @@ class TensorFemSpace( FemSpace ):
 #            res    += c * ndbasis
 
         return res
+
+    def preprocess(self, der=0, refine_factor=1):
+        """Returns all the quantities needed to evaluate fields.
+
+        Parameters
+        ----------
+        der: int
+            Number of derivatives of the basis functions to pre-compute.
+        refine_factor : tuple of ints, int (Optional)
+            Size of the quadrature in all directions. Defaults to 1.
+
+        Returns
+        -------
+        ncells : List of ints
+            Number of cells in each direction
+        pads : List of ints
+            Padding in each direction
+        degree : Tuple of ints
+            Degree in each direction
+        quad_order : Tuple of ints
+            Number of points on the quadrature grid
+        global_basis : List of ndarray of floats
+            List of the values of the basis functions in each point of quadrature grid  of each cell in each direction
+        global_spans : List of ndarray of ints
+            List of the index of the last non-vanishing basis functions in each cell each direction
+        """
+
+        if isinstance(refine_factor, int):
+            refine_factor = (refine_factor,) * self.ldim
+        if len(refine_factor) == 1:
+            refine_factor = (refine_factor[0],) * self.ldim
+        assert (self.ldim == len(refine_factor))
+        quad_order = refine_factor
+
+        ncells = []
+        global_basis = []
+        global_spans = []
+
+        for i in range(self.ldim):
+            knots_i = self.knots[i]
+            degree_i = self.degree[i]
+            grid_i = self.breaks[i]
+            k = quad_order[i]
+
+            # Gauss-Legendre quadrature rule
+            u, w = gauss_legendre(k)
+            u = u[::-1]
+            w = w[::-1]
+
+            # Grids
+            glob_points_i, _ = quadrature_grid(grid_i, u, w)
+            glob_points_i[0, 0] = grid_i[0]
+            glob_points_i[-1, -1] = grid_i[-1]
+
+            # Basis functions values and spans
+            global_basis_i = basis_ders_on_quad_grid(knots_i, self.degree[i], glob_points_i, der, self.spaces[i].basis)
+            global_spans_i = elements_spans(knots_i, degree_i)
+
+            ncells.append(len(grid_i) - 1)
+            global_basis.append(global_basis_i)
+            global_spans.append(global_spans_i)
+
+        return ncells, self.pads, self.degree, quad_order, global_basis, global_spans
+
+    # ...
+    def eval_fields(self, *fields, refine_factor=1, weights=None):
+        """Evaluate one or several fields on a refined grid derived from the one define by the breakpoints of
+        `self.breaks` with or without a weight field.
+
+        Parameters
+        -----------
+        fields : tuple of psydac.fem.basic.FemField
+            Fields to evaluate
+        refine_factor : int, tuple of ints, (Optional)
+            Number of point to add to the quadrature grid in each direction. If an `int` is given,
+            it is used as the refining factor in each direction.
+        weights : psydac.fem.basic.FemField
+            Weights field.
+
+        Returns
+        -------
+        out_fields : list of ndarray of floats
+            List of the evaluated fields.
+
+        See Also
+        --------
+        psydac.fem.TensorFemSpace.eval_field : Evaluate a field at a given location eta.
+        """
+
+        assert (all(f.space is self for f in fields))
+        if weights is not None:
+            assert (weights.space is self)
+            assert (all(f.coeffs.space is weights.coeffs.space for f in fields))
+
+        ncells, pads, degree, quad_order, global_basis, global_spans = self.preprocess(refine_factor=refine_factor)
+
+        out_fields = np.zeros((*(tuple(ncells[i] * (quad_order[i] + 1) for i in range(self.ldim))), len(fields)))
+
+        glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)))
+
+        for i in range(len(fields)):
+            glob_arr_coeffs[..., i] = fields[i].coeffs._data
+
+        if self.ldim == 2:
+            if weights is None:
+                eval_fields_2d_no_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], quad_order[0],
+                                          quad_order[1], global_basis[0], global_basis[1], global_spans[0],
+                                          global_spans[1], glob_arr_coeffs, out_fields)
+            else:
+                global_weight_coeff = weights.coeffs._data
+
+                eval_fields_2d_weighted(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], quad_order[0],
+                                        quad_order[1], global_basis[0], global_basis[1], global_spans[0],
+                                        global_spans[1], glob_arr_coeffs, global_weight_coeff, out_fields)
+
+        elif self.ldim == 3:
+            if weights is None:
+
+                eval_fields_3d_no_weights(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0],
+                                          degree[1], degree[2], quad_order[0], quad_order[1], quad_order[2],
+                                          global_basis[0], global_basis[1], global_basis[2], global_spans[0],
+                                          global_spans[1], global_spans[2], glob_arr_coeffs, out_fields)
+            else:
+                global_weight_coeff = weights.coeffs._data
+
+                eval_fields_3d_weighted(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0],
+                                        degree[1], degree[2], quad_order[0], quad_order[1], quad_order[2],
+                                        global_basis[0], global_basis[1], global_basis[2], global_spans[0],
+                                        global_spans[1], global_spans[2], glob_arr_coeffs, global_weight_coeff,
+                                        out_fields)
+        else:
+            raise NotImplementedError("1D not Implemented")
+
+        return out_fields
 
     # ...
     def preprocess(self, der=0, refine_factor=1):
@@ -411,8 +545,8 @@ class TensorFemSpace( FemSpace ):
             if x == xlim[1] and x != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
-            basis_0 = np.zeros(degree+1)
-            basis_funs( knots, degree, x, span, basis_0)
+            
+            basis_0 = basis_funs( knots, degree, x, span)
             basis_1 = basis_funs_1st_der( knots, degree, x, span )
 
             # If needed, rescale B-splines to get M-splines

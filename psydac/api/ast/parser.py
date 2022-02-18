@@ -519,8 +519,11 @@ class Parser(object):
         inits.append(EmptyNode())
         body =  tuple(inits) + body
         name = expr.name
-        imports = ('array','zeros', 'zeros_like','floor') + tuple(self._math_functions)
-        imports = [Import('numpy', imports)] + list(expr.imports)
+        numpy_imports = ('array', 'zeros', 'zeros_like', 'floor')
+        math_imports  = (*self._math_functions,)
+        imports = [Import('numpy', numpy_imports)] + \
+                 ([Import('math', math_imports)] if math_imports else []) + \
+                  [*expr.imports]
         results = [self._visit(a) for a in expr.results]
 
         if self.backend['name'] == 'pyccel':
@@ -1245,7 +1248,7 @@ class Parser(object):
         stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
         stmts = tuple(vars_plus) + tuple(normal_vec_stmts) + temps + stmts
 
-        math_functions = math_atoms_as_str(list(exprs)+normal_vec_stmts, 'numpy')
+        math_functions = math_atoms_as_str(list(exprs)+normal_vec_stmts, 'math')
         math_functions = tuple(m for m in math_functions if m not in self._math_functions)
         self._math_functions = math_functions + self._math_functions
         return stmts
