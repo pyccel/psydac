@@ -9,7 +9,7 @@ from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.block   import BlockVectorSpace
 from psydac.fem.basic      import FemSpace, FemField
 
-from numpy import unique, asarray, allclose
+from numpy import unique, asarray, allclose, ascontiguousarray, array, moveaxis
 
 #===============================================================================
 class VectorFemSpace( FemSpace ):
@@ -86,13 +86,23 @@ class VectorFemSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field( self, field, *eta ):
+    def eval_field( self, field, *eta, weights=None):
 
         assert isinstance( field, FemField )
         assert field.space is self
         assert len( eta ) == self._ldim
 
         raise NotImplementedError( "VectorFemSpace not yet operational" )
+
+    # ...
+    def eval_fields(self, *fields, refine_factor=1, weights=None):
+        result = []
+        for i in range(self.ldim):
+            fields_i = list(field.fields[i] for field in fields)
+            result.append(self._spaces[i].eval_fields(*fields_i, refine_factor=refine_factor, weights=weights))
+        result = array(result)
+
+        return ascontiguousarray(moveaxis(result, 0, -2))
 
     # ...
     def eval_field_gradient( self, field, *eta ):
@@ -250,8 +260,18 @@ class ProductFemSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field( self, field, *eta ):
+    def eval_field( self, field, *eta, weights=None):
         raise NotImplementedError( "ProductFemSpace not yet operational" )
+
+    # ...
+    def eval_fields(self, *fields, refine_factor=1, weights=None):
+        result = []
+        for i in range(self.ldim):
+            fields_i = list(field.fields[i] for field in fields)
+            result.append(self._spaces[i].eval_fields(*fields_i, refine_factor=refine_factor, weights=weights))
+        result = array(result)
+
+        return ascontiguousarray(moveaxis(result, 0, -2))
 
     # ...
     def eval_field_gradient( self, field, *eta ):
