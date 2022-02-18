@@ -17,13 +17,15 @@ References
 """
 import numpy as np
 
-from psydac.core.bspline_pyccel import (find_span_p,
-                                        find_spans_p,
-                                        basis_funs_p,
-                                        basis_funs_array_p,
-                                        basis_funs_1st_der_p,
-                                        basis_funs_all_ders_p,
-                                        collocation_matrix_p)
+from psydac.core.bsplines_pyccel import (find_span_p,
+                                         find_spans_p,
+                                         basis_funs_p,
+                                         basis_funs_array_p,
+                                         basis_funs_1st_der_p,
+                                         basis_funs_all_ders_p,
+                                         collocation_matrix_p,
+                                         elevate_knots_p,
+                                         basis_integrals_p)
 
 __all__ = ['find_span',
            'find_spans',
@@ -98,7 +100,7 @@ def find_spans(knots: 'float[:]', degree: int, x: 'float[:]', out=None):
     psydac.core.bsplines.find_span : Determines the knot span at a location.
     """
     if out is None:
-        out = np.empty_like(x)
+        out = np.zeros_like(x)
     find_spans_p(knots, degree, x, out)
     return out
 
@@ -132,7 +134,7 @@ def basis_funs(knots: 'float[:]', degree: int, x: float, span: int, out=None):
 
     """
     if out is None:
-        out = np.empty(degree + 1)
+        out = np.zeros(degree + 1)
     basis_funs_p(knots, degree, x, span, out)
     return out
 
@@ -165,7 +167,7 @@ def basis_funs_array(knots: 'float[:]', degree: int, span: 'int[:]', x: 'float[:
         Values of p+1 non-vanishing B-Splines at all locations in x.
     """
     if out is None:
-        out = np.empty((x.shape, degree + 1))
+        out = np.zeros((x.shape, degree + 1))
     basis_funs_array_p(knots, degree, x, span,  out)
     return out
 
@@ -248,77 +250,11 @@ def basis_funs_all_ders(knots, degree, x, span, n, out=None):
 
     """
     if out is None:
-        out = np.empty((n + 1, degree + 1))
+        out = np.zeros((n + 1, degree + 1))
     basis_funs_all_ders_p(knots, degree, x, span, n, out)
     return out
 
 #==============================================================================
-def collocation_matrix_true(knots, degree, periodic, normalization, xgrid):
-    """
-    Compute the collocation matrix $C_ij = B_j(x_i)$, which contains the
-    values of each B-spline basis function $B_j$ at all locations $x_i$.
-
-    If called with normalization='M', this uses M-splines instead of B-splines.
-
-    Parameters
-    ----------
-    knots : 1D array_like
-        Knots sequence.
-
-    degree : int
-        Polynomial degree of spline space.
-
-    periodic : bool
-        True if domain is periodic, False otherwise.
-
-    normalization : str
-        Set to 'B' for B-splines, and 'M' for M-splines.
-
-    xgrid : 1D array_like
-        Evaluation points.
-
-    Returns
-    -------
-    mat : 2D numpy.ndarray
-        Collocation matrix: values of all basis functions on each point in xgrid.
-
-    """
-    # Number of basis functions (in periodic case remove degree repeated elements)
-    nb = len(knots)-degree-1
-    if periodic:
-        nb -= degree
-
-    # Number of evaluation points
-    nx = len(xgrid)
-
-    # Collocation matrix as 2D Numpy array (dense storage)
-    mat = np.zeros( (nx,nb) )
-
-    # Indexing of basis functions (periodic or not) for a given span
-    if periodic:
-        js = lambda span: [(span-degree+s) % nb for s in range( degree+1 )]
-    else:
-        js = lambda span: slice( span-degree, span+1 )
-
-    # Rescaling of B-splines, to get M-splines if needed
-    if normalization == 'B':
-        normalize = lambda basis, span: basis
-    elif normalization == 'M':
-        scaling = 1 / basis_integrals(knots, degree)
-        normalize = lambda basis, span: basis * scaling[span-degree: span+1]
-
-    # Fill in non-zero matrix values
-    basis = np.zeros(degree + 1)
-    for i,x in enumerate( xgrid ):
-        span  =  find_span( knots, degree, x )
-        basis_funs( knots, degree, x, span, basis)
-        mat[i,js(span)] = normalize(basis, span)
-
-    # Mitigate round-off errors
-    mat[abs(mat) < 1e-14] = 0.0
-
-    return mat
-
 def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
     """
     Compute the collocation matrix $C_ij = B_j(x_i)$, which contains the
@@ -669,7 +605,7 @@ def make_knots( breaks, degree, periodic, multiplicity=1 ):
     return T
 
 #==============================================================================
-def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15):
+def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15, out=None):
     """
     Given the knot sequence of a spline space S of degree p, compute the knot
     sequence of a spline space S_0 of degree p+1 such that u' is in S for all
@@ -705,25 +641,19 @@ def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15):
 
     """
 
-    knots = np.array(knots)
-
-    if periodic:
-        [T, p] = knots, degree
-        period = T[-1-p] - T[p]
-        left   = [T[-1-p-(p+1)] - period]
-        right  = [T[   p+(p+1)] + period]
-    else:
-        left  = [knots[0],*knots[:degree+1]]
-        right = [knots[-1],*knots[-degree-1:]]
-
-        diff   = np.append(True, np.diff(knots[degree+1:-degree-1])>tol)
-        if len(knots[degree+1:-degree-1])>0:
-            unique = knots[degree+1:-degree-1][diff]
-            knots  = np.repeat(unique, multiplicity)
+    if out is None:
+        if periodic:
+            out = np.zeros(knots.shape[0] + 2)
         else:
-            knots = knots[degree+1:-degree-1]
+            shape = 2*(degree + 2)
+            if len(knots) - 2 * (degree + 1) > 0:
+                uniques = np.asarray(np.diff(knots[degree + 1:-degree - 1]) > tol).nonzero()
+                shape += multiplicity * (1 + uniques[0].shape[0])
+            out = np.zeros(shape)
+    elevate_knots_p(knots, degree, periodic, out, multiplicity, tol)
 
-    return np.array([*left, *knots, *right])
+    return out
+
 
 #==============================================================================
 def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):

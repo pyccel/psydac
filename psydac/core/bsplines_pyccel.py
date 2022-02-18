@@ -4,6 +4,7 @@
 
 import numpy as np
 
+#==============================================================================
 def find_span_p(knots: 'float[:]', degree: int, x: float):
     """
     Determine the knot span index at location x, given the B-Splines' knot
@@ -108,8 +109,8 @@ def basis_funs_p(knots: 'float[:]', degree: int, x: float, span: int, out: 'floa
     by using 'left' and 'right' temporary arrays that are one element shorter.
 
     """
-    left = np.empty(degree, dtype=float)
-    right = np.empty(degree, dtype=float)
+    left = np.zeros(degree, dtype=float)
+    right = np.zeros(degree, dtype=float)
 
     out[0] = 1.0
     for j in range(0, degree):
@@ -122,7 +123,7 @@ def basis_funs_p(knots: 'float[:]', degree: int, x: float, span: int, out: 'floa
             saved  = left[j - r] * temp
         out[j + 1] = saved
 
-# ==============================================================================
+#==============================================================================
 def basis_funs_array_p(knots: 'float[:]', degree: int, x: 'float[:]', span: 'int[:]', out: 'float[:,:]'):
     """
     Compute the non-vanishing B-splines at locations in x, given the knot sequence,
@@ -151,7 +152,7 @@ def basis_funs_array_p(knots: 'float[:]', degree: int, x: 'float[:]', span: 'int
     for i in range(n):
         basis_funs_p(knots, degree, x[i], span[i], out[i, :])
 
-
+#==============================================================================
 def basis_funs_1st_der_p(knots: 'float[:]', degree: int, x: float, span: int, out: 'float[:]'):
     """
     Compute the first derivative of the non-vanishing B-splines at location x,
@@ -257,7 +258,6 @@ def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n
 
     ndu[0, 0] = 1.0
     for j in range(0, degree):
-
         left[j]  = x - knots[span-j]
         right[j] = knots[span+1+j] - x
         saved    = 0.0
@@ -272,10 +272,12 @@ def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n
 
     # Compute derivatives in 2D output array 'out'
     out[0, :] = ndu[:, degree]
+
     for r in range(0, degree+1):
+
         s1 = 0
         s2 = 1
-        a[0,0] = 1.0
+        a[0, 0] = 1.0
         for k in range(1, ne + 1):
             d  = 0.0
             rk = r-k
@@ -302,10 +304,9 @@ def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n
 
     # Multiply derivatives by correct factors
     r = degree
-    for k in range(1,ne+1):
+    for k in range(1, ne+1):
         out[k, :] = out[k, :] * r
         r = r * (degree-k)
-
 
 def basis_integrals_p(knots: 'float[:]', degree: int, out: 'float[:]'):
     r"""
@@ -421,44 +422,88 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
                 out[x, y] = 0.0
 
 
-# def histopolation_matrix(knots: 'float[:]', degree: int, periodic: bool, normalization: bool, xgrid: 'float[:]',
-#                          check_boundary: bool, out: 'float[:,:]'):
-#
-#     nb = len(knots) - degree - 1
-#     if periodic:
-#         nb -= degree
-#
-#     # Number of evaluation points
-#     nx = len(xgrid)
-#
-#     # In periodic case, make sure that evaluation points include domain boundaries
-#     if periodic:
-#         xmin = knots[degree]
-#         xmax = knots[-1 - degree]
-#         if xgrid[0] > xmin:
-#             xgrid = [xmin, *xgrid]
-#         if xgrid[-1] < xmax:
-#             xgrid = [*xgrid, xmax]
-#
-#     # New knots
-#
-#     # B-splines of degree p+1: basis[i,j] := Bj(xi)
-#     #
-#     # NOTES:
-#     #  . cannot use M-splines in analytical formula for histopolation matrix
-#     #  . always use non-periodic splines to avoid circulant matrix structure
-#     colloc = np.zeros((nx, nb))
-#     collocation_matrix_p(knots,
-#                          degree + 1,
-#                          False,
-#                          False,
-#                          xgrid,
-#                          colloc)
+def histopolation_matrix(knots: 'float[:]', degree: int, periodic: bool, normalization: bool, xgrid: 'float[:]',
+                         check_boundary: bool, elevated_knots: 'float[:]', out: 'float[:,:]'):
+
+    nb = len(knots) - degree - 1
+    if periodic:
+        nb -= degree
+
+    # Number of evaluation points
+    nx = len(xgrid)
+
+    # In periodic case, make sure that evaluation points include domain boundaries
+    if periodic:
+        xmin = knots[degree]
+        xmax = knots[-1 - degree]
+        if xgrid[0] > xmin:
+            xgrid = [xmin, *xgrid]
+        if xgrid[-1] < xmax:
+            xgrid = [*xgrid, xmax]
+
+    # B-splines of degree p+1: basis[i,j] := Bj(xi)
+    #
+    # NOTES:
+    #  . cannot use M-splines in analytical formula for histopolation matrix
+    #  . always use non-periodic splines to avoid circulant matrix structure
+
+    colloc = np.zeros((nx, nb))
+    collocation_matrix_p(elevated_knots,
+                         degree + 1,
+                         False,
+                         False,
+                         xgrid,
+                         colloc)
+
+    # if normalization:
+    #     normalize = lambda bi, j: bi
+    # elif normalization == 'B':
+    #     scaling = basis_integrals(knots, degree)
+    #     normalize = lambda bi, j: bi * scaling[j]
+
+    spans = np.zeros(colloc.shape[0])
+    for i in range(colloc.shape[0]):
+        local_span = 0
+        for j in range(colloc.shape[0] - 1, 0, -1):
+            if abs(colloc[i, j] > 1e-15):
+                local_span = j
+                break
+        spans[i] = local_span + degree + 1
+
+    # Compute histopolation matrix from collocation matrix of higher degree
+    m = colloc.shape[0] - 1
+    n = colloc.shape[1] - 1
+    H = np.zeros((m, n))
+    for i in range(m):
+        # Indices of first/last non-zero elements in row of collocation matrix
+        jstart = spans[i] - (degree+1)
+        jend   = min(spans[i+1], n)
+        # Compute non-zero values of histopolation matrix
+        for j in range(1+jstart, jend+1):
+            s = C[i, 0:j].sum() - C[i+1, 0:j].sum()
+            H[i, j-1] = normalize(s, j-1)
+
+    # Mitigate round-off errors
+    H[abs(H) < 1e-14] = 0.0
+
+    # Non periodic case: stop here
+
+    if periodic:
+
+        # Periodic case: wrap around histopolation matrix
+        #  1. identify repeated basis functions (sum columns)
+        #  2. identify split interval (sum rows)
+        Hp = np.zeros((nx, nb))
+        for i in range(m):
+            for j in range(n):
+                Hp[i%nx, j%nb] += H[i, j]
 
 
-def elevate_knots(knots: 'float[:]', degree: int, periodic: bool, out: 'float[:]',
-                  multiplicity: int = 1,
-                  tol: float = 1e-15):
+
+
+def elevate_knots_p(knots: 'float[:]', degree: int, periodic: bool, out: 'float[:]',
+                    multiplicity: int = 1,
+                    tol: float = 1e-15):
     """
     Given the knot sequence of a spline space S of degree p, compute the knot
     sequence of a spline space S_0 of degree p+1 such that u' is in S for all
