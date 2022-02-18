@@ -50,7 +50,7 @@ def test_build_mesh(geometry_file, k):
             eta1 = [glob_points[0][i // (k + 1)][i % (k + 1)] for i in range(x_mesh.shape[0])]
             eta2 = [glob_points[1][i // (k + 1)][i % (k + 1)] for i in range(x_mesh.shape[1])]
 
-            pcoords = np.array([[mapping([e1, e2]) for e2 in eta2] for e1 in eta1])
+            pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
 
             x_mesh_l = pcoords[..., 0:1]
             y_mesh_l = pcoords[..., 1:2]
@@ -62,7 +62,7 @@ def test_build_mesh(geometry_file, k):
             eta2 = [glob_points[1][i // (k + 1)][i % (k + 1)] for i in range(x_mesh.shape[1])]
             eta3 = [glob_points[2][i // (k + 1)][i % (k + 1)] for i in range(x_mesh.shape[2])]
 
-            pcoords = np.array([[[mapping([e1, e2, e3]) for e3 in eta3] for e2 in eta2] for e1 in eta1])
+            pcoords = np.array([[[mapping(e1, e2, e3) for e3 in eta3] for e2 in eta2] for e1 in eta1])
 
             x_mesh_l = pcoords[..., 0]
             y_mesh_l = pcoords[..., 1]
