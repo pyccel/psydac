@@ -93,7 +93,7 @@ def test_basis_funs_all_ders( lims, nc, p, tol=1e-14 ):
         assert ders.dtype == np.dtype( float )
 
         # Test 0th derivative
-        der0 = basis_funs( knots, p, x, span)
+        der0 = basis_funs( knots, p, x, span )
         assert np.allclose( ders[0,:], der0, rtol=1e-15, atol=1e-15 )
         assert np.all( ders[0,:] >= 0.0 )
 
@@ -186,8 +186,7 @@ if __name__ == '__main__':
     zz = np.zeros( (len(xx), nb) )
     for i,x in enumerate( xx ):
         span = find_span( knots, p, x )
-        yy_temp = basis_funs(knots, p, x, span)
-        yy[i,span-p:span+1] = yy_temp
+        yy[i,span-p:span+1] = basis_funs        ( knots, p, x, span )
         zz[i,span-p:span+1] = basis_funs_1st_der( knots, p, x, span )
 
     # Check partition of unity on evaluation grid
