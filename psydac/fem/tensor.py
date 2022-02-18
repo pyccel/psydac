@@ -241,12 +241,14 @@ class TensorFemSpace( FemSpace ):
 
     def preprocess(self, der=0, refine_factor=1):
         """Returns all the quantities needed to evaluate fields.
+
         Parameters
         ----------
         der: int
             Number of derivatives of the basis functions to pre-compute.
         refine_factor : tuple of ints, int (Optional)
             Size of the quadrature in all directions. Defaults to 1.
+
         Returns
         -------
         ncells : List of ints
@@ -287,13 +289,11 @@ class TensorFemSpace( FemSpace ):
 
             # Grids
             glob_points_i, _ = quadrature_grid(grid_i, u, w)
-
             glob_points_i[0, 0] = grid_i[0]
             glob_points_i[-1, -1] = grid_i[-1]
 
-            # Basis functions
+            # Basis functions values and spans
             global_basis_i = basis_ders_on_quad_grid(knots_i, self.degree[i], glob_points_i, der, self.spaces[i].basis)
-
             global_spans_i = elements_spans(knots_i, degree_i)
 
             ncells.append(len(grid_i) - 1)
@@ -302,11 +302,11 @@ class TensorFemSpace( FemSpace ):
 
         return ncells, self.pads, self.degree, quad_order, global_basis, global_spans
 
-        # ...
-
+    # ...
     def eval_fields(self, *fields, refine_factor=1, weights=None):
         """Evaluate one or several fields on a refined grid derived from the one define by the breakpoints of
         `self.breaks` with or without a weight field.
+
         Parameters:
         -----------
         fields : tuple of psydac.fem.basic.FemField
@@ -316,10 +316,12 @@ class TensorFemSpace( FemSpace ):
             it is used as the refining factor in each direction.
         weights : psydac.fem.basic.FemField
             Weights field.
+
         Returns
         -------
         out_fields : list of ndarray of floats
             List of the evaluated fields.
+
         See Also
         --------
         psydac.fem.TensorFemSpace.eval_field : Evaluate a field at a given location eta.
@@ -367,7 +369,7 @@ class TensorFemSpace( FemSpace ):
                                         global_spans[1], global_spans[2], glob_arr_coeffs, global_weight_coeff,
                                         out_fields)
         else:
-            raise NotImplementedError("TODO")
+            raise NotImplementedError("1D not Implemented")
 
         return out_fields
 

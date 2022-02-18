@@ -273,27 +273,25 @@ class SplineSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field(self, field, *eta , weights=None):
+    def eval_field( self, field, *eta , weights=None):
+
         assert isinstance( field, FemField )
         assert field.space is self
-        assert (len(eta)==1)
+        assert len( eta ) == 1
 
-        eta = eta[0]
-
-        span = find_span( self.knots, self.degree, eta)
-
-        basis_array = basis_funs( self.knots, self.degree, eta, span)
-        index = slice(span-self.degree, span + 1)
+        span  =  find_span( self.knots, self.degree, eta[0] )
+        basis = basis_funs( self.knots, self.degree, eta[0], span )
+        index = slice(span-self.degree, span+1)
 
         if self.basis == 'M':
-            basis_array *= self._scaling_array[index]
+            basis *= self._scaling_array[index]
 
         coeffs = field.coeffs[index].copy()
 
         if weights:
             coeffs *= weights[index]
 
-        return np.dot(coeffs,basis_array)
+        return np.dot( coeffs, basis )
 
     # ...
     def eval_field_gradient( self, field, *eta , weights=None):
@@ -488,4 +486,3 @@ class SplineSpace( FemSpace ):
         ax.grid(True)
         ax.legend()
         plt.show()
-

@@ -123,19 +123,21 @@ class SplineMapping:
         # Create SplineMapping object
         return cls( *fields )
 
-    # --------------------------------------------------------------------------
+    #--------------------------------------------------------------------------
     # Abstract interface
-    # --------------------------------------------------------------------------
+    #--------------------------------------------------------------------------
     def __call__( self, eta ):
         return [map_Xd( *eta ) for map_Xd in self._fields]
 
     def build_mesh(self, refine_factor=1):
         """Evaluation of the mapping on the entire logical domain
         using a refined grid.
+
         Parameters
         ----------
-        refine_factor : int, tuple of ints (Optional)
+        refine_factor : int, tuple of ints (optional)
             How much to refine the logical grid.
+
         Returns
         -------
         x_mesh: 3D array of floats
@@ -156,6 +158,8 @@ class SplineMapping:
             x_mesh = np.ascontiguousarray(mesh[..., 0])
             y_mesh = np.ascontiguousarray(mesh[..., 1])
             z_mesh = np.ascontiguousarray(mesh[..., 2])
+        else:
+            raise NotImplementedError("1D case not implemented")
 
         return x_mesh, y_mesh, z_mesh
 
@@ -356,10 +360,20 @@ class NurbsMapping( SplineMapping ):
     def build_mesh(self, refine_factor=1):
         """Evaluation of the mapping on the entire logical domain
         using a refined grid.
+
         Parameters
         ----------
         refine_factor : int, tuple of ints (Optional)
             How much to refine the logical grid.
+
+        Returns
+        -------
+        x_mesh: 3D array of floats
+            X component of the mesh
+        y_mesh: 3D array of floats
+            Y component of the mesh
+        z_mesh: 3D array of floats
+            Z component of the mesh
         """
 
         mesh = self.space.eval_fields(*self._fields, refine_factor=refine_factor, weights=self._weights_field)
@@ -372,6 +386,8 @@ class NurbsMapping( SplineMapping ):
             x_mesh = np.ascontiguousarray(mesh[..., 0])
             y_mesh = np.ascontiguousarray(mesh[..., 1])
             z_mesh = np.ascontiguousarray(mesh[..., 2])
+        else:
+            raise NotImplementedError("1D not Implemented")
 
         return x_mesh, y_mesh, z_mesh
 

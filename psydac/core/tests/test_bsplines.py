@@ -48,7 +48,7 @@ def test_basis_funs( lims, nc, p, tol=1e-14 ):
     xx = np.linspace( *lims, num=101 )
     for x in xx:
         span  =  find_span( knots, p, x )
-        basis = basis_funs( knots, p, x, span)
+        basis = basis_funs( knots, p, x, span )
         assert len( basis ) == p+1
         assert np.all( basis >= 0 )
         assert abs( sum( basis ) - 1.0 ) < tol
