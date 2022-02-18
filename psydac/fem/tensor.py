@@ -307,7 +307,7 @@ class TensorFemSpace( FemSpace ):
         """Evaluate one or several fields on a refined grid derived from the one define by the breakpoints of
         `self.breaks` with or without a weight field.
 
-        Parameters:
+        Parameters
         -----------
         fields : tuple of psydac.fem.basic.FemField
             Fields to evaluate
