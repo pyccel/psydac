@@ -1,4 +1,6 @@
 import pytest
+from sympy import pi, sin, cos, tan, atan, atan2
+from sympy import exp, sinh, cosh, tanh, atanh
 
 from sympde.topology import Line, Square
 from sympde.topology import ScalarFunctionSpace
@@ -101,6 +103,43 @@ def test_multiple_fields(backend):
     print("PASSED")
 
 #==============================================================================
+def test_math_imports(backend):
+
+    # If 'backend' is specified, accelerate Python code by passing **kwargs
+    # to discretization of bilinear forms, linear forms and functionals.
+    kwargs = {'backend': PSYDAC_BACKENDS[backend]} if backend else {}
+
+    domain = Square()
+    (x, y) = domain.coordinates
+
+    V = ScalarFunctionSpace('V', domain)
+    u = element_of(V, name='u')
+    v = element_of(V, name='v')
+
+    k_a = sin(pi * x) + cos(pi * y) + tan(pi/2 * y/x) + atan(y/x) + atan2(x, y)
+    k_l = exp(x + y) + sinh(x) + cosh(y) + tanh(x - y) + atanh(x - y)
+
+    a = BilinearForm((u, v), integral(domain, k_a * u * v))
+    l = LinearForm(v, integral(domain, k_l * v))
+
+    ncells = (4, 4)
+    degree = (2, 2)
+    domain_h = discretize(domain, ncells=ncells)
+    Vh = discretize(V, domain_h, degree=degree)
+
+    # Python code generation works if printer recognizes all Sympy functions
+    ah = discretize(a, domain_h, [Vh, Vh], **kwargs)
+    lh = discretize(l, domain_h,      Vh , **kwargs)
+
+    # Assembly works if math functions' imports are compatible with calls
+    A = ah.assemble()
+    b = lh.assemble()
+
+    # TODO: add meaningful assert statement
+    print("PASSED")
+
+#==============================================================================
 if __name__ == '__main__':
-    test_field_and_constant()
-    test_multiple_fields()
+    test_field_and_constant(None)
+    test_multiple_fields(None)
+    test_math_imports(None)
