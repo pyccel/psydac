@@ -18,9 +18,7 @@ References
 import numpy as np
 
 __all__ = ['find_span',
-           'find_spans',
            'basis_funs',
-           'basis_funs_array',
            'basis_funs_1st_der',
            'basis_funs_all_ders',
            'collocation_matrix',
@@ -34,9 +32,8 @@ __all__ = ['find_span',
            'basis_integrals',
            'basis_ders_on_quad_grid']
 
-
-# ==============================================================================
-def find_span(knots: 'float[:]', degree: int, x: float):
+#==============================================================================
+def find_span( knots, degree, x ):
     """
     Determine the knot span index at location x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
@@ -61,13 +58,11 @@ def find_span(knots: 'float[:]', degree: int, x: float):
         Knot span index.
 
     """
-
     # Knot index at left/right boundary
     low  = degree
     high = len(knots)-1-degree
 
     # Check if point is exactly on left/right boundary, or outside domain
-
     if x <= knots[low ]: return low
     if x >= knots[high]: return high-1
 
@@ -82,47 +77,15 @@ def find_span(knots: 'float[:]', degree: int, x: float):
 
     return span
 
-
-# ==============================================================================
-def find_spans(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]'):
-    """Determine the knot span index at locations in x, given the B-Splines' knot
-    sequence and polynomial degree. See Algorithm A2.1 in [1].
-
-    For a degree p, the knot span index i identifies the indices [i-p:i] of all
-    p+1 non-zero basis functions at a given location x.
-
-    Parameters
-    ----------
-    knots: array_like of floats
-        Knot sequence.
-
-    degree: int
-        Polynomial degree of the BSplines.
-
-    x: array_like of floats
-        Locations of interest
-
-    out: array_like of ints
-        Knot span index for each location in x.
-
-    See Also
-    --------
-    psydac.core.bsplines.find_span : Determines the knot span at a location.
-    """
-    n = x.size
-
-    for i in range(n):
-        out[i] = find_span(knots, degree, x[i])
-
 #==============================================================================
-def basis_funs(knots: 'float[:]', degree: int, x: float, span: int, out: 'float[:]'):
+def basis_funs( knots, degree, x, span ):
     """
     Compute the non-vanishing B-splines at location x, given the knot sequence,
     polynomial degree and knot span. See Algorithm A2.2 in [1].
 
     Parameters
     ----------
-    knots : array_like of floats
+    knots : array_like
         Knots sequence.
 
     degree : int
@@ -134,7 +97,9 @@ def basis_funs(knots: 'float[:]', degree: int, x: float, span: int, out: 'float[
     span : int
         Knot span index.
 
-    out : array_like of floats
+    Results
+    -------
+    values : numpy.ndarray
         Values of p+1 non-vanishing B-Splines at location x.
 
     Notes
@@ -143,51 +108,22 @@ def basis_funs(knots: 'float[:]', degree: int, x: float, span: int, out: 'float[
     by using 'left' and 'right' temporary arrays that are one element shorter.
 
     """
-    left = np.empty(degree, dtype=float)
-    right = np.empty(degree, dtype=float)
+    left   = np.empty( degree  , dtype=float )
+    right  = np.empty( degree  , dtype=float )
+    values = np.empty( degree+1, dtype=float )
 
-    out[0] = 1.0
-    for j in range(0, degree):
-        left[j] = x - knots[span - j]
-        right[j] = knots[span + 1 + j] - x
-        saved = 0.0
-        for r in range(0, j + 1):
-            temp = out[r] / (right[r] + left[j - r])
-            out[r] = saved + right[r] * temp
-            saved = left[j - r] * temp
-        out[j + 1] = saved
+    values[0] = 1.0
+    for j in range(0,degree):
+        left [j] = x - knots[span-j]
+        right[j] = knots[span+1+j] - x
+        saved    = 0.0
+        for r in range(0,j+1):
+            temp      = values[r] / (right[r] + left[j-r])
+            values[r] = saved + right[r] * temp
+            saved     = left[j-r] * temp
+        values[j+1] = saved
 
-
-# ==============================================================================
-def basis_funs_array(knots: 'float[:]', degree: int, x: 'float[:]', span: 'int[:]', out: 'float[:,:]'):
-    """
-    Compute the non-vanishing B-splines at locations in x, given the knot sequence,
-    polynomial degree and knot span. See Algorithm A2.2 in [1].
-
-    Parameters
-    ----------
-    knots : array_like of floats
-        Knots sequence.
-
-    degree : int
-        Polynomial degree of B-splines.
-
-    x : array_like of floats
-        Evaluation points.
-
-    span : array_like of int
-        Knot span indexes.
-
-    out : array_like of floats
-        Values of p+1 non-vanishing B-Splines at all locations in x.
-
-    """
-
-    n = x.shape[0]
-    temp = np.empty(degree + 1, dtype=float)
-    for i in range(n):
-        basis_funs(knots, degree, x[i], span[i], temp)
-        out[i, :] = temp
+    return values
 
 #==============================================================================
 def basis_funs_1st_der( knots, degree, x, span ):
@@ -220,8 +156,7 @@ def basis_funs_1st_der( knots, degree, x, span ):
     """
     # Compute nonzero basis functions and knot differences for splines
     # up to degree deg-1
-    values = np.zeros(degree)
-    basis_funs( knots, degree-1, x, span, values)
+    values = basis_funs( knots, degree-1, x, span )
 
     # Compute derivatives at x using formula based on difference of splines of
     # degree deg-1
@@ -398,8 +333,7 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid):
     # Fill in non-zero matrix values
     for i,x in enumerate( xgrid ):
         span  =  find_span( knots, degree, x )
-        basis = np.zeros(degree + 1)
-        basis_funs( knots, degree, x, span, basis)
+        basis = basis_funs( knots, degree, x, span )
         mat[i,js(span)] = normalize(basis, span)
 
     # Mitigate round-off errors
