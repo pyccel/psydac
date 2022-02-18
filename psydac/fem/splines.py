@@ -276,15 +276,13 @@ class SplineSpace( FemSpace ):
     def eval_field(self, field, *eta , weights=None):
         assert isinstance( field, FemField )
         assert field.space is self
-        assert (len(eta)==1)
+        assert len(eta) == 1
 
         eta = eta[0]
 
         span = find_span( self.knots, self.degree, eta)
 
-        basis_array = np.empty(self.degree + 1)
-
-        basis_funs( self.knots, self.degree, eta, span, basis_array)
+        basis_array = basis_funs( self.knots, self.degree, eta, span)
         index = slice(span-self.degree, span + 1)
 
         if self.basis == 'M':
