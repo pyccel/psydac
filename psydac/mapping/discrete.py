@@ -163,16 +163,20 @@ class SplineMapping:
 
         return x_mesh, y_mesh, z_mesh
 
+    # ...
     def jac_mat( self, *eta):
         return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
 
+    # ...
     def metric( self, *eta):
         J = self.jac_mat( eta )
         return np.dot( J.T, J )
 
+    # ...
     def metric_det( self, *eta):
         return np.linalg.det( self.metric( eta ) )
 
+    # ...
     def jac_mat_grid(self, refine_factor=1):
         from psydac.core.kernels import eval_jacobians_2d, eval_jacobians_3d
 
@@ -208,6 +212,7 @@ class SplineMapping:
 
         return jac_mats
 
+    # ...
     def inv_jac_mat_grid(self, refine_factor=1):
         from psydac.core.kernels import eval_jacobians_inv_2d, eval_jacobians_inv_3d
 
@@ -243,6 +248,7 @@ class SplineMapping:
 
         return inv_jac_mats
 
+    # ...
     def metric_det_grid(self, refine_factor=1):
         from psydac.core.kernels import eval_det_metric_3d, eval_det_metric_2d
 
@@ -632,7 +638,6 @@ class NurbsMapping( SplineMapping ):
             raise NotImplementedError("TODO")
 
         return metric_det
-    
 
     #--------------------------------------------------------------------------
     # Other properties/methods
