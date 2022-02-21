@@ -6,14 +6,18 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 import matplotlib.pyplot as plt
 
+from sympde.topology.callable_mapping   import CallableMapping
+from sympde.topology.analytical_mapping import IdentityMapping, PolarMapping
+from sympde.topology.analytical_mapping import TargetMapping, CzarnyMapping
+
 from psydac.linalg.stencil             import StencilVector, StencilMatrix
 from psydac.linalg.iterative_solvers   import cg
 from psydac.fem.splines                import SplineSpace
 from psydac.fem.tensor                 import TensorFemSpace
 from psydac.fem.basic                  import FemField
 from psydac.fem.context                import fem_context
-from psydac.mapping.analytical         import AnalyticalMapping, IdentityMapping
-from psydac.mapping.analytical_gallery import Annulus, Target, Czarny
+#OLD from psydac.mapping.analytical         import AnalyticalMapping, IdentityMapping
+#OLD from psydac.mapping.analytical_gallery import Annulus, Target, Czarny
 from psydac.mapping.discrete           import SplineMapping
 from psydac.utilities.utils            import refine_array_1d
 
@@ -22,15 +26,26 @@ from psydac.polar.c1_projections       import C1Projector
 #==============================================================================
 class Laplacian:
 
-    def __init__( self, mapping ):
+#OLD def __init__( self, mapping ):
+#OLD     from psydac.mapping.analytical import AnalyticalMapping, IdentityMapping
+#OLD
+#OLD     assert isinstance( mapping, AnalyticalMapping )
+#OLD
+#OLD     sym = type(mapping).symbolic
+#OLD
+#OLD     self._eta        = sym.eta
+#OLD     self._metric     = sym.metric    .subs( mapping.params )
+#OLD     self._metric_det = sym.metric_det.subs( mapping.params )
 
-        assert isinstance( mapping, AnalyticalMapping )
+    def __init__(self, mapping):
 
-        sym = type(mapping).symbolic
+        assert isinstance(mapping, CallableMapping)
 
-        self._eta        = sym.eta
-        self._metric     = sym.metric    .subs( mapping.params )
-        self._metric_det = sym.metric_det.subs( mapping.params )
+        sym = mapping.symbolic_mapping
+
+        self._eta        = sym.logical_coordinates
+        self._metric     = sym.metric_expr    .subs(mapping.params)
+        self._metric_det = sym.metric_det_expr.subs(mapping.params)
 
     # ...
     def __call__( self, phi ):
@@ -85,7 +100,8 @@ class Poisson2D:
         """
         domain   = ((0,1), (0,1))
         periodic = (False, False)
-        mapping  = IdentityMapping( ndim=2 )
+#OLD     mapping  = IdentityMapping( ndim=2 )
+        mapping  = IdentityMapping('F', dim=2).get_callable_mapping()
 
         from sympy import symbols, sin, cos, pi, lambdify
         x,y   = symbols('x y')
@@ -111,15 +127,20 @@ class Poisson2D:
         $\phi(x,y) = 4(r-rmin)(rmax-r)/(rmax-rmin)^2 \sin(2\pi x) \sin(2\pi y)$.
 
         """
-        domain   = ((rmin,rmax),(0,2*np.pi))
+#OLD     domain   = ((rmin,rmax),(0,2*np.pi))
+#OLD     periodic = (False, True)
+#OLD     mapping  = Annulus()
         periodic = (False, True)
-        mapping  = Annulus()
+        domain   = ((0, 1), (0, 2*np.pi))
+        mapping  = PolarMapping('F', c1=0, c2=0, rmin=rmin, rmax=rmax).get_callable_mapping()
 
         from sympy import symbols, sin, cos, pi, lambdify
 
         lapl  = Laplacian( mapping )
-        r,t   = Annulus.symbolic.eta
-        x,y   = (Xd.subs( mapping.params ) for Xd in Annulus.symbolic.map)
+#OLD     r,t   = Annulus.symbolic.eta
+#OLD     x,y   = (Xd.subs( mapping.params ) for Xd in Annulus.symbolic.map)
+        r, t  = mapping.symbolic_mapping.logical_coordinates
+        x, y  = mapping.symbolic_mapping.expressions
 
         # Manufactured solutions in logical coordinates
         parab = (r-rmin) * (rmax-r) * 4 / (rmax-rmin)**2
@@ -153,12 +174,14 @@ class Poisson2D:
         """
         domain   = ((0,1),(0,2*np.pi))
         periodic = (False, True)
-        mapping  = Annulus()
+#OLD     mapping  = Annulus()
+        mapping  = PolarMapping('F', c1=0, c2=0, rmin=0, rmax=2*np.pi).get_callable_mapping()
 
         from sympy import lambdify
 
         lapl  = Laplacian( mapping )
-        r,t   = type( mapping ).symbolic.eta
+#OLD     r,t   = type( mapping ).symbolic.eta
+        r, t  = mapping.symbolic_mapping.logical_coordinates
 
         # Manufactured solutions in logical coordinates
         phi_e = 1-r**2
@@ -178,17 +201,23 @@ class Poisson2D:
 
         domain   = ((0,1),(0,2*np.pi))
         periodic = (False, True)
-        mapping  = Target()
+#OLD     mapping  = Target()
+        params   = dict(c1=0, c2=0, k=0.3, D=0.2)
+        mapping  = TargetMapping('F', **params).get_callable_mapping()
 
         from sympy import symbols, sin, cos, pi, lambdify
 
         lapl  = Laplacian( mapping )
-        s,t   = type( mapping ).symbolic.eta
-        x,y   = (Xd.subs( mapping.params ) for Xd in type( mapping ).symbolic.map)
+#OLD     s,t   = type( mapping ).symbolic.eta
+#OLD     x,y   = (Xd.subs( mapping.params ) for Xd in type( mapping ).symbolic.map)
+        s, t  = mapping.symbolic_mapping.logical_coordinates
+        x, y  = mapping.symbolic_mapping.expressions
 
         # Manufactured solution in logical coordinates
-        k     = mapping.params['k']
-        D     = mapping.params['D']
+#OLD     k     = mapping.params['k']
+#OLD     D     = mapping.params['D']
+        k     = params['k']
+        D     = params['D']
         kx    = 2*pi/(1-k+D)
         ky    = 2*pi/(1+k)
         phi_e = (1-s**8) * sin( kx*(x-0.5) ) * cos( ky*y )
@@ -206,13 +235,17 @@ class Poisson2D:
 
         domain   = ((0,1),(0,2*np.pi))
         periodic = (False, True)
-        mapping  = Czarny()
+#OLD     mapping  = Czarny()
+        params   = dict(c1=0, c2=0, eps=0.2, b=1.4)
+        mapping  = CzarnyMapping('F', **params).get_callable_mapping()
 
         from sympy import symbols, sin, cos, pi, lambdify
 
         lapl  = Laplacian( mapping )
-        s,t   = type( mapping ).symbolic.eta
-        x,y   = (Xd.subs( mapping.params ) for Xd in type( mapping ).symbolic.map)
+        s, t  = mapping.symbolic_mapping.logical_coordinates
+        x, y  = mapping.symbolic_mapping.expressions
+#OLD     s,t   = type( mapping ).symbolic.eta
+#OLD     x,y   = (Xd.subs( mapping.params ) for Xd in type( mapping ).symbolic.map)
 
         # Manufactured solution in logical coordinates
         phi_e = (1-s**8) * sin( pi*x ) * cos( pi*y )
@@ -416,7 +449,8 @@ def assemble_matrices( V, mapping, kernel ):
                 for q2 in range( nq2 ):
                     x1 = points_1[k1,q1]
                     x2 = points_2[k2,q2]
-                    jac_mat[q1,q2,:,:] = mapping.jac_mat( [x1,x2] )
+#OLD                 jac_mat[q1,q2,:,:] = mapping.jac_mat( [x1,x2] )
+                    jac_mat[q1, q2, :, :] = mapping.jacobian(x1, x2)
 
             # Compute element matrices
             kernel( p1, p2, nq1, nq2, bs1, bs2, w1, w2, jac_mat, mat_m, mat_s )
@@ -491,7 +525,8 @@ def assemble_rhs( V, mapping, f ):
             metric_det = np.empty( (nq1,nq2) )
             for q1 in range( nq1 ):
                 for q2 in range( nq2 ):
-                    metric_det[q1,q2] = mapping.metric_det( [x1[q1],x2[q2]] )
+#OLD                 metric_det[q1,q2] = mapping.metric_det( [x1[q1],x2[q2]] )
+                    metric_det[q1, q2] = mapping.metric_det(x1[q1], x2[q2])
             jac_det = np.sqrt( metric_det )
 
             for il1 in range( p1+1 ):
@@ -693,7 +728,8 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
 
     # Compute L2 norm of error
     t0 = time()
-    sqrt_g    = lambda *x: np.sqrt( mapping.metric_det( x ) )
+#OLD sqrt_g    = lambda *x: np.sqrt( mapping.metric_det( x ) )
+    sqrt_g    = lambda *x: np.sqrt( mapping.metric_det(*x) )
     integrand = lambda *x: (phi(*x)-model.phi(*x))**2 * sqrt_g(*x)
     err2 = np.sqrt( V.integral( integrand ) )
     t1 = time()
@@ -765,7 +801,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     err = num - ex
 
     # Compute physical coordinates of logical grid
-    pcoords = np.array( [[model.mapping( [e1,e2] ) for e2 in eta2] for e1 in eta1] )
+    pcoords = np.array( [[model.mapping(e1, e2) for e2 in eta2] for e1 in eta1] )
     xx = pcoords[:,:,0]
     yy = pcoords[:,:,1]
 
@@ -794,7 +830,7 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
 
     if use_spline_mapping:
         # Recompute physical coordinates of logical grid using spline mapping
-        pcoords = np.array( [[map_discrete( [e1,e2] ) for e2 in eta2] for e1 in eta1] )
+        pcoords = np.array( [[map_discrete(e1, e2) for e2 in eta2] for e1 in eta1] )
         xx = pcoords[:,:,0]
         yy = pcoords[:,:,1]
 
