@@ -505,8 +505,8 @@ class GltKernel(SplBasic):
         # ...
 
         # ... get math functions and constants
-        math_elements = math_atoms_as_str(expr, 'numpy')
-        math_imports  = [Import('numpy', e) for e in math_elements]
+        math_elements = math_atoms_as_str(expr, 'math')
+        math_imports  = [Import('math', e) for e in math_elements]
 
         imports += math_imports
         # ...
