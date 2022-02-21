@@ -827,7 +827,7 @@ class TensorFemSpace( FemSpace ):
         [sk1,sk2], [ek1,ek2] = self.local_domain
         eta1 = refine_array_1d( V1.breaks[sk1:ek1+2], N )
         eta2 = refine_array_1d( V2.breaks[sk2:ek2+2], N )
-        pcoords = np.array( [[mapping( [e1,e2] ) for e2 in eta2] for e1 in eta1] )
+        pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
 
         # Local domain as Matplotlib polygonal patch
         AB = pcoords[   :,    0, :] # eta2 = min
@@ -849,7 +849,7 @@ class TensorFemSpace( FemSpace ):
         # Global grid, refined
         eta1    = refine_array_1d( V1.breaks, N )
         eta2    = refine_array_1d( V2.breaks, N )
-        pcoords = np.array( [[mapping( [e1,e2] ) for e2 in eta2] for e1 in eta1] )
+        pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
         xx      = pcoords[:,:,0]
         yy      = pcoords[:,:,1]
 
