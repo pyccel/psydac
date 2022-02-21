@@ -182,7 +182,7 @@ def collocation_matrix_true(knots, degree, periodic, normalization, xgrid):
     return mat
 
 #==============================================================================
-def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
+def histopolation_matrix_true(knots, degree, periodic, normalization, xgrid):
     # Check that knots are ordered (but allow repeated knots)
     if not np.all(np.diff(knots) >= 0):
         raise ValueError("Cannot accept knot sequence: {}".format(knots))
@@ -503,8 +503,20 @@ def test_collocation_matrix(knots, degree, periodic, normalization, xgrid):
 
     assert np.allclose(expected, out)
 
-def test_histopolation_matrix():
-    pass
+@pytest.mark.parametrize('knots',
+                         (np.sort(np.random.random(15)),
+                          np.array([0.0, 0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0])))
+@pytest.mark.parametrize('degree', (2, 3, 4, 5))
+@pytest.mark.parametrize('periodic', (True, False))
+@pytest.mark.parametrize('normalization', ('B', 'M'))
+@pytest.mark.parametrize('xgrid', (np.random.random(10), np.random.random(15)))
+def test_histopolation_matrix(knots, degree, periodic, normalization, xgrid):
+    xgrid = np.sort(np.unique(xgrid))
+    expected = histopolation_matrix_true(knots, degree, periodic, normalization, xgrid)
+    out = histopolation_matrix(knots, degree, periodic, normalization, xgrid)
+
+    assert np.allclose(expected, out)
+
 
 def test_breakpoints():
     pass

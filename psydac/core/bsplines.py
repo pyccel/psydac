@@ -24,6 +24,7 @@ from psydac.core.bsplines_pyccel import (find_span_p,
                                          basis_funs_1st_der_p,
                                          basis_funs_all_ders_p,
                                          collocation_matrix_p,
+                                         histopolation_matrix_p,
                                          elevate_knots_p,
                                          basis_integrals_p)
 
@@ -297,7 +298,7 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
     return out
 
 #==============================================================================
-def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
+def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_boundary=True, out=None):
     r"""
     Compute the histopolation matrix $H_{ij} = \int_{x_i}^{x_{i+1}} B_j(x) dx$,
     which contains the integrals of each B-spline basis function $B_j$ between
@@ -345,78 +346,19 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid):
     if not np.all(np.diff(xgrid) > 0):
         raise ValueError("Grid points must be ordered, with no repetitions: {}".format(xgrid))
 
-    # Number of basis functions (in periodic case remove degree repeated elements)
-    nb = len(knots)-degree-1
-    if periodic:
-        nb -= degree
+    elevated_knots = elevate_knots(knots, degree, periodic)
 
-    # Number of evaluation points
-    nx = len(xgrid)
+    normalization = normalization == "M"
 
-    # In periodic case, make sure that evaluation points include domain boundaries
-    # TODO: only do this if the user asks for it!
-    if periodic:
-        xmin  = knots[degree]
-        xmax  = knots[-1-degree]
-        if xgrid[0] > xmin:
-            xgrid = [xmin, *xgrid]
-        if xgrid[-1] < xmax:
-            xgrid = [*xgrid, xmax]
+    if out is None:
+        if periodic:
+            out = np.zeros((len(xgrid), len(knots) - 2 * degree -1))
+        else:
+            out = np.zeros((len(xgrid) - 1, len(elevated_knots) - (degree + 1) - 1 - 1))
 
-    # B-splines of degree p+1: basis[i,j] := Bj(xi)
-    #
-    # NOTES:
-    #  . cannot use M-splines in analytical formula for histopolation matrix
-    #  . always use non-periodic splines to avoid circulant matrix structure
-    C = collocation_matrix(
-        knots    = elevate_knots(knots, degree, periodic),
-        degree   = degree + 1,
-        periodic = False,
-        normalization = 'B',
-        xgrid = xgrid
-    )
+    histopolation_matrix_p(knots, degree, periodic, normalization, xgrid, check_boundary, elevated_knots, out)
 
-    # Rescaling of M-splines, to get B-splines if needed
-    if normalization == 'M':
-        normalize = lambda bi, j: bi
-    elif normalization == 'B':
-        scaling = basis_integrals(knots, degree)
-        normalize = lambda bi, j: bi * scaling[j]
-
-    # Compute span for each row (index of last non-zero basis function)
-    # TODO: would be better to have this ready beforehand
-    # TODO: use tolerance instead of comparing against zero
-    spans = [(row != 0).argmax() + (degree+1) for row in C]
-
-    # Compute histopolation matrix from collocation matrix of higher degree
-    m = C.shape[0] - 1
-    n = C.shape[1] - 1
-    H = np.zeros((m, n))
-    for i in range(m):
-        # Indices of first/last non-zero elements in row of collocation matrix
-        jstart = spans[i] - (degree+1)
-        jend   = min(spans[i+1], n)
-        # Compute non-zero values of histopolation matrix
-        for j in range(1+jstart, jend+1):
-            s = C[i, 0:j].sum() - C[i+1, 0:j].sum()
-            H[i, j-1] = normalize(s, j-1)
-
-    # Mitigate round-off errors
-    H[abs(H) < 1e-14] = 0.0
-
-    # Non periodic case: stop here
-    if not periodic:
-        return H
-
-    # Periodic case: wrap around histopolation matrix
-    #  1. identify repeated basis functions (sum columns)
-    #  2. identify split interval (sum rows)
-    Hp = np.zeros((nx, nb))
-    for i in range(m):
-        for j in range(n):
-            Hp[i%nx, j%nb] += H[i, j]
-
-    return Hp
+    return out
 
 #==============================================================================
 def breakpoints( knots, degree ,tol=1e-15):
