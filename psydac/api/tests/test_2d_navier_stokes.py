@@ -23,6 +23,7 @@ from sympde.expr     import Norm
 from sympde.expr     import find, EssentialBC
 from sympde.core     import Constant
 from sympde.expr     import TerminalExpr
+from sympde.expr     import linearize
 
 from psydac.api.essential_bc   import apply_essential_bc
 from psydac.fem.basic          import FemField
@@ -39,6 +40,16 @@ from psydac.linalg.iterative_solvers import cg, pcg, bicg, lsmr
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
 #==============================================================================
+# ... get the mesh directory
+try:
+    mesh_dir = os.environ['PSYDAC_MESH_DIR']
+
+except:
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    base_dir = os.path.join(base_dir, '..', '..', '..')
+    mesh_dir = os.path.join(base_dir, 'mesh')
+
+#==============================================================================
 def get_boundaries(*args):
 
     if not args:
@@ -54,16 +65,18 @@ def get_boundaries(*args):
 
     return tuple(boundaries[i] for i in args)
 
+#------------------------------------------------------------------------------
 def scipy_solver(M, b):
     x  = spsolve(M.tosparse().tocsr(), b.toarray())
     x  = array_to_stencil(x, b.space)
     return x,0
 
+#------------------------------------------------------------------------------
 def psydac_solver(M, b):
-    return lsmr(M, M.T, b, maxiter=10000, tol=1e-10)
+    return lsmr(M, M.T, b, maxiter=10000, tol=1e-6)
 
-#==================================================================================
-def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max_newton_iter=50, scipy=True):
+#==============================================================================
+def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max_newton_iter=100, scipy=True):
     """
         Time dependent Navier Stokes solver in a 2d domain.
         this example was taken from the pyiga library
@@ -76,20 +89,16 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
     V2 = ScalarFunctionSpace('V2', domain, kind='L2')
     X  = ProductSpace(V1, V2)
 
-    u, v = elements_of(V1, names='u, v')
-    p, q = elements_of(V2, names='p, q')
+    u0, u, v, du = elements_of(V1, names='u0, u, v, du')
+    p0, p, q, dp = elements_of(V2, names='p0, p, q, dp')
 
     x, y  = domain.coordinates
     int_0 = lambda expr: integral(domain , expr)
 
-    u0 = element_of(V1, name='u0')
-    du = element_of(V1, name='du')
-    dp = element_of(V2, name='dp')
-
     # time step
     dt = Constant(name='dt')
 
-    # boundaries
+    # Boundaries
     boundary_h = Union(*[domain.get_boundary(**kw) for kw in get_boundaries(3,4)])
     boundary   = Union(*[domain.get_boundary(**kw) for kw in get_boundaries(1)])
     ue         = Tuple(40*y*(0.5-y)*exp(-100*(y-0.25)**2), 0)
@@ -98,17 +107,18 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
     # Reynolds number
     Re = 1e4
 
-    # define the linearized navier stokes
-    a = BilinearForm(((du,dp),(v, q)), integral(domain, dot(du,v) + dt*dot(Transpose(grad(du))*u, v) + dt*dot(Transpose(grad(u))*du, v)
-                                                      + dt*Re**-1*inner(grad(du), grad(v)) - dt*div(du)*q - dt*dp*div(v) + dt*1e-10*dp*q) )
-    l = LinearForm((v, q),             integral(domain, dot(u,v)-dot(u0,v) + dt*dot(Transpose(grad(u))*u, v)
-                                                      + dt*Re**-1*inner(grad(u), grad(v)) - dt*div(u)*q - dt*p*div(v) + dt*1e-10*p*q) )
+    Fl = lambda u,p: Re**-1*inner(grad(u), grad(v)) - div(u)*q - p*div(v) + 1e-10*p*q
+    F  = lambda u,p: dot(Transpose(grad(u))*u,v) + Fl(u,p)
+    
+    l = LinearForm((v, q), integral(domain, dot(u,v)-dot(u0,v) + dt/2 * (F(u,p) + F(u0,p0)) ))
+    a = linearize(l, (u,p), trials=(du, dp))
 
-    # use the stokes equation to compute the initial solution
-    a_stokes = BilinearForm(((du,dp),(v, q)), integral(domain, Re**-1*inner(grad(du), grad(v)) - div(du)*q - dp*div(v) + 1e-10*dp*q) )
+    equation  = find((du, dp), forall=(v, q), lhs=a((du, dp), (v, q)), rhs=l(v, q), bc=bc)
+
+    # Use the stokes equation to compute the initial solution
+    a_stokes = BilinearForm(((du,dp),(v, q)), integral(domain, Fl(du,dp)) )
     l_stokes = LinearForm((v, q), integral(domain, dot(v,Tuple(0,0)) ))
 
-    equation        = find((du, dp), forall=(v, q), lhs=a((du, dp), (v, q)), rhs=l(v, q), bc=bc)
     equation_stokes = find((du, dp), forall=(v, q), lhs=a_stokes((du, dp), (v, q)), rhs=l_stokes(v, q), bc=bc)
 
     # Define (abstract) norms
@@ -137,7 +147,6 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
     # compute the initial solution
     equation_stokes_h.set_solver('bicg', tol=1e-15)
     x0 = equation_stokes_h.solve()
-
 
     u0_h = FemField(V1h)
     p0_h = FemField(V2h)
@@ -177,7 +186,7 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
             print('==== iteration {} ===='.format(n))
 
             M = a_h.assemble(u=u_h, p=p_h, dt=dt_h)
-            b = l_h.assemble(u=u_h, p=p_h, u0=u0_h, dt=dt_h)
+            b = l_h.assemble(u=u_h, p=p_h, u0=u0_h, p0=p0_h, dt=dt_h)
 
             apply_essential_bc(M, *equation_h.bc, identity=True)
             apply_essential_bc(b, *equation_h.bc)
@@ -195,7 +204,7 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
             print('L2_error_norm(du) = {}'.format(l2_error_du))
             print('L2_error_norm(dp) = {}'.format(l2_error_dp))
 
-            if abs(l2_error_du) <= newton_tol and abs(l2_error_dp) <= newton_tol:
+            if abs(l2_error_du) <= newton_tol:
                 print()
                 print('CONVERGED')
                 break
@@ -242,8 +251,8 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, mult
 
     equation_b = find((u, p), forall=(v, q), lhs=a_b((u, p), (v, q)), rhs=l_b(v, q))
 
-    a = BilinearForm(((du,dp),(v, q)), integral(domain, dot(Transpose(grad(du))*u, v) + dot(Transpose(grad(u))*du, v) + inner(grad(du), grad(v)) - div(du)*q - dp*div(v)) )
     l = LinearForm((v, q), integral(domain, dot(Transpose(grad(u))*u, v) + inner(grad(u), grad(v)) - div(u)*q - p*div(v) - dot(f, v)) )
+    a = linearize(l, (u,p), trials=(du, dp))
 
     bc       = EssentialBC(du, 0, boundary)
 
@@ -294,11 +303,12 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, mult
     du_h = FemField(V1h)
     dp_h = FemField(V2h)
 
+    equation_h.set_solver('bicg', tol=1e-9, info=True)
+
     # Newton iteration
     for n in range(N):
         print('==== iteration {} ===='.format(n))
 
-        equation_h.set_solver('bicg', tol=1e-9, info=True)
         xh, info   = equation_h.solve(u=u_h, p=p_h)
 
         split_field(xh, (V1h, V2h), out=(du_h, dp_h))
@@ -327,8 +337,7 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, mult
 ###############################################################################
 #            SERIAL TESTS
 ###############################################################################
-#------------------------------------------------------------------------------
-def test_navier_stokes_2d():
+def test_st_navier_stokes_2d():
 
     # ... Exact solution
     domain = Square()
@@ -370,13 +379,19 @@ def test_navier_stokes_2d():
     assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
     assert abs(0.004127752838826402 - l2_error_p  ) < 1e-7
 
+#------------------------------------------------------------------------------
+def test_navier_stokes_2d():
+    Tf       = 1.
+    dt_h     = 0.05
+    nt       = Tf//dt_h
+    filename = os.path.join(mesh_dir, 'bent_pipe.h5')
+    solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, newton_tol=1e-10, scipy=True)
+
 ###############################################################################
 #            PARALLEL TESTS
 ###############################################################################
-
-#==============================================================================
 @pytest.mark.parallel
-def test_navier_stokes_2d_parallel():
+def test_st_navier_stokes_2d_parallel():
 
     # ... Exact solution
     domain = Square()
@@ -412,7 +427,7 @@ def test_navier_stokes_2d_parallel():
 
     # Run test
 
-    l2_error_u, l2_error_p = run_steady_state_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2])
+    l2_error_u, l2_error_p = run_steady_state_navier_stokes_2d(domain, f, ue, pe, ncells=[2**3,2**3], degree=[2, 2], multiplicity=[2,2])
 
     # Check that expected absolute error on velocity and pressure fields
     assert abs(0.00020452836013053793 - l2_error_u ) < 1e-7
@@ -433,14 +448,14 @@ def teardown_function():
 #------------------------------------------------------------------------------
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-
     from matplotlib import animation
     from time       import time
-    filename = '../../../mesh/bent_pipe.h5'
 
-    Tf   = 3.
-    dt_h = 0.05
-    nt   = Tf//dt_h
+    Tf       = 3.
+    dt_h     = 0.05
+    nt       = Tf//dt_h
+    filename = os.path.join(mesh_dir, 'bent_pipe.h5')
+
     solutions, p_h, domain, domain_h = run_time_dependent_navier_stokes_2d(filename, dt_h=dt_h, nt=nt, scipy=False)
 
     domain = domain.logical_domain
@@ -448,4 +463,4 @@ if __name__ == '__main__':
 
     anim = animate_field(solutions, domain, mapping, res=(150,150), progress=True)
     anim.save('animated_fields_{}_{}.mp4'.format(str(Tf).replace('.','_'), str(dt_h).replace('.','_')), writer=animation.FFMpegWriter(fps=60))
-    
+
