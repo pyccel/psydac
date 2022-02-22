@@ -108,7 +108,7 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
     Re = 1e4
 
     Fl = lambda u,p: Re**-1*inner(grad(u), grad(v)) - div(u)*q - p*div(v) + 1e-10*p*q
-    F  = lambda u,p: dot(Transpose(grad(u))*u,nv) + Fl(u,p)
+    F  = lambda u,p: dot(Transpose(grad(u))*u,v) + Fl(u,p)
     
     l = LinearForm((v, q), integral(domain, dot(u,v)-dot(u0,v) + dt/2 * (F(u,p) + F(u0,p0)) ))
     a = linearize(l, (u,p), trials=(du, dp))
