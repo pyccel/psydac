@@ -169,12 +169,12 @@ class SplineMapping:
 
     # ...
     def metric( self, *eta):
-        J = self.jac_mat( eta )
+        J = self.jac_mat( *eta )
         return np.dot( J.T, J )
 
     # ...
     def metric_det( self, *eta):
-        return np.linalg.det( self.metric( eta ) )
+        return np.linalg.det( self.metric( *eta ) )
 
     # ...
     def jac_mat_grid(self, refine_factor=1):
@@ -511,15 +511,14 @@ class NurbsMapping( SplineMapping ):
     # ...
     def metric( self, *eta):
         raise NotImplementedError('TODO')
-#        J = self.jac_mat( eta )
+#        J = self.jac_mat( *eta )
 #        return np.dot( J.T, J )
 
     # ...
     def metric_det( self, *eta):
         raise NotImplementedError('TODO')
-#        return np.linalg.det( self.metric( eta ) )
-    
-    
+#        return np.linalg.det( self.metric( *eta ) )
+
     # ...
     def jac_mat_grid(self, refine_factor=1):
         from psydac.core.kernels import eval_jacobians_2d_weights, eval_jacobians_3d_weights
@@ -558,7 +557,7 @@ class NurbsMapping( SplineMapping ):
             raise NotImplementedError("TODO")
 
         return jac_mats
-    
+
     # ...
     def inv_jac_mat_grid(self, refine_factor=1):
         from psydac.core.kernels import eval_jacobians_inv_2d_weights, eval_jacobians_inv_3d_weights
@@ -598,7 +597,7 @@ class NurbsMapping( SplineMapping ):
             raise NotImplementedError("TODO")
 
         return inv_jac_mats
-    
+
     # ...
     def metric_det_grid(self, refine_factor=1):
         from psydac.core.kernels import eval_det_metric_3d_weights, eval_det_metric_2d_weights

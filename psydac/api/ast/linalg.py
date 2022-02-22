@@ -45,6 +45,7 @@ def variable_to_sympy(x):
     return x
 #==============================================================================
 def compute_diag_len(p, md, mc, return_padding=False):
+    p, md, mc = np.int64(p), np.int64(md), np.int64(mc)
     n = ((np.ceil((p+1)/mc)-1)*md).astype('int')
     ep = np.minimum(0, n-p)
     n = n-ep + p+1
@@ -59,6 +60,10 @@ def Mod(a,b):
     else:
         return sy_Mod(a,b)
 
+def toInteger(a):
+    if isinstance(a, np.int64):
+        return Integer(int(a))
+    return a
 #==============================================================================
 @lru_cache(maxsize=32)
 class LinearOperatorDot(SplBasic):
@@ -95,9 +100,9 @@ class LinearOperatorDot(SplBasic):
 
     def _initialize(self, ndim, **kwargs):
 
-        nrows           = kwargs.pop('nrows', variables('n1:%s'%(ndim+1),  'int'))
-        nrows_extra     = kwargs.pop('nrows_extra', variables('ne1:%s'%(ndim+1),  'int'))
-        starts          = kwargs.pop('starts', variables('s1:%s'%(ndim+1),  'int'))
+        nrows           = tuple(map(toInteger,kwargs.pop('nrows', variables('n1:%s'%(ndim+1),  'int'))))
+        nrows_extra     = tuple(map(toInteger,kwargs.pop('nrows_extra', variables('ne1:%s'%(ndim+1),  'int'))))
+        starts          = tuple(map(toInteger,kwargs.pop('starts', variables('s1:%s'%(ndim+1),  'int'))))
         indices1        = variables('i1:%s'%(ndim+1),  'int')
         bb              = variables('b1:%s'%(ndim+1),  'int')
         indices2        = variables('k1:%s'%(ndim+1),  'int')
@@ -109,15 +114,15 @@ class LinearOperatorDot(SplBasic):
         xshape          = variables('xn1:%s'%(ndim+1),  'int')
         backend         = kwargs.pop('backend', None)
 
-        pads            = kwargs.pop('pads')
-        gpads           = kwargs.pop('gpads')
-        cm              = kwargs.pop('cm')
-        dm              = kwargs.pop('dm')
+        pads            = tuple(map(toInteger, kwargs.pop('pads')))
+        gpads           = tuple(map(toInteger,kwargs.pop('gpads')))
+        cm              = tuple(map(toInteger,kwargs.pop('cm')))
+        dm              = tuple(map(toInteger,kwargs.pop('dm')))
         interface       = kwargs.pop('interface', False)
         flip_axis       = kwargs.pop('flip_axis',[1]*ndim)
         interface_axis  = kwargs.pop('interface_axis', None)
-        d_start         = kwargs.pop('d_start', None)
-        c_start         = kwargs.pop('c_start', None)
+        d_start         = toInteger(kwargs.pop('d_start', None))
+        c_start         = toInteger(kwargs.pop('c_start', None))
 
         openmp          = False if backend is None else backend["openmp"]
 
