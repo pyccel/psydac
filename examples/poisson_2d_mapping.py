@@ -15,9 +15,9 @@ from psydac.linalg.iterative_solvers   import cg
 from psydac.fem.splines                import SplineSpace
 from psydac.fem.tensor                 import TensorFemSpace
 from psydac.fem.basic                  import FemField
-from psydac.fem.context                import fem_context
 from psydac.mapping.discrete           import SplineMapping
 from psydac.utilities.utils            import refine_array_1d
+from psydac.cad.geometry               import Geometry
 
 from psydac.polar.c1_projections       import C1Projector
 
@@ -627,7 +627,8 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
         map_discrete.jacobian = map_discrete.jac_mat  # needed after changes in mapping classes
         # Write discrete geometry to HDF5 file
         t0 = time()
-        map_discrete.export( 'geo.h5' )
+        geometry = Geometry.from_discrete_mapping(map_discrete, comm=mpi_comm)
+        geometry.export('geo.h5')
         t1 = time()
         timing['export'] += t1-t0
         mapping = map_discrete
@@ -752,7 +753,9 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
 
         # Create new serial FEM space and mapping (if needed)
         if use_spline_mapping:
-            V, map_discrete = fem_context( 'geo.h5', comm=MPI.COMM_SELF )
+            geometry = Geometry(filename='geo.h5', comm=MPI.COMM_SELF)
+            map_discrete = [*geometry.mappings.values()].pop()
+            V = map_discrete.space
             mapping = map_discrete
         else:
             V = TensorFemSpace( V1, V2, comm=MPI.COMM_SELF )
