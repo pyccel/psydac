@@ -16,8 +16,6 @@ from psydac.fem.splines                import SplineSpace
 from psydac.fem.tensor                 import TensorFemSpace
 from psydac.fem.basic                  import FemField
 from psydac.fem.context                import fem_context
-#OLD from psydac.mapping.analytical         import AnalyticalMapping, IdentityMapping
-#OLD from psydac.mapping.analytical_gallery import Annulus, Target, Czarny
 from psydac.mapping.discrete           import SplineMapping
 from psydac.utilities.utils            import refine_array_1d
 
@@ -25,17 +23,6 @@ from psydac.polar.c1_projections       import C1Projector
 
 #==============================================================================
 class Laplacian:
-
-#OLD def __init__( self, mapping ):
-#OLD     from psydac.mapping.analytical import AnalyticalMapping, IdentityMapping
-#OLD
-#OLD     assert isinstance( mapping, AnalyticalMapping )
-#OLD
-#OLD     sym = type(mapping).symbolic
-#OLD
-#OLD     self._eta        = sym.eta
-#OLD     self._metric     = sym.metric    .subs( mapping.params )
-#OLD     self._metric_det = sym.metric_det.subs( mapping.params )
 
     def __init__(self, mapping):
 
@@ -100,7 +87,6 @@ class Poisson2D:
         """
         domain   = ((0,1), (0,1))
         periodic = (False, False)
-#OLD     mapping  = IdentityMapping( ndim=2 )
         mapping  = IdentityMapping('F', dim=2).get_callable_mapping()
 
         from sympy import symbols, sin, cos, pi, lambdify
@@ -127,18 +113,13 @@ class Poisson2D:
         $\phi(x,y) = 4(r-rmin)(rmax-r)/(rmax-rmin)^2 \sin(2\pi x) \sin(2\pi y)$.
 
         """
-#OLD     domain   = ((rmin,rmax),(0,2*np.pi))
-#OLD     periodic = (False, True)
-#OLD     mapping  = Annulus()
-        periodic = (False, True)
         domain   = ((0, 1), (0, 2*np.pi))
+        periodic = (False, True)
         mapping  = PolarMapping('F', c1=0, c2=0, rmin=rmin, rmax=rmax).get_callable_mapping()
 
         from sympy import symbols, sin, cos, pi, lambdify
 
         lapl  = Laplacian( mapping )
-#OLD     r,t   = Annulus.symbolic.eta
-#OLD     x,y   = (Xd.subs( mapping.params ) for Xd in Annulus.symbolic.map)
         r, t  = mapping.symbolic_mapping.logical_coordinates
         x, y  = mapping.symbolic_mapping.expressions
 
@@ -174,13 +155,11 @@ class Poisson2D:
         """
         domain   = ((0,1),(0,2*np.pi))
         periodic = (False, True)
-#OLD     mapping  = Annulus()
         mapping  = PolarMapping('F', c1=0, c2=0, rmin=0, rmax=2*np.pi).get_callable_mapping()
 
         from sympy import lambdify
 
         lapl  = Laplacian( mapping )
-#OLD     r,t   = type( mapping ).symbolic.eta
         r, t  = mapping.symbolic_mapping.logical_coordinates
 
         # Manufactured solutions in logical coordinates
@@ -201,21 +180,16 @@ class Poisson2D:
 
         domain   = ((0,1),(0,2*np.pi))
         periodic = (False, True)
-#OLD     mapping  = Target()
         params   = dict(c1=0, c2=0, k=0.3, D=0.2)
         mapping  = TargetMapping('F', **params).get_callable_mapping()
 
         from sympy import symbols, sin, cos, pi, lambdify
 
         lapl  = Laplacian( mapping )
-#OLD     s,t   = type( mapping ).symbolic.eta
-#OLD     x,y   = (Xd.subs( mapping.params ) for Xd in type( mapping ).symbolic.map)
         s, t  = mapping.symbolic_mapping.logical_coordinates
         x, y  = mapping.symbolic_mapping.expressions
 
         # Manufactured solution in logical coordinates
-#OLD     k     = mapping.params['k']
-#OLD     D     = mapping.params['D']
         k     = params['k']
         D     = params['D']
         kx    = 2*pi/(1-k+D)
@@ -235,7 +209,6 @@ class Poisson2D:
 
         domain   = ((0,1),(0,2*np.pi))
         periodic = (False, True)
-#OLD     mapping  = Czarny()
         params   = dict(c1=0, c2=0, eps=0.2, b=1.4)
         mapping  = CzarnyMapping('F', **params).get_callable_mapping()
 
@@ -244,8 +217,6 @@ class Poisson2D:
         lapl  = Laplacian( mapping )
         s, t  = mapping.symbolic_mapping.logical_coordinates
         x, y  = mapping.symbolic_mapping.expressions
-#OLD     s,t   = type( mapping ).symbolic.eta
-#OLD     x,y   = (Xd.subs( mapping.params ) for Xd in type( mapping ).symbolic.map)
 
         # Manufactured solution in logical coordinates
         phi_e = (1-s**8) * sin( pi*x ) * cos( pi*y )
@@ -449,7 +420,6 @@ def assemble_matrices( V, mapping, kernel ):
                 for q2 in range( nq2 ):
                     x1 = points_1[k1,q1]
                     x2 = points_2[k2,q2]
-#OLD                 jac_mat[q1,q2,:,:] = mapping.jac_mat( [x1,x2] )
                     jac_mat[q1, q2, :, :] = mapping.jacobian(x1, x2)
 
             # Compute element matrices
@@ -525,7 +495,6 @@ def assemble_rhs( V, mapping, f ):
             metric_det = np.empty( (nq1,nq2) )
             for q1 in range( nq1 ):
                 for q2 in range( nq2 ):
-#OLD                 metric_det[q1,q2] = mapping.metric_det( [x1[q1],x2[q2]] )
                     metric_det[q1, q2] = mapping.metric_det(x1[q1], x2[q2])
             jac_det = np.sqrt( metric_det )
 
@@ -728,7 +697,6 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
 
     # Compute L2 norm of error
     t0 = time()
-#OLD sqrt_g    = lambda *x: np.sqrt( mapping.metric_det( x ) )
     sqrt_g    = lambda *x: np.sqrt( mapping.metric_det(*x) )
     integrand = lambda *x: (phi(*x)-model.phi(*x))**2 * sqrt_g(*x)
     err2 = np.sqrt( V.integral( integrand ) )
