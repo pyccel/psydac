@@ -74,7 +74,6 @@ jobs:
       working-directory: ./pytest
       run: |
         export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-
         python -m pytest --pyargs psydac -m "not parallel"
         python mpi_tester.py --pyargs psydac -m "parallel"
 
