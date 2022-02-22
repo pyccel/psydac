@@ -49,13 +49,6 @@ except:
     base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 
-# ... get the data directory
-try:
-    data_dir = os.environ['PSYDAC_DATA_DIR']
-
-except:
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    data_dir = os.path.join(base_dir, 'data')
 #==============================================================================
 def get_boundaries(*args):
 
@@ -114,16 +107,16 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
     # Reynolds number
     Re = 1e4
 
-    F  = 0.5*dt*dot(Transpose(grad(u ))*u , v) + 0.5*dt*Re**-1*inner(grad(u ), grad(v)) - 0.5*dt*div(u )*q - 0.5*dt*p *div(v) + 0.5*dt*1e-10*p *q
-    F0 = 0.5*dt*dot(Transpose(grad(u0))*u0, v) + 0.5*dt*Re**-1*inner(grad(u0), grad(v)) - 0.5*dt*div(u0)*q - 0.5*dt*p0*div(v) + 0.5*dt*1e-10*p0*q
+    Fl = lambda u,p: Re**-1*inner(grad(u), grad(v)) - div(u)*q - p*div(v) + 1e-10*p*q
+    F  = lambda u,p: dot(Transpose(grad(u))*u,nv) + Fl(u,p)
     
-    l = LinearForm((v, q), integral(domain, dot(u,v)-dot(u0,v) + F + F0) )
+    l = LinearForm((v, q), integral(domain, dot(u,v)-dot(u0,v) + dt/2 * (F(u,p) + F(u0,p0)) ))
     a = linearize(l, (u,p), trials=(du, dp))
 
     equation  = find((du, dp), forall=(v, q), lhs=a((du, dp), (v, q)), rhs=l(v, q), bc=bc)
 
     # Use the stokes equation to compute the initial solution
-    a_stokes = BilinearForm(((du,dp),(v, q)), integral(domain, Re**-1*inner(grad(du), grad(v)) - div(du)*q - dp*div(v) + 1e-10*dp*q) )
+    a_stokes = BilinearForm(((du,dp),(v, q)), integral(domain, Fl(du,dp)) )
     l_stokes = LinearForm((v, q), integral(domain, dot(v,Tuple(0,0)) ))
 
     equation_stokes = find((du, dp), forall=(v, q), lhs=a_stokes((du, dp), (v, q)), rhs=l_stokes(v, q), bc=bc)
@@ -152,7 +145,8 @@ def run_time_dependent_navier_stokes_2d(filename, dt_h, nt, newton_tol=1e-4, max
     l2norm_dp_h = discretize(l2norm_dp, domain_h, V2h, backend=PSYDAC_BACKEND_GPYCCEL)
 
     # compute the initial solution
-    x0 = equation_stokes_h.solve(solver='bicg', tol=1e-15)
+    equation_stokes_h.set_solver('bicg', tol=1e-15)
+    x0 = equation_stokes_h.solve()
 
     u0_h = FemField(V1h)
     p0_h = FemField(V2h)
@@ -309,11 +303,12 @@ def run_steady_state_navier_stokes_2d(domain, f, ue, pe, *, ncells, degree, mult
     du_h = FemField(V1h)
     dp_h = FemField(V2h)
 
+    equation_h.set_solver('bicg', tol=1e-9, info=True)
+
     # Newton iteration
     for n in range(N):
         print('==== iteration {} ===='.format(n))
 
-        equation_h.set_solver('bicg', tol=1e-9, info=True)
         xh, info   = equation_h.solve(u=u_h, p=p_h)
 
         split_field(xh, (V1h, V2h), out=(du_h, dp_h))
