@@ -31,8 +31,8 @@ class Laplacian:
         sym = mapping.symbolic_mapping
 
         self._eta        = sym.logical_coordinates
-        self._metric     = sym.metric_expr    .subs(mapping.params)
-        self._metric_det = sym.metric_det_expr.subs(mapping.params)
+        self._metric     = sym.metric_expr
+        self._metric_det = sym.metric_det_expr
 
     # ...
     def __call__( self, phi ):
