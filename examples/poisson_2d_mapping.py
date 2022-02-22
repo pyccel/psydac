@@ -623,13 +623,14 @@ def main( *, test_case, ncells, degree, use_spline_mapping, c1_correction, distr
     map_analytic = model.mapping
 
     if use_spline_mapping:
-        map_discrete = SplineMapping.from_mapping( V, map_analytic )
-        mapping = map_discrete
+        map_discrete = SplineMapping.from_mapping( V, map_analytic.symbolic_mapping )
+        map_discrete.jacobian = map_discrete.jac_mat  # needed after changes in mapping classes
         # Write discrete geometry to HDF5 file
         t0 = time()
-        mapping.export( 'geo.h5' )
+        map_discrete.export( 'geo.h5' )
         t1 = time()
         timing['export'] += t1-t0
+        mapping = map_discrete
     else:
         mapping = map_analytic
 
