@@ -55,12 +55,16 @@ class FemLinearOperator( LinearOperator ):
     def T(self):
         return self.transpose()
 
+    @property
+    def dtype( self ):
+        return self.domain.dtype
+
     # ...
     def transpose(self):
         raise NotImplementedError('Class does not provide a transpose() method')
 
     # ...
-    def to_sparse_matrix( self ):
+    def to_sparse_matrix( self , **kwargs):
         if self._sparse_matrix is not None:
             return self._sparse_matrix
         elif self._matrix is not None:
@@ -127,7 +131,7 @@ class ComposedLinearOperator( FemLinearOperator ):
 
         # matrix not defined by matrix product because it could break the Stencil Matrix structure
 
-    def to_sparse_matrix( self ):
+    def to_sparse_matrix( self,  **kwargs):
         mat = self._operators[-1].to_sparse_matrix()
         for i in range(2, self._n+1):
             mat = self._operators[-i].to_sparse_matrix() * mat
@@ -152,7 +156,7 @@ class IdLinearOperator( FemLinearOperator ):
     def __init__( self, V ):
         FemLinearOperator.__init__(self, fem_domain=V)
 
-    def to_sparse_matrix( self ):
+    def to_sparse_matrix( self , **kwargs):
         return sparse_id( self.fem_domain.nbasis )
 
     def __call__( self, f ):
@@ -175,7 +179,7 @@ class SumLinearOperator( FemLinearOperator ):
         self._A = A
         self._B = B
 
-    def to_sparse_matrix( self ):
+    def to_sparse_matrix( self, **kwargs):
         return self._A.to_sparse_matrix() + self._B.to_sparse_matrix()
 
     def __call__( self, f ):
@@ -197,7 +201,7 @@ class MultLinearOperator( FemLinearOperator ):
         self._A = A
         self._c = c
 
-    def to_sparse_matrix( self ):
+    def to_sparse_matrix( self,  **kwargs):
         return self._c * self._A.to_sparse_matrix()
 
     def __call__( self, f ):

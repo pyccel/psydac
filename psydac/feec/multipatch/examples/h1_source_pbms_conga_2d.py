@@ -5,28 +5,26 @@ import numpy as np
 from collections import OrderedDict
 
 from sympy import lambdify
-
-from sympde.topology import element_of
-
-from sympde.expr.expr import LinearForm
-from sympde.expr.expr import integral
-
-
 from scipy.sparse.linalg import spsolve
 
-from sympde.topology import Derham
+from sympde.expr.expr import LinearForm
+from sympde.expr.expr import integral, Norm
+from sympde.topology  import Derham
+from sympde.topology import element_of
 
-from psydac.api.settings import PSYDAC_BACKENDS
 
+from psydac.api.settings        import PSYDAC_BACKENDS
 from psydac.feec.multipatch.api import discretize
-from psydac.feec.pull_push import pull_2d_h1
+from psydac.feec.pull_push      import pull_2d_h1
 
-from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
-from psydac.feec.multipatch.operators import time_count, HodgeOperator
-from psydac.feec.multipatch.plotting_utilities import plot_field
+from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
+from psydac.feec.multipatch.operators                   import time_count, HodgeOperator
+from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
+from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution
 
-from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution
+from psydac.linalg.utilities import array_to_stencil
+from psydac.fem.basic        import FemField
 
 comm = MPI.COMM_WORLD
 
@@ -223,6 +221,14 @@ def solve_h1_source_pbm(
     params_str = 'eta={}_mu={}_gamma_h={}'.format(eta, mu, gamma_h)
     plot_field(numpy_coeffs=uh_c, Vh=V0h, space_kind='h1', domain=domain, title=title, filename=plot_dir+params_str+'_phi_h.png', hide_plot=hide_plots)
 
+    #Compute the L2 error
+    if phi:
+        u         = element_of(V0h.symbolic_space, name='u')
+        l2norm    = Norm(u - phi, domain, kind='l2')
+        l2norm_h  = discretize(l2norm, domain_h, V0h)
+        uh_c      = array_to_stencil(uh_c, V0h.vector_space)
+        l2_error  = l2norm_h.assemble(u=FemField(V0h, coeffs=uh_c))
+        return l2_error
 
 if __name__ == '__main__':
 
@@ -248,8 +254,8 @@ if __name__ == '__main__':
 
     domain_name = 'pretzel_f'
     # domain_name = 'curved_L_shape'
-    nc = 20
-    deg = 4
+    nc = 10
+    deg = 2
 
     # nc = 2
     # deg = 2
@@ -261,7 +267,7 @@ if __name__ == '__main__':
         mu=1, #1,
         domain_name=domain_name,
         source_type=source_type,
-        backend_language='numba',
+        backend_language='pyccel-gcc',
         plot_source=True,
         plot_dir='./plots/h1_tests_source_february/'+run_dir,
         hide_plots=True,

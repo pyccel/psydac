@@ -93,9 +93,9 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
 
     print('Hodge operators...')
     # multi-patch (broken) linear operators / matrices
-    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, storage_fn=[m_load_dir+"H0_m.npz", m_load_dir+"dH0_m.npz"])
-    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, storage_fn=[m_load_dir+"H1_m.npz", m_load_dir+"dH1_m.npz"])
-    H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, storage_fn=[m_load_dir+"H2_m.npz", m_load_dir+"dH2_m.npz"])
+    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=0)
+    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
+    H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=2)
 
     dH0_m = H0.get_dual_Hodge_sparse_matrix()  # = mass matrix of V0
     H0_m  = H0.to_sparse_matrix()              # = inverse mass matrix of V0
@@ -105,8 +105,8 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
 
     print('conforming projection operators...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, storage_fn=m_load_dir+"cP0_hom_m.npz")
-    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, storage_fn=m_load_dir+"cP1_hom_m.npz")
+    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
+    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
     cP0_m = cP0.to_sparse_matrix()
     cP1_m = cP1.to_sparse_matrix()
 
@@ -201,8 +201,6 @@ def get_eigenvalues(nb_eigs, sigma, A_m, M_m):
 
     print("done: eigenvalues found: " + repr(eigenvalues))
     return eigenvalues, eigenvectors
-
-
 
 if __name__ == '__main__':
 

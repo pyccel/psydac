@@ -789,9 +789,9 @@ class HodgeOperator( FemLinearOperator ):
     """
     def __init__( self, Vh, domain_h, backend_language='python', load_dir=None, load_space_index=''):
         """
-        :param storage_fn: (optional) storage files for the primal and dual Hodge sparse matrices, in the form:
-                           storage_fn = [primal_Hodge_storage_fn, dual_Hodge_storage_fn]
+        load_dir: (optional) storage files for the primal and dual Hodge sparse matrice
         """
+
         FemLinearOperator.__init__(self, fem_domain=Vh)
         self._domain_h = domain_h
         self._backend_language = backend_language

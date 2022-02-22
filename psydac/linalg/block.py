@@ -547,7 +547,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         for i in range(nrows):
             for j in range(ncols):
                 if (i, j) in self._blocks:
-                    blocks_sparse[i][j] = self._blocks[i, j].tosparse(order=order)
+                    blocks_sparse[i][j] = self._blocks[i, j].tosparse(order=order, with_pads=False)
                 else:
                     m = block_codomain(i).dimension
                     n = block_domain  (j).dimension
