@@ -363,7 +363,7 @@ class TensorFemSpace( FemSpace ):
             Values of the fields on the regular tensor grid
         """
         ncells = [grid[i].shape[0] for i in range(self.ldim)]
-        n_eval_points = [grid[i].shape[-1] - 1 for i in range(self.ldim)]
+        n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
 
         pads, degree, global_basis, global_spans = self.preprocess_regular_tensor_grid(grid)
         out_fields = np.zeros((*(tuple(grid[i].size for i in range(self.ldim))), len(fields)))
