@@ -95,14 +95,35 @@ class VectorFemSpace( FemSpace ):
         raise NotImplementedError( "VectorFemSpace not yet operational" )
 
     # ...
-    def eval_fields(self, *fields, refine_factor=1, weights=None):
+    def eval_fields(self, grid, *fields, weights=None, refinement=None):
+        """Evaluate one or several fields on the given location(s) grid.
+
+        Parameters
+        -----------
+        grid : List of ndarray of int
+            Grid on which to evaluate the fields
+
+        *fields : tuple of psydac.fem.basic.FemField
+            Fields to evaluate
+
+        weights : psydac.fem.basic.FemField or None, optional
+            Weights field.
+
+        refinement: int or tuple of int or None, optional
+            number of evaluation points in each cell.
+            If an integer is given, then assume that it is the same in every direction.
+
+        Returns
+        -------
+        List of ndarray of floats
+            List of the evaluated fields.
+        """
         result = []
         for i in range(self.ldim):
             fields_i = list(field.fields[i] for field in fields)
-            result.append(self._spaces[i].eval_fields(*fields_i, refine_factor=refine_factor, weights=weights))
+            result.append(self._spaces[i].eval_fields(grid, *fields_i, refinement=refinement, weights=weights))
         result = array(result)
-
-        return ascontiguousarray(moveaxis(result, 0, -2))
+        return ascontiguousarray(moveaxis(result, 0, 1))
 
     # ...
     def eval_field_gradient( self, field, *eta ):
@@ -264,14 +285,35 @@ class ProductFemSpace( FemSpace ):
         raise NotImplementedError( "ProductFemSpace not yet operational" )
 
     # ...
-    def eval_fields(self, *fields, refine_factor=1, weights=None):
+    def eval_fields(self, grid, *fields, weights=None, refinement=None):
+        """Evaluate one or several fields on the given location(s) grid.
+
+        Parameters
+        -----------
+        grid : List of ndarray of int
+            Grid on which to evaluate the fields
+
+        *fields : tuple of psydac.fem.basic.FemField
+            Fields to evaluate
+
+        weights : psydac.fem.basic.FemField or None, optional
+            Weights field.
+
+        refinement: int or tuple of int or None, optional
+            number of evaluation points in each cell.
+            If an integer is given, then assume that it is the same in every direction.
+
+        Returns
+        -------
+        List of ndarray of floats
+            List of the evaluated fields.
+        """
         result = []
         for i in range(self.ldim):
             fields_i = list(field.fields[i] for field in fields)
-            result.append(self._spaces[i].eval_fields(*fields_i, refine_factor=refine_factor, weights=weights))
+            result.append(self._spaces[i].eval_fields(grid, *fields_i, refinement=refinement, weights=weights))
         result = array(result)
-
-        return ascontiguousarray(moveaxis(result, 0, -2))
+        return ascontiguousarray(moveaxis(result, 0, 1))
 
     # ...
     def eval_field_gradient( self, field, *eta ):

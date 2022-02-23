@@ -19,12 +19,15 @@ from psydac.fem.basic      import FemSpace, FemField
 from psydac.fem.splines    import SplineSpace
 from psydac.fem.grid       import FemAssemblyGrid
 from psydac.ddm.cart       import CartDecomposition
-from psydac.core.bsplines  import (find_span, basis_funs, basis_funs_1st_der, basis_ders_on_quad_grid, quadrature_grid,
+from psydac.core.bsplines  import (find_span,
+                                   basis_funs,
+                                   basis_funs_1st_der,
+                                   basis_ders_on_quad_grid,
                                    elements_spans)
-from psydac.core.kernels import (eval_fields_2d_no_weights, eval_fields_2d_weighted, eval_fields_3d_no_weights, \
+from psydac.core.kernels import (eval_fields_2d_no_weights,
+                                 eval_fields_2d_weighted,
+                                 eval_fields_3d_no_weights,
                                  eval_fields_3d_weighted)
-from psydac.utilities.quadratures import gauss_legendre
-
 #===============================================================================
 class TensorFemSpace( FemSpace ):
     """
@@ -239,92 +242,66 @@ class TensorFemSpace( FemSpace ):
 
         return res
 
-    def preprocess(self, der=0, refine_factor=1):
-        """Returns all the quantities needed to evaluate fields.
+    # ...
+    def preprocess_regular_tensor_grid(self, grid, der=0):
+        """Returns all the quantities needed to evaluate fields on a regular tensor-grid.
 
         Parameters
         ----------
-        der: int
+        grid : List of ndarray
+            List of 2D arrays representing the grid.
+        der : int, default=0
             Number of derivatives of the basis functions to pre-compute.
-        refine_factor : tuple of ints, int (Optional)
-            Size of the quadrature in all directions. Defaults to 1.
 
         Returns
         -------
-        ncells : List of ints
-            Number of cells in each direction
-        pads : List of ints
+        pads : tuple of int
             Padding in each direction
-        degree : Tuple of ints
+        degree : tuple of int
             Degree in each direction
-        quad_order : Tuple of ints
-            Number of points on the quadrature grid
-        global_basis : List of ndarray of floats
-            List of the values of the basis functions in each point of quadrature grid  of each cell in each direction
+        global_basis : List of ndarray of float
+            List of the values of the basis functions in each point of the evaluation grid  of each cell
+            in each direction
         global_spans : List of ndarray of ints
             List of the index of the last non-vanishing basis functions in each cell each direction
         """
 
-        if isinstance(refine_factor, int):
-            refine_factor = (refine_factor,) * self.ldim
-        if len(refine_factor) == 1:
-            refine_factor = (refine_factor[0],) * self.ldim
-        assert (self.ldim == len(refine_factor))
-        quad_order = refine_factor
+        assert len(grid) == self.ldim
 
-        ncells = []
         global_basis = []
         global_spans = []
-
         for i in range(self.ldim):
-            knots_i = self.knots[i]
-            degree_i = self.degree[i]
-            grid_i = self.breaks[i]
-            k = quad_order[i]
+            global_basis_i = basis_ders_on_quad_grid(self.knots[i], self.degree[i], grid[i], der, self.spaces[i].basis)
+            global_spans_i = elements_spans(self.knots[i], self.degree[i])
 
-            # Gauss-Legendre quadrature rule
-            u, w = gauss_legendre(k)
-            u = u[::-1]
-            w = w[::-1]
-
-            # Grids
-            glob_points_i, _ = quadrature_grid(grid_i, u, w)
-            glob_points_i[0, 0] = grid_i[0]
-            glob_points_i[-1, -1] = grid_i[-1]
-
-            # Basis functions values and spans
-            global_basis_i = basis_ders_on_quad_grid(knots_i, self.degree[i], glob_points_i, der, self.spaces[i].basis)
-            global_spans_i = elements_spans(knots_i, degree_i)
-
-            ncells.append(len(grid_i) - 1)
             global_basis.append(global_basis_i)
             global_spans.append(global_spans_i)
 
-        return ncells, self.pads, self.degree, quad_order, global_basis, global_spans
+        return self.pads, self.degree, global_basis, global_spans
 
     # ...
-    def eval_fields(self, *fields, refine_factor=1, weights=None):
-        """Evaluate one or several fields on a refined grid derived from the one define by the breakpoints of
-        `self.breaks` with or without a weight field.
+    def eval_fields(self, grid, *fields, weights=None, refinement=None):
+        """Evaluate one or several fields on the given location(s) grid.
 
         Parameters
         -----------
-        fields : tuple of psydac.fem.basic.FemField
+        grid : List of ndarray of int
+            Grid on which to evaluate the fields
+
+        *fields : tuple of psydac.fem.basic.FemField
             Fields to evaluate
-        refine_factor : int, tuple of ints, (Optional)
-            Number of point to add to the quadrature grid in each direction. If an `int` is given,
-            it is used as the refining factor in each direction.
-        weights : psydac.fem.basic.FemField
+
+        weights : psydac.fem.basic.FemField or None, optional
             Weights field.
+
+        refinement: int or tuple of int or None, optional
+            number of evaluation points in each cell.
+            If an integer is given, then assume that it is the same in every direction.
 
         Returns
         -------
-        out_fields : list of ndarray of floats
+        out_fields : List of ndarray of floats
             List of the evaluated fields.
-
-        See Also
-        --------
-        psydac.fem.TensorFemSpace.eval_field : Evaluate a field at a given location eta.
         """
 
         assert (all(f.space is self for f in fields))
@@ -332,9 +309,64 @@ class TensorFemSpace( FemSpace ):
             assert (weights.space is self)
             assert (all(f.coeffs.space is weights.coeffs.space for f in fields))
 
-        ncells, pads, degree, quad_order, global_basis, global_spans = self.preprocess(refine_factor=refine_factor)
+        assert len(grid) == self.ldim
+        grid = [np.asarray(grid[i]) for i in range(self.ldim)]
+        assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
-        out_fields = np.zeros((*(tuple(ncells[i] * (quad_order[i] + 1) for i in range(self.ldim))), len(fields)))
+        # Case 1. Scalar coordinates
+        if (grid[0].size == 1) or grid[0].ndim == 0:
+            return [self.eval_field(f, *grid) for f in fields]
+
+        # Case 2. 1D array of coordinates and no refinement is given
+        # -> grid is tensor-product, but refinement is not the same in each cell
+        elif grid[0].ndim == 1 and refinement is None:
+            raise NotImplementedError("TODO")
+
+        # Case 3. 1D arrays of coordinates and refinement is a tuple or an integer
+        # -> grid is tensor-product, and each cell has the same number of evaluation point
+        elif grid[0].ndim == 1 and refinement is not None:
+            if isinstance(refinement, int):
+                refinement = (refinement,) * self.ldim
+            for i in range(self.ldim):
+                ncells_i = len(self.breaks[i]) - 1
+                grid[i] = np.reshape(grid[i], newshape=(ncells_i, refinement[i]))
+            out_fields = self.eval_fields_regular_tensor_grid(grid, *fields, weights=weights)
+            # return a "list"
+            return np.moveaxis(out_fields, -1, 0)
+
+        # Case 4. (self.ldim)D arrays of coordinates and no refinement
+        # -> unstructured grid
+        elif grid[0].ndim == self.ldim and refinement is None:
+            raise NotImplementedError("TODO")
+
+        # Case 5. Nonsensical input
+        else:
+            raise ValueError("This combination of argument isn't understood. The 4 cases understood are :\n"
+                             "Case 1. Scalar coordinates\n"
+                             "Case 2. 1D array of coordinates and no refinement is given\n"
+                             "Case 3. 1D arrays of coordinates and refinement is a tuple or an integer\n"
+                             "Case 4. {0}D arrays of coordinates and no refinement".format(self.ldim))
+
+    # ...
+    def eval_fields_regular_tensor_grid(self, grid, *fields, weights=None):
+        """Evaluate fields on a regular tensor grid
+
+        Parameters
+        ----------
+        grid : List of ndarray of float
+        *fields : tuple of psydac.fem.basic.FemField
+        weights : psydac.fem.basic.FemField or None, optional
+
+        Returns
+        -------
+        List of ndarray of float
+            Values of the fields on the regular tensor grid
+        """
+        ncells = [grid[i].shape[0] for i in range(self.ldim)]
+        n_eval_points = [grid[i].shape[-1] - 1 for i in range(self.ldim)]
+
+        pads, degree, global_basis, global_spans = self.preprocess_regular_tensor_grid(grid)
+        out_fields = np.zeros((*(tuple(grid[i].size for i in range(self.ldim))), len(fields)))
 
         glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)))
 
@@ -343,28 +375,32 @@ class TensorFemSpace( FemSpace ):
 
         if self.ldim == 2:
             if weights is None:
-                eval_fields_2d_no_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], quad_order[0],
-                                          quad_order[1], global_basis[0], global_basis[1], global_spans[0],
-                                          global_spans[1], glob_arr_coeffs, out_fields)
+                eval_fields_2d_no_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1],
+                                          n_eval_points[0], n_eval_points[1], global_basis[0], global_basis[1],
+                                          global_spans[0], global_spans[1], glob_arr_coeffs, out_fields)
             else:
+
                 global_weight_coeff = weights.coeffs._data
 
-                eval_fields_2d_weighted(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], quad_order[0],
-                                        quad_order[1], global_basis[0], global_basis[1], global_spans[0],
-                                        global_spans[1], glob_arr_coeffs, global_weight_coeff, out_fields)
+                eval_fields_2d_weighted(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1],
+                                        n_eval_points[0], n_eval_points[1], global_basis[0], global_basis[1],
+                                        global_spans[0], global_spans[1], glob_arr_coeffs, global_weight_coeff,
+                                        out_fields)
 
         elif self.ldim == 3:
             if weights is None:
 
                 eval_fields_3d_no_weights(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0],
-                                          degree[1], degree[2], quad_order[0], quad_order[1], quad_order[2],
-                                          global_basis[0], global_basis[1], global_basis[2], global_spans[0],
-                                          global_spans[1], global_spans[2], glob_arr_coeffs, out_fields)
+                                          degree[1], degree[2], n_eval_points[0], n_eval_points[1],
+                                          n_eval_points[2], global_basis[0], global_basis[1], global_basis[2],
+                                          global_spans[0], global_spans[1], global_spans[2], glob_arr_coeffs,
+                                          out_fields)
+
             else:
                 global_weight_coeff = weights.coeffs._data
 
                 eval_fields_3d_weighted(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0],
-                                        degree[1], degree[2], quad_order[0], quad_order[1], quad_order[2],
+                                        degree[1], degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2],
                                         global_basis[0], global_basis[1], global_basis[2], global_spans[0],
                                         global_spans[1], global_spans[2], glob_arr_coeffs, global_weight_coeff,
                                         out_fields)
@@ -623,10 +659,10 @@ class TensorFemSpace( FemSpace ):
             
         Parameters
         ----------
-        axes : list of int
+        axes : List of int
             Dimensions where we want to coarsen the grid.
 
-        knots : list/tuple
+        knots : List or tuple
             New knot sequences in each dimension.
  
         Returns
