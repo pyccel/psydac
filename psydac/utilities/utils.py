@@ -5,13 +5,16 @@
 import numpy as np
 
 #===============================================================================
-def refine_array_1d( x, n ):
+def refine_array_1d(x, n, remove_duplicates=True):
 
     xr = []
-    for (a,b) in zip(x[:-1],x[1:]):
-        xr.extend( np.linspace( a, b, n, endpoint=False ) )
-    xr.append( x[-1] )
-
+    if not remove_duplicates:
+        if n == 1:
+            raise ValueError("Cannot have duplicate points with n = 1")
+    for (a, b) in zip(x[:-1], x[1:]):
+        xr.extend(np.linspace(a, b, n, endpoint=not remove_duplicates))
+    if remove_duplicates:
+        xr.append(x[-1])
     return xr
 
 #===============================================================================
