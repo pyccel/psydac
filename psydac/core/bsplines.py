@@ -176,7 +176,7 @@ def basis_funs_1st_der( knots, degree, x, span ):
     return ders
 
 #==============================================================================
-def basis_funs_all_ders( knots, degree, x, span, n ):
+def basis_funs_all_ders(knots, degree, x, span, n, normalization='B'):
     """
     Evaluate value and n derivatives at x of all basis functions with
     support in interval [x_{span-1}, x_{span}].
@@ -201,7 +201,10 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
     n : int
         Max derivative of interest.
 
-    Results
+    normalization: str
+        Set to 'B' to get B-Splines and 'M' to get M-Splines
+
+    Returns
     -------
     ders : numpy.ndarray (n+1,degree+1)
         2D array of n+1 (from 0-th to n-th) derivatives at x of all (degree+1)
@@ -224,6 +227,11 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
     # Number of derivatives that need to be effectively computed
     # Derivatives higher than degree are = 0.
     ne = min( n, degree )
+
+    # Normalization to get M-Splines
+    if normalization == 'M':
+        scaling = 1 / np.array([(knots[i + degree + 1] - knots[i]) / (degree + 1)
+                                for i in range(span - degree, span + 1)])
 
     # Compute nonzero basis functions and knot differences for splines
     # up to degree, which are needed to compute derivatives.
@@ -273,6 +281,8 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
         ders[k,:] = ders[k,:] * r
         r = r * (degree-k)
 
+    if normalization == 'M':
+        ders *= scaling
     return ders
 
 #==============================================================================
@@ -789,9 +799,10 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization):
     degree : int
         Polynomial degree of B-splines.
 
-    quad_grid: 2D numpy.ndarray (ne,nq)
-        Coordinates of quadrature points of each element in 1D domain,
-        which can be given by quadrature_grid() or chosen arbitrarily.
+    quad_grid: ndarray
+        2D array of shape (ne, nq). Coordinates of quadrature points of
+        each element in 1D domain, which can be given by quadrature_grid()
+        or chosen arbitrarily.
 
     nders : int
         Maximum derivative of interest.
@@ -801,7 +812,7 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization):
 
     Returns
     -------
-    basis: 4D numpy.ndarray
+    basis: ndarray
         Values of B-Splines and their derivatives at quadrature points in
         each element of 1D domain. Indices are
         . ie: global element         (0 <= ie <  ne    )
@@ -809,24 +820,50 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization):
         . id: derivative             (0 <= id <= nders )
         . iq: local quadrature point (0 <= iq <  nq    )
 
-    """
-    # TODO: add example to docstring
+    Examples
+    --------
+    >>> knots = np.array([0.0, 0.0, 0.25, 0.5, 0.75, 1., 1.])
+    >>> degree = 2
+    >>> bk = breakpoints(knots, degree)
+    >>> # Valid grid
+    >>> grid = np.array([np.linspace(bk[i], bk[i+1], 4, endpoint=False) for i in range(len(bk) - 1)])
+    >>> # Also a valid grid (doesn't start on the left boundary of the domain)
+    >>> grid_2 = grid[2:, :]
+    >>> basis_ders_on_quad_grid(knots, degree, grid, 0, "B")
+    array([[[[0.5, 0.28125, 0.125, 0.03125]],
+            [[0.5, 0.6875 , 0.75 , 0.6875 ]],
+            [[0. , 0.03125, 0.125, 0.28125]]],
+           [[[0.5, 0.28125, 0.125, 0.03125]],
+            [[0.5, 0.6875 , 0.75 , 0.6875 ]],
+            [[0. , 0.03125, 0.125, 0.28125]]]])
+    >>> basis_ders_on_quad_grid(knots, degree, grid_2, 0, "B")
+    array([[[[0.5, 0.28125, 0.125, 0.03125]],
+            [[0.5, 0.6875 , 0.75 , 0.6875 ]],
+            [[0. , 0.03125, 0.125, 0.28125]]]])
 
-    ne,nq = quad_grid.shape
+    """
+    ne, nq = quad_grid.shape
     basis = np.zeros((ne, degree+1, nders+1, nq))
 
     if normalization == 'M':
         scaling = 1. / basis_integrals(knots, degree)
+    spans = elements_spans(knots, degree)
+
+    assert ne <= len(spans)
+    # Test to see if the grid doesn't start at 0
+    offset = 0
+    span_exact = find_span(knots, degree, quad_grid[0, 0])
+    if span_exact != spans[0]:
+        offset = span_exact - spans[0]
 
     for ie in range(ne):
         xx = quad_grid[ie, :]
+        span = spans[offset + ie]
         for iq, xq in enumerate(xx):
-            span = find_span(knots, degree, xq)
             ders = basis_funs_all_ders(knots, degree, xq, span, nders)
             if normalization == 'M':
-                ders *= scaling[None, span-degree:span+1]
+                ders *= scaling[span - degree:span + 1]
             basis[ie, :, :, iq] = ders.transpose()
-
     return basis
 
 #==============================================================================
