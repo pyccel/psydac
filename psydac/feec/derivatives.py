@@ -250,52 +250,16 @@ class DirectionalDerivativeOperator(Matrix):
     def toarray(self, **kwargs):
         """
         Transforms this operator into a dense matrix.
-        Includes padding in both domain and codomain.
 
         Returns
         -------
         out : ndarray
             The resulting matrix.
         """
-        return self.tosparse().toarray()
-    
-    def toarray_nopads(self, **kwargs):
-        """
-        Transforms this operator into a dense matrix.
-        Does not include padding. Does only work if the domain is not parallel.
-
-        Returns
-        -------
-        out : ndarray
-            The resulting matrix.
-        """
-        return self.tosparse_nopads().toarray()
+        return self.tosparse(**kwargs).toarray()
     
     def tosparse(self, **kwargs):
-        """
-        Transforms this operator into a sparse matrix in COO format.
-        Includes padding in both domain and codomain.
 
-        Returns
-        -------
-        out : COOMatrix
-            The resulting matrix.
-        """
-        return self._tosparse(kwargs.pop('with_pads', True))
-    
-    def tosparse_nopads(self, **kwargs):
-        """
-        Transforms this operator into a sparse matrix in COO format.
-        Does not include padding. Does only work if the domain is not parallel.
-
-        Returns
-        -------
-        out : COOMatrix
-            The resulting matrix.
-        """
-        return self._tosparse(False)
-
-    def _tosparse(self, with_pads, **kwargs):
         """
         Transforms this operator into a sparse matrix in COO format.
         Includes padding in both domain and codomain which is optional, if the domain is serial,
@@ -303,7 +267,7 @@ class DirectionalDerivativeOperator(Matrix):
 
         Parameters
         ----------
-        with_pads : Bool
+        with_pads : Bool,optional
             If true, then padding in domain and codomain direction is included. Enabled by default.
 
         Returns
@@ -313,8 +277,10 @@ class DirectionalDerivativeOperator(Matrix):
         """
         # again, we do the transposition later
 
+        with_pads = kwargs.pop('with_pads', False)
+
         # avoid this case (no pads, but parallel)
-        assert not (self.domain.parallel and self.domain.cart.comm.size>1 and not with_pads)
+        assert not (self.domain.parallel and not with_pads)
 
         # begin with a 1×1 matrix
         matrix = spa.identity(1, format='coo')

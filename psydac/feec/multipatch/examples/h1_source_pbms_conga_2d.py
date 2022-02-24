@@ -26,8 +26,6 @@ from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_so
 from psydac.linalg.utilities import array_to_stencil
 from psydac.fem.basic        import FemField
 
-comm = MPI.COMM_WORLD
-
 def solve_h1_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2', source_type='manu_poisson',
         eta=-10., mu=1., gamma_h=10.,
@@ -87,7 +85,7 @@ def solve_h1_source_pbm(
     domain = build_multipatch_domain(domain_name=domain_name)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    domain_h = discretize(domain, ncells=ncells)
 
     print('building the symbolic and discrete deRham sequences...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
@@ -100,6 +98,12 @@ def solve_h1_source_pbm(
     print('dim(V0h) = {}'.format(V0h.nbasis))
     print('dim(V1h) = {}'.format(V1h.nbasis))
     print('dim(V2h) = {}'.format(V2h.nbasis))
+
+    print('broken differential operators...')
+    # broken (patch-wise) differential operators
+    bD0, bD1 = derham_h.broken_derivatives_as_operators
+    bD0_m = bD0.to_sparse_matrix()
+    # bD1_m = bD1.to_sparse_matrix()
 
     print('building the discrete operators:')
     print('commuting projection operators...')
@@ -125,12 +129,6 @@ def solve_h1_source_pbm(
     cP0_m = cP0.to_sparse_matrix()
     # cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language)
     # cP1_m = cP1.to_sparse_matrix()
-
-    print('broken differential operators...')
-    # broken (patch-wise) differential operators
-    bD0, bD1 = derham_h.broken_derivatives_as_operators
-    bD0_m = bD0.to_sparse_matrix()
-    # bD1_m = bD1.to_sparse_matrix()
 
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
@@ -220,15 +218,6 @@ def solve_h1_source_pbm(
     title = r'solution $\phi_h$ (amplitude)'
     params_str = 'eta={}_mu={}_gamma_h={}'.format(eta, mu, gamma_h)
     plot_field(numpy_coeffs=uh_c, Vh=V0h, space_kind='h1', domain=domain, title=title, filename=plot_dir+params_str+'_phi_h.png', hide_plot=hide_plots)
-
-    #Compute the L2 error
-    if phi:
-        u         = element_of(V0h.symbolic_space, name='u')
-        l2norm    = Norm(u - phi, domain, kind='l2')
-        l2norm_h  = discretize(l2norm, domain_h, V0h)
-        uh_c      = array_to_stencil(uh_c, V0h.vector_space)
-        l2_error  = l2norm_h.assemble(u=FemField(V0h, coeffs=uh_c))
-        return l2_error
 
 if __name__ == '__main__':
 

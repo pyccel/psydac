@@ -25,8 +25,6 @@ from psydac.feec.multipatch.plotting_utilities import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution
 
-comm = MPI.COMM_WORLD
-
 def solve_hcurl_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
         eta=-10., mu=1., nu=1., gamma_h=10.,
@@ -100,7 +98,7 @@ def solve_hcurl_source_pbm(
 
     t_stamp = time_count(t_stamp)
     print('building discrete domain...')
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    domain_h = discretize(domain, ncells=ncells)
 
     t_stamp = time_count(t_stamp)
     print('building discrete derham sequence...')
@@ -130,9 +128,9 @@ def solve_hcurl_source_pbm(
     print('instanciating the Hodge operators...')
     # multi-patch (broken) linear operators / matrices
     # other option: define as Hodge Operators:
-    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, storage_fn=[m_load_dir+"H0_m.npz", m_load_dir+"dH0_m.npz"])
-    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, storage_fn=[m_load_dir+"H1_m.npz", m_load_dir+"dH1_m.npz"])
-    H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, storage_fn=[m_load_dir+"H2_m.npz", m_load_dir+"dH2_m.npz"])
+    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, load_dir=m_load_dir)
+    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir)
+    H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, load_dir=m_load_dir)
 
     t_stamp = time_count(t_stamp)
     print('building the dual Hodge matrix dH0_m = M0_m ...')
@@ -159,8 +157,8 @@ def solve_hcurl_source_pbm(
     t_stamp = time_count(t_stamp)
     print('building the conforming Projection operators and matrices...')
     # conforming Projections (should take into account the boundary conditions of the continuous deRham sequence)
-    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, storage_fn=m_load_dir+"cP0_hom_m.npz")
-    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, storage_fn=m_load_dir+"cP1_hom_m.npz")
+    cP0 = derham_h.conforming_projection(space='V0', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
+    cP1 = derham_h.conforming_projection(space='V1', hom_bc=True, backend_language=backend_language, load_dir=m_load_dir)
     cP0_m = cP0.to_sparse_matrix()
     cP1_m = cP1.to_sparse_matrix()
 
@@ -194,6 +192,7 @@ def solve_hcurl_source_pbm(
     # curl curl:
     t_stamp = time_count(t_stamp)
     print('computing the curl-curl stiffness matrix...')
+    print(bD1_m.shape, dH2_m.shape )
     pre_CC_m = bD1_m.transpose() @ dH2_m @ bD1_m
     # CC_m = cP1_m.transpose() @ pre_CC_m @ cP1_m  # Conga stiffness matrix
 
@@ -300,7 +299,7 @@ if __name__ == '__main__':
     omega = np.sqrt(170) # source
     roundoff = 1e4
     eta = int(-omega**2 * roundoff)/roundoff
-    print(eta)
+
     source_type = 'elliptic_J'
     # source_type = 'manu_J'
 
@@ -314,8 +313,8 @@ if __name__ == '__main__':
 
     domain_name = 'pretzel_f'
     # domain_name = 'curved_L_shape'
-    nc = 20
-    deg = 4
+    nc = 10
+    deg = 2
 
     # nc = 2
     # deg = 2
@@ -329,7 +328,7 @@ if __name__ == '__main__':
         mu=1, #1,
         domain_name=domain_name,
         source_type=source_type,
-        backend_language='numba',
+        backend_language='pyccel-gcc',
         plot_source=True,
         plot_dir='./plots/tests_source_feb_13/'+run_dir,
         hide_plots=True,

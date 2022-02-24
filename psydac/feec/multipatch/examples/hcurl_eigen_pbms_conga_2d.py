@@ -20,8 +20,6 @@ from psydac.feec.multipatch.operators import time_count, HodgeOperator
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.plotting_utilities import plot_field
 
-comm = MPI.COMM_WORLD
-
 def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='python', mu=1, nu=1, gamma_h=10,
                           sigma=None, nb_eigs=4, nb_eigs_plot=4,
                           plot_dir=None, hide_plots=True, m_load_dir="",):
@@ -70,7 +68,7 @@ def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language
     domain = build_multipatch_domain(domain_name=domain_name)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    domain_h = discretize(domain, ncells=ncells)
 
     print('building symbolic and discrete derham sequences...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])

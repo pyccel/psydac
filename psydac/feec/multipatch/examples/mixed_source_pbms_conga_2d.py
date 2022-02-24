@@ -26,7 +26,6 @@ from psydac.feec.multipatch.plotting_utilities import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_sol_for_magnetostatic_pbm
 from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import get_eigenvalues
-comm = MPI.COMM_WORLD
 
 def solve_magnetostatic_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2_wcurl_J',
@@ -116,7 +115,7 @@ def solve_magnetostatic_pbm(
     domain = build_multipatch_domain(domain_name=domain_name)
     mappings = OrderedDict([(P.logical_domain, P.mapping) for P in domain.interior])
     mappings_list = list(mappings.values())
-    domain_h = discretize(domain, ncells=ncells, comm=comm)
+    domain_h = discretize(domain, ncells=ncells)
 
     print('building symbolic and discrete derham sequences...')
     derham  = Derham(domain, ["H1", "Hcurl", "L2"])
