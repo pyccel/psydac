@@ -30,7 +30,7 @@ def test_build_mesh(geometry_file, refinement):
 
         grid = [refine_array_1d(space.breaks[i], refinement, remove_duplicates=False) for i in range(mapping.ldim)]
 
-        x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, refinement=refinement)
+        x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=refinement + 1)
 
         if mapping.ldim == 2:
 
