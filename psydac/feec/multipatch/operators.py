@@ -798,7 +798,7 @@ class HodgeOperator( FemLinearOperator ):
         self._dual_Hodge_matrix = None
         self._dual_Hodge_sparse_matrix = None
 
-        if isinstance(load_dir, str):
+        if load_dir and isinstance(load_dir, str):
             if not os.path.exists(load_dir):
                 os.makedirs(load_dir)
             assert str(load_space_index) in ['0', '1', '2', '3']

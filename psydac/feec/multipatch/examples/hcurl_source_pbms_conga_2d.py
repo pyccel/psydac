@@ -4,32 +4,32 @@ import os
 import numpy as np
 from collections import OrderedDict
 
-from sympy import lambdify
+from sympy import lambdify, Matrix
 
 from scipy.sparse.linalg import spsolve
 
-from sympde.calculus import dot
-from sympde.topology import element_of
+from sympde.calculus  import dot
+from sympde.topology  import element_of
 from sympde.expr.expr import LinearForm
-from sympde.expr.expr import integral
-from sympde.topology import Derham
+from sympde.expr.expr import integral, Norm
+from sympde.topology  import Derham
 
-from psydac.api.settings import PSYDAC_BACKENDS
-
+from psydac.api.settings   import PSYDAC_BACKENDS
 from psydac.feec.pull_push import pull_2d_hcurl
 
-from psydac.feec.multipatch.api import discretize
-from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
-from psydac.feec.multipatch.operators import time_count, HodgeOperator
-from psydac.feec.multipatch.plotting_utilities import plot_field
+from psydac.feec.multipatch.api                         import discretize
+from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
+from psydac.feec.multipatch.operators                   import time_count, HodgeOperator
+from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_solution
-
+from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution
+from psydac.linalg.utilities                            import array_to_stencil
+from psydac.fem.basic                                   import FemField
 def solve_hcurl_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
         eta=-10., mu=1., nu=1., gamma_h=10.,
         plot_source=False, plot_dir=None, hide_plots=True,
-        m_load_dir="",
+        m_load_dir=None,
 ):
     """
     solver for the problem: find u in H(curl), such that
@@ -74,8 +74,9 @@ def solve_hcurl_source_pbm(
     #     else:
     #         backend_language='python'
     # print('[note: using '+backend_language+ ' backends in discretize functions]')
-    if not os.path.exists(m_load_dir):
-        os.makedirs(m_load_dir)
+    if m_load_dir is not None:
+        if not os.path.exists(m_load_dir):
+            os.makedirs(m_load_dir)
 
     print('---------------------------------------------------------------------------------------------------------')
     print('Starting solve_hcurl_source_pbm function with: ')
@@ -169,7 +170,7 @@ def solve_hcurl_source_pbm(
     bD0_m = bD0.to_sparse_matrix()
     bD1_m = bD1.to_sparse_matrix()
 
-    if not os.path.exists(plot_dir):
+    if plot_dir is not None and not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
     def lift_u_bc(u_bc):
@@ -285,9 +286,39 @@ def solve_hcurl_source_pbm(
     print('getting and plotting the FEM solution from numpy coefs array...')
     title = r'solution $u_h$ (amplitude) for $\eta = $'+repr(eta)
     params_str = 'eta={}_mu={}_nu={}_gamma_h={}'.format(eta, mu, nu, gamma_h)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title, filename=plot_dir+params_str+'_uh.png', hide_plot=hide_plots)
+
+    if plot_dir:
+        plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', domain=domain, title=title, filename=plot_dir+params_str+'_uh.png', hide_plot=hide_plots)
 
     time_count(t_stamp)
+
+    if u_ex:
+        u         = element_of(V1h.symbolic_space, name='u')
+        l2norm    = Norm(Matrix([u[0] - u_ex[0],u[1] - u_ex[1]]), domain, kind='l2')
+        l2norm_h  = discretize(l2norm, domain_h, V1h)
+        uh_c      = array_to_stencil(uh_c, V1h.vector_space)
+        l2_error  = l2norm_h.assemble(u=FemField(V1h, coeffs=uh_c))
+        return l2_error
+
+def test_time_harmonic_maxwell_pretzel_f():
+    nc,deg      = 10,2
+    source_type = 'manu_maxwell'
+    domain_name = 'pretzel_f'
+
+    omega = np.sqrt(170) # source
+    roundoff = 1e4
+    eta = int(-omega**2 * roundoff)/roundoff
+
+    l2_error = solve_hcurl_source_pbm(
+        nc=nc, deg=deg,
+        eta=eta,
+        nu=0,
+        mu=1, #1,
+        domain_name=domain_name,
+        source_type=source_type,
+        backend_language='pyccel-gcc')
+
+    assert abs(l2_error - 0.06246693595198972)<1e-10
 
 if __name__ == '__main__':
 
@@ -300,7 +331,7 @@ if __name__ == '__main__':
     roundoff = 1e4
     eta = int(-omega**2 * roundoff)/roundoff
 
-    source_type = 'elliptic_J'
+    source_type = 'manu_maxwell'
     # source_type = 'manu_J'
 
     if quick_run:
@@ -313,7 +344,7 @@ if __name__ == '__main__':
 
     domain_name = 'pretzel_f'
     # domain_name = 'curved_L_shape'
-    nc = 10
+    nc = 20
     deg = 2
 
     # nc = 2
