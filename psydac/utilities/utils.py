@@ -11,9 +11,9 @@ def refine_array_1d(x, n, remove_duplicates=True):
     Parameters
     ----------
     x : ndarray
-        1D array to be refined
+        1D array to be refined.
     n : int
-        The number of points in each subdivision
+         Number of subdivisions to be created in each interval (x[i], x[i+1]).
 
     remove_duplicates : bool, default=True
         If True, the refined array will not contain any duplicate points.

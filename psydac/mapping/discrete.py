@@ -159,13 +159,13 @@ class SplineMapping:
 
         mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell)
         if self.ldim == 2:
-            x_mesh = mesh[0][:, :, None]
-            y_mesh = mesh[1][:, :, None]
+            x_mesh = np.ascontiguousarray(mesh[0][:, :, None])
+            y_mesh = np.ascontiguousarray(mesh[1][:, :, None])
             z_mesh = np.zeros_like(x_mesh)
         elif self.ldim == 3:
-            x_mesh = mesh[0]
-            y_mesh = mesh[1]
-            z_mesh = mesh[2]
+            x_mesh = np.ascontiguousarray(mesh[0])
+            y_mesh = np.ascontiguousarray(mesh[1])
+            z_mesh = np.ascontiguousarray(mesh[2])
         else:
             raise NotImplementedError("1D case not implemented")
 
@@ -392,13 +392,13 @@ class NurbsMapping( SplineMapping ):
         """
         mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell, weights=self._weights_field)
         if self.ldim == 2:
-            x_mesh = mesh[0][:, :, None]
-            y_mesh = mesh[1][:, :, None]
+            x_mesh = np.ascontiguousarray(mesh[0][:, :, None])
+            y_mesh = np.ascontiguousarray(mesh[1][:, :, None])
             z_mesh = np.zeros_like(x_mesh)
         elif self.ldim == 3:
-            x_mesh = mesh[0]
-            y_mesh = mesh[1]
-            z_mesh = mesh[2]
+            x_mesh = np.ascontiguousarray(mesh[0])
+            y_mesh = np.ascontiguousarray(mesh[1])
+            z_mesh = np.ascontiguousarray(mesh[2])
         else:
             raise NotImplementedError("1D case not implemented")
 

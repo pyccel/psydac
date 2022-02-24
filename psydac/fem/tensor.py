@@ -327,14 +327,14 @@ class TensorFemSpace( FemSpace ):
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
         elif grid[0].ndim == 1 and npts_per_cell is None:
             raise NotImplementedError("Having a different number of evaluation"
-                                      "point in the cells belonging to the same "
+                                      "points in the cells belonging to the same "
                                       "logical dimension is not supported yet. "
                                       "If you did use valid inputs, you need to provide"
-                                      "the number of evaluation point per cell in each direction"
+                                      "the number of evaluation points per cell in each direction"
                                       "via the npts_per_cell keyword")
 
         # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
-        # -> grid is tensor-product, and each cell has the same number of evaluation point
+        # -> grid is tensor-product, and each cell has the same number of evaluation points
         elif grid[0].ndim == 1 and npts_per_cell is not None:
             if isinstance(npts_per_cell, int):
                 npts_per_cell = (npts_per_cell,) * self.ldim
@@ -343,7 +343,7 @@ class TensorFemSpace( FemSpace ):
                 grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
             out_fields = self.eval_fields_regular_tensor_grid(grid, *fields, weights=weights)
             # return a "list"
-            return [out_fields[i] for i in range(len(fields))]
+            return [out_fields[..., i] for i in range(len(fields))]
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
         # -> unstructured grid
@@ -377,7 +377,7 @@ class TensorFemSpace( FemSpace ):
         n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
 
         pads, degree, global_basis, global_spans = self.preprocess_regular_tensor_grid(grid)
-        out_fields = np.zeros((len(fields), *(tuple(grid[i].size for i in range(self.ldim)))))
+        out_fields = np.zeros((*(tuple(grid[i].size for i in range(self.ldim))), len(fields)))
 
         glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)))
 

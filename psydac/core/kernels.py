@@ -90,10 +90,10 @@ def eval_fields_3d_no_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int
 
                                         spline = spline_1 * spline_2 * spline_3
 
-                                        out_fields[:,
-                                                   i_cell_1 * k1 + i_quad_1,
+                                        out_fields[i_cell_1 * k1 + i_quad_1,
                                                    i_cell_2 * k2 + i_quad_2,
-                                                   i_cell_3 * k3 + i_quad_3] += spline * coeff_fields
+                                                   i_cell_3 * k3 + i_quad_3,
+                                                   :] += spline * coeff_fields
 
 
 def eval_fields_2d_no_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2: int, k1: int, k2: int,
@@ -163,9 +163,9 @@ def eval_fields_2d_no_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: in
 
                             spline = spline_1 * spline_2
 
-                            out_fields[:,
-                                       i_cell_1 * k1 + i_quad_1,
-                                       i_cell_2 * k2 + i_quad_2] += spline * coeff_fields
+                            out_fields[i_cell_1 * k1 + i_quad_1,
+                                       i_cell_2 * k2 + i_quad_2,
+                                       :] += spline * coeff_fields
 
 
 def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: int, f_p1: int, f_p2: int,
@@ -281,10 +281,10 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, 
                             fields = arr_fields[i_quad_1, i_quad_2, i_quad_3, :]
                             weight = arr_weights[i_quad_1, i_quad_2, i_quad_3]
 
-                            out_fields[:,
-                                       i_cell_1 * k1 + i_quad_1,
+                            out_fields[i_cell_1 * k1 + i_quad_1,
                                        i_cell_2 * k2 + i_quad_2,
-                                       i_cell_3 * k3 + i_quad_3] += fields / weight
+                                       i_cell_3 * k3 + i_quad_3,
+                                       :] += fields / weight
 
 
 def eval_fields_2d_weighted(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2: int, k1: int, k2: int,
@@ -377,6 +377,6 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int,
                     fields = arr_fields[i_quad_1, i_quad_2, :]
                     weight = arr_weights[i_quad_1, i_quad_2]
 
-                    out_fields[:,
-                               i_cell_1 * k1 + i_quad_1,
-                               i_cell_2 * k2 + i_quad_2] += fields / weight
+                    out_fields[i_cell_1 * k1 + i_quad_1,
+                               i_cell_2 * k2 + i_quad_2,
+                               :] += fields / weight

@@ -55,7 +55,7 @@ def test_build_mesh(geometry_file, refinement):
         else:
             assert False
 
-        assert x_mesh.flags['C_CONTIGUOUS'] and y_mesh.flags['C_CONTIGUOUS'] and z_mesh['C_CONTIGUOUS']
+        assert x_mesh.flags['C_CONTIGUOUS'] and y_mesh.flags['C_CONTIGUOUS'] and z_mesh.flags['C_CONTIGUOUS']
 
         assert np.allclose(x_mesh, x_mesh_l)
         assert np.allclose(y_mesh, y_mesh_l)
