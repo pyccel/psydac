@@ -24,7 +24,7 @@ def refine_array_1d(x, n, remove_duplicates=True):
     -------
     ndarray
         Refined 1D array. The length of this array is `n * (len(x) - 1) + 1`
-        if remove_duplicates and `(n + 1) * len(x)` if not.
+        if remove_duplicates and `(n + 1) * (len(x) - 1)` if not.
     """
     xr = []
     if not remove_duplicates:
