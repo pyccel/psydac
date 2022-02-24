@@ -249,7 +249,11 @@ class TensorFemSpace( FemSpace ):
         Parameters
         ----------
         grid : List of ndarray
-            List of 2D arrays representing the grid.
+            List of 2D arrays representing each direction of the grid.
+            Each of those arrays should have shape (ne_xi, nv_xi) where ne is the
+            number of cells in the domain in the direction xi and nv_xi is the number of
+            evaluation point in the same direction.
+
         der : int, default=0
             Number of derivatives of the basis functions to pre-compute.
 
@@ -259,11 +263,11 @@ class TensorFemSpace( FemSpace ):
             Padding in each direction
         degree : tuple of int
             Degree in each direction
-        global_basis : List of ndarray of float
+        global_basis : List of ndarray
             List of the values of the basis functions in each point of the evaluation grid  of each cell
             in each direction
-        global_spans : List of ndarray of ints
-            List of the index of the last non-vanishing basis functions in each cell each direction
+        global_spans : List of ndarray
+            List of the indexes of the last non-vanishing basis functions in each cell each direction
         """
 
         assert len(grid) == self.ldim
@@ -280,7 +284,7 @@ class TensorFemSpace( FemSpace ):
         return self.pads, self.degree, global_basis, global_spans
 
     # ...
-    def eval_fields(self, grid, *fields, weights=None, refinement=None):
+    def eval_fields(self, grid, *fields, weights=None, npts_per_cell=None):
         """Evaluate one or several fields on the given location(s) grid.
 
         Parameters
@@ -294,7 +298,7 @@ class TensorFemSpace( FemSpace ):
         weights : psydac.fem.basic.FemField or None, optional
             Weights field.
 
-        refinement: int or tuple of int or None, optional
+        npts_per_cell: int or tuple of int or None, optional
             number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
 
@@ -317,35 +321,40 @@ class TensorFemSpace( FemSpace ):
         if (grid[0].size == 1) or grid[0].ndim == 0:
             return [self.eval_field(f, *grid) for f in fields]
 
-        # Case 2. 1D array of coordinates and no refinement is given
-        # -> grid is tensor-product, but refinement is not the same in each cell
-        elif grid[0].ndim == 1 and refinement is None:
-            raise NotImplementedError("TODO")
+        # Case 2. 1D array of coordinates and no npts_per_cell is given
+        # -> grid is tensor-product, but npts_per_cell is not the same in each cell
+        elif grid[0].ndim == 1 and npts_per_cell is None:
+            raise NotImplementedError("Having a different number of evaluation"
+                                      "points in the cells belonging to the same "
+                                      "logical dimension is not supported yet. "
+                                      "If you did use valid inputs, you need to provide"
+                                      "the number of evaluation point per cell in each direction"
+                                      "via the npts_per_cell keyword")
 
-        # Case 3. 1D arrays of coordinates and refinement is a tuple or an integer
+        # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
         # -> grid is tensor-product, and each cell has the same number of evaluation point
-        elif grid[0].ndim == 1 and refinement is not None:
-            if isinstance(refinement, int):
-                refinement = (refinement,) * self.ldim
+        elif grid[0].ndim == 1 and npts_per_cell is not None:
+            if isinstance(npts_per_cell, int):
+                npts_per_cell = (npts_per_cell,) * self.ldim
             for i in range(self.ldim):
                 ncells_i = len(self.breaks[i]) - 1
-                grid[i] = np.reshape(grid[i], newshape=(ncells_i, refinement[i]))
+                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
             out_fields = self.eval_fields_regular_tensor_grid(grid, *fields, weights=weights)
             # return a "list"
             return np.moveaxis(out_fields, -1, 0)
 
-        # Case 4. (self.ldim)D arrays of coordinates and no refinement
+        # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
         # -> unstructured grid
-        elif grid[0].ndim == self.ldim and refinement is None:
-            raise NotImplementedError("TODO")
+        elif grid[0].ndim == self.ldim and npts_per_cell is None:
+            raise NotImplementedError("Unstructured grids are not supported yet.")
 
         # Case 5. Nonsensical input
         else:
             raise ValueError("This combination of argument isn't understood. The 4 cases understood are :\n"
                              "Case 1. Scalar coordinates\n"
-                             "Case 2. 1D array of coordinates and no refinement is given\n"
-                             "Case 3. 1D arrays of coordinates and refinement is a tuple or an integer\n"
-                             "Case 4. {0}D arrays of coordinates and no refinement".format(self.ldim))
+                             "Case 2. 1D array of coordinates and no npts_per_cell is given\n"
+                             "Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer\n"
+                             "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
     def eval_fields_regular_tensor_grid(self, grid, *fields, weights=None):

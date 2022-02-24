@@ -6,11 +6,27 @@ import numpy as np
 
 #===============================================================================
 def refine_array_1d(x, n, remove_duplicates=True):
+    """Refines a 1D array by create a subdivision between each point
 
+    Parameters
+    ----------
+    x : ndarray
+        1D array to be refined
+    n : int
+        The number of points in each subdivision
+
+    remove_duplicates : bool, default=True
+        If True, the subdivision doesn't include the right boundary of the interval
+
+    Returns
+    -------
+    ndarray
+        Refined 1D array. The length of this array is `n * len(x)`
+        if remove_duplicates and `n + 1 * len(x)` if not.
+    """
     xr = []
     if not remove_duplicates:
-        if n == 1:
-            raise ValueError("Cannot have duplicate points with n = 1")
+        n += 1
     for (a, b) in zip(x[:-1], x[1:]):
         xr.extend(np.linspace(a, b, n, endpoint=not remove_duplicates))
     if remove_duplicates:

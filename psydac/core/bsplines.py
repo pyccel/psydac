@@ -181,6 +181,8 @@ def basis_funs_all_ders(knots, degree, x, span, n, normalization='B'):
     Evaluate value and n derivatives at x of all basis functions with
     support in interval [x_{span-1}, x_{span}].
 
+    If called with normalization='M', this uses M-splines instead of B-splines.
+
     ders[i,j] = (d/dx)^i B_k(x) with k=(span-degree+j),
                 for 0 <= i <= n and 0 <= j <= degree+1.
 
@@ -227,11 +229,6 @@ def basis_funs_all_ders(knots, degree, x, span, n, normalization='B'):
     # Number of derivatives that need to be effectively computed
     # Derivatives higher than degree are = 0.
     ne = min( n, degree )
-
-    # Normalization to get M-Splines
-    if normalization == 'M':
-        scaling = 1 / np.array([(knots[i + degree + 1] - knots[i]) / (degree + 1)
-                                for i in range(span - degree, span + 1)])
 
     # Compute nonzero basis functions and knot differences for splines
     # up to degree, which are needed to compute derivatives.
@@ -281,8 +278,10 @@ def basis_funs_all_ders(knots, degree, x, span, n, normalization='B'):
         ders[k,:] = ders[k,:] * r
         r = r * (degree-k)
 
+    # Normalization to get M-Splines
     if normalization == 'M':
-        ders *= scaling
+        ders *= [(degree + 1) / (knots[i + degree + 1] - knots[i]) \
+                 for i in range(span - degree, span + 1)]
     return ders
 
 #==============================================================================

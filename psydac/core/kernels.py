@@ -88,12 +88,12 @@ def eval_fields_3d_no_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int
                                     for i_quad_3 in range(k3):
                                         spline_3 = global_basis_3[i_cell_3, i_basis_3, 0, i_quad_3]
 
-                                        splines = spline_1 * spline_2 * spline_3
+                                        spline = spline_1 * spline_2 * spline_3
 
                                         out_fields[i_cell_1 * k1 + i_quad_1,
                                                    i_cell_2 * k2 + i_quad_2,
                                                    i_cell_3 * k3 + i_quad_3,
-                                                   :] += splines * coeff_fields
+                                                   :] += spline * coeff_fields
 
 
 def eval_fields_2d_no_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2: int, k1: int, k2: int,
@@ -161,11 +161,11 @@ def eval_fields_2d_no_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: in
                         for i_quad_2 in range(k2):
                             spline_2 = global_basis_2[i_cell_2, i_basis_2, 0, i_quad_2]
 
-                            splines = spline_1 * spline_2
+                            spline = spline_1 * spline_2
 
                             out_fields[i_cell_1 * k1 + i_quad_1,
                                        i_cell_2 * k2 + i_quad_2,
-                                       :] += splines * coeff_fields
+                                       :] += spline * coeff_fields
 
 
 def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: int, f_p1: int, f_p2: int,
@@ -268,15 +268,15 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, 
                                     for i_basis_3 in range(1 + f_p3):
                                         spline_3 = global_basis_3[i_cell_3, i_basis_3, 0, i_quad_3]
 
-                                        splines = spline_1 * spline_2 * spline_3
+                                        spline = spline_1 * spline_2 * spline_3
 
                                         coeff_fields = arr_coeff_fields[i_basis_1, i_basis_2, i_basis_3, :]
                                         coeff_weight = arr_coeff_weights[i_basis_1, i_basis_2, i_basis_3]
 
                                         arr_fields[i_quad_1, i_quad_2, i_quad_3, :] += \
-                                            splines * coeff_fields * coeff_weight
+                                            spline * coeff_fields * coeff_weight
 
-                                        arr_weights[i_quad_1, i_quad_2, i_quad_3] += splines * coeff_weight
+                                        arr_weights[i_quad_1, i_quad_2, i_quad_3] += spline * coeff_weight
 
                             fields = arr_fields[i_quad_1, i_quad_2, i_quad_3, :]
                             weight = arr_weights[i_quad_1, i_quad_2, i_quad_3]
@@ -365,14 +365,14 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int,
                         for i_basis_2 in range(1 + f_p2):
                             spline_2 = global_basis_2[i_cell_2, i_basis_2, 0, i_quad_2]
 
-                            splines = spline_1 * spline_2
+                            spline = spline_1 * spline_2
 
                             coeff_fields = arr_coeff_fields[i_basis_1, i_basis_2, :]
                             coeff_weight = arr_coeff_weights[i_basis_1, i_basis_2]
 
-                            arr_fields[i_quad_1, i_quad_2, :] += splines * coeff_fields * coeff_weight
+                            arr_fields[i_quad_1, i_quad_2, :] += spline * coeff_fields * coeff_weight
 
-                            arr_weights[i_quad_1, i_quad_2] += splines * coeff_weight
+                            arr_weights[i_quad_1, i_quad_2] += spline * coeff_weight
 
                     fields = arr_fields[i_quad_1, i_quad_2, :]
                     weight = arr_weights[i_quad_1, i_quad_2]

@@ -129,15 +129,20 @@ class SplineMapping:
     def __call__( self, *eta):
         return [map_Xd( *eta) for map_Xd in self._fields]
 
-    def build_mesh(self, grid, refinement=None):
+    def build_mesh(self, grid, npts_per_cell=None):
         """Evaluation of the mapping on the given grid.
+
+        Enforces C-contiguity for VTK exportation
 
         Parameters
         ----------
         grid : List of ndarray
-            Logical grid.
-        refinement : int, tuple of int or None, optional
+            Grid on which to evaluate the fields.
+            Each array in this list corresponds to one logical coordinate.
 
+        npts_per_cell: int, tuple of int or None, optional
+            Number of evaluation points in each cell.
+            If an integer is given, then assume that it is the same in every direction.
         Returns
         -------
         x_mesh: 3D array of floats
@@ -146,12 +151,16 @@ class SplineMapping:
             Y component of the mesh
         z_mesh: 3D array of floats
             Z component of the mesh
+
+        See Also
+        --------
+        psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
 
-        mesh = self.space.eval_fields(grid, *self._fields, refinement=refinement)
+        mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell)
         if self.ldim == 2:
-            x_mesh = np.ascontiguousarray(np.reshape(mesh[0], newshape=(*mesh.shape[1:], 1)))
-            y_mesh = np.ascontiguousarray(np.reshape(mesh[1], newshape=(*mesh.shape[1:], 1)))
+            x_mesh = np.ascontiguousarray(mesh[0, :, :, None])
+            y_mesh = np.ascontiguousarray(mesh[1, :, :, None])
             z_mesh = np.zeros_like(x_mesh)
         elif self.ldim == 3:
             x_mesh = np.ascontiguousarray(mesh[0])
@@ -357,14 +366,16 @@ class NurbsMapping( SplineMapping ):
         Xd = [map_Xd( *eta , weights=map_W.coeffs) for map_Xd in self._fields]
         return np.asarray( Xd ) / w
 
-    def build_mesh(self, grid, refinement=None):
+    def build_mesh(self, grid, npts_per_cell=None):
         """Evaluation of the mapping on the given grid.
+
+        Enforces C-contiguity for VTK exportation
 
         Parameters
         ----------
         grid : List of ndarray
-            Logical grid.
-        refinement : int, tuple of int or None, optional
+            Each array in the list should correspond to a logical coordinate.
+        npts_per_cell : int, tuple of int or None, optional
 
         Returns
         -------
@@ -374,11 +385,15 @@ class NurbsMapping( SplineMapping ):
             Y component of the mesh
         z_mesh: 3D array of floats
             Z component of the mesh
+
+        See Also
+        --------
+        psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
-        mesh = self.space.eval_fields(grid, *self._fields, refinement=refinement, weights=self._weights_field)
+        mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell, weights=self._weights_field)
         if self.ldim == 2:
-            x_mesh = np.ascontiguousarray(np.reshape(mesh[0], newshape=(*mesh.shape[1:], 1)))
-            y_mesh = np.ascontiguousarray(np.reshape(mesh[1], newshape=(*mesh.shape[1:], 1)))
+            x_mesh = np.ascontiguousarray(mesh[0, :, :, None])
+            y_mesh = np.ascontiguousarray(mesh[1, :, :, None])
             z_mesh = np.zeros_like(x_mesh)
         elif self.ldim == 3:
             x_mesh = np.ascontiguousarray(mesh[0])
