@@ -168,11 +168,11 @@ class SplineMapping:
         return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
 
     def metric( self, *eta):
-        J = self.jac_mat( eta )
+        J = self.jac_mat( *eta )
         return np.dot( J.T, J )
 
     def metric_det( self, *eta):
-        return np.linalg.det( self.metric( eta ) )
+        return np.linalg.det( self.metric( *eta ) )
 
     @property
     def ldim( self ):
@@ -398,12 +398,12 @@ class NurbsMapping( SplineMapping ):
 
     def metric( self, *eta):
         raise NotImplementedError('TODO')
-#        J = self.jac_mat( eta )
+#        J = self.jac_mat( *eta )
 #        return np.dot( J.T, J )
 
     def metric_det( self, *eta):
         raise NotImplementedError('TODO')
-#        return np.linalg.det( self.metric( eta ) )
+#        return np.linalg.det( self.metric( *eta ) )
 
     #--------------------------------------------------------------------------
     # Other properties/methods
