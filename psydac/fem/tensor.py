@@ -265,7 +265,8 @@ class TensorFemSpace( FemSpace ):
             Degree in each direction
         global_basis : List of ndarray
             List of 4D arrays, one per direction, containing the values of the p+1 non-vanishing
-            basis functions at each grid point. The array for direction xi has shape (ne_xi, nv_xi, der + 1, p+1).
+            basis functions (and their derivatives) at each grid point.
+            The array for direction xi has shape (ne_xi, nv_xi, der + 1, p+1).
 
         global_spans : List of ndarray
             List of 1D arrays, one per direction, containing the index of the last non-vanishing
