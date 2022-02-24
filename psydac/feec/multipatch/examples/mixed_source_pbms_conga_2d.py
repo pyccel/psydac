@@ -298,16 +298,16 @@ def solve_magnetostatic_pbm(
     if plot_source:
         if f0_c is None:
             f0_c = H0_m.dot(tilde_f0_c)
-        plot_field(numpy_coeffs=f0_c, plot_type='components', Vh=V0h, space_kind='h1', domain=domain, title='f0_h with P = '+source_proj,
+        plot_field(numpy_coeffs=f0_c, Vh=V0h, space_kind='h1', domain=domain, title='f0_h with P = '+source_proj,
                    filename=plot_dir+'f0h_'+source_proj+'.png', hide_plot=hide_plots)
         if f1_c is None:
             f1_c = H1_m.dot(tilde_f1_c)
-        plot_field(numpy_coeffs=f1_c, plot_type='vector_field', Vh=V1h, space_kind='hcurl', domain=domain, title='f1_h with P = '+source_proj,
+        plot_field(numpy_coeffs=f1_c, Vh=V1h, space_kind='hcurl', domain=domain, title='f1_h with P = '+source_proj,
                    filename=plot_dir+'f1h_'+source_proj+'.png', hide_plot=hide_plots)
         if source_proj == 'P_L2_wcurl_J':
             if j2_c is None:
                 j2_c = H2_m.dot(tilde_j2_c)
-            plot_field(numpy_coeffs=j2_c, plot_type='components', Vh=V2h, space_kind='l2', domain=domain, title='P_L2 jh in V2h',
+            plot_field(numpy_coeffs=j2_c, Vh=V2h, space_kind='l2', domain=domain, title='P_L2 jh in V2h',
                        filename=plot_dir+'j2h.png', hide_plot=hide_plots)
 
     print("building block RHS")
@@ -345,19 +345,19 @@ def solve_magnetostatic_pbm(
     print('getting and plotting the FEM solution from numpy coefs array...')
     params_str = 'gamma0_h={}_gamma1_h={}'.format(gamma0_h, gamma1_h)
     title = r'solution {} (amplitude)'.format(p_name)
-    plot_field(numpy_coeffs=ph_c, Vh=V0h, space_kind='h1', plot_type='amplitude',
+    plot_field(numpy_coeffs=ph_c, Vh=V0h, space_kind='h1',
                domain=domain, title=title, filename=plot_dir+params_str+'_ph.png', hide_plot=hide_plots)
     title = r'solution $h_h$ (amplitude)'
-    plot_field(numpy_coeffs=hh_c, Vh=V1h, space_kind='hcurl', plot_type='amplitude',
+    plot_field(numpy_coeffs=hh_c, Vh=V1h, space_kind='hcurl',
                domain=domain, title=title, filename=plot_dir+params_str+'_hh.png', hide_plot=hide_plots)
     title = r'solution {} (amplitude)'.format(u_name)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='amplitude',
+    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl',
                domain=domain, title=title, filename=plot_dir+params_str+'_uh.png', hide_plot=hide_plots)
     title = r'solution {} (vector field)'.format(u_name)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='vector_field',
+    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl',
                domain=domain, title=title, filename=plot_dir+params_str+'_uh_vf.png', hide_plot=hide_plots)
     title = r'solution {} (components)'.format(u_name)
-    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl', plot_type='components',
+    plot_field(numpy_coeffs=uh_c, Vh=V1h, space_kind='hcurl',
                domain=domain, title=title, filename=plot_dir+params_str+'_uh_xy.png', hide_plot=hide_plots)
 
 if __name__ == '__main__':
@@ -375,7 +375,7 @@ if __name__ == '__main__':
 
     # nc = 20
     # deg = 4
-    nc = 8
+    nc = 10
     deg = 2
 
     # domain_name = 'curved_L_shape'
@@ -392,7 +392,7 @@ if __name__ == '__main__':
         source_type=source_type,
         source_proj=source_proj,
         bc_type=bc_type,
-        backend_language='numba',
+        backend_language='pyccel-gcc',
         dim_harmonic_space=dim_harmonic_space,
         plot_source=True,
         plot_dir='./plots/magnetostatic_runs/'+run_dir,

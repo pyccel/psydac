@@ -128,9 +128,9 @@ def solve_hcurl_source_pbm(
     print('instanciating the Hodge operators...')
     # multi-patch (broken) linear operators / matrices
     # other option: define as Hodge Operators:
-    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, load_dir=m_load_dir)
-    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir)
-    H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, load_dir=m_load_dir)
+    H0 = HodgeOperator(V0h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=0)
+    H1 = HodgeOperator(V1h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=1)
+    H2 = HodgeOperator(V2h, domain_h, backend_language=backend_language, load_dir=m_load_dir, load_space_index=2)
 
     t_stamp = time_count(t_stamp)
     print('building the dual Hodge matrix dH0_m = M0_m ...')

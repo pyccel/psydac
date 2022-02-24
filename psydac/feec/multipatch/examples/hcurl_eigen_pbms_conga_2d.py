@@ -217,8 +217,8 @@ if __name__ == '__main__':
 
     domain_name = 'pretzel_f'
     # domain_name = 'curved_L_shape'
-    nc = 20
-    deg = 4
+    nc = 10
+    deg = 2
 
     m_load_dir = 'matrices_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
     run_dir = 'eigenpbm_{}_nc={}_deg={}/'.format(domain_name, nc, deg)
@@ -228,7 +228,7 @@ if __name__ == '__main__':
         mu=1, #1,
         sigma=1,
         domain_name=domain_name,
-        backend_language='numba',
+        backend_language='pyccel-gcc',
         plot_dir='./plots/tests_source_february/'+run_dir,
         hide_plots=True,
         m_load_dir=m_load_dir,

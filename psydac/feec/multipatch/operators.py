@@ -801,6 +801,7 @@ class HodgeOperator( FemLinearOperator ):
         if isinstance(load_dir, str):
             if not os.path.exists(load_dir):
                 os.makedirs(load_dir)
+            assert str(load_space_index) in ['0', '1', '2', '3']
             primal_Hodge_storage_fn = load_dir+'/H{}_m.npz'.format(load_space_index)
             dual_Hodge_storage_fn = load_dir+'/dH{}_m.npz'.format(load_space_index)
 
