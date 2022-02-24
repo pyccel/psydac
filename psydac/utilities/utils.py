@@ -6,7 +6,7 @@ import numpy as np
 
 #===============================================================================
 def refine_array_1d(x, n, remove_duplicates=True):
-    """Refines a 1D array by create a subdivision between each point
+    """Refines a 1D array by subdividing each interval (x[i], x[i+1]) into n identical parts.
 
     Parameters
     ----------
@@ -16,13 +16,15 @@ def refine_array_1d(x, n, remove_duplicates=True):
         The number of points in each subdivision
 
     remove_duplicates : bool, default=True
-        If True, the subdivision doesn't include the right boundary of the interval
+        If True, the refined array will not contain any duplicate points.
+        If False, the original internal grid points x[1:-1] will appear twice: this may
+           be useful to visualize fields that are discontinuous across cell boundaries.
 
     Returns
     -------
     ndarray
-        Refined 1D array. The length of this array is `n * len(x)`
-        if remove_duplicates and `n + 1 * len(x)` if not.
+        Refined 1D array. The length of this array is `n * (len(x) - 1) + 1`
+        if remove_duplicates and `(n + 1) * len(x)` if not.
     """
     xr = []
     if not remove_duplicates:
