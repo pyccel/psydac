@@ -250,9 +250,9 @@ class TensorFemSpace( FemSpace ):
         ----------
         grid : List of ndarray
             List of 2D arrays representing each direction of the grid.
-            Each of those arrays should have shape (ne_xi, nv_xi) where ne is the
+            Each of these arrays should have shape (ne_xi, nv_xi) where ne is the
             number of cells in the domain in the direction xi and nv_xi is the number of
-            evaluation point in the same direction.
+            evaluation points in the same direction.
 
         der : int, default=0
             Number of derivatives of the basis functions to pre-compute.
@@ -264,10 +264,12 @@ class TensorFemSpace( FemSpace ):
         degree : tuple of int
             Degree in each direction
         global_basis : List of ndarray
-            List of the values of the basis functions in each point of the evaluation grid  of each cell
-            in each direction
+            List of 4D arrays, one per direction, containing the values of the p+1 non-vanishing
+            basis functions at each grid point. The array for direction xi has shape (ne_xi, nv_xi, der + 1, p+1).
+
         global_spans : List of ndarray
-            List of the indexes of the last non-vanishing basis functions in each cell each direction
+            List of 1D arrays, one per direction, containing the index of the last non-vanishing
+            basis function in each cell. The array for direction xi has shape (ne_xi,).
         """
 
         assert len(grid) == self.ldim
@@ -325,7 +327,7 @@ class TensorFemSpace( FemSpace ):
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
         elif grid[0].ndim == 1 and npts_per_cell is None:
             raise NotImplementedError("Having a different number of evaluation"
-                                      "points in the cells belonging to the same "
+                                      "point in the cells belonging to the same "
                                       "logical dimension is not supported yet. "
                                       "If you did use valid inputs, you need to provide"
                                       "the number of evaluation point per cell in each direction"
@@ -341,7 +343,7 @@ class TensorFemSpace( FemSpace ):
                 grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
             out_fields = self.eval_fields_regular_tensor_grid(grid, *fields, weights=weights)
             # return a "list"
-            return np.moveaxis(out_fields, -1, 0)
+            return [out_fields[i] for i in range(len(fields))]
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
         # -> unstructured grid
@@ -375,7 +377,7 @@ class TensorFemSpace( FemSpace ):
         n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
 
         pads, degree, global_basis, global_spans = self.preprocess_regular_tensor_grid(grid)
-        out_fields = np.zeros((*(tuple(grid[i].size for i in range(self.ldim))), len(fields)))
+        out_fields = np.zeros((len(fields), *(tuple(grid[i].size for i in range(self.ldim)))))
 
         glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)))
 
