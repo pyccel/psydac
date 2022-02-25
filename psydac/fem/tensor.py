@@ -344,7 +344,7 @@ class TensorFemSpace( FemSpace ):
                 grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
             out_fields = self.eval_fields_regular_tensor_grid(grid, *fields, weights=weights)
             # return a "list"
-            return [out_fields[..., i] for i in range(len(fields))]
+            return [np.ascontiguousarray(out_fields[..., i]) for i in range(len(fields))]
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
         # -> unstructured grid
