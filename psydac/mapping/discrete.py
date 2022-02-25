@@ -129,15 +129,20 @@ class SplineMapping:
     def __call__( self, *eta):
         return [map_Xd( *eta) for map_Xd in self._fields]
 
-    def build_mesh(self, refine_factor=1):
-        """Evaluation of the mapping on the entire logical domain
-        using a refined grid.
+    def build_mesh(self, grid, npts_per_cell=None):
+        """Evaluation of the mapping on the given grid.
+
+        Enforces C-contiguity for VTK exportation
 
         Parameters
         ----------
-        refine_factor : int, tuple of ints (optional)
-            How much to refine the logical grid.
+        grid : List of ndarray
+            Grid on which to evaluate the fields.
+            Each array in this list corresponds to one logical coordinate.
 
+        npts_per_cell: int, tuple of int or None, optional
+            Number of evaluation points in each cell.
+            If an integer is given, then assume that it is the same in every direction.
         Returns
         -------
         x_mesh: 3D array of floats
@@ -146,18 +151,21 @@ class SplineMapping:
             Y component of the mesh
         z_mesh: 3D array of floats
             Z component of the mesh
+
+        See Also
+        --------
+        psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
 
-        mesh = self.space.eval_fields(*self._fields, refine_factor=refine_factor)
-
+        mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell)
         if self.ldim == 2:
-            x_mesh = np.ascontiguousarray(mesh[..., 0:1])
-            y_mesh = np.ascontiguousarray(mesh[..., 1:2])
+            x_mesh = mesh[0][:, :, None]
+            y_mesh = mesh[1][:, :, None]
             z_mesh = np.zeros_like(x_mesh)
         elif self.ldim == 3:
-            x_mesh = np.ascontiguousarray(mesh[..., 0])
-            y_mesh = np.ascontiguousarray(mesh[..., 1])
-            z_mesh = np.ascontiguousarray(mesh[..., 2])
+            x_mesh = mesh[0]
+            y_mesh = mesh[1]
+            z_mesh = mesh[2]
         else:
             raise NotImplementedError("1D case not implemented")
 
@@ -358,14 +366,16 @@ class NurbsMapping( SplineMapping ):
         Xd = [map_Xd( *eta , weights=map_W.coeffs) for map_Xd in self._fields]
         return np.asarray( Xd ) / w
 
-    def build_mesh(self, refine_factor=1):
-        """Evaluation of the mapping on the entire logical domain
-        using a refined grid.
+    def build_mesh(self, grid, npts_per_cell=None):
+        """Evaluation of the mapping on the given grid.
+
+        Enforces C-contiguity for VTK exportation
 
         Parameters
         ----------
-        refine_factor : int, tuple of ints (Optional)
-            How much to refine the logical grid.
+        grid : List of ndarray
+            Each array in the list should correspond to a logical coordinate.
+        npts_per_cell : int, tuple of int or None, optional
 
         Returns
         -------
@@ -375,20 +385,22 @@ class NurbsMapping( SplineMapping ):
             Y component of the mesh
         z_mesh: 3D array of floats
             Z component of the mesh
+
+        See Also
+        --------
+        psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
-
-        mesh = self.space.eval_fields(*self._fields, refine_factor=refine_factor, weights=self._weights_field)
-
+        mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell, weights=self._weights_field)
         if self.ldim == 2:
-            x_mesh = np.ascontiguousarray(mesh[..., 0:1])
-            y_mesh = np.ascontiguousarray(mesh[..., 1:2])
+            x_mesh = mesh[0][:, :, None]
+            y_mesh = mesh[1][:, :, None]
             z_mesh = np.zeros_like(x_mesh)
         elif self.ldim == 3:
-            x_mesh = np.ascontiguousarray(mesh[..., 0])
-            y_mesh = np.ascontiguousarray(mesh[..., 1])
-            z_mesh = np.ascontiguousarray(mesh[..., 2])
+            x_mesh = mesh[0]
+            y_mesh = mesh[1]
+            z_mesh = mesh[2]
         else:
-            raise NotImplementedError("1D not Implemented")
+            raise NotImplementedError("1D case not implemented")
 
         return x_mesh, y_mesh, z_mesh
 
