@@ -2235,7 +2235,7 @@ class ProductLinearOperator( Matrix ):
 
     # ...
     def copy( self ):
-        operators = [op.copy() for op in operators]
+        operators = [op.copy() for op in self._operators]
         return ProductLinearOperator(operators)
 
     # ...
@@ -2268,7 +2268,7 @@ class ProductLinearOperator( Matrix ):
         raise NotImplementedError('TODO: ProductLinearOperator.__isub__')
 
     #...
-    def __neg__(self, a):
+    def __neg__(self):
         raise NotImplementedError('TODO: ProductLinearOperator.__neg__')
 
     #...
@@ -2285,8 +2285,8 @@ class ProductLinearOperator( Matrix ):
     def toarray(self, **kwargs):
         return self.tosparse(**kwargs).toarray()
 
-    def dot( self, x, out=None ):
-        out = self._operators[-1].dot(x)
+    def dot( self, v, out=None ):
+        out = self._operators[-1].dot(v, out=out)
         for i in range(2, len(self._operators)+1):
             out.update_ghost_regions()
             out = self._operators[-i].dot(out)
