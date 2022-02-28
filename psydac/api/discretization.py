@@ -257,7 +257,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
             else:
                 interfaces = []
         else:
-            interiors = [interiors]
+            interiors  = [interiors]
+            interfaces = []
 
         ncells     = domain_h.ncells
         for i,interior in enumerate(interiors):
