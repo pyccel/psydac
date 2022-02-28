@@ -102,6 +102,8 @@ class Geometry( object ):
                 raise TypeError(msg)
 
         mappings = {itr.name: None for itr in interior}
+        if not isinstance(ncells, dict):
+            ncells   = {itr.name:ncells for itr in interior}
         geo = Geometry(domain=domain, mappings=mappings, comm=comm)
         geo.ncells = ncells
 

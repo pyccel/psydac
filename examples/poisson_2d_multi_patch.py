@@ -22,7 +22,7 @@ from sympde.topology import trace_1
 from sympde.topology import Square
 from sympde.topology import ElementDomain
 from sympde.topology import Area
-from sympde.topology import IdentityMapping, PolarMapping, AffineMapping
+from sympde.topology import IdentityMapping
                          
 from sympde.expr.expr          import LinearExpr
 from sympde.expr.expr          import LinearForm, BilinearForm
@@ -109,18 +109,32 @@ if __name__ == '__main__':
     from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
     from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
 
-    domain    = build_pretzel()
+    A = Square('A',bounds1=(0.5, 1.), bounds2=(0., 1.))
+    B = Square('B',bounds1=(0.5, 1.), bounds2=(1., 2.))
+
+    mapping_1 = IdentityMapping('M1',2)
+    mapping_2 = IdentityMapping('M2',2)
+
+    D1     = mapping_1(A)
+    D2     = mapping_2(B)
+
+    domain = D1.join(D2, name = 'domain',
+                bnd_minus = D1.get_boundary(axis=1, ext=1),
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+
     x,y       = domain.coordinates
     solution  = x**2 + y**2
     f         = -4
 
-    ne     = [2**2,2**2]
+    interiors = domain.interior.args
+    ne        = {itr.name:[2**2,2**2] for itr in domain.interior}
+    ne[interiors[0].name] = [2**3,2**3]
     degree = [2,2]
 
     u_h, info, timing, l2_error, h1_error = run_poisson_2d(solution, f, domain, ncells=ne, degree=degree)
 
     # ...
-    print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
+    #print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
     print( '> Degree        :: [{p1},{p2}]'  .format( p1=degree[0], p2=degree[1] ) )
     print( '> CG info       :: ',info )
     print( '> L2 error      :: {:.2e}'.format( l2_error ) )
@@ -138,11 +152,12 @@ if __name__ == '__main__':
     f_ex = lambdify(domain.coordinates, f)
     F    = [f.get_callable_mapping() for f in mappings_list]
 
-    u_ex_log = [lambda xi1, xi2,ff=f : u_ex(*ff(xi1,xi2)) for f in F]
+    u_ex_log = [lambda xi1, xi2,ff=f : u_ex(*ff([xi1,xi2])) for f in F]
 
     N=20
     etas, xx, yy = get_plotting_grid(mappings, N)
-    gridlines_x1, gridlines_x2 = get_patch_knots_gridlines(u_h.space, N, mappings, plotted_patch=1)
+    gridlines_x1_0, gridlines_x2_0 = get_patch_knots_gridlines(u_h.space, N, mappings, plotted_patch=0)
+    gridlines_x1_1, gridlines_x2_1 = get_patch_knots_gridlines(u_h.space, N, mappings, plotted_patch=1)
 
     grid_vals_h1 = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='h1')
 
@@ -155,8 +170,8 @@ if __name__ == '__main__':
         vals=[u_ref_vals, u_h_vals, u_err],
         titles=[r'$\phi^{ex}(x,y)$', r'$\phi^h(x,y)$', r'$|(\phi-\phi^h)(x,y)|$'],
         xx=xx, yy=yy,
-        gridlines_x1=gridlines_x1,
-        gridlines_x2=gridlines_x2,
+        gridlines_x1=[gridlines_x1_0,gridlines_x1_1],
+        gridlines_x2=[gridlines_x2_0,gridlines_x2_1],
         surface_plot=True,
         cmap='jet',
     )

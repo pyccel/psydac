@@ -175,7 +175,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
         x2 = refine_array_1d(grid_x2, N)
 
         x1, x2 = np.meshgrid(x1, x2, indexing='ij')
-        x, y = F[plotted_patch](x1, x2)
+        x, y = F[plotted_patch]([x1, x2])
 
         gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
         gridlines_x2 = (x[::N, :].T, y[::N, :].T)
@@ -275,9 +275,16 @@ def my_small_plot(
         for k in range(n_patches):
             ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap) #, extend='both')
         cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
+
         if gridlines_x1 is not None:
-            ax.plot(*gridlines_x1, color='k')
-            ax.plot(*gridlines_x2, color='k')
+            if isinstance(gridlines_x1[0], (list,tuple)):
+                for x1,x2 in zip(gridlines_x1,gridlines_x2):
+                    ax.plot(*x1, color='k')
+                    ax.plot(*x2, color='k')
+            else:
+                ax.plot(*gridlines_x1, color='k')
+                ax.plot(*gridlines_x2, color='k')
+              
         if show_xylabel:
             ax.set_xlabel( r'$x$', rotation='horizontal' )
             ax.set_ylabel( r'$y$', rotation='horizontal' )

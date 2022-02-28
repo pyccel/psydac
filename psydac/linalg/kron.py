@@ -226,6 +226,155 @@ class KroneckerStencilMatrix( Matrix ):
     def T(self):
         return self.transpose()
 
+#==============================================================================
+class KroneckerDenseMatrix( Matrix ):
+    """ Kronecker product of 1D dense matrices.
+    """
+
+    def __init__( self,V, W, *args , with_pads=False):
+
+        assert isinstance( V, StencilVectorSpace )
+        assert isinstance( W, StencilVectorSpace )
+        assert V.pads == W.pads
+
+        for i,A in enumerate(args):
+            assert isinstance( A, np.ndarray )
+            if with_pads:
+                assert A.shape[1] == V.npts[i] + 2*V.pads[i]
+            else:
+                assert A.shape[1] == V.npts[i]
+
+        if not with_pads:
+            args = [np.pad(a,p) for a,p in zip(args, W.pads)]
+            
+        self._domain   = V
+        self._codomain = W
+        self._mats     = args
+        self._ndim     = len(args)
+
+    #--------------------------------------
+    # Abstract interface
+    #--------------------------------------
+    @property
+    def domain( self ):
+        return self._domain
+
+    # ...
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
+
+    # ...
+    @property
+    def ndim( self ):
+        return self._ndim
+        
+    # ...
+    @property
+    def mats( self ):
+        return self._mats
+
+    # ...
+    def dot( self, x, out=None ):
+
+        dot = np.dot
+
+        assert isinstance( x, StencilVector )
+        assert x.space is self.domain
+
+        # Necessary if vector space is periodic or distributed across processes
+        if not x.ghost_regions_in_sync:
+            x.update_ghost_regions()
+
+        if out is not None:
+            assert isinstance( out, StencilVector )
+            assert out.space is self.codomain
+        else:
+            out = StencilVector( self.codomain )
+
+        d_starts = self._domain.starts
+        d_ends   = self._domain.ends
+        c_starts = self._codomain.starts
+        c_ends   = self._codomain.ends
+        pads     = self._codomain.pads
+        mats     = self.mats
+
+        nrows  = tuple(e-s+1 for s,e in zip(c_starts, c_ends))
+        ncols  = tuple(e-s+1+2*p for s,e,p in zip(d_starts, d_ends, pads))
+        kk     = tuple(slice(s,s+nc) for nc,s in zip(ncols, d_starts))
+        x_data   = x._data.ravel()
+        out_data = out._data
+
+        for xx in np.ndindex(*nrows):
+            ii     = tuple(x+p for x,p in zip(xx,pads))
+            i_mats = [mat[i+s, k] for i,s,k,mat in zip(ii, c_starts, kk, mats)]
+            out_data[ii] = np.dot(x_data,np.outer(*i_mats).ravel())
+
+        # IMPORTANT: flag that ghost regions are not up-to-date
+        out.ghost_regions_in_sync = False
+        return out
+
+    # ...
+    def copy(self):
+        mats = [m.copy() for m in self.mats]
+        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
+
+    # ...
+    def __neg__(self):
+        mats = [-self.mats[0], *(m.copy() for m in self.mats[1:])]
+        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
+
+    # ...
+    def __mul__(self, a):
+        mats = [*(m.copy() for m in self.mats[:-1]), self.mats[-1] * a]
+        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
+
+    # ...
+    def __rmul__(self, a):
+        mats = [a * self.mats[0], *(m.copy() for m in self.mats[1:])]
+        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
+
+    # ...
+    def __imul__(self, a):
+        self.mats[-1] *= a
+        return self
+
+    # ...
+    def __add__(self, m):
+        raise NotImplementedError('Cannot sum Kronecker matrices')
+
+    def __sub__(self, m):
+        raise NotImplementedError('Cannot subtract Kronecker matrices')
+
+    def __iadd__(self, m):
+        raise NotImplementedError('Cannot sum Kronecker matrices')
+
+    def __isub__(self, m):
+        raise NotImplementedError('Cannot subtract Kronecker matrices')
+
+    #--------------------------------------
+    # Other properties/methods
+    #--------------------------------------
+
+    def tosparse(self):
+        pass
+
+    def toarray(self):
+        return reduce(kron, (m[p:-p,p:-p] for m,p in zip(self.mats, self.domain.pads)))
+
+    def transpose(self):
+        mats_tr = [Mi.T for Mi in self.mats]
+        return KroneckerStencilMatrix(self.codomain, self.domain, *mats_tr, with_pads=True)
+
+    @property
+    def T(self):
+        return self.transpose()
+
 class KroneckerLinearSolver( LinearSolver ):
     """
     A solver for Ax=b, where A is a Kronecker matrix from arbirary dimension d,

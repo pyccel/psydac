@@ -259,8 +259,9 @@ def discretize_space(V, domain_h, *args, **kwargs):
         else:
             interiors = [interiors]
 
+        ncells     = domain_h.ncells
         for i,interior in enumerate(interiors):
-            ncells     = domain_h.ncells
+            ncells_i   = ncells[interior.name]
             min_coords = interior.min_coords
             max_coords = interior.max_coords
 
@@ -270,7 +271,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
             if knots is None:
                 # Create uniform grid
                 grids = [np.linspace(xmin, xmax, num=ne + 1)
-                         for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
+                         for xmin, xmax, ne in zip(min_coords, max_coords, ncells_i)]
 
                 # Create 1D finite element spaces and precompute quadrature data
                 spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
@@ -284,8 +285,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
             Vh     = None
             if i>0:
                 for e in interfaces:
-                    plus = e.plus.domain
-                    minus = e.minus.domain
+                    plus, minus = e.plus.domain, e.minus.domain
                     if plus == interior:
                         index = interiors.index(minus)
                     elif minus == interior:
@@ -308,6 +308,12 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
             g_spaces[interior] = Vh
 
+        for e in interfaces:
+            plus, minus = e.plus.domain, e.minus.domain
+            max_ncells = [max(i,j) for i,j in zip(ncells[plus.name],ncells[minus.name])]
+            g_spaces[minus].add_refined_space(ncells=max_ncells)
+            g_spaces[plus].add_refined_space(ncells=max_ncells)
+
     for inter in g_spaces:
         Vh = g_spaces[inter]
         if isinstance(V, ProductSpace):
@@ -319,6 +325,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
             Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
 
         Vh.symbolic_space = V
+        Vh._refined_space.symbolic_space = V
         g_spaces[inter]    = Vh
 
     Vh = ProductFemSpace(*g_spaces.values())

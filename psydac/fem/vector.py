@@ -228,21 +228,9 @@ class ProductFemSpace( FemSpace ):
         # ... make sure that all spaces have the same parametric dimension
         ldims = [V.ldim for V in self.spaces]
         assert (len(unique(ldims)) == 1)
-
-        self._ldim = ldims[0]
         # ...
 
-        # ... make sure that all spaces have the same number of cells
-        ncells = [V.ncells for V in self.spaces]
-
-        if self.ldim == 1:
-            assert( len(unique(ncells)) == 1 )
-        else:
-            ns = asarray(ncells[0])
-            for ms in ncells[1:]:
-                assert( allclose(ns, asarray(ms)) )
-
-        self._ncells = ncells[0]
+        self._ncells = [V.ncells for V in self.spaces]
         # ...
 
         self._vector_space    = BlockVectorSpace(*[V.vector_space for V in self.spaces])

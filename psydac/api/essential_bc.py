@@ -2,8 +2,9 @@
 from sympde.expr.equation  import EssentialBC
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.stencil import StencilInterfaceMatrix
+from psydac.linalg.stencil import StencilInterfaceMatrix, ProductLinearOperator
 from psydac.linalg.block   import BlockVector, BlockMatrix
+from psydac.linalg.kron    import KroneckerDenseMatrix
 
 __all__ = ('apply_essential_bc',)
 
@@ -20,6 +21,18 @@ def apply_essential_bc(a, *bcs, **kwargs):
                 **kwargs
             )
 
+    elif isinstance(a, ProductLinearOperator):
+        apply_essential_bc(a.operators[0], *bcs, **kwargs)
+
+    elif isinstance(a, KroneckerDenseMatrix):
+        for bc in bcs:
+            check_boundary_type(bc)
+            apply_essential_bc_kronnecker_dense_matrix(a,
+                axis  = bc.boundary.axis,
+                ext   = bc.boundary.ext,
+                order = bc.order,
+                **kwargs
+            )
     elif isinstance(a, BlockVector):
         for bc in bcs:
             check_boundary_type(bc)
@@ -40,7 +53,16 @@ def check_boundary_type(bc):
         raise TypeError('Essential boundary condition must be of type '\
                 'EssentialBC from sympde.expr.equation, got {} instead'\
                 .format(type(bc)))
+#==============================================================================
+def apply_essential_bc_kronnecker_dense_matrix(a, *, axis, ext, order, identity=False):
+    mats = a.mats
+    p = a.codomain.pads[axis]
 
+    if ext == 1:
+        mats[axis][-p] = 0.
+    elif ext == -1:
+        mats[axis][p] = 0.
+        
 #==============================================================================
 def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
     """ This function applies the homogeneous boundary condition to the Stencil objects,

@@ -394,7 +394,7 @@ class CartDecomposition():
                 'recv_starts': tuple( recv_starts )}
 
         return info
-        
+
     def reduce_elements( self, axes, n_elements):
         """ Compute the cart of the reduced space.
 
@@ -560,6 +560,8 @@ class CartDecomposition():
 
         return cart
 
+    def refine(self, npts):
+        return  CartDecomposition(npts, self.pads, self.periods, self.reorder, comm=self.comm)
 #===============================================================================
 class CartDataExchanger:
     """

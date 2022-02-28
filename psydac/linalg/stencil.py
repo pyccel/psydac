@@ -12,7 +12,7 @@ from mpi4py import MPI
 from psydac.linalg.basic   import VectorSpace, Vector, Matrix
 from psydac.ddm.cart       import find_mpi_type, CartDecomposition, CartDataExchanger
 
-__all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
+__all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix', 'ProductLinearOperator']
 
 #===============================================================================
 def compute_diag_len(pads, shifts_domain, shifts_codomain, return_padding=False):
@@ -106,6 +106,9 @@ class StencilVectorSpace( VectorSpace ):
         # Global dimensions of vector space
         self._npts   = tuple( npts )
 
+        # ...
+        self._refined_space = None
+
     # ...
     def _init_parallel( self, cart, dtype=float ):
 
@@ -130,6 +133,9 @@ class StencilVectorSpace( VectorSpace ):
         self._cart         = cart
         self._mpi_type     = find_mpi_type( dtype )
         self._synchronizer = CartDataExchanger( cart, dtype )
+
+        # ...
+        self._refined_space = None
 
     #--------------------------------------
     # Abstract interface
@@ -202,6 +208,14 @@ class StencilVectorSpace( VectorSpace ):
         v._parent_starts = self.starts
         v._parent_ends   = self.ends
         return v
+
+    def refine(self, npts):
+        if self.parallel:
+            return self.cart.refine(npts)
+
+        v = StencilVectorSpace(npts=npts, pads=self.pads, periods=self.periods, shifts=self.shifts)
+        return v
+
     #--------------------------------------
     # Other properties/methods
     #--------------------------------------
@@ -2189,6 +2203,94 @@ class StencilInterfaceMatrix(Matrix):
                 self._args = {}
 
             self._func = dot.func
+
+#===============================================================================
+class ProductLinearOperator( Matrix ):
+
+    def __init__( self, domain, codomain, *operators ):
+
+        assert all(isinstance(op, Matrix) for op in operators)
+        assert all(operators[i].domain is operators[i+1].codomain for i in range(len(operators)-1))
+
+        assert domain    is operators[-1].domain
+        assert codomain  is operators[0].codomain
+        self._operators = operators
+        self._domain    = domain
+        self._codomain  = codomain
+
+    # ...
+    @property
+    def domain( self ):
+        return self._domain
+
+    # ...
+    @property
+    def codomain( self ):
+        return self._codomain
+
+    # ...
+    @property
+    def dtype( self ):
+        return self.domain.dtype
+
+    # ...
+    def copy( self ):
+        operators = [op.copy() for op in operators]
+        return ProductLinearOperator(operators)
+
+    # ...
+    @property
+    def operators( self ):
+        return self._operators
+
+    #...
+    def __add__(self, m):
+        raise NotImplementedError('TODO: ProductLinearOperator.__add__')
+
+    #...
+    def __sub__(self, m):
+        raise NotImplementedError('TODO: ProductLinearOperator.__sub__')
+
+    #...
+    def __mul__(self, a):
+        raise NotImplementedError('TODO: ProductLinearOperator.__mul__')
+
+    #...
+    def __imul__(self, a):
+        raise NotImplementedError('TODO: ProductLinearOperator.__imul__')
+
+    #...
+    def __iadd__(self, m):
+        raise NotImplementedError('TODO: ProductLinearOperator.__iadd__')
+
+    #...
+    def __isub__(self, m):
+        raise NotImplementedError('TODO: ProductLinearOperator.__isub__')
+
+    #...
+    def __neg__(self, a):
+        raise NotImplementedError('TODO: ProductLinearOperator.__neg__')
+
+    #...
+    def __rmul__(self, a):
+        raise NotImplementedError('TODO: ProductLinearOperator.__rmul__')
+
+    def tosparse( self,  **kwargs):
+        mat = self._operators[-1].tosparse()
+        for i in range(2, self._n+1):
+            mat = self._operators[-i].tosparse() * mat
+        return mat
+
+    def toarray(self, **kwargs):
+        return self.tosparse(**kwargs).toarray()
+
+    def dot( self, x, out=None ):
+        out = self._operators[-1].dot(x)
+        for i in range(2, len(self._operators)+1):
+            out.update_ghost_regions()
+            out = self._operators[-i].dot(out)
+        return out
+
 #===============================================================================
 from psydac.api.settings   import PSYDAC_BACKENDS
-del VectorSpace, Vector, Matrix
+del VectorSpace, Vector
