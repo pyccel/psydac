@@ -58,10 +58,10 @@ def apply_essential_bc_kronnecker_dense_matrix(a, *, axis, ext, order, identity=
     mats = a.mats
     p = a.codomain.pads[axis]
 
-    if ext == 1:
-        mats[axis][-p] = 0.
-    elif ext == -1:
-        mats[axis][p] = 0.
+#    if ext == 1:
+#        mats[axis][-p] = 0.
+#    elif ext == -1:
+#        mats[axis][p] = 0.
         
 #==============================================================================
 def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):

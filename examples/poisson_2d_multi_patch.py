@@ -22,7 +22,7 @@ from sympde.topology import trace_1
 from sympde.topology import Square
 from sympde.topology import ElementDomain
 from sympde.topology import Area
-from sympde.topology import IdentityMapping
+from sympde.topology import IdentityMapping, PolarMapping
                          
 from sympde.expr.expr          import LinearExpr
 from sympde.expr.expr          import LinearForm, BilinearForm
@@ -56,7 +56,7 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     I = domain.interfaces
 
-    kappa  = 10**3
+    kappa  = 10**2
 
     expr_I =- 0.5*dot(grad(plus(u)),nn)*minus(v)  + 0.5*dot(grad(minus(v)),nn)*plus(u)  - kappa*plus(u)*minus(v)\
             + 0.5*dot(grad(minus(u)),nn)*plus(v)  - 0.5*dot(grad(plus(v)),nn)*minus(u)  - kappa*plus(v)*minus(u)\
@@ -65,10 +65,10 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     expr   = dot(grad(u),grad(v))
 
-    a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I))
-    l = LinearForm(v, integral(domain, f*v))
+    a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(domain.boundary, -dot(grad(u),nn)*v -dot(grad(v),nn)*u + kappa*u*v))
+    l = LinearForm(v, integral(domain, f*v) +integral(domain.boundary,  -dot(grad(v),nn)*solution + kappa*solution*v))
 
-    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
 
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
@@ -109,11 +109,11 @@ if __name__ == '__main__':
     from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
     from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
 
-    A = Square('A',bounds1=(0.5, 1.), bounds2=(0., 1.))
-    B = Square('B',bounds1=(0.5, 1.), bounds2=(1., 2.))
+    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+    B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
 
-    mapping_1 = IdentityMapping('M1',2)
-    mapping_2 = IdentityMapping('M2',2)
+    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
 
     D1     = mapping_1(A)
     D2     = mapping_2(B)

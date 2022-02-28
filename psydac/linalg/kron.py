@@ -3,6 +3,7 @@ from functools import reduce
 
 import numpy as np
 from scipy.sparse import kron
+from scipy.sparse import coo_matrix
 
 from psydac.linalg.basic   import LinearOperator, LinearSolver, Matrix
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
@@ -362,7 +363,7 @@ class KroneckerDenseMatrix( Matrix ):
     #--------------------------------------
 
     def tosparse(self):
-        pass
+        return coo_matrix(reduce(kron, (m[p:-p,p:-p] for m,p in zip(self.mats, self.domain.pads))))
 
     def toarray(self):
         return reduce(kron, (m[p:-p,p:-p] for m,p in zip(self.mats, self.domain.pads)))

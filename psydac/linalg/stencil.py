@@ -2277,7 +2277,8 @@ class ProductLinearOperator( Matrix ):
 
     def tosparse( self,  **kwargs):
         mat = self._operators[-1].tosparse()
-        for i in range(2, self._n+1):
+        print(self._operators[-1])
+        for i in range(2, len(self._operators)+1):
             mat = self._operators[-i].tosparse() * mat
         return mat
 
