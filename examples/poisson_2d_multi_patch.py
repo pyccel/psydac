@@ -65,10 +65,10 @@ def run_poisson_2d(solution, f, domain, ncells, degree, comm=None):
 
     expr   = dot(grad(u),grad(v))
 
-    a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I) + integral(domain.boundary, -dot(grad(u),nn)*v -dot(grad(v),nn)*u + kappa*u*v))
-    l = LinearForm(v, integral(domain, f*v) +integral(domain.boundary,  -dot(grad(v),nn)*solution + kappa*solution*v))
+    a = BilinearForm((u,v),  integral(domain, expr) + integral(I, expr_I)) #+ integral(domain.boundary, -dot(grad(u),nn)*v -dot(grad(v),nn)*u + kappa*u*v))
+    l = LinearForm(v, integral(domain, f*v)) #+integral(domain.boundary,  -dot(grad(v),nn)*solution + kappa*solution*v))
 
-    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v))
+    equation = find(u, forall=v, lhs=a(u,v), rhs=l(v), bc=bc)
 
     l2norm = Norm(error, domain, kind='l2')
     h1norm = Norm(error, domain, kind='h1')
