@@ -4,7 +4,9 @@ import os
 
 from sympde.topology import Domain
 from psydac.api.discretization import discretize
-from psydac.core.bsplines import quadrature_grid
+from psydac.utilities.utils import refine_array_1d
+
+from psydac.core.bsplines import quadrature_grid, basis_ders_on_quad_grid, elements_spans
 from psydac.utilities.quadratures import gauss_legendre
 
 try:
@@ -16,39 +18,23 @@ except KeyError:
 
 
 @pytest.mark.parametrize('geometry_file', ['collela_3d.h5', 'collela_2d.h5', 'bent_pipe.h5'])
-@pytest.mark.parametrize('k', [1, 2, 3])
-def test_build_mesh(geometry_file, k):
+@pytest.mark.parametrize('refinement', [2, 3, 4])
+def test_build_mesh(geometry_file, refinement):
     filename = os.path.join(mesh_dir, geometry_file)
 
     domain = Domain.from_file(filename)
-
     domainh = discretize(domain, filename=filename)
 
     for mapping in domainh.mappings.values():
         space = mapping.space
-        glob_points = []
-        for i in range(mapping.ldim):
-            grid_i = space.breaks[i]
 
-            # Gauss-Legendre quadrature rule
-            u, w = gauss_legendre(k)
-            u = u[::-1]
-            w = w[::-1]
+        grid = [refine_array_1d(space.breaks[i], refinement, remove_duplicates=False) for i in range(mapping.ldim)]
 
-            # Grids
-            glob_points_i, _ = quadrature_grid(grid_i, u, w)
-
-            glob_points_i[0, 0] = grid_i[0]
-            glob_points_i[-1, -1] = grid_i[-1]
-
-            glob_points.append(glob_points_i)
-
-        x_mesh, y_mesh, z_mesh = mapping.build_mesh(refine_factor=k)
+        x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=refinement + 1)
 
         if mapping.ldim == 2:
 
-            eta1 = [glob_points[0][i // (k + 1)][i % (k + 1)] for i in range(x_mesh.shape[0])]
-            eta2 = [glob_points[1][i // (k + 1)][i % (k + 1)] for i in range(x_mesh.shape[1])]
+            eta1, eta2 = grid
 
             pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
 
@@ -56,11 +42,9 @@ def test_build_mesh(geometry_file, k):
             y_mesh_l = pcoords[..., 1:2]
             z_mesh_l = np.zeros_like(x_mesh_l)
 
-        if mapping.ldim == 3:
+        elif mapping.ldim == 3:
 
-            eta1 = [glob_points[0][i // (k + 1)][i % (k + 1)] for i in range(x_mesh.shape[0])]
-            eta2 = [glob_points[1][i // (k + 1)][i % (k + 1)] for i in range(x_mesh.shape[1])]
-            eta3 = [glob_points[2][i // (k + 1)][i % (k + 1)] for i in range(x_mesh.shape[2])]
+            eta1, eta2, eta3 = grid
 
             pcoords = np.array([[[mapping(e1, e2, e3) for e3 in eta3] for e2 in eta2] for e1 in eta1])
 
@@ -68,7 +52,10 @@ def test_build_mesh(geometry_file, k):
             y_mesh_l = pcoords[..., 1]
             z_mesh_l = pcoords[..., 2]
 
+        else:
+            assert False
 
+        assert x_mesh.flags['C_CONTIGUOUS'] and y_mesh.flags['C_CONTIGUOUS'] and z_mesh.flags['C_CONTIGUOUS']
 
         assert np.allclose(x_mesh, x_mesh_l)
         assert np.allclose(y_mesh, y_mesh_l)
