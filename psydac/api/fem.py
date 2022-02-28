@@ -26,7 +26,7 @@ from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 from psydac.fem.vector       import ProductFemSpace
 from psydac.fem.basic        import FemField
-from psydac.core.bsplines    import basis_ders_on_quad_grid
+from psydac.core.bsplines    import find_span, basis_funs_all_ders
 
 __all__ = (
     'DiscreteBilinearForm',
@@ -398,11 +398,11 @@ class DiscreteBilinearForm(BasicDiscrete):
                 nderiv = self.max_nderiv
                 space  = space.spaces[axis]
                 points = points[axis]
-                boundary_basis = basis_ders_on_quad_grid(
-                        space.knots, space.degree, points, nderiv, space.basis)
-
+                local_span = find_span(space.knots, space.degree, points[0, 0])
+                boundary_basis = basis_funs_all_ders(space.knots, space.degree,
+                                                     points[0, 0], local_span, nderiv, space.basis)
                 map_basis[axis] = map_basis[axis].copy()
-                map_basis[axis][0:1, :, 0:nderiv+1, 0:1] = boundary_basis
+                map_basis[axis][0, :, 0:nderiv+1, 0] = np.transpose(boundary_basis)
                 if ext == 1:
                     map_span[axis]    = map_span[axis].copy()
                     map_span[axis][0] = map_span[axis][-1]
@@ -757,11 +757,11 @@ class DiscreteLinearForm(BasicDiscrete):
                 nderiv = self.max_nderiv
                 space  = space.spaces[axis]
                 points = points[axis]
-                boundary_basis = basis_ders_on_quad_grid(
-                        space.knots, space.degree, points, nderiv, space.basis)
-
+                local_span = find_span(space.knots, space.degree, points[0, 0])
+                boundary_basis = basis_funs_all_ders(space.knots, space.degree,
+                                                     points[0, 0], local_span, nderiv, space.basis)
                 map_basis[axis] = map_basis[axis].copy()
-                map_basis[axis][0:1, :, 0:nderiv+1, 0:1] = boundary_basis
+                map_basis[axis][0, :, 0:nderiv+1, 0] = np.transpose(boundary_basis)
                 if ext == 1:
                     map_span[axis]    = map_span[axis].copy()
                     map_span[axis][0] = map_span[axis][-1]
