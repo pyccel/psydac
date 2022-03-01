@@ -250,7 +250,7 @@ class TensorFemSpace( FemSpace ):
         ----------
         grid : List of ndarray
             List of 2D arrays representing each direction of the grid.
-            Each of these arrays should have shape (ne_xi, nv_xi) where ne is the
+            Each of these arrays should have shape (ne_xi, nv_xi) where ne_xi is the
             number of cells in the domain in the direction xi and nv_xi is the number of
             evaluation points in the same direction.
 
@@ -288,11 +288,11 @@ class TensorFemSpace( FemSpace ):
 
     # ...
     def eval_fields(self, grid, *fields, weights=None, npts_per_cell=None):
-        """Evaluate one or several fields on the given location(s) grid.
+        """Evaluate one or several fields at the given location(s) grid.
 
         Parameters
         -----------
-        grid : List of ndarray of int
+        grid : List of ndarray
             Grid on which to evaluate the fields
 
         *fields : tuple of psydac.fem.basic.FemField
@@ -307,7 +307,7 @@ class TensorFemSpace( FemSpace ):
 
         Returns
         -------
-        out_fields : List of ndarray of floats
+        List of ndarray of floats
             List of the evaluated fields.
         """
 
@@ -320,6 +320,7 @@ class TensorFemSpace( FemSpace ):
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
+        # =====================================================================
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
             return [self.eval_field(f, *grid) for f in fields]
@@ -365,9 +366,17 @@ class TensorFemSpace( FemSpace ):
 
         Parameters
         ----------
-        grid : List of ndarray of float
+        grid : List of ndarray
+            List of 2D arrays representing each direction of the grid.
+            Each of these arrays should have shape (ne_xi, nv_xi) where ne is the
+            number of cells in the domain in the direction xi and nv_xi is the number of
+            evaluation points in the same direction.
+
         *fields : tuple of psydac.fem.basic.FemField
+            Fields to evaluate on `grid`.
+
         weights : psydac.fem.basic.FemField or None, optional
+            Weights to apply to our fields.
 
         Returns
         -------
@@ -520,6 +529,149 @@ class TensorFemSpace( FemSpace ):
 
         return c
 
+    # ...
+    def pushforward_fields(self, grid, *fields, mapping=None, npts_per_cell=None):
+        """ Push forward fields on a given grid and a given mapping
+
+        Parameters
+        ----------
+        grid : List of ndarray of int
+            Grid on which to evaluate the fields
+
+        *fields : tuple of psydac.fem.basic.FemField
+            Fields to evaluate
+
+        mapping: psydac.mapping.SplineMapping
+            Mapping on which to push-forward
+
+        npts_per_cell: int or tuple of int or None, optional
+            number of evaluation points in each cell.
+            If an integer is given, then assume that it is the same in every direction.
+
+        Returns
+        -------
+        List of ndarray
+            push-forwarded fields
+        """
+
+        # Check that a mapping is given
+        if mapping is None:
+            raise ValueError("A mapping is needed to push-forward")
+
+        # Check that the fields belong to our space
+        assert (all(f.space is self for f in fields))
+
+        # Check the grid argument
+        assert len(grid) == self.ldim
+        grid = [np.asarray(grid[i]) for i in range(self.ldim)]
+        assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
+        # =====================================================================
+        # Case 1. Scalar coordinates
+        if (grid[0].size == 1) or grid[0].ndim == 0:
+
+            return [self.pushforward_field(f, *grid, mapping=mapping) for f in fields]
+
+        # Case 2. 1D array of coordinates and no npts_per_cell is given
+        # -> grid is tensor-product, but npts_per_cell is not the same in each cell
+        elif grid[0].ndim == 1 and npts_per_cell is None:
+            raise NotImplementedError("Having a different number of evaluation"
+                                      "points in the cells belonging to the same "
+                                      "logical dimension is not supported yet. "
+                                      "If you did use valid inputs, you need to provide"
+                                      "the number of evaluation points per cell in each direction"
+                                      "via the npts_per_cell keyword")
+
+        # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
+        # -> grid is tensor-product, and each cell has the same number of evaluation points
+        elif grid[0].ndim == 1 and npts_per_cell is not None:
+            if isinstance(npts_per_cell, int):
+                npts_per_cell = (npts_per_cell,) * self.ldim
+
+            for i in range(self.ldim):
+                ncells_i = len(self.breaks[i]) - 1
+                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
+            pushed_fields = self.pushforward_fields_regular_tensor_grid(grid, *fields, mapping=mapping)
+            # return a list of C-contiguous arrays, one for each field.
+            return [np.ascontiguousarray(pushed_fields[..., i]) for i in range(len(fields))]
+
+        # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
+        # -> unstructured grid
+        elif grid[0].ndim == self.ldim and npts_per_cell is None:
+            raise NotImplementedError("Unstructured grids are not supported yet.")
+
+        # Case 5. Nonsensical input
+        else:
+            raise ValueError("This combination of argument isn't understood. The 4 cases understood are :\n"
+                             "Case 1. Scalar coordinates\n"
+                             "Case 2. 1D array of coordinates and no npts_per_cell is given\n"
+                             "Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer\n"
+                             "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
+
+    # ...
+    def pushforward_field(self, field, *eta, mapping=None):
+        assert field.space is self
+        assert len(eta) == self.ldim
+
+        kind = str(self._symbolic_space.kind)
+        value = self.eval_field(field, *eta)
+        if kind == "H1SpaceType()":
+            return value
+        elif kind == "L2SpaceType()":
+            det = mapping.metric_det(*eta)
+            return value/(det ** 0.5)
+
+    # ...
+    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping=None, kind=None):
+        """Push-forwards fields on a regular tensor grid using a given a mapping.
+
+        Parameters
+        ----------
+        grid : List of ndarray
+            List of 2D arrays representing each direction of the grid.
+            Each of these arrays should have shape (ne_xi, nv_xi) where ne_xi is the
+            number of cells in the domain in the direction xi and nv_xi is the number of
+            evaluation points in the same direction.
+
+        fields: List of psydac.fem.basic.FemField
+
+        mapping: psydac.mapping.SplineMapping
+            Mapping on which to push-forward
+
+        kind: str, optional
+            Shortcut to determine the kind of the space.
+            Meant to be used only when this is called
+            inside of a Vector/ProductFemSpace because
+            the TensorFemSpace doesn't have a kind.
+
+        Returns
+        -------
+        ndarray
+            Push-forwarded fields
+        """
+        from psydac.core.kernels import pushforward_2d_l2, pushforward_3d_l2
+
+        if kind is None:
+            kind = str(self.symbolic_space.kind)
+
+        out_fields = self.eval_fields_regular_tensor_grid(grid, *fields)
+
+        if kind == 'H1SpaceType()':
+            return out_fields
+
+        if kind == 'L2SpaceType()':
+            pushed_fields = np.zeros_like(out_fields)
+            dets = mapping.metric_det_regular_tensor_grid(grid)
+            if self.ldim == 2:
+
+                pushforward_2d_l2(out_fields, dets, pushed_fields)
+
+            if self.ldim == 3:
+                pushforward_3d_l2(out_fields, dets, pushed_fields)
+
+        else:
+            raise ValueError(f"Spaces of kind {kind} are not understood")
+
+        return pushed_fields
     #--------------------------------------------------------------------------
     # Other properties and methods
     #--------------------------------------------------------------------------
@@ -627,6 +779,7 @@ class TensorFemSpace( FemSpace ):
             if not V._interpolation_ready:
                 V.init_interpolation()
 
+    # ...
     def init_histopolation( self ):
         for V in self.spaces:
             # TODO: check if OK to access private attribute...
@@ -664,6 +817,7 @@ class TensorFemSpace( FemSpace ):
             out     = field.coeffs,
         )
 
+    # ...
     def reduce_grid(self, axes=(), knots=()):
         """ 
         Create a new TensorFemSpace object with a coarser grid than the original one
@@ -809,6 +963,7 @@ class TensorFemSpace( FemSpace ):
 
         return fields
 
+    # ...
     def reduce_degree(self, axes, multiplicity=None, basis='B'):
 
         if isinstance(axes, int):
@@ -922,53 +1077,6 @@ class TensorFemSpace( FemSpace ):
         ax.legend( handles=handles, bbox_to_anchor=(1.05, 1), loc=2 )
         fig.tight_layout()
         fig.show()
-
-    # ...
-    def pushforward(self, *fields, mapping=None, refine_factor=1):
-        """ Push forward
-
-        Parameters
-        ----------
-        fields: list of psydac.fem.basic.FemField
-
-        mapping: psydac.mapping.SplineMapping
-            Mapping on which to push-forward
-
-        refine_factor: int
-            Degree of refinement of the grid
-
-        Returns
-        -------
-        pushed_fields:
-            push-forwarded fields
-
-        """
-        from psydac.core.kernels import pushforward_2d_l2, pushforward_3d_l2
-
-        kind = str(self.symbolic_space.kind)
-
-        # Shape of out_fields = (ncells[0],..., ncells[ldim],len(fields))
-        out_fields = self.eval_fields(*fields, refine_factor=refine_factor)
-
-        if mapping is None:
-            raise TypeError("pushforward() missing 1 required keyword-only argument: 'mapping'")
-
-        if kind == 'H1SpaceType()':
-            return out_fields
-
-        pushed_fields = np.zeros_like(out_fields)
-        if kind == 'L2SpaceType()':
-            if self.ldim == 2:
-                pushforward_2d_l2(out_fields, mapping.metric_det_grid(refine_factor=refine_factor), pushed_fields)
-                pushed_fields = np.reshape(pushed_fields, newshape=(*pushed_fields.shape[:-1],
-                                                                    1, pushed_fields.shape[-1]))
-            if self.ldim == 3:
-                pushforward_3d_l2(out_fields, mapping.metric_det_grid(refine_factor=refine_factor), pushed_fields)
-
-        else:
-            raise ValueError(kind)
-
-        return pushed_fields
 
     # ...
     def __str__(self):
