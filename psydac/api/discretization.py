@@ -326,7 +326,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
             Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
 
         Vh.symbolic_space = V
-        Vh._refined_space.symbolic_space = V
+        if Vh._refined_space:
+            Vh._refined_space.symbolic_space = V
         g_spaces[inter]    = Vh
 
     Vh = ProductFemSpace(*g_spaces.values())
