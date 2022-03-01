@@ -230,6 +230,8 @@ class ProductFemSpace( FemSpace ):
         assert (len(unique(ldims)) == 1)
         # ...
 
+        self._ldim = ldims[0]
+
         self._ncells = [V.ncells for V in self.spaces]
         # ...
 

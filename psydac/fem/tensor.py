@@ -851,7 +851,7 @@ class TensorFemSpace( FemSpace ):
         
         tensor_vec._interpolation_ready = False
         if self._refined_space:
-            tensor_vec._refined_space = self._refined_space.reduce(axes, multiplicity, basis)
+            tensor_vec._refined_space = self._refined_space.reduce_degree(axes, multiplicity, basis)
         return tensor_vec
 
     # ...
