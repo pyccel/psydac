@@ -18,10 +18,11 @@ from psydac.feec.multipatch.api import discretize
 from psydac.feec.pull_push      import pull_2d_h1
 
 from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
-from psydac.feec.multipatch.operators                   import time_count, HodgeOperator
+from psydac.feec.multipatch.operators                   import HodgeOperator
 from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution
+from psydac.feec.multipatch.utilities                   import time_count
 
 from psydac.linalg.utilities import array_to_stencil
 from psydac.fem.basic        import FemField

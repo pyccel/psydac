@@ -28,8 +28,26 @@ __all__ = ('DiscreteDerhamMultipatch', 'discretize')
 
 #==============================================================================
 class DiscreteDerhamMultipatch(DiscreteDerham):
+    """ Represents the discrete De Rham sequence for multipatch domains.
 
+    Parameters
+    ----------
+
+    mapping: <Mapping>
+      The mapping of the multipatch domain
+
+    domain_h: <Geometry>
+     The discrete domain
+
+    spaces: <list,tuple>
+      The discrete spaces that are contained in the De Rham sequence
+
+    sequence: <list,tuple>
+      The space kind of each space in the De Rham sequence
+    """
+    
     def __init__(self, *, mapping, domain_h, spaces, sequence=None):
+
 
         dim = len(spaces) - 1
         self._dim     = dim

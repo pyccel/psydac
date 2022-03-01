@@ -19,13 +19,14 @@ from psydac.api.settings import PSYDAC_BACKENDS
 
 from psydac.feec.pull_push import pull_2d_h1, pull_2d_hcurl, pull_2d_l2
 
-from psydac.feec.multipatch.api import discretize
-from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
-from psydac.feec.multipatch.operators import time_count, HodgeOperator
-from psydac.feec.multipatch.plotting_utilities import plot_field
-from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.examples.ppc_test_cases import get_source_and_sol_for_magnetostatic_pbm
+from psydac.feec.multipatch.api                                import discretize
+from psydac.feec.multipatch.fem_linear_operators               import IdLinearOperator
+from psydac.feec.multipatch.operators                          import HodgeOperator
+from psydac.feec.multipatch.plotting_utilities                 import plot_field
+from psydac.feec.multipatch.multipatch_domain_utilities        import build_multipatch_domain
+from psydac.feec.multipatch.examples.ppc_test_cases            import get_source_and_sol_for_magnetostatic_pbm
 from psydac.feec.multipatch.examples.hcurl_eigen_pbms_conga_2d import get_eigenvalues
+from psydac.feec.multipatch.utilities                          import time_count
 
 def solve_magnetostatic_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_L2_wcurl_J',

@@ -19,12 +19,14 @@ from psydac.feec.pull_push import pull_2d_hcurl
 
 from psydac.feec.multipatch.api                         import discretize
 from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
-from psydac.feec.multipatch.operators                   import time_count, HodgeOperator
+from psydac.feec.multipatch.operators                   import HodgeOperator
 from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 from psydac.feec.multipatch.examples.ppc_test_cases     import get_source_and_solution
+from psydac.feec.multipatch.utilities                   import time_count
 from psydac.linalg.utilities                            import array_to_stencil
 from psydac.fem.basic                                   import FemField
+
 def solve_hcurl_source_pbm(
         nc=4, deg=4, domain_name='pretzel_f', backend_language=None, source_proj='P_geom', source_type='manu_J',
         eta=-10., mu=1., nu=1., gamma_h=10.,

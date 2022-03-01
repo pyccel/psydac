@@ -7,12 +7,11 @@ from sympy import pi, cos, sin, Tuple, exp
 
 from sympde.topology import Derham
 
-from psydac.fem.basic   import FemField
-
-from psydac.feec.multipatch.api import discretize
-from psydac.feec.multipatch.operators import time_count, HodgeOperator
-from psydac.feec.multipatch.plotting_utilities import plot_field
-from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, my_small_plot, my_small_streamplot
+from psydac.fem.basic                                   import FemField
+from psydac.feec.multipatch.api                         import discretize
+from psydac.feec.multipatch.operators                   import HodgeOperator
+from psydac.feec.multipatch.plotting_utilities          import plot_field
+from psydac.feec.multipatch.plotting_utilities          import get_plotting_grid, my_small_plot, my_small_streamplot
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 
 from psydac.feec.multipatch.utils_conga_2d import rhs_fn, sol_ref_fn, hf_fn, error_fn, get_method_name, get_fem_name, get_load_dir

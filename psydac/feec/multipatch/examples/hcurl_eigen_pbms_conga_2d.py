@@ -7,18 +7,17 @@ from collections import OrderedDict
 
 from scipy.sparse.linalg import spilu, lgmres
 from scipy.sparse.linalg import LinearOperator, eigsh, minres
-
 from scipy.linalg        import norm
 
-from sympde.topology import Derham
+from sympde.topology     import Derham
 
-from psydac.feec.multipatch.api import discretize
-
-from psydac.api.settings        import PSYDAC_BACKENDS
-from psydac.feec.multipatch.fem_linear_operators import IdLinearOperator
-from psydac.feec.multipatch.operators import time_count, HodgeOperator
+from psydac.feec.multipatch.api                         import discretize
+from psydac.api.settings                                import PSYDAC_BACKENDS
+from psydac.feec.multipatch.fem_linear_operators        import IdLinearOperator
+from psydac.feec.multipatch.operators                   import HodgeOperator
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
-from psydac.feec.multipatch.plotting_utilities import plot_field
+from psydac.feec.multipatch.plotting_utilities          import plot_field
+from psydac.feec.multipatch.utilities                   import time_count
 
 def hcurl_solve_eigen_pbm(nc=4, deg=4, domain_name='pretzel_f', backend_language='python', mu=1, nu=1, gamma_h=10,
                           sigma=None, nb_eigs=4, nb_eigs_plot=4,
