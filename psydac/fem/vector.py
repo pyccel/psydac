@@ -237,6 +237,7 @@ class ProductFemSpace( FemSpace ):
 
         self._vector_space    = BlockVectorSpace(*[V.vector_space for V in self.spaces])
         self._symbolic_space  = None
+        self._refined_space   = None
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes
