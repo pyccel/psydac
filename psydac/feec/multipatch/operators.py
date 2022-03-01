@@ -36,6 +36,9 @@ from psydac.feec.derivatives                     import Gradient_2D, ScalarCurl_
 from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 def get_patch_index_from_face(domain, face):
+    """ Return the patch index of subdomain/boundary
+    """
+
     if domain.mapping:
         domain = domain.logical_domain
     if face.mapping:
@@ -51,6 +54,9 @@ def get_patch_index_from_face(domain, face):
     return i
 
 def get_interface_from_corners(corner1, corner2, domain):
+    """ Return the interface between two corners
+    """
+
     interface = []
     interfaces = domain.interfaces
 
@@ -80,6 +86,8 @@ def get_interface_from_corners(corner1, corner2, domain):
 
 
 def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
+    """ Return the row and column index of a corner in the StencilInterfaceMatrix
+    """
     start = V1.vector_space.starts
     end   = V1.vector_space.ends
     degree = V2.degree
@@ -125,8 +133,9 @@ def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
     return row+col
 
 #===============================================================================
-def allocate_matrix(corners, test_space, trial_space):
-
+def allocate_interface_matrix(corners, test_space, trial_space):
+    """ Allocate the interface matrix of a corner domain
+    """
     bi, bj = list(zip(*corners))
     permutation = np.arange(bi[0].domain.dim)
 
@@ -312,7 +321,7 @@ class ConformingProjection_V0( FemLinearOperator):
                         interface = get_interface_from_corners(b1, b2, domain)
                         axis = None
                         if self._A[i,j] is None:
-                            self._A[i,j] = allocate_matrix(corner_blocks[i,j], V0h.spaces[i], V0h.spaces[j])
+                            self._A[i,j] = allocate_interface_matrix(corner_blocks[i,j], V0h.spaces[i], V0h.spaces[j])
 
                         if i!=j and self._A[i,j]:axis=self._A[i,j]._dim
                         index = get_row_col_index(b1, b2, interface, axis, V0h.spaces[i], V0h.spaces[j])
