@@ -527,7 +527,7 @@ class PostProcessManager:
 
         # Sanity Check
         if fh5.attrs['spaces'] != self.space_file:
-            print(f"Unexpected inconsistency between {self.space_file} and {self.fields_file}")
+            raise ValueError(f"Unexpected inconsistency between {self.space_file} and {self.fields_file}")
 
         temp_space_to_field = {}
 
@@ -665,29 +665,39 @@ class PostProcessManager:
                                 }
         self._scope_reconstructed = True
 
-    def export_to_vtk(self, filename_pattern, dt=None, lz=4, refine_factor=1, **fields):
-        """Exports all the static fields and some or all
-        of the time dependent fields.
+    def export_to_vtk(self, filename_pattern, grid, npts_per_cell=None, dt=None, export_static=True, lz=4, **fields):
+        """Exports all the static fields and some or all of the time dependent fields.
 
         Parameters
         ----------
         filename_pattern: str
             file pattern of the file
 
-        lz: int (optional)
+        grid: List of ndarray
+            Grid on which to evaluate the fields
+
+        npts_per_cell: int or tuple of int or None, optional
+            number of evaluation points in each cell.
+            If an integer is given, then assume that it is the same in every direction.
+
+        export_static: bool, default=True
+            If True, export the static fields,
+            if False don't.
+
+        lz: int, default=4
             Number of leading zeros in the time indexing of the files.
 
-        fields: dict
-            Dictionnary with the as the fields to export and as values the name under which to export them
-
-        dt: int, list of ints or None (optional)
+        dt: int or list of int or None, optional
             If an int is given, will export every dt^th snapshot.
-            If a list is given instead, will export every snapshot present in the list
-            Finally, if None, will export every time step
+            If a list is given instead, will export every snapshot present in the list.
+            Finally, if None, will export every time step.
 
-        refine_factor: int (optional)
-            Degree of refinement of the grid
+        fields: dict
+            Dictionary with the as the fields to export and as values the name under which to export them
 
+        Notes
+        -----
+        This function only supports regular tensor grid.
         """
         # =================================================
         # Common to everything
@@ -704,47 +714,69 @@ class PostProcessManager:
 
         mapping = list(mappings.values())[0]
 
-        # Coordinates of the mesh, C Contiguous arrays
-        x_mesh, y_mesh, z_mesh = mapping.build_mesh(refine_factor=refine_factor)
-
         ldim = mapping.ldim
+
+        if isinstance(npts_per_cell, int):
+            npts_per_cell = (npts_per_cell,) * ldim
+
+        # Only regular tensor product grid is supported for now
+        grid_test = [np.asarray(grid[i]) for i in range(ldim)]
+        assert grid_test[0].ndim == 1 and npts_per_cell is not None
+        assert all(grid_test[i].ndim == grid_test[i+1].ndim for i in range(len(grid) - 1))
+        assert all(grid_test[i].size % npts_per_cell[i] == 0 for i in range(ldim))
+
+        # Coordinates of the mesh, C Contiguous arrays
+        x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell)
+
+        if ldim == 2:
+            slice_3d = (slice(0, None, 1), slice(0, None, 1), None)
+        elif ldim == 3:
+            slice_3d = (slice(0, None, 1), slice(0, None, 1), slice(0, None, 1))
+        else:
+            raise NotImplementedError("1D case not Implemented yet")
 
         # ============================
         # Static
         # ============================
+        if export_static:
+            pointData_static = {}
+            smart_eval_dict = {}
+            if 'static' in self._fields.keys():
+                for f_name, field in self._fields['static']['fields'].items():
+                    if f_name in fields.keys():
+                        try:
+                            smart_eval_dict[field.space][0].append(field)
+                            smart_eval_dict[field.space][1].append(fields[f_name])
+                        except KeyError:
+                            smart_eval_dict[field.space] = ([field], [fields[f_name]])
 
-        pointData_static = {}
-        smart_eval_dict = {}
-        if 'static' in self._fields.keys():
-            for f_name, field in self._fields['static']['fields'].items():
-                if f_name in fields.keys():
-                    try:
-                        smart_eval_dict[field.space][0].append(field)
-                        smart_eval_dict[field.space][1].append(fields[f_name])
-                    except KeyError:
-                        smart_eval_dict[field.space] = ([field], [fields[f_name]])
+                for space, (field_list_to_eval, name_list) in smart_eval_dict.items():
+                    pushed_fields = space.pushforward_fields(grid,
+                                                             *field_list_to_eval,
+                                                             mapping=mapping,
+                                                             npts_per_cell=npts_per_cell)
 
-            for space, (field_list_to_eval, name_list) in smart_eval_dict.items():
-                pushed_fields = space.pushforward(*field_list_to_eval, mapping=mapping, refine_factor=refine_factor)
-                target_shape = pushed_fields.shape[:-2] + (3 - ldim) * (1,)
-                for i in range(len(name_list)):
-                    if pushed_fields.shape[-2] == 1:
-                        pointData_static[name_list[i]] = np.ascontiguousarray(np.reshape(pushed_fields[..., i],
-                                                                                         newshape=target_shape))
-                    else:
-                        tuple_fields = tuple(
-                            np.ascontiguousarray(np.reshape(pushed_fields[..., j, i], newshape=target_shape))
-                            for j in range(ldim)) + (3-ldim) * (np.zeros(target_shape),)
-                        pointData_static[name_list[i]] = tuple_fields
+                    if not isinstance(pushed_fields[0], list):
+                        pushed_fields = [[pushed_fields[i]] for i in range(len(pushed_fields))]
 
-            # Export static fields to VTK
-            pyevtk.hl.gridToVTK(f'{filename_pattern}_static', x_mesh, y_mesh, z_mesh,
-                                pointData=pointData_static)
+                    for i in range(len(name_list)):
+                        if len(pushed_fields[i]) == 1:
+                            # Means that this is a Scalar space.
+                            pointData_static[name_list[i]] = pushed_fields[i][0][slice_3d]
+                        else:
+                            # Means that this is a vector/product space and that we need to turn the
+                            # result into a 3-tuple (x_component, y_component, z_component)
+                            tuple_fields = tuple(pushed_fields[i][j][slice_3d] for j in range(ldim)) \
+                                                 + (3-ldim) * (np.zeros_like(pushed_fields[i][0])[slice_3d],)
+                            pointData_static[name_list[i]] = tuple_fields
+
+                # Export static fields to VTK
+                pyevtk.hl.gridToVTK(f'{filename_pattern}_static', x_mesh, y_mesh, z_mesh,
+                                    pointData=pointData_static)
 
         # =================================================
         # Time Dependent part
         # =================================================
-
         # get which snapshots to go through
         if dt is None:
             dt = [k for k in self._fields.keys() if k != 'static']
@@ -766,8 +798,16 @@ class PostProcessManager:
         pointData_full = {}
 
         for space, (field_list_to_eval, name_list, time_list) in smart_eval_dict.items():
-            pushed_fields = space.pushforward(*field_list_to_eval, mapping=mapping, refine_factor=refine_factor)
-            target_shape = pushed_fields.shape[:-2] + (3 - ldim) * (1,)
+            pushed_fields = space.pushforward_fields(grid,
+                                                     *field_list_to_eval,
+                                                     mapping=mapping,
+                                                     npts_per_cell=npts_per_cell)
+
+            if not isinstance(pushed_fields[0], list):
+                # This is space-dependent, so we only need to check for the first index.
+                pushed_fields = [[pushed_fields[i]] for i in range(len(pushed_fields))]
+
+
             previous_time = time_list[0]
             pointData_time = {}
             for i, name in enumerate(name_list):
@@ -786,23 +826,20 @@ class PostProcessManager:
                     previous_time = current_time
 
                 # Format the results
-                if pushed_fields.shape[-2] == 1:
-                    pointData_time[name_list[i]] = np.ascontiguousarray(np.reshape(pushed_fields[..., i],
-                                                                                   newshape=target_shape))
+                if len(pushed_fields[i]) == 1:
+                    pointData_time[name_list[i]] = pushed_fields[i][0][slice_3d]
                 else:
                     # Means that this is a vector/product space and we need to turn the
                     # result into a 3-tuple (x_component, y_component, z_component)
-                    tuple_fields = tuple(
-                        np.ascontiguousarray(np.reshape(pushed_fields[..., j, i], newshape=target_shape))
-                        for j in range(ldim)) + (3 - ldim) * (np.zeros(target_shape),)
+                    tuple_fields = tuple(pushed_fields[i][j][slice_3d] for j in range(ldim)) \
+                                   + (3 - ldim) * (np.zeros_like(pushed_fields[i][0])[slice_3d],)
                     pointData_time[name_list[i]] = tuple_fields
 
-                # Check if we are at the end
-                if i == len(name_list) - 1:
-                    try:
-                        pointData_full[current_time].update(pointData_time.copy())
-                    except KeyError:
-                        pointData_full[current_time] = pointData_time.copy()
+            # Save at the end of the loop
+            try:
+                pointData_full[time_list[len(name_list) - 1]].update(pointData_time.copy())
+            except KeyError:
+                pointData_full[time_list[len(name_list) - 1]] = pointData_time.copy()
 
         for i, pointData_full_i in enumerate(pointData_full.values()):
             pyevtk.hl.gridToVTK(filename_pattern + '_{0:0{1}d}'.format(i, lz),
