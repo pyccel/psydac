@@ -1,18 +1,20 @@
 import pytest
 import os
+import glob
 import numpy as np
 
 from sympde.topology import Square, ScalarFunctionSpace, VectorFunctionSpace, Domain
 from psydac.api.discretization import discretize
 from psydac.fem.basic import FemField
 from psydac.api.postprocessing import OutputManager, PostProcessManager
+from psydac.utilities.utils import refine_array_1d
 
 try:
     mesh_dir = os.environ['PSYDAC_MESH_DIR']
 
 except KeyError:
     base_dir = os.path.dirname(os.path.realpath(__file__))
-    base_dir = os.path.join(base_dir, '..', '..', '..','..')
+    base_dir = os.path.join(base_dir, '..', '..', '..')
     mesh_dir = os.path.join(base_dir, 'mesh')
 
 def test_OutputManager():
@@ -125,14 +127,22 @@ def test_OutputManager():
                             }
 
     assert(Om._spaces_info == expected_spaces_info)
+    Om.export_space_info()
+
+    # Removed files
+    os.remove('file.h5')
+    os.remove('file.yml')
 
 
-def test_PostProcess_Manager():
+@pytest.mark.parametrize('geometry', ['identity_2d.h5',
+                                      'identity_3d.h5',
+                                      'bent_pipe.h5'])
+@pytest.mark.parametrize('refinement', [1, 2, 3])
+def test_PostProcess_Manager(geometry, refinement):
     # =================================================================
     # Part 1: Running a simulation
     # =================================================================
     geometry_file = os.path.join(mesh_dir, 'identity_2d.h5')
-    print(mesh_dir)
     domain = Domain.from_file(geometry_file)
 
     V1 = ScalarFunctionSpace('V1', domain, kind='l2')
@@ -148,6 +158,10 @@ def test_PostProcess_Manager():
     uh = FemField(V1h)
     vh = FemField(V2h)
     wh = FemField(V3h)
+
+    npts_per_cell = refinement + 1
+
+    grid = [refine_array_1d(V1h.breaks[i], refinement, remove_duplicates=False) for i in range(2)]
 
     # Output Manager Initialization
     output = OutputManager('space_example.yml', 'fields_example.h5')
@@ -167,9 +181,9 @@ def test_PostProcess_Manager():
         output.add_snapshot(t=float(i), ts=i).export_fields(u=uh, v=vh, w=wh)
 
         # Saving for comparisons
-        uh_grid = V1h.eval_fields(uh, refine_factor=2)
-        vh_grid =  V2h.eval_fields(vh, refine_factor=2)
-        vh_grid_x, vh_grid_y = vh_grid[..., 0, 0], vh_grid[..., 1, 0]
+        uh_grid = V1h.eval_fields(grid, uh, npts_per_cell=npts_per_cell)
+        vh_grid =  V2h.eval_fields(grid, vh, npts_per_cell=npts_per_cell)
+        vh_grid_x, vh_grid_y = vh_grid[0][0], vh_grid[0][1]
         uh_grids.append(uh_grid)
         vh_grids.append((vh_grid_x, vh_grid_y))
 
@@ -194,18 +208,23 @@ def test_PostProcess_Manager():
         u_new = snapshot['fields']['u']
         v_new = snapshot['fields']['v']
 
-        uh_grid_new = V1h_new.eval_fields(u_new, refine_factor=2)
-        vh_grid_new = V2h_new.eval_fields(v_new, refine_factor=2)
-        vh_grid_x_new, vh_grid_y_new = vh_grid_new[..., 0, 0], vh_grid_new[..., 1, 0]
+        uh_grid_new = V1h_new.eval_fields(grid, u_new, npts_per_cell=npts_per_cell)
+        vh_grid_new = V2h_new.eval_fields(grid, v_new, npts_per_cell=npts_per_cell)
+        vh_grid_x_new, vh_grid_y_new = vh_grid_new[0][0], vh_grid_new[0][1]
 
         assert np.allclose(uh_grid_new, uh_grids[i])
         assert np.allclose(vh_grid_x_new, vh_grids[i][0])
         assert np.allclose(vh_grid_y_new, vh_grids[i][1])
 
-    post.export_to_vtk('example_None', dt=None, u='u', v='v', w='w')
-    post.export_to_vtk('example_int', dt=5, u='u', v='v', w='w')
-    post.export_to_vtk('example_list', dt=[9,5,6,3], u='u', v='v', w='w')
+    post.export_to_vtk('example_None', grid, npts_per_cell=npts_per_cell, dt=None, u='u', v='v', w='w')
+    post.export_to_vtk('example_int', grid, npts_per_cell=npts_per_cell, dt=5, u='u', v='v', w='w')
+    post.export_to_vtk('example_list', grid, npts_per_cell=npts_per_cell, dt=[9, 5, 6, 3], u='u', v='v', w='w')
 
+    # Clear files
+    for f in glob.glob("example*.vts"): #VTK files
+        os.remove(f)
+    os.remove('space_example.yml')
+    os.remove('fields_example.h5')
 
 if __name__ == '__main__':
     test_OutputManager()
