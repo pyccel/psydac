@@ -850,7 +850,7 @@ class TensorFemSpace( FemSpace ):
             tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
         
         tensor_vec._interpolation_ready = False
-        if self._refined_space:
+        if self._refined_space is not None and self._refined_space is not self:
             tensor_vec._refined_space = self._refined_space.reduce_degree(axes, multiplicity, basis)
         return tensor_vec
 
