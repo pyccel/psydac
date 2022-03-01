@@ -275,7 +275,7 @@ class SplineMapping:
         ncells = [grid[i].shape[0] for i in range(self.ldim)]
         n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
 
-        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid)
+        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
 
         jac_mats = np.zeros(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))
                             + (self.ldim, self.ldim))
@@ -395,7 +395,7 @@ class SplineMapping:
         ncells = [grid[i].shape[0] for i in range(self.ldim)]
         n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
 
-        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid)
+        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
 
         inv_jac_mats = np.zeros(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))
                                 + (self.ldim, self.ldim))
@@ -515,7 +515,7 @@ class SplineMapping:
         ncells = [grid[i].shape[0] for i in range(self.ldim)]
         n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
 
-        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid)
+        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
 
         metric_det = np.zeros(shape=tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim)))
 
@@ -871,7 +871,7 @@ class NurbsMapping( SplineMapping ):
         ncells = [grid[i].shape[0] for i in range(self.ldim)]
         n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
 
-        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid)
+        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
 
         jac_mats = np.zeros(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))
                             + (self.ldim, self.ldim))
@@ -995,7 +995,7 @@ class NurbsMapping( SplineMapping ):
         ncells = [grid[i].shape[0] for i in range(self.ldim)]
         n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
 
-        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid)
+        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
 
         inv_jac_mats = np.zeros(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))
                                 + (self.ldim, self.ldim))
@@ -1119,7 +1119,7 @@ class NurbsMapping( SplineMapping ):
         ncells = [grid[i].shape[0] for i in range(self.ldim)]
         n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
 
-        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid)
+        pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
 
         metric_det = np.zeros(shape=tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim)))
 
