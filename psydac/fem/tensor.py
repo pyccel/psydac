@@ -19,8 +19,15 @@ from psydac.fem.basic      import FemSpace, FemField
 from psydac.fem.splines    import SplineSpace
 from psydac.fem.grid       import FemAssemblyGrid
 from psydac.ddm.cart       import CartDecomposition
-from psydac.core.bsplines  import find_span, basis_funs, basis_funs_1st_der
-
+from psydac.core.bsplines  import (find_span,
+                                   basis_funs,
+                                   basis_funs_1st_der,
+                                   basis_ders_on_quad_grid,
+                                   elements_spans)
+from psydac.core.kernels import (eval_fields_2d_no_weights,
+                                 eval_fields_2d_weighted,
+                                 eval_fields_3d_no_weights,
+                                 eval_fields_3d_weighted)
 #===============================================================================
 class TensorFemSpace( FemSpace ):
     """
@@ -164,7 +171,7 @@ class TensorFemSpace( FemSpace ):
     #--------------------------------------------------------------------------
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
-    def eval_field( self, field, *eta , weights=None):
+    def eval_field( self, field, *eta, weights=None):
 
         assert isinstance( field, FemField )
         assert field.space is self
@@ -194,7 +201,7 @@ class TensorFemSpace( FemSpace ):
             if x == xlim[1] and x != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
-            basis  = basis_funs( knots, degree, x, span )
+            basis = basis_funs( knots, degree, x, span)
 
             # If needed, rescale B-splines to get M-splines
             if space.basis == 'M':
@@ -236,6 +243,185 @@ class TensorFemSpace( FemSpace ):
         return res
 
     # ...
+    def preprocess_regular_tensor_grid(self, grid, der=0):
+        """Returns all the quantities needed to evaluate fields on a regular tensor-grid.
+
+        Parameters
+        ----------
+        grid : List of ndarray
+            List of 2D arrays representing each direction of the grid.
+            Each of these arrays should have shape (ne_xi, nv_xi) where ne is the
+            number of cells in the domain in the direction xi and nv_xi is the number of
+            evaluation points in the same direction.
+
+        der : int, default=0
+            Number of derivatives of the basis functions to pre-compute.
+
+        Returns
+        -------
+        pads : tuple of int
+            Padding in each direction
+        degree : tuple of int
+            Degree in each direction
+        global_basis : List of ndarray
+            List of 4D arrays, one per direction, containing the values of the p+1 non-vanishing
+            basis functions (and their derivatives) at each grid point.
+            The array for direction xi has shape (ne_xi, nv_xi, der + 1, p+1).
+
+        global_spans : List of ndarray
+            List of 1D arrays, one per direction, containing the index of the last non-vanishing
+            basis function in each cell. The array for direction xi has shape (ne_xi,).
+        """
+
+        assert len(grid) == self.ldim
+
+        global_basis = []
+        global_spans = []
+        for i in range(self.ldim):
+            global_basis_i = basis_ders_on_quad_grid(self.knots[i], self.degree[i], grid[i], der, self.spaces[i].basis)
+            global_spans_i = elements_spans(self.knots[i], self.degree[i])
+
+            global_basis.append(global_basis_i)
+            global_spans.append(global_spans_i)
+
+        return self.pads, self.degree, global_basis, global_spans
+
+    # ...
+    def eval_fields(self, grid, *fields, weights=None, npts_per_cell=None):
+        """Evaluate one or several fields on the given location(s) grid.
+
+        Parameters
+        -----------
+        grid : List of ndarray of int
+            Grid on which to evaluate the fields
+
+        *fields : tuple of psydac.fem.basic.FemField
+            Fields to evaluate
+
+        weights : psydac.fem.basic.FemField or None, optional
+            Weights field.
+
+        npts_per_cell: int or tuple of int or None, optional
+            number of evaluation points in each cell.
+            If an integer is given, then assume that it is the same in every direction.
+
+        Returns
+        -------
+        out_fields : List of ndarray of floats
+            List of the evaluated fields.
+        """
+
+        assert (all(f.space is self for f in fields))
+        if weights is not None:
+            assert (weights.space is self)
+            assert (all(f.coeffs.space is weights.coeffs.space for f in fields))
+
+        assert len(grid) == self.ldim
+        grid = [np.asarray(grid[i]) for i in range(self.ldim)]
+        assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
+
+        # Case 1. Scalar coordinates
+        if (grid[0].size == 1) or grid[0].ndim == 0:
+            return [self.eval_field(f, *grid) for f in fields]
+
+        # Case 2. 1D array of coordinates and no npts_per_cell is given
+        # -> grid is tensor-product, but npts_per_cell is not the same in each cell
+        elif grid[0].ndim == 1 and npts_per_cell is None:
+            raise NotImplementedError("Having a different number of evaluation"
+                                      "points in the cells belonging to the same "
+                                      "logical dimension is not supported yet. "
+                                      "If you did use valid inputs, you need to provide"
+                                      "the number of evaluation points per cell in each direction"
+                                      "via the npts_per_cell keyword")
+
+        # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
+        # -> grid is tensor-product, and each cell has the same number of evaluation points
+        elif grid[0].ndim == 1 and npts_per_cell is not None:
+            if isinstance(npts_per_cell, int):
+                npts_per_cell = (npts_per_cell,) * self.ldim
+            for i in range(self.ldim):
+                ncells_i = len(self.breaks[i]) - 1
+                grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
+            out_fields = self.eval_fields_regular_tensor_grid(grid, *fields, weights=weights)
+            # return a "list"
+            return [np.ascontiguousarray(out_fields[..., i]) for i in range(len(fields))]
+
+        # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
+        # -> unstructured grid
+        elif grid[0].ndim == self.ldim and npts_per_cell is None:
+            raise NotImplementedError("Unstructured grids are not supported yet.")
+
+        # Case 5. Nonsensical input
+        else:
+            raise ValueError("This combination of argument isn't understood. The 4 cases understood are :\n"
+                             "Case 1. Scalar coordinates\n"
+                             "Case 2. 1D array of coordinates and no npts_per_cell is given\n"
+                             "Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer\n"
+                             "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
+
+    # ...
+    def eval_fields_regular_tensor_grid(self, grid, *fields, weights=None):
+        """Evaluate fields on a regular tensor grid
+
+        Parameters
+        ----------
+        grid : List of ndarray of float
+        *fields : tuple of psydac.fem.basic.FemField
+        weights : psydac.fem.basic.FemField or None, optional
+
+        Returns
+        -------
+        List of ndarray of float
+            Values of the fields on the regular tensor grid
+        """
+        ncells = [grid[i].shape[0] for i in range(self.ldim)]
+        n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
+
+        pads, degree, global_basis, global_spans = self.preprocess_regular_tensor_grid(grid)
+        out_fields = np.zeros((*(tuple(grid[i].size for i in range(self.ldim))), len(fields)))
+
+        glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)))
+
+        for i in range(len(fields)):
+            glob_arr_coeffs[..., i] = fields[i].coeffs._data
+
+        if self.ldim == 2:
+            if weights is None:
+                eval_fields_2d_no_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1],
+                                          n_eval_points[0], n_eval_points[1], global_basis[0], global_basis[1],
+                                          global_spans[0], global_spans[1], glob_arr_coeffs, out_fields)
+            else:
+
+                global_weight_coeff = weights.coeffs._data
+
+                eval_fields_2d_weighted(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1],
+                                        n_eval_points[0], n_eval_points[1], global_basis[0], global_basis[1],
+                                        global_spans[0], global_spans[1], glob_arr_coeffs, global_weight_coeff,
+                                        out_fields)
+
+        elif self.ldim == 3:
+            if weights is None:
+
+                eval_fields_3d_no_weights(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0],
+                                          degree[1], degree[2], n_eval_points[0], n_eval_points[1],
+                                          n_eval_points[2], global_basis[0], global_basis[1], global_basis[2],
+                                          global_spans[0], global_spans[1], global_spans[2], glob_arr_coeffs,
+                                          out_fields)
+
+            else:
+                global_weight_coeff = weights.coeffs._data
+
+                eval_fields_3d_weighted(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0],
+                                        degree[1], degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2],
+                                        global_basis[0], global_basis[1], global_basis[2], global_spans[0],
+                                        global_spans[1], global_spans[2], glob_arr_coeffs, global_weight_coeff,
+                                        out_fields)
+        else:
+            raise NotImplementedError("1D not Implemented")
+
+        return out_fields
+
+    # ...
     def eval_field_gradient( self, field, *eta , weights=None):
 
         assert isinstance( field, FemField )
@@ -260,7 +446,7 @@ class TensorFemSpace( FemSpace ):
             if x == xlim[1] and x != knots[-1-degree]:
                 span -= 1
             #-------------------------------------------------#
-            basis_0 = basis_funs( knots, degree, x, span )
+            basis_0 = basis_funs( knots, degree, x, span)
             basis_1 = basis_funs_1st_der( knots, degree, x, span )
 
             # If needed, rescale B-splines to get M-splines
@@ -485,10 +671,10 @@ class TensorFemSpace( FemSpace ):
             
         Parameters
         ----------
-        axes : list of int
+        axes : List of int
             Dimensions where we want to coarsen the grid.
 
-        knots : list/tuple
+        knots : List or tuple
             New knot sequences in each dimension.
  
         Returns
@@ -689,7 +875,7 @@ class TensorFemSpace( FemSpace ):
         [sk1,sk2], [ek1,ek2] = self.local_domain
         eta1 = refine_array_1d( V1.breaks[sk1:ek1+2], N )
         eta2 = refine_array_1d( V2.breaks[sk2:ek2+2], N )
-        pcoords = np.array( [[mapping( [e1,e2] ) for e2 in eta2] for e1 in eta1] )
+        pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
 
         # Local domain as Matplotlib polygonal patch
         AB = pcoords[   :,    0, :] # eta2 = min
@@ -711,7 +897,7 @@ class TensorFemSpace( FemSpace ):
         # Global grid, refined
         eta1    = refine_array_1d( V1.breaks, N )
         eta2    = refine_array_1d( V2.breaks, N )
-        pcoords = np.array( [[mapping( [e1,e2] ) for e2 in eta2] for e1 in eta1] )
+        pcoords = np.array([[mapping(e1, e2) for e2 in eta2] for e1 in eta1])
         xx      = pcoords[:,:,0]
         yy      = pcoords[:,:,1]
 

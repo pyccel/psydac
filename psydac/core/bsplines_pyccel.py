@@ -205,7 +205,8 @@ def dot_2d(a: 'float[:, :]', b: 'float[:, :]', out: 'float[:, :]'):
             out[i, k] = np.sum(a[i, :] * b[:, k])
 
 
-def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n: int, out: 'float[:,:]'):
+def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n: int, normalization: bool,
+                          out: 'float[:,:]'):
     """
     Evaluate value and n derivatives at x of all basis functions with
     support in interval [x_{span-1}, x_{span}].
@@ -307,6 +308,14 @@ def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n
     for k in range(1, ne+1):
         out[k, :] = out[k, :] * r
         r = r * (degree-k)
+
+    if normalization:
+        for i in range(degree + 1):
+            out[i, :] *= (degree + 1) / (knots[i + span + 1] - knots[i + span - degree])
+
+    # if normalization == 'M':
+    #     ders *= [(degree + 1) / (knots[i + degree + 1] - knots[i]) \
+    #              for i in range(span - degree, span + 1)]
 
 def basis_integrals_p(knots: 'float[:]', degree: int, out: 'float[:]'):
     r"""
