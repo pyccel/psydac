@@ -154,24 +154,27 @@ def basis_funs_1st_der( knots, degree, x, span ):
         Derivatives of p+1 non-vanishing B-Splines at location x.
 
     """
-    # Compute nonzero basis functions and knot differences for splines
-    # up to degree deg-1
-    values = basis_funs( knots, degree-1, x, span )
+    if degree == 0:
+        ders = np.array( [0], dtype=float )
+    else:
+        # Compute nonzero basis functions and knot differences for splines
+        # up to degree deg-1
+        values = basis_funs( knots, degree-1, x, span )
 
-    # Compute derivatives at x using formula based on difference of splines of
-    # degree deg-1
-    # -------
-    # j = 0
-    ders  = np.empty( degree+1, dtype=float )
-    saved = degree * values[0] / (knots[span+1]-knots[span+1-degree])
-    ders[0] = -saved
-    # j = 1,...,degree-1
-    for j in range(1,degree):
-        temp    = saved
-        saved   = degree * values[j] / (knots[span+j+1]-knots[span+j+1-degree])
-        ders[j] = temp - saved
-    # j = degree
-    ders[degree] = saved
+        # Compute derivatives at x using formula based on difference of splines of
+        # degree deg-1
+        # -------
+        # j = 0
+        ders  = np.empty( degree+1, dtype=float )
+        saved = degree * values[0] / (knots[span+1]-knots[span+1-degree])
+        ders[0] = -saved
+        # j = 1,...,degree-1
+        for j in range(1,degree):
+            temp    = saved
+            saved   = degree * values[j] / (knots[span+j+1]-knots[span+j+1-degree])
+            ders[j] = temp - saved
+        # j = degree
+        ders[degree] = saved
 
     return ders
 
@@ -496,8 +499,12 @@ def breakpoints( knots, degree ,tol=1e-15):
 
     """
     knots = np.array(knots)
-    diff  = np.append(True, abs(np.diff(knots[degree:-degree]))>tol)
-    return knots[degree:-degree][diff]
+
+    if degree > 0:
+        diff = np.append(True, abs(np.diff(knots[degree:-degree])) > tol)
+        return knots[degree:-degree][diff]
+    else:
+        return knots
 
 #==============================================================================
 def greville( knots, degree, periodic ):
@@ -525,8 +532,13 @@ def greville( knots, degree, periodic ):
     p = degree
     n = len(T)-2*p-1 if periodic else len(T)-p-1
 
-    # Compute greville abscissas as average of p consecutive knot values
-    xg = np.array([sum(T[i:i+p])/p for i in range(1,1+n)])
+    if p > 0:
+        # Compute greville abscissas as average of p consecutive knot values
+        xg = np.array([sum(T[i:i+p])/p for i in range(1,1+n)])
+    else:
+        #xg = np.zeros(n)
+        xg = T[1:]
+
 
     # Domain boundaries
     a = T[p]
@@ -635,7 +647,7 @@ def make_knots( breaks, degree, periodic, multiplicity=1 ):
     # Consistency checks
     assert len(breaks) > 1
     assert all( np.diff(breaks) > 0 )
-    assert degree > 0
+    assert degree >= 0
     assert 1 <= multiplicity and multiplicity <= degree + 1
 
     if periodic:
@@ -648,7 +660,7 @@ def make_knots( breaks, degree, periodic, multiplicity=1 ):
     T[p]        = breaks[ 0]
     T[-p-1]     = breaks[-1]
 
-    if periodic:
+    if periodic and p>0:
         period = breaks[-1]-breaks[0]
         T[0:p] = [xi-period for xi in breaks[-p-1:-1 ]]
         T[-p:] = [xi+period for xi in breaks[   1:p+1]]
