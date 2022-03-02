@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from psydac.utilities.quadratures import gauss_legendre
 from psydac.core.bsplines import (find_span,
                                   basis_funs,
                                   basis_funs_1st_der,
@@ -83,7 +84,39 @@ def basis_funs_1st_der_true( knots, degree, x, span ):
     return ders
 
 #==============================================================================
-def basis_funs_all_ders_true( knots, degree, x, span, n ):
+def basis_funs_all_ders_true(knots, degree, x, span, n, normalization='B'):
+    """
+    Evaluate value and n derivatives at x of all basis functions with
+    support in interval [x_{span-1}, x_{span}].
+    If called with normalization='M', this uses M-splines instead of B-splines.
+    ders[i,j] = (d/dx)^i B_k(x) with k=(span-degree+j),
+                for 0 <= i <= n and 0 <= j <= degree+1.
+    Parameters
+    ----------
+    knots : array_like
+        Knots sequence.
+    degree : int
+        Polynomial degree of B-splines.
+    x : float
+        Evaluation point.
+    span : int
+        Knot span index.
+    n : int
+        Max derivative of interest.
+    normalization: str
+        Set to 'B' to get B-Splines and 'M' to get M-Splines
+    Returns
+    -------
+    ders : numpy.ndarray (n+1,degree+1)
+        2D array of n+1 (from 0-th to n-th) derivatives at x of all (degree+1)
+        non-vanishing basis functions in given span.
+    Notes
+    -----
+    The original Algorithm A2.3 in The NURBS Book [1] is here improved:
+        - 'left' and 'right' arrays are 1 element shorter;
+        - inverse of knot differences are saved to avoid unnecessary divisions;
+        - innermost loops are replaced with vector operations on slices.
+    """
     left  = np.empty( degree )
     right = np.empty( degree )
     ndu   = np.empty( (degree+1, degree+1) )
@@ -142,6 +175,10 @@ def basis_funs_all_ders_true( knots, degree, x, span, n ):
         ders[k,:] = ders[k,:] * r
         r = r * (degree-k)
 
+    # Normalization to get M-Splines
+    if normalization == 'M':
+        ders *= [(degree + 1) / (knots[i + degree + 1] - knots[i]) \
+                 for i in range(span - degree, span + 1)]
     return ders
 
 #==============================================================================
@@ -263,7 +300,6 @@ def histopolation_matrix_true(knots, degree, periodic, normalization, xgrid):
 
     # Mitigate round-off errors
     H[abs(H) < 1e-14] = 0.0
-
     # Non periodic case: stop here
     if not periodic:
         return H
@@ -274,7 +310,7 @@ def histopolation_matrix_true(knots, degree, periodic, normalization, xgrid):
     Hp = np.zeros((nx, nb))
     for i in range(m):
         for j in range(n):
-            Hp[i%nx, j%nb] += H[i, j]
+            Hp[i % nx, j % nb] += H[i, j]
 
     return Hp
 
@@ -482,10 +518,11 @@ def test_basis_funs_1st_der(knots, degree, x):
 @pytest.mark.parametrize('degree', (2, 3, 4, 5))
 @pytest.mark.parametrize('x', (np.random.random(), np.random.random(), np.random.random()))
 @pytest.mark.parametrize('n', (2, 3, 4, 5))
-def test_basis_funs_all_ders(knots, degree, x, n):
+@pytest.mark.parametrize('normalization', ('B', 'M'))
+def test_basis_funs_all_ders(knots, degree, x, n, normalization):
     span = find_span(knots, degree, x)
-    expected = basis_funs_all_ders_true(knots, degree, x, span, n)
-    out = basis_funs_all_ders(knots, degree, x, span, n)
+    expected = basis_funs_all_ders_true(knots, degree, x, span, n, normalization)
+    out = basis_funs_all_ders(knots, degree, x, span, n, normalization)
 
     assert np.allclose(expected, out)
 
@@ -503,32 +540,66 @@ def test_collocation_matrix(knots, degree, periodic, normalization, xgrid):
 
     assert np.allclose(expected, out)
 
+
 @pytest.mark.parametrize('knots',
                          (np.sort(np.random.random(15)),
                           np.array([0.0, 0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0])))
 @pytest.mark.parametrize('degree', (2, 3, 4, 5))
-@pytest.mark.parametrize('periodic', (True, False))
+@pytest.mark.parametrize('periodic', [True, False])
 @pytest.mark.parametrize('normalization', ('B', 'M'))
 @pytest.mark.parametrize('xgrid', (np.random.random(10), np.random.random(15)))
 def test_histopolation_matrix(knots, degree, periodic, normalization, xgrid):
     xgrid = np.sort(np.unique(xgrid))
     expected = histopolation_matrix_true(knots, degree, periodic, normalization, xgrid)
     out = histopolation_matrix(knots, degree, periodic, normalization, xgrid)
+    assert np.allclose(expected, out)
+
+
+@pytest.mark.parametrize('knots',
+                         (np.sort(np.random.random(15)),
+                          np.array([0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0])))
+@pytest.mark.parametrize('degree', (2, 3, 4, 5))
+def test_breakpoints(knots, degree):
+    expected = breakpoints_true(knots, degree)
+    out = breakpoints(knots, degree)
+
+    assert np.allclose(expected, out)
+
+@pytest.mark.parametrize('knots',
+                         (np.sort(np.random.random(15)),
+                          np.array([0.0, 0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0, 1.0])))
+@pytest.mark.parametrize('degree', (2, 3, 4, 5))
+@pytest.mark.parametrize('periodic', [True, False])
+def test_greville(knots, degree, periodic):
+    expected = greville_true(knots, degree, periodic)
+    out = greville(knots, degree, periodic)
 
     assert np.allclose(expected, out)
 
 
-def test_breakpoints():
-    pass
+@pytest.mark.parametrize('knots',
+                         (np.sort(np.random.random(15)),
+                          np.array([0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0])))
+@pytest.mark.parametrize('degree', (2, 3, 4, 5))
+def test_elements_spans(knots, degree):
+    expected = elements_spans_true(knots, degree)
+    out = elements_spans(knots, degree)
 
-def test_greville():
-    pass
+    assert np.allclose(expected, out)
 
-def test_elements_spans():
-    pass
+@pytest.mark.parametrize('breaks', (np.linspace(0, 1, 10, endpoint=False),
+                                    np.sort(np.random.random(15))))
+@pytest.mark.parametrize(('degree', 'multiplicity'), [(2, 1),
+                                                      (3, 1), (3, 2),
+                                                      (4, 1), (4, 2), (4, 3),
+                                                      (5, 1), (5, 2), (5, 3), (5, 4)])
+@pytest.mark.parametrize('periodic', (True, False))
+def test_make_knots(breaks, degree, periodic, multiplicity):
+    expected = make_knots_true(breaks, degree, periodic, multiplicity)
+    out = make_knots(breaks, degree, periodic, multiplicity)
+    print(out, expected)
+    assert np.allclose(expected, out)
 
-def test_make_knots():
-    pass
 
 @pytest.mark.parametrize('knots',
                          (np.sort(np.random.random(15)),
@@ -542,11 +613,35 @@ def test_elevate_knots(knots, degree, periodic, multiplicity):
 
     assert np.allclose(expected, out)
 
-def test_quadrature_grid():
-    pass
 
-def test_basis_ders_on_quad_grid():
-    pass
+@pytest.mark.parametrize('breaks', (np.linspace(0, 1, 10, endpoint=False),
+                                    np.sort(np.random.random(15))))
+@pytest.mark.parametrize('quad_order', (2, 3, 4, 5))
+def test_quadrature_grid(breaks, quad_order):
+    quad_x, quad_w = gauss_legendre(quad_order)
+    expected = quadrature_grid_true(breaks, quad_x, quad_w)
+    out = quadrature_grid(breaks, quad_x, quad_w)
+
+    assert np.allclose(expected, out)
+
+
+@pytest.mark.parametrize('knots',
+                         (np.sort(np.random.random(15)),
+                          np.array([0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0])))
+@pytest.mark.parametrize('degree', (2, 3, 4, 5))
+@pytest.mark.parametrize('n', (2, 3, 4, 5))
+@pytest.mark.parametrize('normalization', ('B', 'M'))
+@pytest.mark.parametrize('quad_order', (2, 3, 4, 5))
+def test_basis_ders_on_quad_grid(knots, degree, n, normalization, quad_order):
+    quad_rule_x, quad_rule_w = gauss_legendre(quad_order)
+    breaks = breakpoints_true(knots, degree)
+    quad_grid, quad_weights = quadrature_grid_true(breaks, quad_rule_x, quad_rule_w)
+
+    expected = basis_ders_on_quad_grid_true(knots, degree, quad_grid, n, normalization)
+    out = basis_ders_on_quad_grid(knots, degree, quad_grid, n, normalization)
+
+    assert np.allclose(expected, out)
+
 
 @pytest.mark.parametrize('knots',
                          (np.sort(np.random.random(15)),
