@@ -198,14 +198,14 @@ class SplineMapping:
         Returns
         -------
         array_like
-            Jacobian at the location(s) grid.
+            Jacobian matrix at the location(s) grid.
 
         See Also
         --------
         mapping.SplineMapping.inv_jac_mat_grid : Evaluates the inverse
-            of the jacobian of the mapping at the given location(s) grid.
+            of the Jacobian matrix of the mapping at the given location(s) grid.
         mapping.SplineMapping.metric_det_grid : Evaluates the determinant
-            of the jacobian of the mapping at the given location(s) grid.
+            of the Jacobian matrix of the mapping at the given location(s) grid.
         """
 
         assert len(grid) == self.ldim
@@ -253,7 +253,7 @@ class SplineMapping:
 
     # ...
     def jac_mat_regular_tensor_grid(self, grid):
-        """Evaluates the jacobian on a regular tensor product grid.
+        """Evaluates the Jacobian matrix on a regular tensor product grid.
 
         Parameters
         ----------
@@ -267,7 +267,7 @@ class SplineMapping:
         -------
         jac_mats : ndarray
             ``self.ldim + 2`` D array of shape (n_x_1, ..., n_x_ldim, ldim, ldim).
-            ``jac_mats[x_1, ..., x_ldim]`` is the jacobian at the location corresponding
+            ``jac_mats[x_1, ..., x_ldim]`` is the Jacobian matrix at the location corresponding
             to `(x_1, ..., x_ldim)`.
         """
 
@@ -306,7 +306,7 @@ class SplineMapping:
 
     # ...
     def inv_jac_mat_grid(self, grid, npts_per_cell=None):
-        """Evaluates the inverse of the jacobian of the mapping at the given location(s) grid.
+        """Evaluates the inverse of the Jacobian matrix of the mapping at the given location(s) grid.
 
         Parameters
         -----------
@@ -320,14 +320,14 @@ class SplineMapping:
         Returns
         -------
         array_like
-            Inverse of the jacobian at the location(s) grid.
+            Inverse of the Jacobian matrix at the location(s) grid.
 
         See Also
         --------
-        mapping.SplineMapping.jac_mat_grid : Evaluates the jacobian
+        mapping.SplineMapping.jac_mat_grid : Evaluates the Jacobian matrix
             of the mapping at the given location(s) `grid`.
         mapping.SplineMapping.metric_det_grid : Evaluates the determinant
-            of the jacobian of the mapping at the given location(s) `grid`.
+            of the Jacobian matrix of the mapping at the given location(s) `grid`.
         """
 
         assert len(grid) == self.ldim
@@ -375,7 +375,7 @@ class SplineMapping:
 
     # ...
     def inv_jac_mat_regular_tensor_grid(self, grid):
-        """Evaluates the inverse of the jacobian on a regular tensor product grid.
+        """Evaluates the inverse of the Jacobian matrix on a regular tensor product grid.
 
         Parameters
         ----------
@@ -389,7 +389,7 @@ class SplineMapping:
         -------
         inv_jac_mats : ndarray
             ``self.ldim + 2`` D array of shape (n_x_1, ..., n_x_ldim, ldim, ldim).
-            ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the jacobian a
+            ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix a
             at the location corresponding to `(x_1, ..., x_ldim)`.
         """
         from psydac.core.kernels import eval_jacobians_inv_2d, eval_jacobians_inv_3d
@@ -427,7 +427,7 @@ class SplineMapping:
 
     # ...
     def metric_det_grid(self, grid, npts_per_cell=None):
-        """Evaluates the determinant of the jacobian of the mapping at the given location(s) grid.
+        """Evaluates the determinant of the Jacobian matrix of the mapping at the given location(s) grid.
 
         Parameters
         -----------
@@ -441,14 +441,14 @@ class SplineMapping:
         Returns
         -------
         array_like
-            Determinant of the jacobian at the location(s) grid.
+            Determinant of the Jacobian matrix at the location(s) grid.
 
         See Also
         --------
-        mapping.SplineMapping.jac_mat_grid : Evaluates the jacobian
+        mapping.SplineMapping.jac_mat_grid : Evaluates the Jacobian matrix
             of the mapping at the given location(s) grid.
         mapping.SplineMapping.inv_jac_mat_grid : Evaluates the inverse
-            of the jacobian of the mapping at the given location(s) grid.
+            of the Jacobian matrix of the mapping at the given location(s) grid.
         """
 
         assert len(grid) == self.ldim
@@ -496,7 +496,7 @@ class SplineMapping:
 
     # ...
     def metric_det_regular_tensor_grid(self, grid):
-        """Evaluates the determinant of the jacobian on a regular tensor product grid.
+        """Evaluates the determinant of the Jacobian matrix on a regular tensor product grid.
 
         Parameters
         ----------
@@ -510,7 +510,7 @@ class SplineMapping:
         -------
         metric_det : ndarray
             ``self.ldim`` D array of shape (n_x_1, ..., n_x_ldim).
-            ``jac_mats[x_1, ..., x_ldim]`` is the determinant of the jacobian
+            ``jac_mats[x_1, ..., x_ldim]`` is the determinant of the Jacobian matrix
             at the location corresponding to `(x_1, ..., x_ldim)`.
         """
         from psydac.core.kernels import eval_det_metric_3d, eval_det_metric_2d
@@ -784,7 +784,7 @@ class NurbsMapping( SplineMapping ):
 
     # ...
     def jac_mat_grid(self, grid, npts_per_cell=None):
-        """Evaluates the jacobian of the mapping at the given location(s) grid.
+        """Evaluates the Jacobian matrix of the mapping at the given location(s) grid.
 
         Parameters
         -----------
@@ -798,14 +798,14 @@ class NurbsMapping( SplineMapping ):
         Returns
         -------
         array_like
-            Jacobian at the location(s) grid.
+            Jacobian matrix at the location(s) grid.
 
         See Also
         --------
         mapping.NurbsMapping.inv_jac_mat_grid : Evaluates the inverse
-            of the jacobian of the mapping at the given location(s) grid.
+            of the Jacobian matrix of the mapping at the given location(s) grid.
         mapping.NurbsMapping.metric_det_grid : Evaluates the determinant
-            of the jacobian of the mapping at the given location(s) grid.
+            of the Jacobian matrix of the mapping at the given location(s) grid.
         """
 
         assert len(grid) == self.ldim
@@ -853,7 +853,7 @@ class NurbsMapping( SplineMapping ):
 
     # ...
     def jac_mat_regular_tensor_grid(self, grid):
-        """Evaluates the jacobian on a regular tensor product grid.
+        """Evaluates the Jacobian matrix on a regular tensor product grid.
 
         Parameters
         ----------
@@ -867,7 +867,7 @@ class NurbsMapping( SplineMapping ):
         -------
         jac_mats : ndarray
             ``self.ldim + 2`` D array of shape (n_x_1, ..., n_x_ldim, ldim, ldim).
-            ``jac_mats[x_1, ..., x_ldim]`` is the jacobian at the location corresponding
+            ``jac_mats[x_1, ..., x_ldim]`` is the Jacobian matrix at the location corresponding
             to `(x_1, ..., x_ldim)`.
         """
         from psydac.core.kernels import eval_jacobians_2d_weights, eval_jacobians_3d_weights
@@ -908,7 +908,7 @@ class NurbsMapping( SplineMapping ):
 
     # ...
     def inv_jac_mat_grid(self, grid, npts_per_cell=None):
-        """Evaluates the inverse of the jacobian of the mapping at the given location(s) grid.
+        """Evaluates the inverse of the Jacobian matrix of the mapping at the given location(s) grid.
 
         Parameters
         -----------
@@ -922,14 +922,14 @@ class NurbsMapping( SplineMapping ):
         Returns
         -------
         array_like
-            Inverse of the jacobian at the location(s) grid.
+            Inverse of the Jacobian matrix at the location(s) grid.
 
         See Also
         --------
-        mapping.NurbsMapping.jac_mat_grid : Evaluates the jacobian
+        mapping.NurbsMapping.jac_mat_grid : Evaluates the Jacobian matrix
             of the mapping at the given location(s) grid.
         mapping.NurbsMapping.metric_det_grid : Evaluates the determinant
-            of the jacobian of the mapping at the given location(s) grid.
+            of the Jacobian matrix of the mapping at the given location(s) grid.
         """
 
         assert len(grid) == self.ldim
@@ -977,7 +977,7 @@ class NurbsMapping( SplineMapping ):
 
     # ...
     def inv_jac_mat_regular_tensor_grid(self, grid):
-        """Evaluates the inverse of the jacobian on a regular tensor product grid.
+        """Evaluates the inverse of the Jacobian matrix on a regular tensor product grid.
 
          Parameters
          ----------
@@ -991,7 +991,7 @@ class NurbsMapping( SplineMapping ):
          -------
          inv_jac_mats : ndarray
              ``self.ldim + 2`` D array of shape (n_x_1, ..., n_x_ldim, ldim, ldim).
-             ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the jacobian a
+             ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix a
              at the location corresponding to `(x_1, ..., x_ldim)`.
          """
 
@@ -1034,7 +1034,7 @@ class NurbsMapping( SplineMapping ):
 
     # ...
     def metric_det_grid(self, grid, npts_per_cell=None):
-        """Evaluates the determinant of the jacobian of the mapping at the given location(s) grid.
+        """Evaluates the determinant of the Jacobian matrix of the mapping at the given location(s) grid.
 
         Parameters
         -----------
@@ -1048,14 +1048,14 @@ class NurbsMapping( SplineMapping ):
         Returns
         -------
         array_like
-            Determinant of the jacobian at the location(s) grid.
+            Determinant of the Jacobian matrix at the location(s) grid.
 
         See Also
         --------
-        mapping.NurbsMapping.jac_mat_grid : Evaluates the jacobian
+        mapping.NurbsMapping.jac_mat_grid : Evaluates the Jacobian matrix
             of the mapping at the given location(s) grid.
         mapping.NurbsMapping.inv_jac_mat_grid : Evaluates the inverse
-            of the jacobian of the mapping at the given location(s) grid.
+            of the Jacobian matrix of the mapping at the given location(s) grid.
         """
 
         assert len(grid) == self.ldim

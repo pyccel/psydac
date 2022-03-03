@@ -13,7 +13,7 @@ from psydac.utilities.utils import refine_array_1d
 from psydac.fem.basic import FemSpace, FemField
 
 
-# ==============================================================================
+#===============================================================================
 def get_grid_lines_2d(domain_h, V_h, *, refine=1):
     """
     Get the grid lines (i.e. element boundaries) of a 2D computational domain,
