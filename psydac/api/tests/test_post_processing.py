@@ -126,10 +126,10 @@ def test_OutputManager():
                                          }]
                             }
 
-    assert(Om._spaces_info == expected_spaces_info)
+    assert Om._spaces_info == expected_spaces_info
     Om.export_space_info()
 
-    # Removed files
+    # Remove files
     os.remove('file.h5')
     os.remove('file.yml')
 

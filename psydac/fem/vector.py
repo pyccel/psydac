@@ -28,7 +28,7 @@ class VectorFemSpace( FemSpace ):
 
         # ... make sure that all spaces have the same parametric dimension
         ldims = [V.ldim for V in self.spaces]
-        assert (len(np.unique(ldims)) == 1)
+        assert len(np.unique(ldims)) == 1
 
         self._ldim = ldims[0]
         # ...
@@ -37,11 +37,11 @@ class VectorFemSpace( FemSpace ):
         ncells = [V.ncells for V in self.spaces]
 
         if self.ldim == 1:
-            assert( len(np.unique(ncells)) == 1 )
+            assert len(np.unique(ncells)) == 1
         else:
             ns = np.asarray(ncells[0])
             for ms in ncells[1:]:
-                assert( np.allclose(ns, np.asarray(ms)) )
+                assert np.allclose(ns, np.asarray(ms))
 
         self._ncells = ncells[0]
         # ...
@@ -132,7 +132,7 @@ class VectorFemSpace( FemSpace ):
         for i in range(self.ldim):
             fields_i = list(field.fields[i] for field in fields)
             result.append(self._spaces[i].eval_fields(grid, *fields_i, npts_per_cell=npts_per_cell, weights=weights))
-        return [[result[i][j] for i in range(self.ldim)] for j in range(len(fields))]
+        return [[result[j][i] for j in range(self.ldim)] for i in range(len(fields))]
 
     # ...
     def eval_field_gradient( self, field, *eta ):
@@ -181,14 +181,14 @@ class VectorFemSpace( FemSpace ):
             raise ValueError("A mapping is needed to push-forward")
 
         # Check that the fields belong to our space
-        assert (all(f.space is self for f in fields))
+        assert all(f.space is self for f in fields)
 
         # Check the grid argument
         assert len(grid) == self.ldim
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
-        # =====================================================================
+        # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
             return [self.pushforward(f, *grid, mapping=mapping) for f in fields]
@@ -216,8 +216,8 @@ class VectorFemSpace( FemSpace ):
             pushed_fields = self.pushforward_regular_tensor_grid(grid, *fields, mapping=mapping)
             # return a list of list of C-contiguous arrays, one list for each field
             # with one array for each dimension.
-            return [[np.ascontiguousarray(pushed_fields[..., i, j]) for i in range(self._ldim)]
-                    for j in range(len(fields))]
+            return [[np.ascontiguousarray(pushed_fields[..., j, i]) for j in range(self._ldim)]
+                    for i in range(len(fields))]
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
         # -> unstructured grid
@@ -377,7 +377,7 @@ class ProductFemSpace( FemSpace ):
 
         # ... make sure that all spaces have the same parametric dimension
         ldims = [V.ldim for V in self.spaces]
-        assert (len(np.unique(ldims)) == 1)
+        assert len(np.unique(ldims)) == 1
 
         self._ldim = ldims[0]
         # ...
@@ -386,11 +386,11 @@ class ProductFemSpace( FemSpace ):
         ncells = [V.ncells for V in self.spaces]
 
         if self.ldim == 1:
-            assert( len(np.unique(ncells)) == 1 )
+            assert len(np.unique(ncells)) == 1
         else:
             ns = np.asarray(ncells[0])
             for ms in ncells[1:]:
-                assert( np.allclose(ns, np.asarray(ms)) )
+                assert np.allclose(ns, np.asarray(ms))
 
         self._ncells = ncells[0]
         # ...
@@ -462,8 +462,8 @@ class ProductFemSpace( FemSpace ):
         Returns
         -------
         List of list of ndarray
-            List of the same lengths as `fields`, containing for each field,
-            a list of `self.ldim` arrays, on for each logical coordinate.
+            List of the same lengths as `fields`, containing for each field
+            a list of `self.ldim` arrays, one for each logical coordinate.
 
         See Also
         --------
@@ -473,7 +473,7 @@ class ProductFemSpace( FemSpace ):
         for i in range(self.ldim):
             fields_i = list(field.fields[i] for field in fields)
             result.append(self._spaces[i].eval_fields(grid, *fields_i, npts_per_cell=npts_per_cell, weights=weights))
-        return [[result[i][j] for i in range(self.ldim)] for j in range(len(fields))]
+        return [[result[j][i] for j in range(self.ldim)] for i in range(len(fields))]
 
     # ...
     def eval_field_gradient( self, field, *eta ):
@@ -513,14 +513,14 @@ class ProductFemSpace( FemSpace ):
             raise TypeError("pushforward_fields() missing 1 required keyword-only argument: 'mapping'")
 
         # Check that the fields belong to our space
-        assert (all(f.space is self for f in fields))
+        assert all(f.space is self for f in fields)
 
         # Check the grid argument
         assert len(grid) == self.ldim
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
-        # =====================================================================
+        # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
             return [self.pushforward_field(f, *grid, mapping=mapping) for f in fields]

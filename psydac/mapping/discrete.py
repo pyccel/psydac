@@ -123,7 +123,7 @@ class SplineMapping:
         # Create SplineMapping object
         return cls( *fields )
 
-    # --------------------------------------------------------------------------
+    #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
     def __call__( self, *eta):
@@ -184,7 +184,7 @@ class SplineMapping:
 
     # ...
     def jac_mat_grid(self, grid, npts_per_cell=None):
-        """Evaluates the jacobian of the mapping at the given location(s) grid.
+        """Evaluates the Jacobian matrix of the mapping at the given location(s) grid.
 
         Parameters
         -----------
@@ -212,6 +212,7 @@ class SplineMapping:
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
+        # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
             return self.jac_mat(*grid)
@@ -333,6 +334,7 @@ class SplineMapping:
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
+        # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
             return np.linalg.inv(self.jac_mat(*grid))
@@ -453,6 +455,7 @@ class SplineMapping:
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
+        # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
             return self.metric(*grid)
@@ -809,6 +812,7 @@ class NurbsMapping( SplineMapping ):
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
+        # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
             return self.jac_mat(*grid)
@@ -932,6 +936,7 @@ class NurbsMapping( SplineMapping ):
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
+        # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
             return np.linalg.inv(self.jac_mat(*grid))
@@ -1057,6 +1062,7 @@ class NurbsMapping( SplineMapping ):
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
+        # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
             return self.metric(*grid)

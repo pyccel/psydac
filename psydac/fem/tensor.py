@@ -311,16 +311,16 @@ class TensorFemSpace( FemSpace ):
             List of the evaluated fields.
         """
 
-        assert (all(f.space is self for f in fields))
+        assert all(f.space is self for f in fields)
         if weights is not None:
-            assert (weights.space is self)
-            assert (all(f.coeffs.space is weights.coeffs.space for f in fields))
+            assert weights.space is self
+            assert all(f.coeffs.space is weights.coeffs.space for f in fields)
 
         assert len(grid) == self.ldim
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
 
-        # =====================================================================
+        # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
             return [self.eval_field(f, *grid) for f in fields]
@@ -559,13 +559,14 @@ class TensorFemSpace( FemSpace ):
             raise ValueError("A mapping is needed to push-forward")
 
         # Check that the fields belong to our space
-        assert (all(f.space is self for f in fields))
+        assert all(f.space is self for f in fields)
 
         # Check the grid argument
         assert len(grid) == self.ldim
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
-        # =====================================================================
+
+        # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
 
@@ -661,13 +662,11 @@ class TensorFemSpace( FemSpace ):
         if kind == 'L2SpaceType()':
             pushed_fields = np.zeros_like(out_fields)
             dets = mapping.metric_det_regular_tensor_grid(grid)
+
             if self.ldim == 2:
-
                 pushforward_2d_l2(out_fields, dets, pushed_fields)
-
             if self.ldim == 3:
                 pushforward_3d_l2(out_fields, dets, pushed_fields)
-
         else:
             raise ValueError(f"Spaces of kind {kind} are not understood")
 

@@ -73,7 +73,7 @@ def eval_fields_3d_no_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int
                                                               pad2 + span_2 - f_p2:1 + pad2 + span_2,
                                                               pad3 + span_3 - f_p3:1 + pad3 + span_3,
                                                               :]
-    
+
                 for i_basis_1 in range(1 + f_p1):
                     for i_basis_2 in range(1 + f_p2):
                         for i_basis_3 in range(1 + f_p3):
@@ -167,7 +167,7 @@ def eval_fields_2d_no_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: in
                                        i_cell_2 * k2 + i_quad_2,
                                        :] += spline * coeff_fields
 
-                            
+
 def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: int, f_p1: int, f_p2: int,
                             f_p3: int, k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]',
                             global_basis_2: 'float[:,:,:,:]', global_basis_3: 'float[:,:,:,:]',
@@ -865,17 +865,19 @@ def eval_det_metric_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: in
                             weight_x2 = arr_weights_x2[i_quad_1, i_quad_2, i_quad_3]
                             weight_x1 = arr_weights_x1[i_quad_1, i_quad_2, i_quad_3]
 
-                            x_x3 = x_x3 / weight - weight_x3 * x / weight**2
-                            x_x2 = x_x2 / weight - weight_x2 * x / weight**2
-                            x_x1 = x_x1 / weight - weight_x1 * x / weight**2
+                            inv_weight = 1.0 / weight
 
-                            y_x3 = y_x3 / weight - weight_x3 * y / weight**2
-                            y_x2 = y_x2 / weight - weight_x2 * y / weight**2
-                            y_x1 = y_x1 / weight - weight_x1 * y / weight**2
+                            x_x1 = (x_x1 - weight_x1 * x * inv_weight) * inv_weight
+                            x_x2 = (x_x2 - weight_x2 * x * inv_weight) * inv_weight
+                            x_x3 = (x_x3 - weight_x3 * x * inv_weight) * inv_weight
 
-                            z_x3 = z_x3 / weight - weight_x3 * z / weight**2
-                            z_x2 = z_x2 / weight - weight_x2 * z / weight**2
-                            z_x1 = z_x1 / weight - weight_x1 * z / weight**2
+                            y_x1 = (y_x1 - weight_x1 * y * inv_weight) * inv_weight
+                            y_x2 = (y_x2 - weight_x2 * y * inv_weight) * inv_weight
+                            y_x3 = (y_x3 - weight_x3 * y * inv_weight) * inv_weight
+
+                            z_x1 = (z_x1 - weight_x1 * z * inv_weight) * inv_weight
+                            z_x2 = (z_x2 - weight_x2 * z * inv_weight) * inv_weight
+                            z_x3 = (z_x3 - weight_x3 * z * inv_weight) * inv_weight
 
                             metric_det[i_cell_1 * k1 + i_quad_1,
                                        i_cell_2 * k2 + i_quad_2,
@@ -1030,11 +1032,13 @@ def eval_det_metric_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: i
                     weight_x1 = arr_weights_x1[i_quad_1, i_quad_2]
                     weight_x2 = arr_weights_x2[i_quad_1, i_quad_2]
 
-                    x_x2 = x_x2 / weight - weight_x2 * x / weight ** 2
-                    x_x1 = x_x1 / weight - weight_x1 * x / weight ** 2
+                    inv_weight = 1.0 / weight
 
-                    y_x2 = y_x2 / weight - weight_x2 * y / weight ** 2
-                    y_x1 = y_x1 / weight - weight_x1 * y / weight ** 2
+                    x_x1 = (x_x1 - weight_x1 * x * inv_weight) * inv_weight
+                    x_x2 = (x_x2 - weight_x2 * x * inv_weight) * inv_weight
+
+                    y_x1 = (y_x1 - weight_x1 * y * inv_weight) * inv_weight
+                    y_x2 = (y_x2 - weight_x2 * y * inv_weight) * inv_weight
 
                     metric_det[i_cell_1 * k1 + i_quad_1,
                                i_cell_2 * k2 + i_quad_2] = x_x1 * y_x2 - x_x2 * y_x1
@@ -1523,17 +1527,19 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int
                             weight_x2 = arr_weights_x2[i_quad_1, i_quad_2, i_quad_3]
                             weight_x1 = arr_weights_x1[i_quad_1, i_quad_2, i_quad_3]
 
-                            x_x3 = x_x3 / weight - weight_x3 * x / weight**2
-                            x_x2 = x_x2 / weight - weight_x2 * x / weight**2
-                            x_x1 = x_x1 / weight - weight_x1 * x / weight**2
+                            inv_weight = 1.0 / weight
 
-                            y_x3 = y_x3 / weight - weight_x3 * y / weight**2
-                            y_x2 = y_x2 / weight - weight_x2 * y / weight**2
-                            y_x1 = y_x1 / weight - weight_x1 * y / weight**2
+                            x_x1 = (x_x1 - weight_x1 * x * inv_weight) * inv_weight
+                            x_x2 = (x_x2 - weight_x2 * x * inv_weight) * inv_weight
+                            x_x3 = (x_x3 - weight_x3 * x * inv_weight) * inv_weight
 
-                            z_x3 = z_x3 / weight - weight_x3 * z / weight**2
-                            z_x2 = z_x2 / weight - weight_x2 * z / weight**2
-                            z_x1 = z_x1 / weight - weight_x1 * z / weight**2
+                            y_x1 = (y_x1 - weight_x1 * y * inv_weight) * inv_weight
+                            y_x2 = (y_x2 - weight_x2 * y * inv_weight) * inv_weight
+                            y_x3 = (y_x3 - weight_x3 * y * inv_weight) * inv_weight
+
+                            z_x1 = (z_x1 - weight_x1 * z * inv_weight) * inv_weight
+                            z_x2 = (z_x2 - weight_x2 * z * inv_weight) * inv_weight
+                            z_x3 = (z_x3 - weight_x3 * z * inv_weight) * inv_weight
 
                             jacobians[i_cell_1 * k1 + i_quad_1,
                                       i_cell_2 * k2 + i_quad_2,
@@ -1686,11 +1692,13 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: in
                     weight_x1 = arr_weights_x1[i_quad_1, i_quad_2]
                     weight_x2 = arr_weights_x2[i_quad_1, i_quad_2]
 
-                    x_x2 = x_x2 / weight - weight_x2 * x / weight ** 2
-                    x_x1 = x_x1 / weight - weight_x1 * x / weight ** 2
+                    inv_weight = 1.0 / weight
 
-                    y_x2 = y_x2 / weight - weight_x2 * y / weight ** 2
-                    y_x1 = y_x1 / weight - weight_x1 * y / weight ** 2
+                    x_x1 = (x_x1 - weight_x1 * x * inv_weight) * inv_weight
+                    x_x2 = (x_x2 - weight_x2 * x * inv_weight) * inv_weight
+
+                    y_x1 = (y_x1 - weight_x1 * y * inv_weight) * inv_weight
+                    y_x2 = (y_x2 - weight_x2 * y * inv_weight) * inv_weight
 
                     jacobians[i_cell_1 * k1 + i_quad_1,
                               i_cell_2 * k2 + i_quad_2,
@@ -2199,17 +2207,19 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2:
                             weight_x2 = arr_weights_x2[i_quad_1, i_quad_2, i_quad_3]
                             weight_x1 = arr_weights_x1[i_quad_1, i_quad_2, i_quad_3]
 
-                            x_x3 = x_x3 / weight - weight_x3 * x / weight**2
-                            x_x2 = x_x2 / weight - weight_x2 * x / weight**2
-                            x_x1 = x_x1 / weight - weight_x1 * x / weight**2
+                            inv_weight = 1.0 / weight
 
-                            y_x3 = y_x3 / weight - weight_x3 * y / weight**2
-                            y_x2 = y_x2 / weight - weight_x2 * y / weight**2
-                            y_x1 = y_x1 / weight - weight_x1 * y / weight**2
+                            x_x1 = (x_x1 - weight_x1 * x * inv_weight) * inv_weight
+                            x_x2 = (x_x2 - weight_x2 * x * inv_weight) * inv_weight
+                            x_x3 = (x_x3 - weight_x3 * x * inv_weight) * inv_weight
 
-                            z_x3 = z_x3 / weight - weight_x3 * z / weight**2
-                            z_x2 = z_x2 / weight - weight_x2 * z / weight**2
-                            z_x1 = z_x1 / weight - weight_x1 * z / weight**2
+                            y_x1 = (y_x1 - weight_x1 * y * inv_weight) * inv_weight
+                            y_x2 = (y_x2 - weight_x2 * y * inv_weight) * inv_weight
+                            y_x3 = (y_x3 - weight_x3 * y * inv_weight) * inv_weight
+
+                            z_x1 = (z_x1 - weight_x1 * z * inv_weight) * inv_weight
+                            z_x2 = (z_x2 - weight_x2 * z * inv_weight) * inv_weight
+                            z_x3 = (z_x3 - weight_x3 * z * inv_weight) * inv_weight
 
                             det = x_x1 * y_x2 * z_x3 + x_x2 * y_x3 * z_x1 + x_x3 * y_x1 * z_x2 \
                                   - x_x1 * y_x3 * z_x2 - x_x2 * y_x1 * z_x3 - x_x3 * y_x2 * z_x1
@@ -2377,11 +2387,13 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1
                     weight_x1 = arr_weights_x1[i_quad_1, i_quad_2]
                     weight_x2 = arr_weights_x2[i_quad_1, i_quad_2]
 
-                    x_x2 = x_x2 / weight - weight_x2 * x / weight ** 2
-                    x_x1 = x_x1 / weight - weight_x1 * x / weight ** 2
+                    inv_weight = 1.0 / weight
 
-                    y_x2 = y_x2 / weight - weight_x2 * y / weight ** 2
-                    y_x1 = y_x1 / weight - weight_x1 * y / weight ** 2
+                    x_x1 = (x_x1 - weight_x1 * x * inv_weight) * inv_weight
+                    x_x2 = (x_x2 - weight_x2 * x * inv_weight) * inv_weight
+
+                    y_x1 = (y_x1 - weight_x1 * y * inv_weight) * inv_weight
+                    y_x2 = (y_x2 - weight_x2 * y * inv_weight) * inv_weight
 
                     det = x_x1 * y_x2 - x_x2 * y_x1
 

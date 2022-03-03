@@ -98,13 +98,34 @@ class OutputManager:
     Parameters
     ----------
     filename_space : str
+         Name/path of the file in which to save the space information.
+         The path is relative to the current working directory.
+
+    filename_fields : str
+         Name/path of the file in which to save the fields.
+         The path is relative to the current working directory.
+
+    Attributes
+    ----------
+    _spaces_info : dict
+        Information about the spaces in a human readable format.
+        It is written to ``filename_space`` in yaml.
+    _spaces : List
+        List of the spaces that were added to an instance of OutputManager.
+
+    filename_space : str
         Name of the file in which to save the space information.
     filename_fields : str
         Name of the file in which to save the fields.
-    Attributes
-    ----------
 
+    _next_snapshot_number : int
 
+    is_static : bool or None
+        If None, means that no saving scheme was chosen by the user for the next
+        ``export_fields``.
+
+    _current_hdf5_group :  h5py.Group
+        Group where the fields will be saved in the next ``export_fields``.
     """
 
     space_types_to_str = {
@@ -351,7 +372,7 @@ class OutputManager:
         A function that exports the fields' coefficients to an HDF5 file. They are
         saved under a snapshot/patch/space/field scheme or static/patch/space/field.
 
-        If the saving scheme is time dependent, unsets it to avoid writing twice to
+        If the current saving scheme is time dependent, unsets it to avoid writing twice to
         the same snapshot.
 
         Parameters
@@ -376,9 +397,8 @@ class OutputManager:
 
         # Open HDF5 file (in parallel mode if MPI communicator size > 1)
         kwargs = {}
-        if comm is not None:
-            if comm.size > 1:
-                kwargs.update(driver='mpio', comm=comm)
+        if comm is not None and comm.size > 1:
+            kwargs.update(driver='mpio', comm=comm)
         fh5 = h5.File(self.filename_fields, mode='a', **kwargs)
 
         if 'spaces' not in fh5.attrs.keys():
