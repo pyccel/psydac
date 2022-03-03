@@ -513,7 +513,7 @@ def elements_spans(knots, degree, out=None):
     return out[:i_final]
 
 #===============================================================================
-def make_knots(breaks, degree, periodic, multiplicity, out=None):
+def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
     """
     Create spline knots from breakpoints, with appropriate boundary conditions.
     Let p be spline degree. If domain is periodic, knot sequence is extended
