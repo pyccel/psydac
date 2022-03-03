@@ -667,7 +667,7 @@ def merge_sort(a: 'float[:]') -> 'float[:]':
 
 
 # =============================================================================
-def breakpoints_p(knots: 'float[:]', degree: int, out: 'float[:]', tol: float):
+def breakpoints_p(knots: 'float[:]', degree: int, out: 'float[:]', tol: float = 1e-15):
     """
     Determine breakpoints' coordinates.
 
@@ -694,11 +694,12 @@ def breakpoints_p(knots: 'float[:]', degree: int, out: 'float[:]', tol: float):
     """
     out[0] = knots[degree]
     i_out = 1
-    for i in range(degree + 1, len(knots) - degree):
+    for i in range(degree, len(knots) - degree - 1):
         if abs(knots[i] - knots[i + 1]) > tol:
-            out[i_out] = knots[i]
+            out[i_out] = knots[i + 1]
             i_out += 1
     return i_out
+
 
 # =============================================================================
 def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]'):
@@ -770,14 +771,14 @@ def elements_spans_p(knots: 'float[:]', degree: int, out: 'int[:]'):
     """
     temp_array = np.zeros(len(knots))
 
-    actual_len = breakpoints_p( knots, degree, temp_array)
+    actual_len = breakpoints_p(knots, degree, temp_array)
 
     nk     = len(knots)
     ne     = actual_len - 1
 
     ie = 0
     for ik in range(degree, nk-degree):
-        if knots[ik + 1] - knots[ik] >= 1e-15:
+        if abs(knots[ik + 1] - knots[ik]) >= 1e-15:
             out[ie] = ik
             ie += 1
         if ie == ne:

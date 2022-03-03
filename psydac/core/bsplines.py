@@ -319,7 +319,6 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
     bool_normalization = normalization == "M"
 
     collocation_matrix_p(knots, degree, periodic, bool_normalization, xgrid, out)
-
     return out
 
 #==============================================================================
@@ -396,7 +395,6 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_bo
             out = np.zeros((len(xgrid) - 1, len(elevated_knots) - (degree + 1) - 1 - 1))
 
     histopolation_matrix_p(knots, degree, periodic, normalization, xgrid, check_boundary, elevated_knots, out)
-
     return out
 
 #==============================================================================
@@ -460,7 +458,6 @@ def greville(knots, degree, periodic, out=None):
         n = len(knots) - 2 * degree - 1 if periodic else len(knots) - degree - 1
         out = np.zeros(n)
     greville_p(knots, degree, periodic, out)
-
     return out
 
 #===============================================================================
@@ -508,7 +505,8 @@ def elements_spans(knots, degree, out=None):
 
     """
     if out is None:
-        out=np.zeros(len(knots), dtype=int)
+        out = np.zeros(len(knots), dtype=int)
+
     i_final = elements_spans_p(knots, degree, out)
     return out[:i_final]
 
@@ -615,7 +613,6 @@ def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15, out=None):
                 shape += multiplicity * (1 + uniques[0].shape[0])
             out = np.zeros(shape)
     elevate_knots_p(knots, degree, periodic, out, multiplicity, tol)
-
     return out
 
 #==============================================================================
@@ -730,6 +727,7 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization, out=
             [[0. , 0.03125, 0.125, 0.28125]]]])
     """
     ne, nq = quad_grid.shape
+    quad_grid = np.ascontiguousarray(quad_grid)
     if out is None:
         out = np.zeros((ne, degree + 1, nders + 1, nq))
     basis_ders_on_quad_grid_p(knots, degree, quad_grid, nders, normalization == 'M', out)
