@@ -667,7 +667,7 @@ def merge_sort(a: 'float[:]') -> 'float[:]':
 
 
 # =============================================================================
-def breakpoints_p(knots: 'float[:]', degree: int, out: 'float[:]', tol: float = 1e-15):
+def breakpoints_p(knots: 'float[:]', degree: int, out: 'float[:]', tol: float):
     """
     Determine breakpoints' coordinates.
 

@@ -323,7 +323,7 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
     return out
 
 #==============================================================================
-def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_boundary, out=None):
+def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_boundary=True, out=None):
     """Computes the histopolation matrix.
 
     If called with normalization='M', this uses M-splines instead of B-splines.
@@ -400,7 +400,7 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_bo
     return out
 
 #==============================================================================
-def breakpoints(knots, degree, tol, out=None):
+def breakpoints(knots, degree, tol=1e-15, out=None):
     """
     Determine breakpoints' coordinates.
 
