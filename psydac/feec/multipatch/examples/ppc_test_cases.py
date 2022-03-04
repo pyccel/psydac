@@ -1,3 +1,5 @@
+# coding: utf-8
+
 from mpi4py import MPI
 
 import os
@@ -180,6 +182,12 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
         f_y = - dx_tau * phi
         f_vect = Tuple(f_x, f_y)
 
+    elif source_type == 'manu_poisson_2':
+        f_scal = -4
+        p_ex   = x**2+y**2
+        phi    = p_ex
+        u_bc   = p_ex
+        u_ex   = p_ex
     elif source_type == 'curl_dipole_J':
         # used for the magnetostatic problem
 
@@ -317,7 +325,6 @@ def get_source_and_solution(source_type=None, eta=0, mu=0, nu=0,
     else:
         raise ValueError(source_type)
 
-    assert f_vect is not None
     if u_ex is None:
         uh_ref = get_sol_ref_V1h(source_type, domain, domain_name, refsol_params)
 

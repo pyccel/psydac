@@ -1,3 +1,5 @@
+# coding: utf-8
+
 from mpi4py import MPI
 
 import os
@@ -219,6 +221,15 @@ def solve_h1_source_pbm(
     title = r'solution $\phi_h$ (amplitude)'
     params_str = 'eta={}_mu={}_gamma_h={}'.format(eta, mu, gamma_h)
     plot_field(numpy_coeffs=uh_c, Vh=V0h, space_kind='h1', domain=domain, title=title, filename=plot_dir+params_str+'_phi_h.png', hide_plot=hide_plots)
+
+
+    if u_ex:
+        u         = element_of(V0h.symbolic_space, name='u')
+        l2norm    = Norm(u - u_ex, domain, kind='l2')
+        l2norm_h  = discretize(l2norm, domain_h, V0h)
+        uh_c      = array_to_stencil(uh_c, V0h.vector_space)
+        l2_error  = l2norm_h.assemble(u=FemField(V0h, coeffs=uh_c))
+        return l2_error
 
 if __name__ == '__main__':
 

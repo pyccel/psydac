@@ -974,7 +974,7 @@ def ortho_proj_Hcurl(EE, V1h, domain_h, M1, backend_language='python'):
     return FemField(V1h, coeffs=sol_coeffs)
 
 #==============================================================================
-cclass Multipatch_Projector_H1:
+class Multipatch_Projector_H1:
     """
     to apply the H1 projection (2D) on every patch
     """
