@@ -181,7 +181,24 @@ class ConformingProjection_V0( FemLinearOperator):
     #   - allow case without interfaces (single or multipatch)
     def __init__(self, V0h, domain_h, hom_bc=False, backend_language='python', storage_fn=None):
         """
-        :param load_dir: to allow to store/load the operator sparse matrix
+        Compute the V0 conforming projector
+
+        Parameters
+        ----------
+        V0h: <FemSpace>
+         The discrete space
+
+        domain_h: <Geometry>
+         The discrete domain of the projector
+
+        hom_bc : <bool>
+         Apply homogenous boundary conditions if True
+
+        backend_language: <str>
+         The backend used to accelerate the code
+
+        storage_fn:
+         filename to store/load the operator sparse matrix
         """
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
@@ -383,7 +400,24 @@ class ConformingProjection_V1( FemLinearOperator ):
     #   - allow case without interfaces (single or multipatch)
     def __init__(self, V1h, domain_h, hom_bc=False, backend_language='python', storage_fn=None):
         """
-        :param load_dir: to allow to store/load the operator sparse matrix
+        Compute the V1 conforming projector
+
+        Parameters
+        ----------
+        V1h: <FemSpace>
+         The discrete space
+
+        domain_h: <Geometry>
+         The discrete domain of the projector
+
+        hom_bc : <bool>
+         Apply homogenous boundary conditions if True
+
+        backend_language: <str>
+         The backend used to accelerate the code
+
+        storage_fn:
+         filename to store/load the operator sparse matrix
         """
         FemLinearOperator.__init__(self, fem_domain=V1h)
 
@@ -728,65 +762,39 @@ def get_K1_and_K1_inv(V1h, uniform_patches=False):
 #     M_inv = block_diag(M_inv_blocks)
 #     return M, M_inv
 
-
-#===============================================================================
-class BrokenMass( FemLinearOperator ):
-    """
-    Broken mass matrix for a scalar space (seen as a LinearOperator... to be improved)
-    # TODO: (MCP 10.03.2021) define them as Hodge FemLinearOperators, and define also the inverse Hodge   >> DONE (12.02.2022)  >  keep this ????
-
-    """
-    def __init__( self, Vh, domain_h, is_scalar, backend_language='python'):
-
-        FemLinearOperator.__init__(self, fem_domain=Vh)
-
-        V = Vh.symbolic_space
-        domain = V.domain
-        # domain_h = V0h.domain  # would be nice
-        u, v = elements_of(V, names='u, v')
-        if is_scalar:
-            expr   = u*v
-        else:
-            expr   = dot(u,v)
-        a = BilinearForm((u,v), integral(domain, expr))
-        ah = discretize(a, domain_h, [Vh, Vh], backend=PSYDAC_BACKENDS[backend_language])   # 'pyccel-gcc'])
-
-        self._matrix = ah.assemble()
-
-    def get_sparse_inverse_matrix(self):
-        # warning: may not work with vector-valued spaces (to be checked)
-
-        M = self._matrix
-        nrows = M.n_block_rows
-        ncols = M.n_block_cols
-
-        inv_M_blocks = []
-        for i in range(nrows):
-            Mii = M[i,i].tosparse()
-            inv_Mii = inv(Mii.tocsc())
-            inv_Mii.eliminate_zeros()
-            inv_M_blocks.append(inv_Mii)
-
-        inv_M = block_diag(inv_M_blocks)
-        return inv_M
-
-    ## todo: assemble the block-diagonal inverse mass matrix from this one
-
 #===============================================================================
 class HodgeOperator( FemLinearOperator ):
     """
-    change of basis operator: dual basis -> primal basis
+    Change of basis operator: dual basis -> primal basis
 
         self._matrix: matrix of the primal Hodge = this is the INVERSE mass matrix !
         self.dual_Hodge_matrix: this is the mass matrix
 
-    note: either we use a storage, or these matrices are only computed on demand
-    # todo: we compute the sparse matrix when to_sparse_matrix is called -- but never the stencil matrix (should be fixed...)
+    Parameters
+    ----------
+    Vh: <FemSpace>
+     The discrete space
+
+    domain_h: <Geometry>
+     The discrete domain of the projector
+
+    backend_language: <str>
+     The backend used to accelerate the code
+
+    load_dir: <str>
+     storage files for the primal and dual Hodge sparse matrice
+
+    load_space_index: <str>
+      the space index in the derham sequence
+
+    Notes
+    -----
+     Either we use a storage, or these matrices are only computed on demand
+     # todo: we compute the sparse matrix when to_sparse_matrix is called -- but never the stencil matrix (should be fixed...)
+
     """
     def __init__( self, Vh, domain_h, backend_language='python', load_dir=None, load_space_index=''):
-        """
-        load_dir: (optional) storage files for the primal and dual Hodge sparse matrice
-        """
+
 
         FemLinearOperator.__init__(self, fem_domain=Vh)
         self._domain_h = domain_h
@@ -970,7 +978,7 @@ def ortho_proj_Hcurl(EE, V1h, domain_h, M1, backend_language='python'):
     return FemField(V1h, coeffs=sol_coeffs)
 
 #==============================================================================
-class Multipatch_Projector_H1:
+cclass Multipatch_Projector_H1:
     """
     to apply the H1 projection (2D) on every patch
     """
