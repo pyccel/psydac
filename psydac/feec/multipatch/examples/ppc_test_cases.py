@@ -14,7 +14,7 @@ from psydac.feec.multipatch.plotting_utilities          import plot_field
 from psydac.feec.multipatch.plotting_utilities          import get_plotting_grid, my_small_plot, my_small_streamplot
 from psydac.feec.multipatch.multipatch_domain_utilities import build_multipatch_domain
 
-from psydac.feec.multipatch.utils_conga_2d import rhs_fn, sol_ref_fn, hf_fn, error_fn, get_method_name, get_fem_name, get_load_dir
+from psydac.feec.multipatch.utilities import sol_ref_fn, error_fn, get_method_name, get_fem_name, get_load_dir
 
 comm = MPI.COMM_WORLD
 
