@@ -10,7 +10,6 @@ from scipy.sparse import save_npz, load_npz
 from scipy.sparse import kron, block_diag
 from scipy.sparse.linalg import inv
 
-
 from sympde.topology  import Boundary, Interface, Union
 from sympde.topology  import element_of, elements_of
 from sympde.topology.space  import ScalarFunction
@@ -173,32 +172,32 @@ def allocate_interface_matrix(corners, test_space, trial_space):
 #===============================================================================
 class ConformingProjection_V0( FemLinearOperator):
     """
-    Conforming projection from global broken space to conforming global space
+    Conforming projection from global broken V0 space to conforming global V0 space
     Defined by averaging of interface dofs
+
+    Parameters
+    ----------
+    V0h: <FemSpace>
+     The discrete space
+
+    domain_h: <Geometry>
+     The discrete domain of the projector
+
+    hom_bc : <bool>
+     Apply homogenous boundary conditions if True
+
+    backend_language: <str>
+     The backend used to accelerate the code
+
+    storage_fn:
+     filename to store/load the operator sparse matrix
     """
     # todo (MCP, 16.03.2021):
     #   - avoid discretizing a bilinear form
     #   - allow case without interfaces (single or multipatch)
     def __init__(self, V0h, domain_h, hom_bc=False, backend_language='python', storage_fn=None):
         """
-        Compute the V0 conforming projector
 
-        Parameters
-        ----------
-        V0h: <FemSpace>
-         The discrete space
-
-        domain_h: <Geometry>
-         The discrete domain of the projector
-
-        hom_bc : <bool>
-         Apply homogenous boundary conditions if True
-
-        backend_language: <str>
-         The backend used to accelerate the code
-
-        storage_fn:
-         filename to store/load the operator sparse matrix
         """
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
@@ -390,35 +389,32 @@ class ConformingProjection_V0( FemLinearOperator):
 #===============================================================================
 class ConformingProjection_V1( FemLinearOperator ):
     """
-    Conforming projection from global broken space to conforming global space
+    Conforming projection from global broken V1 space to conforming V1 global space
 
     proj.dot(v) returns the conforming projection of v, computed by solving linear system
 
+    Parameters
+    ----------
+    V1h: <FemSpace>
+     The discrete space
+
+    domain_h: <Geometry>
+     The discrete domain of the projector
+
+    hom_bc : <bool>
+     Apply homogenous boundary conditions if True
+
+    backend_language: <str>
+     The backend used to accelerate the code
+
+    storage_fn:
+     filename to store/load the operator sparse matrix
     """
     # todo (MCP, 16.03.2021):
     #   - avoid discretizing a bilinear form
     #   - allow case without interfaces (single or multipatch)
     def __init__(self, V1h, domain_h, hom_bc=False, backend_language='python', storage_fn=None):
-        """
-        Compute the V1 conforming projector
 
-        Parameters
-        ----------
-        V1h: <FemSpace>
-         The discrete space
-
-        domain_h: <Geometry>
-         The discrete domain of the projector
-
-        hom_bc : <bool>
-         Apply homogenous boundary conditions if True
-
-        backend_language: <str>
-         The backend used to accelerate the code
-
-        storage_fn:
-         filename to store/load the operator sparse matrix
-        """
         FemLinearOperator.__init__(self, fem_domain=V1h)
 
         V1             = V1h.symbolic_space
