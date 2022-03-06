@@ -2,7 +2,7 @@
 
 from psydac.feec.global_projectors import Projector_H1, Projector_L2, Projector_Hcurl, Projector_Hdiv
 from psydac.fem.tensor       import TensorFemSpace, SplineSpace
-from psydac.fem.vector       import ProductFemSpace
+from psydac.fem.vector       import VectorFemSpace
 from psydac.linalg.block     import BlockVector
 from psydac.core.bsplines    import make_knots
 from psydac.feec.derivatives import Derivative_1D, Gradient_2D, Gradient_3D
@@ -48,7 +48,7 @@ def test_3d_commuting_pro_1(Nel, Nq, p, bc):
               H1.reduce_degree(axes=[1], basis='M'),
               H1.reduce_degree(axes=[2], basis='M')]
 
-    Hcurl  = ProductFemSpace(*spaces)
+    Hcurl  = VectorFemSpace(*spaces)
 
     # create an instance of the H1 projector class
     P0 = Projector_H1(H1)
@@ -117,13 +117,13 @@ def test_3d_commuting_pro_2(Nel, Nq, p, bc):
               H1.reduce_degree(axes=[1], basis='M'),
               H1.reduce_degree(axes=[2], basis='M')]
 
-    Hcurl  = ProductFemSpace(*spaces)
+    Hcurl  = VectorFemSpace(*spaces)
 
     spaces = [H1.reduce_degree(axes=[1,2], basis='M'),
               H1.reduce_degree(axes=[0,2], basis='M'),
               H1.reduce_degree(axes=[0,1], basis='M')]
 
-    Hdiv  = ProductFemSpace(*spaces)
+    Hdiv  = VectorFemSpace(*spaces)
 
     # Build linear operators on stencil arrays
     curl = Curl_3D(Hcurl, Hdiv)
@@ -182,7 +182,7 @@ def test_3d_commuting_pro_3(Nel, Nq, p, bc):
               H1.reduce_degree(axes=[0,2], basis='M'),
               H1.reduce_degree(axes=[0,1], basis='M')]
 
-    Hdiv  = ProductFemSpace(*spaces)
+    Hdiv  = VectorFemSpace(*spaces)
 
     L2  = H1.reduce_degree(axes=[0,1,2], basis='M')
 
@@ -237,7 +237,7 @@ def test_2d_commuting_pro_1(Nel, Nq, p, bc):
     spaces = [H1.reduce_degree(axes=[0], basis='M'),
               H1.reduce_degree(axes=[1], basis='M')]
 
-    Hcurl  = ProductFemSpace(*spaces)
+    Hcurl  = VectorFemSpace(*spaces)
 
     # create an instance of the H1 projector class
     P0 = Projector_H1(H1)
@@ -289,7 +289,7 @@ def test_2d_commuting_pro_2(Nel, Nq, p, bc):
     spaces = [H1.reduce_degree(axes=[1], basis='M'),
               H1.reduce_degree(axes=[0], basis='M')]
 
-    Hdiv  = ProductFemSpace(*spaces)
+    Hdiv  = VectorFemSpace(*spaces)
 
     # create an instance of the H1 projector class
     P0 = Projector_H1(H1)
@@ -345,7 +345,7 @@ def test_2d_commuting_pro_3(Nel, Nq, p, bc):
     spaces = [H1.reduce_degree(axes=[1], basis='M'),
               H1.reduce_degree(axes=[0], basis='M')]
 
-    Hdiv  = ProductFemSpace(*spaces)
+    Hdiv  = VectorFemSpace(*spaces)
 
     L2  = H1.reduce_degree(axes=[0,1], basis='M')
 
@@ -404,7 +404,7 @@ def test_2d_commuting_pro_4(Nel, Nq, p, bc):
     spaces = [H1.reduce_degree(axes=[0], basis='M'),
               H1.reduce_degree(axes=[1], basis='M')]
 
-    Hcurl  = ProductFemSpace(*spaces)
+    Hcurl  = VectorFemSpace(*spaces)
 
     L2  = H1.reduce_degree(axes=[0,1], basis='M')
 
