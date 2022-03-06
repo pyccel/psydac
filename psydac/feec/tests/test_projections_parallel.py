@@ -8,7 +8,7 @@ from psydac.core.bsplines          import make_knots
 from psydac.fem.basic              import FemField
 from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
-from psydac.fem.vector             import VectortFemSpace
+from psydac.fem.vector             import VectorFemSpace
 from psydac.feec.global_projectors import Projector_H1, Projector_L2, Projector_Hcurl, Projector_Hdiv
 
 def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
@@ -25,12 +25,12 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
             opV = lambda V0: V0
             opP = Projector_H1
         elif reduce == 1:
-            opV = lambda V0: VectortFemSpace(V0.reduce_degree(axes=[0], basis='M'),
+            opV = lambda V0: VectorFemSpace(V0.reduce_degree(axes=[0], basis='M'),
                                         V0.reduce_degree(axes=[1], basis='M'))
             opP = Projector_Hcurl
         elif reduce == 2:
             # (note: this would be more instructive, if the index was 1 as well...)
-            opV = lambda V0: VectortFemSpace(V0.reduce_degree(axes=[1], basis='M'),
+            opV = lambda V0: VectorFemSpace(V0.reduce_degree(axes=[1], basis='M'),
                                         V0.reduce_degree(axes=[0], basis='M'))
             opP = Projector_Hdiv
         else:
@@ -41,12 +41,12 @@ def run_projection_comparison(domain, ncells, degree, periodic, funcs, reduce):
             opV = lambda V0: V0
             opP = Projector_H1
         elif reduce == 1:
-            opV = lambda V0: VectortFemSpace(V0.reduce_degree(axes=[0], basis='M'),
+            opV = lambda V0: VectorFemSpace(V0.reduce_degree(axes=[0], basis='M'),
                                         V0.reduce_degree(axes=[1], basis='M'),
                                         V0.reduce_degree(axes=[2], basis='M'))
             opP = Projector_Hcurl
         elif reduce == 2:
-            opV = lambda V0: VectortFemSpace(V0.reduce_degree(axes=[1,2], basis='M'),
+            opV = lambda V0: VectorFemSpace(V0.reduce_degree(axes=[1,2], basis='M'),
                                         V0.reduce_degree(axes=[0,2], basis='M'),
                                         V0.reduce_degree(axes=[0,1], basis='M'))
             opP = Projector_Hdiv
