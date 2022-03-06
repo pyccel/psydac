@@ -43,7 +43,12 @@ class VectorFemSpace( FemSpace ):
         # ...
 
         self._symbolic_space   = None
-        self._vector_space     = None
+        self._vector_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces])
+        self._refined_space    = {}
+        self._refined_space[tuple(self._ncells)] = self
+        for key in self.spaces[0]._refined_space:
+            if key == tuple(self._ncells):continue
+            self._refined_space[key] = VectorFemSpace(*[V._refined_space[key] for V in self.spaces])
 
         # TODO serial case
         # TODO parallel case
@@ -194,15 +199,15 @@ class VectorFemSpace( FemSpace ):
                 if not( allclose(ns, asarray(ms)) ): return False
             return True
 
-    def __str__(self):
-        """Pretty printing"""
-        txt  = '\n'
-        txt += '> ldim   :: {ldim}\n'.format(ldim=self.ldim)
-        txt += '> total nbasis  :: {dim}\n'.format(dim=self.nbasis)
+#    def __str__(self):
+#        """Pretty printing"""
+#        txt  = '\n'
+#        txt += '> ldim   :: {ldim}\n'.format(ldim=self.ldim)
+#        txt += '> total nbasis  :: {dim}\n'.format(dim=self.nbasis)
 
-        dims = ', '.join(str(V.nbasis) for V in self.spaces)
-        txt += '> nbasis :: ({dims})\n'.format(dims=dims)
-        return txt
+#        dims = ', '.join(str(V.nbasis) for V in self.spaces)
+#        txt += '> nbasis :: ({dims})\n'.format(dims=dims)
+#        return txt
 
 #===============================================================================
 class ProductFemSpace( FemSpace ):
@@ -231,13 +236,10 @@ class ProductFemSpace( FemSpace ):
         # ...
 
         self._ldim = ldims[0]
-
-        self._ncells = [V.ncells for V in self.spaces]
         # ...
 
         self._vector_space    = BlockVectorSpace(*[V.vector_space for V in self.spaces])
         self._symbolic_space  = None
-        self._refined_space   = None
 
     #--------------------------------------------------------------------------
     # Abstract interface: read-only attributes

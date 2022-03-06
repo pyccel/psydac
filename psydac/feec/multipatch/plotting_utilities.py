@@ -11,6 +11,7 @@ from collections import OrderedDict
 
 from psydac.linalg.utilities import array_to_stencil
 from psydac.fem.basic        import FemField
+from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.utilities.utils  import refine_array_1d
 from psydac.feec.pull_push   import push_2d_h1, push_2d_hcurl, push_2d_hdiv, push_2d_l2
 
@@ -168,8 +169,12 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
     F = [M.get_callable_mapping() for d,M in mappings.items()]
 
     if plotted_patch in range(len(mappings)):
-        grid_x1 = Vh.spaces[plotted_patch].breaks[0]
-        grid_x2 = Vh.spaces[plotted_patch].breaks[1]
+        space   = Vh.spaces[plotted_patch]
+        if isinstance(space, (VectorFemSpace, ProductFemSpace)):
+            space = space.spaces[0]
+
+        grid_x1 = space.breaks[0]
+        grid_x2 = space.breaks[1]
 
         x1 = refine_array_1d(grid_x1, N)
         x2 = refine_array_1d(grid_x2, N)

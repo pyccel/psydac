@@ -45,7 +45,7 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     I        = domain.interfaces
     boundary = domain.boundary
 
-    kappa   = 10*ncells[0]
+    kappa   = 100
     k       = 1
 
     jump = lambda w:plus(w)-minus(w)
@@ -103,7 +103,39 @@ if __name__ == '__main__':
     from psydac.feec.multipatch.plotting_utilities import get_plotting_grid, get_grid_vals
     from psydac.feec.multipatch.plotting_utilities import get_patch_knots_gridlines, my_small_plot
 
-    domain    = build_pretzel()
+#    domain    = build_pretzel()
+
+    A = Square('A',bounds1=(0.5, 1.), bounds2=(0, np.pi/2))
+    B = Square('B',bounds1=(0.5, 1.), bounds2=(np.pi/2, np.pi))
+    C = Square('C',bounds1=(0.5, 1.), bounds2=(np.pi, 1.5*np.pi))
+    D = Square('D',bounds1=(0.5, 1.), bounds2=(1.5*np.pi, 2*np.pi))
+
+    mapping_1 = PolarMapping('M1',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_2 = PolarMapping('M2',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_3 = PolarMapping('M3',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+    mapping_4 = PolarMapping('M4',2, c1= 0., c2= 0., rmin = 0., rmax=1.)
+
+    D1     = mapping_1(A)
+    D2     = mapping_2(B)
+    D3     = mapping_3(C)
+    D4     = mapping_4(D)
+
+    domain1 = D1.join(D2, name = 'domain1',
+                bnd_minus = D1.get_boundary(axis=1, ext=1),
+                bnd_plus  = D2.get_boundary(axis=1, ext=-1))
+
+    domain2 = domain1.join(D3, name='domain2',
+                    bnd_minus = D2.get_boundary(axis=1, ext=1),
+                    bnd_plus  = D3.get_boundary(axis=1, ext=-1))
+
+    domain = domain2.join(D4, name='domain',
+                    bnd_minus = D3.get_boundary(axis=1, ext=1),
+                    bnd_plus  = D4.get_boundary(axis=1, ext=-1))
+
+    domain = domain.join(domain, name='domain',
+                        bnd_minus = D4.get_boundary(axis=1, ext=1),
+                        bnd_plus  = D1.get_boundary(axis=1, ext=-1))
+
     x,y       = domain.coordinates
     omega = 1.5
     alpha = -omega**2
@@ -111,13 +143,19 @@ if __name__ == '__main__':
     f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                   alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
-    ne     = [2**2,2**2]
+
+    interiors = domain.interior.args
+    ne        = {}
+    ne[interiors[0].name] = [2**2,2**2]
+    ne[interiors[1].name] = [2**3,2**2]
+    ne[interiors[2].name] = [2**4,2**2]
+    ne[interiors[3].name] = [2**5,2**2]
     degree = [2,2]
 
     Eh, info, timing, l2_error = run_maxwell_2d(Eex, f, alpha, domain, ncells=ne, degree=degree)
 
     # ...
-    print( '> Grid          :: [{ne1},{ne2}]'.format( ne1=ne[0], ne2=ne[1]) )
+    print( '> Grid          :: {}'.format(ne) )
     print( '> Degree        :: [{p1},{p2}]'  .format( p1=degree[0], p2=degree[1] ) )
     print( '> CG info       :: ',info )
     print( '> L2 error      :: {:.2e}'.format( l2_error ) )
@@ -134,6 +172,12 @@ if __name__ == '__main__':
     Eex_log = [pull_2d_hcurl([Eex_x,Eex_y], f) for f in mappings_list]
 
     etas, xx, yy         = get_plotting_grid(mappings, N=20)
+
+    gridlines_x1_0, gridlines_x2_0 = get_patch_knots_gridlines(Eh.space, N, mappings, plotted_patch=0)
+    gridlines_x1_1, gridlines_x2_1 = get_patch_knots_gridlines(Eh.space, N, mappings, plotted_patch=1)
+    gridlines_x1_2, gridlines_x2_2 = get_patch_knots_gridlines(Eh.space, N, mappings, plotted_patch=2)
+    gridlines_x1_3, gridlines_x2_3 = get_patch_knots_gridlines(Eh.space, N, mappings, plotted_patch=3)
+
     grid_vals_hcurl      = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
 
     Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
@@ -142,22 +186,22 @@ if __name__ == '__main__':
     E_x_err              = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
     E_y_err              = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
 
-    my_small_plot(
-        title=r'approximation of solution $u$, $x$ component',
-        vals=[E_x_vals, Eh_x_vals, E_x_err],
-        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
-        xx=xx,
-        yy=yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
-    )
+#    my_small_plot(
+#        title=r'approximation of solution $u$, $x$ component',
+#        vals=[E_x_vals, Eh_x_vals, E_x_err],
+#        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+#        xx=xx,
+#        yy=yy,
+#        gridlines_x1=[gridlines_x1_0,gridlines_x1_1, gridlines_x1_2, gridlines_x1_3],
+#        gridlines_x2=[gridlines_x2_0,gridlines_x2_1, gridlines_x2_2, gridlines_x2_3],
+#    )
 
-    my_small_plot(
-        title=r'approximation of solution $u$, $y$ component',
-        vals=[E_y_vals, Eh_y_vals, E_y_err],
-        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-        xx=xx,
-        yy=yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
-    )
+#    my_small_plot(
+#        title=r'approximation of solution $u$, $y$ component',
+#        vals=[E_y_vals, Eh_y_vals, E_y_err],
+#        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+#        xx=xx,
+#        yy=yy,
+#        gridlines_x1=[gridlines_x1_0,gridlines_x1_1, gridlines_x1_2, gridlines_x1_3],
+#        gridlines_x2=[gridlines_x2_0,gridlines_x2_1, gridlines_x2_2, gridlines_x2_3],
+#    )

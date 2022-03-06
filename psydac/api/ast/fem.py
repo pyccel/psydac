@@ -68,7 +68,7 @@ from .nodes import Allocate, Min, Array
 from psydac.api.ast.utilities import variables
 from psydac.api.utilities     import flatten
 from psydac.linalg.block      import BlockVectorSpace
-from psydac.fem.vector        import ProductFemSpace
+from psydac.fem.vector        import ProductFemSpace, VectorFemSpace
 
 #==============================================================================
 def convert(dtype):
@@ -280,7 +280,7 @@ def get_degrees(funcs, space):
     return new_degrees
 #==============================================================================
 def get_quad_order(Vh):
-    if isinstance(Vh, ProductFemSpace):
+    if isinstance(Vh, (ProductFemSpace, VectorFemSpace)):
         return get_quad_order(Vh.spaces[0])
     return tuple([g.weights.shape[1] for g in Vh.quad_grids])
 

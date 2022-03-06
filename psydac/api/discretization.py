@@ -36,7 +36,7 @@ from psydac.api.equation     import DiscreteEquation
 from psydac.api.utilities    import flatten
 from psydac.fem.splines      import SplineSpace
 from psydac.fem.tensor       import TensorFemSpace
-from psydac.fem.vector       import ProductFemSpace
+from psydac.fem.vector       import ProductFemSpace, VectorFemSpace
 from psydac.cad.geometry     import Geometry
 from psydac.mapping.discrete import NurbsMapping
 
@@ -139,7 +139,7 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
                 raise NotImplementedError('TODO')
         else:
             raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
-        Wh = ProductFemSpace(*spaces)
+        Wh = VectorFemSpace(*spaces)
 
     elif isinstance(V.kind, HdivSpaceType):
         if sequence == 'DR':
@@ -154,7 +154,7 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
                 raise NotImplementedError('TODO')
         else:
             raise NotImplementedError('The sequence {} is not currently available for the space kind {}'.format(sequence, V.kind))
-        Wh = ProductFemSpace(*spaces)
+        Wh = VectorFemSpace(*spaces)
 
     elif isinstance(V.kind, L2SpaceType):
         if sequence == 'DR':
@@ -183,7 +183,7 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
 
     if isinstance(V, VectorFunctionSpace):
         if isinstance(V.kind, (H1SpaceType, L2SpaceType, UndefinedSpaceType)):
-            Wh = ProductFemSpace(*[Wh]*V.ldim)
+            Wh = VectorFemSpace(*[Wh]*V.ldim)
 
     return Wh
 
@@ -319,15 +319,15 @@ def discretize_space(V, domain_h, *args, **kwargs):
         Vh = g_spaces[inter]
         if isinstance(V, ProductSpace):
             spaces = [reduce_space_degrees(Vi, Vh, basis=basis, sequence=sequence) for Vi in V.spaces]
-            spaces = [Vh.spaces if isinstance(Vh, ProductFemSpace) else Vh for Vh in spaces]
+            spaces = [Vh.spaces if isinstance(Vh, (ProductFemSpace, VectorFemSpace)) else Vh for Vh in spaces]
             spaces = flatten(spaces)
-            Vh     = ProductFemSpace(*spaces)
+            Vh     = VectorFemSpace(*spaces)
         else:
             Vh = reduce_space_degrees(V, Vh, basis=basis, sequence=sequence)
 
         Vh.symbolic_space = V
-        if Vh._refined_space:
-            Vh._refined_space.symbolic_space = V
+        for key in Vh._refined_space:
+            Vh._refined_space[key].symbolic_space = V
         g_spaces[inter]    = Vh
 
     Vh = ProductFemSpace(*g_spaces.values())

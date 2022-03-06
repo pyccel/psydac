@@ -62,7 +62,7 @@ def apply_essential_bc_kronnecker_dense_matrix(a, *, axis, ext, order, identity=
         mats[axis][-p-1] = 0.
     elif ext == -1:
         mats[axis][p] = 0.
-    print(mats[axis])
+
 #==============================================================================
 def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
     """ This function applies the homogeneous boundary condition to the Stencil objects,

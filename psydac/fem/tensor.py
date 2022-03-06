@@ -131,7 +131,8 @@ class TensorFemSpace( FemSpace ):
                 self._global_element_ends  [dimension] = element_ends
 
         self._symbolic_space      = None
-        self._refined_space       = None
+        self._refined_space       = {}
+        self._refined_space[tuple(self.ncells)] = self
         # ...
 
     #--------------------------------------------------------------------------
@@ -850,23 +851,19 @@ class TensorFemSpace( FemSpace ):
             tensor_vec = TensorFemSpace(*spaces, quad_order=self._quad_order, vector_space=v)
         
         tensor_vec._interpolation_ready = False
-        if self._refined_space is not None and self._refined_space is not self:
-            tensor_vec._refined_space = self._refined_space.reduce_degree(axes, multiplicity, basis)
+        for key in self._refined_space:
+            if key == tuple(self.ncells):continue
+            tensor_vec._refined_space[key] = self._refined_space[key].reduce_degree(axes, multiplicity, basis)
         return tensor_vec
 
     # ...
     def add_refined_space(self, ncells):
-        current_ncells = [s.ncells for s in self.spaces]
-        if all(i==j for i,j in zip(current_ncells, ncells)):
-            self._vector_space._refined_space = self._vector_space
-            self._refined_space = self
-        else:
-            spaces = [s.refine(n) for s,n in zip(self.spaces, ncells)]
-            npts   = [s.nbasis for s in spaces]
-            v      = self.vector_space.refine(npts)
-            FS     = TensorFemSpace(*spaces, quad_order=self.quad_order, vector_space=v)
-            self._refined_space               = FS
-            self._vector_space._refined_space = v
+        if tuple(ncells) in self._refined_space:return
+        spaces = [s.refine(n) for s,n in zip(self.spaces, ncells)]
+        npts   = [s.nbasis for s in spaces]
+        v      = self.vector_space.refine(npts)
+        FS     = TensorFemSpace(*spaces, quad_order=self.quad_order, vector_space=v)
+        self._refined_space[tuple(ncells)]= FS
 
     # ...
     def plot_2d_decomposition( self, mapping=None, refine=10 ):
