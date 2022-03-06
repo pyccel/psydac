@@ -455,6 +455,7 @@ class DiscreteBilinearForm(BasicDiscrete):
         trial_space     = self.trial_basis.space.vector_space
         domain          = self.domain
         is_broken       = len(domain)>1
+        is_conformal    = True
 
         if is_broken:
             i,j = self.get_space_indices_from_target(domain, target )
