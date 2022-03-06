@@ -8,6 +8,7 @@ from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.block   import BlockVectorSpace
 from psydac.fem.basic      import FemSpace, FemField
+from psydac.fem.tensor     import TensorFemSpace
 
 from numpy import unique, asarray, allclose, ascontiguousarray, array, moveaxis
 
@@ -45,10 +46,12 @@ class VectorFemSpace( FemSpace ):
         self._symbolic_space   = None
         self._vector_space     = BlockVectorSpace(*[V.vector_space for V in self.spaces])
         self._refined_space    = {}
-        self._refined_space[tuple(self._ncells)] = self
-        for key in self.spaces[0]._refined_space:
-            if key == tuple(self._ncells):continue
-            self._refined_space[key] = VectorFemSpace(*[V._refined_space[key] for V in self.spaces])
+
+        if isinstance(spaces[0], TensorFemSpace):
+            self._refined_space[tuple(self._ncells)] = self
+            for key in self.spaces[0]._refined_space:
+                if key == tuple(self._ncells):continue
+                self._refined_space[key] = VectorFemSpace(*[V._refined_space[key] for V in self.spaces])
 
         # TODO serial case
         # TODO parallel case
@@ -199,15 +202,15 @@ class VectorFemSpace( FemSpace ):
                 if not( allclose(ns, asarray(ms)) ): return False
             return True
 
-#    def __str__(self):
-#        """Pretty printing"""
-#        txt  = '\n'
-#        txt += '> ldim   :: {ldim}\n'.format(ldim=self.ldim)
-#        txt += '> total nbasis  :: {dim}\n'.format(dim=self.nbasis)
+    def __str__(self):
+        """Pretty printing"""
+        txt  = '\n'
+        txt += '> ldim   :: {ldim}\n'.format(ldim=self.ldim)
+        txt += '> total nbasis  :: {dim}\n'.format(dim=self.nbasis)
 
-#        dims = ', '.join(str(V.nbasis) for V in self.spaces)
-#        txt += '> nbasis :: ({dims})\n'.format(dims=dims)
-#        return txt
+        dims = ', '.join(str(V.nbasis) for V in self.spaces)
+        txt += '> nbasis :: ({dims})\n'.format(dims=dims)
+        return txt
 
 #===============================================================================
 class ProductFemSpace( FemSpace ):
