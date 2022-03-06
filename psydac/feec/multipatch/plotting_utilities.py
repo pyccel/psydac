@@ -81,9 +81,9 @@ def get_grid_vals(u, etas, mappings_list, space_kind='hcurl'):
 
     # always return a list, even for scalar-valued functions ?
     if not vector_valued:
-        return u_vals_components[0]
+        return np.array(u_vals_components[0])
     else:
-        return u_vals_components
+        return [np.array(a) for a in u_vals_components]
 
 #------------------------------------------------------------------------------
 def get_grid_quad_weights(etas, patch_logvols, mappings_list):  #_obj):
@@ -180,7 +180,7 @@ def get_patch_knots_gridlines(Vh, N, mappings, plotted_patch=-1):
         x2 = refine_array_1d(grid_x2, N)
 
         x1, x2 = np.meshgrid(x1, x2, indexing='ij')
-        x, y = F[plotted_patch]([x1, x2])
+        x, y = F[plotted_patch](x1, x2)
 
         gridlines_x1 = (x[:, ::N],   y[:, ::N]  )
         gridlines_x2 = (x[::N, :].T, y[::N, :].T)

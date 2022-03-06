@@ -362,7 +362,7 @@ class KroneckerDenseMatrix( Matrix ):
     # Other properties/methods
     #--------------------------------------
 
-    def tosparse(self):
+    def tosparse(self, **kwargs):
         return coo_matrix(reduce(kron, (m[p:-p,p:-p] for m,p in zip(self.mats, self.domain.pads))))
 
     def toarray(self):
@@ -370,7 +370,7 @@ class KroneckerDenseMatrix( Matrix ):
 
     def transpose(self):
         mats_tr = [Mi.T for Mi in self.mats]
-        return KroneckerStencilMatrix(self.codomain, self.domain, *mats_tr, with_pads=True)
+        return KroneckerDenseMatrix(self.codomain, self.domain, *mats_tr, with_pads=True)
 
     @property
     def T(self):

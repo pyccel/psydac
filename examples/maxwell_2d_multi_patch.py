@@ -45,7 +45,7 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     I        = domain.interfaces
     boundary = domain.boundary
 
-    kappa   = 100
+    kappa   = 10*2**10
     k       = 1
 
     jump = lambda w:plus(w)-minus(w)
@@ -77,14 +77,20 @@ def run_maxwell_2d(uex, f, alpha, domain, ncells, degree, k=None, kappa=None, co
     domain_h = discretize(domain, ncells=ncells, comm=comm)
     Vh       = discretize(V, domain_h, degree=degree, basis='M')
 
-    equation_h = discretize(equation, domain_h, [Vh, Vh])
+    equation_h = discretize(equation, domain_h, [Vh, Vh], backend=PSYDAC_BACKEND_GPYCCEL)
     l2norm_h   = discretize(l2norm, domain_h, Vh)
 
-    equation_h.set_solver('pcg', pc='jacobi', tol=1e-8, info=True)
+    equation_h.set_solver('minres', tol=1e-8, info=True, maxiter=100000)
 
     timing   = {}
     t0       = time.time()
-    uh, info = equation_h.solve()
+    A        = equation_h.lhs.assemble().tosparse().tocsr()
+    b        = equation_h.rhs.assemble().toarray()
+    x        = spsolve(A,b)
+    x        = array_to_stencil(x, Vh.vector_space)
+    uh       = FemField(Vh, x)
+    info     = 0
+#    uh, info = equation_h.solve()
     t1       = time.time()
     timing['solution'] = t1-t0
 
@@ -146,10 +152,10 @@ if __name__ == '__main__':
 
     interiors = domain.interior.args
     ne        = {}
-    ne[interiors[0].name] = [2**2,2**2]
-    ne[interiors[1].name] = [2**3,2**2]
-    ne[interiors[2].name] = [2**4,2**2]
-    ne[interiors[3].name] = [2**5,2**2]
+    ne[interiors[0].name] = [2**4,2**4]
+    ne[interiors[1].name] = [2**4,2**4]
+    ne[interiors[2].name] = [2**4,2**4]
+    ne[interiors[3].name] = [2**5,2**5]
     degree = [2,2]
 
     Eh, info, timing, l2_error = run_maxwell_2d(Eex, f, alpha, domain, ncells=ne, degree=degree)
@@ -186,22 +192,22 @@ if __name__ == '__main__':
     E_x_err              = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
     E_y_err              = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
 
-#    my_small_plot(
-#        title=r'approximation of solution $u$, $x$ component',
-#        vals=[E_x_vals, Eh_x_vals, E_x_err],
-#        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
-#        xx=xx,
-#        yy=yy,
-#        gridlines_x1=[gridlines_x1_0,gridlines_x1_1, gridlines_x1_2, gridlines_x1_3],
-#        gridlines_x2=[gridlines_x2_0,gridlines_x2_1, gridlines_x2_2, gridlines_x2_3],
-#    )
+    my_small_plot(
+        title=r'approximation of solution $u$, $x$ component',
+        vals=[E_x_vals, Eh_x_vals, E_x_err],
+        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+        xx=xx,
+        yy=yy,
+        gridlines_x1=[gridlines_x1_0,gridlines_x1_1, gridlines_x1_2, gridlines_x1_3],
+        gridlines_x2=[gridlines_x2_0,gridlines_x2_1, gridlines_x2_2, gridlines_x2_3],
+    )
 
-#    my_small_plot(
-#        title=r'approximation of solution $u$, $y$ component',
-#        vals=[E_y_vals, Eh_y_vals, E_y_err],
-#        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-#        xx=xx,
-#        yy=yy,
-#        gridlines_x1=[gridlines_x1_0,gridlines_x1_1, gridlines_x1_2, gridlines_x1_3],
-#        gridlines_x2=[gridlines_x2_0,gridlines_x2_1, gridlines_x2_2, gridlines_x2_3],
-#    )
+    my_small_plot(
+        title=r'approximation of solution $u$, $y$ component',
+        vals=[E_y_vals, Eh_y_vals, E_y_err],
+        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
+        xx=xx,
+        yy=yy,
+        gridlines_x1=[gridlines_x1_0,gridlines_x1_1, gridlines_x1_2, gridlines_x1_3],
+        gridlines_x2=[gridlines_x2_0,gridlines_x2_1, gridlines_x2_2, gridlines_x2_3],
+    )

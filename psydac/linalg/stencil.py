@@ -2277,7 +2277,6 @@ class ProductLinearOperator( Matrix ):
 
     def tosparse( self,  **kwargs):
         mat = self._operators[-1].tosparse()
-        print(self._operators[-1])
         for i in range(2, len(self._operators)+1):
             mat = self._operators[-i].tosparse() * mat
         return mat
@@ -2292,6 +2291,13 @@ class ProductLinearOperator( Matrix ):
             out = self._operators[-i].dot(out)
         return out
 
+    def transpose( self ):
+        operators = [A.T for A in self.operators][::-1]
+        return ProductLinearOperator(self.codomain, self.domain, *operators)
+
+    @property
+    def T(self):
+        return self.tranpose()
 #===============================================================================
 from psydac.api.settings   import PSYDAC_BACKENDS
 del VectorSpace, Vector
