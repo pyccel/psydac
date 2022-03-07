@@ -281,9 +281,10 @@ def my_small_plot(
             ax.contourf(xx[k], yy[k], vals[i][k], 50, norm=cnorm, cmap=cmap) #, extend='both')
         cbar = fig.colorbar(cm.ScalarMappable(norm=cnorm, cmap=cmap), ax=ax,  pad=0.05)
 
-        if gridlines_x1 is not None:
+        if gridlines_x1 is not None and gridlines_x2 is not None:
             if isinstance(gridlines_x1[0], (list,tuple)):
                 for x1,x2 in zip(gridlines_x1,gridlines_x2):
+                    if x1 is None or x2 is None:continue
                     ax.plot(*x1, color='k')
                     ax.plot(*x2, color='k')
             else:

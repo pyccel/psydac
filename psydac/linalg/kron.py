@@ -250,7 +250,7 @@ class KroneckerDenseMatrix( Matrix ):
             
         self._domain   = V
         self._codomain = W
-        self._mats     = args
+        self._mats     = list(args)
         self._ndim     = len(args)
 
     #--------------------------------------
@@ -323,22 +323,22 @@ class KroneckerDenseMatrix( Matrix ):
     # ...
     def copy(self):
         mats = [m.copy() for m in self.mats]
-        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
+        return KroneckerDenseMatrix(self.domain, self.codomain, *mats, with_pads=True)
 
     # ...
     def __neg__(self):
         mats = [-self.mats[0], *(m.copy() for m in self.mats[1:])]
-        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
+        return KroneckerDenseMatrix(self.domain, self.codomain, *mats, with_pads=True)
 
     # ...
     def __mul__(self, a):
         mats = [*(m.copy() for m in self.mats[:-1]), self.mats[-1] * a]
-        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
+        return KroneckerDenseMatrix(self.domain, self.codomain, *mats, with_pads=True)
 
     # ...
     def __rmul__(self, a):
         mats = [a * self.mats[0], *(m.copy() for m in self.mats[1:])]
-        return KroneckerStencilMatrix(self.domain, self.codomain, *mats)
+        return KroneckerDenseMatrix(self.domain, self.codomain, *mats, with_pads=True)
 
     # ...
     def __imul__(self, a):

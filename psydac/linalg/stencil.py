@@ -1641,6 +1641,7 @@ class StencilInterfaceMatrix(Matrix):
         self._transpose_args_null = self._prepare_transpose_args()
         self._transpose_args      = self._transpose_args_null.copy()
         self._transpose_func      = self._transpose
+        self._backend             = backend
 
         if backend is None:
             backend = PSYDAC_BACKENDS.get(os.environ.get('PSYDAC_BACKEND'))
@@ -1854,7 +1855,8 @@ class StencilInterfaceMatrix(Matrix):
     def copy( self ):
         M = StencilInterfaceMatrix( self._domain, self._codomain,
                                     self._d_start, self._c_start,
-                                    self._dim, self._pads )
+                                    self._dim, flip=self._flip, permutation=self._permutation,
+                                    pads=self._pads, backend=self._backend )
         M._data[:] = self._data[:]
         return M
 
@@ -1866,7 +1868,8 @@ class StencilInterfaceMatrix(Matrix):
     def __mul__( self, a ):
         w = StencilInterfaceMatrix( self._domain, self._codomain,
                                     self._d_start, self._c_start,
-                                    self._dim, self._pads )
+                                    self._dim, flip=self._flip, permutation=self._permutation,
+                                    pads=self._pads, backend=self._backend )
         w._data = self._data * a
         w._sync = self._sync
         return w
@@ -1875,7 +1878,8 @@ class StencilInterfaceMatrix(Matrix):
     def __rmul__( self, a ):
         w = StencilInterfaceMatrix( self._domain, self._codomain,
                                     self._d_start, self._c_start,
-                                    self._dim, self._pads )
+                                    self._dim, flip=self._flip, permutation=self._permutation,
+                                    pads=self._pads, backend=self._backend )
         w._data = a * self._data
         w._sync = self._sync
         return w
@@ -1890,7 +1894,7 @@ class StencilInterfaceMatrix(Matrix):
 
     #...
     def __imul__(self, a):
-        raise NotImplementedError('TODO: StencilInterfaceMatrix.__imul__')
+        self._data *= a
 
     #...
     def __iadd__(self, m):
@@ -2236,7 +2240,7 @@ class ProductLinearOperator( Matrix ):
     # ...
     def copy( self ):
         operators = [op.copy() for op in self._operators]
-        return ProductLinearOperator(operators)
+        return ProductLinearOperator(self.domain, self.codomain, *operators)
 
     # ...
     @property
@@ -2253,7 +2257,9 @@ class ProductLinearOperator( Matrix ):
 
     #...
     def __mul__(self, a):
-        raise NotImplementedError('TODO: ProductLinearOperator.__mul__')
+        operators = [op.copy() for op in self._operators]
+        operators[0] *= a
+        return ProductLinearOperator(self.domain, self.codomain, *operators)
 
     #...
     def __imul__(self, a):
