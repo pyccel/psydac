@@ -12,6 +12,7 @@ import h5py
 import os
 
 from sympde.topology.space import BasicFunctionSpace
+from sympde.topology.datatype import H1SpaceType, L2SpaceType
 
 from psydac.linalg.stencil import StencilVectorSpace
 from psydac.linalg.kron    import kronecker_solve
@@ -323,8 +324,10 @@ class TensorFemSpace( FemSpace ):
         # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
-            return [self.eval_field(f, *grid) for f in fields]
-
+            if weights is not None:
+                return [self.eval_field(f, *grid, weights=weights.coeffs) for f in fields]
+            else:
+                return [self.eval_field(f, *grid) for f in fields]
         # Case 2. 1D array of coordinates and no npts_per_cell is given
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
         elif grid[0].ndim == 1 and npts_per_cell is None:
@@ -609,20 +612,22 @@ class TensorFemSpace( FemSpace ):
                              "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
-    def pushforward_field(self, field, *eta, mapping=None):
+    def pushforward_field(self, field, *eta, mapping=None, parent_kind=None):
         assert field.space is self
         assert len(eta) == self.ldim
-
-        kind = str(self._symbolic_space.kind)
+        if parent_kind is None:
+            kind = self._symbolic_space.kind
+        else:
+            kind = parent_kind
         value = self.eval_field(field, *eta)
-        if kind == "H1SpaceType()":
+        if kind is H1SpaceType():
             return value
-        elif kind == "L2SpaceType()":
+        elif kind is L2SpaceType():
             det = mapping.metric_det(*eta)
             return value/(det ** 0.5)
 
     # ...
-    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping=None, kind=None):
+    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping=None, parent_kind=None):
         """Push-forwards fields on a regular tensor grid using a given a mapping.
 
         Parameters
@@ -651,15 +656,17 @@ class TensorFemSpace( FemSpace ):
         """
         from psydac.core.kernels import pushforward_2d_l2, pushforward_3d_l2
 
-        if kind is None:
-            kind = str(self.symbolic_space.kind)
+        if parent_kind is None:
+            kind = self._symbolic_space.kind
+        else:
+            kind = parent_kind
 
         out_fields = self.eval_fields_regular_tensor_grid(grid, *fields)
 
-        if kind == 'H1SpaceType()':
+        if kind is H1SpaceType():
             return out_fields
 
-        if kind == 'L2SpaceType()':
+        if kind is L2SpaceType():
             pushed_fields = np.zeros_like(out_fields)
             dets = mapping.metric_det_regular_tensor_grid(grid)
 

@@ -4,6 +4,7 @@
 import numpy as np
 
 from sympde.topology.space import BasicFunctionSpace
+from sympde.topology.datatype import H1SpaceType, HcurlSpaceType, HdivSpaceType, L2SpaceType
 
 from psydac.linalg.basic   import Vector
 from psydac.linalg.stencil import StencilVectorSpace
@@ -92,11 +93,11 @@ class VectorFemSpace( FemSpace ):
     #--------------------------------------------------------------------------
     def eval_field( self, field, *eta, weights=None):
 
-        assert isinstance( field, FemField )
+        assert isinstance(field, FemField)
         assert field.space is self
-        assert len( eta ) == self._ldim
+        assert len(eta) == self._ldim
 
-        raise NotImplementedError( "VectorFemSpace not yet operational" )
+        return self.eval_fields(eta, field, weights=weights)[0]
 
     # ...
     def eval_fields(self, grid, *fields, weights=None, npts_per_cell=None):
@@ -131,7 +132,10 @@ class VectorFemSpace( FemSpace ):
         result = []
         for i in range(self.ldim):
             fields_i = list(field.fields[i] for field in fields)
-            result.append(self._spaces[i].eval_fields(grid, *fields_i, npts_per_cell=npts_per_cell, weights=weights))
+            result.append(self._spaces[i].eval_fields(grid,
+                                                      *fields_i,
+                                                      npts_per_cell=npts_per_cell,
+                                                      weights=weights.fields[i]))
         return [[result[j][i] for j in range(self.ldim)] for i in range(len(fields))]
 
     # ...
@@ -233,14 +237,19 @@ class VectorFemSpace( FemSpace ):
                              "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
-    def pushforward(self, field, *eta, mapping=None):
+    def pushforward(self, field, *eta, mapping=None, parent_kind=None):
         assert field.space is self
         assert len(eta) == self._ldim
+
+        if parent_kind is None:
+            kind = self._symbolic_space.kind
+        else:
+            kind = parent_kind
 
         raise NotImplementedError("VectorFemSpace not yet operational")
 
     # ...
-    def pushforward_regular_tensor_grid(self, grid, *fields, mapping=None):
+    def pushforward_regular_tensor_grid(self, grid, *fields, mapping=None, parent_kind=None):
         """Push-forwards fields on a regular tensor grid using a given a mapping.
 
         Parameters
@@ -256,15 +265,20 @@ class VectorFemSpace( FemSpace ):
         mapping: psydac.mapping.SplineMapping
             Mapping on which to push-forward
 
+        parent_kind : sympde.topology.datatype
+
         Returns
         -------
         List of list of ndarray
             Push-forwarded fields
         """
 
-        kind = str(self.symbolic_space.kind)
+        if parent_kind is None:
+            kind = self._symbolic_space.kind
+        else:
+            kind = parent_kind
 
-        if kind == 'L2SpaceType()' or kind == 'H1SpaceType()':
+        if kind is L2SpaceType() or kind is H1SpaceType():
 
             pushed_fields_int = [self.spaces[i].pushforward_regular_tensor_grid(grid, *[f.fields[i] for f in fields])
                                  for i in range(self._ldim)]
@@ -276,14 +290,14 @@ class VectorFemSpace( FemSpace ):
 
         pushed_fields = np.zeros(shape=out_fields.shape[1:-1] + (self.ldim, len(fields)))
 
-        if kind == 'HdivSpaceType()':
+        if kind is HdivSpaceType():
             jacobians = mapping.jac_mat_regular_tensor_grid(grid)
             if self.ldim == 2:
                 pushforward_2d_hdiv(out_fields, jacobians, pushed_fields)
             if self.ldim == 3:
                 pushforward_3d_hdiv(out_fields, jacobians, pushed_fields)
 
-        elif kind == 'HcurlSpaceType()':
+        elif kind is HcurlSpaceType():
             inv_jacobians = mapping.inv_jac_mat_regular_tensor_grid(grid)
             if self.ldim == 2:
                 pushforward_2d_hcurl(out_fields, inv_jacobians, pushed_fields)
@@ -437,7 +451,11 @@ class ProductFemSpace( FemSpace ):
     # Abstract interface: evaluation methods
     #--------------------------------------------------------------------------
     def eval_field( self, field, *eta, weights=None):
-        raise NotImplementedError( "ProductFemSpace not yet operational" )
+        assert isinstance(field, FemField)
+        assert field.space is self
+        assert len(eta) == self._ldim
+        raise NotImplementedError()
+        # return self.eval_fields(eta, field, weights=weights)[0]
 
     # ...
     def eval_fields(self, grid, *fields, weights=None, npts_per_cell=None):
@@ -470,9 +488,20 @@ class ProductFemSpace( FemSpace ):
         psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
         result = []
-        for i in range(self.ldim):
-            fields_i = list(field.fields[i] for field in fields)
-            result.append(self._spaces[i].eval_fields(grid, *fields_i, npts_per_cell=npts_per_cell, weights=weights))
+        if weights is not None:
+            for i in range(self.ldim):
+                fields_i = list(field.fields[i] for field in fields)
+
+                result.append(self._spaces[i].eval_fields(grid,
+                                                          *fields_i,
+                                                          npts_per_cell=npts_per_cell,
+                                                          weights=weights.fields[i]))
+        else:
+            for i in range(self.ldim):
+                fields_i = list(field.fields[i] for field in fields)
+                result.append(self._spaces[i].eval_fields(grid,
+                                                          *fields_i,
+                                                          npts_per_cell=npts_per_cell))
         return [[result[j][i] for j in range(self.ldim)] for i in range(len(fields))]
 
     # ...
@@ -565,14 +594,14 @@ class ProductFemSpace( FemSpace ):
                              "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
-    def pushforward_field(self, field, *eta, mapping=None):
+    def pushforward_field(self, field, *eta, mapping=None, parent_kind=None):
         assert field.space is self
         assert len(eta) == self._ldim
 
         raise NotImplementedError("ProductFemSpace not yet operational")
 
     # ...
-    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping=None):
+    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping=None, parent_kind=None):
         """Push-forwards fields on a regular tensor grid using a given a mapping.
 
         Parameters
@@ -595,10 +624,16 @@ class ProductFemSpace( FemSpace ):
             Push-forwarded fields
         """
 
-        kind = str(self.symbolic_space.kind)
+        if parent_kind is None:
+            kind = self._symbolic_space.kind
+        else:
+            kind = parent_kind
 
-        if kind == 'L2SpaceType()' or kind == 'H1SpaceType()':
-            pushed_fields_int = [self.spaces[i].pushforward_regular_tensor_grid(grid, *[f.fields[i] for f in fields])
+        if kind is L2SpaceType() or kind is H1SpaceType():
+            pushed_fields_int = [self.spaces[i].pushforward_regular_tensor_grid(grid,
+                                                                                *[f.fields[i] for f in fields],
+                                                                                mapping=mapping,
+                                                                                parent_kind=kind)
                                  for i in range(self._ldim)]
             return [[pushed_fields_int[i][j] for i in range(self._ldim)] for j in range(len(fields))]
 
@@ -608,14 +643,14 @@ class ProductFemSpace( FemSpace ):
 
         pushed_fields = np.zeros(shape=out_fields.shape[1:-1] + (self.ldim, len(fields)))
 
-        if kind == 'HdivSpaceType()':
+        if kind is HdivSpaceType():
             jacobians = mapping.jac_mat_regular_tensor_grid(grid)
             if self.ldim == 2:
                 pushforward_2d_hdiv(out_fields, jacobians, pushed_fields)
             if self.ldim == 3:
                 pushforward_3d_hdiv(out_fields, jacobians, pushed_fields)
 
-        elif kind == 'HcurlSpaceType()':
+        elif kind is HcurlSpaceType():
             inv_jacobians = mapping.inv_jac_mat_regular_tensor_grid(grid)
             if self.ldim == 2:
                 pushforward_2d_hcurl(out_fields, inv_jacobians, pushed_fields)
