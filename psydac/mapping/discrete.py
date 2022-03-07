@@ -204,8 +204,8 @@ class SplineMapping:
         --------
         mapping.SplineMapping.inv_jac_mat_grid : Evaluates the inverse
             of the Jacobian matrix of the mapping at the given location(s) grid.
-        mapping.SplineMapping.metric_det_grid : Evaluates the determinant
-            of the Jacobian matrix of the mapping at the given location(s) grid.
+        mapping.SplineMapping.metric_det_grid : Evaluates the metric determinant
+            of the mapping at the given location(s) grid.
         """
 
         assert len(grid) == self.ldim
@@ -266,9 +266,9 @@ class SplineMapping:
         Returns
         -------
         jac_mats : ndarray
-            ``self.ldim + 2`` D array of shape (n_x_1, ..., n_x_ldim, ldim, ldim).
+            ``self.ldim + 2`` D array of shape ``(n_x_1, ..., n_x_ldim, ldim, ldim)``.
             ``jac_mats[x_1, ..., x_ldim]`` is the Jacobian matrix at the location corresponding
-            to `(x_1, ..., x_ldim)`.
+            to ``(x_1, ..., x_ldim)``.
         """
 
         from psydac.core.kernels import eval_jacobians_2d, eval_jacobians_3d
@@ -326,8 +326,8 @@ class SplineMapping:
         --------
         mapping.SplineMapping.jac_mat_grid : Evaluates the Jacobian matrix
             of the mapping at the given location(s) `grid`.
-        mapping.SplineMapping.metric_det_grid : Evaluates the determinant
-            of the Jacobian matrix of the mapping at the given location(s) `grid`.
+        mapping.SplineMapping.metric_det_grid : Evaluates the metric determinant
+            of the mapping at the given location(s) `grid`.
         """
 
         assert len(grid) == self.ldim
@@ -388,9 +388,9 @@ class SplineMapping:
         Returns
         -------
         inv_jac_mats : ndarray
-            ``self.ldim + 2`` D array of shape (n_x_1, ..., n_x_ldim, ldim, ldim).
-            ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix a
-            at the location corresponding to `(x_1, ..., x_ldim)`.
+            ``self.ldim + 2`` D array of shape ``(n_x_1, ..., n_x_ldim, ldim, ldim)``.
+            ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix
+            at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
         from psydac.core.kernels import eval_jacobians_inv_2d, eval_jacobians_inv_3d
 
@@ -427,7 +427,7 @@ class SplineMapping:
 
     # ...
     def metric_det_grid(self, grid, npts_per_cell=None):
-        """Evaluates the determinant of the Jacobian matrix of the mapping at the given location(s) grid.
+        """Evaluates the metric determinant of the mapping at the given location(s) grid.
 
         Parameters
         -----------
@@ -441,7 +441,7 @@ class SplineMapping:
         Returns
         -------
         array_like
-            Determinant of the Jacobian matrix at the location(s) grid.
+            Metric determinant at the location(s) grid.
 
         See Also
         --------
@@ -496,7 +496,7 @@ class SplineMapping:
 
     # ...
     def metric_det_regular_tensor_grid(self, grid):
-        """Evaluates the determinant of the Jacobian matrix on a regular tensor product grid.
+        """Evaluates the metric determinant on a regular tensor product grid.
 
         Parameters
         ----------
@@ -509,9 +509,9 @@ class SplineMapping:
         Returns
         -------
         metric_det : ndarray
-            ``self.ldim`` D array of shape (n_x_1, ..., n_x_ldim).
-            ``jac_mats[x_1, ..., x_ldim]`` is the determinant of the Jacobian matrix
-            at the location corresponding to `(x_1, ..., x_ldim)`.
+            ``self.ldim`` D array of shape ``(n_x_1, ..., n_x_ldim)``.
+            ``jac_mats[x_1, ..., x_ldim]`` is the metric determinant
+            at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
         from psydac.core.kernels import eval_det_metric_3d, eval_det_metric_2d
 
@@ -804,8 +804,8 @@ class NurbsMapping( SplineMapping ):
         --------
         mapping.NurbsMapping.inv_jac_mat_grid : Evaluates the inverse
             of the Jacobian matrix of the mapping at the given location(s) grid.
-        mapping.NurbsMapping.metric_det_grid : Evaluates the determinant
-            of the Jacobian matrix of the mapping at the given location(s) grid.
+        mapping.NurbsMapping.metric_det_grid : Evaluates the metric determinant
+            of the mapping at the given location(s) grid.
         """
 
         assert len(grid) == self.ldim
@@ -866,9 +866,9 @@ class NurbsMapping( SplineMapping ):
         Returns
         -------
         jac_mats : ndarray
-            ``self.ldim + 2`` D array of shape (n_x_1, ..., n_x_ldim, ldim, ldim).
+            ``self.ldim + 2`` D array of shape ``(n_x_1, ..., n_x_ldim, ldim, ldim)``.
             ``jac_mats[x_1, ..., x_ldim]`` is the Jacobian matrix at the location corresponding
-            to `(x_1, ..., x_ldim)`.
+            to ``(x_1, ..., x_ldim)``.
         """
         from psydac.core.kernels import eval_jacobians_2d_weights, eval_jacobians_3d_weights
 
@@ -928,8 +928,8 @@ class NurbsMapping( SplineMapping ):
         --------
         mapping.NurbsMapping.jac_mat_grid : Evaluates the Jacobian matrix
             of the mapping at the given location(s) grid.
-        mapping.NurbsMapping.metric_det_grid : Evaluates the determinant
-            of the Jacobian matrix of the mapping at the given location(s) grid.
+        mapping.NurbsMapping.metric_det_grid : Evaluates the metric determinant
+            of the mapping at the given location(s) grid.
         """
 
         assert len(grid) == self.ldim
@@ -990,9 +990,9 @@ class NurbsMapping( SplineMapping ):
          Returns
          -------
          inv_jac_mats : ndarray
-             ``self.ldim + 2`` D array of shape (n_x_1, ..., n_x_ldim, ldim, ldim).
+             ``self.ldim + 2`` D array of shape ``(n_x_1, ..., n_x_ldim, ldim, ldim)``.
              ``jac_mats[x_1, ..., x_ldim]`` is the inverse of the Jacobian matrix a
-             at the location corresponding to `(x_1, ..., x_ldim)`.
+             at the location corresponding to ``(x_1, ..., x_ldim)``.
          """
 
         from psydac.core.kernels import eval_jacobians_inv_2d_weights, eval_jacobians_inv_3d_weights
@@ -1034,7 +1034,7 @@ class NurbsMapping( SplineMapping ):
 
     # ...
     def metric_det_grid(self, grid, npts_per_cell=None):
-        """Evaluates the determinant of the Jacobian matrix of the mapping at the given location(s) grid.
+        """Evaluates the metric determinant of the mapping at the given location(s) grid.
 
         Parameters
         -----------
@@ -1048,7 +1048,7 @@ class NurbsMapping( SplineMapping ):
         Returns
         -------
         array_like
-            Determinant of the Jacobian matrix at the location(s) grid.
+            Metric determinant at the location(s) grid.
 
         See Also
         --------
@@ -1103,7 +1103,7 @@ class NurbsMapping( SplineMapping ):
 
     # ...
     def metric_det_regular_tensor_grid(self, grid):
-        """Evaluates the determinant of the jacobian on a regular tensor product grid.
+        """Evaluates the metric determinant on a regular tensor product grid.
 
         Parameters
         ----------
@@ -1116,9 +1116,9 @@ class NurbsMapping( SplineMapping ):
         Returns
         -------
         metric_det : ndarray
-            ``self.ldim`` D array of shape (n_x_1, ..., n_x_ldim).
-            ``jac_mats[x_1, ..., x_ldim]`` is the determinant of the jacobian
-            at the location corresponding to `(x_1, ..., x_ldim)`.
+            ``self.ldim`` D array of shape ``(n_x_1, ..., n_x_ldim)``.
+            ``jac_mats[x_1, ..., x_ldim]`` is the metric determinant
+            at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
         from psydac.core.kernels import eval_det_metric_3d_weights, eval_det_metric_2d_weights
 
