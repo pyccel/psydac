@@ -441,24 +441,24 @@ def eval_det_metric_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3:
         Coefficients of the Z field
 
     metric_det: ndarray of floats
-        Determinant of the Jacobian on the grid.
+        Metric determinant on the grid.
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
 
-    arr_x_x3 = np.zeros((k1, k2, k3))
-    arr_x_x2 = np.zeros((k1, k2, k3))
     arr_x_x1 = np.zeros((k1, k2, k3))
+    arr_x_x2 = np.zeros((k1, k2, k3))
+    arr_x_x3 = np.zeros((k1, k2, k3))
 
-    arr_y_x3 = np.zeros((k1, k2, k3))
-    arr_y_x2 = np.zeros((k1, k2, k3))
     arr_y_x1 = np.zeros((k1, k2, k3))
+    arr_y_x2 = np.zeros((k1, k2, k3))
+    arr_y_x3 = np.zeros((k1, k2, k3))
 
-    arr_z_x3 = np.zeros((k1, k2, k3))
-    arr_z_x2 = np.zeros((k1, k2, k3))
     arr_z_x1 = np.zeros((k1, k2, k3))
+    arr_z_x2 = np.zeros((k1, k2, k3))
+    arr_z_x3 = np.zeros((k1, k2, k3))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -469,17 +469,17 @@ def eval_det_metric_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3:
             for i_cell_3 in range(nc3):
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_x_x3[:, :, :] = 0.0
-                arr_x_x2[:, :, :] = 0.0
                 arr_x_x1[:, :, :] = 0.0
+                arr_x_x2[:, :, :] = 0.0
+                arr_x_x3[:, :, :] = 0.0
 
-                arr_y_x3[:, :, :] = 0.0
                 arr_y_x1[:, :, :] = 0.0
                 arr_y_x2[:, :, :] = 0.0
+                arr_y_x3[:, :, :] = 0.0
 
-                arr_z_x3[:, :, :] = 0.0
-                arr_z_x2[:, :, :] = 0.0
                 arr_z_x1[:, :, :] = 0.0
+                arr_z_x2[:, :, :] = 0.0
+                arr_z_x3[:, :, :] = 0.0
 
                 arr_coeffs_x[:, :, :] = global_arr_coeff_x[pad1 + span_1 - f_p1:1 + pad1 + span_1,
                                                            pad2 + span_2 - f_p2:1 + pad2 + span_2,
@@ -507,46 +507,46 @@ def eval_det_metric_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3:
                                         spline_3 = global_basis_3[i_cell_3, i_basis_3, 0, i_quad_3]
                                         spline_x3 = global_basis_3[i_cell_3, i_basis_3, 1, i_quad_3]
 
-                                        mapping_x3 = spline_1 * spline_2 * spline_x3
-                                        mapping_x2 = spline_1 * spline_x2 * spline_3
                                         mapping_x1 = spline_x1 * spline_2 * spline_3
+                                        mapping_x2 = spline_1 * spline_x2 * spline_3
+                                        mapping_x3 = spline_1 * spline_2 * spline_x3
 
                                         coeff_x = arr_coeffs_x[i_basis_1, i_basis_2, i_basis_3]
                                         coeff_y = arr_coeffs_y[i_basis_1, i_basis_2, i_basis_3]
                                         coeff_z = arr_coeffs_z[i_basis_1, i_basis_2, i_basis_3]
 
-                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
-                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
                                         arr_x_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_x
+                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
+                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
 
-                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
-                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
                                         arr_y_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_y
+                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
+                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
 
-                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
-                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
                                         arr_z_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_z
+                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
+                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
 
-                            x_x3 = arr_x_x3[i_quad_1, i_quad_2, i_quad_3]
-                            x_x2 = arr_x_x2[i_quad_1, i_quad_2, i_quad_3]
                             x_x1 = arr_x_x1[i_quad_1, i_quad_2, i_quad_3]
+                            x_x2 = arr_x_x2[i_quad_1, i_quad_2, i_quad_3]
+                            x_x3 = arr_x_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            y_x3 = arr_y_x3[i_quad_1, i_quad_2, i_quad_3]
-                            y_x2 = arr_y_x2[i_quad_1, i_quad_2, i_quad_3]
                             y_x1 = arr_y_x1[i_quad_1, i_quad_2, i_quad_3]
+                            y_x2 = arr_y_x2[i_quad_1, i_quad_2, i_quad_3]
+                            y_x3 = arr_y_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
-                            z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
                             z_x1 = arr_z_x1[i_quad_1, i_quad_2, i_quad_3]
+                            z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
+                            z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
 
                             metric_det[i_cell_1 * k1 + i_quad_1,
                                        i_cell_2 * k2 + i_quad_2,
-                                       i_cell_3 * k3 + i_quad_3] = + x_x1 * y_x2 * z_x3 \
-                                                                   + x_x2 * y_x3 * z_x1 \
-                                                                   + x_x3 * y_x1 * z_x2 \
-                                                                   - x_x1 * y_x3 * z_x2 \
-                                                                   - x_x2 * y_x1 * z_x3 \
-                                                                   - x_x3 * y_x2 * z_x1
+                                       i_cell_3 * k3 + i_quad_3] = (+ x_x1 * y_x2 * z_x3
+                                                                    + x_x2 * y_x3 * z_x1
+                                                                    + x_x3 * y_x1 * z_x2
+                                                                    - x_x1 * y_x3 * z_x2
+                                                                    - x_x2 * y_x1 * z_x3
+                                                                    - x_x3 * y_x2 * z_x1) ** 2
 
 
 def eval_det_metric_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2: int, k1: int, k2: int,
@@ -592,17 +592,17 @@ def eval_det_metric_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2
         Coefficients of the Y field
 
     metric_det: ndarray of floats
-        Determinant of the Jacobian on the grid.
+        Metric determinant of the Jacobian on the grid.
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
 
-    arr_x_x2 = np.zeros((k1, k2))
     arr_x_x1 = np.zeros((k1, k2))
+    arr_x_x2 = np.zeros((k1, k2))
 
-    arr_y_x2 = np.zeros((k1, k2))
     arr_y_x1 = np.zeros((k1, k2))
+    arr_y_x2 = np.zeros((k1, k2))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -610,8 +610,8 @@ def eval_det_metric_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2
         for i_cell_2 in range(nc2):
             span_2 = global_spans_2[i_cell_2]
 
-            arr_x_x2[:, :] = 0.0
             arr_x_x1[:, :] = 0.0
+            arr_x_x2[:, :] = 0.0
 
             arr_y_x1[:, :] = 0.0
             arr_y_x2[:, :] = 0.0
@@ -632,26 +632,26 @@ def eval_det_metric_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2
                             spline_2 = global_basis_2[i_cell_2, i_basis_2, 0, i_quad_2]
                             spline_x2 = global_basis_2[i_cell_2, i_basis_2, 1, i_quad_2]
 
-                            mapping_x2 = spline_1 * spline_x2
                             mapping_x1 = spline_x1 * spline_2
+                            mapping_x2 = spline_1 * spline_x2
 
                             coeff_x = arr_coeffs_x[i_basis_1, i_basis_2]
                             coeff_y = arr_coeffs_y[i_basis_1, i_basis_2]
 
-                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
                             arr_x_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_x
+                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
 
-                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
                             arr_y_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_y
+                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
 
-                    x_x2 = arr_x_x2[i_quad_1, i_quad_2]
                     x_x1 = arr_x_x1[i_quad_1, i_quad_2]
+                    x_x2 = arr_x_x2[i_quad_1, i_quad_2]
 
-                    y_x2 = arr_y_x2[i_quad_1, i_quad_2]
                     y_x1 = arr_y_x1[i_quad_1, i_quad_2]
+                    y_x2 = arr_y_x2[i_quad_1, i_quad_2]
 
                     metric_det[i_cell_1 * k1 + i_quad_1,
-                               i_cell_2 * k2 + i_quad_2] = x_x1 * y_x2 - x_x2 * y_x1
+                               i_cell_2 * k2 + i_quad_2] = (x_x1 * y_x2 - x_x2 * y_x1) ** 2
 
 
 def eval_det_metric_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: int, f_p1: int, f_p2: int,
@@ -718,7 +718,7 @@ def eval_det_metric_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: in
         Coefficients of the weight field
 
     metric_det: ndarray of floats
-        Determinant of the Jacobian on the grid
+        Metric determinant the grid
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -730,23 +730,23 @@ def eval_det_metric_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: in
     arr_y = np.zeros((k1, k2, k3))
     arr_z = np.zeros((k1, k2, k3))
 
-    arr_x_x3 = np.zeros((k1, k2, k3))
-    arr_x_x2 = np.zeros((k1, k2, k3))
     arr_x_x1 = np.zeros((k1, k2, k3))
+    arr_x_x2 = np.zeros((k1, k2, k3))
+    arr_x_x3 = np.zeros((k1, k2, k3))
 
-    arr_y_x3 = np.zeros((k1, k2, k3))
-    arr_y_x2 = np.zeros((k1, k2, k3))
     arr_y_x1 = np.zeros((k1, k2, k3))
+    arr_y_x2 = np.zeros((k1, k2, k3))
+    arr_y_x3 = np.zeros((k1, k2, k3))
 
-    arr_z_x3 = np.zeros((k1, k2, k3))
-    arr_z_x2 = np.zeros((k1, k2, k3))
     arr_z_x1 = np.zeros((k1, k2, k3))
+    arr_z_x2 = np.zeros((k1, k2, k3))
+    arr_z_x3 = np.zeros((k1, k2, k3))
 
     arr_weights = np.zeros((k1, k2, k3))
 
-    arr_weights_x3 = np.zeros((k1, k2, k3))
-    arr_weights_x2 = np.zeros((k1, k2, k3))
     arr_weights_x1 = np.zeros((k1, k2, k3))
+    arr_weights_x2 = np.zeros((k1, k2, k3))
+    arr_weights_x3 = np.zeros((k1, k2, k3))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -761,23 +761,23 @@ def eval_det_metric_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: in
                 arr_y[:, :, :] = 0.0
                 arr_z[:, :, :] = 0.0
 
-                arr_x_x3[:, :, :] = 0.0
-                arr_x_x2[:, :, :] = 0.0
                 arr_x_x1[:, :, :] = 0.0
+                arr_x_x2[:, :, :] = 0.0
+                arr_x_x3[:, :, :] = 0.0
 
-                arr_y_x3[:, :, :] = 0.0
                 arr_y_x1[:, :, :] = 0.0
                 arr_y_x2[:, :, :] = 0.0
+                arr_y_x3[:, :, :] = 0.0
 
-                arr_z_x3[:, :, :] = 0.0
-                arr_z_x2[:, :, :] = 0.0
                 arr_z_x1[:, :, :] = 0.0
+                arr_z_x2[:, :, :] = 0.0
+                arr_z_x3[:, :, :] = 0.0
 
                 arr_weights[:, :, :] = 0.0
 
-                arr_weights_x3[:, :, :] = 0.0
-                arr_weights_x2[:, :, :] = 0.0
                 arr_weights_x1[:, :, :] = 0.0
+                arr_weights_x2[:, :, :] = 0.0
+                arr_weights_x3[:, :, :] = 0.0
 
                 arr_coeffs_x[:, :, :] = global_arr_coeff_x[pad1 + span_1 - f_p1:1 + pad1 + span_1,
                                                            pad2 + span_2 - f_p2:1 + pad2 + span_2,
@@ -811,9 +811,9 @@ def eval_det_metric_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: in
                                         spline_x3 = global_basis_3[i_cell_3, i_basis_3, 1, i_quad_3]
 
                                         mapping = spline_1 * spline_2 * spline_3
-                                        mapping_x3 = spline_1 * spline_2 * spline_x3
-                                        mapping_x2 = spline_1 * spline_x2 * spline_3
                                         mapping_x1 = spline_x1 * spline_2 * spline_3
+                                        mapping_x2 = spline_1 * spline_x2 * spline_3
+                                        mapping_x3 = spline_1 * spline_2 * spline_x3
 
                                         coeff_x = arr_coeffs_x[i_basis_1, i_basis_2, i_basis_3]
                                         coeff_y = arr_coeffs_y[i_basis_1, i_basis_2, i_basis_3]
@@ -825,45 +825,45 @@ def eval_det_metric_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: in
                                         arr_y[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_y
                                         arr_z[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_z
 
-                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
-                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
                                         arr_x_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_x
+                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
+                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
 
-                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
-                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
                                         arr_y_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_y
+                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
+                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
 
-                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
-                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
                                         arr_z_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_z
+                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
+                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
 
                                         arr_weights[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_weight
 
-                                        arr_weights_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_weight
-                                        arr_weights_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_weight
                                         arr_weights_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_weight
+                                        arr_weights_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_weight
+                                        arr_weights_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_weight
 
                             x = arr_x[i_quad_1, i_quad_2, i_quad_3]
                             y = arr_y[i_quad_1, i_quad_2, i_quad_3]
                             z = arr_z[i_quad_1, i_quad_2, i_quad_3]
 
-                            x_x3 = arr_x_x3[i_quad_1, i_quad_2, i_quad_3]
-                            x_x2 = arr_x_x2[i_quad_1, i_quad_2, i_quad_3]
                             x_x1 = arr_x_x1[i_quad_1, i_quad_2, i_quad_3]
+                            x_x2 = arr_x_x2[i_quad_1, i_quad_2, i_quad_3]
+                            x_x3 = arr_x_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            y_x3 = arr_y_x3[i_quad_1, i_quad_2, i_quad_3]
-                            y_x2 = arr_y_x2[i_quad_1, i_quad_2, i_quad_3]
                             y_x1 = arr_y_x1[i_quad_1, i_quad_2, i_quad_3]
+                            y_x2 = arr_y_x2[i_quad_1, i_quad_2, i_quad_3]
+                            y_x3 = arr_y_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
-                            z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
                             z_x1 = arr_z_x1[i_quad_1, i_quad_2, i_quad_3]
+                            z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
+                            z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
 
                             weight = arr_weights[i_quad_1, i_quad_2, i_quad_3]
 
-                            weight_x3 = arr_weights_x3[i_quad_1, i_quad_2, i_quad_3]
-                            weight_x2 = arr_weights_x2[i_quad_1, i_quad_2, i_quad_3]
                             weight_x1 = arr_weights_x1[i_quad_1, i_quad_2, i_quad_3]
+                            weight_x2 = arr_weights_x2[i_quad_1, i_quad_2, i_quad_3]
+                            weight_x3 = arr_weights_x3[i_quad_1, i_quad_2, i_quad_3]
 
                             inv_weight = 1.0 / weight
 
@@ -881,12 +881,12 @@ def eval_det_metric_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: in
 
                             metric_det[i_cell_1 * k1 + i_quad_1,
                                        i_cell_2 * k2 + i_quad_2,
-                                       i_cell_3 * k3 + i_quad_3] = + x_x1 * y_x2 * z_x3 \
-                                                                   + x_x2 * y_x3 * z_x1 \
-                                                                   + x_x3 * y_x1 * z_x2 \
-                                                                   - x_x1 * y_x3 * z_x2 \
-                                                                   - x_x2 * y_x1 * z_x3 \
-                                                                   - x_x3 * y_x2 * z_x1
+                                       i_cell_3 * k3 + i_quad_3] = (+ x_x1 * y_x2 * z_x3
+                                                                    + x_x2 * y_x3 * z_x1
+                                                                    + x_x3 * y_x1 * z_x2
+                                                                    - x_x1 * y_x3 * z_x2
+                                                                    - x_x2 * y_x1 * z_x3
+                                                                    - x_x3 * y_x2 * z_x1) ** 2
 
 
 def eval_det_metric_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2: int, k1: int, k2: int,
@@ -936,7 +936,7 @@ def eval_det_metric_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: i
            Coefficients of the weights field
 
        metric_det: ndarray of floats
-           Determinant of the Jacobian on the grid
+           Metric determinant on the grid
        """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
@@ -945,11 +945,11 @@ def eval_det_metric_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: i
     arr_x = np.zeros((k1, k2))
     arr_y = np.zeros((k1, k2))
 
-    arr_x_x2 = np.zeros((k1, k2))
     arr_x_x1 = np.zeros((k1, k2))
+    arr_x_x2 = np.zeros((k1, k2))
 
-    arr_y_x2 = np.zeros((k1, k2))
     arr_y_x1 = np.zeros((k1, k2))
+    arr_y_x2 = np.zeros((k1, k2))
 
     arr_weights = np.zeros((k1, k2))
 
@@ -965,8 +965,8 @@ def eval_det_metric_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: i
             arr_x[:, :] = 0.0
             arr_y[:, :] = 0.0
 
-            arr_x_x2[:, :] = 0.0
             arr_x_x1[:, :] = 0.0
+            arr_x_x2[:, :] = 0.0
 
             arr_y_x1[:, :] = 0.0
             arr_y_x2[:, :] = 0.0
@@ -996,8 +996,8 @@ def eval_det_metric_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: i
                             spline_x2 = global_basis_2[i_cell_2, i_basis_2, 1, i_quad_2]
 
                             mapping = spline_1 * spline_2
-                            mapping_x2 = spline_1 * spline_x2
                             mapping_x1 = spline_x1 * spline_2
+                            mapping_x2 = spline_1 * spline_x2
 
                             coeff_x = arr_coeffs_x[i_basis_1, i_basis_2]
                             coeff_y = arr_coeffs_y[i_basis_1, i_basis_2]
@@ -1007,11 +1007,11 @@ def eval_det_metric_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: i
                             arr_x[i_quad_1, i_quad_2] += mapping * coeff_x
                             arr_y[i_quad_1, i_quad_2] += mapping * coeff_y
 
-                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
                             arr_x_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_x
+                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
 
-                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
                             arr_y_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_y
+                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
 
                             arr_weights[i_quad_1, i_quad_2] += mapping * coeff_weights
 
@@ -1021,11 +1021,11 @@ def eval_det_metric_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: i
                     x = arr_x[i_quad_1, i_quad_2]
                     y = arr_y[i_quad_1, i_quad_2]
 
-                    x_x2 = arr_x_x2[i_quad_1, i_quad_2]
                     x_x1 = arr_x_x1[i_quad_1, i_quad_2]
+                    x_x2 = arr_x_x2[i_quad_1, i_quad_2]
 
-                    y_x2 = arr_y_x2[i_quad_1, i_quad_2]
                     y_x1 = arr_y_x1[i_quad_1, i_quad_2]
+                    y_x2 = arr_y_x2[i_quad_1, i_quad_2]
 
                     weight = arr_weights[i_quad_1, i_quad_2]
 
@@ -1041,7 +1041,7 @@ def eval_det_metric_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: i
                     y_x2 = (y_x2 - weight_x2 * y * inv_weight) * inv_weight
 
                     metric_det[i_cell_1 * k1 + i_quad_1,
-                               i_cell_2 * k2 + i_quad_2] = x_x1 * y_x2 - x_x2 * y_x1
+                               i_cell_2 * k2 + i_quad_2] = (x_x1 * y_x2 - x_x2 * y_x1) ** 2
 
 
 def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: int, f_p1: int, f_p2: int, f_p3: int,
@@ -1110,17 +1110,17 @@ def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: 
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
 
-    arr_x_x3 = np.zeros((k1, k2, k3))
-    arr_x_x2 = np.zeros((k1, k2, k3))
     arr_x_x1 = np.zeros((k1, k2, k3))
+    arr_x_x2 = np.zeros((k1, k2, k3))
+    arr_x_x3 = np.zeros((k1, k2, k3))
 
-    arr_y_x3 = np.zeros((k1, k2, k3))
-    arr_y_x2 = np.zeros((k1, k2, k3))
     arr_y_x1 = np.zeros((k1, k2, k3))
+    arr_y_x2 = np.zeros((k1, k2, k3))
+    arr_y_x3 = np.zeros((k1, k2, k3))
 
-    arr_z_x3 = np.zeros((k1, k2, k3))
-    arr_z_x2 = np.zeros((k1, k2, k3))
     arr_z_x1 = np.zeros((k1, k2, k3))
+    arr_z_x2 = np.zeros((k1, k2, k3))
+    arr_z_x3 = np.zeros((k1, k2, k3))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -1131,17 +1131,17 @@ def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: 
             for i_cell_3 in range(nc3):
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_x_x3[:, :, :] = 0.0
-                arr_x_x2[:, :, :] = 0.0
                 arr_x_x1[:, :, :] = 0.0
+                arr_x_x2[:, :, :] = 0.0
+                arr_x_x3[:, :, :] = 0.0
 
-                arr_y_x3[:, :, :] = 0.0
                 arr_y_x1[:, :, :] = 0.0
                 arr_y_x2[:, :, :] = 0.0
+                arr_y_x3[:, :, :] = 0.0
 
-                arr_z_x3[:, :, :] = 0.0
-                arr_z_x2[:, :, :] = 0.0
                 arr_z_x1[:, :, :] = 0.0
+                arr_z_x2[:, :, :] = 0.0
+                arr_z_x3[:, :, :] = 0.0
 
                 arr_coeffs_x[:, :, :] = global_arr_coeff_x[pad1 + span_1 - f_p1:1 + pad1 + span_1,
                                                            pad2 + span_2 - f_p2:1 + pad2 + span_2,
@@ -1169,37 +1169,37 @@ def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: 
                                         spline_3 = global_basis_3[i_cell_3, i_basis_3, 0, i_quad_3]
                                         spline_x3 = global_basis_3[i_cell_3, i_basis_3, 1, i_quad_3]
 
-                                        mapping_x3 = spline_1 * spline_2 * spline_x3
-                                        mapping_x2 = spline_1 * spline_x2 * spline_3
                                         mapping_x1 = spline_x1 * spline_2 * spline_3
+                                        mapping_x2 = spline_1 * spline_x2 * spline_3
+                                        mapping_x3 = spline_1 * spline_2 * spline_x3
 
                                         coeff_x = arr_coeffs_x[i_basis_1, i_basis_2, i_basis_3]
                                         coeff_y = arr_coeffs_y[i_basis_1, i_basis_2, i_basis_3]
                                         coeff_z = arr_coeffs_z[i_basis_1, i_basis_2, i_basis_3]
 
-                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
-                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
                                         arr_x_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_x
+                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
+                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
 
-                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
-                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
                                         arr_y_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_y
+                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
+                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
 
                                         arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
                                         arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
                                         arr_z_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_z
 
-                            x_x3 = arr_x_x3[i_quad_1, i_quad_2, i_quad_3]
-                            x_x2 = arr_x_x2[i_quad_1, i_quad_2, i_quad_3]
                             x_x1 = arr_x_x1[i_quad_1, i_quad_2, i_quad_3]
+                            x_x2 = arr_x_x2[i_quad_1, i_quad_2, i_quad_3]
+                            x_x3 = arr_x_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            y_x3 = arr_y_x3[i_quad_1, i_quad_2, i_quad_3]
-                            y_x2 = arr_y_x2[i_quad_1, i_quad_2, i_quad_3]
                             y_x1 = arr_y_x1[i_quad_1, i_quad_2, i_quad_3]
+                            y_x2 = arr_y_x2[i_quad_1, i_quad_2, i_quad_3]
+                            y_x3 = arr_y_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
-                            z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
                             z_x1 = arr_z_x1[i_quad_1, i_quad_2, i_quad_3]
+                            z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
+                            z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
 
                             jacobians[i_cell_1 * k1 + i_quad_1,
                                       i_cell_2 * k2 + i_quad_2,
@@ -1258,11 +1258,11 @@ def eval_jacobians_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2:
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
 
-    arr_x_x2 = np.zeros((k1, k2))
     arr_x_x1 = np.zeros((k1, k2))
+    arr_x_x2 = np.zeros((k1, k2))
 
-    arr_y_x2 = np.zeros((k1, k2))
     arr_y_x1 = np.zeros((k1, k2))
+    arr_y_x2 = np.zeros((k1, k2))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -1270,8 +1270,8 @@ def eval_jacobians_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2:
         for i_cell_2 in range(nc2):
             span_2 = global_spans_2[i_cell_2]
 
-            arr_x_x2[:, :] = 0.0
             arr_x_x1[:, :] = 0.0
+            arr_x_x2[:, :] = 0.0
 
             arr_y_x1[:, :] = 0.0
             arr_y_x2[:, :] = 0.0
@@ -1292,23 +1292,23 @@ def eval_jacobians_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2:
                             spline_2 = global_basis_2[i_cell_2, i_basis_2, 0, i_quad_2]
                             spline_x2 = global_basis_2[i_cell_2, i_basis_2, 1, i_quad_2]
 
-                            mapping_x2 = spline_1 * spline_x2
                             mapping_x1 = spline_x1 * spline_2
+                            mapping_x2 = spline_1 * spline_x2
 
                             coeff_x = arr_coeffs_x[i_basis_1, i_basis_2]
                             coeff_y = arr_coeffs_y[i_basis_1, i_basis_2]
 
-                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
                             arr_x_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_x
+                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
 
-                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
                             arr_y_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_y
+                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
 
-                    x_x2 = arr_x_x2[i_quad_1, i_quad_2]
                     x_x1 = arr_x_x1[i_quad_1, i_quad_2]
+                    x_x2 = arr_x_x2[i_quad_1, i_quad_2]
 
-                    y_x2 = arr_y_x2[i_quad_1, i_quad_2]
                     y_x1 = arr_y_x1[i_quad_1, i_quad_2]
+                    y_x2 = arr_y_x2[i_quad_1, i_quad_2]
 
                     jacobians[i_cell_1 * k1 + i_quad_1,
                               i_cell_2 * k2 + i_quad_2,
@@ -1392,23 +1392,23 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int
     arr_y = np.zeros((k1, k2, k3))
     arr_z = np.zeros((k1, k2, k3))
 
-    arr_x_x3 = np.zeros((k1, k2, k3))
-    arr_x_x2 = np.zeros((k1, k2, k3))
     arr_x_x1 = np.zeros((k1, k2, k3))
+    arr_x_x2 = np.zeros((k1, k2, k3))
+    arr_x_x3 = np.zeros((k1, k2, k3))
 
-    arr_y_x3 = np.zeros((k1, k2, k3))
-    arr_y_x2 = np.zeros((k1, k2, k3))
     arr_y_x1 = np.zeros((k1, k2, k3))
+    arr_y_x2 = np.zeros((k1, k2, k3))
+    arr_y_x3 = np.zeros((k1, k2, k3))
 
-    arr_z_x3 = np.zeros((k1, k2, k3))
-    arr_z_x2 = np.zeros((k1, k2, k3))
     arr_z_x1 = np.zeros((k1, k2, k3))
+    arr_z_x2 = np.zeros((k1, k2, k3))
+    arr_z_x3 = np.zeros((k1, k2, k3))
 
     arr_weights = np.zeros((k1, k2, k3))
 
-    arr_weights_x3 = np.zeros((k1, k2, k3))
-    arr_weights_x2 = np.zeros((k1, k2, k3))
     arr_weights_x1 = np.zeros((k1, k2, k3))
+    arr_weights_x2 = np.zeros((k1, k2, k3))
+    arr_weights_x3 = np.zeros((k1, k2, k3))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -1423,23 +1423,23 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int
                 arr_y[:, :, :] = 0.0
                 arr_z[:, :, :] = 0.0
 
-                arr_x_x3[:, :, :] = 0.0
-                arr_x_x2[:, :, :] = 0.0
                 arr_x_x1[:, :, :] = 0.0
+                arr_x_x2[:, :, :] = 0.0
+                arr_x_x3[:, :, :] = 0.0
 
-                arr_y_x3[:, :, :] = 0.0
                 arr_y_x1[:, :, :] = 0.0
                 arr_y_x2[:, :, :] = 0.0
+                arr_y_x3[:, :, :] = 0.0
 
-                arr_z_x3[:, :, :] = 0.0
-                arr_z_x2[:, :, :] = 0.0
                 arr_z_x1[:, :, :] = 0.0
+                arr_z_x2[:, :, :] = 0.0
+                arr_z_x3[:, :, :] = 0.0
 
                 arr_weights[:, :, :] = 0.0
 
-                arr_weights_x3[:, :, :] = 0.0
-                arr_weights_x2[:, :, :] = 0.0
                 arr_weights_x1[:, :, :] = 0.0
+                arr_weights_x2[:, :, :] = 0.0
+                arr_weights_x3[:, :, :] = 0.0
 
                 arr_coeffs_x[:, :, :] = global_arr_coeff_x[pad1 + span_1 - f_p1:1 + pad1 + span_1,
                                                            pad2 + span_2 - f_p2:1 + pad2 + span_2,
@@ -1473,9 +1473,9 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int
                                         spline_x3 = global_basis_3[i_cell_3, i_basis_3, 1, i_quad_3]
 
                                         mapping = spline_1 * spline_2 * spline_3
-                                        mapping_x3 = spline_1 * spline_2 * spline_x3
-                                        mapping_x2 = spline_1 * spline_x2 * spline_3
                                         mapping_x1 = spline_x1 * spline_2 * spline_3
+                                        mapping_x2 = spline_1 * spline_x2 * spline_3
+                                        mapping_x3 = spline_1 * spline_2 * spline_x3
 
                                         coeff_x = arr_coeffs_x[i_basis_1, i_basis_2, i_basis_3]
                                         coeff_y = arr_coeffs_y[i_basis_1, i_basis_2, i_basis_3]
@@ -1487,45 +1487,45 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int
                                         arr_y[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_y
                                         arr_z[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_z
 
-                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
-                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
                                         arr_x_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_x
+                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
+                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
 
-                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
-                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
                                         arr_y_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_y
+                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
+                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
 
-                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
-                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
                                         arr_z_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_z
+                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
+                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
 
                                         arr_weights[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_weight
 
-                                        arr_weights_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_weight
-                                        arr_weights_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_weight
                                         arr_weights_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_weight
+                                        arr_weights_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_weight
+                                        arr_weights_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_weight
 
                             x = arr_x[i_quad_1, i_quad_2, i_quad_3]
                             y = arr_y[i_quad_1, i_quad_2, i_quad_3]
                             z = arr_z[i_quad_1, i_quad_2, i_quad_3]
 
-                            x_x3 = arr_x_x3[i_quad_1, i_quad_2, i_quad_3]
-                            x_x2 = arr_x_x2[i_quad_1, i_quad_2, i_quad_3]
                             x_x1 = arr_x_x1[i_quad_1, i_quad_2, i_quad_3]
+                            x_x2 = arr_x_x2[i_quad_1, i_quad_2, i_quad_3]
+                            x_x3 = arr_x_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            y_x3 = arr_y_x3[i_quad_1, i_quad_2, i_quad_3]
-                            y_x2 = arr_y_x2[i_quad_1, i_quad_2, i_quad_3]
                             y_x1 = arr_y_x1[i_quad_1, i_quad_2, i_quad_3]
+                            y_x2 = arr_y_x2[i_quad_1, i_quad_2, i_quad_3]
+                            y_x3 = arr_y_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
-                            z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
                             z_x1 = arr_z_x1[i_quad_1, i_quad_2, i_quad_3]
+                            z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
+                            z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
 
                             weight = arr_weights[i_quad_1, i_quad_2, i_quad_3]
 
-                            weight_x3 = arr_weights_x3[i_quad_1, i_quad_2, i_quad_3]
-                            weight_x2 = arr_weights_x2[i_quad_1, i_quad_2, i_quad_3]
                             weight_x1 = arr_weights_x1[i_quad_1, i_quad_2, i_quad_3]
+                            weight_x2 = arr_weights_x2[i_quad_1, i_quad_2, i_quad_3]
+                            weight_x3 = arr_weights_x3[i_quad_1, i_quad_2, i_quad_3]
 
                             inv_weight = 1.0 / weight
 
@@ -1605,11 +1605,11 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: in
     arr_x = np.zeros((k1, k2))
     arr_y = np.zeros((k1, k2))
 
-    arr_x_x2 = np.zeros((k1, k2))
     arr_x_x1 = np.zeros((k1, k2))
+    arr_x_x2 = np.zeros((k1, k2))
 
-    arr_y_x2 = np.zeros((k1, k2))
     arr_y_x1 = np.zeros((k1, k2))
+    arr_y_x2 = np.zeros((k1, k2))
 
     arr_weights = np.zeros((k1, k2))
 
@@ -1625,8 +1625,8 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: in
             arr_x[:, :] = 0.0
             arr_y[:, :] = 0.0
 
-            arr_x_x2[:, :] = 0.0
             arr_x_x1[:, :] = 0.0
+            arr_x_x2[:, :] = 0.0
 
             arr_y_x1[:, :] = 0.0
             arr_y_x2[:, :] = 0.0
@@ -1656,8 +1656,8 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: in
                             spline_x2 = global_basis_2[i_cell_2, i_basis_2, 1, i_quad_2]
 
                             mapping = spline_1 * spline_2
-                            mapping_x2 = spline_1 * spline_x2
                             mapping_x1 = spline_x1 * spline_2
+                            mapping_x2 = spline_1 * spline_x2
 
                             coeff_x = arr_coeffs_x[i_basis_1, i_basis_2]
                             coeff_y = arr_coeffs_y[i_basis_1, i_basis_2]
@@ -1667,11 +1667,11 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: in
                             arr_x[i_quad_1, i_quad_2] += mapping * coeff_x
                             arr_y[i_quad_1, i_quad_2] += mapping * coeff_y
 
-                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
                             arr_x_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_x
+                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
 
-                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
                             arr_y_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_y
+                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
 
                             arr_weights[i_quad_1, i_quad_2] += mapping * coeff_weights
 
@@ -1681,11 +1681,11 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: in
                     x = arr_x[i_quad_1, i_quad_2]
                     y = arr_y[i_quad_1, i_quad_2]
 
-                    x_x2 = arr_x_x2[i_quad_1, i_quad_2]
                     x_x1 = arr_x_x1[i_quad_1, i_quad_2]
+                    x_x2 = arr_x_x2[i_quad_1, i_quad_2]
 
-                    y_x2 = arr_y_x2[i_quad_1, i_quad_2]
                     y_x1 = arr_y_x1[i_quad_1, i_quad_2]
+                    y_x2 = arr_y_x2[i_quad_1, i_quad_2]
 
                     weight = arr_weights[i_quad_1, i_quad_2]
 
@@ -1773,17 +1773,17 @@ def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pa
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
 
-    arr_x_x3 = np.zeros((k1, k2, k3))
-    arr_x_x2 = np.zeros((k1, k2, k3))
     arr_x_x1 = np.zeros((k1, k2, k3))
+    arr_x_x2 = np.zeros((k1, k2, k3))
+    arr_x_x3 = np.zeros((k1, k2, k3))
 
-    arr_y_x3 = np.zeros((k1, k2, k3))
-    arr_y_x2 = np.zeros((k1, k2, k3))
     arr_y_x1 = np.zeros((k1, k2, k3))
+    arr_y_x2 = np.zeros((k1, k2, k3))
+    arr_y_x3 = np.zeros((k1, k2, k3))
 
-    arr_z_x3 = np.zeros((k1, k2, k3))
-    arr_z_x2 = np.zeros((k1, k2, k3))
     arr_z_x1 = np.zeros((k1, k2, k3))
+    arr_z_x2 = np.zeros((k1, k2, k3))
+    arr_z_x3 = np.zeros((k1, k2, k3))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -1794,17 +1794,17 @@ def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pa
             for i_cell_3 in range(nc3):
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_x_x3[:, :, :] = 0.0
-                arr_x_x2[:, :, :] = 0.0
                 arr_x_x1[:, :, :] = 0.0
+                arr_x_x2[:, :, :] = 0.0
+                arr_x_x3[:, :, :] = 0.0
 
-                arr_y_x3[:, :, :] = 0.0
                 arr_y_x1[:, :, :] = 0.0
                 arr_y_x2[:, :, :] = 0.0
+                arr_y_x3[:, :, :] = 0.0
 
-                arr_z_x3[:, :, :] = 0.0
-                arr_z_x2[:, :, :] = 0.0
                 arr_z_x1[:, :, :] = 0.0
+                arr_z_x2[:, :, :] = 0.0
+                arr_z_x3[:, :, :] = 0.0
 
                 arr_coeffs_x[:, :, :] = global_arr_coeff_x[pad1 + span_1 - f_p1:1 + pad1 + span_1,
                                                            pad2 + span_2 - f_p2:1 + pad2 + span_2,
@@ -1832,37 +1832,37 @@ def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pa
                                         spline_3 = global_basis_3[i_cell_3, i_basis_3, 0, i_quad_3]
                                         spline_x3 = global_basis_3[i_cell_3, i_basis_3, 1, i_quad_3]
 
-                                        mapping_x3 = spline_1 * spline_2 * spline_x3
-                                        mapping_x2 = spline_1 * spline_x2 * spline_3
                                         mapping_x1 = spline_x1 * spline_2 * spline_3
+                                        mapping_x2 = spline_1 * spline_x2 * spline_3
+                                        mapping_x3 = spline_1 * spline_2 * spline_x3
 
                                         coeff_x = arr_coeffs_x[i_basis_1, i_basis_2, i_basis_3]
                                         coeff_y = arr_coeffs_y[i_basis_1, i_basis_2, i_basis_3]
                                         coeff_z = arr_coeffs_z[i_basis_1, i_basis_2, i_basis_3]
 
-                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
-                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
                                         arr_x_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_x
+                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
+                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
 
-                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
-                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
                                         arr_y_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_y
+                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
+                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
 
-                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
-                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
                                         arr_z_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_z
+                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
+                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
 
-                            x_x3 = arr_x_x3[i_quad_1, i_quad_2, i_quad_3]
-                            x_x2 = arr_x_x2[i_quad_1, i_quad_2, i_quad_3]
                             x_x1 = arr_x_x1[i_quad_1, i_quad_2, i_quad_3]
+                            x_x2 = arr_x_x2[i_quad_1, i_quad_2, i_quad_3]
+                            x_x3 = arr_x_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            y_x3 = arr_y_x3[i_quad_1, i_quad_2, i_quad_3]
-                            y_x2 = arr_y_x2[i_quad_1, i_quad_2, i_quad_3]
                             y_x1 = arr_y_x1[i_quad_1, i_quad_2, i_quad_3]
+                            y_x2 = arr_y_x2[i_quad_1, i_quad_2, i_quad_3]
+                            y_x3 = arr_y_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
-                            z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
                             z_x1 = arr_z_x1[i_quad_1, i_quad_2, i_quad_3]
+                            z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
+                            z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
 
                             det = x_x1 * y_x2 * z_x3 + x_x2 * y_x3 * z_x1 + x_x3 * y_x1 * z_x2 \
                                   - x_x1 * y_x3 * z_x2 - x_x2 * y_x1 * z_x3 - x_x3 * y_x2 * z_x1
@@ -1936,11 +1936,11 @@ def eval_jacobians_inv_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
 
-    arr_x_x2 = np.zeros((k1, k2))
     arr_x_x1 = np.zeros((k1, k2))
+    arr_x_x2 = np.zeros((k1, k2))
 
-    arr_y_x2 = np.zeros((k1, k2))
     arr_y_x1 = np.zeros((k1, k2))
+    arr_y_x2 = np.zeros((k1, k2))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -1948,8 +1948,8 @@ def eval_jacobians_inv_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f
         for i_cell_2 in range(nc2):
             span_2 = global_spans_2[i_cell_2]
 
-            arr_x_x2[:, :] = 0.0
             arr_x_x1[:, :] = 0.0
+            arr_x_x2[:, :] = 0.0
 
             arr_y_x1[:, :] = 0.0
             arr_y_x2[:, :] = 0.0
@@ -1970,23 +1970,23 @@ def eval_jacobians_inv_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f
                             spline_2 = global_basis_2[i_cell_2, i_basis_2, 0, i_quad_2]
                             spline_x2 = global_basis_2[i_cell_2, i_basis_2, 1, i_quad_2]
 
-                            mapping_x2 = spline_1 * spline_x2
                             mapping_x1 = spline_x1 * spline_2
+                            mapping_x2 = spline_1 * spline_x2
 
                             coeff_x = arr_coeffs_x[i_basis_1, i_basis_2]
                             coeff_y = arr_coeffs_y[i_basis_1, i_basis_2]
 
-                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
                             arr_x_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_x
+                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
 
-                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
                             arr_y_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_y
+                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
 
-                    x_x2 = arr_x_x2[i_quad_1, i_quad_2]
                     x_x1 = arr_x_x1[i_quad_1, i_quad_2]
+                    x_x2 = arr_x_x2[i_quad_1, i_quad_2]
 
-                    y_x2 = arr_y_x2[i_quad_1, i_quad_2]
                     y_x1 = arr_y_x1[i_quad_1, i_quad_2]
+                    y_x2 = arr_y_x2[i_quad_1, i_quad_2]
 
                     det = x_x1 * y_x2 - x_x2 * y_x1
 
@@ -2072,23 +2072,23 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2:
     arr_y = np.zeros((k1, k2, k3))
     arr_z = np.zeros((k1, k2, k3))
 
-    arr_x_x3 = np.zeros((k1, k2, k3))
-    arr_x_x2 = np.zeros((k1, k2, k3))
     arr_x_x1 = np.zeros((k1, k2, k3))
+    arr_x_x2 = np.zeros((k1, k2, k3))
+    arr_x_x3 = np.zeros((k1, k2, k3))
 
-    arr_y_x3 = np.zeros((k1, k2, k3))
-    arr_y_x2 = np.zeros((k1, k2, k3))
     arr_y_x1 = np.zeros((k1, k2, k3))
+    arr_y_x2 = np.zeros((k1, k2, k3))
+    arr_y_x3 = np.zeros((k1, k2, k3))
 
-    arr_z_x3 = np.zeros((k1, k2, k3))
-    arr_z_x2 = np.zeros((k1, k2, k3))
     arr_z_x1 = np.zeros((k1, k2, k3))
+    arr_z_x2 = np.zeros((k1, k2, k3))
+    arr_z_x3 = np.zeros((k1, k2, k3))
 
     arr_weights = np.zeros((k1, k2, k3))
 
-    arr_weights_x3 = np.zeros((k1, k2, k3))
-    arr_weights_x2 = np.zeros((k1, k2, k3))
     arr_weights_x1 = np.zeros((k1, k2, k3))
+    arr_weights_x2 = np.zeros((k1, k2, k3))
+    arr_weights_x3 = np.zeros((k1, k2, k3))
 
     for i_cell_1 in range(nc1):
         span_1 = global_spans_1[i_cell_1]
@@ -2103,23 +2103,23 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2:
                 arr_y[:, :, :] = 0.0
                 arr_z[:, :, :] = 0.0
 
-                arr_x_x3[:, :, :] = 0.0
-                arr_x_x2[:, :, :] = 0.0
                 arr_x_x1[:, :, :] = 0.0
+                arr_x_x2[:, :, :] = 0.0
+                arr_x_x3[:, :, :] = 0.0
 
-                arr_y_x3[:, :, :] = 0.0
                 arr_y_x1[:, :, :] = 0.0
-                arr_y_x2[:, :, :] = 0.0
+                arr_y_x1[:, :, :] = 0.0
+                arr_y_x3[:, :, :] = 0.0
 
-                arr_z_x3[:, :, :] = 0.0
-                arr_z_x2[:, :, :] = 0.0
                 arr_z_x1[:, :, :] = 0.0
+                arr_z_x2[:, :, :] = 0.0
+                arr_z_x3[:, :, :] = 0.0
 
                 arr_weights[:, :, :] = 0.0
 
-                arr_weights_x3[:, :, :] = 0.0
-                arr_weights_x2[:, :, :] = 0.0
                 arr_weights_x1[:, :, :] = 0.0
+                arr_weights_x2[:, :, :] = 0.0
+                arr_weights_x3[:, :, :] = 0.0
 
                 arr_coeffs_x[:, :, :] = global_arr_coeff_x[pad1 + span_1 - f_p1:1 + pad1 + span_1,
                                                            pad2 + span_2 - f_p2:1 + pad2 + span_2,
@@ -2153,9 +2153,9 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2:
                                         spline_x3 = global_basis_3[i_cell_3, i_basis_3, 1, i_quad_3]
 
                                         mapping = spline_1 * spline_2 * spline_3
-                                        mapping_x3 = spline_1 * spline_2 * spline_x3
-                                        mapping_x2 = spline_1 * spline_x2 * spline_3
                                         mapping_x1 = spline_x1 * spline_2 * spline_3
+                                        mapping_x2 = spline_1 * spline_x2 * spline_3
+                                        mapping_x3 = spline_1 * spline_2 * spline_x3
 
                                         coeff_x = arr_coeffs_x[i_basis_1, i_basis_2, i_basis_3]
                                         coeff_y = arr_coeffs_y[i_basis_1, i_basis_2, i_basis_3]
@@ -2167,45 +2167,45 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2:
                                         arr_y[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_y
                                         arr_z[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_z
 
-                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
-                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
                                         arr_x_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_x
+                                        arr_x_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_x
+                                        arr_x_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_x
 
-                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
-                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
                                         arr_y_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_y
+                                        arr_y_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_y
+                                        arr_y_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_y
 
-                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
-                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
                                         arr_z_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_z
+                                        arr_z_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_z
+                                        arr_z_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_z
 
                                         arr_weights[i_quad_1, i_quad_2, i_quad_3] += mapping * coeff_weight
 
-                                        arr_weights_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_weight
-                                        arr_weights_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_weight
                                         arr_weights_x1[i_quad_1, i_quad_2, i_quad_3] += mapping_x1 * coeff_weight
+                                        arr_weights_x2[i_quad_1, i_quad_2, i_quad_3] += mapping_x2 * coeff_weight
+                                        arr_weights_x3[i_quad_1, i_quad_2, i_quad_3] += mapping_x3 * coeff_weight
 
                             x = arr_x[i_quad_1, i_quad_2, i_quad_3]
                             y = arr_y[i_quad_1, i_quad_2, i_quad_3]
                             z = arr_z[i_quad_1, i_quad_2, i_quad_3]
 
-                            x_x3 = arr_x_x3[i_quad_1, i_quad_2, i_quad_3]
-                            x_x2 = arr_x_x2[i_quad_1, i_quad_2, i_quad_3]
                             x_x1 = arr_x_x1[i_quad_1, i_quad_2, i_quad_3]
+                            x_x2 = arr_x_x2[i_quad_1, i_quad_2, i_quad_3]
+                            x_x3 = arr_x_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            y_x3 = arr_y_x3[i_quad_1, i_quad_2, i_quad_3]
-                            y_x2 = arr_y_x2[i_quad_1, i_quad_2, i_quad_3]
                             y_x1 = arr_y_x1[i_quad_1, i_quad_2, i_quad_3]
+                            y_x2 = arr_y_x2[i_quad_1, i_quad_2, i_quad_3]
+                            y_x3 = arr_y_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
-                            z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
                             z_x1 = arr_z_x1[i_quad_1, i_quad_2, i_quad_3]
+                            z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
+                            z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
 
                             weight = arr_weights[i_quad_1, i_quad_2, i_quad_3]
 
-                            weight_x3 = arr_weights_x3[i_quad_1, i_quad_2, i_quad_3]
-                            weight_x2 = arr_weights_x2[i_quad_1, i_quad_2, i_quad_3]
                             weight_x1 = arr_weights_x1[i_quad_1, i_quad_2, i_quad_3]
+                            weight_x2 = arr_weights_x2[i_quad_1, i_quad_2, i_quad_3]
+                            weight_x3 = arr_weights_x3[i_quad_1, i_quad_2, i_quad_3]
 
                             inv_weight = 1.0 / weight
 
@@ -2300,11 +2300,11 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1
     arr_x = np.zeros((k1, k2))
     arr_y = np.zeros((k1, k2))
 
-    arr_x_x2 = np.zeros((k1, k2))
     arr_x_x1 = np.zeros((k1, k2))
+    arr_x_x2 = np.zeros((k1, k2))
 
-    arr_y_x2 = np.zeros((k1, k2))
     arr_y_x1 = np.zeros((k1, k2))
+    arr_y_x2 = np.zeros((k1, k2))
 
     arr_weights = np.zeros((k1, k2))
 
@@ -2320,8 +2320,8 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1
             arr_x[:, :] = 0.0
             arr_y[:, :] = 0.0
 
-            arr_x_x2[:, :] = 0.0
             arr_x_x1[:, :] = 0.0
+            arr_x_x2[:, :] = 0.0
 
             arr_y_x1[:, :] = 0.0
             arr_y_x2[:, :] = 0.0
@@ -2351,8 +2351,8 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1
                             spline_x2 = global_basis_2[i_cell_2, i_basis_2, 1, i_quad_2]
 
                             mapping = spline_1 * spline_2
-                            mapping_x2 = spline_1 * spline_x2
                             mapping_x1 = spline_x1 * spline_2
+                            mapping_x2 = spline_1 * spline_x2
 
                             coeff_x = arr_coeffs_x[i_basis_1, i_basis_2]
                             coeff_y = arr_coeffs_y[i_basis_1, i_basis_2]
@@ -2362,11 +2362,11 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1
                             arr_x[i_quad_1, i_quad_2] += mapping * coeff_x
                             arr_y[i_quad_1, i_quad_2] += mapping * coeff_y
 
-                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
                             arr_x_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_x
+                            arr_x_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_x
 
-                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
                             arr_y_x1[i_quad_1, i_quad_2] += mapping_x1 * coeff_y
+                            arr_y_x2[i_quad_1, i_quad_2] += mapping_x2 * coeff_y
 
                             arr_weights[i_quad_1, i_quad_2] += mapping * coeff_weights
 
@@ -2376,11 +2376,11 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1
                     x = arr_x[i_quad_1, i_quad_2]
                     y = arr_y[i_quad_1, i_quad_2]
 
-                    x_x2 = arr_x_x2[i_quad_1, i_quad_2]
                     x_x1 = arr_x_x1[i_quad_1, i_quad_2]
+                    x_x2 = arr_x_x2[i_quad_1, i_quad_2]
 
-                    y_x2 = arr_y_x2[i_quad_1, i_quad_2]
                     y_x1 = arr_y_x1[i_quad_1, i_quad_2]
+                    y_x2 = arr_y_x2[i_quad_1, i_quad_2]
 
                     weight = arr_weights[i_quad_1, i_quad_2]
 
