@@ -2417,7 +2417,7 @@ def pushforward_2d_l2(fields_to_push: 'float[:,:,:]', dets: 'float[:,:]', pushed
         Field values to push forward on the mapping
 
     dets: ndarray
-        Values of the determinant of the Jacobians of the Mapping
+        Values of the metric determinant of the Mapping
 
     pushed_fields: ndarray
         Push forwarded fields
@@ -2438,7 +2438,7 @@ def pushforward_3d_l2(fields_to_push: 'float[:,:,:,:]', dets: 'float[:,:,:]', pu
         Field values to push forward on the mapping
 
     dets: ndarray
-        Values of the determinant of the Jacobians of the Mapping
+        Values of the metric determinant of the Mapping
 
     pushed_fields: ndarray
         Push forwarded fields
