@@ -256,6 +256,7 @@ def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n
     right = np.empty(degree)
     ndu   = np.empty((degree+1, degree+1))
     a     = np.empty((2, degree+1))
+    temp_d = np.empty((1, 1))
     # Number of derivatives that need to be effectively computed
     # Derivatives higher than degree are = 0.
     ne = min(n, degree)
@@ -298,8 +299,8 @@ def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n
             j2 = k-1 if (r-1 <= pk) else degree-r
 
             a[s2, j1:j2 + 1] = (a[s1, j1:j2 + 1] - a[s1, j1 - 1:j2]) * ndu[pk + 1, rk + j1:rk + j2 + 1]
-            d += np.matmul(a[s2:s2 + 1, j1:j2 + 1], ndu[rk + j1:rk + j2 + 1, pk: pk + 1])
-
+            temp_d[:, :] = np.matmul(a[s2:s2 + 1, j1:j2 + 1], ndu[rk + j1:rk + j2 + 1, pk: pk + 1])
+            d+= temp_d[0, 0]
             if r <= pk:
                a[s2, k] = - a[s1, k - 1] * ndu[pk + 1, r]
                d += a[s2, k] * ndu[r, pk]
@@ -481,10 +482,9 @@ def histopolation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, norma
     nx = len(xgrid)
 
     # In periodic case, make sure that evaluation points include domain boundaries
-
+    xgrid_new = np.zeros(len(xgrid) + 2)
+    actual_len = len(xgrid)
     if periodic:
-        xgrid_new = np.zeros(len(xgrid) + 2)
-        actual_len = len(xgrid)
         if check_boundary:
             xmin = knots[degree]
             xmax = knots[len(knots) - 1 - degree]
@@ -509,127 +509,78 @@ def histopolation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, norma
 
         else:
             xgrid_new[:-2] = xgrid
+    else:
+        xgrid_new[:-2] = xgrid
 
-        # B-splines of degree p+1: basis[i,j] := Bj(xi)
+    # B-splines of degree p+1: basis[i,j] := Bj(xi)
 
-        # NOTES:
-        #  . cannot use M-splines in analytical formula for histopolation matrix
-        #  . always use non-periodic splines to avoid circulant matrix structure
-        nb_elevated = len(elevated_knots) - (degree + 1) - 1
-        colloc = np.zeros((actual_len, nb_elevated))
-        collocation_matrix_p(elevated_knots,
-                             degree + 1,
-                             False,
-                             False,
-                             xgrid_new[:actual_len],
-                             colloc)
+    # NOTES:
+    #  . cannot use M-splines in analytical formula for histopolation matrix
+    #  . always use non-periodic splines to avoid circulant matrix structure
+    nb_elevated = len(elevated_knots) - (degree + 1) - 1
+    colloc = np.zeros((actual_len, nb_elevated))
+    collocation_matrix_p(elevated_knots,
+                            degree + 1,
+                            False,
+                            False,
+                            xgrid_new[:actual_len],
+                            colloc)
 
-        m = colloc.shape[0] - 1
-        n = colloc.shape[1] - 1
+    m = colloc.shape[0] - 1
+    n = colloc.shape[1] - 1
 
-        spans = np.zeros(colloc.shape[0], dtype=int)
-        for i in range(colloc.shape[0]):
-            local_span = 0
-            for j in range(colloc.shape[1]):
-                if abs(colloc[i, j]) != 0:
-                    local_span = j
-                    break
-            spans[i] = local_span + degree + 1
+    spans = np.zeros(colloc.shape[0], dtype=int)
+    for i in range(colloc.shape[0]):
+        local_span = 0
+        for j in range(colloc.shape[1]):
+            if abs(colloc[i, j]) != 0:
+                local_span = j
+                break
+        spans[i] = local_span + degree + 1
 
-        # Compute histopolation matrix from collocation matrix of higher degree
-        H = np.zeros((m, n))
-        if normalization:
-            for i in range(m):
-                # Indices of first/last non-zero elements in row of collocation matrix
-                jstart = spans[i] - (degree + 1)
-                jend = min(spans[i + 1], n)
-                # Compute non-zero values of histopolation matrix
-                for j in range(1 + jstart, jend + 1):
-                    s = np.sum(colloc[i, 0:j]) - np.sum(colloc[i + 1, 0:j])
-                    H[i, j - 1] = s
+    # Compute histopolation matrix from collocation matrix of higher degree
+    if periodic:
+        temp_array = np.zeros((m, n))
+        H = temp_array[:, :]
+    else:
+        H = out[:, :]
 
-        else:
-            integrals = np.zeros(knots.shape[0] - degree - 1)
-            basis_integrals_p(knots, degree, integrals)
-            for i in range(m):
-                # Indices of first/last non-zero elements in row of collocation matrix
-                jstart = spans[i] - (degree + 1)
-                jend = min(spans[i + 1], n)
-                # Compute non-zero values of histopolation matrix
-                for j in range(1 + jstart, jend + 1):
-                    s = np.sum(colloc[i, 0:j]) - np.sum(colloc[i + 1, 0:j])
-                    H[i, j - 1] = s * integrals[j - 1]
-
-        # Mitigate round-off errors
+    if normalization:
         for i in range(m):
-            for j in range(n):
-                if abs(H[i, j]) < 1e-14:
-                    H[i, j] = 0.0
+            # Indices of first/last non-zero elements in row of collocation matrix
+            jstart = spans[i] - (degree + 1)
+            jend = min(spans[i + 1], n)
+            # Compute non-zero values of histopolation matrix
+            for j in range(1 + jstart, jend + 1):
+                s = np.sum(colloc[i, 0:j]) - np.sum(colloc[i + 1, 0:j])
+                H[i, j - 1] = s
 
+    else:
+        integrals = np.zeros(knots.shape[0] - degree - 1)
+        basis_integrals_p(knots, degree, integrals)
+        for i in range(m):
+            # Indices of first/last non-zero elements in row of collocation matrix
+            jstart = spans[i] - (degree + 1)
+            jend = min(spans[i + 1], n)
+            # Compute non-zero values of histopolation matrix
+            for j in range(1 + jstart, jend + 1):
+                s = np.sum(colloc[i, 0:j]) - np.sum(colloc[i + 1, 0:j])
+                H[i, j - 1] = s * integrals[j - 1]
+
+    # Mitigate round-off errors
+    for i in range(m):
+        for j in range(n):
+            if abs(H[i, j]) < 1e-14:
+                H[i, j] = 0.0
+
+    # Non periodic case: Stop here
+    if periodic:
         # Periodic case: wrap around histopolation matrix
         #  1. identify repeated basis functions (sum columns)
         #  2. identify split interval (sum rows)
         for i in range(m):
             for j in range(n):
                 out[i % nx, j % nb] += H[i, j]
-
-    else:
-
-        # B-splines of degree p+1: basis[i,j] := Bj(xi)
-
-        # NOTES:
-        #  . cannot use M-splines in analytical formula for histopolation matrix
-        #  . always use non-periodic splines to avoid circulant matrix structure
-        nb_elevated = len(elevated_knots) - (degree + 1) - 1
-        colloc = np.zeros((nx, nb_elevated))
-        collocation_matrix_p(elevated_knots,
-                             degree + 1,
-                             False,
-                             False,
-                             xgrid,
-                             colloc)
-
-        spans = np.zeros(colloc.shape[0], dtype=int)
-        for i in range(colloc.shape[0]):
-            local_span = 0
-            for j in range(colloc.shape[1]):
-                if abs(colloc[i, j]) != 0:
-                    local_span = j
-                    break
-            spans[i] = local_span + degree + 1
-
-        m = colloc.shape[0] - 1
-        n = colloc.shape[1] - 1
-        # Compute histopolation matrix from collocation matrix of higher degree
-        if normalization:
-            for i in range(m):
-                # Indices of first/last non-zero elements in row of collocation matrix
-                jstart = spans[i] - (degree + 1)
-                jend = min(spans[i + 1], n)
-                # Compute non-zero values of histopolation matrix
-                for j in range(1 + jstart, jend + 1):
-                    s = np.sum(colloc[i, 0:j]) - np.sum(colloc[i + 1, 0:j])
-                    out[i, j - 1] = s
-
-        else:
-            integrals = np.zeros(knots.shape[0] - degree - 1)
-            basis_integrals_p(knots, degree, integrals)
-            for i in range(m):
-                # Indices of first/last non-zero elements in row of collocation matrix
-                jstart = spans[i] - (degree + 1)
-                jend = min(spans[i + 1], n)
-                # Compute non-zero values of histopolation matrix
-                for j in range(1 + jstart, jend + 1):
-                    s = np.sum(colloc[i, 0:j]) - np.sum(colloc[i + 1, 0:j])
-                    out[i, j - 1] = s * integrals[j - 1]
-
-        # Mitigate round-off errors
-        for i in range(m):
-            for j in range(n):
-                if abs(out[i, j]) < 1e-14:
-                    out[i, j] = 0.0
-
-            # Non periodic case: stop here
 
 
 # =============================================================================
@@ -1037,4 +988,5 @@ def basis_ders_on_quad_grid_p(knots: 'float[:]', degree: int, quad_grid: 'float[
             basis_funs_all_ders_p(knots, degree, xq, span, nders, False, ders)
             if normalization:
                 ders *= scaling[span - degree:span + 1]
-            out[ie, :, :, iq] = ders.T
+            for id in range(degree + 1):
+                out[ie, id, :, iq] = ders[:, id]
