@@ -165,11 +165,8 @@ class OutputManager:
         return dict([(name, space) for name, space in zip(self._spaces[1::2], self._spaces[0::2])])
 
     def set_static(self):
-        """Set the export to static mode
+        """Sets the export to static mode
 
-        Returns
-        -------
-        self
         """
         if self.is_static:
             return self
@@ -184,10 +181,8 @@ class OutputManager:
         else:
             self._current_hdf5_group = file_fields['static']
 
-        return self
-
     def add_snapshot(self, t, ts):
-        """Add a snapshot to the fields' HDF5 file
+        """Adds a snapshot to the fields' HDF5 file
         and set the export mode to time dependent.
 
         Parameters
@@ -196,10 +191,6 @@ class OutputManager:
             Floating point time of the snapshot
         ts : int
             Time step of the snapshot
-
-        Returns
-        -------
-        self
         """
         self.is_static = False
 
@@ -238,7 +229,7 @@ class OutputManager:
                 self._add_scalar_space(femspace, name=name)
 
     def _add_scalar_space(self, scalar_space, name=None, dim=None, patch_name=None, kind=None):
-        """Add a scalar space to the scope of this instance of OutputManager
+        """Adds a scalar space to the scope of this instance of OutputManager
 
         Parameters
         ----------
@@ -326,12 +317,12 @@ class OutputManager:
         return new_space
 
     def _add_vector_space(self, vector_space, name=None):
-        """Add a vector space to the scope of this instance of OutputManager.
+        """Adds a vector space to the scope of this instance of OutputManager.
 
         Parameters
         ----------
-        vector_space: psydac.fem.vector.VectorFemSpace
-            Vector FemSpace to add to the scope.
+        vector_space: psydac.fem.vector.VectorFemSpace or psydac.fem.vector.ProductFemSpace
+            Vector/Product FemSpace to add to the scope.
         """
 
         symbolic_space = vector_space.symbolic_space
@@ -369,11 +360,10 @@ class OutputManager:
 
     def export_fields(self, **fields):
         """
-        A function that exports the fields' coefficients to an HDF5 file. They are
-        saved under a snapshot/patch/space/field scheme or static/patch/space/field.
-
-        If the current saving scheme is time dependent, unsets it to avoid writing twice to
-        the same snapshot.
+        Exports the fields' coefficients to an HDF5 file.
+        They are saved under snapshot/patch/space/field
+        or static/patch/space/field depending on the value of
+        ``self.is_static``.
 
         Parameters
         ----------
@@ -438,15 +428,51 @@ class OutputManager:
         # Close HDF5 file
         fh5.close()
 
-        if self.is_static:
-            self.is_static = None
-
     def export_space_info(self):
+        """Export the space info to Yaml
+
+        """
         with open(self.filename_space, 'w') as f:
             yaml.dump(data=self._spaces_info, stream=f, default_flow_style=None, sort_keys=False)
 
 
 class PostProcessManager:
+    """A class to read saved information of a previous simulation
+    and start post-processing from there.
+
+    Parameters
+    ----------
+    geometry_filename : str or Path-like
+        Relative path to the geometry file
+    space_filename : str or Path-like
+        Relative path to the file containing the space information
+    fields_filename : str or Path-like
+        Relative path to the file containing the space information
+
+    Attributes
+    ----------
+    geometry_file : str or Path-like
+        Relative path to the geometry file
+    space_file : str or Path-like
+        Relative path to the file containing the space information
+    fields_file : str or Path-like
+        Relative path to the file containing the space information
+
+    _spaces : dict
+        Named spaces
+
+    _fields : dict
+        Dictionary containing several dictionaries,
+        one for each snapshot that was read during ``self.reconstruct_scope``
+        plus one for the static fields is there are some.
+        Each of those dictionaries contains the name fields.
+
+    _domain : sympde.topology.basic.Domain
+        Domain
+
+    _scope_reconstructed : bool
+        Boolean variable telling is the scope has been reconstructed
+    """
 
     def __init__(self, geometry_filename, space_filename, fields_filename):
         self.geometry_file = geometry_filename
@@ -472,10 +498,19 @@ class PostProcessManager:
         return self._domain
 
     def read_space_info(self):
+        """Read ``self.space_file``.
+
+        Returns
+        -------
+        dict
+            Informations about the spaces.
+        """
         return yaml.load(open(self.space_file), Loader=yaml.SafeLoader)
 
     def reconstruct_scope(self):
+        """Reconstructs all of the spaces and fields from reading the files.
 
+        """
         from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace
         from psydac.api.discretization import discretize
 
