@@ -669,10 +669,11 @@ def quadrature_grid(breaks, quad_rule_x, quad_rule_w):
     quad_rule_x = np.asarray( quad_rule_x )
     quad_rule_w = np.asarray( quad_rule_w )
 
-    out = np.zeros((len(breaks) - 1, len(quad_rule_x), 2))
-    quadrature_grid_p(breaks, quad_rule_x, quad_rule_w, out)
+    out1 = np.zeros((len(breaks) - 1, len(quad_rule_x)))
+    out2 = np.zeros_like(out1)
+    quadrature_grid_p(breaks, quad_rule_x, quad_rule_w, out1, out2,)
 
-    return out[..., 0], out[..., 1]
+    return out1, out2
 
 #==============================================================================
 def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization, out=None):
