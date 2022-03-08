@@ -2481,13 +2481,8 @@ def pushforward_2d_hcurl(fields_to_push: 'float[:,:,:,:]', inv_jac_mats: 'float[
         Push forwarded fields
     """
 
-    for i in range(inv_jac_mats.shape[0]):
-        for j in range(inv_jac_mats.shape[1]):
-            x = fields_to_push[0, i, j, :]
-            y = fields_to_push[1, i, j, :]
-
-            pushed_fields[i, j, 0, :] = inv_jac_mats[i, j, 0, 0] * x + inv_jac_mats[i, j, 1, 0] * y
-            pushed_fields[i, j, 1, :] = inv_jac_mats[i, j, 0, 1] * x + inv_jac_mats[i, j, 1, 1] * y
+    pushed_fields[:, :, 0, :] = inv_jac_mats[:, :, 0, 0, None] * fields_to_push[0, :, :, :] + inv_jac_mats[:, :, 1, 0, None] * fields_to_push[1, :, :, :]
+    pushed_fields[:, :, 1, :] = inv_jac_mats[:, :, 0, 1, None] * fields_to_push[0, :, :, :] + inv_jac_mats[:, :, 1, 1, None] * fields_to_push[1, :, :, :]
 
 
 # ...

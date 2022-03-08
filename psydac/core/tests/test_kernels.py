@@ -240,8 +240,8 @@ def test_kernels(geometry, refine, kind):
 
     # Field related quantities through kernel functions
     if kind in ['hcurl', 'hdiv']:  # Product FemSpace
-        out_field = np.zeros(shape_grid + (ldim,))
-        out_field_w = np.zeros(shape_grid + (ldim,))
+        out_field = np.zeros((ldim,) + shape_grid)
+        out_field_w = np.zeros((ldim,) + shape_grid)
 
         global_arr_field = [field.fields[i].coeffs._data[:] for i in range(ldim)]
         global_arr_w = [weight.fields[i].coeffs._data[:] for i in range(ldim)]
@@ -253,13 +253,12 @@ def test_kernels(geometry, refine, kind):
                 degree_s, \
                 global_basis_s, \
                 global_spans_s = spaceh.spaces[i].preprocess_regular_tensor_grid(tensor_grid, der=0)
-
                 eval_fields_2d_no_weights(*ncells, *pads_s, *degree_s, *n_eval_points, *global_basis_s, *global_spans_s,
-                                          global_arr_field[i][:, :, None], out_field[..., i][:, :, None])
+                                          global_arr_field[i][:, :, None], out_field[i][:, :, None])
 
                 eval_fields_2d_weighted(*ncells, *pads_s, *degree_s, *n_eval_points, *global_basis_s, *global_spans_s,
                                         global_arr_field[i][:, :, None], global_arr_w[i],
-                                        out_field_w[..., i][:, :, None])
+                                        out_field_w[i][:, :, None])
 
         if ldim == 3:
             for i in range(3):
@@ -269,11 +268,11 @@ def test_kernels(geometry, refine, kind):
                 global_spans_s = spaceh.spaces[i].preprocess_regular_tensor_grid(tensor_grid, der=0)
 
                 eval_fields_3d_no_weights(*ncells, *pads_s, *degree_s, *n_eval_points, *global_basis_s, *global_spans_s,
-                                          global_arr_field[i][:, :, :, None], out_field[..., i][:, :, :, None])
+                                          global_arr_field[i][:, :, :, None], out_field[i][:, :, :, None])
 
                 eval_fields_3d_weighted(*ncells, *pads_s, *degree_s, *n_eval_points, *global_basis_s, *global_spans_s,
                                         global_arr_field[i][:, :, :, None], global_arr_w[i],
-                                        out_field_w[..., i][:, :, :, None])
+                                        out_field_w[i][:, :, :, None])
     else:
         out_field = np.zeros(shape_grid + (1,))
         out_field_w = np.zeros(shape_grid + (1,))
@@ -318,8 +317,8 @@ def test_kernels(geometry, refine, kind):
 
     # Field related arrays
     if kind in ['hdiv', 'hcurl']:
-        assert np.allclose(f_direct[:, :, :, 0], out_field)
-        assert np.allclose(f_direct_w[:, :, :, 0], out_field_w)
+        assert np.allclose(f_direct[:, :, :, 0], np.moveaxis(out_field, 0, -1))
+        assert np.allclose(f_direct_w[:, :, :, 0], np.moveaxis(out_field_w, 0, -1))
     else:
         assert np.allclose(f_direct, out_field)
         assert np.allclose(f_direct_w, out_field_w)
@@ -345,8 +344,8 @@ def test_pushforwards_hdiv(ldim):
     jacobians = np.full((5,) * ldim + (ldim, ldim), np.eye(ldim))
     field_to_push = np.random.rand(ldim, *((5, ) * ldim), 1)
     expected = np.moveaxis(field_to_push, 0, -2)
-    out = np.zeros_like(expected)
-
+    out = np.zeros(expected.shape)
+    
     if ldim == 2:
         pushforward_2d_hdiv(field_to_push, jacobians, out)
     if ldim == 3:
@@ -360,7 +359,7 @@ def test_pushforwards_hcurl(ldim):
     inv_jacobians = np.full((5,) * ldim + (ldim, ldim), np.eye(ldim))
     field_to_push = np.random.rand(ldim, *((5, ) * ldim), 1)
     expected = np.moveaxis(field_to_push, 0, -2)
-    out = np.zeros_like(expected)
+    out = np.zeros(expected.shape)
 
     if ldim == 2:
         pushforward_2d_hcurl(field_to_push, inv_jacobians, out)

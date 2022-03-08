@@ -97,11 +97,11 @@ class OutputManager:
 
     Parameters
     ----------
-    filename_space : str
+    filename_space : str or Path-like
          Name/path of the file in which to save the space information.
          The path is relative to the current working directory.
 
-    filename_fields : str
+    filename_fields : str or Path-like
          Name/path of the file in which to save the fields.
          The path is relative to the current working directory.
 
@@ -113,9 +113,9 @@ class OutputManager:
     _spaces : List
         List of the spaces that were added to an instance of OutputManager.
 
-    filename_space : str
+    filename_space : str or Path-like
         Name of the file in which to save the space information.
-    filename_fields : str
+    filename_fields : str or Path-like
         Name of the file in which to save the fields.
 
     _next_snapshot_number : int
