@@ -14,7 +14,10 @@ from psydac.core.kernels import (eval_fields_2d_no_weights, eval_fields_3d_no_we
                                  eval_jacobians_3d_weights, eval_jacobians_inv_2d_weights,
                                  eval_jacobians_inv_3d_weights, eval_jacobians_inv_2d, eval_jacobians_inv_3d,
                                  eval_det_metric_2d_weights, eval_det_metric_3d_weights,
-                                 eval_det_metric_2d, eval_det_metric_3d)
+                                 eval_det_metric_2d, eval_det_metric_3d,
+                                 pushforward_2d_l2, pushforward_3d_l2,
+                                 pushforward_2d_hdiv, pushforward_3d_hdiv,
+                                 pushforward_2d_hcurl, pushforward_3d_hcurl)
 
 
 # Get mesh directory
@@ -320,3 +323,48 @@ def test_kernels(geometry, refine, kind):
     else:
         assert np.allclose(f_direct, out_field)
         assert np.allclose(f_direct_w, out_field_w)
+
+
+@pytest.mark.parametrize('metric_det, ldim, field_to_push', [(np.ones((5, 5)), 2, np.ones((5, 5, 1))),
+                                                             (np.ones((5, 5, 5)), 3, np.ones((5, 5, 5, 1))),
+                                                             (np.random.rand(5, 5), 2, np.random.rand(5, 5, 1)),
+                                                             (np.random.rand(5, 5, 5), 3, np.random.rand(5, 5, 5, 1))])
+def test_pushforwards_l2(ldim, metric_det, field_to_push):
+    expected = field_to_push[..., 0] / (metric_det ** 0.5)
+    out = np.zeros_like(field_to_push)
+    if ldim == 2:
+        pushforward_2d_l2(field_to_push, metric_det, out)
+    if ldim == 3:
+        pushforward_3d_l2(field_to_push, metric_det, out)
+
+    assert np.allclose(expected, out[..., 0])
+
+
+@pytest.mark.parametrize('ldim', (2, 3))
+def test_pushforwards_hdiv(ldim):
+    jacobians = np.full((5,) * ldim + (ldim, ldim), np.eye(ldim))
+    field_to_push = np.random.rand(ldim, *((5, ) * ldim), 1)
+    expected = np.moveaxis(field_to_push, 0, -2)
+    out = np.zeros_like(expected)
+
+    if ldim == 2:
+        pushforward_2d_hdiv(field_to_push, jacobians, out)
+    if ldim == 3:
+        pushforward_3d_hdiv(field_to_push, jacobians, out)
+
+    assert np.allclose(expected, out)
+
+
+@pytest.mark.parametrize('ldim', (2, 3))
+def test_pushforwards_hcurl(ldim):
+    inv_jacobians = np.full((5,) * ldim + (ldim, ldim), np.eye(ldim))
+    field_to_push = np.random.rand(ldim, *((5, ) * ldim), 1)
+    expected = np.moveaxis(field_to_push, 0, -2)
+    out = np.zeros_like(expected)
+
+    if ldim == 2:
+        pushforward_2d_hcurl(field_to_push, inv_jacobians, out)
+    if ldim == 3:
+        pushforward_3d_hcurl(field_to_push, inv_jacobians, out)
+
+    assert np.allclose(expected, out)
