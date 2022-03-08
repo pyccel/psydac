@@ -112,11 +112,11 @@ def basis_funs_p(knots: 'float[:]', degree: int, x: float, span: int, out: 'floa
     right = np.zeros(degree, dtype=float)
 
     out[0] = 1.0
-    for j in range(0, degree):
+    for j in range(degree):
         left[j]  = x - knots[span - j]
         right[j] = knots[span + 1 + j] - x
         saved    = 0.0
-        for r in range(0, j + 1):
+        for r in range(j + 1):
             temp   = out[r] / (right[r] + left[j - r])
             out[r] = saved + right[r] * temp
             saved  = left[j - r] * temp
@@ -265,11 +265,11 @@ def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n
     # Store values in 2D temporary array 'ndu' (square matrix).
 
     ndu[0, 0] = 1.0
-    for j in range(0, degree):
+    for j in range(degree):
         left[j]  = x - knots[span-j]
         right[j] = knots[span+1+j] - x
         saved    = 0.0
-        for r in range(0, j+1):
+        for r in range(j+1):
             # compute inverse of knot differences and save them into lower triangular part of ndu
             ndu[j + 1, r] = 1.0 / (right[r] + left[j - r])
             # compute basis functions and save them into upper triangular part of ndu
@@ -281,7 +281,7 @@ def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n
     # Compute derivatives in 2D output array 'out'
     out[0, :] = ndu[:, degree]
 
-    for r in range(0, degree+1):
+    for r in range(degree+1):
 
         s1 = 0
         s2 = 1
@@ -406,12 +406,12 @@ def collocation_matrix_p(knots: 'float[:]', degree: int, periodic: bool, normali
     # Rescaling of B-splines, to get M-splines if needed
     if not normalization:
         if periodic:
-            for i in range(0, nx):
-                for j in range(0, degree + 1):
+            for i in range(nx):
+                for j in range(degree + 1):
                     actual_j = (spans[i] - degree + j) % nb
                     out[i, actual_j] = basis[i, j]
         else:
-            for i in range(0, nx):
+            for i in range(nx):
                 out[i, spans[i] - degree:spans[i] + 1] = basis[i, :]
     else:
         integrals = np.zeros(knots.shape[0] - degree - 1)
