@@ -900,16 +900,16 @@ def quadrature_grid_p(breaks: 'float[:]', quad_rule_x: 'float[:]', quad_rule_w: 
         Weights assigned to quadrature points on canonical interval [-1,1].
 
     out1 : array
-        Half of the result will be inserted into this array.
+        2D output array where the quadrature points will be inserted.
         It should be of the appropriate shape and dtype.
 
     out2 : array
-        Half of the result will be inserted into this array.
+        2D output array where the quadrature weights will be inserted.
         It should be of the appropriate shape and dtype.
 
     Notes
     -----
-    Contents of 2D output arrays 'quad_x' and 'quad_w' are accessed with two
+    Contents of 2D output arrays 'out1' and 'out2' are accessed with two
     indices (ie,iq) where:
       . ie is the global element index;
       . iq is the local index of a quadrature point within the element.
@@ -961,8 +961,8 @@ def basis_ders_on_quad_grid_p(knots: 'float[:]', degree: int, quad_grid: 'float[
 
     Notes
     -----
-        Values of B-Splines and their derivatives at quadrature points in
-        each element of 1D domain. Indices are
+        4D output array 'out' contains values of B-Splines and their derivatives
+        at quadrature points in each element of 1D domain. Indices are
         . ie: global element         (0 <= ie <  ne    )
         . il: local basis function   (0 <= il <= degree)
         . id: derivative             (0 <= id <= nders )
