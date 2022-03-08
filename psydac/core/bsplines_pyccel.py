@@ -948,10 +948,13 @@ def quadrature_grid_p(breaks: 'float[:]', quad_rule_x: 'float[:]', quad_rule_w: 
     quad_rule_w : array_like of ints
         Weights assigned to quadrature points on canonical interval [-1,1].
 
-    out : array
-        The result will be inserted into this array.
+    out1 : array
+        Half of the result will be inserted into this array.
         It should be of the appropriate shape and dtype.
 
+    out2 : array
+        Half of the result will be inserted into this array.
+        It should be of the appropriate shape and dtype.
     Notes
     -----
     Contents of 2D output arrays 'quad_x' and 'quad_w' are accessed with two
