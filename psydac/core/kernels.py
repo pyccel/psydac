@@ -592,7 +592,7 @@ def eval_det_metric_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2
         Coefficients of the Y field
 
     metric_det: ndarray of floats
-        Metric determinant of the Jacobian on the grid.
+        Metric determinant on the grid.
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
@@ -1103,7 +1103,7 @@ def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: 
         Coefficients of the Z field
 
     jacobians: ndarray of floats
-        Jacobians on the grid
+        Jacobian matrix on the grid
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -1252,7 +1252,7 @@ def eval_jacobians_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2:
         Coefficients of the Y field
 
     jacobians: ndarray of floats
-        Jacobians at every point of the grid
+        Jacobian matrix at every point of the grid
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
@@ -1380,7 +1380,7 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int
         Coefficients of the weight field
 
     jacobians: ndarray of floats
-        Jacobians on the grid
+        Jacobian matrix on the grid
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -1596,7 +1596,7 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: in
            Coefficients of the weights field
 
        jacobians: ndarray of floats
-           Jacobians at every point of the grid
+           Jacobian matrix at every point of the grid
        """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
@@ -1766,7 +1766,7 @@ def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pa
         Coefficients of the Z field
 
     jacobians_inv: ndarray of floats
-        Inverse of the jacobians on the grid
+        Inverse of the Jacobian matrix on the grid
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -1930,7 +1930,7 @@ def eval_jacobians_inv_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f
         Coefficients of the Y field
 
     jacobians_inv: ndarray of floats
-        Inverse of the jacobians at every point of the grid
+        Inverse of the Jacobian matrix at every point of the grid
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
@@ -2060,7 +2060,7 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2:
         Coefficients of the weight field
 
     jacobians_inv: ndarray of floats
-        Inverse of the jacobians on the grid
+        Inverse of the Jacobian matrix on the grid
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -2291,7 +2291,7 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1
            Coefficients of the weights field
 
        jacobians_inv: ndarray of floats
-           Inverse of the jacobians at every point of the grid
+           Inverse of the Jacobian matrix at every point of the grid
        """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
@@ -2415,6 +2415,10 @@ def pushforward_2d_l2(fields_to_push: 'float[:,:,:]', dets: 'float[:,:]', pushed
     ----------
     fields_to_push: ndarray
         Field values to push forward on the mapping
+        This array as shape (n_x1, n_x2, n_f) where:
+        * n_x1 is the number of points in direction 1 of the implicit grid.
+        * n_x2 is the number of points in direction 2 of the implicit grid.
+        * n_f is the number of fields to push-forward in the L2 space.
 
     dets: ndarray
         Values of the metric determinant of the Mapping
@@ -2436,6 +2440,11 @@ def pushforward_3d_l2(fields_to_push: 'float[:,:,:,:]', dets: 'float[:,:,:]', pu
     ----------
     fields_to_push: ndarray
         Field values to push forward on the mapping
+        This array as shape (n_x1, n_x2, n_x3, n_f) where:
+        * n_x1 is the number of points in direction 1 of the implicit grid.
+        * n_x2 is the number of points in direction 2 of the implicit grid.
+        * n_x3 is the number of points in direction 3 of the implicit grid.
+        * n_f is the number of fields to push-forward in the L2 space.
 
     dets: ndarray
         Values of the metric determinant of the Mapping
@@ -2459,14 +2468,14 @@ def pushforward_2d_hcurl(fields_to_push: 'float[:,:,:,:]', inv_jac_mats: 'float[
     ----------
     fields_to_push: ndarray
         Field values to push forward on the mapping
-        This array as shape (ldim, n_x1, n_x2, n_f) where:
-        * ldim is the logical dimension of the problem (2 here)
+        This array as shape (2, n_x1, n_x2, n_f) where:
+        * 2 is the logical dimension of the problem (2 here)
         * n_x1 is the number of points in direction 1 of the implicit grid.
         * n_x2 is the number of points in direction 2 of the implicit grid.
         * n_f is the number of fields to push-forward in the Hcurl space.
 
     inv_jac_mats: ndarray
-        Inverses of the Jacobians of the mapping
+        Inverses of the Jacobian matrix of the mapping
 
     pushed_fields: ndarray
         Push forwarded fields
@@ -2490,9 +2499,15 @@ def pushforward_3d_hcurl(fields_to_push: 'float[:,:,:,:,:]', inv_jac_mats: 'floa
     ----------
     fields_to_push: ndarray
         Field values to push forward on the mapping
+        This array as shape (3, n_x1, n_x2, n_x3, n_f) where:
+        * 3 is the logical dimension of the problem
+        * n_x1 is the number of points in direction 1 of the implicit grid.
+        * n_x2 is the number of points in direction 2 of the implicit grid.
+        * n_x3 is the number of points in direction 3 of the implicit grid
+        * n_f is the number of fields to push-forward in the Hcurl space.
 
     inv_jac_mats: ndarray
-        Inverses of the Jacobians of the mapping
+        Inverses of the Jacobian matrix of the mapping
 
     pushed_fields: ndarray
         Push forwarded fields
@@ -2526,9 +2541,14 @@ def pushforward_2d_hdiv(fields_to_push: 'float[:,:,:,:]', jac_mats: 'float[:,:,:
     ----------
     fields_to_push: ndarray
         Field values to push forward on the mapping
+        This array as shape (2, n_x1, n_x2, n_f) where:
+        * 2 is the logical dimension of the problem (2 here)
+        * n_x1 is the number of points in direction 1 of the implicit grid.
+        * n_x2 is the number of points in direction 2 of the implicit grid.
+        * n_f is the number of fields to push-forward in the Hdiv space.
 
     jac_mats: ndarray
-        Jacobians of the mapping
+        Jacobian matrix of the mapping
 
     pushed_fields: ndarray
         Push forwarded fields
@@ -2552,9 +2572,15 @@ def pushforward_3d_hdiv(fields_to_push: 'float[:,:,:,:,:]', jac_mats: 'float[:,:
     ----------
     fields_to_push: ndarray
         Field values to push forward on the mapping
+        This array as shape (3, n_x1, n_x2, n_x3, n_f) where:
+        * 3 is the logical dimension of the problem
+        * n_x1 is the number of points in direction 1 of the implicit grid.
+        * n_x2 is the number of points in direction 2 of the implicit grid.
+        * n_x3 is the number of points in direction 3 of the implicit grid
+        * n_f is the number of fields to push-forward in the Hdiv space.
 
     jac_mats: ndarray
-        Jacobians of the mapping
+        Jacobian matrix of the mapping
 
     pushed_fields: ndarray
         Push forwarded fields
