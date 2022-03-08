@@ -955,6 +955,7 @@ def quadrature_grid_p(breaks: 'float[:]', quad_rule_x: 'float[:]', quad_rule_w: 
     out2 : array
         Half of the result will be inserted into this array.
         It should be of the appropriate shape and dtype.
+
     Notes
     -----
     Contents of 2D output arrays 'quad_x' and 'quad_w' are accessed with two
@@ -963,11 +964,10 @@ def quadrature_grid_p(breaks: 'float[:]', quad_rule_x: 'float[:]', quad_rule_w: 
       . iq is the local index of a quadrature point within the element.
 
     """
-    ne = len(breaks) - 1
-    nq = len(quad_rule_x)
+    ncells = len(breaks) - 1
 
     # Compute location and weight of quadrature points from basic rule
-    for ie in range(len(breaks) - 1):
+    for ie in range(ncells):
         a = breaks[ie]
         b = breaks[ie + 1]
 
