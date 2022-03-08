@@ -988,5 +988,5 @@ def basis_ders_on_quad_grid_p(knots: 'float[:]', degree: int, quad_grid: 'float[
             basis_funs_all_ders_p(knots, degree, xq, span, nders, False, ders)
             if normalization:
                 ders *= scaling[span - degree:span + 1]
-            for id in range(degree + 1):
-                out[ie, id, :, iq] = ders[:, id]
+            for k in range(degree + 1):
+                out[ie, k, :, iq] = ders[:, k]
