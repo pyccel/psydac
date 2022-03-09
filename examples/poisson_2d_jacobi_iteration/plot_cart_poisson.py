@@ -67,6 +67,6 @@ for ax in axes:
     ax.set_aspect( 'equal' )
 
 fig.tight_layout()
-fig.show()
+plt.show()
 
-input()
+

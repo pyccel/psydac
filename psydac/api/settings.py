@@ -35,7 +35,7 @@ PSYDAC_BACKEND_PGPYCCEL = {'name':     'pyccel',
                       
 PSYDAC_BACKEND_NUMBA = {'name': 'numba','tag':'numba', 'fastmath':True, 'openmp':False}
 
-PSYDAC_BACKEND_PYTHRAN = {'name':'pythran','tag':'pythran', 'openmp':False}
+#PSYDAC_BACKEND_PYTHRAN = {'name':'pythran','tag':'pythran', 'openmp':False}
 # ...
 
 # List of all available backends for accelerating Python code
@@ -45,5 +45,5 @@ PSYDAC_BACKENDS = {
     'pyccel-intel': PSYDAC_BACKEND_IPYCCEL,
     'pyccel-pgi'  : PSYDAC_BACKEND_PGPYCCEL,
     'numba'       : PSYDAC_BACKEND_NUMBA,
-    'pythran'     : PSYDAC_BACKEND_PYTHRAN,
+ #   'pythran'     : PSYDAC_BACKEND_PYTHRAN,
 }
