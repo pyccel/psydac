@@ -484,5 +484,5 @@ class SplineSpace( FemSpace ):
             spl = BSpline(knots, c, d)
             ax.plot(xx, spl(xx), label='N{}'.format(i))
         ax.grid(True)
+        ax.legend()
         plt.show()
-

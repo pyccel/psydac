@@ -348,8 +348,8 @@ def discretize(a, *args, **kwargs):
     if isinstance(a, (sym_BasicForm, sym_GltExpr, sym_Expr)):
         domain_h = args[0]
         assert( isinstance(domain_h, Geometry) )
-        mapping     = domain_h.domain.mapping
-        domain      = domain_h.domain
+        domain  = domain_h.domain
+        mapping = domain_h.domain.mapping
         kwargs['mapping'] = mapping
 
     if isinstance(a, sym_BasicForm):
@@ -360,6 +360,8 @@ def discretize(a, *args, **kwargs):
         else:
             if not mapping is None:
                 a       = LogicalExpr (a, domain)
+                domain  = domain.logical_domain
+
             kernel_expr = TerminalExpr(a, domain)
 
         if len(kernel_expr) > 1:

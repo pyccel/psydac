@@ -25,8 +25,8 @@ from sympde.calculus.core        import is_zero
 from psydac.pyccel.ast.core import _atomic, Assign, Import, AugAssign, Return
 from psydac.pyccel.ast.core import Comment, Continue
 
-from .nodes import GlobalTensorQuadrature
-from .nodes import LocalTensorQuadrature
+from .nodes import GlobalTensorQuadratureGrid, PlusGlobalTensorQuadratureGrid
+from .nodes import LocalTensorQuadratureGrid, PlusLocalTensorQuadratureGrid
 from .nodes import GlobalTensorQuadratureTestBasis
 from .nodes import GlobalTensorQuadratureTrialBasis
 from .nodes import LengthElement, LengthQuadrature
@@ -471,9 +471,10 @@ class AST(object):
                                             tests, d_tests,
                                             trials, d_trials,
                                             fields, d_fields, constants,
-                                            nderiv, domain.dim,
+                                            nderiv, domain.dim, domain,
                                             mapping, d_mapping, is_rational_mapping, spaces, mapping_space,  mask, tag, is_parallel,
                                             num_threads, **kwargs)
+
 
         elif is_functional:
             ast = _create_ast_functional_form(terminal_expr, atomic_expr_field,
@@ -514,12 +515,13 @@ class AST(object):
     @property
     def num_threads(self):
         return self._num_threads
+
 #================================================================================================================================
 def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                               tests,  d_tests,
                               trials, d_trials,
                               fields, d_fields, constants,
-                              nderiv, dim, mapping, d_mapping, is_rational_mapping, spaces, mapping_space, mask, tag, is_parallel,
+                              nderiv, dim, domain, mapping, d_mapping, is_rational_mapping, spaces, mapping_space, mask, tag, is_parallel,
                               num_threads, **kwargs):
     """
     This function creates the assembly function of a bilinearform
@@ -557,6 +559,9 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     dim : int
         number of dimension
 
+    domain : <Domain>
+        Sympde Domain object
+
     mapping : <Mapping>
         Sympde Mapping object
 
@@ -588,13 +593,17 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     """
 
-    backend   = kwargs.pop('backend')
-    is_pyccel = backend['name'] == 'pyccel' if backend else False
-    pads      = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
-    b0s       = variables(('b01, b02, b03'), dtype='int')[:dim]
-    e0s       = variables(('e01, e02, e03'), dtype='int')[:dim]
-    g_quad    = GlobalTensorQuadrature(False)
-    l_quad    = LocalTensorQuadrature(False)
+    backend    = kwargs.pop('backend')
+    is_pyccel  = backend['name'] == 'pyccel' if backend else False
+    pads       = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
+    g_quad     = [GlobalTensorQuadratureGrid(False)]
+    l_quad     = [LocalTensorQuadratureGrid(False)]
+    b0s        = variables(('b01, b02, b03'), dtype='int')[:dim]
+    e0s        = variables(('e01, e02, e03'), dtype='int')[:dim]
+    if isinstance(domain, Interface):
+        g_quad.append(PlusGlobalTensorQuadratureGrid(False))
+        l_quad.append(PlusLocalTensorQuadratureGrid(False))
+
     rank_from_coords = MatrixRankFromCoords()
     coords_from_rank = MatrixCoordsFromRank()
 
@@ -617,6 +626,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     lengths_outer_tests = dict((v,LengthOuterDofTest(v)) for v in tests)
     lengths_inner_tests = dict((v,LengthInnerDofTest(v)) for v in tests)
     lengths_fields      = dict((f,LengthDofTest(f)) for f in fields)
+
     # ...........................................................................................
     quad_length     = LengthQuadrature()
     el_length       = LengthElement()
@@ -626,6 +636,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     local_thread_s  = LocalThreadStarts()
     local_thread_e  = LocalThreadEnds()
     lengths         = [el_length, quad_length]
+
     # ...........................................................................................
     geo        = GeometryExpressions(mapping, nderiv)
     g_coeffs   = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
@@ -712,8 +723,8 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                 # Instructions needed to retrieve the precomputed values of the
                 # fields (and their derivatives) at a single quadrature point
                 stmts += flatten([eval_field.inits for eval_field in eval_fields])
-            
-                loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
+         
+                loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
                 loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), loop)
 
                 # ... loop over trials
@@ -766,8 +777,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
                                                               tests_multiplicity=m_tests, trials_multiplicity=m_trials)
 
                     l_sub_scalars =  BlockScalarLocalBasis(trials = sub_trials, tests=sub_tests, expr=sub_terminal_expr, tag=l_mats.tag)
-
-                    loop  = Loop((l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
+                    loop  = Loop((*l_quad, *q_basis_tests.values(), *q_basis_trials.values(), geo), ind_quad, stmts=stmts, mask=mask)
                     loop  = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), loop)
 
                     # ... loop over trials
@@ -829,7 +839,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 #            g_stmts_texpr += [TensorAssignExpr(Tuple(*lhs), rhs)]
 
          #... loop over global elements
-        loop  = Loop((g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
+        loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
                       ind_element, stmts=g_stmts, mask=mask)
 
         loop_reduction = Reduce('+', l_mats, g_mats, loop)
@@ -844,7 +854,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 #                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
     else:
         # ... loop over global elements
-        loop  = Loop((g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
+        loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values(), *g_stmts_texpr),
                       ind_element, stmts=g_stmts, mask=mask)
 
         body = [Reduce('+', l_mats, g_mats, loop)]
@@ -920,7 +930,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
 
     if add_openmp:
         shared = (*thread_span.values(), coords_from_rank, rank_from_coords, global_thread_s, global_thread_e,
-                  *args['tests_basis'], *args['trial_basis'], *args['spans'], args['quads'], g_mats)
+                  *args['tests_basis'], *args['trial_basis'], *args['spans'], *args['quads'], g_mats)
         if mapping_space:
             shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
         if fields:
@@ -1014,8 +1024,8 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     backend   = kwargs.pop('backend', None)
     is_pyccel = backend['name'] == 'pyccel' if backend else False
     pads     = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
-    g_quad   = GlobalTensorQuadrature(False)
-    l_quad   = LocalTensorQuadrature(False)
+    g_quad   = [GlobalTensorQuadratureGrid(False)]
+    l_quad   = [LocalTensorQuadratureGrid(False)]
     geo      = GeometryExpressions(mapping, nderiv)
     g_coeffs = {f:[MatrixGlobalBasis(i,i) for i in expand([f])] for f in fields}
 
@@ -1111,7 +1121,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         # fields (and their derivatives) at a single quadrature point
         stmts += flatten([eval_field.inits for eval_field in eval_fields])
 
-        loop  = Loop((l_quad, *q_basis.values(), geo), ind_quad, stmts=stmts, mask=mask)
+        loop  = Loop((*l_quad, *q_basis.values(), geo), ind_quad, stmts=stmts, mask=mask)
         loop = Reduce('+', ComputeKernelExpr(sub_terminal_expr, weights=False), ElementOf(l_sub_scalars), loop)
 
     # ... loop over tests
@@ -1123,7 +1133,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
         stmts = Block(body)
         g_stmts += [stmts]
     # ...
-    
+
     #=========================================================end kernel=========================================================
 
     if add_openmp:
@@ -1166,7 +1176,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 #            g_stmts_texpr += [TensorAssignExpr(Tuple(*lhs), rhs)]
 
         # ... loop over global elements
-        loop  = Loop((g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)
+        loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)
         # ...
 
 
@@ -1181,7 +1191,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 #                             Tuple(*[AddNode(2*pads[j],ProductGenerator(g_span[u].set_index(j), AddNode(el_length.set_index(j),Integer(-1)))) for j in range(dim)])) for u in thread_span]
     else:
         # ... loop over global elements
-        loop  = Loop((g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)
+        loop  = Loop((*g_quad, *g_span.values(), *m_span.values(), *f_span.values()), ind_element, stmts=g_stmts, mask=mask)
         # ...
 
         body = [Reduce('+', l_vecs, g_vecs, loop)]
@@ -1242,7 +1252,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
 
     if add_openmp:
         shared = (*thread_span.values(), coords_from_rank, rank_from_coords, global_thread_s, global_thread_e,
-                  *args['tests_basis'], *args['spans'], args['quads'], g_vecs)
+                  *args['tests_basis'], *args['spans'], *args['quads'], g_vecs)
         if mapping_space:
             shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
         if fields:
@@ -1332,8 +1342,8 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     """
 
     pads   = variables(('pad1, pad2, pad3'), dtype='int')[:dim]
-    g_quad = GlobalTensorQuadrature()
-    l_quad = LocalTensorQuadrature()
+    g_quad = [GlobalTensorQuadratureGrid()]
+    l_quad = [LocalTensorQuadratureGrid()]
 
     #TODO move to EvalField
     coeffs   = [CoefficientBasis(i) for i in expand(fields)]
@@ -1380,7 +1390,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     #=========================================================begin kernel======================================================
     # ... loop over tests functions
 
-    loop   = Loop((l_quad, geo), ind_quad, flatten([eval_field.inits for eval_field in eval_fields]))
+    loop   = Loop((*l_quad, geo), ind_quad, flatten([eval_field.inits for eval_field in eval_fields]))
     loop   = Reduce('+', ComputeKernelExpr(terminal_expr), ElementOf(l_vec), loop)
 
     # ... loop over tests functions to evaluate the fields
@@ -1393,8 +1403,6 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
 
     #=========================================================end kernel=========================================================
     # ... loop over global elements
-
-
     args = {}
 
     args['tests_basis']  = g_basis.values()
@@ -1421,7 +1429,7 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         args['constants'] = constants
 
     if num_threads>1:
-        shared = (*args['tests_basis'], *args['spans'], args['quads'], *args['f_coeffs'], g_vec)
+        shared = (*args['tests_basis'], *args['spans'], *args['quads'], *args['f_coeffs'], g_vec)
         if mapping_space:
             shared = shared + (*eval_mapping.coeffs,  list(d_mapping.values())[0]['global'], list(d_mapping.values())[0]['span'])
 
@@ -1432,10 +1440,10 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
         if constants:
             firstprivate = firstprivate + (*constants,)
  
-        loop  = Loop((g_quad, *g_span.values(), *m_span.values()), ind_element, stmts, 
+        loop  = Loop((*g_quad, *g_span.values(), *m_span.values()), ind_element, stmts, 
                       parallel=True, default='private', shared=shared, firstprivate=firstprivate)
     else:
-        loop  = Loop((g_quad, *g_span.values(), *m_span.values()), ind_element, stmts)
+        loop  = Loop((*g_quad, *g_span.values(), *m_span.values()), ind_element, stmts)
     # ...
 
     body = (Assign(g_vec, Float(0.)), Reduce('+', l_vec, g_vec, loop), Return(g_vec))

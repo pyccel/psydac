@@ -6,7 +6,6 @@ from functools import reduce
 
 from psydac.core.bsplines          import find_span
 from psydac.core.bsplines          import basis_funs_all_ders
-from psydac.core.bsplines          import basis_ders_on_quad_grid
 from psydac.fem.splines            import SplineSpace
 from psydac.fem.tensor             import TensorFemSpace
 from psydac.fem.vector             import ProductFemSpace
@@ -72,6 +71,7 @@ class QuadratureGrid():
         self._ext                 = ext
 
         if axis is not None:
+            assert ext is not None
             points  = self.points
             weights = self.weights
 
@@ -221,11 +221,12 @@ class BasisValues():
             for i,Vi in enumerate(V):
                 space  = Vi.spaces[axis]
                 points = grid.points[axis]
-                boundary_basis = basis_ders_on_quad_grid(
-                        space.knots, space.degree, points, nderiv, space.basis)
+                local_span = find_span(space.knots, space.degree, points[0, 0])
+                boundary_basis = basis_funs_all_ders(space.knots, space.degree,
+                                                     points[0, 0], local_span, nderiv, space.basis)
 
                 self._basis[i][axis] = self._basis[i][axis].copy()
-                self._basis[i][axis][0:1, :, 0:nderiv+1, 0:1] = boundary_basis
+                self._basis[i][axis][0, :, 0:nderiv+1, 0] = np.transpose(boundary_basis)
                 if ext == 1:
                     self._spans[i][axis]    = self._spans[i][axis].copy()
                     self._spans[i][axis][0] = self._spans[i][axis][-1]

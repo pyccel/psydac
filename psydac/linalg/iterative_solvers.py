@@ -887,7 +887,7 @@ def lsmr(A, At, b, x0=None, tol=None, atol=None, btol=None, maxiter=1000, conlim
     normar = alpha * beta
 
     if verbose:
-        print( "MINRES solver:" )
+        print( "LSMR solver:" )
         print( "+---------+---------------------+")
         print( "+ Iter. # | L2-norm of residual |")
         print( "+---------+---------------------+")

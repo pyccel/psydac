@@ -5,13 +5,34 @@
 import numpy as np
 
 #===============================================================================
-def refine_array_1d( x, n ):
+def refine_array_1d(x, n, remove_duplicates=True):
+    """Refines a 1D array by subdividing each interval (x[i], x[i+1]) into n identical parts.
 
+    Parameters
+    ----------
+    x : ndarray
+        1D array to be refined.
+    n : int
+         Number of subdivisions to be created in each interval (x[i], x[i+1]).
+
+    remove_duplicates : bool, default=True
+        If True, the refined array will not contain any duplicate points.
+        If False, the original internal grid points x[1:-1] will appear twice: this may
+           be useful to visualize fields that are discontinuous across cell boundaries.
+
+    Returns
+    -------
+    ndarray
+        Refined 1D array. The length of this array is `n * (len(x) - 1) + 1`
+        if remove_duplicates and `(n + 1) * (len(x) - 1)` if not.
+    """
     xr = []
-    for (a,b) in zip(x[:-1],x[1:]):
-        xr.extend( np.linspace( a, b, n, endpoint=False ) )
-    xr.append( x[-1] )
-
+    if not remove_duplicates:
+        n += 1
+    for (a, b) in zip(x[:-1], x[1:]):
+        xr.extend(np.linspace(a, b, n, endpoint=not remove_duplicates))
+    if remove_duplicates:
+        xr.append(x[-1])
     return xr
 
 #===============================================================================
@@ -102,7 +123,6 @@ def split_field(uh, spaces, out=None):
 def animate_field(fields, domain, mapping, res=(150,150), vrange=None, cmap=None, interval=35, progress=False, figsize=(14,4)):
     """Animate a sequence of scalar fields over a geometry."""
     from matplotlib import animation
-    from psydac.utilities.utils import refine_array_1d
     import matplotlib.pyplot as plt
     import tqdm
 
@@ -111,7 +131,7 @@ def animate_field(fields, domain, mapping, res=(150,150), vrange=None, cmap=None
     ax.set_aspect('equal')
 
     etas    = [refine_array_1d( bounds, r ) for r,bounds in zip(res, zip(domain.min_coords, domain.max_coords))]
-    pcoords = np.array( [[mapping( [e1,e2] ) for e2 in etas[1]] for e1 in etas[0]] )
+    pcoords = np.array( [[mapping( e1,e2 ) for e2 in etas[1]] for e1 in etas[0]] )
     xx      = pcoords[:,:,0]
     yy      = pcoords[:,:,1]
 

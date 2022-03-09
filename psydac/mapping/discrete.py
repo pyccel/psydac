@@ -126,18 +126,61 @@ class SplineMapping:
     #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
-    def __call__( self, eta ):
-        return [map_Xd( *eta ) for map_Xd in self._fields]
+    def __call__( self, *eta):
+        return [map_Xd( *eta) for map_Xd in self._fields]
 
-    def jac_mat( self, eta ):
+    def build_mesh(self, grid, npts_per_cell=None):
+        """Evaluation of the mapping on the given grid.
+
+        Enforces C-contiguity for VTK exportation
+
+        Parameters
+        ----------
+        grid : List of ndarray
+            Grid on which to evaluate the fields.
+            Each array in this list corresponds to one logical coordinate.
+
+        npts_per_cell: int, tuple of int or None, optional
+            Number of evaluation points in each cell.
+            If an integer is given, then assume that it is the same in every direction.
+        Returns
+        -------
+        x_mesh: 3D array of floats
+            X component of the mesh
+        y_mesh: 3D array of floats
+            Y component of the mesh
+        z_mesh: 3D array of floats
+            Z component of the mesh
+
+        See Also
+        --------
+        psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
+        """
+
+        mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell)
+        if self.ldim == 2:
+            x_mesh = mesh[0][:, :, None]
+            y_mesh = mesh[1][:, :, None]
+            z_mesh = np.zeros_like(x_mesh)
+        elif self.ldim == 3:
+            x_mesh = mesh[0]
+            y_mesh = mesh[1]
+            z_mesh = mesh[2]
+        else:
+            raise NotImplementedError("1D case not implemented")
+
+        return x_mesh, y_mesh, z_mesh
+
+    def jac_mat( self, *eta):
+
         return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
 
-    def metric( self, eta ):
-        J = self.jac_mat( eta )
+    def metric( self, *eta):
+        J = self.jac_mat( *eta )
         return np.dot( J.T, J )
 
-    def metric_det( self, eta ):
-        return np.linalg.det( self.metric( eta ) )
+    def metric_det( self, *eta):
+        return np.linalg.det( self.metric( *eta ) )
 
     @property
     def ldim( self ):
@@ -317,24 +360,62 @@ class NurbsMapping( SplineMapping ):
     #--------------------------------------------------------------------------
     # Abstract interface
     #--------------------------------------------------------------------------
-    def __call__( self, eta ):
+    def __call__( self, *eta):
         map_W = self._weights_field
         w = map_W( *eta )
         Xd = [map_Xd( *eta , weights=map_W.coeffs) for map_Xd in self._fields]
         return np.asarray( Xd ) / w
 
-    def jac_mat( self, eta ):
+    def build_mesh(self, grid, npts_per_cell=None):
+        """Evaluation of the mapping on the given grid.
+
+        Enforces C-contiguity for VTK exportation
+
+        Parameters
+        ----------
+        grid : List of ndarray
+            Each array in the list should correspond to a logical coordinate.
+        npts_per_cell : int, tuple of int or None, optional
+
+        Returns
+        -------
+        x_mesh: 3D array of floats
+            X component of the mesh
+        y_mesh: 3D array of floats
+            Y component of the mesh
+        z_mesh: 3D array of floats
+            Z component of the mesh
+
+        See Also
+        --------
+        psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
+        """
+        mesh = self.space.eval_fields(grid, *self._fields, npts_per_cell=npts_per_cell, weights=self._weights_field)
+        if self.ldim == 2:
+            x_mesh = mesh[0][:, :, None]
+            y_mesh = mesh[1][:, :, None]
+            z_mesh = np.zeros_like(x_mesh)
+        elif self.ldim == 3:
+            x_mesh = mesh[0]
+            y_mesh = mesh[1]
+            z_mesh = mesh[2]
+        else:
+            raise NotImplementedError("1D case not implemented")
+
+        return x_mesh, y_mesh, z_mesh
+
+    def jac_mat( self, *eta):
         raise NotImplementedError('TODO')
 #        return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
 
-    def metric( self, eta ):
+    def metric( self, *eta):
         raise NotImplementedError('TODO')
-#        J = self.jac_mat( eta )
+#        J = self.jac_mat( *eta )
 #        return np.dot( J.T, J )
 
-    def metric_det( self, eta ):
+    def metric_det( self, *eta):
         raise NotImplementedError('TODO')
-#        return np.linalg.det( self.metric( eta ) )
+#        return np.linalg.det( self.metric( *eta ) )
 
     #--------------------------------------------------------------------------
     # Other properties/methods

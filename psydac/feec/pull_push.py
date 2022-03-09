@@ -400,7 +400,11 @@ def push_2d_l2(func, xi1, xi2, mapping):
 
     F = mapping.get_callable_mapping()
 
-    det_value = F.metric_det(xi1, xi2)**0.5
+    #    det_value = F.metric_det(xi1, xi2)**0.5
+    # MCP correction: use the determinant of the mapping Jacobian
+    J         = F._jacobian
+    J_value   = J(xi1, xi2)
+    det_value = J_value[0,0]*J_value[1,1]-J_value[1,0]*J_value[0,1]
     value     = func(xi1, xi2)
 
     return value / det_value

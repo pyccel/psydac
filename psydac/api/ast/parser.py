@@ -7,7 +7,6 @@ from sympy import Mul, Matrix, Expr
 from sympy import Add, And, StrictLessThan, Eq
 from sympy import Abs, Not, floor
 from sympy import Symbol, Idx
-from sympy import Range
 from sympy import Basic, Function
 from sympy.simplify import cse_main
 from sympy.core.containers import Tuple
@@ -18,7 +17,7 @@ from psydac.pyccel.ast.core      import Variable, IndexedVariable, IndexedElemen
 from psydac.pyccel.ast.core      import Slice, String, ValuedArgument
 from psydac.pyccel.ast.core      import EmptyNode, Import, While, Return, If
 from psydac.pyccel.ast.core      import CodeBlock, FunctionDef, Comment
-
+from psydac.pyccel.ast.builtins  import Range
 
 from sympde.topology import (dx1, dx2, dx3)
 from sympde.topology import SymbolicExpr
@@ -477,7 +476,8 @@ class Parser(object):
             f_pads     = args.pop('f_pads', [])
             f_args     = (*f_basis, *f_span, *f_degrees, *f_pads, *f_coeffs)
 
-        args = [*tests_basis, *trial_basis, *map_basis, *g_span, *map_span, g_quad, *lengths_tests.values(), *lengths_trials.values(), *map_degrees, *lengths, *g_pads, *map_coeffs]
+
+        args = [*tests_basis, *trial_basis, *map_basis, *g_span, *map_span, *g_quad, *lengths_tests.values(), *lengths_trials.values(), *map_degrees, *lengths, *g_pads, *map_coeffs]
 
         if mats:
             exprs     = [mat.expr for mat in mats]
@@ -519,8 +519,11 @@ class Parser(object):
         inits.append(EmptyNode())
         body =  tuple(inits) + body
         name = expr.name
-        imports = ('array','zeros', 'zeros_like','floor') + tuple(self._math_functions)
-        imports = [Import('numpy', imports)] + list(expr.imports)
+        numpy_imports = ('array', 'zeros', 'zeros_like', 'floor')
+        math_imports  = (*self._math_functions,)
+        imports = [Import('numpy', numpy_imports)] + \
+                 ([Import('math', math_imports)] if math_imports else []) + \
+                  [*expr.imports]
         results = [self._visit(a) for a in expr.results]
 
         if self.backend['name'] == 'pyccel':
@@ -612,7 +615,7 @@ class Parser(object):
         raise NotImplementedError('TODO')
 
     # ....................................................
-    def _visit_GlobalTensorQuadrature(self, expr, **kwargs):
+    def _visit_GlobalTensorQuadratureGrid(self, expr, **kwargs):
         dim  = self.dim
         rank = expr.rank
 
@@ -634,7 +637,7 @@ class Parser(object):
         return {0: targets}
 
     # ....................................................
-    def _visit_LocalTensorQuadrature(self, expr, **kwargs):
+    def _visit_LocalTensorQuadratureGrid(self, expr, **kwargs):
         dim  = self.dim
         rank = expr.rank
 
@@ -656,6 +659,33 @@ class Parser(object):
         return {0: targets}
 
     # ....................................................
+    def _visit_PlusGlobalTensorQuadratureGrid(self, expr, **kwargs):
+        dim  = self.dim
+        rank = expr.rank
+
+        names = 'global_x1:%s_plus'%(dim+1)
+        points   = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+
+        # gather by axis
+        self.insert_variables(*points)
+
+        points = tuple(zip(points))
+        return dict([(0,points)])
+
+    # ....................................................
+    def _visit_PlusLocalTensorQuadratureGrid(self, expr, **kwargs):
+        dim  = self.dim
+        rank = expr.rank
+
+        names = 'local_x1:%s_plus'%(dim+1)
+        points   = variables(names, dtype='real', rank=rank, cls=IndexedVariable)
+
+        self.insert_variables(*points)
+
+        points = tuple(zip(points))
+        return dict([(0,points)])
+
+    # ....................................................
     def _visit_TensorQuadrature(self, expr, **kwargs):
         dim = self.dim
         names   = 'x1:%s'%(dim+1)
@@ -674,6 +704,18 @@ class Parser(object):
         self.insert_variables(*points, *weights)
 
         return {0: targets}
+
+    # ....................................................
+    def _visit_PlusTensorQuadrature(self, expr, **kwargs):
+        dim = self.dim
+        names   = 'x1:%s_plus'%(dim+1)
+        points  = variables(names, dtype='real', cls=Variable)
+
+        targets = tuple(zip(points))
+
+        self.insert_variables(*points)
+
+        return dict([(0,targets)])
 
     # ....................................................
     def _visit_GlobalThreadSpan(self, expr, **kwargs):
@@ -1178,11 +1220,14 @@ class Parser(object):
 
         vars_plus = []
         if isinstance(target, Interface):
-            target    = target.minus
-            mapping   = mapping.minus
-            # This is a hack, it must be deleted after merging PR #107
-            plus_coordinates = [Symbol(x.name+'_plus') for x in target.coordinates]
-            vars_plus = [Assign(xplus,x) for xplus,x in zip(plus_coordinates,target.coordinates)]
+            mapping = mapping.minus
+            target  = target.minus
+            axis    = target.axis
+            ext     = target.ext
+        elif isinstance(target, Boundary):
+            ext  = target.ext
+            axis = target.axis
+
 
         for vec in normal_vectors:
 
@@ -1203,7 +1248,7 @@ class Parser(object):
         stmts = tuple(self._visit(stmt, **kwargs) for stmt in stmts)
         stmts = tuple(vars_plus) + tuple(normal_vec_stmts) + temps + stmts
 
-        math_functions = math_atoms_as_str(list(exprs)+normal_vec_stmts, 'numpy')
+        math_functions = math_atoms_as_str(list(exprs)+normal_vec_stmts, 'math')
         math_functions = tuple(m for m in math_functions if m not in self._math_functions)
         self._math_functions = math_functions + self._math_functions
         return stmts
