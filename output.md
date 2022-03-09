@@ -69,7 +69,7 @@ patches:
     - [-1.0, -1.0, -1.0, -0.75, -0.5, -0.25, 0.0, 0.0, 0.0]
 ```
 The field coefficients are saved to the `HDF5` format in the following manner :
-```
+```bash
 file.h5
     attribute: spaces # name of the aforementioned Yaml file 
     static/
@@ -88,8 +88,8 @@ file.h5
                 attribute: parent_field # 'field_v1_1'
         ...
     snapshot_1/
-        attribute: time
-        attribute: timestep 
+        attribute: t
+        attribute: ts 
         space_1/
         ...
         space_n/
