@@ -623,8 +623,8 @@ class TensorFemSpace( FemSpace ):
         if kind is H1SpaceType():
             return value
         elif kind is L2SpaceType():
-            det = mapping.metric_det(*eta)
-            return value/(det ** 0.5)
+            det = mapping.jac_det(*eta)
+            return value / det
 
     # ...
     def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping=None, parent_kind=None):
@@ -678,6 +678,7 @@ class TensorFemSpace( FemSpace ):
             raise ValueError(f"Spaces of kind {kind} are not understood")
 
         return pushed_fields
+        
     #--------------------------------------------------------------------------
     # Other properties and methods
     #--------------------------------------------------------------------------
