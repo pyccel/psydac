@@ -96,3 +96,26 @@ file.h5
     ...
     snapshot_n/
 ```
+
+# Usage
+The `OutputManager` class is meant to be used as follows:
+```python
+# SymPDE Layer
+# Discretization 
+# V0h and V1h are discretized SymPDE Space
+# u0 and u1 are FemFields belonging to either of those spaces
+output_m = OutputManager('spaces.yml', 'fields.h5')
+
+output_m.add_spaces(V0=V0h, V1=V1h) 
+
+output_m.set_static() # Tells the object to save in /static/
+output_m.export_fields(u0=u0, u1=u1) # Actually does the saving
+
+output_m.add_snapshot(t=0., ts=0) 
+# The line above tells the object to:
+# 1. create the group snapshot_x with attribute t and ts
+# 2. save in this snapshot
+output_m.export_fields(u0=u0, u1=u1)
+
+output_m.export_spaces_info() # Writes the space information to Yaml
+```
