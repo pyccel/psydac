@@ -36,6 +36,19 @@ from psydac.feec.multipatch.fem_linear_operators import FemLinearOperator
 
 def get_patch_index_from_face(domain, face):
     """ Return the patch index of subdomain/boundary
+
+    Parameters
+    ----------
+    domain : <Sympde.topology.Domain>
+     The Symbolic domain
+
+    face : <Sympde.topology.BasicDomain>
+     A patch or a boundary of a patch
+
+    Returns
+    -------
+    i : <int>
+     The index of a face in the mutlitpatch domain
     """
 
     if domain.mapping:
@@ -54,6 +67,23 @@ def get_patch_index_from_face(domain, face):
 
 def get_interface_from_corners(corner1, corner2, domain):
     """ Return the interface between two corners
+
+    Parameters
+    ----------
+    corner1 : <Sympde.topology.Corner>
+     The first corner of the 2D interface
+
+    corner2 : <Sympde.topology.Corner>
+     The second corner of the 2D interface
+
+    domain : <Sympde.topology.Domain>
+     The Symbolic domain
+
+    Returns
+    -------
+    interface: <Sympde.topology.Interface>
+     The interface between two corners
+
     """
 
     interface = []
@@ -85,11 +115,36 @@ def get_interface_from_corners(corner1, corner2, domain):
 
 
 def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
-    """ Return the row and column index of a corner in the StencilInterfaceMatrix
+    """ Return the row and column index of a corner in the Matrix
+
+    Parameters
+    ----------
+    corner1 : <Sympde.topology.Corner>
+     The first corner of the 2D interface
+
+    corner2 : <Sympde.topology.Corner>
+     The second corner of the 2D interface
+
+    interface : <Sympde.topology.Interface|None>
+     The interface between the two corners
+
+    axis    : <int|None>
+     Axis of the interface
+
+    V1      : <FemSpace>
+     Test Space
+
+    V2      : <FemSpace>
+     Trial Space
+
+    Returns
+    -------
+    index: <list>
+     The Matrix Index of the corner
     """
-    start = V1.vector_space.starts
-    end   = V1.vector_space.ends
-    degree = V2.degree
+    start     = V1.vector_space.starts
+    end       = V1.vector_space.ends
+    degree    = V2.degree
     start_end = (start, end)
 
     row    = [None]*len(start)
@@ -134,6 +189,23 @@ def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
 #===============================================================================
 def allocate_interface_matrix(corners, test_space, trial_space):
     """ Allocate the interface matrix of a corner domain
+
+    Parameters
+    ----------
+    corners: <list>
+     The corners that construct the interface corner
+
+    test_space: <FemSpace>
+     The test space
+
+    trial_space: <FemSpace>
+     The trial space
+
+    Returns
+    -------
+    mats: <StencilInterfaceMatrix>
+     The interface matrix that represents the corner interface
+
     """
     bi, bj = list(zip(*corners))
     permutation = np.arange(bi[0].domain.dim)
@@ -196,9 +268,7 @@ class ConformingProjection_V0( FemLinearOperator):
     #   - avoid discretizing a bilinear form
     #   - allow case without interfaces (single or multipatch)
     def __init__(self, V0h, domain_h, hom_bc=False, backend_language='python', storage_fn=None):
-        """
 
-        """
         FemLinearOperator.__init__(self, fem_domain=V0h)
 
         V0                      = V0h.symbolic_space
@@ -1037,3 +1107,4 @@ class Multipatch_Projector_L2:
                 blocks = [B2j.coeffs for B2j in B2s])
 
         return FemField(self._V2h, coeffs = B2_coeffs)
+

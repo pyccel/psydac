@@ -96,8 +96,16 @@ def flip_axis(name='no_name', c1=0., c2=0.):
 def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     """
     design several multipatch domain, including pretzel-like shapes
-    :param domain_name:
-    :return: domain (with interfaces and mappings)
+
+    Parameters
+    ----------
+    domain_name: <str>
+     The domain name
+
+    Returns
+    -------
+    domain : <Sympde.topology.Domain>
+     The symbolic multipatch domain
     """
 
     if domain_name == 'square_2':
@@ -677,3 +685,4 @@ def get_ref_eigenvalues(domain_name, operator):
     sigma = ref_sigmas[len(ref_sigmas)//2]
 
     return sigma, ref_sigmas
+
