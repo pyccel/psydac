@@ -668,7 +668,7 @@ class TensorFemSpace( FemSpace ):
 
         if kind is L2SpaceType():
             pushed_fields = np.zeros_like(out_fields)
-            dets = mapping.metric_det_regular_tensor_grid(grid)
+            dets = mapping.jac_det_regular_tensor_grid(grid)
 
             if self.ldim == 2:
                 pushforward_2d_l2(out_fields, dets, pushed_fields)

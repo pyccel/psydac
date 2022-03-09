@@ -172,6 +172,10 @@ class SplineMapping:
     # ...
     def jac_mat( self, *eta):
         return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
+    
+    # ...
+    def jac_det(self, *eta):
+        return np.linalg.det(self.jac_mat(*eta))
 
     # ...
     def metric( self, *eta):
@@ -426,8 +430,8 @@ class SplineMapping:
         return inv_jac_mats
 
     # ...
-    def metric_det_grid(self, grid, npts_per_cell=None):
-        """Evaluates the metric determinant of the mapping at the given location(s) grid.
+    def jac_det_grid(self, grid, npts_per_cell=None):
+        """Evaluates the Jacobian determinant of the mapping at the given location(s) grid.
 
         Parameters
         -----------
@@ -441,7 +445,7 @@ class SplineMapping:
         Returns
         -------
         array_like
-            Metric determinant at the location(s) grid.
+            Jacobian determinant at the location(s) grid.
 
         See Also
         --------
@@ -458,7 +462,7 @@ class SplineMapping:
         # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
-            return self.metric(*grid)
+            return self.metric(*grid) ** 0.5
 
         # Case 2. 1D array of coordinates and no npts_per_cell is given
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
@@ -478,8 +482,8 @@ class SplineMapping:
             for i in range(self.ldim):
                 ncells_i = len(self.space.breaks[i]) - 1
                 grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
-            inv_jac_mats = self.metric_det_regular_tensor_grid(grid)
-            return inv_jac_mats
+            jac_dets = self.jac_det_regular_tensor_grid(grid)
+            return jac_dets
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
         # -> unstructured grid
@@ -495,8 +499,8 @@ class SplineMapping:
                              "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
-    def metric_det_regular_tensor_grid(self, grid):
-        """Evaluates the metric determinant on a regular tensor product grid.
+    def jac_det_regular_tensor_grid(self, grid):
+        """Evaluates the Jacobian determinant on a regular tensor product grid.
 
         Parameters
         ----------
@@ -508,19 +512,19 @@ class SplineMapping:
 
         Returns
         -------
-        metric_det : ndarray
+        jac_dets : ndarray
             ``self.ldim`` D array of shape ``(n_x_1, ..., n_x_ldim)``.
-            ``jac_mats[x_1, ..., x_ldim]`` is the metric determinant
+            ``jac_dets[x_1, ..., x_ldim]`` is the Jacobian determinant
             at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import eval_det_metric_3d, eval_det_metric_2d
+        from psydac.core.kernels import eval_jac_det_3d, eval_jac_det_2d
 
         ncells = [grid[i].shape[0] for i in range(self.ldim)]
         n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
 
         pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
 
-        metric_det = np.zeros(shape=tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim)))
+        jac_dets = np.zeros(shape=tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim)))
 
         if self.ldim == 3:
 
@@ -528,23 +532,23 @@ class SplineMapping:
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_det_metric_3d(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
-                               degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2], global_basis[0],
-                               global_basis[1], global_basis[2], global_spans[0], global_spans[1], global_spans[2],
-                               global_arr_x, global_arr_y, global_arr_z, metric_det)
+            eval_jac_det_3d(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
+                            degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2], global_basis[0],
+                            global_basis[1], global_basis[2], global_spans[0], global_spans[1], global_spans[2],
+                            global_arr_x, global_arr_y, global_arr_z, jac_dets)
 
         elif self.ldim == 2:
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_det_metric_2d(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], n_eval_points[0],
-                               n_eval_points[1], global_basis[0], global_basis[1], global_spans[0], global_spans[1],
-                               global_arr_x, global_arr_y, metric_det)
+            eval_jac_det_2d(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], n_eval_points[0],
+                            n_eval_points[1], global_basis[0], global_basis[1], global_spans[0], global_spans[1],
+                            global_arr_x, global_arr_y, jac_dets)
 
         else:
             raise NotImplementedError("TODO")
 
-        return metric_det
+        return jac_dets
 
     @property
     def ldim( self ):
@@ -770,6 +774,11 @@ class NurbsMapping( SplineMapping ):
     def jac_mat( self, *eta):
         raise NotImplementedError('TODO')
 #        return np.array( [map_Xd.gradient( *eta ) for map_Xd in self._fields] )
+
+    # ...
+    def jac_det(self, *eta):
+        raise NotImplementedError('TODO')
+        # return np.linalg.det(self.jac_mat(*eta))
 
     # ...
     def metric( self, *eta):
@@ -1033,8 +1042,8 @@ class NurbsMapping( SplineMapping ):
         return inv_jac_mats
 
     # ...
-    def metric_det_grid(self, grid, npts_per_cell=None):
-        """Evaluates the metric determinant of the mapping at the given location(s) grid.
+    def jac_det_grid(self, grid, npts_per_cell=None):
+        """Evaluates the Jacobian determinant of the mapping at the given location(s) grid.
 
         Parameters
         -----------
@@ -1048,7 +1057,7 @@ class NurbsMapping( SplineMapping ):
         Returns
         -------
         array_like
-            Metric determinant at the location(s) grid.
+            Jacobian determinant at the location(s) grid.
 
         See Also
         --------
@@ -1065,7 +1074,7 @@ class NurbsMapping( SplineMapping ):
         # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
-            return self.metric(*grid)
+            return self.metric(*grid) ** 0.5
 
         # Case 2. 1D array of coordinates and no npts_per_cell is given
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
@@ -1085,8 +1094,8 @@ class NurbsMapping( SplineMapping ):
             for i in range(self.ldim):
                 ncells_i = len(self.space.breaks[i]) - 1
                 grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
-            inv_jac_mats = self.metric_det_regular_tensor_grid(grid)
-            return inv_jac_mats
+            jac_dets = self.metric_det_regular_tensor_grid(grid)
+            return jac_dets
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
         # -> unstructured grid
@@ -1102,8 +1111,8 @@ class NurbsMapping( SplineMapping ):
                              "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
-    def metric_det_regular_tensor_grid(self, grid):
-        """Evaluates the metric determinant on a regular tensor product grid.
+    def jac_det_regular_tensor_grid(self, grid):
+        """Evaluates the Jacobian determinant on a regular tensor product grid.
 
         Parameters
         ----------
@@ -1115,19 +1124,19 @@ class NurbsMapping( SplineMapping ):
 
         Returns
         -------
-        metric_det : ndarray
+        jac_dets : ndarray
             ``self.ldim`` D array of shape ``(n_x_1, ..., n_x_ldim)``.
-            ``jac_mats[x_1, ..., x_ldim]`` is the metric determinant
+            ``jac_dets[x_1, ..., x_ldim]`` is the Jacobian determinant
             at the location corresponding to ``(x_1, ..., x_ldim)``.
         """
-        from psydac.core.kernels import eval_det_metric_3d_weights, eval_det_metric_2d_weights
+        from psydac.core.kernels import eval_jac_det_3d_weights, eval_jac_det_2d_weights
 
         ncells = [grid[i].shape[0] for i in range(self.ldim)]
         n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
 
         pads, degree, global_basis, global_spans = self.space.preprocess_regular_tensor_grid(grid, der=1)
 
-        metric_det = np.zeros(shape=tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim)))
+        jac_dets = np.zeros(shape=tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim)))
 
         global_arr_weights = self._weights_field.coeffs._data
 
@@ -1137,24 +1146,24 @@ class NurbsMapping( SplineMapping ):
             global_arr_y = self._fields[1].coeffs._data
             global_arr_z = self._fields[2].coeffs._data
 
-            eval_det_metric_3d_weights(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
-                                       degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2], global_basis[0],
-                                       global_basis[1], global_basis[2], global_spans[0], global_spans[1],
-                                       global_spans[2], global_arr_x, global_arr_y, global_arr_z, global_arr_weights,
-                                       metric_det)
+            eval_jac_det_3d_weights(ncells[0], ncells[1], ncells[2], pads[0], pads[1], pads[2], degree[0], degree[1],
+                                    degree[2], n_eval_points[0], n_eval_points[1], n_eval_points[2], global_basis[0],
+                                    global_basis[1], global_basis[2], global_spans[0], global_spans[1],
+                                    global_spans[2], global_arr_x, global_arr_y, global_arr_z, global_arr_weights,
+                                    jac_dets)
 
         elif self.ldim == 2:
             global_arr_x = self._fields[0].coeffs._data
             global_arr_y = self._fields[1].coeffs._data
 
-            eval_det_metric_2d_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], n_eval_points[0],
-                                       n_eval_points[1], global_basis[0], global_basis[1], global_spans[0],
-                                       global_spans[1], global_arr_x, global_arr_y, global_arr_weights, metric_det)
+            eval_jac_det_2d_weights(ncells[0], ncells[1], pads[0], pads[1], degree[0], degree[1], n_eval_points[0],
+                                    n_eval_points[1], global_basis[0], global_basis[1], global_spans[0],
+                                    global_spans[1], global_arr_x, global_arr_y, global_arr_weights, jac_dets)
 
         else:
             raise NotImplementedError("1D case not Implemented")
 
-        return metric_det
+        return jac_dets
 
     #--------------------------------------------------------------------------
     # Other properties/methods
