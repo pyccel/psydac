@@ -48,7 +48,7 @@ def get_patch_index_from_face(domain, face):
     Returns
     -------
     i : <int>
-     The index of a face in the mutlitpatch domain
+     The index of a face in the multipatch domain
     """
 
     if domain.mapping:
@@ -140,7 +140,8 @@ def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
     Returns
     -------
     index: <list>
-     The Matrix Index of the corner
+     The Matrix index of the corner, it has the form (i1, i2, k1, k2) in 2D, 
+     where (i1, i2) identifies the row and (k1, k2) the diagonal.
     """
     start     = V1.vector_space.starts
     end       = V1.vector_space.ends
@@ -203,7 +204,7 @@ def allocate_interface_matrix(corners, test_space, trial_space):
 
     Returns
     -------
-    mats: <StencilInterfaceMatrix>
+    mat: <StencilInterfaceMatrix>
      The interface matrix that represents the corner interface
 
     """
