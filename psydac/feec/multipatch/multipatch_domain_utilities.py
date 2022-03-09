@@ -100,7 +100,8 @@ def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     Parameters
     ----------
     domain_name: <str>
-     The domain name
+     The domain name, it can be one of the follwing names:
+      'square_2', 'square_6', 'square_8', 'square_9', 'annulus_3', 'annulus_4', 'curved_L_shape', 'pretzel', 'pretzel_f', 'pretzel_annulus', 'pretzel_debug'
 
     Returns
     -------
