@@ -382,11 +382,11 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int,
                                :] += fields / weight
 
 
-def eval_det_metric_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: int, f_p1: int, f_p2: int, f_p3: int,
-                       k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]',
-                       global_basis_3: 'float[:,:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',
-                       global_spans_3: 'int[:]', global_arr_coeff_x: 'float[:,:,:]', global_arr_coeff_y: 'float[:,:,:]',
-                       global_arr_coeff_z: 'float[:,:,:]', metric_det: 'float[:,:,:]'):
+def eval_jac_det_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: int, f_p1: int, f_p2: int, f_p3: int,
+                    k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]',
+                    global_basis_3: 'float[:,:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',
+                    global_spans_3: 'int[:]', global_arr_coeff_x: 'float[:,:,:]', global_arr_coeff_y: 'float[:,:,:]',
+                    global_arr_coeff_z: 'float[:,:,:]', jac_det: 'float[:,:,:]'):
 
     """
     Parameters
@@ -440,8 +440,8 @@ def eval_det_metric_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3:
     global_arr_coeff_z: ndarray of floats
         Coefficients of the Z field
 
-    metric_det: ndarray of floats
-        Metric determinant on the grid.
+    jac_det: ndarray of floats
+        Jacobian determinant on the grid.
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -539,20 +539,20 @@ def eval_det_metric_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3:
                             z_x2 = arr_z_x2[i_quad_1, i_quad_2, i_quad_3]
                             z_x3 = arr_z_x3[i_quad_1, i_quad_2, i_quad_3]
 
-                            metric_det[i_cell_1 * k1 + i_quad_1,
+                            jac_det[i_cell_1 * k1 + i_quad_1,
                                        i_cell_2 * k2 + i_quad_2,
                                        i_cell_3 * k3 + i_quad_3] = (+ x_x1 * y_x2 * z_x3
                                                                     + x_x2 * y_x3 * z_x1
                                                                     + x_x3 * y_x1 * z_x2
                                                                     - x_x1 * y_x3 * z_x2
                                                                     - x_x2 * y_x1 * z_x3
-                                                                    - x_x3 * y_x2 * z_x1) ** 2
+                                                                    - x_x3 * y_x2 * z_x1) 
 
 
-def eval_det_metric_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2: int, k1: int, k2: int,
-                       global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]', global_spans_1: 'int[:]',
-                       global_spans_2: 'int[:]', global_arr_coeff_x: 'float[:,:]', global_arr_coeff_y: 'float[:,:]',
-                       metric_det: 'float[:,:]'):
+def eval_jac_det_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2: int, k1: int, k2: int,
+                    global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]', global_spans_1: 'int[:]',
+                    global_spans_2: 'int[:]', global_arr_coeff_x: 'float[:,:]', global_arr_coeff_y: 'float[:,:]',
+                    jac_det: 'float[:,:]'):
     """
     Parameters
     ----------
@@ -591,8 +591,8 @@ def eval_det_metric_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2
     global_arr_coeff_y: ndarray of floats
         Coefficients of the Y field
 
-    metric_det: ndarray of floats
-        Metric determinant on the grid.
+    jac_det: ndarray of floats
+        Jacobian determinant on the grid.
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
@@ -650,17 +650,17 @@ def eval_det_metric_2d(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2
                     y_x1 = arr_y_x1[i_quad_1, i_quad_2]
                     y_x2 = arr_y_x2[i_quad_1, i_quad_2]
 
-                    metric_det[i_cell_1 * k1 + i_quad_1,
-                               i_cell_2 * k2 + i_quad_2] = (x_x1 * y_x2 - x_x2 * y_x1) ** 2
+                    jac_det[i_cell_1 * k1 + i_quad_1,
+                            i_cell_2 * k2 + i_quad_2] = (x_x1 * y_x2 - x_x2 * y_x1)
 
 
-def eval_det_metric_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: int, f_p1: int, f_p2: int,
-                               f_p3: int, k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]',
-                               global_basis_2: 'float[:,:,:,:]', global_basis_3: 'float[:,:,:,:]',
-                               global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_spans_3: 'int[:]',
-                               global_arr_coeff_x: 'float[:,:,:]', global_arr_coeff_y: 'float[:,:,:]',
-                               global_arr_coeff_z: 'float[:,:,:]', global_arr_coeff_weights: 'float[:,:,:]',
-                               metric_det: 'float[:,:,:]'):
+def eval_jac_det_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: int, f_p1: int, f_p2: int,
+                            f_p3: int, k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]',
+                            global_basis_2: 'float[:,:,:,:]', global_basis_3: 'float[:,:,:,:]',
+                            global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_spans_3: 'int[:]',
+                            global_arr_coeff_x: 'float[:,:,:]', global_arr_coeff_y: 'float[:,:,:]',
+                            global_arr_coeff_z: 'float[:,:,:]', global_arr_coeff_weights: 'float[:,:,:]',
+                            jac_det: 'float[:,:,:]'):
 
     """
     Parameters
@@ -717,8 +717,8 @@ def eval_det_metric_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: in
     global_arr_coeff_weights: ndarray of floats
         Coefficients of the weight field
 
-    metric_det: ndarray of floats
-        Metric determinant the grid
+    jac_det: ndarray of floats
+        Jacobian determinant on the grid
     """
 
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -879,21 +879,21 @@ def eval_det_metric_3d_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: in
                             z_x2 = (z_x2 - weight_x2 * z * inv_weight) * inv_weight
                             z_x3 = (z_x3 - weight_x3 * z * inv_weight) * inv_weight
 
-                            metric_det[i_cell_1 * k1 + i_quad_1,
-                                       i_cell_2 * k2 + i_quad_2,
-                                       i_cell_3 * k3 + i_quad_3] = (+ x_x1 * y_x2 * z_x3
+                            jac_det[i_cell_1 * k1 + i_quad_1,
+                                    i_cell_2 * k2 + i_quad_2,
+                                    i_cell_3 * k3 + i_quad_3] = (+ x_x1 * y_x2 * z_x3
                                                                     + x_x2 * y_x3 * z_x1
                                                                     + x_x3 * y_x1 * z_x2
                                                                     - x_x1 * y_x3 * z_x2
                                                                     - x_x2 * y_x1 * z_x3
-                                                                    - x_x3 * y_x2 * z_x1) ** 2
+                                                                    - x_x3 * y_x2 * z_x1)
 
 
-def eval_det_metric_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2: int, k1: int, k2: int,
-                               global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]',
-                               global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'float[:,:]',
-                               global_arr_coeff_y: 'float[:,:]', global_arr_coeff_weights: 'float[:,:]',
-                               metric_det: 'float[:,:]'):
+def eval_jac_det_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int, f_p2: int, k1: int, k2: int,
+                            global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]',
+                            global_spans_1: 'int[:]', global_spans_2: 'int[:]', global_arr_coeff_x: 'float[:,:]',
+                            global_arr_coeff_y: 'float[:,:]', global_arr_coeff_weights: 'float[:,:]',
+                            jac_det: 'float[:,:]'):
     """
        Parameters
        ----------
@@ -935,8 +935,8 @@ def eval_det_metric_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: i
        global_arr_coeff_weights: ndarray of floats
            Coefficients of the weights field
 
-       metric_det: ndarray of floats
-           Metric determinant on the grid
+       jac_det: ndarray of floats
+           Jacobian determinant on the grid
        """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
@@ -1040,8 +1040,8 @@ def eval_det_metric_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: i
                     y_x1 = (y_x1 - weight_x1 * y * inv_weight) * inv_weight
                     y_x2 = (y_x2 - weight_x2 * y * inv_weight) * inv_weight
 
-                    metric_det[i_cell_1 * k1 + i_quad_1,
-                               i_cell_2 * k2 + i_quad_2] = (x_x1 * y_x2 - x_x2 * y_x1) ** 2
+                    jac_det[i_cell_1 * k1 + i_quad_1,
+                            i_cell_2 * k2 + i_quad_2] = (x_x1 * y_x2 - x_x2 * y_x1)
 
 
 def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: int, f_p1: int, f_p2: int, f_p3: int,
@@ -2408,7 +2408,7 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1
 # ==========================================================================
 
 # ...
-def pushforward_2d_l2(fields_to_push: 'float[:,:,:]', dets: 'float[:,:]', pushed_fields: 'float[:,:,:]'):
+def pushforward_2d_l2(fields_to_push: 'float[:,:,:]', jac_dets: 'float[:,:]', pushed_fields: 'float[:,:,:]'):
     """
 
     Parameters
@@ -2420,20 +2420,18 @@ def pushforward_2d_l2(fields_to_push: 'float[:,:,:]', dets: 'float[:,:]', pushed
         * n_x2 is the number of points in direction 2 of the implicit grid.
         * n_f is the number of fields to push-forward in the L2 space.
 
-    dets: ndarray
-        Values of the metric determinant of the Mapping
+    jac_dets: ndarray
+        Values of the Jacobian determinant of the Mapping
 
     pushed_fields: ndarray
         Push forwarded fields
     """
-
-    for i in range(dets.shape[0]):
-        for j in range(dets.shape[1]):
-            pushed_fields[i, j, :] = fields_to_push[i, j, :] / dets[i, j] ** 0.5
+    for i_f in range(pushed_fields.shape[2]):
+        pushed_fields[:, :, i_f] = fields_to_push[:, :, i_f] / jac_dets[:, :]
 
 
 # ...
-def pushforward_3d_l2(fields_to_push: 'float[:,:,:,:]', dets: 'float[:,:,:]', pushed_fields: 'float[:,:,:,:]'):
+def pushforward_3d_l2(fields_to_push: 'float[:,:,:,:]', jac_dets: 'float[:,:,:]', pushed_fields: 'float[:,:,:,:]'):
     """
 
     Parameters
@@ -2446,17 +2444,14 @@ def pushforward_3d_l2(fields_to_push: 'float[:,:,:,:]', dets: 'float[:,:,:]', pu
         * n_x3 is the number of points in direction 3 of the implicit grid.
         * n_f is the number of fields to push-forward in the L2 space.
 
-    dets: ndarray
-        Values of the metric determinant of the Mapping
+    jac_dets: ndarray
+        Values of the Jacobian determinant of the Mapping
 
     pushed_fields: ndarray
         Push forwarded fields
     """
-
-    for i in range(dets.shape[0]):
-        for j in range(dets.shape[1]):
-            for k in range(dets.shape[2]):
-                pushed_fields[i, j, k, :] = fields_to_push[i, j, k, :] / dets[i, j, k] ** 0.5
+    for i_f in range(pushed_fields.shape[3]):
+        pushed_fields[:, :, :, i_f] = fields_to_push[:, :, :, i_f] / jac_dets[:, :, :]
 
 
 # ...
@@ -2480,9 +2475,12 @@ def pushforward_2d_hcurl(fields_to_push: 'float[:,:,:,:]', inv_jac_mats: 'float[
     pushed_fields: ndarray
         Push forwarded fields
     """
+    for i_f in range(pushed_fields.shape[3]):
+        pushed_fields[:, :, 0, i_f] = (+ inv_jac_mats[:, :, 0, 0] * fields_to_push[0, :, :, i_f]
+                                       + inv_jac_mats[:, :, 1, 0] * fields_to_push[1, :, :, i_f])
 
-    pushed_fields[:, :, 0, :] = inv_jac_mats[:, :, 0, 0, None] * fields_to_push[0, :, :, :] + inv_jac_mats[:, :, 1, 0, None] * fields_to_push[1, :, :, :]
-    pushed_fields[:, :, 1, :] = inv_jac_mats[:, :, 0, 1, None] * fields_to_push[0, :, :, :] + inv_jac_mats[:, :, 1, 1, None] * fields_to_push[1, :, :, :]
+        pushed_fields[:, :, 1, i_f] = (+ inv_jac_mats[:, :, 0, 1] * fields_to_push[0, :, :, i_f] 
+                                       + inv_jac_mats[:, :, 1, 1] * fields_to_push[1, :, :, i_f])
 
 
 # ...
@@ -2507,25 +2505,22 @@ def pushforward_3d_hcurl(fields_to_push: 'float[:,:,:,:,:]', inv_jac_mats: 'floa
     pushed_fields: ndarray
         Push forwarded fields
     """
+    for i_f in range(pushed_fields.shape[4]):
+        x = fields_to_push[0, :, :, :, i_f]
+        y = fields_to_push[1, :, :, :, i_f]
+        z = fields_to_push[2, :, :, :, i_f]
 
-    for i in range(inv_jac_mats.shape[0]):
-        for j in range(inv_jac_mats.shape[1]):
-            for k in range(inv_jac_mats.shape[2]):
-                x = fields_to_push[0, i, j, k, :]
-                y = fields_to_push[1, i, j, k, :]
-                z = fields_to_push[2, i, j, k, :]
+        pushed_fields[:, :, :, 0, i_f] = + inv_jac_mats[:, :, :, 0, 0] * x \
+                                         + inv_jac_mats[:, :, :, 1, 0] * y \
+                                         + inv_jac_mats[:, :, :, 2, 0] * z
 
-                pushed_fields[i, j, k, 0, :] = + inv_jac_mats[i, j, k, 0, 0] * x \
-                                               + inv_jac_mats[i, j, k, 1, 0] * y \
-                                               + inv_jac_mats[i, j, k, 2, 0] * z
+        pushed_fields[:, :, :, 1, i_f] = + inv_jac_mats[:, :, :, 0, 1] * x \
+                                         + inv_jac_mats[:, :, :, 1, 1] * y \
+                                         + inv_jac_mats[:, :, :, 2, 1] * z
 
-                pushed_fields[i, j, k, 1, :] = + inv_jac_mats[i, j, k, 0, 1] * x \
-                                               + inv_jac_mats[i, j, k, 1, 1] * y \
-                                               + inv_jac_mats[i, j, k, 2, 1] * z
-
-                pushed_fields[i, j, k, 2, :] = + inv_jac_mats[i, j, k, 0, 2] * x \
-                                               + inv_jac_mats[i, j, k, 1, 2] * y \
-                                               + inv_jac_mats[i, j, k, 2, 2] * z
+        pushed_fields[:, :, :, 2, i_f] = + inv_jac_mats[:, :, :, 0, 2] * x \
+                                         + inv_jac_mats[:, :, :, 1, 2] * y \
+                                         + inv_jac_mats[:, :, :, 2, 2] * z
 
 
 # ...
@@ -2548,14 +2543,13 @@ def pushforward_2d_hdiv(fields_to_push: 'float[:,:,:,:]', jac_mats: 'float[:,:,:
     pushed_fields: ndarray
         Push forwarded fields
     """
+    for i_f in range(pushed_fields.shape[3]):
 
-    for i in range(jac_mats.shape[0]):
-        for j in range(jac_mats.shape[1]):
-            x = fields_to_push[0, i, j, :]
-            y = fields_to_push[1, i, j, :]
-
-            pushed_fields[i, j, 0, :] = jac_mats[i, j, 0, 0] * x + jac_mats[i, j, 0, 1] * y
-            pushed_fields[i, j, 1, :] = jac_mats[i, j, 1, 0] * x + jac_mats[i, j, 1, 1] * y
+        pushed_fields[:, :, 0, i_f] = (+ jac_mats[:, :, 0, 0] * fields_to_push[0, :, :, i_f] 
+                                       + jac_mats[:, :, 0, 1] * fields_to_push[1, :, :, i_f])
+                                    
+        pushed_fields[:, :, 1, i_f] = (+ jac_mats[:, :, 1, 0] * fields_to_push[0, :, :, i_f] 
+                                       + jac_mats[:, :, 1, 1] * fields_to_push[1, :, :, i_f])
 
 
 # ...
@@ -2580,23 +2574,20 @@ def pushforward_3d_hdiv(fields_to_push: 'float[:,:,:,:,:]', jac_mats: 'float[:,:
     pushed_fields: ndarray
         Push forwarded fields
     """
+    for i_f in range(pushed_fields.shape[4]):
 
-    for i in range(jac_mats.shape[0]):
-        for j in range(jac_mats.shape[1]):
-            for k in range(jac_mats.shape[2]):
-                x = fields_to_push[0, i, j, k, :]
-                y = fields_to_push[1, i, j, k, :]
-                z = fields_to_push[2, i, j, k, :]
+        x = fields_to_push[0, :, :, :, i_f]
+        y = fields_to_push[1, :, :, :, i_f]
+        z = fields_to_push[2, :, :, :, i_f]
 
-                pushed_fields[i, j, k, 0, :] = + jac_mats[i, j, k, 0, 0] * x \
-                                               + jac_mats[i, j, k, 0, 1] * y \
-                                               + jac_mats[i, j, k, 0, 2] * z
+        pushed_fields[:, :, :, 0, i_f] = + jac_mats[:, :, :, 0, 0] * x \
+                                         + jac_mats[:, :, :, 0, 1] * y \
+                                         + jac_mats[:, :, :, 0, 2] * z
 
-                pushed_fields[i, j, k, 1, :] = + jac_mats[i, j, k, 1, 0] * x \
-                                               + jac_mats[i, j, k, 1, 1] * y \
-                                               + jac_mats[i, j, k, 1, 2] * z
+        pushed_fields[:, :, :, 1, i_f] = + jac_mats[:, :, :, 1, 0] * x \
+                                         + jac_mats[:, :, :, 1, 1] * y \
+                                         + jac_mats[:, :, :, 1, 2] * z
 
-                pushed_fields[i, j, k, 2, :] = + jac_mats[i, j, k, 2, 0] * x \
-                                               + jac_mats[i, j, k, 2, 1] * y \
-                                               + jac_mats[i, j, k, 2, 2] * z
-
+        pushed_fields[:, :, :, 2, i_f] = + jac_mats[:, :, :, 2, 0] * x \
+                                         + jac_mats[:, :, :, 2, 1] * y \
+                                         + jac_mats[:, :, :, 2, 2] * z

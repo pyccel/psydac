@@ -13,8 +13,8 @@ from psydac.core.kernels import (eval_fields_2d_no_weights, eval_fields_3d_no_we
                                  eval_jacobians_2d, eval_jacobians_3d, eval_jacobians_2d_weights,
                                  eval_jacobians_3d_weights, eval_jacobians_inv_2d_weights,
                                  eval_jacobians_inv_3d_weights, eval_jacobians_inv_2d, eval_jacobians_inv_3d,
-                                 eval_det_metric_2d_weights, eval_det_metric_3d_weights,
-                                 eval_det_metric_2d, eval_det_metric_3d,
+                                 eval_jac_det_2d_weights, eval_jac_det_3d_weights,
+                                 eval_jac_det_2d, eval_jac_det_3d,
                                  pushforward_2d_l2, pushforward_3d_l2,
                                  pushforward_2d_hdiv, pushforward_3d_hdiv,
                                  pushforward_2d_hcurl, pushforward_3d_hcurl)
@@ -160,7 +160,7 @@ def test_kernels(geometry, refine, kind):
     # Mapping related quantities through kernel functions
     jac_mats = np.zeros(shape_grid + (ldim, ldim))
     inv_jac_mats = np.zeros(shape_grid + (ldim, ldim))
-    metric_dets = np.zeros(shape_grid)
+    jac_dets = np.zeros(shape_grid)
 
     if is_nurbs:
         global_arr_weights = mapping._weights_field.coeffs._data
@@ -179,9 +179,9 @@ def test_kernels(geometry, refine, kind):
                                           global_arr_weights, inv_jac_mats)
 
             # Compute the determinant of the jacobians
-            eval_det_metric_2d_weights(*ncells, *pads_m, *degree_m, *n_eval_points, *global_basis_m, *global_spans_m,
-                                       global_arr_x, global_arr_y,
-                                       global_arr_weights, metric_dets)
+            eval_jac_det_2d_weights(*ncells, *pads_m, *degree_m, *n_eval_points, *global_basis_m, *global_spans_m,
+                                    global_arr_x, global_arr_y,
+                                    global_arr_weights, jac_dets)
 
         if ldim == 3:
             global_arr_x = mapping._fields[0].coeffs._data
@@ -199,9 +199,9 @@ def test_kernels(geometry, refine, kind):
                                           global_arr_weights, inv_jac_mats)
 
             # Compute the determinant of the jacobians
-            eval_det_metric_3d_weights(*ncells, *pads_m, *degree_m, *n_eval_points, *global_basis_m, *global_spans_m,
-                                       global_arr_x, global_arr_y, global_arr_z,
-                                       global_arr_weights, metric_dets)
+            eval_jac_det_3d_weights(*ncells, *pads_m, *degree_m, *n_eval_points, *global_basis_m, *global_spans_m,
+                                    global_arr_x, global_arr_y, global_arr_z,
+                                    global_arr_weights, jac_dets)
     else:
         if mapping.ldim == 2:
             global_arr_x = mapping._fields[0].coeffs._data
@@ -216,9 +216,9 @@ def test_kernels(geometry, refine, kind):
                                   global_arr_x, global_arr_y, inv_jac_mats)
 
             # Compute the determinant of the jacobians
-            eval_det_metric_2d(*ncells, *pads_m, *degree_m, *n_eval_points, *global_basis_m, *global_spans_m,
-                               global_arr_x, global_arr_y,
-                               metric_dets)
+            eval_jac_det_2d(*ncells, *pads_m, *degree_m, *n_eval_points, *global_basis_m, *global_spans_m,
+                            global_arr_x, global_arr_y,
+                            jac_dets)
 
         if ldim == 3:
             global_arr_x = mapping._fields[0].coeffs._data
@@ -234,9 +234,9 @@ def test_kernels(geometry, refine, kind):
                                   global_arr_x, global_arr_y, global_arr_z, inv_jac_mats)
 
             # Compute the determinant of the jacobians
-            eval_det_metric_3d(*ncells, *pads_m, *degree_m, *n_eval_points, *global_basis_m, *global_spans_m,
-                               global_arr_x, global_arr_y, global_arr_z,
-                               metric_dets)
+            eval_jac_det_3d(*ncells, *pads_m, *degree_m, *n_eval_points, *global_basis_m, *global_spans_m,
+                            global_arr_x, global_arr_y, global_arr_z,
+                            jac_dets)
 
     # Field related quantities through kernel functions
     if kind in ['hcurl', 'hdiv']:  # Product FemSpace
@@ -305,15 +305,15 @@ def test_kernels(geometry, refine, kind):
         for i, j in it.product(range(jac_mats.shape[0]), range(jac_mats.shape[1])):
             # Assert that the computed inverse is the inverse.
             assert np.allclose(np.dot(jac_mats[i, j], inv_jac_mats[i, j]), np.eye(ldim))
-            # Assert that the computed metric determinant is the metric determinant
-            assert np.allclose(np.linalg.det(jac_mats[i, j]), metric_dets[i, j] ** 0.5)
+            # Assert that the computed Jacobian determinant is the Jacobian determinant
+            assert np.allclose(np.linalg.det(jac_mats[i, j]), jac_dets[i, j])
 
     if ldim == 3:
         for i, j, k in it.product(range(jac_mats.shape[0]), range(jac_mats.shape[1]), range(jac_mats.shape[2])):
             # Assert that the computed inverse is the inverse.
             assert np.allclose(np.dot(jac_mats[i, j, k], inv_jac_mats[i, j, k]), np.eye(ldim))
-            # Assert that the computed metric determinant is the metric determinant
-            assert np.allclose(np.linalg.det(jac_mats[i, j, k]), metric_dets[i, j, k] ** 0.5)
+            # Assert that the computed Jacobian determinant is the Jacobian determinant
+            assert np.allclose(np.linalg.det(jac_mats[i, j, k]), jac_dets[i, j, k])
 
     # Field related arrays
     if kind in ['hdiv', 'hcurl']:
@@ -324,17 +324,17 @@ def test_kernels(geometry, refine, kind):
         assert np.allclose(f_direct_w, out_field_w)
 
 
-@pytest.mark.parametrize('metric_det, ldim, field_to_push', [(np.ones((5, 5)), 2, np.ones((5, 5, 1))),
-                                                             (np.ones((5, 5, 5)), 3, np.ones((5, 5, 5, 1))),
-                                                             (np.random.rand(5, 5), 2, np.random.rand(5, 5, 1)),
-                                                             (np.random.rand(5, 5, 5), 3, np.random.rand(5, 5, 5, 1))])
-def test_pushforwards_l2(ldim, metric_det, field_to_push):
-    expected = field_to_push[..., 0] / (metric_det ** 0.5)
+@pytest.mark.parametrize('jac_det, ldim, field_to_push', [(np.ones((5, 5)), 2, np.ones((5, 5, 1))),
+                                                          (np.ones((5, 5, 5)), 3, np.ones((5, 5, 5, 1))),
+                                                          (np.random.rand(5, 5), 2, np.random.rand(5, 5, 1)),
+                                                          (np.random.rand(5, 5, 5), 3, np.random.rand(5, 5, 5, 1))])
+def test_pushforwards_l2(ldim, jac_det, field_to_push):
+    expected = field_to_push[..., 0] / jac_det
     out = np.zeros_like(field_to_push)
     if ldim == 2:
-        pushforward_2d_l2(field_to_push, metric_det, out)
+        pushforward_2d_l2(field_to_push, jac_det, out)
     if ldim == 3:
-        pushforward_3d_l2(field_to_push, metric_det, out)
+        pushforward_3d_l2(field_to_push, jac_det, out)
 
     assert np.allclose(expected, out[..., 0])
 
