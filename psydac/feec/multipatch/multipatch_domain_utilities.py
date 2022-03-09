@@ -93,15 +93,18 @@ def flip_axis(name='no_name', c1=0., c2=0.):
         a11=0, a12=1,
         a21=1, a22=0,
     )
+
 def build_multipatch_domain(domain_name='square_2', r_min=None, r_max=None):
     """
-    design several multipatch domain, including pretzel-like shapes
+    Create a 2D multipatch domain among the many available.
+    These include fairly complex pretzel-like shapes.
 
     Parameters
     ----------
     domain_name: <str>
-     The domain name, it can be one of the follwing names:
-      'square_2', 'square_6', 'square_8', 'square_9', 'annulus_3', 'annulus_4', 'curved_L_shape', 'pretzel', 'pretzel_f', 'pretzel_annulus', 'pretzel_debug'
+     The name of the chosen domain, which can be one of the following:
+      'square_2', 'square_6', 'square_8', 'square_9', 'annulus_3', 'annulus_4',
+      'curved_L_shape', 'pretzel', 'pretzel_f', 'pretzel_annulus', 'pretzel_debug'
 
     Returns
     -------
