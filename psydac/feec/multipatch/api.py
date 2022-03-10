@@ -29,11 +29,12 @@ __all__ = ('DiscreteDerhamMultipatch', 'discretize')
 #==============================================================================
 class DiscreteDerhamMultipatch(DiscreteDerham):
     """ Represents the discrete De Rham sequence for multipatch domains.
+        It only works when the number of patces>1
 
     Parameters
     ----------
     mapping: <Mapping>
-      The mapping of the multipatch domain
+     The mapping of the multipatch domain, the multipatch mapping contains the mapping of each patch 
 
     domain_h: <Geometry>
      The discrete domain
@@ -111,7 +112,7 @@ class DiscreteDerhamMultipatch(DiscreteDerham):
         Parameters
         ----------
         kind: <str>
-          The projectors kind, can be global of local
+          The projectors kind, can be global or local
 
         nquads: <list,tuple>
           The number of quadrature points.

@@ -48,7 +48,7 @@ def get_patch_index_from_face(domain, face):
     Returns
     -------
     i : <int>
-     The index of a face in the multipatch domain
+     The index of a subdomain/boundary in the multipatch domain
     """
 
     if domain.mapping:
@@ -66,7 +66,7 @@ def get_patch_index_from_face(domain, face):
     return i
 
 def get_interface_from_corners(corner1, corner2, domain):
-    """ Return the interface between two corners
+    """ Return the interface between two vertices of two diffrent patches.
 
     Parameters
     ----------
@@ -81,8 +81,8 @@ def get_interface_from_corners(corner1, corner2, domain):
 
     Returns
     -------
-    interface: <Sympde.topology.Interface>
-     The interface between two corners
+    interface: <Sympde.topology.Interface|None>
+     The interface between two vertices
 
     """
 
@@ -115,7 +115,8 @@ def get_interface_from_corners(corner1, corner2, domain):
 
 
 def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
-    """ Return the row and column index of a corner in the Matrix
+    """ Return the row and column index of a corner in the StencilInterfaceMatrix
+        for dofs of H1 type spaces
 
     Parameters
     ----------
@@ -140,7 +141,7 @@ def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
     Returns
     -------
     index: <list>
-     The Matrix index of the corner, it has the form (i1, i2, k1, k2) in 2D, 
+     The StencilInterfaceMatrix index of the corner, it has the form (i1, i2, k1, k2) in 2D,
      where (i1, i2) identifies the row and (k1, k2) the diagonal.
     """
     start     = V1.vector_space.starts
