@@ -66,7 +66,7 @@ def get_patch_index_from_face(domain, face):
     return i
 
 def get_interface_from_corners(corner1, corner2, domain):
-    """ Return the interface between two corners from two diffrent patches that correspond to a single (physical) vertex.
+    """ Return the interface between two corners from two different patches that correspond to a single (physical) vertex.
 
     Parameters
     ----------

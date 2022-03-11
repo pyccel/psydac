@@ -29,7 +29,7 @@ __all__ = ('DiscreteDerhamMultipatch', 'discretize')
 #==============================================================================
 class DiscreteDerhamMultipatch(DiscreteDerham):
     """ Represents the discrete De Rham sequence for multipatch domains.
-        It only works when the number of patces>1
+        It only works when the number of patches>1
 
     Parameters
     ----------
