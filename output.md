@@ -123,7 +123,7 @@ output_m.export_spaces_info() # Writes the space information to Yaml
 ###############################################################################
 # geometry.h5 is where the domain comes from
 post = PostProcessManager('geometry.h5', 'spaces.yml', 'fields.h5')
-post.recontrusct_scope() 
+post.recontruct_scope() 
 # Fills post.spaces and post.fields two dictionnaries 
 # See PostProcessManager's docstring for me information on those
 post.export_to_vtk('filename_vtk',grid, npts_per_cell=npts_per_cell, dt=dt, u0='u0', u1='u1')
