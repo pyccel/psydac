@@ -190,7 +190,8 @@ def get_row_col_index(corner1, corner2, interface, axis, V1, V2):
 
 #===============================================================================
 def allocate_interface_matrix(corners, test_space, trial_space):
-    """ Allocate the interface matrix of a corner domain
+    """ Allocate the interface matrix for a corner shared by two patches, where
+        The patch corners corresponding to the common shared vertex
 
     Parameters
     ----------
@@ -206,7 +207,7 @@ def allocate_interface_matrix(corners, test_space, trial_space):
     Returns
     -------
     mat: <StencilInterfaceMatrix>
-     The interface matrix that represents the corner interface
+     The interface matrix shared by two patches
 
     """
     bi, bj = list(zip(*corners))
