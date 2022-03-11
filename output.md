@@ -97,9 +97,9 @@ file.h5
     ...
     snapshot_n/
 ```
-
+In addition to that, psydac also has a class to read those files, recreate and the `FemSpace` and `FemField` objects and export them to `VTK`. 
 ## Usage
-The `OutputManager` class is meant to be used as follows:
+Those two classes are meant to be used as follows. The `#` line is supposed to represent the end of a file.
 ```python
 # SymPDE Layer
 # Discretization 
@@ -119,4 +119,13 @@ output_m.add_snapshot(t=0., ts=0)
 output_m.export_fields(u0=u0, u1=u1)
 
 output_m.export_spaces_info() # Writes the space information to Yaml
+
+###############################################################################
+# geometry.h5 is where the domain comes from
+post = PostProcessManager('geometry.h5', 'spaces.yml', 'fields.h5')
+post.recontrusct_scope() 
+# Fills post.spaces and post.fields two dictionnaries 
+# See PostProcessManager's docstring for me information on those
+post.export_to_vtk('filename_vtk',grid, npts_per_cell=npts_per_cell, dt=dt, u0='u0', u1='u1')
+# See PostProcessManager.export_to_vtk's and TensorFemSpace.eval_fields' doscstrings for more information. 
 ```
