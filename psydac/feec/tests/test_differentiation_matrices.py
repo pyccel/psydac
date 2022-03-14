@@ -104,10 +104,10 @@ def run_directional_derivative_operator(comm, domain, ncells, degree, periodic, 
 
         # compare matrix assembly (in non-parallel case at least)
         if not diffop.domain.parallel:
-            assert np.array_equal(diffop.toarray_nopads(), matrix.toarray(with_pads=False))
+            assert np.array_equal(diffop.toarray(), matrix.toarray())
 
     # case four: tosparse().dot(v._data)
-    res4 = diffop.tosparse().dot(v._data.flatten())
+    res4 = diffop.tosparse(with_pads=True).dot(v._data.flatten())
     assert np.allclose(ref._data[localslice], res4.reshape(ref._data.shape)[localslice])
 
 def compare_diff_operators_by_matrixassembly(lo1, lo2):

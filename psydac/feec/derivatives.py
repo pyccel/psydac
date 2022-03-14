@@ -247,55 +247,19 @@ class DirectionalDerivativeOperator(Matrix):
         return DirectionalDerivativeOperator(self._spaceV, self._spaceW,
                 self._diffdir, negative=not self._negative, transposed=self._transposed)
     
-    def toarray(self):
+    def toarray(self, **kwargs):
         """
         Transforms this operator into a dense matrix.
-        Includes padding in both domain and codomain.
 
         Returns
         -------
         out : ndarray
             The resulting matrix.
         """
-        return self.tosparse().toarray()
+        return self.tosparse(**kwargs).toarray()
     
-    def toarray_nopads(self):
-        """
-        Transforms this operator into a dense matrix.
-        Does not include padding. Does only work if the domain is not parallel.
+    def tosparse(self, **kwargs):
 
-        Returns
-        -------
-        out : ndarray
-            The resulting matrix.
-        """
-        return self.tosparse_nopads().toarray()
-    
-    def tosparse(self):
-        """
-        Transforms this operator into a sparse matrix in COO format.
-        Includes padding in both domain and codomain.
-
-        Returns
-        -------
-        out : COOMatrix
-            The resulting matrix.
-        """
-        return self._tosparse(True)
-    
-    def tosparse_nopads(self):
-        """
-        Transforms this operator into a sparse matrix in COO format.
-        Does not include padding. Does only work if the domain is not parallel.
-
-        Returns
-        -------
-        out : COOMatrix
-            The resulting matrix.
-        """
-        return self._tosparse(False)
-
-    def _tosparse(self, with_pads):
         """
         Transforms this operator into a sparse matrix in COO format.
         Includes padding in both domain and codomain which is optional, if the domain is serial,
@@ -303,7 +267,7 @@ class DirectionalDerivativeOperator(Matrix):
 
         Parameters
         ----------
-        with_pads : Bool
+        with_pads : Bool,optional
             If true, then padding in domain and codomain direction is included. Enabled by default.
 
         Returns
@@ -312,6 +276,8 @@ class DirectionalDerivativeOperator(Matrix):
             The resulting matrix.
         """
         # again, we do the transposition later
+
+        with_pads = kwargs.pop('with_pads', False)
 
         # avoid this case (no pads, but parallel)
         assert not (self.domain.parallel and not with_pads)
