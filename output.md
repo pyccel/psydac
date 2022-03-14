@@ -97,9 +97,9 @@ file.h5
     ...
     snapshot_n/
 ```
-In addition to that, psydac also has a class to read those files, recreate and the `FemSpace` and `FemField` objects and export them to `VTK`. 
+In addition to that, psydac also has a class to read those files, recreate all the `FemSpace` and `FemField` objects and export them to `VTK`. 
 ## Usage
-Those two classes are meant to be used as follows. The `#` line is supposed to represent the end of a file.
+Those two classes are meant to be used as follows.
 ```python
 # SymPDE Layer
 # Discretization 
@@ -110,7 +110,7 @@ output_m = OutputManager('spaces.yml', 'fields.h5')
 output_m.add_spaces(V0=V0h, V1=V1h) 
 
 output_m.set_static() # Tells the object to save in /static/
-output_m.export_fields(u0=u0, u1=u1) # Actually does the saving
+output_m.export_fields(u0_static=u0, u1_static=u1) # Actually does the saving
 
 output_m.add_snapshot(t=0., ts=0) 
 # The line above tells the object to:
@@ -119,13 +119,12 @@ output_m.add_snapshot(t=0., ts=0)
 output_m.export_fields(u0=u0, u1=u1)
 
 output_m.export_spaces_info() # Writes the space information to Yaml
+```
 
-###############################################################################
+```python
 # geometry.h5 is where the domain comes from
-post = PostProcessManager('geometry.h5', 'spaces.yml', 'fields.h5')
-post.recontruct_scope() 
-# Fills post.spaces and post.fields two dictionnaries 
+post = PostProcessManager(geometry_file='geometry.h5', space_file='spaces.yml', fields_file='fields.h5')
 # See PostProcessManager's docstring for me information on those
-post.export_to_vtk('filename_vtk',grid, npts_per_cell=npts_per_cell, dt=dt, u0='u0', u1='u1')
+post.export_to_vtk('filename_vtk', grid, npts_per_cell=npts_per_cell, snapshots='all', fields = {'u0': 'field1', 'u1': 'field2'})
 # See PostProcessManager.export_to_vtk's and TensorFemSpace.eval_fields' doscstrings for more information. 
 ```

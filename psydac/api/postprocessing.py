@@ -2,8 +2,10 @@
 #
 # Copyright 2019 Yaman Güçlü
 
+from operator import mod
 import numpy as np
 import pyevtk
+from sympy import N
 import yaml
 import re
 import h5py as h5
@@ -126,6 +128,8 @@ class OutputManager:
 
     _current_hdf5_group :  h5py.Group
         Group where the fields will be saved in the next ``export_fields``.
+    
+    _static_names : list
     """
 
     space_types_to_str = {
@@ -151,6 +155,7 @@ class OutputManager:
         self._next_snapshot_number = 0
         self.is_static = None
         self._current_hdf5_group = None
+        self._static_names =[]
 
     @property
     def current_hdf5_group(self):
@@ -377,6 +382,10 @@ class OutputManager:
         """
         if self.is_static is None:
             raise ValueError('Saving scheme not specified')
+        if self.is_static:
+            self._static_names.extend(fields.keys())
+        else:
+            assert all(not field_name in self._static_names for field_name in fields.keys())
 
         # For now, I assume that if something is mpi parallel everything is
         space_test = list(fields.values())[0].space
@@ -442,11 +451,12 @@ class PostProcessManager:
 
     Parameters
     ----------
-    geometry_filename : str or Path-like
+    geometry_file : str or Path-like
         Relative path to the geometry file
-    space_filename : str or Path-like
+    domain : sympde.topology.basic.Domain
+    space_file : str or Path-like
         Relative path to the file containing the space information
-    fields_filename : str or Path-like
+    fields_file : str or Path-like
         Relative path to the file containing the space information
 
     Attributes
@@ -461,37 +471,53 @@ class PostProcessManager:
     _spaces : dict
         Named spaces
 
-    _fields : dict
-        Dictionary containing several dictionaries,
-        one for each snapshot that was read during ``self.reconstruct_scope``
-        plus one for the static fields is there are some.
-        Each of those dictionaries contains the name fields.
-
     _domain : sympde.topology.basic.Domain
-        Domain
+        Symbolic domain
+    _domain_h : psydac.
+        Discretized domain
 
-    _scope_reconstructed : bool
-        Boolean variable telling is the scope has been reconstructed
+    _ncells : int
+
+    _static_fields : dict
+    _snapshot_fields : dict
+
+    _loaded_t : float
+    _loaded_ts : int
+
+    _snapshot_list : list
+
     """
 
-    def __init__(self, geometry_filename, space_filename, fields_filename):
-        self.geometry_file = geometry_filename
-        self.space_file = space_filename
-        self.fields_file = fields_filename
+    def __init__(self, geometry_file=None, domain=None, space_file=None, fields_file=None, ncells=None):
+        if geometry_file is None and domain is None:
+            raise ValueError('Domain or geometry file needed')
+        if geometry_file is not None and domain is not None:
+            raise ValueError("Can't provide both geometry_file and domain")
+        if geometry_file is None:
+            assert ncells is not None
 
+        self.geometry_file = geometry_file
+        self._domain = domain
+        self._domain_h = None
+
+        self.space_file = space_file
+        self.fields_file = fields_file
+
+        self._ncells = ncells
         self._spaces = {}
-        self._fields = {}
-        self._domain = None
+        self._static_fields = {}
+        self._snapshot_fields = {}
 
-        self._scope_reconstructed = False
+        self._loaded_t = None
+        self._loaded_ts = None
+        self._snapshot_list = None
+
+        self._reconstruct_spaces()
+        self.get_snapshot_list()
 
     @property
     def spaces(self):
         return self._spaces
-
-    @property
-    def fields(self):
-        return self._fields
 
     @property
     def domain(self):
@@ -507,17 +533,23 @@ class PostProcessManager:
         """
         return yaml.load(open(self.space_file), Loader=yaml.SafeLoader)
 
-    def reconstruct_scope(self):
-        """Reconstructs all of the spaces and fields from reading the files.
+    def _reconstruct_spaces(self):
+        """Reconstructs all of the spaces from reading the files.
 
         """
         from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace
         from psydac.api.discretization import discretize
 
-        domain = Domain.from_file(self.geometry_file)
-        domain_h = discretize(domain, filename=self.geometry_file)
+        if self.geometry_file is not None:
+            domain = Domain.from_file(self.geometry_file)
+            domain_h = discretize(domain, filename=self.geometry_file)
+        else:
+            domain = self._domain
+            domain_h = discretize(domain, ncells=self._ncells)
 
-        self._domain = domain_h
+        self._domain = domain
+        self._domain_h = domain_h
+        
         space_info = self.read_space_info()
 
         pdim = space_info['ndim']
@@ -574,154 +606,180 @@ class PostProcessManager:
 
                         self._spaces[sc_sp['name']] = discretize(temp_sc_sp, domain_h, **temp_kwargs_discretization)
 
-        # -------------------------------------------------
-        # Fields reconstruction
-        # -------------------------------------------------
-        # TODO: Work out parallel case
+    def get_snapshot_list(self):
+        fh5 = h5.File(self.fields_file, mode='r')
+        self._snapshot_list = []
+        for k in fh5.keys():
+            if k != 'static':
+                self._snapshot_list.append(int(k[-4:]))
+        fh5.close()
+
+    def load_static(self, *fields):
+        """Reads static fields from file.
+        
+        Parameters
+        ----------
+        *fields : tuple of str
+            Names of the fields to load
+        """
+        # kwargs = {}
+        # if comm is not None and comm.size > 1:
+        #     kwargs.update(driver='mpio', comm=comm)
+        # fh5 = h5.File(self.filename_fields, mode='a', **kwargs)
         fh5 = h5.File(self.fields_file, 'r')
 
-        # Sanity Check
-        if fh5.attrs['spaces'] != self.space_file:
-            raise ValueError(f"Unexpected inconsistency between {self.space_file} and {self.fields_file}")
-
+        static_group = fh5['static']
         temp_space_to_field = {}
+        for patch in static_group.keys():
+            patch_group = static_group[patch]
 
-        for k in fh5.keys():
-            global_group = fh5[k]
-            if k == 'static':
-                for patch in global_group.keys():
-                    patch_group = global_group[patch]
+            if patch == self._domain.name:
+                for space_name in patch_group.keys():
+                    space_group = patch_group[space_name]
 
-                    if patch == domain.name:
-                        for space_name in fh5[k][patch].keys():
-                            space_group = patch_group[space_name]
+                    if 'parent_space' in space_group.attrs.keys():  # VectorSpace/Field case
+                        relevant_space_name = space_group.attrs['parent_space']
 
-                            if 'parent_space' in space_group.attrs.keys():  # VectorSpace/Field case
-                                relevant_space_name = space_group.attrs['parent_space']
+                        for field_dset_key in space_group.keys():
+                            field_dset = space_group[field_dset_key]
+                            relevant_field_name = field_dset.attrs['parent_field']
 
-                                for field_dset_key in space_group.keys():
-                                    field_dset = space_group[field_dset_key]
-                                    relevant_field_name = field_dset.attrs['parent_field']
+                            if relevant_field_name in fields:
 
-                                    coeff = field_dset[...]
+                                coeff = field_dset
 
-                                    # Exceptions to take care of when the dicts are empty
+                                # Exceptions to take care of when the dicts are empty
+                                try:
+                                    temp_space_to_field[relevant_space_name][relevant_field_name].append(coeff)
+                                except KeyError:
                                     try:
-                                        temp_space_to_field[k][relevant_space_name][relevant_field_name].append(coeff)
+                                        temp_space_to_field[relevant_space_name][relevant_field_name] = [coeff]
                                     except KeyError:
                                         try:
-                                            temp_space_to_field[k][relevant_space_name][relevant_field_name] = [coeff]
+                                            temp_space_to_field[relevant_space_name] = {relevant_field_name:
+                                                                                            [coeff]
+                                                                                            }
                                         except KeyError:
-                                            try:
-                                                temp_space_to_field[k][relevant_space_name] = {relevant_field_name:
-                                                                                               [coeff]
-                                                                                               }
-                                            except KeyError:
-                                                temp_space_to_field[k] = {relevant_space_name:
-                                                                          {relevant_field_name: [coeff]}
-                                                                          }
-
-                            else:  # Scalar case
-                                V = self._spaces[space_name].vector_space
-                                index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
-                                for field_dset_name in space_group.keys():
-                                    new_field = FemField(self._spaces[space_name])
-
-                                    new_field.coeffs[index] = space_group[field_dset_name][index]
-
-                                    try:
-                                        self._fields[k]['fields'][field_dset_name] = new_field
-                                    except KeyError:
-                                        self._fields[k] = {'fields': {field_dset_name: new_field}}
-
-            else:
-                t = global_group.attrs['t']
-                ts = global_group.attrs['ts']
-                regexp = re.compile(r'snapshot_(?P<id>\d+)')
-                snp_number = int(regexp.search(k).group('id'))
-
-                for patch in global_group.keys():
-                    patch_group = global_group[patch]
-
-                    if patch == domain.name:
-                        for space_name in fh5[k][patch].keys():
-                            space_group = patch_group[space_name]
-
-                            if 'parent_space' in space_group.attrs.keys():  # VectorSpace/Field case
-                                relevant_space_name = space_group.attrs['parent_space']
-
-                                for field_dset_key in space_group.keys():
-                                    field_dset = space_group[field_dset_key]
-                                    relevant_field_name = field_dset.attrs['parent_field']
-
-                                    coeff = field_dset[...]
-
-                                    # Exceptions to take care of when the dicts are empty
-                                    try:
-                                        temp_space_to_field[snp_number][relevant_space_name][relevant_field_name] \
-                                            .append(coeff)
-
-                                    except KeyError:
-                                        try:
-                                            temp_space_to_field[snp_number][relevant_space_name] \
-                                                [relevant_field_name] = [coeff]
-
-                                        except KeyError:
-                                            try:
-                                                temp_space_to_field[snp_number][relevant_space_name] = {
-                                                    relevant_field_name: [coeff]
-                                                }
-                                            except KeyError:
-                                                temp_space_to_field[snp_number] = {relevant_space_name:
-                                                                                   {relevant_field_name: [coeff]},
-                                                                                   'time': t,
-                                                                                   'timestep': ts
-                                                                                   }
-
-                            else:  # Scalar case
-                                V = self._spaces[space_name].vector_space
-                                index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
-                                for field_dset_name in space_group.keys():
-                                    new_field = FemField(self._spaces[space_name])
-
-                                    new_field.coeffs[index] = space_group[field_dset_name][index]
-
-                                    try:
-                                        self._fields[snp_number]['fields'][field_dset_name] = new_field
-                                    except KeyError:
-                                        self._fields[snp_number] = {'fields': {field_dset_name: new_field},
-                                                                    'time': t,
-                                                                    'timestep': ts,
+                                            temp_space_to_field = {relevant_space_name:
+                                                                {relevant_field_name: [coeff]}
                                                                     }
 
-        for k, space_dict in temp_space_to_field.items():
-            for space_name, field_dict in space_dict.items():
-                if space_name != 'time' and space_name != 'timestep':
-                    for field_name, list_coeffs in field_dict.items():
+                    else:  # Scalar case
+                            V = self._spaces[space_name].vector_space
+                            index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+                            for field_dset_name in space_group.keys():
+                                if field_dset_name in fields:
+                                    new_field = FemField(self._spaces[space_name])
+                                    new_field.coeffs[index] = space_group[field_dset_name][index]
 
-                        new_field = FemField(self._spaces[space_name])
+                                    self._static_fields[field_dset_name] = new_field
 
-                        for i, coeff in enumerate(list_coeffs):
-                            Vi = self._spaces[space_name].vector_space.spaces[i]
-                            index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
+        
+        for space_name, field_dict in temp_space_to_field.items():
+            if space_name != 'time' and space_name != 'timestep':
+                for field_name, list_coeffs in field_dict.items():
 
-                            new_field.coeffs[i][index] = coeff[index]
+                    new_field = FemField(self._spaces[space_name])
 
-                        try:
-                            self._fields[k]['fields'][field_name] = new_field
-                        except KeyError:
-                            if k == 'static':
-                                self._fields[k] = {'fields': {field_name: new_field}}
-                            else:
-                                self._fields[k] = {
-                                    'fields': {field_name: new_field},
-                                    'time': temp_space_to_field[k]['time'],
-                                    'timestep': temp_space_to_field[k]['timestep'],
-                                }
-        self._scope_reconstructed = True
+                    for i, coeff in enumerate(list_coeffs):
+                        Vi = self._spaces[space_name].vector_space.spaces[i]
+                        index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
-    def export_to_vtk(self, filename_pattern, grid, npts_per_cell=None, dt=None, export_static=True, lz=4, **fields):
-        """Exports all the static fields and some or all of the time dependent fields.
+                        new_field.coeffs[i][index] = coeff[index]
+
+                    self._static_fields[field_name] = new_field
+
+        fh5.close()
+
+    def unload_static(self):
+        for f_name in list(self._static_fields.keys()):
+            del self._static_fields[f_name]
+
+    def load_snapshot(self, n, *fields):
+        """Reads a particular snapshot from file
+
+        Parameters
+        ----------
+        n : int
+            number of the snapshot
+        *fields : tuple of str
+            Names of the fields to load
+        """
+                # kwargs = {}
+        # if comm is not None and comm.size > 1:
+        #     kwargs.update(driver='mpio', comm=comm)
+        # fh5 = h5.File(self.filename_fields, mode='a', **kwargs)
+        fh5 = h5.File(self.fields_file, 'r')
+
+        snapshot_group = fh5[f'snapshot_{n:0>4}']
+        temp_space_to_field = {}
+        for patch in snapshot_group.keys():
+            patch_group = snapshot_group[patch]
+
+            if patch == self._domain.name:
+                for space_name in patch_group.keys():
+                    space_group = patch_group[space_name]
+
+                    if 'parent_space' in space_group.attrs.keys():  # VectorSpace/Field case
+                        relevant_space_name = space_group.attrs['parent_space']
+
+                        for field_dset_key in space_group.keys():
+                            field_dset = space_group[field_dset_key]
+                            relevant_field_name = field_dset.attrs['parent_field']
+                            if relevant_field_name in fields:
+
+                                coeff = field_dset
+
+                                # Exceptions to take care of when the dicts are empty
+                                try:
+                                    temp_space_to_field[relevant_space_name][relevant_field_name].append(coeff)
+                                except KeyError:
+                                    try:
+                                        temp_space_to_field[relevant_space_name][relevant_field_name] = [coeff]
+                                    except KeyError:
+                                        try:
+                                            temp_space_to_field[relevant_space_name] = {relevant_field_name:
+                                                                                            [coeff]
+                                                                                            }
+                                        except KeyError:
+                                            temp_space_to_field = {relevant_space_name:
+                                                                {relevant_field_name: [coeff]}
+                                                                    }
+
+                    else:  # Scalar case
+                            V = self._spaces[space_name].vector_space
+                            index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+                            for field_dset_name in space_group.keys():
+                                if field_dset_name in fields:
+
+                                    new_field = FemField(self._spaces[space_name])
+                                    new_field.coeffs[index] = space_group[field_dset_name][index]
+
+                                    self._snapshot_fields[field_dset_name] = new_field
+
+        for space_name, field_dict in temp_space_to_field.items():
+            for field_name, list_coeffs in field_dict.items():
+
+                new_field = FemField(self._spaces[space_name])
+
+                for i, coeff in enumerate(list_coeffs):
+                    Vi = self._spaces[space_name].vector_space.spaces[i]
+                    index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
+
+                    new_field.coeffs[i][index] = coeff[index]
+
+                self._snapshot_fields[field_name] = new_field
+
+        self._loaded_t = snapshot_group.attrs['t']
+        self._loaded_ts = snapshot_group.attrs['ts']
+        fh5.close()
+    
+    def unload_snapshot(self):
+        for f_name in list(self._snapshot_fields.keys()):
+            del self._snapshot_fields[f_name]
+
+    def export_to_vtk(self, filename_pattern, grid, npts_per_cell=None, snapshots='none', lz=4, fields={}):
+        """Exports some fields to vtk. 
 
         Parameters
         ----------
@@ -735,17 +793,13 @@ class PostProcessManager:
             number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
 
-        export_static: bool, default=True
-            If True, export the static fields,
-            if False don't.
-
-        lz: int, default=4
-            Number of leading zeros in the time indexing of the files.
-
-        dt: int or list of int or None, optional
+        snapshot: int or list of int or 'none' or 'all'
             If an int is given, will export every dt^th snapshot.
             If a list is given instead, will export every snapshot present in the list.
             Finally, if None, will export every time step.
+        
+        lz: int, default=4
+            Number of leading zeros in the time indexing of the files.
 
         fields: dict
             Dictionary with the as the fields to export and as values the name under which to export them
@@ -757,12 +811,10 @@ class PostProcessManager:
         # =================================================
         # Common to everything
         # =================================================
-        # Make sure we called reconstruct_scope
-        if not self._scope_reconstructed:
-            self.reconstruct_scope()
+
 
         # Get Mapping
-        mappings = self._domain.mappings
+        mappings = self._domain_h.mappings
 
         if len(mappings.values()) != 1:
             raise NotImplementedError("Multipatch not supported yet")
@@ -793,55 +845,63 @@ class PostProcessManager:
         # ============================
         # Static
         # ============================
-        if export_static:
+
+        if snapshots in ['all', 'none']:
+            if self._static_fields == {}:
+                self.load_static()
             pointData_static = {}
             smart_eval_dict = {}
-            if 'static' in self._fields.keys():
-                for f_name, field in self._fields['static']['fields'].items():
-                    if f_name in fields.keys():
-                        try:
-                            smart_eval_dict[field.space][0].append(field)
-                            smart_eval_dict[field.space][1].append(fields[f_name])
-                        except KeyError:
-                            smart_eval_dict[field.space] = ([field], [fields[f_name]])
 
-                for space, (field_list_to_eval, name_list) in smart_eval_dict.items():
-                    pushed_fields = space.pushforward_fields(grid,
-                                                             *field_list_to_eval,
-                                                             mapping=mapping,
-                                                             npts_per_cell=npts_per_cell)
+            for f_name, field in self._static_fields.items():
+                if f_name in fields.keys():
+                    try:
+                        smart_eval_dict[field.space][0].append(field)
+                        smart_eval_dict[field.space][1].append(fields[f_name])
+                    except KeyError:
+                        smart_eval_dict[field.space] = ([field], [fields[f_name]])
 
-                    if not isinstance(pushed_fields[0], list):
-                        pushed_fields = [[pushed_fields[i]] for i in range(len(pushed_fields))]
+            for space, (field_list_to_eval, name_list) in smart_eval_dict.items():
+                pushed_fields = space.pushforward_fields(grid,
+                                                            *field_list_to_eval,
+                                                            mapping=mapping,
+                                                            npts_per_cell=npts_per_cell)
 
-                    for i in range(len(name_list)):
-                        if len(pushed_fields[i]) == 1:
-                            # Means that this is a Scalar space.
-                            pointData_static[name_list[i]] = pushed_fields[i][0][slice_3d]
-                        else:
-                            # Means that this is a vector/product space and that we need to turn the
-                            # result into a 3-tuple (x_component, y_component, z_component)
-                            tuple_fields = tuple(pushed_fields[i][j][slice_3d] for j in range(ldim)) \
-                                                 + (3-ldim) * (np.zeros_like(pushed_fields[i][0])[slice_3d],)
-                            pointData_static[name_list[i]] = tuple_fields
+                if not isinstance(pushed_fields[0], list):
+                    pushed_fields = [[pushed_fields[i]] for i in range(len(pushed_fields))]
 
-                # Export static fields to VTK
-                pyevtk.hl.gridToVTK(f'{filename_pattern}_static', x_mesh, y_mesh, z_mesh,
-                                    pointData=pointData_static)
+                for i in range(len(name_list)):
+                    if len(pushed_fields[i]) == 1:
+                        # Means that this is a Scalar space.
+                        pointData_static[name_list[i]] = pushed_fields[i][0][slice_3d]
+                    else:
+                        # Means that this is a vector/product space and that we need to turn the
+                        # result into a 3-tuple (x_component, y_component, z_component)
+                        tuple_fields = tuple(pushed_fields[i][j][slice_3d] for j in range(ldim)) \
+                                                + (3-ldim) * (np.zeros_like(pushed_fields[i][0])[slice_3d],)
+                        pointData_static[name_list[i]] = tuple_fields
+
+            # Export static fields to VTK
+            pyevtk.hl.gridToVTK(f'{filename_pattern}_static', x_mesh, y_mesh, z_mesh,
+                                pointData=pointData_static)
 
         # =================================================
         # Time Dependent part
         # =================================================
         # get which snapshots to go through
-        if dt is None:
-            dt = [k for k in self._fields.keys() if k != 'static']
+        if snapshots == 'all':
+            snapshots = self._snapshot_list
+        if isinstance(snapshots, int):
+            snapshots = [snapshots]
 
-        if isinstance(dt, int):
-            dt = [dt * i for i in range((len(self._fields.keys()) - 1)//dt)]
+        if snapshots == 'none':
+            snapshots = []
 
         smart_eval_dict = {}
-        for i, snapshot in enumerate(dt):
-            for f_name, field in self._fields[snapshot]['fields'].items():
+        for i, snapshot in enumerate(snapshots):
+            self.unload_snapshot()
+            self.load_snapshot(snapshot, tuple(fields.keys()))
+
+            for f_name, field in self._snapshot_fields.items():
                 if f_name in fields.keys():
                     try:
                         smart_eval_dict[field.space][0].append(field)
@@ -865,7 +925,7 @@ class PostProcessManager:
 
             previous_time = time_list[0]
             pointData_time = {}
-            for i, name in enumerate(name_list):
+            for i in range(len(name_list)):
 
                 # Check if we are in the same snapshot as before, if yes do nothing,
                 # if not, we save the current pointData under the appropriate timestamp

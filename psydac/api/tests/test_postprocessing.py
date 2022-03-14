@@ -35,8 +35,8 @@ def test_OutputManager():
     Om.add_spaces(Ah=Ah, Bh=Bh)
 
     Om.set_static()
-    Om.export_fields(uh=uh)
-    Om.export_fields(vh=vh)
+    Om.export_fields(uh_static=uh)
+    Om.export_fields(vh_static=vh)
 
     Om.add_snapshot(t=0., ts=0)
     Om.export_fields(uh=uh, vh=vh)
@@ -44,6 +44,11 @@ def test_OutputManager():
     Om.add_snapshot(t=1., ts=1)
     Om.export_fields(uh=uh)
     Om.export_fields(vh=vh)
+
+    try:
+        Om.export_fields(uh_static=uh)
+    except AssertionError:
+        pass
 
     expected_spaces_info = {'ndim': 2,
                             'fields': 'file.h5',
@@ -144,7 +149,7 @@ def test_OutputManager():
                                       'identity_3d.h5',
                                       'bent_pipe.h5'])
 @pytest.mark.parametrize('refinement', [1, 2, 3])
-def test_PostProcess_Manager(geometry, refinement):
+def test_PostProcessManager(geometry, refinement):
     # =================================================================
     # Part 1: Running a simulation
     # =================================================================
@@ -173,7 +178,7 @@ def test_PostProcess_Manager(geometry, refinement):
     output = OutputManager('space_example.yml', 'fields_example.h5')
     output.add_spaces(V1h=V1h, V2h=V2h, V3=V3h)
     output.set_static()
-    output.export_fields(u=uh, v=vh)
+    output.export_fields(w=wh)
 
     uh_grids = []
     vh_grids = []
@@ -186,7 +191,7 @@ def test_PostProcess_Manager(geometry, refinement):
 
         # Export to HDF5
         output.add_snapshot(t=float(i), ts=i)
-        output.export_fields(u=uh, v=vh, w=wh)
+        output.export_fields(u=uh, v=vh)
 
         # Saving for comparisons
         uh_grid = V1h.eval_fields(grid, uh, npts_per_cell=npts_per_cell)
@@ -202,19 +207,20 @@ def test_PostProcess_Manager(geometry, refinement):
     # Part 2: Post Processing
     # =================================================================================
 
-    post = PostProcessManager(geometry_filename=geometry_file,
-                              space_filename='space_example.yml',
-                              fields_filename='fields_example.h5')
+    post = PostProcessManager(geometry_file=geometry_file,
+                              space_file='space_example.yml',
+                              fields_file='fields_example.h5')
 
-    post.reconstruct_scope()
 
     V1h_new = post.spaces['V1h']
     V2h_new = post.spaces['V2h']
 
     for i in range(len(uh_grids)):
-        snapshot = post.fields[i]
-        u_new = snapshot['fields']['u']
-        v_new = snapshot['fields']['v']
+        post.load_snapshot(i, 'u', 'v')
+        snapshot = post._snapshot_fields
+
+        u_new = snapshot['u']
+        v_new = snapshot['v']
 
         uh_grid_new = V1h_new.eval_fields(grid, u_new, npts_per_cell=npts_per_cell)
         vh_grid_new = V2h_new.eval_fields(grid, v_new, npts_per_cell=npts_per_cell)
@@ -224,9 +230,9 @@ def test_PostProcess_Manager(geometry, refinement):
         assert np.allclose(vh_grid_x_new, vh_grids[i][0])
         assert np.allclose(vh_grid_y_new, vh_grids[i][1])
 
-    post.export_to_vtk('example_None', grid, npts_per_cell=npts_per_cell, dt=None, u='u', v='v', w='w')
-    post.export_to_vtk('example_int', grid, npts_per_cell=npts_per_cell, dt=5, u='u', v='v', w='w')
-    post.export_to_vtk('example_list', grid, npts_per_cell=npts_per_cell, dt=[9, 5, 6, 3], u='u', v='v', w='w')
+    post.export_to_vtk('example_None', grid, npts_per_cell=npts_per_cell, snapshots='none', fields={'u':'field1', 'v':'field2', 'w':'field3'})
+    post.export_to_vtk('example_all', grid, npts_per_cell=npts_per_cell, snapshots='all', fields={'u':'field1', 'v':'field2', 'w':'field3'})
+    post.export_to_vtk('example_list', grid, npts_per_cell=npts_per_cell, snapshots=[9, 5, 6, 3], fields={'u':'field1', 'v':'field2', 'w':'field3'})
 
     # Clear files
     for f in glob.glob("example*.vts"): #VTK files
@@ -234,6 +240,4 @@ def test_PostProcess_Manager(geometry, refinement):
     os.remove('space_example.yml')
     os.remove('fields_example.h5')
 
-if __name__ == '__main__':
-    test_OutputManager()
-    test_PostProcess_Manager()
+
