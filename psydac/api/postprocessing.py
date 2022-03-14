@@ -778,7 +778,7 @@ class PostProcessManager:
         for f_name in list(self._snapshot_fields.keys()):
             del self._snapshot_fields[f_name]
 
-    def export_to_vtk(self, filename_pattern, grid, npts_per_cell=None, snapshots='none', lz=4, fields={}):
+    def export_to_vtk(self, filename_pattern, grid, npts_per_cell=None, snapshots='none', lz=4, fields=None):
         """Exports some fields to vtk. 
 
         Parameters
@@ -802,7 +802,7 @@ class PostProcessManager:
             Number of leading zeros in the time indexing of the files.
 
         fields: dict
-            Dictionary with the as the fields to export and as values the name under which to export them
+            Dictionary with the fields to export as keys and the name under which to export them as values
 
         Notes
         -----
