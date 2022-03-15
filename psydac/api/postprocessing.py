@@ -452,12 +452,17 @@ class PostProcessManager:
     Parameters
     ----------
     geometry_file : str or Path-like
-        Relative path to the geometry file
+        Relative path to the geometry file.
     domain : sympde.topology.basic.Domain
+        Symbolic domain, provided alongside ``ncells`` in place of ``geometry_file``.
+
     space_file : str or Path-like
-        Relative path to the file containing the space information
+        Relative path to the file containing the space information.
     fields_file : str or Path-like
-        Relative path to the file containing the space information
+        Relative path to the file containing the space information.
+
+    ncells : list of ints
+        Number of cells in the domain, provided alongside ``domain`` in place of ``geometry_file``.
 
     Attributes
     ----------
@@ -476,16 +481,21 @@ class PostProcessManager:
     _domain_h : psydac.
         Discretized domain
 
-    _ncells : int
+    _ncells : list of ints
+        Number of cells of the domain
 
     _static_fields : dict
+        Named static fields
     _snapshot_fields : dict
+        Named time dependent fields belonging to the same snapshot
 
     _loaded_t : float
+        Time of the loaded snapshot
     _loaded_ts : int
+        Time step of the loaded snapshot
 
     _snapshot_list : list
-
+        List of all the snapshots
     """
 
     def __init__(self, geometry_file=None, domain=None, space_file=None, fields_file=None, ncells=None):
@@ -676,24 +686,20 @@ class PostProcessManager:
 
         
         for space_name, field_dict in temp_space_to_field.items():
-            if space_name != 'time' and space_name != 'timestep':
-                for field_name, list_coeffs in field_dict.items():
+            
+            for field_name, list_coeffs in field_dict.items():
 
-                    new_field = FemField(self._spaces[space_name])
+                new_field = FemField(self._spaces[space_name])
 
-                    for i, coeff in enumerate(list_coeffs):
-                        Vi = self._spaces[space_name].vector_space.spaces[i]
-                        index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
+                for i, coeff in enumerate(list_coeffs):
+                    Vi = self._spaces[space_name].vector_space.spaces[i]
+                    index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
-                        new_field.coeffs[i][index] = coeff[index]
+                    new_field.coeffs[i][index] = coeff[index]
 
-                    self._static_fields[field_name] = new_field
+                self._static_fields[field_name] = new_field
 
         fh5.close()
-
-    def unload_static(self):
-        for f_name in list(self._static_fields.keys()):
-            del self._static_fields[f_name]
 
     def load_snapshot(self, n, *fields):
         """Reads a particular snapshot from file
@@ -705,7 +711,7 @@ class PostProcessManager:
         *fields : tuple of str
             Names of the fields to load
         """
-                # kwargs = {}
+        # kwargs = {}
         # if comm is not None and comm.size > 1:
         #     kwargs.update(driver='mpio', comm=comm)
         # fh5 = h5.File(self.filename_fields, mode='a', **kwargs)
@@ -751,32 +757,39 @@ class PostProcessManager:
                             index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
                             for field_dset_name in space_group.keys():
                                 if field_dset_name in fields:
+                                    try:
+                                        self._snapshot_fields[field_dset_name].coeffs[index] = space_group[field_dset_name][index]
+                                    except KeyError:
+                                        new_field = FemField(self._spaces[space_name])
+                                        new_field.coeffs[index] = space_group[field_dset_name][index]
 
-                                    new_field = FemField(self._spaces[space_name])
-                                    new_field.coeffs[index] = space_group[field_dset_name][index]
-
-                                    self._snapshot_fields[field_dset_name] = new_field
+                                        self._snapshot_fields[field_dset_name] = new_field
 
         for space_name, field_dict in temp_space_to_field.items():
             for field_name, list_coeffs in field_dict.items():
+                try:
+                    for i, coeff in enumerate(list_coeffs):
+                        Vi = self._spaces[space_name].vector_space.spaces[i]
+                        index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
-                new_field = FemField(self._spaces[space_name])
+                        self._snapshot_fields[field_name].coeffs[i][index] = coeff[index]
+                except KeyError:
+                    new_field = FemField(self._spaces[space_name])
 
-                for i, coeff in enumerate(list_coeffs):
-                    Vi = self._spaces[space_name].vector_space.spaces[i]
-                    index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
+                    for i, coeff in enumerate(list_coeffs):
+                        Vi = self._spaces[space_name].vector_space.spaces[i]
+                        index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
-                    new_field.coeffs[i][index] = coeff[index]
-
-                self._snapshot_fields[field_name] = new_field
+                        new_field.coeffs[i][index] = coeff[index]
+                    self._snapshot_fields[field_name] = new_field
 
         self._loaded_t = snapshot_group.attrs['t']
         self._loaded_ts = snapshot_group.attrs['ts']
         fh5.close()
-    
-    def unload_snapshot(self):
-        for f_name in list(self._snapshot_fields.keys()):
-            del self._snapshot_fields[f_name]
+
+        for key in list(self._snapshot_fields.keys()):
+            if key not in fields:
+                del self._snapshot_fields[key]
 
     def export_to_vtk(self, filename_pattern, grid, npts_per_cell=None, snapshots='none', lz=4, fields=None):
         """Exports some fields to vtk. 
@@ -793,13 +806,14 @@ class PostProcessManager:
             number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
 
-        snapshot: int or list of int or 'none' or 'all'
-            If an int is given, will export every dt^th snapshot.
-            If a list is given instead, will export every snapshot present in the list.
-            Finally, if None, will export every time step.
+        snapshot: list of int or 'all' or 'none', default='none'
+            If a list is given, it will export every snapshot present in the list.
+            If 'none', only the static fields will be exported.
+            Finally, if 'all', will export every time step and the static part.
         
         lz: int, default=4
-            Number of leading zeros in the time indexing of the files.
+            Number of leading zeros in the time indexing of the files. 
+            Only used if ``snapshot`` is not ``'none'``. 
 
         fields: dict
             Dictionary with the fields to export as keys and the name under which to export them as values
@@ -811,8 +825,6 @@ class PostProcessManager:
         # =================================================
         # Common to everything
         # =================================================
-
-
         # Get Mapping
         mappings = self._domain_h.mappings
 
@@ -845,7 +857,6 @@ class PostProcessManager:
         # ============================
         # Static
         # ============================
-
         if snapshots in ['all', 'none']:
             if self._static_fields == {}:
                 self.load_static()
@@ -898,7 +909,6 @@ class PostProcessManager:
 
         smart_eval_dict = {}
         for i, snapshot in enumerate(snapshots):
-            self.unload_snapshot()
             self.load_snapshot(snapshot, tuple(fields.keys()))
 
             for f_name, field in self._snapshot_fields.items():
