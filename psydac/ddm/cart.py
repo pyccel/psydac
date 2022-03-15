@@ -8,6 +8,17 @@ from psydac.ddm.partition import compute_dims
 
 __all__ = ['find_mpi_type', 'CartDecomposition', 'CartDataExchanger']
 
+def get_sizes(ncells, size):
+    ncells = [np.product(nc) for nc in ncells]
+    percentage = [nc/sum(ncells) for nc in ncells]
+    sizes  = [max(1,int(p*size)) for p in percentage]
+    diff   = [(p*size-int(p*size)) if p*size>1 else 0 for p in percentage]
+    indices = np.argsort(diff)[::-1]
+    rm     = size-sum(sizes)
+    if rm>0:
+        sizes[indices[:rm]] +=1
+        assert sum(sizes) >= size
+    return sizes
 #===============================================================================
 def find_mpi_type( dtype ):
     """

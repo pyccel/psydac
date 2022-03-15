@@ -330,6 +330,10 @@ def discretize_space(V, domain_h, *args, **kwargs):
 #==============================================================================
 def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
 
+    if comm is not None:
+        # Create a copy of the communicator
+        comm = comm.Dup()
+
     if not (filename or ncells):
         raise ValueError("Must provide either 'filename' or 'ncells'")
 

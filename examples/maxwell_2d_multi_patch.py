@@ -111,7 +111,7 @@ if __name__ == '__main__':
     f     = Tuple(alpha*sin(pi*y) - pi**2*sin(pi*y)*cos(pi*x) + pi**2*sin(pi*y),
                   alpha*sin(pi*x)*cos(pi*y) + pi**2*sin(pi*x)*cos(pi*y))
 
-    ne     = [2**2,2**2]
+    ne     = [6,6]
     degree = [2,2]
 
     Eh, info, timing, l2_error = run_maxwell_2d(Eex, f, alpha, domain, ncells=ne, degree=degree)
@@ -135,29 +135,24 @@ if __name__ == '__main__':
 
     etas, xx, yy         = get_plotting_grid(mappings, N=20)
     grid_vals_hcurl      = lambda v: get_grid_vals(v, etas, mappings_list, space_kind='hcurl')
+    grid_lines           = [get_patch_knots_gridlines(Eh.space, N, mappings, plotted_patch=i) for i in range(len(domain))]
+    gridlines_x1         = [grid[0] for grid in grid_lines]
+    gridlines_x2         = [grid[1] for grid in grid_lines]
 
     Eh_x_vals, Eh_y_vals = grid_vals_hcurl(Eh)
     E_x_vals, E_y_vals   = grid_vals_hcurl(Eex_log)
 
-    E_x_err              = [(u1 - u2) for u1, u2 in zip(E_x_vals, Eh_x_vals)]
-    E_y_err              = [(u1 - u2) for u1, u2 in zip(E_y_vals, Eh_y_vals)]
-
+    Eh_em = np.sqrt(np.array(Eh_x_vals)**2 + np.array(Eh_y_vals)**2)
+    E_em  = np.sqrt(np.array(E_x_vals)**2  + np.array(E_y_vals)**2)
+    E_err = Eh_em - E_em
     my_small_plot(
-        title=r'approximation of solution $u$, $x$ component',
-        vals=[E_x_vals, Eh_x_vals, E_x_err],
-        titles=[r'$u^{ex}_x(x,y)$', r'$u^h_x(x,y)$', r'$|(u^{ex}-u^h)_x(x,y)|$'],
+        title='',
+        vals=[Eh_em, E_err],
+        titles=[r'$|u^h(x,y)|$', r'$(|u^{ex}|-|u^h|)(x,y)$'],
         xx=xx,
         yy=yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
-    )
-
-    my_small_plot(
-        title=r'approximation of solution $u$, $y$ component',
-        vals=[E_y_vals, Eh_y_vals, E_y_err],
-        titles=[r'$u^{ex}_y(x,y)$', r'$u^h_y(x,y)$', r'$|(u^{ex}-u^h)_y(x,y)|$'],
-        xx=xx,
-        yy=yy,
-        gridlines_x1=None,
-        gridlines_x2=None,
+        gridlines_x1=gridlines_x1,
+        gridlines_x2=gridlines_x2,
+        save_fig='yes.pdf',
+        cmap='jet'
     )
