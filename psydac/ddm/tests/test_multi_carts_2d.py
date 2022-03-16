@@ -14,24 +14,17 @@ def run_carts_2d():
     # INPUT PARAMETERS
     #---------------------------------------------------------------------------
 
+    N = 1000
     # Number of elements
-    n1 = [100,100]
-    n2 = [100,100]
-    n3 = [100,100]
+    n = [[200,200] for i in range(N)]
 
     # Padding ('thickness' of ghost region)
-    p1 = [3,3]
-    p2 = [3,3]
-    p3 = [3,3]
+    p = [[3,3] for i in range(N)]
     # Periodicity
-    period1 = [False, False]
-    period2 = [False, False]
-    period3 = [False, False]
+    P = [[False, False] for i in range(N)]
 
-    interfaces = {}
-    interfaces[0,1] = True
-    interfaces[1,2] = True
-    interfaces[2,0] = True
+
+    interfaces = {(i,i+1):True for i in range(N-1)}
     #---------------------------------------------------------------------------
     # DOMAIN DECOMPOSITION
     #---------------------------------------------------------------------------
@@ -44,9 +37,9 @@ def run_carts_2d():
     t1 = time.time()
     # Decomposition of Cartesian domain
     cart = MultiCartDecomposition(
-        npts       = [n1,n2,n3],
-        pads       = [p1,p2,p3],
-        periods    = [period1, period2, period3],
+        npts       = n,
+        pads       = p,
+        periods    = P,
         reorder    = False,
         interfaces = interfaces,
         comm    = comm)
