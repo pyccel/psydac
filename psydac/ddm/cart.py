@@ -8,20 +8,43 @@ from psydac.ddm.partition import compute_dims
 
 __all__ = ['find_mpi_type', 'CartDecomposition', 'CartDataExchanger']
 
-def get_sizes(ncells, size):
-    ncells     = [np.product(nc) for nc in ncells]
-    percentage = [nc/sum(ncells) for nc in ncells]
-    sizes      =  [1]*len(ncells)
-    old_size   = size
-    size       = max(0, size-len(ncells))
-    sizes      = np.array([s+int(p*size) for s,p in zip(sizes, percentage)])
-    diff       = [p*old_size-s for s,p in zip(sizes, percentage)]
+def partition_procs(npts, size):
+    npts       = [np.product(nc) for nc in npts]
+    percentage = [nc/sum(npts) for nc in npts]
+    sizes      = np.array([int(p*size) for p in percentage])
+    diff       = [p*size-s for s,p in zip(sizes, percentage)]
     indices    = np.argsort(diff)[::-1]
-    rm         = old_size-sum(sizes)
-    if rm>0:
-        sizes[indices[:rm]] +=1
-        assert sum(sizes) >= old_size
-    return sizes
+    rm         = size-sum(sizes)
+    
+    sizes[indices[:rm]] +=1
+    assert sum(sizes) == size
+
+    #...
+    start  = 0
+    ranges = []
+    for s in sizes:
+        ranges.append([start, start+s-1])
+        start += s
+
+    assert start == size
+
+    ranges = np.array(ranges)
+
+    sw_ranks = [i[0] for i in ranges[indices[:rm]]]
+
+    rank = 0
+    for i,s in enumerate(sizes):
+        if s == 0:
+            sizes[i] = 1
+            if sw_ranks:
+                e_rank    = sw_ranks.pop()
+                ranges[i] = [e_rank, e_rank]
+            else:
+                ranges[i] = [rank, rank]
+                rank      = (rank+1)%size
+
+    assert all(i[0]<=i[1] for i in ranges)
+    return sizes, ranges
 
 #===============================================================================
 def find_mpi_type( dtype ):
@@ -47,6 +70,80 @@ def find_mpi_type( dtype ):
 
     return mpi_type
 
+#====================================================================================
+class MultiCartDecomposition():
+    def __init__( self, npts, pads, periods, reorder, interfaces, comm=MPI.COMM_WORLD, shifts=None, num_threads=None ):
+
+        # Check input arguments
+        # TODO: check that arguments are identical across all processes
+        assert len( npts ) == len( pads ) == len( periods )
+        assert all(all( n >=1 for n in npts_i ) for npts_i in npts)
+        assert isinstance( comm, MPI.Comm )
+
+        shifts      = tuple(shifts) if shifts else [(1,)*len(npts[0]) for n in npts]
+        num_threads = num_threads if num_threads else 1
+
+        # Store input arguments
+        self._npts         = tuple( npts    )
+        self._pads         = tuple( pads    )
+        self._periods      = tuple( periods )
+        self._shifts       = tuple( shifts  )
+        self._num_threads  = num_threads
+        self._comm         = comm
+
+        # ...
+        self._ncarts = len( npts )
+
+        # ...
+        size           = comm.Get_size()
+        rank           = comm.Get_rank()
+        sizes, rank_ranges  = partition_procs(self._npts, size)
+
+        self._rank   = rank
+        self._size   = size
+        self._sizes  = sizes
+        self._rank_ranges = rank_ranges
+
+        global_group = comm.group
+        owned_groups = []
+
+        local_groups        = [None]*self._ncarts
+        local_communicators = [None]*self._ncarts
+        for i,r in enumerate(rank_ranges):
+            local_groups[i] = global_group.Incl(list(range(r[0], r[1]+1)))
+            if rank>=r[0] and rank<=r[1]:
+                local_communicators[i] = comm.Create_group(local_groups[i], i)
+                owned_groups.append(i)
+
+        self._local_groups        = local_groups
+        self._local_communicators = local_communicators
+
+        interfaces_groups = {}
+        interfaces_comm   = {}
+
+        for i,j in interfaces:
+            if i in owned_groups or j in owned_groups:
+                interfaces_groups[i,j] = local_groups[i].Union(local_groups[i], local_groups[j])
+                interfaces_comm  [i,j] = comm.Create_group(interfaces_groups[i,j])
+
+        try:
+            carts = [CartDecomposition(n, p, P, reorder, comm=sub_comm, shifts=s, num_threads=num_threads) if sub_comm else None\
+                    for n,p,P,sub_comm,s in zip(npts, pads, periods, local_communicators, shifts)]
+        except:
+            comm.Abort(1)
+
+        interfaces_carts = {}
+#        for i,j in interfaces:
+#            if (i,j) in interfaces_comm:
+#                interfaces_carts[i,j] = InterfaceCartDecomposition([npts[i], npts[j]], [pads[i], pads[j]],
+#                                        [periods[i], periods[j]], comm=interfaces_comm[i,j], shifts=[shifts[i], shifts[j]], num_threads=num_threads)
+
+        self._owned_groups      = owned_groups
+        self._interfaces_groups = interfaces_groups
+        self._interfaces_comm   = interfaces_comm
+
+        self._carts            = carts
+        self._interfaces_carts = interfaces_carts
 #===============================================================================
 class CartDecomposition():
     """
