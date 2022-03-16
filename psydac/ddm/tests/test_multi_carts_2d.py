@@ -5,8 +5,9 @@
 #===============================================================================
 def run_carts_2d():
 
+    import time
     import numpy as np
-    from mpi4py       import MPI
+    from mpi4py          import MPI
     from psydac.ddm.cart import MultiCartDecomposition
 
     #---------------------------------------------------------------------------
@@ -40,6 +41,7 @@ def run_carts_2d():
     size = comm.Get_size()
     rank = comm.Get_rank()
 
+    t1 = time.time()
     # Decomposition of Cartesian domain
     cart = MultiCartDecomposition(
         npts       = [n1,n2,n3],
@@ -48,11 +50,14 @@ def run_carts_2d():
         reorder    = False,
         interfaces = interfaces,
         comm    = comm)
+    t2 = time.time()
 
+    T = comm.reduce(t2-t1, root=0, op=MPI.MAX)
     if rank == 0:
         print(cart._size)
         print(cart._rank_ranges)
         print(cart._sizes)
+        print("time : ", T)
         
 #    for k in range(size):
 #        if k == rank and not success:
