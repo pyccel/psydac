@@ -110,8 +110,8 @@ class MultiCartDecomposition():
         local_groups        = [None]*self._ncarts
         local_communicators = [None]*self._ncarts
         for i,r in enumerate(rank_ranges):
-            local_groups[i] = global_group.Incl(list(range(r[0], r[1]+1)))
             if rank>=r[0] and rank<=r[1]:
+                local_groups[i]        = global_group.Incl(list(range(r[0], r[1]+1)))
                 local_communicators[i] = comm.Create_group(local_groups[i], i)
                 owned_groups.append(i)
 
@@ -123,6 +123,11 @@ class MultiCartDecomposition():
 
         for i,j in interfaces:
             if i in owned_groups or j in owned_groups:
+                if not local_groups[i]:
+                    local_groups[i] = global_group.Incl(list(range(rank_ranges[i][0], rank_ranges[i][1]+1)))
+                if not local_groups[j]:
+                    local_groups[j] = global_group.Incl(list(range(rank_ranges[j][0], rank_ranges[j][1]+1)))
+
                 interfaces_groups[i,j] = local_groups[i].Union(local_groups[i], local_groups[j])
                 interfaces_comm  [i,j] = comm.Create_group(interfaces_groups[i,j])
 
