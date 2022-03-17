@@ -399,9 +399,8 @@ class ProductFemSpace( FemSpace ):
 
         # ... make sure that all spaces have the same parametric dimension
         ldims = [V.ldim for V in self.spaces]
- 
-        assert (len(unique(ldims)) == 1)
-        # ...
+        assert len(np.unique(ldims)) == 1
+         # ...
 
         self._ldim = ldims[0]
         # ...
