@@ -98,8 +98,16 @@ file.h5
     snapshot_n/
 ```
 In addition to that, psydac also has a class to read those files, recreate all the `FemSpace` and `FemField` objects and export them to `VTK`. 
-## Usage
-Those two classes are meant to be used as follows.
+
+## Usage of class `OutputManager`
+
+An instance of the `OutputManager` class is created at the beginning of the simulation, by specifying the following:
+
+1. The name of the YAML file (e.g. `spaces.yml`) where the information about all FEM spaces will be written, and
+2. The name of the HDF5 file (e.g. `fields.h5`) where the coefficients of all FEM fields will be written.
+
+References to the available FEM spaces are given to the OutputManager object through the `add_spaces(**kwargs)` method, and the corresponding YAML file is created upon calling the method `export_spaces_info()`. In order to inform the OutputManager object that the next fields to be exported are time-independent, the user should call the `set_static()` method. In the case of time-dependent fields, the user should prepare a time snapshot (which is defined for a specific time step index `ts` and time value `t`) by calling the method `add_snapshot(t, ts)`. In both cases the fields are exported to the HDF5 file through a call to the method `export_fields(**kwargs)`. Here is a usage example:
+
 ```python
 # SymPDE Layer
 # Discretization 
@@ -121,10 +129,20 @@ output_m.export_fields(u0=u0, u1=u1)
 output_m.export_spaces_info() # Writes the space information to Yaml
 ```
 
+## Usage of class `PostProcessManager`
+
+Typically the `PostProcessManager` class is used in a separate post-processing script, which is run after the simulation has finished. In essence it evaluates the FEM fields over a uniform grid (applying the appropriate push-forward operations) and exports the values to a VTK file (or a sequence of files in the case of a time series). An instance of the `PostProcessManager` class is created by specifying the following:
+
+1. The name of the geometry file (in HDF5 format) which defines the multi-patch geometry of interest
+2. The name of the YAML file that contains the information about the FEM spaces
+3. The name of the HDF5 file that contains the coefficients of all the FEM fields
+
+In order to export the fields to a VTK file, the user needs to prepare the evaluation grid `grid` and then call the method `export_to_vtk(base_name, grid, npts_per_cell, snapshots, fields)`, where `base_name` is the base name for the VTK output files, `npts_per_cell` specifies the refinement in the case of a uniform grid, `snapshots` specifies which time snapshots should be extracted from the HDF5 file (`None` in the case of static fields) and `fields` is a dictionary of `(vtk_field_name, h5_field_name)` pairs. Here is a usage example:
+
 ```python
-# geometry.h5 is where the domain comes from
+# geometry.h5 is where the domain comes from. See PostProcessManager's docstring for me information
 post = PostProcessManager(geometry_file='geometry.h5', space_file='spaces.yml', fields_file='fields.h5')
-# See PostProcessManager's docstring for me information on those
+
+# See PostProcessManager.export_to_vtk's and TensorFemSpace.eval_fields' doscstrings for more information
 post.export_to_vtk('filename_vtk', grid, npts_per_cell=npts_per_cell, snapshots='all', fields = {'u0': 'field1', 'u1': 'field2'})
-# See PostProcessManager.export_to_vtk's and TensorFemSpace.eval_fields' doscstrings for more information. 
 ```
