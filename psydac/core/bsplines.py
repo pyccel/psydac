@@ -96,8 +96,8 @@ def find_spans(knots, degree, x, out=None):
     degree : int
         Polynomial degree of B-splines.
 
-    x : float
-        Location of interest.
+    x : array_like of floats
+        Locations of interest.
 
     out : array, optional
         If provided, the result will be inserted into this array.
