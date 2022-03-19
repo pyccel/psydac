@@ -19,6 +19,10 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.9
+      - name: Install non-Python dependencies
+        run: |
+          brew install open-mpi
+          brew install hdf5-mpi
       #- name: Install dependencies
       #  uses: ./.github/actions/macos_install
       #- name: Install python dependencies
