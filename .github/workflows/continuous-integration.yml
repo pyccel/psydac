@@ -28,7 +28,8 @@ jobs:
           export CC="mpicc"
           export HDF5_MPI="ON"
           export HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
-      #- name: Install dependencies
+      #- name: Upgrade pip
+      #- name: Install Python dependencies
       #  uses: ./.github/actions/macos_install
       #- name: Install python dependencies
       #  uses: ./.github/actions/pip_installation
