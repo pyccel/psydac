@@ -56,7 +56,7 @@ jobs:
 #      if: steps.pip-cache.outputs.cache-hit != 'true'
       run: |
         export CC="mpicc" HDF5_MPI="ON" HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
-        python -m pip install wheel setuptools
+        python -m pip install wheel setuptools 'numpy<1.22'
         python -m pip install --no-build-isolation -r requirements.txt --verbose
         python -m pip list
       
