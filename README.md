@@ -25,6 +25,7 @@
     export HDF5_MPI="ON"
     export HDF5_DIR=/path/to/hdf5/openmpi
     python3 -m pip install -r requirements.txt
+    python3 -m pip install -r requirements_extra.txt --no-build-isolation
      ```
 
 ## Installing the library
