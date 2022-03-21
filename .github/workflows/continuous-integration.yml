@@ -23,6 +23,11 @@ jobs:
         run: |
           brew install open-mpi
           brew install hdf5-mpi
+      - name: env vars setup
+        run: |
+          export CC="mpicc"
+          export HDF5_MPI="ON"
+          export HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
       #- name: Install dependencies
       #  uses: ./.github/actions/macos_install
       #- name: Install python dependencies
