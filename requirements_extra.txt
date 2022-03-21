@@ -1,0 +1,2 @@
+# IGAKIT - not on PyPI
+https://github.com/dalcinl/igakit/archive/refs/heads/master.zip
