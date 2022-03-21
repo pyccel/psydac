@@ -11,3 +11,6 @@ numba
 mpi4py
 h5py
 --no-binary h5py
+
+# IGAKIT - not on PyPI
+https://github.com/dalcinl/igakit/archive/refs/heads/master.zip
