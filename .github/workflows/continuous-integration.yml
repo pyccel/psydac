@@ -56,9 +56,8 @@ jobs:
 #      if: steps.pip-cache.outputs.cache-hit != 'true'
       run: |
         export CC="mpicc" HDF5_MPI="ON" HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
-        python -m pip install wheel setuptools
         python -m pip install -r requirements.txt --verbose
-        python -m pip install --no-build-isolation 'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip'
+        python -m pip install -r requirements_extra.txt --no-build-isolation --verbose
         python -m pip list
       
     - name: Install project

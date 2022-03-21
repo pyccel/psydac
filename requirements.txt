@@ -5,12 +5,11 @@
 # HDF5_MPI="ON"
 # HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
 #
+setuptools
+wheel
 numpy >=1.16,<1.22
 Cython>=0.25
 numba
 mpi4py
 h5py
 --no-binary h5py
-
-# IGAKIT - not on PyPI
-#https://github.com/dalcinl/igakit/archive/refs/heads/master.zip
