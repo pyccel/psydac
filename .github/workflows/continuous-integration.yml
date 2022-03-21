@@ -52,16 +52,17 @@ jobs:
         restore-keys: |
           ${{ matrix.os }}-${{ matrix.python-version }}-pip-
 
-    - name: Install Python dependencies
-#      if: steps.pip-cache.outputs.cache-hit != 'true'
-      run: |
-        export CC="mpicc" HDF5_MPI="ON" HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
-        python -m pip install wheel --verbose
-        python -m pip install -r requirements.txt --verbose
-        python -m pip list
-      
+#    - name: Install Python dependencies
+##      if: steps.pip-cache.outputs.cache-hit != 'true'
+#      run: |
+#        export CC="mpicc" HDF5_MPI="ON" HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+#        python -m pip install wheel --verbose
+#        python -m pip install -r requirements.txt --verbose
+#        python -m pip list
+
     - name: Install project
       run: |
+        export CC="mpicc" HDF5_MPI="ON" HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
         python -m pip install . --verbose
         pyccel psydac/core/kernels.py --language fortran
         pyccel psydac/core/bsplines_pyccel.py --language fortran

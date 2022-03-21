@@ -63,17 +63,25 @@ install_requires = [
     # Alternative backend to Pyccel is Numba
     'numba',
 
-    # In addition, we depend on mpi4py and h5py (MPI version).
-    # Since h5py must be built from source, we run the commands
-    #
-    # python3 -m pip install requirements.txt
-    # python3 -m pip install .
+    # In addition, we depend on mpi4py and h5py (parallel version)
     'mpi4py',
-    'h5py',
 
     # When pyccel is run in parallel with MPI, it uses tblib to pickle
     # tracebacks, which allows mpi4py to broadcast exceptions
     'tblib',
+
+    # Since h5py must be built from source using the MPI compiler and linked
+    # to a parallel HDF5 library, the following environment variables must be
+    # defined upon calling pip install:
+    #
+    # CC="mpicc"
+    # HDF5_MPI="ON"
+    # HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+    #
+    # Since we cannot pass the flag `--no-binary h5py' to setuptools, we have
+    # to download the binaries from GitHub. Using a separate requirements.txt
+    # may cause dependency conflicts which pip is not able to resolve.
+    'h5py @ https://github.com/h5py/h5py/archive/refs/heads/master.zip',
 
     # IGAKIT - not on PyPI
     'igakit @ https://github.com/dalcinl/igakit/archive/refs/heads/master.zip',
