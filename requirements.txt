@@ -5,7 +5,9 @@
 # HDF5_MPI="ON"
 # HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
 #
-numpy>=1.16
+setuptools
+wheel
+numpy >=1.16,<1.22
 Cython>=0.25
 numba
 mpi4py

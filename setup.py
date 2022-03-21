@@ -76,7 +76,7 @@ install_requires = [
     'tblib',
 
     # IGAKIT - not on PyPI
-    'igakit @ https://bitbucket.org/dalcinl/igakit/get/master.tar.gz',
+    'igakit',
 ]
 
 dependency_links = []
