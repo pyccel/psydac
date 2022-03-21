@@ -3,6 +3,7 @@
 # Copyright 2019 Yaman Güçlü
 
 from operator import mod
+from unittest.mock import patch
 import numpy as np
 import pyevtk
 from sympy import N
@@ -155,7 +156,9 @@ class OutputManager:
         self._next_snapshot_number = 0
         self.is_static = None
         self._current_hdf5_group = None
-        self._static_names =[]
+        self._static_names = []
+
+        self._space_names = []
 
     @property
     def current_hdf5_group(self):
@@ -226,12 +229,23 @@ class OutputManager:
 
         """
         assert all(isinstance(femspace, FemSpace) for femspace in femspaces.values())
-        for name, femspace in femspaces.items():
 
-            if femspace.is_product:
-                self._add_vector_space(femspace, name=name)
-            else:
-                self._add_scalar_space(femspace, name=name)
+        for name, femspace in femspaces.items():
+            assert name not in self._space_names
+            try:
+                patches = femspace.symbolic_space.domain.interior.as_tuple()
+                for i in range(len(patches)):
+                    if femspace.spaces[i].is_product:
+                        self._add_vector_space(femspace.spaces[i], name=name, patch_name=patches[i].name)
+                    else:
+                        self._add_scalar_space(femspace.spaces[i], name=name, patch_name=patches[i].name)
+
+            except AttributeError:
+                if femspace.is_product:
+                    self._add_vector_space(femspace, name=name, patch_name=femspace.symbolic_space.domain.name)
+                else:
+                    self._add_scalar_space(femspace, name=name, patch_name=femspace.symbolic_space.domain.name)
+            self._space_names.append(name)
 
     def _add_scalar_space(self, scalar_space, name=None, dim=None, patch_name=None, kind=None):
         """Adds a scalar space to the scope of this instance of OutputManager
@@ -242,8 +256,7 @@ class OutputManager:
             Scalar space to add to the scope.
 
         name : str or None, optional
-            Name under which to save the space. Will be generated
-            by looking at the related symbolic space if not given
+            Name under which to save the space.
 
         dim : int or None, optional
             Physical dimension of the related symbolic space.
@@ -261,17 +274,16 @@ class OutputManager:
             Formatted space info.
         """
         spaces_info = self._spaces_info
+        
+        scalar_space_name = name
+        patch = patch_name
 
         if dim is None:
             symbolic_space = scalar_space.symbolic_space
-            scalar_space_name = name
             pdim = symbolic_space.domain.dim
-            patch = symbolic_space.domain.name
             kind = symbolic_space.kind
         else:
-            scalar_space_name = name
             pdim = dim
-            patch = patch_name
             kind = kind
 
         ldim = scalar_space.ldim
@@ -293,7 +305,8 @@ class OutputManager:
                      'knots': knots
                      }
         if spaces_info == {}:
-            spaces_info = {'ndim': pdim,
+            spaces_info = {
+                           'ndim': pdim,
                            'fields': self.filename_fields,
                            'patches': [{'name': patch,
                                         'scalar_spaces': [new_space]
@@ -321,7 +334,7 @@ class OutputManager:
 
         return new_space
 
-    def _add_vector_space(self, vector_space, name=None):
+    def _add_vector_space(self, vector_space, name=None, patch_name=None):
         """Adds a vector space to the scope of this instance of OutputManager.
 
         Parameters
@@ -332,7 +345,7 @@ class OutputManager:
 
         symbolic_space = vector_space.symbolic_space
         dim = symbolic_space.domain.dim
-        patch_name = symbolic_space.domain.name
+        patch_name = patch_name
         kind = symbolic_space.kind
 
         scalar_spaces_info = []
@@ -567,54 +580,62 @@ class PostProcessManager:
         assert pdim == domain.dim
         assert space_info['fields'] == self.fields_file
 
+        # No Multipatch Support for now
+        assert len(domain_h.mappings) == 1
+
         # -------------------------------------------------
         # Space reconstruction
         # -------------------------------------------------
+        common_to_all_patches = []
         for patch in space_info['patches']:
-            if patch['name'] == domain.name:
+            try:
                 scalar_spaces = patch['scalar_spaces']
+            except KeyError:
+                scalar_spaces = {}
+            try:
                 vector_spaces = patch['vector_spaces']
+            except KeyError:
+                vector_spaces = {}
+            already_used_names = []
 
-                already_used_names = []
+            for v_sp in vector_spaces:
+                components = v_sp['components']
+                temp_v_sp = VectorFunctionSpace(name=v_sp['name'], domain=domain, kind=v_sp['kind'])
 
-                for v_sp in vector_spaces:
-                    components = v_sp['components']
-                    temp_v_sp = VectorFunctionSpace(name=v_sp['name'], domain=domain, kind=v_sp['kind'])
+                basis = []
+                for sc_sp in components:
+                    already_used_names.append(sc_sp['name'])
+                    basis += sc_sp['basis']
 
-                    basis = []
-                    for sc_sp in components:
-                        already_used_names.append(sc_sp['name'])
-                        basis += sc_sp['basis']
+                basis = list(set(basis))
+                if len(basis) != 1:
+                    raise NotImplementedError("Discretize doesn't support two different bases")
 
-                    basis = list(set(basis))
+                temp_kwargs_discretization = {
+                    'degree': [sc_sp['degree'] for sc_sp in components],
+                    'knots': [sc_sp['knots'] for sc_sp in components],
+                    'basis': basis[0],
+                    'periodic': [sc_sp['periodic'] for sc_sp in components]
+                }
+
+                self._spaces[v_sp['name']] = discretize(temp_v_sp, domain_h, **temp_kwargs_discretization)
+
+            for sc_sp in scalar_spaces:
+                if sc_sp['name'] not in already_used_names:
+                    temp_sc_sp = ScalarFunctionSpace(sc_sp['name'], domain, kind=sc_sp['kind'])
+
+                    basis = list(set(sc_sp['basis']))
                     if len(basis) != 1:
                         raise NotImplementedError("Discretize doesn't support two different bases")
 
                     temp_kwargs_discretization = {
-                        'degree': [sc_sp['degree'] for sc_sp in components],
-                        'knots': [sc_sp['knots'] for sc_sp in components],
+                        'degree': sc_sp['degree'],
+                        'knots': sc_sp['knots'],
                         'basis': basis[0],
-                        'periodic': [sc_sp['periodic'] for sc_sp in components]
+                        'periodic': sc_sp['periodic'],
                     }
 
-                    self._spaces[v_sp['name']] = discretize(temp_v_sp, domain_h, **temp_kwargs_discretization)
-
-                for sc_sp in scalar_spaces:
-                    if sc_sp['name'] not in already_used_names:
-                        temp_sc_sp = ScalarFunctionSpace(sc_sp['name'], domain, kind=sc_sp['kind'])
-
-                        basis = list(set(sc_sp['basis']))
-                        if len(basis) != 1:
-                            raise NotImplementedError("Discretize doesn't support two different bases")
-
-                        temp_kwargs_discretization = {
-                            'degree': sc_sp['degree'],
-                            'knots': sc_sp['knots'],
-                            'basis': basis[0],
-                            'periodic': sc_sp['periodic'],
-                        }
-
-                        self._spaces[sc_sp['name']] = discretize(temp_sc_sp, domain_h, **temp_kwargs_discretization)
+                    self._spaces[sc_sp['name']] = discretize(temp_sc_sp, domain_h, **temp_kwargs_discretization)
 
     def get_snapshot_list(self):
         fh5 = h5.File(self.fields_file, mode='r')
@@ -642,49 +663,48 @@ class PostProcessManager:
         temp_space_to_field = {}
         for patch in static_group.keys():
             patch_group = static_group[patch]
+            
+            for space_name in patch_group.keys():
+                space_group = patch_group[space_name]
 
-            if patch == self._domain.name:
-                for space_name in patch_group.keys():
-                    space_group = patch_group[space_name]
+                if 'parent_space' in space_group.attrs.keys():  # VectorSpace/Field case
+                    relevant_space_name = space_group.attrs['parent_space']
 
-                    if 'parent_space' in space_group.attrs.keys():  # VectorSpace/Field case
-                        relevant_space_name = space_group.attrs['parent_space']
+                    for field_dset_key in space_group.keys():
+                        field_dset = space_group[field_dset_key]
+                        relevant_field_name = field_dset.attrs['parent_field']
 
-                        for field_dset_key in space_group.keys():
-                            field_dset = space_group[field_dset_key]
-                            relevant_field_name = field_dset.attrs['parent_field']
+                        if relevant_field_name in fields:
 
-                            if relevant_field_name in fields:
+                            coeff = field_dset
 
-                                coeff = field_dset
-
-                                # Exceptions to take care of when the dicts are empty
+                            # Exceptions to take care of when the dicts are empty
+                            try:
+                                temp_space_to_field[relevant_space_name][relevant_field_name].append(coeff)
+                            except KeyError:
                                 try:
-                                    temp_space_to_field[relevant_space_name][relevant_field_name].append(coeff)
+                                    temp_space_to_field[relevant_space_name][relevant_field_name] = [coeff]
                                 except KeyError:
                                     try:
-                                        temp_space_to_field[relevant_space_name][relevant_field_name] = [coeff]
+                                        temp_space_to_field[relevant_space_name] = {relevant_field_name:
+                                                                                        [coeff]
+                                                                                        }
                                     except KeyError:
-                                        try:
-                                            temp_space_to_field[relevant_space_name] = {relevant_field_name:
-                                                                                            [coeff]
-                                                                                            }
-                                        except KeyError:
-                                            temp_space_to_field = {relevant_space_name:
-                                                                {relevant_field_name: [coeff]}
-                                                                    }
+                                        temp_space_to_field = {relevant_space_name:
+                                                            {relevant_field_name: [coeff]}
+                                                                }
 
-                    else:  # Scalar case
-                            V = self._spaces[space_name].vector_space
-                            index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
-                            for field_dset_name in space_group.keys():
-                                if field_dset_name in fields:
-                                    new_field = FemField(self._spaces[space_name])
-                                    new_field.coeffs[index] = space_group[field_dset_name][index]
+                else:  # Scalar case
+                    V = self._spaces[space_name].vector_space
+                    index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+                    for field_dset_name in space_group.keys():
+                        if field_dset_name in fields:
+                            new_field = FemField(self._spaces[space_name])
+                            new_field.coeffs[index] = space_group[field_dset_name][index]
 
-                                    self._static_fields[field_dset_name] = new_field
+                            self._static_fields[field_dset_name] = new_field
 
-        
+    
         for space_name, field_dict in temp_space_to_field.items():
             
             for field_name, list_coeffs in field_dict.items():
@@ -791,7 +811,7 @@ class PostProcessManager:
             if key not in fields:
                 del self._snapshot_fields[key]
 
-    def export_to_vtk(self, filename_pattern, grid, npts_per_cell=None, snapshots='none', lz=4, fields=None):
+    def export_to_vtk(self, filename_pattern, grid, npts_per_cell=None, snapshots='none', lz=4, logical_grid=False, fields=None):
         """Exports some fields to vtk. 
 
         Parameters
@@ -859,7 +879,7 @@ class PostProcessManager:
         # ============================
         if snapshots in ['all', 'none']:
             if self._static_fields == {}:
-                self.load_static()
+                self.load_static(*fields.keys())
             pointData_static = {}
             smart_eval_dict = {}
 
@@ -891,6 +911,10 @@ class PostProcessManager:
                                                 + (3-ldim) * (np.zeros_like(pushed_fields[i][0])[slice_3d],)
                         pointData_static[name_list[i]] = tuple_fields
 
+            if logical_grid:
+                mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
+                for i in range(ldim):
+                    pointData_static[f'x_{i}'] = mesh_grids[i]
             # Export static fields to VTK
             pyevtk.hl.gridToVTK(f'{filename_pattern}_static', x_mesh, y_mesh, z_mesh,
                                 pointData=pointData_static)
@@ -909,7 +933,7 @@ class PostProcessManager:
 
         smart_eval_dict = {}
         for i, snapshot in enumerate(snapshots):
-            self.load_snapshot(snapshot, tuple(fields.keys()))
+            self.load_snapshot(snapshot, *fields.keys())
 
             for f_name, field in self._snapshot_fields.items():
                 if f_name in fields.keys():
