@@ -8,28 +8,33 @@ import numpy as np
 # =============================================================================
 def find_span_p(knots: 'float[:]', degree: int, x: float):
     """
-        Determine the knot span index at location x, given the B-Splines' knot
-        sequence and polynomial degree. See Algorithm A2.1 in [1].
+    Determine the knot span index at location x, given the B-Splines' knot
+    sequence and polynomial degree. See Algorithm A2.1 in [1].
 
-        For a degree p, the knot span index i identifies the indices [i-p:i] of all
-        p+1 non-zero basis functions at a given location x.
+    For a degree p, the knot span index i identifies the indices [i-p:i] of all
+    p+1 non-zero basis functions at a given location x.
 
-        Parameters
-        ----------
-        knots : array_like
-            Knots sequence.
+    Parameters
+    ----------
+    knots : array_like
+        Knots sequence.
 
-        degree : int
-            Polynomial degree of B-splines.
+    degree : int
+        Polynomial degree of B-splines.
 
-        x : float
-            Location of interest.
+    x : float
+        Location of interest.
 
-        Returns
-         -------
-        span : int
-            Knot span index.
-        """
+    Returns
+        -------
+    span : int
+        Knot span index.
+    
+    References
+    ----------
+    .. [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
+        Springer-Verlag Berlin Heidelberg GmbH, 1997.
+    """
     # Knot index at left/right boundary
     low  = degree
     high = len(knots)-1-degree
@@ -67,8 +72,8 @@ def find_spans_p(knots: 'float[:]', degree: int, x: 'float[:]', out: 'int[:]'):
     degree : int
         Polynomial degree of B-splines.
 
-    x : array
-        Location of interest.
+    x : array_like of floats
+        Locations of interest.
 
     out : array
         The result will be inserted into this array.
@@ -107,6 +112,11 @@ def basis_funs_p(knots: 'float[:]', degree: int, x: float, span: int, out: 'floa
     -----
     The original Algorithm A2.2 in The NURBS Book [1] is here slightly improved
     by using 'left' and 'right' temporary arrays that are one element shorter.
+
+    References
+    ----------
+    .. [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
+        Springer-Verlag Berlin Heidelberg GmbH, 1997.
     """
     left = np.zeros(degree, dtype=float)
     right = np.zeros(degree, dtype=float)
@@ -146,6 +156,11 @@ def basis_funs_array_p(knots: 'float[:]', degree: int, x: 'float[:]', span: 'int
     out : array
         The result will be inserted into this array.
         It should be of the appropriate shape and dtype.
+    
+    References
+    ----------
+    .. [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
+        Springer-Verlag Berlin Heidelberg GmbH, 1997.
     """
 
     n = x.shape[0]
@@ -251,6 +266,11 @@ def basis_funs_all_ders_p(knots: 'float[:]', degree: int, x: float, span: int, n
         - 'left' and 'right' arrays are 1 element shorter;
         - inverse of knot differences are saved to avoid unnecessary divisions;
         - innermost loops are replaced with vector operations on slices.
+
+    References
+    ----------
+    .. [1] L. Piegl and W. Tiller. The NURBS Book, 2nd ed.,
+        Springer-Verlag Berlin Heidelberg GmbH, 1997.
     """
     left  = np.empty(degree)
     right = np.empty(degree)

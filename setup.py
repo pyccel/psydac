@@ -53,6 +53,7 @@ install_requires = [
     'pytest>=4.5',
     'pyyaml>=5.1',
     'packaging',
+    'pyevtk',
 
     # Our packages from PyPi
     'sympde>=0.13',
