@@ -28,11 +28,43 @@ jobs:
           export CC="mpicc"
           export HDF5_MPI="ON"
           export HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
-      #- name: Upgrade pip
-      #- name: Install Python dependencies
-      #  uses: ./.github/actions/macos_install
-      #- name: Install python dependencies
-      #  uses: ./.github/actions/pip_installation
+          echo $HDF5_DIR
+      - name: Upgrade pip
+        run: |
+          python -m pip install --upgrade pip
+      - name: Install Python dependencies
+        run: |
+          python -m pip install wheel
+          python -m pip install tblib
+          python -m pip install pyccel
+          python -m pip install "pytest>=4.5"
+          python -m pip install "pytest-xdist"
+          python -m pip install astunparse
+          python -m pip install -r requirements.txt
+      - name: Install project
+        run: |
+          python -m pip install .
+          pyccel psydac/core/kernels.py --language fortran
+          pyccel psydac/core/bsplines_pyccel.py --language fortran
+          python -m pip freeze
+
+      - name: Initialize test directory
+        run: |
+          mkdir pytest
+          cp mpi_tester.py pytest
+
+      - name: Test with pytest
+        working-directory: ./pytest
+        run: |
+          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
+          python -m pytest --pyargs psydac -m "not parallel"
+          python mpi_tester.py --pyargs psydac -m "parallel"
+
+      - name: Remove test directory
+        if: ${{ always() }}
+        run: |
+          rm -rf pytest
+
   Linux:
     runs-on: ubuntu-latest
     strategy:
