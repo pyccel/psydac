@@ -534,7 +534,6 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         """ Convert to any Scipy sparse matrix format. """
         # Shortcuts
 
-        order = kwargs.pop('order', 'C')
         nrows = self.n_block_rows
         ncols = self.n_block_cols
 
@@ -547,7 +546,7 @@ class BlockMatrix( BlockLinearOperator, Matrix ):
         for i in range(nrows):
             for j in range(ncols):
                 if (i, j) in self._blocks:
-                    blocks_sparse[i][j] = self._blocks[i, j].tosparse(order=order)
+                    blocks_sparse[i][j] = self._blocks[i, j].tosparse(**kwargs)
                 else:
                     m = block_codomain(i).dimension
                     n = block_domain  (j).dimension
