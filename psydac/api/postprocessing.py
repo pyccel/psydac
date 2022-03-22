@@ -214,8 +214,6 @@ class OutputManager:
         self._next_snapshot_number = i + 1
         self._current_hdf5_group = snapshot
 
-        return self
-
     def add_spaces(self, **femspaces):
         """Add femspaces to the scope of this instance of OutputManager
 
@@ -791,32 +789,36 @@ class PostProcessManager:
             if key not in fields:
                 del self._snapshot_fields[key]
 
-    def export_to_vtk(self, filename_pattern, grid, npts_per_cell=None, snapshots='none', lz=4, fields=None):
+    def export_to_vtk(self, filename_pattern, grid, npts_per_cell=None, snapshots='none', lz=4, fields=None, debug=False):
         """Exports some fields to vtk. 
 
         Parameters
         ----------
-        filename_pattern: str
+        filename_pattern : str
             file pattern of the file
 
-        grid: List of ndarray
+        grid : List of ndarray
             Grid on which to evaluate the fields
 
-        npts_per_cell: int or tuple of int or None, optional
+        npts_per_cell : int or tuple of int or None, optional
             number of evaluation points in each cell.
             If an integer is given, then assume that it is the same in every direction.
 
-        snapshot: list of int or 'all' or 'none', default='none'
+        snapshot : list of int or 'all' or 'none', default='none'
             If a list is given, it will export every snapshot present in the list.
             If 'none', only the static fields will be exported.
             Finally, if 'all', will export every time step and the static part.
         
-        lz: int, default=4
+        lz : int, default=4
             Number of leading zeros in the time indexing of the files. 
             Only used if ``snapshot`` is not ``'none'``. 
 
-        fields: dict
+        fields : dict
             Dictionary with the fields to export as keys and the name under which to export them as values
+        
+        debug : bool, default=False
+            If true, returns ``(mesh, pointData_list)`` where ``mesh`` is ``(x_mesh, y_mesh,  z_mesh)``
+            and ``pointData_list`` is the list of all the pointData dictionaries.
 
         Notes
         -----
@@ -847,6 +849,9 @@ class PostProcessManager:
         # Coordinates of the mesh, C Contiguous arrays
         x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell)
 
+        if debug:
+            debug_result = ((x_mesh, y_mesh, z_mesh), [])
+
         if ldim == 2:
             slice_3d = (slice(0, None, 1), slice(0, None, 1), None)
         elif ldim == 3:
@@ -859,7 +864,7 @@ class PostProcessManager:
         # ============================
         if snapshots in ['all', 'none']:
             if self._static_fields == {}:
-                self.load_static()
+                self.load_static( *fields.keys())
             pointData_static = {}
             smart_eval_dict = {}
 
@@ -892,6 +897,8 @@ class PostProcessManager:
                         pointData_static[name_list[i]] = tuple_fields
 
             # Export static fields to VTK
+            if debug:
+                debug_result[1].append(pointData_static)
             pyevtk.hl.gridToVTK(f'{filename_pattern}_static', x_mesh, y_mesh, z_mesh,
                                 pointData=pointData_static)
 
@@ -909,7 +916,7 @@ class PostProcessManager:
 
         smart_eval_dict = {}
         for i, snapshot in enumerate(snapshots):
-            self.load_snapshot(snapshot, tuple(fields.keys()))
+            self.load_snapshot(snapshot,*fields.keys())
 
             for f_name, field in self._snapshot_fields.items():
                 if f_name in fields.keys():
@@ -967,5 +974,10 @@ class PostProcessManager:
                 pointData_full[time_list[len(name_list) - 1]] = pointData_time.copy()
 
         for i, pointData_full_i in enumerate(pointData_full.values()):
+            if debug:
+                debug_result[1].append(pointData_full_i)
             pyevtk.hl.gridToVTK(filename_pattern + '_{0:0{1}d}'.format(i, lz),
                                 x_mesh, y_mesh, z_mesh, pointData=pointData_full_i)
+        
+        if debug:
+            return debug_result
