@@ -818,7 +818,7 @@ class PostProcessManager:
         
         debug : bool, default=False
             If true, returns ``(mesh, pointData_list)`` where ``mesh`` is ``(x_mesh, y_mesh,  z_mesh)``
-            and ``pointData_list`` is the list of all the pointData dictionnaries.
+            and ``pointData_list`` is the list of all the pointData dictionaries.
 
         Notes
         -----
@@ -864,7 +864,7 @@ class PostProcessManager:
         # ============================
         if snapshots in ['all', 'none']:
             if self._static_fields == {}:
-                self.load_static(*fields.keys())
+                self.load_static( *fields.keys())
             pointData_static = {}
             smart_eval_dict = {}
 
