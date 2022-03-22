@@ -23,6 +23,11 @@ jobs:
         run: |
           brew install open-mpi
           brew install hdf5-mpi
+          brew install libomp
+          if [[ ! -f "/usr/local/bin/gfortran" ]]; then
+            ln -s /usr/local/bin/gfortran-10 /usr/local/bin/gfortran
+          fi
+          echo "MPI_OPTS=--oversubscribe" >> $GITHUB_ENV
       - name: env vars setup
         run: |
           export CC="mpicc"
