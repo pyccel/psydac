@@ -45,11 +45,8 @@ def test_OutputManager():
     Om.export_fields(uh=uh)
     Om.export_fields(vh=vh)
 
-    try:
+    with pytest.raises(AssertionError):
         Om.export_fields(uh_static=uh)
-        raise ValueError
-    except AssertionError:
-        pass
 
     expected_spaces_info = {'ndim': 2,
                             'fields': 'file.h5',
