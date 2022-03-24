@@ -78,6 +78,7 @@ def find_span(knots, degree, x):
         Knot span index.
     """
     x = float(x)
+    knots = np.asarray(knots, dtype=float)
     return find_span_p(knots, degree, x)
 
 #==============================================================================
@@ -109,7 +110,8 @@ def find_spans(knots, degree, x, out=None):
     spans : array of ints
         Knots span indexes.
     """
-    x = np.asarray(x)
+    knots = np.asarray(knots, dtype=float)
+    x = np.asarray(x, dtype=float)
     if out is None:
         out = np.zeros_like(x)
     find_spans_p(knots, degree, x, out)
@@ -144,7 +146,7 @@ def basis_funs(knots, degree, x, span, out=None):
         1D array containing the values of ``degree + 1`` non-zero
         Bsplines at location ``x``.
     """
-    knots = np.asarray(knots)
+    knots = np.asarray(knots, dtype=float)
     x = float(x)
     if out is None:
         out = np.zeros(degree + 1)
@@ -179,8 +181,8 @@ def basis_funs_array(knots, degree, span, x, out=None):
         2D array of shape ``(len(x), degree + 1)`` containing the values of ``degree + 1`` non-zero
         Bsplines at each location in ``x``.
     """
-    knots = np.asarray(knots)
-    x = np.asarray(x)
+    knots = np.asarray(knots, dtype=float)
+    x = np.asarray(x, dtype=float)
     if out is None:
         out = np.zeros((x.shape, degree + 1))
     basis_funs_array_p(knots, degree, x, span,  out)
@@ -224,7 +226,7 @@ def basis_funs_1st_der(knots, degree, x, span, out=None):
     ----------
     .. [2] SELALIB, Semi-Lagrangian Library. http://selalib.gforge.inria.fr
     """
-    knots = np.asarray(knots)
+    knots = np.asarray(knots, dtype=float)
     x = float(x)
     if out is None:
         out = np.zeros(degree + 1)
@@ -271,7 +273,7 @@ def basis_funs_all_ders(knots, degree, x, span, n, normalization='B', out=None):
         ders[i,j] = (d/dx)^i B_k(x) with k=(span-degree+j),
         for 0 <= i <= n and 0 <= j <= degree+1.
     """
-    knots = np.asarray(knots)
+    knots = np.asarray(knots, dtype=float)
     x = float(x)
     if out is None:
         out = np.zeros((n + 1, degree + 1))
@@ -315,8 +317,8 @@ def collocation_matrix(knots, degree, periodic, normalization, xgrid, out=None):
     The collocation matrix :math:`C_ij = B_j(x_i)`, contains the
     values of each B-spline basis function :math:`B_j` at all locations :math:`x_i`.
     """
-    knots = np.asarray(knots)
-    xgrid = np.asarray(xgrid)
+    knots = np.asarray(knots, dtype=float)
+    xgrid = np.asarray(xgrid, dtype=float)
     if out is None:
         nb = len(knots) - degree - 1
         if periodic:
@@ -392,8 +394,8 @@ def histopolation_matrix(knots, degree, periodic, normalization, xgrid, check_bo
     if not np.all(np.diff(xgrid) > 0):
         raise ValueError("Grid points must be ordered, with no repetitions: {}".format(xgrid))
 
-    knots = np.asarray(knots)
-    xgrid = np.asarray(xgrid)
+    knots = np.asarray(knots, dtype=float)
+    xgrid = np.asarray(xgrid, dtype=float)
     elevated_knots = elevate_knots(knots, degree, periodic)
 
     normalization = normalization == "M"
@@ -433,7 +435,7 @@ def breakpoints(knots, degree, tol=1e-15, out=None):
     breaks : numpy.ndarray (1D)
         Abscissas of all breakpoints.
     """
-    knots = np.asarray(knots)
+    knots = np.asarray(knots, dtype=float)
     if out is None:
         out = np.zeros(len(knots))
     i_final = breakpoints_p(knots, degree, out, tol)
@@ -465,7 +467,7 @@ def greville(knots, degree, periodic, out=None):
         Abscissas of all Greville points.
 
     """
-    knots = np.asarray(knots)
+    knots = np.asarray(knots, dtype=float)
     if out is None:
         n = len(knots) - 2 * degree - 1 if periodic else len(knots) - degree - 1
         out = np.zeros(n)
@@ -516,7 +518,7 @@ def elements_spans(knots, degree, out=None):
        spans  = np.searchsorted( knots, breaks[:-1], side='right' ) - 1
 
     """
-    knots = np.asarray(knots)
+    knots = np.asarray(knots, dtype=float)
     if out is None:
         out = np.zeros(len(knots), dtype=int)
 
@@ -569,7 +571,7 @@ def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
 
     if periodic:
         assert len(breaks) > degree
-    breaks = np.asarray(breaks)
+    breaks = np.asarray(breaks, dtype=float)
     p = degree
     if out is None:
         out = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
@@ -615,7 +617,7 @@ def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15, out=None):
     new_knots : ndarray
         Knots sequence of spline space of degree p+1.
     """
-    knots = np.asarray(knots)
+    knots = np.asarray(knots, dtype=float)
     if out is None:
         if periodic:
             out = np.zeros(knots.shape[0] + 2)
@@ -679,7 +681,7 @@ def quadrature_grid(breaks, quad_rule_x, quad_rule_w):
     assert min(quad_rule_x) >= -1
     assert max(quad_rule_x) <= +1
 
-    breaks = np.asarray(breaks)
+    breaks = np.asarray(breaks, dtype=float)
     quad_rule_x = np.asarray( quad_rule_x )
     quad_rule_w = np.asarray( quad_rule_w )
 
@@ -742,8 +744,8 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization, out=
             [[0. , 0.03125, 0.125, 0.28125]]]])
     """
     ne, nq = quad_grid.shape
-    knots = np.asarray(knots)
-    quad_grid = np.ascontiguousarray(quad_grid)
+    knots = np.asarray(knots, dtype=float)
+    quad_grid = np.ascontiguousarray(quad_grid, dtype=float)
     if out is None:
         out = np.zeros((ne, degree + 1, nders + 1, nq))
     basis_ders_on_quad_grid_p(knots, degree, quad_grid, nders, normalization == 'M', out)
@@ -784,7 +786,7 @@ def basis_integrals(knots, degree, out=None):
     to (len(knots)-degree-1). In the periodic case the last (degree) values in
     the array are redundant, as they are a copy of the first (degree) values.
     """
-    knots = np.asarray(knots)
+    knots = np.asarray(knots, dtype=float)
     if out is None:
         out = np.zeros(len(knots) - degree - 1)
     basis_integrals_p(knots, degree, out)
