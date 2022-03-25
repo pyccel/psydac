@@ -24,11 +24,18 @@ from psydac.core.bsplines  import (find_span,
                                    basis_funs,
                                    basis_funs_1st_der,
                                    basis_ders_on_quad_grid,
-                                   elements_spans)
-from psydac.core.kernels import (eval_fields_2d_no_weights,
+                                   elements_spans,
+                                   cell_index,
+                                   basis_ders_on_irregular_grid)
+
+from psydac.core.kernels import (eval_fields_2d_irregular_weighted, eval_fields_2d_no_weights,
+                                 eval_fields_2d_irregular_no_weights,
                                  eval_fields_2d_weighted,
+                                 eval_fields_2d_irregular_weighted,
                                  eval_fields_3d_no_weights,
-                                 eval_fields_3d_weighted)
+                                 eval_fields_3d_irregular_no_weights,
+                                 eval_fields_3d_weighted,
+                                 eval_fields_3d_irregular_weighted)
 #===============================================================================
 class TensorFemSpace( FemSpace ):
     """
@@ -287,6 +294,54 @@ class TensorFemSpace( FemSpace ):
 
         return self.pads, self.degree, global_basis, global_spans
 
+    #...
+    def preprocess_irregular_tensor_grid(self, grid, der=0, contains_breakpoints=True):
+        """Returns all the quantities needed to evaluate fields on a regular tensor-grid.
+
+        Parameters
+        ----------
+        grid : List of ndarray
+            List of 2D arrays representing each direction of the grid.
+            Each of these arrays should have shape (ne_xi, nv_xi) where ne_xi is the
+            number of cells in the domain in the direction xi and nv_xi is the number of
+            evaluation points in the same direction.
+
+        der : int, default=0
+            Number of derivatives of the basis functions to pre-compute.
+
+        Returns
+        -------
+        pads : tuple of int
+            Padding in each direction
+        degree : tuple of int
+            Degree in each direction
+        global_basis : List of ndarray
+            List of 4D arrays, one per direction, containing the values of the p+1 non-vanishing
+            basis functions (and their derivatives) at each grid point.
+            The array for direction xi has shape (ne_xi, nv_xi, der + 1, p+1).
+
+        global_spans : List of ndarray
+            List of 1D arrays, one per direction, containing the index of the last non-vanishing
+            basis function in each cell. The array for direction xi has shape (ne_xi,).
+        """
+
+        assert len(grid) == self.ldim
+
+        global_basis = []
+        global_spans = []
+        cell_indexes = []
+        for i in range(self.ldim):
+            cell_index_i = cell_index(self.breaks[i], grid[i], contains_breakpoints=contains_breakpoints)
+            global_basis_i = basis_ders_on_irregular_grid(self.knots[i], self.degree[i], grid[i], der, self.spaces[i].basis)
+            global_spans_i = elements_spans(self.knots[i], self.degree[i])
+
+            global_basis.append(global_basis_i)
+            global_spans.append(global_spans_i)
+            cell_indexes.append(cell_index_i)
+
+        return self.pads, self.degree, global_basis, global_spans, cell_indexes
+
+
     # ...
     def eval_fields(self, grid, *fields, weights=None, npts_per_cell=None):
         """Evaluate one or several fields at the given location(s) grid.
@@ -331,12 +386,9 @@ class TensorFemSpace( FemSpace ):
         # Case 2. 1D array of coordinates and no npts_per_cell is given
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
         elif grid[0].ndim == 1 and npts_per_cell is None:
-            raise NotImplementedError("Having a different number of evaluation"
-                                      "points in the cells belonging to the same "
-                                      "logical dimension is not supported yet. "
-                                      "If you did use valid inputs, you need to provide"
-                                      "the number of evaluation points per cell in each direction"
-                                      "via the npts_per_cell keyword")
+            out_fields = self.eval_fields_irregular_tensor_grid(grid, *fields, weights=weights)
+            return [np.ascontiguousarray(out_fields[..., i]) for i in range(len(fields))]
+
 
         # Case 3. 1D arrays of coordinates and npts_per_cell is a tuple or an integer
         # -> grid is tensor-product, and each cell has the same number of evaluation points
@@ -347,7 +399,7 @@ class TensorFemSpace( FemSpace ):
                 ncells_i = len(self.breaks[i]) - 1
                 grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
             out_fields = self.eval_fields_regular_tensor_grid(grid, *fields, weights=weights)
-            # return a "list"
+            # return a list
             return [np.ascontiguousarray(out_fields[..., i]) for i in range(len(fields))]
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
@@ -428,6 +480,68 @@ class TensorFemSpace( FemSpace ):
                                         global_basis[0], global_basis[1], global_basis[2], global_spans[0],
                                         global_spans[1], global_spans[2], glob_arr_coeffs, global_weight_coeff,
                                         out_fields)
+        else:
+            raise NotImplementedError("1D not Implemented")
+
+        return out_fields
+
+# ...
+    def eval_fields_irregular_tensor_grid(self, grid, *fields, weights=None, contains_breakpoints=True):
+        """Evaluate fields on a regular tensor grid
+
+        Parameters
+        ----------
+        grid : List of ndarray
+            List of 2D arrays representing each direction of the grid.
+            Each of these arrays should have shape (ne_xi, nv_xi) where ne is the
+            number of cells in the domain in the direction xi and nv_xi is the number of
+            evaluation points in the same direction.
+
+        *fields : tuple of psydac.fem.basic.FemField
+            Fields to evaluate on `grid`.
+
+        weights : psydac.fem.basic.FemField or None, optional
+            Weights to apply to our fields.
+
+        Returns
+        -------
+        List of ndarray of float
+            Values of the fields on the regular tensor grid
+        """
+        npoints = [grid[i].shape[0] for i in range(self.ldim)]
+
+        pads, degree, global_basis, global_spans, cell_indexes = \
+            self.preprocess_irregular_tensor_grid(grid, contains_breakpoints=contains_breakpoints)
+
+        out_fields = np.zeros((*(tuple(grid[i].size for i in range(self.ldim))), len(fields)))
+
+        glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)))
+
+        for i in range(len(fields)):
+            glob_arr_coeffs[..., i] = fields[i].coeffs._data
+
+        if self.ldim == 2:
+            if weights is None:
+                eval_fields_2d_irregular_no_weights(*npoints, *pads, *degree, *cell_indexes, *global_basis
+                                                    *global_spans, glob_arr_coeffs, out_fields)
+            else:
+
+                global_weight_coeff = weights.coeffs._data
+
+                eval_fields_2d_irregular_weighted(*npoints, *pads, *degree, *cell_indexes, *global_basis
+                                                 *global_spans, glob_arr_coeffs, global_weight_coeff, out_fields)
+
+        elif self.ldim == 3:
+            if weights is None:
+
+                eval_fields_3d_irregular_no_weights(*npoints, *pads, *degree, *cell_indexes, *global_basis
+                                                    *global_spans, glob_arr_coeffs, out_fields)
+
+            else:
+                global_weight_coeff = weights.coeffs._data
+
+                eval_fields_3d_irregular_weighted(*npoints, *pads, *degree, *cell_indexes, *global_basis
+                                                 *global_spans, glob_arr_coeffs, global_weight_coeff, out_fields)
         else:
             raise NotImplementedError("1D not Implemented")
 
