@@ -3,7 +3,6 @@
 # Copyright 2019 Yaman Güçlü
 
 from operator import mod
-from unittest.mock import patch
 import numpy as np
 import pyevtk
 from sympy import N

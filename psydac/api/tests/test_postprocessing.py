@@ -45,10 +45,15 @@ def test_OutputManager():
     Om.export_fields(uh=uh)
     Om.export_fields(vh=vh)
 
+<<<<<<< HEAD
     try:
         Om.export_fields(uh_static=uh)
     except AssertionError:
         pass
+=======
+    with pytest.raises(AssertionError):
+        Om.export_fields(uh_static=uh)
+>>>>>>> devel
 
     expected_spaces_info = {'ndim': 2,
                             'fields': 'file.h5',
@@ -153,7 +158,11 @@ def test_PostProcessManager(geometry, refinement):
     # =================================================================
     # Part 1: Running a simulation
     # =================================================================
+<<<<<<< HEAD
     geometry_file = os.path.join(mesh_dir, 'identity_2d.h5')
+=======
+    geometry_file = os.path.join(mesh_dir, geometry)
+>>>>>>> devel
     domain = Domain.from_file(geometry_file)
 
     V1 = ScalarFunctionSpace('V1', domain, kind='l2')
@@ -172,7 +181,11 @@ def test_PostProcessManager(geometry, refinement):
 
     npts_per_cell = refinement + 1
 
+<<<<<<< HEAD
     grid = [refine_array_1d(V1h.breaks[i], refinement, remove_duplicates=False) for i in range(2)]
+=======
+    grid = [refine_array_1d(V1h.breaks[i], refinement, remove_duplicates=False) for i in range(domainh.ldim)]
+>>>>>>> devel
 
     # Output Manager Initialization
     output = OutputManager('space_example.yml', 'fields_example.h5')
@@ -230,9 +243,39 @@ def test_PostProcessManager(geometry, refinement):
         assert np.allclose(vh_grid_x_new, vh_grids[i][0])
         assert np.allclose(vh_grid_y_new, vh_grids[i][1])
 
+<<<<<<< HEAD
     post.export_to_vtk('example_None', grid, npts_per_cell=npts_per_cell, snapshots='none', fields={'u':'field1', 'v':'field2', 'w':'field3'})
     post.export_to_vtk('example_all', grid, npts_per_cell=npts_per_cell, snapshots='all', fields={'u':'field1', 'v':'field2', 'w':'field3'})
     post.export_to_vtk('example_list', grid, npts_per_cell=npts_per_cell, snapshots=[9, 5, 6, 3], fields={'u':'field1', 'v':'field2', 'w':'field3'})
+=======
+    mesh, static_fields = post.export_to_vtk('example_None', 
+                                             grid, 
+                                             npts_per_cell=npts_per_cell, 
+                                             snapshots='none', 
+                                             fields={'u':'field1', 'v':'field2', 'w':'field3'}, 
+                                             debug=True)
+    assert list(static_fields[0].keys()) == ['field3']
+
+    mesh, all_fields = post.export_to_vtk('example_all', 
+                                          grid, 
+                                          npts_per_cell=npts_per_cell, 
+                                          snapshots='all', 
+                                          fields={'u':'field1', 'v':'field2', 'w':'field3'},
+                                          debug=True)
+    
+    assert list(all_fields[0].keys()) == ['field3']
+    assert all(list(all_fields[i + 1].keys()) == ['field1', 'field2'] for i in range(len(post._snapshot_list)))
+
+    mesh, snapshot_fields = post.export_to_vtk('example_list', 
+                                               grid, 
+                                               npts_per_cell=npts_per_cell, 
+                                               snapshots=[9, 5, 6, 3], 
+                                               fields={'u':'field1', 'v':'field2', 'w':'field3'},
+                                               debug=True)
+
+    assert all(list(snapshot_fields[i].keys()) == ['field1', 'field2'] for i in range(4))
+
+>>>>>>> devel
 
     # Clear files
     for f in glob.glob("example*.vts"): #VTK files

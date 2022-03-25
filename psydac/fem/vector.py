@@ -130,12 +130,29 @@ class VectorFemSpace( FemSpace ):
         psydac.fem.tensor.TensorFemSpace.eval_fields : More information about the grid parameter.
         """
         result = []
+<<<<<<< HEAD
         for i in range(self.ldim):
             fields_i = list(field.fields[i] for field in fields)
             result.append(self._spaces[i].eval_fields(grid,
                                                       *fields_i,
                                                       npts_per_cell=npts_per_cell,
                                                       weights=weights.fields[i]))
+=======
+        if weights is not None:
+            for i in range(self.ldim):
+                fields_i = list(field.fields[i] for field in fields)
+
+                result.append(self._spaces[i].eval_fields(grid,
+                                                          *fields_i,
+                                                          npts_per_cell=npts_per_cell,
+                                                          weights=weights.fields[i]))
+        else:
+            for i in range(self.ldim):
+                fields_i = list(field.fields[i] for field in fields)
+                result.append(self._spaces[i].eval_fields(grid,
+                                                          *fields_i,
+                                                          npts_per_cell=npts_per_cell))
+>>>>>>> devel
         return [[result[j][i] for j in range(self.ldim)] for i in range(len(fields))]
 
     # ...
