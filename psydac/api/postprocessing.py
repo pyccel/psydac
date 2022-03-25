@@ -860,7 +860,8 @@ class PostProcessManager:
                       logical_grid=False, 
                       fields=None, 
                       additional_physical_functions=None,
-                      additional_logical_functions=None):
+                      additional_logical_functions=None,
+                      debug=False):
         """Exports some fields to vtk. 
 
         Parameters
@@ -893,6 +894,10 @@ class PostProcessManager:
         additional_logical_functions : dict
             Dictionary of callable functions. Those functions will be called on the grid.
 
+        debug : bool, default=False
+            If true, returns ``(mesh, pointData_list)`` where ``mesh`` is ``(x_mesh, y_mesh,  z_mesh)``
+            and ``pointData_list`` is the list of all the pointData dictionaries.
+
         Notes
         -----
         This function only supports regular tensor grid.
@@ -921,6 +926,9 @@ class PostProcessManager:
 
         # Coordinates of the mesh, C Contiguous arrays
         x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell)
+
+        if debug:
+            debug_result = ((x_mesh, y_mesh, z_mesh), [])
 
         if ldim == 2:
             slice_3d = (slice(0, None, 1), slice(0, None, 1), None)
@@ -990,6 +998,9 @@ class PostProcessManager:
             elif ldim == 3:
                 for f, name in additional_physical_functions.items():
                     pointData_static[name] = f(x_mesh, y_mesh, z_mesh)
+            
+            if debug:
+                debug_result[1].append(pointData_static)
             # Export static fields to VTK
             pyevtk.hl.gridToVTK(f'{filename_pattern}_static', x_mesh, y_mesh, z_mesh,
                                 pointData=pointData_static)
@@ -1082,5 +1093,11 @@ class PostProcessManager:
                 for f, name in additional_physical_functions.items():
                     pointData_full_i[name] = f(x_mesh, y_mesh, z_mesh)
 
+            if debug:
+                debug_result[1].append(pointData_full_i)
+
             pyevtk.hl.gridToVTK(filename_pattern + '_{0:0{1}d}'.format(i, lz),
                                 x_mesh, y_mesh, z_mesh, pointData=pointData_full_i)
+        
+        if debug:
+            return debug_result
