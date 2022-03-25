@@ -32,7 +32,9 @@ from psydac.core.bsplines_pyccel import (find_span_p,
                                          elevate_knots_p,
                                          quadrature_grid_p,
                                          basis_ders_on_quad_grid_p,
-                                         basis_integrals_p)
+                                         basis_integrals_p,
+                                         cell_index_p,
+                                         basis_ders_on_irregular_grid_p)
 
 __all__ = ['find_span',
            'find_spans',
@@ -49,7 +51,9 @@ __all__ = ['find_span',
            'elevate_knots',
            'quadrature_grid',
            'basis_integrals',
-           'basis_ders_on_quad_grid']
+           'basis_ders_on_quad_grid',
+           'cell_index',
+           'basis_ders_on_irregular_grid']
 
 
 #==============================================================================
@@ -77,7 +81,15 @@ def find_span(knots, degree, x):
     span : int
         Knot span index.
     """
+<<<<<<< Updated upstream
     x = float(x)
+=======
+    try:
+        assert x.ndim == 0
+        x = float(x)
+    except AttributeError:
+        pass
+>>>>>>> Stashed changes
     return find_span_p(knots, degree, x)
 
 #==============================================================================
@@ -144,8 +156,16 @@ def basis_funs(knots, degree, x, span, out=None):
         1D array containing the values of ``degree + 1`` non-zero
         Bsplines at location ``x``.
     """
+<<<<<<< Updated upstream
     knots = np.asarray(knots)
     x = float(x)
+=======
+    try:
+        assert x.ndim == 0
+        x = float(x)
+    except AttributeError:
+        pass
+>>>>>>> Stashed changes
     if out is None:
         out = np.zeros(degree + 1)
     basis_funs_p(knots, degree, x, span, out)
@@ -179,8 +199,11 @@ def basis_funs_array(knots, degree, span, x, out=None):
         2D array of shape ``(len(x), degree + 1)`` containing the values of ``degree + 1`` non-zero
         Bsplines at each location in ``x``.
     """
+<<<<<<< Updated upstream
     knots = np.asarray(knots)
     x = np.asarray(x)
+=======
+>>>>>>> Stashed changes
     if out is None:
         out = np.zeros((x.shape, degree + 1))
     basis_funs_array_p(knots, degree, x, span,  out)
@@ -788,4 +811,96 @@ def basis_integrals(knots, degree, out=None):
     if out is None:
         out = np.zeros(len(knots) - degree - 1)
     basis_integrals_p(knots, degree, out)
+    return out
+
+#==============================================================================
+def cell_index(breaks, i_grid, contains_breakpoints=False, tol=1e-15, out=None):
+    """
+    Parameters
+    ----------
+    breaks : array_like
+        Coordinates of breakpoints (= cell edges); given in increasing order and
+        with no duplicates.
+
+    i_grid : ndarray
+        1D array of all of the points on which to evaluate the 
+        basis functions. The points do not need to be sorted.
+    
+    contains_breakpoints : bool, default=False
+        If True, locations close to a interior breakpoint will be assumed to be
+        present twice in ``i_grid`` and will be treated as if they were.
+        belong in the left and right cell. If false, the grid will be assumed
+        to not contain any breakpoint. Boundary breakpoints are snapped to the interior of the domain.
+        If False, breakpoints will be considered to be part of the left cell. 
+
+    tol : float, default=1e-15
+        If the distance between a given point in ``i_grid`` and 
+        a breakpoint is less than ``tol`` and ``allow_breakpoints`` is 
+        True then it is considered to be on the breakpoint.
+    
+    out : array, optional
+        If given, the result will be inserted into this array.
+        It should be of the appropriate shape and dtype.
+    
+    Returns
+    -------
+    cell_index: ndarray
+        1D array of the same shape as ``i_grid``.
+        ``cell_index[i]`` is the index of the cell in which
+        ``i_grid[i]`` belong.
+    """
+    if out is None:
+        out = np.zeros(len(i_grid), dtype=int)
+    status = cell_index_p(breaks, i_grid, contains_breakpoints, tol, out)
+    if status == -1:
+        raise ValueError("Encountered a point that was outside of the domain")
+    return out
+
+#==============================================================================
+def basis_ders_on_irregular_grid(knots, degree, i_grid, cell_index, nders, normalization, out=None):
+    """
+    Evaluate B-Splines and their derivatives on an irregular_grid.
+
+    If called with normalization='M', this uses M-splines instead of B-splines.
+
+    Parameters
+    ----------
+    knots : array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    i_grid : ndarray
+        1D array of all of the points on which to evaluate the 
+        basis functions. The points do not need to be sorted
+    
+    cell_index : ndarray
+        1D array of the same shape as ``i_grid``.
+        ``cell_index[i]`` is the index of the cell in which
+        ``i_grid[i]`` belong.
+
+    nders : int
+        Maximum derivative of interest.
+
+    normalization : str
+        Set to 'B' for B-splines, and 'M' for M-splines.
+
+    out : array, optional
+        If given, the result will be inserted into this array.
+        It should be of the appropriate shape and dtype.
+
+    Returns
+    -------
+    out: ndarray
+        3D output array containing the values of B-Splines and their derivatives
+        at each point in ``i_grid``. Indices are:
+        . ie: location               (0 <= ie <  nx    )
+        . il: local basis function   (0 <= il <= degree)
+        . id: derivative             (0 <= id <= nders )
+    """
+    if out is None:
+        nx = i_grid.shape[0]
+        out = np.zeros((nx, degree + 1, nders + 1))
+    basis_ders_on_irregular_grid_p(knots, degree, i_grid, cell_index, nders, normalization == 'M', out)
     return out
