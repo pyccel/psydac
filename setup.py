@@ -53,6 +53,7 @@ install_requires = [
     'pytest>=4.5',
     'pyyaml>=5.1',
     'packaging',
+    'pyevtk',
 
     # Our packages from PyPi
     'sympde>=0.13',
@@ -75,7 +76,7 @@ install_requires = [
     'tblib',
 
     # IGAKIT - not on PyPI
-    'igakit @ https://bitbucket.org/dalcinl/igakit/get/master.tar.gz',
+    'igakit',
 ]
 
 dependency_links = []
