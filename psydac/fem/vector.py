@@ -163,7 +163,7 @@ class VectorFemSpace( FemSpace ):
         raise NotImplementedError( "VectorFemSpace not yet operational" )
 
     # ...
-    def pushforward_grid(self, grid, *fields, mapping=None, npts_per_cell=None):
+    def pushforward_fields(self, grid, *fields, mapping=None, npts_per_cell=None):
         """ Push forward fields on a given grid and a given mapping
 
         Parameters
@@ -185,12 +185,11 @@ class VectorFemSpace( FemSpace ):
         -------
         List of ndarray
             push-forwarded fields
-
         """
 
         # Check that a mapping is given
         if mapping is None:
-            raise ValueError("A mapping is needed to push-forward")
+            raise TypeError("pushforward_fields() missing 1 required keyword-only argument: 'mapping'")
 
         # Check that the fields belong to our space
         assert all(f.space is self for f in fields)
@@ -203,7 +202,7 @@ class VectorFemSpace( FemSpace ):
         # --------------------------
         # Case 1. Scalar coordinates
         if (grid[0].size == 1) or grid[0].ndim == 0:
-            return [self.pushforward(f, *grid, mapping=mapping) for f in fields]
+            return [self.pushforward_field(f, *grid, mapping=mapping) for f in fields]
 
         # Case 2. 1D array of coordinates and no npts_per_cell is given
         # -> grid is tensor-product, but npts_per_cell is not the same in each cell
@@ -225,11 +224,11 @@ class VectorFemSpace( FemSpace ):
                 ncells_i = len(self.spaces[0].breaks[i]) - 1
                 grid[i] = np.reshape(grid[i], newshape=(ncells_i, npts_per_cell[i]))
 
-            pushed_fields = self.pushforward_regular_tensor_grid(grid, *fields, mapping=mapping)
+            pushed_fields = self.pushforward_fields_regular_tensor_grid(grid, *fields, mapping=mapping)
             # return a list of list of C-contiguous arrays, one list for each field
             # with one array for each dimension.
-            return [[np.ascontiguousarray(pushed_fields[..., j, i]) for j in range(self._ldim)]
-                    for i in range(len(fields))]
+            return [[np.ascontiguousarray(pushed_fields[..., i, j]) for i in range(self._ldim)]
+                    for j in range(len(fields))]
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
         # -> unstructured grid
@@ -245,19 +244,14 @@ class VectorFemSpace( FemSpace ):
                              "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
-    def pushforward(self, field, *eta, mapping=None, parent_kind=None):
+    def pushforward_field(self, field, *eta, mapping=None, parent_kind=None):
         assert field.space is self
         assert len(eta) == self._ldim
-
-        if parent_kind is None:
-            kind = self._symbolic_space.kind
-        else:
-            kind = parent_kind
 
         raise NotImplementedError("VectorFemSpace not yet operational")
 
     # ...
-    def pushforward_regular_tensor_grid(self, grid, *fields, mapping=None, parent_kind=None):
+    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping=None, parent_kind=None):
         """Push-forwards fields on a regular tensor grid using a given a mapping.
 
         Parameters
@@ -268,12 +262,11 @@ class VectorFemSpace( FemSpace ):
             number of cells in the domain in the direction xi and nv_xi is the number of
             evaluation points in the same direction.
 
-        fields: List of psydac.fem.basic.FemField
+        fields: tuple of psydac.fem.basic.FemField
+            List of fields to evaluate.
 
         mapping: psydac.mapping.SplineMapping
             Mapping on which to push-forward
-
-        parent_kind : sympde.topology.datatype
 
         Returns
         -------
@@ -287,8 +280,10 @@ class VectorFemSpace( FemSpace ):
             kind = parent_kind
 
         if kind is L2SpaceType() or kind is H1SpaceType():
-
-            pushed_fields_int = [self.spaces[i].pushforward_regular_tensor_grid(grid, *[f.fields[i] for f in fields])
+            pushed_fields_int = [self.spaces[i].pushforward_regular_tensor_grid(grid,
+                                                                                *[f.fields[i] for f in fields],
+                                                                                mapping=mapping,
+                                                                                parent_kind=kind)
                                  for i in range(self._ldim)]
             return [[pushed_fields_int[i][j] for i in range(self._ldim)] for j in range(len(fields))]
 
@@ -532,7 +527,7 @@ class ProductFemSpace( FemSpace ):
         *fields : tuple of psydac.fem.basic.FemField
             Fields to evaluate
 
-        mapping: psydac.mapping.SplineMapping or sympde.topology.callable_mapping.CallableMapping
+        mapping: psydac.mapping.SplineMapping
             Mapping on which to push-forward
 
         npts_per_cell: int or tuple of int or None, optional
