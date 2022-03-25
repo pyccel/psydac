@@ -248,6 +248,11 @@ class VectorFemSpace( FemSpace ):
         assert field.space is self
         assert len(eta) == self._ldim
 
+        if parent_kind is None:
+            kind = self._symbolic_space.kind
+        else:
+            kind = parent_kind
+
         raise NotImplementedError("VectorFemSpace not yet operational")
 
     # ...
@@ -267,6 +272,8 @@ class VectorFemSpace( FemSpace ):
 
         mapping: psydac.mapping.SplineMapping
             Mapping on which to push-forward
+        
+        parent_kind : sympde.topology.datatype
 
         Returns
         -------
@@ -620,6 +627,8 @@ class ProductFemSpace( FemSpace ):
 
         mapping: psydac.mapping.SplineMapping
             Mapping on which to push-forward
+        
+        parent_kind : sympde.topology.datatype
 
         Returns
         -------
