@@ -141,7 +141,7 @@ class OutputManager:
         'UndefinedSpaceType()': 'undefined',
     }
 
-    def __init__(self, filename_space, filename_fields):
+    def __init__(self, filename_space, filename_fields, comm=None, mode='w'):
 
         self._spaces_info = {}
         self._spaces = []
@@ -160,6 +160,15 @@ class OutputManager:
 
         self._space_names = []
 
+        self._mode=mode
+
+        self.comm = comm
+        self.fields_file = None
+    
+    def close(self):
+        if not self.fields_file is None:
+            self.fields_file.close()
+
     @property
     def current_hdf5_group(self):
         return self._current_hdf5_group
@@ -170,24 +179,26 @@ class OutputManager:
 
     @property
     def spaces(self):
-        return dict([(name, space) for name, space in zip(self._spaces[1::2], self._spaces[0::2])])
+        return dict([(name, space) for name, space in zip(self._spaces[1::3], self._spaces[0::3])])
 
     def set_static(self):
         """Sets the export to static mode
 
         """
-        if self.is_static:
-            return self
+        if not self.is_static:
+            
+            self.is_static = True
+            if self.fields_file is None:
+                kwargs = {}
+                if self.comm is not None and self.comm.size > 1:
+                    kwargs.update(driver='mpio', comm=self.comm)
+                self.fields_file = h5.File(self.filename_fields, mode=self._mode, **kwargs)
 
-        self.is_static = True
-
-        file_fields = h5.File(self.filename_fields, 'a')
-
-        if 'static' not in file_fields.keys():
-            static_group = file_fields.create_group('static')
-            self._current_hdf5_group = static_group
-        else:
-            self._current_hdf5_group = file_fields['static']
+            if 'static' not in self.fields_file.keys():
+                static_group = self.fields_file.create_group('static')
+                self._current_hdf5_group = static_group
+            else:
+                self._current_hdf5_group = self.fields_file['static']
 
     def add_snapshot(self, t, ts):
         """Adds a snapshot to the fields' HDF5 file
@@ -200,24 +211,27 @@ class OutputManager:
         ts : int
             Time step of the snapshot
         """
+ 
         self.is_static = False
 
-        file_fields = h5.File(self.filename_fields, 'a')
+        if self.fields_file is None:
+            kwargs = {}
+            if self.comm is not None and self.comm.size > 1:
+                kwargs.update(driver='mpio', comm=self.comm)
+            self.fields_file = h5.File(self.filename_fields, mode=self._mode, **kwargs)
 
         i = self._next_snapshot_number
         try:
-            snapshot = file_fields.create_group(f'snapshot_{i:0>4}')
+            snapshot = self.fields_file.create_group(f'snapshot_{i:0>4}')
         except ValueError:
             regexp = re.compile(r'snapshot_(?P<id>\d+)')
-            i = max([int(regexp.search(k).group('id')) for k in file_fields.keys() if regexp.search(k) is not None]) + 1
-            snapshot = file_fields.create_group(f'snapshot_{i:0>4}')
+            i = max([int(regexp.search(k).group('id')) for k in self.fields_file.keys() if regexp.search(k) is not None]) + 1
+            snapshot = self.fields_file.create_group(f'snapshot_{i:0>4}')
         snapshot.attrs.create('t', data=t, dtype=float)
         snapshot.attrs.create('ts', data=ts, dtype=int)
 
         self._next_snapshot_number = i + 1
         self._current_hdf5_group = snapshot
-
-        return self
 
     def add_spaces(self, **femspaces):
         """Add femspaces to the scope of this instance of OutputManager
@@ -235,16 +249,25 @@ class OutputManager:
             try:
                 patches = femspace.symbolic_space.domain.interior.as_tuple()
                 for i in range(len(patches)):
-                    if femspace.spaces[i].is_product:
-                        self._add_vector_space(femspace.spaces[i], name=name, patch_name=patches[i].name)
-                    else:
-                        self._add_scalar_space(femspace.spaces[i], name=name, patch_name=patches[i].name)
+                    if self.comm is None or self.comm.rank == 0: 
+                        if femspace.spaces[i].is_product:
+                            self._add_vector_space(femspace.spaces[i], name=name, patch_name=patches[i].name)
+                        else:
+                            self._add_scalar_space(femspace.spaces[i], name=name, patch_name=patches[i].name)
+                    self._spaces.append(femspace.spaces[i])
+                    self._spaces.append(name)
+                    self._spaces.append(patches[i].name)
 
             except AttributeError:
-                if femspace.is_product:
-                    self._add_vector_space(femspace, name=name, patch_name=femspace.symbolic_space.domain.name)
-                else:
-                    self._add_scalar_space(femspace, name=name, patch_name=femspace.symbolic_space.domain.name)
+                if self.comm is None or self.comm.rank == 0: 
+                    if femspace.is_product:
+                        self._add_vector_space(femspace, name=name, patch_name=femspace.symbolic_space.domain.name)
+                    else:
+                        self._add_scalar_space(femspace, name=name, patch_name=femspace.symbolic_space.domain.name)
+                self._spaces.append(femspace)
+                self._spaces.append(name)
+                self._spaces.append(femspace.symbolic_space.domain.name)
+        
             self._space_names.append(name)
 
     def _add_scalar_space(self, scalar_space, name=None, dim=None, patch_name=None, kind=None):
@@ -327,8 +350,6 @@ class OutputManager:
                 spaces_info['patches'][patch_index]['scalar_spaces'].append(new_space)
             else:
                 spaces_info['patches'].append({'name': patch, 'scalar_spaces': [new_space]})
-        self._spaces.append(scalar_space)
-        self._spaces.append(name)
 
         self._spaces_info = spaces_info
 
@@ -373,8 +394,6 @@ class OutputManager:
             spaces_info['patches'][patch_index].update({'vector_spaces': [new_vector_space]})
 
         self._spaces_info = spaces_info
-        self._spaces.append(vector_space)
-        self._spaces.append(name)
 
     def export_fields(self, **fields):
         """
@@ -400,18 +419,7 @@ class OutputManager:
         else:
             assert all(not field_name in self._static_names for field_name in fields.keys())
 
-        # For now, I assume that if something is mpi parallel everything is
-        space_test = list(fields.values())[0].space
-        if space_test.is_product:
-            comm = space_test.spaces[0].vector_space.cart.comm if space_test.vector_space.parallel else None
-        else:
-            comm = space_test.vector_space.cart.comm if space_test.vector_space.parallel else None
-
-        # Open HDF5 file (in parallel mode if MPI communicator size > 1)
-        kwargs = {}
-        if comm is not None and comm.size > 1:
-            kwargs.update(driver='mpio', comm=comm)
-        fh5 = h5.File(self.filename_fields, mode='a', **kwargs)
+        fh5 = self.fields_file
 
         if 'spaces' not in fh5.attrs.keys():
             fh5.attrs.create('spaces', self.filename_space)
@@ -420,42 +428,71 @@ class OutputManager:
 
         # Add field coefficients as named datasets
         for name_field, field in fields.items():
+            multipatch = hasattr(field.space.symbolic_space.domain.interior, 'as_tuple')
+            
+            if multipatch:
+                for f in field.fields:
+                    i = self._spaces.index(f.space)
 
-            i = self._spaces.index(field.space)
+                    name_space = self._spaces[i+1]
+                    name_patch = self._spaces[i+2]
 
-            name_space = self._spaces[i+1]
-            patch = field.space.symbolic_space.domain.name
+                    if f.space.is_product:  # Vector field case
+                        for i, field_coeff in enumerate(f.coeffs):
+                            name_field_i = name_field + f'[{i}]'
+                            name_space_i = name_space + f'[{i}]'
 
-            if field.space.is_product:  # Vector field case
-                for i, field_coeff in enumerate(field.coeffs):
-                    name_field_i = name_field + f'[{i}]'
-                    name_space_i = name_space + f'[{i}]'
+                            Vi = f.space.vector_space.spaces[i]
+                            index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
 
-                    Vi = field.space.vector_space.spaces[i]
-                    index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
+                            space_group = saving_group.create_group(f'{name_patch}/{name_space_i}')
+                            space_group.attrs.create('parent_space', data=name_space)
 
-                    space_group = saving_group.create_group(f'{patch}/{name_space_i}')
-                    space_group.attrs.create('parent_space', data=name_space)
-
-                    dset = saving_group.create_dataset(f'{patch}/{name_space_i}/{name_field_i}',
-                                                       shape=Vi.npts, dtype=Vi.dtype)
-                    dset.attrs.create('parent_field', data=name_field)
-                    dset[index] = field_coeff[index]
+                            dset = space_group.create_dataset(f'{name_field_i}',
+                                                            shape=Vi.npts, dtype=Vi.dtype)
+                            dset.attrs.create('parent_field', data=name_field)
+                            dset[index] = field_coeff[index]
+                    else:
+                        V = f.space.vector_space
+                        index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+                        dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
+                        dset[index] = f.coeffs[index]
             else:
-                V = field.space.vector_space
-                index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
-                dset = saving_group.create_dataset(f'{patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
-                dset[index] = field.coeffs[index]
+                i = self._spaces.index(field.space)
 
-        # Close HDF5 file
-        fh5.close()
+                name_space = self._spaces[i+1]
+                name_patch = self._spaces[i+2]
+
+                if field.space.is_product:  # Vector field case
+                    for i, field_coeff in enumerate(field.coeffs):
+                        name_field_i = name_field + f'[{i}]'
+                        name_space_i = name_space + f'[{i}]'
+
+                        Vi = field.space.vector_space.spaces[i]
+                        index = tuple(slice(s, e + 1) for s, e in zip(Vi.starts, Vi.ends))
+                        
+
+                        space_group = saving_group.create_group(f'{name_patch}/{name_space_i}')
+                        space_group.attrs.create('parent_space', data=name_space)
+
+                        dset = space_group.create_dataset(f'{name_field_i}',
+                                                        shape=Vi.npts, dtype=Vi.dtype)
+                        dset.attrs.create('parent_field', data=name_field)
+                        dset[index] = field_coeff[index]
+                else:
+                    V = field.space.vector_space
+                    index = tuple(slice(s, e + 1) for s, e in zip(V.starts, V.ends))
+                    dset = saving_group.create_dataset(f'{name_patch}/{name_space}/{name_field}', shape=V.npts, dtype=V.dtype)
+                    dset[index] = field.coeffs[index]
+
 
     def export_space_info(self):
         """Export the space info to Yaml
 
         """
-        with open(self.filename_space, 'w') as f:
-            yaml.dump(data=self._spaces_info, stream=f, default_flow_style=None, sort_keys=False)
+        if self.comm is None or self.comm.rank == 0:
+            with open(self.filename_space, 'w') as f:
+                yaml.dump(data=self._spaces_info, stream=f, default_flow_style=None, sort_keys=False)
 
 
 class PostProcessManager:
@@ -511,7 +548,7 @@ class PostProcessManager:
         List of all the snapshots
     """
 
-    def __init__(self, geometry_file=None, domain=None, space_file=None, fields_file=None, ncells=None):
+    def __init__(self, geometry_file=None, domain=None, space_file=None, fields_file=None, ncells=None, comm=None):
         if geometry_file is None and domain is None:
             raise ValueError('Domain or geometry file needed')
         if geometry_file is not None and domain is not None:
@@ -519,12 +556,12 @@ class PostProcessManager:
         if geometry_file is None:
             assert ncells is not None
 
-        self.geometry_file = geometry_file
+        self.geometry_filename = geometry_file
         self._domain = domain
         self._domain_h = None
 
-        self.space_file = space_file
-        self.fields_file = fields_file
+        self.space_filename = space_file
+        self.fields_filename = fields_file
 
         self._ncells = ncells
         self._spaces = {}
@@ -534,6 +571,9 @@ class PostProcessManager:
         self._loaded_t = None
         self._loaded_ts = None
         self._snapshot_list = None
+
+        self.comm = comm
+        self.fields_file = None
 
         self._reconstruct_spaces()
         self.get_snapshot_list()
@@ -545,16 +585,23 @@ class PostProcessManager:
     @property
     def domain(self):
         return self._domain
-
+    
+    @property
+    def fields(self):
+        fields = {}
+        fields.update(self._snapshot_fields)
+        fields.update(self._static_fields)
+        return fields
+    
     def read_space_info(self):
-        """Read ``self.space_file``.
+        """Read ``self.space_filename ``.
 
         Returns
         -------
         dict
             Informations about the spaces.
         """
-        return yaml.load(open(self.space_file), Loader=yaml.SafeLoader)
+        return yaml.load(open(self.space_filename), Loader=yaml.SafeLoader)
 
     def _reconstruct_spaces(self):
         """Reconstructs all of the spaces from reading the files.
@@ -563,12 +610,12 @@ class PostProcessManager:
         from sympde.topology import Domain, VectorFunctionSpace, ScalarFunctionSpace
         from psydac.api.discretization import discretize
 
-        if self.geometry_file is not None:
-            domain = Domain.from_file(self.geometry_file)
-            domain_h = discretize(domain, filename=self.geometry_file)
+        if self.geometry_filename  is not None:
+            domain = Domain.from_file(self.geometry_filename)
+            domain_h = discretize(domain, filename=self.geometry_filename, comm=self.comm)
         else:
             domain = self._domain
-            domain_h = discretize(domain, ncells=self._ncells)
+            domain_h = discretize(domain, ncells=self._ncells, comm=self.comm)
 
         self._domain = domain
         self._domain_h = domain_h
@@ -578,10 +625,11 @@ class PostProcessManager:
         pdim = space_info['ndim']
 
         assert pdim == domain.dim
-        assert space_info['fields'] == self.fields_file
+        assert space_info['fields'] == self.fields_filename 
 
         # No Multipatch Support for now
         assert len(domain_h.mappings) == 1
+        assert not hasattr(domain.interior, 'as_tuple')
 
         # -------------------------------------------------
         # Space reconstruction
@@ -613,7 +661,7 @@ class PostProcessManager:
 
                 temp_kwargs_discretization = {
                     'degree': [sc_sp['degree'] for sc_sp in components],
-                    'knots': [sc_sp['knots'] for sc_sp in components],
+                    'knots': [[np.asarray(sc_sp['knots'][i]) for i in range(sc_sp['ldim'])] for sc_sp in components],
                     'basis': basis[0],
                     'periodic': [sc_sp['periodic'] for sc_sp in components]
                 }
@@ -630,20 +678,24 @@ class PostProcessManager:
 
                     temp_kwargs_discretization = {
                         'degree': sc_sp['degree'],
-                        'knots': sc_sp['knots'],
+                        'knots': [np.asarray(sc_sp['knots'][i]) for i in range(sc_sp['ldim'])],
                         'basis': basis[0],
                         'periodic': sc_sp['periodic'],
+                        'comm': self.comm,
                     }
 
                     self._spaces[sc_sp['name']] = discretize(temp_sc_sp, domain_h, **temp_kwargs_discretization)
 
     def get_snapshot_list(self):
-        fh5 = h5.File(self.fields_file, mode='r')
+        kwargs = {}
+        if self.comm is not None and self.comm.size > 1:
+            kwargs.update(driver='mpio', comm=self.comm)
+        fh5 = h5.File(self.fields_filename, mode='r', **kwargs)
         self._snapshot_list = []
         for k in fh5.keys():
             if k != 'static':
                 self._snapshot_list.append(int(k[-4:]))
-        fh5.close()
+        self.fields_file = fh5
 
     def load_static(self, *fields):
         """Reads static fields from file.
@@ -653,11 +705,7 @@ class PostProcessManager:
         *fields : tuple of str
             Names of the fields to load
         """
-        # kwargs = {}
-        # if comm is not None and comm.size > 1:
-        #     kwargs.update(driver='mpio', comm=comm)
-        # fh5 = h5.File(self.filename_fields, mode='a', **kwargs)
-        fh5 = h5.File(self.fields_file, 'r')
+        fh5 = self.fields_file
 
         static_group = fh5['static']
         temp_space_to_field = {}
@@ -719,8 +767,6 @@ class PostProcessManager:
 
                 self._static_fields[field_name] = new_field
 
-        fh5.close()
-
     def load_snapshot(self, n, *fields):
         """Reads a particular snapshot from file
 
@@ -731,11 +777,7 @@ class PostProcessManager:
         *fields : tuple of str
             Names of the fields to load
         """
-        # kwargs = {}
-        # if comm is not None and comm.size > 1:
-        #     kwargs.update(driver='mpio', comm=comm)
-        # fh5 = h5.File(self.filename_fields, mode='a', **kwargs)
-        fh5 = h5.File(self.fields_file, 'r')
+        fh5 = self.fields_file
 
         snapshot_group = fh5[f'snapshot_{n:0>4}']
         temp_space_to_field = {}
@@ -805,13 +847,21 @@ class PostProcessManager:
 
         self._loaded_t = snapshot_group.attrs['t']
         self._loaded_ts = snapshot_group.attrs['ts']
-        fh5.close()
 
         for key in list(self._snapshot_fields.keys()):
             if key not in fields:
                 del self._snapshot_fields[key]
 
-    def export_to_vtk(self, filename_pattern, grid, npts_per_cell=None, snapshots='none', lz=4, logical_grid=False, fields=None):
+    def export_to_vtk(self, 
+                      filename_pattern, 
+                      grid, 
+                      npts_per_cell=None, 
+                      snapshots='none', 
+                      lz=4, 
+                      logical_grid=False, 
+                      fields=None, 
+                      additional_physical_functions=None,
+                      additional_logical_functions=None):
         """Exports some fields to vtk. 
 
         Parameters
@@ -837,6 +887,12 @@ class PostProcessManager:
 
         fields: dict
             Dictionary with the fields to export as keys and the name under which to export them as values
+        
+        additional_physical_functions : dict
+            Dictionary of callable functions. Those functions will be called on (x_mesh, y_mesh, z_mesh)
+
+        additional_logical_functions : dict
+            Dictionary of callable functions. Those functions will be called on the grid.
 
         Notes
         -----
@@ -873,6 +929,15 @@ class PostProcessManager:
             slice_3d = (slice(0, None, 1), slice(0, None, 1), slice(0, None, 1))
         else:
             raise NotImplementedError("1D case not Implemented yet")
+
+        if fields is None:
+            fields={}
+        
+        if additional_physical_functions is None:
+            additional_physical_functions = {}
+        
+        if additional_logical_functions is None:
+            additional_logical_functions = {}
 
         # ============================
         # Static
@@ -915,6 +980,17 @@ class PostProcessManager:
                 mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
                 for i in range(ldim):
                     pointData_static[f'x_{i}'] = mesh_grids[i]
+            
+            for f, name in additional_logical_functions.items():
+                mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
+                pointData_static[name] = f(*mesh_grids)[slice_3d]
+
+            if ldim == 2:
+                for f, name in additional_physical_functions.items():
+                    pointData_static[name] = f(x_mesh, y_mesh)[slice_3d]
+            elif ldim == 3:
+                for f, name in additional_physical_functions.items():
+                    pointData_static[name] = f(x_mesh, y_mesh, z_mesh)
             # Export static fields to VTK
             pyevtk.hl.gridToVTK(f'{filename_pattern}_static', x_mesh, y_mesh, z_mesh,
                                 pointData=pointData_static)
@@ -991,5 +1067,21 @@ class PostProcessManager:
                 pointData_full[time_list[len(name_list) - 1]] = pointData_time.copy()
 
         for i, pointData_full_i in enumerate(pointData_full.values()):
+            if logical_grid:
+                mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
+                for i in range(ldim):
+                    pointData_full_i[f'x_{i}'] = mesh_grids[i]
+            
+            for f, name in additional_logical_functions.items():
+                mesh_grids = np.meshgrid(*grid_test, indexing = 'ij')
+                pointData_full_i[name] = f(*mesh_grids)[slice_3d]
+                
+            if ldim == 2:
+                for f, name in additional_physical_functions.items():
+                    pointData_full_i[name] = f(x_mesh, y_mesh)[slice_3d]
+            elif ldim == 3:
+                for f, name in additional_physical_functions.items():
+                    pointData_full_i[name] = f(x_mesh, y_mesh, z_mesh)
+
             pyevtk.hl.gridToVTK(filename_pattern + '_{0:0{1}d}'.format(i, lz),
                                 x_mesh, y_mesh, z_mesh, pointData=pointData_full_i)
