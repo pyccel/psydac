@@ -4,7 +4,6 @@
 
 import numpy as np
 
-
 # =============================================================================
 def find_span_p(knots: 'float[:]', degree: int, x: float):
     """
@@ -646,7 +645,7 @@ def merge_sort(a: 'float[:]') -> 'float[:]':
 
 
 # =============================================================================
-def breakpoints_p(knots: 'float[:]', degree: int, out: 'float[:]', tol: float = 1e-15):
+def breakpoints_p(knots: 'float[:]', degree: int, out: 'float[:]', tol: float = 1e-15) -> int:
     """
     Determine breakpoints' coordinates.
 
@@ -728,7 +727,7 @@ def greville_p(knots: 'float[:]', degree: int, periodic: bool, out:'float[:]'):
 
 
 # =============================================================================
-def elements_spans_p(knots: 'float[:]', degree: int, out: 'int[:]'):
+def elements_spans_p(knots: 'float[:]', degree: int, out: 'int[:]') -> int:
     """
     Compute the index of the last non-vanishing spline on each grid element
     (cell). The length of the returned array is the number of cells.
@@ -1010,3 +1009,170 @@ def basis_ders_on_quad_grid_p(knots: 'float[:]', degree: int, quad_grid: 'float[
                 ders *= scaling[span - degree:span + 1]
             for k in range(degree + 1):
                 out[ie, k, :, iq] = ders[:, k]
+
+
+def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', contains_breakpoints: bool, tol: float, out: 'int[:]') -> int:
+    """
+    Computes in which cells a given array of locations belong.
+
+    Parameters
+    ----------
+    breaks : array_like
+        Coordinates of breakpoints (= cell edges); given in increasing order and
+        with no duplicates.
+    
+    i_grid : ndarray
+        1D array of locations
+    
+    contains_breakpoints : bool
+        If True, locations close to a interior breakpoint will be assumed to be
+        present twice in ``i_grid`` and will be treated as if they were.
+        belong in the left and right cell. If false, the grid will be assumed
+        to not contain any breakpoint. Boundary breakpoints are snapped to the interior of the domain.
+        If False, breakpoints will be considered to be part of the left cell. 
+
+    tol : float
+        If the distance between a given point in ``i_grid`` and 
+        a breakpoint is less than ``tol`` and ``allow_breakpoints`` is 
+        True then it is considered to be on the breakpoint.
+    
+    out : array
+        The result will be inserted into this array.
+        It should be of the appropriate shape and dtype.
+    
+    Returns
+    -------
+    status : int
+        0 if everything worked as intended, -1 if not.
+    
+    """
+    nx = len(i_grid)
+
+    nbk = len(breaks)
+    # Repeat code to avoid multiplying checks
+    # First contains_breakpoints == False
+    if not contains_breakpoints:
+        # Check if there are points outside the domain
+        # Breakpoints aren't allowed to encountering a boundary
+        # rightfully raises an error
+        if np.min(i_grid) <= breaks[0]: return -1
+        if np.max(i_grid) >= breaks[nbk - 1]: return -1
+        
+        for i in range(nx):
+            x = i_grid[i]
+            low, high = 0, nbk - 1
+            i_cell = (low + high)//2
+            while  x < breaks[i_cell] or x >= breaks[i_cell + 1]:
+                if x < breaks[i_cell]:
+                    high = i_cell
+                else:
+                    low = i_cell
+                i_cell = (low + high)//2
+            out[i] = i_cell
+    
+    # contains_breakpoints == True
+    else:
+        # Check if there are points outside the domain
+        if np.min(i_grid) < breaks[0] - tol: return -1
+        if np.max(i_grid) > breaks[nbk - 1] + tol: return -1
+
+        current_index = 0
+        while current_index < nx:
+            x = i_grid[current_index]
+            low, high = 0, nbk - 1
+            i_cell = (low + high)//2
+            while  x < breaks[i_cell] - tol or x >= breaks[i_cell + 1] + tol:
+                if x < breaks[i_cell]:
+                    high = i_cell
+                else:
+                    low = i_cell
+                i_cell = (low + high)//2
+            # Case 1: x is the left breakpoint
+            if abs(x - breaks[i_cell]) < tol:
+                # Check if x is the left boundary
+                if i_cell == 0:
+                    out[current_index] = 0
+                    current_index += 1
+                else:
+                    out[current_index] = i_cell - 1
+                    out[current_index + 1] = i_cell
+                    current_index += 2
+            # Case 2: x is the right breakpoint
+            elif abs(x - breaks[i_cell + 1]) < tol:
+                # Check if x is the right boundary
+                if i_cell + 1 == nbk - 1:
+                    out[current_index] = nbk - 2
+                    current_index +=1
+                else:
+                    out[current_index] = i_cell
+                    out[current_index + 1] = i_cell + 1
+                    current_index +=2
+            else:
+                out[current_index] = i_cell
+                current_index += 1
+    return 0
+
+        
+def basis_ders_on_irregular_grid_p(knots: 'float[:]', degree: int, i_grid: 'float[:]', cell_index: 'int[:]', nders: int, normalization: bool,
+                            out: 'float[:,:,:]'):
+    """
+    Evaluate B-Splines and their derivatives on an irregular_grid.
+
+    If called with normalization=True, this uses M-splines instead of B-splines.
+
+    Parameters
+    ----------
+    knots : array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    i_grid : ndarray
+        1D array of all of the points on which to evaluate the 
+        basis functions. The points do not need to be sorted
+    
+    cell_index : ndarray
+        1D array of the same shape as ``i_grid``.
+        ``cell_index[i]`` is the index of the cell in which
+        ``i_grid[i]`` belong.
+
+    nders : int
+        Maximum derivative of interest.
+
+    normalization : bool
+        Set to False for B-splines, and True for M-splines.
+
+    out : array
+        The result will be inserted into this array.
+        It should be of the appropriate shape and dtype.
+
+    Notes
+    -----
+        3D output array 'out' contains values of B-Splines and their derivatives
+        at quadrature points in each element of 1D domain. Indices are
+        . ie: location               (0 <= ie <  nx    )
+        . il: local basis function   (0 <= il <= degree)
+        . id: derivative             (0 <= id <= nders )
+    """
+
+    nx = i_grid.shape[0]
+    if normalization:
+        integrals = np.zeros(knots.shape[0] - degree - 1)
+        basis_integrals_p(knots, degree, integrals)
+        scaling = 1.0 /integrals
+
+    ders = np.zeros((nders + 1, degree + 1))
+
+    temp_spans = np.zeros(len(knots), dtype=int)
+    actual_index = elements_spans_p(knots, degree, temp_spans)
+    spans = temp_spans[:actual_index]    
+
+    for ie in range(nx):
+        xx = i_grid[ie]
+        span = spans[cell_index[ie]]        
+        basis_funs_all_ders_p(knots, degree, xx, span, nders, False, ders)
+        if normalization:
+            ders *= scaling[span - degree:span + 1]
+        for k in range(degree + 1):
+            out[ie, k, :] = ders[:, k]

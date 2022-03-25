@@ -11,7 +11,8 @@ from psydac.core.bsplines import ( find_span,
         elevate_knots,
         greville,
         collocation_matrix,
-        histopolation_matrix )
+        histopolation_matrix,
+        cell_index)
 
 from psydac.fem.tests.utilities import random_grid
 
@@ -147,6 +148,15 @@ def test_histopolation_matrix(lims, nc, p, periodic, tol=1e-13):
         assert all( col >= 0.0 )
         assert abs( sum( col ) - 1.0 ) < tol
 #        assert (abs(col) > tol).sum() <= 2*p + 1
+
+#==============================================================================
+@pytest.mark.parametrize("i_grid, contains_breakpoints, expected", [([0.05, 0.15, 0.20, 0.05, 0.55], False, [0, 1, 2, 0, 5]),
+                                                                    ([0.1, 0.1, 0.0, 0.4, 0.4, 0.9, 0.9], True, [0, 1, 0, 3, 4, 8, 9]),
+                                                                    ([0., 0.1, 0.1, 1], True, [0, 0, 1, 9])])
+def test_cell_index(i_grid, contains_breakpoints, expected):
+    breaks = np.array([0. , 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.])
+    out = cell_index(breaks, np.asarray(i_grid), contains_breakpoints)
+    assert np.allclose(expected, out)
 
 #==============================================================================
 # SCRIPT FUNCTIONALITY: PLOT BASIS FUNCTIONS
