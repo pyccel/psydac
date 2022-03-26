@@ -1,50 +1,14 @@
 # coding: utf-8
 
+import itertools
 import numpy as np
 from itertools import product
 from mpi4py    import MPI
 
-from psydac.ddm.partition import compute_dims
+from psydac.ddm.partition import compute_dims, partition_procs_per_patch
+
 
 __all__ = ['find_mpi_type', 'CartDecomposition', 'CartDataExchanger']
-
-def partition_procs(npts, size):
-    npts       = [np.product(nc) for nc in npts]
-    percentage = [nc/sum(npts) for nc in npts]
-    sizes      = np.array([int(p*size) for p in percentage])
-    diff       = [p*size-s for s,p in zip(sizes, percentage)]
-    indices    = np.argsort(diff)[::-1]
-    rm         = size-sum(sizes)
-    
-    sizes[indices[:rm]] +=1
-    assert sum(sizes) == size
-
-    #...
-    start  = 0
-    ranges = []
-    for s in sizes:
-        ranges.append([start, start+s-1])
-        start += s
-
-    assert start == size
-
-    ranges = np.array(ranges)
-
-    sw_ranks = [i[0] for i in ranges[indices[:rm]]]
-
-    rank = 0
-    for i,s in enumerate(sizes):
-        if s == 0:
-            sizes[i] = 1
-            if sw_ranks:
-                e_rank    = sw_ranks.pop()
-                ranges[i] = [e_rank, e_rank]
-            else:
-                ranges[i] = [rank, rank]
-                rank      = (rank+1)%size
-
-    assert all(i[0]<=i[1] for i in ranges)
-    return sizes, ranges
 
 #===============================================================================
 def find_mpi_type( dtype ):
@@ -72,7 +36,7 @@ def find_mpi_type( dtype ):
 
 #====================================================================================
 class MultiCartDecomposition():
-    def __init__( self, npts, pads, periods, reorder, interfaces, comm=MPI.COMM_WORLD, shifts=None, num_threads=None ):
+    def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, shifts=None, num_threads=None ):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
@@ -97,7 +61,7 @@ class MultiCartDecomposition():
         # ...
         size           = comm.Get_size()
         rank           = comm.Get_rank()
-        sizes, rank_ranges  = partition_procs(self._npts, size)
+        sizes, rank_ranges = partition_procs_per_patch(self._npts, size)
 
         self._rank   = rank
         self._size   = size
@@ -109,27 +73,12 @@ class MultiCartDecomposition():
 
         local_groups        = [None]*self._ncarts
         local_communicators = [None]*self._ncarts
+
         for i,r in enumerate(rank_ranges):
             if rank>=r[0] and rank<=r[1]:
-                local_groups[i]        = global_group.Incl(list(range(r[0], r[1]+1)))
+                local_groups[i]        = global_group.Range_incl([[r[0], r[1], 1]])
                 local_communicators[i] = comm.Create_group(local_groups[i], i)
                 owned_groups.append(i)
-
-        self._local_groups        = local_groups
-        self._local_communicators = local_communicators
-
-        interfaces_groups = {}
-        interfaces_comm   = {}
-
-        for i,j in interfaces:
-            if i in owned_groups or j in owned_groups:
-                if not local_groups[i]:
-                    local_groups[i] = global_group.Incl(list(range(rank_ranges[i][0], rank_ranges[i][1]+1)))
-                if not local_groups[j]:
-                    local_groups[j] = global_group.Incl(list(range(rank_ranges[j][0], rank_ranges[j][1]+1)))
-
-                interfaces_groups[i,j] = local_groups[i].Union(local_groups[i], local_groups[j])
-                interfaces_comm  [i,j] = comm.Create_group(interfaces_groups[i,j])
 
         try:
             carts = [CartDecomposition(n, p, P, reorder, comm=sub_comm, shifts=s, num_threads=num_threads) if sub_comm else None\
@@ -137,18 +86,151 @@ class MultiCartDecomposition():
         except:
             comm.Abort(1)
 
-        interfaces_carts = {}
-#        for i,j in interfaces:
-#            if (i,j) in interfaces_comm:
-#                interfaces_carts[i,j] = InterfaceCartDecomposition([npts[i], npts[j]], [pads[i], pads[j]],
-#                                        [periods[i], periods[j]], comm=interfaces_comm[i,j], shifts=[shifts[i], shifts[j]], num_threads=num_threads)
+        self._local_groups        = local_groups
+        self._local_communicators = local_communicators
+        self._owned_groups        = owned_groups
+        self._carts               = carts
 
-        self._owned_groups      = owned_groups
+    @property
+    def npts( self ):
+        return self._npts
+
+    @property
+    def pads( self ):
+        return self._pads
+
+    @property
+    def periods( self ):
+        return self._periods
+
+    @property
+    def shifts( self ):
+        return self._shifts
+
+    @property
+    def num_threads( self ):
+        return self._num_threads
+
+    @property
+    def comm( self ):
+        return self._comm
+
+    @property
+    def ncarts( self ):
+        return self._ncarts
+
+    @property
+    def size( self ):
+        return self._size
+
+    @property
+    def rank( self ):
+        return self._rank
+
+    @property
+    def sizes( self ):
+        return self._sizes
+
+    @property
+    def rank_ranges( self ):
+        return self._rank_ranges
+
+    @property
+    def local_groups( self ):
+        return self._local_groups
+
+    @property
+    def local_communicators( self ):
+        return self._local_communicators
+
+    @property
+    def owned_groups( self ):
+        return self._owned_groups
+
+    @property
+    def carts( self ):
+        return self._carts
+
+class InterfacesCartDecomposition:
+    def __init__(self, carts, interfaces):
+
+        assert isinstance(carts, MultiCartDecomposition)
+
+        npts                = carts.npts
+        pads                = carts.pads
+        shifts              = carts.shifts
+        periods             = carts.periods
+        num_threads         = carts.num_threads
+        comm                = carts.comm
+        global_group        = comm.group
+        local_groups        = carts.local_groups
+        rank_ranges         = carts.rank_ranges
+        local_communicators = carts.local_communicators
+
+        interfaces_groups     = {}
+        interfaces_comm       = {}
+        interfaces_root_ranks = {}
+        interfaces_carts      = {}
+
+        for i,j in interfaces:
+            if i in owned_groups or j in owned_groups:
+                if not local_groups[i]:
+                    local_groups[i] = global_group.Range_incl([[rank_ranges[i][0], rank_ranges[i][1], 1]])
+                if not local_groups[j]:
+                    local_groups[j] = global_group.Range_incl([[rank_ranges[j][0], rank_ranges[j][1], 1]])
+
+                interfaces_groups[i,j] = local_groups[i].Union(local_groups[i], local_groups[j])
+                interfaces_comm  [i,j] = comm.Create_group(interfaces_groups[i,j])
+                root_rank_i            = interfaces_groups[i,j].Translate_ranks(local_groups[i], [0], interfaces_groups[i,j])[0]
+                root_rank_j            = interfaces_groups[i,j].Translate_ranks(local_groups[j], [0], interfaces_groups[i,j])[0]
+                interfaces_root_ranks[i,j] = [root_rank_i, root_rank_j]
+
+        tag   = lambda i,j,disp: (2+disp)*(i+j)
+        dtype = find_mpi_type('int64')
+        for i,j in interfaces:
+            if (i,j) in interfaces_comm:
+                ranks_in_topo_i = carts.carts[i].ranks_in_topo if i in owned_groups else np.full(local_groups[i].size, -1)
+                ranks_in_topo_j = carts.carts[j].ranks_in_topo if j in owned_groups else np.full(local_groups[j].size, -1)
+                req = []
+                if interfaces_comm[i,j].rank == interfaces_root_ranks[i,j][0]:
+                    req.append(interfaces_comm[i,j].Isend((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][1], tag=tag(i,j,1)))
+                    req.append(interfaces_comm[i,j].Irecv((ranks_in_topo_j, ranks_in_topo_j.size, dtype), interfaces_root_ranks[i,j][1], tag=tag(i,j,-1)))
+
+                if interfaces_comm[i,j].rank == interfaces_root_ranks[i,j][1]:
+                    req.append(interfaces_comm[i,j].Isend((ranks_in_topo_j, ranks_in_topo_j.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,-1)))
+                    req.append(interfaces_comm[i,j].Irecv((ranks_in_topo_i, ranks_in_topo_i.size, dtype), interfaces_root_ranks[i,j][0], tag=tag(i,j,1)))                  
+
+                axes = interfaces[i,j][0]
+                exts = interfaces[i,j][1]
+                interfaces_carts[i,j] = InterfaceCartDecomposition(npts=[npts[i], npts[j]],
+                                                                   pads=[pads[i], pads[j]],
+                                                                   periods=[periods[i], periods[j]],
+                                                                   comm=interfaces_comm[i,j],
+                                                                   shifts=[shifts[i], shifts[j]],
+                                                                   axes=axes, exts=exts, 
+                                                                   ranks_in_topo=[ranks_in_topo_i, ranks_in_topo_j],
+                                                                   local_groups=[local_groups[i], local_groups[j]],
+                                                                   local_communicators=[local_communicators[i], local_communicators[j]],
+                                                                   root_ranks=interfaces_root_ranks[i,j],
+                                                                   requests=req,
+                                                                   num_threads=num_threads)
+
         self._interfaces_groups = interfaces_groups
         self._interfaces_comm   = interfaces_comm
-
-        self._carts            = carts
         self._interfaces_carts = interfaces_carts
+
+    @property
+    def interfaces_carts( self ):
+        return self._interfaces_carts
+
+    @property
+    def interfaces_comm( self ):
+        return self._interfaces_comm
+
+    @property
+    def interfaces_groups( self ):
+        return self._interfaces_groups
+
 #===============================================================================
 class CartDecomposition():
     """
@@ -188,7 +270,7 @@ class CartDecomposition():
        Reverse the ownership of the processes along the specified axis.
 
     """
-    def __init__( self, npts, pads, periods, reorder, comm=MPI.COMM_WORLD, shifts=None, nprocs=None, reverse_axis=None, num_threads=None ):
+    def __init__( self, npts, pads, periods, reorder, comm=None, shifts=None, nprocs=None, reverse_axis=None, num_threads=None ):
 
         # Check input arguments
         # TODO: check that arguments are identical across all processes
@@ -245,8 +327,9 @@ class CartDecomposition():
         )
 
         # Know my coordinates in the topology
-        self._rank_in_topo = self._comm_cart.Get_rank()
-        self._coords       = self._comm_cart.Get_coords( rank=self._rank_in_topo )
+        self._rank_in_topo  = self._comm_cart.Get_rank()
+        self._coords        = self._comm_cart.Get_coords( rank=self._rank_in_topo )
+        self._ranks_in_topo = np.array(comm.group.Translate_ranks(self._comm_cart.group, list(range(self._comm_cart.size)), comm.group))
 
         if reverse_axis is not None:
             self._coords[reverse_axis] = self._dims[reverse_axis] - self._coords[reverse_axis] - 1
@@ -375,6 +458,10 @@ class CartDecomposition():
     @property
     def reduced_global_ends( self ):
         return self._reduced_global_ends
+
+    @property
+    def ranks_in_topo( self ):
+        return self._ranks_in_topo
 
     #---------------------------------------------------------------------------
     # Local properties
@@ -509,7 +596,6 @@ class CartDecomposition():
                 'buf_shape'  : tuple(  buf_shape  ),
                 'send_starts': tuple( send_starts ),
                 'recv_starts': tuple( recv_starts )}
-
         return info
         
     def reduce_elements( self, axes, n_elements):
@@ -663,7 +749,6 @@ class CartDecomposition():
         # N-dimensional global indices with ghost regions
         cart._extended_indices = product( *cart._extended_grids )
 
-
         # Compute/store information for communicating with neighbors
         cart._shift_info = {}
         for dimension in range( cart._ndims ):
@@ -676,6 +761,272 @@ class CartDecomposition():
         cart._global_ends   = global_ends
 
         return cart
+
+class InterfaceCartDecomposition(CartDecomposition):
+
+    def __init__(self, npts, pads, periods, comm, shifts, axes, exts, ranks_in_topo, local_groups, local_communicators, root_ranks, requests, num_threads):
+
+        npts_i, npts_j       = npts
+        pads_i, pads_j       = pads
+        periods_i, periods_j = periods
+        shifts_i, shifts_j   = shifts
+        axis_i, axis_j       = axes
+        ext_i,ext_j          = exts
+        size_i, size_j       = len(ranks_in_topo[0]), len(ranks_in_topo[1])
+
+        assert axis_i == axis_j
+
+        root_rank_i, root_rank_i         = root_ranks
+        local_comm_i, local_comm_j       = local_communicators
+        ranks_in_topo_i, ranks_in_topo_j = ranks_in_topo
+
+        self._ndims         = len( npts_i )
+        self._npts_i        = npts_i
+        self._npts_j        = npts_j
+        self._pads_i        = pads_i
+        self._pads_j        = pads_j
+        self._shifts_i      = shifts_i
+        self._shifts_j      = shifts_j
+        self._axis          = axis_i
+        self._ext_i         = ext_i
+        self._ext_j         = ext_j
+        self._comm          = comm
+        self._local_comm_i  = local_communicators[0]
+        self._local_comm_j  = local_communicators[1]
+        self._local_rank_i  = None
+        self._local_rank_j  = None
+
+        if self._local_comm_i:
+            self._local_rank_i = self._local_comm_i.rank
+
+        if self._local_comm_j:
+            self._local_rank_j = self._local_comm_j.rank
+
+        reduced_npts_i = [(n-p-1)//m if m>1 else n if not P else n for n,m,p,P in zip(npts_i, shifts_i, pads_i, periods_i)]
+        reduced_npts_j = [(n-p-1)//m if m>1 else n if not P else n for n,m,p,P in zip(npts_j, shifts_j, pads_j, periods_j)]
+
+        nprocs_i, block_shape_i = compute_dims( size_i, reduced_npts_i, pads_i )
+        nprocs_j, block_shape_j = compute_dims( size_j, reduced_npts_j, pads_j )
+
+        dtype = find_mpi_type('int64')
+        MPI.Request.Waitall(requests)
+
+        if local_comm_i:
+            local_comm_i.Bcast((ranks_in_topo_j,ranks_in_topo_j.size, dtype), root=0)
+
+        if local_comm_j:
+            local_comm_j.Bcast((ranks_in_topo_i,ranks_in_topo_i.size, dtype), root=0)
+
+        self._coords_from_rank_i = np.array([np.unravel_index(rank, nprocs_i) for rank in range(size_i)])
+        self._coords_from_rank_j = np.array([np.unravel_index(rank, nprocs_j) for rank in range(size_j)])
+
+        rank_from_coords_i = np.zeros(nprocs_i, dtype=int)
+        rank_from_coords_j = np.zeros(nprocs_j, dtype=int)
+
+        for r in range(size_i):
+            rank_from_coords_i[tuple(self._coords_from_rank_i[r])] = r
+
+        for r in range(size_j):
+            rank_from_coords_j[tuple(self._coords_from_rank_j[r])] = r
+
+        index_i          = [slice(None, None)]*len(npts_i)
+        index_j          = [slice(None, None)]*len(npts_i)
+        index_i[axis_i]  = 0 if ext_i == -1 else -1
+        index_j[axis_j]  = 0 if ext_j == -1 else -1
+
+        self._boundary_ranks_i = rank_from_coords_i[tuple(index_i)]
+        self._boundary_ranks_j = rank_from_coords_j[tuple(index_j)]
+
+        boundary_group_i = local_groups[0].Incl(self._boundary_ranks_i)
+        boundary_group_j = local_groups[1].Incl(self._boundary_ranks_j)
+
+        comm_i = comm.Create_group(boundary_group_i)
+        comm_j = comm.Create_group(boundary_group_j)
+
+        root_i = comm.group.Translate_ranks(boundary_group_i, [0], comm.group)[0]
+        root_j = comm.group.Translate_ranks(boundary_group_j, [0], comm.group)[0]
+
+        procs_index_i = boundary_group_i.Translate_ranks(local_groups[0], self._boundary_ranks_i, boundary_group_i)
+        procs_index_j = boundary_group_j.Translate_ranks(local_groups[1], self._boundary_ranks_j, boundary_group_j)
+
+        # Reorder procs ranks from 0 to local_group.size-1
+        self._boundary_ranks_i = self._boundary_ranks_i[procs_index_i]
+        self._boundary_ranks_j = self._boundary_ranks_j[procs_index_j]
+        
+        if root_i != root_j:
+            if not comm_i == MPI.COMM_NULL:
+                intercomm = comm_i.Create_intercomm(0, comm, root_j)
+                
+
+            elif not comm_j == MPI.COMM_NULL:
+                intercomm = comm_j.Create_intercomm(0, comm, root_i)
+            else:
+                intercomm = None
+        else:
+            intercomm = None
+
+        self._intercomm = intercomm
+
+        # Store arrays with all the reduced starts and reduced ends along each direction
+        self._reduced_global_starts_i = [None]*self._ndims
+        self._reduced_global_ends_i   = [None]*self._ndims
+        self._reduced_global_starts_j = [None]*self._ndims
+        self._reduced_global_ends_j   = [None]*self._ndims
+        for axis in range( self._ndims ):
+            ni = reduced_npts_i[axis]
+            di = nprocs_i[axis]
+            pi = pads_i[axis]
+            mi = shifts_i[axis]
+            nj = reduced_npts_j[axis]
+            dj = nprocs_j[axis]
+            pj = pads_j[axis]
+            mj = shifts_j[axis]
+
+            self._reduced_global_starts_i[axis] = np.array( [( ci   *ni)//di   for ci in range( di )] )
+            self._reduced_global_ends_i  [axis] = np.array( [((ci+1)*ni)//di-1 for ci in range( di )] )
+            self._reduced_global_starts_j[axis] = np.array( [( cj   *nj)//dj   for cj in range( dj )] )
+            self._reduced_global_ends_j  [axis] = np.array( [((cj+1)*nj)//dj-1 for cj in range( dj )] )
+            if mi>1:self._reduced_global_ends_i [axis][-1] += pi+1
+            if mj>1:self._reduced_global_ends_j [axis][-1] += pj+1
+
+        # Store arrays with all the starts and ends along each direction
+        self._global_starts_i = [None]*self._ndims
+        self._global_ends_i   = [None]*self._ndims
+        self._global_starts_j = [None]*self._ndims
+        self._global_ends_j   = [None]*self._ndims
+
+        for axis in range( self._ndims ):
+            ni = npts_i[axis]
+            di = nprocs_i[axis]
+            pi = pads_i[axis]
+            mi = shifts_i[axis]
+            r_starts_i = self._reduced_global_starts_i[axis]
+            r_ends_i   = self._reduced_global_ends_i  [axis]
+            nj = npts_j[axis]
+            dj = nprocs_j[axis]
+            pj = pads_j[axis]
+            mj = shifts_j[axis]
+            r_starts_j = self._reduced_global_starts_j[axis]
+            r_ends_j   = self._reduced_global_ends_j  [axis]
+
+            global_starts_i = [0]
+            for ci in range(1,di):
+                global_starts_i.append(global_starts_i[ci-1] + (r_ends_i[ci-1]-r_starts_i[ci-1]+1)*mi)
+
+            global_starts_j = [0]
+            for cj in range(1,dj):
+                global_starts_j.append(global_starts_j[cj-1] + (r_ends_j[cj-1]-r_starts_j[cj-1]+1)*mj)
+
+            global_ends_i   = [global_starts_i[ci+1]-1 for ci in range( di-1 )] + [ni-1]
+            global_ends_j   = [global_starts_j[cj+1]-1 for cj in range( dj-1 )] + [nj-1]
+
+            self._global_starts_i[axis] = np.array( global_starts_i )
+            self._global_ends_i  [axis] = np.array( global_ends_i )
+            self._global_starts_j[axis] = np.array( global_starts_j )
+            self._global_ends_j  [axis] = np.array( global_ends_j )
+
+        self._communication_infos = {}
+        self._communication_infos[self._axis] = self._compute_communication_infos(self._axis)
+
+
+    def get_communication_infos( self, axis ):
+        return self._communication_infos[ axis ]
+
+    #---------------------------------------------------------------------------
+    def _compute_communication_infos( self, axis ):
+
+        if self._intercomm == MPI.COMM_NULL:
+            return 
+
+        # Mesh info
+        npts_i   = self._npts_i
+        npts_j   = self._npts_j
+        pads_i   = self._pads_i
+        pads_j   = self._pads_j
+        shifts_i = self._shifts_i
+        shifts_j = self._shifts_j
+        indices  = []
+        if self._local_rank_i is not None:
+            rank_i = self._local_rank_i
+            coords = self._coords_from_rank_i[rank_i]
+            starts = [self._global_starts_i[d][c] for d,c in enumerate(coords)]
+            ends   = [self._global_ends_i[d][c] for d,c in enumerate(coords)]
+            send_buf_shape        = [e-s+1 for s,e,p,m in zip(starts, ends, pads_i, shifts_i)]
+#            send_buf_shape[axis] = pads_i[axis]+1
+            send_starts     = [m*p for m,p in zip(shifts_i, pads_i)]
+            send_shape      = [e-s+1+2*m*p for s,e,m,p in zip(starts, ends, shifts_i, pads_i)]
+
+            # ...
+            coords = self._coords_from_rank_j[self._boundary_ranks_j[0]]
+            starts = [self._global_starts_j[d][c] for d,c in enumerate(coords)]
+            ends   = [self._global_ends_j[d][c] for d,c in enumerate(coords)]
+
+            recv_buf_shape       = [1]*len(starts)
+            recv_buf_shape[axis] = ends[axis]-starts[axis]+1
+            recv_shape           = [n+2*m*p for n,m,p in zip(npts_j, shifts_j, pads_j)]
+            recv_shape[axis]     = ends[axis]-starts[axis]+1 + 2*shifts_j[axis]*pads_j[axis]
+            recv_starts          = [m*p for m,p in zip(shifts_j, pads_j)]
+
+            displacements   = [0]*(len(self._boundary_ranks_j)+1)
+            recv_counts     = [None]*len(self._boundary_ranks_j)
+            for k,b in enumerate(self._boundary_ranks_j):
+                coords = self._coords_from_rank_j[b]
+                starts = [self._global_starts_j[d][c] for d,c in enumerate(coords)]
+                ends   = [self._global_ends_j[d][c] for d,c in enumerate(coords)]
+                shape_k = [e-s+1 for s,e in zip(starts, ends)]
+                recv_counts[k] = np.product(shape_k)
+                ranges       = [(s+p*m, p*m+e+1) for s,e,p,m in zip(starts, ends, pads_j, shifts_j)]
+                ranges[axis] = (shifts_j[axis]*pads_j[axis], shifts_j[axis]*pads_j[axis]+shape_k[axis])
+                indices     += [np.ravel_multi_index( ii, dims=recv_shape, order='C' ) for ii in itertools.product(*[range(*a) for a in ranges])] 
+
+        elif self._local_rank_j is not None:
+            rank_j = self._local_rank_j
+            coords = self._coords_from_rank_j[rank_j]
+            starts = [self._global_starts_j[d][c] for d,c in enumerate(coords)]
+            ends   = [self._global_ends_j[d][c] for d,c in enumerate(coords)]
+            send_buf_shape        = [e-s+1 for s,e,p,m in zip(starts, ends, pads_j, shifts_j)]
+#            send_buf_shape[axis] = pads_j[axis]+1
+            send_starts     = [m*p for m,p in zip(shifts_j, pads_j)]
+            send_shape      = [e-s+1+2*m*p for s,e,m,p in zip(starts, ends, shifts_j, pads_j)]
+
+            # ...
+            coords = self._coords_from_rank_i[self._boundary_ranks_i[0]]
+            starts = [self._global_starts_i[d][c] for d,c in enumerate(coords)]
+            ends   = [self._global_ends_i[d][c] for d,c in enumerate(coords)]
+
+            recv_buf_shape       = [1]*len(starts)
+            recv_buf_shape[axis] = ends[axis]-starts[axis]+1
+            recv_shape           = [n+2*m*p for n,m,p in zip(npts_i, shifts_i, pads_i)]
+            recv_shape[axis]     = ends[axis]-starts[axis]+1 + 2*shifts_i[axis]*pads_i[axis]
+            recv_starts          = [m*p for m,p in zip(shifts_i, pads_i)]
+
+            displacements   = [0]*(len(self._boundary_ranks_i)+1)
+            recv_counts     = [None]*len(self._boundary_ranks_i)
+            for k,b in enumerate(self._boundary_ranks_i):
+                coords = self._coords_from_rank_i[b]
+                starts = [self._global_starts_i[d][c] for d,c in enumerate(coords)]
+                ends   = [self._global_ends_i[d][c] for d,c in enumerate(coords)]
+                shape_k = [e-s+1 for s,e in zip(starts, ends)]
+                recv_counts[k] = np.product(shape_k)
+                ranges       = [(s+p*m, p*m+e+1) for s,e,p,m in zip(starts, ends, pads_i, shifts_i)]
+                ranges[axis] = (shifts_j[axis]*pads_j[axis], shifts_j[axis]*pads_j[axis]+shape_k[axis])
+                indices     += [np.ravel_multi_index( ii, dims=recv_shape, order='C' ) for ii in itertools.product(*[range(*a) for a in ranges])] 
+
+        displacements[1:] = np.cumsum(recv_counts)
+        global_indices    = list(range(displacements[-1]))
+        zeros_indices     = np.setdiff1d(global_indices, indices)
+        indices           = indices
+        zeros_indices     = np.sort(zeros_indices)
+        # Store all information into dictionary
+        info = {'send_buf_shape' : tuple( send_buf_shape ),
+                'send_starts'    : tuple( send_starts ),
+                'send_shape'     : tuple( send_shape  ),
+                'displacements'  : tuple( displacements ),
+                'recv_counts'    : tuple( recv_counts),
+                'indices'        : indices,
+                'zeros_indices'  : zeros_indices}
+
+        return info
 
 #===============================================================================
 class CartDataExchanger:
@@ -855,3 +1206,62 @@ class CartDataExchanger:
                 ).Commit()
 
         return send_types, recv_types
+
+#===============================================================================
+class InterfaceCartDataExchanger:
+
+    def __init__(self, cart, dtype):
+        args = self._create_buffer_types( cart, dtype )
+        self._send_types    = args[0]
+        self._recv_types    = args[1]
+        self._displacements = args[2]
+        self._recv_counts   = args[3]
+        self._indices       = args[4]
+        self._zeros_indices = args[5]
+
+    # ...
+    def update_ghost_regions( self, array_i, array_j ):
+        cart          = self._cart
+        send_type     = self._send_types
+        recv_type     = self._recv_types
+        displacements = self._displacements
+        recv_counts   = self._recv_counts
+        indices       = self._indices
+        zeros_indices = self._zeros_indices
+        intercomm     = cart.intercomm
+
+        array_i = array_i.ravel()
+        array_j = array_j.ravel()
+
+        if cart.local_rank_i is not None:
+            intercomm.Allgatherv([array_i, 1, send_type],[array_j, recv_counts, displacements[:-1], recv_type] )
+            array_j[indices]       = array_j[:displacements[-1]]
+            array_j[zeros_indices] = 0
+        elif cart.local_rank_j is not None:
+            intercomm.Allgatherv([array_j, 1, send_type],[array_i, recv_counts, displacements[:-1], recv_type] )
+            array_i[indices]       = array_i[:displacements[-1]]
+            array_i[zeros_indices] = 0
+
+    @staticmethod
+    def _create_buffer_types( cart, dtype ):
+
+        assert isinstance( cart, InterfaceCartDecomposition )
+
+        mpi_type = find_mpi_type( dtype )
+        info     = cart.get_communication_infos( cart._axis )
+
+        send_data_shape  = list( info['send_shape' ] )
+        send_buf_shape   = list( info['send_buf_shape' ] )
+        send_starts      = list( info['send_starts'] )
+
+        send_types = mpi_type.Create_subarray(
+                     sizes    = send_data_shape ,
+                     subsizes =  send_buf_shape ,
+                     starts   = send_starts).Commit()
+
+        displacements    = info['displacements']
+        recv_counts      = info['recv_counts']
+        recv_types       = mpi_type
+
+        return send_types, recv_types, displacements, recv_counts, info['indices'], info['zeros_indices']
+

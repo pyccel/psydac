@@ -319,8 +319,8 @@ class DiscreteBilinearForm(BasicDiscrete):
 
             for key in self._free_args:
                 v = kwargs[key]
-                if len(self.domain)>1 and isinstance(v, VectorFemField):
-                    i,j = get_space_indices_from_target(self.domain, self.target)
+                if len(self.domain)>1 and isinstance(v, FemField) and v.space.is_product:
+                    i,j = self.get_space_indices_from_target(self.domain, self.target)
                     assert i==j
                     v = v[i]
                 if isinstance(v, FemField):
@@ -690,8 +690,8 @@ class DiscreteLinearForm(BasicDiscrete):
             consts  = []
             for key in self._free_args:
                 v = kwargs[key]
-                if len(self.domain)>1 and isinstance(v, VectorFemField):
-                    i = get_space_indices_from_target(self.domain, self.target)
+                if len(self.domain)>1 and isinstance(v, FemField) and v.space.is_product:
+                    i = self.get_space_indices_from_target(self.domain, self.target)
                     v = v[i]
                 if isinstance(v, FemField):
                     basis_v  = BasisValues(v.space, nderiv = self.max_nderiv, trial=True, grid=self.grid)

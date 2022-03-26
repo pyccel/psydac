@@ -3,7 +3,46 @@ import numpy.ma as ma
 
 from sympy.ntheory import factorint
 
-__all__ = ['compute_dims']
+__all__ = ['compute_dims', 'partition_procs_per_patch']
+
+#==============================================================================
+def partition_procs_per_patch(npts, size):
+    npts       = [np.product(nc) for nc in npts]
+    percentage = [nc/sum(npts) for nc in npts]
+    sizes      = np.array([int(p*size) for p in percentage])
+    diff       = [p*size-s for s,p in zip(sizes, percentage)]
+    indices    = np.argsort(diff)[::-1]
+    rm         = size-sum(sizes)
+    
+    sizes[indices[:rm]] +=1
+    assert sum(sizes) == size
+
+    #...
+    start  = 0
+    ranges = []
+    for s in sizes:
+        ranges.append([start, start+s-1])
+        start += s
+
+    assert start == size
+
+    ranges = np.array(ranges)
+
+    sw_ranks = [i[0] for i in ranges[indices[:rm]]]
+
+    rank = 0
+    for i,s in enumerate(sizes):
+        if s == 0:
+            sizes[i] = 1
+            if sw_ranks:
+                e_rank    = sw_ranks.pop()
+                ranges[i] = [e_rank, e_rank]
+            else:
+                ranges[i] = [rank, rank]
+                rank      = (rank+1)%size
+
+    assert all(i[0]<=i[1] for i in ranges)
+    return sizes, ranges
 
 #==============================================================================
 def compute_dims( nnodes, gridsizes, min_blocksizes=None, mpi=None ):
