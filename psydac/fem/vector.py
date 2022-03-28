@@ -227,8 +227,8 @@ class VectorFemSpace( FemSpace ):
             pushed_fields = self.pushforward_fields_regular_tensor_grid(grid, *fields, mapping=mapping)
             # return a list of list of C-contiguous arrays, one list for each field
             # with one array for each dimension.
-            return [[np.ascontiguousarray(pushed_fields[..., i, j]) for i in range(self._ldim)]
-                    for j in range(len(fields))]
+            return [[np.ascontiguousarray(pushed_fields[..., j, i]) for j in range(self._ldim)]
+                    for i in range(len(fields))]
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
         # -> unstructured grid
@@ -272,7 +272,7 @@ class VectorFemSpace( FemSpace ):
 
         mapping: psydac.mapping.SplineMapping
             Mapping on which to push-forward
-        
+
         parent_kind : sympde.topology.datatype
 
         Returns
@@ -292,7 +292,7 @@ class VectorFemSpace( FemSpace ):
                                                                                 mapping=mapping,
                                                                                 parent_kind=kind)
                                  for i in range(self._ldim)]
-            return [[pushed_fields_int[i][j] for i in range(self._ldim)] for j in range(len(fields))]
+            return [[pushed_fields_int[j][i] for j in range(self._ldim)] for i in range(len(fields))]
 
         # out_fields is a list self._ldim of arrays of shape grid.shape + (len(fields),)
         out_fields = np.asarray([self.spaces[i].eval_fields_regular_tensor_grid(grid, *[f.fields[i] for f in fields])
@@ -587,8 +587,8 @@ class ProductFemSpace( FemSpace ):
             pushed_fields = self.pushforward_fields_regular_tensor_grid(grid, *fields, mapping=mapping)
             # return a list of list of C-contiguous arrays, one list for each field
             # with one array for each dimension.
-            return [[np.ascontiguousarray(pushed_fields[..., i, j]) for i in range(self._ldim)]
-                    for j in range(len(fields))]
+            return [[np.ascontiguousarray(pushed_fields[..., j, i]) for j in range(self._ldim)]
+                    for i in range(len(fields))]
 
         # Case 4. (self.ldim)D arrays of coordinates and no npts_per_cell
         # -> unstructured grid
@@ -647,7 +647,7 @@ class ProductFemSpace( FemSpace ):
                                                                                 mapping=mapping,
                                                                                 parent_kind=kind)
                                  for i in range(self._ldim)]
-            return [[pushed_fields_int[i][j] for i in range(self._ldim)] for j in range(len(fields))]
+            return [[pushed_fields_int[j][i] for j in range(self._ldim)] for i in range(len(fields))]
 
         # out_fields is a list self._ldim of arrays of shape grid.shape + (len(fields),)
         out_fields = np.asarray([self.spaces[i].eval_fields_regular_tensor_grid(grid, *[f.fields[i] for f in fields])
