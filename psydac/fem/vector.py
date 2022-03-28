@@ -163,7 +163,7 @@ class VectorFemSpace( FemSpace ):
         raise NotImplementedError( "VectorFemSpace not yet operational" )
 
     # ...
-    def pushforward_fields(self, grid, *fields, mapping=None, npts_per_cell=None):
+    def pushforward_fields(self, grid, *fields, mapping, npts_per_cell=None):
         """ Push forward fields on a given grid and a given mapping
 
         Parameters
@@ -186,10 +186,6 @@ class VectorFemSpace( FemSpace ):
         List of ndarray
             push-forwarded fields
         """
-
-        # Check that a mapping is given
-        if mapping is None:
-            raise TypeError("pushforward_fields() missing 1 required keyword-only argument: 'mapping'")
 
         # Check that the fields belong to our space
         assert all(f.space is self for f in fields)
@@ -244,7 +240,7 @@ class VectorFemSpace( FemSpace ):
                              "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
-    def pushforward_field(self, field, *eta, mapping=None, parent_kind=None):
+    def pushforward_field(self, field, *eta, mapping, parent_kind=None):
         assert field.space is self
         assert len(eta) == self._ldim
 
@@ -256,7 +252,7 @@ class VectorFemSpace( FemSpace ):
         raise NotImplementedError("VectorFemSpace not yet operational")
 
     # ...
-    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping=None, parent_kind=None):
+    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping, parent_kind=None):
         """Push-forwards fields on a regular tensor grid using a given a mapping.
 
         Parameters
@@ -523,7 +519,7 @@ class ProductFemSpace( FemSpace ):
         raise NotImplementedError( "ProductFemSpace not yet operational" )
 
     # ...
-    def pushforward_fields(self, grid, *fields, mapping=None, npts_per_cell=None):
+    def pushforward_fields(self, grid, *fields, mapping, npts_per_cell=None):
         """ Push forward fields on a given grid and a given mapping
 
         Parameters
@@ -546,10 +542,6 @@ class ProductFemSpace( FemSpace ):
         List of ndarray
             push-forwarded fields
         """
-
-        # Check that a mapping is given
-        if mapping is None:
-            raise TypeError("pushforward_fields() missing 1 required keyword-only argument: 'mapping'")
 
         # Check that the fields belong to our space
         assert all(f.space is self for f in fields)
@@ -604,14 +596,14 @@ class ProductFemSpace( FemSpace ):
                              "Case 4. {0}D arrays of coordinates and no npts_per_cell".format(self.ldim))
 
     # ...
-    def pushforward_field(self, field, *eta, mapping=None, parent_kind=None):
+    def pushforward_field(self, field, *eta, mapping, parent_kind=None):
         assert field.space is self
         assert len(eta) == self._ldim
 
         raise NotImplementedError("ProductFemSpace not yet operational")
 
     # ...
-    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping=None, parent_kind=None):
+    def pushforward_fields_regular_tensor_grid(self, grid, *fields, mapping, parent_kind=None):
         """Push-forwards fields on a regular tensor grid using a given a mapping.
 
         Parameters
