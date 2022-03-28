@@ -1,9 +1,9 @@
 # File test_multi_carts_3d.py
 
 #===============================================================================
-# TEST MultiCartDecomposition in 2D
+# TEST MultiCartDecomposition in 3D
 #===============================================================================
-def run_carts_2d():
+def run_carts_3d():
 
     import time
     import numpy as np
@@ -18,15 +18,15 @@ def run_carts_2d():
     N = 4
 
     # Number of elements
-    n1,n2 = 1000,1000
-    n = [[n1,n2] for i in range(N)]
+    n1,n2,n3 = 10,10,10
+    n = [[n1,n2,n3] for i in range(N)]
 
     # Padding ('thickness' of ghost region)
-    p1,p2 = 3,3
-    p = [[p1,p2] for i in range(N)]
+    p1,p2,p3 = 3,3,3
+    p = [[p1,p2,p3] for i in range(N)]
 
     # Periodicity
-    P = [[False, False] for i in range(N)]
+    P = [[False, False, False] for i in range(N)]
 
 
     interfaces = {(i,i+1):( ((0,0),(1,-1)) if i%2 ==0 else ((0,0),(-1,1)))  for i in range(N-1)}
@@ -59,14 +59,14 @@ def run_carts_2d():
     syn_interface = {}
     dtype         = int
 
-    val = lambda k,i1,i2: k*n1*n2+i1*n1+i2 if (0<=i1<n1 and 0<=i2<n2) else 0
+    val = lambda k,i1,i2,i3: k*n1*n2*n3+i1*n1+i2*n2+i3 if (0<=i1<n1 and 0<=i2<n2 and 0<=i3<n3) else 0
     for i,ci in enumerate(carts):
         if ci is not None:
-            s1,s2 = ci.starts
-            e1,e2 = ci.ends
-            m1,m2 = ci.shifts
+            s1,s2,s3 = ci.starts
+            e1,e2,e3 = ci.ends
+            m1,m2,m3 = ci.shifts
             us[i] = np.zeros( ci.shape, dtype=dtype )
-            us[i][m1*p1:-m1*p1,m2*p2:-m2*p2] = [[val(i,i1,i2)for i2 in range(s2,e2+1)] for i1 in range(s1,e1+1)]
+            us[i][m1*p1:-m1*p1,m2*p2:-m2*p2, m3*p3:-m3*p3] = [[[val(i,i1,i2, i3) for i3 in range(s3, e3+1)] for i2 in range(s2,e2+1)] for i1 in range(s1,e1+1)]
             synchronizer = CartDataExchanger( ci, us[i].dtype)
             syn[i] = synchronizer
         comm.Barrier()
@@ -89,19 +89,20 @@ def run_carts_2d():
             T1 = time.time()
             req[minus, plus] = syn_interface[minus,plus].start_update_ghost_regions(us[minus], us[plus])
             T2 = time.time()
-            timmings_interfaces[minus,plus] = T2-T1       
+            timmings_interfaces[minus,plus] = T2-T1
 
     for i,ci in enumerate(carts):
         if ci is not None:
+            ci.comm.Barrier()
             T1 = time.time()
             syn[i].update_ghost_regions( us[i] )
             T2 = time.time()
             timmings_interiors_domains[i] = T2-T1
             ci._comm.Barrier()
-            s1,s2 = ci.starts
-            e1,e2 = ci.ends
-            m1,m2 = ci.shifts
-            uex = [[val(i,i1,i2) for i2 in range(s2-m2*p2,e2+m2*p2+1)] for i1 in range(s1-m1*p1,e1+m1*p1+1)]
+            s1,s2,s3 = ci.starts
+            e1,e2,e3 = ci.ends
+            m1,m2,m3 = ci.shifts
+            uex = [[[val(i,i1,i2,i3) for i3 in range(s3-m3*p3, e3+m3*p3+1)] for i2 in range(s2-m2*p2,e2+m2*p2+1)] for i1 in range(s1-m1*p1,e1+m1*p1+1)]
             success = (us[i] == uex).all()
             assert success
 
@@ -123,7 +124,7 @@ def run_carts_2d():
                 starts[axis] = starts[axis] if I.ext_plus == -1 else ends[axis]-pads[axis]
                 ends[axis]   = starts[axis]+pads[axis] if I.ext_plus == -1 else ends[axis]
                 ranges[axis] = (starts[axis], ends[axis]+1)
-                uex =  [[val(plus,i1,i2)for i2 in range(*ranges[1])] for i1 in range(*ranges[0])]
+                uex =  [[[val(plus,i1,i2,i3) for i3 in range(*ranges[2])] for i2 in range(*ranges[1])] for i1 in range(*ranges[0])]
                 uex = np.pad(uex, [(m*p,m*p) for m,p in zip(carts[minus].shifts, carts[minus].pads)])
                 u_ij = us[plus]
             elif carts[plus]:
@@ -135,11 +136,12 @@ def run_carts_2d():
                 starts[axis] = starts[axis] if I.ext_minus == -1 else ends[axis]-pads[axis]
                 ends[axis]   = starts[axis]+pads[axis] if I.ext_minus == -1 else ends[axis]
                 ranges[axis] = (starts[axis], ends[axis]+1)
-                uex =  [[val(minus,i1,i2)for i2 in range(*ranges[1])] for i1 in range(*ranges[0])]
+                uex =  [[[val(minus,i1,i2,i3) for i3 in range(*ranges[2])] for i2 in range(*ranges[1])] for i1 in range(*ranges[0])]
                 uex = np.pad(uex, [(m*p,m*p) for m,p in zip(carts[plus].shifts, carts[plus].pads)])
                 u_ij = us[minus]
             success = (u_ij == uex).all()
-            assert success   
+            assert success
+
     for i,ci in enumerate(carts):
         timmings_interiors_domains[i] = comm.allreduce(timmings_interiors_domains[i], op=MPI.MAX)
 
@@ -154,5 +156,5 @@ def run_carts_2d():
 #===============================================================================
 if __name__=='__main__':
 
-    run_carts_2d()
+    run_carts_3d()
 
