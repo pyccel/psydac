@@ -949,7 +949,7 @@ def quadrature_grid_p(breaks: 'float[:]', quad_rule_x: 'float[:]', quad_rule_w: 
 
 # =============================================================================
 def basis_ders_on_quad_grid_p(knots: 'float[:]', degree: int, quad_grid: 'float[:,:]', nders: int, normalization: bool,
-                            out: 'float[:,:,:,:]'):
+                            offset: int, out: 'float[:,:,:,:]'):
     """
     Evaluate B-Splines and their derivatives on the quadrature grid.
 
@@ -1002,7 +1002,7 @@ def basis_ders_on_quad_grid_p(knots: 'float[:]', degree: int, quad_grid: 'float[
 
     for ie in range(ne):
         xx = quad_grid[ie, :]
-        span = spans[ie]
+        span = spans[ie + offset]
         for iq, xq in enumerate(xx):
             basis_funs_all_ders_p(knots, degree, xq, span, nders, False, ders)
             if normalization:
@@ -1011,9 +1011,12 @@ def basis_ders_on_quad_grid_p(knots: 'float[:]', degree: int, quad_grid: 'float[
                 out[ie, k, :, iq] = ders[:, k]
 
 
-def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', contains_breakpoints: bool, tol: float, out: 'int[:]') -> int:
+def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', tol: float, out: 'int[:]') -> int:
     """
     Computes in which cells a given array of locations belong.
+
+    Locations close to a interior breakpoint will be assumed to be
+    present twice in the grid, once of for each cell. Boundary breakpoints are snapped to the interior of the domain.
 
     Parameters
     ----------
@@ -1023,18 +1026,11 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', contains_breakpoints: b
     
     i_grid : ndarray
         1D array of locations
-    
-    contains_breakpoints : bool
-        If True, locations close to a interior breakpoint will be assumed to be
-        present twice in ``i_grid`` and will be treated as if they were.
-        belong in the left and right cell. If false, the grid will be assumed
-        to not contain any breakpoint. Boundary breakpoints are snapped to the interior of the domain.
-        If False, breakpoints will be considered to be part of the left cell. 
-
+     
     tol : float
         If the distance between a given point in ``i_grid`` and 
-        a breakpoint is less than ``tol`` and ``allow_breakpoints`` is 
-        True then it is considered to be on the breakpoint.
+        a breakpoint is less than ``tol`` then it is considered 
+        to be the breakpoint.
     
     out : array
         The result will be inserted into this array.
@@ -1049,67 +1045,45 @@ def cell_index_p(breaks: 'float[:]', i_grid: 'float[:]', contains_breakpoints: b
     nx = len(i_grid)
 
     nbk = len(breaks)
-    # Repeat code to avoid multiplying checks
-    # First contains_breakpoints == False
-    if not contains_breakpoints:
-        # Check if there are points outside the domain
-        # Breakpoints aren't allowed to encountering a boundary
-        # rightfully raises an error
-        if np.min(i_grid) <= breaks[0]: return -1
-        if np.max(i_grid) >= breaks[nbk - 1]: return -1
-        
-        for i in range(nx):
-            x = i_grid[i]
-            low, high = 0, nbk - 1
-            i_cell = (low + high)//2
-            while  x < breaks[i_cell] or x >= breaks[i_cell + 1]:
-                if x < breaks[i_cell]:
-                    high = i_cell
-                else:
-                    low = i_cell
-                i_cell = (low + high)//2
-            out[i] = i_cell
-    
-    # contains_breakpoints == True
-    else:
-        # Check if there are points outside the domain
-        if np.min(i_grid) < breaks[0] - tol: return -1
-        if np.max(i_grid) > breaks[nbk - 1] + tol: return -1
 
-        current_index = 0
-        while current_index < nx:
-            x = i_grid[current_index]
-            low, high = 0, nbk - 1
+    # Check if there are points outside the domain
+    if np.min(i_grid) < breaks[0] - tol: return -1
+    if np.max(i_grid) > breaks[nbk - 1] + tol: return -1
+
+    current_index = 0
+    while current_index < nx:
+        x = i_grid[current_index]
+        low, high = 0, nbk - 1
+        i_cell = (low + high)//2
+        while  x < breaks[i_cell] - tol or x >= breaks[i_cell + 1] + tol:
+            if x < breaks[i_cell]:
+                high = i_cell
+            else:
+                low = i_cell
             i_cell = (low + high)//2
-            while  x < breaks[i_cell] - tol or x >= breaks[i_cell + 1] + tol:
-                if x < breaks[i_cell]:
-                    high = i_cell
-                else:
-                    low = i_cell
-                i_cell = (low + high)//2
-            # Case 1: x is the left breakpoint
-            if abs(x - breaks[i_cell]) < tol:
-                # Check if x is the left boundary
-                if i_cell == 0:
-                    out[current_index] = 0
-                    current_index += 1
-                else:
-                    out[current_index] = i_cell - 1
-                    out[current_index + 1] = i_cell
-                    current_index += 2
-            # Case 2: x is the right breakpoint
-            elif abs(x - breaks[i_cell + 1]) < tol:
-                # Check if x is the right boundary
-                if i_cell + 1 == nbk - 1:
-                    out[current_index] = nbk - 2
-                    current_index +=1
-                else:
-                    out[current_index] = i_cell
-                    out[current_index + 1] = i_cell + 1
-                    current_index +=2
+        # Case 1: x is the left breakpoint
+        if abs(x - breaks[i_cell]) < tol:
+            # Check if x is the left boundary
+            if i_cell == 0:
+                out[current_index] = 0
+                current_index += 1
+            else:
+                out[current_index] = i_cell - 1
+                out[current_index + 1] = i_cell
+                current_index += 2
+        # Case 2: x is the right breakpoint
+        elif abs(x - breaks[i_cell + 1]) < tol:
+            # Check if x is the right boundary
+            if i_cell + 1 == nbk - 1:
+                out[current_index] = nbk - 2
+                current_index +=1
             else:
                 out[current_index] = i_cell
-                current_index += 1
+                out[current_index + 1] = i_cell + 1
+                current_index +=2
+        else:
+            out[current_index] = i_cell
+            current_index += 1
     return 0
 
         

@@ -572,11 +572,10 @@ def make_knots(breaks, degree, periodic, multiplicity=1, out=None):
     assert all( np.diff(breaks) > 0 )
     assert degree > 0
     assert 1 <= multiplicity and multiplicity <= degree + 1
-
+    multiplicity = int(multiplicity)
     if periodic:
         assert len(breaks) > degree
     breaks = np.asarray(breaks, dtype=float)
-    p = degree
     if out is None:
         out = np.zeros(multiplicity * len(breaks[1:-1]) + 2 + 2 * degree)
     make_knots_p(breaks, degree, periodic, out, multiplicity)
@@ -621,6 +620,7 @@ def elevate_knots(knots, degree, periodic, multiplicity=1, tol=1e-15, out=None):
     new_knots : ndarray
         Knots sequence of spline space of degree p+1.
     """
+    multiplicity = int(multiplicity)
     knots = np.asarray(knots, dtype=float)
     if out is None:
         if periodic:
@@ -696,7 +696,7 @@ def quadrature_grid(breaks, quad_rule_x, quad_rule_w):
     return out1, out2
 
 #==============================================================================
-def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization, out=None):
+def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization, offset=0, out=None):
     """
     Evaluate B-Splines and their derivatives on the quadrature grid.
 
@@ -718,6 +718,9 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization, out=
 
     normalization : str
         Set to 'B' for B-splines, and 'M' for M-splines.
+    
+    offset : int, default=0
+        Assumes that the quadrature grid starts from cell number offset.
 
     out : array, optional
         If provided, the result will be inserted into this array.
@@ -747,12 +750,13 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalization, out=
             [[0.5, 0.6875 , 0.75 , 0.6875 ]],
             [[0. , 0.03125, 0.125, 0.28125]]]])
     """
+    offset = int(offset)
     ne, nq = quad_grid.shape
     knots = np.asarray(knots, dtype=float)
     quad_grid = np.ascontiguousarray(quad_grid, dtype=float)
     if out is None:
         out = np.zeros((ne, degree + 1, nders + 1, nq))
-    basis_ders_on_quad_grid_p(knots, degree, quad_grid, nders, normalization == 'M', out)
+    basis_ders_on_quad_grid_p(knots, degree, quad_grid, nders, normalization == 'M', offset, out)
     return out
 
 
@@ -797,8 +801,13 @@ def basis_integrals(knots, degree, out=None):
     return out
 
 #==============================================================================
-def cell_index(breaks, i_grid, contains_breakpoints=False, tol=1e-15, out=None):
+def cell_index(breaks, i_grid, tol=1e-15, out=None):
     """
+    Computes in which cells a given array of locations belong.
+
+    Locations close to a interior breakpoint will be assumed to be
+    present twice in the grid, once of for each cell. Boundary breakpoints are snapped to the interior of the domain.
+
     Parameters
     ----------
     breaks : array_like
@@ -808,18 +817,11 @@ def cell_index(breaks, i_grid, contains_breakpoints=False, tol=1e-15, out=None):
     i_grid : ndarray
         1D array of all of the points on which to evaluate the 
         basis functions. The points do not need to be sorted.
-    
-    contains_breakpoints : bool, default=False
-        If True, locations close to a interior breakpoint will be assumed to be
-        present twice in ``i_grid`` and will be treated as if they were.
-        belong in the left and right cell. If false, the grid will be assumed
-        to not contain any breakpoint. Boundary breakpoints are snapped to the interior of the domain.
-        If False, breakpoints will be considered to be part of the left cell. 
 
     tol : float, default=1e-15
         If the distance between a given point in ``i_grid`` and 
-        a breakpoint is less than ``tol`` and ``allow_breakpoints`` is 
-        True then it is considered to be on the breakpoint.
+        a breakpoint is less than ``tol`` then it is considered 
+        to be the breakpoint.
     
     out : array, optional
         If given, the result will be inserted into this array.
@@ -836,7 +838,7 @@ def cell_index(breaks, i_grid, contains_breakpoints=False, tol=1e-15, out=None):
     i_grid = np.asarray(i_grid, dtype=float)
     if out is None:
         out = np.zeros(len(i_grid), dtype=int)
-    status = cell_index_p(breaks, i_grid, contains_breakpoints, tol, out)
+    status = cell_index_p(breaks, i_grid, tol, out)
     if status == -1:
         raise ValueError("Encountered a point that was outside of the domain")
     return out

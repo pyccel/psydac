@@ -69,9 +69,9 @@ def eval_fields_3d_no_weights(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int
             for i_cell_3 in range(nc3):
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_coeff_fields[:, :, :, :] = glob_arr_coeff[pad1 + span_1 - f_p1:1 + pad1 + span_1,
-                                                              pad2 + span_2 - f_p2:1 + pad2 + span_2,
-                                                              pad3 + span_3 - f_p3:1 + pad3 + span_3,
+                arr_coeff_fields[:, :, :, :] = glob_arr_coeff[span_1 - f_p1:1 + span_1,
+                                                              span_2 - f_p2:1 + span_2,
+                                                              span_3 - f_p3:1 + span_3,
                                                               :]
 
                 for i_basis_1 in range(1 + f_p1):
@@ -166,9 +166,9 @@ def eval_fields_3d_irregular_no_weights(np1: int, np2: int, np3: int, pad1: int,
                 i_cell_3 = cell_index_3[i_p_3]
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_coeff_fields[:, :, :, :] = glob_arr_coeff[pad1 + span_1 - f_p1:1 + pad1 + span_1,
-                                                              pad2 + span_2 - f_p2:1 + pad2 + span_2,
-                                                              pad3 + span_3 - f_p3:1 + pad3 + span_3,
+                arr_coeff_fields[:, :, :, :] = glob_arr_coeff[span_1 - f_p1:1 + span_1,
+                                                              span_2 - f_p2:1 + span_2,
+                                                              span_3 - f_p3:1 + span_3,
                                                               :]
 
                 for i_basis_1 in range(1 + f_p1):
@@ -238,8 +238,8 @@ def eval_fields_2d_no_weights(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: in
 
         for i_cell_2 in range(nc2):
             span_2 = global_spans_2[i_cell_2]
-            arr_coeff_fields[:, :, :] = glob_arr_coeff[pad1 + span_1 - f_p1:1 + pad1 + span_1,
-                                                       pad2 + span_2 - f_p2:1 + pad2 + span_2,
+            arr_coeff_fields[:, :, :] = glob_arr_coeff[span_1 - f_p1:1 + span_1,
+                                                       span_2 - f_p2:1 + span_2,
                                                        :]
             for i_basis_1 in range(1 + f_p1):
                 for i_basis_2 in range(1 + f_p2):
@@ -312,8 +312,8 @@ def eval_fields_2d_irregular_no_weights(np1: int, np2: int, pad1: int, pad2: int
             i_cell_2 = cell_index_2[i_p_2]
             span_2 = global_spans_2[i_cell_2]
 
-            arr_coeff_fields[:, :, :] = glob_arr_coeff[pad1 + span_1 - f_p1:1 + pad1 + span_1,
-                                                       pad2 + span_2 - f_p2:1 + pad2 + span_2,
+            arr_coeff_fields[:, :, :] = glob_arr_coeff[span_1 - f_p1:1 + span_1,
+                                                       span_2 - f_p2:1 + span_2,
                                                        :]
             
             for i_basis_1 in range(1 + f_p1):
@@ -384,11 +384,7 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, 
         Coefficients of the fields in the X,Y and Z directions
 
     global_arr_weights: ndarray of float
-<<<<<<< HEAD
         Coefficients of the weight field in the X, Y and Z directions
-=======
-        Coefficients of the weight field in the X,Y and Z directions
->>>>>>> devel
 
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
@@ -409,14 +405,14 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, 
             for i_cell_3 in range(nc3):
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_coeff_fields[:, :, :, :] = glob_arr_coeff[pad1 + span_1 - f_p1:1 + pad1 + span_1,
-                                                              pad2 + span_2 - f_p2:1 + pad2 + span_2,
-                                                              pad3 + span_3 - f_p3:1 + pad3 + span_3,
+                arr_coeff_fields[:, :, :, :] = glob_arr_coeff[span_1 - f_p1:1 + span_1,
+                                                              span_2 - f_p2:1 + span_2,
+                                                              span_3 - f_p3:1 + span_3,
                                                               :]
 
-                arr_coeff_weights[:, :, :] = global_arr_weights[pad1 + span_1 - f_p1:1 + pad1 + span_1,
-                                                                pad2 + span_2 - f_p2:1 + pad2 + span_2,
-                                                                pad3 + span_3 - f_p3:1 + pad3 + span_3]
+                arr_coeff_weights[:, :, :] = global_arr_weights[span_1 - f_p1:1 + span_1,
+                                                                span_2 - f_p2:1 + span_2,
+                                                                span_3 - f_p3:1 + span_3]
 
                 arr_fields[:, :, :, :] = 0.0
                 arr_weights[:, :, :] = 0.0
@@ -433,21 +429,15 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, 
                                     for i_basis_3 in range(1 + f_p3):
                                         spline_3 = global_basis_3[i_cell_3, i_basis_3, 0, i_quad_3]
 
-                                        splines = spline_1 * spline_2 * spline_3
+                                        spline = spline_1 * spline_2 * spline_3
 
                                         coeff_fields = arr_coeff_fields[i_basis_1, i_basis_2, i_basis_3, :]
                                         coeff_weight = arr_coeff_weights[i_basis_1, i_basis_2, i_basis_3]
 
                                         arr_fields[i_quad_1, i_quad_2, i_quad_3, :] += \
-<<<<<<< HEAD
                                             spline * coeff_fields * coeff_weight
 
                                         arr_weights[i_quad_1, i_quad_2, i_quad_3] += spline * coeff_weight
-=======
-                                            splines * coeff_fields * coeff_weight
-
-                                        arr_weights[i_quad_1, i_quad_2, i_quad_3] += splines * coeff_weight
->>>>>>> devel
                                         
                             fields = arr_fields[i_quad_1, i_quad_2, i_quad_3, :]
                             weight = arr_weights[i_quad_1, i_quad_2, i_quad_3]
@@ -535,14 +525,14 @@ def eval_fields_3d_irregular_weighted(np1: int, np2: int, np3: int, pad1: int, p
                 i_cell_3 = cell_index_3[i_p_3]
                 span_3 = global_spans_3[i_cell_3]
 
-                arr_coeff_fields[:, :, :, :] = glob_arr_coeff[pad1 + span_1 - f_p1:1 + pad1 + span_1,
-                                                              pad2 + span_2 - f_p2:1 + pad2 + span_2,
-                                                              pad3 + span_3 - f_p3:1 + pad3 + span_3,
+                arr_coeff_fields[:, :, :, :] = glob_arr_coeff[span_1 - f_p1:1 + span_1,
+                                                              span_2 - f_p2:1 + span_2,
+                                                              span_3 - f_p3:1 + span_3,
                                                               :]
 
-                arr_coeff_weights[:, :, :] = global_arr_weights[pad1 + span_1 - f_p1:1 + pad1 + span_1,
-                                                                pad2 + span_2 - f_p2:1 + pad2 + span_2,
-                                                                pad3 + span_3 - f_p3:1 + pad3 + span_3]
+                arr_coeff_weights[:, :, :] = global_arr_weights[span_1 - f_p1:1 + span_1,
+                                                                span_2 - f_p2:1 + span_2,
+                                                                span_3 - f_p3:1 + span_3]
 
                 temp_fields[:] = 0.0
                 temp_weight = 0.0
@@ -628,12 +618,12 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int,
         for i_cell_2 in range(nc2):
             span_2 = global_spans_2[i_cell_2]
 
-            arr_coeff_fields[:, :, :] = global_arr_coeff[pad1 + span_1 - f_p1:1 + pad1 + span_1,
-                                                         pad2 + span_2 - f_p2:1 + pad2 + span_2,
+            arr_coeff_fields[:, :, :] = global_arr_coeff[span_1 - f_p1:1 + span_1,
+                                                         span_2 - f_p2:1 + span_2,
                                                          :]
 
-            arr_coeff_weights[:, :] = global_arr_weights[pad1 + span_1 - f_p1:1 + pad1 + span_1,
-                                                         pad2 + span_2 - f_p2:1 + pad2 + span_2]
+            arr_coeff_weights[:, :] = global_arr_weights[span_1 - f_p1:1 + span_1,
+                                                         span_2 - f_p2:1 + span_2]
 
             arr_fields[:, :, :] = 0.0
             arr_weights[:, :] = 0.0
@@ -663,11 +653,10 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, pad1: int, pad2: int, f_p1: int,
                                :] += fields / weight
 
 
-<<<<<<< HEAD
 def eval_fields_2d_irregular_weighted(np1: int, np2: int, pad1: int, pad2: int, f_p1: int, f_p2: int,
                                       cell_index_1: 'int[:]', cell_index_2: 'int[:]', global_basis_1: 'float[:,:,:]', 
                                       global_basis_2: 'float[:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]', 
-                                      glob_arr_coeff: 'float[:,:,:]', global_arr_weights: 'float[:,:]',
+                                      global_arr_coeff: 'float[:,:,:]', global_arr_weights: 'float[:,:]',
                                       out_fields: 'float[:,:,:]'):
     """
     Parameters
@@ -702,7 +691,7 @@ def eval_fields_2d_irregular_weighted(np1: int, np2: int, pad1: int, pad2: int, 
     global_spans_2 : ndarray of ints
         Spans in the Y direction
 
-    glob_arr_coeff : ndarray of floats
+    global_arr_coeff : ndarray of floats
         Coefficients of the fields in the X and Y directions
 
     global_arr_weights: ndarray of float
@@ -725,12 +714,12 @@ def eval_fields_2d_irregular_weighted(np1: int, np2: int, pad1: int, pad2: int, 
             span_2 = global_spans_2[i_cell_2]
 
 
-            arr_coeff_fields[:, :, :] = glob_arr_coeff[pad1 + span_1 - f_p1:1 + pad1 + span_1,
-                                                       pad2 + span_2 - f_p2:1 + pad2 + span_2,
-                                                       :]
+            arr_coeff_fields[:, :, :] = global_arr_coeff[span_1 - f_p1:1 + span_1,
+                                                         span_2 - f_p2:1 + span_2,
+                                                         :]
 
-            arr_coeff_weights[:, :] = global_arr_weights[pad1 + span_1 - f_p1:1 + pad1 + span_1,
-                                                         pad2 + span_2 - f_p2:1 + pad2 + span_2]
+            arr_coeff_weights[:, :] = global_arr_weights[span_1 - f_p1:1 + span_1,
+                                                         span_2 - f_p2:1 + span_2]
 
             temp_fields[:] = 0.0
             temp_weight = 0.0
@@ -754,8 +743,6 @@ def eval_fields_2d_irregular_weighted(np1: int, np2: int, pad1: int, pad2: int, 
             out_fields[i_p_1, i_p_2, :] += temp_fields / temp_weight
 
 
-=======
->>>>>>> devel
 def eval_jac_det_3d(nc1: int, nc2: int, nc3: int, pad1: int, pad2: int, pad3: int, f_p1: int, f_p2: int, f_p3: int,
                     k1: int, k2: int, k3: int, global_basis_1: 'float[:,:,:,:]', global_basis_2: 'float[:,:,:,:]',
                     global_basis_3: 'float[:,:,:,:]', global_spans_1: 'int[:]', global_spans_2: 'int[:]',

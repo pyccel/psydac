@@ -3,25 +3,16 @@ import pytest
 import os
 import itertools as it
 
-<<<<<<< HEAD
 from sympde.topology import Domain, ScalarFunctionSpace, Square, Cube
-=======
-from sympde.topology import Domain, ScalarFunctionSpace
->>>>>>> devel
 from psydac.api.discretization import discretize
 from psydac.utilities.utils import refine_array_1d
 from psydac.fem.basic import FemField
 from psydac.mapping.discrete import NurbsMapping
-<<<<<<< HEAD
 from psydac.core.bsplines import cell_index, basis_ders_on_irregular_grid, breakpoints, elements_spans
 from psydac.core.kernels import (eval_fields_2d_no_weights, eval_fields_3d_no_weights,
                                  eval_fields_2d_irregular_no_weights, eval_fields_3d_irregular_no_weights,
                                  eval_fields_2d_weighted, eval_fields_3d_weighted,
                                  eval_fields_2d_irregular_weighted, eval_fields_3d_irregular_weighted,
-=======
-from psydac.core.kernels import (eval_fields_2d_no_weights, eval_fields_3d_no_weights,
-                                 eval_fields_2d_weighted, eval_fields_3d_weighted,
->>>>>>> devel
                                  eval_jacobians_2d, eval_jacobians_3d, eval_jacobians_2d_weights,
                                  eval_jacobians_3d_weights, eval_jacobians_inv_2d_weights,
                                  eval_jacobians_inv_3d_weights, eval_jacobians_inv_2d, eval_jacobians_inv_3d,
@@ -30,10 +21,7 @@ from psydac.core.kernels import (eval_fields_2d_no_weights, eval_fields_3d_no_we
                                  pushforward_2d_l2, pushforward_3d_l2,
                                  pushforward_2d_hdiv, pushforward_3d_hdiv,
                                  pushforward_2d_hcurl, pushforward_3d_hcurl)
-<<<<<<< HEAD
         
-=======
->>>>>>> devel
 
 
 # Get mesh directory
@@ -49,11 +37,7 @@ except KeyError:
                                       'collela_2d.h5', 'collela_3d.h5'))
 @pytest.mark.parametrize('refine', (1, 2))
 @pytest.mark.parametrize('kind', ('hcurl', 'hdiv', 'l2', 'h1'))
-<<<<<<< HEAD
 def test_regular_kernels(geometry, refine, kind):
-=======
-def test_kernels(geometry, refine, kind):
->>>>>>> devel
 
     filename = os.path.join(mesh_dir, geometry)
 
@@ -109,10 +93,6 @@ def test_kernels(geometry, refine, kind):
         global_basis_s, \
         global_spans_s = spaceh.preprocess_regular_tensor_grid(tensor_grid, der=0)
 
-<<<<<<< HEAD
-=======
-
->>>>>>> devel
     # Direct API
     try:
         if ldim == 2:
@@ -347,7 +327,6 @@ def test_kernels(geometry, refine, kind):
         assert np.allclose(f_direct_w, out_field_w)
 
 
-<<<<<<< HEAD
 @pytest.mark.parametrize("knots, ldim, degree", 
     [([np.sort(np.concatenate((np.zeros(3), np.random.random(9), np.ones(3)))) for i in range(2)], 2, [2] * 2),
      ([np.sort(np.concatenate((np.zeros(4), np.random.random(9), np.ones(4)))) for i in range(2)], 2, [3] * 2),
@@ -382,8 +361,7 @@ def test_kernels(geometry, refine, kind):
       [3, 3, 2]),
     ]
 )
-@pytest.mark.parametrize("contains_breakpoints", (True, False))
-def test_irregular_kernels(knots, ldim, degree, contains_breakpoints):
+def test_irregular_kernels(knots, ldim, degree):
     if ldim == 2:
         domain = Square()
     else:
@@ -404,23 +382,22 @@ def test_irregular_kernels(knots, ldim, degree, contains_breakpoints):
 
     irregular_grid = [np.random.random(np.random.randint(low=5, high = 15)) for i in range(ldim)]
     
-    if contains_breakpoints:
-        for i in range(ldim):
-            j_left = np.random.randint(low=0, high=len(irregular_grid[i]))
-            j_right = np.random.randint(low=0, high=len(irregular_grid[i]))
-            j_interior = np.random.randint(low=0, high=len(irregular_grid[i]) - 1)
+    for i in range(ldim):
+        j_left = np.random.randint(low=0, high=len(irregular_grid[i]))
+        j_right = np.random.randint(low=0, high=len(irregular_grid[i]))
+        j_interior = np.random.randint(low=0, high=len(irregular_grid[i]) - 1)
 
-            # left boundary inserted at j_left
-            irregular_grid[i][j_left] = space_h.breaks[i][0]
-            # right boundary inserted at j_right
-            irregular_grid[i][j_right] = space_h.breaks[i][-1]
+        # left boundary inserted at j_left
+        irregular_grid[i][j_left] = space_h.breaks[i][0]
+        # right boundary inserted at j_right
+        irregular_grid[i][j_right] = space_h.breaks[i][-1]
 
-            try:
-                j_bk = np.random.randint(low=1, high=len(space_h.breaks[i]) - 1)
-                # random interior breakpoint inserted at j_interior and j_interior + 1
-                irregular_grid[i][j_interior:j_interior+2] = space_h.breaks[i][j_bk]
-            except ValueError:
-                pass
+        try:
+            j_bk = np.random.randint(low=1, high=len(space_h.breaks[i]) - 1)
+            # random interior breakpoint inserted at j_interior and j_interior + 1
+            irregular_grid[i][j_interior:j_interior+2] = space_h.breaks[i][j_bk]
+        except ValueError:
+            pass
     
     # Direct eval
     if ldim == 2:
@@ -447,7 +424,7 @@ def test_irregular_kernels(knots, ldim, degree, contains_breakpoints):
                                 for e2 in irregular_grid[1]]
                                 for e1 in irregular_grid[0]])
     
-    cell_indexes = [cell_index(space_h.breaks[i], irregular_grid[i], contains_breakpoints) for i in range(ldim)]
+    cell_indexes = [cell_index(space_h.breaks[i], irregular_grid[i]) for i in range(ldim)]
     global_basis = [basis_ders_on_irregular_grid(knots[i], degree[i], irregular_grid[i], cell_indexes[i], 0, space_h.spaces[i].basis) for i in range(ldim)]
     global_spans = [elements_spans(knots[i], degree[i]) for i in range(ldim)]
     pads = space_h.pads
@@ -483,8 +460,6 @@ def test_irregular_kernels(knots, ldim, degree, contains_breakpoints):
     assert np.allclose(out_field_w, f_direct_w)
             
 
-=======
->>>>>>> devel
 @pytest.mark.parametrize('jac_det, ldim, field_to_push', [(np.ones((5, 5)), 2, np.ones((5, 5, 1))),
                                                           (np.ones((5, 5, 5)), 3, np.ones((5, 5, 5, 1))),
                                                           (np.random.rand(5, 5), 2, np.random.rand(5, 5, 1)),
