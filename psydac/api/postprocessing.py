@@ -918,12 +918,21 @@ class PostProcessManager:
         if isinstance(npts_per_cell, int):
             npts_per_cell = (npts_per_cell,) * ldim
 
+        filename_static = filename_pattern + "_static"
+        filename_time_dependent = filename_static
+
+        # Check if launched in parallel
+        if self.comm is not None and self.comm.size >1:
+            rank = self.comm.Get_rank()
+            filename_static = filename_static + f"_{rank}"
+            filename_time_dependent = filename_time_dependent + f"_{rank}"
+
         # Only regular tensor product grid is supported for now
         grid_test = [np.asarray(grid[i]) for i in range(ldim)]
         assert grid_test[0].ndim == 1 and npts_per_cell is not None
         assert all(grid_test[i].ndim == grid_test[i+1].ndim for i in range(len(grid) - 1))
         assert all(grid_test[i].size % npts_per_cell[i] == 0 for i in range(ldim))
-
+        
         # Coordinates of the mesh, C Contiguous arrays
         x_mesh, y_mesh, z_mesh = mapping.build_mesh(grid, npts_per_cell=npts_per_cell)
 
@@ -1002,7 +1011,7 @@ class PostProcessManager:
             if debug:
                 debug_result[1].append(pointData_static)
             # Export static fields to VTK
-            pyevtk.hl.gridToVTK(f'{filename_pattern}_static', x_mesh, y_mesh, z_mesh,
+            pyevtk.hl.gridToVTK(filename_static, x_mesh, y_mesh, z_mesh,
                                 pointData=pointData_static)
 
         # =================================================
@@ -1096,7 +1105,7 @@ class PostProcessManager:
             if debug:
                 debug_result[1].append(pointData_full_i)
 
-            pyevtk.hl.gridToVTK(filename_pattern + '_{0:0{1}d}'.format(i, lz),
+            pyevtk.hl.gridToVTK(filename_time_dependent + '_{0:0{1}d}'.format(i, lz),
                                 x_mesh, y_mesh, z_mesh, pointData=pointData_full_i)
         
         if debug:
