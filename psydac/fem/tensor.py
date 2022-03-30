@@ -26,7 +26,7 @@ from psydac.core.bsplines  import (find_span,
                                    basis_ders_on_quad_grid,
                                    elements_spans,
                                    cell_index,
-                                   basis_ders_on_irregular_grid)
+                                   basis_ders_on_irregular_grid, make_knots)
 
 from psydac.core.kernels import (eval_fields_2d_irregular_weighted, eval_fields_2d_no_weights,
                                  eval_fields_2d_irregular_no_weights,
@@ -221,7 +221,6 @@ class TensorFemSpace( FemSpace ):
 
             bases.append( basis )
             index.append( slice( loc_span-degree, loc_span+1 ) )
-
         # Get contiguous copy of the spline coefficients required for evaluation
         index  = tuple( index )
         coeffs = field.coeffs[index].copy()
@@ -280,22 +279,23 @@ class TensorFemSpace( FemSpace ):
             List of 1D arrays, one per direction, containing the index of the last non-vanishing
             basis function in each cell. The array for direction xi has shape (ne_xi,).
         """
-
         assert len(grid) == self.ldim
-
+        v = self.vector_space
+        starts, ends = self.local_domain
+        local_shape = [] 
         global_basis = []
         global_spans = []
         for i in range(self.ldim):
-            global_basis_i = basis_ders_on_quad_grid(self.knots[i], self.degree[i], grid[i], der, self.spaces[i].basis)
-            global_spans_i = elements_spans(self.knots[i], self.degree[i])
-
+            grid_local = grid[i][slice(starts[i], ends[i] + 1)]
+            local_shape.append(grid_local.shape)
+            global_basis_i = basis_ders_on_quad_grid(self.knots[i], self.degree[i], grid_local, der, self.spaces[i].basis, offset=starts[i])
+            global_spans_i = elements_spans(self.knots[i], self.degree[i])[slice(starts[i], ends[i] + 1)] - v.starts[i] + v.shifts[i] * v.pads[i]
             global_basis.append(global_basis_i)
             global_spans.append(global_spans_i)
-
-        return self.pads, self.degree, global_basis, global_spans
+        return self.pads, self.degree, global_basis, global_spans, local_shape
 
     #...
-    def preprocess_irregular_tensor_grid(self, grid, der=0, contains_breakpoints=True):
+    def preprocess_irregular_tensor_grid(self, grid, der=0):
         """Returns all the quantities needed to evaluate fields on a regular tensor-grid.
 
         Parameters
@@ -323,6 +323,9 @@ class TensorFemSpace( FemSpace ):
         global_spans : List of ndarray
             List of 1D arrays, one per direction, containing the index of the last non-vanishing
             basis function in each cell. The array for direction xi has shape (ne_xi,).
+        
+        cell_indexes : list of ndarray
+            List of 1D arrays, one per direction, containing the index of the cell in which 
         """
 
         assert len(grid) == self.ldim
@@ -331,8 +334,8 @@ class TensorFemSpace( FemSpace ):
         global_spans = []
         cell_indexes = []
         for i in range(self.ldim):
-            cell_index_i = cell_index(self.breaks[i], grid[i], contains_breakpoints=contains_breakpoints)
-            global_basis_i = basis_ders_on_irregular_grid(self.knots[i], self.degree[i], grid[i], der, self.spaces[i].basis)
+            cell_index_i = cell_index(self.breaks[i], grid[i])
+            global_basis_i = basis_ders_on_irregular_grid(self.knots[i], self.degree[i], grid[i], cell_index_i, der, self.spaces[i].basis)
             global_spans_i = elements_spans(self.knots[i], self.degree[i])
 
             global_basis.append(global_basis_i)
@@ -366,12 +369,19 @@ class TensorFemSpace( FemSpace ):
         List of ndarray of floats
             List of the evaluated fields.
         """
-
+        
         assert all(f.space is self for f in fields)
+        for f in fields:
+            # Necessary if vector coeffs is distributed across processes
+            if not f.coeffs.ghost_regions_in_sync:
+                f.coeffs.update_ghost_regions()
+        
         if weights is not None:
             assert weights.space is self
             assert all(f.coeffs.space is weights.coeffs.space for f in fields)
-
+            if not weights.coeffs.ghost_regions_in_sync:
+                weights.coeffs.update_ghost_regions()
+        
         assert len(grid) == self.ldim
         grid = [np.asarray(grid[i]) for i in range(self.ldim)]
         assert all(grid[i].ndim == grid[i + 1].ndim for i in range(self.ldim - 1))
@@ -438,11 +448,11 @@ class TensorFemSpace( FemSpace ):
         List of ndarray of float
             Values of the fields on the regular tensor grid
         """
-        ncells = [grid[i].shape[0] for i in range(self.ldim)]
-        n_eval_points = [grid[i].shape[-1] for i in range(self.ldim)]
+        pads, degree, global_basis, global_spans, local_shape = self.preprocess_regular_tensor_grid(grid)
 
-        pads, degree, global_basis, global_spans = self.preprocess_regular_tensor_grid(grid)
-        out_fields = np.zeros((*(tuple(grid[i].size for i in range(self.ldim))), len(fields)))
+        ncells = [local_shape[i][0] for i in range(self.ldim)]
+        n_eval_points = [local_shape[i][1] for i in range(self.ldim)]
+        out_fields = np.zeros((*(tuple(ncells[i] * n_eval_points[i] for i in range(self.ldim))), len(fields)))
 
         glob_arr_coeffs = np.zeros(shape=(*fields[0].coeffs._data.shape, len(fields)))
 
@@ -486,7 +496,7 @@ class TensorFemSpace( FemSpace ):
         return out_fields
 
 # ...
-    def eval_fields_irregular_tensor_grid(self, grid, *fields, weights=None, contains_breakpoints=True):
+    def eval_fields_irregular_tensor_grid(self, grid, *fields, weights=None):
         """Evaluate fields on a regular tensor grid
 
         Parameters
@@ -511,7 +521,7 @@ class TensorFemSpace( FemSpace ):
         npoints = [grid[i].shape[0] for i in range(self.ldim)]
 
         pads, degree, global_basis, global_spans, cell_indexes = \
-            self.preprocess_irregular_tensor_grid(grid, contains_breakpoints=contains_breakpoints)
+            self.preprocess_irregular_tensor_grid(grid)
 
         out_fields = np.zeros((*(tuple(grid[i].size for i in range(self.ldim))), len(fields)))
 
@@ -522,25 +532,25 @@ class TensorFemSpace( FemSpace ):
 
         if self.ldim == 2:
             if weights is None:
-                eval_fields_2d_irregular_no_weights(*npoints, *pads, *degree, *cell_indexes, *global_basis
+                eval_fields_2d_irregular_no_weights(*npoints, *pads, *degree, *cell_indexes, *global_basis,
                                                     *global_spans, glob_arr_coeffs, out_fields)
             else:
 
                 global_weight_coeff = weights.coeffs._data
 
-                eval_fields_2d_irregular_weighted(*npoints, *pads, *degree, *cell_indexes, *global_basis
+                eval_fields_2d_irregular_weighted(*npoints, *pads, *degree, *cell_indexes, *global_basis,
                                                  *global_spans, glob_arr_coeffs, global_weight_coeff, out_fields)
 
         elif self.ldim == 3:
             if weights is None:
 
-                eval_fields_3d_irregular_no_weights(*npoints, *pads, *degree, *cell_indexes, *global_basis
+                eval_fields_3d_irregular_no_weights(*npoints, *pads, *degree, *cell_indexes, *global_basis,
                                                     *global_spans, glob_arr_coeffs, out_fields)
 
             else:
                 global_weight_coeff = weights.coeffs._data
 
-                eval_fields_3d_irregular_weighted(*npoints, *pads, *degree, *cell_indexes, *global_basis
+                eval_fields_3d_irregular_weighted(*npoints, *pads, *degree, *cell_indexes, *global_basis,
                                                  *global_spans, glob_arr_coeffs, global_weight_coeff, out_fields)
         else:
             raise NotImplementedError("1D not Implemented")
