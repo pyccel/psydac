@@ -82,6 +82,9 @@ def apply_essential_bc_stencil(a, *, axis, ext, order, identity=False):
         raise TypeError('Cannot apply essential BC to object {} of type {}'\
                 .format(a, type(a)))
 
+    if V.parallel and V.cart.is_comm_null:
+        return
+
     if axis not in range(V.ndim):
         raise ValueError('Cannot apply essential BC along axis x{} in {}D'\
                 .format(axis + 1, V.ndim))

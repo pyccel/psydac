@@ -138,7 +138,7 @@ def reset_arrays(*args):
     for a in args: a[:] = 0.
 
 def do_nothing(*args):
-    pass
+    return 0
 
 #==============================================================================
 class DiscreteBilinearForm(BasicDiscrete):
@@ -193,6 +193,28 @@ class DiscreteBilinearForm(BasicDiscrete):
             trial_space  = self.spaces[0]
             test_space   = self.spaces[1]
 
+        if isinstance(test_space.vector_space, BlockVectorSpace):
+            vector_space = test_space.vector_space.spaces[0]
+            if isinstance(test_space.vector_space, BlockVectorSpace):
+                vector_space = test_space.vector_space.spaces[0]
+        else:
+            vector_space = test_space.vector_space
+
+        self._vector_space = vector_space
+        self._num_threads  = 1
+        if vector_space.parallel and vector_space.cart.num_threads>1:
+            self._num_threads = vector_space.cart.num_threads
+
+        if vector_space.parallel and vector_space.cart.is_comm_null:
+            self._free_args = ()
+            self._func      = do_nothing
+            self._args      = ()
+            self._element_loop_starts = ()
+            self._element_loop_ends   = ()
+            self._global_matrices     = ()
+            self._threads_args        = ()
+            return
+
         # ...
         test_ext  = None
         trial_ext = None
@@ -229,24 +251,15 @@ class DiscreteBilinearForm(BasicDiscrete):
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
         kwargs['discrete_space']      = (trial_space, test_space)
-        space_quad_order = [qo - 1 for qo in get_quad_order(self.spaces[1])]
+        space_quad_order = [qo - 1 for qo in get_quad_order(test_space)]
         quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(self.spaces[1]))
+        assert np.array_equal(quad_order, get_quad_order(test_space))
 
-        if isinstance(test_space.vector_space, BlockVectorSpace):
-            vector_space = test_space.vector_space.spaces[0]
-            if isinstance(test_space.vector_space, BlockVectorSpace):
-                vector_space = test_space.vector_space.spaces[0]
-        else:
-            vector_space = test_space.vector_space
-
-        self._vector_space = vector_space
-        self._num_threads  = 1
-        if vector_space.parallel and vector_space.cart.num_threads>1:
-            self._num_threads = vector_space.cart.num_threads
-
+        # Assuming that all vector spaces (and their Cartesian decomposition,
+        # if any) are compatible with each other, extract the first available
+        # vector space from which (starts, ends, npts) will be read:
         starts = vector_space.starts
         ends   = vector_space.ends
         npts   = vector_space.npts
@@ -597,19 +610,6 @@ class DiscreteLinearForm(BasicDiscrete):
         else:
             test_space  = self._space
 
-        kwargs['discrete_space']      = test_space
-        kwargs['is_rational_mapping'] = is_rational_mapping
-        kwargs['comm']                = domain_h.comm
-
-        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
-        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
-
-        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
-        assert np.array_equal(quad_order, get_quad_order(self.space))
-
-        # Assuming that all vector spaces (and their Cartesian decomposition,
-        # if any) are compatible with each other, extract the first available
-        # vector space from which (starts, ends, pads) will be read:
         if isinstance(test_space.vector_space, BlockVectorSpace):
             vector_space = test_space.vector_space.spaces[0]
             if isinstance(vector_space, BlockVectorSpace):
@@ -622,6 +622,24 @@ class DiscreteLinearForm(BasicDiscrete):
         if vector_space.parallel and vector_space.cart.num_threads>1:
             self._num_threads = vector_space.cart._num_threads
 
+        if vector_space.parallel and vector_space.cart.is_comm_null:
+            self._free_args = ()
+            self._func      = do_nothing
+            self._args      = ()
+            self._threads_args     = ()
+            self._global_matrices  = ()
+            return
+
+        kwargs['discrete_space']      = test_space
+        kwargs['is_rational_mapping'] = is_rational_mapping
+        kwargs['comm']                = domain_h.comm
+
+        space_quad_order = [qo - 1 for qo in get_quad_order(test_space)]
+        quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
+
+        # this doesn't work right now otherwise. TODO: fix this and remove this assertion
+        assert np.array_equal(quad_order, get_quad_order(test_space))
+
         kwargs['num_threads'] = self._num_threads
 
         BasicDiscrete.__init__(self, expr, kernel_expr, quad_order=quad_order, **kwargs)
@@ -633,6 +651,9 @@ class DiscreteLinearForm(BasicDiscrete):
             ext  = target.ext
             axis = target.axis
 
+            # Assuming that all vector spaces (and their Cartesian decomposition,
+            # if any) are compatible with each other, extract the first available
+            # vector space from which (starts, ends, pads) will be read:
             # If process does not own the boundary or interface, do not assemble anything
             if ext == -1:
                 start = vector_space.starts[axis]
@@ -885,6 +906,25 @@ class DiscreteFunctional(BasicDiscrete):
             i = self.get_space_indices_from_target(test_sym_space.domain, domain)
             self._space  = self._space.spaces[i]
 
+        if isinstance(self.space.vector_space, BlockVectorSpace):
+            vector_space = self.space.vector_space.spaces[0]
+            if isinstance(vector_space, BlockVectorSpace):
+                vector_space = vector_space.spaces[0]
+        else:
+            vector_space = self.space.vector_space
+
+        num_threads  = 1
+        if vector_space.parallel and vector_space.cart.num_threads>1:
+            num_threads = vector_space.cart._num_threads
+
+        if vector_space.parallel and vector_space.cart.is_comm_null:
+            self._free_args = ()
+            self._func      = do_nothing
+            self._args      = ()
+            self._expr      = expr
+            self._comm      = domain_h.comm
+            return
+
         self._symbolic_space  = test_sym_space
         self._domain          = domain
 
@@ -899,22 +939,11 @@ class DiscreteFunctional(BasicDiscrete):
         kwargs['is_rational_mapping'] = is_rational_mapping
         kwargs['comm']                = domain_h.comm
 
-        space_quad_order = [qo - 1 for qo in get_quad_order(self.space)]
+        space_quad_order = [qo - 1 for qo in get_quad_order(self._space)]
         quad_order       = [qo + 1 for qo in kwargs.pop('quad_order', space_quad_order)]
 
         # this doesn't work right now otherwise. TODO: fix this and remove this assertion
         assert np.array_equal(quad_order, get_quad_order(self.space))
-
-        if isinstance(self.space.vector_space, BlockVectorSpace):
-            vector_space = self.space.vector_space.spaces[0]
-            if isinstance(vector_space, BlockVectorSpace):
-                vector_space = vector_space.spaces[0]
-        else:
-            vector_space = self.space.vector_space
-
-        num_threads  = 1
-        if vector_space.parallel and vector_space.cart.num_threads>1:
-            num_threads = vector_space.cart._num_threads
 
         kwargs['num_threads'] = num_threads
         BasicDiscrete.__init__(self, expr, kernel_expr,  quad_order=quad_order, **kwargs)

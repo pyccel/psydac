@@ -357,6 +357,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
         for e in interfaces:
             i = interiors.index(e.minus.domain)
             j = interiors.index(e.plus.domain)
+            print('start', comm.rank)
             if comm is not None and not interfaces_cart[i,j].is_comm_null:
                 if not carts[i].is_comm_null:
                     assert carts[j].is_comm_null
@@ -365,6 +366,7 @@ def discretize_space(V, domain_h, *args, **kwargs):
                     assert carts[i].is_comm_null
                     g_spaces[e.minus.domain] = TensorFemSpace( *spaces[i], cart=interfaces_cart[i,j], quad_order=quad_order)
 
+            print('end', comm.rank)
     for inter in g_spaces:
         Vh = g_spaces[inter]
         if isinstance(V, ProductSpace):

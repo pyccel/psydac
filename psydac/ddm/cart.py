@@ -786,6 +786,7 @@ class InterfaceCartDecomposition(CartDecomposition):
         size_minus, size_plus       = len(ranks_in_topo[0]), len(ranks_in_topo[1])
 
         assert axis_minus == axis_plus
+        num_threads = num_threads if num_threads else 1
 
         root_rank_minus, root_rank_plus         = root_ranks
         local_comm_minus, local_comm_plus       = local_communicators
@@ -811,6 +812,7 @@ class InterfaceCartDecomposition(CartDecomposition):
         self._local_rank_minus = None
         self._local_rank_plus  = None
         self._intercomm        = MPI.COMM_NULL
+        self._num_threads      = num_threads
 
         if comm == MPI.COMM_NULL:
             return
@@ -941,16 +943,41 @@ class InterfaceCartDecomposition(CartDecomposition):
             self._global_starts_plus[axis] = np.array( global_starts_plus )
             self._global_ends_plus  [axis] = np.array( global_ends_plus )
 
-        # Start/end values of global indices (without ghost regions)
         if self._local_rank_minus is not None:
+            # Store input arguments
+            self._npts    = tuple( npts_minus    )
+            self._pads    = tuple( pads_minus    )
+            self._periods = tuple( periods_minus )
+            self._shifts  = tuple( shifts_minus  )
+            self._dims    = nprocs_minus
+
+            self._reduced_global_starts = self._reduced_global_starts_minus
+            self._reduced_global_ends   = self._reduced_global_ends_minus
+            self._global_starts         = self._global_starts_minus
+            self._global_ends           = self._global_ends_minus
+
+            # Start/end values of global indices (without ghost regions)
             coords       = self._coords_from_rank_minus[self._local_rank_minus]
-            self._starts = tuple( self._global_starts_minus[d][c] for d,c in enumerate(coords) )
-            self._ends   = tuple( self._global_ends_minus  [d][c] for d,c in enumerate(coords) )
+            self._starts = tuple( self._global_starts[d][c] for d,c in enumerate(coords) )
+            self._ends   = tuple( self._global_ends  [d][c] for d,c in enumerate(coords) )
 
         if self._local_rank_plus is not None:
+            # Store input arguments
+            self._npts    = tuple( npts_minus    )
+            self._pads    = tuple( pads_minus    )
+            self._periods = tuple( periods_minus )
+            self._shifts  = tuple( shifts_minus  )
+            self._dims    = nprocs_plus
+
+            self._reduced_global_starts = self._reduced_global_starts_plus
+            self._reduced_global_ends   = self._reduced_global_ends_plus
+            self._global_starts         = self._global_starts_plus
+            self._global_ends           = self._global_ends_plus
+
+            # Start/end values of global indices (without ghost regions)
             coords       = self._coords_from_rank_plus[self._local_rank_plus]
-            self._starts = tuple( self._global_starts_plus[d][c] for d,c in enumerate(coords) )
-            self._ends   = tuple( self._global_ends_plus  [d][c] for d,c in enumerate(coords) )
+            self._starts = tuple( self._global_starts[d][c] for d,c in enumerate(coords) )
+            self._ends   = tuple( self._global_ends  [d][c] for d,c in enumerate(coords) )
 
         # List of 1D global indices (without ghost regions)
         self._grids = tuple( range(s,e+1) for s,e in zip( self._starts, self._ends ) )
@@ -1555,4 +1582,9 @@ class InterfaceCartDataExchanger:
         recv_types       = mpi_type
 
         return send_types, recv_types, displacements, recv_counts, info['indices']
+
+def get_data_exchanger(cart):
+    if isinstance(cart, InterfaceCartDecomposition):
+        return InterfaceCartDataExchanger
+    return CartDataExchanger
 

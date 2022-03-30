@@ -10,7 +10,7 @@ from scipy.sparse import coo_matrix
 from mpi4py import MPI
 
 from psydac.linalg.basic   import VectorSpace, Vector, Matrix
-from psydac.ddm.cart       import find_mpi_type, CartDecomposition, CartDataExchanger
+from psydac.ddm.cart       import find_mpi_type, CartDecomposition, get_data_exchanger
 
 __all__ = ['StencilVectorSpace','StencilVector','StencilMatrix', 'StencilInterfaceMatrix']
 
@@ -110,28 +110,30 @@ class StencilVectorSpace( VectorSpace ):
     def _init_parallel( self, cart, dtype=float ):
 
         assert isinstance( cart, CartDecomposition )
+        # Global attributes
         self._parallel = True
         self._cart     = cart
+        self._ndim     = len(cart.npts)
+        self._npts     = cart.npts
+        self._pads     = cart.pads
+        self._periods  = cart.periods
+        self._shifts   = cart.shifts
+        self._dtype    = dtype
+
         if cart.is_comm_null:
             return
 
-        # Sequential attributes
+        # Local attributes
         self._starts        = cart.starts
         self._ends          = cart.ends
         self._parent_starts = cart.parent_starts
         self._parent_ends   = cart.parent_ends
-        self._pads          = cart.pads
-        self._periods       = cart.periods
-        self._shifts        = cart.shifts
-        self._dtype         = dtype
-        self._ndim          = len(cart.starts)
 
-        # Global dimensions of vector space
-        self._npts   = cart.npts
 
         # Parallel attributes
         self._mpi_type     = find_mpi_type( dtype )
-        self._synchronizer = CartDataExchanger( cart, dtype )
+        data_exachanger    = get_data_exchanger( cart )
+        self._synchronizer = data_exachanger(cart, dtype )
 
     #--------------------------------------
     # Abstract interface
@@ -275,13 +277,18 @@ class StencilVector( Vector ):
     def __init__( self, V ):
 
         assert isinstance( V, StencilVectorSpace )
-
-        sizes = [e-s+1 + 2*m*p for s,e,p,m in zip(V.starts, V.ends, V.pads, V.shifts)]
-
-        self._sizes = tuple(sizes)
-        self._ndim  = len(V.starts)
-        self._data  = np.zeros( sizes, dtype=V.dtype )
         self._space = V
+
+        if V.parallel and V.cart.is_comm_null:
+            sizes = []
+            data  = np.array([], dtype=V.dtype)
+            self._dot = lambda *x:0
+        else:
+            sizes = [e-s+1 + 2*m*p for s,e,p,m in zip(V.starts, V.ends, V.pads, V.shifts)]
+            data  = np.zeros( sizes, dtype=V.dtype )
+        self._sizes = tuple(sizes)
+        self._ndim  = len(V.npts)
+        self._data  = data
 
         # TODO: distinguish between different directions
         self._sync  = False
@@ -305,7 +312,7 @@ class StencilVector( Vector ):
         assert v._space is self._space
 
         res = self._dot(self._data, v._data , self.space.pads, self.space.shifts)
-        if self._space.parallel:
+        if self._space.parallel and not self._space.cart.is_comm_null:
             res = self._space.cart.comm_cart.allreduce( res, op=MPI.SUM )
 
         return res
@@ -570,9 +577,11 @@ class StencilVector( Vector ):
             Single direction along which to operate (if not specified, all of them).
 
         """
+        
         if self.space.parallel:
-            # PARALLEL CASE: fill in ghost regions with data from neighbors
-            self.space._synchronizer.update_ghost_regions( self._data, direction=direction )
+            if not self.space.cart.is_comm_null:
+                # PARALLEL CASE: fill in ghost regions with data from neighbors
+                self.space._synchronizer.update_ghost_regions( self._data, direction=direction )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._update_ghost_regions_serial( direction )
@@ -676,10 +685,16 @@ class StencilMatrix( Matrix ):
         self._backend  = backend
         self._is_T     = False
 
+        if V.parallel:
+            from psydac.ddm.cart import InterfaceCartDecomposition
+            if isinstance(W.cart, InterfaceCartDecomposition):
+                return
+
         # Parallel attributes
         if W.parallel:
+            data_exachanger  = get_data_exchanger( W.cart )
             # Create data exchanger for ghost regions
-            self._synchronizer = CartDataExchanger(
+            self._synchronizer = data_exachanger(
                 cart        = W.cart,
                 dtype       = W.dtype,
                 coeff_shape = diags
@@ -743,16 +758,15 @@ class StencilMatrix( Matrix ):
         assert isinstance( v, StencilVector )
         assert v.space is self.domain
 
-        # Necessary if vector space is distributed across processes
-        if not v.ghost_regions_in_sync:
-            v.update_ghost_regions()
-
         if out is not None:
             assert isinstance( out, StencilVector )
             assert out.space is self.codomain
         else:
             out = StencilVector( self.codomain )
 
+        # Necessary if vector space is distributed across processes
+        if not v.ghost_regions_in_sync:
+            v.update_ghost_regions()
 
         self._func(self._data, v._data, out._data, **self._args)
 
@@ -1061,9 +1075,10 @@ class StencilMatrix( Matrix ):
         ndim     = self._codomain.ndim
         parallel = self._codomain.parallel
 
-        if self._codomain.parallel:
-            # PARALLEL CASE: fill in ghost regions with data from neighbors
-            self._synchronizer.update_ghost_regions( self._data, direction=direction )
+        if parallel:
+            if not self._codomain.cart.is_comm_null:
+                # PARALLEL CASE: fill in ghost regions with data from neighbors
+                self._synchronizer.update_ghost_regions( self._data, direction=direction )
         else:
             # SERIAL CASE: fill in ghost regions along periodic directions, otherwise set to zero
             self._update_ghost_regions_serial( direction )
