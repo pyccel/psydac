@@ -111,6 +111,9 @@ class StencilVectorSpace( VectorSpace ):
 
         assert isinstance( cart, CartDecomposition )
         self._parallel = True
+        self._cart     = cart
+        if cart.is_comm_null:
+            return
 
         # Sequential attributes
         self._starts        = cart.starts
@@ -127,7 +130,6 @@ class StencilVectorSpace( VectorSpace ):
         self._npts   = cart.npts
 
         # Parallel attributes
-        self._cart         = cart
         self._mpi_type     = find_mpi_type( dtype )
         self._synchronizer = CartDataExchanger( cart, dtype )
 

@@ -15,7 +15,7 @@ def run_carts_3d():
     #---------------------------------------------------------------------------
 
     # Number of patches
-    N = 4
+    N = 2
 
     # Number of elements
     n1,n2,n3 = 10,10,10
@@ -61,7 +61,7 @@ def run_carts_3d():
 
     val = lambda k,i1,i2,i3: k*n1*n2*n3+i1*n1+i2*n2+i3 if (0<=i1<n1 and 0<=i2<n2 and 0<=i3<n3) else 0
     for i,ci in enumerate(carts):
-        if ci is not None:
+        if ci.comm != MPI.COMM_NULL:
             s1,s2,s3 = ci.starts
             e1,e2,e3 = ci.ends
             m1,m2,m3 = ci.shifts
@@ -72,12 +72,13 @@ def run_carts_3d():
         comm.Barrier()
 
     for i,j in interfaces:
-        if interfaces[i,j] is not None and interfaces[i,j].intercomm:
-            if carts[i] is None:
+        if interfaces[i,j].intercomm != MPI.COMM_NULL:
+
+            if carts[i].comm == MPI.COMM_NULL:
                 shape = interfaces[i,j].get_communication_infos(interfaces[i,j]._axis)['recv_shape']
                 us[i] = np.zeros(shape, dtype=dtype)
 
-            if carts[j] is None:
+            if carts[j].comm == MPI.COMM_NULL:
                 shape = interfaces[i,j].get_communication_infos(interfaces[i,j]._axis)['recv_shape']
                 us[j] = np.zeros(shape, dtype=dtype)
 
@@ -85,14 +86,14 @@ def run_carts_3d():
 
     req = {}
     for minus,plus in interfaces:
-        if interfaces[minus,plus] and interfaces[minus,plus].intercomm:
+        if interfaces[minus,plus].intercomm != MPI.COMM_NULL:
             T1 = time.time()
             req[minus, plus] = syn_interface[minus,plus].start_update_ghost_regions(us[minus], us[plus])
             T2 = time.time()
             timmings_interfaces[minus,plus] = T2-T1
 
     for i,ci in enumerate(carts):
-        if ci is not None:
+        if ci.comm != MPI.COMM_NULL:
             ci.comm.Barrier()
             T1 = time.time()
             syn[i].update_ghost_regions( us[i] )
@@ -107,15 +108,15 @@ def run_carts_3d():
             assert success
 
     for minus,plus in interfaces:
-        if interfaces[minus,plus] and interfaces[minus,plus].intercomm:
+        if interfaces[minus,plus].intercomm != MPI.COMM_NULL :
             T1 = time.time()
             syn_interface[minus,plus].end_update_ghost_regions(req[minus, plus], us[minus], us[plus])
             T2 = time.time()
-            timmings_interfaces[minus,plus] = T2-T1
+            timmings_interfaces[minus,plus] = timmings_interfaces[minus,plus]+T2-T1
             axis = interfaces[minus,plus].axis
             I = interfaces[minus,plus]
 
-            if carts[minus]:
+            if carts[minus].comm != MPI.COMM_NULL:
                 ranges = [(0,n) for n,m,p in zip(I.npts_plus, I.shifts_plus, I.pads_plus)]
                 coords = I.coords_from_rank_plus[I.boundary_ranks_plus[0]]
                 starts = [I.global_starts_plus[d][c] for d,c in enumerate(coords)]
@@ -127,7 +128,7 @@ def run_carts_3d():
                 uex =  [[[val(plus,i1,i2,i3) for i3 in range(*ranges[2])] for i2 in range(*ranges[1])] for i1 in range(*ranges[0])]
                 uex = np.pad(uex, [(m*p,m*p) for m,p in zip(carts[minus].shifts, carts[minus].pads)])
                 u_ij = us[plus]
-            elif carts[plus]:
+            elif carts[plus].comm != MPI.COMM_NULL:
                 ranges = [(0,n) for n,m,p in zip(I.npts_minus, I.shifts_minus, I.pads_minus)]
                 coords = I.coords_from_rank_minus[I.boundary_ranks_minus[0]]
                 starts = [I.global_starts_minus[d][c] for d,c in enumerate(coords)]

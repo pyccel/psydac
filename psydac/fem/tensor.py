@@ -59,7 +59,7 @@ class TensorFemSpace( FemSpace ):
             nprocs       = kwargs.pop('nprocs', None)
             reverse_axis = kwargs.pop('reverse_axis', None)
             num_threads  = int(os.environ.get('OMP_NUM_THREADS',1))
-            assert isinstance(comm, MPI.Comm)
+
             cart = CartDecomposition(
                 npts         = npts,
                 pads         = pads,
@@ -73,7 +73,7 @@ class TensorFemSpace( FemSpace ):
             )
 
             self._vector_space = StencilVectorSpace(cart)
-            
+
         elif 'cart' in kwargs and not (kwargs['cart'] is None):
 
             cart = kwargs['cart']
@@ -89,6 +89,11 @@ class TensorFemSpace( FemSpace ):
         self._quad_order = kwargs.pop('quad_order', None)
         if self._quad_order is None:
             self._quad_order = [sp.degree for sp in self.spaces]
+
+        self._symbolic_space      = None
+
+        if self._vector_space.parallel and self._vector_space.cart.is_comm_null:
+            return
 
         # Compute extended 1D quadrature grids (local to process) along each direction
         self._quad_grids = tuple( FemAssemblyGrid( V,s,e, nderiv=V.degree, quad_order=q, parent_start=ps, parent_end=pe)
@@ -130,8 +135,6 @@ class TensorFemSpace( FemSpace ):
 
                 self._global_element_starts[dimension] = element_starts
                 self._global_element_ends  [dimension] = element_ends
-
-        self._symbolic_space      = None
         # ...
 
     #--------------------------------------------------------------------------

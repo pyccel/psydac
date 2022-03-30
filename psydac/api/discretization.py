@@ -2,7 +2,7 @@
 
 # TODO: - init_fem is called whenever we call discretize. we should check that
 #         nderiv has not been changed. shall we add quad_order too?
-
+import os
 from sympy import Expr as sym_Expr
 import numpy as np
 
@@ -187,6 +187,59 @@ def reduce_space_degrees(V, Vh, basis='B', sequence='DR'):
 
     return Wh
 
+def create_cart(spaces, interiors, comm, interfaces=None, nprocs=None, reverse_axis=None):
+
+    from psydac.ddm.cart import CartDecomposition, MultiCartDecomposition, InterfacesCartDecomposition
+    num_threads     = int(os.environ.get('OMP_NUM_THREADS',1))
+    interfaces_cart = None
+
+    if len(interiors) == 1:
+        spaces = spaces[0]
+        npts         = [V.nbasis   for V in spaces]
+        pads         = [V._pads    for V in spaces]
+        degree       = [V.degree   for V in spaces]
+        multiplicity = [V.multiplicity for V in spaces]
+        periods      = [V.periodic for V in spaces]
+
+        cart = CartDecomposition(
+            npts         = npts,
+            pads         = pads,
+            periods      = periods,
+            reorder      = True,
+            comm         = comm,
+            shifts       = multiplicity,
+            nprocs       = nprocs,
+            reverse_axis = reverse_axis,
+            num_threads  = num_threads
+        )
+    else:
+        npts         = [[V.nbasis   for V in space_i] for space_i in spaces]
+        pads         = [[V._pads    for V in space_i] for space_i in spaces]
+        degree       = [[V.degree   for V in space_i] for space_i in spaces]
+        multiplicity = [[V.multiplicity for V in space_i] for space_i in spaces]
+        periods      = [[V.periodic for V in space_i] for space_i in spaces]
+
+        cart = MultiCartDecomposition(
+            npts         = npts,
+            pads         = pads,
+            periods      = periods,
+            reorder      = True,
+            comm         = comm,
+            shifts       = multiplicity,
+            num_threads  = num_threads)
+
+        if interfaces:
+            interfaces_info = {}
+            for e in interfaces:
+                i = interiors.index(e.minus.domain)
+                j = interiors.index(e.plus.domain)
+                interfaces_info[i, j] = ((e.minus.axis, e.plus.axis),(e.minus.ext, e.plus.ext))
+
+            interfaces_cart = InterfacesCartDecomposition(cart, interfaces_info)
+
+    return cart, interfaces_cart
+
+
 #==============================================================================
 # TODO knots
 def discretize_space(V, domain_h, *args, **kwargs):
@@ -209,8 +262,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     """
 
-#    we have two two cases, the case where we have a geometry file,
-#    and the case where we have either an analytical mapping or without the mapping.
+#    we have two cases, the case where we have a geometry file,
+#    and the case where we have either an analytical mapping or without a mapping.
 #    We build the dictionary g_spaces for each interior domain, where it conatians the interiors as keys and the spaces as values,
 #    we then create the compatible spaces if needed with the suitable basis functions.
 
@@ -244,6 +297,8 @@ def discretize_space(V, domain_h, *args, **kwargs):
 
     elif not( degree is None ):
 
+        assert(isinstance( degree, (list, tuple) ))
+        assert( len(degree) == ldim )
         assert(hasattr(domain_h, 'ncells'))
         interiors = domain_h.domain.interior
         if isinstance(interiors, Union):
@@ -259,13 +314,15 @@ def discretize_space(V, domain_h, *args, **kwargs):
         else:
             interiors = [interiors]
 
+        if isinstance(knots, (list, tuple)):
+            assert len(interiors) == 1
+            knots = {interior.name:knots}
+
+        spaces = [None]*len(interiors)
         for i,interior in enumerate(interiors):
             ncells     = domain_h.ncells
             min_coords = interior.min_coords
             max_coords = interior.max_coords
-
-            assert(isinstance( degree, (list, tuple) ))
-            assert( len(degree) == ldim )
 
             if knots is None:
                 # Create uniform grid
@@ -273,40 +330,40 @@ def discretize_space(V, domain_h, *args, **kwargs):
                          for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
                 # Create 1D finite element spaces and precompute quadrature data
-                spaces = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
+                spaces[i] = [SplineSpace( p, grid=grid , periodic=P) for p,grid, P in zip(degree, grids, periodic)]
             else:
                  # Create 1D finite element spaces and precompute quadrature data
-                if isinstance(knots, (list, tuple)):
-                    assert len(interiors) == 1
-                    knots = {interior.name:knots}
-                spaces = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree, knots[interior.name], periodic)]
+                spaces[i] = [SplineSpace( p, knots=T , periodic=P) for p,T, P in zip(degree, knots[interior.name], periodic)]
 
-            Vh     = None
-            if i>0:
-                for e in interfaces:
-                    plus = e.plus.domain
-                    minus = e.minus.domain
-                    if plus == interior:
-                        index = interiors.index(minus)
-                    elif minus == interior:
-                        index = interiors.index(plus)
-                    else:
-                        continue
-                    if index<i:
-                        nprocs = None
-                        if comm is not None:
-                            nprocs = g_spaces[interiors[index]].vector_space.cart.nprocs
-                        Vh = TensorFemSpace( *spaces, comm=comm, quad_order=quad_order, nprocs=nprocs, reverse_axis=e.axis)
-                        break
-                else:
-                    Vh = TensorFemSpace( *spaces, comm=comm, quad_order=quad_order)
+        if comm is not None:
+            cart, interfaces_cart = create_cart(spaces, interiors, comm, interfaces=interfaces, nprocs=None, reverse_axis=None)
+
+            if interfaces_cart:
+                interfaces_cart = interfaces_cart.carts
+
+            if len(interiors) == 1:
+                carts = [cart]
             else:
-                Vh = TensorFemSpace( *spaces, comm=comm, quad_order=quad_order)
+                carts = cart.carts
 
-            if Vh is None:
-                raise ValueError('Unable to discretize the space')
+        for i,interior in enumerate(interiors):
+            if comm is not None:
+                Vh = TensorFemSpace( *spaces[i], cart=carts[i], quad_order=quad_order)
+            else:
+                Vh = TensorFemSpace( *spaces[i], quad_order=quad_order)
 
             g_spaces[interior] = Vh
+
+        for e in interfaces:
+            i = interiors.index(e.minus.domain)
+            j = interiors.index(e.plus.domain)
+            if comm is not None and not interfaces_cart[i,j].is_comm_null:
+                if not carts[i].is_comm_null:
+                    assert carts[j].is_comm_null
+                    g_spaces[e.plus.domain] = TensorFemSpace( *spaces[j], cart=interfaces_cart[i,j], quad_order=quad_order)
+                elif not carts[j].is_comm_null:
+                    assert carts[i].is_comm_null
+                    g_spaces[e.minus.domain] = TensorFemSpace( *spaces[i], cart=interfaces_cart[i,j], quad_order=quad_order)
 
     for inter in g_spaces:
         Vh = g_spaces[inter]
@@ -330,9 +387,9 @@ def discretize_space(V, domain_h, *args, **kwargs):
 #==============================================================================
 def discretize_domain(domain, *, filename=None, ncells=None, comm=None):
 
-    if comm is not None:
-        # Create a copy of the communicator
-        comm = comm.Dup()
+#    if comm is not None:
+#        # Create a copy of the communicator
+#        comm = comm.Dup()
 
     if not (filename or ncells):
         raise ValueError("Must provide either 'filename' or 'ncells'")
