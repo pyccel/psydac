@@ -69,7 +69,8 @@ def toInteger(a):
 class LinearOperatorDot(SplBasic):
 
     def __new__(cls, ndim, **kwargs):
-        return SplBasic.__new__(cls, 'dot', name='lo_dot', prefix='lo_dot')
+        tag = random_string(8)
+        return SplBasic.__new__(cls, tag, prefix='lo_dot')
 
     def __init__(self, ndim, **kwargs):
 
@@ -295,7 +296,6 @@ class LinearOperatorDot(SplBasic):
 
     def _generate_code(self, backend=None):
         code = ''
-        tag = random_string( 8 )
         if backend and backend['name'] == 'pyccel':
             imports  = 'from pyccel.decorators import types\n'
             imports += 'from numpy import shape'
@@ -306,7 +306,7 @@ class LinearOperatorDot(SplBasic):
             imports = 'from numpy import shape'
 
         if MPI.COMM_WORLD.rank == 0:
-            modname = 'dependencies_{}'.format(tag)
+            modname = 'dependencies_{}'.format(self.tag)
             code = '{imports}\n{code}'.format(imports=imports, code=pycode.pycode(self.code))
             write_code(modname+ '.py', code, folder = self.folder)
         else:
@@ -325,7 +325,7 @@ class LinearOperatorDot(SplBasic):
         if backend and backend['name'] == 'pyccel':
             package = self._compile_pyccel(package, backend)
 
-        self._func = getattr(package, 'lo_dot')
+        self._func = getattr(package, self.name)
 
     def _compile_pyccel(self, mod, backend, verbose=False):
 
@@ -352,7 +352,8 @@ class LinearOperatorDot(SplBasic):
 class TransposeOperator(SplBasic):
 
     def __new__(cls, ndim, **kwargs):
-        return SplBasic.__new__(cls, 'transpose', name='lo_transpose', prefix='lo_transpose')
+        tag = random_string(8)
+        return SplBasic.__new__(cls, tag, name=f'transpose_{ndim}d')
 
     def __init__(self, ndim, **kwargs):
 
@@ -406,7 +407,6 @@ class TransposeOperator(SplBasic):
     def _generate_code(self, backend=None):
         dec  = ''
         code = self._code
-        tag = random_string( 8 )
         if backend and backend['name'] == 'pyccel':
             import pyccel
             from packaging import version
@@ -424,7 +424,7 @@ class TransposeOperator(SplBasic):
             imports = ''
 
         if MPI.COMM_WORLD.rank == 0:
-            modname = 'dependencies_{}'.format(tag)
+            modname = 'dependencies_{}'.format(self.tag)
             code = '{imports}\n{dec}\n{code}'.format(imports=imports, dec=dec, code=code)
             write_code(modname+ '.py', code, folder = self.folder)
         else:
@@ -442,7 +442,7 @@ class TransposeOperator(SplBasic):
         if backend and backend['name'] == 'pyccel':
             package = self._compile_pyccel(package, backend)
 
-        self._func = getattr(package, self.tag+'_{}d'.format(self.ndim))
+        self._func = getattr(package, self.name)
 
     def _compile_pyccel(self, mod, backend, verbose=False):
 
@@ -469,7 +469,8 @@ class InterfaceTransposeOperator(TransposeOperator):
     """ This class generates the Matrix transpose code for a StencilInterfaceMatrix.
     """
     def __new__(cls, ndim, **kwargs):
-        return SplBasic.__new__(cls, 'interface_transpose', name='lo_interface_transpose', prefix='lo_interface_transpose')
+        tag = random_string(8)
+        return SplBasic.__new__(cls, tag, name='interface_transpose_{ndim}d')
 
     def __init__(self, ndim, **kwargs):
 
@@ -486,12 +487,11 @@ class InterfaceTransposeOperator(TransposeOperator):
 class VectorDot(SplBasic):
 
     def __new__(cls, ndim, backend=None):
-
-
-        obj = SplBasic.__new__(cls, 'dot', name='v_dot', prefix='v_dot')
+        tag = random_string(8)
+        obj = SplBasic.__new__(cls, tag, prefix='v_dot')
         obj._ndim = ndim
         obj._backend = backend
-        obj._func = obj._initilize()
+        obj._func = obj._initialize()
         return obj
 
     @property
