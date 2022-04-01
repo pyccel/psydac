@@ -82,9 +82,5 @@ class SplBasic(Basic):
         return self._basic_args
 
     @property
-    def debug(self):
-        return self._debug
-
-    @property
     def boundary(self):
         return self._boundary
