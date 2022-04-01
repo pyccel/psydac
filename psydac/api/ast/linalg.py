@@ -598,6 +598,3 @@ class VectorDot(SplBasic):
 
         return FunctionDef(self.name, list(func_args), [], body,
                            decorators=decorators,header=header)
-
-tranpose_operator           = lru_cache(maxsize=32)(TransposeOperator)
-interface_tranpose_operator = lru_cache(maxsize=32)(InterfaceTransposeOperator)
