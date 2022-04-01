@@ -7,7 +7,7 @@ from sympy import Basic
 class SplBasic(Basic):
 
     def __new__(cls, tag, name=None, prefix=None, debug=False, detailed=False,
-                mapping=None, domain=None, is_rational_mapping=None):
+                mapping=None, domain=None, is_rational_mapping=None, comm=None):
 
         if name is None:
             if prefix is None:
@@ -25,6 +25,7 @@ class SplBasic(Basic):
         obj._mapping             = mapping
         obj._domain              = domain
         obj._is_rational_mapping = is_rational_mapping
+        obj._comm                = comm
         obj._imports = []
 
         return obj
@@ -36,14 +37,6 @@ class SplBasic(Basic):
     @property
     def tag(self):
         return self._tag
-
-    @property
-    def func(self):
-        return self._func
-
-    @property
-    def basic_args(self):
-        return self._basic_args
 
     @property
     def dependencies(self):
@@ -58,21 +51,40 @@ class SplBasic(Basic):
         return self._detailed
 
     @property
-    def domain(self):
-        return self._domain
-
-    @property
     def mapping(self):
         return self._mapping
+
+    @property
+    def domain(self):
+        return self._domain
 
     @property
     def is_rational_mapping(self):
         return self._is_rational_mapping
 
     @property
-    def boundary(self):
-        return self._boundary
+    def comm(self):
+        return self._comm
 
     @property
     def imports(self):
         return self._imports
+
+    #--------------------------------------------------------------------------
+    # WARNING: PROPERTIES ACCESSING ATTRIBUTES THAT ARE NOT IN BASE CLASS
+    #--------------------------------------------------------------------------
+    @property
+    def func(self):
+        return self._func
+
+    @property
+    def basic_args(self):
+        return self._basic_args
+
+    @property
+    def debug(self):
+        return self._debug
+
+    @property
+    def boundary(self):
+        return self._boundary
