@@ -84,24 +84,29 @@ class LinearOperatorDot(SplBasic):
     @classmethod
     @lru_cache(maxsize=32)
     def __hashable_new__(cls, ndim, comm_id=None, **kwargs):
+
+        # If integer communicator is provided, convert it to mpi4py object
+        comm = None if comm_id is None else MPI.COMM_WORLD.f2py(comm_id)
+
+        # Generate random tag, unique for all processes in MPI communicator
         tag = random_string(8)
-        if comm_id is not None:
-            comm = MPI.COMM_WORLD.f2py(comm_id)
-            tag  = comm.bcast(tag, root=0)
-        else:
-            comm = None
-        return SplBasic.__new__(cls, tag, prefix='lo_dot', comm=comm)
+        if comm is not None:
+            tag = comm.bcast(tag, root=0)
 
-    def __init__(self, ndim, comm=None, **kwargs):
+        # Create new instance of this class
+        obj = SplBasic.__new__(cls, tag, prefix='lo_dot', comm=comm)
 
-        backend         = dict(kwargs.pop('backend'))
-        code            = self._initialize(ndim, backend=backend, **kwargs)
-        self._arguments = dict((str(a.name),a) for a in code.arguments)
-        self._code      = code
-        self._folder    = self._initialize_folder()
+        # Initialize instance (code generation happens here)
+        backend        = dict(kwargs.pop('backend'))
+        code           = obj._initialize(ndim, backend=backend, **kwargs)
+        obj._arguments = dict((str(a.name), a) for a in code.arguments)
+        obj._code      = code
+        obj._folder    = obj._initialize_folder()
+        obj._generate_code(backend=backend)
+        obj._compile(backend=backend)
 
-        self._generate_code(backend=backend)
-        self._compile(backend=backend)
+        # Return instance
+        return obj
 
     @property
     def func(self):
@@ -396,25 +401,32 @@ class TransposeOperator(SplBasic):
     @classmethod
     @lru_cache(maxsize=32)
     def __hashable_new__(cls, ndim, comm_id=None, **kwargs):
+
+        # If integer communicator is provided, convert it to mpi4py object
+        comm = None if comm_id is None else MPI.COMM_WORLD.f2py(comm_id)
+
+        # Generate random tag, unique for all processes in MPI communicator
         tag = random_string(8)
-        if comm_id is not None:
-            comm = MPI.COMM_WORLD.f2py(comm_id)
-            tag  = comm.bcast(tag, root=0)
-        else:
-            comm = None
+        if comm is not None:
+            tag = comm.bcast(tag, root=0)
+
+        # Determine name based on number of dimensions
         name = cls.name_template.format(ndim=ndim)
-        return SplBasic.__new__(cls, tag, name=name, comm=comm)
 
-    def __init__(self, ndim, comm=None, **kwargs):
+        # Create new instance of this class
+        obj = SplBasic.__new__(cls, tag, name=name, comm=comm)
 
-        self.ndim        = ndim
-        backend          = dict(kwargs.pop('backend'))
-        self._code       = inspect.getsource(self.function_dict[ndim])
-        self._args_dtype = self.args_dtype_dict[ndim]
-        self._folder     = self._initialize_folder()
+        # Initialize instance (code generation happens here)
+        obj.ndim        = ndim
+        backend         = dict(kwargs.pop('backend'))
+        obj._code       = inspect.getsource(obj.function_dict[ndim])
+        obj._args_dtype = obj.args_dtype_dict[ndim]
+        obj._folder     = obj._initialize_folder()
+        obj._generate_code(backend=backend)
+        obj._compile(backend=backend)
 
-        self._generate_code(backend=backend)
-        self._compile(backend=backend)
+        # Return instance
+        return obj
 
     @property
     def func(self):
