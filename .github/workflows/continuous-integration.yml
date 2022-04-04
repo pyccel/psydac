@@ -10,7 +10,7 @@ on:
     branches: [ devel ]
 
 jobs:
-  build:
+  test:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -28,6 +28,8 @@ jobs:
           - os: macos-latest
             python-version: 3.9
 
+    name: ${{ runner.os }} / Python ${{ matrix.python-version }}
+
     steps:
       - uses: actions/checkout@v2
 
@@ -37,17 +39,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install non-Python dependencies on Ubuntu
-        if: matrix.os == 'ubuntu-latest'
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install gfortran
           sudo apt-get install openmpi-bin libopenmpi-dev
           sudo apt-get install libhdf5-openmpi-dev
-          ompi_info
-          h5pcc -showconfig -echo || true
 
       - name: Install non-Python dependencies on macOS
-        if: matrix.os == 'macos-latest'
+        if: runner.os == 'macOS'
         run: |
           brew install open-mpi
           brew install hdf5-mpi
@@ -56,6 +56,11 @@ jobs:
             ln -s /usr/local/bin/gfortran-10 /usr/local/bin/gfortran
           fi
           echo "MPI_OPTS=--oversubscribe" >> $GITHUB_ENV
+
+      - name: Print information on MPI and HDF5 libraries
+        run: |
+          ompi_info
+          h5pcc -showconfig -echo || true
 
       - name: Upgrade pip
         run: |
@@ -85,12 +90,6 @@ jobs:
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             export HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
           fi
-          echo
-          echo $HDF5_DIR
-          echo /usr/lib/x86_64-linux-gnu/hdf5/openmpi
-          echo
-          h5pcc -showconfig
-          echo
           python -m pip install -r requirements.txt
           python -m pip install -r requirements_extra.txt --no-build-isolation
           python -m pip list
