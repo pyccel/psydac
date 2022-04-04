@@ -77,10 +77,16 @@ jobs:
 
       - name: Install Python dependencies
 #        if: steps.pip-cache.outputs.cache-hit != 'true'
+        env:
+          OS: ${{ matrix.os }}
         run: |
           export CC="mpicc"
           export HDF5_MPI="ON"
-          export HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
+          if [[ "$OS" == "ubuntu-latest" ]]; then
+            export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+          elif [[ "$OS" == "macos-latest" ]]; then
+            export HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
+          fi
           echo
           echo $HDF5_DIR
           echo /usr/lib/x86_64-linux-gnu/hdf5/openmpi
