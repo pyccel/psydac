@@ -956,7 +956,7 @@ def _create_ast_bilinear_form(terminal_expr, atomic_expr_field,
     if add_openmp:
         imports.append(Import('pyccel.stdlib.internal.openmp',('omp_get_thread_num', )))
 
-    node = DefNode('assembly', args, local_vars, body, imports, (), 'bilinearform')
+    node = DefNode(f'assemble_matrix_{tag}', args, local_vars, body, imports, (), 'bilinearform')
 
     return node
 
@@ -1279,7 +1279,7 @@ def _create_ast_linear_form(terminal_expr, atomic_expr_field, tests, d_tests, fi
     imports    = []
     if add_openmp:
         imports.append(Import('pyccel.stdlib.internal.openmp',('omp_get_thread_num', )))
-    node = DefNode('assembly', args, local_vars, body, imports, (), 'linearform')
+    node = DefNode(f'assemble_vector_{tag}', args, local_vars, body, imports, (), 'linearform')
 
     return node
 
@@ -1449,6 +1449,6 @@ def _create_ast_functional_form(terminal_expr, atomic_expr, fields, d_fields, co
     body = (Assign(g_vec, Float(0.)), Reduce('+', l_vec, g_vec, loop), Return(g_vec))
 
     local_vars = []
-    node = DefNode('assembly', args, local_vars, body, (), (g_vec,), 'functionalform')
+    node = DefNode(f'assemble_scalar_{tag}', args, local_vars, body, (), (g_vec,), 'functionalform')
 
     return node
