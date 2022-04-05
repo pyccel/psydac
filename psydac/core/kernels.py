@@ -21,13 +21,6 @@ def eval_fields_3d_no_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int
     nc3: int
         Number of cells in the Z direction
 
-    pad1: int
-        Padding in the X direction
-    pad2: int
-        Padding in the Y direction
-    pad3: int
-        Padding in the Z direction
-
     f_p1: int
         Degree in the X direction
     f_p2: int
@@ -62,7 +55,6 @@ def eval_fields_3d_no_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-
     arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]))
 
     for i_cell_1 in range(nc1):
@@ -113,11 +105,6 @@ def eval_fields_2d_no_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int,
     nc2: int
         Number of cells in the Y direction
 
-    pad1: int
-        Padding in the X direction
-    pad2: int
-        Padding in the Y direction
-
     f_p1: int
         Degree in the X direction
     f_p2: int
@@ -144,7 +131,6 @@ def eval_fields_2d_no_weights(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int,
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-
     arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]))
 
     for i_cell_1 in range(nc1):
@@ -190,13 +176,6 @@ def eval_fields_3d_irregular_no_weights(np1: int, np2: int, np3: int, f_p1: int,
     np3 : int
         Number of points in the Z direction
 
-    pad1: int
-        Padding in the X direction
-    pad2: int
-        Padding in the Y direction
-    pad3: int
-        Padding in the Z direction
-
     f_p1: int
         Degree in the X direction
     f_p2: int
@@ -226,7 +205,7 @@ def eval_fields_3d_irregular_no_weights(np1: int, np2: int, np3: int, f_p1: int,
         Spans in the Z direction
 
     glob_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X and Y directions
+        Coefficients of the fields in the X, Y and Z directions
 
     out_fields : ndarray of floats
         Evaluated fields, filled with the correct values by the function
@@ -278,11 +257,6 @@ def eval_fields_2d_irregular_no_weights(np1: int, np2: int, f_p1: int, f_p2: int
         Number of points in the X direction
     np2: int
         Number of points in the Y direction
-
-    pad1: int
-        Padding in the X direction
-    pad2: int
-        Padding in the Y direction
 
     f_p1: int
         Degree in the X direction
@@ -356,13 +330,6 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int,
     nc3: int
         Number of cells in the Z direction
 
-    pad1: int
-        Padding in the X direction
-    pad2: int
-        Padding in the Y direction
-    pad3: int
-        Padding in the Z direction
-
     f_p1: int
         Degree in the X direction
     f_p2: int
@@ -400,7 +367,6 @@ def eval_fields_3d_weighted(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int,
     out_fields: ndarray of floats
         Evaluated fields, filled with the correct values by the function
     """
-
     arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3, out_fields.shape[3]))
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
 
@@ -471,11 +437,6 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
     nc2: int
         Number of cells in the Y direction
 
-    pad1: int
-        Padding in the X direction
-    pad2: int
-        Padding in the Y direction
-
     f_p1: int
         Degree in the X direction
     f_p2: int
@@ -497,15 +458,14 @@ def eval_fields_2d_weighted(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k
         Spans in the Y direction
 
     global_arr_coeff: ndarray of float
-        Coefficients of the fields in the X,Y and Z directions
+        Coefficients of the fields in the X and Y directions
 
     global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X,Y and Z directions
+        Coefficients of the weight field in the X and Y directions
 
     out_fields: ndarray of float
         Evaluated fields, filled with the correct values by the function
     """
-
     arr_coeff_fields = np.zeros((1 + f_p1, 1 + f_p2, out_fields.shape[2]))
     arr_coeff_weights = np.zeros((1 + f_p1, 1 + f_p2))
 
@@ -571,13 +531,6 @@ def eval_fields_3d_irregular_weighted(np1: int, np2: int, np3: int, f_p1: int, f
         Number of points in the Y direction
     np3 : int
         Number of points in the Z direction
-
-    pad1: int
-        Padding in the X direction
-    pad2: int
-        Padding in the Y direction
-    pad3: int
-        Padding in the Z direction
 
     f_p1: int
         Degree in the X direction
@@ -679,11 +632,6 @@ def eval_fields_2d_irregular_weighted(np1: int, np2: int, f_p1: int, f_p2: int,
         Number of points in the X direction
     np2 : int
         Number of points in the Y direction
-
-    pad1: int
-        Padding in the X direction
-    pad2: int
-        Padding in the Y direction
 
     f_p1: int
         Degree in the X direction
@@ -817,7 +765,6 @@ def eval_jac_det_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: in
     jac_det: ndarray of floats
         Jacobian determinant on the grid.
     """
-
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -963,7 +910,6 @@ def eval_jac_det_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int, 
     jac_det: ndarray of floats
         Jacobian determinant on the grid.
     """
-
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
 
@@ -1071,14 +1017,15 @@ def eval_jac_det_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: int
     global_spans_3 : ndarray of ints
         Spans in the Z direction
 
-    glob_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X, Y and Z directions
+    global_arr_coeff_x: ndarray of floats
+        Coefficients of the X field
+    global_arr_coeff_y: ndarray of floats
+        Coefficients of the Y field
+    global_arr_coeff_z: ndarray of floats
+        Coefficients of the Z field
 
-    global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X, Y and Z directions
-
-    out_fields : ndarray of floats
-        Evaluated fields, filled with the correct values by the function
+    jac_det: ndarray of floats
+        Jacobian determinant on the grid.
     """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -1308,7 +1255,6 @@ def eval_jac_det_3d_weights(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, 
     jac_det: ndarray of floats
         Jacobian determinant on the grid
     """
-
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -1675,14 +1621,18 @@ def eval_jac_det_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int, f
     global_spans_3 : ndarray of ints
         Spans in the Z direction
 
-    glob_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X, Y and Z directions
+    global_arr_coeff_x: ndarray of floats
+        Coefficients of the X field
+    global_arr_coeff_y: ndarray of floats
+        Coefficients of the Y field
+    global_arr_coeff_z: ndarray of floats
+        Coefficients of the Z field
+    
+    global_arr_coeff_weights: ndarray of floats
+        Coefficients of the weights field
 
-    global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X, Y and Z directions
-
-    out_fields : ndarray of floats
-        Evaluated fields, filled with the correct values by the function
+    jac_det: ndarray of floats
+        Jacobian determinant on the grid
     """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -1822,45 +1772,37 @@ def eval_jac_det_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int,
         Number of points in the X direction
     np2 : int
         Number of points in the Y direction
-    np3 : int
-        Number of points in the Z direction
 
     f_p1: int
         Degree in the X direction
     f_p2: int
         Degree in the Y direction
-    f_p3: int
-        Degree in the Z direction
 
     cell_index_1 : ndarray of ints
         Index of the cells in the X direction
     cell_index_2 : ndarray of ints
         Index of the cells in the Y direction
-    cell_index_3 : ndarray of ints
-        Index of the cells in the Z direction
 
     global_basis_1 : ndarray of floats
         Basis functions values at each point in the X direction
     global_basis_2 : ndarray of floats
         Basis functions values at each point in the Y direction
-    global_basis_3 : ndarray of floats
-        Basis functions values at each point in the Z direction
 
     global_spans_1 : ndarray of ints
         Spans in the X direction
     global_spans_2 : ndarray of ints
         Spans in the Y direction
-    global_spans_3 : ndarray of ints
-        Spans in the Z direction
 
-    glob_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X, Y and Z directions
+    global_arr_coeff_x: ndarray of floats
+        Coefficients of the X field
+    global_arr_coeff_y: ndarray of floats
+        Coefficients of the Y field
+    
+    global_arr_coeff_weights: ndarray of floats
+        Coefficients of the weights field
 
-    global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X, Y and Z directions
-
-    out_fields : ndarray of floats
-        Evaluated fields, filled with the correct values by the function
+    jac_det: ndarray of floats
+        Jacobian determinant on the grid
     """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
@@ -1998,7 +1940,6 @@ def eval_jacobians_3d(nc1: int, nc2: int, nc3: int, f_p1: int, f_p2: int, f_p3: 
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -2142,7 +2083,6 @@ def eval_jacobians_2d(nc1: int, nc2: int, f_p1: int, f_p2: int, k1: int, k2: int
     jacobians: ndarray of floats
         Jacobian matrix at every point of the grid
     """
-
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
 
@@ -2252,14 +2192,15 @@ def eval_jacobians_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p2: i
     global_spans_3 : ndarray of ints
         Spans in the Z direction
 
-    glob_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X, Y and Z directions
+    global_arr_coeff_x: ndarray of floats
+        Coefficients of the X field
+    global_arr_coeff_y: ndarray of floats
+        Coefficients of the Y field
+    global_arr_coeff_z: ndarray of floats
+        Coefficients of the Z field
 
-    global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X, Y and Z directions
-
-    out_fields : ndarray of floats
-        Evaluated fields, filled with the correct values by the function
+    jacobians: ndarray of floats
+        Jacobian matrix on the grid
     """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -2375,8 +2316,8 @@ def eval_jacobians_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, cell_i
     global_arr_coeff_y: ndarray of floats
         Coefficients of the Y field
 
-    out_fields : ndarray of floats
-        Evaluated fields, filled with the correct values by the function
+    jacobians: ndarray of floats
+        Jacobian matrix on the grid
     """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
@@ -2486,7 +2427,6 @@ def eval_jacobians_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: in
     jacobians: ndarray of floats
         Jacobian matrix on the grid
     """
-
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -2659,43 +2599,43 @@ def eval_jacobians_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int
                               global_arr_coeff_y: 'float[:,:]', global_arr_coeff_weights: 'float[:,:]',
                               jacobians: 'float[:,:,:,:]'):
     """
-       Parameters
-       ----------
-       nc1: int
-           Number of cells in the X direction
-       nc2: int
-           Number of cells in the Y direction
+    Parameters
+    ----------
+    nc1: int
+        Number of cells in the X direction
+    nc2: int
+        Number of cells in the Y direction
 
-       f_p1: int
-           Degree in the X direction
-       f_p2: int
-           Degree in the Y direction
+    f_p1: int
+        Degree in the X direction
+    f_p2: int
+        Degree in the Y direction
 
-       k1: int
-           Number of evaluation points in the X direction
-       k2: int
-           Number of evaluation points in the Y direction
+    k1: int
+        Number of evaluation points in the X direction
+    k2: int
+        Number of evaluation points in the Y direction
 
-       global_basis_1: ndarray of floats
-           Basis functions values at each cell and quadrature points in the X direction
-       global_basis_2: ndarray of floats
-           Basis functions values at each cell and quadrature points in the Y direction
+    global_basis_1: ndarray of floats
+        Basis functions values at each cell and quadrature points in the X direction
+    global_basis_2: ndarray of floats
+        Basis functions values at each cell and quadrature points in the Y direction
 
-       global_spans_1: ndarray of ints
-           Spans in the X direction
-       global_spans_2: ndarray of ints
-           Spans in the Y direction
+    global_spans_1: ndarray of ints
+        Spans in the X direction
+    global_spans_2: ndarray of ints
+        Spans in the Y direction
 
-       global_arr_coeff_x: ndarray of floats
-           Coefficients of the X field
-       global_arr_coeff_y: ndarray of floats
-           Coefficients of the Y field
+    global_arr_coeff_x: ndarray of floats
+        Coefficients of the X field
+    global_arr_coeff_y: ndarray of floats
+        Coefficients of the Y field
 
-       global_arr_coeff_weights: ndarray of floats
-           Coefficients of the weights field
+    global_arr_coeff_weights: ndarray of floats
+        Coefficients of the weights field
 
-       jacobians: ndarray of floats
-           Jacobian matrix at every point of the grid
+    jacobians: ndarray of floats
+        Jacobian matrix at every point of the grid
        """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
@@ -2853,14 +2793,18 @@ def eval_jacobians_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: int,
     global_spans_3 : ndarray of ints
         Spans in the Z direction
 
-    glob_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X, Y and Z directions
+    global_arr_coeff_x: ndarray of floats
+        Coefficients of the X field
+    global_arr_coeff_y: ndarray of floats
+        Coefficients of the Y field
+    global_arr_coeff_z: ndarray of floats
+        Coefficients of the Z field
 
-    global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X, Y and Z directions
+    global_arr_coeff_weights: ndarray of floats
+        Coefficients of the weight field
 
-    out_fields : ndarray of floats
-        Evaluated fields, filled with the correct values by the function
+    jacobians: ndarray of floats
+        Jacobian matrix on the grid
     """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -2997,15 +2941,11 @@ def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int
         Number of points in the X direction
     np2 : int
         Number of points in the Y direction
-    np3 : int
-        Number of points in the Z direction
 
     f_p1: int
         Degree in the X direction
     f_p2: int
         Degree in the Y direction
-    f_p3: int
-        Degree in the Z direction
 
     cell_index_1 : ndarray of ints
         Index of the cells in the X direction
@@ -3018,24 +2958,22 @@ def eval_jacobians_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2: int
         Basis functions values at each point in the X direction
     global_basis_2 : ndarray of floats
         Basis functions values at each point in the Y direction
-    global_basis_3 : ndarray of floats
-        Basis functions values at each point in the Z direction
 
     global_spans_1 : ndarray of ints
         Spans in the X direction
     global_spans_2 : ndarray of ints
         Spans in the Y direction
-    global_spans_3 : ndarray of ints
-        Spans in the Z direction
 
-    glob_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X, Y and Z directions
+    global_arr_coeff_x: ndarray of floats
+        Coefficients of the X field
+    global_arr_coeff_y: ndarray of floats
+        Coefficients of the Y field
 
-    global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X, Y and Z directions
+    global_arr_coeff_weights: ndarray of floats
+        Coefficients of the weight field
 
-    out_fields : ndarray of floats
-        Evaluated fields, filled with the correct values by the function
+    jacobians: ndarray of floats
+        Jacobian matrix on the grid
     """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
@@ -3176,7 +3114,6 @@ def eval_jacobians_inv_3d(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2: int,
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix on the grid
     """
-
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -3335,7 +3272,6 @@ def eval_jacobians_inv_2d(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1: int, k2
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix at every point of the grid
     """
-
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
 
@@ -3447,14 +3383,15 @@ def eval_jacobians_inv_irregular_3d(np1: int, np2: int, np3: int, f_p1: int, f_p
     global_spans_3 : ndarray of ints
         Spans in the Z direction
 
-    glob_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X, Y and Z directions
+    global_arr_coeff_x: ndarray of floats
+        Coefficients of the X field
+    global_arr_coeff_y: ndarray of floats
+        Coefficients of the Y field
+    global_arr_coeff_z: ndarray of floats
+        Coefficients of the Z field
 
-    global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X, Y and Z directions
-
-    out_fields : ndarray of floats
-        Evaluated fields, filled with the correct values by the function
+    jacobians_inv: ndarray of floats
+        Inverse of the Jacobian matrix at every point of the grid
     """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -3592,8 +3529,8 @@ def eval_jacobians_inv_irregular_2d(np1: int, np2: int, f_p1: int, f_p2: int, ce
     global_arr_coeff_y: ndarray of floats
         Coefficients of the Y field
 
-    out_fields : ndarray of floats
-        Evaluated fields, filled with the correct values by the function
+    jacobians_inv: ndarray of floats
+        Inverse of the Jacobian matrix at every point of the grid
     """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
@@ -3705,7 +3642,6 @@ def eval_jacobians_inv_3d_weights(nc1: int, nc2: int, nc3: int,  f_p1: int, f_p2
     jacobians_inv: ndarray of floats
         Inverse of the Jacobian matrix on the grid
     """
-
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_z = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -3893,43 +3829,43 @@ def eval_jacobians_inv_2d_weights(nc1: int, nc2: int,  f_p1: int, f_p2: int, k1:
                                   global_arr_coeff_y: 'float[:,:]', global_arr_coeff_weights: 'float[:,:]',
                                   jacobians_inv: 'float[:,:,:,:]'):
     """
-       Parameters
-       ----------
-       nc1: int
-           Number of cells in the X direction
-       nc2: int
-           Number of cells in the Y direction
+    Parameters
+    ----------
+    nc1: int
+        Number of cells in the X direction
+    nc2: int
+        Number of cells in the Y direction
 
-       f_p1: int
-           Degree in the X direction
-       f_p2: int
-           Degree in the Y direction
+    f_p1: int
+        Degree in the X direction
+    f_p2: int
+        Degree in the Y direction
 
-       k1: int
-           Number of evaluation points in the X direction
-       k2: int
-           Number of evaluation points in the Y direction
+    k1: int
+        Number of evaluation points in the X direction
+    k2: int
+        Number of evaluation points in the Y direction
 
-       global_basis_1: ndarray of floats
-           Basis functions values at each cell and quadrature points in the X direction
-       global_basis_2: ndarray of floats
-           Basis functions values at each cell and quadrature points in the Y direction
+    global_basis_1: ndarray of floats
+        Basis functions values at each cell and quadrature points in the X direction
+    global_basis_2: ndarray of floats
+        Basis functions values at each cell and quadrature points in the Y direction
 
-       global_spans_1: ndarray of ints
-           Spans in the X direction
-       global_spans_2: ndarray of ints
-           Spans in the Y direction
+    global_spans_1: ndarray of ints
+        Spans in the X direction
+    global_spans_2: ndarray of ints
+        Spans in the Y direction
 
-       global_arr_coeff_x: ndarray of floats
-           Coefficients of the X field
-       global_arr_coeff_y: ndarray of floats
-           Coefficients of the Y field
+    global_arr_coeff_x: ndarray of floats
+        Coefficients of the X field
+    global_arr_coeff_y: ndarray of floats
+        Coefficients of the Y field
 
-       global_arr_coeff_weights: ndarray of floats
-           Coefficients of the weights field
+    global_arr_coeff_weights: ndarray of floats
+        Coefficients of the weights field
 
-       jacobians_inv: ndarray of floats
-           Inverse of the Jacobian matrix at every point of the grid
+    jacobians_inv: ndarray of floats
+        Inverse of the Jacobian matrix at every point of the grid
        """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
@@ -4089,14 +4025,18 @@ def eval_jacobians_inv_irregular_3d_weights(np1: int, np2: int, np3: int, f_p1: 
     global_spans_3 : ndarray of ints
         Spans in the Z direction
 
-    glob_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X, Y and Z directions
+    global_arr_coeff_x: ndarray of floats
+        Coefficients of the X field
+    global_arr_coeff_y: ndarray of floats
+        Coefficients of the Y field
+    global_arr_coeff_z: ndarray of floats
+        Coefficients of the Z field
 
-    global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X, Y and Z directions
+    global_arr_coeff_weights: ndarray of floats
+        Coefficients of the weight field
 
-    out_fields : ndarray of floats
-        Evaluated fields, filled with the correct values by the function
+    jacobians_inv: ndarray of floats
+        Inverse of the Jacobian matrix at every point of the grid
     """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2, 1 + f_p3))
@@ -4251,45 +4191,37 @@ def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2:
         Number of points in the X direction
     np2 : int
         Number of points in the Y direction
-    np3 : int
-        Number of points in the Z direction
 
     f_p1: int
         Degree in the X direction
     f_p2: int
         Degree in the Y direction
-    f_p3: int
-        Degree in the Z direction
 
     cell_index_1 : ndarray of ints
         Index of the cells in the X direction
     cell_index_2 : ndarray of ints
         Index of the cells in the Y direction
-    cell_index_3 : ndarray of ints
-        Index of the cells in the Z direction
 
     global_basis_1 : ndarray of floats
         Basis functions values at each point in the X direction
     global_basis_2 : ndarray of floats
         Basis functions values at each point in the Y direction
-    global_basis_3 : ndarray of floats
-        Basis functions values at each point in the Z direction
 
     global_spans_1 : ndarray of ints
         Spans in the X direction
     global_spans_2 : ndarray of ints
         Spans in the Y direction
-    global_spans_3 : ndarray of ints
-        Spans in the Z direction
 
-    glob_arr_coeff : ndarray of floats
-        Coefficients of the fields in the X, Y and Z directions
+    global_arr_coeff_x: ndarray of floats
+        Coefficients of the X field
+    global_arr_coeff_y: ndarray of floats
+        Coefficients of the Y field
 
-    global_arr_weights: ndarray of float
-        Coefficients of the weight field in the X, Y and Z directions
+    global_arr_coeff_weights: ndarray of floats
+        Coefficients of the weight field
 
-    out_fields : ndarray of floats
-        Evaluated fields, filled with the correct values by the function
+    jacobians_inv: ndarray of floats
+        Inverse of the Jacobian matrix at every point of the grid
     """
     arr_coeffs_x = np.zeros((1 + f_p1, 1 + f_p2))
     arr_coeffs_y = np.zeros((1 + f_p1, 1 + f_p2))
@@ -4379,7 +4311,6 @@ def eval_jacobians_inv_irregular_2d_weights(np1: int, np2: int, f_p1: int, f_p2:
 # --------------------------------------------------------------------------
 def pushforward_2d_l2(fields_to_push: 'float[:,:,:]', jac_dets: 'float[:,:]', pushed_fields: 'float[:,:,:]'):
     """
-
     Parameters
     ----------
     fields_to_push: ndarray
@@ -4401,7 +4332,6 @@ def pushforward_2d_l2(fields_to_push: 'float[:,:,:]', jac_dets: 'float[:,:]', pu
 
 def pushforward_3d_l2(fields_to_push: 'float[:,:,:,:]', jac_dets: 'float[:,:,:]', pushed_fields: 'float[:,:,:,:]'):
     """
-
     Parameters
     ----------
     fields_to_push: ndarray
@@ -4428,7 +4358,6 @@ def pushforward_3d_l2(fields_to_push: 'float[:,:,:,:]', jac_dets: 'float[:,:,:]'
 def pushforward_2d_hcurl(fields_to_push: 'float[:,:,:,:]', inv_jac_mats: 'float[:,:,:,:]',
                          pushed_fields: 'float[:,:,:,:]'):
     """
-
     Parameters
     ----------
     fields_to_push: ndarray
@@ -4456,7 +4385,6 @@ def pushforward_2d_hcurl(fields_to_push: 'float[:,:,:,:]', inv_jac_mats: 'float[
 def pushforward_3d_hcurl(fields_to_push: 'float[:,:,:,:,:]', inv_jac_mats: 'float[:,:,:,:,:]',
                          pushed_fields: 'float[:,:,:,:,:]'):
     """
-
     Parameters
     ----------
     fields_to_push: ndarray
@@ -4497,7 +4425,6 @@ def pushforward_3d_hcurl(fields_to_push: 'float[:,:,:,:,:]', inv_jac_mats: 'floa
 # --------------------------------------------------------------------------
 def pushforward_2d_hdiv(fields_to_push: 'float[:,:,:,:]', jac_mats: 'float[:,:,:,:]', pushed_fields: 'float[:,:,:,:]'):
     """
-
     Parameters
     ----------
     fields_to_push: ndarray
@@ -4526,7 +4453,6 @@ def pushforward_2d_hdiv(fields_to_push: 'float[:,:,:,:]', jac_mats: 'float[:,:,:
 def pushforward_3d_hdiv(fields_to_push: 'float[:,:,:,:,:]', jac_mats: 'float[:,:,:,:,:]',
                         pushed_fields: 'float[:,:,:,:,:]'):
     """
-
     Parameters
     ----------
     fields_to_push: ndarray

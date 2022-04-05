@@ -42,7 +42,7 @@ except KeyError:
 
 @pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'bent_pipe.h5',
                                       'collela_2d.h5', 'collela_3d.h5'))
-@pytest.mark.parametrize('npts_per_cell', [2, 3, 4, 6])
+@pytest.mark.parametrize('npts_per_cell', [2, 3, 4])
 def test_regular_jacobians(geometry, npts_per_cell):
     filename = os.path.join(mesh_dir, geometry)
     domain = Domain.from_file(filename)
@@ -196,7 +196,7 @@ def test_regular_jacobians(geometry, npts_per_cell):
 
 @pytest.mark.parametrize('geometry', ('identity_2d.h5', 'identity_3d.h5', 'bent_pipe.h5',
                                       'collela_2d.h5', 'collela_3d.h5'))
-@pytest.mark.parametrize('npts', [2, 10, 20, 30])
+@pytest.mark.parametrize('npts', [2, 10, 20])
 def test_irregular_jacobians(geometry, npts):
     filename = os.path.join(mesh_dir, geometry)
     domain = Domain.from_file(filename)
@@ -374,7 +374,7 @@ def test_irregular_jacobians(geometry, npts):
       [3, 3, 2]),
     ]
 )
-@pytest.mark.parametrize("npts_per_cell", [2, 3, 4, 6])
+@pytest.mark.parametrize("npts_per_cell", [2, 3, 4])
 def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
     if ldim == 2:
         domain = Square()
@@ -503,7 +503,7 @@ def test_regular_evaluations(knots, ldim, degree, npts_per_cell):
       [3, 3, 2]),
     ]
 )
-@pytest.mark.parametrize('npts', [2, 5, 10, 15])
+@pytest.mark.parametrize('npts', [2, 10, 20])
 def test_irregular_evaluations(knots, ldim, degree, npts):
     if ldim == 2:
         domain = Square()
