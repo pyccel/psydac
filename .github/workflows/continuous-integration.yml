@@ -10,76 +10,110 @@ on:
     branches: [ devel ]
 
 jobs:
-  Linux:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        include:
+          - os: ubuntu-latest
+            python-version: 3.7
+
+          - os: ubuntu-latest
+            python-version: 3.8
+
+          - os: ubuntu-latest
+            python-version: 3.9
+
+          - os: macos-latest
+            python-version: 3.9
+
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install non-Python dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install gfortran
-        sudo apt-get install openmpi-bin libopenmpi-dev
-        sudo apt-get install libhdf5-openmpi-dev
-        ompi_info
-        h5pcc -showconfig -echo || true
+      - name: Install non-Python dependencies on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install gfortran
+          sudo apt-get install openmpi-bin libopenmpi-dev
+          sudo apt-get install libhdf5-openmpi-dev
 
-    - name: Upgrade pip
-      run: |
-        python -m pip install --upgrade pip
+      - name: Install non-Python dependencies on macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install open-mpi
+          brew install hdf5-mpi
+          brew install libomp
+          if [[ ! -f "/usr/local/bin/gfortran" ]]; then
+            ln -s /usr/local/bin/gfortran-10 /usr/local/bin/gfortran
+          fi
+          echo "MPI_OPTS=--oversubscribe" >> $GITHUB_ENV
 
-    - name: Get pip cache dir
-      id: pip-cache-dir
-      run: |
-        echo "::set-output name=dir::$(python -m pip cache dir)"
+      - name: Print information on MPI and HDF5 libraries
+        run: |
+          ompi_info
+          h5pcc -showconfig -echo || true
 
-    - name: pip cache
-      uses: actions/cache@v2
-      id: pip-cache
-      with:
-        path: ${{ steps.pip-cache-dir.outputs.dir }}
-        key: ${{ matrix.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ matrix.os }}-${{ matrix.python-version }}-pip-
+      - name: Upgrade pip
+        run: |
+          python -m pip install --upgrade pip
 
-    - name: Install Python dependencies
-#      if: steps.pip-cache.outputs.cache-hit != 'true'
-      run: |
-        export CC="mpicc" HDF5_MPI="ON" HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
-        python -m pip install -r requirements.txt
-        python -m pip install -r requirements_extra.txt --no-build-isolation
-        python -m pip list
-      
-    - name: Install project
-      run: |
-        python -m pip install .
-        pyccel psydac/core/kernels.py --language fortran
-        pyccel psydac/core/bsplines_pyccel.py --language fortran
-        python -m pip freeze
+      - name: Get pip cache dir
+        id: pip-cache-dir
+        run: |
+          echo "::set-output name=dir::$(python -m pip cache dir)"
 
-    - name: Initialize test directory
-      run: |
-        mkdir pytest
-        cp mpi_tester.py pytest
+      - name: pip cache
+        uses: actions/cache@v2
+        id: pip-cache
+        with:
+          path: ${{ steps.pip-cache-dir.outputs.dir }}
+          key: ${{ matrix.os }}-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ matrix.os }}-${{ matrix.python-version }}-pip-
 
-    - name: Test with pytest
-      working-directory: ./pytest
-      run: |
-        export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
-        python -m pytest --pyargs psydac -m "not parallel"
-        python mpi_tester.py --pyargs psydac -m "parallel"
+      - name: Install Python dependencies
+#        if: steps.pip-cache.outputs.cache-hit != 'true'
+        run: |
+          export CC="mpicc"
+          export HDF5_MPI="ON"
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            export HDF5_DIR=$((h5pcc -showconfig -echo || true) | grep "Installation point:" | cut -d ":" -f2 | tr -d " ")
+          fi
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements_extra.txt --no-build-isolation
+          python -m pip list
 
-    - name: Remove test directory
-      if: ${{ always() }}
-      run: |
-        rm -rf pytest
+      - name: Install project
+        run: |
+          python -m pip install .
+          pyccel psydac/core/kernels.py --language fortran
+          pyccel psydac/core/bsplines_pyccel.py --language fortran
+          python -m pip freeze
+
+      - name: Initialize test directory
+        run: |
+          mkdir pytest
+          cp mpi_tester.py pytest
+
+      - name: Test with pytest
+        working-directory: ./pytest
+        run: |
+          export PSYDAC_MESH_DIR=$GITHUB_WORKSPACE/mesh
+          python -m pytest --pyargs psydac -m "not parallel"
+          python mpi_tester.py --pyargs psydac -m "parallel"
+
+      - name: Remove test directory
+        if: ${{ always() }}
+        run: |
+          rm -rf pytest

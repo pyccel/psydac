@@ -319,16 +319,16 @@ def test_stencil_matrix_2d_serial_dot_3( n1, n2, p1, p2, P1, P2 ):
 def test_stencil_matrix_2d_serial_dot_4( n1, n2, p1, p2, P1, P2 ):
 
     # Create vector space, stencil matrix, and stencil vector
-    V1 = StencilVectorSpace( [n1-1,n2], [p1, p2], [P1,P2] )
+    V1 = StencilVectorSpace( [n1-1,n2  ], [p1, p2], [P1,P2] )
     V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
-    M1 = StencilMatrix( V1, V2 ,pads=(p1-1,p2))
-    M2 = StencilMatrix( V2, V1 ,pads=(p1-1,p2))
+    M1 = StencilMatrix( V1, V2, pads=(p1-1,p2))
+    M2 = StencilMatrix( V2, V1, pads=(p1-1,p2))
     x1 = StencilVector( V1 )
     x2 = StencilVector( V2 )
 
     # Fill in stencil matrix values based on diagonal index (periodic!)
     M1[0:n1-1, 0:n2-1, :, :] = np.random.random((n1-1, n2-1, 2*p1-1, 2*p2+1))
-    M2[0:n1-1, 0:n2, :, :] = np.random.random((n1-1, n2, 2*p1-1, 2*p2+1))
+    M2[0:n1-1, 0:n2  , :, :] = np.random.random((n1-1, n2  , 2*p1-1, 2*p2+1))
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M1.remove_spurious_entries()
     M2.remove_spurious_entries()
@@ -924,19 +924,19 @@ def test_stencil_matrix_2d_serial_backend_dot_2( n1, n2, p1, p2, P1, P2 , backen
 @pytest.mark.parametrize( 'P2', [False] )
 @pytest.mark.parametrize( 'backend', [PSYDAC_BACKEND_NUMBA, PSYDAC_BACKEND_GPYCCEL] )
 
-def test_stencil_matrix_2d_serial_dot_4( n1, n2, p1, p2, P1, P2 , backend):
+def test_stencil_matrix_2d_serial_backend_dot_4( n1, n2, p1, p2, P1, P2, backend):
 
     # Create vector space, stencil matrix, and stencil vector
-    V1 = StencilVectorSpace( [n1-1,n2], [p1, p2], [P1,P2] )
+    V1 = StencilVectorSpace( [n1-1,n2  ], [p1, p2], [P1,P2] )
     V2 = StencilVectorSpace( [n1-1,n2-1], [p1, p2], [P1,P2] )
-    M1 = StencilMatrix( V1, V2 ,pads=(p1-1,p2), backend=backend)
-    M2 = StencilMatrix( V2, V1 ,pads=(p1-1,p2), backend=backend)
+    M1 = StencilMatrix( V1, V2, pads=(p1-1,p2), backend=backend)
+    M2 = StencilMatrix( V2, V1, pads=(p1-1,p2), backend=backend)
     x1 = StencilVector( V1 )
     x2 = StencilVector( V2 )
 
     # Fill in stencil matrix values based on diagonal index (periodic!)
     M1[0:n1-1, 0:n2-1, :, :] = np.random.random((n1-1, n2-1, 2*p1-1, 2*p2+1))
-    M2[0:n1-1, 0:n2, :, :] = np.random.random((n1-1, n2, 2*p1-1, 2*p2+1))
+    M2[0:n1-1, 0:n2  , :, :] = np.random.random((n1-1, n2  , 2*p1-1, 2*p2+1))
     # If any dimension is not periodic, set corresponding periodic corners to zero
     M1.remove_spurious_entries()
     M2.remove_spurious_entries()
